@@ -1,0 +1,308 @@
+//! Data flow graph construction for intraprocedural and interprocedural analysis.
+//!
+//! Builds def-use chains within functions and tracks flow through function
+//! arguments and return values. Used by chopping, taint analysis, circular
+//! slice, and delta slice.
+
+use crate::ast::ParsedFile;
+use std::collections::{BTreeMap, BTreeSet, VecDeque};
+
+/// A definition or use of a variable at a specific location.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct VarLocation {
+    pub file: String,
+    pub function: String,
+    pub line: usize,
+    pub var_name: String,
+    pub kind: VarAccessKind,
+}
+
+/// Whether a variable access is a definition or a use.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum VarAccessKind {
+    /// Variable is being assigned to (written).
+    Def,
+    /// Variable is being read.
+    Use,
+}
+
+/// An edge in the data flow graph: a definition flows to a use.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct FlowEdge {
+    pub from: VarLocation,
+    pub to: VarLocation,
+}
+
+/// A path through the data flow graph.
+#[derive(Debug, Clone)]
+pub struct FlowPath {
+    pub edges: Vec<FlowEdge>,
+}
+
+/// The data flow graph for a set of parsed files.
+#[derive(Debug)]
+pub struct DataFlowGraph {
+    /// All def-use edges.
+    pub edges: Vec<FlowEdge>,
+    /// Index: (file, function, var_name) → definitions
+    pub defs: BTreeMap<(String, String, String), Vec<VarLocation>>,
+    /// Index: (file, function, var_name) → uses
+    pub uses: BTreeMap<(String, String, String), Vec<VarLocation>>,
+    /// Forward adjacency: def location → use locations it reaches
+    pub forward: BTreeMap<VarLocation, Vec<VarLocation>>,
+    /// Backward adjacency: use location → def locations it comes from
+    pub backward: BTreeMap<VarLocation, Vec<VarLocation>>,
+}
+
+impl DataFlowGraph {
+    /// Build a data flow graph from parsed files.
+    pub fn build(files: &BTreeMap<String, ParsedFile>) -> Self {
+        let mut defs: BTreeMap<(String, String, String), Vec<VarLocation>> = BTreeMap::new();
+        let mut uses: BTreeMap<(String, String, String), Vec<VarLocation>> = BTreeMap::new();
+        let mut edges = Vec::new();
+
+        for (file_path, parsed) in files {
+            for func_node in parsed.all_functions() {
+                let func_name = match parsed.language.function_name(&func_node) {
+                    Some(n) => parsed.node_text(&n).to_string(),
+                    None => continue,
+                };
+                let (start, end) = parsed.node_line_range(&func_node);
+                let all_lines: BTreeSet<usize> = (start..=end).collect();
+
+                // Find all definitions (L-values)
+                let lvalues = parsed.assignment_lvalues_on_lines(&func_node, &all_lines);
+                for (var_name, line) in &lvalues {
+                    let loc = VarLocation {
+                        file: file_path.clone(),
+                        function: func_name.clone(),
+                        line: *line,
+                        var_name: var_name.clone(),
+                        kind: VarAccessKind::Def,
+                    };
+                    defs.entry((file_path.clone(), func_name.clone(), var_name.clone()))
+                        .or_default()
+                        .push(loc);
+                }
+
+                // Find all uses of each defined variable
+                for (var_name, def_line) in &lvalues {
+                    let refs = parsed.find_variable_references(&func_node, var_name);
+                    for ref_line in &refs {
+                        if *ref_line == *def_line {
+                            continue; // Skip self-reference
+                        }
+                        let use_loc = VarLocation {
+                            file: file_path.clone(),
+                            function: func_name.clone(),
+                            line: *ref_line,
+                            var_name: var_name.clone(),
+                            kind: VarAccessKind::Use,
+                        };
+                        uses.entry((file_path.clone(), func_name.clone(), var_name.clone()))
+                            .or_default()
+                            .push(use_loc.clone());
+
+                        let def_loc = VarLocation {
+                            file: file_path.clone(),
+                            function: func_name.clone(),
+                            line: *def_line,
+                            var_name: var_name.clone(),
+                            kind: VarAccessKind::Def,
+                        };
+                        edges.push(FlowEdge {
+                            from: def_loc,
+                            to: use_loc,
+                        });
+                    }
+                }
+
+                // R-values: variables read on each line that have definitions elsewhere
+                let rvalues = parsed.rvalue_identifiers_on_lines(&func_node, &all_lines);
+                for (var_name, line) in &rvalues {
+                    let use_loc = VarLocation {
+                        file: file_path.clone(),
+                        function: func_name.clone(),
+                        line: *line,
+                        var_name: var_name.clone(),
+                        kind: VarAccessKind::Use,
+                    };
+                    uses.entry((file_path.clone(), func_name.clone(), var_name.clone()))
+                        .or_default()
+                        .push(use_loc);
+                }
+            }
+        }
+
+        // Build adjacency maps
+        let mut forward: BTreeMap<VarLocation, Vec<VarLocation>> = BTreeMap::new();
+        let mut backward: BTreeMap<VarLocation, Vec<VarLocation>> = BTreeMap::new();
+        for edge in &edges {
+            forward
+                .entry(edge.from.clone())
+                .or_default()
+                .push(edge.to.clone());
+            backward
+                .entry(edge.to.clone())
+                .or_default()
+                .push(edge.from.clone());
+        }
+
+        DataFlowGraph {
+            edges,
+            defs,
+            uses,
+            forward,
+            backward,
+        }
+    }
+
+    /// Find all locations reachable forward from a given location (transitive).
+    pub fn forward_reachable(&self, from: &VarLocation) -> BTreeSet<VarLocation> {
+        let mut visited = BTreeSet::new();
+        let mut queue = VecDeque::new();
+        queue.push_back(from.clone());
+
+        while let Some(loc) = queue.pop_front() {
+            if !visited.insert(loc.clone()) {
+                continue;
+            }
+            if let Some(nexts) = self.forward.get(&loc) {
+                for next in nexts {
+                    queue.push_back(next.clone());
+                }
+            }
+            // Also follow through: if this is a use, find the def on the same line
+            // (assignment propagation: x = y means use of y flows to def of x)
+            if loc.kind == VarAccessKind::Use {
+                let _key = (loc.file.clone(), loc.function.clone(), loc.var_name.clone());
+                // Find defs of other variables on the same line
+                for ((f, func, _var), def_locs) in &self.defs {
+                    if f == &loc.file && func == &loc.function {
+                        for dl in def_locs {
+                            if dl.line == loc.line && !visited.contains(dl) {
+                                queue.push_back(dl.clone());
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        visited.remove(from);
+        visited
+    }
+
+    /// Find all locations reachable backward from a given location (transitive).
+    pub fn backward_reachable(&self, from: &VarLocation) -> BTreeSet<VarLocation> {
+        let mut visited = BTreeSet::new();
+        let mut queue = VecDeque::new();
+        queue.push_back(from.clone());
+
+        while let Some(loc) = queue.pop_front() {
+            if !visited.insert(loc.clone()) {
+                continue;
+            }
+            if let Some(prevs) = self.backward.get(&loc) {
+                for prev in prevs {
+                    queue.push_back(prev.clone());
+                }
+            }
+        }
+
+        visited.remove(from);
+        visited
+    }
+
+    /// Find all statements on any data flow path between source and sink.
+    pub fn chop(&self, source_file: &str, source_line: usize, sink_file: &str, sink_line: usize) -> BTreeSet<(String, usize)> {
+        // Forward reachable from source
+        let source_locs: Vec<VarLocation> = self.all_locations_at(source_file, source_line);
+        let mut forward_reachable = BTreeSet::new();
+        for loc in &source_locs {
+            forward_reachable.extend(self.forward_reachable(loc));
+            forward_reachable.insert(loc.clone());
+        }
+
+        // Backward reachable from sink
+        let sink_locs: Vec<VarLocation> = self.all_locations_at(sink_file, sink_line);
+        let mut backward_reachable = BTreeSet::new();
+        for loc in &sink_locs {
+            backward_reachable.extend(self.backward_reachable(loc));
+            backward_reachable.insert(loc.clone());
+        }
+
+        // Intersection: statements on paths between source and sink
+        let on_path: BTreeSet<(String, usize)> = forward_reachable
+            .intersection(&backward_reachable)
+            .map(|loc| (loc.file.clone(), loc.line))
+            .collect();
+
+        // Always include source and sink
+        let mut result = on_path;
+        result.insert((source_file.to_string(), source_line));
+        result.insert((sink_file.to_string(), sink_line));
+        result
+    }
+
+    /// Get all VarLocations at a specific file and line.
+    fn all_locations_at(&self, file: &str, line: usize) -> Vec<VarLocation> {
+        let mut result = Vec::new();
+        for locs in self.defs.values() {
+            for loc in locs {
+                if loc.file == file && loc.line == line {
+                    result.push(loc.clone());
+                }
+            }
+        }
+        for locs in self.uses.values() {
+            for loc in locs {
+                if loc.file == file && loc.line == line {
+                    result.push(loc.clone());
+                }
+            }
+        }
+        result
+    }
+
+    /// Forward taint propagation from a set of tainted locations.
+    pub fn taint_forward(
+        &self,
+        taint_sources: &[(String, usize)],
+    ) -> Vec<FlowPath> {
+        let mut paths = Vec::new();
+
+        for (file, line) in taint_sources {
+            let source_locs = self.all_locations_at(file, *line);
+            for source in &source_locs {
+                let reachable = self.forward_reachable(source);
+                if !reachable.is_empty() {
+                    // Build a path from source to each reachable sink
+                    let path = FlowPath {
+                        edges: reachable
+                            .iter()
+                            .map(|target| FlowEdge {
+                                from: source.clone(),
+                                to: target.clone(),
+                            })
+                            .collect(),
+                    };
+                    paths.push(path);
+                }
+            }
+        }
+
+        paths
+    }
+
+    /// Get all definition locations of a variable by name in a file.
+    pub fn all_defs_of(&self, file: &str, var_name: &str) -> Vec<VarLocation> {
+        let mut result = Vec::new();
+        for ((f, _func, var), locs) in &self.defs {
+            if f == file && var == var_name {
+                result.extend(locs.clone());
+            }
+        }
+        result
+    }
+}
