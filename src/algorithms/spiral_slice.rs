@@ -96,9 +96,7 @@ pub fn slice(
     for block in &left_flow_result.blocks {
         for (file, line_map) in &block.file_line_map {
             for (&line, &is_diff) in line_map {
-                included
-                    .entry((file.clone(), line))
-                    .or_insert((is_diff, 3));
+                included.entry((file.clone(), line)).or_insert((is_diff, 3));
             }
         }
     }
@@ -192,9 +190,7 @@ pub fn slice(
                     if let Some(test_func) = parsed.enclosing_function(ref_line) {
                         let (start, end) = parsed.node_line_range(&test_func);
                         for l in start..=end {
-                            included
-                                .entry((file_path.clone(), l))
-                                .or_insert((false, 5));
+                            included.entry((file_path.clone(), l)).or_insert((false, 5));
                         }
                     }
                 }

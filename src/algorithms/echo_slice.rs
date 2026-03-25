@@ -18,13 +18,34 @@ use std::collections::{BTreeMap, BTreeSet};
 
 /// Patterns that suggest a caller handles the return value safely.
 const SAFE_PATTERNS: &[&str] = &[
-    "if ", "guard ", "switch ", "match ",
-    "!= nil", "!= null", "!= None", "!== null", "!== undefined",
-    "== nil", "== null", "== None", "=== null", "=== undefined",
-    ".ok()", ".unwrap_or", ".unwrap_or_else", ".unwrap_or_default",
-    "try ", "catch", "except", ".catch(",
-    "?.","??",
-    "or ", "|| ", "getOrElse", "orElse",
+    "if ",
+    "guard ",
+    "switch ",
+    "match ",
+    "!= nil",
+    "!= null",
+    "!= None",
+    "!== null",
+    "!== undefined",
+    "== nil",
+    "== null",
+    "== None",
+    "=== null",
+    "=== undefined",
+    ".ok()",
+    ".unwrap_or",
+    ".unwrap_or_else",
+    ".unwrap_or_default",
+    "try ",
+    "catch",
+    "except",
+    ".catch(",
+    "?.",
+    "??",
+    "or ",
+    "|| ",
+    "getOrElse",
+    "orElse",
 ];
 
 /// A finding: a caller that may not handle the changed semantics.
@@ -37,10 +58,7 @@ pub struct EchoFinding {
     pub missing_checks: Vec<String>,
 }
 
-pub fn slice(
-    files: &BTreeMap<String, ParsedFile>,
-    diff: &DiffInput,
-) -> Result<SliceResult> {
+pub fn slice(files: &BTreeMap<String, ParsedFile>, diff: &DiffInput) -> Result<SliceResult> {
     let mut result = SliceResult::new(SlicingAlgorithm::EchoSlice);
     let call_graph = CallGraph::build(files);
     let mut block_id = 0;
@@ -73,10 +91,15 @@ pub fn slice(
 
             let change_touches_error = diff_info.diff_lines.iter().any(|&l| {
                 let lt: Vec<&str> = parsed.source.lines().collect();
-                lt.get(l.saturating_sub(1)).map(|s| {
-                    s.contains("raise") || s.contains("throw") || s.contains("return err")
-                        || s.contains("panic") || s.contains("Error(")
-                }).unwrap_or(false)
+                lt.get(l.saturating_sub(1))
+                    .map(|s| {
+                        s.contains("raise")
+                            || s.contains("throw")
+                            || s.contains("return err")
+                            || s.contains("panic")
+                            || s.contains("Error(")
+                    })
+                    .unwrap_or(false)
             });
 
             // Find all callers across all files
@@ -91,10 +114,13 @@ pub fn slice(
                 let caller_source: Vec<&str> = caller_parsed.source.lines().collect();
 
                 // Find call site lines
-                let call_lines: Vec<usize> = if let Some(sites) = call_graph.callers.get(func_name) {
+                let call_lines: Vec<usize> = if let Some(sites) = call_graph.callers.get(func_name)
+                {
                     sites
                         .iter()
-                        .filter(|s| s.caller.name == caller_id.name && s.caller.file == caller_id.file)
+                        .filter(|s| {
+                            s.caller.name == caller_id.name && s.caller.file == caller_id.file
+                        })
                         .map(|s| s.line)
                         .collect()
                 } else {
@@ -119,9 +145,7 @@ pub fn slice(
 
                     let context_text = context_lines.join(" ");
 
-                    let has_null_check = SAFE_PATTERNS
-                        .iter()
-                        .any(|p| context_text.contains(p));
+                    let has_null_check = SAFE_PATTERNS.iter().any(|p| context_text.contains(p));
 
                     let has_error_handling = context_text.contains("try")
                         || context_text.contains("catch")
@@ -137,11 +161,8 @@ pub fn slice(
                 }
 
                 if !missing_checks.is_empty() {
-                    let mut block = DiffBlock::new(
-                        block_id,
-                        caller_id.file.clone(),
-                        ModifyType::Modified,
-                    );
+                    let mut block =
+                        DiffBlock::new(block_id, caller_id.file.clone(), ModifyType::Modified);
 
                     // Include the changed function signature
                     if let Some(func_node) = parsed.find_function_by_name(func_name) {

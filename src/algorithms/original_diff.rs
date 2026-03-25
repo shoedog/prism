@@ -9,10 +9,7 @@ use crate::slice::{SliceResult, SlicingAlgorithm};
 use anyhow::Result;
 use std::collections::BTreeMap;
 
-pub fn slice(
-    _files: &BTreeMap<String, ParsedFile>,
-    diff: &DiffInput,
-) -> Result<SliceResult> {
+pub fn slice(_files: &BTreeMap<String, ParsedFile>, diff: &DiffInput) -> Result<SliceResult> {
     let mut result = SliceResult::new(SlicingAlgorithm::OriginalDiff);
 
     for (block_id, diff_info) in diff.files.iter().enumerate() {

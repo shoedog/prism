@@ -69,8 +69,7 @@ pub fn slice(
                         slice_lines.entry(ref_line).or_insert(false);
 
                         // If the reference is inside a small branch, include the branch
-                        if let Some((branch_start, branch_end)) =
-                            parsed.enclosing_branch(ref_line)
+                        if let Some((branch_start, branch_end)) = parsed.enclosing_branch(ref_line)
                         {
                             let branch_size = branch_end - branch_start + 1;
                             if branch_size <= config.max_branch_lines {
@@ -104,8 +103,7 @@ pub fn slice(
                 // Try to find the callee in all parsed files
                 for (_file_path, other_parsed) in files {
                     if let Some(callee) = other_parsed.find_function_by_name(func_name) {
-                        let (callee_start, callee_end) =
-                            other_parsed.node_line_range(&callee);
+                        let (callee_start, callee_end) = other_parsed.node_line_range(&callee);
                         // Include callee function signature and boundaries
                         slice_lines.entry(callee_start).or_insert(false);
                         slice_lines.entry(callee_end).or_insert(false);
@@ -119,9 +117,7 @@ pub fn slice(
                 for ret_line in returns {
                     slice_lines.entry(ret_line).or_insert(false);
                     // Include enclosing branch for return
-                    if let Some((branch_start, branch_end)) =
-                        parsed.enclosing_branch(ret_line)
-                    {
+                    if let Some((branch_start, branch_end)) = parsed.enclosing_branch(ret_line) {
                         slice_lines.entry(branch_start).or_insert(false);
                         slice_lines.entry(branch_end).or_insert(false);
                     }

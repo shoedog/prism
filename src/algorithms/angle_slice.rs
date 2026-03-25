@@ -36,22 +36,62 @@ impl Concern {
     pub fn patterns(&self) -> Vec<&str> {
         match self {
             Self::ErrorHandling => vec![
-                "try", "catch", "except", "raise", "throw", "Error", "Exception",
-                "panic", "recover", "unwrap", "expect", "err", "error",
+                "try",
+                "catch",
+                "except",
+                "raise",
+                "throw",
+                "Error",
+                "Exception",
+                "panic",
+                "recover",
+                "unwrap",
+                "expect",
+                "err",
+                "error",
             ],
             Self::Logging => vec![
-                "log", "logger", "logging", "console.log", "console.error",
-                "console.warn", "fmt.Print", "fmt.Errorf", "log.Print",
-                "Log.", "LOG", "debug", "info", "warn",
+                "log",
+                "logger",
+                "logging",
+                "console.log",
+                "console.error",
+                "console.warn",
+                "fmt.Print",
+                "fmt.Errorf",
+                "log.Print",
+                "Log.",
+                "LOG",
+                "debug",
+                "info",
+                "warn",
             ],
             Self::Authentication => vec![
-                "auth", "token", "session", "permission", "credential",
-                "login", "logout", "jwt", "oauth", "cookie", "Bearer",
-                "authenticate", "authorize",
+                "auth",
+                "token",
+                "session",
+                "permission",
+                "credential",
+                "login",
+                "logout",
+                "jwt",
+                "oauth",
+                "cookie",
+                "Bearer",
+                "authenticate",
+                "authorize",
             ],
             Self::Caching => vec![
-                "cache", "Cache", "redis", "memcache", "ttl", "expire",
-                "invalidate", "evict", "lru", "memoize",
+                "cache",
+                "Cache",
+                "redis",
+                "memcache",
+                "ttl",
+                "expire",
+                "invalidate",
+                "evict",
+                "lru",
+                "memoize",
             ],
             Self::Custom(_, patterns) => patterns.iter().map(|s| s.as_str()).collect(),
         }
@@ -107,9 +147,10 @@ pub fn slice(
             let line_num = i + 1;
             if patterns.iter().any(|p| line_text.contains(p)) {
                 // Check if this line is a diff line
-                let is_diff = diff.files.iter().any(|d| {
-                    d.file_path == *file_path && d.diff_lines.contains(&line_num)
-                });
+                let is_diff = diff
+                    .files
+                    .iter()
+                    .any(|d| d.file_path == *file_path && d.diff_lines.contains(&line_num));
                 concern_lines.insert(line_num, is_diff);
 
                 // Include enclosing function context
@@ -122,10 +163,7 @@ pub fn slice(
         }
 
         if !concern_lines.is_empty() {
-            let is_diff_file = diff
-                .files
-                .iter()
-                .any(|d| d.file_path == *file_path);
+            let is_diff_file = diff.files.iter().any(|d| d.file_path == *file_path);
 
             let mut block = DiffBlock::new(
                 block_id,

@@ -132,22 +132,25 @@ fn main() -> Result<()> {
         println!("    3d               Temporal-structural risk (--temporal-days)");
         println!();
         println!("  Novel extensions:");
-        println!("    absence          Missing counterparts (open without close, lock without unlock)");
+        println!(
+            "    absence          Missing counterparts (open without close, lock without unlock)"
+        );
         println!("    resonance        Files that usually co-change but aren't in this diff");
         println!("    symmetry         Broken symmetry (serialize changed, deserialize not)");
         println!("    gradient         Continuous relevance scoring with distance decay");
         println!("    provenance       Trace data origin (user input, config, database, constant)");
         println!("    phantom          Recently deleted code the diff may depend on");
         println!("    membrane         Module boundary: who calls this API and will they break");
-        println!("    echo             Ripple effect: downstream callers missing new error handling");
+        println!(
+            "    echo             Ripple effect: downstream callers missing new error handling"
+        );
         return Ok(());
     }
 
-    let algorithm = SlicingAlgorithm::from_str(&cli.algorithm)
-        .context(format!(
-            "Unknown algorithm: {}. Use --list-algorithms to see options.",
-            cli.algorithm
-        ))?;
+    let algorithm = SlicingAlgorithm::from_str(&cli.algorithm).context(format!(
+        "Unknown algorithm: {}. Use --list-algorithms to see options.",
+        cli.algorithm
+    ))?;
 
     let config = SliceConfig {
         algorithm,
@@ -207,11 +210,22 @@ fn main() -> Result<()> {
                     .collect(),
                 barrier_modules: Vec::new(),
             };
-            slicing::algorithms::barrier_slice::slice(&files, &diff_input, &config, &barrier_config)?
+            slicing::algorithms::barrier_slice::slice(
+                &files,
+                &diff_input,
+                &config,
+                &barrier_config,
+            )?
         }
         SlicingAlgorithm::Chop => {
-            let source = cli.chop_source.as_ref().context("--chop-source required for chop algorithm")?;
-            let sink = cli.chop_sink.as_ref().context("--chop-sink required for chop algorithm")?;
+            let source = cli
+                .chop_source
+                .as_ref()
+                .context("--chop-source required for chop algorithm")?;
+            let sink = cli
+                .chop_sink
+                .as_ref()
+                .context("--chop-sink required for chop algorithm")?;
             let (sf, sl) = parse_file_line(source)?;
             let (kf, kl) = parse_file_line(sink)?;
             slicing::algorithms::chop::slice(
@@ -237,13 +251,19 @@ fn main() -> Result<()> {
             slicing::algorithms::taint::slice(&files, &diff_input, &taint_config)?
         }
         SlicingAlgorithm::ConditionedSlice => {
-            let cond_str = cli.condition.as_ref().context("--condition required for conditioned algorithm")?;
+            let cond_str = cli
+                .condition
+                .as_ref()
+                .context("--condition required for conditioned algorithm")?;
             let condition = slicing::algorithms::conditioned_slice::Condition::parse(cond_str)
                 .context(format!("Failed to parse condition: {}", cond_str))?;
             slicing::algorithms::conditioned_slice::slice(&files, &diff_input, &config, &condition)?
         }
         SlicingAlgorithm::DeltaSlice => {
-            let old_repo = cli.old_repo.as_ref().context("--old-repo required for delta algorithm")?;
+            let old_repo = cli
+                .old_repo
+                .as_ref()
+                .context("--old-repo required for delta algorithm")?;
             slicing::algorithms::delta_slice::slice(&files, &diff_input, old_repo)?
         }
         SlicingAlgorithm::SpiralSlice => {
@@ -253,13 +273,11 @@ fn main() -> Result<()> {
             };
             slicing::algorithms::spiral_slice::slice(&files, &diff_input, &config, &spiral_config)?
         }
-        SlicingAlgorithm::QuantumSlice => {
-            slicing::algorithms::quantum_slice::slice(
-                &files,
-                &diff_input,
-                cli.quantum_var.as_deref(),
-            )?
-        }
+        SlicingAlgorithm::QuantumSlice => slicing::algorithms::quantum_slice::slice(
+            &files,
+            &diff_input,
+            cli.quantum_var.as_deref(),
+        )?,
         SlicingAlgorithm::HorizontalSlice => {
             let pattern = match cli.peer_pattern.as_deref() {
                 Some(p) if p.starts_with("decorator:") => {
@@ -346,6 +364,8 @@ fn parse_file_line(s: &str) -> Result<(String, usize)> {
     if parts.len() != 2 {
         anyhow::bail!("Expected file:line format, got: {}", s);
     }
-    let line: usize = parts[0].parse().context(format!("Invalid line number: {}", parts[0]))?;
+    let line: usize = parts[0]
+        .parse()
+        .context(format!("Invalid line number: {}", parts[0]))?;
     Ok((parts[1].to_string(), line))
 }

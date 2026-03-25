@@ -83,18 +83,11 @@ pub fn slice(
 
                 // Structural coupling: callers + callees
                 let callers = call_graph.callers_of(&func_id.name, 1);
-                let callees = call_graph.callees_of(
-                    &func_id.name,
-                    &diff_info.file_path,
-                    1,
-                );
+                let callees = call_graph.callees_of(&func_id.name, &diff_info.file_path, 1);
                 let structural_coupling = callers.len() + callees.len();
 
                 // Temporal activity
-                let temporal_activity = git_churn
-                    .get(&diff_info.file_path)
-                    .copied()
-                    .unwrap_or(0);
+                let temporal_activity = git_churn.get(&diff_info.file_path).copied().unwrap_or(0);
 
                 // Change complexity
                 let change_complexity = diff_info
@@ -127,7 +120,10 @@ pub fn slice(
     for func_name in &diff_func_names {
         let callers = call_graph.callers_of(func_name, 2);
         for (caller_id, _) in &callers {
-            if scores.iter().any(|s| s.function_name == caller_id.name && s.file == caller_id.file) {
+            if scores
+                .iter()
+                .any(|s| s.function_name == caller_id.name && s.file == caller_id.file)
+            {
                 continue;
             }
 
@@ -150,7 +146,11 @@ pub fn slice(
     }
 
     // Sort by risk descending
-    scores.sort_by(|a, b| b.risk.partial_cmp(&a.risk).unwrap_or(std::cmp::Ordering::Equal));
+    scores.sort_by(|a, b| {
+        b.risk
+            .partial_cmp(&a.risk)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
 
     // Build output blocks sorted by risk
     for (block_id, score) in scores.iter().enumerate() {
