@@ -6,7 +6,7 @@ use prism::diff::DiffInput;
 use prism::languages::Language;
 use prism::output;
 use prism::slice::{AlgorithmError, MultiSliceResult, SliceConfig, SlicingAlgorithm};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet};
 use std::fs;
 use std::path::PathBuf;
 
@@ -100,6 +100,11 @@ struct Cli {
     /// 3D slice: how many days back to look in git history
     #[arg(long, default_value = "90")]
     temporal_days: usize,
+
+    /// Only process these files from the diff (comma-separated paths).
+    /// If omitted, process all files in the diff.
+    #[arg(long)]
+    files: Option<String>,
 }
 
 fn main() -> Result<()> {
@@ -188,11 +193,18 @@ fn main() -> Result<()> {
     let diff_text =
         fs::read_to_string(diff_path).context(format!("Failed to read diff: {:?}", diff_path))?;
 
-    let diff_input = if diff_text.trim_start().starts_with('{') {
+    let mut diff_input = if diff_text.trim_start().starts_with('{') {
         DiffInput::from_json(&diff_text)?
     } else {
         DiffInput::parse_unified_diff(&diff_text)
     };
+
+    // Apply --files filter early so algorithms only see the selected files
+    let file_filter: Option<HashSet<String>> = cli
+        .files
+        .as_ref()
+        .map(|f| f.split(',').map(|s| s.trim().to_string()).collect());
+    diff_input.filter_files(file_filter.as_ref());
 
     // Parse all referenced source files
     let mut files: BTreeMap<String, ParsedFile> = BTreeMap::new();

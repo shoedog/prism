@@ -57,6 +57,13 @@ struct Hunk {
 }
 
 impl DiffInput {
+    /// Retain only files whose paths are in `filter`. No-op if `filter` is `None`.
+    pub fn filter_files(&mut self, filter: Option<&std::collections::HashSet<String>>) {
+        if let Some(f) = filter {
+            self.files.retain(|info| f.contains(&info.file_path));
+        }
+    }
+
     /// Parse a unified diff string into a `DiffInput`.
     pub fn parse_unified_diff(diff_text: &str) -> Self {
         let mut files = Vec::new();
@@ -228,5 +235,63 @@ mod tests {
         let hunk = parse_hunk_header("@@ -10,6 +10,8 @@ def foo():").unwrap();
         assert_eq!(hunk.new_start, 10);
         assert_eq!(hunk.new_count, 8);
+    }
+
+    #[test]
+    fn test_filter_files() {
+        let mut input = DiffInput {
+            files: vec![
+                DiffInfo {
+                    file_path: "src/auth.py".to_string(),
+                    modify_type: ModifyType::Modified,
+                    diff_lines: BTreeSet::from([10, 11]),
+                },
+                DiffInfo {
+                    file_path: "src/api/client.py".to_string(),
+                    modify_type: ModifyType::Modified,
+                    diff_lines: BTreeSet::from([5]),
+                },
+                DiffInfo {
+                    file_path: "src/utils.py".to_string(),
+                    modify_type: ModifyType::Modified,
+                    diff_lines: BTreeSet::from([20]),
+                },
+            ],
+        };
+
+        let filter: std::collections::HashSet<String> = ["src/auth.py", "src/api/client.py"]
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
+
+        input.filter_files(Some(&filter));
+
+        assert_eq!(input.files.len(), 2);
+        assert!(input.files.iter().any(|f| f.file_path == "src/auth.py"));
+        assert!(input
+            .files
+            .iter()
+            .any(|f| f.file_path == "src/api/client.py"));
+        assert!(!input.files.iter().any(|f| f.file_path == "src/utils.py"));
+    }
+
+    #[test]
+    fn test_filter_files_none_keeps_all() {
+        let mut input = DiffInput {
+            files: vec![
+                DiffInfo {
+                    file_path: "src/auth.py".to_string(),
+                    modify_type: ModifyType::Modified,
+                    diff_lines: BTreeSet::from([1]),
+                },
+                DiffInfo {
+                    file_path: "src/utils.py".to_string(),
+                    modify_type: ModifyType::Modified,
+                    diff_lines: BTreeSet::from([2]),
+                },
+            ],
+        };
+        input.filter_files(None);
+        assert_eq!(input.files.len(), 2);
     }
 }
