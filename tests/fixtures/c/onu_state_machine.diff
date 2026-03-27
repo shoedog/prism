@@ -1,0 +1,12 @@
+--- a/onu_state_machine.c
++++ b/onu_state_machine.c
+@@ -18,8 +18,11 @@
+         case RANGING:
+-            // BUG: DEREGISTRATION message during RANGING is silently dropped
+-            if (msg->type == RANGING_COMPLETE) {
++            if (msg->type == DEREGISTRATION) {
++                current_state = INIT;
++            } else if (msg->type == RANGING_COMPLETE) {
+                 current_state = REGISTERED;
+             }
+             break;

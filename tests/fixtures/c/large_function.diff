@@ -1,0 +1,11 @@
+--- a/large_function.c
++++ b/large_function.c
+@@ -129,7 +129,7 @@
+     if (flags & 0x40) {
+         uint32_t sum = 0;
+         for (int i = 0; i < BUF_SIZE; i++) {
+-            sum += ch->buf[i];
++            sum = (sum + ch->buf[i]) & 0xFFFF;
+         }
+         ch->counter = sum;
+     }

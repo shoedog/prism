@@ -1,0 +1,17 @@
+--- a/ring_overflow.c
++++ b/ring_overflow.c
+@@ -7,7 +7,10 @@
+
+ void ring_write(uint8_t *data, int count) {
+-    // BUG: No wrap-around check, writes past buffer end
+-    memcpy(ring_buf + write_idx, data, count);
+-    write_idx += count;
++    int space = RING_SIZE - write_idx;
++    if (count <= space) {
++        memcpy(ring_buf + write_idx, data, count);
++    } else {
++        memcpy(ring_buf + write_idx, data, space);
++        memcpy(ring_buf, data + space, count - space);
++    }
++    write_idx = (write_idx + count) % RING_SIZE;
+ }

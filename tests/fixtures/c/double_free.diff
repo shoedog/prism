@@ -1,0 +1,20 @@
+--- a/double_free.c
++++ b/double_free.c
+@@ -16,13 +16,10 @@
+
+     if (validate_header(frame) < 0) {
+         free(frame->payload);
+         free(frame);
+-        goto cleanup;
++        return;
+     }
+
+     dispatch_frame(frame);
+-    return;
+-
+-cleanup:
+-    free(frame->payload);
+-    free(frame);
++    free(frame->payload);
++    free(frame);
+ }

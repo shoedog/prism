@@ -1,0 +1,10 @@
+--- a/deep_switch.c
++++ b/deep_switch.c
+@@ -64,7 +64,7 @@
+         case 0x08:
+-            if (msg->len == 0) return -1;
+-            return msg->data[msg->len - 1];
++            if (msg->len == 0 || msg->len > 128) return -1;
++            return msg->data[msg->len - 1];
+         case 0x09:
+             return 90;

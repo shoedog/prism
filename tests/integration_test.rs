@@ -2232,3 +2232,697 @@ fn test_multi_algorithm_findings_merged() {
     assert!(parsed["results"].is_array());
     assert!(parsed["findings"].is_array());
 }
+
+// ====== Phase 3: Firmware fixture tests ======
+
+fn make_snmp_overflow_test() -> (BTreeMap<String, ParsedFile>, DiffInput) {
+    let source = r#"
+#include <stdint.h>
+#include <string.h>
+
+void handle_snmp_set(uint8_t *pdu, size_t pdu_len) {
+    char community[64];
+    size_t community_len = pdu[7];
+    memcpy(community, pdu + 8, community_len);
+    if (strcmp(community, "public") == 0) {
+        process_set_request(pdu + 8 + community_len, pdu_len - 8 - community_len);
+    }
+}
+"#;
+
+    let path = "tests/fixtures/c/snmp_overflow.c";
+    let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    // Diff: lines 7-8 (community_len extraction and memcpy without bounds check)
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([7, 8]),
+        }],
+    };
+
+    (files, diff)
+}
+
+fn make_onu_state_machine_test() -> (BTreeMap<String, ParsedFile>, DiffInput) {
+    let source = r#"
+#include <stdint.h>
+
+typedef struct { int type; uint8_t data[64]; } ploam_msg_t;
+#define RANGING_GRANT   1
+#define RANGING_COMPLETE 2
+#define ACTIVATE        3
+#define DEREGISTRATION  4
+
+enum onu_state { INIT, RANGING, REGISTERED, OPERATIONAL };
+static enum onu_state current_state = INIT;
+
+void handle_ploam_message(ploam_msg_t *msg) {
+    switch(current_state) {
+        case INIT:
+            if (msg->type == RANGING_GRANT) {
+                current_state = RANGING;
+            }
+            break;
+        case RANGING:
+            if (msg->type == RANGING_COMPLETE) {
+                current_state = REGISTERED;
+            }
+            break;
+        case REGISTERED:
+            if (msg->type == ACTIVATE) {
+                current_state = OPERATIONAL;
+            }
+            break;
+    }
+}
+"#;
+
+    let path = "tests/fixtures/c/onu_state_machine.c";
+    let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    // Diff: lines 20-22 (RANGING case handling)
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([20, 21, 22]),
+        }],
+    };
+
+    (files, diff)
+}
+
+fn make_double_free_test() -> (BTreeMap<String, ParsedFile>, DiffInput) {
+    let source = r#"
+#include <stdlib.h>
+#include <string.h>
+#include <stdint.h>
+
+typedef struct {
+    uint8_t *payload;
+    size_t len;
+} frame_t;
+
+void process_frame(uint8_t *raw, size_t len) {
+    frame_t *frame = malloc(sizeof(frame_t));
+    frame->payload = malloc(len);
+    memcpy(frame->payload, raw, len);
+
+    if (validate_header(frame) < 0) {
+        free(frame->payload);
+        free(frame);
+        goto cleanup;
+    }
+
+    dispatch_frame(frame);
+    return;
+
+cleanup:
+    free(frame->payload);
+    free(frame);
+}
+"#;
+
+    let path = "tests/fixtures/c/double_free.c";
+    let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    // Diff: the cleanup label and double free
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([17, 18, 25, 26]),
+        }],
+    };
+
+    (files, diff)
+}
+
+fn make_ring_overflow_test() -> (BTreeMap<String, ParsedFile>, DiffInput) {
+    let source = r#"
+#include <stdint.h>
+#include <string.h>
+
+#define RING_SIZE 256
+static uint8_t ring_buf[RING_SIZE];
+static volatile int write_idx = 0;
+
+void ring_write(uint8_t *data, int count) {
+    memcpy(ring_buf + write_idx, data, count);
+    write_idx += count;
+}
+"#;
+
+    let path = "tests/fixtures/c/ring_overflow.c";
+    let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    // Diff: the memcpy and write_idx update (no bounds check)
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([10, 11]),
+        }],
+    };
+
+    (files, diff)
+}
+
+fn make_timer_uaf_test() -> (BTreeMap<String, ParsedFile>, DiffInput) {
+    let source = r#"
+#include <stdlib.h>
+
+struct timer_ctx {
+    void (*callback)(void *);
+    void *data;
+    int active;
+};
+
+void cancel_timer(struct timer_ctx *timer) {
+    timer->active = 0;
+    free(timer->data);
+}
+
+void timer_tick(struct timer_ctx *timer) {
+    if (timer->active) {
+        timer->callback(timer->data);
+    }
+}
+"#;
+
+    let path = "tests/fixtures/c/timer_uaf.c";
+    let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    // Diff: the free(timer->data) line (potential UAF)
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([11, 12]),
+        }],
+    };
+
+    (files, diff)
+}
+
+#[test]
+fn test_snmp_overflow_original_diff() {
+    let (files, diff) = make_snmp_overflow_test();
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::OriginalDiff),
+    )
+    .unwrap();
+
+    assert!(
+        !result.blocks.is_empty(),
+        "OriginalDiff should produce blocks for snmp_overflow"
+    );
+    let total_lines: usize = result
+        .blocks
+        .iter()
+        .map(|b| b.file_line_map.values().map(|m| m.len()).sum::<usize>())
+        .sum();
+    assert!(
+        total_lines > 0,
+        "snmp_overflow OriginalDiff should include at least one line"
+    );
+}
+
+#[test]
+fn test_snmp_overflow_parent_function() {
+    let (files, diff) = make_snmp_overflow_test();
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::ParentFunction),
+    )
+    .unwrap();
+
+    assert!(
+        !result.blocks.is_empty(),
+        "ParentFunction should produce blocks for snmp_overflow"
+    );
+}
+
+#[test]
+fn test_snmp_overflow_left_flow() {
+    let (files, diff) = make_snmp_overflow_test();
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::LeftFlow),
+    )
+    .unwrap();
+
+    assert!(
+        !result.blocks.is_empty(),
+        "LeftFlow should produce blocks for snmp_overflow"
+    );
+}
+
+#[test]
+fn test_snmp_overflow_thin_slice() {
+    let (files, diff) = make_snmp_overflow_test();
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::ThinSlice),
+    )
+    .unwrap();
+
+    assert!(
+        !result.blocks.is_empty(),
+        "ThinSlice should produce blocks for snmp_overflow"
+    );
+}
+
+#[test]
+fn test_onu_state_machine_original_diff() {
+    let (files, diff) = make_onu_state_machine_test();
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::OriginalDiff),
+    )
+    .unwrap();
+
+    assert!(
+        !result.blocks.is_empty(),
+        "OriginalDiff should produce blocks for onu_state_machine"
+    );
+    let total_lines: usize = result
+        .blocks
+        .iter()
+        .map(|b| b.file_line_map.values().map(|m| m.len()).sum::<usize>())
+        .sum();
+    assert!(
+        total_lines > 0,
+        "onu_state_machine OriginalDiff should include at least one line"
+    );
+}
+
+#[test]
+fn test_onu_state_machine_left_flow() {
+    let (files, diff) = make_onu_state_machine_test();
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::LeftFlow),
+    )
+    .unwrap();
+
+    assert!(
+        !result.blocks.is_empty(),
+        "LeftFlow should produce blocks for onu_state_machine"
+    );
+}
+
+#[test]
+fn test_double_free_original_diff() {
+    let (files, diff) = make_double_free_test();
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::OriginalDiff),
+    )
+    .unwrap();
+
+    assert!(
+        !result.blocks.is_empty(),
+        "OriginalDiff should produce blocks for double_free"
+    );
+    let total_lines: usize = result
+        .blocks
+        .iter()
+        .map(|b| b.file_line_map.values().map(|m| m.len()).sum::<usize>())
+        .sum();
+    assert!(
+        total_lines > 0,
+        "double_free OriginalDiff should include at least one line"
+    );
+}
+
+#[test]
+fn test_double_free_thin_slice() {
+    let (files, diff) = make_double_free_test();
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::ThinSlice),
+    )
+    .unwrap();
+
+    assert!(
+        !result.blocks.is_empty(),
+        "ThinSlice should produce blocks for double_free"
+    );
+}
+
+#[test]
+fn test_double_free_left_flow() {
+    let (files, diff) = make_double_free_test();
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::LeftFlow),
+    )
+    .unwrap();
+
+    assert!(
+        !result.blocks.is_empty(),
+        "LeftFlow should produce blocks for double_free"
+    );
+}
+
+#[test]
+fn test_ring_overflow_original_diff() {
+    let (files, diff) = make_ring_overflow_test();
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::OriginalDiff),
+    )
+    .unwrap();
+
+    assert!(
+        !result.blocks.is_empty(),
+        "OriginalDiff should produce blocks for ring_overflow"
+    );
+    let total_lines: usize = result
+        .blocks
+        .iter()
+        .map(|b| b.file_line_map.values().map(|m| m.len()).sum::<usize>())
+        .sum();
+    assert!(
+        total_lines > 0,
+        "ring_overflow OriginalDiff should include at least one line"
+    );
+}
+
+#[test]
+fn test_ring_overflow_thin_slice() {
+    let (files, diff) = make_ring_overflow_test();
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::ThinSlice),
+    )
+    .unwrap();
+
+    assert!(
+        !result.blocks.is_empty(),
+        "ThinSlice should produce blocks for ring_overflow"
+    );
+}
+
+#[test]
+fn test_ring_overflow_left_flow() {
+    let (files, diff) = make_ring_overflow_test();
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::LeftFlow),
+    )
+    .unwrap();
+
+    assert!(
+        !result.blocks.is_empty(),
+        "LeftFlow should produce blocks for ring_overflow"
+    );
+}
+
+#[test]
+fn test_timer_uaf_original_diff() {
+    let (files, diff) = make_timer_uaf_test();
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::OriginalDiff),
+    )
+    .unwrap();
+
+    assert!(
+        !result.blocks.is_empty(),
+        "OriginalDiff should produce blocks for timer_uaf"
+    );
+    let total_lines: usize = result
+        .blocks
+        .iter()
+        .map(|b| b.file_line_map.values().map(|m| m.len()).sum::<usize>())
+        .sum();
+    assert!(
+        total_lines > 0,
+        "timer_uaf OriginalDiff should include at least one line"
+    );
+}
+
+#[test]
+fn test_timer_uaf_thin_slice() {
+    let (files, diff) = make_timer_uaf_test();
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::ThinSlice),
+    )
+    .unwrap();
+
+    assert!(
+        !result.blocks.is_empty(),
+        "ThinSlice should produce blocks for timer_uaf"
+    );
+}
+
+#[test]
+fn test_timer_uaf_left_flow() {
+    let (files, diff) = make_timer_uaf_test();
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::LeftFlow),
+    )
+    .unwrap();
+
+    assert!(
+        !result.blocks.is_empty(),
+        "LeftFlow should produce blocks for timer_uaf"
+    );
+}
+
+// ====== Phase 4: Stress test fixtures ======
+
+fn make_large_function_test() -> (BTreeMap<String, ParsedFile>, DiffInput) {
+    let source = include_str!("fixtures/c/large_function.c");
+
+    let path = "tests/fixtures/c/large_function.c";
+    let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    // Diff: line 131 (sum += ch->buf[i])
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([131]),
+        }],
+    };
+
+    (files, diff)
+}
+
+fn make_macro_heavy_test() -> (BTreeMap<String, ParsedFile>, DiffInput) {
+    let source = include_str!("fixtures/c/macro_heavy.c");
+
+    let path = "tests/fixtures/c/macro_heavy.c";
+    let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    // Diff: line 34 (payload_len = CLAMP(...))
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([34]),
+        }],
+    };
+
+    (files, diff)
+}
+
+fn make_deep_switch_test() -> (BTreeMap<String, ParsedFile>, DiffInput) {
+    let source = include_str!("fixtures/c/deep_switch.c");
+
+    let path = "tests/fixtures/c/deep_switch.c";
+    let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    // Diff: lines 66-67 (bounds check for msg->len)
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([66, 67]),
+        }],
+    };
+
+    (files, diff)
+}
+
+#[test]
+fn test_large_function_original_diff() {
+    let (files, diff) = make_large_function_test();
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::OriginalDiff),
+    )
+    .unwrap();
+
+    assert!(
+        !result.blocks.is_empty(),
+        "OriginalDiff should produce blocks for large_function"
+    );
+    let total_files: usize = result.blocks.iter().map(|b| b.file_line_map.len()).sum();
+    assert!(
+        total_files >= 1,
+        "large_function result should reference at least 1 file"
+    );
+}
+
+#[test]
+fn test_large_function_left_flow() {
+    let (files, diff) = make_large_function_test();
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::LeftFlow),
+    )
+    .unwrap();
+
+    assert!(
+        !result.blocks.is_empty(),
+        "LeftFlow should produce blocks for large_function without panic"
+    );
+}
+
+#[test]
+fn test_large_function_thin_slice() {
+    let (files, diff) = make_large_function_test();
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::ThinSlice),
+    )
+    .unwrap();
+
+    assert!(
+        !result.blocks.is_empty(),
+        "ThinSlice should produce blocks for large_function without panic"
+    );
+}
+
+#[test]
+fn test_macro_heavy_original_diff() {
+    let (files, diff) = make_macro_heavy_test();
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::OriginalDiff),
+    )
+    .unwrap();
+
+    assert!(
+        !result.blocks.is_empty(),
+        "OriginalDiff should produce blocks for macro_heavy"
+    );
+    let total_files: usize = result.blocks.iter().map(|b| b.file_line_map.len()).sum();
+    assert!(
+        total_files >= 1,
+        "macro_heavy result should reference at least 1 file"
+    );
+}
+
+#[test]
+fn test_macro_heavy_left_flow() {
+    let (files, diff) = make_macro_heavy_test();
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::LeftFlow),
+    )
+    .unwrap();
+
+    assert!(
+        !result.blocks.is_empty(),
+        "LeftFlow should produce blocks for macro_heavy without panic"
+    );
+}
+
+#[test]
+fn test_deep_switch_original_diff() {
+    let (files, diff) = make_deep_switch_test();
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::OriginalDiff),
+    )
+    .unwrap();
+
+    assert!(
+        !result.blocks.is_empty(),
+        "OriginalDiff should produce blocks for deep_switch"
+    );
+    let total_files: usize = result.blocks.iter().map(|b| b.file_line_map.len()).sum();
+    assert!(
+        total_files >= 1,
+        "deep_switch result should reference at least 1 file"
+    );
+}
+
+#[test]
+fn test_deep_switch_left_flow() {
+    let (files, diff) = make_deep_switch_test();
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::LeftFlow),
+    )
+    .unwrap();
+
+    assert!(
+        !result.blocks.is_empty(),
+        "LeftFlow should produce blocks for deep_switch without panic"
+    );
+}
+
+#[test]
+fn test_deep_switch_thin_slice() {
+    let (files, diff) = make_deep_switch_test();
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::ThinSlice),
+    )
+    .unwrap();
+
+    assert!(
+        !result.blocks.is_empty(),
+        "ThinSlice should produce blocks for deep_switch without panic"
+    );
+}

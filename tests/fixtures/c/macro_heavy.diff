@@ -1,0 +1,10 @@
+--- a/macro_heavy.c
++++ b/macro_heavy.c
+@@ -32,6 +32,6 @@
+ int handle_data(uint8_t *buf, size_t len) {
+     VALIDATE_LEN(len, 4);
+     uint8_t type = buf[0];
+-    size_t payload_len = CLAMP(buf[1], 0, len - 2);
++    size_t payload_len = MIN(buf[1], len - 2);
+     LOG("handle_data: type=%d len=%zu", type, payload_len);
+     HANDLE_ERROR(process_data_payload(buf + 2, payload_len), "payload error");

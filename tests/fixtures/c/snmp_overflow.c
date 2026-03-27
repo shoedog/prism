@@ -1,0 +1,12 @@
+#include <stdint.h>
+#include <string.h>
+
+void handle_snmp_set(uint8_t *pdu, size_t pdu_len) {
+    char community[64];
+    size_t community_len = pdu[7];  // Length from untrusted PDU
+    // BUG: no bounds check on community_len vs buffer size
+    memcpy(community, pdu + 8, community_len);
+    if (strcmp(community, "public") == 0) {
+        process_set_request(pdu + 8 + community_len, pdu_len - 8 - community_len);
+    }
+}

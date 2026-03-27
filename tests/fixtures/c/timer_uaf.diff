@@ -1,0 +1,10 @@
+--- a/timer_uaf.c
++++ b/timer_uaf.c
+@@ -8,8 +8,9 @@
+ void cancel_timer(struct timer_ctx *timer) {
+     timer->active = 0;
+     free(timer->data);
+-    // BUG: timer struct not freed, callback pointer still valid
++    timer->data = NULL;
++    timer->callback = NULL;
+ }
