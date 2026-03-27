@@ -1,6 +1,28 @@
 use crate::diff::DiffBlock;
 use serde::{Deserialize, Serialize};
 
+/// A structured finding from a slicing algorithm.
+/// Findings carry the *semantics* of what an algorithm detected.
+/// DiffBlocks carry the *lines* to show. They're consumed at different
+/// stages: blocks go into the reviewer's code context, findings go
+/// into the reviewer's analysis hints.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SliceFinding {
+    pub algorithm: String,
+    pub file: String,
+    pub line: usize,
+    pub severity: String, // "info", "warning", or "concern"
+    pub description: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub function_name: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub related_lines: Vec<usize>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub related_files: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub category: Option<String>,
+}
+
 /// All slicing strategies.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum SlicingAlgorithm {
@@ -94,7 +116,9 @@ impl SlicingAlgorithm {
             "gradient" | "gradientslice" | "gradient_slice" => Some(Self::GradientSlice),
             "provenance" | "provenanceslice" | "provenance_slice" => Some(Self::ProvenanceSlice),
             "phantom" | "phantomslice" | "phantom_slice" | "ghost" => Some(Self::PhantomSlice),
-            "membrane" | "membraneslice" | "membrane_slice" | "boundary" => Some(Self::MembraneSlice),
+            "membrane" | "membraneslice" | "membrane_slice" | "boundary" => {
+                Some(Self::MembraneSlice)
+            }
             "echo" | "echoslice" | "echo_slice" | "ripple" => Some(Self::EchoSlice),
             _ => None,
         }
@@ -129,6 +153,28 @@ impl SlicingAlgorithm {
             Self::MembraneSlice => "MembraneSlice",
             Self::EchoSlice => "EchoSlice",
         }
+    }
+
+    /// The default review suite: all algorithms that don't require git history.
+    pub fn review_suite() -> Vec<Self> {
+        vec![
+            Self::LeftFlow,
+            Self::FullFlow,
+            Self::ThinSlice,
+            Self::RelevantSlice,
+            Self::BarrierSlice,
+            Self::Taint,
+            Self::AbsenceSlice,
+            Self::SymmetrySlice,
+            Self::MembraneSlice,
+            Self::EchoSlice,
+            Self::GradientSlice,
+            Self::ProvenanceSlice,
+            Self::HorizontalSlice,
+            Self::VerticalSlice,
+            Self::AngleSlice,
+            Self::CircularSlice,
+        ]
     }
 
     /// List all available algorithms.
@@ -169,6 +215,8 @@ impl SlicingAlgorithm {
 pub struct SliceResult {
     pub algorithm: SlicingAlgorithm,
     pub blocks: Vec<DiffBlock>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub findings: Vec<SliceFinding>,
 }
 
 impl SliceResult {
@@ -176,6 +224,7 @@ impl SliceResult {
         Self {
             algorithm,
             blocks: Vec::new(),
+            findings: Vec::new(),
         }
     }
 
@@ -212,4 +261,22 @@ impl SliceConfig {
         self.algorithm = algo;
         self
     }
+}
+
+/// Result of running multiple slicing algorithms on the same diff.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MultiSliceResult {
+    pub version: String,
+    pub algorithms_run: Vec<String>,
+    pub results: Vec<SliceResult>,
+    pub findings: Vec<SliceFinding>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub errors: Vec<AlgorithmError>,
+}
+
+/// A per-algorithm error captured during multi-algorithm runs.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AlgorithmError {
+    pub algorithm: String,
+    pub error: String,
 }

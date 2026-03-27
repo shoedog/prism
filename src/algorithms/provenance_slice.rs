@@ -13,7 +13,7 @@
 use crate::ast::ParsedFile;
 use crate::data_flow::DataFlowGraph;
 use crate::diff::{DiffBlock, DiffInput, ModifyType};
-use crate::slice::{SliceResult, SlicingAlgorithm};
+use crate::slice::{SliceFinding, SliceResult, SlicingAlgorithm};
 use anyhow::Result;
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -68,39 +68,82 @@ impl Origin {
 
 /// Heuristic patterns for origin classification.
 const USER_INPUT_PATTERNS: &[&str] = &[
-    "request", "req.", "body", "params", "query", "form",
-    "input", "stdin", "args", "argv", "getParameter",
-    "ReadBody", "FormValue", "PostForm", "r.Body",
-    "event.target", "prompt(", "readline",
+    "request",
+    "req.",
+    "body",
+    "params",
+    "query",
+    "form",
+    "input",
+    "stdin",
+    "args",
+    "argv",
+    "getParameter",
+    "ReadBody",
+    "FormValue",
+    "PostForm",
+    "r.Body",
+    "event.target",
+    "prompt(",
+    "readline",
 ];
 
 const DATABASE_PATTERNS: &[&str] = &[
-    "query", "execute", "fetch", "cursor", "find(",
-    "findOne", "select", "SELECT", "db.", "DB.",
-    "repository", "dao", "store.get",
+    "query",
+    "execute",
+    "fetch",
+    "cursor",
+    "find(",
+    "findOne",
+    "select",
+    "SELECT",
+    "db.",
+    "DB.",
+    "repository",
+    "dao",
+    "store.get",
 ];
 
 const CONFIG_PATTERNS: &[&str] = &[
-    "config", "Config", "settings", "Settings",
-    "getConfig", "get_config", "cfg.", "conf.",
-    "properties", "yaml", "toml",
+    "config",
+    "Config",
+    "settings",
+    "Settings",
+    "getConfig",
+    "get_config",
+    "cfg.",
+    "conf.",
+    "properties",
+    "yaml",
+    "toml",
 ];
 
 const ENV_PATTERNS: &[&str] = &[
-    "os.environ", "os.Getenv", "process.env",
-    "System.getenv", "env.", "ENV[",
-    "getenv(", "dotenv",
+    "os.environ",
+    "os.Getenv",
+    "process.env",
+    "System.getenv",
+    "env.",
+    "ENV[",
+    "getenv(",
+    "dotenv",
 ];
 
 fn classify_line(line_text: &str) -> Origin {
     // Check for literal/constant assignment
     let trimmed = line_text.trim();
-    if trimmed.contains("= \"") || trimmed.contains("= '")
-        || trimmed.contains("= 0") || trimmed.contains("= 1")
-        || trimmed.contains("= true") || trimmed.contains("= false")
-        || trimmed.contains("= nil") || trimmed.contains("= null")
-        || trimmed.contains("= None") || trimmed.contains("= []")
-        || trimmed.contains("= {}") || trimmed.contains("= ()")
+    if trimmed.contains("= \"")
+        || trimmed.contains("= '")
+        || trimmed.contains("= 0")
+        || trimmed.contains("= 1")
+        || trimmed.contains("= true")
+        || trimmed.contains("= false")
+        || trimmed.contains("= nil")
+        || trimmed.contains("= null")
+        || trimmed.contains("= None")
+        || trimmed.contains("= []")
+        || trimmed.contains("= {}")
+        || trimmed.contains("= ()")
     {
         return Origin::Constant;
     }
@@ -133,10 +176,7 @@ pub struct ProvenanceFinding {
     pub path: Vec<(String, usize)>,
 }
 
-pub fn slice(
-    files: &BTreeMap<String, ParsedFile>,
-    diff: &DiffInput,
-) -> Result<SliceResult> {
+pub fn slice(files: &BTreeMap<String, ParsedFile>, diff: &DiffInput) -> Result<SliceResult> {
     let mut result = SliceResult::new(SlicingAlgorithm::ProvenanceSlice);
     let dfg = DataFlowGraph::build(files);
     let mut block_id = 0;
@@ -221,12 +261,39 @@ pub fn slice(
                     }
                 }
 
+                // Emit a finding for untrusted-origin variables
+                let severity = match &origin {
+                    Origin::UserInput => Some("concern"),
+                    Origin::Database | Origin::ExternalCall => Some("warning"),
+                    Origin::FunctionParam | Origin::EnvVar | Origin::Config => Some("info"),
+                    Origin::Constant | Origin::Unknown => None,
+                };
+                if let Some(sev) = severity {
+                    result.findings.push(SliceFinding {
+                        algorithm: "provenance".to_string(),
+                        file: diff_info.file_path.clone(),
+                        line,
+                        severity: sev.to_string(),
+                        description: format!(
+                            "variable '{}' has {} origin: {}",
+                            var_name,
+                            origin.name(),
+                            origin.risk_level()
+                        ),
+                        function_name: None,
+                        related_lines: locs.iter().map(|l| l.line).collect(),
+                        related_files: if origin_file != diff_info.file_path {
+                            vec![origin_file.clone()]
+                        } else {
+                            vec![]
+                        },
+                        category: Some("untrusted_origin".to_string()),
+                    });
+                }
+
                 // Build a block showing the provenance chain
-                let mut block = DiffBlock::new(
-                    block_id,
-                    diff_info.file_path.clone(),
-                    ModifyType::Modified,
-                );
+                let mut block =
+                    DiffBlock::new(block_id, diff_info.file_path.clone(), ModifyType::Modified);
 
                 // The use site (diff line)
                 block.add_line(&diff_info.file_path, line, true);

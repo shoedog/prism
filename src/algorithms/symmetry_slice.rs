@@ -9,7 +9,7 @@
 
 use crate::ast::ParsedFile;
 use crate::diff::{DiffBlock, DiffInput, ModifyType};
-use crate::slice::{SliceResult, SlicingAlgorithm};
+use crate::slice::{SliceFinding, SliceResult, SlicingAlgorithm};
 use anyhow::Result;
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -24,28 +24,79 @@ struct SymmetricPair {
 fn default_symmetric_pairs() -> Vec<SymmetricPair> {
     vec![
         SymmetricPair {
-            left: &["serialize", "marshal", "encode", "encrypt", "compress", "pack", "stringify"],
-            right: &["deserialize", "unmarshal", "decode", "decrypt", "decompress", "unpack", "parse"],
+            left: &[
+                "serialize",
+                "marshal",
+                "encode",
+                "encrypt",
+                "compress",
+                "pack",
+                "stringify",
+            ],
+            right: &[
+                "deserialize",
+                "unmarshal",
+                "decode",
+                "decrypt",
+                "decompress",
+                "unpack",
+                "parse",
+            ],
         },
         SymmetricPair {
             left: &["save", "store", "write", "put", "set", "insert", "create"],
-            right: &["load", "fetch", "read", "get", "delete", "remove", "destroy"],
+            right: &[
+                "load", "fetch", "read", "get", "delete", "remove", "destroy",
+            ],
         },
         SymmetricPair {
-            left: &["to_json", "toJSON", "to_dict", "toMap", "to_string", "ToString"],
-            right: &["from_json", "fromJSON", "from_dict", "fromMap", "from_string", "FromString"],
+            left: &[
+                "to_json",
+                "toJSON",
+                "to_dict",
+                "toMap",
+                "to_string",
+                "ToString",
+            ],
+            right: &[
+                "from_json",
+                "fromJSON",
+                "from_dict",
+                "fromMap",
+                "from_string",
+                "FromString",
+            ],
         },
         SymmetricPair {
-            left: &["open", "start", "begin", "connect", "init", "setup", "mount"],
-            right: &["close", "stop", "end", "disconnect", "cleanup", "teardown", "unmount"],
+            left: &[
+                "open", "start", "begin", "connect", "init", "setup", "mount",
+            ],
+            right: &[
+                "close",
+                "stop",
+                "end",
+                "disconnect",
+                "cleanup",
+                "teardown",
+                "unmount",
+            ],
         },
         SymmetricPair {
             left: &["subscribe", "register", "bind", "attach", "listen", "on"],
-            right: &["unsubscribe", "unregister", "unbind", "detach", "unlisten", "off"],
+            right: &[
+                "unsubscribe",
+                "unregister",
+                "unbind",
+                "detach",
+                "unlisten",
+                "off",
+            ],
         },
         SymmetricPair {
             left: &["request", "send", "upload", "push", "produce", "emit"],
-            right: &["response", "receive", "download", "pull", "consume", "handle"],
+            right: &[
+                "response", "receive", "download", "pull", "consume", "handle",
+            ],
         },
         SymmetricPair {
             left: &["lock", "acquire", "enter"],
@@ -67,15 +118,18 @@ fn find_counterpart(func_name: &str, pairs: &[SymmetricPair]) -> Option<Vec<Stri
         for &left_pat in pair.left {
             if name_lower.contains(&left_pat.to_lowercase()) {
                 // Generate possible counterpart names
-                let counterparts: Vec<String> = pair.right.iter().map(|r| {
-                    // Try to preserve the original casing/naming convention
-                    let replaced = func_name.to_lowercase().replace(
-                        &left_pat.to_lowercase(),
-                        &r.to_lowercase(),
-                    );
-                    // Also try direct substitution
-                    replaced
-                }).collect();
+                let counterparts: Vec<String> = pair
+                    .right
+                    .iter()
+                    .map(|r| {
+                        // Try to preserve the original casing/naming convention
+                        let replaced = func_name
+                            .to_lowercase()
+                            .replace(&left_pat.to_lowercase(), &r.to_lowercase());
+                        // Also try direct substitution
+                        replaced
+                    })
+                    .collect();
                 return Some(counterparts);
             }
         }
@@ -83,12 +137,15 @@ fn find_counterpart(func_name: &str, pairs: &[SymmetricPair]) -> Option<Vec<Stri
         // Check if it matches a right pattern
         for &right_pat in pair.right {
             if name_lower.contains(&right_pat.to_lowercase()) {
-                let counterparts: Vec<String> = pair.left.iter().map(|l| {
-                    func_name.to_lowercase().replace(
-                        &right_pat.to_lowercase(),
-                        &l.to_lowercase(),
-                    )
-                }).collect();
+                let counterparts: Vec<String> = pair
+                    .left
+                    .iter()
+                    .map(|l| {
+                        func_name
+                            .to_lowercase()
+                            .replace(&right_pat.to_lowercase(), &l.to_lowercase())
+                    })
+                    .collect();
                 return Some(counterparts);
             }
         }
@@ -97,10 +154,7 @@ fn find_counterpart(func_name: &str, pairs: &[SymmetricPair]) -> Option<Vec<Stri
     None
 }
 
-pub fn slice(
-    files: &BTreeMap<String, ParsedFile>,
-    diff: &DiffInput,
-) -> Result<SliceResult> {
+pub fn slice(files: &BTreeMap<String, ParsedFile>, diff: &DiffInput) -> Result<SliceResult> {
     let mut result = SliceResult::new(SlicingAlgorithm::SymmetrySlice);
     let pairs = default_symmetric_pairs();
     let mut block_id = 0;
@@ -160,7 +214,8 @@ pub fn slice(
                                 );
 
                                 // Include the changed function
-                                if let Some(changed_node) = parsed.find_function_by_name(func_name) {
+                                if let Some(changed_node) = parsed.find_function_by_name(func_name)
+                                {
                                     let (cs, ce) = parsed.node_line_range(&changed_node);
                                     for line in cs..=ce {
                                         let is_diff = diff_info.diff_lines.contains(&line);
@@ -178,6 +233,22 @@ pub fn slice(
 
                                 if !is_also_changed {
                                     // Counterpart wasn't changed — potential broken symmetry
+                                    let first_diff_line =
+                                        diff_info.diff_lines.iter().next().copied().unwrap_or(0);
+                                    result.findings.push(SliceFinding {
+                                        algorithm: "symmetry".to_string(),
+                                        file: diff_info.file_path.clone(),
+                                        line: first_diff_line,
+                                        severity: "concern".to_string(),
+                                        description: format!(
+                                            "'{}' changed but symmetric counterpart '{}' was not",
+                                            func_name, candidate
+                                        ),
+                                        function_name: Some(func_name.clone()),
+                                        related_lines: vec![start, end],
+                                        related_files: vec![file_path.clone()],
+                                        category: Some("broken_symmetry".to_string()),
+                                    });
                                     result.blocks.push(block);
                                     block_id += 1;
                                 }

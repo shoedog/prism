@@ -71,11 +71,7 @@ pub fn slice(
     let mut block_id = 0;
     for symbol in &deleted {
         if diff_identifiers.contains(&symbol.name) {
-            let mut block = DiffBlock::new(
-                block_id,
-                symbol.file.clone(),
-                ModifyType::Deleted,
-            );
+            let mut block = DiffBlock::new(block_id, symbol.file.clone(), ModifyType::Deleted);
 
             // Include the diff lines that reference the deleted symbol
             for diff_info in &diff.files {
@@ -205,7 +201,9 @@ fn extract_function_name(line: &str) -> Option<String> {
             .split_whitespace()
             .last()
             .map(|s| s.to_string())
-            .filter(|s| !s.is_empty() && s.chars().next().map(|c| c.is_alphabetic()).unwrap_or(false));
+            .filter(|s| {
+                !s.is_empty() && s.chars().next().map(|c| c.is_alphabetic()).unwrap_or(false)
+            });
     }
 
     None

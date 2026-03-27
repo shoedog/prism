@@ -10,7 +10,7 @@ taxonomy and novel theoretical extensions.
 
 ```bash
 cargo build          # Build the project
-cargo test           # Run all 43 tests (unit + integration)
+cargo test           # Run all 66 tests (unit + integration)
 cargo run -- --help  # Show CLI usage
 cargo run -- --list-algorithms  # List all 26 algorithms
 ```

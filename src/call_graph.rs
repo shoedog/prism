@@ -83,7 +83,10 @@ impl CallGraph {
                         callee_name: callee_name.clone(),
                         line,
                     };
-                    calls.entry(caller_id.clone()).or_default().insert(site.clone());
+                    calls
+                        .entry(caller_id.clone())
+                        .or_default()
+                        .insert(site.clone());
                     callers.entry(callee_name).or_default().push(site);
                 }
             }
@@ -132,7 +135,12 @@ impl CallGraph {
     }
 
     /// Find all callees of a function by name, up to a given depth.
-    pub fn callees_of(&self, func_name: &str, file: &str, max_depth: usize) -> Vec<(FunctionId, usize)> {
+    pub fn callees_of(
+        &self,
+        func_name: &str,
+        file: &str,
+        max_depth: usize,
+    ) -> Vec<(FunctionId, usize)> {
         let mut result = Vec::new();
         let mut visited: BTreeSet<String> = BTreeSet::new();
         let mut queue: VecDeque<(FunctionId, usize)> = VecDeque::new();

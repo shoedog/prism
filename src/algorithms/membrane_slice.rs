@@ -13,14 +13,11 @@
 use crate::ast::ParsedFile;
 use crate::call_graph::CallGraph;
 use crate::diff::{DiffBlock, DiffInput, ModifyType};
-use crate::slice::{SliceResult, SlicingAlgorithm};
+use crate::slice::{SliceFinding, SliceResult, SlicingAlgorithm};
 use anyhow::Result;
 use std::collections::BTreeMap;
 
-pub fn slice(
-    files: &BTreeMap<String, ParsedFile>,
-    diff: &DiffInput,
-) -> Result<SliceResult> {
+pub fn slice(files: &BTreeMap<String, ParsedFile>, diff: &DiffInput) -> Result<SliceResult> {
     let mut result = SliceResult::new(SlicingAlgorithm::MembraneSlice);
     let call_graph = CallGraph::build(files);
     let mut block_id = 0;
@@ -55,11 +52,8 @@ pub fn slice(
                 continue;
             }
 
-            let mut block = DiffBlock::new(
-                block_id,
-                diff_info.file_path.clone(),
-                ModifyType::Modified,
-            );
+            let mut block =
+                DiffBlock::new(block_id, diff_info.file_path.clone(), ModifyType::Modified);
 
             // Include the changed function (the API being modified)
             for line in *func_start..=*func_end {
@@ -104,9 +98,12 @@ pub fn slice(
                                 return false;
                             }
                             let lt = caller_source[l - 1];
-                            lt.contains("try") || lt.contains("catch")
-                                || lt.contains("except") || lt.contains("if err")
-                                || lt.contains("if error") || lt.contains(".catch(")
+                            lt.contains("try")
+                                || lt.contains("catch")
+                                || lt.contains("except")
+                                || lt.contains("if err")
+                                || lt.contains("if error")
+                                || lt.contains(".catch(")
                         });
 
                         if !has_error_handling {
@@ -116,6 +113,20 @@ pub fn slice(
                                 for site in sites {
                                     if site.caller.name == caller_id.name {
                                         block.add_line(&caller_id.file, site.line, true);
+                                        result.findings.push(SliceFinding {
+                                            algorithm: "membrane".to_string(),
+                                            file: caller_id.file.clone(),
+                                            line: site.line,
+                                            severity: "concern".to_string(),
+                                            description: format!(
+                                                "unprotected call to '{}' from '{}'",
+                                                func_name, caller_id.name
+                                            ),
+                                            function_name: Some(caller_id.name.clone()),
+                                            related_lines: vec![],
+                                            related_files: vec![diff_info.file_path.clone()],
+                                            category: Some("unprotected_caller".to_string()),
+                                        });
                                     }
                                 }
                             }

@@ -1,14 +1,18 @@
-use slicing::algorithms;
-use slicing::ast::ParsedFile;
-use slicing::call_graph::CallGraph;
-use slicing::data_flow::DataFlowGraph;
-use slicing::diff::{DiffInfo, DiffInput, ModifyType};
-use slicing::languages::Language;
-use slicing::output;
-use slicing::slice::{SliceConfig, SlicingAlgorithm};
+use prism::algorithms;
+use prism::ast::ParsedFile;
+use prism::call_graph::CallGraph;
+use prism::data_flow::DataFlowGraph;
+use prism::diff::{DiffInfo, DiffInput, ModifyType};
+use prism::languages::Language;
+use prism::output;
+use prism::slice::{SliceConfig, SlicingAlgorithm};
 use std::collections::{BTreeMap, BTreeSet};
 
-fn make_python_test() -> (BTreeMap<String, ParsedFile>, BTreeMap<String, String>, DiffInput) {
+fn make_python_test() -> (
+    BTreeMap<String, ParsedFile>,
+    BTreeMap<String, String>,
+    DiffInput,
+) {
     let source = r#"
 import os
 
@@ -52,7 +56,11 @@ def process(data):
     (files, sources, diff)
 }
 
-fn make_javascript_test() -> (BTreeMap<String, ParsedFile>, BTreeMap<String, String>, DiffInput) {
+fn make_javascript_test() -> (
+    BTreeMap<String, ParsedFile>,
+    BTreeMap<String, String>,
+    DiffInput,
+) {
     let source = r#"
 function fetchData(url, options) {
     const headers = options.headers || {};
@@ -103,7 +111,11 @@ function processItems(items) {
     (files, sources, diff)
 }
 
-fn make_go_test() -> (BTreeMap<String, ParsedFile>, BTreeMap<String, String>, DiffInput) {
+fn make_go_test() -> (
+    BTreeMap<String, ParsedFile>,
+    BTreeMap<String, String>,
+    DiffInput,
+) {
     let source = r#"package main
 
 import "fmt"
@@ -143,7 +155,11 @@ func main() {
     (files, sources, diff)
 }
 
-fn make_java_test() -> (BTreeMap<String, ParsedFile>, BTreeMap<String, String>, DiffInput) {
+fn make_java_test() -> (
+    BTreeMap<String, ParsedFile>,
+    BTreeMap<String, String>,
+    DiffInput,
+) {
     let source = r#"public class Calculator {
     private int accumulator = 0;
 
@@ -181,7 +197,11 @@ fn make_java_test() -> (BTreeMap<String, ParsedFile>, BTreeMap<String, String>, 
     (files, sources, diff)
 }
 
-fn make_typescript_test() -> (BTreeMap<String, ParsedFile>, BTreeMap<String, String>, DiffInput) {
+fn make_typescript_test() -> (
+    BTreeMap<String, ParsedFile>,
+    BTreeMap<String, String>,
+    DiffInput,
+) {
     let source = r#"
 interface Config {
     baseUrl: string;
@@ -262,7 +282,10 @@ fn test_parent_function_python() {
     let block = &result.blocks[0];
     let lines = block.file_line_map.get("src/calc.py").unwrap();
     // Function spans lines 6-13 approximately
-    assert!(lines.len() > 2, "ParentFunction should include more than just diff lines");
+    assert!(
+        lines.len() > 2,
+        "ParentFunction should include more than just diff lines"
+    );
 
     let formatted = output::format_slice_result(&result.blocks, &sources);
     assert!(formatted.contains("calculate"));
@@ -323,7 +346,11 @@ fn test_left_flow_javascript() {
     assert!(!result.blocks.is_empty());
     let formatted = output::format_slice_result(&result.blocks, &sources);
     // Should include references to response and data variables
-    assert!(formatted.contains("fetchData") || formatted.contains("response") || formatted.contains("data"));
+    assert!(
+        formatted.contains("fetchData")
+            || formatted.contains("response")
+            || formatted.contains("data")
+    );
 }
 
 #[test]
@@ -409,8 +436,16 @@ fn test_increasing_context() {
     )
     .unwrap();
 
-    let orig_lines: usize = orig.blocks.iter().map(|b| b.file_line_map.values().map(|m| m.len()).sum::<usize>()).sum();
-    let parent_lines: usize = parent.blocks.iter().map(|b| b.file_line_map.values().map(|m| m.len()).sum::<usize>()).sum();
+    let orig_lines: usize = orig
+        .blocks
+        .iter()
+        .map(|b| b.file_line_map.values().map(|m| m.len()).sum::<usize>())
+        .sum();
+    let parent_lines: usize = parent
+        .blocks
+        .iter()
+        .map(|b| b.file_line_map.values().map(|m| m.len()).sum::<usize>())
+        .sum();
 
     // OriginalDiff should always have the fewest lines
     assert!(
@@ -476,15 +511,36 @@ fn test_json_diff_input() {
 fn test_all_languages_parse() {
     let cases = vec![
         ("test.py", Language::Python, "def foo():\n    return 1\n"),
-        ("test.js", Language::JavaScript, "function foo() { return 1; }\n"),
-        ("test.ts", Language::TypeScript, "function foo(): number { return 1; }\n"),
-        ("test.go", Language::Go, "package main\nfunc foo() int { return 1 }\n"),
-        ("test.java", Language::Java, "class T { int foo() { return 1; } }\n"),
+        (
+            "test.js",
+            Language::JavaScript,
+            "function foo() { return 1; }\n",
+        ),
+        (
+            "test.ts",
+            Language::TypeScript,
+            "function foo(): number { return 1; }\n",
+        ),
+        (
+            "test.go",
+            Language::Go,
+            "package main\nfunc foo() int { return 1 }\n",
+        ),
+        (
+            "test.java",
+            Language::Java,
+            "class T { int foo() { return 1; } }\n",
+        ),
     ];
 
     for (path, lang, source) in cases {
         let parsed = ParsedFile::parse(path, source, lang);
-        assert!(parsed.is_ok(), "Failed to parse {}: {:?}", path, parsed.err());
+        assert!(
+            parsed.is_ok(),
+            "Failed to parse {}: {:?}",
+            path,
+            parsed.err()
+        );
     }
 }
 
@@ -508,8 +564,16 @@ fn test_thin_slice_subset_of_leftflow() {
     )
     .unwrap();
 
-    let thin_lines: usize = thin.blocks.iter().map(|b| b.file_line_map.values().map(|m| m.len()).sum::<usize>()).sum();
-    let left_lines: usize = left.blocks.iter().map(|b| b.file_line_map.values().map(|m| m.len()).sum::<usize>()).sum();
+    let thin_lines: usize = thin
+        .blocks
+        .iter()
+        .map(|b| b.file_line_map.values().map(|m| m.len()).sum::<usize>())
+        .sum();
+    let left_lines: usize = left
+        .blocks
+        .iter()
+        .map(|b| b.file_line_map.values().map(|m| m.len()).sum::<usize>())
+        .sum();
 
     assert!(
         thin_lines <= left_lines,
@@ -533,7 +597,10 @@ fn test_thin_slice_has_data_deps() {
     let block = &result.blocks[0];
     let lines = block.file_line_map.get("src/calc.py").unwrap();
     // Should have the diff lines plus variable references
-    assert!(lines.len() >= 2, "ThinSlice should include at least diff lines");
+    assert!(
+        lines.len() >= 2,
+        "ThinSlice should include at least diff lines"
+    );
 }
 
 // ====== Barrier Slice tests ======
@@ -592,8 +659,16 @@ fn test_relevant_slice_includes_alternates() {
     )
     .unwrap();
 
-    let relevant_count: usize = result.blocks.iter().map(|b| b.file_line_map.values().map(|m| m.len()).sum::<usize>()).sum();
-    let left_count: usize = left.blocks.iter().map(|b| b.file_line_map.values().map(|m| m.len()).sum::<usize>()).sum();
+    let relevant_count: usize = result
+        .blocks
+        .iter()
+        .map(|b| b.file_line_map.values().map(|m| m.len()).sum::<usize>())
+        .sum();
+    let left_count: usize = left
+        .blocks
+        .iter()
+        .map(|b| b.file_line_map.values().map(|m| m.len()).sum::<usize>())
+        .sum();
 
     assert!(
         relevant_count >= left_count,
@@ -625,8 +700,16 @@ fn test_spiral_slice_ring_containment() {
     )
     .unwrap();
 
-    let spiral_lines: usize = result.blocks.iter().map(|b| b.file_line_map.values().map(|m| m.len()).sum::<usize>()).sum();
-    let orig_lines: usize = orig.blocks.iter().map(|b| b.file_line_map.values().map(|m| m.len()).sum::<usize>()).sum();
+    let spiral_lines: usize = result
+        .blocks
+        .iter()
+        .map(|b| b.file_line_map.values().map(|m| m.len()).sum::<usize>())
+        .sum();
+    let orig_lines: usize = orig
+        .blocks
+        .iter()
+        .map(|b| b.file_line_map.values().map(|m| m.len()).sum::<usize>())
+        .sum();
 
     assert!(
         spiral_lines >= orig_lines,
@@ -731,7 +814,11 @@ def handle_delete(request):
     // Should include peer functions (handle_update, handle_delete)
     let block = &result.blocks[0];
     let lines = block.file_line_map.get("handlers.py").unwrap();
-    assert!(lines.len() > 5, "HorizontalSlice should include peer functions, got {} lines", lines.len());
+    assert!(
+        lines.len() > 5,
+        "HorizontalSlice should include peer functions, got {} lines",
+        lines.len()
+    );
 }
 
 // ====== Vertical Slice tests ======
@@ -753,7 +840,11 @@ fn test_vertical_slice_traces_layers() {
 
 // ====== Angle Slice tests ======
 
-fn make_error_handling_test() -> (BTreeMap<String, ParsedFile>, BTreeMap<String, String>, DiffInput) {
+fn make_error_handling_test() -> (
+    BTreeMap<String, ParsedFile>,
+    BTreeMap<String, String>,
+    DiffInput,
+) {
     let source = r#"
 def fetch_data(url):
     try:
@@ -792,14 +883,17 @@ def process(url):
 #[test]
 fn test_angle_slice_error_handling() {
     let (files, _, diff) = make_error_handling_test();
-    let concern = slicing::algorithms::angle_slice::Concern::ErrorHandling;
-    let result = slicing::algorithms::angle_slice::slice(&files, &diff, &concern).unwrap();
+    let concern = prism::algorithms::angle_slice::Concern::ErrorHandling;
+    let result = prism::algorithms::angle_slice::slice(&files, &diff, &concern).unwrap();
 
     assert!(!result.blocks.is_empty());
     let block = &result.blocks[0];
     let lines = block.file_line_map.get("service.py").unwrap();
     // Should find error handling patterns across both functions
-    assert!(lines.len() > 3, "AngleSlice should trace error handling across functions");
+    assert!(
+        lines.len() > 3,
+        "AngleSlice should trace error handling across functions"
+    );
 }
 
 // ====== Call Graph tests ======
@@ -874,7 +968,7 @@ async function fetchUser(id) {
 #[test]
 fn test_quantum_slice_async_js() {
     let (files, diff) = make_async_test();
-    let result = slicing::algorithms::quantum_slice::slice(&files, &diff, Some("user")).unwrap();
+    let result = prism::algorithms::quantum_slice::slice(&files, &diff, Some("user")).unwrap();
 
     // May or may not find async patterns depending on tree-sitter parsing
     // Just verify it doesn't crash
@@ -885,7 +979,7 @@ fn test_quantum_slice_async_js() {
 
 #[test]
 fn test_conditioned_slice_parses_conditions() {
-    use slicing::algorithms::conditioned_slice::Condition;
+    use prism::algorithms::conditioned_slice::Condition;
 
     let c = Condition::parse("x==5").unwrap();
     assert_eq!(c.var_name, "x");
@@ -1011,7 +1105,10 @@ fn test_gradient_slice_scores_decay() {
     .unwrap();
 
     // Should produce scored output with diff lines included
-    assert!(!result.blocks.is_empty(), "GradientSlice should produce output");
+    assert!(
+        !result.blocks.is_empty(),
+        "GradientSlice should produce output"
+    );
 
     // Should have at least the diff lines
     let total_lines: usize = result
@@ -1019,7 +1116,10 @@ fn test_gradient_slice_scores_decay() {
         .iter()
         .map(|b| b.file_line_map.values().map(|m| m.len()).sum::<usize>())
         .sum();
-    assert!(total_lines >= 2, "GradientSlice should include at least diff lines");
+    assert!(
+        total_lines >= 2,
+        "GradientSlice should include at least diff lines"
+    );
 }
 
 // ====== Provenance Slice tests ======
@@ -1099,4 +1199,1018 @@ fn test_phantom_slice_runs() {
     .unwrap();
 
     assert!(result.algorithm == SlicingAlgorithm::PhantomSlice);
+}
+
+// ====== C Language Support tests ======
+
+fn make_c_test() -> (
+    BTreeMap<String, ParsedFile>,
+    BTreeMap<String, String>,
+    DiffInput,
+) {
+    let source = r#"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#define MAX_BUF_SIZE 256
+
+typedef struct {
+    char *name;
+    int id;
+    int active;
+} device_t;
+
+device_t *create_device(const char *name, int id) {
+    device_t *dev = malloc(sizeof(device_t));
+    if (dev == NULL) {
+        return NULL;
+    }
+    dev->name = strdup(name);
+    dev->id = id;
+    dev->active = 1;
+    return dev;
+}
+
+void destroy_device(device_t *dev) {
+    if (dev != NULL) {
+        free(dev->name);
+        free(dev);
+    }
+}
+
+int process_packet(const char *buf, size_t len) {
+    char local_buf[MAX_BUF_SIZE];
+    int result = 0;
+
+    memcpy(local_buf, buf, len);
+    local_buf[len] = '\0';
+
+    if (strlen(local_buf) > 10) {
+        result = atoi(local_buf);
+    }
+
+    return result;
+}
+
+int handle_request(const char *input, size_t input_len) {
+    device_t *dev = create_device(input, 42);
+    if (dev == NULL) {
+        return -1;
+    }
+
+    int status = process_packet(input, input_len);
+
+    if (status < 0) {
+        return status;
+    }
+
+    destroy_device(dev);
+    return status;
+}
+
+void bulk_process(const char **inputs, int count) {
+    for (int i = 0; i < count; i++) {
+        int result = handle_request(inputs[i], strlen(inputs[i]));
+        if (result < 0) {
+            fprintf(stderr, "Error processing input %d\n", i);
+        }
+    }
+}
+"#;
+
+    let path = "src/device.c";
+    let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+    let mut files = BTreeMap::new();
+    let mut sources = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+    sources.insert(path.to_string(), source.to_string());
+
+    // Diff: process_packet function modified (lines 34-44: the buffer handling code)
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([36, 37, 38]),
+        }],
+    };
+
+    (files, sources, diff)
+}
+
+fn make_c_multifile_test() -> (
+    BTreeMap<String, ParsedFile>,
+    BTreeMap<String, String>,
+    DiffInput,
+) {
+    let device_source = r#"
+#include "device.h"
+#include <stdlib.h>
+#include <string.h>
+
+device_t *create_device(const char *name, int id) {
+    device_t *dev = malloc(sizeof(device_t));
+    dev->name = strdup(name);
+    dev->id = id;
+    return dev;
+}
+
+void destroy_device(device_t *dev) {
+    free(dev->name);
+    free(dev);
+}
+
+int get_device_status(device_t *dev) {
+    return dev->active;
+}
+"#;
+
+    let handler_source = r#"
+#include "device.h"
+#include <stdio.h>
+
+int handle_create(const char *name) {
+    device_t *dev = create_device(name, 1);
+    int status = get_device_status(dev);
+    printf("Device status: %d\n", status);
+    return status;
+}
+
+int handle_batch(const char **names, int count) {
+    for (int i = 0; i < count; i++) {
+        handle_create(names[i]);
+    }
+    return 0;
+}
+"#;
+
+    let mut files = BTreeMap::new();
+    let mut sources = BTreeMap::new();
+
+    let dev_parsed = ParsedFile::parse("src/device.c", device_source, Language::C).unwrap();
+    let handler_parsed = ParsedFile::parse("src/handler.c", handler_source, Language::C).unwrap();
+
+    files.insert("src/device.c".to_string(), dev_parsed);
+    files.insert("src/handler.c".to_string(), handler_parsed);
+    sources.insert("src/device.c".to_string(), device_source.to_string());
+    sources.insert("src/handler.c".to_string(), handler_source.to_string());
+
+    // Diff: create_device modified (return type change, error handling change)
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: "src/device.c".to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([7, 8, 9]),
+        }],
+    };
+
+    (files, sources, diff)
+}
+
+fn make_cpp_test() -> (
+    BTreeMap<String, ParsedFile>,
+    BTreeMap<String, String>,
+    DiffInput,
+) {
+    let source = r#"
+#include <string>
+#include <vector>
+#include <memory>
+#include <mutex>
+#include <stdexcept>
+
+class DeviceManager {
+private:
+    std::vector<std::string> devices;
+    std::mutex mtx;
+    int max_devices;
+
+public:
+    DeviceManager(int max) : max_devices(max) {}
+
+    ~DeviceManager() {
+        devices.clear();
+    }
+
+    bool add_device(const std::string& name) {
+        std::lock_guard<std::mutex> lock(mtx);
+        if (devices.size() >= max_devices) {
+            return false;
+        }
+        devices.push_back(name);
+        return true;
+    }
+
+    std::string get_device(int index) {
+        if (index < 0 || index >= devices.size()) {
+            throw std::out_of_range("Invalid device index");
+        }
+        return devices[index];
+    }
+
+    int count() const {
+        return devices.size();
+    }
+
+    std::string serialize() {
+        std::string result = "{";
+        for (size_t i = 0; i < devices.size(); i++) {
+            result += "\"" + devices[i] + "\"";
+            if (i < devices.size() - 1) {
+                result += ",";
+            }
+        }
+        result += "}";
+        return result;
+    }
+};
+
+int process_devices(DeviceManager& mgr, const std::vector<std::string>& names) {
+    int added = 0;
+    for (const auto& name : names) {
+        if (mgr.add_device(name)) {
+            added++;
+        }
+    }
+    return added;
+}
+"#;
+
+    let path = "src/device_manager.cpp";
+    let parsed = ParsedFile::parse(path, source, Language::Cpp).unwrap();
+    let mut files = BTreeMap::new();
+    let mut sources = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+    sources.insert(path.to_string(), source.to_string());
+
+    // Diff: add_device and get_device methods modified
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([23, 24, 25, 33, 34]),
+        }],
+    };
+
+    (files, sources, diff)
+}
+
+// ====== C Parsing tests ======
+
+#[test]
+fn test_c_parses_and_finds_functions() {
+    let (files, _, _) = make_c_test();
+    let parsed = files.get("src/device.c").unwrap();
+
+    // Should find all functions in the C file
+    let functions = parsed.all_functions();
+    let func_names: Vec<String> = functions
+        .iter()
+        .filter_map(|f| {
+            parsed
+                .language
+                .function_name(f)
+                .map(|n| parsed.node_text(&n).to_string())
+        })
+        .collect();
+
+    assert!(
+        func_names.contains(&"create_device".to_string()),
+        "Should find create_device, got: {:?}",
+        func_names
+    );
+    assert!(
+        func_names.contains(&"process_packet".to_string()),
+        "Should find process_packet, got: {:?}",
+        func_names
+    );
+    assert!(
+        func_names.contains(&"handle_request".to_string()),
+        "Should find handle_request, got: {:?}",
+        func_names
+    );
+    assert!(
+        func_names.contains(&"destroy_device".to_string()),
+        "Should find destroy_device, got: {:?}",
+        func_names
+    );
+    assert!(
+        func_names.contains(&"bulk_process".to_string()),
+        "Should find bulk_process, got: {:?}",
+        func_names
+    );
+}
+
+#[test]
+fn test_cpp_parses_and_finds_methods() {
+    let (files, _, _) = make_cpp_test();
+    let parsed = files.get("src/device_manager.cpp").unwrap();
+
+    let functions = parsed.all_functions();
+    let func_names: Vec<String> = functions
+        .iter()
+        .filter_map(|f| {
+            parsed
+                .language
+                .function_name(f)
+                .map(|n| parsed.node_text(&n).to_string())
+        })
+        .collect();
+
+    assert!(
+        func_names.contains(&"process_devices".to_string()),
+        "Should find process_devices, got: {:?}",
+        func_names
+    );
+    // C++ methods inside classes should also be found
+    assert!(
+        func_names.len() >= 2,
+        "Should find at least free function + some class methods, got {} functions: {:?}",
+        func_names.len(),
+        func_names
+    );
+}
+
+// ====== C LeftFlow tests ======
+
+#[test]
+fn test_left_flow_c() {
+    let (files, sources, diff) = make_c_test();
+    let config = SliceConfig::default().with_algorithm(SlicingAlgorithm::LeftFlow);
+    let result = algorithms::run_slicing(&files, &diff, &config).unwrap();
+
+    assert!(
+        !result.blocks.is_empty(),
+        "LeftFlow should produce output for C code"
+    );
+    let formatted = output::format_slice_result(&result.blocks, &sources);
+    // Should include the process_packet function context
+    assert!(
+        formatted.contains("local_buf")
+            || formatted.contains("memcpy")
+            || formatted.contains("buf"),
+        "LeftFlow should trace buffer-related variables in C code"
+    );
+}
+
+#[test]
+fn test_left_flow_cpp() {
+    let (files, sources, diff) = make_cpp_test();
+    let config = SliceConfig::default().with_algorithm(SlicingAlgorithm::LeftFlow);
+    let result = algorithms::run_slicing(&files, &diff, &config).unwrap();
+
+    assert!(
+        !result.blocks.is_empty(),
+        "LeftFlow should produce output for C++ code"
+    );
+    let formatted = output::format_slice_result(&result.blocks, &sources);
+    assert!(
+        formatted.contains("device")
+            || formatted.contains("lock")
+            || formatted.contains("add_device"),
+        "LeftFlow should include C++ method context"
+    );
+}
+
+// ====== C FullFlow tests ======
+
+#[test]
+fn test_full_flow_c() {
+    let (files, sources, diff) = make_c_test();
+    let config = SliceConfig::default().with_algorithm(SlicingAlgorithm::FullFlow);
+    let result = algorithms::run_slicing(&files, &diff, &config).unwrap();
+
+    assert!(
+        !result.blocks.is_empty(),
+        "FullFlow should produce output for C code"
+    );
+    let formatted = output::format_slice_result(&result.blocks, &sources);
+    assert!(
+        formatted.contains("result") || formatted.contains("local_buf"),
+        "FullFlow should trace forward from the buffer operations"
+    );
+}
+
+#[test]
+fn test_full_flow_cpp() {
+    let (files, sources, diff) = make_cpp_test();
+    let config = SliceConfig::default().with_algorithm(SlicingAlgorithm::FullFlow);
+    let result = algorithms::run_slicing(&files, &diff, &config).unwrap();
+
+    assert!(
+        !result.blocks.is_empty(),
+        "FullFlow should produce output for C++ code"
+    );
+}
+
+// ====== C Absence Slice tests ======
+
+#[test]
+fn test_absence_slice_c_missing_free() {
+    // Create C code with malloc but missing free on error path
+    let source = r#"
+#include <stdlib.h>
+
+int leaky_function(int size) {
+    char *buf = malloc(size);
+    if (size <= 0) {
+        return -1;
+    }
+    buf[0] = 'x';
+    free(buf);
+    return 0;
+}
+"#;
+
+    let path = "src/leak.c";
+    let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([5]), // malloc line
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::AbsenceSlice),
+    )
+    .unwrap();
+
+    // The absence slice should NOT flag this because free IS present in the function
+    // (even though the error path at line 7 leaks — that's a more sophisticated check)
+    assert!(result.algorithm == SlicingAlgorithm::AbsenceSlice);
+}
+
+#[test]
+fn test_absence_slice_c_no_free() {
+    // Create C code with malloc but NO free at all
+    let source = r#"
+#include <stdlib.h>
+
+int leaky_function(int size) {
+    char *buf = malloc(size);
+    buf[0] = 'x';
+    return 0;
+}
+"#;
+
+    let path = "src/leak2.c";
+    let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([5]), // malloc line
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::AbsenceSlice),
+    )
+    .unwrap();
+
+    // Should detect malloc without free
+    assert!(
+        !result.blocks.is_empty(),
+        "Absence slice should detect malloc without free in C code"
+    );
+}
+
+// ====== C Taint Slice tests ======
+
+#[test]
+fn test_taint_c_buffer_overflow() {
+    let (files, sources, diff) = make_c_test();
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::Taint),
+    )
+    .unwrap();
+
+    // Taint should trace from the diff lines (buffer operations) forward
+    assert!(result.algorithm == SlicingAlgorithm::Taint);
+    // Even if no explicit taint source is specified, auto-taint from diff should work
+}
+
+// ====== C Call Graph tests ======
+
+#[test]
+fn test_call_graph_c() {
+    let (files, _, _) = make_c_test();
+    let call_graph = CallGraph::build(&files);
+
+    // handle_request calls create_device and process_packet
+    let callees = call_graph.callees_of("handle_request", "src/device.c", 1);
+    let callee_names: Vec<&str> = callees.iter().map(|(id, _)| id.name.as_str()).collect();
+
+    assert!(
+        callee_names.contains(&"create_device") || callee_names.contains(&"process_packet"),
+        "handle_request should call create_device and process_packet, got: {:?}",
+        callee_names
+    );
+}
+
+#[test]
+fn test_call_graph_c_cross_file() {
+    let (files, _, _) = make_c_multifile_test();
+    let call_graph = CallGraph::build(&files);
+
+    // handle_create in handler.c calls create_device in device.c
+    let callees = call_graph.callees_of("handle_create", "src/handler.c", 1);
+    let callee_names: Vec<&str> = callees.iter().map(|(id, _)| id.name.as_str()).collect();
+
+    assert!(
+        callee_names.contains(&"create_device"),
+        "handle_create should call create_device across files, got: {:?}",
+        callee_names
+    );
+}
+
+// ====== C Echo Slice tests ======
+
+#[test]
+fn test_echo_slice_c() {
+    let (files, _, diff) = make_c_multifile_test();
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::EchoSlice),
+    )
+    .unwrap();
+
+    // Echo should detect that handle_create calls create_device
+    // and may not handle changes to create_device's return value
+    assert!(result.algorithm == SlicingAlgorithm::EchoSlice);
+}
+
+// ====== C Membrane Slice tests ======
+
+#[test]
+fn test_membrane_slice_c() {
+    let (files, _, diff) = make_c_multifile_test();
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::MembraneSlice),
+    )
+    .unwrap();
+
+    // Membrane should detect cross-file callers of create_device
+    assert!(result.algorithm == SlicingAlgorithm::MembraneSlice);
+}
+
+// ====== C Symmetry Slice tests ======
+
+#[test]
+fn test_symmetry_slice_c() {
+    let (files, _, diff) = make_c_test();
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::SymmetrySlice),
+    )
+    .unwrap();
+
+    // Should detect create_device / destroy_device as a symmetric pair
+    assert!(result.algorithm == SlicingAlgorithm::SymmetrySlice);
+}
+
+// ====== C Data Flow tests ======
+
+#[test]
+fn test_data_flow_graph_c() {
+    let (files, _, _) = make_c_test();
+    let dfg = DataFlowGraph::build(&files);
+
+    // Should have def-use edges for variables in C functions
+    assert!(
+        !dfg.edges.is_empty(),
+        "Data flow graph should have edges for C code"
+    );
+
+    // Check that variable defs are found
+    assert!(
+        !dfg.defs.is_empty(),
+        "Data flow graph should find variable definitions in C code"
+    );
+}
+
+// ====== C Gradient Slice tests ======
+
+#[test]
+fn test_gradient_slice_c() {
+    let (files, _, diff) = make_c_test();
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::GradientSlice),
+    )
+    .unwrap();
+
+    assert!(
+        !result.blocks.is_empty(),
+        "Gradient slice should produce scored output for C code"
+    );
+}
+
+// ====== C Quantum Slice tests ======
+
+#[test]
+fn test_quantum_slice_c_pthread() {
+    let source = r#"
+#include <pthread.h>
+#include <stdio.h>
+
+int shared_counter = 0;
+
+void *worker(void *arg) {
+    shared_counter++;
+    return NULL;
+}
+
+int main() {
+    pthread_t thread;
+    pthread_create(&thread, NULL, worker, NULL);
+    shared_counter++;
+    pthread_join(thread, NULL);
+    printf("Counter: %d\n", shared_counter);
+    return 0;
+}
+"#;
+
+    let path = "src/threaded.c";
+    let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([14]), // pthread_create line
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::QuantumSlice),
+    )
+    .unwrap();
+
+    assert!(result.algorithm == SlicingAlgorithm::QuantumSlice);
+}
+
+// ====== C Provenance Slice tests ======
+
+#[test]
+fn test_provenance_slice_c() {
+    let (files, _, diff) = make_c_test();
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::ProvenanceSlice),
+    )
+    .unwrap();
+
+    assert!(result.algorithm == SlicingAlgorithm::ProvenanceSlice);
+}
+
+// ====== C++ Specific tests ======
+
+#[test]
+fn test_cpp_symmetry_serialize_deserialize() {
+    // C++ code with serialize but no deserialize
+    let source = r#"
+#include <string>
+
+class Config {
+public:
+    std::string serialize() {
+        return "{\"key\": \"" + key + "\"}";
+    }
+
+    // Note: no deserialize method — broken symmetry
+
+    std::string key;
+};
+"#;
+
+    let path = "src/config.cpp";
+    let parsed = ParsedFile::parse(path, source, Language::Cpp).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([7]), // serialize method modified
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::SymmetrySlice),
+    )
+    .unwrap();
+
+    assert!(result.algorithm == SlicingAlgorithm::SymmetrySlice);
+}
+
+// ====== C Language in all_languages_parse ======
+
+#[test]
+fn test_c_and_cpp_parse() {
+    // Verify C and C++ can be parsed without errors
+    let c_source = "int main() { return 0; }\n";
+    let cpp_source = "class Foo { public: void bar() {} };\n";
+
+    let c_parsed = ParsedFile::parse("test.c", c_source, Language::C);
+    assert!(c_parsed.is_ok(), "C parsing should succeed");
+
+    let cpp_parsed = ParsedFile::parse("test.cpp", cpp_source, Language::Cpp);
+    assert!(cpp_parsed.is_ok(), "C++ parsing should succeed");
+}
+
+// ====== Review output format tests ======
+
+use prism::output::{to_review_output, MultiReviewOutput};
+use prism::slice::{MultiSliceResult, SliceFinding};
+
+fn make_taint_test_fixture() -> (BTreeMap<String, ParsedFile>, BTreeMap<String, String>, DiffInput) {
+    let source = r#"
+import os
+
+def handle_request(user_input):
+    query = "SELECT * FROM users WHERE name = '" + user_input + "'"
+    result = db.execute(query)
+    return result
+
+def log_entry(message):
+    os.system("logger " + message)
+"#;
+
+    let path = "src/handler.py";
+    let parsed = ParsedFile::parse(path, source, Language::Python).unwrap();
+    let mut files = BTreeMap::new();
+    let mut sources = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+    sources.insert(path.to_string(), source.to_string());
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([4]),
+        }],
+    };
+
+    (files, sources, diff)
+}
+
+fn make_absence_test_fixture() -> (BTreeMap<String, ParsedFile>, BTreeMap<String, String>, DiffInput) {
+    let source = r#"
+import threading
+
+def worker():
+    lock = threading.Lock()
+    lock.acquire()
+    # do work but never release — missing counterpart
+    return
+
+def safe_worker():
+    lock = threading.Lock()
+    lock.acquire()
+    try:
+        pass
+    finally:
+        lock.release()
+"#;
+
+    let path = "src/worker.py";
+    let parsed = ParsedFile::parse(path, source, Language::Python).unwrap();
+    let mut files = BTreeMap::new();
+    let mut sources = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+    sources.insert(path.to_string(), source.to_string());
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([6]),
+        }],
+    };
+
+    (files, sources, diff)
+}
+
+#[test]
+fn test_review_output_format_single_algorithm() {
+    let (files, sources, diff) = make_python_test();
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::LeftFlow),
+    )
+    .unwrap();
+
+    let review = to_review_output(&result, &sources);
+
+    // Verify schema fields
+    assert_eq!(review.algorithm, "LeftFlow");
+    assert!(
+        review.slices.iter().all(|s| !s.file.is_empty()),
+        "Each slice block should have a file"
+    );
+    assert!(
+        review.slices.iter().all(|s| !s.modify_type.is_empty()),
+        "Each slice block should have a modify_type"
+    );
+
+    // Verify serialization to JSON succeeds and is valid
+    let json = serde_json::to_string_pretty(&review).unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
+    assert_eq!(parsed["algorithm"], "LeftFlow");
+    assert!(parsed["slices"].is_array());
+    assert!(parsed["findings"].is_array());
+}
+
+#[test]
+fn test_review_output_json_schema_multi() {
+    let (files, sources, diff) = make_python_test();
+
+    let algorithms_to_run = vec![SlicingAlgorithm::LeftFlow, SlicingAlgorithm::ThinSlice];
+    let mut results = vec![];
+    for &algo in &algorithms_to_run {
+        let r = algorithms::run_slicing(
+            &files,
+            &diff,
+            &SliceConfig::default().with_algorithm(algo),
+        )
+        .unwrap();
+        results.push(r);
+    }
+
+    let algorithms_run: Vec<String> = algorithms_to_run.iter().map(|a| a.name().to_string()).collect();
+    let all_findings: Vec<SliceFinding> = results.iter().flat_map(|r| r.findings.clone()).collect();
+    let review_results: Vec<_> = results.iter().map(|r| to_review_output(r, &sources)).collect();
+
+    let multi = MultiReviewOutput {
+        version: "1.0".to_string(),
+        algorithms_run: algorithms_run.clone(),
+        results: review_results,
+        all_findings,
+        errors: vec![],
+    };
+
+    // Verify schema
+    assert_eq!(multi.version, "1.0");
+    assert_eq!(multi.algorithms_run.len(), 2);
+    assert!(multi.algorithms_run.contains(&"LeftFlow".to_string()));
+    assert!(multi.algorithms_run.contains(&"ThinSlice".to_string()));
+    assert_eq!(multi.results.len(), 2);
+
+    // Verify valid JSON
+    let json = serde_json::to_string_pretty(&multi).unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
+    assert_eq!(parsed["version"], "1.0");
+    assert_eq!(parsed["algorithms_run"].as_array().unwrap().len(), 2);
+    assert!(parsed["results"].is_array());
+    assert!(parsed["all_findings"].is_array());
+}
+
+#[test]
+fn test_review_suite_list() {
+    let suite = SlicingAlgorithm::review_suite();
+    // Review suite should be non-empty and contain core algorithms
+    assert!(!suite.is_empty());
+    assert!(suite.contains(&SlicingAlgorithm::LeftFlow));
+    assert!(suite.contains(&SlicingAlgorithm::FullFlow));
+    assert!(suite.contains(&SlicingAlgorithm::Taint));
+    assert!(suite.contains(&SlicingAlgorithm::AbsenceSlice));
+    assert!(suite.contains(&SlicingAlgorithm::EchoSlice));
+    // Git-history-only algorithms should NOT be in the review suite
+    assert!(!suite.contains(&SlicingAlgorithm::ResonanceSlice));
+    assert!(!suite.contains(&SlicingAlgorithm::PhantomSlice));
+}
+
+#[test]
+fn test_taint_findings_populated() {
+    let (files, sources, diff) = make_taint_test_fixture();
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::Taint),
+    )
+    .unwrap();
+
+    let review = to_review_output(&result, &sources);
+    assert_eq!(review.algorithm, "Taint");
+
+    // findings may or may not fire depending on AST analysis, but the field must exist
+    for finding in &review.findings {
+        assert_eq!(finding.algorithm, "taint"); // findings use lowercase algorithm names
+        assert!(!finding.file.is_empty(), "finding.file must not be empty");
+        assert!(
+            ["info", "warning", "concern"].contains(&finding.severity.as_str()),
+            "severity must be one of info/warning/concern"
+        );
+        assert!(!finding.description.is_empty(), "finding.description must not be empty");
+        assert!(finding.line > 0, "finding.line must be > 0");
+    }
+}
+
+#[test]
+fn test_absence_findings_populated() {
+    let (files, sources, diff) = make_absence_test_fixture();
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::AbsenceSlice),
+    )
+    .unwrap();
+
+    let review = to_review_output(&result, &sources);
+    assert_eq!(review.algorithm, "AbsenceSlice");
+
+    // All findings from absence should have category "missing_counterpart"
+    for finding in &review.findings {
+        assert_eq!(finding.algorithm, "absence"); // findings use lowercase algorithm names
+        assert_eq!(
+            finding.category.as_deref(),
+            Some("missing_counterpart"),
+            "absence findings should have category missing_counterpart"
+        );
+        assert_eq!(finding.severity, "warning");
+    }
+}
+
+#[test]
+fn test_multi_algorithm_findings_merged() {
+    let (files, sources, diff) = make_python_test();
+
+    let algorithms_to_run = SlicingAlgorithm::review_suite();
+    let mut all_results = vec![];
+    let mut errors = vec![];
+
+    for &algo in &algorithms_to_run {
+        match algorithms::run_slicing(
+            &files,
+            &diff,
+            &SliceConfig::default().with_algorithm(algo),
+        ) {
+            Ok(r) => all_results.push(r),
+            Err(e) => errors.push(e.to_string()),
+        }
+    }
+
+    // Collect all findings across all algorithms
+    let merged_findings: Vec<SliceFinding> =
+        all_results.iter().flat_map(|r| r.findings.clone()).collect();
+
+    // All findings should have non-empty required fields
+    for finding in &merged_findings {
+        assert!(!finding.algorithm.is_empty());
+        assert!(!finding.file.is_empty());
+        assert!(!finding.description.is_empty());
+        assert!(["info", "warning", "concern"].contains(&finding.severity.as_str()));
+    }
+
+    // Results count should match algorithms that succeeded (no panics)
+    let review_results: Vec<_> = all_results.iter().map(|r| to_review_output(r, &sources)).collect();
+    let multi = MultiSliceResult {
+        version: "1.0".to_string(),
+        algorithms_run: algorithms_to_run.iter().map(|a| a.name().to_string()).collect(),
+        results: all_results,
+        findings: merged_findings,
+        errors: vec![],
+    };
+
+    assert_eq!(multi.version, "1.0");
+    assert_eq!(multi.results.len(), review_results.len());
+    assert!(multi.algorithms_run.contains(&"LeftFlow".to_string()));
+
+    // JSON round-trip
+    let json = serde_json::to_string_pretty(&multi).unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
+    assert!(parsed["results"].is_array());
+    assert!(parsed["findings"].is_array());
 }

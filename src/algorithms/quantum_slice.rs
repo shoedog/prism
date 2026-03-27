@@ -81,8 +81,12 @@ pub fn slice(
                 let mut states: Vec<PossibleState> = Vec::new();
 
                 for &assign_line in &assignments {
-                    let is_after_async = async_lines.iter().any(|&al| al < assign_line && al > func_start);
-                    let is_before_async = async_lines.iter().any(|&al| al > assign_line && al < func_end);
+                    let is_after_async = async_lines
+                        .iter()
+                        .any(|&al| al < assign_line && al > func_start);
+                    let is_before_async = async_lines
+                        .iter()
+                        .any(|&al| al > assign_line && al < func_end);
 
                     let state_label = if is_after_async || is_before_async {
                         format!(
@@ -117,11 +121,8 @@ pub fn slice(
 
                 // Build block with all relevant lines
                 if states.iter().any(|s| s.is_async_dependent) {
-                    let mut block = DiffBlock::new(
-                        block_id,
-                        diff_info.file_path.clone(),
-                        ModifyType::Modified,
-                    );
+                    let mut block =
+                        DiffBlock::new(block_id, diff_info.file_path.clone(), ModifyType::Modified);
 
                     // Include the diff line
                     block.add_line(&diff_info.file_path, line, true);
@@ -129,11 +130,7 @@ pub fn slice(
                     // Include all assignment lines
                     for state in &states {
                         if state.assignment_line > 0 {
-                            block.add_line(
-                                &state.assignment_file,
-                                state.assignment_line,
-                                false,
-                            );
+                            block.add_line(&state.assignment_file, state.assignment_line, false);
                         }
                     }
 
@@ -169,9 +166,7 @@ fn find_async_inner(parsed: &ParsedFile, node: Node<'_>, out: &mut Vec<usize>) {
     let line = node.start_position().row + 1;
 
     let is_async = match parsed.language {
-        Language::Python => {
-            kind == "await" || kind == "await_expression"
-        }
+        Language::Python => kind == "await" || kind == "await_expression",
         Language::JavaScript | Language::TypeScript => {
             kind == "await_expression"
                 || (kind == "call_expression" && {
@@ -190,6 +185,27 @@ fn find_async_inner(parsed: &ParsedFile, node: Node<'_>, out: &mut Vec<usize>) {
                     || text.contains("submit(")
                     || text.contains("execute(")
                     || text.contains(".start()")
+            }
+        }
+        Language::C => {
+            kind == "call_expression" && {
+                let text = parsed.node_text(&node);
+                text.contains("pthread_create")
+                    || text.contains("fork(")
+                    || text.contains("signal(")
+                    || text.contains("sigaction(")
+                    || text.contains("dispatch_async")
+            }
+        }
+        Language::Cpp => {
+            kind == "call_expression" && {
+                let text = parsed.node_text(&node);
+                text.contains("std::async")
+                    || text.contains("std::thread")
+                    || text.contains("pthread_create")
+                    || text.contains("fork(")
+                    || text.contains("signal(")
+                    || text.contains("std::jthread")
             }
         }
     };
@@ -227,6 +243,25 @@ fn is_async_function(parsed: &ParsedFile, func_node: &Node<'_>) -> bool {
             text.contains("CompletableFuture")
                 || text.contains("Future<")
                 || text.contains("Callable")
+        }
+        Language::C => {
+            // C functions aren't inherently async, but check if they contain
+            // pthread_create, fork, or signal handlers
+            let text = parsed.node_text(func_node);
+            text.contains("pthread_create")
+                || text.contains("fork(")
+                || text.contains("signal(")
+                || text.contains("sigaction(")
+        }
+        Language::Cpp => {
+            // Check for C++ async patterns
+            let text = parsed.node_text(func_node);
+            text.contains("std::async")
+                || text.contains("std::thread")
+                || text.contains("std::jthread")
+                || text.contains("co_await")
+                || text.contains("co_yield")
+                || text.contains("pthread_create")
         }
     }
 }

@@ -47,12 +47,17 @@ pub fn run_slicing(
         SlicingAlgorithm::FullFlow => full_flow::slice(files, diff, config),
         SlicingAlgorithm::ThinSlice => thin_slice::slice(files, diff),
         SlicingAlgorithm::RelevantSlice => relevant_slice::slice(files, diff, config),
-        SlicingAlgorithm::BarrierSlice => {
-            barrier_slice::slice(files, diff, config, &barrier_slice::BarrierConfig::default())
-        }
+        SlicingAlgorithm::BarrierSlice => barrier_slice::slice(
+            files,
+            diff,
+            config,
+            &barrier_slice::BarrierConfig::default(),
+        ),
         SlicingAlgorithm::Chop => Ok(SliceResult::new(SlicingAlgorithm::Chop)),
         SlicingAlgorithm::Taint => taint::slice(files, diff, &taint::TaintConfig::default()),
-        SlicingAlgorithm::ConditionedSlice => Ok(SliceResult::new(SlicingAlgorithm::ConditionedSlice)),
+        SlicingAlgorithm::ConditionedSlice => {
+            Ok(SliceResult::new(SlicingAlgorithm::ConditionedSlice))
+        }
         SlicingAlgorithm::DeltaSlice => Ok(SliceResult::new(SlicingAlgorithm::DeltaSlice)),
         SlicingAlgorithm::SpiralSlice => {
             spiral_slice::slice(files, diff, config, &spiral_slice::SpiralConfig::default())

@@ -7,18 +7,34 @@
 use crate::ast::ParsedFile;
 use crate::data_flow::DataFlowGraph;
 use crate::diff::{DiffBlock, DiffInput, ModifyType};
-use crate::slice::{SliceResult, SlicingAlgorithm};
+use crate::slice::{SliceFinding, SliceResult, SlicingAlgorithm};
 use anyhow::Result;
 use std::collections::{BTreeMap, BTreeSet};
 
 /// Built-in taint sink patterns.
 const SINK_PATTERNS: &[&str] = &[
-    "exec", "eval", "system", "popen", "subprocess",
-    "query", "execute", "raw_sql", "cursor",
-    "open", "write", "unlink", "remove", "rmdir",
-    "send", "respond", "render", "redirect",
-    "innerHTML", "dangerouslySetInnerHTML",
-    "Exec", "Command",
+    "exec",
+    "eval",
+    "system",
+    "popen",
+    "subprocess",
+    "query",
+    "execute",
+    "raw_sql",
+    "cursor",
+    "open",
+    "write",
+    "unlink",
+    "remove",
+    "rmdir",
+    "send",
+    "respond",
+    "render",
+    "redirect",
+    "innerHTML",
+    "dangerouslySetInnerHTML",
+    "Exec",
+    "Command",
 ];
 
 /// Configuration for taint analysis.
@@ -113,6 +129,34 @@ pub fn slice(
     // Also check source lines for sinks (taint at source)
     for (file, line) in &taint_sources {
         all_tainted.entry(file.clone()).or_default().insert(*line);
+    }
+
+    // Emit findings for each taint sink reached
+    for (file, line) in &sink_lines {
+        // Find a source that reaches this sink (use first taint source as representative)
+        let source_desc = taint_sources
+            .iter()
+            .find(|(sf, _)| sf == file)
+            .map(|(_, sl)| format!("line {}", sl))
+            .unwrap_or_else(|| "diff lines".to_string());
+        result.findings.push(SliceFinding {
+            algorithm: "taint".to_string(),
+            file: file.clone(),
+            line: *line,
+            severity: "warning".to_string(),
+            description: format!(
+                "tainted value from {} reaches sink at line {}",
+                source_desc, line
+            ),
+            function_name: None,
+            related_lines: taint_sources
+                .iter()
+                .filter(|(sf, _)| sf == file)
+                .map(|(_, sl)| *sl)
+                .collect(),
+            related_files: vec![],
+            category: Some("tainted_value".to_string()),
+        });
     }
 
     // Build output blocks

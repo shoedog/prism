@@ -96,9 +96,7 @@ pub fn slice(
                 }
 
                 // Include caller function signature and call site
-                let entry = slice_lines
-                    .entry(caller_id.file.clone())
-                    .or_default();
+                let entry = slice_lines.entry(caller_id.file.clone()).or_default();
                 entry.insert(caller_id.start_line, false);
                 entry.insert(caller_id.end_line, false);
 
@@ -127,9 +125,7 @@ pub fn slice(
                     continue;
                 }
 
-                let entry = slice_lines
-                    .entry(callee_id.file.clone())
-                    .or_default();
+                let entry = slice_lines.entry(callee_id.file.clone()).or_default();
                 entry.insert(callee_id.start_line, false);
                 entry.insert(callee_id.end_line, false);
             }

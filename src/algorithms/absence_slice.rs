@@ -12,7 +12,7 @@
 
 use crate::ast::ParsedFile;
 use crate::diff::{DiffBlock, DiffInput, ModifyType};
-use crate::slice::{SliceResult, SlicingAlgorithm};
+use crate::slice::{SliceFinding, SliceResult, SlicingAlgorithm};
 use anyhow::Result;
 use std::collections::BTreeMap;
 
@@ -34,22 +34,45 @@ pub fn default_pairs() -> Vec<PairedPattern> {
         },
         PairedPattern {
             open_patterns: vec![".lock(", "Lock(", "acquire(", "mutex.lock", "RLock("],
-            close_patterns: vec![".unlock(", "Unlock(", "release(", "mutex.unlock", "RUnlock("],
+            close_patterns: vec![
+                ".unlock(",
+                "Unlock(",
+                "release(",
+                "mutex.unlock",
+                "RUnlock(",
+            ],
             description: "lock without unlock",
         },
         PairedPattern {
             open_patterns: vec!["connect(", "Connect(", "dial(", "Dial(", "createConnection"],
-            close_patterns: vec!["disconnect(", "Disconnect(", "close(", "Close(", "closeConnection"],
+            close_patterns: vec![
+                "disconnect(",
+                "Disconnect(",
+                "close(",
+                "Close(",
+                "closeConnection",
+            ],
             description: "connection opened without close",
         },
         PairedPattern {
             open_patterns: vec!["subscribe(", "addEventListener(", "on(", "addListener("],
-            close_patterns: vec!["unsubscribe(", "removeEventListener(", "off(", "removeListener("],
+            close_patterns: vec![
+                "unsubscribe(",
+                "removeEventListener(",
+                "off(",
+                "removeListener(",
+            ],
             description: "event subscription without unsubscribe",
         },
         PairedPattern {
             open_patterns: vec!["begin(", "beginTransaction(", "startTransaction(", "BEGIN"],
-            close_patterns: vec!["commit(", "rollback(", "endTransaction(", "COMMIT", "ROLLBACK"],
+            close_patterns: vec![
+                "commit(",
+                "rollback(",
+                "endTransaction(",
+                "COMMIT",
+                "ROLLBACK",
+            ],
             description: "transaction begin without commit/rollback",
         },
         PairedPattern {
@@ -90,10 +113,7 @@ pub struct AbsenceFinding {
     pub function_name: String,
 }
 
-pub fn slice(
-    files: &BTreeMap<String, ParsedFile>,
-    diff: &DiffInput,
-) -> Result<SliceResult> {
+pub fn slice(files: &BTreeMap<String, ParsedFile>, diff: &DiffInput) -> Result<SliceResult> {
     let mut result = SliceResult::new(SlicingAlgorithm::AbsenceSlice);
     let pairs = default_pairs();
     let mut block_id = 0;
@@ -125,7 +145,7 @@ pub fn slice(
                     None => continue,
                 };
 
-                let _func_name = parsed
+                let func_name = parsed
                     .language
                     .function_name(&func_node)
                     .map(|n| parsed.node_text(&n).to_string())
@@ -148,16 +168,16 @@ pub fn slice(
                         return false;
                     }
                     let lt = source_lines[l - 1];
-                    lt.contains("defer ") || lt.contains("finally") || lt.contains("with ") || lt.contains("using ")
+                    lt.contains("defer ")
+                        || lt.contains("finally")
+                        || lt.contains("with ")
+                        || lt.contains("using ")
                 });
 
                 if !has_close && !has_defer_or_finally {
                     // Missing counterpart found — build a block showing the finding
-                    let mut block = DiffBlock::new(
-                        block_id,
-                        diff_info.file_path.clone(),
-                        ModifyType::Modified,
-                    );
+                    let mut block =
+                        DiffBlock::new(block_id, diff_info.file_path.clone(), ModifyType::Modified);
 
                     // Include function signature
                     block.add_line(&diff_info.file_path, func_start, false);
@@ -174,6 +194,20 @@ pub fn slice(
                         block.add_line(&diff_info.file_path, *ret_line, false);
                     }
 
+                    result.findings.push(SliceFinding {
+                        algorithm: "absence".to_string(),
+                        file: diff_info.file_path.clone(),
+                        line: diff_line,
+                        severity: "warning".to_string(),
+                        description: format!(
+                            "{} in function '{}' (line {})",
+                            pair.description, func_name, diff_line
+                        ),
+                        function_name: Some(func_name.clone()),
+                        related_lines: returns.clone(),
+                        related_files: vec![],
+                        category: Some("missing_counterpart".to_string()),
+                    });
                     result.blocks.push(block);
                     block_id += 1;
                 }
