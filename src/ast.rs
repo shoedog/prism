@@ -38,7 +38,11 @@ impl ParsedFile {
     /// Find the smallest function/method node containing the given line (1-indexed).
     pub fn enclosing_function(&self, line: usize) -> Option<Node<'_>> {
         let row = line.saturating_sub(1); // tree-sitter uses 0-indexed rows
-        self.find_enclosing_node(self.tree.root_node(), row, &self.language.function_node_types())
+        self.find_enclosing_node(
+            self.tree.root_node(),
+            row,
+            &self.language.function_node_types(),
+        )
     }
 
     fn find_enclosing_node<'a>(
@@ -95,12 +99,7 @@ impl ParsedFile {
         result
     }
 
-    fn collect_identifiers_at_row<'a>(
-        &self,
-        node: Node<'a>,
-        row: usize,
-        out: &mut Vec<Node<'a>>,
-    ) {
+    fn collect_identifiers_at_row<'a>(&self, node: Node<'a>, row: usize, out: &mut Vec<Node<'a>>) {
         if node.start_position().row == row && self.language.is_identifier_node(node.kind()) {
             out.push(node);
         }
@@ -195,11 +194,7 @@ impl ParsedFile {
         }
     }
 
-    fn collect_all_identifiers<'a>(
-        &self,
-        node: Node<'a>,
-        out: &mut Vec<(String, usize)>,
-    ) {
+    fn collect_all_identifiers<'a>(&self, node: Node<'a>, out: &mut Vec<(String, usize)>) {
         if self.language.is_identifier_node(node.kind()) {
             let name = self.node_text(&node).to_string();
             let line = node.start_position().row + 1;
@@ -222,12 +217,7 @@ impl ParsedFile {
         lines
     }
 
-    fn collect_variable_refs(
-        &self,
-        node: Node<'_>,
-        var_name: &str,
-        out: &mut BTreeSet<usize>,
-    ) {
+    fn collect_variable_refs(&self, node: Node<'_>, var_name: &str, out: &mut BTreeSet<usize>) {
         if self.language.is_identifier_node(node.kind()) && self.node_text(&node) == var_name {
             out.insert(node.start_position().row + 1);
         }
@@ -239,10 +229,7 @@ impl ParsedFile {
 
     /// Get the line range (1-indexed, inclusive) of a node.
     pub fn node_line_range(&self, node: &Node) -> (usize, usize) {
-        (
-            node.start_position().row + 1,
-            node.end_position().row + 1,
-        )
+        (node.start_position().row + 1, node.end_position().row + 1)
     }
 
     /// Find condition variables in control flow statements on the given lines.
@@ -359,11 +346,7 @@ impl ParsedFile {
         self.find_function_by_name_inner(self.tree.root_node(), name)
     }
 
-    fn find_function_by_name_inner<'a>(
-        &self,
-        node: Node<'a>,
-        name: &str,
-    ) -> Option<Node<'a>> {
+    fn find_function_by_name_inner<'a>(&self, node: Node<'a>, name: &str) -> Option<Node<'a>> {
         let types = self.language.function_node_types();
         if types.contains(&node.kind()) {
             if let Some(name_node) = self.language.function_name(&node) {

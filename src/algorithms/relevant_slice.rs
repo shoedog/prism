@@ -116,9 +116,9 @@ fn collect_alternates_inner(
 
         // For if statements without else, note the absence (include the closing brace line)
         if node.kind() == "if_statement" || node.kind() == "if_expression" {
-            let has_else = children
-                .iter()
-                .any(|c| c.kind() == "else_clause" || c.kind() == "elif_clause" || c.kind() == "else");
+            let has_else = children.iter().any(|c| {
+                c.kind() == "else_clause" || c.kind() == "elif_clause" || c.kind() == "else"
+            });
             if !has_else {
                 // Include the line after the if block ends — the "missing else" zone
                 let (_, if_end) = parsed.node_line_range(&node);

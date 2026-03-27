@@ -14,10 +14,7 @@ use crate::slice::{SliceResult, SlicingAlgorithm};
 use anyhow::Result;
 use std::collections::BTreeMap;
 
-pub fn slice(
-    files: &BTreeMap<String, ParsedFile>,
-    diff: &DiffInput,
-) -> Result<SliceResult> {
+pub fn slice(files: &BTreeMap<String, ParsedFile>, diff: &DiffInput) -> Result<SliceResult> {
     let mut result = SliceResult::new(SlicingAlgorithm::CircularSlice);
     let call_graph = CallGraph::build(files);
 
@@ -98,11 +95,8 @@ pub fn slice(
                             && r.kind != dl.kind
                         {
                             // Data flow cycle detected
-                            let mut block = DiffBlock::new(
-                                block_id,
-                                file.clone(),
-                                ModifyType::Modified,
-                            );
+                            let mut block =
+                                DiffBlock::new(block_id, file.clone(), ModifyType::Modified);
                             block.add_line(file, line, true);
                             // Include all intermediate lines
                             for intermediate in &reachable {

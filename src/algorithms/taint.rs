@@ -13,12 +13,28 @@ use std::collections::{BTreeMap, BTreeSet};
 
 /// Built-in taint sink patterns.
 const SINK_PATTERNS: &[&str] = &[
-    "exec", "eval", "system", "popen", "subprocess",
-    "query", "execute", "raw_sql", "cursor",
-    "open", "write", "unlink", "remove", "rmdir",
-    "send", "respond", "render", "redirect",
-    "innerHTML", "dangerouslySetInnerHTML",
-    "Exec", "Command",
+    "exec",
+    "eval",
+    "system",
+    "popen",
+    "subprocess",
+    "query",
+    "execute",
+    "raw_sql",
+    "cursor",
+    "open",
+    "write",
+    "unlink",
+    "remove",
+    "rmdir",
+    "send",
+    "respond",
+    "render",
+    "redirect",
+    "innerHTML",
+    "dangerouslySetInnerHTML",
+    "Exec",
+    "Command",
 ];
 
 /// Configuration for taint analysis.

@@ -68,39 +68,82 @@ impl Origin {
 
 /// Heuristic patterns for origin classification.
 const USER_INPUT_PATTERNS: &[&str] = &[
-    "request", "req.", "body", "params", "query", "form",
-    "input", "stdin", "args", "argv", "getParameter",
-    "ReadBody", "FormValue", "PostForm", "r.Body",
-    "event.target", "prompt(", "readline",
+    "request",
+    "req.",
+    "body",
+    "params",
+    "query",
+    "form",
+    "input",
+    "stdin",
+    "args",
+    "argv",
+    "getParameter",
+    "ReadBody",
+    "FormValue",
+    "PostForm",
+    "r.Body",
+    "event.target",
+    "prompt(",
+    "readline",
 ];
 
 const DATABASE_PATTERNS: &[&str] = &[
-    "query", "execute", "fetch", "cursor", "find(",
-    "findOne", "select", "SELECT", "db.", "DB.",
-    "repository", "dao", "store.get",
+    "query",
+    "execute",
+    "fetch",
+    "cursor",
+    "find(",
+    "findOne",
+    "select",
+    "SELECT",
+    "db.",
+    "DB.",
+    "repository",
+    "dao",
+    "store.get",
 ];
 
 const CONFIG_PATTERNS: &[&str] = &[
-    "config", "Config", "settings", "Settings",
-    "getConfig", "get_config", "cfg.", "conf.",
-    "properties", "yaml", "toml",
+    "config",
+    "Config",
+    "settings",
+    "Settings",
+    "getConfig",
+    "get_config",
+    "cfg.",
+    "conf.",
+    "properties",
+    "yaml",
+    "toml",
 ];
 
 const ENV_PATTERNS: &[&str] = &[
-    "os.environ", "os.Getenv", "process.env",
-    "System.getenv", "env.", "ENV[",
-    "getenv(", "dotenv",
+    "os.environ",
+    "os.Getenv",
+    "process.env",
+    "System.getenv",
+    "env.",
+    "ENV[",
+    "getenv(",
+    "dotenv",
 ];
 
 fn classify_line(line_text: &str) -> Origin {
     // Check for literal/constant assignment
     let trimmed = line_text.trim();
-    if trimmed.contains("= \"") || trimmed.contains("= '")
-        || trimmed.contains("= 0") || trimmed.contains("= 1")
-        || trimmed.contains("= true") || trimmed.contains("= false")
-        || trimmed.contains("= nil") || trimmed.contains("= null")
-        || trimmed.contains("= None") || trimmed.contains("= []")
-        || trimmed.contains("= {}") || trimmed.contains("= ()")
+    if trimmed.contains("= \"")
+        || trimmed.contains("= '")
+        || trimmed.contains("= 0")
+        || trimmed.contains("= 1")
+        || trimmed.contains("= true")
+        || trimmed.contains("= false")
+        || trimmed.contains("= nil")
+        || trimmed.contains("= null")
+        || trimmed.contains("= None")
+        || trimmed.contains("= []")
+        || trimmed.contains("= {}")
+        || trimmed.contains("= ()")
     {
         return Origin::Constant;
     }
@@ -133,10 +176,7 @@ pub struct ProvenanceFinding {
     pub path: Vec<(String, usize)>,
 }
 
-pub fn slice(
-    files: &BTreeMap<String, ParsedFile>,
-    diff: &DiffInput,
-) -> Result<SliceResult> {
+pub fn slice(files: &BTreeMap<String, ParsedFile>, diff: &DiffInput) -> Result<SliceResult> {
     let mut result = SliceResult::new(SlicingAlgorithm::ProvenanceSlice);
     let dfg = DataFlowGraph::build(files);
     let mut block_id = 0;
@@ -252,11 +292,8 @@ pub fn slice(
                 }
 
                 // Build a block showing the provenance chain
-                let mut block = DiffBlock::new(
-                    block_id,
-                    diff_info.file_path.clone(),
-                    ModifyType::Modified,
-                );
+                let mut block =
+                    DiffBlock::new(block_id, diff_info.file_path.clone(), ModifyType::Modified);
 
                 // The use site (diff line)
                 block.add_line(&diff_info.file_path, line, true);

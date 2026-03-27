@@ -169,7 +169,11 @@ pub fn slice(
         })
         .collect();
 
-    scored.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
+    scored.sort_by(|a, b| {
+        b.score
+            .partial_cmp(&a.score)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
 
     // Group by file for output
     let mut by_file: BTreeMap<String, Vec<&ScoredLine>> = BTreeMap::new();

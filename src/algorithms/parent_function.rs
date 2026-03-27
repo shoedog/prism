@@ -9,10 +9,7 @@ use crate::slice::{SliceResult, SlicingAlgorithm};
 use anyhow::Result;
 use std::collections::{BTreeMap, BTreeSet};
 
-pub fn slice(
-    files: &BTreeMap<String, ParsedFile>,
-    diff: &DiffInput,
-) -> Result<SliceResult> {
+pub fn slice(files: &BTreeMap<String, ParsedFile>, diff: &DiffInput) -> Result<SliceResult> {
     let mut result = SliceResult::new(SlicingAlgorithm::ParentFunction);
     let mut block_id = 0;
 
@@ -50,10 +47,7 @@ pub fn slice(
         }
 
         // Handle diff lines outside any function (global scope)
-        let covered: BTreeSet<usize> = function_ranges
-            .iter()
-            .flat_map(|(s, e)| *s..=*e)
-            .collect();
+        let covered: BTreeSet<usize> = function_ranges.iter().flat_map(|(s, e)| *s..=*e).collect();
 
         let uncovered: Vec<usize> = diff_info
             .diff_lines

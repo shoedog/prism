@@ -215,7 +215,13 @@ impl DataFlowGraph {
     }
 
     /// Find all statements on any data flow path between source and sink.
-    pub fn chop(&self, source_file: &str, source_line: usize, sink_file: &str, sink_line: usize) -> BTreeSet<(String, usize)> {
+    pub fn chop(
+        &self,
+        source_file: &str,
+        source_line: usize,
+        sink_file: &str,
+        sink_line: usize,
+    ) -> BTreeSet<(String, usize)> {
         // Forward reachable from source
         let source_locs: Vec<VarLocation> = self.all_locations_at(source_file, source_line);
         let mut forward_reachable = BTreeSet::new();
@@ -266,10 +272,7 @@ impl DataFlowGraph {
     }
 
     /// Forward taint propagation from a set of tainted locations.
-    pub fn taint_forward(
-        &self,
-        taint_sources: &[(String, usize)],
-    ) -> Vec<FlowPath> {
+    pub fn taint_forward(&self, taint_sources: &[(String, usize)]) -> Vec<FlowPath> {
         let mut paths = Vec::new();
 
         for (file, line) in taint_sources {

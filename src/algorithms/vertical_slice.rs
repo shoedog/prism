@@ -44,9 +44,7 @@ pub struct VerticalConfig {
 
 impl Default for VerticalConfig {
     fn default() -> Self {
-        Self {
-            layers: Vec::new(),
-        }
+        Self { layers: Vec::new() }
     }
 }
 
@@ -133,18 +131,14 @@ pub fn slice(
 
                 // Build block
                 if !path.is_empty() {
-                    let mut block = DiffBlock::new(
-                        block_id,
-                        diff_info.file_path.clone(),
-                        ModifyType::Modified,
-                    );
+                    let mut block =
+                        DiffBlock::new(block_id, diff_info.file_path.clone(), ModifyType::Modified);
 
                     for entry in &path {
                         block.add_line(&entry.file, entry.start_line, false);
                         block.add_line(&entry.file, entry.end_line, false);
                         // For the diff function, include actual diff lines
-                        if entry.file == diff_info.file_path
-                            && entry.function_name == func_id.name
+                        if entry.file == diff_info.file_path && entry.function_name == func_id.name
                         {
                             for &dl in &diff_info.diff_lines {
                                 if dl >= entry.start_line && dl <= entry.end_line {

@@ -116,7 +116,9 @@ impl SlicingAlgorithm {
             "gradient" | "gradientslice" | "gradient_slice" => Some(Self::GradientSlice),
             "provenance" | "provenanceslice" | "provenance_slice" => Some(Self::ProvenanceSlice),
             "phantom" | "phantomslice" | "phantom_slice" | "ghost" => Some(Self::PhantomSlice),
-            "membrane" | "membraneslice" | "membrane_slice" | "boundary" => Some(Self::MembraneSlice),
+            "membrane" | "membraneslice" | "membrane_slice" | "boundary" => {
+                Some(Self::MembraneSlice)
+            }
             "echo" | "echoslice" | "echo_slice" | "ripple" => Some(Self::EchoSlice),
             _ => None,
         }

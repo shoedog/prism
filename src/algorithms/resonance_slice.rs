@@ -95,11 +95,8 @@ pub fn slice(
 
     // Build output blocks — one per missing file
     for (block_id, finding) in findings.iter().enumerate() {
-        let mut block = DiffBlock::new(
-            block_id,
-            finding.missing_file.clone(),
-            ModifyType::Modified,
-        );
+        let mut block =
+            DiffBlock::new(block_id, finding.missing_file.clone(), ModifyType::Modified);
 
         // If we have the missing file parsed, include its function signatures
         if let Some(parsed) = files.get(&finding.missing_file) {
@@ -111,7 +108,11 @@ pub fn slice(
         }
 
         // Include the changed file's diff lines for reference
-        if let Some(diff_info) = diff.files.iter().find(|f| f.file_path == finding.changed_file) {
+        if let Some(diff_info) = diff
+            .files
+            .iter()
+            .find(|f| f.file_path == finding.changed_file)
+        {
             for &line in &diff_info.diff_lines {
                 block.add_line(&finding.changed_file, line, true);
             }
@@ -124,19 +125,12 @@ pub fn slice(
 }
 
 /// Query git for co-change data: which files change together.
-fn get_co_change_data(
-    git_dir: &str,
-    days: usize,
-) -> BTreeMap<String, BTreeMap<String, usize>> {
+fn get_co_change_data(git_dir: &str, days: usize) -> BTreeMap<String, BTreeMap<String, usize>> {
     let mut co_changes: BTreeMap<String, BTreeMap<String, usize>> = BTreeMap::new();
 
     // Get commit hashes in the time window
     let output = Command::new("git")
-        .args([
-            "log",
-            "--format=%H",
-            &format!("--since={} days ago", days),
-        ])
+        .args(["log", "--format=%H", &format!("--since={} days ago", days)])
         .current_dir(git_dir)
         .output();
 
@@ -170,8 +164,16 @@ fn get_co_change_data(
             for j in (i + 1)..files_in_commit.len() {
                 let a = &files_in_commit[i];
                 let b = &files_in_commit[j];
-                *co_changes.entry(a.clone()).or_default().entry(b.clone()).or_insert(0) += 1;
-                *co_changes.entry(b.clone()).or_default().entry(a.clone()).or_insert(0) += 1;
+                *co_changes
+                    .entry(a.clone())
+                    .or_default()
+                    .entry(b.clone())
+                    .or_insert(0) += 1;
+                *co_changes
+                    .entry(b.clone())
+                    .or_default()
+                    .entry(a.clone())
+                    .or_insert(0) += 1;
             }
         }
     }

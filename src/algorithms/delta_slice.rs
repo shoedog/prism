@@ -42,13 +42,27 @@ pub fn slice(
     let old_edges: BTreeSet<(String, usize, String, usize)> = old_dfg
         .edges
         .iter()
-        .map(|e| (e.from.file.clone(), e.from.line, e.to.file.clone(), e.to.line))
+        .map(|e| {
+            (
+                e.from.file.clone(),
+                e.from.line,
+                e.to.file.clone(),
+                e.to.line,
+            )
+        })
         .collect();
 
     let new_edges: BTreeSet<(String, usize, String, usize)> = new_dfg
         .edges
         .iter()
-        .map(|e| (e.from.file.clone(), e.from.line, e.to.file.clone(), e.to.line))
+        .map(|e| {
+            (
+                e.from.file.clone(),
+                e.from.line,
+                e.to.file.clone(),
+                e.to.line,
+            )
+        })
         .collect();
 
     // New edges (added data flow)
@@ -67,12 +81,24 @@ pub fn slice(
     }
 
     for edge in &added {
-        changed_lines.entry(edge.0.clone()).or_default().insert(edge.1);
-        changed_lines.entry(edge.2.clone()).or_default().insert(edge.3);
+        changed_lines
+            .entry(edge.0.clone())
+            .or_default()
+            .insert(edge.1);
+        changed_lines
+            .entry(edge.2.clone())
+            .or_default()
+            .insert(edge.3);
     }
     for edge in &removed {
-        changed_lines.entry(edge.0.clone()).or_default().insert(edge.1);
-        changed_lines.entry(edge.2.clone()).or_default().insert(edge.3);
+        changed_lines
+            .entry(edge.0.clone())
+            .or_default()
+            .insert(edge.1);
+        changed_lines
+            .entry(edge.2.clone())
+            .or_default()
+            .insert(edge.3);
     }
 
     // Build output blocks

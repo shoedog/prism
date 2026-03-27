@@ -178,10 +178,7 @@ pub fn format_block(block: &DiffBlock, sources: &BTreeMap<String, String>) -> St
 }
 
 /// Format all blocks in a slice result.
-pub fn format_slice_result(
-    blocks: &[DiffBlock],
-    sources: &BTreeMap<String, String>,
-) -> String {
+pub fn format_slice_result(blocks: &[DiffBlock], sources: &BTreeMap<String, String>) -> String {
     let mut output = String::new();
 
     for (i, block) in blocks.iter().enumerate() {
