@@ -62,8 +62,8 @@ pub fn slice(
 
             // Phase 1: Trace L-values (assignment targets)
             let lvalues = parsed.assignment_lvalues_on_lines(&func_node, lines);
-            for (var_name, _decl_line) in &lvalues {
-                let refs = parsed.find_variable_references(&func_node, var_name);
+            for (var_name, decl_line) in &lvalues {
+                let refs = parsed.find_variable_references_scoped(&func_node, var_name, *decl_line);
                 for ref_line in refs {
                     if ref_line >= *func_start && ref_line <= *func_end {
                         slice_lines.entry(ref_line).or_insert(false);

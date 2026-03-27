@@ -87,7 +87,8 @@ impl DataFlowGraph {
 
                 // Find all uses of each defined variable
                 for (var_name, def_line) in &lvalues {
-                    let refs = parsed.find_variable_references(&func_node, var_name);
+                    let refs =
+                        parsed.find_variable_references_scoped(&func_node, var_name, *def_line);
                     for ref_line in &refs {
                         if *ref_line == *def_line {
                             continue; // Skip self-reference

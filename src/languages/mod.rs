@@ -265,6 +265,16 @@ impl Language {
             .or_else(|| node.child_by_field_name("argument_list"))
     }
 
+    /// Whether a node kind represents a lexical scope block that introduces variable shadowing.
+    pub fn is_scope_block(&self, kind: &str) -> bool {
+        matches!(
+            kind,
+            "block"              // Go, Java
+                | "compound_statement" // C, C++
+                | "statement_block" // JavaScript, TypeScript
+        )
+    }
+
     /// Whether a node is a return statement.
     pub fn is_return_node(&self, kind: &str) -> bool {
         matches!(kind, "return_statement")
