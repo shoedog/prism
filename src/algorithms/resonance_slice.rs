@@ -12,9 +12,12 @@
 use crate::ast::ParsedFile;
 use crate::diff::{DiffBlock, DiffInput, ModifyType};
 use crate::slice::{SliceResult, SlicingAlgorithm};
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use std::collections::{BTreeMap, BTreeSet};
 use std::process::Command;
+
+/// Commits touching more files than this are skipped (merge/formatting commits).
+const MAX_FILES_PER_COMMIT: usize = 50;
 
 /// Configuration for resonance slicing.
 #[derive(Debug, Clone)]
@@ -61,7 +64,7 @@ pub fn slice(
     let changed_files: BTreeSet<String> = diff.files.iter().map(|f| f.file_path.clone()).collect();
 
     // Get co-change data from git
-    let co_changes = get_co_change_data(&config.git_dir, config.days);
+    let co_changes = get_co_change_data(&config.git_dir, config.days)?;
 
     // For each changed file, find files that usually co-change
     let mut findings: Vec<ResonanceFinding> = Vec::new();
@@ -125,23 +128,31 @@ pub fn slice(
 }
 
 /// Query git for co-change data: which files change together.
-fn get_co_change_data(git_dir: &str, days: usize) -> BTreeMap<String, BTreeMap<String, usize>> {
+fn get_co_change_data(
+    git_dir: &str,
+    days: usize,
+) -> Result<BTreeMap<String, BTreeMap<String, usize>>> {
     let mut co_changes: BTreeMap<String, BTreeMap<String, usize>> = BTreeMap::new();
 
     // Get commit hashes in the time window
     let output = Command::new("git")
         .args(["log", "--format=%H", &format!("--since={} days ago", days)])
         .current_dir(git_dir)
-        .output();
+        .output()
+        .map_err(|e| anyhow!("git is not available: {}", e))?;
 
-    let commits: Vec<String> = match output {
-        Ok(out) => String::from_utf8_lossy(&out.stdout)
-            .lines()
-            .map(|s| s.trim().to_string())
-            .filter(|s| !s.is_empty())
-            .collect(),
-        Err(_) => return co_changes,
-    };
+    if !output.status.success() {
+        return Err(anyhow!(
+            "git log failed (is this a git repository?): {}",
+            String::from_utf8_lossy(&output.stderr).trim()
+        ));
+    }
+
+    let commits: Vec<String> = String::from_utf8_lossy(&output.stdout)
+        .lines()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+        .collect();
 
     // For each commit, get the list of changed files
     for commit in &commits {
@@ -158,6 +169,11 @@ fn get_co_change_data(git_dir: &str, days: usize) -> BTreeMap<String, BTreeMap<S
                 .collect(),
             Err(_) => continue,
         };
+
+        // Skip merge/formatting commits that touch too many files
+        if files_in_commit.len() > MAX_FILES_PER_COMMIT {
+            continue;
+        }
 
         // Record co-changes: for each pair of files in this commit
         for i in 0..files_in_commit.len() {
@@ -178,5 +194,5 @@ fn get_co_change_data(git_dir: &str, days: usize) -> BTreeMap<String, BTreeMap<S
         }
     }
 
-    co_changes
+    Ok(co_changes)
 }

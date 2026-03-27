@@ -13,7 +13,7 @@ use crate::ast::ParsedFile;
 use crate::call_graph::CallGraph;
 use crate::diff::{DiffBlock, DiffInput, ModifyType};
 use crate::slice::{SliceResult, SlicingAlgorithm};
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use std::collections::{BTreeMap, BTreeSet};
 use std::process::Command;
 
@@ -61,7 +61,7 @@ pub fn slice(
     let call_graph = CallGraph::build(files);
 
     // Get temporal data from git
-    let git_churn = get_git_churn(&config.git_dir, config.temporal_days);
+    let git_churn = get_git_churn(&config.git_dir, config.temporal_days)?;
 
     // Calculate risk scores for all functions containing diff lines
     let mut scores: Vec<RiskScore> = Vec::new();
@@ -178,7 +178,7 @@ pub fn slice(
 }
 
 /// Query git for file churn data.
-fn get_git_churn(git_dir: &str, days: usize) -> BTreeMap<String, usize> {
+fn get_git_churn(git_dir: &str, days: usize) -> Result<BTreeMap<String, usize>> {
     let mut churn = BTreeMap::new();
 
     let output = Command::new("git")
@@ -189,18 +189,24 @@ fn get_git_churn(git_dir: &str, days: usize) -> BTreeMap<String, usize> {
             &format!("--since={} days ago", days),
         ])
         .current_dir(git_dir)
-        .output();
+        .output()
+        .map_err(|e| anyhow!("git is not available: {}", e))?;
 
-    if let Ok(output) = output {
-        if let Ok(stdout) = String::from_utf8(output.stdout) {
-            for line in stdout.lines() {
-                let line = line.trim();
-                if !line.is_empty() {
-                    *churn.entry(line.to_string()).or_insert(0) += 1;
-                }
+    if !output.status.success() {
+        return Err(anyhow!(
+            "git log failed (is this a git repository?): {}",
+            String::from_utf8_lossy(&output.stderr).trim()
+        ));
+    }
+
+    if let Ok(stdout) = String::from_utf8(output.stdout) {
+        for line in stdout.lines() {
+            let line = line.trim();
+            if !line.is_empty() {
+                *churn.entry(line.to_string()).or_insert(0) += 1;
             }
         }
     }
 
-    churn
+    Ok(churn)
 }

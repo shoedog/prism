@@ -10,7 +10,7 @@
 use crate::ast::ParsedFile;
 use crate::diff::{DiffBlock, DiffInput, ModifyType};
 use crate::slice::{SliceResult, SlicingAlgorithm};
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use std::collections::{BTreeMap, BTreeSet};
 use std::process::Command;
 
@@ -49,7 +49,7 @@ pub fn slice(
     let mut result = SliceResult::new(SlicingAlgorithm::PhantomSlice);
 
     // Get recently deleted functions from git
-    let deleted = find_recently_deleted(&config.git_dir, config.max_commits);
+    let deleted = find_recently_deleted(&config.git_dir, config.max_commits)?;
 
     // Collect all identifiers referenced on diff lines
     let mut diff_identifiers: BTreeSet<String> = BTreeSet::new();
@@ -98,7 +98,7 @@ pub fn slice(
 }
 
 /// Find recently deleted function/class definitions from git history.
-fn find_recently_deleted(git_dir: &str, max_commits: usize) -> Vec<DeletedSymbol> {
+fn find_recently_deleted(git_dir: &str, max_commits: usize) -> Result<Vec<DeletedSymbol>> {
     let mut deleted = Vec::new();
 
     // Get recent commits that deleted lines
@@ -111,12 +111,17 @@ fn find_recently_deleted(git_dir: &str, max_commits: usize) -> Vec<DeletedSymbol
             "--format=%H",
         ])
         .current_dir(git_dir)
-        .output();
+        .output()
+        .map_err(|e| anyhow!("git is not available: {}", e))?;
 
-    let stdout = match output {
-        Ok(out) => String::from_utf8_lossy(&out.stdout).to_string(),
-        Err(_) => return deleted,
-    };
+    if !output.status.success() {
+        return Err(anyhow!(
+            "git log failed (is this a git repository?): {}",
+            String::from_utf8_lossy(&output.stderr).trim()
+        ));
+    }
+
+    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
 
     let mut current_commit = String::new();
     for line in stdout.lines() {
@@ -154,7 +159,7 @@ fn find_recently_deleted(git_dir: &str, max_commits: usize) -> Vec<DeletedSymbol
         }
     }
 
-    deleted
+    Ok(deleted)
 }
 
 /// Heuristic extraction of function names from a line of code.
