@@ -1,9 +1,13 @@
 [package]
-name = "slicing"
+name = "prism"
 version = "0.1.0"
 edition = "2021"
 description = "Code slicing algorithms for defect-focused automated code review, based on arXiv:2505.17928"
 license = "MIT"
+
+[[bin]]
+name = "prism"
+path = "src/main.rs"
 
 [dependencies]
 tree-sitter = "0.25"

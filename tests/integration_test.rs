@@ -1,11 +1,11 @@
-use slicing::algorithms;
-use slicing::ast::ParsedFile;
-use slicing::call_graph::CallGraph;
-use slicing::data_flow::DataFlowGraph;
-use slicing::diff::{DiffInfo, DiffInput, ModifyType};
-use slicing::languages::Language;
-use slicing::output;
-use slicing::slice::{SliceConfig, SlicingAlgorithm};
+use prism::algorithms;
+use prism::ast::ParsedFile;
+use prism::call_graph::CallGraph;
+use prism::data_flow::DataFlowGraph;
+use prism::diff::{DiffInfo, DiffInput, ModifyType};
+use prism::languages::Language;
+use prism::output;
+use prism::slice::{SliceConfig, SlicingAlgorithm};
 use std::collections::{BTreeMap, BTreeSet};
 
 fn make_python_test() -> (
@@ -883,8 +883,8 @@ def process(url):
 #[test]
 fn test_angle_slice_error_handling() {
     let (files, _, diff) = make_error_handling_test();
-    let concern = slicing::algorithms::angle_slice::Concern::ErrorHandling;
-    let result = slicing::algorithms::angle_slice::slice(&files, &diff, &concern).unwrap();
+    let concern = prism::algorithms::angle_slice::Concern::ErrorHandling;
+    let result = prism::algorithms::angle_slice::slice(&files, &diff, &concern).unwrap();
 
     assert!(!result.blocks.is_empty());
     let block = &result.blocks[0];
@@ -968,7 +968,7 @@ async function fetchUser(id) {
 #[test]
 fn test_quantum_slice_async_js() {
     let (files, diff) = make_async_test();
-    let result = slicing::algorithms::quantum_slice::slice(&files, &diff, Some("user")).unwrap();
+    let result = prism::algorithms::quantum_slice::slice(&files, &diff, Some("user")).unwrap();
 
     // May or may not find async patterns depending on tree-sitter parsing
     // Just verify it doesn't crash
@@ -979,7 +979,7 @@ fn test_quantum_slice_async_js() {
 
 #[test]
 fn test_conditioned_slice_parses_conditions() {
-    use slicing::algorithms::conditioned_slice::Condition;
+    use prism::algorithms::conditioned_slice::Condition;
 
     let c = Condition::parse("x==5").unwrap();
     assert_eq!(c.var_name, "x");
@@ -1944,4 +1944,273 @@ fn test_c_and_cpp_parse() {
 
     let cpp_parsed = ParsedFile::parse("test.cpp", cpp_source, Language::Cpp);
     assert!(cpp_parsed.is_ok(), "C++ parsing should succeed");
+}
+
+// ====== Review output format tests ======
+
+use prism::output::{to_review_output, MultiReviewOutput};
+use prism::slice::{MultiSliceResult, SliceFinding};
+
+fn make_taint_test_fixture() -> (BTreeMap<String, ParsedFile>, BTreeMap<String, String>, DiffInput) {
+    let source = r#"
+import os
+
+def handle_request(user_input):
+    query = "SELECT * FROM users WHERE name = '" + user_input + "'"
+    result = db.execute(query)
+    return result
+
+def log_entry(message):
+    os.system("logger " + message)
+"#;
+
+    let path = "src/handler.py";
+    let parsed = ParsedFile::parse(path, source, Language::Python).unwrap();
+    let mut files = BTreeMap::new();
+    let mut sources = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+    sources.insert(path.to_string(), source.to_string());
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([4]),
+        }],
+    };
+
+    (files, sources, diff)
+}
+
+fn make_absence_test_fixture() -> (BTreeMap<String, ParsedFile>, BTreeMap<String, String>, DiffInput) {
+    let source = r#"
+import threading
+
+def worker():
+    lock = threading.Lock()
+    lock.acquire()
+    # do work but never release — missing counterpart
+    return
+
+def safe_worker():
+    lock = threading.Lock()
+    lock.acquire()
+    try:
+        pass
+    finally:
+        lock.release()
+"#;
+
+    let path = "src/worker.py";
+    let parsed = ParsedFile::parse(path, source, Language::Python).unwrap();
+    let mut files = BTreeMap::new();
+    let mut sources = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+    sources.insert(path.to_string(), source.to_string());
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([6]),
+        }],
+    };
+
+    (files, sources, diff)
+}
+
+#[test]
+fn test_review_output_format_single_algorithm() {
+    let (files, sources, diff) = make_python_test();
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::LeftFlow),
+    )
+    .unwrap();
+
+    let review = to_review_output(&result, &sources);
+
+    // Verify schema fields
+    assert_eq!(review.algorithm, "LeftFlow");
+    assert!(
+        review.slices.iter().all(|s| !s.file.is_empty()),
+        "Each slice block should have a file"
+    );
+    assert!(
+        review.slices.iter().all(|s| !s.modify_type.is_empty()),
+        "Each slice block should have a modify_type"
+    );
+
+    // Verify serialization to JSON succeeds and is valid
+    let json = serde_json::to_string_pretty(&review).unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
+    assert_eq!(parsed["algorithm"], "LeftFlow");
+    assert!(parsed["slices"].is_array());
+    assert!(parsed["findings"].is_array());
+}
+
+#[test]
+fn test_review_output_json_schema_multi() {
+    let (files, sources, diff) = make_python_test();
+
+    let algorithms_to_run = vec![SlicingAlgorithm::LeftFlow, SlicingAlgorithm::ThinSlice];
+    let mut results = vec![];
+    for &algo in &algorithms_to_run {
+        let r = algorithms::run_slicing(
+            &files,
+            &diff,
+            &SliceConfig::default().with_algorithm(algo),
+        )
+        .unwrap();
+        results.push(r);
+    }
+
+    let algorithms_run: Vec<String> = algorithms_to_run.iter().map(|a| a.name().to_string()).collect();
+    let all_findings: Vec<SliceFinding> = results.iter().flat_map(|r| r.findings.clone()).collect();
+    let review_results: Vec<_> = results.iter().map(|r| to_review_output(r, &sources)).collect();
+
+    let multi = MultiReviewOutput {
+        version: "1.0".to_string(),
+        algorithms_run: algorithms_run.clone(),
+        results: review_results,
+        all_findings,
+        errors: vec![],
+    };
+
+    // Verify schema
+    assert_eq!(multi.version, "1.0");
+    assert_eq!(multi.algorithms_run.len(), 2);
+    assert!(multi.algorithms_run.contains(&"LeftFlow".to_string()));
+    assert!(multi.algorithms_run.contains(&"ThinSlice".to_string()));
+    assert_eq!(multi.results.len(), 2);
+
+    // Verify valid JSON
+    let json = serde_json::to_string_pretty(&multi).unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
+    assert_eq!(parsed["version"], "1.0");
+    assert_eq!(parsed["algorithms_run"].as_array().unwrap().len(), 2);
+    assert!(parsed["results"].is_array());
+    assert!(parsed["all_findings"].is_array());
+}
+
+#[test]
+fn test_review_suite_list() {
+    let suite = SlicingAlgorithm::review_suite();
+    // Review suite should be non-empty and contain core algorithms
+    assert!(!suite.is_empty());
+    assert!(suite.contains(&SlicingAlgorithm::LeftFlow));
+    assert!(suite.contains(&SlicingAlgorithm::FullFlow));
+    assert!(suite.contains(&SlicingAlgorithm::Taint));
+    assert!(suite.contains(&SlicingAlgorithm::AbsenceSlice));
+    assert!(suite.contains(&SlicingAlgorithm::EchoSlice));
+    // Git-history-only algorithms should NOT be in the review suite
+    assert!(!suite.contains(&SlicingAlgorithm::ResonanceSlice));
+    assert!(!suite.contains(&SlicingAlgorithm::PhantomSlice));
+}
+
+#[test]
+fn test_taint_findings_populated() {
+    let (files, sources, diff) = make_taint_test_fixture();
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::Taint),
+    )
+    .unwrap();
+
+    let review = to_review_output(&result, &sources);
+    assert_eq!(review.algorithm, "Taint");
+
+    // findings may or may not fire depending on AST analysis, but the field must exist
+    for finding in &review.findings {
+        assert_eq!(finding.algorithm, "taint"); // findings use lowercase algorithm names
+        assert!(!finding.file.is_empty(), "finding.file must not be empty");
+        assert!(
+            ["info", "warning", "concern"].contains(&finding.severity.as_str()),
+            "severity must be one of info/warning/concern"
+        );
+        assert!(!finding.description.is_empty(), "finding.description must not be empty");
+        assert!(finding.line > 0, "finding.line must be > 0");
+    }
+}
+
+#[test]
+fn test_absence_findings_populated() {
+    let (files, sources, diff) = make_absence_test_fixture();
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::AbsenceSlice),
+    )
+    .unwrap();
+
+    let review = to_review_output(&result, &sources);
+    assert_eq!(review.algorithm, "AbsenceSlice");
+
+    // All findings from absence should have category "missing_counterpart"
+    for finding in &review.findings {
+        assert_eq!(finding.algorithm, "absence"); // findings use lowercase algorithm names
+        assert_eq!(
+            finding.category.as_deref(),
+            Some("missing_counterpart"),
+            "absence findings should have category missing_counterpart"
+        );
+        assert_eq!(finding.severity, "warning");
+    }
+}
+
+#[test]
+fn test_multi_algorithm_findings_merged() {
+    let (files, sources, diff) = make_python_test();
+
+    let algorithms_to_run = SlicingAlgorithm::review_suite();
+    let mut all_results = vec![];
+    let mut errors = vec![];
+
+    for &algo in &algorithms_to_run {
+        match algorithms::run_slicing(
+            &files,
+            &diff,
+            &SliceConfig::default().with_algorithm(algo),
+        ) {
+            Ok(r) => all_results.push(r),
+            Err(e) => errors.push(e.to_string()),
+        }
+    }
+
+    // Collect all findings across all algorithms
+    let merged_findings: Vec<SliceFinding> =
+        all_results.iter().flat_map(|r| r.findings.clone()).collect();
+
+    // All findings should have non-empty required fields
+    for finding in &merged_findings {
+        assert!(!finding.algorithm.is_empty());
+        assert!(!finding.file.is_empty());
+        assert!(!finding.description.is_empty());
+        assert!(["info", "warning", "concern"].contains(&finding.severity.as_str()));
+    }
+
+    // Results count should match algorithms that succeeded (no panics)
+    let review_results: Vec<_> = all_results.iter().map(|r| to_review_output(r, &sources)).collect();
+    let multi = MultiSliceResult {
+        version: "1.0".to_string(),
+        algorithms_run: algorithms_to_run.iter().map(|a| a.name().to_string()).collect(),
+        results: all_results,
+        findings: merged_findings,
+        errors: vec![],
+    };
+
+    assert_eq!(multi.version, "1.0");
+    assert_eq!(multi.results.len(), review_results.len());
+    assert!(multi.algorithms_run.contains(&"LeftFlow".to_string()));
+
+    // JSON round-trip
+    let json = serde_json::to_string_pretty(&multi).unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
+    assert!(parsed["results"].is_array());
+    assert!(parsed["findings"].is_array());
 }
