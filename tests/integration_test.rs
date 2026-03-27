@@ -1951,7 +1951,11 @@ fn test_c_and_cpp_parse() {
 use prism::output::{to_review_output, MultiReviewOutput};
 use prism::slice::{MultiSliceResult, SliceFinding};
 
-fn make_taint_test_fixture() -> (BTreeMap<String, ParsedFile>, BTreeMap<String, String>, DiffInput) {
+fn make_taint_test_fixture() -> (
+    BTreeMap<String, ParsedFile>,
+    BTreeMap<String, String>,
+    DiffInput,
+) {
     let source = r#"
 import os
 
@@ -1982,7 +1986,11 @@ def log_entry(message):
     (files, sources, diff)
 }
 
-fn make_absence_test_fixture() -> (BTreeMap<String, ParsedFile>, BTreeMap<String, String>, DiffInput) {
+fn make_absence_test_fixture() -> (
+    BTreeMap<String, ParsedFile>,
+    BTreeMap<String, String>,
+    DiffInput,
+) {
     let source = r#"
 import threading
 
@@ -2058,18 +2066,21 @@ fn test_review_output_json_schema_multi() {
     let algorithms_to_run = vec![SlicingAlgorithm::LeftFlow, SlicingAlgorithm::ThinSlice];
     let mut results = vec![];
     for &algo in &algorithms_to_run {
-        let r = algorithms::run_slicing(
-            &files,
-            &diff,
-            &SliceConfig::default().with_algorithm(algo),
-        )
-        .unwrap();
+        let r =
+            algorithms::run_slicing(&files, &diff, &SliceConfig::default().with_algorithm(algo))
+                .unwrap();
         results.push(r);
     }
 
-    let algorithms_run: Vec<String> = algorithms_to_run.iter().map(|a| a.name().to_string()).collect();
+    let algorithms_run: Vec<String> = algorithms_to_run
+        .iter()
+        .map(|a| a.name().to_string())
+        .collect();
     let all_findings: Vec<SliceFinding> = results.iter().flat_map(|r| r.findings.clone()).collect();
-    let review_results: Vec<_> = results.iter().map(|r| to_review_output(r, &sources)).collect();
+    let review_results: Vec<_> = results
+        .iter()
+        .map(|r| to_review_output(r, &sources))
+        .collect();
 
     let multi = MultiReviewOutput {
         version: "1.0".to_string(),
@@ -2132,7 +2143,10 @@ fn test_taint_findings_populated() {
             ["info", "warning", "concern"].contains(&finding.severity.as_str()),
             "severity must be one of info/warning/concern"
         );
-        assert!(!finding.description.is_empty(), "finding.description must not be empty");
+        assert!(
+            !finding.description.is_empty(),
+            "finding.description must not be empty"
+        );
         assert!(finding.line > 0, "finding.line must be > 0");
     }
 }
@@ -2172,19 +2186,17 @@ fn test_multi_algorithm_findings_merged() {
     let mut errors = vec![];
 
     for &algo in &algorithms_to_run {
-        match algorithms::run_slicing(
-            &files,
-            &diff,
-            &SliceConfig::default().with_algorithm(algo),
-        ) {
+        match algorithms::run_slicing(&files, &diff, &SliceConfig::default().with_algorithm(algo)) {
             Ok(r) => all_results.push(r),
             Err(e) => errors.push(e.to_string()),
         }
     }
 
     // Collect all findings across all algorithms
-    let merged_findings: Vec<SliceFinding> =
-        all_results.iter().flat_map(|r| r.findings.clone()).collect();
+    let merged_findings: Vec<SliceFinding> = all_results
+        .iter()
+        .flat_map(|r| r.findings.clone())
+        .collect();
 
     // All findings should have non-empty required fields
     for finding in &merged_findings {
@@ -2195,10 +2207,16 @@ fn test_multi_algorithm_findings_merged() {
     }
 
     // Results count should match algorithms that succeeded (no panics)
-    let review_results: Vec<_> = all_results.iter().map(|r| to_review_output(r, &sources)).collect();
+    let review_results: Vec<_> = all_results
+        .iter()
+        .map(|r| to_review_output(r, &sources))
+        .collect();
     let multi = MultiSliceResult {
         version: "1.0".to_string(),
-        algorithms_run: algorithms_to_run.iter().map(|a| a.name().to_string()).collect(),
+        algorithms_run: algorithms_to_run
+            .iter()
+            .map(|a| a.name().to_string())
+            .collect(),
         results: all_results,
         findings: merged_findings,
         errors: vec![],

@@ -119,10 +119,7 @@ pub fn render_review_block(block: &DiffBlock, sources: &BTreeMap<String, String>
 }
 
 /// Convert a SliceResult into a ReviewOutput.
-pub fn to_review_output(
-    result: &SliceResult,
-    sources: &BTreeMap<String, String>,
-) -> ReviewOutput {
+pub fn to_review_output(result: &SliceResult, sources: &BTreeMap<String, String>) -> ReviewOutput {
     let slices = result
         .blocks
         .iter()

@@ -132,14 +132,18 @@ fn main() -> Result<()> {
         println!("    3d               Temporal-structural risk (--temporal-days)");
         println!();
         println!("  Novel extensions:");
-        println!("    absence          Missing counterparts (open without close, lock without unlock)");
+        println!(
+            "    absence          Missing counterparts (open without close, lock without unlock)"
+        );
         println!("    resonance        Files that usually co-change but aren't in this diff");
         println!("    symmetry         Broken symmetry (serialize changed, deserialize not)");
         println!("    gradient         Continuous relevance scoring with distance decay");
         println!("    provenance       Trace data origin (user input, config, database, constant)");
         println!("    phantom          Recently deleted code the diff may depend on");
         println!("    membrane         Module boundary: who calls this API and will they break");
-        println!("    echo             Ripple effect: downstream callers missing new error handling");
+        println!(
+            "    echo             Ripple effect: downstream callers missing new error handling"
+        );
         return Ok(());
     }
 
@@ -236,8 +240,10 @@ fn main() -> Result<()> {
             }
         }
 
-        let algorithms_run: Vec<String> =
-            algorithms_to_run.iter().map(|a| a.name().to_string()).collect();
+        let algorithms_run: Vec<String> = algorithms_to_run
+            .iter()
+            .map(|a| a.name().to_string())
+            .collect();
         let all_findings: Vec<_> = results.iter().flat_map(|r| r.findings.clone()).collect();
 
         match cli.format.as_str() {
@@ -450,6 +456,8 @@ fn parse_file_line(s: &str) -> Result<(String, usize)> {
     if parts.len() != 2 {
         anyhow::bail!("Expected file:line format, got: {}", s);
     }
-    let line: usize = parts[0].parse().context(format!("Invalid line number: {}", parts[0]))?;
+    let line: usize = parts[0]
+        .parse()
+        .context(format!("Invalid line number: {}", parts[0]))?;
     Ok((parts[1].to_string(), line))
 }
