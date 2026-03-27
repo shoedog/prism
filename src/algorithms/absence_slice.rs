@@ -113,6 +113,21 @@ pub struct AbsenceFinding {
     pub function_name: String,
 }
 
+/// Extract the base function name from a call pattern like `"malloc("` or `".lock("`.
+/// Returns `None` for keyword/non-call patterns (e.g. `"new "`, `"defer "`, SQL keywords).
+fn pattern_to_call_base(pattern: &str) -> Option<&str> {
+    if !pattern.ends_with('(') {
+        return None;
+    }
+    let base = pattern.trim_end_matches('(');
+    let base = base.trim_start_matches('.');
+    if base.is_empty() {
+        None
+    } else {
+        Some(base)
+    }
+}
+
 pub fn slice(files: &BTreeMap<String, ParsedFile>, diff: &DiffInput) -> Result<SliceResult> {
     let mut result = SliceResult::new(SlicingAlgorithm::AbsenceSlice);
     let pairs = default_pairs();
@@ -132,9 +147,22 @@ pub fn slice(files: &BTreeMap<String, ParsedFile>, diff: &DiffInput) -> Result<S
             }
             let line_text = source_lines[diff_line - 1];
 
+            // Collect AST call names on this specific diff line once (for open check).
+            let line_calls = parsed.call_names_on_lines(&[diff_line]);
+
             // Check each pair pattern
             for pair in &pairs {
-                let has_open = pair.open_patterns.iter().any(|p| line_text.contains(p));
+                // For patterns ending in '(': use AST call node names (avoids comments/strings).
+                // For keyword patterns (new, defer, SQL): fall back to substring matching.
+                let has_open = pair.open_patterns.iter().any(|p| {
+                    if let Some(base) = pattern_to_call_base(p) {
+                        line_calls
+                            .get(&diff_line)
+                            .map_or(false, |names| names.iter().any(|n| n.contains(base)))
+                    } else {
+                        line_text.contains(p)
+                    }
+                });
                 if !has_open {
                     continue;
                 }
@@ -153,13 +181,21 @@ pub fn slice(files: &BTreeMap<String, ParsedFile>, diff: &DiffInput) -> Result<S
 
                 let (func_start, func_end) = parsed.node_line_range(&func_node);
 
-                // Search the entire function for the close counterpart
-                let has_close = (func_start..=func_end).any(|l| {
-                    if l == 0 || l > source_lines.len() {
-                        return false;
+                // Collect AST call names across the entire function body (for close check).
+                let func_lines: Vec<usize> = (func_start..=func_end).collect();
+                let func_calls = parsed.call_names_on_lines(&func_lines);
+
+                // Search the entire function for the close counterpart.
+                let has_close = pair.close_patterns.iter().any(|p| {
+                    if let Some(base) = pattern_to_call_base(p) {
+                        func_calls
+                            .values()
+                            .any(|names| names.iter().any(|n| n.contains(base)))
+                    } else {
+                        (func_start..=func_end).any(|l| {
+                            l > 0 && l <= source_lines.len() && source_lines[l - 1].contains(p)
+                        })
                     }
-                    let lt = source_lines[l - 1];
-                    pair.close_patterns.iter().any(|p| lt.contains(p))
                 });
 
                 // Also check for language-specific cleanup patterns

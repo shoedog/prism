@@ -1,6 +1,6 @@
 use crate::languages::Language;
 use anyhow::{Context, Result};
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use tree_sitter::{Node, Parser, Tree};
 
 /// Wraps a tree-sitter parse tree with helpers for slicing analysis.
@@ -227,6 +227,75 @@ impl ParsedFile {
         }
     }
 
+    /// Find variable references with basic scope awareness.
+    ///
+    /// Like `find_variable_references`, but filters out references that lie inside
+    /// an inner scope block which re-declares the same variable name — i.e., the
+    /// reference would be bound to the inner declaration, not the one at `def_line`.
+    pub fn find_variable_references_scoped(
+        &self,
+        func_node: &Node<'_>,
+        var_name: &str,
+        def_line: usize,
+    ) -> BTreeSet<usize> {
+        let mut lines = BTreeSet::new();
+        self.collect_variable_refs_scoped(*func_node, var_name, def_line, &mut lines);
+        lines
+    }
+
+    fn collect_variable_refs_scoped(
+        &self,
+        node: Node<'_>,
+        var_name: &str,
+        def_line: usize,
+        out: &mut BTreeSet<usize>,
+    ) {
+        let node_start = node.start_position().row + 1;
+        let node_end = node.end_position().row + 1;
+
+        // If this is a scope block that does NOT contain the definition,
+        // and it re-declares the variable, skip it entirely — references inside
+        // bind to the inner declaration, not the one we're tracking.
+        if self.language.is_scope_block(node.kind()) {
+            let def_in_scope = def_line >= node_start && def_line <= node_end;
+            if !def_in_scope && self.scope_has_declaration(node, var_name) {
+                return;
+            }
+        }
+
+        if self.language.is_identifier_node(node.kind()) && self.node_text(&node) == var_name {
+            out.insert(node.start_position().row + 1);
+        }
+
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            self.collect_variable_refs_scoped(child, var_name, def_line, out);
+        }
+    }
+
+    /// Check whether a scope block directly declares a variable with the given name.
+    /// Does not recurse into nested scope blocks (those have their own scope).
+    fn scope_has_declaration(&self, node: Node<'_>, var_name: &str) -> bool {
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            if self.language.is_declaration_node(child.kind()) {
+                if let Some(name_node) = self.language.declaration_name(&child) {
+                    if self.node_text(&name_node) == var_name {
+                        return true;
+                    }
+                }
+            }
+            // Recurse into non-scope children (e.g., for-loop init, expression statements)
+            // but stop at nested scope blocks to avoid false positives.
+            if !self.language.is_scope_block(child.kind())
+                && self.scope_has_declaration(child, var_name)
+            {
+                return true;
+            }
+        }
+        false
+    }
+
     /// Get the line range (1-indexed, inclusive) of a node.
     pub fn node_line_range(&self, node: &Node) -> (usize, usize) {
         (node.start_position().row + 1, node.end_position().row + 1)
@@ -338,6 +407,35 @@ impl ParsedFile {
         let mut cursor = node.walk();
         for child in node.children(&mut cursor) {
             self.collect_calls(child, lines, out);
+        }
+    }
+
+    /// Collect all function call names on specific lines (1-indexed).
+    /// Returns a map from line number to list of called function names found on that line.
+    /// Only matches actual AST call nodes — ignores calls inside comments or string literals.
+    pub fn call_names_on_lines(&self, lines: &[usize]) -> BTreeMap<usize, Vec<String>> {
+        let mut result: BTreeMap<usize, Vec<String>> = BTreeMap::new();
+        let line_set: BTreeSet<usize> = lines.iter().copied().collect();
+        self.collect_call_names_at_lines(self.tree.root_node(), &line_set, &mut result);
+        result
+    }
+
+    fn collect_call_names_at_lines(
+        &self,
+        node: Node<'_>,
+        lines: &BTreeSet<usize>,
+        out: &mut BTreeMap<usize, Vec<String>>,
+    ) {
+        let line = node.start_position().row + 1;
+        if self.language.is_call_node(node.kind()) && lines.contains(&line) {
+            if let Some(name_node) = self.language.call_function_name(&node) {
+                let name = self.node_text(&name_node).to_string();
+                out.entry(line).or_default().push(name);
+            }
+        }
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            self.collect_call_names_at_lines(child, lines, out);
         }
     }
 
