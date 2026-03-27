@@ -13,7 +13,7 @@
 use crate::ast::ParsedFile;
 use crate::call_graph::CallGraph;
 use crate::diff::{DiffBlock, DiffInput, ModifyType};
-use crate::slice::{SliceResult, SlicingAlgorithm};
+use crate::slice::{SliceFinding, SliceResult, SlicingAlgorithm};
 use anyhow::Result;
 use std::collections::BTreeMap;
 
@@ -116,6 +116,20 @@ pub fn slice(
                                 for site in sites {
                                     if site.caller.name == caller_id.name {
                                         block.add_line(&caller_id.file, site.line, true);
+                                        result.findings.push(SliceFinding {
+                                            algorithm: "membrane".to_string(),
+                                            file: caller_id.file.clone(),
+                                            line: site.line,
+                                            severity: "concern".to_string(),
+                                            description: format!(
+                                                "unprotected call to '{}' from '{}'",
+                                                func_name, caller_id.name
+                                            ),
+                                            function_name: Some(caller_id.name.clone()),
+                                            related_lines: vec![],
+                                            related_files: vec![diff_info.file_path.clone()],
+                                            category: Some("unprotected_caller".to_string()),
+                                        });
                                     }
                                 }
                             }

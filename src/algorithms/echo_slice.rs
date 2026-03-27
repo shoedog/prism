@@ -12,7 +12,7 @@
 use crate::ast::ParsedFile;
 use crate::call_graph::CallGraph;
 use crate::diff::{DiffBlock, DiffInput, ModifyType};
-use crate::slice::{SliceResult, SlicingAlgorithm};
+use crate::slice::{SliceFinding, SliceResult, SlicingAlgorithm};
 use anyhow::Result;
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -137,6 +137,23 @@ pub fn slice(
                 }
 
                 if !missing_checks.is_empty() {
+                    let first_call = call_lines.first().copied().unwrap_or(0);
+                    result.findings.push(SliceFinding {
+                        algorithm: "echo".to_string(),
+                        file: caller_id.file.clone(),
+                        line: first_call,
+                        severity: "warning".to_string(),
+                        description: format!(
+                            "'{}' calls '{}' without handling: {}",
+                            caller_id.name,
+                            func_name,
+                            missing_checks.join(", ")
+                        ),
+                        function_name: Some(caller_id.name.clone()),
+                        related_lines: call_lines.clone(),
+                        related_files: vec![diff_info.file_path.clone()],
+                        category: Some("missing_error_handling".to_string()),
+                    });
                     let mut block = DiffBlock::new(
                         block_id,
                         caller_id.file.clone(),

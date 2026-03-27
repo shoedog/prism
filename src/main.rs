@@ -5,7 +5,7 @@ use slicing::ast::ParsedFile;
 use slicing::diff::DiffInput;
 use slicing::languages::Language;
 use slicing::output;
-use slicing::slice::{SliceConfig, SlicingAlgorithm};
+use slicing::slice::{AlgorithmError, MultiSliceResult, SliceConfig, SlicingAlgorithm};
 use std::collections::BTreeMap;
 use std::fs;
 use std::path::PathBuf;
@@ -143,14 +143,35 @@ fn main() -> Result<()> {
         return Ok(());
     }
 
-    let algorithm = SlicingAlgorithm::from_str(&cli.algorithm)
-        .context(format!(
-            "Unknown algorithm: {}. Use --list-algorithms to see options.",
-            cli.algorithm
-        ))?;
+    // Parse the algorithm list: "review", "all", comma-separated names, or single name
+    let algorithms_to_run: Vec<SlicingAlgorithm> = match cli.algorithm.to_lowercase().as_str() {
+        "review" => SlicingAlgorithm::review_suite(),
+        "all" => SlicingAlgorithm::all(),
+        multi if multi.contains(',') => {
+            let mut algos = Vec::new();
+            for part in multi.split(',') {
+                let part = part.trim();
+                let algo = SlicingAlgorithm::from_str(part).context(format!(
+                    "Unknown algorithm: {}. Use --list-algorithms to see options.",
+                    part
+                ))?;
+                algos.push(algo);
+            }
+            algos
+        }
+        single => {
+            let algo = SlicingAlgorithm::from_str(single).context(format!(
+                "Unknown algorithm: {}. Use --list-algorithms to see options.",
+                cli.algorithm
+            ))?;
+            vec![algo]
+        }
+    };
+
+    let multi_run = algorithms_to_run.len() > 1;
 
     let config = SliceConfig {
-        algorithm,
+        algorithm: algorithms_to_run[0],
         max_branch_lines: cli.max_branch_lines,
         include_returns: !cli.no_returns,
         trace_callees: !cli.no_trace_callees,
@@ -194,8 +215,99 @@ fn main() -> Result<()> {
         files.insert(diff_info.file_path.clone(), parsed);
     }
 
-    // Run slicing — dispatch to algorithm-specific functions for those that need extra config
-    let result = match algorithm {
+    if multi_run {
+        // --- Multi-algorithm run ---
+        let mut results = Vec::new();
+        let mut all_errors: Vec<AlgorithmError> = Vec::new();
+
+        for &algo in &algorithms_to_run {
+            let algo_config = SliceConfig {
+                algorithm: algo,
+                max_branch_lines: cli.max_branch_lines,
+                include_returns: !cli.no_returns,
+                trace_callees: !cli.no_trace_callees,
+            };
+            match run_algorithm(algo, &files, &diff_input, &algo_config, &cli, repo) {
+                Ok(r) => results.push(r),
+                Err(e) => all_errors.push(AlgorithmError {
+                    algorithm: algo.name().to_string(),
+                    error: e.to_string(),
+                }),
+            }
+        }
+
+        let algorithms_run: Vec<String> =
+            algorithms_to_run.iter().map(|a| a.name().to_string()).collect();
+        let all_findings: Vec<_> = results.iter().flat_map(|r| r.findings.clone()).collect();
+
+        match cli.format.as_str() {
+            "review" => {
+                let review_results: Vec<_> = results
+                    .iter()
+                    .map(|r| output::to_review_output(r, &sources))
+                    .collect();
+                let out = output::MultiReviewOutput {
+                    version: "1.0".to_string(),
+                    algorithms_run,
+                    results: review_results,
+                    all_findings,
+                    errors: all_errors,
+                };
+                println!("{}", serde_json::to_string_pretty(&out)?);
+            }
+            "json" => {
+                let multi = MultiSliceResult {
+                    version: "1.0".to_string(),
+                    algorithms_run,
+                    results,
+                    findings: all_findings,
+                    errors: all_errors,
+                };
+                println!("{}", serde_json::to_string_pretty(&multi)?);
+            }
+            _ => {
+                for result in &results {
+                    println!("=== {} ===", result.algorithm.name());
+                    print!("{}", output::format_slice_result(&result.blocks, &sources));
+                }
+            }
+        }
+    } else {
+        // --- Single-algorithm run ---
+        let algorithm = algorithms_to_run[0];
+        let result = run_algorithm(algorithm, &files, &diff_input, &config, &cli, repo)?;
+
+        match cli.format.as_str() {
+            "json" => {
+                println!("{}", result.to_json()?);
+            }
+            "paper" => {
+                let paper_output = output::to_paper_format(&result.blocks);
+                println!("{}", serde_json::to_string_pretty(&paper_output)?);
+            }
+            "review" => {
+                let review = output::to_review_output(&result, &sources);
+                println!("{}", serde_json::to_string_pretty(&review)?);
+            }
+            _ => {
+                print!("{}", output::format_slice_result(&result.blocks, &sources));
+            }
+        }
+    }
+
+    Ok(())
+}
+
+/// Run a single slicing algorithm with all CLI-configured parameters.
+fn run_algorithm(
+    algorithm: SlicingAlgorithm,
+    files: &BTreeMap<String, ParsedFile>,
+    diff_input: &DiffInput,
+    config: &SliceConfig,
+    cli: &Cli,
+    repo: &std::path::Path,
+) -> Result<slicing::slice::SliceResult> {
+    match algorithm {
         SlicingAlgorithm::BarrierSlice => {
             let barrier_config = slicing::algorithms::barrier_slice::BarrierConfig {
                 max_depth: cli.barrier_depth,
@@ -207,22 +319,28 @@ fn main() -> Result<()> {
                     .collect(),
                 barrier_modules: Vec::new(),
             };
-            slicing::algorithms::barrier_slice::slice(&files, &diff_input, &config, &barrier_config)?
+            slicing::algorithms::barrier_slice::slice(files, diff_input, config, &barrier_config)
         }
         SlicingAlgorithm::Chop => {
-            let source = cli.chop_source.as_ref().context("--chop-source required for chop algorithm")?;
-            let sink = cli.chop_sink.as_ref().context("--chop-sink required for chop algorithm")?;
+            let source = cli
+                .chop_source
+                .as_ref()
+                .context("--chop-source required for chop algorithm")?;
+            let sink = cli
+                .chop_sink
+                .as_ref()
+                .context("--chop-sink required for chop algorithm")?;
             let (sf, sl) = parse_file_line(source)?;
             let (kf, kl) = parse_file_line(sink)?;
             slicing::algorithms::chop::slice(
-                &files,
+                files,
                 &slicing::algorithms::chop::ChopConfig {
                     source_file: sf,
                     source_line: sl,
                     sink_file: kf,
                     sink_line: kl,
                 },
-            )?
+            )
         }
         SlicingAlgorithm::Taint => {
             let taint_config = slicing::algorithms::taint::TaintConfig {
@@ -234,31 +352,33 @@ fn main() -> Result<()> {
                 taint_from_diff: cli.taint_source.is_empty(),
                 extra_sinks: Vec::new(),
             };
-            slicing::algorithms::taint::slice(&files, &diff_input, &taint_config)?
+            slicing::algorithms::taint::slice(files, diff_input, &taint_config)
         }
         SlicingAlgorithm::ConditionedSlice => {
-            let cond_str = cli.condition.as_ref().context("--condition required for conditioned algorithm")?;
+            let cond_str = cli
+                .condition
+                .as_ref()
+                .context("--condition required for conditioned algorithm")?;
             let condition = slicing::algorithms::conditioned_slice::Condition::parse(cond_str)
                 .context(format!("Failed to parse condition: {}", cond_str))?;
-            slicing::algorithms::conditioned_slice::slice(&files, &diff_input, &config, &condition)?
+            slicing::algorithms::conditioned_slice::slice(files, diff_input, config, &condition)
         }
         SlicingAlgorithm::DeltaSlice => {
-            let old_repo = cli.old_repo.as_ref().context("--old-repo required for delta algorithm")?;
-            slicing::algorithms::delta_slice::slice(&files, &diff_input, old_repo)?
+            let old_repo = cli
+                .old_repo
+                .as_ref()
+                .context("--old-repo required for delta algorithm")?;
+            slicing::algorithms::delta_slice::slice(files, diff_input, old_repo)
         }
         SlicingAlgorithm::SpiralSlice => {
             let spiral_config = slicing::algorithms::spiral_slice::SpiralConfig {
                 max_ring: cli.spiral_max_ring,
                 auto_stop_threshold: 0.05,
             };
-            slicing::algorithms::spiral_slice::slice(&files, &diff_input, &config, &spiral_config)?
+            slicing::algorithms::spiral_slice::slice(files, diff_input, config, &spiral_config)
         }
         SlicingAlgorithm::QuantumSlice => {
-            slicing::algorithms::quantum_slice::slice(
-                &files,
-                &diff_input,
-                cli.quantum_var.as_deref(),
-            )?
+            slicing::algorithms::quantum_slice::slice(files, diff_input, cli.quantum_var.as_deref())
         }
         SlicingAlgorithm::HorizontalSlice => {
             let pattern = match cli.peer_pattern.as_deref() {
@@ -279,7 +399,7 @@ fn main() -> Result<()> {
                 }
                 _ => slicing::algorithms::horizontal_slice::PeerPattern::Auto,
             };
-            slicing::algorithms::horizontal_slice::slice(&files, &diff_input, &pattern)?
+            slicing::algorithms::horizontal_slice::slice(files, diff_input, &pattern)
         }
         SlicingAlgorithm::VerticalSlice => {
             let vertical_config = slicing::algorithms::vertical_slice::VerticalConfig {
@@ -289,7 +409,7 @@ fn main() -> Result<()> {
                     .map(|l| l.split(',').map(|s| s.trim().to_string()).collect())
                     .unwrap_or_default(),
             };
-            slicing::algorithms::vertical_slice::slice(&files, &diff_input, &vertical_config)?
+            slicing::algorithms::vertical_slice::slice(files, diff_input, &vertical_config)
         }
         SlicingAlgorithm::AngleSlice => {
             let concern = cli
@@ -297,14 +417,14 @@ fn main() -> Result<()> {
                 .as_deref()
                 .map(slicing::algorithms::angle_slice::Concern::from_str)
                 .unwrap_or(slicing::algorithms::angle_slice::Concern::ErrorHandling);
-            slicing::algorithms::angle_slice::slice(&files, &diff_input, &concern)?
+            slicing::algorithms::angle_slice::slice(files, diff_input, &concern)
         }
         SlicingAlgorithm::ThreeDSlice => {
             let threed_config = slicing::algorithms::threed_slice::ThreeDConfig {
                 temporal_days: cli.temporal_days,
                 git_dir: repo.to_string_lossy().to_string(),
             };
-            slicing::algorithms::threed_slice::slice(&files, &diff_input, &threed_config)?
+            slicing::algorithms::threed_slice::slice(files, diff_input, &threed_config)
         }
         SlicingAlgorithm::ResonanceSlice => {
             let resonance_config = slicing::algorithms::resonance_slice::ResonanceConfig {
@@ -312,33 +432,17 @@ fn main() -> Result<()> {
                 days: cli.temporal_days,
                 ..Default::default()
             };
-            slicing::algorithms::resonance_slice::slice(&files, &diff_input, &resonance_config)?
+            slicing::algorithms::resonance_slice::slice(files, diff_input, &resonance_config)
         }
         SlicingAlgorithm::PhantomSlice => {
             let phantom_config = slicing::algorithms::phantom_slice::PhantomConfig {
                 git_dir: repo.to_string_lossy().to_string(),
                 ..Default::default()
             };
-            slicing::algorithms::phantom_slice::slice(&files, &diff_input, &phantom_config)?
+            slicing::algorithms::phantom_slice::slice(files, diff_input, &phantom_config)
         }
-        _ => algorithms::run_slicing(&files, &diff_input, &config)?,
-    };
-
-    // Output
-    match cli.format.as_str() {
-        "json" => {
-            println!("{}", result.to_json()?);
-        }
-        "paper" => {
-            let paper_output = output::to_paper_format(&result.blocks);
-            println!("{}", serde_json::to_string_pretty(&paper_output)?);
-        }
-        _ => {
-            print!("{}", output::format_slice_result(&result.blocks, &sources));
-        }
+        _ => algorithms::run_slicing(files, diff_input, config),
     }
-
-    Ok(())
 }
 
 fn parse_file_line(s: &str) -> Result<(String, usize)> {

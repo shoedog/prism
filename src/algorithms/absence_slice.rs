@@ -12,7 +12,7 @@
 
 use crate::ast::ParsedFile;
 use crate::diff::{DiffBlock, DiffInput, ModifyType};
-use crate::slice::{SliceResult, SlicingAlgorithm};
+use crate::slice::{SliceFinding, SliceResult, SlicingAlgorithm};
 use anyhow::Result;
 use std::collections::BTreeMap;
 
@@ -125,7 +125,7 @@ pub fn slice(
                     None => continue,
                 };
 
-                let _func_name = parsed
+                let func_name = parsed
                     .language
                     .function_name(&func_node)
                     .map(|n| parsed.node_text(&n).to_string())
@@ -174,6 +174,20 @@ pub fn slice(
                         block.add_line(&diff_info.file_path, *ret_line, false);
                     }
 
+                    result.findings.push(SliceFinding {
+                        algorithm: "absence".to_string(),
+                        file: diff_info.file_path.clone(),
+                        line: diff_line,
+                        severity: "warning".to_string(),
+                        description: format!(
+                            "{} in function '{}' (line {})",
+                            pair.description, func_name, diff_line
+                        ),
+                        function_name: Some(func_name.clone()),
+                        related_lines: returns.clone(),
+                        related_files: vec![],
+                        category: Some("missing_counterpart".to_string()),
+                    });
                     result.blocks.push(block);
                     block_id += 1;
                 }

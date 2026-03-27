@@ -13,7 +13,7 @@
 use crate::ast::ParsedFile;
 use crate::data_flow::DataFlowGraph;
 use crate::diff::{DiffBlock, DiffInput, ModifyType};
-use crate::slice::{SliceResult, SlicingAlgorithm};
+use crate::slice::{SliceFinding, SliceResult, SlicingAlgorithm};
 use anyhow::Result;
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -219,6 +219,36 @@ pub fn slice(
                             }
                         }
                     }
+                }
+
+                // Emit a finding for untrusted-origin variables
+                let severity = match &origin {
+                    Origin::UserInput => Some("concern"),
+                    Origin::Database | Origin::ExternalCall => Some("warning"),
+                    Origin::FunctionParam | Origin::EnvVar | Origin::Config => Some("info"),
+                    Origin::Constant | Origin::Unknown => None,
+                };
+                if let Some(sev) = severity {
+                    result.findings.push(SliceFinding {
+                        algorithm: "provenance".to_string(),
+                        file: diff_info.file_path.clone(),
+                        line,
+                        severity: sev.to_string(),
+                        description: format!(
+                            "variable '{}' has {} origin: {}",
+                            var_name,
+                            origin.name(),
+                            origin.risk_level()
+                        ),
+                        function_name: None,
+                        related_lines: locs.iter().map(|l| l.line).collect(),
+                        related_files: if origin_file != diff_info.file_path {
+                            vec![origin_file.clone()]
+                        } else {
+                            vec![]
+                        },
+                        category: Some("untrusted_origin".to_string()),
+                    });
                 }
 
                 // Build a block showing the provenance chain

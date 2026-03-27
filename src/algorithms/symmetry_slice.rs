@@ -9,7 +9,7 @@
 
 use crate::ast::ParsedFile;
 use crate::diff::{DiffBlock, DiffInput, ModifyType};
-use crate::slice::{SliceResult, SlicingAlgorithm};
+use crate::slice::{SliceFinding, SliceResult, SlicingAlgorithm};
 use anyhow::Result;
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -178,6 +178,22 @@ pub fn slice(
 
                                 if !is_also_changed {
                                     // Counterpart wasn't changed — potential broken symmetry
+                                    let first_diff_line =
+                                        diff_info.diff_lines.iter().next().copied().unwrap_or(0);
+                                    result.findings.push(SliceFinding {
+                                        algorithm: "symmetry".to_string(),
+                                        file: diff_info.file_path.clone(),
+                                        line: first_diff_line,
+                                        severity: "concern".to_string(),
+                                        description: format!(
+                                            "'{}' changed but symmetric counterpart '{}' was not",
+                                            func_name, candidate
+                                        ),
+                                        function_name: Some(func_name.clone()),
+                                        related_lines: vec![start, end],
+                                        related_files: vec![file_path.clone()],
+                                        category: Some("broken_symmetry".to_string()),
+                                    });
                                     result.blocks.push(block);
                                     block_id += 1;
                                 }
