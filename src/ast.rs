@@ -3,12 +3,39 @@ use anyhow::{Context, Result};
 use std::collections::{BTreeMap, BTreeSet};
 use tree_sitter::{Node, Parser, Tree};
 
+/// Count ERROR and MISSING nodes in a parse tree.
+///
+/// Returns `(error_count, total_nodes)` so callers can compute an error rate.
+/// A high error rate indicates tree-sitter could not parse the source cleanly —
+/// common with macro-heavy C/C++ code.
+pub fn count_error_nodes(tree: &Tree) -> (usize, usize) {
+    let mut error_count = 0usize;
+    let mut total_count = 0usize;
+    count_nodes_recursive(tree.root_node(), &mut error_count, &mut total_count);
+    (error_count, total_count)
+}
+
+fn count_nodes_recursive(node: Node<'_>, errors: &mut usize, total: &mut usize) {
+    *total += 1;
+    if node.is_error() || node.is_missing() {
+        *errors += 1;
+    }
+    let mut cursor = node.walk();
+    for child in node.children(&mut cursor) {
+        count_nodes_recursive(child, errors, total);
+    }
+}
+
 /// Wraps a tree-sitter parse tree with helpers for slicing analysis.
 pub struct ParsedFile {
     pub path: String,
     pub source: String,
     pub tree: Tree,
     pub language: Language,
+    /// Number of ERROR or MISSING nodes in the parse tree.
+    pub parse_error_count: usize,
+    /// Total number of nodes in the parse tree.
+    pub parse_node_count: usize,
 }
 
 impl ParsedFile {
@@ -22,12 +49,23 @@ impl ParsedFile {
         let tree = parser
             .parse(source, None)
             .context("Failed to parse source")?;
+        let (parse_error_count, parse_node_count) = count_error_nodes(&tree);
         Ok(Self {
             path: path.to_string(),
             source: source.to_string(),
             tree,
             language,
+            parse_error_count,
+            parse_node_count,
         })
+    }
+
+    /// Fraction of AST nodes that are ERROR or MISSING (0.0–1.0).
+    pub fn error_rate(&self) -> f64 {
+        if self.parse_node_count == 0 {
+            return 0.0;
+        }
+        self.parse_error_count as f64 / self.parse_node_count as f64
     }
 
     /// Get text for a node.

@@ -2088,6 +2088,7 @@ fn test_review_output_json_schema_multi() {
         results: review_results,
         all_findings,
         errors: vec![],
+        warnings: vec![],
     };
 
     // Verify schema
@@ -2220,6 +2221,7 @@ fn test_multi_algorithm_findings_merged() {
         results: all_results,
         findings: merged_findings,
         errors: vec![],
+        warnings: vec![],
     };
 
     assert_eq!(multi.version, "1.0");
@@ -2924,5 +2926,93 @@ fn test_deep_switch_thin_slice() {
     assert!(
         !result.blocks.is_empty(),
         "ThinSlice should produce blocks for deep_switch without panic"
+    );
+}
+
+// --- Parse error detection tests ---
+
+#[test]
+fn test_clean_c_has_no_parse_errors() {
+    let source = r#"
+#include <stdio.h>
+
+int add(int a, int b) {
+    return a + b;
+}
+
+int main(void) {
+    int x = add(1, 2);
+    printf("%d\n", x);
+    return 0;
+}
+"#;
+    let path = "src/clean.c";
+    let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+
+    assert_eq!(
+        parsed.parse_error_count, 0,
+        "Clean C code should produce zero ERROR nodes"
+    );
+    assert!(
+        parsed.parse_node_count > 0,
+        "Should have counted some AST nodes"
+    );
+    assert_eq!(
+        parsed.error_rate(),
+        0.0,
+        "Error rate should be 0.0 for clean code"
+    );
+
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+    let warnings = algorithms::check_parse_warnings(&files);
+    assert!(
+        warnings.is_empty(),
+        "Clean C code should produce no parse warnings"
+    );
+}
+
+#[test]
+fn test_broken_c_triggers_parse_warning() {
+    // Code with unbalanced braces and invalid syntax that forces tree-sitter
+    // into heavy error recovery, producing many ERROR nodes.
+    let source = r#"
+@@@ MACRO_CHAOS @@@
+#define FOO( bar baz qux
+int x = ))) + [[[;
+typedef struct { int a; int b; } Foo
+void broken( int a, { return a +;
+@@@ MORE_GARBAGE @@@
+int = = = ;
+"#;
+    let path = "src/broken.c";
+    let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+
+    // tree-sitter error-recovers rather than failing, so we should have nodes
+    assert!(
+        parsed.parse_node_count > 0,
+        "tree-sitter should still produce an AST (with errors)"
+    );
+    assert!(
+        parsed.parse_error_count > 0,
+        "Broken C code should produce ERROR nodes"
+    );
+    assert!(
+        parsed.error_rate() > 0.1,
+        "Error rate should exceed 10% for heavily broken code (got {})",
+        parsed.error_rate()
+    );
+
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+    let warnings = algorithms::check_parse_warnings(&files);
+    assert!(
+        !warnings.is_empty(),
+        "Broken C code should generate at least one parse warning"
+    );
+    // The warning should mention the file name
+    assert!(
+        warnings.iter().any(|w| w.contains("src/broken.c")),
+        "Warning should reference the problematic file"
     );
 }
