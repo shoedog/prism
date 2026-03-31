@@ -195,6 +195,8 @@ fn find_async_inner(parsed: &ParsedFile, node: Node<'_>, out: &mut Vec<usize>) {
                     || text.contains("signal(")
                     || text.contains("sigaction(")
                     || text.contains("dispatch_async")
+                    || text.contains("request_irq(")
+                    || text.contains("request_threaded_irq(")
             }
         }
         Language::Cpp => {
@@ -205,7 +207,10 @@ fn find_async_inner(parsed: &ParsedFile, node: Node<'_>, out: &mut Vec<usize>) {
                     || text.contains("pthread_create")
                     || text.contains("fork(")
                     || text.contains("signal(")
+                    || text.contains("sigaction(")
                     || text.contains("std::jthread")
+                    || text.contains("request_irq(")
+                    || text.contains("request_threaded_irq(")
             }
         }
     };
@@ -246,22 +251,50 @@ fn is_async_function(parsed: &ParsedFile, func_node: &Node<'_>) -> bool {
         }
         Language::C => {
             // C functions aren't inherently async, but check if they contain
-            // pthread_create, fork, or signal handlers
+            // pthread_create, fork, signal handlers, or kernel IRQ registration.
+            // Also treat functions whose names suggest callback/ISR semantics as async.
             let text = parsed.node_text(func_node);
-            text.contains("pthread_create")
+            let func_name = parsed
+                .language
+                .function_name(func_node)
+                .map(|n| parsed.node_text(&n).to_string())
+                .unwrap_or_default();
+            let name_is_async = func_name.contains("_handler")
+                || func_name.contains("_callback")
+                || func_name.contains("_isr")
+                || func_name.contains("_irq");
+            name_is_async
+                || text.contains("pthread_create")
                 || text.contains("fork(")
                 || text.contains("signal(")
                 || text.contains("sigaction(")
+                || text.contains("request_irq(")
+                || text.contains("request_threaded_irq(")
         }
         Language::Cpp => {
-            // Check for C++ async patterns
+            // Check for C++ async patterns and callback/ISR name heuristics.
             let text = parsed.node_text(func_node);
-            text.contains("std::async")
+            let func_name = parsed
+                .language
+                .function_name(func_node)
+                .map(|n| parsed.node_text(&n).to_string())
+                .unwrap_or_default();
+            let name_is_async = func_name.contains("_handler")
+                || func_name.contains("_callback")
+                || func_name.contains("_isr")
+                || func_name.contains("_irq");
+            name_is_async
+                || text.contains("std::async")
                 || text.contains("std::thread")
                 || text.contains("std::jthread")
                 || text.contains("co_await")
                 || text.contains("co_yield")
                 || text.contains("pthread_create")
+                || text.contains("fork(")
+                || text.contains("signal(")
+                || text.contains("sigaction(")
+                || text.contains("request_irq(")
+                || text.contains("request_threaded_irq(")
         }
     }
 }

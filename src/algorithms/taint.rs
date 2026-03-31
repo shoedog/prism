@@ -35,6 +35,27 @@ const SINK_PATTERNS: &[&str] = &[
     "dangerouslySetInnerHTML",
     "Exec",
     "Command",
+    // C/C++ buffer overflow / unsafe string operations
+    "strcpy(",
+    "strcat(",
+    "strncpy(",
+    "sprintf(",
+    "vsprintf(",
+    "gets(",
+    "scanf(",
+    "memcpy(",
+    "memmove(",
+    // C/C++ command / library injection
+    "execv(",
+    "execve(",
+    "execvp(",
+    "dlopen(",
+    // C/C++ memory safety
+    "free(",
+    // C/C++ format string sinks
+    "printf(",
+    "fprintf(",
+    "snprintf(",
 ];
 
 /// Configuration for taint analysis.
