@@ -3016,3 +3016,848 @@ int = = = ;
         "Warning should reference the problematic file"
     );
 }
+
+// ====== P0 C/C++ pattern tests ======
+
+// --- Taint sink tests ---
+
+#[test]
+fn test_taint_c_strcpy_sink() {
+    // recv() source on diff line flows through data flow to strcpy() sink.
+    let source = r#"
+void process_input(const char *input) {
+    char *data = input;
+    char dest[256];
+    strcpy(dest, data);
+}
+"#;
+    let path = "src/input.c";
+    let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    // Diff line 3: char *data = input;  — data is tainted from diff
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([3]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::Taint),
+    )
+    .unwrap();
+
+    // Taint should propagate from line 3 (data defined) to line 5 (strcpy uses data).
+    assert!(
+        !result.blocks.is_empty(),
+        "Taint should produce blocks when tainted value reaches strcpy"
+    );
+    // At least one finding should flag strcpy as a sink.
+    assert!(
+        !result.findings.is_empty(),
+        "Taint should emit a finding when tainted value reaches strcpy sink"
+    );
+}
+
+#[test]
+fn test_taint_c_sprintf_sink() {
+    // User-controlled format string flows to sprintf().
+    let source = r#"
+void handle_cmd(const char *user_fmt) {
+    char *fmt = user_fmt;
+    char buf[256];
+    sprintf(buf, fmt);
+}
+"#;
+    let path = "src/cmd.c";
+    let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    // Line 3: char *fmt = user_fmt;  — fmt is tainted
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([3]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::Taint),
+    )
+    .unwrap();
+
+    assert!(
+        !result.blocks.is_empty(),
+        "Taint should produce blocks when tainted value reaches sprintf"
+    );
+    assert!(
+        !result.findings.is_empty(),
+        "Taint should emit a finding for sprintf sink with tainted format string"
+    );
+}
+
+#[test]
+fn test_taint_c_memcpy_sink() {
+    // Tainted pointer flows to memcpy().
+    let source = r#"
+void copy_data(const char *network_data) {
+    char *msg = network_data;
+    char buf[256];
+    memcpy(buf, msg, sizeof(buf));
+}
+"#;
+    let path = "src/copy.c";
+    let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    // Line 3: char *msg = network_data;  — msg is tainted
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([3]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::Taint),
+    )
+    .unwrap();
+
+    assert!(
+        !result.blocks.is_empty(),
+        "Taint should produce blocks when tainted value reaches memcpy"
+    );
+    assert!(
+        !result.findings.is_empty(),
+        "Taint should emit a finding for memcpy sink with tainted source pointer"
+    );
+}
+
+// --- Provenance origin tests ---
+
+#[test]
+fn test_provenance_c_hardware_origin() {
+    // ioctl() call classifies as Hardware origin.
+    let source = r#"
+int read_sensor(int fd, int cmd) {
+    int value = ioctl(fd, cmd, NULL);
+    int scaled = value * 2;
+    return scaled;
+}
+"#;
+    let path = "src/sensor.c";
+    let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    // Line 4: int scaled = value * 2;  — value traces back to ioctl (Hardware)
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([4]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::ProvenanceSlice),
+    )
+    .unwrap();
+
+    assert!(
+        result
+            .findings
+            .iter()
+            .any(|f| f.description.contains("hardware")),
+        "Provenance should classify ioctl() result as Hardware origin; findings: {:?}",
+        result
+            .findings
+            .iter()
+            .map(|f| &f.description)
+            .collect::<Vec<_>>()
+    );
+}
+
+#[test]
+fn test_provenance_c_user_input_recv() {
+    // recv() call classifies as UserInput origin.
+    let source = r#"
+int handle_socket(int sock) {
+    char buf[256];
+    int bytes = recv(sock, buf, sizeof(buf), 0);
+    if (bytes > 0) {
+        return bytes;
+    }
+    return 0;
+}
+"#;
+    let path = "src/socket.c";
+    let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    // Line 5: if (bytes > 0)  — bytes traces back to recv() (UserInput)
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([5]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::ProvenanceSlice),
+    )
+    .unwrap();
+
+    assert!(
+        result
+            .findings
+            .iter()
+            .any(|f| f.description.contains("user_input")),
+        "Provenance should classify recv() result as UserInput origin; findings: {:?}",
+        result
+            .findings
+            .iter()
+            .map(|f| &f.description)
+            .collect::<Vec<_>>()
+    );
+}
+
+#[test]
+fn test_provenance_c_env_getenv() {
+    // getenv() call classifies as EnvVar origin.
+    let source = r#"
+void init_paths() {
+    char *home = getenv("HOME");
+    int len = strlen(home);
+    set_base_path(home);
+}
+"#;
+    let path = "src/init.c";
+    let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    // Line 4: int len = strlen(home);  — home traces back to getenv() (EnvVar)
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([4]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::ProvenanceSlice),
+    )
+    .unwrap();
+
+    assert!(
+        result
+            .findings
+            .iter()
+            .any(|f| f.description.contains("env_var")),
+        "Provenance should classify getenv() result as EnvVar origin; findings: {:?}",
+        result
+            .findings
+            .iter()
+            .map(|f| &f.description)
+            .collect::<Vec<_>>()
+    );
+}
+
+// --- Absence tests ---
+
+#[test]
+fn test_absence_c_kmalloc_without_kfree() {
+    // kmalloc without matching kfree triggers an absence finding.
+    let source = r#"
+void alloc_dev_buffer(int size) {
+    char *buf = kmalloc(size, GFP_KERNEL);
+    if (buf == NULL)
+        return;
+    buf[0] = 0;
+}
+"#;
+    let path = "src/driver.c";
+    let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    // Line 3: kmalloc call — no kfree anywhere in the function
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([3]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::AbsenceSlice),
+    )
+    .unwrap();
+
+    assert!(
+        !result.blocks.is_empty(),
+        "AbsenceSlice should detect kmalloc without kfree"
+    );
+    assert!(
+        result
+            .findings
+            .iter()
+            .any(|f| f.description.contains("kmalloc")
+                || f.description.contains("kfree")
+                || f.description.contains("kernel allocation")),
+        "AbsenceSlice finding should mention kmalloc/kfree; findings: {:?}",
+        result
+            .findings
+            .iter()
+            .map(|f| &f.description)
+            .collect::<Vec<_>>()
+    );
+}
+
+#[test]
+fn test_absence_c_spinlock_without_unlock() {
+    // spin_lock without matching spin_unlock triggers an absence finding.
+    let source = r#"
+void update_counter(spinlock_t *lock) {
+    spin_lock(lock);
+    shared_counter++;
+    return;
+}
+"#;
+    let path = "src/counter.c";
+    let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    // Line 3: spin_lock call — no spin_unlock in the function
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([3]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::AbsenceSlice),
+    )
+    .unwrap();
+
+    assert!(
+        !result.blocks.is_empty(),
+        "AbsenceSlice should detect spin_lock without spin_unlock"
+    );
+    assert!(
+        result
+            .findings
+            .iter()
+            .any(|f| f.description.contains("spin") || f.description.contains("spinlock")),
+        "AbsenceSlice finding should mention spinlock; findings: {:?}",
+        result
+            .findings
+            .iter()
+            .map(|f| &f.description)
+            .collect::<Vec<_>>()
+    );
+}
+
+#[test]
+fn test_absence_cpp_raii_no_false_positive() {
+    // std::unique_ptr triggers RAII bypass — no absence finding for the new expression.
+    let source = r#"
+#include <memory>
+
+void process_data() {
+    std::unique_ptr<char[]> buf(new char[256]);
+    buf[0] = 'x';
+}
+"#;
+    let path = "src/safe.cpp";
+    let parsed = ParsedFile::parse(path, source, Language::Cpp).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    // Line 5: new char[256] is the open pattern; std::unique_ptr provides RAII cleanup.
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([5]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::AbsenceSlice),
+    )
+    .unwrap();
+
+    // RAII bypass must prevent a false-positive finding
+    assert!(
+        result.blocks.is_empty(),
+        "AbsenceSlice must NOT flag new/delete when std::unique_ptr handles cleanup; \
+         got {} blocks",
+        result.blocks.len()
+    );
+}
+
+#[test]
+fn test_absence_cpp_unique_ptr_no_false_positive() {
+    // std::shared_ptr also triggers RAII bypass.
+    let source = r#"
+#include <memory>
+
+void hold_resource() {
+    std::shared_ptr<int> ptr(new int(42));
+    *ptr = 100;
+}
+"#;
+    let path = "src/shared.cpp";
+    let parsed = ParsedFile::parse(path, source, Language::Cpp).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    // Line 5: new int(42) is the open pattern; std::shared_ptr provides RAII cleanup.
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([5]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::AbsenceSlice),
+    )
+    .unwrap();
+
+    assert!(
+        result.blocks.is_empty(),
+        "AbsenceSlice must NOT flag new/delete when std::shared_ptr handles cleanup; \
+         got {} blocks",
+        result.blocks.len()
+    );
+}
+
+// --- Quantum async detection tests ---
+
+#[test]
+fn test_quantum_c_signal_handler() {
+    // signal() call makes the function async — quantum detects the async boundary.
+    let source = r#"
+void register_handlers(int signum) {
+    int flags = signum;
+    signal(SIGINT, handler);
+    flags = flags | 1;
+    return;
+}
+"#;
+    let path = "src/signals.c";
+    let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    // Line 3: int flags = signum;  — flags is assigned before the signal() async boundary
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([3]),
+        }],
+    };
+
+    let result = prism::algorithms::quantum_slice::slice(&files, &diff, None).unwrap();
+
+    assert!(
+        !result.blocks.is_empty(),
+        "QuantumSlice should detect async boundary from signal() in C function"
+    );
+}
+
+#[test]
+fn test_quantum_c_pthread_create() {
+    // pthread_create makes the function async — quantum detects the thread creation.
+    let source = r#"
+int main() {
+    pthread_t tid;
+    int flag = 0;
+    pthread_create(&tid, NULL, worker, &flag);
+    flag = 1;
+    pthread_join(tid, NULL);
+    return 0;
+}
+"#;
+    let path = "src/threads.c";
+    let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    // Line 5: pthread_create line  — flag assigned before and after the async boundary
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([5]),
+        }],
+    };
+
+    let result = prism::algorithms::quantum_slice::slice(&files, &diff, Some("flag")).unwrap();
+
+    assert!(
+        !result.blocks.is_empty(),
+        "QuantumSlice should detect async boundary from pthread_create"
+    );
+}
+
+#[test]
+fn test_quantum_c_isr_function_name() {
+    // Function named rx_interrupt_handler is treated as async by name heuristic.
+    let source = r#"
+void rx_interrupt_handler(int irq) {
+    int status = 0;
+    status = irq;
+    return;
+}
+"#;
+    let path = "src/isr.c";
+    let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    // Line 4: status = irq;  — status is a local assigned inside an ISR-named function
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([4]),
+        }],
+    };
+
+    let result = prism::algorithms::quantum_slice::slice(&files, &diff, Some("status")).unwrap();
+
+    assert!(
+        !result.blocks.is_empty(),
+        "QuantumSlice should treat function named 'rx_interrupt_handler' as async \
+         (ISR name heuristic)"
+    );
+}
+
+// ====== Part 2: Pointer aliasing awareness tests ======
+
+// --- Data flow graph unit tests ---
+
+#[test]
+fn test_dataflow_pointer_deref() {
+    // *p = val  should create a data flow def for the base pointer variable p.
+    let source = r#"
+void write_through(int *p, int val) {
+    *p = val;
+    return;
+}
+"#;
+    let path = "src/ptr.c";
+    let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let dfg = DataFlowGraph::build(&files);
+
+    let p_defs = dfg.all_defs_of(path, "p");
+    assert!(
+        !p_defs.is_empty(),
+        "DataFlowGraph should record a def for 'p' from the *p = val assignment"
+    );
+    assert!(
+        p_defs.iter().any(|d| d.line == 3),
+        "Def of 'p' should be on line 3 (*p = val), got lines: {:?}",
+        p_defs.iter().map(|d| d.line).collect::<Vec<_>>()
+    );
+}
+
+#[test]
+fn test_dataflow_struct_field() {
+    // dev->id = val  should create defs for both the field name and the base struct variable.
+    let source = r#"
+typedef struct { int id; } Dev;
+void set_id(Dev *dev, int val) {
+    dev->id = val;
+    return;
+}
+"#;
+    let path = "src/dev.c";
+    let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let dfg = DataFlowGraph::build(&files);
+
+    // Coarse tracking: mutation of the base struct pointer
+    let dev_defs = dfg.all_defs_of(path, "dev");
+    assert!(
+        !dev_defs.is_empty(),
+        "DataFlowGraph should record a def for base 'dev' from dev->id = val"
+    );
+
+    // Fine-grained tracking: the field itself was written
+    let id_defs = dfg.all_defs_of(path, "id");
+    assert!(
+        !id_defs.is_empty(),
+        "DataFlowGraph should record a def for field 'id' from dev->id = val"
+    );
+}
+
+#[test]
+fn test_dataflow_array_subscript() {
+    // buf[i] = val  should create a data flow def for the base array variable buf.
+    let source = r#"
+void fill_buffer(int *buf, int i, int val) {
+    buf[i] = val;
+    return;
+}
+"#;
+    let path = "src/buf.c";
+    let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let dfg = DataFlowGraph::build(&files);
+
+    let buf_defs = dfg.all_defs_of(path, "buf");
+    assert!(
+        !buf_defs.is_empty(),
+        "DataFlowGraph should record a def for 'buf' from buf[i] = val"
+    );
+    assert!(
+        buf_defs.iter().any(|d| d.line == 3),
+        "Def of 'buf' should be on line 3 (buf[i] = val), got lines: {:?}",
+        buf_defs.iter().map(|d| d.line).collect::<Vec<_>>()
+    );
+}
+
+// --- End-to-end taint tests through pointer/struct ---
+
+#[test]
+fn test_taint_through_pointer() {
+    // Taint flows through a pointer dereference assignment:
+    // diff line taints *buf → buf becomes tainted → strcpy uses buf → sink fires.
+    let source = r#"
+void copy_indirect(const char *src, char *dst) {
+    char *buf = src;
+    *buf = src[0];
+    strcpy(dst, buf);
+}
+"#;
+    let path = "src/indirect.c";
+    let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    // Line 4: *buf = src[0];  — with pointer aliasing, creates def of "buf"
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([4]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::Taint),
+    )
+    .unwrap();
+
+    // With pointer aliasing: def of buf on line 4 flows to strcpy on line 5 → finding
+    assert!(
+        !result.blocks.is_empty(),
+        "Taint should propagate through pointer dereference assignment to strcpy sink"
+    );
+    assert!(
+        !result.findings.is_empty(),
+        "Taint should emit a finding when *p assignment feeds strcpy"
+    );
+}
+
+#[test]
+fn test_taint_through_struct() {
+    // Taint flows through a struct field assignment:
+    // diff line taints dev->count → dev becomes tainted → printf uses dev → sink fires.
+    let source = r#"
+typedef struct { int count; } Dev;
+void update_dev(Dev *dev, int n) {
+    dev->count = n;
+    printf("%d\n", dev->count);
+}
+"#;
+    let path = "src/struct_taint.c";
+    let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    // Line 4: dev->count = n;  — with pointer aliasing, creates def of "dev" and "count"
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([4]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::Taint),
+    )
+    .unwrap();
+
+    // With struct aliasing: def of "dev" on line 4 flows to printf on line 5 → finding
+    assert!(
+        !result.blocks.is_empty(),
+        "Taint should propagate through struct field assignment to printf sink"
+    );
+    assert!(
+        !result.findings.is_empty(),
+        "Taint should emit a finding when dev->field assignment feeds printf"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Algorithm × Language coverage matrix
+// ---------------------------------------------------------------------------
+
+/// Prints a matrix of which algorithm × language combinations have integration
+/// tests. This test always passes — it is a documentation/reporting tool that
+/// makes coverage gaps visible at a glance.
+///
+/// Run with: cargo test -- test_algorithm_language_matrix --nocapture
+#[test]
+fn test_algorithm_language_matrix() {
+    // Map algorithm keyword → display name
+    let algorithms: &[(&str, &str)] = &[
+        ("original_diff", "OriginalDiff"),
+        ("parent_function", "ParentFunction"),
+        ("left_flow", "LeftFlow"),
+        ("full_flow", "FullFlow"),
+        ("thin_slice", "ThinSlice"),
+        ("barrier_slice", "BarrierSlice"),
+        ("taint", "Taint"),
+        ("relevant_slice", "RelevantSlice"),
+        ("conditioned_slice", "ConditionedSlice"),
+        ("delta_slice", "DeltaSlice"),
+        ("spiral_slice", "SpiralSlice"),
+        ("circular_slice", "CircularSlice"),
+        ("quantum_slice", "QuantumSlice"),
+        ("horizontal_slice", "HorizontalSlice"),
+        ("vertical_slice", "VerticalSlice"),
+        ("angle_slice", "AngleSlice"),
+        ("threed_slice", "ThreeDSlice"),
+        ("absence_slice", "AbsenceSlice"),
+        ("resonance_slice", "ResonanceSlice"),
+        ("symmetry_slice", "SymmetrySlice"),
+        ("gradient_slice", "GradientSlice"),
+        ("provenance_slice", "ProvenanceSlice"),
+        ("phantom_slice", "PhantomSlice"),
+        ("membrane_slice", "MembraneSlice"),
+        ("echo_slice", "EchoSlice"),
+    ];
+
+    // Map language keyword → display name
+    let languages: &[(&str, &str)] = &[
+        ("python", "Python"),
+        ("javascript", "JS"),
+        ("typescript", "TS"),
+        ("go", "Go"),
+        ("java", "Java"),
+        ("_c_", "C"),
+        ("_cpp_", "C++"),
+    ];
+
+    // Collect all test function names from this file (compile-time string)
+    let test_source = include_str!("integration_test.rs");
+    let test_names: Vec<&str> = test_source
+        .lines()
+        .filter(|l| l.starts_with("fn test_"))
+        .map(|l| l.trim_start_matches("fn ").split('(').next().unwrap_or(""))
+        .collect();
+
+    // Build the matrix
+    let col_w = 14usize;
+    let row_w = 16usize;
+
+    // Header
+    let header: String = languages
+        .iter()
+        .map(|(_, name)| format!("{:>col_w$}", name))
+        .collect::<Vec<_>>()
+        .join("");
+    println!("\nAlgorithm × Language Test Coverage Matrix");
+    println!("{}", "=".repeat(row_w + col_w * languages.len()));
+    println!("{:<row_w$}{}", "", header);
+    println!("{}", "-".repeat(row_w + col_w * languages.len()));
+
+    let mut covered = 0usize;
+    let mut total = 0usize;
+
+    for (algo_key, algo_name) in algorithms {
+        let row: String = languages
+            .iter()
+            .map(|(lang_key, _)| {
+                total += 1;
+                let has_test = test_names
+                    .iter()
+                    .any(|name| name.contains(algo_key) && name.contains(lang_key));
+                if has_test {
+                    covered += 1;
+                    format!("{:>col_w$}", "yes")
+                } else {
+                    format!("{:>col_w$}", "-")
+                }
+            })
+            .collect::<Vec<_>>()
+            .join("");
+        println!("{:<row_w$}{}", algo_name, row);
+    }
+
+    println!("{}", "=".repeat(row_w + col_w * languages.len()));
+    println!(
+        "Coverage: {}/{} algorithm×language combinations ({:.0}%)",
+        covered,
+        total,
+        covered as f64 / total as f64 * 100.0
+    );
+    println!();
+
+    // Always passes — this is a reporting tool, not an enforcement test
+}

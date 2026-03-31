@@ -167,10 +167,14 @@ impl ParsedFile {
         let line = node.start_position().row + 1;
 
         if lines.contains(&line) && self.language.is_assignment_node(node.kind()) {
-            // Get the left side of the assignment
+            // Get the left side of the assignment, extracting alias names so that
+            // pointer derefs (*p), field accesses (dev->field), and array subscripts
+            // (buf[i]) create flow edges for their base variables.
             if let Some(lhs) = self.language.assignment_target(&node) {
-                let name = self.node_text(&lhs).to_string();
-                out.push((name, line));
+                let lhs_text = self.node_text(&lhs).to_string();
+                for name in extract_lvalue_names(&lhs_text) {
+                    out.push((name, line));
+                }
             }
         }
 
@@ -499,4 +503,71 @@ impl ParsedFile {
         }
         None
     }
+}
+
+/// Extract the variable names that are logically written by an lvalue expression.
+///
+/// Handles three C/C++ indirection patterns:
+///
+/// - `*p`       → `["p"]`          pointer dereference — the pointer itself is mutated through
+/// - `dev->f`   → `["f", "dev"]`   field via arrow — track both the field and the base struct
+/// - `buf[i]`   → `["buf"]`        array subscript — track the base array
+/// - `x`        → `["x"]`          simple identifier — unchanged behaviour
+///
+/// For anything that doesn't match a known pattern (e.g. complex nested expressions)
+/// the function returns an empty vec so the caller silently skips it rather than
+/// storing an unusable composite name like `"*p"` or `"buf[0]"`.
+fn extract_lvalue_names(lhs_text: &str) -> Vec<String> {
+    let lhs = lhs_text.trim();
+
+    // Pointer dereference: *p, **p
+    if lhs.starts_with('*') {
+        let inner = lhs.trim_start_matches('*').trim();
+        // Strip surrounding parens: (*p)
+        let inner = inner.trim_start_matches('(').trim_end_matches(')').trim();
+        if !inner.is_empty() && is_plain_ident(inner) {
+            return vec![inner.to_string()];
+        }
+        return vec![];
+    }
+
+    // Field via arrow: dev->field
+    if let Some(arrow) = lhs.find("->") {
+        let base = lhs[..arrow].trim();
+        let field = lhs[arrow + 2..].trim();
+        let mut names = Vec::new();
+        if !field.is_empty() && is_plain_ident(field) {
+            names.push(field.to_string());
+        }
+        if !base.is_empty() && is_plain_ident(base) {
+            names.push(base.to_string());
+        }
+        return names;
+    }
+
+    // Array subscript: buf[i]  — only track the base name
+    if let Some(bracket) = lhs.find('[') {
+        let base = lhs[..bracket].trim();
+        if !base.is_empty() && is_plain_ident(base) {
+            return vec![base.to_string()];
+        }
+        return vec![];
+    }
+
+    // Simple identifier (also covers `obj.field` by treating `obj` as the def).
+    // We intentionally ignore dot access for non-pointer structs here; the base
+    // identifier appears as a separate rvalue and will be tracked via rvalue edges.
+    if !lhs.is_empty() && is_plain_ident(lhs) {
+        return vec![lhs.to_string()];
+    }
+
+    vec![]
+}
+
+fn is_plain_ident(s: &str) -> bool {
+    !s.is_empty()
+        && s.chars().all(|c| c.is_alphanumeric() || c == '_')
+        && s.chars()
+            .next()
+            .map_or(false, |c| c.is_alphabetic() || c == '_')
 }
