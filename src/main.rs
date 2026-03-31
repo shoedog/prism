@@ -231,6 +231,9 @@ fn main() -> Result<()> {
         files.insert(diff_info.file_path.clone(), parsed);
     }
 
+    // Check parse quality for all files and collect warnings once.
+    let parse_warnings = algorithms::check_parse_warnings(&files);
+
     if multi_run {
         // --- Multi-algorithm run ---
         let mut results = Vec::new();
@@ -270,6 +273,7 @@ fn main() -> Result<()> {
                     results: review_results,
                     all_findings,
                     errors: all_errors,
+                    warnings: parse_warnings,
                 };
                 println!("{}", serde_json::to_string_pretty(&out)?);
             }
@@ -280,10 +284,14 @@ fn main() -> Result<()> {
                     results,
                     findings: all_findings,
                     errors: all_errors,
+                    warnings: parse_warnings,
                 };
                 println!("{}", serde_json::to_string_pretty(&multi)?);
             }
             _ => {
+                for w in &parse_warnings {
+                    eprintln!("WARNING: {}", w);
+                }
                 for result in &results {
                     println!("=== {} ===", result.algorithm.name());
                     print!("{}", output::format_slice_result(&result.blocks, &sources));
@@ -293,7 +301,8 @@ fn main() -> Result<()> {
     } else {
         // --- Single-algorithm run ---
         let algorithm = algorithms_to_run[0];
-        let result = run_algorithm(algorithm, &files, &diff_input, &config, &cli, repo)?;
+        let mut result = run_algorithm(algorithm, &files, &diff_input, &config, &cli, repo)?;
+        result.warnings = parse_warnings;
 
         match cli.format.as_str() {
             "json" => {
@@ -308,6 +317,9 @@ fn main() -> Result<()> {
                 println!("{}", serde_json::to_string_pretty(&review)?);
             }
             _ => {
+                for w in &result.warnings {
+                    eprintln!("WARNING: {}", w);
+                }
                 print!("{}", output::format_slice_result(&result.blocks, &sources));
             }
         }

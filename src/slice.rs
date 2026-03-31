@@ -217,6 +217,9 @@ pub struct SliceResult {
     pub blocks: Vec<DiffBlock>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub findings: Vec<SliceFinding>,
+    /// Parse quality warnings for input files (e.g. high ERROR-node rate).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub warnings: Vec<String>,
 }
 
 impl SliceResult {
@@ -225,6 +228,7 @@ impl SliceResult {
             algorithm,
             blocks: Vec::new(),
             findings: Vec::new(),
+            warnings: Vec::new(),
         }
     }
 
@@ -272,6 +276,9 @@ pub struct MultiSliceResult {
     pub findings: Vec<SliceFinding>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub errors: Vec<AlgorithmError>,
+    /// Parse quality warnings for input files (e.g. high ERROR-node rate).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub warnings: Vec<String>,
 }
 
 /// A per-algorithm error captured during multi-algorithm runs.
