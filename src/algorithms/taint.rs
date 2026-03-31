@@ -36,26 +36,27 @@ const SINK_PATTERNS: &[&str] = &[
     "Exec",
     "Command",
     // C/C++ buffer overflow / unsafe string operations
-    "strcpy(",
-    "strcat(",
-    "strncpy(",
-    "sprintf(",
-    "vsprintf(",
-    "gets(",
-    "scanf(",
-    "memcpy(",
-    "memmove(",
+    // Note: identifiers don't include '(' so patterns must be bare names.
+    "strcpy",
+    "strcat",
+    "strncpy",
+    "sprintf",
+    "vsprintf",
+    "gets",
+    "scanf",
+    "memcpy",
+    "memmove",
     // C/C++ command / library injection
-    "execv(",
-    "execve(",
-    "execvp(",
-    "dlopen(",
+    "execv",
+    "execve",
+    "execvp",
+    "dlopen",
     // C/C++ memory safety
-    "free(",
+    "free",
     // C/C++ format string sinks
-    "printf(",
-    "fprintf(",
-    "snprintf(",
+    "printf",
+    "fprintf",
+    "snprintf",
 ];
 
 /// Configuration for taint analysis.
