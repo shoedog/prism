@@ -44,6 +44,9 @@ pub struct ReviewOutput {
     pub algorithm: String,
     pub slices: Vec<ReviewBlock>,
     pub findings: Vec<SliceFinding>,
+    /// Parse quality warnings for input files (e.g. high ERROR-node rate).
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub warnings: Vec<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -54,6 +57,9 @@ pub struct MultiReviewOutput {
     pub all_findings: Vec<SliceFinding>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub errors: Vec<AlgorithmError>,
+    /// Parse quality warnings for input files (e.g. high ERROR-node rate).
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub warnings: Vec<String>,
 }
 
 /// Render a DiffBlock as a line-numbered, diff-marked text snippet.
@@ -129,6 +135,7 @@ pub fn to_review_output(result: &SliceResult, sources: &BTreeMap<String, String>
         algorithm: result.algorithm.name().to_string(),
         slices,
         findings: result.findings.clone(),
+        warnings: result.warnings.clone(),
     }
 }
 
