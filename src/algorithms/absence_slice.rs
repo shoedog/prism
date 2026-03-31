@@ -100,6 +100,66 @@ pub fn default_pairs() -> Vec<PairedPattern> {
             close_patterns: vec!["defer "],
             description: "resource acquisition without defer cleanup (Go)",
         },
+        // Kernel memory allocation
+        PairedPattern {
+            open_patterns: vec!["kmalloc(", "kzalloc(", "vmalloc("],
+            close_patterns: vec!["kfree(", "vfree("],
+            description: "kernel allocation without free",
+        },
+        // DMA allocation
+        PairedPattern {
+            open_patterns: vec!["dma_alloc_coherent("],
+            close_patterns: vec!["dma_free_coherent("],
+            description: "DMA allocation without free",
+        },
+        // IRQ registration
+        PairedPattern {
+            open_patterns: vec!["request_irq(", "request_threaded_irq("],
+            close_patterns: vec!["free_irq("],
+            description: "IRQ registered without free",
+        },
+        // Kernel spinlock
+        PairedPattern {
+            open_patterns: vec!["spin_lock(", "spin_lock_irqsave("],
+            close_patterns: vec!["spin_unlock(", "spin_unlock_irqrestore("],
+            description: "spinlock without unlock",
+        },
+        // Clock management
+        PairedPattern {
+            open_patterns: vec!["clk_prepare_enable("],
+            close_patterns: vec!["clk_disable_unprepare("],
+            description: "clock enabled without disable",
+        },
+        // Platform driver registration
+        PairedPattern {
+            open_patterns: vec!["platform_driver_register("],
+            close_patterns: vec!["platform_driver_unregister("],
+            description: "platform driver registered without unregister",
+        },
+        // Device tree node reference counting
+        PairedPattern {
+            open_patterns: vec!["of_node_get(", "of_find_node_by_name(", "of_find_node_by_type(", "of_find_compatible_node("],
+            close_patterns: vec!["of_node_put("],
+            description: "device tree node get without put",
+        },
+        // Kernel mutex (distinct from pthread/userspace mutex patterns above)
+        PairedPattern {
+            open_patterns: vec!["mutex_lock("],
+            close_patterns: vec!["mutex_unlock("],
+            description: "kernel mutex lock without unlock",
+        },
+        // Network subsystem lock
+        PairedPattern {
+            open_patterns: vec!["rtnl_lock("],
+            close_patterns: vec!["rtnl_unlock("],
+            description: "rtnl lock without unlock",
+        },
+        // Kernel string duplication
+        PairedPattern {
+            open_patterns: vec!["kstrdup("],
+            close_patterns: vec!["kfree("],
+            description: "kstrdup allocation without kfree",
+        },
     ]
 }
 
@@ -198,7 +258,9 @@ pub fn slice(files: &BTreeMap<String, ParsedFile>, diff: &DiffInput) -> Result<S
                     }
                 });
 
-                // Also check for language-specific cleanup patterns
+                // Also check for language-specific cleanup patterns and C++ RAII.
+                // RAII types manage cleanup automatically on destruction, so absence
+                // of an explicit close/unlock/free is not a bug in those cases.
                 let has_defer_or_finally = (func_start..=func_end).any(|l| {
                     if l == 0 || l > source_lines.len() {
                         return false;
@@ -208,6 +270,17 @@ pub fn slice(files: &BTreeMap<String, ParsedFile>, diff: &DiffInput) -> Result<S
                         || lt.contains("finally")
                         || lt.contains("with ")
                         || lt.contains("using ")
+                        // C++ RAII mutex wrappers — no explicit unlock needed
+                        || lt.contains("std::lock_guard")
+                        || lt.contains("std::unique_lock")
+                        || lt.contains("std::scoped_lock")
+                        // C++ RAII memory management — no explicit delete/free needed
+                        || lt.contains("std::unique_ptr")
+                        || lt.contains("std::shared_ptr")
+                        // C++ RAII file handle — closes on destruction
+                        || lt.contains("std::fstream")
+                        || lt.contains("std::ifstream")
+                        || lt.contains("std::ofstream")
                 });
 
                 if !has_close && !has_defer_or_finally {
