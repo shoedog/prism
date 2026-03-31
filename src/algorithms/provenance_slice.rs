@@ -151,14 +151,7 @@ const ENV_PATTERNS: &[&str] = &[
 ];
 
 /// C/C++ hardware / device I/O patterns (embedded and kernel).
-const HARDWARE_PATTERNS: &[&str] = &[
-    "ioctl(",
-    "mmap(",
-    "inb(",
-    "outb(",
-    "readl(",
-    "writel(",
-];
+const HARDWARE_PATTERNS: &[&str] = &["ioctl(", "mmap(", "inb(", "outb(", "readl(", "writel("];
 
 fn classify_line(line_text: &str) -> Origin {
     // Check for literal/constant assignment
