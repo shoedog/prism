@@ -34,6 +34,8 @@ pub enum Origin {
     FunctionParam,
     /// Return value from external/library function
     ExternalCall,
+    /// Hardware / device I/O (ioctl, mmap, register reads) — C/C++ embedded
+    Hardware,
     /// Could not determine origin
     Unknown,
 }
@@ -42,6 +44,7 @@ impl Origin {
     pub fn risk_level(&self) -> &str {
         match self {
             Self::UserInput => "HIGH — requires validation/sanitization",
+            Self::Hardware => "HIGH — raw device data, validate before use",
             Self::Database => "MEDIUM — may contain user-supplied data",
             Self::ExternalCall => "MEDIUM — verify return contract",
             Self::FunctionParam => "MEDIUM — depends on caller",
@@ -61,6 +64,7 @@ impl Origin {
             Self::EnvVar => "env_var",
             Self::FunctionParam => "function_param",
             Self::ExternalCall => "external_call",
+            Self::Hardware => "hardware",
             Self::Unknown => "unknown",
         }
     }
@@ -86,6 +90,17 @@ const USER_INPUT_PATTERNS: &[&str] = &[
     "event.target",
     "prompt(",
     "readline",
+    // C/C++ network and file input
+    "recv(",
+    "recvfrom(",
+    "read(",
+    "fgets(",
+    "fread(",
+    "scanf(",
+    "fscanf(",
+    "gets(",
+    "getline(",
+    "accept(",
 ];
 
 const DATABASE_PATTERNS: &[&str] = &[
@@ -116,6 +131,9 @@ const CONFIG_PATTERNS: &[&str] = &[
     "properties",
     "yaml",
     "toml",
+    // C/C++ command-line option and config file parsing
+    "getopt(",
+    "fopen(",
 ];
 
 const ENV_PATTERNS: &[&str] = &[
@@ -127,7 +145,13 @@ const ENV_PATTERNS: &[&str] = &[
     "ENV[",
     "getenv(",
     "dotenv",
+    // C/C++ command-line arguments
+    "argv[",
+    "argv ",
 ];
+
+/// C/C++ hardware / device I/O patterns (embedded and kernel).
+const HARDWARE_PATTERNS: &[&str] = &["ioctl(", "mmap(", "inb(", "outb(", "readl(", "writel("];
 
 fn classify_line(line_text: &str) -> Origin {
     // Check for literal/constant assignment
@@ -153,6 +177,9 @@ fn classify_line(line_text: &str) -> Origin {
     }
     if DATABASE_PATTERNS.iter().any(|p| line_text.contains(p)) {
         return Origin::Database;
+    }
+    if HARDWARE_PATTERNS.iter().any(|p| line_text.contains(p)) {
+        return Origin::Hardware;
     }
     if CONFIG_PATTERNS.iter().any(|p| line_text.contains(p)) {
         return Origin::Config;
@@ -263,7 +290,7 @@ pub fn slice(files: &BTreeMap<String, ParsedFile>, diff: &DiffInput) -> Result<S
 
                 // Emit a finding for untrusted-origin variables
                 let severity = match &origin {
-                    Origin::UserInput => Some("concern"),
+                    Origin::UserInput | Origin::Hardware => Some("concern"),
                     Origin::Database | Origin::ExternalCall => Some("warning"),
                     Origin::FunctionParam | Origin::EnvVar | Origin::Config => Some("info"),
                     Origin::Constant | Origin::Unknown => None,
