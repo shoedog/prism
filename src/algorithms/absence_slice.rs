@@ -138,7 +138,12 @@ pub fn default_pairs() -> Vec<PairedPattern> {
         },
         // Device tree node reference counting
         PairedPattern {
-            open_patterns: vec!["of_node_get(", "of_find_node_by_name(", "of_find_node_by_type(", "of_find_compatible_node("],
+            open_patterns: vec![
+                "of_node_get(",
+                "of_find_node_by_name(",
+                "of_find_node_by_type(",
+                "of_find_compatible_node(",
+            ],
             close_patterns: vec!["of_node_put("],
             description: "device tree node get without put",
         },
