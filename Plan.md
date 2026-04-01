@@ -1,6 +1,6 @@
 # Prism Implementation Plan & Status Tracker
 
-Last updated: 2026-04-01 (Rust & Lua algorithm pattern depth)
+Last updated: 2026-04-01 (fptr Level 3, C++ membrane error handling, plan synthesis)
 
 ---
 
@@ -85,7 +85,8 @@ Last updated: 2026-04-01 (Rust & Lua algorithm pattern depth)
 
 | Item | Effort | Impact | Notes |
 |------|--------|--------|-------|
-| **Function pointer Level 3: parameter-passed fptrs** | 4-8h | Resolves `cb(data)` where `cb` is a parameter by checking callers' arguments | 1-hop interprocedural; see `docs/c-cpp/function-pointer-resolution.md` |
+| ~~**Function pointer Level 3: parameter-passed fptrs**~~ | — | — | **Done** — 1-hop interprocedural; `function_parameter_names()` + `call_argument_text_at()` in ast.rs, Level 3 loop in call_graph.rs. Composes with Level 1. 5 tests. |
+| **`discover.py` replacement** — Rust binary for file enumeration | 3-5 days | Gitignore-aware file walking using `ignore` crate | Enables proper multi-file analysis in CI pipelines |
 
 ### P2 — Valuable (Improves Analysis Depth)
 
@@ -96,18 +97,39 @@ Last updated: 2026-04-01 (Rust & Lua algorithm pattern depth)
 | `va_list` taint tracking | 3-5 days | Detects format string injection (`snprintf(buf, sz, user_input)`) |
 | CVE-pattern test fixtures (heap spray, format string, integer overflow) | 2-3 days | Regression coverage for known firmware bug classes |
 | `goto`-based error path analysis for AbsenceSlice | 3-5 days | Correct double-free/double-unlock detection for kernel-style `goto cleanup` |
-| MembraneSlice C++ error handling (exceptions, RAII) | 2-3h | Better precision for C++ cross-file callers |
+| ~~MembraneSlice C++ error handling (exceptions, RAII)~~ | — | **Done** — try/catch, throw, RAII smart ptrs, lock guards, std::optional/expected, error_code. 4 tests. |
+| `petgraph` migration for call graph / CircularSlice / GradientSlice | 1 week | Replace hand-rolled BFS/DFS with proper graph algorithms (SCC, dominators) |
 
-### P3 — Future Languages & Advanced Analysis
+### P3 — New Language Support (Procedural)
 
-| Item | Effort | Priority |
-|------|--------|----------|
-| **Rust** (`tree-sitter-rust`) | 2-3 weeks | Must-have — kernel drivers, safety-critical daemons |
-| **Shell/Bash** (`tree-sitter-bash`) | 1-2 weeks | Should-have — command injection in firmware update scripts |
-| **Lua** (`tree-sitter-lua`) | 1-2 weeks | Should-have — LuCI web interface security |
-| Protocol Buffers (`tree-sitter-proto`) | 1 week | Nice-to-have — schema asymmetry for gRPC IPC |
-| Preprocessor-aware analysis (`cpp -E`) | 2-4 weeks | Eliminates ERROR nodes from macro-heavy code |
-| Function-level git churn in ThreeDSlice | 1 week | More accurate risk scores for large files |
+| Item | Effort | Priority | Status | Notes |
+|------|--------|----------|--------|-------|
+| ~~**Rust** (`tree-sitter-rust`)~~ | — | — | **Done** | Full algorithm coverage: taint, provenance, absence, membrane, quantum, echo |
+| ~~**Lua** (`tree-sitter-lua`)~~ | — | — | **Done** | Full algorithm coverage: taint, provenance, absence, membrane, quantum, echo |
+| **Terraform / HCL** (`tree-sitter-hcl` + `hcl-rs`) | 2-3 weeks | Must-have — team's own repos | Not started | Taint through `var.`/`local.` to sensitive resource attrs; module membrane; provenance for `var.`/`data.`/`module.` origins. `hcl-rs` needed for reference resolution tree-sitter can't do. See `docs/language-expansion-plan.md` §3.2 |
+| **Shell / Bash** (`tree-sitter-bash`) | 1-2 weeks | Should-have — firmware scripts | Not started | Killer use case: command injection via unquoted `$var`. Taint sources: `$1`, `$@`, `read`, `curl`. Sinks: `eval`, backtick, `$(...)`. See `docs/language-expansion-plan.md` §3.3 |
+
+### P4 — Declarative Format Context Extraction
+
+These formats need a different analysis model: parse → find touched units → trace references → emit context. Not full slicing, but serves the same purpose of reducing what the LLM reviewer reads. Architecture decision: single binary with `prism slice` / `prism context` subcommands and Cargo feature flags. See `docs/language-expansion-plan.md` §4, §6.
+
+| Item | Effort | Priority | Notes |
+|------|--------|----------|-------|
+| **Dockerfiles** (`dockerfile-parser-rs` + `docker-compose-types`) | 1-2 weeks | High — team's own repos | Multi-stage build dependency tracking, compose service graph, `ARG`/`ENV` propagation |
+| **Protocol Buffers** (`tree-sitter-proto` + `protobuf-parse`) | 1 week | Medium — if gRPC IPC in firmware | Message reference graph, field number stability detection, service endpoint context |
+| YANG / NETCONF | — | Skip for now | Better served by `pyang`/`yanglint`; immature tree-sitter grammar |
+| Makefiles / CMake | — | Skip for now | Security flag auditing is rule-based, not context extraction |
+| Device Tree / Linker Scripts / Assembly | — | Skip | No mature grammars; better served by specialized tools |
+
+### P5 — Analysis Infrastructure Improvements
+
+| Item | Effort | Priority | Notes |
+|------|--------|----------|-------|
+| `oxc_parser` + `oxc_semantic` for JS/TS | 1-2 weeks | Medium | Scope-aware analysis eliminates false taint matches from same-named imports. 3-5x faster than tree-sitter |
+| Preprocessor-aware analysis (`cpp -E`) | 2-4 weeks | Medium | Eliminates ERROR nodes from macro-heavy C/C++ code |
+| Function-level git churn in ThreeDSlice | 1 week | Low | More accurate risk scores for large files |
+| `syn`-based Rust semantic analysis | 1-2 weeks | Low — trigger if tree-sitter FP rate too high | `unsafe` block boundaries, lifetime annotations, trait resolution |
+| `rayon` parallelization | 1 week | Low — trigger if >500 files becomes slow | Parallel file parsing across large firmware trees |
 
 ---
 
@@ -119,17 +141,25 @@ Last updated: 2026-04-01 (Rust & Lua algorithm pattern depth)
 - **BTreeMap/BTreeSet everywhere** for deterministic sorted output
 - **Shared infrastructure:** `call_graph.rs` and `data_flow.rs` reused across algorithms
 - **Algorithm-specific configs** in each module, not in central `SliceConfig`
+- **Single binary architecture** for future language expansion — `prism slice` (procedural) and `prism context` (declarative) subcommands with Cargo feature flags per language
 
 ### Known Limitations (C/C++)
 - Pointer aliasing: tracked at name level, not memory level (extract_lvalue_names mitigates)
-- Function pointers: Level 0 (field-access), Level 1 (local fptr variable), Level 2 (dispatch tables) resolved; Level 3 (parameter-passed) and Level 4 (full points-to) not implemented — see `docs/c-cpp/function-pointer-resolution.md`
+- Function pointers: Level 0 (field-access), Level 1 (local fptr variable), Level 2 (dispatch tables), Level 3 (parameter-passed, 1-hop) resolved; Level 4 (full points-to) not implemented — see `docs/c-cpp/function-pointer-resolution.md`
 - `static` function scope: disambiguated via `resolve_callees()` and `callers_of_in_file()`
 - Interrupt handlers: detected by naming heuristic AND cross-file registration analysis (`signal()`, `pthread_create()`, `request_irq()`, `.sa_handler`, `std::thread`)
 - Struct field flow: `dev->name` taints all of `dev` (P2 item)
 - Virtual dispatch: name-matched, not type-resolved (P2 item)
 
+### Known Limitations (Tree-sitter)
+- No type information — struct field tracking requires name-based heuristics
+- No import resolution — cross-file analysis uses name matching (static disambiguation for C/C++ only)
+- No preprocessor handling — C/C++ macros produce ERROR nodes
+- No control flow graph — path-insensitive analysis only
+- No semantic scoping — `find_variable_references_scoped` handles some variable shadowing cases
+
 ### Test Coverage
-- **183 tests** total (unit + integration)
+- **192 tests** total (unit + integration)
 - 9 languages covered (Python, JS/TS, Go, Java, C/C++, Rust, Lua)
 - 26 algorithms with at least basic coverage
 - C/C++ specific: 32 tests covering taint, provenance, absence, quantum (incl. ISR self-detection), membrane, phantom, pointer aliasing, function pointer dispatch (Level 0/1/2), static linkage disambiguation
@@ -147,6 +177,7 @@ Last updated: 2026-04-01 (Rust & Lua algorithm pattern depth)
 
 ## Reference
 
+- Language expansion plan: `docs/language-expansion-plan.md` (detailed analysis of all candidate languages, crates, architecture decisions)
 - Gap analysis: `docs/prism-ccpp-gap-analysis.md`
 - Algorithm taxonomy: `SLICING_METHODS.md`
 - Paper: arXiv:2505.17928
