@@ -226,24 +226,14 @@ impl CallGraph {
                 {
                     continue;
                 }
-                // Check if already resolved by Level 1
-                if extra_sites.iter().any(|(cid, _)| {
+                // Skip if already resolved to a known function by Level 1
+                let already_resolved = extra_sites.iter().any(|(cid, es)| {
                     cid == caller_id
-                        && calls.get(caller_id).map_or(false, |s| {
-                            s.iter().any(|cs| {
-                                cs.callee_name == site.callee_name && cs.line == site.line
-                            })
-                        })
-                }) {
-                    // Check if Level 1 already resolved this specific callee
-                    let already_resolved = extra_sites.iter().any(|(cid, es)| {
-                        cid == caller_id
-                            && es.line == site.line
-                            && known_fn_names.contains(&es.callee_name)
-                    });
-                    if already_resolved {
-                        continue;
-                    }
+                        && es.line == site.line
+                        && known_fn_names.contains(&es.callee_name)
+                });
+                if already_resolved {
+                    continue;
                 }
 
                 // Is this callee_name one of the function's parameters?
