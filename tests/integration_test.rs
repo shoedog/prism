@@ -5836,3 +5836,125 @@ func doWork() error {
         "Membrane should recognize errors.Is() as error handling"
     );
 }
+
+// ── Taint negative tests: patterns should NOT fire on safe code ───────
+
+#[test]
+fn test_taint_negative_raw_data_not_a_sink() {
+    // "rawData" identifier should NOT match the "=raw" exact sink pattern.
+    let source = r#"
+function processInput(input) {
+    const rawData = input;
+    transform(rawData);
+}
+"#;
+    let path = "src/safe.js";
+    let parsed = ParsedFile::parse(path, source, Language::JavaScript).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([3]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::Taint),
+    )
+    .unwrap();
+
+    // "rawData" is not a sink — the "=raw" pattern requires exact match
+    assert!(
+        result.findings.is_empty(),
+        "Taint should NOT fire on 'rawData' — only exact 'raw' is a sink, got findings: {:?}",
+        result
+            .findings
+            .iter()
+            .map(|f| &f.description)
+            .collect::<Vec<_>>()
+    );
+}
+
+#[test]
+fn test_taint_negative_html_escape_not_a_sink() {
+    // "HTMLEscapeString" identifier should NOT match the "=HTML" exact sink.
+    let source = r#"
+package main
+
+import "html/template"
+
+func renderSafe(userInput string) string {
+    content := userInput
+    return template.HTMLEscapeString(content)
+}
+"#;
+    let path = "web/safe.go";
+    let parsed = ParsedFile::parse(path, source, Language::Go).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([7]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::Taint),
+    )
+    .unwrap();
+
+    assert!(
+        result.findings.is_empty(),
+        "Taint should NOT fire on 'HTMLEscapeString' — only exact 'HTML' is a sink, got findings: {:?}",
+        result.findings.iter().map(|f| &f.description).collect::<Vec<_>>()
+    );
+}
+
+#[test]
+fn test_taint_negative_downloads_not_a_sink() {
+    // "downloads" identifier should NOT match the "=loads" exact sink.
+    let source = r#"
+def process_files(data):
+    downloads = data
+    handle(downloads)
+"#;
+    let path = "app/safe.py";
+    let parsed = ParsedFile::parse(path, source, Language::Python).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([3]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::Taint),
+    )
+    .unwrap();
+
+    assert!(
+        result.findings.is_empty(),
+        "Taint should NOT fire on 'downloads' — only exact 'loads' is a sink, got findings: {:?}",
+        result
+            .findings
+            .iter()
+            .map(|f| &f.description)
+            .collect::<Vec<_>>()
+    );
+}
