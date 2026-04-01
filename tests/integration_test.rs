@@ -7256,3 +7256,543 @@ end
         Some("untrusted_origin")
     );
 }
+
+// ===== C++ MembraneSlice error handling patterns =====
+
+/// Test that MembraneSlice recognises C++ try/catch as error handling.
+#[test]
+fn test_membrane_cpp_try_catch_recognised() {
+    let api_source = r#"
+int init_device(int port) {
+    if (port < 0) return -1;
+    return 0;
+}
+"#;
+
+    let caller_good_source = r#"
+#include "api.h"
+#include <stdexcept>
+
+void setup() {
+    try {
+        int ret = init_device(8080);
+        if (ret < 0) throw std::runtime_error("init failed");
+    } catch (std::exception& e) {
+        log_error(e.what());
+    }
+}
+"#;
+
+    let caller_bad_source = r#"
+#include "api.h"
+
+void quick_setup() {
+    init_device(8080);
+}
+"#;
+
+    let mut files = BTreeMap::new();
+    files.insert(
+        "src/api.cpp".to_string(),
+        ParsedFile::parse("src/api.cpp", api_source, Language::Cpp).unwrap(),
+    );
+    files.insert(
+        "src/good.cpp".to_string(),
+        ParsedFile::parse("src/good.cpp", caller_good_source, Language::Cpp).unwrap(),
+    );
+    files.insert(
+        "src/bad.cpp".to_string(),
+        ParsedFile::parse("src/bad.cpp", caller_bad_source, Language::Cpp).unwrap(),
+    );
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: "src/api.cpp".to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([3]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::MembraneSlice),
+    )
+    .unwrap();
+
+    let good_findings: Vec<_> = result
+        .findings
+        .iter()
+        .filter(|f| f.file.contains("good"))
+        .collect();
+    assert!(
+        good_findings.is_empty(),
+        "C++ try/catch should suppress unprotected-caller finding, got: {:?}",
+        good_findings
+    );
+
+    let bad_findings: Vec<_> = result
+        .findings
+        .iter()
+        .filter(|f| f.file.contains("bad"))
+        .collect();
+    assert!(
+        !bad_findings.is_empty(),
+        "Caller without error handling should be flagged as unprotected"
+    );
+}
+
+/// Test that MembraneSlice recognises C++ RAII smart pointers as error handling.
+#[test]
+fn test_membrane_cpp_smart_ptr_recognised() {
+    let api_source = r#"
+struct Device {
+    int id;
+};
+
+Device* create_device(int id) {
+    return new Device{id};
+}
+"#;
+
+    let caller_raii_source = r#"
+#include "api.h"
+#include <memory>
+
+void safe_init() {
+    std::unique_ptr<Device> dev(create_device(42));
+    dev->id = 100;
+}
+"#;
+
+    let caller_raw_source = r#"
+#include "api.h"
+
+void unsafe_init() {
+    Device* dev = create_device(42);
+    dev->id = 100;
+}
+"#;
+
+    let mut files = BTreeMap::new();
+    files.insert(
+        "src/api.cpp".to_string(),
+        ParsedFile::parse("src/api.cpp", api_source, Language::Cpp).unwrap(),
+    );
+    files.insert(
+        "src/raii.cpp".to_string(),
+        ParsedFile::parse("src/raii.cpp", caller_raii_source, Language::Cpp).unwrap(),
+    );
+    files.insert(
+        "src/raw.cpp".to_string(),
+        ParsedFile::parse("src/raw.cpp", caller_raw_source, Language::Cpp).unwrap(),
+    );
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: "src/api.cpp".to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([6]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::MembraneSlice),
+    )
+    .unwrap();
+
+    let raii_findings: Vec<_> = result
+        .findings
+        .iter()
+        .filter(|f| f.file.contains("raii"))
+        .collect();
+    assert!(
+        raii_findings.is_empty(),
+        "C++ unique_ptr RAII should suppress unprotected-caller finding, got: {:?}",
+        raii_findings
+    );
+
+    let raw_findings: Vec<_> = result
+        .findings
+        .iter()
+        .filter(|f| f.file.contains("raw"))
+        .collect();
+    assert!(
+        !raw_findings.is_empty(),
+        "Caller with raw pointer (no RAII) should be flagged as unprotected"
+    );
+}
+
+/// Test that MembraneSlice recognises C++ lock_guard as error handling.
+#[test]
+fn test_membrane_cpp_lock_guard_recognised() {
+    let api_source = r#"
+void update_shared_state(int val) {
+    global_state = val;
+}
+"#;
+
+    let caller_guarded_source = r#"
+#include "api.h"
+#include <mutex>
+
+std::mutex mtx;
+
+void safe_update(int val) {
+    std::lock_guard<std::mutex> lock(mtx);
+    update_shared_state(val);
+}
+"#;
+
+    let mut files = BTreeMap::new();
+    files.insert(
+        "src/api.cpp".to_string(),
+        ParsedFile::parse("src/api.cpp", api_source, Language::Cpp).unwrap(),
+    );
+    files.insert(
+        "src/guarded.cpp".to_string(),
+        ParsedFile::parse("src/guarded.cpp", caller_guarded_source, Language::Cpp).unwrap(),
+    );
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: "src/api.cpp".to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([3]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::MembraneSlice),
+    )
+    .unwrap();
+
+    let guarded_findings: Vec<_> = result
+        .findings
+        .iter()
+        .filter(|f| f.file.contains("guarded"))
+        .collect();
+    assert!(
+        guarded_findings.is_empty(),
+        "C++ lock_guard RAII should suppress unprotected-caller finding, got: {:?}",
+        guarded_findings
+    );
+}
+
+/// Test that MembraneSlice recognises C++ std::optional as error handling.
+#[test]
+fn test_membrane_cpp_optional_recognised() {
+    let api_source = r#"
+#include <optional>
+
+std::optional<int> find_port(const char* name) {
+    if (!name) return std::nullopt;
+    return 8080;
+}
+"#;
+
+    let caller_checked_source = r#"
+#include "api.h"
+
+void connect() {
+    auto port = find_port("eth0");
+    if (port.has_value()) {
+        use_port(port.value());
+    }
+}
+"#;
+
+    let mut files = BTreeMap::new();
+    files.insert(
+        "src/api.cpp".to_string(),
+        ParsedFile::parse("src/api.cpp", api_source, Language::Cpp).unwrap(),
+    );
+    files.insert(
+        "src/checked.cpp".to_string(),
+        ParsedFile::parse("src/checked.cpp", caller_checked_source, Language::Cpp).unwrap(),
+    );
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: "src/api.cpp".to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([4]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::MembraneSlice),
+    )
+    .unwrap();
+
+    let checked_findings: Vec<_> = result
+        .findings
+        .iter()
+        .filter(|f| f.file.contains("checked"))
+        .collect();
+    assert!(
+        checked_findings.is_empty(),
+        "C++ .has_value() check should suppress unprotected-caller finding, got: {:?}",
+        checked_findings
+    );
+}
+
+// ===== Function Pointer Level 3: parameter-passed fptrs =====
+
+/// Level 3: basic callback parameter — `execute(cb, data)` where `cb` is a parameter
+/// should resolve to the functions passed as arguments by callers.
+#[test]
+fn test_call_graph_level3_parameter_fptr() {
+    let source = r#"
+void handler_a(int data) {
+    // handle A
+}
+
+void handler_b(int data) {
+    // handle B
+}
+
+typedef void (*callback_fn)(int);
+
+void execute(callback_fn cb, int data) {
+    cb(data);
+}
+
+void caller_a(void) {
+    execute(handler_a, 1);
+}
+
+void caller_b(void) {
+    execute(handler_b, 2);
+}
+"#;
+
+    let mut files = BTreeMap::new();
+    files.insert(
+        "src/callback.c".to_string(),
+        ParsedFile::parse("src/callback.c", source, Language::C).unwrap(),
+    );
+
+    let call_graph = CallGraph::build(&files);
+
+    // execute's cb(data) should resolve to both handler_a and handler_b
+    let execute_id = &call_graph.functions.get("execute").unwrap()[0];
+    let execute_calls = call_graph.calls.get(execute_id).unwrap();
+    let callee_names: BTreeSet<&str> = execute_calls
+        .iter()
+        .map(|s| s.callee_name.as_str())
+        .collect();
+
+    assert!(
+        callee_names.contains("handler_a"),
+        "Level 3: execute(handler_a, 1) should resolve cb to handler_a, got: {:?}",
+        callee_names
+    );
+    assert!(
+        callee_names.contains("handler_b"),
+        "Level 3: execute(handler_b, 2) should resolve cb to handler_b, got: {:?}",
+        callee_names
+    );
+}
+
+/// Level 3: callback parameter with address-of operator — `register_handler(&my_handler)`
+#[test]
+fn test_call_graph_level3_address_of_fptr() {
+    let source = r#"
+void my_handler(int sig) {
+    // handle signal
+}
+
+void register_handler(void (*handler)(int), int sig) {
+    handler(sig);
+}
+
+void setup(void) {
+    register_handler(&my_handler, 2);
+}
+"#;
+
+    let mut files = BTreeMap::new();
+    files.insert(
+        "src/signal.c".to_string(),
+        ParsedFile::parse("src/signal.c", source, Language::C).unwrap(),
+    );
+
+    let call_graph = CallGraph::build(&files);
+
+    let register_id = &call_graph.functions.get("register_handler").unwrap()[0];
+    let register_calls = call_graph.calls.get(register_id).unwrap();
+    let callee_names: BTreeSet<&str> = register_calls
+        .iter()
+        .map(|s| s.callee_name.as_str())
+        .collect();
+
+    assert!(
+        callee_names.contains("my_handler"),
+        "Level 3: register_handler(&my_handler, 2) should resolve handler to my_handler, got: {:?}",
+        callee_names
+    );
+}
+
+/// Level 3: cross-file callback — callback function defined in one file, executor in another.
+#[test]
+fn test_call_graph_level3_cross_file_callback() {
+    let executor_source = r#"
+typedef void (*event_cb)(int);
+
+void on_event(event_cb callback, int event_id) {
+    callback(event_id);
+}
+"#;
+
+    let caller_source = r#"
+void handle_connect(int id) {
+    // process connect event
+}
+
+void init_events(void) {
+    on_event(handle_connect, 1);
+}
+"#;
+
+    let mut files = BTreeMap::new();
+    files.insert(
+        "src/executor.c".to_string(),
+        ParsedFile::parse("src/executor.c", executor_source, Language::C).unwrap(),
+    );
+    files.insert(
+        "src/caller.c".to_string(),
+        ParsedFile::parse("src/caller.c", caller_source, Language::C).unwrap(),
+    );
+
+    let call_graph = CallGraph::build(&files);
+
+    let on_event_id = &call_graph.functions.get("on_event").unwrap()[0];
+    let on_event_calls = call_graph.calls.get(on_event_id).unwrap();
+    let callee_names: BTreeSet<&str> = on_event_calls
+        .iter()
+        .map(|s| s.callee_name.as_str())
+        .collect();
+
+    assert!(
+        callee_names.contains("handle_connect"),
+        "Level 3: cross-file on_event(handle_connect, 1) should resolve callback, got: {:?}",
+        callee_names
+    );
+}
+
+/// Level 3: membrane slice should detect unprotected callers through parameter-passed fptrs.
+#[test]
+fn test_membrane_through_parameter_fptr() {
+    // File A: the API being changed
+    let api_source = r#"
+int process_data(int val) {
+    if (val < 0) return -1;
+    return val * 2;
+}
+"#;
+
+    // File B: executor that calls through a callback parameter
+    let executor_source = r#"
+typedef int (*transform_fn)(int);
+
+int apply_transform(transform_fn fn, int data) {
+    return fn(data);
+}
+"#;
+
+    // File C: caller that passes process_data as callback, no error handling
+    let caller_source = r#"
+void run(void) {
+    apply_transform(process_data, 42);
+}
+"#;
+
+    let mut files = BTreeMap::new();
+    files.insert(
+        "src/api.c".to_string(),
+        ParsedFile::parse("src/api.c", api_source, Language::C).unwrap(),
+    );
+    files.insert(
+        "src/executor.c".to_string(),
+        ParsedFile::parse("src/executor.c", executor_source, Language::C).unwrap(),
+    );
+    files.insert(
+        "src/caller.c".to_string(),
+        ParsedFile::parse("src/caller.c", caller_source, Language::C).unwrap(),
+    );
+
+    // Diff touches process_data body
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: "src/api.c".to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([3]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::MembraneSlice),
+    )
+    .unwrap();
+
+    // The call graph should have resolved apply_transform → process_data via Level 3.
+    // The executor calls process_data through the `fn` parameter, and the caller
+    // passes process_data as the argument. Membrane should detect the cross-file call.
+    // (Either the executor or the direct caller without error handling may be flagged.)
+    let has_blocks = !result.blocks.is_empty();
+    assert!(
+        has_blocks,
+        "Membrane should detect cross-file dependency through parameter-passed fptr"
+    );
+}
+
+/// Level 3: argument passed as local variable (Level 1 + Level 3 composition).
+#[test]
+fn test_call_graph_level3_with_local_variable() {
+    let source = r#"
+void real_handler(int x) {
+    // actual implementation
+}
+
+typedef void (*handler_fn)(int);
+
+void invoke(handler_fn cb, int val) {
+    cb(val);
+}
+
+void setup(void) {
+    handler_fn h = real_handler;
+    invoke(h, 10);
+}
+"#;
+
+    let mut files = BTreeMap::new();
+    files.insert(
+        "src/composed.c".to_string(),
+        ParsedFile::parse("src/composed.c", source, Language::C).unwrap(),
+    );
+
+    let call_graph = CallGraph::build(&files);
+
+    let invoke_id = &call_graph.functions.get("invoke").unwrap()[0];
+    let invoke_calls = call_graph.calls.get(invoke_id).unwrap();
+    let callee_names: BTreeSet<&str> = invoke_calls
+        .iter()
+        .map(|s| s.callee_name.as_str())
+        .collect();
+
+    assert!(
+        callee_names.contains("real_handler"),
+        "Level 3+1: invoke(h, 10) where h = real_handler should resolve cb to real_handler, got: {:?}",
+        callee_names
+    );
+}
