@@ -5071,3 +5071,274 @@ func renderUnsafe(userHTML string) template.HTML {
         "Taint should emit a finding for template.HTML XSS sink"
     );
 }
+
+// ── Provenance source tests: Python ───────────────────────────────────
+
+#[test]
+fn test_provenance_python_request_form_origin() {
+    // Variable originates from Flask request.form — should be classified as user_input.
+    let source = r#"
+from flask import request
+
+def handle_login():
+    username = request.form['username']
+    process(username)
+"#;
+    let path = "app/auth.py";
+    let parsed = ParsedFile::parse(path, source, Language::Python).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([6]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::ProvenanceSlice),
+    )
+    .unwrap();
+
+    // Should produce findings since username comes from user input
+    assert!(
+        !result.blocks.is_empty(),
+        "Provenance should produce blocks tracing username to request.form"
+    );
+    let has_user_input = result
+        .findings
+        .iter()
+        .any(|f| f.description.contains("user_input"));
+    assert!(
+        has_user_input,
+        "Provenance should classify request.form as user_input origin"
+    );
+}
+
+#[test]
+fn test_provenance_python_cursor_execute_origin() {
+    // Variable originates from cursor.fetchone — should be classified as database.
+    let source = r#"
+import sqlite3
+
+def get_user(user_id):
+    conn = sqlite3.connect('db.sqlite')
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM users WHERE id = ?", (user_id,))
+    row = cursor.fetchone()
+    return row
+"#;
+    let path = "app/db.py";
+    let parsed = ParsedFile::parse(path, source, Language::Python).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([8]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::ProvenanceSlice),
+    )
+    .unwrap();
+
+    assert!(
+        !result.blocks.is_empty(),
+        "Provenance should produce blocks tracing row to cursor.fetchone"
+    );
+    let has_db = result
+        .findings
+        .iter()
+        .any(|f| f.description.contains("database"));
+    assert!(
+        has_db,
+        "Provenance should classify cursor.fetchone as database origin"
+    );
+}
+
+// ── Provenance source tests: JavaScript ───────────────────────────────
+
+#[test]
+fn test_provenance_js_document_cookie_origin() {
+    // Variable originates from document.cookie — should be classified as user_input.
+    let source = r#"
+function getCookieValue() {
+    const cookies = document.cookie;
+    const parsed = parseCookies(cookies);
+    return parsed;
+}
+"#;
+    let path = "src/cookies.js";
+    let parsed = ParsedFile::parse(path, source, Language::JavaScript).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([4]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::ProvenanceSlice),
+    )
+    .unwrap();
+
+    assert!(
+        !result.blocks.is_empty(),
+        "Provenance should produce blocks tracing cookies to document.cookie"
+    );
+}
+
+#[test]
+fn test_provenance_js_process_env_origin() {
+    // Variable originates from process.env — should be classified as env_var.
+    let source = r#"
+function getPort() {
+    const port = process.env.PORT;
+    return port;
+}
+"#;
+    let path = "src/config.js";
+    let parsed = ParsedFile::parse(path, source, Language::JavaScript).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([4]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::ProvenanceSlice),
+    )
+    .unwrap();
+
+    assert!(
+        !result.blocks.is_empty(),
+        "Provenance should produce blocks tracing port to process.env"
+    );
+    let has_env = result
+        .findings
+        .iter()
+        .any(|f| f.description.contains("env_var"));
+    assert!(
+        has_env,
+        "Provenance should classify process.env as env_var origin"
+    );
+}
+
+// ── Provenance source tests: Go ───────────────────────────────────────
+
+#[test]
+fn test_provenance_go_form_value_origin() {
+    // Variable originates from r.FormValue — should be classified as user_input.
+    let source = r#"
+package main
+
+import "net/http"
+
+func handler(w http.ResponseWriter, r *http.Request) {
+    name := r.FormValue("name")
+    process(name)
+}
+"#;
+    let path = "web/handler.go";
+    let parsed = ParsedFile::parse(path, source, Language::Go).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([8]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::ProvenanceSlice),
+    )
+    .unwrap();
+
+    assert!(
+        !result.blocks.is_empty(),
+        "Provenance should produce blocks tracing name to r.FormValue"
+    );
+    let has_user_input = result
+        .findings
+        .iter()
+        .any(|f| f.description.contains("user_input"));
+    assert!(
+        has_user_input,
+        "Provenance should classify r.FormValue as user_input origin"
+    );
+}
+
+#[test]
+fn test_provenance_go_viper_config_origin() {
+    // Variable originates from viper config — should be classified as config.
+    let source = r#"
+package main
+
+import "github.com/spf13/viper"
+
+func loadConfig() string {
+    dbHost := viper.GetString("database.host")
+    return dbHost
+}
+"#;
+    let path = "config/loader.go";
+    let parsed = ParsedFile::parse(path, source, Language::Go).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([8]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::ProvenanceSlice),
+    )
+    .unwrap();
+
+    assert!(
+        !result.blocks.is_empty(),
+        "Provenance should produce blocks tracing dbHost to viper config"
+    );
+    let has_config = result
+        .findings
+        .iter()
+        .any(|f| f.description.contains("config"));
+    assert!(
+        has_config,
+        "Provenance should classify viper.GetString as config origin"
+    );
+}
