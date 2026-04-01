@@ -17,10 +17,10 @@ const SINK_PATTERNS: &[&str] = &[
     "exec",
     "eval",
     "system",
-    "query",
+    "query", // NOTE: also in provenance DATABASE_PATTERNS — intentional (both a data source and a sink)
     "execute",
     "raw_sql",
-    "open",
+    "=open", // exact to avoid "openFile", "openConnection"; still fires on os.open (tree-sitter splits it)
     "write",
     "unlink",
     "remove",
@@ -53,21 +53,20 @@ const SINK_PATTERNS: &[&str] = &[
     "snprintf",
     // === Python ===
     // Deserialization (arbitrary code execution)
-    "loads", // pickle.loads, marshal.loads, yaml.loads
-    "load",  // pickle.load, yaml.load (unsafe loader)
+    "=loads", // pickle.loads, marshal.loads, yaml.loads (exact to avoid "downloads", "preloads")
+    "=load",  // pickle.load, yaml.load (exact to avoid "download", "upload")
     // Process execution
-    "subprocess", // subprocess.run, subprocess.Popen, subprocess.call
-    "popen",      // os.popen
-    "Popen",      // subprocess.Popen
+    "=Popen", // subprocess.Popen (exact; "subprocess" omitted — too generic)
+    "=popen", // os.popen
     // Dynamic code execution
-    "compile", // compile() — creates executable code objects
+    "=compile", // compile() — creates executable code objects (exact to avoid "compiled")
     // Template injection
     "render_template_string", // Flask — renders user-supplied template
     "mark_safe",              // Django — marks string as safe HTML (bypass escaping)
-    "Markup",                 // Jinja2/Flask — raw HTML wrapper
+    "=Markup",                // Jinja2/Flask — raw HTML wrapper (exact to avoid "markup")
     // Dynamic attribute access with untrusted names
-    "getattr",
-    "setattr",
+    "=getattr", // (exact to avoid "getAttributes")
+    "=setattr",
     // === JavaScript / TypeScript ===
     // DOM XSS sinks
     "innerHTML",
@@ -89,14 +88,14 @@ const SINK_PATTERNS: &[&str] = &[
     "appendFile",
     "appendFileSync",
     // SQL injection (ORM raw queries)
-    "raw",     // knex.raw(), sequelize.query({ type: raw })
-    "literal", // Sequelize.literal()
+    "=raw",     // knex.raw() (exact to avoid "rawData", "withdrawal", "drawLine")
+    "=literal", // Sequelize.literal()
     // === Go ===
     // Command execution
     "Command", // exec.Command
     "Exec",    // os.Exec, db.Exec
     // Template injection / XSS
-    "HTML",    // template.HTML() — marks string as unescaped HTML
+    "=HTML",   // template.HTML() — exact to avoid "HTMLEscapeString", "HTMLAttr"
     "Fprintf", // fmt.Fprintf(w, userInput) — reflected XSS / format string
     "Sprintf", // fmt.Sprintf(userInput) — format string injection
     // File operations
@@ -110,14 +109,25 @@ const SINK_PATTERNS: &[&str] = &[
     "QueryRow", // sql.QueryRow
 ];
 
-/// Configuration for taint analysis.
+/// Check whether an identifier text matches a sink pattern.
+///
+/// Most patterns use substring matching (e.g. "exec" matches "execFile").
+/// Patterns prefixed with '=' require an exact identifier match
+/// (e.g. "=raw" matches "raw" but not "rawData" or "withdrawal").
+fn matches_sink(identifier: &str, pattern: &str) -> bool {
+    if let Some(exact) = pattern.strip_prefix('=') {
+        identifier == exact
+    } else {
+        identifier.contains(pattern)
+    }
+}
 #[derive(Debug, Clone)]
 pub struct TaintConfig {
     /// Explicit taint source locations.
     pub sources: Vec<(String, usize)>,
     /// If true, auto-taint all variables assigned on diff lines.
     pub taint_from_diff: bool,
-    /// Additional sink patterns to check.
+    /// Additional sink patterns to check. Prefix with '=' for exact identifier match.
     pub extra_sinks: Vec<String>,
 }
 
@@ -191,7 +201,7 @@ pub fn slice(
                 let ids = parsed.identifiers_on_line(edge.to.line);
                 for id in &ids {
                     let text = parsed.node_text(id);
-                    if all_sinks.iter().any(|s| text.contains(s)) {
+                    if all_sinks.iter().any(|s| matches_sink(text, s)) {
                         sink_lines.insert((edge.to.file.clone(), edge.to.line));
                     }
                 }

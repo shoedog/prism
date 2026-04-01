@@ -100,13 +100,26 @@ pub fn slice(files: &BTreeMap<String, ParsedFile>, diff: &DiffInput) -> Result<S
                                 return false;
                             }
                             let lt = caller_source[l - 1].trim();
-                            // GC-language error handling
+                            // === Cross-language / generic ===
                             lt.contains("try")
                                 || lt.contains("catch")
                                 || lt.contains("except")
                                 || lt.contains("if err")
                                 || lt.contains("if error")
                                 || lt.contains(".catch(")
+                                // === Python ===
+                                || lt.contains("raise_for_status(") // requests library
+                                || lt.contains("raise ")            // re-raising exceptions
+                                // === JavaScript / TypeScript ===
+                                || lt.contains("throw ")            // throwing errors
+                                || lt.contains("Promise.reject")    // promise rejection
+                                || lt.contains(".finally(")         // cleanup handler
+                                // === Go ===
+                                || lt.contains("errors.Is(")        // Go 1.13+ error wrapping
+                                || lt.contains("errors.As(")        // Go 1.13+ error type assertion
+                                || lt.contains("log.Fatal")         // fatal error logging
+                                || lt.contains("log.Panic")         // panic logging
+                                || lt.contains("panic(")
                                 // C/C++ return-value error handling
                                 || lt.contains("if (ret < 0)")
                                 || lt.contains("if (ret == -1)")

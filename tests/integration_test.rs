@@ -5071,3 +5071,890 @@ func renderUnsafe(userHTML string) template.HTML {
         "Taint should emit a finding for template.HTML XSS sink"
     );
 }
+
+// ── Provenance source tests: Python ───────────────────────────────────
+
+#[test]
+fn test_provenance_python_request_form_origin() {
+    // Variable originates from Flask request.form — should be classified as user_input.
+    let source = r#"
+from flask import request
+
+def handle_login():
+    username = request.form['username']
+    process(username)
+"#;
+    let path = "app/auth.py";
+    let parsed = ParsedFile::parse(path, source, Language::Python).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([6]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::ProvenanceSlice),
+    )
+    .unwrap();
+
+    // Should produce findings since username comes from user input
+    assert!(
+        !result.blocks.is_empty(),
+        "Provenance should produce blocks tracing username to request.form"
+    );
+    let has_user_input = result
+        .findings
+        .iter()
+        .any(|f| f.description.contains("user_input"));
+    assert!(
+        has_user_input,
+        "Provenance should classify request.form as user_input origin"
+    );
+}
+
+#[test]
+fn test_provenance_python_cursor_execute_origin() {
+    // Variable originates from cursor.fetchone — should be classified as database.
+    let source = r#"
+import sqlite3
+
+def get_user(user_id):
+    conn = sqlite3.connect('db.sqlite')
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM users WHERE id = ?", (user_id,))
+    row = cursor.fetchone()
+    return row
+"#;
+    let path = "app/db.py";
+    let parsed = ParsedFile::parse(path, source, Language::Python).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([8]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::ProvenanceSlice),
+    )
+    .unwrap();
+
+    assert!(
+        !result.blocks.is_empty(),
+        "Provenance should produce blocks tracing row to cursor.fetchone"
+    );
+    let has_db = result
+        .findings
+        .iter()
+        .any(|f| f.description.contains("database"));
+    assert!(
+        has_db,
+        "Provenance should classify cursor.fetchone as database origin"
+    );
+}
+
+// ── Provenance source tests: JavaScript ───────────────────────────────
+
+#[test]
+fn test_provenance_js_document_cookie_origin() {
+    // Variable originates from document.cookie — should be classified as user_input.
+    let source = r#"
+function getCookieValue() {
+    const cookies = document.cookie;
+    const parsed = parseCookies(cookies);
+    return parsed;
+}
+"#;
+    let path = "src/cookies.js";
+    let parsed = ParsedFile::parse(path, source, Language::JavaScript).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([4]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::ProvenanceSlice),
+    )
+    .unwrap();
+
+    assert!(
+        !result.blocks.is_empty(),
+        "Provenance should produce blocks tracing cookies to document.cookie"
+    );
+}
+
+#[test]
+fn test_provenance_js_process_env_origin() {
+    // Variable originates from process.env — should be classified as env_var.
+    let source = r#"
+function getPort() {
+    const port = process.env.PORT;
+    return port;
+}
+"#;
+    let path = "src/config.js";
+    let parsed = ParsedFile::parse(path, source, Language::JavaScript).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([4]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::ProvenanceSlice),
+    )
+    .unwrap();
+
+    assert!(
+        !result.blocks.is_empty(),
+        "Provenance should produce blocks tracing port to process.env"
+    );
+    let has_env = result
+        .findings
+        .iter()
+        .any(|f| f.description.contains("env_var"));
+    assert!(
+        has_env,
+        "Provenance should classify process.env as env_var origin"
+    );
+}
+
+// ── Provenance source tests: Go ───────────────────────────────────────
+
+#[test]
+fn test_provenance_go_form_value_origin() {
+    // Variable originates from r.FormValue — should be classified as user_input.
+    let source = r#"
+package main
+
+import "net/http"
+
+func handler(w http.ResponseWriter, r *http.Request) {
+    name := r.FormValue("name")
+    process(name)
+}
+"#;
+    let path = "web/handler.go";
+    let parsed = ParsedFile::parse(path, source, Language::Go).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([8]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::ProvenanceSlice),
+    )
+    .unwrap();
+
+    assert!(
+        !result.blocks.is_empty(),
+        "Provenance should produce blocks tracing name to r.FormValue"
+    );
+    let has_user_input = result
+        .findings
+        .iter()
+        .any(|f| f.description.contains("user_input"));
+    assert!(
+        has_user_input,
+        "Provenance should classify r.FormValue as user_input origin"
+    );
+}
+
+#[test]
+fn test_provenance_go_viper_config_origin() {
+    // Variable originates from viper config — should be classified as config.
+    let source = r#"
+package main
+
+import "github.com/spf13/viper"
+
+func loadConfig() string {
+    dbHost := viper.GetString("database.host")
+    return dbHost
+}
+"#;
+    let path = "config/loader.go";
+    let parsed = ParsedFile::parse(path, source, Language::Go).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([8]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::ProvenanceSlice),
+    )
+    .unwrap();
+
+    assert!(
+        !result.blocks.is_empty(),
+        "Provenance should produce blocks tracing dbHost to viper config"
+    );
+    let has_config = result
+        .findings
+        .iter()
+        .any(|f| f.description.contains("config"));
+    assert!(
+        has_config,
+        "Provenance should classify viper.GetString as config origin"
+    );
+}
+
+// ── Absence pair tests: Python ────────────────────────────────────────
+
+#[test]
+fn test_absence_python_threading_lock_without_release() {
+    // Python threading.Lock acquired but never released.
+    let source = r#"
+import threading
+
+def process_data(data):
+    lock = threading.Lock()
+    lock.acquire()
+    result = transform(data)
+    return result
+"#;
+    let path = "app/worker.py";
+    let parsed = ParsedFile::parse(path, source, Language::Python).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    // Diff line 6: lock.acquire() — the "open" pattern
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([6]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::AbsenceSlice),
+    )
+    .unwrap();
+
+    assert!(
+        !result.findings.is_empty(),
+        "Absence should detect threading lock without release"
+    );
+    assert!(
+        result
+            .findings
+            .iter()
+            .any(|f| f.description.contains("lock")
+                || f.description.contains("release")
+                || f.description.contains("unlock")),
+        "Finding should mention missing lock release"
+    );
+}
+
+#[test]
+fn test_absence_python_tempfile_without_cleanup() {
+    // Python tempfile.mkstemp without os.close/os.unlink.
+    let source = r#"
+import tempfile
+
+def create_temp():
+    fd, path = tempfile.mkstemp()
+    write_data(fd)
+    return path
+"#;
+    let path = "app/temp.py";
+    let parsed = ParsedFile::parse(path, source, Language::Python).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([5]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::AbsenceSlice),
+    )
+    .unwrap();
+
+    assert!(
+        !result.findings.is_empty(),
+        "Absence should detect tempfile.mkstemp without cleanup"
+    );
+}
+
+// ── Absence pair tests: JavaScript ────────────────────────────────────
+
+#[test]
+fn test_absence_js_stream_without_destroy() {
+    // Node.js createReadStream without destroy/close.
+    let source = r#"
+const fs = require('fs');
+
+function readFile(path) {
+    const stream = fs.createReadStream(path);
+    const data = processStream(stream);
+    return data;
+}
+"#;
+    let path = "src/reader.js";
+    let parsed = ParsedFile::parse(path, source, Language::JavaScript).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([5]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::AbsenceSlice),
+    )
+    .unwrap();
+
+    assert!(
+        !result.findings.is_empty(),
+        "Absence should detect createReadStream without destroy/close"
+    );
+}
+
+#[test]
+fn test_absence_js_fs_open_without_close() {
+    // Node.js fs.openSync without fs.closeSync.
+    let source = r#"
+const fs = require('fs');
+
+function writeData(path, data) {
+    const fd = fs.openSync(path, 'w');
+    fs.writeSync(fd, data);
+    return fd;
+}
+"#;
+    let path = "src/writer.js";
+    let parsed = ParsedFile::parse(path, source, Language::JavaScript).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([5]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::AbsenceSlice),
+    )
+    .unwrap();
+
+    assert!(
+        !result.findings.is_empty(),
+        "Absence should detect fs.openSync without fs.closeSync"
+    );
+}
+
+// ── Absence pair tests: Go ────────────────────────────────────────────
+
+#[test]
+fn test_absence_go_context_without_cancel() {
+    // Go context.WithCancel without calling cancel().
+    let source = r#"
+package main
+
+import "context"
+
+func doWork(parent context.Context) {
+    ctx, cancel := context.WithCancel(parent)
+    result := process(ctx)
+    handle(result)
+}
+"#;
+    let path = "cmd/work.go";
+    let parsed = ParsedFile::parse(path, source, Language::Go).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([7]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::AbsenceSlice),
+    )
+    .unwrap();
+
+    assert!(
+        !result.findings.is_empty(),
+        "Absence should detect context.WithCancel without cancel()"
+    );
+    assert!(
+        result
+            .findings
+            .iter()
+            .any(|f| f.description.contains("context") || f.description.contains("cancel")),
+        "Finding should mention missing cancel"
+    );
+}
+
+#[test]
+fn test_absence_go_http_body_not_closed() {
+    // Go http.Get without resp.Body.Close().
+    let source = r#"
+package main
+
+import "net/http"
+
+func fetchURL(url string) string {
+    resp, err := http.Get(url)
+    if err != nil {
+        return ""
+    }
+    body := readBody(resp)
+    return body
+}
+"#;
+    let path = "web/fetch.go";
+    let parsed = ParsedFile::parse(path, source, Language::Go).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([7]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::AbsenceSlice),
+    )
+    .unwrap();
+
+    assert!(
+        !result.findings.is_empty(),
+        "Absence should detect http.Get without Body.Close"
+    );
+}
+
+// ── Quantum async tests: Python threading ─────────────────────────────
+
+#[test]
+fn test_quantum_python_threading_async() {
+    // Python threading.Thread should be detected as async context.
+    let source = r#"
+import threading
+
+def worker(data):
+    count = 0
+    t = threading.Thread(target=process, args=(data,))
+    t.start()
+    count = count + 1
+    return count
+"#;
+    let path = "app/worker.py";
+    let parsed = ParsedFile::parse(path, source, Language::Python).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([8]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::QuantumSlice),
+    )
+    .unwrap();
+
+    assert!(
+        !result.blocks.is_empty(),
+        "QuantumSlice should detect Python threading.Thread as async context"
+    );
+}
+
+// ── Quantum async tests: JavaScript Worker ────────────────────────────
+
+#[test]
+fn test_quantum_js_worker_async() {
+    // JavaScript Worker should be detected as async context.
+    let source = r#"
+function processData(data) {
+    let result = null;
+    const worker = new Worker('processor.js');
+    result = data;
+    return result;
+}
+"#;
+    let path = "src/processor.js";
+    let parsed = ParsedFile::parse(path, source, Language::JavaScript).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([5]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::QuantumSlice),
+    )
+    .unwrap();
+
+    assert!(
+        !result.blocks.is_empty(),
+        "QuantumSlice should detect JavaScript Worker as async context"
+    );
+}
+
+// ── Quantum async tests: Go channel select ────────────────────────────
+
+#[test]
+fn test_quantum_go_channel_select() {
+    // Go select statement with channels should be detected as async context.
+    let source = r#"
+package main
+
+func fanIn(ch1 chan int, ch2 chan int) int {
+    result := 0
+    select {
+    case v := <-ch1:
+        result = v
+    case v := <-ch2:
+        result = v
+    }
+    return result
+}
+"#;
+    let path = "cmd/fanin.go";
+    let parsed = ParsedFile::parse(path, source, Language::Go).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([8]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::QuantumSlice),
+    )
+    .unwrap();
+
+    assert!(
+        !result.blocks.is_empty(),
+        "QuantumSlice should detect Go select/channel as async context"
+    );
+}
+
+// ── Membrane error handling tests: Python ─────────────────────────────
+
+#[test]
+fn test_membrane_python_raise_for_status() {
+    // Python caller using raise_for_status() should count as error handling.
+    let caller_source = r#"
+import requests
+
+def fetch_data(url):
+    response = get_api_data(url)
+    response.raise_for_status()
+    return response.json()
+"#;
+    let callee_source = r#"
+import requests
+
+def get_api_data(url):
+    return requests.get(url)
+"#;
+    let caller_path = "app/client.py";
+    let callee_path = "app/api.py";
+    let caller_parsed = ParsedFile::parse(caller_path, caller_source, Language::Python).unwrap();
+    let callee_parsed = ParsedFile::parse(callee_path, callee_source, Language::Python).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(caller_path.to_string(), caller_parsed);
+    files.insert(callee_path.to_string(), callee_parsed);
+
+    // Diff on the callee function
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: callee_path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([4]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::MembraneSlice),
+    )
+    .unwrap();
+
+    // Should have blocks (cross-file caller exists) but NO "unprotected" finding
+    // because raise_for_status() counts as error handling.
+    let has_unprotected = result
+        .findings
+        .iter()
+        .any(|f| f.category.as_deref() == Some("unprotected_caller"));
+    assert!(
+        !has_unprotected,
+        "Membrane should recognize raise_for_status() as error handling"
+    );
+}
+
+// ── Membrane error handling tests: Go ─────────────────────────────────
+
+#[test]
+fn test_membrane_go_errors_is_handling() {
+    // Go caller using errors.Is() should count as error handling.
+    let caller_source = r#"
+package main
+
+import "errors"
+
+func processRequest() {
+    err := doWork()
+    if errors.Is(err, ErrNotFound) {
+        handleNotFound()
+    }
+}
+"#;
+    let callee_source = r#"
+package main
+
+func doWork() error {
+    return nil
+}
+"#;
+    let caller_path = "cmd/handler.go";
+    let callee_path = "cmd/worker.go";
+    let caller_parsed = ParsedFile::parse(caller_path, caller_source, Language::Go).unwrap();
+    let callee_parsed = ParsedFile::parse(callee_path, callee_source, Language::Go).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(caller_path.to_string(), caller_parsed);
+    files.insert(callee_path.to_string(), callee_parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: callee_path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([4]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::MembraneSlice),
+    )
+    .unwrap();
+
+    let has_unprotected = result
+        .findings
+        .iter()
+        .any(|f| f.category.as_deref() == Some("unprotected_caller"));
+    assert!(
+        !has_unprotected,
+        "Membrane should recognize errors.Is() as error handling"
+    );
+}
+
+// ── Taint negative tests: patterns should NOT fire on safe code ───────
+
+#[test]
+fn test_taint_negative_raw_data_not_a_sink() {
+    // "rawData" identifier should NOT match the "=raw" exact sink pattern.
+    let source = r#"
+function processInput(input) {
+    const rawData = input;
+    transform(rawData);
+}
+"#;
+    let path = "src/safe.js";
+    let parsed = ParsedFile::parse(path, source, Language::JavaScript).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([3]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::Taint),
+    )
+    .unwrap();
+
+    // "rawData" is not a sink — the "=raw" pattern requires exact match
+    assert!(
+        result.findings.is_empty(),
+        "Taint should NOT fire on 'rawData' — only exact 'raw' is a sink, got findings: {:?}",
+        result
+            .findings
+            .iter()
+            .map(|f| &f.description)
+            .collect::<Vec<_>>()
+    );
+}
+
+#[test]
+fn test_taint_negative_html_escape_not_a_sink() {
+    // "HTMLEscapeString" identifier should NOT match the "=HTML" exact sink.
+    let source = r#"
+package main
+
+import "html/template"
+
+func renderSafe(userInput string) string {
+    content := userInput
+    return template.HTMLEscapeString(content)
+}
+"#;
+    let path = "web/safe.go";
+    let parsed = ParsedFile::parse(path, source, Language::Go).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([7]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::Taint),
+    )
+    .unwrap();
+
+    assert!(
+        result.findings.is_empty(),
+        "Taint should NOT fire on 'HTMLEscapeString' — only exact 'HTML' is a sink, got findings: {:?}",
+        result.findings.iter().map(|f| &f.description).collect::<Vec<_>>()
+    );
+}
+
+#[test]
+fn test_taint_negative_downloads_not_a_sink() {
+    // "downloads" identifier should NOT match the "=loads" exact sink.
+    let source = r#"
+def process_files(data):
+    downloads = data
+    handle(downloads)
+"#;
+    let path = "app/safe.py";
+    let parsed = ParsedFile::parse(path, source, Language::Python).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([3]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::Taint),
+    )
+    .unwrap();
+
+    assert!(
+        result.findings.is_empty(),
+        "Taint should NOT fire on 'downloads' — only exact 'loads' is a sink, got findings: {:?}",
+        result
+            .findings
+            .iter()
+            .map(|f| &f.description)
+            .collect::<Vec<_>>()
+    );
+}
