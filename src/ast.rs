@@ -741,6 +741,42 @@ impl ParsedFile {
         }
         None
     }
+
+    /// Check if a function node has a variadic parameter (`...`).
+    ///
+    /// In C/C++, tree-sitter represents `...` as a `variadic_parameter` node
+    /// inside the parameter list.
+    pub fn is_variadic_function(&self, func_node: &Node<'_>) -> bool {
+        if let Some(params) = self.find_parameters_node(func_node) {
+            let mut cursor = params.walk();
+            for child in params.children(&mut cursor) {
+                if child.kind() == "variadic_parameter" {
+                    return true;
+                }
+            }
+        }
+        false
+    }
+
+    /// Find all call expression names inside a function body.
+    /// Returns deduplicated list of callee names.
+    pub fn callees_in_function(&self, func_node: &Node<'_>) -> Vec<String> {
+        let mut names = BTreeSet::new();
+        self.collect_all_callees(*func_node, &mut names);
+        names.into_iter().collect()
+    }
+
+    fn collect_all_callees(&self, node: Node<'_>, out: &mut BTreeSet<String>) {
+        if self.language.is_call_node(node.kind()) {
+            if let Some(name_node) = self.language.call_function_name(&node) {
+                out.insert(self.node_text(&name_node).to_string());
+            }
+        }
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            self.collect_all_callees(child, out);
+        }
+    }
 }
 
 /// Scan a function's source text for assignments of the form `var_name = func_name`

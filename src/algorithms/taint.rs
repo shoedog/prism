@@ -51,6 +51,11 @@ const SINK_PATTERNS: &[&str] = &[
     "printf",
     "fprintf",
     "snprintf",
+    // C/C++ va_list format string sinks
+    "vprintf",
+    "vfprintf",
+    "vsprintf",
+    "vsnprintf",
     // === Python ===
     // Deserialization (arbitrary code execution)
     "=loads", // pickle.loads, marshal.loads, yaml.loads (exact to avoid "downloads", "preloads")
@@ -184,6 +189,68 @@ pub struct TaintFinding {
     pub path_lines: Vec<(String, usize)>,
 }
 
+/// Detect variadic wrapper functions that forward arguments to known format string sinks.
+///
+/// Scans all parsed files for functions with a variadic parameter (`...`) that
+/// call any known format string sink (vprintf, vfprintf, vsprintf, vsnprintf,
+/// sprintf, snprintf, fprintf, printf). These wrappers should be treated as
+/// sinks themselves, since the intraprocedural DFG cannot trace arguments
+/// across function boundaries.
+///
+/// Returns wrapper function names as exact-match sink patterns (prefixed with `=`).
+///
+/// Known limitations:
+/// - Only detects 1-hop wrappers. If `my_log(...)` calls `internal_log(...)` which
+///   calls `vsnprintf`, only `internal_log` is detected. Could be extended by
+///   iterating to a fixed point over discovered wrappers.
+/// - A variadic function that calls printf for debug logging but whose `...` args
+///   are unrelated to the printf call will be misclassified as a wrapper. Rare in
+///   practice since most variadic+printf combos are genuine format wrappers.
+fn detect_format_string_wrappers(files: &BTreeMap<String, ParsedFile>) -> Vec<String> {
+    /// Format string sinks that variadic wrappers typically forward to.
+    const FORMAT_SINKS: &[&str] = &[
+        "vprintf",
+        "vfprintf",
+        "vsprintf",
+        "vsnprintf",
+        "sprintf",
+        "snprintf",
+        "fprintf",
+        "printf",
+    ];
+
+    let mut wrappers = Vec::new();
+
+    for parsed in files.values() {
+        let func_types = parsed.language.function_node_types();
+        let root = parsed.tree.root_node();
+        let mut stack = vec![root];
+
+        while let Some(node) = stack.pop() {
+            if func_types.contains(&node.kind()) {
+                if parsed.is_variadic_function(&node) {
+                    // Check if this function calls any format sink
+                    let callees = parsed.callees_in_function(&node);
+                    let calls_format_sink =
+                        callees.iter().any(|c| FORMAT_SINKS.contains(&c.as_str()));
+                    if calls_format_sink {
+                        if let Some(name_node) = parsed.language.function_name(&node) {
+                            let name = parsed.node_text(&name_node).to_string();
+                            wrappers.push(format!("={}", name));
+                        }
+                    }
+                }
+            }
+            let mut cursor = node.walk();
+            for child in node.children(&mut cursor) {
+                stack.push(child);
+            }
+        }
+    }
+
+    wrappers
+}
+
 pub fn slice(
     files: &BTreeMap<String, ParsedFile>,
     diff: &DiffInput,
@@ -206,6 +273,9 @@ pub fn slice(
     // Forward propagation from each source
     let paths = dfg.taint_forward(&taint_sources);
 
+    // Detect variadic wrapper functions and add them as dynamic sinks
+    let wrapper_sinks = detect_format_string_wrappers(files);
+
     // Collect all tainted lines and identify sinks
     let mut all_tainted: BTreeMap<String, BTreeSet<usize>> = BTreeMap::new();
     let mut sink_lines: BTreeSet<(String, usize)> = BTreeSet::new();
@@ -214,6 +284,7 @@ pub fn slice(
         .iter()
         .copied()
         .chain(taint_config.extra_sinks.iter().map(|s| s.as_str()))
+        .chain(wrapper_sinks.iter().map(|s| s.as_str()))
         .collect();
 
     for path in &paths {
