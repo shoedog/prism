@@ -72,6 +72,7 @@ impl Origin {
 
 /// Heuristic patterns for origin classification.
 const USER_INPUT_PATTERNS: &[&str] = &[
+    // === Cross-language / generic ===
     "request",
     "req.",
     "body",
@@ -82,15 +83,41 @@ const USER_INPUT_PATTERNS: &[&str] = &[
     "stdin",
     "args",
     "argv",
+    // === Python ===
+    "request.form",  // Flask form data
+    "request.json",  // Flask JSON body
+    "request.data",  // Flask raw body / DRF request data
+    "request.GET",   // Django query params
+    "request.POST",  // Django form data
+    "request.FILES", // Django file uploads
+    "sys.stdin",     // Standard input
+    "raw_input(",    // Python 2 user input
+    "input(",        // Python 3 user input (also generic)
+    // === JavaScript / TypeScript ===
     "getParameter",
+    "event.target",
+    "prompt(",
+    "readline",
+    "document.cookie", // Client-side cookie access
+    "window.location", // URL manipulation
+    "location.hash",   // URL hash (often unsanitized)
+    "location.search", // URL query string
+    "URLSearchParams", // Parsed query parameters
+    "req.cookies",     // Express cookie access
+    "req.headers",     // Express/Node request headers
+    "req.socket",      // Raw socket data
+    // === Go ===
     "ReadBody",
     "FormValue",
     "PostForm",
     "r.Body",
-    "event.target",
-    "prompt(",
-    "readline",
-    // C/C++ network and file input
+    "r.URL.Query",      // net/http query params
+    "r.Header",         // net/http request headers
+    "r.FormFile",       // net/http file upload
+    "r.MultipartForm",  // net/http multipart form
+    "bufio.NewReader",  // Often wraps os.Stdin
+    "bufio.NewScanner", // Often wraps os.Stdin
+    // === C/C++ network and file input ===
     "recv(",
     "recvfrom(",
     "read(",
@@ -104,6 +131,7 @@ const USER_INPUT_PATTERNS: &[&str] = &[
 ];
 
 const DATABASE_PATTERNS: &[&str] = &[
+    // === Cross-language / generic ===
     "query",
     "execute",
     "fetch",
@@ -117,9 +145,36 @@ const DATABASE_PATTERNS: &[&str] = &[
     "repository",
     "dao",
     "store.get",
+    // === Python ===
+    "session.query",   // SQLAlchemy
+    "objects.filter",  // Django ORM QuerySet
+    "objects.get",     // Django ORM single object
+    "objects.all",     // Django ORM all objects
+    "cursor.execute",  // DB-API 2.0 (sqlite3, psycopg2, etc.)
+    "cursor.fetchone", // DB-API 2.0 result
+    "cursor.fetchall", // DB-API 2.0 results
+    "Model.select",    // Peewee ORM
+    // === JavaScript / TypeScript ===
+    "Model.find",           // Mongoose/Sequelize
+    "Model.findOne",        // Mongoose/Sequelize
+    "prisma.",              // Prisma ORM
+    "knex(",                // Knex query builder
+    "connection.query",     // mysql2 / node-mysql
+    "collection.find",      // MongoDB native driver
+    "collection.aggregate", // MongoDB aggregation
+    // === Go ===
+    "sql.Query",    // database/sql
+    "sql.QueryRow", // database/sql single row
+    "db.Query",     // database/sql via db handle
+    "db.QueryRow",  // database/sql via db handle
+    "rows.Scan",    // database/sql row scanning
+    "tx.Query",     // database/sql transaction
+    "gorm.Find",    // GORM ORM
+    "gorm.First",   // GORM ORM
 ];
 
 const CONFIG_PATTERNS: &[&str] = &[
+    // === Cross-language / generic ===
     "config",
     "Config",
     "settings",
@@ -131,22 +186,46 @@ const CONFIG_PATTERNS: &[&str] = &[
     "properties",
     "yaml",
     "toml",
-    // C/C++ command-line option and config file parsing
+    // === Python ===
+    "configparser",   // configparser module
+    "json.load",      // Often used for config files
+    "yaml.safe_load", // YAML config loading
+    "toml.load",      // TOML config loading
+    "django.conf",    // Django settings
+    // === JavaScript / TypeScript ===
+    "require('config')", // node-config
+    "JSON.parse",        // Often config/data parsing
+    "yaml.parse",        // YAML config parsing
+    "fs.readFileSync",   // Often reads config files
+    // === Go ===
+    "viper.",         // Viper config library
+    "flag.",          // Go flag package (CLI args as config)
+    "toml.Decode",    // BurntSushi/toml
+    "yaml.Unmarshal", // go-yaml
+    "json.Unmarshal", // encoding/json (often config)
+    // === C/C++ command-line option and config file parsing ===
     "getopt(",
     "fopen(",
 ];
 
 const ENV_PATTERNS: &[&str] = &[
-    "os.environ",
-    "os.Getenv",
-    "process.env",
-    "System.getenv",
+    // === Python ===
+    "os.environ", // os.environ['KEY'] / os.environ.get('KEY')
+    "os.getenv",  // os.getenv('KEY')
+    // === JavaScript / TypeScript ===
+    "process.env", // process.env.KEY
+    "dotenv",      // dotenv package
+    // === Go ===
+    "os.Getenv",    // os.Getenv("KEY")
+    "os.LookupEnv", // os.LookupEnv("KEY")
+    // === Java ===
+    "System.getenv", // System.getenv("KEY")
+    // === Cross-language / generic ===
     "env.",
     "ENV[",
-    "getenv(",
-    "dotenv",
-    // C/C++ command-line arguments
-    "argv[",
+    // === C/C++ ===
+    "getenv(", // stdlib getenv()
+    "argv[",   // Command-line arguments
     "argv ",
 ];
 

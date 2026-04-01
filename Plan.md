@@ -42,11 +42,11 @@ Last updated: 2026-04-01 (multi-language taint sink patterns)
 | Item | Branch | Status |
 |------|--------|--------|
 | Taint sinks — add Python (pickle.loads, subprocess.Popen, compile, render_template_string, mark_safe, Markup, getattr, setattr), JS/TS (innerHTML, outerHTML, insertAdjacentHTML, Function, spawn, execFile, execSync, spawnSync, writeFile, writeFileSync, raw, literal), Go (Command, Exec, HTML, Fprintf, Sprintf, Remove, RemoveAll, WriteFile, Query, QueryRow) | `claude/fix-taint-patterns-tests-0fPSO` | Done |
-| Provenance sources — add missing patterns for Python, JS/TS, Go | — | Not started |
+| Provenance sources — add Python (request.form/json/data, Django ORM, cursor.execute/fetchone, sys.stdin), JS/TS (document.cookie, window.location, URLSearchParams, req.cookies/headers, prisma, knex, collection.find), Go (r.URL.Query, r.Header, r.FormFile, sql.Query/QueryRow, rows.Scan, viper, flag, yaml.Unmarshal) | `claude/fix-taint-patterns-tests-0fPSO` | Done |
 | Absence pairs — add missing patterns for Python, JS/TS, Go | — | Not started |
 | Quantum async + Membrane errors — Python threading, JS nextTick/RxJS, Go channels/select | — | Not started |
 
-**Tests added:** Taint Python pickle.loads (1), taint Python subprocess.Popen (1), taint JS innerHTML (1), taint JS execSync (1), taint Go exec.Command (1), taint Go template.HTML (1).
+**Tests added:** Taint Python pickle.loads (1), taint Python subprocess.Popen (1), taint JS innerHTML (1), taint JS execSync (1), taint Go exec.Command (1), taint Go template.HTML (1). Provenance Python request.form (1), provenance Python cursor.fetchone (1), provenance JS document.cookie (1), provenance JS process.env (1), provenance Go r.FormValue (1), provenance Go viper config (1).
 
 ---
 
@@ -100,11 +100,12 @@ Last updated: 2026-04-01 (multi-language taint sink patterns)
 - Virtual dispatch: name-matched, not type-resolved (P2 item)
 
 ### Test Coverage
-- **131 tests** total (unit + integration)
+- **137 tests** total (unit + integration)
 - 5 languages covered in integration tests
 - 26 algorithms with at least basic coverage
 - C/C++ specific: 32 tests covering taint, provenance, absence, quantum (incl. ISR self-detection), membrane, phantom, pointer aliasing, function pointer dispatch (Level 0/1/2), static linkage disambiguation
 - Multi-language taint: 6 tests covering Python (pickle, subprocess), JS (innerHTML, execSync), Go (exec.Command, template.HTML)
+- Multi-language provenance: 6 tests covering Python (request.form, cursor.fetchone), JS (document.cookie, process.env), Go (r.FormValue, viper config)
 
 ---
 
