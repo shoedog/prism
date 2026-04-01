@@ -472,28 +472,36 @@ impl ParsedFile {
         if path.is_simple() {
             return self.find_variable_references_scoped(func_node, &path.base, def_line);
         }
-        // For field-qualified paths, find both:
-        // 1. Exact field expression matches (dev->name where path is dev.name)
-        // 2. Base identifier references (for whole-struct uses like memcpy(&dev, ...))
+        // For field-qualified paths, find matching field expressions.
+        // Filter to references after def_line, matching the scoping behavior
+        // of find_variable_references_scoped for simple paths.
         let mut lines = BTreeSet::new();
-        self.collect_path_refs(*func_node, path, &mut lines);
+        self.collect_path_refs(*func_node, path, def_line, &mut lines);
         lines
     }
 
-    fn collect_path_refs(&self, node: Node<'_>, path: &AccessPath, out: &mut BTreeSet<usize>) {
+    fn collect_path_refs(
+        &self,
+        node: Node<'_>,
+        path: &AccessPath,
+        def_line: usize,
+        out: &mut BTreeSet<usize>,
+    ) {
+        let line = node.start_position().row + 1;
+
         // Check field expressions
         if node.kind() == "field_expression" || node.kind() == "member_expression" {
             let text = self.node_text(&node).to_string();
             let node_path = AccessPath::from_expr(&text);
-            if node_path == *path {
-                out.insert(node.start_position().row + 1);
+            if node_path == *path && line > def_line {
+                out.insert(line);
                 return; // Don't recurse into matched field expression
             }
         }
 
         let mut cursor = node.walk();
         for child in node.children(&mut cursor) {
-            self.collect_path_refs(child, path, out);
+            self.collect_path_refs(child, path, def_line, out);
         }
     }
 
