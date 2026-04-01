@@ -20,7 +20,7 @@ const SINK_PATTERNS: &[&str] = &[
     "query", // NOTE: also in provenance DATABASE_PATTERNS — intentional (both a data source and a sink)
     "execute",
     "raw_sql",
-    "=open", // exact to avoid "openFile", "openConnection" (those have their own patterns)
+    "=open", // exact to avoid "openFile", "openConnection"; still fires on os.open (tree-sitter splits it)
     "write",
     "unlink",
     "remove",
@@ -127,7 +127,7 @@ pub struct TaintConfig {
     pub sources: Vec<(String, usize)>,
     /// If true, auto-taint all variables assigned on diff lines.
     pub taint_from_diff: bool,
-    /// Additional sink patterns to check.
+    /// Additional sink patterns to check. Prefix with '=' for exact identifier match.
     pub extra_sinks: Vec<String>,
 }
 
