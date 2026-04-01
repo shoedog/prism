@@ -171,7 +171,23 @@ fn find_async_inner(parsed: &ParsedFile, node: Node<'_>, out: &mut Vec<usize>) {
     let line = node.start_position().row + 1;
 
     let is_async = match parsed.language {
-        Language::Python => kind == "await" || kind == "await_expression",
+        Language::Python => {
+            kind == "await"
+                || kind == "await_expression"
+                || (kind == "call_expression" && {
+                    let text = parsed.node_text(&node);
+                    text.contains("threading.Thread(")
+                        || text.contains("Thread(")
+                        || text.contains(".start(")
+                        || text.contains("multiprocessing.Process(")
+                        || text.contains("Process(")
+                        || text.contains("pool.apply_async(")
+                        || text.contains("pool.map_async(")
+                        || text.contains("asyncio.create_task(")
+                        || text.contains("asyncio.gather(")
+                        || text.contains("loop.run_in_executor(")
+                })
+        }
         Language::JavaScript | Language::TypeScript => {
             kind == "await_expression"
                 || (kind == "call_expression" && {
@@ -180,9 +196,18 @@ fn find_async_inner(parsed: &ParsedFile, node: Node<'_>, out: &mut Vec<usize>) {
                         || text.contains("setTimeout")
                         || text.contains("setInterval")
                         || text.contains("Promise")
+                        || text.contains("Worker(")
+                        || text.contains("process.nextTick(")
+                        || text.contains("setImmediate(")
+                        || text.contains("queueMicrotask(")
                 })
         }
-        Language::Go => kind == "go_statement",
+        Language::Go => {
+            kind == "go_statement"
+                || kind == "select_statement"
+                || (kind == "send_statement")
+                || (kind == "receive_statement")
+        }
         Language::Java => {
             kind == "method_invocation" && {
                 let text = parsed.node_text(&node);
@@ -368,19 +393,32 @@ fn is_async_function(
 
     match parsed.language {
         Language::Python => {
-            // Check if parent or the node itself has "async" keyword
             let text = parsed.node_text(func_node);
+            // async def or contains threading/multiprocessing usage
             text.starts_with("async ")
+                || text.contains("threading.Thread(")
+                || text.contains("Thread(")
+                || text.contains("multiprocessing.Process(")
+                || text.contains("pool.apply_async(")
+                || text.contains("asyncio.create_task(")
         }
         Language::JavaScript | Language::TypeScript => {
             let text = parsed.node_text(func_node);
             text.starts_with("async ")
+                || text.contains("Worker(")
+                || text.contains("process.nextTick(")
+                || text.contains("cluster.fork(")
         }
         Language::Go => {
-            // Go functions aren't inherently async, but check if they contain goroutines
+            // Go functions aren't inherently async, but check if they contain
+            // goroutines, select statements, or channel operations
             let mut has_go = false;
             check_for_go_stmt(parsed, *func_node, &mut has_go);
-            has_go
+            if has_go {
+                return true;
+            }
+            let text = parsed.node_text(func_node);
+            text.contains("select {") || text.contains("<-")
         }
         Language::Java => {
             // Check if return type involves CompletableFuture, Future, etc.

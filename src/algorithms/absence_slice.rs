@@ -165,6 +165,83 @@ pub fn default_pairs() -> Vec<PairedPattern> {
             close_patterns: vec!["kfree("],
             description: "kstrdup allocation without kfree",
         },
+        // === Python-specific pairs ===
+        PairedPattern {
+            open_patterns: vec!["threading.Lock(", "threading.RLock("],
+            close_patterns: vec![".release("],
+            description: "Python threading lock without release",
+        },
+        PairedPattern {
+            open_patterns: vec!["pool.apply_async(", "pool.map_async(", "Pool("],
+            close_patterns: vec!["pool.close(", "pool.terminate(", "pool.join("],
+            description: "Python multiprocessing pool without close/join",
+        },
+        PairedPattern {
+            open_patterns: vec!["socket.socket(", "socket("],
+            close_patterns: vec![".close(", "close("],
+            description: "socket created without close",
+        },
+        PairedPattern {
+            open_patterns: vec!["tempfile.mkstemp(", "tempfile.NamedTemporaryFile("],
+            close_patterns: vec!["os.close(", "os.unlink(", "os.remove(", ".close("],
+            description: "temporary file without cleanup",
+        },
+        // === JavaScript/TypeScript-specific pairs ===
+        PairedPattern {
+            open_patterns: vec!["createReadStream(", "createWriteStream("],
+            close_patterns: vec![".destroy(", ".close(", ".end("],
+            description: "Node.js stream without destroy/close/end",
+        },
+        PairedPattern {
+            open_patterns: vec!["createServer("],
+            close_patterns: vec!["server.close(", ".close("],
+            description: "server created without close",
+        },
+        PairedPattern {
+            open_patterns: vec!["pool.connect(", "pool.query("],
+            close_patterns: vec!["client.release(", ".release(", "pool.end("],
+            description: "database pool connection without release",
+        },
+        PairedPattern {
+            open_patterns: vec!["fs.open(", "fs.openSync("],
+            close_patterns: vec!["fs.close(", "fs.closeSync("],
+            description: "fs.open without fs.close",
+        },
+        PairedPattern {
+            open_patterns: vec!["acquire(", "lock("],
+            close_patterns: vec!["release(", "unlock("],
+            description: "lock/acquire without release/unlock",
+        },
+        // === Go-specific pairs ===
+        PairedPattern {
+            open_patterns: vec!["sql.Open("],
+            close_patterns: vec!["db.Close(", ".Close("],
+            description: "Go sql.Open without db.Close",
+        },
+        PairedPattern {
+            open_patterns: vec!["os.Create(", "os.OpenFile("],
+            close_patterns: vec![".Close("],
+            description: "Go file created without Close",
+        },
+        PairedPattern {
+            open_patterns: vec![
+                "context.WithCancel(",
+                "context.WithTimeout(",
+                "context.WithDeadline(",
+            ],
+            close_patterns: vec!["cancel("],
+            description: "Go context without cancel (may leak goroutine)",
+        },
+        PairedPattern {
+            open_patterns: vec![".Add("],
+            close_patterns: vec![".Wait("],
+            description: "WaitGroup Add without Wait",
+        },
+        PairedPattern {
+            open_patterns: vec!["http.Get(", "http.Post(", "http.Do("],
+            close_patterns: vec![".Body.Close(", "Body.Close("],
+            description: "Go HTTP response body not closed",
+        },
     ]
 }
 
