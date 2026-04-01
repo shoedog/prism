@@ -391,6 +391,70 @@ impl ParsedFile {
         }
     }
 
+    /// Find all goto statements in a function node.
+    /// Returns `(target_label, goto_line)` pairs.
+    pub fn goto_statements(&self, func_node: &Node<'_>) -> Vec<(String, usize)> {
+        let mut gotos = Vec::new();
+        self.collect_gotos(*func_node, &mut gotos);
+        gotos
+    }
+
+    fn collect_gotos(&self, node: Node<'_>, out: &mut Vec<(String, usize)>) {
+        if node.kind() == "goto_statement" {
+            // tree-sitter-c: goto_statement has a "label" field with the target name
+            if let Some(label_node) = node.child_by_field_name("label") {
+                let label = self.node_text(&label_node).to_string();
+                let line = node.start_position().row + 1;
+                out.push((label, line));
+            }
+        }
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            self.collect_gotos(child, out);
+        }
+    }
+
+    /// Find all label definitions in a function node.
+    /// Returns `(label_name, label_line, section_end_line)` triples.
+    /// `section_end_line` is the line of the next label or the function end,
+    /// representing the code section "owned" by this label.
+    pub fn label_sections(&self, func_node: &Node<'_>) -> Vec<(String, usize, usize)> {
+        let mut labels: Vec<(String, usize)> = Vec::new();
+        self.collect_labels(*func_node, &mut labels);
+
+        let func_end = func_node.end_position().row + 1;
+
+        // Sort labels by line number to determine sections
+        labels.sort_by_key(|(_, line)| *line);
+
+        let mut sections = Vec::new();
+        for i in 0..labels.len() {
+            let (ref name, start) = labels[i];
+            let end = if i + 1 < labels.len() {
+                labels[i + 1].1.saturating_sub(1)
+            } else {
+                func_end
+            };
+            sections.push((name.clone(), start, end));
+        }
+        sections
+    }
+
+    fn collect_labels(&self, node: Node<'_>, out: &mut Vec<(String, usize)>) {
+        if node.kind() == "labeled_statement" {
+            // tree-sitter-c: labeled_statement has a "label" field
+            if let Some(label_node) = node.child_by_field_name("label") {
+                let label = self.node_text(&label_node).to_string();
+                let line = node.start_position().row + 1;
+                out.push((label, line));
+            }
+        }
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            self.collect_labels(child, out);
+        }
+    }
+
     /// Find the enclosing control flow block (if/for/while) for a given line,
     /// and return its start and end lines.
     pub fn enclosing_branch(&self, line: usize) -> Option<(usize, usize)> {
