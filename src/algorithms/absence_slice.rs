@@ -435,6 +435,14 @@ pub fn slice(files: &BTreeMap<String, ParsedFile>, diff: &DiffInput) -> Result<S
                         block.add_line(&diff_info.file_path, *ret_line, false);
                     }
 
+                    // Include goto labels as related lines (shows cleanup paths)
+                    let label_sections = parsed.label_sections(&func_node);
+                    let mut related = returns.clone();
+                    for (_, label_line, _) in &label_sections {
+                        block.add_line(&diff_info.file_path, *label_line, false);
+                        related.push(*label_line);
+                    }
+
                     result.findings.push(SliceFinding {
                         algorithm: "absence".to_string(),
                         file: diff_info.file_path.clone(),
@@ -445,12 +453,124 @@ pub fn slice(files: &BTreeMap<String, ParsedFile>, diff: &DiffInput) -> Result<S
                             pair.description, func_name, diff_line
                         ),
                         function_name: Some(func_name.clone()),
-                        related_lines: returns.clone(),
+                        related_lines: related,
                         related_files: vec![],
                         category: Some("missing_counterpart".to_string()),
                     });
                     result.blocks.push(block);
                     block_id += 1;
+                }
+
+                // Double-close detection for C/C++ goto error paths.
+                //
+                // Detects when a close operation (free, unlock, etc.) appears both
+                // inline before a goto AND in the goto target label section. This is
+                // the classic kernel double-free/double-unlock bug pattern:
+                //
+                //   if (error) {
+                //       free(buf);         // inline close
+                //       goto cleanup;
+                //   }
+                //   ...
+                //   cleanup:
+                //       free(buf);         // label close — double-free!
+                //
+                if has_close
+                    && matches!(
+                        parsed.language,
+                        crate::languages::Language::C | crate::languages::Language::Cpp
+                    )
+                {
+                    let gotos = parsed.goto_statements(&func_node);
+                    let label_sections = parsed.label_sections(&func_node);
+
+                    if !gotos.is_empty() && !label_sections.is_empty() {
+                        // For each close pattern, check if it appears both before
+                        // a goto AND in the target label's section.
+                        for close_pattern in &pair.close_patterns {
+                            let close_base = match pattern_to_call_base(close_pattern) {
+                                Some(b) => b,
+                                None => continue,
+                            };
+
+                            for (goto_label, goto_line) in &gotos {
+                                // Find close calls between the open (diff_line) and this goto
+                                let inline_close_lines: Vec<usize> = (diff_line..=*goto_line)
+                                    .filter(|&l| {
+                                        func_calls.get(&l).map_or(false, |names| {
+                                            names.iter().any(|n| n.contains(close_base))
+                                        })
+                                    })
+                                    .collect();
+
+                                if inline_close_lines.is_empty() {
+                                    continue;
+                                }
+
+                                // Find the target label section
+                                if let Some((_, label_start, label_end)) = label_sections
+                                    .iter()
+                                    .find(|(name, _, _)| name == goto_label)
+                                {
+                                    // Check if close also appears in the label section
+                                    let label_close_lines: Vec<usize> = (*label_start..=*label_end)
+                                        .filter(|&l| {
+                                            func_calls.get(&l).map_or(false, |names| {
+                                                names.iter().any(|n| n.contains(close_base))
+                                            })
+                                        })
+                                        .collect();
+
+                                    if !label_close_lines.is_empty() {
+                                        // Double-close detected!
+                                        let mut block = DiffBlock::new(
+                                            block_id,
+                                            diff_info.file_path.clone(),
+                                            ModifyType::Modified,
+                                        );
+
+                                        // Show the open
+                                        block.add_line(&diff_info.file_path, diff_line, true);
+                                        // Show inline close(s)
+                                        for &cl in &inline_close_lines {
+                                            block.add_line(&diff_info.file_path, cl, true);
+                                        }
+                                        // Show goto
+                                        block.add_line(&diff_info.file_path, *goto_line, false);
+                                        // Show label close(s)
+                                        for &cl in &label_close_lines {
+                                            block.add_line(&diff_info.file_path, cl, true);
+                                        }
+
+                                        let mut related = inline_close_lines.clone();
+                                        related.extend(&label_close_lines);
+
+                                        result.findings.push(SliceFinding {
+                                            algorithm: "absence".to_string(),
+                                            file: diff_info.file_path.clone(),
+                                            line: inline_close_lines[0],
+                                            severity: "warning".to_string(),
+                                            description: format!(
+                                                "potential double-{} in '{}': {} at line {} and label '{}' at line {}",
+                                                close_base.trim_start_matches("k"),
+                                                func_name,
+                                                close_base,
+                                                inline_close_lines[0],
+                                                goto_label,
+                                                label_close_lines[0],
+                                            ),
+                                            function_name: Some(func_name.clone()),
+                                            related_lines: related,
+                                            related_files: vec![],
+                                            category: Some("double_close".to_string()),
+                                        });
+                                        result.blocks.push(block);
+                                        block_id += 1;
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
