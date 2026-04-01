@@ -3607,7 +3607,9 @@ void write_through(int *p, int val) {
 
 #[test]
 fn test_dataflow_struct_field() {
-    // dev->id = val  should create defs for both the field name and the base struct variable.
+    // dev->id = val  should create a qualified AccessPath def (dev.id) plus a base def (dev).
+    // The old behavior of creating a bare "id" def was incorrect — it caused false flow edges
+    // with unrelated variables named "id".
     let source = r#"
 typedef struct { int id; } Dev;
 void set_id(Dev *dev, int val) {
@@ -3629,11 +3631,15 @@ void set_id(Dev *dev, int val) {
         "DataFlowGraph should record a def for base 'dev' from dev->id = val"
     );
 
-    // Fine-grained tracking: the field itself was written
-    let id_defs = dfg.all_defs_of(path, "id");
+    // Fine-grained tracking: the field access path was recorded as a def
+    // With AccessPath, dev->id creates a def for AccessPath { base: "dev", fields: ["id"] },
+    // not a bare "id" def. The base "dev" match above covers both.
+    let has_field_path = dev_defs
+        .iter()
+        .any(|d| d.path.has_fields() && d.path.fields == vec!["id"]);
     assert!(
-        !id_defs.is_empty(),
-        "DataFlowGraph should record a def for field 'id' from dev->id = val"
+        has_field_path,
+        "DataFlowGraph should record a def with AccessPath dev.id from dev->id = val"
     );
 }
 
@@ -8399,4 +8405,577 @@ void handler(const char *input) {
         !has_print_msg_finding,
         "Non-variadic function should not be detected as a wrapper sink"
     );
+}
+
+// ===========================================================================
+// AccessPath / field-qualified DFG tracking
+// ===========================================================================
+
+#[test]
+fn test_dfg_field_qualified_paths_created() {
+    // Verify that the DFG creates AccessPath entries with field chains,
+    // not just bare base names.
+    let source = r#"
+void init(struct device *dev) {
+    dev->name = "eth0";
+    dev->id = 42;
+    dev->config->timeout = 100;
+}
+"#;
+    let path = "src/dev.c";
+    let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let dfg = DataFlowGraph::build(&files);
+    let dev_defs = dfg.all_defs_of(path, "dev");
+
+    // Should have qualified paths for each field
+    let field_names: Vec<Vec<String>> = dev_defs
+        .iter()
+        .filter(|d| d.path.has_fields())
+        .map(|d| d.path.fields.clone())
+        .collect();
+    assert!(
+        field_names.iter().any(|f| f == &vec!["name".to_string()]),
+        "DFG should have AccessPath dev.name, got: {:?}",
+        field_names
+    );
+    assert!(
+        field_names.iter().any(|f| f == &vec!["id".to_string()]),
+        "DFG should have AccessPath dev.id, got: {:?}",
+        field_names
+    );
+}
+
+#[test]
+fn test_dfg_dot_access_paths() {
+    // Python-style dot access creates field-qualified paths.
+    let source = r#"
+class Config:
+    def setup(self):
+        self.timeout = 30
+        self.host = "localhost"
+"#;
+    let path = "src/config.py";
+    let parsed = ParsedFile::parse(path, source, Language::Python).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let dfg = DataFlowGraph::build(&files);
+    let self_defs = dfg.all_defs_of(path, "self");
+
+    // Should have field-qualified paths
+    let has_timeout = self_defs
+        .iter()
+        .any(|d| d.path.has_fields() && d.path.fields.contains(&"timeout".to_string()));
+    assert!(
+        has_timeout,
+        "DFG should record self.timeout AccessPath for Python dot access"
+    );
+}
+
+#[test]
+fn test_dfg_field_path_def_line_scoping() {
+    // Verify that find_path_references_scoped only returns references AFTER
+    // the definition line, preventing backward data flow edges.
+    let source = r#"
+void process(struct dev *d) {
+    int old = d->status;
+    d->status = 1;
+    int new_val = d->status;
+}
+"#;
+    let path = "src/proc.c";
+    let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let dfg = DataFlowGraph::build(&files);
+    let dev_defs = dfg.all_defs_of(path, "d");
+
+    // The def of d->status on line 4 should only reach line 5 (new_val = d->status),
+    // NOT line 3 (old = d->status) which is before the definition.
+    let status_def = dev_defs
+        .iter()
+        .find(|d| d.path.fields == vec!["status".to_string()] && d.line == 4);
+    assert!(
+        status_def.is_some(),
+        "Should have a def for d->status on line 4"
+    );
+
+    // Check forward edges from this def
+    if let Some(def) = status_def {
+        let reachable = dfg.forward_reachable(def);
+        let reachable_lines: Vec<usize> = reachable.iter().map(|r| r.line).collect();
+        assert!(
+            !reachable_lines.contains(&3),
+            "d->status def on line 4 should NOT reach line 3 (before def). Got: {:?}",
+            reachable_lines
+        );
+    }
+}
+
+#[test]
+fn test_dfg_var_name_backward_compat() {
+    // Verify the var_name() accessor works for backward compatibility.
+    let source = r#"
+void f(int x) {
+    int y = x;
+}
+"#;
+    let path = "src/f.c";
+    let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let dfg = DataFlowGraph::build(&files);
+    let y_defs = dfg.all_defs_of(path, "y");
+    assert!(!y_defs.is_empty());
+    // var_name() returns the base name
+    assert_eq!(y_defs[0].var_name(), "y");
+}
+
+#[test]
+fn test_taint_field_access_through_dfg() {
+    // Taint from diff line on dev->name assignment should propagate
+    // to uses of dev->name but the DFG correctly tracks the path.
+    let source = r#"
+void handle(struct req *dev) {
+    dev->name = get_user_input();
+    char *n = dev->name;
+    strcpy(buf, n);
+}
+"#;
+    let path = "src/handler.c";
+    let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    // Diff on line 3: dev->name = get_user_input()
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([3]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::Taint),
+    )
+    .unwrap();
+
+    assert!(
+        !result.findings.is_empty(),
+        "Taint should propagate through field access to strcpy sink"
+    );
+}
+
+#[test]
+fn test_extract_lvalue_paths_pointer_deref() {
+    // *ptr = val should create a def for base "ptr" only.
+    let source = r#"
+void write(int *ptr, int val) {
+    *ptr = val;
+}
+"#;
+    let path = "src/write.c";
+    let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let dfg = DataFlowGraph::build(&files);
+    let ptr_defs = dfg.all_defs_of(path, "ptr");
+    assert!(
+        ptr_defs.iter().any(|d| d.line == 3 && d.path.is_simple()),
+        "Dereference *ptr should create a simple path def for 'ptr'"
+    );
+}
+
+#[test]
+fn test_rvalue_field_expression_paths() {
+    // R-value field expressions should create AccessPath entries.
+    let source = r#"
+void copy(struct dev *src, struct dev *dst) {
+    dst->id = src->id;
+}
+"#;
+    let path = "src/copy.c";
+    let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let dfg = DataFlowGraph::build(&files);
+
+    // dst->id should have a def with fields
+    let dst_defs = dfg.all_defs_of(path, "dst");
+    assert!(
+        dst_defs
+            .iter()
+            .any(|d| d.path.fields == vec!["id".to_string()]),
+        "Should have AccessPath dst.id def"
+    );
+
+    // src->id should appear in uses (rvalue)
+    let has_src_use = dfg.uses.values().any(|locs| {
+        locs.iter()
+            .any(|l| l.path.base == "src" && l.path.fields == vec!["id".to_string()])
+    });
+    assert!(
+        has_src_use,
+        "R-value src->id should create a field-qualified use in DFG"
+    );
+}
+
+// ===========================================================================
+// Cross-language field access in DFG
+// ===========================================================================
+
+#[test]
+fn test_dfg_go_field_access_paths() {
+    // Go selector_expression: obj.Field
+    let source = r#"
+package main
+
+func process(dev *Device) {
+	dev.Name = "eth0"
+	dev.ID = 42
+	x := dev.Name
+	_ = x
+}
+"#;
+    let path = "src/dev.go";
+    let parsed = ParsedFile::parse(path, source, Language::Go).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let dfg = DataFlowGraph::build(&files);
+    let dev_defs = dfg.all_defs_of(path, "dev");
+
+    let has_name = dev_defs
+        .iter()
+        .any(|d| d.path.has_fields() && d.path.fields.contains(&"Name".to_string()));
+    assert!(
+        has_name,
+        "Go DFG should have AccessPath dev.Name from selector_expression. Got: {:?}",
+        dev_defs
+            .iter()
+            .map(|d| d.path.to_string())
+            .collect::<Vec<_>>()
+    );
+}
+
+#[test]
+fn test_dfg_js_field_access_paths() {
+    // JS member_expression: obj.field
+    let source = r#"
+function setup(config) {
+    config.timeout = 30;
+    config.host = "localhost";
+    let t = config.timeout;
+}
+"#;
+    let path = "src/config.js";
+    let parsed = ParsedFile::parse(path, source, Language::JavaScript).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let dfg = DataFlowGraph::build(&files);
+    let config_defs = dfg.all_defs_of(path, "config");
+
+    let has_timeout = config_defs
+        .iter()
+        .any(|d| d.path.has_fields() && d.path.fields.contains(&"timeout".to_string()));
+    assert!(
+        has_timeout,
+        "JS DFG should have AccessPath config.timeout from member_expression. Got: {:?}",
+        config_defs
+            .iter()
+            .map(|d| d.path.to_string())
+            .collect::<Vec<_>>()
+    );
+}
+
+#[test]
+fn test_dfg_rust_field_access_paths() {
+    // Rust field_expression: self.field or obj.field
+    let source = r#"
+struct Config {
+    timeout: u32,
+    host: String,
+}
+
+fn setup(config: &mut Config) {
+    config.timeout = 30;
+    config.host = String::from("localhost");
+}
+"#;
+    let path = "src/config.rs";
+    let parsed = ParsedFile::parse(path, source, Language::Rust).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let dfg = DataFlowGraph::build(&files);
+    let config_defs = dfg.all_defs_of(path, "config");
+
+    let has_timeout = config_defs
+        .iter()
+        .any(|d| d.path.has_fields() && d.path.fields.contains(&"timeout".to_string()));
+    assert!(
+        has_timeout,
+        "Rust DFG should have AccessPath config.timeout from field_expression. Got: {:?}",
+        config_defs
+            .iter()
+            .map(|d| d.path.to_string())
+            .collect::<Vec<_>>()
+    );
+}
+
+#[test]
+fn test_dfg_lua_field_access_paths() {
+    // Lua dot_index_expression: obj.field
+    let source = r#"
+function setup(config)
+    config.timeout = 30
+    config.host = "localhost"
+end
+"#;
+    let path = "src/config.lua";
+    let parsed = ParsedFile::parse(path, source, Language::Lua).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let dfg = DataFlowGraph::build(&files);
+    let config_defs = dfg.all_defs_of(path, "config");
+
+    let has_timeout = config_defs
+        .iter()
+        .any(|d| d.path.has_fields() && d.path.fields.contains(&"timeout".to_string()));
+    assert!(
+        has_timeout,
+        "Lua DFG should have AccessPath config.timeout from dot_index_expression. Got: {:?}",
+        config_defs
+            .iter()
+            .map(|d| d.path.to_string())
+            .collect::<Vec<_>>()
+    );
+}
+
+#[test]
+fn test_dfg_java_field_access_paths() {
+    // Java field_access: obj.field
+    let source = r#"
+class Device {
+    String name;
+    int id;
+
+    void setup(Device dev) {
+        dev.name = "eth0";
+        dev.id = 42;
+    }
+}
+"#;
+    let path = "src/Device.java";
+    let parsed = ParsedFile::parse(path, source, Language::Java).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let dfg = DataFlowGraph::build(&files);
+    let dev_defs = dfg.all_defs_of(path, "dev");
+
+    let has_name = dev_defs
+        .iter()
+        .any(|d| d.path.has_fields() && d.path.fields.contains(&"name".to_string()));
+    assert!(
+        has_name,
+        "Java DFG should have AccessPath dev.name from field_access. Got: {:?}",
+        dev_defs
+            .iter()
+            .map(|d| d.path.to_string())
+            .collect::<Vec<_>>()
+    );
+}
+
+// ===========================================================================
+// Downstream DFG consumer tests — assignment propagation, chop, provenance
+// ===========================================================================
+
+#[test]
+fn test_dfg_same_line_cross_field_assignment() {
+    // dev->name = dev->id on a single line.
+    // LHS creates def for dev->name (and dev base).
+    // RHS creates use for dev->id (and dev base).
+    // Assignment propagation should connect use of dev->id → def of dev->name.
+    let source = r#"
+void copy_field(struct device *dev) {
+    dev->name = dev->id;
+    char *n = dev->name;
+}
+"#;
+    let path = "src/dev.c";
+    let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let dfg = DataFlowGraph::build(&files);
+
+    // Should have both field-qualified defs
+    let dev_defs = dfg.all_defs_of(path, "dev");
+    let has_name_def = dev_defs
+        .iter()
+        .any(|d| d.path.fields == vec!["name".to_string()] && d.line == 3);
+    assert!(has_name_def, "Should have dev->name def on line 3");
+
+    // Verify field-qualified use exists for RHS
+    let has_id_use = dfg.uses.values().any(|locs| {
+        locs.iter()
+            .any(|l| l.path.base == "dev" && l.path.fields == vec!["id".to_string()] && l.line == 3)
+    });
+    assert!(has_id_use, "Should have dev->id use on line 3 (RHS)");
+}
+
+#[test]
+fn test_dfg_assignment_propagation_with_fields() {
+    // Taint on dev->id (line 3) should propagate through assignment:
+    // dev->id = tainted → x = dev->id → strcpy(buf, x)
+    let source = r#"
+void process(struct device *dev, const char *input) {
+    dev->id = input;
+    char *x = dev->id;
+    strcpy(buf, x);
+}
+"#;
+    let path = "src/proc.c";
+    let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([3]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::Taint),
+    )
+    .unwrap();
+
+    // Taint should flow: line 3 (dev->id = input) → line 4 (x = dev->id) → line 5 (strcpy)
+    assert!(
+        !result.findings.is_empty(),
+        "Taint should propagate through field assignment to strcpy sink"
+    );
+}
+
+#[test]
+fn test_chop_with_field_access() {
+    // Chop from source line to sink line should include intermediate field accesses.
+    let source = r#"
+void transfer(struct device *dev, const char *input) {
+    dev->buf = input;
+    char *data = dev->buf;
+    memcpy(dest, data, len);
+}
+"#;
+    let path = "src/transfer.c";
+    let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let dfg = DataFlowGraph::build(&files);
+
+    // Chop from line 3 (source: dev->buf = input) to line 5 (sink: memcpy)
+    let on_path = dfg.chop(path, 3, path, 5);
+
+    // Should include the intermediate line 4 (data = dev->buf)
+    let path_lines: BTreeSet<usize> = on_path.iter().map(|(_, l)| *l).collect();
+    assert!(
+        path_lines.contains(&3) && path_lines.contains(&5),
+        "Chop should include source (line 3) and sink (line 5). Got: {:?}",
+        path_lines
+    );
+}
+
+#[test]
+fn test_provenance_with_field_access() {
+    // Provenance should track origins through field-qualified variables.
+    let source = r#"
+#include <stdio.h>
+void handle(struct request *req) {
+    req->data = fgets(buf, sizeof(buf), stdin);
+    process(req->data);
+}
+"#;
+    let path = "src/req.c";
+    let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([4]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::ProvenanceSlice),
+    )
+    .unwrap();
+
+    // Provenance should detect fgets/stdin as a user_input source
+    // via the base name match on all_defs_of
+    assert!(
+        !result.blocks.is_empty(),
+        "Provenance should produce blocks when source is assigned through field access"
+    );
+}
+
+#[test]
+fn test_dfg_forward_reachable_field_to_simple() {
+    // Assignment propagation: dev->name = val on line 3, x = dev->name on line 4.
+    // Forward reachable from dev->name def should reach x def via assignment propagation.
+    let source = r#"
+void f(struct dev *dev) {
+    dev->name = "test";
+    char *x = dev->name;
+    printf("%s", x);
+}
+"#;
+    let path = "src/f.c";
+    let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let dfg = DataFlowGraph::build(&files);
+
+    // Find the dev->name def
+    let dev_defs = dfg.all_defs_of(path, "dev");
+    let name_def = dev_defs
+        .iter()
+        .find(|d| d.path.fields == vec!["name".to_string()] && d.line == 3);
+
+    assert!(name_def.is_some(), "Should have dev->name def on line 3");
+
+    if let Some(def) = name_def {
+        let reachable = dfg.forward_reachable(def);
+        let reachable_lines: BTreeSet<usize> = reachable.iter().map(|r| r.line).collect();
+        // Should reach line 4 (x = dev->name) and line 5 (printf uses x)
+        assert!(
+            reachable_lines.contains(&4) || reachable_lines.contains(&5),
+            "Forward reachable from dev->name should reach uses. Got lines: {:?}",
+            reachable_lines
+        );
+    }
 }

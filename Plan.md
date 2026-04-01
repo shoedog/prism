@@ -1,6 +1,6 @@
 # Prism Implementation Plan & Status Tracker
 
-Last updated: 2026-04-01 (goto error paths, CVE test fixtures, fptr Level 3, C++ membrane)
+Last updated: 2026-04-01 (CPG architecture design, AccessPath type, va_list taint tracking)
 
 ---
 
@@ -91,13 +91,13 @@ Last updated: 2026-04-01 (goto error paths, CVE test fixtures, fptr Level 3, C++
 
 | Item | Effort | Impact |
 |------|--------|--------|
-| Struct/union field-level tracking in DFG | 1-2 weeks | Eliminates false taint propagation across struct fields (`dev->name` vs `dev->id`) |
-| Virtual dispatch in C++ call graph | 1-2 weeks | Accurate analysis for C++ OOP polymorphism |
+| **AccessPath type + field-sensitive DFG** | 1 week | Eliminates false taint propagation across struct fields (`dev->name` vs `dev->id`). Phase 1-2 of CPG architecture. See `docs/cpg-architecture.md` |
+| Virtual dispatch in C++ call graph | 1-2 weeks | Accurate analysis for C++ OOP polymorphism. Will be resolved via CPG Phase 4 + optional type enrichment (Phase 5). |
 | ~~`va_list` taint tracking~~ | — | **Done** — v-variant format sinks (vprintf/vfprintf/vsprintf/vsnprintf) added to SINK_PATTERNS; variadic wrapper detection auto-discovers functions with `...` param that forward to format sinks and adds them as dynamic sinks. 4 tests. |
 | ~~CVE-pattern test fixtures (format string, buffer overflow, integer overflow, double-free, use-after-free)~~ | — | **Done** — 8 tests: double-free goto, correct cleanup negative, double-unlock goto, format string, buffer overflow, strcpy+provenance, integer overflow, UAF. |
 | ~~`goto`-based error path analysis for AbsenceSlice~~ | — | **Done** — `goto_statements()` + `label_sections()` in ast.rs; double-close detection in AbsenceSlice for kernel `goto cleanup` patterns. 3 tests. |
 | ~~MembraneSlice C++ error handling (exceptions, RAII)~~ | — | **Done** — try/catch, throw, RAII smart ptrs, lock guards, std::optional/expected, error_code. 4 tests. |
-| `petgraph` migration for call graph / CircularSlice / GradientSlice | 1 week | Replace hand-rolled BFS/DFS with proper graph algorithms (SCC, dominators) |
+| **Code Property Graph on petgraph** | 2-3 weeks | Unified graph (AST+DFG+Call+CFG), replaces hand-rolled BFS/DFS with petgraph SCC/dominators/Dijkstra. Phase 4 of CPG architecture. See `docs/cpg-architecture.md` |
 
 ### P3 — New Language Support (Procedural)
 
@@ -124,6 +124,9 @@ These formats need a different analysis model: parse → find touched units → 
 
 | Item | Effort | Priority | Notes |
 |------|--------|----------|-------|
+| **Type enrichment via `compile_commands.json` + clang** | 1-2 weeks | High | Optional C/C++ struct defs, typedefs, field enumeration. Enables precise whole-struct detection. Phase 5 of CPG architecture. See `docs/cpg-architecture.md` |
+| **Control flow graph edges in CPG** | 2-3 weeks | Medium | Path-sensitive analysis: "taint reaches sink only if branch taken." Phase 6 of CPG architecture. |
+| **Local must-alias tracking** | 2-3 days | High | `ptr = dev` → `ptr->field` resolves to `dev->field`. Phase 3 of CPG architecture. |
 | `oxc_parser` + `oxc_semantic` for JS/TS | 1-2 weeks | Medium | Scope-aware analysis eliminates false taint matches from same-named imports. 3-5x faster than tree-sitter |
 | Preprocessor-aware analysis (`cpp -E`) | 2-4 weeks | Medium | Eliminates ERROR nodes from macro-heavy C/C++ code |
 | Function-level git churn in ThreeDSlice | 1 week | Low | More accurate risk scores for large files |
@@ -136,29 +139,31 @@ These formats need a different analysis model: parse → find touched units → 
 
 ### Key Design Decisions
 - **Tree-sitter** for multi-language AST parsing (9 languages: Python, JS/TS, Go, Java, C/C++, Rust, Lua)
-- **Name-based variable tracking** (no `varId` like cppcheck)
+- **AccessPath-based variable tracking** — structured `{ base, fields }` replacing bare string names. Enables field-sensitive analysis.
+- **Code Property Graph** (planned) — unified petgraph-based graph merging AST, DFG, call graph, and CFG edges. See `docs/cpg-architecture.md`
 - **BTreeMap/BTreeSet everywhere** for deterministic sorted output
-- **Shared infrastructure:** `call_graph.rs` and `data_flow.rs` reused across algorithms
+- **Shared infrastructure:** `call_graph.rs` and `data_flow.rs` reused across algorithms (will be subsumed by CPG)
 - **Algorithm-specific configs** in each module, not in central `SliceConfig`
 - **Single binary architecture** for future language expansion — `prism slice` (procedural) and `prism context` (declarative) subcommands with Cargo feature flags per language
+- **Optional type enrichment** — `compile_commands.json` + clang for C/C++ struct/typedef info when available
 
 ### Known Limitations (C/C++)
 - Pointer aliasing: tracked at name level, not memory level (extract_lvalue_names mitigates)
 - Function pointers: Level 0 (field-access), Level 1 (local fptr variable), Level 2 (dispatch tables), Level 3 (parameter-passed, 1-hop) resolved; Level 4 (full points-to) not implemented — see `docs/c-cpp/function-pointer-resolution.md`
 - `static` function scope: disambiguated via `resolve_callees()` and `callers_of_in_file()`
 - Interrupt handlers: detected by naming heuristic AND cross-file registration analysis (`signal()`, `pthread_create()`, `request_irq()`, `.sa_handler`, `std::thread`)
-- Struct field flow: `dev->name` taints all of `dev` (P2 item)
-- Virtual dispatch: name-matched, not type-resolved (P2 item)
+- Struct field flow: migrating to AccessPath for field-sensitive tracking (CPG Phase 1-2, in progress)
+- Virtual dispatch: name-matched, not type-resolved (CPG Phase 4-5)
 
 ### Known Limitations (Tree-sitter)
-- No type information — struct field tracking requires name-based heuristics
+- No type information — mitigated by optional clang type enrichment (CPG Phase 5) and AccessPath field heuristics
 - No import resolution — cross-file analysis uses name matching (static disambiguation for C/C++ only)
 - No preprocessor handling — C/C++ macros produce ERROR nodes
-- No control flow graph — path-insensitive analysis only
+- No control flow graph — path-insensitive analysis only (CPG Phase 6 will add CFG edges)
 - No semantic scoping — `find_variable_references_scoped` handles some variable shadowing cases
 
 ### Test Coverage
-- **204 tests** total (unit + integration)
+- **225 tests** total (21 unit + 204 integration)
 - 9 languages covered (Python, JS/TS, Go, Java, C/C++, Rust, Lua)
 - 26 algorithms with at least basic coverage
 - C/C++ specific: 32 tests covering taint, provenance, absence, quantum (incl. ISR self-detection), membrane, phantom, pointer aliasing, function pointer dispatch (Level 0/1/2), static linkage disambiguation
@@ -176,6 +181,7 @@ These formats need a different analysis model: parse → find touched units → 
 
 ## Reference
 
+- **CPG architecture:** `docs/cpg-architecture.md` (AccessPath, Code Property Graph, type enrichment — design, phases, open questions)
 - Language expansion plan: `docs/language-expansion-plan.md` (detailed analysis of all candidate languages, crates, architecture decisions)
 - Gap analysis: `docs/prism-ccpp-gap-analysis.md`
 - Algorithm taxonomy: `SLICING_METHODS.md`
