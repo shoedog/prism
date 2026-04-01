@@ -79,11 +79,15 @@ impl AccessPath {
             return AccessPath::simple(expr);
         }
 
-        // Parenthesized dereference: (*dev).field
+        // Parenthesized dereference: (*dev).field or (*dev)
         if expr.starts_with('(') {
             if let Some(paren_end) = expr.find(')') {
                 let inner = expr[1..paren_end].trim();
                 let after = expr[paren_end + 1..].trim();
+                if after.is_empty() {
+                    // Just (*dev) with no trailing access — strip parens/deref
+                    return AccessPath::from_expr(inner);
+                }
                 if let Some(rest) = after.strip_prefix('.') {
                     let base_path = AccessPath::from_expr(inner);
                     let mut fields = base_path.fields;
@@ -388,5 +392,86 @@ mod tests {
             "dev.config.timeout"
         );
         assert_eq!(AccessPath::from_expr("buf[i]").to_string(), "buf[]");
+    }
+
+    #[test]
+    fn test_arrow_with_array_subscript() {
+        // dev->buf[i] — arrow access with trailing array
+        let p = AccessPath::from_expr("dev->buf[i]");
+        assert_eq!(p.base, "dev");
+        assert_eq!(p.fields, vec!["buf"]);
+    }
+
+    #[test]
+    fn test_dot_with_array_subscript() {
+        // obj.items[0] — array access on a dot-accessed field
+        let p = AccessPath::from_expr("obj.items[0]");
+        assert_eq!(p.base, "obj");
+        assert_eq!(p.fields, vec!["items", "[]"]);
+    }
+
+    #[test]
+    fn test_double_pointer_deref() {
+        let p = AccessPath::from_expr("**ptr");
+        assert_eq!(p.base, "ptr");
+        assert!(p.is_simple());
+    }
+
+    #[test]
+    fn test_deref_arrow_access() {
+        // *dev->field — dereference of arrow expression
+        let p = AccessPath::from_expr("*dev->field");
+        assert_eq!(p.base, "dev");
+        assert_eq!(p.fields, vec!["field"]);
+    }
+
+    #[test]
+    fn test_parenthesized_deref_no_dot() {
+        // (*dev) without .field — just a dereference
+        let p = AccessPath::from_expr("(*dev)");
+        assert_eq!(p.base, "dev");
+        assert!(p.is_simple());
+    }
+
+    #[test]
+    fn test_compatible_matching_both_simple() {
+        // Both paths are simple → base match
+        let a = AccessPath::simple("x");
+        let b = AccessPath::simple("x");
+        let c = AccessPath::simple("y");
+        assert!(a.matches_compatible(&b));
+        assert!(!a.matches_compatible(&c));
+    }
+
+    #[test]
+    fn test_from_string_conversion() {
+        let p: AccessPath = "dev".into();
+        assert_eq!(p.base, "dev");
+        assert!(p.is_simple());
+
+        let p2: AccessPath = String::from("buf").into();
+        assert_eq!(p2.base, "buf");
+        assert!(p2.is_simple());
+    }
+
+    #[test]
+    fn test_empty_and_malformed_input() {
+        let p = AccessPath::from_expr("");
+        assert_eq!(p.base, "");
+
+        let p = AccessPath::from_expr("   ");
+        assert_eq!(p.base, "");
+
+        // Non-identifier characters
+        let p = AccessPath::from_expr("123abc");
+        assert_eq!(p.base, "123abc"); // from_expr doesn't validate
+    }
+
+    #[test]
+    fn test_nested_dot_with_array() {
+        // obj.config.items[i] — dot chain with array at end
+        let p = AccessPath::from_expr("obj.config.items[i]");
+        assert_eq!(p.base, "obj");
+        assert_eq!(p.fields, vec!["config", "items", "[]"]);
     }
 }
