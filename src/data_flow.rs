@@ -81,6 +81,10 @@ impl DataFlowGraph {
                 let (start, end) = parsed.node_line_range(&func_node);
                 let all_lines: BTreeSet<usize> = (start..=end).collect();
 
+                // Phase 3: Build local alias map for this function.
+                // Tracks `ptr = dev` so that `ptr->field` resolves to `dev->field`.
+                let alias_map = Self::build_alias_map(parsed, &func_node, &all_lines);
+
                 // Find all definitions (L-values) with structured access paths
                 let lvalue_paths = parsed.assignment_lvalue_paths_on_lines(&func_node, &all_lines);
                 for (path, line) in &lvalue_paths {
@@ -94,6 +98,29 @@ impl DataFlowGraph {
                     defs.entry((file_path.clone(), func_name.clone(), path.clone()))
                         .or_default()
                         .push(loc);
+
+                    // Phase 3: If this path has fields and its base is aliased, also register
+                    // a def under the resolved path so edges connect through aliases.
+                    // Only applies to field paths (ptr->field → dev->field), not simple
+                    // variables which are already handled by def-use chains.
+                    if path.has_fields() {
+                        if let Some(resolved) = Self::resolve_path(&alias_map, path) {
+                            let resolved_loc = VarLocation {
+                                file: file_path.clone(),
+                                function: func_name.clone(),
+                                line: *line,
+                                path: resolved.clone(),
+                                kind: VarAccessKind::Def,
+                            };
+                            defs.entry((
+                                file_path.clone(),
+                                func_name.clone(),
+                                resolved.clone(),
+                            ))
+                            .or_default()
+                            .push(resolved_loc);
+                        }
+                    }
                 }
 
                 // Find all uses of each defined variable/path
@@ -125,6 +152,48 @@ impl DataFlowGraph {
                             from: def_loc,
                             to: use_loc,
                         });
+                    }
+
+                    // Phase 3: Also create edges for the alias-resolved path (field paths only)
+                    if path.has_fields() {
+                        if let Some(resolved) = Self::resolve_path(&alias_map, path) {
+                            let resolved_refs = parsed.find_path_references_scoped(
+                                &func_node,
+                                &resolved,
+                                *def_line,
+                            );
+                            for ref_line in &resolved_refs {
+                                if *ref_line == *def_line {
+                                    continue;
+                                }
+                                let use_loc = VarLocation {
+                                    file: file_path.clone(),
+                                    function: func_name.clone(),
+                                    line: *ref_line,
+                                    path: resolved.clone(),
+                                    kind: VarAccessKind::Use,
+                                };
+                                uses.entry((
+                                    file_path.clone(),
+                                    func_name.clone(),
+                                    resolved.clone(),
+                                ))
+                                .or_default()
+                                .push(use_loc.clone());
+
+                                let def_loc = VarLocation {
+                                    file: file_path.clone(),
+                                    function: func_name.clone(),
+                                    line: *def_line,
+                                    path: resolved.clone(),
+                                    kind: VarAccessKind::Def,
+                                };
+                                edges.push(FlowEdge {
+                                    from: def_loc,
+                                    to: use_loc,
+                                });
+                            }
+                        }
                     }
                 }
 
@@ -165,6 +234,50 @@ impl DataFlowGraph {
             uses,
             forward,
             backward,
+        }
+    }
+
+    /// Phase 3: Build a local alias map from simple assignments like `ptr = dev`.
+    /// Returns a map from alias name to resolved target name, following chains.
+    fn build_alias_map(
+        parsed: &ParsedFile,
+        func_node: &tree_sitter::Node<'_>,
+        lines: &BTreeSet<usize>,
+    ) -> BTreeMap<String, String> {
+        let raw_aliases = parsed.collect_alias_assignments(func_node, lines);
+        let mut alias_map: BTreeMap<String, String> = BTreeMap::new();
+
+        // Process in line order so earlier aliases are available for chain resolution
+        for (alias, target, _line) in &raw_aliases {
+            // Follow chain: if target itself is an alias, resolve transitively
+            let mut resolved = target.clone();
+            let mut depth = 0;
+            while let Some(next) = alias_map.get(&resolved) {
+                resolved = next.clone();
+                depth += 1;
+                if depth > 10 {
+                    break; // Prevent infinite loops in pathological cases
+                }
+            }
+            // Don't create self-aliases
+            if alias != &resolved {
+                alias_map.insert(alias.clone(), resolved);
+            }
+        }
+
+        alias_map
+    }
+
+    /// Phase 3: If a path's base is aliased, return the resolved path.
+    /// e.g., if alias_map has ptr → dev, then path `ptr.field` resolves to `dev.field`.
+    fn resolve_path(alias_map: &BTreeMap<String, String>, path: &AccessPath) -> Option<AccessPath> {
+        if let Some(target) = alias_map.get(&path.base) {
+            Some(AccessPath {
+                base: target.clone(),
+                fields: path.fields.clone(),
+            })
+        } else {
+            None
         }
     }
 
