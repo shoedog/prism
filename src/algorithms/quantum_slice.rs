@@ -243,6 +243,26 @@ fn find_async_inner(parsed: &ParsedFile, node: Node<'_>, out: &mut Vec<usize>) {
                     || text.contains("request_threaded_irq(")
             }
         }
+        Language::Rust => {
+            kind == "call_expression" && {
+                let text = parsed.node_text(&node);
+                text.contains("spawn(")
+                    || text.contains("tokio::spawn")
+                    || text.contains("async_std::task::spawn")
+                    || text.contains("thread::spawn")
+                    || text.contains("rayon::spawn")
+            }
+        }
+        Language::Lua => {
+            // Lua coroutines are the primary async mechanism
+            kind == "call_expression" && {
+                let text = parsed.node_text(&node);
+                text.contains("coroutine.create(")
+                    || text.contains("coroutine.resume(")
+                    || text.contains("coroutine.wrap(")
+                    || text.contains("coroutine.yield(")
+            }
+        }
     };
 
     if is_async {
@@ -465,6 +485,20 @@ fn is_async_function(
                 || text.contains("sigaction(")
                 || text.contains("request_irq(")
                 || text.contains("request_threaded_irq(")
+        }
+        Language::Rust => {
+            let text = parsed.node_text(func_node);
+            text.starts_with("async ")
+                || text.contains("tokio::spawn")
+                || text.contains("thread::spawn")
+                || text.contains(".await")
+                || text.contains("async move")
+        }
+        Language::Lua => {
+            let text = parsed.node_text(func_node);
+            text.contains("coroutine.create(")
+                || text.contains("coroutine.resume(")
+                || text.contains("coroutine.wrap(")
         }
     }
 }

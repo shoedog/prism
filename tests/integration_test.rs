@@ -6174,6 +6174,163 @@ def process_data(host):
     );
 }
 
+// ── Rust language support: basic parsing and algorithm tests ──────────
+
+#[test]
+fn test_rust_basic_parsing() {
+    let source = r#"
+use std::io;
+
+fn read_input() -> Result<String, io::Error> {
+    let mut buf = String::new();
+    io::stdin().read_line(&mut buf)?;
+    Ok(buf)
+}
+
+fn process(data: &str) -> Option<i32> {
+    let val = data.parse::<i32>().ok()?;
+    Some(val * 2)
+}
+"#;
+    let path = "src/main.rs";
+    let parsed = ParsedFile::parse(path, source, Language::Rust).unwrap();
+
+    // Should detect function definitions
+    let funcs = parsed.all_functions();
+    let func_names: Vec<String> = funcs
+        .iter()
+        .filter_map(|f| {
+            parsed
+                .language
+                .function_name(f)
+                .map(|n| parsed.node_text(&n).to_string())
+        })
+        .collect();
+    assert!(
+        func_names.contains(&"read_input".to_string()),
+        "Should find read_input function, got: {:?}",
+        func_names
+    );
+    assert!(
+        func_names.contains(&"process".to_string()),
+        "Should find process function, got: {:?}",
+        func_names
+    );
+}
+
+#[test]
+fn test_rust_taint_unsafe_sink() {
+    // Tainted data flows to unsafe block — security concern.
+    let source = r#"
+use std::os::unix::process::CommandExt;
+
+fn run_command(user_input: &str) {
+    let cmd = user_input;
+    std::process::Command::new(cmd).exec();
+}
+"#;
+    let path = "src/runner.rs";
+    let parsed = ParsedFile::parse(path, source, Language::Rust).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([5]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::Taint),
+    )
+    .unwrap();
+
+    assert!(
+        !result.blocks.is_empty(),
+        "Taint should produce blocks for Rust code"
+    );
+}
+
+#[test]
+fn test_rust_original_diff() {
+    let source = r#"
+fn process(data: &str) -> i32 {
+    let val = data.len();
+    val as i32
+}
+"#;
+    let path = "src/lib.rs";
+    let parsed = ParsedFile::parse(path, source, Language::Rust).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([3]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::OriginalDiff),
+    )
+    .unwrap();
+
+    assert!(
+        !result.blocks.is_empty(),
+        "OriginalDiff should produce blocks for Rust code"
+    );
+}
+
+#[test]
+fn test_rust_parent_function() {
+    let source = r#"
+fn process(data: &str) -> i32 {
+    let val = data.len();
+    let result = val * 2;
+    result
+}
+"#;
+    let path = "src/lib.rs";
+    let parsed = ParsedFile::parse(path, source, Language::Rust).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([4]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::ParentFunction),
+    )
+    .unwrap();
+
+    assert!(
+        !result.blocks.is_empty(),
+        "ParentFunction should include the enclosing Rust function"
+    );
+    // Should include the entire function
+    let block = &result.blocks[0];
+    let lines = block.file_line_map.get(path).unwrap();
+    assert!(
+        lines.contains_key(&2) && lines.contains_key(&6),
+        "Block should span the entire function (lines 2-6)"
+    );
+}
+
 // ── Provenance negative tests: word-boundary matching ─────────────────
 
 #[test]
@@ -6260,5 +6417,151 @@ function prefetchAssets(urls) {
             .iter()
             .map(|f| &f.description)
             .collect::<Vec<_>>()
+    );
+}
+
+// ── Lua language support: basic parsing and algorithm tests ───────────
+
+#[test]
+fn test_lua_basic_parsing() {
+    let source = r#"
+local function process_packet(data)
+    local result = data
+    return result
+end
+
+function handle_request(req)
+    local response = process_packet(req)
+    return response
+end
+"#;
+    let path = "scripts/handler.lua";
+    let parsed = ParsedFile::parse(path, source, Language::Lua).unwrap();
+
+    let funcs = parsed.all_functions();
+    let func_names: Vec<String> = funcs
+        .iter()
+        .filter_map(|f| {
+            parsed
+                .language
+                .function_name(f)
+                .map(|n| parsed.node_text(&n).to_string())
+        })
+        .collect();
+    assert!(
+        func_names.contains(&"process_packet".to_string()),
+        "Should find process_packet function, got: {:?}",
+        func_names
+    );
+    assert!(
+        func_names.contains(&"handle_request".to_string()),
+        "Should find handle_request function, got: {:?}",
+        func_names
+    );
+}
+
+#[test]
+fn test_lua_taint_exec_sink() {
+    // Lua os.execute with tainted data — command injection sink.
+    let source = r#"
+function run_command(user_input)
+    local cmd = user_input
+    os.execute(cmd)
+end
+"#;
+    let path = "scripts/runner.lua";
+    let parsed = ParsedFile::parse(path, source, Language::Lua).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([3]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::Taint),
+    )
+    .unwrap();
+
+    assert!(
+        !result.blocks.is_empty(),
+        "Taint should produce blocks for Lua code with os.execute sink"
+    );
+}
+
+#[test]
+fn test_lua_parent_function() {
+    let source = r#"
+local function process(data)
+    local val = data
+    local result = val
+    return result
+end
+"#;
+    let path = "scripts/process.lua";
+    let parsed = ParsedFile::parse(path, source, Language::Lua).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([4]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::ParentFunction),
+    )
+    .unwrap();
+
+    assert!(
+        !result.blocks.is_empty(),
+        "ParentFunction should include the enclosing Lua function"
+    );
+}
+
+#[test]
+fn test_lua_absence_open_without_close() {
+    // Lua io.open without io.close.
+    let source = r#"
+function read_config(path)
+    local file = io.open(path, "r")
+    local content = file:read("*a")
+    return content
+end
+"#;
+    let path = "scripts/config.lua";
+    let parsed = ParsedFile::parse(path, source, Language::Lua).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([3]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::AbsenceSlice),
+    )
+    .unwrap();
+
+    assert!(
+        !result.findings.is_empty(),
+        "Absence should detect Lua io.open without close"
     );
 }

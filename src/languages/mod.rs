@@ -10,6 +10,8 @@ pub enum Language {
     Java,
     C,
     Cpp,
+    Rust,
+    Lua,
 }
 
 impl Language {
@@ -23,6 +25,8 @@ impl Language {
             "java" => Some(Self::Java),
             "c" | "h" => Some(Self::C),
             "cpp" | "cc" | "cxx" | "hpp" | "hxx" | "hh" => Some(Self::Cpp),
+            "rs" => Some(Self::Rust),
+            "lua" => Some(Self::Lua),
             _ => None,
         }
     }
@@ -43,6 +47,8 @@ impl Language {
             Self::Java => tree_sitter_java::LANGUAGE.into(),
             Self::C => tree_sitter_c::LANGUAGE.into(),
             Self::Cpp => tree_sitter_cpp::LANGUAGE.into(),
+            Self::Rust => tree_sitter_rust::LANGUAGE.into(),
+            Self::Lua => tree_sitter_lua::LANGUAGE.into(),
         }
     }
 
@@ -68,6 +74,8 @@ impl Language {
             Self::Java => vec!["method_declaration", "constructor_declaration"],
             Self::C => vec!["function_definition"],
             Self::Cpp => vec!["function_definition", "template_declaration"],
+            Self::Rust => vec!["function_item", "impl_item"],
+            Self::Lua => vec!["function_declaration", "local_function"],
         }
     }
 
@@ -106,6 +114,8 @@ impl Language {
                         | "update_expression"
                 )
             }
+            Self::Rust => matches!(kind, "assignment_expression" | "compound_assignment_expr"),
+            Self::Lua => matches!(kind, "assignment_statement"),
         }
     }
 
@@ -130,6 +140,8 @@ impl Language {
                     "declaration" | "init_declarator" | "field_declaration"
                 )
             }
+            Self::Rust => matches!(kind, "let_declaration" | "const_item" | "static_item"),
+            Self::Lua => matches!(kind, "local_variable_declaration"),
         }
     }
 
@@ -141,6 +153,17 @@ impl Language {
             Self::Go => node.child_by_field_name("left"),
             Self::Java => node.child_by_field_name("left"),
             Self::C | Self::Cpp => node.child_by_field_name("left"),
+            Self::Rust => node.child_by_field_name("left"),
+            Self::Lua => {
+                // assignment_statement -> variable_list (first child with identifiers)
+                let mut cursor = node.walk();
+                for child in node.children(&mut cursor) {
+                    if child.kind() == "variable_list" {
+                        return child.child(0);
+                    }
+                }
+                None
+            }
         }
     }
 
@@ -152,6 +175,17 @@ impl Language {
             Self::Go => node.child_by_field_name("right"),
             Self::Java => node.child_by_field_name("right"),
             Self::C | Self::Cpp => node.child_by_field_name("right"),
+            Self::Rust => node.child_by_field_name("right"),
+            Self::Lua => {
+                // assignment_statement -> expression_list (RHS values)
+                let mut cursor = node.walk();
+                for child in node.children(&mut cursor) {
+                    if child.kind() == "expression_list" {
+                        return child.child(0);
+                    }
+                }
+                None
+            }
         }
     }
 
@@ -193,6 +227,27 @@ impl Language {
                 }
                 None
             }
+            Self::Rust => {
+                // let_declaration -> pattern -> identifier
+                // const_item -> name
+                // static_item -> name
+                if node.kind() == "let_declaration" {
+                    if let Some(p) = node.child_by_field_name("pattern") {
+                        if p.kind() == "identifier" {
+                            return Some(p);
+                        }
+                        // Destructuring: try first identifier child
+                        let mut c = p.walk();
+                        for child in p.children(&mut c) {
+                            if child.kind() == "identifier" {
+                                return Some(child);
+                            }
+                        }
+                    }
+                    return None;
+                }
+                node.child_by_field_name("name")
+            }
             Self::C | Self::Cpp => {
                 // declaration -> init_declarator -> declarator -> identifier
                 // OR declaration -> declarator -> identifier (no init)
@@ -207,6 +262,25 @@ impl Language {
                     // Direct declarator without initializer
                     if child.kind() == "identifier" || child.kind() == "field_identifier" {
                         return Some(child);
+                    }
+                }
+                None
+            }
+            Self::Lua => {
+                // local_variable_declaration -> variable_list -> identifier
+                let mut cursor = node.walk();
+                for child in node.children(&mut cursor) {
+                    if child.kind() == "variable_list" || child.kind() == "identifier" {
+                        if child.kind() == "identifier" {
+                            return Some(child);
+                        }
+                        // variable_list -> first identifier
+                        let mut c2 = child.walk();
+                        for gc in child.children(&mut c2) {
+                            if gc.kind() == "identifier" {
+                                return Some(gc);
+                            }
+                        }
                     }
                 }
                 None
@@ -226,11 +300,17 @@ impl Language {
                 | "do_statement"
                 | "switch_statement"
                 | "match_statement"
-                | "for_range_statement" // Go
-                | "for_range_loop"      // C++ range-based for
+                | "for_range_statement"    // Go
+                | "for_range_loop"         // C++ range-based for
                 | "enhanced_for_statement" // Java
                 | "try_statement"
-                | "goto_statement" // C/C++
+                | "goto_statement"         // C/C++
+                | "match_expression"       // Rust
+                | "if_let_expression"      // Rust
+                | "while_let_expression"   // Rust
+                | "for_expression"         // Rust
+                | "loop_expression"   // Rust
+                | "repeat_statement" // Lua repeat..until
         )
     }
 
@@ -249,6 +329,7 @@ impl Language {
                 | "method_invocation"
                 | "object_creation_expression"
                 | "new_expression"
+                | "function_call" // Lua
         )
     }
 
@@ -257,12 +338,27 @@ impl Language {
         let func_node = node
             .child_by_field_name("function")
             .or_else(|| node.child_by_field_name("name"))
-            .or_else(|| node.child_by_field_name("object"))?;
+            .or_else(|| node.child_by_field_name("object"))
+            .or_else(|| {
+                // Lua function_call: first child is the function expression
+                if node.kind() == "function_call" {
+                    node.child(0)
+                } else {
+                    None
+                }
+            })?;
 
         // For field-access calls (timer->callback(...), obj.method(...)),
         // extract the field identifier so it can match function definitions.
         // Without this, the full text "timer->callback" would never match
         // a function named "callback" in the call graph.
+        // Lua dot_index_expression: io.open -> extract "open"
+        if func_node.kind() == "dot_index_expression" {
+            if let Some(field) = func_node.child_by_field_name("field") {
+                return Some(field);
+            }
+        }
+
         if func_node.kind() == "field_expression" || func_node.kind() == "member_expression" {
             if let Some(field) = func_node.child_by_field_name("field") {
                 return Some(field);
@@ -326,6 +422,13 @@ impl Language {
             return find_identifier_in_c_function_def(node);
         }
 
+        // Rust impl blocks: extract the type name
+        if node.kind() == "impl_item" {
+            return node.child_by_field_name("type");
+        }
+
+        // Lua function_declaration: name is in "name" field
+        // local_function: name is in "name" field
         node.child_by_field_name("name")
     }
 }
