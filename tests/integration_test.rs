@@ -5599,3 +5599,240 @@ func fetchURL(url string) string {
         "Absence should detect http.Get without Body.Close"
     );
 }
+
+// ── Quantum async tests: Python threading ─────────────────────────────
+
+#[test]
+fn test_quantum_python_threading_async() {
+    // Python threading.Thread should be detected as async context.
+    let source = r#"
+import threading
+
+def worker(data):
+    count = 0
+    t = threading.Thread(target=process, args=(data,))
+    t.start()
+    count = count + 1
+    return count
+"#;
+    let path = "app/worker.py";
+    let parsed = ParsedFile::parse(path, source, Language::Python).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([8]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::QuantumSlice),
+    )
+    .unwrap();
+
+    assert!(
+        !result.blocks.is_empty(),
+        "QuantumSlice should detect Python threading.Thread as async context"
+    );
+}
+
+// ── Quantum async tests: JavaScript Worker ────────────────────────────
+
+#[test]
+fn test_quantum_js_worker_async() {
+    // JavaScript Worker should be detected as async context.
+    let source = r#"
+function processData(data) {
+    let result = null;
+    const worker = new Worker('processor.js');
+    result = data;
+    return result;
+}
+"#;
+    let path = "src/processor.js";
+    let parsed = ParsedFile::parse(path, source, Language::JavaScript).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([5]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::QuantumSlice),
+    )
+    .unwrap();
+
+    assert!(
+        !result.blocks.is_empty(),
+        "QuantumSlice should detect JavaScript Worker as async context"
+    );
+}
+
+// ── Quantum async tests: Go channel select ────────────────────────────
+
+#[test]
+fn test_quantum_go_channel_select() {
+    // Go select statement with channels should be detected as async context.
+    let source = r#"
+package main
+
+func fanIn(ch1 chan int, ch2 chan int) int {
+    result := 0
+    select {
+    case v := <-ch1:
+        result = v
+    case v := <-ch2:
+        result = v
+    }
+    return result
+}
+"#;
+    let path = "cmd/fanin.go";
+    let parsed = ParsedFile::parse(path, source, Language::Go).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([8]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::QuantumSlice),
+    )
+    .unwrap();
+
+    assert!(
+        !result.blocks.is_empty(),
+        "QuantumSlice should detect Go select/channel as async context"
+    );
+}
+
+// ── Membrane error handling tests: Python ─────────────────────────────
+
+#[test]
+fn test_membrane_python_raise_for_status() {
+    // Python caller using raise_for_status() should count as error handling.
+    let caller_source = r#"
+import requests
+
+def fetch_data(url):
+    response = get_api_data(url)
+    response.raise_for_status()
+    return response.json()
+"#;
+    let callee_source = r#"
+import requests
+
+def get_api_data(url):
+    return requests.get(url)
+"#;
+    let caller_path = "app/client.py";
+    let callee_path = "app/api.py";
+    let caller_parsed = ParsedFile::parse(caller_path, caller_source, Language::Python).unwrap();
+    let callee_parsed = ParsedFile::parse(callee_path, callee_source, Language::Python).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(caller_path.to_string(), caller_parsed);
+    files.insert(callee_path.to_string(), callee_parsed);
+
+    // Diff on the callee function
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: callee_path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([4]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::MembraneSlice),
+    )
+    .unwrap();
+
+    // Should have blocks (cross-file caller exists) but NO "unprotected" finding
+    // because raise_for_status() counts as error handling.
+    let has_unprotected = result
+        .findings
+        .iter()
+        .any(|f| f.category.as_deref() == Some("unprotected_caller"));
+    assert!(
+        !has_unprotected,
+        "Membrane should recognize raise_for_status() as error handling"
+    );
+}
+
+// ── Membrane error handling tests: Go ─────────────────────────────────
+
+#[test]
+fn test_membrane_go_errors_is_handling() {
+    // Go caller using errors.Is() should count as error handling.
+    let caller_source = r#"
+package main
+
+import "errors"
+
+func processRequest() {
+    err := doWork()
+    if errors.Is(err, ErrNotFound) {
+        handleNotFound()
+    }
+}
+"#;
+    let callee_source = r#"
+package main
+
+func doWork() error {
+    return nil
+}
+"#;
+    let caller_path = "cmd/handler.go";
+    let callee_path = "cmd/worker.go";
+    let caller_parsed = ParsedFile::parse(caller_path, caller_source, Language::Go).unwrap();
+    let callee_parsed = ParsedFile::parse(callee_path, callee_source, Language::Go).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(caller_path.to_string(), caller_parsed);
+    files.insert(callee_path.to_string(), callee_parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: callee_path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([4]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::MembraneSlice),
+    )
+    .unwrap();
+
+    let has_unprotected = result
+        .findings
+        .iter()
+        .any(|f| f.category.as_deref() == Some("unprotected_caller"));
+    assert!(
+        !has_unprotected,
+        "Membrane should recognize errors.Is() as error handling"
+    );
+}

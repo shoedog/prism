@@ -44,9 +44,10 @@ Last updated: 2026-04-01 (multi-language taint sink patterns)
 | Taint sinks — add Python (pickle.loads, subprocess.Popen, compile, render_template_string, mark_safe, Markup, getattr, setattr), JS/TS (innerHTML, outerHTML, insertAdjacentHTML, Function, spawn, execFile, execSync, spawnSync, writeFile, writeFileSync, raw, literal), Go (Command, Exec, HTML, Fprintf, Sprintf, Remove, RemoveAll, WriteFile, Query, QueryRow) | `claude/fix-taint-patterns-tests-0fPSO` | Done |
 | Provenance sources — add Python (request.form/json/data, Django ORM, cursor.execute/fetchone, sys.stdin), JS/TS (document.cookie, window.location, URLSearchParams, req.cookies/headers, prisma, knex, collection.find), Go (r.URL.Query, r.Header, r.FormFile, sql.Query/QueryRow, rows.Scan, viper, flag, yaml.Unmarshal) | `claude/fix-taint-patterns-tests-0fPSO` | Done |
 | Absence pairs — add Python (threading.Lock/release, pool/close, socket, tempfile), JS/TS (createReadStream/destroy, createServer/close, pool.connect/release, fs.open/close), Go (sql.Open/Close, os.Create/Close, context.WithCancel/cancel, WaitGroup Add/Wait, http.Get/Body.Close) | `claude/fix-taint-patterns-tests-0fPSO` | Done |
-| Quantum async + Membrane errors — Python threading, JS nextTick/RxJS, Go channels/select | — | Not started |
+| Quantum async — Python (threading.Thread, multiprocessing.Process, asyncio.create_task), JS/TS (Worker, process.nextTick, setImmediate, queueMicrotask), Go (select statement, channel send/receive) | `claude/fix-taint-patterns-tests-0fPSO` | Done |
+| Membrane errors — Python (raise_for_status, raise), JS/TS (throw, Promise.reject, .finally), Go (errors.Is, errors.As, log.Fatal, panic) | `claude/fix-taint-patterns-tests-0fPSO` | Done |
 
-**Tests added:** Taint Python pickle.loads (1), taint Python subprocess.Popen (1), taint JS innerHTML (1), taint JS execSync (1), taint Go exec.Command (1), taint Go template.HTML (1). Provenance Python request.form (1), provenance Python cursor.fetchone (1), provenance JS document.cookie (1), provenance JS process.env (1), provenance Go r.FormValue (1), provenance Go viper config (1). Absence Python threading.Lock (1), absence Python tempfile (1), absence JS createReadStream (1), absence JS fs.open (1), absence Go context.WithCancel (1), absence Go http.Get body (1).
+**Tests added:** Taint Python pickle.loads (1), taint Python subprocess.Popen (1), taint JS innerHTML (1), taint JS execSync (1), taint Go exec.Command (1), taint Go template.HTML (1). Provenance Python request.form (1), provenance Python cursor.fetchone (1), provenance JS document.cookie (1), provenance JS process.env (1), provenance Go r.FormValue (1), provenance Go viper config (1). Absence Python threading.Lock (1), absence Python tempfile (1), absence JS createReadStream (1), absence JS fs.open (1), absence Go context.WithCancel (1), absence Go http.Get body (1). Quantum Python threading (1), quantum JS Worker (1), quantum Go channel/select (1). Membrane Python raise_for_status (1), membrane Go errors.Is (1).
 
 ---
 
@@ -100,13 +101,15 @@ Last updated: 2026-04-01 (multi-language taint sink patterns)
 - Virtual dispatch: name-matched, not type-resolved (P2 item)
 
 ### Test Coverage
-- **143 tests** total (unit + integration)
+- **148 tests** total (unit + integration)
 - 5 languages covered in integration tests
 - 26 algorithms with at least basic coverage
 - C/C++ specific: 32 tests covering taint, provenance, absence, quantum (incl. ISR self-detection), membrane, phantom, pointer aliasing, function pointer dispatch (Level 0/1/2), static linkage disambiguation
 - Multi-language taint: 6 tests covering Python (pickle, subprocess), JS (innerHTML, execSync), Go (exec.Command, template.HTML)
 - Multi-language provenance: 6 tests covering Python (request.form, cursor.fetchone), JS (document.cookie, process.env), Go (r.FormValue, viper config)
 - Multi-language absence: 6 tests covering Python (threading.Lock, tempfile), JS (createReadStream, fs.open), Go (context.WithCancel, http.Get body)
+- Multi-language quantum: 3 tests covering Python (threading.Thread), JS (Worker), Go (channel/select)
+- Multi-language membrane: 2 tests covering Python (raise_for_status), Go (errors.Is)
 
 ---
 
