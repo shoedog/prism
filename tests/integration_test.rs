@@ -11657,3 +11657,524 @@ func caller() int { return outer(10) }
         count_lines(&ring2)
     );
 }
+
+// ---------------------------------------------------------------------------
+// Phase 2: Field isolation tests — taint on obj.fieldA must NOT reach obj.fieldB
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_field_isolation_c_arrow() {
+    // C arrow access: dev->name taint should NOT propagate to dev->id
+    let source = r#"
+void process(struct device *dev) {
+    dev->name = get_user_input();
+    dev->id = 42;
+    use_name(dev->name);
+    use_id(dev->id);
+}
+"#;
+    let path = "src/dev.c";
+    let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let dfg = DataFlowGraph::build(&files);
+    let dev_defs = dfg.all_defs_of(path, "dev");
+
+    // Should have field-qualified defs only — no base-only "dev" def
+    let base_only_defs: Vec<_> = dev_defs.iter().filter(|d| !d.path.has_fields()).collect();
+    assert!(
+        base_only_defs.is_empty(),
+        "Phase 2: field assignments should NOT create base-only defs. Got: {:?}",
+        base_only_defs
+    );
+
+    // Forward from dev->name def should NOT reach dev->id use
+    let name_def = dev_defs.iter().find(|d| d.path.fields == vec!["name"]);
+    if let Some(nd) = name_def {
+        let reachable = dfg.forward_reachable(nd);
+        let reaches_id = reachable.iter().any(|r| r.path.fields == vec!["id"]);
+        assert!(
+            !reaches_id,
+            "Phase 2: taint on dev->name must NOT propagate to dev->id"
+        );
+    }
+}
+
+#[test]
+fn test_field_isolation_c_dot() {
+    // C dot access (struct value): cfg.timeout taint should NOT reach cfg.host
+    let source = r#"
+void configure(struct config cfg) {
+    cfg.timeout = get_input();
+    cfg.host = "safe";
+    use_timeout(cfg.timeout);
+    use_host(cfg.host);
+}
+"#;
+    let path = "src/cfg.c";
+    let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let dfg = DataFlowGraph::build(&files);
+    let cfg_defs = dfg.all_defs_of(path, "cfg");
+
+    let base_only: Vec<_> = cfg_defs.iter().filter(|d| !d.path.has_fields()).collect();
+    assert!(
+        base_only.is_empty(),
+        "Phase 2: dot field assignments should NOT create base-only defs. Got: {:?}",
+        base_only
+    );
+}
+
+#[test]
+fn test_field_isolation_python() {
+    let source = r#"
+class Handler:
+    def process(self):
+        self.secret = get_password()
+        self.label = "public"
+        send(self.secret)
+        display(self.label)
+"#;
+    let path = "src/handler.py";
+    let parsed = ParsedFile::parse(path, source, Language::Python).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let dfg = DataFlowGraph::build(&files);
+    let self_defs = dfg.all_defs_of(path, "self");
+
+    let base_only: Vec<_> = self_defs.iter().filter(|d| !d.path.has_fields()).collect();
+    assert!(
+        base_only.is_empty(),
+        "Phase 2 Python: field assignments should NOT create base-only defs"
+    );
+
+    let secret_def = self_defs
+        .iter()
+        .find(|d| d.path.fields == vec!["secret"]);
+    if let Some(sd) = secret_def {
+        let reachable = dfg.forward_reachable(sd);
+        let reaches_label = reachable.iter().any(|r| r.path.fields == vec!["label"]);
+        assert!(
+            !reaches_label,
+            "Phase 2 Python: taint on self.secret must NOT propagate to self.label"
+        );
+    }
+}
+
+#[test]
+fn test_field_isolation_javascript() {
+    let source = r#"
+function process(obj) {
+    obj.secret = getUserInput();
+    obj.display = "safe";
+    sink(obj.secret);
+    render(obj.display);
+}
+"#;
+    let path = "src/handler.js";
+    let parsed = ParsedFile::parse(path, source, Language::JavaScript).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let dfg = DataFlowGraph::build(&files);
+    let obj_defs = dfg.all_defs_of(path, "obj");
+
+    let base_only: Vec<_> = obj_defs.iter().filter(|d| !d.path.has_fields()).collect();
+    assert!(
+        base_only.is_empty(),
+        "Phase 2 JS: field assignments should NOT create base-only defs"
+    );
+}
+
+#[test]
+fn test_field_isolation_go() {
+    let source = r#"
+package main
+
+func process(dev Device) {
+    dev.Name = getInput()
+    dev.ID = 42
+    useName(dev.Name)
+    useID(dev.ID)
+}
+"#;
+    let path = "src/dev.go";
+    let parsed = ParsedFile::parse(path, source, Language::Go).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let dfg = DataFlowGraph::build(&files);
+    let dev_defs = dfg.all_defs_of(path, "dev");
+
+    let base_only: Vec<_> = dev_defs.iter().filter(|d| !d.path.has_fields()).collect();
+    assert!(
+        base_only.is_empty(),
+        "Phase 2 Go: field assignments should NOT create base-only defs"
+    );
+}
+
+#[test]
+fn test_field_isolation_rust() {
+    let source = r#"
+fn process(dev: &mut Device) {
+    dev.name = get_input();
+    dev.id = 42;
+    use_name(dev.name);
+    use_id(dev.id);
+}
+"#;
+    let path = "src/dev.rs";
+    let parsed = ParsedFile::parse(path, source, Language::Rust).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let dfg = DataFlowGraph::build(&files);
+    let dev_defs = dfg.all_defs_of(path, "dev");
+
+    let base_only: Vec<_> = dev_defs.iter().filter(|d| !d.path.has_fields()).collect();
+    assert!(
+        base_only.is_empty(),
+        "Phase 2 Rust: field assignments should NOT create base-only defs"
+    );
+}
+
+#[test]
+fn test_field_isolation_lua() {
+    let source = r#"
+function process(dev)
+    dev.name = get_input()
+    dev.id = 42
+    use_name(dev.name)
+    use_id(dev.id)
+end
+"#;
+    let path = "src/dev.lua";
+    let parsed = ParsedFile::parse(path, source, Language::Lua).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let dfg = DataFlowGraph::build(&files);
+    let dev_defs = dfg.all_defs_of(path, "dev");
+
+    let base_only: Vec<_> = dev_defs.iter().filter(|d| !d.path.has_fields()).collect();
+    assert!(
+        base_only.is_empty(),
+        "Phase 2 Lua: field assignments should NOT create base-only defs"
+    );
+}
+
+#[test]
+fn test_field_isolation_java() {
+    let source = r#"
+class Handler {
+    void process(Device dev) {
+        dev.name = getInput();
+        dev.id = 42;
+        useName(dev.name);
+        useId(dev.id);
+    }
+}
+"#;
+    let path = "src/Handler.java";
+    let parsed = ParsedFile::parse(path, source, Language::Java).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let dfg = DataFlowGraph::build(&files);
+    let dev_defs = dfg.all_defs_of(path, "dev");
+
+    let base_only: Vec<_> = dev_defs.iter().filter(|d| !d.path.has_fields()).collect();
+    assert!(
+        base_only.is_empty(),
+        "Phase 2 Java: field assignments should NOT create base-only defs"
+    );
+}
+
+#[test]
+fn test_field_isolation_typescript() {
+    let source = r#"
+function process(obj: Config) {
+    obj.secret = getUserInput();
+    obj.label = "safe";
+    sink(obj.secret);
+    render(obj.label);
+}
+"#;
+    let path = "src/handler.ts";
+    let parsed = ParsedFile::parse(path, source, Language::TypeScript).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let dfg = DataFlowGraph::build(&files);
+    let obj_defs = dfg.all_defs_of(path, "obj");
+
+    let base_only: Vec<_> = obj_defs.iter().filter(|d| !d.path.has_fields()).collect();
+    assert!(
+        base_only.is_empty(),
+        "Phase 2 TypeScript: field assignments should NOT create base-only defs"
+    );
+}
+
+#[test]
+fn test_field_isolation_whole_struct_still_works() {
+    // Whole-struct assignment (no field) should still create a base-only def
+    let source = r#"
+void init() {
+    struct device *dev = malloc(sizeof(struct device));
+    int x = 42;
+    use(dev);
+    use(x);
+}
+"#;
+    let path = "src/init.c";
+    let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let dfg = DataFlowGraph::build(&files);
+
+    // dev should still have a base-only def from the whole-struct assignment
+    let dev_defs = dfg.all_defs_of(path, "dev");
+    assert!(
+        !dev_defs.is_empty(),
+        "Whole-struct assignment should still create a def for dev"
+    );
+    assert!(
+        dev_defs.iter().any(|d| !d.path.has_fields()),
+        "Whole-struct assignment should create base-only def"
+    );
+}
+
+#[test]
+fn test_must_alias_c_pointer() {
+    // ptr = dev; ptr->name = x → should create def for dev.name too
+    let source = r#"
+void process(struct device *dev) {
+    struct device *ptr = dev;
+    ptr->name = "eth0";
+    use_name(dev->name);
+}
+"#;
+    let path = "src/alias.c";
+    let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let dfg = DataFlowGraph::build(&files);
+    let dev_defs = dfg.all_defs_of(path, "dev");
+
+    // Phase 3: ptr->name def should also create a dev.name def via alias resolution
+    let has_dev_name = dev_defs
+        .iter()
+        .any(|d| d.path.fields == vec!["name"]);
+    assert!(
+        has_dev_name,
+        "Phase 3: ptr = dev alias should resolve ptr->name to dev.name. Got defs: {:?}",
+        dev_defs.iter().map(|d| &d.path).collect::<Vec<_>>()
+    );
+}
+
+#[test]
+fn test_must_alias_python() {
+    // ref = self; ref.secret = x → should create def for self.secret too
+    let source = r#"
+class Handler:
+    def process(self):
+        ref = self
+        ref.secret = get_password()
+        send(self.secret)
+"#;
+    let path = "src/alias.py";
+    let parsed = ParsedFile::parse(path, source, Language::Python).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let dfg = DataFlowGraph::build(&files);
+    let self_defs = dfg.all_defs_of(path, "self");
+
+    let has_self_secret = self_defs
+        .iter()
+        .any(|d| d.path.fields == vec!["secret"]);
+    assert!(
+        has_self_secret,
+        "Phase 3 Python: ref = self alias should resolve ref.secret to self.secret"
+    );
+}
+
+#[test]
+fn test_must_alias_javascript() {
+    let source = r#"
+function process(config) {
+    const ref = config;
+    ref.timeout = getUserInput();
+    use(config.timeout);
+}
+"#;
+    let path = "src/alias.js";
+    let parsed = ParsedFile::parse(path, source, Language::JavaScript).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let dfg = DataFlowGraph::build(&files);
+    let config_defs = dfg.all_defs_of(path, "config");
+
+    let has_config_timeout = config_defs
+        .iter()
+        .any(|d| d.path.fields == vec!["timeout"]);
+    assert!(
+        has_config_timeout,
+        "Phase 3 JS: ref = config alias should resolve ref.timeout to config.timeout"
+    );
+}
+
+#[test]
+fn test_must_alias_go() {
+    let source = r#"
+package main
+
+func process(dev Device) {
+    ref := dev
+    ref.Name = getInput()
+    useName(dev.Name)
+}
+"#;
+    let path = "src/alias.go";
+    let parsed = ParsedFile::parse(path, source, Language::Go).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let dfg = DataFlowGraph::build(&files);
+    let dev_defs = dfg.all_defs_of(path, "dev");
+
+    let has_dev_name = dev_defs
+        .iter()
+        .any(|d| d.path.fields == vec!["Name"]);
+    assert!(
+        has_dev_name,
+        "Phase 3 Go: ref := dev alias should resolve ref.Name to dev.Name"
+    );
+}
+
+#[test]
+fn test_must_alias_rust() {
+    let source = r#"
+fn process(dev: &mut Device) {
+    let ptr = dev;
+    ptr.name = get_input();
+    use_name(dev.name);
+}
+"#;
+    let path = "src/alias.rs";
+    let parsed = ParsedFile::parse(path, source, Language::Rust).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let dfg = DataFlowGraph::build(&files);
+    let dev_defs = dfg.all_defs_of(path, "dev");
+
+    let has_dev_name = dev_defs
+        .iter()
+        .any(|d| d.path.fields == vec!["name"]);
+    assert!(
+        has_dev_name,
+        "Phase 3 Rust: ptr = dev alias should resolve ptr.name to dev.name"
+    );
+}
+
+#[test]
+fn test_must_alias_chain() {
+    // Chain: a = dev; b = a; b->field → should resolve to dev.field
+    let source = r#"
+void chain(struct device *dev) {
+    struct device *a = dev;
+    struct device *b = a;
+    b->name = "test";
+    use_name(dev->name);
+}
+"#;
+    let path = "src/chain.c";
+    let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let dfg = DataFlowGraph::build(&files);
+    let dev_defs = dfg.all_defs_of(path, "dev");
+
+    let has_dev_name = dev_defs
+        .iter()
+        .any(|d| d.path.fields == vec!["name"]);
+    assert!(
+        has_dev_name,
+        "Phase 3: chained aliases (b = a = dev) should resolve b->name to dev.name"
+    );
+}
+
+#[test]
+fn test_must_alias_no_false_positive() {
+    // x = unrelated_var should NOT alias to dev
+    let source = r#"
+void no_alias(struct device *dev, struct device *other) {
+    struct device *ptr = other;
+    ptr->name = "test";
+    use_name(dev->name);
+}
+"#;
+    let path = "src/no_alias.c";
+    let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let dfg = DataFlowGraph::build(&files);
+    let dev_defs = dfg.all_defs_of(path, "dev");
+
+    // dev should NOT have a name def from ptr->name (ptr aliases other, not dev)
+    let has_dev_name = dev_defs
+        .iter()
+        .any(|d| d.path.fields == vec!["name"]);
+    assert!(
+        !has_dev_name,
+        "Phase 3: ptr = other should NOT create alias to dev. Got defs: {:?}",
+        dev_defs.iter().map(|d| &d.path).collect::<Vec<_>>()
+    );
+}
+
+#[test]
+fn test_field_isolation_taint_does_not_cross_fields() {
+    // End-to-end taint test: tainted field should not reach different field's sink
+    let source = r#"
+void handler(struct request *req) {
+    req->user_input = read_stdin();
+    req->safe_data = "constant";
+    exec(req->user_input);
+    log_msg(req->safe_data);
+}
+"#;
+    let path = "src/handler.c";
+    let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let dfg = DataFlowGraph::build(&files);
+
+    // Get the user_input def
+    let req_defs = dfg.all_defs_of(path, "req");
+    let user_input_def = req_defs
+        .iter()
+        .find(|d| d.path.fields == vec!["user_input"]);
+
+    if let Some(uid) = user_input_def {
+        let reachable = dfg.forward_reachable(uid);
+        // Should reach exec(req->user_input) line but NOT log_msg(req->safe_data) line
+        let reaches_safe = reachable
+            .iter()
+            .any(|r| r.path.fields == vec!["safe_data"]);
+        assert!(
+            !reaches_safe,
+            "Taint on req->user_input must NOT propagate to req->safe_data"
+        );
+    }
+}
