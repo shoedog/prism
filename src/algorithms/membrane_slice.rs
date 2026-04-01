@@ -41,8 +41,10 @@ pub fn slice(files: &BTreeMap<String, ParsedFile>, diff: &DiffInput) -> Result<S
         }
 
         for (func_name, (func_start, func_end)) in &changed_functions {
-            // Find all callers in OTHER files (cross-module boundary)
-            let callers = call_graph.callers_of(func_name, 1);
+            // Find all callers in OTHER files (cross-module boundary),
+            // respecting static linkage so file-local functions don't create
+            // false cross-file edges.
+            let callers = call_graph.callers_of_in_file(func_name, 1, Some(&diff_info.file_path));
             let cross_file_callers: Vec<_> = callers
                 .iter()
                 .filter(|(caller_id, _)| caller_id.file != diff_info.file_path)

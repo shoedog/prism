@@ -33,6 +33,9 @@ pub struct CallGraph {
     pub calls: BTreeMap<FunctionId, BTreeSet<CallSite>>,
     /// Reverse edges: function name → set of call sites that invoke it.
     pub callers: BTreeMap<String, Vec<CallSite>>,
+    /// Functions with file-local (static) linkage: `(file, name)` pairs.
+    /// Used to disambiguate same-named functions across files.
+    pub static_functions: BTreeSet<(String, String)>,
 }
 
 impl CallGraph {
@@ -41,6 +44,7 @@ impl CallGraph {
         let mut functions: BTreeMap<String, Vec<FunctionId>> = BTreeMap::new();
         let mut calls: BTreeMap<FunctionId, BTreeSet<CallSite>> = BTreeMap::new();
         let mut callers: BTreeMap<String, Vec<CallSite>> = BTreeMap::new();
+        let mut static_functions: BTreeSet<(String, String)> = BTreeSet::new();
 
         // Phase 1: Collect all function definitions
         for (file_path, parsed) in files {
@@ -54,7 +58,17 @@ impl CallGraph {
                         start_line: start,
                         end_line: end,
                     };
-                    functions.entry(name).or_default().push(func_id);
+                    functions.entry(name.clone()).or_default().push(func_id);
+
+                    // Detect C/C++ static linkage
+                    if matches!(
+                        parsed.language,
+                        crate::languages::Language::C | crate::languages::Language::Cpp
+                    ) {
+                        if has_static_specifier(parsed, &func_node) {
+                            static_functions.insert((file_path.clone(), name));
+                        }
+                    }
                 }
             }
         }
@@ -183,7 +197,42 @@ impl CallGraph {
             functions,
             calls,
             callers,
+            static_functions,
         }
+    }
+
+    /// Resolve a callee name to the appropriate FunctionId(s), considering static linkage.
+    ///
+    /// If the callee name has a `static` definition in `caller_file`, return only that one.
+    /// Otherwise, return all non-static definitions (excluding static functions in other files).
+    pub fn resolve_callees(&self, callee_name: &str, caller_file: &str) -> Vec<&FunctionId> {
+        let func_ids = match self.functions.get(callee_name) {
+            Some(ids) => ids,
+            None => return Vec::new(),
+        };
+
+        // If there's a static function with this name in the caller's file, use only that one
+        if self
+            .static_functions
+            .contains(&(caller_file.to_string(), callee_name.to_string()))
+        {
+            return func_ids
+                .iter()
+                .filter(|fid| fid.file == caller_file)
+                .collect();
+        }
+
+        // Otherwise, return all definitions that are NOT static in other files
+        func_ids
+            .iter()
+            .filter(|fid| {
+                // Include if: it's in the same file, OR it's not static
+                fid.file == caller_file
+                    || !self
+                        .static_functions
+                        .contains(&(fid.file.clone(), callee_name.to_string()))
+            })
+            .collect()
     }
 
     /// Extract the source text for a function from its parsed file.
@@ -195,7 +244,23 @@ impl CallGraph {
     }
 
     /// Find all callers of a function by name, up to a given depth.
+    ///
+    /// Respects static linkage: a call to `func_name` in file X only counts
+    /// if `resolve_callees(func_name, X)` includes a function in `target_file`
+    /// (when provided). This prevents static functions in other files from
+    /// being falsely reported as callers.
     pub fn callers_of(&self, func_name: &str, max_depth: usize) -> Vec<(FunctionId, usize)> {
+        self.callers_of_in_file(func_name, max_depth, None)
+    }
+
+    /// Like `callers_of`, but only returns callers whose call actually resolves
+    /// to a function in `target_file`.
+    pub fn callers_of_in_file(
+        &self,
+        func_name: &str,
+        max_depth: usize,
+        target_file: Option<&str>,
+    ) -> Vec<(FunctionId, usize)> {
         let mut result = Vec::new();
         let mut visited: BTreeSet<String> = BTreeSet::new();
         let mut queue: VecDeque<(String, usize)> = VecDeque::new();
@@ -218,10 +283,23 @@ impl CallGraph {
 
             if let Some(sites) = self.callers.get(&name) {
                 for site in sites {
-                    if !visited.contains(&site.caller.name) {
-                        visited.insert(site.caller.name.clone());
-                        queue.push_back((site.caller.name.clone(), depth + 1));
+                    if visited.contains(&site.caller.name) {
+                        continue;
                     }
+
+                    // Static linkage filter: if the caller is in a different file
+                    // and their call to `name` resolves to a static function in
+                    // their own file (not target_file), skip this caller.
+                    if let Some(tf) = target_file {
+                        let resolved = self.resolve_callees(&name, &site.caller.file);
+                        let resolves_to_target = resolved.iter().any(|fid| fid.file == tf);
+                        if !resolves_to_target {
+                            continue;
+                        }
+                    }
+
+                    visited.insert(site.caller.name.clone());
+                    queue.push_back((site.caller.name.clone(), depth + 1));
                 }
             }
         }
@@ -263,11 +341,10 @@ impl CallGraph {
                 for site in sites {
                     if !visited.contains(&site.callee_name) {
                         visited.insert(site.callee_name.clone());
-                        // Resolve callee to FunctionId
-                        if let Some(callee_ids) = self.functions.get(&site.callee_name) {
-                            for callee_id in callee_ids {
-                                queue.push_back((callee_id.clone(), depth + 1));
-                            }
+                        // Resolve callee to FunctionId, respecting static linkage
+                        let callee_ids = self.resolve_callees(&site.callee_name, &func_id.file);
+                        for callee_id in callee_ids {
+                            queue.push_back((callee_id.clone(), depth + 1));
                         }
                     }
                 }
@@ -332,10 +409,9 @@ impl CallGraph {
 
         if let Some(sites) = self.calls.get(node) {
             for site in sites {
-                if let Some(callee_ids) = self.functions.get(&site.callee_name) {
-                    for callee_id in callee_ids {
-                        self.dfs_cycles(callee_id, path, visited, cycles);
-                    }
+                let callee_ids = self.resolve_callees(&site.callee_name, &node.file);
+                for callee_id in callee_ids {
+                    self.dfs_cycles(callee_id, path, visited, cycles);
                 }
             }
         }
@@ -360,4 +436,15 @@ impl Ord for CallSite {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         self.cmp_key().cmp(&other.cmp_key())
     }
+}
+
+/// Check if a C/C++ function definition has a `static` storage class specifier.
+fn has_static_specifier(parsed: &ParsedFile, func_node: &tree_sitter::Node<'_>) -> bool {
+    let mut cursor = func_node.walk();
+    for child in func_node.children(&mut cursor) {
+        if child.kind() == "storage_class_specifier" && parsed.node_text(&child) == "static" {
+            return true;
+        }
+    }
+    false
 }
