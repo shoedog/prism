@@ -7796,3 +7796,422 @@ void setup(void) {
         callee_names
     );
 }
+
+// ===== CVE-Pattern Test Fixtures =====
+
+/// CVE pattern: double-free via goto error path.
+/// Classic kernel bug where a resource is freed inline before a goto,
+/// and the goto target label also frees it.
+#[test]
+fn test_cve_double_free_goto_cleanup() {
+    let source = r#"
+#include <stdlib.h>
+
+void process_frame(uint8_t *raw, size_t len) {
+    char *buf = malloc(len);
+    char *header = malloc(64);
+
+    if (validate(raw) < 0) {
+        free(buf);
+        free(header);
+        goto cleanup;
+    }
+
+    process(buf, header);
+    return;
+
+cleanup:
+    free(buf);
+    free(header);
+}
+"#;
+
+    let path = "src/frame.c";
+    let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    // Diff touches the malloc lines
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([5, 6]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::AbsenceSlice),
+    )
+    .unwrap();
+
+    // Should detect double-free: free() before goto AND in cleanup label
+    let double_close_findings: Vec<_> = result
+        .findings
+        .iter()
+        .filter(|f| f.category.as_deref() == Some("double_close"))
+        .collect();
+    assert!(
+        !double_close_findings.is_empty(),
+        "Should detect double-free via goto cleanup pattern, got findings: {:?}",
+        result.findings
+    );
+}
+
+/// CVE pattern: correct goto cleanup (no double-free).
+/// Kernel-style ordered labels with fall-through — should NOT flag as double-free.
+#[test]
+fn test_cve_correct_goto_cleanup_no_double_free() {
+    let source = r#"
+#include <stdlib.h>
+
+int init_device(int id) {
+    char *buf = malloc(256);
+    if (!buf) return -1;
+
+    char *dev = malloc(64);
+    if (!dev) goto err_buf;
+
+    int ret = register_dev(dev, id);
+    if (ret < 0) goto err_dev;
+
+    return 0;
+
+err_dev:
+    free(dev);
+err_buf:
+    free(buf);
+    return -1;
+}
+"#;
+
+    let path = "src/device.c";
+    let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([5, 8]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::AbsenceSlice),
+    )
+    .unwrap();
+
+    // Correct kernel cleanup pattern — should NOT report double-free
+    let double_close_findings: Vec<_> = result
+        .findings
+        .iter()
+        .filter(|f| f.category.as_deref() == Some("double_close"))
+        .collect();
+    assert!(
+        double_close_findings.is_empty(),
+        "Correct goto cleanup (no inline free before goto) should not flag double-free, got: {:?}",
+        double_close_findings
+    );
+}
+
+/// CVE pattern: kernel double-unlock via goto.
+/// spin_lock released inline AND in the error label.
+#[test]
+fn test_cve_double_unlock_goto() {
+    let source = r#"
+#include <linux/spinlock.h>
+
+int update_state(spinlock_t *lock, int val) {
+    spin_lock(lock);
+
+    if (val < 0) {
+        spin_unlock(lock);
+        goto err;
+    }
+
+    shared_state = val;
+    spin_unlock(lock);
+    return 0;
+
+err:
+    spin_unlock(lock);
+    return -1;
+}
+"#;
+
+    let path = "src/state.c";
+    let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([5]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::AbsenceSlice),
+    )
+    .unwrap();
+
+    let double_close_findings: Vec<_> = result
+        .findings
+        .iter()
+        .filter(|f| f.category.as_deref() == Some("double_close"))
+        .collect();
+    assert!(
+        !double_close_findings.is_empty(),
+        "Should detect double-unlock: spin_unlock before goto AND in err label, got: {:?}",
+        result.findings
+    );
+}
+
+/// CVE pattern: format string injection — user input flows to printf format parameter.
+#[test]
+fn test_cve_format_string_taint() {
+    let source = r#"
+#include <stdio.h>
+
+void log_message(const char *user_msg) {
+    char buf[512];
+    char *msg = user_msg;
+    sprintf(buf, msg);
+    printf(buf);
+}
+"#;
+
+    let path = "src/logger.c";
+    let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    // Diff touches the tainted assignment
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([6]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::Taint),
+    )
+    .unwrap();
+
+    // Taint should trace msg → sprintf (format string sink) and/or printf
+    assert!(
+        !result.findings.is_empty(),
+        "Taint should detect user input flowing to sprintf/printf format parameter"
+    );
+    // The finding description includes "reaches sink at line N" — verify sink lines
+    // are on the sprintf (line 7) or printf (line 8) calls
+    let has_sink_finding = result.findings.iter().any(|f| f.line == 7 || f.line == 8);
+    assert!(
+        has_sink_finding,
+        "Should flag sprintf (line 7) or printf (line 8) as taint sink, got findings at: {:?}",
+        result.findings.iter().map(|f| f.line).collect::<Vec<_>>()
+    );
+}
+
+/// CVE pattern: buffer overflow — user-controlled size flows to memcpy.
+#[test]
+fn test_cve_buffer_overflow_taint() {
+    let source = r#"
+#include <string.h>
+
+void copy_payload(const char *input, size_t input_len) {
+    char local_buf[256];
+    size_t len = input_len;
+    memcpy(local_buf, input, len);
+}
+"#;
+
+    let path = "src/payload.c";
+    let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([6]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::Taint),
+    )
+    .unwrap();
+
+    assert!(
+        !result.findings.is_empty(),
+        "Taint should detect user-controlled size flowing to memcpy"
+    );
+    // memcpy is on line 7 — verify taint reaches it
+    let has_memcpy_sink = result.findings.iter().any(|f| f.line == 7);
+    assert!(
+        has_memcpy_sink,
+        "Should flag memcpy (line 7) as taint sink for buffer overflow, got findings at: {:?}",
+        result.findings.iter().map(|f| f.line).collect::<Vec<_>>()
+    );
+}
+
+/// CVE pattern: strcpy buffer overflow from network input (via fgets).
+/// Uses fgets which returns to a variable the DFG can trace.
+#[test]
+fn test_cve_strcpy_overflow_provenance() {
+    let source = r#"
+#include <string.h>
+#include <stdio.h>
+
+void handle_request(void) {
+    char buf[64];
+    char dest[32];
+    char *input = fgets(buf, sizeof(buf), stdin);
+    strcpy(dest, input);
+}
+"#;
+
+    let path = "src/handler.c";
+    let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    // Diff touches fgets line — taint should trace input → strcpy
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([8]),
+        }],
+    };
+
+    let taint_result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::Taint),
+    )
+    .unwrap();
+
+    // Taint: fgets line → input → strcpy sink
+    assert!(
+        !taint_result.blocks.is_empty(),
+        "Taint should include fgets and strcpy in the taint trace"
+    );
+
+    let prov_result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::ProvenanceSlice),
+    )
+    .unwrap();
+
+    // Provenance: fgets → UserInput origin
+    assert!(
+        !prov_result.findings.is_empty(),
+        "Provenance should classify fgets as user_input origin"
+    );
+}
+
+/// CVE pattern: integer overflow before allocation.
+/// User-controlled size undergoes arithmetic, then passed to malloc.
+#[test]
+fn test_cve_integer_overflow_taint() {
+    let source = r#"
+#include <stdlib.h>
+
+void alloc_records(unsigned int count) {
+    unsigned int total = count * sizeof(record_t);
+    char *buf = malloc(total);
+    memset(buf, 0, total);
+}
+"#;
+
+    let path = "src/records.c";
+    let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([5]),
+        }],
+    };
+
+    // The taint trace should include the arithmetic and malloc
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::Taint),
+    )
+    .unwrap();
+
+    assert!(
+        !result.blocks.is_empty(),
+        "Taint should trace arithmetic result to malloc/memset sinks"
+    );
+}
+
+/// CVE pattern: use-after-free — pointer used after being freed.
+/// Taint detects free() as a sink on the diff line; the subsequent use of
+/// timer->data is included in the analysis context. Prism doesn't yet
+/// distinguish "free then use" from "use then free" as a distinct UAF pattern.
+#[test]
+fn test_cve_use_after_free_taint_context() {
+    let source = r#"
+#include <stdlib.h>
+
+void process_timer(timer_t *timer) {
+    free(timer->data);
+    if (timer->flags & TIMER_ACTIVE) {
+        process(timer->data);
+    }
+}
+"#;
+
+    let path = "src/timer.c";
+    let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    // Diff touches the free() line
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([5]),
+        }],
+    };
+
+    // Taint should trace: free(timer->data) is a sink, timer->data is tainted
+    let taint_result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::Taint),
+    )
+    .unwrap();
+
+    assert!(
+        !taint_result.blocks.is_empty(),
+        "Taint should include the free() and subsequent use of timer->data"
+    );
+}
