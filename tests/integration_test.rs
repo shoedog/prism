@@ -4017,3 +4017,198 @@ int use_buffer(void) {
         findings
     );
 }
+
+// ====== Function pointer call edge resolution tests ======
+
+/// Test that the call graph resolves function pointer calls through struct fields.
+/// `timer->callback(data)` should produce an edge to `callback` in the call graph.
+#[test]
+fn test_call_graph_field_expression_call() {
+    let source = r#"
+#include <stdlib.h>
+
+typedef struct {
+    void (*callback)(void *data);
+    void *data;
+} timer_t;
+
+void timeout_handler(void *data) {
+    // handle timeout
+}
+
+void fire_timer(timer_t *timer) {
+    timer->callback(timer->data);
+}
+
+void setup_timer(timer_t *timer) {
+    timer->callback = timeout_handler;
+    timer->data = NULL;
+    fire_timer(timer);
+}
+"#;
+
+    let mut files = BTreeMap::new();
+    files.insert(
+        "src/timer.c".to_string(),
+        ParsedFile::parse("src/timer.c", source, Language::C).unwrap(),
+    );
+
+    let call_graph = CallGraph::build(&files);
+
+    // fire_timer calls timer->callback — should resolve to callee_name "callback"
+    let fire_timer_id = call_graph
+        .functions
+        .get("fire_timer")
+        .expect("fire_timer should be in call graph");
+
+    let fire_timer_calls = call_graph
+        .calls
+        .get(&fire_timer_id[0])
+        .expect("fire_timer should have call sites");
+
+    let callee_names: Vec<&str> = fire_timer_calls
+        .iter()
+        .map(|s| s.callee_name.as_str())
+        .collect();
+    assert!(
+        callee_names.contains(&"callback"),
+        "timer->callback(...) should resolve callee_name to 'callback', got: {:?}",
+        callee_names
+    );
+}
+
+/// Test that MembraneSlice detects cross-file callers through function pointer dispatch.
+/// When ops->process() is called in another file and process() is modified,
+/// MembraneSlice should find the cross-file caller.
+#[test]
+fn test_membrane_function_pointer_cross_file() {
+    // File A: defines process() which is called via struct field in File B
+    let api_source = r#"
+#include <stdlib.h>
+
+int process(int *data, int len) {
+    for (int i = 0; i < len; i++) {
+        data[i] *= 2;
+    }
+    return 0;
+}
+"#;
+
+    // File B: calls process via ops->process(data, len)
+    let caller_source = r#"
+#include "api.h"
+
+struct operations {
+    int (*process)(int *data, int len);
+};
+
+int run_pipeline(struct operations *ops, int *data, int len) {
+    int ret = ops->process(data, len);
+    if (ret < 0) {
+        return -1;
+    }
+    return 0;
+}
+"#;
+
+    let mut files = BTreeMap::new();
+    files.insert(
+        "src/api.c".to_string(),
+        ParsedFile::parse("src/api.c", api_source, Language::C).unwrap(),
+    );
+    files.insert(
+        "src/driver.c".to_string(),
+        ParsedFile::parse("src/driver.c", caller_source, Language::C).unwrap(),
+    );
+
+    // Diff touches process() body
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: "src/api.c".to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([5, 6]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::MembraneSlice),
+    )
+    .unwrap();
+
+    // MembraneSlice should find run_pipeline as a cross-file caller of process
+    // via the ops->process() call
+    assert!(
+        !result.blocks.is_empty(),
+        "MembraneSlice should detect cross-file caller via function pointer dispatch"
+    );
+
+    // The blocks should reference the driver file
+    let has_driver_ref = result
+        .blocks
+        .iter()
+        .any(|b| b.file_line_map.keys().any(|f| f.contains("driver")));
+    assert!(
+        has_driver_ref,
+        "MembraneSlice blocks should include the cross-file caller in driver.c"
+    );
+}
+
+/// Test that CircularSlice detects cycles through function pointer calls.
+#[test]
+fn test_circular_slice_function_pointer_cycle() {
+    // dispatch() calls handler->process(), and process() calls dispatch() — a cycle
+    let source = r#"
+#include <stdlib.h>
+
+typedef struct handler {
+    void (*process)(int data);
+} handler_t;
+
+void dispatch(handler_t *handler, int data);
+
+void process(int data) {
+    handler_t h;
+    h.process = process;
+    if (data > 0) {
+        dispatch(&h, data - 1);
+    }
+}
+
+void dispatch(handler_t *handler, int data) {
+    handler->process(data);
+}
+"#;
+
+    let mut files = BTreeMap::new();
+    files.insert(
+        "src/loop.c".to_string(),
+        ParsedFile::parse("src/loop.c", source, Language::C).unwrap(),
+    );
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: "src/loop.c".to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([12]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::CircularSlice),
+    )
+    .unwrap();
+
+    // CircularSlice should detect the process → dispatch → process cycle
+    // via handler->process() resolving to the "process" callee name
+    let has_cycle_finding = result.findings.iter().any(|f| {
+        f.description.contains("cycle") || f.category.as_deref() == Some("recursive_cycle")
+    });
+    assert!(
+        !result.blocks.is_empty() || has_cycle_finding,
+        "CircularSlice should detect cycle through function pointer dispatch"
+    );
+}

@@ -254,9 +254,26 @@ impl Language {
 
     /// Get the function name node from a call.
     pub fn call_function_name<'a>(&self, node: &Node<'a>) -> Option<Node<'a>> {
-        node.child_by_field_name("function")
+        let func_node = node
+            .child_by_field_name("function")
             .or_else(|| node.child_by_field_name("name"))
-            .or_else(|| node.child_by_field_name("object"))
+            .or_else(|| node.child_by_field_name("object"))?;
+
+        // For field-access calls (timer->callback(...), obj.method(...)),
+        // extract the field identifier so it can match function definitions.
+        // Without this, the full text "timer->callback" would never match
+        // a function named "callback" in the call graph.
+        if func_node.kind() == "field_expression" || func_node.kind() == "member_expression" {
+            if let Some(field) = func_node.child_by_field_name("field") {
+                return Some(field);
+            }
+            // JS/TS member_expression uses "property" instead of "field"
+            if let Some(prop) = func_node.child_by_field_name("property") {
+                return Some(prop);
+            }
+        }
+
+        Some(func_node)
     }
 
     /// Get the arguments node from a call.
