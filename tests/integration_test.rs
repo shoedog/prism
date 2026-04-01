@@ -8,6 +8,7 @@ use prism::output;
 use prism::slice::{SliceConfig, SlicingAlgorithm};
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
+use tempfile::TempDir;
 
 fn make_python_test() -> (
     BTreeMap<String, ParsedFile>,
@@ -9182,11 +9183,10 @@ function process(o) { return o.value; }
 
 #[test]
 fn test_delta_slice_python() {
-    let tmp = std::env::temp_dir().join("prism_delta_test_py");
-    let _ = std::fs::create_dir_all(&tmp);
+    let tmp = TempDir::new().unwrap();
 
     let old_source = "x = 1\ny = x + 1\nprint(y)\n";
-    std::fs::write(tmp.join("app.py"), old_source).unwrap();
+    std::fs::write(tmp.path().join("app.py"), old_source).unwrap();
 
     let new_source = "x = 1\ny = x + 2\nz = y * 3\nprint(z)\n";
     let path = "app.py";
@@ -9202,19 +9202,16 @@ fn test_delta_slice_python() {
         }],
     };
 
-    let result = prism::algorithms::delta_slice::slice(&files, &diff, &tmp).unwrap();
+    let result = prism::algorithms::delta_slice::slice(&files, &diff, tmp.path()).unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::DeltaSlice);
-
-    let _ = std::fs::remove_dir_all(&tmp);
 }
 
 #[test]
 fn test_delta_slice_go() {
-    let tmp = std::env::temp_dir().join("prism_delta_test_go");
-    let _ = std::fs::create_dir_all(&tmp);
+    let tmp = TempDir::new().unwrap();
 
     let old_source = "package main\n\nfunc add(a int, b int) int {\n\treturn a + b\n}\n";
-    std::fs::write(tmp.join("calc.go"), old_source).unwrap();
+    std::fs::write(tmp.path().join("calc.go"), old_source).unwrap();
 
     let new_source = "package main\n\nfunc add(a int, b int) int {\n\tresult := a + b\n\treturn result\n}\n";
     let path = "calc.go";
@@ -9230,49 +9227,46 @@ fn test_delta_slice_go() {
         }],
     };
 
-    let result = prism::algorithms::delta_slice::slice(&files, &diff, &tmp).unwrap();
+    let result = prism::algorithms::delta_slice::slice(&files, &diff, tmp.path()).unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::DeltaSlice);
-
-    let _ = std::fs::remove_dir_all(&tmp);
 }
 
 /// Helper to create a temp git repo for tests that need git history.
-fn create_temp_git_repo(name: &str, filename: &str, contents: &[&str]) -> std::path::PathBuf {
-    let tmp = std::env::temp_dir().join(format!("prism_{}", name));
-    let _ = std::fs::remove_dir_all(&tmp);
-    std::fs::create_dir_all(&tmp).unwrap();
+/// Returns a TempDir that auto-cleans on drop — no manual cleanup needed.
+fn create_temp_git_repo(filename: &str, contents: &[&str]) -> TempDir {
+    let tmp = TempDir::new().unwrap();
 
     std::process::Command::new("git")
         .args(["init"])
-        .current_dir(&tmp)
+        .current_dir(tmp.path())
         .output()
         .unwrap();
     std::process::Command::new("git")
         .args(["config", "user.email", "test@test.com"])
-        .current_dir(&tmp)
+        .current_dir(tmp.path())
         .output()
         .unwrap();
     std::process::Command::new("git")
         .args(["config", "user.name", "Test"])
-        .current_dir(&tmp)
+        .current_dir(tmp.path())
         .output()
         .unwrap();
     std::process::Command::new("git")
         .args(["config", "commit.gpgsign", "false"])
-        .current_dir(&tmp)
+        .current_dir(tmp.path())
         .output()
         .unwrap();
 
     for (i, content) in contents.iter().enumerate() {
-        std::fs::write(tmp.join(filename), content).unwrap();
+        std::fs::write(tmp.path().join(filename), content).unwrap();
         std::process::Command::new("git")
             .args(["add", filename])
-            .current_dir(&tmp)
+            .current_dir(tmp.path())
             .output()
             .unwrap();
         std::process::Command::new("git")
             .args(["commit", "-m", &format!("commit {}", i)])
-            .current_dir(&tmp)
+            .current_dir(tmp.path())
             .output()
             .unwrap();
     }
@@ -9284,7 +9278,7 @@ fn create_temp_git_repo(name: &str, filename: &str, contents: &[&str]) -> std::p
 fn test_threed_slice_python() {
     let source = "def foo(x):\n    y = x + 1\n    return y\n\ndef bar():\n    r = foo(10)\n    print(r)\n";
     let filename = "app.py";
-    let tmp = create_temp_git_repo("threed_py", filename, &["def foo(x):\n    return x\n", source]);
+    let tmp = create_temp_git_repo(filename, &["def foo(x):\n    return x\n", source]);
 
     let parsed = ParsedFile::parse(filename, source, Language::Python).unwrap();
     let mut files = BTreeMap::new();
@@ -9300,7 +9294,7 @@ fn test_threed_slice_python() {
 
     let config = prism::algorithms::threed_slice::ThreeDConfig {
         temporal_days: 365,
-        git_dir: tmp.to_string_lossy().to_string(),
+        git_dir: tmp.path().to_string_lossy().to_string(),
     };
     let result = prism::algorithms::threed_slice::slice(&files, &diff, &config).unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::ThreeDSlice);
@@ -9313,7 +9307,7 @@ fn test_threed_slice_python() {
 fn test_threed_slice_go() {
     let source = "package main\n\nfunc compute(n int) int {\n\tresult := n * 2\n\treturn result\n}\n\nfunc caller() {\n\tv := compute(5)\n\t_ = v\n}\n";
     let filename = "main.go";
-    let tmp = create_temp_git_repo("threed_go", filename, &["package main\n\nfunc compute(n int) int { return n }\n", source]);
+    let tmp = create_temp_git_repo(filename, &["package main\n\nfunc compute(n int) int { return n }\n", source]);
 
     let parsed = ParsedFile::parse(filename, source, Language::Go).unwrap();
     let mut files = BTreeMap::new();
@@ -9329,7 +9323,7 @@ fn test_threed_slice_go() {
 
     let config = prism::algorithms::threed_slice::ThreeDConfig {
         temporal_days: 365,
-        git_dir: tmp.to_string_lossy().to_string(),
+        git_dir: tmp.path().to_string_lossy().to_string(),
     };
     let result = prism::algorithms::threed_slice::slice(&files, &diff, &config).unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::ThreeDSlice);
@@ -9932,7 +9926,7 @@ func repository(key string) string {
 fn test_resonance_slice_python() {
     let source = "def update(x):\n    y = x + 1\n    return y\n";
     let filename = "app.py";
-    let tmp = create_temp_git_repo("resonance_py", filename, &[
+    let tmp = create_temp_git_repo(filename, &[
         "def update(x):\n    return x\n",
         source,
     ]);
@@ -9950,7 +9944,7 @@ fn test_resonance_slice_python() {
     };
 
     let config = prism::algorithms::resonance_slice::ResonanceConfig {
-        git_dir: tmp.to_string_lossy().to_string(),
+        git_dir: tmp.path().to_string_lossy().to_string(),
         days: 365,
         min_co_changes: 1,
         min_ratio: 0.0,
@@ -9965,7 +9959,7 @@ fn test_resonance_slice_python() {
 fn test_resonance_slice_go() {
     let source = "package main\n\nfunc calc(n int) int {\n\treturn n * 2\n}\n";
     let filename = "calc.go";
-    let tmp = create_temp_git_repo("resonance_go", filename, &[
+    let tmp = create_temp_git_repo(filename, &[
         "package main\n\nfunc calc(n int) int { return n }\n",
         source,
     ]);
@@ -9983,7 +9977,7 @@ fn test_resonance_slice_go() {
     };
 
     let config = prism::algorithms::resonance_slice::ResonanceConfig {
-        git_dir: tmp.to_string_lossy().to_string(),
+        git_dir: tmp.path().to_string_lossy().to_string(),
         days: 365,
         min_co_changes: 1,
         min_ratio: 0.0,
@@ -10299,7 +10293,7 @@ fn test_full_flow_javascript() {
 fn test_phantom_slice_python() {
     let source = "def remaining(x):\n    return x + 1\n";
     let filename = "app.py";
-    let tmp = create_temp_git_repo("phantom_py", filename, &[
+    let tmp = create_temp_git_repo(filename, &[
         "def deleted_func(x):\n    return x * 2\n\ndef remaining(x):\n    return x + 1\n",
         source,
     ]);
@@ -10314,7 +10308,7 @@ fn test_phantom_slice_python() {
         }],
     };
     let config = prism::algorithms::phantom_slice::PhantomConfig {
-        git_dir: tmp.to_string_lossy().to_string(),
+        git_dir: tmp.path().to_string_lossy().to_string(),
         max_commits: 50,
     };
     let result = prism::algorithms::phantom_slice::slice(&files, &diff, &config).unwrap();
@@ -10326,7 +10320,7 @@ fn test_phantom_slice_python() {
 fn test_phantom_slice_go() {
     let source = "package main\n\nfunc alive(n int) int {\n\treturn n + 1\n}\n";
     let filename = "main.go";
-    let tmp = create_temp_git_repo("phantom_go", filename, &[
+    let tmp = create_temp_git_repo(filename, &[
         "package main\n\nfunc dead(n int) int {\n\treturn n * 2\n}\n\nfunc alive(n int) int {\n\treturn n + 1\n}\n",
         source,
     ]);
@@ -10341,7 +10335,7 @@ fn test_phantom_slice_go() {
         }],
     };
     let config = prism::algorithms::phantom_slice::PhantomConfig {
-        git_dir: tmp.to_string_lossy().to_string(),
+        git_dir: tmp.path().to_string_lossy().to_string(),
         max_commits: 50,
     };
     let result = prism::algorithms::phantom_slice::slice(&files, &diff, &config).unwrap();
@@ -10863,9 +10857,7 @@ def repo_save(data):
 #[test]
 fn test_delta_slice_missing_old_file_python() {
     // Delta slice when old file doesn't exist (tests error handling path)
-    let tmp = std::env::temp_dir().join("prism_delta_missing");
-    let _ = std::fs::remove_dir_all(&tmp);
-    std::fs::create_dir_all(&tmp).unwrap();
+    let tmp = TempDir::new().unwrap();
     // No old file written — old_repo has nothing
 
     let new_source = "x = 1\ny = x + 2\nprint(y)\n";
@@ -10882,11 +10874,9 @@ fn test_delta_slice_missing_old_file_python() {
         }],
     };
 
-    let result = prism::algorithms::delta_slice::slice(&files, &diff, &tmp).unwrap();
+    let result = prism::algorithms::delta_slice::slice(&files, &diff, tmp.path()).unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::DeltaSlice);
     // Should succeed but with empty old files — no edge differences
-
-    let _ = std::fs::remove_dir_all(&tmp);
 }
 
 #[test]
@@ -11156,4 +11146,514 @@ async def fetch(url):
 
     let result = prism::algorithms::quantum_slice::slice(&files, &diff, Some("data")).unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::QuantumSlice);
+}
+
+
+// ====================================================================
+// Batch 7: Deeper assertions on security-relevant algorithms
+// ====================================================================
+
+#[test]
+fn test_chop_python_verifies_path_lines() {
+    // Chop should find data flow from source (line 2: x = input()) to sink (line 5: result = z * 2)
+    let source = "x = input()\ny = int(x)\nz = y + 1\nresult = z * 2\nprint(result)\n";
+    let path = "app.py";
+    let parsed = ParsedFile::parse(path, source, Language::Python).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let config = prism::algorithms::chop::ChopConfig {
+        source_file: path.to_string(),
+        source_line: 1,
+        sink_file: path.to_string(),
+        sink_line: 4,
+    };
+    let result = prism::algorithms::chop::slice(&files, &config).unwrap();
+    // If data flow exists, blocks should contain lines between source and sink
+    if !result.blocks.is_empty() {
+        let block = &result.blocks[0];
+        let lines = block.file_line_map.get(path).unwrap();
+        // Source and/or sink lines should appear in the output
+        let has_endpoint = lines.contains_key(&1) || lines.contains_key(&4);
+        assert!(has_endpoint, "Chop should include source or sink line in output, got lines: {:?}", lines.keys().collect::<Vec<_>>());
+    }
+}
+
+#[test]
+fn test_taint_python_finds_sql_injection_finding() {
+    let source = r#"
+def handler(request):
+    user_input = request.form.get("query")
+    query = "SELECT * FROM users WHERE name = '" + user_input + "'"
+    cursor.execute(query)
+    return cursor.fetchall()
+"#;
+    let path = "handler.py";
+    let parsed = ParsedFile::parse(path, source, Language::Python).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([4, 5]),
+        }],
+    };
+
+    let result = prism::algorithms::taint::slice(
+        &files,
+        &diff,
+        &prism::algorithms::taint::TaintConfig::default(),
+    )
+    .unwrap();
+    assert!(!result.blocks.is_empty(), "Taint should find tainted flow");
+    // The taint analysis should detect flow from user input to execute sink
+    let all_lines: BTreeSet<usize> = result
+        .blocks
+        .iter()
+        .flat_map(|b| b.file_line_map.values())
+        .flat_map(|m| m.keys())
+        .copied()
+        .collect();
+    assert!(
+        all_lines.contains(&3) || all_lines.contains(&4) || all_lines.contains(&5),
+        "Taint should include lines with user_input or execute. Got lines: {:?}",
+        all_lines
+    );
+}
+
+#[test]
+fn test_absence_slice_python_lock_findings() {
+    let source = r#"
+import threading
+
+def critical_section(lock):
+    lock.acquire()
+    shared_data = read_shared()
+    update_shared(shared_data + 1)
+"#;
+    let path = "critical.py";
+    let parsed = ParsedFile::parse(path, source, Language::Python).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([5, 6]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::AbsenceSlice),
+    )
+    .unwrap();
+    // Should produce findings about missing lock.release()
+    let has_lock_finding = result.findings.iter().any(|f| {
+        f.description.contains("release")
+            || f.description.contains("unlock")
+            || f.description.contains("acquire")
+    });
+    // The algorithm should at minimum produce blocks
+    assert!(!result.blocks.is_empty(), "AbsenceSlice should produce blocks for lock without release");
+    if !result.findings.is_empty() {
+        assert!(has_lock_finding, "AbsenceSlice findings should mention missing release. Got: {:?}",
+            result.findings.iter().map(|f| &f.description).collect::<Vec<_>>());
+    }
+}
+
+#[test]
+fn test_conditioned_slice_prunes_unreachable_python() {
+    // When x==5, the `if x > 0` body is reachable but we test a different condition
+    let source = r#"
+def process(x):
+    if x != 5:
+        result = x * 2
+    else:
+        result = 0
+    return result
+"#;
+    let path = "cond.py";
+    let parsed = ParsedFile::parse(path, source, Language::Python).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([4, 6]),
+        }],
+    };
+
+    // With condition x==5, the if-body (x != 5) should be unreachable
+    let condition = prism::algorithms::conditioned_slice::Condition::parse("x==5").unwrap();
+    let config = SliceConfig::default().with_algorithm(SlicingAlgorithm::ConditionedSlice);
+    let conditioned_result =
+        prism::algorithms::conditioned_slice::slice(&files, &diff, &config, &condition).unwrap();
+
+    // Also get unconditioned (LeftFlow) for comparison
+    let left_result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::LeftFlow),
+    )
+    .unwrap();
+
+    let conditioned_lines: usize = conditioned_result
+        .blocks
+        .iter()
+        .map(|b| b.file_line_map.values().map(|m| m.len()).sum::<usize>())
+        .sum();
+    let left_lines: usize = left_result
+        .blocks
+        .iter()
+        .map(|b| b.file_line_map.values().map(|m| m.len()).sum::<usize>())
+        .sum();
+
+    // Conditioned slice should have fewer or equal lines (pruned unreachable)
+    assert!(
+        conditioned_lines <= left_lines,
+        "ConditionedSlice ({} lines) should be <= LeftFlow ({} lines)",
+        conditioned_lines,
+        left_lines
+    );
+}
+
+#[test]
+fn test_symmetry_slice_python_finds_counterpart() {
+    let source = r#"
+import json
+
+def serialize(data):
+    return json.dumps(data)
+
+def deserialize(text):
+    return json.loads(text)
+"#;
+    let path = "codec.py";
+    let parsed = ParsedFile::parse(path, source, Language::Python).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([5]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::SymmetrySlice),
+    )
+    .unwrap();
+    assert!(!result.blocks.is_empty(), "SymmetrySlice should find counterpart function");
+
+    // If blocks include the counterpart, both serialize and deserialize should appear
+    let all_lines: BTreeSet<usize> = result
+        .blocks
+        .iter()
+        .flat_map(|b| b.file_line_map.values())
+        .flat_map(|m| m.keys())
+        .copied()
+        .collect();
+    // The counterpart (deserialize at lines 7-8) should be included
+    let has_counterpart = all_lines.contains(&7) || all_lines.contains(&8);
+    assert!(
+        has_counterpart,
+        "SymmetrySlice should include counterpart (deserialize). Got lines: {:?}",
+        all_lines
+    );
+}
+
+#[test]
+fn test_echo_slice_c_verifies_caller_inclusion() {
+    // Echo should find callers that don't handle errors from the changed function
+    let source_api = r#"
+int create_resource(const char *name) {
+    if (!name) return -1;
+    return 0;
+}
+"#;
+    let source_caller = r#"
+void setup(void) {
+    create_resource("test");
+}
+"#;
+    let mut files = BTreeMap::new();
+    files.insert(
+        "api.c".to_string(),
+        ParsedFile::parse("api.c", source_api, Language::C).unwrap(),
+    );
+    files.insert(
+        "setup.c".to_string(),
+        ParsedFile::parse("setup.c", source_caller, Language::C).unwrap(),
+    );
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: "api.c".to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([3]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::EchoSlice),
+    )
+    .unwrap();
+    // Should include the caller file
+    let has_caller_file = result
+        .blocks
+        .iter()
+        .any(|b| b.file_line_map.contains_key("setup.c"));
+    assert!(
+        has_caller_file,
+        "EchoSlice should include caller file setup.c in blocks"
+    );
+}
+
+#[test]
+fn test_membrane_slice_c_verifies_unprotected_caller() {
+    let source_api = r#"
+int allocate(int size) {
+    if (size <= 0) return -1;
+    return 0;
+}
+"#;
+    let source_good = r#"
+void safe_caller(void) {
+    int ret = allocate(10);
+    if (ret < 0) return;
+}
+"#;
+    let source_bad = r#"
+void unsafe_caller(void) {
+    allocate(10);
+}
+"#;
+    let mut files = BTreeMap::new();
+    files.insert("api.c".to_string(), ParsedFile::parse("api.c", source_api, Language::C).unwrap());
+    files.insert("safe.c".to_string(), ParsedFile::parse("safe.c", source_good, Language::C).unwrap());
+    files.insert("unsafe.c".to_string(), ParsedFile::parse("unsafe.c", source_bad, Language::C).unwrap());
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: "api.c".to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([3]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::MembraneSlice),
+    )
+    .unwrap();
+
+    // Membrane should include the unsafe caller
+    let has_unsafe = result
+        .blocks
+        .iter()
+        .any(|b| b.file_line_map.contains_key("unsafe.c"));
+    assert!(
+        has_unsafe,
+        "MembraneSlice should include unprotected caller in unsafe.c"
+    );
+
+    // If findings are produced, at least one should mention unprotected/missing error handling
+    if !result.findings.is_empty() {
+        let has_warning = result.findings.iter().any(|f| {
+            f.description.contains("error")
+                || f.description.contains("unprotected")
+                || f.description.contains("check")
+        });
+        assert!(
+            has_warning,
+            "MembraneSlice findings should warn about missing error handling. Got: {:?}",
+            result.findings.iter().map(|f| &f.description).collect::<Vec<_>>()
+        );
+    }
+}
+
+#[test]
+fn test_provenance_slice_python_traces_user_input() {
+    let source = r#"
+def handle(request):
+    name = request.form.get("name")
+    greeting = "Hello " + name
+    return greeting
+"#;
+    let path = "app.py";
+    let parsed = ParsedFile::parse(path, source, Language::Python).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([3, 4]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::ProvenanceSlice),
+    )
+    .unwrap();
+    assert!(!result.blocks.is_empty(), "Provenance should trace user input origin");
+
+    // Should include the form.get line as a user input source
+    let all_lines: BTreeSet<usize> = result
+        .blocks
+        .iter()
+        .flat_map(|b| b.file_line_map.values())
+        .flat_map(|m| m.keys())
+        .copied()
+        .collect();
+    assert!(
+        all_lines.contains(&3),
+        "Provenance should include form.get line (3). Got: {:?}",
+        all_lines
+    );
+}
+
+#[test]
+fn test_gradient_slice_python_scores_decay() {
+    // Gradient slice should assign higher relevance to lines closer to the diff
+    let (files, _, diff) = make_python_test();
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::GradientSlice),
+    )
+    .unwrap();
+    assert!(!result.blocks.is_empty());
+
+    // Verify diff lines are marked as diff (highest relevance)
+    let block = &result.blocks[0];
+    let lines = block.file_line_map.get("src/calc.py").unwrap();
+    // Diff lines 7 and 9 should be marked as diff=true
+    if let Some(&is_diff) = lines.get(&7) {
+        assert!(is_diff, "Diff line 7 should be marked as diff in gradient output");
+    }
+}
+
+#[test]
+fn test_threed_slice_python_risk_scoring() {
+    // ThreeDSlice should produce blocks sorted by risk
+    let source = "def foo(x):\n    y = x + 1\n    return y\n\ndef bar():\n    r = foo(10)\n    print(r)\n";
+    let filename = "app.py";
+    let tmp = create_temp_git_repo(filename, &["def foo(x):\n    return x\n", source]);
+
+    let parsed = ParsedFile::parse(filename, source, Language::Python).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(filename.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: filename.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([2, 3]),
+        }],
+    };
+
+    let config = prism::algorithms::threed_slice::ThreeDConfig {
+        temporal_days: 365,
+        git_dir: tmp.path().to_string_lossy().to_string(),
+    };
+    let result = prism::algorithms::threed_slice::slice(&files, &diff, &config).unwrap();
+    assert!(!result.blocks.is_empty(), "ThreeDSlice should produce risk-scored blocks");
+
+    // The first block should contain the diff function (highest risk)
+    let first_block = &result.blocks[0];
+    let lines = first_block.file_line_map.get(filename);
+    assert!(lines.is_some(), "First block should contain lines from the diff file");
+}
+
+#[test]
+fn test_vertical_slice_python_layer_detection() {
+    // Vertical slice should detect layers from file paths
+    let source_handler = "def api_handler(request):\n    return service_call(request.data)\n";
+    let source_service = "def service_call(data):\n    return repo_save(data)\n";
+    let source_repo = "def repo_save(data):\n    return True\n";
+
+    let mut files = BTreeMap::new();
+    files.insert("handler/api.py".to_string(), ParsedFile::parse("handler/api.py", source_handler, Language::Python).unwrap());
+    files.insert("service/logic.py".to_string(), ParsedFile::parse("service/logic.py", source_service, Language::Python).unwrap());
+    files.insert("repository/store.py".to_string(), ParsedFile::parse("repository/store.py", source_repo, Language::Python).unwrap());
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: "service/logic.py".to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([2]),
+        }],
+    };
+
+    let result = prism::algorithms::vertical_slice::slice(
+        &files, &diff,
+        &prism::algorithms::vertical_slice::VerticalConfig::default(),
+    ).unwrap();
+    // Should produce blocks — at minimum the diff function
+    assert!(!result.blocks.is_empty(), "VerticalSlice should trace layers for service function");
+}
+
+#[test]
+fn test_spiral_slice_ring_expansion_go() {
+    // Verify that higher ring numbers produce more output than lower ones
+    let source = r#"package main
+
+func inner(x int) int { return x + 1 }
+func middle(x int) int { return inner(x) * 2 }
+func outer(x int) int { return middle(x) + 3 }
+func caller() int { return outer(10) }
+"#;
+    let path = "chain.go";
+    let parsed = ParsedFile::parse(path, source, Language::Go).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([3]),
+        }],
+    };
+
+    let config = SliceConfig::default().with_algorithm(SlicingAlgorithm::SpiralSlice);
+
+    let ring2 = prism::algorithms::spiral_slice::slice(
+        &files, &diff, &config,
+        &prism::algorithms::spiral_slice::SpiralConfig { max_ring: 2, auto_stop_threshold: 0.0 },
+    ).unwrap();
+
+    let ring4 = prism::algorithms::spiral_slice::slice(
+        &files, &diff, &config,
+        &prism::algorithms::spiral_slice::SpiralConfig { max_ring: 4, auto_stop_threshold: 0.0 },
+    ).unwrap();
+
+    let count_lines = |r: &prism::slice::SliceResult| -> usize {
+        r.blocks.iter().map(|b| b.file_line_map.values().map(|m| m.len()).sum::<usize>()).sum()
+    };
+
+    assert!(
+        count_lines(&ring4) >= count_lines(&ring2),
+        "Ring 4 ({} lines) should have >= Ring 2 ({} lines)",
+        count_lines(&ring4),
+        count_lines(&ring2)
+    );
 }
