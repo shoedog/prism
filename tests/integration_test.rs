@@ -5342,3 +5342,260 @@ func loadConfig() string {
         "Provenance should classify viper.GetString as config origin"
     );
 }
+
+// ── Absence pair tests: Python ────────────────────────────────────────
+
+#[test]
+fn test_absence_python_threading_lock_without_release() {
+    // Python threading.Lock acquired but never released.
+    let source = r#"
+import threading
+
+def process_data(data):
+    lock = threading.Lock()
+    lock.acquire()
+    result = transform(data)
+    return result
+"#;
+    let path = "app/worker.py";
+    let parsed = ParsedFile::parse(path, source, Language::Python).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    // Diff line 6: lock.acquire() — the "open" pattern
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([6]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::AbsenceSlice),
+    )
+    .unwrap();
+
+    assert!(
+        !result.findings.is_empty(),
+        "Absence should detect threading lock without release"
+    );
+    assert!(
+        result
+            .findings
+            .iter()
+            .any(|f| f.description.contains("lock")
+                || f.description.contains("release")
+                || f.description.contains("unlock")),
+        "Finding should mention missing lock release"
+    );
+}
+
+#[test]
+fn test_absence_python_tempfile_without_cleanup() {
+    // Python tempfile.mkstemp without os.close/os.unlink.
+    let source = r#"
+import tempfile
+
+def create_temp():
+    fd, path = tempfile.mkstemp()
+    write_data(fd)
+    return path
+"#;
+    let path = "app/temp.py";
+    let parsed = ParsedFile::parse(path, source, Language::Python).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([5]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::AbsenceSlice),
+    )
+    .unwrap();
+
+    assert!(
+        !result.findings.is_empty(),
+        "Absence should detect tempfile.mkstemp without cleanup"
+    );
+}
+
+// ── Absence pair tests: JavaScript ────────────────────────────────────
+
+#[test]
+fn test_absence_js_stream_without_destroy() {
+    // Node.js createReadStream without destroy/close.
+    let source = r#"
+const fs = require('fs');
+
+function readFile(path) {
+    const stream = fs.createReadStream(path);
+    const data = processStream(stream);
+    return data;
+}
+"#;
+    let path = "src/reader.js";
+    let parsed = ParsedFile::parse(path, source, Language::JavaScript).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([5]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::AbsenceSlice),
+    )
+    .unwrap();
+
+    assert!(
+        !result.findings.is_empty(),
+        "Absence should detect createReadStream without destroy/close"
+    );
+}
+
+#[test]
+fn test_absence_js_fs_open_without_close() {
+    // Node.js fs.openSync without fs.closeSync.
+    let source = r#"
+const fs = require('fs');
+
+function writeData(path, data) {
+    const fd = fs.openSync(path, 'w');
+    fs.writeSync(fd, data);
+    return fd;
+}
+"#;
+    let path = "src/writer.js";
+    let parsed = ParsedFile::parse(path, source, Language::JavaScript).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([5]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::AbsenceSlice),
+    )
+    .unwrap();
+
+    assert!(
+        !result.findings.is_empty(),
+        "Absence should detect fs.openSync without fs.closeSync"
+    );
+}
+
+// ── Absence pair tests: Go ────────────────────────────────────────────
+
+#[test]
+fn test_absence_go_context_without_cancel() {
+    // Go context.WithCancel without calling cancel().
+    let source = r#"
+package main
+
+import "context"
+
+func doWork(parent context.Context) {
+    ctx, cancel := context.WithCancel(parent)
+    result := process(ctx)
+    handle(result)
+}
+"#;
+    let path = "cmd/work.go";
+    let parsed = ParsedFile::parse(path, source, Language::Go).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([7]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::AbsenceSlice),
+    )
+    .unwrap();
+
+    assert!(
+        !result.findings.is_empty(),
+        "Absence should detect context.WithCancel without cancel()"
+    );
+    assert!(
+        result
+            .findings
+            .iter()
+            .any(|f| f.description.contains("context") || f.description.contains("cancel")),
+        "Finding should mention missing cancel"
+    );
+}
+
+#[test]
+fn test_absence_go_http_body_not_closed() {
+    // Go http.Get without resp.Body.Close().
+    let source = r#"
+package main
+
+import "net/http"
+
+func fetchURL(url string) string {
+    resp, err := http.Get(url)
+    if err != nil {
+        return ""
+    }
+    body := readBody(resp)
+    return body
+}
+"#;
+    let path = "web/fetch.go";
+    let parsed = ParsedFile::parse(path, source, Language::Go).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([7]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::AbsenceSlice),
+    )
+    .unwrap();
+
+    assert!(
+        !result.findings.is_empty(),
+        "Absence should detect http.Get without Body.Close"
+    );
+}
