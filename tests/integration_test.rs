@@ -6604,3 +6604,655 @@ end
         "QuantumSlice should detect Lua coroutine.create as async context"
     );
 }
+
+// === Rust pattern depth tests ===
+
+#[test]
+fn test_rust_taint_transmute_sink() {
+    let source = r#"
+fn dangerous(data: &[u8]) {
+    let ptr = data.as_ptr();
+    let val: u64 = unsafe { std::mem::transmute(ptr) };
+    println!("{}", val);
+}
+"#;
+    let path = "src/danger.rs";
+    let parsed = ParsedFile::parse(path, source, Language::Rust).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([3]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::Taint),
+    )
+    .unwrap();
+
+    assert!(
+        !result.blocks.is_empty(),
+        "Taint should detect transmute as a Rust sink"
+    );
+}
+
+#[test]
+fn test_rust_taint_from_raw_parts_sink() {
+    let source = r#"
+fn rebuild_slice(ptr: *const u8, len: usize) {
+    let data = unsafe { std::slice::from_raw_parts(ptr, len) };
+    process(data);
+}
+"#;
+    let path = "src/raw.rs";
+    let parsed = ParsedFile::parse(path, source, Language::Rust).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([3]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::Taint),
+    )
+    .unwrap();
+
+    assert!(
+        !result.blocks.is_empty(),
+        "Taint should detect from_raw_parts as a Rust sink"
+    );
+}
+
+#[test]
+fn test_rust_provenance_stdin() {
+    let source = r#"
+fn get_input() -> String {
+    let data = std::io::stdin().read_line();
+    process(data)
+}
+"#;
+    let path = "src/input.rs";
+    let parsed = ParsedFile::parse(path, source, Language::Rust).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([4]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::ProvenanceSlice),
+    )
+    .unwrap();
+
+    assert!(
+        !result.findings.is_empty(),
+        "Provenance should detect std::io::stdin as user input source"
+    );
+    assert_eq!(
+        result.findings[0].category.as_deref(),
+        Some("untrusted_origin")
+    );
+}
+
+#[test]
+fn test_rust_provenance_diesel_query() {
+    let source = r#"
+fn get_users(conn: &PgConnection) {
+    let results = diesel::sql_query("SELECT * FROM users").load(conn);
+    process(results)
+}
+"#;
+    let path = "src/db.rs";
+    let parsed = ParsedFile::parse(path, source, Language::Rust).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([4]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::ProvenanceSlice),
+    )
+    .unwrap();
+
+    assert!(
+        !result.findings.is_empty(),
+        "Provenance should detect diesel:: as database source"
+    );
+    assert_eq!(
+        result.findings[0].category.as_deref(),
+        Some("untrusted_origin")
+    );
+}
+
+#[test]
+fn test_rust_provenance_env_var() {
+    let source = r#"
+fn get_config() {
+    let val = std::env::var("DATABASE_URL");
+    process(val)
+}
+"#;
+    let path = "src/config.rs";
+    let parsed = ParsedFile::parse(path, source, Language::Rust).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([4]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::ProvenanceSlice),
+    )
+    .unwrap();
+
+    assert!(
+        !result.findings.is_empty(),
+        "Provenance should detect std::env::var as environment source"
+    );
+    assert_eq!(
+        result.findings[0].category.as_deref(),
+        Some("untrusted_origin")
+    );
+}
+
+#[test]
+fn test_rust_absence_file_without_flush() {
+    let source = r#"
+use std::fs::File;
+use std::io::Write;
+
+fn write_data(path: &str) {
+    let mut file = File::create(path).unwrap();
+    file.write_all(b"data").unwrap();
+}
+"#;
+    let path = "src/writer.rs";
+    let parsed = ParsedFile::parse(path, source, Language::Rust).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([6]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::AbsenceSlice),
+    )
+    .unwrap();
+
+    assert!(
+        !result.findings.is_empty(),
+        "Absence should detect Rust File::create without explicit flush/drop"
+    );
+}
+
+#[test]
+fn test_rust_absence_command_not_executed() {
+    let source = r#"
+use std::process::Command;
+
+fn setup_cmd() {
+    let cmd = Command::new("ls");
+    let args = cmd.arg("-la");
+}
+"#;
+    let path = "src/cmd.rs";
+    let parsed = ParsedFile::parse(path, source, Language::Rust).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([5]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::AbsenceSlice),
+    )
+    .unwrap();
+
+    assert!(
+        !result.findings.is_empty(),
+        "Absence should detect Rust Command::new without execution"
+    );
+}
+
+#[test]
+fn test_rust_absence_unsafe_without_safety_comment() {
+    let source = r#"
+fn do_unsafe_stuff(ptr: *const u8) -> u8 {
+    let val = unsafe { *ptr };
+    val
+}
+"#;
+    let path = "src/unsafe_code.rs";
+    let parsed = ParsedFile::parse(path, source, Language::Rust).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([3]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::AbsenceSlice),
+    )
+    .unwrap();
+
+    assert!(
+        !result.findings.is_empty(),
+        "Absence should detect unsafe block without safety assertion/comment"
+    );
+}
+
+#[test]
+fn test_rust_membrane_error_handling() {
+    let api_source = r#"
+pub fn fetch_data(url: &str) -> Result<String, Box<dyn std::error::Error>> {
+    let resp = reqwest::blocking::get(url)?;
+    Ok(resp.text()?)
+}
+"#;
+    let caller_source = r#"
+use api::fetch_data;
+
+fn caller() -> Result<(), Box<dyn std::error::Error>> {
+    let data = fetch_data("http://example.com")?;
+    println!("{}", data);
+    Ok(())
+}
+"#;
+    let api_path = "src/api.rs";
+    let caller_path = "src/caller.rs";
+    let api_parsed = ParsedFile::parse(api_path, api_source, Language::Rust).unwrap();
+    let caller_parsed = ParsedFile::parse(caller_path, caller_source, Language::Rust).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(api_path.to_string(), api_parsed);
+    files.insert(caller_path.to_string(), caller_parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: api_path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([3]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::MembraneSlice),
+    )
+    .unwrap();
+
+    let unprotected = result
+        .findings
+        .iter()
+        .any(|f| f.category.as_deref() == Some("unprotected_caller"));
+    assert!(
+        !unprotected,
+        "Membrane should recognize Rust ? operator as error handling"
+    );
+}
+
+#[test]
+fn test_rust_quantum_tokio_spawn() {
+    let source = r#"
+async fn process(data: Vec<u8>) {
+    let handle = tokio::spawn(async move {
+        let result = compute(data).await;
+        result
+    });
+    handle.await.unwrap();
+}
+"#;
+    let path = "src/async_proc.rs";
+    let parsed = ParsedFile::parse(path, source, Language::Rust).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([3]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::QuantumSlice),
+    )
+    .unwrap();
+
+    assert!(
+        !result.blocks.is_empty(),
+        "QuantumSlice should detect tokio::spawn as Rust async context"
+    );
+}
+
+// === Lua pattern depth tests ===
+
+#[test]
+fn test_lua_taint_loadstring_sink() {
+    let source = r#"
+function run_user_code(input)
+    local code = input
+    local func = loadstring(code)
+    func()
+end
+"#;
+    let path = "scripts/eval.lua";
+    let parsed = ParsedFile::parse(path, source, Language::Lua).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([3]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::Taint),
+    )
+    .unwrap();
+
+    assert!(
+        !result.blocks.is_empty(),
+        "Taint should detect Lua loadstring as a sink"
+    );
+}
+
+#[test]
+fn test_lua_taint_dofile_sink() {
+    let source = r#"
+function load_config(path)
+    local config_path = path
+    dofile(config_path)
+end
+"#;
+    let path = "scripts/loader.lua";
+    let parsed = ParsedFile::parse(path, source, Language::Lua).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([3]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::Taint),
+    )
+    .unwrap();
+
+    assert!(
+        !result.blocks.is_empty(),
+        "Taint should detect Lua dofile as a sink"
+    );
+}
+
+#[test]
+fn test_lua_provenance_io_read() {
+    let source = r#"
+function get_input()
+    local data = io.read("*l")
+    process(data)
+end
+"#;
+    let path = "scripts/input.lua";
+    let parsed = ParsedFile::parse(path, source, Language::Lua).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([4]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::ProvenanceSlice),
+    )
+    .unwrap();
+
+    assert!(
+        !result.findings.is_empty(),
+        "Provenance should detect Lua io.read as user input source"
+    );
+    assert_eq!(
+        result.findings[0].category.as_deref(),
+        Some("untrusted_origin")
+    );
+}
+
+#[test]
+fn test_lua_provenance_os_getenv() {
+    let source = r#"
+function get_path()
+    local path = os.getenv("PATH")
+    process(path)
+end
+"#;
+    let path = "scripts/env.lua";
+    let parsed = ParsedFile::parse(path, source, Language::Lua).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([4]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::ProvenanceSlice),
+    )
+    .unwrap();
+
+    assert!(
+        !result.findings.is_empty(),
+        "Provenance should detect Lua os.getenv as environment source"
+    );
+    assert_eq!(
+        result.findings[0].category.as_deref(),
+        Some("untrusted_origin")
+    );
+}
+
+#[test]
+fn test_lua_absence_socket_without_close() {
+    let source = r#"
+local socket = require("socket")
+
+function connect_server(host, port)
+    local tcp = socket.tcp()
+    tcp:connect(host, port)
+    tcp:send("hello")
+end
+"#;
+    let path = "scripts/net.lua";
+    let parsed = ParsedFile::parse(path, source, Language::Lua).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([5]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::AbsenceSlice),
+    )
+    .unwrap();
+
+    assert!(
+        !result.findings.is_empty(),
+        "Absence should detect Lua socket.tcp without close"
+    );
+}
+
+#[test]
+fn test_lua_membrane_error_handling() {
+    let api_source = r#"
+function fetch_data(url)
+    local resp = http.request(url)
+    return resp
+end
+"#;
+    let caller_source = r#"
+local api = require("api")
+
+function caller()
+    local ok, data = pcall(api.fetch_data, "http://example.com")
+    if ok then
+        print(data)
+    end
+end
+"#;
+    let api_path = "scripts/api.lua";
+    let caller_path = "scripts/caller.lua";
+    let api_parsed = ParsedFile::parse(api_path, api_source, Language::Lua).unwrap();
+    let caller_parsed = ParsedFile::parse(caller_path, caller_source, Language::Lua).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(api_path.to_string(), api_parsed);
+    files.insert(caller_path.to_string(), caller_parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: api_path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([3]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::MembraneSlice),
+    )
+    .unwrap();
+
+    let unprotected = result
+        .findings
+        .iter()
+        .any(|f| f.category.as_deref() == Some("unprotected_caller"));
+    assert!(
+        !unprotected,
+        "Membrane should recognize Lua pcall as error handling"
+    );
+}
+
+#[test]
+fn test_lua_provenance_redis() {
+    let source = r#"
+function get_cached(key)
+    local res = redis:get(key)
+    process(res)
+end
+"#;
+    let path = "scripts/cache.lua";
+    let parsed = ParsedFile::parse(path, source, Language::Lua).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([4]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::ProvenanceSlice),
+    )
+    .unwrap();
+
+    assert!(
+        !result.findings.is_empty(),
+        "Provenance should detect Lua redis:get as database source"
+    );
+    assert_eq!(
+        result.findings[0].category.as_deref(),
+        Some("untrusted_origin")
+    );
+}

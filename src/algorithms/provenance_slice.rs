@@ -118,6 +118,21 @@ const USER_INPUT_PATTERNS: &[&str] = &[
     "r.MultipartForm",  // net/http multipart form
     "bufio.NewReader",  // Often wraps os.Stdin
     "bufio.NewScanner", // Often wraps os.Stdin
+    // === Rust ===
+    "std::io::stdin", // stdin().read_line()
+    "BufReader",      // Often wraps stdin or network streams
+    "TcpStream",      // Network input
+    "UdpSocket",      // Network input
+    "hyper::body",    // HTTP request body (hyper)
+    "axum::extract",  // Axum web framework extractors
+    "actix_web::web", // Actix-web extractors
+    "rocket::form",   // Rocket form data
+    // === Lua ===
+    "io.read",        // io.read() — stdin / file input
+    "io.stdin",       // io.stdin:read()
+    "socket.receive", // LuaSocket network input
+    "ngx.req",        // OpenResty/nginx-lua request data
+    "ngx.var",        // OpenResty/nginx variables (often user-controlled)
     // === C/C++ network and file input ===
     "recv(",
     "recvfrom(",
@@ -173,6 +188,19 @@ const DATABASE_PATTERNS: &[&str] = &[
     "tx.Query",     // database/sql transaction
     "gorm.Find",    // GORM ORM
     "gorm.First",   // GORM ORM
+    // === Rust ===
+    "diesel::",         // Diesel ORM queries
+    "sqlx::query",      // sqlx query builder
+    "sea_orm::",        // SeaORM queries
+    "rusqlite::",       // rusqlite SQLite bindings
+    ".fetch_one(",      // sqlx result fetching
+    ".fetch_all(",      // sqlx result fetching
+    ".fetch_optional(", // sqlx result fetching
+    // === Lua ===
+    "conn:execute",  // LuaSQL database execution
+    "cursor:fetch",  // LuaSQL cursor fetching
+    "redis:get",     // Redis Lua client
+    "redis:hgetall", // Redis hash retrieval
 ];
 
 const CONFIG_PATTERNS: &[&str] = &[
@@ -205,6 +233,15 @@ const CONFIG_PATTERNS: &[&str] = &[
     "toml.Decode",    // BurntSushi/toml
     "yaml.Unmarshal", // go-yaml
     "json.Unmarshal", // encoding/json (often config)
+    // === Rust ===
+    "serde_json::from", // serde_json::from_str / from_reader (config parsing)
+    "serde_yaml::from", // serde_yaml config parsing
+    "toml::from_str",   // TOML config parsing
+    "config::Config",   // config-rs crate
+    "Figment",          // Rocket's Figment config
+    // === Lua ===
+    "dofile(",  // Lua config file loading
+    "require(", // Lua module loading (often config)
     // === C/C++ command-line option and config file parsing ===
     "getopt(",
     "fopen(",
@@ -225,6 +262,12 @@ const ENV_PATTERNS: &[&str] = &[
     // === Cross-language / generic ===
     "env.",
     "ENV[",
+    // === Rust ===
+    "std::env::var",  // std::env::var("KEY")
+    "std::env::args", // Command-line arguments
+    "dotenvy::",      // dotenvy crate (.env loading)
+    // === Lua ===
+    "os.getenv", // os.getenv("KEY")
     // === C/C++ ===
     "getenv(", // stdlib getenv()
     "argv[",   // Command-line arguments
