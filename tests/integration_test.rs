@@ -8172,9 +8172,11 @@ void alloc_records(unsigned int count) {
 }
 
 /// CVE pattern: use-after-free — pointer used after being freed.
-/// Tests that taint/absence detect the pattern.
+/// Taint detects free() as a sink on the diff line; the subsequent use of
+/// timer->data is included in the analysis context. Prism doesn't yet
+/// distinguish "free then use" from "use then free" as a distinct UAF pattern.
 #[test]
-fn test_cve_use_after_free_absence() {
+fn test_cve_use_after_free_taint_context() {
     let source = r#"
 #include <stdlib.h>
 

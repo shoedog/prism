@@ -475,6 +475,11 @@ pub fn slice(files: &BTreeMap<String, ParsedFile>, diff: &DiffInput) -> Result<S
                 //   cleanup:
                 //       free(buf);         // label close — double-free!
                 //
+                // Known limitation: matches on function name (e.g. "free"), not
+                // on which argument is freed. `free(a)` inline + `free(b)` in
+                // the label will false-positive. The finding includes line numbers
+                // so a human or LLM reviewer can verify.
+                //
                 if has_close
                     && matches!(
                         parsed.language,
@@ -551,8 +556,7 @@ pub fn slice(files: &BTreeMap<String, ParsedFile>, diff: &DiffInput) -> Result<S
                                             line: inline_close_lines[0],
                                             severity: "warning".to_string(),
                                             description: format!(
-                                                "potential double-{} in '{}': {} at line {} and label '{}' at line {}",
-                                                close_base.trim_start_matches("k"),
+                                                "potential double-close in '{}': {}() at line {} and label '{}' at line {}",
                                                 func_name,
                                                 close_base,
                                                 inline_close_lines[0],
