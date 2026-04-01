@@ -88,7 +88,7 @@ pub fn slice(files: &BTreeMap<String, ParsedFile>, diff: &DiffInput) -> Result<S
                     // Check if this def reaches itself (cycle in data flow)
                     let reachable = dfg.forward_reachable(dl);
                     for r in &reachable {
-                        if r.var_name == dl.var_name
+                        if r.path == dl.path
                             && r.file == dl.file
                             && r.function == dl.function
                             && r.line == dl.line

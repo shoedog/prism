@@ -1,3 +1,4 @@
+use crate::access_path::AccessPath;
 use crate::languages::Language;
 use anyhow::{Context, Result};
 use std::collections::{BTreeMap, BTreeSet};
@@ -192,6 +193,146 @@ impl ParsedFile {
         }
     }
 
+    /// Like `assignment_lvalues_on_lines`, but returns structured `AccessPath`s
+    /// instead of plain variable name strings. Used by the DFG for field-sensitive tracking.
+    pub fn assignment_lvalue_paths_on_lines(
+        &self,
+        func_node: &Node<'_>,
+        lines: &BTreeSet<usize>,
+    ) -> Vec<(AccessPath, usize)> {
+        let mut paths = Vec::new();
+        self.collect_assignment_paths(*func_node, lines, &mut paths);
+        paths
+    }
+
+    fn collect_assignment_paths(
+        &self,
+        node: Node<'_>,
+        lines: &BTreeSet<usize>,
+        out: &mut Vec<(AccessPath, usize)>,
+    ) {
+        let line = node.start_position().row + 1;
+
+        if lines.contains(&line) && self.language.is_assignment_node(node.kind()) {
+            if let Some(lhs) = self.language.assignment_target(&node) {
+                let lhs_text = self.node_text(&lhs).to_string();
+                for path in extract_lvalue_paths(&lhs_text) {
+                    out.push((path, line));
+                }
+            }
+        }
+
+        if lines.contains(&line) && self.language.is_declaration_node(node.kind()) {
+            if let Some(name_node) = self.language.declaration_name(&node) {
+                let name = self.node_text(&name_node).to_string();
+                out.push((AccessPath::simple(name), line));
+            }
+        }
+
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            self.collect_assignment_paths(child, lines, out);
+        }
+    }
+
+    /// Like `rvalue_identifiers_on_lines`, but returns structured `AccessPath`s.
+    /// Used by the DFG for field-sensitive tracking.
+    pub fn rvalue_identifier_paths_on_lines(
+        &self,
+        func_node: &Node<'_>,
+        lines: &BTreeSet<usize>,
+    ) -> Vec<(AccessPath, usize)> {
+        let mut paths = Vec::new();
+        self.collect_rvalue_paths(*func_node, lines, &mut paths);
+        paths
+    }
+
+    fn collect_rvalue_paths(
+        &self,
+        node: Node<'_>,
+        lines: &BTreeSet<usize>,
+        out: &mut Vec<(AccessPath, usize)>,
+    ) {
+        let line = node.start_position().row + 1;
+
+        if lines.contains(&line) && self.language.is_assignment_node(node.kind()) {
+            if let Some(rhs) = self.language.assignment_value(&node) {
+                self.collect_identifier_paths(rhs, out);
+            }
+        }
+
+        if lines.contains(&line) && self.language.is_call_node(node.kind()) {
+            if let Some(args) = self.language.call_arguments(&node) {
+                self.collect_identifier_paths(args, out);
+            }
+            if let Some(func_name_node) = self.language.call_function_name(&node) {
+                let name = self.node_text(&func_name_node).to_string();
+                out.push((AccessPath::simple(name), line));
+            }
+        }
+
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            self.collect_rvalue_paths(child, lines, out);
+        }
+    }
+
+    /// Check if a node kind represents a field/member access expression.
+    /// Each language has a different tree-sitter node kind for this:
+    /// - C/C++, Rust: field_expression
+    /// - JS/TS: member_expression
+    /// - Go: selector_expression
+    /// - Python: attribute
+    /// - Java: field_access
+    /// - Lua: dot_index_expression
+    fn is_field_access_node(kind: &str) -> bool {
+        matches!(
+            kind,
+            "field_expression"
+                | "member_expression"
+                | "selector_expression"
+                | "attribute"
+                | "field_access"
+                | "dot_index_expression"
+        )
+    }
+
+    fn collect_identifier_paths<'a>(&self, node: Node<'a>, out: &mut Vec<(AccessPath, usize)>) {
+        // Check for field/member access expressions — emit the full qualified
+        // path instead of individual identifiers.
+        if Self::is_field_access_node(node.kind()) {
+            let text = self.node_text(&node).to_string();
+            let line = node.start_position().row + 1;
+            out.push((AccessPath::from_expr(&text), line));
+            // Also emit the base identifier for field-insensitive fallback.
+            // Different tree-sitter grammars use different field names:
+            //   C/C++/Rust: "argument", Go: "operand", JS/TS/Python/Java: "object"
+            //   Lua: first named child (no standard field name)
+            let base_node = node
+                .child_by_field_name("argument")
+                .or_else(|| node.child_by_field_name("object"))
+                .or_else(|| node.child_by_field_name("operand"))
+                .or_else(|| node.named_child(0));
+            if let Some(base) = base_node {
+                if self.language.is_identifier_node(base.kind()) {
+                    let base_name = self.node_text(&base).to_string();
+                    out.push((AccessPath::simple(base_name), line));
+                }
+            }
+            return; // Don't recurse into children — we've handled them
+        }
+
+        if self.language.is_identifier_node(node.kind()) {
+            let name = self.node_text(&node).to_string();
+            let line = node.start_position().row + 1;
+            out.push((AccessPath::simple(name), line));
+        }
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            self.collect_identifier_paths(child, out);
+        }
+    }
+
     /// Find all R-value identifiers on diff lines within a function (excluding L-values).
     pub fn rvalue_identifiers_on_lines(
         &self,
@@ -336,6 +477,53 @@ impl ParsedFile {
             }
         }
         false
+    }
+
+    /// Find all references to an AccessPath within a function scope.
+    ///
+    /// For simple paths (no fields), delegates to `find_variable_references_scoped`.
+    /// For field-qualified paths (`dev->name`), searches for matching field_expression
+    /// nodes as well as bare identifier references to the base.
+    pub fn find_path_references_scoped(
+        &self,
+        func_node: &Node<'_>,
+        path: &AccessPath,
+        def_line: usize,
+    ) -> BTreeSet<usize> {
+        if path.is_simple() {
+            return self.find_variable_references_scoped(func_node, &path.base, def_line);
+        }
+        // For field-qualified paths, find matching field expressions.
+        // Filter to references after def_line, matching the scoping behavior
+        // of find_variable_references_scoped for simple paths.
+        let mut lines = BTreeSet::new();
+        self.collect_path_refs(*func_node, path, def_line, &mut lines);
+        lines
+    }
+
+    fn collect_path_refs(
+        &self,
+        node: Node<'_>,
+        path: &AccessPath,
+        def_line: usize,
+        out: &mut BTreeSet<usize>,
+    ) {
+        let line = node.start_position().row + 1;
+
+        // Check field/member access expressions (all languages)
+        if Self::is_field_access_node(node.kind()) {
+            let text = self.node_text(&node).to_string();
+            let node_path = AccessPath::from_expr(&text);
+            if node_path == *path && line > def_line {
+                out.insert(line);
+                return; // Don't recurse into matched field expression
+            }
+        }
+
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            self.collect_path_refs(child, path, def_line, out);
+        }
     }
 
     /// Get the line range (1-indexed, inclusive) of a node.
@@ -946,6 +1134,63 @@ fn extract_fn_names_from_init(text: &str, known_fns: &BTreeSet<String>, out: &mu
 /// For anything that doesn't match a known pattern (e.g. complex nested expressions)
 /// the function returns an empty vec so the caller silently skips it rather than
 /// storing an unusable composite name like `"*p"` or `"buf[0]"`.
+/// Extract structured AccessPaths from an L-value expression.
+///
+/// For field access expressions (dev->field, obj.field), returns both:
+/// - The full qualified path: AccessPath { base: "dev", fields: ["field"] }
+/// - The base-only path: AccessPath { base: "dev", fields: [] }
+///
+/// The base-only path ensures backward compatibility and handles whole-struct operations.
+fn extract_lvalue_paths(lhs_text: &str) -> Vec<AccessPath> {
+    let lhs = lhs_text.trim();
+
+    // Pointer dereference: *p, **p
+    if lhs.starts_with('*') {
+        let inner = lhs.trim_start_matches('*').trim();
+        let inner = inner.trim_start_matches('(').trim_end_matches(')').trim();
+        if !inner.is_empty() && is_plain_ident(inner) {
+            return vec![AccessPath::simple(inner)];
+        }
+        return vec![];
+    }
+
+    // Field via arrow: dev->field or dev->config->timeout
+    if lhs.contains("->") {
+        let full = AccessPath::from_expr(lhs);
+        let base = AccessPath::simple(full.base.clone());
+        if full.has_fields() {
+            return vec![full, base];
+        }
+        return vec![base];
+    }
+
+    // Dot access: obj.field
+    if lhs.contains('.') {
+        let full = AccessPath::from_expr(lhs);
+        let base = AccessPath::simple(full.base.clone());
+        if full.has_fields() {
+            return vec![full, base];
+        }
+        return vec![base];
+    }
+
+    // Array subscript: buf[i]
+    if let Some(bracket) = lhs.find('[') {
+        let base_str = lhs[..bracket].trim();
+        if !base_str.is_empty() && is_plain_ident(base_str) {
+            return vec![AccessPath::from_expr(lhs)];
+        }
+        return vec![];
+    }
+
+    // Simple identifier
+    if !lhs.is_empty() && is_plain_ident(lhs) {
+        return vec![AccessPath::simple(lhs)];
+    }
+
+    vec![]
+}
+
 fn extract_lvalue_names(lhs_text: &str) -> Vec<String> {
     let lhs = lhs_text.trim();
 
