@@ -10,7 +10,7 @@ taxonomy and novel theoretical extensions.
 
 ```bash
 cargo build          # Build the project
-cargo test           # Run all 66 tests (unit + integration)
+cargo test           # Run all tests (unit + integration)
 cargo run -- --help  # Show CLI usage
 cargo run -- --list-algorithms  # List all 26 algorithms
 ```
@@ -25,7 +25,7 @@ cargo run -- --list-algorithms  # List all 26 algorithms
 - `src/diff.rs` — Diff parsing and the `DiffBlock` output type.
 - `src/slice.rs` — Config, 26-variant algorithm enum, and result types.
 - `src/output.rs` — Output formatters (text, JSON, paper-compatible).
-- `tests/integration_test.rs` — Integration tests with fixtures for all 5 languages.
+- `tests/integration_test.rs` — Integration tests with fixtures for all 9 languages.
 
 ## Algorithm Implementation Map
 
@@ -66,7 +66,7 @@ cargo run -- --list-algorithms  # List all 26 algorithms
 ## Key Design Decisions
 
 1. **Tree-sitter for multi-language AST parsing.** The original paper used
-   cppcheck (C++ only). We use tree-sitter to support 5 languages.
+   cppcheck (C++ only). We use tree-sitter to support 9 languages.
 
 2. **Name-based variable tracking** instead of cppcheck's `varId` system.
 

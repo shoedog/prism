@@ -5958,3 +5958,649 @@ def process_files(data):
             .collect::<Vec<_>>()
     );
 }
+
+// ── Echo slice: C return-code handling ────────────────────────────────
+
+#[test]
+fn test_echo_c_caller_without_return_check() {
+    // C caller does NOT check return value — should flag missing check.
+    let callee_source = r#"
+int open_device(const char *path) {
+    int fd = open(path, 0);
+    return fd;
+}
+"#;
+    let caller_source = r#"
+void init_system(void) {
+    int fd = open_device("/dev/eth0");
+    use_fd(fd);
+}
+"#;
+    let callee_path = "src/device.c";
+    let caller_path = "src/init.c";
+    let callee_parsed = ParsedFile::parse(callee_path, callee_source, Language::C).unwrap();
+    let caller_parsed = ParsedFile::parse(caller_path, caller_source, Language::C).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(callee_path.to_string(), callee_parsed);
+    files.insert(caller_path.to_string(), caller_parsed);
+
+    // Diff touches the return statement in open_device
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: callee_path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([4]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::EchoSlice),
+    )
+    .unwrap();
+
+    assert!(
+        !result.findings.is_empty(),
+        "Echo should flag C caller that doesn't check return value"
+    );
+}
+
+#[test]
+fn test_echo_c_caller_with_return_check() {
+    // C caller DOES check return value with if (ret < 0) — should NOT flag.
+    let callee_source = r#"
+int open_device(const char *path) {
+    int fd = open(path, 0);
+    return fd;
+}
+"#;
+    let caller_source = r#"
+void init_system(void) {
+    int ret = open_device("/dev/eth0");
+    if (ret < 0) {
+        perror("open_device failed");
+        return;
+    }
+    use_fd(ret);
+}
+"#;
+    let callee_path = "src/device.c";
+    let caller_path = "src/init.c";
+    let callee_parsed = ParsedFile::parse(callee_path, callee_source, Language::C).unwrap();
+    let caller_parsed = ParsedFile::parse(caller_path, caller_source, Language::C).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(callee_path.to_string(), callee_parsed);
+    files.insert(caller_path.to_string(), caller_parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: callee_path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([4]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::EchoSlice),
+    )
+    .unwrap();
+
+    assert!(
+        result.findings.is_empty(),
+        "Echo should NOT flag C caller that checks return with if (ret < 0), got: {:?}",
+        result
+            .findings
+            .iter()
+            .map(|f| &f.description)
+            .collect::<Vec<_>>()
+    );
+}
+
+// ── Echo slice: Go errors.Is handling ─────────────────────────────────
+
+#[test]
+fn test_echo_go_caller_with_errors_is() {
+    // Go caller uses errors.Is — should NOT flag missing error handling.
+    let callee_source = r#"
+package main
+
+func fetchData(url string) error {
+    return nil
+}
+"#;
+    let caller_source = r#"
+package main
+
+import "errors"
+
+func handleRequest(url string) {
+    err := fetchData(url)
+    if errors.Is(err, ErrNotFound) {
+        handleMissing()
+    }
+}
+"#;
+    let callee_path = "pkg/fetch.go";
+    let caller_path = "pkg/handler.go";
+    let callee_parsed = ParsedFile::parse(callee_path, callee_source, Language::Go).unwrap();
+    let caller_parsed = ParsedFile::parse(caller_path, caller_source, Language::Go).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(callee_path.to_string(), callee_parsed);
+    files.insert(caller_path.to_string(), caller_parsed);
+
+    // Diff touches the return statement (error path change)
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: callee_path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([4]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::EchoSlice),
+    )
+    .unwrap();
+
+    let has_missing_error = result
+        .findings
+        .iter()
+        .any(|f| f.description.contains("no error handling"));
+    assert!(
+        !has_missing_error,
+        "Echo should recognize errors.Is() as error handling, got: {:?}",
+        result
+            .findings
+            .iter()
+            .map(|f| &f.description)
+            .collect::<Vec<_>>()
+    );
+}
+
+// ── Echo slice: Python context manager handling ───────────────────────
+
+#[test]
+fn test_echo_python_caller_with_context_manager() {
+    // Python caller uses `with` statement — should recognize as safe handling.
+    let callee_source = r#"
+def open_connection(host):
+    raise ConnectionError("failed")
+"#;
+    let caller_source = r#"
+def process_data(host):
+    with open_connection(host) as conn:
+        data = conn.read()
+    return data
+"#;
+    let callee_path = "lib/conn.py";
+    let caller_path = "lib/process.py";
+    let callee_parsed = ParsedFile::parse(callee_path, callee_source, Language::Python).unwrap();
+    let caller_parsed = ParsedFile::parse(caller_path, caller_source, Language::Python).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(callee_path.to_string(), callee_parsed);
+    files.insert(caller_path.to_string(), caller_parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: callee_path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([3]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::EchoSlice),
+    )
+    .unwrap();
+
+    let has_missing = result.findings.iter().any(|f| {
+        f.description.contains("no error handling") || f.description.contains("not checked")
+    });
+    assert!(
+        !has_missing,
+        "Echo should recognize Python 'with' as safe error handling, got: {:?}",
+        result
+            .findings
+            .iter()
+            .map(|f| &f.description)
+            .collect::<Vec<_>>()
+    );
+}
+
+// ── Rust language support: basic parsing and algorithm tests ──────────
+
+#[test]
+fn test_rust_basic_parsing() {
+    let source = r#"
+use std::io;
+
+fn read_input() -> Result<String, io::Error> {
+    let mut buf = String::new();
+    io::stdin().read_line(&mut buf)?;
+    Ok(buf)
+}
+
+fn process(data: &str) -> Option<i32> {
+    let val = data.parse::<i32>().ok()?;
+    Some(val * 2)
+}
+"#;
+    let path = "src/main.rs";
+    let parsed = ParsedFile::parse(path, source, Language::Rust).unwrap();
+
+    // Should detect function definitions
+    let funcs = parsed.all_functions();
+    let func_names: Vec<String> = funcs
+        .iter()
+        .filter_map(|f| {
+            parsed
+                .language
+                .function_name(f)
+                .map(|n| parsed.node_text(&n).to_string())
+        })
+        .collect();
+    assert!(
+        func_names.contains(&"read_input".to_string()),
+        "Should find read_input function, got: {:?}",
+        func_names
+    );
+    assert!(
+        func_names.contains(&"process".to_string()),
+        "Should find process function, got: {:?}",
+        func_names
+    );
+}
+
+#[test]
+fn test_rust_taint_unsafe_sink() {
+    // Tainted data flows to unsafe block — security concern.
+    let source = r#"
+use std::os::unix::process::CommandExt;
+
+fn run_command(user_input: &str) {
+    let cmd = user_input;
+    std::process::Command::new(cmd).exec();
+}
+"#;
+    let path = "src/runner.rs";
+    let parsed = ParsedFile::parse(path, source, Language::Rust).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([5]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::Taint),
+    )
+    .unwrap();
+
+    assert!(
+        !result.blocks.is_empty(),
+        "Taint should produce blocks for Rust code"
+    );
+}
+
+#[test]
+fn test_rust_original_diff() {
+    let source = r#"
+fn process(data: &str) -> i32 {
+    let val = data.len();
+    val as i32
+}
+"#;
+    let path = "src/lib.rs";
+    let parsed = ParsedFile::parse(path, source, Language::Rust).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([3]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::OriginalDiff),
+    )
+    .unwrap();
+
+    assert!(
+        !result.blocks.is_empty(),
+        "OriginalDiff should produce blocks for Rust code"
+    );
+}
+
+#[test]
+fn test_rust_parent_function() {
+    let source = r#"
+fn process(data: &str) -> i32 {
+    let val = data.len();
+    let result = val * 2;
+    result
+}
+"#;
+    let path = "src/lib.rs";
+    let parsed = ParsedFile::parse(path, source, Language::Rust).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([4]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::ParentFunction),
+    )
+    .unwrap();
+
+    assert!(
+        !result.blocks.is_empty(),
+        "ParentFunction should include the enclosing Rust function"
+    );
+    // Should include the entire function
+    let block = &result.blocks[0];
+    let lines = block.file_line_map.get(path).unwrap();
+    assert!(
+        lines.contains_key(&2) && lines.contains_key(&6),
+        "Block should span the entire function (lines 2-6)"
+    );
+}
+
+// ── Provenance negative tests: word-boundary matching ─────────────────
+
+#[test]
+fn test_provenance_negative_transform_not_form() {
+    // "transform" should NOT match the "~form" word-boundary pattern.
+    let source = r#"
+def transform_data(raw):
+    result = transform(raw)
+    return result
+"#;
+    let path = "lib/transform.py";
+    let parsed = ParsedFile::parse(path, source, Language::Python).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([3]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::ProvenanceSlice),
+    )
+    .unwrap();
+
+    let has_user_input = result
+        .findings
+        .iter()
+        .any(|f| f.description.contains("user_input"));
+    assert!(
+        !has_user_input,
+        "Provenance should NOT classify 'transform' as user_input (form match), got: {:?}",
+        result
+            .findings
+            .iter()
+            .map(|f| &f.description)
+            .collect::<Vec<_>>()
+    );
+}
+
+#[test]
+fn test_provenance_negative_prefetch_not_fetch() {
+    // "prefetch" should NOT match the "~fetch" word-boundary pattern.
+    let source = r#"
+function prefetchAssets(urls) {
+    const assets = prefetch(urls);
+    return assets;
+}
+"#;
+    let path = "src/loader.js";
+    let parsed = ParsedFile::parse(path, source, Language::JavaScript).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([3]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::ProvenanceSlice),
+    )
+    .unwrap();
+
+    let has_db = result
+        .findings
+        .iter()
+        .any(|f| f.description.contains("database"));
+    assert!(
+        !has_db,
+        "Provenance should NOT classify 'prefetch' as database origin, got: {:?}",
+        result
+            .findings
+            .iter()
+            .map(|f| &f.description)
+            .collect::<Vec<_>>()
+    );
+}
+
+// ── Lua language support: basic parsing and algorithm tests ───────────
+
+#[test]
+fn test_lua_basic_parsing() {
+    let source = r#"
+local function process_packet(data)
+    local result = data
+    return result
+end
+
+function handle_request(req)
+    local response = process_packet(req)
+    return response
+end
+"#;
+    let path = "scripts/handler.lua";
+    let parsed = ParsedFile::parse(path, source, Language::Lua).unwrap();
+
+    let funcs = parsed.all_functions();
+    let func_names: Vec<String> = funcs
+        .iter()
+        .filter_map(|f| {
+            parsed
+                .language
+                .function_name(f)
+                .map(|n| parsed.node_text(&n).to_string())
+        })
+        .collect();
+    assert!(
+        func_names.contains(&"process_packet".to_string()),
+        "Should find process_packet function, got: {:?}",
+        func_names
+    );
+    assert!(
+        func_names.contains(&"handle_request".to_string()),
+        "Should find handle_request function, got: {:?}",
+        func_names
+    );
+}
+
+#[test]
+fn test_lua_taint_exec_sink() {
+    // Lua os.execute with tainted data — command injection sink.
+    let source = r#"
+function run_command(user_input)
+    local cmd = user_input
+    os.execute(cmd)
+end
+"#;
+    let path = "scripts/runner.lua";
+    let parsed = ParsedFile::parse(path, source, Language::Lua).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([3]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::Taint),
+    )
+    .unwrap();
+
+    assert!(
+        !result.blocks.is_empty(),
+        "Taint should produce blocks for Lua code with os.execute sink"
+    );
+}
+
+#[test]
+fn test_lua_parent_function() {
+    let source = r#"
+local function process(data)
+    local val = data
+    local result = val
+    return result
+end
+"#;
+    let path = "scripts/process.lua";
+    let parsed = ParsedFile::parse(path, source, Language::Lua).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([4]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::ParentFunction),
+    )
+    .unwrap();
+
+    assert!(
+        !result.blocks.is_empty(),
+        "ParentFunction should include the enclosing Lua function"
+    );
+}
+
+#[test]
+fn test_lua_absence_open_without_close() {
+    // Lua io.open without io.close.
+    let source = r#"
+function read_config(path)
+    local file = io.open(path, "r")
+    local content = file:read("*a")
+    return content
+end
+"#;
+    let path = "scripts/config.lua";
+    let parsed = ParsedFile::parse(path, source, Language::Lua).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([3]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::AbsenceSlice),
+    )
+    .unwrap();
+
+    assert!(
+        !result.findings.is_empty(),
+        "Absence should detect Lua io.open without close"
+    );
+}
+
+#[test]
+fn test_lua_quantum_coroutine() {
+    // Lua coroutine.create should be detected as async context.
+    let source = r#"
+function producer(data)
+    local count = 0
+    local co = coroutine.create(function()
+        count = count + 1
+    end)
+    coroutine.resume(co)
+    return count
+end
+"#;
+    let path = "scripts/async.lua";
+    let parsed = ParsedFile::parse(path, source, Language::Lua).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([5]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::QuantumSlice),
+    )
+    .unwrap();
+
+    assert!(
+        !result.blocks.is_empty(),
+        "QuantumSlice should detect Lua coroutine.create as async context"
+    );
+}
