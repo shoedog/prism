@@ -4453,3 +4453,366 @@ int run(int *data, int len) {
         "MembraneSlice should detect cross-file caller via local function pointer"
     );
 }
+
+// ====== QuantumSlice ISR self-detection tests ======
+
+/// A function registered as a signal handler via signal(SIGTERM, my_cleanup)
+/// should be detected as async even though it doesn't contain any async
+/// primitives itself. The registration happens in a DIFFERENT function.
+#[test]
+fn test_quantum_signal_handler_cross_function_detection() {
+    let source = r#"
+#include <signal.h>
+#include <stdlib.h>
+
+volatile int running = 1;
+
+void my_cleanup(int signo) {
+    running = 0;
+}
+
+void setup(void) {
+    signal(SIGTERM, my_cleanup);
+}
+"#;
+
+    let mut files = BTreeMap::new();
+    files.insert(
+        "src/daemon.c".to_string(),
+        ParsedFile::parse("src/daemon.c", source, Language::C).unwrap(),
+    );
+
+    // Diff touches my_cleanup body — which IS a signal handler
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: "src/daemon.c".to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([8]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::QuantumSlice),
+    )
+    .unwrap();
+
+    // my_cleanup is registered via signal() in setup(), so QuantumSlice
+    // should detect it as async and produce output
+    assert!(
+        !result.blocks.is_empty(),
+        "QuantumSlice should detect my_cleanup as async (registered via signal() in setup())"
+    );
+}
+
+/// A function registered as a pthread start routine should be detected as async.
+#[test]
+fn test_quantum_pthread_registered_handler() {
+    let source = r#"
+#include <pthread.h>
+
+int shared_data = 0;
+
+void worker(void *arg) {
+    shared_data = 42;
+}
+
+void start_worker(void) {
+    pthread_t tid;
+    pthread_create(&tid, NULL, worker, NULL);
+}
+"#;
+
+    let mut files = BTreeMap::new();
+    files.insert(
+        "src/threads.c".to_string(),
+        ParsedFile::parse("src/threads.c", source, Language::C).unwrap(),
+    );
+
+    // Diff touches worker body
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: "src/threads.c".to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([7]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::QuantumSlice),
+    )
+    .unwrap();
+
+    assert!(
+        !result.blocks.is_empty(),
+        "QuantumSlice should detect worker as async (registered via pthread_create in start_worker)"
+    );
+}
+
+/// Cross-file ISR detection: handler registered in one file, defined in another.
+#[test]
+fn test_quantum_isr_cross_file_registration() {
+    let handler_source = r#"
+#include <linux/interrupt.h>
+
+static int packet_count = 0;
+
+irqreturn_t eth_rx_interrupt(int irq, void *dev_id) {
+    packet_count = packet_count + 1;
+    return IRQ_HANDLED;
+}
+"#;
+
+    let setup_source = r#"
+#include <linux/interrupt.h>
+
+extern irqreturn_t eth_rx_interrupt(int irq, void *dev_id);
+
+int eth_probe(struct device *dev) {
+    int ret = request_irq(dev->irq, eth_rx_interrupt, IRQF_SHARED, "eth", dev);
+    return ret;
+}
+"#;
+
+    let mut files = BTreeMap::new();
+    files.insert(
+        "src/eth_handler.c".to_string(),
+        ParsedFile::parse("src/eth_handler.c", handler_source, Language::C).unwrap(),
+    );
+    files.insert(
+        "src/eth_probe.c".to_string(),
+        ParsedFile::parse("src/eth_probe.c", setup_source, Language::C).unwrap(),
+    );
+
+    // Diff touches the assignment in the handler body
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: "src/eth_handler.c".to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([7]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::QuantumSlice),
+    )
+    .unwrap();
+
+    assert!(
+        !result.blocks.is_empty(),
+        "QuantumSlice should detect eth_rx_interrupt as async (registered via request_irq in another file)"
+    );
+}
+
+// ====== Static function name disambiguation tests ======
+
+/// Two files with same-named `static init()` functions should NOT be conflated
+/// in the call graph. A call to `init()` in file A should resolve to file A's
+/// static init, not file B's.
+#[test]
+fn test_call_graph_static_disambiguation() {
+    let file_a = r#"
+static int init(void) {
+    return 0;
+}
+
+int setup_a(void) {
+    return init();
+}
+"#;
+
+    let file_b = r#"
+static int init(void) {
+    return 1;
+}
+
+int setup_b(void) {
+    return init();
+}
+"#;
+
+    let mut files = BTreeMap::new();
+    files.insert(
+        "src/a.c".to_string(),
+        ParsedFile::parse("src/a.c", file_a, Language::C).unwrap(),
+    );
+    files.insert(
+        "src/b.c".to_string(),
+        ParsedFile::parse("src/b.c", file_b, Language::C).unwrap(),
+    );
+
+    let call_graph = CallGraph::build(&files);
+
+    // Both init functions should be registered as static
+    assert!(
+        call_graph
+            .static_functions
+            .contains(&("src/a.c".to_string(), "init".to_string())),
+        "init in a.c should be detected as static"
+    );
+    assert!(
+        call_graph
+            .static_functions
+            .contains(&("src/b.c".to_string(), "init".to_string())),
+        "init in b.c should be detected as static"
+    );
+
+    // setup_a's call to init() should resolve to a.c's init, not b.c's
+    let callees_a = call_graph.resolve_callees("init", "src/a.c");
+    assert_eq!(
+        callees_a.len(),
+        1,
+        "init() called from a.c should resolve to exactly 1 function, got: {:?}",
+        callees_a
+    );
+    assert_eq!(
+        callees_a[0].file, "src/a.c",
+        "init() called from a.c should resolve to a.c's init"
+    );
+
+    // setup_b's call to init() should resolve to b.c's init
+    let callees_b = call_graph.resolve_callees("init", "src/b.c");
+    assert_eq!(
+        callees_b.len(),
+        1,
+        "init() called from b.c should resolve to exactly 1 function, got: {:?}",
+        callees_b
+    );
+    assert_eq!(
+        callees_b[0].file, "src/b.c",
+        "init() called from b.c should resolve to b.c's init"
+    );
+}
+
+/// A non-static function should be visible cross-file, while a static one
+/// in the caller's file takes priority when both exist.
+#[test]
+fn test_call_graph_static_vs_non_static() {
+    let file_a = r#"
+static int helper(int x) {
+    return x * 2;
+}
+
+int process_a(int x) {
+    return helper(x);
+}
+"#;
+
+    let file_b = r#"
+int helper(int x) {
+    return x + 1;
+}
+"#;
+
+    let file_c = r#"
+int process_c(int x) {
+    return helper(x);
+}
+"#;
+
+    let mut files = BTreeMap::new();
+    files.insert(
+        "src/a.c".to_string(),
+        ParsedFile::parse("src/a.c", file_a, Language::C).unwrap(),
+    );
+    files.insert(
+        "src/b.c".to_string(),
+        ParsedFile::parse("src/b.c", file_b, Language::C).unwrap(),
+    );
+    files.insert(
+        "src/c.c".to_string(),
+        ParsedFile::parse("src/c.c", file_c, Language::C).unwrap(),
+    );
+
+    let call_graph = CallGraph::build(&files);
+
+    // a.c has static helper — process_a's call should resolve to a.c's helper only
+    let callees_a = call_graph.resolve_callees("helper", "src/a.c");
+    assert_eq!(
+        callees_a.len(),
+        1,
+        "helper() from a.c should resolve to a.c's static helper only"
+    );
+    assert_eq!(callees_a[0].file, "src/a.c");
+
+    // c.c has no local helper — should resolve to b.c's non-static helper
+    // (but NOT a.c's static helper)
+    let callees_c = call_graph.resolve_callees("helper", "src/c.c");
+    assert_eq!(
+        callees_c.len(),
+        1,
+        "helper() from c.c should resolve to b.c's non-static helper only, got: {:?}",
+        callees_c
+    );
+    assert_eq!(
+        callees_c[0].file, "src/b.c",
+        "helper() from c.c should resolve to b.c (not a.c's static)"
+    );
+}
+
+/// MembraneSlice should NOT flag cross-file callers for a static function,
+/// since static functions are file-local and can't actually be called cross-file.
+#[test]
+fn test_membrane_respects_static_linkage() {
+    let file_a = r#"
+static int process(int x) {
+    return x * 2;
+}
+
+int run_a(void) {
+    return process(42);
+}
+"#;
+
+    let file_b = r#"
+static int process(int x) {
+    return x + 1;
+}
+
+int run_b(void) {
+    return process(99);
+}
+"#;
+
+    let mut files = BTreeMap::new();
+    files.insert(
+        "src/a.c".to_string(),
+        ParsedFile::parse("src/a.c", file_a, Language::C).unwrap(),
+    );
+    files.insert(
+        "src/b.c".to_string(),
+        ParsedFile::parse("src/b.c", file_b, Language::C).unwrap(),
+    );
+
+    // Diff touches process() in a.c
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: "src/a.c".to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([3]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::MembraneSlice),
+    )
+    .unwrap();
+
+    // run_b() should NOT appear as a cross-file caller of a.c's static process(),
+    // because static means file-local linkage
+    let has_b_ref = result
+        .blocks
+        .iter()
+        .any(|b| b.file_line_map.keys().any(|f| f.contains("b.c")));
+    assert!(
+        !has_b_ref,
+        "MembraneSlice should not flag cross-file callers for a static function"
+    );
+}
