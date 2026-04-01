@@ -1,3 +1,5 @@
+[![CI](https://github.com/shoedog/prism/actions/workflows/ci.yml/badge.svg)](https://github.com/shoedog/prism/actions/workflows/ci.yml)
+
 # slicing
 
 A command-line tool that extracts focused, relevant code context from diffs for
