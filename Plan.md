@@ -1,6 +1,6 @@
 # Prism Implementation Plan & Status Tracker
 
-Last updated: 2026-04-01 (ISR self-detection + static function disambiguation)
+Last updated: 2026-04-01 (multi-language taint sink patterns)
 
 ---
 
@@ -36,6 +36,17 @@ Last updated: 2026-04-01 (ISR self-detection + static function disambiguation)
 | `discover.py` (or Rust binary) for file enumeration | — | Not started |
 
 **Tests added:** MembraneSlice C error handling (2), PhantomSlice C/C++ extraction (1 unit test), function pointer Level 0: call graph field expression (1), membrane via field dispatch (1), circular slice via field dispatch (1), Level 1: local fptr (1), Level 2: local dispatch table (1), global dispatch table (1), membrane via local fptr (1), ISR self-detection: signal cross-function (1), pthread registered (1), IRQ cross-file (1), static disambiguation: same-name static (1), static vs non-static (1), membrane respects static (1).
+
+### Multi-Language Pattern Coverage (In Progress)
+
+| Item | Branch | Status |
+|------|--------|--------|
+| Taint sinks — add Python (pickle.loads, subprocess.Popen, compile, render_template_string, mark_safe, Markup, getattr, setattr), JS/TS (innerHTML, outerHTML, insertAdjacentHTML, Function, spawn, execFile, execSync, spawnSync, writeFile, writeFileSync, raw, literal), Go (Command, Exec, HTML, Fprintf, Sprintf, Remove, RemoveAll, WriteFile, Query, QueryRow) | `claude/fix-taint-patterns-tests-0fPSO` | Done |
+| Provenance sources — add missing patterns for Python, JS/TS, Go | — | Not started |
+| Absence pairs — add missing patterns for Python, JS/TS, Go | — | Not started |
+| Quantum async + Membrane errors — Python threading, JS nextTick/RxJS, Go channels/select | — | Not started |
+
+**Tests added:** Taint Python pickle.loads (1), taint Python subprocess.Popen (1), taint JS innerHTML (1), taint JS execSync (1), taint Go exec.Command (1), taint Go template.HTML (1).
 
 ---
 
@@ -89,10 +100,11 @@ Last updated: 2026-04-01 (ISR self-detection + static function disambiguation)
 - Virtual dispatch: name-matched, not type-resolved (P2 item)
 
 ### Test Coverage
-- **125 tests** total (unit + integration)
+- **131 tests** total (unit + integration)
 - 5 languages covered in integration tests
 - 26 algorithms with at least basic coverage
 - C/C++ specific: 32 tests covering taint, provenance, absence, quantum (incl. ISR self-detection), membrane, phantom, pointer aliasing, function pointer dispatch (Level 0/1/2), static linkage disambiguation
+- Multi-language taint: 6 tests covering Python (pickle, subprocess), JS (innerHTML, execSync), Go (exec.Command, template.HTML)
 
 ---
 
