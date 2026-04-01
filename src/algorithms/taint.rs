@@ -131,13 +131,13 @@ const SINK_PATTERNS: &[&str] = &[
     "=loadstring", // loadstring(user_input) — executes arbitrary Lua code
     "=dofile",     // dofile(path) — loads and executes a Lua file
     "=loadfile",   // loadfile(path) — loads a Lua file as a function
-    // Command execution
-    // "execute" already covered by generic; os.execute -> identifier "execute"
-    // "=popen" already covered by Python section; io.popen -> identifier "popen"
-    // Note: Lua string.format injection is a niche concern. Tree-sitter splits
-    // "string.format" into separate identifier nodes, so substring sink matching
-    // can't catch it. The high-severity Lua paths (loadstring, dofile, execute)
-    // are already covered above.
+                   // Command execution
+                   // "execute" already covered by generic; os.execute -> identifier "execute"
+                   // "=popen" already covered by Python section; io.popen -> identifier "popen"
+                   // Note: Lua string.format injection is a niche concern. Tree-sitter splits
+                   // "string.format" into separate identifier nodes, so substring sink matching
+                   // can't catch it. The high-severity Lua paths (loadstring, dofile, execute)
+                   // are already covered above.
 ];
 
 /// Check whether an identifier text matches a sink pattern.
