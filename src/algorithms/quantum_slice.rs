@@ -255,7 +255,8 @@ fn find_async_inner(parsed: &ParsedFile, node: Node<'_>, out: &mut Vec<usize>) {
         }
         Language::Lua => {
             // Lua coroutines are the primary async mechanism
-            kind == "call_expression" && {
+            // Note: Lua's tree-sitter grammar uses "function_call", not "call_expression"
+            kind == "function_call" && {
                 let text = parsed.node_text(&node);
                 text.contains("coroutine.create(")
                     || text.contains("coroutine.resume(")
