@@ -86,7 +86,6 @@ Last updated: 2026-04-01 (goto error paths, CVE test fixtures, fptr Level 3, C++
 | Item | Effort | Impact | Notes |
 |------|--------|--------|-------|
 | ~~**Function pointer Level 3: parameter-passed fptrs**~~ | — | — | **Done** — 1-hop interprocedural; `function_parameter_names()` + `call_argument_text_at()` in ast.rs, Level 3 loop in call_graph.rs. Composes with Level 1. 5 tests. |
-| **`discover.py` replacement** — Rust binary for file enumeration | 3-5 days | Gitignore-aware file walking using `ignore` crate | Enables proper multi-file analysis in CI pipelines |
 
 ### P2 — Valuable (Improves Analysis Depth)
 
@@ -94,7 +93,7 @@ Last updated: 2026-04-01 (goto error paths, CVE test fixtures, fptr Level 3, C++
 |------|--------|--------|
 | Struct/union field-level tracking in DFG | 1-2 weeks | Eliminates false taint propagation across struct fields (`dev->name` vs `dev->id`) |
 | Virtual dispatch in C++ call graph | 1-2 weeks | Accurate analysis for C++ OOP polymorphism |
-| `va_list` taint tracking | 3-5 days | Detects format string injection (`snprintf(buf, sz, user_input)`) |
+| ~~`va_list` taint tracking~~ | — | **Done** — v-variant format sinks (vprintf/vfprintf/vsprintf/vsnprintf) added to SINK_PATTERNS; variadic wrapper detection auto-discovers functions with `...` param that forward to format sinks and adds them as dynamic sinks. 4 tests. |
 | ~~CVE-pattern test fixtures (format string, buffer overflow, integer overflow, double-free, use-after-free)~~ | — | **Done** — 8 tests: double-free goto, correct cleanup negative, double-unlock goto, format string, buffer overflow, strcpy+provenance, integer overflow, UAF. |
 | ~~`goto`-based error path analysis for AbsenceSlice~~ | — | **Done** — `goto_statements()` + `label_sections()` in ast.rs; double-close detection in AbsenceSlice for kernel `goto cleanup` patterns. 3 tests. |
 | ~~MembraneSlice C++ error handling (exceptions, RAII)~~ | — | **Done** — try/catch, throw, RAII smart ptrs, lock guards, std::optional/expected, error_code. 4 tests. |
@@ -159,7 +158,7 @@ These formats need a different analysis model: parse → find touched units → 
 - No semantic scoping — `find_variable_references_scoped` handles some variable shadowing cases
 
 ### Test Coverage
-- **200 tests** total (unit + integration)
+- **204 tests** total (unit + integration)
 - 9 languages covered (Python, JS/TS, Go, Java, C/C++, Rust, Lua)
 - 26 algorithms with at least basic coverage
 - C/C++ specific: 32 tests covering taint, provenance, absence, quantum (incl. ISR self-detection), membrane, phantom, pointer aliasing, function pointer dispatch (Level 0/1/2), static linkage disambiguation

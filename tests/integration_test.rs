@@ -8215,3 +8215,188 @@ void process_timer(timer_t *timer) {
         "Taint should include the free() and subsequent use of timer->data"
     );
 }
+
+// ===========================================================================
+// va_list taint tracking — variadic wrapper detection
+// ===========================================================================
+
+#[test]
+fn test_taint_c_vsnprintf_direct_sink() {
+    // Direct call to vsnprintf with tainted format string is a sink.
+    let source = r#"
+#include <stdarg.h>
+void log_msg(const char *user_input) {
+    char *fmt = user_input;
+    char buf[256];
+    va_list args;
+    vsnprintf(buf, sizeof(buf), fmt, args);
+}
+"#;
+    let path = "src/log.c";
+    let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    // Line 4: char *fmt = user_input;  — fmt is tainted
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([4]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::Taint),
+    )
+    .unwrap();
+
+    assert!(
+        !result.findings.is_empty(),
+        "Taint should detect vsnprintf as a sink for tainted format string"
+    );
+}
+
+#[test]
+fn test_taint_c_variadic_wrapper_detected_as_sink() {
+    // my_log is a variadic wrapper that forwards to vsnprintf.
+    // Tainted data passed to my_log should trigger a finding because
+    // my_log is detected as a dynamic sink.
+    let source = r#"
+#include <stdarg.h>
+#include <stdio.h>
+
+void my_log(const char *fmt, ...) {
+    va_list args;
+    va_start(args, fmt);
+    char buf[1024];
+    vsnprintf(buf, sizeof(buf), fmt, args);
+    va_end(args);
+}
+
+void handle_request(const char *user_input) {
+    char *msg = user_input;
+    my_log("User said: %s", msg);
+}
+"#;
+    let path = "src/logger.c";
+    let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    // Line 14: char *msg = user_input;  — msg is tainted
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([14]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::Taint),
+    )
+    .unwrap();
+
+    // my_log should be detected as a variadic wrapper → dynamic sink
+    assert!(
+        !result.findings.is_empty(),
+        "Taint should detect my_log as a variadic wrapper sink when tainted value is passed"
+    );
+}
+
+#[test]
+fn test_taint_c_variadic_wrapper_vsprintf() {
+    // Wrapper using vsprintf (no length bound — more dangerous).
+    let source = r#"
+#include <stdarg.h>
+void fmt_msg(const char *fmt, ...) {
+    va_list ap;
+    va_start(ap, fmt);
+    char buf[512];
+    vsprintf(buf, fmt, ap);
+    va_end(ap);
+}
+
+void process(const char *input) {
+    char *data = input;
+    fmt_msg("Result: %s", data);
+}
+"#;
+    let path = "src/fmt.c";
+    let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    // Line 12: char *data = input;  — data is tainted
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([12]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::Taint),
+    )
+    .unwrap();
+
+    assert!(
+        !result.findings.is_empty(),
+        "Taint should detect fmt_msg as a variadic wrapper (vsprintf) sink"
+    );
+}
+
+#[test]
+fn test_taint_c_non_variadic_not_detected_as_wrapper() {
+    // A normal (non-variadic) function that calls printf should NOT be
+    // detected as a variadic wrapper — only functions with `...` qualify.
+    let source = r#"
+#include <stdio.h>
+void print_msg(const char *msg) {
+    printf("Message: %s\n", msg);
+}
+
+void handler(const char *input) {
+    char *data = input;
+    print_msg(data);
+}
+"#;
+    let path = "src/print.c";
+    let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    // Line 8: char *data = input;  — data is tainted
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([8]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::Taint),
+    )
+    .unwrap();
+
+    // print_msg is NOT variadic, so it should NOT be a dynamic sink.
+    // The call to printf inside print_msg is in a different function scope,
+    // and the intraprocedural DFG won't connect data → msg across the call.
+    // So no findings should be emitted for this pattern.
+    let has_print_msg_finding = result.findings.iter().any(|f| f.line == 9);
+    assert!(
+        !has_print_msg_finding,
+        "Non-variadic function should not be detected as a wrapper sink"
+    );
+}
