@@ -29,9 +29,11 @@
 //! - **AngleSlice**: Cross-cutting concern trace
 //! - **ThreeDSlice**: Temporal-structural risk integration
 
+pub mod access_path;
 pub mod algorithms;
 pub mod ast;
 pub mod call_graph;
+pub mod cpg;
 pub mod data_flow;
 pub mod diff;
 pub mod languages;

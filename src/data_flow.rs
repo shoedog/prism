@@ -4,6 +4,7 @@
 //! arguments and return values. Used by chopping, taint analysis, circular
 //! slice, and delta slice.
 
+use crate::access_path::AccessPath;
 use crate::ast::ParsedFile;
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
@@ -13,8 +14,18 @@ pub struct VarLocation {
     pub file: String,
     pub function: String,
     pub line: usize,
-    pub var_name: String,
+    /// Structured access path for this variable reference.
+    pub path: AccessPath,
+    /// Backward-compatible accessor: returns the base variable name.
+    /// Algorithms that don't need field sensitivity can use this.
     pub kind: VarAccessKind,
+}
+
+impl VarLocation {
+    /// Backward-compatible accessor: returns the base variable name.
+    pub fn var_name(&self) -> &str {
+        &self.path.base
+    }
 }
 
 /// Whether a variable access is a definition or a use.
@@ -44,10 +55,10 @@ pub struct FlowPath {
 pub struct DataFlowGraph {
     /// All def-use edges.
     pub edges: Vec<FlowEdge>,
-    /// Index: (file, function, var_name) → definitions
-    pub defs: BTreeMap<(String, String, String), Vec<VarLocation>>,
-    /// Index: (file, function, var_name) → uses
-    pub uses: BTreeMap<(String, String, String), Vec<VarLocation>>,
+    /// Index: (file, function, access_path) → definitions
+    pub defs: BTreeMap<(String, String, AccessPath), Vec<VarLocation>>,
+    /// Index: (file, function, access_path) → uses
+    pub uses: BTreeMap<(String, String, AccessPath), Vec<VarLocation>>,
     /// Forward adjacency: def location → use locations it reaches
     pub forward: BTreeMap<VarLocation, Vec<VarLocation>>,
     /// Backward adjacency: use location → def locations it comes from
@@ -57,8 +68,8 @@ pub struct DataFlowGraph {
 impl DataFlowGraph {
     /// Build a data flow graph from parsed files.
     pub fn build(files: &BTreeMap<String, ParsedFile>) -> Self {
-        let mut defs: BTreeMap<(String, String, String), Vec<VarLocation>> = BTreeMap::new();
-        let mut uses: BTreeMap<(String, String, String), Vec<VarLocation>> = BTreeMap::new();
+        let mut defs: BTreeMap<(String, String, AccessPath), Vec<VarLocation>> = BTreeMap::new();
+        let mut uses: BTreeMap<(String, String, AccessPath), Vec<VarLocation>> = BTreeMap::new();
         let mut edges = Vec::new();
 
         for (file_path, parsed) in files {
@@ -70,25 +81,24 @@ impl DataFlowGraph {
                 let (start, end) = parsed.node_line_range(&func_node);
                 let all_lines: BTreeSet<usize> = (start..=end).collect();
 
-                // Find all definitions (L-values)
-                let lvalues = parsed.assignment_lvalues_on_lines(&func_node, &all_lines);
-                for (var_name, line) in &lvalues {
+                // Find all definitions (L-values) with structured access paths
+                let lvalue_paths = parsed.assignment_lvalue_paths_on_lines(&func_node, &all_lines);
+                for (path, line) in &lvalue_paths {
                     let loc = VarLocation {
                         file: file_path.clone(),
                         function: func_name.clone(),
                         line: *line,
-                        var_name: var_name.clone(),
+                        path: path.clone(),
                         kind: VarAccessKind::Def,
                     };
-                    defs.entry((file_path.clone(), func_name.clone(), var_name.clone()))
+                    defs.entry((file_path.clone(), func_name.clone(), path.clone()))
                         .or_default()
                         .push(loc);
                 }
 
-                // Find all uses of each defined variable
-                for (var_name, def_line) in &lvalues {
-                    let refs =
-                        parsed.find_variable_references_scoped(&func_node, var_name, *def_line);
+                // Find all uses of each defined variable/path
+                for (path, def_line) in &lvalue_paths {
+                    let refs = parsed.find_path_references_scoped(&func_node, path, *def_line);
                     for ref_line in &refs {
                         if *ref_line == *def_line {
                             continue; // Skip self-reference
@@ -97,10 +107,10 @@ impl DataFlowGraph {
                             file: file_path.clone(),
                             function: func_name.clone(),
                             line: *ref_line,
-                            var_name: var_name.clone(),
+                            path: path.clone(),
                             kind: VarAccessKind::Use,
                         };
-                        uses.entry((file_path.clone(), func_name.clone(), var_name.clone()))
+                        uses.entry((file_path.clone(), func_name.clone(), path.clone()))
                             .or_default()
                             .push(use_loc.clone());
 
@@ -108,7 +118,7 @@ impl DataFlowGraph {
                             file: file_path.clone(),
                             function: func_name.clone(),
                             line: *def_line,
-                            var_name: var_name.clone(),
+                            path: path.clone(),
                             kind: VarAccessKind::Def,
                         };
                         edges.push(FlowEdge {
@@ -118,17 +128,17 @@ impl DataFlowGraph {
                     }
                 }
 
-                // R-values: variables read on each line that have definitions elsewhere
-                let rvalues = parsed.rvalue_identifiers_on_lines(&func_node, &all_lines);
-                for (var_name, line) in &rvalues {
+                // R-values: variables/paths read on each line
+                let rvalue_paths = parsed.rvalue_identifier_paths_on_lines(&func_node, &all_lines);
+                for (path, line) in &rvalue_paths {
                     let use_loc = VarLocation {
                         file: file_path.clone(),
                         function: func_name.clone(),
                         line: *line,
-                        var_name: var_name.clone(),
+                        path: path.clone(),
                         kind: VarAccessKind::Use,
                     };
-                    uses.entry((file_path.clone(), func_name.clone(), var_name.clone()))
+                    uses.entry((file_path.clone(), func_name.clone(), path.clone()))
                         .or_default()
                         .push(use_loc);
                 }
@@ -176,9 +186,9 @@ impl DataFlowGraph {
             // Also follow through: if this is a use, find the def on the same line
             // (assignment propagation: x = y means use of y flows to def of x)
             if loc.kind == VarAccessKind::Use {
-                let _key = (loc.file.clone(), loc.function.clone(), loc.var_name.clone());
+                let _key = (loc.file.clone(), loc.function.clone(), loc.path.clone());
                 // Find defs of other variables on the same line
-                for ((f, func, _var), def_locs) in &self.defs {
+                for ((f, func, _path), def_locs) in &self.defs {
                     if f == &loc.file && func == &loc.function {
                         for dl in def_locs {
                             if dl.line == loc.line && !visited.contains(dl) {
@@ -299,11 +309,12 @@ impl DataFlowGraph {
         paths
     }
 
-    /// Get all definition locations of a variable by name in a file.
+    /// Get all definition locations of a variable by base name in a file.
+    /// Matches any AccessPath whose base equals `var_name` (field-insensitive lookup).
     pub fn all_defs_of(&self, file: &str, var_name: &str) -> Vec<VarLocation> {
         let mut result = Vec::new();
-        for ((f, _func, var), locs) in &self.defs {
-            if f == file && var == var_name {
+        for ((f, _func, path), locs) in &self.defs {
+            if f == file && path.base == var_name {
                 result.extend(locs.clone());
             }
         }

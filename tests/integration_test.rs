@@ -3629,11 +3629,15 @@ void set_id(Dev *dev, int val) {
         "DataFlowGraph should record a def for base 'dev' from dev->id = val"
     );
 
-    // Fine-grained tracking: the field itself was written
-    let id_defs = dfg.all_defs_of(path, "id");
+    // Fine-grained tracking: the field access path was recorded as a def
+    // With AccessPath, dev->id creates a def for AccessPath { base: "dev", fields: ["id"] },
+    // not a bare "id" def. The base "dev" match above covers both.
+    let has_field_path = dev_defs
+        .iter()
+        .any(|d| d.path.has_fields() && d.path.fields == vec!["id"]);
     assert!(
-        !id_defs.is_empty(),
-        "DataFlowGraph should record a def for field 'id' from dev->id = val"
+        has_field_path,
+        "DataFlowGraph should record a def with AccessPath dev.id from dev->id = val"
     );
 }
 
