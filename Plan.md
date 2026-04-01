@@ -1,6 +1,6 @@
 # Prism Implementation Plan & Status Tracker
 
-Last updated: 2026-04-01 (function pointer call edge resolution)
+Last updated: 2026-04-01 (function pointer resolution Levels 0-2)
 
 ---
 
@@ -28,12 +28,14 @@ Last updated: 2026-04-01 (function pointer call edge resolution)
 | MembraneSlice C error handling detection (`if (ret < 0)`, `if (!ptr)`, errno, perror, assert, CHECK_, WARN_ON) | `claude/fix-taint-patterns-tests-0fPSO` | Done |
 | PhantomSlice C/C++ function extraction (`[type] *func_name(` patterns, qualified names) | `claude/fix-taint-patterns-tests-0fPSO` | Done |
 | ERROR node detection and reporting | PR #3 (`42cc508`) | Done |
-| Function pointer call edge resolution in `call_graph.rs` — extract field identifier from `field_expression`/`member_expression` call nodes | `claude/fix-taint-patterns-tests-0fPSO` | Done |
+| Function pointer call edge resolution Level 0 (field-access dispatch: `ptr->func()`) | `claude/fix-taint-patterns-tests-0fPSO` | Done |
+| Function pointer call edge resolution Level 1 (local variable fptrs: `fptr = func; fptr()`) | `claude/fix-taint-patterns-tests-0fPSO` | Done |
+| Function pointer call edge resolution Level 2 (array dispatch tables: `handlers[i]()`) | `claude/fix-taint-patterns-tests-0fPSO` | Done |
 | Static function name disambiguation (file-scoped `static` functions) | — | Not started |
 | QuantumSlice ISR/signal-handler self-detection (function registered externally) | — | Not started |
 | `discover.py` (or Rust binary) for file enumeration | — | Not started |
 
-**Tests added:** MembraneSlice C error handling (2), PhantomSlice C/C++ extraction (1 unit test), function pointer call graph (1), membrane via function pointer (1), circular slice via function pointer (1).
+**Tests added:** MembraneSlice C error handling (2), PhantomSlice C/C++ extraction (1 unit test), function pointer Level 0: call graph field expression (1), membrane via field dispatch (1), circular slice via field dispatch (1), Level 1: local fptr (1), Level 2: local dispatch table (1), global dispatch table (1), membrane via local fptr (1).
 
 ---
 
@@ -44,6 +46,7 @@ Last updated: 2026-04-01 (function pointer call edge resolution)
 | Item | Effort | Impact | Notes |
 |------|--------|--------|-------|
 | **Static function name disambiguation** | 3-5h | Eliminates call graph conflation of same-named `static` functions across files | Index as `(file, name)` pairs; only merge cross-file if `static` absent |
+| **Function pointer Level 3: parameter-passed fptrs** | 4-8h | Resolves `cb(data)` where `cb` is a parameter by checking callers' arguments | 1-hop interprocedural; see `docs/c-cpp/function-pointer-resolution.md` |
 | **QuantumSlice ISR self-detection** | 3-5h | Detects signal/IRQ handler functions that ARE the async entry point | Check if function name appears in `signal()`, `request_irq()` calls in other parsed files |
 
 ### P2 — Valuable (Improves Analysis Depth)
@@ -81,17 +84,17 @@ Last updated: 2026-04-01 (function pointer call edge resolution)
 
 ### Known Limitations (C/C++)
 - Pointer aliasing: tracked at name level, not memory level (extract_lvalue_names mitigates)
-- Function pointers: field-access calls (`ops->method()`) now resolved; true indirect calls through variables still missed
+- Function pointers: Level 0 (field-access), Level 1 (local fptr variable), Level 2 (dispatch tables) resolved; Level 3 (parameter-passed) and Level 4 (full points-to) not implemented — see `docs/c-cpp/function-pointer-resolution.md`
 - `static` function scope: not disambiguated in call graph (P1 item)
 - Interrupt handlers: detected by naming heuristic only, not by registration analysis (P1 item)
 - Struct field flow: `dev->name` taints all of `dev` (P2 item)
 - Virtual dispatch: name-matched, not type-resolved (P2 item)
 
 ### Test Coverage
-- **115 tests** total (unit + integration)
+- **119 tests** total (unit + integration)
 - 5 languages covered in integration tests
 - 26 algorithms with at least basic coverage
-- C/C++ specific: 22 tests covering taint, provenance, absence, quantum, membrane, phantom, pointer aliasing, function pointer dispatch
+- C/C++ specific: 26 tests covering taint, provenance, absence, quantum, membrane, phantom, pointer aliasing, function pointer dispatch (Level 0/1/2)
 
 ---
 

@@ -4212,3 +4212,244 @@ void dispatch(handler_t *handler, int data) {
         "CircularSlice should detect cycle through function pointer dispatch"
     );
 }
+
+// ====== Function pointer resolution Level 1 & 2 tests ======
+
+/// Level 1: local variable function pointer — `fptr = target_func; fptr(42);`
+/// should produce a call edge from the caller to target_func.
+#[test]
+fn test_call_graph_level1_local_fptr() {
+    let source = r#"
+#include <stdlib.h>
+
+void target_func(int x) {
+    // do work
+}
+
+void other_func(int x) {
+    // different work
+}
+
+void caller(void) {
+    void (*fptr)(int) = target_func;
+    fptr(42);
+}
+
+void caller_reassign(void) {
+    void (*fptr)(int) = other_func;
+    fptr = target_func;
+    fptr(99);
+}
+"#;
+
+    let mut files = BTreeMap::new();
+    files.insert(
+        "src/fptr.c".to_string(),
+        ParsedFile::parse("src/fptr.c", source, Language::C).unwrap(),
+    );
+
+    let call_graph = CallGraph::build(&files);
+
+    // caller's fptr(42) should resolve to target_func
+    let caller_id = &call_graph.functions.get("caller").unwrap()[0];
+    let caller_calls = call_graph.calls.get(caller_id).unwrap();
+    let callee_names: Vec<&str> = caller_calls
+        .iter()
+        .map(|s| s.callee_name.as_str())
+        .collect();
+    assert!(
+        callee_names.contains(&"target_func"),
+        "Level 1: fptr = target_func; fptr() should resolve to target_func, got: {:?}",
+        callee_names
+    );
+
+    // caller_reassign's fptr(99) should resolve to target_func (last assignment)
+    let reassign_id = &call_graph.functions.get("caller_reassign").unwrap()[0];
+    let reassign_calls = call_graph.calls.get(reassign_id).unwrap();
+    let reassign_names: Vec<&str> = reassign_calls
+        .iter()
+        .map(|s| s.callee_name.as_str())
+        .collect();
+    assert!(
+        reassign_names.contains(&"target_func"),
+        "Level 1: reassigned fptr should resolve to last assignment (target_func), got: {:?}",
+        reassign_names
+    );
+}
+
+/// Level 2: array dispatch table — `handlers[idx](data)` should produce
+/// edges to all functions in the initializer list.
+#[test]
+fn test_call_graph_level2_dispatch_table() {
+    let source = r#"
+#include <stdlib.h>
+
+void handle_get(int req) { }
+void handle_set(int req) { }
+void handle_delete(int req) { }
+
+typedef void (*handler_fn)(int);
+
+void dispatch(int cmd, int req) {
+    handler_fn handlers[] = {handle_get, handle_set, handle_delete};
+    handlers[cmd](req);
+}
+"#;
+
+    let mut files = BTreeMap::new();
+    files.insert(
+        "src/dispatch.c".to_string(),
+        ParsedFile::parse("src/dispatch.c", source, Language::C).unwrap(),
+    );
+
+    let call_graph = CallGraph::build(&files);
+
+    let dispatch_id = &call_graph.functions.get("dispatch").unwrap()[0];
+    let dispatch_calls = call_graph.calls.get(dispatch_id).unwrap();
+    let callee_names: BTreeSet<&str> = dispatch_calls
+        .iter()
+        .map(|s| s.callee_name.as_str())
+        .collect();
+
+    assert!(
+        callee_names.contains("handle_get"),
+        "Level 2: dispatch table should resolve to handle_get, got: {:?}",
+        callee_names
+    );
+    assert!(
+        callee_names.contains("handle_set"),
+        "Level 2: dispatch table should resolve to handle_set, got: {:?}",
+        callee_names
+    );
+    assert!(
+        callee_names.contains("handle_delete"),
+        "Level 2: dispatch table should resolve to handle_delete, got: {:?}",
+        callee_names
+    );
+}
+
+/// Level 2: global/file-scope dispatch table with designated initializers.
+#[test]
+fn test_call_graph_level2_global_dispatch_table() {
+    let source = r#"
+#include <stdlib.h>
+
+int my_open(int fd) { return 0; }
+int my_read(int fd) { return 0; }
+int my_write(int fd) { return 0; }
+
+typedef int (*file_op)(int);
+
+file_op file_ops[] = {my_open, my_read, my_write};
+
+void do_operation(int op, int fd) {
+    file_ops[op](fd);
+}
+"#;
+
+    let mut files = BTreeMap::new();
+    files.insert(
+        "src/fileops.c".to_string(),
+        ParsedFile::parse("src/fileops.c", source, Language::C).unwrap(),
+    );
+
+    let call_graph = CallGraph::build(&files);
+
+    let do_op_id = &call_graph.functions.get("do_operation").unwrap()[0];
+    let do_op_calls = call_graph.calls.get(do_op_id).unwrap();
+    let callee_names: BTreeSet<&str> = do_op_calls.iter().map(|s| s.callee_name.as_str()).collect();
+
+    assert!(
+        callee_names.contains("my_open"),
+        "Level 2: global dispatch table should resolve to my_open, got: {:?}",
+        callee_names
+    );
+    assert!(
+        callee_names.contains("my_read"),
+        "Level 2: global dispatch table should resolve to my_read, got: {:?}",
+        callee_names
+    );
+    assert!(
+        callee_names.contains("my_write"),
+        "Level 2: global dispatch table should resolve to my_write, got: {:?}",
+        callee_names
+    );
+}
+
+/// Level 1 end-to-end: MembraneSlice should detect a cross-file caller through
+/// a local function pointer variable.
+#[test]
+fn test_membrane_through_local_fptr() {
+    let api_source = r#"
+int process_data(int *buf, int len) {
+    for (int i = 0; i < len; i++) {
+        buf[i] += 1;
+    }
+    return 0;
+}
+"#;
+
+    let caller_source = r#"
+#include "api.h"
+
+int process_data(int *buf, int len);
+
+typedef int (*processor_fn)(int *, int);
+
+int run(int *data, int len) {
+    processor_fn proc = process_data;
+    int ret = proc(data, len);
+    if (ret < 0) {
+        return -1;
+    }
+    return 0;
+}
+"#;
+
+    let mut files = BTreeMap::new();
+    files.insert(
+        "src/api.c".to_string(),
+        ParsedFile::parse("src/api.c", api_source, Language::C).unwrap(),
+    );
+    files.insert(
+        "src/caller.c".to_string(),
+        ParsedFile::parse("src/caller.c", caller_source, Language::C).unwrap(),
+    );
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: "src/api.c".to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([4]),
+        }],
+    };
+
+    let call_graph = CallGraph::build(&files);
+
+    // Verify the edge exists: run -> process_data via fptr
+    let run_id = &call_graph.functions.get("run").unwrap()[0];
+    let run_calls = call_graph.calls.get(run_id).unwrap();
+    let callee_names: Vec<&str> = run_calls.iter().map(|s| s.callee_name.as_str()).collect();
+    assert!(
+        callee_names.contains(&"process_data"),
+        "Level 1: proc = process_data; proc() should create edge to process_data, got: {:?}",
+        callee_names
+    );
+
+    // MembraneSlice should find run() as a cross-file caller of process_data
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::MembraneSlice),
+    )
+    .unwrap();
+
+    let has_caller_ref = result
+        .blocks
+        .iter()
+        .any(|b| b.file_line_map.keys().any(|f| f.contains("caller")));
+    assert!(
+        has_caller_ref,
+        "MembraneSlice should detect cross-file caller via local function pointer"
+    );
+}
