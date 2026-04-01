@@ -18,30 +18,70 @@ use std::collections::{BTreeMap, BTreeSet};
 
 /// Patterns that suggest a caller handles the return value safely.
 const SAFE_PATTERNS: &[&str] = &[
+    // === Cross-language conditional checks ===
     "if ",
     "guard ",
     "switch ",
     "match ",
+    // === Go nil/error checks ===
     "!= nil",
-    "!= null",
+    "== nil",
+    "if err != nil",
+    "if err == nil",
+    "errors.Is(",
+    "errors.As(",
+    // === Python None/exception handling ===
     "!= None",
+    "== None",
+    "is None",
+    "is not None",
+    "except",
+    "with ", // context manager = safe resource handling
+    "assert ",
+    // === JavaScript / TypeScript null/undefined checks ===
+    "!= null",
     "!== null",
     "!== undefined",
-    "== nil",
     "== null",
-    "== None",
     "=== null",
     "=== undefined",
+    "?.", // optional chaining
+    "??", // nullish coalescing
+    ".catch(",
+    // === Rust Result/Option handling ===
     ".ok()",
     ".unwrap_or",
     ".unwrap_or_else",
     ".unwrap_or_default",
+    ".map_err(",
+    ".and_then(",
+    ".or_else(",
+    "if let Some(",
+    "if let Ok(",
+    "if let Err(",
+    // === C/C++ return code checks ===
+    "if (ret ",
+    "if (rc ",
+    "if (err ",
+    "if (status ",
+    "if (result ",
+    "if (!", // if (!ptr), if (!ret)
+    "== NULL)",
+    "!= NULL)",
+    "== nullptr)",
+    "!= nullptr)",
+    "errno",
+    "perror(",
+    "strerror(",
+    "assert(",
+    "ASSERT_",
+    "CHECK_",
+    // === Lua error handling ===
+    "pcall(",
+    "xpcall(",
+    // === Cross-language error handling ===
     "try ",
     "catch",
-    "except",
-    ".catch(",
-    "?.",
-    "??",
     "or ",
     "|| ",
     "getOrElse",
@@ -96,8 +136,14 @@ pub fn slice(files: &BTreeMap<String, ParsedFile>, diff: &DiffInput) -> Result<S
                         s.contains("raise")
                             || s.contains("throw")
                             || s.contains("return err")
+                            || s.contains("return Err(")  // Rust Result
                             || s.contains("panic")
                             || s.contains("Error(")
+                            || s.contains("error(")        // Lua error()
+                            || s.contains("return -1")     // C error return
+                            || s.contains("return NULL")   // C null return
+                            || s.contains("return nil")    // Go nil return
+                            || s.contains("errno") // C errno set
                     })
                     .unwrap_or(false)
             });
@@ -150,7 +196,26 @@ pub fn slice(files: &BTreeMap<String, ParsedFile>, diff: &DiffInput) -> Result<S
                     let has_error_handling = context_text.contains("try")
                         || context_text.contains("catch")
                         || context_text.contains("except")
-                        || context_text.contains("if err");
+                        || context_text.contains("if err")
+                        // Rust ? operator and Result/Option handling
+                        || context_text.contains(")?")
+                        || context_text.contains(".map_err(")
+                        || context_text.contains("if let Err(")
+                        || context_text.contains("if let Ok(")
+                        // C/C++ return code error handling
+                        || context_text.contains("if (ret ")
+                        || context_text.contains("if (rc ")
+                        || context_text.contains("if (!") // null pointer check
+                        || context_text.contains("perror(")
+                        || context_text.contains("errno")
+                        // Go errors package
+                        || context_text.contains("errors.Is(")
+                        || context_text.contains("errors.As(")
+                        // Python context manager
+                        || context_text.contains("with ")
+                        // Lua protected call
+                        || context_text.contains("pcall(")
+                        || context_text.contains("xpcall(");
 
                     if change_touches_return && !has_null_check {
                         missing_checks.push("return value not checked".to_string());

@@ -1,6 +1,6 @@
 # Prism Implementation Plan & Status Tracker
 
-Last updated: 2026-04-01 (multi-language taint sink patterns)
+Last updated: 2026-04-01 (Rust + Lua language support, echo/provenance precision)
 
 ---
 
@@ -25,12 +25,12 @@ Last updated: 2026-04-01 (multi-language taint sink patterns)
 
 | Item | PR/Commit | Status |
 |------|-----------|--------|
-| MembraneSlice C error handling detection (`if (ret < 0)`, `if (!ptr)`, errno, perror, assert, CHECK_, WARN_ON) | `claude/fix-taint-patterns-tests-0fPSO` | Done |
-| PhantomSlice C/C++ function extraction (`[type] *func_name(` patterns, qualified names) | `claude/fix-taint-patterns-tests-0fPSO` | Done |
+| MembraneSlice C error handling detection (`if (ret < 0)`, `if (!ptr)`, errno, perror, assert, CHECK_, WARN_ON) | `claude/echo-rust-lua-support` | Done |
+| PhantomSlice C/C++ function extraction (`[type] *func_name(` patterns, qualified names) | `claude/echo-rust-lua-support` | Done |
 | ERROR node detection and reporting | PR #3 (`42cc508`) | Done |
-| Function pointer call edge resolution Level 0 (field-access dispatch: `ptr->func()`) | `claude/fix-taint-patterns-tests-0fPSO` | Done |
-| Function pointer call edge resolution Level 1 (local variable fptrs: `fptr = func; fptr()`) | `claude/fix-taint-patterns-tests-0fPSO` | Done |
-| Function pointer call edge resolution Level 2 (array dispatch tables: `handlers[i]()`) | `claude/fix-taint-patterns-tests-0fPSO` | Done |
+| Function pointer call edge resolution Level 0 (field-access dispatch: `ptr->func()`) | `claude/echo-rust-lua-support` | Done |
+| Function pointer call edge resolution Level 1 (local variable fptrs: `fptr = func; fptr()`) | `claude/echo-rust-lua-support` | Done |
+| Function pointer call edge resolution Level 2 (array dispatch tables: `handlers[i]()`) | `claude/echo-rust-lua-support` | Done |
 | Static function name disambiguation — `static_functions` set in call graph, `resolve_callees()`, `callers_of_in_file()` | `claude/quantum-isr-static-disambiguation` | Done |
 | QuantumSlice ISR/signal-handler self-detection — `collect_registered_handlers()` scans all files for `signal()`, `pthread_create()`, `request_irq()`, `.sa_handler`, `std::thread` | `claude/quantum-isr-static-disambiguation` | Done |
 | `discover.py` (or Rust binary) for file enumeration | — | Not started |
@@ -41,13 +41,26 @@ Last updated: 2026-04-01 (multi-language taint sink patterns)
 
 | Item | Branch | Status |
 |------|--------|--------|
-| Taint sinks — add Python (pickle.loads, subprocess.Popen, compile, render_template_string, mark_safe, Markup, getattr, setattr), JS/TS (innerHTML, outerHTML, insertAdjacentHTML, Function, spawn, execFile, execSync, spawnSync, writeFile, writeFileSync, raw, literal), Go (Command, Exec, HTML, Fprintf, Sprintf, Remove, RemoveAll, WriteFile, Query, QueryRow) | `claude/fix-taint-patterns-tests-0fPSO` | Done |
-| Provenance sources — add Python (request.form/json/data, Django ORM, cursor.execute/fetchone, sys.stdin), JS/TS (document.cookie, window.location, URLSearchParams, req.cookies/headers, prisma, knex, collection.find), Go (r.URL.Query, r.Header, r.FormFile, sql.Query/QueryRow, rows.Scan, viper, flag, yaml.Unmarshal) | `claude/fix-taint-patterns-tests-0fPSO` | Done |
-| Absence pairs — add Python (threading.Lock/release, pool/close, socket, tempfile), JS/TS (createReadStream/destroy, createServer/close, pool.connect/release, fs.open/close), Go (sql.Open/Close, os.Create/Close, context.WithCancel/cancel, WaitGroup Add/Wait, http.Get/Body.Close) | `claude/fix-taint-patterns-tests-0fPSO` | Done |
-| Quantum async — Python (threading.Thread, multiprocessing.Process, asyncio.create_task), JS/TS (Worker, process.nextTick, setImmediate, queueMicrotask), Go (select statement, channel send/receive) | `claude/fix-taint-patterns-tests-0fPSO` | Done |
-| Membrane errors — Python (raise_for_status, raise), JS/TS (throw, Promise.reject, .finally), Go (errors.Is, errors.As, log.Fatal, panic) | `claude/fix-taint-patterns-tests-0fPSO` | Done |
+| Taint sinks — add Python (pickle.loads, subprocess.Popen, compile, render_template_string, mark_safe, Markup, getattr, setattr), JS/TS (innerHTML, outerHTML, insertAdjacentHTML, Function, spawn, execFile, execSync, spawnSync, writeFile, writeFileSync, raw, literal), Go (Command, Exec, HTML, Fprintf, Sprintf, Remove, RemoveAll, WriteFile, Query, QueryRow) | `claude/echo-rust-lua-support` | Done |
+| Provenance sources — add Python (request.form/json/data, Django ORM, cursor.execute/fetchone, sys.stdin), JS/TS (document.cookie, window.location, URLSearchParams, req.cookies/headers, prisma, knex, collection.find), Go (r.URL.Query, r.Header, r.FormFile, sql.Query/QueryRow, rows.Scan, viper, flag, yaml.Unmarshal) | `claude/echo-rust-lua-support` | Done |
+| Absence pairs — add Python (threading.Lock/release, pool/close, socket, tempfile), JS/TS (createReadStream/destroy, createServer/close, pool.connect/release, fs.open/close), Go (sql.Open/Close, os.Create/Close, context.WithCancel/cancel, WaitGroup Add/Wait, http.Get/Body.Close) | `claude/echo-rust-lua-support` | Done |
+| Quantum async — Python (threading.Thread, multiprocessing.Process, asyncio.create_task), JS/TS (Worker, process.nextTick, setImmediate, queueMicrotask), Go (select statement, channel send/receive) | `claude/echo-rust-lua-support` | Done |
+| Membrane errors — Python (raise_for_status, raise), JS/TS (throw, Promise.reject, .finally), Go (errors.Is, errors.As, log.Fatal, panic) | `claude/echo-rust-lua-support` | Done |
 
 **Tests added:** Taint Python pickle.loads (1), taint Python subprocess.Popen (1), taint JS innerHTML (1), taint JS execSync (1), taint Go exec.Command (1), taint Go template.HTML (1). Provenance Python request.form (1), provenance Python cursor.fetchone (1), provenance JS document.cookie (1), provenance JS process.env (1), provenance Go r.FormValue (1), provenance Go viper config (1). Absence Python threading.Lock (1), absence Python tempfile (1), absence JS createReadStream (1), absence JS fs.open (1), absence Go context.WithCancel (1), absence Go http.Get body (1). Quantum Python threading (1), quantum JS Worker (1), quantum Go channel/select (1). Membrane Python raise_for_status (1), membrane Go errors.Is (1).
+
+### Algorithm Precision & New Language Support
+
+| Item | Branch | Status |
+|------|--------|--------|
+| Echo slice — expand SAFE_PATTERNS with C/C++ return-code checks, Go errors.Is/As, Python context manager, Rust ?/unwrap, Lua pcall/xpcall; expand change_touches_error and has_error_handling | `claude/echo-rust-lua-support` | Done |
+| Provenance precision — add matches_provenance() with '~' word-boundary prefix; tighten ~body, ~form, ~input, ~params, ~query, ~args, ~fetch, ~execute, ~cursor, ~select | `claude/echo-rust-lua-support` | Done |
+| Rust language support — Language::Rust enum, tree-sitter-rust grammar, all node type mappings (function_item, let_declaration, match_expression, etc.) | `claude/echo-rust-lua-support` | Done |
+| Lua language support — Language::Lua enum, tree-sitter-lua grammar, all node type mappings (function_declaration, local_function, function_call, dot_index_expression, etc.) | `claude/echo-rust-lua-support` | Done |
+| Rust quantum async — tokio::spawn, thread::spawn, async/await, rayon::spawn | `claude/echo-rust-lua-support` | Done |
+| Lua quantum async — coroutine.create/resume/wrap/yield | `claude/echo-rust-lua-support` | Done |
+
+**Tests added:** Echo C caller without return check (1), echo C caller with return check (1), echo Go errors.Is (1), echo Python with-statement (1). Provenance transform≠form negative (1), provenance prefetch≠fetch negative (1). Rust basic parsing (1), Rust taint (1), Rust original_diff (1), Rust parent_function (1). Lua basic parsing (1), Lua taint exec (1), Lua parent_function (1), Lua absence open/close (1).
 
 ---
 
@@ -86,7 +99,7 @@ Last updated: 2026-04-01 (multi-language taint sink patterns)
 ## Architecture Notes
 
 ### Key Design Decisions
-- **Tree-sitter** for multi-language AST parsing (5 languages: Python, JS/TS, Go, Java, C/C++)
+- **Tree-sitter** for multi-language AST parsing (9 languages: Python, JS/TS, Go, Java, C/C++, Rust, Lua)
 - **Name-based variable tracking** (no `varId` like cppcheck)
 - **BTreeMap/BTreeSet everywhere** for deterministic sorted output
 - **Shared infrastructure:** `call_graph.rs` and `data_flow.rs` reused across algorithms
@@ -101,8 +114,8 @@ Last updated: 2026-04-01 (multi-language taint sink patterns)
 - Virtual dispatch: name-matched, not type-resolved (P2 item)
 
 ### Test Coverage
-- **148 tests** total (unit + integration)
-- 5 languages covered in integration tests
+- **165 tests** total (unit + integration)
+- 9 languages covered (Python, JS/TS, Go, Java, C/C++, Rust, Lua)
 - 26 algorithms with at least basic coverage
 - C/C++ specific: 32 tests covering taint, provenance, absence, quantum (incl. ISR self-detection), membrane, phantom, pointer aliasing, function pointer dispatch (Level 0/1/2), static linkage disambiguation
 - Multi-language taint: 6 tests covering Python (pickle, subprocess), JS (innerHTML, execSync), Go (exec.Command, template.HTML)
@@ -110,6 +123,10 @@ Last updated: 2026-04-01 (multi-language taint sink patterns)
 - Multi-language absence: 6 tests covering Python (threading.Lock, tempfile), JS (createReadStream, fs.open), Go (context.WithCancel, http.Get body)
 - Multi-language quantum: 3 tests covering Python (threading.Thread), JS (Worker), Go (channel/select)
 - Multi-language membrane: 2 tests covering Python (raise_for_status), Go (errors.Is)
+- Echo slice: 4 tests (C return-code positive/negative, Go errors.Is, Python with-statement)
+- Provenance precision: 2 negative tests (transform≠form, prefetch≠fetch)
+- Rust: 4 tests (basic parsing, taint, original_diff, parent_function)
+- Lua: 4 tests (basic parsing, taint exec, parent_function, absence open/close)
 
 ---
 
