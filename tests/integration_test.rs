@@ -6565,3 +6565,42 @@ end
         "Absence should detect Lua io.open without close"
     );
 }
+
+#[test]
+fn test_lua_quantum_coroutine() {
+    // Lua coroutine.create should be detected as async context.
+    let source = r#"
+function producer(data)
+    local count = 0
+    local co = coroutine.create(function()
+        count = count + 1
+    end)
+    coroutine.resume(co)
+    return count
+end
+"#;
+    let path = "scripts/async.lua";
+    let parsed = ParsedFile::parse(path, source, Language::Lua).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([5]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::QuantumSlice),
+    )
+    .unwrap();
+
+    assert!(
+        !result.blocks.is_empty(),
+        "QuantumSlice should detect Lua coroutine.create as async context"
+    );
+}

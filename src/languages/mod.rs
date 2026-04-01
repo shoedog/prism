@@ -74,7 +74,7 @@ impl Language {
             Self::Java => vec!["method_declaration", "constructor_declaration"],
             Self::C => vec!["function_definition"],
             Self::Cpp => vec!["function_definition", "template_declaration"],
-            Self::Rust => vec!["function_item", "impl_item"],
+            Self::Rust => vec!["function_item"],
             Self::Lua => vec!["function_declaration", "local_function"],
         }
     }
