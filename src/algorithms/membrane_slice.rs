@@ -153,7 +153,7 @@ pub fn slice(files: &BTreeMap<String, ParsedFile>, diff: &DiffInput) -> Result<S
                                 || lt.contains("catch(")          // catch without space
                                 || lt.contains("noexcept")        // noexcept specification
                                 || lt.contains("std::exception")  // standard exception type
-                                // C++ RAII smart pointers (resource management = error handling)
+                                // C++ RAII smart pointers (responsible resource handling at call site)
                                 || lt.contains("unique_ptr")
                                 || lt.contains("shared_ptr")
                                 || lt.contains("make_unique")
