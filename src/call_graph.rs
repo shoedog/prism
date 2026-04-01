@@ -186,6 +186,113 @@ impl CallGraph {
             }
         }
 
+        // Level 3: parameter-passed function pointers (1-hop interprocedural).
+        //
+        // When a function calls through a parameter (`cb(data)` where `cb` is a
+        // parameter), check all callers of that function to see what argument they
+        // pass for that parameter position. If the argument is a known function
+        // name, add an edge from the original function to that target.
+        //
+        // This resolves patterns like:
+        //   void execute(callback_fn cb, int data) { cb(data); }
+        //   execute(handler_a, 1);  // → adds edge: execute → handler_a
+        let mut level3_sites: Vec<(FunctionId, CallSite)> = Vec::new();
+        for (caller_id, sites) in &calls {
+            let parsed = match files.get(&caller_id.file) {
+                Some(p) => p,
+                None => continue,
+            };
+
+            // Get parameter names for this function
+            let func_node = parsed.find_function_by_name(&caller_id.name);
+            let param_names = match func_node {
+                Some(ref f) => parsed.function_parameter_names(f),
+                None => continue,
+            };
+            if param_names.is_empty() {
+                continue;
+            }
+
+            for site in sites {
+                // Skip if already resolved to a known function
+                if functions.contains_key(&site.callee_name) {
+                    continue;
+                }
+                // Skip non-plain identifiers (already handled by Level 1/2)
+                if !site
+                    .callee_name
+                    .chars()
+                    .all(|c| c.is_alphanumeric() || c == '_')
+                {
+                    continue;
+                }
+                // Skip if already resolved to a known function by Level 1
+                let already_resolved = extra_sites.iter().any(|(cid, es)| {
+                    cid == caller_id
+                        && es.line == site.line
+                        && known_fn_names.contains(&es.callee_name)
+                });
+                if already_resolved {
+                    continue;
+                }
+
+                // Is this callee_name one of the function's parameters?
+                let param_idx = match param_names.iter().position(|p| p == &site.callee_name) {
+                    Some(idx) => idx,
+                    None => continue,
+                };
+
+                // Find all callers of this function and extract the argument at param_idx
+                if let Some(caller_sites) = callers.get(&caller_id.name) {
+                    for caller_site in caller_sites {
+                        let caller_parsed = match files.get(&caller_site.caller.file) {
+                            Some(p) => p,
+                            None => continue,
+                        };
+
+                        // Extract the argument text at the parameter position
+                        if let Some(arg_text) = caller_parsed.call_argument_text_at(
+                            caller_site.line,
+                            &caller_id.name,
+                            param_idx,
+                        ) {
+                            // Check if the argument is a known function name
+                            if known_fn_names.contains(&arg_text) {
+                                level3_sites.push((
+                                    caller_id.clone(),
+                                    CallSite {
+                                        caller: caller_id.clone(),
+                                        callee_name: arg_text,
+                                        line: site.line,
+                                    },
+                                ));
+                            } else {
+                                // Try Level 1 at the caller site: arg might be a local fptr variable
+                                let caller_func_source =
+                                    Self::extract_func_source(caller_parsed, &caller_site.caller);
+                                if let Some(resolved) = crate::ast::resolve_fptr_assignment(
+                                    &caller_func_source,
+                                    &arg_text,
+                                    &known_fn_names,
+                                ) {
+                                    level3_sites.push((
+                                        caller_id.clone(),
+                                        CallSite {
+                                            caller: caller_id.clone(),
+                                            callee_name: resolved,
+                                            line: site.line,
+                                        },
+                                    ));
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        extra_sites.extend(level3_sites);
+
         // Add resolved edges
         for (caller_id, site) in extra_sites {
             let callee_name = site.callee_name.clone();
