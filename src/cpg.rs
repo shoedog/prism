@@ -220,5 +220,46 @@ mod tests {
         assert!(CpgEdge::Call.is_interprocedural());
         assert!(CpgEdge::Return.is_interprocedural());
         assert!(!CpgEdge::DataFlow.is_interprocedural());
+        assert!(!CpgEdge::Contains.is_interprocedural());
+        assert!(!CpgEdge::FieldOf.is_interprocedural());
+        assert!(!CpgEdge::ControlFlow.is_data_flow());
+    }
+
+    #[test]
+    fn test_variable_node_accessors() {
+        let var_use = CpgNode::Variable {
+            path: AccessPath::from_expr("dev->id"),
+            file: "src/dev.c".into(),
+            function: "get_id".into(),
+            line: 8,
+            access: VarAccess::Use,
+        };
+        assert!(var_use.is_use());
+        assert!(!var_use.is_def());
+        assert!(!var_use.is_function());
+        assert!(!var_use.is_call());
+        assert_eq!(var_use.file(), "src/dev.c");
+        assert_eq!(var_use.line(), 8);
+    }
+
+    #[test]
+    fn test_statement_node_non_call() {
+        let branch = CpgNode::Statement {
+            file: "src/main.c".into(),
+            line: 15,
+            kind: StmtKind::Branch,
+        };
+        assert!(!branch.is_call());
+        assert!(!branch.is_function());
+        assert!(!branch.is_def());
+        assert_eq!(branch.file(), "src/main.c");
+        assert_eq!(branch.line(), 15);
+
+        let ret = CpgNode::Statement {
+            file: "src/main.c".into(),
+            line: 20,
+            kind: StmtKind::Return,
+        };
+        assert!(!ret.is_call());
     }
 }
