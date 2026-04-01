@@ -97,13 +97,43 @@ pub fn slice(files: &BTreeMap<String, ParsedFile>, diff: &DiffInput) -> Result<S
                             if l == 0 || l > caller_source.len() {
                                 return false;
                             }
-                            let lt = caller_source[l - 1];
+                            let lt = caller_source[l - 1].trim();
+                            // GC-language error handling
                             lt.contains("try")
                                 || lt.contains("catch")
                                 || lt.contains("except")
                                 || lt.contains("if err")
                                 || lt.contains("if error")
                                 || lt.contains(".catch(")
+                                // C/C++ return-value error handling
+                                || lt.contains("if (ret < 0)")
+                                || lt.contains("if (ret == -1)")
+                                || lt.contains("if (ret != 0)")
+                                || lt.contains("if (rc < 0)")
+                                || lt.contains("if (rc != 0)")
+                                || lt.contains("if (status < 0)")
+                                || lt.contains("if (result < 0)")
+                                // C/C++ NULL-pointer checks
+                                || lt.contains("if (!") // covers if (!ptr), if (!ret)
+                                || lt.contains("if (NULL")
+                                || lt.contains("== NULL)")
+                                || lt.contains("!= NULL)")
+                                || lt.contains("if (ptr == NULL")
+                                || lt.contains("== nullptr)")
+                                || lt.contains("!= nullptr)")
+                                // C errno / perror
+                                || lt.contains("errno")
+                                || lt.contains("perror(")
+                                || lt.contains("strerror(")
+                                // C/C++ assert macros
+                                || lt.contains("assert(")
+                                || lt.contains("ASSERT_")
+                                || lt.contains("CHECK_")
+                                || lt.contains("WARN_ON(")
+                                || lt.contains("WARN_ON_ONCE(")
+                                || lt.contains("BUG_ON(")
+                                // Go-style (already partially covered by "if err")
+                                || lt.contains("if (err")
                         });
 
                         if !has_error_handling {

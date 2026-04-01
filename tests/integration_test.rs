@@ -3861,3 +3861,159 @@ fn test_algorithm_language_matrix() {
 
     // Always passes — this is a reporting tool, not an enforcement test
 }
+
+// ====== MembraneSlice C error handling tests ======
+
+/// Test that MembraneSlice correctly recognises C-style error handling
+/// (if (ret < 0), if (!ptr), errno, perror) and does NOT emit a false
+/// "unprotected caller" finding when the caller already checks errors.
+#[test]
+fn test_membrane_c_error_handling_recognised() {
+    // File A: the API being changed
+    let api_source = r#"
+#include <stdlib.h>
+
+int create_device(const char *name, int id) {
+    if (!name) return -1;
+    // ... allocate and initialise ...
+    return 0;
+}
+"#;
+
+    // File B: caller WITH proper C error handling
+    let caller_good_source = r#"
+#include "api.h"
+#include <stdio.h>
+
+int init_system(void) {
+    int ret = create_device("eth0", 1);
+    if (ret < 0) {
+        perror("create_device failed");
+        return -1;
+    }
+    return 0;
+}
+"#;
+
+    // File C: caller WITHOUT error handling
+    let caller_bad_source = r#"
+#include "api.h"
+
+void quick_init(void) {
+    create_device("eth0", 1);
+}
+"#;
+
+    let mut files = BTreeMap::new();
+    files.insert(
+        "src/api.c".to_string(),
+        ParsedFile::parse("src/api.c", api_source, Language::C).unwrap(),
+    );
+    files.insert(
+        "src/good_caller.c".to_string(),
+        ParsedFile::parse("src/good_caller.c", caller_good_source, Language::C).unwrap(),
+    );
+    files.insert(
+        "src/bad_caller.c".to_string(),
+        ParsedFile::parse("src/bad_caller.c", caller_bad_source, Language::C).unwrap(),
+    );
+
+    // Diff touches create_device body
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: "src/api.c".to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([5]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::MembraneSlice),
+    )
+    .unwrap();
+
+    // The good caller (ret < 0 + perror) should NOT be flagged
+    let good_findings: Vec<_> = result
+        .findings
+        .iter()
+        .filter(|f| f.file.contains("good_caller"))
+        .collect();
+    assert!(
+        good_findings.is_empty(),
+        "C error handling (if ret < 0 / perror) should suppress unprotected-caller finding, got: {:?}",
+        good_findings
+    );
+
+    // The bad caller (no error check) SHOULD be flagged
+    let bad_findings: Vec<_> = result
+        .findings
+        .iter()
+        .filter(|f| f.file.contains("bad_caller"))
+        .collect();
+    assert!(
+        !bad_findings.is_empty(),
+        "Caller without error handling should be flagged as unprotected"
+    );
+}
+
+/// Test that MembraneSlice recognises NULL-pointer checks as error handling.
+#[test]
+fn test_membrane_c_null_check_recognised() {
+    let api_source = r#"
+#include <stdlib.h>
+
+void *allocate_buffer(int size) {
+    return malloc(size);
+}
+"#;
+
+    let caller_source = r#"
+#include "api.h"
+
+int use_buffer(void) {
+    void *buf = allocate_buffer(1024);
+    if (!buf) {
+        return -1;
+    }
+    return 0;
+}
+"#;
+
+    let mut files = BTreeMap::new();
+    files.insert(
+        "src/api.c".to_string(),
+        ParsedFile::parse("src/api.c", api_source, Language::C).unwrap(),
+    );
+    files.insert(
+        "src/caller.c".to_string(),
+        ParsedFile::parse("src/caller.c", caller_source, Language::C).unwrap(),
+    );
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: "src/api.c".to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([5]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::MembraneSlice),
+    )
+    .unwrap();
+
+    let findings: Vec<_> = result
+        .findings
+        .iter()
+        .filter(|f| f.file.contains("caller"))
+        .collect();
+    assert!(
+        findings.is_empty(),
+        "NULL-pointer check (if (!buf)) should count as error handling, got: {:?}",
+        findings
+    );
+}

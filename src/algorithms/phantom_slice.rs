@@ -211,5 +211,105 @@ fn extract_function_name(line: &str) -> Option<String> {
             });
     }
 
+    // C/C++: [qualifiers] [return_type] [*] function_name(
+    // Matches patterns like:
+    //   int main(int argc, char **argv)
+    //   static void *create_device(const char *name)
+    //   void DeviceManager::process(int id)
+    //   inline bool validate_frame(frame_t *f)
+    if line.contains('(') && !line.starts_with('#') && !line.starts_with("//") {
+        let before_paren = line.split('(').next()?;
+        let tokens: Vec<&str> = before_paren.split_whitespace().collect();
+        // Need at least 2 tokens: a return type and a name
+        if tokens.len() >= 2 {
+            let last = *tokens.last()?;
+            // Strip leading pointer stars: *create_device -> create_device
+            let name = last.trim_start_matches('*');
+            // Handle C++ qualified names: Class::method -> method
+            let name = name.rsplit("::").next().unwrap_or(name);
+
+            if !name.is_empty()
+                && name
+                    .chars()
+                    .next()
+                    .map(|c| c.is_alphabetic() || c == '_')
+                    .unwrap_or(false)
+                && name.chars().all(|c| c.is_alphanumeric() || c == '_')
+            {
+                // Exclude control flow keywords and common non-function patterns
+                const NOT_FUNCTIONS: &[&str] = &[
+                    "if", "else", "while", "for", "switch", "return", "sizeof", "typeof",
+                    "alignof", "case", "catch", "throw", "new", "delete",
+                ];
+                if !NOT_FUNCTIONS.contains(&name) {
+                    return Some(name.to_string());
+                }
+            }
+        }
+    }
+
     None
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_extract_c_function_names() {
+        // Basic C functions
+        assert_eq!(
+            extract_function_name("int main(int argc, char **argv) {"),
+            Some("main".to_string())
+        );
+        assert_eq!(
+            extract_function_name("void process_packet(uint8_t *buf, size_t len) {"),
+            Some("process_packet".to_string())
+        );
+        assert_eq!(
+            extract_function_name("static int init_module(void) {"),
+            Some("init_module".to_string())
+        );
+        // Pointer return type
+        assert_eq!(
+            extract_function_name("device_t *create_device(const char *name, int id) {"),
+            Some("create_device".to_string())
+        );
+        assert_eq!(
+            extract_function_name("static void *worker_thread(void *arg) {"),
+            Some("worker_thread".to_string())
+        );
+        // C++ qualified name
+        assert_eq!(
+            extract_function_name("void DeviceManager::process(int id) {"),
+            Some("process".to_string())
+        );
+        // C++ inline
+        assert_eq!(
+            extract_function_name("inline bool validate_frame(frame_t *f) {"),
+            Some("validate_frame".to_string())
+        );
+
+        // Should NOT match
+        assert_eq!(extract_function_name("if (x > 0) {"), None);
+        assert_eq!(extract_function_name("while (running) {"), None);
+        assert_eq!(extract_function_name("for (int i = 0; i < n; i++) {"), None);
+        assert_eq!(extract_function_name("#include <stdio.h>"), None);
+        assert_eq!(extract_function_name("// int old_func(void) {"), None);
+        assert_eq!(extract_function_name("return sizeof(int);"), None);
+
+        // Existing languages still work
+        assert_eq!(
+            extract_function_name("def process_data(x, y):"),
+            Some("process_data".to_string())
+        );
+        assert_eq!(
+            extract_function_name("function handleClick(event) {"),
+            Some("handleClick".to_string())
+        );
+        assert_eq!(
+            extract_function_name("func ProcessRequest(w http.ResponseWriter) {"),
+            Some("ProcessRequest".to_string())
+        );
+    }
 }
