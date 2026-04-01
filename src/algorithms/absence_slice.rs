@@ -251,15 +251,16 @@ pub fn default_pairs() -> Vec<PairedPattern> {
         PairedPattern {
             open_patterns: vec![".lock()", "Mutex::lock(", "RwLock::read(", "RwLock::write("],
             close_patterns: vec!["drop("],
-            description: "Rust mutex locked without explicit drop (long hold risk)",
+            description:
+                "advisory: Rust mutex lock held to end of scope (explicit drop() releases sooner)",
         },
         PairedPattern {
             open_patterns: vec!["unsafe {", "unsafe{"],
             close_patterns: vec![
-                "assert!(",
-                "debug_assert!(",
-                "assert_eq!(",
-                "assert_ne!(",
+                "assert!", // line text scan (no trailing '(' — macros aren't call nodes)
+                "debug_assert!",
+                "assert_eq!",
+                "assert_ne!",
                 "// SAFETY",
                 "// Safety",
             ],
