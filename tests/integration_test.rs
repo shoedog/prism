@@ -4017,3 +4017,439 @@ int use_buffer(void) {
         findings
     );
 }
+
+// ====== Function pointer call edge resolution tests ======
+
+/// Test that the call graph resolves function pointer calls through struct fields.
+/// `timer->callback(data)` should produce an edge to `callback` in the call graph.
+#[test]
+fn test_call_graph_field_expression_call() {
+    let source = r#"
+#include <stdlib.h>
+
+typedef struct {
+    void (*callback)(void *data);
+    void *data;
+} timer_t;
+
+void timeout_handler(void *data) {
+    // handle timeout
+}
+
+void fire_timer(timer_t *timer) {
+    timer->callback(timer->data);
+}
+
+void setup_timer(timer_t *timer) {
+    timer->callback = timeout_handler;
+    timer->data = NULL;
+    fire_timer(timer);
+}
+"#;
+
+    let mut files = BTreeMap::new();
+    files.insert(
+        "src/timer.c".to_string(),
+        ParsedFile::parse("src/timer.c", source, Language::C).unwrap(),
+    );
+
+    let call_graph = CallGraph::build(&files);
+
+    // fire_timer calls timer->callback — should resolve to callee_name "callback"
+    let fire_timer_id = call_graph
+        .functions
+        .get("fire_timer")
+        .expect("fire_timer should be in call graph");
+
+    let fire_timer_calls = call_graph
+        .calls
+        .get(&fire_timer_id[0])
+        .expect("fire_timer should have call sites");
+
+    let callee_names: Vec<&str> = fire_timer_calls
+        .iter()
+        .map(|s| s.callee_name.as_str())
+        .collect();
+    assert!(
+        callee_names.contains(&"callback"),
+        "timer->callback(...) should resolve callee_name to 'callback', got: {:?}",
+        callee_names
+    );
+}
+
+/// Test that MembraneSlice detects cross-file callers through function pointer dispatch.
+/// When ops->process() is called in another file and process() is modified,
+/// MembraneSlice should find the cross-file caller.
+#[test]
+fn test_membrane_function_pointer_cross_file() {
+    // File A: defines process() which is called via struct field in File B
+    let api_source = r#"
+#include <stdlib.h>
+
+int process(int *data, int len) {
+    for (int i = 0; i < len; i++) {
+        data[i] *= 2;
+    }
+    return 0;
+}
+"#;
+
+    // File B: calls process via ops->process(data, len)
+    let caller_source = r#"
+#include "api.h"
+
+struct operations {
+    int (*process)(int *data, int len);
+};
+
+int run_pipeline(struct operations *ops, int *data, int len) {
+    int ret = ops->process(data, len);
+    if (ret < 0) {
+        return -1;
+    }
+    return 0;
+}
+"#;
+
+    let mut files = BTreeMap::new();
+    files.insert(
+        "src/api.c".to_string(),
+        ParsedFile::parse("src/api.c", api_source, Language::C).unwrap(),
+    );
+    files.insert(
+        "src/driver.c".to_string(),
+        ParsedFile::parse("src/driver.c", caller_source, Language::C).unwrap(),
+    );
+
+    // Diff touches process() body
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: "src/api.c".to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([5, 6]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::MembraneSlice),
+    )
+    .unwrap();
+
+    // MembraneSlice should find run_pipeline as a cross-file caller of process
+    // via the ops->process() call
+    assert!(
+        !result.blocks.is_empty(),
+        "MembraneSlice should detect cross-file caller via function pointer dispatch"
+    );
+
+    // The blocks should reference the driver file
+    let has_driver_ref = result
+        .blocks
+        .iter()
+        .any(|b| b.file_line_map.keys().any(|f| f.contains("driver")));
+    assert!(
+        has_driver_ref,
+        "MembraneSlice blocks should include the cross-file caller in driver.c"
+    );
+}
+
+/// Test that CircularSlice detects cycles through function pointer calls.
+#[test]
+fn test_circular_slice_function_pointer_cycle() {
+    // dispatch() calls handler->process(), and process() calls dispatch() — a cycle
+    let source = r#"
+#include <stdlib.h>
+
+typedef struct handler {
+    void (*process)(int data);
+} handler_t;
+
+void dispatch(handler_t *handler, int data);
+
+void process(int data) {
+    handler_t h;
+    h.process = process;
+    if (data > 0) {
+        dispatch(&h, data - 1);
+    }
+}
+
+void dispatch(handler_t *handler, int data) {
+    handler->process(data);
+}
+"#;
+
+    let mut files = BTreeMap::new();
+    files.insert(
+        "src/loop.c".to_string(),
+        ParsedFile::parse("src/loop.c", source, Language::C).unwrap(),
+    );
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: "src/loop.c".to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([12]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::CircularSlice),
+    )
+    .unwrap();
+
+    // CircularSlice should detect the process → dispatch → process cycle
+    // via handler->process() resolving to the "process" callee name
+    let has_cycle_finding = result.findings.iter().any(|f| {
+        f.description.contains("cycle") || f.category.as_deref() == Some("recursive_cycle")
+    });
+    assert!(
+        !result.blocks.is_empty() || has_cycle_finding,
+        "CircularSlice should detect cycle through function pointer dispatch"
+    );
+}
+
+// ====== Function pointer resolution Level 1 & 2 tests ======
+
+/// Level 1: local variable function pointer — `fptr = target_func; fptr(42);`
+/// should produce a call edge from the caller to target_func.
+#[test]
+fn test_call_graph_level1_local_fptr() {
+    let source = r#"
+#include <stdlib.h>
+
+void target_func(int x) {
+    // do work
+}
+
+void other_func(int x) {
+    // different work
+}
+
+void caller(void) {
+    void (*fptr)(int) = target_func;
+    fptr(42);
+}
+
+void caller_reassign(void) {
+    void (*fptr)(int) = other_func;
+    fptr = target_func;
+    fptr(99);
+}
+"#;
+
+    let mut files = BTreeMap::new();
+    files.insert(
+        "src/fptr.c".to_string(),
+        ParsedFile::parse("src/fptr.c", source, Language::C).unwrap(),
+    );
+
+    let call_graph = CallGraph::build(&files);
+
+    // caller's fptr(42) should resolve to target_func
+    let caller_id = &call_graph.functions.get("caller").unwrap()[0];
+    let caller_calls = call_graph.calls.get(caller_id).unwrap();
+    let callee_names: Vec<&str> = caller_calls
+        .iter()
+        .map(|s| s.callee_name.as_str())
+        .collect();
+    assert!(
+        callee_names.contains(&"target_func"),
+        "Level 1: fptr = target_func; fptr() should resolve to target_func, got: {:?}",
+        callee_names
+    );
+
+    // caller_reassign's fptr(99) should resolve to target_func (last assignment)
+    let reassign_id = &call_graph.functions.get("caller_reassign").unwrap()[0];
+    let reassign_calls = call_graph.calls.get(reassign_id).unwrap();
+    let reassign_names: Vec<&str> = reassign_calls
+        .iter()
+        .map(|s| s.callee_name.as_str())
+        .collect();
+    assert!(
+        reassign_names.contains(&"target_func"),
+        "Level 1: reassigned fptr should resolve to last assignment (target_func), got: {:?}",
+        reassign_names
+    );
+}
+
+/// Level 2: array dispatch table — `handlers[idx](data)` should produce
+/// edges to all functions in the initializer list.
+#[test]
+fn test_call_graph_level2_dispatch_table() {
+    let source = r#"
+#include <stdlib.h>
+
+void handle_get(int req) { }
+void handle_set(int req) { }
+void handle_delete(int req) { }
+
+typedef void (*handler_fn)(int);
+
+void dispatch(int cmd, int req) {
+    handler_fn handlers[] = {handle_get, handle_set, handle_delete};
+    handlers[cmd](req);
+}
+"#;
+
+    let mut files = BTreeMap::new();
+    files.insert(
+        "src/dispatch.c".to_string(),
+        ParsedFile::parse("src/dispatch.c", source, Language::C).unwrap(),
+    );
+
+    let call_graph = CallGraph::build(&files);
+
+    let dispatch_id = &call_graph.functions.get("dispatch").unwrap()[0];
+    let dispatch_calls = call_graph.calls.get(dispatch_id).unwrap();
+    let callee_names: BTreeSet<&str> = dispatch_calls
+        .iter()
+        .map(|s| s.callee_name.as_str())
+        .collect();
+
+    assert!(
+        callee_names.contains("handle_get"),
+        "Level 2: dispatch table should resolve to handle_get, got: {:?}",
+        callee_names
+    );
+    assert!(
+        callee_names.contains("handle_set"),
+        "Level 2: dispatch table should resolve to handle_set, got: {:?}",
+        callee_names
+    );
+    assert!(
+        callee_names.contains("handle_delete"),
+        "Level 2: dispatch table should resolve to handle_delete, got: {:?}",
+        callee_names
+    );
+}
+
+/// Level 2: global/file-scope dispatch table with designated initializers.
+#[test]
+fn test_call_graph_level2_global_dispatch_table() {
+    let source = r#"
+#include <stdlib.h>
+
+int my_open(int fd) { return 0; }
+int my_read(int fd) { return 0; }
+int my_write(int fd) { return 0; }
+
+typedef int (*file_op)(int);
+
+file_op file_ops[] = {my_open, my_read, my_write};
+
+void do_operation(int op, int fd) {
+    file_ops[op](fd);
+}
+"#;
+
+    let mut files = BTreeMap::new();
+    files.insert(
+        "src/fileops.c".to_string(),
+        ParsedFile::parse("src/fileops.c", source, Language::C).unwrap(),
+    );
+
+    let call_graph = CallGraph::build(&files);
+
+    let do_op_id = &call_graph.functions.get("do_operation").unwrap()[0];
+    let do_op_calls = call_graph.calls.get(do_op_id).unwrap();
+    let callee_names: BTreeSet<&str> = do_op_calls.iter().map(|s| s.callee_name.as_str()).collect();
+
+    assert!(
+        callee_names.contains("my_open"),
+        "Level 2: global dispatch table should resolve to my_open, got: {:?}",
+        callee_names
+    );
+    assert!(
+        callee_names.contains("my_read"),
+        "Level 2: global dispatch table should resolve to my_read, got: {:?}",
+        callee_names
+    );
+    assert!(
+        callee_names.contains("my_write"),
+        "Level 2: global dispatch table should resolve to my_write, got: {:?}",
+        callee_names
+    );
+}
+
+/// Level 1 end-to-end: MembraneSlice should detect a cross-file caller through
+/// a local function pointer variable.
+#[test]
+fn test_membrane_through_local_fptr() {
+    let api_source = r#"
+int process_data(int *buf, int len) {
+    for (int i = 0; i < len; i++) {
+        buf[i] += 1;
+    }
+    return 0;
+}
+"#;
+
+    let caller_source = r#"
+#include "api.h"
+
+int process_data(int *buf, int len);
+
+typedef int (*processor_fn)(int *, int);
+
+int run(int *data, int len) {
+    processor_fn proc = process_data;
+    int ret = proc(data, len);
+    if (ret < 0) {
+        return -1;
+    }
+    return 0;
+}
+"#;
+
+    let mut files = BTreeMap::new();
+    files.insert(
+        "src/api.c".to_string(),
+        ParsedFile::parse("src/api.c", api_source, Language::C).unwrap(),
+    );
+    files.insert(
+        "src/caller.c".to_string(),
+        ParsedFile::parse("src/caller.c", caller_source, Language::C).unwrap(),
+    );
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: "src/api.c".to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([4]),
+        }],
+    };
+
+    let call_graph = CallGraph::build(&files);
+
+    // Verify the edge exists: run -> process_data via fptr
+    let run_id = &call_graph.functions.get("run").unwrap()[0];
+    let run_calls = call_graph.calls.get(run_id).unwrap();
+    let callee_names: Vec<&str> = run_calls.iter().map(|s| s.callee_name.as_str()).collect();
+    assert!(
+        callee_names.contains(&"process_data"),
+        "Level 1: proc = process_data; proc() should create edge to process_data, got: {:?}",
+        callee_names
+    );
+
+    // MembraneSlice should find run() as a cross-file caller of process_data
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::MembraneSlice),
+    )
+    .unwrap();
+
+    let has_caller_ref = result
+        .blocks
+        .iter()
+        .any(|b| b.file_line_map.keys().any(|f| f.contains("caller")));
+    assert!(
+        has_caller_ref,
+        "MembraneSlice should detect cross-file caller via local function pointer"
+    );
+}

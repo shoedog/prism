@@ -92,11 +92,106 @@ impl CallGraph {
             }
         }
 
+        // Phase 3: Resolve indirect call sites (function pointer variables and dispatch tables).
+        //
+        // For each callee_name that doesn't match any known function:
+        //   Level 1: scan the caller's source for `callee_name = known_func` assignments
+        //   Level 2: if callee_name contains `[`, find the array initializer and add all entries
+        let known_fn_names: BTreeSet<String> = functions.keys().cloned().collect();
+        let mut extra_sites: Vec<(FunctionId, CallSite)> = Vec::new();
+
+        for (caller_id, sites) in &calls {
+            for site in sites {
+                if functions.contains_key(&site.callee_name) {
+                    continue; // Already resolved by direct name match
+                }
+
+                let parsed = match files.get(&caller_id.file) {
+                    Some(p) => p,
+                    None => continue,
+                };
+
+                // Level 2: array dispatch table — callee_name like "handlers[0]"
+                if site.callee_name.contains('[') {
+                    let array_name = site.callee_name.split('[').next().unwrap_or("");
+                    if array_name.is_empty() {
+                        continue;
+                    }
+                    // Search the caller function's source, then file scope
+                    let func_source = Self::extract_func_source(parsed, caller_id);
+                    let targets = crate::ast::resolve_array_dispatch(
+                        &func_source,
+                        array_name,
+                        &known_fn_names,
+                    );
+                    // Also check file scope for global dispatch tables
+                    let file_targets = if targets.is_empty() {
+                        crate::ast::resolve_array_dispatch(
+                            &parsed.source,
+                            array_name,
+                            &known_fn_names,
+                        )
+                    } else {
+                        Vec::new()
+                    };
+                    for target in targets.iter().chain(file_targets.iter()) {
+                        extra_sites.push((
+                            caller_id.clone(),
+                            CallSite {
+                                caller: caller_id.clone(),
+                                callee_name: target.clone(),
+                                line: site.line,
+                            },
+                        ));
+                    }
+                    continue;
+                }
+
+                // Level 1: local variable function pointer — callee_name is a plain identifier
+                if site
+                    .callee_name
+                    .chars()
+                    .all(|c| c.is_alphanumeric() || c == '_')
+                {
+                    let func_source = Self::extract_func_source(parsed, caller_id);
+                    if let Some(resolved) = crate::ast::resolve_fptr_assignment(
+                        &func_source,
+                        &site.callee_name,
+                        &known_fn_names,
+                    ) {
+                        extra_sites.push((
+                            caller_id.clone(),
+                            CallSite {
+                                caller: caller_id.clone(),
+                                callee_name: resolved,
+                                line: site.line,
+                            },
+                        ));
+                    }
+                }
+            }
+        }
+
+        // Add resolved edges
+        for (caller_id, site) in extra_sites {
+            let callee_name = site.callee_name.clone();
+            calls.entry(caller_id).or_default().insert(site.clone());
+            callers.entry(callee_name).or_default().push(site);
+        }
+
         CallGraph {
             functions,
             calls,
             callers,
         }
+    }
+
+    /// Extract the source text for a function from its parsed file.
+    fn extract_func_source(parsed: &ParsedFile, func_id: &FunctionId) -> String {
+        let lines: Vec<&str> = parsed.source.lines().collect();
+        let start = func_id.start_line.saturating_sub(1); // 1-indexed to 0-indexed
+        let end = func_id.end_line.min(lines.len());
+        lines[start..end].join("\n")
     }
 
     /// Find all callers of a function by name, up to a given depth.
