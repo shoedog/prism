@@ -505,6 +505,161 @@ impl ParsedFile {
     }
 }
 
+/// Scan a function's source text for assignments of the form `var_name = func_name`
+/// where `func_name` is a known function. Returns the last such assignment's RHS
+/// (simple must-alias within a single function).
+///
+/// Used by call graph Phase 3 to resolve local function pointer variables.
+pub fn resolve_fptr_assignment(
+    func_source: &str,
+    var_name: &str,
+    known_fns: &BTreeSet<String>,
+) -> Option<String> {
+    let mut resolved = None;
+    for line in func_source.lines() {
+        let trimmed = line.trim();
+        // Match: var_name = identifier  (with optional trailing semicolon/comma)
+        // Also match initialization: type (*var_name)(...) = identifier;
+        //   and typedef:  callback_fn var_name = identifier;
+
+        // Strategy: find `var_name` followed by `=` (but not `==`), then extract RHS identifier
+        if let Some(eq_pos) = trimmed.find('=') {
+            // Skip ==, !=, <=, >=
+            if eq_pos + 1 < trimmed.len() {
+                let after_eq = trimmed.as_bytes().get(eq_pos + 1);
+                if after_eq == Some(&b'=') {
+                    continue;
+                }
+            }
+            if eq_pos > 0 {
+                let before_eq = trimmed.as_bytes().get(eq_pos - 1);
+                if before_eq == Some(&b'!') || before_eq == Some(&b'<') || before_eq == Some(&b'>')
+                {
+                    continue;
+                }
+            }
+
+            let lhs = trimmed[..eq_pos].trim();
+            let rhs = trimmed[eq_pos + 1..].trim().trim_end_matches(';').trim();
+
+            // Check if LHS contains var_name as the assigned variable
+            // Handles: `var_name =`, `type var_name =`, `type (*var_name)(args) =`
+            let lhs_has_var = lhs == var_name
+                || lhs.ends_with(&format!(" {}", var_name))
+                || lhs.ends_with(&format!("*{}", var_name))
+                || lhs.contains(&format!("(*{})", var_name))
+                || lhs.contains(&format!(" {} ", var_name));
+
+            if !lhs_has_var {
+                continue;
+            }
+
+            // RHS should be a plain identifier (possibly with & prefix for address-of)
+            let rhs_name = rhs.trim_start_matches('&');
+            if !rhs_name.is_empty()
+                && rhs_name.chars().all(|c| c.is_alphanumeric() || c == '_')
+                && known_fns.contains(rhs_name)
+            {
+                resolved = Some(rhs_name.to_string());
+            }
+        }
+    }
+    resolved
+}
+
+/// Scan a function (or file-scope) source for an array initializer of the form:
+///   `type array_name[] = { func_a, func_b, func_c };`
+/// Returns all known function names that appear in the initializer list.
+///
+/// Used by call graph Phase 3 to resolve dispatch table calls.
+pub fn resolve_array_dispatch(
+    source: &str,
+    array_name: &str,
+    known_fns: &BTreeSet<String>,
+) -> Vec<String> {
+    let mut targets = Vec::new();
+
+    // Find the array initializer: look for `array_name` followed by `[` ... `]` ... `=` ... `{`
+    // This is a text heuristic — we look for lines containing the array name and an initializer
+    let lines: Vec<&str> = source.lines().collect();
+    let mut in_initializer = false;
+    let mut brace_depth = 0;
+
+    for line in &lines {
+        let trimmed = line.trim();
+
+        if !in_initializer {
+            // Look for: array_name ... [] = { or array_name ... [N] = {
+            if trimmed.contains(array_name) && trimmed.contains('[') && trimmed.contains('=') {
+                in_initializer = true;
+                // Count braces on this line
+                for ch in trimmed.chars() {
+                    match ch {
+                        '{' => brace_depth += 1,
+                        '}' => {
+                            brace_depth -= 1;
+                            if brace_depth <= 0 {
+                                in_initializer = false;
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+                // Extract identifiers from this line's initializer portion
+                if let Some(brace_start) = trimmed.find('{') {
+                    extract_fn_names_from_init(&trimmed[brace_start..], known_fns, &mut targets);
+                }
+                continue;
+            }
+        }
+
+        if in_initializer {
+            for ch in trimmed.chars() {
+                match ch {
+                    '{' => brace_depth += 1,
+                    '}' => {
+                        brace_depth -= 1;
+                        if brace_depth <= 0 {
+                            in_initializer = false;
+                        }
+                    }
+                    _ => {}
+                }
+            }
+            extract_fn_names_from_init(trimmed, known_fns, &mut targets);
+        }
+    }
+
+    targets
+}
+
+/// Extract known function names from an initializer fragment like `{func_a, func_b, .field = func_c}`.
+fn extract_fn_names_from_init(text: &str, known_fns: &BTreeSet<String>, out: &mut Vec<String>) {
+    // Split on commas and braces, then check each token
+    for token in text.split(|c: char| c == ',' || c == '{' || c == '}' || c == '(' || c == ')') {
+        let token = token.trim();
+        // Handle designated initializers: `.field = func_name`
+        let ident = if let Some(eq_pos) = token.find('=') {
+            let rhs = token[eq_pos + 1..].trim();
+            // Skip ==
+            if token.as_bytes().get(eq_pos + 1) == Some(&b'=') {
+                continue;
+            }
+            rhs
+        } else {
+            token
+        };
+        let ident = ident.trim_start_matches('&');
+        if !ident.is_empty()
+            && ident.chars().all(|c| c.is_alphanumeric() || c == '_')
+            && known_fns.contains(ident)
+            && !out.contains(&ident.to_string())
+        {
+            out.push(ident.to_string());
+        }
+    }
+}
+
 /// Extract the variable names that are logically written by an lvalue expression.
 ///
 /// Handles three C/C++ indirection patterns:
