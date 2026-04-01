@@ -503,6 +503,180 @@ impl ParsedFile {
         }
         None
     }
+
+    /// Extract the ordered parameter names from a function definition node.
+    ///
+    /// Walks the tree-sitter AST to find `parameter_declaration` (C/C++),
+    /// `parameter` (Go/Rust), or `identifier` children of the parameters node.
+    /// Returns the names in declaration order.
+    pub fn function_parameter_names(&self, func_node: &Node<'_>) -> Vec<String> {
+        let mut names = Vec::new();
+        // Find the parameters node — could be in a declarator chain (C/C++) or direct
+        if let Some(params) = self.find_parameters_node(func_node) {
+            let mut cursor = params.walk();
+            for child in params.children(&mut cursor) {
+                if let Some(name) = self.extract_param_name(&child) {
+                    names.push(name);
+                }
+            }
+        }
+        names
+    }
+
+    /// Find the parameters node within a function definition.
+    /// Handles the C/C++ declarator chain (function_definition → declarator → function_declarator → parameters).
+    fn find_parameters_node<'a>(&self, node: &Node<'a>) -> Option<Node<'a>> {
+        // Direct "parameters" field (Go, Rust, Python, JS/TS, Java, Lua)
+        if let Some(params) = node.child_by_field_name("parameters") {
+            return Some(params);
+        }
+        // C/C++: navigate declarator chain to find function_declarator with parameters
+        if let Some(declarator) = node.child_by_field_name("declarator") {
+            return self.find_params_in_declarator(&declarator);
+        }
+        None
+    }
+
+    /// Recursively search a C/C++ declarator chain for a parameters node.
+    fn find_params_in_declarator<'a>(&self, node: &Node<'a>) -> Option<Node<'a>> {
+        if let Some(params) = node.child_by_field_name("parameters") {
+            return Some(params);
+        }
+        // Navigate: pointer_declarator → function_declarator, etc.
+        if let Some(decl) = node.child_by_field_name("declarator") {
+            return self.find_params_in_declarator(&decl);
+        }
+        // Walk children for other declarator wrappers
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            if child.kind().contains("declarator") {
+                if let Some(params) = self.find_params_in_declarator(&child) {
+                    return Some(params);
+                }
+            }
+        }
+        None
+    }
+
+    /// Extract the parameter name from a parameter declaration node.
+    fn extract_param_name(&self, node: &Node<'_>) -> Option<String> {
+        match node.kind() {
+            "parameter_declaration" | "optional_parameter_declaration" => {
+                // C/C++/Java: has a declarator field containing the identifier
+                if let Some(decl) = node.child_by_field_name("declarator") {
+                    return Some(self.innermost_identifier(&decl));
+                }
+                // Fallback: find any identifier child
+                let mut cursor = node.walk();
+                for child in node.children(&mut cursor) {
+                    if child.kind() == "identifier" {
+                        return Some(self.node_text(&child).to_string());
+                    }
+                }
+                None
+            }
+            "parameter" => {
+                // Rust/Go: name field or pattern field
+                if let Some(name) = node.child_by_field_name("name") {
+                    return Some(self.node_text(&name).to_string());
+                }
+                if let Some(pattern) = node.child_by_field_name("pattern") {
+                    return Some(self.node_text(&pattern).to_string());
+                }
+                // Go: last identifier before the type
+                let mut cursor = node.walk();
+                for child in node.children(&mut cursor) {
+                    if child.kind() == "identifier" {
+                        return Some(self.node_text(&child).to_string());
+                    }
+                }
+                None
+            }
+            "identifier" => {
+                // Python/Lua: parameters may be direct identifiers
+                Some(self.node_text(node).to_string())
+            }
+            _ => None,
+        }
+    }
+
+    /// Find the innermost identifier in a C/C++ declarator chain.
+    fn innermost_identifier(&self, node: &Node<'_>) -> String {
+        if node.kind() == "identifier" || node.kind() == "field_identifier" {
+            return self.node_text(node).to_string();
+        }
+        // Check declarator field first
+        if let Some(decl) = node.child_by_field_name("declarator") {
+            return self.innermost_identifier(&decl);
+        }
+        // Walk children
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            if child.kind() == "identifier" || child.kind() == "field_identifier" {
+                return self.node_text(&child).to_string();
+            }
+            if child.kind().contains("declarator") {
+                return self.innermost_identifier(&child);
+            }
+        }
+        self.node_text(node).to_string()
+    }
+
+    /// Extract the Nth argument expression text from a call expression on a given line.
+    ///
+    /// Searches for call expressions on the specified line, then returns the text
+    /// of the argument at `arg_index` (0-based).
+    pub fn call_argument_text_at(
+        &self,
+        line: usize,
+        callee_name: &str,
+        arg_index: usize,
+    ) -> Option<String> {
+        self.find_call_arg_at(self.tree.root_node(), line, callee_name, arg_index)
+    }
+
+    fn find_call_arg_at(
+        &self,
+        node: Node<'_>,
+        line: usize,
+        callee_name: &str,
+        arg_index: usize,
+    ) -> Option<String> {
+        let node_line = node.start_position().row + 1;
+
+        if node_line == line && self.language.is_call_node(node.kind()) {
+            if let Some(name_node) = self.language.call_function_name(&node) {
+                let name = self.node_text(&name_node);
+                if name == callee_name {
+                    if let Some(args_node) = self.language.call_arguments(&node) {
+                        // Count non-punctuation children to find the Nth argument
+                        let mut arg_idx = 0;
+                        let mut cursor = args_node.walk();
+                        for child in args_node.children(&mut cursor) {
+                            // Skip punctuation: ( ) , and whitespace
+                            if child.is_named() {
+                                if arg_idx == arg_index {
+                                    let text = self.node_text(&child).trim().to_string();
+                                    // Strip address-of operator
+                                    let text = text.trim_start_matches('&').to_string();
+                                    return Some(text);
+                                }
+                                arg_idx += 1;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            if let Some(result) = self.find_call_arg_at(child, line, callee_name, arg_index) {
+                return Some(result);
+            }
+        }
+        None
+    }
 }
 
 /// Scan a function's source text for assignments of the form `var_name = func_name`

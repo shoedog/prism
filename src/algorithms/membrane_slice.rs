@@ -147,6 +147,29 @@ pub fn slice(files: &BTreeMap<String, ParsedFile>, diff: &DiffInput) -> Result<S
                                 || lt.contains("WARN_ON(")
                                 || lt.contains("WARN_ON_ONCE(")
                                 || lt.contains("BUG_ON(")
+                                // C++ exception handling
+                                || lt.contains("throw ")          // throwing exceptions
+                                || lt.contains("catch (")         // catch with specific type
+                                || lt.contains("catch(")          // catch without space
+                                || lt.contains("noexcept")        // noexcept specification
+                                || lt.contains("std::exception")  // standard exception type
+                                // C++ RAII smart pointers (resource management = error handling)
+                                || lt.contains("unique_ptr")
+                                || lt.contains("shared_ptr")
+                                || lt.contains("make_unique")
+                                || lt.contains("make_shared")
+                                // C++ RAII lock guards
+                                || lt.contains("lock_guard")
+                                || lt.contains("unique_lock")
+                                || lt.contains("scoped_lock")
+                                // C++ optional/expected error handling
+                                || lt.contains(".has_value(")
+                                || lt.contains(".value_or(")
+                                || lt.contains("std::optional")
+                                || lt.contains("std::expected")
+                                // C++ error code handling
+                                || lt.contains("std::error_code")
+                                || lt.contains("std::errc")
                                 // Go-style (already partially covered by "if err")
                                 || lt.contains("if (err")
                                 // === Rust ===
