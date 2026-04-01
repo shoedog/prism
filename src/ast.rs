@@ -277,25 +277,46 @@ impl ParsedFile {
         }
     }
 
+    /// Check if a node kind represents a field/member access expression.
+    /// Each language has a different tree-sitter node kind for this:
+    /// - C/C++, Rust: field_expression
+    /// - JS/TS: member_expression
+    /// - Go: selector_expression
+    /// - Python: attribute
+    /// - Java: field_access
+    /// - Lua: dot_index_expression
+    fn is_field_access_node(kind: &str) -> bool {
+        matches!(
+            kind,
+            "field_expression"
+                | "member_expression"
+                | "selector_expression"
+                | "attribute"
+                | "field_access"
+                | "dot_index_expression"
+        )
+    }
+
     fn collect_identifier_paths<'a>(&self, node: Node<'a>, out: &mut Vec<(AccessPath, usize)>) {
-        // Check for field_expression first (dev->field, obj.field) — emit
-        // the full qualified path instead of individual identifiers.
-        if node.kind() == "field_expression" || node.kind() == "member_expression" {
+        // Check for field/member access expressions — emit the full qualified
+        // path instead of individual identifiers.
+        if Self::is_field_access_node(node.kind()) {
             let text = self.node_text(&node).to_string();
             let line = node.start_position().row + 1;
             out.push((AccessPath::from_expr(&text), line));
-            // Also emit the base identifier for field-insensitive fallback
-            if let Some(arg) = node.child_by_field_name("argument") {
-                if self.language.is_identifier_node(arg.kind()) {
-                    let base = self.node_text(&arg).to_string();
-                    out.push((AccessPath::simple(base), line));
-                }
-            }
-            // For object/property patterns
-            if let Some(obj) = node.child_by_field_name("object") {
-                if self.language.is_identifier_node(obj.kind()) {
-                    let base = self.node_text(&obj).to_string();
-                    out.push((AccessPath::simple(base), line));
+            // Also emit the base identifier for field-insensitive fallback.
+            // Different tree-sitter grammars use different field names:
+            //   C/C++/Rust: "argument", Go: "operand", JS/TS/Python/Java: "object"
+            //   Lua: first named child (no standard field name)
+            let base_node = node
+                .child_by_field_name("argument")
+                .or_else(|| node.child_by_field_name("object"))
+                .or_else(|| node.child_by_field_name("operand"))
+                .or_else(|| node.named_child(0));
+            if let Some(base) = base_node {
+                if self.language.is_identifier_node(base.kind()) {
+                    let base_name = self.node_text(&base).to_string();
+                    out.push((AccessPath::simple(base_name), line));
                 }
             }
             return; // Don't recurse into children — we've handled them
@@ -489,8 +510,8 @@ impl ParsedFile {
     ) {
         let line = node.start_position().row + 1;
 
-        // Check field expressions
-        if node.kind() == "field_expression" || node.kind() == "member_expression" {
+        // Check field/member access expressions (all languages)
+        if Self::is_field_access_node(node.kind()) {
             let text = self.node_text(&node).to_string();
             let node_path = AccessPath::from_expr(&text);
             if node_path == *path && line > def_line {
