@@ -1,6 +1,6 @@
 # Prism Implementation Plan & Status Tracker
 
-Last updated: 2026-04-01 (multi-language taint sink patterns)
+Last updated: 2026-04-01 (Rust + Lua language support, echo/provenance precision)
 
 ---
 
@@ -49,6 +49,19 @@ Last updated: 2026-04-01 (multi-language taint sink patterns)
 
 **Tests added:** Taint Python pickle.loads (1), taint Python subprocess.Popen (1), taint JS innerHTML (1), taint JS execSync (1), taint Go exec.Command (1), taint Go template.HTML (1). Provenance Python request.form (1), provenance Python cursor.fetchone (1), provenance JS document.cookie (1), provenance JS process.env (1), provenance Go r.FormValue (1), provenance Go viper config (1). Absence Python threading.Lock (1), absence Python tempfile (1), absence JS createReadStream (1), absence JS fs.open (1), absence Go context.WithCancel (1), absence Go http.Get body (1). Quantum Python threading (1), quantum JS Worker (1), quantum Go channel/select (1). Membrane Python raise_for_status (1), membrane Go errors.Is (1).
 
+### Algorithm Precision & New Language Support
+
+| Item | Branch | Status |
+|------|--------|--------|
+| Echo slice — expand SAFE_PATTERNS with C/C++ return-code checks, Go errors.Is/As, Python context manager, Rust ?/unwrap, Lua pcall/xpcall; expand change_touches_error and has_error_handling | `claude/fix-taint-patterns-tests-0fPSO` | Done |
+| Provenance precision — add matches_provenance() with '~' word-boundary prefix; tighten ~body, ~form, ~input, ~params, ~query, ~args, ~fetch, ~execute, ~cursor, ~select | `claude/fix-taint-patterns-tests-0fPSO` | Done |
+| Rust language support — Language::Rust enum, tree-sitter-rust grammar, all node type mappings (function_item, impl_item, let_declaration, match_expression, etc.) | `claude/fix-taint-patterns-tests-0fPSO` | Done |
+| Lua language support — Language::Lua enum, tree-sitter-lua grammar, all node type mappings (function_declaration, local_function, function_call, dot_index_expression, etc.) | `claude/fix-taint-patterns-tests-0fPSO` | Done |
+| Rust quantum async — tokio::spawn, thread::spawn, async/await, rayon::spawn | `claude/fix-taint-patterns-tests-0fPSO` | Done |
+| Lua quantum async — coroutine.create/resume/wrap/yield | `claude/fix-taint-patterns-tests-0fPSO` | Done |
+
+**Tests added:** Echo C caller without return check (1), echo C caller with return check (1), echo Go errors.Is (1), echo Python with-statement (1). Provenance transform≠form negative (1), provenance prefetch≠fetch negative (1). Rust basic parsing (1), Rust taint (1), Rust original_diff (1), Rust parent_function (1). Lua basic parsing (1), Lua taint exec (1), Lua parent_function (1), Lua absence open/close (1).
+
 ---
 
 ## Remaining Work
@@ -86,7 +99,7 @@ Last updated: 2026-04-01 (multi-language taint sink patterns)
 ## Architecture Notes
 
 ### Key Design Decisions
-- **Tree-sitter** for multi-language AST parsing (5 languages: Python, JS/TS, Go, Java, C/C++)
+- **Tree-sitter** for multi-language AST parsing (9 languages: Python, JS/TS, Go, Java, C/C++, Rust, Lua)
 - **Name-based variable tracking** (no `varId` like cppcheck)
 - **BTreeMap/BTreeSet everywhere** for deterministic sorted output
 - **Shared infrastructure:** `call_graph.rs` and `data_flow.rs` reused across algorithms
@@ -101,8 +114,8 @@ Last updated: 2026-04-01 (multi-language taint sink patterns)
 - Virtual dispatch: name-matched, not type-resolved (P2 item)
 
 ### Test Coverage
-- **148 tests** total (unit + integration)
-- 5 languages covered in integration tests
+- **165 tests** total (unit + integration)
+- 9 languages covered (Python, JS/TS, Go, Java, C/C++, Rust, Lua)
 - 26 algorithms with at least basic coverage
 - C/C++ specific: 32 tests covering taint, provenance, absence, quantum (incl. ISR self-detection), membrane, phantom, pointer aliasing, function pointer dispatch (Level 0/1/2), static linkage disambiguation
 - Multi-language taint: 6 tests covering Python (pickle, subprocess), JS (innerHTML, execSync), Go (exec.Command, template.HTML)
@@ -110,6 +123,10 @@ Last updated: 2026-04-01 (multi-language taint sink patterns)
 - Multi-language absence: 6 tests covering Python (threading.Lock, tempfile), JS (createReadStream, fs.open), Go (context.WithCancel, http.Get body)
 - Multi-language quantum: 3 tests covering Python (threading.Thread), JS (Worker), Go (channel/select)
 - Multi-language membrane: 2 tests covering Python (raise_for_status), Go (errors.Is)
+- Echo slice: 4 tests (C return-code positive/negative, Go errors.Is, Python with-statement)
+- Provenance precision: 2 negative tests (transform≠form, prefetch≠fetch)
+- Rust: 4 tests (basic parsing, taint, original_diff, parent_function)
+- Lua: 4 tests (basic parsing, taint exec, parent_function, absence open/close)
 
 ---
 
