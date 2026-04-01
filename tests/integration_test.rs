@@ -3607,7 +3607,9 @@ void write_through(int *p, int val) {
 
 #[test]
 fn test_dataflow_struct_field() {
-    // dev->id = val  should create defs for both the field name and the base struct variable.
+    // dev->id = val  should create a qualified AccessPath def (dev.id) plus a base def (dev).
+    // The old behavior of creating a bare "id" def was incorrect — it caused false flow edges
+    // with unrelated variables named "id".
     let source = r#"
 typedef struct { int id; } Dev;
 void set_id(Dev *dev, int val) {
