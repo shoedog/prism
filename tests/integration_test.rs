@@ -4816,3 +4816,258 @@ int run_b(void) {
         "MembraneSlice should not flag cross-file callers for a static function"
     );
 }
+
+// ── Taint sink tests: Python ──────────────────────────────────────────
+
+#[test]
+fn test_taint_python_pickle_loads_sink() {
+    // Tainted data flows to pickle.loads() — deserialization RCE sink.
+    let source = r#"
+import pickle
+
+def handle_request(user_data):
+    payload = user_data
+    obj = pickle.loads(payload)
+    return obj
+"#;
+    let path = "app/handler.py";
+    let parsed = ParsedFile::parse(path, source, Language::Python).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([5]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::Taint),
+    )
+    .unwrap();
+
+    assert!(
+        !result.blocks.is_empty(),
+        "Taint should produce blocks when tainted value reaches pickle.loads"
+    );
+    assert!(
+        !result.findings.is_empty(),
+        "Taint should emit a finding for pickle.loads sink"
+    );
+}
+
+#[test]
+fn test_taint_python_subprocess_sink() {
+    // Tainted command flows to subprocess.Popen() — command injection sink.
+    let source = r#"
+import subprocess
+
+def run_command(user_cmd):
+    cmd = user_cmd
+    proc = subprocess.Popen(cmd, shell=True)
+    return proc
+"#;
+    let path = "app/runner.py";
+    let parsed = ParsedFile::parse(path, source, Language::Python).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([5]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::Taint),
+    )
+    .unwrap();
+
+    assert!(
+        !result.blocks.is_empty(),
+        "Taint should produce blocks when tainted value reaches subprocess.Popen"
+    );
+    assert!(
+        !result.findings.is_empty(),
+        "Taint should emit a finding for subprocess.Popen sink"
+    );
+}
+
+// ── Taint sink tests: JavaScript/TypeScript ───────────────────────────
+
+#[test]
+fn test_taint_js_innerhtml_sink() {
+    // Tainted user input flows to innerHTML — DOM XSS sink.
+    let source = r#"
+function displayMessage(userInput) {
+    const msg = userInput;
+    document.getElementById("output").innerHTML = msg;
+}
+"#;
+    let path = "src/display.js";
+    let parsed = ParsedFile::parse(path, source, Language::JavaScript).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([3]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::Taint),
+    )
+    .unwrap();
+
+    assert!(
+        !result.blocks.is_empty(),
+        "Taint should produce blocks when tainted value reaches innerHTML"
+    );
+    assert!(
+        !result.findings.is_empty(),
+        "Taint should emit a finding for innerHTML XSS sink"
+    );
+}
+
+#[test]
+fn test_taint_js_exec_sync_sink() {
+    // Tainted command flows to execSync — command injection sink.
+    let source = r#"
+const { execSync } = require('child_process');
+
+function runCmd(userCmd) {
+    const cmd = userCmd;
+    const output = execSync(cmd);
+    return output;
+}
+"#;
+    let path = "src/runner.js";
+    let parsed = ParsedFile::parse(path, source, Language::JavaScript).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([5]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::Taint),
+    )
+    .unwrap();
+
+    assert!(
+        !result.blocks.is_empty(),
+        "Taint should produce blocks when tainted value reaches execSync"
+    );
+    assert!(
+        !result.findings.is_empty(),
+        "Taint should emit a finding for execSync command injection sink"
+    );
+}
+
+// ── Taint sink tests: Go ──────────────────────────────────────────────
+
+#[test]
+fn test_taint_go_exec_command_sink() {
+    // Tainted user input flows to exec.Command — command injection sink.
+    let source = r#"
+package main
+
+import "os/exec"
+
+func runUserCmd(userInput string) {
+    cmd := userInput
+    exec.Command(cmd)
+}
+"#;
+    let path = "cmd/handler.go";
+    let parsed = ParsedFile::parse(path, source, Language::Go).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([7]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::Taint),
+    )
+    .unwrap();
+
+    assert!(
+        !result.blocks.is_empty(),
+        "Taint should produce blocks when tainted value reaches exec.Command"
+    );
+    assert!(
+        !result.findings.is_empty(),
+        "Taint should emit a finding for exec.Command sink"
+    );
+}
+
+#[test]
+fn test_taint_go_template_html_sink() {
+    // Tainted user input flows to template.HTML — XSS bypass sink.
+    let source = r#"
+package main
+
+import "html/template"
+
+func renderUnsafe(userHTML string) template.HTML {
+    content := userHTML
+    return template.HTML(content)
+}
+"#;
+    let path = "web/render.go";
+    let parsed = ParsedFile::parse(path, source, Language::Go).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([7]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::Taint),
+    )
+    .unwrap();
+
+    assert!(
+        !result.blocks.is_empty(),
+        "Taint should produce blocks when tainted value reaches template.HTML"
+    );
+    assert!(
+        !result.findings.is_empty(),
+        "Taint should emit a finding for template.HTML XSS sink"
+    );
+}

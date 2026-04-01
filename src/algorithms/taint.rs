@@ -13,15 +13,13 @@ use std::collections::{BTreeMap, BTreeSet};
 
 /// Built-in taint sink patterns.
 const SINK_PATTERNS: &[&str] = &[
+    // === Cross-language / generic ===
     "exec",
     "eval",
     "system",
-    "popen",
-    "subprocess",
     "query",
     "execute",
     "raw_sql",
-    "cursor",
     "open",
     "write",
     "unlink",
@@ -31,11 +29,7 @@ const SINK_PATTERNS: &[&str] = &[
     "respond",
     "render",
     "redirect",
-    "innerHTML",
-    "dangerouslySetInnerHTML",
-    "Exec",
-    "Command",
-    // C/C++ buffer overflow / unsafe string operations
+    // === C/C++ buffer overflow / unsafe string operations ===
     // Note: identifiers don't include '(' so patterns must be bare names.
     "strcpy",
     "strcat",
@@ -57,6 +51,63 @@ const SINK_PATTERNS: &[&str] = &[
     "printf",
     "fprintf",
     "snprintf",
+    // === Python ===
+    // Deserialization (arbitrary code execution)
+    "loads", // pickle.loads, marshal.loads, yaml.loads
+    "load",  // pickle.load, yaml.load (unsafe loader)
+    // Process execution
+    "subprocess", // subprocess.run, subprocess.Popen, subprocess.call
+    "popen",      // os.popen
+    "Popen",      // subprocess.Popen
+    // Dynamic code execution
+    "compile", // compile() — creates executable code objects
+    // Template injection
+    "render_template_string", // Flask — renders user-supplied template
+    "mark_safe",              // Django — marks string as safe HTML (bypass escaping)
+    "Markup",                 // Jinja2/Flask — raw HTML wrapper
+    // Dynamic attribute access with untrusted names
+    "getattr",
+    "setattr",
+    // === JavaScript / TypeScript ===
+    // DOM XSS sinks
+    "innerHTML",
+    "outerHTML",
+    "dangerouslySetInnerHTML",
+    "insertAdjacentHTML",
+    // Dynamic code execution
+    "Function", // new Function('return ' + userInput)
+    // Command execution (Node.js child_process)
+    "spawn",     // child_process.spawn
+    "execFile",  // child_process.execFile
+    "execSync",  // child_process.execSync
+    "spawnSync", // child_process.spawnSync
+    // File operations (Node.js fs)
+    "writeFile",
+    "writeFileSync",
+    "unlinkSync",
+    "rmdirSync",
+    "appendFile",
+    "appendFileSync",
+    // SQL injection (ORM raw queries)
+    "raw",     // knex.raw(), sequelize.query({ type: raw })
+    "literal", // Sequelize.literal()
+    // === Go ===
+    // Command execution
+    "Command", // exec.Command
+    "Exec",    // os.Exec, db.Exec
+    // Template injection / XSS
+    "HTML",    // template.HTML() — marks string as unescaped HTML
+    "Fprintf", // fmt.Fprintf(w, userInput) — reflected XSS / format string
+    "Sprintf", // fmt.Sprintf(userInput) — format string injection
+    // File operations
+    "Remove",    // os.Remove
+    "RemoveAll", // os.RemoveAll
+    "WriteFile", // os.WriteFile
+    "Rename",    // os.Rename
+    "Chmod",     // os.Chmod
+    // SQL
+    "Query",    // sql.Query (already covered by lowercase "query")
+    "QueryRow", // sql.QueryRow
 ];
 
 /// Configuration for taint analysis.
