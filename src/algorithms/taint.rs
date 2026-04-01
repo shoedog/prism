@@ -107,6 +107,37 @@ const SINK_PATTERNS: &[&str] = &[
     // SQL
     "Query",    // sql.Query (already covered by lowercase "query")
     "QueryRow", // sql.QueryRow
+    // === Rust ===
+    // Unsafe memory operations with tainted data
+    "=transmute",          // std::mem::transmute — type-unsafe cast
+    "from_raw_parts",      // slice::from_raw_parts — raw pointer to slice
+    "=write_volatile",     // ptr::write_volatile — unchecked memory write
+    "=read_volatile",      // ptr::read_volatile — unchecked memory read
+    "from_utf8_unchecked", // String::from_utf8_unchecked — no validation
+    // Command execution
+    // "Command" already covered by Go section (exec.Command / std::process::Command)
+    // File operations
+    "set_permissions", // std::fs::set_permissions
+    // SQL (diesel/sqlx)
+    "sql_query", // diesel::sql_query — raw SQL
+    "query_as",  // sqlx::query_as
+    // Deserialization
+    "=deserialize", // serde deserialize with untrusted input
+    // FFI boundary
+    "=CString", // CString::new — FFI string, null handling
+    "=CStr",    // CStr::from_ptr — raw pointer to string
+    // === Lua ===
+    // Dynamic code execution (code injection)
+    "=loadstring", // loadstring(user_input) — executes arbitrary Lua code
+    "=dofile",     // dofile(path) — loads and executes a Lua file
+    "=loadfile",   // loadfile(path) — loads a Lua file as a function
+                   // Command execution
+                   // "execute" already covered by generic; os.execute -> identifier "execute"
+                   // "=popen" already covered by Python section; io.popen -> identifier "popen"
+                   // Note: Lua string.format injection is a niche concern. Tree-sitter splits
+                   // "string.format" into separate identifier nodes, so substring sink matching
+                   // can't catch it. The high-severity Lua paths (loadstring, dofile, execute)
+                   // are already covered above.
 ];
 
 /// Check whether an identifier text matches a sink pattern.
