@@ -1,4 +1,6 @@
 [![CI](https://github.com/shoedog/prism/actions/workflows/ci.yml/badge.svg)](https://github.com/shoedog/prism/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/github/shoedog/prism/graph/badge.svg?token=C5JSSOQPWA)](https://codecov.io/github/shoedog/prism)
+![Rust](https://img.shields.io/badge/rust-1.70%2B-orange)
 
 # slicing
 
