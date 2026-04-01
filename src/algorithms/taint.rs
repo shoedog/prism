@@ -198,6 +198,14 @@ pub struct TaintFinding {
 /// across function boundaries.
 ///
 /// Returns wrapper function names as exact-match sink patterns (prefixed with `=`).
+///
+/// Known limitations:
+/// - Only detects 1-hop wrappers. If `my_log(...)` calls `internal_log(...)` which
+///   calls `vsnprintf`, only `internal_log` is detected. Could be extended by
+///   iterating to a fixed point over discovered wrappers.
+/// - A variadic function that calls printf for debug logging but whose `...` args
+///   are unrelated to the printf call will be misclassified as a wrapper. Rare in
+///   practice since most variadic+printf combos are genuine format wrappers.
 fn detect_format_string_wrappers(files: &BTreeMap<String, ParsedFile>) -> Vec<String> {
     /// Format string sinks that variadic wrappers typically forward to.
     const FORMAT_SINKS: &[&str] = &[
