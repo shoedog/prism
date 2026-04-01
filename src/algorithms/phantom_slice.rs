@@ -234,9 +234,7 @@ fn extract_function_name(line: &str) -> Option<String> {
                     .next()
                     .map(|c| c.is_alphabetic() || c == '_')
                     .unwrap_or(false)
-                && name
-                    .chars()
-                    .all(|c| c.is_alphanumeric() || c == '_')
+                && name.chars().all(|c| c.is_alphanumeric() || c == '_')
             {
                 // Exclude control flow keywords and common non-function patterns
                 const NOT_FUNCTIONS: &[&str] = &[
