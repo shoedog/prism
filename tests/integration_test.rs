@@ -7,6 +7,7 @@ use prism::languages::Language;
 use prism::output;
 use prism::slice::{SliceConfig, SlicingAlgorithm};
 use std::collections::{BTreeMap, BTreeSet};
+use std::path::Path;
 
 fn make_python_test() -> (
     BTreeMap<String, ParsedFile>,
@@ -3767,47 +3768,85 @@ void update_dev(Dev *dev, int n) {
 /// tests. This test always passes — it is a documentation/reporting tool that
 /// makes coverage gaps visible at a glance.
 ///
+/// Check whether test name `name` matches language `lang_key`.
+///
+/// Uses word-boundary-aware matching so that e.g. "java" does not
+/// false-positive on "javascript", and "_c_" does not match "circular".
+fn lang_matches(name: &str, lang_key: &str) -> bool {
+    // For multi-char language keys that are full words (python, javascript,
+    // typescript, rust, lua) a simple contains is safe because no other
+    // language name is a prefix/suffix of these.
+    match lang_key {
+        "python" | "javascript" | "typescript" | "rust" | "lua" => name.contains(lang_key),
+        // "go" is short — require _go_ or _go at end to avoid matching "algorithm"
+        "go" => {
+            name.contains("_go_") || name.ends_with("_go")
+        }
+        // "java" must not match "javascript"
+        "java" => {
+            !name.contains("javascript")
+                && (name.contains("_java_") || name.ends_with("_java"))
+        }
+        // "c" must not match cpp, circular, conditioned, chop, etc.
+        "c" => {
+            !name.contains("_cpp")
+                && (name.contains("_c_") || name.ends_with("_c"))
+        }
+        // "cpp" — require _cpp boundary
+        "cpp" => {
+            name.contains("_cpp_") || name.ends_with("_cpp")
+        }
+        _ => name.contains(lang_key),
+    }
+}
+
 /// Run with: cargo test -- test_algorithm_language_matrix --nocapture
 #[test]
 fn test_algorithm_language_matrix() {
-    // Map algorithm keyword → display name
-    let algorithms: &[(&str, &str)] = &[
-        ("original_diff", "OriginalDiff"),
-        ("parent_function", "ParentFunction"),
-        ("left_flow", "LeftFlow"),
-        ("full_flow", "FullFlow"),
-        ("thin_slice", "ThinSlice"),
-        ("barrier_slice", "BarrierSlice"),
-        ("taint", "Taint"),
-        ("relevant_slice", "RelevantSlice"),
-        ("conditioned_slice", "ConditionedSlice"),
-        ("delta_slice", "DeltaSlice"),
-        ("spiral_slice", "SpiralSlice"),
-        ("circular_slice", "CircularSlice"),
-        ("quantum_slice", "QuantumSlice"),
-        ("horizontal_slice", "HorizontalSlice"),
-        ("vertical_slice", "VerticalSlice"),
-        ("angle_slice", "AngleSlice"),
-        ("threed_slice", "ThreeDSlice"),
-        ("absence_slice", "AbsenceSlice"),
-        ("resonance_slice", "ResonanceSlice"),
-        ("symmetry_slice", "SymmetrySlice"),
-        ("gradient_slice", "GradientSlice"),
-        ("provenance_slice", "ProvenanceSlice"),
-        ("phantom_slice", "PhantomSlice"),
-        ("membrane_slice", "MembraneSlice"),
-        ("echo_slice", "EchoSlice"),
+    // Map algorithm keywords → display name.
+    // Each entry is (&[keywords], display_name). A test matches if it
+    // contains ANY of the keywords. This accommodates tests that use
+    // either the short form ("membrane") or the full form ("membrane_slice").
+    let algorithms: &[(&[&str], &str)] = &[
+        (&["original_diff"], "OriginalDiff"),
+        (&["parent_function"], "ParentFunction"),
+        (&["left_flow"], "LeftFlow"),
+        (&["full_flow"], "FullFlow"),
+        (&["thin_slice"], "ThinSlice"),
+        (&["barrier_slice"], "BarrierSlice"),
+        (&["taint"], "Taint"),
+        (&["relevant_slice"], "RelevantSlice"),
+        (&["conditioned_slice", "conditioned"], "ConditionedSlice"),
+        (&["delta_slice"], "DeltaSlice"),
+        (&["spiral_slice", "spiral"], "SpiralSlice"),
+        (&["circular_slice", "circular"], "CircularSlice"),
+        (&["quantum_slice", "quantum"], "QuantumSlice"),
+        (&["horizontal_slice", "horizontal"], "HorizontalSlice"),
+        (&["vertical_slice", "vertical"], "VerticalSlice"),
+        (&["angle_slice", "angle"], "AngleSlice"),
+        (&["threed_slice", "threed"], "ThreeDSlice"),
+        (&["absence_slice", "absence"], "AbsenceSlice"),
+        (&["resonance_slice", "resonance"], "ResonanceSlice"),
+        (&["symmetry_slice", "symmetry"], "SymmetrySlice"),
+        (&["gradient_slice", "gradient"], "GradientSlice"),
+        (&["provenance_slice", "provenance"], "ProvenanceSlice"),
+        (&["phantom_slice", "phantom"], "PhantomSlice"),
+        (&["membrane_slice", "membrane"], "MembraneSlice"),
+        (&["echo_slice", "echo"], "EchoSlice"),
+        (&["chop"], "Chop"),
     ];
 
-    // Map language keyword → display name
+    // All 9 supported languages
     let languages: &[(&str, &str)] = &[
         ("python", "Python"),
         ("javascript", "JS"),
         ("typescript", "TS"),
         ("go", "Go"),
         ("java", "Java"),
-        ("_c_", "C"),
-        ("_cpp_", "C++"),
+        ("c", "C"),
+        ("cpp", "C++"),
+        ("rust", "Rust"),
+        ("lua", "Lua"),
     ];
 
     // Collect all test function names from this file (compile-time string)
@@ -3819,8 +3858,8 @@ fn test_algorithm_language_matrix() {
         .collect();
 
     // Build the matrix
-    let col_w = 14usize;
-    let row_w = 16usize;
+    let col_w = 10usize;
+    let row_w = 18usize;
 
     // Header
     let header: String = languages
@@ -3836,17 +3875,18 @@ fn test_algorithm_language_matrix() {
     let mut covered = 0usize;
     let mut total = 0usize;
 
-    for (algo_key, algo_name) in algorithms {
+    for (algo_keys, algo_name) in algorithms {
         let row: String = languages
             .iter()
             .map(|(lang_key, _)| {
                 total += 1;
-                let has_test = test_names
-                    .iter()
-                    .any(|name| name.contains(algo_key) && name.contains(lang_key));
+                let has_test = test_names.iter().any(|name| {
+                    algo_keys.iter().any(|k| name.contains(k))
+                        && lang_matches(name, lang_key)
+                });
                 if has_test {
                     covered += 1;
-                    format!("{:>col_w$}", "yes")
+                    format!("{:>col_w$}", "✓")
                 } else {
                     format!("{:>col_w$}", "-")
                 }
@@ -3866,6 +3906,81 @@ fn test_algorithm_language_matrix() {
     println!();
 
     // Always passes — this is a reporting tool, not an enforcement test
+}
+
+/// Enforces that every algorithm has tests for at least MIN_LANGS languages.
+/// Fails CI if a new algorithm is added without cross-language tests.
+///
+/// Run with: cargo test -- test_language_coverage_minimum
+#[test]
+fn test_language_coverage_minimum() {
+    const MIN_LANGS: usize = 2;
+
+    let algorithms: &[(&[&str], &str)] = &[
+        (&["original_diff"], "OriginalDiff"),
+        (&["parent_function"], "ParentFunction"),
+        (&["left_flow"], "LeftFlow"),
+        (&["full_flow"], "FullFlow"),
+        (&["thin_slice"], "ThinSlice"),
+        (&["barrier_slice"], "BarrierSlice"),
+        (&["taint"], "Taint"),
+        (&["relevant_slice"], "RelevantSlice"),
+        (&["conditioned_slice", "conditioned"], "ConditionedSlice"),
+        (&["delta_slice"], "DeltaSlice"),
+        (&["spiral_slice", "spiral"], "SpiralSlice"),
+        (&["circular_slice", "circular"], "CircularSlice"),
+        (&["quantum_slice", "quantum"], "QuantumSlice"),
+        (&["horizontal_slice", "horizontal"], "HorizontalSlice"),
+        (&["vertical_slice", "vertical"], "VerticalSlice"),
+        (&["angle_slice", "angle"], "AngleSlice"),
+        (&["threed_slice", "threed"], "ThreeDSlice"),
+        (&["absence_slice", "absence"], "AbsenceSlice"),
+        (&["resonance_slice", "resonance"], "ResonanceSlice"),
+        (&["symmetry_slice", "symmetry"], "SymmetrySlice"),
+        (&["gradient_slice", "gradient"], "GradientSlice"),
+        (&["provenance_slice", "provenance"], "ProvenanceSlice"),
+        (&["phantom_slice", "phantom"], "PhantomSlice"),
+        (&["membrane_slice", "membrane"], "MembraneSlice"),
+        (&["echo_slice", "echo"], "EchoSlice"),
+        (&["chop"], "Chop"),
+    ];
+
+    let lang_keys: &[&str] = &[
+        "python", "javascript", "typescript", "go", "java", "c", "cpp", "rust", "lua",
+    ];
+
+    let test_source = include_str!("integration_test.rs");
+    let test_names: Vec<&str> = test_source
+        .lines()
+        .filter(|l| l.starts_with("fn test_"))
+        .map(|l| l.trim_start_matches("fn ").split('(').next().unwrap_or(""))
+        .collect();
+
+    let mut failures = Vec::new();
+    for (algo_keys, algo_name) in algorithms {
+        let lang_count = lang_keys
+            .iter()
+            .filter(|lang| {
+                test_names.iter().any(|name| {
+                    algo_keys.iter().any(|k| name.contains(k))
+                        && lang_matches(name, lang)
+                })
+            })
+            .count();
+        if lang_count < MIN_LANGS {
+            failures.push(format!(
+                "  {} — tested in {} language(s), need ≥ {}",
+                algo_name, lang_count, MIN_LANGS
+            ));
+        }
+    }
+
+    assert!(
+        failures.is_empty(),
+        "Algorithms below minimum language coverage ({} languages):\n{}",
+        MIN_LANGS,
+        failures.join("\n")
+    );
 }
 
 // ====== MembraneSlice C error handling tests ======
@@ -8978,4 +9093,2067 @@ void f(struct dev *dev) {
             reachable_lines
         );
     }
+}
+
+// ====================================================================
+// Batch 1: Zero-coverage algorithms (Chop, DeltaSlice, ThreeDSlice)
+// ====================================================================
+
+#[test]
+fn test_chop_python() {
+    let source = r#"
+x = input()
+y = int(x)
+z = y + 1
+result = z * 2
+print(result)
+"#;
+    let path = "app.py";
+    let parsed = ParsedFile::parse(path, source, Language::Python).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let config = prism::algorithms::chop::ChopConfig {
+        source_file: path.to_string(),
+        source_line: 2,
+        sink_file: path.to_string(),
+        sink_line: 5,
+    };
+    let result = prism::algorithms::chop::slice(&files, &config).unwrap();
+    assert_eq!(result.algorithm, SlicingAlgorithm::Chop);
+}
+
+#[test]
+fn test_chop_go() {
+    let source = r#"package main
+
+func process(input string) string {
+    parsed := parse(input)
+    validated := validate(parsed)
+    result := transform(validated)
+    return result
+}
+
+func parse(s string) string { return s }
+func validate(s string) string { return s }
+func transform(s string) string { return s }
+"#;
+    let path = "main.go";
+    let parsed = ParsedFile::parse(path, source, Language::Go).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let config = prism::algorithms::chop::ChopConfig {
+        source_file: path.to_string(),
+        source_line: 4,
+        sink_file: path.to_string(),
+        sink_line: 6,
+    };
+    let result = prism::algorithms::chop::slice(&files, &config).unwrap();
+    assert_eq!(result.algorithm, SlicingAlgorithm::Chop);
+}
+
+#[test]
+fn test_chop_javascript() {
+    let source = r#"
+function pipeline(raw) {
+    const cleaned = sanitize(raw);
+    const parsed = JSON.parse(cleaned);
+    const result = process(parsed);
+    return result;
+}
+function sanitize(s) { return s.trim(); }
+function process(o) { return o.value; }
+"#;
+    let path = "pipe.js";
+    let parsed = ParsedFile::parse(path, source, Language::JavaScript).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let config = prism::algorithms::chop::ChopConfig {
+        source_file: path.to_string(),
+        source_line: 3,
+        sink_file: path.to_string(),
+        sink_line: 5,
+    };
+    let result = prism::algorithms::chop::slice(&files, &config).unwrap();
+    assert_eq!(result.algorithm, SlicingAlgorithm::Chop);
+}
+
+#[test]
+fn test_delta_slice_python() {
+    let tmp = std::env::temp_dir().join("prism_delta_test_py");
+    let _ = std::fs::create_dir_all(&tmp);
+
+    let old_source = "x = 1\ny = x + 1\nprint(y)\n";
+    std::fs::write(tmp.join("app.py"), old_source).unwrap();
+
+    let new_source = "x = 1\ny = x + 2\nz = y * 3\nprint(z)\n";
+    let path = "app.py";
+    let parsed = ParsedFile::parse(path, new_source, Language::Python).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([2, 3]),
+        }],
+    };
+
+    let result = prism::algorithms::delta_slice::slice(&files, &diff, &tmp).unwrap();
+    assert_eq!(result.algorithm, SlicingAlgorithm::DeltaSlice);
+
+    let _ = std::fs::remove_dir_all(&tmp);
+}
+
+#[test]
+fn test_delta_slice_go() {
+    let tmp = std::env::temp_dir().join("prism_delta_test_go");
+    let _ = std::fs::create_dir_all(&tmp);
+
+    let old_source = "package main\n\nfunc add(a int, b int) int {\n\treturn a + b\n}\n";
+    std::fs::write(tmp.join("calc.go"), old_source).unwrap();
+
+    let new_source = "package main\n\nfunc add(a int, b int) int {\n\tresult := a + b\n\treturn result\n}\n";
+    let path = "calc.go";
+    let parsed = ParsedFile::parse(path, new_source, Language::Go).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([4, 5]),
+        }],
+    };
+
+    let result = prism::algorithms::delta_slice::slice(&files, &diff, &tmp).unwrap();
+    assert_eq!(result.algorithm, SlicingAlgorithm::DeltaSlice);
+
+    let _ = std::fs::remove_dir_all(&tmp);
+}
+
+/// Helper to create a temp git repo for tests that need git history.
+fn create_temp_git_repo(name: &str, filename: &str, contents: &[&str]) -> std::path::PathBuf {
+    let tmp = std::env::temp_dir().join(format!("prism_{}", name));
+    let _ = std::fs::remove_dir_all(&tmp);
+    std::fs::create_dir_all(&tmp).unwrap();
+
+    std::process::Command::new("git")
+        .args(["init"])
+        .current_dir(&tmp)
+        .output()
+        .unwrap();
+    std::process::Command::new("git")
+        .args(["config", "user.email", "test@test.com"])
+        .current_dir(&tmp)
+        .output()
+        .unwrap();
+    std::process::Command::new("git")
+        .args(["config", "user.name", "Test"])
+        .current_dir(&tmp)
+        .output()
+        .unwrap();
+    std::process::Command::new("git")
+        .args(["config", "commit.gpgsign", "false"])
+        .current_dir(&tmp)
+        .output()
+        .unwrap();
+
+    for (i, content) in contents.iter().enumerate() {
+        std::fs::write(tmp.join(filename), content).unwrap();
+        std::process::Command::new("git")
+            .args(["add", filename])
+            .current_dir(&tmp)
+            .output()
+            .unwrap();
+        std::process::Command::new("git")
+            .args(["commit", "-m", &format!("commit {}", i)])
+            .current_dir(&tmp)
+            .output()
+            .unwrap();
+    }
+
+    tmp
+}
+
+#[test]
+fn test_threed_slice_python() {
+    let source = "def foo(x):\n    y = x + 1\n    return y\n\ndef bar():\n    r = foo(10)\n    print(r)\n";
+    let filename = "app.py";
+    let tmp = create_temp_git_repo("threed_py", filename, &["def foo(x):\n    return x\n", source]);
+
+    let parsed = ParsedFile::parse(filename, source, Language::Python).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(filename.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: filename.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([2, 3]),
+        }],
+    };
+
+    let config = prism::algorithms::threed_slice::ThreeDConfig {
+        temporal_days: 365,
+        git_dir: tmp.to_string_lossy().to_string(),
+    };
+    let result = prism::algorithms::threed_slice::slice(&files, &diff, &config).unwrap();
+    assert_eq!(result.algorithm, SlicingAlgorithm::ThreeDSlice);
+    assert!(!result.blocks.is_empty(), "ThreeDSlice should produce blocks for functions with churn");
+
+    let _ = std::fs::remove_dir_all(&tmp);
+}
+
+#[test]
+fn test_threed_slice_go() {
+    let source = "package main\n\nfunc compute(n int) int {\n\tresult := n * 2\n\treturn result\n}\n\nfunc caller() {\n\tv := compute(5)\n\t_ = v\n}\n";
+    let filename = "main.go";
+    let tmp = create_temp_git_repo("threed_go", filename, &["package main\n\nfunc compute(n int) int { return n }\n", source]);
+
+    let parsed = ParsedFile::parse(filename, source, Language::Go).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(filename.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: filename.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([4]),
+        }],
+    };
+
+    let config = prism::algorithms::threed_slice::ThreeDConfig {
+        temporal_days: 365,
+        git_dir: tmp.to_string_lossy().to_string(),
+    };
+    let result = prism::algorithms::threed_slice::slice(&files, &diff, &config).unwrap();
+    assert_eq!(result.algorithm, SlicingAlgorithm::ThreeDSlice);
+
+    let _ = std::fs::remove_dir_all(&tmp);
+}
+
+// ====================================================================
+// Batch 2: ConditionedSlice, AngleSlice, SpiralSlice
+// ====================================================================
+
+#[test]
+fn test_conditioned_slice_python() {
+    let source = r#"
+def process(x):
+    if x > 0:
+        result = x * 2
+    else:
+        result = 0
+    return result
+"#;
+    let path = "cond.py";
+    let parsed = ParsedFile::parse(path, source, Language::Python).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([4]),
+        }],
+    };
+
+    let condition = prism::algorithms::conditioned_slice::Condition::parse("x==5").unwrap();
+    let config = SliceConfig::default().with_algorithm(SlicingAlgorithm::ConditionedSlice);
+    let result =
+        prism::algorithms::conditioned_slice::slice(&files, &diff, &config, &condition).unwrap();
+    assert_eq!(result.algorithm, SlicingAlgorithm::ConditionedSlice);
+}
+
+#[test]
+fn test_conditioned_slice_go() {
+    let source = r#"package main
+
+func check(n int) int {
+	if n > 0 {
+		return n * 2
+	} else {
+		return 0
+	}
+}
+"#;
+    let path = "check.go";
+    let parsed = ParsedFile::parse(path, source, Language::Go).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([5]),
+        }],
+    };
+
+    let condition = prism::algorithms::conditioned_slice::Condition::parse("n>0").unwrap();
+    let config = SliceConfig::default().with_algorithm(SlicingAlgorithm::ConditionedSlice);
+    let result =
+        prism::algorithms::conditioned_slice::slice(&files, &diff, &config, &condition).unwrap();
+    assert_eq!(result.algorithm, SlicingAlgorithm::ConditionedSlice);
+}
+
+#[test]
+fn test_conditioned_slice_javascript() {
+    let source = r#"
+function validate(input) {
+    if (input == null) {
+        return "missing";
+    } else {
+        return input.trim();
+    }
+}
+"#;
+    let path = "validate.js";
+    let parsed = ParsedFile::parse(path, source, Language::JavaScript).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([3, 6]),
+        }],
+    };
+
+    let condition =
+        prism::algorithms::conditioned_slice::Condition::parse("input!=null").unwrap();
+    assert_eq!(
+        condition.op,
+        prism::algorithms::conditioned_slice::ConditionOp::IsNotNull
+    );
+    let config = SliceConfig::default().with_algorithm(SlicingAlgorithm::ConditionedSlice);
+    let result =
+        prism::algorithms::conditioned_slice::slice(&files, &diff, &config, &condition).unwrap();
+    assert_eq!(result.algorithm, SlicingAlgorithm::ConditionedSlice);
+}
+
+#[test]
+fn test_conditioned_slice_parse_operators() {
+    use prism::algorithms::conditioned_slice::{Condition, ConditionOp};
+
+    let c = Condition::parse("x==5").unwrap();
+    assert_eq!(c.op, ConditionOp::Eq);
+    assert_eq!(c.var_name, "x");
+    assert_eq!(c.value, "5");
+
+    let c = Condition::parse("y != 10").unwrap();
+    assert_eq!(c.op, ConditionOp::NotEq);
+
+    let c = Condition::parse("z>=3").unwrap();
+    assert_eq!(c.op, ConditionOp::GtEq);
+
+    let c = Condition::parse("w<=100").unwrap();
+    assert_eq!(c.op, ConditionOp::LtEq);
+
+    let c = Condition::parse("a<0").unwrap();
+    assert_eq!(c.op, ConditionOp::Lt);
+
+    let c = Condition::parse("ptr==null").unwrap();
+    assert_eq!(c.op, ConditionOp::IsNull);
+
+    let c = Condition::parse("ptr!=None").unwrap();
+    assert_eq!(c.op, ConditionOp::IsNotNull);
+
+    let c = Condition::parse("ptr==nil").unwrap();
+    assert_eq!(c.op, ConditionOp::IsNull);
+
+    assert!(Condition::parse("noop").is_none());
+}
+
+#[test]
+fn test_angle_slice_python() {
+    let source = r#"
+import logging
+
+def process(data):
+    try:
+        result = transform(data)
+        logging.info("success")
+        return result
+    except Exception as e:
+        logging.error(str(e))
+        raise
+"#;
+    let path = "proc.py";
+    let parsed = ParsedFile::parse(path, source, Language::Python).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([9, 10]),
+        }],
+    };
+
+    let result = prism::algorithms::angle_slice::slice(
+        &files,
+        &diff,
+        &prism::algorithms::angle_slice::Concern::ErrorHandling,
+    )
+    .unwrap();
+    assert_eq!(result.algorithm, SlicingAlgorithm::AngleSlice);
+    assert!(!result.blocks.is_empty());
+}
+
+#[test]
+fn test_angle_slice_go() {
+    let source = r#"package main
+
+import "log"
+
+func handler() error {
+	result, err := doWork()
+	if err != nil {
+		log.Printf("error: %v", err)
+		return err
+	}
+	log.Printf("success: %v", result)
+	return nil
+}
+
+func doWork() (int, error) {
+	return 42, nil
+}
+"#;
+    let path = "handler.go";
+    let parsed = ParsedFile::parse(path, source, Language::Go).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([7, 8]),
+        }],
+    };
+
+    let result = prism::algorithms::angle_slice::slice(
+        &files,
+        &diff,
+        &prism::algorithms::angle_slice::Concern::ErrorHandling,
+    )
+    .unwrap();
+    assert_eq!(result.algorithm, SlicingAlgorithm::AngleSlice);
+    assert!(!result.blocks.is_empty());
+}
+
+#[test]
+fn test_angle_slice_javascript_logging() {
+    let source = r#"
+function fetchData(url) {
+    console.log("fetching", url);
+    const res = fetch(url);
+    if (res.error) {
+        console.error("failed", res.error);
+        return null;
+    }
+    console.log("done");
+    return res;
+}
+"#;
+    let path = "fetch.js";
+    let parsed = ParsedFile::parse(path, source, Language::JavaScript).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([3]),
+        }],
+    };
+
+    let result = prism::algorithms::angle_slice::slice(
+        &files,
+        &diff,
+        &prism::algorithms::angle_slice::Concern::Logging,
+    )
+    .unwrap();
+    assert_eq!(result.algorithm, SlicingAlgorithm::AngleSlice);
+    assert!(!result.blocks.is_empty());
+}
+
+#[test]
+fn test_angle_slice_custom_concern_python() {
+    let source = r#"
+import redis
+
+def get_cached(key):
+    cache = redis.get(key)
+    if cache:
+        return cache
+    result = compute(key)
+    redis.set(key, result, ttl=300)
+    return result
+"#;
+    let path = "cache.py";
+    let parsed = ParsedFile::parse(path, source, Language::Python).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([9]),
+        }],
+    };
+
+    let result = prism::algorithms::angle_slice::slice(
+        &files,
+        &diff,
+        &prism::algorithms::angle_slice::Concern::Caching,
+    )
+    .unwrap();
+    assert!(!result.blocks.is_empty());
+}
+
+#[test]
+fn test_spiral_slice_python() {
+    let source = r#"
+def inner(x):
+    return x + 1
+
+def outer(y):
+    z = inner(y)
+    return z * 2
+
+def caller():
+    r = outer(10)
+    print(r)
+"#;
+    let path = "spiral.py";
+    let parsed = ParsedFile::parse(path, source, Language::Python).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([6]),
+        }],
+    };
+
+    let config = SliceConfig::default().with_algorithm(SlicingAlgorithm::SpiralSlice);
+    let spiral_config = prism::algorithms::spiral_slice::SpiralConfig {
+        max_ring: 4,
+        auto_stop_threshold: 0.0,
+    };
+    let result =
+        prism::algorithms::spiral_slice::slice(&files, &diff, &config, &spiral_config).unwrap();
+    assert_eq!(result.algorithm, SlicingAlgorithm::SpiralSlice);
+    assert!(!result.blocks.is_empty());
+}
+
+#[test]
+fn test_spiral_slice_go() {
+    let source = r#"package main
+
+func compute(n int) int {
+	return n * 2
+}
+
+func process(x int) int {
+	r := compute(x)
+	return r + 1
+}
+
+func main() {
+	v := process(5)
+	println(v)
+}
+"#;
+    let path = "main.go";
+    let parsed = ParsedFile::parse(path, source, Language::Go).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([4]),
+        }],
+    };
+
+    let config = SliceConfig::default().with_algorithm(SlicingAlgorithm::SpiralSlice);
+    let spiral_config = prism::algorithms::spiral_slice::SpiralConfig {
+        max_ring: 6,
+        auto_stop_threshold: 0.0,
+    };
+    let result =
+        prism::algorithms::spiral_slice::slice(&files, &diff, &config, &spiral_config).unwrap();
+    assert_eq!(result.algorithm, SlicingAlgorithm::SpiralSlice);
+    assert!(!result.blocks.is_empty());
+}
+
+#[test]
+fn test_spiral_slice_ring1_only_python() {
+    let (files, _, diff) = make_python_test();
+    let config = SliceConfig::default().with_algorithm(SlicingAlgorithm::SpiralSlice);
+    let spiral_config = prism::algorithms::spiral_slice::SpiralConfig {
+        max_ring: 1,
+        auto_stop_threshold: 0.0,
+    };
+    let result =
+        prism::algorithms::spiral_slice::slice(&files, &diff, &config, &spiral_config).unwrap();
+    assert!(!result.blocks.is_empty());
+}
+
+// ====================================================================
+// Batch 3: HorizontalSlice, VerticalSlice, ResonanceSlice
+// ====================================================================
+
+#[test]
+fn test_horizontal_slice_python() {
+    let source = r#"
+def handle_get(request):
+    data = get_data()
+    return data
+
+def handle_post(request):
+    data = request.body
+    save_data(data)
+    return "ok"
+
+def handle_delete(request):
+    delete_data(request.id)
+    return "deleted"
+"#;
+    let path = "handlers.py";
+    let parsed = ParsedFile::parse(path, source, Language::Python).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([3]),
+        }],
+    };
+
+    let result = prism::algorithms::horizontal_slice::slice(
+        &files,
+        &diff,
+        &prism::algorithms::horizontal_slice::PeerPattern::NamePattern("handle_*".to_string()),
+    )
+    .unwrap();
+    assert_eq!(result.algorithm, SlicingAlgorithm::HorizontalSlice);
+}
+
+#[test]
+fn test_horizontal_slice_javascript() {
+    let source = r#"
+function handleLogin(req, res) {
+    const user = authenticate(req.body);
+    res.send(user);
+}
+
+function handleLogout(req, res) {
+    clearSession(req);
+    res.send("ok");
+}
+
+function handleRegister(req, res) {
+    const user = createUser(req.body);
+    res.send(user);
+}
+"#;
+    let path = "routes.js";
+    let parsed = ParsedFile::parse(path, source, Language::JavaScript).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([3]),
+        }],
+    };
+
+    let result = prism::algorithms::horizontal_slice::slice(
+        &files,
+        &diff,
+        &prism::algorithms::horizontal_slice::PeerPattern::Auto,
+    )
+    .unwrap();
+    assert_eq!(result.algorithm, SlicingAlgorithm::HorizontalSlice);
+}
+
+#[test]
+fn test_horizontal_slice_go() {
+    let source = r#"package main
+
+func HandleGet(w http.ResponseWriter, r *http.Request) {
+	data := getData()
+	w.Write(data)
+}
+
+func HandlePost(w http.ResponseWriter, r *http.Request) {
+	body := r.Body
+	saveData(body)
+}
+"#;
+    let path = "routes.go";
+    let parsed = ParsedFile::parse(path, source, Language::Go).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([4]),
+        }],
+    };
+
+    let result = prism::algorithms::horizontal_slice::slice(
+        &files,
+        &diff,
+        &prism::algorithms::horizontal_slice::PeerPattern::NamePattern("Handle*".to_string()),
+    )
+    .unwrap();
+    assert_eq!(result.algorithm, SlicingAlgorithm::HorizontalSlice);
+}
+
+#[test]
+fn test_vertical_slice_python() {
+    let source_handler = r#"
+def api_handler(request):
+    data = request.json()
+    result = service_process(data)
+    return result
+"#;
+    let source_service = r#"
+def service_process(data):
+    validated = validate(data)
+    return repo_save(validated)
+"#;
+    let source_repo = r#"
+def repo_save(data):
+    db.insert(data)
+    return True
+"#;
+    let handler_path = "handler/api.py";
+    let service_path = "service/processor.py";
+    let repo_path = "repository/store.py";
+
+    let mut files = BTreeMap::new();
+    files.insert(
+        handler_path.to_string(),
+        ParsedFile::parse(handler_path, source_handler, Language::Python).unwrap(),
+    );
+    files.insert(
+        service_path.to_string(),
+        ParsedFile::parse(service_path, source_service, Language::Python).unwrap(),
+    );
+    files.insert(
+        repo_path.to_string(),
+        ParsedFile::parse(repo_path, source_repo, Language::Python).unwrap(),
+    );
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: service_path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([3]),
+        }],
+    };
+
+    let result = prism::algorithms::vertical_slice::slice(
+        &files,
+        &diff,
+        &prism::algorithms::vertical_slice::VerticalConfig::default(),
+    )
+    .unwrap();
+    assert_eq!(result.algorithm, SlicingAlgorithm::VerticalSlice);
+}
+
+#[test]
+fn test_vertical_slice_go() {
+    let source = r#"package main
+
+func handler(w http.ResponseWriter, r *http.Request) {
+	data := parseRequest(r)
+	result := service(data)
+	w.Write(result)
+}
+
+func service(data string) string {
+	return repository(data)
+}
+
+func repository(key string) string {
+	return db.Get(key)
+}
+"#;
+    let path = "handler/main.go";
+    let parsed = ParsedFile::parse(path, source, Language::Go).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([5]),
+        }],
+    };
+
+    let result = prism::algorithms::vertical_slice::slice(
+        &files,
+        &diff,
+        &prism::algorithms::vertical_slice::VerticalConfig::default(),
+    )
+    .unwrap();
+    assert_eq!(result.algorithm, SlicingAlgorithm::VerticalSlice);
+}
+
+#[test]
+fn test_resonance_slice_python() {
+    let source = "def update(x):\n    y = x + 1\n    return y\n";
+    let filename = "app.py";
+    let tmp = create_temp_git_repo("resonance_py", filename, &[
+        "def update(x):\n    return x\n",
+        source,
+    ]);
+
+    let parsed = ParsedFile::parse(filename, source, Language::Python).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(filename.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: filename.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([2]),
+        }],
+    };
+
+    let config = prism::algorithms::resonance_slice::ResonanceConfig {
+        git_dir: tmp.to_string_lossy().to_string(),
+        days: 365,
+        min_co_changes: 1,
+        min_ratio: 0.0,
+    };
+    let result = prism::algorithms::resonance_slice::slice(&files, &diff, &config).unwrap();
+    assert_eq!(result.algorithm, SlicingAlgorithm::ResonanceSlice);
+
+    let _ = std::fs::remove_dir_all(&tmp);
+}
+
+#[test]
+fn test_resonance_slice_go() {
+    let source = "package main\n\nfunc calc(n int) int {\n\treturn n * 2\n}\n";
+    let filename = "calc.go";
+    let tmp = create_temp_git_repo("resonance_go", filename, &[
+        "package main\n\nfunc calc(n int) int { return n }\n",
+        source,
+    ]);
+
+    let parsed = ParsedFile::parse(filename, source, Language::Go).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(filename.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: filename.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([4]),
+        }],
+    };
+
+    let config = prism::algorithms::resonance_slice::ResonanceConfig {
+        git_dir: tmp.to_string_lossy().to_string(),
+        days: 365,
+        min_co_changes: 1,
+        min_ratio: 0.0,
+    };
+    let result = prism::algorithms::resonance_slice::slice(&files, &diff, &config).unwrap();
+    assert_eq!(result.algorithm, SlicingAlgorithm::ResonanceSlice);
+
+    let _ = std::fs::remove_dir_all(&tmp);
+}
+
+
+// ====================================================================
+// Batch 4: Remaining algorithm×language gaps
+// ====================================================================
+
+#[test]
+fn test_thin_slice_python() {
+    let (files, _, diff) = make_python_test();
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::ThinSlice),
+    )
+    .unwrap();
+    assert!(!result.blocks.is_empty());
+}
+
+#[test]
+fn test_thin_slice_go() {
+    let (files, _, diff) = make_go_test();
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::ThinSlice),
+    )
+    .unwrap();
+    assert!(!result.blocks.is_empty());
+}
+
+#[test]
+fn test_thin_slice_typescript() {
+    let (files, _, diff) = make_typescript_test();
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::ThinSlice),
+    )
+    .unwrap();
+    assert!(!result.blocks.is_empty());
+}
+
+#[test]
+fn test_thin_slice_java() {
+    let (files, _, diff) = make_java_test();
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::ThinSlice),
+    )
+    .unwrap();
+    assert!(!result.blocks.is_empty());
+}
+
+#[test]
+fn test_thin_slice_lua() {
+    let source = r#"
+function compute(x)
+    local y = x + 1
+    local z = y * 2
+    return z
+end
+"#;
+    let path = "compute.lua";
+    let parsed = ParsedFile::parse(path, source, Language::Lua).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([3]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::ThinSlice),
+    )
+    .unwrap();
+    assert_eq!(result.algorithm, SlicingAlgorithm::ThinSlice);
+}
+
+#[test]
+fn test_thin_slice_rust() {
+    let source = r#"
+fn compute(x: i32) -> i32 {
+    let y = x + 1;
+    let z = y * 2;
+    z
+}
+"#;
+    let path = "compute.rs";
+    let parsed = ParsedFile::parse(path, source, Language::Rust).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([4]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::ThinSlice),
+    )
+    .unwrap();
+    assert_eq!(result.algorithm, SlicingAlgorithm::ThinSlice);
+}
+
+#[test]
+fn test_thin_slice_cpp() {
+    let (files, _, diff) = make_cpp_test();
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::ThinSlice),
+    )
+    .unwrap();
+    assert!(!result.blocks.is_empty());
+}
+
+#[test]
+fn test_thin_slice_c() {
+    let (files, _, diff) = make_c_test();
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::ThinSlice),
+    )
+    .unwrap();
+    assert!(!result.blocks.is_empty());
+}
+
+#[test]
+fn test_barrier_slice_go() {
+    let (files, _, diff) = make_go_test();
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::BarrierSlice),
+    )
+    .unwrap();
+    assert!(!result.blocks.is_empty());
+}
+
+#[test]
+fn test_barrier_slice_javascript() {
+    let (files, _, diff) = make_javascript_test();
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::BarrierSlice),
+    )
+    .unwrap();
+    assert!(!result.blocks.is_empty());
+}
+
+#[test]
+fn test_relevant_slice_python() {
+    let (files, _, diff) = make_python_test();
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::RelevantSlice),
+    )
+    .unwrap();
+    assert!(!result.blocks.is_empty());
+}
+
+#[test]
+fn test_relevant_slice_go() {
+    let (files, _, diff) = make_go_test();
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::RelevantSlice),
+    )
+    .unwrap();
+    assert!(!result.blocks.is_empty());
+}
+
+#[test]
+fn test_circular_slice_python() {
+    let source = r#"
+def a(x):
+    return b(x + 1)
+
+def b(y):
+    return a(y - 1)
+"#;
+    let path = "cycle.py";
+    let parsed = ParsedFile::parse(path, source, Language::Python).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([3]),
+        }],
+    };
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::CircularSlice),
+    )
+    .unwrap();
+    assert_eq!(result.algorithm, SlicingAlgorithm::CircularSlice);
+}
+
+#[test]
+fn test_circular_slice_go() {
+    let source = r#"package main
+
+func ping(n int) int {
+	return pong(n + 1)
+}
+
+func pong(n int) int {
+	return ping(n - 1)
+}
+"#;
+    let path = "cycle.go";
+    let parsed = ParsedFile::parse(path, source, Language::Go).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([4]),
+        }],
+    };
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::CircularSlice),
+    )
+    .unwrap();
+    assert_eq!(result.algorithm, SlicingAlgorithm::CircularSlice);
+}
+
+#[test]
+fn test_gradient_slice_python() {
+    let (files, _, diff) = make_python_test();
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::GradientSlice),
+    )
+    .unwrap();
+    assert!(!result.blocks.is_empty());
+}
+
+#[test]
+fn test_gradient_slice_go() {
+    let (files, _, diff) = make_go_test();
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::GradientSlice),
+    )
+    .unwrap();
+    assert!(!result.blocks.is_empty());
+}
+
+#[test]
+fn test_full_flow_python_no_returns() {
+    let (files, _, diff) = make_python_test();
+    let config = SliceConfig {
+        algorithm: SlicingAlgorithm::FullFlow,
+        include_returns: false,
+        trace_callees: false,
+        ..SliceConfig::default()
+    };
+    let result = algorithms::run_slicing(&files, &diff, &config).unwrap();
+    assert!(!result.blocks.is_empty());
+}
+
+#[test]
+fn test_full_flow_go_trace_callees() {
+    let (files, _, diff) = make_go_test();
+    let config = SliceConfig::default().with_algorithm(SlicingAlgorithm::FullFlow);
+    let result = algorithms::run_slicing(&files, &diff, &config).unwrap();
+    assert!(!result.blocks.is_empty());
+}
+
+#[test]
+fn test_full_flow_javascript() {
+    let (files, _, diff) = make_javascript_test();
+    let config = SliceConfig::default().with_algorithm(SlicingAlgorithm::FullFlow);
+    let result = algorithms::run_slicing(&files, &diff, &config).unwrap();
+    assert!(!result.blocks.is_empty());
+}
+
+#[test]
+fn test_phantom_slice_python() {
+    let source = "def remaining(x):\n    return x + 1\n";
+    let filename = "app.py";
+    let tmp = create_temp_git_repo("phantom_py", filename, &[
+        "def deleted_func(x):\n    return x * 2\n\ndef remaining(x):\n    return x + 1\n",
+        source,
+    ]);
+    let parsed = ParsedFile::parse(filename, source, Language::Python).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(filename.to_string(), parsed);
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: filename.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([2]),
+        }],
+    };
+    let config = prism::algorithms::phantom_slice::PhantomConfig {
+        git_dir: tmp.to_string_lossy().to_string(),
+        max_commits: 50,
+    };
+    let result = prism::algorithms::phantom_slice::slice(&files, &diff, &config).unwrap();
+    assert_eq!(result.algorithm, SlicingAlgorithm::PhantomSlice);
+    let _ = std::fs::remove_dir_all(&tmp);
+}
+
+#[test]
+fn test_phantom_slice_go() {
+    let source = "package main\n\nfunc alive(n int) int {\n\treturn n + 1\n}\n";
+    let filename = "main.go";
+    let tmp = create_temp_git_repo("phantom_go", filename, &[
+        "package main\n\nfunc dead(n int) int {\n\treturn n * 2\n}\n\nfunc alive(n int) int {\n\treturn n + 1\n}\n",
+        source,
+    ]);
+    let parsed = ParsedFile::parse(filename, source, Language::Go).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(filename.to_string(), parsed);
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: filename.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([4]),
+        }],
+    };
+    let config = prism::algorithms::phantom_slice::PhantomConfig {
+        git_dir: tmp.to_string_lossy().to_string(),
+        max_commits: 50,
+    };
+    let result = prism::algorithms::phantom_slice::slice(&files, &diff, &config).unwrap();
+    assert_eq!(result.algorithm, SlicingAlgorithm::PhantomSlice);
+    let _ = std::fs::remove_dir_all(&tmp);
+}
+
+#[test]
+fn test_quantum_slice_python() {
+    let source = r#"
+import threading
+
+def worker(data):
+    result = process(data)
+    return result
+
+def main():
+    t = threading.Thread(target=worker, args=(42,))
+    t.start()
+    t.join()
+"#;
+    let path = "async.py";
+    let parsed = ParsedFile::parse(path, source, Language::Python).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([5]),
+        }],
+    };
+    let result = prism::algorithms::quantum_slice::slice(&files, &diff, None).unwrap();
+    assert_eq!(result.algorithm, SlicingAlgorithm::QuantumSlice);
+}
+
+#[test]
+fn test_quantum_slice_go_channel() {
+    let source = r#"package main
+
+func worker(ch chan int) {
+	result := compute()
+	ch <- result
+}
+
+func main() {
+	ch := make(chan int)
+	go worker(ch)
+	v := <-ch
+	_ = v
+}
+
+func compute() int { return 42 }
+"#;
+    let path = "concurrent.go";
+    let parsed = ParsedFile::parse(path, source, Language::Go).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([4]),
+        }],
+    };
+    let result = prism::algorithms::quantum_slice::slice(&files, &diff, None).unwrap();
+    assert_eq!(result.algorithm, SlicingAlgorithm::QuantumSlice);
+}
+
+#[test]
+fn test_quantum_slice_javascript_async() {
+    let source = r#"
+async function fetchAll(urls) {
+    const promises = urls.map(url => fetch(url));
+    const results = await Promise.all(promises);
+    return results;
+}
+"#;
+    let path = "async.js";
+    let parsed = ParsedFile::parse(path, source, Language::JavaScript).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([4]),
+        }],
+    };
+    let result = prism::algorithms::quantum_slice::slice(&files, &diff, None).unwrap();
+    assert_eq!(result.algorithm, SlicingAlgorithm::QuantumSlice);
+}
+
+#[test]
+fn test_symmetry_slice_python() {
+    let source = r#"
+import json
+
+def save(data, path):
+    with open(path, 'w') as f:
+        json.dump(data, f)
+
+def load(path):
+    with open(path, 'r') as f:
+        return json.load(f)
+"#;
+    let path = "serializer.py";
+    let parsed = ParsedFile::parse(path, source, Language::Python).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([6]),
+        }],
+    };
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::SymmetrySlice),
+    )
+    .unwrap();
+    assert_eq!(result.algorithm, SlicingAlgorithm::SymmetrySlice);
+}
+
+#[test]
+fn test_symmetry_slice_go() {
+    let source = r#"package main
+
+import "encoding/json"
+
+func encode(data interface{}) ([]byte, error) {
+	return json.Marshal(data)
+}
+
+func decode(b []byte, v interface{}) error {
+	return json.Unmarshal(b, v)
+}
+"#;
+    let path = "codec.go";
+    let parsed = ParsedFile::parse(path, source, Language::Go).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([6]),
+        }],
+    };
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::SymmetrySlice),
+    )
+    .unwrap();
+    assert_eq!(result.algorithm, SlicingAlgorithm::SymmetrySlice);
+}
+
+#[test]
+fn test_echo_slice_python_handler() {
+    let source_api = "def create_resource(name):\n    if not name:\n        raise ValueError(\"name required\")\n    return {\"name\": name}\n";
+    let source_caller = "def handler():\n    result = create_resource(\"test\")\n    return result\n";
+    let mut files = BTreeMap::new();
+    files.insert("api.py".to_string(), ParsedFile::parse("api.py", source_api, Language::Python).unwrap());
+    files.insert("handler.py".to_string(), ParsedFile::parse("handler.py", source_caller, Language::Python).unwrap());
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: "api.py".to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([2, 3]),
+        }],
+    };
+    let result = algorithms::run_slicing(
+        &files, &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::EchoSlice),
+    ).unwrap();
+    assert_eq!(result.algorithm, SlicingAlgorithm::EchoSlice);
+}
+
+#[test]
+fn test_echo_slice_javascript() {
+    let source_api = "function validate(input) {\n    if (!input) {\n        throw new Error(\"missing\");\n    }\n    return input.trim();\n}\n";
+    let source_caller = "function process() {\n    const result = validate(getData());\n    return result;\n}\n";
+    let mut files = BTreeMap::new();
+    files.insert("validate.js".to_string(), ParsedFile::parse("validate.js", source_api, Language::JavaScript).unwrap());
+    files.insert("process.js".to_string(), ParsedFile::parse("process.js", source_caller, Language::JavaScript).unwrap());
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: "validate.js".to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([2, 3]),
+        }],
+    };
+    let result = algorithms::run_slicing(
+        &files, &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::EchoSlice),
+    ).unwrap();
+    assert_eq!(result.algorithm, SlicingAlgorithm::EchoSlice);
+}
+
+#[test]
+fn test_membrane_slice_javascript() {
+    let source_api = "function fetchUser(id) {\n    const user = db.get(id);\n    if (!user) throw new Error(\"not found\");\n    return user;\n}\n";
+    let source_caller = "function showProfile(id) {\n    const user = fetchUser(id);\n    render(user);\n}\n";
+    let mut files = BTreeMap::new();
+    files.insert("api.js".to_string(), ParsedFile::parse("api.js", source_api, Language::JavaScript).unwrap());
+    files.insert("profile.js".to_string(), ParsedFile::parse("profile.js", source_caller, Language::JavaScript).unwrap());
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: "api.js".to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([2, 3]),
+        }],
+    };
+    let result = algorithms::run_slicing(
+        &files, &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::MembraneSlice),
+    ).unwrap();
+    assert_eq!(result.algorithm, SlicingAlgorithm::MembraneSlice);
+}
+
+#[test]
+fn test_provenance_slice_javascript() {
+    let source = "function handler(req, res) {\n    const token = req.headers.authorization;\n    const userId = parseToken(token);\n    const data = db.query(userId);\n    res.json(data);\n}\n";
+    let path = "handler.js";
+    let parsed = ParsedFile::parse(path, source, Language::JavaScript).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([2, 3]),
+        }],
+    };
+    let result = algorithms::run_slicing(
+        &files, &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::ProvenanceSlice),
+    ).unwrap();
+    assert_eq!(result.algorithm, SlicingAlgorithm::ProvenanceSlice);
+}
+
+#[test]
+fn test_absence_slice_javascript() {
+    let source = "function processFile(path) {\n    const fd = fs.openSync(path, 'r');\n    const data = fs.readFileSync(fd);\n    return data;\n}\n";
+    let path = "file.js";
+    let parsed = ParsedFile::parse(path, source, Language::JavaScript).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([2]),
+        }],
+    };
+    let result = algorithms::run_slicing(
+        &files, &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::AbsenceSlice),
+    ).unwrap();
+    assert_eq!(result.algorithm, SlicingAlgorithm::AbsenceSlice);
+}
+
+#[test]
+fn test_absence_slice_go_open() {
+    let source = "package main\n\nimport \"os\"\n\nfunc readFile(path string) []byte {\n\tf, _ := os.Open(path)\n\tdata := make([]byte, 1024)\n\tf.Read(data)\n\treturn data\n}\n";
+    let path = "io.go";
+    let parsed = ParsedFile::parse(path, source, Language::Go).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([6]),
+        }],
+    };
+    let result = algorithms::run_slicing(
+        &files, &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::AbsenceSlice),
+    ).unwrap();
+    assert_eq!(result.algorithm, SlicingAlgorithm::AbsenceSlice);
+}
+
+#[test]
+fn test_original_diff_go() {
+    let (files, _, diff) = make_go_test();
+    let result = algorithms::run_slicing(
+        &files, &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::OriginalDiff),
+    ).unwrap();
+    assert!(!result.blocks.is_empty());
+}
+
+#[test]
+fn test_parent_function_typescript() {
+    let (files, _, diff) = make_typescript_test();
+    let result = algorithms::run_slicing(
+        &files, &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::ParentFunction),
+    ).unwrap();
+    assert!(!result.blocks.is_empty());
+}
+
+#[test]
+fn test_left_flow_go() {
+    let (files, _, diff) = make_go_test();
+    let result = algorithms::run_slicing(
+        &files, &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::LeftFlow),
+    ).unwrap();
+    assert!(!result.blocks.is_empty());
+}
+
+#[test]
+fn test_left_flow_java() {
+    let (files, _, diff) = make_java_test();
+    let result = algorithms::run_slicing(
+        &files, &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::LeftFlow),
+    ).unwrap();
+    assert!(!result.blocks.is_empty());
+}
+
+
+// ====================================================================
+// Batch 6: Targeted tests for files near 80% threshold
+// ====================================================================
+
+#[test]
+fn test_thin_slice_global_scope_python() {
+    // Test thin slice with diff lines at global scope (no enclosing function)
+    let source = r#"
+x = 10
+y = x + 1
+print(y)
+"#;
+    let path = "global.py";
+    let parsed = ParsedFile::parse(path, source, Language::Python).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([2, 3]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::ThinSlice),
+    )
+    .unwrap();
+    assert!(!result.blocks.is_empty(), "ThinSlice should handle global-scope diff lines");
+}
+
+#[test]
+fn test_parent_function_global_scope_python() {
+    // Test parent function with diff lines outside any function
+    let source = r#"
+import os
+
+CONFIG = os.getenv("CONFIG", "default")
+DATA_DIR = "/tmp/data"
+
+def process():
+    return CONFIG
+"#;
+    let path = "config.py";
+    let parsed = ParsedFile::parse(path, source, Language::Python).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([4, 5]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::ParentFunction),
+    )
+    .unwrap();
+    assert!(!result.blocks.is_empty(), "ParentFunction should include global diff lines");
+}
+
+#[test]
+fn test_parent_function_global_scope_go() {
+    let source = r#"package main
+
+var Config = "default"
+var Port = 8080
+
+func main() {
+	println(Config)
+}
+"#;
+    let path = "main.go";
+    let parsed = ParsedFile::parse(path, source, Language::Go).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([3, 4]),
+        }],
+    };
+
+    let result = algorithms::run_slicing(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::ParentFunction),
+    )
+    .unwrap();
+    assert!(!result.blocks.is_empty());
+}
+
+#[test]
+fn test_barrier_slice_with_barriers_python() {
+    // Test barrier slice with explicit barrier symbols and modules
+    let source_main = r#"
+def handler(request):
+    data = parse(request)
+    result = service(data)
+    logged = log_result(result)
+    return result
+"#;
+    let source_service = r#"
+def service(data):
+    validated = validate(data)
+    return transform(validated)
+"#;
+    let source_log = r#"
+def log_result(result):
+    print(result)
+    return result
+"#;
+    let mut files = BTreeMap::new();
+    files.insert(
+        "handler.py".to_string(),
+        ParsedFile::parse("handler.py", source_main, Language::Python).unwrap(),
+    );
+    files.insert(
+        "service.py".to_string(),
+        ParsedFile::parse("service.py", source_service, Language::Python).unwrap(),
+    );
+    files.insert(
+        "log.py".to_string(),
+        ParsedFile::parse("log.py", source_log, Language::Python).unwrap(),
+    );
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: "handler.py".to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([4]),
+        }],
+    };
+
+    let barrier_config = prism::algorithms::barrier_slice::BarrierConfig {
+        max_depth: 2,
+        barrier_symbols: BTreeSet::from(["log_result".to_string()]),
+        barrier_modules: vec!["log.py".to_string()],
+    };
+    let config = SliceConfig::default().with_algorithm(SlicingAlgorithm::BarrierSlice);
+    let result =
+        prism::algorithms::barrier_slice::slice(&files, &diff, &config, &barrier_config).unwrap();
+    assert_eq!(result.algorithm, SlicingAlgorithm::BarrierSlice);
+}
+
+#[test]
+fn test_vertical_slice_explicit_layers_python() {
+    // Test with explicit layer ordering
+    let source = r#"
+def api_handler(request):
+    return service_call(request.data)
+
+def service_call(data):
+    return repo_save(data)
+
+def repo_save(data):
+    return True
+"#;
+    let path = "handler/app.py";
+    let parsed = ParsedFile::parse(path, source, Language::Python).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([3]),
+        }],
+    };
+
+    let config = prism::algorithms::vertical_slice::VerticalConfig {
+        layers: vec![
+            "Handler".to_string(),
+            "Service".to_string(),
+            "Repository".to_string(),
+        ],
+    };
+    let result = prism::algorithms::vertical_slice::slice(&files, &diff, &config).unwrap();
+    assert_eq!(result.algorithm, SlicingAlgorithm::VerticalSlice);
+}
+
+#[test]
+fn test_delta_slice_missing_old_file_python() {
+    // Delta slice when old file doesn't exist (tests error handling path)
+    let tmp = std::env::temp_dir().join("prism_delta_missing");
+    let _ = std::fs::remove_dir_all(&tmp);
+    std::fs::create_dir_all(&tmp).unwrap();
+    // No old file written — old_repo has nothing
+
+    let new_source = "x = 1\ny = x + 2\nprint(y)\n";
+    let path = "missing.py";
+    let parsed = ParsedFile::parse(path, new_source, Language::Python).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([2]),
+        }],
+    };
+
+    let result = prism::algorithms::delta_slice::slice(&files, &diff, &tmp).unwrap();
+    assert_eq!(result.algorithm, SlicingAlgorithm::DeltaSlice);
+    // Should succeed but with empty old files — no edge differences
+
+    let _ = std::fs::remove_dir_all(&tmp);
+}
+
+#[test]
+fn test_angle_slice_concern_not_on_diff_python() {
+    // Concern exists in code but not on the diff lines themselves
+    let source = r#"
+def handler():
+    try:
+        result = compute()
+    except Exception as e:
+        log_error(e)
+        raise
+    return result
+
+def compute():
+    x = 1
+    y = x + 1
+    return y
+"#;
+    let path = "app.py";
+    let parsed = ParsedFile::parse(path, source, Language::Python).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    // Diff is on lines 11-12 in compute(), which has no error handling patterns
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([11, 12]),
+        }],
+    };
+
+    let result = prism::algorithms::angle_slice::slice(
+        &files,
+        &diff,
+        &prism::algorithms::angle_slice::Concern::ErrorHandling,
+    )
+    .unwrap();
+    assert_eq!(result.algorithm, SlicingAlgorithm::AngleSlice);
+    // Should still find error handling code in the file
+    assert!(!result.blocks.is_empty());
+}
+
+#[test]
+fn test_angle_slice_authentication_go() {
+    let source = r#"package main
+
+func authMiddleware(token string) bool {
+	session := validateToken(token)
+	if session == nil {
+		return false
+	}
+	return authorize(session)
+}
+
+func validateToken(t string) interface{} {
+	return nil
+}
+
+func authorize(s interface{}) bool {
+	return true
+}
+"#;
+    let path = "auth.go";
+    let parsed = ParsedFile::parse(path, source, Language::Go).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([4, 5]),
+        }],
+    };
+
+    let result = prism::algorithms::angle_slice::slice(
+        &files,
+        &diff,
+        &prism::algorithms::angle_slice::Concern::Authentication,
+    )
+    .unwrap();
+    assert!(!result.blocks.is_empty());
+}
+
+#[test]
+fn test_spiral_slice_max_ring_6_python() {
+    // Test spiral with max ring 6 to cover ring 5 (test files) and ring 6 (shared utils)
+    let source_main = r#"
+def compute(x):
+    y = helper(x)
+    return y * 2
+"#;
+    let source_helper = r#"
+def helper(x):
+    return x + 1
+"#;
+    let source_test = r#"
+def test_compute():
+    assert compute(5) == 12
+"#;
+    let mut files = BTreeMap::new();
+    files.insert(
+        "src/main.py".to_string(),
+        ParsedFile::parse("src/main.py", source_main, Language::Python).unwrap(),
+    );
+    files.insert(
+        "src/helper.py".to_string(),
+        ParsedFile::parse("src/helper.py", source_helper, Language::Python).unwrap(),
+    );
+    files.insert(
+        "tests/test_main.py".to_string(),
+        ParsedFile::parse("tests/test_main.py", source_test, Language::Python).unwrap(),
+    );
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: "src/main.py".to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([3]),
+        }],
+    };
+
+    let config = SliceConfig::default().with_algorithm(SlicingAlgorithm::SpiralSlice);
+    let spiral_config = prism::algorithms::spiral_slice::SpiralConfig {
+        max_ring: 6,
+        auto_stop_threshold: 0.0,
+    };
+    let result =
+        prism::algorithms::spiral_slice::slice(&files, &diff, &config, &spiral_config).unwrap();
+    assert!(!result.blocks.is_empty());
+}
+
+#[test]
+fn test_full_flow_trace_callees_python() {
+    // Test with trace_callees enabled to cover cross-file R-value resolution
+    let source_main = r#"
+def process(data):
+    result = transform(data)
+    return result
+"#;
+    let source_transform = r#"
+def transform(x):
+    return x * 2
+"#;
+    let mut files = BTreeMap::new();
+    files.insert(
+        "main.py".to_string(),
+        ParsedFile::parse("main.py", source_main, Language::Python).unwrap(),
+    );
+    files.insert(
+        "transform.py".to_string(),
+        ParsedFile::parse("transform.py", source_transform, Language::Python).unwrap(),
+    );
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: "main.py".to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([3]),
+        }],
+    };
+
+    let config = SliceConfig {
+        algorithm: SlicingAlgorithm::FullFlow,
+        include_returns: true,
+        trace_callees: true,
+        ..SliceConfig::default()
+    };
+    let result = algorithms::run_slicing(&files, &diff, &config).unwrap();
+    assert!(!result.blocks.is_empty());
+}
+
+#[test]
+fn test_horizontal_slice_name_suffix_python() {
+    // Test NamePattern with suffix matching (*_handler)
+    let source = r#"
+def get_handler(request):
+    return get_data()
+
+def post_handler(request):
+    save_data(request.body)
+
+def delete_handler(request):
+    remove_data(request.id)
+"#;
+    let path = "handlers.py";
+    let parsed = ParsedFile::parse(path, source, Language::Python).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([3]),
+        }],
+    };
+
+    let result = prism::algorithms::horizontal_slice::slice(
+        &files,
+        &diff,
+        &prism::algorithms::horizontal_slice::PeerPattern::NamePattern("*_handler".to_string()),
+    )
+    .unwrap();
+    assert_eq!(result.algorithm, SlicingAlgorithm::HorizontalSlice);
+}
+
+#[test]
+fn test_horizontal_slice_decorator_python() {
+    // Test Decorator matching
+    let source = r#"
+@app.route("/users")
+def get_users():
+    return users
+
+@app.route("/items")
+def get_items():
+    return items
+"#;
+    let path = "routes.py";
+    let parsed = ParsedFile::parse(path, source, Language::Python).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([4]),
+        }],
+    };
+
+    let result = prism::algorithms::horizontal_slice::slice(
+        &files,
+        &diff,
+        &prism::algorithms::horizontal_slice::PeerPattern::Decorator("@app.route".to_string()),
+    )
+    .unwrap();
+    assert_eq!(result.algorithm, SlicingAlgorithm::HorizontalSlice);
+}
+
+#[test]
+fn test_quantum_slice_with_target_var_python() {
+    // Test quantum_slice with a specific target variable
+    let source = r#"
+import asyncio
+
+async def fetch(url):
+    data = await get(url)
+    result = process(data)
+    return result
+"#;
+    let path = "fetch.py";
+    let parsed = ParsedFile::parse(path, source, Language::Python).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([5]),
+        }],
+    };
+
+    let result = prism::algorithms::quantum_slice::slice(&files, &diff, Some("data")).unwrap();
+    assert_eq!(result.algorithm, SlicingAlgorithm::QuantumSlice);
 }
