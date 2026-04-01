@@ -1,6 +1,6 @@
 # Prism Implementation Plan & Status Tracker
 
-Last updated: 2026-04-01 (synthesized language expansion plan; updated P3/P4/P5 priorities)
+Last updated: 2026-04-01 (fptr Level 3, C++ membrane error handling, plan synthesis)
 
 ---
 
@@ -85,7 +85,7 @@ Last updated: 2026-04-01 (synthesized language expansion plan; updated P3/P4/P5 
 
 | Item | Effort | Impact | Notes |
 |------|--------|--------|-------|
-| **Function pointer Level 3: parameter-passed fptrs** | 4-8h | Resolves `cb(data)` where `cb` is a parameter by checking callers' arguments | 1-hop interprocedural; see `docs/c-cpp/function-pointer-resolution.md` |
+| ~~**Function pointer Level 3: parameter-passed fptrs**~~ | — | — | **Done** — 1-hop interprocedural; `function_parameter_names()` + `call_argument_text_at()` in ast.rs, Level 3 loop in call_graph.rs. Composes with Level 1. 5 tests. |
 | **`discover.py` replacement** — Rust binary for file enumeration | 3-5 days | Gitignore-aware file walking using `ignore` crate | Enables proper multi-file analysis in CI pipelines |
 
 ### P2 — Valuable (Improves Analysis Depth)
@@ -97,7 +97,7 @@ Last updated: 2026-04-01 (synthesized language expansion plan; updated P3/P4/P5 
 | `va_list` taint tracking | 3-5 days | Detects format string injection (`snprintf(buf, sz, user_input)`) |
 | CVE-pattern test fixtures (heap spray, format string, integer overflow) | 2-3 days | Regression coverage for known firmware bug classes |
 | `goto`-based error path analysis for AbsenceSlice | 3-5 days | Correct double-free/double-unlock detection for kernel-style `goto cleanup` |
-| MembraneSlice C++ error handling (exceptions, RAII) | 2-3h | Better precision for C++ cross-file callers |
+| ~~MembraneSlice C++ error handling (exceptions, RAII)~~ | — | **Done** — try/catch, throw, RAII smart ptrs, lock guards, std::optional/expected, error_code. 4 tests. |
 | `petgraph` migration for call graph / CircularSlice / GradientSlice | 1 week | Replace hand-rolled BFS/DFS with proper graph algorithms (SCC, dominators) |
 
 ### P3 — New Language Support (Procedural)
@@ -145,7 +145,7 @@ These formats need a different analysis model: parse → find touched units → 
 
 ### Known Limitations (C/C++)
 - Pointer aliasing: tracked at name level, not memory level (extract_lvalue_names mitigates)
-- Function pointers: Level 0 (field-access), Level 1 (local fptr variable), Level 2 (dispatch tables) resolved; Level 3 (parameter-passed) and Level 4 (full points-to) not implemented — see `docs/c-cpp/function-pointer-resolution.md`
+- Function pointers: Level 0 (field-access), Level 1 (local fptr variable), Level 2 (dispatch tables), Level 3 (parameter-passed, 1-hop) resolved; Level 4 (full points-to) not implemented — see `docs/c-cpp/function-pointer-resolution.md`
 - `static` function scope: disambiguated via `resolve_callees()` and `callers_of_in_file()`
 - Interrupt handlers: detected by naming heuristic AND cross-file registration analysis (`signal()`, `pthread_create()`, `request_irq()`, `.sa_handler`, `std::thread`)
 - Struct field flow: `dev->name` taints all of `dev` (P2 item)
@@ -159,7 +159,7 @@ These formats need a different analysis model: parse → find touched units → 
 - No semantic scoping — `find_variable_references_scoped` handles some variable shadowing cases
 
 ### Test Coverage
-- **183 tests** total (unit + integration)
+- **192 tests** total (unit + integration)
 - 9 languages covered (Python, JS/TS, Go, Java, C/C++, Rust, Lua)
 - 26 algorithms with at least basic coverage
 - C/C++ specific: 32 tests covering taint, provenance, absence, quantum (incl. ISR self-detection), membrane, phantom, pointer aliasing, function pointer dispatch (Level 0/1/2), static linkage disambiguation
