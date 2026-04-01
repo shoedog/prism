@@ -1,6 +1,6 @@
 # Prism Implementation Plan & Status Tracker
 
-Last updated: 2026-04-01 (Rust + Lua language support, echo/provenance precision)
+Last updated: 2026-04-01 (Rust & Lua algorithm pattern depth)
 
 ---
 
@@ -62,6 +62,21 @@ Last updated: 2026-04-01 (Rust + Lua language support, echo/provenance precision
 
 **Tests added:** Echo C caller without return check (1), echo C caller with return check (1), echo Go errors.Is (1), echo Python with-statement (1). Provenance transform≠form negative (1), provenance prefetch≠fetch negative (1). Rust basic parsing (1), Rust taint (1), Rust original_diff (1), Rust parent_function (1). Lua basic parsing (1), Lua taint exec (1), Lua parent_function (1), Lua absence open/close (1).
 
+### Rust & Lua Algorithm Pattern Depth
+
+| Item | Branch | Status |
+|------|--------|--------|
+| Rust taint sinks — transmute, from_raw_parts, write_volatile, read_volatile, from_utf8_unchecked, set_permissions, sql_query, query_as, deserialize, CString, CStr | `claude/fix-taint-patterns-tests-0fPSO` | Done |
+| Lua taint sinks — loadstring, dofile, loadfile, format | `claude/fix-taint-patterns-tests-0fPSO` | Done |
+| Rust provenance sources — std::io::stdin, BufReader, TcpStream, UdpSocket, hyper/axum/actix/rocket (user input); diesel, sqlx, sea_orm, rusqlite (database); serde_json/yaml, toml, config-rs, Figment (config); std::env::var, dotenvy (env) | `claude/fix-taint-patterns-tests-0fPSO` | Done |
+| Lua provenance sources — io.read, io.stdin, socket.receive, ngx.req/var (user input); conn:execute, cursor:fetch, redis:get/hgetall (database); dofile, require (config); os.getenv (env) | `claude/fix-taint-patterns-tests-0fPSO` | Done |
+| Rust absence pairs — File::open/create→drop/flush, Mutex::lock→drop, unsafe→assert/SAFETY comment, TcpListener/TcpStream→shutdown/drop, Command::new→status/output/spawn | `claude/fix-taint-patterns-tests-0fPSO` | Done |
+| Lua absence pairs — io.open→close, socket.tcp/udp/connect→close, coroutine.create→resume | `claude/fix-taint-patterns-tests-0fPSO` | Done |
+| Rust membrane error handling — ? operator, unwrap, expect, if let Err/Ok, match, map_err, Err() | `claude/fix-taint-patterns-tests-0fPSO` | Done |
+| Lua membrane error handling — pcall, xpcall, assert, error() | `claude/fix-taint-patterns-tests-0fPSO` | Done |
+
+**Tests added (17):** Rust taint transmute (1), Rust taint from_raw_parts (1), Rust provenance stdin (1), Rust provenance diesel (1), Rust provenance env_var (1), Rust absence file without flush (1), Rust absence command not executed (1), Rust absence unsafe without safety comment (1), Rust membrane error handling (1), Rust quantum tokio::spawn (1), Lua taint loadstring (1), Lua taint dofile (1), Lua provenance io.read (1), Lua provenance os.getenv (1), Lua provenance redis (1), Lua absence socket without close (1), Lua membrane pcall (1).
+
 ---
 
 ## Remaining Work
@@ -114,7 +129,7 @@ Last updated: 2026-04-01 (Rust + Lua language support, echo/provenance precision
 - Virtual dispatch: name-matched, not type-resolved (P2 item)
 
 ### Test Coverage
-- **165 tests** total (unit + integration)
+- **183 tests** total (unit + integration)
 - 9 languages covered (Python, JS/TS, Go, Java, C/C++, Rust, Lua)
 - 26 algorithms with at least basic coverage
 - C/C++ specific: 32 tests covering taint, provenance, absence, quantum (incl. ISR self-detection), membrane, phantom, pointer aliasing, function pointer dispatch (Level 0/1/2), static linkage disambiguation
@@ -125,8 +140,8 @@ Last updated: 2026-04-01 (Rust + Lua language support, echo/provenance precision
 - Multi-language membrane: 2 tests covering Python (raise_for_status), Go (errors.Is)
 - Echo slice: 4 tests (C return-code positive/negative, Go errors.Is, Python with-statement)
 - Provenance precision: 2 negative tests (transform≠form, prefetch≠fetch)
-- Rust: 4 tests (basic parsing, taint, original_diff, parent_function)
-- Lua: 4 tests (basic parsing, taint exec, parent_function, absence open/close)
+- Rust: 14 tests (basic parsing, taint, original_diff, parent_function, taint transmute, taint from_raw_parts, provenance stdin, provenance diesel, provenance env_var, absence file, absence command, absence unsafe, membrane error handling, quantum tokio)
+- Lua: 11 tests (basic parsing, taint exec, parent_function, absence open/close, quantum coroutine, taint loadstring, taint dofile, provenance io.read, provenance os.getenv, provenance redis, absence socket, membrane pcall)
 
 ---
 

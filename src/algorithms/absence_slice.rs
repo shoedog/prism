@@ -242,6 +242,56 @@ pub fn default_pairs() -> Vec<PairedPattern> {
             close_patterns: vec![".Body.Close(", "Body.Close("],
             description: "Go HTTP response body not closed",
         },
+        // === Rust-specific pairs ===
+        PairedPattern {
+            open_patterns: vec!["File::open(", "File::create(", "OpenOptions"],
+            close_patterns: vec!["drop(", ".flush("],
+            description: "Rust file opened without explicit flush/drop",
+        },
+        PairedPattern {
+            open_patterns: vec![".lock()", "Mutex::lock(", "RwLock::read(", "RwLock::write("],
+            close_patterns: vec!["drop("],
+            description:
+                "advisory: Rust mutex lock held to end of scope (explicit drop() releases sooner)",
+        },
+        PairedPattern {
+            open_patterns: vec!["unsafe {", "unsafe{"],
+            close_patterns: vec![
+                "assert!", // line text scan (no trailing '(' — macros aren't call nodes)
+                "debug_assert!",
+                "assert_eq!",
+                "assert_ne!",
+                "// SAFETY",
+                "// Safety",
+            ],
+            description: "unsafe block without safety assertion or comment",
+        },
+        PairedPattern {
+            open_patterns: vec!["TcpListener::bind(", "TcpStream::connect("],
+            close_patterns: vec![".shutdown(", "drop("],
+            description: "Rust TCP connection without shutdown/drop",
+        },
+        PairedPattern {
+            open_patterns: vec!["Command::new("],
+            close_patterns: vec![".status()", ".output()", ".spawn("],
+            description: "Rust Command created but never executed",
+        },
+        // === Lua-specific pairs ===
+        PairedPattern {
+            open_patterns: vec!["io.open("],
+            close_patterns: vec![":close(", "io.close("],
+            description: "Lua file opened without close",
+        },
+        PairedPattern {
+            open_patterns: vec!["socket.tcp", "socket.udp", "socket.connect"],
+            close_patterns: vec![":close"],
+            description: "Lua socket opened without close",
+        },
+        PairedPattern {
+            open_patterns: vec!["coroutine.create("],
+            close_patterns: vec!["coroutine.resume("],
+            description: "Lua coroutine created but never resumed",
+        },
     ]
 }
 
