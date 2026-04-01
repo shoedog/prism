@@ -32,6 +32,11 @@ pub fn slice(
     let mut result = SliceResult::new(SlicingAlgorithm::QuantumSlice);
     let mut block_id = 0;
 
+    // Pre-compute: scan all files for handler/callback registration calls
+    // so we can detect functions that ARE async entry points even when they
+    // don't contain async primitives themselves.
+    let registered_handlers = collect_registered_handlers(files);
+
     for diff_info in &diff.files {
         let parsed = match files.get(&diff_info.file_path) {
             Some(f) => f,
@@ -75,7 +80,7 @@ pub fn slice(
 
                 // Detect async context
                 let async_lines = find_async_points(parsed, &func_node);
-                let is_async_func = is_async_function(parsed, &func_node);
+                let is_async_func = is_async_function(parsed, &func_node, &registered_handlers);
 
                 // Build possible states
                 let mut states: Vec<PossibleState> = Vec::new();
@@ -225,7 +230,142 @@ fn find_async_inner(parsed: &ParsedFile, node: Node<'_>, out: &mut Vec<usize>) {
     }
 }
 
-fn is_async_function(parsed: &ParsedFile, func_node: &Node<'_>) -> bool {
+/// Scan all parsed files for calls that register a function as a handler/callback.
+/// Returns the set of function names that are registered as async entry points.
+///
+/// Detected registration patterns:
+///   signal(SIGTERM, handler_name)
+///   sigaction(SIGTERM, &sa, NULL)     — extracts from .sa_handler = name
+///   pthread_create(&tid, NULL, worker, arg)
+///   request_irq(irq, handler, flags, name, dev)
+///   request_threaded_irq(...)
+///   std::thread t(worker_func, args)
+fn collect_registered_handlers(files: &BTreeMap<String, ParsedFile>) -> BTreeSet<String> {
+    let mut handlers = BTreeSet::new();
+
+    for parsed in files.values() {
+        if !matches!(parsed.language, Language::C | Language::Cpp) {
+            continue;
+        }
+        for line in parsed.source.lines() {
+            let trimmed = line.trim();
+
+            // signal(SIGxxx, handler_name) — 2nd argument
+            if let Some(args) = extract_call_args(trimmed, "signal(") {
+                if let Some(name) = nth_arg(&args, 1) {
+                    if is_ident(name) {
+                        handlers.insert(name.to_string());
+                    }
+                }
+            }
+
+            // pthread_create(&tid, attr, start_routine, arg) — 3rd argument
+            if let Some(args) = extract_call_args(trimmed, "pthread_create(") {
+                if let Some(name) = nth_arg(&args, 2) {
+                    let name = name.trim_start_matches('&');
+                    if is_ident(name) {
+                        handlers.insert(name.to_string());
+                    }
+                }
+            }
+
+            // request_irq(irq, handler, flags, name, dev) — 2nd argument
+            for prefix in &["request_irq(", "request_threaded_irq("] {
+                if let Some(args) = extract_call_args(trimmed, prefix) {
+                    if let Some(name) = nth_arg(&args, 1) {
+                        let name = name.trim_start_matches('&');
+                        if is_ident(name) {
+                            handlers.insert(name.to_string());
+                        }
+                    }
+                }
+            }
+
+            // .sa_handler = handler_name (sigaction struct initialization)
+            if trimmed.contains(".sa_handler") {
+                if let Some(eq_pos) = trimmed.find('=') {
+                    let rhs = trimmed[eq_pos + 1..].trim().trim_end_matches([';', ',']);
+                    let rhs = rhs.trim();
+                    if is_ident(rhs) {
+                        handlers.insert(rhs.to_string());
+                    }
+                }
+            }
+
+            // std::thread t(worker_func, ...) — 1st argument after variable name
+            // Also: std::thread(worker_func, ...)
+            if trimmed.contains("std::thread") && trimmed.contains('(') {
+                if let Some(paren) = trimmed.find('(') {
+                    let inner = &trimmed[paren + 1..];
+                    if let Some(name) = nth_arg(inner, 0) {
+                        let name = name.trim_start_matches('&');
+                        if is_ident(name) {
+                            handlers.insert(name.to_string());
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    handlers
+}
+
+/// Extract the arguments portion of a function call from a line.
+/// Returns the text after the prefix up to the matching `)`.
+fn extract_call_args<'a>(line: &'a str, prefix: &str) -> Option<&'a str> {
+    let idx = line.find(prefix)?;
+    let start = idx + prefix.len();
+    // Find matching closing paren (handle nested parens)
+    let rest = &line[start..];
+    let mut depth = 1;
+    for (i, ch) in rest.char_indices() {
+        match ch {
+            '(' => depth += 1,
+            ')' => {
+                depth -= 1;
+                if depth == 0 {
+                    return Some(&rest[..i]);
+                }
+            }
+            _ => {}
+        }
+    }
+    Some(rest)
+}
+
+/// Get the nth comma-separated argument from an argument list string.
+fn nth_arg(args: &str, n: usize) -> Option<&str> {
+    // Simple comma split — doesn't handle nested parens in args,
+    // but works for the common case where handler names are plain identifiers
+    args.split(',').nth(n).map(|s| s.trim())
+}
+
+/// Check if a string is a valid C identifier.
+fn is_ident(s: &str) -> bool {
+    !s.is_empty()
+        && s.chars()
+            .next()
+            .map(|c| c.is_alphabetic() || c == '_')
+            .unwrap_or(false)
+        && s.chars().all(|c| c.is_alphanumeric() || c == '_')
+}
+
+fn is_async_function(
+    parsed: &ParsedFile,
+    func_node: &Node<'_>,
+    registered_handlers: &BTreeSet<String>,
+) -> bool {
+    // Check if this function is registered as a handler/callback elsewhere
+    let func_name = parsed
+        .language
+        .function_name(func_node)
+        .map(|n| parsed.node_text(&n).to_string())
+        .unwrap_or_default();
+    if registered_handlers.contains(&func_name) {
+        return true;
+    }
+
     match parsed.language {
         Language::Python => {
             // Check if parent or the node itself has "async" keyword
@@ -253,12 +393,8 @@ fn is_async_function(parsed: &ParsedFile, func_node: &Node<'_>) -> bool {
             // C functions aren't inherently async, but check if they contain
             // pthread_create, fork, signal handlers, or kernel IRQ registration.
             // Also treat functions whose names suggest callback/ISR semantics as async.
+            // Note: registered_handlers check above catches externally registered handlers.
             let text = parsed.node_text(func_node);
-            let func_name = parsed
-                .language
-                .function_name(func_node)
-                .map(|n| parsed.node_text(&n).to_string())
-                .unwrap_or_default();
             let name_is_async = func_name.contains("_handler")
                 || func_name.contains("_callback")
                 || func_name.contains("_isr")
@@ -273,12 +409,8 @@ fn is_async_function(parsed: &ParsedFile, func_node: &Node<'_>) -> bool {
         }
         Language::Cpp => {
             // Check for C++ async patterns and callback/ISR name heuristics.
+            // Note: registered_handlers check above catches externally registered handlers.
             let text = parsed.node_text(func_node);
-            let func_name = parsed
-                .language
-                .function_name(func_node)
-                .map(|n| parsed.node_text(&n).to_string())
-                .unwrap_or_default();
             let name_is_async = func_name.contains("_handler")
                 || func_name.contains("_callback")
                 || func_name.contains("_isr")
