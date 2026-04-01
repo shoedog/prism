@@ -134,8 +134,8 @@ const SINK_PATTERNS: &[&str] = &[
     // Command execution
     // "execute" already covered by generic; os.execute -> identifier "execute"
     // "=popen" already covered by Python section; io.popen -> identifier "popen"
-    // String formatting with injection risk
-    "=format", // string.format with tainted format string (exact to avoid "formatter")
+    // String formatting with injection risk (Lua-specific)
+    "string.format", // Lua string.format with tainted format string
 ];
 
 /// Check whether an identifier text matches a sink pattern.

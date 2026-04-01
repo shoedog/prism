@@ -150,7 +150,7 @@ pub fn slice(files: &BTreeMap<String, ParsedFile>, diff: &DiffInput) -> Result<S
                                 // Go-style (already partially covered by "if err")
                                 || lt.contains("if (err")
                                 // === Rust ===
-                                || lt.contains("?")             // ? operator for error propagation
+                                || lt.contains(")?")            // Rust ? operator (foo()?) without matching JS/C ternary
                                 || lt.contains(".unwrap(")       // explicit unwrap
                                 || lt.contains(".expect(")       // unwrap with message
                                 || lt.contains(".unwrap_or(")    // unwrap with default

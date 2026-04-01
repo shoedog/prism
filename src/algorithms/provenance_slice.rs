@@ -240,8 +240,7 @@ const CONFIG_PATTERNS: &[&str] = &[
     "config::Config",   // config-rs crate
     "Figment",          // Rocket's Figment config
     // === Lua ===
-    "dofile(",  // Lua config file loading
-    "require(", // Lua module loading (often config)
+    "dofile(", // Lua config file loading
     // === C/C++ command-line option and config file parsing ===
     "getopt(",
     "fopen(",
