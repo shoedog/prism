@@ -134,8 +134,10 @@ const SINK_PATTERNS: &[&str] = &[
     // Command execution
     // "execute" already covered by generic; os.execute -> identifier "execute"
     // "=popen" already covered by Python section; io.popen -> identifier "popen"
-    // String formatting with injection risk (Lua-specific)
-    "string.format", // Lua string.format with tainted format string
+    // Note: Lua string.format injection is a niche concern. Tree-sitter splits
+    // "string.format" into separate identifier nodes, so substring sink matching
+    // can't catch it. The high-severity Lua paths (loadstring, dofile, execute)
+    // are already covered above.
 ];
 
 /// Check whether an identifier text matches a sink pattern.
