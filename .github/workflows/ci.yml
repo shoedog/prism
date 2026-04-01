@@ -104,8 +104,14 @@ jobs:
       - name: Generate text coverage report
         run: cargo llvm-cov --text --output-path coverage-summary.txt
 
-      - name: Generate JSON coverage report
-        run: cargo llvm-cov --json --output-path coverage.json
+      - name: Generate coverage (lcov)
+        run: cargo llvm-cov --lcov --output-path lcov.info
+
+      - name: Upload to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          files: lcov.info
+          token: ${{ secrets.CODECOV_TOKEN }}
 
       - name: Publish coverage summary to job summary
         run: |
@@ -113,11 +119,3 @@ jobs:
           echo '```' >> $GITHUB_STEP_SUMMARY
           cat coverage-summary.txt >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
-
-      - name: Upload coverage artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-report
-          path: |
-            coverage-summary.txt
-            coverage.json
