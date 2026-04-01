@@ -73,15 +73,16 @@ impl Origin {
 /// Heuristic patterns for origin classification.
 const USER_INPUT_PATTERNS: &[&str] = &[
     // === Cross-language / generic ===
+    // '~' prefix = word-boundary match (prevents "transform" matching "form")
     "request",
     "req.",
-    "body",
-    "params",
-    "query",
-    "form",
-    "input",
-    "stdin",
-    "args",
+    "~body", // word-boundary to avoid "bodyParser", but still match "req.body"
+    "~params",
+    "~query", // word-boundary to avoid "querySelector" in non-DB contexts
+    "~form",  // word-boundary to avoid "transform", "platform", "formatter"
+    "~input",
+    "~stdin",
+    "~args",
     "argv",
     // === Python ===
     "request.form",  // Flask form data
@@ -132,13 +133,14 @@ const USER_INPUT_PATTERNS: &[&str] = &[
 
 const DATABASE_PATTERNS: &[&str] = &[
     // === Cross-language / generic ===
-    "query",
-    "execute",
-    "fetch",
-    "cursor",
+    // '~' prefix = word-boundary match (prevents "prefetch" matching "fetch")
+    ".query", // method call form to avoid standalone "query" matching comments
+    "~execute",
+    "~fetch", // word-boundary to avoid "prefetch"
+    "~cursor",
     "find(",
     "findOne",
-    "select",
+    "~select", // word-boundary to avoid "selectedItem"
     "SELECT",
     "db.",
     "DB.",
@@ -232,6 +234,30 @@ const ENV_PATTERNS: &[&str] = &[
 /// C/C++ hardware / device I/O patterns (embedded and kernel).
 const HARDWARE_PATTERNS: &[&str] = &["ioctl(", "mmap(", "inb(", "outb(", "readl(", "writel("];
 
+/// Check whether a line matches a provenance pattern.
+///
+/// Patterns prefixed with '~' require a word boundary: the character before
+/// the match must be non-alphanumeric (or start of string). This prevents
+/// "form" from matching "transform" or "platform".
+fn matches_provenance(line: &str, pattern: &str) -> bool {
+    if let Some(word) = pattern.strip_prefix('~') {
+        if let Some(pos) = line.find(word) {
+            // Check word boundary: char before match must not be alphanumeric/_
+            if pos > 0 {
+                let prev = line.as_bytes()[pos - 1];
+                if prev.is_ascii_alphanumeric() || prev == b'_' {
+                    return false;
+                }
+            }
+            true
+        } else {
+            false
+        }
+    } else {
+        line.contains(pattern)
+    }
+}
+
 fn classify_line(line_text: &str) -> Origin {
     // Check for literal/constant assignment
     let trimmed = line_text.trim();
@@ -251,19 +277,34 @@ fn classify_line(line_text: &str) -> Origin {
         return Origin::Constant;
     }
 
-    if USER_INPUT_PATTERNS.iter().any(|p| line_text.contains(p)) {
+    if USER_INPUT_PATTERNS
+        .iter()
+        .any(|p| matches_provenance(line_text, p))
+    {
         return Origin::UserInput;
     }
-    if DATABASE_PATTERNS.iter().any(|p| line_text.contains(p)) {
+    if DATABASE_PATTERNS
+        .iter()
+        .any(|p| matches_provenance(line_text, p))
+    {
         return Origin::Database;
     }
-    if HARDWARE_PATTERNS.iter().any(|p| line_text.contains(p)) {
+    if HARDWARE_PATTERNS
+        .iter()
+        .any(|p| matches_provenance(line_text, p))
+    {
         return Origin::Hardware;
     }
-    if CONFIG_PATTERNS.iter().any(|p| line_text.contains(p)) {
+    if CONFIG_PATTERNS
+        .iter()
+        .any(|p| matches_provenance(line_text, p))
+    {
         return Origin::Config;
     }
-    if ENV_PATTERNS.iter().any(|p| line_text.contains(p)) {
+    if ENV_PATTERNS
+        .iter()
+        .any(|p| matches_provenance(line_text, p))
+    {
         return Origin::EnvVar;
     }
 
