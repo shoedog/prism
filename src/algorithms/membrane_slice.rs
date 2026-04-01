@@ -149,6 +149,22 @@ pub fn slice(files: &BTreeMap<String, ParsedFile>, diff: &DiffInput) -> Result<S
                                 || lt.contains("BUG_ON(")
                                 // Go-style (already partially covered by "if err")
                                 || lt.contains("if (err")
+                                // === Rust ===
+                                || lt.contains("?")             // ? operator for error propagation
+                                || lt.contains(".unwrap(")       // explicit unwrap
+                                || lt.contains(".expect(")       // unwrap with message
+                                || lt.contains(".unwrap_or(")    // unwrap with default
+                                || lt.contains(".unwrap_or_else(")
+                                || lt.contains("if let Err(")    // pattern match on error
+                                || lt.contains("if let Ok(")     // pattern match on success
+                                || lt.contains("match ")         // match expression (may handle Result/Option)
+                                || lt.contains(".map_err(")      // error transformation
+                                || lt.contains("Err(")           // error construction
+                                // === Lua ===
+                                || lt.contains("pcall(")         // protected call
+                                || lt.contains("xpcall(")        // extended protected call
+                                || lt.contains("assert(")        // assertion (Lua-style)
+                                || lt.contains("error(") // error raising
                         });
 
                         if !has_error_handling {
