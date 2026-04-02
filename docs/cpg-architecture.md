@@ -211,7 +211,7 @@ enrichment pass — the CPG builds correctly without it.
 
 ## 3. Migration Strategy
 
-### Phase 1: AccessPath Type (This PR)
+### Phase 1: AccessPath Type — **Done**
 
 **Scope:** Introduce `AccessPath`, migrate `data_flow.rs` to use it, update
 `ast.rs` extraction helpers. All algorithms continue to work unchanged —
@@ -230,7 +230,7 @@ tests must continue to pass.
 
 **Estimated effort:** 3-4 days
 
-### Phase 2: Field-Sensitive Matching
+### Phase 2: Field-Sensitive Matching — **Done**
 
 **Scope:** Change DFG edge construction to match on full AccessPath instead of
 base name only. `dev->name` def connects only to `dev->name` uses, not
@@ -250,7 +250,7 @@ misses field accesses — extensive testing required.
 
 **Estimated effort:** 1-2 days (small change on top of Phase 1)
 
-### Phase 3: Local Must-Alias
+### Phase 3: Local Must-Alias — **Done**
 
 **Scope:** Within each function, track simple pointer aliases:
 `ptr = dev` → `ptr->field` resolves to `dev->field`. `ptr = &dev->field` →
@@ -262,7 +262,7 @@ substitute. This is intraprocedural only — no interprocedural alias analysis.
 
 **Estimated effort:** 2-3 days
 
-### Phase 4: CPG on petgraph
+### Phase 4: CPG on petgraph — **Done**
 
 **Scope:** Introduce `CpgNode`, `CpgEdge`, build unified graph from
 tree-sitter + existing DFG/call graph logic. Migrate algorithms one at a time
@@ -283,7 +283,7 @@ its own test verification.
 
 **Estimated effort:** 2-3 weeks (incremental, one algorithm at a time)
 
-### Phase 5: Type Enrichment
+### Phase 5: Type Enrichment — **Done**
 
 **Scope:** Optional `compile_commands.json` integration for C/C++. Build
 `TypeDatabase` from clang AST dump. Annotate CPG Variable nodes with type info.
@@ -291,106 +291,68 @@ Enable precise whole-struct detection and field enumeration.
 
 **Estimated effort:** 1-2 weeks
 
-### Phase 6: Control Flow Graph
+### Phase 6: Control Flow Graph — **Done**
 
-**Scope:** Add CFG edges to the CPG. Enables path-sensitive analysis: "tainted
-value reaches sink only if this branch is taken." Currently all analysis is
-path-insensitive.
-
-**Prerequisite:** Phase 4 (CPG exists to add edges to).
-
-**Estimated effort:** 2-3 weeks. This is the most complex phase — tree-sitter
-doesn't give us a CFG, so we build it from AST structure (if/else branches,
-loop back-edges, goto targets, return/break/continue).
+Added CFG edges to the CPG. `cfg.rs` builds intraprocedural CFG edges from
+tree-sitter AST. `taint_forward_cfg()` and `dfg_cfg_chop()` filter DFG results
+by CFG reachability, pruning dead-code paths. Multi-language handlers for
+Python for/else, Go defer/select, Rust match, JS/Java try/catch/finally,
+C switch fall-through. See `docs/cpg-phase6-cfg-plan.md` for full details.
 
 ## 4. Open Questions & Uncertainties
 
 ### Resolved
 
 1. **petgraph vs custom graph?**
-   → petgraph. Mature, well-tested, has all the algorithms we need. No reason
-   to hand-roll graph infrastructure.
+   → petgraph. Implemented in Phase 4.
 
 2. **Where does AccessPath live?**
-   → `src/access_path.rs`, new module. It's foundational — used by DFG, CPG,
-   and algorithm consumers. Shouldn't be buried inside ast.rs or data_flow.rs.
+   → `src/access_path.rs`. Implemented in Phase 1.
+
+3. **How to handle array indices in AccessPath?**
+   → Option (a): ignore index value, keep `[]` as a sentinel field. Array-insensitive.
+   Revisit if false positives from array collapsing become a problem.
+
+4. **Should the CPG store source text on nodes?**
+   → No. Algorithms query back to `ParsedFile` for source text.
+
+6. **How to handle languages without field access?**
+   → AccessPath stores field names only (no operators). All languages use dot
+   access; C/C++ `->` normalized at parse time. Implemented and tested across
+   all 9 languages.
+
+7. **clang dependency weight for Layer 3?**
+   → Option (a): shell out to clang, parse JSON output. Implemented in Phase 5.
+   Tree-sitter struct extraction fallback planned — see `docs/cpg-improvements.md` §4.
+
+8. **Virtual dispatch: part of CPG or separate?**
+   → Part of CPG via CHA (class hierarchy analysis). Implemented in Phase 5.
+   RTA refinement planned — see `docs/cpg-improvements.md` §5.
 
 ### Open
 
-3. **How to handle array indices in AccessPath?**
-   Options:
-   - (a) Ignore index, treat `buf[0]` and `buf[1]` as same path (`buf[]`)
-   - (b) Track constant indices, collapse variable indices (`buf[0]` vs `buf[i]` → `buf[]`)
-   - (c) Always collapse to base (`buf`)
-
-   **Current lean:** (a) — ignore index value, keep `[]` as a sentinel field.
-   Array index tracking is rarely useful for taint analysis (if `buf[0]` is
-   tainted, `buf[i]` likely is too). Revisit if false positives from array
-   collapsing become a problem.
-
-4. **Should the CPG store source text on nodes?**
-   Options:
-   - (a) Yes — each Statement node stores its source text for pattern matching
-   - (b) No — algorithms that need text query back to ParsedFile
-
-   **Current lean:** (b) — storing text bloats the graph and duplicates
-   ParsedFile. Algorithms that need text (horizontal_slice pattern matching,
-   absence_slice keyword detection) already have ParsedFile access.
-
 5. **Incremental CPG construction?**
-   Tree-sitter supports incremental parsing. Could the CPG be rebuilt
-   incrementally when files change? This matters for IDE integration (Language
-   Server Protocol) but not for the current batch CLI use case.
+   Deferred. Batch construction is fine for code review. Revisit if/when LSP
+   integration is on the roadmap.
 
-   **Current lean:** Defer. Batch construction is fine for code review (small
-   diffs, whole-repo parse). Revisit if/when LSP integration is on the roadmap.
+9. **JS/TS destructuring alias tracking?**
+   `const { name } = device` creates an untracked alias. Taint blind spot for
+   idiomatic JS/TS. Planned — see `docs/cpg-improvements.md` §1.
 
-6. **How to handle languages without field access?**
-   Python: `self.field` (dot access, consistent)
-   Lua: `obj.field` or `obj:method` (dot and colon)
-   Go: `obj.Field` (dot, exported = capitalized)
-   Rust: `self.field` (dot, plus `&self.field`, `&mut self.field`)
-   Java: `this.field` or `obj.field` (dot)
-   JS/TS: `this.field` or `obj.field` (dot, plus destructuring)
-
-   All languages use dot access. C/C++ uniquely has `->` for pointer fields.
-   **Normalization strategy:** AccessPath stores field names only (no operators).
-   The `.` vs `->` distinction is syntax, not semantics — both mean "field of".
-   Language-specific parsing in ast.rs handles the extraction.
-
-7. **clang dependency weight for Layer 3?**
-   `clang -fsyntax-only -Xclang -ast-dump=json` requires clang installed.
-   Options:
-   - (a) Shell out to clang, parse JSON output
-   - (b) Use `libclang` bindings (`clang-sys` crate)
-   - (c) Use `tree-sitter` + heuristic struct extraction (parse struct
-     definitions from source)
-
-   **Current lean:** (a) for initial implementation — simplest, no native deps.
-   Most firmware build environments have clang. Could migrate to (b) for
-   performance if needed. (c) is a fallback that works without clang but gives
-   incomplete results (can't resolve typedefs or `#include` chains).
-
-8. **Virtual dispatch: part of CPG or separate?**
-   C++ virtual dispatch requires class hierarchy analysis. This could be:
-   - (a) A CPG edge type (`VirtualCall`) with resolution during construction
-   - (b) A separate `ClassHierarchy` structure queried alongside the CPG
-
-   **Current lean:** (a) — resolve during CPG construction, emit `Call` edges
-   to all possible dispatch targets. This is the "class hierarchy analysis"
-   (CHA) approach, which over-approximates but is simple. Rapid Type Analysis
-   (RTA) or Variable Type Analysis (VTA) could refine later.
+10. **Build CPG once, share across algorithms?**
+    12 algorithms redundantly rebuild identical CPG. `CpgContext` bundle type
+    planned — see `docs/cpg-improvements.md` §2-3.
 
 ## 5. Risks
 
 | Risk | Likelihood | Impact | Mitigation |
 |------|-----------|--------|------------|
-| Phase 1 refactor breaks existing tests | Low | High | Zero behavior change — AccessPath matches on base only. All 204 tests are the regression suite. |
-| Field sensitivity introduces false negatives | Medium | Medium | Dual matching: field-sensitive first, fall back to field-insensitive if no field match. Conservative default. |
-| petgraph performance on large firmware repos | Low | Medium | Profile before optimizing. petgraph's `Graph` is adjacency-list, O(1) edge iteration. Current hand-rolled graphs are no faster. |
-| Algorithm migration introduces subtle bugs | Medium | High | One algorithm per PR. Each PR must pass full test suite. Old and new paths coexist during migration — can diff results. |
-| clang dependency reduces portability | Low | Low | Layer 3 is optional. Prism works without it. Only C/C++ benefits. |
-| Scope creep — "while we're refactoring..." | High | Medium | Strict phase boundaries. Each phase is a separate PR with a clear deliverable. No mixing phases. |
+| Phase 1 refactor breaks existing tests | Low | High | **Mitigated.** Phase 1 done, zero regressions. |
+| Field sensitivity introduces false negatives | Medium | Medium | **Mitigated.** Dual matching implemented; field isolation verified across all 9 languages. |
+| petgraph performance on large firmware repos | Low | Medium | Not yet tested at scale. Profile before optimizing. |
+| Algorithm migration introduces subtle bugs | Medium | High | **Mitigated.** All 12 algorithms migrated, 489 tests pass. |
+| clang dependency reduces portability | Low | Low | Layer 3 is optional. Tree-sitter fallback planned (`docs/cpg-improvements.md` §4). |
+| Scope creep — "while we're refactoring..." | High | Medium | **Mitigated.** Strict phase boundaries maintained across all 6 phases. |
 
 ## 6. Non-Goals
 
@@ -398,10 +360,11 @@ loop back-edges, goto targets, return/break/continue).
   type information and whole-program analysis. Out of scope — local must-alias
   (Phase 3) is sufficient for the code review use case.
 
-- **Path sensitivity.** "This taint only reaches the sink if the branch on
-  line 15 is taken" requires CFG + symbolic execution. Phase 6 adds CFG edges
-  but full path-sensitive analysis is a research project, not an engineering
-  task.
+- **Full path sensitivity.** Phase 6 added CFG-reachability filtering (prunes
+  dead code after return/break), but full path-sensitive analysis ("this taint
+  only reaches the sink if branch X is taken") requires dominator analysis +
+  symbolic condition evaluation. Dominator infrastructure is ready
+  (`petgraph::algo::dominators`) as a follow-on.
 
 - **IDE / LSP integration.** The CPG is built in batch mode for code review.
   Incremental construction for real-time IDE feedback is a future direction,

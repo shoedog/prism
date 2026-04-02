@@ -1,6 +1,6 @@
 # Prism Implementation Plan & Status Tracker
 
-Last updated: 2026-04-02 (Phase 6 CFG plan, Terraform/Shell/access-network analysis)
+Last updated: 2026-04-02 (Phase 6 complete, CPG improvements plan)
 
 ---
 
@@ -160,11 +160,11 @@ These formats need a different analysis model: parse → find touched units → 
 - No type information — mitigated by optional clang type enrichment (CPG Phase 5) and AccessPath field heuristics
 - No import resolution — cross-file analysis uses name matching (static disambiguation for C/C++ only)
 - No preprocessor handling — C/C++ macros produce ERROR nodes
-- No control flow graph — path-insensitive analysis only (CPG Phase 6 will add CFG edges)
+- CFG is intraprocedural only — no interprocedural control flow (call/return edges exist separately). Known gaps: Go `fallthrough` keyword (sequential workaround), Lua pcall/xpcall (not modeled). Dominator analysis not yet implemented.
 - No semantic scoping — `find_variable_references_scoped` handles some variable shadowing cases
 
 ### Test Coverage
-- **429 tests** total (41 unit + 62 CLI + 326 integration)
+- **489 tests** total (93 unit + 65 CLI + 331 integration)
 - 9 languages covered (Python, JS/TS, Go, Java, C/C++, Rust, Lua)
 - Field isolation tests across all 8 field-capable languages
 - Must-alias tests for C, Python, JS, Go, Rust with chain and negative cases
@@ -184,8 +184,9 @@ These formats need a different analysis model: parse → find touched units → 
 
 ## Reference
 
-- **CPG architecture:** `docs/cpg-architecture.md` (AccessPath, Code Property Graph, type enrichment — design, phases, open questions)
-- **CPG Phase 6 plan:** `docs/cpg-phase6-cfg-plan.md` (control flow graph edges — analysis, implementation plan, 3-PR split)
+- **CPG architecture:** `docs/cpg-architecture.md` (AccessPath, Code Property Graph, type enrichment — design, phases 1-6 all done)
+- **CPG Phase 6 plan:** `docs/cpg-phase6-cfg-plan.md` (control flow graph edges — completed, 3-PR summary)
+- **CPG improvements:** `docs/cpg-improvements.md` (post-Phase 6: CpgContext build-once, JS/TS destructuring, tree-sitter struct fallback, RTA, Lua colon fix)
 - **Terraform/HCL plan:** `docs/terraform-hcl-plan.md` (TerraformRefGraph architecture, algorithm mapping, dual-parser approach)
 - **Shell/Bash plan:** `docs/shell-bash-plan.md` (taint sinks, unquoted variable detection, firmware-specific patterns)
 - **Access network evaluation:** `docs/access-network-analysis-evaluation.md` (YANG/NETCONF, Device Tree, Busybox for ROLT/vCMTS/RPD/CIN/CPE, DOCSIS 4.0, WiFi 7)
