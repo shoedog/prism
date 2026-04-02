@@ -5,7 +5,7 @@
 //! handler → service → model → database.
 
 use crate::ast::ParsedFile;
-use crate::call_graph::CallGraph;
+use crate::cpg::CodePropertyGraph;
 use crate::diff::{DiffBlock, DiffInput, ModifyType};
 use crate::slice::{SliceResult, SlicingAlgorithm};
 use anyhow::Result;
@@ -64,7 +64,7 @@ pub fn slice(
     vertical_config: &VerticalConfig,
 ) -> Result<SliceResult> {
     let mut result = SliceResult::new(SlicingAlgorithm::VerticalSlice);
-    let call_graph = CallGraph::build(files);
+    let cpg = CodePropertyGraph::build(files);
 
     // Detect layers for each file
     let file_layers: BTreeMap<String, String> = if vertical_config.layers.is_empty() {
@@ -77,11 +77,11 @@ pub fn slice(
     let mut block_id = 0;
     for diff_info in &diff.files {
         for &line in &diff_info.diff_lines {
-            if let Some(func_id) = call_graph.function_at(&diff_info.file_path, line) {
+            if let Some((_idx, func_id)) = cpg.function_at(&diff_info.file_path, line) {
                 let mut path: Vec<LayerEntry> = Vec::new();
 
                 // Trace up: callers toward the entry point
-                let callers = call_graph.callers_of(&func_id.name, 10);
+                let callers = cpg.callers_of(&func_id.name, 10);
                 for (caller_id, _depth) in callers.iter().rev() {
                     let layer = file_layers
                         .get(&caller_id.file)
@@ -110,7 +110,7 @@ pub fn slice(
                 });
 
                 // Trace down: callees toward persistence
-                let callees = call_graph.callees_of(&func_id.name, &diff_info.file_path, 10);
+                let callees = cpg.callees_of(&func_id.name, &diff_info.file_path, 10);
                 for (callee_id, _depth) in &callees {
                     let layer = file_layers
                         .get(&callee_id.file)

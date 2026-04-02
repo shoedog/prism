@@ -11,7 +11,7 @@
 //! parameter mismatches.
 
 use crate::ast::ParsedFile;
-use crate::call_graph::CallGraph;
+use crate::cpg::CodePropertyGraph;
 use crate::diff::{DiffBlock, DiffInput, ModifyType};
 use crate::slice::{SliceFinding, SliceResult, SlicingAlgorithm};
 use anyhow::Result;
@@ -19,7 +19,7 @@ use std::collections::BTreeMap;
 
 pub fn slice(files: &BTreeMap<String, ParsedFile>, diff: &DiffInput) -> Result<SliceResult> {
     let mut result = SliceResult::new(SlicingAlgorithm::MembraneSlice);
-    let call_graph = CallGraph::build(files);
+    let cpg = CodePropertyGraph::build(files);
     let mut block_id = 0;
 
     for diff_info in &diff.files {
@@ -44,7 +44,7 @@ pub fn slice(files: &BTreeMap<String, ParsedFile>, diff: &DiffInput) -> Result<S
             // Find all callers in OTHER files (cross-module boundary),
             // respecting static linkage so file-local functions don't create
             // false cross-file edges.
-            let callers = call_graph.callers_of_in_file(func_name, 1, Some(&diff_info.file_path));
+            let callers = cpg.callers_of_in_file(func_name, 1, Some(&diff_info.file_path));
             let cross_file_callers: Vec<_> = callers
                 .iter()
                 .filter(|(caller_id, _)| caller_id.file != diff_info.file_path)
@@ -71,7 +71,7 @@ pub fn slice(files: &BTreeMap<String, ParsedFile>, diff: &DiffInput) -> Result<S
                     block.add_line(&caller_id.file, caller_id.end_line, false);
 
                     // Find the specific call site line(s)
-                    if let Some(sites) = call_graph.callers.get(func_name) {
+                    if let Some(sites) = cpg.call_graph.callers.get(func_name) {
                         for site in sites {
                             if site.caller.name == caller_id.name
                                 && site.caller.file == caller_id.file
@@ -193,7 +193,7 @@ pub fn slice(files: &BTreeMap<String, ParsedFile>, diff: &DiffInput) -> Result<S
                         if !has_error_handling {
                             // Mark the call site as potentially unprotected
                             // (it's already included but highlight it)
-                            if let Some(sites) = call_graph.callers.get(func_name) {
+                            if let Some(sites) = cpg.call_graph.callers.get(func_name) {
                                 for site in sites {
                                     if site.caller.name == caller_id.name {
                                         block.add_line(&caller_id.file, site.line, true);

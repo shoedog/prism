@@ -3,9 +3,11 @@
 //! Given a source location and a sink location, identifies every statement that
 //! participates in data flow from source to sink. Useful for security analysis
 //! (e.g., "does user input reach this SQL query?") and data flow bug detection.
+//!
+//! Uses the Code Property Graph for data flow chopping.
 
 use crate::ast::ParsedFile;
-use crate::data_flow::DataFlowGraph;
+use crate::cpg::CodePropertyGraph;
 use crate::diff::{DiffBlock, ModifyType};
 use crate::slice::{SliceResult, SlicingAlgorithm};
 use anyhow::Result;
@@ -25,9 +27,9 @@ pub fn slice(
     chop_config: &ChopConfig,
 ) -> Result<SliceResult> {
     let mut result = SliceResult::new(SlicingAlgorithm::Chop);
-    let dfg = DataFlowGraph::build(files);
+    let cpg = CodePropertyGraph::build(files);
 
-    let on_path = dfg.chop(
+    let on_path = cpg.dfg_chop(
         &chop_config.source_file,
         chop_config.source_line,
         &chop_config.sink_file,
