@@ -272,8 +272,8 @@ pub fn slice(
         }
     }
 
-    // Forward propagation from each source
-    let paths = cpg.taint_forward(&taint_sources);
+    // Forward propagation from each source (CFG-constrained when available)
+    let paths = cpg.taint_forward_cfg(&taint_sources);
 
     // Detect variadic wrapper functions and add them as dynamic sinks
     let wrapper_sinks = detect_format_string_wrappers(files);
