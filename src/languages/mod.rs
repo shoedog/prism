@@ -463,6 +463,82 @@ impl Language {
         matches!(kind, "return_statement")
     }
 
+    /// Whether a node is a statement-level construct suitable for CFG construction.
+    ///
+    /// Returns true for assignments, declarations, calls, branches, loops,
+    /// return/break/continue, gotos, labels — anything that represents an
+    /// executable step within a function body.
+    pub fn is_statement_node(&self, kind: &str) -> bool {
+        self.is_assignment_node(kind)
+            || self.is_declaration_node(kind)
+            || self.is_control_flow_node(kind)
+            || self.is_return_node(kind)
+            || self.is_call_node(kind)
+            || matches!(
+                kind,
+                // C/C++
+                "expression_statement"
+                    | "labeled_statement"
+                    | "break_statement"
+                    | "continue_statement"
+                    | "throw_statement"   // JS/TS, Java, C++
+                    | "raise_statement"   // Python
+                    | "yield_statement"   // Python
+                    | "assert_statement"  // Python
+                    | "delete_statement"  // Python
+                    // Go
+                    | "go_statement"
+                    | "defer_statement"
+                    | "send_statement"
+                    | "select_statement"
+                    | "fallthrough_statement"
+                    // Rust
+                    | "macro_invocation"
+            )
+    }
+
+    /// Whether a node is a loop construct (subset of control flow).
+    pub fn is_loop_node(&self, kind: &str) -> bool {
+        matches!(
+            kind,
+            "for_statement"
+                | "for_in_statement"
+                | "while_statement"
+                | "do_statement"
+                | "for_range_statement"    // Go
+                | "for_range_loop"         // C++ range-based for
+                | "enhanced_for_statement" // Java
+                | "for_expression"         // Rust
+                | "loop_expression"        // Rust
+                | "while_let_expression"   // Rust
+                | "repeat_statement" // Lua repeat..until
+        )
+    }
+
+    /// Whether a statement is a terminator — no fall-through to the next statement.
+    pub fn is_terminator(&self, kind: &str) -> bool {
+        matches!(
+            kind,
+            "return_statement"
+                | "break_statement"
+                | "continue_statement"
+                | "goto_statement"
+                | "throw_statement"
+                | "raise_statement"
+                | "fallthrough_statement" // Go — falls through to next case
+        )
+    }
+
+    /// Whether a switch/match has fall-through semantics between cases.
+    ///
+    /// C/C++/JS/Java: yes (unless `break`). Go/Rust: no.
+    pub fn switch_has_fallthrough(&self) -> bool {
+        matches!(
+            self,
+            Self::C | Self::Cpp | Self::JavaScript | Self::TypeScript | Self::Java
+        )
+    }
+
     /// Get the function name node from a function definition.
     pub fn function_name<'a>(&self, node: &Node<'a>) -> Option<Node<'a>> {
         // Handle decorated definitions (Python)
