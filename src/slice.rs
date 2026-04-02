@@ -155,6 +155,29 @@ impl SlicingAlgorithm {
         }
     }
 
+    /// Whether this algorithm requires a CPG (DFG + CallGraph + CFG).
+    ///
+    /// AST-only algorithms (OriginalDiff, ParentFunction, LeftFlow, etc.) only
+    /// need parsed files. Skipping CPG construction for these saves significant
+    /// time, especially in test suites where many algorithms are exercised.
+    pub fn needs_cpg(&self) -> bool {
+        matches!(
+            self,
+            Self::BarrierSlice
+                | Self::Chop
+                | Self::Taint
+                | Self::DeltaSlice
+                | Self::SpiralSlice
+                | Self::CircularSlice
+                | Self::VerticalSlice
+                | Self::ThreeDSlice
+                | Self::GradientSlice
+                | Self::ProvenanceSlice
+                | Self::MembraneSlice
+                | Self::EchoSlice
+        )
+    }
+
     /// The default review suite: all algorithms that don't require git history.
     pub fn review_suite() -> Vec<Self> {
         vec![

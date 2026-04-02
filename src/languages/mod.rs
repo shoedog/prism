@@ -423,9 +423,16 @@ impl Language {
         // Without this, the full text "timer->callback" would never match
         // a function named "callback" in the call graph.
         // Lua dot_index_expression: io.open -> extract "open"
-        if func_node.kind() == "dot_index_expression" {
+        // Lua method_index_expression: obj:close -> extract "close"
+        if func_node.kind() == "dot_index_expression"
+            || func_node.kind() == "method_index_expression"
+        {
             if let Some(field) = func_node.child_by_field_name("field") {
                 return Some(field);
+            }
+            // method_index_expression may use "method" field name
+            if let Some(method) = func_node.child_by_field_name("method") {
+                return Some(method);
             }
         }
 

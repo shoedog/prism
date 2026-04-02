@@ -274,7 +274,10 @@ impl ParsedFile {
 
             // Check declarations with initializers: type *ptr = dev, let ptr = dev
             if self.language.is_declaration_node(node.kind()) {
-                if let Some(name_node) = self.language.declaration_name(&node) {
+                // JS/TS destructuring: const { name, id } = obj → name aliases obj.name
+                if self.extract_destructuring_aliases(&node, line, out) {
+                    // Destructuring was handled, skip normal declaration path
+                } else if let Some(name_node) = self.language.declaration_name(&node) {
                     if let Some(val_node) = self.language.declaration_value(&node) {
                         let name = self.node_text(&name_node).to_string();
                         let val = self.node_text(&val_node).to_string().trim().to_string();
@@ -289,6 +292,150 @@ impl ParsedFile {
         let mut cursor = node.walk();
         for child in node.children(&mut cursor) {
             self.collect_aliases_inner(child, lines, out);
+        }
+    }
+
+    /// Extract aliases from JS/TS destructuring declarations.
+    ///
+    /// Handles:
+    /// - `const { name, id } = obj` → name aliases obj.name, id aliases obj.id
+    /// - `const { name: userName } = obj` → userName aliases obj.name
+    /// - `const [first, second] = arr` → first aliases arr, second aliases arr
+    /// - Nested: `const { config: { host } } = obj` → host aliases obj.config.host
+    ///
+    /// Returns true if a destructuring pattern was found (even if no aliases emitted).
+    fn extract_destructuring_aliases(
+        &self,
+        node: &Node<'_>,
+        line: usize,
+        out: &mut Vec<(String, String, usize)>,
+    ) -> bool {
+        // Only JS/TS have destructuring patterns
+        if !matches!(self.language, Language::JavaScript | Language::TypeScript) {
+            return false;
+        }
+
+        // Find variable_declarator children with object_pattern or array_pattern
+        let declarator = if node.kind() == "variable_declarator" {
+            *node
+        } else {
+            // lexical_declaration/variable_declaration → variable_declarator
+            let mut found = None;
+            let mut cursor = node.walk();
+            for child in node.children(&mut cursor) {
+                if child.kind() == "variable_declarator" {
+                    found = Some(child);
+                    break;
+                }
+            }
+            match found {
+                Some(d) => d,
+                None => return false,
+            }
+        };
+
+        let name_node = match declarator.child_by_field_name("name") {
+            Some(n) => n,
+            None => return false,
+        };
+
+        if name_node.kind() != "object_pattern" && name_node.kind() != "array_pattern" {
+            return false;
+        }
+
+        let val_node = match declarator.child_by_field_name("value") {
+            Some(v) => v,
+            None => return false,
+        };
+
+        let rhs = self.node_text(&val_node).to_string().trim().to_string();
+        if !is_plain_ident(&rhs) {
+            return true; // It's destructuring, but RHS is complex — skip
+        }
+
+        self.extract_pattern_aliases(&name_node, &rhs, line, out);
+        true
+    }
+
+    /// Recursively extract aliases from a destructuring pattern node.
+    fn extract_pattern_aliases(
+        &self,
+        pattern: &Node<'_>,
+        rhs_base: &str,
+        line: usize,
+        out: &mut Vec<(String, String, usize)>,
+    ) {
+        if pattern.kind() == "object_pattern" {
+            let mut cursor = pattern.walk();
+            for child in pattern.children(&mut cursor) {
+                match child.kind() {
+                    // { name } — shorthand, variable name matches property name
+                    "shorthand_property_identifier_pattern" => {
+                        let field = self.node_text(&child).to_string();
+                        if is_plain_ident(&field) {
+                            out.push((field.clone(), format!("{}.{}", rhs_base, field), line));
+                        }
+                    }
+                    // { name: userName } — renamed, or { config: { host } } — nested
+                    "pair_pattern" => {
+                        if let Some(key_node) = child.child_by_field_name("key") {
+                            let key = self.node_text(&key_node).to_string();
+                            if let Some(val_node) = child.child_by_field_name("value") {
+                                if val_node.kind() == "object_pattern"
+                                    || val_node.kind() == "array_pattern"
+                                {
+                                    // Nested destructuring: { config: { host } }
+                                    let nested_base = format!("{}.{}", rhs_base, key);
+                                    self.extract_pattern_aliases(
+                                        &val_node,
+                                        &nested_base,
+                                        line,
+                                        out,
+                                    );
+                                } else {
+                                    // Renamed: { name: userName }
+                                    let alias = self.node_text(&val_node).to_string();
+                                    if is_plain_ident(&alias) && is_plain_ident(&key) {
+                                        out.push((alias, format!("{}.{}", rhs_base, key), line));
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    // { ...rest } — rest element, aliases the whole object
+                    "rest_pattern" => {
+                        let mut inner_cursor = child.walk();
+                        for inner in child.children(&mut inner_cursor) {
+                            if inner.kind() == "identifier" {
+                                let name = self.node_text(&inner).to_string();
+                                if is_plain_ident(&name) {
+                                    out.push((name, rhs_base.to_string(), line));
+                                }
+                            }
+                        }
+                    }
+                    _ => {}
+                }
+            }
+        } else if pattern.kind() == "array_pattern" {
+            // Array destructuring: [first, second] = arr
+            // We can't track indices, so alias each to the base array
+            let mut cursor = pattern.walk();
+            for child in pattern.children(&mut cursor) {
+                match child.kind() {
+                    "identifier" => {
+                        let name = self.node_text(&child).to_string();
+                        if is_plain_ident(&name) {
+                            out.push((name, rhs_base.to_string(), line));
+                        }
+                    }
+                    "object_pattern" | "array_pattern" => {
+                        // Nested pattern inside array — alias to base
+                        self.extract_pattern_aliases(&child, rhs_base, line, out);
+                    }
+                    _ => {}
+                }
+            }
         }
     }
 
@@ -341,7 +488,7 @@ impl ParsedFile {
     /// - Go: selector_expression
     /// - Python: attribute
     /// - Java: field_access
-    /// - Lua: dot_index_expression
+    /// - Lua: dot_index_expression, method_index_expression (colon syntax)
     fn is_field_access_node(kind: &str) -> bool {
         matches!(
             kind,
@@ -351,6 +498,7 @@ impl ParsedFile {
                 | "attribute"
                 | "field_access"
                 | "dot_index_expression"
+                | "method_index_expression"
         )
     }
 

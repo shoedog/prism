@@ -131,12 +131,18 @@ pub fn run_slicing(
 /// Backward-compatible wrapper: builds a CpgContext and runs the algorithm.
 ///
 /// Used by tests that haven't been migrated to CpgContext yet.
+/// Skips CPG construction for AST-only algorithms to avoid unnecessary overhead.
 pub fn run_slicing_compat(
     files: &BTreeMap<String, ParsedFile>,
     diff: &DiffInput,
     config: &SliceConfig,
     type_db: Option<&TypeDatabase>,
 ) -> Result<SliceResult> {
-    let ctx = CpgContext::build(files, type_db);
-    run_slicing(&ctx, diff, config)
+    if config.algorithm.needs_cpg() {
+        let ctx = CpgContext::build(files, type_db);
+        run_slicing(&ctx, diff, config)
+    } else {
+        let ctx = CpgContext::without_cpg(files, type_db);
+        run_slicing(&ctx, diff, config)
+    }
 }

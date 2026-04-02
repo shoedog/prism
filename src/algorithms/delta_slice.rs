@@ -30,8 +30,8 @@ pub fn slice(ctx: &CpgContext, diff: &DiffInput, old_repo: &Path) -> Result<Slic
         }
     }
 
-    // Build CPG for the old version; the new version comes from the shared context
-    let old_cpg = CodePropertyGraph::build(&old_files);
+    // Build CPG for the old version with the same type enrichment as the new version
+    let old_cpg = CodePropertyGraph::build_enriched(&old_files, ctx.type_db);
 
     // Find edges that differ between versions
     let old_edges: BTreeSet<(String, usize, String, usize)> = old_cpg
