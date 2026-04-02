@@ -1,9 +1,9 @@
 # CPG Phase 6: Control Flow Graph Edges — Analysis & Plan
 
-**Status:** Analysis complete, implementation not started
+**Status:** Complete (3 PRs merged)
 **Date:** 2026-04-02
 **Prerequisite:** Phase 4 (CPG on petgraph) — Done
-**Estimated effort:** 2–3 weeks
+**Actual effort:** ~1 week across 3 PRs
 
 ---
 
@@ -234,3 +234,30 @@ Recommended split into 3 PRs:
 - Infer: Facebook's intraprocedural CFG is built per-function, same granularity.
 - petgraph dominators: `petgraph::algo::dominators::simple_fast()` — Lengauer-Tarjan O(n α(n))
 - Cooper & Torczon, "Engineering a Compiler" ch. 8 — standard CFG construction from AST
+
+---
+
+## 7. Completion Summary
+
+All 3 PRs merged. Implementation matches the plan with these deviations:
+
+**Implemented:**
+- Statement node expansion in `cpg.rs` + `ast.rs` (PR A)
+- `cfg.rs` CFG edge construction: sequential flow, if/else, loops, goto (PR A)
+- `languages/mod.rs`: `is_statement_node()`, `is_loop_node()`, `is_terminator()`, `switch_has_fallthrough()` (PR A)
+- Python for/else, while/else, try/except/finally (PR B)
+- Go defer→return edges, select statement branches (PR B)
+- Rust match arm branching (PR B)
+- JS/TS/Java try/catch/finally (PR B)
+- C/C++/JS/Java switch fall-through (PR B)
+- `taint_forward_cfg()` — CFG-constrained taint with DFG∩CFG filtering (PR C)
+- `dfg_cfg_chop()` — CFG-constrained chop with triple intersection (PR C)
+- Graceful fallback to pure DFG when no CFG edges present (PR C)
+
+**Deferred / Known gaps:**
+- Go `fallthrough` keyword — sequential fall-through workaround only
+- Lua pcall/xpcall — no exception branching model
+- Dominator analysis — CFG edges exist; `petgraph::algo::dominators` ready
+- conditioned_slice / provenance / barrier / absence CFG integration
+
+**Tests added:** 21 new tests across PRs A-C
