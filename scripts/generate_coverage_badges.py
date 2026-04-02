@@ -12,6 +12,7 @@ Usage:
 
 import json
 import os
+import re
 import sys
 from collections import defaultdict
 from urllib.parse import quote
@@ -20,6 +21,7 @@ MATRIX_PATH = os.path.join(os.path.dirname(__file__), "..", "coverage", "matrix.
 REPORT_PATH = os.path.join(os.path.dirname(__file__), "..", "coverage", "report.json")
 BADGES_PATH = os.path.join(os.path.dirname(__file__), "..", "coverage", "badges.md")
 TABLE_PATH = os.path.join(os.path.dirname(__file__), "..", "coverage", "table.md")
+README_PATH = os.path.join(os.path.dirname(__file__), "..", "README.md")
 
 LANGUAGES = ["python", "javascript", "typescript", "go", "java", "c", "cpp", "rust", "lua"]
 LANG_LABELS = {
@@ -199,6 +201,48 @@ def generate_report(feature_cov, algo_cov, matrix):
     }
 
 
+def update_readme(badges, table):
+    """Update README.md between marker comments.
+
+    Replaces content between:
+      <!-- COVERAGE_BADGES_START --> ... <!-- COVERAGE_BADGES_END -->
+      <!-- COVERAGE_TABLE_START --> ... <!-- COVERAGE_TABLE_END -->
+    """
+    if not os.path.exists(README_PATH):
+        print(f"README not found at {README_PATH}, skipping update")
+        return False
+
+    with open(README_PATH) as f:
+        content = f.read()
+
+    updated = False
+
+    # Update badges
+    badge_pattern = r"(<!-- COVERAGE_BADGES_START -->).*?(<!-- COVERAGE_BADGES_END -->)"
+    badge_replacement = f"<!-- COVERAGE_BADGES_START -->\n{badges}\n<!-- COVERAGE_BADGES_END -->"
+    new_content, n = re.subn(badge_pattern, badge_replacement, content, flags=re.DOTALL)
+    if n > 0:
+        content = new_content
+        updated = True
+
+    # Update table
+    table_pattern = r"(<!-- COVERAGE_TABLE_START -->).*?(<!-- COVERAGE_TABLE_END -->)"
+    table_replacement = f"<!-- COVERAGE_TABLE_START -->\n{table}\n<!-- COVERAGE_TABLE_END -->"
+    new_content, n = re.subn(table_pattern, table_replacement, content, flags=re.DOTALL)
+    if n > 0:
+        content = new_content
+        updated = True
+
+    if updated:
+        with open(README_PATH, "w") as f:
+            f.write(content)
+        print(f"README updated at {README_PATH}")
+    else:
+        print("No marker comments found in README — skipping update")
+
+    return updated
+
+
 def main():
     matrix = load_matrix()
     feature_cov = compute_feature_coverage(matrix)
@@ -221,6 +265,9 @@ def main():
     with open(TABLE_PATH, "w") as f:
         f.write(table + "\n")
     print(f"Table written to {TABLE_PATH}")
+
+    # Update README badges and table
+    update_readme(badges, table)
 
     # Print summary
     print(f"\nLanguage Feature Coverage:")

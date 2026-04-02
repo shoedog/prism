@@ -119,3 +119,32 @@ jobs:
           echo '```' >> $GITHUB_STEP_SUMMARY
           cat coverage-summary.txt >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
+
+  language-coverage:
+    name: Language Coverage Matrix
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check coverage matrix
+        run: python3 scripts/generate_coverage_badges.py
+
+      - name: Verify README badges are in sync
+        run: |
+          if ! git diff --quiet README.md; then
+            echo "::error::README badges are out of sync with coverage/matrix.json"
+            echo "Run 'python3 scripts/generate_coverage_badges.py' and commit the updated README.md"
+            git diff README.md
+            exit 1
+          fi
+
+      - name: Publish language coverage to job summary
+        run: |
+          echo "## Language Coverage" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          cat coverage/badges.md >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Algorithm × Language" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          cat coverage/table.md >> $GITHUB_STEP_SUMMARY
