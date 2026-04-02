@@ -1,8 +1,8 @@
 [![CI](https://github.com/shoedog/prism/actions/workflows/ci.yml/badge.svg)](https://github.com/shoedog/prism/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/github/shoedog/prism/graph/badge.svg?token=C5JSSOQPWA)](https://codecov.io/github/shoedog/prism)
 ![Rust](https://img.shields.io/badge/rust-1.70%2B-orange)
-![Language Coverage](https://img.shields.io/badge/language_coverage-9_languages_%7C_95%25-green)
 
+<!-- COVERAGE_BADGES_START -->
 ![Python](https://img.shields.io/badge/Python-88%25-green?logo=python&logoColor=white)
 ![JavaScript](https://img.shields.io/badge/JavaScript-94%25-green?logo=javascript&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/TypeScript-94%25-green?logo=typescript&logoColor=white)
@@ -12,6 +12,9 @@
 ![C++](https://img.shields.io/badge/C%2B%2B-100%25-brightgreen?logo=cplusplus&logoColor=white)
 ![Rust](https://img.shields.io/badge/Rust-91%25-green?logo=rust&logoColor=white)
 ![Lua](https://img.shields.io/badge/Lua-100%25-brightgreen?logo=lua&logoColor=white)
+
+![Language Coverage](https://img.shields.io/badge/language_coverage-9_languages_%7C_95%25-brightgreen)
+<!-- COVERAGE_BADGES_END -->
 
 # slicing
 
@@ -407,38 +410,48 @@ done
 
 ## Language Coverage
 
-Coverage percentages reflect how many language-specific patterns (destructuring, multi-return, optional chaining, etc.) are handled for each language. See `coverage/matrix.json` for the full matrix and `docs/cross-language-coverage.md` for the measurement methodology.
+Two metrics track cross-language support:
+
+**Language feature coverage** (badge percentages) measures how many language-specific patterns (destructuring, multi-return, optional chaining, etc.) Prism handles for each language. This reflects DFG/alias/AccessPath completeness.
+
+**Algorithm test coverage** (table below) measures which algorithms have been tested with which languages. This is heavily skewed — Python and Go have tests across all 26 algorithms, while C++ (2/26) and Lua (7/26) are primarily tested through infrastructure-level algorithms like taint and membrane. Algorithms that depend only on AST structure (not DFG/call graph) work across all languages by construction; the gaps are in algorithm-specific test coverage, not in functionality.
+
+See `coverage/matrix.json` for the full matrix and `docs/cross-language-coverage.md` for the measurement methodology. Run `python3 scripts/generate_coverage_badges.py` after changing the matrix to update badges.
 
 ### Algorithm × Language
 
+<!-- COVERAGE_TABLE_START -->
 | Algorithm | Py | JS | TS | Go | Ja | C | C++ | Rs | Lua |
 |---|---|---|---|---|---|---|---|---|---|
-| absence_slice | ✅ | 🟡 | 🟡 | ✅ | ✅ | ✅ | ❌ | ✅ | ✅ |
-| angle_slice | ✅ | 🟡 | ❌ | ✅ | 🟡 | ❌ | ❌ | ❌ | ❌ |
-| barrier_slice | ✅ | 🟡 | ❌ | 🟡 | 🟡 | ❌ | ❌ | ❌ | ❌ |
-| chop | ✅ | 🟡 | ❌ | 🟡 | 🟡 | ❌ | ❌ | ❌ | ❌ |
-| circular_slice | 🟡 | ❌ | 🟡 | 🟡 | ❌ | ❌ | ❌ | ❌ | ❌ |
-| conditioned_slice | ✅ | 🟡 | ❌ | 🟡 | 🟡 | ❌ | ❌ | ❌ | ❌ |
-| delta_slice | ✅ | ❌ | ❌ | 🟡 | ❌ | ❌ | ❌ | ❌ | ❌ |
-| echo_slice | ✅ | 🟡 | ❌ | 🟡 | 🟡 | ✅ | ❌ | ❌ | ❌ |
-| full_flow | ✅ | ✅ | ❌ | ✅ | ✅ | 🟡 | ❌ | ❌ | ❌ |
-| gradient_slice | ✅ | ❌ | ❌ | 🟡 | ❌ | ❌ | ❌ | ❌ | ❌ |
-| horizontal_slice | ✅ | 🟡 | ❌ | 🟡 | 🟡 | ❌ | ❌ | ❌ | ❌ |
-| left_flow | ✅ | ✅ | 🟡 | ✅ | ✅ | 🟡 | ❌ | ❌ | ❌ |
-| membrane_slice | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ✅ | ✅ | 🟡 | 🟡 |
-| original_diff | ✅ | ✅ | 🟡 | ✅ | 🟡 | ❌ | ❌ | 🟡 | ❌ |
-| parent_function | ✅ | ❌ | 🟡 | ✅ | 🟡 | ❌ | ❌ | 🟡 | 🟡 |
-| phantom_slice | 🟡 | ❌ | ❌ | 🟡 | ❌ | ❌ | ❌ | ❌ | ❌ |
-| provenance_slice | ✅ | ✅ | ❌ | ✅ | 🟡 | ✅ | ❌ | ✅ | ✅ |
-| quantum_slice | ✅ | ✅ | ❌ | ✅ | 🟡 | ✅ | ❌ | 🟡 | 🟡 |
-| relevant_slice | 🟡 | ❌ | ❌ | 🟡 | ❌ | ❌ | ❌ | ❌ | ❌ |
-| resonance_slice | 🟡 | ❌ | ❌ | 🟡 | ❌ | ❌ | ❌ | ❌ | ❌ |
-| spiral_slice | ✅ | ❌ | ❌ | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
-| symmetry_slice | ✅ | ❌ | ❌ | 🟡 | ❌ | 🟡 | ❌ | ❌ | ❌ |
-| taint | ✅ | ✅ | 🟡 | ✅ | ❌ | ✅ | ✅ | ✅ | ✅ |
-| thin_slice | ✅ | ❌ | 🟡 | 🟡 | 🟡 | 🟡 | ❌ | 🟡 | 🟡 |
-| threed_slice | ✅ | ❌ | ❌ | 🟡 | ❌ | ❌ | ❌ | ❌ | ❌ |
-| vertical_slice | ✅ | ❌ | ❌ | 🟡 | ❌ | ❌ | ❌ | ❌ | ❌ |
+| absence_slice |  ✅ | 🟡 | 🟡 | ✅ | ✅ | ✅ | ❌ | ✅ | ✅ |
+| angle_slice |  ✅ | 🟡 | ❌ | ✅ | 🟡 | ❌ | ❌ | ❌ | ❌ |
+| barrier_slice |  ✅ | 🟡 | ❌ | 🟡 | 🟡 | ❌ | ❌ | ❌ | ❌ |
+| chop |  ✅ | 🟡 | ❌ | 🟡 | 🟡 | ❌ | ❌ | ❌ | ❌ |
+| circular_slice |  🟡 | ❌ | 🟡 | 🟡 | ❌ | ❌ | ❌ | ❌ | ❌ |
+| conditioned_slice |  ✅ | 🟡 | ❌ | 🟡 | 🟡 | ❌ | ❌ | ❌ | ❌ |
+| delta_slice |  ✅ | ❌ | ❌ | 🟡 | ❌ | ❌ | ❌ | ❌ | ❌ |
+| echo_slice |  ✅ | 🟡 | ❌ | 🟡 | 🟡 | ✅ | ❌ | ❌ | ❌ |
+| full_flow |  ✅ | ✅ | ❌ | ✅ | ✅ | 🟡 | ❌ | ❌ | ❌ |
+| gradient_slice |  ✅ | ❌ | ❌ | 🟡 | ❌ | ❌ | ❌ | ❌ | ❌ |
+| horizontal_slice |  ✅ | 🟡 | ❌ | 🟡 | 🟡 | ❌ | ❌ | ❌ | ❌ |
+| left_flow |  ✅ | ✅ | 🟡 | ✅ | ✅ | 🟡 | ❌ | ❌ | ❌ |
+| membrane_slice |  🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ✅ | ✅ | 🟡 | 🟡 |
+| original_diff |  ✅ | ✅ | 🟡 | ✅ | 🟡 | ❌ | ❌ | 🟡 | ❌ |
+| parent_function |  ✅ | ❌ | 🟡 | ✅ | 🟡 | ❌ | ❌ | 🟡 | 🟡 |
+| phantom_slice |  🟡 | ❌ | ❌ | 🟡 | ❌ | ❌ | ❌ | ❌ | ❌ |
+| provenance_slice |  ✅ | ✅ | ❌ | ✅ | 🟡 | ✅ | ❌ | ✅ | ✅ |
+| quantum_slice |  ✅ | ✅ | ❌ | ✅ | 🟡 | ✅ | ❌ | 🟡 | 🟡 |
+| relevant_slice |  🟡 | ❌ | ❌ | 🟡 | ❌ | ❌ | ❌ | ❌ | ❌ |
+| resonance_slice |  🟡 | ❌ | ❌ | 🟡 | ❌ | ❌ | ❌ | ❌ | ❌ |
+| spiral_slice |  ✅ | ❌ | ❌ | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| symmetry_slice |  ✅ | ❌ | ❌ | 🟡 | ❌ | 🟡 | ❌ | ❌ | ❌ |
+| taint |  ✅ | ✅ | 🟡 | ✅ | ❌ | ✅ | ✅ | ✅ | ✅ |
+| thin_slice |  ✅ | ❌ | 🟡 | 🟡 | 🟡 | 🟡 | ❌ | 🟡 | 🟡 |
+| threed_slice |  ✅ | ❌ | ❌ | 🟡 | ❌ | ❌ | ❌ | ❌ | ❌ |
+| vertical_slice |  ✅ | ❌ | ❌ | 🟡 | ❌ | ❌ | ❌ | ❌ | ❌ |
+
+✅ full (3+ tests) · 🟡 basic (1-2 tests) · ❌ none
+<!-- COVERAGE_TABLE_END -->
 
 ✅ full (3+ tests) · 🟡 basic (1-2 tests) · ❌ none
 

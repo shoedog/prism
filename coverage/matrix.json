@@ -147,8 +147,9 @@
           "python"
         ],
         "status": "gap",
-        "gap_id": "5-loop",
-        "tracking": "docs/language-analysis-gaps.md"
+        "gap_id": 8,
+        "tracking": "docs/language-analysis-gaps.md",
+        "notes": "for k, v := range m (Go) and for k, v in d.items() (Python) \u2014 loop variable bindings not split"
       }
     },
     "field_access": {
@@ -317,7 +318,8 @@
         ],
         "status": "gap",
         "tracking": "docs/language-analysis-gaps.md",
-        "notes": "? operator implicit early-return not modeled in CFG"
+        "notes": "? operator implicit early-return not modeled in CFG",
+        "gap_id": 9
       }
     },
     "call_patterns": {
