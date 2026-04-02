@@ -65,6 +65,22 @@ impl AccessPath {
     pub fn from_expr(expr: &str) -> Self {
         let expr = expr.trim();
 
+        // Normalize JS/TS optional chaining: obj?.field → obj.field
+        // Must happen before any dot-splitting logic.
+        //
+        // JS/TS has three optional chaining forms:
+        //   obj?.prop   — member access (targeted here: ?. → .)
+        //   arr?.[0]    — element access (becomes .[0], handled by bracket logic downstream)
+        //   func?.()    — optional call (becomes .(), but call expressions don't appear as
+        //                  lvalues or in AccessPath construction, so this is a no-op)
+        let owned;
+        let expr = if expr.contains("?.") {
+            owned = expr.replace("?.", ".");
+            &owned
+        } else {
+            expr
+        };
+
         // Pointer dereference: *p, **p → strip to base
         if expr.starts_with('*') {
             let inner = expr.trim_start_matches('*').trim();
