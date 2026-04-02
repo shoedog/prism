@@ -769,7 +769,10 @@ impl CodePropertyGraph {
         let mut queue: VecDeque<(NodeIndex, usize)> = VecDeque::new();
 
         // Find the starting function node
-        if let Some(&idx) = self.func_index.get(&(file.to_string(), func_name.to_string())) {
+        if let Some(&idx) = self
+            .func_index
+            .get(&(file.to_string(), func_name.to_string()))
+        {
             queue.push_back((idx, 0));
             visited.insert(idx);
         }
@@ -878,7 +881,13 @@ impl CodePropertyGraph {
             VarAccessKind::Def => VarAccess::Def,
             VarAccessKind::Use => VarAccess::Use,
         };
-        let start = match self.var_node(&from.file, &from.function, from.line, &from.path, from_access) {
+        let start = match self.var_node(
+            &from.file,
+            &from.function,
+            from.line,
+            &from.path,
+            from_access,
+        ) {
             Some(idx) => idx,
             None => return BTreeSet::new(),
         };
@@ -901,10 +910,20 @@ impl CodePropertyGraph {
             }
 
             // Assignment propagation: Use on line N → find Defs on same line
-            if let CpgNode::Variable { access: VarAccess::Use, file, line, .. } = &self.graph[node] {
+            if let CpgNode::Variable {
+                access: VarAccess::Use,
+                file,
+                line,
+                ..
+            } = &self.graph[node]
+            {
                 if let Some(nodes_at) = self.location_index.get(&(file.clone(), *line)) {
                     for &other in nodes_at {
-                        if let CpgNode::Variable { access: VarAccess::Def, .. } = &self.graph[other] {
+                        if let CpgNode::Variable {
+                            access: VarAccess::Def,
+                            ..
+                        } = &self.graph[other]
+                        {
                             if !visited.contains(&other) {
                                 queue.push_back(other);
                             }
@@ -928,7 +947,13 @@ impl CodePropertyGraph {
             VarAccessKind::Def => VarAccess::Def,
             VarAccessKind::Use => VarAccess::Use,
         };
-        let start = match self.var_node(&from.file, &from.function, from.line, &from.path, from_access) {
+        let start = match self.var_node(
+            &from.file,
+            &from.function,
+            from.line,
+            &from.path,
+            from_access,
+        ) {
             Some(idx) => idx,
             None => return BTreeSet::new(),
         };
@@ -942,7 +967,10 @@ impl CodePropertyGraph {
 
     /// Forward taint propagation from a set of tainted locations.
     /// Equivalent to `DataFlowGraph::taint_forward()`.
-    pub fn taint_forward(&self, taint_sources: &[(String, usize)]) -> Vec<crate::data_flow::FlowPath> {
+    pub fn taint_forward(
+        &self,
+        taint_sources: &[(String, usize)],
+    ) -> Vec<crate::data_flow::FlowPath> {
         let mut paths = Vec::new();
 
         for (file, line) in taint_sources {
@@ -983,16 +1011,20 @@ impl CodePropertyGraph {
         sink_file: &str,
         sink_line: usize,
     ) -> BTreeSet<(String, usize)> {
-        let source_nodes: Vec<NodeIndex> = self.nodes_at(source_file, source_line)
+        let source_nodes: Vec<NodeIndex> = self
+            .nodes_at(source_file, source_line)
             .into_iter()
             .filter(|&idx| matches!(self.graph[idx], CpgNode::Variable { .. }))
             .collect();
-        let sink_nodes: Vec<NodeIndex> = self.nodes_at(sink_file, sink_line)
+        let sink_nodes: Vec<NodeIndex> = self
+            .nodes_at(sink_file, sink_line)
             .into_iter()
             .filter(|&idx| matches!(self.graph[idx], CpgNode::Variable { .. }))
             .collect();
 
-        let on_path = self.chop(&source_nodes, &sink_nodes, &|e| matches!(e, CpgEdge::DataFlow));
+        let on_path = self.chop(&source_nodes, &sink_nodes, &|e| {
+            matches!(e, CpgEdge::DataFlow)
+        });
 
         let mut result: BTreeSet<(String, usize)> = on_path
             .iter()

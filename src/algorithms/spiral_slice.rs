@@ -11,7 +11,7 @@
 //! Each line in the output is annotated with its ring level.
 
 use crate::ast::ParsedFile;
-use crate::call_graph::CallGraph;
+use crate::cpg::CodePropertyGraph;
 use crate::diff::{DiffBlock, DiffInput};
 use crate::slice::{SliceConfig, SliceResult, SlicingAlgorithm};
 use anyhow::Result;
@@ -51,7 +51,7 @@ pub fn slice(
     spiral_config: &SpiralConfig,
 ) -> Result<SliceResult> {
     let result = SliceResult::new(SlicingAlgorithm::SpiralSlice);
-    let call_graph = CallGraph::build(files);
+    let cpg = CodePropertyGraph::build(files);
 
     // Track all lines included so far, keyed by (file, line)
     let mut included: BTreeMap<(String, usize), (bool, usize)> = BTreeMap::new(); // (is_diff, ring)
@@ -105,7 +105,7 @@ pub fn slice(
     let diff_func_names = get_diff_function_names(files, diff);
     for func_name in &diff_func_names {
         // Direct callers
-        let callers = call_graph.callers_of(func_name, 1);
+        let callers = cpg.callers_of(func_name, 1);
         for (caller_id, _) in &callers {
             included
                 .entry((caller_id.file.clone(), caller_id.start_line))
@@ -116,7 +116,7 @@ pub fn slice(
         }
         // Direct callees
         for diff_info in &diff.files {
-            let callees = call_graph.callees_of(func_name, &diff_info.file_path, 1);
+            let callees = cpg.callees_of(func_name, &diff_info.file_path, 1);
             for (callee_id, _) in &callees {
                 included
                     .entry((callee_id.file.clone(), callee_id.start_line))
@@ -135,7 +135,7 @@ pub fn slice(
 
     // Ring 4: Depth-2 callers/callees
     for func_name in &diff_func_names {
-        let callers = call_graph.callers_of(func_name, 2);
+        let callers = cpg.callers_of(func_name, 2);
         for (caller_id, depth) in &callers {
             if *depth == 2 {
                 included
@@ -147,7 +147,7 @@ pub fn slice(
             }
         }
         for diff_info in &diff.files {
-            let callees = call_graph.callees_of(func_name, &diff_info.file_path, 2);
+            let callees = cpg.callees_of(func_name, &diff_info.file_path, 2);
             for (callee_id, depth) in &callees {
                 if *depth == 2 {
                     included

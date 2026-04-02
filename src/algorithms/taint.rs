@@ -5,7 +5,7 @@
 //! paths from taint sources to potential sinks (SQL, exec, file ops, HTTP responses).
 
 use crate::ast::ParsedFile;
-use crate::data_flow::DataFlowGraph;
+use crate::cpg::CodePropertyGraph;
 use crate::diff::{DiffBlock, DiffInput, ModifyType};
 use crate::slice::{SliceFinding, SliceResult, SlicingAlgorithm};
 use anyhow::Result;
@@ -257,7 +257,7 @@ pub fn slice(
     taint_config: &TaintConfig,
 ) -> Result<SliceResult> {
     let mut result = SliceResult::new(SlicingAlgorithm::Taint);
-    let dfg = DataFlowGraph::build(files);
+    let cpg = CodePropertyGraph::build(files);
 
     // Collect taint sources
     let mut taint_sources: Vec<(String, usize)> = taint_config.sources.clone();
@@ -271,7 +271,7 @@ pub fn slice(
     }
 
     // Forward propagation from each source
-    let paths = dfg.taint_forward(&taint_sources);
+    let paths = cpg.taint_forward(&taint_sources);
 
     // Detect variadic wrapper functions and add them as dynamic sinks
     let wrapper_sinks = detect_format_string_wrappers(files);

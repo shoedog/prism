@@ -5,7 +5,7 @@
 //! new edges, removed edges, and modified assignments.
 
 use crate::ast::ParsedFile;
-use crate::data_flow::DataFlowGraph;
+use crate::cpg::CodePropertyGraph;
 use crate::diff::{DiffBlock, DiffInput, ModifyType};
 use crate::languages::Language;
 use crate::slice::{SliceResult, SlicingAlgorithm};
@@ -34,12 +34,13 @@ pub fn slice(
         }
     }
 
-    // Build data flow graphs for both versions
-    let old_dfg = DataFlowGraph::build(&old_files);
-    let new_dfg = DataFlowGraph::build(new_files);
+    // Build CPGs for both versions; use their embedded DFGs for edge diffing
+    let old_cpg = CodePropertyGraph::build(&old_files);
+    let new_cpg = CodePropertyGraph::build(new_files);
 
     // Find edges that differ between versions
-    let old_edges: BTreeSet<(String, usize, String, usize)> = old_dfg
+    let old_edges: BTreeSet<(String, usize, String, usize)> = old_cpg
+        .dfg
         .edges
         .iter()
         .map(|e| {
@@ -52,7 +53,8 @@ pub fn slice(
         })
         .collect();
 
-    let new_edges: BTreeSet<(String, usize, String, usize)> = new_dfg
+    let new_edges: BTreeSet<(String, usize, String, usize)> = new_cpg
+        .dfg
         .edges
         .iter()
         .map(|e| {

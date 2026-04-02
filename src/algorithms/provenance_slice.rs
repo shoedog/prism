@@ -11,7 +11,7 @@
 //! This is backward taint analysis with origin classification.
 
 use crate::ast::ParsedFile;
-use crate::data_flow::DataFlowGraph;
+use crate::cpg::CodePropertyGraph;
 use crate::diff::{DiffBlock, DiffInput, ModifyType};
 use crate::slice::{SliceFinding, SliceResult, SlicingAlgorithm};
 use anyhow::Result;
@@ -367,7 +367,7 @@ pub struct ProvenanceFinding {
 
 pub fn slice(files: &BTreeMap<String, ParsedFile>, diff: &DiffInput) -> Result<SliceResult> {
     let mut result = SliceResult::new(SlicingAlgorithm::ProvenanceSlice);
-    let dfg = DataFlowGraph::build(files);
+    let cpg = CodePropertyGraph::build(files);
     let mut block_id = 0;
 
     for diff_info in &diff.files {
@@ -391,7 +391,7 @@ pub fn slice(files: &BTreeMap<String, ParsedFile>, diff: &DiffInput) -> Result<S
                 seen_vars.insert(var_name.clone());
 
                 // Trace backward through data flow to find the origin
-                let locs = dfg.all_defs_of(&diff_info.file_path, &var_name);
+                let locs = cpg.all_defs_of(&diff_info.file_path, &var_name);
                 let mut origin = Origin::Unknown;
                 let mut origin_line = line;
                 let mut origin_file = diff_info.file_path.clone();
@@ -410,7 +410,7 @@ pub fn slice(files: &BTreeMap<String, ParsedFile>, diff: &DiffInput) -> Result<S
                     }
 
                     // Also trace backward from this def
-                    let reachable = dfg.backward_reachable(loc);
+                    let reachable = cpg.dfg.backward_reachable(loc);
                     for r in &reachable {
                         if let Some(rparsed) = files.get(&r.file) {
                             let rlines: Vec<&str> = rparsed.source.lines().collect();
