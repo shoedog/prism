@@ -207,6 +207,16 @@ pub struct CodePropertyGraph {
 
     /// Index: (file, line) → all node indices at that location
     location_index: BTreeMap<(String, usize), Vec<NodeIndex>>,
+
+    /// Retained call graph for call site line lookups.
+    /// Algorithms like membrane_slice and echo_slice need specific call site
+    /// locations (which line does caller X call callee Y on), which the CPG's
+    /// Function→Function Call edges don't capture.
+    pub call_graph: CallGraph,
+
+    /// Retained data flow graph for direct edge access.
+    /// Used by delta_slice for edge diffing.
+    pub dfg: DataFlowGraph,
 }
 
 impl CodePropertyGraph {
@@ -372,6 +382,8 @@ impl CodePropertyGraph {
             func_index,
             var_index,
             location_index,
+            call_graph: cg,
+            dfg,
         }
     }
 
@@ -676,6 +688,322 @@ impl CodePropertyGraph {
 
         result.sort_by(|a, b| a.1.cmp(&b.1));
         result.dedup_by(|a, b| a.1 == b.1);
+        result
+    }
+
+    // -----------------------------------------------------------------------
+    // CallGraph-equivalent methods
+    // -----------------------------------------------------------------------
+
+    /// Find the function containing a specific line in a file.
+    /// Equivalent to `CallGraph::function_at()`.
+    pub fn function_at(&self, file: &str, line: usize) -> Option<(NodeIndex, FunctionId)> {
+        for (&(ref f, ref _name), &idx) in &self.func_index {
+            if f == file {
+                if let CpgNode::Function {
+                    start_line,
+                    end_line,
+                    ..
+                } = self.graph[idx]
+                {
+                    if line >= start_line && line <= end_line {
+                        return Some((idx, self.to_function_id(idx).unwrap()));
+                    }
+                }
+            }
+        }
+        None
+    }
+
+    /// Find all callers of a function by name, up to a given depth.
+    /// Returns (FunctionId, depth) pairs. Equivalent to `CallGraph::callers_of()`.
+    pub fn callers_of(&self, func_name: &str, max_depth: usize) -> Vec<(FunctionId, usize)> {
+        let mut result = Vec::new();
+        let mut visited: BTreeSet<NodeIndex> = BTreeSet::new();
+        let mut queue: VecDeque<(NodeIndex, usize)> = VecDeque::new();
+
+        // Find all function nodes with this name
+        for (&(ref _file, ref name), &idx) in &self.func_index {
+            if name == func_name {
+                queue.push_back((idx, 0));
+                visited.insert(idx);
+            }
+        }
+
+        while let Some((node, depth)) = queue.pop_front() {
+            if depth > 0 {
+                if let Some(fid) = self.to_function_id(node) {
+                    result.push((fid, depth));
+                }
+            }
+
+            if depth >= max_depth {
+                continue;
+            }
+
+            // Follow Return edges (callee → caller) to find callers
+            for edge in self.graph.edges(node) {
+                if matches!(edge.weight(), CpgEdge::Return) {
+                    let caller_idx = edge.target();
+                    if !visited.contains(&caller_idx) {
+                        visited.insert(caller_idx);
+                        queue.push_back((caller_idx, depth + 1));
+                    }
+                }
+            }
+        }
+
+        result
+    }
+
+    /// Find all callees of a function by name and file, up to a given depth.
+    /// Returns (FunctionId, depth) pairs. Equivalent to `CallGraph::callees_of()`.
+    pub fn callees_of(
+        &self,
+        func_name: &str,
+        file: &str,
+        max_depth: usize,
+    ) -> Vec<(FunctionId, usize)> {
+        let mut result = Vec::new();
+        let mut visited: BTreeSet<NodeIndex> = BTreeSet::new();
+        let mut queue: VecDeque<(NodeIndex, usize)> = VecDeque::new();
+
+        // Find the starting function node
+        if let Some(&idx) = self.func_index.get(&(file.to_string(), func_name.to_string())) {
+            queue.push_back((idx, 0));
+            visited.insert(idx);
+        }
+
+        while let Some((node, depth)) = queue.pop_front() {
+            if depth > 0 {
+                if let Some(fid) = self.to_function_id(node) {
+                    result.push((fid, depth));
+                }
+            }
+
+            if depth >= max_depth {
+                continue;
+            }
+
+            // Follow Call edges to find callees
+            for edge in self.graph.edges(node) {
+                if matches!(edge.weight(), CpgEdge::Call) {
+                    let callee_idx = edge.target();
+                    if !visited.contains(&callee_idx) {
+                        visited.insert(callee_idx);
+                        queue.push_back((callee_idx, depth + 1));
+                    }
+                }
+            }
+        }
+
+        result
+    }
+
+    /// Find callers that resolve to a function in a specific target file.
+    /// Equivalent to `CallGraph::callers_of_in_file()`.
+    pub fn callers_of_in_file(
+        &self,
+        func_name: &str,
+        max_depth: usize,
+        target_file: Option<&str>,
+    ) -> Vec<(FunctionId, usize)> {
+        if target_file.is_none() {
+            return self.callers_of(func_name, max_depth);
+        }
+        let tf = target_file.unwrap();
+
+        let mut result = Vec::new();
+        let mut visited: BTreeSet<NodeIndex> = BTreeSet::new();
+        let mut queue: VecDeque<(NodeIndex, usize)> = VecDeque::new();
+
+        // Start from function nodes with this name in the target file
+        for (&(ref file, ref name), &idx) in &self.func_index {
+            if name == func_name && file == tf {
+                queue.push_back((idx, 0));
+                visited.insert(idx);
+            }
+        }
+
+        while let Some((node, depth)) = queue.pop_front() {
+            if depth > 0 {
+                if let Some(fid) = self.to_function_id(node) {
+                    result.push((fid, depth));
+                }
+            }
+
+            if depth >= max_depth {
+                continue;
+            }
+
+            for edge in self.graph.edges(node) {
+                if matches!(edge.weight(), CpgEdge::Return) {
+                    let caller_idx = edge.target();
+                    if !visited.contains(&caller_idx) {
+                        visited.insert(caller_idx);
+                        queue.push_back((caller_idx, depth + 1));
+                    }
+                }
+            }
+        }
+
+        result
+    }
+
+    // -----------------------------------------------------------------------
+    // DataFlowGraph-equivalent methods
+    // -----------------------------------------------------------------------
+
+    /// Get all definition locations of a variable by base name in a file.
+    /// Equivalent to `DataFlowGraph::all_defs_of()`.
+    pub fn all_defs_of(&self, file: &str, var_name: &str) -> Vec<VarLocation> {
+        let mut result = Vec::new();
+        for (&(ref f, ref _func, ref _line, ref path, ref access), &_idx) in &self.var_index {
+            if f == file && path.base == var_name && *access == VarAccess::Def {
+                if let Some(loc) = self.to_var_location(_idx) {
+                    result.push(loc);
+                }
+            }
+        }
+        result
+    }
+
+    /// Forward reachability from a VarLocation, following DataFlow edges.
+    /// Equivalent to `DataFlowGraph::forward_reachable()`.
+    ///
+    /// Also handles assignment propagation: if a Use is found, finds all Defs
+    /// on the same line (x = y means use of y flows to def of x).
+    pub fn dfg_forward_reachable(&self, from: &VarLocation) -> BTreeSet<VarLocation> {
+        let from_access = match from.kind {
+            VarAccessKind::Def => VarAccess::Def,
+            VarAccessKind::Use => VarAccess::Use,
+        };
+        let start = match self.var_node(&from.file, &from.function, from.line, &from.path, from_access) {
+            Some(idx) => idx,
+            None => return BTreeSet::new(),
+        };
+
+        // BFS following DataFlow edges + same-line assignment propagation
+        let mut visited = BTreeSet::new();
+        let mut queue = VecDeque::new();
+        queue.push_back(start);
+
+        while let Some(node) = queue.pop_front() {
+            if !visited.insert(node) {
+                continue;
+            }
+
+            // Follow DataFlow edges
+            for edge in self.graph.edges(node) {
+                if matches!(edge.weight(), CpgEdge::DataFlow) && !visited.contains(&edge.target()) {
+                    queue.push_back(edge.target());
+                }
+            }
+
+            // Assignment propagation: Use on line N → find Defs on same line
+            if let CpgNode::Variable { access: VarAccess::Use, file, line, .. } = &self.graph[node] {
+                if let Some(nodes_at) = self.location_index.get(&(file.clone(), *line)) {
+                    for &other in nodes_at {
+                        if let CpgNode::Variable { access: VarAccess::Def, .. } = &self.graph[other] {
+                            if !visited.contains(&other) {
+                                queue.push_back(other);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        visited.remove(&start);
+        visited
+            .into_iter()
+            .filter_map(|idx| self.to_var_location(idx))
+            .collect()
+    }
+
+    /// Backward reachability from a VarLocation, following DataFlow edges.
+    /// Equivalent to `DataFlowGraph::backward_reachable()`.
+    pub fn dfg_backward_reachable(&self, from: &VarLocation) -> BTreeSet<VarLocation> {
+        let from_access = match from.kind {
+            VarAccessKind::Def => VarAccess::Def,
+            VarAccessKind::Use => VarAccess::Use,
+        };
+        let start = match self.var_node(&from.file, &from.function, from.line, &from.path, from_access) {
+            Some(idx) => idx,
+            None => return BTreeSet::new(),
+        };
+
+        let reachable = self.reachable_backward(start, &|e| matches!(e, CpgEdge::DataFlow));
+        reachable
+            .into_iter()
+            .filter_map(|idx| self.to_var_location(idx))
+            .collect()
+    }
+
+    /// Forward taint propagation from a set of tainted locations.
+    /// Equivalent to `DataFlowGraph::taint_forward()`.
+    pub fn taint_forward(&self, taint_sources: &[(String, usize)]) -> Vec<crate::data_flow::FlowPath> {
+        let mut paths = Vec::new();
+
+        for (file, line) in taint_sources {
+            let source_nodes = self.nodes_at(file, *line);
+            for &src_idx in &source_nodes {
+                if !matches!(self.graph[src_idx], CpgNode::Variable { .. }) {
+                    continue;
+                }
+                let src_loc = match self.to_var_location(src_idx) {
+                    Some(loc) => loc,
+                    None => continue,
+                };
+                let reachable = self.dfg_forward_reachable(&src_loc);
+                if !reachable.is_empty() {
+                    let path = crate::data_flow::FlowPath {
+                        edges: reachable
+                            .iter()
+                            .map(|target| crate::data_flow::FlowEdge {
+                                from: src_loc.clone(),
+                                to: target.clone(),
+                            })
+                            .collect(),
+                    };
+                    paths.push(path);
+                }
+            }
+        }
+
+        paths
+    }
+
+    /// Find all statements on any data flow path between source and sink.
+    /// Equivalent to `DataFlowGraph::chop()`.
+    pub fn dfg_chop(
+        &self,
+        source_file: &str,
+        source_line: usize,
+        sink_file: &str,
+        sink_line: usize,
+    ) -> BTreeSet<(String, usize)> {
+        let source_nodes: Vec<NodeIndex> = self.nodes_at(source_file, source_line)
+            .into_iter()
+            .filter(|&idx| matches!(self.graph[idx], CpgNode::Variable { .. }))
+            .collect();
+        let sink_nodes: Vec<NodeIndex> = self.nodes_at(sink_file, sink_line)
+            .into_iter()
+            .filter(|&idx| matches!(self.graph[idx], CpgNode::Variable { .. }))
+            .collect();
+
+        let on_path = self.chop(&source_nodes, &sink_nodes, &|e| matches!(e, CpgEdge::DataFlow));
+
+        let mut result: BTreeSet<(String, usize)> = on_path
+            .iter()
+            .map(|&idx| {
+                let node = self.node(idx);
+                (node.file().to_string(), node.line())
+            })
+            .collect();
+
+        result.insert((source_file.to_string(), source_line));
+        result.insert((sink_file.to_string(), sink_line));
         result
     }
 }
