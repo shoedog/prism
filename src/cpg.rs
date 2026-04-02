@@ -1,16 +1,24 @@
-//! Code Property Graph schema types.
+//! Code Property Graph — unified graph merging AST, DFG, call graph, and (future) CFG.
 //!
-//! Defines the node and edge types for a unified graph that merges AST
-//! structure, data flow, call graph, and (future) control flow into a single
-//! queryable representation built on `petgraph`.
+//! Built on `petgraph`, this module provides:
+//! - **Schema types:** `CpgNode`, `CpgEdge` — node and edge types for the unified graph
+//! - **Builder:** `CodePropertyGraph::build()` — constructs the graph from parsed files
+//! - **Query methods:** edge-filtered reachability, SCC, shortest paths, subgraph views
 //!
-//! This module defines the **schema only** — the type definitions and basic
-//! operations. The graph builder (which populates a CPG from parsed files)
-//! will be added in Phase 4 of the CPG architecture.
+//! Algorithms can query the CPG instead of separately accessing `DataFlowGraph`,
+//! `CallGraph`, and `ast.rs`. Edge-filtered traversals let each algorithm select
+//! which relationship types to follow.
 //!
 //! See `docs/cpg-architecture.md` for the full design.
 
 use crate::access_path::AccessPath;
+use crate::ast::ParsedFile;
+use crate::call_graph::{CallGraph, FunctionId};
+use crate::data_flow::{DataFlowGraph, VarAccessKind, VarLocation};
+
+use petgraph::graph::{DiGraph, NodeIndex};
+use petgraph::visit::EdgeRef;
+use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
 // ---------------------------------------------------------------------------
 // Node types
@@ -177,9 +185,501 @@ impl CpgEdge {
     }
 }
 
+// ---------------------------------------------------------------------------
+// Code Property Graph
+// ---------------------------------------------------------------------------
+
+/// The unified Code Property Graph.
+///
+/// Merges data flow, call graph, and containment relationships into a single
+/// petgraph DiGraph. Algorithms query this graph with edge-type filters instead
+/// of separately accessing DataFlowGraph and CallGraph.
+pub struct CodePropertyGraph {
+    /// The underlying petgraph directed graph.
+    pub graph: DiGraph<CpgNode, CpgEdge>,
+
+    /// Index: (file, function_name) → function node index
+    func_index: BTreeMap<(String, String), NodeIndex>,
+
+    /// Index: VarLocation-like key → variable node index.
+    /// Key: (file, function, line, path, access_kind)
+    var_index: BTreeMap<(String, String, usize, AccessPath, VarAccess), NodeIndex>,
+
+    /// Index: (file, line) → all node indices at that location
+    location_index: BTreeMap<(String, usize), Vec<NodeIndex>>,
+}
+
+impl CodePropertyGraph {
+    /// Build a CPG from parsed files.
+    ///
+    /// Constructs the graph by:
+    /// 1. Building DataFlowGraph and CallGraph from the same parsed files
+    /// 2. Creating Function nodes for each function definition
+    /// 3. Creating Variable nodes for each def/use from the DFG
+    /// 4. Adding DataFlow edges from DFG edges
+    /// 5. Adding Call edges from the call graph
+    /// 6. Adding Contains edges (function → its variables)
+    pub fn build(files: &BTreeMap<String, ParsedFile>) -> Self {
+        let dfg = DataFlowGraph::build(files);
+        let cg = CallGraph::build(files);
+
+        let mut graph = DiGraph::new();
+        let mut func_index: BTreeMap<(String, String), NodeIndex> = BTreeMap::new();
+        let mut var_index: BTreeMap<(String, String, usize, AccessPath, VarAccess), NodeIndex> =
+            BTreeMap::new();
+        let mut location_index: BTreeMap<(String, usize), Vec<NodeIndex>> = BTreeMap::new();
+
+        // --- Step 1: Function nodes ---
+        for func_ids in cg.functions.values() {
+            for fid in func_ids {
+                let idx = graph.add_node(CpgNode::Function {
+                    name: fid.name.clone(),
+                    file: fid.file.clone(),
+                    start_line: fid.start_line,
+                    end_line: fid.end_line,
+                });
+                func_index.insert((fid.file.clone(), fid.name.clone()), idx);
+                location_index
+                    .entry((fid.file.clone(), fid.start_line))
+                    .or_default()
+                    .push(idx);
+            }
+        }
+
+        // --- Step 2: Variable nodes from DFG defs ---
+        for ((_file, _func, _path), locs) in &dfg.defs {
+            for loc in locs {
+                let access = VarAccess::Def;
+                let key = (
+                    loc.file.clone(),
+                    loc.function.clone(),
+                    loc.line,
+                    loc.path.clone(),
+                    access,
+                );
+                if !var_index.contains_key(&key) {
+                    let idx = graph.add_node(CpgNode::Variable {
+                        path: loc.path.clone(),
+                        file: loc.file.clone(),
+                        function: loc.function.clone(),
+                        line: loc.line,
+                        access,
+                    });
+                    var_index.insert(key, idx);
+                    location_index
+                        .entry((loc.file.clone(), loc.line))
+                        .or_default()
+                        .push(idx);
+                }
+            }
+        }
+
+        // --- Step 3: Variable nodes from DFG uses ---
+        for ((_file, _func, _path), locs) in &dfg.uses {
+            for loc in locs {
+                let access = VarAccess::Use;
+                let key = (
+                    loc.file.clone(),
+                    loc.function.clone(),
+                    loc.line,
+                    loc.path.clone(),
+                    access,
+                );
+                if !var_index.contains_key(&key) {
+                    let idx = graph.add_node(CpgNode::Variable {
+                        path: loc.path.clone(),
+                        file: loc.file.clone(),
+                        function: loc.function.clone(),
+                        line: loc.line,
+                        access,
+                    });
+                    var_index.insert(key, idx);
+                    location_index
+                        .entry((loc.file.clone(), loc.line))
+                        .or_default()
+                        .push(idx);
+                }
+            }
+        }
+
+        // --- Step 4: DataFlow edges from DFG ---
+        for edge in &dfg.edges {
+            let from_access = match edge.from.kind {
+                VarAccessKind::Def => VarAccess::Def,
+                VarAccessKind::Use => VarAccess::Use,
+            };
+            let to_access = match edge.to.kind {
+                VarAccessKind::Def => VarAccess::Def,
+                VarAccessKind::Use => VarAccess::Use,
+            };
+            let from_key = (
+                edge.from.file.clone(),
+                edge.from.function.clone(),
+                edge.from.line,
+                edge.from.path.clone(),
+                from_access,
+            );
+            let to_key = (
+                edge.to.file.clone(),
+                edge.to.function.clone(),
+                edge.to.line,
+                edge.to.path.clone(),
+                to_access,
+            );
+            if let (Some(&from_idx), Some(&to_idx)) =
+                (var_index.get(&from_key), var_index.get(&to_key))
+            {
+                graph.add_edge(from_idx, to_idx, CpgEdge::DataFlow);
+            }
+        }
+
+        // --- Step 5: Call edges from call graph ---
+        for (caller_id, sites) in &cg.calls {
+            let caller_key = (caller_id.file.clone(), caller_id.name.clone());
+            let caller_idx = match func_index.get(&caller_key) {
+                Some(&idx) => idx,
+                None => continue,
+            };
+
+            for site in sites {
+                // Resolve callee to function nodes
+                let callee_ids = cg.resolve_callees(&site.callee_name, &caller_id.file);
+                for callee_id in callee_ids {
+                    let callee_key = (callee_id.file.clone(), callee_id.name.clone());
+                    if let Some(&callee_idx) = func_index.get(&callee_key) {
+                        graph.add_edge(caller_idx, callee_idx, CpgEdge::Call);
+                        graph.add_edge(callee_idx, caller_idx, CpgEdge::Return);
+                    }
+                }
+            }
+        }
+
+        // --- Step 6: Contains edges (function → its variables) ---
+        for (&(ref file, ref func, ref _line, ref _path, ref _access), &var_idx) in &var_index {
+            let func_key = (file.clone(), func.clone());
+            if let Some(&func_idx) = func_index.get(&func_key) {
+                graph.add_edge(func_idx, var_idx, CpgEdge::Contains);
+            }
+        }
+
+        CodePropertyGraph {
+            graph,
+            func_index,
+            var_index,
+            location_index,
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // Index lookups
+    // -----------------------------------------------------------------------
+
+    /// Get the node index for a function by file and name.
+    pub fn function_node(&self, file: &str, name: &str) -> Option<NodeIndex> {
+        self.func_index
+            .get(&(file.to_string(), name.to_string()))
+            .copied()
+    }
+
+    /// Get all node indices at a specific file and line.
+    pub fn nodes_at(&self, file: &str, line: usize) -> Vec<NodeIndex> {
+        self.location_index
+            .get(&(file.to_string(), line))
+            .cloned()
+            .unwrap_or_default()
+    }
+
+    /// Get a node by its index.
+    pub fn node(&self, idx: NodeIndex) -> &CpgNode {
+        &self.graph[idx]
+    }
+
+    /// Get the node index for a variable by its location.
+    pub fn var_node(
+        &self,
+        file: &str,
+        function: &str,
+        line: usize,
+        path: &AccessPath,
+        access: VarAccess,
+    ) -> Option<NodeIndex> {
+        self.var_index
+            .get(&(
+                file.to_string(),
+                function.to_string(),
+                line,
+                path.clone(),
+                access,
+            ))
+            .copied()
+    }
+
+    /// Total number of nodes in the graph.
+    pub fn node_count(&self) -> usize {
+        self.graph.node_count()
+    }
+
+    /// Total number of edges in the graph.
+    pub fn edge_count(&self) -> usize {
+        self.graph.edge_count()
+    }
+
+    /// Get all function node indices.
+    pub fn function_nodes(&self) -> Vec<NodeIndex> {
+        self.func_index.values().copied().collect()
+    }
+
+    // -----------------------------------------------------------------------
+    // Edge-filtered traversals
+    // -----------------------------------------------------------------------
+
+    /// Forward reachability following only edges that match the filter.
+    ///
+    /// Returns all nodes reachable from `start` by traversing edges where
+    /// `edge_filter` returns true.
+    pub fn reachable_forward(
+        &self,
+        start: NodeIndex,
+        edge_filter: &dyn Fn(&CpgEdge) -> bool,
+    ) -> BTreeSet<NodeIndex> {
+        let mut visited = BTreeSet::new();
+        let mut queue = VecDeque::new();
+        queue.push_back(start);
+
+        while let Some(node) = queue.pop_front() {
+            if !visited.insert(node) {
+                continue;
+            }
+            for edge in self.graph.edges(node) {
+                if edge_filter(edge.weight()) && !visited.contains(&edge.target()) {
+                    queue.push_back(edge.target());
+                }
+            }
+        }
+
+        visited.remove(&start);
+        visited
+    }
+
+    /// Backward reachability following only edges whose reverse matches the filter.
+    ///
+    /// Uses petgraph's `edges_directed(Incoming)` to walk backward.
+    pub fn reachable_backward(
+        &self,
+        start: NodeIndex,
+        edge_filter: &dyn Fn(&CpgEdge) -> bool,
+    ) -> BTreeSet<NodeIndex> {
+        let mut visited = BTreeSet::new();
+        let mut queue = VecDeque::new();
+        queue.push_back(start);
+
+        while let Some(node) = queue.pop_front() {
+            if !visited.insert(node) {
+                continue;
+            }
+            for edge in self
+                .graph
+                .edges_directed(node, petgraph::Direction::Incoming)
+            {
+                if edge_filter(edge.weight()) && !visited.contains(&edge.source()) {
+                    queue.push_back(edge.source());
+                }
+            }
+        }
+
+        visited.remove(&start);
+        visited
+    }
+
+    /// Check if there's a path from `source` to `target` following filtered edges.
+    pub fn has_path(
+        &self,
+        source: NodeIndex,
+        target: NodeIndex,
+        edge_filter: &dyn Fn(&CpgEdge) -> bool,
+    ) -> bool {
+        if source == target {
+            return true;
+        }
+        self.reachable_forward(source, edge_filter)
+            .contains(&target)
+    }
+
+    // -----------------------------------------------------------------------
+    // SCC — Strongly Connected Components via petgraph's Tarjan
+    // -----------------------------------------------------------------------
+
+    /// Find all strongly connected components in the subgraph defined by the
+    /// edge filter. Returns only non-trivial SCCs (size >= 2).
+    ///
+    /// Uses petgraph's `tarjan_scc` on an edge-filtered view of the graph.
+    pub fn strongly_connected_components(
+        &self,
+        edge_filter: &dyn Fn(&CpgEdge) -> bool,
+    ) -> Vec<Vec<NodeIndex>> {
+        // Build a filtered subgraph with only matching edges
+        let filtered =
+            petgraph::visit::EdgeFiltered::from_fn(&self.graph, |e| edge_filter(e.weight()));
+        let sccs = petgraph::algo::tarjan_scc(&filtered);
+
+        // Return only non-trivial SCCs (cycles)
+        sccs.into_iter().filter(|scc| scc.len() >= 2).collect()
+    }
+
+    /// Find SCCs in the call graph (Call edges only).
+    /// Returns cycles as lists of function node indices.
+    pub fn call_graph_cycles(&self) -> Vec<Vec<NodeIndex>> {
+        self.strongly_connected_components(&|e| matches!(e, CpgEdge::Call))
+    }
+
+    /// Find SCCs in the data flow graph (DataFlow edges only).
+    pub fn data_flow_cycles(&self) -> Vec<Vec<NodeIndex>> {
+        self.strongly_connected_components(&|e| matches!(e, CpgEdge::DataFlow))
+    }
+
+    // -----------------------------------------------------------------------
+    // Hop-distance BFS (for gradient scoring)
+    // -----------------------------------------------------------------------
+
+    /// BFS with hop tracking. Returns (node_index, hop_distance) for all
+    /// reachable nodes within `max_hops`, following filtered edges.
+    pub fn bfs_with_distance(
+        &self,
+        starts: &[NodeIndex],
+        max_hops: usize,
+        edge_filter: &dyn Fn(&CpgEdge) -> bool,
+    ) -> BTreeMap<NodeIndex, usize> {
+        let mut distances: BTreeMap<NodeIndex, usize> = BTreeMap::new();
+        let mut queue: VecDeque<(NodeIndex, usize)> = VecDeque::new();
+
+        for &start in starts {
+            distances.insert(start, 0);
+            queue.push_back((start, 0));
+        }
+
+        while let Some((node, hop)) = queue.pop_front() {
+            if hop >= max_hops {
+                continue;
+            }
+            let next_hop = hop + 1;
+
+            for edge in self.graph.edges(node) {
+                if edge_filter(edge.weight()) {
+                    let target = edge.target();
+                    if !distances.contains_key(&target) || distances[&target] > next_hop {
+                        distances.insert(target, next_hop);
+                        queue.push_back((target, next_hop));
+                    }
+                }
+            }
+        }
+
+        distances
+    }
+
+    // -----------------------------------------------------------------------
+    // Chop: intersection of forward and backward reachability
+    // -----------------------------------------------------------------------
+
+    /// Find all nodes on any path from source to sink, following filtered edges.
+    pub fn chop(
+        &self,
+        sources: &[NodeIndex],
+        sinks: &[NodeIndex],
+        edge_filter: &dyn Fn(&CpgEdge) -> bool,
+    ) -> BTreeSet<NodeIndex> {
+        let mut forward_set = BTreeSet::new();
+        for &src in sources {
+            forward_set.extend(self.reachable_forward(src, edge_filter));
+            forward_set.insert(src);
+        }
+
+        let mut backward_set = BTreeSet::new();
+        for &sink in sinks {
+            backward_set.extend(self.reachable_backward(sink, edge_filter));
+            backward_set.insert(sink);
+        }
+
+        forward_set.intersection(&backward_set).copied().collect()
+    }
+
+    // -----------------------------------------------------------------------
+    // Bridge to existing types
+    // -----------------------------------------------------------------------
+
+    /// Convert a CPG Variable node back to a VarLocation for backward compatibility.
+    pub fn to_var_location(&self, idx: NodeIndex) -> Option<VarLocation> {
+        match &self.graph[idx] {
+            CpgNode::Variable {
+                path,
+                file,
+                function,
+                line,
+                access,
+            } => Some(VarLocation {
+                file: file.clone(),
+                function: function.clone(),
+                line: *line,
+                path: path.clone(),
+                kind: match access {
+                    VarAccess::Def => VarAccessKind::Def,
+                    VarAccess::Use => VarAccessKind::Use,
+                },
+            }),
+            _ => None,
+        }
+    }
+
+    /// Convert a CPG Function node back to a FunctionId for backward compatibility.
+    pub fn to_function_id(&self, idx: NodeIndex) -> Option<FunctionId> {
+        match &self.graph[idx] {
+            CpgNode::Function {
+                name,
+                file,
+                start_line,
+                end_line,
+            } => Some(FunctionId {
+                file: file.clone(),
+                name: name.clone(),
+                start_line: *start_line,
+                end_line: *end_line,
+            }),
+            _ => None,
+        }
+    }
+
+    /// Get all function nodes reachable from the given functions via Call edges.
+    /// Returns (NodeIndex, FunctionId) pairs for convenience.
+    pub fn call_reachable_functions(
+        &self,
+        start_func_names: &[(&str, &str)], // (file, name) pairs
+    ) -> Vec<(NodeIndex, FunctionId)> {
+        let mut result = Vec::new();
+        let starts: Vec<NodeIndex> = start_func_names
+            .iter()
+            .filter_map(|(file, name)| self.function_node(file, name))
+            .collect();
+
+        for &start in &starts {
+            let reachable = self.reachable_forward(start, &|e| matches!(e, CpgEdge::Call));
+            for idx in reachable {
+                if let Some(fid) = self.to_function_id(idx) {
+                    result.push((idx, fid));
+                }
+            }
+        }
+
+        result.sort_by(|a, b| a.1.cmp(&b.1));
+        result.dedup_by(|a, b| a.1 == b.1);
+        result
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ast::ParsedFile;
+    use crate::languages::Language;
 
     #[test]
     fn test_node_accessors() {
@@ -261,5 +761,283 @@ mod tests {
             kind: StmtKind::Return,
         };
         assert!(!ret.is_call());
+    }
+
+    #[test]
+    fn test_cpg_build_basic() {
+        let source = r#"
+void init() {
+    int x = 1;
+    int y = x;
+    use(y);
+}
+"#;
+        let path = "src/test.c";
+        let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+        let mut files = BTreeMap::new();
+        files.insert(path.to_string(), parsed);
+
+        let cpg = CodePropertyGraph::build(&files);
+
+        // Should have at least one function node
+        assert!(cpg.node_count() > 0, "CPG should have nodes");
+        assert!(cpg.edge_count() > 0, "CPG should have edges");
+
+        // Should be able to look up the function
+        let func_idx = cpg.function_node(path, "init");
+        assert!(func_idx.is_some(), "Should find function 'init'");
+
+        // Function node should have correct metadata
+        let func = cpg.node(func_idx.unwrap());
+        assert!(func.is_function());
+        assert_eq!(func.file(), path);
+    }
+
+    #[test]
+    fn test_cpg_dataflow_edges() {
+        let source = r#"
+void flow() {
+    int x = 1;
+    int y = x;
+}
+"#;
+        let path = "src/flow.c";
+        let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+        let mut files = BTreeMap::new();
+        files.insert(path.to_string(), parsed);
+
+        let cpg = CodePropertyGraph::build(&files);
+
+        // Check that dataflow edges exist
+        let df_edges: Vec<_> = cpg
+            .graph
+            .edge_indices()
+            .filter(|&e| cpg.graph[e] == CpgEdge::DataFlow)
+            .collect();
+        assert!(
+            !df_edges.is_empty(),
+            "CPG should have DataFlow edges for x → y"
+        );
+    }
+
+    #[test]
+    fn test_cpg_call_edges() {
+        let source = r#"
+void callee() {
+    return;
+}
+
+void caller() {
+    callee();
+}
+"#;
+        let path = "src/calls.c";
+        let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+        let mut files = BTreeMap::new();
+        files.insert(path.to_string(), parsed);
+
+        let cpg = CodePropertyGraph::build(&files);
+
+        // Check caller → callee Call edge
+        let caller_idx = cpg.function_node(path, "caller").unwrap();
+        let callee_idx = cpg.function_node(path, "callee").unwrap();
+
+        let call_reachable = cpg.reachable_forward(caller_idx, &|e| matches!(e, CpgEdge::Call));
+        assert!(
+            call_reachable.contains(&callee_idx),
+            "caller should reach callee via Call edge"
+        );
+
+        // Check callee → caller Return edge
+        let return_reachable = cpg.reachable_forward(callee_idx, &|e| matches!(e, CpgEdge::Return));
+        assert!(
+            return_reachable.contains(&caller_idx),
+            "callee should reach caller via Return edge"
+        );
+    }
+
+    #[test]
+    fn test_cpg_contains_edges() {
+        let source = r#"
+void f() {
+    int x = 1;
+    int y = x;
+}
+"#;
+        let path = "src/contains.c";
+        let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+        let mut files = BTreeMap::new();
+        files.insert(path.to_string(), parsed);
+
+        let cpg = CodePropertyGraph::build(&files);
+
+        let func_idx = cpg.function_node(path, "f").unwrap();
+        let contained = cpg.reachable_forward(func_idx, &|e| matches!(e, CpgEdge::Contains));
+        assert!(
+            !contained.is_empty(),
+            "Function 'f' should contain variable nodes"
+        );
+
+        // All contained nodes should be Variable nodes
+        for idx in &contained {
+            let node = cpg.node(*idx);
+            assert!(
+                node.is_def() || node.is_use(),
+                "Contains edge should lead to Variable nodes, got {:?}",
+                node
+            );
+        }
+    }
+
+    #[test]
+    fn test_cpg_edge_filtered_reachability() {
+        // DataFlow-only reachability should NOT follow Call edges
+        let source = r#"
+void helper() {
+    return;
+}
+
+void main_func() {
+    int x = 1;
+    int y = x;
+    helper();
+}
+"#;
+        let path = "src/filter.c";
+        let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+        let mut files = BTreeMap::new();
+        files.insert(path.to_string(), parsed);
+
+        let cpg = CodePropertyGraph::build(&files);
+
+        let main_idx = cpg.function_node(path, "main_func").unwrap();
+        let helper_idx = cpg.function_node(path, "helper").unwrap();
+
+        // Call-only should reach helper
+        let call_reach = cpg.reachable_forward(main_idx, &|e| matches!(e, CpgEdge::Call));
+        assert!(call_reach.contains(&helper_idx));
+
+        // DataFlow-only from main_func should NOT reach helper function node
+        let df_reach = cpg.reachable_forward(main_idx, &|e| matches!(e, CpgEdge::DataFlow));
+        assert!(
+            !df_reach.contains(&helper_idx),
+            "DataFlow-only traversal should not reach function nodes via Call edges"
+        );
+    }
+
+    #[test]
+    fn test_cpg_call_graph_cycles() {
+        let source = r#"
+void a() {
+    b();
+}
+
+void b() {
+    a();
+}
+"#;
+        let path = "src/cycle.c";
+        let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+        let mut files = BTreeMap::new();
+        files.insert(path.to_string(), parsed);
+
+        let cpg = CodePropertyGraph::build(&files);
+        let cycles = cpg.call_graph_cycles();
+
+        assert!(!cycles.is_empty(), "Should detect a → b → a call cycle");
+
+        // The cycle should contain both function nodes
+        let cycle_names: BTreeSet<String> = cycles[0]
+            .iter()
+            .filter_map(|&idx| match cpg.node(idx) {
+                CpgNode::Function { name, .. } => Some(name.clone()),
+                _ => None,
+            })
+            .collect();
+        assert!(cycle_names.contains("a"), "Cycle should contain 'a'");
+        assert!(cycle_names.contains("b"), "Cycle should contain 'b'");
+    }
+
+    #[test]
+    fn test_cpg_bfs_with_distance() {
+        let source = r#"
+void a() {
+    b();
+}
+
+void b() {
+    c();
+}
+
+void c() {
+    return;
+}
+"#;
+        let path = "src/dist.c";
+        let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+        let mut files = BTreeMap::new();
+        files.insert(path.to_string(), parsed);
+
+        let cpg = CodePropertyGraph::build(&files);
+
+        let a_idx = cpg.function_node(path, "a").unwrap();
+        let b_idx = cpg.function_node(path, "b").unwrap();
+        let c_idx = cpg.function_node(path, "c").unwrap();
+
+        let distances = cpg.bfs_with_distance(&[a_idx], 5, &|e| matches!(e, CpgEdge::Call));
+
+        assert_eq!(distances.get(&a_idx), Some(&0));
+        assert_eq!(distances.get(&b_idx), Some(&1));
+        assert_eq!(distances.get(&c_idx), Some(&2));
+    }
+
+    #[test]
+    fn test_cpg_bridge_to_var_location() {
+        let source = r#"
+void f() {
+    int x = 1;
+    int y = x;
+}
+"#;
+        let path = "src/bridge.c";
+        let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+        let mut files = BTreeMap::new();
+        files.insert(path.to_string(), parsed);
+
+        let cpg = CodePropertyGraph::build(&files);
+
+        // Find a variable node and convert back
+        let var_nodes: Vec<_> = cpg
+            .graph
+            .node_indices()
+            .filter(|&idx| cpg.node(idx).is_def())
+            .collect();
+        assert!(!var_nodes.is_empty());
+
+        let loc = cpg.to_var_location(var_nodes[0]);
+        assert!(loc.is_some());
+        let loc = loc.unwrap();
+        assert_eq!(loc.file, path);
+        assert_eq!(loc.function, "f");
+    }
+
+    #[test]
+    fn test_cpg_bridge_to_function_id() {
+        let source = r#"
+void my_func() {
+    return;
+}
+"#;
+        let path = "src/bridge_func.c";
+        let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+        let mut files = BTreeMap::new();
+        files.insert(path.to_string(), parsed);
+
+        let cpg = CodePropertyGraph::build(&files);
+
+        let func_idx = cpg.function_node(path, "my_func").unwrap();
+        let fid = cpg.to_function_id(func_idx).unwrap();
+        assert_eq!(fid.name, "my_func");
+        assert_eq!(fid.file, path);
     }
 }
