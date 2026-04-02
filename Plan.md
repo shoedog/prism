@@ -1,6 +1,6 @@
 # Prism Implementation Plan & Status Tracker
 
-Last updated: 2026-04-02 (Phase 5 type enrichment — TypeDatabase, clang integration, virtual dispatch)
+Last updated: 2026-04-02 (Phase 6 CFG plan, Terraform/Shell/access-network analysis)
 
 ---
 
@@ -105,8 +105,8 @@ Last updated: 2026-04-02 (Phase 5 type enrichment — TypeDatabase, clang integr
 |------|--------|----------|--------|-------|
 | ~~**Rust** (`tree-sitter-rust`)~~ | — | — | **Done** | Full algorithm coverage: taint, provenance, absence, membrane, quantum, echo |
 | ~~**Lua** (`tree-sitter-lua`)~~ | — | — | **Done** | Full algorithm coverage: taint, provenance, absence, membrane, quantum, echo |
-| **Terraform / HCL** (`tree-sitter-hcl` + `hcl-rs`) | 2-3 weeks | Must-have — team's own repos | Not started | Taint through `var.`/`local.` to sensitive resource attrs; module membrane; provenance for `var.`/`data.`/`module.` origins. `hcl-rs` needed for reference resolution tree-sitter can't do. See `docs/language-expansion-plan.md` §3.2 |
-| **Shell / Bash** (`tree-sitter-bash`) | 1-2 weeks | Should-have — firmware scripts | Not started | Killer use case: command injection via unquoted `$var`. Taint sources: `$1`, `$@`, `read`, `curl`. Sinks: `eval`, backtick, `$(...)`. See `docs/language-expansion-plan.md` §3.3 |
+| **Terraform / HCL** (`tree-sitter-hcl` + `hcl-rs`) | 2-3 weeks | Must-have — team's own repos | Analysis complete | Taint through `var.`/`local.` to sensitive resource attrs; module membrane; provenance for `var.`/`data.`/`module.` origins. `hcl-rs` for reference resolution. Full plan: `docs/terraform-hcl-plan.md`. Test fixtures ready. |
+| **Shell / Bash** (`tree-sitter-bash`) | 1-2 weeks | Should-have — firmware scripts | Analysis complete | Killer use case: command injection via unquoted `$var`. Covers Busybox/OpenWrt firmware scripts. Full plan: `docs/shell-bash-plan.md`. Test fixtures ready. |
 
 ### P4 — Declarative Format Context Extraction
 
@@ -116,16 +116,17 @@ These formats need a different analysis model: parse → find touched units → 
 |------|--------|----------|-------|
 | **Dockerfiles** (`dockerfile-parser-rs` + `docker-compose-types`) | 1-2 weeks | High — team's own repos | Multi-stage build dependency tracking, compose service graph, `ARG`/`ENV` propagation |
 | **Protocol Buffers** (`tree-sitter-proto` + `protobuf-parse`) | 1 week | Medium — if gRPC IPC in firmware | Message reference graph, field number stability detection, service endpoint context |
-| YANG / NETCONF | — | Skip for now | Better served by `pyang`/`yanglint`; immature tree-sitter grammar |
+| **YANG / NETCONF** (pyang + JSON tree) | 2-3 weeks | Medium-High — ROLT, RPD, CIN | Re-evaluated: critical for DOCSIS 4.0/WiFi 7 model changes. Shell out to pyang for resolution. Backward compat, leafref integrity, augmentation conflict detection. See `docs/access-network-analysis-evaluation.md` §2 |
+| **Device Tree Source** (dtc + tree-sitter-devicetree) | 2-3 weeks | Medium — RPD, CPE | Re-evaluated: needed for WiFi 7 radio config and DOCSIS 4.0 FPGA config. Register overlap, interrupt conflict, compatible string validation. See `docs/access-network-analysis-evaluation.md` §3 |
+| **Protocol Buffers** (`tree-sitter-proto` + `protobuf-parse`) | 1 week | Medium — vCMTS gRPC IPC | Message reference graph, field number stability detection, service endpoint context |
 | Makefiles / CMake | — | Skip for now | Security flag auditing is rule-based, not context extraction |
-| Device Tree / Linker Scripts / Assembly | — | Skip | No mature grammars; better served by specialized tools |
 
 ### P5 — Analysis Infrastructure Improvements
 
 | Item | Effort | Priority | Notes |
 |------|--------|----------|-------|
 | ~~Type enrichment via `compile_commands.json` + clang~~ | — | **Done** | Phase 5 complete. `TypeDatabase` parses `compile_commands.json`, shells out to `clang -Xclang -ast-dump=json`, extracts struct/class/union definitions, field types, typedefs, and class hierarchy. `CodePropertyGraph::build_with_types()` adds virtual dispatch Call edges via CHA. CLI: `--compile-commands <path>`. 15 tests (10 unit + 5 integration). |
-| **Control flow graph edges in CPG** | 2-3 weeks | Medium | Path-sensitive analysis: "taint reaches sink only if branch taken." Phase 6 of CPG architecture. |
+| **Control flow graph edges in CPG** | 2-3 weeks | Medium | Path-sensitive analysis: "taint reaches sink only if branch taken." Phase 6 of CPG architecture. Full analysis and 3-PR implementation plan in `docs/cpg-phase6-cfg-plan.md`. |
 | ~~Local must-alias tracking~~ | — | **Done** | Phase 3: `ptr = dev` → `ptr->field` resolves to `dev->field`. Supports assignments and declarations with initializers. Chain resolution (a=b, b=c → a resolves to c). Tested across C, Python, JS, Go, Rust with chain and negative tests. 7 must-alias tests. |
 | `oxc_parser` + `oxc_semantic` for JS/TS | 1-2 weeks | Medium | Scope-aware analysis eliminates false taint matches from same-named imports. 3-5x faster than tree-sitter |
 | Preprocessor-aware analysis (`cpp -E`) | 2-4 weeks | Medium | Eliminates ERROR nodes from macro-heavy C/C++ code |
@@ -184,6 +185,10 @@ These formats need a different analysis model: parse → find touched units → 
 ## Reference
 
 - **CPG architecture:** `docs/cpg-architecture.md` (AccessPath, Code Property Graph, type enrichment — design, phases, open questions)
+- **CPG Phase 6 plan:** `docs/cpg-phase6-cfg-plan.md` (control flow graph edges — analysis, implementation plan, 3-PR split)
+- **Terraform/HCL plan:** `docs/terraform-hcl-plan.md` (TerraformRefGraph architecture, algorithm mapping, dual-parser approach)
+- **Shell/Bash plan:** `docs/shell-bash-plan.md` (taint sinks, unquoted variable detection, firmware-specific patterns)
+- **Access network evaluation:** `docs/access-network-analysis-evaluation.md` (YANG/NETCONF, Device Tree, Busybox for ROLT/vCMTS/RPD/CIN/CPE, DOCSIS 4.0, WiFi 7)
 - Language expansion plan: `docs/language-expansion-plan.md` (detailed analysis of all candidate languages, crates, architecture decisions)
 - Gap analysis: `docs/prism-ccpp-gap-analysis.md`
 - Algorithm taxonomy: `SLICING_METHODS.md`
