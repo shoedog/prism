@@ -3780,23 +3780,15 @@ fn lang_matches(name: &str, lang_key: &str) -> bool {
     match lang_key {
         "python" | "javascript" | "typescript" | "rust" | "lua" => name.contains(lang_key),
         // "go" is short — require _go_ or _go at end to avoid matching "algorithm"
-        "go" => {
-            name.contains("_go_") || name.ends_with("_go")
-        }
+        "go" => name.contains("_go_") || name.ends_with("_go"),
         // "java" must not match "javascript"
         "java" => {
-            !name.contains("javascript")
-                && (name.contains("_java_") || name.ends_with("_java"))
+            !name.contains("javascript") && (name.contains("_java_") || name.ends_with("_java"))
         }
         // "c" must not match cpp, circular, conditioned, chop, etc.
-        "c" => {
-            !name.contains("_cpp")
-                && (name.contains("_c_") || name.ends_with("_c"))
-        }
+        "c" => !name.contains("_cpp") && (name.contains("_c_") || name.ends_with("_c")),
         // "cpp" — require _cpp boundary
-        "cpp" => {
-            name.contains("_cpp_") || name.ends_with("_cpp")
-        }
+        "cpp" => name.contains("_cpp_") || name.ends_with("_cpp"),
         _ => name.contains(lang_key),
     }
 }
@@ -3882,8 +3874,7 @@ fn test_algorithm_language_matrix() {
             .map(|(lang_key, _)| {
                 total += 1;
                 let has_test = test_names.iter().any(|name| {
-                    algo_keys.iter().any(|k| name.contains(k))
-                        && lang_matches(name, lang_key)
+                    algo_keys.iter().any(|k| name.contains(k)) && lang_matches(name, lang_key)
                 });
                 if has_test {
                     covered += 1;
@@ -3947,7 +3938,15 @@ fn test_language_coverage_minimum() {
     ];
 
     let lang_keys: &[&str] = &[
-        "python", "javascript", "typescript", "go", "java", "c", "cpp", "rust", "lua",
+        "python",
+        "javascript",
+        "typescript",
+        "go",
+        "java",
+        "c",
+        "cpp",
+        "rust",
+        "lua",
     ];
 
     let test_source = include_str!("integration_test.rs");
@@ -3963,8 +3962,7 @@ fn test_language_coverage_minimum() {
             .iter()
             .filter(|lang| {
                 test_names.iter().any(|name| {
-                    algo_keys.iter().any(|k| name.contains(k))
-                        && lang_matches(name, lang)
+                    algo_keys.iter().any(|k| name.contains(k)) && lang_matches(name, lang)
                 })
             })
             .count();
@@ -9213,7 +9211,8 @@ fn test_delta_slice_go() {
     let old_source = "package main\n\nfunc add(a int, b int) int {\n\treturn a + b\n}\n";
     std::fs::write(tmp.path().join("calc.go"), old_source).unwrap();
 
-    let new_source = "package main\n\nfunc add(a int, b int) int {\n\tresult := a + b\n\treturn result\n}\n";
+    let new_source =
+        "package main\n\nfunc add(a int, b int) int {\n\tresult := a + b\n\treturn result\n}\n";
     let path = "calc.go";
     let parsed = ParsedFile::parse(path, new_source, Language::Go).unwrap();
     let mut files = BTreeMap::new();
@@ -9276,7 +9275,8 @@ fn create_temp_git_repo(filename: &str, contents: &[&str]) -> TempDir {
 
 #[test]
 fn test_threed_slice_python() {
-    let source = "def foo(x):\n    y = x + 1\n    return y\n\ndef bar():\n    r = foo(10)\n    print(r)\n";
+    let source =
+        "def foo(x):\n    y = x + 1\n    return y\n\ndef bar():\n    r = foo(10)\n    print(r)\n";
     let filename = "app.py";
     let tmp = create_temp_git_repo(filename, &["def foo(x):\n    return x\n", source]);
 
@@ -9298,7 +9298,10 @@ fn test_threed_slice_python() {
     };
     let result = prism::algorithms::threed_slice::slice(&files, &diff, &config).unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::ThreeDSlice);
-    assert!(!result.blocks.is_empty(), "ThreeDSlice should produce blocks for functions with churn");
+    assert!(
+        !result.blocks.is_empty(),
+        "ThreeDSlice should produce blocks for functions with churn"
+    );
 
     let _ = std::fs::remove_dir_all(&tmp);
 }
@@ -9307,7 +9310,13 @@ fn test_threed_slice_python() {
 fn test_threed_slice_go() {
     let source = "package main\n\nfunc compute(n int) int {\n\tresult := n * 2\n\treturn result\n}\n\nfunc caller() {\n\tv := compute(5)\n\t_ = v\n}\n";
     let filename = "main.go";
-    let tmp = create_temp_git_repo(filename, &["package main\n\nfunc compute(n int) int { return n }\n", source]);
+    let tmp = create_temp_git_repo(
+        filename,
+        &[
+            "package main\n\nfunc compute(n int) int { return n }\n",
+            source,
+        ],
+    );
 
     let parsed = ParsedFile::parse(filename, source, Language::Go).unwrap();
     let mut files = BTreeMap::new();
@@ -9421,8 +9430,7 @@ function validate(input) {
         }],
     };
 
-    let condition =
-        prism::algorithms::conditioned_slice::Condition::parse("input!=null").unwrap();
+    let condition = prism::algorithms::conditioned_slice::Condition::parse("input!=null").unwrap();
     assert_eq!(
         condition.op,
         prism::algorithms::conditioned_slice::ConditionOp::IsNotNull
@@ -9926,10 +9934,7 @@ func repository(key string) string {
 fn test_resonance_slice_python() {
     let source = "def update(x):\n    y = x + 1\n    return y\n";
     let filename = "app.py";
-    let tmp = create_temp_git_repo(filename, &[
-        "def update(x):\n    return x\n",
-        source,
-    ]);
+    let tmp = create_temp_git_repo(filename, &["def update(x):\n    return x\n", source]);
 
     let parsed = ParsedFile::parse(filename, source, Language::Python).unwrap();
     let mut files = BTreeMap::new();
@@ -9959,10 +9964,13 @@ fn test_resonance_slice_python() {
 fn test_resonance_slice_go() {
     let source = "package main\n\nfunc calc(n int) int {\n\treturn n * 2\n}\n";
     let filename = "calc.go";
-    let tmp = create_temp_git_repo(filename, &[
-        "package main\n\nfunc calc(n int) int { return n }\n",
-        source,
-    ]);
+    let tmp = create_temp_git_repo(
+        filename,
+        &[
+            "package main\n\nfunc calc(n int) int { return n }\n",
+            source,
+        ],
+    );
 
     let parsed = ParsedFile::parse(filename, source, Language::Go).unwrap();
     let mut files = BTreeMap::new();
@@ -9987,7 +9995,6 @@ fn test_resonance_slice_go() {
 
     let _ = std::fs::remove_dir_all(&tmp);
 }
-
 
 // ====================================================================
 // Batch 4: Remaining algorithm×language gaps
@@ -10293,10 +10300,13 @@ fn test_full_flow_javascript() {
 fn test_phantom_slice_python() {
     let source = "def remaining(x):\n    return x + 1\n";
     let filename = "app.py";
-    let tmp = create_temp_git_repo(filename, &[
-        "def deleted_func(x):\n    return x * 2\n\ndef remaining(x):\n    return x + 1\n",
-        source,
-    ]);
+    let tmp = create_temp_git_repo(
+        filename,
+        &[
+            "def deleted_func(x):\n    return x * 2\n\ndef remaining(x):\n    return x + 1\n",
+            source,
+        ],
+    );
     let parsed = ParsedFile::parse(filename, source, Language::Python).unwrap();
     let mut files = BTreeMap::new();
     files.insert(filename.to_string(), parsed);
@@ -10499,10 +10509,17 @@ func decode(b []byte, v interface{}) error {
 #[test]
 fn test_echo_slice_python_handler() {
     let source_api = "def create_resource(name):\n    if not name:\n        raise ValueError(\"name required\")\n    return {\"name\": name}\n";
-    let source_caller = "def handler():\n    result = create_resource(\"test\")\n    return result\n";
+    let source_caller =
+        "def handler():\n    result = create_resource(\"test\")\n    return result\n";
     let mut files = BTreeMap::new();
-    files.insert("api.py".to_string(), ParsedFile::parse("api.py", source_api, Language::Python).unwrap());
-    files.insert("handler.py".to_string(), ParsedFile::parse("handler.py", source_caller, Language::Python).unwrap());
+    files.insert(
+        "api.py".to_string(),
+        ParsedFile::parse("api.py", source_api, Language::Python).unwrap(),
+    );
+    files.insert(
+        "handler.py".to_string(),
+        ParsedFile::parse("handler.py", source_caller, Language::Python).unwrap(),
+    );
     let diff = DiffInput {
         files: vec![DiffInfo {
             file_path: "api.py".to_string(),
@@ -10511,19 +10528,28 @@ fn test_echo_slice_python_handler() {
         }],
     };
     let result = algorithms::run_slicing(
-        &files, &diff,
+        &files,
+        &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::EchoSlice),
-    ).unwrap();
+    )
+    .unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::EchoSlice);
 }
 
 #[test]
 fn test_echo_slice_javascript() {
     let source_api = "function validate(input) {\n    if (!input) {\n        throw new Error(\"missing\");\n    }\n    return input.trim();\n}\n";
-    let source_caller = "function process() {\n    const result = validate(getData());\n    return result;\n}\n";
+    let source_caller =
+        "function process() {\n    const result = validate(getData());\n    return result;\n}\n";
     let mut files = BTreeMap::new();
-    files.insert("validate.js".to_string(), ParsedFile::parse("validate.js", source_api, Language::JavaScript).unwrap());
-    files.insert("process.js".to_string(), ParsedFile::parse("process.js", source_caller, Language::JavaScript).unwrap());
+    files.insert(
+        "validate.js".to_string(),
+        ParsedFile::parse("validate.js", source_api, Language::JavaScript).unwrap(),
+    );
+    files.insert(
+        "process.js".to_string(),
+        ParsedFile::parse("process.js", source_caller, Language::JavaScript).unwrap(),
+    );
     let diff = DiffInput {
         files: vec![DiffInfo {
             file_path: "validate.js".to_string(),
@@ -10532,19 +10558,28 @@ fn test_echo_slice_javascript() {
         }],
     };
     let result = algorithms::run_slicing(
-        &files, &diff,
+        &files,
+        &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::EchoSlice),
-    ).unwrap();
+    )
+    .unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::EchoSlice);
 }
 
 #[test]
 fn test_membrane_slice_javascript() {
     let source_api = "function fetchUser(id) {\n    const user = db.get(id);\n    if (!user) throw new Error(\"not found\");\n    return user;\n}\n";
-    let source_caller = "function showProfile(id) {\n    const user = fetchUser(id);\n    render(user);\n}\n";
+    let source_caller =
+        "function showProfile(id) {\n    const user = fetchUser(id);\n    render(user);\n}\n";
     let mut files = BTreeMap::new();
-    files.insert("api.js".to_string(), ParsedFile::parse("api.js", source_api, Language::JavaScript).unwrap());
-    files.insert("profile.js".to_string(), ParsedFile::parse("profile.js", source_caller, Language::JavaScript).unwrap());
+    files.insert(
+        "api.js".to_string(),
+        ParsedFile::parse("api.js", source_api, Language::JavaScript).unwrap(),
+    );
+    files.insert(
+        "profile.js".to_string(),
+        ParsedFile::parse("profile.js", source_caller, Language::JavaScript).unwrap(),
+    );
     let diff = DiffInput {
         files: vec![DiffInfo {
             file_path: "api.js".to_string(),
@@ -10553,9 +10588,11 @@ fn test_membrane_slice_javascript() {
         }],
     };
     let result = algorithms::run_slicing(
-        &files, &diff,
+        &files,
+        &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::MembraneSlice),
-    ).unwrap();
+    )
+    .unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::MembraneSlice);
 }
 
@@ -10574,9 +10611,11 @@ fn test_provenance_slice_javascript() {
         }],
     };
     let result = algorithms::run_slicing(
-        &files, &diff,
+        &files,
+        &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::ProvenanceSlice),
-    ).unwrap();
+    )
+    .unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::ProvenanceSlice);
 }
 
@@ -10595,9 +10634,11 @@ fn test_absence_slice_javascript() {
         }],
     };
     let result = algorithms::run_slicing(
-        &files, &diff,
+        &files,
+        &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::AbsenceSlice),
-    ).unwrap();
+    )
+    .unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::AbsenceSlice);
 }
 
@@ -10616,9 +10657,11 @@ fn test_absence_slice_go_open() {
         }],
     };
     let result = algorithms::run_slicing(
-        &files, &diff,
+        &files,
+        &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::AbsenceSlice),
-    ).unwrap();
+    )
+    .unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::AbsenceSlice);
 }
 
@@ -10626,9 +10669,11 @@ fn test_absence_slice_go_open() {
 fn test_original_diff_go() {
     let (files, _, diff) = make_go_test();
     let result = algorithms::run_slicing(
-        &files, &diff,
+        &files,
+        &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::OriginalDiff),
-    ).unwrap();
+    )
+    .unwrap();
     assert!(!result.blocks.is_empty());
 }
 
@@ -10636,9 +10681,11 @@ fn test_original_diff_go() {
 fn test_parent_function_typescript() {
     let (files, _, diff) = make_typescript_test();
     let result = algorithms::run_slicing(
-        &files, &diff,
+        &files,
+        &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::ParentFunction),
-    ).unwrap();
+    )
+    .unwrap();
     assert!(!result.blocks.is_empty());
 }
 
@@ -10646,9 +10693,11 @@ fn test_parent_function_typescript() {
 fn test_left_flow_go() {
     let (files, _, diff) = make_go_test();
     let result = algorithms::run_slicing(
-        &files, &diff,
+        &files,
+        &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::LeftFlow),
-    ).unwrap();
+    )
+    .unwrap();
     assert!(!result.blocks.is_empty());
 }
 
@@ -10656,12 +10705,13 @@ fn test_left_flow_go() {
 fn test_left_flow_java() {
     let (files, _, diff) = make_java_test();
     let result = algorithms::run_slicing(
-        &files, &diff,
+        &files,
+        &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::LeftFlow),
-    ).unwrap();
+    )
+    .unwrap();
     assert!(!result.blocks.is_empty());
 }
-
 
 // ====================================================================
 // Batch 6: Targeted tests for files near 80% threshold
@@ -10694,7 +10744,10 @@ print(y)
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::ThinSlice),
     )
     .unwrap();
-    assert!(!result.blocks.is_empty(), "ThinSlice should handle global-scope diff lines");
+    assert!(
+        !result.blocks.is_empty(),
+        "ThinSlice should handle global-scope diff lines"
+    );
 }
 
 #[test]
@@ -10728,7 +10781,10 @@ def process():
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::ParentFunction),
     )
     .unwrap();
-    assert!(!result.blocks.is_empty(), "ParentFunction should include global diff lines");
+    assert!(
+        !result.blocks.is_empty(),
+        "ParentFunction should include global diff lines"
+    );
 }
 
 #[test]
@@ -11148,7 +11204,6 @@ async def fetch(url):
     assert_eq!(result.algorithm, SlicingAlgorithm::QuantumSlice);
 }
 
-
 // ====================================================================
 // Batch 7: Deeper assertions on security-relevant algorithms
 // ====================================================================
@@ -11175,7 +11230,11 @@ fn test_chop_python_verifies_path_lines() {
         let lines = block.file_line_map.get(path).unwrap();
         // Source and/or sink lines should appear in the output
         let has_endpoint = lines.contains_key(&1) || lines.contains_key(&4);
-        assert!(has_endpoint, "Chop should include source or sink line in output, got lines: {:?}", lines.keys().collect::<Vec<_>>());
+        assert!(
+            has_endpoint,
+            "Chop should include source or sink line in output, got lines: {:?}",
+            lines.keys().collect::<Vec<_>>()
+        );
     }
 }
 
@@ -11259,10 +11318,20 @@ def critical_section(lock):
             || f.description.contains("acquire")
     });
     // The algorithm should at minimum produce blocks
-    assert!(!result.blocks.is_empty(), "AbsenceSlice should produce blocks for lock without release");
+    assert!(
+        !result.blocks.is_empty(),
+        "AbsenceSlice should produce blocks for lock without release"
+    );
     if !result.findings.is_empty() {
-        assert!(has_lock_finding, "AbsenceSlice findings should mention missing release. Got: {:?}",
-            result.findings.iter().map(|f| &f.description).collect::<Vec<_>>());
+        assert!(
+            has_lock_finding,
+            "AbsenceSlice findings should mention missing release. Got: {:?}",
+            result
+                .findings
+                .iter()
+                .map(|f| &f.description)
+                .collect::<Vec<_>>()
+        );
     }
 }
 
@@ -11354,7 +11423,10 @@ def deserialize(text):
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::SymmetrySlice),
     )
     .unwrap();
-    assert!(!result.blocks.is_empty(), "SymmetrySlice should find counterpart function");
+    assert!(
+        !result.blocks.is_empty(),
+        "SymmetrySlice should find counterpart function"
+    );
 
     // If blocks include the counterpart, both serialize and deserialize should appear
     let all_lines: BTreeSet<usize> = result
@@ -11442,9 +11514,18 @@ void unsafe_caller(void) {
 }
 "#;
     let mut files = BTreeMap::new();
-    files.insert("api.c".to_string(), ParsedFile::parse("api.c", source_api, Language::C).unwrap());
-    files.insert("safe.c".to_string(), ParsedFile::parse("safe.c", source_good, Language::C).unwrap());
-    files.insert("unsafe.c".to_string(), ParsedFile::parse("unsafe.c", source_bad, Language::C).unwrap());
+    files.insert(
+        "api.c".to_string(),
+        ParsedFile::parse("api.c", source_api, Language::C).unwrap(),
+    );
+    files.insert(
+        "safe.c".to_string(),
+        ParsedFile::parse("safe.c", source_good, Language::C).unwrap(),
+    );
+    files.insert(
+        "unsafe.c".to_string(),
+        ParsedFile::parse("unsafe.c", source_bad, Language::C).unwrap(),
+    );
 
     let diff = DiffInput {
         files: vec![DiffInfo {
@@ -11481,7 +11562,11 @@ void unsafe_caller(void) {
         assert!(
             has_warning,
             "MembraneSlice findings should warn about missing error handling. Got: {:?}",
-            result.findings.iter().map(|f| &f.description).collect::<Vec<_>>()
+            result
+                .findings
+                .iter()
+                .map(|f| &f.description)
+                .collect::<Vec<_>>()
         );
     }
 }
@@ -11513,7 +11598,10 @@ def handle(request):
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::ProvenanceSlice),
     )
     .unwrap();
-    assert!(!result.blocks.is_empty(), "Provenance should trace user input origin");
+    assert!(
+        !result.blocks.is_empty(),
+        "Provenance should trace user input origin"
+    );
 
     // Should include the form.get line as a user input source
     let all_lines: BTreeSet<usize> = result
@@ -11547,14 +11635,18 @@ fn test_gradient_slice_python_scores_decay() {
     let lines = block.file_line_map.get("src/calc.py").unwrap();
     // Diff lines 7 and 9 should be marked as diff=true
     if let Some(&is_diff) = lines.get(&7) {
-        assert!(is_diff, "Diff line 7 should be marked as diff in gradient output");
+        assert!(
+            is_diff,
+            "Diff line 7 should be marked as diff in gradient output"
+        );
     }
 }
 
 #[test]
 fn test_threed_slice_python_risk_scoring() {
     // ThreeDSlice should produce blocks sorted by risk
-    let source = "def foo(x):\n    y = x + 1\n    return y\n\ndef bar():\n    r = foo(10)\n    print(r)\n";
+    let source =
+        "def foo(x):\n    y = x + 1\n    return y\n\ndef bar():\n    r = foo(10)\n    print(r)\n";
     let filename = "app.py";
     let tmp = create_temp_git_repo(filename, &["def foo(x):\n    return x\n", source]);
 
@@ -11575,12 +11667,18 @@ fn test_threed_slice_python_risk_scoring() {
         git_dir: tmp.path().to_string_lossy().to_string(),
     };
     let result = prism::algorithms::threed_slice::slice(&files, &diff, &config).unwrap();
-    assert!(!result.blocks.is_empty(), "ThreeDSlice should produce risk-scored blocks");
+    assert!(
+        !result.blocks.is_empty(),
+        "ThreeDSlice should produce risk-scored blocks"
+    );
 
     // The first block should contain the diff function (highest risk)
     let first_block = &result.blocks[0];
     let lines = first_block.file_line_map.get(filename);
-    assert!(lines.is_some(), "First block should contain lines from the diff file");
+    assert!(
+        lines.is_some(),
+        "First block should contain lines from the diff file"
+    );
 }
 
 #[test]
@@ -11591,9 +11689,18 @@ fn test_vertical_slice_python_layer_detection() {
     let source_repo = "def repo_save(data):\n    return True\n";
 
     let mut files = BTreeMap::new();
-    files.insert("handler/api.py".to_string(), ParsedFile::parse("handler/api.py", source_handler, Language::Python).unwrap());
-    files.insert("service/logic.py".to_string(), ParsedFile::parse("service/logic.py", source_service, Language::Python).unwrap());
-    files.insert("repository/store.py".to_string(), ParsedFile::parse("repository/store.py", source_repo, Language::Python).unwrap());
+    files.insert(
+        "handler/api.py".to_string(),
+        ParsedFile::parse("handler/api.py", source_handler, Language::Python).unwrap(),
+    );
+    files.insert(
+        "service/logic.py".to_string(),
+        ParsedFile::parse("service/logic.py", source_service, Language::Python).unwrap(),
+    );
+    files.insert(
+        "repository/store.py".to_string(),
+        ParsedFile::parse("repository/store.py", source_repo, Language::Python).unwrap(),
+    );
 
     let diff = DiffInput {
         files: vec![DiffInfo {
@@ -11604,11 +11711,16 @@ fn test_vertical_slice_python_layer_detection() {
     };
 
     let result = prism::algorithms::vertical_slice::slice(
-        &files, &diff,
+        &files,
+        &diff,
         &prism::algorithms::vertical_slice::VerticalConfig::default(),
-    ).unwrap();
+    )
+    .unwrap();
     // Should produce blocks — at minimum the diff function
-    assert!(!result.blocks.is_empty(), "VerticalSlice should trace layers for service function");
+    assert!(
+        !result.blocks.is_empty(),
+        "VerticalSlice should trace layers for service function"
+    );
 }
 
 #[test]
@@ -11637,17 +11749,32 @@ func caller() int { return outer(10) }
     let config = SliceConfig::default().with_algorithm(SlicingAlgorithm::SpiralSlice);
 
     let ring2 = prism::algorithms::spiral_slice::slice(
-        &files, &diff, &config,
-        &prism::algorithms::spiral_slice::SpiralConfig { max_ring: 2, auto_stop_threshold: 0.0 },
-    ).unwrap();
+        &files,
+        &diff,
+        &config,
+        &prism::algorithms::spiral_slice::SpiralConfig {
+            max_ring: 2,
+            auto_stop_threshold: 0.0,
+        },
+    )
+    .unwrap();
 
     let ring4 = prism::algorithms::spiral_slice::slice(
-        &files, &diff, &config,
-        &prism::algorithms::spiral_slice::SpiralConfig { max_ring: 4, auto_stop_threshold: 0.0 },
-    ).unwrap();
+        &files,
+        &diff,
+        &config,
+        &prism::algorithms::spiral_slice::SpiralConfig {
+            max_ring: 4,
+            auto_stop_threshold: 0.0,
+        },
+    )
+    .unwrap();
 
     let count_lines = |r: &prism::slice::SliceResult| -> usize {
-        r.blocks.iter().map(|b| b.file_line_map.values().map(|m| m.len()).sum::<usize>()).sum()
+        r.blocks
+            .iter()
+            .map(|b| b.file_line_map.values().map(|m| m.len()).sum::<usize>())
+            .sum()
     };
 
     assert!(
@@ -11656,4 +11783,507 @@ func caller() int { return outer(10) }
         count_lines(&ring4),
         count_lines(&ring2)
     );
+}
+
+// ---------------------------------------------------------------------------
+// Phase 2: Field isolation tests — taint on obj.fieldA must NOT reach obj.fieldB
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_field_isolation_c_arrow() {
+    // C arrow access: dev->name taint should NOT propagate to dev->id
+    let source = r#"
+void process(struct device *dev) {
+    dev->name = get_user_input();
+    dev->id = 42;
+    use_name(dev->name);
+    use_id(dev->id);
+}
+"#;
+    let path = "src/dev.c";
+    let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let dfg = DataFlowGraph::build(&files);
+    let dev_defs = dfg.all_defs_of(path, "dev");
+
+    // Should have field-qualified defs only — no base-only "dev" def
+    let base_only_defs: Vec<_> = dev_defs.iter().filter(|d| !d.path.has_fields()).collect();
+    assert!(
+        base_only_defs.is_empty(),
+        "Phase 2: field assignments should NOT create base-only defs. Got: {:?}",
+        base_only_defs
+    );
+
+    // Forward from dev->name def should NOT reach dev->id use
+    let name_def = dev_defs.iter().find(|d| d.path.fields == vec!["name"]);
+    if let Some(nd) = name_def {
+        let reachable = dfg.forward_reachable(nd);
+        let reaches_id = reachable.iter().any(|r| r.path.fields == vec!["id"]);
+        assert!(
+            !reaches_id,
+            "Phase 2: taint on dev->name must NOT propagate to dev->id"
+        );
+    }
+}
+
+#[test]
+fn test_field_isolation_c_dot() {
+    // C dot access (struct value): cfg.timeout taint should NOT reach cfg.host
+    let source = r#"
+void configure(struct config cfg) {
+    cfg.timeout = get_input();
+    cfg.host = "safe";
+    use_timeout(cfg.timeout);
+    use_host(cfg.host);
+}
+"#;
+    let path = "src/cfg.c";
+    let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let dfg = DataFlowGraph::build(&files);
+    let cfg_defs = dfg.all_defs_of(path, "cfg");
+
+    let base_only: Vec<_> = cfg_defs.iter().filter(|d| !d.path.has_fields()).collect();
+    assert!(
+        base_only.is_empty(),
+        "Phase 2: dot field assignments should NOT create base-only defs. Got: {:?}",
+        base_only
+    );
+}
+
+#[test]
+fn test_field_isolation_python() {
+    let source = r#"
+class Handler:
+    def process(self):
+        self.secret = get_password()
+        self.label = "public"
+        send(self.secret)
+        display(self.label)
+"#;
+    let path = "src/handler.py";
+    let parsed = ParsedFile::parse(path, source, Language::Python).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let dfg = DataFlowGraph::build(&files);
+    let self_defs = dfg.all_defs_of(path, "self");
+
+    let base_only: Vec<_> = self_defs.iter().filter(|d| !d.path.has_fields()).collect();
+    assert!(
+        base_only.is_empty(),
+        "Phase 2 Python: field assignments should NOT create base-only defs"
+    );
+
+    let secret_def = self_defs.iter().find(|d| d.path.fields == vec!["secret"]);
+    if let Some(sd) = secret_def {
+        let reachable = dfg.forward_reachable(sd);
+        let reaches_label = reachable.iter().any(|r| r.path.fields == vec!["label"]);
+        assert!(
+            !reaches_label,
+            "Phase 2 Python: taint on self.secret must NOT propagate to self.label"
+        );
+    }
+}
+
+#[test]
+fn test_field_isolation_javascript() {
+    let source = r#"
+function process(obj) {
+    obj.secret = getUserInput();
+    obj.display = "safe";
+    sink(obj.secret);
+    render(obj.display);
+}
+"#;
+    let path = "src/handler.js";
+    let parsed = ParsedFile::parse(path, source, Language::JavaScript).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let dfg = DataFlowGraph::build(&files);
+    let obj_defs = dfg.all_defs_of(path, "obj");
+
+    let base_only: Vec<_> = obj_defs.iter().filter(|d| !d.path.has_fields()).collect();
+    assert!(
+        base_only.is_empty(),
+        "Phase 2 JS: field assignments should NOT create base-only defs"
+    );
+}
+
+#[test]
+fn test_field_isolation_go() {
+    let source = r#"
+package main
+
+func process(dev Device) {
+    dev.Name = getInput()
+    dev.ID = 42
+    useName(dev.Name)
+    useID(dev.ID)
+}
+"#;
+    let path = "src/dev.go";
+    let parsed = ParsedFile::parse(path, source, Language::Go).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let dfg = DataFlowGraph::build(&files);
+    let dev_defs = dfg.all_defs_of(path, "dev");
+
+    let base_only: Vec<_> = dev_defs.iter().filter(|d| !d.path.has_fields()).collect();
+    assert!(
+        base_only.is_empty(),
+        "Phase 2 Go: field assignments should NOT create base-only defs"
+    );
+}
+
+#[test]
+fn test_field_isolation_rust() {
+    let source = r#"
+fn process(dev: &mut Device) {
+    dev.name = get_input();
+    dev.id = 42;
+    use_name(dev.name);
+    use_id(dev.id);
+}
+"#;
+    let path = "src/dev.rs";
+    let parsed = ParsedFile::parse(path, source, Language::Rust).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let dfg = DataFlowGraph::build(&files);
+    let dev_defs = dfg.all_defs_of(path, "dev");
+
+    let base_only: Vec<_> = dev_defs.iter().filter(|d| !d.path.has_fields()).collect();
+    assert!(
+        base_only.is_empty(),
+        "Phase 2 Rust: field assignments should NOT create base-only defs"
+    );
+}
+
+#[test]
+fn test_field_isolation_lua() {
+    let source = r#"
+function process(dev)
+    dev.name = get_input()
+    dev.id = 42
+    use_name(dev.name)
+    use_id(dev.id)
+end
+"#;
+    let path = "src/dev.lua";
+    let parsed = ParsedFile::parse(path, source, Language::Lua).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let dfg = DataFlowGraph::build(&files);
+    let dev_defs = dfg.all_defs_of(path, "dev");
+
+    let base_only: Vec<_> = dev_defs.iter().filter(|d| !d.path.has_fields()).collect();
+    assert!(
+        base_only.is_empty(),
+        "Phase 2 Lua: field assignments should NOT create base-only defs"
+    );
+}
+
+#[test]
+fn test_field_isolation_java() {
+    let source = r#"
+class Handler {
+    void process(Device dev) {
+        dev.name = getInput();
+        dev.id = 42;
+        useName(dev.name);
+        useId(dev.id);
+    }
+}
+"#;
+    let path = "src/Handler.java";
+    let parsed = ParsedFile::parse(path, source, Language::Java).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let dfg = DataFlowGraph::build(&files);
+    let dev_defs = dfg.all_defs_of(path, "dev");
+
+    let base_only: Vec<_> = dev_defs.iter().filter(|d| !d.path.has_fields()).collect();
+    assert!(
+        base_only.is_empty(),
+        "Phase 2 Java: field assignments should NOT create base-only defs"
+    );
+}
+
+#[test]
+fn test_field_isolation_typescript() {
+    let source = r#"
+function process(obj: Config) {
+    obj.secret = getUserInput();
+    obj.label = "safe";
+    sink(obj.secret);
+    render(obj.label);
+}
+"#;
+    let path = "src/handler.ts";
+    let parsed = ParsedFile::parse(path, source, Language::TypeScript).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let dfg = DataFlowGraph::build(&files);
+    let obj_defs = dfg.all_defs_of(path, "obj");
+
+    let base_only: Vec<_> = obj_defs.iter().filter(|d| !d.path.has_fields()).collect();
+    assert!(
+        base_only.is_empty(),
+        "Phase 2 TypeScript: field assignments should NOT create base-only defs"
+    );
+}
+
+#[test]
+fn test_field_isolation_whole_struct_still_works() {
+    // Whole-struct assignment (no field) should still create a base-only def
+    let source = r#"
+void init() {
+    struct device *dev = malloc(sizeof(struct device));
+    int x = 42;
+    use(dev);
+    use(x);
+}
+"#;
+    let path = "src/init.c";
+    let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let dfg = DataFlowGraph::build(&files);
+
+    // dev should still have a base-only def from the whole-struct assignment
+    let dev_defs = dfg.all_defs_of(path, "dev");
+    assert!(
+        !dev_defs.is_empty(),
+        "Whole-struct assignment should still create a def for dev"
+    );
+    assert!(
+        dev_defs.iter().any(|d| !d.path.has_fields()),
+        "Whole-struct assignment should create base-only def"
+    );
+}
+
+#[test]
+fn test_must_alias_c_pointer() {
+    // ptr = dev; ptr->name = x → should create def for dev.name too
+    let source = r#"
+void process(struct device *dev) {
+    struct device *ptr = dev;
+    ptr->name = "eth0";
+    use_name(dev->name);
+}
+"#;
+    let path = "src/alias.c";
+    let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let dfg = DataFlowGraph::build(&files);
+    let dev_defs = dfg.all_defs_of(path, "dev");
+
+    // Phase 3: ptr->name def should also create a dev.name def via alias resolution
+    let has_dev_name = dev_defs.iter().any(|d| d.path.fields == vec!["name"]);
+    assert!(
+        has_dev_name,
+        "Phase 3: ptr = dev alias should resolve ptr->name to dev.name. Got defs: {:?}",
+        dev_defs.iter().map(|d| &d.path).collect::<Vec<_>>()
+    );
+}
+
+#[test]
+fn test_must_alias_python() {
+    // ref = self; ref.secret = x → should create def for self.secret too
+    let source = r#"
+class Handler:
+    def process(self):
+        ref = self
+        ref.secret = get_password()
+        send(self.secret)
+"#;
+    let path = "src/alias.py";
+    let parsed = ParsedFile::parse(path, source, Language::Python).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let dfg = DataFlowGraph::build(&files);
+    let self_defs = dfg.all_defs_of(path, "self");
+
+    let has_self_secret = self_defs.iter().any(|d| d.path.fields == vec!["secret"]);
+    assert!(
+        has_self_secret,
+        "Phase 3 Python: ref = self alias should resolve ref.secret to self.secret"
+    );
+}
+
+#[test]
+fn test_must_alias_javascript() {
+    let source = r#"
+function process(config) {
+    const ref = config;
+    ref.timeout = getUserInput();
+    use(config.timeout);
+}
+"#;
+    let path = "src/alias.js";
+    let parsed = ParsedFile::parse(path, source, Language::JavaScript).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let dfg = DataFlowGraph::build(&files);
+    let config_defs = dfg.all_defs_of(path, "config");
+
+    let has_config_timeout = config_defs.iter().any(|d| d.path.fields == vec!["timeout"]);
+    assert!(
+        has_config_timeout,
+        "Phase 3 JS: ref = config alias should resolve ref.timeout to config.timeout"
+    );
+}
+
+#[test]
+fn test_must_alias_go() {
+    let source = r#"
+package main
+
+func process(dev Device) {
+    ref := dev
+    ref.Name = getInput()
+    useName(dev.Name)
+}
+"#;
+    let path = "src/alias.go";
+    let parsed = ParsedFile::parse(path, source, Language::Go).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let dfg = DataFlowGraph::build(&files);
+    let dev_defs = dfg.all_defs_of(path, "dev");
+
+    let has_dev_name = dev_defs.iter().any(|d| d.path.fields == vec!["Name"]);
+    assert!(
+        has_dev_name,
+        "Phase 3 Go: ref := dev alias should resolve ref.Name to dev.Name"
+    );
+}
+
+#[test]
+fn test_must_alias_rust() {
+    let source = r#"
+fn process(dev: &mut Device) {
+    let ptr = dev;
+    ptr.name = get_input();
+    use_name(dev.name);
+}
+"#;
+    let path = "src/alias.rs";
+    let parsed = ParsedFile::parse(path, source, Language::Rust).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let dfg = DataFlowGraph::build(&files);
+    let dev_defs = dfg.all_defs_of(path, "dev");
+
+    let has_dev_name = dev_defs.iter().any(|d| d.path.fields == vec!["name"]);
+    assert!(
+        has_dev_name,
+        "Phase 3 Rust: ptr = dev alias should resolve ptr.name to dev.name"
+    );
+}
+
+#[test]
+fn test_must_alias_chain() {
+    // Chain: a = dev; b = a; b->field → should resolve to dev.field
+    let source = r#"
+void chain(struct device *dev) {
+    struct device *a = dev;
+    struct device *b = a;
+    b->name = "test";
+    use_name(dev->name);
+}
+"#;
+    let path = "src/chain.c";
+    let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let dfg = DataFlowGraph::build(&files);
+    let dev_defs = dfg.all_defs_of(path, "dev");
+
+    let has_dev_name = dev_defs.iter().any(|d| d.path.fields == vec!["name"]);
+    assert!(
+        has_dev_name,
+        "Phase 3: chained aliases (b = a = dev) should resolve b->name to dev.name"
+    );
+}
+
+#[test]
+fn test_must_alias_no_false_positive() {
+    // x = unrelated_var should NOT alias to dev
+    let source = r#"
+void no_alias(struct device *dev, struct device *other) {
+    struct device *ptr = other;
+    ptr->name = "test";
+    use_name(dev->name);
+}
+"#;
+    let path = "src/no_alias.c";
+    let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let dfg = DataFlowGraph::build(&files);
+    let dev_defs = dfg.all_defs_of(path, "dev");
+
+    // dev should NOT have a name def from ptr->name (ptr aliases other, not dev)
+    let has_dev_name = dev_defs.iter().any(|d| d.path.fields == vec!["name"]);
+    assert!(
+        !has_dev_name,
+        "Phase 3: ptr = other should NOT create alias to dev. Got defs: {:?}",
+        dev_defs.iter().map(|d| &d.path).collect::<Vec<_>>()
+    );
+}
+
+#[test]
+fn test_field_isolation_taint_does_not_cross_fields() {
+    // End-to-end taint test: tainted field should not reach different field's sink
+    let source = r#"
+void handler(struct request *req) {
+    req->user_input = read_stdin();
+    req->safe_data = "constant";
+    exec(req->user_input);
+    log_msg(req->safe_data);
+}
+"#;
+    let path = "src/handler.c";
+    let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let dfg = DataFlowGraph::build(&files);
+
+    // Get the user_input def
+    let req_defs = dfg.all_defs_of(path, "req");
+    let user_input_def = req_defs
+        .iter()
+        .find(|d| d.path.fields == vec!["user_input"]);
+
+    if let Some(uid) = user_input_def {
+        let reachable = dfg.forward_reachable(uid);
+        // Should reach exec(req->user_input) line but NOT log_msg(req->safe_data) line
+        let reaches_safe = reachable.iter().any(|r| r.path.fields == vec!["safe_data"]);
+        assert!(
+            !reaches_safe,
+            "Taint on req->user_input must NOT propagate to req->safe_data"
+        );
+    }
 }

@@ -235,6 +235,63 @@ impl ParsedFile {
         }
     }
 
+    /// Collect simple alias assignments within a function: `ptr = dev` where both
+    /// sides are plain identifiers. Returns (alias, target, line) triples sorted by line.
+    ///
+    /// Used by Phase 3 must-alias tracking to resolve `ptr->field` to `dev->field`.
+    pub fn collect_alias_assignments(
+        &self,
+        func_node: &Node<'_>,
+        lines: &BTreeSet<usize>,
+    ) -> Vec<(String, String, usize)> {
+        let mut aliases = Vec::new();
+        self.collect_aliases_inner(*func_node, lines, &mut aliases);
+        aliases.sort_by_key(|(_a, _t, line)| *line);
+        aliases
+    }
+
+    fn collect_aliases_inner(
+        &self,
+        node: Node<'_>,
+        lines: &BTreeSet<usize>,
+        out: &mut Vec<(String, String, usize)>,
+    ) {
+        let line = node.start_position().row + 1;
+
+        if lines.contains(&line) {
+            // Check assignments: ptr = dev
+            if self.language.is_assignment_node(node.kind()) {
+                if let Some(lhs) = self.language.assignment_target(&node) {
+                    if let Some(rhs) = self.language.assignment_value(&node) {
+                        let lhs_text = self.node_text(&lhs).to_string();
+                        let rhs_text = self.node_text(&rhs).to_string().trim().to_string();
+                        if is_plain_ident(&lhs_text) && is_plain_ident(&rhs_text) {
+                            out.push((lhs_text, rhs_text, line));
+                        }
+                    }
+                }
+            }
+
+            // Check declarations with initializers: type *ptr = dev, let ptr = dev
+            if self.language.is_declaration_node(node.kind()) {
+                if let Some(name_node) = self.language.declaration_name(&node) {
+                    if let Some(val_node) = self.language.declaration_value(&node) {
+                        let name = self.node_text(&name_node).to_string();
+                        let val = self.node_text(&val_node).to_string().trim().to_string();
+                        if is_plain_ident(&name) && is_plain_ident(&val) {
+                            out.push((name, val, line));
+                        }
+                    }
+                }
+            }
+        }
+
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            self.collect_aliases_inner(child, lines, out);
+        }
+    }
+
     /// Like `rvalue_identifiers_on_lines`, but returns structured `AccessPath`s.
     /// Used by the DFG for field-sensitive tracking.
     pub fn rvalue_identifier_paths_on_lines(
@@ -1127,7 +1184,7 @@ fn extract_fn_names_from_init(text: &str, known_fns: &BTreeSet<String>, out: &mu
 /// Handles three C/C++ indirection patterns:
 ///
 /// - `*p`       → `["p"]`          pointer dereference — the pointer itself is mutated through
-/// - `dev->f`   → `["f", "dev"]`   field via arrow — track both the field and the base struct
+/// - `dev->f`   → `["f"]`          field via arrow — track only the qualified field path
 /// - `buf[i]`   → `["buf"]`        array subscript — track the base array
 /// - `x`        → `["x"]`          simple identifier — unchanged behaviour
 ///
@@ -1136,11 +1193,12 @@ fn extract_fn_names_from_init(text: &str, known_fns: &BTreeSet<String>, out: &mu
 /// storing an unusable composite name like `"*p"` or `"buf[0]"`.
 /// Extract structured AccessPaths from an L-value expression.
 ///
-/// For field access expressions (dev->field, obj.field), returns both:
-/// - The full qualified path: AccessPath { base: "dev", fields: ["field"] }
-/// - The base-only path: AccessPath { base: "dev", fields: [] }
+/// For field access expressions (dev->field, obj.field), returns only the
+/// fully qualified path: AccessPath { base: "dev", fields: ["field"] }.
 ///
-/// The base-only path ensures backward compatibility and handles whole-struct operations.
+/// Phase 2 field-sensitive matching: field assignments no longer emit a
+/// base-only def, so `dev->name = x` creates a def for `dev.name` only —
+/// taint on `dev.name` does NOT leak to `dev.id` through the base.
 fn extract_lvalue_paths(lhs_text: &str) -> Vec<AccessPath> {
     let lhs = lhs_text.trim();
 
@@ -1157,20 +1215,20 @@ fn extract_lvalue_paths(lhs_text: &str) -> Vec<AccessPath> {
     // Field via arrow: dev->field or dev->config->timeout
     if lhs.contains("->") {
         let full = AccessPath::from_expr(lhs);
-        let base = AccessPath::simple(full.base.clone());
         if full.has_fields() {
-            return vec![full, base];
+            return vec![full];
         }
+        let base = AccessPath::simple(full.base.clone());
         return vec![base];
     }
 
     // Dot access: obj.field
     if lhs.contains('.') {
         let full = AccessPath::from_expr(lhs);
-        let base = AccessPath::simple(full.base.clone());
         if full.has_fields() {
-            return vec![full, base];
+            return vec![full];
         }
+        let base = AccessPath::simple(full.base.clone());
         return vec![base];
     }
 
