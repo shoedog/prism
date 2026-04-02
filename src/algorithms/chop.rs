@@ -10,6 +10,7 @@ use crate::ast::ParsedFile;
 use crate::cpg::CodePropertyGraph;
 use crate::diff::{DiffBlock, ModifyType};
 use crate::slice::{SliceResult, SlicingAlgorithm};
+use crate::type_db::TypeDatabase;
 use anyhow::Result;
 use std::collections::BTreeMap;
 
@@ -25,9 +26,10 @@ pub struct ChopConfig {
 pub fn slice(
     files: &BTreeMap<String, ParsedFile>,
     chop_config: &ChopConfig,
+    type_db: Option<&TypeDatabase>,
 ) -> Result<SliceResult> {
     let mut result = SliceResult::new(SlicingAlgorithm::Chop);
-    let cpg = CodePropertyGraph::build(files);
+    let cpg = CodePropertyGraph::build_enriched(files, type_db);
 
     let on_path = cpg.dfg_chop(
         &chop_config.source_file,

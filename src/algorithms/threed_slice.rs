@@ -13,6 +13,7 @@ use crate::ast::ParsedFile;
 use crate::cpg::CodePropertyGraph;
 use crate::diff::{DiffBlock, DiffInput, ModifyType};
 use crate::slice::{SliceResult, SlicingAlgorithm};
+use crate::type_db::TypeDatabase;
 use anyhow::{anyhow, Result};
 use std::collections::{BTreeMap, BTreeSet};
 use std::process::Command;
@@ -56,9 +57,10 @@ pub fn slice(
     files: &BTreeMap<String, ParsedFile>,
     diff: &DiffInput,
     config: &ThreeDConfig,
+    type_db: Option<&TypeDatabase>,
 ) -> Result<SliceResult> {
     let mut result = SliceResult::new(SlicingAlgorithm::ThreeDSlice);
-    let cpg = CodePropertyGraph::build(files);
+    let cpg = CodePropertyGraph::build_enriched(files, type_db);
 
     // Get temporal data from git
     let git_churn = get_git_churn(&config.git_dir, config.temporal_days)?;

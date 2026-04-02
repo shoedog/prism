@@ -1,6 +1,6 @@
 # Prism Implementation Plan & Status Tracker
 
-Last updated: 2026-04-02 (Phase 4 CPG migration complete — all 11 algorithms migrated to CPG)
+Last updated: 2026-04-02 (Phase 5 type enrichment — TypeDatabase, clang integration, virtual dispatch)
 
 ---
 
@@ -124,7 +124,7 @@ These formats need a different analysis model: parse → find touched units → 
 
 | Item | Effort | Priority | Notes |
 |------|--------|----------|-------|
-| **Type enrichment via `compile_commands.json` + clang** | 1-2 weeks | High | Optional C/C++ struct defs, typedefs, field enumeration. Enables precise whole-struct detection. Phase 5 of CPG architecture. See `docs/cpg-architecture.md` |
+| ~~Type enrichment via `compile_commands.json` + clang~~ | — | **Done** | Phase 5 complete. `TypeDatabase` parses `compile_commands.json`, shells out to `clang -Xclang -ast-dump=json`, extracts struct/class/union definitions, field types, typedefs, and class hierarchy. `CodePropertyGraph::build_with_types()` adds virtual dispatch Call edges via CHA. CLI: `--compile-commands <path>`. 15 tests (10 unit + 5 integration). |
 | **Control flow graph edges in CPG** | 2-3 weeks | Medium | Path-sensitive analysis: "taint reaches sink only if branch taken." Phase 6 of CPG architecture. |
 | ~~Local must-alias tracking~~ | — | **Done** | Phase 3: `ptr = dev` → `ptr->field` resolves to `dev->field`. Supports assignments and declarations with initializers. Chain resolution (a=b, b=c → a resolves to c). Tested across C, Python, JS, Go, Rust with chain and negative tests. 7 must-alias tests. |
 | `oxc_parser` + `oxc_semantic` for JS/TS | 1-2 weeks | Medium | Scope-aware analysis eliminates false taint matches from same-named imports. 3-5x faster than tree-sitter |

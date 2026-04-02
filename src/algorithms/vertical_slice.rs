@@ -8,6 +8,7 @@ use crate::ast::ParsedFile;
 use crate::cpg::CodePropertyGraph;
 use crate::diff::{DiffBlock, DiffInput, ModifyType};
 use crate::slice::{SliceResult, SlicingAlgorithm};
+use crate::type_db::TypeDatabase;
 use anyhow::Result;
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -62,9 +63,10 @@ pub fn slice(
     files: &BTreeMap<String, ParsedFile>,
     diff: &DiffInput,
     vertical_config: &VerticalConfig,
+    type_db: Option<&TypeDatabase>,
 ) -> Result<SliceResult> {
     let mut result = SliceResult::new(SlicingAlgorithm::VerticalSlice);
-    let cpg = CodePropertyGraph::build(files);
+    let cpg = CodePropertyGraph::build_enriched(files, type_db);
 
     // Detect layers for each file
     let file_layers: BTreeMap<String, String> = if vertical_config.layers.is_empty() {
