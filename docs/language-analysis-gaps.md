@@ -10,13 +10,13 @@
 
 | # | Gap | Languages | Severity | Root Cause | Fix Location |
 |---|-----|-----------|----------|------------|--------------|
-| 1 | Multi-target assignment | Go, Python | Critical | `extract_lvalue_paths` treats comma-separated identifiers as one string | `ast.rs`, `languages/mod.rs` |
-| 2 | Optional chaining | JS/TS | Critical | `AccessPath::from_expr` splits on `.` but `?.` contains a dot | `access_path.rs` |
-| 3 | For-of destructuring | JS/TS | High | Loop variable bindings not handled by destructuring alias extraction | `ast.rs` |
-| 4 | `with...as` binding | Python | High | Context manager target not recognized as a declaration | `languages/mod.rs`, `ast.rs` |
-| 5 | Walrus operator | Python | Medium | `named_expression` not in `is_assignment_node` | `languages/mod.rs` |
-| 6 | Spread field provenance | JS/TS | Low | `{ ...a, ...b }` loses per-field origin tracking | Architectural |
-| 7 | Comprehension taint | Python | Low | Iteration variable binding not modeled in DFG | Architectural |
+| 1 | Multi-target assignment | Go, Python | Critical | `extract_lvalue_paths` treats comma-separated identifiers as one string | `ast.rs`, `languages/mod.rs` | **Fixed** (PR D) |
+| 2 | Optional chaining | JS/TS | Critical | `AccessPath::from_expr` splits on `.` but `?.` contains a dot | `access_path.rs` | **Fixed** (PR D) |
+| 3 | For-of destructuring | JS/TS | High | Loop variable bindings not handled by destructuring alias extraction | `ast.rs` | **Fixed** (PR E) |
+| 4 | `with...as` binding | Python | High | Context manager target not recognized as a declaration | `languages/mod.rs`, `ast.rs` | **Fixed** (PR E) |
+| 5 | Walrus operator | Python | Medium | `named_expression` not in `is_assignment_node` | `languages/mod.rs` | **Fixed** (PR D+E) |
+| 6 | Spread field provenance | JS/TS | Low | `{ ...a, ...b }` loses per-field origin tracking | Architectural | Deferred |
+| 7 | Comprehension taint | Python | Low | Iteration variable binding not modeled in DFG | Architectural | Deferred |
 
 ---
 
@@ -329,8 +329,12 @@ Defer. If backtesting shows comprehension-related false negatives as a significa
 
 ## Implementation Priority
 
-**PR D (this work):** Gaps 1, 2, 5 — multi-target assignment, optional chaining, walrus operator. Fixes in `ast.rs`, `access_path.rs`, `languages/mod.rs`. No overlap with Part C.
+**PR D (done):** Gaps 1, 2, 5 — multi-target assignment, optional chaining, walrus operator. Fixes in `ast.rs`, `access_path.rs`, `languages/mod.rs`.
 
-**PR E (follow-up):** Gaps 3, 4 — for-of destructuring, with-as binding. Both require extending `collect_aliases_inner` / `collect_assignment_paths` with new node type handling.
+**PR E (done):** Gaps 3, 4, plus PR D review fixes — for-of destructuring, with-as binding, walrus `assignment_value` bug. Extends `collect_aliases_inner` / `collect_assignment_paths` with new node type handling.
+
+- Gap 3: Added `extract_for_in_lvalues` and `extract_for_in_aliases` for JS/TS `for_in_statement` with destructuring patterns (object_pattern, array_pattern) and simple identifier bindings.
+- Gap 4: Added `as_pattern` / `as_pattern_target` detection in `collect_assignment_paths` for Python `with...as` and `except...as` bindings.
+- Gap 5 fix: `assignment_value` now handles `named_expression` "value" field (was only checking "right", causing walrus RHS to be silently dropped).
 
 **Deferred:** Gaps 6, 7 — spread provenance, comprehension taint. Architectural changes, low practical impact.
