@@ -6,6 +6,7 @@ use prism::diff::DiffInput;
 use prism::languages::Language;
 use prism::output;
 use prism::slice::{AlgorithmError, MultiSliceResult, SliceConfig, SlicingAlgorithm};
+use prism::type_db::TypeDatabase;
 use std::collections::{BTreeMap, HashSet};
 use std::fs;
 use std::path::PathBuf;
@@ -105,6 +106,12 @@ struct Cli {
     /// If omitted, process all files in the diff.
     #[arg(long)]
     files: Option<String>,
+
+    /// Path to compile_commands.json for C/C++ type enrichment.
+    /// Enables precise whole-struct detection, typedef resolution,
+    /// and virtual dispatch via class hierarchy analysis.
+    #[arg(long)]
+    compile_commands: Option<PathBuf>,
 }
 
 fn main() -> Result<()> {
@@ -230,6 +237,34 @@ fn main() -> Result<()> {
         sources.insert(diff_info.file_path.clone(), source);
         files.insert(diff_info.file_path.clone(), parsed);
     }
+
+    // Load type database if compile_commands.json is provided
+    let type_db: Option<TypeDatabase> = if let Some(cc_path) = &cli.compile_commands {
+        let diff_files: Vec<&str> = diff_input
+            .files
+            .iter()
+            .map(|f| f.file_path.as_str())
+            .collect();
+        match TypeDatabase::from_compile_commands(cc_path, Some(&diff_files)) {
+            Ok(db) => {
+                eprintln!(
+                    "Type enrichment: {} records, {} typedefs from {}",
+                    db.records.len(),
+                    db.typedefs.len(),
+                    cc_path.display()
+                );
+                Some(db)
+            }
+            Err(e) => {
+                eprintln!("Warning: failed to load type database: {}", e);
+                None
+            }
+        }
+    } else {
+        None
+    };
+    // type_db is available for future per-algorithm integration
+    let _ = &type_db;
 
     // Check parse quality for all files and collect warnings once.
     let parse_warnings = algorithms::check_parse_warnings(&files);

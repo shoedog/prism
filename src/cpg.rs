@@ -15,6 +15,7 @@ use crate::access_path::AccessPath;
 use crate::ast::ParsedFile;
 use crate::call_graph::{CallGraph, FunctionId};
 use crate::data_flow::{DataFlowGraph, VarAccessKind, VarLocation};
+use crate::type_db::TypeDatabase;
 
 use petgraph::graph::{DiGraph, NodeIndex};
 use petgraph::visit::EdgeRef;
@@ -217,6 +218,11 @@ pub struct CodePropertyGraph {
     /// Retained data flow graph for direct edge access.
     /// Used by delta_slice for edge diffing.
     pub dfg: DataFlowGraph,
+
+    /// Optional type database for C/C++ type enrichment.
+    /// When present, enables precise whole-struct detection, typedef resolution,
+    /// field enumeration, and virtual dispatch via class hierarchy analysis.
+    pub type_db: Option<TypeDatabase>,
 }
 
 impl CodePropertyGraph {
@@ -384,7 +390,78 @@ impl CodePropertyGraph {
             location_index,
             call_graph: cg,
             dfg,
+            type_db: None,
         }
+    }
+
+    /// Build a CPG with optional type enrichment from a TypeDatabase.
+    ///
+    /// When a TypeDatabase is provided, the CPG gains:
+    /// - **Virtual dispatch edges:** For C++ virtual method calls, Call edges are
+    ///   added to all possible dispatch targets based on class hierarchy analysis.
+    /// - **Type-aware queries:** `resolve_type()`, `all_fields_of()`, etc.
+    ///
+    /// The TypeDatabase is retained on the CPG for runtime queries by algorithms.
+    pub fn build_with_types(files: &BTreeMap<String, ParsedFile>, type_db: TypeDatabase) -> Self {
+        let mut cpg = Self::build(files);
+
+        // --- Virtual dispatch enrichment ---
+        // For each Call edge, check if the callee could be a virtual method.
+        // If so, add Call edges to all override targets in the class hierarchy.
+        let mut virtual_edges: Vec<(NodeIndex, NodeIndex)> = Vec::new();
+
+        for caller_idx in cpg.function_nodes() {
+            let edges: Vec<_> = cpg
+                .graph
+                .edges(caller_idx)
+                .filter(|e| matches!(e.weight(), CpgEdge::Call))
+                .map(|e| e.target())
+                .collect();
+
+            for callee_idx in edges {
+                if let CpgNode::Function { name, .. } = &cpg.graph[callee_idx] {
+                    // Check all records for this method as a virtual method
+                    for record in type_db.records.values() {
+                        if record.virtual_methods.contains_key(name) {
+                            // Get all dispatch targets
+                            let targets = type_db.virtual_dispatch_targets(&record.name, name);
+                            for target_class in &targets {
+                                // Find function nodes that could be the override
+                                // Convention: method name stays the same across overrides
+                                for (&(ref f, ref n), &idx) in &cpg.func_index {
+                                    if n == name && idx != callee_idx {
+                                        // Check if this function is in a file that defines
+                                        // the target class (heuristic: file name contains class name)
+                                        let f_lower = f.to_lowercase();
+                                        let class_lower = target_class.to_lowercase();
+                                        if f_lower.contains(&class_lower) || class_lower.is_empty()
+                                        {
+                                            virtual_edges.push((caller_idx, idx));
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Add the virtual dispatch edges
+        for (from, to) in &virtual_edges {
+            // Avoid duplicate edges
+            let already_exists = cpg
+                .graph
+                .edges(*from)
+                .any(|e| e.target() == *to && matches!(e.weight(), CpgEdge::Call));
+            if !already_exists {
+                cpg.graph.add_edge(*from, *to, CpgEdge::Call);
+                cpg.graph.add_edge(*to, *from, CpgEdge::Return);
+            }
+        }
+
+        cpg.type_db = Some(type_db);
+        cpg
     }
 
     // -----------------------------------------------------------------------
@@ -1037,6 +1114,51 @@ impl CodePropertyGraph {
         result.insert((source_file.to_string(), source_line));
         result.insert((sink_file.to_string(), sink_line));
         result
+    }
+
+    // -----------------------------------------------------------------------
+    // Type-enriched queries (require TypeDatabase)
+    // -----------------------------------------------------------------------
+
+    /// Get all known fields of a record type, including inherited fields.
+    ///
+    /// Returns None if no TypeDatabase is present or the type is unknown.
+    pub fn all_fields_of(&self, type_name: &str) -> Option<Vec<String>> {
+        let db = self.type_db.as_ref()?;
+        let record = db.resolve_record(type_name)?;
+        Some(
+            db.all_fields(&record.name)
+                .iter()
+                .map(|f| f.name.clone())
+                .collect(),
+        )
+    }
+
+    /// Resolve a typedef to its canonical underlying type.
+    ///
+    /// Returns the input unchanged if no TypeDatabase is present.
+    pub fn resolve_type(&self, type_name: &str) -> String {
+        match &self.type_db {
+            Some(db) => db.resolve_typedef(type_name),
+            None => type_name.to_string(),
+        }
+    }
+
+    /// Check if a type is a union (fields alias each other).
+    pub fn is_union_type(&self, type_name: &str) -> bool {
+        self.type_db
+            .as_ref()
+            .is_some_and(|db| db.is_union(type_name))
+    }
+
+    /// Get the type of a specific field in a record.
+    pub fn field_type(&self, record_name: &str, field_name: &str) -> Option<String> {
+        self.type_db.as_ref()?.field_type(record_name, field_name)
+    }
+
+    /// Check if type enrichment is available.
+    pub fn has_type_info(&self) -> bool {
+        self.type_db.is_some()
     }
 }
 
