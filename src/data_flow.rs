@@ -112,13 +112,9 @@ impl DataFlowGraph {
                                 path: resolved.clone(),
                                 kind: VarAccessKind::Def,
                             };
-                            defs.entry((
-                                file_path.clone(),
-                                func_name.clone(),
-                                resolved.clone(),
-                            ))
-                            .or_default()
-                            .push(resolved_loc);
+                            defs.entry((file_path.clone(), func_name.clone(), resolved.clone()))
+                                .or_default()
+                                .push(resolved_loc);
                         }
                     }
                 }
@@ -157,11 +153,8 @@ impl DataFlowGraph {
                     // Phase 3: Also create edges for the alias-resolved path (field paths only)
                     if path.has_fields() {
                         if let Some(resolved) = Self::resolve_path(&alias_map, path) {
-                            let resolved_refs = parsed.find_path_references_scoped(
-                                &func_node,
-                                &resolved,
-                                *def_line,
-                            );
+                            let resolved_refs = parsed
+                                .find_path_references_scoped(&func_node, &resolved, *def_line);
                             for ref_line in &resolved_refs {
                                 if *ref_line == *def_line {
                                     continue;
