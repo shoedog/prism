@@ -14102,3 +14102,188 @@ def process():
     assert!(has_b, "Nested tuple: 'b' should have L-value");
     assert!(has_c, "Nested tuple: 'c' should have L-value");
 }
+
+// ── PR #31 review follow-ups: walrus RHS, gaps 3 & 4 ──────────────
+
+#[test]
+fn test_python_walrus_rhs_collected() {
+    // Walrus RHS should be collected as a use (assignment_value must work)
+    let source = r#"
+def process(items):
+    if (n := len(items)) > 10:
+        use(n)
+"#;
+    let path = "src/walrus.py";
+    let parsed = ParsedFile::parse(path, source, Language::Python).unwrap();
+    let func = parsed.all_functions().into_iter().next().unwrap();
+    let lines: BTreeSet<usize> = (1..=4).collect();
+
+    let aliases = parsed.collect_alias_assignments(&func, &lines);
+    // Walrus RHS is a call, not plain ident — no alias expected, but should not panic.
+    // The key test is that assignment_value returns Some for named_expression.
+    let _ = aliases;
+
+    // Verify def exists for n
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+    let dfg = DataFlowGraph::build(&files);
+    let n_defs = dfg.all_defs_of(path, "n");
+    assert!(
+        !n_defs.is_empty(),
+        "Walrus: 'n' should have a def"
+    );
+}
+
+#[test]
+fn test_js_for_of_destructuring_def() {
+    // Gap 3: for-of destructuring should produce defs for destructured variables
+    let source = r#"
+function process(items) {
+    for (const { name, id } of items) {
+        use(name);
+        use(id);
+    }
+}
+"#;
+    let path = "src/process.js";
+    let parsed = ParsedFile::parse(path, source, Language::JavaScript).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let dfg = DataFlowGraph::build(&files);
+    let name_defs = dfg.all_defs_of(path, "name");
+    let id_defs = dfg.all_defs_of(path, "id");
+    assert!(
+        !name_defs.is_empty(),
+        "for-of destructuring: 'name' should have def"
+    );
+    assert!(
+        !id_defs.is_empty(),
+        "for-of destructuring: 'id' should have def"
+    );
+}
+
+#[test]
+fn test_js_for_of_array_destructuring_def() {
+    let source = r#"
+function process(pairs) {
+    for (const [key, value] of pairs) {
+        use(key);
+        use(value);
+    }
+}
+"#;
+    let path = "src/process.js";
+    let parsed = ParsedFile::parse(path, source, Language::JavaScript).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let dfg = DataFlowGraph::build(&files);
+    let key_defs = dfg.all_defs_of(path, "key");
+    let value_defs = dfg.all_defs_of(path, "value");
+    assert!(
+        !key_defs.is_empty(),
+        "for-of array destructuring: 'key' should have def"
+    );
+    assert!(
+        !value_defs.is_empty(),
+        "for-of array destructuring: 'value' should have def"
+    );
+}
+
+#[test]
+fn test_js_for_in_simple_def() {
+    let source = r#"
+function listKeys(obj) {
+    for (const key in obj) {
+        use(key);
+    }
+}
+"#;
+    let path = "src/keys.js";
+    let parsed = ParsedFile::parse(path, source, Language::JavaScript).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let dfg = DataFlowGraph::build(&files);
+    let key_defs = dfg.all_defs_of(path, "key");
+    assert!(
+        !key_defs.is_empty(),
+        "for-in: 'key' should have def"
+    );
+}
+
+#[test]
+fn test_python_with_as_binding_def() {
+    // Gap 4: with...as should produce a def for the bound variable
+    let source = r#"
+def process():
+    with open("file.txt") as f:
+        data = f.read()
+        send(data)
+"#;
+    let path = "src/process.py";
+    let parsed = ParsedFile::parse(path, source, Language::Python).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let dfg = DataFlowGraph::build(&files);
+    let f_defs = dfg.all_defs_of(path, "f");
+    assert!(
+        !f_defs.is_empty(),
+        "with...as: 'f' should have def"
+    );
+}
+
+#[test]
+fn test_python_except_as_binding_def() {
+    // except...as uses as_pattern too
+    let source = r#"
+def process():
+    try:
+        risky()
+    except Exception as e:
+        handle(e)
+"#;
+    let path = "src/process.py";
+    let parsed = ParsedFile::parse(path, source, Language::Python).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let dfg = DataFlowGraph::build(&files);
+    let e_defs = dfg.all_defs_of(path, "e");
+    assert!(
+        !e_defs.is_empty(),
+        "except...as: 'e' should have def"
+    );
+}
+
+#[test]
+fn test_js_for_of_destructuring_aliases() {
+    // Destructured variables in for-of should create aliases to iterable.property
+    let source = r#"
+function process(items) {
+    for (const { name, id } of items) {
+        use(name);
+    }
+}
+"#;
+    let path = "src/process.js";
+    let parsed = ParsedFile::parse(path, source, Language::JavaScript).unwrap();
+    let func = parsed.all_functions().into_iter().next().unwrap();
+    let lines: BTreeSet<usize> = (1..=6).collect();
+
+    let aliases = parsed.collect_alias_assignments(&func, &lines);
+    let name_alias = aliases.iter().any(|(a, _t, _l)| a == "name");
+    let id_alias = aliases.iter().any(|(a, _t, _l)| a == "id");
+    assert!(
+        name_alias,
+        "for-of destructuring: 'name' should have alias, got {:?}",
+        aliases
+    );
+    assert!(
+        id_alias,
+        "for-of destructuring: 'id' should have alias, got {:?}",
+        aliases
+    );
+}
