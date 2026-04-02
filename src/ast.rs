@@ -241,6 +241,34 @@ impl ParsedFile {
             }
         }
 
+        // Gap 3: JS/TS for-of/for-in loop variable bindings
+        // `for (const { name, id } of items)` or `for (const key in obj)`
+        // The loop variable isn't inside a standard declaration node.
+        if lines.contains(&line)
+            && node.kind() == "for_in_statement"
+            && matches!(self.language, Language::JavaScript | Language::TypeScript)
+        {
+            self.extract_for_in_lvalues(&node, line, out);
+        }
+
+        // Gap 4: Python with...as and except...as bindings
+        // `with open("f") as f:` or `except Exception as e:`
+        // The as_pattern_target is the bound variable.
+        if lines.contains(&line)
+            && node.kind() == "as_pattern"
+            && matches!(self.language, Language::Python)
+        {
+            let mut c = node.walk();
+            for child in node.children(&mut c) {
+                if child.kind() == "as_pattern_target" {
+                    let name = self.node_text(&child).to_string();
+                    if is_plain_ident(&name) {
+                        out.push((AccessPath::simple(name), line));
+                    }
+                }
+            }
+        }
+
         let mut cursor = node.walk();
         for child in node.children(&mut cursor) {
             self.collect_assignment_paths(child, lines, out);
@@ -300,6 +328,84 @@ impl ParsedFile {
         }
     }
 
+    /// Extract L-value defs from a JS/TS `for_in_statement` loop header.
+    ///
+    /// Handles:
+    /// - `for (const key in obj)` → def for "key"
+    /// - `for (const { name, id } of items)` → defs for "name", "id"
+    /// - `for (const [a, b] of pairs)` → defs for "a", "b"
+    fn extract_for_in_lvalues(
+        &self,
+        node: &Node<'_>,
+        line: usize,
+        out: &mut Vec<(AccessPath, usize)>,
+    ) {
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            match child.kind() {
+                "identifier" => {
+                    let name = self.node_text(&child).to_string();
+                    if is_plain_ident(&name) && name != "const" && name != "let" && name != "var" {
+                        out.push((AccessPath::simple(name), line));
+                    }
+                }
+                // Destructuring: { name, id } or [a, b]
+                "object_pattern" | "array_pattern" => {
+                    self.extract_destructuring_defs(&child, line, out);
+                }
+                _ => {}
+            }
+        }
+    }
+
+    /// Extract defs from a destructuring pattern (object_pattern or array_pattern).
+    fn extract_destructuring_defs(
+        &self,
+        pattern: &Node<'_>,
+        line: usize,
+        out: &mut Vec<(AccessPath, usize)>,
+    ) {
+        let mut cursor = pattern.walk();
+        for child in pattern.children(&mut cursor) {
+            match child.kind() {
+                "shorthand_property_identifier_pattern" | "identifier" => {
+                    let name = self.node_text(&child).to_string();
+                    if is_plain_ident(&name) {
+                        out.push((AccessPath::simple(name), line));
+                    }
+                }
+                "pair_pattern" => {
+                    // { name: alias } — the value side is the bound variable
+                    if let Some(val) = child.child_by_field_name("value") {
+                        if val.kind() == "identifier" {
+                            let name = self.node_text(&val).to_string();
+                            if is_plain_ident(&name) {
+                                out.push((AccessPath::simple(name), line));
+                            }
+                        } else if val.kind() == "object_pattern" || val.kind() == "array_pattern" {
+                            self.extract_destructuring_defs(&val, line, out);
+                        }
+                    }
+                }
+                "rest_pattern" => {
+                    let mut inner_cursor = child.walk();
+                    for inner in child.children(&mut inner_cursor) {
+                        if inner.kind() == "identifier" {
+                            let name = self.node_text(&inner).to_string();
+                            if is_plain_ident(&name) {
+                                out.push((AccessPath::simple(name), line));
+                            }
+                        }
+                    }
+                }
+                "object_pattern" | "array_pattern" => {
+                    self.extract_destructuring_defs(&child, line, out);
+                }
+                _ => {}
+            }
+        }
+    }
+
     /// Collect simple alias assignments within a function: `ptr = dev` where both
     /// sides are plain identifiers. Returns (alias, target, line) triples sorted by line.
     ///
@@ -351,6 +457,14 @@ impl ParsedFile {
                         }
                     }
                 }
+            }
+
+            // Gap 3: JS/TS for-of/for-in with destructuring patterns
+            // `for (const { name, id } of items)` → name aliases items.name
+            if node.kind() == "for_in_statement"
+                && matches!(self.language, Language::JavaScript | Language::TypeScript)
+            {
+                self.extract_for_in_aliases(&node, line, out);
             }
         }
 
@@ -420,6 +534,41 @@ impl ParsedFile {
 
         self.extract_pattern_aliases(&name_node, &rhs, line, out);
         true
+    }
+
+    /// Extract aliases from a JS/TS for-in/for-of statement with destructuring.
+    ///
+    /// `for (const { name, id } of items)` → name aliases items.name, id aliases items.id
+    /// `for (const key in obj)` → key aliases obj (no destructuring, but simple binding)
+    fn extract_for_in_aliases(
+        &self,
+        node: &Node<'_>,
+        line: usize,
+        out: &mut Vec<(String, String, usize)>,
+    ) {
+        // Find the iterable (right side): the "right" field of for_in_statement
+        let rhs = match node.child_by_field_name("right") {
+            Some(r) => r,
+            None => return,
+        };
+        let rhs_text = self.node_text(&rhs).to_string().trim().to_string();
+        if !is_plain_ident(&rhs_text) {
+            return;
+        }
+
+        // Find the pattern or identifier (left side)
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            match child.kind() {
+                "object_pattern" => {
+                    self.extract_pattern_aliases(&child, &rhs_text, line, out);
+                }
+                "array_pattern" => {
+                    self.extract_pattern_aliases(&child, &rhs_text, line, out);
+                }
+                _ => {}
+            }
+        }
     }
 
     /// Recursively extract aliases from a destructuring pattern node.
@@ -497,6 +646,18 @@ impl ParsedFile {
                     "object_pattern" | "array_pattern" => {
                         // Nested pattern inside array — alias to base
                         self.extract_pattern_aliases(&child, rhs_base, line, out);
+                    }
+                    // Rest element: [...rest] = arr → rest aliases arr
+                    "rest_pattern" => {
+                        let mut inner_cursor = child.walk();
+                        for inner in child.children(&mut inner_cursor) {
+                            if inner.kind() == "identifier" {
+                                let name = self.node_text(&inner).to_string();
+                                if is_plain_ident(&name) {
+                                    out.push((name, rhs_base.to_string(), line));
+                                }
+                            }
+                        }
                     }
                     _ => {}
                 }
