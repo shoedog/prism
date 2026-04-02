@@ -1,0 +1,13 @@
+--- a/firmware_update.sh
++++ b/firmware_update.sh
+@@ -27,8 +27,8 @@ apply_config() {
+     local vlan_id=$1
+     local iface=$2
+     # BUG: unquoted variables — command injection
+-    vconfig add $iface $vlan_id
+-    ifconfig $iface.$vlan_id up
++    vconfig add "$iface" "$vlan_id"
++    ifconfig "$iface.$vlan_id" up
+ }
+
+ do_upgrade() {
