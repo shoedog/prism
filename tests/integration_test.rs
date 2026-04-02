@@ -13287,3 +13287,400 @@ def add(x, y):
         "AST-only algorithm should work with empty CPG context"
     );
 }
+
+// ── Tree-sitter struct extraction fallback (item #4) ────────────────
+
+#[test]
+fn test_ts_fallback_extracts_c_struct() {
+    use prism::type_db::TypeDatabase;
+
+    let source = r#"
+struct device {
+    char *name;
+    int id;
+    float weight;
+};
+"#;
+    let path = "src/device.c";
+    let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let db = TypeDatabase::from_parsed_files(&files);
+
+    let record = db
+        .records
+        .get("device")
+        .expect("should extract device struct");
+    assert_eq!(record.kind, prism::type_db::RecordKind::Struct);
+    let field_names: Vec<&str> = record.fields.iter().map(|f| f.name.as_str()).collect();
+    assert_eq!(field_names, vec!["name", "id", "weight"]);
+}
+
+#[test]
+fn test_ts_fallback_extracts_cpp_class() {
+    use prism::type_db::TypeDatabase;
+
+    let source = r#"
+class Shape {
+public:
+    virtual void draw() = 0;
+    int x;
+    int y;
+};
+"#;
+    let path = "src/shape.cpp";
+    let parsed = ParsedFile::parse(path, source, Language::Cpp).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let db = TypeDatabase::from_parsed_files(&files);
+
+    let record = db.records.get("Shape").expect("should extract Shape class");
+    assert_eq!(record.kind, prism::type_db::RecordKind::Class);
+    assert!(
+        record.virtual_methods.contains_key("draw"),
+        "should detect virtual draw method"
+    );
+    let field_names: Vec<&str> = record.fields.iter().map(|f| f.name.as_str()).collect();
+    assert!(field_names.contains(&"x"));
+    assert!(field_names.contains(&"y"));
+}
+
+#[test]
+fn test_ts_fallback_skips_forward_decl() {
+    use prism::type_db::TypeDatabase;
+
+    let source = r#"
+struct device;
+void use_device(struct device *d);
+"#;
+    let path = "src/forward.c";
+    let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let db = TypeDatabase::from_parsed_files(&files);
+
+    assert!(
+        db.records.is_empty(),
+        "Forward declaration should not be extracted as a record"
+    );
+}
+
+#[test]
+fn test_ts_fallback_union_detection() {
+    use prism::type_db::TypeDatabase;
+
+    let source = r#"
+union data {
+    int i;
+    float f;
+    char bytes[4];
+};
+"#;
+    let path = "src/data.c";
+    let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let db = TypeDatabase::from_parsed_files(&files);
+
+    let record = db.records.get("data").expect("should extract data union");
+    assert_eq!(record.kind, prism::type_db::RecordKind::Union);
+}
+
+#[test]
+fn test_ts_fallback_nested_struct() {
+    use prism::type_db::TypeDatabase;
+
+    let source = r#"
+struct config {
+    int timeout;
+    int retries;
+};
+
+struct device {
+    char *name;
+    struct config *cfg;
+};
+"#;
+    let path = "src/device.c";
+    let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let db = TypeDatabase::from_parsed_files(&files);
+
+    assert!(
+        db.records.contains_key("config"),
+        "should extract config struct"
+    );
+    assert!(
+        db.records.contains_key("device"),
+        "should extract device struct"
+    );
+    let device = db.records.get("device").unwrap();
+    let field_names: Vec<&str> = device.fields.iter().map(|f| f.name.as_str()).collect();
+    assert_eq!(field_names, vec!["name", "cfg"]);
+}
+
+#[test]
+fn test_ts_fallback_no_false_extraction() {
+    use prism::type_db::TypeDatabase;
+
+    // Python and JS files should produce no records
+    let py_source = r#"
+class Device:
+    def __init__(self, name):
+        self.name = name
+"#;
+    let js_source = r#"
+class Device {
+    constructor(name) {
+        this.name = name;
+    }
+}
+"#;
+    let mut files = BTreeMap::new();
+    let py_parsed = ParsedFile::parse("src/device.py", py_source, Language::Python).unwrap();
+    let js_parsed = ParsedFile::parse("src/device.js", js_source, Language::JavaScript).unwrap();
+    files.insert("src/device.py".to_string(), py_parsed);
+    files.insert("src/device.js".to_string(), js_parsed);
+
+    let db = TypeDatabase::from_parsed_files(&files);
+
+    assert!(
+        db.records.is_empty(),
+        "Non-C/C++ files should produce no records"
+    );
+}
+
+#[test]
+fn test_ts_fallback_cpp_inheritance() {
+    use prism::type_db::TypeDatabase;
+
+    let source = r#"
+class Shape {
+public:
+    virtual void draw() = 0;
+    int x;
+};
+
+class Circle : public Shape {
+    float radius;
+public:
+    virtual void draw();
+};
+"#;
+    let path = "src/shapes.cpp";
+    let parsed = ParsedFile::parse(path, source, Language::Cpp).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let db = TypeDatabase::from_parsed_files(&files);
+
+    let circle = db.records.get("Circle").expect("should extract Circle");
+    assert!(
+        circle.bases.contains(&"Shape".to_string()),
+        "Circle should have Shape as base class, got: {:?}",
+        circle.bases
+    );
+    assert!(
+        db.class_hierarchy.contains_key("Circle"),
+        "Class hierarchy should include Circle"
+    );
+    assert!(db.is_subclass_of("Circle", "Shape"));
+}
+
+#[test]
+fn test_ts_fallback_typedef() {
+    use prism::type_db::TypeDatabase;
+
+    let source = r#"
+struct device {
+    char *name;
+    int id;
+};
+
+typedef struct device dev_t;
+typedef int handle_t;
+"#;
+    let path = "src/types.c";
+    let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let db = TypeDatabase::from_parsed_files(&files);
+
+    assert!(db.records.contains_key("device"));
+    assert!(
+        db.typedefs.contains_key("dev_t"),
+        "should extract dev_t typedef"
+    );
+    assert!(
+        db.typedefs.contains_key("handle_t"),
+        "should extract handle_t typedef"
+    );
+}
+
+// ── RTA refinement tests (item #5) ─────────────────────────────────
+
+#[test]
+fn test_rta_filters_uninstantiated_class() {
+    use prism::type_db::TypeDatabase;
+
+    let source = r#"
+class Shape {
+public:
+    virtual void draw() = 0;
+};
+
+class Circle : public Shape {
+public:
+    float radius;
+    virtual void draw();
+};
+
+class Square : public Shape {
+public:
+    float side;
+    virtual void draw();
+};
+
+void render() {
+    Circle c;
+    c.draw();
+}
+"#;
+    let path = "src/shapes.cpp";
+    let parsed = ParsedFile::parse(path, source, Language::Cpp).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let db = TypeDatabase::from_parsed_files(&files);
+    let live = TypeDatabase::collect_live_classes(&files);
+
+    // Circle is instantiated (stack allocation), Square is not
+    assert!(
+        live.contains("Circle"),
+        "Circle should be live, got: {:?}",
+        live
+    );
+
+    // RTA should include Circle but not Square
+    let rta_targets = db.virtual_dispatch_targets_rta("Shape", "draw", &live);
+    assert!(
+        rta_targets.contains(&"Circle".to_string()),
+        "RTA should include Circle"
+    );
+    assert!(
+        !rta_targets.contains(&"Square".to_string()),
+        "RTA should exclude uninstantiated Square"
+    );
+
+    // CHA should include both
+    let cha_targets = db.virtual_dispatch_targets("Shape", "draw");
+    assert!(
+        cha_targets.contains(&"Circle".to_string()),
+        "CHA should include Circle"
+    );
+    assert!(
+        cha_targets.contains(&"Square".to_string()),
+        "CHA should include Square"
+    );
+}
+
+#[test]
+fn test_rta_preserves_instantiated_class() {
+    use prism::type_db::TypeDatabase;
+
+    let source = r#"
+class Base {
+public:
+    virtual void process();
+};
+
+class Derived : public Base {
+public:
+    virtual void process();
+};
+
+void run() {
+    Derived d;
+    d.process();
+}
+"#;
+    let path = "src/derived.cpp";
+    let parsed = ParsedFile::parse(path, source, Language::Cpp).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let db = TypeDatabase::from_parsed_files(&files);
+    let live = TypeDatabase::collect_live_classes(&files);
+
+    assert!(live.contains("Derived"));
+
+    let targets = db.virtual_dispatch_targets_rta("Base", "process", &live);
+    assert!(
+        targets.contains(&"Derived".to_string()),
+        "RTA should preserve instantiated Derived"
+    );
+}
+
+#[test]
+fn test_rta_fallback_no_type_db() {
+    use prism::type_db::TypeDatabase;
+
+    let source = r#"
+class Animal {
+public:
+    virtual void speak();
+};
+
+class Dog : public Animal {
+public:
+    virtual void speak();
+};
+"#;
+    let path = "src/animals.cpp";
+    let parsed = ParsedFile::parse(path, source, Language::Cpp).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let db = TypeDatabase::from_parsed_files(&files);
+
+    // Empty live set → falls back to CHA
+    let empty_live = std::collections::BTreeSet::new();
+    let targets = db.virtual_dispatch_targets_rta("Animal", "speak", &empty_live);
+    let cha = db.virtual_dispatch_targets("Animal", "speak");
+
+    assert_eq!(targets, cha, "Empty live set should fall back to CHA");
+}
+
+#[test]
+fn test_rta_stack_allocation() {
+    use prism::type_db::TypeDatabase;
+
+    let source = r#"
+class Processor {
+public:
+    virtual void run();
+};
+
+void main() {
+    Processor p;
+    p.run();
+}
+"#;
+    let path = "src/proc.cpp";
+    let parsed = ParsedFile::parse(path, source, Language::Cpp).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let live = TypeDatabase::collect_live_classes(&files);
+    assert!(
+        live.contains("Processor"),
+        "Stack allocation should count as instantiation"
+    );
+}
