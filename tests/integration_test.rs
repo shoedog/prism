@@ -12287,3 +12287,349 @@ void handler(struct request *req) {
         );
     }
 }
+
+// ---------------------------------------------------------------------------
+// Type Database tests
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_type_db_struct_fields_and_typedef() {
+    use prism::type_db::{FieldInfo, RecordInfo, RecordKind, TypeDatabase, TypedefInfo};
+
+    let mut db = TypeDatabase::default();
+    db.records.insert(
+        "device".to_string(),
+        RecordInfo {
+            name: "device".to_string(),
+            kind: RecordKind::Struct,
+            fields: vec![
+                FieldInfo {
+                    name: "name".to_string(),
+                    type_str: "char *".to_string(),
+                    offset: None,
+                },
+                FieldInfo {
+                    name: "id".to_string(),
+                    type_str: "int".to_string(),
+                    offset: None,
+                },
+                FieldInfo {
+                    name: "config".to_string(),
+                    type_str: "struct config *".to_string(),
+                    offset: None,
+                },
+            ],
+            bases: vec![],
+            virtual_methods: std::collections::BTreeMap::new(),
+            size: Some(24),
+            file: "device.h".to_string(),
+        },
+    );
+    db.typedefs.insert(
+        "dev_t".to_string(),
+        TypedefInfo {
+            name: "dev_t".to_string(),
+            underlying: "struct device *".to_string(),
+        },
+    );
+
+    // Typedef resolution
+    assert_eq!(db.resolve_typedef("dev_t"), "struct device *");
+
+    // Record lookup via typedef
+    let record = db.resolve_record("dev_t").unwrap();
+    assert_eq!(record.name, "device");
+    assert_eq!(record.fields.len(), 3);
+
+    // Field type query
+    assert_eq!(db.field_type("device", "name"), Some("char *".to_string()));
+    assert_eq!(
+        db.field_type("device", "config"),
+        Some("struct config *".to_string())
+    );
+    assert_eq!(db.field_type("device", "nonexistent"), None);
+
+    // All fields
+    let fields = db.all_fields("device");
+    assert_eq!(fields.len(), 3);
+}
+
+#[test]
+fn test_type_db_class_hierarchy_virtual_dispatch() {
+    use prism::type_db::{RecordInfo, RecordKind, TypeDatabase};
+
+    let mut db = TypeDatabase::default();
+
+    // Base class: Shape with virtual draw()
+    db.records.insert(
+        "Shape".to_string(),
+        RecordInfo {
+            name: "Shape".to_string(),
+            kind: RecordKind::Class,
+            fields: vec![],
+            bases: vec![],
+            virtual_methods: std::collections::BTreeMap::from([
+                ("draw".to_string(), "void ()".to_string()),
+                ("area".to_string(), "double ()".to_string()),
+            ]),
+            size: None,
+            file: "shape.h".to_string(),
+        },
+    );
+
+    // Circle overrides draw() and area()
+    db.records.insert(
+        "Circle".to_string(),
+        RecordInfo {
+            name: "Circle".to_string(),
+            kind: RecordKind::Class,
+            fields: vec![],
+            bases: vec!["Shape".to_string()],
+            virtual_methods: std::collections::BTreeMap::from([
+                ("draw".to_string(), "void ()".to_string()),
+                ("area".to_string(), "double ()".to_string()),
+            ]),
+            size: None,
+            file: "circle.h".to_string(),
+        },
+    );
+
+    // Rect overrides draw() only
+    db.records.insert(
+        "Rect".to_string(),
+        RecordInfo {
+            name: "Rect".to_string(),
+            kind: RecordKind::Class,
+            fields: vec![],
+            bases: vec!["Shape".to_string()],
+            virtual_methods: std::collections::BTreeMap::from([(
+                "draw".to_string(),
+                "void ()".to_string(),
+            )]),
+            size: None,
+            file: "rect.h".to_string(),
+        },
+    );
+
+    db.class_hierarchy
+        .insert("Circle".to_string(), vec!["Shape".to_string()]);
+    db.class_hierarchy
+        .insert("Rect".to_string(), vec!["Shape".to_string()]);
+
+    // Virtual dispatch: draw() on Shape → Shape, Circle, Rect
+    let mut draw_targets = db.virtual_dispatch_targets("Shape", "draw");
+    draw_targets.sort();
+    assert_eq!(draw_targets, vec!["Circle", "Rect", "Shape"]);
+
+    // Virtual dispatch: area() on Shape → Shape, Circle (Rect doesn't override)
+    let mut area_targets = db.virtual_dispatch_targets("Shape", "area");
+    area_targets.sort();
+    assert_eq!(area_targets, vec!["Circle", "Shape"]);
+
+    // Hierarchy queries
+    assert!(db.is_subclass_of("Circle", "Shape"));
+    assert!(!db.is_subclass_of("Shape", "Circle"));
+}
+
+#[test]
+fn test_type_db_union_field_aliasing() {
+    use prism::type_db::{FieldInfo, RecordInfo, RecordKind, TypeDatabase};
+
+    let mut db = TypeDatabase::default();
+    db.records.insert(
+        "value".to_string(),
+        RecordInfo {
+            name: "value".to_string(),
+            kind: RecordKind::Union,
+            fields: vec![
+                FieldInfo {
+                    name: "i".to_string(),
+                    type_str: "int".to_string(),
+                    offset: None,
+                },
+                FieldInfo {
+                    name: "f".to_string(),
+                    type_str: "float".to_string(),
+                    offset: None,
+                },
+                FieldInfo {
+                    name: "p".to_string(),
+                    type_str: "void *".to_string(),
+                    offset: None,
+                },
+            ],
+            bases: vec![],
+            virtual_methods: std::collections::BTreeMap::new(),
+            size: Some(8),
+            file: "value.h".to_string(),
+        },
+    );
+
+    assert!(db.is_union("value"));
+    assert!(!db.is_union("nonexistent"));
+    assert_eq!(db.all_fields("value").len(), 3);
+}
+
+#[test]
+fn test_type_db_clang_json_parsing() {
+    use prism::type_db::TypeDatabase;
+
+    // Simulate a clang JSON AST with struct, typedef, and class hierarchy
+    let json = r#"{
+        "kind": "TranslationUnitDecl",
+        "inner": [
+            {
+                "kind": "RecordDecl",
+                "name": "device",
+                "tagUsed": "struct",
+                "completeDefinition": true,
+                "inner": [
+                    {
+                        "kind": "FieldDecl",
+                        "name": "name",
+                        "type": { "qualType": "char *" }
+                    },
+                    {
+                        "kind": "FieldDecl",
+                        "name": "id",
+                        "type": { "qualType": "int" }
+                    }
+                ]
+            },
+            {
+                "kind": "TypedefDecl",
+                "name": "device_t",
+                "type": { "qualType": "struct device *", "desugaredQualType": "struct device *" }
+            },
+            {
+                "kind": "CXXRecordDecl",
+                "name": "Base",
+                "tagUsed": "class",
+                "completeDefinition": true,
+                "inner": [
+                    {
+                        "kind": "CXXMethodDecl",
+                        "name": "process",
+                        "virtual": true,
+                        "type": { "qualType": "void ()" }
+                    }
+                ]
+            },
+            {
+                "kind": "CXXRecordDecl",
+                "name": "Derived",
+                "tagUsed": "class",
+                "completeDefinition": true,
+                "bases": [
+                    { "type": { "qualType": "class Base" } }
+                ],
+                "inner": [
+                    {
+                        "kind": "FieldDecl",
+                        "name": "data",
+                        "type": { "qualType": "int" }
+                    },
+                    {
+                        "kind": "CXXMethodDecl",
+                        "name": "process",
+                        "virtual": true,
+                        "type": { "qualType": "void ()" }
+                    }
+                ]
+            }
+        ]
+    }"#;
+
+    let mut db = TypeDatabase::default();
+    db.extract_from_ast(json, "test.cpp").unwrap();
+
+    // Struct extraction
+    let device = db.records.get("device").unwrap();
+    assert_eq!(device.fields.len(), 2);
+    assert_eq!(device.fields[0].name, "name");
+
+    // Typedef extraction
+    let td = db.typedefs.get("device_t").unwrap();
+    assert_eq!(td.underlying, "struct device *");
+
+    // Record via typedef
+    assert!(db.resolve_record("device_t").is_some());
+
+    // C++ class with virtual method
+    let base = db.records.get("Base").unwrap();
+    assert!(base.virtual_methods.contains_key("process"));
+
+    // Derived class with base and override
+    let derived = db.records.get("Derived").unwrap();
+    assert_eq!(derived.bases, vec!["Base"]);
+    assert!(derived.virtual_methods.contains_key("process"));
+    assert_eq!(derived.fields.len(), 1);
+    assert_eq!(derived.fields[0].name, "data");
+}
+
+#[test]
+fn test_cpg_with_type_enrichment() {
+    use prism::cpg::CodePropertyGraph;
+    use prism::type_db::{FieldInfo, RecordInfo, RecordKind, TypeDatabase, TypedefInfo};
+
+    // Build a TypeDatabase manually
+    let mut type_db = TypeDatabase::default();
+    type_db.records.insert(
+        "device".to_string(),
+        RecordInfo {
+            name: "device".to_string(),
+            kind: RecordKind::Struct,
+            fields: vec![
+                FieldInfo {
+                    name: "name".to_string(),
+                    type_str: "char *".to_string(),
+                    offset: None,
+                },
+                FieldInfo {
+                    name: "id".to_string(),
+                    type_str: "int".to_string(),
+                    offset: None,
+                },
+            ],
+            bases: vec![],
+            virtual_methods: std::collections::BTreeMap::new(),
+            size: None,
+            file: "device.h".to_string(),
+        },
+    );
+    type_db.typedefs.insert(
+        "dev_t".to_string(),
+        TypedefInfo {
+            name: "dev_t".to_string(),
+            underlying: "struct device *".to_string(),
+        },
+    );
+
+    // Build a CPG with type enrichment
+    let source = r#"
+struct device {
+    char *name;
+    int id;
+};
+
+void init(struct device *dev) {
+    dev->name = "test";
+    dev->id = 42;
+}
+"#;
+    let path = "test.c";
+    let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let cpg = CodePropertyGraph::build_with_types(&files, type_db);
+
+    // CPG should have type info
+    assert!(cpg.has_type_info());
+    assert_eq!(
+        cpg.all_fields_of("device"),
+        Some(vec!["name".to_string(), "id".to_string()])
+    );
+    assert_eq!(cpg.resolve_type("dev_t"), "struct device *");
+    assert_eq!(cpg.field_type("device", "name"), Some("char *".to_string()));
+}

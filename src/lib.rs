@@ -39,3 +39,4 @@ pub mod diff;
 pub mod languages;
 pub mod output;
 pub mod slice;
+pub mod type_db;
