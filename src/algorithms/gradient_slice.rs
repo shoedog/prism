@@ -14,6 +14,7 @@ use crate::ast::ParsedFile;
 use crate::cpg::{CodePropertyGraph, CpgEdge, CpgNode};
 use crate::diff::{DiffBlock, DiffInput, ModifyType};
 use crate::slice::{SliceResult, SlicingAlgorithm};
+use crate::type_db::TypeDatabase;
 use anyhow::Result;
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
@@ -52,9 +53,10 @@ pub fn slice(
     files: &BTreeMap<String, ParsedFile>,
     diff: &DiffInput,
     config: &GradientConfig,
+    type_db: Option<&TypeDatabase>,
 ) -> Result<SliceResult> {
     let mut result = SliceResult::new(SlicingAlgorithm::GradientSlice);
-    let cpg = CodePropertyGraph::build(files);
+    let cpg = CodePropertyGraph::build_enriched(files, type_db);
 
     // Score map: (file, line) → (score, hop_distance)
     let mut scores: BTreeMap<(String, usize), (f64, usize)> = BTreeMap::new();

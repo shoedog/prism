@@ -28,6 +28,7 @@ pub mod vertical_slice;
 use crate::ast::ParsedFile;
 use crate::diff::DiffInput;
 use crate::slice::{SliceConfig, SliceResult, SlicingAlgorithm};
+use crate::type_db::TypeDatabase;
 use anyhow::Result;
 use std::collections::BTreeMap;
 
@@ -72,6 +73,7 @@ pub fn run_slicing(
     files: &BTreeMap<String, ParsedFile>,
     diff: &DiffInput,
     config: &SliceConfig,
+    type_db: Option<&TypeDatabase>,
 ) -> Result<SliceResult> {
     match config.algorithm {
         SlicingAlgorithm::OriginalDiff => original_diff::slice(files, diff),
@@ -85,29 +87,39 @@ pub fn run_slicing(
             diff,
             config,
             &barrier_slice::BarrierConfig::default(),
+            type_db,
         ),
         SlicingAlgorithm::Chop => Ok(SliceResult::new(SlicingAlgorithm::Chop)),
-        SlicingAlgorithm::Taint => taint::slice(files, diff, &taint::TaintConfig::default()),
+        SlicingAlgorithm::Taint => {
+            taint::slice(files, diff, &taint::TaintConfig::default(), type_db)
+        }
         SlicingAlgorithm::ConditionedSlice => {
             Ok(SliceResult::new(SlicingAlgorithm::ConditionedSlice))
         }
         SlicingAlgorithm::DeltaSlice => Ok(SliceResult::new(SlicingAlgorithm::DeltaSlice)),
-        SlicingAlgorithm::SpiralSlice => {
-            spiral_slice::slice(files, diff, config, &spiral_slice::SpiralConfig::default())
-        }
-        SlicingAlgorithm::CircularSlice => circular_slice::slice(files, diff),
+        SlicingAlgorithm::SpiralSlice => spiral_slice::slice(
+            files,
+            diff,
+            config,
+            &spiral_slice::SpiralConfig::default(),
+            type_db,
+        ),
+        SlicingAlgorithm::CircularSlice => circular_slice::slice(files, diff, type_db),
         SlicingAlgorithm::QuantumSlice => quantum_slice::slice(files, diff, None),
         SlicingAlgorithm::HorizontalSlice => {
             horizontal_slice::slice(files, diff, &horizontal_slice::PeerPattern::Auto)
         }
-        SlicingAlgorithm::VerticalSlice => {
-            vertical_slice::slice(files, diff, &vertical_slice::VerticalConfig::default())
-        }
+        SlicingAlgorithm::VerticalSlice => vertical_slice::slice(
+            files,
+            diff,
+            &vertical_slice::VerticalConfig::default(),
+            type_db,
+        ),
         SlicingAlgorithm::AngleSlice => {
             angle_slice::slice(files, diff, &angle_slice::Concern::ErrorHandling)
         }
         SlicingAlgorithm::ThreeDSlice => {
-            threed_slice::slice(files, diff, &threed_slice::ThreeDConfig::default())
+            threed_slice::slice(files, diff, &threed_slice::ThreeDConfig::default(), type_db)
         }
         // New theoretical extensions
         SlicingAlgorithm::AbsenceSlice => absence_slice::slice(files, diff),
@@ -115,14 +127,17 @@ pub fn run_slicing(
             resonance_slice::slice(files, diff, &resonance_slice::ResonanceConfig::default())
         }
         SlicingAlgorithm::SymmetrySlice => symmetry_slice::slice(files, diff),
-        SlicingAlgorithm::GradientSlice => {
-            gradient_slice::slice(files, diff, &gradient_slice::GradientConfig::default())
-        }
-        SlicingAlgorithm::ProvenanceSlice => provenance_slice::slice(files, diff),
+        SlicingAlgorithm::GradientSlice => gradient_slice::slice(
+            files,
+            diff,
+            &gradient_slice::GradientConfig::default(),
+            type_db,
+        ),
+        SlicingAlgorithm::ProvenanceSlice => provenance_slice::slice(files, diff, type_db),
         SlicingAlgorithm::PhantomSlice => {
             phantom_slice::slice(files, diff, &phantom_slice::PhantomConfig::default())
         }
-        SlicingAlgorithm::MembraneSlice => membrane_slice::slice(files, diff),
-        SlicingAlgorithm::EchoSlice => echo_slice::slice(files, diff),
+        SlicingAlgorithm::MembraneSlice => membrane_slice::slice(files, diff, type_db),
+        SlicingAlgorithm::EchoSlice => echo_slice::slice(files, diff, type_db),
     }
 }

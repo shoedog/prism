@@ -176,7 +176,7 @@ struct ClangRange {
 ///
 /// Built from `compile_commands.json` by running clang on each translation unit
 /// and parsing the JSON AST dump.
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct TypeDatabase {
     /// Record (struct/class/union) definitions by name.
     pub records: BTreeMap<String, RecordInfo>,

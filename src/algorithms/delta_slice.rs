@@ -9,6 +9,7 @@ use crate::cpg::CodePropertyGraph;
 use crate::diff::{DiffBlock, DiffInput, ModifyType};
 use crate::languages::Language;
 use crate::slice::{SliceResult, SlicingAlgorithm};
+use crate::type_db::TypeDatabase;
 use anyhow::Result;
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
@@ -18,6 +19,7 @@ pub fn slice(
     new_files: &BTreeMap<String, ParsedFile>,
     diff: &DiffInput,
     old_repo: &Path,
+    type_db: Option<&TypeDatabase>,
 ) -> Result<SliceResult> {
     let mut result = SliceResult::new(SlicingAlgorithm::DeltaSlice);
 
@@ -35,8 +37,8 @@ pub fn slice(
     }
 
     // Build CPGs for both versions; use their embedded DFGs for edge diffing
-    let old_cpg = CodePropertyGraph::build(&old_files);
-    let new_cpg = CodePropertyGraph::build(new_files);
+    let old_cpg = CodePropertyGraph::build_enriched(&old_files, type_db);
+    let new_cpg = CodePropertyGraph::build_enriched(new_files, type_db);
 
     // Find edges that differ between versions
     let old_edges: BTreeSet<(String, usize, String, usize)> = old_cpg

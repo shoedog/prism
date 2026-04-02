@@ -1149,3 +1149,67 @@ fn test_unsupported_language_warns() {
         .assert()
         .stderr(predicate::str::contains("unsupported language"));
 }
+
+// ============================================================
+// --compile-commands flag
+// ============================================================
+
+#[test]
+fn test_compile_commands_nonexistent_file_warns() {
+    // When --compile-commands points to a non-existent file, prism should warn
+    // on stderr but still produce output (graceful degradation).
+    prism_cmd()
+        .args([
+            "--repo",
+            &fixture_path("c"),
+            "--diff",
+            &fixture_path("c/timer_uaf.diff"),
+            "--compile-commands",
+            "/nonexistent/compile_commands.json",
+        ])
+        .assert()
+        .success()
+        .stderr(predicate::str::contains("failed to load type database"));
+}
+
+#[test]
+fn test_compile_commands_invalid_json_warns() {
+    let tmp = TempDir::new().unwrap();
+    let cc_path = tmp.path().join("compile_commands.json");
+    fs::write(&cc_path, "not valid json").unwrap();
+
+    prism_cmd()
+        .args([
+            "--repo",
+            &fixture_path("c"),
+            "--diff",
+            &fixture_path("c/timer_uaf.diff"),
+            "--compile-commands",
+            &cc_path.to_string_lossy(),
+        ])
+        .assert()
+        .success()
+        .stderr(predicate::str::contains("failed to load type database"));
+}
+
+#[test]
+fn test_compile_commands_empty_array_succeeds() {
+    let tmp = TempDir::new().unwrap();
+    let cc_path = tmp.path().join("compile_commands.json");
+    fs::write(&cc_path, "[]").unwrap();
+
+    prism_cmd()
+        .args([
+            "--repo",
+            &fixture_path("c"),
+            "--diff",
+            &fixture_path("c/timer_uaf.diff"),
+            "--compile-commands",
+            &cc_path.to_string_lossy(),
+        ])
+        .assert()
+        .success()
+        .stderr(predicate::str::contains(
+            "Type enrichment: 0 records, 0 typedefs",
+        ));
+}
