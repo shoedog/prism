@@ -525,7 +525,6 @@ impl Language {
                 | "goto_statement"
                 | "throw_statement"
                 | "raise_statement"
-                | "fallthrough_statement" // Go — falls through to next case
         )
     }
 
