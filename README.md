@@ -1,6 +1,17 @@
 [![CI](https://github.com/shoedog/prism/actions/workflows/ci.yml/badge.svg)](https://github.com/shoedog/prism/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/github/shoedog/prism/graph/badge.svg?token=C5JSSOQPWA)](https://codecov.io/github/shoedog/prism)
 ![Rust](https://img.shields.io/badge/rust-1.70%2B-orange)
+![Language Coverage](https://img.shields.io/badge/language_coverage-9_languages_%7C_95%25-green)
+
+![Python](https://img.shields.io/badge/Python-88%25-green?logo=python&logoColor=white)
+![JavaScript](https://img.shields.io/badge/JavaScript-94%25-green?logo=javascript&logoColor=white)
+![TypeScript](https://img.shields.io/badge/TypeScript-94%25-green?logo=typescript&logoColor=white)
+![Go](https://img.shields.io/badge/Go-93%25-green?logo=go&logoColor=white)
+![Java](https://img.shields.io/badge/Java-100%25-brightgreen?logo=openjdk&logoColor=white)
+![C](https://img.shields.io/badge/C-100%25-brightgreen?logo=c&logoColor=white)
+![C++](https://img.shields.io/badge/C%2B%2B-100%25-brightgreen?logo=cplusplus&logoColor=white)
+![Rust](https://img.shields.io/badge/Rust-91%25-green?logo=rust&logoColor=white)
+![Lua](https://img.shields.io/badge/Lua-100%25-brightgreen?logo=lua&logoColor=white)
 
 # slicing
 
@@ -15,7 +26,7 @@ Implements 26 slicing algorithms spanning the paper
 the established program slicing taxonomy, and several novel theoretical
 extensions including spiral, quantum, horizontal, vertical, angle, and 3D slices.
 
-Supports **Python**, **JavaScript**, **TypeScript**, **Go**, and **Java**.
+Supports **Python**, **JavaScript**, **TypeScript**, **Go**, **Java**, **C**, **C++**, **Rust**, and **Lua**.
 
 ---
 
@@ -391,6 +402,45 @@ for algo in thin leftflow fullflow relevant; do
   slicing --repo . --diff changes.patch -a $algo | wc -l
 done
 ```
+
+---
+
+## Language Coverage
+
+Coverage percentages reflect how many language-specific patterns (destructuring, multi-return, optional chaining, etc.) are handled for each language. See `coverage/matrix.json` for the full matrix and `docs/cross-language-coverage.md` for the measurement methodology.
+
+### Algorithm × Language
+
+| Algorithm | Py | JS | TS | Go | Ja | C | C++ | Rs | Lua |
+|---|---|---|---|---|---|---|---|---|---|
+| absence_slice | ✅ | 🟡 | 🟡 | ✅ | ✅ | ✅ | ❌ | ✅ | ✅ |
+| angle_slice | ✅ | 🟡 | ❌ | ✅ | 🟡 | ❌ | ❌ | ❌ | ❌ |
+| barrier_slice | ✅ | 🟡 | ❌ | 🟡 | 🟡 | ❌ | ❌ | ❌ | ❌ |
+| chop | ✅ | 🟡 | ❌ | 🟡 | 🟡 | ❌ | ❌ | ❌ | ❌ |
+| circular_slice | 🟡 | ❌ | 🟡 | 🟡 | ❌ | ❌ | ❌ | ❌ | ❌ |
+| conditioned_slice | ✅ | 🟡 | ❌ | 🟡 | 🟡 | ❌ | ❌ | ❌ | ❌ |
+| delta_slice | ✅ | ❌ | ❌ | 🟡 | ❌ | ❌ | ❌ | ❌ | ❌ |
+| echo_slice | ✅ | 🟡 | ❌ | 🟡 | 🟡 | ✅ | ❌ | ❌ | ❌ |
+| full_flow | ✅ | ✅ | ❌ | ✅ | ✅ | 🟡 | ❌ | ❌ | ❌ |
+| gradient_slice | ✅ | ❌ | ❌ | 🟡 | ❌ | ❌ | ❌ | ❌ | ❌ |
+| horizontal_slice | ✅ | 🟡 | ❌ | 🟡 | 🟡 | ❌ | ❌ | ❌ | ❌ |
+| left_flow | ✅ | ✅ | 🟡 | ✅ | ✅ | 🟡 | ❌ | ❌ | ❌ |
+| membrane_slice | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ✅ | ✅ | 🟡 | 🟡 |
+| original_diff | ✅ | ✅ | 🟡 | ✅ | 🟡 | ❌ | ❌ | 🟡 | ❌ |
+| parent_function | ✅ | ❌ | 🟡 | ✅ | 🟡 | ❌ | ❌ | 🟡 | 🟡 |
+| phantom_slice | 🟡 | ❌ | ❌ | 🟡 | ❌ | ❌ | ❌ | ❌ | ❌ |
+| provenance_slice | ✅ | ✅ | ❌ | ✅ | 🟡 | ✅ | ❌ | ✅ | ✅ |
+| quantum_slice | ✅ | ✅ | ❌ | ✅ | 🟡 | ✅ | ❌ | 🟡 | 🟡 |
+| relevant_slice | 🟡 | ❌ | ❌ | 🟡 | ❌ | ❌ | ❌ | ❌ | ❌ |
+| resonance_slice | 🟡 | ❌ | ❌ | 🟡 | ❌ | ❌ | ❌ | ❌ | ❌ |
+| spiral_slice | ✅ | ❌ | ❌ | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| symmetry_slice | ✅ | ❌ | ❌ | 🟡 | ❌ | 🟡 | ❌ | ❌ | ❌ |
+| taint | ✅ | ✅ | 🟡 | ✅ | ❌ | ✅ | ✅ | ✅ | ✅ |
+| thin_slice | ✅ | ❌ | 🟡 | 🟡 | 🟡 | 🟡 | ❌ | 🟡 | 🟡 |
+| threed_slice | ✅ | ❌ | ❌ | 🟡 | ❌ | ❌ | ❌ | ❌ | ❌ |
+| vertical_slice | ✅ | ❌ | ❌ | 🟡 | ❌ | ❌ | ❌ | ❌ | ❌ |
+
+✅ full (3+ tests) · 🟡 basic (1-2 tests) · ❌ none
 
 ---
 
