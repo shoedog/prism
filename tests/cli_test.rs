@@ -34,10 +34,7 @@ fn test_list_algorithms_shows_all_categories() {
 #[test]
 fn test_list_algorithms_does_not_require_repo() {
     // --list-algorithms should work without --repo or --diff
-    prism_cmd()
-        .arg("--list-algorithms")
-        .assert()
-        .success();
+    prism_cmd().arg("--list-algorithms").assert().success();
 }
 
 // ============================================================
@@ -47,7 +44,12 @@ fn test_list_algorithms_does_not_require_repo() {
 #[test]
 fn test_default_algorithm_text_output() {
     prism_cmd()
-        .args(["--repo", &fixture_path("c"), "--diff", &fixture_path("c/timer_uaf.diff")])
+        .args([
+            "--repo",
+            &fixture_path("c"),
+            "--diff",
+            &fixture_path("c/timer_uaf.diff"),
+        ])
         .assert()
         .success();
 }
@@ -56,9 +58,12 @@ fn test_default_algorithm_text_output() {
 fn test_explicit_leftflow_text() {
     prism_cmd()
         .args([
-            "--repo", &fixture_path("c"),
-            "--diff", &fixture_path("c/timer_uaf.diff"),
-            "--algorithm", "leftflow",
+            "--repo",
+            &fixture_path("c"),
+            "--diff",
+            &fixture_path("c/timer_uaf.diff"),
+            "--algorithm",
+            "leftflow",
         ])
         .assert()
         .success();
@@ -68,53 +73,74 @@ fn test_explicit_leftflow_text() {
 fn test_json_output_format() {
     let output = prism_cmd()
         .args([
-            "--repo", &fixture_path("c"),
-            "--diff", &fixture_path("c/timer_uaf.diff"),
-            "--algorithm", "leftflow",
-            "--format", "json",
+            "--repo",
+            &fixture_path("c"),
+            "--diff",
+            &fixture_path("c/timer_uaf.diff"),
+            "--algorithm",
+            "leftflow",
+            "--format",
+            "json",
         ])
         .output()
         .unwrap();
 
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
-    let json: serde_json::Value = serde_json::from_str(&stdout).expect("Output should be valid JSON");
-    assert!(json.get("algorithm").is_some(), "JSON should have 'algorithm' field");
-    assert!(json.get("blocks").is_some(), "JSON should have 'blocks' field");
+    let json: serde_json::Value =
+        serde_json::from_str(&stdout).expect("Output should be valid JSON");
+    assert!(
+        json.get("algorithm").is_some(),
+        "JSON should have 'algorithm' field"
+    );
+    assert!(
+        json.get("blocks").is_some(),
+        "JSON should have 'blocks' field"
+    );
 }
 
 #[test]
 fn test_paper_output_format() {
     let output = prism_cmd()
         .args([
-            "--repo", &fixture_path("c"),
-            "--diff", &fixture_path("c/timer_uaf.diff"),
-            "--algorithm", "originaldiff",
-            "--format", "paper",
+            "--repo",
+            &fixture_path("c"),
+            "--diff",
+            &fixture_path("c/timer_uaf.diff"),
+            "--algorithm",
+            "originaldiff",
+            "--format",
+            "paper",
         ])
         .output()
         .unwrap();
 
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
-    let _json: serde_json::Value = serde_json::from_str(&stdout).expect("Paper format should be valid JSON");
+    let _json: serde_json::Value =
+        serde_json::from_str(&stdout).expect("Paper format should be valid JSON");
 }
 
 #[test]
 fn test_review_output_format_single() {
     let output = prism_cmd()
         .args([
-            "--repo", &fixture_path("c"),
-            "--diff", &fixture_path("c/timer_uaf.diff"),
-            "--algorithm", "leftflow",
-            "--format", "review",
+            "--repo",
+            &fixture_path("c"),
+            "--diff",
+            &fixture_path("c/timer_uaf.diff"),
+            "--algorithm",
+            "leftflow",
+            "--format",
+            "review",
         ])
         .output()
         .unwrap();
 
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
-    let json: serde_json::Value = serde_json::from_str(&stdout).expect("Review format should be valid JSON");
+    let json: serde_json::Value =
+        serde_json::from_str(&stdout).expect("Review format should be valid JSON");
     assert!(json.get("algorithm").is_some() || json.get("blocks").is_some());
 }
 
@@ -126,9 +152,12 @@ fn test_review_output_format_single() {
 fn test_leftflow_python_fixture() {
     prism_cmd()
         .args([
-            "--repo", "tests/fixtures/python",
-            "--diff", &fixture_path("python/calc.diff"),
-            "--algorithm", "leftflow",
+            "--repo",
+            "tests/fixtures/python",
+            "--diff",
+            &fixture_path("python/calc.diff"),
+            "--algorithm",
+            "leftflow",
         ])
         .assert()
         .success();
@@ -138,9 +167,12 @@ fn test_leftflow_python_fixture() {
 fn test_originaldiff_python() {
     prism_cmd()
         .args([
-            "--repo", "tests/fixtures/python",
-            "--diff", &fixture_path("python/calc.diff"),
-            "--algorithm", "originaldiff",
+            "--repo",
+            "tests/fixtures/python",
+            "--diff",
+            &fixture_path("python/calc.diff"),
+            "--algorithm",
+            "originaldiff",
         ])
         .assert()
         .success();
@@ -150,9 +182,12 @@ fn test_originaldiff_python() {
 fn test_parentfunction_python() {
     prism_cmd()
         .args([
-            "--repo", "tests/fixtures/python",
-            "--diff", &fixture_path("python/calc.diff"),
-            "--algorithm", "parentfunction",
+            "--repo",
+            "tests/fixtures/python",
+            "--diff",
+            &fixture_path("python/calc.diff"),
+            "--algorithm",
+            "parentfunction",
         ])
         .assert()
         .success();
@@ -162,9 +197,12 @@ fn test_parentfunction_python() {
 fn test_fullflow_python() {
     prism_cmd()
         .args([
-            "--repo", "tests/fixtures/python",
-            "--diff", &fixture_path("python/calc.diff"),
-            "--algorithm", "fullflow",
+            "--repo",
+            "tests/fixtures/python",
+            "--diff",
+            &fixture_path("python/calc.diff"),
+            "--algorithm",
+            "fullflow",
         ])
         .assert()
         .success();
@@ -174,9 +212,12 @@ fn test_fullflow_python() {
 fn test_thin_python() {
     prism_cmd()
         .args([
-            "--repo", "tests/fixtures/python",
-            "--diff", &fixture_path("python/calc.diff"),
-            "--algorithm", "thin",
+            "--repo",
+            "tests/fixtures/python",
+            "--diff",
+            &fixture_path("python/calc.diff"),
+            "--algorithm",
+            "thin",
         ])
         .assert()
         .success();
@@ -190,19 +231,26 @@ fn test_thin_python() {
 fn test_comma_separated_algorithms() {
     let output = prism_cmd()
         .args([
-            "--repo", "tests/fixtures/python",
-            "--diff", &fixture_path("python/calc.diff"),
-            "--algorithm", "leftflow,originaldiff,thin",
-            "--format", "json",
+            "--repo",
+            "tests/fixtures/python",
+            "--diff",
+            &fixture_path("python/calc.diff"),
+            "--algorithm",
+            "leftflow,originaldiff,thin",
+            "--format",
+            "json",
         ])
         .output()
         .unwrap();
 
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
-    let json: serde_json::Value = serde_json::from_str(&stdout).expect("Multi-algo JSON should be valid");
+    let json: serde_json::Value =
+        serde_json::from_str(&stdout).expect("Multi-algo JSON should be valid");
     // Multi-run JSON has algorithms_run array
-    let algos = json.get("algorithms_run").expect("Should have algorithms_run");
+    let algos = json
+        .get("algorithms_run")
+        .expect("Should have algorithms_run");
     assert_eq!(algos.as_array().unwrap().len(), 3);
 }
 
@@ -210,9 +258,12 @@ fn test_comma_separated_algorithms() {
 fn test_multi_algorithm_text_output() {
     prism_cmd()
         .args([
-            "--repo", "tests/fixtures/python",
-            "--diff", &fixture_path("python/calc.diff"),
-            "--algorithm", "leftflow,parentfunction",
+            "--repo",
+            "tests/fixtures/python",
+            "--diff",
+            &fixture_path("python/calc.diff"),
+            "--algorithm",
+            "leftflow,parentfunction",
         ])
         .assert()
         .success()
@@ -224,10 +275,14 @@ fn test_multi_algorithm_text_output() {
 fn test_review_suite() {
     let output = prism_cmd()
         .args([
-            "--repo", "tests/fixtures/python",
-            "--diff", &fixture_path("python/calc.diff"),
-            "--algorithm", "review",
-            "--format", "json",
+            "--repo",
+            "tests/fixtures/python",
+            "--diff",
+            &fixture_path("python/calc.diff"),
+            "--algorithm",
+            "review",
+            "--format",
+            "json",
         ])
         .output()
         .unwrap();
@@ -235,19 +290,28 @@ fn test_review_suite() {
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
     let json: serde_json::Value = serde_json::from_str(&stdout).expect("Review suite JSON");
-    let algos = json.get("algorithms_run").expect("Should have algorithms_run");
+    let algos = json
+        .get("algorithms_run")
+        .expect("Should have algorithms_run");
     // Review suite should run multiple algorithms
-    assert!(algos.as_array().unwrap().len() > 1, "Review suite should run multiple algorithms");
+    assert!(
+        algos.as_array().unwrap().len() > 1,
+        "Review suite should run multiple algorithms"
+    );
 }
 
 #[test]
 fn test_multi_algorithm_review_format() {
     let output = prism_cmd()
         .args([
-            "--repo", "tests/fixtures/python",
-            "--diff", &fixture_path("python/calc.diff"),
-            "--algorithm", "leftflow,thin",
-            "--format", "review",
+            "--repo",
+            "tests/fixtures/python",
+            "--diff",
+            &fixture_path("python/calc.diff"),
+            "--algorithm",
+            "leftflow,thin",
+            "--format",
+            "review",
         ])
         .output()
         .unwrap();
@@ -267,10 +331,14 @@ fn test_multi_algorithm_review_format() {
 fn test_barrier_slice_with_depth() {
     prism_cmd()
         .args([
-            "--repo", "tests/fixtures/python",
-            "--diff", &fixture_path("python/calc.diff"),
-            "--algorithm", "barrier",
-            "--barrier-depth", "3",
+            "--repo",
+            "tests/fixtures/python",
+            "--diff",
+            &fixture_path("python/calc.diff"),
+            "--algorithm",
+            "barrier",
+            "--barrier-depth",
+            "3",
         ])
         .assert()
         .success();
@@ -280,10 +348,14 @@ fn test_barrier_slice_with_depth() {
 fn test_barrier_slice_with_symbols() {
     prism_cmd()
         .args([
-            "--repo", "tests/fixtures/python",
-            "--diff", &fixture_path("python/calc.diff"),
-            "--algorithm", "barrier",
-            "--barrier-symbols", "print,log",
+            "--repo",
+            "tests/fixtures/python",
+            "--diff",
+            &fixture_path("python/calc.diff"),
+            "--algorithm",
+            "barrier",
+            "--barrier-symbols",
+            "print,log",
         ])
         .assert()
         .success();
@@ -293,11 +365,16 @@ fn test_barrier_slice_with_symbols() {
 fn test_chop_with_source_sink() {
     prism_cmd()
         .args([
-            "--repo", "tests/fixtures/python",
-            "--diff", &fixture_path("python/calc.diff"),
-            "--algorithm", "chop",
-            "--chop-source", "calc.py:5",
-            "--chop-sink", "calc.py:7",
+            "--repo",
+            "tests/fixtures/python",
+            "--diff",
+            &fixture_path("python/calc.diff"),
+            "--algorithm",
+            "chop",
+            "--chop-source",
+            "calc.py:5",
+            "--chop-sink",
+            "calc.py:7",
         ])
         .assert()
         .success();
@@ -307,10 +384,14 @@ fn test_chop_with_source_sink() {
 fn test_chop_missing_source_fails() {
     prism_cmd()
         .args([
-            "--repo", "tests/fixtures/python",
-            "--diff", &fixture_path("python/calc.diff"),
-            "--algorithm", "chop",
-            "--chop-sink", "calc.py:7",
+            "--repo",
+            "tests/fixtures/python",
+            "--diff",
+            &fixture_path("python/calc.diff"),
+            "--algorithm",
+            "chop",
+            "--chop-sink",
+            "calc.py:7",
         ])
         .assert()
         .failure()
@@ -321,10 +402,14 @@ fn test_chop_missing_source_fails() {
 fn test_taint_with_explicit_source() {
     prism_cmd()
         .args([
-            "--repo", "tests/fixtures/python",
-            "--diff", &fixture_path("python/calc.diff"),
-            "--algorithm", "taint",
-            "--taint-source", "calc.py:5",
+            "--repo",
+            "tests/fixtures/python",
+            "--diff",
+            &fixture_path("python/calc.diff"),
+            "--algorithm",
+            "taint",
+            "--taint-source",
+            "calc.py:5",
         ])
         .assert()
         .success();
@@ -334,9 +419,12 @@ fn test_taint_with_explicit_source() {
 fn test_taint_auto_from_diff() {
     prism_cmd()
         .args([
-            "--repo", "tests/fixtures/python",
-            "--diff", &fixture_path("python/calc.diff"),
-            "--algorithm", "taint",
+            "--repo",
+            "tests/fixtures/python",
+            "--diff",
+            &fixture_path("python/calc.diff"),
+            "--algorithm",
+            "taint",
         ])
         .assert()
         .success();
@@ -346,10 +434,14 @@ fn test_taint_auto_from_diff() {
 fn test_conditioned_slice_with_condition() {
     prism_cmd()
         .args([
-            "--repo", "tests/fixtures/python",
-            "--diff", &fixture_path("python/calc.diff"),
-            "--algorithm", "conditioned",
-            "--condition", "x==5",
+            "--repo",
+            "tests/fixtures/python",
+            "--diff",
+            &fixture_path("python/calc.diff"),
+            "--algorithm",
+            "conditioned",
+            "--condition",
+            "x==5",
         ])
         .assert()
         .success();
@@ -359,9 +451,12 @@ fn test_conditioned_slice_with_condition() {
 fn test_conditioned_missing_condition_fails() {
     prism_cmd()
         .args([
-            "--repo", "tests/fixtures/python",
-            "--diff", &fixture_path("python/calc.diff"),
-            "--algorithm", "conditioned",
+            "--repo",
+            "tests/fixtures/python",
+            "--diff",
+            &fixture_path("python/calc.diff"),
+            "--algorithm",
+            "conditioned",
         ])
         .assert()
         .failure()
@@ -372,10 +467,14 @@ fn test_conditioned_missing_condition_fails() {
 fn test_spiral_with_max_ring() {
     prism_cmd()
         .args([
-            "--repo", "tests/fixtures/python",
-            "--diff", &fixture_path("python/calc.diff"),
-            "--algorithm", "spiral",
-            "--spiral-max-ring", "3",
+            "--repo",
+            "tests/fixtures/python",
+            "--diff",
+            &fixture_path("python/calc.diff"),
+            "--algorithm",
+            "spiral",
+            "--spiral-max-ring",
+            "3",
         ])
         .assert()
         .success();
@@ -385,9 +484,12 @@ fn test_spiral_with_max_ring() {
 fn test_horizontal_auto_pattern() {
     prism_cmd()
         .args([
-            "--repo", "tests/fixtures/python",
-            "--diff", &fixture_path("python/calc.diff"),
-            "--algorithm", "horizontal",
+            "--repo",
+            "tests/fixtures/python",
+            "--diff",
+            &fixture_path("python/calc.diff"),
+            "--algorithm",
+            "horizontal",
         ])
         .assert()
         .success();
@@ -397,10 +499,14 @@ fn test_horizontal_auto_pattern() {
 fn test_horizontal_name_pattern() {
     prism_cmd()
         .args([
-            "--repo", "tests/fixtures/python",
-            "--diff", &fixture_path("python/calc.diff"),
-            "--algorithm", "horizontal",
-            "--peer-pattern", "name:test_*",
+            "--repo",
+            "tests/fixtures/python",
+            "--diff",
+            &fixture_path("python/calc.diff"),
+            "--algorithm",
+            "horizontal",
+            "--peer-pattern",
+            "name:test_*",
         ])
         .assert()
         .success();
@@ -410,10 +516,14 @@ fn test_horizontal_name_pattern() {
 fn test_horizontal_decorator_pattern() {
     prism_cmd()
         .args([
-            "--repo", "tests/fixtures/python",
-            "--diff", &fixture_path("python/calc.diff"),
-            "--algorithm", "horizontal",
-            "--peer-pattern", "decorator:@route",
+            "--repo",
+            "tests/fixtures/python",
+            "--diff",
+            &fixture_path("python/calc.diff"),
+            "--algorithm",
+            "horizontal",
+            "--peer-pattern",
+            "decorator:@route",
         ])
         .assert()
         .success();
@@ -423,10 +533,14 @@ fn test_horizontal_decorator_pattern() {
 fn test_horizontal_class_pattern() {
     prism_cmd()
         .args([
-            "--repo", "tests/fixtures/python",
-            "--diff", &fixture_path("python/calc.diff"),
-            "--algorithm", "horizontal",
-            "--peer-pattern", "class:Calculator",
+            "--repo",
+            "tests/fixtures/python",
+            "--diff",
+            &fixture_path("python/calc.diff"),
+            "--algorithm",
+            "horizontal",
+            "--peer-pattern",
+            "class:Calculator",
         ])
         .assert()
         .success();
@@ -436,10 +550,14 @@ fn test_horizontal_class_pattern() {
 fn test_vertical_with_explicit_layers() {
     prism_cmd()
         .args([
-            "--repo", "tests/fixtures/python",
-            "--diff", &fixture_path("python/calc.diff"),
-            "--algorithm", "vertical",
-            "--layers", "handler,service,repository",
+            "--repo",
+            "tests/fixtures/python",
+            "--diff",
+            &fixture_path("python/calc.diff"),
+            "--algorithm",
+            "vertical",
+            "--layers",
+            "handler,service,repository",
         ])
         .assert()
         .success();
@@ -449,9 +567,12 @@ fn test_vertical_with_explicit_layers() {
 fn test_vertical_auto_layers() {
     prism_cmd()
         .args([
-            "--repo", "tests/fixtures/python",
-            "--diff", &fixture_path("python/calc.diff"),
-            "--algorithm", "vertical",
+            "--repo",
+            "tests/fixtures/python",
+            "--diff",
+            &fixture_path("python/calc.diff"),
+            "--algorithm",
+            "vertical",
         ])
         .assert()
         .success();
@@ -461,10 +582,14 @@ fn test_vertical_auto_layers() {
 fn test_angle_slice_error_handling() {
     prism_cmd()
         .args([
-            "--repo", &fixture_path("c"),
-            "--diff", &fixture_path("c/timer_uaf.diff"),
-            "--algorithm", "angle",
-            "--concern", "error_handling",
+            "--repo",
+            &fixture_path("c"),
+            "--diff",
+            &fixture_path("c/timer_uaf.diff"),
+            "--algorithm",
+            "angle",
+            "--concern",
+            "error_handling",
         ])
         .assert()
         .success();
@@ -474,10 +599,14 @@ fn test_angle_slice_error_handling() {
 fn test_angle_slice_logging() {
     prism_cmd()
         .args([
-            "--repo", "tests/fixtures/python",
-            "--diff", &fixture_path("python/calc.diff"),
-            "--algorithm", "angle",
-            "--concern", "logging",
+            "--repo",
+            "tests/fixtures/python",
+            "--diff",
+            &fixture_path("python/calc.diff"),
+            "--algorithm",
+            "angle",
+            "--concern",
+            "logging",
         ])
         .assert()
         .success();
@@ -487,10 +616,14 @@ fn test_angle_slice_logging() {
 fn test_quantum_slice_with_var() {
     prism_cmd()
         .args([
-            "--repo", "tests/fixtures/python",
-            "--diff", &fixture_path("python/calc.diff"),
-            "--algorithm", "quantum",
-            "--quantum-var", "product",
+            "--repo",
+            "tests/fixtures/python",
+            "--diff",
+            &fixture_path("python/calc.diff"),
+            "--algorithm",
+            "quantum",
+            "--quantum-var",
+            "product",
         ])
         .assert()
         .success();
@@ -500,9 +633,12 @@ fn test_quantum_slice_with_var() {
 fn test_quantum_slice_auto() {
     prism_cmd()
         .args([
-            "--repo", "tests/fixtures/python",
-            "--diff", &fixture_path("python/calc.diff"),
-            "--algorithm", "quantum",
+            "--repo",
+            "tests/fixtures/python",
+            "--diff",
+            &fixture_path("python/calc.diff"),
+            "--algorithm",
+            "quantum",
         ])
         .assert()
         .success();
@@ -516,9 +652,12 @@ fn test_quantum_slice_auto() {
 fn test_relevant_slice_cli() {
     prism_cmd()
         .args([
-            "--repo", "tests/fixtures/python",
-            "--diff", &fixture_path("python/calc.diff"),
-            "--algorithm", "relevant",
+            "--repo",
+            "tests/fixtures/python",
+            "--diff",
+            &fixture_path("python/calc.diff"),
+            "--algorithm",
+            "relevant",
         ])
         .assert()
         .success();
@@ -528,9 +667,12 @@ fn test_relevant_slice_cli() {
 fn test_circular_slice_cli() {
     prism_cmd()
         .args([
-            "--repo", "tests/fixtures/python",
-            "--diff", &fixture_path("python/calc.diff"),
-            "--algorithm", "circular",
+            "--repo",
+            "tests/fixtures/python",
+            "--diff",
+            &fixture_path("python/calc.diff"),
+            "--algorithm",
+            "circular",
         ])
         .assert()
         .success();
@@ -540,9 +682,12 @@ fn test_circular_slice_cli() {
 fn test_absence_slice_cli() {
     prism_cmd()
         .args([
-            "--repo", "tests/fixtures/python",
-            "--diff", &fixture_path("python/calc.diff"),
-            "--algorithm", "absence",
+            "--repo",
+            "tests/fixtures/python",
+            "--diff",
+            &fixture_path("python/calc.diff"),
+            "--algorithm",
+            "absence",
         ])
         .assert()
         .success();
@@ -552,9 +697,12 @@ fn test_absence_slice_cli() {
 fn test_symmetry_slice_cli() {
     prism_cmd()
         .args([
-            "--repo", "tests/fixtures/python",
-            "--diff", &fixture_path("python/calc.diff"),
-            "--algorithm", "symmetry",
+            "--repo",
+            "tests/fixtures/python",
+            "--diff",
+            &fixture_path("python/calc.diff"),
+            "--algorithm",
+            "symmetry",
         ])
         .assert()
         .success();
@@ -564,9 +712,12 @@ fn test_symmetry_slice_cli() {
 fn test_gradient_slice_cli() {
     prism_cmd()
         .args([
-            "--repo", "tests/fixtures/python",
-            "--diff", &fixture_path("python/calc.diff"),
-            "--algorithm", "gradient",
+            "--repo",
+            "tests/fixtures/python",
+            "--diff",
+            &fixture_path("python/calc.diff"),
+            "--algorithm",
+            "gradient",
         ])
         .assert()
         .success();
@@ -576,9 +727,12 @@ fn test_gradient_slice_cli() {
 fn test_provenance_slice_cli() {
     prism_cmd()
         .args([
-            "--repo", "tests/fixtures/python",
-            "--diff", &fixture_path("python/calc.diff"),
-            "--algorithm", "provenance",
+            "--repo",
+            "tests/fixtures/python",
+            "--diff",
+            &fixture_path("python/calc.diff"),
+            "--algorithm",
+            "provenance",
         ])
         .assert()
         .success();
@@ -588,9 +742,12 @@ fn test_provenance_slice_cli() {
 fn test_membrane_slice_cli() {
     prism_cmd()
         .args([
-            "--repo", "tests/fixtures/python",
-            "--diff", &fixture_path("python/calc.diff"),
-            "--algorithm", "membrane",
+            "--repo",
+            "tests/fixtures/python",
+            "--diff",
+            &fixture_path("python/calc.diff"),
+            "--algorithm",
+            "membrane",
         ])
         .assert()
         .success();
@@ -600,9 +757,12 @@ fn test_membrane_slice_cli() {
 fn test_echo_slice_cli() {
     prism_cmd()
         .args([
-            "--repo", "tests/fixtures/python",
-            "--diff", &fixture_path("python/calc.diff"),
-            "--algorithm", "echo",
+            "--repo",
+            "tests/fixtures/python",
+            "--diff",
+            &fixture_path("python/calc.diff"),
+            "--algorithm",
+            "echo",
         ])
         .assert()
         .success();
@@ -616,14 +776,22 @@ fn test_echo_slice_cli() {
 fn test_delta_slice_with_old_repo() {
     let tmp = TempDir::new().unwrap();
     let old_calc = tmp.path().join("calc.py");
-    fs::write(&old_calc, "def multiply(x, y):\n    product = x * y\n    return product\n").unwrap();
+    fs::write(
+        &old_calc,
+        "def multiply(x, y):\n    product = x * y\n    return product\n",
+    )
+    .unwrap();
 
     prism_cmd()
         .args([
-            "--repo", "tests/fixtures/python",
-            "--diff", &fixture_path("python/calc.diff"),
-            "--algorithm", "delta",
-            "--old-repo", &tmp.path().to_string_lossy(),
+            "--repo",
+            "tests/fixtures/python",
+            "--diff",
+            &fixture_path("python/calc.diff"),
+            "--algorithm",
+            "delta",
+            "--old-repo",
+            &tmp.path().to_string_lossy(),
         ])
         .assert()
         .success();
@@ -633,9 +801,12 @@ fn test_delta_slice_with_old_repo() {
 fn test_delta_missing_old_repo_fails() {
     prism_cmd()
         .args([
-            "--repo", "tests/fixtures/python",
-            "--diff", &fixture_path("python/calc.diff"),
-            "--algorithm", "delta",
+            "--repo",
+            "tests/fixtures/python",
+            "--diff",
+            &fixture_path("python/calc.diff"),
+            "--algorithm",
+            "delta",
         ])
         .assert()
         .failure()
@@ -659,10 +830,14 @@ fn test_threed_slice_cli() {
 
     prism_cmd()
         .args([
-            "--repo", ".",
-            "--diff", &diff_json.to_string_lossy(),
-            "--algorithm", "3d",
-            "--temporal-days", "30",
+            "--repo",
+            ".",
+            "--diff",
+            &diff_json.to_string_lossy(),
+            "--algorithm",
+            "3d",
+            "--temporal-days",
+            "30",
         ])
         .assert()
         .success();
@@ -679,10 +854,14 @@ fn test_resonance_slice_cli() {
 
     prism_cmd()
         .args([
-            "--repo", ".",
-            "--diff", &diff_json.to_string_lossy(),
-            "--algorithm", "resonance",
-            "--temporal-days", "30",
+            "--repo",
+            ".",
+            "--diff",
+            &diff_json.to_string_lossy(),
+            "--algorithm",
+            "resonance",
+            "--temporal-days",
+            "30",
         ])
         .assert()
         .success();
@@ -699,9 +878,12 @@ fn test_phantom_slice_cli() {
 
     prism_cmd()
         .args([
-            "--repo", ".",
-            "--diff", &diff_json.to_string_lossy(),
-            "--algorithm", "phantom",
+            "--repo",
+            ".",
+            "--diff",
+            &diff_json.to_string_lossy(),
+            "--algorithm",
+            "phantom",
         ])
         .assert()
         .success();
@@ -715,10 +897,14 @@ fn test_phantom_slice_cli() {
 fn test_max_branch_lines_flag() {
     prism_cmd()
         .args([
-            "--repo", "tests/fixtures/python",
-            "--diff", &fixture_path("python/calc.diff"),
-            "--algorithm", "leftflow",
-            "--max-branch-lines", "10",
+            "--repo",
+            "tests/fixtures/python",
+            "--diff",
+            &fixture_path("python/calc.diff"),
+            "--algorithm",
+            "leftflow",
+            "--max-branch-lines",
+            "10",
         ])
         .assert()
         .success();
@@ -728,9 +914,12 @@ fn test_max_branch_lines_flag() {
 fn test_no_returns_flag() {
     prism_cmd()
         .args([
-            "--repo", "tests/fixtures/python",
-            "--diff", &fixture_path("python/calc.diff"),
-            "--algorithm", "leftflow",
+            "--repo",
+            "tests/fixtures/python",
+            "--diff",
+            &fixture_path("python/calc.diff"),
+            "--algorithm",
+            "leftflow",
             "--no-returns",
         ])
         .assert()
@@ -741,9 +930,12 @@ fn test_no_returns_flag() {
 fn test_no_trace_callees_flag() {
     prism_cmd()
         .args([
-            "--repo", "tests/fixtures/python",
-            "--diff", &fixture_path("python/calc.diff"),
-            "--algorithm", "fullflow",
+            "--repo",
+            "tests/fixtures/python",
+            "--diff",
+            &fixture_path("python/calc.diff"),
+            "--algorithm",
+            "fullflow",
             "--no-trace-callees",
         ])
         .assert()
@@ -759,10 +951,14 @@ fn test_files_filter() {
     // Use a multi-file diff fixture if available; with single-file, just verify it works
     prism_cmd()
         .args([
-            "--repo", "tests/fixtures/python",
-            "--diff", &fixture_path("python/calc.diff"),
-            "--algorithm", "leftflow",
-            "--files", "calc.py",
+            "--repo",
+            "tests/fixtures/python",
+            "--diff",
+            &fixture_path("python/calc.diff"),
+            "--algorithm",
+            "leftflow",
+            "--files",
+            "calc.py",
         ])
         .assert()
         .success();
@@ -773,10 +969,14 @@ fn test_files_filter_nonexistent_file() {
     // Filtering to a file not in the diff should produce empty output
     prism_cmd()
         .args([
-            "--repo", "tests/fixtures/python",
-            "--diff", &fixture_path("python/calc.diff"),
-            "--algorithm", "leftflow",
-            "--files", "nonexistent.py",
+            "--repo",
+            "tests/fixtures/python",
+            "--diff",
+            &fixture_path("python/calc.diff"),
+            "--algorithm",
+            "leftflow",
+            "--files",
+            "nonexistent.py",
         ])
         .assert()
         .success();
@@ -798,9 +998,12 @@ fn test_json_diff_input() {
 
     prism_cmd()
         .args([
-            "--repo", "tests/fixtures/python",
-            "--diff", &json_diff.to_string_lossy(),
-            "--algorithm", "leftflow",
+            "--repo",
+            "tests/fixtures/python",
+            "--diff",
+            &json_diff.to_string_lossy(),
+            "--algorithm",
+            "leftflow",
         ])
         .assert()
         .success();
@@ -814,9 +1017,12 @@ fn test_json_diff_input() {
 fn test_unknown_algorithm_fails() {
     prism_cmd()
         .args([
-            "--repo", &fixture_path("c"),
-            "--diff", &fixture_path("c/timer_uaf.diff"),
-            "--algorithm", "nonexistent",
+            "--repo",
+            &fixture_path("c"),
+            "--diff",
+            &fixture_path("c/timer_uaf.diff"),
+            "--algorithm",
+            "nonexistent",
         ])
         .assert()
         .failure()
@@ -827,9 +1033,12 @@ fn test_unknown_algorithm_fails() {
 fn test_unknown_in_comma_list_fails() {
     prism_cmd()
         .args([
-            "--repo", &fixture_path("c"),
-            "--diff", &fixture_path("c/timer_uaf.diff"),
-            "--algorithm", "leftflow,bogus",
+            "--repo",
+            &fixture_path("c"),
+            "--diff",
+            &fixture_path("c/timer_uaf.diff"),
+            "--algorithm",
+            "leftflow,bogus",
         ])
         .assert()
         .failure()
@@ -846,19 +1055,13 @@ fn test_missing_repo_fails() {
 
 #[test]
 fn test_missing_diff_fails() {
-    prism_cmd()
-        .args(["--repo", "."])
-        .assert()
-        .failure();
+    prism_cmd().args(["--repo", "."]).assert().failure();
 }
 
 #[test]
 fn test_nonexistent_diff_file_fails() {
     prism_cmd()
-        .args([
-            "--repo", &fixture_path("c"),
-            "--diff", "nonexistent.diff",
-        ])
+        .args(["--repo", &fixture_path("c"), "--diff", "nonexistent.diff"])
         .assert()
         .failure()
         .stderr(predicate::str::contains("Failed to read diff"));
@@ -868,11 +1071,16 @@ fn test_nonexistent_diff_file_fails() {
 fn test_invalid_chop_source_format_fails() {
     prism_cmd()
         .args([
-            "--repo", "tests/fixtures/python",
-            "--diff", &fixture_path("python/calc.diff"),
-            "--algorithm", "chop",
-            "--chop-source", "no_colon_here",
-            "--chop-sink", "calc.py:7",
+            "--repo",
+            "tests/fixtures/python",
+            "--diff",
+            &fixture_path("python/calc.diff"),
+            "--algorithm",
+            "chop",
+            "--chop-source",
+            "no_colon_here",
+            "--chop-sink",
+            "calc.py:7",
         ])
         .assert()
         .failure()
@@ -889,10 +1097,14 @@ fn test_all_algorithms_json() {
     // but the multi-run captures errors gracefully
     let output = prism_cmd()
         .args([
-            "--repo", "tests/fixtures/python",
-            "--diff", &fixture_path("python/calc.diff"),
-            "--algorithm", "all",
-            "--format", "json",
+            "--repo",
+            "tests/fixtures/python",
+            "--diff",
+            &fixture_path("python/calc.diff"),
+            "--algorithm",
+            "all",
+            "--format",
+            "json",
         ])
         .output()
         .unwrap();
@@ -900,8 +1112,13 @@ fn test_all_algorithms_json() {
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
     let json: serde_json::Value = serde_json::from_str(&stdout).expect("all suite JSON");
-    let algos = json.get("algorithms_run").expect("Should have algorithms_run");
-    assert!(algos.as_array().unwrap().len() > 20, "All suite should list 26 algorithms");
+    let algos = json
+        .get("algorithms_run")
+        .expect("Should have algorithms_run");
+    assert!(
+        algos.as_array().unwrap().len() > 20,
+        "All suite should list 26 algorithms"
+    );
 }
 
 // ============================================================
@@ -924,8 +1141,10 @@ fn test_unsupported_language_warns() {
     // When all files are unsupported, prism warns on stderr and produces empty output
     prism_cmd()
         .args([
-            "--repo", &tmp.path().to_string_lossy(),
-            "--diff", &diff_json.to_string_lossy(),
+            "--repo",
+            &tmp.path().to_string_lossy(),
+            "--diff",
+            &diff_json.to_string_lossy(),
         ])
         .assert()
         .stderr(predicate::str::contains("unsupported language"));
