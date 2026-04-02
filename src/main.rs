@@ -262,7 +262,28 @@ fn main() -> Result<()> {
             }
         }
     } else {
-        None
+        // Auto-enable tree-sitter fallback for C/C++ files
+        let has_c_cpp = files.values().any(|pf| {
+            matches!(
+                pf.language,
+                prism::languages::Language::C | prism::languages::Language::Cpp
+            )
+        });
+        if has_c_cpp {
+            let db = TypeDatabase::from_parsed_files(&files);
+            if !db.records.is_empty() || !db.typedefs.is_empty() {
+                eprintln!(
+                    "Type enrichment (tree-sitter fallback): {} records, {} typedefs",
+                    db.records.len(),
+                    db.typedefs.len()
+                );
+                Some(db)
+            } else {
+                None
+            }
+        } else {
+            None
+        }
     };
 
     // Check parse quality for all files and collect warnings once.
