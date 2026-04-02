@@ -8,6 +8,7 @@ use crate::ast::ParsedFile;
 use crate::cpg::CodePropertyGraph;
 use crate::diff::{DiffBlock, DiffInput};
 use crate::slice::{SliceConfig, SliceResult, SlicingAlgorithm};
+use crate::type_db::TypeDatabase;
 use anyhow::Result;
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -37,9 +38,10 @@ pub fn slice(
     diff: &DiffInput,
     _config: &SliceConfig,
     barrier_config: &BarrierConfig,
+    type_db: Option<&TypeDatabase>,
 ) -> Result<SliceResult> {
     let mut result = SliceResult::new(SlicingAlgorithm::BarrierSlice);
-    let cpg = CodePropertyGraph::build(files);
+    let cpg = CodePropertyGraph::build_enriched(files, type_db);
     let mut block_id = 0;
 
     for diff_info in &diff.files {

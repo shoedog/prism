@@ -8,6 +8,7 @@ use crate::ast::ParsedFile;
 use crate::cpg::CodePropertyGraph;
 use crate::diff::{DiffBlock, DiffInput, ModifyType};
 use crate::slice::{SliceFinding, SliceResult, SlicingAlgorithm};
+use crate::type_db::TypeDatabase;
 use anyhow::Result;
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -255,9 +256,10 @@ pub fn slice(
     files: &BTreeMap<String, ParsedFile>,
     diff: &DiffInput,
     taint_config: &TaintConfig,
+    type_db: Option<&TypeDatabase>,
 ) -> Result<SliceResult> {
     let mut result = SliceResult::new(SlicingAlgorithm::Taint);
-    let cpg = CodePropertyGraph::build(files);
+    let cpg = CodePropertyGraph::build_enriched(files, type_db);
 
     // Collect taint sources
     let mut taint_sources: Vec<(String, usize)> = taint_config.sources.clone();

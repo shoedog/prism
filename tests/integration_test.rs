@@ -255,7 +255,7 @@ function createClient(config: Config) {
 fn test_original_diff_python() {
     let (files, _, diff) = make_python_test();
     let config = SliceConfig::default().with_algorithm(SlicingAlgorithm::OriginalDiff);
-    let result = algorithms::run_slicing(&files, &diff, &config).unwrap();
+    let result = algorithms::run_slicing(&files, &diff, &config, None).unwrap();
     assert_eq!(result.blocks.len(), 1);
     assert_eq!(result.blocks[0].diff_lines.len(), 2);
     assert!(result.blocks[0].diff_lines.contains(&7));
@@ -266,7 +266,7 @@ fn test_original_diff_python() {
 fn test_original_diff_javascript() {
     let (files, _, diff) = make_javascript_test();
     let config = SliceConfig::default().with_algorithm(SlicingAlgorithm::OriginalDiff);
-    let result = algorithms::run_slicing(&files, &diff, &config).unwrap();
+    let result = algorithms::run_slicing(&files, &diff, &config, None).unwrap();
     assert_eq!(result.blocks.len(), 1);
     assert_eq!(result.blocks[0].diff_lines.len(), 2);
 }
@@ -277,7 +277,7 @@ fn test_original_diff_javascript() {
 fn test_parent_function_python() {
     let (files, sources, diff) = make_python_test();
     let config = SliceConfig::default().with_algorithm(SlicingAlgorithm::ParentFunction);
-    let result = algorithms::run_slicing(&files, &diff, &config).unwrap();
+    let result = algorithms::run_slicing(&files, &diff, &config, None).unwrap();
 
     // Should include the entire calculate function
     assert!(!result.blocks.is_empty());
@@ -297,7 +297,7 @@ fn test_parent_function_python() {
 fn test_parent_function_go() {
     let (files, sources, diff) = make_go_test();
     let config = SliceConfig::default().with_algorithm(SlicingAlgorithm::ParentFunction);
-    let result = algorithms::run_slicing(&files, &diff, &config).unwrap();
+    let result = algorithms::run_slicing(&files, &diff, &config, None).unwrap();
 
     assert!(!result.blocks.is_empty());
     let formatted = output::format_slice_result(&result.blocks, &sources);
@@ -308,7 +308,7 @@ fn test_parent_function_go() {
 fn test_parent_function_java() {
     let (files, sources, diff) = make_java_test();
     let config = SliceConfig::default().with_algorithm(SlicingAlgorithm::ParentFunction);
-    let result = algorithms::run_slicing(&files, &diff, &config).unwrap();
+    let result = algorithms::run_slicing(&files, &diff, &config, None).unwrap();
 
     assert!(!result.blocks.is_empty());
     let formatted = output::format_slice_result(&result.blocks, &sources);
@@ -321,7 +321,7 @@ fn test_parent_function_java() {
 fn test_left_flow_python() {
     let (files, sources, diff) = make_python_test();
     let config = SliceConfig::default().with_algorithm(SlicingAlgorithm::LeftFlow);
-    let result = algorithms::run_slicing(&files, &diff, &config).unwrap();
+    let result = algorithms::run_slicing(&files, &diff, &config, None).unwrap();
 
     assert!(!result.blocks.is_empty());
     let block = &result.blocks[0];
@@ -343,7 +343,7 @@ fn test_left_flow_python() {
 fn test_left_flow_javascript() {
     let (files, sources, diff) = make_javascript_test();
     let config = SliceConfig::default().with_algorithm(SlicingAlgorithm::LeftFlow);
-    let result = algorithms::run_slicing(&files, &diff, &config).unwrap();
+    let result = algorithms::run_slicing(&files, &diff, &config, None).unwrap();
 
     assert!(!result.blocks.is_empty());
     let formatted = output::format_slice_result(&result.blocks, &sources);
@@ -359,7 +359,7 @@ fn test_left_flow_javascript() {
 fn test_left_flow_typescript() {
     let (files, _, diff) = make_typescript_test();
     let config = SliceConfig::default().with_algorithm(SlicingAlgorithm::LeftFlow);
-    let result = algorithms::run_slicing(&files, &diff, &config).unwrap();
+    let result = algorithms::run_slicing(&files, &diff, &config, None).unwrap();
     assert!(!result.blocks.is_empty());
 }
 
@@ -369,7 +369,7 @@ fn test_left_flow_typescript() {
 fn test_full_flow_python() {
     let (files, sources, diff) = make_python_test();
     let config = SliceConfig::default().with_algorithm(SlicingAlgorithm::FullFlow);
-    let result = algorithms::run_slicing(&files, &diff, &config).unwrap();
+    let result = algorithms::run_slicing(&files, &diff, &config, None).unwrap();
 
     assert!(!result.blocks.is_empty());
     let block = &result.blocks[0];
@@ -386,7 +386,7 @@ fn test_full_flow_python() {
 fn test_full_flow_go() {
     let (files, sources, diff) = make_go_test();
     let config = SliceConfig::default().with_algorithm(SlicingAlgorithm::FullFlow);
-    let result = algorithms::run_slicing(&files, &diff, &config).unwrap();
+    let result = algorithms::run_slicing(&files, &diff, &config, None).unwrap();
 
     assert!(!result.blocks.is_empty());
     let formatted = output::format_slice_result(&result.blocks, &sources);
@@ -397,7 +397,7 @@ fn test_full_flow_go() {
 fn test_full_flow_java() {
     let (files, sources, diff) = make_java_test();
     let config = SliceConfig::default().with_algorithm(SlicingAlgorithm::FullFlow);
-    let result = algorithms::run_slicing(&files, &diff, &config).unwrap();
+    let result = algorithms::run_slicing(&files, &diff, &config, None).unwrap();
 
     assert!(!result.blocks.is_empty());
     let formatted = output::format_slice_result(&result.blocks, &sources);
@@ -414,6 +414,7 @@ fn test_increasing_context() {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::OriginalDiff),
+        None,
     )
     .unwrap();
 
@@ -421,6 +422,7 @@ fn test_increasing_context() {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::ParentFunction),
+        None,
     )
     .unwrap();
 
@@ -428,6 +430,7 @@ fn test_increasing_context() {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::LeftFlow),
+        None,
     )
     .unwrap();
 
@@ -435,6 +438,7 @@ fn test_increasing_context() {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::FullFlow),
+        None,
     )
     .unwrap();
 
@@ -464,7 +468,7 @@ fn test_increasing_context() {
 fn test_paper_format_output() {
     let (files, _, diff) = make_python_test();
     let config = SliceConfig::default().with_algorithm(SlicingAlgorithm::OriginalDiff);
-    let result = algorithms::run_slicing(&files, &diff, &config).unwrap();
+    let result = algorithms::run_slicing(&files, &diff, &config, None).unwrap();
 
     let paper = output::to_paper_format(&result.blocks);
     assert!(paper.is_array());
@@ -479,7 +483,7 @@ fn test_paper_format_output() {
 fn test_text_format_output() {
     let (files, sources, diff) = make_python_test();
     let config = SliceConfig::default().with_algorithm(SlicingAlgorithm::ParentFunction);
-    let result = algorithms::run_slicing(&files, &diff, &config).unwrap();
+    let result = algorithms::run_slicing(&files, &diff, &config, None).unwrap();
 
     let text = output::format_slice_result(&result.blocks, &sources);
     // Should have diff markers
@@ -556,6 +560,7 @@ fn test_thin_slice_subset_of_leftflow() {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::ThinSlice),
+        None,
     )
     .unwrap();
 
@@ -563,6 +568,7 @@ fn test_thin_slice_subset_of_leftflow() {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::LeftFlow),
+        None,
     )
     .unwrap();
 
@@ -592,6 +598,7 @@ fn test_thin_slice_has_data_deps() {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::ThinSlice),
+        None,
     )
     .unwrap();
 
@@ -614,6 +621,7 @@ fn test_barrier_slice_python() {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::BarrierSlice),
+        None,
     )
     .unwrap();
 
@@ -630,6 +638,7 @@ fn test_taint_from_diff() {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::Taint),
+        None,
     )
     .unwrap();
 
@@ -646,6 +655,7 @@ fn test_relevant_slice_includes_alternates() {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::RelevantSlice),
+        None,
     )
     .unwrap();
 
@@ -658,6 +668,7 @@ fn test_relevant_slice_includes_alternates() {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::LeftFlow),
+        None,
     )
     .unwrap();
 
@@ -689,6 +700,7 @@ fn test_spiral_slice_ring_containment() {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::SpiralSlice),
+        None,
     )
     .unwrap();
 
@@ -699,6 +711,7 @@ fn test_spiral_slice_ring_containment() {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::OriginalDiff),
+        None,
     )
     .unwrap();
 
@@ -760,6 +773,7 @@ fn test_circular_slice_detects_cycle() {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::CircularSlice),
+        None,
     )
     .unwrap();
 
@@ -809,6 +823,7 @@ def handle_delete(request):
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::HorizontalSlice),
+        None,
     )
     .unwrap();
 
@@ -832,6 +847,7 @@ fn test_vertical_slice_traces_layers() {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::VerticalSlice),
+        None,
     )
     .unwrap();
 
@@ -1043,6 +1059,7 @@ fn test_absence_slice_detects_missing_close() {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::AbsenceSlice),
+        None,
     )
     .unwrap();
 
@@ -1086,6 +1103,7 @@ fn test_symmetry_slice_finds_counterpart() {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::SymmetrySlice),
+        None,
     )
     .unwrap();
 
@@ -1103,6 +1121,7 @@ fn test_gradient_slice_scores_decay() {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::GradientSlice),
+        None,
     )
     .unwrap();
 
@@ -1133,6 +1152,7 @@ fn test_provenance_slice_traces_origins() {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::ProvenanceSlice),
+        None,
     )
     .unwrap();
 
@@ -1149,6 +1169,7 @@ fn test_membrane_slice_finds_callers() {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::MembraneSlice),
+        None,
     )
     .unwrap();
 
@@ -1165,6 +1186,7 @@ fn test_echo_slice_finds_ripple() {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::EchoSlice),
+        None,
     )
     .unwrap();
 
@@ -1181,6 +1203,7 @@ fn test_resonance_slice_runs() {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::ResonanceSlice),
+        None,
     )
     .unwrap();
 
@@ -1197,6 +1220,7 @@ fn test_phantom_slice_runs() {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::PhantomSlice),
+        None,
     )
     .unwrap();
 
@@ -1539,7 +1563,7 @@ fn test_cpp_parses_and_finds_methods() {
 fn test_left_flow_c() {
     let (files, sources, diff) = make_c_test();
     let config = SliceConfig::default().with_algorithm(SlicingAlgorithm::LeftFlow);
-    let result = algorithms::run_slicing(&files, &diff, &config).unwrap();
+    let result = algorithms::run_slicing(&files, &diff, &config, None).unwrap();
 
     assert!(
         !result.blocks.is_empty(),
@@ -1559,7 +1583,7 @@ fn test_left_flow_c() {
 fn test_left_flow_cpp() {
     let (files, sources, diff) = make_cpp_test();
     let config = SliceConfig::default().with_algorithm(SlicingAlgorithm::LeftFlow);
-    let result = algorithms::run_slicing(&files, &diff, &config).unwrap();
+    let result = algorithms::run_slicing(&files, &diff, &config, None).unwrap();
 
     assert!(
         !result.blocks.is_empty(),
@@ -1580,7 +1604,7 @@ fn test_left_flow_cpp() {
 fn test_full_flow_c() {
     let (files, sources, diff) = make_c_test();
     let config = SliceConfig::default().with_algorithm(SlicingAlgorithm::FullFlow);
-    let result = algorithms::run_slicing(&files, &diff, &config).unwrap();
+    let result = algorithms::run_slicing(&files, &diff, &config, None).unwrap();
 
     assert!(
         !result.blocks.is_empty(),
@@ -1597,7 +1621,7 @@ fn test_full_flow_c() {
 fn test_full_flow_cpp() {
     let (files, sources, diff) = make_cpp_test();
     let config = SliceConfig::default().with_algorithm(SlicingAlgorithm::FullFlow);
-    let result = algorithms::run_slicing(&files, &diff, &config).unwrap();
+    let result = algorithms::run_slicing(&files, &diff, &config, None).unwrap();
 
     assert!(
         !result.blocks.is_empty(),
@@ -1641,6 +1665,7 @@ int leaky_function(int size) {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::AbsenceSlice),
+        None,
     )
     .unwrap();
 
@@ -1679,6 +1704,7 @@ int leaky_function(int size) {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::AbsenceSlice),
+        None,
     )
     .unwrap();
 
@@ -1698,6 +1724,7 @@ fn test_taint_c_buffer_overflow() {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::Taint),
+        None,
     )
     .unwrap();
 
@@ -1749,6 +1776,7 @@ fn test_echo_slice_c() {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::EchoSlice),
+        None,
     )
     .unwrap();
 
@@ -1766,6 +1794,7 @@ fn test_membrane_slice_c() {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::MembraneSlice),
+        None,
     )
     .unwrap();
 
@@ -1782,6 +1811,7 @@ fn test_symmetry_slice_c() {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::SymmetrySlice),
+        None,
     )
     .unwrap();
 
@@ -1818,6 +1848,7 @@ fn test_gradient_slice_c() {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::GradientSlice),
+        None,
     )
     .unwrap();
 
@@ -1869,6 +1900,7 @@ int main() {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::QuantumSlice),
+        None,
     )
     .unwrap();
 
@@ -1884,6 +1916,7 @@ fn test_provenance_slice_c() {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::ProvenanceSlice),
+        None,
     )
     .unwrap();
 
@@ -1927,6 +1960,7 @@ public:
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::SymmetrySlice),
+        None,
     )
     .unwrap();
 
@@ -2037,6 +2071,7 @@ fn test_review_output_format_single_algorithm() {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::LeftFlow),
+        None,
     )
     .unwrap();
 
@@ -2068,9 +2103,13 @@ fn test_review_output_json_schema_multi() {
     let algorithms_to_run = vec![SlicingAlgorithm::LeftFlow, SlicingAlgorithm::ThinSlice];
     let mut results = vec![];
     for &algo in &algorithms_to_run {
-        let r =
-            algorithms::run_slicing(&files, &diff, &SliceConfig::default().with_algorithm(algo))
-                .unwrap();
+        let r = algorithms::run_slicing(
+            &files,
+            &diff,
+            &SliceConfig::default().with_algorithm(algo),
+            None,
+        )
+        .unwrap();
         results.push(r);
     }
 
@@ -2132,6 +2171,7 @@ fn test_taint_findings_populated() {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::Taint),
+        None,
     )
     .unwrap();
 
@@ -2162,6 +2202,7 @@ fn test_absence_findings_populated() {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::AbsenceSlice),
+        None,
     )
     .unwrap();
 
@@ -2189,7 +2230,12 @@ fn test_multi_algorithm_findings_merged() {
     let mut errors = vec![];
 
     for &algo in &algorithms_to_run {
-        match algorithms::run_slicing(&files, &diff, &SliceConfig::default().with_algorithm(algo)) {
+        match algorithms::run_slicing(
+            &files,
+            &diff,
+            &SliceConfig::default().with_algorithm(algo),
+            None,
+        ) {
             Ok(r) => all_results.push(r),
             Err(e) => errors.push(e.to_string()),
         }
@@ -2448,6 +2494,7 @@ fn test_snmp_overflow_original_diff() {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::OriginalDiff),
+        None,
     )
     .unwrap();
 
@@ -2473,6 +2520,7 @@ fn test_snmp_overflow_parent_function() {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::ParentFunction),
+        None,
     )
     .unwrap();
 
@@ -2489,6 +2537,7 @@ fn test_snmp_overflow_left_flow() {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::LeftFlow),
+        None,
     )
     .unwrap();
 
@@ -2505,6 +2554,7 @@ fn test_snmp_overflow_thin_slice() {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::ThinSlice),
+        None,
     )
     .unwrap();
 
@@ -2521,6 +2571,7 @@ fn test_onu_state_machine_original_diff() {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::OriginalDiff),
+        None,
     )
     .unwrap();
 
@@ -2546,6 +2597,7 @@ fn test_onu_state_machine_left_flow() {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::LeftFlow),
+        None,
     )
     .unwrap();
 
@@ -2562,6 +2614,7 @@ fn test_double_free_original_diff() {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::OriginalDiff),
+        None,
     )
     .unwrap();
 
@@ -2587,6 +2640,7 @@ fn test_double_free_thin_slice() {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::ThinSlice),
+        None,
     )
     .unwrap();
 
@@ -2603,6 +2657,7 @@ fn test_double_free_left_flow() {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::LeftFlow),
+        None,
     )
     .unwrap();
 
@@ -2619,6 +2674,7 @@ fn test_ring_overflow_original_diff() {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::OriginalDiff),
+        None,
     )
     .unwrap();
 
@@ -2644,6 +2700,7 @@ fn test_ring_overflow_thin_slice() {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::ThinSlice),
+        None,
     )
     .unwrap();
 
@@ -2660,6 +2717,7 @@ fn test_ring_overflow_left_flow() {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::LeftFlow),
+        None,
     )
     .unwrap();
 
@@ -2676,6 +2734,7 @@ fn test_timer_uaf_original_diff() {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::OriginalDiff),
+        None,
     )
     .unwrap();
 
@@ -2701,6 +2760,7 @@ fn test_timer_uaf_thin_slice() {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::ThinSlice),
+        None,
     )
     .unwrap();
 
@@ -2717,6 +2777,7 @@ fn test_timer_uaf_left_flow() {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::LeftFlow),
+        None,
     )
     .unwrap();
 
@@ -2795,6 +2856,7 @@ fn test_large_function_original_diff() {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::OriginalDiff),
+        None,
     )
     .unwrap();
 
@@ -2816,6 +2878,7 @@ fn test_large_function_left_flow() {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::LeftFlow),
+        None,
     )
     .unwrap();
 
@@ -2832,6 +2895,7 @@ fn test_large_function_thin_slice() {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::ThinSlice),
+        None,
     )
     .unwrap();
 
@@ -2848,6 +2912,7 @@ fn test_macro_heavy_original_diff() {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::OriginalDiff),
+        None,
     )
     .unwrap();
 
@@ -2869,6 +2934,7 @@ fn test_macro_heavy_left_flow() {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::LeftFlow),
+        None,
     )
     .unwrap();
 
@@ -2885,6 +2951,7 @@ fn test_deep_switch_original_diff() {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::OriginalDiff),
+        None,
     )
     .unwrap();
 
@@ -2906,6 +2973,7 @@ fn test_deep_switch_left_flow() {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::LeftFlow),
+        None,
     )
     .unwrap();
 
@@ -2922,6 +2990,7 @@ fn test_deep_switch_thin_slice() {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::ThinSlice),
+        None,
     )
     .unwrap();
 
@@ -3051,6 +3120,7 @@ void process_input(const char *input) {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::Taint),
+        None,
     )
     .unwrap();
 
@@ -3094,6 +3164,7 @@ void handle_cmd(const char *user_fmt) {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::Taint),
+        None,
     )
     .unwrap();
 
@@ -3135,6 +3206,7 @@ void copy_data(const char *network_data) {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::Taint),
+        None,
     )
     .unwrap();
 
@@ -3178,6 +3250,7 @@ int read_sensor(int fd, int cmd) {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::ProvenanceSlice),
+        None,
     )
     .unwrap();
 
@@ -3226,6 +3299,7 @@ int handle_socket(int sock) {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::ProvenanceSlice),
+        None,
     )
     .unwrap();
 
@@ -3271,6 +3345,7 @@ void init_paths() {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::ProvenanceSlice),
+        None,
     )
     .unwrap();
 
@@ -3319,6 +3394,7 @@ void alloc_dev_buffer(int size) {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::AbsenceSlice),
+        None,
     )
     .unwrap();
 
@@ -3370,6 +3446,7 @@ void update_counter(spinlock_t *lock) {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::AbsenceSlice),
+        None,
     )
     .unwrap();
 
@@ -3420,6 +3497,7 @@ void process_data() {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::AbsenceSlice),
+        None,
     )
     .unwrap();
 
@@ -3461,6 +3539,7 @@ void hold_resource() {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::AbsenceSlice),
+        None,
     )
     .unwrap();
 
@@ -3704,6 +3783,7 @@ void copy_indirect(const char *src, char *dst) {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::Taint),
+        None,
     )
     .unwrap();
 
@@ -3747,6 +3827,7 @@ void update_dev(Dev *dev, int n) {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::Taint),
+        None,
     )
     .unwrap();
 
@@ -4051,6 +4132,7 @@ void quick_init(void) {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::MembraneSlice),
+        None,
     )
     .unwrap();
 
@@ -4123,6 +4205,7 @@ int use_buffer(void) {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::MembraneSlice),
+        None,
     )
     .unwrap();
 
@@ -4254,6 +4337,7 @@ int run_pipeline(struct operations *ops, int *data, int len) {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::MembraneSlice),
+        None,
     )
     .unwrap();
 
@@ -4319,6 +4403,7 @@ void dispatch(handler_t *handler, int data) {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::CircularSlice),
+        None,
     )
     .unwrap();
 
@@ -4561,6 +4646,7 @@ int run(int *data, int len) {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::MembraneSlice),
+        None,
     )
     .unwrap();
 
@@ -4615,6 +4701,7 @@ void setup(void) {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::QuantumSlice),
+        None,
     )
     .unwrap();
 
@@ -4663,6 +4750,7 @@ void start_worker(void) {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::QuantumSlice),
+        None,
     )
     .unwrap();
 
@@ -4720,6 +4808,7 @@ int eth_probe(struct device *dev) {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::QuantumSlice),
+        None,
     )
     .unwrap();
 
@@ -4922,6 +5011,7 @@ int run_b(void) {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::MembraneSlice),
+        None,
     )
     .unwrap();
 
@@ -4967,6 +5057,7 @@ def handle_request(user_data):
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::Taint),
+        None,
     )
     .unwrap();
 
@@ -5008,6 +5099,7 @@ def run_command(user_cmd):
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::Taint),
+        None,
     )
     .unwrap();
 
@@ -5049,6 +5141,7 @@ function displayMessage(userInput) {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::Taint),
+        None,
     )
     .unwrap();
 
@@ -5091,6 +5184,7 @@ function runCmd(userCmd) {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::Taint),
+        None,
     )
     .unwrap();
 
@@ -5136,6 +5230,7 @@ func runUserCmd(userInput string) {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::Taint),
+        None,
     )
     .unwrap();
 
@@ -5179,6 +5274,7 @@ func renderUnsafe(userHTML string) template.HTML {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::Taint),
+        None,
     )
     .unwrap();
 
@@ -5221,6 +5317,7 @@ def handle_login():
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::ProvenanceSlice),
+        None,
     )
     .unwrap();
 
@@ -5269,6 +5366,7 @@ def get_user(user_id):
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::ProvenanceSlice),
+        None,
     )
     .unwrap();
 
@@ -5315,6 +5413,7 @@ function getCookieValue() {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::ProvenanceSlice),
+        None,
     )
     .unwrap();
 
@@ -5350,6 +5449,7 @@ function getPort() {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::ProvenanceSlice),
+        None,
     )
     .unwrap();
 
@@ -5399,6 +5499,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::ProvenanceSlice),
+        None,
     )
     .unwrap();
 
@@ -5446,6 +5547,7 @@ func loadConfig() string {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::ProvenanceSlice),
+        None,
     )
     .unwrap();
 
@@ -5495,6 +5597,7 @@ def process_data(data):
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::AbsenceSlice),
+        None,
     )
     .unwrap();
 
@@ -5541,6 +5644,7 @@ def create_temp():
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::AbsenceSlice),
+        None,
     )
     .unwrap();
 
@@ -5581,6 +5685,7 @@ function readFile(path) {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::AbsenceSlice),
+        None,
     )
     .unwrap();
 
@@ -5619,6 +5724,7 @@ function writeData(path, data) {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::AbsenceSlice),
+        None,
     )
     .unwrap();
 
@@ -5661,6 +5767,7 @@ func doWork(parent context.Context) {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::AbsenceSlice),
+        None,
     )
     .unwrap();
 
@@ -5711,6 +5818,7 @@ func fetchURL(url string) string {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::AbsenceSlice),
+        None,
     )
     .unwrap();
 
@@ -5752,6 +5860,7 @@ def worker(data):
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::QuantumSlice),
+        None,
     )
     .unwrap();
 
@@ -5791,6 +5900,7 @@ function processData(data) {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::QuantumSlice),
+        None,
     )
     .unwrap();
 
@@ -5836,6 +5946,7 @@ func fanIn(ch1 chan int, ch2 chan int) int {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::QuantumSlice),
+        None,
     )
     .unwrap();
 
@@ -5885,6 +5996,7 @@ def get_api_data(url):
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::MembraneSlice),
+        None,
     )
     .unwrap();
 
@@ -5944,6 +6056,7 @@ func doWork() error {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::MembraneSlice),
+        None,
     )
     .unwrap();
 
@@ -5985,6 +6098,7 @@ function processInput(input) {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::Taint),
+        None,
     )
     .unwrap();
 
@@ -6030,6 +6144,7 @@ func renderSafe(userInput string) string {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::Taint),
+        None,
     )
     .unwrap();
 
@@ -6065,6 +6180,7 @@ def process_files(data):
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::Taint),
+        None,
     )
     .unwrap();
 
@@ -6117,6 +6233,7 @@ void init_system(void) {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::EchoSlice),
+        None,
     )
     .unwrap();
 
@@ -6165,6 +6282,7 @@ void init_system(void) {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::EchoSlice),
+        None,
     )
     .unwrap();
 
@@ -6224,6 +6342,7 @@ func handleRequest(url string) {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::EchoSlice),
+        None,
     )
     .unwrap();
 
@@ -6277,6 +6396,7 @@ def process_data(host):
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::EchoSlice),
+        None,
     )
     .unwrap();
 
@@ -6366,6 +6486,7 @@ fn run_command(user_input: &str) {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::Taint),
+        None,
     )
     .unwrap();
 
@@ -6400,6 +6521,7 @@ fn process(data: &str) -> i32 {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::OriginalDiff),
+        None,
     )
     .unwrap();
 
@@ -6435,6 +6557,7 @@ fn process(data: &str) -> i32 {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::ParentFunction),
+        None,
     )
     .unwrap();
 
@@ -6478,6 +6601,7 @@ def transform_data(raw):
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::ProvenanceSlice),
+        None,
     )
     .unwrap();
 
@@ -6522,6 +6646,7 @@ function prefetchAssets(urls) {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::ProvenanceSlice),
+        None,
     )
     .unwrap();
 
@@ -6606,6 +6731,7 @@ end
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::Taint),
+        None,
     )
     .unwrap();
 
@@ -6641,6 +6767,7 @@ end
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::ParentFunction),
+        None,
     )
     .unwrap();
 
@@ -6677,6 +6804,7 @@ end
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::AbsenceSlice),
+        None,
     )
     .unwrap();
 
@@ -6716,6 +6844,7 @@ end
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::QuantumSlice),
+        None,
     )
     .unwrap();
 
@@ -6753,6 +6882,7 @@ fn dangerous(data: &[u8]) {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::Taint),
+        None,
     )
     .unwrap();
 
@@ -6787,6 +6917,7 @@ fn rebuild_slice(ptr: *const u8, len: usize) {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::Taint),
+        None,
     )
     .unwrap();
 
@@ -6821,6 +6952,7 @@ fn get_input() -> String {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::ProvenanceSlice),
+        None,
     )
     .unwrap();
 
@@ -6859,6 +6991,7 @@ fn get_users(conn: &PgConnection) {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::ProvenanceSlice),
+        None,
     )
     .unwrap();
 
@@ -6897,6 +7030,7 @@ fn get_config() {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::ProvenanceSlice),
+        None,
     )
     .unwrap();
 
@@ -6938,6 +7072,7 @@ fn write_data(path: &str) {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::AbsenceSlice),
+        None,
     )
     .unwrap();
 
@@ -6974,6 +7109,7 @@ fn setup_cmd() {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::AbsenceSlice),
+        None,
     )
     .unwrap();
 
@@ -7008,6 +7144,7 @@ fn do_unsafe_stuff(ptr: *const u8) -> u8 {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::AbsenceSlice),
+        None,
     )
     .unwrap();
 
@@ -7054,6 +7191,7 @@ fn caller() -> Result<(), Box<dyn std::error::Error>> {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::MembraneSlice),
+        None,
     )
     .unwrap();
 
@@ -7095,6 +7233,7 @@ async fn process(data: Vec<u8>) {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::QuantumSlice),
+        None,
     )
     .unwrap();
 
@@ -7132,6 +7271,7 @@ end
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::Taint),
+        None,
     )
     .unwrap();
 
@@ -7166,6 +7306,7 @@ end
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::Taint),
+        None,
     )
     .unwrap();
 
@@ -7200,6 +7341,7 @@ end
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::ProvenanceSlice),
+        None,
     )
     .unwrap();
 
@@ -7238,6 +7380,7 @@ end
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::ProvenanceSlice),
+        None,
     )
     .unwrap();
 
@@ -7279,6 +7422,7 @@ end
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::AbsenceSlice),
+        None,
     )
     .unwrap();
 
@@ -7326,6 +7470,7 @@ end
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::MembraneSlice),
+        None,
     )
     .unwrap();
 
@@ -7364,6 +7509,7 @@ end
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::ProvenanceSlice),
+        None,
     )
     .unwrap();
 
@@ -7437,6 +7583,7 @@ void quick_setup() {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::MembraneSlice),
+        None,
     )
     .unwrap();
 
@@ -7520,6 +7667,7 @@ void unsafe_init() {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::MembraneSlice),
+        None,
     )
     .unwrap();
 
@@ -7588,6 +7736,7 @@ void safe_update(int val) {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::MembraneSlice),
+        None,
     )
     .unwrap();
 
@@ -7648,6 +7797,7 @@ void connect() {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::MembraneSlice),
+        None,
     )
     .unwrap();
 
@@ -7861,6 +8011,7 @@ void run(void) {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::MembraneSlice),
+        None,
     )
     .unwrap();
 
@@ -7964,6 +8115,7 @@ cleanup:
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::AbsenceSlice),
+        None,
     )
     .unwrap();
 
@@ -8024,6 +8176,7 @@ err_buf:
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::AbsenceSlice),
+        None,
     )
     .unwrap();
 
@@ -8082,6 +8235,7 @@ err:
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::AbsenceSlice),
+        None,
     )
     .unwrap();
 
@@ -8129,6 +8283,7 @@ void log_message(const char *user_msg) {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::Taint),
+        None,
     )
     .unwrap();
 
@@ -8177,6 +8332,7 @@ void copy_payload(const char *input, size_t input_len) {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::Taint),
+        None,
     )
     .unwrap();
 
@@ -8227,6 +8383,7 @@ void handle_request(void) {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::Taint),
+        None,
     )
     .unwrap();
 
@@ -8240,6 +8397,7 @@ void handle_request(void) {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::ProvenanceSlice),
+        None,
     )
     .unwrap();
 
@@ -8282,6 +8440,7 @@ void alloc_records(unsigned int count) {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::Taint),
+        None,
     )
     .unwrap();
 
@@ -8327,6 +8486,7 @@ void process_timer(timer_t *timer) {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::Taint),
+        None,
     )
     .unwrap();
 
@@ -8370,6 +8530,7 @@ void log_msg(const char *user_input) {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::Taint),
+        None,
     )
     .unwrap();
 
@@ -8419,6 +8580,7 @@ void handle_request(const char *user_input) {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::Taint),
+        None,
     )
     .unwrap();
 
@@ -8465,6 +8627,7 @@ void process(const char *input) {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::Taint),
+        None,
     )
     .unwrap();
 
@@ -8507,6 +8670,7 @@ void handler(const char *input) {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::Taint),
+        None,
     )
     .unwrap();
 
@@ -8679,6 +8843,7 @@ void handle(struct req *dev) {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::Taint),
+        None,
     )
     .unwrap();
 
@@ -8979,6 +9144,7 @@ void process(struct device *dev, const char *input) {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::Taint),
+        None,
     )
     .unwrap();
 
@@ -9045,6 +9211,7 @@ void handle(struct request *req) {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::ProvenanceSlice),
+        None,
     )
     .unwrap();
 
@@ -9118,7 +9285,7 @@ print(result)
         sink_file: path.to_string(),
         sink_line: 5,
     };
-    let result = prism::algorithms::chop::slice(&files, &config).unwrap();
+    let result = prism::algorithms::chop::slice(&files, &config, None).unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::Chop);
 }
 
@@ -9148,7 +9315,7 @@ func transform(s string) string { return s }
         sink_file: path.to_string(),
         sink_line: 6,
     };
-    let result = prism::algorithms::chop::slice(&files, &config).unwrap();
+    let result = prism::algorithms::chop::slice(&files, &config, None).unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::Chop);
 }
 
@@ -9175,7 +9342,7 @@ function process(o) { return o.value; }
         sink_file: path.to_string(),
         sink_line: 5,
     };
-    let result = prism::algorithms::chop::slice(&files, &config).unwrap();
+    let result = prism::algorithms::chop::slice(&files, &config, None).unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::Chop);
 }
 
@@ -9200,7 +9367,7 @@ fn test_delta_slice_python() {
         }],
     };
 
-    let result = prism::algorithms::delta_slice::slice(&files, &diff, tmp.path()).unwrap();
+    let result = prism::algorithms::delta_slice::slice(&files, &diff, tmp.path(), None).unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::DeltaSlice);
 }
 
@@ -9226,7 +9393,7 @@ fn test_delta_slice_go() {
         }],
     };
 
-    let result = prism::algorithms::delta_slice::slice(&files, &diff, tmp.path()).unwrap();
+    let result = prism::algorithms::delta_slice::slice(&files, &diff, tmp.path(), None).unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::DeltaSlice);
 }
 
@@ -9296,7 +9463,7 @@ fn test_threed_slice_python() {
         temporal_days: 365,
         git_dir: tmp.path().to_string_lossy().to_string(),
     };
-    let result = prism::algorithms::threed_slice::slice(&files, &diff, &config).unwrap();
+    let result = prism::algorithms::threed_slice::slice(&files, &diff, &config, None).unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::ThreeDSlice);
     assert!(
         !result.blocks.is_empty(),
@@ -9334,7 +9501,7 @@ fn test_threed_slice_go() {
         temporal_days: 365,
         git_dir: tmp.path().to_string_lossy().to_string(),
     };
-    let result = prism::algorithms::threed_slice::slice(&files, &diff, &config).unwrap();
+    let result = prism::algorithms::threed_slice::slice(&files, &diff, &config, None).unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::ThreeDSlice);
 
     let _ = std::fs::remove_dir_all(&tmp);
@@ -9659,7 +9826,8 @@ def caller():
         auto_stop_threshold: 0.0,
     };
     let result =
-        prism::algorithms::spiral_slice::slice(&files, &diff, &config, &spiral_config).unwrap();
+        prism::algorithms::spiral_slice::slice(&files, &diff, &config, &spiral_config, None)
+            .unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::SpiralSlice);
     assert!(!result.blocks.is_empty());
 }
@@ -9701,7 +9869,8 @@ func main() {
         auto_stop_threshold: 0.0,
     };
     let result =
-        prism::algorithms::spiral_slice::slice(&files, &diff, &config, &spiral_config).unwrap();
+        prism::algorithms::spiral_slice::slice(&files, &diff, &config, &spiral_config, None)
+            .unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::SpiralSlice);
     assert!(!result.blocks.is_empty());
 }
@@ -9715,7 +9884,8 @@ fn test_spiral_slice_ring1_only_python() {
         auto_stop_threshold: 0.0,
     };
     let result =
-        prism::algorithms::spiral_slice::slice(&files, &diff, &config, &spiral_config).unwrap();
+        prism::algorithms::spiral_slice::slice(&files, &diff, &config, &spiral_config, None)
+            .unwrap();
     assert!(!result.blocks.is_empty());
 }
 
@@ -9885,6 +10055,7 @@ def repo_save(data):
         &files,
         &diff,
         &prism::algorithms::vertical_slice::VerticalConfig::default(),
+        None,
     )
     .unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::VerticalSlice);
@@ -9925,6 +10096,7 @@ func repository(key string) string {
         &files,
         &diff,
         &prism::algorithms::vertical_slice::VerticalConfig::default(),
+        None,
     )
     .unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::VerticalSlice);
@@ -10007,6 +10179,7 @@ fn test_thin_slice_python() {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::ThinSlice),
+        None,
     )
     .unwrap();
     assert!(!result.blocks.is_empty());
@@ -10019,6 +10192,7 @@ fn test_thin_slice_go() {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::ThinSlice),
+        None,
     )
     .unwrap();
     assert!(!result.blocks.is_empty());
@@ -10031,6 +10205,7 @@ fn test_thin_slice_typescript() {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::ThinSlice),
+        None,
     )
     .unwrap();
     assert!(!result.blocks.is_empty());
@@ -10043,6 +10218,7 @@ fn test_thin_slice_java() {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::ThinSlice),
+        None,
     )
     .unwrap();
     assert!(!result.blocks.is_empty());
@@ -10074,6 +10250,7 @@ end
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::ThinSlice),
+        None,
     )
     .unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::ThinSlice);
@@ -10105,6 +10282,7 @@ fn compute(x: i32) -> i32 {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::ThinSlice),
+        None,
     )
     .unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::ThinSlice);
@@ -10117,6 +10295,7 @@ fn test_thin_slice_cpp() {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::ThinSlice),
+        None,
     )
     .unwrap();
     assert!(!result.blocks.is_empty());
@@ -10129,6 +10308,7 @@ fn test_thin_slice_c() {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::ThinSlice),
+        None,
     )
     .unwrap();
     assert!(!result.blocks.is_empty());
@@ -10141,6 +10321,7 @@ fn test_barrier_slice_go() {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::BarrierSlice),
+        None,
     )
     .unwrap();
     assert!(!result.blocks.is_empty());
@@ -10153,6 +10334,7 @@ fn test_barrier_slice_javascript() {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::BarrierSlice),
+        None,
     )
     .unwrap();
     assert!(!result.blocks.is_empty());
@@ -10165,6 +10347,7 @@ fn test_relevant_slice_python() {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::RelevantSlice),
+        None,
     )
     .unwrap();
     assert!(!result.blocks.is_empty());
@@ -10177,6 +10360,7 @@ fn test_relevant_slice_go() {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::RelevantSlice),
+        None,
     )
     .unwrap();
     assert!(!result.blocks.is_empty());
@@ -10206,6 +10390,7 @@ def b(y):
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::CircularSlice),
+        None,
     )
     .unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::CircularSlice);
@@ -10238,6 +10423,7 @@ func pong(n int) int {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::CircularSlice),
+        None,
     )
     .unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::CircularSlice);
@@ -10250,6 +10436,7 @@ fn test_gradient_slice_python() {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::GradientSlice),
+        None,
     )
     .unwrap();
     assert!(!result.blocks.is_empty());
@@ -10262,6 +10449,7 @@ fn test_gradient_slice_go() {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::GradientSlice),
+        None,
     )
     .unwrap();
     assert!(!result.blocks.is_empty());
@@ -10276,7 +10464,7 @@ fn test_full_flow_python_no_returns() {
         trace_callees: false,
         ..SliceConfig::default()
     };
-    let result = algorithms::run_slicing(&files, &diff, &config).unwrap();
+    let result = algorithms::run_slicing(&files, &diff, &config, None).unwrap();
     assert!(!result.blocks.is_empty());
 }
 
@@ -10284,7 +10472,7 @@ fn test_full_flow_python_no_returns() {
 fn test_full_flow_go_trace_callees() {
     let (files, _, diff) = make_go_test();
     let config = SliceConfig::default().with_algorithm(SlicingAlgorithm::FullFlow);
-    let result = algorithms::run_slicing(&files, &diff, &config).unwrap();
+    let result = algorithms::run_slicing(&files, &diff, &config, None).unwrap();
     assert!(!result.blocks.is_empty());
 }
 
@@ -10292,7 +10480,7 @@ fn test_full_flow_go_trace_callees() {
 fn test_full_flow_javascript() {
     let (files, _, diff) = make_javascript_test();
     let config = SliceConfig::default().with_algorithm(SlicingAlgorithm::FullFlow);
-    let result = algorithms::run_slicing(&files, &diff, &config).unwrap();
+    let result = algorithms::run_slicing(&files, &diff, &config, None).unwrap();
     assert!(!result.blocks.is_empty());
 }
 
@@ -10467,6 +10655,7 @@ def load(path):
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::SymmetrySlice),
+        None,
     )
     .unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::SymmetrySlice);
@@ -10501,6 +10690,7 @@ func decode(b []byte, v interface{}) error {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::SymmetrySlice),
+        None,
     )
     .unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::SymmetrySlice);
@@ -10531,6 +10721,7 @@ fn test_echo_slice_python_handler() {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::EchoSlice),
+        None,
     )
     .unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::EchoSlice);
@@ -10561,6 +10752,7 @@ fn test_echo_slice_javascript() {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::EchoSlice),
+        None,
     )
     .unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::EchoSlice);
@@ -10591,6 +10783,7 @@ fn test_membrane_slice_javascript() {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::MembraneSlice),
+        None,
     )
     .unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::MembraneSlice);
@@ -10614,6 +10807,7 @@ fn test_provenance_slice_javascript() {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::ProvenanceSlice),
+        None,
     )
     .unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::ProvenanceSlice);
@@ -10637,6 +10831,7 @@ fn test_absence_slice_javascript() {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::AbsenceSlice),
+        None,
     )
     .unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::AbsenceSlice);
@@ -10660,6 +10855,7 @@ fn test_absence_slice_go_open() {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::AbsenceSlice),
+        None,
     )
     .unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::AbsenceSlice);
@@ -10672,6 +10868,7 @@ fn test_original_diff_go() {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::OriginalDiff),
+        None,
     )
     .unwrap();
     assert!(!result.blocks.is_empty());
@@ -10684,6 +10881,7 @@ fn test_parent_function_typescript() {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::ParentFunction),
+        None,
     )
     .unwrap();
     assert!(!result.blocks.is_empty());
@@ -10696,6 +10894,7 @@ fn test_left_flow_go() {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::LeftFlow),
+        None,
     )
     .unwrap();
     assert!(!result.blocks.is_empty());
@@ -10708,6 +10907,7 @@ fn test_left_flow_java() {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::LeftFlow),
+        None,
     )
     .unwrap();
     assert!(!result.blocks.is_empty());
@@ -10742,6 +10942,7 @@ print(y)
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::ThinSlice),
+        None,
     )
     .unwrap();
     assert!(
@@ -10779,6 +10980,7 @@ def process():
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::ParentFunction),
+        None,
     )
     .unwrap();
     assert!(
@@ -10815,6 +11017,7 @@ func main() {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::ParentFunction),
+        None,
     )
     .unwrap();
     assert!(!result.blocks.is_empty());
@@ -10869,7 +11072,8 @@ def log_result(result):
     };
     let config = SliceConfig::default().with_algorithm(SlicingAlgorithm::BarrierSlice);
     let result =
-        prism::algorithms::barrier_slice::slice(&files, &diff, &config, &barrier_config).unwrap();
+        prism::algorithms::barrier_slice::slice(&files, &diff, &config, &barrier_config, None)
+            .unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::BarrierSlice);
 }
 
@@ -10906,7 +11110,7 @@ def repo_save(data):
             "Repository".to_string(),
         ],
     };
-    let result = prism::algorithms::vertical_slice::slice(&files, &diff, &config).unwrap();
+    let result = prism::algorithms::vertical_slice::slice(&files, &diff, &config, None).unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::VerticalSlice);
 }
 
@@ -10930,7 +11134,7 @@ fn test_delta_slice_missing_old_file_python() {
         }],
     };
 
-    let result = prism::algorithms::delta_slice::slice(&files, &diff, tmp.path()).unwrap();
+    let result = prism::algorithms::delta_slice::slice(&files, &diff, tmp.path(), None).unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::DeltaSlice);
     // Should succeed but with empty old files — no edge differences
 }
@@ -11063,7 +11267,8 @@ def test_compute():
         auto_stop_threshold: 0.0,
     };
     let result =
-        prism::algorithms::spiral_slice::slice(&files, &diff, &config, &spiral_config).unwrap();
+        prism::algorithms::spiral_slice::slice(&files, &diff, &config, &spiral_config, None)
+            .unwrap();
     assert!(!result.blocks.is_empty());
 }
 
@@ -11103,7 +11308,7 @@ def transform(x):
         trace_callees: true,
         ..SliceConfig::default()
     };
-    let result = algorithms::run_slicing(&files, &diff, &config).unwrap();
+    let result = algorithms::run_slicing(&files, &diff, &config, None).unwrap();
     assert!(!result.blocks.is_empty());
 }
 
@@ -11223,7 +11428,7 @@ fn test_chop_python_verifies_path_lines() {
         sink_file: path.to_string(),
         sink_line: 4,
     };
-    let result = prism::algorithms::chop::slice(&files, &config).unwrap();
+    let result = prism::algorithms::chop::slice(&files, &config, None).unwrap();
     // If data flow exists, blocks should contain lines between source and sink
     if !result.blocks.is_empty() {
         let block = &result.blocks[0];
@@ -11264,6 +11469,7 @@ def handler(request):
         &files,
         &diff,
         &prism::algorithms::taint::TaintConfig::default(),
+        None,
     )
     .unwrap();
     assert!(!result.blocks.is_empty(), "Taint should find tainted flow");
@@ -11309,6 +11515,7 @@ def critical_section(lock):
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::AbsenceSlice),
+        None,
     )
     .unwrap();
     // Should produce findings about missing lock.release()
@@ -11370,6 +11577,7 @@ def process(x):
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::LeftFlow),
+        None,
     )
     .unwrap();
 
@@ -11421,6 +11629,7 @@ def deserialize(text):
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::SymmetrySlice),
+        None,
     )
     .unwrap();
     assert!(
@@ -11481,6 +11690,7 @@ void setup(void) {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::EchoSlice),
+        None,
     )
     .unwrap();
     // Should include the caller file
@@ -11539,6 +11749,7 @@ void unsafe_caller(void) {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::MembraneSlice),
+        None,
     )
     .unwrap();
 
@@ -11596,6 +11807,7 @@ def handle(request):
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::ProvenanceSlice),
+        None,
     )
     .unwrap();
     assert!(
@@ -11626,6 +11838,7 @@ fn test_gradient_slice_python_scores_decay() {
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::GradientSlice),
+        None,
     )
     .unwrap();
     assert!(!result.blocks.is_empty());
@@ -11666,7 +11879,7 @@ fn test_threed_slice_python_risk_scoring() {
         temporal_days: 365,
         git_dir: tmp.path().to_string_lossy().to_string(),
     };
-    let result = prism::algorithms::threed_slice::slice(&files, &diff, &config).unwrap();
+    let result = prism::algorithms::threed_slice::slice(&files, &diff, &config, None).unwrap();
     assert!(
         !result.blocks.is_empty(),
         "ThreeDSlice should produce risk-scored blocks"
@@ -11714,6 +11927,7 @@ fn test_vertical_slice_python_layer_detection() {
         &files,
         &diff,
         &prism::algorithms::vertical_slice::VerticalConfig::default(),
+        None,
     )
     .unwrap();
     // Should produce blocks — at minimum the diff function
@@ -11756,6 +11970,7 @@ func caller() int { return outer(10) }
             max_ring: 2,
             auto_stop_threshold: 0.0,
         },
+        None,
     )
     .unwrap();
 
@@ -11767,6 +11982,7 @@ func caller() int { return outer(10) }
             max_ring: 4,
             auto_stop_threshold: 0.0,
         },
+        None,
     )
     .unwrap();
 
