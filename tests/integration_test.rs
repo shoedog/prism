@@ -13088,6 +13088,92 @@ function process(a, b) {
     );
 }
 
+#[test]
+fn test_destructuring_through_alias_js() {
+    // const ref = obj; const { name } = ref → name should resolve to obj.name
+    let source = r#"
+function process(obj) {
+    const ref = obj;
+    const { name, id } = ref;
+    console.log(name);
+}
+"#;
+    let path = "src/through.js";
+    let parsed = ParsedFile::parse(path, source, Language::JavaScript).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let dfg = DataFlowGraph::build(&files);
+    let obj_defs = dfg.all_defs_of(path, "obj");
+
+    // name should resolve through ref → obj, producing a def for obj.name
+    let has_obj_name = obj_defs
+        .iter()
+        .any(|d| d.path.base == "obj" && d.path.fields == vec!["name"]);
+    assert!(
+        has_obj_name,
+        "Destructuring through alias: name via ref should resolve to obj.name. Got defs: {:?}",
+        obj_defs.iter().map(|d| &d.path).collect::<Vec<_>>()
+    );
+}
+
+#[test]
+fn test_destructuring_through_chain_js() {
+    // const a = obj; const b = a; const { x } = b → x should resolve to obj.x
+    let source = r#"
+function process(obj) {
+    const a = obj;
+    const b = a;
+    const { x } = b;
+    console.log(x);
+}
+"#;
+    let path = "src/chain.js";
+    let parsed = ParsedFile::parse(path, source, Language::JavaScript).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let dfg = DataFlowGraph::build(&files);
+    let obj_defs = dfg.all_defs_of(path, "obj");
+
+    let has_obj_x = obj_defs
+        .iter()
+        .any(|d| d.path.base == "obj" && d.path.fields == vec!["x"]);
+    assert!(
+        has_obj_x,
+        "Destructuring through chain: x via b=a=obj should resolve to obj.x. Got defs: {:?}",
+        obj_defs.iter().map(|d| &d.path).collect::<Vec<_>>()
+    );
+}
+
+#[test]
+fn test_destructuring_nested_through_alias_js() {
+    // const ref = obj; const { config: { host } } = ref → host should resolve to obj.config.host
+    let source = r#"
+function connect(obj) {
+    const ref = obj;
+    const { config: { host } } = ref;
+    open(host);
+}
+"#;
+    let path = "src/nested_alias.js";
+    let parsed = ParsedFile::parse(path, source, Language::JavaScript).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let dfg = DataFlowGraph::build(&files);
+    let obj_defs = dfg.all_defs_of(path, "obj");
+
+    let has_obj_config_host = obj_defs
+        .iter()
+        .any(|d| d.path.base == "obj" && d.path.fields == vec!["config", "host"]);
+    assert!(
+        has_obj_config_host,
+        "Nested destructuring through alias: host should resolve to obj.config.host. Got defs: {:?}",
+        obj_defs.iter().map(|d| &d.path).collect::<Vec<_>>()
+    );
+}
+
 // ── Lua colon method syntax ─────────────────────────────────────────
 
 #[test]
