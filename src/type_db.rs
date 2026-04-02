@@ -474,6 +474,136 @@ impl TypeDatabase {
         targets
     }
 
+    /// Rapid Type Analysis (RTA) refinement of virtual dispatch.
+    ///
+    /// Like `virtual_dispatch_targets` but filters results to only include
+    /// classes that are actually instantiated in the codebase. If no live
+    /// classes are provided (empty set), falls back to full CHA.
+    pub fn virtual_dispatch_targets_rta(
+        &self,
+        class_name: &str,
+        method: &str,
+        live_classes: &std::collections::BTreeSet<String>,
+    ) -> Vec<String> {
+        let cha_targets = self.virtual_dispatch_targets(class_name, method);
+
+        // If no live class info, fall back to CHA
+        if live_classes.is_empty() {
+            return cha_targets;
+        }
+
+        // Filter to only instantiated classes
+        let filtered: Vec<String> = cha_targets
+            .into_iter()
+            .filter(|t| live_classes.contains(t))
+            .collect();
+
+        // If filtering removes all targets, fall back to CHA to avoid
+        // false negatives (the instantiation might be in code we didn't scan)
+        if filtered.is_empty() {
+            return self.virtual_dispatch_targets(class_name, method);
+        }
+
+        filtered
+    }
+
+    /// Scan parsed files for class instantiation expressions.
+    ///
+    /// Detects:
+    /// - `new ClassName(...)` — heap allocation
+    /// - `make_unique<ClassName>(...)` / `make_shared<ClassName>(...)` — smart pointers
+    /// - `ClassName varname;` or `ClassName varname(...)` — stack allocation
+    ///
+    /// Returns a set of class names that are known to be instantiated.
+    pub fn collect_live_classes(
+        files: &BTreeMap<String, crate::ast::ParsedFile>,
+    ) -> std::collections::BTreeSet<String> {
+        let mut live = std::collections::BTreeSet::new();
+
+        for parsed in files.values() {
+            if !matches!(parsed.language, crate::languages::Language::Cpp) {
+                continue;
+            }
+            Self::scan_instantiations(parsed.tree.root_node(), parsed, &mut live);
+        }
+
+        live
+    }
+
+    /// Recursively scan a tree-sitter node for instantiation expressions.
+    fn scan_instantiations(
+        node: tree_sitter::Node<'_>,
+        parsed: &crate::ast::ParsedFile,
+        live: &mut std::collections::BTreeSet<String>,
+    ) {
+        match node.kind() {
+            // new ClassName(...) — new_expression
+            "new_expression" => {
+                if let Some(type_node) = node.child_by_field_name("type") {
+                    let type_name = parsed.node_text(&type_node).to_string().trim().to_string();
+                    if !type_name.is_empty() {
+                        live.insert(type_name);
+                    }
+                }
+            }
+            // make_unique<ClassName>(...), make_shared<ClassName>(...)
+            "call_expression" => {
+                if let Some(func) = node.child_by_field_name("function") {
+                    if func.kind() == "template_function" {
+                        let func_text = parsed.node_text(&func).to_string();
+                        if func_text.starts_with("make_unique")
+                            || func_text.starts_with("make_shared")
+                            || func_text.starts_with("std::make_unique")
+                            || func_text.starts_with("std::make_shared")
+                        {
+                            // Extract template argument: make_unique<Circle>(...)
+                            let mut cursor = func.walk();
+                            for child in func.children(&mut cursor) {
+                                if child.kind() == "template_argument_list" {
+                                    let mut arg_cursor = child.walk();
+                                    for arg in child.children(&mut arg_cursor) {
+                                        if arg.kind() == "type_descriptor"
+                                            || arg.kind() == "type_identifier"
+                                        {
+                                            let name = parsed
+                                                .node_text(&arg)
+                                                .to_string()
+                                                .trim()
+                                                .to_string();
+                                            if !name.is_empty() {
+                                                live.insert(name);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            // Stack allocation: ClassName varname; or ClassName varname(...);
+            // This is a declaration with a type_identifier matching a known class
+            "declaration" => {
+                if let Some(type_node) = node.child_by_field_name("type") {
+                    if type_node.kind() == "type_identifier"
+                        || type_node.kind() == "qualified_identifier"
+                    {
+                        let type_name = parsed.node_text(&type_node).to_string().trim().to_string();
+                        if !type_name.is_empty() {
+                            live.insert(type_name);
+                        }
+                    }
+                }
+            }
+            _ => {}
+        }
+
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            Self::scan_instantiations(child, parsed, live);
+        }
+    }
+
     /// Check if `derived` is a (transitive) subclass of `base`.
     pub fn is_subclass_of(&self, derived: &str, base: &str) -> bool {
         if derived == base {
@@ -527,6 +657,353 @@ impl TypeDatabase {
     /// Check whether a type is a pointer type.
     pub fn is_pointer_type(type_str: &str) -> bool {
         type_str.trim().ends_with('*')
+    }
+
+    // -----------------------------------------------------------------------
+    // Tree-sitter fallback extraction
+    // -----------------------------------------------------------------------
+
+    /// Build a TypeDatabase from parsed files using tree-sitter ASTs.
+    ///
+    /// This is a zero-dependency fallback for when `--compile-commands` is not
+    /// provided. Extracts struct/class/union definitions, fields, typedefs,
+    /// base classes, and virtual methods directly from tree-sitter parse trees.
+    ///
+    /// Only processes C and C++ files. Returns an empty database for other languages.
+    ///
+    /// Compared to clang-based extraction, this provides:
+    /// - Field names (yes), field types (approximate from declaration text)
+    /// - Base classes (yes), virtual methods (yes)
+    /// - No typedef resolution across `#include` boundaries
+    /// - No macro expansion — heavily macro'd code may have ERROR nodes
+    pub fn from_parsed_files(files: &BTreeMap<String, crate::ast::ParsedFile>) -> Self {
+        let mut db = TypeDatabase::default();
+
+        for (file_path, parsed) in files {
+            // Only extract types from C/C++ files
+            if !matches!(
+                parsed.language,
+                crate::languages::Language::C | crate::languages::Language::Cpp
+            ) {
+                continue;
+            }
+
+            db.extract_from_tree_sitter(parsed, file_path);
+        }
+
+        // Build class hierarchy from base class info
+        for record in db.records.values() {
+            if !record.bases.is_empty() {
+                db.class_hierarchy
+                    .insert(record.name.clone(), record.bases.clone());
+            }
+        }
+
+        db
+    }
+
+    /// Extract type definitions from a single parsed file's tree-sitter AST.
+    fn extract_from_tree_sitter(&mut self, parsed: &crate::ast::ParsedFile, file_path: &str) {
+        let root = parsed.tree.root_node();
+        self.visit_ts_node(root, parsed, file_path);
+    }
+
+    /// Recursively visit tree-sitter nodes to find type definitions.
+    fn visit_ts_node(
+        &mut self,
+        node: tree_sitter::Node<'_>,
+        parsed: &crate::ast::ParsedFile,
+        file_path: &str,
+    ) {
+        match node.kind() {
+            // C struct/union and C++ struct/class with body
+            "struct_specifier" | "union_specifier" | "class_specifier" => {
+                self.extract_ts_record(node, parsed, file_path);
+            }
+            // C/C++ typedef: `typedef struct device dev_t;`
+            "type_definition" => {
+                self.extract_ts_typedef(node, parsed);
+            }
+            _ => {}
+        }
+
+        // Recurse into children
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            self.visit_ts_node(child, parsed, file_path);
+        }
+    }
+
+    /// Extract a struct/class/union definition from a tree-sitter node.
+    fn extract_ts_record(
+        &mut self,
+        node: tree_sitter::Node<'_>,
+        parsed: &crate::ast::ParsedFile,
+        file_path: &str,
+    ) {
+        // Must have a body (field_declaration_list) — skip forward declarations
+        let body = match node.child_by_field_name("body") {
+            Some(b) => b,
+            None => return,
+        };
+
+        // Get the record name
+        let name = match node.child_by_field_name("name") {
+            Some(n) => parsed.node_text(&n).to_string(),
+            None => return, // Anonymous struct — skip
+        };
+
+        if name.is_empty() {
+            return;
+        }
+
+        let kind = match node.kind() {
+            "struct_specifier" => RecordKind::Struct,
+            "class_specifier" => RecordKind::Class,
+            "union_specifier" => RecordKind::Union,
+            _ => RecordKind::Struct,
+        };
+
+        let mut fields = Vec::new();
+        let mut virtual_methods = BTreeMap::new();
+        let mut bases = Vec::new();
+
+        // Extract base classes (C++ only): base_class_clause
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            if child.kind() == "base_class_clause" {
+                Self::extract_ts_bases(child, parsed, &mut bases);
+            }
+        }
+
+        // Extract fields and virtual methods from body
+        let mut body_cursor = body.walk();
+        for child in body.children(&mut body_cursor) {
+            match child.kind() {
+                "field_declaration" => {
+                    // C++ virtual methods appear as field_declaration with `virtual` child
+                    if Self::has_virtual_specifier(child, parsed) {
+                        if let Some(method_name) =
+                            Self::extract_ts_virtual_method_name(child, parsed)
+                        {
+                            let type_text = parsed.node_text(&child).to_string();
+                            virtual_methods.insert(method_name, type_text);
+                        }
+                    } else if let Some(field) = Self::extract_ts_field(child, parsed) {
+                        fields.push(field);
+                    }
+                }
+                // C++ access specifiers
+                "access_specifier" => {}
+                // C++ method declarations/definitions outside field_declaration
+                "declaration" | "function_definition" => {
+                    if Self::has_virtual_specifier(child, parsed) {
+                        if let Some(method_name) = Self::extract_ts_function_name(child, parsed) {
+                            let type_text = parsed.node_text(&child).to_string();
+                            virtual_methods.insert(method_name, type_text);
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        let record = RecordInfo {
+            name: name.clone(),
+            kind,
+            fields,
+            bases,
+            virtual_methods,
+            size: None,
+            file: file_path.to_string(),
+        };
+
+        self.records.insert(name, record);
+    }
+
+    /// Extract a field from a field_declaration node.
+    fn extract_ts_field(
+        node: tree_sitter::Node<'_>,
+        parsed: &crate::ast::ParsedFile,
+    ) -> Option<FieldInfo> {
+        // field_declaration has a type and a declarator
+        // Get the declarator name — could be nested in pointer_declarator etc.
+        let declarator = node.child_by_field_name("declarator")?;
+        let name = Self::find_declarator_name(declarator, parsed)?;
+
+        // Get the type — everything before the declarator
+        let type_node = node.child_by_field_name("type")?;
+        let type_str = parsed.node_text(&type_node).to_string().trim().to_string();
+
+        // Check if declarator is a pointer
+        let decl_text = parsed.node_text(&declarator).to_string();
+        let full_type = if decl_text.starts_with('*') {
+            format!("{} *", type_str)
+        } else {
+            type_str
+        };
+
+        Some(FieldInfo {
+            name,
+            type_str: full_type,
+            offset: None,
+        })
+    }
+
+    /// Find the identifier name in a (possibly nested) declarator.
+    fn find_declarator_name(
+        node: tree_sitter::Node<'_>,
+        parsed: &crate::ast::ParsedFile,
+    ) -> Option<String> {
+        match node.kind() {
+            "identifier" | "field_identifier" | "type_identifier" => {
+                Some(parsed.node_text(&node).to_string())
+            }
+            "pointer_declarator" | "array_declarator" | "parenthesized_declarator" => {
+                let mut cursor = node.walk();
+                for child in node.children(&mut cursor) {
+                    if let Some(name) = Self::find_declarator_name(child, parsed) {
+                        return Some(name);
+                    }
+                }
+                None
+            }
+            "function_declarator" => {
+                // Function pointer field: void (*callback)(void *)
+                if let Some(inner) = node.child_by_field_name("declarator") {
+                    return Self::find_declarator_name(inner, parsed);
+                }
+                None
+            }
+            _ => {
+                // Try declarator field
+                if let Some(inner) = node.child_by_field_name("declarator") {
+                    return Self::find_declarator_name(inner, parsed);
+                }
+                None
+            }
+        }
+    }
+
+    /// Extract base class names from a base_class_clause.
+    fn extract_ts_bases(
+        node: tree_sitter::Node<'_>,
+        parsed: &crate::ast::ParsedFile,
+        bases: &mut Vec<String>,
+    ) {
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            // Each base specifier has a type name
+            if child.kind() == "type_identifier" || child.kind() == "qualified_identifier" {
+                let base_name = parsed.node_text(&child).to_string();
+                if !base_name.is_empty() {
+                    bases.push(base_name);
+                }
+            }
+            // Could also be nested in access specifier like "public Shape"
+            if child.kind() == "access_specifier" || child.kind() == "base_specifier" {
+                let mut inner_cursor = child.walk();
+                for inner in child.children(&mut inner_cursor) {
+                    if inner.kind() == "type_identifier" || inner.kind() == "qualified_identifier" {
+                        let base_name = parsed.node_text(&inner).to_string();
+                        if !base_name.is_empty() {
+                            bases.push(base_name);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /// Check if a declaration/function_definition has a `virtual` specifier.
+    fn has_virtual_specifier(node: tree_sitter::Node<'_>, parsed: &crate::ast::ParsedFile) -> bool {
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            if child.kind() == "virtual" {
+                return true;
+            }
+            // Also check for "virtual" as text in specifiers
+            if child.kind() == "virtual_function_specifier" || child.kind() == "virtual_specifier" {
+                return true;
+            }
+            // Check if child text is "virtual"
+            if parsed.node_text(&child) == "virtual" {
+                return true;
+            }
+        }
+        false
+    }
+
+    /// Extract virtual method name from a field_declaration with `virtual`.
+    ///
+    /// In tree-sitter C++, `virtual void draw() = 0;` is a `field_declaration`
+    /// with a `function_declarator` child containing `field_identifier "draw"`.
+    fn extract_ts_virtual_method_name(
+        node: tree_sitter::Node<'_>,
+        parsed: &crate::ast::ParsedFile,
+    ) -> Option<String> {
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            if child.kind() == "function_declarator" {
+                // function_declarator → field_identifier
+                let mut inner_cursor = child.walk();
+                for inner in child.children(&mut inner_cursor) {
+                    if inner.kind() == "field_identifier" || inner.kind() == "identifier" {
+                        return Some(parsed.node_text(&inner).to_string());
+                    }
+                }
+                // Also try declarator field
+                if let Some(decl) = child.child_by_field_name("declarator") {
+                    return Self::find_declarator_name(decl, parsed);
+                }
+            }
+        }
+        None
+    }
+
+    /// Extract function/method name from a declaration or function_definition.
+    fn extract_ts_function_name(
+        node: tree_sitter::Node<'_>,
+        parsed: &crate::ast::ParsedFile,
+    ) -> Option<String> {
+        // Try declarator field first
+        if let Some(declarator) = node.child_by_field_name("declarator") {
+            return Self::find_declarator_name(declarator, parsed);
+        }
+        None
+    }
+
+    /// Extract a typedef from a type_definition node.
+    fn extract_ts_typedef(&mut self, node: tree_sitter::Node<'_>, parsed: &crate::ast::ParsedFile) {
+        // type_definition: `typedef <type> <declarator>;`
+        // Get the declarator (alias name)
+        let declarator = match node.child_by_field_name("declarator") {
+            Some(d) => d,
+            None => return,
+        };
+
+        let alias_name = match Self::find_declarator_name(declarator, parsed) {
+            Some(n) => n,
+            None => return,
+        };
+
+        // Get the type (underlying type)
+        let type_node = match node.child_by_field_name("type") {
+            Some(t) => t,
+            None => return,
+        };
+
+        let underlying = parsed.node_text(&type_node).to_string().trim().to_string();
+
+        if !alias_name.is_empty() && !underlying.is_empty() {
+            self.typedefs.insert(
+                alias_name.clone(),
+                TypedefInfo {
+                    name: alias_name,
+                    underlying,
+                },
+            );
+        }
     }
 }
 

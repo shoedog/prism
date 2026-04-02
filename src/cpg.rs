@@ -499,11 +499,19 @@ impl CodePropertyGraph {
         }
 
         // --- Step 9: Virtual dispatch enrichment (if type_db present) ---
+        // Uses Rapid Type Analysis (RTA) when possible: only adds edges to
+        // override implementations in classes that are actually instantiated.
+        // Falls back to Class Hierarchy Analysis (CHA) if no instantiations found.
         if let Some(ref tdb) = type_db {
             let mut virtual_edges: Vec<(NodeIndex, NodeIndex)> = Vec::new();
 
-            // Collect all virtual method names and which function nodes implement them
-            let mut virtual_method_nodes: BTreeMap<String, Vec<NodeIndex>> = BTreeMap::new();
+            // Collect live classes via RTA (scan for instantiation expressions)
+            let live_classes = TypeDatabase::collect_live_classes(files);
+
+            // Collect all virtual method names and which function nodes implement them,
+            // along with the class that owns each override
+            let mut virtual_method_nodes: BTreeMap<String, Vec<(String, NodeIndex)>> =
+                BTreeMap::new();
             for record in tdb.records.values() {
                 for method_name in record.virtual_methods.keys() {
                     for (&(ref _file, ref name), &idx) in &func_index {
@@ -511,13 +519,14 @@ impl CodePropertyGraph {
                             virtual_method_nodes
                                 .entry(method_name.clone())
                                 .or_default()
-                                .push(idx);
+                                .push((record.name.clone(), idx));
                         }
                     }
                 }
             }
 
-            // For each caller that calls a virtual method, add edges to all overrides
+            // For each caller that calls a virtual method, add edges to overrides
+            // RTA: only to overrides in instantiated classes (if we have live class info)
             let all_func_nodes: Vec<NodeIndex> = func_index.values().copied().collect();
             for &caller_idx in &all_func_nodes {
                 let callees: Vec<_> = graph
@@ -528,11 +537,16 @@ impl CodePropertyGraph {
 
                 for callee_idx in callees {
                     if let CpgNode::Function { name, .. } = &graph[callee_idx] {
-                        if let Some(override_nodes) = virtual_method_nodes.get(name) {
-                            for &override_idx in override_nodes {
-                                if override_idx != callee_idx {
-                                    virtual_edges.push((caller_idx, override_idx));
+                        if let Some(override_entries) = virtual_method_nodes.get(name) {
+                            for (class_name, override_idx) in override_entries {
+                                if *override_idx == callee_idx {
+                                    continue;
                                 }
+                                // RTA filter: skip overrides in uninstantiated classes
+                                if !live_classes.is_empty() && !live_classes.contains(class_name) {
+                                    continue;
+                                }
+                                virtual_edges.push((caller_idx, *override_idx));
                             }
                         }
                     }

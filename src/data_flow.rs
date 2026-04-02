@@ -112,13 +112,9 @@ impl DataFlowGraph {
                                 path: resolved_ap.clone(),
                                 kind: VarAccessKind::Def,
                             };
-                            defs.entry((
-                                file_path.clone(),
-                                func_name.clone(),
-                                resolved_ap,
-                            ))
-                            .or_default()
-                            .push(loc);
+                            defs.entry((file_path.clone(), func_name.clone(), resolved_ap))
+                                .or_default()
+                                .push(loc);
                         }
                     }
                 }
