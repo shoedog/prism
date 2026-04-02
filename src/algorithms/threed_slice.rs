@@ -9,11 +9,9 @@
 //! - Y: Structural depth (caller/callee via call graph)
 //! - Z: Temporal (git history)
 
-use crate::ast::ParsedFile;
-use crate::cpg::CodePropertyGraph;
+use crate::cpg::CpgContext;
 use crate::diff::{DiffBlock, DiffInput, ModifyType};
 use crate::slice::{SliceResult, SlicingAlgorithm};
-use crate::type_db::TypeDatabase;
 use anyhow::{anyhow, Result};
 use std::collections::{BTreeMap, BTreeSet};
 use std::process::Command;
@@ -53,14 +51,8 @@ pub struct RiskScore {
     pub risk: f64,
 }
 
-pub fn slice(
-    files: &BTreeMap<String, ParsedFile>,
-    diff: &DiffInput,
-    config: &ThreeDConfig,
-    type_db: Option<&TypeDatabase>,
-) -> Result<SliceResult> {
+pub fn slice(ctx: &CpgContext, diff: &DiffInput, config: &ThreeDConfig) -> Result<SliceResult> {
     let mut result = SliceResult::new(SlicingAlgorithm::ThreeDSlice);
-    let cpg = CodePropertyGraph::build_enriched(files, type_db);
 
     // Get temporal data from git
     let git_churn = get_git_churn(&config.git_dir, config.temporal_days)?;
@@ -69,7 +61,7 @@ pub fn slice(
     let mut scores: Vec<RiskScore> = Vec::new();
 
     for diff_info in &diff.files {
-        let _parsed = match files.get(&diff_info.file_path) {
+        let _parsed = match ctx.files.get(&diff_info.file_path) {
             Some(f) => f,
             None => continue,
         };
@@ -77,15 +69,15 @@ pub fn slice(
         let mut scored_funcs: BTreeSet<String> = BTreeSet::new();
 
         for &line in &diff_info.diff_lines {
-            if let Some((_idx, func_id)) = cpg.function_at(&diff_info.file_path, line) {
+            if let Some((_idx, func_id)) = ctx.cpg.function_at(&diff_info.file_path, line) {
                 if scored_funcs.contains(&func_id.name) {
                     continue;
                 }
                 scored_funcs.insert(func_id.name.clone());
 
                 // Structural coupling: callers + callees
-                let callers = cpg.callers_of(&func_id.name, 1);
-                let callees = cpg.callees_of(&func_id.name, &diff_info.file_path, 1);
+                let callers = ctx.cpg.callers_of(&func_id.name, 1);
+                let callees = ctx.cpg.callees_of(&func_id.name, &diff_info.file_path, 1);
                 let structural_coupling = callers.len() + callees.len();
 
                 // Temporal activity
@@ -120,7 +112,7 @@ pub fn slice(
     // Also score connected functions (callers/callees)
     let diff_func_names: Vec<String> = scores.iter().map(|s| s.function_name.clone()).collect();
     for func_name in &diff_func_names {
-        let callers = cpg.callers_of(func_name, 2);
+        let callers = ctx.cpg.callers_of(func_name, 2);
         for (caller_id, _) in &callers {
             if scores
                 .iter()
@@ -130,8 +122,8 @@ pub fn slice(
             }
 
             let temporal_activity = git_churn.get(&caller_id.file).copied().unwrap_or(0);
-            let callers_of_caller = cpg.callers_of(&caller_id.name, 1);
-            let callees_of_caller = cpg.callees_of(&caller_id.name, &caller_id.file, 1);
+            let callers_of_caller = ctx.cpg.callers_of(&caller_id.name, 1);
+            let callees_of_caller = ctx.cpg.callees_of(&caller_id.name, &caller_id.file, 1);
 
             scores.push(RiskScore {
                 file: caller_id.file.clone(),

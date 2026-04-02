@@ -10,11 +10,9 @@
 //! Uses the Code Property Graph for unified traversal of data flow and call edges.
 //! All other slices produce binary output. This produces a ranked, scored slice.
 
-use crate::ast::ParsedFile;
-use crate::cpg::{CodePropertyGraph, CpgEdge, CpgNode};
+use crate::cpg::{CpgContext, CpgEdge, CpgNode};
 use crate::diff::{DiffBlock, DiffInput, ModifyType};
 use crate::slice::{SliceResult, SlicingAlgorithm};
-use crate::type_db::TypeDatabase;
 use anyhow::Result;
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
@@ -49,14 +47,8 @@ pub struct ScoredLine {
     pub is_diff: bool,
 }
 
-pub fn slice(
-    files: &BTreeMap<String, ParsedFile>,
-    diff: &DiffInput,
-    config: &GradientConfig,
-    type_db: Option<&TypeDatabase>,
-) -> Result<SliceResult> {
+pub fn slice(ctx: &CpgContext, diff: &DiffInput, config: &GradientConfig) -> Result<SliceResult> {
     let mut result = SliceResult::new(SlicingAlgorithm::GradientSlice);
-    let cpg = CodePropertyGraph::build_enriched(files, type_db);
 
     // Score map: (file, line) → (score, hop_distance)
     let mut scores: BTreeMap<(String, usize), (f64, usize)> = BTreeMap::new();
@@ -69,17 +61,17 @@ pub fn slice(
         for &line in &diff_info.diff_lines {
             scores.insert((diff_info.file_path.clone(), line), (1.0, 0));
             // Seed queue with all CPG nodes at this location
-            for idx in cpg.nodes_at(&diff_info.file_path, line) {
+            for idx in ctx.cpg.nodes_at(&diff_info.file_path, line) {
                 queue.push_back((idx, 0));
             }
             // Also seed from the enclosing function node for call graph traversal
-            for &func_idx in cpg.function_nodes().iter() {
+            for &func_idx in ctx.cpg.function_nodes().iter() {
                 if let CpgNode::Function {
                     file,
                     start_line,
                     end_line,
                     ..
-                } = cpg.node(func_idx)
+                } = ctx.cpg.node(func_idx)
                 {
                     if file == &diff_info.file_path && line >= *start_line && line <= *end_line {
                         queue.push_back((func_idx, 0));
@@ -112,7 +104,7 @@ pub fn slice(
         // DFG edges are added in the future, this traversal will silently cross function
         // boundaries — at that point, consider adding function-scoping if needed.
         use petgraph::visit::EdgeRef;
-        for edge in cpg.graph.edges(node_idx) {
+        for edge in ctx.cpg.graph.edges(node_idx) {
             let follow = matches!(
                 edge.weight(),
                 CpgEdge::DataFlow | CpgEdge::Call | CpgEdge::Return
@@ -122,7 +114,7 @@ pub fn slice(
             }
 
             let target = edge.target();
-            let target_node = cpg.node(target);
+            let target_node = ctx.cpg.node(target);
             let target_file = target_node.file().to_string();
             let target_line = target_node.line();
 

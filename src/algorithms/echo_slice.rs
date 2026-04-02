@@ -9,13 +9,11 @@
 //! Catches: missing null checks after a return type change, unhandled new error
 //! cases, callers that depend on side effects that were removed.
 
-use crate::ast::ParsedFile;
-use crate::cpg::CodePropertyGraph;
+use crate::cpg::CpgContext;
 use crate::diff::{DiffBlock, DiffInput, ModifyType};
 use crate::slice::{SliceFinding, SliceResult, SlicingAlgorithm};
-use crate::type_db::TypeDatabase;
 use anyhow::Result;
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeSet;
 
 /// Patterns that suggest a caller handles the return value safely.
 const SAFE_PATTERNS: &[&str] = &[
@@ -99,17 +97,12 @@ pub struct EchoFinding {
     pub missing_checks: Vec<String>,
 }
 
-pub fn slice(
-    files: &BTreeMap<String, ParsedFile>,
-    diff: &DiffInput,
-    type_db: Option<&TypeDatabase>,
-) -> Result<SliceResult> {
+pub fn slice(ctx: &CpgContext, diff: &DiffInput) -> Result<SliceResult> {
     let mut result = SliceResult::new(SlicingAlgorithm::EchoSlice);
-    let cpg = CodePropertyGraph::build_enriched(files, type_db);
     let mut block_id = 0;
 
     for diff_info in &diff.files {
-        let parsed = match files.get(&diff_info.file_path) {
+        let parsed = match ctx.files.get(&diff_info.file_path) {
             Some(f) => f,
             None => continue,
         };
@@ -154,10 +147,10 @@ pub fn slice(
             });
 
             // Find all callers across all files
-            let callers = cpg.callers_of(func_name, 2);
+            let callers = ctx.cpg.callers_of(func_name, 2);
 
             for (caller_id, _depth) in &callers {
-                let caller_parsed = match files.get(&caller_id.file) {
+                let caller_parsed = match ctx.files.get(&caller_id.file) {
                     Some(f) => f,
                     None => continue,
                 };
@@ -166,7 +159,7 @@ pub fn slice(
 
                 // Find call site lines
                 let call_lines: Vec<usize> =
-                    if let Some(sites) = cpg.call_graph.callers.get(func_name) {
+                    if let Some(sites) = ctx.cpg.call_graph.callers.get(func_name) {
                         sites
                             .iter()
                             .filter(|s| {
