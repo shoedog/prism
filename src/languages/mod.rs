@@ -288,6 +288,76 @@ impl Language {
         }
     }
 
+    /// Get the initializer value from a declaration node.
+    /// Used by Phase 3 must-alias tracking to detect `type *ptr = dev`.
+    pub fn declaration_value<'a>(&self, node: &Node<'a>) -> Option<Node<'a>> {
+        match self {
+            Self::Python => None,
+            Self::JavaScript | Self::TypeScript => {
+                if node.kind() == "variable_declarator" {
+                    node.child_by_field_name("value")
+                } else {
+                    // lexical_declaration -> variable_declarator -> value
+                    let mut cursor = node.walk();
+                    for child in node.children(&mut cursor) {
+                        if child.kind() == "variable_declarator" {
+                            return child.child_by_field_name("value");
+                        }
+                    }
+                    None
+                }
+            }
+            Self::Go => {
+                // var_declaration -> var_spec -> value
+                let mut cursor = node.walk();
+                for child in node.children(&mut cursor) {
+                    if child.kind() == "var_spec" || child.kind() == "const_spec" {
+                        return child.child_by_field_name("value");
+                    }
+                }
+                // short_var_declaration uses "right"
+                node.child_by_field_name("right")
+            }
+            Self::Java => {
+                // local_variable_declaration -> variable_declarator -> value
+                let mut cursor = node.walk();
+                for child in node.children(&mut cursor) {
+                    if child.kind() == "variable_declarator" {
+                        return child.child_by_field_name("value");
+                    }
+                }
+                None
+            }
+            Self::Rust => {
+                // let_declaration -> value
+                node.child_by_field_name("value")
+            }
+            Self::C | Self::Cpp => {
+                // declaration -> init_declarator -> value
+                if node.kind() == "init_declarator" {
+                    return node.child_by_field_name("value");
+                }
+                let mut cursor = node.walk();
+                for child in node.children(&mut cursor) {
+                    if child.kind() == "init_declarator" {
+                        return child.child_by_field_name("value");
+                    }
+                }
+                None
+            }
+            Self::Lua => {
+                // local_variable_declaration -> expression_list -> first expr
+                let mut cursor = node.walk();
+                for child in node.children(&mut cursor) {
+                    if child.kind() == "expression_list" {
+                        return child.child(0);
+                    }
+                }
+                None
+            }
+        }
+    }
+
     /// Whether a node is a control flow statement.
     pub fn is_control_flow_node(&self, kind: &str) -> bool {
         matches!(

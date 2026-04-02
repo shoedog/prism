@@ -1,6 +1,6 @@
 # Prism Implementation Plan & Status Tracker
 
-Last updated: 2026-04-01 (CPG architecture design, AccessPath type, va_list taint tracking)
+Last updated: 2026-04-01 (Phase 2 field-sensitive matching, Phase 3 local must-alias tracking)
 
 ---
 
@@ -91,7 +91,7 @@ Last updated: 2026-04-01 (CPG architecture design, AccessPath type, va_list tain
 
 | Item | Effort | Impact |
 |------|--------|--------|
-| **AccessPath type + field-sensitive DFG** | 1 week | Eliminates false taint propagation across struct fields (`dev->name` vs `dev->id`). Phase 1-2 of CPG architecture. See `docs/cpg-architecture.md` |
+| ~~AccessPath type + field-sensitive DFG~~ | — | **Done** — Phase 1: AccessPath type with `from_expr()` parser. Phase 2: field assignments emit only qualified path (no base-only leakage). Field isolation verified across all 8 languages (C, C++, Python, JS, Go, Rust, Lua, Java, TS). 11 field isolation tests. |
 | Virtual dispatch in C++ call graph | 1-2 weeks | Accurate analysis for C++ OOP polymorphism. Will be resolved via CPG Phase 4 + optional type enrichment (Phase 5). |
 | ~~`va_list` taint tracking~~ | — | **Done** — v-variant format sinks (vprintf/vfprintf/vsprintf/vsnprintf) added to SINK_PATTERNS; variadic wrapper detection auto-discovers functions with `...` param that forward to format sinks and adds them as dynamic sinks. 4 tests. |
 | ~~CVE-pattern test fixtures (format string, buffer overflow, integer overflow, double-free, use-after-free)~~ | — | **Done** — 8 tests: double-free goto, correct cleanup negative, double-unlock goto, format string, buffer overflow, strcpy+provenance, integer overflow, UAF. |
@@ -126,7 +126,7 @@ These formats need a different analysis model: parse → find touched units → 
 |------|--------|----------|-------|
 | **Type enrichment via `compile_commands.json` + clang** | 1-2 weeks | High | Optional C/C++ struct defs, typedefs, field enumeration. Enables precise whole-struct detection. Phase 5 of CPG architecture. See `docs/cpg-architecture.md` |
 | **Control flow graph edges in CPG** | 2-3 weeks | Medium | Path-sensitive analysis: "taint reaches sink only if branch taken." Phase 6 of CPG architecture. |
-| **Local must-alias tracking** | 2-3 days | High | `ptr = dev` → `ptr->field` resolves to `dev->field`. Phase 3 of CPG architecture. |
+| ~~Local must-alias tracking~~ | — | **Done** | Phase 3: `ptr = dev` → `ptr->field` resolves to `dev->field`. Supports assignments and declarations with initializers. Chain resolution (a=b, b=c → a resolves to c). Tested across C, Python, JS, Go, Rust with chain and negative tests. 7 must-alias tests. |
 | `oxc_parser` + `oxc_semantic` for JS/TS | 1-2 weeks | Medium | Scope-aware analysis eliminates false taint matches from same-named imports. 3-5x faster than tree-sitter |
 | Preprocessor-aware analysis (`cpp -E`) | 2-4 weeks | Medium | Eliminates ERROR nodes from macro-heavy C/C++ code |
 | Function-level git churn in ThreeDSlice | 1 week | Low | More accurate risk scores for large files |
@@ -148,11 +148,11 @@ These formats need a different analysis model: parse → find touched units → 
 - **Optional type enrichment** — `compile_commands.json` + clang for C/C++ struct/typedef info when available
 
 ### Known Limitations (C/C++)
-- Pointer aliasing: tracked at name level, not memory level (extract_lvalue_names mitigates)
+- Pointer aliasing: local must-alias (Phase 3) handles `ptr = dev` intraprocedurally; interprocedural aliasing not yet tracked
 - Function pointers: Level 0 (field-access), Level 1 (local fptr variable), Level 2 (dispatch tables), Level 3 (parameter-passed, 1-hop) resolved; Level 4 (full points-to) not implemented — see `docs/c-cpp/function-pointer-resolution.md`
 - `static` function scope: disambiguated via `resolve_callees()` and `callers_of_in_file()`
 - Interrupt handlers: detected by naming heuristic AND cross-file registration analysis (`signal()`, `pthread_create()`, `request_irq()`, `.sa_handler`, `std::thread`)
-- Struct field flow: migrating to AccessPath for field-sensitive tracking (CPG Phase 1-2, in progress)
+- Struct field flow: field-sensitive via AccessPath (CPG Phase 1-2 done). Phase 2 eliminates cross-field taint leakage. Phase 3 resolves pointer aliases.
 - Virtual dispatch: name-matched, not type-resolved (CPG Phase 4-5)
 
 ### Known Limitations (Tree-sitter)
@@ -163,8 +163,10 @@ These formats need a different analysis model: parse → find touched units → 
 - No semantic scoping — `find_variable_references_scoped` handles some variable shadowing cases
 
 ### Test Coverage
-- **225 tests** total (21 unit + 204 integration)
+- **358 tests** total (32 unit + 326 integration)
 - 9 languages covered (Python, JS/TS, Go, Java, C/C++, Rust, Lua)
+- Field isolation tests across all 8 field-capable languages
+- Must-alias tests for C, Python, JS, Go, Rust with chain and negative cases
 - 26 algorithms with at least basic coverage
 - C/C++ specific: 32 tests covering taint, provenance, absence, quantum (incl. ISR self-detection), membrane, phantom, pointer aliasing, function pointer dispatch (Level 0/1/2), static linkage disambiguation
 - Multi-language taint: 6 tests covering Python (pickle, subprocess), JS (innerHTML, execSync), Go (exec.Command, template.HTML)
