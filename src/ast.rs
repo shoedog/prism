@@ -215,23 +215,88 @@ impl ParsedFile {
 
         if lines.contains(&line) && self.language.is_assignment_node(node.kind()) {
             if let Some(lhs) = self.language.assignment_target(&node) {
-                let lhs_text = self.node_text(&lhs).to_string();
-                for path in extract_lvalue_paths(&lhs_text) {
-                    out.push((path, line));
+                // Multi-target: pattern_list (Python: name, age = func())
+                // or expression_list (Go: val, err := func())
+                // Split into individual identifiers instead of treating as one string.
+                if lhs.kind() == "pattern_list" || lhs.kind() == "expression_list" {
+                    self.extract_multi_target_lvalues(&lhs, line, out);
+                } else {
+                    let lhs_text = self.node_text(&lhs).to_string();
+                    for path in extract_lvalue_paths(&lhs_text) {
+                        out.push((path, line));
+                    }
                 }
             }
         }
 
         if lines.contains(&line) && self.language.is_declaration_node(node.kind()) {
             if let Some(name_node) = self.language.declaration_name(&node) {
-                let name = self.node_text(&name_node).to_string();
-                out.push((AccessPath::simple(name), line));
+                // Go declarations can also have expression_list as the name
+                if name_node.kind() == "expression_list" {
+                    self.extract_multi_target_lvalues(&name_node, line, out);
+                } else {
+                    let name = self.node_text(&name_node).to_string();
+                    out.push((AccessPath::simple(name), line));
+                }
             }
         }
 
         let mut cursor = node.walk();
         for child in node.children(&mut cursor) {
             self.collect_assignment_paths(child, lines, out);
+        }
+    }
+
+    /// Extract individual L-value paths from a multi-target node (pattern_list, expression_list).
+    ///
+    /// Handles:
+    /// - Go: `val, err := getData()` — expression_list with identifier children
+    /// - Python: `name, age = get_user()` — pattern_list with identifier children
+    /// - Python: `first, *rest = items` — pattern_list with identifier + list_splat_pattern
+    /// - Go: `for key, value := range m` — expression_list in range clause
+    fn extract_multi_target_lvalues(
+        &self,
+        node: &Node<'_>,
+        line: usize,
+        out: &mut Vec<(AccessPath, usize)>,
+    ) {
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            match child.kind() {
+                "identifier" => {
+                    let name = self.node_text(&child).to_string();
+                    out.push((AccessPath::simple(name), line));
+                }
+                // Python star unpack: *rest
+                "list_splat_pattern" => {
+                    let mut inner_cursor = child.walk();
+                    for inner in child.children(&mut inner_cursor) {
+                        if inner.kind() == "identifier" {
+                            let name = self.node_text(&inner).to_string();
+                            out.push((AccessPath::simple(name), line));
+                        }
+                    }
+                }
+                // Field access as L-value: obj.field, dev->field in multi-target
+                "field_expression"
+                | "member_expression"
+                | "selector_expression"
+                | "attribute"
+                | "field_access"
+                | "dot_index_expression"
+                | "method_index_expression" => {
+                    let text = self.node_text(&child).to_string();
+                    for path in extract_lvalue_paths(&text) {
+                        out.push((path, line));
+                    }
+                }
+                // Nested tuple: (a, b), c = func()
+                "pattern_list" | "tuple_pattern" | "parenthesized_expression" => {
+                    self.extract_multi_target_lvalues(&child, line, out);
+                }
+                // Skip punctuation (commas, etc.)
+                _ => {}
+            }
         }
     }
 

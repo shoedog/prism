@@ -97,7 +97,12 @@ impl Language {
     /// Whether a node is an assignment expression.
     pub fn is_assignment_node(&self, kind: &str) -> bool {
         match self {
-            Self::Python => matches!(kind, "assignment" | "augmented_assignment"),
+            Self::Python => {
+                matches!(
+                    kind,
+                    "assignment" | "augmented_assignment" | "named_expression"
+                )
+            }
             Self::JavaScript | Self::TypeScript => {
                 matches!(
                     kind,
@@ -148,7 +153,18 @@ impl Language {
     /// Get the assignment target (L-value) from an assignment node.
     pub fn assignment_target<'a>(&self, node: &Node<'a>) -> Option<Node<'a>> {
         match self {
-            Self::Python => node.child_by_field_name("left"),
+            Self::Python => {
+                // named_expression (walrus :=) uses "name" field, not "left".
+                // Only fall back to "name" for named_expression to avoid matching
+                // unintended nodes if grammar changes add "name" to other node types.
+                node.child_by_field_name("left").or_else(|| {
+                    if node.kind() == "named_expression" {
+                        node.child_by_field_name("name")
+                    } else {
+                        None
+                    }
+                })
+            }
             Self::JavaScript | Self::TypeScript => node.child_by_field_name("left"),
             Self::Go => node.child_by_field_name("left"),
             Self::Java => node.child_by_field_name("left"),
