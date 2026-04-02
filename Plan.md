@@ -1,6 +1,6 @@
 # Prism Implementation Plan & Status Tracker
 
-Last updated: 2026-04-01 (Phase 2 field-sensitive matching, Phase 3 local must-alias tracking)
+Last updated: 2026-04-02 (Phase 4 CPG builder on petgraph, circular_slice + gradient_slice migrated)
 
 ---
 
@@ -97,7 +97,7 @@ Last updated: 2026-04-01 (Phase 2 field-sensitive matching, Phase 3 local must-a
 | ~~CVE-pattern test fixtures (format string, buffer overflow, integer overflow, double-free, use-after-free)~~ | — | **Done** — 8 tests: double-free goto, correct cleanup negative, double-unlock goto, format string, buffer overflow, strcpy+provenance, integer overflow, UAF. |
 | ~~`goto`-based error path analysis for AbsenceSlice~~ | — | **Done** — `goto_statements()` + `label_sections()` in ast.rs; double-close detection in AbsenceSlice for kernel `goto cleanup` patterns. 3 tests. |
 | ~~MembraneSlice C++ error handling (exceptions, RAII)~~ | — | **Done** — try/catch, throw, RAII smart ptrs, lock guards, std::optional/expected, error_code. 4 tests. |
-| **Code Property Graph on petgraph** | 2-3 weeks | Unified graph (AST+DFG+Call+CFG), replaces hand-rolled BFS/DFS with petgraph SCC/dominators/Dijkstra. Phase 4 of CPG architecture. See `docs/cpg-architecture.md` |
+| ~~Code Property Graph on petgraph~~ | — | **In progress** — Phase 4 CPG builder + query layer done. `CodePropertyGraph::build()` constructs unified petgraph DiGraph from DFG+CallGraph. Edge-filtered reachability, `tarjan_scc`, `bfs_with_distance`, chop. `circular_slice` and `gradient_slice` migrated. Remaining algorithms migrate incrementally. |
 
 ### P3 — New Language Support (Procedural)
 
@@ -140,9 +140,9 @@ These formats need a different analysis model: parse → find touched units → 
 ### Key Design Decisions
 - **Tree-sitter** for multi-language AST parsing (9 languages: Python, JS/TS, Go, Java, C/C++, Rust, Lua)
 - **AccessPath-based variable tracking** — structured `{ base, fields }` replacing bare string names. Enables field-sensitive analysis.
-- **Code Property Graph** (planned) — unified petgraph-based graph merging AST, DFG, call graph, and CFG edges. See `docs/cpg-architecture.md`
+- **Code Property Graph** — unified petgraph DiGraph merging DFG + call graph + containment edges. Edge-filtered traversals (SCC, reachability, hop-distance BFS). `circular_slice` and `gradient_slice` migrated; remaining algorithms use legacy DFG/CG APIs during incremental migration. See `docs/cpg-architecture.md`
 - **BTreeMap/BTreeSet everywhere** for deterministic sorted output
-- **Shared infrastructure:** `call_graph.rs` and `data_flow.rs` reused across algorithms (will be subsumed by CPG)
+- **Shared infrastructure:** `call_graph.rs` and `data_flow.rs` reused across algorithms (being subsumed by CPG incrementally)
 - **Algorithm-specific configs** in each module, not in central `SliceConfig`
 - **Single binary architecture** for future language expansion — `prism slice` (procedural) and `prism context` (declarative) subcommands with Cargo feature flags per language
 - **Optional type enrichment** — `compile_commands.json` + clang for C/C++ struct/typedef info when available
@@ -163,7 +163,7 @@ These formats need a different analysis model: parse → find touched units → 
 - No semantic scoping — `find_variable_references_scoped` handles some variable shadowing cases
 
 ### Test Coverage
-- **358 tests** total (32 unit + 326 integration)
+- **429 tests** total (41 unit + 62 CLI + 326 integration)
 - 9 languages covered (Python, JS/TS, Go, Java, C/C++, Rust, Lua)
 - Field isolation tests across all 8 field-capable languages
 - Must-alias tests for C, Python, JS, Go, Rust with chain and negative cases

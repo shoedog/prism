@@ -7,11 +7,11 @@
 //! 1.0, one hop away 0.7, two hops 0.4, etc. The consumer (LLM or human) can
 //! decide their own cutoff threshold.
 //!
+//! Uses the Code Property Graph for unified traversal of data flow and call edges.
 //! All other slices produce binary output. This produces a ranked, scored slice.
 
 use crate::ast::ParsedFile;
-use crate::call_graph::CallGraph;
-use crate::data_flow::DataFlowGraph;
+use crate::cpg::{CodePropertyGraph, CpgEdge, CpgNode};
 use crate::diff::{DiffBlock, DiffInput, ModifyType};
 use crate::slice::{SliceResult, SlicingAlgorithm};
 use anyhow::Result;
@@ -54,23 +54,47 @@ pub fn slice(
     config: &GradientConfig,
 ) -> Result<SliceResult> {
     let mut result = SliceResult::new(SlicingAlgorithm::GradientSlice);
-    let call_graph = CallGraph::build(files);
-    let _dfg = DataFlowGraph::build(files);
+    let cpg = CodePropertyGraph::build(files);
 
     // Score map: (file, line) → (score, hop_distance)
     let mut scores: BTreeMap<(String, usize), (f64, usize)> = BTreeMap::new();
 
     // Seed: diff lines get score 1.0 at distance 0
-    let mut queue: VecDeque<(String, usize, usize)> = VecDeque::new(); // (file, line, hop)
+    // We also seed from the CPG nodes at those locations
+    let mut queue: VecDeque<(petgraph::graph::NodeIndex, usize)> = VecDeque::new();
+
     for diff_info in &diff.files {
         for &line in &diff_info.diff_lines {
             scores.insert((diff_info.file_path.clone(), line), (1.0, 0));
-            queue.push_back((diff_info.file_path.clone(), line, 0));
+            // Seed queue with all CPG nodes at this location
+            for idx in cpg.nodes_at(&diff_info.file_path, line) {
+                queue.push_back((idx, 0));
+            }
+            // Also seed from the enclosing function node for call graph traversal
+            for &func_idx in cpg.function_nodes().iter() {
+                if let CpgNode::Function {
+                    file,
+                    start_line,
+                    end_line,
+                    ..
+                } = cpg.node(func_idx)
+                {
+                    if file == &diff_info.file_path && line >= *start_line && line <= *end_line {
+                        queue.push_back((func_idx, 0));
+                    }
+                }
+            }
         }
     }
 
-    // BFS with decaying scores
-    while let Some((file, line, hop)) = queue.pop_front() {
+    // BFS with decaying scores over CPG edges.
+    // Edge filter: follow DataFlow, Call, and Contains edges.
+    let mut visited_at_hop: BTreeMap<petgraph::graph::NodeIndex, usize> = BTreeMap::new();
+    for &(idx, _) in queue.iter() {
+        visited_at_hop.insert(idx, 0);
+    }
+
+    while let Some((node_idx, hop)) = queue.pop_front() {
         if hop >= config.max_hops {
             continue;
         }
@@ -81,71 +105,34 @@ pub fn slice(
             continue;
         }
 
-        let parsed = match files.get(&file) {
-            Some(f) => f,
-            None => continue,
-        };
-
-        // Data flow neighbors: variables on this line → their other references
-        if let Some(func_node) = parsed.enclosing_function(line) {
-            let lines_set = BTreeSet::from([line]);
-            let (func_start, func_end) = parsed.node_line_range(&func_node);
-
-            // L-value tracing
-            let lvalues = parsed.assignment_lvalues_on_lines(&func_node, &lines_set);
-            for (var_name, _) in &lvalues {
-                let refs = parsed.find_variable_references(&func_node, var_name);
-                for ref_line in refs {
-                    if ref_line >= func_start && ref_line <= func_end {
-                        let key = (file.clone(), ref_line);
-                        let current = scores.get(&key).map(|s| s.0).unwrap_or(0.0);
-                        if next_score > current {
-                            scores.insert(key.clone(), (next_score, next_hop));
-                            queue.push_back((file.clone(), ref_line, next_hop));
-                        }
-                    }
-                }
+        // Follow DataFlow, Call, and Return edges
+        use petgraph::visit::EdgeRef;
+        for edge in cpg.graph.edges(node_idx) {
+            let follow = matches!(
+                edge.weight(),
+                CpgEdge::DataFlow | CpgEdge::Call | CpgEdge::Return
+            );
+            if !follow {
+                continue;
             }
 
-            // R-value tracing
-            let rvalues = parsed.rvalue_identifiers_on_lines(&func_node, &lines_set);
-            for (var_name, _) in &rvalues {
-                let refs = parsed.find_variable_references(&func_node, var_name);
-                for ref_line in refs {
-                    if ref_line >= func_start && ref_line <= func_end {
-                        let key = (file.clone(), ref_line);
-                        let current = scores.get(&key).map(|s| s.0).unwrap_or(0.0);
-                        if next_score > current {
-                            scores.insert(key.clone(), (next_score, next_hop));
-                            queue.push_back((file.clone(), ref_line, next_hop));
-                        }
-                    }
-                }
+            let target = edge.target();
+            let target_node = cpg.node(target);
+            let target_file = target_node.file().to_string();
+            let target_line = target_node.line();
+
+            // Update score if this path is better
+            let key = (target_file.clone(), target_line);
+            let current_score = scores.get(&key).map(|s| s.0).unwrap_or(0.0);
+            if next_score > current_score {
+                scores.insert(key, (next_score, next_hop));
             }
 
-            // Call graph neighbors: callers and callees
-            if let Some(func_id) = call_graph.function_at(&file, line) {
-                // Callers
-                let callers = call_graph.callers_of(&func_id.name, 1);
-                for (caller_id, _) in &callers {
-                    let key = (caller_id.file.clone(), caller_id.start_line);
-                    let current = scores.get(&key).map(|s| s.0).unwrap_or(0.0);
-                    if next_score > current {
-                        scores.insert(key.clone(), (next_score, next_hop));
-                        queue.push_back((caller_id.file.clone(), caller_id.start_line, next_hop));
-                    }
-                }
-
-                // Callees
-                let callees = call_graph.callees_of(&func_id.name, &file, 1);
-                for (callee_id, _) in &callees {
-                    let key = (callee_id.file.clone(), callee_id.start_line);
-                    let current = scores.get(&key).map(|s| s.0).unwrap_or(0.0);
-                    if next_score > current {
-                        scores.insert(key.clone(), (next_score, next_hop));
-                        queue.push_back((callee_id.file.clone(), callee_id.start_line, next_hop));
-                    }
-                }
+            // Only re-queue if we found a shorter path
+            let prev_hop = visited_at_hop.get(&target).copied().unwrap_or(usize::MAX);
+            if next_hop < prev_hop {
+                visited_at_hop.insert(target, next_hop);
+                queue.push_back((target, next_hop));
             }
         }
     }

@@ -5,60 +5,84 @@
 //!
 //! Bug classes caught: state management cycles, event cascades, mutual recursion
 //! with state mutation.
+//!
+//! Uses the Code Property Graph's `tarjan_scc` (via petgraph) for cycle detection
+//! instead of hand-rolled DFS.
 
 use crate::ast::ParsedFile;
-use crate::call_graph::CallGraph;
-use crate::data_flow::DataFlowGraph;
+use crate::cpg::{CodePropertyGraph, CpgEdge, CpgNode};
 use crate::diff::{DiffBlock, DiffInput, ModifyType};
 use crate::slice::{SliceResult, SlicingAlgorithm};
 use anyhow::Result;
-use std::collections::BTreeMap;
+use petgraph::visit::EdgeRef;
+use std::collections::{BTreeMap, BTreeSet};
 
 pub fn slice(files: &BTreeMap<String, ParsedFile>, diff: &DiffInput) -> Result<SliceResult> {
     let mut result = SliceResult::new(SlicingAlgorithm::CircularSlice);
-    let call_graph = CallGraph::build(files);
+    let cpg = CodePropertyGraph::build(files);
 
     // Collect function names that contain diff lines
-    let mut diff_func_names: Vec<&str> = Vec::new();
+    let mut diff_func_nodes: BTreeSet<petgraph::graph::NodeIndex> = BTreeSet::new();
     for diff_info in &diff.files {
         for &line in &diff_info.diff_lines {
-            if let Some(func_id) = call_graph.function_at(&diff_info.file_path, line) {
-                diff_func_names.push(&func_id.name);
+            // Find function node containing this line
+            for &func_idx in cpg.function_nodes().iter() {
+                if let CpgNode::Function {
+                    file,
+                    start_line,
+                    end_line,
+                    ..
+                } = cpg.node(func_idx)
+                {
+                    if file == &diff_info.file_path && line >= *start_line && line <= *end_line {
+                        diff_func_nodes.insert(func_idx);
+                    }
+                }
             }
         }
     }
-    diff_func_names.sort();
-    diff_func_names.dedup();
 
-    // Find call graph cycles reachable from diff functions
-    let cycles = call_graph.find_cycles_from(&diff_func_names);
+    // Find call graph cycles using petgraph's tarjan_scc
+    let all_call_cycles = cpg.call_graph_cycles();
 
-    // For each cycle, build a block showing the cycle path
+    // Filter to cycles that include at least one diff function
     let mut block_id = 0;
-    for cycle in &cycles {
+    for cycle in &all_call_cycles {
+        let cycle_set: BTreeSet<_> = cycle.iter().copied().collect();
+        if cycle_set.intersection(&diff_func_nodes).next().is_none() {
+            continue; // Cycle doesn't involve any diff functions
+        }
+
         let mut block = DiffBlock::new(block_id, String::new(), ModifyType::Modified);
 
         // Set the primary file to the first function in the cycle
-        if let Some(first) = cycle.first() {
-            block.file = first.file.clone();
+        if let Some(&first_idx) = cycle.first() {
+            if let Some(fid) = cpg.to_function_id(first_idx) {
+                block.file = fid.file.clone();
+            }
         }
 
-        for func_id in cycle {
-            // Include function signature lines
-            block.add_line(&func_id.file, func_id.start_line, false);
-            block.add_line(&func_id.file, func_id.end_line, false);
+        for &func_idx in cycle {
+            if let Some(fid) = cpg.to_function_id(func_idx) {
+                // Include function signature lines
+                block.add_line(&fid.file, fid.start_line, false);
+                block.add_line(&fid.file, fid.end_line, false);
 
-            // Find the call site(s) to the next function in the cycle
-            if let Some(sites) = call_graph.calls.get(func_id) {
-                for site in sites {
-                    // Check if this call is to the next function in the cycle
-                    let next_idx = cycle
-                        .iter()
-                        .position(|f| f == func_id)
-                        .map(|i| (i + 1) % cycle.len());
-                    if let Some(idx) = next_idx {
-                        if site.callee_name == cycle[idx].name {
-                            block.add_line(&func_id.file, site.line, true);
+                // Find call sites to the next function in the cycle
+                let next_idx_pos = cycle.iter().position(|&f| f == func_idx);
+                if let Some(pos) = next_idx_pos {
+                    let next_func_idx = cycle[(pos + 1) % cycle.len()];
+                    // Check all Call edges from this function
+                    for edge in cpg.graph.edges(func_idx) {
+                        if matches!(edge.weight(), CpgEdge::Call) && edge.target() == next_func_idx
+                        {
+                            // The call site is at the caller's call graph construction.
+                            // We include the callee's start line as the call target indicator.
+                            if let Some(callee_fid) = cpg.to_function_id(next_func_idx) {
+                                block.add_line(&fid.file, fid.start_line, true);
+                                // Also mark the callee
+                                block.add_line(&callee_fid.file, callee_fid.start_line, false);
+                            }
                         }
                     }
                 }
@@ -71,45 +95,38 @@ pub fn slice(files: &BTreeMap<String, ParsedFile>, diff: &DiffInput) -> Result<S
         }
     }
 
-    // Also check for data flow cycles within functions (variable cycles)
-    let dfg = DataFlowGraph::build(files);
-    for diff_info in &diff.files {
-        for &line in &diff_info.diff_lines {
-            // Get all defs on this line
-            let _key_prefix = (diff_info.file_path.clone(), String::new(), String::new());
-            for ((file, _func, _var), def_locs) in &dfg.defs {
-                if file != &diff_info.file_path {
-                    continue;
-                }
-                for dl in def_locs {
-                    if dl.line != line {
-                        continue;
-                    }
-                    // Check if this def reaches itself (cycle in data flow)
-                    let reachable = dfg.forward_reachable(dl);
-                    for r in &reachable {
-                        if r.path == dl.path
-                            && r.file == dl.file
-                            && r.function == dl.function
-                            && r.line == dl.line
-                            && r.kind != dl.kind
-                        {
-                            // Data flow cycle detected
-                            let mut block =
-                                DiffBlock::new(block_id, file.clone(), ModifyType::Modified);
-                            block.add_line(file, line, true);
-                            // Include all intermediate lines
-                            for intermediate in &reachable {
-                                if intermediate.file == *file {
-                                    block.add_line(file, intermediate.line, false);
-                                }
-                            }
-                            result.blocks.push(block);
-                            block_id += 1;
-                        }
-                    }
-                }
-            }
+    // Also check for data flow cycles within functions
+    let df_cycles = cpg.data_flow_cycles();
+    for cycle in &df_cycles {
+        // Check if any node in the cycle is on a diff line
+        let has_diff_node = cycle.iter().any(|&idx| {
+            let node = cpg.node(idx);
+            diff.files
+                .iter()
+                .any(|di| di.file_path == node.file() && di.diff_lines.contains(&node.line()))
+        });
+
+        if !has_diff_node {
+            continue;
+        }
+
+        let mut block = DiffBlock::new(block_id, String::new(), ModifyType::Modified);
+        if let Some(&first) = cycle.first() {
+            block.file = cpg.node(first).file().to_string();
+        }
+
+        for &idx in cycle {
+            let node = cpg.node(idx);
+            let is_diff = diff
+                .files
+                .iter()
+                .any(|di| di.file_path == node.file() && di.diff_lines.contains(&node.line()));
+            block.add_line(node.file(), node.line(), is_diff);
+        }
+
+        if !block.file_line_map.is_empty() {
+            result.blocks.push(block);
+            block_id += 1;
         }
     }
 
