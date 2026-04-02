@@ -11,10 +11,9 @@
 //! Each line in the output is annotated with its ring level.
 
 use crate::ast::ParsedFile;
-use crate::cpg::CodePropertyGraph;
+use crate::cpg::CpgContext;
 use crate::diff::{DiffBlock, DiffInput};
 use crate::slice::{SliceConfig, SliceResult, SlicingAlgorithm};
-use crate::type_db::TypeDatabase;
 use anyhow::Result;
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -46,14 +45,12 @@ pub struct RingLine {
 }
 
 pub fn slice(
-    files: &BTreeMap<String, ParsedFile>,
+    ctx: &CpgContext,
     diff: &DiffInput,
     config: &SliceConfig,
     spiral_config: &SpiralConfig,
-    type_db: Option<&TypeDatabase>,
 ) -> Result<SliceResult> {
     let result = SliceResult::new(SlicingAlgorithm::SpiralSlice);
-    let cpg = CodePropertyGraph::build_enriched(files, type_db);
 
     // Track all lines included so far, keyed by (file, line)
     let mut included: BTreeMap<(String, usize), (bool, usize)> = BTreeMap::new(); // (is_diff, ring)
@@ -72,7 +69,7 @@ pub fn slice(
 
     // Ring 2: Enclosing functions
     for diff_info in &diff.files {
-        let parsed = match files.get(&diff_info.file_path) {
+        let parsed = match ctx.files.get(&diff_info.file_path) {
             Some(f) => f,
             None => continue,
         };
@@ -94,7 +91,7 @@ pub fn slice(
     prev_count = included.len();
 
     // Ring 3: LeftFlow + direct caller/callee signatures
-    let left_flow_result = crate::algorithms::left_flow::slice(files, diff, config)?;
+    let left_flow_result = crate::algorithms::left_flow::slice(ctx.files, diff, config)?;
     for block in &left_flow_result.blocks {
         for (file, line_map) in &block.file_line_map {
             for (&line, &is_diff) in line_map {
@@ -104,10 +101,10 @@ pub fn slice(
     }
 
     // Add direct callers/callees signatures
-    let diff_func_names = get_diff_function_names(files, diff);
+    let diff_func_names = get_diff_function_names(ctx.files, diff);
     for func_name in &diff_func_names {
         // Direct callers
-        let callers = cpg.callers_of(func_name, 1);
+        let callers = ctx.cpg.callers_of(func_name, 1);
         for (caller_id, _) in &callers {
             included
                 .entry((caller_id.file.clone(), caller_id.start_line))
@@ -118,7 +115,7 @@ pub fn slice(
         }
         // Direct callees
         for diff_info in &diff.files {
-            let callees = cpg.callees_of(func_name, &diff_info.file_path, 1);
+            let callees = ctx.cpg.callees_of(func_name, &diff_info.file_path, 1);
             for (callee_id, _) in &callees {
                 included
                     .entry((callee_id.file.clone(), callee_id.start_line))
@@ -137,7 +134,7 @@ pub fn slice(
 
     // Ring 4: Depth-2 callers/callees
     for func_name in &diff_func_names {
-        let callers = cpg.callers_of(func_name, 2);
+        let callers = ctx.cpg.callers_of(func_name, 2);
         for (caller_id, depth) in &callers {
             if *depth == 2 {
                 included
@@ -149,7 +146,7 @@ pub fn slice(
             }
         }
         for diff_info in &diff.files {
-            let callees = cpg.callees_of(func_name, &diff_info.file_path, 2);
+            let callees = ctx.cpg.callees_of(func_name, &diff_info.file_path, 2);
             for (callee_id, depth) in &callees {
                 if *depth == 2 {
                     included
@@ -169,7 +166,7 @@ pub fn slice(
     prev_count = included.len();
 
     // Ring 5: Test files (heuristic: files matching test patterns that reference changed functions)
-    for (file_path, parsed) in files {
+    for (file_path, parsed) in ctx.files {
         let is_test = file_path.contains("test_")
             || file_path.contains("_test.")
             || file_path.contains("_spec.")
@@ -208,7 +205,7 @@ pub fn slice(
     // Heuristic: find files that are referenced from multiple changed files
     // This is approximate since we don't have full import resolution
     let changed_files: BTreeSet<&str> = diff.files.iter().map(|f| f.file_path.as_str()).collect();
-    for (file_path, parsed) in files {
+    for (file_path, parsed) in ctx.files {
         if changed_files.contains(file_path.as_str()) {
             continue;
         }
@@ -222,7 +219,7 @@ pub fn slice(
                 }
                 // Check if any changed file calls this function
                 for changed_file in &changed_files {
-                    if let Some(changed_parsed) = files.get(*changed_file) {
+                    if let Some(changed_parsed) = ctx.files.get(*changed_file) {
                         let root = changed_parsed.tree.root_node();
                         if !changed_parsed
                             .find_variable_references(&root, fname)

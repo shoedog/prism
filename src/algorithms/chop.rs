@@ -6,11 +6,9 @@
 //!
 //! Uses the Code Property Graph for data flow chopping.
 
-use crate::ast::ParsedFile;
-use crate::cpg::CodePropertyGraph;
+use crate::cpg::CpgContext;
 use crate::diff::{DiffBlock, ModifyType};
 use crate::slice::{SliceResult, SlicingAlgorithm};
-use crate::type_db::TypeDatabase;
 use anyhow::Result;
 use std::collections::BTreeMap;
 
@@ -23,15 +21,10 @@ pub struct ChopConfig {
     pub sink_line: usize,
 }
 
-pub fn slice(
-    files: &BTreeMap<String, ParsedFile>,
-    chop_config: &ChopConfig,
-    type_db: Option<&TypeDatabase>,
-) -> Result<SliceResult> {
+pub fn slice(ctx: &CpgContext, chop_config: &ChopConfig) -> Result<SliceResult> {
     let mut result = SliceResult::new(SlicingAlgorithm::Chop);
-    let cpg = CodePropertyGraph::build_enriched(files, type_db);
 
-    let on_path = cpg.dfg_cfg_chop(
+    let on_path = ctx.cpg.dfg_cfg_chop(
         &chop_config.source_file,
         chop_config.source_line,
         &chop_config.sink_file,
