@@ -66,6 +66,17 @@ pub struct DataFlowGraph {
 }
 
 impl DataFlowGraph {
+    /// Create an empty data flow graph with no edges.
+    pub fn empty() -> Self {
+        DataFlowGraph {
+            edges: Vec::new(),
+            defs: BTreeMap::new(),
+            uses: BTreeMap::new(),
+            forward: BTreeMap::new(),
+            backward: BTreeMap::new(),
+        }
+    }
+
     /// Build a data flow graph from parsed files.
     pub fn build(files: &BTreeMap<String, ParsedFile>) -> Self {
         let mut defs: BTreeMap<(String, String, AccessPath), Vec<VarLocation>> = BTreeMap::new();
@@ -262,12 +273,19 @@ impl DataFlowGraph {
     }
 
     /// Phase 3: If a path's base is aliased, return the resolved path.
-    /// e.g., if alias_map has ptr → dev, then path `ptr.field` resolves to `dev.field`.
+    ///
+    /// Simple alias: ptr → dev, path `ptr.field` resolves to `dev.field`.
+    /// Destructuring alias: name → device.name, path `name` resolves to `device.name`.
+    /// Destructuring + field: name → device.name, path `name.x` resolves to `device.name.x`.
     fn resolve_path(alias_map: &BTreeMap<String, String>, path: &AccessPath) -> Option<AccessPath> {
         if let Some(target) = alias_map.get(&path.base) {
+            let target_path = AccessPath::from_expr(target);
+            // Combine: target_path's fields + path's original fields
+            let mut fields = target_path.fields;
+            fields.extend(path.fields.iter().cloned());
             Some(AccessPath {
-                base: target.clone(),
-                fields: path.fields.clone(),
+                base: target_path.base,
+                fields,
             })
         } else {
             None

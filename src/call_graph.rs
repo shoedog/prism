@@ -39,6 +39,16 @@ pub struct CallGraph {
 }
 
 impl CallGraph {
+    /// Create an empty call graph with no functions or edges.
+    pub fn empty() -> Self {
+        CallGraph {
+            functions: BTreeMap::new(),
+            calls: BTreeMap::new(),
+            callers: BTreeMap::new(),
+            static_functions: BTreeSet::new(),
+        }
+    }
+
     /// Build a call graph from all parsed files.
     pub fn build(files: &BTreeMap<String, ParsedFile>) -> Self {
         let mut functions: BTreeMap<String, Vec<FunctionId>> = BTreeMap::new();
