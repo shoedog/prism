@@ -12860,3 +12860,430 @@ void init(struct device *dev) {
     assert_eq!(cpg.resolve_type("dev_t"), "struct device *");
     assert_eq!(cpg.field_type("device", "name"), Some("char *".to_string()));
 }
+
+// ── JS/TS destructuring alias tracking ──────────────────────────────
+
+#[test]
+fn test_destructuring_object_basic_js() {
+    // const { name, id } = device → name aliases device.name, id aliases device.id
+    let source = r#"
+function process(device) {
+    const { name, id } = device;
+    console.log(name);
+    console.log(id);
+}
+"#;
+    let path = "src/process.js";
+    let parsed = ParsedFile::parse(path, source, Language::JavaScript).unwrap();
+
+    let func_node = parsed.all_functions().into_iter().next().unwrap();
+    let lines: BTreeSet<usize> = (1..=6).collect();
+    let aliases = parsed.collect_alias_assignments(&func_node, &lines);
+
+    // Should have: name → device.name, id → device.id
+    assert!(
+        aliases
+            .iter()
+            .any(|(a, t, _)| a == "name" && t == "device.name"),
+        "Expected alias name → device.name, got: {:?}",
+        aliases
+    );
+    assert!(
+        aliases
+            .iter()
+            .any(|(a, t, _)| a == "id" && t == "device.id"),
+        "Expected alias id → device.id, got: {:?}",
+        aliases
+    );
+}
+
+#[test]
+fn test_destructuring_renamed_js() {
+    // const { name: userName } = device → userName aliases device.name
+    let source = r#"
+function process(device) {
+    const { name: userName, id: deviceId } = device;
+    console.log(userName);
+}
+"#;
+    let path = "src/process.js";
+    let parsed = ParsedFile::parse(path, source, Language::JavaScript).unwrap();
+
+    let func_node = parsed.all_functions().into_iter().next().unwrap();
+    let lines: BTreeSet<usize> = (1..=5).collect();
+    let aliases = parsed.collect_alias_assignments(&func_node, &lines);
+
+    assert!(
+        aliases
+            .iter()
+            .any(|(a, t, _)| a == "userName" && t == "device.name"),
+        "Expected alias userName → device.name, got: {:?}",
+        aliases
+    );
+    assert!(
+        aliases
+            .iter()
+            .any(|(a, t, _)| a == "deviceId" && t == "device.id"),
+        "Expected alias deviceId → device.id, got: {:?}",
+        aliases
+    );
+}
+
+#[test]
+fn test_destructuring_nested_js() {
+    // const { config: { host, port } } = device → host aliases device.config.host
+    let source = r#"
+function connect(device) {
+    const { config: { host, port } } = device;
+    open(host, port);
+}
+"#;
+    let path = "src/connect.js";
+    let parsed = ParsedFile::parse(path, source, Language::JavaScript).unwrap();
+
+    let func_node = parsed.all_functions().into_iter().next().unwrap();
+    let lines: BTreeSet<usize> = (1..=5).collect();
+    let aliases = parsed.collect_alias_assignments(&func_node, &lines);
+
+    assert!(
+        aliases
+            .iter()
+            .any(|(a, t, _)| a == "host" && t == "device.config.host"),
+        "Expected alias host → device.config.host, got: {:?}",
+        aliases
+    );
+    assert!(
+        aliases
+            .iter()
+            .any(|(a, t, _)| a == "port" && t == "device.config.port"),
+        "Expected alias port → device.config.port, got: {:?}",
+        aliases
+    );
+}
+
+#[test]
+fn test_destructuring_array_js() {
+    // const [first, second] = items → first aliases items, second aliases items
+    let source = r#"
+function process(items) {
+    const [first, second] = items;
+    console.log(first);
+}
+"#;
+    let path = "src/process.js";
+    let parsed = ParsedFile::parse(path, source, Language::JavaScript).unwrap();
+
+    let func_node = parsed.all_functions().into_iter().next().unwrap();
+    let lines: BTreeSet<usize> = (1..=5).collect();
+    let aliases = parsed.collect_alias_assignments(&func_node, &lines);
+
+    // Array destructuring aliases each element to the base array
+    assert!(
+        aliases.iter().any(|(a, t, _)| a == "first" && t == "items"),
+        "Expected alias first → items, got: {:?}",
+        aliases
+    );
+    assert!(
+        aliases
+            .iter()
+            .any(|(a, t, _)| a == "second" && t == "items"),
+        "Expected alias second → items, got: {:?}",
+        aliases
+    );
+}
+
+#[test]
+fn test_destructuring_taint_propagation_js() {
+    // Taint on device should propagate through destructured name via alias
+    let source = r#"
+function render(userInput) {
+    const { name, role } = userInput;
+    document.getElementById("output").innerHTML = name;
+}
+"#;
+    let path = "src/render.js";
+    let parsed = ParsedFile::parse(path, source, Language::JavaScript).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([3]),
+        }],
+    };
+
+    let result = algorithms::run_slicing_compat(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::Taint),
+        None,
+    )
+    .unwrap();
+
+    // Taint should detect the flow from destructured variable to innerHTML
+    assert!(
+        !result.blocks.is_empty(),
+        "Taint should produce blocks for destructured variable flowing to innerHTML"
+    );
+}
+
+#[test]
+fn test_destructuring_typescript() {
+    // TypeScript destructuring should work identically to JavaScript
+    let source = r#"
+function process(device: Device): void {
+    const { name, id }: { name: string; id: number } = device;
+    console.log(name);
+}
+"#;
+    let path = "src/process.ts";
+    let parsed = ParsedFile::parse(path, source, Language::TypeScript).unwrap();
+
+    let func_node = parsed.all_functions().into_iter().next().unwrap();
+    let lines: BTreeSet<usize> = (1..=5).collect();
+    let aliases = parsed.collect_alias_assignments(&func_node, &lines);
+
+    assert!(
+        aliases
+            .iter()
+            .any(|(a, t, _)| a == "name" && t == "device.name"),
+        "Expected TS alias name → device.name, got: {:?}",
+        aliases
+    );
+}
+
+#[test]
+fn test_destructuring_no_false_positive_js() {
+    // Two independent destructurings should not cross-contaminate
+    let source = r#"
+function process(a, b) {
+    const { x } = a;
+    const { x: y } = b;
+    console.log(x, y);
+}
+"#;
+    let path = "src/process.js";
+    let parsed = ParsedFile::parse(path, source, Language::JavaScript).unwrap();
+
+    let func_node = parsed.all_functions().into_iter().next().unwrap();
+    let lines: BTreeSet<usize> = (1..=6).collect();
+    let aliases = parsed.collect_alias_assignments(&func_node, &lines);
+
+    assert!(
+        aliases.iter().any(|(a, t, _)| a == "x" && t == "a.x"),
+        "Expected alias x → a.x, got: {:?}",
+        aliases
+    );
+    assert!(
+        aliases.iter().any(|(a, t, _)| a == "y" && t == "b.x"),
+        "Expected alias y → b.x, got: {:?}",
+        aliases
+    );
+    // Ensure no cross-contamination
+    assert!(
+        !aliases.iter().any(|(a, t, _)| a == "x" && t == "b.x"),
+        "x should NOT alias b.x"
+    );
+}
+
+#[test]
+fn test_destructuring_through_alias_js() {
+    // const ref = obj; const { name } = ref → name should resolve to obj.name
+    let source = r#"
+function process(obj) {
+    const ref = obj;
+    const { name, id } = ref;
+    console.log(name);
+}
+"#;
+    let path = "src/through.js";
+    let parsed = ParsedFile::parse(path, source, Language::JavaScript).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let dfg = DataFlowGraph::build(&files);
+    let obj_defs = dfg.all_defs_of(path, "obj");
+
+    // name should resolve through ref → obj, producing a def for obj.name
+    let has_obj_name = obj_defs
+        .iter()
+        .any(|d| d.path.base == "obj" && d.path.fields == vec!["name"]);
+    assert!(
+        has_obj_name,
+        "Destructuring through alias: name via ref should resolve to obj.name. Got defs: {:?}",
+        obj_defs.iter().map(|d| &d.path).collect::<Vec<_>>()
+    );
+}
+
+#[test]
+fn test_destructuring_through_chain_js() {
+    // const a = obj; const b = a; const { x } = b → x should resolve to obj.x
+    let source = r#"
+function process(obj) {
+    const a = obj;
+    const b = a;
+    const { x } = b;
+    console.log(x);
+}
+"#;
+    let path = "src/chain.js";
+    let parsed = ParsedFile::parse(path, source, Language::JavaScript).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let dfg = DataFlowGraph::build(&files);
+    let obj_defs = dfg.all_defs_of(path, "obj");
+
+    let has_obj_x = obj_defs
+        .iter()
+        .any(|d| d.path.base == "obj" && d.path.fields == vec!["x"]);
+    assert!(
+        has_obj_x,
+        "Destructuring through chain: x via b=a=obj should resolve to obj.x. Got defs: {:?}",
+        obj_defs.iter().map(|d| &d.path).collect::<Vec<_>>()
+    );
+}
+
+#[test]
+fn test_destructuring_nested_through_alias_js() {
+    // const ref = obj; const { config: { host } } = ref → host should resolve to obj.config.host
+    let source = r#"
+function connect(obj) {
+    const ref = obj;
+    const { config: { host } } = ref;
+    open(host);
+}
+"#;
+    let path = "src/nested_alias.js";
+    let parsed = ParsedFile::parse(path, source, Language::JavaScript).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let dfg = DataFlowGraph::build(&files);
+    let obj_defs = dfg.all_defs_of(path, "obj");
+
+    let has_obj_config_host = obj_defs
+        .iter()
+        .any(|d| d.path.base == "obj" && d.path.fields == vec!["config", "host"]);
+    assert!(
+        has_obj_config_host,
+        "Nested destructuring through alias: host should resolve to obj.config.host. Got defs: {:?}",
+        obj_defs.iter().map(|d| &d.path).collect::<Vec<_>>()
+    );
+}
+
+// ── Lua colon method syntax ─────────────────────────────────────────
+
+#[test]
+fn test_lua_colon_method_field_access() {
+    // obj:close() uses method_index_expression — should be recognized as field access
+    let source = r#"
+function cleanup(file)
+    file:close()
+    file:flush()
+end
+"#;
+    let path = "src/cleanup.lua";
+    let parsed = ParsedFile::parse(path, source, Language::Lua).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([3, 4]),
+        }],
+    };
+
+    // LeftFlow should trace file:close() back to the file parameter
+    let result = algorithms::run_slicing_compat(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::LeftFlow),
+        None,
+    )
+    .unwrap();
+
+    assert!(
+        !result.blocks.is_empty(),
+        "LeftFlow should produce blocks for Lua colon method calls"
+    );
+}
+
+// ── CpgContext::without_cpg / needs_cpg tests ───────────────────────
+
+#[test]
+fn test_needs_cpg_classification() {
+    // Verify that AST-only algorithms don't need CPG
+    let ast_only = vec![
+        SlicingAlgorithm::OriginalDiff,
+        SlicingAlgorithm::ParentFunction,
+        SlicingAlgorithm::LeftFlow,
+        SlicingAlgorithm::FullFlow,
+        SlicingAlgorithm::ThinSlice,
+        SlicingAlgorithm::RelevantSlice,
+        SlicingAlgorithm::ConditionedSlice,
+        SlicingAlgorithm::QuantumSlice,
+        SlicingAlgorithm::HorizontalSlice,
+        SlicingAlgorithm::AngleSlice,
+        SlicingAlgorithm::AbsenceSlice,
+        SlicingAlgorithm::ResonanceSlice,
+        SlicingAlgorithm::SymmetrySlice,
+        SlicingAlgorithm::PhantomSlice,
+    ];
+    for algo in &ast_only {
+        assert!(!algo.needs_cpg(), "{:?} should not need CPG", algo);
+    }
+
+    // Verify that CPG-consuming algorithms do need CPG
+    let cpg_algos = vec![
+        SlicingAlgorithm::BarrierSlice,
+        SlicingAlgorithm::Chop,
+        SlicingAlgorithm::Taint,
+        SlicingAlgorithm::DeltaSlice,
+        SlicingAlgorithm::SpiralSlice,
+        SlicingAlgorithm::CircularSlice,
+        SlicingAlgorithm::VerticalSlice,
+        SlicingAlgorithm::ThreeDSlice,
+        SlicingAlgorithm::GradientSlice,
+        SlicingAlgorithm::ProvenanceSlice,
+        SlicingAlgorithm::MembraneSlice,
+        SlicingAlgorithm::EchoSlice,
+    ];
+    for algo in &cpg_algos {
+        assert!(algo.needs_cpg(), "{:?} should need CPG", algo);
+    }
+}
+
+#[test]
+fn test_without_cpg_context_runs_ast_only() {
+    // CpgContext::without_cpg should work for AST-only algorithms
+    let source = r#"
+def add(x, y):
+    return x + y
+"#;
+    let path = "src/add.py";
+    let parsed = ParsedFile::parse(path, source, Language::Python).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([3]),
+        }],
+    };
+
+    let ctx = CpgContext::without_cpg(&files, None);
+    let config = SliceConfig::default().with_algorithm(SlicingAlgorithm::OriginalDiff);
+    let result = algorithms::run_slicing(&ctx, &diff, &config).unwrap();
+
+    assert!(
+        !result.blocks.is_empty(),
+        "AST-only algorithm should work with empty CPG context"
+    );
+}

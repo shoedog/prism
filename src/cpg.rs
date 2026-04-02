@@ -53,6 +53,21 @@ impl<'a> CpgContext<'a> {
             type_db,
         }
     }
+
+    /// Create a lightweight CpgContext without building the CPG.
+    ///
+    /// Used for AST-only algorithms that never access the CPG.
+    /// The CPG fields are empty — accessing `cpg` will return no results.
+    pub fn without_cpg(
+        files: &'a BTreeMap<String, ParsedFile>,
+        type_db: Option<&'a TypeDatabase>,
+    ) -> Self {
+        CpgContext {
+            cpg: CodePropertyGraph::empty(),
+            files,
+            type_db,
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -277,6 +292,21 @@ impl CodePropertyGraph {
     /// Build a CPG without type enrichment.
     pub fn build(files: &BTreeMap<String, ParsedFile>) -> Self {
         Self::build_enriched(files, None)
+    }
+
+    /// Create an empty CPG with no nodes or edges.
+    ///
+    /// Used by `CpgContext::without_cpg` for AST-only algorithms.
+    pub fn empty() -> Self {
+        CodePropertyGraph {
+            graph: DiGraph::new(),
+            func_index: BTreeMap::new(),
+            var_index: BTreeMap::new(),
+            location_index: BTreeMap::new(),
+            call_graph: CallGraph::empty(),
+            dfg: DataFlowGraph::empty(),
+            type_db: None,
+        }
     }
 
     /// Build a CPG with optional type enrichment.
