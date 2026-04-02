@@ -10,7 +10,7 @@
 //! - Z: Temporal (git history)
 
 use crate::ast::ParsedFile;
-use crate::call_graph::CallGraph;
+use crate::cpg::CodePropertyGraph;
 use crate::diff::{DiffBlock, DiffInput, ModifyType};
 use crate::slice::{SliceResult, SlicingAlgorithm};
 use anyhow::{anyhow, Result};
@@ -58,7 +58,7 @@ pub fn slice(
     config: &ThreeDConfig,
 ) -> Result<SliceResult> {
     let mut result = SliceResult::new(SlicingAlgorithm::ThreeDSlice);
-    let call_graph = CallGraph::build(files);
+    let cpg = CodePropertyGraph::build(files);
 
     // Get temporal data from git
     let git_churn = get_git_churn(&config.git_dir, config.temporal_days)?;
@@ -75,15 +75,15 @@ pub fn slice(
         let mut scored_funcs: BTreeSet<String> = BTreeSet::new();
 
         for &line in &diff_info.diff_lines {
-            if let Some(func_id) = call_graph.function_at(&diff_info.file_path, line) {
+            if let Some((_idx, func_id)) = cpg.function_at(&diff_info.file_path, line) {
                 if scored_funcs.contains(&func_id.name) {
                     continue;
                 }
                 scored_funcs.insert(func_id.name.clone());
 
                 // Structural coupling: callers + callees
-                let callers = call_graph.callers_of(&func_id.name, 1);
-                let callees = call_graph.callees_of(&func_id.name, &diff_info.file_path, 1);
+                let callers = cpg.callers_of(&func_id.name, 1);
+                let callees = cpg.callees_of(&func_id.name, &diff_info.file_path, 1);
                 let structural_coupling = callers.len() + callees.len();
 
                 // Temporal activity
@@ -118,7 +118,7 @@ pub fn slice(
     // Also score connected functions (callers/callees)
     let diff_func_names: Vec<String> = scores.iter().map(|s| s.function_name.clone()).collect();
     for func_name in &diff_func_names {
-        let callers = call_graph.callers_of(func_name, 2);
+        let callers = cpg.callers_of(func_name, 2);
         for (caller_id, _) in &callers {
             if scores
                 .iter()
@@ -128,8 +128,8 @@ pub fn slice(
             }
 
             let temporal_activity = git_churn.get(&caller_id.file).copied().unwrap_or(0);
-            let callers_of_caller = call_graph.callers_of(&caller_id.name, 1);
-            let callees_of_caller = call_graph.callees_of(&caller_id.name, &caller_id.file, 1);
+            let callers_of_caller = cpg.callers_of(&caller_id.name, 1);
+            let callees_of_caller = cpg.callees_of(&caller_id.name, &caller_id.file, 1);
 
             scores.push(RiskScore {
                 file: caller_id.file.clone(),

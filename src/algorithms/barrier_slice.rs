@@ -5,7 +5,7 @@
 //! I trace?" problem by making the boundary explicit.
 
 use crate::ast::ParsedFile;
-use crate::call_graph::CallGraph;
+use crate::cpg::CodePropertyGraph;
 use crate::diff::{DiffBlock, DiffInput};
 use crate::slice::{SliceConfig, SliceResult, SlicingAlgorithm};
 use anyhow::Result;
@@ -39,7 +39,7 @@ pub fn slice(
     barrier_config: &BarrierConfig,
 ) -> Result<SliceResult> {
     let mut result = SliceResult::new(SlicingAlgorithm::BarrierSlice);
-    let call_graph = CallGraph::build(files);
+    let cpg = CodePropertyGraph::build(files);
     let mut block_id = 0;
 
     for diff_info in &diff.files {
@@ -51,7 +51,7 @@ pub fn slice(
         // Find functions containing diff lines
         let mut diff_functions: BTreeSet<String> = BTreeSet::new();
         for &line in &diff_info.diff_lines {
-            if let Some(func_id) = call_graph.function_at(&diff_info.file_path, line) {
+            if let Some((_idx, func_id)) = cpg.function_at(&diff_info.file_path, line) {
                 diff_functions.insert(func_id.name.clone());
             }
         }
@@ -82,7 +82,7 @@ pub fn slice(
             }
 
             // Trace callers (up)
-            let callers = call_graph.callers_of(func_name, barrier_config.max_depth);
+            let callers = cpg.callers_of(func_name, barrier_config.max_depth);
             for (caller_id, _depth) in &callers {
                 if barrier_config.barrier_symbols.contains(&caller_id.name) {
                     continue;
@@ -101,7 +101,7 @@ pub fn slice(
                 entry.insert(caller_id.end_line, false);
 
                 // Find the specific call site lines
-                if let Some(sites) = call_graph.callers.get(func_name) {
+                if let Some(sites) = cpg.call_graph.callers.get(func_name) {
                     for site in sites {
                         if site.caller.name == caller_id.name {
                             entry.insert(site.line, false);
@@ -111,8 +111,7 @@ pub fn slice(
             }
 
             // Trace callees (down)
-            let callees =
-                call_graph.callees_of(func_name, &diff_info.file_path, barrier_config.max_depth);
+            let callees = cpg.callees_of(func_name, &diff_info.file_path, barrier_config.max_depth);
             for (callee_id, _depth) in &callees {
                 if barrier_config.barrier_symbols.contains(&callee_id.name) {
                     continue;
