@@ -10,7 +10,7 @@
 //! cases, callers that depend on side effects that were removed.
 
 use crate::ast::ParsedFile;
-use crate::call_graph::CallGraph;
+use crate::cpg::CodePropertyGraph;
 use crate::diff::{DiffBlock, DiffInput, ModifyType};
 use crate::slice::{SliceFinding, SliceResult, SlicingAlgorithm};
 use anyhow::Result;
@@ -100,7 +100,7 @@ pub struct EchoFinding {
 
 pub fn slice(files: &BTreeMap<String, ParsedFile>, diff: &DiffInput) -> Result<SliceResult> {
     let mut result = SliceResult::new(SlicingAlgorithm::EchoSlice);
-    let call_graph = CallGraph::build(files);
+    let cpg = CodePropertyGraph::build(files);
     let mut block_id = 0;
 
     for diff_info in &diff.files {
@@ -149,7 +149,7 @@ pub fn slice(files: &BTreeMap<String, ParsedFile>, diff: &DiffInput) -> Result<S
             });
 
             // Find all callers across all files
-            let callers = call_graph.callers_of(func_name, 2);
+            let callers = cpg.callers_of(func_name, 2);
 
             for (caller_id, _depth) in &callers {
                 let caller_parsed = match files.get(&caller_id.file) {
@@ -160,18 +160,18 @@ pub fn slice(files: &BTreeMap<String, ParsedFile>, diff: &DiffInput) -> Result<S
                 let caller_source: Vec<&str> = caller_parsed.source.lines().collect();
 
                 // Find call site lines
-                let call_lines: Vec<usize> = if let Some(sites) = call_graph.callers.get(func_name)
-                {
-                    sites
-                        .iter()
-                        .filter(|s| {
-                            s.caller.name == caller_id.name && s.caller.file == caller_id.file
-                        })
-                        .map(|s| s.line)
-                        .collect()
-                } else {
-                    continue;
-                };
+                let call_lines: Vec<usize> =
+                    if let Some(sites) = cpg.call_graph.callers.get(func_name) {
+                        sites
+                            .iter()
+                            .filter(|s| {
+                                s.caller.name == caller_id.name && s.caller.file == caller_id.file
+                            })
+                            .map(|s| s.line)
+                            .collect()
+                    } else {
+                        continue;
+                    };
 
                 let mut missing_checks: Vec<String> = Vec::new();
 
