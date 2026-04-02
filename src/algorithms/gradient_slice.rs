@@ -105,7 +105,10 @@ pub fn slice(
             continue;
         }
 
-        // Follow DataFlow, Call, and Return edges
+        // Follow DataFlow, Call, and Return edges.
+        // Note: DataFlow edges are currently intraprocedural only. If interprocedural
+        // DFG edges are added in the future, this traversal will silently cross function
+        // boundaries — at that point, consider adding function-scoping if needed.
         use petgraph::visit::EdgeRef;
         for edge in cpg.graph.edges(node_idx) {
             let follow = matches!(
