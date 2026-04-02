@@ -4,11 +4,9 @@
 //! stopping at barrier functions or modules. This solves the "how deep should
 //! I trace?" problem by making the boundary explicit.
 
-use crate::ast::ParsedFile;
-use crate::cpg::CodePropertyGraph;
+use crate::cpg::CpgContext;
 use crate::diff::{DiffBlock, DiffInput};
 use crate::slice::{SliceConfig, SliceResult, SlicingAlgorithm};
-use crate::type_db::TypeDatabase;
 use anyhow::Result;
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -34,18 +32,16 @@ impl Default for BarrierConfig {
 }
 
 pub fn slice(
-    files: &BTreeMap<String, ParsedFile>,
+    ctx: &CpgContext,
     diff: &DiffInput,
     _config: &SliceConfig,
     barrier_config: &BarrierConfig,
-    type_db: Option<&TypeDatabase>,
 ) -> Result<SliceResult> {
     let mut result = SliceResult::new(SlicingAlgorithm::BarrierSlice);
-    let cpg = CodePropertyGraph::build_enriched(files, type_db);
     let mut block_id = 0;
 
     for diff_info in &diff.files {
-        let parsed = match files.get(&diff_info.file_path) {
+        let parsed = match ctx.files.get(&diff_info.file_path) {
             Some(f) => f,
             None => continue,
         };
@@ -53,7 +49,7 @@ pub fn slice(
         // Find functions containing diff lines
         let mut diff_functions: BTreeSet<String> = BTreeSet::new();
         for &line in &diff_info.diff_lines {
-            if let Some((_idx, func_id)) = cpg.function_at(&diff_info.file_path, line) {
+            if let Some((_idx, func_id)) = ctx.cpg.function_at(&diff_info.file_path, line) {
                 diff_functions.insert(func_id.name.clone());
             }
         }
@@ -84,7 +80,7 @@ pub fn slice(
             }
 
             // Trace callers (up)
-            let callers = cpg.callers_of(func_name, barrier_config.max_depth);
+            let callers = ctx.cpg.callers_of(func_name, barrier_config.max_depth);
             for (caller_id, _depth) in &callers {
                 if barrier_config.barrier_symbols.contains(&caller_id.name) {
                     continue;
@@ -103,7 +99,7 @@ pub fn slice(
                 entry.insert(caller_id.end_line, false);
 
                 // Find the specific call site lines
-                if let Some(sites) = cpg.call_graph.callers.get(func_name) {
+                if let Some(sites) = ctx.cpg.call_graph.callers.get(func_name) {
                     for site in sites {
                         if site.caller.name == caller_id.name {
                             entry.insert(site.line, false);
@@ -113,7 +109,9 @@ pub fn slice(
             }
 
             // Trace callees (down)
-            let callees = cpg.callees_of(func_name, &diff_info.file_path, barrier_config.max_depth);
+            let callees =
+                ctx.cpg
+                    .callees_of(func_name, &diff_info.file_path, barrier_config.max_depth);
             for (callee_id, _depth) in &callees {
                 if barrier_config.barrier_symbols.contains(&callee_id.name) {
                     continue;

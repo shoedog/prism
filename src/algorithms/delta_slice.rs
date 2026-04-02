@@ -5,22 +5,16 @@
 //! new edges, removed edges, and modified assignments.
 
 use crate::ast::ParsedFile;
-use crate::cpg::CodePropertyGraph;
+use crate::cpg::{CodePropertyGraph, CpgContext};
 use crate::diff::{DiffBlock, DiffInput, ModifyType};
 use crate::languages::Language;
 use crate::slice::{SliceResult, SlicingAlgorithm};
-use crate::type_db::TypeDatabase;
 use anyhow::Result;
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::Path;
 
-pub fn slice(
-    new_files: &BTreeMap<String, ParsedFile>,
-    diff: &DiffInput,
-    old_repo: &Path,
-    type_db: Option<&TypeDatabase>,
-) -> Result<SliceResult> {
+pub fn slice(ctx: &CpgContext, diff: &DiffInput, old_repo: &Path) -> Result<SliceResult> {
     let mut result = SliceResult::new(SlicingAlgorithm::DeltaSlice);
 
     // Parse old versions of changed files
@@ -36,9 +30,8 @@ pub fn slice(
         }
     }
 
-    // Build CPGs for both versions; use their embedded DFGs for edge diffing
-    let old_cpg = CodePropertyGraph::build_enriched(&old_files, type_db);
-    let new_cpg = CodePropertyGraph::build_enriched(new_files, type_db);
+    // Build CPG for the old version; the new version comes from the shared context
+    let old_cpg = CodePropertyGraph::build(&old_files);
 
     // Find edges that differ between versions
     let old_edges: BTreeSet<(String, usize, String, usize)> = old_cpg
@@ -55,7 +48,8 @@ pub fn slice(
         })
         .collect();
 
-    let new_edges: BTreeSet<(String, usize, String, usize)> = new_cpg
+    let new_edges: BTreeSet<(String, usize, String, usize)> = ctx
+        .cpg
         .dfg
         .edges
         .iter()

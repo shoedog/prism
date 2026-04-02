@@ -5,10 +5,9 @@
 //! handler → service → model → database.
 
 use crate::ast::ParsedFile;
-use crate::cpg::CodePropertyGraph;
+use crate::cpg::CpgContext;
 use crate::diff::{DiffBlock, DiffInput, ModifyType};
 use crate::slice::{SliceResult, SlicingAlgorithm};
-use crate::type_db::TypeDatabase;
 use anyhow::Result;
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -60,30 +59,28 @@ pub struct LayerEntry {
 }
 
 pub fn slice(
-    files: &BTreeMap<String, ParsedFile>,
+    ctx: &CpgContext,
     diff: &DiffInput,
     vertical_config: &VerticalConfig,
-    type_db: Option<&TypeDatabase>,
 ) -> Result<SliceResult> {
     let mut result = SliceResult::new(SlicingAlgorithm::VerticalSlice);
-    let cpg = CodePropertyGraph::build_enriched(files, type_db);
 
     // Detect layers for each file
     let file_layers: BTreeMap<String, String> = if vertical_config.layers.is_empty() {
-        detect_layers(files)
+        detect_layers(ctx.files)
     } else {
-        assign_layers(files, &vertical_config.layers)
+        assign_layers(ctx.files, &vertical_config.layers)
     };
 
     // For each diff function, trace upward and downward through layers
     let mut block_id = 0;
     for diff_info in &diff.files {
         for &line in &diff_info.diff_lines {
-            if let Some((_idx, func_id)) = cpg.function_at(&diff_info.file_path, line) {
+            if let Some((_idx, func_id)) = ctx.cpg.function_at(&diff_info.file_path, line) {
                 let mut path: Vec<LayerEntry> = Vec::new();
 
                 // Trace up: callers toward the entry point
-                let callers = cpg.callers_of(&func_id.name, 10);
+                let callers = ctx.cpg.callers_of(&func_id.name, 10);
                 for (caller_id, _depth) in callers.iter().rev() {
                     let layer = file_layers
                         .get(&caller_id.file)
@@ -112,7 +109,7 @@ pub fn slice(
                 });
 
                 // Trace down: callees toward persistence
-                let callees = cpg.callees_of(&func_id.name, &diff_info.file_path, 10);
+                let callees = ctx.cpg.callees_of(&func_id.name, &diff_info.file_path, 10);
                 for (callee_id, _depth) in &callees {
                     let layer = file_layers
                         .get(&callee_id.file)

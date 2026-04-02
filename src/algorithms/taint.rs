@@ -5,10 +5,9 @@
 //! paths from taint sources to potential sinks (SQL, exec, file ops, HTTP responses).
 
 use crate::ast::ParsedFile;
-use crate::cpg::CodePropertyGraph;
+use crate::cpg::CpgContext;
 use crate::diff::{DiffBlock, DiffInput, ModifyType};
 use crate::slice::{SliceFinding, SliceResult, SlicingAlgorithm};
-use crate::type_db::TypeDatabase;
 use anyhow::Result;
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -253,13 +252,11 @@ fn detect_format_string_wrappers(files: &BTreeMap<String, ParsedFile>) -> Vec<St
 }
 
 pub fn slice(
-    files: &BTreeMap<String, ParsedFile>,
+    ctx: &CpgContext,
     diff: &DiffInput,
     taint_config: &TaintConfig,
-    type_db: Option<&TypeDatabase>,
 ) -> Result<SliceResult> {
     let mut result = SliceResult::new(SlicingAlgorithm::Taint);
-    let cpg = CodePropertyGraph::build_enriched(files, type_db);
 
     // Collect taint sources
     let mut taint_sources: Vec<(String, usize)> = taint_config.sources.clone();
@@ -273,10 +270,10 @@ pub fn slice(
     }
 
     // Forward propagation from each source (CFG-constrained when available)
-    let paths = cpg.taint_forward_cfg(&taint_sources);
+    let paths = ctx.cpg.taint_forward_cfg(&taint_sources);
 
     // Detect variadic wrapper functions and add them as dynamic sinks
-    let wrapper_sinks = detect_format_string_wrappers(files);
+    let wrapper_sinks = detect_format_string_wrappers(ctx.files);
 
     // Collect all tainted lines and identify sinks
     let mut all_tainted: BTreeMap<String, BTreeSet<usize>> = BTreeMap::new();
@@ -301,7 +298,7 @@ pub fn slice(
                 .insert(edge.to.line);
 
             // Check if the target location involves a sink
-            if let Some(parsed) = files.get(&edge.to.file) {
+            if let Some(parsed) = ctx.files.get(&edge.to.file) {
                 let ids = parsed.identifiers_on_line(edge.to.line);
                 for id in &ids {
                     let text = parsed.node_text(id);

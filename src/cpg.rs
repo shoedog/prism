@@ -23,6 +23,39 @@ use petgraph::visit::EdgeRef;
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
 // ---------------------------------------------------------------------------
+// CpgContext — shared analysis context built once per review
+// ---------------------------------------------------------------------------
+
+/// Shared analysis context built once per review, passed to all algorithms.
+///
+/// Bundles the Code Property Graph with the ParsedFile map and optional
+/// type database. Algorithms that need graph traversal use `cpg`;
+/// algorithms that need source text or AST patterns use `files`.
+pub struct CpgContext<'a> {
+    /// The unified Code Property Graph (built once).
+    pub cpg: CodePropertyGraph,
+    /// Parsed files with tree-sitter ASTs.
+    pub files: &'a BTreeMap<String, ParsedFile>,
+    /// Optional type database for C/C++ enrichment.
+    pub type_db: Option<&'a TypeDatabase>,
+}
+
+impl<'a> CpgContext<'a> {
+    /// Build a CpgContext from parsed files and optional type enrichment.
+    pub fn build(
+        files: &'a BTreeMap<String, ParsedFile>,
+        type_db: Option<&'a TypeDatabase>,
+    ) -> Self {
+        let cpg = CodePropertyGraph::build_enriched(files, type_db);
+        CpgContext {
+            cpg,
+            files,
+            type_db,
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Node types
 // ---------------------------------------------------------------------------
 

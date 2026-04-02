@@ -10,13 +10,11 @@
 //!
 //! This is backward taint analysis with origin classification.
 
-use crate::ast::ParsedFile;
-use crate::cpg::CodePropertyGraph;
+use crate::cpg::CpgContext;
 use crate::diff::{DiffBlock, DiffInput, ModifyType};
 use crate::slice::{SliceFinding, SliceResult, SlicingAlgorithm};
-use crate::type_db::TypeDatabase;
 use anyhow::Result;
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeSet;
 
 /// Classification of a data origin.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -366,17 +364,12 @@ pub struct ProvenanceFinding {
     pub path: Vec<(String, usize)>,
 }
 
-pub fn slice(
-    files: &BTreeMap<String, ParsedFile>,
-    diff: &DiffInput,
-    type_db: Option<&TypeDatabase>,
-) -> Result<SliceResult> {
+pub fn slice(ctx: &CpgContext, diff: &DiffInput) -> Result<SliceResult> {
     let mut result = SliceResult::new(SlicingAlgorithm::ProvenanceSlice);
-    let cpg = CodePropertyGraph::build_enriched(files, type_db);
     let mut block_id = 0;
 
     for diff_info in &diff.files {
-        let parsed = match files.get(&diff_info.file_path) {
+        let parsed = match ctx.files.get(&diff_info.file_path) {
             Some(f) => f,
             None => continue,
         };
@@ -396,7 +389,7 @@ pub fn slice(
                 seen_vars.insert(var_name.clone());
 
                 // Trace backward through data flow to find the origin
-                let locs = cpg.all_defs_of(&diff_info.file_path, &var_name);
+                let locs = ctx.cpg.all_defs_of(&diff_info.file_path, &var_name);
                 let mut origin = Origin::Unknown;
                 let mut origin_line = line;
                 let mut origin_file = diff_info.file_path.clone();
@@ -415,9 +408,9 @@ pub fn slice(
                     }
 
                     // Also trace backward from this def
-                    let reachable = cpg.dfg.backward_reachable(loc);
+                    let reachable = ctx.cpg.dfg.backward_reachable(loc);
                     for r in &reachable {
-                        if let Some(rparsed) = files.get(&r.file) {
+                        if let Some(rparsed) = ctx.files.get(&r.file) {
                             let rlines: Vec<&str> = rparsed.source.lines().collect();
                             if r.line > 0 && r.line <= rlines.len() {
                                 let lt = rlines[r.line - 1];
