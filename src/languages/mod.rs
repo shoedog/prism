@@ -186,7 +186,16 @@ impl Language {
     /// Get the assignment value (R-value) from an assignment node.
     pub fn assignment_value<'a>(&self, node: &Node<'a>) -> Option<Node<'a>> {
         match self {
-            Self::Python => node.child_by_field_name("right"),
+            Self::Python => {
+                // named_expression (walrus :=) uses "value" field, not "right"
+                node.child_by_field_name("right").or_else(|| {
+                    if node.kind() == "named_expression" {
+                        node.child_by_field_name("value")
+                    } else {
+                        None
+                    }
+                })
+            }
             Self::JavaScript | Self::TypeScript => node.child_by_field_name("right"),
             Self::Go => node.child_by_field_name("right"),
             Self::Java => node.child_by_field_name("right"),
