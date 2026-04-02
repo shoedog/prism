@@ -94,7 +94,34 @@ impl DataFlowGraph {
 
                 // Phase 3: Build local alias map for this function.
                 // Tracks `ptr = dev` so that `ptr->field` resolves to `dev->field`.
-                let alias_map = Self::build_alias_map(parsed, &func_node, &all_lines);
+                // Also tracks destructuring: `const { name } = obj` → name resolves to obj.name.
+                let (alias_map, raw_aliases) =
+                    Self::build_alias_map(parsed, &func_node, &all_lines);
+
+                // Register defs for destructuring aliases that resolve to field paths.
+                // `const { name } = device` doesn't appear as an assignment L-value,
+                // so we create defs from the alias map directly.
+                for (alias, _target, alias_line) in &raw_aliases {
+                    if let Some(resolved_str) = alias_map.get(alias) {
+                        let resolved_ap = AccessPath::from_expr(resolved_str);
+                        if resolved_ap.has_fields() {
+                            let loc = VarLocation {
+                                file: file_path.clone(),
+                                function: func_name.clone(),
+                                line: *alias_line,
+                                path: resolved_ap.clone(),
+                                kind: VarAccessKind::Def,
+                            };
+                            defs.entry((
+                                file_path.clone(),
+                                func_name.clone(),
+                                resolved_ap,
+                            ))
+                            .or_default()
+                            .push(loc);
+                        }
+                    }
+                }
 
                 // Find all definitions (L-values) with structured access paths
                 let lvalue_paths = parsed.assignment_lvalue_paths_on_lines(&func_node, &all_lines);
@@ -110,12 +137,13 @@ impl DataFlowGraph {
                         .or_default()
                         .push(loc);
 
-                    // Phase 3: If this path has fields and its base is aliased, also register
-                    // a def under the resolved path so edges connect through aliases.
-                    // Only applies to field paths (ptr->field → dev->field), not simple
-                    // variables which are already handled by def-use chains.
-                    if path.has_fields() {
-                        if let Some(resolved) = Self::resolve_path(&alias_map, path) {
+                    // Phase 3: If this path's base is aliased, also register a def under
+                    // the resolved path so edges connect through aliases.
+                    // For field paths (ptr->field → dev->field): resolves base through alias.
+                    // For simple paths from destructuring (name → device.name): creates
+                    // a field-qualified def so taint connects through destructured variables.
+                    if let Some(resolved) = Self::resolve_path(&alias_map, path) {
+                        if resolved != *path {
                             let resolved_loc = VarLocation {
                                 file: file_path.clone(),
                                 function: func_name.clone(),
@@ -161,9 +189,9 @@ impl DataFlowGraph {
                         });
                     }
 
-                    // Phase 3: Also create edges for the alias-resolved path (field paths only)
-                    if path.has_fields() {
-                        if let Some(resolved) = Self::resolve_path(&alias_map, path) {
+                    // Phase 3: Also create edges for the alias-resolved path
+                    if let Some(resolved) = Self::resolve_path(&alias_map, path) {
+                        if resolved != *path {
                             let resolved_refs = parsed
                                 .find_path_references_scoped(&func_node, &resolved, *def_line);
                             for ref_line in &resolved_refs {
@@ -242,12 +270,13 @@ impl DataFlowGraph {
     }
 
     /// Phase 3: Build a local alias map from simple assignments like `ptr = dev`.
-    /// Returns a map from alias name to resolved target name, following chains.
+    /// Returns (alias_map, raw_aliases) where alias_map maps alias name to
+    /// fully resolved target, and raw_aliases are the original (alias, target, line) triples.
     fn build_alias_map(
         parsed: &ParsedFile,
         func_node: &tree_sitter::Node<'_>,
         lines: &BTreeSet<usize>,
-    ) -> BTreeMap<String, String> {
+    ) -> (BTreeMap<String, String>, Vec<(String, String, usize)>) {
         let raw_aliases = parsed.collect_alias_assignments(func_node, lines);
         let mut alias_map: BTreeMap<String, String> = BTreeMap::new();
 
@@ -263,13 +292,39 @@ impl DataFlowGraph {
                     break; // Prevent infinite loops in pathological cases
                 }
             }
+
+            // For dotted targets (from destructuring), also resolve the base component.
+            // e.g., name → ptr.name where ptr → device  →  resolved becomes device.name
+            let mut base_depth = 0;
+            loop {
+                let target_ap = AccessPath::from_expr(&resolved);
+                if target_ap.fields.is_empty() {
+                    break; // Simple target, already handled by chain resolution above
+                }
+                if let Some(base_target) = alias_map.get(&target_ap.base) {
+                    let base_ap = AccessPath::from_expr(base_target);
+                    let mut fields = base_ap.fields;
+                    fields.extend(target_ap.fields);
+                    resolved = std::iter::once(base_ap.base.as_str())
+                        .chain(fields.iter().map(|f| f.as_str()))
+                        .collect::<Vec<_>>()
+                        .join(".");
+                    base_depth += 1;
+                    if base_depth > 5 {
+                        break;
+                    }
+                } else {
+                    break;
+                }
+            }
+
             // Don't create self-aliases
             if alias != &resolved {
                 alias_map.insert(alias.clone(), resolved);
             }
         }
 
-        alias_map
+        (alias_map, raw_aliases)
     }
 
     /// Phase 3: If a path's base is aliased, return the resolved path.
