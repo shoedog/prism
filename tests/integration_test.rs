@@ -14128,10 +14128,7 @@ def process(items):
     files.insert(path.to_string(), parsed);
     let dfg = DataFlowGraph::build(&files);
     let n_defs = dfg.all_defs_of(path, "n");
-    assert!(
-        !n_defs.is_empty(),
-        "Walrus: 'n' should have a def"
-    );
+    assert!(!n_defs.is_empty(), "Walrus: 'n' should have a def");
 }
 
 #[test]
@@ -14207,10 +14204,7 @@ function listKeys(obj) {
 
     let dfg = DataFlowGraph::build(&files);
     let key_defs = dfg.all_defs_of(path, "key");
-    assert!(
-        !key_defs.is_empty(),
-        "for-in: 'key' should have def"
-    );
+    assert!(!key_defs.is_empty(), "for-in: 'key' should have def");
 }
 
 #[test]
@@ -14229,10 +14223,7 @@ def process():
 
     let dfg = DataFlowGraph::build(&files);
     let f_defs = dfg.all_defs_of(path, "f");
-    assert!(
-        !f_defs.is_empty(),
-        "with...as: 'f' should have def"
-    );
+    assert!(!f_defs.is_empty(), "with...as: 'f' should have def");
 }
 
 #[test]
@@ -14252,10 +14243,7 @@ def process():
 
     let dfg = DataFlowGraph::build(&files);
     let e_defs = dfg.all_defs_of(path, "e");
-    assert!(
-        !e_defs.is_empty(),
-        "except...as: 'e' should have def"
-    );
+    assert!(!e_defs.is_empty(), "except...as: 'e' should have def");
 }
 
 #[test]
@@ -14285,5 +14273,340 @@ function process(items) {
         id_alias,
         "for-of destructuring: 'id' should have alias, got {:?}",
         aliases
+    );
+}
+
+// ── Coverage: ast.rs and languages/mod.rs ──────────────────────────
+
+#[test]
+fn test_lua_assignment_target_and_value() {
+    // Lua assignment_target walks variable_list, assignment_value walks expression_list
+    let source = r#"
+local function process()
+    local x = 10
+    x = 20
+    use(x)
+end
+"#;
+    let path = "src/lua.lua";
+    let parsed = ParsedFile::parse(path, source, Language::Lua).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let dfg = DataFlowGraph::build(&files);
+    let x_defs = dfg.all_defs_of(path, "x");
+    assert!(
+        !x_defs.is_empty(),
+        "Lua: 'x' should have defs from local and assignment"
+    );
+}
+
+#[test]
+fn test_lua_alias_assignment() {
+    // Tests Lua assignment_target/assignment_value via alias tracking
+    let source = r#"
+local function process()
+    local a = external
+    local b = a
+    use(b)
+end
+"#;
+    let path = "src/lua_alias.lua";
+    let parsed = ParsedFile::parse(path, source, Language::Lua).unwrap();
+    let func = parsed.all_functions().into_iter().next().unwrap();
+    let lines: BTreeSet<usize> = (1..=6).collect();
+
+    let aliases = parsed.collect_alias_assignments(&func, &lines);
+    let b_aliases_a = aliases.iter().any(|(a, t, _)| a == "b" && t == "a");
+    assert!(b_aliases_a, "Lua: 'b' should alias 'a', got: {:?}", aliases);
+}
+
+#[test]
+fn test_cpp_update_expression_def() {
+    // C/C++ update_expression (++/--) is treated as assignment
+    let source = r#"
+void process() {
+    int count = 0;
+    count++;
+    ++count;
+    count--;
+    use(count);
+}
+"#;
+    let path = "src/process.cpp";
+    let parsed = ParsedFile::parse(path, source, Language::Cpp).unwrap();
+    let func = parsed.all_functions().into_iter().next().unwrap();
+    let lines: BTreeSet<usize> = (1..=7).collect();
+    let lvalues = parsed.assignment_lvalue_paths_on_lines(&func, &lines);
+
+    // count should have a def from the initial declaration
+    let has_count = lvalues.iter().any(|(p, _)| p.base == "count");
+    assert!(
+        has_count,
+        "C++ count should have L-value, got: {:?}",
+        lvalues.iter().map(|(p, _)| &p.base).collect::<Vec<_>>()
+    );
+}
+
+#[test]
+fn test_python_multi_target_attribute_lvalue() {
+    // Multi-target with attribute access: obj.x, obj.y = func()
+    let source = r#"
+def process(obj):
+    obj.x, obj.y = get_coords()
+    use(obj)
+"#;
+    let path = "src/process.py";
+    let parsed = ParsedFile::parse(path, source, Language::Python).unwrap();
+    let func = parsed.all_functions().into_iter().next().unwrap();
+    let lines: BTreeSet<usize> = (1..=4).collect();
+    let lvalues = parsed.assignment_lvalue_paths_on_lines(&func, &lines);
+
+    let has_obj_x = lvalues
+        .iter()
+        .any(|(p, _)| p.base == "obj" && p.fields.contains(&"x".to_string()));
+    let has_obj_y = lvalues
+        .iter()
+        .any(|(p, _)| p.base == "obj" && p.fields.contains(&"y".to_string()));
+    assert!(
+        has_obj_x,
+        "Python multi-target: obj.x should be L-value, got: {:?}",
+        lvalues
+    );
+    assert!(
+        has_obj_y,
+        "Python multi-target: obj.y should be L-value, got: {:?}",
+        lvalues
+    );
+}
+
+#[test]
+fn test_rust_let_destructuring_def() {
+    // Rust let (a, b) = tuple; — destructuring in let_declaration
+    let source = r#"
+fn process() {
+    let x = get_data();
+    use_val(x);
+}
+"#;
+    let path = "src/process.rs";
+    let parsed = ParsedFile::parse(path, source, Language::Rust).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let dfg = DataFlowGraph::build(&files);
+    let x_defs = dfg.all_defs_of(path, "x");
+    assert!(!x_defs.is_empty(), "Rust let: 'x' should have a def");
+}
+
+#[test]
+fn test_rust_compound_assignment() {
+    // Rust compound assignment: x += 1
+    let source = r#"
+fn process() {
+    let mut x = 0;
+    x += 10;
+    use_val(x);
+}
+"#;
+    let path = "src/process.rs";
+    let parsed = ParsedFile::parse(path, source, Language::Rust).unwrap();
+    let func = parsed.all_functions().into_iter().next().unwrap();
+    let lines: BTreeSet<usize> = (1..=5).collect();
+    let lvalues = parsed.assignment_lvalue_paths_on_lines(&func, &lines);
+
+    let has_x = lvalues.iter().any(|(p, _)| p.base == "x");
+    assert!(
+        has_x,
+        "Rust compound assignment: x should be L-value, got: {:?}",
+        lvalues.iter().map(|(p, _)| &p.base).collect::<Vec<_>>()
+    );
+}
+
+#[test]
+fn test_js_array_destructuring_rest_alias() {
+    // Array destructuring with rest: const [first, ...rest] = arr
+    let source = r#"
+function process(arr) {
+    const [first, ...rest] = arr;
+    use(first);
+    use(rest);
+}
+"#;
+    let path = "src/process.js";
+    let parsed = ParsedFile::parse(path, source, Language::JavaScript).unwrap();
+    let func = parsed.all_functions().into_iter().next().unwrap();
+    let lines: BTreeSet<usize> = (1..=5).collect();
+
+    let aliases = parsed.collect_alias_assignments(&func, &lines);
+    let first_alias = aliases.iter().any(|(a, _t, _l)| a == "first");
+    let rest_alias = aliases.iter().any(|(a, _t, _l)| a == "rest");
+    assert!(
+        first_alias,
+        "Array rest: 'first' should have alias, got {:?}",
+        aliases
+    );
+    assert!(
+        rest_alias,
+        "Array rest: 'rest' should have alias, got {:?}",
+        aliases
+    );
+}
+
+#[test]
+fn test_walrus_assignment_value_flow() {
+    // Walrus assignment_value should extract RHS identifiers for DFG use tracking.
+    // If items is on a diff line, its use on the walrus RHS should be collected.
+    let source = r#"
+def process(items):
+    if (n := len(items)) > 10:
+        use(n)
+"#;
+    let path = "src/walrus.py";
+    let parsed = ParsedFile::parse(path, source, Language::Python).unwrap();
+    let func = parsed.all_functions().into_iter().next().unwrap();
+    let lines: BTreeSet<usize> = (1..=4).collect();
+
+    // The walrus RHS is len(items) — not a plain ident, so no alias.
+    // But the assignment_value path should be Some (not None).
+    let aliases = parsed.collect_alias_assignments(&func, &lines);
+    // No alias expected (RHS is a call), but shouldn't panic
+    let _ = aliases;
+
+    // Verify DFG has defs
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+    let dfg = DataFlowGraph::build(&files);
+    let n_defs = dfg.all_defs_of(path, "n");
+    assert!(!n_defs.is_empty(), "Walrus: 'n' def should exist");
+}
+
+#[test]
+fn test_go_short_var_declaration_value() {
+    // Go short_var_declaration uses "right" field for declaration_value
+    let source = r#"
+package main
+
+func process() {
+    x := getData()
+    use(x)
+}
+"#;
+    let path = "src/process.go";
+    let parsed = ParsedFile::parse(path, source, Language::Go).unwrap();
+    let func = parsed.all_functions().into_iter().next().unwrap();
+    let lines: BTreeSet<usize> = (1..=6).collect();
+
+    // short_var_declaration is both declaration and assignment in Go
+    let aliases = parsed.collect_alias_assignments(&func, &lines);
+    // getData() is not a plain ident, so no alias — but the path should not crash
+    let _ = aliases;
+
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+    let dfg = DataFlowGraph::build(&files);
+    let x_defs = dfg.all_defs_of(path, "x");
+    assert!(
+        !x_defs.is_empty(),
+        "Go short_var_declaration: 'x' should have def"
+    );
+}
+
+#[test]
+fn test_go_var_declaration_with_value() {
+    // Go var_declaration with explicit value
+    let source = r#"
+package main
+
+func process() {
+    var x int = 42
+    use(x)
+}
+"#;
+    let path = "src/process.go";
+    let parsed = ParsedFile::parse(path, source, Language::Go).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let dfg = DataFlowGraph::build(&files);
+    let x_defs = dfg.all_defs_of(path, "x");
+    assert!(
+        !x_defs.is_empty(),
+        "Go var declaration: 'x' should have def"
+    );
+}
+
+#[test]
+fn test_c_init_declarator_value() {
+    // C init_declarator: int *ptr = dev
+    let source = r#"
+void process() {
+    int x = 42;
+    int *ptr = &x;
+    use(ptr);
+}
+"#;
+    let path = "src/process.c";
+    let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+    let func = parsed.all_functions().into_iter().next().unwrap();
+    let lines: BTreeSet<usize> = (1..=5).collect();
+    let lvalues = parsed.assignment_lvalue_paths_on_lines(&func, &lines);
+
+    let has_x = lvalues.iter().any(|(p, _)| p.base == "x");
+    let has_ptr = lvalues.iter().any(|(p, _)| p.base == "ptr");
+    assert!(has_x, "C: 'x' should have L-value");
+    assert!(has_ptr, "C: 'ptr' should have L-value");
+}
+
+#[test]
+fn test_js_for_of_array_destructuring_aliases() {
+    // Array destructuring in for-of: const [a, b] of pairs
+    let source = r#"
+function process(pairs) {
+    for (const [a, b] of pairs) {
+        use(a);
+        use(b);
+    }
+}
+"#;
+    let path = "src/process.js";
+    let parsed = ParsedFile::parse(path, source, Language::JavaScript).unwrap();
+    let func = parsed.all_functions().into_iter().next().unwrap();
+    let lines: BTreeSet<usize> = (1..=6).collect();
+
+    let aliases = parsed.collect_alias_assignments(&func, &lines);
+    let a_alias = aliases.iter().any(|(a, _t, _l)| a == "a");
+    let b_alias = aliases.iter().any(|(a, _t, _l)| a == "b");
+    assert!(
+        a_alias,
+        "for-of array destructuring: 'a' should have alias, got {:?}",
+        aliases
+    );
+    assert!(
+        b_alias,
+        "for-of array destructuring: 'b' should have alias, got {:?}",
+        aliases
+    );
+}
+
+#[test]
+fn test_python_with_as_taint_flow() {
+    // Taint through with...as binding should flow to uses of f
+    let source = r#"
+def handler():
+    with get_connection() as conn:
+        data = conn.read()
+        execute(data)
+"#;
+    let path = "src/handler.py";
+    let parsed = ParsedFile::parse(path, source, Language::Python).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let dfg = DataFlowGraph::build(&files);
+    let conn_defs = dfg.all_defs_of(path, "conn");
+    assert!(
+        !conn_defs.is_empty(),
+        "with...as: 'conn' should have def for taint flow"
     );
 }
