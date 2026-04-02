@@ -1,2 +1,7 @@
 /target
 target/llvm-cov/
+
+# Generated coverage artifacts (regenerate with: python3 scripts/generate_coverage_badges.py)
+coverage/report.json
+coverage/badges.md
+coverage/table.md
