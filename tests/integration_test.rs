@@ -1,3 +1,4 @@
+use prism::access_path::AccessPath;
 use prism::algorithms;
 use prism::ast::ParsedFile;
 use prism::call_graph::CallGraph;
@@ -13683,4 +13684,421 @@ void main() {
         live.contains("Processor"),
         "Stack allocation should count as instantiation"
     );
+}
+
+// ── Gap analysis: multi-target assignment, optional chaining, walrus ──
+
+#[test]
+fn test_go_multi_return_individual_defs() {
+    let source = r#"
+package main
+
+func process() {
+    val, err := getData()
+    use(val)
+    check(err)
+}
+"#;
+    let path = "src/process.go";
+    let parsed = ParsedFile::parse(path, source, Language::Go).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let dfg = DataFlowGraph::build(&files);
+
+    let val_defs = dfg.all_defs_of(path, "val");
+    let err_defs = dfg.all_defs_of(path, "err");
+    assert!(
+        !val_defs.is_empty(),
+        "Go multi-return: 'val' should have its own def"
+    );
+    assert!(
+        !err_defs.is_empty(),
+        "Go multi-return: 'err' should have its own def"
+    );
+
+    let composite_defs = dfg.all_defs_of(path, "val, err");
+    assert!(
+        composite_defs.is_empty(),
+        "Go multi-return: should not have composite 'val, err' def, got {:?}",
+        composite_defs
+    );
+}
+
+#[test]
+fn test_go_type_assertion_individual_defs() {
+    let source = r#"
+package main
+
+func check(x interface{}) {
+    str, ok := x.(string)
+    if ok {
+        use(str)
+    }
+}
+"#;
+    let path = "src/check.go";
+    let parsed = ParsedFile::parse(path, source, Language::Go).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let dfg = DataFlowGraph::build(&files);
+    assert!(
+        !dfg.all_defs_of(path, "str").is_empty(),
+        "Go type assertion: 'str' should have def"
+    );
+    assert!(
+        !dfg.all_defs_of(path, "ok").is_empty(),
+        "Go type assertion: 'ok' should have def"
+    );
+}
+
+#[test]
+fn test_python_tuple_unpack_individual_defs() {
+    let source = r#"
+def process():
+    name, age = get_user()
+    use(name)
+    use(age)
+"#;
+    let path = "src/process.py";
+    let parsed = ParsedFile::parse(path, source, Language::Python).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let dfg = DataFlowGraph::build(&files);
+    assert!(
+        !dfg.all_defs_of(path, "name").is_empty(),
+        "Python tuple unpack: 'name' should have def"
+    );
+    assert!(
+        !dfg.all_defs_of(path, "age").is_empty(),
+        "Python tuple unpack: 'age' should have def"
+    );
+}
+
+#[test]
+fn test_python_star_unpack_individual_defs() {
+    let source = r#"
+def process():
+    first, *rest = get_items()
+    use(first)
+    use(rest)
+"#;
+    let path = "src/process.py";
+    let parsed = ParsedFile::parse(path, source, Language::Python).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let dfg = DataFlowGraph::build(&files);
+    assert!(
+        !dfg.all_defs_of(path, "first").is_empty(),
+        "Python star unpack: 'first' should have def"
+    );
+    assert!(
+        !dfg.all_defs_of(path, "rest").is_empty(),
+        "Python star unpack: 'rest' should have def"
+    );
+}
+
+#[test]
+fn test_python_walrus_operator_def() {
+    let source = r#"
+def process(items):
+    if (n := len(items)) > 10:
+        use(n)
+"#;
+    let path = "src/process.py";
+    let parsed = ParsedFile::parse(path, source, Language::Python).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let dfg = DataFlowGraph::build(&files);
+    assert!(
+        !dfg.all_defs_of(path, "n").is_empty(),
+        "Python walrus operator: 'n' should have def from := expression"
+    );
+}
+
+#[test]
+fn test_js_optional_chaining_access_path() {
+    let normal = AccessPath::from_expr("obj.config.host");
+    let optional = AccessPath::from_expr("obj?.config?.host");
+    assert_eq!(
+        normal, optional,
+        "Optional chaining should normalize to same AccessPath as dot access"
+    );
+    assert_eq!(optional.base, "obj");
+    assert_eq!(optional.fields, vec!["config", "host"]);
+
+    let mixed = AccessPath::from_expr("obj?.config.host");
+    assert_eq!(mixed.base, "obj");
+    assert_eq!(mixed.fields, vec!["config", "host"]);
+}
+
+#[test]
+fn test_go_multi_return_taint_flow() {
+    let source = r#"
+package main
+
+func handler() {
+    val, err := getUserInput()
+    execute(val)
+}
+"#;
+    let path = "src/handler.go";
+    let parsed = ParsedFile::parse(path, source, Language::Go).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let dfg = DataFlowGraph::build(&files);
+    let val_defs = dfg.all_defs_of(path, "val");
+    assert!(!val_defs.is_empty(), "val should have a def");
+
+    if let Some(val_def) = val_defs.first() {
+        let reachable = dfg.forward_reachable(val_def);
+        assert!(
+            !reachable.is_empty(),
+            "Taint from val should reach execute() call"
+        );
+    }
+}
+
+#[test]
+fn test_python_tuple_unpack_taint_flow() {
+    let source = r#"
+def handler():
+    name, role = get_user_input()
+    execute(name)
+"#;
+    let path = "src/handler.py";
+    let parsed = ParsedFile::parse(path, source, Language::Python).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let dfg = DataFlowGraph::build(&files);
+    let name_defs = dfg.all_defs_of(path, "name");
+    assert!(!name_defs.is_empty(), "name should have a def");
+
+    if let Some(name_def) = name_defs.first() {
+        let reachable = dfg.forward_reachable(name_def);
+        assert!(
+            !reachable.is_empty(),
+            "Taint from name should reach execute() call"
+        );
+    }
+}
+
+// ── Review feedback: language-specific, optional chaining, walrus negative, nested tuple ──
+
+#[test]
+fn test_go_multi_return_individual_defs_lvalue() {
+    let source = r#"
+package main
+
+func process() {
+    host, port := getAddr()
+    connect(host, port)
+}
+"#;
+    let path = "src/go_multi.go";
+    let parsed = ParsedFile::parse(path, source, Language::Go).unwrap();
+    let func = parsed.all_functions().into_iter().next().unwrap();
+    let lines: BTreeSet<usize> = (1..=7).collect();
+    let lvalues = parsed.assignment_lvalue_paths_on_lines(&func, &lines);
+
+    let has_host = lvalues.iter().any(|(p, _)| p.base == "host");
+    let has_port = lvalues.iter().any(|(p, _)| p.base == "port");
+    assert!(
+        has_host,
+        "Go multi-return L-value: 'host' should exist, got {:?}",
+        lvalues.iter().map(|(p, _)| &p.base).collect::<Vec<_>>()
+    );
+    assert!(has_port, "Go multi-return L-value: 'port' should exist");
+    let has_composite = lvalues.iter().any(|(p, _)| p.base.contains(','));
+    assert!(
+        !has_composite,
+        "Go multi-return: should not have composite L-value"
+    );
+}
+
+#[test]
+fn test_python_tuple_unpack_lvalue() {
+    let source = r#"
+def process():
+    name, age = get_user()
+    first, *rest = get_items()
+    use(name)
+"#;
+    let path = "src/py_tuple.py";
+    let parsed = ParsedFile::parse(path, source, Language::Python).unwrap();
+    let func = parsed.all_functions().into_iter().next().unwrap();
+    let lines: BTreeSet<usize> = (1..=6).collect();
+    let lvalues = parsed.assignment_lvalue_paths_on_lines(&func, &lines);
+
+    assert!(
+        lvalues.iter().any(|(p, _)| p.base == "name"),
+        "Python: 'name' L-value"
+    );
+    assert!(
+        lvalues.iter().any(|(p, _)| p.base == "age"),
+        "Python: 'age' L-value"
+    );
+    assert!(
+        lvalues.iter().any(|(p, _)| p.base == "first"),
+        "Python: 'first' L-value"
+    );
+    assert!(
+        lvalues.iter().any(|(p, _)| p.base == "rest"),
+        "Python: 'rest' L-value"
+    );
+}
+
+#[test]
+fn test_go_assignment_multi_target() {
+    let source = r#"
+package main
+
+func process() {
+    var x, y int
+    x, y = getCoords()
+    use(x)
+}
+"#;
+    let path = "src/go_assign.go";
+    let parsed = ParsedFile::parse(path, source, Language::Go).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+    let dfg = DataFlowGraph::build(&files);
+
+    assert!(
+        !dfg.all_defs_of(path, "x").is_empty(),
+        "Go multi-assign: 'x' should have def"
+    );
+    assert!(
+        !dfg.all_defs_of(path, "y").is_empty(),
+        "Go multi-assign: 'y' should have def"
+    );
+}
+
+#[test]
+fn test_optional_chaining_single_level() {
+    let ap = AccessPath::from_expr("obj?.name");
+    assert_eq!(ap.base, "obj");
+    assert_eq!(ap.fields, vec!["name"]);
+}
+
+#[test]
+fn test_optional_chaining_element_access() {
+    let ap = AccessPath::from_expr("arr?.[0]");
+    assert_eq!(ap.base, "arr");
+    assert!(
+        !ap.fields.is_empty(),
+        "arr?.[0] should produce fields, got {:?}",
+        ap
+    );
+}
+
+#[test]
+fn test_optional_chaining_deep() {
+    let ap = AccessPath::from_expr("a?.b?.c?.d");
+    assert_eq!(ap.base, "a");
+    assert_eq!(ap.fields, vec!["b", "c", "d"]);
+}
+
+#[test]
+fn test_optional_chaining_does_not_break_arrow() {
+    let ap = AccessPath::from_expr("dev->config->host");
+    assert_eq!(ap.base, "dev");
+    assert_eq!(ap.fields, vec!["config", "host"]);
+}
+
+#[test]
+fn test_walrus_does_not_affect_regular_assignment() {
+    let source = r#"
+def process():
+    x = 42
+    y = x + 1
+"#;
+    let path = "src/regular.py";
+    let parsed = ParsedFile::parse(path, source, Language::Python).unwrap();
+    let func = parsed.all_functions().into_iter().next().unwrap();
+    let lines: BTreeSet<usize> = (1..=5).collect();
+    let lvalues = parsed.assignment_lvalue_paths_on_lines(&func, &lines);
+
+    assert!(
+        lvalues.iter().any(|(p, _)| p.base == "x"),
+        "Regular assignment: 'x' should have L-value"
+    );
+    assert!(
+        lvalues.iter().any(|(p, _)| p.base == "y"),
+        "Regular assignment: 'y' should have L-value"
+    );
+}
+
+#[test]
+fn test_walrus_does_not_affect_augmented_assignment() {
+    let source = r#"
+def process():
+    x = 0
+    x += 1
+"#;
+    let path = "src/augmented.py";
+    let parsed = ParsedFile::parse(path, source, Language::Python).unwrap();
+    let func = parsed.all_functions().into_iter().next().unwrap();
+    let lines: BTreeSet<usize> = (1..=5).collect();
+    let lvalues = parsed.assignment_lvalue_paths_on_lines(&func, &lines);
+
+    let x_count = lvalues.iter().filter(|(p, _)| p.base == "x").count();
+    assert!(
+        x_count >= 2,
+        "Augmented assignment: 'x' should have defs from both = and +=, got {}",
+        x_count
+    );
+}
+
+#[test]
+fn test_walrus_in_while_loop() {
+    let source = r#"
+def process(stream):
+    while (chunk := stream.read(1024)):
+        use(chunk)
+"#;
+    let path = "src/walrus_while.py";
+    let parsed = ParsedFile::parse(path, source, Language::Python).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+    let dfg = DataFlowGraph::build(&files);
+
+    assert!(
+        !dfg.all_defs_of(path, "chunk").is_empty(),
+        "Walrus in while: 'chunk' should have def from := expression"
+    );
+}
+
+#[test]
+fn test_python_nested_tuple_unpack() {
+    let source = r#"
+def process():
+    (a, b), c = get_nested()
+    use(a)
+    use(b)
+    use(c)
+"#;
+    let path = "src/nested.py";
+    let parsed = ParsedFile::parse(path, source, Language::Python).unwrap();
+    let func = parsed.all_functions().into_iter().next().unwrap();
+    let lines: BTreeSet<usize> = (1..=7).collect();
+    let lvalues = parsed.assignment_lvalue_paths_on_lines(&func, &lines);
+
+    let has_a = lvalues.iter().any(|(p, _)| p.base == "a");
+    let has_b = lvalues.iter().any(|(p, _)| p.base == "b");
+    let has_c = lvalues.iter().any(|(p, _)| p.base == "c");
+    assert!(
+        has_a,
+        "Nested tuple: 'a' should have L-value, got {:?}",
+        lvalues.iter().map(|(p, _)| &p.base).collect::<Vec<_>>()
+    );
+    assert!(has_b, "Nested tuple: 'b' should have L-value");
+    assert!(has_c, "Nested tuple: 'c' should have L-value");
 }
