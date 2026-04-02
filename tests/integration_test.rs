@@ -14610,3 +14610,243 @@ def handler():
         "with...as: 'conn' should have def for taint flow"
     );
 }
+
+// ── Cross-language coverage matrix validation ──────────────────────────
+
+/// Simple glob matching: splits pattern on `*` and checks all fragments
+/// appear in order in the text. e.g. "test_*fptr*" matches "test_c_fptr_level1".
+fn glob_match(pattern: &str, text: &str) -> bool {
+    let parts: Vec<&str> = pattern.split('*').collect();
+    let mut pos = 0;
+    for (i, part) in parts.iter().enumerate() {
+        if part.is_empty() {
+            continue;
+        }
+        match text[pos..].find(part) {
+            Some(idx) => {
+                if i == 0 && !pattern.starts_with('*') && idx != 0 {
+                    return false;
+                }
+                pos += idx + part.len();
+            }
+            None => return false,
+        }
+    }
+    if !pattern.ends_with('*') {
+        pos == text.len()
+    } else {
+        true
+    }
+}
+
+#[test]
+fn test_coverage_matrix_validation() {
+    use std::fs;
+
+    let matrix_str =
+        fs::read_to_string("coverage/matrix.json").expect("coverage/matrix.json should exist");
+    let matrix: serde_json::Value =
+        serde_json::from_str(&matrix_str).expect("matrix.json should be valid JSON");
+
+    // Read all test function names from test files AND unit test modules
+    let test_files = &[
+        "tests/integration_test.rs",
+        "tests/cli_test.rs",
+        "src/cfg.rs",
+        "src/cpg.rs",
+        "src/type_db.rs",
+        "src/data_flow.rs",
+        "src/ast.rs",
+        "src/call_graph.rs",
+        "src/access_path.rs",
+    ];
+    let mut test_names: Vec<String> = Vec::new();
+    for path in test_files {
+        if let Ok(source) = fs::read_to_string(path) {
+            for line in source.lines() {
+                let trimmed = line.trim();
+                if trimmed.starts_with("fn test_") {
+                    if let Some(name) = trimmed.trim_start_matches("fn ").split('(').next() {
+                        if !name.is_empty() {
+                            test_names.push(name.to_string());
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    assert!(
+        test_names.len() > 300,
+        "Should find >300 test names, found {}",
+        test_names.len()
+    );
+
+    let mut handled_count = 0;
+    let mut verified_count = 0;
+    let mut warnings: Vec<String> = Vec::new();
+
+    if let Some(features) = matrix["language_features"].as_object() {
+        for (category, cat_features) in features {
+            if let Some(cat_obj) = cat_features.as_object() {
+                for (feature_name, spec) in cat_obj {
+                    let status = spec["status"].as_str().unwrap_or("unknown");
+                    if status != "handled" {
+                        continue;
+                    }
+                    handled_count += 1;
+
+                    if let Some(test_patterns) = spec["tests"].as_array() {
+                        let has_match = test_patterns.iter().any(|pattern| {
+                            let pat = pattern.as_str().unwrap_or("");
+                            test_names.iter().any(|t| glob_match(pat, t))
+                        });
+
+                        if has_match {
+                            verified_count += 1;
+                        } else {
+                            warnings.push(format!(
+                                "{}/{}: claims handled with tests {:?} but no matching test found",
+                                category,
+                                feature_name,
+                                test_patterns
+                                    .iter()
+                                    .map(|p| p.as_str().unwrap_or(""))
+                                    .collect::<Vec<_>>()
+                            ));
+                        }
+                    } else {
+                        // No test patterns specified — covered by general algorithm tests
+                        verified_count += 1;
+                    }
+                }
+            }
+        }
+    }
+
+    if !warnings.is_empty() {
+        eprintln!("\nCoverage matrix warnings:");
+        for w in &warnings {
+            eprintln!("  WARN: {}", w);
+        }
+    }
+
+    let mut gap_count = 0;
+    if let Some(features) = matrix["language_features"].as_object() {
+        for (_category, cat_features) in features {
+            if let Some(cat_obj) = cat_features.as_object() {
+                for (_feature_name, spec) in cat_obj {
+                    if spec["status"].as_str() == Some("gap") {
+                        gap_count += 1;
+                    }
+                }
+            }
+        }
+    }
+
+    eprintln!(
+        "\nCoverage matrix: {}/{} handled features verified, {} gaps remaining",
+        verified_count, handled_count, gap_count
+    );
+
+    // Coverage threshold: per-feature (not per-language-feature)
+    let total = handled_count + gap_count;
+    let coverage_pct = if total > 0 {
+        100 * handled_count / total
+    } else {
+        0
+    };
+    assert!(
+        coverage_pct >= 80,
+        "Language feature coverage dropped below 80%: {}% ({}/{})",
+        coverage_pct,
+        handled_count,
+        total
+    );
+
+    assert!(
+        warnings.is_empty(),
+        "Coverage matrix has {} unverified claims:\n  {}",
+        warnings.len(),
+        warnings.join("\n  ")
+    );
+}
+
+#[test]
+fn test_coverage_matrix_algorithm_completeness() {
+    use std::fs;
+
+    let matrix_str =
+        fs::read_to_string("coverage/matrix.json").expect("coverage/matrix.json should exist");
+    let matrix: serde_json::Value =
+        serde_json::from_str(&matrix_str).expect("matrix.json should be valid JSON");
+
+    let algo_cov = matrix["algorithm_coverage"]
+        .as_object()
+        .expect("algorithm_coverage should be an object");
+
+    let expected_algos = vec![
+        "original_diff",
+        "parent_function",
+        "left_flow",
+        "full_flow",
+        "thin_slice",
+        "barrier_slice",
+        "taint",
+        "chop",
+        "relevant_slice",
+        "conditioned_slice",
+        "delta_slice",
+        "spiral_slice",
+        "circular_slice",
+        "quantum_slice",
+        "horizontal_slice",
+        "vertical_slice",
+        "angle_slice",
+        "threed_slice",
+        "absence_slice",
+        "resonance_slice",
+        "symmetry_slice",
+        "gradient_slice",
+        "provenance_slice",
+        "phantom_slice",
+        "membrane_slice",
+        "echo_slice",
+    ];
+
+    let mut missing = Vec::new();
+    for algo in &expected_algos {
+        if !algo_cov.contains_key(*algo) {
+            missing.push(*algo);
+        }
+    }
+    assert!(
+        missing.is_empty(),
+        "Algorithms missing from coverage matrix: {:?}",
+        missing
+    );
+
+    let languages = [
+        "python",
+        "javascript",
+        "typescript",
+        "go",
+        "java",
+        "c",
+        "cpp",
+        "rust",
+        "lua",
+    ];
+    for (algo, langs) in algo_cov {
+        let covered = languages
+            .iter()
+            .filter(|l| langs[**l].as_str().unwrap_or("none") != "none")
+            .count();
+        assert!(
+            covered >= 2,
+            "Algorithm '{}' has coverage in only {} languages (need ≥2)",
+            algo,
+            covered
+        );
+    }
+}
