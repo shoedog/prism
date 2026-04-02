@@ -1,0 +1,695 @@
+{
+  "language_features": {
+    "variable_binding": {
+      "simple_assignment": {
+        "languages": [
+          "python",
+          "javascript",
+          "typescript",
+          "go",
+          "java",
+          "c",
+          "cpp",
+          "rust",
+          "lua"
+        ],
+        "status": "handled"
+      },
+      "augmented_assignment": {
+        "languages": [
+          "python",
+          "javascript",
+          "typescript",
+          "go",
+          "java",
+          "c",
+          "cpp",
+          "rust",
+          "lua"
+        ],
+        "status": "handled"
+      },
+      "declaration_with_init": {
+        "languages": [
+          "javascript",
+          "typescript",
+          "go",
+          "java",
+          "c",
+          "cpp",
+          "rust",
+          "lua"
+        ],
+        "status": "handled"
+      },
+      "multi_target_assign": {
+        "languages": [
+          "python",
+          "go"
+        ],
+        "status": "handled",
+        "tests": [
+          "test_go_multi_return_*",
+          "test_python_tuple_unpack_*"
+        ]
+      },
+      "tuple_unpack": {
+        "languages": [
+          "python"
+        ],
+        "status": "handled",
+        "tests": [
+          "test_python_tuple_unpack_*"
+        ]
+      },
+      "star_unpack": {
+        "languages": [
+          "python"
+        ],
+        "status": "handled",
+        "tests": [
+          "test_python_star_unpack_*"
+        ]
+      },
+      "object_destructuring": {
+        "languages": [
+          "javascript",
+          "typescript"
+        ],
+        "status": "handled",
+        "tests": [
+          "test_destructuring_object_*",
+          "test_destructuring_renamed_*",
+          "test_destructuring_nested_*"
+        ]
+      },
+      "array_destructuring": {
+        "languages": [
+          "javascript",
+          "typescript"
+        ],
+        "status": "handled",
+        "tests": [
+          "test_destructuring_array_*"
+        ]
+      },
+      "nested_destructuring": {
+        "languages": [
+          "javascript",
+          "typescript"
+        ],
+        "status": "handled",
+        "tests": [
+          "test_destructuring_nested_*"
+        ]
+      },
+      "walrus_operator": {
+        "languages": [
+          "python"
+        ],
+        "status": "handled",
+        "tests": [
+          "test_python_walrus_*",
+          "test_walrus_*"
+        ]
+      },
+      "nested_tuple": {
+        "languages": [
+          "python"
+        ],
+        "status": "handled",
+        "tests": [
+          "test_python_nested_tuple_*"
+        ]
+      },
+      "for_of_destructuring": {
+        "languages": [
+          "javascript",
+          "typescript"
+        ],
+        "status": "handled",
+        "tests": [
+          "test_js_for_of_*"
+        ]
+      },
+      "with_as_binding": {
+        "languages": [
+          "python"
+        ],
+        "status": "handled",
+        "tests": [
+          "test_python_with_as_*"
+        ]
+      },
+      "for_range_multi": {
+        "languages": [
+          "go",
+          "python"
+        ],
+        "status": "gap",
+        "gap_id": "5-loop",
+        "tracking": "docs/language-analysis-gaps.md"
+      }
+    },
+    "field_access": {
+      "dot_access": {
+        "languages": [
+          "python",
+          "javascript",
+          "typescript",
+          "go",
+          "java",
+          "rust",
+          "lua"
+        ],
+        "status": "handled"
+      },
+      "arrow_access": {
+        "languages": [
+          "c",
+          "cpp"
+        ],
+        "status": "handled",
+        "tests": [
+          "test_field_isolation_c_arrow*"
+        ]
+      },
+      "optional_chaining": {
+        "languages": [
+          "javascript",
+          "typescript"
+        ],
+        "status": "handled",
+        "tests": [
+          "test_optional_chaining_*",
+          "test_js_optional_chaining_*"
+        ]
+      },
+      "colon_method": {
+        "languages": [
+          "lua"
+        ],
+        "status": "handled",
+        "tests": [
+          "test_lua_colon_*"
+        ]
+      }
+    },
+    "control_flow": {
+      "if_else": {
+        "languages": [
+          "python",
+          "javascript",
+          "typescript",
+          "go",
+          "java",
+          "c",
+          "cpp",
+          "rust",
+          "lua"
+        ],
+        "status": "handled"
+      },
+      "for_loop": {
+        "languages": [
+          "python",
+          "javascript",
+          "typescript",
+          "go",
+          "java",
+          "c",
+          "cpp",
+          "rust",
+          "lua"
+        ],
+        "status": "handled"
+      },
+      "while_loop": {
+        "languages": [
+          "python",
+          "javascript",
+          "typescript",
+          "go",
+          "java",
+          "c",
+          "cpp",
+          "rust",
+          "lua"
+        ],
+        "status": "handled"
+      },
+      "switch_match": {
+        "languages": [
+          "javascript",
+          "typescript",
+          "go",
+          "java",
+          "c",
+          "cpp",
+          "rust"
+        ],
+        "status": "handled"
+      },
+      "try_catch": {
+        "languages": [
+          "python",
+          "javascript",
+          "typescript",
+          "java"
+        ],
+        "status": "handled",
+        "tests": [
+          "test_python_try_*",
+          "test_js_try_*"
+        ]
+      },
+      "goto": {
+        "languages": [
+          "c",
+          "cpp",
+          "go"
+        ],
+        "status": "handled",
+        "tests": [
+          "test_goto_*",
+          "test_cpg_cfg_goto_*"
+        ]
+      },
+      "defer": {
+        "languages": [
+          "go"
+        ],
+        "status": "handled",
+        "tests": [
+          "test_go_defer_*"
+        ]
+      },
+      "for_else": {
+        "languages": [
+          "python"
+        ],
+        "status": "handled",
+        "tests": [
+          "test_python_for_else*"
+        ]
+      },
+      "match_arms": {
+        "languages": [
+          "rust"
+        ],
+        "status": "handled",
+        "tests": [
+          "test_rust_match_*"
+        ]
+      },
+      "select_stmt": {
+        "languages": [
+          "go"
+        ],
+        "status": "handled",
+        "tests": [
+          "test_go_select_*"
+        ]
+      },
+      "question_mark_operator": {
+        "languages": [
+          "rust"
+        ],
+        "status": "gap",
+        "tracking": "docs/language-analysis-gaps.md",
+        "notes": "? operator implicit early-return not modeled in CFG"
+      }
+    },
+    "call_patterns": {
+      "simple_call": {
+        "languages": [
+          "python",
+          "javascript",
+          "typescript",
+          "go",
+          "java",
+          "c",
+          "cpp",
+          "rust",
+          "lua"
+        ],
+        "status": "handled"
+      },
+      "method_call": {
+        "languages": [
+          "python",
+          "javascript",
+          "typescript",
+          "go",
+          "java",
+          "cpp",
+          "rust",
+          "lua"
+        ],
+        "status": "handled"
+      },
+      "virtual_dispatch": {
+        "languages": [
+          "cpp",
+          "java"
+        ],
+        "status": "handled",
+        "tests": [
+          "test_cpg_with_type_enrichment*",
+          "test_rta_*"
+        ]
+      },
+      "function_pointer": {
+        "languages": [
+          "c",
+          "cpp"
+        ],
+        "status": "handled",
+        "tests": [
+          "test_*fptr*",
+          "test_*function_pointer*"
+        ]
+      },
+      "variadic_wrapper": {
+        "languages": [
+          "c",
+          "cpp"
+        ],
+        "status": "handled",
+        "tests": [
+          "test_*va_list*",
+          "test_*variadic*"
+        ]
+      }
+    },
+    "other_patterns": {
+      "spread_field_provenance": {
+        "languages": [
+          "javascript",
+          "typescript"
+        ],
+        "status": "gap",
+        "gap_id": 6,
+        "tracking": "docs/language-analysis-gaps.md",
+        "notes": "Base-level taint works; per-field provenance through spread lost"
+      },
+      "comprehension_taint": {
+        "languages": [
+          "python"
+        ],
+        "status": "gap",
+        "gap_id": 7,
+        "tracking": "docs/language-analysis-gaps.md",
+        "notes": "Iteration variable binding in comprehensions not modeled"
+      }
+    }
+  },
+  "algorithm_coverage": {
+    "original_diff": {
+      "python": "full",
+      "javascript": "full",
+      "typescript": "basic",
+      "go": "full",
+      "java": "basic",
+      "c": "none",
+      "cpp": "none",
+      "rust": "basic",
+      "lua": "none"
+    },
+    "parent_function": {
+      "python": "full",
+      "javascript": "none",
+      "typescript": "basic",
+      "go": "full",
+      "java": "basic",
+      "c": "none",
+      "cpp": "none",
+      "rust": "basic",
+      "lua": "basic"
+    },
+    "left_flow": {
+      "python": "full",
+      "javascript": "full",
+      "typescript": "basic",
+      "go": "full",
+      "java": "full",
+      "c": "basic",
+      "cpp": "none",
+      "rust": "none",
+      "lua": "none"
+    },
+    "full_flow": {
+      "python": "full",
+      "javascript": "full",
+      "typescript": "none",
+      "go": "full",
+      "java": "full",
+      "c": "basic",
+      "cpp": "none",
+      "rust": "none",
+      "lua": "none"
+    },
+    "thin_slice": {
+      "python": "full",
+      "javascript": "none",
+      "typescript": "basic",
+      "go": "basic",
+      "java": "basic",
+      "c": "basic",
+      "cpp": "none",
+      "rust": "basic",
+      "lua": "basic"
+    },
+    "barrier_slice": {
+      "python": "full",
+      "javascript": "basic",
+      "typescript": "none",
+      "go": "basic",
+      "java": "basic",
+      "c": "none",
+      "cpp": "none",
+      "rust": "none",
+      "lua": "none"
+    },
+    "taint": {
+      "python": "full",
+      "javascript": "full",
+      "typescript": "basic",
+      "go": "full",
+      "java": "none",
+      "c": "full",
+      "cpp": "full",
+      "rust": "full",
+      "lua": "full"
+    },
+    "chop": {
+      "python": "full",
+      "javascript": "basic",
+      "typescript": "none",
+      "go": "basic",
+      "java": "basic",
+      "c": "none",
+      "cpp": "none",
+      "rust": "none",
+      "lua": "none"
+    },
+    "relevant_slice": {
+      "python": "basic",
+      "javascript": "none",
+      "typescript": "none",
+      "go": "basic",
+      "java": "none",
+      "c": "none",
+      "cpp": "none",
+      "rust": "none",
+      "lua": "none"
+    },
+    "conditioned_slice": {
+      "python": "full",
+      "javascript": "basic",
+      "typescript": "none",
+      "go": "basic",
+      "java": "basic",
+      "c": "none",
+      "cpp": "none",
+      "rust": "none",
+      "lua": "none"
+    },
+    "delta_slice": {
+      "python": "full",
+      "javascript": "none",
+      "typescript": "none",
+      "go": "basic",
+      "java": "none",
+      "c": "none",
+      "cpp": "none",
+      "rust": "none",
+      "lua": "none"
+    },
+    "spiral_slice": {
+      "python": "full",
+      "javascript": "none",
+      "typescript": "none",
+      "go": "full",
+      "java": "none",
+      "c": "none",
+      "cpp": "none",
+      "rust": "none",
+      "lua": "none"
+    },
+    "circular_slice": {
+      "python": "basic",
+      "javascript": "none",
+      "typescript": "basic",
+      "go": "basic",
+      "java": "none",
+      "c": "none",
+      "cpp": "none",
+      "rust": "none",
+      "lua": "none"
+    },
+    "quantum_slice": {
+      "python": "full",
+      "javascript": "full",
+      "typescript": "none",
+      "go": "full",
+      "java": "basic",
+      "c": "full",
+      "cpp": "none",
+      "rust": "basic",
+      "lua": "basic"
+    },
+    "horizontal_slice": {
+      "python": "full",
+      "javascript": "basic",
+      "typescript": "none",
+      "go": "basic",
+      "java": "basic",
+      "c": "none",
+      "cpp": "none",
+      "rust": "none",
+      "lua": "none"
+    },
+    "vertical_slice": {
+      "python": "full",
+      "javascript": "none",
+      "typescript": "none",
+      "go": "basic",
+      "java": "none",
+      "c": "none",
+      "cpp": "none",
+      "rust": "none",
+      "lua": "none"
+    },
+    "angle_slice": {
+      "python": "full",
+      "javascript": "basic",
+      "typescript": "none",
+      "go": "full",
+      "java": "basic",
+      "c": "none",
+      "cpp": "none",
+      "rust": "none",
+      "lua": "none"
+    },
+    "threed_slice": {
+      "python": "full",
+      "javascript": "none",
+      "typescript": "none",
+      "go": "basic",
+      "java": "none",
+      "c": "none",
+      "cpp": "none",
+      "rust": "none",
+      "lua": "none"
+    },
+    "absence_slice": {
+      "python": "full",
+      "javascript": "basic",
+      "typescript": "basic",
+      "go": "full",
+      "java": "full",
+      "c": "full",
+      "cpp": "none",
+      "rust": "full",
+      "lua": "full"
+    },
+    "resonance_slice": {
+      "python": "basic",
+      "javascript": "none",
+      "typescript": "none",
+      "go": "basic",
+      "java": "none",
+      "c": "none",
+      "cpp": "none",
+      "rust": "none",
+      "lua": "none"
+    },
+    "symmetry_slice": {
+      "python": "full",
+      "javascript": "none",
+      "typescript": "none",
+      "go": "basic",
+      "java": "none",
+      "c": "basic",
+      "cpp": "none",
+      "rust": "none",
+      "lua": "none"
+    },
+    "gradient_slice": {
+      "python": "full",
+      "javascript": "none",
+      "typescript": "none",
+      "go": "basic",
+      "java": "none",
+      "c": "none",
+      "cpp": "none",
+      "rust": "none",
+      "lua": "none"
+    },
+    "provenance_slice": {
+      "python": "full",
+      "javascript": "full",
+      "typescript": "none",
+      "go": "full",
+      "java": "basic",
+      "c": "full",
+      "cpp": "none",
+      "rust": "full",
+      "lua": "full"
+    },
+    "phantom_slice": {
+      "python": "basic",
+      "javascript": "none",
+      "typescript": "none",
+      "go": "basic",
+      "java": "none",
+      "c": "none",
+      "cpp": "none",
+      "rust": "none",
+      "lua": "none"
+    },
+    "membrane_slice": {
+      "python": "basic",
+      "javascript": "basic",
+      "typescript": "basic",
+      "go": "basic",
+      "java": "basic",
+      "c": "full",
+      "cpp": "full",
+      "rust": "basic",
+      "lua": "basic"
+    },
+    "echo_slice": {
+      "python": "full",
+      "javascript": "basic",
+      "typescript": "none",
+      "go": "basic",
+      "java": "basic",
+      "c": "full",
+      "cpp": "none",
+      "rust": "none",
+      "lua": "none"
+    }
+  }
+}
