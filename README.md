@@ -3,6 +3,8 @@
 ![Rust](https://img.shields.io/badge/rust-1.70%2B-orange)
 
 <!-- COVERAGE_BADGES_START -->
+**Language feature coverage** · [details](#language-feature-coverage)
+
 ![Python](https://img.shields.io/badge/Python-88%25-green?logo=python&logoColor=white)
 ![JavaScript](https://img.shields.io/badge/JavaScript-94%25-green?logo=javascript&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/TypeScript-94%25-green?logo=typescript&logoColor=white)
@@ -13,7 +15,17 @@
 ![Rust](https://img.shields.io/badge/Rust-91%25-green?logo=rust&logoColor=white)
 ![Lua](https://img.shields.io/badge/Lua-100%25-brightgreen?logo=lua&logoColor=white)
 
-![Language Coverage](https://img.shields.io/badge/language_coverage-9_languages_%7C_95%25-brightgreen)
+**Algorithm test coverage** · [details](#algorithm--language)
+
+![Python algo](https://img.shields.io/badge/Python-100%25-brightgreen?logo=python&logoColor=white)
+![JavaScript algo](https://img.shields.io/badge/JavaScript-53%25-orange?logo=javascript&logoColor=white)
+![TypeScript algo](https://img.shields.io/badge/TypeScript-30%25-red?logo=typescript&logoColor=white)
+![Go algo](https://img.shields.io/badge/Go-100%25-brightgreen?logo=go&logoColor=white)
+![Java algo](https://img.shields.io/badge/Java-57%25-orange?logo=openjdk&logoColor=white)
+![C algo](https://img.shields.io/badge/C-38%25-red?logo=c&logoColor=white)
+![C++ algo](https://img.shields.io/badge/C%2B%2B-7%25-red?logo=cplusplus&logoColor=white)
+![Rust algo](https://img.shields.io/badge/Rust-30%25-red?logo=rust&logoColor=white)
+![Lua algo](https://img.shields.io/badge/Lua-26%25-red?logo=lua&logoColor=white)
 <!-- COVERAGE_BADGES_END -->
 
 # slicing
@@ -410,15 +422,29 @@ done
 
 ## Language Coverage
 
-Two metrics track cross-language support:
+Two metrics track cross-language support. See `coverage/matrix.json` for the full matrix and `docs/cross-language-coverage.md` for the measurement methodology. Run `python3 scripts/generate_coverage_badges.py` after changing the matrix to update badges and tables.
 
-**Language feature coverage** (badge percentages) measures how many language-specific patterns (destructuring, multi-return, optional chaining, etc.) Prism handles for each language. This reflects DFG/alias/AccessPath completeness.
+### Language Feature Coverage
 
-**Algorithm test coverage** (table below) measures which algorithms have been tested with which languages. This is heavily skewed — Python and Go have tests across all 26 algorithms, while C++ (2/26) and Lua (7/26) are primarily tested through infrastructure-level algorithms like taint and membrane. Algorithms that depend only on AST structure (not DFG/call graph) work across all languages by construction; the gaps are in algorithm-specific test coverage, not in functionality.
+Measures how many language-specific patterns (destructuring, multi-return, optional chaining, etc.) Prism handles for each language. This reflects DFG/alias/AccessPath completeness — whether the infrastructure correctly models the language's idioms.
 
-See `coverage/matrix.json` for the full matrix and `docs/cross-language-coverage.md` for the measurement methodology. Run `python3 scripts/generate_coverage_badges.py` after changing the matrix to update badges.
+<!-- COVERAGE_FEATURE_TABLE_START -->
+| Language | Features | Coverage | Gaps |
+|----------|----------|----------|------|
+| Python | 16/18 | 88% | `for_range_multi`, `comprehension_taint` |
+| JavaScript | 16/17 | 94% | `spread_field_provenance` |
+| TypeScript | 16/17 | 94% | `spread_field_provenance` |
+| Go | 14/15 | 93% | `for_range_multi` |
+| Java | 12/12 | 100% | — |
+| C | 12/12 | 100% | — |
+| C++ | 14/14 | 100% | — |
+| Rust | 11/12 | 91% | `question_mark_operator` |
+| Lua | 10/10 | 100% | — |
+<!-- COVERAGE_FEATURE_TABLE_END -->
 
 ### Algorithm × Language
+
+Measures which algorithms have been tested with which languages. This is heavily skewed — Python and Go have tests across all 26 algorithms, while C++ (2/26) and Lua (7/26) are primarily tested through infrastructure-level algorithms like taint and membrane. Algorithms that depend only on AST structure (not DFG/call graph) work across all languages by construction; the gaps are in algorithm-specific test coverage, not in functionality.
 
 <!-- COVERAGE_TABLE_START -->
 | Algorithm | Py | JS | TS | Go | Ja | C | C++ | Rs | Lua |
