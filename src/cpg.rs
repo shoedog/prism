@@ -362,6 +362,11 @@ impl CodePropertyGraph {
             }
         }
 
+        // TODO(Phase 4+): Add FieldOf edges connecting field-qualified Variable nodes
+        // (e.g., dev.name) to their base Variable nodes (dev). This would enable queries
+        // like "which field accesses exist for this struct?" Currently FieldOf is defined
+        // in the schema but not constructed.
+
         CodePropertyGraph {
             graph,
             func_index,
