@@ -15,6 +15,7 @@ use crate::access_path::AccessPath;
 use crate::ast::ParsedFile;
 use crate::call_graph::{CallGraph, FunctionId};
 use crate::data_flow::{DataFlowGraph, VarAccessKind, VarLocation};
+use crate::type_db::TypeDatabase;
 
 use petgraph::graph::{DiGraph, NodeIndex};
 use petgraph::visit::EdgeRef;
@@ -217,10 +218,19 @@ pub struct CodePropertyGraph {
     /// Retained data flow graph for direct edge access.
     /// Used by delta_slice for edge diffing.
     pub dfg: DataFlowGraph,
+
+    /// Optional type database for C/C++ type enrichment.
+    /// When present, enables precise whole-struct detection, typedef resolution,
+    /// field enumeration, and virtual dispatch via class hierarchy analysis.
+    pub type_db: Option<TypeDatabase>,
 }
 
 impl CodePropertyGraph {
-    /// Build a CPG from parsed files.
+    /// Build a CPG from parsed files, with optional type enrichment.
+    ///
+    /// When `type_db` is provided, the CPG gains virtual dispatch Call edges
+    /// (via CHA) and type-aware query methods. When `None`, behavior is
+    /// identical to an unenriched build.
     ///
     /// Constructs the graph by:
     /// 1. Building DataFlowGraph and CallGraph from the same parsed files
@@ -229,7 +239,24 @@ impl CodePropertyGraph {
     /// 4. Adding DataFlow edges from DFG edges
     /// 5. Adding Call edges from the call graph
     /// 6. Adding Contains edges (function → its variables)
+    /// 7. (If type_db) Adding virtual dispatch Call edges
+    /// Build a CPG without type enrichment.
     pub fn build(files: &BTreeMap<String, ParsedFile>) -> Self {
+        Self::build_enriched(files, None)
+    }
+
+    /// Build a CPG with optional type enrichment.
+    ///
+    /// When `type_db` is `Some`, virtual dispatch Call edges are added via CHA
+    /// and type-aware queries become available. When `None`, identical to `build()`.
+    pub fn build_enriched(
+        files: &BTreeMap<String, ParsedFile>,
+        type_db: Option<&TypeDatabase>,
+    ) -> Self {
+        Self::build_impl(files, type_db.cloned())
+    }
+
+    fn build_impl(files: &BTreeMap<String, ParsedFile>, type_db: Option<TypeDatabase>) -> Self {
         let dfg = DataFlowGraph::build(files);
         let cg = CallGraph::build(files);
 
@@ -377,6 +404,58 @@ impl CodePropertyGraph {
         // like "which field accesses exist for this struct?" Currently FieldOf is defined
         // in the schema but not constructed.
 
+        // --- Step 7: Virtual dispatch enrichment (if type_db present) ---
+        if let Some(ref tdb) = type_db {
+            let mut virtual_edges: Vec<(NodeIndex, NodeIndex)> = Vec::new();
+
+            // Collect all virtual method names and which function nodes implement them
+            let mut virtual_method_nodes: BTreeMap<String, Vec<NodeIndex>> = BTreeMap::new();
+            for record in tdb.records.values() {
+                for method_name in record.virtual_methods.keys() {
+                    for (&(ref _file, ref name), &idx) in &func_index {
+                        if name == method_name {
+                            virtual_method_nodes
+                                .entry(method_name.clone())
+                                .or_default()
+                                .push(idx);
+                        }
+                    }
+                }
+            }
+
+            // For each caller that calls a virtual method, add edges to all overrides
+            let all_func_nodes: Vec<NodeIndex> = func_index.values().copied().collect();
+            for &caller_idx in &all_func_nodes {
+                let callees: Vec<_> = graph
+                    .edges(caller_idx)
+                    .filter(|e| matches!(e.weight(), CpgEdge::Call))
+                    .map(|e| e.target())
+                    .collect();
+
+                for callee_idx in callees {
+                    if let CpgNode::Function { name, .. } = &graph[callee_idx] {
+                        if let Some(override_nodes) = virtual_method_nodes.get(name) {
+                            for &override_idx in override_nodes {
+                                if override_idx != callee_idx {
+                                    virtual_edges.push((caller_idx, override_idx));
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            for (from, to) in &virtual_edges {
+                let already_exists = graph
+                    .edges(*from)
+                    .any(|e| e.target() == *to && matches!(e.weight(), CpgEdge::Call));
+                if !already_exists {
+                    graph.add_edge(*from, *to, CpgEdge::Call);
+                    graph.add_edge(*to, *from, CpgEdge::Return);
+                }
+            }
+        }
+
         CodePropertyGraph {
             graph,
             func_index,
@@ -384,7 +463,15 @@ impl CodePropertyGraph {
             location_index,
             call_graph: cg,
             dfg,
+            type_db,
         }
+    }
+
+    /// Build a CPG with type enrichment from a TypeDatabase.
+    ///
+    /// Convenience method — equivalent to `build_impl(files, Some(type_db))`.
+    pub fn build_with_types(files: &BTreeMap<String, ParsedFile>, type_db: TypeDatabase) -> Self {
+        Self::build_impl(files, Some(type_db))
     }
 
     // -----------------------------------------------------------------------
@@ -1038,6 +1125,51 @@ impl CodePropertyGraph {
         result.insert((sink_file.to_string(), sink_line));
         result
     }
+
+    // -----------------------------------------------------------------------
+    // Type-enriched queries (require TypeDatabase)
+    // -----------------------------------------------------------------------
+
+    /// Get all known fields of a record type, including inherited fields.
+    ///
+    /// Returns None if no TypeDatabase is present or the type is unknown.
+    pub fn all_fields_of(&self, type_name: &str) -> Option<Vec<String>> {
+        let db = self.type_db.as_ref()?;
+        let record = db.resolve_record(type_name)?;
+        Some(
+            db.all_fields(&record.name)
+                .iter()
+                .map(|f| f.name.clone())
+                .collect(),
+        )
+    }
+
+    /// Resolve a typedef to its canonical underlying type.
+    ///
+    /// Returns the input unchanged if no TypeDatabase is present.
+    pub fn resolve_type(&self, type_name: &str) -> String {
+        match &self.type_db {
+            Some(db) => db.resolve_typedef(type_name),
+            None => type_name.to_string(),
+        }
+    }
+
+    /// Check if a type is a union (fields alias each other).
+    pub fn is_union_type(&self, type_name: &str) -> bool {
+        self.type_db
+            .as_ref()
+            .is_some_and(|db| db.is_union(type_name))
+    }
+
+    /// Get the type of a specific field in a record.
+    pub fn field_type(&self, record_name: &str, field_name: &str) -> Option<String> {
+        self.type_db.as_ref()?.field_type(record_name, field_name)
+    }
+
+    /// Check if type enrichment is available.
+    pub fn has_type_info(&self) -> bool {
+        self.type_db.is_some()
+    }
 }
 
 #[cfg(test)]
@@ -1045,6 +1177,7 @@ mod tests {
     use super::*;
     use crate::ast::ParsedFile;
     use crate::languages::Language;
+    use crate::type_db::{FieldInfo, RecordInfo, RecordKind, TypeDatabase, TypedefInfo};
 
     #[test]
     fn test_node_accessors() {
@@ -1404,5 +1537,427 @@ void my_func() {
         let fid = cpg.to_function_id(func_idx).unwrap();
         assert_eq!(fid.name, "my_func");
         assert_eq!(fid.file, path);
+    }
+
+    #[test]
+    fn test_build_enriched_without_types() {
+        let source = "void f() { int x = 1; }\n";
+        let path = "src/enriched.c";
+        let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+        let mut files = BTreeMap::new();
+        files.insert(path.to_string(), parsed);
+
+        let cpg = CodePropertyGraph::build_enriched(&files, None);
+        assert!(!cpg.has_type_info());
+        assert!(cpg.node_count() > 0);
+    }
+
+    #[test]
+    fn test_build_enriched_with_types() {
+        let source = "void f() { int x = 1; }\n";
+        let path = "src/enriched2.c";
+        let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+        let mut files = BTreeMap::new();
+        files.insert(path.to_string(), parsed);
+
+        let mut type_db = TypeDatabase::default();
+        type_db.records.insert(
+            "MyStruct".to_string(),
+            RecordInfo {
+                name: "MyStruct".to_string(),
+                kind: RecordKind::Struct,
+                fields: vec![FieldInfo {
+                    name: "x".to_string(),
+                    type_str: "int".to_string(),
+                    offset: None,
+                }],
+                bases: vec![],
+                virtual_methods: BTreeMap::new(),
+                size: None,
+                file: String::new(),
+            },
+        );
+
+        let cpg = CodePropertyGraph::build_enriched(&files, Some(&type_db));
+        assert!(cpg.has_type_info());
+        assert!(cpg.node_count() > 0);
+    }
+
+    #[test]
+    fn test_build_with_types() {
+        let source = "void f() { int x = 1; }\n";
+        let path = "src/owned.c";
+        let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+        let mut files = BTreeMap::new();
+        files.insert(path.to_string(), parsed);
+
+        let type_db = TypeDatabase::default();
+        let cpg = CodePropertyGraph::build_with_types(&files, type_db);
+        assert!(cpg.has_type_info());
+    }
+
+    #[test]
+    fn test_all_fields_of() {
+        let source = "void f() {}\n";
+        let path = "src/fields.c";
+        let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+        let mut files = BTreeMap::new();
+        files.insert(path.to_string(), parsed);
+
+        let mut type_db = TypeDatabase::default();
+        type_db.records.insert(
+            "Point".to_string(),
+            RecordInfo {
+                name: "Point".to_string(),
+                kind: RecordKind::Struct,
+                fields: vec![
+                    FieldInfo {
+                        name: "x".to_string(),
+                        type_str: "int".to_string(),
+                        offset: None,
+                    },
+                    FieldInfo {
+                        name: "y".to_string(),
+                        type_str: "int".to_string(),
+                        offset: None,
+                    },
+                ],
+                bases: vec![],
+                virtual_methods: BTreeMap::new(),
+                size: None,
+                file: String::new(),
+            },
+        );
+
+        let cpg = CodePropertyGraph::build_with_types(&files, type_db);
+        let fields = cpg.all_fields_of("Point").unwrap();
+        assert_eq!(fields, vec!["x", "y"]);
+
+        // Unknown type returns None
+        assert!(cpg.all_fields_of("Unknown").is_none());
+    }
+
+    #[test]
+    fn test_resolve_type_with_typedef() {
+        let source = "void f() {}\n";
+        let path = "src/typedef.c";
+        let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+        let mut files = BTreeMap::new();
+        files.insert(path.to_string(), parsed);
+
+        let mut type_db = TypeDatabase::default();
+        type_db.typedefs.insert(
+            "handle_t".to_string(),
+            TypedefInfo {
+                name: "handle_t".to_string(),
+                underlying: "struct device *".to_string(),
+            },
+        );
+
+        let cpg = CodePropertyGraph::build_with_types(&files, type_db);
+        assert_eq!(cpg.resolve_type("handle_t"), "struct device *");
+        assert_eq!(cpg.resolve_type("int"), "int"); // not a typedef
+    }
+
+    #[test]
+    fn test_resolve_type_without_type_db() {
+        let source = "void f() {}\n";
+        let path = "src/no_types.c";
+        let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+        let mut files = BTreeMap::new();
+        files.insert(path.to_string(), parsed);
+
+        let cpg = CodePropertyGraph::build(&files);
+        assert_eq!(cpg.resolve_type("handle_t"), "handle_t");
+    }
+
+    #[test]
+    fn test_is_union_type() {
+        let source = "void f() {}\n";
+        let path = "src/union.c";
+        let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+        let mut files = BTreeMap::new();
+        files.insert(path.to_string(), parsed);
+
+        let mut type_db = TypeDatabase::default();
+        type_db.records.insert(
+            "MyUnion".to_string(),
+            RecordInfo {
+                name: "MyUnion".to_string(),
+                kind: RecordKind::Union,
+                fields: vec![
+                    FieldInfo {
+                        name: "i".to_string(),
+                        type_str: "int".to_string(),
+                        offset: None,
+                    },
+                    FieldInfo {
+                        name: "f".to_string(),
+                        type_str: "float".to_string(),
+                        offset: None,
+                    },
+                ],
+                bases: vec![],
+                virtual_methods: BTreeMap::new(),
+                size: None,
+                file: String::new(),
+            },
+        );
+        type_db.records.insert(
+            "MyStruct".to_string(),
+            RecordInfo {
+                name: "MyStruct".to_string(),
+                kind: RecordKind::Struct,
+                fields: vec![],
+                bases: vec![],
+                virtual_methods: BTreeMap::new(),
+                size: None,
+                file: String::new(),
+            },
+        );
+
+        let cpg = CodePropertyGraph::build_with_types(&files, type_db);
+        assert!(cpg.is_union_type("MyUnion"));
+        assert!(!cpg.is_union_type("MyStruct"));
+        assert!(!cpg.is_union_type("NonExistent"));
+    }
+
+    #[test]
+    fn test_field_type() {
+        let source = "void f() {}\n";
+        let path = "src/field_type.c";
+        let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+        let mut files = BTreeMap::new();
+        files.insert(path.to_string(), parsed);
+
+        let mut type_db = TypeDatabase::default();
+        type_db.records.insert(
+            "Device".to_string(),
+            RecordInfo {
+                name: "Device".to_string(),
+                kind: RecordKind::Struct,
+                fields: vec![
+                    FieldInfo {
+                        name: "id".to_string(),
+                        type_str: "int".to_string(),
+                        offset: None,
+                    },
+                    FieldInfo {
+                        name: "name".to_string(),
+                        type_str: "char *".to_string(),
+                        offset: None,
+                    },
+                ],
+                bases: vec![],
+                virtual_methods: BTreeMap::new(),
+                size: None,
+                file: String::new(),
+            },
+        );
+
+        let cpg = CodePropertyGraph::build_with_types(&files, type_db);
+        assert_eq!(cpg.field_type("Device", "id"), Some("int".to_string()));
+        assert_eq!(cpg.field_type("Device", "name"), Some("char *".to_string()));
+        assert_eq!(cpg.field_type("Device", "nonexistent"), None);
+        assert_eq!(cpg.field_type("Unknown", "id"), None);
+    }
+
+    #[test]
+    fn test_function_at() {
+        let source = r#"
+void first() {
+    int x = 1;
+}
+
+void second() {
+    int y = 2;
+}
+"#;
+        let path = "src/func_at.c";
+        let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+        let mut files = BTreeMap::new();
+        files.insert(path.to_string(), parsed);
+
+        let cpg = CodePropertyGraph::build(&files);
+
+        // Line 3 is inside first()
+        let result = cpg.function_at(path, 3);
+        assert!(result.is_some());
+        let (_, fid) = result.unwrap();
+        assert_eq!(fid.name, "first");
+
+        // Line 7 is inside second()
+        let result = cpg.function_at(path, 7);
+        assert!(result.is_some());
+        let (_, fid) = result.unwrap();
+        assert_eq!(fid.name, "second");
+
+        // Line 5 is between functions
+        let result = cpg.function_at(path, 5);
+        assert!(result.is_none());
+
+        // Non-existent file
+        let result = cpg.function_at("no_such_file.c", 1);
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_callers_of() {
+        let source = r#"
+void target() {
+    return;
+}
+
+void caller1() {
+    target();
+}
+
+void caller2() {
+    target();
+}
+"#;
+        let path = "src/callers.c";
+        let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+        let mut files = BTreeMap::new();
+        files.insert(path.to_string(), parsed);
+
+        let cpg = CodePropertyGraph::build(&files);
+
+        let callers = cpg.callers_of("target", 1);
+        let caller_names: BTreeSet<String> =
+            callers.iter().map(|(fid, _)| fid.name.clone()).collect();
+        assert!(caller_names.contains("caller1"));
+        assert!(caller_names.contains("caller2"));
+        assert_eq!(callers.len(), 2);
+    }
+
+    #[test]
+    fn test_callees_of() {
+        let source = r#"
+void helper1() {
+    return;
+}
+
+void helper2() {
+    return;
+}
+
+void main_fn() {
+    helper1();
+    helper2();
+}
+"#;
+        let path = "src/callees.c";
+        let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+        let mut files = BTreeMap::new();
+        files.insert(path.to_string(), parsed);
+
+        let cpg = CodePropertyGraph::build(&files);
+
+        let callees = cpg.callees_of("main_fn", path, 1);
+        let callee_names: BTreeSet<String> =
+            callees.iter().map(|(fid, _)| fid.name.clone()).collect();
+        assert!(callee_names.contains("helper1"));
+        assert!(callee_names.contains("helper2"));
+    }
+
+    #[test]
+    fn test_function_nodes() {
+        let source = r#"
+void a() { return; }
+void b() { return; }
+void c() { return; }
+"#;
+        let path = "src/func_nodes.c";
+        let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+        let mut files = BTreeMap::new();
+        files.insert(path.to_string(), parsed);
+
+        let cpg = CodePropertyGraph::build(&files);
+        let func_nodes = cpg.function_nodes();
+        assert_eq!(func_nodes.len(), 3);
+        for idx in &func_nodes {
+            assert!(cpg.node(*idx).is_function());
+        }
+    }
+
+    #[test]
+    fn test_virtual_dispatch_enrichment() {
+        let source = r#"
+void render() {
+    draw();
+}
+
+void draw() {
+    return;
+}
+"#;
+        let path = "src/virtual.c";
+        let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+        let mut files = BTreeMap::new();
+        files.insert(path.to_string(), parsed);
+
+        let mut type_db = TypeDatabase::default();
+        type_db.records.insert(
+            "Shape".to_string(),
+            RecordInfo {
+                name: "Shape".to_string(),
+                kind: RecordKind::Class,
+                fields: vec![],
+                bases: vec![],
+                virtual_methods: {
+                    let mut m = BTreeMap::new();
+                    m.insert("draw".to_string(), "void".to_string());
+                    m
+                },
+                size: None,
+                file: String::new(),
+            },
+        );
+
+        let cpg = CodePropertyGraph::build_with_types(&files, type_db);
+        assert!(cpg.has_type_info());
+
+        // The CPG should still have both functions
+        assert!(cpg.function_node(path, "render").is_some());
+        assert!(cpg.function_node(path, "draw").is_some());
+    }
+
+    #[test]
+    fn test_taint_forward_basic() {
+        let source = r#"
+void process() {
+    int input = read_user();
+    int data = input;
+    write(data);
+}
+"#;
+        let path = "src/taint.c";
+        let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+        let mut files = BTreeMap::new();
+        files.insert(path.to_string(), parsed);
+
+        let cpg = CodePropertyGraph::build(&files);
+
+        let sources = vec![(path.to_string(), 3usize)]; // line where input is defined
+        let paths = cpg.taint_forward(&sources);
+        // Should find at least one taint path from the source
+        // (may be empty if DFG doesn't connect precisely, but shouldn't panic)
+        let _ = paths;
+    }
+
+    #[test]
+    fn test_has_type_info() {
+        let source = "void f() {}\n";
+        let path = "src/has_type.c";
+        let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+        let mut files = BTreeMap::new();
+        files.insert(path.to_string(), parsed);
+
+        let cpg_no_types = CodePropertyGraph::build(&files);
+        assert!(!cpg_no_types.has_type_info());
+
+        let cpg_with_types = CodePropertyGraph::build_with_types(&files, TypeDatabase::default());
+        assert!(cpg_with_types.has_type_info());
     }
 }

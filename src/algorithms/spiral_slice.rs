@@ -14,6 +14,7 @@ use crate::ast::ParsedFile;
 use crate::cpg::CodePropertyGraph;
 use crate::diff::{DiffBlock, DiffInput};
 use crate::slice::{SliceConfig, SliceResult, SlicingAlgorithm};
+use crate::type_db::TypeDatabase;
 use anyhow::Result;
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -49,9 +50,10 @@ pub fn slice(
     diff: &DiffInput,
     config: &SliceConfig,
     spiral_config: &SpiralConfig,
+    type_db: Option<&TypeDatabase>,
 ) -> Result<SliceResult> {
     let result = SliceResult::new(SlicingAlgorithm::SpiralSlice);
-    let cpg = CodePropertyGraph::build(files);
+    let cpg = CodePropertyGraph::build_enriched(files, type_db);
 
     // Track all lines included so far, keyed by (file, line)
     let mut included: BTreeMap<(String, usize), (bool, usize)> = BTreeMap::new(); // (is_diff, ring)

@@ -6,6 +6,7 @@ use prism::diff::DiffInput;
 use prism::languages::Language;
 use prism::output;
 use prism::slice::{AlgorithmError, MultiSliceResult, SliceConfig, SlicingAlgorithm};
+use prism::type_db::TypeDatabase;
 use std::collections::{BTreeMap, HashSet};
 use std::fs;
 use std::path::PathBuf;
@@ -105,6 +106,12 @@ struct Cli {
     /// If omitted, process all files in the diff.
     #[arg(long)]
     files: Option<String>,
+
+    /// Path to compile_commands.json for C/C++ type enrichment.
+    /// Enables precise whole-struct detection, typedef resolution,
+    /// and virtual dispatch via class hierarchy analysis.
+    #[arg(long)]
+    compile_commands: Option<PathBuf>,
 }
 
 fn main() -> Result<()> {
@@ -231,6 +238,32 @@ fn main() -> Result<()> {
         files.insert(diff_info.file_path.clone(), parsed);
     }
 
+    // Load type database if compile_commands.json is provided
+    let type_db: Option<TypeDatabase> = if let Some(cc_path) = &cli.compile_commands {
+        let diff_files: Vec<&str> = diff_input
+            .files
+            .iter()
+            .map(|f| f.file_path.as_str())
+            .collect();
+        match TypeDatabase::from_compile_commands(cc_path, Some(&diff_files)) {
+            Ok(db) => {
+                eprintln!(
+                    "Type enrichment: {} records, {} typedefs from {}",
+                    db.records.len(),
+                    db.typedefs.len(),
+                    cc_path.display()
+                );
+                Some(db)
+            }
+            Err(e) => {
+                eprintln!("Warning: failed to load type database: {}", e);
+                None
+            }
+        }
+    } else {
+        None
+    };
+
     // Check parse quality for all files and collect warnings once.
     let parse_warnings = algorithms::check_parse_warnings(&files);
 
@@ -246,7 +279,15 @@ fn main() -> Result<()> {
                 include_returns: !cli.no_returns,
                 trace_callees: !cli.no_trace_callees,
             };
-            match run_algorithm(algo, &files, &diff_input, &algo_config, &cli, repo) {
+            match run_algorithm(
+                algo,
+                &files,
+                &diff_input,
+                &algo_config,
+                &cli,
+                repo,
+                type_db.as_ref(),
+            ) {
                 Ok(r) => results.push(r),
                 Err(e) => all_errors.push(AlgorithmError {
                     algorithm: algo.name().to_string(),
@@ -301,7 +342,15 @@ fn main() -> Result<()> {
     } else {
         // --- Single-algorithm run ---
         let algorithm = algorithms_to_run[0];
-        let mut result = run_algorithm(algorithm, &files, &diff_input, &config, &cli, repo)?;
+        let mut result = run_algorithm(
+            algorithm,
+            &files,
+            &diff_input,
+            &config,
+            &cli,
+            repo,
+            type_db.as_ref(),
+        )?;
         result.warnings = parse_warnings;
 
         match cli.format.as_str() {
@@ -336,6 +385,7 @@ fn run_algorithm(
     config: &SliceConfig,
     cli: &Cli,
     repo: &std::path::Path,
+    type_db: Option<&TypeDatabase>,
 ) -> Result<prism::slice::SliceResult> {
     match algorithm {
         SlicingAlgorithm::BarrierSlice => {
@@ -349,7 +399,13 @@ fn run_algorithm(
                     .collect(),
                 barrier_modules: Vec::new(),
             };
-            prism::algorithms::barrier_slice::slice(files, diff_input, config, &barrier_config)
+            prism::algorithms::barrier_slice::slice(
+                files,
+                diff_input,
+                config,
+                &barrier_config,
+                type_db,
+            )
         }
         SlicingAlgorithm::Chop => {
             let source = cli
@@ -370,6 +426,7 @@ fn run_algorithm(
                     sink_file: kf,
                     sink_line: kl,
                 },
+                type_db,
             )
         }
         SlicingAlgorithm::Taint => {
@@ -382,7 +439,7 @@ fn run_algorithm(
                 taint_from_diff: cli.taint_source.is_empty(),
                 extra_sinks: Vec::new(),
             };
-            prism::algorithms::taint::slice(files, diff_input, &taint_config)
+            prism::algorithms::taint::slice(files, diff_input, &taint_config, type_db)
         }
         SlicingAlgorithm::ConditionedSlice => {
             let cond_str = cli
@@ -398,14 +455,20 @@ fn run_algorithm(
                 .old_repo
                 .as_ref()
                 .context("--old-repo required for delta algorithm")?;
-            prism::algorithms::delta_slice::slice(files, diff_input, old_repo)
+            prism::algorithms::delta_slice::slice(files, diff_input, old_repo, type_db)
         }
         SlicingAlgorithm::SpiralSlice => {
             let spiral_config = prism::algorithms::spiral_slice::SpiralConfig {
                 max_ring: cli.spiral_max_ring,
                 auto_stop_threshold: 0.05,
             };
-            prism::algorithms::spiral_slice::slice(files, diff_input, config, &spiral_config)
+            prism::algorithms::spiral_slice::slice(
+                files,
+                diff_input,
+                config,
+                &spiral_config,
+                type_db,
+            )
         }
         SlicingAlgorithm::QuantumSlice => {
             prism::algorithms::quantum_slice::slice(files, diff_input, cli.quantum_var.as_deref())
@@ -439,7 +502,7 @@ fn run_algorithm(
                     .map(|l| l.split(',').map(|s| s.trim().to_string()).collect())
                     .unwrap_or_default(),
             };
-            prism::algorithms::vertical_slice::slice(files, diff_input, &vertical_config)
+            prism::algorithms::vertical_slice::slice(files, diff_input, &vertical_config, type_db)
         }
         SlicingAlgorithm::AngleSlice => {
             let concern = cli
@@ -454,7 +517,7 @@ fn run_algorithm(
                 temporal_days: cli.temporal_days,
                 git_dir: repo.to_string_lossy().to_string(),
             };
-            prism::algorithms::threed_slice::slice(files, diff_input, &threed_config)
+            prism::algorithms::threed_slice::slice(files, diff_input, &threed_config, type_db)
         }
         SlicingAlgorithm::ResonanceSlice => {
             let resonance_config = prism::algorithms::resonance_slice::ResonanceConfig {
@@ -471,7 +534,7 @@ fn run_algorithm(
             };
             prism::algorithms::phantom_slice::slice(files, diff_input, &phantom_config)
         }
-        _ => algorithms::run_slicing(files, diff_input, config),
+        _ => algorithms::run_slicing(files, diff_input, config, type_db),
     }
 }
 
