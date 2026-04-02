@@ -31,7 +31,7 @@ pub fn slice(
     let mut result = SliceResult::new(SlicingAlgorithm::Chop);
     let cpg = CodePropertyGraph::build_enriched(files, type_db);
 
-    let on_path = cpg.dfg_chop(
+    let on_path = cpg.dfg_cfg_chop(
         &chop_config.source_file,
         chop_config.source_line,
         &chop_config.sink_file,

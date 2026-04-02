@@ -1387,6 +1387,158 @@ impl CodePropertyGraph {
             .filter(|&e| matches!(self.graph[e], CpgEdge::ControlFlow))
             .count()
     }
+
+    // -----------------------------------------------------------------------
+    // CFG-constrained analysis (Phase 6 PR C)
+    // -----------------------------------------------------------------------
+
+    /// Collect all `(file, line)` pairs CFG-reachable from a given line.
+    ///
+    /// Uses BFS over ControlFlow edges from the Statement node at the given
+    /// location. Returns the set of reachable `(file, line)` pairs (excluding
+    /// the start). Returns an empty set if no Statement node exists at the
+    /// start location or if the CPG has no CFG edges.
+    pub fn cfg_reachable_lines(&self, file: &str, line: usize) -> BTreeSet<(String, usize)> {
+        let start = match self.statement_at(file, line) {
+            Some(idx) => idx,
+            None => return BTreeSet::new(),
+        };
+
+        let reachable = self.reachable_forward(start, &|e| matches!(e, CpgEdge::ControlFlow));
+
+        reachable
+            .into_iter()
+            .map(|idx| {
+                let node = &self.graph[idx];
+                (node.file().to_string(), node.line())
+            })
+            .collect()
+    }
+
+    /// CFG-constrained forward taint propagation.
+    ///
+    /// Like `taint_forward()`, but filters out DFG-reachable nodes that are not
+    /// also CFG-reachable from the taint source. This prunes taint paths through
+    /// dead code (after return/break) and guarded branches.
+    ///
+    /// Falls back to pure DFG taint when no CFG edges are present.
+    pub fn taint_forward_cfg(
+        &self,
+        taint_sources: &[(String, usize)],
+    ) -> Vec<crate::data_flow::FlowPath> {
+        if !self.has_cfg_edges() {
+            return self.taint_forward(taint_sources);
+        }
+
+        // Build per-source CFG reachability sets
+        let mut cfg_reachable: BTreeMap<(String, usize), BTreeSet<(String, usize)>> =
+            BTreeMap::new();
+        for (file, line) in taint_sources {
+            let key = (file.clone(), *line);
+            if !cfg_reachable.contains_key(&key) {
+                cfg_reachable.insert(key.clone(), self.cfg_reachable_lines(file, *line));
+            }
+        }
+
+        let mut paths = Vec::new();
+
+        for (file, line) in taint_sources {
+            let source_nodes = self.nodes_at(file, *line);
+            let cfg_set = cfg_reachable
+                .get(&(file.clone(), *line))
+                .cloned()
+                .unwrap_or_default();
+
+            for &src_idx in &source_nodes {
+                if !matches!(self.graph[src_idx], CpgNode::Variable { .. }) {
+                    continue;
+                }
+                let src_loc = match self.to_var_location(src_idx) {
+                    Some(loc) => loc,
+                    None => continue,
+                };
+                let reachable = self.dfg_forward_reachable(&src_loc);
+
+                // Filter: keep only DFG-reachable targets that are also CFG-reachable
+                let filtered: BTreeSet<VarLocation> = reachable
+                    .into_iter()
+                    .filter(|target| {
+                        // Same line as source is always included
+                        (target.file == *file && target.line == *line)
+                            || cfg_set.contains(&(target.file.clone(), target.line))
+                    })
+                    .collect();
+
+                if !filtered.is_empty() {
+                    let path = crate::data_flow::FlowPath {
+                        edges: filtered
+                            .iter()
+                            .map(|target| crate::data_flow::FlowEdge {
+                                from: src_loc.clone(),
+                                to: target.clone(),
+                            })
+                            .collect(),
+                    };
+                    paths.push(path);
+                }
+            }
+        }
+
+        paths
+    }
+
+    /// CFG-constrained chop: find statements on data flow paths between source
+    /// and sink that are also control-flow reachable.
+    ///
+    /// This intersects the DFG chop result with CFG reachability from the source
+    /// and CFG backward-reachability from the sink, pruning data flow paths that
+    /// pass through control-flow-unreachable code.
+    ///
+    /// Falls back to pure DFG chop when no CFG edges are present.
+    pub fn dfg_cfg_chop(
+        &self,
+        source_file: &str,
+        source_line: usize,
+        sink_file: &str,
+        sink_line: usize,
+    ) -> BTreeSet<(String, usize)> {
+        let dfg_result = self.dfg_chop(source_file, source_line, sink_file, sink_line);
+
+        if !self.has_cfg_edges() {
+            return dfg_result;
+        }
+
+        // CFG forward reachability from source
+        let cfg_forward = {
+            let mut set = self.cfg_reachable_lines(source_file, source_line);
+            set.insert((source_file.to_string(), source_line));
+            set
+        };
+
+        // CFG backward reachability from sink
+        let cfg_backward = {
+            let sink_stmt = self.statement_at(sink_file, sink_line);
+            let mut set: BTreeSet<(String, usize)> = match sink_stmt {
+                Some(idx) => self
+                    .reachable_backward(idx, &|e| matches!(e, CpgEdge::ControlFlow))
+                    .into_iter()
+                    .map(|idx| {
+                        let node = &self.graph[idx];
+                        (node.file().to_string(), node.line())
+                    })
+                    .collect(),
+                None => BTreeSet::new(),
+            };
+            set.insert((sink_file.to_string(), sink_line));
+            set
+        };
+
+        // Intersect: DFG path ∩ CFG-forward-from-source ∩ CFG-backward-from-sink
+        dfg_result
+            .into_iter()
+            .filter(|loc| cfg_forward.contains(loc) && cfg_backward.contains(loc))
+            .collect()
+    }
 }
 
 #[cfg(test)]
@@ -2433,5 +2585,134 @@ def f():
                 "Python line 3 should have CFG successors"
             );
         }
+    }
+
+    // -----------------------------------------------------------------------
+    // Phase 6 PR C: CFG-constrained analysis tests
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn test_cfg_reachable_lines() {
+        let source = r#"
+void f() {
+    int x = 1;
+    int y = 2;
+    return;
+    int z = 3;
+}
+"#;
+        let path = "test.c";
+        let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+        let mut files = BTreeMap::new();
+        files.insert(path.to_string(), parsed);
+        let cpg = CodePropertyGraph::build(&files);
+
+        // Line 3 should reach lines 4 and 5 (return), but NOT line 6 (after return)
+        let reachable = cpg.cfg_reachable_lines(path, 3);
+        assert!(
+            reachable.contains(&(path.to_string(), 4)),
+            "Line 3 should CFG-reach line 4, got {:?}",
+            reachable
+        );
+        assert!(
+            reachable.contains(&(path.to_string(), 5)),
+            "Line 3 should CFG-reach line 5 (return), got {:?}",
+            reachable
+        );
+        // Line 6 is dead code after return — should NOT be reachable
+        assert!(
+            !reachable.contains(&(path.to_string(), 6)),
+            "Line 6 (after return) should NOT be CFG-reachable from line 3, got {:?}",
+            reachable
+        );
+    }
+
+    #[test]
+    fn test_taint_forward_cfg_prunes_dead_code() {
+        // Taint source at line 3 (x = input), return at line 4,
+        // sink at line 5 (after return — dead code). CFG-constrained taint
+        // should NOT reach line 5.
+        let source = r#"
+void f(char* input) {
+    char* x = input;
+    return;
+    exec(x);
+}
+"#;
+        let path = "test.c";
+        let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+        let mut files = BTreeMap::new();
+        files.insert(path.to_string(), parsed);
+        let cpg = CodePropertyGraph::build(&files);
+
+        let taint_sources = vec![(path.to_string(), 3)];
+        let paths = cpg.taint_forward_cfg(&taint_sources);
+
+        // Collect all tainted target lines
+        let tainted_lines: BTreeSet<usize> = paths
+            .iter()
+            .flat_map(|p| p.edges.iter().map(|e| e.to.line))
+            .collect();
+
+        // Line 5 (exec after return) should be pruned by CFG constraint
+        assert!(
+            !tainted_lines.contains(&5),
+            "CFG-constrained taint should NOT reach dead code at line 5, got {:?}",
+            tainted_lines
+        );
+    }
+
+    #[test]
+    fn test_dfg_cfg_chop_prunes_unreachable() {
+        // Source at line 3, sink at line 6. Line 5 is dead code after return.
+        // CFG-constrained chop should exclude the dead-code line.
+        let source = r#"
+void f() {
+    int x = 1;
+    int y = x;
+    return;
+    int z = x;
+    int w = z;
+}
+"#;
+        let path = "test.c";
+        let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+        let mut files = BTreeMap::new();
+        files.insert(path.to_string(), parsed);
+        let cpg = CodePropertyGraph::build(&files);
+
+        // DFG chop: source=line 3, sink=line 7 (dead code)
+        // CFG-constrained should be empty or exclude dead lines
+        let chop = cpg.dfg_cfg_chop(path, 3, path, 7);
+
+        // Line 7 is dead code — CFG forward from line 3 can't reach it
+        // The chop should not include line 6 or 7 since they're unreachable
+        let has_dead_code = chop.iter().any(|(_, l)| *l == 6 || *l == 7);
+        assert!(
+            !has_dead_code,
+            "CFG-constrained chop should not include dead code lines 6-7, got {:?}",
+            chop
+        );
+    }
+
+    #[test]
+    fn test_cfg_constrained_fallback_without_cfg() {
+        // When no CFG edges exist (e.g., no functions), methods should
+        // gracefully return empty/fallback results
+        let source = "int x = 1;\n";
+        let path = "test.c";
+        let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+        let mut files = BTreeMap::new();
+        files.insert(path.to_string(), parsed);
+        let cpg = CodePropertyGraph::build(&files);
+
+        // cfg_reachable_lines on non-existent statement → empty
+        let reachable = cpg.cfg_reachable_lines(path, 999);
+        assert!(reachable.is_empty());
+
+        // taint_forward_cfg falls back to taint_forward
+        let paths_cfg = cpg.taint_forward_cfg(&[(path.to_string(), 1)]);
+        let paths_dfg = cpg.taint_forward(&[(path.to_string(), 1)]);
+        assert_eq!(paths_cfg.len(), paths_dfg.len());
     }
 }
