@@ -1,0 +1,11 @@
+--- a/main.tf
++++ b/main.tf
+@@ -20,6 +20,7 @@ resource "aws_security_group" "web" {
+     from_port   = 443
+     to_port     = 443
+     protocol    = "tcp"
+-    cidr_blocks = local.merged_cidrs
++    cidr_blocks = local.merged_cidrs  # Taint: user-supplied CIDRs reach SG rule
++    ipv6_cidr_blocks = ["::/0"]       # BUG: open to all IPv6
+   }
+ }
