@@ -246,10 +246,7 @@ impl ParsedFile {
         // The loop variable isn't inside a standard declaration node.
         if lines.contains(&line)
             && node.kind() == "for_in_statement"
-            && matches!(
-                self.language,
-                Language::JavaScript | Language::TypeScript
-            )
+            && matches!(self.language, Language::JavaScript | Language::TypeScript)
         {
             self.extract_for_in_lvalues(&node, line, out);
         }
@@ -465,10 +462,7 @@ impl ParsedFile {
             // Gap 3: JS/TS for-of/for-in with destructuring patterns
             // `for (const { name, id } of items)` → name aliases items.name
             if node.kind() == "for_in_statement"
-                && matches!(
-                    self.language,
-                    Language::JavaScript | Language::TypeScript
-                )
+                && matches!(self.language, Language::JavaScript | Language::TypeScript)
             {
                 self.extract_for_in_aliases(&node, line, out);
             }
@@ -652,6 +646,18 @@ impl ParsedFile {
                     "object_pattern" | "array_pattern" => {
                         // Nested pattern inside array — alias to base
                         self.extract_pattern_aliases(&child, rhs_base, line, out);
+                    }
+                    // Rest element: [...rest] = arr → rest aliases arr
+                    "rest_pattern" => {
+                        let mut inner_cursor = child.walk();
+                        for inner in child.children(&mut inner_cursor) {
+                            if inner.kind() == "identifier" {
+                                let name = self.node_text(&inner).to_string();
+                                if is_plain_ident(&name) {
+                                    out.push((name, rhs_base.to_string(), line));
+                                }
+                            }
+                        }
                     }
                     _ => {}
                 }
