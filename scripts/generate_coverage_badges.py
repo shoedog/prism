@@ -121,9 +121,13 @@ def compute_algorithm_coverage(matrix):
     return result
 
 
-def generate_badges(feature_cov):
-    """Generate shields.io badge markdown."""
+def generate_badges(feature_cov, algo_cov):
+    """Generate shields.io badge markdown with two rows and nav links."""
     lines = []
+
+    # Row 1: Feature coverage badges → link to feature table
+    lines.append("**Language feature coverage** · [details](#language-feature-coverage)")
+    lines.append("")
     for lang in LANGUAGES:
         label = LANG_LABELS[lang]
         logo = LANG_LOGOS[lang]
@@ -134,16 +138,37 @@ def generate_badges(feature_cov):
             f"![{label}](https://img.shields.io/badge/{encoded_label}-{pct}%25-{color}?logo={logo}&logoColor=white)"
         )
 
-    # Overall
-    total_handled = sum(v["handled"] for v in feature_cov.values())
-    total_all = sum(v["total"] for v in feature_cov.values())
-    overall_pct = int(100 * total_handled / total_all) if total_all > 0 else 0
-    overall_color = badge_color(overall_pct)
     lines.append("")
-    lines.append(
-        f"![Language Coverage](https://img.shields.io/badge/language_coverage-{len(LANGUAGES)}_languages_%7C_{overall_pct}%25-{overall_color})"
-    )
+
+    # Row 2: Algorithm test coverage badges → link to algorithm table
+    lines.append("**Algorithm test coverage** · [details](#algorithm--language)")
+    lines.append("")
+    for lang in LANGUAGES:
+        label = LANG_LABELS[lang]
+        logo = LANG_LOGOS[lang]
+        pct = algo_cov[lang]["percentage"]
+        color = badge_color(pct)
+        encoded_label = quote(label)
+        lines.append(
+            f"![{label} algo](https://img.shields.io/badge/{encoded_label}-{pct}%25-{color}?logo={logo}&logoColor=white)"
+        )
+
     return "\n".join(lines)
+
+
+def generate_feature_table(feature_cov, matrix):
+    """Generate language feature coverage table: one row per language."""
+    rows = [
+        "| Language | Features | Coverage | Gaps |",
+        "|----------|----------|----------|------|",
+    ]
+    for lang in LANGUAGES:
+        cov = feature_cov[lang]
+        label = LANG_LABELS[lang]
+        pct = cov["percentage"]
+        gaps = ", ".join(f"`{g}`" for g in cov["gaps"]) if cov["gaps"] else "—"
+        rows.append(f"| {label} | {cov['handled']}/{cov['total']} | {pct}% | {gaps} |")
+    return "\n".join(rows)
 
 
 def generate_algorithm_table(matrix):
@@ -201,12 +226,13 @@ def generate_report(feature_cov, algo_cov, matrix):
     }
 
 
-def update_readme(badges, table):
+def update_readme(badges, algo_table, feature_table):
     """Update README.md between marker comments.
 
     Replaces content between:
       <!-- COVERAGE_BADGES_START --> ... <!-- COVERAGE_BADGES_END -->
       <!-- COVERAGE_TABLE_START --> ... <!-- COVERAGE_TABLE_END -->
+      <!-- COVERAGE_FEATURE_TABLE_START --> ... <!-- COVERAGE_FEATURE_TABLE_END -->
     """
     if not os.path.exists(README_PATH):
         print(f"README not found at {README_PATH}, skipping update")
@@ -217,21 +243,19 @@ def update_readme(badges, table):
 
     updated = False
 
-    # Update badges
-    badge_pattern = r"(<!-- COVERAGE_BADGES_START -->).*?(<!-- COVERAGE_BADGES_END -->)"
-    badge_replacement = f"<!-- COVERAGE_BADGES_START -->\n{badges}\n<!-- COVERAGE_BADGES_END -->"
-    new_content, n = re.subn(badge_pattern, badge_replacement, content, flags=re.DOTALL)
-    if n > 0:
-        content = new_content
-        updated = True
+    replacements = [
+        ("COVERAGE_BADGES", badges),
+        ("COVERAGE_TABLE", algo_table),
+        ("COVERAGE_FEATURE_TABLE", feature_table),
+    ]
 
-    # Update table
-    table_pattern = r"(<!-- COVERAGE_TABLE_START -->).*?(<!-- COVERAGE_TABLE_END -->)"
-    table_replacement = f"<!-- COVERAGE_TABLE_START -->\n{table}\n<!-- COVERAGE_TABLE_END -->"
-    new_content, n = re.subn(table_pattern, table_replacement, content, flags=re.DOTALL)
-    if n > 0:
-        content = new_content
-        updated = True
+    for tag, new_content in replacements:
+        pattern = rf"(<!-- {tag}_START -->).*?(<!-- {tag}_END -->)"
+        replacement = f"<!-- {tag}_START -->\n{new_content}\n<!-- {tag}_END -->"
+        new, n = re.subn(pattern, replacement, content, flags=re.DOTALL)
+        if n > 0:
+            content = new
+            updated = True
 
     if updated:
         with open(README_PATH, "w") as f:
@@ -254,20 +278,21 @@ def main():
         json.dump(report, f, indent=2)
     print(f"Report written to {REPORT_PATH}")
 
-    # Generate badges
-    badges = generate_badges(feature_cov)
+    # Generate badges (both rows)
+    badges = generate_badges(feature_cov, algo_cov)
     with open(BADGES_PATH, "w") as f:
         f.write(badges + "\n")
     print(f"Badges written to {BADGES_PATH}")
 
-    # Generate table
-    table = generate_algorithm_table(matrix)
+    # Generate tables
+    algo_table = generate_algorithm_table(matrix)
+    feature_table = generate_feature_table(feature_cov, matrix)
     with open(TABLE_PATH, "w") as f:
-        f.write(table + "\n")
+        f.write(algo_table + "\n")
     print(f"Table written to {TABLE_PATH}")
 
-    # Update README badges and table
-    update_readme(badges, table)
+    # Update README
+    update_readme(badges, algo_table, feature_table)
 
     # Print summary
     print(f"\nLanguage Feature Coverage:")
