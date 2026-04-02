@@ -97,7 +97,7 @@ Last updated: 2026-04-02 (Phase 4 CPG migration complete — all 11 algorithms m
 | ~~CVE-pattern test fixtures (format string, buffer overflow, integer overflow, double-free, use-after-free)~~ | — | **Done** — 8 tests: double-free goto, correct cleanup negative, double-unlock goto, format string, buffer overflow, strcpy+provenance, integer overflow, UAF. |
 | ~~`goto`-based error path analysis for AbsenceSlice~~ | — | **Done** — `goto_statements()` + `label_sections()` in ast.rs; double-close detection in AbsenceSlice for kernel `goto cleanup` patterns. 3 tests. |
 | ~~MembraneSlice C++ error handling (exceptions, RAII)~~ | — | **Done** — try/catch, throw, RAII smart ptrs, lock guards, std::optional/expected, error_code. 4 tests. |
-| ~~Code Property Graph on petgraph~~ | — | **Done** — Phase 4 complete. `CodePropertyGraph::build()` constructs unified petgraph DiGraph from DFG+CallGraph. Edge-filtered reachability, `tarjan_scc`, `bfs_with_distance`, chop. All 11 algorithms migrated: `circular_slice`, `gradient_slice`, `chop`, `delta_slice`, `taint`, `provenance_slice`, `barrier_slice`, `vertical_slice`, `threed_slice`, `membrane_slice`, `echo_slice`, `spiral_slice`. |
+| ~~Code Property Graph on petgraph~~ | — | **Done** — Phase 4 complete. `CodePropertyGraph::build()` constructs unified petgraph DiGraph from DFG+CallGraph. Edge-filtered reachability, `tarjan_scc`, `bfs_with_distance`, chop. All 12 algorithms migrated: `circular_slice`, `gradient_slice`, `chop`, `delta_slice`, `taint`, `provenance_slice`, `barrier_slice`, `vertical_slice`, `threed_slice`, `membrane_slice`, `echo_slice`, `spiral_slice`. The remaining 14 algorithms operate purely on AST structure and don't need graph traversal. |
 
 ### P3 — New Language Support (Procedural)
 
