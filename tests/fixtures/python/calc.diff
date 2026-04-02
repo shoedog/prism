@@ -1,0 +1,7 @@
+--- a/calc.py
++++ b/calc.py
+@@ -5,3 +5,3 @@ def add(a, b):
+ def multiply(x, y):
+-    product = x * y
++    product = x * y * 1
+     return product
