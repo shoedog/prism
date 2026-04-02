@@ -14,6 +14,7 @@
 use crate::access_path::AccessPath;
 use crate::ast::ParsedFile;
 use crate::call_graph::{CallGraph, FunctionId};
+use crate::cfg;
 use crate::data_flow::{DataFlowGraph, VarAccessKind, VarLocation};
 use crate::type_db::TypeDatabase;
 
@@ -404,7 +405,37 @@ impl CodePropertyGraph {
         // like "which field accesses exist for this struct?" Currently FieldOf is defined
         // in the schema but not constructed.
 
-        // --- Step 7: Virtual dispatch enrichment (if type_db present) ---
+        // --- Step 7: Statement nodes for CFG (Phase 6) ---
+        // Create Statement nodes for all statement-level AST constructs in each
+        // function. These are distinct from Variable nodes (which model data flow).
+        let mut stmt_index: BTreeMap<(String, usize), NodeIndex> = BTreeMap::new();
+        for (path, parsed) in files {
+            let root = parsed.tree.root_node();
+            let func_types = parsed.language.function_node_types();
+            Self::collect_function_statements(
+                root,
+                &func_types,
+                parsed,
+                path,
+                &mut graph,
+                &mut stmt_index,
+                &mut location_index,
+            );
+        }
+
+        // --- Step 8: ControlFlow edges from CFG builder ---
+        for (_path, parsed) in files {
+            let cfg_edges = cfg::build_cfg_edges(parsed);
+            for edge in cfg_edges {
+                let from_idx = stmt_index.get(&(edge.file.clone(), edge.from_line));
+                let to_idx = stmt_index.get(&(edge.file.clone(), edge.to_line));
+                if let (Some(&from), Some(&to)) = (from_idx, to_idx) {
+                    graph.add_edge(from, to, CpgEdge::ControlFlow);
+                }
+            }
+        }
+
+        // --- Step 9: Virtual dispatch enrichment (if type_db present) ---
         if let Some(ref tdb) = type_db {
             let mut virtual_edges: Vec<(NodeIndex, NodeIndex)> = Vec::new();
 
@@ -472,6 +503,144 @@ impl CodePropertyGraph {
     /// Convenience method — equivalent to `build_impl(files, Some(type_db))`.
     pub fn build_with_types(files: &BTreeMap<String, ParsedFile>, type_db: TypeDatabase) -> Self {
         Self::build_impl(files, Some(type_db))
+    }
+
+    // -----------------------------------------------------------------------
+    // CFG construction helpers (Phase 6)
+    // -----------------------------------------------------------------------
+
+    /// Collect all statement-level AST nodes within functions and create
+    /// `CpgNode::Statement` nodes in the graph.
+    fn collect_function_statements(
+        node: tree_sitter::Node<'_>,
+        func_types: &[&str],
+        parsed: &ParsedFile,
+        file: &str,
+        graph: &mut DiGraph<CpgNode, CpgEdge>,
+        stmt_index: &mut BTreeMap<(String, usize), NodeIndex>,
+        location_index: &mut BTreeMap<(String, usize), Vec<NodeIndex>>,
+    ) {
+        if func_types.contains(&node.kind()) {
+            let stmts = parsed.statements_in_function(&node);
+            for (line, kind_str) in stmts {
+                let key = (file.to_string(), line);
+                if stmt_index.contains_key(&key) {
+                    continue;
+                }
+                let kind = Self::classify_stmt_kind(&kind_str, parsed, line);
+                let idx = graph.add_node(CpgNode::Statement {
+                    file: file.to_string(),
+                    line,
+                    kind,
+                });
+                stmt_index.insert(key.clone(), idx);
+                location_index.entry(key).or_default().push(idx);
+            }
+        }
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            Self::collect_function_statements(
+                child,
+                func_types,
+                parsed,
+                file,
+                graph,
+                stmt_index,
+                location_index,
+            );
+        }
+    }
+
+    /// Classify a tree-sitter node kind string into a `StmtKind`.
+    fn classify_stmt_kind(kind_str: &str, parsed: &ParsedFile, line: usize) -> StmtKind {
+        if parsed.language.is_return_node(kind_str) {
+            return StmtKind::Return;
+        }
+        if kind_str == "goto_statement" {
+            // Extract target label
+            let target = Self::extract_goto_target(parsed, line);
+            return StmtKind::Goto {
+                target: target.unwrap_or_default(),
+            };
+        }
+        if kind_str == "labeled_statement" {
+            let name = Self::extract_label_name(parsed, line);
+            return StmtKind::Label {
+                name: name.unwrap_or_default(),
+            };
+        }
+        if parsed.language.is_loop_node(kind_str) {
+            return StmtKind::Loop;
+        }
+        if parsed.language.is_control_flow_node(kind_str) {
+            return StmtKind::Branch;
+        }
+        if parsed.language.is_assignment_node(kind_str) {
+            return StmtKind::Assignment;
+        }
+        if parsed.language.is_declaration_node(kind_str) {
+            return StmtKind::Declaration;
+        }
+        if parsed.language.is_call_node(kind_str) || kind_str == "expression_statement" {
+            // expression_statement often wraps a call
+            let calls = parsed.call_names_on_lines(&[line]);
+            if let Some(names) = calls.get(&line) {
+                if let Some(callee) = names.first() {
+                    return StmtKind::Call {
+                        callee: callee.clone(),
+                    };
+                }
+            }
+        }
+        StmtKind::Other
+    }
+
+    fn extract_goto_target(parsed: &ParsedFile, line: usize) -> Option<String> {
+        let root = parsed.tree.root_node();
+        Self::find_goto_at_line(root, parsed, line)
+    }
+
+    fn find_goto_at_line(
+        node: tree_sitter::Node<'_>,
+        parsed: &ParsedFile,
+        line: usize,
+    ) -> Option<String> {
+        if node.kind() == "goto_statement" && node.start_position().row + 1 == line {
+            if let Some(label) = node.child_by_field_name("label") {
+                return Some(parsed.node_text(&label).to_string());
+            }
+        }
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            if let Some(found) = Self::find_goto_at_line(child, parsed, line) {
+                return Some(found);
+            }
+        }
+        None
+    }
+
+    fn extract_label_name(parsed: &ParsedFile, line: usize) -> Option<String> {
+        let root = parsed.tree.root_node();
+        Self::find_label_at_line(root, parsed, line)
+    }
+
+    fn find_label_at_line(
+        node: tree_sitter::Node<'_>,
+        parsed: &ParsedFile,
+        line: usize,
+    ) -> Option<String> {
+        if node.kind() == "labeled_statement" && node.start_position().row + 1 == line {
+            if let Some(label) = node.child_by_field_name("label") {
+                return Some(parsed.node_text(&label).to_string());
+            }
+        }
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            if let Some(found) = Self::find_label_at_line(child, parsed, line) {
+                return Some(found);
+            }
+        }
+        None
     }
 
     // -----------------------------------------------------------------------
@@ -1169,6 +1338,54 @@ impl CodePropertyGraph {
     /// Check if type enrichment is available.
     pub fn has_type_info(&self) -> bool {
         self.type_db.is_some()
+    }
+
+    // -----------------------------------------------------------------------
+    // CFG queries (Phase 6)
+    // -----------------------------------------------------------------------
+
+    /// Check if control flow edges are present in this CPG.
+    pub fn has_cfg_edges(&self) -> bool {
+        self.graph
+            .edge_indices()
+            .any(|e| matches!(self.graph[e], CpgEdge::ControlFlow))
+    }
+
+    /// Get all CFG successors of a node (following only ControlFlow edges).
+    pub fn cfg_successors(&self, idx: NodeIndex) -> Vec<NodeIndex> {
+        self.graph
+            .edges(idx)
+            .filter(|e| matches!(e.weight(), CpgEdge::ControlFlow))
+            .map(|e| e.target())
+            .collect()
+    }
+
+    /// Get all CFG predecessors of a node (following only ControlFlow edges).
+    pub fn cfg_predecessors(&self, idx: NodeIndex) -> Vec<NodeIndex> {
+        self.graph
+            .edges_directed(idx, petgraph::Direction::Incoming)
+            .filter(|e| matches!(e.weight(), CpgEdge::ControlFlow))
+            .map(|e| e.source())
+            .collect()
+    }
+
+    /// Get the Statement node at a given file and line, if one exists.
+    pub fn statement_at(&self, file: &str, line: usize) -> Option<NodeIndex> {
+        let key = (file.to_string(), line);
+        self.location_index.get(&key).and_then(|nodes| {
+            nodes
+                .iter()
+                .find(|&&idx| matches!(self.graph[idx], CpgNode::Statement { .. }))
+                .copied()
+        })
+    }
+
+    /// Count ControlFlow edges in the graph.
+    pub fn cfg_edge_count(&self) -> usize {
+        self.graph
+            .edge_indices()
+            .filter(|&e| matches!(self.graph[e], CpgEdge::ControlFlow))
+            .count()
     }
 }
 
@@ -1959,5 +2176,262 @@ void process() {
 
         let cpg_with_types = CodePropertyGraph::build_with_types(&files, TypeDatabase::default());
         assert!(cpg_with_types.has_type_info());
+    }
+
+    // -----------------------------------------------------------------------
+    // Phase 6: CFG edge tests
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn test_cpg_has_cfg_edges() {
+        let source = r#"
+void f() {
+    int x = 1;
+    int y = 2;
+    int z = 3;
+}
+"#;
+        let path = "src/cfg_test.c";
+        let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+        let mut files = BTreeMap::new();
+        files.insert(path.to_string(), parsed);
+
+        let cpg = CodePropertyGraph::build(&files);
+        assert!(cpg.has_cfg_edges(), "CPG should have ControlFlow edges");
+        assert!(cpg.cfg_edge_count() > 0);
+    }
+
+    #[test]
+    fn test_cpg_statement_nodes_created() {
+        let source = r#"
+void f() {
+    int x = 1;
+    int y = x;
+    return;
+}
+"#;
+        let path = "src/stmt_nodes.c";
+        let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+        let mut files = BTreeMap::new();
+        files.insert(path.to_string(), parsed);
+
+        let cpg = CodePropertyGraph::build(&files);
+
+        // Should have Statement nodes at lines 3, 4, 5
+        assert!(
+            cpg.statement_at(path, 3).is_some(),
+            "Should have statement at line 3"
+        );
+        assert!(
+            cpg.statement_at(path, 4).is_some(),
+            "Should have statement at line 4"
+        );
+        assert!(
+            cpg.statement_at(path, 5).is_some(),
+            "Should have statement at line 5 (return)"
+        );
+    }
+
+    #[test]
+    fn test_cpg_cfg_sequential_flow() {
+        let source = r#"
+void f() {
+    int x = 1;
+    int y = 2;
+    int z = 3;
+}
+"#;
+        let path = "src/cfg_seq.c";
+        let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+        let mut files = BTreeMap::new();
+        files.insert(path.to_string(), parsed);
+
+        let cpg = CodePropertyGraph::build(&files);
+
+        // Line 3 → Line 4 via ControlFlow
+        let stmt3 = cpg.statement_at(path, 3).unwrap();
+        let successors = cpg.cfg_successors(stmt3);
+        let succ_lines: Vec<usize> = successors.iter().map(|&idx| cpg.node(idx).line()).collect();
+        assert!(
+            succ_lines.contains(&4),
+            "Line 3 should flow to line 4, got {:?}",
+            succ_lines
+        );
+    }
+
+    #[test]
+    fn test_cpg_cfg_return_terminates() {
+        let source = r#"
+void f() {
+    int x = 1;
+    return;
+    int y = 2;
+}
+"#;
+        let path = "src/cfg_ret.c";
+        let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+        let mut files = BTreeMap::new();
+        files.insert(path.to_string(), parsed);
+
+        let cpg = CodePropertyGraph::build(&files);
+
+        // return at line 4 should NOT have a successor to line 5
+        let stmt4 = cpg.statement_at(path, 4).unwrap();
+        let successors = cpg.cfg_successors(stmt4);
+        let succ_lines: Vec<usize> = successors.iter().map(|&idx| cpg.node(idx).line()).collect();
+        assert!(
+            !succ_lines.contains(&5),
+            "return should not flow to line 5, got {:?}",
+            succ_lines
+        );
+    }
+
+    #[test]
+    fn test_cpg_cfg_if_branches() {
+        let source = r#"
+void f(int x) {
+    if (x > 0) {
+        int a = 1;
+    } else {
+        int b = 2;
+    }
+    int c = 3;
+}
+"#;
+        let path = "src/cfg_if.c";
+        let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+        let mut files = BTreeMap::new();
+        files.insert(path.to_string(), parsed);
+
+        let cpg = CodePropertyGraph::build(&files);
+
+        // if at line 3 should have CFG successors to both branches
+        let if_stmt = cpg.statement_at(path, 3).unwrap();
+        let successors = cpg.cfg_successors(if_stmt);
+        assert!(
+            successors.len() >= 2,
+            "if should branch to at least 2 targets, got {} successors",
+            successors.len()
+        );
+    }
+
+    #[test]
+    fn test_cpg_cfg_predecessors() {
+        let source = r#"
+void f() {
+    int x = 1;
+    int y = 2;
+    int z = 3;
+}
+"#;
+        let path = "src/cfg_pred.c";
+        let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+        let mut files = BTreeMap::new();
+        files.insert(path.to_string(), parsed);
+
+        let cpg = CodePropertyGraph::build(&files);
+
+        // Line 4 should have line 3 as predecessor
+        let stmt4 = cpg.statement_at(path, 4).unwrap();
+        let preds = cpg.cfg_predecessors(stmt4);
+        let pred_lines: Vec<usize> = preds.iter().map(|&idx| cpg.node(idx).line()).collect();
+        assert!(
+            pred_lines.contains(&3),
+            "Line 4 should have line 3 as predecessor, got {:?}",
+            pred_lines
+        );
+    }
+
+    #[test]
+    fn test_cpg_cfg_goto_edge() {
+        let source = r#"
+void f() {
+    int x = 1;
+    goto cleanup;
+    int y = 2;
+cleanup:
+    free(x);
+}
+"#;
+        let path = "src/cfg_goto.c";
+        let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+        let mut files = BTreeMap::new();
+        files.insert(path.to_string(), parsed);
+
+        let cpg = CodePropertyGraph::build(&files);
+
+        // goto at line 4 should have a CFG edge (either to label or through goto resolution)
+        let goto_stmt = cpg.statement_at(path, 4);
+        assert!(goto_stmt.is_some(), "Should have statement at goto line 4");
+
+        // goto should NOT have sequential successor to line 5
+        if let Some(idx) = goto_stmt {
+            let successors = cpg.cfg_successors(idx);
+            let succ_lines: Vec<usize> = successors.iter().map(|&s| cpg.node(s).line()).collect();
+            assert!(
+                !succ_lines.contains(&5),
+                "goto should not fall through to line 5, got {:?}",
+                succ_lines
+            );
+        }
+    }
+
+    #[test]
+    fn test_cpg_cfg_edge_filtered_reachability() {
+        let source = r#"
+void f() {
+    int x = 1;
+    int y = 2;
+    int z = 3;
+}
+"#;
+        let path = "src/cfg_reach.c";
+        let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+        let mut files = BTreeMap::new();
+        files.insert(path.to_string(), parsed);
+
+        let cpg = CodePropertyGraph::build(&files);
+
+        // CFG reachability: line 3 should reach line 5 via ControlFlow edges
+        let stmt3 = cpg.statement_at(path, 3).unwrap();
+        let reachable = cpg.reachable_forward(stmt3, &|e| matches!(e, CpgEdge::ControlFlow));
+        let reachable_lines: BTreeSet<usize> =
+            reachable.iter().map(|&idx| cpg.node(idx).line()).collect();
+        assert!(
+            reachable_lines.contains(&5),
+            "Line 3 should CFG-reach line 5, got {:?}",
+            reachable_lines
+        );
+    }
+
+    #[test]
+    fn test_cpg_cfg_python() {
+        let source = r#"
+def f():
+    x = 1
+    y = 2
+    z = 3
+"#;
+        let path = "src/cfg_py.py";
+        let parsed = ParsedFile::parse(path, source, Language::Python).unwrap();
+        let mut files = BTreeMap::new();
+        files.insert(path.to_string(), parsed);
+
+        let cpg = CodePropertyGraph::build(&files);
+        assert!(
+            cpg.has_cfg_edges(),
+            "Python CPG should have ControlFlow edges"
+        );
+
+        // Sequential flow: line 3 → line 4
+        let stmt3 = cpg.statement_at(path, 3);
+        assert!(stmt3.is_some(), "Should have Python statement at line 3");
+        if let Some(idx) = stmt3 {
+            let succs = cpg.cfg_successors(idx);
+            assert!(
+                !succs.is_empty(),
+                "Python line 3 should have CFG successors"
+            );
+        }
     }
 }

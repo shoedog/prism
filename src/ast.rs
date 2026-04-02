@@ -636,6 +636,73 @@ impl ParsedFile {
         }
     }
 
+    /// Collect all statement-level nodes within a function for CFG construction.
+    ///
+    /// Returns `(line, node_kind)` pairs in source order. Only direct children of
+    /// the function body and top-level children of compound statements are included
+    /// — nested expressions within a statement are not separate CFG nodes.
+    pub fn statements_in_function(&self, func_node: &Node<'_>) -> Vec<(usize, String)> {
+        let mut stmts = Vec::new();
+        // Find the function body (compound_statement, block, etc.)
+        let body = func_node
+            .child_by_field_name("body")
+            .or_else(|| func_node.child_by_field_name("consequence"));
+        if let Some(body_node) = body {
+            self.collect_statements(body_node, &mut stmts);
+        }
+        stmts.sort_by_key(|(line, _)| *line);
+        stmts.dedup_by_key(|(line, _)| *line);
+        stmts
+    }
+
+    fn collect_statements(&self, node: Node<'_>, out: &mut Vec<(usize, String)>) {
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            let kind = child.kind();
+            let line = child.start_position().row + 1;
+
+            if self.language.is_statement_node(kind) {
+                out.push((line, kind.to_string()));
+
+                // For control flow nodes, also recurse into their bodies
+                // to find nested statements (then-branch, else-branch, loop body)
+                if self.language.is_control_flow_node(kind) {
+                    self.collect_nested_statements(child, out);
+                }
+            } else if kind == "compound_statement" || kind == "block" || kind == "statement_block" {
+                // Recurse into blocks
+                self.collect_statements(child, out);
+            }
+        }
+    }
+
+    fn collect_nested_statements(&self, node: Node<'_>, out: &mut Vec<(usize, String)>) {
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            let kind = child.kind();
+            if kind == "compound_statement"
+                || kind == "block"
+                || kind == "statement_block"
+                || kind == "else_clause"
+                || kind == "elif_clause"
+                || kind == "else_if_clause"
+                || kind == "switch_body"
+                || kind == "case_statement"
+                || kind == "default_statement"
+                || kind == "match_block"
+                || kind == "match_arm"
+            {
+                self.collect_statements(child, out);
+                self.collect_nested_statements(child, out);
+            } else if self.language.is_control_flow_node(kind) {
+                // Nested control flow (if inside if, etc.)
+                let line = child.start_position().row + 1;
+                out.push((line, kind.to_string()));
+                self.collect_nested_statements(child, out);
+            }
+        }
+    }
+
     /// Find all goto statements in a function node.
     /// Returns `(target_label, goto_line)` pairs.
     pub fn goto_statements(&self, func_node: &Node<'_>) -> Vec<(String, usize)> {

@@ -33,6 +33,7 @@ pub mod access_path;
 pub mod algorithms;
 pub mod ast;
 pub mod call_graph;
+pub mod cfg;
 pub mod cpg;
 pub mod data_flow;
 pub mod diff;
