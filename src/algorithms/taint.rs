@@ -136,28 +136,28 @@ const SINK_PATTERNS: &[&str] = &[
     "=loadstring", // loadstring(user_input) — executes arbitrary Lua code
     "=dofile",     // dofile(path) — loads and executes a Lua file
     "=loadfile",   // loadfile(path) — loads a Lua file as a function
-                   // Command execution
-                   // "execute" already covered by generic; os.execute -> identifier "execute"
-                   // "=popen" already covered by Python section; io.popen -> identifier "popen"
-                   // Note: Lua string.format injection is a niche concern. Tree-sitter splits
-                   // "string.format" into separate identifier nodes, so substring sink matching
-                   // can't catch it. The high-severity Lua paths (loadstring, dofile, execute)
-                   // are already covered above.
+    // Command execution
+    // "execute" already covered by generic; os.execute -> identifier "execute"
+    // "=popen" already covered by Python section; io.popen -> identifier "popen"
+    // Note: Lua string.format injection is a niche concern. Tree-sitter splits
+    // "string.format" into separate identifier nodes, so substring sink matching
+    // can't catch it. The high-severity Lua paths (loadstring, dofile, execute)
+    // are already covered above.
     // === Terraform / HCL ===
     // Security-sensitive resource attributes where tainted variables can cause issues.
     // These are attribute names in resource blocks, not function calls.
-    "cidr_blocks",       // Network ACL — tainted CIDRs open firewall holes
-    "ipv6_cidr_blocks",  // IPv6 variant of above
-    "ingress",           // Security group ingress rules
-    "egress",            // Security group egress rules
-    "=policy",           // IAM policy documents — tainted values grant unintended permissions
-    "assume_role_policy", // IAM assume role policy
-    "user_data",         // EC2 user_data — shell injection vector
-    "user_data_base64",  // Base64 variant of user_data
-    "=inline",           // Provisioner inline commands
-    "=command",          // Provisioner command execution
+    "cidr_blocks",          // Network ACL — tainted CIDRs open firewall holes
+    "ipv6_cidr_blocks",     // IPv6 variant of above
+    "ingress",              // Security group ingress rules
+    "egress",               // Security group egress rules
+    "=policy",              // IAM policy documents — tainted values grant unintended permissions
+    "assume_role_policy",   // IAM assume role policy
+    "user_data",            // EC2 user_data — shell injection vector
+    "user_data_base64",     // Base64 variant of user_data
+    "=inline",              // Provisioner inline commands
+    "=command",             // Provisioner command execution
     "iam_instance_profile", // IAM instance profile attachment
-    "role_arn",          // IAM role ARN — cross-account access
+    "role_arn",             // IAM role ARN — cross-account access
 ];
 
 /// Check whether an identifier text matches a sink pattern.

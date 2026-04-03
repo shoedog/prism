@@ -217,7 +217,11 @@ resource "aws_security_group" "web" {
         assert!(
             has_user_input,
             "var.* should be classified as UserInput, got findings: {:?}",
-            result.findings.iter().map(|f| &f.description).collect::<Vec<_>>()
+            result
+                .findings
+                .iter()
+                .map(|f| &f.description)
+                .collect::<Vec<_>>()
         );
     }
 }
@@ -301,7 +305,11 @@ resource "aws_s3_bucket" "data" {
     assert!(
         has_absence,
         "AbsenceSlice should flag S3 bucket missing encryption config. Findings: {:?}",
-        result.findings.iter().map(|f| &f.description).collect::<Vec<_>>()
+        result
+            .findings
+            .iter()
+            .map(|f| &f.description)
+            .collect::<Vec<_>>()
     );
 }
 
@@ -346,7 +354,11 @@ resource "aws_lambda_function" "api" {
     assert!(
         has_absence,
         "AbsenceSlice should flag Lambda missing CloudWatch log group. Findings: {:?}",
-        result.findings.iter().map(|f| &f.description).collect::<Vec<_>>()
+        result
+            .findings
+            .iter()
+            .map(|f| &f.description)
+            .collect::<Vec<_>>()
     );
 }
 
