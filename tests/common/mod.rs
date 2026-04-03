@@ -254,3 +254,499 @@ function createClient(config: Config) {
 
     (files, sources, diff)
 }
+
+// ── Shared fixture helpers ──
+
+pub fn make_c_test() -> (
+    BTreeMap<String, ParsedFile>,
+    BTreeMap<String, String>,
+    DiffInput,
+) {
+    let source = r#"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#define MAX_BUF_SIZE 256
+
+typedef struct {
+    char *name;
+    int id;
+    int active;
+} device_t;
+
+device_t *create_device(const char *name, int id) {
+    device_t *dev = malloc(sizeof(device_t));
+    if (dev == NULL) {
+        return NULL;
+    }
+    dev->name = strdup(name);
+    dev->id = id;
+    dev->active = 1;
+    return dev;
+}
+
+void destroy_device(device_t *dev) {
+    if (dev != NULL) {
+        free(dev->name);
+        free(dev);
+    }
+}
+
+int process_packet(const char *buf, size_t len) {
+    char local_buf[MAX_BUF_SIZE];
+    int result = 0;
+
+    memcpy(local_buf, buf, len);
+    local_buf[len] = '\0';
+
+    if (strlen(local_buf) > 10) {
+        result = atoi(local_buf);
+    }
+
+    return result;
+}
+
+int handle_request(const char *input, size_t input_len) {
+    device_t *dev = create_device(input, 42);
+    if (dev == NULL) {
+        return -1;
+    }
+
+    int status = process_packet(input, input_len);
+
+    if (status < 0) {
+        return status;
+    }
+
+    destroy_device(dev);
+    return status;
+}
+
+void bulk_process(const char **inputs, int count) {
+    for (int i = 0; i < count; i++) {
+        int result = handle_request(inputs[i], strlen(inputs[i]));
+        if (result < 0) {
+            fprintf(stderr, "Error processing input %d\n", i);
+        }
+    }
+}
+"#;
+
+    let path = "src/device.c";
+    let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+    let mut files = BTreeMap::new();
+    let mut sources = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+    sources.insert(path.to_string(), source.to_string());
+
+    // Diff: process_packet function modified (lines 34-44: the buffer handling code)
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([36, 37, 38]),
+        }],
+    };
+
+    (files, sources, diff)
+}
+
+
+pub fn make_c_multifile_test() -> (
+    BTreeMap<String, ParsedFile>,
+    BTreeMap<String, String>,
+    DiffInput,
+) {
+    let device_source = r#"
+#include "device.h"
+#include <stdlib.h>
+#include <string.h>
+
+device_t *create_device(const char *name, int id) {
+    device_t *dev = malloc(sizeof(device_t));
+    dev->name = strdup(name);
+    dev->id = id;
+    return dev;
+}
+
+void destroy_device(device_t *dev) {
+    free(dev->name);
+    free(dev);
+}
+
+int get_device_status(device_t *dev) {
+    return dev->active;
+}
+"#;
+
+    let handler_source = r#"
+#include "device.h"
+#include <stdio.h>
+
+int handle_create(const char *name) {
+    device_t *dev = create_device(name, 1);
+    int status = get_device_status(dev);
+    printf("Device status: %d\n", status);
+    return status;
+}
+
+int handle_batch(const char **names, int count) {
+    for (int i = 0; i < count; i++) {
+        handle_create(names[i]);
+    }
+    return 0;
+}
+"#;
+
+    let mut files = BTreeMap::new();
+    let mut sources = BTreeMap::new();
+
+    let dev_parsed = ParsedFile::parse("src/device.c", device_source, Language::C).unwrap();
+    let handler_parsed = ParsedFile::parse("src/handler.c", handler_source, Language::C).unwrap();
+
+    files.insert("src/device.c".to_string(), dev_parsed);
+    files.insert("src/handler.c".to_string(), handler_parsed);
+    sources.insert("src/device.c".to_string(), device_source.to_string());
+    sources.insert("src/handler.c".to_string(), handler_source.to_string());
+
+    // Diff: create_device modified (return type change, error handling change)
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: "src/device.c".to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([7, 8, 9]),
+        }],
+    };
+
+    (files, sources, diff)
+}
+
+
+pub fn make_cpp_test() -> (
+    BTreeMap<String, ParsedFile>,
+    BTreeMap<String, String>,
+    DiffInput,
+) {
+    let source = r#"
+#include <string>
+#include <vector>
+#include <memory>
+#include <mutex>
+#include <stdexcept>
+
+class DeviceManager {
+private:
+    std::vector<std::string> devices;
+    std::mutex mtx;
+    int max_devices;
+
+public:
+    DeviceManager(int max) : max_devices(max) {}
+
+    ~DeviceManager() {
+        devices.clear();
+    }
+
+    bool add_device(const std::string& name) {
+        std::lock_guard<std::mutex> lock(mtx);
+        if (devices.size() >= max_devices) {
+            return false;
+        }
+        devices.push_back(name);
+        return true;
+    }
+
+    std::string get_device(int index) {
+        if (index < 0 || index >= devices.size()) {
+            throw std::out_of_range("Invalid device index");
+        }
+        return devices[index];
+    }
+
+    int count() const {
+        return devices.size();
+    }
+
+    std::string serialize() {
+        std::string result = "{";
+        for (size_t i = 0; i < devices.size(); i++) {
+            result += "\"" + devices[i] + "\"";
+            if (i < devices.size() - 1) {
+                result += ",";
+            }
+        }
+        result += "}";
+        return result;
+    }
+};
+
+int process_devices(DeviceManager& mgr, const std::vector<std::string>& names) {
+    int added = 0;
+    for (const auto& name : names) {
+        if (mgr.add_device(name)) {
+            added++;
+        }
+    }
+    return added;
+}
+"#;
+
+    let path = "src/device_manager.cpp";
+    let parsed = ParsedFile::parse(path, source, Language::Cpp).unwrap();
+    let mut files = BTreeMap::new();
+    let mut sources = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+    sources.insert(path.to_string(), source.to_string());
+
+    // Diff: add_device and get_device methods modified
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([23, 24, 25, 33, 34]),
+        }],
+    };
+
+    (files, sources, diff)
+}
+
+
+pub fn make_snmp_overflow_test() -> (BTreeMap<String, ParsedFile>, DiffInput) {
+    let source = r#"
+#include <stdint.h>
+#include <string.h>
+
+void handle_snmp_set(uint8_t *pdu, size_t pdu_len) {
+    char community[64];
+    size_t community_len = pdu[7];
+    memcpy(community, pdu + 8, community_len);
+    if (strcmp(community, "public") == 0) {
+        process_set_request(pdu + 8 + community_len, pdu_len - 8 - community_len);
+    }
+}
+"#;
+
+    let path = "tests/fixtures/c/snmp_overflow.c";
+    let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    // Diff: lines 7-8 (community_len extraction and memcpy without bounds check)
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([7, 8]),
+        }],
+    };
+
+    (files, diff)
+}
+
+
+pub fn make_double_free_test() -> (BTreeMap<String, ParsedFile>, DiffInput) {
+    let source = r#"
+#include <stdlib.h>
+#include <string.h>
+#include <stdint.h>
+
+typedef struct {
+    uint8_t *payload;
+    size_t len;
+} frame_t;
+
+void process_frame(uint8_t *raw, size_t len) {
+    frame_t *frame = malloc(sizeof(frame_t));
+    frame->payload = malloc(len);
+    memcpy(frame->payload, raw, len);
+
+    if (validate_header(frame) < 0) {
+        free(frame->payload);
+        free(frame);
+        goto cleanup;
+    }
+
+    dispatch_frame(frame);
+    return;
+
+cleanup:
+    free(frame->payload);
+    free(frame);
+}
+"#;
+
+    let path = "tests/fixtures/c/double_free.c";
+    let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    // Diff: the cleanup label and double free
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([17, 18, 25, 26]),
+        }],
+    };
+
+    (files, diff)
+}
+
+
+pub fn make_ring_overflow_test() -> (BTreeMap<String, ParsedFile>, DiffInput) {
+    let source = r#"
+#include <stdint.h>
+#include <string.h>
+
+#define RING_SIZE 256
+static uint8_t ring_buf[RING_SIZE];
+static volatile int write_idx = 0;
+
+void ring_write(uint8_t *data, int count) {
+    memcpy(ring_buf + write_idx, data, count);
+    write_idx += count;
+}
+"#;
+
+    let path = "tests/fixtures/c/ring_overflow.c";
+    let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    // Diff: the memcpy and write_idx update (no bounds check)
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([10, 11]),
+        }],
+    };
+
+    (files, diff)
+}
+
+
+pub fn make_timer_uaf_test() -> (BTreeMap<String, ParsedFile>, DiffInput) {
+    let source = r#"
+#include <stdlib.h>
+
+struct timer_ctx {
+    void (*callback)(void *);
+    void *data;
+    int active;
+};
+
+void cancel_timer(struct timer_ctx *timer) {
+    timer->active = 0;
+    free(timer->data);
+}
+
+void timer_tick(struct timer_ctx *timer) {
+    if (timer->active) {
+        timer->callback(timer->data);
+    }
+}
+"#;
+
+    let path = "tests/fixtures/c/timer_uaf.c";
+    let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    // Diff: the free(timer->data) line (potential UAF)
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([11, 12]),
+        }],
+    };
+
+    (files, diff)
+}
+
+
+pub fn make_large_function_test() -> (BTreeMap<String, ParsedFile>, DiffInput) {
+    let source = include_str!("../fixtures/c/large_function.c");
+
+    let path = "tests/fixtures/c/large_function.c";
+    let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    // Diff: line 131 (sum += ch->buf[i])
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([131]),
+        }],
+    };
+
+    (files, diff)
+}
+
+
+pub fn make_deep_switch_test() -> (BTreeMap<String, ParsedFile>, DiffInput) {
+    let source = include_str!("../fixtures/c/deep_switch.c");
+
+    let path = "tests/fixtures/c/deep_switch.c";
+    let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    // Diff: lines 66-67 (bounds check for msg->len)
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([66, 67]),
+        }],
+    };
+
+    (files, diff)
+}
+
+
+pub fn create_temp_git_repo(filename: &str, contents: &[&str]) -> TempDir {
+    let tmp = TempDir::new().unwrap();
+
+    std::process::Command::new("git")
+        .args(["init"])
+        .current_dir(tmp.path())
+        .output()
+        .unwrap();
+    std::process::Command::new("git")
+        .args(["config", "user.email", "test@test.com"])
+        .current_dir(tmp.path())
+        .output()
+        .unwrap();
+    std::process::Command::new("git")
+        .args(["config", "user.name", "Test"])
+        .current_dir(tmp.path())
+        .output()
+        .unwrap();
+    std::process::Command::new("git")
+        .args(["config", "commit.gpgsign", "false"])
+        .current_dir(tmp.path())
+        .output()
+        .unwrap();
+
+    for (i, content) in contents.iter().enumerate() {
+        std::fs::write(tmp.path().join(filename), content).unwrap();
+        std::process::Command::new("git")
+            .args(["add", filename])
+            .current_dir(tmp.path())
+            .output()
+            .unwrap();
+        std::process::Command::new("git")
+            .args(["commit", "-m", &format!("commit {}", i)])
+            .current_dir(tmp.path())
+            .output()
+            .unwrap();
+    }
+
+    tmp
+}
+
