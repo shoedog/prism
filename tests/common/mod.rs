@@ -804,3 +804,28 @@ output "instance_ip" {
 
     (files, sources, diff)
 }
+
+pub fn make_bash_test() -> (
+    BTreeMap<String, ParsedFile>,
+    BTreeMap<String, String>,
+    DiffInput,
+) {
+    let source = "#!/bin/bash\n\nLOG_DIR=\"/var/log/myapp\"\n\nsetup_dirs() {\n    mkdir -p \"$LOG_DIR\"\n    chmod 755 \"$LOG_DIR\"\n}\n\nprocess_input() {\n    local input=\"$1\"\n    local output_file=\"$2\"\n\n    if [ -z \"$input\" ]; then\n        echo \"Error: no input\" >&2\n        return 1\n    fi\n\n    cat \"$input\" > \"$output_file\"\n    echo \"Processed: $input\"\n}\n\ncleanup() {\n    local tmpfile=$(mktemp)\n    echo \"cleaning up\" > \"$tmpfile\"\n    rm -f \"$tmpfile\"\n}\n\nmain() {\n    setup_dirs\n    process_input \"$1\" \"$2\"\n    cleanup\n}\n\nmain \"$@\"\n";
+
+    let path = "scripts/deploy.sh";
+    let parsed = ParsedFile::parse(path, source, Language::Bash).unwrap();
+    let mut files = BTreeMap::new();
+    let mut sources = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+    sources.insert(path.to_string(), source.to_string());
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([19, 20]),
+        }],
+    };
+
+    (files, sources, diff)
+}

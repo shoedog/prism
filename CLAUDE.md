@@ -150,7 +150,7 @@ Algorithms fall into two categories:
 ## Key Design Decisions
 
 1. **Tree-sitter for multi-language AST parsing.** The original paper used
-   cppcheck (C++ only). We use tree-sitter to support 9 languages.
+   cppcheck (C++ only). We use tree-sitter to support 11 languages.
 
 2. **Name-based variable tracking** instead of cppcheck's `varId` system.
 
@@ -174,8 +174,8 @@ Algorithms fall into two categories:
 
 ## Supported Languages
 
-9 languages with dedicated tree-sitter grammars:
-Python, JavaScript, TypeScript, Go, Java, C, C++, Rust, Lua.
+11 languages with dedicated tree-sitter grammars:
+Python, JavaScript, TypeScript, Go, Java, C, C++, Rust, Lua, Terraform/HCL, Bash.
 
 ## CLI Usage
 

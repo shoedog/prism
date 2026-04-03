@@ -314,6 +314,27 @@ pub fn default_pairs() -> Vec<PairedPattern> {
             close_patterns: vec!["aws_cloudwatch_log_group"],
             description: "Lambda function missing CloudWatch log group",
         },
+        // === Shell / Bash ===
+        PairedPattern {
+            open_patterns: vec!["mktemp"],
+            close_patterns: vec!["rm ", "rm -", "unlink "],
+            description: "Temp file created with mktemp but never cleaned up",
+        },
+        PairedPattern {
+            open_patterns: vec!["mount "],
+            close_patterns: vec!["umount "],
+            description: "Filesystem mounted but never unmounted",
+        },
+        PairedPattern {
+            open_patterns: vec!["pushd "],
+            close_patterns: vec!["popd"],
+            description: "pushd without matching popd",
+        },
+        PairedPattern {
+            open_patterns: vec!["trap "],
+            close_patterns: vec!["trap -", "trap ''", "trap \"\""],
+            description: "Signal trap set but never restored/cleared",
+        },
     ]
 }
 

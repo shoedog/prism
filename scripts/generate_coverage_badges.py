@@ -23,19 +23,21 @@ BADGES_PATH = os.path.join(os.path.dirname(__file__), "..", "coverage", "badges.
 TABLE_PATH = os.path.join(os.path.dirname(__file__), "..", "coverage", "table.md")
 README_PATH = os.path.join(os.path.dirname(__file__), "..", "README.md")
 
-LANGUAGES = ["python", "javascript", "typescript", "go", "java", "c", "cpp", "rust", "lua"]
+LANGUAGES = ["python", "javascript", "typescript", "go", "java", "c", "cpp", "rust", "lua", "terraform", "bash"]
 LANG_LABELS = {
     "python": "Python", "javascript": "JavaScript", "typescript": "TypeScript",
     "go": "Go", "java": "Java", "c": "C", "cpp": "C++", "rust": "Rust", "lua": "Lua",
+    "terraform": "Terraform", "bash": "Bash",
 }
 LANG_LOGOS = {
     "python": "python", "javascript": "javascript", "typescript": "typescript",
     "go": "go", "java": "openjdk", "c": "c", "cpp": "cplusplus",
-    "rust": "rust", "lua": "lua",
+    "rust": "rust", "lua": "lua", "terraform": "terraform", "bash": "gnubash",
 }
 LANG_SHORT = {
     "python": "Py", "javascript": "JS", "typescript": "TS", "go": "Go",
     "java": "Ja", "c": "C", "cpp": "C++", "rust": "Rs", "lua": "Lua",
+    "terraform": "TF", "bash": "Sh",
 }
 
 

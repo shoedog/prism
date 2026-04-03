@@ -158,6 +158,18 @@ const SINK_PATTERNS: &[&str] = &[
     "=command",             // Provisioner command execution
     "iam_instance_profile", // IAM instance profile attachment
     "role_arn",             // IAM role ARN — cross-account access
+    // === Shell / Bash ===
+    // Command injection sinks — where untrusted input causes code execution
+    "=eval",   // eval "$VAR" — arbitrary code execution
+    "=source", // source "$FILE" — code inclusion
+    "xargs",   // echo $INPUT | xargs rm — argument injection
+    "=su",     // su $USER — privilege escalation
+    "=sudo",   // sudo $CMD — privilege escalation
+    "=chmod",  // chmod $MODE $FILE — permission manipulation
+    "=chown",  // chown $OWNER $FILE — ownership manipulation
+    "sqlite3", // sqlite3 db "SELECT $INPUT" — SQL injection
+    "=curl",   // curl $URL — SSRF / data exfiltration
+    "=wget",   // wget $URL — SSRF / data exfiltration
 ];
 
 /// Check whether an identifier text matches a sink pattern.
