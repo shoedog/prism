@@ -72,6 +72,16 @@ Cargo.toml defines named test targets (e.g., `cargo test --test algo_paper`).
 Shared test helpers in `tests/common/mod.rs` provide fixture generators like
 `make_python_test()`, `make_javascript_test()`, etc.
 
+### Language Coverage Matrix
+
+`tests/integration/coverage_test.rs` contains a hardcoded list of test file
+paths (`all_test_files`) that it scans for `fn test_*` names to build an
+algorithm × language coverage matrix. **This list appears 3 times** — once in
+each of `test_algorithm_language_matrix`, `test_language_coverage_minimum`, and
+`test_coverage_matrix_validation`. When adding or renaming test files, all 3
+copies must be updated or the matrix will under-report coverage. Run
+`cargo test --test integration_coverage` to verify.
+
 ## Algorithm Implementation Map
 
 ### Paper (arXiv:2505.17928)
@@ -196,6 +206,10 @@ Key algorithm-specific flags:
 3. Implement all the node type methods for the new language
 4. Add a fixture generator in `tests/common/mod.rs`
 5. Add language-specific tests in `tests/lang/`
+6. Add the new test file paths to the `all_test_files` arrays in
+   `tests/integration/coverage_test.rs` (there are 3 copies — one each in
+   `test_algorithm_language_matrix`, `test_language_coverage_minimum`, and
+   `test_coverage_matrix_validation`)
 
 ## Adding a New Slicing Algorithm
 
@@ -205,6 +219,8 @@ Key algorithm-specific flags:
 4. Wire it up in the `run_slicing` dispatcher in `src/algorithms/mod.rs`
 5. Add CLI flags in `src/main.rs` if it needs algorithm-specific config
 6. Add tests in `tests/algo/` (appropriate subcategory)
+7. Add the algorithm to the `algorithms` list in `test_algorithm_language_matrix`
+   and `test_language_coverage_minimum` in `tests/integration/coverage_test.rs`
 
 ## Common Patterns
 
