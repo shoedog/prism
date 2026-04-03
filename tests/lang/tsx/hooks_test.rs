@@ -67,8 +67,8 @@ function UserProfile({ userId }) {
     assert!(callback.start_line > 0);
     assert!(callback.end_line >= callback.start_line);
     assert!(
-        !callback.captured_identifiers.is_empty(),
-        "callback should capture identifiers"
+        !callback.all_identifiers.is_empty(),
+        "callback should contain identifiers"
     );
 
     // Deps info

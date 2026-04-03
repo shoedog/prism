@@ -17,6 +17,10 @@ pub struct HookCall {
     pub line: usize,
     pub hook_type: HookType,
     pub callback: Option<CallbackInfo>,
+    /// Dependency array info. `None` for hooks that don't take deps (useState, useRef, etc.).
+    /// `Some(DepsInfo { is_missing: true, .. })` for hooks that accept deps but none were
+    /// provided (e.g., `useEffect(() => {})` — runs every render).
+    /// `Some(DepsInfo { is_empty: true, .. })` for empty deps (e.g., `useEffect(() => {}, [])` — mount only).
     pub deps: Option<DepsInfo>,
 }
 
@@ -89,7 +93,11 @@ impl HookType {
 pub struct CallbackInfo {
     pub start_line: usize,
     pub end_line: usize,
-    pub captured_identifiers: Vec<(String, usize)>,
+    /// All identifiers referenced within the callback body (name, line).
+    /// Includes both locally-defined and externally-captured identifiers.
+    /// Layer 5 (dependency array analysis) will filter this to only identifiers
+    /// defined in the enclosing component scope (true captures) using scope resolution.
+    pub all_identifiers: Vec<(String, usize)>,
 }
 
 /// Information about a hook's dependency array.
@@ -210,7 +218,7 @@ fn extract_callback(parsed: &ParsedFile, args_node: &Node<'_>) -> Option<Callbac
             return Some(CallbackInfo {
                 start_line,
                 end_line,
-                captured_identifiers: identifiers,
+                all_identifiers: identifiers,
             });
         }
     }
@@ -230,11 +238,14 @@ fn extract_deps(parsed: &ParsedFile, args_node: Option<&Node<'_>>) -> DepsInfo {
         }
     };
 
-    // Find the second argument (skip the callback, find the array)
+    // Find the second argument (skip the callback, find the array).
+    // Note: this walks direct children of the arguments node, skipping punctuation.
+    // This handles the common `useEffect(() => {}, [deps])` pattern correctly.
+    // A more robust approach would use tree-sitter field access by index, but the
+    // arguments node doesn't expose positional fields in most grammars.
     let mut cursor = args.walk();
     let mut arg_index = 0;
     for child in args.children(&mut cursor) {
-        // Skip commas and the first argument
         if child.kind() == "," || child.kind() == "(" || child.kind() == ")" {
             continue;
         }
@@ -267,8 +278,9 @@ fn collect_identifiers(parsed: &ParsedFile, node: &Node<'_>, out: &mut Vec<(Stri
     if parsed.language.is_identifier_node(node.kind()) {
         let name = parsed.node_text(node).to_string();
         let line = node.start_position().row + 1;
-        // Skip keywords and common non-variable identifiers
-        if !is_keyword(&name) {
+        // Skip language keywords and well-known globals that aren't meaningful
+        // for dependency tracking (not reactive values in a React component).
+        if !is_filtered_global(&name) {
             out.push((name, line));
         }
     }
@@ -279,15 +291,20 @@ fn collect_identifiers(parsed: &ParsedFile, node: &Node<'_>, out: &mut Vec<(Stri
     }
 }
 
-fn is_keyword(name: &str) -> bool {
+/// Filter out language keywords and well-known global objects that are not
+/// reactive values in a React component context. These are excluded from
+/// identifier collection because they cannot be stale closure captures.
+fn is_filtered_global(name: &str) -> bool {
     matches!(
         name,
+        // Language keywords
         "true"
             | "false"
             | "null"
             | "undefined"
             | "this"
             | "super"
+            // Well-known global objects (stable, not reactive)
             | "console"
             | "window"
             | "document"
