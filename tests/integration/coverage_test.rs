@@ -4,7 +4,9 @@ use common::*;
 
 fn lang_matches(name: &str, lang_key: &str) -> bool {
     match lang_key {
-        "python" | "javascript" | "typescript" | "rust" | "lua" => name.contains(lang_key),
+        "python" | "javascript" | "typescript" | "rust" | "lua" | "terraform" => {
+            name.contains(lang_key)
+        }
         "go" => name.contains("_go_") || name.ends_with("_go"),
         "java" => {
             !name.contains("javascript") && (name.contains("_java_") || name.ends_with("_java"))
@@ -74,7 +76,7 @@ fn test_algorithm_language_matrix() {
         (&["chop"], "Chop"),
     ];
 
-    // All 9 supported languages
+    // All 10 supported languages
     let languages: &[(&str, &str)] = &[
         ("python", "Python"),
         ("javascript", "JS"),
@@ -85,6 +87,7 @@ fn test_algorithm_language_matrix() {
         ("cpp", "C++"),
         ("rust", "Rust"),
         ("lua", "Lua"),
+        ("terraform", "TF"),
     ];
 
     // Collect all test function names from this file (compile-time string)
@@ -133,6 +136,7 @@ fn test_algorithm_language_matrix() {
         "tests/lang/go/lang_test.rs",
         "tests/lang/lua/lua_test.rs",
         "tests/lang/rust/rust_test.rs",
+        "tests/lang/terraform/terraform_test.rs",
         "tests/lang/typescript/typescript_test.rs",
         "tests/lang/typescript/lang_test.rs",
     ];
@@ -244,6 +248,7 @@ fn test_language_coverage_minimum() {
         "cpp",
         "rust",
         "lua",
+        "terraform",
     ];
 
     let all_test_files = &[
@@ -288,6 +293,7 @@ fn test_language_coverage_minimum() {
         "tests/lang/go/lang_test.rs",
         "tests/lang/lua/lua_test.rs",
         "tests/lang/rust/rust_test.rs",
+        "tests/lang/terraform/terraform_test.rs",
         "tests/lang/typescript/typescript_test.rs",
         "tests/lang/typescript/lang_test.rs",
     ];
@@ -384,6 +390,7 @@ fn test_coverage_matrix_validation() {
         "tests/lang/go/lang_test.rs",
         "tests/lang/lua/lua_test.rs",
         "tests/lang/rust/rust_test.rs",
+        "tests/lang/terraform/terraform_test.rs",
         "tests/lang/typescript/typescript_test.rs",
         "tests/lang/typescript/lang_test.rs",
         "src/cfg.rs",
@@ -570,6 +577,7 @@ fn test_coverage_matrix_algorithm_completeness() {
         "cpp",
         "rust",
         "lua",
+        "terraform",
     ];
     for (algo, langs) in algo_cov {
         let covered = languages
