@@ -442,6 +442,7 @@ fn test_algorithm_language_matrix() {
         "tests/rust_lang_test.rs",
         "tests/lua_test.rs",
         "tests/javascript_test.rs",
+        "tests/typescript_test.rs",
         "tests/ast_test.rs",
     ];
     let mut test_names_buf: Vec<String> = Vec::new();
@@ -569,6 +570,7 @@ fn test_language_coverage_minimum() {
         "tests/rust_lang_test.rs",
         "tests/lua_test.rs",
         "tests/javascript_test.rs",
+        "tests/typescript_test.rs",
         "tests/ast_test.rs",
     ];
     let mut test_names_buf: Vec<String> = Vec::new();
