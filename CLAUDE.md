@@ -11,8 +11,17 @@ taxonomy and novel theoretical extensions.
 ```bash
 cargo build          # Build the project
 cargo test           # Run all tests (unit + integration)
+cargo fmt --check    # Check formatting (must pass before PR)
 cargo run -- --help  # Show CLI usage
 cargo run -- --list-algorithms  # List all 26 algorithms
+```
+
+### Before Creating a PR
+
+Always run these checks before committing/pushing:
+```bash
+cargo fmt            # Fix formatting
+cargo test           # All tests must pass
 ```
 
 Run specific test suites:

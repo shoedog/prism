@@ -292,6 +292,28 @@ pub fn default_pairs() -> Vec<PairedPattern> {
             close_patterns: vec!["coroutine.resume("],
             description: "Lua coroutine created but never resumed",
         },
+        // === Terraform / HCL ===
+        // Resource companion patterns: resources that should have security companions
+        PairedPattern {
+            open_patterns: vec!["aws_s3_bucket"],
+            close_patterns: vec!["aws_s3_bucket_server_side_encryption_configuration"],
+            description: "S3 bucket missing encryption configuration",
+        },
+        PairedPattern {
+            open_patterns: vec!["aws_s3_bucket"],
+            close_patterns: vec!["aws_s3_bucket_public_access_block"],
+            description: "S3 bucket missing public access block",
+        },
+        PairedPattern {
+            open_patterns: vec!["aws_s3_bucket"],
+            close_patterns: vec!["aws_s3_bucket_versioning"],
+            description: "S3 bucket missing versioning configuration",
+        },
+        PairedPattern {
+            open_patterns: vec!["aws_lambda_function"],
+            close_patterns: vec!["aws_cloudwatch_log_group"],
+            description: "Lambda function missing CloudWatch log group",
+        },
     ]
 }
 
