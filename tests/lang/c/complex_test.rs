@@ -22,7 +22,6 @@ fn make_macro_heavy_test() -> (BTreeMap<String, ParsedFile>, DiffInput) {
     (files, diff)
 }
 
-
 fn make_onu_state_machine_test() -> (BTreeMap<String, ParsedFile>, DiffInput) {
     let source = r#"
 #include <stdint.h>
@@ -73,7 +72,6 @@ void handle_ploam_message(ploam_msg_t *msg) {
 
     (files, diff)
 }
-
 
 #[test]
 fn test_onu_state_machine_original_diff() {

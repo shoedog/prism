@@ -14,7 +14,10 @@ fn test_original_diff_typescript() {
         None,
     )
     .unwrap();
-    assert!(!result.blocks.is_empty(), "OriginalDiff TS should produce blocks");
+    assert!(
+        !result.blocks.is_empty(),
+        "OriginalDiff TS should produce blocks"
+    );
     assert_eq!(result.algorithm, SlicingAlgorithm::OriginalDiff);
     let block = &result.blocks[0];
     assert!(
@@ -67,7 +70,10 @@ fn test_left_flow_typescript() {
         None,
     )
     .unwrap();
-    assert!(!result.blocks.is_empty(), "LeftFlow TS should produce blocks");
+    assert!(
+        !result.blocks.is_empty(),
+        "LeftFlow TS should produce blocks"
+    );
     assert_eq!(result.algorithm, SlicingAlgorithm::LeftFlow);
 }
 
@@ -138,7 +144,10 @@ class Calculator {
         None,
     )
     .unwrap();
-    assert!(!result.blocks.is_empty(), "ParentFunction should work with TS classes");
+    assert!(
+        !result.blocks.is_empty(),
+        "ParentFunction should work with TS classes"
+    );
 }
 
 #[test]
@@ -169,7 +178,10 @@ async function fetchData(url: string): Promise<any> {
         None,
     )
     .unwrap();
-    assert!(!result.blocks.is_empty(), "ThinSlice TS should produce blocks for async code");
+    assert!(
+        !result.blocks.is_empty(),
+        "ThinSlice TS should produce blocks for async code"
+    );
     assert_eq!(result.algorithm, SlicingAlgorithm::ThinSlice);
 }
 
@@ -201,7 +213,10 @@ function handler(req: Request): Response {
         None,
     )
     .unwrap();
-    assert!(!result.blocks.is_empty(), "Taint TS should detect user input flow");
+    assert!(
+        !result.blocks.is_empty(),
+        "Taint TS should detect user input flow"
+    );
     assert_eq!(result.algorithm, SlicingAlgorithm::Taint);
 }
 
@@ -232,7 +247,10 @@ function processRequest(req: Request): void {
         None,
     )
     .unwrap();
-    assert!(!result.blocks.is_empty(), "Taint should work with TS destructured request body");
+    assert!(
+        !result.blocks.is_empty(),
+        "Taint should work with TS destructured request body"
+    );
 }
 
 #[test]

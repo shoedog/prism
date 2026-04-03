@@ -2,7 +2,6 @@
 mod common;
 use common::*;
 
-
 #[test]
 fn test_provenance_slice_traces_origins() {
     let (files, _, diff) = make_python_test();

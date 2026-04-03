@@ -9,7 +9,10 @@ fn test_full_flow_typescript() {
     let (files, _, diff) = make_typescript_test();
     let config = SliceConfig::default().with_algorithm(SlicingAlgorithm::FullFlow);
     let result = algorithms::run_slicing_compat(&files, &diff, &config, None).unwrap();
-    assert!(!result.blocks.is_empty(), "FullFlow TS should produce blocks");
+    assert!(
+        !result.blocks.is_empty(),
+        "FullFlow TS should produce blocks"
+    );
     assert_eq!(result.algorithm, SlicingAlgorithm::FullFlow);
 }
 
@@ -23,7 +26,10 @@ fn test_relevant_slice_typescript() {
         None,
     )
     .unwrap();
-    assert!(!result.blocks.is_empty(), "RelevantSlice TS should produce blocks");
+    assert!(
+        !result.blocks.is_empty(),
+        "RelevantSlice TS should produce blocks"
+    );
     assert_eq!(result.algorithm, SlicingAlgorithm::RelevantSlice);
 }
 
@@ -37,7 +43,10 @@ fn test_gradient_slice_typescript() {
         None,
     )
     .unwrap();
-    assert!(!result.blocks.is_empty(), "GradientSlice TS should produce blocks");
+    assert!(
+        !result.blocks.is_empty(),
+        "GradientSlice TS should produce blocks"
+    );
     assert_eq!(result.algorithm, SlicingAlgorithm::GradientSlice);
 }
 
@@ -51,7 +60,10 @@ fn test_barrier_slice_typescript() {
         None,
     )
     .unwrap();
-    assert!(!result.blocks.is_empty(), "BarrierSlice TS should produce blocks");
+    assert!(
+        !result.blocks.is_empty(),
+        "BarrierSlice TS should produce blocks"
+    );
     assert_eq!(result.algorithm, SlicingAlgorithm::BarrierSlice);
 }
 
@@ -380,7 +392,10 @@ function caller(): void {
     let result =
         prism::algorithms::spiral_slice::slice(&ctx, &diff, &config, &spiral_config).unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::SpiralSlice);
-    assert!(!result.blocks.is_empty(), "SpiralSlice TS should produce blocks");
+    assert!(
+        !result.blocks.is_empty(),
+        "SpiralSlice TS should produce blocks"
+    );
 }
 
 #[test]
@@ -472,7 +487,10 @@ fn test_resonance_slice_typescript() {
     let filename = "app.ts";
     let tmp = create_temp_git_repo(
         filename,
-        &["function update(x: number): number {\n    return x;\n}\n", source],
+        &[
+            "function update(x: number): number {\n    return x;\n}\n",
+            source,
+        ],
     );
 
     let parsed = ParsedFile::parse(filename, source, Language::TypeScript).unwrap();
@@ -532,7 +550,10 @@ fn test_threed_slice_typescript() {
     let filename = "app.ts";
     let tmp = create_temp_git_repo(
         filename,
-        &["function foo(x: number): number {\n    return x;\n}\n", source],
+        &[
+            "function foo(x: number): number {\n    return x;\n}\n",
+            source,
+        ],
     );
 
     let parsed = ParsedFile::parse(filename, source, Language::TypeScript).unwrap();

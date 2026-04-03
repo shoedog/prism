@@ -30,7 +30,6 @@ async function fetchUser(id) {
     (files, diff)
 }
 
-
 #[test]
 fn test_quantum_slice_async_js() {
     let (files, diff) = make_async_test();

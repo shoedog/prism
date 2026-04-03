@@ -32,7 +32,6 @@ fn test_cpp_parses_and_finds_methods() {
     );
 }
 
-
 #[test]
 fn test_ts_fallback_extracts_cpp_class() {
     use prism::type_db::TypeDatabase;
@@ -63,7 +62,6 @@ public:
     assert!(field_names.contains(&"y"));
 }
 
-
 #[test]
 fn test_ts_fallback_skips_forward_decl() {
     use prism::type_db::TypeDatabase;
@@ -84,7 +82,6 @@ void use_device(struct device *d);
         "Forward declaration should not be extracted as a record"
     );
 }
-
 
 #[test]
 fn test_ts_fallback_union_detection() {
@@ -107,7 +104,6 @@ union data {
     let record = db.records.get("data").expect("should extract data union");
     assert_eq!(record.kind, prism::type_db::RecordKind::Union);
 }
-
 
 #[test]
 fn test_ts_fallback_nested_struct() {
@@ -144,7 +140,6 @@ struct device {
     assert_eq!(field_names, vec!["name", "cfg"]);
 }
 
-
 #[test]
 fn test_ts_fallback_no_false_extraction() {
     use prism::type_db::TypeDatabase;
@@ -175,7 +170,6 @@ class Device {
         "Non-C/C++ files should produce no records"
     );
 }
-
 
 #[test]
 fn test_ts_fallback_cpp_inheritance() {
@@ -214,7 +208,6 @@ public:
     assert!(db.is_subclass_of("Circle", "Shape"));
 }
 
-
 #[test]
 fn test_ts_fallback_typedef() {
     use prism::type_db::TypeDatabase;
@@ -246,7 +239,6 @@ typedef int handle_t;
     );
 }
 
-
 #[test]
 fn test_cpp_update_expression_def() {
     // C/C++ update_expression (++/--) is treated as assignment
@@ -273,4 +265,3 @@ void process() {
         lvalues.iter().map(|(p, _)| &p.base).collect::<Vec<_>>()
     );
 }
-

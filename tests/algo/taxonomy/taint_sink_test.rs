@@ -37,7 +37,6 @@ def log_entry(message):
     (files, sources, diff)
 }
 
-
 #[test]
 fn test_taint_from_diff() {
     let (files, _, diff) = make_python_test();

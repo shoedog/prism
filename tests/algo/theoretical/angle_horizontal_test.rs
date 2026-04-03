@@ -42,7 +42,6 @@ def process(url):
     (files, sources, diff)
 }
 
-
 #[test]
 fn test_horizontal_slice_finds_peers() {
     let source = r#"
