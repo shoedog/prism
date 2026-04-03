@@ -234,6 +234,10 @@ name = "integration_core"
 path = "tests/integration/core_test.rs"
 
 [[test]]
+name = "integration_scoped_cpg"
+path = "tests/integration/scoped_cpg_test.rs"
+
+[[test]]
 name = "integration_coverage"
 path = "tests/integration/coverage_test.rs"
 

@@ -49,6 +49,87 @@ impl CallGraph {
         }
     }
 
+    /// Build a lightweight call graph with only direct calls (Phases 1-2).
+    ///
+    /// Skips Phase 3 (indirect call resolution: function pointers, dispatch
+    /// tables, parameter-passed callbacks). Used by `CpgContext::build_scoped()`
+    /// to quickly identify which files are in the dependency neighborhood of a
+    /// diff, before committing to a full CPG build on the scoped subset.
+    pub fn build_skeleton(files: &BTreeMap<String, ParsedFile>) -> Self {
+        let mut functions: BTreeMap<String, Vec<FunctionId>> = BTreeMap::new();
+        let mut calls: BTreeMap<FunctionId, BTreeSet<CallSite>> = BTreeMap::new();
+        let mut callers: BTreeMap<String, Vec<CallSite>> = BTreeMap::new();
+        let mut static_functions: BTreeSet<(String, String)> = BTreeSet::new();
+
+        // Phase 1: Collect all function definitions
+        for (file_path, parsed) in files {
+            for func_node in parsed.all_functions() {
+                if let Some(name_node) = parsed.language.function_name(&func_node) {
+                    let name = parsed.node_text(&name_node).to_string();
+                    let (start, end) = parsed.node_line_range(&func_node);
+                    let func_id = FunctionId {
+                        file: file_path.clone(),
+                        name: name.clone(),
+                        start_line: start,
+                        end_line: end,
+                    };
+                    functions.entry(name.clone()).or_default().push(func_id);
+
+                    if matches!(
+                        parsed.language,
+                        crate::languages::Language::C | crate::languages::Language::Cpp
+                    ) {
+                        if has_static_specifier(parsed, &func_node) {
+                            static_functions.insert((file_path.clone(), name));
+                        }
+                    }
+                }
+            }
+        }
+
+        // Phase 2: Find all call sites within each function
+        for (file_path, parsed) in files {
+            for func_node in parsed.all_functions() {
+                let func_name = match parsed.language.function_name(&func_node) {
+                    Some(n) => parsed.node_text(&n).to_string(),
+                    None => continue,
+                };
+                let (start, end) = parsed.node_line_range(&func_node);
+                let caller_id = FunctionId {
+                    file: file_path.clone(),
+                    name: func_name,
+                    start_line: start,
+                    end_line: end,
+                };
+
+                let all_lines: BTreeSet<usize> = (start..=end).collect();
+                let call_sites = parsed.function_calls_on_lines(&func_node, &all_lines);
+
+                for (callee_name, line) in call_sites {
+                    let site = CallSite {
+                        caller: caller_id.clone(),
+                        callee_name: callee_name.clone(),
+                        line,
+                    };
+                    calls
+                        .entry(caller_id.clone())
+                        .or_default()
+                        .insert(site.clone());
+                    callers.entry(callee_name).or_default().push(site);
+                }
+            }
+        }
+
+        // Skip Phase 3 (indirect call resolution) — skeleton only needs direct calls.
+
+        CallGraph {
+            functions,
+            calls,
+            callers,
+            static_functions,
+        }
+    }
+
     /// Build a call graph from all parsed files.
     pub fn build(files: &BTreeMap<String, ParsedFile>) -> Self {
         let mut functions: BTreeMap<String, Vec<FunctionId>> = BTreeMap::new();
