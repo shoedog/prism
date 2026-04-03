@@ -280,3 +280,145 @@ fn test_bash_quantum_background_process() {
         "QuantumSlice should detect background processes with &"
     );
 }
+
+#[test]
+fn test_bash_taint_unquoted_variable() {
+    // Unquoted variable in command argument is the #1 shell injection vector
+    let source =
+        "#!/bin/bash\n\nprocess() {\n    local file=\"$1\"\n    cat $file\n    rm -rf /tmp/$file\n}\n\nprocess \"$@\"\n";
+    let path = "unsafe.sh";
+    let parsed = ParsedFile::parse(path, source, Language::Bash).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([5, 6]),
+        }],
+    };
+
+    let result = algorithms::run_slicing_compat(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::Taint),
+        None,
+    )
+    .unwrap();
+
+    let has_unquoted = result
+        .findings
+        .iter()
+        .any(|f| f.description.contains("unquoted"));
+    assert!(
+        has_unquoted,
+        "Taint should flag unquoted $file in command arguments. Findings: {:?}",
+        result
+            .findings
+            .iter()
+            .map(|f| &f.description)
+            .collect::<Vec<_>>()
+    );
+}
+
+#[test]
+fn test_bash_taint_quoted_variable_safe() {
+    // Quoted variable should NOT trigger unquoted warning
+    let source =
+        "#!/bin/bash\n\nprocess() {\n    local file=\"$1\"\n    cat \"$file\"\n    rm -rf \"/tmp/$file\"\n}\n\nprocess \"$@\"\n";
+    let path = "safe.sh";
+    let parsed = ParsedFile::parse(path, source, Language::Bash).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([5, 6]),
+        }],
+    };
+
+    let result = algorithms::run_slicing_compat(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::Taint),
+        None,
+    )
+    .unwrap();
+
+    let has_unquoted = result
+        .findings
+        .iter()
+        .any(|f| f.description.contains("unquoted"));
+    assert!(
+        !has_unquoted,
+        "Quoted variables should NOT trigger unquoted expansion warning"
+    );
+}
+
+#[test]
+fn test_bash_taint_exec_sink() {
+    // exec as process replacement sink
+    let source = "#!/bin/bash\n\nrun() {\n    local cmd=\"$1\"\n    exec $cmd\n}\n\nrun \"$@\"\n";
+    let path = "exec.sh";
+    let parsed = ParsedFile::parse(path, source, Language::Bash).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([5]),
+        }],
+    };
+
+    let result = algorithms::run_slicing_compat(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::Taint),
+        None,
+    )
+    .unwrap();
+
+    let has_taint = !result.blocks.is_empty() || !result.findings.is_empty();
+    assert!(
+        has_taint,
+        "Taint analysis should flag exec as a process replacement sink"
+    );
+}
+
+#[test]
+fn test_bash_provenance_curl_network() {
+    // curl output is network-sourced (user input origin)
+    let source =
+        "#!/bin/bash\n\nfetch() {\n    data=$(curl -s \"$1\")\n    echo \"$data\"\n}\n\nfetch \"$@\"\n";
+    let path = "fetch.sh";
+    let parsed = ParsedFile::parse(path, source, Language::Bash).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([4]),
+        }],
+    };
+
+    let result = algorithms::run_slicing_compat(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::ProvenanceSlice),
+        None,
+    )
+    .unwrap();
+
+    let has_provenance = !result.findings.is_empty() || !result.blocks.is_empty();
+    assert!(
+        has_provenance,
+        "Provenance should detect curl output as network input origin"
+    );
+}

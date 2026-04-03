@@ -503,7 +503,7 @@
       "rust": "full",
       "lua": "full",
       "terraform": "full",
-      "bash": "basic"
+      "bash": "full"
     },
     "chop": {
       "python": "basic",
