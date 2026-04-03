@@ -460,3 +460,89 @@ output "vpc_id" {
         vpc_refs
     );
 }
+
+#[test]
+fn test_terraform_absence_security_group_missing_rule() {
+    let source = r#"resource "aws_security_group" "web" {
+  name   = "web-sg"
+  vpc_id = var.vpc_id
+}
+"#;
+    let path = "sg.tf";
+    let parsed = ParsedFile::parse(path, source, Language::Terraform).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Added,
+            diff_lines: BTreeSet::from([1, 2, 3]),
+        }],
+    };
+
+    let result = algorithms::run_slicing_compat(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::AbsenceSlice),
+        None,
+    )
+    .unwrap();
+
+    let has_absence = result
+        .findings
+        .iter()
+        .any(|f| f.description.contains("security_group") || f.description.contains("rule"));
+    assert!(
+        has_absence,
+        "AbsenceSlice should flag security group missing explicit rule. Findings: {:?}",
+        result
+            .findings
+            .iter()
+            .map(|f| &f.description)
+            .collect::<Vec<_>>()
+    );
+}
+
+#[test]
+fn test_terraform_absence_db_missing_encryption() {
+    let source = r#"resource "aws_db_instance" "main" {
+  engine         = "mysql"
+  instance_class = "db.t3.micro"
+}
+"#;
+    let path = "rds.tf";
+    let parsed = ParsedFile::parse(path, source, Language::Terraform).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Added,
+            diff_lines: BTreeSet::from([1, 2, 3]),
+        }],
+    };
+
+    let result = algorithms::run_slicing_compat(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::AbsenceSlice),
+        None,
+    )
+    .unwrap();
+
+    let has_absence = result
+        .findings
+        .iter()
+        .any(|f| f.description.contains("db_instance") || f.description.contains("encrypted"));
+    assert!(
+        has_absence,
+        "AbsenceSlice should flag DB instance missing encryption. Findings: {:?}",
+        result
+            .findings
+            .iter()
+            .map(|f| &f.description)
+            .collect::<Vec<_>>()
+    );
+}

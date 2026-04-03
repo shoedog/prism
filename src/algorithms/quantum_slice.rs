@@ -265,6 +265,20 @@ fn find_async_inner(parsed: &ParsedFile, node: Node<'_>, out: &mut Vec<usize>) {
             }
         }
         Language::Terraform => false, // HCL is declarative, no async patterns
+        Language::Bash => {
+            if kind == "command" {
+                let text = parsed.node_text(&node);
+                // In tree-sitter-bash, `&` is a sibling of the command node,
+                // not part of its text. Check next sibling for background `&`.
+                let has_bg = node.next_sibling().map_or(false, |s| s.kind() == "&");
+                has_bg
+                    || text.starts_with("nohup ")
+                    || text.starts_with("coproc ")
+                    || text.starts_with("wait")
+            } else {
+                false
+            }
+        }
     };
 
     if is_async {
@@ -503,6 +517,10 @@ fn is_async_function(
                 || text.contains("coroutine.wrap(")
         }
         Language::Terraform => false, // HCL is declarative, no async patterns
+        Language::Bash => {
+            let text = parsed.node_text(func_node);
+            text.contains(" &") || text.contains("nohup ") || text.contains("coproc ")
+        }
     }
 }
 

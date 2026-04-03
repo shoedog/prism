@@ -11,7 +11,9 @@
           "c",
           "cpp",
           "rust",
-          "lua"
+          "lua",
+          "terraform",
+          "bash"
         ],
         "status": "handled"
       },
@@ -207,7 +209,8 @@
           "c",
           "cpp",
           "rust",
-          "lua"
+          "lua",
+          "bash"
         ],
         "status": "handled"
       },
@@ -221,7 +224,8 @@
           "c",
           "cpp",
           "rust",
-          "lua"
+          "lua",
+          "bash"
         ],
         "status": "handled"
       },
@@ -235,7 +239,8 @@
           "c",
           "cpp",
           "rust",
-          "lua"
+          "lua",
+          "bash"
         ],
         "status": "handled"
       },
@@ -333,7 +338,9 @@
           "c",
           "cpp",
           "rust",
-          "lua"
+          "lua",
+          "terraform",
+          "bash"
         ],
         "status": "handled"
       },
@@ -417,7 +424,8 @@
       "cpp": "none",
       "rust": "basic",
       "lua": "none",
-      "terraform": "basic"
+      "terraform": "basic",
+      "bash": "basic"
     },
     "parent_function": {
       "python": "basic",
@@ -429,7 +437,8 @@
       "cpp": "none",
       "rust": "basic",
       "lua": "basic",
-      "terraform": "basic"
+      "terraform": "basic",
+      "bash": "basic"
     },
     "left_flow": {
       "python": "basic",
@@ -441,7 +450,8 @@
       "cpp": "basic",
       "rust": "none",
       "lua": "none",
-      "terraform": "none"
+      "terraform": "none",
+      "bash": "none"
     },
     "full_flow": {
       "python": "full",
@@ -453,7 +463,8 @@
       "cpp": "basic",
       "rust": "none",
       "lua": "none",
-      "terraform": "none"
+      "terraform": "none",
+      "bash": "none"
     },
     "thin_slice": {
       "python": "basic",
@@ -465,7 +476,8 @@
       "cpp": "basic",
       "rust": "basic",
       "lua": "basic",
-      "terraform": "none"
+      "terraform": "none",
+      "bash": "none"
     },
     "barrier_slice": {
       "python": "basic",
@@ -477,7 +489,8 @@
       "cpp": "none",
       "rust": "none",
       "lua": "none",
-      "terraform": "none"
+      "terraform": "none",
+      "bash": "none"
     },
     "taint": {
       "python": "full",
@@ -489,7 +502,8 @@
       "cpp": "none",
       "rust": "full",
       "lua": "full",
-      "terraform": "full"
+      "terraform": "full",
+      "bash": "full"
     },
     "chop": {
       "python": "basic",
@@ -501,7 +515,8 @@
       "cpp": "none",
       "rust": "none",
       "lua": "none",
-      "terraform": "none"
+      "terraform": "none",
+      "bash": "none"
     },
     "relevant_slice": {
       "python": "basic",
@@ -513,7 +528,8 @@
       "cpp": "none",
       "rust": "none",
       "lua": "none",
-      "terraform": "none"
+      "terraform": "none",
+      "bash": "none"
     },
     "conditioned_slice": {
       "python": "basic",
@@ -525,7 +541,8 @@
       "cpp": "none",
       "rust": "none",
       "lua": "none",
-      "terraform": "none"
+      "terraform": "none",
+      "bash": "none"
     },
     "delta_slice": {
       "python": "basic",
@@ -537,7 +554,8 @@
       "cpp": "none",
       "rust": "none",
       "lua": "none",
-      "terraform": "none"
+      "terraform": "none",
+      "bash": "none"
     },
     "spiral_slice": {
       "python": "full",
@@ -549,7 +567,8 @@
       "cpp": "none",
       "rust": "none",
       "lua": "none",
-      "terraform": "none"
+      "terraform": "none",
+      "bash": "none"
     },
     "circular_slice": {
       "python": "basic",
@@ -561,7 +580,8 @@
       "cpp": "none",
       "rust": "none",
       "lua": "none",
-      "terraform": "none"
+      "terraform": "none",
+      "bash": "none"
     },
     "quantum_slice": {
       "python": "full",
@@ -573,7 +593,8 @@
       "cpp": "none",
       "rust": "basic",
       "lua": "basic",
-      "terraform": "none"
+      "terraform": "none",
+      "bash": "basic"
     },
     "horizontal_slice": {
       "python": "full",
@@ -585,7 +606,8 @@
       "cpp": "none",
       "rust": "none",
       "lua": "none",
-      "terraform": "none"
+      "terraform": "none",
+      "bash": "none"
     },
     "vertical_slice": {
       "python": "full",
@@ -597,7 +619,8 @@
       "cpp": "none",
       "rust": "none",
       "lua": "none",
-      "terraform": "none"
+      "terraform": "none",
+      "bash": "none"
     },
     "angle_slice": {
       "python": "full",
@@ -609,7 +632,8 @@
       "cpp": "none",
       "rust": "none",
       "lua": "none",
-      "terraform": "none"
+      "terraform": "none",
+      "bash": "none"
     },
     "threed_slice": {
       "python": "basic",
@@ -621,7 +645,8 @@
       "cpp": "none",
       "rust": "none",
       "lua": "none",
-      "terraform": "none"
+      "terraform": "none",
+      "bash": "none"
     },
     "absence_slice": {
       "python": "full",
@@ -633,7 +658,8 @@
       "cpp": "basic",
       "rust": "full",
       "lua": "basic",
-      "terraform": "full"
+      "terraform": "full",
+      "bash": "basic"
     },
     "resonance_slice": {
       "python": "basic",
@@ -645,7 +671,8 @@
       "cpp": "none",
       "rust": "none",
       "lua": "none",
-      "terraform": "none"
+      "terraform": "none",
+      "bash": "none"
     },
     "symmetry_slice": {
       "python": "basic",
@@ -657,7 +684,8 @@
       "cpp": "basic",
       "rust": "none",
       "lua": "none",
-      "terraform": "none"
+      "terraform": "none",
+      "bash": "none"
     },
     "gradient_slice": {
       "python": "basic",
@@ -669,7 +697,8 @@
       "cpp": "none",
       "rust": "none",
       "lua": "none",
-      "terraform": "none"
+      "terraform": "none",
+      "bash": "none"
     },
     "provenance_slice": {
       "python": "full",
@@ -681,7 +710,8 @@
       "cpp": "none",
       "rust": "full",
       "lua": "full",
-      "terraform": "full"
+      "terraform": "full",
+      "bash": "basic"
     },
     "phantom_slice": {
       "python": "basic",
@@ -693,7 +723,8 @@
       "cpp": "none",
       "rust": "none",
       "lua": "none",
-      "terraform": "none"
+      "terraform": "none",
+      "bash": "none"
     },
     "membrane_slice": {
       "python": "basic",
@@ -705,7 +736,8 @@
       "cpp": "full",
       "rust": "basic",
       "lua": "basic",
-      "terraform": "none"
+      "terraform": "none",
+      "bash": "none"
     },
     "echo_slice": {
       "python": "basic",
@@ -717,7 +749,8 @@
       "cpp": "none",
       "rust": "none",
       "lua": "none",
-      "terraform": "none"
+      "terraform": "none",
+      "bash": "none"
     }
   }
 }
