@@ -110,7 +110,11 @@ impl TerraformRefGraph {
         line_offsets: &[usize],
     ) {
         let block_type = block.identifier.to_string();
-        let labels: Vec<String> = block.labels.iter().map(|l| l.as_str().to_string()).collect();
+        let labels: Vec<String> = block
+            .labels
+            .iter()
+            .map(|l| l.as_str().to_string())
+            .collect();
 
         let (kind, qualified_name) = match block_type.as_str() {
             "variable" => {
@@ -140,18 +144,12 @@ impl TerraformRefGraph {
             "resource" => {
                 let rtype = labels.first().cloned().unwrap_or_default();
                 let rname = labels.get(1).cloned().unwrap_or_default();
-                (
-                    TfEntityKind::Resource,
-                    format!("{}.{}", rtype, rname),
-                )
+                (TfEntityKind::Resource, format!("{}.{}", rtype, rname))
             }
             "data" => {
                 let dtype = labels.first().cloned().unwrap_or_default();
                 let dname = labels.get(1).cloned().unwrap_or_default();
-                (
-                    TfEntityKind::Data,
-                    format!("data.{}.{}", dtype, dname),
-                )
+                (TfEntityKind::Data, format!("data.{}.{}", dtype, dname))
             }
             "output" => {
                 let name = labels.first().cloned().unwrap_or_default();
@@ -193,8 +191,11 @@ impl TerraformRefGraph {
             match structure {
                 hcl::Structure::Block(block) => {
                     let block_type = block.identifier.to_string();
-                    let labels: Vec<String> =
-                        block.labels.iter().map(|l| l.as_str().to_string()).collect();
+                    let labels: Vec<String> = block
+                        .labels
+                        .iter()
+                        .map(|l| l.as_str().to_string())
+                        .collect();
 
                     let source_entity = match block_type.as_str() {
                         "variable" => {
@@ -221,14 +222,12 @@ impl TerraformRefGraph {
                             labels.first().cloned().unwrap_or_default(),
                             labels.get(1).cloned().unwrap_or_default()
                         ),
-                        "output" => format!(
-                            "output.{}",
-                            labels.first().cloned().unwrap_or_default()
-                        ),
-                        "module" => format!(
-                            "module.{}",
-                            labels.first().cloned().unwrap_or_default()
-                        ),
+                        "output" => {
+                            format!("output.{}", labels.first().cloned().unwrap_or_default())
+                        }
+                        "module" => {
+                            format!("module.{}", labels.first().cloned().unwrap_or_default())
+                        }
                         _ => continue,
                     };
 
@@ -311,11 +310,7 @@ impl TerraformRefGraph {
     }
 
     /// Get all entities whose lines overlap the given set of diff lines in a file.
-    pub fn entities_touching_lines(
-        &self,
-        file: &str,
-        lines: &BTreeSet<usize>,
-    ) -> Vec<String> {
+    pub fn entities_touching_lines(&self, file: &str, lines: &BTreeSet<usize>) -> Vec<String> {
         let mut result = Vec::new();
         for entity in self.entities.values() {
             if entity.file == file {
@@ -346,7 +341,10 @@ fn collect_refs_from_expr(expr: &hcl::Expression, refs: &mut BTreeSet<String>) {
             let name = var.to_string();
             // Standalone variable references like "var", "local", "data", "module"
             // are part of traversals; skip bare names
-            if !matches!(name.as_str(), "var" | "local" | "data" | "module" | "each" | "self" | "null" | "true" | "false") {
+            if !matches!(
+                name.as_str(),
+                "var" | "local" | "data" | "module" | "each" | "self" | "null" | "true" | "false"
+            ) {
                 refs.insert(name);
             }
         }
@@ -497,7 +495,11 @@ fn compute_line_offsets(source: &str) -> Vec<usize> {
 /// then count braces to find the end.
 fn block_line_range(block: &hcl::Block, source: &str, line_offsets: &[usize]) -> (usize, usize) {
     let block_type = block.identifier.to_string();
-    let labels: Vec<String> = block.labels.iter().map(|l| format!("\"{}\"", l.as_str())).collect();
+    let labels: Vec<String> = block
+        .labels
+        .iter()
+        .map(|l| format!("\"{}\"", l.as_str()))
+        .collect();
 
     // Build a search pattern: block_type "label1" "label2"
     let pattern = if labels.is_empty() {
