@@ -4,7 +4,7 @@ use common::*;
 
 fn lang_matches(name: &str, lang_key: &str) -> bool {
     match lang_key {
-        "python" | "javascript" | "typescript" | "rust" | "lua" | "terraform" | "bash" => {
+        "python" | "javascript" | "typescript" | "rust" | "lua" | "terraform" | "tsx" | "bash" => {
             name.contains(lang_key)
         }
         "go" => name.contains("_go_") || name.ends_with("_go"),
@@ -76,7 +76,7 @@ fn test_algorithm_language_matrix() {
         (&["chop"], "Chop"),
     ];
 
-    // All 11 supported languages
+    // All 12 supported languages
     let languages: &[(&str, &str)] = &[
         ("python", "Python"),
         ("javascript", "JS"),
@@ -88,6 +88,7 @@ fn test_algorithm_language_matrix() {
         ("rust", "Rust"),
         ("lua", "Lua"),
         ("terraform", "TF"),
+        ("tsx", "TSX"),
         ("bash", "Bash"),
     ];
 
@@ -141,6 +142,8 @@ fn test_algorithm_language_matrix() {
         "tests/lang/bash/bash_test.rs",
         "tests/lang/typescript/typescript_test.rs",
         "tests/lang/typescript/lang_test.rs",
+        "tests/lang/tsx/tsx_test.rs",
+        "tests/lang/tsx/jsx_call_test.rs",
     ];
     let mut test_names_buf: Vec<String> = Vec::new();
     for tf in all_test_files {
@@ -251,6 +254,7 @@ fn test_language_coverage_minimum() {
         "rust",
         "lua",
         "terraform",
+        "tsx",
         "bash",
     ];
 
@@ -300,6 +304,8 @@ fn test_language_coverage_minimum() {
         "tests/lang/bash/bash_test.rs",
         "tests/lang/typescript/typescript_test.rs",
         "tests/lang/typescript/lang_test.rs",
+        "tests/lang/tsx/tsx_test.rs",
+        "tests/lang/tsx/jsx_call_test.rs",
     ];
     let mut test_names_buf: Vec<String> = Vec::new();
     for tf in all_test_files {
@@ -398,6 +404,8 @@ fn test_coverage_matrix_validation() {
         "tests/lang/bash/bash_test.rs",
         "tests/lang/typescript/typescript_test.rs",
         "tests/lang/typescript/lang_test.rs",
+        "tests/lang/tsx/tsx_test.rs",
+        "tests/lang/tsx/jsx_call_test.rs",
         "src/cfg.rs",
         "src/cpg.rs",
         "src/type_db.rs",

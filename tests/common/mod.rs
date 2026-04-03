@@ -742,6 +742,66 @@ pub fn create_temp_git_repo(filename: &str, contents: &[&str]) -> TempDir {
     tmp
 }
 
+pub fn make_tsx_test() -> (
+    BTreeMap<String, ParsedFile>,
+    BTreeMap<String, String>,
+    DiffInput,
+) {
+    let source = r#"
+import React, { useState, useEffect } from 'react';
+
+interface Props {
+    userId: string;
+    onLoad: (data: UserData) => void;
+}
+
+function UserProfile({ userId, onLoad }: Props) {
+    const [user, setUser] = useState<UserData | null>(null);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        fetchUser(userId).then(data => {
+            setUser(data);
+            setLoading(false);
+            onLoad(data);
+        });
+    }, [userId, onLoad]);
+
+    if (loading) return <Spinner size="large" />;
+
+    return (
+        <div className="profile">
+            <Avatar src={user.avatar} alt={user.name} />
+            <h1>{user.name}</h1>
+            <ContactList contacts={user.contacts} />
+        </div>
+    );
+}
+
+function fetchUser(id: string): Promise<UserData> {
+    return fetch(`/api/users/${id}`).then(res => res.json());
+}
+"#;
+
+    let path = "src/UserProfile.tsx";
+    let parsed = ParsedFile::parse(path, source, Language::Tsx).unwrap();
+    let mut files = BTreeMap::new();
+    let mut sources = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+    sources.insert(path.to_string(), source.to_string());
+
+    // Diff: lines 13-14 (useEffect callback body)
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([14, 15]),
+        }],
+    };
+
+    (files, sources, diff)
+}
+
 pub fn make_terraform_test() -> (
     BTreeMap<String, ParsedFile>,
     BTreeMap<String, String>,
