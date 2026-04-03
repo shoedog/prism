@@ -115,19 +115,41 @@ impl ParsedFile {
 
     /// Find all function/method definitions in the file.
     pub fn all_functions(&self) -> Vec<Node<'_>> {
+        use crate::queries::{get_query, QueryKind};
+        use tree_sitter::StreamingIterator;
+
+        // Use compiled tree-sitter query when available (faster: skips irrelevant subtrees).
+        if let Some(query) = get_query(self.language, QueryKind::Functions) {
+            let func_idx = query
+                .capture_index_for_name("func")
+                .expect("Functions query must have @func capture");
+            let mut cursor = tree_sitter::QueryCursor::new();
+            let mut matches = cursor.matches(query, self.tree.root_node(), self.source.as_bytes());
+            let mut functions = Vec::new();
+            while let Some(m) = matches.next() {
+                for capture in m.captures {
+                    if capture.index == func_idx {
+                        functions.push(capture.node);
+                    }
+                }
+            }
+            return functions;
+        }
+
+        // Fallback: manual recursive walk.
         let mut functions = Vec::new();
-        self.collect_functions(self.tree.root_node(), &mut functions);
+        self.collect_functions_manual(self.tree.root_node(), &mut functions);
         functions
     }
 
-    fn collect_functions<'a>(&self, node: Node<'a>, out: &mut Vec<Node<'a>>) {
+    fn collect_functions_manual<'a>(&self, node: Node<'a>, out: &mut Vec<Node<'a>>) {
         let types = self.language.function_node_types();
         if types.contains(&node.kind()) {
             out.push(node);
         }
         let mut cursor = node.walk();
         for child in node.children(&mut cursor) {
-            self.collect_functions(child, out);
+            self.collect_functions_manual(child, out);
         }
     }
 
@@ -1186,12 +1208,40 @@ impl ParsedFile {
         func_node: &Node<'_>,
         lines: &BTreeSet<usize>,
     ) -> Vec<(String, usize)> {
+        use crate::queries::{get_query, QueryKind};
+        use tree_sitter::StreamingIterator;
+
+        if let Some(query) = get_query(self.language, QueryKind::Calls) {
+            let call_idx = query
+                .capture_index_for_name("call")
+                .expect("Calls query must have @call capture");
+            let mut cursor = tree_sitter::QueryCursor::new();
+            cursor.set_byte_range(func_node.byte_range());
+            let mut matches = cursor.matches(query, self.tree.root_node(), self.source.as_bytes());
+            let mut calls = Vec::new();
+            while let Some(m) = matches.next() {
+                for capture in m.captures {
+                    if capture.index == call_idx {
+                        let line = capture.node.start_position().row + 1;
+                        if lines.contains(&line) {
+                            if let Some(name_node) = self.language.call_function_name(&capture.node)
+                            {
+                                let name = self.node_text(&name_node).to_string();
+                                calls.push((name, line));
+                            }
+                        }
+                    }
+                }
+            }
+            return calls;
+        }
+
         let mut calls = Vec::new();
-        self.collect_calls(*func_node, lines, &mut calls);
+        self.collect_calls_manual(*func_node, lines, &mut calls);
         calls
     }
 
-    fn collect_calls(
+    fn collect_calls_manual(
         &self,
         node: Node<'_>,
         lines: &BTreeSet<usize>,
@@ -1208,7 +1258,7 @@ impl ParsedFile {
 
         let mut cursor = node.walk();
         for child in node.children(&mut cursor) {
-            self.collect_calls(child, lines, out);
+            self.collect_calls_manual(child, lines, out);
         }
     }
 
@@ -1216,13 +1266,41 @@ impl ParsedFile {
     /// Returns a map from line number to list of called function names found on that line.
     /// Only matches actual AST call nodes — ignores calls inside comments or string literals.
     pub fn call_names_on_lines(&self, lines: &[usize]) -> BTreeMap<usize, Vec<String>> {
-        let mut result: BTreeMap<usize, Vec<String>> = BTreeMap::new();
+        use crate::queries::{get_query, QueryKind};
+        use tree_sitter::StreamingIterator;
+
         let line_set: BTreeSet<usize> = lines.iter().copied().collect();
-        self.collect_call_names_at_lines(self.tree.root_node(), &line_set, &mut result);
+
+        if let Some(query) = get_query(self.language, QueryKind::Calls) {
+            let call_idx = query
+                .capture_index_for_name("call")
+                .expect("Calls query must have @call capture");
+            let mut cursor = tree_sitter::QueryCursor::new();
+            let mut matches = cursor.matches(query, self.tree.root_node(), self.source.as_bytes());
+            let mut result: BTreeMap<usize, Vec<String>> = BTreeMap::new();
+            while let Some(m) = matches.next() {
+                for capture in m.captures {
+                    if capture.index == call_idx {
+                        let line = capture.node.start_position().row + 1;
+                        if line_set.contains(&line) {
+                            if let Some(name_node) = self.language.call_function_name(&capture.node)
+                            {
+                                let name = self.node_text(&name_node).to_string();
+                                result.entry(line).or_default().push(name);
+                            }
+                        }
+                    }
+                }
+            }
+            return result;
+        }
+
+        let mut result: BTreeMap<usize, Vec<String>> = BTreeMap::new();
+        self.collect_call_names_at_lines_manual(self.tree.root_node(), &line_set, &mut result);
         result
     }
 
-    fn collect_call_names_at_lines(
+    fn collect_call_names_at_lines_manual(
         &self,
         node: Node<'_>,
         lines: &BTreeSet<usize>,
@@ -1237,7 +1315,7 @@ impl ParsedFile {
         }
         let mut cursor = node.walk();
         for child in node.children(&mut cursor) {
-            self.collect_call_names_at_lines(child, lines, out);
+            self.collect_call_names_at_lines_manual(child, lines, out);
         }
     }
 
@@ -1457,12 +1535,35 @@ impl ParsedFile {
     /// Find all call expression names inside a function body.
     /// Returns deduplicated list of callee names.
     pub fn callees_in_function(&self, func_node: &Node<'_>) -> Vec<String> {
+        use crate::queries::{get_query, QueryKind};
+        use tree_sitter::StreamingIterator;
+
+        if let Some(query) = get_query(self.language, QueryKind::Calls) {
+            let call_idx = query
+                .capture_index_for_name("call")
+                .expect("Calls query must have @call capture");
+            let mut cursor = tree_sitter::QueryCursor::new();
+            cursor.set_byte_range(func_node.byte_range());
+            let mut matches = cursor.matches(query, self.tree.root_node(), self.source.as_bytes());
+            let mut names = BTreeSet::new();
+            while let Some(m) = matches.next() {
+                for capture in m.captures {
+                    if capture.index == call_idx {
+                        if let Some(name_node) = self.language.call_function_name(&capture.node) {
+                            names.insert(self.node_text(&name_node).to_string());
+                        }
+                    }
+                }
+            }
+            return names.into_iter().collect();
+        }
+
         let mut names = BTreeSet::new();
-        self.collect_all_callees(*func_node, &mut names);
+        self.collect_all_callees_manual(*func_node, &mut names);
         names.into_iter().collect()
     }
 
-    fn collect_all_callees(&self, node: Node<'_>, out: &mut BTreeSet<String>) {
+    fn collect_all_callees_manual(&self, node: Node<'_>, out: &mut BTreeSet<String>) {
         if self.language.is_call_node(node.kind()) {
             if let Some(name_node) = self.language.call_function_name(&node) {
                 out.insert(self.node_text(&name_node).to_string());
@@ -1470,7 +1571,7 @@ impl ParsedFile {
         }
         let mut cursor = node.walk();
         for child in node.children(&mut cursor) {
-            self.collect_all_callees(child, out);
+            self.collect_all_callees_manual(child, out);
         }
     }
 }
