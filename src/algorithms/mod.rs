@@ -132,6 +132,8 @@ pub fn run_slicing(
 ///
 /// Used by tests that haven't been migrated to CpgContext yet.
 /// Skips CPG construction for AST-only algorithms to avoid unnecessary overhead.
+/// When `config.scoped_cpg` is true, builds a diff-scoped CPG covering only
+/// changed files + direct callers/callees.
 pub fn run_slicing_compat(
     files: &BTreeMap<String, ParsedFile>,
     diff: &DiffInput,
@@ -139,7 +141,11 @@ pub fn run_slicing_compat(
     type_db: Option<&TypeDatabase>,
 ) -> Result<SliceResult> {
     if config.algorithm.needs_cpg() {
-        let ctx = CpgContext::build(files, type_db);
+        let ctx = if config.scoped_cpg {
+            CpgContext::build_scoped(files, diff, type_db)
+        } else {
+            CpgContext::build(files, type_db)
+        };
         run_slicing(&ctx, diff, config)
     } else {
         let ctx = CpgContext::without_cpg(files, type_db);

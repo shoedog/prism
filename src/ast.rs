@@ -28,6 +28,7 @@ fn count_nodes_recursive(node: Node<'_>, errors: &mut usize, total: &mut usize) 
 }
 
 /// Wraps a tree-sitter parse tree with helpers for slicing analysis.
+#[derive(Clone)]
 pub struct ParsedFile {
     pub path: String,
     pub source: String,
