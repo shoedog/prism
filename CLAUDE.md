@@ -61,6 +61,7 @@ tests/
 └── lang/              # Language-specific tests
     ├── c/             # algo, complex, cve
     ├── cpp/
+    ├── go/            # algo, advanced, lang
     ├── javascript/    # algo, destructuring, lang
     ├── lua/
     ├── rust/
@@ -146,6 +147,11 @@ Algorithms fall into two categories:
 
 6. **Field-sensitive analysis** via `access_path.rs` tracks structured paths
    (e.g., `self.config.timeout`) rather than just variable names.
+
+7. **Keep files under 600 lines.** Split test files and source modules when
+   they approach this limit. For tests, group by category (e.g., `algo_test.rs`,
+   `advanced_test.rs`, `lang_test.rs`) and register each as a separate
+   `[[test]]` target in `Cargo.toml`.
 
 ## Supported Languages
 
