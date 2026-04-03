@@ -4,7 +4,7 @@
 // - Algorithm 8: LeftFlow
 // - Algorithm 9: FullFlow
 
-#[path = "../common/mod.rs"]
+#[path = "../../common/mod.rs"]
 mod common;
 use common::*;
 
