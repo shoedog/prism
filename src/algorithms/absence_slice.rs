@@ -314,6 +314,16 @@ pub fn default_pairs() -> Vec<PairedPattern> {
             close_patterns: vec!["aws_cloudwatch_log_group"],
             description: "Lambda function missing CloudWatch log group",
         },
+        PairedPattern {
+            open_patterns: vec!["aws_security_group"],
+            close_patterns: vec!["aws_security_group_rule"],
+            description: "Security group missing explicit rule resource",
+        },
+        PairedPattern {
+            open_patterns: vec!["aws_db_instance"],
+            close_patterns: vec!["storage_encrypted"],
+            description: "RDS instance missing storage_encrypted configuration",
+        },
         // === Shell / Bash ===
         PairedPattern {
             open_patterns: vec!["mktemp"],
@@ -334,6 +344,16 @@ pub fn default_pairs() -> Vec<PairedPattern> {
             open_patterns: vec!["trap "],
             close_patterns: vec!["trap -", "trap ''", "trap \"\""],
             description: "Signal trap set but never restored/cleared",
+        },
+        PairedPattern {
+            open_patterns: vec!["exec 3>", "exec 3>>", "exec 4>", "exec 4>>"],
+            close_patterns: vec!["exec 3>&-", "exec 4>&-"],
+            description: "File descriptor opened but never closed",
+        },
+        PairedPattern {
+            open_patterns: vec!["flock ", "lockfile "],
+            close_patterns: vec!["flock -u", "rm -f /tmp/*.lock", "rm -f /var/lock"],
+            description: "Lock file acquired but never released",
         },
     ]
 }
