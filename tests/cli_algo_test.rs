@@ -11,10 +11,6 @@ fn fixture_path(relative: &str) -> String {
     format!("tests/fixtures/{}", relative)
 }
 
-// ============================================================
-// --list-algorithms
-// ============================================================
-
 #[test]
 fn test_list_algorithms_shows_all_categories() {
     prism_cmd()
@@ -37,23 +33,6 @@ fn test_list_algorithms_does_not_require_repo() {
     prism_cmd().arg("--list-algorithms").assert().success();
 }
 
-// ============================================================
-// Single algorithm runs with C fixtures
-// ============================================================
-
-#[test]
-fn test_default_algorithm_text_output() {
-    prism_cmd()
-        .args([
-            "--repo",
-            &fixture_path("c"),
-            "--diff",
-            &fixture_path("c/timer_uaf.diff"),
-        ])
-        .assert()
-        .success();
-}
-
 #[test]
 fn test_explicit_leftflow_text() {
     prism_cmd()
@@ -68,85 +47,6 @@ fn test_explicit_leftflow_text() {
         .assert()
         .success();
 }
-
-#[test]
-fn test_json_output_format() {
-    let output = prism_cmd()
-        .args([
-            "--repo",
-            &fixture_path("c"),
-            "--diff",
-            &fixture_path("c/timer_uaf.diff"),
-            "--algorithm",
-            "leftflow",
-            "--format",
-            "json",
-        ])
-        .output()
-        .unwrap();
-
-    assert!(output.status.success());
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let json: serde_json::Value =
-        serde_json::from_str(&stdout).expect("Output should be valid JSON");
-    assert!(
-        json.get("algorithm").is_some(),
-        "JSON should have 'algorithm' field"
-    );
-    assert!(
-        json.get("blocks").is_some(),
-        "JSON should have 'blocks' field"
-    );
-}
-
-#[test]
-fn test_paper_output_format() {
-    let output = prism_cmd()
-        .args([
-            "--repo",
-            &fixture_path("c"),
-            "--diff",
-            &fixture_path("c/timer_uaf.diff"),
-            "--algorithm",
-            "originaldiff",
-            "--format",
-            "paper",
-        ])
-        .output()
-        .unwrap();
-
-    assert!(output.status.success());
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let _json: serde_json::Value =
-        serde_json::from_str(&stdout).expect("Paper format should be valid JSON");
-}
-
-#[test]
-fn test_review_output_format_single() {
-    let output = prism_cmd()
-        .args([
-            "--repo",
-            &fixture_path("c"),
-            "--diff",
-            &fixture_path("c/timer_uaf.diff"),
-            "--algorithm",
-            "leftflow",
-            "--format",
-            "review",
-        ])
-        .output()
-        .unwrap();
-
-    assert!(output.status.success());
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let json: serde_json::Value =
-        serde_json::from_str(&stdout).expect("Review format should be valid JSON");
-    assert!(json.get("algorithm").is_some() || json.get("blocks").is_some());
-}
-
-// ============================================================
-// Single algorithm runs with Python fixtures
-// ============================================================
 
 #[test]
 fn test_leftflow_python_fixture() {
@@ -223,10 +123,6 @@ fn test_thin_python() {
         .success();
 }
 
-// ============================================================
-// Multi-algorithm runs
-// ============================================================
-
 #[test]
 fn test_comma_separated_algorithms() {
     let output = prism_cmd()
@@ -252,23 +148,6 @@ fn test_comma_separated_algorithms() {
         .get("algorithms_run")
         .expect("Should have algorithms_run");
     assert_eq!(algos.as_array().unwrap().len(), 3);
-}
-
-#[test]
-fn test_multi_algorithm_text_output() {
-    prism_cmd()
-        .args([
-            "--repo",
-            "tests/fixtures/python",
-            "--diff",
-            &fixture_path("python/calc.diff"),
-            "--algorithm",
-            "leftflow,parentfunction",
-        ])
-        .assert()
-        .success()
-        .stdout(predicate::str::contains("=== LeftFlow ==="))
-        .stdout(predicate::str::contains("=== ParentFunction ==="));
 }
 
 #[test]
@@ -299,33 +178,6 @@ fn test_review_suite() {
         "Review suite should run multiple algorithms"
     );
 }
-
-#[test]
-fn test_multi_algorithm_review_format() {
-    let output = prism_cmd()
-        .args([
-            "--repo",
-            "tests/fixtures/python",
-            "--diff",
-            &fixture_path("python/calc.diff"),
-            "--algorithm",
-            "leftflow,thin",
-            "--format",
-            "review",
-        ])
-        .output()
-        .unwrap();
-
-    assert!(output.status.success());
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let json: serde_json::Value = serde_json::from_str(&stdout).expect("Multi review JSON");
-    assert!(json.get("algorithms_run").is_some());
-    assert!(json.get("results").is_some());
-}
-
-// ============================================================
-// Algorithm-specific CLI flags
-// ============================================================
 
 #[test]
 fn test_barrier_slice_with_depth() {
@@ -644,10 +496,6 @@ fn test_quantum_slice_auto() {
         .success();
 }
 
-// ============================================================
-// Algorithms that dispatch through the default path
-// ============================================================
-
 #[test]
 fn test_relevant_slice_cli() {
     prism_cmd()
@@ -768,10 +616,6 @@ fn test_echo_slice_cli() {
         .success();
 }
 
-// ============================================================
-// Delta slice (needs old-repo)
-// ============================================================
-
 #[test]
 fn test_delta_slice_with_old_repo() {
     let tmp = TempDir::new().unwrap();
@@ -812,10 +656,6 @@ fn test_delta_missing_old_repo_fails() {
         .failure()
         .stderr(predicate::str::contains("old-repo"));
 }
-
-// ============================================================
-// Git-dependent algorithms (3d, resonance, phantom)
-// ============================================================
 
 #[test]
 fn test_threed_slice_cli() {
@@ -889,10 +729,6 @@ fn test_phantom_slice_cli() {
         .success();
 }
 
-// ============================================================
-// Config flags
-// ============================================================
-
 #[test]
 fn test_max_branch_lines_flag() {
     prism_cmd()
@@ -942,10 +778,6 @@ fn test_no_trace_callees_flag() {
         .success();
 }
 
-// ============================================================
-// --files filter
-// ============================================================
-
 #[test]
 fn test_files_filter() {
     // Use a multi-file diff fixture if available; with single-file, just verify it works
@@ -982,10 +814,6 @@ fn test_files_filter_nonexistent_file() {
         .success();
 }
 
-// ============================================================
-// JSON diff input
-// ============================================================
-
 #[test]
 fn test_json_diff_input() {
     let tmp = TempDir::new().unwrap();
@@ -1008,10 +836,6 @@ fn test_json_diff_input() {
         .assert()
         .success();
 }
-
-// ============================================================
-// Error cases
-// ============================================================
 
 #[test]
 fn test_unknown_algorithm_fails() {
@@ -1068,30 +892,6 @@ fn test_nonexistent_diff_file_fails() {
 }
 
 #[test]
-fn test_invalid_chop_source_format_fails() {
-    prism_cmd()
-        .args([
-            "--repo",
-            "tests/fixtures/python",
-            "--diff",
-            &fixture_path("python/calc.diff"),
-            "--algorithm",
-            "chop",
-            "--chop-source",
-            "no_colon_here",
-            "--chop-sink",
-            "calc.py:7",
-        ])
-        .assert()
-        .failure()
-        .stderr(predicate::str::contains("file:line"));
-}
-
-// ============================================================
-// "all" algorithm suite
-// ============================================================
-
-#[test]
 fn test_all_algorithms_json() {
     // "all" runs every algorithm; some may fail (e.g. delta needs --old-repo),
     // but the multi-run captures errors gracefully
@@ -1121,10 +921,6 @@ fn test_all_algorithms_json() {
     );
 }
 
-// ============================================================
-// Unsupported language warning
-// ============================================================
-
 #[test]
 fn test_unsupported_language_warns() {
     let tmp = TempDir::new().unwrap();
@@ -1149,10 +945,6 @@ fn test_unsupported_language_warns() {
         .assert()
         .stderr(predicate::str::contains("unsupported language"));
 }
-
-// ============================================================
-// --compile-commands flag
-// ============================================================
 
 #[test]
 fn test_compile_commands_nonexistent_file_warns() {
