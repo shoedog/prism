@@ -265,3 +265,102 @@ void process() {
         lvalues.iter().map(|(p, _)| &p.base).collect::<Vec<_>>()
     );
 }
+
+// ====== C++ RAII False-Positive Suppression Tests ======
+
+#[test]
+fn test_cpp_raii_lock_guard_no_false_positive() {
+    // std::lock_guard automatically unlocks on destruction — should NOT trigger absence
+    let source = r#"
+#include <mutex>
+class DeviceManager {
+    std::mutex mtx;
+    int count;
+public:
+    void add_device() {
+        std::lock_guard<std::mutex> lock(mtx);
+        count++;
+    }
+};
+"#;
+    let path = "device_manager.cpp";
+    let parsed = ParsedFile::parse(path, source, Language::Cpp).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Added,
+            diff_lines: BTreeSet::from([8]),
+        }],
+    };
+
+    let result = algorithms::run_slicing_compat(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::AbsenceSlice),
+        None,
+    )
+    .unwrap();
+
+    let has_lock_absence = result
+        .findings
+        .iter()
+        .any(|f| f.description.contains("lock without unlock"));
+    assert!(
+        !has_lock_absence,
+        "std::lock_guard should NOT trigger 'lock without unlock'. Findings: {:?}",
+        result
+            .findings
+            .iter()
+            .map(|f| &f.description)
+            .collect::<Vec<_>>()
+    );
+}
+
+#[test]
+fn test_cpp_raii_unique_ptr_no_false_positive() {
+    // std::unique_ptr automatically frees — should NOT trigger absence
+    let source = r#"
+#include <memory>
+void process() {
+    auto data = std::make_unique<int[]>(100);
+    data[0] = 42;
+}
+"#;
+    let path = "smart.cpp";
+    let parsed = ParsedFile::parse(path, source, Language::Cpp).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Added,
+            diff_lines: BTreeSet::from([4]),
+        }],
+    };
+
+    let result = algorithms::run_slicing_compat(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::AbsenceSlice),
+        None,
+    )
+    .unwrap();
+
+    let has_alloc_absence = result
+        .findings
+        .iter()
+        .any(|f| f.description.contains("allocation without free"));
+    assert!(
+        !has_alloc_absence,
+        "std::make_unique should NOT trigger 'allocation without free'. Findings: {:?}",
+        result
+            .findings
+            .iter()
+            .map(|f| &f.description)
+            .collect::<Vec<_>>()
+    );
+}

@@ -165,6 +165,55 @@ pub fn default_pairs() -> Vec<PairedPattern> {
             close_patterns: vec!["kfree("],
             description: "kstrdup allocation without kfree",
         },
+        // Kernel slab/memory pool
+        PairedPattern {
+            open_patterns: vec!["kmem_cache_alloc("],
+            close_patterns: vec!["kmem_cache_free("],
+            description: "slab cache allocation without free",
+        },
+        // Kernel RCU read-side critical section
+        PairedPattern {
+            open_patterns: vec!["rcu_read_lock("],
+            close_patterns: vec!["rcu_read_unlock("],
+            description: "RCU read lock without unlock",
+        },
+        // === C/C++ POSIX pairs ===
+        // POSIX thread mutex
+        PairedPattern {
+            open_patterns: vec!["pthread_mutex_lock("],
+            close_patterns: vec!["pthread_mutex_unlock("],
+            description: "pthread mutex lock without unlock",
+        },
+        // POSIX semaphore
+        PairedPattern {
+            open_patterns: vec!["sem_wait(", "sem_trywait(", "sem_timedwait("],
+            close_patterns: vec!["sem_post("],
+            description: "semaphore wait without post",
+        },
+        // Memory-mapped I/O
+        PairedPattern {
+            open_patterns: vec!["mmap("],
+            close_patterns: vec!["munmap("],
+            description: "mmap without munmap",
+        },
+        // POSIX file descriptors (distinct from C++ stream close)
+        PairedPattern {
+            open_patterns: vec!["=open(", "openat(", "creat("],
+            close_patterns: vec!["close("],
+            description: "POSIX file descriptor opened without close",
+        },
+        // POSIX directory stream
+        PairedPattern {
+            open_patterns: vec!["opendir(", "fdopendir("],
+            close_patterns: vec!["closedir("],
+            description: "directory opened without closedir",
+        },
+        // POSIX read-write lock
+        PairedPattern {
+            open_patterns: vec!["pthread_rwlock_rdlock(", "pthread_rwlock_wrlock("],
+            close_patterns: vec!["pthread_rwlock_unlock("],
+            description: "pthread rwlock without unlock",
+        },
         // === Python-specific pairs ===
         PairedPattern {
             open_patterns: vec!["threading.Lock(", "threading.RLock("],
@@ -355,6 +404,25 @@ pub fn default_pairs() -> Vec<PairedPattern> {
             close_patterns: vec!["flock -u", "rm -f /tmp/*.lock", "rm -f /var/lock"],
             description: "Lock file acquired but never released",
         },
+        // === Busybox / Firmware shell ===
+        // Flash write should be preceded by hash verification
+        PairedPattern {
+            open_patterns: vec!["mtd write", "mtd -r write"],
+            close_patterns: vec!["sha256sum", "md5sum", "sha1sum", "verify", "hash"],
+            description: "Firmware flash write (mtd) without hash verification",
+        },
+        // UCI config changes should be committed
+        PairedPattern {
+            open_patterns: vec!["uci set"],
+            close_patterns: vec!["uci commit"],
+            description: "UCI config set without commit",
+        },
+        // Kernel module load should have matching unload in cleanup
+        PairedPattern {
+            open_patterns: vec!["insmod ", "modprobe "],
+            close_patterns: vec!["rmmod ", "modprobe -r"],
+            description: "Kernel module loaded without unload in cleanup path",
+        },
     ]
 }
 
@@ -472,6 +540,9 @@ pub fn slice(files: &BTreeMap<String, ParsedFile>, diff: &DiffInput) -> Result<S
                         // C++ RAII memory management — no explicit delete/free needed
                         || lt.contains("std::unique_ptr")
                         || lt.contains("std::shared_ptr")
+                        // C++ RAII memory management via factory functions
+                        || lt.contains("std::make_unique")
+                        || lt.contains("std::make_shared")
                         // C++ RAII file handle — closes on destruction
                         || lt.contains("std::fstream")
                         || lt.contains("std::ifstream")

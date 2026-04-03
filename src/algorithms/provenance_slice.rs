@@ -135,14 +135,28 @@ const USER_INPUT_PATTERNS: &[&str] = &[
     // === C/C++ network and file input ===
     "recv(",
     "recvfrom(",
+    "recvmsg(",
     "read(",
     "fgets(",
     "fread(",
     "scanf(",
     "fscanf(",
+    "sscanf(",
     "gets(",
     "getline(",
+    "getchar(",
+    "fgetc(",
     "accept(",
+    // Network byte-order conversion (indicates received network data)
+    "ntohs(",
+    "ntohl(",
+    "ntohll(",
+    // Linux kernel user-space data ingress
+    "copy_from_user(",
+    "__copy_from_user(",
+    "get_user(",
+    "__get_user(",
+    "copy_from_iter(",
     // === Terraform / HCL ===
     "var.",      // Terraform variable inputs (user-supplied via tfvars/CLI)
     "variable ", // variable block definitions
@@ -216,6 +230,15 @@ const DATABASE_PATTERNS: &[&str] = &[
     "cursor:fetch",  // LuaSQL cursor fetching
     "redis:get",     // Redis Lua client
     "redis:hgetall", // Redis hash retrieval
+    // === C/C++ database APIs ===
+    "mysql_query(",        // MySQL C API
+    "mysql_real_query(",   // MySQL C API (binary-safe)
+    "mysql_store_result(", // MySQL C API result
+    "mysql_fetch_row(",    // MySQL C API row fetch
+    "sqlite3_exec(",       // SQLite C API
+    "sqlite3_step(",       // SQLite C API (prepared statement)
+    "PQexec(",             // PostgreSQL libpq
+    "PQexecParams(",       // PostgreSQL libpq (parameterized)
     // === Terraform / HCL ===
     "data.",   // Terraform data sources — infrastructure queries
     "data \"", // data block definitions
@@ -299,7 +322,26 @@ const ENV_PATTERNS: &[&str] = &[
 ];
 
 /// C/C++ hardware / device I/O patterns (embedded and kernel).
-const HARDWARE_PATTERNS: &[&str] = &["ioctl(", "mmap(", "inb(", "outb(", "readl(", "writel("];
+const HARDWARE_PATTERNS: &[&str] = &[
+    "ioctl(",
+    "mmap(",
+    "inb(",
+    "outb(",
+    "readl(",
+    "writel(",
+    "readb(",
+    "writeb(",
+    "readw(",
+    "writew(",
+    "ioread32(",
+    "iowrite32(",
+    "of_property_read", // Device Tree property reads (of_property_read_u32, etc.)
+    "platform_get_irq(",
+    "platform_get_resource(",
+    "devm_ioremap(",
+    "regmap_read(",
+    "regmap_write(",
+];
 
 /// Check whether a line matches a provenance pattern.
 ///

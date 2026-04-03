@@ -152,6 +152,10 @@ name = "lang_c_complex"
 path = "tests/lang/c/complex_test.rs"
 
 [[test]]
+name = "lang_c_firmware"
+path = "tests/lang/c/firmware_test.rs"
+
+[[test]]
 name = "lang_cpp"
 path = "tests/lang/cpp/cpp_test.rs"
 
