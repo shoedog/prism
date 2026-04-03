@@ -14,6 +14,8 @@
 ![C++](https://img.shields.io/badge/C%2B%2B-100%25-brightgreen?logo=cplusplus&logoColor=white)
 ![Rust](https://img.shields.io/badge/Rust-91%25-green?logo=rust&logoColor=white)
 ![Lua](https://img.shields.io/badge/Lua-100%25-brightgreen?logo=lua&logoColor=white)
+![Terraform](https://img.shields.io/badge/Terraform-100%25-brightgreen?logo=terraform&logoColor=white)
+![Bash](https://img.shields.io/badge/Bash-100%25-brightgreen?logo=gnubash&logoColor=white)
 
 **Algorithm test coverage** · [details](#algorithm--language)
 
@@ -26,6 +28,8 @@
 ![C++ algo](https://img.shields.io/badge/C%2B%2B-23%25-red?logo=cplusplus&logoColor=white)
 ![Rust algo](https://img.shields.io/badge/Rust-30%25-red?logo=rust&logoColor=white)
 ![Lua algo](https://img.shields.io/badge/Lua-26%25-red?logo=lua&logoColor=white)
+![Terraform algo](https://img.shields.io/badge/Terraform-19%25-red?logo=terraform&logoColor=white)
+![Bash algo](https://img.shields.io/badge/Bash-23%25-red?logo=gnubash&logoColor=white)
 <!-- COVERAGE_BADGES_END -->
 
 # slicing
@@ -41,7 +45,7 @@ Implements 26 slicing algorithms spanning the paper
 the established program slicing taxonomy, and several novel theoretical
 extensions including spiral, quantum, horizontal, vertical, angle, and 3D slices.
 
-Supports **Python**, **JavaScript**, **TypeScript**, **Go**, **Java**, **C**, **C++**, **Rust**, and **Lua**.
+Supports **Python**, **JavaScript**, **TypeScript**, **Go**, **Java**, **C**, **C++**, **Rust**, **Lua**, **Terraform/HCL**, and **Bash**.
 
 ---
 
@@ -440,6 +444,8 @@ Measures how many language-specific patterns (destructuring, multi-return, optio
 | C++ | 14/14 | 100% | — |
 | Rust | 11/12 | 91% | `question_mark_operator` |
 | Lua | 10/10 | 100% | — |
+| Terraform | 2/2 | 100% | — |
+| Bash | 5/5 | 100% | — |
 <!-- COVERAGE_FEATURE_TABLE_END -->
 
 ### Algorithm × Language
@@ -447,34 +453,34 @@ Measures how many language-specific patterns (destructuring, multi-return, optio
 Measures which algorithms have been tested with which languages. This is heavily skewed — Python and Go have tests across all 26 algorithms, while C++ (2/26) and Lua (7/26) are primarily tested through infrastructure-level algorithms like taint and membrane. Algorithms that depend only on AST structure (not DFG/call graph) work across all languages by construction; the gaps are in algorithm-specific test coverage, not in functionality.
 
 <!-- COVERAGE_TABLE_START -->
-| Algorithm | Py | JS | TS | Go | Ja | C | C++ | Rs | Lua |
-|---|---|---|---|---|---|---|---|---|---|
-| absence_slice |  ✅ | ✅ | 🟡 | ✅ | ❌ | ✅ | 🟡 | ✅ | 🟡 |
-| angle_slice |  ✅ | 🟡 | 🟡 | 🟡 | ❌ | ❌ | ❌ | ❌ | ❌ |
-| barrier_slice |  🟡 | 🟡 | 🟡 | 🟡 | ❌ | ❌ | ❌ | ❌ | ❌ |
-| chop |  🟡 | 🟡 | 🟡 | 🟡 | ❌ | ❌ | ❌ | ❌ | ❌ |
-| circular_slice |  🟡 | 🟡 | 🟡 | 🟡 | ❌ | ❌ | ❌ | ❌ | ❌ |
-| conditioned_slice |  🟡 | 🟡 | 🟡 | 🟡 | ❌ | ❌ | ❌ | ❌ | ❌ |
-| delta_slice |  🟡 | 🟡 | 🟡 | 🟡 | ❌ | ❌ | ❌ | ❌ | ❌ |
-| echo_slice |  🟡 | 🟡 | 🟡 | 🟡 | ❌ | ✅ | ❌ | ❌ | ❌ |
-| full_flow |  ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ❌ | ❌ |
-| gradient_slice |  🟡 | 🟡 | 🟡 | 🟡 | ❌ | 🟡 | ❌ | ❌ | ❌ |
-| horizontal_slice |  ✅ | 🟡 | 🟡 | 🟡 | ❌ | ❌ | ❌ | ❌ | ❌ |
-| left_flow |  🟡 | 🟡 | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | ❌ | ❌ |
-| membrane_slice |  🟡 | 🟡 | 🟡 | 🟡 | ❌ | ✅ | ✅ | 🟡 | 🟡 |
-| original_diff |  🟡 | 🟡 | 🟡 | 🟡 | ❌ | ❌ | ❌ | 🟡 | ❌ |
-| parent_function |  🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ❌ | ❌ | 🟡 | 🟡 |
-| phantom_slice |  🟡 | 🟡 | 🟡 | 🟡 | ❌ | ❌ | ❌ | ❌ | ❌ |
-| provenance_slice |  ✅ | ✅ | 🟡 | 🟡 | ❌ | ✅ | ❌ | ✅ | ✅ |
-| quantum_slice |  ✅ | ✅ | 🟡 | 🟡 | ❌ | ✅ | ❌ | 🟡 | 🟡 |
-| relevant_slice |  🟡 | 🟡 | 🟡 | 🟡 | ❌ | ❌ | ❌ | ❌ | ❌ |
-| resonance_slice |  🟡 | 🟡 | 🟡 | 🟡 | ❌ | ❌ | ❌ | ❌ | ❌ |
-| spiral_slice |  ✅ | 🟡 | 🟡 | 🟡 | ❌ | ❌ | ❌ | ❌ | ❌ |
-| symmetry_slice |  🟡 | 🟡 | 🟡 | 🟡 | ❌ | 🟡 | 🟡 | ❌ | ❌ |
-| taint |  ✅ | ✅ | 🟡 | ✅ | ❌ | ✅ | ❌ | ✅ | ✅ |
-| thin_slice |  🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 |
-| threed_slice |  🟡 | 🟡 | 🟡 | 🟡 | ❌ | ❌ | ❌ | ❌ | ❌ |
-| vertical_slice |  ✅ | 🟡 | 🟡 | 🟡 | ❌ | ❌ | ❌ | ❌ | ❌ |
+| Algorithm | Py | JS | TS | Go | Ja | C | C++ | Rs | Lua | TF | Sh |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| absence_slice |  ✅ | ✅ | 🟡 | ✅ | ❌ | ✅ | 🟡 | ✅ | 🟡 | ✅ | 🟡 |
+| angle_slice |  ✅ | 🟡 | 🟡 | 🟡 | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| barrier_slice |  🟡 | 🟡 | 🟡 | 🟡 | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| chop |  🟡 | 🟡 | 🟡 | 🟡 | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| circular_slice |  🟡 | 🟡 | 🟡 | 🟡 | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| conditioned_slice |  🟡 | 🟡 | 🟡 | 🟡 | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| delta_slice |  🟡 | 🟡 | 🟡 | 🟡 | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| echo_slice |  🟡 | 🟡 | 🟡 | 🟡 | ❌ | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| full_flow |  ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ❌ | ❌ | ❌ | ❌ |
+| gradient_slice |  🟡 | 🟡 | 🟡 | 🟡 | ❌ | 🟡 | ❌ | ❌ | ❌ | ❌ | ❌ |
+| horizontal_slice |  ✅ | 🟡 | 🟡 | 🟡 | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| left_flow |  🟡 | 🟡 | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | ❌ | ❌ | ❌ | ❌ |
+| membrane_slice |  🟡 | 🟡 | 🟡 | 🟡 | ❌ | ✅ | ✅ | 🟡 | 🟡 | ❌ | ❌ |
+| original_diff |  🟡 | 🟡 | 🟡 | 🟡 | ❌ | ❌ | ❌ | 🟡 | ❌ | 🟡 | 🟡 |
+| parent_function |  🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ❌ | ❌ | 🟡 | 🟡 | 🟡 | 🟡 |
+| phantom_slice |  🟡 | 🟡 | 🟡 | 🟡 | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| provenance_slice |  ✅ | ✅ | 🟡 | 🟡 | ❌ | ✅ | ❌ | ✅ | ✅ | ✅ | 🟡 |
+| quantum_slice |  ✅ | ✅ | 🟡 | 🟡 | ❌ | ✅ | ❌ | 🟡 | 🟡 | ❌ | 🟡 |
+| relevant_slice |  🟡 | 🟡 | 🟡 | 🟡 | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| resonance_slice |  🟡 | 🟡 | 🟡 | 🟡 | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| spiral_slice |  ✅ | 🟡 | 🟡 | 🟡 | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| symmetry_slice |  🟡 | 🟡 | 🟡 | 🟡 | ❌ | 🟡 | 🟡 | ❌ | ❌ | ❌ | ❌ |
+| taint |  ✅ | ✅ | 🟡 | ✅ | ❌ | ✅ | ❌ | ✅ | ✅ | ✅ | 🟡 |
+| thin_slice |  🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ❌ | ❌ |
+| threed_slice |  🟡 | 🟡 | 🟡 | 🟡 | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| vertical_slice |  ✅ | 🟡 | 🟡 | 🟡 | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
 
 ✅ full (3+ tests) · 🟡 basic (1-2 tests) · ❌ none
 <!-- COVERAGE_TABLE_END -->
