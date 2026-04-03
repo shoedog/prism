@@ -716,7 +716,10 @@ fn test_threed_slice_go() {
     let filename = "app.go";
     let tmp = create_temp_git_repo(
         filename,
-        &["package main\n\nfunc foo(x int) int {\n    return x\n}\n", source],
+        &[
+            "package main\n\nfunc foo(x int) int {\n    return x\n}\n",
+            source,
+        ],
     );
     let parsed = ParsedFile::parse(filename, source, Language::Go).unwrap();
     let mut files = BTreeMap::new();
