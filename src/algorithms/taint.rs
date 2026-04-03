@@ -175,6 +175,34 @@ const SINK_PATTERNS: &[&str] = &[
     "=awk",    // awk "$PATTERN" — code injection in awk
     "=sed",    // sed "$EXPR" — code injection in sed
     "=find",   // find ... -exec — command injection via glob/args
+    // === Busybox / Firmware shell ===
+    // Flash and boot environment — can brick devices
+    "=mtd",         // mtd write $IMAGE $PARTITION — flash write, wrong partition = bricked
+    "=fw_setenv",   // fw_setenv $VAR $VAL — U-Boot env, can cause boot loop
+    "=fw_printenv", // fw_printenv — reads boot env (lower risk, but info disclosure)
+    // OpenWrt UCI config — persistent config injection
+    "=uci", // uci set/commit with tainted values
+    // Network interface and firewall — security bypass / disruption
+    "=iptables",  // iptables $RULE — firewall manipulation
+    "=ip6tables", // ip6tables $RULE — IPv6 firewall manipulation
+    "=ifconfig",  // ifconfig $IFACE — network interface config
+    "=ip",        // ip addr/route/link — iproute2 network config
+    "=brctl",     // brctl addif/delif — bridge config, VLAN hopping
+    "=bridge",    // bridge fdb/vlan — modern bridge config
+    "=vconfig",   // vconfig add $IFACE $VLAN — VLAN segmentation bypass
+    "=swconfig",  // swconfig set — switch chip L2 manipulation
+    // Kernel module loading — rootkit installation vector
+    "=insmod",   // insmod $MODULE — load kernel module
+    "=modprobe", // modprobe $MODULE — load kernel module with deps
+    "=rmmod",    // rmmod $MODULE — unload kernel module
+    // Firmware daemon environment injection
+    "procd_set_param", // procd_set_param env VAR=VAL — daemon config injection
+    // === C/C++ kernel / embedded ===
+    // User-space data ingress — kernel attack surface
+    "copy_from_user", // Linux kernel: copies untrusted user-space data
+    "get_user",       // Linux kernel: reads single value from user-space
+    "__get_user",     // Linux kernel: unchecked user-space read
+    "=ioctl",         // ioctl with user buffer — kernel I/O untrusted data path
 ];
 
 /// Check whether an identifier text matches a sink pattern.

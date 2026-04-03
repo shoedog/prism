@@ -422,3 +422,219 @@ fn test_bash_provenance_curl_network() {
         "Provenance should detect curl output as network input origin"
     );
 }
+
+// ====== Busybox / Firmware Shell Tests ======
+
+#[test]
+fn test_bash_taint_mtd_write_sink() {
+    // mtd write with variable input is a device-bricking risk
+    let source =
+        "#!/bin/sh\n\nflash_fw() {\n    local image=\"$1\"\n    mtd write \"$image\" firmware\n}\n\nflash_fw \"$@\"\n";
+    let path = "sysupgrade.sh";
+    let parsed = ParsedFile::parse(path, source, Language::Bash).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([5]),
+        }],
+    };
+
+    let result = algorithms::run_slicing_compat(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::Taint),
+        None,
+    )
+    .unwrap();
+
+    let has_taint = !result.blocks.is_empty() || !result.findings.is_empty();
+    assert!(
+        has_taint,
+        "Taint analysis should flag mtd write as a firmware flash sink"
+    );
+}
+
+#[test]
+fn test_bash_taint_uci_set_sink() {
+    // uci set with variable input is persistent config injection
+    let source =
+        "#!/bin/sh\n\nset_wifi() {\n    local ssid=\"$1\"\n    uci set wireless.@wifi-iface[0].ssid=\"$ssid\"\n    uci commit wireless\n}\n\nset_wifi \"$@\"\n";
+    let path = "wifi_config.sh";
+    let parsed = ParsedFile::parse(path, source, Language::Bash).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([5]),
+        }],
+    };
+
+    let result = algorithms::run_slicing_compat(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::Taint),
+        None,
+    )
+    .unwrap();
+
+    let has_taint = !result.blocks.is_empty() || !result.findings.is_empty();
+    assert!(
+        has_taint,
+        "Taint analysis should flag uci set as a config injection sink"
+    );
+}
+
+#[test]
+fn test_bash_taint_iptables_sink() {
+    // iptables with variable input is firewall bypass
+    let source =
+        "#!/bin/sh\n\nallow_port() {\n    local port=\"$1\"\n    iptables -A INPUT -p tcp --dport $port -j ACCEPT\n}\n\nallow_port \"$@\"\n";
+    let path = "firewall.sh";
+    let parsed = ParsedFile::parse(path, source, Language::Bash).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([5]),
+        }],
+    };
+
+    let result = algorithms::run_slicing_compat(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::Taint),
+        None,
+    )
+    .unwrap();
+
+    let has_taint = !result.blocks.is_empty() || !result.findings.is_empty();
+    assert!(
+        has_taint,
+        "Taint analysis should flag iptables as a firewall manipulation sink"
+    );
+}
+
+#[test]
+fn test_bash_taint_insmod_sink() {
+    // insmod with variable input is a rootkit installation vector
+    let source =
+        "#!/bin/sh\n\nload_module() {\n    local mod=\"$1\"\n    insmod \"$mod\"\n}\n\nload_module \"$@\"\n";
+    let path = "modules.sh";
+    let parsed = ParsedFile::parse(path, source, Language::Bash).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([5]),
+        }],
+    };
+
+    let result = algorithms::run_slicing_compat(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::Taint),
+        None,
+    )
+    .unwrap();
+
+    let has_taint = !result.blocks.is_empty() || !result.findings.is_empty();
+    assert!(
+        has_taint,
+        "Taint analysis should flag insmod as a kernel module loading sink"
+    );
+}
+
+#[test]
+fn test_bash_absence_mtd_write_without_hash() {
+    // mtd write without hash verification is a firmware integrity risk
+    let source =
+        "#!/bin/sh\n\nflash_fw() {\n    local image=\"$1\"\n    mtd write \"$image\" firmware\n}\n\nflash_fw \"$@\"\n";
+    let path = "sysupgrade.sh";
+    let parsed = ParsedFile::parse(path, source, Language::Bash).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Added,
+            diff_lines: BTreeSet::from([5]),
+        }],
+    };
+
+    let result = algorithms::run_slicing_compat(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::AbsenceSlice),
+        None,
+    )
+    .unwrap();
+
+    let has_absence = result
+        .findings
+        .iter()
+        .any(|f| f.description.contains("mtd") || f.description.contains("hash"));
+    assert!(
+        has_absence,
+        "AbsenceSlice should flag mtd write without hash verification. Findings: {:?}",
+        result
+            .findings
+            .iter()
+            .map(|f| &f.description)
+            .collect::<Vec<_>>()
+    );
+}
+
+#[test]
+fn test_bash_absence_uci_set_without_commit() {
+    // uci set without uci commit leaves config in limbo
+    let source =
+        "#!/bin/sh\n\nset_wifi() {\n    local ssid=\"$1\"\n    uci set wireless.@wifi-iface[0].ssid=\"$ssid\"\n}\n\nset_wifi \"$@\"\n";
+    let path = "wifi_config.sh";
+    let parsed = ParsedFile::parse(path, source, Language::Bash).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Added,
+            diff_lines: BTreeSet::from([5]),
+        }],
+    };
+
+    let result = algorithms::run_slicing_compat(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::AbsenceSlice),
+        None,
+    )
+    .unwrap();
+
+    let has_absence = result
+        .findings
+        .iter()
+        .any(|f| f.description.contains("uci") || f.description.contains("commit"));
+    assert!(
+        has_absence,
+        "AbsenceSlice should flag uci set without uci commit. Findings: {:?}",
+        result
+            .findings
+            .iter()
+            .map(|f| &f.description)
+            .collect::<Vec<_>>()
+    );
+}
