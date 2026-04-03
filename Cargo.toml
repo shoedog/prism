@@ -169,6 +169,14 @@ name = "lang_go"
 path = "tests/lang/go/algo_test.rs"
 
 [[test]]
+name = "lang_go_advanced"
+path = "tests/lang/go/advanced_test.rs"
+
+[[test]]
+name = "lang_go_lang"
+path = "tests/lang/go/lang_test.rs"
+
+[[test]]
 name = "lang_lua"
 path = "tests/lang/lua/lua_test.rs"
 
