@@ -146,6 +146,13 @@ const USER_INPUT_PATTERNS: &[&str] = &[
     // === Terraform / HCL ===
     "var.",      // Terraform variable inputs (user-supplied via tfvars/CLI)
     "variable ", // variable block definitions
+    // === Shell / Bash ===
+    "$1",     // Positional parameter — direct user input
+    "$2",     // Positional parameter
+    "$@",     // All positional parameters
+    "$*",     // All positional parameters (word-split)
+    "read ",  // read VAR — stdin/pipe input
+    "read -", // read with flags (-r, -p, etc.)
 ];
 
 const DATABASE_PATTERNS: &[&str] = &[
@@ -437,6 +444,18 @@ pub fn slice(ctx: &CpgContext, diff: &DiffInput) -> Result<SliceResult> {
 
                     if origin != Origin::Unknown {
                         break;
+                    }
+                }
+
+                // If still unknown, classify the diff line itself.
+                // This catches patterns like shell `read` commands or positional
+                // parameters where the DFG doesn't model the implicit assignment.
+                if origin == Origin::Unknown && line > 0 && line <= source_lines.len() {
+                    let lt = source_lines[line - 1];
+                    let classified = classify_line(lt);
+                    if classified != Origin::Unknown {
+                        origin = classified;
+                        origin_line = line;
                     }
                 }
 
