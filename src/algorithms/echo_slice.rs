@@ -117,19 +117,23 @@ pub fn slice(ctx: &CpgContext, diff: &DiffInput) -> Result<SliceResult> {
             }
         }
 
+        let source_lines: Vec<&str> = parsed.source.lines().collect();
+
         for func_name in &changed_functions {
             // Detect what kind of change was made
             let change_touches_return = diff_info.diff_lines.iter().any(|&l| {
-                if l == 0 || l > parsed.source.lines().count() {
+                if l == 0 || l > source_lines.len() {
                     return false;
                 }
-                let lt: Vec<&str> = parsed.source.lines().collect();
-                lt.get(l - 1).map(|s| s.contains("return")).unwrap_or(false)
+                source_lines
+                    .get(l - 1)
+                    .map(|s| s.contains("return"))
+                    .unwrap_or(false)
             });
 
             let change_touches_error = diff_info.diff_lines.iter().any(|&l| {
-                let lt: Vec<&str> = parsed.source.lines().collect();
-                lt.get(l.saturating_sub(1))
+                source_lines
+                    .get(l.saturating_sub(1))
                     .map(|s| {
                         s.contains("raise")
                             || s.contains("throw")
@@ -189,36 +193,15 @@ pub fn slice(ctx: &CpgContext, diff: &DiffInput) -> Result<SliceResult> {
 
                     let context_text = context_lines.join(" ");
 
-                    let has_null_check = SAFE_PATTERNS.iter().any(|p| context_text.contains(p));
+                    let has_safe_pattern = SAFE_PATTERNS.iter().any(|p| context_text.contains(p))
+                        // Rust ? operator (not in SAFE_PATTERNS since it's
+                        // context-dependent, but valid error handling)
+                        || context_text.contains(")?");
 
-                    let has_error_handling = context_text.contains("try")
-                        || context_text.contains("catch")
-                        || context_text.contains("except")
-                        || context_text.contains("if err")
-                        // Rust ? operator and Result/Option handling
-                        || context_text.contains(")?")
-                        || context_text.contains(".map_err(")
-                        || context_text.contains("if let Err(")
-                        || context_text.contains("if let Ok(")
-                        // C/C++ return code error handling
-                        || context_text.contains("if (ret ")
-                        || context_text.contains("if (rc ")
-                        || context_text.contains("if (!") // null pointer check
-                        || context_text.contains("perror(")
-                        || context_text.contains("errno")
-                        // Go errors package
-                        || context_text.contains("errors.Is(")
-                        || context_text.contains("errors.As(")
-                        // Python context manager
-                        || context_text.contains("with ")
-                        // Lua protected call
-                        || context_text.contains("pcall(")
-                        || context_text.contains("xpcall(");
-
-                    if change_touches_return && !has_null_check {
+                    if change_touches_return && !has_safe_pattern {
                         missing_checks.push("return value not checked".to_string());
                     }
-                    if change_touches_error && !has_error_handling {
+                    if change_touches_error && !has_safe_pattern {
                         missing_checks.push("no error handling around call".to_string());
                     }
                 }
