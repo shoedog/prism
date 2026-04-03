@@ -188,7 +188,7 @@ fn find_async_inner(parsed: &ParsedFile, node: Node<'_>, out: &mut Vec<usize>) {
                         || text.contains("loop.run_in_executor(")
                 })
         }
-        Language::JavaScript | Language::TypeScript => {
+        Language::JavaScript | Language::TypeScript | Language::Tsx => {
             kind == "await_expression"
                 || (kind == "call_expression" && {
                     let text = parsed.node_text(&node);
@@ -424,7 +424,7 @@ fn is_async_function(
                 || text.contains("pool.apply_async(")
                 || text.contains("asyncio.create_task(")
         }
-        Language::JavaScript | Language::TypeScript => {
+        Language::JavaScript | Language::TypeScript | Language::Tsx => {
             let text = parsed.node_text(func_node);
             text.starts_with("async ")
                 || text.contains("Worker(")

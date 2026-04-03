@@ -4,7 +4,7 @@ use common::*;
 
 fn lang_matches(name: &str, lang_key: &str) -> bool {
     match lang_key {
-        "python" | "javascript" | "typescript" | "rust" | "lua" | "terraform" => {
+        "python" | "javascript" | "typescript" | "rust" | "lua" | "terraform" | "tsx" => {
             name.contains(lang_key)
         }
         "go" => name.contains("_go_") || name.ends_with("_go"),
@@ -88,6 +88,7 @@ fn test_algorithm_language_matrix() {
         ("rust", "Rust"),
         ("lua", "Lua"),
         ("terraform", "TF"),
+        ("tsx", "TSX"),
     ];
 
     // Collect all test function names from this file (compile-time string)
@@ -139,6 +140,8 @@ fn test_algorithm_language_matrix() {
         "tests/lang/terraform/terraform_test.rs",
         "tests/lang/typescript/typescript_test.rs",
         "tests/lang/typescript/lang_test.rs",
+        "tests/lang/tsx/tsx_test.rs",
+        "tests/lang/tsx/jsx_call_test.rs",
     ];
     let mut test_names_buf: Vec<String> = Vec::new();
     for tf in all_test_files {
@@ -249,6 +252,7 @@ fn test_language_coverage_minimum() {
         "rust",
         "lua",
         "terraform",
+        "tsx",
     ];
 
     let all_test_files = &[
@@ -296,6 +300,8 @@ fn test_language_coverage_minimum() {
         "tests/lang/terraform/terraform_test.rs",
         "tests/lang/typescript/typescript_test.rs",
         "tests/lang/typescript/lang_test.rs",
+        "tests/lang/tsx/tsx_test.rs",
+        "tests/lang/tsx/jsx_call_test.rs",
     ];
     let mut test_names_buf: Vec<String> = Vec::new();
     for tf in all_test_files {
@@ -393,6 +399,8 @@ fn test_coverage_matrix_validation() {
         "tests/lang/terraform/terraform_test.rs",
         "tests/lang/typescript/typescript_test.rs",
         "tests/lang/typescript/lang_test.rs",
+        "tests/lang/tsx/tsx_test.rs",
+        "tests/lang/tsx/jsx_call_test.rs",
         "src/cfg.rs",
         "src/cpg.rs",
         "src/type_db.rs",
