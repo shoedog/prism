@@ -13,6 +13,7 @@ pub enum Language {
     Rust,
     Lua,
     Terraform,
+    Tsx,
 }
 
 impl Language {
@@ -21,7 +22,8 @@ impl Language {
         match ext {
             "py" => Some(Self::Python),
             "js" | "mjs" | "cjs" | "jsx" => Some(Self::JavaScript),
-            "ts" | "tsx" => Some(Self::TypeScript),
+            "ts" => Some(Self::TypeScript),
+            "tsx" => Some(Self::Tsx),
             "go" => Some(Self::Go),
             "java" => Some(Self::Java),
             "c" | "h" => Some(Self::C),
@@ -45,6 +47,7 @@ impl Language {
             Self::Python => tree_sitter_python::LANGUAGE.into(),
             Self::JavaScript => tree_sitter_javascript::LANGUAGE.into(),
             Self::TypeScript => tree_sitter_typescript::LANGUAGE_TYPESCRIPT.into(),
+            Self::Tsx => tree_sitter_typescript::LANGUAGE_TSX.into(),
             Self::Go => tree_sitter_go::LANGUAGE.into(),
             Self::Java => tree_sitter_java::LANGUAGE.into(),
             Self::C => tree_sitter_c::LANGUAGE.into(),
@@ -66,7 +69,7 @@ impl Language {
                 "function_expression",
                 "generator_function_declaration",
             ],
-            Self::TypeScript => vec![
+            Self::TypeScript | Self::Tsx => vec![
                 "function_declaration",
                 "method_definition",
                 "arrow_function",
@@ -109,7 +112,7 @@ impl Language {
                     "assignment" | "augmented_assignment" | "named_expression"
                 )
             }
-            Self::JavaScript | Self::TypeScript => {
+            Self::JavaScript | Self::TypeScript | Self::Tsx => {
                 matches!(
                     kind,
                     "assignment_expression" | "augmented_assignment_expression"
@@ -136,7 +139,7 @@ impl Language {
     pub fn is_declaration_node(&self, kind: &str) -> bool {
         match self {
             Self::Python => false, // Python assignments are declarations
-            Self::JavaScript | Self::TypeScript => {
+            Self::JavaScript | Self::TypeScript | Self::Tsx => {
                 matches!(
                     kind,
                     "variable_declarator" | "lexical_declaration" | "variable_declaration"
@@ -175,7 +178,7 @@ impl Language {
                     }
                 })
             }
-            Self::JavaScript | Self::TypeScript => node.child_by_field_name("left"),
+            Self::JavaScript | Self::TypeScript | Self::Tsx => node.child_by_field_name("left"),
             Self::Go => node.child_by_field_name("left"),
             Self::Java => node.child_by_field_name("left"),
             Self::C | Self::Cpp => node.child_by_field_name("left"),
@@ -217,7 +220,7 @@ impl Language {
                     }
                 })
             }
-            Self::JavaScript | Self::TypeScript => node.child_by_field_name("right"),
+            Self::JavaScript | Self::TypeScript | Self::Tsx => node.child_by_field_name("right"),
             Self::Go => node.child_by_field_name("right"),
             Self::Java => node.child_by_field_name("right"),
             Self::C | Self::Cpp => node.child_by_field_name("right"),
@@ -250,7 +253,7 @@ impl Language {
     pub fn declaration_name<'a>(&self, node: &Node<'a>) -> Option<Node<'a>> {
         match self {
             Self::Python => None,
-            Self::JavaScript | Self::TypeScript => {
+            Self::JavaScript | Self::TypeScript | Self::Tsx => {
                 if node.kind() == "variable_declarator" {
                     node.child_by_field_name("name")
                 } else {
@@ -361,7 +364,7 @@ impl Language {
     pub fn declaration_value<'a>(&self, node: &Node<'a>) -> Option<Node<'a>> {
         match self {
             Self::Python => None,
-            Self::JavaScript | Self::TypeScript => {
+            Self::JavaScript | Self::TypeScript | Self::Tsx => {
                 if node.kind() == "variable_declarator" {
                     node.child_by_field_name("value")
                 } else {
@@ -481,11 +484,31 @@ impl Language {
                 | "object_creation_expression"
                 | "new_expression"
                 | "function_call" // Lua and HCL
+                | "jsx_self_closing_element" // <Component />
+                | "jsx_opening_element" // <Component>
         )
     }
 
     /// Get the function name node from a call.
     pub fn call_function_name<'a>(&self, node: &Node<'a>) -> Option<Node<'a>> {
+        // JSX elements: tag name is the first named child (identifier or member_expression)
+        if node.kind() == "jsx_self_closing_element" || node.kind() == "jsx_opening_element" {
+            let mut cursor = node.walk();
+            for child in node.children(&mut cursor) {
+                if child.kind() == "identifier" || child.kind() == "jsx_namespace_name" {
+                    return Some(child);
+                }
+                if child.kind() == "member_expression" {
+                    // <Foo.Bar /> → extract the property ("Bar")
+                    if let Some(prop) = child.child_by_field_name("property") {
+                        return Some(prop);
+                    }
+                    return Some(child);
+                }
+            }
+            return None;
+        }
+
         let func_node = node
             .child_by_field_name("function")
             .or_else(|| node.child_by_field_name("name"))
@@ -596,6 +619,8 @@ impl Language {
                     | "macro_invocation"
                     // HCL / Terraform
                     | "attribute"
+                    // JSX embedded expressions
+                    | "jsx_expression"
             )
     }
 
@@ -636,7 +661,7 @@ impl Language {
     pub fn switch_has_fallthrough(&self) -> bool {
         matches!(
             self,
-            Self::C | Self::Cpp | Self::JavaScript | Self::TypeScript | Self::Java
+            Self::C | Self::Cpp | Self::JavaScript | Self::TypeScript | Self::Tsx | Self::Java
         )
     }
 

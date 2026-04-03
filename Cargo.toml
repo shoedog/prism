@@ -191,6 +191,14 @@ name = "lang_terraform"
 path = "tests/lang/terraform/terraform_test.rs"
 
 [[test]]
+name = "lang_tsx"
+path = "tests/lang/tsx/tsx_test.rs"
+
+[[test]]
+name = "lang_tsx_jsx_call"
+path = "tests/lang/tsx/jsx_call_test.rs"
+
+[[test]]
 name = "lang_typescript"
 path = "tests/lang/typescript/typescript_test.rs"
 
