@@ -168,6 +168,10 @@ name = "lang_javascript_lang"
 path = "tests/lang/javascript/lang_test.rs"
 
 [[test]]
+name = "lang_javascript_arrow"
+path = "tests/lang/javascript/arrow_test.rs"
+
+[[test]]
 name = "lang_go"
 path = "tests/lang/go/algo_test.rs"
 
@@ -202,6 +206,10 @@ path = "tests/lang/tsx/tsx_test.rs"
 [[test]]
 name = "lang_tsx_jsx_call"
 path = "tests/lang/tsx/jsx_call_test.rs"
+
+[[test]]
+name = "lang_tsx_hooks"
+path = "tests/lang/tsx/hooks_test.rs"
 
 [[test]]
 name = "lang_typescript"
