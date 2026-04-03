@@ -1,9 +1,9 @@
-#[path = "../common/mod.rs"]
+#[path = "../../common/mod.rs"]
 mod common;
 use common::*;
 
 fn make_macro_heavy_test() -> (BTreeMap<String, ParsedFile>, DiffInput) {
-    let source = include_str!("../fixtures/c/macro_heavy.c");
+    let source = include_str!("../../fixtures/c/macro_heavy.c");
 
     let path = "tests/fixtures/c/macro_heavy.c";
     let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
