@@ -18,12 +18,12 @@
 **Algorithm test coverage** · [details](#algorithm--language)
 
 ![Python algo](https://img.shields.io/badge/Python-100%25-brightgreen?logo=python&logoColor=white)
-![JavaScript algo](https://img.shields.io/badge/JavaScript-53%25-orange?logo=javascript&logoColor=white)
-![TypeScript algo](https://img.shields.io/badge/TypeScript-30%25-red?logo=typescript&logoColor=white)
+![JavaScript algo](https://img.shields.io/badge/JavaScript-100%25-brightgreen?logo=javascript&logoColor=white)
+![TypeScript algo](https://img.shields.io/badge/TypeScript-100%25-brightgreen?logo=typescript&logoColor=white)
 ![Go algo](https://img.shields.io/badge/Go-100%25-brightgreen?logo=go&logoColor=white)
-![Java algo](https://img.shields.io/badge/Java-57%25-orange?logo=openjdk&logoColor=white)
-![C algo](https://img.shields.io/badge/C-38%25-red?logo=c&logoColor=white)
-![C++ algo](https://img.shields.io/badge/C%2B%2B-7%25-red?logo=cplusplus&logoColor=white)
+![Java algo](https://img.shields.io/badge/Java-15%25-red?logo=openjdk&logoColor=white)
+![C algo](https://img.shields.io/badge/C-42%25-red?logo=c&logoColor=white)
+![C++ algo](https://img.shields.io/badge/C%2B%2B-23%25-red?logo=cplusplus&logoColor=white)
 ![Rust algo](https://img.shields.io/badge/Rust-30%25-red?logo=rust&logoColor=white)
 ![Lua algo](https://img.shields.io/badge/Lua-26%25-red?logo=lua&logoColor=white)
 <!-- COVERAGE_BADGES_END -->
@@ -449,32 +449,32 @@ Measures which algorithms have been tested with which languages. This is heavily
 <!-- COVERAGE_TABLE_START -->
 | Algorithm | Py | JS | TS | Go | Ja | C | C++ | Rs | Lua |
 |---|---|---|---|---|---|---|---|---|---|
-| absence_slice |  ✅ | 🟡 | 🟡 | ✅ | ✅ | ✅ | ❌ | ✅ | ✅ |
-| angle_slice |  ✅ | 🟡 | ❌ | ✅ | 🟡 | ❌ | ❌ | ❌ | ❌ |
-| barrier_slice |  ✅ | 🟡 | ❌ | 🟡 | 🟡 | ❌ | ❌ | ❌ | ❌ |
-| chop |  ✅ | 🟡 | ❌ | 🟡 | 🟡 | ❌ | ❌ | ❌ | ❌ |
-| circular_slice |  🟡 | ❌ | 🟡 | 🟡 | ❌ | ❌ | ❌ | ❌ | ❌ |
-| conditioned_slice |  ✅ | 🟡 | ❌ | 🟡 | 🟡 | ❌ | ❌ | ❌ | ❌ |
-| delta_slice |  ✅ | ❌ | ❌ | 🟡 | ❌ | ❌ | ❌ | ❌ | ❌ |
-| echo_slice |  ✅ | 🟡 | ❌ | 🟡 | 🟡 | ✅ | ❌ | ❌ | ❌ |
-| full_flow |  ✅ | ✅ | ❌ | ✅ | ✅ | 🟡 | ❌ | ❌ | ❌ |
-| gradient_slice |  ✅ | ❌ | ❌ | 🟡 | ❌ | ❌ | ❌ | ❌ | ❌ |
-| horizontal_slice |  ✅ | 🟡 | ❌ | 🟡 | 🟡 | ❌ | ❌ | ❌ | ❌ |
-| left_flow |  ✅ | ✅ | 🟡 | ✅ | ✅ | 🟡 | ❌ | ❌ | ❌ |
-| membrane_slice |  🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ✅ | ✅ | 🟡 | 🟡 |
-| original_diff |  ✅ | ✅ | 🟡 | ✅ | 🟡 | ❌ | ❌ | 🟡 | ❌ |
-| parent_function |  ✅ | ❌ | 🟡 | ✅ | 🟡 | ❌ | ❌ | 🟡 | 🟡 |
-| phantom_slice |  🟡 | ❌ | ❌ | 🟡 | ❌ | ❌ | ❌ | ❌ | ❌ |
-| provenance_slice |  ✅ | ✅ | ❌ | ✅ | 🟡 | ✅ | ❌ | ✅ | ✅ |
-| quantum_slice |  ✅ | ✅ | ❌ | ✅ | 🟡 | ✅ | ❌ | 🟡 | 🟡 |
-| relevant_slice |  🟡 | ❌ | ❌ | 🟡 | ❌ | ❌ | ❌ | ❌ | ❌ |
-| resonance_slice |  🟡 | ❌ | ❌ | 🟡 | ❌ | ❌ | ❌ | ❌ | ❌ |
-| spiral_slice |  ✅ | ❌ | ❌ | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
-| symmetry_slice |  ✅ | ❌ | ❌ | 🟡 | ❌ | 🟡 | ❌ | ❌ | ❌ |
-| taint |  ✅ | ✅ | 🟡 | ✅ | ❌ | ✅ | ✅ | ✅ | ✅ |
-| thin_slice |  ✅ | ❌ | 🟡 | 🟡 | 🟡 | 🟡 | ❌ | 🟡 | 🟡 |
-| threed_slice |  ✅ | ❌ | ❌ | 🟡 | ❌ | ❌ | ❌ | ❌ | ❌ |
-| vertical_slice |  ✅ | ❌ | ❌ | 🟡 | ❌ | ❌ | ❌ | ❌ | ❌ |
+| absence_slice |  ✅ | ✅ | 🟡 | ✅ | ❌ | ✅ | 🟡 | ✅ | 🟡 |
+| angle_slice |  ✅ | 🟡 | 🟡 | 🟡 | ❌ | ❌ | ❌ | ❌ | ❌ |
+| barrier_slice |  🟡 | 🟡 | 🟡 | 🟡 | ❌ | ❌ | ❌ | ❌ | ❌ |
+| chop |  🟡 | 🟡 | 🟡 | 🟡 | ❌ | ❌ | ❌ | ❌ | ❌ |
+| circular_slice |  🟡 | 🟡 | 🟡 | 🟡 | ❌ | ❌ | ❌ | ❌ | ❌ |
+| conditioned_slice |  🟡 | 🟡 | 🟡 | 🟡 | ❌ | ❌ | ❌ | ❌ | ❌ |
+| delta_slice |  🟡 | 🟡 | 🟡 | 🟡 | ❌ | ❌ | ❌ | ❌ | ❌ |
+| echo_slice |  🟡 | 🟡 | 🟡 | 🟡 | ❌ | ✅ | ❌ | ❌ | ❌ |
+| full_flow |  ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ❌ | ❌ |
+| gradient_slice |  🟡 | 🟡 | 🟡 | 🟡 | ❌ | 🟡 | ❌ | ❌ | ❌ |
+| horizontal_slice |  ✅ | 🟡 | 🟡 | 🟡 | ❌ | ❌ | ❌ | ❌ | ❌ |
+| left_flow |  🟡 | 🟡 | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | ❌ | ❌ |
+| membrane_slice |  🟡 | 🟡 | 🟡 | 🟡 | ❌ | ✅ | ✅ | 🟡 | 🟡 |
+| original_diff |  🟡 | 🟡 | 🟡 | 🟡 | ❌ | ❌ | ❌ | 🟡 | ❌ |
+| parent_function |  🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ❌ | ❌ | 🟡 | 🟡 |
+| phantom_slice |  🟡 | 🟡 | 🟡 | 🟡 | ❌ | ❌ | ❌ | ❌ | ❌ |
+| provenance_slice |  ✅ | ✅ | 🟡 | 🟡 | ❌ | ✅ | ❌ | ✅ | ✅ |
+| quantum_slice |  ✅ | ✅ | 🟡 | 🟡 | ❌ | ✅ | ❌ | 🟡 | 🟡 |
+| relevant_slice |  🟡 | 🟡 | 🟡 | 🟡 | ❌ | ❌ | ❌ | ❌ | ❌ |
+| resonance_slice |  🟡 | 🟡 | 🟡 | 🟡 | ❌ | ❌ | ❌ | ❌ | ❌ |
+| spiral_slice |  ✅ | 🟡 | 🟡 | 🟡 | ❌ | ❌ | ❌ | ❌ | ❌ |
+| symmetry_slice |  🟡 | 🟡 | 🟡 | 🟡 | ❌ | 🟡 | 🟡 | ❌ | ❌ |
+| taint |  ✅ | ✅ | 🟡 | ✅ | ❌ | ✅ | ❌ | ✅ | ✅ |
+| thin_slice |  🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 |
+| threed_slice |  🟡 | 🟡 | 🟡 | 🟡 | ❌ | ❌ | ❌ | ❌ | ❌ |
+| vertical_slice |  ✅ | 🟡 | 🟡 | 🟡 | ❌ | ❌ | ❌ | ❌ | ❌ |
 
 ✅ full (3+ tests) · 🟡 basic (1-2 tests) · ❌ none
 <!-- COVERAGE_TABLE_END -->
