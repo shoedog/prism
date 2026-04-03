@@ -64,9 +64,9 @@ impl TerraformRefGraph {
         }
 
         // Phase 2: Resolve references within attribute expressions
-        for (file, source) in sources {
+        for (_file, source) in sources {
             if let Ok(body) = hcl::parse(source) {
-                graph.resolve_references(&body, file);
+                graph.resolve_references(&body);
             }
         }
 
@@ -186,7 +186,7 @@ impl TerraformRefGraph {
     }
 
     /// Walk all expressions in the body and record references between entities.
-    fn resolve_references(&mut self, body: &hcl::Body, file: &str) {
+    fn resolve_references(&mut self, body: &hcl::Body) {
         for structure in body.iter() {
             match structure {
                 hcl::Structure::Block(block) => {
@@ -254,8 +254,6 @@ impl TerraformRefGraph {
                 }
             }
         }
-        // Suppress unused variable warning — file is used for context in future extensions
-        let _ = file;
     }
 
     fn add_reference(&mut self, from: &str, to: &str) {

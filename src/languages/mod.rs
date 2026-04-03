@@ -101,12 +101,12 @@ impl Language {
                 | "field_expression"
                 | "qualified_identifier"
                 | "namespace_identifier"
-                | "variable_expr" // HCL: var.x, local.y
         ) {
             return true;
         }
         // Language-specific identifier types
         match self {
+            Self::Terraform => kind == "variable_expr", // HCL: var.x, local.y
             Self::Bash => matches!(kind, "word" | "variable_name"),
             _ => false,
         }
@@ -168,7 +168,10 @@ impl Language {
             }
             Self::Rust => matches!(kind, "let_declaration" | "const_item" | "static_item"),
             Self::Lua => matches!(kind, "local_variable_declaration"),
-            // HCL variable/locals blocks act as declarations
+            // HCL: every block (resource, variable, output, etc.) is treated as a
+            // declaration node. This is intentionally broad — algorithms filter by
+            // diff lines so the noise is bounded, and it ensures variable/locals
+            // blocks are captured for data flow analysis.
             Self::Terraform => matches!(kind, "block"),
             // Bash: declaration_command covers local/export/declare
             Self::Bash => matches!(kind, "declaration_command"),
@@ -510,8 +513,11 @@ impl Language {
         ) {
             return true;
         }
-        // Bash case..esac: "case_statement" in bash grammar, but C/C++ also use
-        // "case_statement" for switch case labels, so we must be language-specific.
+        // Bash case..esac is "case_statement" in tree-sitter-bash. C/C++ also emit
+        // "case_statement" nodes for individual case labels inside a switch (the switch
+        // itself is "switch_statement"). Treating C case labels as control flow nodes
+        // breaks CFG fallthrough edges, so we restrict to Bash only.
+        // Verified by test_c_switch_fallthrough in cfg.rs.
         matches!(self, Self::Bash) && kind == "case_statement"
     }
 
@@ -739,21 +745,30 @@ impl Language {
             return node.child_by_field_name("name");
         }
 
-        // HCL block: first child is block type identifier (resource, variable, etc.)
+        // HCL block: return the logical name (second label) for unique identification.
+        // e.g., resource "aws_instance" "web" -> "web" (not "aws_instance")
+        // This avoids collisions when two resources share the same type.
+        // The qualified name (aws_instance.web) is handled by TerraformRefGraph.
         if matches!(self, Self::Terraform) && node.kind() == "block" {
-            // For HCL blocks, construct name from type + labels
-            // e.g., resource "aws_instance" "web" -> first identifier is "resource"
-            // We return the first string_lit label as the "name" for better identification
             let mut cursor = node.walk();
             let mut found_type = false;
+            let mut first_label = None;
             for child in node.children(&mut cursor) {
                 if child.kind() == "identifier" && !found_type {
                     found_type = true;
                     continue;
                 }
                 if child.kind() == "string_lit" || child.kind() == "identifier" {
-                    return Some(child);
+                    if first_label.is_some() {
+                        // Second label is the logical name
+                        return Some(child);
+                    }
+                    first_label = Some(child);
                 }
+            }
+            // Single-label blocks (variable "name", output "name"): return that label
+            if let Some(label) = first_label {
+                return Some(label);
             }
             // Fall back to the block type identifier
             let mut cursor2 = node.walk();
