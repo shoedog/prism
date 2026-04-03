@@ -31,3 +31,141 @@ petgraph = "0.7"
 tempfile = "3"
 assert_cmd = "2"
 predicates = "3"
+
+# ── Algorithm tests ──
+
+[[test]]
+name = "algo_angle_horizontal"
+path = "tests/algo/angle_horizontal_test.rs"
+
+[[test]]
+name = "algo_novel_absence"
+path = "tests/algo/novel_absence_test.rs"
+
+[[test]]
+name = "algo_novel_echo_misc"
+path = "tests/algo/novel_echo_misc_test.rs"
+
+[[test]]
+name = "algo_novel_membrane"
+path = "tests/algo/novel_membrane_test.rs"
+
+[[test]]
+name = "algo_novel_provenance"
+path = "tests/algo/novel_provenance_test.rs"
+
+[[test]]
+name = "algo_paper"
+path = "tests/algo/paper_test.rs"
+
+[[test]]
+name = "algo_quantum"
+path = "tests/algo/quantum_test.rs"
+
+[[test]]
+name = "algo_spiral_circular"
+path = "tests/algo/spiral_circular_test.rs"
+
+[[test]]
+name = "algo_taint_cve"
+path = "tests/algo/taint_cve_test.rs"
+
+[[test]]
+name = "algo_taint_lang"
+path = "tests/algo/taint_lang_test.rs"
+
+[[test]]
+name = "algo_taint_sink"
+path = "tests/algo/taint_sink_test.rs"
+
+[[test]]
+name = "algo_taxonomy_misc"
+path = "tests/algo/taxonomy_misc_test.rs"
+
+[[test]]
+name = "algo_vertical_threed"
+path = "tests/algo/vertical_threed_test.rs"
+
+# ── AST / DFG / CPG tests ──
+
+[[test]]
+name = "ast_access_path"
+path = "tests/ast/access_path_test.rs"
+
+[[test]]
+name = "ast_binding"
+path = "tests/ast/binding_test.rs"
+
+[[test]]
+name = "ast_cpg"
+path = "tests/ast/cpg_test.rs"
+
+[[test]]
+name = "ast_dfg"
+path = "tests/ast/dfg_test.rs"
+
+[[test]]
+name = "ast_field"
+path = "tests/ast/field_test.rs"
+
+# ── Language-specific tests ──
+
+[[test]]
+name = "lang_c_algo"
+path = "tests/lang/c_algo_test.rs"
+
+[[test]]
+name = "lang_c_complex"
+path = "tests/lang/c_complex_test.rs"
+
+[[test]]
+name = "lang_cpp"
+path = "tests/lang/cpp_test.rs"
+
+[[test]]
+name = "lang_javascript_algo"
+path = "tests/lang/javascript_algo_test.rs"
+
+[[test]]
+name = "lang_javascript_destructuring"
+path = "tests/lang/javascript_destructuring_test.rs"
+
+[[test]]
+name = "lang_javascript_lang"
+path = "tests/lang/javascript_lang_test.rs"
+
+[[test]]
+name = "lang_lua"
+path = "tests/lang/lua_test.rs"
+
+[[test]]
+name = "lang_rust"
+path = "tests/lang/rust_test.rs"
+
+[[test]]
+name = "lang_typescript"
+path = "tests/lang/typescript_test.rs"
+
+# ── Integration tests ──
+
+[[test]]
+name = "integration_call_graph"
+path = "tests/integration/call_graph_test.rs"
+
+[[test]]
+name = "integration_core"
+path = "tests/integration/core_test.rs"
+
+[[test]]
+name = "integration_coverage"
+path = "tests/integration/coverage_test.rs"
+
+# ── CLI tests ──
+
+[[test]]
+name = "cli_algo"
+path = "tests/cli/algo_test.rs"
+
+[[test]]
+name = "cli_output"
+path = "tests/cli/output_test.rs"
