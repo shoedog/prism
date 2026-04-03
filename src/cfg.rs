@@ -110,7 +110,10 @@ fn build_function_cfg(func_node: Node<'_>, parsed: &ParsedFile, edges: &mut Vec<
     }
 
     // JS/TS: try/catch/finally
-    if matches!(parsed.language, Language::JavaScript | Language::TypeScript) {
+    if matches!(
+        parsed.language,
+        Language::JavaScript | Language::TypeScript | Language::Tsx
+    ) {
         build_try_catch_edges(func_node, parsed, &stmt_lines, edges);
     }
 

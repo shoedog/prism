@@ -76,7 +76,7 @@ fn test_algorithm_language_matrix() {
         (&["chop"], "Chop"),
     ];
 
-    // All 10 supported languages
+    // All 11 supported languages (10 base + TSX variant)
     let languages: &[(&str, &str)] = &[
         ("python", "Python"),
         ("javascript", "JS"),
