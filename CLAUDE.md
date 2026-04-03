@@ -15,17 +15,61 @@ cargo run -- --help  # Show CLI usage
 cargo run -- --list-algorithms  # List all 26 algorithms
 ```
 
+Run specific test suites:
+```bash
+cargo test --test algo_paper          # Paper algorithm tests
+cargo test --test algo_taint_cve      # Taint CVE tests
+cargo test --test lang_c_algo         # C language-specific tests
+cargo test --test cli_validation      # CLI validation tests
+cargo test --test integration_core    # Core integration tests
+```
+
 ## Code Organization
 
-- `src/algorithms/` — All 26 slicing algorithms. Each is self-contained.
-- `src/ast.rs` — Tree-sitter AST wrapper. All tree-sitter interaction goes through here.
-- `src/call_graph.rs` — Cross-file call graph with forward/reverse edges and cycle detection.
-- `src/data_flow.rs` — Def-use chains, reachability queries, chopping, taint propagation.
-- `src/languages/mod.rs` — Language-specific node type mappings. Add new languages here.
-- `src/diff.rs` — Diff parsing and the `DiffBlock` output type.
-- `src/slice.rs` — Config, 26-variant algorithm enum, and result types.
-- `src/output.rs` — Output formatters (text, JSON, paper-compatible).
-- `tests/integration_test.rs` — Integration tests with fixtures for all 9 languages.
+### Core Modules (`src/`)
+
+- `lib.rs` — Public API; re-exports all modules.
+- `ast.rs` — Tree-sitter AST wrapper (`ParsedFile`). All tree-sitter interaction goes through here.
+- `cfg.rs` — Control Flow Graph construction from tree-sitter AST (intraprocedural CFG edges).
+- `cpg.rs` — Code Property Graph (`CpgContext`): unified graph merging AST, DFG, call graph, and CFG. This is the main interface that algorithms use.
+- `call_graph.rs` — Cross-file call graph with forward/reverse edges and cycle detection.
+- `data_flow.rs` — Def-use chains, reachability queries, chopping, taint propagation.
+- `access_path.rs` — Structured variable access paths for field-sensitive data flow analysis (e.g., `x`, `dev->name`, `self.config.timeout`).
+- `type_db.rs` — Optional C/C++ type enrichment from `compile_commands.json` + clang. Provides struct definitions, field types, typedefs, and class hierarchy.
+- `languages/mod.rs` — Language-specific node type mappings. Add new languages here.
+- `diff.rs` — Diff parsing and `DiffInput`/`DiffInfo` types.
+- `slice.rs` — `SlicingAlgorithm` enum (26 variants), `SliceConfig`, and `SliceResult`.
+- `output.rs` — Output formatters (text, JSON, paper-compatible, review).
+- `main.rs` — CLI entry point using clap with 22+ algorithm-specific flags.
+- `algorithms/` — All 26 slicing algorithms. Each is self-contained.
+
+### Test Structure (`tests/`)
+
+```
+tests/
+├── algo/              # Algorithm-specific tests
+│   ├── novel/         # 8 test files (absence, echo, membrane, provenance + lang variants)
+│   ├── paper/         # 1 test file (paper algorithms 6-9)
+│   ├── taxonomy/      # 5 test files (taint CVE/lang/sink, misc, misc_lang)
+│   └── theoretical/   # 4 test files (angle, quantum, spiral, vertical)
+├── ast/               # AST infrastructure tests (access_path, binding, cpg, dfg, field)
+├── cli/               # CLI tests (algo, output, validation)
+├── common/            # Shared test helpers and fixture generators
+│   └── mod.rs         # Re-exports core types + fixture generators per language
+├── fixtures/          # Test data files (bash, c, python, terraform)
+├── integration/       # Integration tests (call_graph, core, coverage)
+└── lang/              # Language-specific tests
+    ├── c/             # algo, complex, cve
+    ├── cpp/
+    ├── javascript/    # algo, destructuring, lang
+    ├── lua/
+    ├── rust/
+    └── typescript/    # typescript, lang
+```
+
+Cargo.toml defines named test targets (e.g., `cargo test --test algo_paper`).
+Shared test helpers in `tests/common/mod.rs` provide fixture generators like
+`make_python_test()`, `make_javascript_test()`, etc.
 
 ## Algorithm Implementation Map
 
@@ -63,6 +107,26 @@ cargo run -- --list-algorithms  # List all 26 algorithms
 - `membrane_slice.rs` → Module boundary impact (cross-file callers of changed APIs)
 - `echo_slice.rs` → Ripple effect modeling (callers missing error handling)
 
+## Architecture
+
+### CpgContext (Code Property Graph)
+
+The modern architecture centers on `CpgContext`, which bundles:
+- `cpg: CodePropertyGraph` — unified graph merging AST, DFG, call graph, and CFG
+- `files: &BTreeMap<String, ParsedFile>` — parsed ASTs
+- `type_db: Option<&TypeDatabase>` — optional C/C++ type enrichment
+
+Algorithms fall into two categories:
+1. **Simple** (use `ctx.files` only): `original_diff`, `parent_function`, `left_flow`, `full_flow`, `thin_slice`, `relevant_slice`, `quantum_slice`, `horizontal_slice`, `angle_slice`, `absence_slice`, `symmetry_slice`
+2. **Graph-based** (use `ctx.cpg` or full context): `barrier_slice`, `taint`, `spiral_slice`, `circular_slice`, `vertical_slice`, `threed_slice`, `delta_slice`, `conditioned_slice`, `gradient_slice`, `provenance_slice`, `phantom_slice`, `resonance_slice`, `membrane_slice`, `echo_slice`
+
+### Algorithm Dispatch
+
+`src/algorithms/mod.rs` contains:
+- `run_slicing(ctx: &CpgContext, diff: &DiffInput, config: &SliceConfig)` — main dispatcher
+- `run_slicing_compat(...)` — backward-compatible wrapper that builds `CpgContext` automatically
+- `check_parse_warnings(...)` — reports tree-sitter parse errors (>10% warn, >30% skip)
+
 ## Key Design Decisions
 
 1. **Tree-sitter for multi-language AST parsing.** The original paper used
@@ -72,19 +136,60 @@ cargo run -- --list-algorithms  # List all 26 algorithms
 
 3. **BTreeMap/BTreeSet everywhere** for deterministic, sorted output.
 
-4. **Shared infrastructure:** `call_graph.rs` and `data_flow.rs` are reused
-   across multiple algorithms. Build them once, pass to algorithms.
+4. **Shared infrastructure:** `call_graph.rs`, `data_flow.rs`, `cfg.rs`, and
+   `cpg.rs` are reused across multiple algorithms. Build them once via
+   `CpgContext`, pass to algorithms.
 
 5. **Algorithm-specific configs** live in each algorithm's module (e.g.,
    `BarrierConfig`, `TaintConfig`, `SpiralConfig`), not in the central
    `SliceConfig`, to keep the core config lean.
+
+6. **Field-sensitive analysis** via `access_path.rs` tracks structured paths
+   (e.g., `self.config.timeout`) rather than just variable names.
+
+## Supported Languages
+
+9 languages with dedicated tree-sitter grammars:
+Python, JavaScript, TypeScript, Go, Java, C, C++, Rust, Lua.
+
+## CLI Usage
+
+```bash
+# Single algorithm
+cargo run -- --repo /path/to/repo --diff diff.patch --algorithm leftflow
+
+# Multiple algorithms
+cargo run -- --repo /path/to/repo --diff diff.patch --algorithm "leftflow,fullflow,taint"
+
+# Preset suites
+cargo run -- --repo /path/to/repo --diff diff.patch --algorithm review  # review suite
+cargo run -- --repo /path/to/repo --diff diff.patch --algorithm all     # all 26
+
+# Output formats: text (default), json, paper, review
+cargo run -- --repo /path/to/repo --diff diff.patch --format json
+```
+
+Key algorithm-specific flags:
+- `--barrier-depth`, `--barrier-symbols` (BarrierSlice)
+- `--chop-source`, `--chop-sink` (Chop)
+- `--taint-source` (Taint, repeatable)
+- `--condition` (ConditionedSlice)
+- `--old-repo` (DeltaSlice)
+- `--spiral-max-ring` (SpiralSlice)
+- `--quantum-var` (QuantumSlice)
+- `--peer-pattern` (HorizontalSlice)
+- `--layers` (VerticalSlice)
+- `--concern` (AngleSlice)
+- `--temporal-days` (ThreeDSlice, ResonanceSlice)
+- `--compile-commands` (C/C++ type enrichment)
 
 ## Adding a New Language
 
 1. Add the tree-sitter grammar crate to `Cargo.toml`
 2. Add a variant to `Language` enum in `src/languages/mod.rs`
 3. Implement all the node type methods for the new language
-4. Add a test fixture in `tests/integration_test.rs`
+4. Add a fixture generator in `tests/common/mod.rs`
+5. Add language-specific tests in `tests/lang/`
 
 ## Adding a New Slicing Algorithm
 
@@ -93,7 +198,7 @@ cargo run -- --list-algorithms  # List all 26 algorithms
 3. Add `pub mod your_algo;` in `src/algorithms/mod.rs`
 4. Wire it up in the `run_slicing` dispatcher in `src/algorithms/mod.rs`
 5. Add CLI flags in `src/main.rs` if it needs algorithm-specific config
-6. Add tests in `tests/integration_test.rs`
+6. Add tests in `tests/algo/` (appropriate subcategory)
 
 ## Common Patterns
 
@@ -102,13 +207,14 @@ cargo run -- --list-algorithms  # List all 26 algorithms
 - **`DiffBlock.file_line_map`** maps `filename → (line_number → is_diff_line)`.
 - **Cross-file references**: Many algorithms include lines from multiple files.
   These appear as additional entries in `file_line_map`.
-- **Algorithms that need call graph or data flow** build them at the start of
-  their `slice()` function. If performance becomes an issue, these could be
-  pre-built and passed in.
+- **Algorithms that need call graph or data flow** receive them via `CpgContext`.
+  The graph is built once and shared across algorithm invocations.
 
 ## Dependencies
 
-- `tree-sitter` + 5 language grammars for AST parsing
+- `tree-sitter` + 9 language grammars for AST parsing
+- `petgraph` for graph data structures (CFG, CPG)
 - `clap` for CLI
 - `serde`/`serde_json` for serialization
 - `anyhow`/`thiserror` for error handling
+- `tempfile`, `assert_cmd`, `predicates` (dev-dependencies for testing)
