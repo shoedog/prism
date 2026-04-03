@@ -82,6 +82,14 @@ pub fn slice(
                 let async_lines = find_async_points(parsed, &func_node);
                 let is_async_func = is_async_function(parsed, &func_node, &registered_handlers);
 
+                // For Go, check if this variable is captured by a goroutine closure
+                let go_captured = if parsed.language == Language::Go {
+                    go_closure_captured_vars(parsed, &func_node)
+                } else {
+                    BTreeSet::new()
+                };
+                let is_go_captured = go_captured.contains(var_name);
+
                 // Build possible states
                 let mut states: Vec<PossibleState> = Vec::new();
 
@@ -92,8 +100,14 @@ pub fn slice(
                     let is_before_async = async_lines
                         .iter()
                         .any(|&al| al > assign_line && al < func_end);
+                    let is_async_dep = is_after_async || is_before_async || is_go_captured;
 
-                    let state_label = if is_after_async || is_before_async {
+                    let state_label = if is_go_captured && !is_after_async && !is_before_async {
+                        format!(
+                            "line {} (captured by goroutine closure — potential race)",
+                            assign_line
+                        )
+                    } else if is_after_async || is_before_async {
                         format!(
                             "line {} (async-dependent: assignment {}await boundary)",
                             assign_line,
@@ -108,12 +122,12 @@ pub fn slice(
                         state_label,
                         assignment_line: assign_line,
                         assignment_file: diff_info.file_path.clone(),
-                        is_async_dependent: is_after_async || is_before_async,
+                        is_async_dependent: is_async_dep,
                     });
                 }
 
                 // If there's async context and the variable could be uninitialized
-                if is_async_func && !assignments.is_empty() {
+                if (is_async_func || is_go_captured) && !assignments.is_empty() {
                     states.push(PossibleState {
                         var_name: var_name.clone(),
                         state_label: "undefined/uninitialized (async operation not yet completed)"
@@ -203,7 +217,7 @@ fn find_async_inner(parsed: &ParsedFile, node: Node<'_>, out: &mut Vec<usize>) {
                 })
         }
         Language::Go => {
-            kind == "go_statement"
+            kind == "go_statement"     // covers both `go funcName()` and `go func() { ... }()`
                 || kind == "select_statement"
                 || (kind == "send_statement")
                 || (kind == "receive_statement")
@@ -534,5 +548,51 @@ fn check_for_go_stmt(parsed: &ParsedFile, node: Node<'_>, found: &mut bool) {
         if !*found {
             check_for_go_stmt(parsed, child, found);
         }
+    }
+}
+
+/// Find variables captured by Go goroutine closures (`go func() { ... }()`).
+///
+/// Returns the set of identifier names used inside anonymous function bodies
+/// launched with `go`. These variables are shared between the goroutine and the
+/// enclosing function and are the primary source of Go race conditions.
+fn go_closure_captured_vars<'a>(parsed: &'a ParsedFile, func_node: &Node<'_>) -> BTreeSet<String> {
+    let mut captured = BTreeSet::new();
+    collect_go_closure_vars(parsed, *func_node, false, &mut captured);
+    captured
+}
+
+fn collect_go_closure_vars(
+    parsed: &ParsedFile,
+    node: Node<'_>,
+    inside_go_closure: bool,
+    captured: &mut BTreeSet<String>,
+) {
+    let kind = node.kind();
+
+    // Detect `go func() { ... }()` — a go_statement whose child is a
+    // call_expression wrapping a func_literal.
+    let is_go_closure = kind == "go_statement" && {
+        let mut cursor = node.walk();
+        let has_closure = node.children(&mut cursor).any(|child| {
+            if child.kind() != "call_expression" {
+                return false;
+            }
+            let mut c2 = child.walk();
+            let result = child
+                .children(&mut c2)
+                .any(|gc| gc.kind() == "func_literal");
+            result
+        });
+        has_closure
+    };
+
+    if inside_go_closure && kind == "identifier" {
+        captured.insert(parsed.node_text(&node).to_string());
+    }
+
+    let mut cursor = node.walk();
+    for child in node.children(&mut cursor) {
+        collect_go_closure_vars(parsed, child, inside_go_closure || is_go_closure, captured);
     }
 }
