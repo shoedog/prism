@@ -103,19 +103,35 @@ Migrate one `collect_*` method at a time. Each migration:
 3. Keeps the same public API signature (returns same types).
 4. Existing tests validate correctness — no new tests needed per migration.
 
+**Important caveat on "pure query" vs "query + post-processing":** Several
+`collect_*` methods are not pure structural matches. They contain imperative
+Rust logic that cannot be expressed as tree-sitter queries:
+
+- `collect_variable_refs_scoped` — filters by declaration line range
+- `collect_assignment_paths` — calls `extract_lvalue_paths()` to parse LHS
+  text into an `AccessPath` struct
+- `collect_aliases_inner` — has heuristic logic for destructuring detection
+- `collect_condition_vars` — extracts condition expressions with operator context
+- `collect_path_refs` — filters by `AccessPath` prefix matching
+
+For these methods, the query replaces only the tree-walking portion. The
+post-processing Rust code (filtering, `AccessPath` construction, heuristics)
+remains. Phases 1-7 below are largely "pure query" replacements; Phases 8-9
+will retain 30-40% of the original Rust code as post-processing.
+
 **Priority order** (by call frequency and complexity):
 
-| Phase | Methods | Lines Replaced | Impact |
-|-------|---------|---------------|--------|
-| 1 | `collect_functions` | ~20 | Used by every algorithm; simplest query |
-| 2 | `collect_assignments`, `collect_assignment_paths` | ~80 | Core DFG input; 11 language variants |
-| 3 | `collect_calls`, `collect_call_names_at_lines`, `collect_all_callees` | ~80 | Core call graph input |
-| 4 | `collect_all_identifiers`, `collect_identifiers_at_row` | ~30 | High frequency; scoped variant benefits from `set_point_range` |
-| 5 | `collect_rvalues`, `collect_rvalue_paths` | ~60 | DFG R-value analysis |
-| 6 | `collect_returns`, `collect_statements`, `collect_nested_statements` | ~60 | CFG construction |
-| 7 | `collect_gotos`, `collect_labels` | ~25 | Niche but straightforward |
-| 8 | `collect_variable_refs`, `collect_variable_refs_scoped`, `collect_path_refs` | ~100 | Most complex; scoped traversal with filtering |
-| 9 | `collect_condition_vars`, `collect_aliases_inner` | ~60 | Complex extraction logic |
+| Phase | Methods | Lines Replaced | Migration Type |
+|-------|---------|---------------|----------------|
+| 1 | `collect_functions` | ~20 | Pure query |
+| 2 | `collect_assignments`, `collect_assignment_paths` | ~50 of ~80 | Query + AccessPath post-processing |
+| 3 | `collect_calls`, `collect_call_names_at_lines`, `collect_all_callees` | ~80 | Pure query |
+| 4 | `collect_all_identifiers`, `collect_identifiers_at_row` | ~30 | Pure query (scoped via `set_point_range`) |
+| 5 | `collect_rvalues`, `collect_rvalue_paths` | ~40 of ~60 | Query + path extraction post-processing |
+| 6 | `collect_returns`, `collect_statements`, `collect_nested_statements` | ~60 | Pure query |
+| 7 | `collect_gotos`, `collect_labels` | ~25 | Pure query |
+| 8 | `collect_variable_refs`, `collect_variable_refs_scoped`, `collect_path_refs` | ~50 of ~100 | Query + line-range/path filtering |
+| 9 | `collect_condition_vars`, `collect_aliases_inner` | ~25 of ~60 | Query + heuristic post-processing |
 
 #### 4. Language node-type mapping consolidation
 
@@ -134,7 +150,7 @@ migration:
 
 | Risk | Mitigation |
 |------|-----------|
-| Query syntax differences across grammars | Test each query against all 11 language grammars at compile time via `#[test]` that compiles every registered query |
+| Query syntax differences across grammars | Test each query against all 11 language grammars via `#[test]` that (a) compiles every registered query and (b) runs it against a minimal fixture per language to verify at least one match. A query that compiles but matches zero nodes (e.g., due to a grammar rename like `short_var_declaration`) is a silent bug — the fixture test catches this. |
 | Capture semantics differ from manual walk (e.g., nested matches) | Run old and new implementations side-by-side in tests during migration |
 | Some `collect_*` methods have imperative filtering logic (e.g., `collect_variable_refs_scoped` checks line ranges) | Use `QueryCursor::set_byte_range()` for spatial filtering; keep post-filter for semantic conditions |
 | Performance regression if queries are recompiled per call | `OnceLock<HashMap<(Language, QueryKind), Query>>` ensures single compilation |
@@ -142,7 +158,8 @@ migration:
 ### Estimated Scope
 
 - **New file**: `src/queries.rs` (~300 lines: registry + 11 languages x ~13 query kinds)
-- **Modified**: `src/ast.rs` (net reduction of ~800 lines after full migration)
+- **New test**: query validation test (~100 lines: compile + fixture-match for all 143 query strings)
+- **Modified**: `src/ast.rs` (net reduction of ~500 lines after full migration — not ~800, because Phases 8-9 retain significant post-processing logic)
 - **Modified**: `src/languages/mod.rs` (net reduction of ~200 lines)
 - **Modified**: `src/lib.rs` (add `pub mod queries;`)
 - **No algorithm changes** — the `ParsedFile` public API stays the same.
@@ -226,6 +243,15 @@ impl CallGraph {
 Cost: O(total AST nodes) but with a small constant — just function/call
 discovery, no string scanning or alias resolution.
 
+**Known limitation — qualified calls:** The skeleton resolves callees by bare
+function name only. Qualified calls like `utils.process()` or `mod::handler()`
+won't resolve to the defining file unless the skeleton also resolves
+`utils`/`mod` to a file path (which requires import resolution — see E6). This
+means the scope will be slightly too narrow for Python/JS/TS codebases with
+heavy use of qualified calls. For the review agent this is acceptable: missing a
+callee from scope means less context, not wrong context. The full CPG fallback
+(no `--scoped-cpg`) remains available for cases where completeness matters.
+
 From this skeleton, compute the scoped file set:
 
 ```rust
@@ -276,19 +302,26 @@ fn build_scoped(
     files: &BTreeMap<String, ParsedFile>,
     diff: &DiffInput,
     type_db: Option<&TypeDatabase>,
-) -> CodePropertyGraph {
-    // Pass 1
+) -> (CodePropertyGraph, CpgScope) {
+    // Pass 1: skeleton call graph (Phases 1-2 only)
     let skeleton_cg = CallGraph::build_skeleton(files);
     let scope = compute_scope(&skeleton_cg, diff, files);
 
-    // Pass 2: build full CPG on scoped subset
-    let scoped_files: BTreeMap<&String, &ParsedFile> = files
+    // Short-circuit: if scope covers >50% of files, just build the full CPG.
+    // The skeleton overhead isn't worth it when most files are in scope anyway.
+    if scope.len() > files.len() / 2 {
+        return (Self::build_impl(files, type_db), /* full scope */);
+    }
+
+    // Pass 2: build filtered BTreeMap (clone keys, borrow values — trivial cost)
+    let scoped_files: BTreeMap<String, &ParsedFile> = files
         .iter()
-        .filter(|(k, _)| scope.contains(*k))
+        .filter(|(k, _)| scope.contains(k.as_str()))
+        .map(|(k, v)| (k.clone(), v))
         .collect();
 
-    // Reuse existing build_impl logic on scoped_files
-    Self::build_impl(&scoped_files, type_db)
+    // Reuse existing build_impl logic on scoped subset
+    (Self::build_impl_borrowed(&scoped_files, type_db), CpgScope { ... })
 }
 ```
 
@@ -303,20 +336,19 @@ pub struct CpgContext<'a> {
     pub cpg: CodePropertyGraph,
     pub files: &'a BTreeMap<String, ParsedFile>,
     pub type_db: Option<&'a TypeDatabase>,
-    pub scope: Option<CpgScope>,  // NEW
+    pub scope: Option<CpgScope>,  // NEW — None means full (unscoped)
 }
 
+/// Metadata about a diff-scoped CPG. Present only when build_scoped() was used.
 pub struct CpgScope {
-    pub scoped_files: BTreeSet<String>,
-    pub changed_files: BTreeSet<String>,
-    pub tier: ScopeTier,
-}
-
-pub enum ScopeTier {
-    Full,              // all files (existing behavior)
-    DiffPlusCallers,   // Tier 0 + 1 + 2
+    pub scoped_files: BTreeSet<String>,   // all files in the CPG
+    pub changed_files: BTreeSet<String>,  // Tier 0 only (from DiffInput)
 }
 ```
+
+No enum — `scope: None` means full CPG, `scope: Some(_)` means scoped.
+Algorithms check `ctx.scope.is_some()` when they need to qualify results
+(e.g., "no callers found" vs "no callers found within scope").
 
 #### 5. Wire into algorithm dispatch
 
@@ -372,13 +404,18 @@ results. Options:
 
 Recommend option 2: the review use case prioritizes speed over exhaustiveness.
 
+**Note on resonance_slice interaction:** `resonance_slice` uses git history, not
+the CPG graph. `CpgContext` scopes the CPG but `ctx.files` still contains all
+parsed files. Since `resonance_slice` operates on `ctx.files` and git commit
+counts (not CPG edges), scoped CPG mode does not affect its results.
+
 ### Risks & Mitigations
 
 | Risk | Mitigation |
 |------|-----------|
 | Skeleton call graph misses indirect calls → incomplete scope | Indirect calls are rare in practice; Phase 3 resolution in skeleton would negate savings. Accept as known limitation. |
 | Scoped CPG produces different results than full CPG | Add integration test: run both modes on the same diff, verify scoped results ⊆ full results |
-| `build_impl` assumes ownership of files map | Refactor to accept `impl Iterator<Item = (&str, &ParsedFile)>` or use a trait |
+| `build_impl` assumes `&BTreeMap<String, ParsedFile>` | Build a filtered `BTreeMap<String, &ParsedFile>` (clone keys, borrow values) rather than refactoring `build_impl`/`DataFlowGraph::build()`/`CallGraph::build()` to accept generic iterators. The key cloning cost is trivial relative to CPG construction. Adjust the three builders to accept `&BTreeMap<String, &ParsedFile>` — a contained change to function signatures, not a trait abstraction. |
 | Two-pass construction could be slower for small repos | Short-circuit: if `scope.len() > files.len() * 0.5`, fall back to full build |
 
 ### Estimated Scope
