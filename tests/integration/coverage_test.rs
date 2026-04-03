@@ -144,6 +144,8 @@ fn test_algorithm_language_matrix() {
         "tests/lang/typescript/lang_test.rs",
         "tests/lang/tsx/tsx_test.rs",
         "tests/lang/tsx/jsx_call_test.rs",
+        "tests/lang/tsx/hooks_test.rs",
+        "tests/lang/javascript/arrow_test.rs",
     ];
     let mut test_names_buf: Vec<String> = Vec::new();
     for tf in all_test_files {
@@ -306,6 +308,8 @@ fn test_language_coverage_minimum() {
         "tests/lang/typescript/lang_test.rs",
         "tests/lang/tsx/tsx_test.rs",
         "tests/lang/tsx/jsx_call_test.rs",
+        "tests/lang/tsx/hooks_test.rs",
+        "tests/lang/javascript/arrow_test.rs",
     ];
     let mut test_names_buf: Vec<String> = Vec::new();
     for tf in all_test_files {
@@ -406,6 +410,8 @@ fn test_coverage_matrix_validation() {
         "tests/lang/typescript/lang_test.rs",
         "tests/lang/tsx/tsx_test.rs",
         "tests/lang/tsx/jsx_call_test.rs",
+        "tests/lang/tsx/hooks_test.rs",
+        "tests/lang/javascript/arrow_test.rs",
         "src/cfg.rs",
         "src/cpg.rs",
         "src/type_db.rs",
