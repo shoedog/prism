@@ -39,6 +39,7 @@ pub mod data_flow;
 pub mod diff;
 pub mod languages;
 pub mod output;
+pub mod queries;
 pub mod react_hooks;
 pub mod slice;
 pub mod terraform;
