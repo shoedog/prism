@@ -56,6 +56,10 @@ path = "tests/algo/taxonomy/taint_sink_test.rs"
 name = "algo_taxonomy_misc"
 path = "tests/algo/taxonomy/misc_test.rs"
 
+[[test]]
+name = "algo_taxonomy_misc_lang"
+path = "tests/algo/taxonomy/misc_lang_test.rs"
+
 # ── Algorithm tests: Theoretical ──
 
 [[test]]
@@ -81,16 +85,32 @@ name = "algo_novel_absence"
 path = "tests/algo/novel/absence_test.rs"
 
 [[test]]
+name = "algo_novel_absence_lang"
+path = "tests/algo/novel/absence_lang_test.rs"
+
+[[test]]
 name = "algo_novel_echo_misc"
 path = "tests/algo/novel/echo_misc_test.rs"
+
+[[test]]
+name = "algo_novel_echo_misc_lang"
+path = "tests/algo/novel/echo_misc_lang_test.rs"
 
 [[test]]
 name = "algo_novel_membrane"
 path = "tests/algo/novel/membrane_test.rs"
 
 [[test]]
+name = "algo_novel_membrane_ext"
+path = "tests/algo/novel/membrane_ext_test.rs"
+
+[[test]]
 name = "algo_novel_provenance"
 path = "tests/algo/novel/provenance_test.rs"
+
+[[test]]
+name = "algo_novel_provenance_lang"
+path = "tests/algo/novel/provenance_lang_test.rs"
 
 # ── AST / DFG / CPG tests ──
 
@@ -119,6 +139,10 @@ path = "tests/ast/field_test.rs"
 [[test]]
 name = "lang_c_algo"
 path = "tests/lang/c/algo_test.rs"
+
+[[test]]
+name = "lang_c_cve"
+path = "tests/lang/c/cve_test.rs"
 
 [[test]]
 name = "lang_c_complex"
@@ -152,6 +176,10 @@ path = "tests/lang/rust/rust_test.rs"
 name = "lang_typescript"
 path = "tests/lang/typescript/typescript_test.rs"
 
+[[test]]
+name = "lang_typescript_lang"
+path = "tests/lang/typescript/lang_test.rs"
+
 # ── Integration tests ──
 
 [[test]]
@@ -171,6 +199,10 @@ path = "tests/integration/coverage_test.rs"
 [[test]]
 name = "cli_algo"
 path = "tests/cli/algo_test.rs"
+
+[[test]]
+name = "cli_validation"
+path = "tests/cli/validation_test.rs"
 
 [[test]]
 name = "cli_output"
