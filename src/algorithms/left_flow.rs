@@ -14,6 +14,102 @@ use crate::slice::{SliceConfig, SliceResult, SlicingAlgorithm};
 use anyhow::Result;
 use std::collections::{BTreeMap, BTreeSet};
 
+/// Shared left-flow tracing logic used by both LeftFlow (Algorithm 8) and
+/// FullFlow (Algorithm 9).
+///
+/// For a single function block, traces L-values, condition variables, function
+/// calls, and return statements. Returns the set of (line, is_diff) pairs that
+/// should be included in the slice.
+///
+/// Uses scope-aware variable reference lookup (`find_variable_references_scoped`)
+/// for L-value tracing to avoid false positives from same-named variables in
+/// different scopes.
+pub fn left_flow_core(
+    parsed: &ParsedFile,
+    files: &BTreeMap<String, ParsedFile>,
+    func_node: &tree_sitter::Node<'_>,
+    func_start: usize,
+    func_end: usize,
+    lines: &BTreeSet<usize>,
+    config: &SliceConfig,
+) -> BTreeMap<usize, bool> {
+    let mut slice_lines: BTreeMap<usize, bool> = BTreeMap::new();
+
+    // Always include function signature and closing
+    slice_lines.insert(func_start, false);
+    slice_lines.insert(func_end, false);
+
+    // Include all diff lines
+    for &line in lines {
+        slice_lines.insert(line, true);
+    }
+
+    // Phase 1: Trace L-values (assignment targets)
+    let lvalues = parsed.assignment_lvalues_on_lines(func_node, lines);
+    for (var_name, decl_line) in &lvalues {
+        let refs = parsed.find_variable_references_scoped(func_node, var_name, *decl_line);
+        for ref_line in refs {
+            if ref_line >= func_start && ref_line <= func_end {
+                slice_lines.entry(ref_line).or_insert(false);
+
+                // If the reference is inside a small branch, include the branch
+                if let Some((branch_start, branch_end)) = parsed.enclosing_branch(ref_line) {
+                    let branch_size = branch_end - branch_start + 1;
+                    if branch_size <= config.max_branch_lines {
+                        for l in branch_start..=branch_end {
+                            slice_lines.entry(l).or_insert(false);
+                        }
+                    } else {
+                        // Include just the branch boundaries
+                        slice_lines.entry(branch_start).or_insert(false);
+                        slice_lines.entry(branch_end).or_insert(false);
+                    }
+                }
+            }
+        }
+    }
+
+    // Phase 2: Control flow condition variables
+    let cond_vars = parsed.condition_variables_on_lines(func_node, lines);
+    for (var_name, _) in &cond_vars {
+        let refs = parsed.find_variable_references(func_node, var_name);
+        for ref_line in refs {
+            if ref_line >= func_start && ref_line <= func_end {
+                slice_lines.entry(ref_line).or_insert(false);
+            }
+        }
+    }
+
+    // Phase 3: Function calls on diff lines
+    let calls = parsed.function_calls_on_lines(func_node, lines);
+    for (func_name, _) in &calls {
+        // Try to find the callee in all parsed files
+        for (_file_path, other_parsed) in files {
+            if let Some(callee) = other_parsed.find_function_by_name(func_name) {
+                let (callee_start, callee_end) = other_parsed.node_line_range(&callee);
+                // Include callee function signature and boundaries
+                slice_lines.entry(callee_start).or_insert(false);
+                slice_lines.entry(callee_end).or_insert(false);
+            }
+        }
+    }
+
+    // Phase 4: Return statements
+    if config.include_returns {
+        let returns = parsed.return_statements(func_node);
+        for ret_line in returns {
+            slice_lines.entry(ret_line).or_insert(false);
+            // Include enclosing branch for return
+            if let Some((branch_start, branch_end)) = parsed.enclosing_branch(ret_line) {
+                slice_lines.entry(branch_start).or_insert(false);
+                slice_lines.entry(branch_end).or_insert(false);
+            }
+        }
+    }
+
+    slice_lines
+}
+
 pub fn slice(
     files: &BTreeMap<String, ParsedFile>,
     diff: &DiffInput,
@@ -48,81 +144,15 @@ pub fn slice(
                 None => continue,
             };
 
-            let mut slice_lines: BTreeMap<usize, bool> = BTreeMap::new();
-
-            // Always include function signature (start to first few lines)
-            slice_lines.insert(*func_start, false);
-            // Include function closing
-            slice_lines.insert(*func_end, false);
-
-            // Include all diff lines
-            for &line in lines {
-                slice_lines.insert(line, true);
-            }
-
-            // Phase 1: Trace L-values (assignment targets)
-            let lvalues = parsed.assignment_lvalues_on_lines(&func_node, lines);
-            for (var_name, decl_line) in &lvalues {
-                let refs = parsed.find_variable_references_scoped(&func_node, var_name, *decl_line);
-                for ref_line in refs {
-                    if ref_line >= *func_start && ref_line <= *func_end {
-                        slice_lines.entry(ref_line).or_insert(false);
-
-                        // If the reference is inside a small branch, include the branch
-                        if let Some((branch_start, branch_end)) = parsed.enclosing_branch(ref_line)
-                        {
-                            let branch_size = branch_end - branch_start + 1;
-                            if branch_size <= config.max_branch_lines {
-                                for l in branch_start..=branch_end {
-                                    slice_lines.entry(l).or_insert(false);
-                                }
-                            } else {
-                                // Include just the branch boundaries
-                                slice_lines.entry(branch_start).or_insert(false);
-                                slice_lines.entry(branch_end).or_insert(false);
-                            }
-                        }
-                    }
-                }
-            }
-
-            // Phase 2: Control flow condition variables
-            let cond_vars = parsed.condition_variables_on_lines(&func_node, lines);
-            for (var_name, _) in &cond_vars {
-                let refs = parsed.find_variable_references(&func_node, var_name);
-                for ref_line in refs {
-                    if ref_line >= *func_start && ref_line <= *func_end {
-                        slice_lines.entry(ref_line).or_insert(false);
-                    }
-                }
-            }
-
-            // Phase 3: Function calls on diff lines
-            let calls = parsed.function_calls_on_lines(&func_node, lines);
-            for (func_name, _) in &calls {
-                // Try to find the callee in all parsed files
-                for (_file_path, other_parsed) in files {
-                    if let Some(callee) = other_parsed.find_function_by_name(func_name) {
-                        let (callee_start, callee_end) = other_parsed.node_line_range(&callee);
-                        // Include callee function signature and boundaries
-                        slice_lines.entry(callee_start).or_insert(false);
-                        slice_lines.entry(callee_end).or_insert(false);
-                    }
-                }
-            }
-
-            // Phase 4: Return statements
-            if config.include_returns {
-                let returns = parsed.return_statements(&func_node);
-                for ret_line in returns {
-                    slice_lines.entry(ret_line).or_insert(false);
-                    // Include enclosing branch for return
-                    if let Some((branch_start, branch_end)) = parsed.enclosing_branch(ret_line) {
-                        slice_lines.entry(branch_start).or_insert(false);
-                        slice_lines.entry(branch_end).or_insert(false);
-                    }
-                }
-            }
+            let slice_lines = left_flow_core(
+                parsed,
+                files,
+                &func_node,
+                *func_start,
+                *func_end,
+                lines,
+                config,
+            );
 
             // Build block
             let mut block = DiffBlock::new(

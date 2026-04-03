@@ -63,22 +63,28 @@ pub fn slice(
 
     let changed_files: BTreeSet<String> = diff.files.iter().map(|f| f.file_path.clone()).collect();
 
-    // Get co-change data from git
-    let co_changes = get_co_change_data(&config.git_dir, config.days)?;
+    // Get co-change data from git, scoped to commits touching diff files
+    let (co_changes, file_commit_counts) =
+        get_co_change_data(&config.git_dir, config.days, &changed_files)?;
 
     // For each changed file, find files that usually co-change
     let mut findings: Vec<ResonanceFinding> = Vec::new();
 
     for changed_file in &changed_files {
         if let Some(partners) = co_changes.get(changed_file) {
+            // Total commits touching this file (not sum of co-changes)
+            let total = file_commit_counts
+                .get(changed_file)
+                .copied()
+                .unwrap_or(1)
+                .max(1);
+
             for (partner_file, &count) in partners {
                 if changed_files.contains(partner_file) {
                     continue; // Already in the diff, not missing
                 }
 
-                // Get total changes for the changed file
-                let total = partners.values().sum::<usize>().max(count);
-                let ratio = count as f64 / total.max(1) as f64;
+                let ratio = count as f64 / total as f64;
 
                 if count >= config.min_co_changes && ratio >= config.min_ratio {
                     findings.push(ResonanceFinding {
@@ -128,11 +134,23 @@ pub fn slice(
 }
 
 /// Query git for co-change data: which files change together.
+///
+/// Only processes commits that touch at least one file in `diff_files`, avoiding
+/// the full N×N matrix for commits unrelated to the current diff.
+///
+/// Returns:
+/// - co-change counts: file → (partner_file → co_change_count)
+/// - per-file commit counts: file → number_of_commits_touching_that_file
 fn get_co_change_data(
     git_dir: &str,
     days: usize,
-) -> Result<BTreeMap<String, BTreeMap<String, usize>>> {
+    diff_files: &BTreeSet<String>,
+) -> Result<(
+    BTreeMap<String, BTreeMap<String, usize>>,
+    BTreeMap<String, usize>,
+)> {
     let mut co_changes: BTreeMap<String, BTreeMap<String, usize>> = BTreeMap::new();
+    let mut file_commit_counts: BTreeMap<String, usize> = BTreeMap::new();
 
     // Get commit hashes in the time window
     let output = Command::new("git")
@@ -175,6 +193,17 @@ fn get_co_change_data(
             continue;
         }
 
+        // Only process commits that touch at least one file from the diff
+        let touches_diff = files_in_commit.iter().any(|f| diff_files.contains(f));
+        if !touches_diff {
+            continue;
+        }
+
+        // Track per-file commit counts
+        for f in &files_in_commit {
+            *file_commit_counts.entry(f.clone()).or_insert(0) += 1;
+        }
+
         // Record co-changes: for each pair of files in this commit
         for i in 0..files_in_commit.len() {
             for j in (i + 1)..files_in_commit.len() {
@@ -194,5 +223,5 @@ fn get_co_change_data(
         }
     }
 
-    Ok(co_changes)
+    Ok((co_changes, file_commit_counts))
 }
