@@ -246,7 +246,10 @@ impl ParsedFile {
         // The loop variable isn't inside a standard declaration node.
         if lines.contains(&line)
             && node.kind() == "for_in_statement"
-            && matches!(self.language, Language::JavaScript | Language::TypeScript)
+            && matches!(
+                self.language,
+                Language::JavaScript | Language::TypeScript | Language::Tsx
+            )
         {
             self.extract_for_in_lvalues(&node, line, out);
         }
@@ -462,7 +465,10 @@ impl ParsedFile {
             // Gap 3: JS/TS for-of/for-in with destructuring patterns
             // `for (const { name, id } of items)` → name aliases items.name
             if node.kind() == "for_in_statement"
-                && matches!(self.language, Language::JavaScript | Language::TypeScript)
+                && matches!(
+                    self.language,
+                    Language::JavaScript | Language::TypeScript | Language::Tsx
+                )
             {
                 self.extract_for_in_aliases(&node, line, out);
             }
@@ -490,7 +496,10 @@ impl ParsedFile {
         out: &mut Vec<(String, String, usize)>,
     ) -> bool {
         // Only JS/TS have destructuring patterns
-        if !matches!(self.language, Language::JavaScript | Language::TypeScript) {
+        if !matches!(
+            self.language,
+            Language::JavaScript | Language::TypeScript | Language::Tsx
+        ) {
             return false;
         }
 
