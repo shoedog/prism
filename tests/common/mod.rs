@@ -741,3 +741,66 @@ pub fn create_temp_git_repo(filename: &str, contents: &[&str]) -> TempDir {
 
     tmp
 }
+
+pub fn make_terraform_test() -> (
+    BTreeMap<String, ParsedFile>,
+    BTreeMap<String, String>,
+    DiffInput,
+) {
+    let source = r#"
+variable "allowed_cidrs" {
+  description = "CIDRs allowed to access the service"
+  type        = list(string)
+}
+
+variable "instance_type" {
+  default = "t3.micro"
+}
+
+locals {
+  merged_cidrs = concat(var.allowed_cidrs, ["10.0.0.0/8"])
+  env_name     = "production"
+}
+
+resource "aws_security_group" "web" {
+  name = "web-${local.env_name}"
+
+  ingress {
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = local.merged_cidrs
+  }
+}
+
+resource "aws_instance" "web" {
+  ami           = "ami-0123456789abcdef0"
+  instance_type = var.instance_type
+  user_data     = "startup-script"
+
+  vpc_security_group_ids = [aws_security_group.web.id]
+}
+
+output "instance_ip" {
+  value = aws_instance.web.public_ip
+}
+"#;
+
+    let path = "main.tf";
+    let parsed = ParsedFile::parse(path, source, Language::Terraform).unwrap();
+    let mut files = BTreeMap::new();
+    let mut sources = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+    sources.insert(path.to_string(), source.to_string());
+
+    // Diff: the cidr_blocks line and user_data line were changed
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([24, 32]),
+        }],
+    };
+
+    (files, sources, diff)
+}

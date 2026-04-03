@@ -264,6 +264,7 @@ fn find_async_inner(parsed: &ParsedFile, node: Node<'_>, out: &mut Vec<usize>) {
                     || text.contains("coroutine.yield(")
             }
         }
+        Language::Terraform => false, // HCL is declarative, no async patterns
     };
 
     if is_async {
@@ -501,6 +502,7 @@ fn is_async_function(
                 || text.contains("coroutine.resume(")
                 || text.contains("coroutine.wrap(")
         }
+        Language::Terraform => false, // HCL is declarative, no async patterns
     }
 }
 

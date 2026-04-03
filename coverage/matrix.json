@@ -416,7 +416,8 @@
       "c": "none",
       "cpp": "none",
       "rust": "basic",
-      "lua": "none"
+      "lua": "none",
+      "terraform": "basic"
     },
     "parent_function": {
       "python": "basic",
@@ -427,7 +428,8 @@
       "c": "none",
       "cpp": "none",
       "rust": "basic",
-      "lua": "basic"
+      "lua": "basic",
+      "terraform": "basic"
     },
     "left_flow": {
       "python": "basic",
@@ -438,7 +440,8 @@
       "c": "basic",
       "cpp": "basic",
       "rust": "none",
-      "lua": "none"
+      "lua": "none",
+      "terraform": "none"
     },
     "full_flow": {
       "python": "full",
@@ -449,7 +452,8 @@
       "c": "basic",
       "cpp": "basic",
       "rust": "none",
-      "lua": "none"
+      "lua": "none",
+      "terraform": "none"
     },
     "thin_slice": {
       "python": "basic",
@@ -460,7 +464,8 @@
       "c": "basic",
       "cpp": "basic",
       "rust": "basic",
-      "lua": "basic"
+      "lua": "basic",
+      "terraform": "none"
     },
     "barrier_slice": {
       "python": "basic",
@@ -471,7 +476,8 @@
       "c": "none",
       "cpp": "none",
       "rust": "none",
-      "lua": "none"
+      "lua": "none",
+      "terraform": "none"
     },
     "taint": {
       "python": "full",
@@ -482,7 +488,8 @@
       "c": "full",
       "cpp": "none",
       "rust": "full",
-      "lua": "full"
+      "lua": "full",
+      "terraform": "full"
     },
     "chop": {
       "python": "basic",
@@ -493,7 +500,8 @@
       "c": "none",
       "cpp": "none",
       "rust": "none",
-      "lua": "none"
+      "lua": "none",
+      "terraform": "none"
     },
     "relevant_slice": {
       "python": "basic",
@@ -504,7 +512,8 @@
       "c": "none",
       "cpp": "none",
       "rust": "none",
-      "lua": "none"
+      "lua": "none",
+      "terraform": "none"
     },
     "conditioned_slice": {
       "python": "basic",
@@ -515,7 +524,8 @@
       "c": "none",
       "cpp": "none",
       "rust": "none",
-      "lua": "none"
+      "lua": "none",
+      "terraform": "none"
     },
     "delta_slice": {
       "python": "basic",
@@ -526,7 +536,8 @@
       "c": "none",
       "cpp": "none",
       "rust": "none",
-      "lua": "none"
+      "lua": "none",
+      "terraform": "none"
     },
     "spiral_slice": {
       "python": "full",
@@ -537,7 +548,8 @@
       "c": "none",
       "cpp": "none",
       "rust": "none",
-      "lua": "none"
+      "lua": "none",
+      "terraform": "none"
     },
     "circular_slice": {
       "python": "basic",
@@ -548,7 +560,8 @@
       "c": "none",
       "cpp": "none",
       "rust": "none",
-      "lua": "none"
+      "lua": "none",
+      "terraform": "none"
     },
     "quantum_slice": {
       "python": "full",
@@ -559,7 +572,8 @@
       "c": "full",
       "cpp": "none",
       "rust": "basic",
-      "lua": "basic"
+      "lua": "basic",
+      "terraform": "none"
     },
     "horizontal_slice": {
       "python": "full",
@@ -570,7 +584,8 @@
       "c": "none",
       "cpp": "none",
       "rust": "none",
-      "lua": "none"
+      "lua": "none",
+      "terraform": "none"
     },
     "vertical_slice": {
       "python": "full",
@@ -581,7 +596,8 @@
       "c": "none",
       "cpp": "none",
       "rust": "none",
-      "lua": "none"
+      "lua": "none",
+      "terraform": "none"
     },
     "angle_slice": {
       "python": "full",
@@ -592,7 +608,8 @@
       "c": "none",
       "cpp": "none",
       "rust": "none",
-      "lua": "none"
+      "lua": "none",
+      "terraform": "none"
     },
     "threed_slice": {
       "python": "basic",
@@ -603,7 +620,8 @@
       "c": "none",
       "cpp": "none",
       "rust": "none",
-      "lua": "none"
+      "lua": "none",
+      "terraform": "none"
     },
     "absence_slice": {
       "python": "full",
@@ -614,7 +632,8 @@
       "c": "full",
       "cpp": "basic",
       "rust": "full",
-      "lua": "basic"
+      "lua": "basic",
+      "terraform": "full"
     },
     "resonance_slice": {
       "python": "basic",
@@ -625,7 +644,8 @@
       "c": "none",
       "cpp": "none",
       "rust": "none",
-      "lua": "none"
+      "lua": "none",
+      "terraform": "none"
     },
     "symmetry_slice": {
       "python": "basic",
@@ -636,7 +656,8 @@
       "c": "basic",
       "cpp": "basic",
       "rust": "none",
-      "lua": "none"
+      "lua": "none",
+      "terraform": "none"
     },
     "gradient_slice": {
       "python": "basic",
@@ -647,7 +668,8 @@
       "c": "basic",
       "cpp": "none",
       "rust": "none",
-      "lua": "none"
+      "lua": "none",
+      "terraform": "none"
     },
     "provenance_slice": {
       "python": "full",
@@ -658,7 +680,8 @@
       "c": "full",
       "cpp": "none",
       "rust": "full",
-      "lua": "full"
+      "lua": "full",
+      "terraform": "full"
     },
     "phantom_slice": {
       "python": "basic",
@@ -669,7 +692,8 @@
       "c": "none",
       "cpp": "none",
       "rust": "none",
-      "lua": "none"
+      "lua": "none",
+      "terraform": "none"
     },
     "membrane_slice": {
       "python": "basic",
@@ -680,7 +704,8 @@
       "c": "full",
       "cpp": "full",
       "rust": "basic",
-      "lua": "basic"
+      "lua": "basic",
+      "terraform": "none"
     },
     "echo_slice": {
       "python": "basic",
@@ -691,7 +716,8 @@
       "c": "full",
       "cpp": "none",
       "rust": "none",
-      "lua": "none"
+      "lua": "none",
+      "terraform": "none"
     }
   }
 }

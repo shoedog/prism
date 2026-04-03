@@ -143,6 +143,9 @@ const USER_INPUT_PATTERNS: &[&str] = &[
     "gets(",
     "getline(",
     "accept(",
+    // === Terraform / HCL ===
+    "var.",           // Terraform variable inputs (user-supplied via tfvars/CLI)
+    "variable ",      // variable block definitions
 ];
 
 const DATABASE_PATTERNS: &[&str] = &[
@@ -200,6 +203,9 @@ const DATABASE_PATTERNS: &[&str] = &[
     "cursor:fetch",  // LuaSQL cursor fetching
     "redis:get",     // Redis Lua client
     "redis:hgetall", // Redis hash retrieval
+    // === Terraform / HCL ===
+    "data.",          // Terraform data sources — infrastructure queries
+    "data \"",        // data block definitions
 ];
 
 const CONFIG_PATTERNS: &[&str] = &[
@@ -243,6 +249,10 @@ const CONFIG_PATTERNS: &[&str] = &[
     // === C/C++ command-line option and config file parsing ===
     "getopt(",
     "fopen(",
+    // === Terraform / HCL ===
+    "local.",          // Terraform locals — computed/derived values
+    "locals ",         // locals block definitions
+    "module.",         // Terraform module outputs — computed from submodules
 ];
 
 const ENV_PATTERNS: &[&str] = &[

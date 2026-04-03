@@ -12,6 +12,7 @@ pub enum Language {
     Cpp,
     Rust,
     Lua,
+    Terraform,
 }
 
 impl Language {
@@ -27,6 +28,7 @@ impl Language {
             "cpp" | "cc" | "cxx" | "hpp" | "hxx" | "hh" => Some(Self::Cpp),
             "rs" => Some(Self::Rust),
             "lua" => Some(Self::Lua),
+            "tf" | "hcl" => Some(Self::Terraform),
             _ => None,
         }
     }
@@ -49,6 +51,7 @@ impl Language {
             Self::Cpp => tree_sitter_cpp::LANGUAGE.into(),
             Self::Rust => tree_sitter_rust::LANGUAGE.into(),
             Self::Lua => tree_sitter_lua::LANGUAGE.into(),
+            Self::Terraform => tree_sitter_hcl::LANGUAGE.into(),
         }
     }
 
@@ -76,6 +79,8 @@ impl Language {
             Self::Cpp => vec!["function_definition", "template_declaration"],
             Self::Rust => vec!["function_item"],
             Self::Lua => vec!["function_declaration", "local_function"],
+            // Terraform: blocks (resource, variable, module, etc.) are the structural unit
+            Self::Terraform => vec!["block"],
         }
     }
 
@@ -91,6 +96,7 @@ impl Language {
                 | "field_expression"
                 | "qualified_identifier"
                 | "namespace_identifier"
+                | "variable_expr" // HCL: var.x, local.y
         )
     }
 
@@ -121,6 +127,8 @@ impl Language {
             }
             Self::Rust => matches!(kind, "assignment_expression" | "compound_assignment_expr"),
             Self::Lua => matches!(kind, "assignment_statement"),
+            // HCL attributes are key = value, similar to assignments
+            Self::Terraform => matches!(kind, "attribute"),
         }
     }
 
@@ -147,6 +155,8 @@ impl Language {
             }
             Self::Rust => matches!(kind, "let_declaration" | "const_item" | "static_item"),
             Self::Lua => matches!(kind, "local_variable_declaration"),
+            // HCL variable/locals blocks act as declarations
+            Self::Terraform => matches!(kind, "block"),
         }
     }
 
@@ -180,6 +190,17 @@ impl Language {
                 }
                 None
             }
+            Self::Terraform => {
+                // HCL attribute: identifier = expression
+                // The first named child is the identifier (key)
+                let mut cursor = node.walk();
+                for child in node.children(&mut cursor) {
+                    if child.kind() == "identifier" {
+                        return Some(child);
+                    }
+                }
+                None
+            }
         }
     }
 
@@ -207,6 +228,17 @@ impl Language {
                 for child in node.children(&mut cursor) {
                     if child.kind() == "expression_list" {
                         return child.child(0);
+                    }
+                }
+                None
+            }
+            Self::Terraform => {
+                // HCL attribute: identifier = expression
+                // The expression child is the value
+                let mut cursor = node.walk();
+                for child in node.children(&mut cursor) {
+                    if child.kind() == "expression" {
+                        return Some(child);
                     }
                 }
                 None
@@ -310,6 +342,17 @@ impl Language {
                 }
                 None
             }
+            Self::Terraform => {
+                // HCL block: block identifier string_lit* { body }
+                // First identifier child is the block type (resource, variable, etc.)
+                let mut cursor = node.walk();
+                for child in node.children(&mut cursor) {
+                    if child.kind() == "identifier" {
+                        return Some(child);
+                    }
+                }
+                None
+            }
         }
     }
 
@@ -380,6 +423,16 @@ impl Language {
                 }
                 None
             }
+            Self::Terraform => {
+                // HCL block body is the "value" of a block declaration
+                let mut cursor = node.walk();
+                for child in node.children(&mut cursor) {
+                    if child.kind() == "body" {
+                        return Some(child);
+                    }
+                }
+                None
+            }
         }
     }
 
@@ -406,6 +459,9 @@ impl Language {
                 | "for_expression"         // Rust
                 | "loop_expression"   // Rust
                 | "repeat_statement" // Lua repeat..until
+                | "conditional"     // HCL ternary: condition ? true : false
+                | "for_tuple_expr"  // HCL [for x in list : ...]
+                | "for_object_expr" // HCL {for k, v in map : ...}
         )
     }
 
@@ -424,7 +480,7 @@ impl Language {
                 | "method_invocation"
                 | "object_creation_expression"
                 | "new_expression"
-                | "function_call" // Lua
+                | "function_call" // Lua and HCL
         )
     }
 
@@ -435,7 +491,7 @@ impl Language {
             .or_else(|| node.child_by_field_name("name"))
             .or_else(|| node.child_by_field_name("object"))
             .or_else(|| {
-                // Lua function_call: first child is the function expression
+                // Lua/HCL function_call: first child is the function expression
                 if node.kind() == "function_call" {
                     node.child(0)
                 } else {
@@ -478,6 +534,18 @@ impl Language {
     pub fn call_arguments<'a>(&self, node: &Node<'a>) -> Option<Node<'a>> {
         node.child_by_field_name("arguments")
             .or_else(|| node.child_by_field_name("argument_list"))
+            .or_else(|| {
+                // HCL function_call: arguments in function_arguments child
+                if node.kind() == "function_call" {
+                    let mut cursor = node.walk();
+                    for child in node.children(&mut cursor) {
+                        if child.kind() == "function_arguments" {
+                            return Some(child);
+                        }
+                    }
+                }
+                None
+            })
     }
 
     /// Whether a node kind represents a lexical scope block that introduces variable shadowing.
@@ -526,6 +594,8 @@ impl Language {
                     | "fallthrough_statement"
                     // Rust
                     | "macro_invocation"
+                    // HCL / Terraform
+                    | "attribute"
             )
     }
 
@@ -606,6 +676,31 @@ impl Language {
 
         // Lua function_declaration: name is in "name" field
         // local_function: name is in "name" field
+        // HCL block: first child is block type identifier (resource, variable, etc.)
+        if matches!(self, Self::Terraform) && node.kind() == "block" {
+            // For HCL blocks, construct name from type + labels
+            // e.g., resource "aws_instance" "web" -> first identifier is "resource"
+            // We return the first string_lit label as the "name" for better identification
+            let mut cursor = node.walk();
+            let mut found_type = false;
+            for child in node.children(&mut cursor) {
+                if child.kind() == "identifier" && !found_type {
+                    found_type = true;
+                    continue;
+                }
+                if child.kind() == "string_lit" || child.kind() == "identifier" {
+                    return Some(child);
+                }
+            }
+            // Fall back to the block type identifier
+            let mut cursor2 = node.walk();
+            for child in node.children(&mut cursor2) {
+                if child.kind() == "identifier" {
+                    return Some(child);
+                }
+            }
+            return None;
+        }
         node.child_by_field_name("name")
     }
 }
