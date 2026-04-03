@@ -434,7 +434,8 @@ fn test_algorithm_language_matrix() {
     let all_test_files = &[
         "tests/integration_test.rs",
         "tests/algo_paper_test.rs",
-        "tests/algo_taxonomy_test.rs",
+        "tests/algo_taint_test.rs",
+        "tests/algo_taxonomy_misc_test.rs",
         "tests/algo_theoretical_test.rs",
         "tests/algo_novel_absence_test.rs",
         "tests/algo_novel_provenance_test.rs",
@@ -565,7 +566,8 @@ fn test_language_coverage_minimum() {
     let all_test_files = &[
         "tests/integration_test.rs",
         "tests/algo_paper_test.rs",
-        "tests/algo_taxonomy_test.rs",
+        "tests/algo_taint_test.rs",
+        "tests/algo_taxonomy_misc_test.rs",
         "tests/algo_theoretical_test.rs",
         "tests/algo_novel_absence_test.rs",
         "tests/algo_novel_provenance_test.rs",
@@ -1605,7 +1607,8 @@ fn test_coverage_matrix_validation() {
     let test_files = &[
         "tests/integration_test.rs",
         "tests/algo_paper_test.rs",
-        "tests/algo_taxonomy_test.rs",
+        "tests/algo_taint_test.rs",
+        "tests/algo_taxonomy_misc_test.rs",
         "tests/algo_theoretical_test.rs",
         "tests/algo_novel_absence_test.rs",
         "tests/algo_novel_provenance_test.rs",
