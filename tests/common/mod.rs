@@ -353,7 +353,6 @@ void bulk_process(const char **inputs, int count) {
     (files, sources, diff)
 }
 
-
 pub fn make_c_multifile_test() -> (
     BTreeMap<String, ParsedFile>,
     BTreeMap<String, String>,
@@ -422,7 +421,6 @@ int handle_batch(const char **names, int count) {
 
     (files, sources, diff)
 }
-
 
 pub fn make_cpp_test() -> (
     BTreeMap<String, ParsedFile>,
@@ -512,7 +510,6 @@ int process_devices(DeviceManager& mgr, const std::vector<std::string>& names) {
     (files, sources, diff)
 }
 
-
 pub fn make_snmp_overflow_test() -> (BTreeMap<String, ParsedFile>, DiffInput) {
     let source = r#"
 #include <stdint.h>
@@ -544,7 +541,6 @@ void handle_snmp_set(uint8_t *pdu, size_t pdu_len) {
 
     (files, diff)
 }
-
 
 pub fn make_double_free_test() -> (BTreeMap<String, ParsedFile>, DiffInput) {
     let source = r#"
@@ -594,7 +590,6 @@ cleanup:
     (files, diff)
 }
 
-
 pub fn make_ring_overflow_test() -> (BTreeMap<String, ParsedFile>, DiffInput) {
     let source = r#"
 #include <stdint.h>
@@ -626,7 +621,6 @@ void ring_write(uint8_t *data, int count) {
 
     (files, diff)
 }
-
 
 pub fn make_timer_uaf_test() -> (BTreeMap<String, ParsedFile>, DiffInput) {
     let source = r#"
@@ -667,7 +661,6 @@ void timer_tick(struct timer_ctx *timer) {
     (files, diff)
 }
 
-
 pub fn make_large_function_test() -> (BTreeMap<String, ParsedFile>, DiffInput) {
     let source = include_str!("../fixtures/c/large_function.c");
 
@@ -688,7 +681,6 @@ pub fn make_large_function_test() -> (BTreeMap<String, ParsedFile>, DiffInput) {
     (files, diff)
 }
 
-
 pub fn make_deep_switch_test() -> (BTreeMap<String, ParsedFile>, DiffInput) {
     let source = include_str!("../fixtures/c/deep_switch.c");
 
@@ -708,7 +700,6 @@ pub fn make_deep_switch_test() -> (BTreeMap<String, ParsedFile>, DiffInput) {
 
     (files, diff)
 }
-
 
 pub fn create_temp_git_repo(filename: &str, contents: &[&str]) -> TempDir {
     let tmp = TempDir::new().unwrap();
@@ -750,4 +741,3 @@ pub fn create_temp_git_repo(filename: &str, contents: &[&str]) -> TempDir {
 
     tmp
 }
-

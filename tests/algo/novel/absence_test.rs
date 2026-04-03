@@ -26,7 +26,6 @@ def process_file(path):
     (files, diff)
 }
 
-
 fn make_absence_test_fixture() -> (
     BTreeMap<String, ParsedFile>,
     BTreeMap<String, String>,
@@ -67,7 +66,6 @@ def safe_worker():
 
     (files, sources, diff)
 }
-
 
 #[test]
 fn test_absence_slice_detects_missing_close() {

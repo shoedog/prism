@@ -2,7 +2,6 @@
 mod common;
 use common::*;
 
-
 #[test]
 fn test_membrane_slice_finds_callers() {
     let (files, _, diff) = make_python_test();

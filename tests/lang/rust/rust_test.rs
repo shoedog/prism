@@ -44,7 +44,6 @@ fn process(data: &str) -> Option<i32> {
     );
 }
 
-
 #[test]
 fn test_rust_original_diff() {
     let source = r#"
@@ -79,7 +78,6 @@ fn process(data: &str) -> i32 {
         "OriginalDiff should produce blocks for Rust code"
     );
 }
-
 
 #[test]
 fn test_rust_parent_function() {
@@ -124,7 +122,6 @@ fn process(data: &str) -> i32 {
     );
 }
 
-
 #[test]
 fn test_dfg_rust_field_access_paths() {
     // Rust field_expression: self.field or obj.field
@@ -160,7 +157,6 @@ fn setup(config: &mut Config) {
     );
 }
 
-
 #[test]
 fn test_rust_let_destructuring_def() {
     // Rust let (a, b) = tuple; — destructuring in let_declaration
@@ -179,7 +175,6 @@ fn process() {
     let x_defs = dfg.all_defs_of(path, "x");
     assert!(!x_defs.is_empty(), "Rust let: 'x' should have a def");
 }
-
 
 #[test]
 fn test_rust_compound_assignment() {
@@ -204,4 +199,3 @@ fn process() {
         lvalues.iter().map(|(p, _)| &p.base).collect::<Vec<_>>()
     );
 }
-

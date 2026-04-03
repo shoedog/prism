@@ -32,7 +32,6 @@ def pong(n):
     (files, diff)
 }
 
-
 #[test]
 fn test_spiral_slice_ring_containment() {
     let (files, _, diff) = make_python_test();

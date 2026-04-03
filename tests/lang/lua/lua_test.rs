@@ -40,7 +40,6 @@ end
     );
 }
 
-
 #[test]
 fn test_lua_parent_function() {
     let source = r#"
@@ -77,7 +76,6 @@ end
     );
 }
 
-
 #[test]
 fn test_dfg_lua_field_access_paths() {
     // Lua dot_index_expression: obj.field
@@ -107,7 +105,6 @@ end
             .collect::<Vec<_>>()
     );
 }
-
 
 #[test]
 fn test_lua_colon_method_field_access() {
@@ -146,7 +143,6 @@ end
     );
 }
 
-
 #[test]
 fn test_lua_assignment_target_and_value() {
     // Lua assignment_target walks variable_list, assignment_value walks expression_list
@@ -170,7 +166,6 @@ end
     );
 }
 
-
 #[test]
 fn test_lua_alias_assignment() {
     // Tests Lua assignment_target/assignment_value via alias tracking
@@ -190,4 +185,3 @@ end
     let b_aliases_a = aliases.iter().any(|(a, t, _)| a == "b" && t == "a");
     assert!(b_aliases_a, "Lua: 'b' should alias 'a', got: {:?}", aliases);
 }
-

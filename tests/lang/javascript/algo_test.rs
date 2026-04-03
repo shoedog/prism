@@ -20,7 +20,10 @@ fn test_parent_function_javascript() {
         None,
     )
     .unwrap();
-    assert!(!result.blocks.is_empty(), "ParentFunction JS should produce blocks");
+    assert!(
+        !result.blocks.is_empty(),
+        "ParentFunction JS should produce blocks"
+    );
     // ParentFunction should include the enclosing function of the diff lines
     let block = &result.blocks[0];
     assert!(
@@ -39,7 +42,10 @@ fn test_thin_slice_javascript() {
         None,
     )
     .unwrap();
-    assert!(!result.blocks.is_empty(), "ThinSlice JS should produce blocks");
+    assert!(
+        !result.blocks.is_empty(),
+        "ThinSlice JS should produce blocks"
+    );
     assert_eq!(result.algorithm, SlicingAlgorithm::ThinSlice);
 }
 
@@ -53,7 +59,10 @@ fn test_relevant_slice_javascript() {
         None,
     )
     .unwrap();
-    assert!(!result.blocks.is_empty(), "RelevantSlice JS should produce blocks");
+    assert!(
+        !result.blocks.is_empty(),
+        "RelevantSlice JS should produce blocks"
+    );
     assert_eq!(result.algorithm, SlicingAlgorithm::RelevantSlice);
 }
 
@@ -99,7 +108,10 @@ fn test_gradient_slice_javascript() {
         None,
     )
     .unwrap();
-    assert!(!result.blocks.is_empty(), "GradientSlice JS should produce blocks");
+    assert!(
+        !result.blocks.is_empty(),
+        "GradientSlice JS should produce blocks"
+    );
     assert_eq!(result.algorithm, SlicingAlgorithm::GradientSlice);
 }
 
@@ -174,7 +186,10 @@ function caller() {
     let result =
         prism::algorithms::spiral_slice::slice(&ctx, &diff, &config, &spiral_config).unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::SpiralSlice);
-    assert!(!result.blocks.is_empty(), "SpiralSlice JS should produce blocks");
+    assert!(
+        !result.blocks.is_empty(),
+        "SpiralSlice JS should produce blocks"
+    );
 }
 
 #[test]
@@ -264,7 +279,10 @@ fn test_delta_slice_javascript() {
 fn test_resonance_slice_javascript() {
     let source = "function update(x) {\n    const y = x + 1;\n    return y;\n}\n";
     let filename = "app.js";
-    let tmp = create_temp_git_repo(filename, &["function update(x) {\n    return x;\n}\n", source]);
+    let tmp = create_temp_git_repo(
+        filename,
+        &["function update(x) {\n    return x;\n}\n", source],
+    );
 
     let parsed = ParsedFile::parse(filename, source, Language::JavaScript).unwrap();
     let mut files = BTreeMap::new();
@@ -490,7 +508,10 @@ function level2(z) {
         None,
     )
     .unwrap();
-    assert!(!result.blocks.is_empty(), "BarrierSlice JS should produce blocks for call chain");
+    assert!(
+        !result.blocks.is_empty(),
+        "BarrierSlice JS should produce blocks for call chain"
+    );
     assert_eq!(result.algorithm, SlicingAlgorithm::BarrierSlice);
 }
 

@@ -2,7 +2,6 @@
 mod common;
 use common::*;
 
-
 #[test]
 fn test_thin_slice_subset_of_leftflow() {
     let (files, _, diff) = make_python_test();

@@ -50,7 +50,6 @@ def deserialize(text):
     (files, diff)
 }
 
-
 #[test]
 fn test_symmetry_slice_finds_counterpart() {
     let (files, diff) = make_symmetry_test();
