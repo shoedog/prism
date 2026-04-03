@@ -7,6 +7,7 @@
 use crate::ast::ParsedFile;
 use crate::cpg::CpgContext;
 use crate::diff::{DiffBlock, DiffInput, ModifyType};
+use crate::languages::Language;
 use crate::slice::{SliceFinding, SliceResult, SlicingAlgorithm};
 use anyhow::Result;
 use std::collections::{BTreeMap, BTreeSet};
@@ -158,6 +159,22 @@ const SINK_PATTERNS: &[&str] = &[
     "=command",             // Provisioner command execution
     "iam_instance_profile", // IAM instance profile attachment
     "role_arn",             // IAM role ARN — cross-account access
+    // === Shell / Bash ===
+    // Command injection sinks — where untrusted input causes code execution
+    "=eval",   // eval "$VAR" — arbitrary code execution
+    "=source", // source "$FILE" — code inclusion
+    "xargs",   // echo $INPUT | xargs rm — argument injection
+    "=su",     // su $USER — privilege escalation
+    "=sudo",   // sudo $CMD — privilege escalation
+    "=chmod",  // chmod $MODE $FILE — permission manipulation
+    "=chown",  // chown $OWNER $FILE — ownership manipulation
+    "sqlite3", // sqlite3 db "SELECT $INPUT" — SQL injection
+    "=curl",   // curl $URL — SSRF / data exfiltration
+    "=wget",   // wget $URL — SSRF / data exfiltration
+    "=exec",   // exec $CMD — process replacement
+    "=awk",    // awk "$PATTERN" — code injection in awk
+    "=sed",    // sed "$EXPR" — code injection in sed
+    "=find",   // find ... -exec — command injection via glob/args
 ];
 
 /// Check whether an identifier text matches a sink pattern.
@@ -266,6 +283,89 @@ fn detect_format_string_wrappers(files: &BTreeMap<String, ParsedFile>) -> Vec<St
     wrappers
 }
 
+/// Detect unquoted variable expansions in Bash command arguments.
+///
+/// In shell scripts, `$VAR` without quotes undergoes word splitting and glob
+/// expansion, making it a command injection / path traversal vector. This
+/// function walks tainted lines in Bash files and reports any `simple_expansion`
+/// or `expansion` node that appears inside a `command` without being wrapped
+/// in a `string` (double-quote) node.
+///
+/// Returns findings as (file, line, var_name) tuples.
+fn detect_unquoted_expansions(
+    files: &BTreeMap<String, ParsedFile>,
+    tainted_lines: &BTreeMap<String, BTreeSet<usize>>,
+) -> Vec<(String, usize, String)> {
+    let mut findings = Vec::new();
+
+    for (file, lines) in tainted_lines {
+        let parsed = match files.get(file) {
+            Some(p) if p.language == Language::Bash => p,
+            _ => continue,
+        };
+
+        for &line in lines {
+            find_unquoted_on_line(parsed, parsed.tree.root_node(), line, &mut findings, file);
+        }
+    }
+    findings
+}
+
+/// Walk the AST looking for unquoted expansions on a specific line.
+fn find_unquoted_on_line(
+    parsed: &ParsedFile,
+    node: tree_sitter::Node,
+    target_line: usize,
+    findings: &mut Vec<(String, usize, String)>,
+    file: &str,
+) {
+    let node_line = node.start_position().row + 1;
+
+    // Only descend into nodes that overlap our target line
+    let node_end_line = node.end_position().row + 1;
+    if node_line > target_line || node_end_line < target_line {
+        return;
+    }
+
+    let kind = node.kind();
+
+    // Found a variable expansion on our target line
+    if (kind == "simple_expansion" || kind == "expansion") && node_line == target_line {
+        // Walk up to check if we're inside a "string" (quoted) or directly in a "command"
+        let mut parent = node.parent();
+        let mut is_quoted = false;
+        let mut in_command = false;
+        while let Some(p) = parent {
+            match p.kind() {
+                "string" | "raw_string" => {
+                    is_quoted = true;
+                    break;
+                }
+                "command" => {
+                    in_command = true;
+                    break;
+                }
+                // Stop at statement boundaries
+                "function_definition" | "program" | "subshell" => break,
+                _ => {}
+            }
+            parent = p.parent();
+        }
+
+        if in_command && !is_quoted {
+            // Extract variable name from the expansion
+            let var_name = parsed.node_text(&node).to_string();
+            findings.push((file.to_string(), target_line, var_name));
+        }
+    }
+
+    // Recurse into children
+    let mut cursor = node.walk();
+    for child in node.children(&mut cursor) {
+        find_unquoted_on_line(parsed, child, target_line, findings, file);
+    }
+}
+
 pub fn slice(
     ctx: &CpgContext,
     diff: &DiffInput,
@@ -356,6 +456,34 @@ pub fn slice(
             related_files: vec![],
             category: Some("tainted_value".to_string()),
         });
+    }
+
+    // Bash-specific: detect unquoted variable expansions on tainted lines.
+    // In shell, unquoted $VAR in command arguments is a word-splitting / injection vector.
+    let unquoted = detect_unquoted_expansions(ctx.files, &all_tainted);
+    for (file, line, var_name) in &unquoted {
+        // Avoid duplicate findings if line is already flagged as a sink
+        if !sink_lines.contains(&(file.clone(), *line)) {
+            sink_lines.insert((file.clone(), *line));
+            result.findings.push(SliceFinding {
+                algorithm: "taint".to_string(),
+                file: file.clone(),
+                line: *line,
+                severity: "warning".to_string(),
+                description: format!(
+                    "unquoted expansion {} in command argument — word splitting / injection risk",
+                    var_name,
+                ),
+                function_name: None,
+                related_lines: taint_sources
+                    .iter()
+                    .filter(|(sf, _)| sf == file)
+                    .map(|(_, sl)| *sl)
+                    .collect(),
+                related_files: vec![],
+                category: Some("unquoted_expansion".to_string()),
+            });
+        }
     }
 
     // Build output blocks
