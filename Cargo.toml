@@ -112,39 +112,39 @@ path = "tests/ast/field_test.rs"
 
 [[test]]
 name = "lang_c_algo"
-path = "tests/lang/c_algo_test.rs"
+path = "tests/lang/c/algo_test.rs"
 
 [[test]]
 name = "lang_c_complex"
-path = "tests/lang/c_complex_test.rs"
+path = "tests/lang/c/complex_test.rs"
 
 [[test]]
 name = "lang_cpp"
-path = "tests/lang/cpp_test.rs"
+path = "tests/lang/cpp/cpp_test.rs"
 
 [[test]]
 name = "lang_javascript_algo"
-path = "tests/lang/javascript_algo_test.rs"
+path = "tests/lang/javascript/algo_test.rs"
 
 [[test]]
 name = "lang_javascript_destructuring"
-path = "tests/lang/javascript_destructuring_test.rs"
+path = "tests/lang/javascript/destructuring_test.rs"
 
 [[test]]
 name = "lang_javascript_lang"
-path = "tests/lang/javascript_lang_test.rs"
+path = "tests/lang/javascript/lang_test.rs"
 
 [[test]]
 name = "lang_lua"
-path = "tests/lang/lua_test.rs"
+path = "tests/lang/lua/lua_test.rs"
 
 [[test]]
 name = "lang_rust"
-path = "tests/lang/rust_test.rs"
+path = "tests/lang/rust/rust_test.rs"
 
 [[test]]
 name = "lang_typescript"
-path = "tests/lang/typescript_test.rs"
+path = "tests/lang/typescript/typescript_test.rs"
 
 # ── Integration tests ──
 
