@@ -13,6 +13,7 @@ pub enum Language {
     Rust,
     Lua,
     Terraform,
+    Bash,
 }
 
 impl Language {
@@ -29,6 +30,7 @@ impl Language {
             "rs" => Some(Self::Rust),
             "lua" => Some(Self::Lua),
             "tf" | "hcl" => Some(Self::Terraform),
+            "sh" | "bash" => Some(Self::Bash),
             _ => None,
         }
     }
@@ -52,6 +54,7 @@ impl Language {
             Self::Rust => tree_sitter_rust::LANGUAGE.into(),
             Self::Lua => tree_sitter_lua::LANGUAGE.into(),
             Self::Terraform => tree_sitter_hcl::LANGUAGE.into(),
+            Self::Bash => tree_sitter_bash::LANGUAGE.into(),
         }
     }
 
@@ -81,12 +84,14 @@ impl Language {
             Self::Lua => vec!["function_declaration", "local_function"],
             // Terraform: blocks (resource, variable, module, etc.) are the structural unit
             Self::Terraform => vec!["block"],
+            Self::Bash => vec!["function_definition"],
         }
     }
 
     /// Whether a node kind is an identifier/variable reference.
     pub fn is_identifier_node(&self, kind: &str) -> bool {
-        matches!(
+        // Common identifier types shared across most languages
+        if matches!(
             kind,
             "identifier"
                 | "shorthand_property_identifier"
@@ -96,8 +101,15 @@ impl Language {
                 | "field_expression"
                 | "qualified_identifier"
                 | "namespace_identifier"
-                | "variable_expr" // HCL: var.x, local.y
-        )
+        ) {
+            return true;
+        }
+        // Language-specific identifier types
+        match self {
+            Self::Terraform => kind == "variable_expr", // HCL: var.x, local.y
+            Self::Bash => matches!(kind, "word" | "variable_name"),
+            _ => false,
+        }
     }
 
     /// Whether a node is an assignment expression.
@@ -129,6 +141,7 @@ impl Language {
             Self::Lua => matches!(kind, "assignment_statement"),
             // HCL attributes are key = value, similar to assignments
             Self::Terraform => matches!(kind, "attribute"),
+            Self::Bash => matches!(kind, "variable_assignment"),
         }
     }
 
@@ -155,8 +168,13 @@ impl Language {
             }
             Self::Rust => matches!(kind, "let_declaration" | "const_item" | "static_item"),
             Self::Lua => matches!(kind, "local_variable_declaration"),
-            // HCL variable/locals blocks act as declarations
+            // HCL: every block (resource, variable, output, etc.) is treated as a
+            // declaration node. This is intentionally broad — algorithms filter by
+            // diff lines so the noise is bounded, and it ensures variable/locals
+            // blocks are captured for data flow analysis.
             Self::Terraform => matches!(kind, "block"),
+            // Bash: declaration_command covers local/export/declare
+            Self::Bash => matches!(kind, "declaration_command"),
         }
     }
 
@@ -201,6 +219,10 @@ impl Language {
                 }
                 None
             }
+            Self::Bash => {
+                // variable_assignment: name=value — name is variable_name child
+                node.child_by_field_name("name")
+            }
         }
     }
 
@@ -242,6 +264,10 @@ impl Language {
                     }
                 }
                 None
+            }
+            Self::Bash => {
+                // variable_assignment: name=value — value is the RHS
+                node.child_by_field_name("value")
             }
         }
     }
@@ -353,6 +379,17 @@ impl Language {
                 }
                 None
             }
+            Self::Bash => {
+                // declaration_command: local/export/declare VAR=value
+                // Find the variable_assignment child, then its name
+                let mut cursor = node.walk();
+                for child in node.children(&mut cursor) {
+                    if child.kind() == "variable_assignment" {
+                        return child.child_by_field_name("name");
+                    }
+                }
+                None
+            }
         }
     }
 
@@ -433,12 +470,22 @@ impl Language {
                 }
                 None
             }
+            Self::Bash => {
+                // declaration_command: local VAR=value → variable_assignment → value
+                let mut cursor = node.walk();
+                for child in node.children(&mut cursor) {
+                    if child.kind() == "variable_assignment" {
+                        return child.child_by_field_name("value");
+                    }
+                }
+                None
+            }
         }
     }
 
     /// Whether a node is a control flow statement.
     pub fn is_control_flow_node(&self, kind: &str) -> bool {
-        matches!(
+        if matches!(
             kind,
             "if_statement"
                 | "if_expression"
@@ -462,7 +509,16 @@ impl Language {
                 | "conditional"     // HCL ternary: condition ? true : false
                 | "for_tuple_expr"  // HCL [for x in list : ...]
                 | "for_object_expr" // HCL {for k, v in map : ...}
-        )
+                | "c_style_for_statement" // Bash C-style for ((i=0; ...))
+        ) {
+            return true;
+        }
+        // Bash case..esac is "case_statement" in tree-sitter-bash. C/C++ also emit
+        // "case_statement" nodes for individual case labels inside a switch (the switch
+        // itself is "switch_statement"). Treating C case labels as control flow nodes
+        // breaks CFG fallthrough edges, so we restrict to Bash only.
+        // Verified by test_c_switch_fallthrough in cfg.rs.
+        matches!(self, Self::Bash) && kind == "case_statement"
     }
 
     /// Get the condition expression from a control flow node.
@@ -481,6 +537,7 @@ impl Language {
                 | "object_creation_expression"
                 | "new_expression"
                 | "function_call" // Lua and HCL
+                | "command" // Bash
         )
     }
 
@@ -492,8 +549,9 @@ impl Language {
             .or_else(|| node.child_by_field_name("object"))
             .or_else(|| {
                 // Lua/HCL function_call: first child is the function expression
-                if node.kind() == "function_call" {
-                    node.child(0)
+                // Bash command: name field is the command name
+                if node.kind() == "function_call" || node.kind() == "command" {
+                    node.child_by_field_name("name").or_else(|| node.child(0))
                 } else {
                     None
                 }
@@ -596,6 +654,11 @@ impl Language {
                     | "macro_invocation"
                     // HCL / Terraform
                     | "attribute"
+                    // Bash
+                    | "pipeline"
+                    | "redirected_statement"
+                    | "subshell"
+                    | "declaration_command"
             )
     }
 
@@ -613,7 +676,8 @@ impl Language {
                 | "for_expression"         // Rust
                 | "loop_expression"        // Rust
                 | "while_let_expression"   // Rust
-                | "repeat_statement" // Lua repeat..until
+                | "repeat_statement"      // Lua repeat..until
+                | "c_style_for_statement" // Bash C-style for
         )
     }
 
@@ -676,21 +740,35 @@ impl Language {
 
         // Lua function_declaration: name is in "name" field
         // local_function: name is in "name" field
-        // HCL block: first child is block type identifier (resource, variable, etc.)
+        // Bash function_definition: name field
+        if matches!(self, Self::Bash) && node.kind() == "function_definition" {
+            return node.child_by_field_name("name");
+        }
+
+        // HCL block: return the logical name (second label) for unique identification.
+        // e.g., resource "aws_instance" "web" -> "web" (not "aws_instance")
+        // This avoids collisions when two resources share the same type.
+        // The qualified name (aws_instance.web) is handled by TerraformRefGraph.
         if matches!(self, Self::Terraform) && node.kind() == "block" {
-            // For HCL blocks, construct name from type + labels
-            // e.g., resource "aws_instance" "web" -> first identifier is "resource"
-            // We return the first string_lit label as the "name" for better identification
             let mut cursor = node.walk();
             let mut found_type = false;
+            let mut first_label = None;
             for child in node.children(&mut cursor) {
                 if child.kind() == "identifier" && !found_type {
                     found_type = true;
                     continue;
                 }
                 if child.kind() == "string_lit" || child.kind() == "identifier" {
-                    return Some(child);
+                    if first_label.is_some() {
+                        // Second label is the logical name
+                        return Some(child);
+                    }
+                    first_label = Some(child);
                 }
+            }
+            // Single-label blocks (variable "name", output "name"): return that label
+            if let Some(label) = first_label {
+                return Some(label);
             }
             // Fall back to the block type identifier
             let mut cursor2 = node.walk();
