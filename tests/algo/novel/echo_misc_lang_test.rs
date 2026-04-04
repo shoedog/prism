@@ -517,3 +517,110 @@ end
         "Echo should include callers that don't check nil return from connect()"
     );
 }
+
+// === Tier 2: Echo — Rust ? operator (item 13) ===
+
+#[test]
+fn test_echo_rust_question_mark_operator() {
+    // Rust `?` operator is safe error propagation. Echo should recognize it
+    // as proper error handling and NOT flag the caller.
+    let source_lib = r#"
+use std::io;
+
+pub fn read_config(path: &str) -> Result<String, io::Error> {
+    let data = std::fs::read_to_string(path)?;
+    Ok(data)
+}
+"#;
+    let source_caller = r#"
+use std::io;
+
+pub fn load(path: &str) -> Result<String, io::Error> {
+    let config = read_config(path)?;
+    Ok(config)
+}
+"#;
+    let mut files = BTreeMap::new();
+    files.insert(
+        "src/config.rs".to_string(),
+        ParsedFile::parse("src/config.rs", source_lib, Language::Rust).unwrap(),
+    );
+    files.insert(
+        "src/loader.rs".to_string(),
+        ParsedFile::parse("src/loader.rs", source_caller, Language::Rust).unwrap(),
+    );
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: "src/config.rs".to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([5]),
+        }],
+    };
+    let result = algorithms::run_slicing_compat(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::EchoSlice),
+        None,
+    )
+    .unwrap();
+
+    // The caller uses `?` which IS proper error handling.
+    // Echo should either produce no findings for this caller,
+    // or if it flags the caller, the findings should NOT say "not checked".
+    let unchecked_findings: Vec<_> = result
+        .findings
+        .iter()
+        .filter(|f| f.file == "src/loader.rs" && f.description.contains("not checked"))
+        .collect();
+    assert!(
+        unchecked_findings.is_empty(),
+        "Echo should recognize Rust `?` as proper error handling, not flag as unchecked"
+    );
+}
+
+#[test]
+fn test_echo_rust_missing_error_handling() {
+    // Caller that does NOT use ? or match — should be flagged.
+    // Changed function touches a return/error line to trigger echo analysis.
+    let source_lib = r#"
+pub fn fetch_data(url: &str) -> Result<Vec<u8>, String> {
+    let data = download(url);
+    return Err("not found".to_string());
+}
+"#;
+    let source_caller = r#"
+pub fn process(url: &str) {
+    let data = fetch_data(url).unwrap();
+    println!("{}", data.len());
+}
+"#;
+    let mut files = BTreeMap::new();
+    files.insert(
+        "src/fetcher.rs".to_string(),
+        ParsedFile::parse("src/fetcher.rs", source_lib, Language::Rust).unwrap(),
+    );
+    files.insert(
+        "src/main.rs".to_string(),
+        ParsedFile::parse("src/main.rs", source_caller, Language::Rust).unwrap(),
+    );
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: "src/fetcher.rs".to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([4]),
+        }],
+    };
+    let result = algorithms::run_slicing_compat(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::EchoSlice),
+        None,
+    )
+    .unwrap();
+
+    // Echo should detect that the caller uses unwrap() without proper error handling
+    assert!(
+        !result.blocks.is_empty(),
+        "Echo should flag caller that uses unwrap() without proper error handling"
+    );
+}
