@@ -46,7 +46,7 @@ pub fn slice(
             };
 
             // Reuse shared LeftFlow core (L-value, condition, call, return tracing)
-            let mut slice_lines = left_flow::left_flow_core(
+            let lf_result = left_flow::left_flow_core(
                 parsed,
                 files,
                 &func_node,
@@ -55,11 +55,13 @@ pub fn slice(
                 lines,
                 config,
             );
+            let mut slice_lines = lf_result.slice_lines;
 
             // === FullFlow addition: include full callee bodies if configured ===
+            // Reuse the call list already extracted by left_flow_core to avoid
+            // a redundant AST traversal.
             if config.trace_callees {
-                let calls = parsed.function_calls_on_lines(&func_node, lines);
-                for (func_name, _) in &calls {
+                for (func_name, _) in &lf_result.diff_line_calls {
                     for (_file_path, other_parsed) in files {
                         if let Some(callee) = other_parsed.find_function_by_name(func_name) {
                             let (cs, ce) = other_parsed.node_line_range(&callee);

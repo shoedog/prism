@@ -556,10 +556,81 @@ fn check_for_go_stmt(parsed: &ParsedFile, node: Node<'_>, found: &mut bool) {
 /// Returns the set of identifier names used inside anonymous function bodies
 /// launched with `go`. These variables are shared between the goroutine and the
 /// enclosing function and are the primary source of Go race conditions.
-fn go_closure_captured_vars<'a>(parsed: &'a ParsedFile, func_node: &Node<'_>) -> BTreeSet<String> {
-    let mut captured = BTreeSet::new();
-    collect_go_closure_vars(parsed, *func_node, false, &mut captured);
-    captured
+fn go_closure_captured_vars(parsed: &ParsedFile, func_node: &Node<'_>) -> BTreeSet<String> {
+    // Collect the enclosing function's local variable names and parameters.
+    // Only these can be true captured variables — function names, type names,
+    // and field names that also appear as identifiers are not captures.
+    let local_vars = collect_enclosing_locals(parsed, func_node);
+
+    let mut raw_captured = BTreeSet::new();
+    let mut closure_params = BTreeSet::new();
+    collect_go_closure_vars(
+        parsed,
+        *func_node,
+        false,
+        &mut raw_captured,
+        &mut closure_params,
+    );
+
+    // Filter: only keep identifiers that are local variables/parameters of the
+    // enclosing function AND are not goroutine parameters (passed by value).
+    raw_captured
+        .into_iter()
+        .filter(|name| local_vars.contains(name) && !closure_params.contains(name))
+        .collect()
+}
+
+/// Collect parameter names and local variable declarations from a function node.
+fn collect_enclosing_locals(parsed: &ParsedFile, func_node: &Node<'_>) -> BTreeSet<String> {
+    let mut locals = BTreeSet::new();
+    // Parameters
+    for name in parsed.function_parameter_names(func_node) {
+        locals.insert(name);
+    }
+    // Local variable declarations (short_var_declaration `:=` and var_declaration)
+    collect_local_decls(parsed, *func_node, &mut locals);
+    locals
+}
+
+fn collect_local_decls(parsed: &ParsedFile, node: Node<'_>, locals: &mut BTreeSet<String>) {
+    match node.kind() {
+        "short_var_declaration" => {
+            // `x, y := expr` — left side identifiers
+            if let Some(left) = node.child_by_field_name("left") {
+                let mut cursor = left.walk();
+                for child in left.children(&mut cursor) {
+                    if child.kind() == "identifier" {
+                        locals.insert(parsed.node_text(&child).to_string());
+                    }
+                }
+                // Single identifier on left
+                if left.kind() == "identifier" {
+                    locals.insert(parsed.node_text(&left).to_string());
+                }
+            }
+        }
+        "var_declaration" | "var_spec" => {
+            // `var x int` or `var x, y int`
+            let mut cursor = node.walk();
+            for child in node.children(&mut cursor) {
+                if child.kind() == "identifier" || child.kind() == "var_spec" {
+                    if child.kind() == "identifier" {
+                        locals.insert(parsed.node_text(&child).to_string());
+                    } else {
+                        collect_local_decls(parsed, child, locals);
+                    }
+                }
+            }
+        }
+        // Skip into nested blocks but not into nested function literals
+        "func_literal" => {}
+        _ => {
+            let mut cursor = node.walk();
+            for child in node.children(&mut cursor) {
+                collect_local_decls(parsed, child, locals);
+            }
+        }
+    }
 }
 
 fn collect_go_closure_vars(
@@ -567,6 +638,7 @@ fn collect_go_closure_vars(
     node: Node<'_>,
     inside_go_closure: bool,
     captured: &mut BTreeSet<String>,
+    closure_params: &mut BTreeSet<String>,
 ) {
     let kind = node.kind();
 
@@ -587,12 +659,36 @@ fn collect_go_closure_vars(
         has_closure
     };
 
+    // When entering a go closure, collect its parameter names.
+    // Parameters are passed by value (copies), not captured by reference.
+    if is_go_closure {
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            if child.kind() == "call_expression" {
+                let mut c2 = child.walk();
+                for gc in child.children(&mut c2) {
+                    if gc.kind() == "func_literal" {
+                        for pname in parsed.function_parameter_names(&gc) {
+                            closure_params.insert(pname);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     if inside_go_closure && kind == "identifier" {
         captured.insert(parsed.node_text(&node).to_string());
     }
 
     let mut cursor = node.walk();
     for child in node.children(&mut cursor) {
-        collect_go_closure_vars(parsed, child, inside_go_closure || is_go_closure, captured);
+        collect_go_closure_vars(
+            parsed,
+            child,
+            inside_go_closure || is_go_closure,
+            captured,
+            closure_params,
+        );
     }
 }
