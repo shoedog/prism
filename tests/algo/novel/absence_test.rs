@@ -468,3 +468,200 @@ def create_temp():
         "Absence should detect tempfile.mkstemp without cleanup"
     );
 }
+
+// ============================================================
+// E3: AST-based false-positive suppression tests
+// Patterns in comments and string literals should NOT trigger findings.
+// ============================================================
+
+#[test]
+fn test_absence_no_false_positive_from_comment() {
+    // The comment mentions "open(" but the actual code doesn't open anything.
+    let source = r#"
+def process(data):
+    # TODO: open(path, 'r') to read config later
+    result = compute(data)
+    return result
+"#;
+    let path = "src/app.py";
+    let parsed = ParsedFile::parse(path, source, Language::Python).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([3]), // the comment line
+        }],
+    };
+
+    let result = algorithms::run_slicing_compat(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::AbsenceSlice),
+        None,
+    )
+    .unwrap();
+
+    assert!(
+        result.findings.is_empty(),
+        "comment mentioning open() should NOT trigger absence finding"
+    );
+}
+
+#[test]
+fn test_absence_no_false_positive_from_string_literal() {
+    // The string literal contains "open(" but it's not a real call.
+    let source = r#"
+def show_help():
+    msg = "Use open(path, 'r') to read files"
+    print(msg)
+    return msg
+"#;
+    let path = "src/help.py";
+    let parsed = ParsedFile::parse(path, source, Language::Python).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([3]), // the string literal line
+        }],
+    };
+
+    let result = algorithms::run_slicing_compat(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::AbsenceSlice),
+        None,
+    )
+    .unwrap();
+
+    assert!(
+        result.findings.is_empty(),
+        "string literal mentioning open() should NOT trigger absence finding"
+    );
+}
+
+#[test]
+fn test_absence_no_false_positive_defer_in_comment() {
+    // Go: comment mentions "defer" but no actual defer statement exists.
+    // The function has a real os.Open without Close — this SHOULD be flagged.
+    // But "defer" in a comment should NOT suppress the finding.
+    let source = r#"
+package main
+
+func process(path string) {
+    f, _ := os.Open(path)
+    data := read(f)
+    // defer f.Close() — removed for testing
+    use(data)
+}
+"#;
+    let path = "src/main.go";
+    let parsed = ParsedFile::parse(path, source, Language::Go).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([5]), // os.Open line
+        }],
+    };
+
+    let result = algorithms::run_slicing_compat(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::AbsenceSlice),
+        None,
+    )
+    .unwrap();
+
+    // "defer" in comment should NOT suppress the finding — the resource is still leaked.
+    assert!(
+        !result.findings.is_empty(),
+        "defer in comment should NOT suppress absence finding for unclosed resource"
+    );
+}
+
+#[test]
+fn test_absence_no_false_positive_keyword_in_string_c() {
+    // C: string literal mentions "free" but there's no actual free() call.
+    let source = r#"
+void process() {
+    char *ptr = malloc(100);
+    printf("remember to free memory when done");
+    use_buffer(ptr);
+}
+"#;
+    let path = "src/main.c";
+    let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([3]), // malloc line
+        }],
+    };
+
+    let result = algorithms::run_slicing_compat(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::AbsenceSlice),
+        None,
+    )
+    .unwrap();
+
+    // "free" in string should NOT count as a real free() call.
+    // malloc without real free should still be flagged.
+    assert!(
+        !result.findings.is_empty(),
+        "free() in string literal should NOT suppress missing-free finding"
+    );
+}
+
+#[test]
+fn test_absence_no_false_positive_raii_in_comment_cpp() {
+    // C++: comment mentions std::unique_ptr but the code uses raw new.
+    let source = r#"
+void process() {
+    int* ptr = new int(42);
+    // TODO: migrate to std::unique_ptr later
+    use_value(ptr);
+}
+"#;
+    let path = "src/main.cpp";
+    let parsed = ParsedFile::parse(path, source, Language::Cpp).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([3]), // new int line
+        }],
+    };
+
+    let result = algorithms::run_slicing_compat(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::AbsenceSlice),
+        None,
+    )
+    .unwrap();
+
+    // std::unique_ptr in comment should NOT suppress the missing-delete finding.
+    assert!(
+        !result.findings.is_empty(),
+        "std::unique_ptr in comment should NOT suppress absence finding for raw new"
+    );
+}

@@ -468,22 +468,20 @@ pub fn slice(files: &BTreeMap<String, ParsedFile>, diff: &DiffInput) -> Result<S
             if diff_line == 0 || diff_line > source_lines.len() {
                 continue;
             }
-            let line_text = source_lines[diff_line - 1];
-
             // Collect AST call names on this specific diff line once (for open check).
             let line_calls = parsed.call_names_on_lines(&[diff_line]);
 
             // Check each pair pattern
             for pair in &pairs {
                 // For patterns ending in '(': use AST call node names (avoids comments/strings).
-                // For keyword patterns (new, defer, SQL): fall back to substring matching.
+                // For keyword patterns: use AST-aware text matching to skip comments/strings.
                 let has_open = pair.open_patterns.iter().any(|p| {
                     if let Some(base) = pattern_to_call_base(p) {
                         line_calls
                             .get(&diff_line)
                             .map_or(false, |names| names.iter().any(|n| n.contains(base)))
                     } else {
-                        line_text.contains(p)
+                        parsed.line_has_code_text(diff_line, p)
                     }
                 });
                 if !has_open {
@@ -516,7 +514,7 @@ pub fn slice(files: &BTreeMap<String, ParsedFile>, diff: &DiffInput) -> Result<S
                             .any(|names| names.iter().any(|n| n.contains(base)))
                     } else {
                         (func_start..=func_end).any(|l| {
-                            l > 0 && l <= source_lines.len() && source_lines[l - 1].contains(p)
+                            l > 0 && l <= source_lines.len() && parsed.line_has_code_text(l, p)
                         })
                     }
                 });
@@ -524,29 +522,34 @@ pub fn slice(files: &BTreeMap<String, ParsedFile>, diff: &DiffInput) -> Result<S
                 // Also check for language-specific cleanup patterns and C++ RAII.
                 // RAII types manage cleanup automatically on destruction, so absence
                 // of an explicit close/unlock/free is not a bug in those cases.
+                // Use AST-aware matching so comments like "// defer cleanup" don't suppress findings.
+                const CLEANUP_KEYWORDS: &[&str] = &[
+                    "defer ",
+                    "finally",
+                    "with ",
+                    "using ",
+                    // C++ RAII mutex wrappers — no explicit unlock needed
+                    "std::lock_guard",
+                    "std::unique_lock",
+                    "std::scoped_lock",
+                    // C++ RAII memory management — no explicit delete/free needed
+                    "std::unique_ptr",
+                    "std::shared_ptr",
+                    // C++ RAII memory management via factory functions
+                    "std::make_unique",
+                    "std::make_shared",
+                    // C++ RAII file handle — closes on destruction
+                    "std::fstream",
+                    "std::ifstream",
+                    "std::ofstream",
+                ];
                 let has_defer_or_finally = (func_start..=func_end).any(|l| {
                     if l == 0 || l > source_lines.len() {
                         return false;
                     }
-                    let lt = source_lines[l - 1];
-                    lt.contains("defer ")
-                        || lt.contains("finally")
-                        || lt.contains("with ")
-                        || lt.contains("using ")
-                        // C++ RAII mutex wrappers — no explicit unlock needed
-                        || lt.contains("std::lock_guard")
-                        || lt.contains("std::unique_lock")
-                        || lt.contains("std::scoped_lock")
-                        // C++ RAII memory management — no explicit delete/free needed
-                        || lt.contains("std::unique_ptr")
-                        || lt.contains("std::shared_ptr")
-                        // C++ RAII memory management via factory functions
-                        || lt.contains("std::make_unique")
-                        || lt.contains("std::make_shared")
-                        // C++ RAII file handle — closes on destruction
-                        || lt.contains("std::fstream")
-                        || lt.contains("std::ifstream")
-                        || lt.contains("std::ofstream")
+                    CLEANUP_KEYWORDS
+                        .iter()
+                        .any(|kw| parsed.line_has_code_text(l, kw))
                 });
 
                 if !has_close && !has_defer_or_finally {

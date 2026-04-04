@@ -133,6 +133,54 @@ impl Language {
         }
     }
 
+    /// Whether a node kind is a comment or string literal.
+    ///
+    /// Used to filter out false-positive pattern matches that land inside
+    /// comments or string literals rather than actual code.
+    pub fn is_comment_or_string_node(&self, kind: &str) -> bool {
+        // Comments — nearly universal across tree-sitter grammars
+        if matches!(
+            kind,
+            "comment" | "line_comment" | "block_comment" | "doc_comment"
+        ) {
+            return true;
+        }
+        // String literals — language-specific
+        match self {
+            Self::Python => matches!(kind, "string" | "concatenated_string" | "string_content"),
+            Self::JavaScript | Self::TypeScript | Self::Tsx => matches!(
+                kind,
+                "string" | "template_string" | "string_fragment" | "template_literal_type"
+            ),
+            Self::Go => matches!(
+                kind,
+                "interpreted_string_literal" | "raw_string_literal" | "rune_literal"
+            ),
+            Self::Java => matches!(kind, "string_literal" | "character_literal" | "text_block"),
+            Self::C | Self::Cpp => matches!(
+                kind,
+                "string_literal"
+                    | "char_literal"
+                    | "string_content"
+                    | "raw_string_literal"
+                    | "concatenated_string"
+            ),
+            Self::Rust => matches!(
+                kind,
+                "string_literal" | "raw_string_literal" | "char_literal" | "string_content"
+            ),
+            Self::Lua => matches!(kind, "string" | "string_content"),
+            // Terraform/HCL uses quoted strings as identifiers (resource types,
+            // variable names, etc.), so string literals are meaningful code — only
+            // filter out comments.
+            Self::Terraform => false,
+            Self::Bash => matches!(
+                kind,
+                "string" | "raw_string" | "heredoc_body" | "string_content"
+            ),
+        }
+    }
+
     /// Whether a node is an assignment expression.
     pub fn is_assignment_node(&self, kind: &str) -> bool {
         match self {

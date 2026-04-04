@@ -173,6 +173,73 @@ impl ParsedFile {
         }
     }
 
+    /// Check whether `text` appears on `line` (1-indexed) in actual code,
+    /// i.e. NOT inside a comment or string literal AST node.
+    ///
+    /// For each occurrence of `text` on the line, we ask tree-sitter for the
+    /// smallest node covering that byte range. If every occurrence lands in a
+    /// comment or string, returns `false`.
+    pub fn line_has_code_text(&self, line: usize, text: &str) -> bool {
+        if text.is_empty() {
+            return false;
+        }
+        let row = line.saturating_sub(1);
+        let source = self.source.as_bytes();
+
+        // Compute byte offset of the start of this line.
+        let line_start = source
+            .split(|&b| b == b'\n')
+            .take(row)
+            .map(|l| l.len() + 1) // +1 for the newline
+            .sum::<usize>();
+        let line_end = source[line_start..]
+            .iter()
+            .position(|&b| b == b'\n')
+            .map_or(source.len(), |pos| line_start + pos);
+        let line_bytes = &source[line_start..line_end];
+        let line_str = std::str::from_utf8(line_bytes).unwrap_or("");
+
+        // For each occurrence of `text` in this line, check the AST node.
+        let text_bytes = text.as_bytes();
+        let mut search_start = 0;
+        while let Some(pos) = line_str[search_start..].find(text) {
+            let abs_start = line_start + search_start + pos;
+            let abs_end = abs_start + text_bytes.len();
+
+            // Find the smallest AST node covering this byte range.
+            let node = self
+                .tree
+                .root_node()
+                .descendant_for_byte_range(abs_start, abs_end);
+            if let Some(n) = node {
+                // Walk up to check if any ancestor (up to the line boundary) is
+                // a comment or string. The immediate node might be an identifier
+                // inside a string interpolation, so we check ancestors too.
+                if !self.is_inside_comment_or_string(n) {
+                    return true; // At least one occurrence is in real code.
+                }
+            } else {
+                // No AST node found — conservative: treat as code.
+                return true;
+            }
+            search_start += pos + text_bytes.len();
+        }
+        false
+    }
+
+    /// Walk up from `node` to check if it (or any ancestor) is a comment or
+    /// string literal node.
+    fn is_inside_comment_or_string(&self, node: Node<'_>) -> bool {
+        let mut current = Some(node);
+        while let Some(n) = current {
+            if self.language.is_comment_or_string_node(n.kind()) {
+                return true;
+            }
+            current = n.parent();
+        }
+        false
+    }
+
     /// Find all assignment targets (L-values) on diff lines within a function scope.
     pub fn assignment_lvalues_on_lines(
         &self,
@@ -944,6 +1011,49 @@ impl ParsedFile {
         false
     }
 
+    /// Check if a variable has any bare (non-field-access) references in a function
+    /// body (excluding the parameter list itself).
+    ///
+    /// Returns true if the variable is used as a standalone identifier, not just as
+    /// the base of a field/member access (e.g., `data` in `use(data)` counts, but
+    /// `dev` in `dev.name` does not). Used to decide whether to register a parameter
+    /// Def for interprocedural data flow.
+    pub fn has_bare_references(&self, func_node: &Node<'_>, var_name: &str) -> bool {
+        let func_start_line = func_node.start_position().row + 1;
+        self.find_bare_ref(*func_node, var_name, func_start_line)
+    }
+
+    fn find_bare_ref(&self, node: Node<'_>, var_name: &str, skip_line: usize) -> bool {
+        // If this is a field access (dev.name, dev->name), skip it — the `dev`
+        // identifier inside is not a bare reference.
+        if Self::is_field_access_node(node.kind()) {
+            return false;
+        }
+
+        if self.language.is_identifier_node(node.kind()) && self.node_text(&node) == var_name {
+            let line = node.start_position().row + 1;
+            // Skip identifiers on the function definition line (parameter declarations).
+            if line == skip_line {
+                return false;
+            }
+            // Check parent: if parent is a field access, this isn't a bare ref.
+            if let Some(parent) = node.parent() {
+                if Self::is_field_access_node(parent.kind()) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            if self.find_bare_ref(child, var_name, skip_line) {
+                return true;
+            }
+        }
+        false
+    }
+
     /// Find all references to an AccessPath within a function scope.
     ///
     /// For simple paths (no fields), delegates to `find_variable_references_scoped`.
@@ -1518,6 +1628,53 @@ impl ParsedFile {
             }
         }
         None
+    }
+
+    /// Extract all argument texts from a call to `callee_name` on the given line.
+    ///
+    /// Returns a list of argument expressions as strings, preserving positional order.
+    /// Used by interprocedural data flow to map arguments to parameters.
+    pub fn call_argument_texts(&self, line: usize, callee_name: &str) -> Vec<String> {
+        let mut args = Vec::new();
+        self.collect_call_args(self.tree.root_node(), line, callee_name, &mut args);
+        args
+    }
+
+    fn collect_call_args(
+        &self,
+        node: Node<'_>,
+        line: usize,
+        callee_name: &str,
+        out: &mut Vec<String>,
+    ) {
+        let node_line = node.start_position().row + 1;
+
+        if node_line == line && self.language.is_call_node(node.kind()) {
+            if let Some(name_node) = self.language.call_function_name(&node) {
+                let name = self.node_text(&name_node);
+                if name == callee_name {
+                    if let Some(args_node) = self.language.call_arguments(&node) {
+                        let mut cursor = args_node.walk();
+                        for child in args_node.children(&mut cursor) {
+                            if child.is_named() {
+                                let text = self.node_text(&child).trim().to_string();
+                                let text = text.trim_start_matches('&').to_string();
+                                out.push(text);
+                            }
+                        }
+                    }
+                    return; // Found the call, stop.
+                }
+            }
+        }
+
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            if !out.is_empty() {
+                return;
+            }
+            self.collect_call_args(child, line, callee_name, out);
+        }
     }
 
     /// Check if a function node has a variadic parameter (`...`).
