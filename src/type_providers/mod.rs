@@ -5,3 +5,4 @@
 //! and implements the `TypeProvider` trait from `crate::type_provider`.
 
 pub mod cpp;
+pub mod go;

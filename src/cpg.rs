@@ -20,6 +20,7 @@ use crate::diff::DiffInput;
 use crate::type_db::TypeDatabase;
 use crate::type_provider::TypeRegistry;
 use crate::type_providers::cpp::CppTypeProvider;
+use crate::type_providers::go::GoTypeProvider;
 
 use petgraph::graph::{DiGraph, NodeIndex};
 use petgraph::visit::EdgeRef;
@@ -67,7 +68,7 @@ impl<'a> CpgContext<'a> {
         type_db: Option<&'a TypeDatabase>,
     ) -> Self {
         let cpg = CodePropertyGraph::build_enriched(files, type_db);
-        let types = Self::build_registry(type_db);
+        let types = Self::build_registry(files, type_db);
         CpgContext {
             cpg,
             files,
@@ -143,7 +144,7 @@ impl<'a> CpgContext<'a> {
             .collect();
 
         let cpg = CodePropertyGraph::build_enriched(&filtered, type_db);
-        let types = Self::build_registry(type_db);
+        let types = Self::build_registry(files, type_db);
         CpgContext {
             cpg,
             files,
@@ -163,7 +164,7 @@ impl<'a> CpgContext<'a> {
         files: &'a BTreeMap<String, ParsedFile>,
         type_db: Option<&'a TypeDatabase>,
     ) -> Self {
-        let types = Self::build_registry(type_db);
+        let types = Self::build_registry(files, type_db);
         CpgContext {
             cpg: CodePropertyGraph::empty(),
             files,
@@ -179,14 +180,38 @@ impl<'a> CpgContext<'a> {
         self.cpg.type_db.as_ref()
     }
 
-    /// Build a TypeRegistry from an optional TypeDatabase.
-    fn build_registry(type_db: Option<&TypeDatabase>) -> TypeRegistry {
+    /// Build a TypeRegistry from parsed files and optional TypeDatabase.
+    ///
+    /// Automatically registers providers for languages found in the file set:
+    /// - C/C++: `CppTypeProvider` (if `type_db` is provided)
+    /// - Go: `GoTypeProvider` (if Go files are present)
+    fn build_registry(
+        files: &BTreeMap<String, ParsedFile>,
+        type_db: Option<&TypeDatabase>,
+    ) -> TypeRegistry {
         let mut registry = TypeRegistry::empty();
+
+        // C/C++ provider from TypeDatabase.
         if let Some(db) = type_db {
-            let cpp_provider = CppTypeProvider::new(db.clone());
-            registry.register_provider(Box::new(CppTypeProvider::new(db.clone())));
-            registry.register_dispatch_provider(Box::new(cpp_provider));
+            let provider = CppTypeProvider::new(db.clone());
+            // Clone shares the Arc<TypeDatabase> — single backing store.
+            let dispatch = provider.clone();
+            registry.register_provider(Box::new(provider));
+            registry.register_dispatch_provider(Box::new(dispatch));
         }
+
+        // Go provider — extracted from tree-sitter ASTs.
+        let has_go = files
+            .values()
+            .any(|pf| pf.language == crate::languages::Language::Go);
+        if has_go {
+            let go_provider = GoTypeProvider::from_parsed_files(files);
+            // Clone shares the Arc<GoTypeData> — single backing store.
+            let go_dispatch = go_provider.clone();
+            registry.register_provider(Box::new(go_provider));
+            registry.register_dispatch_provider(Box::new(go_dispatch));
+        }
+
         registry
     }
 }
