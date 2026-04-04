@@ -85,6 +85,8 @@ pub enum SlicingAlgorithm {
     MembraneSlice,
     /// Ripple effect — downstream callers that may not handle changed semantics.
     EchoSlice,
+    /// Implicit behavioral contract extraction and violation detection.
+    ContractSlice,
 }
 
 impl SlicingAlgorithm {
@@ -120,6 +122,7 @@ impl SlicingAlgorithm {
                 Some(Self::MembraneSlice)
             }
             "echo" | "echoslice" | "echo_slice" | "ripple" => Some(Self::EchoSlice),
+            "contract" | "contractslice" | "contract_slice" => Some(Self::ContractSlice),
             _ => None,
         }
     }
@@ -152,6 +155,7 @@ impl SlicingAlgorithm {
             Self::PhantomSlice => "PhantomSlice",
             Self::MembraneSlice => "MembraneSlice",
             Self::EchoSlice => "EchoSlice",
+            Self::ContractSlice => "ContractSlice",
         }
     }
 
@@ -197,6 +201,7 @@ impl SlicingAlgorithm {
             Self::VerticalSlice,
             Self::AngleSlice,
             Self::CircularSlice,
+            Self::ContractSlice,
         ]
     }
 
@@ -229,6 +234,7 @@ impl SlicingAlgorithm {
             Self::PhantomSlice,
             Self::MembraneSlice,
             Self::EchoSlice,
+            Self::ContractSlice,
         ]
     }
 }

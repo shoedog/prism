@@ -162,6 +162,9 @@ fn main() -> Result<()> {
         println!(
             "    echo             Ripple effect: downstream callers missing new error handling"
         );
+        println!(
+            "    contract         Implicit behavioral contract extraction and violation detection"
+        );
         return Ok(());
     }
 

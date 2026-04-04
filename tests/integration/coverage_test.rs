@@ -73,6 +73,7 @@ fn test_algorithm_language_matrix() {
         (&["phantom_slice", "phantom"], "PhantomSlice"),
         (&["membrane_slice", "membrane"], "MembraneSlice"),
         (&["echo_slice", "echo"], "EchoSlice"),
+        (&["contract_slice", "contract"], "ContractSlice"),
         (&["chop"], "Chop"),
     ];
 
@@ -113,6 +114,7 @@ fn test_algorithm_language_matrix() {
         "tests/algo/novel/membrane_ext_test.rs",
         "tests/algo/novel/provenance_test.rs",
         "tests/algo/novel/provenance_lang_test.rs",
+        "tests/algo/novel/contract_test.rs",
         "tests/ast/access_path_test.rs",
         "tests/ast/binding_test.rs",
         "tests/ast/cpg_test.rs",
@@ -245,6 +247,7 @@ fn test_language_coverage_minimum() {
         (&["phantom_slice", "phantom"], "PhantomSlice"),
         (&["membrane_slice", "membrane"], "MembraneSlice"),
         (&["echo_slice", "echo"], "EchoSlice"),
+        (&["contract_slice", "contract"], "ContractSlice"),
         (&["chop"], "Chop"),
     ];
 
@@ -283,6 +286,7 @@ fn test_language_coverage_minimum() {
         "tests/algo/novel/membrane_ext_test.rs",
         "tests/algo/novel/provenance_test.rs",
         "tests/algo/novel/provenance_lang_test.rs",
+        "tests/algo/novel/contract_test.rs",
         "tests/ast/access_path_test.rs",
         "tests/ast/binding_test.rs",
         "tests/ast/cpg_test.rs",
@@ -388,6 +392,7 @@ fn test_coverage_matrix_validation() {
         "tests/algo/novel/membrane_ext_test.rs",
         "tests/algo/novel/provenance_test.rs",
         "tests/algo/novel/provenance_lang_test.rs",
+        "tests/algo/novel/contract_test.rs",
         "tests/ast/access_path_test.rs",
         "tests/ast/binding_test.rs",
         "tests/ast/cpg_test.rs",
@@ -581,6 +586,7 @@ fn test_coverage_matrix_algorithm_completeness() {
         "phantom_slice",
         "membrane_slice",
         "echo_slice",
+        "contract_slice",
     ];
 
     let mut missing = Vec::new();

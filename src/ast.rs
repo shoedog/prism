@@ -156,6 +156,10 @@ impl ParsedFile {
     }
 
     /// Find all identifiers (variable references) on a given line (1-indexed).
+    ///
+    /// Uses the manual recursive walk because it needs to match the broad set
+    /// of node types in `Language::is_identifier_node()` (property_identifier,
+    /// field_identifier, etc.), not just the core `identifier` type.
     pub fn identifiers_on_line(&self, line: usize) -> Vec<Node<'_>> {
         let row = line.saturating_sub(1);
         let mut result = Vec::new();
@@ -163,6 +167,7 @@ impl ParsedFile {
         result
     }
 
+    /// Manual recursive identifier-at-row collection (pre-query fallback).
     fn collect_identifiers_at_row<'a>(&self, node: Node<'a>, row: usize, out: &mut Vec<Node<'a>>) {
         if node.start_position().row == row && self.language.is_identifier_node(node.kind()) {
             out.push(node);
@@ -246,12 +251,60 @@ impl ParsedFile {
         func_node: &Node<'_>,
         lines: &BTreeSet<usize>,
     ) -> Vec<(String, usize)> {
+        use crate::queries::{get_query, QueryKind};
+        use tree_sitter::StreamingIterator;
+
+        if let Some(query) = get_query(self.language, QueryKind::Assignments) {
+            let assign_idx = query
+                .capture_index_for_name("assign")
+                .expect("Assignments query must have @assign capture");
+            let mut cursor = tree_sitter::QueryCursor::new();
+            cursor.set_byte_range(func_node.byte_range());
+            let mut matches = cursor.matches(query, self.tree.root_node(), self.source.as_bytes());
+            let mut lvalues = Vec::new();
+            while let Some(m) = matches.next() {
+                for capture in m.captures {
+                    if capture.index == assign_idx {
+                        let line = capture.node.start_position().row + 1;
+                        if lines.contains(&line) {
+                            self.extract_assignment_lvalues(&capture.node, line, &mut lvalues);
+                        }
+                    }
+                }
+            }
+            return lvalues;
+        }
+
         let mut lvalues = Vec::new();
-        self.collect_assignments(*func_node, lines, &mut lvalues);
+        self.collect_assignments_manual(*func_node, lines, &mut lvalues);
         lvalues
     }
 
-    fn collect_assignments(
+    /// Extract L-value names from a matched assignment/declaration node.
+    fn extract_assignment_lvalues(
+        &self,
+        node: &Node<'_>,
+        line: usize,
+        out: &mut Vec<(String, usize)>,
+    ) {
+        if self.language.is_assignment_node(node.kind()) {
+            if let Some(lhs) = self.language.assignment_target(node) {
+                let lhs_text = self.node_text(&lhs).to_string();
+                for name in extract_lvalue_names(&lhs_text) {
+                    out.push((name, line));
+                }
+            }
+        }
+        if self.language.is_declaration_node(node.kind()) {
+            if let Some(name_node) = self.language.declaration_name(node) {
+                let name = self.node_text(&name_node).to_string();
+                out.push((name, line));
+            }
+        }
+    }
+
+    /// Manual recursive assignment collection (pre-query fallback).
+    pub(crate) fn collect_assignments_manual(
         &self,
         node: Node<'_>,
         lines: &BTreeSet<usize>,
@@ -260,9 +313,6 @@ impl ParsedFile {
         let line = node.start_position().row + 1;
 
         if lines.contains(&line) && self.language.is_assignment_node(node.kind()) {
-            // Get the left side of the assignment, extracting alias names so that
-            // pointer derefs (*p), field accesses (dev->field), and array subscripts
-            // (buf[i]) create flow edges for their base variables.
             if let Some(lhs) = self.language.assignment_target(&node) {
                 let lhs_text = self.node_text(&lhs).to_string();
                 for name in extract_lvalue_names(&lhs_text) {
@@ -271,7 +321,6 @@ impl ParsedFile {
             }
         }
 
-        // Also check variable declarations with initializers on diff lines
         if lines.contains(&line) && self.language.is_declaration_node(node.kind()) {
             if let Some(name_node) = self.language.declaration_name(&node) {
                 let name = self.node_text(&name_node).to_string();
@@ -281,7 +330,7 @@ impl ParsedFile {
 
         let mut cursor = node.walk();
         for child in node.children(&mut cursor) {
-            self.collect_assignments(child, lines, out);
+            self.collect_assignments_manual(child, lines, out);
         }
     }
 
@@ -292,24 +341,47 @@ impl ParsedFile {
         func_node: &Node<'_>,
         lines: &BTreeSet<usize>,
     ) -> Vec<(AccessPath, usize)> {
+        use crate::queries::{get_query, QueryKind};
+        use tree_sitter::StreamingIterator;
+
+        if let Some(query) = get_query(self.language, QueryKind::Assignments) {
+            let assign_idx = query
+                .capture_index_for_name("assign")
+                .expect("Assignments query must have @assign capture");
+            let mut cursor = tree_sitter::QueryCursor::new();
+            cursor.set_byte_range(func_node.byte_range());
+            let mut matches = cursor.matches(query, self.tree.root_node(), self.source.as_bytes());
+            let mut paths = Vec::new();
+            while let Some(m) = matches.next() {
+                for capture in m.captures {
+                    if capture.index == assign_idx {
+                        let line = capture.node.start_position().row + 1;
+                        if lines.contains(&line) {
+                            self.extract_assignment_lvalue_paths(&capture.node, line, &mut paths);
+                        }
+                    }
+                }
+            }
+            // The query may miss for_in_statement and as_pattern since they aren't
+            // assignment/declaration nodes. Run the gap handlers on the full tree.
+            self.collect_assignment_paths_gaps(*func_node, lines, &mut paths);
+            return paths;
+        }
+
         let mut paths = Vec::new();
-        self.collect_assignment_paths(*func_node, lines, &mut paths);
+        self.collect_assignment_paths_manual(*func_node, lines, &mut paths);
         paths
     }
 
-    fn collect_assignment_paths(
+    /// Extract L-value AccessPaths from a matched assignment/declaration node.
+    fn extract_assignment_lvalue_paths(
         &self,
-        node: Node<'_>,
-        lines: &BTreeSet<usize>,
+        node: &Node<'_>,
+        line: usize,
         out: &mut Vec<(AccessPath, usize)>,
     ) {
-        let line = node.start_position().row + 1;
-
-        if lines.contains(&line) && self.language.is_assignment_node(node.kind()) {
-            if let Some(lhs) = self.language.assignment_target(&node) {
-                // Multi-target: pattern_list (Python: name, age = func())
-                // or expression_list (Go: val, err := func())
-                // Split into individual identifiers instead of treating as one string.
+        if self.language.is_assignment_node(node.kind()) {
+            if let Some(lhs) = self.language.assignment_target(node) {
                 if lhs.kind() == "pattern_list" || lhs.kind() == "expression_list" {
                     self.extract_multi_target_lvalues(&lhs, line, out);
                 } else {
@@ -320,10 +392,8 @@ impl ParsedFile {
                 }
             }
         }
-
-        if lines.contains(&line) && self.language.is_declaration_node(node.kind()) {
-            if let Some(name_node) = self.language.declaration_name(&node) {
-                // Go declarations can also have expression_list as the name
+        if self.language.is_declaration_node(node.kind()) {
+            if let Some(name_node) = self.language.declaration_name(node) {
                 if name_node.kind() == "expression_list" {
                     self.extract_multi_target_lvalues(&name_node, line, out);
                 } else {
@@ -332,10 +402,17 @@ impl ParsedFile {
                 }
             }
         }
+    }
 
-        // Gap 3: JS/TS for-of/for-in loop variable bindings
-        // `for (const { name, id } of items)` or `for (const key in obj)`
-        // The loop variable isn't inside a standard declaration node.
+    /// Handle gap patterns not covered by the Assignments query (for_in, as_pattern).
+    fn collect_assignment_paths_gaps(
+        &self,
+        node: Node<'_>,
+        lines: &BTreeSet<usize>,
+        out: &mut Vec<(AccessPath, usize)>,
+    ) {
+        let line = node.start_position().row + 1;
+
         if lines.contains(&line)
             && node.kind() == "for_in_statement"
             && matches!(
@@ -346,9 +423,6 @@ impl ParsedFile {
             self.extract_for_in_lvalues(&node, line, out);
         }
 
-        // Gap 4: Python with...as and except...as bindings
-        // `with open("f") as f:` or `except Exception as e:`
-        // The as_pattern_target is the bound variable.
         if lines.contains(&line)
             && node.kind() == "as_pattern"
             && matches!(self.language, Language::Python)
@@ -366,7 +440,71 @@ impl ParsedFile {
 
         let mut cursor = node.walk();
         for child in node.children(&mut cursor) {
-            self.collect_assignment_paths(child, lines, out);
+            self.collect_assignment_paths_gaps(child, lines, out);
+        }
+    }
+
+    /// Manual recursive assignment path collection (pre-query fallback).
+    fn collect_assignment_paths_manual(
+        &self,
+        node: Node<'_>,
+        lines: &BTreeSet<usize>,
+        out: &mut Vec<(AccessPath, usize)>,
+    ) {
+        let line = node.start_position().row + 1;
+
+        if lines.contains(&line) && self.language.is_assignment_node(node.kind()) {
+            if let Some(lhs) = self.language.assignment_target(&node) {
+                if lhs.kind() == "pattern_list" || lhs.kind() == "expression_list" {
+                    self.extract_multi_target_lvalues(&lhs, line, out);
+                } else {
+                    let lhs_text = self.node_text(&lhs).to_string();
+                    for path in extract_lvalue_paths(&lhs_text) {
+                        out.push((path, line));
+                    }
+                }
+            }
+        }
+
+        if lines.contains(&line) && self.language.is_declaration_node(node.kind()) {
+            if let Some(name_node) = self.language.declaration_name(&node) {
+                if name_node.kind() == "expression_list" {
+                    self.extract_multi_target_lvalues(&name_node, line, out);
+                } else {
+                    let name = self.node_text(&name_node).to_string();
+                    out.push((AccessPath::simple(name), line));
+                }
+            }
+        }
+
+        if lines.contains(&line)
+            && node.kind() == "for_in_statement"
+            && matches!(
+                self.language,
+                Language::JavaScript | Language::TypeScript | Language::Tsx
+            )
+        {
+            self.extract_for_in_lvalues(&node, line, out);
+        }
+
+        if lines.contains(&line)
+            && node.kind() == "as_pattern"
+            && matches!(self.language, Language::Python)
+        {
+            let mut c = node.walk();
+            for child in node.children(&mut c) {
+                if child.kind() == "as_pattern_target" {
+                    let name = self.node_text(&child).to_string();
+                    if is_plain_ident(&name) {
+                        out.push((AccessPath::simple(name), line));
+                    }
+                }
+            }
+        }
+
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            self.collect_assignment_paths_manual(child, lines, out);
         }
     }
 
@@ -773,12 +911,76 @@ impl ParsedFile {
         func_node: &Node<'_>,
         lines: &BTreeSet<usize>,
     ) -> Vec<(AccessPath, usize)> {
+        use crate::queries::{get_query, QueryKind};
+        use tree_sitter::StreamingIterator;
+
+        // Use the Assignments query to find assignment nodes, then extract RHS.
+        // Also use the Calls query for call arguments on diff lines.
+        if let Some(assign_query) = get_query(self.language, QueryKind::Assignments) {
+            let assign_idx = assign_query
+                .capture_index_for_name("assign")
+                .expect("Assignments query must have @assign capture");
+            let mut paths = Vec::new();
+
+            // Collect R-values from assignments
+            let mut cursor = tree_sitter::QueryCursor::new();
+            cursor.set_byte_range(func_node.byte_range());
+            let mut matches =
+                cursor.matches(assign_query, self.tree.root_node(), self.source.as_bytes());
+            while let Some(m) = matches.next() {
+                for capture in m.captures {
+                    if capture.index == assign_idx {
+                        let line = capture.node.start_position().row + 1;
+                        if lines.contains(&line)
+                            && self.language.is_assignment_node(capture.node.kind())
+                        {
+                            if let Some(rhs) = self.language.assignment_value(&capture.node) {
+                                self.collect_identifier_paths(rhs, &mut paths);
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Collect R-values from call arguments using Calls query
+            if let Some(call_query) = get_query(self.language, QueryKind::Calls) {
+                let call_idx = call_query
+                    .capture_index_for_name("call")
+                    .expect("Calls query must have @call capture");
+                let mut cursor2 = tree_sitter::QueryCursor::new();
+                cursor2.set_byte_range(func_node.byte_range());
+                let mut matches2 =
+                    cursor2.matches(call_query, self.tree.root_node(), self.source.as_bytes());
+                while let Some(m) = matches2.next() {
+                    for capture in m.captures {
+                        if capture.index == call_idx {
+                            let line = capture.node.start_position().row + 1;
+                            if lines.contains(&line) {
+                                if let Some(args) = self.language.call_arguments(&capture.node) {
+                                    self.collect_identifier_paths(args, &mut paths);
+                                }
+                                if let Some(func_name_node) =
+                                    self.language.call_function_name(&capture.node)
+                                {
+                                    let name = self.node_text(&func_name_node).to_string();
+                                    paths.push((AccessPath::simple(name), line));
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            return paths;
+        }
+
         let mut paths = Vec::new();
-        self.collect_rvalue_paths(*func_node, lines, &mut paths);
+        self.collect_rvalue_paths_manual(*func_node, lines, &mut paths);
         paths
     }
 
-    fn collect_rvalue_paths(
+    /// Manual recursive R-value path collection (pre-query fallback).
+    fn collect_rvalue_paths_manual(
         &self,
         node: Node<'_>,
         lines: &BTreeSet<usize>,
@@ -804,7 +1006,7 @@ impl ParsedFile {
 
         let mut cursor = node.walk();
         for child in node.children(&mut cursor) {
-            self.collect_rvalue_paths(child, lines, out);
+            self.collect_rvalue_paths_manual(child, lines, out);
         }
     }
 
@@ -871,12 +1073,73 @@ impl ParsedFile {
         func_node: &Node<'_>,
         lines: &BTreeSet<usize>,
     ) -> Vec<(String, usize)> {
+        use crate::queries::{get_query, QueryKind};
+        use tree_sitter::StreamingIterator;
+
+        if let Some(assign_query) = get_query(self.language, QueryKind::Assignments) {
+            let assign_idx = assign_query
+                .capture_index_for_name("assign")
+                .expect("Assignments query must have @assign capture");
+            let mut rvalues = Vec::new();
+
+            let mut cursor = tree_sitter::QueryCursor::new();
+            cursor.set_byte_range(func_node.byte_range());
+            let mut matches =
+                cursor.matches(assign_query, self.tree.root_node(), self.source.as_bytes());
+            while let Some(m) = matches.next() {
+                for capture in m.captures {
+                    if capture.index == assign_idx {
+                        let line = capture.node.start_position().row + 1;
+                        if lines.contains(&line)
+                            && self.language.is_assignment_node(capture.node.kind())
+                        {
+                            if let Some(rhs) = self.language.assignment_value(&capture.node) {
+                                self.collect_all_identifiers(rhs, &mut rvalues);
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Also collect from call arguments
+            if let Some(call_query) = get_query(self.language, QueryKind::Calls) {
+                let call_idx = call_query
+                    .capture_index_for_name("call")
+                    .expect("Calls query must have @call capture");
+                let mut cursor2 = tree_sitter::QueryCursor::new();
+                cursor2.set_byte_range(func_node.byte_range());
+                let mut matches2 =
+                    cursor2.matches(call_query, self.tree.root_node(), self.source.as_bytes());
+                while let Some(m) = matches2.next() {
+                    for capture in m.captures {
+                        if capture.index == call_idx {
+                            let line = capture.node.start_position().row + 1;
+                            if lines.contains(&line) {
+                                if let Some(args) = self.language.call_arguments(&capture.node) {
+                                    self.collect_all_identifiers(args, &mut rvalues);
+                                }
+                                if let Some(func_name_node) =
+                                    self.language.call_function_name(&capture.node)
+                                {
+                                    let name = self.node_text(&func_name_node).to_string();
+                                    rvalues.push((name, line));
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            return rvalues;
+        }
+
         let mut rvalues = Vec::new();
-        self.collect_rvalues(*func_node, lines, &mut rvalues);
+        self.collect_rvalues_manual(*func_node, lines, &mut rvalues);
         rvalues
     }
 
-    fn collect_rvalues(
+    /// Manual recursive R-value collection (pre-query fallback).
+    fn collect_rvalues_manual(
         &self,
         node: Node<'_>,
         lines: &BTreeSet<usize>,
@@ -885,18 +1148,15 @@ impl ParsedFile {
         let line = node.start_position().row + 1;
 
         if lines.contains(&line) && self.language.is_assignment_node(node.kind()) {
-            // Get the right side of the assignment
             if let Some(rhs) = self.language.assignment_value(&node) {
                 self.collect_all_identifiers(rhs, out);
             }
         }
 
-        // Function call arguments on diff lines
         if lines.contains(&line) && self.language.is_call_node(node.kind()) {
             if let Some(args) = self.language.call_arguments(&node) {
                 self.collect_all_identifiers(args, out);
             }
-            // Also capture the function name being called
             if let Some(func_name_node) = self.language.call_function_name(&node) {
                 let name = self.node_text(&func_name_node).to_string();
                 out.push((name, line));
@@ -905,7 +1165,7 @@ impl ParsedFile {
 
         let mut cursor = node.walk();
         for child in node.children(&mut cursor) {
-            self.collect_rvalues(child, lines, out);
+            self.collect_rvalues_manual(child, lines, out);
         }
     }
 
@@ -927,18 +1187,45 @@ impl ParsedFile {
         func_node: &Node<'_>,
         var_name: &str,
     ) -> BTreeSet<usize> {
+        use crate::queries::{get_query, QueryKind};
+        use tree_sitter::StreamingIterator;
+
+        if let Some(query) = get_query(self.language, QueryKind::Identifiers) {
+            let ident_idx = query
+                .capture_index_for_name("ident")
+                .expect("Identifiers query must have @ident capture");
+            let mut cursor = tree_sitter::QueryCursor::new();
+            cursor.set_byte_range(func_node.byte_range());
+            let mut matches = cursor.matches(query, self.tree.root_node(), self.source.as_bytes());
+            let mut lines = BTreeSet::new();
+            while let Some(m) = matches.next() {
+                for capture in m.captures {
+                    if capture.index == ident_idx && self.node_text(&capture.node) == var_name {
+                        lines.insert(capture.node.start_position().row + 1);
+                    }
+                }
+            }
+            return lines;
+        }
+
         let mut lines = BTreeSet::new();
-        self.collect_variable_refs(*func_node, var_name, &mut lines);
+        self.collect_variable_refs_manual(*func_node, var_name, &mut lines);
         lines
     }
 
-    fn collect_variable_refs(&self, node: Node<'_>, var_name: &str, out: &mut BTreeSet<usize>) {
+    /// Manual recursive variable ref collection (pre-query fallback).
+    fn collect_variable_refs_manual(
+        &self,
+        node: Node<'_>,
+        var_name: &str,
+        out: &mut BTreeSet<usize>,
+    ) {
         if self.language.is_identifier_node(node.kind()) && self.node_text(&node) == var_name {
             out.insert(node.start_position().row + 1);
         }
         let mut cursor = node.walk();
         for child in node.children(&mut cursor) {
-            self.collect_variable_refs(child, var_name, out);
+            self.collect_variable_refs_manual(child, var_name, out);
         }
     }
 
@@ -953,12 +1240,67 @@ impl ParsedFile {
         var_name: &str,
         def_line: usize,
     ) -> BTreeSet<usize> {
+        use crate::queries::{get_query, QueryKind};
+        use tree_sitter::StreamingIterator;
+
+        if let Some(query) = get_query(self.language, QueryKind::Identifiers) {
+            let ident_idx = query
+                .capture_index_for_name("ident")
+                .expect("Identifiers query must have @ident capture");
+            let mut cursor = tree_sitter::QueryCursor::new();
+            cursor.set_byte_range(func_node.byte_range());
+            let mut matches = cursor.matches(query, self.tree.root_node(), self.source.as_bytes());
+            let mut lines = BTreeSet::new();
+            while let Some(m) = matches.next() {
+                for capture in m.captures {
+                    if capture.index == ident_idx && self.node_text(&capture.node) == var_name {
+                        // Bottom-up scope check: walk from the capture node up to the
+                        // function boundary. If any enclosing scope block re-declares
+                        // var_name and doesn't contain def_line, skip this reference.
+                        if !self.is_shadowed_at(&capture.node, func_node, var_name, def_line) {
+                            lines.insert(capture.node.start_position().row + 1);
+                        }
+                    }
+                }
+            }
+            return lines;
+        }
+
         let mut lines = BTreeSet::new();
-        self.collect_variable_refs_scoped(*func_node, var_name, def_line, &mut lines);
+        self.collect_variable_refs_scoped_manual(*func_node, var_name, def_line, &mut lines);
         lines
     }
 
-    fn collect_variable_refs_scoped(
+    /// Check whether a reference node is shadowed by a re-declaration in an inner scope.
+    /// Walks bottom-up from the identifier node to the function boundary.
+    fn is_shadowed_at(
+        &self,
+        node: &Node<'_>,
+        func_node: &Node<'_>,
+        var_name: &str,
+        def_line: usize,
+    ) -> bool {
+        let func_id = func_node.id();
+        let mut current = node.parent();
+        while let Some(parent) = current {
+            if parent.id() == func_id {
+                break;
+            }
+            if self.language.is_scope_block(parent.kind()) {
+                let scope_start = parent.start_position().row + 1;
+                let scope_end = parent.end_position().row + 1;
+                let def_in_scope = def_line >= scope_start && def_line <= scope_end;
+                if !def_in_scope && self.scope_has_declaration(parent, var_name) {
+                    return true;
+                }
+            }
+            current = parent.parent();
+        }
+        false
+    }
+
+    /// Manual recursive scoped variable ref collection (pre-query fallback).
+    fn collect_variable_refs_scoped_manual(
         &self,
         node: Node<'_>,
         var_name: &str,
@@ -968,9 +1310,6 @@ impl ParsedFile {
         let node_start = node.start_position().row + 1;
         let node_end = node.end_position().row + 1;
 
-        // If this is a scope block that does NOT contain the definition,
-        // and it re-declares the variable, skip it entirely — references inside
-        // bind to the inner declaration, not the one we're tracking.
         if self.language.is_scope_block(node.kind()) {
             let def_in_scope = def_line >= node_start && def_line <= node_end;
             if !def_in_scope && self.scope_has_declaration(node, var_name) {
@@ -984,7 +1323,7 @@ impl ParsedFile {
 
         let mut cursor = node.walk();
         for child in node.children(&mut cursor) {
-            self.collect_variable_refs_scoped(child, var_name, def_line, out);
+            self.collect_variable_refs_scoped_manual(child, var_name, def_line, out);
         }
     }
 
@@ -1112,6 +1451,11 @@ impl ParsedFile {
         func_node: &Node<'_>,
         lines: &BTreeSet<usize>,
     ) -> Vec<(String, usize)> {
+        // Condition vars are a composition: find control flow nodes on diff lines,
+        // extract the condition sub-node, then collect identifiers within it.
+        // The control flow node matching stays manual (too many node types per language),
+        // but the identifier extraction within the condition uses the Identifiers query
+        // via collect_all_identifiers (which is called on the condition sub-node).
         let mut vars = Vec::new();
         self.collect_condition_vars(*func_node, lines, &mut vars);
         vars
@@ -1139,18 +1483,40 @@ impl ParsedFile {
 
     /// Find all return statements within a function.
     pub fn return_statements(&self, func_node: &Node<'_>) -> Vec<usize> {
+        use crate::queries::{get_query, QueryKind};
+        use tree_sitter::StreamingIterator;
+
+        if let Some(query) = get_query(self.language, QueryKind::Returns) {
+            let ret_idx = query
+                .capture_index_for_name("ret")
+                .expect("Returns query must have @ret capture");
+            let mut cursor = tree_sitter::QueryCursor::new();
+            cursor.set_byte_range(func_node.byte_range());
+            let mut matches = cursor.matches(query, self.tree.root_node(), self.source.as_bytes());
+            let mut lines = Vec::new();
+            while let Some(m) = matches.next() {
+                for capture in m.captures {
+                    if capture.index == ret_idx {
+                        lines.push(capture.node.start_position().row + 1);
+                    }
+                }
+            }
+            return lines;
+        }
+
         let mut lines = Vec::new();
-        self.collect_returns(*func_node, &mut lines);
+        self.collect_returns_manual(*func_node, &mut lines);
         lines
     }
 
-    fn collect_returns(&self, node: Node<'_>, out: &mut Vec<usize>) {
+    /// Manual recursive return collection (pre-query fallback).
+    fn collect_returns_manual(&self, node: Node<'_>, out: &mut Vec<usize>) {
         if self.language.is_return_node(node.kind()) {
             out.push(node.start_position().row + 1);
         }
         let mut cursor = node.walk();
         for child in node.children(&mut cursor) {
-            self.collect_returns(child, out);
+            self.collect_returns_manual(child, out);
         }
     }
 

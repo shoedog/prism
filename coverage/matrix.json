@@ -751,6 +751,19 @@
       "lua": "none",
       "terraform": "none",
       "bash": "none"
+    },
+    "contract_slice": {
+      "python": "basic",
+      "javascript": "basic",
+      "typescript": "none",
+      "go": "basic",
+      "java": "none",
+      "c": "basic",
+      "cpp": "none",
+      "rust": "basic",
+      "lua": "none",
+      "terraform": "none",
+      "bash": "none"
     }
   }
 }
