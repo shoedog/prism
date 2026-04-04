@@ -8,6 +8,7 @@ use prism::languages::Language;
 use prism::output;
 use prism::slice::{AlgorithmError, MultiSliceResult, SliceConfig, SlicingAlgorithm};
 use prism::type_db::TypeDatabase;
+use prism::type_provider::LanguageVersion;
 use std::collections::{BTreeMap, HashSet};
 use std::fs;
 use std::path::PathBuf;
@@ -118,6 +119,31 @@ struct Cli {
     /// and virtual dispatch via class hierarchy analysis.
     #[arg(long)]
     compile_commands: Option<PathBuf>,
+
+    // --- Target language version flags (stored, informational in Phase 1) ---
+    /// Target Python version (e.g., "3.8", "3.11"). Stored for future use.
+    #[arg(long)]
+    python_version: Option<String>,
+
+    /// Target Go version (e.g., "1.21"). Stored for future use.
+    #[arg(long)]
+    go_version: Option<String>,
+
+    /// Target Node.js version (e.g., "18", "20"). Stored for future use.
+    #[arg(long)]
+    node_version: Option<String>,
+
+    /// Target TypeScript version (e.g., "5.0"). Stored for future use.
+    #[arg(long)]
+    typescript_version: Option<String>,
+
+    /// Target Java version (e.g., "17", "21"). Stored for future use.
+    #[arg(long)]
+    java_version: Option<String>,
+
+    /// Target Rust edition/version (e.g., "2021"). Stored for future use.
+    #[arg(long)]
+    rust_version: Option<String>,
 }
 
 fn main() -> Result<()> {
@@ -300,11 +326,43 @@ fn main() -> Result<()> {
 
     // Build CPG once — shared across all algorithm runs.
     // With --scoped-cpg, only process diff-changed files + direct callers/callees.
-    let ctx = if cli.scoped_cpg {
+    let mut ctx = if cli.scoped_cpg {
         CpgContext::build_scoped(&files, &diff_input, type_db.as_ref())
     } else {
         CpgContext::build(&files, type_db.as_ref())
     };
+
+    // Store target language versions in the registry (informational in Phase 1).
+    if let Some(ref v) = cli.python_version {
+        if let Some(lv) = LanguageVersion::parse(v) {
+            ctx.types.set_target_version(Language::Python, lv);
+        }
+    }
+    if let Some(ref v) = cli.go_version {
+        if let Some(lv) = LanguageVersion::parse(v) {
+            ctx.types.set_target_version(Language::Go, lv);
+        }
+    }
+    if let Some(ref v) = cli.node_version {
+        if let Some(lv) = LanguageVersion::parse(v) {
+            ctx.types.set_target_version(Language::JavaScript, lv);
+        }
+    }
+    if let Some(ref v) = cli.typescript_version {
+        if let Some(lv) = LanguageVersion::parse(v) {
+            ctx.types.set_target_version(Language::TypeScript, lv);
+        }
+    }
+    if let Some(ref v) = cli.java_version {
+        if let Some(lv) = LanguageVersion::parse(v) {
+            ctx.types.set_target_version(Language::Java, lv);
+        }
+    }
+    if let Some(ref v) = cli.rust_version {
+        if let Some(lv) = LanguageVersion::parse(v) {
+            ctx.types.set_target_version(Language::Rust, lv);
+        }
+    }
 
     if multi_run {
         // --- Multi-algorithm run ---
