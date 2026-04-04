@@ -79,10 +79,10 @@ pub fn run_slicing(
     match config.algorithm {
         SlicingAlgorithm::OriginalDiff => original_diff::slice(ctx.files, diff),
         SlicingAlgorithm::ParentFunction => parent_function::slice(ctx.files, diff),
-        SlicingAlgorithm::LeftFlow => left_flow::slice(ctx.files, diff, config),
-        SlicingAlgorithm::FullFlow => full_flow::slice(ctx.files, diff, config),
+        SlicingAlgorithm::LeftFlow => left_flow::slice(ctx, diff, config),
+        SlicingAlgorithm::FullFlow => full_flow::slice(ctx, diff, config),
         SlicingAlgorithm::ThinSlice => thin_slice::slice(ctx.files, diff),
-        SlicingAlgorithm::RelevantSlice => relevant_slice::slice(ctx.files, diff, config),
+        SlicingAlgorithm::RelevantSlice => relevant_slice::slice(ctx, diff, config),
         SlicingAlgorithm::BarrierSlice => {
             barrier_slice::slice(ctx, diff, config, &barrier_slice::BarrierConfig::default())
         }

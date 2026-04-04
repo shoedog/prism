@@ -169,8 +169,9 @@ int classify(int score) {
         value: "90".to_string(),
     };
     let config = SliceConfig::default().with_algorithm(SlicingAlgorithm::ConditionedSlice);
+    let ctx = CpgContext::build(&files, None);
     let result =
-        prism::algorithms::conditioned_slice::slice(&files, &diff, &config, &condition).unwrap();
+        prism::algorithms::conditioned_slice::slice(&ctx, &diff, &config, &condition).unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::ConditionedSlice);
 }
 

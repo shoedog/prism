@@ -429,8 +429,9 @@ def process(x):
 
     let condition = prism::algorithms::conditioned_slice::Condition::parse("x==5").unwrap();
     let config = SliceConfig::default().with_algorithm(SlicingAlgorithm::ConditionedSlice);
+    let ctx = CpgContext::build(&files, None);
     let result =
-        prism::algorithms::conditioned_slice::slice(&files, &diff, &config, &condition).unwrap();
+        prism::algorithms::conditioned_slice::slice(&ctx, &diff, &config, &condition).unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::ConditionedSlice);
 }
 
@@ -461,8 +462,9 @@ func check(n int) int {
 
     let condition = prism::algorithms::conditioned_slice::Condition::parse("n>0").unwrap();
     let config = SliceConfig::default().with_algorithm(SlicingAlgorithm::ConditionedSlice);
+    let ctx = CpgContext::build(&files, None);
     let result =
-        prism::algorithms::conditioned_slice::slice(&files, &diff, &config, &condition).unwrap();
+        prism::algorithms::conditioned_slice::slice(&ctx, &diff, &config, &condition).unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::ConditionedSlice);
 }
 
@@ -496,8 +498,9 @@ function validate(input) {
         prism::algorithms::conditioned_slice::ConditionOp::IsNotNull
     );
     let config = SliceConfig::default().with_algorithm(SlicingAlgorithm::ConditionedSlice);
+    let ctx = CpgContext::build(&files, None);
     let result =
-        prism::algorithms::conditioned_slice::slice(&files, &diff, &config, &condition).unwrap();
+        prism::algorithms::conditioned_slice::slice(&ctx, &diff, &config, &condition).unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::ConditionedSlice);
 }
 
