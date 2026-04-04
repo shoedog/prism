@@ -173,6 +173,73 @@ impl ParsedFile {
         }
     }
 
+    /// Check whether `text` appears on `line` (1-indexed) in actual code,
+    /// i.e. NOT inside a comment or string literal AST node.
+    ///
+    /// For each occurrence of `text` on the line, we ask tree-sitter for the
+    /// smallest node covering that byte range. If every occurrence lands in a
+    /// comment or string, returns `false`.
+    pub fn line_has_code_text(&self, line: usize, text: &str) -> bool {
+        if text.is_empty() {
+            return false;
+        }
+        let row = line.saturating_sub(1);
+        let source = self.source.as_bytes();
+
+        // Compute byte offset of the start of this line.
+        let line_start = source
+            .split(|&b| b == b'\n')
+            .take(row)
+            .map(|l| l.len() + 1) // +1 for the newline
+            .sum::<usize>();
+        let line_end = source[line_start..]
+            .iter()
+            .position(|&b| b == b'\n')
+            .map_or(source.len(), |pos| line_start + pos);
+        let line_bytes = &source[line_start..line_end];
+        let line_str = std::str::from_utf8(line_bytes).unwrap_or("");
+
+        // For each occurrence of `text` in this line, check the AST node.
+        let text_bytes = text.as_bytes();
+        let mut search_start = 0;
+        while let Some(pos) = line_str[search_start..].find(text) {
+            let abs_start = line_start + search_start + pos;
+            let abs_end = abs_start + text_bytes.len();
+
+            // Find the smallest AST node covering this byte range.
+            let node = self
+                .tree
+                .root_node()
+                .descendant_for_byte_range(abs_start, abs_end);
+            if let Some(n) = node {
+                // Walk up to check if any ancestor (up to the line boundary) is
+                // a comment or string. The immediate node might be an identifier
+                // inside a string interpolation, so we check ancestors too.
+                if !self.is_inside_comment_or_string(n) {
+                    return true; // At least one occurrence is in real code.
+                }
+            } else {
+                // No AST node found — conservative: treat as code.
+                return true;
+            }
+            search_start += pos + text_bytes.len();
+        }
+        false
+    }
+
+    /// Walk up from `node` to check if it (or any ancestor) is a comment or
+    /// string literal node.
+    fn is_inside_comment_or_string(&self, node: Node<'_>) -> bool {
+        let mut current = Some(node);
+        while let Some(n) = current {
+            if self.language.is_comment_or_string_node(n.kind()) {
+                return true;
+            }
+            current = n.parent();
+        }
+        false
+    }
+
     /// Find all assignment targets (L-values) on diff lines within a function scope.
     pub fn assignment_lvalues_on_lines(
         &self,

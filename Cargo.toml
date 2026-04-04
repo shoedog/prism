@@ -137,6 +137,10 @@ path = "tests/ast/dfg_test.rs"
 name = "ast_field"
 path = "tests/ast/field_test.rs"
 
+[[test]]
+name = "ast_comment_string"
+path = "tests/ast/comment_string_test.rs"
+
 # ── Language-specific tests ──
 
 [[test]]
