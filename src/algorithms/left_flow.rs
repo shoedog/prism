@@ -24,6 +24,14 @@ use std::collections::{BTreeMap, BTreeSet};
 /// Uses scope-aware variable reference lookup (`find_variable_references_scoped`)
 /// for L-value tracing to avoid false positives from same-named variables in
 /// different scopes.
+/// Result of `left_flow_core`, containing both the slice lines and the call
+/// names extracted from diff lines (to avoid redundant AST queries in callers).
+pub struct LeftFlowResult {
+    pub slice_lines: BTreeMap<usize, bool>,
+    /// Function calls found on the diff lines: `(callee_name, line)`.
+    pub diff_line_calls: Vec<(String, usize)>,
+}
+
 pub fn left_flow_core(
     parsed: &ParsedFile,
     files: &BTreeMap<String, ParsedFile>,
@@ -32,7 +40,7 @@ pub fn left_flow_core(
     func_end: usize,
     lines: &BTreeSet<usize>,
     config: &SliceConfig,
-) -> BTreeMap<usize, bool> {
+) -> LeftFlowResult {
     let mut slice_lines: BTreeMap<usize, bool> = BTreeMap::new();
 
     // Always include function signature and closing
@@ -81,8 +89,8 @@ pub fn left_flow_core(
     }
 
     // Phase 3: Function calls on diff lines
-    let calls = parsed.function_calls_on_lines(func_node, lines);
-    for (func_name, _) in &calls {
+    let diff_line_calls = parsed.function_calls_on_lines(func_node, lines);
+    for (func_name, _) in &diff_line_calls {
         // Try to find the callee in all parsed files
         for (_file_path, other_parsed) in files {
             if let Some(callee) = other_parsed.find_function_by_name(func_name) {
@@ -107,7 +115,10 @@ pub fn left_flow_core(
         }
     }
 
-    slice_lines
+    LeftFlowResult {
+        slice_lines,
+        diff_line_calls,
+    }
 }
 
 pub fn slice(
@@ -144,7 +155,7 @@ pub fn slice(
                 None => continue,
             };
 
-            let slice_lines = left_flow_core(
+            let lf_result = left_flow_core(
                 parsed,
                 files,
                 &func_node,
@@ -160,7 +171,7 @@ pub fn slice(
                 diff_info.file_path.clone(),
                 diff_info.modify_type.clone(),
             );
-            for (line, is_diff) in &slice_lines {
+            for (line, is_diff) in &lf_result.slice_lines {
                 block.add_line(&diff_info.file_path, *line, *is_diff);
             }
             result.blocks.push(block);
