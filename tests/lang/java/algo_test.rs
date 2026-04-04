@@ -460,3 +460,64 @@ public class UserServlet extends HttpServlet {
     .unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::ProvenanceSlice);
 }
+
+// === 2.7 Behavioral test: Horizontal — Java interface methods as peers ===
+
+#[test]
+fn test_horizontal_java_interface_peers() {
+    // Methods implementing the same interface in separate files should be detected as peers.
+    let source_email = r#"
+public class EmailValidator {
+    public boolean validate(String input) {
+        return input.contains("@");
+    }
+}
+"#;
+    let source_phone = r#"
+public class PhoneValidator {
+    public boolean validate(String input) {
+        return input.matches("\\d{10}");
+    }
+}
+"#;
+    let mut files = BTreeMap::new();
+    files.insert(
+        "src/EmailValidator.java".to_string(),
+        ParsedFile::parse("src/EmailValidator.java", source_email, Language::Java).unwrap(),
+    );
+    files.insert(
+        "src/PhoneValidator.java".to_string(),
+        ParsedFile::parse("src/PhoneValidator.java", source_phone, Language::Java).unwrap(),
+    );
+
+    // Diff touches EmailValidator.validate
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: "src/EmailValidator.java".to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([4]),
+        }],
+    };
+
+    let result = algorithms::run_slicing_compat(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::HorizontalSlice),
+        None,
+    )
+    .unwrap();
+
+    // Horizontal should find PhoneValidator.validate() as a peer (same name, different file)
+    assert!(
+        !result.blocks.is_empty(),
+        "Horizontal should detect peer validate() implementations across files"
+    );
+
+    // The block should include lines from PhoneValidator's validate
+    let block = &result.blocks[0];
+    let has_peer = block.file_line_map.contains_key("src/PhoneValidator.java");
+    assert!(
+        has_peer,
+        "Horizontal should include PhoneValidator.java as peer file"
+    );
+}

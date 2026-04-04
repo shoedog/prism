@@ -454,8 +454,15 @@ fn pattern_to_call_base(pattern: &str) -> Option<&str> {
 /// Check if a call name matches a pattern base, handling both qualified and
 /// unqualified forms. For example, pattern `tempfile.mkstemp` matches call
 /// name `mkstemp` (method-only) or `tempfile.mkstemp` (fully qualified).
+///
+/// Supports the `=` exact-match prefix convention from taint sink patterns:
+/// `=open` matches only the identifier `open`, not `openFile`.
 fn call_name_matches_pattern(call_name: &str, pattern_base: &str) -> bool {
-    // Exact match or call name contains pattern base (original behavior)
+    // Exact match prefix: `=open` matches `open` but not `openFile`
+    if let Some(exact) = pattern_base.strip_prefix('=') {
+        return call_name == exact;
+    }
+    // Substring match or call name contains pattern base (original behavior)
     if call_name.contains(pattern_base) {
         return true;
     }

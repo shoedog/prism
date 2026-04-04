@@ -12,7 +12,12 @@ use crate::slice::{SliceFinding, SliceResult, SlicingAlgorithm};
 use anyhow::Result;
 use std::collections::{BTreeMap, BTreeSet};
 
-/// Built-in taint sink patterns.
+/// Built-in taint sink patterns matched against AST identifier nodes.
+///
+/// **Matching convention** (see `matches_sink()`):
+/// - Bare patterns (e.g., `"exec"`) use substring matching: `"exec"` matches `execFile`.
+/// - `=`-prefixed patterns (e.g., `"=open"`) require an exact identifier match:
+///   `"=open"` matches `open` but not `openFile` or `openConnection`.
 const SINK_PATTERNS: &[&str] = &[
     // === Cross-language / generic ===
     "exec",

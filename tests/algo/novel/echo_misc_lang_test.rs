@@ -409,3 +409,111 @@ fn test_gradient_slice_python_scores_decay() {
         );
     }
 }
+
+// === 2.7 Behavioral test: Echo — Java checked exception ===
+
+#[test]
+fn test_echo_java_checked_exception() {
+    // Method adds `throws IOException`, caller doesn't declare it.
+    // Echo should include the caller that doesn't handle the new exception.
+    let source_api = r#"
+import java.io.IOException;
+
+public class FileService {
+    public String readData(String path) throws IOException {
+        return new String(java.nio.file.Files.readAllBytes(java.nio.file.Paths.get(path)));
+    }
+}
+"#;
+    let source_caller = r#"
+public class Handler {
+    public void handle() {
+        FileService svc = new FileService();
+        String data = svc.readData("/tmp/data");
+        System.out.println(data);
+    }
+}
+"#;
+    let mut files = BTreeMap::new();
+    files.insert(
+        "FileService.java".to_string(),
+        ParsedFile::parse("FileService.java", source_api, Language::Java).unwrap(),
+    );
+    files.insert(
+        "Handler.java".to_string(),
+        ParsedFile::parse("Handler.java", source_caller, Language::Java).unwrap(),
+    );
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: "FileService.java".to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([5]),
+        }],
+    };
+    let result = algorithms::run_slicing_compat(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::EchoSlice),
+        None,
+    )
+    .unwrap();
+
+    // Echo should produce a block — the caller references the changed function
+    assert!(
+        !result.blocks.is_empty(),
+        "Echo should include callers of method with changed throws declaration"
+    );
+}
+
+// === 2.7 Behavioral test: Echo — Lua nil return ===
+
+#[test]
+fn test_echo_lua_nil_return() {
+    // Function changes return to `nil, err` pattern, caller doesn't check.
+    let source_lib = r#"
+function connect(host)
+    local sock = socket.tcp()
+    local ok, err = sock:connect(host, 80)
+    if not ok then
+        return nil, err
+    end
+    return sock
+end
+"#;
+    let source_caller = r#"
+function fetch(host)
+    local conn = connect(host)
+    conn:send("GET / HTTP/1.1\r\n")
+    return conn:receive("*a")
+end
+"#;
+    let mut files = BTreeMap::new();
+    files.insert(
+        "net.lua".to_string(),
+        ParsedFile::parse("net.lua", source_lib, Language::Lua).unwrap(),
+    );
+    files.insert(
+        "client.lua".to_string(),
+        ParsedFile::parse("client.lua", source_caller, Language::Lua).unwrap(),
+    );
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: "net.lua".to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([5, 6]),
+        }],
+    };
+    let result = algorithms::run_slicing_compat(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::EchoSlice),
+        None,
+    )
+    .unwrap();
+
+    // Echo should detect that the caller uses connect() without checking nil
+    assert!(
+        !result.blocks.is_empty(),
+        "Echo should include callers that don't check nil return from connect()"
+    );
+}
