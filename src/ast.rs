@@ -142,7 +142,9 @@ impl ParsedFile {
         functions
     }
 
-    fn collect_functions_manual<'a>(&self, node: Node<'a>, out: &mut Vec<Node<'a>>) {
+    /// Manual recursive function collection (pre-query fallback).
+    /// `pub(crate)` for dual-path consistency testing in `queries::tests`.
+    pub(crate) fn collect_functions_manual<'a>(&self, node: Node<'a>, out: &mut Vec<Node<'a>>) {
         let types = self.language.function_node_types();
         if types.contains(&node.kind()) {
             out.push(node);
@@ -1241,7 +1243,9 @@ impl ParsedFile {
         calls
     }
 
-    fn collect_calls_manual(
+    /// Manual recursive call collection (pre-query fallback).
+    /// `pub(crate)` for dual-path consistency testing in `queries::tests`.
+    pub(crate) fn collect_calls_manual(
         &self,
         node: Node<'_>,
         lines: &BTreeSet<usize>,
