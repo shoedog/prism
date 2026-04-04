@@ -42,15 +42,15 @@ enum ConstraintKind {
 }
 
 impl ConstraintKind {
-    fn description(&self) -> &str {
+    fn description(&self) -> String {
         match self {
-            Self::NonNull => "non-null",
-            Self::NilCheck => "nil-check (error handled)",
-            Self::NonEmpty => "non-empty",
-            Self::TypeCheck(_) => "type-check",
-            Self::RangeCheck => "range-check",
-            Self::Positive => "positive",
-            Self::CustomAssertion => "assertion",
+            Self::NonNull => "non-null".to_string(),
+            Self::NilCheck => "nil-check (error handled)".to_string(),
+            Self::NonEmpty => "non-empty".to_string(),
+            Self::TypeCheck(ty) => format!("type-check (expected: {})", ty),
+            Self::RangeCheck => "range-check".to_string(),
+            Self::Positive => "positive".to_string(),
+            Self::CustomAssertion => "assertion".to_string(),
         }
     }
 }
@@ -566,16 +566,22 @@ fn classify_condition(cond: &str) -> Option<(String, ConstraintKind)> {
     }
 
     // Error/nil check: `err != nil`, `x != null`, `x != None`
+    // Also Yoda: `nil != err`, `null != x`, `None != x`
     // These guards exit early when the variable IS non-nil, so the postcondition
     // is that the variable is nil/null after the guard.
-    if let Some(var) = trimmed
-        .strip_suffix(" != nil")
-        .or_else(|| trimmed.strip_suffix(" != null"))
-        .or_else(|| trimmed.strip_suffix(" != None"))
-    {
-        let var = var.trim();
-        if is_simple_var(var) {
-            return Some((var.to_string(), ConstraintKind::NilCheck));
+    for nil_lit in &["nil", "null", "None"] {
+        if let Some(var) = trimmed.strip_suffix(&format!(" != {}", nil_lit)) {
+            let var = var.trim();
+            if is_simple_var(var) {
+                return Some((var.to_string(), ConstraintKind::NilCheck));
+            }
+        }
+        // Yoda: `nil != err`
+        if let Some(var) = trimmed.strip_prefix(&format!("{} != ", nil_lit)) {
+            let var = var.trim();
+            if is_simple_var(var) {
+                return Some((var.to_string(), ConstraintKind::NilCheck));
+            }
         }
     }
 

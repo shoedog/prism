@@ -140,7 +140,8 @@ pub fn slice(
 ///
 /// Returns:
 /// - co-change counts: file → (partner_file → co_change_count)
-/// - per-file commit counts: file → number_of_commits_touching_that_file
+/// - per-file commit counts: file → number of diff-relevant commits touching
+///   that file (i.e., only commits that also touch at least one diff file)
 fn get_co_change_data(
     git_dir: &str,
     days: usize,
@@ -193,13 +194,19 @@ fn get_co_change_data(
             continue;
         }
 
-        // Only process commits that touch at least one file from the diff
+        // Only process commits that touch at least one file from the diff.
+        // NOTE: This means file_commit_counts only counts commits that also
+        // touch a diff file — it measures conditional co-change frequency
+        // given the diff, not the file's unconditional total commit count.
+        // This overstates coupling for files that change frequently on their
+        // own (e.g., a shared utils file), since its denominator is smaller
+        // than its true commit count.
         let touches_diff = files_in_commit.iter().any(|f| diff_files.contains(f));
         if !touches_diff {
             continue;
         }
 
-        // Track per-file commit counts
+        // Track per-file commit counts (within diff-relevant commits only)
         for f in &files_in_commit {
             *file_commit_counts.entry(f.clone()).or_insert(0) += 1;
         }
