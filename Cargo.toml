@@ -56,6 +56,10 @@ name = "algo_taint_sink"
 path = "tests/algo/taxonomy/taint_sink_test.rs"
 
 [[test]]
+name = "algo_taint_sink_lang"
+path = "tests/algo/taxonomy/taint_sink_lang_test.rs"
+
+[[test]]
 name = "algo_taint_interprocedural"
 path = "tests/algo/taxonomy/taint_interprocedural_test.rs"
 
@@ -78,6 +82,10 @@ name = "algo_quantum"
 path = "tests/algo/theoretical/quantum_test.rs"
 
 [[test]]
+name = "algo_quantum_lang"
+path = "tests/algo/theoretical/quantum_lang_test.rs"
+
+[[test]]
 name = "algo_spiral_circular"
 path = "tests/algo/theoretical/spiral_circular_test.rs"
 
@@ -94,6 +102,10 @@ path = "tests/algo/novel/absence_test.rs"
 [[test]]
 name = "algo_novel_absence_lang"
 path = "tests/algo/novel/absence_lang_test.rs"
+
+[[test]]
+name = "algo_novel_absence_infra"
+path = "tests/algo/novel/absence_infra_test.rs"
 
 [[test]]
 name = "algo_novel_echo_misc"

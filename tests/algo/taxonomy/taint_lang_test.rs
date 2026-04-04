@@ -592,3 +592,94 @@ def handler():
         "with...as: 'conn' should have def for taint flow"
     );
 }
+
+// === 2.7 Behavioral test: Taint — JS prototype pollution ===
+
+#[test]
+fn test_taint_js_prototype_pollution() {
+    // Object.assign(target, userInput) — tainted input reaches assignment sink.
+    let source = r#"
+function mergeConfig(userInput) {
+    const config = {};
+    Object.assign(config, userInput);
+    return config;
+}
+
+function handler(req) {
+    const body = req.body;
+    const result = mergeConfig(body);
+    send(result);
+}
+"#;
+    let path = "src/merge.js";
+    let parsed = ParsedFile::parse(path, source, Language::JavaScript).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([9]),
+        }],
+    };
+
+    let result = algorithms::run_slicing_compat(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::Taint),
+        None,
+    )
+    .unwrap();
+
+    // Taint should trace: req.body → body → mergeConfig(body) → send(result)
+    assert!(
+        !result.findings.is_empty(),
+        "Taint should detect user input flowing through Object.assign to send()"
+    );
+}
+
+// === 2.7 Behavioral test: Taint — Python template injection ===
+
+#[test]
+fn test_taint_python_template_injection() {
+    // render_template_string(user_input) is a known taint sink.
+    let source = r#"
+from flask import request, render_template_string
+
+def preview():
+    template = request.args.get('template')
+    return render_template_string(template)
+"#;
+    let path = "app/views.py";
+    let parsed = ParsedFile::parse(path, source, Language::Python).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([5]),
+        }],
+    };
+
+    let result = algorithms::run_slicing_compat(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::Taint),
+        None,
+    )
+    .unwrap();
+
+    // render_template_string is a known sink — taint should detect SSTI
+    let template_findings: Vec<_> = result
+        .findings
+        .iter()
+        .filter(|f| f.category.as_deref() == Some("tainted_value"))
+        .collect();
+    assert!(
+        !template_findings.is_empty(),
+        "Taint should detect user input reaching render_template_string (SSTI)"
+    );
+}

@@ -458,3 +458,90 @@ def critical_section(lock):
         );
     }
 }
+
+// === 2.7 Behavioral test: Rust RAII MutexGuard no-false-positive ===
+
+#[test]
+fn test_absence_rust_raii_mutex_guard_advisory() {
+    // Rust MutexGuard auto-releases on drop. Absence detects lock-without-unlock
+    // but should emit an advisory for Rust (scope-based drop), not just a hard finding.
+    let source = r#"
+use std::sync::Mutex;
+
+fn update_counter(counter: &Mutex<i32>) {
+    let mut guard = counter.lock().unwrap();
+    *guard += 1;
+}
+"#;
+    let path = "src/counter.rs";
+    let parsed = ParsedFile::parse(path, source, Language::Rust).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([5]),
+        }],
+    };
+
+    let result = algorithms::run_slicing_compat(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::AbsenceSlice),
+        None,
+    )
+    .unwrap();
+
+    // Rust RAII: absence detects the lock pattern but should include an advisory
+    // noting that Rust locks are held to end of scope (implicit drop).
+    let advisory_findings: Vec<_> = result
+        .findings
+        .iter()
+        .filter(|f| f.description.contains("advisory"))
+        .collect();
+    assert!(
+        !advisory_findings.is_empty(),
+        "Rust MutexGuard should produce advisory finding about scope-based drop"
+    );
+}
+
+// === 2.7 Behavioral test: Lua io.open without close ===
+
+#[test]
+fn test_absence_lua_io_open_without_close() {
+    // Lua io.open without file:close() should be flagged.
+    let source = r#"
+function read_config(path)
+    local f = io.open(path, "r")
+    local content = f:read("*a")
+    return content
+end
+"#;
+    let path = "config.lua";
+    let parsed = ParsedFile::parse(path, source, Language::Lua).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([3]),
+        }],
+    };
+
+    let result = algorithms::run_slicing_compat(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::AbsenceSlice),
+        None,
+    )
+    .unwrap();
+
+    assert!(
+        !result.findings.is_empty(),
+        "Absence should detect io.open without file:close()"
+    );
+}
