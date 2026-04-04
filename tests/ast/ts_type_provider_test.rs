@@ -121,6 +121,81 @@ class MyEntity {
     );
 }
 
+#[test]
+fn test_ts_field_layout_resolves_extends() {
+    let source = r#"
+interface Base {
+    id: string;
+}
+
+interface Extended extends Base {
+    name: string;
+}
+"#;
+    let files = parse_ts("extends.ts", source);
+    let provider = TypeScriptTypeProvider::from_parsed_files(&files);
+
+    // field_layout("Extended") should include both own and inherited properties.
+    let fields = provider.field_layout("Extended").unwrap();
+    let names: Vec<&str> = fields.iter().map(|f| f.name.as_str()).collect();
+    assert!(
+        names.contains(&"id"),
+        "Extended should inherit id from Base, got: {:?}",
+        names
+    );
+    assert!(
+        names.contains(&"name"),
+        "Extended should have own name property, got: {:?}",
+        names
+    );
+}
+
+#[test]
+fn test_ts_structural_compat_with_extends() {
+    let source = r#"
+interface Base {
+    id: string;
+}
+
+interface Extended extends Base {
+    name: string;
+}
+
+class Full {
+    id: string;
+    name: string;
+}
+
+class Partial {
+    name: string;
+}
+"#;
+    let files = parse_ts("compat.ts", source);
+    let provider = TypeScriptTypeProvider::from_parsed_files(&files);
+
+    let extended = provider.resolve_type("compat.ts", "Extended", 0).unwrap();
+    let full = provider.resolve_type("compat.ts", "Full", 0).unwrap();
+    let partial = provider.resolve_type("compat.ts", "Partial", 0).unwrap();
+
+    // Full has both id and name → compatible with Extended.
+    assert_eq!(
+        provider.is_assignable_to(&full, &extended),
+        Compatibility::Compatible
+    );
+
+    // Partial is missing id (inherited from Base) → incompatible.
+    match provider.is_assignable_to(&partial, &extended) {
+        Compatibility::Incompatible { reason } => {
+            assert!(
+                reason.contains("id"),
+                "Should report missing 'id', got: {}",
+                reason
+            );
+        }
+        other => panic!("Expected Incompatible, got: {:?}", other),
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Class extraction
 // ---------------------------------------------------------------------------
