@@ -22,7 +22,11 @@ use std::sync::Arc;
 // ---------------------------------------------------------------------------
 
 /// A TypeScript interface definition.
+///
+/// Some fields (name, file, line) are reserved for Phase 7 (type-enriched
+/// finding descriptions) and CompatibilitySlice.
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 struct TsInterface {
     /// Interface name.
     name: String,
@@ -39,7 +43,11 @@ struct TsInterface {
 }
 
 /// A TypeScript class definition.
+///
+/// Some fields (name, file, line) are reserved for Phase 7 (type-enriched
+/// finding descriptions) and CompatibilitySlice.
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 struct TsClass {
     /// Class name.
     name: String,
@@ -59,6 +67,7 @@ struct TsClass {
 
 /// A method within a TypeScript class.
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 struct TsMethod {
     /// Method name.
     name: String,
@@ -73,7 +82,10 @@ struct TsMethod {
 }
 
 /// A TypeScript enum definition.
+///
+/// Members field reserved for CompatibilitySlice.
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 struct TsEnum {
     /// Enum name.
     name: String,
@@ -702,9 +714,14 @@ impl TypeProvider for TypeScriptTypeProvider {
     }
 
     fn field_layout(&self, type_name: &str) -> Option<Vec<TypeFieldInfo>> {
-        // Check interfaces first.
-        if let Some(iface) = self.data.interfaces.get(type_name) {
-            let mut fields: Vec<TypeFieldInfo> = iface
+        // Interfaces: resolve full extends chain via resolve_interface_shape.
+        if self.data.interfaces.contains_key(type_name) {
+            let shape = TypeScriptTypeProvider::resolve_interface_shape(
+                &self.data,
+                type_name,
+                &mut BTreeSet::new(),
+            );
+            let mut fields: Vec<TypeFieldInfo> = shape
                 .properties
                 .iter()
                 .map(|(name, type_str)| TypeFieldInfo {
@@ -712,8 +729,7 @@ impl TypeProvider for TypeScriptTypeProvider {
                     type_str: type_str.clone(),
                 })
                 .collect();
-            // Include method signatures as fields.
-            for (name, sig) in &iface.methods {
+            for (name, sig) in &shape.methods {
                 fields.push(TypeFieldInfo {
                     name: name.clone(),
                     type_str: sig.clone(),
@@ -722,22 +738,13 @@ impl TypeProvider for TypeScriptTypeProvider {
             return Some(fields);
         }
 
-        // Then classes.
-        if let Some(class) = self.data.classes.get(type_name) {
-            let mut fields: Vec<TypeFieldInfo> = class
-                .properties
-                .iter()
-                .map(|(name, type_str)| TypeFieldInfo {
-                    name: name.clone(),
-                    type_str: type_str.clone(),
-                })
+        // Classes: resolve full extends chain via resolve_class_properties.
+        if self.data.classes.contains_key(type_name) {
+            let props = TypeScriptTypeProvider::resolve_class_properties(&self.data, type_name);
+            let fields: Vec<TypeFieldInfo> = props
+                .into_iter()
+                .map(|(name, type_str)| TypeFieldInfo { name, type_str })
                 .collect();
-            for (name, method) in &class.methods {
-                fields.push(TypeFieldInfo {
-                    name: name.clone(),
-                    type_str: method.signature.clone(),
-                });
-            }
             return Some(fields);
         }
 
