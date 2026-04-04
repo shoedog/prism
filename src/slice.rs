@@ -167,7 +167,10 @@ impl SlicingAlgorithm {
     pub fn needs_cpg(&self) -> bool {
         matches!(
             self,
-            Self::BarrierSlice
+            Self::LeftFlow
+                | Self::FullFlow
+                | Self::RelevantSlice
+                | Self::BarrierSlice
                 | Self::Chop
                 | Self::Taint
                 | Self::DeltaSlice

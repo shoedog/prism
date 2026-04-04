@@ -5,10 +5,11 @@
 //! focuses the slice on a specific execution scenario.
 
 use crate::ast::ParsedFile;
+use crate::cpg::CpgContext;
 use crate::diff::DiffInput;
 use crate::slice::{SliceConfig, SliceResult, SlicingAlgorithm};
 use anyhow::Result;
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeSet;
 
 /// A condition predicate for conditioned slicing.
 #[derive(Debug, Clone)]
@@ -120,19 +121,19 @@ impl Condition {
 }
 
 pub fn slice(
-    files: &BTreeMap<String, ParsedFile>,
+    ctx: &CpgContext,
     diff: &DiffInput,
     config: &SliceConfig,
     condition: &Condition,
 ) -> Result<SliceResult> {
     // Start with LeftFlow
-    let mut base = crate::algorithms::left_flow::slice(files, diff, config)?;
+    let mut base = crate::algorithms::left_flow::slice(ctx, diff, config)?;
     base.algorithm = SlicingAlgorithm::ConditionedSlice;
 
     // Prune branches that are unreachable under the condition
     for block in &mut base.blocks {
         let file_path = block.file.clone();
-        let parsed = match files.get(&file_path) {
+        let parsed = match ctx.files.get(&file_path) {
             Some(f) => f,
             None => continue,
         };
