@@ -664,6 +664,20 @@ impl Language {
             }
         }
 
+        // Python attribute call: utils.process() → extract "process"
+        if func_node.kind() == "attribute" {
+            if let Some(attr) = func_node.child_by_field_name("attribute") {
+                return Some(attr);
+            }
+        }
+
+        // Go selector expression: fmt.Println() → extract "Println"
+        if func_node.kind() == "selector_expression" {
+            if let Some(field) = func_node.child_by_field_name("field") {
+                return Some(field);
+            }
+        }
+
         if func_node.kind() == "field_expression" || func_node.kind() == "member_expression" {
             if let Some(field) = func_node.child_by_field_name("field") {
                 return Some(field);
@@ -675,6 +689,40 @@ impl Language {
         }
 
         Some(func_node)
+    }
+
+    /// Extract the module/object qualifier from a qualified call expression.
+    ///
+    /// For `utils.process()`, returns the `utils` identifier node.
+    /// For `os.path.join()`, returns the `os.path` attribute node (or its text).
+    /// For unqualified calls like `process()`, returns `None`.
+    pub fn call_function_qualifier<'a>(&self, node: &Node<'a>) -> Option<Node<'a>> {
+        let func_node = node
+            .child_by_field_name("function")
+            .or_else(|| node.child_by_field_name("name"))
+            .or_else(|| node.child_by_field_name("object"))
+            .or_else(|| {
+                if node.kind() == "function_call" || node.kind() == "command" {
+                    node.child_by_field_name("name").or_else(|| node.child(0))
+                } else {
+                    None
+                }
+            })?;
+
+        // Python attribute call: func_node is "attribute" with object/attribute fields
+        // JS/TS member_expression: has "object" and "property" fields
+        // Go selector_expression: has "operand" and "field" fields
+        // C field_expression: has "argument" and "field" fields
+        match func_node.kind() {
+            "attribute" => func_node.child_by_field_name("object"),
+            "member_expression" => func_node.child_by_field_name("object"),
+            "selector_expression" => func_node.child_by_field_name("operand"),
+            "field_expression" => func_node.child_by_field_name("argument"),
+            "dot_index_expression" | "method_index_expression" => func_node
+                .child_by_field_name("table")
+                .or_else(|| func_node.child_by_field_name("object")),
+            _ => None,
+        }
     }
 
     /// Get the arguments node from a call.

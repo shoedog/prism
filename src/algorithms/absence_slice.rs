@@ -451,6 +451,24 @@ fn pattern_to_call_base(pattern: &str) -> Option<&str> {
     }
 }
 
+/// Check if a call name matches a pattern base, handling both qualified and
+/// unqualified forms. For example, pattern `tempfile.mkstemp` matches call
+/// name `mkstemp` (method-only) or `tempfile.mkstemp` (fully qualified).
+fn call_name_matches_pattern(call_name: &str, pattern_base: &str) -> bool {
+    // Exact match or call name contains pattern base (original behavior)
+    if call_name.contains(pattern_base) {
+        return true;
+    }
+    // Method-only match: extract method from pattern (after last `.`)
+    // e.g., pattern "tempfile.mkstemp" → method "mkstemp" matches call "mkstemp"
+    if let Some(method) = pattern_base.rsplit('.').next() {
+        if !method.is_empty() && call_name == method {
+            return true;
+        }
+    }
+    false
+}
+
 pub fn slice(files: &BTreeMap<String, ParsedFile>, diff: &DiffInput) -> Result<SliceResult> {
     let mut result = SliceResult::new(SlicingAlgorithm::AbsenceSlice);
     let pairs = default_pairs();
@@ -477,9 +495,9 @@ pub fn slice(files: &BTreeMap<String, ParsedFile>, diff: &DiffInput) -> Result<S
                 // For keyword patterns: use AST-aware text matching to skip comments/strings.
                 let has_open = pair.open_patterns.iter().any(|p| {
                     if let Some(base) = pattern_to_call_base(p) {
-                        line_calls
-                            .get(&diff_line)
-                            .map_or(false, |names| names.iter().any(|n| n.contains(base)))
+                        line_calls.get(&diff_line).map_or(false, |names| {
+                            names.iter().any(|n| call_name_matches_pattern(n, base))
+                        })
                     } else {
                         parsed.line_has_code_text(diff_line, p)
                     }
@@ -511,7 +529,7 @@ pub fn slice(files: &BTreeMap<String, ParsedFile>, diff: &DiffInput) -> Result<S
                     if let Some(base) = pattern_to_call_base(p) {
                         func_calls
                             .values()
-                            .any(|names| names.iter().any(|n| n.contains(base)))
+                            .any(|names| names.iter().any(|n| call_name_matches_pattern(n, base)))
                     } else {
                         (func_start..=func_end).any(|l| {
                             l > 0 && l <= source_lines.len() && parsed.line_has_code_text(l, p)
@@ -527,7 +545,6 @@ pub fn slice(files: &BTreeMap<String, ParsedFile>, diff: &DiffInput) -> Result<S
                     "defer ",
                     "finally",
                     "with ",
-                    "using ",
                     // C++ RAII mutex wrappers — no explicit unlock needed
                     "std::lock_guard",
                     "std::unique_lock",

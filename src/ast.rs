@@ -38,6 +38,9 @@ pub struct ParsedFile {
     pub parse_error_count: usize,
     /// Total number of nodes in the parse tree.
     pub parse_node_count: usize,
+    /// Byte offset of each line start (0-indexed by line number).
+    /// `line_offsets[i]` is the byte offset where line `i+1` begins (1-indexed lines).
+    line_offsets: Vec<usize>,
 }
 
 impl ParsedFile {
@@ -52,6 +55,13 @@ impl ParsedFile {
             .parse(source, None)
             .context("Failed to parse source")?;
         let (parse_error_count, parse_node_count) = count_error_nodes(&tree);
+        // Precompute line→byte offset table for O(1) lookup in line_has_code_text.
+        let mut line_offsets = vec![0usize]; // Line 1 starts at byte 0.
+        for (i, &b) in source.as_bytes().iter().enumerate() {
+            if b == b'\n' {
+                line_offsets.push(i + 1);
+            }
+        }
         Ok(Self {
             path: path.to_string(),
             source: source.to_string(),
@@ -59,6 +69,7 @@ impl ParsedFile {
             language,
             parse_error_count,
             parse_node_count,
+            line_offsets,
         })
     }
 
@@ -191,16 +202,13 @@ impl ParsedFile {
         let row = line.saturating_sub(1);
         let source = self.source.as_bytes();
 
-        // Compute byte offset of the start of this line.
-        let line_start = source
-            .split(|&b| b == b'\n')
-            .take(row)
-            .map(|l| l.len() + 1) // +1 for the newline
-            .sum::<usize>();
-        let line_end = source[line_start..]
-            .iter()
-            .position(|&b| b == b'\n')
-            .map_or(source.len(), |pos| line_start + pos);
+        // O(1) line→byte offset lookup via precomputed table.
+        let line_start = self.line_offsets.get(row).copied().unwrap_or(source.len());
+        let line_end = self
+            .line_offsets
+            .get(row + 1)
+            .map(|&off| off.saturating_sub(1)) // exclude the newline
+            .unwrap_or(source.len());
         let line_bytes = &source[line_start..line_end];
         let line_str = std::str::from_utf8(line_bytes).unwrap_or("");
 
@@ -243,6 +251,304 @@ impl ParsedFile {
             current = n.parent();
         }
         false
+    }
+
+    /// Extract import bindings from the file.
+    ///
+    /// Returns a map of `alias → module_path` where:
+    /// - Python: `import utils` → `("utils", "utils")`, `from utils import func` → `("func", "utils")`
+    /// - JS/TS: `import x from './mod'` → `("x", "./mod")`, `const x = require('./mod')` → `("x", "./mod")`
+    /// - Go: `import "pkg"` → `("pkg", "pkg")`, `import alias "pkg"` → `("alias", "pkg")`
+    ///
+    /// Module paths are returned as-is (not resolved to filesystem paths).
+    pub fn extract_imports(&self) -> BTreeMap<String, String> {
+        let mut imports = BTreeMap::new();
+        self.collect_imports(self.tree.root_node(), &mut imports);
+        imports
+    }
+
+    fn collect_imports(&self, node: Node<'_>, out: &mut BTreeMap<String, String>) {
+        match self.language {
+            Language::Python => self.collect_python_imports(node, out),
+            Language::JavaScript | Language::TypeScript | Language::Tsx => {
+                self.collect_js_imports(node, out)
+            }
+            Language::Go => self.collect_go_imports(node, out),
+            _ => {} // C/C++/Rust/Java/Lua/Terraform/Bash: no module-qualified calls
+        }
+    }
+
+    fn collect_python_imports(&self, node: Node<'_>, out: &mut BTreeMap<String, String>) {
+        match node.kind() {
+            // `import utils` or `import utils as u`
+            "import_statement" => {
+                let mut cursor = node.walk();
+                for child in node.children(&mut cursor) {
+                    match child.kind() {
+                        "dotted_name" => {
+                            let name = self.node_text(&child).to_string();
+                            // Use last component as alias: `import os.path` → alias "path"
+                            let alias = name.rsplit('.').next().unwrap_or(&name).to_string();
+                            out.insert(alias, name);
+                        }
+                        "aliased_import" => {
+                            let module = child
+                                .child_by_field_name("name")
+                                .map(|n| self.node_text(&n).to_string());
+                            let alias = child
+                                .child_by_field_name("alias")
+                                .map(|n| self.node_text(&n).to_string());
+                            if let (Some(module), Some(alias)) = (module, alias) {
+                                out.insert(alias, module);
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+            }
+            // `from utils import func` or `from utils import func as f`
+            "import_from_statement" => {
+                let module = node
+                    .child_by_field_name("module_name")
+                    .map(|n| self.node_text(&n).to_string());
+                let module = module.or_else(|| {
+                    // tree-sitter-python uses different field names across versions
+                    let mut cursor = node.walk();
+                    for child in node.children(&mut cursor) {
+                        if child.kind() == "dotted_name" || child.kind() == "relative_import" {
+                            return Some(self.node_text(&child).to_string());
+                        }
+                    }
+                    None
+                });
+                if let Some(module) = module {
+                    let mut cursor = node.walk();
+                    for child in node.children(&mut cursor) {
+                        match child.kind() {
+                            "dotted_name" | "identifier" => {
+                                let name = self.node_text(&child).to_string();
+                                // Skip the module name itself (first dotted_name)
+                                if name != module {
+                                    out.insert(name, module.clone());
+                                }
+                            }
+                            "aliased_import" => {
+                                let alias = child
+                                    .child_by_field_name("alias")
+                                    .map(|n| self.node_text(&n).to_string());
+                                if let Some(alias) = alias {
+                                    out.insert(alias, module.clone());
+                                }
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+            }
+            _ => {
+                let mut cursor = node.walk();
+                for child in node.children(&mut cursor) {
+                    self.collect_python_imports(child, out);
+                }
+            }
+        }
+    }
+
+    fn collect_js_imports(&self, node: Node<'_>, out: &mut BTreeMap<String, String>) {
+        match node.kind() {
+            // ES6: `import x from './mod'` or `import { func } from './mod'`
+            "import_statement" => {
+                let source = node.child_by_field_name("source").map(|n| {
+                    let text = self.node_text(&n);
+                    text.trim_matches(|c| c == '\'' || c == '"').to_string()
+                });
+                if let Some(module_path) = source {
+                    let mut cursor = node.walk();
+                    for child in node.children(&mut cursor) {
+                        match child.kind() {
+                            "import_clause" => {
+                                self.collect_js_import_clause(&child, &module_path, out);
+                            }
+                            "identifier" => {
+                                // `import x from './mod'`
+                                let name = self.node_text(&child).to_string();
+                                out.insert(name, module_path.clone());
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+            }
+            // CommonJS: `const x = require('./mod')`
+            "lexical_declaration" | "variable_declaration" => {
+                let mut cursor = node.walk();
+                for child in node.children(&mut cursor) {
+                    if child.kind() == "variable_declarator" {
+                        self.collect_require_binding(&child, out);
+                    }
+                }
+            }
+            _ => {
+                let mut cursor = node.walk();
+                for child in node.children(&mut cursor) {
+                    self.collect_js_imports(child, out);
+                }
+            }
+        }
+    }
+
+    fn collect_js_import_clause(
+        &self,
+        node: &Node<'_>,
+        module_path: &str,
+        out: &mut BTreeMap<String, String>,
+    ) {
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            match child.kind() {
+                "identifier" => {
+                    // Default import: `import utils from './mod'`
+                    out.insert(self.node_text(&child).to_string(), module_path.to_string());
+                }
+                "named_imports" => {
+                    // `import { func, other as alias } from './mod'`
+                    let mut inner = child.walk();
+                    for spec in child.children(&mut inner) {
+                        if spec.kind() == "import_specifier" {
+                            let name = spec
+                                .child_by_field_name("name")
+                                .map(|n| self.node_text(&n).to_string());
+                            let alias = spec
+                                .child_by_field_name("alias")
+                                .map(|n| self.node_text(&n).to_string());
+                            if let Some(local) = alias.or(name) {
+                                out.insert(local, module_path.to_string());
+                            }
+                        }
+                    }
+                }
+                "namespace_import" => {
+                    // `import * as utils from './mod'`
+                    if let Some(id) = child.child_by_field_name("name") {
+                        out.insert(self.node_text(&id).to_string(), module_path.to_string());
+                    }
+                    // Fallback: find identifier child
+                    let mut inner = child.walk();
+                    for c in child.children(&mut inner) {
+                        if c.kind() == "identifier" {
+                            out.insert(self.node_text(&c).to_string(), module_path.to_string());
+                            break;
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+
+    fn collect_require_binding(&self, node: &Node<'_>, out: &mut BTreeMap<String, String>) {
+        // `const x = require('./mod')` or `const { a, b } = require('./mod')`
+        let value = node.child_by_field_name("value");
+        let name = node.child_by_field_name("name");
+
+        if let Some(val) = value {
+            // Check if value is a require() call
+            if self.language.is_call_node(val.kind()) {
+                if let Some(func_name) = self.language.call_function_name(&val) {
+                    if self.node_text(&func_name) == "require" {
+                        if let Some(args) = self.language.call_arguments(&val) {
+                            // Extract the module path from first argument
+                            let mut cursor = args.walk();
+                            for child in args.children(&mut cursor) {
+                                if child.is_named() {
+                                    let text = self.node_text(&child);
+                                    let path =
+                                        text.trim_matches(|c| c == '\'' || c == '"').to_string();
+                                    // Bind the name(s) to this module
+                                    if let Some(n) = &name {
+                                        if n.kind() == "object_pattern" {
+                                            // Destructuring: `const { a, b } = require('./mod')`
+                                            let mut inner = n.walk();
+                                            for prop in n.children(&mut inner) {
+                                                if prop.kind()
+                                                    == "shorthand_property_identifier_pattern"
+                                                    || prop.kind() == "identifier"
+                                                {
+                                                    out.insert(
+                                                        self.node_text(&prop).to_string(),
+                                                        path.clone(),
+                                                    );
+                                                }
+                                            }
+                                        } else {
+                                            out.insert(self.node_text(n).to_string(), path.clone());
+                                        }
+                                    }
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    fn collect_go_imports(&self, node: Node<'_>, out: &mut BTreeMap<String, String>) {
+        match node.kind() {
+            "import_declaration" => {
+                let mut cursor = node.walk();
+                for child in node.children(&mut cursor) {
+                    if child.kind() == "import_spec_list" {
+                        let mut inner = child.walk();
+                        for spec in child.children(&mut inner) {
+                            if spec.kind() == "import_spec" {
+                                self.extract_go_import_spec(&spec, out);
+                            }
+                        }
+                    } else if child.kind() == "import_spec" {
+                        self.extract_go_import_spec(&child, out);
+                    } else if child.kind() == "interpreted_string_literal" {
+                        // `import "pkg"` — single import without parens
+                        let text = self.node_text(&child);
+                        let path = text.trim_matches('"').to_string();
+                        let alias = path.rsplit('/').next().unwrap_or(&path).to_string();
+                        out.insert(alias, path);
+                    }
+                }
+            }
+            _ => {
+                let mut cursor = node.walk();
+                for child in node.children(&mut cursor) {
+                    self.collect_go_imports(child, out);
+                }
+            }
+        }
+    }
+
+    fn extract_go_import_spec(&self, node: &Node<'_>, out: &mut BTreeMap<String, String>) {
+        let mut path_str = None;
+        let mut alias = None;
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            match child.kind() {
+                "interpreted_string_literal" => {
+                    let text = self.node_text(&child);
+                    path_str = Some(text.trim_matches('"').to_string());
+                }
+                "package_identifier" | "blank_identifier" | "dot" => {
+                    alias = Some(self.node_text(&child).to_string());
+                }
+                _ => {}
+            }
+        }
+        if let Some(path) = path_str {
+            let local =
+                alias.unwrap_or_else(|| path.rsplit('/').next().unwrap_or(&path).to_string());
+            if local != "_" && local != "." {
+                out.insert(local, path);
+            }
+        }
     }
 
     /// Find all assignment targets (L-values) on diff lines within a function scope.
@@ -1717,6 +2023,75 @@ impl ParsedFile {
         let mut calls = Vec::new();
         self.collect_calls_manual(*func_node, lines, &mut calls);
         calls
+    }
+
+    /// Like `function_calls_on_lines`, but also extracts the module/object qualifier.
+    /// Returns `(callee_name, line, qualifier)` tuples.
+    pub fn function_calls_on_lines_with_qualifier(
+        &self,
+        func_node: &Node<'_>,
+        lines: &BTreeSet<usize>,
+    ) -> Vec<(String, usize, Option<String>)> {
+        use crate::queries::{get_query, QueryKind};
+        use tree_sitter::StreamingIterator;
+
+        if let Some(query) = get_query(self.language, QueryKind::Calls) {
+            let call_idx = query
+                .capture_index_for_name("call")
+                .expect("Calls query must have @call capture");
+            let mut cursor = tree_sitter::QueryCursor::new();
+            cursor.set_byte_range(func_node.byte_range());
+            let mut matches = cursor.matches(query, self.tree.root_node(), self.source.as_bytes());
+            let mut calls = Vec::new();
+            while let Some(m) = matches.next() {
+                for capture in m.captures {
+                    if capture.index == call_idx {
+                        let line = capture.node.start_position().row + 1;
+                        if lines.contains(&line) {
+                            if let Some(name_node) = self.language.call_function_name(&capture.node)
+                            {
+                                let name = self.node_text(&name_node).to_string();
+                                let qualifier = self
+                                    .language
+                                    .call_function_qualifier(&capture.node)
+                                    .map(|q| self.node_text(&q).to_string());
+                                calls.push((name, line, qualifier));
+                            }
+                        }
+                    }
+                }
+            }
+            return calls;
+        }
+
+        let mut calls = Vec::new();
+        self.collect_calls_manual_with_qualifier(*func_node, lines, &mut calls);
+        calls
+    }
+
+    fn collect_calls_manual_with_qualifier(
+        &self,
+        node: Node<'_>,
+        lines: &BTreeSet<usize>,
+        out: &mut Vec<(String, usize, Option<String>)>,
+    ) {
+        let line = node.start_position().row + 1;
+
+        if lines.contains(&line) && self.language.is_call_node(node.kind()) {
+            if let Some(name_node) = self.language.call_function_name(&node) {
+                let name = self.node_text(&name_node).to_string();
+                let qualifier = self
+                    .language
+                    .call_function_qualifier(&node)
+                    .map(|q| self.node_text(&q).to_string());
+                out.push((name, line, qualifier));
+            }
+        }
+
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            self.collect_calls_manual_with_qualifier(child, lines, out);
+        }
     }
 
     /// Manual recursive call collection (pre-query fallback).
