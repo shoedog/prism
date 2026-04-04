@@ -17,14 +17,18 @@ struct Precondition {
     variable: String,
     constraint: ConstraintKind,
     guard_line: usize,
+    /// First line of the guard clause source text (for informative findings).
     guard_text: String,
 }
 
 /// Classification of the constraint a guard clause establishes.
-#[allow(dead_code)]
 enum ConstraintKind {
-    /// x != null/None/nil/NULL
+    /// x != null/None/nil/NULL — execution continues only when x is non-null.
     NonNull,
+    /// err != nil early return — execution continues only when err is nil.
+    /// Semantically the guard checks "if error exists, bail out", so the
+    /// postcondition is that the error variable is nil/null.
+    NilCheck,
     /// len(x) > 0 / !x.is_empty()
     NonEmpty,
     /// isinstance(x, T) / typeof x === 'T'
@@ -41,6 +45,7 @@ impl ConstraintKind {
     fn description(&self) -> &str {
         match self {
             Self::NonNull => "non-null",
+            Self::NilCheck => "nil-check (error handled)",
             Self::NonEmpty => "non-empty",
             Self::TypeCheck(_) => "type-check",
             Self::RangeCheck => "range-check",
@@ -89,11 +94,12 @@ pub fn slice(files: &BTreeMap<String, ParsedFile>, diff: &DiffInput) -> Result<S
                         line: pre.guard_line,
                         severity: "warning".to_string(),
                         description: format!(
-                            "Guard clause modified in '{}': {} constraint on '{}'. \
+                            "Guard clause modified in '{}': {} constraint on '{}' (`{}`). \
                              Verify callers still receive valid values.",
                             func_name,
                             pre.constraint.description(),
                             pre.variable,
+                            pre.guard_text,
                         ),
                         function_name: Some(func_name.clone()),
                         related_lines: vec![pre.guard_line],
@@ -282,14 +288,48 @@ fn extract_condition_text(if_text: &str) -> String {
 }
 
 /// Check if the body of an if-statement contains an early exit.
+///
+/// Uses tree-sitter node types to avoid false positives from comments or
+/// string literals that happen to contain exit keywords.
 fn body_has_early_exit(parsed: &ParsedFile, if_node: &Node<'_>) -> bool {
-    let text = parsed.node_text(if_node);
-    // Check for exit keywords in the if body
-    let exit_keywords = [
-        "return", "raise", "throw", "panic", "error", "exit", "abort",
-    ];
-    for kw in &exit_keywords {
-        if text.contains(kw) {
+    has_exit_node(parsed, if_node)
+}
+
+/// Recursively check if any descendant is an early-exit node.
+fn has_exit_node(parsed: &ParsedFile, node: &Node<'_>) -> bool {
+    let kind = node.kind();
+    // Direct early-exit node types across all supported languages
+    if matches!(
+        kind,
+        "return_statement"
+            | "return_expression" // Rust
+            | "raise_statement"   // Python
+            | "throw_statement" // JS/TS, Java, C++
+    ) {
+        return true;
+    }
+
+    // Rust panic!(), unreachable!() macros
+    if kind == "macro_invocation" {
+        let text = parsed.node_text(node);
+        if text.starts_with("panic!") || text.starts_with("unreachable!") {
+            return true;
+        }
+    }
+
+    // Call expressions: match known exit functions (panic, exit, abort)
+    if kind == "call_expression" || kind == "call" || kind == "function_call" {
+        if let Some(func_name) = parsed.language.call_function_name(node) {
+            let name = parsed.node_text(&func_name);
+            if matches!(name, "panic" | "exit" | "abort" | "unreachable" | "error") {
+                return true;
+            }
+        }
+    }
+
+    let mut cursor = node.walk();
+    for child in node.children(&mut cursor) {
+        if has_exit_node(parsed, &child) {
             return true;
         }
     }
@@ -297,15 +337,53 @@ fn body_has_early_exit(parsed: &ParsedFile, if_node: &Node<'_>) -> bool {
 }
 
 /// Check if a statement is an assert/require call.
+///
+/// Prefers tree-sitter node kind (Python's `assert_statement`) over text
+/// matching. For languages without a dedicated assert node, falls back to
+/// checking call function names to avoid matching `assert_valid_input()` etc.
 fn is_assert_statement(parsed: &ParsedFile, node: &Node<'_>) -> bool {
-    let text = parsed.node_text(node);
-    let trimmed = text.trim();
-    trimmed.starts_with("assert")
-        || trimmed.starts_with("require(")
-        || trimmed.starts_with("assert!(")
-        || trimmed.starts_with("assert_eq!")
-        || trimmed.starts_with("debug_assert")
-        || node.kind() == "assert_statement"
+    // Python: tree-sitter has a dedicated assert_statement node
+    if node.kind() == "assert_statement" {
+        return true;
+    }
+
+    // Rust: macro_invocation with assert!/debug_assert! prefix
+    if node.kind() == "expression_statement" || node.kind() == "macro_invocation" {
+        let text = parsed.node_text(node).trim().to_string();
+        if text.starts_with("assert!(")
+            || text.starts_with("assert_eq!(")
+            || text.starts_with("assert_ne!(")
+            || text.starts_with("debug_assert!(")
+        {
+            return true;
+        }
+    }
+
+    // Other languages: check if it's a call to assert/require.
+    // The call may be the node itself, or wrapped in expression_statement.
+    if check_assert_call(parsed, node) {
+        return true;
+    }
+    let mut cursor = node.walk();
+    for child in node.children(&mut cursor) {
+        if parsed.language.is_call_node(child.kind()) && check_assert_call(parsed, &child) {
+            return true;
+        }
+    }
+
+    false
+}
+
+/// Check if a call node calls assert/require.
+fn check_assert_call(parsed: &ParsedFile, node: &Node<'_>) -> bool {
+    if !parsed.language.is_call_node(node.kind()) {
+        return false;
+    }
+    if let Some(name_node) = parsed.language.call_function_name(node) {
+        let name = parsed.node_text(&name_node);
+        return matches!(name, "assert" | "require");
+    }
+    false
 }
 
 /// Extract the first identifier from a node (for assert/require).
@@ -353,6 +431,7 @@ fn classify_condition(cond: &str) -> Option<(String, ConstraintKind)> {
     let trimmed = trimmed.trim();
 
     // Null/None/nil checks: `x is None`, `x == None`, `x == null`, `!x`, `x == nil`, `x == NULL`
+    // Also Yoda conditions: `NULL == ptr`, `None == x`, etc.
     for null_lit in &["None", "null", "nil", "NULL", "nullptr"] {
         // `x is None` or `x == None`
         if let Some(var) = trimmed
@@ -364,8 +443,16 @@ fn classify_condition(cond: &str) -> Option<(String, ConstraintKind)> {
                 return Some((var.to_string(), ConstraintKind::NonNull));
             }
         }
-        // `x is not None` → non-null is already established, not a guard
-        // `x != None` → same
+        // Yoda: `NULL == ptr`, `None == x`
+        if let Some(var) = trimmed
+            .strip_prefix(&format!("{} == ", null_lit))
+            .or_else(|| trimmed.strip_prefix(&format!("{} is ", null_lit)))
+        {
+            let var = var.trim();
+            if is_simple_var(var) {
+                return Some((var.to_string(), ConstraintKind::NonNull));
+            }
+        }
     }
 
     // `!ptr` or `!x` (C-style null check)
@@ -377,9 +464,19 @@ fn classify_condition(cond: &str) -> Option<(String, ConstraintKind)> {
     }
 
     // `ptr == 0` or `ptr == false` — C null pointer check
+    // Also Yoda: `0 == ptr`, `false == ptr`
     if let Some(var) = trimmed
         .strip_suffix(" == 0")
         .or_else(|| trimmed.strip_suffix(" == false"))
+    {
+        let var = var.trim();
+        if is_simple_var(var) {
+            return Some((var.to_string(), ConstraintKind::NonNull));
+        }
+    }
+    if let Some(var) = trimmed
+        .strip_prefix("0 == ")
+        .or_else(|| trimmed.strip_prefix("false == "))
     {
         let var = var.trim();
         if is_simple_var(var) {
@@ -468,7 +565,9 @@ fn classify_condition(cond: &str) -> Option<(String, ConstraintKind)> {
         }
     }
 
-    // Go error check: `err != nil`
+    // Error/nil check: `err != nil`, `x != null`, `x != None`
+    // These guards exit early when the variable IS non-nil, so the postcondition
+    // is that the variable is nil/null after the guard.
     if let Some(var) = trimmed
         .strip_suffix(" != nil")
         .or_else(|| trimmed.strip_suffix(" != null"))
@@ -476,7 +575,7 @@ fn classify_condition(cond: &str) -> Option<(String, ConstraintKind)> {
     {
         let var = var.trim();
         if is_simple_var(var) {
-            return Some((var.to_string(), ConstraintKind::NonNull));
+            return Some((var.to_string(), ConstraintKind::NilCheck));
         }
     }
 
