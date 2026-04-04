@@ -193,3 +193,151 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "uploads" {
         "Absence should detect S3 bucket missing public access block"
     );
 }
+
+// === Tier 2: Absence — JS timers (item 7) ===
+
+#[test]
+fn test_absence_js_setinterval_without_clear() {
+    let source = r#"
+function startPolling(url) {
+    const intervalId = setInterval(function() {
+        fetch(url);
+    }, 5000);
+    return intervalId;
+}
+"#;
+    let path = "src/poller.js";
+    let parsed = ParsedFile::parse(path, source, Language::JavaScript).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([3]),
+        }],
+    };
+    let result = algorithms::run_slicing_compat(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::AbsenceSlice),
+        None,
+    )
+    .unwrap();
+    assert!(
+        !result.findings.is_empty(),
+        "Absence should detect setInterval without clearInterval"
+    );
+}
+
+// === Tier 2: Absence — DB transactions (item 8) ===
+
+#[test]
+fn test_absence_python_transaction_without_commit() {
+    let source = r#"
+def update_records(db, items):
+    db.beginTransaction()
+    for item in items:
+        db.execute("UPDATE t SET v=? WHERE id=?", item)
+    return True
+"#;
+    let path = "db/update.py";
+    let parsed = ParsedFile::parse(path, source, Language::Python).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([3]),
+        }],
+    };
+    let result = algorithms::run_slicing_compat(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::AbsenceSlice),
+        None,
+    )
+    .unwrap();
+    assert!(
+        !result.findings.is_empty(),
+        "Absence should detect beginTransaction without commit/rollback"
+    );
+}
+
+// === Tier 2: Absence — Go context.WithTimeout (item 9) ===
+
+#[test]
+fn test_absence_go_context_with_timeout_without_cancel() {
+    let source = r#"
+package main
+
+import (
+    "context"
+    "time"
+)
+
+func fetchData(parent context.Context) string {
+    ctx, cancel := context.WithTimeout(parent, 5*time.Second)
+    result := query(ctx)
+    return result
+}
+"#;
+    let path = "cmd/fetch.go";
+    let parsed = ParsedFile::parse(path, source, Language::Go).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([10]),
+        }],
+    };
+    let result = algorithms::run_slicing_compat(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::AbsenceSlice),
+        None,
+    )
+    .unwrap();
+    assert!(
+        !result.findings.is_empty(),
+        "Absence should detect context.WithTimeout without cancel()"
+    );
+}
+
+// === Tier 2: Absence — Event subscribe/unsubscribe (item 15) ===
+
+#[test]
+fn test_absence_js_addeventlistener_without_remove() {
+    let source = r#"
+function setup(element) {
+    const handler = function(e) { process(e); };
+    element.addEventListener('click', handler);
+    return handler;
+}
+"#;
+    let path = "src/events.js";
+    let parsed = ParsedFile::parse(path, source, Language::JavaScript).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([4]),
+        }],
+    };
+    let result = algorithms::run_slicing_compat(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::AbsenceSlice),
+        None,
+    )
+    .unwrap();
+    assert!(
+        !result.findings.is_empty(),
+        "Absence should detect addEventListener without removeEventListener"
+    );
+}
