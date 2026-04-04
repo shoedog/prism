@@ -156,6 +156,10 @@ name = "lang_c_algo"
 path = "tests/lang/c/algo_test.rs"
 
 [[test]]
+name = "lang_c_algo_expand"
+path = "tests/lang/c/algo_expand_test.rs"
+
+[[test]]
 name = "lang_c_cve"
 path = "tests/lang/c/cve_test.rs"
 
@@ -170,6 +174,10 @@ path = "tests/lang/c/firmware_test.rs"
 [[test]]
 name = "lang_cpp"
 path = "tests/lang/cpp/cpp_test.rs"
+
+[[test]]
+name = "lang_cpp_algo"
+path = "tests/lang/cpp/algo_test.rs"
 
 [[test]]
 name = "lang_javascript_algo"
@@ -200,20 +208,40 @@ name = "lang_go_lang"
 path = "tests/lang/go/lang_test.rs"
 
 [[test]]
+name = "lang_java_algo"
+path = "tests/lang/java/algo_test.rs"
+
+[[test]]
 name = "lang_lua"
 path = "tests/lang/lua/lua_test.rs"
+
+[[test]]
+name = "lang_lua_algo"
+path = "tests/lang/lua/algo_test.rs"
 
 [[test]]
 name = "lang_rust"
 path = "tests/lang/rust/rust_test.rs"
 
 [[test]]
+name = "lang_rust_algo"
+path = "tests/lang/rust/algo_test.rs"
+
+[[test]]
 name = "lang_bash"
 path = "tests/lang/bash/bash_test.rs"
 
 [[test]]
+name = "lang_bash_algo"
+path = "tests/lang/bash/algo_test.rs"
+
+[[test]]
 name = "lang_terraform"
 path = "tests/lang/terraform/terraform_test.rs"
+
+[[test]]
+name = "lang_terraform_algo"
+path = "tests/lang/terraform/algo_test.rs"
 
 [[test]]
 name = "lang_tsx"
