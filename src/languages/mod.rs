@@ -1,7 +1,7 @@
 use tree_sitter::Node;
 
 /// Supported programming languages for slicing analysis.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum Language {
     Python,
     JavaScript,
@@ -61,6 +61,24 @@ impl Language {
         }
     }
 
+    /// All supported languages.
+    pub fn all() -> Vec<Self> {
+        vec![
+            Self::Python,
+            Self::JavaScript,
+            Self::TypeScript,
+            Self::Tsx,
+            Self::Go,
+            Self::Java,
+            Self::C,
+            Self::Cpp,
+            Self::Rust,
+            Self::Lua,
+            Self::Terraform,
+            Self::Bash,
+        ]
+    }
+
     /// Node types that represent function/method definitions.
     pub fn function_node_types(&self) -> Vec<&'static str> {
         match self {
@@ -84,7 +102,7 @@ impl Language {
             Self::C => vec!["function_definition"],
             Self::Cpp => vec!["function_definition", "template_declaration"],
             Self::Rust => vec!["function_item"],
-            Self::Lua => vec!["function_declaration", "local_function"],
+            Self::Lua => vec!["function_declaration"],
             // Terraform: blocks (resource, variable, module, etc.) are the structural unit
             Self::Terraform => vec!["block"],
             Self::Bash => vec!["function_definition"],

@@ -270,6 +270,9 @@ pub struct SliceConfig {
     pub include_returns: bool,
     /// Whether to trace into called functions (FullFlow).
     pub trace_callees: bool,
+    /// Build the CPG from only diff-changed files + direct callers/callees.
+    /// Reduces CPG construction time proportionally to the scope reduction.
+    pub scoped_cpg: bool,
 }
 
 impl Default for SliceConfig {
@@ -279,6 +282,7 @@ impl Default for SliceConfig {
             max_branch_lines: 5,
             include_returns: true,
             trace_callees: true,
+            scoped_cpg: false,
         }
     }
 }

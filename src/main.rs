@@ -108,6 +108,11 @@ struct Cli {
     #[arg(long)]
     files: Option<String>,
 
+    /// Build CPG from only diff-changed files + direct callers/callees.
+    /// Reduces construction time for large repos with small diffs.
+    #[arg(long)]
+    scoped_cpg: bool,
+
     /// Path to compile_commands.json for C/C++ type enrichment.
     /// Enables precise whole-struct detection, typedef resolution,
     /// and virtual dispatch via class hierarchy analysis.
@@ -192,6 +197,7 @@ fn main() -> Result<()> {
         max_branch_lines: cli.max_branch_lines,
         include_returns: !cli.no_returns,
         trace_callees: !cli.no_trace_callees,
+        scoped_cpg: cli.scoped_cpg,
     };
 
     let repo = cli.repo.as_ref().context("--repo is required")?;
@@ -289,8 +295,13 @@ fn main() -> Result<()> {
     // Check parse quality for all files and collect warnings once.
     let parse_warnings = algorithms::check_parse_warnings(&files);
 
-    // Build CPG once — shared across all algorithm runs
-    let ctx = CpgContext::build(&files, type_db.as_ref());
+    // Build CPG once — shared across all algorithm runs.
+    // With --scoped-cpg, only process diff-changed files + direct callers/callees.
+    let ctx = if cli.scoped_cpg {
+        CpgContext::build_scoped(&files, &diff_input, type_db.as_ref())
+    } else {
+        CpgContext::build(&files, type_db.as_ref())
+    };
 
     if multi_run {
         // --- Multi-algorithm run ---
@@ -303,6 +314,7 @@ fn main() -> Result<()> {
                 max_branch_lines: cli.max_branch_lines,
                 include_returns: !cli.no_returns,
                 trace_callees: !cli.no_trace_callees,
+                scoped_cpg: cli.scoped_cpg,
             };
             match run_algorithm(algo, &ctx, &diff_input, &algo_config, &cli, repo) {
                 Ok(r) => results.push(r),
