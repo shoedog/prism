@@ -162,6 +162,10 @@ name = "ast_type_provider"
 path = "tests/ast/type_provider_test.rs"
 
 [[test]]
+name = "ast_ts_type_provider"
+path = "tests/ast/ts_type_provider_test.rs"
+
+[[test]]
 name = "ast_comment_string"
 path = "tests/ast/comment_string_test.rs"
 
