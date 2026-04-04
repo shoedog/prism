@@ -612,6 +612,20 @@ fn test_cpp_provider_arc_sharing() {
 }
 
 // ---------------------------------------------------------------------------
+// GoTypeProvider Arc sharing
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_go_provider_arc_sharing() {
+    let files = parse_go("empty.go", "package main\n");
+    let provider = GoTypeProvider::from_parsed_files(&files);
+
+    // Clone should share the same Arc<GoTypeData>
+    let clone = provider.clone();
+    assert!(std::sync::Arc::ptr_eq(&provider.data, &clone.data));
+}
+
+// ---------------------------------------------------------------------------
 // Empty interface (any)
 // ---------------------------------------------------------------------------
 

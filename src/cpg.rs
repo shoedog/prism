@@ -206,7 +206,8 @@ impl<'a> CpgContext<'a> {
             .any(|pf| pf.language == crate::languages::Language::Go);
         if has_go {
             let go_provider = GoTypeProvider::from_parsed_files(files);
-            let go_dispatch = GoTypeProvider::from_parsed_files(files);
+            // Clone shares the Arc<GoTypeData> — single backing store.
+            let go_dispatch = go_provider.clone();
             registry.register_provider(Box::new(go_provider));
             registry.register_dispatch_provider(Box::new(go_dispatch));
         }

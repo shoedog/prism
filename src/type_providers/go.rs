@@ -12,6 +12,7 @@ use crate::type_provider::{
     DispatchProvider, ResolvedType, ResolvedTypeKind, TypeFieldInfo, TypeProvider,
 };
 use std::collections::{BTreeMap, BTreeSet};
+use std::sync::Arc;
 
 // ---------------------------------------------------------------------------
 // Extracted type information
@@ -71,9 +72,9 @@ struct GoMethod {
 // GoTypeProvider
 // ---------------------------------------------------------------------------
 
-/// Go type provider that extracts struct/interface definitions and method sets
-/// from tree-sitter ASTs, then computes interface satisfaction for dispatch.
-pub struct GoTypeProvider {
+/// Inner data for GoTypeProvider, shared via Arc when registered as both
+/// TypeProvider and DispatchProvider.
+pub struct GoTypeData {
     /// Struct definitions by name.
     structs: BTreeMap<String, GoStruct>,
     /// Interface definitions by name.
@@ -86,10 +87,20 @@ pub struct GoTypeProvider {
     satisfaction: BTreeMap<String, BTreeSet<String>>,
 }
 
+/// Go type provider that extracts struct/interface definitions and method sets
+/// from tree-sitter ASTs, then computes interface satisfaction for dispatch.
+///
+/// Uses `Arc<GoTypeData>` so the same extracted data can be shared when
+/// registered as both `TypeProvider` and `DispatchProvider` in the registry.
+#[derive(Clone)]
+pub struct GoTypeProvider {
+    pub data: Arc<GoTypeData>,
+}
+
 impl GoTypeProvider {
     /// Build a GoTypeProvider by scanning all Go parsed files.
     pub fn from_parsed_files(files: &BTreeMap<String, ParsedFile>) -> Self {
-        let mut provider = GoTypeProvider {
+        let mut inner = GoTypeData {
             structs: BTreeMap::new(),
             interfaces: BTreeMap::new(),
             methods: BTreeMap::new(),
@@ -101,25 +112,31 @@ impl GoTypeProvider {
             if parsed.language != Language::Go {
                 continue;
             }
-            provider.extract_from_file(path, parsed);
+            Self::extract_from_file(&mut inner, path, parsed);
         }
 
-        provider.compute_satisfaction();
-        provider
+        Self::compute_satisfaction(&mut inner);
+        GoTypeProvider {
+            data: Arc::new(inner),
+        }
     }
 
+    // -----------------------------------------------------------------------
+    // AST extraction (static methods operating on GoTypeData)
+    // -----------------------------------------------------------------------
+
     /// Extract type information from a single Go file.
-    fn extract_from_file(&mut self, path: &str, parsed: &ParsedFile) {
+    fn extract_from_file(data: &mut GoTypeData, path: &str, parsed: &ParsedFile) {
         let root = parsed.tree.root_node();
         let mut cursor = root.walk();
 
         for child in root.children(&mut cursor) {
             match child.kind() {
                 "type_declaration" => {
-                    self.extract_type_declaration(&child, path, parsed);
+                    Self::extract_type_declaration(data, &child, path, parsed);
                 }
                 "method_declaration" => {
-                    self.extract_method(&child, path, parsed);
+                    Self::extract_method(data, &child, path, parsed);
                 }
                 _ => {}
             }
@@ -127,10 +144,8 @@ impl GoTypeProvider {
     }
 
     /// Extract type specs from a type_declaration node.
-    ///
-    /// Handles both single (`type X struct{}`) and grouped (`type ( ... )`) forms.
     fn extract_type_declaration(
-        &mut self,
+        data: &mut GoTypeData,
         node: &tree_sitter::Node,
         path: &str,
         parsed: &ParsedFile,
@@ -138,15 +153,20 @@ impl GoTypeProvider {
         let mut cursor = node.walk();
         for child in node.children(&mut cursor) {
             match child.kind() {
-                "type_spec" => self.extract_type_spec(&child, path, parsed),
-                "type_alias" => self.extract_type_alias(&child, parsed),
+                "type_spec" => Self::extract_type_spec(data, &child, path, parsed),
+                "type_alias" => Self::extract_type_alias(data, &child, parsed),
                 _ => {}
             }
         }
     }
 
     /// Extract a single type_spec: `name type_definition`.
-    fn extract_type_spec(&mut self, node: &tree_sitter::Node, path: &str, parsed: &ParsedFile) {
+    fn extract_type_spec(
+        data: &mut GoTypeData,
+        node: &tree_sitter::Node,
+        path: &str,
+        parsed: &ParsedFile,
+    ) {
         let name_node = match node.child_by_field_name("name") {
             Some(n) => n,
             None => return,
@@ -165,8 +185,8 @@ impl GoTypeProvider {
 
         match type_node.kind() {
             "struct_type" => {
-                let (fields, embedded) = self.extract_struct_fields(&type_node, parsed);
-                self.structs.insert(
+                let (fields, embedded) = Self::extract_struct_fields(&type_node, parsed);
+                data.structs.insert(
                     name.clone(),
                     GoStruct {
                         name,
@@ -178,8 +198,8 @@ impl GoTypeProvider {
                 );
             }
             "interface_type" => {
-                let (methods, embedded) = self.extract_interface_methods(&type_node, parsed);
-                self.interfaces.insert(
+                let (methods, embedded) = Self::extract_interface_methods(&type_node, parsed);
+                data.interfaces.insert(
                     name.clone(),
                     GoInterface {
                         name,
@@ -190,19 +210,17 @@ impl GoTypeProvider {
                 );
             }
             _ => {
-                // Type alias: `type Name = OtherType` or `type Name OtherType`
+                // Type definition: `type Name OtherType`
                 let target = parsed.node_text(&type_node).trim().to_string();
                 if !target.is_empty() {
-                    self.aliases.insert(name, target);
+                    data.aliases.insert(name, target);
                 }
             }
         }
     }
 
     /// Extract a type alias: `type Name = OtherType`.
-    ///
-    /// In tree-sitter-go, this produces a `type_alias` node (distinct from `type_spec`).
-    fn extract_type_alias(&mut self, node: &tree_sitter::Node, parsed: &ParsedFile) {
+    fn extract_type_alias(data: &mut GoTypeData, node: &tree_sitter::Node, parsed: &ParsedFile) {
         let name_node = match node.child_by_field_name("name") {
             Some(n) => n,
             None => return,
@@ -214,15 +232,12 @@ impl GoTypeProvider {
         let name = parsed.node_text(&name_node).trim().to_string();
         let target = parsed.node_text(&type_node).trim().to_string();
         if !name.is_empty() && !target.is_empty() {
-            self.aliases.insert(name, target);
+            data.aliases.insert(name, target);
         }
     }
 
     /// Extract fields from a struct_type node.
-    ///
-    /// Returns (named_fields, embedded_types).
     fn extract_struct_fields(
-        &self,
         node: &tree_sitter::Node,
         parsed: &ParsedFile,
     ) -> (Vec<(String, String)>, Vec<String>) {
@@ -235,7 +250,7 @@ impl GoTypeProvider {
                 let mut inner = child.walk();
                 for field in child.children(&mut inner) {
                     if field.kind() == "field_declaration" {
-                        self.extract_one_field(&field, parsed, &mut fields, &mut embedded);
+                        Self::extract_one_field(&field, parsed, &mut fields, &mut embedded);
                     }
                 }
             }
@@ -244,20 +259,12 @@ impl GoTypeProvider {
     }
 
     /// Extract a single field_declaration.
-    ///
-    /// Go fields can be:
-    /// - Named: `Host string` → name="Host", type="string"
-    /// - Embedded: `Config` or `*Config` → embedded type
     fn extract_one_field(
-        &self,
         node: &tree_sitter::Node,
         parsed: &ParsedFile,
         fields: &mut Vec<(String, String)>,
         embedded: &mut Vec<String>,
     ) {
-        // Check if there's a field name — if so, it's a named field.
-        // In tree-sitter-go, named fields have `name` children (field_identifier nodes)
-        // and a `type` child. Embedded fields only have a `type` child.
         let mut names: Vec<String> = Vec::new();
         let mut type_str = String::new();
 
@@ -273,8 +280,6 @@ impl GoTypeProvider {
                     && child.kind() != "comment"
                     && child.kind() != "," =>
                 {
-                    // First non-name, non-tag child is the type
-                    // But only if we haven't captured a type yet
                     if child.kind() != "field_identifier" {
                         type_str = parsed.node_text(&child).trim().to_string();
                     }
@@ -284,7 +289,6 @@ impl GoTypeProvider {
         }
 
         if names.is_empty() {
-            // Embedded field — the type_str IS the embedded type.
             let embedded_name = strip_pointer(&type_str);
             if !embedded_name.is_empty() {
                 embedded.push(embedded_name.to_string());
@@ -298,10 +302,7 @@ impl GoTypeProvider {
     }
 
     /// Extract method signatures from an interface_type node.
-    ///
-    /// Returns (methods_map, embedded_interfaces).
     fn extract_interface_methods(
-        &self,
         node: &tree_sitter::Node,
         parsed: &ParsedFile,
     ) -> (BTreeMap<String, String>, Vec<String>) {
@@ -310,26 +311,20 @@ impl GoTypeProvider {
 
         let mut cursor = node.walk();
         for child in node.children(&mut cursor) {
-            // In tree-sitter-go, the interface body contains method_spec or
-            // type_identifier (embedded interface) nodes, possibly inside a
-            // method_spec_list or directly.
-            self.walk_interface_body(&child, parsed, &mut methods, &mut embedded);
+            Self::walk_interface_body(&child, parsed, &mut methods, &mut embedded);
         }
 
         (methods, embedded)
     }
 
     fn walk_interface_body(
-        &self,
         node: &tree_sitter::Node,
         parsed: &ParsedFile,
         methods: &mut BTreeMap<String, String>,
         embedded: &mut Vec<String>,
     ) {
         match node.kind() {
-            // tree-sitter-go uses "method_elem" (not "method_spec") for interface methods.
             "method_spec" | "method_elem" => {
-                // The method name is a field_identifier child (not a named field).
                 let mut name = String::new();
                 let mut cursor = node.walk();
                 for child in node.children(&mut cursor) {
@@ -338,32 +333,27 @@ impl GoTypeProvider {
                     }
                 }
                 if !name.is_empty() {
-                    let sig = self.extract_method_signature(node, parsed);
+                    let sig = Self::extract_method_signature(node, parsed);
                     methods.insert(name, sig);
                 }
             }
-            // Embedded interface reference (bare type name in interface body).
             "type_identifier" | "qualified_type" => {
                 let iface_name = parsed.node_text(node).trim().to_string();
                 if !iface_name.is_empty() {
                     embedded.push(iface_name);
                 }
             }
-            // Recurse into container nodes (e.g., the interface body braces).
             _ => {
                 let mut cursor = node.walk();
                 for child in node.children(&mut cursor) {
-                    self.walk_interface_body(&child, parsed, methods, embedded);
+                    Self::walk_interface_body(&child, parsed, methods, embedded);
                 }
             }
         }
     }
 
     /// Extract a method's parameter+return type signature for comparison.
-    ///
-    /// For interface `method_elem` nodes, parameters and result are direct children.
-    /// Returns a string like "(p []byte) -> (n int, err error)".
-    fn extract_method_signature(&self, node: &tree_sitter::Node, parsed: &ParsedFile) -> String {
+    fn extract_method_signature(node: &tree_sitter::Node, parsed: &ParsedFile) -> String {
         let mut parts = Vec::new();
         let mut cursor = node.walk();
         let mut skip_name = true;
@@ -388,26 +378,28 @@ impl GoTypeProvider {
     }
 
     /// Extract a method_declaration (method with receiver).
-    fn extract_method(&mut self, node: &tree_sitter::Node, path: &str, parsed: &ParsedFile) {
+    fn extract_method(
+        data: &mut GoTypeData,
+        node: &tree_sitter::Node,
+        path: &str,
+        parsed: &ParsedFile,
+    ) {
         let name_node = match node.child_by_field_name("name") {
             Some(n) => n,
             None => return,
         };
         let name = parsed.node_text(&name_node).trim().to_string();
 
-        // Extract receiver type from the first parameter_list.
-        let (receiver_type, is_pointer) = match self.extract_receiver(node, parsed) {
+        let (receiver_type, is_pointer) = match Self::extract_receiver(node, parsed) {
             Some(r) => r,
             None => return,
         };
 
-        // Build signature from parameters and result
-        let sig = self.extract_func_signature(node, parsed);
-
+        let sig = Self::extract_func_signature(node, parsed);
         let start_line = node.start_position().row + 1;
         let end_line = node.end_position().row + 1;
 
-        self.methods
+        data.methods
             .entry(receiver_type.clone())
             .or_default()
             .push(GoMethod {
@@ -422,20 +414,11 @@ impl GoTypeProvider {
     }
 
     /// Extract receiver type from a method_declaration.
-    ///
-    /// `func (s *Server) Start()` → ("Server", true)
-    /// `func (s Server) Start()` → ("Server", false)
-    fn extract_receiver(
-        &self,
-        node: &tree_sitter::Node,
-        parsed: &ParsedFile,
-    ) -> Option<(String, bool)> {
-        // In tree-sitter-go, the receiver is the `receiver` field (not `parameters`).
+    fn extract_receiver(node: &tree_sitter::Node, parsed: &ParsedFile) -> Option<(String, bool)> {
         let receiver = node.child_by_field_name("receiver")?;
         let mut cursor = receiver.walk();
         for child in receiver.children(&mut cursor) {
             if child.kind() == "parameter_declaration" {
-                // Get the type part of the parameter
                 if let Some(type_node) = child.child_by_field_name("type") {
                     let type_text = parsed.node_text(&type_node).trim().to_string();
                     let is_pointer = type_text.starts_with('*');
@@ -450,15 +433,13 @@ impl GoTypeProvider {
     }
 
     /// Extract function signature (parameters + return) for interface matching.
-    fn extract_func_signature(&self, node: &tree_sitter::Node, parsed: &ParsedFile) -> String {
+    fn extract_func_signature(node: &tree_sitter::Node, parsed: &ParsedFile) -> String {
         let mut parts = Vec::new();
 
-        // Parameters (not receiver)
         if let Some(params) = node.child_by_field_name("parameters") {
             parts.push(parsed.node_text(&params).trim().to_string());
         }
 
-        // Result type
         if let Some(result) = node.child_by_field_name("result") {
             parts.push(parsed.node_text(&result).trim().to_string());
         }
@@ -467,46 +448,43 @@ impl GoTypeProvider {
     }
 
     // -----------------------------------------------------------------------
-    // Interface satisfaction
+    // Interface satisfaction (static, operates on GoTypeData)
     // -----------------------------------------------------------------------
 
     /// Compute which concrete types satisfy which interfaces.
-    ///
-    /// A concrete type T satisfies interface I if T's method set (including
-    /// promoted methods from embedded types) is a superset of I's method set.
-    fn compute_satisfaction(&mut self) {
-        // First, collect the full method set for each interface (resolving embeds).
-        let interface_methods = self.resolve_all_interface_methods();
+    fn compute_satisfaction(data: &mut GoTypeData) {
+        let interface_methods = Self::resolve_all_interface_methods(data);
+        let concrete_methods = Self::resolve_all_concrete_methods(data);
 
-        // For each concrete type, compute its full method set.
-        let concrete_methods = self.resolve_all_concrete_methods();
-
-        // Check satisfaction: for each interface, find all concrete types whose
-        // method set is a superset of the interface's method set.
         for (iface_name, iface_methods) in &interface_methods {
             let mut satisfying = BTreeSet::new();
             for (type_name, type_methods) in &concrete_methods {
-                if self.method_set_satisfies(type_methods, iface_methods) {
+                if iface_methods
+                    .keys()
+                    .all(|method_name| type_methods.contains_key(method_name))
+                {
                     satisfying.insert(type_name.clone());
                 }
             }
-            self.satisfaction.insert(iface_name.clone(), satisfying);
+            data.satisfaction.insert(iface_name.clone(), satisfying);
         }
     }
 
     /// Resolve all methods for each interface, flattening embedded interfaces.
-    fn resolve_all_interface_methods(&self) -> BTreeMap<String, BTreeMap<String, String>> {
+    fn resolve_all_interface_methods(
+        data: &GoTypeData,
+    ) -> BTreeMap<String, BTreeMap<String, String>> {
         let mut result = BTreeMap::new();
-        for iface_name in self.interfaces.keys() {
-            let methods = self.collect_interface_methods(iface_name, &mut BTreeSet::new());
+        for iface_name in data.interfaces.keys() {
+            let methods =
+                Self::collect_interface_methods_from(data, iface_name, &mut BTreeSet::new());
             result.insert(iface_name.clone(), methods);
         }
         result
     }
 
-    /// Recursively collect interface methods, including from embedded interfaces.
-    fn collect_interface_methods(
-        &self,
+    fn collect_interface_methods_from(
+        data: &GoTypeData,
         name: &str,
         visited: &mut BTreeSet<String>,
     ) -> BTreeMap<String, String> {
@@ -515,25 +493,24 @@ impl GoTypeProvider {
         }
 
         let mut methods = BTreeMap::new();
-        if let Some(iface) = self.interfaces.get(name) {
-            // Own methods
+        if let Some(iface) = data.interfaces.get(name) {
             methods.extend(iface.methods.clone());
-            // Embedded interface methods
             for embedded in &iface.embedded {
-                let embedded_methods = self.collect_interface_methods(embedded, visited);
+                let embedded_methods =
+                    Self::collect_interface_methods_from(data, embedded, visited);
                 methods.extend(embedded_methods);
             }
         }
         methods
     }
 
-    /// Resolve all methods for each concrete type, including promoted methods
-    /// from embedded structs.
-    fn resolve_all_concrete_methods(&self) -> BTreeMap<String, BTreeMap<String, String>> {
+    /// Resolve all methods for each concrete type, including promoted methods.
+    fn resolve_all_concrete_methods(
+        data: &GoTypeData,
+    ) -> BTreeMap<String, BTreeMap<String, String>> {
         let mut result = BTreeMap::new();
 
-        // Collect directly-defined methods.
-        for (type_name, type_methods) in &self.methods {
+        for (type_name, type_methods) in &data.methods {
             let mut method_map = BTreeMap::new();
             for m in type_methods {
                 method_map.insert(m.name.clone(), m.signature.clone());
@@ -541,18 +518,16 @@ impl GoTypeProvider {
             result.insert(type_name.clone(), method_map);
         }
 
-        // Add promoted methods from embedded structs.
-        for (struct_name, go_struct) in &self.structs {
+        for (struct_name, go_struct) in &data.structs {
             let entry = result.entry(struct_name.clone()).or_default();
-            self.collect_promoted_methods(go_struct, entry, &mut BTreeSet::new());
+            Self::collect_promoted_methods_from(data, go_struct, entry, &mut BTreeSet::new());
         }
 
         result
     }
 
-    /// Recursively collect promoted methods from embedded types.
-    fn collect_promoted_methods(
-        &self,
+    fn collect_promoted_methods_from(
+        data: &GoTypeData,
         go_struct: &GoStruct,
         methods: &mut BTreeMap<String, String>,
         visited: &mut BTreeSet<String>,
@@ -562,31 +537,15 @@ impl GoTypeProvider {
         }
 
         for embedded_name in &go_struct.embedded {
-            // Add methods defined on the embedded type (if not already overridden).
-            if let Some(embedded_methods) = self.methods.get(embedded_name) {
+            if let Some(embedded_methods) = data.methods.get(embedded_name) {
                 for m in embedded_methods {
                     methods.entry(m.name.clone()).or_insert(m.signature.clone());
                 }
             }
-            // Recurse into further embeddings.
-            if let Some(inner_struct) = self.structs.get(embedded_name) {
-                self.collect_promoted_methods(inner_struct, methods, visited);
+            if let Some(inner_struct) = data.structs.get(embedded_name) {
+                Self::collect_promoted_methods_from(data, inner_struct, methods, visited);
             }
         }
-    }
-
-    /// Check if a concrete type's method set satisfies an interface's method set.
-    ///
-    /// For now, we compare by method name only. A more precise check would also
-    /// compare parameter/return type signatures.
-    fn method_set_satisfies(
-        &self,
-        concrete: &BTreeMap<String, String>,
-        interface: &BTreeMap<String, String>,
-    ) -> bool {
-        interface
-            .keys()
-            .all(|method_name| concrete.contains_key(method_name))
     }
 }
 
@@ -597,21 +556,21 @@ impl GoTypeProvider {
 impl TypeProvider for GoTypeProvider {
     fn resolve_type(&self, _file: &str, expr: &str, _line: usize) -> Option<ResolvedType> {
         // Check if expr is a known type name.
-        if let Some(_s) = self.structs.get(expr) {
+        if let Some(_s) = self.data.structs.get(expr) {
             return Some(ResolvedType {
                 name: expr.to_string(),
                 kind: ResolvedTypeKind::Concrete,
                 type_params: Vec::new(),
             });
         }
-        if self.interfaces.contains_key(expr) {
+        if self.data.interfaces.contains_key(expr) {
             return Some(ResolvedType {
                 name: expr.to_string(),
                 kind: ResolvedTypeKind::Interface,
                 type_params: Vec::new(),
             });
         }
-        if let Some(target) = self.aliases.get(expr) {
+        if let Some(target) = self.data.aliases.get(expr) {
             return Some(ResolvedType {
                 name: target.clone(),
                 kind: ResolvedTypeKind::Alias,
@@ -622,7 +581,7 @@ impl TypeProvider for GoTypeProvider {
     }
 
     fn field_layout(&self, type_name: &str) -> Option<Vec<TypeFieldInfo>> {
-        let go_struct = self.structs.get(type_name)?;
+        let go_struct = self.data.structs.get(type_name)?;
         Some(
             go_struct
                 .fields
@@ -637,14 +596,16 @@ impl TypeProvider for GoTypeProvider {
 
     fn subtypes_of(&self, type_name: &str) -> Vec<String> {
         // In Go, "subtypes" of an interface means concrete types that satisfy it.
-        self.satisfaction
+        self.data
+            .satisfaction
             .get(type_name)
             .map(|s| s.iter().cloned().collect())
             .unwrap_or_default()
     }
 
     fn resolve_alias(&self, type_name: &str) -> String {
-        self.aliases
+        self.data
+            .aliases
             .get(type_name)
             .cloned()
             .unwrap_or_else(|| type_name.to_string())
@@ -667,7 +628,7 @@ impl DispatchProvider for GoTypeProvider {
         live_types: &BTreeSet<String>,
     ) -> Vec<FunctionId> {
         // If receiver_type is a concrete type, resolve directly.
-        if let Some(type_methods) = self.methods.get(receiver_type) {
+        if let Some(type_methods) = self.data.methods.get(receiver_type) {
             for m in type_methods {
                 if m.name == method {
                     return vec![FunctionId {
@@ -681,7 +642,7 @@ impl DispatchProvider for GoTypeProvider {
         }
 
         // If receiver_type is an interface, find all satisfying types that have this method.
-        if let Some(satisfying) = self.satisfaction.get(receiver_type) {
+        if let Some(satisfying) = self.data.satisfaction.get(receiver_type) {
             let candidates: BTreeSet<&String> = if live_types.is_empty() {
                 satisfying.iter().collect()
             } else {
@@ -697,7 +658,7 @@ impl DispatchProvider for GoTypeProvider {
 
             let mut results = Vec::new();
             for type_name in targets {
-                if let Some(type_methods) = self.methods.get(type_name) {
+                if let Some(type_methods) = self.data.methods.get(type_name) {
                     for m in type_methods {
                         if m.name == method {
                             results.push(FunctionId {
