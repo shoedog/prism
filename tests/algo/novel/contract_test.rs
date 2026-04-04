@@ -300,3 +300,44 @@ fn test_contract_rust_guard() {
         "Should detect Rust is_empty() guard"
     );
 }
+
+// === 2.7 Behavioral test: Contract — Go err != nil guard ===
+
+#[test]
+fn test_contract_go_err_nil_guard() {
+    // `if err != nil { return err }` is a standard Go precondition.
+    // Contract should detect it as a nil-check constraint.
+    let source = r#"package main
+
+import "os"
+
+func readConfig(path string) ([]byte, error) {
+    data, err := os.ReadFile(path)
+    if err != nil {
+        return nil, err
+    }
+    return data, nil
+}
+"#;
+    let result = run_contract(source, "config.go", Language::Go, BTreeSet::from([7]));
+
+    let contract_findings: Vec<_> = result
+        .findings
+        .iter()
+        .filter(|f| f.category.as_deref() == Some("contract"))
+        .collect();
+    assert!(
+        !contract_findings.is_empty(),
+        "Should detect Go `if err != nil` as a precondition guard"
+    );
+
+    // Verify it's classified as a nil-check, not just a generic guard
+    let has_nil_check = result
+        .findings
+        .iter()
+        .any(|f| f.description.contains("nil-check") || f.description.contains("nil"));
+    assert!(
+        has_nil_check,
+        "Go err != nil guard should be classified as nil-check"
+    );
+}
