@@ -16,6 +16,7 @@ use crate::ast::ParsedFile;
 use crate::call_graph::{CallGraph, FunctionId};
 use crate::cfg;
 use crate::data_flow::{DataFlowGraph, VarAccessKind, VarLocation};
+use crate::diff::DiffInput;
 use crate::type_db::TypeDatabase;
 
 use petgraph::graph::{DiGraph, NodeIndex};
@@ -25,6 +26,20 @@ use std::collections::{BTreeMap, BTreeSet, VecDeque};
 // ---------------------------------------------------------------------------
 // CpgContext — shared analysis context built once per review
 // ---------------------------------------------------------------------------
+
+/// Metadata about a diff-scoped CPG.
+///
+/// Present only when `CpgContext::build_scoped()` was used. Indicates that the
+/// CPG covers a subset of parsed files (changed files + direct callers/callees)
+/// rather than the full codebase. Algorithms can check `ctx.scope.is_some()` to
+/// qualify results (e.g., "no callers found" vs "no callers found within scope").
+#[derive(Debug, Clone)]
+pub struct CpgScope {
+    /// All files included in the scoped CPG (Tier 0 + 1 + 2).
+    pub scoped_files: BTreeSet<String>,
+    /// Only the changed files from the diff (Tier 0).
+    pub changed_files: BTreeSet<String>,
+}
 
 /// Shared analysis context built once per review, passed to all algorithms.
 ///
@@ -38,6 +53,9 @@ pub struct CpgContext<'a> {
     pub files: &'a BTreeMap<String, ParsedFile>,
     /// Optional type database for C/C++ enrichment.
     pub type_db: Option<&'a TypeDatabase>,
+    /// Scope metadata. `None` means the CPG covers all parsed files.
+    /// `Some` means it was built from a diff-scoped subset.
+    pub scope: Option<CpgScope>,
 }
 
 impl<'a> CpgContext<'a> {
@@ -51,6 +69,66 @@ impl<'a> CpgContext<'a> {
             cpg,
             files,
             type_db,
+            scope: None,
+        }
+    }
+
+    /// Build a diff-scoped CpgContext that only covers changed files and their
+    /// direct callers/callees.
+    ///
+    /// Uses a two-pass approach:
+    /// 1. Build a skeleton call graph (direct calls only) from all files
+    /// 2. Compute the scope: changed files + callers + callees
+    /// 3. Build the full CPG on just the scoped subset
+    ///
+    /// If the scope covers >50% of files, falls back to a full build (the
+    /// skeleton overhead isn't worth it when most files are in scope anyway).
+    ///
+    /// **Known limitation:** The skeleton resolves callees by bare function name
+    /// only. Qualified calls like `utils.process()` won't resolve to the
+    /// defining file without import resolution, so the scope may be slightly
+    /// too narrow for Python/JS/TS codebases with heavy use of qualified calls.
+    pub fn build_scoped(
+        files: &'a BTreeMap<String, ParsedFile>,
+        diff: &DiffInput,
+        type_db: Option<&'a TypeDatabase>,
+    ) -> Self {
+        // Collect changed file paths from the diff.
+        let changed_files: BTreeSet<String> =
+            diff.files.iter().map(|d| d.file_path.clone()).collect();
+
+        // If there are no changed files or only one file total, just do a full build.
+        if changed_files.is_empty() || files.len() <= 1 {
+            return Self::build(files, type_db);
+        }
+
+        // Pass 1: skeleton call graph (Phases 1-2 only, no indirect resolution).
+        let skeleton_cg = CallGraph::build_skeleton(files);
+
+        // Compute the scoped file set: Tier 0 (changed) + Tier 1 (callers) + Tier 2 (callees).
+        let scoped_files = compute_scope(&skeleton_cg, &changed_files, files);
+
+        // Short-circuit: if scope covers >50% of files, just build the full CPG.
+        if scoped_files.len() > files.len() / 2 {
+            return Self::build(files, type_db);
+        }
+
+        // Pass 2: build full CPG on scoped subset.
+        let filtered: BTreeMap<String, ParsedFile> = files
+            .iter()
+            .filter(|(k, _)| scoped_files.contains(k.as_str()))
+            .map(|(k, v)| (k.clone(), v.clone()))
+            .collect();
+
+        let cpg = CodePropertyGraph::build_enriched(&filtered, type_db);
+        CpgContext {
+            cpg,
+            files,
+            type_db,
+            scope: Some(CpgScope {
+                scoped_files,
+                changed_files,
+            }),
         }
     }
 
@@ -66,8 +144,63 @@ impl<'a> CpgContext<'a> {
             cpg: CodePropertyGraph::empty(),
             files,
             type_db,
+            scope: None,
         }
     }
+}
+
+/// Compute the scoped file set for incremental CPG construction.
+///
+/// Three tiers:
+/// - **Tier 0:** Changed files (from the diff)
+/// - **Tier 1:** Direct callers — files containing functions that call into changed functions
+/// - **Tier 2:** Direct callees — files containing functions called by changed functions
+fn compute_scope(
+    skeleton_cg: &CallGraph,
+    changed_files: &BTreeSet<String>,
+    files: &BTreeMap<String, ParsedFile>,
+) -> BTreeSet<String> {
+    let mut scope: BTreeSet<String> = changed_files.clone();
+
+    // Identify changed functions: functions whose line range overlaps diff lines.
+    // We iterate all functions and check if they're in a changed file.
+    let mut changed_fn_names: BTreeSet<String> = BTreeSet::new();
+    let mut changed_fn_ids: Vec<FunctionId> = Vec::new();
+
+    for func_ids in skeleton_cg.functions.values() {
+        for fid in func_ids {
+            if changed_files.contains(&fid.file) {
+                changed_fn_names.insert(fid.name.clone());
+                changed_fn_ids.push(fid.clone());
+            }
+        }
+    }
+
+    // Tier 1: files containing direct callers of changed functions.
+    for name in &changed_fn_names {
+        if let Some(sites) = skeleton_cg.callers.get(name) {
+            for site in sites {
+                scope.insert(site.caller.file.clone());
+            }
+        }
+    }
+
+    // Tier 2: files containing direct callees of changed functions.
+    for fid in &changed_fn_ids {
+        if let Some(sites) = skeleton_cg.calls.get(fid) {
+            for site in sites {
+                // Resolve callee to actual function definitions.
+                let callee_ids = skeleton_cg.resolve_callees(&site.callee_name, &fid.file);
+                for callee_id in callee_ids {
+                    scope.insert(callee_id.file.clone());
+                }
+            }
+        }
+    }
+
+    // Only include files that are actually in the parsed files map.
+    scope.retain(|f| files.contains_key(f));
+    scope
 }
 
 // ---------------------------------------------------------------------------
