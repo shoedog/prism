@@ -189,12 +189,13 @@ mod tests {
     #[test]
     fn test_all_queries_compile() {
         let cache = query_cache();
-        // 12 languages x 2 query kinds = 24 expected
+        // 12 languages x 2 query kinds = 24 expected. All must compile.
         let expected_count = Language::all().len() * 2;
-        assert!(
-            cache.len() >= expected_count - 2,
-            "expected at least {} compiled queries, got {}",
-            expected_count - 2,
+        assert_eq!(
+            cache.len(),
+            expected_count,
+            "all {} queries should compile, but only {} did",
+            expected_count,
             cache.len()
         );
     }
@@ -213,7 +214,10 @@ mod tests {
             (Language::C, "void foo() {}\n"),
             (Language::Cpp, "void foo() {}\n"),
             (Language::Rust, "fn foo() {}\n"),
-            (Language::Lua, "function foo() end\n"),
+            (
+                Language::Lua,
+                "local function foo() end\nfunction bar() end\n",
+            ),
             (Language::Terraform, "resource \"aws_instance\" \"ex\" {}\n"),
             (Language::Bash, "foo() { echo hi; }\n"),
         ];
@@ -226,6 +230,17 @@ mod tests {
                 lang
             );
         }
+
+        // Lua-specific: verify both `local function` and `function` are detected.
+        let lua_count = count_matches(
+            Language::Lua,
+            QueryKind::Functions,
+            "local function foo() end\nfunction bar() end\n",
+        );
+        assert_eq!(
+            lua_count, 2,
+            "Lua Functions query should match both local and global functions"
+        );
     }
 
     #[test]
@@ -250,6 +265,106 @@ mod tests {
                 "Calls query for {:?} should match at least one node, got 0",
                 lang
             );
+        }
+    }
+
+    /// Verify query-based and manual traversal produce identical results.
+    ///
+    /// Runs both code paths on multi-language fixtures and compares the set of
+    /// matched node line ranges. This catches drift if queries are refined but
+    /// the manual fallback isn't updated (or vice versa).
+    #[test]
+    fn test_query_vs_manual_consistency() {
+        use crate::ast::ParsedFile;
+
+        let fixtures: Vec<(&str, Language, &str)> = vec![
+            (
+                "test.py",
+                Language::Python,
+                "def foo():\n    bar()\n\ndef baz(x):\n    return x\n",
+            ),
+            (
+                "test.js",
+                Language::JavaScript,
+                "function foo() { bar(); }\nconst baz = (x) => x;\n",
+            ),
+            (
+                "test.go",
+                Language::Go,
+                "package main\nfunc foo() { bar() }\nfunc baz(x int) int { return x }\n",
+            ),
+            (
+                "test.c",
+                Language::C,
+                "void foo() { bar(); }\nint baz(int x) { return x; }\n",
+            ),
+            (
+                "test.rs",
+                Language::Rust,
+                "fn foo() { bar(); }\nfn baz(x: i32) -> i32 { x }\n",
+            ),
+            (
+                "test.lua",
+                Language::Lua,
+                "local function foo() bar() end\nfunction baz(x) return x end\n",
+            ),
+        ];
+
+        for (path, lang, source) in &fixtures {
+            let parsed = ParsedFile::parse(path, source, *lang).unwrap();
+
+            // --- Functions: query path vs manual path ---
+            let query_funcs: Vec<(usize, usize)> = parsed
+                .all_functions()
+                .iter()
+                .map(|n| (n.start_position().row, n.end_position().row))
+                .collect();
+
+            let mut manual_funcs_nodes = Vec::new();
+            parsed.collect_functions_manual(parsed.tree.root_node(), &mut manual_funcs_nodes);
+            let manual_funcs: Vec<(usize, usize)> = manual_funcs_nodes
+                .iter()
+                .map(|n| (n.start_position().row, n.end_position().row))
+                .collect();
+
+            assert_eq!(
+                query_funcs, manual_funcs,
+                "Functions mismatch for {:?} ({}): query={:?} manual={:?}",
+                lang, path, query_funcs, manual_funcs
+            );
+
+            // --- Calls: query path vs manual path ---
+            // Run callees_in_function on each detected function, comparing both paths.
+            for func_node in parsed.all_functions() {
+                let all_lines: std::collections::BTreeSet<usize> = {
+                    let (start, end) = parsed.node_line_range(&func_node);
+                    (start..=end).collect()
+                };
+
+                // Query-based path (used by function_calls_on_lines)
+                let query_calls = parsed.function_calls_on_lines(&func_node, &all_lines);
+
+                // Manual fallback path
+                let mut manual_calls = Vec::new();
+                parsed.collect_calls_manual(func_node, &all_lines, &mut manual_calls);
+
+                // Compare sorted (name, line) pairs
+                let mut q: Vec<_> = query_calls.iter().map(|(n, l)| (n.as_str(), *l)).collect();
+                let mut m: Vec<_> = manual_calls.iter().map(|(n, l)| (n.as_str(), *l)).collect();
+                q.sort();
+                m.sort();
+
+                assert_eq!(
+                    q,
+                    m,
+                    "Calls mismatch for {:?} ({}) in function at row {}: query={:?} manual={:?}",
+                    lang,
+                    path,
+                    func_node.start_position().row,
+                    q,
+                    m
+                );
+            }
         }
     }
 }
