@@ -403,3 +403,120 @@ def handle(request):
         all_lines
     );
 }
+
+// === Tier 3: Provenance — C++ (item 14) ===
+
+#[test]
+fn test_cpp_provenance_cin_user_input() {
+    let source = r#"
+#include <iostream>
+#include <string>
+
+std::string get_name() {
+    std::string name;
+    std::cin >> name;
+    return name;
+}
+"#;
+    let path = "src/input.cpp";
+    let parsed = ParsedFile::parse(path, source, Language::Cpp).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([7]),
+        }],
+    };
+
+    let result = algorithms::run_slicing_compat(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::ProvenanceSlice),
+        None,
+    )
+    .unwrap();
+
+    assert!(
+        !result.findings.is_empty() || !result.blocks.is_empty(),
+        "Provenance should detect C++ std::cin as user input source"
+    );
+}
+
+#[test]
+fn test_cpp_provenance_getenv() {
+    let source = r#"
+#include <cstdlib>
+
+std::string get_config_path() {
+    const char* path = getenv("CONFIG_PATH");
+    return std::string(path);
+}
+"#;
+    let path = "src/config.cpp";
+    let parsed = ParsedFile::parse(path, source, Language::Cpp).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([5]),
+        }],
+    };
+
+    let result = algorithms::run_slicing_compat(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::ProvenanceSlice),
+        None,
+    )
+    .unwrap();
+
+    assert!(
+        !result.findings.is_empty() || !result.blocks.is_empty(),
+        "Provenance should detect C++ getenv() as environment source"
+    );
+}
+
+#[test]
+fn test_cpp_provenance_recv_network() {
+    let source = r#"
+#include <sys/socket.h>
+
+int handle_client(int sockfd) {
+    char buffer[1024];
+    int n = recv(sockfd, buffer, sizeof(buffer), 0);
+    process(buffer, n);
+    return 0;
+}
+"#;
+    let path = "src/server.cpp";
+    let parsed = ParsedFile::parse(path, source, Language::Cpp).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([6]),
+        }],
+    };
+
+    let result = algorithms::run_slicing_compat(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::ProvenanceSlice),
+        None,
+    )
+    .unwrap();
+
+    assert!(
+        !result.findings.is_empty() || !result.blocks.is_empty(),
+        "Provenance should detect C++ recv() as network input source"
+    );
+}

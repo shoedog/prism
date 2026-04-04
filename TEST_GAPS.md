@@ -5,7 +5,7 @@ and source-level analysis of algorithm implementations.
 
 ## Coverage Matrix Summary
 
-**883 tests, 243/324 cells covered (75%).** Python, TypeScript, and Go have
+**916 tests, 256/324 cells covered (79%).** Python, TypeScript, and Go have
 100% algorithm coverage.
 
 ## Tier 1 — Algorithm Logic Exercised but Language Path Untested
@@ -31,29 +31,29 @@ High-value gaps where algorithm code paths exist but have zero test coverage.
 
 Patterns that span multiple languages or test important algorithm sub-features.
 
-- [ ] **7. Absence: JS timers** (`setInterval`/`clearInterval`) — very common
+- [x] **7. Absence: JS timers** (`setInterval`/`clearInterval`) — very common
   bug pattern
-- [ ] **8. Absence: DB transactions** (`begin`/`commit`) — common across
+- [x] **8. Absence: DB transactions** (`begin`/`commit`) — common across
   languages
-- [ ] **9. Absence: Go `context.WithTimeout`** — only `WithCancel` tested, not
+- [x] **9. Absence: Go `context.WithTimeout`** — only `WithCancel` tested, not
   timeout/deadline variants
-- [ ] **10. Contract: Yoda conditions** — code handles `NULL == ptr`,
+- [x] **10. Contract: Yoda conditions** — code handles `NULL == ptr`,
   `nil != err` but no test validates it
-- [ ] **11. Contract: Range/bounds checks** — `x < 0`, `x >= max` implemented
+- [x] **11. Contract: Range/bounds checks** — `x < 0`, `x >= max` implemented
   but untested
-- [ ] **12. Quantum: Go channels** — `select`/`send`/`receive` patterns in
+- [x] **12. Quantum: Go channels** — `select`/`send`/`receive` patterns in
   code, untested
-- [ ] **13. Echo: Rust `?` operator** — very common Rust error propagation,
+- [x] **13. Echo: Rust `?` operator** — very common Rust error propagation,
   untested
 
 ## Tier 3 — Completeness
 
 Fill remaining cells in the coverage matrix.
 
-- [ ] **14. Provenance: C++** — only language with zero provenance coverage
-- [ ] **15. Absence: Event sub/unsub** — `subscribe`/`unsubscribe`
+- [x] **14. Provenance: C++** — only language with zero provenance coverage
+- [x] **15. Absence: Event sub/unsub** — `subscribe`/`unsubscribe`
   cross-language pattern, no test
-- [ ] **16. Quantum: Python `asyncio.create_task`/`gather`** — beyond basic
+- [x] **16. Quantum: Python `asyncio.create_task`/`gather`** — beyond basic
   `await`
 
 ## Algorithm × Language Gap Matrix
@@ -66,7 +66,7 @@ Algorithms with ≥6 missing languages:
 | ResonanceSlice | Java, C, C++, Rust, Lua, TF, TSX, Bash | 8 |
 | PhantomSlice | Java, C, C++, Rust, Lua, TF, TSX, Bash | 8 |
 | VerticalSlice | Java, C++, Rust, Lua, TF, TSX, Bash | 7 |
-| ContractSlice | JS, TS, Java, C++, Lua, TF, TSX, Bash | 8 |
+| ContractSlice | TS, TF, TSX, Bash | 4 |
 | DeltaSlice | Java, Rust, Lua, TF, TSX, Bash | 6 |
 | SpiralSlice | Java, Rust, Lua, TF, TSX, Bash | 6 |
 | CircularSlice | Java, Rust, Lua, TF, TSX, Bash | 6 |
@@ -97,26 +97,26 @@ making them inherently harder to test.
 | Pattern | Language | Tested? |
 |---------|----------|---------|
 | `pool.apply_async`/`pool.close` | Python | No |
-| `setInterval`/`clearInterval` | JS | No |
+| `setInterval`/`clearInterval` | JS | Yes (item 7) |
 | `createServer`/`server.close` | Node.js | No |
 | `pool.connect`/`client.release` | DB (multi) | No |
 | `sql.Open`/`db.Close` | Go | No |
-| `context.WithTimeout`/`cancel` | Go | Only WithCancel |
+| `context.WithTimeout`/`cancel` | Go | Yes (item 9) |
 | `TcpListener::bind`/`.shutdown` | Rust | No |
-| `subscribe`/`unsubscribe` | Multi | No |
-| `beginTransaction`/`commit` | Multi | No |
-| All 6 Bash pairs | Bash | No |
-| All 3 Terraform pairs | Terraform | No |
+| `subscribe`/`unsubscribe` | Multi | Yes (item 15) |
+| `beginTransaction`/`commit` | Multi | Yes (item 8) |
+| All 6 Bash pairs | Bash | Partial (3/6: mktemp, pushd, exec FD) |
+| All 3 Terraform pairs | Terraform | Partial (2/3: encryption, public access) |
 
 ### Quantum Slice (`src/algorithms/quantum_slice.rs`)
 
 | Pattern | Language | Tested? |
 |---------|----------|---------|
-| `asyncio.create_task`, `gather` | Python | No |
+| `asyncio.create_task`, `gather` | Python | Yes (item 16) |
 | `Promise`, `Worker`, `nextTick` | JS | No |
-| channel ops (select/send/recv) | Go | No |
-| `std::async`, `std::jthread` | C++ | No |
-| `tokio::spawn`, `rayon::spawn` | Rust | No |
+| channel ops (select/send/recv) | Go | Yes (item 12) |
+| `std::async`, `std::jthread` | C++ | Yes (item 5) |
+| `tokio::spawn`, `rayon::spawn` | Rust | Yes (item 4) |
 | `coroutine.wrap`, `yield` | Lua | No |
 | `nohup`, `coproc`, `&` | Bash | No |
 
@@ -124,10 +124,10 @@ making them inherently harder to test.
 
 | Pattern | Language | Tested? |
 |---------|----------|---------|
-| Yoda conditions (`NULL == ptr`) | Any | No |
-| Range checks (`x < 0`) | Any | No |
-| `len(x) == 0` / `.length === 0` | Python/JS | No |
+| Yoda conditions (`NULL == ptr`) | Any | Yes (item 10) |
+| Range checks (`x < 0`) | Any | Yes (item 11) |
+| `len(x) == 0` / `.length === 0` | Python/JS | Yes (item 11) |
 | `assert_eq!`, `debug_assert!` | Rust | No |
-| All guard types | Java | No |
-| All guard types | C++ | No |
-| All guard types | Lua | No |
+| All guard types | Java | Yes (item 1) |
+| All guard types | C++ | Yes (item 1) |
+| All guard types | Lua | Yes (item 1) |

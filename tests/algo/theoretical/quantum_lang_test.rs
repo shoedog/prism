@@ -217,3 +217,170 @@ void worker(int* counter) {
         "QuantumSlice should detect C++ std::thread as async context"
     );
 }
+
+// === Tier 2: Quantum — Go channel send/receive (item 12) ===
+
+#[test]
+fn test_quantum_go_channel_send_receive() {
+    // Go channel send (<-) should be detected as async boundary.
+    let source = r#"
+package main
+
+func producer(ch chan int) {
+    result := 0
+    result = compute()
+    ch <- result
+    result = result + 1
+}
+"#;
+    let path = "cmd/producer.go";
+    let parsed = ParsedFile::parse(path, source, Language::Go).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([5]),
+        }],
+    };
+
+    let result = algorithms::run_slicing_compat(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::QuantumSlice),
+        None,
+    )
+    .unwrap();
+
+    assert!(
+        !result.blocks.is_empty(),
+        "QuantumSlice should detect Go channel send as async boundary"
+    );
+}
+
+#[test]
+fn test_quantum_go_select_statement() {
+    // Go select with multiple channel cases — async context.
+    let source = r#"
+package main
+
+func mux(a chan int, b chan string) int {
+    result := 0
+    select {
+    case v := <-a:
+        result = v
+    case s := <-b:
+        result = len(s)
+    }
+    return result
+}
+"#;
+    let path = "cmd/mux.go";
+    let parsed = ParsedFile::parse(path, source, Language::Go).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([5]),
+        }],
+    };
+
+    let result = algorithms::run_slicing_compat(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::QuantumSlice),
+        None,
+    )
+    .unwrap();
+
+    assert!(
+        !result.blocks.is_empty(),
+        "QuantumSlice should detect Go select statement as async context"
+    );
+}
+
+// === Tier 3: Quantum — Python asyncio.create_task/gather (item 16) ===
+
+#[test]
+fn test_quantum_python_asyncio_create_task() {
+    // asyncio.create_task should be detected as async context.
+    let source = r#"
+import asyncio
+
+async def process(items):
+    result = 0
+    task = asyncio.create_task(compute(items))
+    result = result + 1
+    await task
+    return result
+"#;
+    let path = "app/async_proc.py";
+    let parsed = ParsedFile::parse(path, source, Language::Python).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([5]),
+        }],
+    };
+
+    let result = algorithms::run_slicing_compat(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::QuantumSlice),
+        None,
+    )
+    .unwrap();
+
+    assert!(
+        !result.blocks.is_empty(),
+        "QuantumSlice should detect asyncio.create_task as Python async context"
+    );
+}
+
+#[test]
+fn test_quantum_python_asyncio_gather() {
+    // asyncio.gather should be detected as async context.
+    let source = r#"
+import asyncio
+
+async def fetch_all(urls):
+    count = 0
+    results = await asyncio.gather(*[fetch(u) for u in urls])
+    count = len(results)
+    return count
+"#;
+    let path = "app/fetcher.py";
+    let parsed = ParsedFile::parse(path, source, Language::Python).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([5]),
+        }],
+    };
+
+    let result = algorithms::run_slicing_compat(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::QuantumSlice),
+        None,
+    )
+    .unwrap();
+
+    assert!(
+        !result.blocks.is_empty(),
+        "QuantumSlice should detect asyncio.gather as Python async context"
+    );
+}
