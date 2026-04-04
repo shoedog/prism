@@ -87,7 +87,7 @@ fn test_all_languages_parse() {
 #[test]
 fn test_all_algorithms_listed() {
     let all = SlicingAlgorithm::all();
-    assert_eq!(all.len(), 26, "Should have 26 algorithms total");
+    assert_eq!(all.len(), 27, "Should have 27 algorithms total");
 
     // Verify each can be round-tripped through from_str
     for algo in &all {

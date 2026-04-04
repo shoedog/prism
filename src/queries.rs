@@ -16,6 +16,15 @@ pub enum QueryKind {
     Functions,
     /// Function/method call expressions. Replaces `collect_calls`, `collect_all_callees`.
     Calls,
+    /// Assignment expressions and declarations with initializers.
+    /// Replaces `collect_assignments`, `collect_assignment_paths`.
+    /// Also used (same query, different extraction) for R-values.
+    Assignments,
+    /// Identifier nodes. Replaces `collect_all_identifiers`, `collect_identifiers_at_row`.
+    /// Also used for `collect_variable_refs` with text post-filter.
+    Identifiers,
+    /// Return statements/expressions. Replaces `collect_returns`.
+    Returns,
 }
 
 /// Global query cache. Compiled once, reused across all ParsedFile instances.
@@ -26,7 +35,13 @@ pub fn query_cache() -> &'static HashMap<(Language, QueryKind), Query> {
     QUERY_CACHE.get_or_init(|| {
         let mut cache = HashMap::new();
         for lang in Language::all() {
-            for kind in [QueryKind::Functions, QueryKind::Calls] {
+            for kind in [
+                QueryKind::Functions,
+                QueryKind::Calls,
+                QueryKind::Assignments,
+                QueryKind::Identifiers,
+                QueryKind::Returns,
+            ] {
                 if let Some(pattern) = query_pattern(lang, kind) {
                     let ts_lang = lang.tree_sitter_language();
                     match Query::new(&ts_lang, pattern) {
@@ -61,6 +76,9 @@ fn query_pattern(lang: Language, kind: QueryKind) -> Option<&'static str> {
     match kind {
         QueryKind::Functions => function_query(lang),
         QueryKind::Calls => call_query(lang),
+        QueryKind::Assignments => assignment_query(lang),
+        QueryKind::Identifiers => identifier_query(lang),
+        QueryKind::Returns => return_query(lang),
     }
 }
 
@@ -164,6 +182,128 @@ fn call_query(lang: Language) -> Option<&'static str> {
     })
 }
 
+// ---------------------------------------------------------------------------
+// Assignments query — matches assignment expressions and declarations
+// ---------------------------------------------------------------------------
+// Capture: @assign — the assignment or declaration node
+
+fn assignment_query(lang: Language) -> Option<&'static str> {
+    Some(match lang {
+        Language::Python => {
+            r#"[
+                (assignment) @assign
+                (augmented_assignment) @assign
+                (named_expression) @assign
+            ]"#
+        }
+        Language::JavaScript | Language::TypeScript | Language::Tsx => {
+            r#"[
+                (assignment_expression) @assign
+                (augmented_assignment_expression) @assign
+                (variable_declarator) @assign
+            ]"#
+        }
+        Language::Go => {
+            r#"[
+                (assignment_statement) @assign
+                (short_var_declaration) @assign
+                (var_declaration) @assign
+                (const_declaration) @assign
+            ]"#
+        }
+        Language::Java => {
+            r#"[
+                (assignment_expression) @assign
+                (local_variable_declaration) @assign
+                (field_declaration) @assign
+            ]"#
+        }
+        Language::C | Language::Cpp => {
+            r#"[
+                (assignment_expression) @assign
+                (update_expression) @assign
+                (declaration) @assign
+                (init_declarator) @assign
+            ]"#
+        }
+        Language::Rust => {
+            r#"[
+                (assignment_expression) @assign
+                (compound_assignment_expr) @assign
+                (let_declaration) @assign
+            ]"#
+        }
+        Language::Lua => {
+            // tree-sitter-lua uses `variable_declaration` for `local x = 1`
+            r#"[
+                (assignment_statement) @assign
+                (variable_declaration) @assign
+            ]"#
+        }
+        Language::Terraform => "(attribute) @assign",
+        Language::Bash => "(variable_assignment) @assign",
+    })
+}
+
+// ---------------------------------------------------------------------------
+// Identifiers query — matches identifier nodes
+// ---------------------------------------------------------------------------
+// Capture: @ident — the identifier node
+
+fn identifier_query(lang: Language) -> Option<&'static str> {
+    // Matches core identifier nodes. Used primarily for find_variable_references
+    // and find_variable_references_scoped, where we filter by text content anyway.
+    //
+    // NOTE: This intentionally does NOT cover all types matched by
+    // Language::is_identifier_node() (e.g., property_identifier, field_identifier).
+    // Methods needing broader matching (identifiers_on_line) use the manual path.
+    Some(match lang {
+        Language::Python | Language::Go | Language::Java | Language::Lua => "(identifier) @ident",
+        Language::JavaScript | Language::TypeScript | Language::Tsx => {
+            r#"[
+                (identifier) @ident
+                (shorthand_property_identifier) @ident
+            ]"#
+        }
+        Language::C | Language::Cpp => "(identifier) @ident",
+        Language::Rust => "(identifier) @ident",
+        Language::Terraform => {
+            r#"[
+                (identifier) @ident
+                (variable_expr) @ident
+            ]"#
+        }
+        Language::Bash => {
+            r#"[
+                (variable_name) @ident
+                (word) @ident
+            ]"#
+        }
+    })
+}
+
+// ---------------------------------------------------------------------------
+// Returns query — matches return statements/expressions
+// ---------------------------------------------------------------------------
+// Capture: @ret — the return node
+
+fn return_query(lang: Language) -> Option<&'static str> {
+    match lang {
+        Language::Python
+        | Language::JavaScript
+        | Language::TypeScript
+        | Language::Tsx
+        | Language::Go
+        | Language::Java
+        | Language::C
+        | Language::Cpp
+        | Language::Lua => Some("(return_statement) @ret"),
+        Language::Rust => Some("(return_expression) @ret"),
+        // Terraform and Bash don't have structural return statements
+        Language::Terraform | Language::Bash => None,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -189,8 +329,8 @@ mod tests {
     #[test]
     fn test_all_queries_compile() {
         let cache = query_cache();
-        // 12 languages x 2 query kinds = 24 expected. All must compile.
-        let expected_count = Language::all().len() * 2;
+        // 12 languages × 5 query kinds = 60, minus 2 (Returns is None for Terraform, Bash)
+        let expected_count = Language::all().len() * 5 - 2;
         assert_eq!(
             cache.len(),
             expected_count,
@@ -266,6 +406,80 @@ mod tests {
                 lang
             );
         }
+    }
+
+    #[test]
+    fn test_assignment_query_matches_fixture() {
+        let fixtures: Vec<(Language, &str, usize)> = vec![
+            (Language::Python, "def f():\n    x = 1\n    y += x\n", 2),
+            (
+                Language::JavaScript,
+                "function f() { let x = 1; x += 2; }\n",
+                2,
+            ),
+            (Language::Go, "package main\nfunc f() { x := 1 }\n", 1),
+            (Language::C, "void f() { int x = 1; x = 2; }\n", 2),
+            (Language::Rust, "fn f() { let x = 1; }\n", 1),
+            (Language::Lua, "function f() local x = 1 end\n", 1),
+            (Language::Bash, "foo() { x=1; }\n", 1),
+        ];
+
+        for (lang, source, expected_min) in fixtures {
+            let n = count_matches(lang, QueryKind::Assignments, source);
+            assert!(
+                n >= expected_min,
+                "Assignments query for {:?} should match at least {}, got {}",
+                lang,
+                expected_min,
+                n
+            );
+        }
+    }
+
+    #[test]
+    fn test_identifier_query_matches_fixture() {
+        let fixtures: Vec<(Language, &str)> = vec![
+            (Language::Python, "def f():\n    x = y\n"),
+            (Language::JavaScript, "function f() { let x = y; }\n"),
+            (Language::Go, "package main\nfunc f() { x := y }\n"),
+            (Language::C, "void f() { int x = y; }\n"),
+            (Language::Rust, "fn f() { let x = y; }\n"),
+            (Language::Bash, "foo() { x=$y; }\n"),
+        ];
+
+        for (lang, source) in fixtures {
+            let n = count_matches(lang, QueryKind::Identifiers, source);
+            assert!(
+                n > 0,
+                "Identifiers query for {:?} should match at least one node, got 0",
+                lang
+            );
+        }
+    }
+
+    #[test]
+    fn test_return_query_matches_fixture() {
+        let fixtures: Vec<(Language, &str)> = vec![
+            (Language::Python, "def f():\n    return 1\n"),
+            (Language::JavaScript, "function f() { return 1; }\n"),
+            (Language::Go, "package main\nfunc f() int { return 1 }\n"),
+            (Language::C, "int f() { return 1; }\n"),
+            (Language::Rust, "fn f() -> i32 { return 1; }\n"),
+            (Language::Lua, "function f() return 1 end\n"),
+        ];
+
+        for (lang, source) in fixtures {
+            let n = count_matches(lang, QueryKind::Returns, source);
+            assert!(
+                n > 0,
+                "Returns query for {:?} should match at least one node, got 0",
+                lang
+            );
+        }
+
+        // Terraform and Bash should not have return queries
+        assert!(get_query(Language::Terraform, QueryKind::Returns).is_none());
+        assert!(get_query(Language::Bash, QueryKind::Returns).is_none());
     }
 
     /// Verify query-based and manual traversal produce identical results.
@@ -363,6 +577,67 @@ mod tests {
                     func_node.start_position().row,
                     q,
                     m
+                );
+            }
+        }
+    }
+
+    /// Verify Assignments query captures a superset of variable names found by manual walk.
+    ///
+    /// The query path may produce slightly different match counts than manual traversal
+    /// (e.g., query matches `variable_declarator` directly while manual also matches its
+    /// parent `lexical_declaration`), but the *set of variables and lines* must match.
+    #[test]
+    fn test_assignment_query_vs_manual_consistency() {
+        use crate::ast::ParsedFile;
+        use std::collections::BTreeSet;
+
+        let fixtures: Vec<(&str, Language, &str)> = vec![
+            (
+                "test.py",
+                Language::Python,
+                "def foo():\n    x = 1\n    y += x\n    z = bar()\n",
+            ),
+            (
+                "test.js",
+                Language::JavaScript,
+                "function foo() { let x = 1; x += 2; }\n",
+            ),
+            (
+                "test.go",
+                Language::Go,
+                "package main\nfunc foo() { x := 1; x = 2 }\n",
+            ),
+            ("test.c", Language::C, "void foo() { int x = 1; x = 2; }\n"),
+            ("test.rs", Language::Rust, "fn foo() { let x = 1; }\n"),
+        ];
+
+        for (path, lang, source) in &fixtures {
+            let parsed = ParsedFile::parse(path, source, *lang).unwrap();
+
+            for func_node in parsed.all_functions() {
+                let all_lines: std::collections::BTreeSet<usize> = {
+                    let (start, end) = parsed.node_line_range(&func_node);
+                    (start..=end).collect()
+                };
+
+                let query_result = parsed.assignment_lvalues_on_lines(&func_node, &all_lines);
+
+                let mut manual_result = Vec::new();
+                parsed.collect_assignments_manual(func_node, &all_lines, &mut manual_result);
+
+                // Compare as sets of (name, line) — query and manual should surface
+                // the same variable names on the same lines, even if counts differ.
+                let q: BTreeSet<_> = query_result.iter().map(|(n, l)| (n.as_str(), *l)).collect();
+                let m: BTreeSet<_> = manual_result
+                    .iter()
+                    .map(|(n, l)| (n.as_str(), *l))
+                    .collect();
+
+                assert_eq!(
+                    q, m,
+                    "Assignments mismatch for {:?} ({}): query={:?} manual={:?}",
+                    lang, path, q, m
                 );
             }
         }
