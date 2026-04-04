@@ -21,6 +21,7 @@ use crate::type_db::TypeDatabase;
 use crate::type_provider::TypeRegistry;
 use crate::type_providers::cpp::CppTypeProvider;
 use crate::type_providers::go::GoTypeProvider;
+use crate::type_providers::typescript::TypeScriptTypeProvider;
 
 use petgraph::graph::{DiGraph, NodeIndex};
 use petgraph::visit::EdgeRef;
@@ -210,6 +211,23 @@ impl<'a> CpgContext<'a> {
             let go_dispatch = go_provider.clone();
             registry.register_provider(Box::new(go_provider));
             registry.register_dispatch_provider(Box::new(go_dispatch));
+        }
+
+        // TypeScript/TSX provider — extracted from tree-sitter ASTs.
+        let has_ts = files.values().any(|pf| {
+            matches!(
+                pf.language,
+                crate::languages::Language::TypeScript | crate::languages::Language::Tsx
+            )
+        });
+        if has_ts {
+            let ts_provider = TypeScriptTypeProvider::from_parsed_files(files);
+            // Clone shares the Arc<TsTypeData> — single backing store.
+            let ts_dispatch = ts_provider.clone();
+            let ts_structural = ts_provider.clone();
+            registry.register_provider(Box::new(ts_provider));
+            registry.register_dispatch_provider(Box::new(ts_dispatch));
+            registry.register_structural_provider(Box::new(ts_structural));
         }
 
         registry
