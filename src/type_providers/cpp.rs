@@ -11,20 +11,28 @@ use crate::type_provider::{
     DispatchProvider, ResolvedType, ResolvedTypeKind, TypeFieldInfo, TypeProvider,
 };
 use std::collections::BTreeSet;
+use std::sync::Arc;
 
 /// C/C++ type provider backed by `TypeDatabase`.
 ///
 /// Wraps the existing clang-based type extraction (from `compile_commands.json`)
-/// and tree-sitter fallback. Registered in `TypeRegistry` for `Language::C` and
-/// `Language::Cpp`.
+/// and tree-sitter fallback. Uses `Arc<TypeDatabase>` so the same backing data
+/// can be shared when this provider is registered as both `TypeProvider` and
+/// `DispatchProvider` in the registry.
+#[derive(Clone)]
 pub struct CppTypeProvider {
-    /// The underlying type database.
-    pub db: TypeDatabase,
+    /// The underlying type database (shared via Arc).
+    pub db: Arc<TypeDatabase>,
 }
 
 impl CppTypeProvider {
     /// Create a new provider wrapping an existing TypeDatabase.
     pub fn new(db: TypeDatabase) -> Self {
+        CppTypeProvider { db: Arc::new(db) }
+    }
+
+    /// Create a new provider sharing an existing Arc<TypeDatabase>.
+    pub fn from_arc(db: Arc<TypeDatabase>) -> Self {
         CppTypeProvider { db }
     }
 
