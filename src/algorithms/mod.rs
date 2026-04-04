@@ -4,6 +4,7 @@ pub mod barrier_slice;
 pub mod chop;
 pub mod circular_slice;
 pub mod conditioned_slice;
+pub mod contract_slice;
 pub mod delta_slice;
 pub mod echo_slice;
 pub mod full_flow;
@@ -125,6 +126,7 @@ pub fn run_slicing(
         }
         SlicingAlgorithm::MembraneSlice => membrane_slice::slice(ctx, diff),
         SlicingAlgorithm::EchoSlice => echo_slice::slice(ctx, diff),
+        SlicingAlgorithm::ContractSlice => contract_slice::slice(ctx.files, diff),
     }
 }
 

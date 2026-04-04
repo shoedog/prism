@@ -119,6 +119,10 @@ path = "tests/algo/novel/provenance_test.rs"
 name = "algo_novel_provenance_lang"
 path = "tests/algo/novel/provenance_lang_test.rs"
 
+[[test]]
+name = "algo_novel_contract"
+path = "tests/algo/novel/contract_test.rs"
+
 # ── AST / DFG / CPG tests ──
 
 [[test]]
