@@ -545,7 +545,6 @@ pub fn slice(files: &BTreeMap<String, ParsedFile>, diff: &DiffInput) -> Result<S
                     "defer ",
                     "finally",
                     "with ",
-                    "using ",
                     // C++ RAII mutex wrappers — no explicit unlock needed
                     "std::lock_guard",
                     "std::unique_lock",

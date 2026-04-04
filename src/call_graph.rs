@@ -436,7 +436,11 @@ impl CallGraph {
     ///
     /// When a qualifier is present, looks up the caller file's import map to find
     /// which module the qualifier refers to, then narrows candidates to functions
-    /// in files whose path contains the module name.
+    /// in files whose path stem matches the module stem.
+    ///
+    /// **Known limitation:** if two files share the same stem (e.g., `lib/utils.py`
+    /// and `src/utils.py`), both will match a qualifier resolving to `utils`.
+    /// This is inherent to name-based resolution without full path normalization.
     pub fn resolve_callees_qualified(
         &self,
         callee_name: &str,
