@@ -300,3 +300,145 @@ fn test_contract_rust_guard() {
         "Should detect Rust is_empty() guard"
     );
 }
+
+// === 2.7 Behavioral test: Contract — Go err != nil guard ===
+
+#[test]
+fn test_contract_go_err_nil_guard() {
+    // `if err != nil { return err }` is a standard Go precondition.
+    // Contract should detect it as a nil-check constraint.
+    let source = r#"package main
+
+import "os"
+
+func readConfig(path string) ([]byte, error) {
+    data, err := os.ReadFile(path)
+    if err != nil {
+        return nil, err
+    }
+    return data, nil
+}
+"#;
+    let result = run_contract(source, "config.go", Language::Go, BTreeSet::from([7]));
+
+    let contract_findings: Vec<_> = result
+        .findings
+        .iter()
+        .filter(|f| f.category.as_deref() == Some("contract"))
+        .collect();
+    assert!(
+        !contract_findings.is_empty(),
+        "Should detect Go `if err != nil` as a precondition guard"
+    );
+
+    // Verify it's classified as a nil-check, not just a generic guard
+    let has_nil_check = result
+        .findings
+        .iter()
+        .any(|f| f.description.contains("nil-check") || f.description.contains("nil"));
+    assert!(
+        has_nil_check,
+        "Go err != nil guard should be classified as nil-check"
+    );
+}
+
+// === Tier 1: Contract tests for Java / C++ / Lua ===
+
+#[test]
+fn test_contract_java_null_guard() {
+    let source = r#"
+public class UserService {
+    public String getDisplayName(String userId) {
+        if (userId == null) {
+            throw new IllegalArgumentException("userId must not be null");
+        }
+        String name = lookupName(userId);
+        return name.toUpperCase();
+    }
+}
+"#;
+    let result = run_contract(
+        source,
+        "UserService.java",
+        Language::Java,
+        BTreeSet::from([7]),
+    );
+
+    let contract_findings: Vec<_> = result
+        .findings
+        .iter()
+        .filter(|f| f.category.as_deref() == Some("contract"))
+        .collect();
+    assert!(
+        !contract_findings.is_empty(),
+        "Should detect Java `if (userId == null)` as a precondition guard"
+    );
+
+    let has_non_null = result
+        .findings
+        .iter()
+        .any(|f| f.description.contains("non-null"));
+    assert!(
+        has_non_null,
+        "Java null guard should be classified as non-null constraint"
+    );
+}
+
+#[test]
+fn test_contract_cpp_nullptr_guard() {
+    let source = r#"
+#include <stdexcept>
+
+std::string format_entry(const Entry* entry) {
+    if (!entry) {
+        return "";
+    }
+    std::string result = entry->name;
+    return result;
+}
+"#;
+    let result = run_contract(source, "format.cpp", Language::Cpp, BTreeSet::from([7]));
+
+    let contract_findings: Vec<_> = result
+        .findings
+        .iter()
+        .filter(|f| f.category.as_deref() == Some("contract"))
+        .collect();
+    assert!(
+        !contract_findings.is_empty(),
+        "Should detect C++ `if (!entry)` as a precondition guard"
+    );
+
+    let has_non_null = result
+        .findings
+        .iter()
+        .any(|f| f.description.contains("non-null"));
+    assert!(
+        has_non_null,
+        "C++ nullptr guard should be classified as non-null constraint"
+    );
+}
+
+#[test]
+fn test_contract_lua_nil_guard() {
+    let source = r#"
+function process_request(req)
+    if req == nil then
+        error("req must not be nil")
+    end
+    local body = req.body
+    return body
+end
+"#;
+    let result = run_contract(source, "handler.lua", Language::Lua, BTreeSet::from([6]));
+
+    let contract_findings: Vec<_> = result
+        .findings
+        .iter()
+        .filter(|f| f.category.as_deref() == Some("contract"))
+        .collect();
+    assert!(
+        !contract_findings.is_empty(),
+        "Should detect Lua `if req == nil then` as a precondition guard"
+    );
+}
