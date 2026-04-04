@@ -170,6 +170,7 @@ impl SlicingAlgorithm {
             Self::LeftFlow
                 | Self::FullFlow
                 | Self::RelevantSlice
+                | Self::ConditionedSlice
                 | Self::BarrierSlice
                 | Self::Chop
                 | Self::Taint
