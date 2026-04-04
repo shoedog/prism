@@ -6,3 +6,4 @@
 
 pub mod cpp;
 pub mod go;
+pub mod typescript;
