@@ -119,6 +119,56 @@ impl DataFlowGraph {
                     }
                 }
 
+                // Register function parameters as Defs at the function start line.
+                // Parameters are variable definitions that receive values from callers.
+                // Without this, interprocedural data flow edges have no target.
+                //
+                // Skip parameters that are only used via field access (e.g. `dev.name`)
+                // to preserve field isolation — a base-only Def would let taint on
+                // `dev.name` leak to unrelated fields like `dev.id`.
+                let param_names = parsed.function_parameter_names(&func_node);
+                for param_name in &param_names {
+                    let path = AccessPath::simple(param_name);
+                    // Skip parameters only used via field access (e.g. `dev.name`)
+                    // to preserve field isolation.
+                    if !parsed.has_bare_references(&func_node, param_name) {
+                        continue;
+                    }
+                    let refs = parsed.find_path_references_scoped(&func_node, &path, start);
+
+                    let loc = VarLocation {
+                        file: file_path.clone(),
+                        function: func_name.clone(),
+                        line: start,
+                        path: path.clone(),
+                        kind: VarAccessKind::Def,
+                    };
+                    defs.entry((file_path.clone(), func_name.clone(), path.clone()))
+                        .or_default()
+                        .push(loc.clone());
+
+                    // Create edges from param def to all uses in the function body.
+                    for ref_line in &refs {
+                        if *ref_line == start {
+                            continue;
+                        }
+                        let use_loc = VarLocation {
+                            file: file_path.clone(),
+                            function: func_name.clone(),
+                            line: *ref_line,
+                            path: path.clone(),
+                            kind: VarAccessKind::Use,
+                        };
+                        uses.entry((file_path.clone(), func_name.clone(), path.clone()))
+                            .or_default()
+                            .push(use_loc.clone());
+                        edges.push(FlowEdge {
+                            from: loc.clone(),
+                            to: use_loc,
+                        });
+                    }
+                }
+
                 // Find all definitions (L-values) with structured access paths
                 let lvalue_paths = parsed.assignment_lvalue_paths_on_lines(&func_node, &all_lines);
                 for (path, line) in &lvalue_paths {

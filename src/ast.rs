@@ -1011,6 +1011,49 @@ impl ParsedFile {
         false
     }
 
+    /// Check if a variable has any bare (non-field-access) references in a function
+    /// body (excluding the parameter list itself).
+    ///
+    /// Returns true if the variable is used as a standalone identifier, not just as
+    /// the base of a field/member access (e.g., `data` in `use(data)` counts, but
+    /// `dev` in `dev.name` does not). Used to decide whether to register a parameter
+    /// Def for interprocedural data flow.
+    pub fn has_bare_references(&self, func_node: &Node<'_>, var_name: &str) -> bool {
+        let func_start_line = func_node.start_position().row + 1;
+        self.find_bare_ref(*func_node, var_name, func_start_line)
+    }
+
+    fn find_bare_ref(&self, node: Node<'_>, var_name: &str, skip_line: usize) -> bool {
+        // If this is a field access (dev.name, dev->name), skip it — the `dev`
+        // identifier inside is not a bare reference.
+        if Self::is_field_access_node(node.kind()) {
+            return false;
+        }
+
+        if self.language.is_identifier_node(node.kind()) && self.node_text(&node) == var_name {
+            let line = node.start_position().row + 1;
+            // Skip identifiers on the function definition line (parameter declarations).
+            if line == skip_line {
+                return false;
+            }
+            // Check parent: if parent is a field access, this isn't a bare ref.
+            if let Some(parent) = node.parent() {
+                if Self::is_field_access_node(parent.kind()) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            if self.find_bare_ref(child, var_name, skip_line) {
+                return true;
+            }
+        }
+        false
+    }
+
     /// Find all references to an AccessPath within a function scope.
     ///
     /// For simple paths (no fields), delegates to `find_variable_references_scoped`.
@@ -1585,6 +1628,53 @@ impl ParsedFile {
             }
         }
         None
+    }
+
+    /// Extract all argument texts from a call to `callee_name` on the given line.
+    ///
+    /// Returns a list of argument expressions as strings, preserving positional order.
+    /// Used by interprocedural data flow to map arguments to parameters.
+    pub fn call_argument_texts(&self, line: usize, callee_name: &str) -> Vec<String> {
+        let mut args = Vec::new();
+        self.collect_call_args(self.tree.root_node(), line, callee_name, &mut args);
+        args
+    }
+
+    fn collect_call_args(
+        &self,
+        node: Node<'_>,
+        line: usize,
+        callee_name: &str,
+        out: &mut Vec<String>,
+    ) {
+        let node_line = node.start_position().row + 1;
+
+        if node_line == line && self.language.is_call_node(node.kind()) {
+            if let Some(name_node) = self.language.call_function_name(&node) {
+                let name = self.node_text(&name_node);
+                if name == callee_name {
+                    if let Some(args_node) = self.language.call_arguments(&node) {
+                        let mut cursor = args_node.walk();
+                        for child in args_node.children(&mut cursor) {
+                            if child.is_named() {
+                                let text = self.node_text(&child).trim().to_string();
+                                let text = text.trim_start_matches('&').to_string();
+                                out.push(text);
+                            }
+                        }
+                    }
+                    return; // Found the call, stop.
+                }
+            }
+        }
+
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            if !out.is_empty() {
+                return;
+            }
+            self.collect_call_args(child, line, callee_name, out);
+        }
     }
 
     /// Check if a function node has a variadic parameter (`...`).

@@ -588,6 +588,99 @@ impl CodePropertyGraph {
             }
         }
 
+        // --- Step 5b: Interprocedural data flow edges (argument → parameter) ---
+        // For each call site, map call-site arguments to callee parameter Def nodes
+        // via DataFlow edges. This enables taint to propagate through function calls.
+        for (caller_id, sites) in &cg.calls {
+            for site in sites {
+                let callee_ids = cg.resolve_callees(&site.callee_name, &caller_id.file);
+                for callee_id in &callee_ids {
+                    // Get caller's argument texts at the call site
+                    let caller_parsed = match files.get(&caller_id.file) {
+                        Some(p) => p,
+                        None => continue,
+                    };
+                    let arg_texts = caller_parsed.call_argument_texts(site.line, &site.callee_name);
+                    if arg_texts.is_empty() {
+                        continue;
+                    }
+
+                    // Get callee's parameter names
+                    let callee_parsed = match files.get(&callee_id.file) {
+                        Some(p) => p,
+                        None => continue,
+                    };
+                    let param_names = {
+                        // Find the callee function node
+                        let funcs = callee_parsed.all_functions();
+                        let func_node = funcs.iter().find(|f| {
+                            callee_parsed
+                                .language
+                                .function_name(f)
+                                .map(|n| callee_parsed.node_text(&n) == callee_id.name)
+                                .unwrap_or(false)
+                        });
+                        match func_node {
+                            Some(f) => callee_parsed.function_parameter_names(f),
+                            None => continue,
+                        }
+                    };
+
+                    // Map each argument to the corresponding parameter
+                    for (i, param_name) in param_names.iter().enumerate() {
+                        if i >= arg_texts.len() {
+                            break;
+                        }
+                        let arg_text = &arg_texts[i];
+
+                        // Find the Use node for the argument variable at the call site line.
+                        // The argument text may be a simple variable or an expression;
+                        // we look for the base identifier.
+                        let arg_base = arg_text.split('.').next().unwrap_or(arg_text);
+                        let arg_base = arg_base.split("->").next().unwrap_or(arg_base);
+                        let arg_path = AccessPath::simple(arg_base);
+                        let arg_key = (
+                            caller_id.file.clone(),
+                            caller_id.name.clone(),
+                            site.line,
+                            arg_path.clone(),
+                            VarAccess::Use,
+                        );
+                        // Also try Def (some languages assign in call args)
+                        let arg_idx = var_index.get(&arg_key).copied().or_else(|| {
+                            let def_key = (
+                                caller_id.file.clone(),
+                                caller_id.name.clone(),
+                                site.line,
+                                arg_path,
+                                VarAccess::Def,
+                            );
+                            var_index.get(&def_key).copied()
+                        });
+
+                        // Find the Def node for the parameter in the callee function.
+                        // Parameters are typically defined at or near the function start line.
+                        let param_path = AccessPath::simple(param_name);
+                        let param_idx =
+                            (callee_id.start_line..=callee_id.end_line).find_map(|line| {
+                                let key = (
+                                    callee_id.file.clone(),
+                                    callee_id.name.clone(),
+                                    line,
+                                    param_path.clone(),
+                                    VarAccess::Def,
+                                );
+                                var_index.get(&key).copied()
+                            });
+
+                        if let (Some(from), Some(to)) = (arg_idx, param_idx) {
+                            graph.add_edge(from, to, CpgEdge::DataFlow);
+                        }
+                    }
+                }
+            }
+        }
+
         // --- Step 6: Contains edges (function → its variables) ---
         for (&(ref file, ref func, ref _line, ref _path, ref _access), &var_idx) in &var_index {
             let func_key = (file.clone(), func.clone());
@@ -1669,12 +1762,18 @@ impl CodePropertyGraph {
                 };
                 let reachable = self.dfg_forward_reachable(&src_loc);
 
-                // Filter: keep only DFG-reachable targets that are also CFG-reachable
+                // Filter: keep only DFG-reachable targets that are also CFG-reachable.
+                // Interprocedural targets (different file or function) bypass the CFG
+                // filter since CFG edges are intraprocedural.
                 let filtered: BTreeSet<VarLocation> = reachable
                     .into_iter()
                     .filter(|target| {
                         // Same line as source is always included
                         (target.file == *file && target.line == *line)
+                            // Cross-function targets bypass CFG filter
+                            || target.file != *file
+                            || target.function != src_loc.function
+                            // Intraprocedural: must be CFG-reachable
                             || cfg_set.contains(&(target.file.clone(), target.line))
                     })
                     .collect();

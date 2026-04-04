@@ -56,6 +56,10 @@ name = "algo_taint_sink"
 path = "tests/algo/taxonomy/taint_sink_test.rs"
 
 [[test]]
+name = "algo_taint_interprocedural"
+path = "tests/algo/taxonomy/taint_interprocedural_test.rs"
+
+[[test]]
 name = "algo_taxonomy_misc"
 path = "tests/algo/taxonomy/misc_test.rs"
 
