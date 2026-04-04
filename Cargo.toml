@@ -149,6 +149,10 @@ path = "tests/ast/field_test.rs"
 name = "ast_comment_string"
 path = "tests/ast/comment_string_test.rs"
 
+[[test]]
+name = "ast_import"
+path = "tests/ast/import_test.rs"
+
 # ── Language-specific tests ──
 
 [[test]]
