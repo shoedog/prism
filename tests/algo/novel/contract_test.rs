@@ -442,3 +442,117 @@ end
         "Should detect Lua `if req == nil then` as a precondition guard"
     );
 }
+
+// === Tier 2: Contract — Yoda conditions (item 10) ===
+
+#[test]
+fn test_contract_yoda_null_check_c() {
+    // `if (NULL == ptr)` is a Yoda condition — should still be detected as non-null guard.
+    let source = r#"
+int process(const char* buf) {
+    if (NULL == buf) {
+        return -1;
+    }
+    int len = strlen(buf);
+    return len;
+}
+"#;
+    let result = run_contract(source, "process.c", Language::C, BTreeSet::from([6]));
+
+    let contract_findings: Vec<_> = result
+        .findings
+        .iter()
+        .filter(|f| f.category.as_deref() == Some("contract"))
+        .collect();
+    assert!(
+        !contract_findings.is_empty(),
+        "Should detect Yoda `NULL == buf` as a precondition guard"
+    );
+
+    let has_non_null = result
+        .findings
+        .iter()
+        .any(|f| f.description.contains("non-null"));
+    assert!(
+        has_non_null,
+        "Yoda NULL check should be classified as non-null constraint"
+    );
+}
+
+#[test]
+fn test_contract_yoda_nil_check_go() {
+    // `if nil != err` is a Yoda nil-check.
+    let source = r#"package main
+
+func handle(err error) string {
+    if nil != err {
+        return ""
+    }
+    result := compute()
+    return result
+}
+"#;
+    let result = run_contract(source, "handle.go", Language::Go, BTreeSet::from([7]));
+
+    let contract_findings: Vec<_> = result
+        .findings
+        .iter()
+        .filter(|f| f.category.as_deref() == Some("contract"))
+        .collect();
+    assert!(
+        !contract_findings.is_empty(),
+        "Should detect Yoda `nil != err` as a precondition guard"
+    );
+}
+
+// === Tier 2: Contract — Range/bounds checks (item 11) ===
+
+#[test]
+fn test_contract_range_check_python() {
+    // `if x < 0` is a range check guard.
+    let source = r#"
+def withdraw(amount, balance):
+    if amount < 0:
+        raise ValueError("negative amount")
+    if amount > balance:
+        raise ValueError("insufficient funds")
+    result = balance - amount
+    return result
+"#;
+    let result = run_contract(source, "bank.py", Language::Python, BTreeSet::from([7]));
+
+    let contract_findings: Vec<_> = result
+        .findings
+        .iter()
+        .filter(|f| f.category.as_deref() == Some("contract"))
+        .collect();
+    assert!(
+        !contract_findings.is_empty(),
+        "Should detect range check guards (amount < 0, amount > balance)"
+    );
+}
+
+#[test]
+fn test_contract_length_check_js() {
+    // `if (arr.length === 0)` is a non-empty guard.
+    let source = r#"
+function first(arr) {
+    if (arr.length === 0) {
+        throw new Error("empty array");
+    }
+    const val = arr[0];
+    return val;
+}
+"#;
+    let result = run_contract(source, "util.js", Language::JavaScript, BTreeSet::from([6]));
+
+    let contract_findings: Vec<_> = result
+        .findings
+        .iter()
+        .filter(|f| f.category.as_deref() == Some("contract"))
+        .collect();
+    assert!(
+        !contract_findings.is_empty(),
+        "Should detect `.length === 0` as a non-empty precondition guard"
+    );
+}
