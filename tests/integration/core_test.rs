@@ -724,11 +724,7 @@ fn test_needs_cpg_classification() {
     let ast_only = vec![
         SlicingAlgorithm::OriginalDiff,
         SlicingAlgorithm::ParentFunction,
-        SlicingAlgorithm::LeftFlow,
-        SlicingAlgorithm::FullFlow,
         SlicingAlgorithm::ThinSlice,
-        SlicingAlgorithm::RelevantSlice,
-        SlicingAlgorithm::ConditionedSlice,
         SlicingAlgorithm::QuantumSlice,
         SlicingAlgorithm::HorizontalSlice,
         SlicingAlgorithm::AngleSlice,
@@ -743,6 +739,10 @@ fn test_needs_cpg_classification() {
 
     // Verify that CPG-consuming algorithms do need CPG
     let cpg_algos = vec![
+        SlicingAlgorithm::LeftFlow,
+        SlicingAlgorithm::FullFlow,
+        SlicingAlgorithm::RelevantSlice,
+        SlicingAlgorithm::ConditionedSlice,
         SlicingAlgorithm::BarrierSlice,
         SlicingAlgorithm::Chop,
         SlicingAlgorithm::Taint,

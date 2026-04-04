@@ -3,12 +3,17 @@
 //! Given a predicate like `var == value` or `var != null`, performs a backward
 //! slice but prunes branches that are unreachable under that condition. This
 //! focuses the slice on a specific execution scenario.
+//!
+//! When CFG edges are available in the CPG, uses CFG reachability to refine
+//! the unreachable set: lines only reachable through the pruned branch are
+//! also removed. Falls back to AST-range-based pruning when no CFG is present.
 
 use crate::ast::ParsedFile;
+use crate::cpg::{CpgContext, CpgEdge};
 use crate::diff::DiffInput;
 use crate::slice::{SliceConfig, SliceResult, SlicingAlgorithm};
 use anyhow::Result;
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeSet;
 
 /// A condition predicate for conditioned slicing.
 #[derive(Debug, Clone)]
@@ -120,24 +125,34 @@ impl Condition {
 }
 
 pub fn slice(
-    files: &BTreeMap<String, ParsedFile>,
+    ctx: &CpgContext,
     diff: &DiffInput,
     config: &SliceConfig,
     condition: &Condition,
 ) -> Result<SliceResult> {
     // Start with LeftFlow
-    let mut base = crate::algorithms::left_flow::slice(files, diff, config)?;
+    let mut base = crate::algorithms::left_flow::slice(ctx, diff, config)?;
     base.algorithm = SlicingAlgorithm::ConditionedSlice;
+
+    let has_cfg = ctx.cpg.has_cfg_edges();
 
     // Prune branches that are unreachable under the condition
     for block in &mut base.blocks {
         let file_path = block.file.clone();
-        let parsed = match files.get(&file_path) {
+        let parsed = match ctx.files.get(&file_path) {
             Some(f) => f,
             None => continue,
         };
 
-        let lines_to_remove = find_unreachable_lines(parsed, condition);
+        // AST-based: find lines in branches made unreachable by the condition
+        let ast_unreachable = find_ast_unreachable_lines(parsed, condition);
+
+        // CFG-enhanced: refine the unreachable set using CFG reachability
+        let lines_to_remove = if has_cfg {
+            refine_unreachable_with_cfg(ctx, &file_path, parsed, condition, &ast_unreachable)
+        } else {
+            ast_unreachable
+        };
 
         if let Some(line_map) = block.file_line_map.get_mut(&file_path) {
             for line in &lines_to_remove {
@@ -150,13 +165,188 @@ pub fn slice(
     Ok(base)
 }
 
-fn find_unreachable_lines(parsed: &ParsedFile, condition: &Condition) -> BTreeSet<usize> {
+// ---------------------------------------------------------------------------
+// CFG-enhanced unreachable detection
+// ---------------------------------------------------------------------------
+
+/// Refine AST-based unreachable lines using CFG reachability analysis.
+///
+/// The AST approach marks all lines within the AST range of an unreachable
+/// branch. The CFG approach improves this in two ways:
+///
+/// 1. **Dominance expansion**: Lines outside the AST branch range that are only
+///    CFG-reachable through the pruned branch are also unreachable.
+///
+/// 2. **Merge point preservation**: Lines in the AST range that are also
+///    reachable from other paths (e.g., after a branch merge point) are NOT
+///    unreachable — the AST approach over-prunes these.
+fn refine_unreachable_with_cfg(
+    ctx: &CpgContext,
+    file_path: &str,
+    parsed: &ParsedFile,
+    condition: &Condition,
+    ast_unreachable: &BTreeSet<usize>,
+) -> BTreeSet<usize> {
+    let mut result = BTreeSet::new();
+
+    // Find branch statement nodes where the condition resolves the branch
+    let branch_info = find_resolved_branches(parsed, condition);
+
+    for (branch_line, unreachable_entry_line, unreachable_end_line) in &branch_info {
+        // Find the Branch statement node in the CFG
+        let branch_stmt = match ctx.cpg.statement_at(file_path, *branch_line) {
+            Some(idx) => idx,
+            None => {
+                // No CFG node at branch — fall back to AST range
+                for l in *unreachable_entry_line..=*unreachable_end_line {
+                    result.insert(l);
+                }
+                continue;
+            }
+        };
+
+        // Find the CFG successor leading into the unreachable branch
+        let successors = ctx.cpg.cfg_successors(branch_stmt);
+        let unreachable_entry = successors.iter().find(|&&succ| {
+            let succ_line = ctx.cpg.node(succ).line();
+            succ_line >= *unreachable_entry_line && succ_line <= *unreachable_end_line
+        });
+
+        let unreachable_entry = match unreachable_entry {
+            Some(&idx) => idx,
+            None => {
+                // CFG successor doesn't match — fall back to AST range
+                for l in *unreachable_entry_line..=*unreachable_end_line {
+                    result.insert(l);
+                }
+                continue;
+            }
+        };
+
+        // Compute all CFG-reachable lines from the unreachable branch entry
+        let branch_reachable = ctx
+            .cpg
+            .reachable_forward(unreachable_entry, &|e| matches!(e, CpgEdge::ControlFlow));
+
+        // Collect lines reachable from the unreachable branch entry
+        let mut branch_reachable_lines: BTreeSet<usize> = BTreeSet::new();
+        branch_reachable_lines.insert(ctx.cpg.node(unreachable_entry).line());
+        for &idx in &branch_reachable {
+            if ctx.cpg.node(idx).file() == file_path {
+                branch_reachable_lines.insert(ctx.cpg.node(idx).line());
+            }
+        }
+
+        // Find the "taken" successor(s) — those NOT in the unreachable range
+        let taken_successors: Vec<_> = successors
+            .iter()
+            .filter(|&&succ| {
+                let sl = ctx.cpg.node(succ).line();
+                sl < *unreachable_entry_line || sl > *unreachable_end_line
+            })
+            .collect();
+
+        // Compute lines reachable from the taken branch(es)
+        let mut taken_reachable_lines: BTreeSet<usize> = BTreeSet::new();
+        for &&taken_idx in &taken_successors {
+            taken_reachable_lines.insert(ctx.cpg.node(taken_idx).line());
+            let taken_reachable = ctx
+                .cpg
+                .reachable_forward(taken_idx, &|e| matches!(e, CpgEdge::ControlFlow));
+            for &idx in &taken_reachable {
+                if ctx.cpg.node(idx).file() == file_path {
+                    taken_reachable_lines.insert(ctx.cpg.node(idx).line());
+                }
+            }
+        }
+
+        // Lines only reachable through the unreachable branch are truly
+        // unreachable. Lines reachable from both paths (merge points) are kept.
+        for &line in &branch_reachable_lines {
+            if !taken_reachable_lines.contains(&line) {
+                result.insert(line);
+            }
+        }
+    }
+
+    // If CFG analysis found no unreachable lines but AST did, fall back to
+    // the AST result (e.g., no Statement nodes at those locations).
+    if result.is_empty() && !ast_unreachable.is_empty() {
+        return ast_unreachable.clone();
+    }
+
+    result
+}
+
+/// Identify branch statements where the condition resolves to a known branch.
+///
+/// Returns `(branch_line, unreachable_start, unreachable_end)` for each
+/// resolved branch.
+fn find_resolved_branches(
+    parsed: &ParsedFile,
+    condition: &Condition,
+) -> Vec<(usize, usize, usize)> {
+    let mut branches = Vec::new();
+    find_resolved_branches_inner(parsed, parsed.tree.root_node(), condition, &mut branches);
+    branches
+}
+
+fn find_resolved_branches_inner(
+    parsed: &ParsedFile,
+    node: tree_sitter::Node<'_>,
+    condition: &Condition,
+    branches: &mut Vec<(usize, usize, usize)>,
+) {
+    if parsed.language.is_control_flow_node(node.kind()) {
+        if let Some(cond_node) = parsed.language.control_flow_condition(&node) {
+            let cond_text = parsed.node_text(&cond_node);
+
+            if let Some(if_body_unreachable) = condition.makes_unreachable(cond_text) {
+                let branch_line = node.start_position().row + 1;
+                let mut cursor = node.walk();
+                let children: Vec<tree_sitter::Node<'_>> = node.children(&mut cursor).collect();
+
+                if if_body_unreachable {
+                    // The if body is unreachable
+                    for child in &children {
+                        if child.kind() == "block"
+                            || child.kind() == "statement_block"
+                            || child.kind() == "consequence"
+                        {
+                            let (start, end) = parsed.node_line_range(child);
+                            branches.push((branch_line, start, end));
+                        }
+                    }
+                } else {
+                    // The else clause is unreachable
+                    for child in &children {
+                        if child.kind() == "else_clause" || child.kind() == "else" {
+                            let (start, end) = parsed.node_line_range(child);
+                            branches.push((branch_line, start, end));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    let mut cursor = node.walk();
+    for child in node.children(&mut cursor) {
+        find_resolved_branches_inner(parsed, child, condition, branches);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// AST-based unreachable detection (fallback)
+// ---------------------------------------------------------------------------
+
+fn find_ast_unreachable_lines(parsed: &ParsedFile, condition: &Condition) -> BTreeSet<usize> {
     let mut unreachable = BTreeSet::new();
-    find_unreachable_inner(parsed, parsed.tree.root_node(), condition, &mut unreachable);
+    find_ast_unreachable_inner(parsed, parsed.tree.root_node(), condition, &mut unreachable);
     unreachable
 }
 
-fn find_unreachable_inner(
+fn find_ast_unreachable_inner(
     parsed: &ParsedFile,
     node: tree_sitter::Node<'_>,
     condition: &Condition,
@@ -200,6 +390,6 @@ fn find_unreachable_inner(
 
     let mut cursor = node.walk();
     for child in node.children(&mut cursor) {
-        find_unreachable_inner(parsed, child, condition, unreachable);
+        find_ast_unreachable_inner(parsed, child, condition, unreachable);
     }
 }

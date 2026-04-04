@@ -464,7 +464,7 @@ fn run_algorithm(
                 .context("--condition required for conditioned algorithm")?;
             let condition = prism::algorithms::conditioned_slice::Condition::parse(cond_str)
                 .context(format!("Failed to parse condition: {}", cond_str))?;
-            prism::algorithms::conditioned_slice::slice(ctx.files, diff_input, config, &condition)
+            prism::algorithms::conditioned_slice::slice(&ctx, diff_input, config, &condition)
         }
         SlicingAlgorithm::DeltaSlice => {
             let old_repo = cli
