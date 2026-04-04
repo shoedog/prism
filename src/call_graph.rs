@@ -22,6 +22,9 @@ pub struct CallSite {
     pub caller: FunctionId,
     pub callee_name: String,
     pub line: usize,
+    /// Module/object qualifier for the call (e.g., `utils` in `utils.process()`).
+    /// `None` for unqualified calls like `process()`.
+    pub qualifier: Option<String>,
 }
 
 /// The call graph for a set of parsed files.
@@ -36,6 +39,9 @@ pub struct CallGraph {
     /// Functions with file-local (static) linkage: `(file, name)` pairs.
     /// Used to disambiguate same-named functions across files.
     pub static_functions: BTreeSet<(String, String)>,
+    /// Per-file import maps: file_path → (local_alias → module_path).
+    /// Used for import-aware call resolution (E6).
+    pub imports: BTreeMap<String, BTreeMap<String, String>>,
 }
 
 impl CallGraph {
@@ -46,6 +52,7 @@ impl CallGraph {
             calls: BTreeMap::new(),
             callers: BTreeMap::new(),
             static_functions: BTreeSet::new(),
+            imports: BTreeMap::new(),
         }
     }
 
@@ -110,6 +117,7 @@ impl CallGraph {
                         caller: caller_id.clone(),
                         callee_name: callee_name.clone(),
                         line,
+                        qualifier: None,
                     };
                     calls
                         .entry(caller_id.clone())
@@ -127,6 +135,7 @@ impl CallGraph {
             calls,
             callers,
             static_functions,
+            imports: BTreeMap::new(),
         }
     }
 
@@ -136,6 +145,15 @@ impl CallGraph {
         let mut calls: BTreeMap<FunctionId, BTreeSet<CallSite>> = BTreeMap::new();
         let mut callers: BTreeMap<String, Vec<CallSite>> = BTreeMap::new();
         let mut static_functions: BTreeSet<(String, String)> = BTreeSet::new();
+
+        // Collect per-file import maps for import-aware call resolution.
+        let mut imports: BTreeMap<String, BTreeMap<String, String>> = BTreeMap::new();
+        for (file_path, parsed) in files {
+            let file_imports = parsed.extract_imports();
+            if !file_imports.is_empty() {
+                imports.insert(file_path.clone(), file_imports);
+            }
+        }
 
         // Phase 1: Collect all function definitions
         for (file_path, parsed) in files {
@@ -180,13 +198,15 @@ impl CallGraph {
                 };
 
                 let all_lines: BTreeSet<usize> = (start..=end).collect();
-                let call_sites = parsed.function_calls_on_lines(&func_node, &all_lines);
+                let call_sites =
+                    parsed.function_calls_on_lines_with_qualifier(&func_node, &all_lines);
 
-                for (callee_name, line) in call_sites {
+                for (callee_name, line, qualifier) in call_sites {
                     let site = CallSite {
                         caller: caller_id.clone(),
                         callee_name: callee_name.clone(),
                         line,
+                        qualifier,
                     };
                     calls
                         .entry(caller_id.clone())
@@ -246,6 +266,7 @@ impl CallGraph {
                                 caller: caller_id.clone(),
                                 callee_name: target.clone(),
                                 line: site.line,
+                                qualifier: None,
                             },
                         ));
                     }
@@ -270,6 +291,7 @@ impl CallGraph {
                                 caller: caller_id.clone(),
                                 callee_name: resolved,
                                 line: site.line,
+                                qualifier: None,
                             },
                         ));
                     }
@@ -355,6 +377,7 @@ impl CallGraph {
                                         caller: caller_id.clone(),
                                         callee_name: arg_text,
                                         line: site.line,
+                                        qualifier: None,
                                     },
                                 ));
                             } else {
@@ -372,6 +395,7 @@ impl CallGraph {
                                             caller: caller_id.clone(),
                                             callee_name: resolved,
                                             line: site.line,
+                                            qualifier: None,
                                         },
                                     ));
                                 }
@@ -396,6 +420,7 @@ impl CallGraph {
             calls,
             callers,
             static_functions,
+            imports,
         }
     }
 
@@ -404,6 +429,20 @@ impl CallGraph {
     /// If the callee name has a `static` definition in `caller_file`, return only that one.
     /// Otherwise, return all non-static definitions (excluding static functions in other files).
     pub fn resolve_callees(&self, callee_name: &str, caller_file: &str) -> Vec<&FunctionId> {
+        self.resolve_callees_qualified(callee_name, caller_file, None)
+    }
+
+    /// Resolve a callee with an optional module qualifier (e.g., `utils` in `utils.process()`).
+    ///
+    /// When a qualifier is present, looks up the caller file's import map to find
+    /// which module the qualifier refers to, then narrows candidates to functions
+    /// in files whose path contains the module name.
+    pub fn resolve_callees_qualified(
+        &self,
+        callee_name: &str,
+        caller_file: &str,
+        qualifier: Option<&str>,
+    ) -> Vec<&FunctionId> {
         let func_ids = match self.functions.get(callee_name) {
             Some(ids) => ids,
             None => return Vec::new(),
@@ -418,6 +457,42 @@ impl CallGraph {
                 .iter()
                 .filter(|fid| fid.file == caller_file)
                 .collect();
+        }
+
+        // Import-aware narrowing: if a qualifier is present, resolve it via the import map.
+        if let Some(qual) = qualifier {
+            if let Some(file_imports) = self.imports.get(caller_file) {
+                if let Some(module_path) = file_imports.get(qual) {
+                    // Extract the module stem (last component) for file path matching.
+                    let module_stem = module_path
+                        .rsplit('/')
+                        .next()
+                        .unwrap_or(module_path)
+                        .rsplit('.')
+                        .last()
+                        .unwrap_or(module_path);
+                    let candidates: Vec<&FunctionId> = func_ids
+                        .iter()
+                        .filter(|fid| {
+                            // Match if the file path contains the module stem
+                            // e.g., module_path="utils" matches "src/utils.py"
+                            let file_stem = fid
+                                .file
+                                .rsplit('/')
+                                .next()
+                                .unwrap_or(&fid.file)
+                                .rsplit('.')
+                                .last()
+                                .unwrap_or(&fid.file);
+                            file_stem == module_stem
+                        })
+                        .collect();
+                    if !candidates.is_empty() {
+                        return candidates;
+                    }
+                    // Fall through to standard resolution if no import match found
+                }
+            }
         }
 
         // Otherwise, return all definitions that are NOT static in other files
@@ -619,8 +694,13 @@ impl CallGraph {
 }
 
 impl CallSite {
-    fn cmp_key(&self) -> (&str, &str, usize) {
-        (&self.caller.name, &self.callee_name, self.line)
+    fn cmp_key(&self) -> (&str, &str, usize, Option<&str>) {
+        (
+            &self.caller.name,
+            &self.callee_name,
+            self.line,
+            self.qualifier.as_deref(),
+        )
     }
 }
 

@@ -577,7 +577,11 @@ impl CodePropertyGraph {
 
             for site in sites {
                 // Resolve callee to function nodes
-                let callee_ids = cg.resolve_callees(&site.callee_name, &caller_id.file);
+                let callee_ids = cg.resolve_callees_qualified(
+                    &site.callee_name,
+                    &caller_id.file,
+                    site.qualifier.as_deref(),
+                );
                 for callee_id in callee_ids {
                     let callee_key = (callee_id.file.clone(), callee_id.name.clone());
                     if let Some(&callee_idx) = func_index.get(&callee_key) {
@@ -593,7 +597,11 @@ impl CodePropertyGraph {
         // via DataFlow edges. This enables taint to propagate through function calls.
         for (caller_id, sites) in &cg.calls {
             for site in sites {
-                let callee_ids = cg.resolve_callees(&site.callee_name, &caller_id.file);
+                let callee_ids = cg.resolve_callees_qualified(
+                    &site.callee_name,
+                    &caller_id.file,
+                    site.qualifier.as_deref(),
+                );
                 for callee_id in &callee_ids {
                     // Get caller's argument texts at the call site
                     let caller_parsed = match files.get(&caller_id.file) {
