@@ -44,3 +44,5 @@ pub mod react_hooks;
 pub mod slice;
 pub mod terraform;
 pub mod type_db;
+pub mod type_provider;
+pub mod type_providers;

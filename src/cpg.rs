@@ -18,6 +18,8 @@ use crate::cfg;
 use crate::data_flow::{DataFlowGraph, VarAccessKind, VarLocation};
 use crate::diff::DiffInput;
 use crate::type_db::TypeDatabase;
+use crate::type_provider::TypeRegistry;
+use crate::type_providers::cpp::CppTypeProvider;
 
 use petgraph::graph::{DiGraph, NodeIndex};
 use petgraph::visit::EdgeRef;
@@ -43,16 +45,16 @@ pub struct CpgScope {
 
 /// Shared analysis context built once per review, passed to all algorithms.
 ///
-/// Bundles the Code Property Graph with the ParsedFile map and optional
-/// type database. Algorithms that need graph traversal use `cpg`;
-/// algorithms that need source text or AST patterns use `files`.
+/// Bundles the Code Property Graph with the ParsedFile map and the
+/// multi-language type registry. Algorithms that need graph traversal use
+/// `cpg`; algorithms that need source text or AST patterns use `files`.
 pub struct CpgContext<'a> {
     /// The unified Code Property Graph (built once).
     pub cpg: CodePropertyGraph,
     /// Parsed files with tree-sitter ASTs.
     pub files: &'a BTreeMap<String, ParsedFile>,
-    /// Optional type database for C/C++ enrichment.
-    pub type_db: Option<&'a TypeDatabase>,
+    /// Multi-language type registry (replaces the old `type_db` field).
+    pub types: TypeRegistry,
     /// Scope metadata. `None` means the CPG covers all parsed files.
     /// `Some` means it was built from a diff-scoped subset.
     pub scope: Option<CpgScope>,
@@ -65,10 +67,30 @@ impl<'a> CpgContext<'a> {
         type_db: Option<&'a TypeDatabase>,
     ) -> Self {
         let cpg = CodePropertyGraph::build_enriched(files, type_db);
+        let types = Self::build_registry(type_db);
         CpgContext {
             cpg,
             files,
-            type_db,
+            types,
+            scope: None,
+        }
+    }
+
+    /// Build a CpgContext with a pre-built `TypeRegistry`.
+    ///
+    /// The optional `type_db` is still needed for CPG virtual dispatch enrichment
+    /// during graph construction. In future phases, the CPG builder will use the
+    /// registry directly.
+    pub fn build_with_registry(
+        files: &'a BTreeMap<String, ParsedFile>,
+        type_db: Option<&TypeDatabase>,
+        registry: TypeRegistry,
+    ) -> Self {
+        let cpg = CodePropertyGraph::build_enriched(files, type_db);
+        CpgContext {
+            cpg,
+            files,
+            types: registry,
             scope: None,
         }
     }
@@ -121,10 +143,11 @@ impl<'a> CpgContext<'a> {
             .collect();
 
         let cpg = CodePropertyGraph::build_enriched(&filtered, type_db);
+        let types = Self::build_registry(type_db);
         CpgContext {
             cpg,
             files,
-            type_db,
+            types,
             scope: Some(CpgScope {
                 scoped_files,
                 changed_files,
@@ -140,12 +163,31 @@ impl<'a> CpgContext<'a> {
         files: &'a BTreeMap<String, ParsedFile>,
         type_db: Option<&'a TypeDatabase>,
     ) -> Self {
+        let types = Self::build_registry(type_db);
         CpgContext {
             cpg: CodePropertyGraph::empty(),
             files,
-            type_db,
+            types,
             scope: None,
         }
+    }
+
+    /// Backward-compatible accessor: get a reference to the C/C++ TypeDatabase
+    /// from the registry, if a CppTypeProvider is registered.
+    pub fn type_db(&self) -> Option<&TypeDatabase> {
+        // The CPG internally owns its own copy of the TypeDatabase.
+        self.cpg.type_db.as_ref()
+    }
+
+    /// Build a TypeRegistry from an optional TypeDatabase.
+    fn build_registry(type_db: Option<&TypeDatabase>) -> TypeRegistry {
+        let mut registry = TypeRegistry::empty();
+        if let Some(db) = type_db {
+            let cpp_provider = CppTypeProvider::new(db.clone());
+            registry.register_provider(Box::new(CppTypeProvider::new(db.clone())));
+            registry.register_dispatch_provider(Box::new(cpp_provider));
+        }
+        registry
     }
 }
 
