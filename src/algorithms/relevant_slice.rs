@@ -6,6 +6,7 @@
 //! unhandled switch cases, unchecked error returns.
 
 use crate::ast::ParsedFile;
+use crate::cpg::CpgContext;
 use crate::diff::DiffInput;
 use crate::slice::{SliceConfig, SliceResult, SlicingAlgorithm};
 use anyhow::Result;
@@ -15,13 +16,9 @@ use tree_sitter::Node;
 /// How many lines of alternate-path code to include.
 const DEFAULT_FLIP_DEPTH: usize = 3;
 
-pub fn slice(
-    files: &BTreeMap<String, ParsedFile>,
-    diff: &DiffInput,
-    config: &SliceConfig,
-) -> Result<SliceResult> {
+pub fn slice(ctx: &CpgContext, diff: &DiffInput, config: &SliceConfig) -> Result<SliceResult> {
     // Start with LeftFlow as the base
-    let mut base = crate::algorithms::left_flow::slice(files, diff, config)?;
+    let mut base = crate::algorithms::left_flow::slice(ctx, diff, config)?;
     base.algorithm = SlicingAlgorithm::RelevantSlice;
 
     let flip_depth = config.max_branch_lines.max(DEFAULT_FLIP_DEPTH);
@@ -29,7 +26,7 @@ pub fn slice(
     // For each block, find control flow nodes and add alternate paths
     for block in &mut base.blocks {
         let file_path = block.file.clone();
-        let parsed = match files.get(&file_path) {
+        let parsed = match ctx.files.get(&file_path) {
             Some(f) => f,
             None => continue,
         };

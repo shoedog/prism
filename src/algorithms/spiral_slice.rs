@@ -91,7 +91,7 @@ pub fn slice(
     prev_count = included.len();
 
     // Ring 3: LeftFlow + direct caller/callee signatures
-    let left_flow_result = crate::algorithms::left_flow::slice(ctx.files, diff, config)?;
+    let left_flow_result = crate::algorithms::left_flow::slice(ctx, diff, config)?;
     for block in &left_flow_result.blocks {
         for (file, line_map) in &block.file_line_map {
             for (&line, &is_diff) in line_map {

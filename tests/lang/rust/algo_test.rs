@@ -184,8 +184,9 @@ fn classify(score: i32) -> &'static str {
         op: prism::algorithms::conditioned_slice::ConditionOp::Gt,
         value: "89".to_string(),
     };
+    let ctx = CpgContext::build(&files, None);
     let result = prism::algorithms::conditioned_slice::slice(
-        &files,
+        &ctx,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::ConditionedSlice),
         &condition,

@@ -368,8 +368,9 @@ def process(x):
     // With condition x==5, the if-body (x != 5) should be unreachable
     let condition = prism::algorithms::conditioned_slice::Condition::parse("x==5").unwrap();
     let config = SliceConfig::default().with_algorithm(SlicingAlgorithm::ConditionedSlice);
+    let ctx = CpgContext::build(&files, None);
     let conditioned_result =
-        prism::algorithms::conditioned_slice::slice(&files, &diff, &config, &condition).unwrap();
+        prism::algorithms::conditioned_slice::slice(&ctx, &diff, &config, &condition).unwrap();
 
     // Also get unconditioned (LeftFlow) for comparison
     let left_result = algorithms::run_slicing_compat(
