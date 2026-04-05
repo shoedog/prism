@@ -291,30 +291,6 @@ impl TypeRegistry {
         !self.providers.is_empty()
     }
 
-    /// Collect the set of known class/type names from all registered providers.
-    ///
-    /// Used by Python live-type scanning, where class instantiations are
-    /// syntactically identical to function calls. Only calls matching a known
-    /// class name are counted.
-    pub fn known_class_names(&self) -> BTreeSet<String> {
-        let names = BTreeSet::new();
-        for provider in &self.providers {
-            for lang in provider.languages() {
-                if lang == Language::Python {
-                    // Python classes are returned by subtypes_of or resolve_type.
-                    // We can't enumerate all classes from the trait, but the
-                    // PythonTypeProvider exposes them via resolve_type.
-                    // For now, we collect names that resolve as Concrete types.
-                    // This is a limitation — we'd need a `known_types()` method
-                    // on TypeProvider to be fully general. Instead, the caller
-                    // should pass known_classes directly.
-                    continue;
-                }
-            }
-        }
-        names
-    }
-
     /// Collect live (instantiated) types across all languages.
     ///
     /// Delegates to `live_types::collect_live_types` with the known class names
@@ -379,13 +355,11 @@ impl TypeRegistry {
             }
             _ => {}
         }
-        // Recurse for nested classes.
+        // Recurse into all children to find nested classes (e.g., class inside class body).
+        // BTreeSet deduplicates naturally, so no double-counting risk.
         let mut cursor = node.walk();
         for child in node.children(&mut cursor) {
-            if child.kind() != "class_definition" && child.kind() != "decorated_definition" {
-                // Only recurse into non-class children to avoid double counting.
-                Self::collect_python_class_names(&child, parsed, names);
-            }
+            Self::collect_python_class_names(&child, parsed, names);
         }
     }
 }
