@@ -1,0 +1,7 @@
+--- a/cve_variadic_wrapper.c
++++ b/cve_variadic_wrapper.c
+@@ -14,3 +14,4 @@
+
+ void handle_request(const char *user_data) {
++    device_log(3, user_data);
+ }

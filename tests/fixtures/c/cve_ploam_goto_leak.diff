@@ -1,0 +1,8 @@
+--- a/cve_ploam_goto_leak.c
++++ b/cve_ploam_goto_leak.c
+@@ -7,5 +7,8 @@
+ int handle_activate(struct ploam_ctx *ctx, uint8_t *msg) {
++    ctx->buf = kmalloc(256, 0);
+     if (!ctx->buf) return -1;
++    ctx->key = kmalloc(32, 0);
+     if (!ctx->key) goto err_buf;

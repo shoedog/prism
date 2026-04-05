@@ -1,0 +1,10 @@
+--- a/cve_kernel_leak.c
++++ b/cve_kernel_leak.c
+@@ -8,5 +8,8 @@
+ int probe_device(struct platform_device *pdev, struct resource *res) {
++    struct my_dev *dev = kzalloc(sizeof(struct my_dev), 0);
+     if (!dev) return -1;
++    dev->regs = ioremap(res->start, 4096);
+     if (!dev->regs) goto err_free;
++    dev->irq = platform_get_irq(pdev, 0);
+     if (dev->irq < 0) goto err_unmap;

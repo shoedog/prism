@@ -1,0 +1,9 @@
+--- a/cve_double_free_shared_label.c
++++ b/cve_double_free_shared_label.c
+@@ -3,5 +3,8 @@
+
+ int setup_channel(int ch_id) {
++    char *rx_buf = kmalloc(4096, 0);
+     if (!rx_buf) return -1;
++    char *tx_buf = kmalloc(4096, 0);
+     if (!tx_buf) goto cleanup;

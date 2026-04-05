@@ -1,0 +1,9 @@
+--- a/cve_unchecked_return.c
++++ b/cve_unchecked_return.c
+@@ -4,5 +4,7 @@
+ int init_hardware(int dev_id) {
+     if (dev_id < 0 || dev_id > 16) return -1;
++    int ret = configure_registers(dev_id);
++    if (ret < 0) return ret;
+     return 0;
+ }

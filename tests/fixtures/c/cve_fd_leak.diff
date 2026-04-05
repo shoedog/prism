@@ -1,0 +1,6 @@
+--- a/cve_fd_leak.c
++++ b/cve_fd_leak.c
+@@ -5,4 +5,6 @@
+ int read_config(const char *path, char *buf, size_t bufsize) {
++    FILE *f = fopen(path, "r");
+     if (!f) return -1;
