@@ -290,4 +290,76 @@ impl TypeRegistry {
     pub fn has_providers(&self) -> bool {
         !self.providers.is_empty()
     }
+
+    /// Collect live (instantiated) types across all languages.
+    ///
+    /// Delegates to `live_types::collect_live_types` with the known class names
+    /// from all registered Python providers.
+    pub fn collect_live_types(
+        &self,
+        files: &BTreeMap<String, crate::ast::ParsedFile>,
+    ) -> BTreeSet<String> {
+        let known_classes = self.collect_known_python_classes(files);
+        crate::live_types::collect_live_types(files, &known_classes)
+    }
+
+    /// Collect known Python class names from the Python provider.
+    ///
+    /// This is a workaround for the fact that `TypeProvider` doesn't expose
+    /// an enumeration of all known types. We resolve by checking the
+    /// `PythonTypeProvider` data directly if available.
+    fn collect_known_python_classes(
+        &self,
+        files: &BTreeMap<String, crate::ast::ParsedFile>,
+    ) -> BTreeSet<String> {
+        let mut names = BTreeSet::new();
+
+        // Check if there's a Python provider registered.
+        if self.language_map.contains_key(&Language::Python) {
+            // Scan Python files for class definitions at the AST level.
+            // This is a lightweight scan — just looking for class_definition names.
+            for parsed in files.values() {
+                if parsed.language != Language::Python {
+                    continue;
+                }
+                let root = parsed.tree.root_node();
+                let mut cursor = root.walk();
+                for child in root.children(&mut cursor) {
+                    Self::collect_python_class_names(&child, &parsed, &mut names);
+                }
+            }
+        }
+
+        names
+    }
+
+    /// Recursively collect class names from Python AST nodes.
+    fn collect_python_class_names(
+        node: &tree_sitter::Node,
+        parsed: &crate::ast::ParsedFile,
+        names: &mut BTreeSet<String>,
+    ) {
+        match node.kind() {
+            "class_definition" => {
+                if let Some(name_node) = node.child_by_field_name("name") {
+                    let name = parsed.node_text(&name_node).trim().to_string();
+                    if !name.is_empty() {
+                        names.insert(name);
+                    }
+                }
+            }
+            "decorated_definition" => {
+                if let Some(def) = node.child_by_field_name("definition") {
+                    Self::collect_python_class_names(&def, parsed, names);
+                }
+            }
+            _ => {}
+        }
+        // Recurse into all children to find nested classes (e.g., class inside class body).
+        // BTreeSet deduplicates naturally, so no double-counting risk.
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            Self::collect_python_class_names(&child, parsed, names);
+        }
+    }
 }
