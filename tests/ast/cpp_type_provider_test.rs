@@ -145,6 +145,15 @@ fn make_test_db() -> TypeDatabase {
         },
     );
 
+    // Chained typedef: dev_alias → dev_ptr → device_t (two levels)
+    db.typedefs.insert(
+        "dev_alias".to_string(),
+        TypedefInfo {
+            name: "dev_alias".to_string(),
+            underlying: "dev_ptr".to_string(),
+        },
+    );
+
     // Class hierarchy
     db.class_hierarchy
         .insert("Derived".to_string(), vec!["Base".to_string()]);
@@ -228,6 +237,25 @@ fn test_cpp_resolve_type_typedef_to_record() {
     let resolved = provider.resolve_type("device.h", "dev_ptr", 0).unwrap();
     assert_eq!(resolved.name, "device_t");
     assert_eq!(resolved.kind, ResolvedTypeKind::Concrete);
+}
+
+#[test]
+fn test_cpp_resolve_type_chained_typedef() {
+    let provider = CppTypeProvider::new(make_test_db());
+
+    // dev_alias → dev_ptr → device_t: TypeDatabase::resolve_typedef chains
+    // up to 10 levels, so a two-level chain should resolve to device_t.
+    let resolved = provider.resolve_type("device.h", "dev_alias", 0).unwrap();
+    assert_eq!(resolved.name, "device_t");
+    assert_eq!(resolved.kind, ResolvedTypeKind::Concrete);
+}
+
+#[test]
+fn test_cpp_resolve_alias_chained_typedef() {
+    let provider = CppTypeProvider::new(make_test_db());
+
+    // resolve_alias should follow the full chain.
+    assert_eq!(provider.resolve_alias("dev_alias"), "device_t");
 }
 
 #[test]
@@ -447,7 +475,11 @@ fn test_cpp_dispatch_result_fields() {
     let targets = provider.resolve_dispatch("Base", "process", &BTreeSet::new());
     for target in &targets {
         assert_eq!(target.name, "process");
-        // start_line and end_line are 0 (not available from TypeDatabase).
+        // Known limitation: start_line/end_line are always 0 because
+        // TypeDatabase stores record-level info, not per-method locations.
+        // Go/Java/Rust/TS providers produce real line numbers from tree-sitter.
+        // Downstream code relying on line numbers (e.g., finding deduplication)
+        // should be aware that the C++ path produces zeroes.
         assert_eq!(target.start_line, 0);
         assert_eq!(target.end_line, 0);
         // File should be non-empty (from the record's file).
