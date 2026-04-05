@@ -378,3 +378,245 @@ void setup(void) {
         callee_names
     );
 }
+
+// ---------------------------------------------------------------------------
+// Static function disambiguation tests
+// ---------------------------------------------------------------------------
+
+/// Two files both define `static int init()`. callers_of_in_file should only
+/// return callers from the correct file.
+#[test]
+fn test_static_init_disambiguation_callers_of_in_file() {
+    let source_a = r#"
+static int init(void) {
+    return 0;
+}
+
+void main_a(void) {
+    init();
+}
+"#;
+
+    let source_b = r#"
+static int init(void) {
+    return 1;
+}
+
+void main_b(void) {
+    init();
+}
+"#;
+
+    let mut files = BTreeMap::new();
+    files.insert(
+        "a.c".to_string(),
+        ParsedFile::parse("a.c", source_a, Language::C).unwrap(),
+    );
+    files.insert(
+        "b.c".to_string(),
+        ParsedFile::parse("b.c", source_b, Language::C).unwrap(),
+    );
+
+    let call_graph = CallGraph::build(&files);
+
+    // Callers of init in a.c should only be main_a
+    let callers_a = call_graph.callers_of_in_file("init", 1, Some("a.c"));
+    let caller_names_a: Vec<&str> = callers_a.iter().map(|(fid, _)| fid.name.as_str()).collect();
+    assert!(
+        caller_names_a.contains(&"main_a"),
+        "callers_of_in_file(init, a.c) should include main_a, got: {:?}",
+        caller_names_a
+    );
+    assert!(
+        !caller_names_a.contains(&"main_b"),
+        "callers_of_in_file(init, a.c) should NOT include main_b, got: {:?}",
+        caller_names_a
+    );
+
+    // Callers of init in b.c should only be main_b
+    let callers_b = call_graph.callers_of_in_file("init", 1, Some("b.c"));
+    let caller_names_b: Vec<&str> = callers_b.iter().map(|(fid, _)| fid.name.as_str()).collect();
+    assert!(
+        caller_names_b.contains(&"main_b"),
+        "callers_of_in_file(init, b.c) should include main_b, got: {:?}",
+        caller_names_b
+    );
+    assert!(
+        !caller_names_b.contains(&"main_a"),
+        "callers_of_in_file(init, b.c) should NOT include main_a, got: {:?}",
+        caller_names_b
+    );
+}
+
+/// Static + non-static same name: a.c has static init(), c.c has non-static
+/// init(), d.c calls init(). d.c's call should resolve to c.c's init only.
+#[test]
+fn test_static_plus_nonstatic_same_name() {
+    let source_a = r#"
+static int init(void) {
+    return 0;
+}
+
+void main_a(void) {
+    init();
+}
+"#;
+
+    let source_c = r#"
+int init(void) {
+    return 42;
+}
+"#;
+
+    let source_d = r#"
+void main_d(void) {
+    init();
+}
+"#;
+
+    let mut files = BTreeMap::new();
+    files.insert(
+        "a.c".to_string(),
+        ParsedFile::parse("a.c", source_a, Language::C).unwrap(),
+    );
+    files.insert(
+        "c.c".to_string(),
+        ParsedFile::parse("c.c", source_c, Language::C).unwrap(),
+    );
+    files.insert(
+        "d.c".to_string(),
+        ParsedFile::parse("d.c", source_d, Language::C).unwrap(),
+    );
+
+    let call_graph = CallGraph::build(&files);
+
+    // d.c calls init() — should resolve to c.c's non-static init, not a.c's static init
+    let resolved = call_graph.resolve_callees("init", "d.c");
+    let resolved_files: Vec<&str> = resolved.iter().map(|fid| fid.file.as_str()).collect();
+    assert!(
+        resolved_files.contains(&"c.c"),
+        "d.c's call to init() should resolve to c.c, got: {:?}",
+        resolved_files
+    );
+    assert!(
+        !resolved_files.contains(&"a.c"),
+        "d.c's call to init() should NOT resolve to a.c (static), got: {:?}",
+        resolved_files
+    );
+
+    // Callers of c.c:init should include d.c's main_d but NOT a.c's main_a
+    let callers_c = call_graph.callers_of_in_file("init", 1, Some("c.c"));
+    let caller_names: Vec<&str> = callers_c.iter().map(|(fid, _)| fid.name.as_str()).collect();
+    assert!(
+        caller_names.contains(&"main_d"),
+        "callers_of_in_file(init, c.c) should include main_d, got: {:?}",
+        caller_names
+    );
+    assert!(
+        !caller_names.contains(&"main_a"),
+        "callers_of_in_file(init, c.c) should NOT include main_a, got: {:?}",
+        caller_names
+    );
+}
+
+/// resolve_callers should filter out calls that target a different static definition.
+#[test]
+fn test_resolve_callers_filters_static() {
+    let source_a = r#"
+static int init(void) {
+    return 0;
+}
+
+void main_a(void) {
+    init();
+}
+"#;
+
+    let source_b = r#"
+static int init(void) {
+    return 1;
+}
+
+void main_b(void) {
+    init();
+}
+"#;
+
+    let mut files = BTreeMap::new();
+    files.insert(
+        "a.c".to_string(),
+        ParsedFile::parse("a.c", source_a, Language::C).unwrap(),
+    );
+    files.insert(
+        "b.c".to_string(),
+        ParsedFile::parse("b.c", source_b, Language::C).unwrap(),
+    );
+
+    let call_graph = CallGraph::build(&files);
+
+    // resolve_callers for init in a.c should only return call sites from a.c
+    let callers_a = call_graph.resolve_callers("init", "a.c");
+    let caller_files: Vec<&str> = callers_a
+        .iter()
+        .map(|site| site.caller.file.as_str())
+        .collect();
+    assert!(
+        caller_files.contains(&"a.c"),
+        "resolve_callers(init, a.c) should include caller from a.c, got: {:?}",
+        caller_files
+    );
+    assert!(
+        !caller_files.contains(&"b.c"),
+        "resolve_callers(init, a.c) should NOT include caller from b.c, got: {:?}",
+        caller_files
+    );
+}
+
+/// Non-static functions should still be found cross-file via callers_of.
+#[test]
+fn test_nonstatic_cross_file_callers() {
+    let source_lib = r#"
+void process(int x) {
+    // do work
+}
+"#;
+
+    let source_main = r#"
+void run(void) {
+    process(42);
+}
+"#;
+
+    let mut files = BTreeMap::new();
+    files.insert(
+        "lib.c".to_string(),
+        ParsedFile::parse("lib.c", source_lib, Language::C).unwrap(),
+    );
+    files.insert(
+        "main.c".to_string(),
+        ParsedFile::parse("main.c", source_main, Language::C).unwrap(),
+    );
+
+    let call_graph = CallGraph::build(&files);
+
+    // callers_of (no file filter) should find cross-file callers
+    let callers = call_graph.callers_of("process", 1);
+    let caller_names: Vec<&str> = callers.iter().map(|(fid, _)| fid.name.as_str()).collect();
+    assert!(
+        caller_names.contains(&"run"),
+        "callers_of(process) should include cross-file caller 'run', got: {:?}",
+        caller_names
+    );
+
+    // callers_of_in_file targeting lib.c should also find cross-file caller
+    let callers_in_file = call_graph.callers_of_in_file("process", 1, Some("lib.c"));
+    let caller_names_in_file: Vec<&str> = callers_in_file
+        .iter()
+        .map(|(fid, _)| fid.name.as_str())
+        .collect();
+    assert!(
+        caller_names_in_file.contains(&"run"),
+        "callers_of_in_file(process, lib.c) should include cross-file caller 'run', got: {:?}",
+        caller_names_in_file
+    );
+}
