@@ -6,7 +6,7 @@
 
 use prism::ast::ParsedFile;
 use prism::languages::Language;
-use prism::type_provider::{LanguageVersion, TypeProvider};
+use prism::type_provider::{DispatchProvider, LanguageVersion, TypeProvider};
 use prism::type_providers::go::GoTypeProvider;
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -650,4 +650,158 @@ func (c *Concrete) Method() {}
         "Every type satisfies empty interface, got: {:?}",
         subtypes
     );
+}
+
+// ---------------------------------------------------------------------------
+// Dispatch RTA fallback
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_go_dispatch_rta_fallback() {
+    let source = r#"
+package main
+
+type Worker interface {
+    Work()
+}
+
+type FastWorker struct{}
+func (f *FastWorker) Work() {}
+"#;
+    let files = parse_go("worker.go", source);
+    let provider = GoTypeProvider::from_parsed_files(&files);
+
+    // RTA with no matching live types should fall back to full set.
+    let mut live = BTreeSet::new();
+    live.insert("UnrelatedType".to_string());
+
+    let results = provider.resolve_dispatch("Worker", "Work", &live);
+    assert_eq!(results.len(), 1, "Should fall back to full set");
+}
+
+// ---------------------------------------------------------------------------
+// CpgContext integration
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_go_cpg_context_integration() {
+    use prism::cpg::CpgContext;
+
+    let source = r#"
+package main
+
+type Logger interface {
+    Log(msg string)
+}
+
+type ConsoleLogger struct{}
+
+func (c *ConsoleLogger) Log(msg string) {}
+"#;
+    let parsed = ParsedFile::parse("logger.go", source, Language::Go).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert("logger.go".to_string(), parsed);
+
+    let ctx = CpgContext::build(&files, None);
+
+    let tp = ctx.types.provider_for(Language::Go);
+    assert!(tp.is_some(), "Go provider should be auto-registered");
+    let tp = tp.unwrap();
+    assert!(tp.resolve_type("logger.go", "Logger", 0).is_some());
+    assert!(tp.resolve_type("logger.go", "ConsoleLogger", 0).is_some());
+
+    let dp = ctx.types.dispatch_for(Language::Go);
+    assert!(dp.is_some());
+    let targets = dp
+        .unwrap()
+        .resolve_dispatch("Logger", "Log", &BTreeSet::new());
+    assert_eq!(targets.len(), 1);
+}
+
+// ---------------------------------------------------------------------------
+// Non-Go files ignored
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_go_ignores_non_go_files() {
+    let go_parsed =
+        ParsedFile::parse("main.go", "package main\ntype Foo struct{}\n", Language::Go).unwrap();
+    let rs_parsed = ParsedFile::parse("lib.rs", "struct Bar;", Language::Rust).unwrap();
+
+    let mut files = BTreeMap::new();
+    files.insert("main.go".to_string(), go_parsed);
+    files.insert("lib.rs".to_string(), rs_parsed);
+
+    let provider = GoTypeProvider::from_parsed_files(&files);
+    assert!(provider.resolve_type("main.go", "Foo", 0).is_some());
+    assert!(provider.resolve_type("lib.rs", "Bar", 0).is_none());
+}
+
+// ---------------------------------------------------------------------------
+// Embedded interface extends
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_go_embedded_interface_chain() {
+    let source = r#"
+package main
+
+type Reader interface {
+    Read() []byte
+}
+
+type Writer interface {
+    Write(data []byte)
+}
+
+type ReadWriter interface {
+    Reader
+    Writer
+}
+
+type FileRW struct{}
+func (f *FileRW) Read() []byte { return nil }
+func (f *FileRW) Write(data []byte) {}
+"#;
+    let files = parse_go("rw.go", source);
+    let provider = GoTypeProvider::from_parsed_files(&files);
+
+    // FileRW should satisfy ReadWriter (has both Read and Write).
+    let rw_subtypes = provider.subtypes_of("ReadWriter");
+    assert!(
+        rw_subtypes.contains(&"FileRW".to_string()),
+        "FileRW should satisfy ReadWriter: {:?}",
+        rw_subtypes
+    );
+
+    // Also satisfies Reader and Writer individually.
+    assert!(provider
+        .subtypes_of("Reader")
+        .contains(&"FileRW".to_string()));
+    assert!(provider
+        .subtypes_of("Writer")
+        .contains(&"FileRW".to_string()));
+}
+
+// ---------------------------------------------------------------------------
+// Dispatch nonexistent method/type
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_go_dispatch_nonexistent() {
+    let source = r#"
+package main
+
+type Foo struct{}
+func (f *Foo) Bar() {}
+"#;
+    let files = parse_go("foo.go", source);
+    let provider = GoTypeProvider::from_parsed_files(&files);
+
+    assert!(provider
+        .resolve_dispatch("Foo", "NonExistent", &BTreeSet::new())
+        .is_empty());
+    assert!(provider
+        .resolve_dispatch("Unknown", "Bar", &BTreeSet::new())
+        .is_empty());
 }
