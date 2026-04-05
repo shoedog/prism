@@ -1,0 +1,8 @@
+--- a/cve_netlink_overflow.c
++++ b/cve_netlink_overflow.c
+@@ -7,4 +7,6 @@
+ void handle_netlink_msg(struct nlmsghdr *nlh) {
+     char buf[4096];
++    size_t payload_len = nlh->nlmsg_len - sizeof(struct nlmsghdr);
++    memcpy(buf, (char *)nlh + sizeof(struct nlmsghdr), payload_len);
+ }

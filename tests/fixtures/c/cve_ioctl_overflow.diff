@@ -1,0 +1,10 @@
+--- a/cve_ioctl_overflow.c
++++ b/cve_ioctl_overflow.c
+@@ -6,5 +6,8 @@
+ int handle_ioctl(unsigned long arg) {
+     struct user_request req;
++    copy_from_user(&req, (void *)arg, sizeof(req));
++    char *buf = kmalloc(req.size, 0);
++    copy_from_user(buf, (void *)arg + sizeof(req), req.size);
+     return process(buf, req.size);
+ }

@@ -202,12 +202,21 @@ const SINK_PATTERNS: &[&str] = &[
     "=rmmod",    // rmmod $MODULE — unload kernel module
     // Firmware daemon environment injection
     "procd_set_param", // procd_set_param env VAR=VAL — daemon config injection
+    // === Logging sinks — format string injection ===
+    "syslog",   // syslog(LOG_ERR, user_input) — format string injection
+    "=openlog", // openlog(user_ident, ...) — ident string injection
+    // === Network output — information leak / injection ===
+    "sendto",  // sendto(fd, buf, ...) — untrusted data to network
+    "sendmsg", // sendmsg(fd, &msg, ...) — untrusted data to network
     // === C/C++ kernel / embedded ===
     // User-space data ingress — kernel attack surface
     "copy_from_user", // Linux kernel: copies untrusted user-space data
     "get_user",       // Linux kernel: reads single value from user-space
     "__get_user",     // Linux kernel: unchecked user-space read
     "=ioctl",         // ioctl with user buffer — kernel I/O untrusted data path
+    // Kernel copy-out — information leak to userspace
+    "copy_to_user", // Linux kernel: copies potentially sensitive data to user-space
+    "put_user",     // Linux kernel: writes single value to user-space
 ];
 
 /// Check whether an identifier text matches a sink pattern.

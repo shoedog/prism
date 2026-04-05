@@ -1,0 +1,7 @@
+--- a/cve_refcount_race.c
++++ b/cve_refcount_race.c
+@@ -9,4 +9,6 @@
+
+ void obj_get(struct shared_obj *obj) {
++    obj->refcount++;
+ }

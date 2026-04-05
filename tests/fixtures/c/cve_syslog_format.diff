@@ -1,0 +1,9 @@
+--- a/cve_syslog_format.c
++++ b/cve_syslog_format.c
+@@ -4,4 +4,7 @@
+
+ void handle_login(const char *username) {
++    char msg[256];
++    snprintf(msg, sizeof(msg), "Login attempt: %s", username);
++    syslog(LOG_INFO, msg);
+ }

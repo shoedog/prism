@@ -1,0 +1,10 @@
+--- a/cve_uci_injection.c
++++ b/cve_uci_injection.c
+@@ -3,4 +3,7 @@
+
+ void set_hostname(const char *user_input) {
++    char cmd[512];
++    snprintf(cmd, sizeof(cmd), "uci set system.@system[0].hostname='%s'", user_input);
++    system(cmd);
+     system("uci commit system");
+ }
