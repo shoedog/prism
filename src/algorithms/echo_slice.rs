@@ -150,8 +150,11 @@ pub fn slice(ctx: &CpgContext, diff: &DiffInput) -> Result<SliceResult> {
                     .unwrap_or(false)
             });
 
-            // Find all callers across all files
-            let callers = ctx.cpg.callers_of(func_name, 2);
+            // Find all callers across all files, scoped to the correct file
+            // to disambiguate static functions with the same name
+            let callers = ctx
+                .cpg
+                .callers_of_in_file(func_name, 2, Some(&diff_info.file_path));
 
             for (caller_id, _depth) in &callers {
                 let caller_parsed = match ctx.files.get(&caller_id.file) {

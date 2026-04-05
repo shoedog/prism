@@ -79,8 +79,13 @@ pub fn slice(
                     .insert(end, false);
             }
 
-            // Trace callers (up)
-            let callers = ctx.cpg.callers_of(func_name, barrier_config.max_depth);
+            // Trace callers (up), scoped to the correct file to disambiguate
+            // static functions with the same name across files
+            let callers = ctx.cpg.callers_of_in_file(
+                func_name,
+                barrier_config.max_depth,
+                Some(&diff_info.file_path),
+            );
             for (caller_id, _depth) in &callers {
                 if barrier_config.barrier_symbols.contains(&caller_id.name) {
                     continue;
