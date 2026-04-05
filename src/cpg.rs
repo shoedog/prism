@@ -22,6 +22,7 @@ use crate::type_provider::TypeRegistry;
 use crate::type_providers::cpp::CppTypeProvider;
 use crate::type_providers::go::GoTypeProvider;
 use crate::type_providers::java::JavaTypeProvider;
+use crate::type_providers::python::PythonTypeProvider;
 use crate::type_providers::rust_provider::RustTypeProvider;
 use crate::type_providers::typescript::TypeScriptTypeProvider;
 
@@ -237,6 +238,16 @@ impl<'a> CpgContext<'a> {
             let rust_dispatch = rust_provider.clone();
             registry.register_provider(Box::new(rust_provider));
             registry.register_dispatch_provider(Box::new(rust_dispatch));
+        }
+
+        // Python provider — extracted from tree-sitter ASTs (PEP 484 annotations).
+        // TypeProvider only — no DispatchProvider (Python uses duck typing).
+        let has_python = files
+            .values()
+            .any(|pf| pf.language == crate::languages::Language::Python);
+        if has_python {
+            let python_provider = PythonTypeProvider::from_parsed_files(files);
+            registry.register_provider(Box::new(python_provider));
         }
 
         // TypeScript/TSX provider — extracted from tree-sitter ASTs.
