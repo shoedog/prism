@@ -328,3 +328,284 @@ fn test_vertical_slice_c() {
     .unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::VerticalSlice);
 }
+
+// ---------------------------------------------------------------------------
+// ThinSlice — data deps only, no control flow
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_thin_slice_c() {
+    let (files, _, diff) = make_c_test();
+    let result = algorithms::run_slicing_compat(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::ThinSlice),
+        None,
+    )
+    .unwrap();
+    assert_eq!(result.algorithm, SlicingAlgorithm::ThinSlice);
+}
+
+// ---------------------------------------------------------------------------
+// QuantumSlice — async/concurrent state enumeration
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_quantum_slice_c_pthread() {
+    let source = r#"
+#include <pthread.h>
+
+static int shared_state = 0;
+static pthread_mutex_t lock;
+
+void *worker(void *arg) {
+    pthread_mutex_lock(&lock);
+    shared_state += 1;
+    pthread_mutex_unlock(&lock);
+    return NULL;
+}
+
+void start_workers(void) {
+    pthread_t t1, t2;
+    pthread_create(&t1, NULL, worker, NULL);
+    pthread_create(&t2, NULL, worker, NULL);
+}
+"#;
+    let path = "src/thread.c";
+    let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([9]),
+        }],
+    };
+    let result = algorithms::run_slicing_compat(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::QuantumSlice),
+        None,
+    )
+    .unwrap();
+    assert_eq!(result.algorithm, SlicingAlgorithm::QuantumSlice);
+}
+
+// ---------------------------------------------------------------------------
+// GradientSlice — continuous relevance scoring
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_gradient_slice_c() {
+    let (files, _, diff) = make_c_test();
+    let result = algorithms::run_slicing_compat(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::GradientSlice),
+        None,
+    )
+    .unwrap();
+    assert_eq!(result.algorithm, SlicingAlgorithm::GradientSlice);
+}
+
+// ---------------------------------------------------------------------------
+// SymmetrySlice — broken symmetry detection
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_symmetry_slice_c() {
+    let source = r#"
+int serialize(const char *data, char *buf) {
+    buf[0] = data[0];
+    return 1;
+}
+
+int deserialize(const char *buf, char *data) {
+    data[0] = buf[0];
+    return 1;
+}
+"#;
+    let path = "src/codec.c";
+    let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([3]),
+        }],
+    };
+    let result = algorithms::run_slicing_compat(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::SymmetrySlice),
+        None,
+    )
+    .unwrap();
+    assert_eq!(result.algorithm, SlicingAlgorithm::SymmetrySlice);
+}
+
+// ---------------------------------------------------------------------------
+// MembraneSlice — module boundary impact (multifile)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_membrane_slice_c() {
+    let (files, _, diff) = make_c_multifile_test();
+    let result = algorithms::run_slicing_compat(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::MembraneSlice),
+        None,
+    )
+    .unwrap();
+    assert_eq!(result.algorithm, SlicingAlgorithm::MembraneSlice);
+}
+
+// ---------------------------------------------------------------------------
+// EchoSlice — ripple effect modeling
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_echo_slice_c() {
+    let (files, _, diff) = make_c_multifile_test();
+    let result = algorithms::run_slicing_compat(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::EchoSlice),
+        None,
+    )
+    .unwrap();
+    assert_eq!(result.algorithm, SlicingAlgorithm::EchoSlice);
+}
+
+// ---------------------------------------------------------------------------
+// ContractSlice — implicit behavioral contract extraction
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_contract_slice_c() {
+    let source = r#"
+int process_buffer(const char *buf, int len) {
+    if (buf == NULL) return -1;
+    if (len <= 0) return -1;
+    if (len > 4096) return -1;
+    char local[4096];
+    for (int i = 0; i < len; i++) {
+        local[i] = buf[i];
+    }
+    return len;
+}
+"#;
+    let path = "src/process.c";
+    let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([4]),
+        }],
+    };
+    let result = algorithms::run_slicing_compat(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::ContractSlice),
+        None,
+    )
+    .unwrap();
+    assert_eq!(result.algorithm, SlicingAlgorithm::ContractSlice);
+}
+
+// ---------------------------------------------------------------------------
+// ThreeDSlice — temporal-structural risk (requires git)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_threed_slice_c() {
+    let source_v1 = "int calc(int x) {\n    return x;\n}\n";
+    let source_v2 = "int calc(int x) {\n    return x + 1;\n}\n";
+    let filename = "calc.c";
+    let tmp = create_temp_git_repo(filename, &[source_v1, source_v2]);
+
+    let parsed = ParsedFile::parse(filename, source_v2, Language::C).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(filename.to_string(), parsed);
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: filename.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([2]),
+        }],
+    };
+    let ctx = CpgContext::build(&files, None);
+    let config = prism::algorithms::threed_slice::ThreeDConfig {
+        git_dir: tmp.path().to_string_lossy().to_string(),
+        temporal_days: 365,
+    };
+    let result = prism::algorithms::threed_slice::slice(&ctx, &diff, &config).unwrap();
+    assert_eq!(result.algorithm, SlicingAlgorithm::ThreeDSlice);
+}
+
+// ---------------------------------------------------------------------------
+// ResonanceSlice — git co-change coupling
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_resonance_slice_c() {
+    let source_v1 = "void init(void) { }\n";
+    let source_v2 = "void init(void) {\n    setup();\n}\n";
+    let filename = "init.c";
+    let tmp = create_temp_git_repo(filename, &[source_v1, source_v2]);
+
+    let parsed = ParsedFile::parse(filename, source_v2, Language::C).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(filename.to_string(), parsed);
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: filename.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([2]),
+        }],
+    };
+    let config = prism::algorithms::resonance_slice::ResonanceConfig {
+        git_dir: tmp.path().to_string_lossy().to_string(),
+        days: 365,
+        min_co_changes: 1,
+        min_ratio: 0.0,
+    };
+    let result = prism::algorithms::resonance_slice::slice(&files, &diff, &config).unwrap();
+    assert_eq!(result.algorithm, SlicingAlgorithm::ResonanceSlice);
+}
+
+// ---------------------------------------------------------------------------
+// PhantomSlice — recently deleted code (requires git)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_phantom_slice_c() {
+    let source_v1 = "void cleanup(int *p) {\n    free(p);\n}\nvoid work(void) {\n    int *p = malloc(4);\n    cleanup(p);\n}\n";
+    let source_v2 = "void work(void) {\n    int *p = malloc(4);\n}\n";
+    let filename = "phantom.c";
+    let tmp = create_temp_git_repo(filename, &[source_v1, source_v2]);
+
+    let parsed = ParsedFile::parse(filename, source_v2, Language::C).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(filename.to_string(), parsed);
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: filename.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([2]),
+        }],
+    };
+    let config = prism::algorithms::phantom_slice::PhantomConfig {
+        git_dir: tmp.path().to_string_lossy().to_string(),
+        max_commits: 50,
+    };
+    let result = prism::algorithms::phantom_slice::slice(&files, &diff, &config).unwrap();
+    assert_eq!(result.algorithm, SlicingAlgorithm::PhantomSlice);
+}

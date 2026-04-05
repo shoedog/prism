@@ -6,7 +6,7 @@ use prism::cpg::CpgContext;
 use prism::diff::DiffInput;
 use prism::languages::Language;
 use prism::output;
-use prism::slice::{AlgorithmError, MultiSliceResult, SliceConfig, SlicingAlgorithm};
+use prism::slice::{AlgorithmError, MultiSliceResult, SliceConfig, SliceFinding, SlicingAlgorithm};
 use prism::type_db::TypeDatabase;
 use prism::type_provider::LanguageVersion;
 use std::collections::{BTreeMap, HashSet};
@@ -390,7 +390,8 @@ fn main() -> Result<()> {
             .iter()
             .map(|a| a.name().to_string())
             .collect();
-        let all_findings: Vec<_> = results.iter().flat_map(|r| r.findings.clone()).collect();
+        let mut all_findings: Vec<_> = results.iter().flat_map(|r| r.findings.clone()).collect();
+        annotate_finding_parse_quality(&mut all_findings, &files);
 
         match cli.format.as_str() {
             "review" => {
@@ -436,6 +437,7 @@ fn main() -> Result<()> {
         let algorithm = algorithms_to_run[0];
         let mut result = run_algorithm(algorithm, &ctx, &diff_input, &config, &cli, repo)?;
         result.warnings = parse_warnings;
+        annotate_finding_parse_quality(&mut result.findings, &files);
 
         match cli.format.as_str() {
             "json" => {
@@ -459,6 +461,28 @@ fn main() -> Result<()> {
     }
 
     Ok(())
+}
+
+/// Annotate findings with the parse quality grade of their source file.
+fn annotate_finding_parse_quality(
+    findings: &mut [SliceFinding],
+    files: &BTreeMap<String, ParsedFile>,
+) {
+    for finding in findings.iter_mut() {
+        if let Some(pf) = files.get(&finding.file) {
+            let rate = pf.error_rate();
+            if rate > 0.01 {
+                let q = if rate > 0.3 {
+                    "unparseable"
+                } else if rate > 0.1 {
+                    "poor"
+                } else {
+                    "degraded"
+                };
+                finding.parse_quality = Some(q.to_string());
+            }
+        }
+    }
 }
 
 /// Run a single slicing algorithm with all CLI-configured parameters.
