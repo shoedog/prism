@@ -10,7 +10,7 @@
 //! ```
 
 use crate::diff::DiffBlock;
-use crate::slice::{AlgorithmError, SliceFinding, SliceResult};
+use crate::slice::{AlgorithmError, FileParseQuality, SliceFinding, SliceResult};
 use serde::Serialize;
 use std::collections::BTreeMap;
 use std::fmt::Write;
@@ -47,6 +47,9 @@ pub struct ReviewOutput {
     /// Parse quality warnings for input files (e.g. high ERROR-node rate).
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub warnings: Vec<String>,
+    /// Structured per-file parse quality data.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub parse_quality: BTreeMap<String, FileParseQuality>,
 }
 
 #[derive(Debug, Serialize)]
@@ -60,6 +63,9 @@ pub struct MultiReviewOutput {
     /// Parse quality warnings for input files (e.g. high ERROR-node rate).
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub warnings: Vec<String>,
+    /// Structured per-file parse quality data.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub parse_quality: BTreeMap<String, FileParseQuality>,
 }
 
 /// Render a DiffBlock as a line-numbered, diff-marked text snippet.
@@ -136,6 +142,7 @@ pub fn to_review_output(result: &SliceResult, sources: &BTreeMap<String, String>
         slices,
         findings: result.findings.clone(),
         warnings: result.warnings.clone(),
+        parse_quality: BTreeMap::new(),
     }
 }
 

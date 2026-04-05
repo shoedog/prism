@@ -488,6 +488,7 @@ pub fn slice(
                 .collect(),
             related_files: vec![],
             category: Some("tainted_value".to_string()),
+            parse_quality: None,
         });
     }
 
@@ -515,6 +516,7 @@ pub fn slice(
                     .collect(),
                 related_files: vec![],
                 category: Some("unquoted_expansion".to_string()),
+                parse_quality: None,
             });
         }
     }

@@ -55,6 +55,12 @@ void setup_timer(timer_t *timer) {
         "timer->callback(...) should resolve callee_name to 'callback', got: {:?}",
         callee_names
     );
+    // Level 4 should also resolve the struct field callback to the actual target
+    assert!(
+        callee_names.contains(&"timeout_handler"),
+        "timer->callback should resolve to timeout_handler via Level 4, got: {:?}",
+        callee_names
+    );
 }
 
 #[test]
@@ -618,5 +624,227 @@ void run(void) {
         caller_names_in_file.contains(&"run"),
         "callers_of_in_file(process, lib.c) should include cross-file caller 'run', got: {:?}",
         caller_names_in_file
+    );
+}
+
+// ===== Level 4: Struct field callback resolution =====
+
+#[test]
+fn test_struct_callback_same_file() {
+    let source = r#"
+typedef struct {
+    void (*callback)(void *data);
+    void *data;
+} timer_t;
+
+void timeout_handler(void *data) { }
+
+void fire_timer(timer_t *timer) {
+    timer->callback(timer->data);
+}
+
+void setup_timer(timer_t *timer) {
+    timer->callback = timeout_handler;
+    fire_timer(timer);
+}
+"#;
+
+    let mut files = BTreeMap::new();
+    files.insert(
+        "src/timer.c".to_string(),
+        ParsedFile::parse("src/timer.c", source, Language::C).unwrap(),
+    );
+    let call_graph = CallGraph::build(&files);
+
+    let fire_timer_id = &call_graph.functions.get("fire_timer").unwrap()[0];
+    let fire_timer_calls = call_graph.calls.get(fire_timer_id).unwrap();
+    let callee_names: BTreeSet<&str> = fire_timer_calls
+        .iter()
+        .map(|s| s.callee_name.as_str())
+        .collect();
+
+    assert!(
+        callee_names.contains("timeout_handler"),
+        "Level 4: timer->callback should resolve to timeout_handler, got: {:?}",
+        callee_names
+    );
+}
+
+#[test]
+fn test_struct_callback_cross_file() {
+    let setup_src = r#"
+void timeout_handler(void *data) { }
+
+void setup_timer(void *timer) {
+    timer->callback = timeout_handler;
+}
+"#;
+    let engine_src = r#"
+void fire_timer(void *timer) {
+    timer->callback(timer->data);
+}
+"#;
+
+    let mut files = BTreeMap::new();
+    files.insert(
+        "src/setup.c".to_string(),
+        ParsedFile::parse("src/setup.c", setup_src, Language::C).unwrap(),
+    );
+    files.insert(
+        "src/engine.c".to_string(),
+        ParsedFile::parse("src/engine.c", engine_src, Language::C).unwrap(),
+    );
+    let call_graph = CallGraph::build(&files);
+
+    let fire_timer_id = &call_graph.functions.get("fire_timer").unwrap()[0];
+    let fire_timer_calls = call_graph.calls.get(fire_timer_id).unwrap();
+    let callee_names: BTreeSet<&str> = fire_timer_calls
+        .iter()
+        .map(|s| s.callee_name.as_str())
+        .collect();
+
+    assert!(
+        callee_names.contains("timeout_handler"),
+        "Level 4 cross-file: timer->callback should resolve to timeout_handler, got: {:?}",
+        callee_names
+    );
+}
+
+#[test]
+fn test_struct_dot_callback() {
+    let source = r#"
+void handler(void) { }
+
+void caller(void) {
+    struct s;
+    s.on_event(42);
+}
+
+void setup(void) {
+    struct s;
+    s.on_event = handler;
+}
+"#;
+
+    let mut files = BTreeMap::new();
+    files.insert(
+        "src/dot.c".to_string(),
+        ParsedFile::parse("src/dot.c", source, Language::C).unwrap(),
+    );
+    let call_graph = CallGraph::build(&files);
+
+    let caller_id = &call_graph.functions.get("caller").unwrap()[0];
+    let caller_calls = call_graph.calls.get(caller_id).unwrap();
+    let callee_names: BTreeSet<&str> = caller_calls
+        .iter()
+        .map(|s| s.callee_name.as_str())
+        .collect();
+
+    assert!(
+        callee_names.contains("handler"),
+        "Level 4: s.on_event should resolve to handler, got: {:?}",
+        callee_names
+    );
+}
+
+#[test]
+fn test_designated_initializer() {
+    let source = r#"
+void my_handler(void *data) { }
+
+void fire(void *t) {
+    t->callback(t->data);
+}
+
+void init(void) {
+    struct timer_t t = { .callback = my_handler };
+    fire(&t);
+}
+"#;
+
+    let mut files = BTreeMap::new();
+    files.insert(
+        "src/init.c".to_string(),
+        ParsedFile::parse("src/init.c", source, Language::C).unwrap(),
+    );
+    let call_graph = CallGraph::build(&files);
+
+    let fire_id = &call_graph.functions.get("fire").unwrap()[0];
+    let fire_calls = call_graph.calls.get(fire_id).unwrap();
+    let callee_names: BTreeSet<&str> = fire_calls.iter().map(|s| s.callee_name.as_str()).collect();
+
+    assert!(
+        callee_names.contains("my_handler"),
+        "Level 4: designated initializer .callback = my_handler should resolve, got: {:?}",
+        callee_names
+    );
+}
+
+#[test]
+fn test_multiple_assignments() {
+    let source = r#"
+void handler_a(void) { }
+void handler_b(void) { }
+
+void dispatch(void *ctx) {
+    ctx->on_event(ctx);
+}
+
+void setup_a(void *ctx) { ctx->on_event = handler_a; }
+void setup_b(void *ctx) { ctx->on_event = handler_b; }
+"#;
+
+    let mut files = BTreeMap::new();
+    files.insert(
+        "src/multi.c".to_string(),
+        ParsedFile::parse("src/multi.c", source, Language::C).unwrap(),
+    );
+    let call_graph = CallGraph::build(&files);
+
+    let dispatch_id = &call_graph.functions.get("dispatch").unwrap()[0];
+    let dispatch_calls = call_graph.calls.get(dispatch_id).unwrap();
+    let callee_names: BTreeSet<&str> = dispatch_calls
+        .iter()
+        .map(|s| s.callee_name.as_str())
+        .collect();
+
+    assert!(
+        callee_names.contains("handler_a") && callee_names.contains("handler_b"),
+        "Level 4: multiple assignments should resolve both handlers, got: {:?}",
+        callee_names
+    );
+}
+
+#[test]
+fn test_no_false_resolution() {
+    // "callback" is also a function name, but the call has no qualifier — Level 4 shouldn't fire
+    let source = r#"
+void callback(void) { }
+
+void caller(void) {
+    callback();
+}
+"#;
+
+    let mut files = BTreeMap::new();
+    files.insert(
+        "src/direct.c".to_string(),
+        ParsedFile::parse("src/direct.c", source, Language::C).unwrap(),
+    );
+    let call_graph = CallGraph::build(&files);
+
+    let caller_id = &call_graph.functions.get("caller").unwrap()[0];
+    let caller_calls = call_graph.calls.get(caller_id).unwrap();
+    let callee_names: Vec<&str> = caller_calls
+        .iter()
+        .map(|s| s.callee_name.as_str())
+        .collect();
+
+    // Should only have "callback" as a direct call, not duplicated
+    assert_eq!(
+        callee_names.iter().filter(|&&n| n == "callback").count(),
+        1,
+        "Direct call to callback() should not trigger Level 4, got: {:?}",
+        callee_names
     );
 }

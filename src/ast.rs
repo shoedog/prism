@@ -2496,22 +2496,7 @@ pub fn resolve_fptr_assignment(
         //   and typedef:  callback_fn var_name = identifier;
 
         // Strategy: find `var_name` followed by `=` (but not `==`), then extract RHS identifier
-        if let Some(eq_pos) = trimmed.find('=') {
-            // Skip ==, !=, <=, >=
-            if eq_pos + 1 < trimmed.len() {
-                let after_eq = trimmed.as_bytes().get(eq_pos + 1);
-                if after_eq == Some(&b'=') {
-                    continue;
-                }
-            }
-            if eq_pos > 0 {
-                let before_eq = trimmed.as_bytes().get(eq_pos - 1);
-                if before_eq == Some(&b'!') || before_eq == Some(&b'<') || before_eq == Some(&b'>')
-                {
-                    continue;
-                }
-            }
-
+        if let Some(eq_pos) = find_assignment_eq(trimmed) {
             let lhs = trimmed[..eq_pos].trim();
             let rhs = trimmed[eq_pos + 1..].trim().trim_end_matches(';').trim();
 
@@ -2756,4 +2741,123 @@ fn is_plain_ident(s: &str) -> bool {
         && s.chars()
             .next()
             .map_or(false, |c| c.is_alphabetic() || c == '_')
+}
+
+/// Find the position of an assignment `=` in a trimmed line, skipping `==`, `!=`, `<=`, `>=`.
+/// Returns `None` if no plain assignment is found.
+pub fn find_assignment_eq(trimmed: &str) -> Option<usize> {
+    if let Some(eq_pos) = trimmed.find('=') {
+        // Skip ==
+        if eq_pos + 1 < trimmed.len() {
+            if trimmed.as_bytes().get(eq_pos + 1) == Some(&b'=') {
+                return None;
+            }
+        }
+        // Skip !=, <=, >=
+        if eq_pos > 0 {
+            let before = trimmed.as_bytes().get(eq_pos - 1);
+            if before == Some(&b'!') || before == Some(&b'<') || before == Some(&b'>') {
+                return None;
+            }
+        }
+        Some(eq_pos)
+    } else {
+        None
+    }
+}
+
+/// Scan source text for struct field assignments that assign a known function
+/// to a field with the given name.
+///
+/// Matches patterns:
+///   `anything->field_name = known_func;`
+///   `anything.field_name = known_func;`
+///   `.field_name = known_func` (designated initializer)
+///
+/// Returns all unique known function names found assigned to this field.
+pub fn resolve_struct_field_assignment(
+    source: &str,
+    field_name: &str,
+    known_fns: &BTreeSet<String>,
+) -> Vec<String> {
+    let mut targets = BTreeSet::new();
+    let arrow_pattern = format!("->{}", field_name);
+    let dot_pattern = format!(".{}", field_name);
+
+    for line in source.lines() {
+        let trimmed = line.trim();
+
+        // Must contain the field name with a struct accessor
+        let has_field = trimmed.contains(&arrow_pattern) || trimmed.contains(&dot_pattern);
+        if !has_field {
+            continue;
+        }
+
+        // A line may contain multiple `field = value` fragments (e.g. designated
+        // initializers inside braces: `{ .callback = handler, .data = NULL }`).
+        // Scan for every occurrence of the field pattern and check the assignment
+        // that follows it.
+        let mut search_from = 0usize;
+        while search_from < trimmed.len() {
+            // Find next occurrence of ->field or .field
+            let field_pos = trimmed[search_from..]
+                .find(&arrow_pattern)
+                .map(|p| (p + search_from, arrow_pattern.len()))
+                .or_else(|| {
+                    trimmed[search_from..]
+                        .find(&dot_pattern)
+                        .map(|p| (p + search_from, dot_pattern.len()))
+                });
+            let (pos, pat_len) = match field_pos {
+                Some(v) => v,
+                None => break,
+            };
+            let after_field = pos + pat_len;
+            search_from = after_field;
+
+            // After the field name, skip whitespace and look for '='
+            let rest = trimmed[after_field..].trim_start();
+            if !rest.starts_with('=') {
+                continue;
+            }
+            // Make sure it's not '=='
+            if rest.starts_with("==") {
+                continue;
+            }
+            let rhs = rest[1..].trim();
+            // Extract the identifier (stop at ';', ',', '}', ')', whitespace)
+            let rhs_end = rhs
+                .find(|c: char| c == ';' || c == ',' || c == '}' || c == ')' || c.is_whitespace())
+                .unwrap_or(rhs.len());
+            let rhs_token = rhs[..rhs_end].trim().trim_start_matches('&');
+            if !rhs_token.is_empty()
+                && rhs_token.chars().all(|c| c.is_alphanumeric() || c == '_')
+                && known_fns.contains(rhs_token)
+            {
+                targets.insert(rhs_token.to_string());
+            }
+        }
+    }
+
+    targets.into_iter().collect()
+}
+
+/// Collect line numbers containing ERROR or MISSING nodes (up to `max` lines).
+pub fn collect_error_lines(tree: &Tree, max: usize) -> Vec<usize> {
+    let mut lines = BTreeSet::new();
+    collect_error_lines_recursive(tree.root_node(), &mut lines, max);
+    lines.into_iter().collect()
+}
+
+fn collect_error_lines_recursive(node: Node<'_>, lines: &mut BTreeSet<usize>, max: usize) {
+    if lines.len() >= max {
+        return;
+    }
+    if node.is_error() || node.is_missing() {
+        lines.insert(node.start_position().row + 1);
+    }
+    let mut cursor = node.walk();
+    for child in node.children(&mut cursor) {
+        collect_error_lines_recursive(child, lines, max);
+    }
 }
