@@ -299,6 +299,64 @@ impl CallGraph {
             }
         }
 
+        // Level 4: struct field callback resolution (interprocedural).
+        //
+        // When a call goes through a struct field (timer->callback(data)),
+        // the callee_name is the field name ("callback") and qualifier is set.
+        // Search ALL functions and file scope for assignments like:
+        //   anything->field_name = known_func
+        //   anything.field_name = known_func
+        //   .field_name = known_func  (designated initializer)
+        let mut level4_sites: Vec<(FunctionId, CallSite)> = Vec::new();
+        for (caller_id, sites) in &calls {
+            for site in sites {
+                if functions.contains_key(&site.callee_name) {
+                    continue;
+                }
+                if site.qualifier.is_none() {
+                    continue; // Not a struct field call
+                }
+                if !site
+                    .callee_name
+                    .chars()
+                    .all(|c| c.is_alphanumeric() || c == '_')
+                {
+                    continue;
+                }
+                // Check if already resolved by earlier levels
+                let already_resolved = extra_sites.iter().any(|(cid, es)| {
+                    cid == caller_id
+                        && es.line == site.line
+                        && known_fn_names.contains(&es.callee_name)
+                });
+                if already_resolved {
+                    continue;
+                }
+
+                // Search ALL files for assignments to this field name
+                let field_name = &site.callee_name;
+                for (_, parsed) in files {
+                    let targets = crate::ast::resolve_struct_field_assignment(
+                        &parsed.source,
+                        field_name,
+                        &known_fn_names,
+                    );
+                    for target in targets {
+                        level4_sites.push((
+                            caller_id.clone(),
+                            CallSite {
+                                caller: caller_id.clone(),
+                                callee_name: target,
+                                line: site.line,
+                                qualifier: None,
+                            },
+                        ));
+                    }
+                }
+            }
+        }
+        extra_sites.extend(level4_sites);
+
         // Level 3: parameter-passed function pointers (1-hop interprocedural).
         //
         // When a function calls through a parameter (`cb(data)` where `cb` is a

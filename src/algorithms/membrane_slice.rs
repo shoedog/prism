@@ -217,6 +217,7 @@ pub fn slice(ctx: &CpgContext, diff: &DiffInput) -> Result<SliceResult> {
                                             related_lines: vec![],
                                             related_files: vec![diff_info.file_path.clone()],
                                             category: Some("unprotected_caller".to_string()),
+                                            parse_quality: None,
                                         });
                                     }
                                 }

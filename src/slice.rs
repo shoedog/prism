@@ -1,5 +1,18 @@
 use crate::diff::DiffBlock;
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
+
+/// Structured per-file parse quality information.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FileParseQuality {
+    pub error_count: usize,
+    pub node_count: usize,
+    pub error_rate: f64,
+    /// "clean" (<1%), "degraded" (1-10%), "poor" (10-30%), "unparseable" (>30%)
+    pub quality: String,
+    /// Lines containing ERROR nodes (first 20, to avoid bloat).
+    pub error_lines: Vec<usize>,
+}
 
 /// A structured finding from a slicing algorithm.
 /// Findings carry the *semantics* of what an algorithm detected.
@@ -21,6 +34,10 @@ pub struct SliceFinding {
     pub related_files: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub category: Option<String>,
+    /// Parse quality grade of the source file: "clean", "degraded", "poor", or "unparseable".
+    /// Set when the file has >1% ERROR nodes in its tree-sitter parse tree.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub parse_quality: Option<String>,
 }
 
 /// All slicing strategies.
@@ -316,6 +333,9 @@ pub struct MultiSliceResult {
     /// Parse quality warnings for input files (e.g. high ERROR-node rate).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub warnings: Vec<String>,
+    /// Structured per-file parse quality data.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub parse_quality: BTreeMap<String, FileParseQuality>,
 }
 
 /// A per-algorithm error captured during multi-algorithm runs.

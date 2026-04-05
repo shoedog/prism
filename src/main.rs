@@ -321,8 +321,8 @@ fn main() -> Result<()> {
         }
     };
 
-    // Check parse quality for all files and collect warnings once.
-    let parse_warnings = algorithms::check_parse_warnings(&files);
+    // Check parse quality for all files and collect warnings + structured data.
+    let (parse_warnings, parse_quality) = algorithms::check_parse_quality(&files);
 
     // Build CPG once — shared across all algorithm runs.
     // With --scoped-cpg, only process diff-changed files + direct callers/callees.
@@ -405,6 +405,7 @@ fn main() -> Result<()> {
                     all_findings,
                     errors: all_errors,
                     warnings: parse_warnings,
+                    parse_quality: parse_quality.clone(),
                 };
                 println!("{}", serde_json::to_string_pretty(&out)?);
             }
@@ -416,6 +417,7 @@ fn main() -> Result<()> {
                     findings: all_findings,
                     errors: all_errors,
                     warnings: parse_warnings,
+                    parse_quality,
                 };
                 println!("{}", serde_json::to_string_pretty(&multi)?);
             }

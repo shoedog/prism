@@ -193,6 +193,10 @@ path = "tests/ast/comment_string_test.rs"
 name = "ast_import"
 path = "tests/ast/import_test.rs"
 
+[[test]]
+name = "ast_parse_quality"
+path = "tests/ast/parse_quality_test.rs"
+
 # ── Language-specific tests ──
 
 [[test]]
