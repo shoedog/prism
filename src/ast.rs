@@ -1957,6 +1957,157 @@ impl ParsedFile {
         }
     }
 
+    /// Classify labels as cleanup-only (reachable only via goto) or
+    /// flow-through (also reachable from sequential execution).
+    ///
+    /// A label is cleanup-only if the statement immediately preceding it
+    /// is a flow-terminating statement (return, goto, break, continue).
+    /// If the preceding statement is normal code, sequential execution
+    /// falls through into the label — it's part of the normal path.
+    ///
+    /// Returns `(name, start, end, is_cleanup_only)` tuples.
+    pub fn classify_labels(&self, func_node: &Node<'_>) -> Vec<(String, usize, usize, bool)> {
+        let sections = self.label_sections(func_node);
+        let (func_start, _func_end) = self.node_line_range(func_node);
+
+        sections
+            .into_iter()
+            .map(|(name, start, end)| {
+                let is_cleanup = if start <= func_start + 1 {
+                    // Label at the very beginning of the function — flow-through
+                    false
+                } else {
+                    // Check lines immediately before the label for a flow terminator.
+                    // We scan backwards from label_start-1 to skip blank/brace lines.
+                    let mut found_terminator = false;
+                    for check_line in (func_start..start).rev() {
+                        let row = check_line.saturating_sub(1);
+                        if self.find_flow_terminator(self.tree.root_node(), row) {
+                            found_terminator = true;
+                            break;
+                        }
+                        // Check if this line has any real code (not just whitespace/braces)
+                        if let Some(line_str) = self.source.lines().nth(row) {
+                            let trimmed = line_str.trim();
+                            if !trimmed.is_empty() && trimmed != "}" && trimmed != "{" {
+                                // Found non-empty, non-brace code that isn't a terminator
+                                break;
+                            }
+                        }
+                    }
+                    found_terminator
+                };
+                (name, start, end, is_cleanup)
+            })
+            .collect()
+    }
+
+    /// Check if a given row (0-indexed) contains a flow-terminating statement.
+    fn find_flow_terminator(&self, node: Node<'_>, row: usize) -> bool {
+        if node.start_position().row == row
+            && matches!(
+                node.kind(),
+                "return_statement" | "goto_statement" | "break_statement" | "continue_statement"
+            )
+        {
+            return true;
+        }
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            if child.start_position().row <= row && child.end_position().row >= row {
+                if self.find_flow_terminator(child, row) {
+                    return true;
+                }
+            }
+        }
+        false
+    }
+
+    /// Partition a function's lines into normal-path lines and cleanup label sections.
+    ///
+    /// Returns `(normal_lines, label_lines)` where:
+    /// - `normal_lines` are lines NOT in any cleanup-only label section
+    /// - `label_lines` maps each cleanup-only label name to its line range
+    ///
+    /// Labels reachable via fall-through (no preceding flow terminator) are
+    /// considered part of the normal path. Only cleanup-only labels (preceded
+    /// by return/goto/break/continue) are separated out.
+    pub fn partition_by_labels(
+        &self,
+        func_node: &Node<'_>,
+    ) -> (Vec<usize>, BTreeMap<String, Vec<usize>>) {
+        let (func_start, func_end) = self.node_line_range(func_node);
+        let classified = self.classify_labels(func_node);
+        let cleanup_labels: Vec<_> = classified
+            .iter()
+            .filter(|(_, _, _, is_cleanup)| *is_cleanup)
+            .collect();
+
+        if cleanup_labels.is_empty() {
+            let normal: Vec<usize> = (func_start..=func_end).collect();
+            return (normal, BTreeMap::new());
+        }
+
+        // Build a set of all lines in cleanup-only label sections
+        let mut cleanup_line_set = std::collections::BTreeSet::new();
+        let mut label_map: BTreeMap<String, Vec<usize>> = BTreeMap::new();
+        for (name, start, end, _) in &cleanup_labels {
+            let lines: Vec<usize> = (*start..=*end).collect();
+            cleanup_line_set.extend(lines.iter().copied());
+            label_map.insert(name.clone(), lines);
+        }
+
+        let normal: Vec<usize> = (func_start..=func_end)
+            .filter(|l| !cleanup_line_set.contains(l))
+            .collect();
+
+        (normal, label_map)
+    }
+
+    /// Get all lines reachable from a `goto label`, including fall-through
+    /// to subsequent labels (unless a `return` breaks the fall-through).
+    ///
+    /// In the cascading kernel cleanup pattern:
+    /// ```c
+    ///   err_dev:
+    ///       kfree(dev);          // reachable from goto err_dev
+    ///   err_buf:                 // falls through from err_dev (no return above)
+    ///       kfree(buf);          // also reachable from goto err_dev
+    ///       return -1;
+    /// ```
+    ///
+    /// `goto err_dev` reaches both sections. `goto err_buf` reaches only err_buf.
+    pub fn lines_reachable_from_goto(
+        &self,
+        func_node: &Node<'_>,
+        target_label: &str,
+    ) -> Vec<usize> {
+        let label_secs = self.label_sections(func_node);
+        let returns = self.return_statements(func_node);
+        let return_set: std::collections::BTreeSet<usize> = returns.into_iter().collect();
+
+        let mut reachable = Vec::new();
+        let mut found_target = false;
+
+        for (name, start, end) in &label_secs {
+            if name == target_label {
+                found_target = true;
+            }
+            if !found_target {
+                continue;
+            }
+
+            reachable.extend(*start..=*end);
+
+            // Check if this section contains a return — if so, fall-through stops
+            if (*start..=*end).any(|l| return_set.contains(&l)) {
+                break;
+            }
+        }
+
+        reachable
+    }
+
     /// Find the enclosing control flow block (if/for/while) for a given line,
     /// and return its start and end lines.
     pub fn enclosing_branch(&self, line: usize) -> Option<(usize, usize)> {

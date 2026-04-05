@@ -14,7 +14,7 @@ use crate::ast::ParsedFile;
 use crate::diff::{DiffBlock, DiffInput, ModifyType};
 use crate::slice::{SliceFinding, SliceResult, SlicingAlgorithm};
 use anyhow::Result;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 /// A paired operation pattern.
 #[derive(Debug, Clone)]
@@ -476,6 +476,30 @@ fn call_name_matches_pattern(call_name: &str, pattern_base: &str) -> bool {
     false
 }
 
+/// Check if a close call on a given line matches the resource variable.
+///
+/// Uses `call_argument_texts` to extract the argument of the close call and
+/// checks if it contains the resource variable name. Handles direct access
+/// (`kfree(buf)`) and field access (`kfree(frame->buf)`, `kfree(state.buf)`).
+fn close_matches_resource(
+    parsed: &ParsedFile,
+    close_line: usize,
+    close_fn_base: &str,
+    resource_var: &str,
+) -> bool {
+    let args = parsed.call_argument_texts(close_line, close_fn_base);
+    if args.is_empty() {
+        // Couldn't extract arguments — fall back to permissive match
+        return true;
+    }
+    args.iter().any(|arg| {
+        let parts: Vec<&str> = arg
+            .split(|c: char| c == '-' || c == '>' || c == '.')
+            .collect();
+        parts.iter().any(|p| p.trim() == resource_var)
+    })
+}
+
 pub fn slice(files: &BTreeMap<String, ParsedFile>, diff: &DiffInput) -> Result<SliceResult> {
     let mut result = SliceResult::new(SlicingAlgorithm::AbsenceSlice);
     let pairs = default_pairs();
@@ -532,17 +556,100 @@ pub fn slice(files: &BTreeMap<String, ParsedFile>, diff: &DiffInput) -> Result<S
                 let func_calls = parsed.call_names_on_lines(&func_lines);
 
                 // Search the entire function for the close counterpart.
-                let has_close = pair.close_patterns.iter().any(|p| {
-                    if let Some(base) = pattern_to_call_base(p) {
-                        func_calls
-                            .values()
-                            .any(|names| names.iter().any(|n| call_name_matches_pattern(n, base)))
-                    } else {
-                        (func_start..=func_end).any(|l| {
-                            l > 0 && l <= source_lines.len() && parsed.line_has_code_text(l, p)
-                        })
-                    }
-                });
+                // For C/C++ functions with goto/label patterns, use path-aware
+                // checking to distinguish normal-path close from error-path-only close.
+                let gotos = parsed.goto_statements(&func_node);
+                let label_secs = parsed.label_sections(&func_node);
+                let has_goto_patterns = !gotos.is_empty()
+                    && !label_secs.is_empty()
+                    && matches!(
+                        parsed.language,
+                        crate::languages::Language::C | crate::languages::Language::Cpp
+                    );
+
+                // Extract the resource variable from the open line for
+                // variable-aware close matching (e.g., kfree(buf) vs kfree(dev)).
+                let resource_var = if has_goto_patterns {
+                    let lines_set = BTreeSet::from([diff_line]);
+                    let lvalues = parsed.assignment_lvalues_on_lines(&func_node, &lines_set);
+                    lvalues
+                        .into_iter()
+                        .find(|(_, l)| *l == diff_line)
+                        .map(|(name, _)| name)
+                } else {
+                    None
+                };
+
+                let (has_close, close_only_on_error_path) = if has_goto_patterns {
+                    let (normal_lines, _label_map) = parsed.partition_by_labels(&func_node);
+                    let normal_set: BTreeSet<usize> = normal_lines.into_iter().collect();
+
+                    // Check normal path (lines before any cleanup labels)
+                    let has_close_normal = pair.close_patterns.iter().any(|p| {
+                        if let Some(base) = pattern_to_call_base(p) {
+                            func_calls
+                                .iter()
+                                .filter(|(line, _)| normal_set.contains(line))
+                                .any(|(line, names)| {
+                                    names.iter().any(|n| call_name_matches_pattern(n, base))
+                                        && match &resource_var {
+                                            Some(var) => {
+                                                close_matches_resource(parsed, *line, base, var)
+                                            }
+                                            None => true,
+                                        }
+                                })
+                        } else {
+                            normal_set.iter().any(|&l| {
+                                l > 0 && l <= source_lines.len() && parsed.line_has_code_text(l, p)
+                            })
+                        }
+                    });
+
+                    // Check error paths (cleanup label sections)
+                    let has_close_error = pair.close_patterns.iter().any(|p| {
+                        if let Some(base) = pattern_to_call_base(p) {
+                            func_calls
+                                .iter()
+                                .filter(|(line, _)| !normal_set.contains(line))
+                                .any(|(line, names)| {
+                                    names.iter().any(|n| call_name_matches_pattern(n, base))
+                                        && match &resource_var {
+                                            Some(var) => {
+                                                close_matches_resource(parsed, *line, base, var)
+                                            }
+                                            None => true,
+                                        }
+                                })
+                        } else {
+                            (func_start..=func_end)
+                                .filter(|l| !normal_set.contains(l))
+                                .any(|l| {
+                                    l > 0
+                                        && l <= source_lines.len()
+                                        && parsed.line_has_code_text(l, p)
+                                })
+                        }
+                    });
+
+                    let has_close = has_close_normal || has_close_error;
+                    let close_only_error = has_close_error && !has_close_normal;
+                    (has_close, close_only_error)
+                } else {
+                    // Non-goto functions: keep existing linear scan (no behavior change)
+                    let has_close = pair.close_patterns.iter().any(|p| {
+                        if let Some(base) = pattern_to_call_base(p) {
+                            func_calls.values().any(|names| {
+                                names.iter().any(|n| call_name_matches_pattern(n, base))
+                            })
+                        } else {
+                            (func_start..=func_end).any(|l| {
+                                l > 0 && l <= source_lines.len() && parsed.line_has_code_text(l, p)
+                            })
+                        }
+                    });
+                    (has_close, false)
+                };
 
                 // Also check for language-specific cleanup patterns and C++ RAII.
                 // RAII types manage cleanup automatically on destruction, so absence
@@ -623,11 +730,190 @@ pub fn slice(files: &BTreeMap<String, ParsedFile>, diff: &DiffInput) -> Result<S
                     block_id += 1;
                 }
 
+                // When close exists ONLY on error paths (goto label sections),
+                // flag it as an informational finding. This catches the kernel pattern
+                // where cleanup labels handle error cases but the normal return path
+                // leaks the resource.
+                if close_only_on_error_path && !has_defer_or_finally {
+                    let returns_on_normal = parsed
+                        .return_statements(&func_node)
+                        .into_iter()
+                        .filter(|&r| {
+                            // Only returns on the normal path (before first cleanup label)
+                            let first_label = label_secs
+                                .first()
+                                .map(|(_, l, _)| *l)
+                                .unwrap_or(func_end + 1);
+                            r < first_label
+                        })
+                        .collect::<Vec<_>>();
+
+                    if !returns_on_normal.is_empty() {
+                        let mut block = DiffBlock::new(
+                            block_id,
+                            diff_info.file_path.clone(),
+                            ModifyType::Modified,
+                        );
+                        block.add_line(&diff_info.file_path, func_start, false);
+                        block.add_line(&diff_info.file_path, diff_line, true);
+                        for &ret in &returns_on_normal {
+                            block.add_line(&diff_info.file_path, ret, true);
+                        }
+                        for (_, label_line, _) in &label_secs {
+                            block.add_line(&diff_info.file_path, *label_line, false);
+                        }
+                        block.add_line(&diff_info.file_path, func_end, false);
+
+                        let mut related: Vec<usize> = returns_on_normal.clone();
+                        related.extend(label_secs.iter().map(|(_, l, _)| *l));
+
+                        result.findings.push(SliceFinding {
+                            algorithm: "absence".to_string(),
+                            file: diff_info.file_path.clone(),
+                            line: diff_line,
+                            severity: "info".to_string(),
+                            description: format!(
+                                "{} in '{}': close only reachable via error path (goto), \
+                                 not on normal return at line {}",
+                                pair.description,
+                                func_name,
+                                returns_on_normal.first().unwrap_or(&func_end),
+                            ),
+                            function_name: Some(func_name.clone()),
+                            related_lines: related,
+                            related_files: vec![],
+                            category: Some("close_only_on_error_path".to_string()),
+                            parse_quality: None,
+                        });
+                        result.blocks.push(block);
+                        block_id += 1;
+                    }
+                }
+
+                // Missing close on specific error paths.
+                //
+                // For each forward goto in the function, check if the target label's
+                // reachable section (including fall-through) contains the close
+                // for resources opened before the goto. Backward gotos (retry loops)
+                // are skipped — they are not error cleanup paths.
+                if has_goto_patterns && has_open {
+                    for (goto_label, goto_line) in &gotos {
+                        // Only check gotos that are AFTER the open
+                        if *goto_line <= diff_line {
+                            continue;
+                        }
+
+                        // Skip gotos that are the immediate null-check for the
+                        // current allocation. Pattern: `dev = kmalloc(64);
+                        // if (!dev) goto err_buf;` — dev is NULL on this path,
+                        // no need to free it. Heuristic: goto is within 2 lines
+                        // of the open and a resource variable was extracted.
+                        if resource_var.is_some() && *goto_line <= diff_line + 2 {
+                            continue;
+                        }
+
+                        // Only analyze forward gotos (error cleanup pattern).
+                        let target_line = label_secs
+                            .iter()
+                            .find(|(name, _, _)| name == goto_label)
+                            .map(|(_, line, _)| *line);
+                        match target_line {
+                            Some(tl) if tl > *goto_line => { /* forward goto — analyze */ }
+                            _ => continue, // backward or unknown — skip
+                        }
+
+                        let reachable = parsed.lines_reachable_from_goto(&func_node, goto_label);
+                        let reachable_set: BTreeSet<usize> = reachable.into_iter().collect();
+
+                        // Check if ANY close pattern is present in the reachable section
+                        let has_close_on_this_path = pair.close_patterns.iter().any(|p| {
+                            if let Some(base) = pattern_to_call_base(p) {
+                                func_calls
+                                    .iter()
+                                    .filter(|(line, _)| reachable_set.contains(line))
+                                    .any(|(line, names)| {
+                                        names.iter().any(|n| call_name_matches_pattern(n, base))
+                                            && match &resource_var {
+                                                Some(var) => {
+                                                    close_matches_resource(parsed, *line, base, var)
+                                                }
+                                                None => true,
+                                            }
+                                    })
+                            } else {
+                                reachable_set.iter().any(|&l| {
+                                    l > 0
+                                        && l <= source_lines.len()
+                                        && parsed.line_has_code_text(l, p)
+                                })
+                            }
+                        });
+
+                        // Also check if close appears between open and goto (inline cleanup)
+                        let has_inline_close = pair.close_patterns.iter().any(|p| {
+                            if let Some(base) = pattern_to_call_base(p) {
+                                (diff_line..=*goto_line).any(|l| {
+                                    func_calls.get(&l).map_or(false, |names| {
+                                        names.iter().any(|n| call_name_matches_pattern(n, base))
+                                            && match &resource_var {
+                                                Some(var) => {
+                                                    close_matches_resource(parsed, l, base, var)
+                                                }
+                                                None => true,
+                                            }
+                                    })
+                                })
+                            } else {
+                                (diff_line..=*goto_line).any(|l| {
+                                    l > 0
+                                        && l <= source_lines.len()
+                                        && parsed.line_has_code_text(l, p)
+                                })
+                            }
+                        });
+
+                        if !has_close_on_this_path && !has_inline_close {
+                            let mut block = DiffBlock::new(
+                                block_id,
+                                diff_info.file_path.clone(),
+                                ModifyType::Modified,
+                            );
+                            block.add_line(&diff_info.file_path, diff_line, true);
+                            block.add_line(&diff_info.file_path, *goto_line, true);
+                            if let Some((_, label_start, _)) =
+                                label_secs.iter().find(|(name, _, _)| name == goto_label)
+                            {
+                                block.add_line(&diff_info.file_path, *label_start, false);
+                            }
+
+                            result.findings.push(SliceFinding {
+                                algorithm: "absence".to_string(),
+                                file: diff_info.file_path.clone(),
+                                line: diff_line,
+                                severity: "warning".to_string(),
+                                description: format!(
+                                    "{} in '{}': resource opened at line {} not freed on \
+                                     error path 'goto {}' at line {}",
+                                    pair.description, func_name, diff_line, goto_label, goto_line,
+                                ),
+                                function_name: Some(func_name.clone()),
+                                related_lines: vec![*goto_line],
+                                related_files: vec![],
+                                category: Some("missing_close_on_error_path".to_string()),
+                                parse_quality: None,
+                            });
+                            result.blocks.push(block);
+                            block_id += 1;
+                        }
+                    }
+                }
+
                 // Double-close detection for C/C++ goto error paths.
                 //
                 // Detects when a close operation (free, unlock, etc.) appears both
-                // inline before a goto AND in the goto target label section. This is
-                // the classic kernel double-free/double-unlock bug pattern:
+                // inline before a goto AND in the goto target's reachable section
+                // (including fall-through to subsequent labels). This is the classic
+                // kernel double-free/double-unlock bug pattern:
                 //
                 //   if (error) {
                 //       free(buf);         // inline close
@@ -637,23 +923,11 @@ pub fn slice(files: &BTreeMap<String, ParsedFile>, diff: &DiffInput) -> Result<S
                 //   cleanup:
                 //       free(buf);         // label close — double-free!
                 //
-                // Known limitation: matches on function name (e.g. "free"), not
-                // on which argument is freed. `free(a)` inline + `free(b)` in
-                // the label will false-positive. The finding includes line numbers
-                // so a human or LLM reviewer can verify.
+                // Uses lines_reachable_from_goto to handle cascading labels where
+                // fall-through means a close in a later label is also reachable.
                 //
-                if has_close
-                    && matches!(
-                        parsed.language,
-                        crate::languages::Language::C | crate::languages::Language::Cpp
-                    )
-                {
-                    let gotos = parsed.goto_statements(&func_node);
-                    let label_sections = parsed.label_sections(&func_node);
-
-                    if !gotos.is_empty() && !label_sections.is_empty() {
-                        // For each close pattern, check if it appears both before
-                        // a goto AND in the target label's section.
+                if has_close && has_goto_patterns {
+                    if !gotos.is_empty() && !label_secs.is_empty() {
                         for close_pattern in &pair.close_patterns {
                             let close_base = match pattern_to_call_base(close_pattern) {
                                 Some(b) => b,
@@ -674,18 +948,20 @@ pub fn slice(files: &BTreeMap<String, ParsedFile>, diff: &DiffInput) -> Result<S
                                     continue;
                                 }
 
-                                // Find the target label section
-                                if let Some((_, label_start, label_end)) = label_sections
-                                    .iter()
-                                    .find(|(name, _, _)| name == goto_label)
-                                {
-                                    // Check if close also appears in the label section
-                                    let label_close_lines: Vec<usize> = (*label_start..=*label_end)
-                                        .filter(|&l| {
+                                // Use lines_reachable_from_goto for fall-through support
+                                let reachable_lines =
+                                    parsed.lines_reachable_from_goto(&func_node, goto_label);
+                                let reachable_set: BTreeSet<usize> =
+                                    reachable_lines.into_iter().collect();
+                                if !reachable_set.is_empty() {
+                                    let label_close_lines: Vec<usize> = reachable_set
+                                        .iter()
+                                        .filter(|&&l| {
                                             func_calls.get(&l).map_or(false, |names| {
                                                 names.iter().any(|n| n.contains(close_base))
                                             })
                                         })
+                                        .copied()
                                         .collect();
 
                                     if !label_close_lines.is_empty() {
@@ -696,15 +972,11 @@ pub fn slice(files: &BTreeMap<String, ParsedFile>, diff: &DiffInput) -> Result<S
                                             ModifyType::Modified,
                                         );
 
-                                        // Show the open
                                         block.add_line(&diff_info.file_path, diff_line, true);
-                                        // Show inline close(s)
                                         for &cl in &inline_close_lines {
                                             block.add_line(&diff_info.file_path, cl, true);
                                         }
-                                        // Show goto
                                         block.add_line(&diff_info.file_path, *goto_line, false);
-                                        // Show label close(s)
                                         for &cl in &label_close_lines {
                                             block.add_line(&diff_info.file_path, cl, true);
                                         }
