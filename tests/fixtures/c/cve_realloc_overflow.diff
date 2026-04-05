@@ -1,0 +1,11 @@
+--- a/cve_realloc_overflow.c
++++ b/cve_realloc_overflow.c
+@@ -7,5 +7,8 @@
+ void append_data(struct msg_buf *buf, const char *chunk, size_t chunk_len) {
+     if (buf->len + chunk_len > buf->cap) {
++        buf->data = realloc(buf->data, buf->len + chunk_len);
++        buf->cap = buf->len + chunk_len;
+     }
++    memcpy(buf->data + buf->len, chunk, chunk_len);
+     buf->len += chunk_len;
+ }

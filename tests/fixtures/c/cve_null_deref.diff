@@ -1,0 +1,9 @@
+--- a/cve_null_deref.c
++++ b/cve_null_deref.c
+@@ -5,4 +5,7 @@
+
+ void init_buffers(int count) {
++    struct buffer *bufs = kmalloc(count * sizeof(struct buffer), 0);
++    bufs[0].data = kmalloc(1024, 0);
++    bufs[0].len = 1024;
+ }

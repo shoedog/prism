@@ -212,6 +212,10 @@ name = "lang_c_cve"
 path = "tests/lang/c/cve_test.rs"
 
 [[test]]
+name = "lang_c_cve_fixture"
+path = "tests/lang/c/cve_fixture_test.rs"
+
+[[test]]
 name = "lang_c_complex"
 path = "tests/lang/c/complex_test.rs"
 
