@@ -752,3 +752,147 @@ class Foo {
         subtypes
     );
 }
+
+// ---------------------------------------------------------------------------
+// Dispatch RTA fallback
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_ts_dispatch_rta_fallback() {
+    let source = r#"
+interface Processor {
+    process(): void;
+}
+
+class FastProcessor implements Processor {
+    process(): void {}
+}
+"#;
+    let files = parse_ts("proc.ts", source);
+    let provider = TypeScriptTypeProvider::from_parsed_files(&files);
+
+    // RTA with no matching live types should fall back to full set.
+    let live = BTreeSet::from(["UnrelatedType".to_string()]);
+    let results = provider.resolve_dispatch("Processor", "process", &live);
+    assert_eq!(results.len(), 1, "Should fall back to full set");
+}
+
+// ---------------------------------------------------------------------------
+// Dispatch nonexistent method/type
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_ts_dispatch_nonexistent_method() {
+    let source = r#"
+class Service {
+    run(): void {}
+}
+"#;
+    let files = parse_ts("svc.ts", source);
+    let provider = TypeScriptTypeProvider::from_parsed_files(&files);
+
+    assert!(provider
+        .resolve_dispatch("Service", "nonExistent", &BTreeSet::new())
+        .is_empty());
+    assert!(provider
+        .resolve_dispatch("Unknown", "run", &BTreeSet::new())
+        .is_empty());
+}
+
+// ---------------------------------------------------------------------------
+// CpgContext integration
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_ts_cpg_context_integration() {
+    let source = r#"
+interface Logger {
+    log(msg: string): void;
+}
+
+class ConsoleLogger implements Logger {
+    log(msg: string): void {}
+}
+"#;
+    let parsed = ParsedFile::parse("logger.ts", source, Language::TypeScript).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert("logger.ts".to_string(), parsed);
+
+    let ctx = prism::cpg::CpgContext::build(&files, None);
+
+    let tp = ctx.types.provider_for(Language::TypeScript);
+    assert!(tp.is_some(), "TS provider should be auto-registered");
+    let tp = tp.unwrap();
+    assert_eq!(
+        tp.resolve_type("logger.ts", "Logger", 0).unwrap().kind,
+        ResolvedTypeKind::Interface
+    );
+
+    let dp = ctx.types.dispatch_for(Language::TypeScript);
+    assert!(dp.is_some());
+    let targets = dp
+        .unwrap()
+        .resolve_dispatch("Logger", "log", &BTreeSet::new());
+    assert_eq!(targets.len(), 1);
+
+    let sp = ctx.types.structural_for(Language::TypeScript);
+    assert!(
+        sp.is_some(),
+        "TS structural provider should be auto-registered"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Non-TS files ignored
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_ts_ignores_non_ts_files() {
+    let ts_parsed = ParsedFile::parse(
+        "svc.ts",
+        "interface Svc { run(): void; }",
+        Language::TypeScript,
+    )
+    .unwrap();
+    let go_parsed =
+        ParsedFile::parse("main.go", "package main\nfunc main() {}\n", Language::Go).unwrap();
+
+    let mut files = BTreeMap::new();
+    files.insert("svc.ts".to_string(), ts_parsed);
+    files.insert("main.go".to_string(), go_parsed);
+
+    let provider = TypeScriptTypeProvider::from_parsed_files(&files);
+    assert!(provider.resolve_type("svc.ts", "Svc", 0).is_some());
+    assert!(provider.resolve_type("main.go", "main", 0).is_none());
+}
+
+// ---------------------------------------------------------------------------
+// Multiple interface implementation
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_ts_multiple_implements() {
+    let source = r#"
+interface Readable {
+    read(): string;
+}
+
+interface Writable {
+    write(data: string): void;
+}
+
+class FileStream implements Readable, Writable {
+    read(): string { return ""; }
+    write(data: string): void {}
+}
+"#;
+    let files = parse_ts("stream.ts", source);
+    let provider = TypeScriptTypeProvider::from_parsed_files(&files);
+
+    assert!(provider
+        .subtypes_of("Readable")
+        .contains(&"FileStream".to_string()));
+    assert!(provider
+        .subtypes_of("Writable")
+        .contains(&"FileStream".to_string()));
+}
