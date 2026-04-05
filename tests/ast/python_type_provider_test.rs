@@ -742,3 +742,223 @@ class Decorated:
         .resolve_type("decorated.py", "Decorated", 0)
         .is_some());
 }
+
+// ---------------------------------------------------------------------------
+// Bare annotation type strings (reviewer item #1)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_python_bare_annotation_type_strings() {
+    // Verify that bare annotations (no default) extract the type string correctly.
+    let source = r#"
+class Config:
+    host: str
+    port: int
+    debug: bool
+    timeout: float = 30.0
+"#;
+    let files = parse_python("config.py", source);
+    let provider = PythonTypeProvider::from_parsed_files(&files);
+
+    let fields = provider.field_layout("Config").unwrap();
+    let field_map: BTreeMap<&str, &str> = fields
+        .iter()
+        .map(|f| (f.name.as_str(), f.type_str.as_str()))
+        .collect();
+    // Bare annotations — no default value.
+    assert_eq!(field_map.get("host"), Some(&"str"));
+    assert_eq!(field_map.get("port"), Some(&"int"));
+    assert_eq!(field_map.get("debug"), Some(&"bool"));
+    // Annotated assignment — with default value.
+    assert_eq!(field_map.get("timeout"), Some(&"float"));
+}
+
+// ---------------------------------------------------------------------------
+// Dotted base class (e.g., abc.ABC)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_python_dotted_base_class() {
+    let source = r#"
+import abc
+
+class MyABC(abc.ABC):
+    def abstract_method(self) -> None:
+        pass
+"#;
+    let files = parse_python("myabc.py", source);
+    let provider = PythonTypeProvider::from_parsed_files(&files);
+
+    assert!(provider.resolve_type("myabc.py", "MyABC", 0).is_some());
+}
+
+// ---------------------------------------------------------------------------
+// Generic base with subscript (e.g., Generic[T])
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_python_generic_subscript_base() {
+    let source = r#"
+from typing import Generic, TypeVar
+
+T = TypeVar("T")
+
+class Stack(Generic[T]):
+    items: list
+
+    def push(self, item: object) -> None:
+        pass
+
+    def pop(self) -> object:
+        pass
+"#;
+    let files = parse_python("stack.py", source);
+    let provider = PythonTypeProvider::from_parsed_files(&files);
+
+    assert!(provider.resolve_type("stack.py", "Stack", 0).is_some());
+    let fields = provider.field_layout("Stack").unwrap();
+    let names: Vec<&str> = fields.iter().map(|f| f.name.as_str()).collect();
+    assert!(names.contains(&"items"));
+    assert!(names.contains(&"push"));
+    assert!(names.contains(&"pop"));
+}
+
+// ---------------------------------------------------------------------------
+// Dotted decorator path (dataclasses.dataclass)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_python_dotted_dataclass_decorator() {
+    let source = r#"
+import dataclasses
+
+@dataclasses.dataclass
+class Coords:
+    lat: float
+    lng: float
+"#;
+    let files = parse_python("coords.py", source);
+    let provider = PythonTypeProvider::from_parsed_files(&files);
+
+    assert!(provider.resolve_type("coords.py", "Coords", 0).is_some());
+    let fields = provider.field_layout("Coords").unwrap();
+    let names: Vec<&str> = fields.iter().map(|f| f.name.as_str()).collect();
+    assert!(names.contains(&"lat"));
+    assert!(names.contains(&"lng"));
+}
+
+// ---------------------------------------------------------------------------
+// Decorated top-level function
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_python_decorated_top_level_function() {
+    let source = r#"
+def decorator(f):
+    return f
+
+@decorator
+def process(data: str) -> bool:
+    return True
+"#;
+    let files = parse_python("decorated_fn.py", source);
+    let provider = PythonTypeProvider::from_parsed_files(&files);
+
+    // Decorated functions are extracted.
+    // resolve_type doesn't return functions, but the function is stored internally.
+    // Verify the provider doesn't crash on decorated top-level functions.
+    assert!(provider
+        .resolve_type("decorated_fn.py", "process", 0)
+        .is_none());
+}
+
+// ---------------------------------------------------------------------------
+// Function with no return type
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_python_function_no_return_type() {
+    let source = r#"
+def fire_and_forget(msg: str):
+    print(msg)
+"#;
+    let files = parse_python("noret.py", source);
+    let provider = PythonTypeProvider::from_parsed_files(&files);
+
+    // Should not crash. Functions aren't resolvable as types.
+    assert!(provider
+        .resolve_type("noret.py", "fire_and_forget", 0)
+        .is_none());
+}
+
+// ---------------------------------------------------------------------------
+// Method signature includes params and return type
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_python_method_signature() {
+    let source = r#"
+class Calculator:
+    def add(self, a: int, b: int) -> int:
+        return a + b
+
+    def reset(self) -> None:
+        pass
+"#;
+    let files = parse_python("calc.py", source);
+    let provider = PythonTypeProvider::from_parsed_files(&files);
+
+    let fields = provider.field_layout("Calculator").unwrap();
+    let add = fields.iter().find(|f| f.name == "add");
+    assert!(add.is_some());
+    let sig = &add.unwrap().type_str;
+    assert!(sig.contains("->"), "Expected return type in sig: {:?}", sig);
+    assert!(sig.contains("int"), "Expected 'int' in sig: {:?}", sig);
+
+    let reset = fields.iter().find(|f| f.name == "reset");
+    assert!(reset.is_some());
+    assert!(reset.unwrap().type_str.contains("None"));
+}
+
+// ---------------------------------------------------------------------------
+// Class with no superclasses
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_python_class_no_superclasses() {
+    let source = r#"
+class Standalone:
+    value: int
+
+    def get(self) -> int:
+        return self.value
+"#;
+    let files = parse_python("standalone.py", source);
+    let provider = PythonTypeProvider::from_parsed_files(&files);
+
+    assert!(provider.subtypes_of("Standalone").is_empty());
+    let fields = provider.field_layout("Standalone").unwrap();
+    assert!(!fields.is_empty());
+}
+
+// ---------------------------------------------------------------------------
+// Typed default parameter in function
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_python_typed_default_parameter() {
+    let source = r#"
+class Paginator:
+    def paginate(self, page: int = 1, size: int = 20) -> list:
+        return []
+"#;
+    let files = parse_python("paginator.py", source);
+    let provider = PythonTypeProvider::from_parsed_files(&files);
+
+    let fields = provider.field_layout("Paginator").unwrap();
+    let paginate = fields.iter().find(|f| f.name == "paginate");
+    assert!(paginate.is_some());
+    let sig = &paginate.unwrap().type_str;
+    // Signature should include params and return type.
+    assert!(sig.contains("->"), "Expected return type in sig: {:?}", sig);
+}
