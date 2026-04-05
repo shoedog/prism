@@ -469,3 +469,474 @@ void process() {
     assert!(has_x, "C: 'x' should have L-value");
     assert!(has_ptr, "C: 'ptr' should have L-value");
 }
+
+// --- Goto-based error path tracking tests ---
+
+#[test]
+fn test_close_only_on_error_path() {
+    let source = r#"
+int init(void) {
+    char *buf = kmalloc(256);
+    if (!buf) return -1;
+    int ret = process(buf);
+    if (ret < 0) goto err;
+    return 0;
+err:
+    kfree(buf);
+    return -1;
+}
+"#;
+
+    let path = "src/init.c";
+    let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([3]),
+        }],
+    };
+
+    let result = algorithms::run_slicing_compat(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::AbsenceSlice),
+        None,
+    )
+    .unwrap();
+
+    let error_path_findings: Vec<_> = result
+        .findings
+        .iter()
+        .filter(|f| f.category.as_deref() == Some("close_only_on_error_path"))
+        .collect();
+    assert!(
+        !error_path_findings.is_empty(),
+        "Should detect close only on error path for kmalloc, got findings: {:?}",
+        result.findings
+    );
+    assert_eq!(
+        error_path_findings[0].severity, "info",
+        "close_only_on_error_path should be info severity"
+    );
+}
+
+#[test]
+fn test_cascading_goto_fall_through() {
+    let source = r#"
+int init(void) {
+    char *buf = kmalloc(256);
+    if (!buf) return -1;
+    char *dev = kmalloc(64);
+    if (!dev) goto err_buf;
+    int ret = register_dev(dev);
+    if (ret < 0) goto err_dev;
+    return 0;
+err_dev:
+    kfree(dev);
+err_buf:
+    kfree(buf);
+    return -1;
+}
+"#;
+
+    let path = "src/cascade.c";
+    let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([3, 5]),
+        }],
+    };
+
+    let result = algorithms::run_slicing_compat(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::AbsenceSlice),
+        None,
+    )
+    .unwrap();
+
+    // Both kmalloc lines should have close_only_on_error_path findings
+    let error_path_findings: Vec<_> = result
+        .findings
+        .iter()
+        .filter(|f| f.category.as_deref() == Some("close_only_on_error_path"))
+        .collect();
+    assert!(
+        !error_path_findings.is_empty(),
+        "Should detect close_only_on_error_path for cascading gotos, got: {:?}",
+        result.findings
+    );
+
+    // No missing_close_on_error_path: goto err_dev reaches kfree(dev) directly
+    // and kfree(buf) via fall-through; goto err_buf reaches kfree(buf) directly
+    let missing_findings: Vec<_> = result
+        .findings
+        .iter()
+        .filter(|f| f.category.as_deref() == Some("missing_close_on_error_path"))
+        .collect();
+    assert!(
+        missing_findings.is_empty(),
+        "Correct cascading cleanup should not flag missing_close_on_error_path, got: {:?}",
+        missing_findings
+    );
+}
+
+#[test]
+fn test_missing_close_on_error_path() {
+    // dev is allocated successfully, then a DIFFERENT error triggers goto err
+    // which only frees buf but NOT dev — a real resource leak.
+    let source = r#"
+int init(void) {
+    char *buf = kmalloc(256);
+    if (!buf) return -1;
+    char *dev = kmalloc(64);
+    if (!dev) goto err;
+    int ret = register_dev(dev);
+    if (ret < 0) goto err;
+    return 0;
+err:
+    kfree(buf);
+    return -1;
+}
+"#;
+
+    let path = "src/missing.c";
+    let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    // Diff touches line 5 (dev = kmalloc). The goto at line 8 (ret < 0)
+    // goes to err which only frees buf, not dev.
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([5]),
+        }],
+    };
+
+    let result = algorithms::run_slicing_compat(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::AbsenceSlice),
+        None,
+    )
+    .unwrap();
+
+    let missing_findings: Vec<_> = result
+        .findings
+        .iter()
+        .filter(|f| f.category.as_deref() == Some("missing_close_on_error_path"))
+        .collect();
+    assert!(
+        !missing_findings.is_empty(),
+        "Should detect dev not freed on 'goto err' path (ret < 0), got: {:?}",
+        result.findings
+    );
+    assert_eq!(
+        missing_findings[0].severity, "warning",
+        "missing_close_on_error_path should be warning severity"
+    );
+}
+
+#[test]
+fn test_correct_goto_no_close_only_finding() {
+    let source = r#"
+int init(void) {
+    char *buf = kmalloc(256);
+    if (!buf) return -1;
+    char *dev = kmalloc(64);
+    if (!dev) goto err_buf;
+    use(buf, dev);
+    kfree(dev);
+    kfree(buf);
+    return 0;
+err_buf:
+    kfree(buf);
+    return -1;
+}
+"#;
+
+    let path = "src/correct.c";
+    let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([3, 5]),
+        }],
+    };
+
+    let result = algorithms::run_slicing_compat(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::AbsenceSlice),
+        None,
+    )
+    .unwrap();
+
+    let error_only_findings: Vec<_> = result
+        .findings
+        .iter()
+        .filter(|f| f.category.as_deref() == Some("close_only_on_error_path"))
+        .collect();
+    assert!(
+        error_only_findings.is_empty(),
+        "Both buf and dev have close on normal path — no close_only_on_error_path expected, got: {:?}",
+        error_only_findings
+    );
+}
+
+#[test]
+fn test_no_goto_functions_unchanged() {
+    let source = r#"
+void process(void) {
+    char *buf = malloc(256);
+    use(buf);
+}
+"#;
+
+    let path = "src/nogoto.c";
+    let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([3]),
+        }],
+    };
+
+    let result = algorithms::run_slicing_compat(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::AbsenceSlice),
+        None,
+    )
+    .unwrap();
+
+    let missing_counterpart: Vec<_> = result
+        .findings
+        .iter()
+        .filter(|f| f.category.as_deref() == Some("missing_counterpart"))
+        .collect();
+    assert!(
+        !missing_counterpart.is_empty(),
+        "Non-goto function missing free should still fire missing_counterpart, got: {:?}",
+        result.findings
+    );
+}
+
+#[test]
+fn test_cascading_double_free_fall_through() {
+    let source = r#"
+int init(void) {
+    char *buf = kmalloc(256);
+    if (error) {
+        kfree(buf);
+        goto err_dev;
+    }
+    return 0;
+err_dev:
+    kfree(dev);
+err_buf:
+    kfree(buf);
+    return -1;
+}
+"#;
+
+    let path = "src/double_cascade.c";
+    let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([3]),
+        }],
+    };
+
+    let result = algorithms::run_slicing_compat(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::AbsenceSlice),
+        None,
+    )
+    .unwrap();
+
+    let double_close: Vec<_> = result
+        .findings
+        .iter()
+        .filter(|f| f.category.as_deref() == Some("double_close"))
+        .collect();
+    assert!(
+        !double_close.is_empty(),
+        "Should detect double-free: kfree(buf) inline + kfree(buf) reachable via fall-through, got: {:?}",
+        result.findings
+    );
+}
+
+#[test]
+fn test_variable_identity_different_resources() {
+    let source = r#"
+int init(void) {
+    char *buf = kmalloc(256);
+    char *dev = kmalloc(64);
+    if (!dev) goto err;
+    kfree(dev);
+    return 0;
+err:
+    kfree(buf);
+    return -1;
+}
+"#;
+
+    let path = "src/varident.c";
+    let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([3]),
+        }],
+    };
+
+    let result = algorithms::run_slicing_compat(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::AbsenceSlice),
+        None,
+    )
+    .unwrap();
+
+    // kfree(dev) on normal path should NOT satisfy close for buf
+    let error_only: Vec<_> = result
+        .findings
+        .iter()
+        .filter(|f| f.category.as_deref() == Some("close_only_on_error_path") && f.line == 3)
+        .collect();
+    assert!(
+        !error_only.is_empty(),
+        "kfree(dev) should NOT satisfy close for buf — should get close_only_on_error_path, got: {:?}",
+        result.findings
+    );
+}
+
+#[test]
+fn test_mid_function_label_fall_through() {
+    let source = r#"
+void f(void) {
+    char *buf = malloc(256);
+retry:
+    int r = process(buf);
+    if (r == RETRY) goto retry;
+    if (r < 0) goto err;
+    free(buf);
+    return;
+err:
+    free(buf);
+    return;
+}
+"#;
+
+    let path = "src/midlabel.c";
+    let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([3]),
+        }],
+    };
+
+    let result = algorithms::run_slicing_compat(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::AbsenceSlice),
+        None,
+    )
+    .unwrap();
+
+    // retry: is fall-through (no preceding flow terminator), so free(buf) after
+    // retry is on the normal path. Should NOT get close_only_on_error_path.
+    let error_only: Vec<_> = result
+        .findings
+        .iter()
+        .filter(|f| f.category.as_deref() == Some("close_only_on_error_path"))
+        .collect();
+    assert!(
+        error_only.is_empty(),
+        "retry: is fall-through — free(buf) is on normal path, no close_only_on_error_path expected, got: {:?}",
+        error_only
+    );
+}
+
+#[test]
+fn test_backward_goto_not_analyzed() {
+    let source = r#"
+void f(void) {
+retry:
+    char *buf = malloc(256);
+    if (check(buf) < 0) {
+        free(buf);
+        goto retry;
+    }
+    use(buf);
+    free(buf);
+}
+"#;
+
+    let path = "src/backward.c";
+    let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([4]),
+        }],
+    };
+
+    let result = algorithms::run_slicing_compat(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::AbsenceSlice),
+        None,
+    )
+    .unwrap();
+
+    let missing_on_error: Vec<_> = result
+        .findings
+        .iter()
+        .filter(|f| f.category.as_deref() == Some("missing_close_on_error_path"))
+        .collect();
+    assert!(
+        missing_on_error.is_empty(),
+        "Backward goto retry should not trigger missing_close_on_error_path, got: {:?}",
+        missing_on_error
+    );
+}
