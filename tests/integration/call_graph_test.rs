@@ -55,6 +55,12 @@ void setup_timer(timer_t *timer) {
         "timer->callback(...) should resolve callee_name to 'callback', got: {:?}",
         callee_names
     );
+    // Level 4 should also resolve the struct field callback to the actual target
+    assert!(
+        callee_names.contains(&"timeout_handler"),
+        "timer->callback should resolve to timeout_handler via Level 4, got: {:?}",
+        callee_names
+    );
 }
 
 #[test]
