@@ -101,10 +101,10 @@ pub fn slice(
     }
 
     // Add direct callers/callees signatures
-    let diff_func_names = get_diff_function_names(ctx.files, diff);
-    for func_name in &diff_func_names {
-        // Direct callers
-        let callers = ctx.cpg.callers_of(func_name, 1);
+    let diff_func_names = get_diff_function_names_with_files(ctx.files, diff);
+    for (file, func_name) in &diff_func_names {
+        // Direct callers (file-scoped to disambiguate static functions)
+        let callers = ctx.cpg.callers_of_in_file(func_name, 1, Some(file));
         for (caller_id, _) in &callers {
             included
                 .entry((caller_id.file.clone(), caller_id.start_line))
@@ -114,16 +114,14 @@ pub fn slice(
                 .or_insert((false, 3));
         }
         // Direct callees
-        for diff_info in &diff.files {
-            let callees = ctx.cpg.callees_of(func_name, &diff_info.file_path, 1);
-            for (callee_id, _) in &callees {
-                included
-                    .entry((callee_id.file.clone(), callee_id.start_line))
-                    .or_insert((false, 3));
-                included
-                    .entry((callee_id.file.clone(), callee_id.end_line))
-                    .or_insert((false, 3));
-            }
+        let callees = ctx.cpg.callees_of(func_name, file, 1);
+        for (callee_id, _) in &callees {
+            included
+                .entry((callee_id.file.clone(), callee_id.start_line))
+                .or_insert((false, 3));
+            included
+                .entry((callee_id.file.clone(), callee_id.end_line))
+                .or_insert((false, 3));
         }
     }
 
@@ -133,8 +131,8 @@ pub fn slice(
     prev_count = included.len();
 
     // Ring 4: Depth-2 callers/callees
-    for func_name in &diff_func_names {
-        let callers = ctx.cpg.callers_of(func_name, 2);
+    for (file, func_name) in &diff_func_names {
+        let callers = ctx.cpg.callers_of_in_file(func_name, 2, Some(file));
         for (caller_id, depth) in &callers {
             if *depth == 2 {
                 included
@@ -145,17 +143,15 @@ pub fn slice(
                     .or_insert((false, 4));
             }
         }
-        for diff_info in &diff.files {
-            let callees = ctx.cpg.callees_of(func_name, &diff_info.file_path, 2);
-            for (callee_id, depth) in &callees {
-                if *depth == 2 {
-                    included
-                        .entry((callee_id.file.clone(), callee_id.start_line))
-                        .or_insert((false, 4));
-                    included
-                        .entry((callee_id.file.clone(), callee_id.end_line))
-                        .or_insert((false, 4));
-                }
+        let callees = ctx.cpg.callees_of(func_name, file, 2);
+        for (callee_id, depth) in &callees {
+            if *depth == 2 {
+                included
+                    .entry((callee_id.file.clone(), callee_id.start_line))
+                    .or_insert((false, 4));
+                included
+                    .entry((callee_id.file.clone(), callee_id.end_line))
+                    .or_insert((false, 4));
             }
         }
     }
@@ -180,7 +176,7 @@ pub fn slice(
         }
 
         // Check if this test file references any changed function
-        for func_name in &diff_func_names {
+        for (_file, func_name) in &diff_func_names {
             let root = parsed.tree.root_node();
             let refs = parsed.find_variable_references(&root, func_name);
             if !refs.is_empty() {
@@ -214,7 +210,7 @@ pub fn slice(
         for func_node in parsed.all_functions() {
             if let Some(name_node) = parsed.language.function_name(&func_node) {
                 let fname = parsed.node_text(&name_node);
-                if diff_func_names.contains(&fname.to_string()) {
+                if diff_func_names.iter().any(|(_, n)| n == fname) {
                     continue;
                 }
                 // Check if any changed file calls this function
@@ -260,17 +256,21 @@ fn should_stop(prev_count: usize, current_count: usize, config: &SpiralConfig) -
     ratio < config.auto_stop_threshold
 }
 
-fn get_diff_function_names(
+/// Returns (file_path, function_name) pairs for all functions containing diff lines.
+fn get_diff_function_names_with_files(
     files: &BTreeMap<String, ParsedFile>,
     diff: &DiffInput,
-) -> BTreeSet<String> {
+) -> BTreeSet<(String, String)> {
     let mut names = BTreeSet::new();
     for diff_info in &diff.files {
         if let Some(parsed) = files.get(&diff_info.file_path) {
             for &line in &diff_info.diff_lines {
                 if let Some(func_node) = parsed.enclosing_function(line) {
                     if let Some(name_node) = parsed.language.function_name(&func_node) {
-                        names.insert(parsed.node_text(&name_node).to_string());
+                        names.insert((
+                            diff_info.file_path.clone(),
+                            parsed.node_text(&name_node).to_string(),
+                        ));
                     }
                 }
             }

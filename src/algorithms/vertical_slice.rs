@@ -79,8 +79,11 @@ pub fn slice(
             if let Some((_idx, func_id)) = ctx.cpg.function_at(&diff_info.file_path, line) {
                 let mut path: Vec<LayerEntry> = Vec::new();
 
-                // Trace up: callers toward the entry point
-                let callers = ctx.cpg.callers_of(&func_id.name, 10);
+                // Trace up: callers toward the entry point, scoped to the
+                // correct file to disambiguate static functions
+                let callers =
+                    ctx.cpg
+                        .callers_of_in_file(&func_id.name, 10, Some(&diff_info.file_path));
                 for (caller_id, _depth) in callers.iter().rev() {
                     let layer = file_layers
                         .get(&caller_id.file)
