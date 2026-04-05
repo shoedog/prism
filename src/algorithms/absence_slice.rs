@@ -612,8 +612,14 @@ pub fn slice(files: &BTreeMap<String, ParsedFile>, diff: &DiffInput) -> Result<S
                             func_calls
                                 .iter()
                                 .filter(|(line, _)| !normal_set.contains(line))
-                                .any(|(_, names)| {
+                                .any(|(line, names)| {
                                     names.iter().any(|n| call_name_matches_pattern(n, base))
+                                        && match &resource_var {
+                                            Some(var) => {
+                                                close_matches_resource(parsed, *line, base, var)
+                                            }
+                                            None => true,
+                                        }
                                 })
                         } else {
                             (func_start..=func_end)

@@ -842,6 +842,60 @@ err:
 }
 
 #[test]
+fn test_error_path_wrong_variable_not_suppressed() {
+    // kfree(dev) on the error path must NOT suppress missing_counterpart for buf.
+    // Before the fix, has_close_error matched on function name only (kfree),
+    // so kfree(dev) satisfied the close check for buf, hiding the leak.
+    let source = r#"
+int init(void) {
+    char *buf = kmalloc(256);
+    char *dev = kmalloc(64);
+    if (!dev) goto err;
+    use(buf, dev);
+    kfree(dev);
+    return 0;
+err:
+    kfree(dev);
+    return -1;
+}
+"#;
+
+    let path = "src/wrongvar.c";
+    let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([3]),
+        }],
+    };
+
+    let result = algorithms::run_slicing_compat(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::AbsenceSlice),
+        None,
+    )
+    .unwrap();
+
+    // kfree(dev) on error path should NOT count as close for buf.
+    // buf has no close anywhere → missing_counterpart should fire.
+    let missing: Vec<_> = result
+        .findings
+        .iter()
+        .filter(|f| f.category.as_deref() == Some("missing_counterpart") && f.line == 3)
+        .collect();
+    assert!(
+        !missing.is_empty(),
+        "kfree(dev) on error path must not suppress missing_counterpart for buf, got: {:?}",
+        result.findings
+    );
+}
+
+#[test]
 fn test_mid_function_label_fall_through() {
     let source = r#"
 void f(void) {
