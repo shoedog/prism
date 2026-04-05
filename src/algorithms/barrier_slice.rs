@@ -103,7 +103,10 @@ pub fn slice(
                 entry.insert(caller_id.start_line, false);
                 entry.insert(caller_id.end_line, false);
 
-                // Find the specific call site lines
+                // Find the specific call site lines.
+                // Uses the raw callers index because caller_id already comes from
+                // the file-scoped callers_of_in_file query above; the name filter
+                // selects the exact call site within that known-correct caller.
                 if let Some(sites) = ctx.cpg.call_graph.callers.get(func_name) {
                     for site in sites {
                         if site.caller.name == caller_id.name {

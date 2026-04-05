@@ -70,7 +70,11 @@ pub fn slice(ctx: &CpgContext, diff: &DiffInput) -> Result<SliceResult> {
                     block.add_line(&caller_id.file, caller_id.start_line, false);
                     block.add_line(&caller_id.file, caller_id.end_line, false);
 
-                    // Find the specific call site line(s)
+                    // Find the specific call site line(s).
+                    // Note: this uses the raw callers index (not callers_of_in_file)
+                    // because caller_id already comes from a file-scoped query above.
+                    // The name+file filter below selects the exact call site within
+                    // that known-correct caller.
                     if let Some(sites) = ctx.cpg.call_graph.callers.get(func_name) {
                         for site in sites {
                             if site.caller.name == caller_id.name
@@ -192,7 +196,10 @@ pub fn slice(ctx: &CpgContext, diff: &DiffInput) -> Result<SliceResult> {
 
                         if !has_error_handling {
                             // Mark the call site as potentially unprotected
-                            // (it's already included but highlight it)
+                            // (it's already included but highlight it).
+                            // Same rationale as above: caller_id is already validated
+                            // by the file-scoped callers_of_in_file query, so the
+                            // raw index lookup + name filter is correct here.
                             if let Some(sites) = ctx.cpg.call_graph.callers.get(func_name) {
                                 for site in sites {
                                     if site.caller.name == caller_id.name {
