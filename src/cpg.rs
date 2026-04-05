@@ -63,6 +63,12 @@ pub struct CpgContext<'a> {
     /// Scope metadata. `None` means the CPG covers all parsed files.
     /// `Some` means it was built from a diff-scoped subset.
     pub scope: Option<CpgScope>,
+    /// Live (instantiated) types collected via Rapid Type Analysis (RTA).
+    ///
+    /// Contains type names observed as instantiated across all languages in
+    /// the parsed file set. Algorithms can pass this to `DispatchProvider::
+    /// resolve_dispatch()` to prune dispatch targets to only live types.
+    pub live_types: BTreeSet<String>,
 }
 
 impl<'a> CpgContext<'a> {
@@ -73,11 +79,13 @@ impl<'a> CpgContext<'a> {
     ) -> Self {
         let cpg = CodePropertyGraph::build_enriched(files, type_db);
         let types = Self::build_registry(files, type_db);
+        let live_types = types.collect_live_types(files);
         CpgContext {
             cpg,
             files,
             types,
             scope: None,
+            live_types,
         }
     }
 
@@ -92,11 +100,13 @@ impl<'a> CpgContext<'a> {
         registry: TypeRegistry,
     ) -> Self {
         let cpg = CodePropertyGraph::build_enriched(files, type_db);
+        let live_types = registry.collect_live_types(files);
         CpgContext {
             cpg,
             files,
             types: registry,
             scope: None,
+            live_types,
         }
     }
 
@@ -149,6 +159,8 @@ impl<'a> CpgContext<'a> {
 
         let cpg = CodePropertyGraph::build_enriched(&filtered, type_db);
         let types = Self::build_registry(files, type_db);
+        // Collect live types from ALL files (not just scoped) for accurate RTA.
+        let live_types = types.collect_live_types(files);
         CpgContext {
             cpg,
             files,
@@ -157,6 +169,7 @@ impl<'a> CpgContext<'a> {
                 scoped_files,
                 changed_files,
             }),
+            live_types,
         }
     }
 
@@ -169,11 +182,13 @@ impl<'a> CpgContext<'a> {
         type_db: Option<&'a TypeDatabase>,
     ) -> Self {
         let types = Self::build_registry(files, type_db);
+        let live_types = types.collect_live_types(files);
         CpgContext {
             cpg: CodePropertyGraph::empty(),
             files,
             types,
             scope: None,
+            live_types,
         }
     }
 

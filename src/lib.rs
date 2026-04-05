@@ -38,6 +38,7 @@ pub mod cpg;
 pub mod data_flow;
 pub mod diff;
 pub mod languages;
+pub mod live_types;
 pub mod output;
 pub mod queries;
 pub mod react_hooks;
