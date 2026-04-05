@@ -553,6 +553,137 @@ public class Cat implements Animal {
 }
 
 // ---------------------------------------------------------------------------
+// Cycle protection (item 1 from review)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_java_cyclic_extends_no_stack_overflow() {
+    // Invalid Java, but tree-sitter parses it. Must not stack-overflow.
+    let sources = &[
+        (
+            "A.java",
+            r#"
+public class A extends B {
+    public void a() {}
+}
+"#,
+        ),
+        (
+            "B.java",
+            r#"
+public class B extends A {
+    public void b() {}
+}
+"#,
+        ),
+    ];
+    let files = parse_java_files(sources);
+    let provider = JavaTypeProvider::from_parsed_files(&files);
+
+    // Should not panic. Results are best-effort.
+    let _ = provider.resolve_type("A.java", "A", 0);
+    let _ = provider.field_layout("A");
+    let _ = provider.subtypes_of("A");
+    let _ = provider.resolve_dispatch("A", "a", &BTreeSet::new());
+    let _ = provider.resolve_dispatch("B", "a", &BTreeSet::new());
+}
+
+#[test]
+fn test_java_cyclic_interface_extends() {
+    // Invalid Java: interface cycle.
+    let source = r#"
+public interface X extends Y {
+    void x();
+}
+
+public interface Y extends X {
+    void y();
+}
+
+public class Impl implements X {
+    public void x() {}
+    public void y() {}
+}
+"#;
+    let files = parse_java("Cycle.java", source);
+    let provider = JavaTypeProvider::from_parsed_files(&files);
+
+    // Must not stack-overflow; best-effort results.
+    let _ = provider.subtypes_of("X");
+    let _ = provider.field_layout("X");
+    let _ = provider.resolve_dispatch("X", "x", &BTreeSet::new());
+}
+
+// ---------------------------------------------------------------------------
+// Enum method extraction and dispatch (item 4 from review)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_java_enum_method_extraction() {
+    let source = r#"
+public enum Planet {
+    MERCURY,
+    VENUS,
+    EARTH;
+
+    public double mass() {
+        return 0.0;
+    }
+
+    public double surfaceGravity() {
+        return 0.0;
+    }
+}
+"#;
+    let files = parse_java("Planet.java", source);
+    let provider = JavaTypeProvider::from_parsed_files(&files);
+
+    let fields = provider.field_layout("Planet").unwrap();
+    let names: Vec<&str> = fields.iter().map(|f| f.name.as_str()).collect();
+    assert!(names.contains(&"mass"), "Expected 'mass' in {:?}", names);
+    assert!(
+        names.contains(&"surfaceGravity"),
+        "Expected 'surfaceGravity' in {:?}",
+        names
+    );
+}
+
+#[test]
+fn test_java_enum_dispatch_through_interface() {
+    let source = r#"
+public interface Describable {
+    String describe();
+}
+
+public enum Color implements Describable {
+    RED,
+    GREEN,
+    BLUE;
+
+    public String describe() {
+        return name().toLowerCase();
+    }
+}
+"#;
+    let files = parse_java("Color.java", source);
+    let provider = JavaTypeProvider::from_parsed_files(&files);
+
+    // Color satisfies Describable.
+    let subtypes = provider.subtypes_of("Describable");
+    assert!(
+        subtypes.contains(&"Color".to_string()),
+        "Color should satisfy Describable: {:?}",
+        subtypes
+    );
+
+    // Dispatch through Describable should find Color.describe().
+    let results = provider.resolve_dispatch("Describable", "describe", &BTreeSet::new());
+    assert_eq!(results.len(), 1);
+    assert_eq!(results[0].name, "describe");
+    assert_eq!(results[0].file, "Color.java");
+}
+
+// ---------------------------------------------------------------------------
 // Arc sharing
 // ---------------------------------------------------------------------------
 

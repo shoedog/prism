@@ -79,6 +79,8 @@ struct JavaEnum {
     name: String,
     /// Enum constant names.
     members: Vec<String>,
+    /// Methods declared in the enum body.
+    methods: Vec<JavaMethod>,
     /// Interfaces this enum implements.
     implements: Vec<String>,
     /// Source file.
@@ -152,6 +154,12 @@ impl JavaTypeProvider {
         }
     }
 
+    /// Dispatch on a top-level AST node.
+    ///
+    /// TODO: inner/nested classes (class Outer { class Inner {} }) and
+    /// anonymous classes are not extracted. These are common in Java
+    /// (Builder pattern, event handlers, test fixtures). Supporting them
+    /// requires recursing into class_body children.
     fn extract_top_level(
         data: &mut JavaTypeData,
         node: &tree_sitter::Node,
@@ -453,6 +461,7 @@ impl JavaTypeProvider {
         }
 
         let mut members = Vec::new();
+        let mut methods = Vec::new();
         let mut implements = Vec::new();
 
         let mut cursor = node.walk();
@@ -464,13 +473,40 @@ impl JavaTypeProvider {
                 "enum_body" => {
                     let mut inner = child.walk();
                     for member in child.children(&mut inner) {
-                        if member.kind() == "enum_constant" {
-                            if let Some(name_node) = member.child_by_field_name("name") {
-                                let member_name = parsed.node_text(&name_node).trim().to_string();
-                                if !member_name.is_empty() {
-                                    members.push(member_name);
+                        match member.kind() {
+                            "enum_constant" => {
+                                if let Some(name_node) = member.child_by_field_name("name") {
+                                    let member_name =
+                                        parsed.node_text(&name_node).trim().to_string();
+                                    if !member_name.is_empty() {
+                                        members.push(member_name);
+                                    }
                                 }
                             }
+                            // Methods in enums live inside enum_body_declarations.
+                            "enum_body_declarations" => {
+                                let mut decl_cursor = member.walk();
+                                for decl in member.children(&mut decl_cursor) {
+                                    match decl.kind() {
+                                        "method_declaration" => {
+                                            if let Some(m) =
+                                                Self::extract_method(&decl, path, parsed)
+                                            {
+                                                methods.push(m);
+                                            }
+                                        }
+                                        "constructor_declaration" => {
+                                            if let Some(m) =
+                                                Self::extract_constructor(&decl, path, parsed)
+                                            {
+                                                methods.push(m);
+                                            }
+                                        }
+                                        _ => {}
+                                    }
+                                }
+                            }
+                            _ => {}
                         }
                     }
                 }
@@ -483,6 +519,7 @@ impl JavaTypeProvider {
             JavaEnum {
                 name,
                 members,
+                methods,
                 implements,
                 file: path.to_string(),
             },
@@ -556,7 +593,7 @@ impl JavaTypeProvider {
 
             // Check classes.
             for (class_name, class) in &data.classes {
-                if Self::class_implements(data, class, iface_name) {
+                if Self::class_implements(data, class, iface_name, &mut BTreeSet::new()) {
                     satisfying.insert(class_name.clone());
                 }
             }
@@ -576,7 +613,19 @@ impl JavaTypeProvider {
     }
 
     /// Check if a class implements an interface (directly or via inheritance).
-    fn class_implements(data: &JavaTypeData, class: &JavaClass, iface_name: &str) -> bool {
+    ///
+    /// `visited` prevents infinite recursion on malformed cyclic `extends`
+    /// chains (invalid Java, but tree-sitter parses them).
+    fn class_implements(
+        data: &JavaTypeData,
+        class: &JavaClass,
+        iface_name: &str,
+        visited: &mut BTreeSet<String>,
+    ) -> bool {
+        if !visited.insert(class.name.clone()) {
+            return false;
+        }
+
         // Direct implementation.
         if class.implements.contains(&iface_name.to_string()) {
             return true;
@@ -585,7 +634,7 @@ impl JavaTypeProvider {
         // Through parent class.
         if let Some(parent_name) = &class.extends {
             if let Some(parent) = data.classes.get(parent_name) {
-                if Self::class_implements(data, parent, iface_name) {
+                if Self::class_implements(data, parent, iface_name, visited) {
                     return true;
                 }
             }
@@ -709,76 +758,21 @@ impl TypeProvider for JavaTypeProvider {
     }
 
     fn field_layout(&self, type_name: &str) -> Option<Vec<TypeFieldInfo>> {
-        if let Some(class) = self.data.classes.get(type_name) {
-            let mut fields: Vec<TypeFieldInfo> = class
-                .fields
-                .iter()
-                .map(|(name, type_str)| TypeFieldInfo {
-                    name: name.clone(),
-                    type_str: type_str.clone(),
-                })
-                .collect();
-
-            // Include methods as fields (same pattern as TS provider).
-            for m in &class.methods {
-                fields.push(TypeFieldInfo {
-                    name: m.name.clone(),
-                    type_str: m.signature.clone(),
-                });
-            }
-
-            // Include inherited fields from parent class.
-            if let Some(parent_name) = &class.extends {
-                if let Some(parent_fields) = self.field_layout(parent_name) {
-                    let own_names: BTreeSet<String> =
-                        fields.iter().map(|f| f.name.clone()).collect();
-                    for pf in parent_fields {
-                        if !own_names.contains(&pf.name) {
-                            fields.push(pf);
-                        }
-                    }
-                }
-            }
-
-            return Some(fields);
-        }
-
-        if let Some(iface) = self.data.interfaces.get(type_name) {
-            let mut fields: Vec<TypeFieldInfo> = iface
-                .methods
-                .iter()
-                .map(|(name, sig)| TypeFieldInfo {
-                    name: name.clone(),
-                    type_str: sig.clone(),
-                })
-                .collect();
-
-            // Include inherited methods from extended interfaces.
-            let all_methods =
-                Self::resolve_interface_methods(&self.data, type_name, &mut BTreeSet::new());
-            let own_names: BTreeSet<String> = fields.iter().map(|f| f.name.clone()).collect();
-            for (name, sig) in all_methods {
-                if !own_names.contains(&name) {
-                    fields.push(TypeFieldInfo {
-                        name,
-                        type_str: sig,
-                    });
-                }
-            }
-
-            return Some(fields);
-        }
-
-        None
+        self.field_layout_inner(type_name, &mut BTreeSet::new())
     }
 
     fn subtypes_of(&self, type_name: &str) -> Vec<String> {
-        // For interfaces: return implementing classes.
+        // For interfaces: return implementing classes (transitive — includes
+        // classes that inherit an implements declaration from a parent).
         if let Some(satisfying) = self.data.satisfaction.get(type_name) {
             return satisfying.iter().cloned().collect();
         }
 
-        // For classes: return subclasses.
+        // For classes: return direct subclasses only.
+        // TODO: consider making this transitive using the precomputed ancestors
+        // map for consistency with the interface path. Currently resolve_dispatch
+        // compensates by walking ancestors for class receivers, but the public
+        // subtypes_of API returns asymmetric results for classes vs interfaces.
         let mut subtypes = Vec::new();
         for (class_name, class) in &self.data.classes {
             if let Some(parent) = &class.extends {
@@ -813,6 +807,10 @@ impl DispatchProvider for JavaTypeProvider {
     ) -> Vec<FunctionId> {
         // If receiver_type is a concrete class, resolve directly (may walk up
         // the hierarchy to find inherited methods).
+        // TODO: when the resolved method is abstract (detectable by checking
+        // tree-sitter modifiers for "abstract"), skip this path and fall
+        // through to the subclass dispatch below so callers get concrete
+        // override targets instead of the abstract declaration.
         if self.data.classes.contains_key(receiver_type)
             && !self.data.interfaces.contains_key(receiver_type)
         {
@@ -877,9 +875,26 @@ impl DispatchProvider for JavaTypeProvider {
 }
 
 impl JavaTypeProvider {
-    /// Find a method in a class or its parent hierarchy.
-    fn find_method_in_hierarchy(&self, class_name: &str, method: &str) -> Option<FunctionId> {
-        if let Some(class) = self.data.classes.get(class_name) {
+    /// Find a method in a class (or enum) or its parent hierarchy.
+    ///
+    /// Uses `visited` to guard against cyclic `extends` chains in
+    /// malformed files (invalid Java, but tree-sitter parses them).
+    fn find_method_in_hierarchy(&self, type_name: &str, method: &str) -> Option<FunctionId> {
+        self.find_method_in_hierarchy_inner(type_name, method, &mut BTreeSet::new())
+    }
+
+    fn find_method_in_hierarchy_inner(
+        &self,
+        type_name: &str,
+        method: &str,
+        visited: &mut BTreeSet<String>,
+    ) -> Option<FunctionId> {
+        if !visited.insert(type_name.to_string()) {
+            return None;
+        }
+
+        // Check class methods.
+        if let Some(class) = self.data.classes.get(type_name) {
             for m in &class.methods {
                 if m.name == method {
                     return Some(FunctionId {
@@ -893,9 +908,99 @@ impl JavaTypeProvider {
 
             // Walk up the inheritance chain.
             if let Some(parent) = &class.extends {
-                return self.find_method_in_hierarchy(parent, method);
+                return self.find_method_in_hierarchy_inner(parent, method, visited);
             }
         }
+
+        // Check enum methods.
+        if let Some(java_enum) = self.data.enums.get(type_name) {
+            for m in &java_enum.methods {
+                if m.name == method {
+                    return Some(FunctionId {
+                        name: method.to_string(),
+                        file: m.file.clone(),
+                        start_line: m.start_line,
+                        end_line: m.end_line,
+                    });
+                }
+            }
+        }
+
+        None
+    }
+
+    /// `field_layout` with cycle protection for malformed extends chains.
+    fn field_layout_inner(
+        &self,
+        type_name: &str,
+        visited: &mut BTreeSet<String>,
+    ) -> Option<Vec<TypeFieldInfo>> {
+        if let Some(class) = self.data.classes.get(type_name) {
+            if !visited.insert(type_name.to_string()) {
+                return Some(Vec::new());
+            }
+
+            let mut fields: Vec<TypeFieldInfo> = class
+                .fields
+                .iter()
+                .map(|(name, type_str)| TypeFieldInfo {
+                    name: name.clone(),
+                    type_str: type_str.clone(),
+                })
+                .collect();
+
+            // Include methods as fields (same pattern as TS provider).
+            for m in &class.methods {
+                fields.push(TypeFieldInfo {
+                    name: m.name.clone(),
+                    type_str: m.signature.clone(),
+                });
+            }
+
+            // Include inherited fields from parent class.
+            if let Some(parent_name) = &class.extends {
+                if let Some(parent_fields) = self.field_layout_inner(parent_name, visited) {
+                    let own_names: BTreeSet<String> =
+                        fields.iter().map(|f| f.name.clone()).collect();
+                    for pf in parent_fields {
+                        if !own_names.contains(&pf.name) {
+                            fields.push(pf);
+                        }
+                    }
+                }
+            }
+
+            return Some(fields);
+        }
+
+        if self.data.interfaces.contains_key(type_name) {
+            // resolve_interface_methods already flattens the extends chain
+            // with its own cycle protection, so we use it directly.
+            let all_methods =
+                Self::resolve_interface_methods(&self.data, type_name, &mut BTreeSet::new());
+            let fields: Vec<TypeFieldInfo> = all_methods
+                .into_iter()
+                .map(|(name, sig)| TypeFieldInfo {
+                    name,
+                    type_str: sig,
+                })
+                .collect();
+            return Some(fields);
+        }
+
+        // Enum field layout: methods declared in the enum body.
+        if let Some(java_enum) = self.data.enums.get(type_name) {
+            let fields: Vec<TypeFieldInfo> = java_enum
+                .methods
+                .iter()
+                .map(|m| TypeFieldInfo {
+                    name: m.name.clone(),
+                    type_str: m.signature.clone(),
+                })
+                .collect();
+            return Some(fields);
+        }
+
         None
     }
 }
