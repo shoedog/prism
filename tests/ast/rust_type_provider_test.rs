@@ -795,3 +795,221 @@ mod inner {
         .subtypes_of("InnerTrait")
         .contains(&"InnerType".to_string()));
 }
+
+// ---------------------------------------------------------------------------
+// Enum implementing trait
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_rust_enum_impl_trait() {
+    let source = r#"
+trait Describable {
+    fn describe(&self) -> &str;
+}
+
+enum Color {
+    Red,
+    Green,
+    Blue,
+}
+
+impl Describable for Color {
+    fn describe(&self) -> &str {
+        match self {
+            Color::Red => "red",
+            Color::Green => "green",
+            Color::Blue => "blue",
+        }
+    }
+}
+"#;
+    let files = parse_rust("color.rs", source);
+    let provider = RustTypeProvider::from_parsed_files(&files);
+
+    let subtypes = provider.subtypes_of("Describable");
+    assert!(
+        subtypes.contains(&"Color".to_string()),
+        "Color should satisfy Describable: {:?}",
+        subtypes
+    );
+
+    // Dispatch through trait should find Color's implementation.
+    let results = provider.resolve_dispatch("Describable", "describe", &BTreeSet::new());
+    assert_eq!(results.len(), 1);
+    assert_eq!(results[0].name, "describe");
+}
+
+// ---------------------------------------------------------------------------
+// Generic struct and trait
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_rust_generic_struct() {
+    let source = r#"
+struct Container<T> {
+    value: T,
+    count: usize,
+}
+
+impl<T> Container<T> {
+    fn new(value: T) -> Self {
+        Container { value, count: 0 }
+    }
+
+    fn get(&self) -> &T {
+        &self.value
+    }
+}
+"#;
+    let files = parse_rust("container.rs", source);
+    let provider = RustTypeProvider::from_parsed_files(&files);
+
+    // Generic params are stripped: Container<T> → Container.
+    let resolved = provider.resolve_type("container.rs", "Container", 0);
+    assert!(resolved.is_some());
+    assert_eq!(resolved.unwrap().kind, ResolvedTypeKind::Concrete);
+
+    let fields = provider.field_layout("Container").unwrap();
+    let names: Vec<&str> = fields.iter().map(|f| f.name.as_str()).collect();
+    assert!(names.contains(&"value"));
+    assert!(names.contains(&"count"));
+    assert!(names.contains(&"new"));
+    assert!(names.contains(&"get"));
+}
+
+#[test]
+fn test_rust_generic_trait_impl() {
+    let source = r#"
+trait From<T> {
+    fn from(value: T) -> Self;
+}
+
+struct Wrapper {
+    inner: String,
+}
+
+impl From<String> for Wrapper {
+    fn from(value: String) -> Self {
+        Wrapper { inner: value }
+    }
+}
+"#;
+    let files = parse_rust("from.rs", source);
+    let provider = RustTypeProvider::from_parsed_files(&files);
+
+    // Wrapper should satisfy From (generics stripped).
+    let subtypes = provider.subtypes_of("From");
+    assert!(
+        subtypes.contains(&"Wrapper".to_string()),
+        "Wrapper should satisfy From: {:?}",
+        subtypes
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Diamond supertrait pattern
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_rust_diamond_supertraits() {
+    let source = r#"
+trait A {
+    fn a(&self);
+}
+
+trait B: A {
+    fn b(&self);
+}
+
+trait C: A {
+    fn c(&self);
+}
+
+trait D: B + C {
+    fn d(&self);
+}
+
+struct Impl;
+
+impl A for Impl { fn a(&self) {} }
+impl B for Impl { fn b(&self) {} }
+impl C for Impl { fn c(&self) {} }
+impl D for Impl { fn d(&self) {} }
+"#;
+    let files = parse_rust("diamond.rs", source);
+    let provider = RustTypeProvider::from_parsed_files(&files);
+
+    // Impl should satisfy all four traits.
+    assert!(provider.subtypes_of("A").contains(&"Impl".to_string()));
+    assert!(provider.subtypes_of("B").contains(&"Impl".to_string()));
+    assert!(provider.subtypes_of("C").contains(&"Impl".to_string()));
+    assert!(provider.subtypes_of("D").contains(&"Impl".to_string()));
+
+    // D's field_layout should include methods from A, B, C, D.
+    let fields = provider.field_layout("D").unwrap();
+    let names: Vec<&str> = fields.iter().map(|f| f.name.as_str()).collect();
+    assert!(names.contains(&"a"), "Expected 'a' from supertrait A");
+    assert!(names.contains(&"b"), "Expected 'b' from supertrait B");
+    assert!(names.contains(&"c"), "Expected 'c' from supertrait C");
+    assert!(names.contains(&"d"), "Expected 'd' from D itself");
+}
+
+// ---------------------------------------------------------------------------
+// Cross-file dispatch with RTA
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_rust_cross_file_dispatch_rta() {
+    let sources = &[
+        (
+            "trait.rs",
+            r#"
+trait Cache {
+    fn get(&self, key: &str) -> Option<String>;
+}
+"#,
+        ),
+        (
+            "memory.rs",
+            r#"
+struct MemoryCache;
+impl Cache for MemoryCache {
+    fn get(&self, key: &str) -> Option<String> { None }
+}
+"#,
+        ),
+        (
+            "redis.rs",
+            r#"
+struct RedisCache;
+impl Cache for RedisCache {
+    fn get(&self, key: &str) -> Option<String> { None }
+}
+"#,
+        ),
+        (
+            "disk.rs",
+            r#"
+struct DiskCache;
+impl Cache for DiskCache {
+    fn get(&self, key: &str) -> Option<String> { None }
+}
+"#,
+        ),
+    ];
+    let files = parse_rust_files(sources);
+    let provider = RustTypeProvider::from_parsed_files(&files);
+
+    // Without RTA: all 3.
+    let all = provider.resolve_dispatch("Cache", "get", &BTreeSet::new());
+    assert_eq!(all.len(), 3);
+
+    // With RTA: only MemoryCache and RedisCache live.
+    let live = BTreeSet::from(["MemoryCache".to_string(), "RedisCache".to_string()]);
+    let filtered = provider.resolve_dispatch("Cache", "get", &live);
+    assert_eq!(filtered.len(), 2);
+    let ffiles: BTreeSet<String> = filtered.iter().map(|f| f.file.clone()).collect();
+    assert!(ffiles.contains("memory.rs"));
+    assert!(ffiles.contains("redis.rs"));
+    assert!(!ffiles.contains("disk.rs"));
+}
