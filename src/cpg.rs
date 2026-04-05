@@ -192,6 +192,25 @@ impl<'a> CpgContext<'a> {
         }
     }
 
+    /// Get the parse quality grade for a file.
+    ///
+    /// Returns "clean" (<1%), "degraded" (1-10%), "poor" (10-30%), or "unparseable" (>30%)
+    /// based on the fraction of ERROR/MISSING nodes in the tree-sitter parse tree.
+    pub fn file_parse_quality(&self, file: &str) -> Option<&str> {
+        self.files.get(file).map(|pf| {
+            let rate = pf.error_rate();
+            if rate > 0.3 {
+                "unparseable"
+            } else if rate > 0.1 {
+                "poor"
+            } else if rate > 0.01 {
+                "degraded"
+            } else {
+                "clean"
+            }
+        })
+    }
+
     /// Backward-compatible accessor: get a reference to the C/C++ TypeDatabase
     /// from the registry, if a CppTypeProvider is registered.
     pub fn type_db(&self) -> Option<&TypeDatabase> {

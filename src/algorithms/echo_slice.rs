@@ -229,6 +229,7 @@ pub fn slice(ctx: &CpgContext, diff: &DiffInput) -> Result<SliceResult> {
                         related_lines: call_lines.clone(),
                         related_files: vec![diff_info.file_path.clone()],
                         category: Some("missing_error_handling".to_string()),
+                        parse_quality: None,
                     });
                     let mut block =
                         DiffBlock::new(block_id, caller_id.file.clone(), ModifyType::Modified);

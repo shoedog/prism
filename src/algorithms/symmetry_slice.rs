@@ -248,6 +248,7 @@ pub fn slice(files: &BTreeMap<String, ParsedFile>, diff: &DiffInput) -> Result<S
                                         related_lines: vec![start, end],
                                         related_files: vec![file_path.clone()],
                                         category: Some("broken_symmetry".to_string()),
+                                        parse_quality: None,
                                     });
                                     result.blocks.push(block);
                                     block_id += 1;
