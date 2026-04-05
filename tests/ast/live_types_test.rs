@@ -483,3 +483,349 @@ def create():
         live
     );
 }
+
+// ---------------------------------------------------------------------------
+// C++ make_unique / make_shared template scanning
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_cpp_make_unique() {
+    let source = r#"
+#include <memory>
+class Shape {};
+class Circle : public Shape {};
+
+int main() {
+    auto c = std::make_unique<Circle>(10.0);
+    auto s = std::make_shared<Shape>();
+    return 0;
+}
+"#;
+    let files = parse_file("smart.cpp", source, Language::Cpp);
+    let live = collect_live_types(&files, &BTreeSet::new());
+
+    assert!(live.contains("Circle"), "make_unique: {:?}", live);
+    assert!(live.contains("Shape"), "make_shared: {:?}", live);
+}
+
+#[test]
+fn test_cpp_unqualified_make_unique() {
+    let source = r#"
+using namespace std;
+class Widget {};
+
+int main() {
+    auto w = make_unique<Widget>();
+    return 0;
+}
+"#;
+    let files = parse_file("unqual.cpp", source, Language::Cpp);
+    let live = collect_live_types(&files, &BTreeSet::new());
+
+    assert!(
+        live.contains("Widget"),
+        "unqualified make_unique: {:?}",
+        live
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Go qualified struct literal (pkg.StructName{})
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_go_qualified_struct_literal() {
+    let source = r#"
+package main
+
+import "net/http"
+
+func main() {
+    srv := http.Server{Addr: ":8080"}
+}
+"#;
+    let files = parse_file("srv.go", source, Language::Go);
+    let live = collect_live_types(&files, &BTreeSet::new());
+
+    assert!(live.contains("Server"), "Qualified Go struct: {:?}", live);
+}
+
+// ---------------------------------------------------------------------------
+// Multiple instantiations in one file (dedup)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_dedup_multiple_instantiations() {
+    let source = r#"
+public class App {
+    void a() { new Foo(); }
+    void b() { new Foo(); }
+    void c() { new Bar(); }
+}
+"#;
+    let files = parse_file("App.java", source, Language::Java);
+    let live = collect_live_types(&files, &BTreeSet::new());
+
+    assert!(live.contains("Foo"));
+    assert!(live.contains("Bar"));
+    // BTreeSet naturally deduplicates — Foo should appear once.
+    assert_eq!(
+        live.len(),
+        2,
+        "Should have exactly 2 unique types: {:?}",
+        live
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Java generic type stripping
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_java_generic_stripping() {
+    let source = r#"
+public class App {
+    void f() {
+        Map<String, List<Integer>> m = new HashMap<String, List<Integer>>();
+    }
+}
+"#;
+    let files = parse_file("App.java", source, Language::Java);
+    let live = collect_live_types(&files, &BTreeSet::new());
+
+    assert!(
+        live.contains("HashMap"),
+        "Should strip generics: {:?}",
+        live
+    );
+    assert!(
+        !live.iter().any(|t| t.contains('<')),
+        "No generic params should remain: {:?}",
+        live
+    );
+}
+
+// ---------------------------------------------------------------------------
+// TypeScript generic stripping on new expression
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_typescript_generic_stripping() {
+    let source = r#"
+const m = new Map<string, number>();
+const s = new Set<string>();
+"#;
+    let files = parse_file("generics.ts", source, Language::TypeScript);
+    let live = collect_live_types(&files, &BTreeSet::new());
+
+    assert!(live.contains("Map"), "Expected Map in {:?}", live);
+    assert!(live.contains("Set"), "Expected Set in {:?}", live);
+}
+
+// ---------------------------------------------------------------------------
+// Rust nested struct expression
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_rust_nested_struct_expression() {
+    let source = r#"
+struct Inner { val: i32 }
+struct Outer { inner: Inner }
+
+fn main() {
+    let o = Outer { inner: Inner { val: 42 } };
+}
+"#;
+    let files = parse_file("nested.rs", source, Language::Rust);
+    let live = collect_live_types(&files, &BTreeSet::new());
+
+    assert!(live.contains("Outer"), "Expected Outer in {:?}", live);
+    assert!(live.contains("Inner"), "Expected Inner in {:?}", live);
+}
+
+// ---------------------------------------------------------------------------
+// Python: mixed calls (class + function)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_python_mixed_calls() {
+    let source = r#"
+class Service:
+    pass
+
+class Config:
+    pass
+
+def helper():
+    return 1
+
+s = Service()
+c = Config()
+h = helper()
+x = unknown()
+"#;
+    let files = parse_file("mixed.py", source, Language::Python);
+    let known = BTreeSet::from(["Service".to_string(), "Config".to_string()]);
+    let live = collect_live_types(&files, &known);
+
+    assert!(live.contains("Service"));
+    assert!(live.contains("Config"));
+    assert!(
+        !live.contains("helper"),
+        "Function should not be live: {:?}",
+        live
+    );
+    assert!(
+        !live.contains("unknown"),
+        "Unknown should not be live: {:?}",
+        live
+    );
+}
+
+// ---------------------------------------------------------------------------
+// TypeRegistry: collect_live_types with no providers
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_registry_empty_collect_live_types() {
+    use prism::type_provider::TypeRegistry;
+
+    let registry = TypeRegistry::empty();
+    let files = parse_file(
+        "main.go",
+        "package main\nfunc f() { p := Point{} }",
+        Language::Go,
+    );
+    let live = registry.collect_live_types(&files);
+
+    // Go doesn't need known_classes, so it should still find Point.
+    assert!(
+        live.contains("Point"),
+        "Go should work without providers: {:?}",
+        live
+    );
+}
+
+#[test]
+fn test_registry_known_class_names_empty() {
+    use prism::type_provider::TypeRegistry;
+
+    let registry = TypeRegistry::empty();
+    let names = registry.known_class_names();
+    assert!(names.is_empty());
+}
+
+// ---------------------------------------------------------------------------
+// TypeRegistry: collect_known_python_classes with decorated class
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_registry_python_decorated_class_detection() {
+    use prism::type_provider::TypeRegistry;
+    use prism::type_providers::python::PythonTypeProvider;
+
+    let source = r#"
+from dataclasses import dataclass
+
+@dataclass
+class DecoratedPoint:
+    x: float
+    y: float
+
+class PlainClass:
+    pass
+
+def create():
+    p = DecoratedPoint(x=1.0, y=2.0)
+    c = PlainClass()
+"#;
+    let files = parse_file("deco.py", source, Language::Python);
+    let provider = PythonTypeProvider::from_parsed_files(&files);
+
+    let mut registry = TypeRegistry::empty();
+    registry.register_provider(Box::new(provider));
+
+    let live = registry.collect_live_types(&files);
+    assert!(
+        live.contains("DecoratedPoint"),
+        "Decorated class should be detected: {:?}",
+        live
+    );
+    assert!(
+        live.contains("PlainClass"),
+        "Plain class should be detected: {:?}",
+        live
+    );
+}
+
+// ---------------------------------------------------------------------------
+// CpgContext.without_cpg includes live_types
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_cpg_without_cpg_live_types() {
+    use prism::cpg::CpgContext;
+
+    let source = r#"
+public class Svc {
+    void f() { new Handler(); }
+}
+"#;
+    let parsed = ParsedFile::parse("Svc.java", source, Language::Java).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert("Svc.java".to_string(), parsed);
+
+    let ctx = CpgContext::without_cpg(&files, None);
+    assert!(
+        ctx.live_types.contains("Handler"),
+        "without_cpg should collect live types: {:?}",
+        ctx.live_types
+    );
+}
+
+// ---------------------------------------------------------------------------
+// CpgContext.live_types empty when no instantiations
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_cpg_context_empty_live_types() {
+    use prism::cpg::CpgContext;
+
+    let source = r#"
+trait Foo {
+    fn bar(&self);
+}
+"#;
+    let parsed = ParsedFile::parse("trait.rs", source, Language::Rust).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert("trait.rs".to_string(), parsed);
+
+    let ctx = CpgContext::build(&files, None);
+    // No struct expressions, so live_types should be empty.
+    assert!(
+        ctx.live_types.is_empty(),
+        "No instantiations should yield empty live_types: {:?}",
+        ctx.live_types
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Terraform ignored
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_terraform_ignored() {
+    let source = r#"
+resource "aws_instance" "web" {
+  ami           = "ami-12345"
+  instance_type = "t2.micro"
+}
+"#;
+    let files = parse_file("main.tf", source, Language::Terraform);
+    let live = collect_live_types(&files, &BTreeSet::new());
+    assert!(
+        live.is_empty(),
+        "Terraform has no type instantiations: {:?}",
+        live
+    );
+}
