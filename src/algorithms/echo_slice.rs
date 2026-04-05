@@ -164,7 +164,10 @@ pub fn slice(ctx: &CpgContext, diff: &DiffInput) -> Result<SliceResult> {
 
                 let caller_source: Vec<&str> = caller_parsed.source.lines().collect();
 
-                // Find call site lines
+                // Find call site lines.
+                // Uses the raw callers index because caller_id already comes from
+                // the file-scoped callers_of_in_file query above; the name+file
+                // filter selects the exact call site within that known-correct caller.
                 let call_lines: Vec<usize> =
                     if let Some(sites) = ctx.cpg.call_graph.callers.get(func_name) {
                         sites
