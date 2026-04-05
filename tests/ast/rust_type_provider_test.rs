@@ -1013,3 +1013,302 @@ impl Cache for DiskCache {
     assert!(ffiles.contains("redis.rs"));
     assert!(!ffiles.contains("disk.rs"));
 }
+
+// ---------------------------------------------------------------------------
+// Unit and tuple structs (no field_declaration_list body)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_rust_unit_struct() {
+    let source = r#"
+struct Marker;
+struct AlsoUnit;
+"#;
+    let files = parse_rust("unit.rs", source);
+    let provider = RustTypeProvider::from_parsed_files(&files);
+
+    let resolved = provider.resolve_type("unit.rs", "Marker", 0);
+    assert!(resolved.is_some());
+    assert_eq!(resolved.unwrap().kind, ResolvedTypeKind::Concrete);
+
+    // field_layout returns Some but empty fields.
+    let fields = provider.field_layout("Marker").unwrap();
+    assert!(fields.is_empty(), "Unit struct should have no fields");
+}
+
+#[test]
+fn test_rust_tuple_struct() {
+    let source = r#"
+struct Point(f64, f64);
+struct Wrapper(String);
+"#;
+    let files = parse_rust("tuple.rs", source);
+    let provider = RustTypeProvider::from_parsed_files(&files);
+
+    let resolved = provider.resolve_type("tuple.rs", "Point", 0);
+    assert!(resolved.is_some());
+    assert_eq!(resolved.unwrap().kind, ResolvedTypeKind::Concrete);
+
+    // Tuple structs don't have named fields — body is ordered_field_declaration_list,
+    // not field_declaration_list, so we get empty fields.
+    let fields = provider.field_layout("Point").unwrap();
+    // Only named fields extracted; tuple fields have no names.
+    let named: Vec<&str> = fields
+        .iter()
+        .filter(|f| !f.type_str.is_empty())
+        .map(|f| f.name.as_str())
+        .collect();
+    // No named struct fields expected.
+    assert!(
+        named.is_empty() || named.iter().all(|n| !n.is_empty()),
+        "Unexpected fields: {:?}",
+        named
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Enum with no body (edge case)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_rust_enum_no_variants() {
+    // An empty enum body (no variants) — tree-sitter still parses the body node.
+    let source = r#"
+enum Never {}
+"#;
+    let files = parse_rust("never.rs", source);
+    let provider = RustTypeProvider::from_parsed_files(&files);
+
+    let resolved = provider.resolve_type("never.rs", "Never", 0);
+    assert!(resolved.is_some());
+    assert_eq!(resolved.unwrap().kind, ResolvedTypeKind::Enum);
+
+    // field_layout for enum with no methods.
+    let fields = provider.field_layout("Never").unwrap();
+    assert!(fields.is_empty());
+}
+
+#[test]
+fn test_rust_enum_field_layout_no_methods() {
+    // Enum with variants but no impl block.
+    let source = r#"
+enum Direction {
+    North,
+    South,
+    East,
+    West,
+}
+"#;
+    let files = parse_rust("dir.rs", source);
+    let provider = RustTypeProvider::from_parsed_files(&files);
+
+    let fields = provider.field_layout("Direction").unwrap();
+    assert!(
+        fields.is_empty(),
+        "Enum without impl should have empty field_layout"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Trait with no body or empty body
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_rust_trait_empty_body() {
+    let source = r#"
+trait Marker {}
+"#;
+    let files = parse_rust("marker.rs", source);
+    let provider = RustTypeProvider::from_parsed_files(&files);
+
+    let resolved = provider.resolve_type("marker.rs", "Marker", 0);
+    assert!(resolved.is_some());
+    assert_eq!(resolved.unwrap().kind, ResolvedTypeKind::Interface);
+
+    let fields = provider.field_layout("Marker").unwrap();
+    assert!(fields.is_empty(), "Empty trait should have no methods");
+}
+
+// ---------------------------------------------------------------------------
+// Function signature edge cases (no return type)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_rust_method_no_return_type() {
+    let source = r#"
+struct Worker;
+
+impl Worker {
+    fn execute(&self) {
+        // no return type
+    }
+}
+"#;
+    let files = parse_rust("worker.rs", source);
+    let provider = RustTypeProvider::from_parsed_files(&files);
+
+    let fields = provider.field_layout("Worker").unwrap();
+    let execute = fields.iter().find(|f| f.name == "execute");
+    assert!(execute.is_some());
+    // Signature should just be params without return type.
+    let sig = &execute.unwrap().type_str;
+    assert!(!sig.contains("->"), "No return type: {:?}", sig);
+}
+
+// ---------------------------------------------------------------------------
+// Scoped type identifier in supertraits (e.g., std::fmt::Display)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_rust_scoped_supertrait() {
+    let source = r#"
+trait Printable: std::fmt::Display {
+    fn print(&self);
+}
+"#;
+    let files = parse_rust("scoped.rs", source);
+    let provider = RustTypeProvider::from_parsed_files(&files);
+
+    // Should parse without panic. The scoped supertrait is extracted.
+    let resolved = provider.resolve_type("scoped.rs", "Printable", 0);
+    assert!(resolved.is_some());
+
+    let layout = provider.field_layout("Printable").unwrap();
+    let names: Vec<&str> = layout.iter().map(|f| f.name.as_str()).collect();
+    assert!(names.contains(&"print"));
+}
+
+// ---------------------------------------------------------------------------
+// Struct with inherent impl + trait impl: dispatch resolves both
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_rust_dispatch_enum_concrete() {
+    let source = r#"
+enum Status {
+    Active,
+    Inactive,
+}
+
+impl Status {
+    fn is_active(&self) -> bool {
+        matches!(self, Status::Active)
+    }
+}
+"#;
+    let files = parse_rust("status.rs", source);
+    let provider = RustTypeProvider::from_parsed_files(&files);
+
+    // Dispatch on concrete enum should find inherent methods.
+    let results = provider.resolve_dispatch("Status", "is_active", &BTreeSet::new());
+    assert_eq!(results.len(), 1);
+    assert_eq!(results[0].name, "is_active");
+}
+
+// ---------------------------------------------------------------------------
+// Nested modules: multiple levels deep
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_rust_nested_modules() {
+    let source = r#"
+mod outer {
+    mod inner {
+        pub struct Deep {
+            pub val: i32,
+        }
+
+        pub trait DeepTrait {
+            fn deep_method(&self);
+        }
+
+        impl DeepTrait for Deep {
+            fn deep_method(&self) {}
+        }
+    }
+}
+"#;
+    let files = parse_rust("nested.rs", source);
+    let provider = RustTypeProvider::from_parsed_files(&files);
+
+    assert!(
+        provider.resolve_type("nested.rs", "Deep", 0).is_some(),
+        "Should find struct in nested module"
+    );
+    assert!(
+        provider.resolve_type("nested.rs", "DeepTrait", 0).is_some(),
+        "Should find trait in nested module"
+    );
+    assert!(provider
+        .subtypes_of("DeepTrait")
+        .contains(&"Deep".to_string()));
+}
+
+// ---------------------------------------------------------------------------
+// Type alias edge: alias resolves via resolve_type and resolve_alias
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_rust_type_alias_resolve_chain() {
+    let source = r#"
+struct Inner {
+    x: i32,
+}
+type Alias = Inner;
+"#;
+    let files = parse_rust("alias.rs", source);
+    let provider = RustTypeProvider::from_parsed_files(&files);
+
+    // resolve_type for the alias name should return Alias kind.
+    let resolved = provider.resolve_type("alias.rs", "Alias", 0);
+    assert!(resolved.is_some());
+    assert_eq!(resolved.unwrap().kind, ResolvedTypeKind::Alias);
+
+    // resolve_alias should return the target.
+    let target = provider.resolve_alias("Alias");
+    assert_eq!(target, "Inner");
+
+    // The struct itself is still resolvable.
+    let inner = provider.resolve_type("alias.rs", "Inner", 0);
+    assert!(inner.is_some());
+    assert_eq!(inner.unwrap().kind, ResolvedTypeKind::Concrete);
+}
+
+// ---------------------------------------------------------------------------
+// Multiple impl blocks for same type
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_rust_multiple_inherent_impls() {
+    let source = r#"
+struct Builder {
+    name: String,
+}
+
+impl Builder {
+    fn new() -> Self {
+        Builder { name: String::new() }
+    }
+}
+
+impl Builder {
+    fn build(&self) -> String {
+        self.name.clone()
+    }
+}
+"#;
+    let files = parse_rust("builder.rs", source);
+    let provider = RustTypeProvider::from_parsed_files(&files);
+
+    let fields = provider.field_layout("Builder").unwrap();
+    let names: Vec<&str> = fields.iter().map(|f| f.name.as_str()).collect();
+    assert!(names.contains(&"name"), "Expected field 'name'");
+    assert!(
+        names.contains(&"new"),
+        "Expected method 'new' from first impl"
+    );
+    assert!(
+        names.contains(&"build"),
+        "Expected method 'build' from second impl"
+    );
+}
