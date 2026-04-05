@@ -232,6 +232,7 @@ fn test_review_output_json_schema_multi() {
         all_findings,
         errors: vec![],
         warnings: vec![],
+        parse_quality: BTreeMap::new(),
     };
 
     // Verify schema
@@ -314,6 +315,7 @@ fn test_multi_algorithm_findings_merged() {
         findings: merged_findings,
         errors: vec![],
         warnings: vec![],
+        parse_quality: BTreeMap::new(),
     };
 
     assert_eq!(multi.version, "1.0");

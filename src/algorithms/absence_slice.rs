@@ -617,6 +617,7 @@ pub fn slice(files: &BTreeMap<String, ParsedFile>, diff: &DiffInput) -> Result<S
                         related_lines: related,
                         related_files: vec![],
                         category: Some("missing_counterpart".to_string()),
+                        parse_quality: None,
                     });
                     result.blocks.push(block);
                     block_id += 1;
@@ -728,6 +729,7 @@ pub fn slice(files: &BTreeMap<String, ParsedFile>, diff: &DiffInput) -> Result<S
                                             related_lines: related,
                                             related_files: vec![],
                                             category: Some("double_close".to_string()),
+                                            parse_quality: None,
                                         });
                                         result.blocks.push(block);
                                         block_id += 1;

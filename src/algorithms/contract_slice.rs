@@ -105,6 +105,7 @@ pub fn slice(files: &BTreeMap<String, ParsedFile>, diff: &DiffInput) -> Result<S
                         related_lines: vec![pre.guard_line],
                         related_files: vec![],
                         category: Some("contract_violation".to_string()),
+                        parse_quality: None,
                     });
                 }
             }
@@ -137,6 +138,7 @@ pub fn slice(files: &BTreeMap<String, ParsedFile>, diff: &DiffInput) -> Result<S
                     related_lines: preconditions.iter().map(|p| p.guard_line).collect(),
                     related_files: vec![],
                     category: Some("contract".to_string()),
+                    parse_quality: None,
                 });
 
                 // Include guard clause lines in the block
