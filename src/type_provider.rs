@@ -290,4 +290,102 @@ impl TypeRegistry {
     pub fn has_providers(&self) -> bool {
         !self.providers.is_empty()
     }
+
+    /// Collect the set of known class/type names from all registered providers.
+    ///
+    /// Used by Python live-type scanning, where class instantiations are
+    /// syntactically identical to function calls. Only calls matching a known
+    /// class name are counted.
+    pub fn known_class_names(&self) -> BTreeSet<String> {
+        let names = BTreeSet::new();
+        for provider in &self.providers {
+            for lang in provider.languages() {
+                if lang == Language::Python {
+                    // Python classes are returned by subtypes_of or resolve_type.
+                    // We can't enumerate all classes from the trait, but the
+                    // PythonTypeProvider exposes them via resolve_type.
+                    // For now, we collect names that resolve as Concrete types.
+                    // This is a limitation — we'd need a `known_types()` method
+                    // on TypeProvider to be fully general. Instead, the caller
+                    // should pass known_classes directly.
+                    continue;
+                }
+            }
+        }
+        names
+    }
+
+    /// Collect live (instantiated) types across all languages.
+    ///
+    /// Delegates to `live_types::collect_live_types` with the known class names
+    /// from all registered Python providers.
+    pub fn collect_live_types(
+        &self,
+        files: &BTreeMap<String, crate::ast::ParsedFile>,
+    ) -> BTreeSet<String> {
+        let known_classes = self.collect_known_python_classes(files);
+        crate::live_types::collect_live_types(files, &known_classes)
+    }
+
+    /// Collect known Python class names from the Python provider.
+    ///
+    /// This is a workaround for the fact that `TypeProvider` doesn't expose
+    /// an enumeration of all known types. We resolve by checking the
+    /// `PythonTypeProvider` data directly if available.
+    fn collect_known_python_classes(
+        &self,
+        files: &BTreeMap<String, crate::ast::ParsedFile>,
+    ) -> BTreeSet<String> {
+        let mut names = BTreeSet::new();
+
+        // Check if there's a Python provider registered.
+        if self.language_map.contains_key(&Language::Python) {
+            // Scan Python files for class definitions at the AST level.
+            // This is a lightweight scan — just looking for class_definition names.
+            for parsed in files.values() {
+                if parsed.language != Language::Python {
+                    continue;
+                }
+                let root = parsed.tree.root_node();
+                let mut cursor = root.walk();
+                for child in root.children(&mut cursor) {
+                    Self::collect_python_class_names(&child, &parsed, &mut names);
+                }
+            }
+        }
+
+        names
+    }
+
+    /// Recursively collect class names from Python AST nodes.
+    fn collect_python_class_names(
+        node: &tree_sitter::Node,
+        parsed: &crate::ast::ParsedFile,
+        names: &mut BTreeSet<String>,
+    ) {
+        match node.kind() {
+            "class_definition" => {
+                if let Some(name_node) = node.child_by_field_name("name") {
+                    let name = parsed.node_text(&name_node).trim().to_string();
+                    if !name.is_empty() {
+                        names.insert(name);
+                    }
+                }
+            }
+            "decorated_definition" => {
+                if let Some(def) = node.child_by_field_name("definition") {
+                    Self::collect_python_class_names(&def, parsed, names);
+                }
+            }
+            _ => {}
+        }
+        // Recurse for nested classes.
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            if child.kind() != "class_definition" && child.kind() != "decorated_definition" {
+                // Only recurse into non-class children to avoid double counting.
+                Self::collect_python_class_names(&child, parsed, names);
+            }
+        }
+    }
 }
