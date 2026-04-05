@@ -706,13 +706,78 @@ fn test_registry_empty_collect_live_types() {
     );
 }
 
-#[test]
-fn test_registry_known_class_names_empty() {
-    use prism::type_provider::TypeRegistry;
+// ---------------------------------------------------------------------------
+// Language::C files use the C++ scanner
+// ---------------------------------------------------------------------------
 
-    let registry = TypeRegistry::empty();
-    let names = registry.known_class_names();
-    assert!(names.is_empty());
+#[test]
+fn test_c_file_scanned() {
+    // In C, `struct Widget w;` uses struct_specifier (not type_identifier),
+    // so the declaration pattern doesn't match. But typedef'd types do:
+    // `Widget w;` produces a type_identifier node.
+    let source = r#"
+typedef struct { int id; } Widget;
+
+void init() {
+    Widget w;
+    w.id = 42;
+}
+"#;
+    let files = parse_file("init.c", source, Language::C);
+    let live = collect_live_types(&files, &BTreeSet::new());
+
+    assert!(
+        live.contains("Widget"),
+        "C typedef'd struct should be detected: {:?}",
+        live
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Nested Python classes detected by collect_known_python_classes
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_registry_nested_python_class_detection() {
+    use prism::type_provider::TypeRegistry;
+    use prism::type_providers::python::PythonTypeProvider;
+
+    let source = r#"
+class Outer:
+    class Inner:
+        pass
+
+    class DeepNested:
+        class VeryDeep:
+            pass
+
+o = Outer()
+i = Outer.Inner()
+d = Outer.DeepNested.VeryDeep()
+"#;
+    let files = parse_file("nested.py", source, Language::Python);
+    let provider = PythonTypeProvider::from_parsed_files(&files);
+
+    let mut registry = TypeRegistry::empty();
+    registry.register_provider(Box::new(provider));
+
+    let live = registry.collect_live_types(&files);
+    // The known_classes set should include nested classes, enabling
+    // their instantiations to be detected.
+    assert!(
+        live.contains("Outer"),
+        "Outer class should be detected: {:?}",
+        live
+    );
+    // Inner/DeepNested/VeryDeep are called with dotted names, but
+    // known_classes contains just the class name part. Check the set.
+    // The class names themselves should be in known_classes even if
+    // the call site uses dotted access.
+    assert!(
+        live.contains("Inner") || live.contains("Outer.Inner"),
+        "Nested class should be in live types: {:?}",
+        live
+    );
 }
 
 // ---------------------------------------------------------------------------

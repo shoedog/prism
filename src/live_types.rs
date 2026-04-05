@@ -39,7 +39,7 @@ pub fn collect_live_types(
             Language::TypeScript | Language::Tsx => scan_typescript(parsed, &mut live),
             Language::Rust => scan_rust(parsed, &mut live),
             Language::Python => scan_python(parsed, &mut live, known_classes),
-            Language::Cpp => scan_cpp(parsed, &mut live),
+            Language::C | Language::Cpp => scan_cpp(parsed, &mut live),
             Language::JavaScript => scan_javascript(parsed, &mut live),
             // Lua, Terraform, Bash: no type system, no instantiations to track.
             _ => {}
@@ -206,6 +206,12 @@ fn scan_new_expression(node: &tree_sitter::Node, parsed: &ParsedFile, live: &mut
 // ---------------------------------------------------------------------------
 
 /// Scan Rust files for struct literal expressions: `StructName { ... }`.
+///
+/// **Limitation:** Tuple struct constructors (`Point(1, 2)`) are parsed as
+/// `call_expression` by tree-sitter, syntactically identical to function calls.
+/// Detecting these would require a `known_structs` set (same approach as Python's
+/// `known_classes`). Under-counting is safe — RTA returns more dispatch targets,
+/// not fewer.
 fn scan_rust(parsed: &ParsedFile, live: &mut BTreeSet<String>) {
     scan_tree_recursive(parsed.tree.root_node(), parsed, live, &scan_rust_node);
 }
