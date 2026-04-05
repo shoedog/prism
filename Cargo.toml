@@ -170,6 +170,10 @@ name = "ast_java_type_provider"
 path = "tests/ast/java_type_provider_test.rs"
 
 [[test]]
+name = "ast_rust_type_provider"
+path = "tests/ast/rust_type_provider_test.rs"
+
+[[test]]
 name = "ast_comment_string"
 path = "tests/ast/comment_string_test.rs"
 
