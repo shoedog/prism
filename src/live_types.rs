@@ -71,14 +71,20 @@ fn scan_cpp_node(node: &tree_sitter::Node, parsed: &ParsedFile, live: &mut BTree
         "call_expression" => {
             // make_unique<X>(...), make_shared<X>(...)
             if let Some(func) = node.child_by_field_name("function") {
-                if func.kind() == "template_function" {
-                    let func_text = parsed.node_text(&func);
-                    if func_text.starts_with("make_unique")
-                        || func_text.starts_with("make_shared")
-                        || func_text.starts_with("std::make_unique")
-                        || func_text.starts_with("std::make_shared")
+                // The function may be a template_function directly (unqualified)
+                // or a qualified_identifier containing a template_function (std::make_unique<X>).
+                let template_node = if func.kind() == "template_function" {
+                    Some(func)
+                } else if func.kind() == "qualified_identifier" {
+                    find_child_by_kind(&func, "template_function")
+                } else {
+                    None
+                };
+                if let Some(tmpl) = template_node {
+                    let func_text = parsed.node_text(&tmpl);
+                    if func_text.starts_with("make_unique") || func_text.starts_with("make_shared")
                     {
-                        extract_template_arg(&func, parsed, live);
+                        extract_template_arg(&tmpl, parsed, live);
                     }
                 }
             }
@@ -271,6 +277,22 @@ fn scan_tree_recursive(
     for child in node.children(&mut cursor) {
         scan_tree_recursive(child, parsed, live, scanner_fn);
     }
+}
+
+/// Find the first direct child of `node` with the given kind.
+fn find_child_by_kind<'a>(
+    node: &tree_sitter::Node<'a>,
+    kind: &str,
+) -> Option<tree_sitter::Node<'a>> {
+    let count = node.child_count();
+    for i in 0..count {
+        if let Some(child) = node.child(i) {
+            if child.kind() == kind {
+                return Some(child);
+            }
+        }
+    }
+    None
 }
 
 /// Insert a trimmed, non-empty text from a node into the live set.
