@@ -584,6 +584,23 @@ impl CallGraph {
         result
     }
 
+    /// Resolve callers of a specific function, respecting static linkage.
+    ///
+    /// Returns only CallSites where the call to `callee_name` from the caller's
+    /// file actually resolves to the function in `target_file`.
+    pub fn resolve_callers(&self, callee_name: &str, target_file: &str) -> Vec<&CallSite> {
+        match self.callers.get(callee_name) {
+            None => Vec::new(),
+            Some(sites) => sites
+                .iter()
+                .filter(|site| {
+                    let resolved = self.resolve_callees(callee_name, &site.caller.file);
+                    resolved.iter().any(|fid| fid.file == target_file)
+                })
+                .collect(),
+        }
+    }
+
     /// Find all callees of a function by name, up to a given depth.
     pub fn callees_of(
         &self,

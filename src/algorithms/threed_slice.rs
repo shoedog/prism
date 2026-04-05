@@ -75,8 +75,11 @@ pub fn slice(ctx: &CpgContext, diff: &DiffInput, config: &ThreeDConfig) -> Resul
                 }
                 scored_funcs.insert(func_id.name.clone());
 
-                // Structural coupling: callers + callees
-                let callers = ctx.cpg.callers_of(&func_id.name, 1);
+                // Structural coupling: callers + callees (file-scoped to
+                // disambiguate static functions with the same name)
+                let callers =
+                    ctx.cpg
+                        .callers_of_in_file(&func_id.name, 1, Some(&diff_info.file_path));
                 let callees = ctx.cpg.callees_of(&func_id.name, &diff_info.file_path, 1);
                 let structural_coupling = callers.len() + callees.len();
 
@@ -110,9 +113,12 @@ pub fn slice(ctx: &CpgContext, diff: &DiffInput, config: &ThreeDConfig) -> Resul
     }
 
     // Also score connected functions (callers/callees)
-    let diff_func_names: Vec<String> = scores.iter().map(|s| s.function_name.clone()).collect();
-    for func_name in &diff_func_names {
-        let callers = ctx.cpg.callers_of(func_name, 2);
+    let diff_funcs: Vec<(String, String)> = scores
+        .iter()
+        .map(|s| (s.file.clone(), s.function_name.clone()))
+        .collect();
+    for (func_file, func_name) in &diff_funcs {
+        let callers = ctx.cpg.callers_of_in_file(func_name, 2, Some(func_file));
         for (caller_id, _) in &callers {
             if scores
                 .iter()
@@ -122,7 +128,9 @@ pub fn slice(ctx: &CpgContext, diff: &DiffInput, config: &ThreeDConfig) -> Resul
             }
 
             let temporal_activity = git_churn.get(&caller_id.file).copied().unwrap_or(0);
-            let callers_of_caller = ctx.cpg.callers_of(&caller_id.name, 1);
+            let callers_of_caller =
+                ctx.cpg
+                    .callers_of_in_file(&caller_id.name, 1, Some(&caller_id.file));
             let callees_of_caller = ctx.cpg.callees_of(&caller_id.name, &caller_id.file, 1);
 
             scores.push(RiskScore {
