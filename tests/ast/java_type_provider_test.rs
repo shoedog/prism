@@ -634,6 +634,544 @@ fn test_java_provider_languages() {
 }
 
 // ---------------------------------------------------------------------------
+// Generic types
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_java_generic_class() {
+    let source = r#"
+public class Box<T> {
+    private T value;
+
+    public T getValue() {
+        return value;
+    }
+
+    public void setValue(T value) {
+        this.value = value;
+    }
+}
+"#;
+    let files = parse_java("Box.java", source);
+    let provider = JavaTypeProvider::from_parsed_files(&files);
+
+    let resolved = provider.resolve_type("Box.java", "Box", 0);
+    assert!(resolved.is_some());
+    assert_eq!(resolved.unwrap().kind, ResolvedTypeKind::Concrete);
+
+    let fields = provider.field_layout("Box").unwrap();
+    let names: Vec<&str> = fields.iter().map(|f| f.name.as_str()).collect();
+    assert!(names.contains(&"value"), "Expected 'value' in {:?}", names);
+    assert!(
+        names.contains(&"getValue"),
+        "Expected 'getValue' in {:?}",
+        names
+    );
+}
+
+#[test]
+fn test_java_implements_generic_interface() {
+    let source = r#"
+public interface Comparable<T> {
+    int compareTo(T other);
+}
+
+public class Timestamp implements Comparable<Timestamp> {
+    private long millis;
+
+    public int compareTo(Timestamp other) {
+        return 0;
+    }
+}
+"#;
+    let files = parse_java("Timestamp.java", source);
+    let provider = JavaTypeProvider::from_parsed_files(&files);
+
+    // Generic params are stripped for matching: Comparable<Timestamp> → Comparable.
+    let subtypes = provider.subtypes_of("Comparable");
+    assert!(
+        subtypes.contains(&"Timestamp".to_string()),
+        "Expected Timestamp in subtypes of Comparable: {:?}",
+        subtypes
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Multiple interfaces
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_java_multiple_interfaces() {
+    let source = r#"
+public interface Readable {
+    String read();
+}
+
+public interface Writable {
+    void write(String data);
+}
+
+public interface Closeable {
+    void close();
+}
+
+public class FileStream implements Readable, Writable, Closeable {
+    public String read() { return ""; }
+    public void write(String data) {}
+    public void close() {}
+}
+"#;
+    let files = parse_java("FileStream.java", source);
+    let provider = JavaTypeProvider::from_parsed_files(&files);
+
+    assert!(provider
+        .subtypes_of("Readable")
+        .contains(&"FileStream".to_string()));
+    assert!(provider
+        .subtypes_of("Writable")
+        .contains(&"FileStream".to_string()));
+    assert!(provider
+        .subtypes_of("Closeable")
+        .contains(&"FileStream".to_string()));
+}
+
+// ---------------------------------------------------------------------------
+// Abstract class dispatch
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_java_abstract_class_dispatch() {
+    let source = r#"
+public abstract class Shape {
+    public abstract double area();
+
+    public String describe() {
+        return "shape";
+    }
+}
+
+public class Circle extends Shape {
+    private double radius;
+
+    public double area() {
+        return 3.14 * radius * radius;
+    }
+}
+
+public class Rectangle extends Shape {
+    private double width;
+    private double height;
+
+    public double area() {
+        return width * height;
+    }
+}
+"#;
+    let files = parse_java("Shapes.java", source);
+    let provider = JavaTypeProvider::from_parsed_files(&files);
+
+    // Dispatching "area" on Shape finds it declared on Shape itself
+    // (abstract methods are still method_declarations in the AST).
+    let results = provider.resolve_dispatch("Shape", "area", &BTreeSet::new());
+    assert_eq!(results.len(), 1);
+    assert_eq!(results[0].name, "area");
+
+    // Dispatching on the concrete subclass finds its own override.
+    let results = provider.resolve_dispatch("Circle", "area", &BTreeSet::new());
+    assert_eq!(results.len(), 1);
+    assert_eq!(results[0].name, "area");
+
+    // Dispatch "describe" on Circle should find it in Shape (inherited).
+    let results = provider.resolve_dispatch("Circle", "describe", &BTreeSet::new());
+    assert_eq!(results.len(), 1);
+    assert_eq!(results[0].name, "describe");
+
+    // Dispatch "describe" on Rectangle also inherits from Shape.
+    let results = provider.resolve_dispatch("Rectangle", "describe", &BTreeSet::new());
+    assert_eq!(results.len(), 1);
+    assert_eq!(results[0].name, "describe");
+}
+
+// ---------------------------------------------------------------------------
+// Diamond inheritance
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_java_diamond_hierarchy() {
+    let source = r#"
+public interface A {
+    void doA();
+}
+
+public interface B extends A {
+    void doB();
+}
+
+public interface C extends A {
+    void doC();
+}
+
+public class D implements B, C {
+    public void doA() {}
+    public void doB() {}
+    public void doC() {}
+}
+"#;
+    let files = parse_java("Diamond.java", source);
+    let provider = JavaTypeProvider::from_parsed_files(&files);
+
+    // D should satisfy A (through both B and C).
+    let a_subtypes = provider.subtypes_of("A");
+    assert!(
+        a_subtypes.contains(&"D".to_string()),
+        "D should satisfy A through diamond: {:?}",
+        a_subtypes
+    );
+
+    // D should satisfy B and C directly.
+    assert!(provider.subtypes_of("B").contains(&"D".to_string()));
+    assert!(provider.subtypes_of("C").contains(&"D".to_string()));
+
+    // Dispatch doA through A should find D.
+    let results = provider.resolve_dispatch("A", "doA", &BTreeSet::new());
+    assert_eq!(results.len(), 1);
+    assert_eq!(results[0].name, "doA");
+}
+
+// ---------------------------------------------------------------------------
+// Deep inheritance chain
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_java_deep_inheritance() {
+    let source = r#"
+public class Level0 {
+    public void baseMethod() {}
+}
+
+public class Level1 extends Level0 {
+    public void level1Method() {}
+}
+
+public class Level2 extends Level1 {
+    public void level2Method() {}
+}
+
+public class Level3 extends Level2 {
+    public void level3Method() {}
+}
+"#;
+    let files = parse_java("Deep.java", source);
+    let provider = JavaTypeProvider::from_parsed_files(&files);
+
+    // Level3 should inherit all methods up the chain.
+    let fields = provider.field_layout("Level3").unwrap();
+    let names: Vec<&str> = fields.iter().map(|f| f.name.as_str()).collect();
+    assert!(names.contains(&"level3Method"));
+    assert!(names.contains(&"level2Method"));
+    assert!(names.contains(&"level1Method"));
+    assert!(names.contains(&"baseMethod"));
+
+    // Dispatch "baseMethod" on Level3 should find it in Level0.
+    let results = provider.resolve_dispatch("Level3", "baseMethod", &BTreeSet::new());
+    assert_eq!(results.len(), 1);
+    assert_eq!(results[0].name, "baseMethod");
+
+    // All levels are subtypes of Level0.
+    let subtypes = provider.subtypes_of("Level0");
+    assert!(subtypes.contains(&"Level1".to_string()));
+    // Level2 and Level3 are indirect subtypes; subtypes_of returns direct only.
+}
+
+// ---------------------------------------------------------------------------
+// Marker interface (no methods)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_java_marker_interface() {
+    let source = r#"
+public interface Serializable {
+}
+
+public class Event implements Serializable {
+    private String type;
+}
+"#;
+    let files = parse_java("Marker.java", source);
+    let provider = JavaTypeProvider::from_parsed_files(&files);
+
+    let subtypes = provider.subtypes_of("Serializable");
+    assert!(
+        subtypes.contains(&"Event".to_string()),
+        "Event should satisfy marker interface: {:?}",
+        subtypes
+    );
+
+    let fields = provider.field_layout("Serializable").unwrap();
+    assert!(fields.is_empty(), "Marker interface has no methods");
+}
+
+// ---------------------------------------------------------------------------
+// Enum with methods
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_java_enum_with_methods() {
+    let source = r#"
+public enum Planet {
+    MERCURY,
+    VENUS,
+    EARTH;
+
+    public double mass() {
+        return 0.0;
+    }
+}
+"#;
+    let files = parse_java("Planet.java", source);
+    let provider = JavaTypeProvider::from_parsed_files(&files);
+
+    let resolved = provider.resolve_type("Planet.java", "Planet", 0).unwrap();
+    assert_eq!(resolved.kind, ResolvedTypeKind::Enum);
+}
+
+// ---------------------------------------------------------------------------
+// Constructor in field layout
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_java_constructor_in_layout() {
+    let source = r#"
+public class Connection {
+    private String url;
+
+    public Connection(String url) {
+        this.url = url;
+    }
+
+    public void connect() {}
+}
+"#;
+    let files = parse_java("Connection.java", source);
+    let provider = JavaTypeProvider::from_parsed_files(&files);
+
+    let fields = provider.field_layout("Connection").unwrap();
+    let names: Vec<&str> = fields.iter().map(|f| f.name.as_str()).collect();
+    assert!(names.contains(&"url"), "Expected field 'url'");
+    assert!(
+        names.contains(&"Connection"),
+        "Expected constructor 'Connection'"
+    );
+    assert!(names.contains(&"connect"), "Expected method 'connect'");
+}
+
+// ---------------------------------------------------------------------------
+// Dispatch returns empty for nonexistent method
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_java_dispatch_nonexistent_method() {
+    let source = r#"
+public class Service {
+    public void run() {}
+}
+"#;
+    let files = parse_java("Service.java", source);
+    let provider = JavaTypeProvider::from_parsed_files(&files);
+
+    let results = provider.resolve_dispatch("Service", "nonExistent", &BTreeSet::new());
+    assert!(results.is_empty());
+}
+
+#[test]
+fn test_java_dispatch_nonexistent_type() {
+    let source = r#"
+public class Service {
+    public void run() {}
+}
+"#;
+    let files = parse_java("Service.java", source);
+    let provider = JavaTypeProvider::from_parsed_files(&files);
+
+    let results = provider.resolve_dispatch("Unknown", "run", &BTreeSet::new());
+    assert!(results.is_empty());
+}
+
+// ---------------------------------------------------------------------------
+// Non-Java files ignored
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_java_ignores_non_java_files() {
+    let java_parsed = ParsedFile::parse(
+        "Service.java",
+        "public class Service { public void run() {} }",
+        Language::Java,
+    )
+    .unwrap();
+    let go_parsed =
+        ParsedFile::parse("main.go", "package main\nfunc main() {}\n", Language::Go).unwrap();
+
+    let mut files = BTreeMap::new();
+    files.insert("Service.java".to_string(), java_parsed);
+    files.insert("main.go".to_string(), go_parsed);
+
+    let provider = JavaTypeProvider::from_parsed_files(&files);
+
+    // Should find Java class.
+    assert!(provider
+        .resolve_type("Service.java", "Service", 0)
+        .is_some());
+    // Should not find Go types.
+    assert!(provider.resolve_type("main.go", "main", 0).is_none());
+}
+
+// ---------------------------------------------------------------------------
+// CpgContext integration
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_java_cpg_context_integration() {
+    use prism::cpg::CpgContext;
+
+    let source = r#"
+public interface Logger {
+    void log(String msg);
+}
+
+public class ConsoleLogger implements Logger {
+    public void log(String msg) {
+        System.out.println(msg);
+    }
+}
+"#;
+    let parsed = ParsedFile::parse("Logger.java", source, Language::Java).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert("Logger.java".to_string(), parsed);
+
+    let ctx = CpgContext::build(&files, None);
+
+    // TypeRegistry should have Java provider auto-registered.
+    let tp = ctx.types.provider_for(Language::Java);
+    assert!(tp.is_some(), "Java provider should be auto-registered");
+
+    let tp = tp.unwrap();
+    let resolved = tp.resolve_type("Logger.java", "Logger", 0).unwrap();
+    assert_eq!(resolved.kind, ResolvedTypeKind::Interface);
+    let resolved = tp.resolve_type("Logger.java", "ConsoleLogger", 0).unwrap();
+    assert_eq!(resolved.kind, ResolvedTypeKind::Concrete);
+
+    // Dispatch provider should also be registered.
+    let dp = ctx.types.dispatch_for(Language::Java);
+    assert!(dp.is_some(), "Java dispatch should be auto-registered");
+
+    let dp = dp.unwrap();
+    let targets = dp.resolve_dispatch("Logger", "log", &BTreeSet::new());
+    assert_eq!(targets.len(), 1);
+    assert_eq!(targets[0].name, "log");
+}
+
+// ---------------------------------------------------------------------------
+// Subtypes of class (direct subclasses)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_java_subtypes_of_class() {
+    let source = r#"
+public class Vehicle {
+    public void drive() {}
+}
+
+public class Car extends Vehicle {
+    public void honk() {}
+}
+
+public class Truck extends Vehicle {
+    public void haul() {}
+}
+
+public class Sedan extends Car {
+    public void park() {}
+}
+"#;
+    let files = parse_java("Vehicles.java", source);
+    let provider = JavaTypeProvider::from_parsed_files(&files);
+
+    let subtypes = provider.subtypes_of("Vehicle");
+    assert!(subtypes.contains(&"Car".to_string()));
+    assert!(subtypes.contains(&"Truck".to_string()));
+    // Sedan extends Car, not Vehicle directly.
+    assert!(
+        !subtypes.contains(&"Sedan".to_string()),
+        "subtypes_of returns direct subclasses only"
+    );
+
+    let car_subtypes = provider.subtypes_of("Car");
+    assert!(car_subtypes.contains(&"Sedan".to_string()));
+}
+
+// ---------------------------------------------------------------------------
+// Multiple classes across files with shared interface
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_java_cross_file_dispatch_rta() {
+    let sources = &[
+        (
+            "Cache.java",
+            r#"
+public interface Cache {
+    Object get(String key);
+    void put(String key, Object value);
+}
+"#,
+        ),
+        (
+            "MemoryCache.java",
+            r#"
+public class MemoryCache implements Cache {
+    public Object get(String key) { return null; }
+    public void put(String key, Object value) {}
+}
+"#,
+        ),
+        (
+            "RedisCache.java",
+            r#"
+public class RedisCache implements Cache {
+    public Object get(String key) { return null; }
+    public void put(String key, Object value) {}
+}
+"#,
+        ),
+        (
+            "DiskCache.java",
+            r#"
+public class DiskCache implements Cache {
+    public Object get(String key) { return null; }
+    public void put(String key, Object value) {}
+}
+"#,
+        ),
+    ];
+    let files = parse_java_files(sources);
+    let provider = JavaTypeProvider::from_parsed_files(&files);
+
+    // Without RTA: all 3 implementations.
+    let all = provider.resolve_dispatch("Cache", "get", &BTreeSet::new());
+    assert_eq!(all.len(), 3);
+
+    // With RTA: only MemoryCache and RedisCache live.
+    let live = BTreeSet::from(["MemoryCache".to_string(), "RedisCache".to_string()]);
+    let filtered = provider.resolve_dispatch("Cache", "get", &live);
+    assert_eq!(filtered.len(), 2);
+    let names: BTreeSet<String> = filtered.iter().map(|f| f.file.clone()).collect();
+    assert!(names.contains("MemoryCache.java"));
+    assert!(names.contains("RedisCache.java"));
+    assert!(!names.contains("DiskCache.java"));
+}
+
+// ---------------------------------------------------------------------------
 // Method override in hierarchy
 // ---------------------------------------------------------------------------
 
