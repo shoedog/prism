@@ -7,6 +7,16 @@
 //!
 //! **Limitation:** Coverage depends on annotation density in the repository.
 //! Unannotated parameters and variables return `None` from `resolve_type`.
+//!
+//! **Deferred:**
+//! - `.pyi` stub files are not parsed (E12 spec lists these as optional).
+//!   Well-annotated stdlib stubs (typeshed) and third-party stubs won't
+//!   contribute type info until a future enhancement adds `.pyi` support.
+//! - The type alias heuristic (`Name = OtherName` where both start uppercase)
+//!   may produce false positives for class reassignment, sentinel patterns,
+//!   etc. The explicit `TypeAlias` annotation path is preferred.
+//! - `subtypes_of` returns direct subclasses only, not transitive. Consistent
+//!   with the Java provider.
 
 use crate::ast::ParsedFile;
 use crate::languages::Language;
@@ -304,7 +314,10 @@ impl PythonTypeProvider {
     }
 
     /// Try to extract a type annotation from an expression_statement.
-    /// Handles: `name: Type` and `name: Type = value`.
+    /// Handles both bare annotations (`name: str`) and annotated assignments
+    /// (`name: str = "default"`). tree-sitter-python represents both as
+    /// `assignment` nodes with a `type` field — the `left` field holds the
+    /// identifier, and `right` (if present) holds the default value.
     fn try_extract_annotation(
         node: &tree_sitter::Node,
         parsed: &ParsedFile,
@@ -312,27 +325,7 @@ impl PythonTypeProvider {
     ) {
         let mut cursor = node.walk();
         for child in node.children(&mut cursor) {
-            if child.kind() == "type" {
-                // This is a standalone type annotation: `name: Type`
-                // The previous sibling should be the identifier.
-                // tree-sitter-python structures this as:
-                //   expression_statement -> (type (identifier) (type))
-                // Actually, it's more nuanced. Let's handle both patterns.
-                continue;
-            }
             if child.kind() == "assignment" {
-                // `name: Type = value` — the assignment node has a `type` field
-                // Actually this is handled below.
-            }
-        }
-
-        // Look for direct annotation pattern in the expression_statement.
-        // tree-sitter-python: expression_statement containing an `assignment`
-        // with type annotation, or a bare `type` annotation.
-        let mut cursor2 = node.walk();
-        for child in node.children(&mut cursor2) {
-            if child.kind() == "assignment" {
-                // `x: int = 5` — assignment with optional type
                 if let Some(type_node) = child.child_by_field_name("type") {
                     if let Some(left) = child.child_by_field_name("left") {
                         let name = parsed.node_text(&left).trim().to_string();
