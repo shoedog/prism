@@ -22,6 +22,7 @@ use crate::type_provider::TypeRegistry;
 use crate::type_providers::cpp::CppTypeProvider;
 use crate::type_providers::go::GoTypeProvider;
 use crate::type_providers::java::JavaTypeProvider;
+use crate::type_providers::rust_provider::RustTypeProvider;
 use crate::type_providers::typescript::TypeScriptTypeProvider;
 
 use petgraph::graph::{DiGraph, NodeIndex};
@@ -224,6 +225,18 @@ impl<'a> CpgContext<'a> {
             let java_dispatch = java_provider.clone();
             registry.register_provider(Box::new(java_provider));
             registry.register_dispatch_provider(Box::new(java_dispatch));
+        }
+
+        // Rust provider — extracted from tree-sitter ASTs.
+        let has_rust = files
+            .values()
+            .any(|pf| pf.language == crate::languages::Language::Rust);
+        if has_rust {
+            let rust_provider = RustTypeProvider::from_parsed_files(files);
+            // Clone shares the Arc<RustTypeData> — single backing store.
+            let rust_dispatch = rust_provider.clone();
+            registry.register_provider(Box::new(rust_provider));
+            registry.register_dispatch_provider(Box::new(rust_dispatch));
         }
 
         // TypeScript/TSX provider — extracted from tree-sitter ASTs.
