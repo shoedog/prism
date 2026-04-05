@@ -1,0 +1,10 @@
+--- a/cve_strncpy_no_null.c
++++ b/cve_strncpy_no_null.c
+@@ -3,4 +3,8 @@
+
+ void copy_hostname(const char *input, size_t input_len) {
++    char hostname[64];
++    strncpy(hostname, input, sizeof(hostname));
++    int len = strlen(hostname);
++    log_hostname(hostname, len);
+ }

@@ -1,0 +1,10 @@
+--- a/cve_signedness.c
++++ b/cve_signedness.c
+@@ -4,4 +4,8 @@
+
+ void parse_tlv(uint8_t *pdu, size_t pdu_len) {
++    int length = (int16_t)(pdu[2] << 8 | pdu[3]);
++    if (length > 1024) return;
++    char buf[1024];
++    memcpy(buf, pdu + 4, length);
+ }
