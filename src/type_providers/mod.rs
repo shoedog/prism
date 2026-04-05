@@ -7,5 +7,6 @@
 pub mod cpp;
 pub mod go;
 pub mod java;
+pub mod python;
 pub mod rust_provider;
 pub mod typescript;
