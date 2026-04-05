@@ -225,6 +225,9 @@ impl RustTypeProvider {
     }
 
     /// Extract fields from a struct body (field_declaration_list).
+    /// Tuple structs (`struct Foo(i32, String)`) have unnamed positional fields
+    /// in an `ordered_field_declaration_list` and are intentionally skipped —
+    /// only named struct fields are tracked.
     fn extract_struct_fields(
         node: &tree_sitter::Node,
         parsed: &ParsedFile,
@@ -773,17 +776,20 @@ impl DispatchProvider for RustTypeProvider {
 
 impl RustTypeProvider {
     /// Find a method on a concrete type (checking both inherent and trait impls).
+    /// Prefers inherent methods over trait impls (Rust method resolution order).
     fn find_method_on_type(&self, type_name: &str, method: &str) -> Option<FunctionId> {
         if let Some(methods) = self.data.methods.get(type_name) {
-            for m in methods {
-                if m.name == method {
-                    return Some(FunctionId {
-                        name: method.to_string(),
-                        file: m.file.clone(),
-                        start_line: m.start_line,
-                        end_line: m.end_line,
-                    });
-                }
+            let inherent = methods
+                .iter()
+                .find(|m| m.name == method && m.impl_trait.is_none());
+            let any = methods.iter().find(|m| m.name == method);
+            if let Some(m) = inherent.or(any) {
+                return Some(FunctionId {
+                    name: method.to_string(),
+                    file: m.file.clone(),
+                    start_line: m.start_line,
+                    end_line: m.end_line,
+                });
             }
         }
         None

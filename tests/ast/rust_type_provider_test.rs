@@ -1312,3 +1312,56 @@ impl Builder {
         "Expected method 'build' from second impl"
     );
 }
+
+// ---------------------------------------------------------------------------
+// Inherent method shadows trait method of same name
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_rust_inherent_shadows_trait_method() {
+    // In Rust, `impl Foo { fn bar() }` shadows `impl Trait for Foo { fn bar() }`.
+    // Put the trait impl first in source order to confirm find_method_on_type
+    // still prefers the inherent method regardless of parse order.
+    let source = r#"
+trait Formatter {
+    fn format(&self) -> String;
+}
+
+struct Report {
+    title: String,
+}
+
+impl Formatter for Report {
+    fn format(&self) -> String {
+        format!("trait: {}", self.title)
+    }
+}
+
+impl Report {
+    fn format(&self) -> String {
+        format!("inherent: {}", self.title)
+    }
+}
+"#;
+    let files = parse_rust("report.rs", source);
+    let provider = RustTypeProvider::from_parsed_files(&files);
+
+    // Concrete dispatch should resolve to the inherent method.
+    let results = provider.resolve_dispatch("Report", "format", &BTreeSet::new());
+    assert_eq!(results.len(), 1);
+    let fid = &results[0];
+    assert_eq!(fid.name, "format");
+
+    // The inherent impl is on line 16 (`impl Report {`), method starts at line 17.
+    // The trait impl is on line 10 (`impl Formatter for Report {`), method starts at line 11.
+    // Inherent method must win — its start_line should be > the trait impl's.
+    assert!(
+        fid.start_line > 15,
+        "Expected inherent method (line 17+), got line {}",
+        fid.start_line
+    );
+
+    // Trait dispatch should still find Report through satisfaction.
+    let trait_results = provider.resolve_dispatch("Formatter", "format", &BTreeSet::new());
+    assert_eq!(trait_results.len(), 1);
+}
