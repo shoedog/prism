@@ -93,11 +93,15 @@ impl<'a> CpgContext<'a> {
     ///
     /// The CPG graph, call graph, and DFG come from the cache. The type
     /// registry and live types are rebuilt fresh from the parsed files.
+    /// If `type_db` is provided (via `--compile-commands`), it is injected
+    /// into the cached CPG so that algorithms like `delta_slice` that call
+    /// `ctx.cpg.type_db` get virtual dispatch enrichment.
     pub fn build_with_cached_cpg(
         files: &'a BTreeMap<String, ParsedFile>,
-        cpg: CodePropertyGraph,
+        mut cpg: CodePropertyGraph,
         type_db: Option<&'a TypeDatabase>,
     ) -> Self {
+        cpg.type_db = type_db.cloned();
         let types = Self::build_registry(files, type_db);
         let live_types = types.collect_live_types(files);
         CpgContext {
@@ -657,7 +661,59 @@ impl CodePropertyGraph {
     fn build_impl(files: &BTreeMap<String, ParsedFile>, type_db: Option<TypeDatabase>) -> Self {
         let dfg = DataFlowGraph::build(files);
         let cg = CallGraph::build(files);
+        Self::assemble_graph(cg, dfg, files, type_db)
+    }
 
+    /// Build a CPG with type enrichment from a TypeDatabase.
+    ///
+    /// Convenience method — equivalent to `build_impl(files, Some(type_db))`.
+    pub fn build_with_types(files: &BTreeMap<String, ParsedFile>, type_db: TypeDatabase) -> Self {
+        Self::build_impl(files, Some(type_db))
+    }
+
+    /// Build a CPG incrementally from a cached CG/DFG and a set of changed files.
+    ///
+    /// 1. Removes data for changed files from the cached CG/DFG.
+    /// 2. Builds fresh CG/DFG for only the changed files.
+    /// 3. Merges the fresh data into the retained cached data.
+    /// 4. Assembles the full petgraph from the merged CG/DFG.
+    ///
+    /// The graph assembly (Steps 1–9) runs on the merged CG/DFG, so all
+    /// cross-file edges (interprocedural DFG, call edges) are correct.
+    pub fn build_incremental(
+        mut cached_cg: CallGraph,
+        mut cached_dfg: DataFlowGraph,
+        changed_files: &BTreeSet<String>,
+        files: &BTreeMap<String, ParsedFile>,
+        type_db: Option<TypeDatabase>,
+    ) -> Self {
+        // Step 1: Remove stale data for changed files.
+        cached_cg.remove_files(changed_files);
+        cached_dfg.remove_files(changed_files);
+
+        // Step 2: Build fresh CG/DFG for changed files only.
+        let fresh_cg = CallGraph::build_direct_subset(files, changed_files);
+        let fresh_dfg = DataFlowGraph::build_subset(files, changed_files);
+
+        // Step 3: Merge fresh into retained.
+        cached_cg.merge(fresh_cg);
+        cached_dfg.merge(fresh_dfg);
+
+        // Step 4: Assemble the petgraph from the merged CG/DFG.
+        // This reuses the same assembly logic as build_impl (Steps 1–9).
+        Self::assemble_graph(cached_cg, cached_dfg, files, type_db)
+    }
+
+    /// Assemble a CPG petgraph from pre-built CG and DFG.
+    ///
+    /// Shared by `build_impl` (full build) and `build_incremental` (partial).
+    /// Runs Steps 1–9 of graph construction.
+    fn assemble_graph(
+        cg: CallGraph,
+        dfg: DataFlowGraph,
+        files: &BTreeMap<String, ParsedFile>,
+        type_db: Option<TypeDatabase>,
+    ) -> Self {
         let mut graph = DiGraph::new();
         let mut func_index: BTreeMap<(String, String), NodeIndex> = BTreeMap::new();
         let mut var_index: BTreeMap<(String, String, usize, AccessPath, VarAccess), NodeIndex> =
@@ -681,8 +737,8 @@ impl CodePropertyGraph {
             }
         }
 
-        // --- Step 2: Variable nodes from DFG defs ---
-        for ((_file, _func, _path), locs) in &dfg.defs {
+        // --- Steps 2-3: Variable nodes from DFG ---
+        for locs in dfg.defs.values() {
             for loc in locs {
                 let access = VarAccess::Def;
                 let key = (
@@ -708,9 +764,7 @@ impl CodePropertyGraph {
                 }
             }
         }
-
-        // --- Step 3: Variable nodes from DFG uses ---
-        for ((_file, _func, _path), locs) in &dfg.uses {
+        for locs in dfg.uses.values() {
             for loc in locs {
                 let access = VarAccess::Use;
                 let key = (
@@ -737,7 +791,7 @@ impl CodePropertyGraph {
             }
         }
 
-        // --- Step 4: DataFlow edges from DFG ---
+        // --- Step 4: DataFlow edges ---
         for edge in &dfg.edges {
             let from_access = match edge.from.kind {
                 VarAccessKind::Def => VarAccess::Def,
@@ -768,16 +822,14 @@ impl CodePropertyGraph {
             }
         }
 
-        // --- Step 5: Call edges from call graph ---
+        // --- Step 5: Call edges ---
         for (caller_id, sites) in &cg.calls {
             let caller_key = (caller_id.file.clone(), caller_id.name.clone());
             let caller_idx = match func_index.get(&caller_key) {
                 Some(&idx) => idx,
                 None => continue,
             };
-
             for site in sites {
-                // Resolve callee to function nodes
                 let callee_ids = cg.resolve_callees_qualified(
                     &site.callee_name,
                     &caller_id.file,
@@ -793,9 +845,7 @@ impl CodePropertyGraph {
             }
         }
 
-        // --- Step 5b: Interprocedural data flow edges (argument → parameter) ---
-        // For each call site, map call-site arguments to callee parameter Def nodes
-        // via DataFlow edges. This enables taint to propagate through function calls.
+        // --- Step 5b: Interprocedural data flow edges ---
         for (caller_id, sites) in &cg.calls {
             for site in sites {
                 let callee_ids = cg.resolve_callees_qualified(
@@ -804,7 +854,6 @@ impl CodePropertyGraph {
                     site.qualifier.as_deref(),
                 );
                 for callee_id in &callee_ids {
-                    // Get caller's argument texts at the call site
                     let caller_parsed = match files.get(&caller_id.file) {
                         Some(p) => p,
                         None => continue,
@@ -813,14 +862,11 @@ impl CodePropertyGraph {
                     if arg_texts.is_empty() {
                         continue;
                     }
-
-                    // Get callee's parameter names
                     let callee_parsed = match files.get(&callee_id.file) {
                         Some(p) => p,
                         None => continue,
                     };
                     let param_names = {
-                        // Find the callee function node
                         let funcs = callee_parsed.all_functions();
                         let func_node = funcs.iter().find(|f| {
                             callee_parsed
@@ -834,17 +880,11 @@ impl CodePropertyGraph {
                             None => continue,
                         }
                     };
-
-                    // Map each argument to the corresponding parameter
                     for (i, param_name) in param_names.iter().enumerate() {
                         if i >= arg_texts.len() {
                             break;
                         }
                         let arg_text = &arg_texts[i];
-
-                        // Find the Use node for the argument variable at the call site line.
-                        // The argument text may be a simple variable or an expression;
-                        // we look for the base identifier.
                         let arg_base = arg_text.split('.').next().unwrap_or(arg_text);
                         let arg_base = arg_base.split("->").next().unwrap_or(arg_base);
                         let arg_path = AccessPath::simple(arg_base);
@@ -855,7 +895,6 @@ impl CodePropertyGraph {
                             arg_path.clone(),
                             VarAccess::Use,
                         );
-                        // Also try Def (some languages assign in call args)
                         let arg_idx = var_index.get(&arg_key).copied().or_else(|| {
                             let def_key = (
                                 caller_id.file.clone(),
@@ -866,9 +905,6 @@ impl CodePropertyGraph {
                             );
                             var_index.get(&def_key).copied()
                         });
-
-                        // Find the Def node for the parameter in the callee function.
-                        // Parameters are typically defined at or near the function start line.
                         let param_path = AccessPath::simple(param_name);
                         let param_idx =
                             (callee_id.start_line..=callee_id.end_line).find_map(|line| {
@@ -881,7 +917,6 @@ impl CodePropertyGraph {
                                 );
                                 var_index.get(&key).copied()
                             });
-
                         if let (Some(from), Some(to)) = (arg_idx, param_idx) {
                             graph.add_edge(from, to, CpgEdge::DataFlow);
                         }
@@ -890,7 +925,7 @@ impl CodePropertyGraph {
             }
         }
 
-        // --- Step 6: Contains edges (function → its variables) ---
+        // --- Step 6: Contains edges ---
         for (&(ref file, ref func, ref _line, ref _path, ref _access), &var_idx) in &var_index {
             let func_key = (file.clone(), func.clone());
             if let Some(&func_idx) = func_index.get(&func_key) {
@@ -898,14 +933,7 @@ impl CodePropertyGraph {
             }
         }
 
-        // TODO(Phase 4+): Add FieldOf edges connecting field-qualified Variable nodes
-        // (e.g., dev.name) to their base Variable nodes (dev). This would enable queries
-        // like "which field accesses exist for this struct?" Currently FieldOf is defined
-        // in the schema but not constructed.
-
-        // --- Step 7: Statement nodes for CFG (Phase 6) ---
-        // Create Statement nodes for all statement-level AST constructs in each
-        // function. These are distinct from Variable nodes (which model data flow).
+        // --- Step 7: Statement nodes for CFG ---
         let mut stmt_index: BTreeMap<(String, usize), NodeIndex> = BTreeMap::new();
         for (path, parsed) in files {
             let root = parsed.tree.root_node();
@@ -921,7 +949,7 @@ impl CodePropertyGraph {
             );
         }
 
-        // --- Step 8: ControlFlow edges from CFG builder ---
+        // --- Step 8: ControlFlow edges ---
         for (_path, parsed) in files {
             let cfg_edges = cfg::build_cfg_edges(parsed);
             for edge in cfg_edges {
@@ -933,18 +961,10 @@ impl CodePropertyGraph {
             }
         }
 
-        // --- Step 9: Virtual dispatch enrichment (if type_db present) ---
-        // Uses Rapid Type Analysis (RTA) when possible: only adds edges to
-        // override implementations in classes that are actually instantiated.
-        // Falls back to Class Hierarchy Analysis (CHA) if no instantiations found.
+        // --- Step 9: Virtual dispatch enrichment ---
         if let Some(ref tdb) = type_db {
             let mut virtual_edges: Vec<(NodeIndex, NodeIndex)> = Vec::new();
-
-            // Collect live classes via RTA (scan for instantiation expressions)
             let live_classes = TypeDatabase::collect_live_classes(files);
-
-            // Collect all virtual method names and which function nodes implement them,
-            // along with the class that owns each override
             let mut virtual_method_nodes: BTreeMap<String, Vec<(String, NodeIndex)>> =
                 BTreeMap::new();
             for record in tdb.records.values() {
@@ -959,9 +979,6 @@ impl CodePropertyGraph {
                     }
                 }
             }
-
-            // For each caller that calls a virtual method, add edges to overrides
-            // RTA: only to overrides in instantiated classes (if we have live class info)
             let all_func_nodes: Vec<NodeIndex> = func_index.values().copied().collect();
             for &caller_idx in &all_func_nodes {
                 let callees: Vec<_> = graph
@@ -969,7 +986,6 @@ impl CodePropertyGraph {
                     .filter(|e| matches!(e.weight(), CpgEdge::Call))
                     .map(|e| e.target())
                     .collect();
-
                 for callee_idx in callees {
                     if let CpgNode::Function { name, .. } = &graph[callee_idx] {
                         if let Some(override_entries) = virtual_method_nodes.get(name) {
@@ -977,7 +993,6 @@ impl CodePropertyGraph {
                                 if *override_idx == callee_idx {
                                     continue;
                                 }
-                                // RTA filter: skip overrides in uninstantiated classes
                                 if !live_classes.is_empty() && !live_classes.contains(class_name) {
                                     continue;
                                 }
@@ -987,7 +1002,6 @@ impl CodePropertyGraph {
                     }
                 }
             }
-
             for (from, to) in &virtual_edges {
                 let already_exists = graph
                     .edges(*from)
@@ -1008,13 +1022,6 @@ impl CodePropertyGraph {
             dfg,
             type_db,
         }
-    }
-
-    /// Build a CPG with type enrichment from a TypeDatabase.
-    ///
-    /// Convenience method — equivalent to `build_impl(files, Some(type_db))`.
-    pub fn build_with_types(files: &BTreeMap<String, ParsedFile>, type_db: TypeDatabase) -> Self {
-        Self::build_impl(files, Some(type_db))
     }
 
     // -----------------------------------------------------------------------
