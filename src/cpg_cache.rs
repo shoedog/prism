@@ -3,7 +3,14 @@
 //! Saves and loads the `CodePropertyGraph` (petgraph graph + call graph + DFG)
 //! to/from disk using bincode. Per-file content hashes (SHA-256) are stored
 //! alongside the graph; on load, all hashes are revalidated and the cache is
-//! discarded on any mismatch (Phase 1: all-or-nothing invalidation).
+//! used only when every file hash matches (Phase 1: all-or-nothing). When any
+//! file has changed, changed files are incrementally rebuilt while unchanged
+//! portions of the graph are preserved (Phase 2: incremental update).
+//!
+//! **Scope:** The cache covers only the files referenced in the current diff
+//! (i.e., those in `sources`), not the entire repository. This makes it a
+//! per-MR cache: re-running the same diff is a hit, but a different diff
+//! touching different files will miss and trigger a rebuild.
 //!
 //! The `TypeDatabase` inside `CodePropertyGraph` is NOT cached — it is rebuilt
 //! from parsed files on every review.
@@ -16,7 +23,7 @@ use crate::data_flow::DataFlowGraph;
 use petgraph::graph::{DiGraph, NodeIndex};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
@@ -164,19 +171,40 @@ pub fn save_cache(
     Ok(())
 }
 
+/// Result of attempting to load a CPG from cache.
+pub enum CacheResult {
+    /// All file hashes match — the cached CPG is fully valid.
+    Hit(CodePropertyGraph),
+    /// Some files match, some differ. The cached CG/DFG for unchanged files
+    /// can be retained and merged with fresh analysis of changed files.
+    PartialHit {
+        /// The cached call graph (to be pruned and merged).
+        cached_call_graph: CallGraph,
+        /// The cached data flow graph (to be pruned and merged).
+        cached_dfg: DataFlowGraph,
+        /// Files whose hashes differ from the cache.
+        changed_files: BTreeSet<String>,
+    },
+    /// No usable cache (missing, corrupt, version mismatch, or entirely
+    /// different file set).
+    Miss,
+}
+
 /// Attempt to load a cached CPG from the cache directory.
 ///
-/// Returns `Some(CodePropertyGraph)` if the cache exists, the version matches,
-/// and ALL file hashes match the current sources. Returns `None` on any
-/// mismatch (triggering a full rebuild by the caller).
-pub fn load_cache(
-    current_hashes: &BTreeMap<String, String>,
-    cache_dir: &Path,
-) -> Option<CodePropertyGraph> {
+/// Returns `CacheResult::Hit` if all hashes match, `PartialHit` if the file
+/// set is the same but some files changed, or `Miss` if the cache is unusable.
+pub fn load_cache(current_hashes: &BTreeMap<String, String>, cache_dir: &Path) -> CacheResult {
     let bin_path = cache_bin_path(cache_dir);
-    let data = fs::read(&bin_path).ok()?;
+    let data = match fs::read(&bin_path) {
+        Ok(d) => d,
+        Err(_) => return CacheResult::Miss,
+    };
 
-    let cache: CpgCache = bincode::deserialize(&data).ok()?;
+    let cache: CpgCache = match bincode::deserialize(&data) {
+        Ok(c) => c,
+        Err(_) => return CacheResult::Miss,
+    };
 
     // Version check.
     if cache.version != CACHE_VERSION {
@@ -184,7 +212,7 @@ pub fn load_cache(
             "Cache version mismatch (cached: {}, current: {}), rebuilding",
             cache.version, CACHE_VERSION
         );
-        return None;
+        return CacheResult::Miss;
     }
 
     // Prism version check.
@@ -194,17 +222,44 @@ pub fn load_cache(
             "Prism version mismatch (cached: {}, current: {}), rebuilding",
             cache.prism_version, current_version
         );
-        return None;
+        return CacheResult::Miss;
     }
 
-    // File hash check: all files must match exactly.
-    if cache.file_hashes != *current_hashes {
-        return None;
+    // File hash check.
+    if cache.file_hashes == *current_hashes {
+        // Exact match — full cache hit.
+        let cpg = reconstruct_cpg(cache.graph);
+        return CacheResult::Hit(cpg);
     }
 
-    // Reconstruct DiGraph from node/edge lists.
-    let cpg = reconstruct_cpg(cache.graph);
-    Some(cpg)
+    // Check for partial match: same file set but some hashes differ.
+    // Both maps must have the same keys (same file set).
+    let cached_keys: BTreeSet<&String> = cache.file_hashes.keys().collect();
+    let current_keys: BTreeSet<&String> = current_hashes.keys().collect();
+
+    if cached_keys != current_keys {
+        // Different file sets — can't do incremental.
+        return CacheResult::Miss;
+    }
+
+    // Same file set, some hashes differ. Identify changed files.
+    let changed_files: BTreeSet<String> = current_hashes
+        .iter()
+        .filter(|(path, hash)| cache.file_hashes.get(*path) != Some(hash))
+        .map(|(path, _)| path.clone())
+        .collect();
+
+    if changed_files.is_empty() {
+        // Shouldn't happen (we checked equality above), but handle gracefully.
+        let cpg = reconstruct_cpg(cache.graph);
+        return CacheResult::Hit(cpg);
+    }
+
+    CacheResult::PartialHit {
+        cached_call_graph: cache.graph.call_graph,
+        cached_dfg: cache.graph.dfg,
+        changed_files,
+    }
 }
 
 /// Reconstruct a `CodePropertyGraph` from serialized node/edge lists.
