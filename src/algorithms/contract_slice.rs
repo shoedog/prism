@@ -5,7 +5,7 @@
 //! break them. Emits `SliceFinding`s with `category: "contract"` for summaries and
 //! `category: "contract_violation"` for modified guard clauses.
 
-use crate::ast::{ParsedFile, ReturnInfo};
+use crate::ast::ParsedFile;
 use crate::diff::{DiffBlock, DiffInput};
 use crate::languages::Language;
 use crate::slice::{SliceFinding, SliceResult, SlicingAlgorithm};
@@ -67,6 +67,7 @@ struct Postcondition {
 }
 
 /// Classification of a function's return pattern.
+#[allow(dead_code)] // Variant fields reserved for Phase 3 delta comparison.
 enum PostconditionKind {
     /// All return paths return a non-null/non-None value.
     AlwaysNonNull,
@@ -76,7 +77,8 @@ enum PostconditionKind {
     Nullable {
         /// Lines that return null/None.
         null_lines: Vec<usize>,
-        /// Lines that return non-null values.
+        /// Lines that return non-null values (reserved for Phase 3 delta comparison).
+        #[allow(dead_code)]
         value_lines: Vec<usize>,
     },
     /// Function raises/throws on error, never returns null.
@@ -191,12 +193,6 @@ pub fn slice(files: &BTreeMap<String, ParsedFile>, diff: &DiffInput) -> Result<S
 
             // Detect "new null return path" — diff adds return None/null to
             // a function whose other returns are all non-null.
-            let is_always_non_null = postconditions.iter().any(|p| {
-                matches!(
-                    p.kind,
-                    PostconditionKind::AlwaysNonNull | PostconditionKind::NonNullOrThrows
-                )
-            });
             // Even if the overall classification isn't AlwaysNonNull (because
             // the new null made it Nullable), we detect added null lines.
             for post in &postconditions {
@@ -228,18 +224,6 @@ pub fn slice(files: &BTreeMap<String, ParsedFile>, diff: &DiffInput) -> Result<S
                     }
                 }
             }
-            // Also check: if currently AlwaysNonNull but a diff line is a return
-            // that we classified as non-null — a new null return that was just
-            // added would have made it Nullable, not AlwaysNonNull. So the above
-            // Nullable check handles it. But also check if ALL returns are non-null
-            // and a diff adds a new null return that tree-sitter sees.
-            if is_always_non_null {
-                // Check for any diff line that contains a null return keyword
-                // This catches cases where the return is new and non-null-classified
-                // returns exist but we need to flag the specific new addition.
-                // (Already handled by the Nullable branch above when applicable.)
-            }
-
             // Emit postcondition summary
             if !postconditions.is_empty() {
                 let post_summary = postconditions
