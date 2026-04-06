@@ -484,6 +484,156 @@ impl CallGraph {
         }
     }
 
+    // -----------------------------------------------------------------------
+    // Incremental cache support (Phase 2)
+    // -----------------------------------------------------------------------
+
+    /// Remove all entries originating from the given files.
+    ///
+    /// Used by incremental cache update: when a file changes, its call graph
+    /// contributions are stripped out before fresh data is merged in.
+    pub fn remove_files(&mut self, exclude: &BTreeSet<String>) {
+        // functions: remove FunctionId entries from excluded files.
+        for func_ids in self.functions.values_mut() {
+            func_ids.retain(|fid| !exclude.contains(&fid.file));
+        }
+        self.functions.retain(|_, v| !v.is_empty());
+
+        // calls: remove entries where the caller is in an excluded file.
+        self.calls
+            .retain(|caller, _| !exclude.contains(&caller.file));
+
+        // callers: remove CallSite entries where the caller is in an excluded file.
+        for sites in self.callers.values_mut() {
+            sites.retain(|s| !exclude.contains(&s.caller.file));
+        }
+        self.callers.retain(|_, v| !v.is_empty());
+
+        // static_functions: remove entries for excluded files.
+        self.static_functions.retain(|(f, _)| !exclude.contains(f));
+
+        // imports: remove entries for excluded files.
+        self.imports.retain(|f, _| !exclude.contains(f));
+    }
+
+    /// Merge another CallGraph into this one.
+    ///
+    /// Entries from `other` are added to the existing data. Typically called
+    /// after `remove_files` to splice in freshly-built data for changed files.
+    pub fn merge(&mut self, other: CallGraph) {
+        for (name, fids) in other.functions {
+            self.functions.entry(name).or_default().extend(fids);
+        }
+        for (caller, sites) in other.calls {
+            self.calls.entry(caller).or_default().extend(sites);
+        }
+        for (name, sites) in other.callers {
+            self.callers.entry(name).or_default().extend(sites);
+        }
+        self.static_functions.extend(other.static_functions);
+        self.imports.extend(other.imports);
+    }
+
+    /// Build a call graph from only the specified files (Phases 1+2: direct calls only).
+    ///
+    /// Unlike `build()`, this skips Phase 3 (indirect call resolution) because
+    /// that requires knowledge of all functions, not just the subset. The caller
+    /// should run `resolve_indirect` on the merged result.
+    pub fn build_direct_subset(
+        files: &BTreeMap<String, ParsedFile>,
+        only_files: &BTreeSet<String>,
+    ) -> Self {
+        let mut functions: BTreeMap<String, Vec<FunctionId>> = BTreeMap::new();
+        let mut calls: BTreeMap<FunctionId, BTreeSet<CallSite>> = BTreeMap::new();
+        let mut callers: BTreeMap<String, Vec<CallSite>> = BTreeMap::new();
+        let mut static_functions: BTreeSet<(String, String)> = BTreeSet::new();
+        let mut imports: BTreeMap<String, BTreeMap<String, String>> = BTreeMap::new();
+
+        for (file_path, parsed) in files {
+            if !only_files.contains(file_path) {
+                continue;
+            }
+            let file_imports = parsed.extract_imports();
+            if !file_imports.is_empty() {
+                imports.insert(file_path.clone(), file_imports);
+            }
+        }
+
+        // Phase 1: Collect function definitions from subset.
+        for (file_path, parsed) in files {
+            if !only_files.contains(file_path) {
+                continue;
+            }
+            for func_node in parsed.all_functions() {
+                if let Some(name_node) = parsed.language.function_name(&func_node) {
+                    let name = parsed.node_text(&name_node).to_string();
+                    let (start, end) = parsed.node_line_range(&func_node);
+                    let func_id = FunctionId {
+                        file: file_path.clone(),
+                        name: name.clone(),
+                        start_line: start,
+                        end_line: end,
+                    };
+                    functions.entry(name.clone()).or_default().push(func_id);
+
+                    if matches!(
+                        parsed.language,
+                        crate::languages::Language::C | crate::languages::Language::Cpp
+                    ) {
+                        if has_static_specifier(parsed, &func_node) {
+                            static_functions.insert((file_path.clone(), name));
+                        }
+                    }
+                }
+            }
+        }
+
+        // Phase 2: Find call sites from subset.
+        for (file_path, parsed) in files {
+            if !only_files.contains(file_path) {
+                continue;
+            }
+            for func_node in parsed.all_functions() {
+                let func_name = match parsed.language.function_name(&func_node) {
+                    Some(n) => parsed.node_text(&n).to_string(),
+                    None => continue,
+                };
+                let (start, end) = parsed.node_line_range(&func_node);
+                let caller_id = FunctionId {
+                    file: file_path.clone(),
+                    name: func_name,
+                    start_line: start,
+                    end_line: end,
+                };
+                let all_lines: BTreeSet<usize> = (start..=end).collect();
+                let call_sites =
+                    parsed.function_calls_on_lines_with_qualifier(&func_node, &all_lines);
+
+                for (callee_name, line, qualifier) in call_sites {
+                    let site = CallSite {
+                        caller: caller_id.clone(),
+                        callee_name: callee_name.clone(),
+                        line,
+                        qualifier,
+                    };
+                    calls
+                        .entry(caller_id.clone())
+                        .or_default()
+                        .insert(site.clone());
+                    callers.entry(callee_name).or_default().push(site);
+                }
+            }
+        }
+
+        CallGraph {
+            functions,
+            calls,
+            callers,
+            static_functions,
+            imports,
+        }
+    }
+
     /// Resolve a callee name to the appropriate FunctionId(s), considering static linkage.
     ///
     /// If the callee name has a `static` definition in `caller_file`, return only that one.
