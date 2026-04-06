@@ -12,8 +12,14 @@
 //! per-MR cache: re-running the same diff is a hit, but a different diff
 //! touching different files will miss and trigger a rebuild.
 //!
-//! The `TypeDatabase` inside `CodePropertyGraph` is NOT cached — it is rebuilt
-//! from parsed files on every review.
+//! **TypeDatabase handling (Phase 3):** The `TypeDatabase` itself is NOT
+//! serialized — it is rebuilt from parsed files / `compile_commands.json` on
+//! every review. However, the CPG graph *does* contain virtual dispatch Call
+//! edges that are only added when `type_db` is present (Step 9 of graph
+//! assembly). To prevent serving a cached graph with mismatched virtual
+//! dispatch edges, the cache records whether `type_db` was present at build
+//! time. If the current `type_db` availability differs from the cached state,
+//! the cache is invalidated (Miss).
 
 use crate::access_path::AccessPath;
 use crate::call_graph::CallGraph;
@@ -30,7 +36,11 @@ use std::path::{Path, PathBuf};
 
 /// Current cache format version. Bump this when the serialized format changes
 /// (new fields, different node/edge types, etc.) to force a full rebuild.
-const CACHE_VERSION: u32 = 1;
+///
+/// History:
+/// - v1: Initial cache format (Phases 1+2)
+/// - v2: Added `has_type_db` field for type_db consistency (Phase 3)
+const CACHE_VERSION: u32 = 2;
 
 /// The on-disk cache structure.
 #[derive(Serialize, Deserialize)]
@@ -41,6 +51,11 @@ struct CpgCache {
     prism_version: String,
     /// Per-file content hashes (SHA-256 hex) at time of cache creation.
     file_hashes: BTreeMap<String, String>,
+    /// Whether the cached CPG was built with a TypeDatabase present.
+    /// When true, the graph contains virtual dispatch Call edges (Step 9).
+    /// A mismatch between this flag and the current `type_db` availability
+    /// forces a cache miss to prevent stale/missing virtual dispatch edges.
+    has_type_db: bool,
     /// The serialized CPG graph data.
     graph: SerializedCpg,
 }
@@ -71,6 +86,7 @@ struct CacheMeta {
     node_count: usize,
     edge_count: usize,
     cache_size_bytes: u64,
+    has_type_db: bool,
     created: String,
 }
 
@@ -103,9 +119,13 @@ fn cache_meta_path(cache_dir: &Path) -> PathBuf {
 ///
 /// Writes both `cpg-cache.bin` (bincode) and `cache-meta.json` (human-readable).
 /// Uses atomic write (temp file + rename) to prevent corruption from interrupted writes.
+///
+/// `has_type_db` records whether the CPG was built with a `TypeDatabase`.
+/// This flag is checked on load to ensure virtual dispatch edge consistency.
 pub fn save_cache(
     cpg: &CodePropertyGraph,
     file_hashes: &BTreeMap<String, String>,
+    has_type_db: bool,
     cache_dir: &Path,
 ) -> io::Result<()> {
     fs::create_dir_all(cache_dir)?;
@@ -134,6 +154,7 @@ pub fn save_cache(
         version: CACHE_VERSION,
         prism_version: env!("CARGO_PKG_VERSION").to_string(),
         file_hashes: file_hashes.clone(),
+        has_type_db,
         graph: SerializedCpg {
             nodes,
             edges,
@@ -163,6 +184,7 @@ pub fn save_cache(
         node_count: cache.graph.nodes.len(),
         edge_count: cache.graph.edges.len(),
         cache_size_bytes: encoded.len() as u64,
+        has_type_db,
         created: chrono_free_timestamp(),
     };
     let meta_json = serde_json::to_string_pretty(&meta).unwrap_or_default();
@@ -194,7 +216,15 @@ pub enum CacheResult {
 ///
 /// Returns `CacheResult::Hit` if all hashes match, `PartialHit` if the file
 /// set is the same but some files changed, or `Miss` if the cache is unusable.
-pub fn load_cache(current_hashes: &BTreeMap<String, String>, cache_dir: &Path) -> CacheResult {
+///
+/// `has_type_db` indicates whether the caller currently has a `TypeDatabase`.
+/// If this differs from the cached state, the cache is invalidated because
+/// the graph's virtual dispatch edges would be inconsistent.
+pub fn load_cache(
+    current_hashes: &BTreeMap<String, String>,
+    has_type_db: bool,
+    cache_dir: &Path,
+) -> CacheResult {
     let bin_path = cache_bin_path(cache_dir);
     let data = match fs::read(&bin_path) {
         Ok(d) => d,
@@ -221,6 +251,17 @@ pub fn load_cache(current_hashes: &BTreeMap<String, String>, cache_dir: &Path) -
         eprintln!(
             "Prism version mismatch (cached: {}, current: {}), rebuilding",
             cache.prism_version, current_version
+        );
+        return CacheResult::Miss;
+    }
+
+    // TypeDatabase consistency check.
+    // The cached graph contains virtual dispatch edges only if type_db was
+    // present at build time. A mismatch means the graph edges are wrong.
+    if cache.has_type_db != has_type_db {
+        eprintln!(
+            "TypeDatabase mismatch (cached: {}, current: {}), rebuilding",
+            cache.has_type_db, has_type_db
         );
         return CacheResult::Miss;
     }

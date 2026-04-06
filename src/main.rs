@@ -352,10 +352,12 @@ fn main() -> Result<()> {
         };
 
         // Try loading from cache.
+        // Pass type_db availability so cache can detect virtual dispatch edge mismatches.
+        let has_type_db = type_db.is_some();
         let cache_result = if use_cache {
             let cache_dir = cli.cache_dir.as_ref().unwrap();
             let hashes = file_hashes.as_ref().unwrap();
-            cpg_cache::load_cache(hashes, cache_dir)
+            cpg_cache::load_cache(hashes, has_type_db, cache_dir)
         } else {
             CacheResult::Miss
         };
@@ -387,7 +389,8 @@ fn main() -> Result<()> {
 
                 // Save updated cache.
                 if let (Some(cache_dir), Some(hashes)) = (&cli.cache_dir, &file_hashes) {
-                    if let Err(e) = cpg_cache::save_cache(&ctx.cpg, hashes, cache_dir) {
+                    if let Err(e) = cpg_cache::save_cache(&ctx.cpg, hashes, has_type_db, cache_dir)
+                    {
                         eprintln!("Warning: failed to write CPG cache: {}", e);
                     } else {
                         eprintln!("CPG cache updated to {}", cache_dir.display());
@@ -404,7 +407,8 @@ fn main() -> Result<()> {
 
                 // Save cache after a full build (not for scoped builds).
                 if let (Some(cache_dir), Some(hashes)) = (&cli.cache_dir, &file_hashes) {
-                    if let Err(e) = cpg_cache::save_cache(&ctx.cpg, hashes, cache_dir) {
+                    if let Err(e) = cpg_cache::save_cache(&ctx.cpg, hashes, has_type_db, cache_dir)
+                    {
                         eprintln!("Warning: failed to write CPG cache: {}", e);
                     } else {
                         eprintln!("CPG cache written to {}", cache_dir.display());
