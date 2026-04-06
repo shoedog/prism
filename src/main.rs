@@ -2,8 +2,8 @@ use anyhow::{Context, Result};
 use clap::Parser;
 use prism::algorithms;
 use prism::ast::ParsedFile;
-use prism::cpg::CpgContext;
-use prism::cpg_cache;
+use prism::cpg::{CodePropertyGraph, CpgContext};
+use prism::cpg_cache::{self, CacheResult};
 use prism::diff::DiffInput;
 use prism::languages::Language;
 use prism::output;
@@ -124,6 +124,11 @@ struct Cli {
     /// Directory to cache the CPG for faster subsequent runs.
     /// On the first run, the CPG is serialized to this directory.
     /// On subsequent runs, the cache is loaded if all file hashes match.
+    ///
+    /// Note: the cache covers only the files referenced in the current diff,
+    /// not the entire repository. This means it is per-MR: re-running the
+    /// same diff is a cache hit, but a different diff touching different
+    /// files will miss and trigger a full rebuild.
     #[arg(long)]
     cache_dir: Option<PathBuf>,
 
@@ -347,39 +352,66 @@ fn main() -> Result<()> {
         };
 
         // Try loading from cache.
-        let cached_cpg = if use_cache {
+        let cache_result = if use_cache {
             let cache_dir = cli.cache_dir.as_ref().unwrap();
             let hashes = file_hashes.as_ref().unwrap();
-            match cpg_cache::load_cache(hashes, cache_dir) {
-                Some(cpg) => {
-                    eprintln!("CPG loaded from cache ({} files)", hashes.len());
-                    Some(cpg)
-                }
-                None => None,
-            }
+            cpg_cache::load_cache(hashes, cache_dir)
         } else {
-            None
+            CacheResult::Miss
         };
 
-        if let Some(cpg) = cached_cpg {
-            CpgContext::build_with_cached_cpg(&files, cpg, type_db.as_ref())
-        } else {
-            let ctx = if cli.scoped_cpg {
-                CpgContext::build_scoped(&files, &diff_input, type_db.as_ref())
-            } else {
-                CpgContext::build(&files, type_db.as_ref())
-            };
-
-            // Save cache after a full build (not for scoped builds).
-            if let (Some(cache_dir), Some(hashes)) = (&cli.cache_dir, &file_hashes) {
-                if let Err(e) = cpg_cache::save_cache(&ctx.cpg, hashes, cache_dir) {
-                    eprintln!("Warning: failed to write CPG cache: {}", e);
-                } else {
-                    eprintln!("CPG cache written to {}", cache_dir.display());
-                }
+        match cache_result {
+            CacheResult::Hit(cpg) => {
+                let hashes = file_hashes.as_ref().unwrap();
+                eprintln!("CPG loaded from cache ({} files)", hashes.len());
+                CpgContext::build_with_cached_cpg(&files, cpg, type_db.as_ref())
             }
+            CacheResult::PartialHit {
+                cached_call_graph,
+                cached_dfg,
+                changed_files,
+            } => {
+                eprintln!(
+                    "CPG cache partial hit: {} of {} files changed, rebuilding incrementally",
+                    changed_files.len(),
+                    file_hashes.as_ref().map_or(0, |h| h.len())
+                );
+                let cpg = CodePropertyGraph::build_incremental(
+                    cached_call_graph,
+                    cached_dfg,
+                    &changed_files,
+                    &files,
+                    type_db.clone(),
+                );
+                let ctx = CpgContext::build_with_cached_cpg(&files, cpg, type_db.as_ref());
 
-            ctx
+                // Save updated cache.
+                if let (Some(cache_dir), Some(hashes)) = (&cli.cache_dir, &file_hashes) {
+                    if let Err(e) = cpg_cache::save_cache(&ctx.cpg, hashes, cache_dir) {
+                        eprintln!("Warning: failed to write CPG cache: {}", e);
+                    } else {
+                        eprintln!("CPG cache updated to {}", cache_dir.display());
+                    }
+                }
+                ctx
+            }
+            CacheResult::Miss => {
+                let ctx = if cli.scoped_cpg {
+                    CpgContext::build_scoped(&files, &diff_input, type_db.as_ref())
+                } else {
+                    CpgContext::build(&files, type_db.as_ref())
+                };
+
+                // Save cache after a full build (not for scoped builds).
+                if let (Some(cache_dir), Some(hashes)) = (&cli.cache_dir, &file_hashes) {
+                    if let Err(e) = cpg_cache::save_cache(&ctx.cpg, hashes, cache_dir) {
+                        eprintln!("Warning: failed to write CPG cache: {}", e);
+                    } else {
+                        eprintln!("CPG cache written to {}", cache_dir.display());
+                    }
+                }
+                ctx
+            }
         }
     };
 

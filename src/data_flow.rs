@@ -79,8 +79,83 @@ impl DataFlowGraph {
         }
     }
 
+    // -----------------------------------------------------------------------
+    // Incremental cache support (Phase 2)
+    // -----------------------------------------------------------------------
+
+    /// Remove all entries originating from the given files.
+    ///
+    /// Strips out edges, defs, and uses where the file matches any in `exclude`,
+    /// then rebuilds the forward/backward adjacency maps from the retained edges.
+    pub fn remove_files(&mut self, exclude: &BTreeSet<String>) {
+        // Remove edges that involve excluded files (either end).
+        self.edges
+            .retain(|e| !exclude.contains(&e.from.file) && !exclude.contains(&e.to.file));
+
+        // Remove defs/uses entries for excluded files.
+        self.defs.retain(|(file, _, _), _| !exclude.contains(file));
+        self.uses.retain(|(file, _, _), _| !exclude.contains(file));
+
+        // Rebuild adjacency from retained edges.
+        self.rebuild_adjacency();
+    }
+
+    /// Merge another DataFlowGraph into this one.
+    ///
+    /// Adds all edges, defs, and uses from `other`, then rebuilds adjacency.
+    pub fn merge(&mut self, other: DataFlowGraph) {
+        self.edges.extend(other.edges);
+        for (key, locs) in other.defs {
+            self.defs.entry(key).or_default().extend(locs);
+        }
+        for (key, locs) in other.uses {
+            self.uses.entry(key).or_default().extend(locs);
+        }
+        self.rebuild_adjacency();
+    }
+
+    /// Rebuild the forward/backward adjacency maps from the current edges.
+    fn rebuild_adjacency(&mut self) {
+        self.forward.clear();
+        self.backward.clear();
+        for edge in &self.edges {
+            self.forward
+                .entry(edge.from.clone())
+                .or_default()
+                .push(edge.to.clone());
+            self.backward
+                .entry(edge.to.clone())
+                .or_default()
+                .push(edge.from.clone());
+        }
+    }
+
+    /// Build a data flow graph from only the specified files.
+    ///
+    /// Identical to `build()` but skips files not in `only_files`. Used by
+    /// incremental cache update to process only changed files.
+    pub fn build_subset(
+        files: &BTreeMap<String, ParsedFile>,
+        only_files: &BTreeSet<String>,
+    ) -> Self {
+        // Filter to only the requested files and delegate to build.
+        let filtered: BTreeMap<String, &ParsedFile> = files
+            .iter()
+            .filter(|(k, _)| only_files.contains(*k))
+            .map(|(k, v)| (k.clone(), v))
+            .collect();
+        Self::build_from_refs(&filtered)
+    }
+
     /// Build a data flow graph from parsed files.
     pub fn build(files: &BTreeMap<String, ParsedFile>) -> Self {
+        let refs: BTreeMap<String, &ParsedFile> =
+            files.iter().map(|(k, v)| (k.clone(), v)).collect();
+        Self::build_from_refs(&refs)
+    }
+
+    /// Build a DFG from file references (shared implementation for build and build_subset).
+    fn build_from_refs(files: &BTreeMap<String, &ParsedFile>) -> Self {
         let mut defs: BTreeMap<(String, String, AccessPath), Vec<VarLocation>> = BTreeMap::new();
         let mut uses: BTreeMap<(String, String, AccessPath), Vec<VarLocation>> = BTreeMap::new();
         let mut edges = Vec::new();
