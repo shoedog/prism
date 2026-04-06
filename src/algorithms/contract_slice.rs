@@ -5,8 +5,9 @@
 //! break them. Emits `SliceFinding`s with `category: "contract"` for summaries and
 //! `category: "contract_violation"` for modified guard clauses.
 
-use crate::ast::ParsedFile;
+use crate::ast::{ParsedFile, ReturnInfo};
 use crate::diff::{DiffBlock, DiffInput};
+use crate::languages::Language;
 use crate::slice::{SliceFinding, SliceResult, SlicingAlgorithm};
 use anyhow::Result;
 use std::collections::{BTreeMap, BTreeSet};
@@ -53,6 +54,56 @@ impl ConstraintKind {
             Self::CustomAssertion => "assertion".to_string(),
         }
     }
+}
+
+/// A detected postcondition about a function's return behavior.
+struct Postcondition {
+    /// Classification of the return pattern.
+    kind: PostconditionKind,
+    /// Return statement lines that establish this postcondition.
+    return_lines: Vec<usize>,
+    /// Human-readable summary.
+    description: String,
+}
+
+/// Classification of a function's return pattern.
+enum PostconditionKind {
+    /// All return paths return a non-null/non-None value.
+    AlwaysNonNull,
+    /// All return paths return the same type (by text classification).
+    ConsistentType(String),
+    /// Some paths return null/None (nullable return).
+    Nullable {
+        /// Lines that return null/None.
+        null_lines: Vec<usize>,
+        /// Lines that return non-null values.
+        value_lines: Vec<usize>,
+    },
+    /// Function raises/throws on error, never returns null.
+    NonNullOrThrows,
+    /// Go-style (value, error) return pattern.
+    GoResultPair,
+    /// All paths return void (no return expression, or `return;`).
+    Void,
+    /// Returns a boolean (true/false) on all paths.
+    AlwaysBool,
+    /// Mixed or unclassifiable return patterns.
+    Mixed,
+}
+
+/// Classification of a single return value expression.
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum ReturnValueClass {
+    Null,
+    Bool,
+    Numeric,
+    StringLit,
+    EmptyCollection,
+    GoError,
+    GoSuccess,
+    ConstructedValue,
+    Expression,
+    Void,
 }
 
 pub fn slice(files: &BTreeMap<String, ParsedFile>, diff: &DiffInput) -> Result<SliceResult> {
@@ -110,7 +161,111 @@ pub fn slice(files: &BTreeMap<String, ParsedFile>, diff: &DiffInput) -> Result<S
                 }
             }
 
-            // Emit contract summary as info-level finding
+            // Phase 2: Extract postconditions
+            let postconditions = extract_postconditions(parsed, &func_node);
+
+            // Check if diff touches any return statement
+            for post in &postconditions {
+                for &ret_line in &post.return_lines {
+                    if diff_info.diff_lines.contains(&ret_line) {
+                        result.findings.push(SliceFinding {
+                            algorithm: "contract".to_string(),
+                            file: diff_info.file_path.clone(),
+                            line: ret_line,
+                            severity: "warning".to_string(),
+                            description: format!(
+                                "Return behavior modified in '{}': {} postcondition. \
+                                 Verify callers handle the new return pattern.",
+                                func_name, post.description,
+                            ),
+                            function_name: Some(func_name.clone()),
+                            related_lines: post.return_lines.clone(),
+                            related_files: vec![],
+                            category: Some("contract_violation".to_string()),
+                            parse_quality: None,
+                        });
+                        break; // One violation per postcondition
+                    }
+                }
+            }
+
+            // Detect "new null return path" — diff adds return None/null to
+            // a function whose other returns are all non-null.
+            let is_always_non_null = postconditions.iter().any(|p| {
+                matches!(
+                    p.kind,
+                    PostconditionKind::AlwaysNonNull | PostconditionKind::NonNullOrThrows
+                )
+            });
+            // Even if the overall classification isn't AlwaysNonNull (because
+            // the new null made it Nullable), we detect added null lines.
+            for post in &postconditions {
+                if let PostconditionKind::Nullable {
+                    null_lines,
+                    value_lines: _,
+                } = &post.kind
+                {
+                    for &nl in null_lines {
+                        if diff_info.diff_lines.contains(&nl) {
+                            result.findings.push(SliceFinding {
+                                algorithm: "contract".to_string(),
+                                file: diff_info.file_path.clone(),
+                                line: nl,
+                                severity: "warning".to_string(),
+                                description: format!(
+                                    "New `return None/null` path added in '{}'. \
+                                     Function has non-null returns on other paths. \
+                                     Callers may not handle null.",
+                                    func_name,
+                                ),
+                                function_name: Some(func_name.clone()),
+                                related_lines: post.return_lines.clone(),
+                                related_files: vec![],
+                                category: Some("contract_postcondition_new_null".to_string()),
+                                parse_quality: None,
+                            });
+                        }
+                    }
+                }
+            }
+            // Also check: if currently AlwaysNonNull but a diff line is a return
+            // that we classified as non-null — a new null return that was just
+            // added would have made it Nullable, not AlwaysNonNull. So the above
+            // Nullable check handles it. But also check if ALL returns are non-null
+            // and a diff adds a new null return that tree-sitter sees.
+            if is_always_non_null {
+                // Check for any diff line that contains a null return keyword
+                // This catches cases where the return is new and non-null-classified
+                // returns exist but we need to flag the specific new addition.
+                // (Already handled by the Nullable branch above when applicable.)
+            }
+
+            // Emit postcondition summary
+            if !postconditions.is_empty() {
+                let post_summary = postconditions
+                    .iter()
+                    .map(|p| p.description.clone())
+                    .collect::<Vec<_>>()
+                    .join("; ");
+
+                result.findings.push(SliceFinding {
+                    algorithm: "contract".to_string(),
+                    file: diff_info.file_path.clone(),
+                    line: func_start,
+                    severity: "info".to_string(),
+                    description: format!("Postconditions for '{}': {}", func_name, post_summary,),
+                    function_name: Some(func_name.clone()),
+                    related_lines: postconditions
+                        .iter()
+                        .flat_map(|p| p.return_lines.iter().copied())
+                        .collect(),
+                    related_files: vec![],
+                    category: Some("contract_postcondition".to_string()),
+                    parse_quality: None,
+                });
+            }
+
+            // Emit contract summary as info-level finding (preconditions)
             if !preconditions.is_empty() {
                 let summary = preconditions
                     .iter()
@@ -125,15 +280,26 @@ pub fn slice(files: &BTreeMap<String, ParsedFile>, diff: &DiffInput) -> Result<S
                     .collect::<Vec<_>>()
                     .join("; ");
 
+                let pre_desc = if postconditions.is_empty() {
+                    format!("Contract for '{}': preconditions: {}", func_name, summary)
+                } else {
+                    let post_summary = postconditions
+                        .iter()
+                        .map(|p| p.description.clone())
+                        .collect::<Vec<_>>()
+                        .join("; ");
+                    format!(
+                        "Contract for '{}': preconditions: {}; postconditions: {}",
+                        func_name, summary, post_summary,
+                    )
+                };
+
                 result.findings.push(SliceFinding {
                     algorithm: "contract".to_string(),
                     file: diff_info.file_path.clone(),
                     line: func_start,
                     severity: "info".to_string(),
-                    description: format!(
-                        "Contract for '{}': preconditions: {}",
-                        func_name, summary,
-                    ),
+                    description: pre_desc,
                     function_name: Some(func_name.clone()),
                     related_lines: preconditions.iter().map(|p| p.guard_line).collect(),
                     related_files: vec![],
@@ -630,4 +796,272 @@ fn extract_typeof_var(s: &str) -> Option<String> {
     } else {
         None
     }
+}
+
+// ---------------------------------------------------------------------------
+// Phase 2: Postcondition extraction
+// ---------------------------------------------------------------------------
+
+/// Classify a return value expression into a ReturnValueClass.
+fn classify_return_value(value_text: Option<&str>, language: Language) -> ReturnValueClass {
+    let text = match value_text {
+        Some(t) => t.trim(),
+        None => return ReturnValueClass::Void,
+    };
+
+    if text.is_empty() {
+        return ReturnValueClass::Void;
+    }
+
+    // Null/None/nil returns
+    if matches!(text, "None" | "null" | "nil" | "NULL" | "nullptr") {
+        return ReturnValueClass::Null;
+    }
+
+    // Boolean returns
+    if matches!(text, "true" | "false" | "True" | "False") {
+        return ReturnValueClass::Bool;
+    }
+
+    // Go multi-return patterns: `val, nil` or `nil, err`
+    if language == Language::Go {
+        return classify_go_multi_return(text);
+    }
+
+    // Numeric literals
+    if text.parse::<f64>().is_ok()
+        || text.starts_with("0x")
+        || text.starts_with("0b")
+        || text.starts_with("-") && text[1..].parse::<f64>().is_ok()
+    {
+        return ReturnValueClass::Numeric;
+    }
+
+    // String literals
+    if (text.starts_with('"') && text.ends_with('"'))
+        || (text.starts_with('\'') && text.ends_with('\''))
+        || (text.starts_with("f\"") || text.starts_with("f'"))
+    {
+        return ReturnValueClass::StringLit;
+    }
+
+    // Empty collection literals
+    if matches!(text, "[]" | "{}" | "()" | "new Array()" | "new Map()") {
+        return ReturnValueClass::EmptyCollection;
+    }
+
+    // Constructor/factory calls
+    if text.starts_with("new ")
+        || text.contains("::new(")
+        || (text.ends_with("()") && text.chars().next().map_or(false, |c| c.is_uppercase()))
+    {
+        return ReturnValueClass::ConstructedValue;
+    }
+
+    // Variable or expression — could be anything
+    ReturnValueClass::Expression
+}
+
+/// Classify Go multi-return expressions like `result, nil` or `nil, err`.
+fn classify_go_multi_return(text: &str) -> ReturnValueClass {
+    let parts: Vec<&str> = text.splitn(2, ',').map(|s| s.trim()).collect();
+    if parts.len() == 2 {
+        let (val, err) = (parts[0], parts[1]);
+        if err == "nil" {
+            return ReturnValueClass::GoSuccess;
+        }
+        if val == "nil" || val == "\"\"" || val == "0" {
+            return ReturnValueClass::GoError;
+        }
+    }
+    ReturnValueClass::Expression
+}
+
+/// Extract postconditions from return statements in a function.
+fn extract_postconditions(parsed: &ParsedFile, func_node: &Node<'_>) -> Vec<Postcondition> {
+    let returns = parsed.return_value_nodes(func_node);
+
+    if returns.is_empty() {
+        // No explicit returns — check if language requires them
+        return match parsed.language {
+            Language::Go | Language::Rust | Language::C | Language::Cpp | Language::Java => {
+                vec![Postcondition {
+                    kind: PostconditionKind::Void,
+                    return_lines: vec![],
+                    description: "returns: void".to_string(),
+                }]
+            }
+            _ => vec![],
+        };
+    }
+
+    // Classify each return
+    let classified: Vec<(usize, ReturnValueClass)> = returns
+        .iter()
+        .map(|r| {
+            let cls = classify_return_value(r.value_text.as_deref(), parsed.language);
+            (r.line, cls)
+        })
+        .collect();
+
+    // Separate into categories
+    let mut null_lines = Vec::new();
+    let mut value_lines = Vec::new();
+    let mut void_lines = Vec::new();
+    let mut bool_lines = Vec::new();
+    let mut go_error_lines = Vec::new();
+    let mut go_success_lines = Vec::new();
+    let mut type_names: Vec<(usize, &str)> = Vec::new();
+
+    for (line, cls) in &classified {
+        match cls {
+            ReturnValueClass::Null => null_lines.push(*line),
+            ReturnValueClass::Void => void_lines.push(*line),
+            ReturnValueClass::Bool => bool_lines.push(*line),
+            ReturnValueClass::GoError => go_error_lines.push(*line),
+            ReturnValueClass::GoSuccess => go_success_lines.push(*line),
+            ReturnValueClass::Numeric => {
+                type_names.push((*line, "numeric"));
+                value_lines.push(*line);
+            }
+            ReturnValueClass::StringLit => {
+                type_names.push((*line, "string"));
+                value_lines.push(*line);
+            }
+            ReturnValueClass::EmptyCollection => {
+                type_names.push((*line, "collection"));
+                value_lines.push(*line);
+            }
+            ReturnValueClass::ConstructedValue => {
+                type_names.push((*line, "object"));
+                value_lines.push(*line);
+            }
+            ReturnValueClass::Expression => {
+                type_names.push((*line, "expression"));
+                value_lines.push(*line);
+            }
+        }
+    }
+
+    let all_lines: Vec<usize> = classified.iter().map(|(l, _)| *l).collect();
+
+    // Determine overall postcondition
+    let has_throws = body_has_throw_or_raise(parsed, func_node);
+
+    // All void
+    if void_lines.len() == classified.len() {
+        return vec![Postcondition {
+            kind: PostconditionKind::Void,
+            return_lines: all_lines,
+            description: "returns: void".to_string(),
+        }];
+    }
+
+    // All bool
+    if bool_lines.len() == classified.len() {
+        return vec![Postcondition {
+            kind: PostconditionKind::AlwaysBool,
+            return_lines: all_lines,
+            description: "returns: bool".to_string(),
+        }];
+    }
+
+    // Go result pair
+    if !go_error_lines.is_empty() && !go_success_lines.is_empty() {
+        return vec![Postcondition {
+            kind: PostconditionKind::GoResultPair,
+            return_lines: all_lines,
+            description: format!(
+                "returns: (T, error) — success on lines {:?}, error on lines {:?}",
+                go_success_lines, go_error_lines,
+            ),
+        }];
+    }
+
+    // Check nullable vs always-non-null
+    let non_null_lines: Vec<usize> = value_lines
+        .iter()
+        .chain(bool_lines.iter())
+        .chain(go_success_lines.iter())
+        .copied()
+        .collect();
+
+    if !null_lines.is_empty() && !non_null_lines.is_empty() {
+        return vec![Postcondition {
+            kind: PostconditionKind::Nullable {
+                null_lines: null_lines.clone(),
+                value_lines: non_null_lines.clone(),
+            },
+            return_lines: all_lines,
+            description: format!(
+                "returns: nullable (None on lines {:?}; value on lines {:?})",
+                null_lines, non_null_lines,
+            ),
+        }];
+    }
+
+    if null_lines.is_empty()
+        && !non_null_lines.is_empty()
+        && void_lines.is_empty()
+        && go_error_lines.is_empty()
+    {
+        // All returns are non-null
+        if has_throws {
+            return vec![Postcondition {
+                kind: PostconditionKind::NonNullOrThrows,
+                return_lines: all_lines,
+                description: "returns: non-null-or-throws".to_string(),
+            }];
+        }
+
+        // Check consistent type
+        let type_set: BTreeSet<&str> = type_names.iter().map(|(_, t)| *t).collect();
+        if type_set.len() == 1 {
+            let ty = type_set.into_iter().next().unwrap().to_string();
+            if ty != "expression" {
+                return vec![Postcondition {
+                    kind: PostconditionKind::ConsistentType(ty.clone()),
+                    return_lines: all_lines,
+                    description: format!("returns: consistent-type ({})", ty),
+                }];
+            }
+        }
+
+        return vec![Postcondition {
+            kind: PostconditionKind::AlwaysNonNull,
+            return_lines: all_lines,
+            description: "returns: non-null".to_string(),
+        }];
+    }
+
+    // Fallback: mixed
+    vec![Postcondition {
+        kind: PostconditionKind::Mixed,
+        return_lines: all_lines,
+        description: "returns: mixed".to_string(),
+    }]
+}
+
+/// Check if a function body contains raise/throw statements (not inside nested functions).
+fn body_has_throw_or_raise(parsed: &ParsedFile, func_node: &Node<'_>) -> bool {
+    fn walk_for_throws(parsed: &ParsedFile, node: Node<'_>, func_node: &Node<'_>) -> bool {
+        let kind = node.kind();
+        if matches!(kind, "raise_statement" | "throw_statement") {
+            return true;
+        }
+        // Don't recurse into nested function definitions
+        if parsed.language.function_node_types().contains(&kind)
+            && node.start_position() != func_node.start_position()
+        {
+            return false;
+        }
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            if walk_for_throws(parsed, child, func_node) {
+                return true;
+            }
+        }
+        false
+    }
+    walk_for_throws(parsed, *func_node, func_node)
 }
