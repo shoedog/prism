@@ -11,6 +11,8 @@ use crate::languages::Language;
 use crate::slice::{SliceFinding, SliceResult, SlicingAlgorithm};
 use anyhow::Result;
 use std::collections::{BTreeMap, BTreeSet};
+use std::fs;
+use std::path::Path;
 use tree_sitter::Node;
 
 /// A detected precondition established by a guard clause.
@@ -54,6 +56,34 @@ impl ConstraintKind {
             Self::CustomAssertion => "assertion".to_string(),
         }
     }
+
+    /// Returns a short tag for comparison (ignoring TypeCheck's inner data).
+    fn tag(&self) -> &str {
+        match self {
+            Self::NonNull => "non-null",
+            Self::NilCheck => "nil-check",
+            Self::NonEmpty => "non-empty",
+            Self::TypeCheck(_) => "type-check",
+            Self::RangeCheck => "range-check",
+            Self::Positive => "positive",
+            Self::CustomAssertion => "assertion",
+        }
+    }
+}
+
+impl PostconditionKind {
+    fn kind_name(&self) -> &str {
+        match self {
+            Self::AlwaysNonNull => "always-non-null",
+            Self::ConsistentType(_) => "consistent-type",
+            Self::Nullable { .. } => "nullable",
+            Self::NonNullOrThrows => "non-null-or-throws",
+            Self::GoResultPair => "go-result-pair",
+            Self::Void => "void",
+            Self::AlwaysBool => "always-bool",
+            Self::Mixed => "mixed",
+        }
+    }
 }
 
 /// A detected postcondition about a function's return behavior.
@@ -67,7 +97,6 @@ struct Postcondition {
 }
 
 /// Classification of a function's return pattern.
-#[allow(dead_code)] // Variant fields reserved for Phase 3 delta comparison.
 enum PostconditionKind {
     /// All return paths return a non-null/non-None value.
     AlwaysNonNull,
@@ -77,7 +106,7 @@ enum PostconditionKind {
     Nullable {
         /// Lines that return null/None.
         null_lines: Vec<usize>,
-        /// Lines that return non-null values (reserved for Phase 3 delta comparison).
+        /// Lines that return non-null values (used in Phase 3c echo integration).
         #[allow(dead_code)]
         value_lines: Vec<usize>,
     },
@@ -901,7 +930,10 @@ fn extract_postconditions(parsed: &ParsedFile, func_node: &Node<'_>) -> Vec<Post
         match cls {
             ReturnValueClass::Null => null_lines.push(*line),
             ReturnValueClass::Void => void_lines.push(*line),
-            ReturnValueClass::Bool => bool_lines.push(*line),
+            ReturnValueClass::Bool => {
+                bool_lines.push(*line);
+                type_names.push((*line, "bool"));
+            }
             ReturnValueClass::GoError => go_error_lines.push(*line),
             ReturnValueClass::GoSuccess => go_success_lines.push(*line),
             ReturnValueClass::Numeric => {
@@ -1048,4 +1080,511 @@ fn body_has_throw_or_raise(parsed: &ParsedFile, func_node: &Node<'_>) -> bool {
         false
     }
     walk_for_throws(parsed, *func_node, func_node)
+}
+
+// ---------------------------------------------------------------------------
+// Phase 3: Delta contract comparison
+// ---------------------------------------------------------------------------
+
+/// Describes a precondition change between old and new versions of a function.
+enum PreconditionChange {
+    /// Guard clause removed (weakened).
+    Removed {
+        variable: String,
+        constraint: String,
+        old_line: usize,
+    },
+    /// Guard clause added (strengthened).
+    Added {
+        variable: String,
+        constraint: String,
+        new_line: usize,
+    },
+    /// Guard clause modified (constraint changed).
+    Modified {
+        variable: String,
+        old_constraint: String,
+        new_constraint: String,
+        new_line: usize,
+    },
+}
+
+/// Describes a postcondition change between old and new versions.
+enum PostconditionChange {
+    /// New null return path added (weakened).
+    NullPathAdded { new_line: usize },
+    /// Null return path removed (strengthened).
+    NullPathRemoved { old_line: usize },
+    /// Return type changed.
+    TypeChanged { old_type: String, new_type: String },
+    /// Overall postcondition kind changed.
+    KindChanged { old_kind: String, new_kind: String },
+}
+
+/// Compare old and new preconditions for a single function.
+fn compare_preconditions(
+    old_preconds: &[Precondition],
+    new_preconds: &[Precondition],
+) -> Vec<PreconditionChange> {
+    let mut changes = Vec::new();
+
+    // Build variable → (constraint_tag, constraint_desc, line) maps
+    let old_map: BTreeMap<&str, (&str, String, usize)> = old_preconds
+        .iter()
+        .map(|p| {
+            (
+                p.variable.as_str(),
+                (p.constraint.tag(), p.constraint.description(), p.guard_line),
+            )
+        })
+        .collect();
+
+    let new_map: BTreeMap<&str, (&str, String, usize)> = new_preconds
+        .iter()
+        .map(|p| {
+            (
+                p.variable.as_str(),
+                (p.constraint.tag(), p.constraint.description(), p.guard_line),
+            )
+        })
+        .collect();
+
+    // Removed: in old but not in new
+    for (var, (_, desc, old_line)) in &old_map {
+        if !new_map.contains_key(var) {
+            changes.push(PreconditionChange::Removed {
+                variable: var.to_string(),
+                constraint: desc.clone(),
+                old_line: *old_line,
+            });
+        }
+    }
+
+    // Added: in new but not in old
+    for (var, (_, desc, new_line)) in &new_map {
+        if !old_map.contains_key(var) {
+            changes.push(PreconditionChange::Added {
+                variable: var.to_string(),
+                constraint: desc.clone(),
+                new_line: *new_line,
+            });
+        }
+    }
+
+    // Modified: in both but constraint tag changed
+    for (var, (new_tag, new_desc, new_line)) in &new_map {
+        if let Some((old_tag, old_desc, _)) = old_map.get(var) {
+            if old_tag != new_tag {
+                changes.push(PreconditionChange::Modified {
+                    variable: var.to_string(),
+                    old_constraint: old_desc.clone(),
+                    new_constraint: new_desc.clone(),
+                    new_line: *new_line,
+                });
+            }
+        }
+    }
+
+    changes
+}
+
+/// Compare old and new postconditions for a single function.
+fn compare_postconditions(
+    old_posts: &[Postcondition],
+    new_posts: &[Postcondition],
+) -> Vec<PostconditionChange> {
+    let mut changes = Vec::new();
+
+    let old_kind = old_posts
+        .first()
+        .map(|p| &p.kind)
+        .unwrap_or(&PostconditionKind::Mixed);
+    let new_kind = new_posts
+        .first()
+        .map(|p| &p.kind)
+        .unwrap_or(&PostconditionKind::Mixed);
+
+    let old_name = old_kind.kind_name();
+    let new_name = new_kind.kind_name();
+
+    if old_name == new_name {
+        // Same kind — check for type changes within ConsistentType
+        if let (
+            PostconditionKind::ConsistentType(old_ty),
+            PostconditionKind::ConsistentType(new_ty),
+        ) = (old_kind, new_kind)
+        {
+            if old_ty != new_ty {
+                changes.push(PostconditionChange::TypeChanged {
+                    old_type: old_ty.clone(),
+                    new_type: new_ty.clone(),
+                });
+            }
+        }
+        return changes;
+    }
+
+    // AlwaysNonNull → Nullable: new null path added (weakened)
+    if matches!(
+        old_kind,
+        PostconditionKind::AlwaysNonNull | PostconditionKind::NonNullOrThrows
+    ) && matches!(new_kind, PostconditionKind::Nullable { .. })
+    {
+        if let PostconditionKind::Nullable { null_lines, .. } = new_kind {
+            for &nl in null_lines {
+                changes.push(PostconditionChange::NullPathAdded { new_line: nl });
+            }
+        }
+    }
+
+    // Nullable → AlwaysNonNull: null path removed (strengthened)
+    if matches!(old_kind, PostconditionKind::Nullable { .. })
+        && matches!(
+            new_kind,
+            PostconditionKind::AlwaysNonNull | PostconditionKind::NonNullOrThrows
+        )
+    {
+        if let PostconditionKind::Nullable { null_lines, .. } = old_kind {
+            for &ol in null_lines {
+                changes.push(PostconditionChange::NullPathRemoved { old_line: ol });
+            }
+        }
+    }
+
+    // Any other kind change
+    changes.push(PostconditionChange::KindChanged {
+        old_kind: old_name.to_string(),
+        new_kind: new_name.to_string(),
+    });
+
+    changes
+}
+
+/// Phase 3 entry point: delta contract comparison with `--old-repo`.
+///
+/// Parses old versions of changed files, matches functions by name,
+/// extracts contracts from both versions, and emits findings for changes.
+pub fn slice_delta(
+    files: &BTreeMap<String, ParsedFile>,
+    diff: &DiffInput,
+    old_repo: &Path,
+) -> Result<SliceResult> {
+    // First run Phase 1+2 for the current version
+    let mut result = slice(files, diff)?;
+
+    // Parse old versions of changed files
+    let mut old_files: BTreeMap<String, ParsedFile> = BTreeMap::new();
+    for diff_info in &diff.files {
+        let old_path = old_repo.join(&diff_info.file_path);
+        if let Ok(source) = fs::read_to_string(&old_path) {
+            if let Some(lang) = Language::from_path(&diff_info.file_path) {
+                if let Ok(parsed) = ParsedFile::parse(&diff_info.file_path, &source, lang) {
+                    old_files.insert(diff_info.file_path.clone(), parsed);
+                }
+            }
+        }
+    }
+
+    // For each changed file, compare function contracts
+    for diff_info in &diff.files {
+        let new_parsed = match files.get(&diff_info.file_path) {
+            Some(f) => f,
+            None => continue,
+        };
+        let old_parsed = match old_files.get(&diff_info.file_path) {
+            Some(f) => f,
+            None => continue,
+        };
+
+        let matched = match_functions(old_parsed, new_parsed);
+
+        for (func_name, old_line, new_line) in &matched {
+            if func_name == "<anonymous>" {
+                continue;
+            }
+
+            match (old_line, new_line) {
+                (Some(ol), Some(nl)) => {
+                    let old_fn = match old_parsed.enclosing_function(*ol) {
+                        Some(f) => f,
+                        None => continue,
+                    };
+                    let new_fn = match new_parsed.enclosing_function(*nl) {
+                        Some(f) => f,
+                        None => continue,
+                    };
+
+                    // Function exists in both — compare contracts
+                    let (old_start, old_end) = old_parsed.node_line_range(&old_fn);
+                    let old_preconds =
+                        extract_preconditions(old_parsed, &old_fn, old_start, old_end);
+                    let old_posts = extract_postconditions(old_parsed, &old_fn);
+
+                    let (new_start, new_end) = new_parsed.node_line_range(&new_fn);
+                    let new_preconds =
+                        extract_preconditions(new_parsed, &new_fn, new_start, new_end);
+                    let new_posts = extract_postconditions(new_parsed, &new_fn);
+
+                    // Compare preconditions
+                    let pre_changes = compare_preconditions(&old_preconds, &new_preconds);
+                    for change in &pre_changes {
+                        match change {
+                            PreconditionChange::Removed {
+                                variable,
+                                constraint,
+                                old_line,
+                            } => {
+                                result.findings.push(SliceFinding {
+                                    algorithm: "contract".to_string(),
+                                    file: diff_info.file_path.clone(),
+                                    line: new_start,
+                                    severity: "warning".to_string(),
+                                    description: format!(
+                                        "Guard clause removed in '{}': {} constraint on '{}' \
+                                         was at old line {}. Callers that relied on '{}' \
+                                         rejecting invalid values will now receive \
+                                         unvalidated results.",
+                                        func_name, constraint, variable, old_line, func_name,
+                                    ),
+                                    function_name: Some(func_name.clone()),
+                                    related_lines: vec![],
+                                    related_files: vec![],
+                                    category: Some("contract_precondition_weakened".to_string()),
+                                    parse_quality: None,
+                                });
+                            }
+                            PreconditionChange::Added {
+                                variable,
+                                constraint,
+                                new_line,
+                            } => {
+                                result.findings.push(SliceFinding {
+                                    algorithm: "contract".to_string(),
+                                    file: diff_info.file_path.clone(),
+                                    line: *new_line,
+                                    severity: "info".to_string(),
+                                    description: format!(
+                                        "New guard clause in '{}': {} constraint on '{}' \
+                                         at line {}. Callers get tighter guarantees.",
+                                        func_name, constraint, variable, new_line,
+                                    ),
+                                    function_name: Some(func_name.clone()),
+                                    related_lines: vec![*new_line],
+                                    related_files: vec![],
+                                    category: Some(
+                                        "contract_precondition_strengthened".to_string(),
+                                    ),
+                                    parse_quality: None,
+                                });
+                            }
+                            PreconditionChange::Modified {
+                                variable,
+                                old_constraint,
+                                new_constraint,
+                                new_line,
+                            } => {
+                                result.findings.push(SliceFinding {
+                                    algorithm: "contract".to_string(),
+                                    file: diff_info.file_path.clone(),
+                                    line: *new_line,
+                                    severity: "warning".to_string(),
+                                    description: format!(
+                                        "Guard constraint changed in '{}': '{}' was {} \
+                                         now {} at line {}.",
+                                        func_name,
+                                        variable,
+                                        old_constraint,
+                                        new_constraint,
+                                        new_line,
+                                    ),
+                                    function_name: Some(func_name.clone()),
+                                    related_lines: vec![*new_line],
+                                    related_files: vec![],
+                                    category: Some("contract_precondition_weakened".to_string()),
+                                    parse_quality: None,
+                                });
+                            }
+                        }
+                    }
+
+                    // Compare postconditions
+                    let post_changes = compare_postconditions(&old_posts, &new_posts);
+                    for change in &post_changes {
+                        match change {
+                            PostconditionChange::NullPathAdded { new_line } => {
+                                result.findings.push(SliceFinding {
+                                    algorithm: "contract".to_string(),
+                                    file: diff_info.file_path.clone(),
+                                    line: *new_line,
+                                    severity: "warning".to_string(),
+                                    description: format!(
+                                        "New null return path in '{}' at line {}. \
+                                         Function previously always returned a non-null \
+                                         value. Callers may not handle null.",
+                                        func_name, new_line,
+                                    ),
+                                    function_name: Some(func_name.clone()),
+                                    related_lines: vec![*new_line],
+                                    related_files: vec![],
+                                    category: Some("contract_postcondition_weakened".to_string()),
+                                    parse_quality: None,
+                                });
+                            }
+                            PostconditionChange::NullPathRemoved { old_line } => {
+                                result.findings.push(SliceFinding {
+                                    algorithm: "contract".to_string(),
+                                    file: diff_info.file_path.clone(),
+                                    line: new_start,
+                                    severity: "info".to_string(),
+                                    description: format!(
+                                        "Null return path removed in '{}' (was at old \
+                                         line {}). Function now always returns a value. \
+                                         Callers that checked for null can simplify.",
+                                        func_name, old_line,
+                                    ),
+                                    function_name: Some(func_name.clone()),
+                                    related_lines: vec![],
+                                    related_files: vec![],
+                                    category: Some(
+                                        "contract_postcondition_strengthened".to_string(),
+                                    ),
+                                    parse_quality: None,
+                                });
+                            }
+                            PostconditionChange::TypeChanged { old_type, new_type } => {
+                                result.findings.push(SliceFinding {
+                                    algorithm: "contract".to_string(),
+                                    file: diff_info.file_path.clone(),
+                                    line: new_start,
+                                    severity: "warning".to_string(),
+                                    description: format!(
+                                        "Return type changed in '{}': was {}, now {}.",
+                                        func_name, old_type, new_type,
+                                    ),
+                                    function_name: Some(func_name.clone()),
+                                    related_lines: vec![],
+                                    related_files: vec![],
+                                    category: Some("contract_postcondition_weakened".to_string()),
+                                    parse_quality: None,
+                                });
+                            }
+                            PostconditionChange::KindChanged { old_kind, new_kind } => {
+                                // Determine if weakened or strengthened
+                                let is_weakened = is_postcondition_weakened(old_kind, new_kind);
+                                let (severity, category) = if is_weakened {
+                                    ("warning", "contract_postcondition_weakened")
+                                } else {
+                                    ("info", "contract_postcondition_strengthened")
+                                };
+                                result.findings.push(SliceFinding {
+                                    algorithm: "contract".to_string(),
+                                    file: diff_info.file_path.clone(),
+                                    line: new_start,
+                                    severity: severity.to_string(),
+                                    description: format!(
+                                        "Postcondition changed in '{}': was {}, now {}.",
+                                        func_name, old_kind, new_kind,
+                                    ),
+                                    function_name: Some(func_name.clone()),
+                                    related_lines: vec![],
+                                    related_files: vec![],
+                                    category: Some(category.to_string()),
+                                    parse_quality: None,
+                                });
+                            }
+                        }
+                    }
+                }
+                (None, Some(_)) => {
+                    // New function — info only (not a contract change)
+                }
+                (Some(_), None) => {
+                    // Function removed — info only
+                }
+                (None, None) => unreachable!(),
+            }
+        }
+    }
+
+    Ok(result)
+}
+
+/// Match functions between old and new versions of a file by name.
+///
+/// Returns `(func_name, old_line, new_line)` triples, where the line is
+/// a line inside the function (used to look up the node via enclosing_function).
+/// Both Some → function exists in both versions.
+/// Only old Some → function removed. Only new Some → function added.
+fn match_functions(
+    old_parsed: &ParsedFile,
+    new_parsed: &ParsedFile,
+) -> Vec<(String, Option<usize>, Option<usize>)> {
+    let old_funcs: BTreeMap<String, usize> = old_parsed
+        .all_functions()
+        .into_iter()
+        .filter_map(|f| {
+            old_parsed.language.function_name(&f).map(|n| {
+                (
+                    old_parsed.node_text(&n).to_string(),
+                    f.start_position().row + 1,
+                )
+            })
+        })
+        .collect();
+
+    let new_funcs: BTreeMap<String, usize> = new_parsed
+        .all_functions()
+        .into_iter()
+        .filter_map(|f| {
+            new_parsed.language.function_name(&f).map(|n| {
+                (
+                    new_parsed.node_text(&n).to_string(),
+                    f.start_position().row + 1,
+                )
+            })
+        })
+        .collect();
+
+    let all_names: BTreeSet<&str> = old_funcs
+        .keys()
+        .chain(new_funcs.keys())
+        .map(|s| s.as_str())
+        .collect();
+
+    all_names
+        .into_iter()
+        .map(|name| {
+            (
+                name.to_string(),
+                old_funcs.get(name).copied(),
+                new_funcs.get(name).copied(),
+            )
+        })
+        .collect()
+}
+
+/// Determine if a postcondition kind change represents weakening.
+///
+/// Weakening means the function's guarantees got looser (callers need to
+/// handle more cases). Strengthening means guarantees got tighter (safe).
+fn is_postcondition_weakened(old_kind: &str, new_kind: &str) -> bool {
+    // Transitions that weaken the contract:
+    // always-non-null → nullable, mixed, void
+    // non-null-or-throws → nullable, mixed
+    // always-bool → mixed
+    // consistent-type → mixed
+    // void → mixed (adding return values to void function)
+    matches!(
+        (old_kind, new_kind),
+        ("always-non-null", "nullable")
+            | ("always-non-null", "mixed")
+            | ("always-non-null", "void")
+            | ("non-null-or-throws", "nullable")
+            | ("non-null-or-throws", "mixed")
+            | ("always-bool", "mixed")
+            | ("always-bool", "always-non-null")
+            | ("consistent-type", "mixed")
+            | ("consistent-type", "always-non-null")
+            | ("go-result-pair", "mixed")
+    )
 }
