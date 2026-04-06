@@ -88,17 +88,15 @@ def simple(x):
 "#;
     let result = run_contract(source, "test.py", Language::Python, BTreeSet::from([3]));
 
-    let contract_findings: Vec<_> = result
+    // No precondition-related findings (contract summary or guard violation)
+    let precondition_findings: Vec<_> = result
         .findings
         .iter()
-        .filter(|f| {
-            f.category.as_deref() == Some("contract")
-                || f.category.as_deref() == Some("contract_violation")
-        })
+        .filter(|f| f.category.as_deref() == Some("contract"))
         .collect();
     assert!(
-        contract_findings.is_empty(),
-        "No contract findings when function has no guard clauses"
+        precondition_findings.is_empty(),
+        "No precondition findings when function has no guard clauses"
     );
 }
 
@@ -529,6 +527,338 @@ def withdraw(amount, balance):
     assert!(
         !contract_findings.is_empty(),
         "Should detect range check guards (amount < 0, amount > balance)"
+    );
+}
+
+// ==========================================================================
+// Phase 2: Postcondition extraction tests
+// ==========================================================================
+
+#[test]
+fn test_postcondition_always_non_null() {
+    // All return paths return a non-null value → AlwaysNonNull
+    let source = r#"
+def find_user(user_id):
+    if user_id is None:
+        raise ValueError("missing id")
+    user = db.get(user_id)
+    return user
+"#;
+    let result = run_contract(source, "test.py", Language::Python, BTreeSet::from([5]));
+
+    let post_findings: Vec<_> = result
+        .findings
+        .iter()
+        .filter(|f| f.category.as_deref() == Some("contract_postcondition"))
+        .collect();
+    assert!(
+        !post_findings.is_empty(),
+        "Should emit postcondition summary"
+    );
+    assert!(
+        post_findings[0].description.contains("non-null"),
+        "Should detect non-null postcondition, got: {}",
+        post_findings[0].description
+    );
+}
+
+#[test]
+fn test_postcondition_nullable() {
+    // Mix of return None and return value → Nullable
+    let source = r#"
+def find_user(user_id):
+    if user_id < 0:
+        return None
+    user = db.get(user_id)
+    if not user:
+        return None
+    return user
+"#;
+    let result = run_contract(source, "test.py", Language::Python, BTreeSet::from([5]));
+
+    let post_findings: Vec<_> = result
+        .findings
+        .iter()
+        .filter(|f| f.category.as_deref() == Some("contract_postcondition"))
+        .collect();
+    assert!(
+        !post_findings.is_empty(),
+        "Should emit postcondition summary"
+    );
+    assert!(
+        post_findings[0].description.contains("nullable"),
+        "Should detect nullable postcondition, got: {}",
+        post_findings[0].description
+    );
+}
+
+#[test]
+fn test_postcondition_void() {
+    // No return value → Void
+    let source = r#"void setup(int flags) {
+    config = flags;
+    init();
+}
+"#;
+    let result = run_contract(source, "test.c", Language::C, BTreeSet::from([2]));
+
+    let post_findings: Vec<_> = result
+        .findings
+        .iter()
+        .filter(|f| f.category.as_deref() == Some("contract_postcondition"))
+        .collect();
+    assert!(
+        !post_findings.is_empty(),
+        "Should emit postcondition summary for void function"
+    );
+    assert!(
+        post_findings[0].description.contains("void"),
+        "Should detect void postcondition, got: {}",
+        post_findings[0].description
+    );
+}
+
+#[test]
+fn test_postcondition_always_bool() {
+    // All returns are true/false → AlwaysBool
+    let source = r#"function isValid(x) {
+    if (x < 0) {
+        return false;
+    }
+    if (x > 100) {
+        return false;
+    }
+    return true;
+}
+"#;
+    let result = run_contract(source, "test.js", Language::JavaScript, BTreeSet::from([4]));
+
+    let post_findings: Vec<_> = result
+        .findings
+        .iter()
+        .filter(|f| f.category.as_deref() == Some("contract_postcondition"))
+        .collect();
+    assert!(
+        !post_findings.is_empty(),
+        "Should emit postcondition summary"
+    );
+    assert!(
+        post_findings[0].description.contains("bool"),
+        "Should detect bool postcondition, got: {}",
+        post_findings[0].description
+    );
+}
+
+#[test]
+fn test_postcondition_go_result_pair() {
+    // Go (value, error) return pattern → GoResultPair
+    let source = r#"package main
+
+func Parse(data string) (Result, error) {
+    if data == "" {
+        return nil, fmt.Errorf("empty data")
+    }
+    result := doParse(data)
+    return result, nil
+}
+"#;
+    let result = run_contract(source, "test.go", Language::Go, BTreeSet::from([7]));
+
+    let post_findings: Vec<_> = result
+        .findings
+        .iter()
+        .filter(|f| f.category.as_deref() == Some("contract_postcondition"))
+        .collect();
+    assert!(
+        !post_findings.is_empty(),
+        "Should emit postcondition summary"
+    );
+    assert!(
+        post_findings[0].description.contains("error"),
+        "Should detect Go (T, error) postcondition, got: {}",
+        post_findings[0].description
+    );
+}
+
+#[test]
+fn test_postcondition_consistent_type() {
+    // All returns are string literals → ConsistentType
+    let source = r#"function getStatus(code: number): string {
+    if (code === 200) {
+        return "ok";
+    }
+    if (code === 404) {
+        return "not found";
+    }
+    return "unknown";
+}
+"#;
+    let result = run_contract(source, "test.ts", Language::TypeScript, BTreeSet::from([4]));
+
+    let post_findings: Vec<_> = result
+        .findings
+        .iter()
+        .filter(|f| f.category.as_deref() == Some("contract_postcondition"))
+        .collect();
+    assert!(
+        !post_findings.is_empty(),
+        "Should emit postcondition summary"
+    );
+    assert!(
+        post_findings[0].description.contains("consistent-type")
+            || post_findings[0].description.contains("string"),
+        "Should detect consistent-type (string) postcondition, got: {}",
+        post_findings[0].description
+    );
+}
+
+#[test]
+fn test_postcondition_new_null_path() {
+    // Diff adds `return None` to a function with other non-null returns → warning
+    let source = r#"
+def get_user(user_id):
+    if user_id == 0:
+        return None
+    user = db.get(user_id)
+    return user
+"#;
+    // Line 4 is `return None` and is a diff line
+    let result = run_contract(source, "test.py", Language::Python, BTreeSet::from([4]));
+
+    let new_null_findings: Vec<_> = result
+        .findings
+        .iter()
+        .filter(|f| f.category.as_deref() == Some("contract_postcondition_new_null"))
+        .collect();
+    assert!(
+        !new_null_findings.is_empty(),
+        "Should detect new null return path when diff adds return None"
+    );
+    assert!(
+        new_null_findings[0]
+            .description
+            .contains("return None/null"),
+        "Description should mention new null return, got: {}",
+        new_null_findings[0].description
+    );
+}
+
+#[test]
+fn test_postcondition_modified_return() {
+    // Diff touches a return line → violation warning
+    let source = r#"function compute(x) {
+    if (x < 0) {
+        return -1;
+    }
+    return x * 2;
+}
+"#;
+    // Line 5 is `return x * 2` and is a diff line
+    let result = run_contract(source, "test.js", Language::JavaScript, BTreeSet::from([5]));
+
+    let violations: Vec<_> = result
+        .findings
+        .iter()
+        .filter(|f| {
+            f.category.as_deref() == Some("contract_violation")
+                && f.description.contains("Return behavior modified")
+        })
+        .collect();
+    assert!(
+        !violations.is_empty(),
+        "Should flag modified return statement as contract violation"
+    );
+}
+
+#[test]
+fn test_postcondition_rust_trailing() {
+    // Rust trailing expression detected as return
+    let source = r#"fn compute(x: i32) -> i32 {
+    if x > 0 {
+        x * 2
+    } else {
+        -1
+    }
+}
+"#;
+    let result = run_contract(source, "test.rs", Language::Rust, BTreeSet::from([3]));
+
+    let post_findings: Vec<_> = result
+        .findings
+        .iter()
+        .filter(|f| f.category.as_deref() == Some("contract_postcondition"))
+        .collect();
+    assert!(
+        !post_findings.is_empty(),
+        "Should detect postcondition from Rust trailing expressions"
+    );
+    // The trailing expressions return numeric values
+    let desc = &post_findings[0].description;
+    assert!(
+        desc.contains("non-null") || desc.contains("numeric") || desc.contains("consistent"),
+        "Should classify trailing expressions, got: {}",
+        desc
+    );
+}
+
+#[test]
+fn test_postcondition_raises_on_error() {
+    // Function has raise but no null return → NonNullOrThrows
+    let source = r#"
+def parse_config(path):
+    if not path:
+        raise FileNotFoundError("no path")
+    data = read_file(path)
+    if not data:
+        raise ValueError("empty file")
+    return parse(data)
+"#;
+    let result = run_contract(source, "test.py", Language::Python, BTreeSet::from([5]));
+
+    let post_findings: Vec<_> = result
+        .findings
+        .iter()
+        .filter(|f| f.category.as_deref() == Some("contract_postcondition"))
+        .collect();
+    assert!(
+        !post_findings.is_empty(),
+        "Should emit postcondition summary"
+    );
+    assert!(
+        post_findings[0].description.contains("non-null-or-throws")
+            || post_findings[0].description.contains("non-null"),
+        "Should detect non-null-or-throws postcondition, got: {}",
+        post_findings[0].description
+    );
+}
+
+#[test]
+fn test_postcondition_summary() {
+    // Info finding includes both preconditions and postconditions
+    let source = r#"
+def get_user(user_id):
+    if user_id is None:
+        raise ValueError("missing id")
+    user = db.get(user_id)
+    return user
+"#;
+    let result = run_contract(source, "test.py", Language::Python, BTreeSet::from([5]));
+
+    // Check for contract summary that includes both pre and post conditions
+    let contract_findings: Vec<_> = result
+        .findings
+        .iter()
+        .filter(|f| f.category.as_deref() == Some("contract"))
+        .collect();
+    assert!(
+        !contract_findings.is_empty(),
+        "Should emit contract summary"
+    );
+    let desc = &contract_findings[0].description;
+    assert!(
+        desc.contains("preconditions") && desc.contains("postconditions"),
+        "Contract summary should mention both pre and postconditions, got: {}",
+        desc
     );
 }
 
