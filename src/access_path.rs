@@ -18,7 +18,9 @@ use std::fmt;
 /// - `dev->name` → `AccessPath { base: "dev", fields: ["name"] }`
 /// - `self.config.timeout` → `AccessPath { base: "self", fields: ["config", "timeout"] }`
 /// - `buf[i]` → `AccessPath { base: "buf", fields: ["[]"] }`
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(
+    Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize, serde::Deserialize,
+)]
 pub struct AccessPath {
     /// The root variable name.
     pub base: String,

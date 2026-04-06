@@ -29,6 +29,8 @@ clap = { version = "4", features = ["derive"] }
 anyhow = "1"
 thiserror = "2"
 petgraph = "0.7"
+bincode = "1"
+sha2 = "0.10"
 
 [dev-dependencies]
 tempfile = "3"
@@ -192,6 +194,10 @@ path = "tests/ast/comment_string_test.rs"
 [[test]]
 name = "ast_import"
 path = "tests/ast/import_test.rs"
+
+[[test]]
+name = "ast_cpg_cache"
+path = "tests/ast/cpg_cache_test.rs"
 
 [[test]]
 name = "ast_parse_quality"

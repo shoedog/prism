@@ -35,6 +35,7 @@ pub mod ast;
 pub mod call_graph;
 pub mod cfg;
 pub mod cpg;
+pub mod cpg_cache;
 pub mod data_flow;
 pub mod diff;
 pub mod languages;
