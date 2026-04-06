@@ -89,6 +89,26 @@ impl<'a> CpgContext<'a> {
         }
     }
 
+    /// Build a CpgContext from a cached (deserialized) CPG.
+    ///
+    /// The CPG graph, call graph, and DFG come from the cache. The type
+    /// registry and live types are rebuilt fresh from the parsed files.
+    pub fn build_with_cached_cpg(
+        files: &'a BTreeMap<String, ParsedFile>,
+        cpg: CodePropertyGraph,
+        type_db: Option<&'a TypeDatabase>,
+    ) -> Self {
+        let types = Self::build_registry(files, type_db);
+        let live_types = types.collect_live_types(files);
+        CpgContext {
+            cpg,
+            files,
+            types,
+            scope: None,
+            live_types,
+        }
+    }
+
     /// Build a CpgContext with a pre-built `TypeRegistry`.
     ///
     /// The optional `type_db` is still needed for CPG virtual dispatch enrichment
@@ -364,7 +384,7 @@ fn compute_scope(
 // ---------------------------------------------------------------------------
 
 /// A node in the Code Property Graph.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum CpgNode {
     /// A function definition.
     Function {
@@ -392,7 +412,7 @@ pub enum CpgNode {
 }
 
 /// Classification of statements relevant for analysis.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum StmtKind {
     /// Variable assignment: `x = expr`
     Assignment,
@@ -415,7 +435,9 @@ pub enum StmtKind {
 }
 
 /// Whether a variable access is a definition (write) or use (read).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize, serde::Deserialize,
+)]
 pub enum VarAccess {
     /// Variable is written to (assigned, declared with initializer).
     Def,
@@ -428,7 +450,7 @@ pub enum VarAccess {
 // ---------------------------------------------------------------------------
 
 /// An edge in the Code Property Graph.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum CpgEdge {
     /// Data flow: a definition reaches this use (def-use chain).
     DataFlow,
@@ -581,6 +603,29 @@ impl CodePropertyGraph {
     /// Build a CPG without type enrichment.
     pub fn build(files: &BTreeMap<String, ParsedFile>) -> Self {
         Self::build_enriched(files, None)
+    }
+
+    /// Reconstruct a CPG from pre-built parts (used by cache deserialization).
+    ///
+    /// The caller is responsible for ensuring that indexes are consistent
+    /// with the graph contents.
+    pub fn from_parts(
+        graph: DiGraph<CpgNode, CpgEdge>,
+        func_index: BTreeMap<(String, String), NodeIndex>,
+        var_index: BTreeMap<(String, String, usize, AccessPath, VarAccess), NodeIndex>,
+        location_index: BTreeMap<(String, usize), Vec<NodeIndex>>,
+        call_graph: CallGraph,
+        dfg: DataFlowGraph,
+    ) -> Self {
+        CodePropertyGraph {
+            graph,
+            func_index,
+            var_index,
+            location_index,
+            call_graph,
+            dfg,
+            type_db: None,
+        }
     }
 
     /// Create an empty CPG with no nodes or edges.

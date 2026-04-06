@@ -3,6 +3,7 @@ use clap::Parser;
 use prism::algorithms;
 use prism::ast::ParsedFile;
 use prism::cpg::CpgContext;
+use prism::cpg_cache;
 use prism::diff::DiffInput;
 use prism::languages::Language;
 use prism::output;
@@ -119,6 +120,16 @@ struct Cli {
     /// and virtual dispatch via class hierarchy analysis.
     #[arg(long)]
     compile_commands: Option<PathBuf>,
+
+    /// Directory to cache the CPG for faster subsequent runs.
+    /// On the first run, the CPG is serialized to this directory.
+    /// On subsequent runs, the cache is loaded if all file hashes match.
+    #[arg(long)]
+    cache_dir: Option<PathBuf>,
+
+    /// Ignore any existing cache and force a full CPG rebuild.
+    #[arg(long)]
+    no_cache: bool,
 
     // --- Target language version flags (stored, informational in Phase 1) ---
     /// Target Python version (e.g., "3.8", "3.11"). Stored for future use.
@@ -325,11 +336,51 @@ fn main() -> Result<()> {
     let (parse_warnings, parse_quality) = algorithms::check_parse_quality(&files);
 
     // Build CPG once — shared across all algorithm runs.
+    // With --cache-dir, attempt to load from cache first.
     // With --scoped-cpg, only process diff-changed files + direct callers/callees.
-    let mut ctx = if cli.scoped_cpg {
-        CpgContext::build_scoped(&files, &diff_input, type_db.as_ref())
-    } else {
-        CpgContext::build(&files, type_db.as_ref())
+    let mut ctx = {
+        let use_cache = cli.cache_dir.is_some() && !cli.no_cache && !cli.scoped_cpg;
+        let file_hashes = if use_cache {
+            Some(cpg_cache::compute_file_hashes(&sources))
+        } else {
+            None
+        };
+
+        // Try loading from cache.
+        let cached_cpg = if use_cache {
+            let cache_dir = cli.cache_dir.as_ref().unwrap();
+            let hashes = file_hashes.as_ref().unwrap();
+            match cpg_cache::load_cache(hashes, cache_dir) {
+                Some(cpg) => {
+                    eprintln!("CPG loaded from cache ({} files)", hashes.len());
+                    Some(cpg)
+                }
+                None => None,
+            }
+        } else {
+            None
+        };
+
+        if let Some(cpg) = cached_cpg {
+            CpgContext::build_with_cached_cpg(&files, cpg, type_db.as_ref())
+        } else {
+            let ctx = if cli.scoped_cpg {
+                CpgContext::build_scoped(&files, &diff_input, type_db.as_ref())
+            } else {
+                CpgContext::build(&files, type_db.as_ref())
+            };
+
+            // Save cache after a full build (not for scoped builds).
+            if let (Some(cache_dir), Some(hashes)) = (&cli.cache_dir, &file_hashes) {
+                if let Err(e) = cpg_cache::save_cache(&ctx.cpg, hashes, cache_dir) {
+                    eprintln!("Warning: failed to write CPG cache: {}", e);
+                } else {
+                    eprintln!("CPG cache written to {}", cache_dir.display());
+                }
+            }
+
+            ctx
+        }
     };
 
     // Store target language versions in the registry (informational in Phase 1).

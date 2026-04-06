@@ -9,7 +9,7 @@ use crate::ast::ParsedFile;
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
 /// A definition or use of a variable at a specific location.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, serde::Serialize, serde::Deserialize)]
 pub struct VarLocation {
     pub file: String,
     pub function: String,
@@ -29,7 +29,9 @@ impl VarLocation {
 }
 
 /// Whether a variable access is a definition or a use.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, serde::Serialize, serde::Deserialize,
+)]
 pub enum VarAccessKind {
     /// Variable is being assigned to (written).
     Def,
@@ -38,7 +40,7 @@ pub enum VarAccessKind {
 }
 
 /// An edge in the data flow graph: a definition flows to a use.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, serde::Serialize, serde::Deserialize)]
 pub struct FlowEdge {
     pub from: VarLocation,
     pub to: VarLocation,
@@ -51,7 +53,7 @@ pub struct FlowPath {
 }
 
 /// The data flow graph for a set of parsed files.
-#[derive(Debug)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct DataFlowGraph {
     /// All def-use edges.
     pub edges: Vec<FlowEdge>,
