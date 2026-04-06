@@ -27,6 +27,19 @@ fn count_nodes_recursive(node: Node<'_>, errors: &mut usize, total: &mut usize) 
     }
 }
 
+/// Information about a single return statement within a function.
+#[derive(Debug, Clone)]
+pub struct ReturnInfo {
+    /// Line number of the return statement (1-indexed).
+    pub line: usize,
+    /// The return value expression text, or None for bare `return`/`return;`.
+    pub value_text: Option<String>,
+    /// The tree-sitter node kind of the return value expression.
+    pub value_kind: Option<String>,
+    /// Whether this return is inside a conditional branch.
+    pub is_conditional: bool,
+}
+
 /// Wraps a tree-sitter parse tree with helpers for slicing analysis.
 #[derive(Clone)]
 pub struct ParsedFile {
@@ -1823,6 +1836,280 @@ impl ParsedFile {
         let mut cursor = node.walk();
         for child in node.children(&mut cursor) {
             self.collect_returns_manual(child, out);
+        }
+    }
+
+    /// Collect return statements with their value expressions.
+    ///
+    /// For each return statement in the function, extracts the return value
+    /// expression text and node kind. Also detects Rust trailing expressions
+    /// (last expression in a block without semicolon).
+    pub fn return_value_nodes(&self, func_node: &Node<'_>) -> Vec<ReturnInfo> {
+        let mut returns = Vec::new();
+        self.collect_return_infos(*func_node, func_node, &mut returns);
+
+        // For Rust: check for trailing expressions (last expr in block without `;`)
+        if self.language == Language::Rust {
+            self.collect_trailing_returns(func_node, &mut returns);
+        }
+
+        returns
+    }
+
+    /// Recursively collect ReturnInfo from return statement nodes.
+    fn collect_return_infos(
+        &self,
+        node: Node<'_>,
+        func_node: &Node<'_>,
+        out: &mut Vec<ReturnInfo>,
+    ) {
+        let kind = node.kind();
+        if kind == "return_statement" || kind == "return_expression" {
+            let line = node.start_position().row + 1;
+
+            // Extract the return value expression (first named child that
+            // isn't the `return` keyword itself).
+            let mut value_text = None;
+            let mut value_kind = None;
+
+            if kind == "return_statement" && self.language == Language::Go {
+                // Go: return may have an expression_list child
+                let mut cursor = node.walk();
+                for child in node.named_children(&mut cursor) {
+                    let ck = child.kind();
+                    if ck == "expression_list" {
+                        value_text = Some(self.node_text(&child).to_string());
+                        value_kind = Some(ck.to_string());
+                        break;
+                    }
+                    // Single expression (not expression_list)
+                    value_text = Some(self.node_text(&child).to_string());
+                    value_kind = Some(ck.to_string());
+                    break;
+                }
+            } else {
+                // All other languages: first named child is the expression
+                let mut cursor = node.walk();
+                for child in node.named_children(&mut cursor) {
+                    value_text = Some(self.node_text(&child).to_string());
+                    value_kind = Some(child.kind().to_string());
+                    break;
+                }
+            }
+
+            let is_conditional = self.is_inside_conditional(&node, func_node);
+
+            out.push(ReturnInfo {
+                line,
+                value_text,
+                value_kind,
+                is_conditional,
+            });
+            return; // Don't recurse into return children
+        }
+
+        // Don't recurse into nested function definitions
+        if self.language.function_node_types().contains(&kind) && kind != func_node.kind() {
+            // Check if this is actually a different function (not the func_node itself)
+            if node.start_position() != func_node.start_position() {
+                return;
+            }
+        }
+
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            self.collect_return_infos(child, func_node, out);
+        }
+    }
+
+    /// Check if a node is inside a conditional branch (if/else/match) within the function.
+    fn is_inside_conditional(&self, node: &Node<'_>, func_node: &Node<'_>) -> bool {
+        let mut current = node.parent();
+        while let Some(parent) = current {
+            if parent.id() == func_node.id() {
+                return false;
+            }
+            let pk = parent.kind();
+            if matches!(
+                pk,
+                "if_statement"
+                    | "if_expression"
+                    | "if_let_expression"
+                    | "else_clause"
+                    | "elif_clause"
+                    | "match_expression"
+                    | "switch_statement"
+                    | "conditional_expression"
+                    | "ternary_expression"
+            ) {
+                return true;
+            }
+            current = parent.parent();
+        }
+        false
+    }
+
+    /// Collect Rust trailing expressions that act as implicit returns.
+    ///
+    /// In Rust, the last expression in a block (without semicolon) is the
+    /// return value. This detects such expressions in the function body
+    /// and in if/else/match branches.
+    fn collect_trailing_returns(&self, func_node: &Node<'_>, out: &mut Vec<ReturnInfo>) {
+        let body = func_node.child_by_field_name("body");
+        if let Some(body_node) = body {
+            self.collect_block_trailing_returns(&body_node, func_node, out);
+        }
+    }
+
+    fn collect_block_trailing_returns(
+        &self,
+        block: &Node<'_>,
+        func_node: &Node<'_>,
+        out: &mut Vec<ReturnInfo>,
+    ) {
+        let child_count = block.named_child_count();
+        if child_count == 0 {
+            return;
+        }
+        let last_child = block.named_child(child_count - 1).unwrap();
+        let kind = last_child.kind();
+
+        // If it's an expression_statement, check if it wraps an if/match expression
+        // (Rust trailing if/match are often wrapped in expression_statement).
+        if kind == "expression_statement" {
+            // Check if it ends with a semicolon — if so, not a trailing return
+            let text = self.node_text(&last_child);
+            if text.ends_with(';') {
+                return;
+            }
+            // Check children for if/match expressions
+            let mut cursor = last_child.walk();
+            for child in last_child.named_children(&mut cursor) {
+                let ck = child.kind();
+                if ck == "if_expression" || ck == "if_let_expression" {
+                    self.collect_if_trailing_returns(&child, func_node, out);
+                    return;
+                }
+                if ck == "match_expression" {
+                    self.collect_match_trailing_returns(&child, func_node, out);
+                    return;
+                }
+                // Other expression — treat as trailing return
+                let line = child.start_position().row + 1;
+                if !out.iter().any(|r| r.line == line) {
+                    out.push(ReturnInfo {
+                        line,
+                        value_text: Some(self.node_text(&child).to_string()),
+                        value_kind: Some(ck.to_string()),
+                        is_conditional: self.is_inside_conditional(&child, func_node),
+                    });
+                }
+                return;
+            }
+            return;
+        }
+
+        // If it's an if_expression or match_expression, recurse into branches
+        if kind == "if_expression" || kind == "if_let_expression" {
+            self.collect_if_trailing_returns(&last_child, func_node, out);
+            return;
+        }
+        if kind == "match_expression" {
+            self.collect_match_trailing_returns(&last_child, func_node, out);
+            return;
+        }
+
+        // Skip return_expression — already handled by collect_return_infos
+        if kind == "return_expression" {
+            return;
+        }
+
+        // Skip statements that aren't expressions
+        if kind.ends_with("_statement")
+            || kind == "let_declaration"
+            || kind == "macro_invocation"
+            || kind == "empty_statement"
+        {
+            return;
+        }
+
+        // This is a trailing expression — implicit return
+        let line = last_child.start_position().row + 1;
+        // Check it's not already captured as a return
+        if out.iter().any(|r| r.line == line) {
+            return;
+        }
+
+        let text = self.node_text(&last_child).to_string();
+        let is_conditional = self.is_inside_conditional(&last_child, func_node);
+        out.push(ReturnInfo {
+            line,
+            value_text: Some(text),
+            value_kind: Some(kind.to_string()),
+            is_conditional,
+        });
+    }
+
+    fn collect_if_trailing_returns(
+        &self,
+        if_node: &Node<'_>,
+        func_node: &Node<'_>,
+        out: &mut Vec<ReturnInfo>,
+    ) {
+        // Recurse into consequence (then block) and alternative (else block)
+        if let Some(consequence) = if_node.child_by_field_name("consequence") {
+            self.collect_block_trailing_returns(&consequence, func_node, out);
+        }
+        if let Some(alternative) = if_node.child_by_field_name("alternative") {
+            let ak = alternative.kind();
+            if ak == "else_clause" {
+                // The else clause's child is either a block or another if_expression
+                let mut cursor = alternative.walk();
+                for child in alternative.named_children(&mut cursor) {
+                    if child.kind() == "block" {
+                        self.collect_block_trailing_returns(&child, func_node, out);
+                    } else if child.kind() == "if_expression" || child.kind() == "if_let_expression"
+                    {
+                        self.collect_if_trailing_returns(&child, func_node, out);
+                    }
+                }
+            } else if ak == "block" {
+                self.collect_block_trailing_returns(&alternative, func_node, out);
+            } else if ak == "if_expression" || ak == "if_let_expression" {
+                self.collect_if_trailing_returns(&alternative, func_node, out);
+            }
+        }
+    }
+
+    fn collect_match_trailing_returns(
+        &self,
+        match_node: &Node<'_>,
+        func_node: &Node<'_>,
+        out: &mut Vec<ReturnInfo>,
+    ) {
+        let mut cursor = match_node.walk();
+        for child in match_node.named_children(&mut cursor) {
+            if child.kind() == "match_arm" {
+                // The value of a match arm is its last named child (after the `=>`)
+                let arm_count = child.named_child_count();
+                if arm_count > 0 {
+                    let arm_value = child.named_child(arm_count - 1).unwrap();
+                    let vk = arm_value.kind();
+                    if vk == "block" {
+                        self.collect_block_trailing_returns(&arm_value, func_node, out);
+                    } else if vk != "match_pattern" {
+                        let line = arm_value.start_position().row + 1;
+                        if !out.iter().any(|r| r.line == line) {
+                            out.push(ReturnInfo {
+                                line,
+                                value_text: Some(self.node_text(&arm_value).to_string()),
+                                value_kind: Some(vk.to_string()),
+                                is_conditional: true,
+                            });
+                        }
+                    }
+                }
+            }
         }
     }
 
