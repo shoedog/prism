@@ -25,12 +25,12 @@ fn test_cache_round_trip_python() {
     let ctx_original = CpgContext::build(&files, None);
     let cache_dir = TempDir::new().unwrap();
     let hashes = cpg_cache::compute_file_hashes(&sources);
-    cpg_cache::save_cache(&ctx_original.cpg, &hashes, cache_dir.path()).unwrap();
+    cpg_cache::save_cache(&ctx_original.cpg, &hashes, false, cache_dir.path()).unwrap();
 
     assert!(cache_dir.path().join("cpg-cache.bin").exists());
     assert!(cache_dir.path().join("cache-meta.json").exists());
 
-    let loaded_cpg = expect_hit(cpg_cache::load_cache(&hashes, cache_dir.path()));
+    let loaded_cpg = expect_hit(cpg_cache::load_cache(&hashes, false, cache_dir.path()));
 
     assert_eq!(
         ctx_original.cpg.graph.node_count(),
@@ -70,9 +70,9 @@ fn test_cache_round_trip_javascript() {
     let ctx_original = CpgContext::build(&files, None);
     let cache_dir = TempDir::new().unwrap();
     let hashes = cpg_cache::compute_file_hashes(&sources);
-    cpg_cache::save_cache(&ctx_original.cpg, &hashes, cache_dir.path()).unwrap();
+    cpg_cache::save_cache(&ctx_original.cpg, &hashes, false, cache_dir.path()).unwrap();
 
-    let loaded_cpg = expect_hit(cpg_cache::load_cache(&hashes, cache_dir.path()));
+    let loaded_cpg = expect_hit(cpg_cache::load_cache(&hashes, false, cache_dir.path()));
 
     assert_eq!(
         ctx_original.cpg.graph.node_count(),
@@ -91,9 +91,9 @@ fn test_cache_round_trip_c() {
     let ctx_original = CpgContext::build(&files, None);
     let cache_dir = TempDir::new().unwrap();
     let hashes = cpg_cache::compute_file_hashes(&sources);
-    cpg_cache::save_cache(&ctx_original.cpg, &hashes, cache_dir.path()).unwrap();
+    cpg_cache::save_cache(&ctx_original.cpg, &hashes, false, cache_dir.path()).unwrap();
 
-    let loaded_cpg = expect_hit(cpg_cache::load_cache(&hashes, cache_dir.path()));
+    let loaded_cpg = expect_hit(cpg_cache::load_cache(&hashes, false, cache_dir.path()));
     assert_eq!(
         ctx_original.cpg.graph.node_count(),
         loaded_cpg.graph.node_count()
@@ -117,7 +117,7 @@ fn test_cache_partial_hit_on_file_change() {
     let ctx = CpgContext::build(&files, None);
     let cache_dir = TempDir::new().unwrap();
     let hashes = cpg_cache::compute_file_hashes(&sources);
-    cpg_cache::save_cache(&ctx.cpg, &hashes, cache_dir.path()).unwrap();
+    cpg_cache::save_cache(&ctx.cpg, &hashes, false, cache_dir.path()).unwrap();
 
     // Modify a source file → same file set, different hash → PartialHit.
     let mut modified_sources = sources.clone();
@@ -126,7 +126,7 @@ fn test_cache_partial_hit_on_file_change() {
     }
     let new_hashes = cpg_cache::compute_file_hashes(&modified_sources);
 
-    match cpg_cache::load_cache(&new_hashes, cache_dir.path()) {
+    match cpg_cache::load_cache(&new_hashes, false, cache_dir.path()) {
         CacheResult::PartialHit { changed_files, .. } => {
             assert!(
                 !changed_files.is_empty(),
@@ -151,7 +151,7 @@ fn test_cache_miss_when_no_cache_exists() {
 
     assert!(
         matches!(
-            cpg_cache::load_cache(&hashes, cache_dir.path()),
+            cpg_cache::load_cache(&hashes, false, cache_dir.path()),
             CacheResult::Miss
         ),
         "should be Miss when no cache file exists"
@@ -165,7 +165,7 @@ fn test_cache_miss_on_extra_file() {
     let ctx = CpgContext::build(&files, None);
     let cache_dir = TempDir::new().unwrap();
     let hashes = cpg_cache::compute_file_hashes(&sources);
-    cpg_cache::save_cache(&ctx.cpg, &hashes, cache_dir.path()).unwrap();
+    cpg_cache::save_cache(&ctx.cpg, &hashes, false, cache_dir.path()).unwrap();
 
     // Add a new file → different file set → Miss (not PartialHit).
     let mut extra_sources = sources.clone();
@@ -174,7 +174,7 @@ fn test_cache_miss_on_extra_file() {
 
     assert!(
         matches!(
-            cpg_cache::load_cache(&new_hashes, cache_dir.path()),
+            cpg_cache::load_cache(&new_hashes, false, cache_dir.path()),
             CacheResult::Miss
         ),
         "should be Miss when file set changes (not just content)"
@@ -192,9 +192,9 @@ fn test_cache_round_trip_multiple_algorithms() {
     let ctx_original = CpgContext::build(&files, None);
     let cache_dir = TempDir::new().unwrap();
     let hashes = cpg_cache::compute_file_hashes(&sources);
-    cpg_cache::save_cache(&ctx_original.cpg, &hashes, cache_dir.path()).unwrap();
+    cpg_cache::save_cache(&ctx_original.cpg, &hashes, false, cache_dir.path()).unwrap();
 
-    let loaded_cpg = expect_hit(cpg_cache::load_cache(&hashes, cache_dir.path()));
+    let loaded_cpg = expect_hit(cpg_cache::load_cache(&hashes, false, cache_dir.path()));
     let ctx_cached = CpgContext::build_with_cached_cpg(&files, loaded_cpg, None);
 
     let algos = vec![
@@ -227,9 +227,9 @@ fn test_cache_preserves_call_graph() {
     let ctx_original = CpgContext::build(&files, None);
     let cache_dir = TempDir::new().unwrap();
     let hashes = cpg_cache::compute_file_hashes(&sources);
-    cpg_cache::save_cache(&ctx_original.cpg, &hashes, cache_dir.path()).unwrap();
+    cpg_cache::save_cache(&ctx_original.cpg, &hashes, false, cache_dir.path()).unwrap();
 
-    let loaded_cpg = expect_hit(cpg_cache::load_cache(&hashes, cache_dir.path()));
+    let loaded_cpg = expect_hit(cpg_cache::load_cache(&hashes, false, cache_dir.path()));
     assert_eq!(
         ctx_original.cpg.call_graph.functions.len(),
         loaded_cpg.call_graph.functions.len()
@@ -246,9 +246,9 @@ fn test_cache_preserves_dfg() {
     let ctx_original = CpgContext::build(&files, None);
     let cache_dir = TempDir::new().unwrap();
     let hashes = cpg_cache::compute_file_hashes(&sources);
-    cpg_cache::save_cache(&ctx_original.cpg, &hashes, cache_dir.path()).unwrap();
+    cpg_cache::save_cache(&ctx_original.cpg, &hashes, false, cache_dir.path()).unwrap();
 
-    let loaded_cpg = expect_hit(cpg_cache::load_cache(&hashes, cache_dir.path()));
+    let loaded_cpg = expect_hit(cpg_cache::load_cache(&hashes, false, cache_dir.path()));
     assert_eq!(ctx_original.cpg.dfg.edges.len(), loaded_cpg.dfg.edges.len());
     assert_eq!(ctx_original.cpg.dfg.defs.len(), loaded_cpg.dfg.defs.len());
 }
@@ -263,7 +263,7 @@ fn test_cache_meta_json_is_valid() {
     let ctx = CpgContext::build(&files, None);
     let cache_dir = TempDir::new().unwrap();
     let hashes = cpg_cache::compute_file_hashes(&sources);
-    cpg_cache::save_cache(&ctx.cpg, &hashes, cache_dir.path()).unwrap();
+    cpg_cache::save_cache(&ctx.cpg, &hashes, false, cache_dir.path()).unwrap();
 
     let meta_text = std::fs::read_to_string(cache_dir.path().join("cache-meta.json")).unwrap();
     let meta: serde_json::Value = serde_json::from_str(&meta_text).unwrap();
@@ -289,7 +289,7 @@ fn test_cache_miss_on_corrupt_binary() {
     let hashes = BTreeMap::new();
     assert!(
         matches!(
-            cpg_cache::load_cache(&hashes, cache_dir.path()),
+            cpg_cache::load_cache(&hashes, false, cache_dir.path()),
             CacheResult::Miss
         ),
         "corrupt binary should produce Miss"
@@ -302,7 +302,7 @@ fn test_cache_miss_on_truncated_binary() {
     let ctx = CpgContext::build(&files, None);
     let cache_dir = TempDir::new().unwrap();
     let hashes = cpg_cache::compute_file_hashes(&sources);
-    cpg_cache::save_cache(&ctx.cpg, &hashes, cache_dir.path()).unwrap();
+    cpg_cache::save_cache(&ctx.cpg, &hashes, false, cache_dir.path()).unwrap();
 
     // Truncate the binary file to simulate interrupted write.
     let bin_path = cache_dir.path().join("cpg-cache.bin");
@@ -311,7 +311,7 @@ fn test_cache_miss_on_truncated_binary() {
 
     assert!(
         matches!(
-            cpg_cache::load_cache(&hashes, cache_dir.path()),
+            cpg_cache::load_cache(&hashes, false, cache_dir.path()),
             CacheResult::Miss
         ),
         "truncated binary should produce Miss"
@@ -327,11 +327,11 @@ fn test_cache_hit_with_empty_file_set() {
     let ctx = CpgContext::build(&files, None);
     let cache_dir = TempDir::new().unwrap();
     let hashes = cpg_cache::compute_file_hashes(&sources);
-    cpg_cache::save_cache(&ctx.cpg, &hashes, cache_dir.path()).unwrap();
+    cpg_cache::save_cache(&ctx.cpg, &hashes, false, cache_dir.path()).unwrap();
 
     assert!(
         matches!(
-            cpg_cache::load_cache(&hashes, cache_dir.path()),
+            cpg_cache::load_cache(&hashes, false, cache_dir.path()),
             CacheResult::Hit(_)
         ),
         "empty file set with matching (empty) hashes should Hit"
@@ -344,13 +344,13 @@ fn test_cache_miss_on_removed_file() {
     let ctx = CpgContext::build(&files, None);
     let cache_dir = TempDir::new().unwrap();
     let hashes = cpg_cache::compute_file_hashes(&sources);
-    cpg_cache::save_cache(&ctx.cpg, &hashes, cache_dir.path()).unwrap();
+    cpg_cache::save_cache(&ctx.cpg, &hashes, false, cache_dir.path()).unwrap();
 
     // Remove a file from hashes → different key set → Miss.
     let fewer_hashes: BTreeMap<String, String> = BTreeMap::new();
     assert!(
         matches!(
-            cpg_cache::load_cache(&fewer_hashes, cache_dir.path()),
+            cpg_cache::load_cache(&fewer_hashes, false, cache_dir.path()),
             CacheResult::Miss
         ),
         "removed file (different key set) should produce Miss"
@@ -709,7 +709,7 @@ fn test_incremental_multifile_partial_hit() {
     let ctx = CpgContext::build(&files, None);
     let cache_dir = TempDir::new().unwrap();
     let hashes = cpg_cache::compute_file_hashes(&sources);
-    cpg_cache::save_cache(&ctx.cpg, &hashes, cache_dir.path()).unwrap();
+    cpg_cache::save_cache(&ctx.cpg, &hashes, false, cache_dir.path()).unwrap();
 
     // Modify TWO files to test multi-file partial hit.
     let mut modified_sources = sources.clone();
@@ -723,7 +723,7 @@ fn test_incremental_multifile_partial_hit() {
         .push_str("\n# also changed\n");
     let new_hashes = cpg_cache::compute_file_hashes(&modified_sources);
 
-    match cpg_cache::load_cache(&new_hashes, cache_dir.path()) {
+    match cpg_cache::load_cache(&new_hashes, false, cache_dir.path()) {
         CacheResult::PartialHit { changed_files, .. } => {
             assert_eq!(changed_files.len(), 2, "should detect 2 changed files");
             assert!(changed_files.contains("src/utils.py"));
@@ -747,7 +747,7 @@ fn test_incremental_multifile_rebuild_matches_full() {
     let ctx_full = CpgContext::build(&files, None);
     let cache_dir = TempDir::new().unwrap();
     let hashes = cpg_cache::compute_file_hashes(&sources);
-    cpg_cache::save_cache(&ctx_full.cpg, &hashes, cache_dir.path()).unwrap();
+    cpg_cache::save_cache(&ctx_full.cpg, &hashes, false, cache_dir.path()).unwrap();
 
     // Change two files.
     let mut modified_sources = sources.clone();
@@ -761,7 +761,7 @@ fn test_incremental_multifile_rebuild_matches_full() {
         .push_str("\n# v2\n");
     let new_hashes = cpg_cache::compute_file_hashes(&modified_sources);
 
-    match cpg_cache::load_cache(&new_hashes, cache_dir.path()) {
+    match cpg_cache::load_cache(&new_hashes, false, cache_dir.path()) {
         CacheResult::PartialHit {
             cached_call_graph,
             cached_dfg,
@@ -805,7 +805,7 @@ fn test_incremental_multifile_c_cross_file_calls() {
     let ctx_full = CpgContext::build(&files, None);
     let cache_dir = TempDir::new().unwrap();
     let hashes = cpg_cache::compute_file_hashes(&sources);
-    cpg_cache::save_cache(&ctx_full.cpg, &hashes, cache_dir.path()).unwrap();
+    cpg_cache::save_cache(&ctx_full.cpg, &hashes, false, cache_dir.path()).unwrap();
 
     // Change handler.c (the caller) to trigger incremental rebuild.
     let mut modified_sources = sources.clone();
@@ -815,7 +815,7 @@ fn test_incremental_multifile_c_cross_file_calls() {
         .push_str("\n// changed\n");
     let new_hashes = cpg_cache::compute_file_hashes(&modified_sources);
 
-    match cpg_cache::load_cache(&new_hashes, cache_dir.path()) {
+    match cpg_cache::load_cache(&new_hashes, false, cache_dir.path()) {
         CacheResult::PartialHit {
             cached_call_graph,
             cached_dfg,
@@ -858,7 +858,7 @@ fn test_incremental_all_files_changed_matches_full() {
     let ctx_full = CpgContext::build(&files, None);
     let cache_dir = TempDir::new().unwrap();
     let hashes = cpg_cache::compute_file_hashes(&sources);
-    cpg_cache::save_cache(&ctx_full.cpg, &hashes, cache_dir.path()).unwrap();
+    cpg_cache::save_cache(&ctx_full.cpg, &hashes, false, cache_dir.path()).unwrap();
 
     // Change ALL files — still a PartialHit (same keys, all different values).
     let mut modified_sources = sources.clone();
@@ -867,7 +867,7 @@ fn test_incremental_all_files_changed_matches_full() {
     }
     let new_hashes = cpg_cache::compute_file_hashes(&modified_sources);
 
-    match cpg_cache::load_cache(&new_hashes, cache_dir.path()) {
+    match cpg_cache::load_cache(&new_hashes, false, cache_dir.path()) {
         CacheResult::PartialHit {
             cached_call_graph,
             cached_dfg,
@@ -917,26 +917,26 @@ fn test_cache_overwrite_with_different_files() {
     // Save Python cache.
     let ctx_py = CpgContext::build(&files_py, None);
     let hashes_py = cpg_cache::compute_file_hashes(&sources_py);
-    cpg_cache::save_cache(&ctx_py.cpg, &hashes_py, cache_dir.path()).unwrap();
+    cpg_cache::save_cache(&ctx_py.cpg, &hashes_py, false, cache_dir.path()).unwrap();
     assert!(matches!(
-        cpg_cache::load_cache(&hashes_py, cache_dir.path()),
+        cpg_cache::load_cache(&hashes_py, false, cache_dir.path()),
         CacheResult::Hit(_)
     ));
 
     // Overwrite with C cache.
     let ctx_c = CpgContext::build(&files_c, None);
     let hashes_c = cpg_cache::compute_file_hashes(&sources_c);
-    cpg_cache::save_cache(&ctx_c.cpg, &hashes_c, cache_dir.path()).unwrap();
+    cpg_cache::save_cache(&ctx_c.cpg, &hashes_c, false, cache_dir.path()).unwrap();
 
     // Old Python hashes should Miss (different file set).
     assert!(matches!(
-        cpg_cache::load_cache(&hashes_py, cache_dir.path()),
+        cpg_cache::load_cache(&hashes_py, false, cache_dir.path()),
         CacheResult::Miss
     ));
 
     // New C hashes should Hit.
     assert!(matches!(
-        cpg_cache::load_cache(&hashes_c, cache_dir.path()),
+        cpg_cache::load_cache(&hashes_c, false, cache_dir.path()),
         CacheResult::Hit(_)
     ));
 }
@@ -953,7 +953,7 @@ fn test_incremental_rebuild_produces_correct_results() {
     let ctx_original = CpgContext::build(&files, None);
     let cache_dir = TempDir::new().unwrap();
     let hashes = cpg_cache::compute_file_hashes(&sources);
-    cpg_cache::save_cache(&ctx_original.cpg, &hashes, cache_dir.path()).unwrap();
+    cpg_cache::save_cache(&ctx_original.cpg, &hashes, false, cache_dir.path()).unwrap();
 
     // Modify a file to trigger partial hit.
     let mut modified_sources = sources.clone();
@@ -965,7 +965,7 @@ fn test_incremental_rebuild_produces_correct_results() {
     let new_hashes = cpg_cache::compute_file_hashes(&modified_sources);
 
     // Load returns PartialHit.
-    match cpg_cache::load_cache(&new_hashes, cache_dir.path()) {
+    match cpg_cache::load_cache(&new_hashes, false, cache_dir.path()) {
         CacheResult::PartialHit {
             cached_call_graph,
             cached_dfg,
@@ -1009,7 +1009,7 @@ fn test_incremental_rebuild_node_count_matches_full_build() {
     let ctx_full = CpgContext::build(&files, None);
     let cache_dir = TempDir::new().unwrap();
     let hashes = cpg_cache::compute_file_hashes(&sources);
-    cpg_cache::save_cache(&ctx_full.cpg, &hashes, cache_dir.path()).unwrap();
+    cpg_cache::save_cache(&ctx_full.cpg, &hashes, false, cache_dir.path()).unwrap();
 
     // Trigger partial hit by changing one file hash.
     let mut modified_sources = sources.clone();
@@ -1020,7 +1020,7 @@ fn test_incremental_rebuild_node_count_matches_full_build() {
         .push_str("\nz = 99\n");
     let new_hashes = cpg_cache::compute_file_hashes(&modified_sources);
 
-    match cpg_cache::load_cache(&new_hashes, cache_dir.path()) {
+    match cpg_cache::load_cache(&new_hashes, false, cache_dir.path()) {
         CacheResult::PartialHit {
             cached_call_graph,
             cached_dfg,
@@ -1058,7 +1058,7 @@ fn test_incremental_saves_updated_cache() {
     let ctx = CpgContext::build(&files, None);
     let cache_dir = TempDir::new().unwrap();
     let hashes = cpg_cache::compute_file_hashes(&sources);
-    cpg_cache::save_cache(&ctx.cpg, &hashes, cache_dir.path()).unwrap();
+    cpg_cache::save_cache(&ctx.cpg, &hashes, false, cache_dir.path()).unwrap();
 
     // After incremental rebuild, saving the new CPG with updated hashes
     // should produce a valid cache that hits on the next load.
@@ -1070,7 +1070,7 @@ fn test_incremental_saves_updated_cache() {
         .push_str("\n# v2\n");
     let new_hashes = cpg_cache::compute_file_hashes(&modified_sources);
 
-    match cpg_cache::load_cache(&new_hashes, cache_dir.path()) {
+    match cpg_cache::load_cache(&new_hashes, false, cache_dir.path()) {
         CacheResult::PartialHit {
             cached_call_graph,
             cached_dfg,
@@ -1086,12 +1086,12 @@ fn test_incremental_saves_updated_cache() {
             );
 
             // Save with the new hashes.
-            cpg_cache::save_cache(&cpg, &new_hashes, cache_dir.path()).unwrap();
+            cpg_cache::save_cache(&cpg, &new_hashes, false, cache_dir.path()).unwrap();
 
             // The next load with the same new hashes should be a full Hit.
             assert!(
                 matches!(
-                    cpg_cache::load_cache(&new_hashes, cache_dir.path()),
+                    cpg_cache::load_cache(&new_hashes, false, cache_dir.path()),
                     CacheResult::Hit(_)
                 ),
                 "saved incremental cache should hit on next load"
@@ -1099,4 +1099,151 @@ fn test_incremental_saves_updated_cache() {
         }
         _ => panic!("expected PartialHit"),
     }
+}
+
+// ---------------------------------------------------------------------------
+// Phase 3: type_db consistency tests
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_cache_miss_when_type_db_added() {
+    // Cache built without type_db, loaded with type_db → Miss.
+    let (files, sources, _diff) = make_python_test();
+    let ctx = CpgContext::build(&files, None);
+    let cache_dir = TempDir::new().unwrap();
+    let hashes = cpg_cache::compute_file_hashes(&sources);
+    cpg_cache::save_cache(&ctx.cpg, &hashes, false, cache_dir.path()).unwrap();
+
+    // Loading with has_type_db=true should miss.
+    assert!(
+        matches!(
+            cpg_cache::load_cache(&hashes, true, cache_dir.path()),
+            CacheResult::Miss
+        ),
+        "cache built without type_db should miss when type_db is now available"
+    );
+}
+
+#[test]
+fn test_cache_miss_when_type_db_removed() {
+    // Cache built with type_db, loaded without type_db → Miss.
+    let (files, sources, _diff) = make_python_test();
+    let ctx = CpgContext::build(&files, None);
+    let cache_dir = TempDir::new().unwrap();
+    let hashes = cpg_cache::compute_file_hashes(&sources);
+    cpg_cache::save_cache(&ctx.cpg, &hashes, true, cache_dir.path()).unwrap();
+
+    // Loading with has_type_db=false should miss.
+    assert!(
+        matches!(
+            cpg_cache::load_cache(&hashes, false, cache_dir.path()),
+            CacheResult::Miss
+        ),
+        "cache built with type_db should miss when type_db is no longer available"
+    );
+}
+
+#[test]
+fn test_cache_hit_when_type_db_matches_true() {
+    // Cache built with type_db=true, loaded with type_db=true → Hit.
+    let (files, sources, _diff) = make_python_test();
+    let ctx = CpgContext::build(&files, None);
+    let cache_dir = TempDir::new().unwrap();
+    let hashes = cpg_cache::compute_file_hashes(&sources);
+    cpg_cache::save_cache(&ctx.cpg, &hashes, true, cache_dir.path()).unwrap();
+
+    assert!(
+        matches!(
+            cpg_cache::load_cache(&hashes, true, cache_dir.path()),
+            CacheResult::Hit(_)
+        ),
+        "matching type_db=true should produce Hit"
+    );
+}
+
+#[test]
+fn test_cache_hit_when_type_db_matches_false() {
+    // Cache built with type_db=false, loaded with type_db=false → Hit.
+    let (files, sources, _diff) = make_python_test();
+    let ctx = CpgContext::build(&files, None);
+    let cache_dir = TempDir::new().unwrap();
+    let hashes = cpg_cache::compute_file_hashes(&sources);
+    cpg_cache::save_cache(&ctx.cpg, &hashes, false, cache_dir.path()).unwrap();
+
+    assert!(
+        matches!(
+            cpg_cache::load_cache(&hashes, false, cache_dir.path()),
+            CacheResult::Hit(_)
+        ),
+        "matching type_db=false should produce Hit"
+    );
+}
+
+#[test]
+fn test_cache_type_db_mismatch_triggers_rebuild_not_partial() {
+    // Even with same file set and same hashes, type_db mismatch → Miss (not PartialHit).
+    let (files, sources, _diff) = make_python_test();
+    let ctx = CpgContext::build(&files, None);
+    let cache_dir = TempDir::new().unwrap();
+    let hashes = cpg_cache::compute_file_hashes(&sources);
+    cpg_cache::save_cache(&ctx.cpg, &hashes, false, cache_dir.path()).unwrap();
+
+    // Same hashes, different type_db → should be Miss, not Hit or PartialHit.
+    let result = cpg_cache::load_cache(&hashes, true, cache_dir.path());
+    assert!(
+        matches!(result, CacheResult::Miss),
+        "type_db mismatch should force Miss even with identical file hashes"
+    );
+}
+
+#[test]
+fn test_cache_meta_includes_type_db_field() {
+    let (files, sources, _diff) = make_python_test();
+    let ctx = CpgContext::build(&files, None);
+    let cache_dir = TempDir::new().unwrap();
+    let hashes = cpg_cache::compute_file_hashes(&sources);
+    cpg_cache::save_cache(&ctx.cpg, &hashes, true, cache_dir.path()).unwrap();
+
+    let meta_text = std::fs::read_to_string(cache_dir.path().join("cache-meta.json")).unwrap();
+    let meta: serde_json::Value = serde_json::from_str(&meta_text).unwrap();
+    assert_eq!(
+        meta["has_type_db"].as_bool(),
+        Some(true),
+        "cache-meta.json should record has_type_db"
+    );
+}
+
+#[test]
+fn test_incremental_partial_hit_respects_type_db() {
+    // PartialHit should also check type_db consistency.
+    let (files, sources, _diff) = make_python_test();
+    let ctx = CpgContext::build(&files, None);
+    let cache_dir = TempDir::new().unwrap();
+    let hashes = cpg_cache::compute_file_hashes(&sources);
+    cpg_cache::save_cache(&ctx.cpg, &hashes, false, cache_dir.path()).unwrap();
+
+    // Modify a file to make content hashes differ.
+    let mut modified_sources = sources.clone();
+    if let Some(val) = modified_sources.values_mut().next() {
+        val.push_str("\n# changed\n");
+    }
+    let new_hashes = cpg_cache::compute_file_hashes(&modified_sources);
+
+    // With same type_db=false, should be PartialHit.
+    assert!(
+        matches!(
+            cpg_cache::load_cache(&new_hashes, false, cache_dir.path()),
+            CacheResult::PartialHit { .. }
+        ),
+        "same type_db with changed file should be PartialHit"
+    );
+
+    // With different type_db=true, should be Miss (not PartialHit).
+    assert!(
+        matches!(
+            cpg_cache::load_cache(&new_hashes, true, cache_dir.path()),
+            CacheResult::Miss
+        ),
+        "different type_db with changed file should be Miss, not PartialHit"
+    );
 }
