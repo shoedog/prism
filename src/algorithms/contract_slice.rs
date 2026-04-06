@@ -138,6 +138,16 @@ enum ReturnValueClass {
 }
 
 pub fn slice(files: &BTreeMap<String, ParsedFile>, diff: &DiffInput) -> Result<SliceResult> {
+    slice_impl(files, diff, false)
+}
+
+/// Internal implementation with option to skip Phase 2's new-null detection
+/// (when Phase 3 delta comparison provides more precise results).
+fn slice_impl(
+    files: &BTreeMap<String, ParsedFile>,
+    diff: &DiffInput,
+    skip_new_null: bool,
+) -> Result<SliceResult> {
     let mut result = SliceResult::new(SlicingAlgorithm::ContractSlice);
     let mut block_id = 0;
 
@@ -222,38 +232,39 @@ pub fn slice(files: &BTreeMap<String, ParsedFile>, diff: &DiffInput) -> Result<S
 
             // Detect "new null return path" — diff adds return None/null to
             // a function whose other returns are all non-null.
-            // Even if the overall classification isn't AlwaysNonNull (because
-            // the new null made it Nullable), we detect added null lines.
-            for post in &postconditions {
-                if let PostconditionKind::Nullable {
-                    null_lines,
-                    value_lines: _,
-                } = &post.kind
-                {
-                    for &nl in null_lines {
-                        if diff_info.diff_lines.contains(&nl) {
-                            result.findings.push(SliceFinding {
-                                algorithm: "contract".to_string(),
-                                file: diff_info.file_path.clone(),
-                                line: nl,
-                                severity: "warning".to_string(),
-                                description: format!(
-                                    "New `return None/null` path added in '{}'. \
+            // Skipped when --old-repo is provided (Phase 3 gives more precise results).
+            if !skip_new_null {
+                for post in &postconditions {
+                    if let PostconditionKind::Nullable {
+                        null_lines,
+                        value_lines: _,
+                    } = &post.kind
+                    {
+                        for &nl in null_lines {
+                            if diff_info.diff_lines.contains(&nl) {
+                                result.findings.push(SliceFinding {
+                                    algorithm: "contract".to_string(),
+                                    file: diff_info.file_path.clone(),
+                                    line: nl,
+                                    severity: "warning".to_string(),
+                                    description: format!(
+                                        "New `return None/null` path added in '{}'. \
                                      Function has non-null returns on other paths. \
                                      Callers may not handle null.",
-                                    func_name,
-                                ),
-                                function_name: Some(func_name.clone()),
-                                related_lines: post.return_lines.clone(),
-                                related_files: vec![],
-                                category: Some("contract_postcondition_new_null".to_string()),
-                                parse_quality: None,
-                            });
+                                        func_name,
+                                    ),
+                                    function_name: Some(func_name.clone()),
+                                    related_lines: post.return_lines.clone(),
+                                    related_files: vec![],
+                                    category: Some("contract_postcondition_new_null".to_string()),
+                                    parse_quality: None,
+                                });
+                            }
                         }
                     }
                 }
-            }
-            // Emit postcondition summary
+            } // end skip_new_null
+              // Emit postcondition summary
             if !postconditions.is_empty() {
                 let post_summary = postconditions
                     .iter()
@@ -1251,11 +1262,13 @@ fn compare_postconditions(
         }
     }
 
-    // Any other kind change
-    changes.push(PostconditionChange::KindChanged {
-        old_kind: old_name.to_string(),
-        new_kind: new_name.to_string(),
-    });
+    // Only emit generic KindChanged if no specific change was already detected.
+    if changes.is_empty() {
+        changes.push(PostconditionChange::KindChanged {
+            old_kind: old_name.to_string(),
+            new_kind: new_name.to_string(),
+        });
+    }
 
     changes
 }
@@ -1270,7 +1283,8 @@ pub fn slice_delta(
     old_repo: &Path,
 ) -> Result<SliceResult> {
     // First run Phase 1+2 for the current version
-    let mut result = slice(files, diff)?;
+    // Run Phase 1+2 but skip Phase 2's new-null detection (Phase 3 is more precise).
+    let mut result = slice_impl(files, diff, true)?;
 
     // Parse old versions of changed files
     let mut old_files: BTreeMap<String, ParsedFile> = BTreeMap::new();
