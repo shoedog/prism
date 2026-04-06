@@ -680,6 +680,16 @@ impl CodePropertyGraph {
     ///
     /// The graph assembly (Steps 1–9) runs on the merged CG/DFG, so all
     /// cross-file edges (interprocedural DFG, call edges) are correct.
+    /// Build a CPG incrementally by merging cached data with fresh analysis
+    /// of changed files.
+    ///
+    /// # Limitations
+    ///
+    /// Indirect call resolution (Phase 3: function pointers, struct callbacks)
+    /// is NOT re-run for changed files. This is correct for direct-call
+    /// languages (Python, JS, Go, Java) but may miss indirect targets in C/C++
+    /// code. Use `--no-cache` for C/C++ reviews with heavy function pointer
+    /// usage.
     pub fn build_incremental(
         mut cached_cg: CallGraph,
         mut cached_dfg: DataFlowGraph,
@@ -692,6 +702,10 @@ impl CodePropertyGraph {
         cached_dfg.remove_files(changed_files);
 
         // Step 2: Build fresh CG/DFG for changed files only.
+        // Note: build_direct_subset only resolves direct calls (Phases 1+2),
+        // not indirect calls (Phase 3: function pointers, parameter-passed
+        // callbacks, struct field callbacks). Cached indirect resolution for
+        // unchanged files is preserved via the merge.
         let fresh_cg = CallGraph::build_direct_subset(files, changed_files);
         let fresh_dfg = DataFlowGraph::build_subset(files, changed_files);
 
