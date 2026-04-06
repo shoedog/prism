@@ -8,7 +8,9 @@ use crate::ast::ParsedFile;
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
 /// A node in the call graph: a function identified by file path and name.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(
+    Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize, serde::Deserialize,
+)]
 pub struct FunctionId {
     pub file: String,
     pub name: String,
@@ -17,7 +19,7 @@ pub struct FunctionId {
 }
 
 /// A call site: where a function is called from.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct CallSite {
     pub caller: FunctionId,
     pub callee_name: String,
@@ -28,7 +30,7 @@ pub struct CallSite {
 }
 
 /// The call graph for a set of parsed files.
-#[derive(Debug)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct CallGraph {
     /// All known functions.
     pub functions: BTreeMap<String, Vec<FunctionId>>,
