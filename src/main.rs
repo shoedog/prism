@@ -717,6 +717,13 @@ fn run_algorithm(
             };
             prism::algorithms::phantom_slice::slice(ctx.files, diff_input, &phantom_config)
         }
+        SlicingAlgorithm::ContractSlice => {
+            if let Some(old_repo) = &cli.old_repo {
+                prism::algorithms::contract_slice::slice_delta(ctx.files, diff_input, old_repo)
+            } else {
+                prism::algorithms::contract_slice::slice(ctx.files, diff_input)
+            }
+        }
         _ => algorithms::run_slicing(ctx, diff_input, config),
     }
 }
