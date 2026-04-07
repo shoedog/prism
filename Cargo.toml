@@ -274,12 +274,20 @@ name = "lang_java_algo"
 path = "tests/lang/java/algo_test.rs"
 
 [[test]]
+name = "lang_java_algo_expand"
+path = "tests/lang/java/algo_expand_test.rs"
+
+[[test]]
 name = "lang_lua"
 path = "tests/lang/lua/lua_test.rs"
 
 [[test]]
 name = "lang_lua_algo"
 path = "tests/lang/lua/algo_test.rs"
+
+[[test]]
+name = "lang_lua_algo_expand"
+path = "tests/lang/lua/algo_expand_test.rs"
 
 [[test]]
 name = "lang_rust"
