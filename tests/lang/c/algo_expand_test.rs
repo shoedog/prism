@@ -1,13 +1,52 @@
 //! Expanded algorithm coverage tests for C language.
 //!
-//! Covers 11 algorithms not yet tested with C fixtures:
-//! FullFlow, BarrierSlice, Chop, RelevantSlice, ConditionedSlice,
-//! DeltaSlice, SpiralSlice, CircularSlice, HorizontalSlice, AngleSlice,
-//! VerticalSlice.
+//! Covers algorithms not yet tested with C fixtures.
 
 #[path = "../../common/mod.rs"]
 mod common;
 use common::*;
+
+// ---------------------------------------------------------------------------
+// OriginalDiff (Algorithm 6) — with _c suffix for coverage matrix
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_original_diff_c() {
+    let (files, _, diff) = make_c_test();
+    let result = algorithms::run_slicing_compat(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::OriginalDiff),
+        None,
+    )
+    .unwrap();
+    assert!(
+        !result.blocks.is_empty(),
+        "OriginalDiff should produce blocks for C code"
+    );
+    assert_eq!(result.algorithm, SlicingAlgorithm::OriginalDiff);
+}
+
+// ---------------------------------------------------------------------------
+// ParentFunction (Algorithm 7) — with _c suffix for coverage matrix
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_parent_function_c() {
+    let (files, _, diff) = make_c_test();
+    let result = algorithms::run_slicing_compat(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::ParentFunction),
+        None,
+    )
+    .unwrap();
+    assert!(
+        !result.blocks.is_empty(),
+        "ParentFunction should produce blocks for C code"
+    );
+    assert_eq!(result.algorithm, SlicingAlgorithm::ParentFunction);
+}
 
 // ---------------------------------------------------------------------------
 // FullFlow (Algorithm 9)
