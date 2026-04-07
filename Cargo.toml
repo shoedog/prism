@@ -298,6 +298,10 @@ name = "lang_bash_algo"
 path = "tests/lang/bash/algo_test.rs"
 
 [[test]]
+name = "lang_bash_algo_expand"
+path = "tests/lang/bash/algo_expand_test.rs"
+
+[[test]]
 name = "lang_terraform"
 path = "tests/lang/terraform/terraform_test.rs"
 
