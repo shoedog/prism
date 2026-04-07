@@ -34,13 +34,35 @@
 
 # slicing
 
-A command-line tool that extracts focused, relevant code context from diffs for
-code review. Instead of dumping an entire file or just the raw changed lines,
-`slicing` uses static analysis to pull in exactly the surrounding code a
-reviewer needs to understand a change — variable definitions, control flow,
-called functions, return paths.
+Prism is a Code Property Graph (CPG) engine for diff-aware program slicing.
+It builds a unified graph — call graph, data flow graph, and control flow
+graph — from source code using [tree-sitter](https://tree-sitter.github.io/)
+and [petgraph](https://docs.rs/petgraph/), then runs 27 slicing algorithms
+against diffs to extract exactly the context a code reviewer needs.
 
-Implements 26 slicing algorithms spanning the paper
+**The problem:** Raw diffs show *what* changed but not *why it matters*.
+A 5-line change to a validation function might affect 40 callers across 12
+files. A new parameter might break a taint path from user input to a SQL
+query. Prism answers these questions statically and fast — typically under
+3 seconds for a 50-file repository.
+
+**How it works:**
+
+1. Parse all source files into ASTs (tree-sitter, 12 languages)
+2. Build a unified CPG: call graph + data flow graph + control flow graph
+3. Enrich with type information (per-language providers, RTA for dispatch)
+4. Accept a diff (unified patch or JSON)
+5. Run selected algorithms against the diff, querying the CPG
+6. Output focused slices: the exact code context relevant to each change
+
+**Use cases:**
+- Power automated code review agents with structured program analysis
+- Pre-review triage: identify which changes are high-risk before human review
+- Security analysis: trace taint paths from untrusted input to sensitive sinks
+- Firmware/embedded review: detect missing resource cleanup, absent error handling
+- Refactoring safety: verify that signature changes don't break callers
+
+Implements 27 slicing algorithms spanning the paper
 [Towards Practical Defect-Focused Automated Code Review](https://arxiv.org/abs/2505.17928),
 the established program slicing taxonomy, and several novel theoretical
 extensions including spiral, quantum, horizontal, vertical, angle, and 3D slices.
@@ -60,6 +82,9 @@ cargo build --release
 
 The binary lands at `target/release/slicing`. Copy it somewhere on your `$PATH`
 or run it directly.
+
+> **Note:** The binary is named `slicing` for historical reasons. The project
+> is called Prism. A rename is planned for a future release.
 
 ---
 
@@ -421,6 +446,124 @@ for algo in thin leftflow fullflow relevant; do
   slicing --repo . --diff changes.patch -a $algo | wc -l
 done
 ```
+
+---
+
+## Architecture
+
+```
+Source files ──→ tree-sitter ──→ AST per file
+                                    │
+                  ┌─────────────────┼─────────────────┐
+                  ▼                 ▼                  ▼
+            Call Graph        Data Flow Graph    Control Flow Graph
+          (import-aware,     (field-sensitive,    (goto-aware for C,
+           cross-file)       interprocedural)      exception paths)
+                  │                 │                  │
+                  └────────┬────────┘──────────────────┘
+                           ▼
+                    Type Registry (RTA)
+              C++ · Go · TS · Java · Rust · Python
+                           │
+                           ▼
+                   Unified CPG (petgraph)
+                           │
+                  ┌────────┼────────┐
+                  ▼        ▼        ▼
+            Diff → Algorithm → SliceResult
+                    dispatch
+              27 algorithms, all operating
+              on the shared CPG graph
+```
+
+**Key design decisions:**
+
+- **petgraph as the graph backend** — the CPG is a single directed graph with
+  typed edges (call, data flow, CFG) and typed nodes (function, variable,
+  statement). All algorithms query the same graph structure.
+
+- **tree-sitter for parsing** — zero-dependency, incremental, supports 12
+  languages with a single unified AST query interface. No language-specific
+  parsers to maintain.
+
+- **CPG built once, queried many times** — algorithms are graph traversals,
+  not re-analyses. Running all 27 algorithms costs ~10% more than running one,
+  because the expensive step (CPG construction) is shared.
+
+- **Diff-aware by default** — algorithms receive the diff as input and focus
+  analysis on changed code. Unchanged code is included only when it's
+  reachable from a change (caller, data flow source, control flow predecessor).
+
+---
+
+## Type System
+
+Prism includes a multi-language type system for resolving virtual/dynamic
+dispatch during call graph construction. Without type information, a call to
+`animal.speak()` could resolve to any `speak()` function in the codebase.
+With type information, Prism narrows this to concrete implementations using
+Rapid Type Analysis (RTA).
+
+| Language   | Provider          | Dispatch Resolution                    |
+|------------|-------------------|----------------------------------------|
+| C++        | CppTypeProvider   | vtable, templates, qualified names     |
+| Go         | GoTypeProvider    | Interface satisfaction, embedded types  |
+| TypeScript | TSTypeProvider    | Class hierarchy, interface implements   |
+| Java       | JavaTypeProvider  | Class hierarchy, interface implements   |
+| Rust       | RustTypeProvider  | Trait impls, inherent methods           |
+| Python     | PythonTypeProvider| Type annotations, class hierarchy       |
+
+Languages without a dedicated provider fall back to name-based call resolution,
+which is conservative (may include false callees) but never misses real ones.
+
+---
+
+## CPG Caching
+
+Building the CPG is the most expensive operation (~1-3 seconds for a 50-file
+repo). For repeated analysis of the same repository (e.g., reviewing multiple
+PRs), Prism caches the serialized CPG to disk:
+
+```bash
+# First run: builds CPG, writes cache
+slicing --repo . --diff changes.patch --cache-dir ~/.cache/prism
+
+# Second run: loads from cache, rebuilds only changed files
+slicing --repo . --diff new-changes.patch --cache-dir ~/.cache/prism
+```
+
+Cache behavior:
+
+- **Full hit:** All files unchanged → load entire CPG from cache (~50ms)
+- **Partial hit:** Some files changed → load cached data for unchanged files,
+  rebuild only changed files, merge results
+- **Miss:** Cache stale or absent → full rebuild
+
+The type registry is rebuilt from source files on every run (not cached),
+so adding a new language provider never invalidates the cache.
+
+---
+
+## Security Analysis
+
+Prism's taint and absence algorithms are designed for catching real
+vulnerabilities in C/firmware code:
+
+```bash
+# Trace taint from network input to dangerous sinks
+slicing --repo . --diff vuln.patch --algorithm taint
+
+# Check for missing resource cleanup (malloc/free, lock/unlock)
+slicing --repo . --diff vuln.patch --algorithm absence
+
+# Detect weakened preconditions (removed NULL checks, guard clauses)
+slicing --repo . --diff vuln.patch --algorithm contract
+```
+
+Prism has been validated against real CVE patterns including buffer overflows,
+integer underflows, use-after-free, NULL dereferences, command injection, and
+missing authentication checks. See `tests/fixtures/cve/` for test cases mapped
+to CVE identifiers.
 
 ---
 
