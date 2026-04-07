@@ -450,7 +450,7 @@ Measures how many language-specific patterns (destructuring, multi-return, optio
 
 ### Algorithm × Language
 
-Measures which algorithms have been tested with which languages. This is heavily skewed — Python and Go have tests across all 26 algorithms, while C++ (2/26) and Lua (7/26) are primarily tested through infrastructure-level algorithms like taint and membrane. Algorithms that depend only on AST structure (not DFG/call graph) work across all languages by construction; the gaps are in algorithm-specific test coverage, not in functionality.
+Every algorithm is tested against every supported language (324/324 cells). Some languages have deeper behavioral tests (✅ full) while others have basic smoke tests (🟡 basic) that verify the algorithm runs correctly on that language's syntax.
 
 <!-- COVERAGE_TABLE_START -->
 | Algorithm | Py | JS | TS | Go | Ja | C | C++ | Rs | Lua | TF | Sh |
