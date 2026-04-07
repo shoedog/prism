@@ -3,7 +3,6 @@
 ![Rust](https://img.shields.io/badge/rust-1.70%2B-orange)
 
 <!-- COVERAGE_BADGES_START -->
-
 **Language feature coverage** · [details](#language-feature-coverage)
 
 ![Python](https://img.shields.io/badge/Python-88%25-green?logo=python&logoColor=white)
@@ -22,16 +21,15 @@
 
 ![Python algo](https://img.shields.io/badge/Python-100%25-brightgreen?logo=python&logoColor=white)
 ![JavaScript algo](https://img.shields.io/badge/JavaScript-100%25-brightgreen?logo=javascript&logoColor=white)
-![TypeScript algo](https://img.shields.io/badge/TypeScript-96%25-brightgreen?logo=typescript&logoColor=white)
+![TypeScript algo](https://img.shields.io/badge/TypeScript-100%25-brightgreen?logo=typescript&logoColor=white)
 ![Go algo](https://img.shields.io/badge/Go-100%25-brightgreen?logo=go&logoColor=white)
 ![Java algo](https://img.shields.io/badge/Java-100%25-brightgreen?logo=openjdk&logoColor=white)
 ![C algo](https://img.shields.io/badge/C-100%25-brightgreen?logo=c&logoColor=white)
 ![C++ algo](https://img.shields.io/badge/C%2B%2B-100%25-brightgreen?logo=cplusplus&logoColor=white)
-![Rust algo](https://img.shields.io/badge/Rust-70%25-yellow?logo=rust&logoColor=white)
-![Lua algo](https://img.shields.io/badge/Lua-66%25-orange?logo=lua&logoColor=white)
-![Terraform algo](https://img.shields.io/badge/Terraform-48%25-red?logo=terraform&logoColor=white)
-![Bash algo](https://img.shields.io/badge/Bash-51%25-orange?logo=gnubash&logoColor=white)
-
+![Rust algo](https://img.shields.io/badge/Rust-100%25-brightgreen?logo=rust&logoColor=white)
+![Lua algo](https://img.shields.io/badge/Lua-100%25-brightgreen?logo=lua&logoColor=white)
+![Terraform algo](https://img.shields.io/badge/Terraform-100%25-brightgreen?logo=terraform&logoColor=white)
+![Bash algo](https://img.shields.io/badge/Bash-100%25-brightgreen?logo=gnubash&logoColor=white)
 <!-- COVERAGE_BADGES_END -->
 
 # slicing
@@ -49,7 +47,7 @@ extensions including spiral, quantum, horizontal, vertical, angle, and 3D slices
 
 Supports **Python**, **JavaScript**, **TypeScript**, **Go**, **Java**, **C**, **C++**, **Rust**, **Lua**, **Terraform/HCL**, and **Bash**.
 
------
+---
 
 ## Install
 
@@ -63,7 +61,7 @@ cargo build --release
 The binary lands at `target/release/slicing`. Copy it somewhere on your `$PATH`
 or run it directly.
 
------
+---
 
 ## Quick start
 
@@ -76,7 +74,7 @@ git diff HEAD~1 > /tmp/changes.patch
 slicing --repo . --diff /tmp/changes.patch
 ```
 
-That’s it. The default algorithm (`leftflow`) traces data flow backward from
+That's it. The default algorithm (`leftflow`) traces data flow backward from
 each changed line and prints the relevant slice to stdout.
 
 List all 26 algorithms:
@@ -85,57 +83,57 @@ List all 26 algorithms:
 slicing --list-algorithms
 ```
 
------
+---
 
 ## All 26 algorithms at a glance
 
 ### Paper algorithms (arXiv:2505.17928)
 
-|Algorithm         |Flag               |What it includes                             |
-|------------------|-------------------|---------------------------------------------|
-|**OriginalDiff**  |`-a originaldiff`  |Only the changed lines                       |
-|**ParentFunction**|`-a parentfunction`|Entire enclosing function                    |
-|**LeftFlow**      |`-a leftflow`      |Backward data-flow from assignments (default)|
-|**FullFlow**      |`-a fullflow`      |LeftFlow + forward R-value tracing           |
+| Algorithm | Flag | What it includes |
+|---|---|---|
+| **OriginalDiff** | `-a originaldiff` | Only the changed lines |
+| **ParentFunction** | `-a parentfunction` | Entire enclosing function |
+| **LeftFlow** | `-a leftflow` | Backward data-flow from assignments (default) |
+| **FullFlow** | `-a fullflow` | LeftFlow + forward R-value tracing |
 
 ### Established taxonomy
 
-|Algorithm           |Flag            |What it does                                              |
-|--------------------|----------------|----------------------------------------------------------|
-|**ThinSlice**       |`-a thin`       |Data deps only — no control flow, no returns. Most focused|
-|**BarrierSlice**    |`-a barrier`    |Interprocedural with depth limits and barriers            |
-|**Chop**            |`-a chop`       |All data-flow paths between a source and sink             |
-|**Taint**           |`-a taint`      |Forward propagation of untrusted values to sinks          |
-|**RelevantSlice**   |`-a relevant`   |LeftFlow + alternate branch paths (“one flip from a bug”) |
-|**ConditionedSlice**|`-a conditioned`|LeftFlow pruned by a value assumption                     |
-|**DeltaSlice**      |`-a delta`      |Behavioral diff between two program versions              |
+| Algorithm | Flag | What it does |
+|---|---|---|
+| **ThinSlice** | `-a thin` | Data deps only — no control flow, no returns. Most focused |
+| **BarrierSlice** | `-a barrier` | Interprocedural with depth limits and barriers |
+| **Chop** | `-a chop` | All data-flow paths between a source and sink |
+| **Taint** | `-a taint` | Forward propagation of untrusted values to sinks |
+| **RelevantSlice** | `-a relevant` | LeftFlow + alternate branch paths ("one flip from a bug") |
+| **ConditionedSlice** | `-a conditioned` | LeftFlow pruned by a value assumption |
+| **DeltaSlice** | `-a delta` | Behavioral diff between two program versions |
 
 ### Theoretical extensions
 
-|Algorithm          |Flag           |What it does                                               |
-|-------------------|---------------|-----------------------------------------------------------|
-|**SpiralSlice**    |`-a spiral`    |Adaptive-depth through concentric rings (1-6)              |
-|**CircularSlice**  |`-a circular`  |Detects data-flow cycles across function boundaries        |
-|**QuantumSlice**   |`-a quantum`   |Enumerates concurrent states around async boundaries       |
-|**HorizontalSlice**|`-a horizontal`|Finds peer constructs that should follow the same pattern  |
-|**VerticalSlice**  |`-a vertical`  |End-to-end feature path across architectural layers        |
-|**AngleSlice**     |`-a angle`     |Cross-cutting concern trace (errors, logging, auth)        |
-|**3DSlice**        |`-a 3d`        |Risk scoring: structural coupling * git churn * change size|
+| Algorithm | Flag | What it does |
+|---|---|---|
+| **SpiralSlice** | `-a spiral` | Adaptive-depth through concentric rings (1-6) |
+| **CircularSlice** | `-a circular` | Detects data-flow cycles across function boundaries |
+| **QuantumSlice** | `-a quantum` | Enumerates concurrent states around async boundaries |
+| **HorizontalSlice** | `-a horizontal` | Finds peer constructs that should follow the same pattern |
+| **VerticalSlice** | `-a vertical` | End-to-end feature path across architectural layers |
+| **AngleSlice** | `-a angle` | Cross-cutting concern trace (errors, logging, auth) |
+| **3DSlice** | `-a 3d` | Risk scoring: structural coupling * git churn * change size |
 
 ### Novel extensions
 
-|Algorithm          |Flag           |What it does                                                             |
-|-------------------|---------------|-------------------------------------------------------------------------|
-|**AbsenceSlice**   |`-a absence`   |Detects missing counterparts: open without close, lock without unlock    |
-|**ResonanceSlice** |`-a resonance` |Flags files that usually co-change in git but are missing from the diff  |
-|**SymmetrySlice**  |`-a symmetry`  |Detects broken symmetric pairs: serialize/deserialize, encode/decode     |
-|**GradientSlice**  |`-a gradient`  |Continuous relevance scoring (decaying) instead of binary include/exclude|
-|**ProvenanceSlice**|`-a provenance`|Traces data origin (user_input, config, database, env_var, etc.)         |
-|**PhantomSlice**   |`-a phantom`   |Surfaces recently deleted code this change might depend on               |
-|**MembraneSlice**  |`-a membrane`  |Shows cross-file callers of changed API functions                        |
-|**EchoSlice**      |`-a echo`      |Ripple effect: flags callers missing error handling or null checks       |
+| Algorithm | Flag | What it does |
+|---|---|---|
+| **AbsenceSlice** | `-a absence` | Detects missing counterparts: open without close, lock without unlock |
+| **ResonanceSlice** | `-a resonance` | Flags files that usually co-change in git but are missing from the diff |
+| **SymmetrySlice** | `-a symmetry` | Detects broken symmetric pairs: serialize/deserialize, encode/decode |
+| **GradientSlice** | `-a gradient` | Continuous relevance scoring (decaying) instead of binary include/exclude |
+| **ProvenanceSlice** | `-a provenance` | Traces data origin (user_input, config, database, env_var, etc.) |
+| **PhantomSlice** | `-a phantom` | Surfaces recently deleted code this change might depend on |
+| **MembraneSlice** | `-a membrane` | Shows cross-file callers of changed API functions |
+| **EchoSlice** | `-a echo` | Ripple effect: flags callers missing error handling or null checks |
 
------
+---
 
 ## Usage by language
 
@@ -183,7 +181,7 @@ slicing --repo . --diff /tmp/diff.patch -a horizontal
 slicing --repo . --diff /tmp/diff.patch -a angle --concern error_handling
 ```
 
------
+---
 
 ### JavaScript
 
@@ -213,7 +211,7 @@ slicing --repo . --diff /tmp/diff.patch -a circular
 slicing --repo . --diff /tmp/diff.patch -a relevant
 ```
 
------
+---
 
 ### TypeScript
 
@@ -239,7 +237,7 @@ slicing --repo . --diff /tmp/diff.patch -a barrier --barrier-depth 3 --barrier-s
 slicing --repo . --diff /tmp/diff.patch -a vertical --layers "routes,services,models,db"
 ```
 
------
+---
 
 ### Go
 
@@ -269,7 +267,7 @@ slicing --repo . --diff /tmp/diff.patch -a chop --chop-source "handlers/api.go:4
 slicing --repo . --diff /tmp/diff.patch -a 3d --temporal-days 30
 ```
 
------
+---
 
 ### Java
 
@@ -302,7 +300,7 @@ slicing --repo . --diff /tmp/diff.patch -a angle --concern auth
 slicing --repo . --diff /tmp/diff.patch -a delta --old-repo /path/to/old/version
 ```
 
------
+---
 
 ## Output formats
 
@@ -332,7 +330,7 @@ Matches the `diff_outputs.json` format from the original paper:
 slicing --repo . --diff changes.patch --format paper
 ```
 
------
+---
 
 ## Diff input formats
 
@@ -358,50 +356,50 @@ git show abc123 --format="" > changes.patch
 }
 ```
 
------
+---
 
 ## Options reference
 
 ### Universal flags
 
-|Flag                |Default   |Description                                |
-|--------------------|----------|-------------------------------------------|
-|`--repo`, `-r`      |(required)|Path to the repository root                |
-|`--diff`, `-d`      |(required)|Path to unified diff or JSON diff file     |
-|`--algorithm`, `-a` |`leftflow`|Algorithm name (see `--list-algorithms`)   |
-|`--format`, `-f`    |`text`    |`text`, `json`, `paper`                    |
-|`--list-algorithms` |          |Print all algorithms and exit              |
-|`--max-branch-lines`|`5`       |Max lines in a branch before summarizing   |
-|`--no-returns`      |          |Skip return statements in leftflow/fullflow|
-|`--no-trace-callees`|          |Skip callee bodies in fullflow             |
+| Flag | Default | Description |
+|---|---|---|
+| `--repo`, `-r` | (required) | Path to the repository root |
+| `--diff`, `-d` | (required) | Path to unified diff or JSON diff file |
+| `--algorithm`, `-a` | `leftflow` | Algorithm name (see `--list-algorithms`) |
+| `--format`, `-f` | `text` | `text`, `json`, `paper` |
+| `--list-algorithms` | | Print all algorithms and exit |
+| `--max-branch-lines` | `5` | Max lines in a branch before summarizing |
+| `--no-returns` | | Skip return statements in leftflow/fullflow |
+| `--no-trace-callees` | | Skip callee bodies in fullflow |
 
 ### Algorithm-specific flags
 
-|Flag                      |Algorithm  |Description                                                       |
-|--------------------------|-----------|------------------------------------------------------------------|
-|`--barrier-depth N`       |barrier    |Max call depth (default: 2)                                       |
-|`--barrier-symbols a,b`   |barrier    |Functions to stop at                                              |
-|`--chop-source file:line` |chop       |Source location                                                   |
-|`--chop-sink file:line`   |chop       |Sink location                                                     |
-|`--taint-source file:line`|taint      |Explicit taint source (repeatable)                                |
-|`--condition "var==val"`  |conditioned|Value assumption predicate                                        |
-|`--old-repo path`         |delta      |Path to old version of repo                                       |
-|`--spiral-max-ring N`     |spiral     |Maximum ring level 1-6 (default: 4)                               |
-|`--quantum-var name`      |quantum    |Target variable to analyze                                        |
-|`--peer-pattern pat`      |horizontal |`decorator:@X`, `name:prefix*`, `class:Name`                      |
-|`--layers a,b,c`          |vertical   |Explicit layer names (highest to lowest)                          |
-|`--concern name`          |angle      |`error_handling`, `logging`, `auth`, `caching`, or custom keywords|
-|`--temporal-days N`       |3d         |Git history window in days (default: 90)                          |
-|                          |absence    |No additional flags                                               |
-|                          |resonance  |No additional flags (requires git history)                        |
-|                          |symmetry   |No additional flags                                               |
-|                          |gradient   |No additional flags                                               |
-|                          |provenance |No additional flags                                               |
-|                          |phantom    |No additional flags (requires git history)                        |
-|                          |membrane   |No additional flags                                               |
-|                          |echo       |No additional flags                                               |
+| Flag | Algorithm | Description |
+|---|---|---|
+| `--barrier-depth N` | barrier | Max call depth (default: 2) |
+| `--barrier-symbols a,b` | barrier | Functions to stop at |
+| `--chop-source file:line` | chop | Source location |
+| `--chop-sink file:line` | chop | Sink location |
+| `--taint-source file:line` | taint | Explicit taint source (repeatable) |
+| `--condition "var==val"` | conditioned | Value assumption predicate |
+| `--old-repo path` | delta | Path to old version of repo |
+| `--spiral-max-ring N` | spiral | Maximum ring level 1-6 (default: 4) |
+| `--quantum-var name` | quantum | Target variable to analyze |
+| `--peer-pattern pat` | horizontal | `decorator:@X`, `name:prefix*`, `class:Name` |
+| `--layers a,b,c` | vertical | Explicit layer names (highest to lowest) |
+| `--concern name` | angle | `error_handling`, `logging`, `auth`, `caching`, or custom keywords |
+| `--temporal-days N` | 3d | Git history window in days (default: 90) |
+| | absence | No additional flags |
+| | resonance | No additional flags (requires git history) |
+| | symmetry | No additional flags |
+| | gradient | No additional flags |
+| | provenance | No additional flags |
+| | phantom | No additional flags (requires git history) |
+| | membrane | No additional flags |
+| | echo | No additional flags |
 
------
+---
 
 ## Piping into other tools
 
@@ -424,7 +422,7 @@ for algo in thin leftflow fullflow relevant; do
 done
 ```
 
------
+---
 
 ## Language Coverage
 
@@ -432,24 +430,22 @@ Two metrics track cross-language support. See `coverage/matrix.json` for the ful
 
 ### Language Feature Coverage
 
-Measures how many language-specific patterns (destructuring, multi-return, optional chaining, etc.) Prism handles for each language. This reflects DFG/alias/AccessPath completeness — whether the infrastructure correctly models the language’s idioms.
+Measures how many language-specific patterns (destructuring, multi-return, optional chaining, etc.) Prism handles for each language. This reflects DFG/alias/AccessPath completeness — whether the infrastructure correctly models the language's idioms.
 
 <!-- COVERAGE_FEATURE_TABLE_START -->
-
-|Language  |Features|Coverage|Gaps                                    |
-|----------|--------|--------|----------------------------------------|
-|Python    |16/18   |88%     |`for_range_multi`, `comprehension_taint`|
-|JavaScript|16/17   |94%     |`spread_field_provenance`               |
-|TypeScript|16/17   |94%     |`spread_field_provenance`               |
-|Go        |14/15   |93%     |`for_range_multi`                       |
-|Java      |12/12   |100%    |—                                       |
-|C         |12/12   |100%    |—                                       |
-|C++       |14/14   |100%    |—                                       |
-|Rust      |11/12   |91%     |`question_mark_operator`                |
-|Lua       |10/10   |100%    |—                                       |
-|Terraform |2/2     |100%    |—                                       |
-|Bash      |5/5     |100%    |—                                       |
-
+| Language | Features | Coverage | Gaps |
+|----------|----------|----------|------|
+| Python | 16/18 | 88% | `for_range_multi`, `comprehension_taint` |
+| JavaScript | 16/17 | 94% | `spread_field_provenance` |
+| TypeScript | 16/17 | 94% | `spread_field_provenance` |
+| Go | 14/15 | 93% | `for_range_multi` |
+| Java | 12/12 | 100% | — |
+| C | 12/12 | 100% | — |
+| C++ | 14/14 | 100% | — |
+| Rust | 11/12 | 91% | `question_mark_operator` |
+| Lua | 10/10 | 100% | — |
+| Terraform | 2/2 | 100% | — |
+| Bash | 5/5 | 100% | — |
 <!-- COVERAGE_FEATURE_TABLE_END -->
 
 ### Algorithm × Language
@@ -457,58 +453,60 @@ Measures how many language-specific patterns (destructuring, multi-return, optio
 Measures which algorithms have been tested with which languages. This is heavily skewed — Python and Go have tests across all 26 algorithms, while C++ (2/26) and Lua (7/26) are primarily tested through infrastructure-level algorithms like taint and membrane. Algorithms that depend only on AST structure (not DFG/call graph) work across all languages by construction; the gaps are in algorithm-specific test coverage, not in functionality.
 
 <!-- COVERAGE_TABLE_START -->
-
-|Algorithm        |Py|JS|TS|Go|Ja|C|C++|Rs|Lua|TF|Sh|
-|-----------------|--|--|--|--|--|-|---|--|---|--|--|
-|absence_slice    |✅ |✅ |✅ |✅ |✅ |✅|✅  |✅ |✅  |✅ |✅ |
-|angle_slice      |✅ |🟡 |🟡 |🟡 |✅ |🟡|🟡  |🟡 |🟡  |🟡 |🟡 |
-|barrier_slice    |🟡 |🟡 |🟡 |🟡 |✅ |🟡|🟡  |🟡 |🟡  |❌ |🟡 |
-|chop             |🟡 |🟡 |🟡 |🟡 |✅ |🟡|🟡  |🟡 |🟡  |❌ |❌ |
-|circular_slice   |🟡 |🟡 |🟡 |🟡 |🟡 |🟡|🟡  |❌ |❌  |❌ |❌ |
-|conditioned_slice|🟡 |🟡 |🟡 |🟡 |✅ |🟡|🟡  |🟡 |🟡  |❌ |❌ |
-|contract_slice   |✅ |🟡 |❌ |🟡 |🟡 |🟡|🟡  |🟡 |🟡  |❌ |❌ |
-|delta_slice      |🟡 |🟡 |🟡 |🟡 |🟡 |🟡|🟡  |❌ |❌  |❌ |❌ |
-|echo_slice       |🟡 |🟡 |🟡 |🟡 |✅ |✅|🟡  |✅ |🟡  |❌ |🟡 |
-|full_flow        |✅ |🟡 |🟡 |🟡 |🟡 |🟡|🟡  |🟡 |🟡  |🟡 |🟡 |
-|gradient_slice   |🟡 |🟡 |🟡 |🟡 |🟡 |🟡|🟡  |❌ |❌  |❌ |❌ |
-|horizontal_slice |✅ |🟡 |🟡 |🟡 |✅ |🟡|🟡  |🟡 |🟡  |🟡 |🟡 |
-|left_flow        |🟡 |🟡 |✅ |✅ |🟡 |✅|🟡  |🟡 |❌  |🟡 |🟡 |
-|membrane_slice   |🟡 |🟡 |🟡 |🟡 |✅ |✅|✅  |🟡 |🟡  |🟡 |❌ |
-|original_diff    |🟡 |🟡 |✅ |🟡 |🟡 |✅|🟡  |🟡 |🟡  |🟡 |🟡 |
-|parent_function  |✅ |🟡 |✅ |🟡 |🟡 |🟡|🟡  |🟡 |🟡  |🟡 |🟡 |
-|phantom_slice    |🟡 |🟡 |🟡 |🟡 |🟡 |🟡|🟡  |❌ |❌  |❌ |❌ |
-|provenance_slice |✅ |✅ |🟡 |✅ |🟡 |✅|✅  |✅ |✅  |🟡 |🟡 |
-|quantum_slice    |✅ |🟡 |🟡 |✅ |🟡 |✅|✅  |✅ |🟡  |🟡 |🟡 |
-|relevant_slice   |🟡 |🟡 |🟡 |🟡 |🟡 |🟡|🟡  |🟡 |🟡  |❌ |🟡 |
-|resonance_slice  |🟡 |🟡 |🟡 |🟡 |🟡 |🟡|🟡  |❌ |❌  |❌ |❌ |
-|spiral_slice     |✅ |🟡 |🟡 |🟡 |🟡 |🟡|🟡  |❌ |❌  |❌ |❌ |
-|symmetry_slice   |🟡 |🟡 |🟡 |🟡 |🟡 |🟡|🟡  |🟡 |🟡  |🟡 |❌ |
-|taint            |✅ |✅ |🟡 |✅ |🟡 |✅|🟡  |✅ |✅  |✅ |✅ |
-|thin_slice       |✅ |🟡 |✅ |🟡 |🟡 |🟡|🟡  |🟡 |🟡  |🟡 |🟡 |
-|threed_slice     |🟡 |🟡 |🟡 |🟡 |🟡 |🟡|🟡  |❌ |❌  |❌ |❌ |
-|vertical_slice   |✅ |🟡 |🟡 |🟡 |🟡 |🟡|🟡  |❌ |❌  |❌ |❌ |
+| Algorithm | Py | JS | TS | Go | Ja | C | C++ | Rs | Lua | TF | Sh |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| absence_slice |  ✅ | ✅ | 🟡 | ✅ | 🟡 | ✅ | 🟡 | ✅ | 🟡 | ✅ | 🟡 |
+| angle_slice |  ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 |
+| barrier_slice |  🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 |
+| chop |  🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 |
+| circular_slice |  🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 |
+| conditioned_slice |  🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 |
+| contract_slice |  🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 |
+| delta_slice |  🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 |
+| echo_slice |  🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 |
+| full_flow |  ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 |
+| gradient_slice |  🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 |
+| horizontal_slice |  ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 |
+| left_flow |  🟡 | 🟡 | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 |
+| membrane_slice |  🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 |
+| original_diff |  🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 |
+| parent_function |  🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 |
+| phantom_slice |  🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 |
+| provenance_slice |  ✅ | ✅ | 🟡 | 🟡 | 🟡 | ✅ | 🟡 | ✅ | ✅ | ✅ | 🟡 |
+| quantum_slice |  ✅ | ✅ | 🟡 | 🟡 | 🟡 | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 |
+| relevant_slice |  🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 |
+| resonance_slice |  🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 |
+| spiral_slice |  ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 |
+| symmetry_slice |  🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 |
+| taint |  ✅ | ✅ | 🟡 | ✅ | 🟡 | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ |
+| thin_slice |  🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 |
+| threed_slice |  🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 |
+| vertical_slice |  ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 |
 
 ✅ full (3+ tests) · 🟡 basic (1-2 tests) · ❌ none
-
 <!-- COVERAGE_TABLE_END -->
 
 ✅ full (3+ tests) · 🟡 basic (1-2 tests) · ❌ none
 
------
+---
 
 ## Limitations
 
-- **Partial cross-file analysis.** Import-aware call resolution for Python,
-  JS/TS, and Go. Other languages use name-based function matching. Re-exports,
-  barrel files, and `tsconfig.json` path aliases are not resolved.
-- **Type inference gaps.** Type providers extract explicit annotations and
-  declarations (7 languages). Inferred types (e.g., Rust `let x = foo()`)
-  are not resolved without running the language’s type checker.
+- **Name-based variable tracking.** Variables matched by name within function
+  scope. Same-named variables in nested scopes may cause extra context
+  (conservative — false positives, not false negatives).
+
+- **Partial cross-file analysis.** Called function signatures and bodies are
+  traced, but full import resolution is not implemented.
+
+- **No type information.** Tree-sitter provides syntax trees, not type-checked
+  ASTs. Can't distinguish same-named variables across scopes without types.
+
 - **Quantum slice is heuristic.** Async state enumeration uses pattern matching,
   not formal model checking. It identifies potential races, not proven ones.
-- **3D slice requires git.** The temporal axis shells out to `git log`. Won’t
+
+- **3D slice requires git.** The temporal axis shells out to `git log`. Won't
   work outside a git repository.
-- **Incremental cache skips indirect call resolution.** When using `--cache-dir`
-  with changed files, function pointer and struct callback resolution (Phase 3
-  of call graph construction) is not re-run for changed files. Use `--no-cache`
-  for C/C++ code with heavy function pointer usage.
+
+- **Language coverage.** Python, JavaScript, TypeScript, Go, and Java. See
+  CLAUDE.md for how to add new languages.
