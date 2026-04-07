@@ -258,6 +258,10 @@ name = "lang_javascript_arrow"
 path = "tests/lang/javascript/arrow_test.rs"
 
 [[test]]
+name = "lang_javascript_algo_expand"
+path = "tests/lang/javascript/algo_expand_test.rs"
+
+[[test]]
 name = "lang_go"
 path = "tests/lang/go/algo_test.rs"
 
@@ -298,6 +302,10 @@ name = "lang_rust_algo"
 path = "tests/lang/rust/algo_test.rs"
 
 [[test]]
+name = "lang_rust_algo_expand"
+path = "tests/lang/rust/algo_expand_test.rs"
+
+[[test]]
 name = "lang_bash"
 path = "tests/lang/bash/bash_test.rs"
 
@@ -318,6 +326,10 @@ name = "lang_terraform_algo"
 path = "tests/lang/terraform/algo_test.rs"
 
 [[test]]
+name = "lang_terraform_algo_expand"
+path = "tests/lang/terraform/algo_expand_test.rs"
+
+[[test]]
 name = "lang_tsx"
 path = "tests/lang/tsx/tsx_test.rs"
 
@@ -330,12 +342,20 @@ name = "lang_tsx_hooks"
 path = "tests/lang/tsx/hooks_test.rs"
 
 [[test]]
+name = "lang_tsx_algo_expand"
+path = "tests/lang/tsx/algo_expand_test.rs"
+
+[[test]]
 name = "lang_typescript"
 path = "tests/lang/typescript/typescript_test.rs"
 
 [[test]]
 name = "lang_typescript_lang"
 path = "tests/lang/typescript/lang_test.rs"
+
+[[test]]
+name = "lang_typescript_algo_expand"
+path = "tests/lang/typescript/algo_expand_test.rs"
 
 # ── Integration tests ──
 
