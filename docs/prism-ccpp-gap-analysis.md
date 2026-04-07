@@ -214,7 +214,7 @@ machines) and interrupt service routines (ISR functions registered via `request_
 
 | Missing fixture | Why it matters |
 |---|---|
-| CVE-pattern fixtures (format string, heap spray, integer overflow) | Firmware contains historically exploited classes |
+| CVE-pattern fixtures (format string, heap spray, integer overflow) | Firmware contains historically exploited vulnerability classes |
 | Kernel-style code (`kmalloc`/`kfree`, spinlock, RCU, DMA) | Modem/OLT drivers are kernel modules |
 | C++ RAII false-positive regression | `lock_guard` should NOT trigger AbsenceSlice |
 | Virtual dispatch / vtable fixture | C++ polymorphism invisible to call graph |
@@ -925,7 +925,7 @@ consumer schema should also be updated. However, schema analysis requires unders
 versioning and field numbering, not just function names.
 
 **Priority: Nice-to-have.** SymmetrySlice on `.proto` files could catch proto schema
-asymmetries. Worth implementing for gRPC/protobuf for control-plane IPC.
+asymmetries. Worth implementing for gRPC/protobuf control-plane IPC.
 
 ---
 

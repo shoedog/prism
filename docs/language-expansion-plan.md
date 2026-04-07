@@ -11,7 +11,7 @@ Prism currently supports 7 languages (Python, JavaScript, TypeScript, Go, Java, 
 1. **Platypus team repos** — Python, Go, Rust, JavaScript/TypeScript, and Terraform (HCL). These are the codebases the team writes daily.
 1. **Firmware and infrastructure review** — C/C++ firmware for CPE devices (DOCSIS modems, GPON ONUs, CMTS platforms, OLTs, managed switches), shell scripts, Lua (LuCI), Dockerfiles, docker-compose, and various declarative configuration formats (YANG, Protocol Buffers, device trees, linker scripts, Makefiles).
 
-The code review agent pipeline uses Prism to extract targeted context for LLM reviewers — reducing the amount of code/text they need to reason about for each MR. Expanding language coverage directly increases the reviewer’s effectiveness across more of access network’s codebase.
+The code review agent pipeline uses Prism to extract targeted context for LLM reviewers — reducing the amount of code/text they need to reason about for each MR. Expanding language coverage directly increases the reviewer’s effectiveness across more of the target codebase.
 
 -----
 
@@ -174,7 +174,7 @@ For declarative formats, the goal is not full slicing but targeted context extra
 
 ### 4.2 Protocol Buffers
 
-**Priority:** 2 (nice-to-have — relevant for gRPC/protobuf for control-plane IPC)
+**Priority:** 2 (nice-to-have — relevant for gRPC/protobuf control-plane IPC)
 
 **Relevance:** Modern firmware IPC between management daemon, data-plane agent, and hardware abstraction layer increasingly uses Protocol Buffers. Schema changes break wire compatibility between components that may be on different update schedules.
 
