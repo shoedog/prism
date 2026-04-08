@@ -1,6 +1,7 @@
 [![CI](https://github.com/shoedog/prism/actions/workflows/ci.yml/badge.svg)](https://github.com/shoedog/prism/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/github/shoedog/prism/graph/badge.svg?token=C5JSSOQPWA)](https://codecov.io/github/shoedog/prism)
 ![Rust](https://img.shields.io/badge/rust-1.70%2B-orange)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
 <!-- COVERAGE_BADGES_START -->
 **Language feature coverage** · [details](#language-feature-coverage)
@@ -102,7 +103,7 @@ slicing --repo . --diff /tmp/changes.patch
 That's it. The default algorithm (`leftflow`) traces data flow backward from
 each changed line and prints the relevant slice to stdout.
 
-List all 26 algorithms:
+List all 27 algorithms:
 
 ```bash
 slicing --list-algorithms
@@ -110,7 +111,7 @@ slicing --list-algorithms
 
 ---
 
-## All 26 algorithms at a glance
+## All 27 algorithms at a glance
 
 ### Paper algorithms (arXiv:2505.17928)
 
