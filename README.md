@@ -653,3 +653,9 @@ Every algorithm is tested against every supported language (324/324 cells). Some
 
 - **Language coverage.** Python, JavaScript, TypeScript, Go, and Java. See
   CLAUDE.md for how to add new languages.
+
+---
+
+## License
+
+Licensed under the Apache License, Version 2.0. See [LICENSE](LICENSE) for details.

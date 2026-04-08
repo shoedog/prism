@@ -3,7 +3,7 @@ name = "prism"
 version = "2.1.2"
 edition = "2021"
 description = "Code slicing algorithms for defect-focused automated code review, based on arXiv:2505.17928"
-license = "MIT"
+license = "Apache-2.0"
 
 [[bin]]
 name = "prism"
