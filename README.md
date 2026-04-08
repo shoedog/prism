@@ -32,7 +32,7 @@
 ![Bash algo](https://img.shields.io/badge/Bash-100%25-brightgreen?logo=gnubash&logoColor=white)
 <!-- COVERAGE_BADGES_END -->
 
-# slicing
+# Prism
 
 Prism is a Code Property Graph (CPG) engine for diff-aware program slicing.
 It builds a unified graph — call graph, data flow graph, and control flow
@@ -639,20 +639,17 @@ Every algorithm is tested against every supported language (324/324 cells). Some
   scope. Same-named variables in nested scopes may cause extra context
   (conservative — false positives, not false negatives).
 
-- **Partial cross-file analysis.** Called function signatures and bodies are
-  traced, but full import resolution is not implemented.
-
-- **No type information.** Tree-sitter provides syntax trees, not type-checked
-  ASTs. Can't distinguish same-named variables across scopes without types.
-
 - **Quantum slice is heuristic.** Async state enumeration uses pattern matching,
   not formal model checking. It identifies potential races, not proven ones.
 
 - **3D slice requires git.** The temporal axis shells out to `git log`. Won't
   work outside a git repository.
 
-- **Language coverage.** Python, JavaScript, TypeScript, Go, and Java. See
-  CLAUDE.md for how to add new languages.
+---
+
+## Contributing
+
+Issues and pull requests welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ---
 
