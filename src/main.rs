@@ -32,7 +32,7 @@ struct Cli {
     #[arg(short, long, required_unless_present = "list_algorithms")]
     diff: Option<PathBuf>,
 
-    /// Output format: text, json, paper
+    /// Output format: text, json, paper, review, callers
     #[arg(short, long, default_value = "text")]
     format: String,
 
@@ -104,6 +104,10 @@ struct Cli {
     /// 3D slice: how many days back to look in git history
     #[arg(long, default_value = "90")]
     temporal_days: usize,
+
+    /// Max caller-graph traversal depth for --format callers (default: 5)
+    #[arg(long, default_value = "5")]
+    caller_depth: usize,
 
     /// Only process these files from the diff (comma-separated paths).
     /// If omitted, process all files in the diff.
@@ -449,6 +453,13 @@ fn main() -> Result<()> {
         if let Some(lv) = LanguageVersion::parse(v) {
             ctx.types.set_target_version(Language::Rust, lv);
         }
+    }
+
+    // --format callers: emit raw call graph without running any algorithm.
+    if cli.format == "callers" {
+        let callers_output = output::to_callers_output(&ctx, &diff_input, cli.caller_depth);
+        println!("{}", serde_json::to_string_pretty(&callers_output)?);
+        return Ok(());
     }
 
     if multi_run {

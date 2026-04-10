@@ -210,6 +210,108 @@ pub fn format_slice_result(blocks: &[DiffBlock], sources: &BTreeMap<String, Stri
     output
 }
 
+// --- Callers output types ---
+
+#[derive(Debug, Serialize)]
+pub struct CallersOutput {
+    pub callers: Vec<FunctionCallerEntry>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct FunctionCallerEntry {
+    pub function: String,
+    pub file: String,
+    pub line_range: [usize; 2],
+    pub callers: Vec<CallerRef>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct CallerRef {
+    pub name: String,
+    pub file: String,
+    pub call_line: usize,
+    pub depth: usize,
+}
+
+/// Emit the raw reverse call graph for every function touched by the diff.
+///
+/// For each touched function, performs a BFS through the existing
+/// `call_graph.callers` reverse index up to `max_depth` hops.  Cycle-safe
+/// via a per-entry visited set.  No algorithm filtering is applied — this is
+/// the complete caller set.
+pub fn to_callers_output(
+    ctx: &crate::cpg::CpgContext,
+    diff: &crate::diff::DiffInput,
+    max_depth: usize,
+) -> CallersOutput {
+    use std::collections::{BTreeSet, VecDeque};
+
+    let mut entries: Vec<FunctionCallerEntry> = Vec::new();
+    let mut seen_touched: BTreeSet<(String, String)> = BTreeSet::new(); // (file, name)
+
+    for diff_info in &diff.files {
+        let parsed = match ctx.files.get(&diff_info.file_path) {
+            Some(f) => f,
+            None => continue,
+        };
+        for &line in &diff_info.diff_lines {
+            let func_node = match parsed.enclosing_function(line) {
+                Some(n) => n,
+                None => continue,
+            };
+            let name_node = match parsed.language.function_name(&func_node) {
+                Some(n) => n,
+                None => continue,
+            };
+            let name = parsed.node_text(&name_node).to_string();
+            let key = (diff_info.file_path.clone(), name.clone());
+            if !seen_touched.insert(key) {
+                continue;
+            }
+            let (start_line, end_line) = parsed.node_line_range(&func_node);
+
+            // BFS through reverse call graph
+            let mut caller_refs: Vec<CallerRef> = Vec::new();
+            let mut visited: BTreeSet<(String, String)> = BTreeSet::new(); // (file, name)
+            visited.insert((diff_info.file_path.clone(), name.clone()));
+            let mut queue: VecDeque<(String, usize)> = VecDeque::new();
+            queue.push_back((name.clone(), 0));
+
+            while let Some((callee_name, depth)) = queue.pop_front() {
+                if depth >= max_depth {
+                    continue;
+                }
+                let sites = match ctx.cpg.call_graph.callers.get(&callee_name) {
+                    Some(s) => s,
+                    None => continue,
+                };
+                for site in sites {
+                    let ck = (site.caller.file.clone(), site.caller.name.clone());
+                    if !visited.insert(ck) {
+                        continue;
+                    }
+                    caller_refs.push(CallerRef {
+                        name: site.caller.name.clone(),
+                        file: site.caller.file.clone(),
+                        call_line: site.line,
+                        depth: depth + 1,
+                    });
+                    queue.push_back((site.caller.name.clone(), depth + 1));
+                }
+            }
+
+            entries.push(FunctionCallerEntry {
+                function: name,
+                file: diff_info.file_path.clone(),
+                line_range: [start_line, end_line],
+                callers: caller_refs,
+            });
+        }
+    }
+
+    CallersOutput { callers: entries }
+}
+
 /// Produce a JSON output compatible with the paper's diff_outputs.json format.
 pub fn to_paper_format(blocks: &[DiffBlock]) -> serde_json::Value {
     let mut output = Vec::new();
