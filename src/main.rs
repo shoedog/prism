@@ -7,7 +7,7 @@ use prism::cpg_cache::{self, CacheResult};
 use prism::diff::DiffInput;
 use prism::languages::Language;
 use prism::output;
-use prism::slice::{AlgorithmError, MultiSliceResult, SliceConfig, SliceFinding, SlicingAlgorithm};
+use prism::slice::{AlgorithmError, SliceConfig, SliceFinding, SlicingAlgorithm};
 use prism::type_db::TypeDatabase;
 use prism::type_provider::LanguageVersion;
 use std::collections::{BTreeMap, HashSet};
@@ -509,16 +509,22 @@ fn main() -> Result<()> {
                 println!("{}", serde_json::to_string_pretty(&out)?);
             }
             "json" => {
-                let multi = MultiSliceResult {
+                // json and review produce the same ReviewOutput structure so that
+                // slice_text (rendered source code) is always present in structured output.
+                let review_results: Vec<_> = results
+                    .iter()
+                    .map(|r| output::to_review_output(r, &sources))
+                    .collect();
+                let out = output::MultiReviewOutput {
                     version: "1.0".to_string(),
                     algorithms_run,
-                    results,
-                    findings: all_findings,
+                    results: review_results,
+                    all_findings,
                     errors: all_errors,
                     warnings: parse_warnings,
-                    parse_quality,
+                    parse_quality: parse_quality.clone(),
                 };
-                println!("{}", serde_json::to_string_pretty(&multi)?);
+                println!("{}", serde_json::to_string_pretty(&out)?);
             }
             _ => {
                 for w in &parse_warnings {
@@ -538,16 +544,15 @@ fn main() -> Result<()> {
         annotate_finding_parse_quality(&mut result.findings, &files);
 
         match cli.format.as_str() {
-            "json" => {
-                println!("{}", result.to_json()?);
+            "json" | "review" => {
+                // json and review produce the same ReviewOutput structure so that
+                // slice_text (rendered source code) is always present in structured output.
+                let review = output::to_review_output(&result, &sources);
+                println!("{}", serde_json::to_string_pretty(&review)?);
             }
             "paper" => {
                 let paper_output = output::to_paper_format(&result.blocks);
                 println!("{}", serde_json::to_string_pretty(&paper_output)?);
-            }
-            "review" => {
-                let review = output::to_review_output(&result, &sources);
-                println!("{}", serde_json::to_string_pretty(&review)?);
             }
             _ => {
                 for w in &result.warnings {

@@ -157,6 +157,11 @@ const USER_INPUT_PATTERNS: &[&str] = &[
     "get_user(",
     "__get_user(",
     "copy_from_iter(",
+    // === C/C++ strongSwan / libstrongswan config API ===
+    // settings_t values come from NetworkManager connection profiles (user-controlled).
+    "->get_str(",  // settings_t->get_str(settings, "key", default)
+    "->get_int(",  // settings_t->get_int(settings, "key", default)
+    "->get_bool(", // settings_t->get_bool(settings, "key", default)
     // === Terraform / HCL ===
     "var.",      // Terraform variable inputs (user-supplied via tfvars/CLI)
     "variable ", // variable block definitions
