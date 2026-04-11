@@ -39,7 +39,7 @@ function showMessage(userInput) {
     let has_findings = result
         .findings
         .iter()
-        .any(|f| f.category.as_deref() == Some("tainted_value"));
+        .any(|f| f.category.as_deref() == Some("taint_sink"));
     assert!(
         has_blocks || has_findings,
         "Taint should detect data flowing to innerHTML (XSS sink)"
@@ -83,7 +83,7 @@ function runCommand(userCmd) {
     let has_findings = result
         .findings
         .iter()
-        .any(|f| f.category.as_deref() == Some("tainted_value"));
+        .any(|f| f.category.as_deref() == Some("taint_sink"));
     assert!(
         has_blocks || has_findings,
         "Taint should detect user input flowing to execSync (command injection)"
@@ -125,7 +125,7 @@ function evaluate(expression) {
     let has_findings = result
         .findings
         .iter()
-        .any(|f| f.category.as_deref() == Some("tainted_value"));
+        .any(|f| f.category.as_deref() == Some("taint_sink"));
     assert!(
         has_blocks || has_findings,
         "Taint should detect user input flowing to eval (code injection)"

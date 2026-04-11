@@ -676,7 +676,7 @@ def preview():
     let template_findings: Vec<_> = result
         .findings
         .iter()
-        .filter(|f| f.category.as_deref() == Some("tainted_value"))
+        .filter(|f| f.category.as_deref() == Some("taint_sink"))
         .collect();
     assert!(
         !template_findings.is_empty(),

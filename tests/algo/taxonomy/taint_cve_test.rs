@@ -33,14 +33,15 @@ function processInput(input) {
     .unwrap();
 
     // "rawData" is not a sink — the "=raw" pattern requires exact match
+    let sink_findings: Vec<_> = result
+        .findings
+        .iter()
+        .filter(|f| f.category.as_deref() == Some("taint_sink"))
+        .collect();
     assert!(
-        result.findings.is_empty(),
-        "Taint should NOT fire on 'rawData' — only exact 'raw' is a sink, got findings: {:?}",
-        result
-            .findings
-            .iter()
-            .map(|f| &f.description)
-            .collect::<Vec<_>>()
+        sink_findings.is_empty(),
+        "Taint should NOT fire on 'rawData' — only exact 'raw' is a sink, got sink findings: {:?}",
+        sink_findings.iter().map(|f| &f.description).collect::<Vec<_>>()
     );
 }
 
@@ -78,10 +79,15 @@ func renderSafe(userInput string) string {
     )
     .unwrap();
 
+    let sink_findings: Vec<_> = result
+        .findings
+        .iter()
+        .filter(|f| f.category.as_deref() == Some("taint_sink"))
+        .collect();
     assert!(
-        result.findings.is_empty(),
-        "Taint should NOT fire on 'HTMLEscapeString' — only exact 'HTML' is a sink, got findings: {:?}",
-        result.findings.iter().map(|f| &f.description).collect::<Vec<_>>()
+        sink_findings.is_empty(),
+        "Taint should NOT fire on 'HTMLEscapeString' — only exact 'HTML' is a sink, got sink findings: {:?}",
+        sink_findings.iter().map(|f| &f.description).collect::<Vec<_>>()
     );
 }
 
@@ -114,11 +120,15 @@ def process_files(data):
     )
     .unwrap();
 
+    let sink_findings: Vec<_> = result
+        .findings
+        .iter()
+        .filter(|f| f.category.as_deref() == Some("taint_sink"))
+        .collect();
     assert!(
-        result.findings.is_empty(),
-        "Taint should NOT fire on 'downloads' — only exact 'loads' is a sink, got findings: {:?}",
-        result
-            .findings
+        sink_findings.is_empty(),
+        "Taint should NOT fire on 'downloads' — only exact 'loads' is a sink, got sink findings: {:?}",
+        sink_findings
             .iter()
             .map(|f| &f.description)
             .collect::<Vec<_>>()

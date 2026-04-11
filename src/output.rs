@@ -37,6 +37,12 @@ pub struct ReviewBlock {
     pub callees: Vec<String>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub cross_file_refs: Vec<String>,
+    /// Lines identified as taint sources (populated for taint algorithm only).
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub source_lines: Vec<usize>,
+    /// Lines identified as taint sinks (populated for taint algorithm only).
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub sink_lines: Vec<usize>,
 }
 
 #[derive(Debug, Serialize)]
@@ -127,6 +133,8 @@ pub fn render_review_block(block: &DiffBlock, sources: &BTreeMap<String, String>
         rvalues: vec![],
         callees: vec![],
         cross_file_refs,
+        source_lines: vec![],
+        sink_lines: vec![],
     }
 }
 
@@ -135,7 +143,20 @@ pub fn to_review_output(result: &SliceResult, sources: &BTreeMap<String, String>
     let slices = result
         .blocks
         .iter()
-        .map(|b| render_review_block(b, sources))
+        .map(|b| {
+            let mut rb = render_review_block(b, sources);
+            // Annotate taint source/sink lines from findings (taint algorithm only).
+            for finding in &result.findings {
+                if finding.file == b.file {
+                    match finding.category.as_deref() {
+                        Some("taint_source") => rb.source_lines.push(finding.line),
+                        Some("taint_sink") => rb.sink_lines.push(finding.line),
+                        _ => {}
+                    }
+                }
+            }
+            rb
+        })
         .collect();
     ReviewOutput {
         algorithm: result.algorithm.name().to_string(),

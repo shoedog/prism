@@ -14,7 +14,7 @@ use crate::cpg::CpgContext;
 use crate::diff::{DiffBlock, DiffInput, ModifyType};
 use crate::slice::{SliceFinding, SliceResult, SlicingAlgorithm};
 use anyhow::Result;
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 /// Classification of a data origin.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -343,6 +343,90 @@ const HARDWARE_PATTERNS: &[&str] = &[
     "regmap_write(",
 ];
 
+/// Web-framework modules whose imported aliases legitimately match provenance
+/// patterns (e.g. `from flask import request` → `request` IS user input).
+const WEB_FRAMEWORK_MODULES: &[&str] = &[
+    "flask",
+    "django",
+    "fastapi",
+    "starlette",
+    "aiohttp",
+    "requests",
+    "bottle",
+    "tornado",
+    "sanic",
+    "quart",
+    "litestar",
+    "werkzeug",
+    "httpx",
+];
+
+/// Local-name keywords that overlap with provenance patterns and are therefore
+/// candidates for suppression when imported from non-web modules.
+const PROVENANCE_OVERLAP_KEYWORDS: &[&str] = &[
+    "request", "req", "form", "query", "body", "params", "args", "input",
+    "stdin", "data",
+];
+
+/// Build a per-file suppression set: local import aliases that shadow provenance
+/// keywords but come from non-web-framework modules.
+///
+/// Example: `from mylib import request` → `request` is suppressed because
+/// `mylib` is not Flask/Django/etc. Without suppression, any line containing
+/// the word `request` would be classified as UserInput.
+fn build_import_suppression(imports: &std::collections::BTreeMap<String, String>) -> BTreeSet<String> {
+    let mut suppressed = BTreeSet::new();
+    for (alias, module_path) in imports {
+        let module_lower = module_path.to_lowercase();
+        let is_web = WEB_FRAMEWORK_MODULES
+            .iter()
+            .any(|fw| module_lower.contains(fw));
+        if !is_web {
+            let alias_lower = alias.to_lowercase();
+            if PROVENANCE_OVERLAP_KEYWORDS.iter().any(|kw| &alias_lower == kw) {
+                suppressed.insert(alias.clone());
+            }
+        }
+    }
+    suppressed
+}
+
+/// Replace whole-word occurrences of each suppressed token with `__suppressed__`
+/// so that provenance patterns cannot match them.
+fn sanitize_line<'a>(line: &'a str, suppressed: &BTreeSet<String>) -> std::borrow::Cow<'a, str> {
+    if suppressed.is_empty() {
+        return std::borrow::Cow::Borrowed(line);
+    }
+    let mut sanitized = line.to_string();
+    for token in suppressed {
+        if !sanitized.contains(token.as_str()) {
+            continue;
+        }
+        let mut result = String::with_capacity(sanitized.len());
+        let mut rest = sanitized.as_str();
+        while let Some(pos) = rest.find(token.as_str()) {
+            let left_ok = pos == 0 || {
+                let c = rest.as_bytes()[pos - 1];
+                !c.is_ascii_alphanumeric() && c != b'_'
+            };
+            let right_ok = pos + token.len() >= rest.len() || {
+                let c = rest.as_bytes()[pos + token.len()];
+                !c.is_ascii_alphanumeric() && c != b'_'
+            };
+            result.push_str(&rest[..pos]);
+            if left_ok && right_ok {
+                result.push_str("__suppressed__");
+            } else {
+                result.push_str(token);
+            }
+            rest = &rest[pos + token.len()..];
+        }
+        result.push_str(rest);
+        sanitized = result;
+    }
+    std::borrow::Cow::Owned(sanitized)
+}
+
 /// Check whether a line matches a provenance pattern.
 ///
 /// Patterns prefixed with '~' require a word boundary: the character before
@@ -436,6 +520,18 @@ pub fn slice(ctx: &CpgContext, diff: &DiffInput) -> Result<SliceResult> {
     let mut result = SliceResult::new(SlicingAlgorithm::ProvenanceSlice);
     let mut block_id = 0;
 
+    // Build per-file import suppression maps to reduce Python FPs.
+    // Aliases imported from non-web-framework modules (e.g. `from mylib import request`)
+    // shadow provenance keywords but are unrelated to web input.
+    let empty_suppressed: BTreeSet<String> = BTreeSet::new();
+    let suppression_map: BTreeMap<String, BTreeSet<String>> = ctx
+        .cpg
+        .call_graph
+        .imports
+        .iter()
+        .map(|(file, imports)| (file.clone(), build_import_suppression(imports)))
+        .collect();
+
     for diff_info in &diff.files {
         let parsed = match ctx.files.get(&diff_info.file_path) {
             Some(f) => f,
@@ -462,11 +558,16 @@ pub fn slice(ctx: &CpgContext, diff: &DiffInput) -> Result<SliceResult> {
                 let mut origin_line = line;
                 let mut origin_file = diff_info.file_path.clone();
 
+                let file_suppressed = suppression_map
+                    .get(&diff_info.file_path)
+                    .unwrap_or(&empty_suppressed);
+
                 // Check each definition site
                 for loc in &locs {
                     if loc.line > 0 && loc.line <= source_lines.len() {
                         let lt = source_lines[loc.line - 1];
-                        let classified = classify_line(lt);
+                        let sanitized = sanitize_line(lt, file_suppressed);
+                        let classified = classify_line(&sanitized);
                         if classified != Origin::Unknown {
                             origin = classified;
                             origin_line = loc.line;
@@ -482,7 +583,11 @@ pub fn slice(ctx: &CpgContext, diff: &DiffInput) -> Result<SliceResult> {
                             let rlines: Vec<&str> = rparsed.source.lines().collect();
                             if r.line > 0 && r.line <= rlines.len() {
                                 let lt = rlines[r.line - 1];
-                                let classified = classify_line(lt);
+                                let r_suppressed = suppression_map
+                                    .get(&r.file)
+                                    .unwrap_or(&empty_suppressed);
+                                let sanitized = sanitize_line(lt, r_suppressed);
+                                let classified = classify_line(&sanitized);
                                 if classified != Origin::Unknown {
                                     origin = classified;
                                     origin_line = r.line;
@@ -503,7 +608,8 @@ pub fn slice(ctx: &CpgContext, diff: &DiffInput) -> Result<SliceResult> {
                 // parameters where the DFG doesn't model the implicit assignment.
                 if origin == Origin::Unknown && line > 0 && line <= source_lines.len() {
                     let lt = source_lines[line - 1];
-                    let classified = classify_line(lt);
+                    let sanitized = sanitize_line(lt, file_suppressed);
+                    let classified = classify_line(&sanitized);
                     if classified != Origin::Unknown {
                         origin = classified;
                         origin_line = line;

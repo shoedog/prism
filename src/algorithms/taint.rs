@@ -35,6 +35,7 @@ const SINK_PATTERNS: &[&str] = &[
     "respond",
     "render",
     "redirect",
+    "BUILD_FROM_FILE", // Dockerfile/build-system context injection
     // === C/C++ buffer overflow / unsafe string operations ===
     // Note: identifiers don't include '(' so patterns must be bare names.
     "strcpy",
@@ -51,6 +52,7 @@ const SINK_PATTERNS: &[&str] = &[
     "execve",
     "execvp",
     "dlopen",
+    "fopen", // C file open — path traversal / confused-deputy risk
     // C/C++ memory safety
     "free",
     // C/C++ format string sinks
@@ -67,8 +69,11 @@ const SINK_PATTERNS: &[&str] = &[
     "=loads", // pickle.loads, marshal.loads, yaml.loads (exact to avoid "downloads", "preloads")
     "=load",  // pickle.load, yaml.load (exact to avoid "download", "upload")
     // Process execution
-    "=Popen", // subprocess.Popen (exact; "subprocess" omitted — too generic)
-    "=popen", // os.popen
+    "=Popen",        // subprocess.Popen (exact; "subprocess" omitted — too generic)
+    "=popen",        // os.popen
+    "=run",          // subprocess.run (exact to avoid "running", "runner")
+    "=check_call",   // subprocess.check_call
+    "=check_output", // subprocess.check_output
     // Dynamic code execution
     "=compile", // compile() — creates executable code objects (exact to avoid "compiled")
     // Template injection
@@ -472,6 +477,22 @@ pub fn slice(
         all_tainted.entry(file.clone()).or_default().insert(*line);
     }
 
+    // Emit findings for each taint source
+    for (file, line) in &taint_sources {
+        result.findings.push(SliceFinding {
+            algorithm: "taint".to_string(),
+            file: file.clone(),
+            line: *line,
+            severity: "info".to_string(),
+            description: format!("taint source: origin of tainted data at line {}", line),
+            function_name: None,
+            related_lines: vec![],
+            related_files: vec![],
+            category: Some("taint_source".to_string()),
+            parse_quality: None,
+        });
+    }
+
     // Emit findings for each taint sink reached
     for (file, line) in &sink_lines {
         // Find a source that reaches this sink (use first taint source as representative)
@@ -496,7 +517,7 @@ pub fn slice(
                 .map(|(_, sl)| *sl)
                 .collect(),
             related_files: vec![],
-            category: Some("tainted_value".to_string()),
+            category: Some("taint_sink".to_string()),
             parse_quality: None,
         });
     }

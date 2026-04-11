@@ -222,6 +222,7 @@ impl SlicingAlgorithm {
             Self::VerticalSlice,
             Self::AngleSlice,
             Self::CircularSlice,
+            Self::SpiralSlice,
             Self::ContractSlice,
         ]
     }
