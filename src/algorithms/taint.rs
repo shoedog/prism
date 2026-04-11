@@ -224,6 +224,51 @@ const SINK_PATTERNS: &[&str] = &[
     "put_user",     // Linux kernel: writes single value to user-space
 ];
 
+/// GLib/D-Bus IPC accessor patterns.
+///
+/// These function-call patterns read values from IPC messages (D-Bus) or
+/// GLib hash-tables populated from IPC. Any value returned is user-controlled
+/// and constitutes a taint source for confused-deputy analysis.
+const IPC_SOURCE_PATTERNS: &[&str] = &[
+    "g_hash_table_lookup(",         // GLib hash table keyed on IPC-supplied data
+    "g_variant_get_",               // GLib Variant D-Bus field accessor
+    "g_variant_dup_",               // GLib Variant D-Bus field accessor (dup/alloc variant)
+    "dbus_message_get_args(",       // libdbus raw message argument extraction
+    "dbus_message_iter_get_basic(", // libdbus iterator-based argument extraction
+];
+
+/// Detect lines in diff-touched C/C++ files that match GLib/D-Bus IPC patterns.
+///
+/// Returns `(file_path, line_number)` pairs for every line that reads from an
+/// IPC source. These are added to `taint_sources` so the engine can trace
+/// confused-deputy flows (e.g. `str = g_hash_table_lookup(settings->data, "usercert")`
+/// → `BUILD_FROM_FILE, str`).
+///
+/// Only processes files from the diff to avoid flooding unrelated files with
+/// sources. Only processes C/C++ files because GLib/D-Bus is a C API.
+fn detect_ipc_sources(ctx: &CpgContext, diff: &DiffInput) -> Vec<(String, usize)> {
+    let diff_files: std::collections::BTreeSet<&str> =
+        diff.files.iter().map(|f| f.file_path.as_str()).collect();
+    let mut sources = Vec::new();
+
+    for (file_path, parsed) in ctx.files {
+        if !diff_files.contains(file_path.as_str()) {
+            continue;
+        }
+        if !matches!(parsed.language, Language::C | Language::Cpp) {
+            continue;
+        }
+        for (idx, line_text) in parsed.source.lines().enumerate() {
+            let line_num = idx + 1;
+            if IPC_SOURCE_PATTERNS.iter().any(|p| line_text.contains(p)) {
+                sources.push((file_path.clone(), line_num));
+            }
+        }
+    }
+
+    sources
+}
+
 /// Check whether an identifier text matches a sink pattern.
 ///
 /// Most patterns use substring matching (e.g. "exec" matches "execFile").
@@ -431,6 +476,17 @@ pub fn slice(
         }
     }
 
+    // Add GLib/D-Bus IPC accessor lines as explicit taint sources.
+    // This enables tracing confused-deputy paths where user-controlled IPC data
+    // (e.g. from `g_hash_table_lookup(settings->data, "usercert")`) flows into
+    // a privileged sink (e.g. `BUILD_FROM_FILE`) that runs as root.
+    // These are additional sources that extend (not replace) diff-line sources.
+    let ipc_sources: Vec<(String, usize)> = detect_ipc_sources(ctx, diff);
+    for ipc_src in &ipc_sources {
+        taint_sources.push(ipc_src.clone());
+    }
+    let ipc_source_set: BTreeSet<(String, usize)> = ipc_sources.into_iter().collect();
+
     // Forward propagation from each source (CFG-constrained when available)
     let paths = ctx.cpg.taint_forward_cfg(&taint_sources);
 
@@ -496,9 +552,21 @@ pub fn slice(
     // Emit findings for each taint sink reached
     for (file, line) in &sink_lines {
         // Find a source that reaches this sink (use first taint source as representative)
-        let source_desc = taint_sources
+        // Pick the most descriptive source for this sink.
+        // Prefer the nearest IPC source before the sink (user-controlled IPC reads
+        // are the semantically interesting starting point for confused-deputy analysis).
+        // Fall back to the nearest diff-line source, then any source in the same file.
+        let source_desc = ipc_source_set
             .iter()
-            .find(|(sf, _)| sf == file)
+            .filter(|(sf, sl)| sf == file && *sl < *line)
+            .max_by_key(|(_, sl)| *sl)
+            .or_else(|| {
+                taint_sources
+                    .iter()
+                    .filter(|(sf, sl)| sf == file && *sl < *line)
+                    .max_by_key(|(_, sl)| *sl)
+            })
+            .or_else(|| taint_sources.iter().find(|(sf, _)| sf == file))
             .map(|(_, sl)| format!("line {}", sl))
             .unwrap_or_else(|| "diff lines".to_string());
         result.findings.push(SliceFinding {

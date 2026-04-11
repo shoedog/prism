@@ -252,6 +252,64 @@ pub struct CallerRef {
     pub file: String,
     pub call_line: usize,
     pub depth: usize,
+    /// If this caller reaches the function via an IPC dispatch mechanism
+    /// (e.g. GLib signal/D-Bus callback), the trust level of the caller.
+    /// `"untrusted_ipc"` means callers are unprivileged users.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub trust: Option<String>,
+    /// Categorises the dispatch mechanism: `"dbus_callback"` for GLib
+    /// `g_signal_connect` / `G_CALLBACK` registrations.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub caller_type: Option<String>,
+}
+
+/// Scan all files in `ctx` for `g_signal_connect(…, G_CALLBACK(func), …)` calls.
+///
+/// Returns a map from `func_name → Vec<(registrar_file, call_line)>` so that
+/// `to_callers_output` can inject synthetic `CallerRef` entries with
+/// `caller_type = "dbus_callback"` and `trust = "untrusted_ipc"` for any
+/// diff-touched function that is wired up as a GLib/D-Bus callback.
+///
+/// Matching is text-level (not AST): finds `G_CALLBACK(` on each line and
+/// extracts the identifier inside the parentheses.  This is sufficient for
+/// the patterns seen in real D-Bus plugin code.
+fn detect_glib_callbacks(
+    files: &std::collections::BTreeMap<String, crate::ast::ParsedFile>,
+) -> std::collections::BTreeMap<String, Vec<(String, usize)>> {
+    use crate::languages::Language;
+    let mut map: std::collections::BTreeMap<String, Vec<(String, usize)>> =
+        std::collections::BTreeMap::new();
+
+    for (file_path, parsed) in files {
+        if !matches!(parsed.language, Language::C | Language::Cpp) {
+            continue;
+        }
+        for (idx, line_text) in parsed.source.lines().enumerate() {
+            let line_num = idx + 1;
+            // Find every G_CALLBACK( occurrence on this line.
+            // Both `G_CALLBACK(func)` and `G_CALLBACK (func)` forms are common.
+            let mut search = line_text;
+            while let Some(pos) = search.find("G_CALLBACK") {
+                let rest = search[pos + "G_CALLBACK".len()..].trim_start();
+                if let Some(rest_after_paren) = rest.strip_prefix('(') {
+                    let content = rest_after_paren.trim_start();
+                    // Extract the identifier up to ')' or whitespace
+                    let end = content
+                        .find(|c: char| !c.is_alphanumeric() && c != '_')
+                        .unwrap_or(content.len());
+                    let func_name = content[..end].trim();
+                    if !func_name.is_empty() {
+                        map.entry(func_name.to_string())
+                            .or_default()
+                            .push((file_path.clone(), line_num));
+                    }
+                }
+                // Advance past this match to find any further occurrences.
+                search = &search[pos + 1..];
+            }
+        }
+    }
+    map
 }
 
 /// Emit the raw reverse call graph for every function touched by the diff.
@@ -266,6 +324,9 @@ pub fn to_callers_output(
     max_depth: usize,
 ) -> CallersOutput {
     use std::collections::{BTreeSet, VecDeque};
+
+    // Build the GLib/D-Bus callback map once for all touched functions.
+    let glib_callbacks = detect_glib_callbacks(ctx.files);
 
     let mut entries: Vec<FunctionCallerEntry> = Vec::new();
     let mut seen_touched: BTreeSet<(String, String)> = BTreeSet::new(); // (file, name)
@@ -316,8 +377,31 @@ pub fn to_callers_output(
                         file: site.caller.file.clone(),
                         call_line: site.line,
                         depth: depth + 1,
+                        trust: None,
+                        caller_type: None,
                     });
                     queue.push_back((site.caller.name.clone(), depth + 1));
+                }
+            }
+
+            // Inject synthetic callers for GLib/D-Bus signal registrations.
+            // `g_signal_connect(…, G_CALLBACK(func), …)` means this function is
+            // invoked from the GLib main-loop dispatcher on behalf of unprivileged
+            // D-Bus clients — the caller is effectively "untrusted IPC".
+            if let Some(registrations) = glib_callbacks.get(&name) {
+                for (reg_file, reg_line) in registrations {
+                    // Deduplicate: skip if we already found this via the call graph.
+                    let ck = (reg_file.clone(), "g_signal_connect".to_string());
+                    if visited.insert(ck) {
+                        caller_refs.push(CallerRef {
+                            name: "g_signal_connect".to_string(),
+                            file: reg_file.clone(),
+                            call_line: *reg_line,
+                            depth: 1,
+                            trust: Some("untrusted_ipc".to_string()),
+                            caller_type: Some("dbus_callback".to_string()),
+                        });
+                    }
                 }
             }
 

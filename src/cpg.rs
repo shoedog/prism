@@ -1913,6 +1913,41 @@ impl CodePropertyGraph {
         })
     }
 
+    /// Check if `line` is CFG-reachable from the given source, handling
+    /// multi-line statement continuation lines.
+    ///
+    /// `cfg_set` contains the statement-start lines that are CFG-reachable.
+    /// If `line` has no statement starting exactly there (it's a continuation
+    /// of a multi-line statement), this walks back up to 20 lines to find the
+    /// enclosing statement start and checks if THAT statement is reachable.
+    ///
+    /// Example: in `cert = lib->creds->create(...,\n  BUILD_FROM_FILE, str, ...)`,
+    /// `BUILD_FROM_FILE` is on the continuation line. The statement starts one line
+    /// above. If the statement start is reachable, so is the continuation.
+    fn cfg_reachable_including_continuation(
+        &self,
+        file: &str,
+        line: usize,
+        cfg_set: &BTreeSet<(String, usize)>,
+    ) -> bool {
+        if cfg_set.contains(&(file.to_string(), line)) {
+            return true;
+        }
+        // Only look back if there is no statement starting at this exact line.
+        // A continuation line has no statement node; a new statement does.
+        if self.statement_at(file, line).is_none() {
+            const MAX_STMT_SPAN: usize = 20;
+            for offset in 1..=MAX_STMT_SPAN.min(line.saturating_sub(1)) {
+                let check_line = line - offset;
+                if self.statement_at(file, check_line).is_some() {
+                    // Found the enclosing statement start — check if it's reachable.
+                    return cfg_set.contains(&(file.to_string(), check_line));
+                }
+            }
+        }
+        false
+    }
+
     /// Count ControlFlow edges in the graph.
     pub fn cfg_edge_count(&self) -> usize {
         self.graph
@@ -2003,8 +2038,15 @@ impl CodePropertyGraph {
                             // Cross-function targets bypass CFG filter
                             || target.file != *file
                             || target.function != src_loc.function
-                            // Intraprocedural: must be CFG-reachable
-                            || cfg_set.contains(&(target.file.clone(), target.line))
+                            // Intraprocedural: must be CFG-reachable.
+                            // Also accepts continuation lines of multi-line statements
+                            // (e.g. BUILD_FROM_FILE on line 256 when the call_expression
+                            // starts at line 255 — line 255 is in cfg_set but 256 is not).
+                            || self.cfg_reachable_including_continuation(
+                                &target.file,
+                                target.line,
+                                &cfg_set,
+                            )
                     })
                     .collect();
 
