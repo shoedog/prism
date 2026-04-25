@@ -182,7 +182,7 @@ The eval team's CWE coverage handoff (`~/code/agent-eval/analysis/prism-cwe-cove
 
 ### Known cross-language gap notes (from this hygiene pass)
 
-- `primitive_slice::detect_hardcoded_secret` only matches bare `NAME = "literal"` and `obj.field = "literal"` LHS forms. `const`/`let`/`var` (JS), `:=` (Go), and `static const char *` (C) all bypass the LHS-identifier check. Deferred rather than patched — the handoff's category-aware sanitizer/source registry is likely to subsume this rule entirely.
+- `primitive_slice::detect_hardcoded_secret` only matches single-identifier LHS forms (bare `NAME = "literal"` and `obj.field = "literal"`). `const`/`let`/`var` (JS) and `static const char *` (C) bypass the LHS-identifier check at line 673; Go's `:=` short-form does match (the `.trim_end_matches(':')` at line 663 strips the colon), so only keyword-prefixed forms miss. Deferred rather than patched — the handoff's category-aware sanitizer/source registry is likely to subsume this rule entirely.
 
 ### Reference
 

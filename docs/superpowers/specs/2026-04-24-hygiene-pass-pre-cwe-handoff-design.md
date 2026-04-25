@@ -111,7 +111,7 @@ The C tests collectively exercise (a) the multi-marker cert-validation rule and 
 ### 3.5 primitive_lang_test.rs (3 tests, 🟡 basic)
 
 Limitations confirmed by reading the algorithm:
-- `HARDCODED_SECRET` only matches bare `NAME = "literal"` or `obj.field = "literal"` LHS shapes. `const`/`let`/`var` (JS), `:=` (Go), `static const char *` (C) all bypass the LHS-identifier check.
+- `HARDCODED_SECRET` only matches single-identifier LHS shapes (bare `NAME = "literal"` or `obj.field = "literal"`). `const`/`let`/`var` (JS) and `static const char *` (C) bypass the LHS-identifier check; Go's `:=` short-form does match (line 663 strips the trailing colon), so only keyword-prefixed forms miss.
 - `CERT_VALIDATION_DISABLED` is pure substring match — works in any language as long as the marker text appears.
 
 JS tests (2):
@@ -241,7 +241,7 @@ Inserted between existing `## Remaining Work` and `## Architecture Notes`. ~300-
 **Phasing recommendation:** Phase 0 (this hygiene pass) → Phase 1 Go (1-2w) → Phase 2 Python (2-3w) → Phase 3 JS (1-2w) → Phase 4 Java stretch.
 
 **Known cross-language gap notes (from this hygiene pass):**
-- `primitive_slice::detect_hardcoded_secret` only matches bare `NAME = "literal"` and `obj.field = "literal"` LHS forms. `const`/`let`/`var` (JS), `:=` (Go), `static const char *` (C) bypass the LHS-identifier check. Deferred rather than patched — the handoff's category-aware sanitizer/source registry will likely subsume this rule.
+- `primitive_slice::detect_hardcoded_secret` only matches single-identifier LHS forms (bare `NAME = "literal"` and `obj.field = "literal"`). `const`/`let`/`var` (JS) and `static const char *` (C) bypass the LHS-identifier check; Go's `:=` short-form does match (line 663 strips the trailing colon), so only keyword-prefixed forms miss. Deferred rather than patched — the handoff's category-aware sanitizer/source registry will likely subsume this rule.
 
 ### 5.3 What is NOT touched in Plan.md
 
@@ -279,7 +279,7 @@ Explicitly deferred to the handoff Phase 1+ work:
 - Building the category-aware sanitizer registry.
 - Building the framework detection layer.
 - Modifying `taint.rs` or `provenance_slice.rs` algorithm logic.
-- Patching `HARDCODED_SECRET` to handle `const`/`let`/`var`/`:=`/`static const` LHS shapes (deferred — likely subsumed by handoff registry redesign).
+- Patching `HARDCODED_SECRET` to handle keyword-prefixed LHS shapes — `const`/`let`/`var` (JS) and `static const char *` (C). (Go's `:=` already matches; only the keyword-prefixed forms miss.) Deferred — likely subsumed by handoff registry redesign.
 - Updating `TEST_GAPS.md` or `TEST_COVERAGE.md`.
 - Touching `docs/` plans other than `Plan.md`.
 - Anything in the agent-eval roadmap beyond reading the supporting docs (`prism-assessment.md`, `prism-algorithm-matrix.md`) for context to inform the Plan.md baseline section.
