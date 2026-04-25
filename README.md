@@ -113,6 +113,8 @@ slicing --list-algorithms
 
 ## All 30 algorithms at a glance
 
+For a per-algorithm operator's guide — what each one answers, when its output is meaningful, exact finding categories and severities, and known limitations — see [`ALGORITHMS.md`](ALGORITHMS.md). The table below is the cheat sheet.
+
 ### Paper algorithms (arXiv:2505.17928)
 
 | Algorithm | Flag | What it includes |
