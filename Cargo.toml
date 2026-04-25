@@ -391,6 +391,10 @@ path = "tests/integration/scoped_cpg_test.rs"
 name = "integration_coverage"
 path = "tests/integration/coverage_test.rs"
 
+[[test]]
+name = "integration_hapi_regression"
+path = "tests/integration/hapi_regression_test.rs"
+
 # ── CLI tests ──
 
 [[test]]
