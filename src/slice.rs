@@ -104,6 +104,16 @@ pub enum SlicingAlgorithm {
     EchoSlice,
     /// Implicit behavioral contract extraction and violation detection.
     ContractSlice,
+    /// Peer-signature guard divergence — cluster of sibling functions sharing
+    /// a first-parameter name where all/some lack a NULL guard.
+    PeerConsistencySlice,
+    /// Resolve function-pointer-in-struct registrations to their dispatcher
+    /// invocation sites; flag NULL argument passing.
+    CallbackDispatcherSlice,
+    /// Deterministic security-primitive fingerprint sweep (hash truncation,
+    /// weak-hash-for-identity, shell=True with interpolation, cert validation
+    /// disabled, hardcoded secrets).
+    PrimitiveSlice,
 }
 
 impl SlicingAlgorithm {
@@ -140,6 +150,18 @@ impl SlicingAlgorithm {
             }
             "echo" | "echoslice" | "echo_slice" | "ripple" => Some(Self::EchoSlice),
             "contract" | "contractslice" | "contract_slice" => Some(Self::ContractSlice),
+            "peer"
+            | "peer_consistency"
+            | "peerconsistency"
+            | "peerconsistencyslice"
+            | "peer_consistency_slice" => Some(Self::PeerConsistencySlice),
+            "callback"
+            | "callback_dispatcher"
+            | "callbackdispatcher"
+            | "callbackdispatcherslice"
+            | "callback_dispatcher_slice"
+            | "dispatcher" => Some(Self::CallbackDispatcherSlice),
+            "primitive" | "primitiveslice" | "primitive_slice" => Some(Self::PrimitiveSlice),
             _ => None,
         }
     }
@@ -173,6 +195,9 @@ impl SlicingAlgorithm {
             Self::MembraneSlice => "MembraneSlice",
             Self::EchoSlice => "EchoSlice",
             Self::ContractSlice => "ContractSlice",
+            Self::PeerConsistencySlice => "PeerConsistencySlice",
+            Self::CallbackDispatcherSlice => "CallbackDispatcherSlice",
+            Self::PrimitiveSlice => "PrimitiveSlice",
         }
     }
 
@@ -224,6 +249,9 @@ impl SlicingAlgorithm {
             Self::CircularSlice,
             Self::SpiralSlice,
             Self::ContractSlice,
+            Self::PeerConsistencySlice,
+            Self::CallbackDispatcherSlice,
+            Self::PrimitiveSlice,
         ]
     }
 
@@ -257,6 +285,9 @@ impl SlicingAlgorithm {
             Self::MembraneSlice,
             Self::EchoSlice,
             Self::ContractSlice,
+            Self::PeerConsistencySlice,
+            Self::CallbackDispatcherSlice,
+            Self::PrimitiveSlice,
         ]
     }
 }

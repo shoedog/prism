@@ -41,7 +41,10 @@ function processInput(input) {
     assert!(
         sink_findings.is_empty(),
         "Taint should NOT fire on 'rawData' — only exact 'raw' is a sink, got sink findings: {:?}",
-        sink_findings.iter().map(|f| &f.description).collect::<Vec<_>>()
+        sink_findings
+            .iter()
+            .map(|f| &f.description)
+            .collect::<Vec<_>>()
     );
 }
 

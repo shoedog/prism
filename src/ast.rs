@@ -2727,6 +2727,23 @@ impl ParsedFile {
                 // Python/Lua: parameters may be direct identifiers
                 Some(self.node_text(node).to_string())
             }
+            "typed_parameter"
+            | "typed_default_parameter"
+            | "default_parameter"
+            | "list_splat_pattern"
+            | "dictionary_splat_pattern" => {
+                // Python: typed / default / splat parameter forms.
+                if let Some(name) = node.child_by_field_name("name") {
+                    return Some(self.node_text(&name).to_string());
+                }
+                let mut cursor = node.walk();
+                for child in node.children(&mut cursor) {
+                    if child.kind() == "identifier" {
+                        return Some(self.node_text(&child).to_string());
+                    }
+                }
+                None
+            }
             _ => None,
         }
     }
