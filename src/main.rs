@@ -211,6 +211,15 @@ fn main() -> Result<()> {
         println!(
             "    contract         Implicit behavioral contract extraction and violation detection"
         );
+        println!(
+            "    peer             Peer-signature guard divergence (C/C++ sibling NULL-guard clusters)"
+        );
+        println!(
+            "    callback         Callback-dispatcher resolution (function-pointer registrations → invocation sites)"
+        );
+        println!(
+            "    primitive        Security-primitive fingerprints (hash truncation, weak-hash-for-identity, shell-injection, TLS disabled, hardcoded secrets)"
+        );
         return Ok(());
     }
 

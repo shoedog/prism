@@ -55,7 +55,10 @@ fn test_json_output_format() {
     // Verify slice_text is populated
     if let Some(slices) = json.get("slices").and_then(|s| s.as_array()) {
         if let Some(first) = slices.first() {
-            let text = first.get("slice_text").and_then(|t| t.as_str()).unwrap_or("");
+            let text = first
+                .get("slice_text")
+                .and_then(|t| t.as_str())
+                .unwrap_or("");
             assert!(
                 !text.is_empty(),
                 "slice_text should contain rendered source code"

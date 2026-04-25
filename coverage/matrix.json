@@ -764,6 +764,45 @@
       "lua": "basic",
       "terraform": "basic",
       "bash": "basic"
+    },
+    "peer_consistency_slice": {
+      "python": "none",
+      "javascript": "none",
+      "typescript": "none",
+      "go": "none",
+      "java": "none",
+      "c": "basic",
+      "cpp": "basic",
+      "rust": "none",
+      "lua": "none",
+      "terraform": "none",
+      "bash": "none"
+    },
+    "callback_dispatcher_slice": {
+      "python": "none",
+      "javascript": "none",
+      "typescript": "none",
+      "go": "none",
+      "java": "none",
+      "c": "basic",
+      "cpp": "basic",
+      "rust": "none",
+      "lua": "none",
+      "terraform": "none",
+      "bash": "none"
+    },
+    "primitive_slice": {
+      "python": "basic",
+      "javascript": "basic",
+      "typescript": "none",
+      "go": "basic",
+      "java": "none",
+      "c": "basic",
+      "cpp": "none",
+      "rust": "none",
+      "lua": "none",
+      "terraform": "none",
+      "bash": "none"
     }
   }
 }

@@ -74,6 +74,15 @@ fn test_algorithm_language_matrix() {
         (&["membrane_slice", "membrane"], "MembraneSlice"),
         (&["echo_slice", "echo"], "EchoSlice"),
         (&["contract_slice", "contract"], "ContractSlice"),
+        (
+            &["peer_consistency_slice", "peer_consistency"],
+            "PeerConsistencySlice",
+        ),
+        (
+            &["callback_dispatcher_slice", "callback_dispatcher"],
+            "CallbackDispatcherSlice",
+        ),
+        (&["primitive_slice", "primitive"], "PrimitiveSlice"),
         (&["chop"], "Chop"),
     ];
 
@@ -119,6 +128,10 @@ fn test_algorithm_language_matrix() {
         "tests/algo/novel/provenance_lang_test.rs",
         "tests/algo/novel/contract_test.rs",
         "tests/algo/novel/contract_delta_test.rs",
+        "tests/algo/novel/peer_consistency_test.rs",
+        "tests/algo/novel/callback_dispatcher_test.rs",
+        "tests/algo/novel/primitive_test.rs",
+        "tests/algo/novel/primitive_lang_test.rs",
         "tests/ast/access_path_test.rs",
         "tests/ast/binding_test.rs",
         "tests/ast/cpg_test.rs",
@@ -270,6 +283,15 @@ fn test_language_coverage_minimum() {
         (&["membrane_slice", "membrane"], "MembraneSlice"),
         (&["echo_slice", "echo"], "EchoSlice"),
         (&["contract_slice", "contract"], "ContractSlice"),
+        (
+            &["peer_consistency_slice", "peer_consistency"],
+            "PeerConsistencySlice",
+        ),
+        (
+            &["callback_dispatcher_slice", "callback_dispatcher"],
+            "CallbackDispatcherSlice",
+        ),
+        (&["primitive_slice", "primitive"], "PrimitiveSlice"),
         (&["chop"], "Chop"),
     ];
 
@@ -313,6 +335,10 @@ fn test_language_coverage_minimum() {
         "tests/algo/novel/provenance_lang_test.rs",
         "tests/algo/novel/contract_test.rs",
         "tests/algo/novel/contract_delta_test.rs",
+        "tests/algo/novel/peer_consistency_test.rs",
+        "tests/algo/novel/callback_dispatcher_test.rs",
+        "tests/algo/novel/primitive_test.rs",
+        "tests/algo/novel/primitive_lang_test.rs",
         "tests/ast/access_path_test.rs",
         "tests/ast/binding_test.rs",
         "tests/ast/cpg_test.rs",
@@ -444,6 +470,10 @@ fn test_coverage_matrix_validation() {
         "tests/algo/novel/provenance_lang_test.rs",
         "tests/algo/novel/contract_test.rs",
         "tests/algo/novel/contract_delta_test.rs",
+        "tests/algo/novel/peer_consistency_test.rs",
+        "tests/algo/novel/callback_dispatcher_test.rs",
+        "tests/algo/novel/primitive_test.rs",
+        "tests/algo/novel/primitive_lang_test.rs",
         "tests/ast/access_path_test.rs",
         "tests/ast/binding_test.rs",
         "tests/ast/cpg_test.rs",
@@ -659,6 +689,9 @@ fn test_coverage_matrix_algorithm_completeness() {
         "membrane_slice",
         "echo_slice",
         "contract_slice",
+        "peer_consistency_slice",
+        "callback_dispatcher_slice",
+        "primitive_slice",
     ];
 
     let mut missing = Vec::new();

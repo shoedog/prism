@@ -141,6 +141,22 @@ path = "tests/algo/novel/contract_test.rs"
 name = "algo_novel_contract_delta"
 path = "tests/algo/novel/contract_delta_test.rs"
 
+[[test]]
+name = "algo_novel_peer_consistency"
+path = "tests/algo/novel/peer_consistency_test.rs"
+
+[[test]]
+name = "algo_novel_callback_dispatcher"
+path = "tests/algo/novel/callback_dispatcher_test.rs"
+
+[[test]]
+name = "algo_novel_primitive"
+path = "tests/algo/novel/primitive_test.rs"
+
+[[test]]
+name = "algo_novel_primitive_lang"
+path = "tests/algo/novel/primitive_lang_test.rs"
+
 # ── AST / DFG / CPG tests ──
 
 [[test]]
@@ -374,6 +390,10 @@ path = "tests/integration/scoped_cpg_test.rs"
 [[test]]
 name = "integration_coverage"
 path = "tests/integration/coverage_test.rs"
+
+[[test]]
+name = "integration_hapi_regression"
+path = "tests/integration/hapi_regression_test.rs"
 
 # ── CLI tests ──
 

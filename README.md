@@ -20,17 +20,17 @@
 
 **Algorithm test coverage** · [details](#algorithm--language)
 
-![Python algo](https://img.shields.io/badge/Python-100%25-brightgreen?logo=python&logoColor=white)
-![JavaScript algo](https://img.shields.io/badge/JavaScript-100%25-brightgreen?logo=javascript&logoColor=white)
-![TypeScript algo](https://img.shields.io/badge/TypeScript-100%25-brightgreen?logo=typescript&logoColor=white)
-![Go algo](https://img.shields.io/badge/Go-100%25-brightgreen?logo=go&logoColor=white)
-![Java algo](https://img.shields.io/badge/Java-100%25-brightgreen?logo=openjdk&logoColor=white)
+![Python algo](https://img.shields.io/badge/Python-93%25-green?logo=python&logoColor=white)
+![JavaScript algo](https://img.shields.io/badge/JavaScript-93%25-green?logo=javascript&logoColor=white)
+![TypeScript algo](https://img.shields.io/badge/TypeScript-90%25-green?logo=typescript&logoColor=white)
+![Go algo](https://img.shields.io/badge/Go-93%25-green?logo=go&logoColor=white)
+![Java algo](https://img.shields.io/badge/Java-90%25-green?logo=openjdk&logoColor=white)
 ![C algo](https://img.shields.io/badge/C-100%25-brightgreen?logo=c&logoColor=white)
-![C++ algo](https://img.shields.io/badge/C%2B%2B-100%25-brightgreen?logo=cplusplus&logoColor=white)
-![Rust algo](https://img.shields.io/badge/Rust-100%25-brightgreen?logo=rust&logoColor=white)
-![Lua algo](https://img.shields.io/badge/Lua-100%25-brightgreen?logo=lua&logoColor=white)
-![Terraform algo](https://img.shields.io/badge/Terraform-100%25-brightgreen?logo=terraform&logoColor=white)
-![Bash algo](https://img.shields.io/badge/Bash-100%25-brightgreen?logo=gnubash&logoColor=white)
+![C++ algo](https://img.shields.io/badge/C%2B%2B-96%25-brightgreen?logo=cplusplus&logoColor=white)
+![Rust algo](https://img.shields.io/badge/Rust-90%25-green?logo=rust&logoColor=white)
+![Lua algo](https://img.shields.io/badge/Lua-90%25-green?logo=lua&logoColor=white)
+![Terraform algo](https://img.shields.io/badge/Terraform-90%25-green?logo=terraform&logoColor=white)
+![Bash algo](https://img.shields.io/badge/Bash-90%25-green?logo=gnubash&logoColor=white)
 <!-- COVERAGE_BADGES_END -->
 
 # Prism
@@ -103,7 +103,7 @@ slicing --repo . --diff /tmp/changes.patch
 That's it. The default algorithm (`leftflow`) traces data flow backward from
 each changed line and prints the relevant slice to stdout.
 
-List all 27 algorithms:
+List all 30 algorithms:
 
 ```bash
 slicing --list-algorithms
@@ -111,7 +111,9 @@ slicing --list-algorithms
 
 ---
 
-## All 27 algorithms at a glance
+## All 30 algorithms at a glance
+
+For a per-algorithm operator's guide — what each one answers, when its output is meaningful, exact finding categories and severities, and known limitations — see [`ALGORITHMS.md`](ALGORITHMS.md). The table below is the cheat sheet.
 
 ### Paper algorithms (arXiv:2505.17928)
 
@@ -158,6 +160,10 @@ slicing --list-algorithms
 | **PhantomSlice** | `-a phantom` | Surfaces recently deleted code this change might depend on |
 | **MembraneSlice** | `-a membrane` | Shows cross-file callers of changed API functions |
 | **EchoSlice** | `-a echo` | Ripple effect: flags callers missing error handling or null checks |
+| **ContractSlice** | `-a contract` | Extracts implicit behavioral contracts and flags violations |
+| **PeerConsistencySlice** | `-a peer` | Sibling-function NULL-guard divergence (C/C++ clusters sharing a first-parameter name) |
+| **CallbackDispatcherSlice** | `-a callback` | Resolves function-pointer-in-struct registrations to their dispatch sites; flags NULL-argument dispatches |
+| **PrimitiveSlice** | `-a primitive` | Deterministic security-primitive fingerprints: hash truncation (incl. two-pass via call), weak-hash-for-identity, shell-injection, TLS-disabled, hardcoded secrets |
 
 ---
 
@@ -473,7 +479,7 @@ Source files ──→ tree-sitter ──→ AST per file
                   ▼        ▼        ▼
             Diff → Algorithm → SliceResult
                     dispatch
-              27 algorithms, all operating
+              30 algorithms, all operating
               on the shared CPG graph
 ```
 
@@ -488,7 +494,7 @@ Source files ──→ tree-sitter ──→ AST per file
   parsers to maintain.
 
 - **CPG built once, queried many times** — algorithms are graph traversals,
-  not re-analyses. Running all 27 algorithms costs ~10% more than running one,
+  not re-analyses. Running all 30 algorithms costs ~10% more than running one,
   because the expensive step (CPG construction) is shared.
 
 - **Diff-aware by default** — algorithms receive the diff as input and focus
@@ -594,7 +600,7 @@ Measures how many language-specific patterns (destructuring, multi-return, optio
 
 ### Algorithm × Language
 
-Every algorithm is tested against every supported language (324/324 cells). Some languages have deeper behavioral tests (✅ full) while others have basic smoke tests (🟡 basic) that verify the algorithm runs correctly on that language's syntax.
+Every algorithm is tested against every supported language (330/330 cells). Some languages have deeper behavioral tests (✅ full) while others have basic smoke tests (🟡 basic) that verify the algorithm runs correctly on that language's syntax.
 
 <!-- COVERAGE_TABLE_START -->
 | Algorithm | Py | JS | TS | Go | Ja | C | C++ | Rs | Lua | TF | Sh |
@@ -602,6 +608,7 @@ Every algorithm is tested against every supported language (324/324 cells). Some
 | absence_slice |  ✅ | ✅ | 🟡 | ✅ | 🟡 | ✅ | 🟡 | ✅ | 🟡 | ✅ | 🟡 |
 | angle_slice |  ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 |
 | barrier_slice |  🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 |
+| callback_dispatcher_slice |  ❌ | ❌ | ❌ | ❌ | ❌ | 🟡 | 🟡 | ❌ | ❌ | ❌ | ❌ |
 | chop |  🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 |
 | circular_slice |  🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 |
 | conditioned_slice |  🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 |
@@ -615,7 +622,9 @@ Every algorithm is tested against every supported language (324/324 cells). Some
 | membrane_slice |  🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 |
 | original_diff |  🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 |
 | parent_function |  🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 |
+| peer_consistency_slice |  ❌ | ❌ | ❌ | ❌ | ❌ | 🟡 | 🟡 | ❌ | ❌ | ❌ | ❌ |
 | phantom_slice |  🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 |
+| primitive_slice |  🟡 | 🟡 | ❌ | 🟡 | ❌ | 🟡 | ❌ | ❌ | ❌ | ❌ | ❌ |
 | provenance_slice |  ✅ | ✅ | 🟡 | 🟡 | 🟡 | ✅ | 🟡 | ✅ | ✅ | ✅ | 🟡 |
 | quantum_slice |  ✅ | ✅ | 🟡 | 🟡 | 🟡 | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 |
 | relevant_slice |  🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 |

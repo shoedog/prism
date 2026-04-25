@@ -1,6 +1,6 @@
 # Prism Implementation Plan & Status Tracker
 
-Last updated: 2026-04-02 (Phase 6 complete, CPG improvements plan)
+Last updated: 2026-04-24 (T1-006 handoff, three new algorithms, pre-handoff baseline added)
 
 ---
 
@@ -34,6 +34,9 @@ Last updated: 2026-04-02 (Phase 6 complete, CPG improvements plan)
 | Static function name disambiguation — `static_functions` set in call graph, `resolve_callees()`, `callers_of_in_file()` | `claude/quantum-isr-static-disambiguation` | Done |
 | QuantumSlice ISR/signal-handler self-detection — `collect_registered_handlers()` scans all files for `signal()`, `pthread_create()`, `request_irq()`, `.sa_handler`, `std::thread` | `claude/quantum-isr-static-disambiguation` | Done |
 | `discover.py` (or Rust binary) for file enumeration | — | Not started |
+| T1-006 follow-up: IPC taint sources (`g_hash_table_lookup` + variant accessors), CFG multiline call edge fix, GLib callback dispatcher detection | `eebafb6` | Done |
+| Slice text empty in JSON output fix; `settings_t` provenance source added | `e3fa16d` | Done |
+| Spiral added to review suite; taint sinks expanded; provenance import-suppression FP fix | `37ef823` | Done |
 
 **Tests added:** MembraneSlice C error handling (2), PhantomSlice C/C++ extraction (1 unit test), function pointer Level 0: call graph field expression (1), membrane via field dispatch (1), circular slice via field dispatch (1), Level 1: local fptr (1), Level 2: local dispatch table (1), global dispatch table (1), membrane via local fptr (1), ISR self-detection: signal cross-function (1), pthread registered (1), IRQ cross-file (1), static disambiguation: same-name static (1), static vs non-static (1), membrane respects static (1).
 
@@ -48,6 +51,18 @@ Last updated: 2026-04-02 (Phase 6 complete, CPG improvements plan)
 | Membrane errors — Python (raise_for_status, raise), JS/TS (throw, Promise.reject, .finally), Go (errors.Is, errors.As, log.Fatal, panic) | `claude/echo-rust-lua-support` | Done |
 
 **Tests added:** Taint Python pickle.loads (1), taint Python subprocess.Popen (1), taint JS innerHTML (1), taint JS execSync (1), taint Go exec.Command (1), taint Go template.HTML (1). Provenance Python request.form (1), provenance Python cursor.fetchone (1), provenance JS document.cookie (1), provenance JS process.env (1), provenance Go r.FormValue (1), provenance Go viper config (1). Absence Python threading.Lock (1), absence Python tempfile (1), absence JS createReadStream (1), absence JS fs.open (1), absence Go context.WithCancel (1), absence Go http.Get body (1). Quantum Python threading (1), quantum JS Worker (1), quantum Go channel/select (1). Membrane Python raise_for_status (1), membrane Go errors.Is (1).
+
+### Algorithms — Tier 1 (T1) Capability Expansion
+
+| Item | Branch / Commit | Status |
+|------|-----------------|--------|
+| **T1-002:** PeerConsistencySlice — sibling first-param NULL-guard cluster detection (uniform & divergent gap classifications). C/C++ only by design. Driven by FRR CVE-2025-61102. | `claude/t1-cleanup-pre-cwe-handoff` | Done |
+| **T1-002:** CallbackDispatcherSlice — function-pointer-in-struct registration → invocation chain resolution; flags NULL-arg dispatch (zlog/functab pattern + GLib `g_signal_connect`). C/C++ only by design. | `claude/t1-cleanup-pre-cwe-handoff` | Done |
+| **T1-005:** PrimitiveSlice — security-primitive fingerprint sweep (HASH_TRUNCATED_BELOW_128_BITS, HASH_TRUNCATION_VIA_CALL 2-pass, WEAK_HASH_FOR_IDENTITY, SHELL_TRUE_WITH_INTERPOLATION, CERT_VALIDATION_DISABLED, HARDCODED_SECRET). Python primary; basic C/JS/Go for cert-validation + secret rules. | `claude/t1-cleanup-pre-cwe-handoff` | Done |
+| **Hapi-4552 regression smoke test** — JS event-listener-pair fixture wired into integration tests as `integration_hapi_regression`. Loose structural assertions (LeftFlow fires, diff lines surface) rather than byte-equal snapshot. | `claude/t1-cleanup-pre-cwe-handoff` | Done |
+| **ALGORITHMS.md** — per-algorithm operator's guide (question, mechanism, output, limitations, source per algorithm) for all 30 algorithms. Companion to AK-team's prism-slice-glossary-verify handoff. | `claude/t1-cleanup-pre-cwe-handoff` (`10b9bfd`) | Done |
+
+**Tests added (32 + 1 = 33):** Peer C 4 (uniform-unguarded, divergent, all-guarded negative, cluster-too-small negative), Peer C++ 3 (uniform, divergent, only-fires-on-touched-param). Callback C 4 (designated-init→null-dispatch, assignment-field clean, registrar-call-arg, no-invocations negative), Callback C++ 3 (designated-init, g_signal_connect, unrelated-function negative). Primitive Python 10 (hash-trunc direct/threshold/raw, hash-trunc 2-pass, weak-hash positive/negative, shell-true positive/negative, cert-validation, hardcoded-secret with inline negative). Primitive C 5 (cert-VERIFYPEER, cert-VERIFYHOST, dirty-function severity, outside-dirty-function severity, proper-validation negative). Primitive cross-language 3 (JS reject_unauthorized, JS hardcoded-secret object-field, Go InsecureSkipVerify). Hapi smoke 1.
 
 ### Algorithm Precision & New Language Support
 
@@ -136,6 +151,49 @@ These formats need a different analysis model: parse → find touched units → 
 
 ---
 
+## Pre-handoff Architectural Baseline (D5: CWE Coverage)
+
+The eval team's CWE coverage handoff (`~/code/agent-eval/analysis/prism-cwe-coverage-handoff.md`) requests per-language sink taxonomy expansion across 6 CWE families, a category-aware sanitizer registry, and a framework-detection layer. None of those subsystems exist today. This section captures the starting state and tentative answers to the handoff's open questions, so the upcoming ACK doc has a baked baseline.
+
+### Inventory of current source/sink/sanitizer infrastructure
+
+- **Taint sources/sinks** live in `src/algorithms/taint.rs` (~641 lines). Sinks are encoded as language-keyed pattern arrays (`SINK_PATTERNS` and per-language extensions via `FORMAT_SINKS`). Sources are conservatively inferred from data-flow predecessors of diff lines, not from a registry. IPC sources added in T1-006 (`eebafb6`) as `IPC_SOURCE_PATTERNS`.
+- **Provenance origins** live in `src/algorithms/provenance_slice.rs` (~704 lines). Origin classification: UserInput, Config, Database, Constant, EnvVar, FunctionParam, ExternalCall, Hardware, Unknown. `WEB_FRAMEWORK_MODULES` const lists Flask/Django/etc. for import-aware suppression. `PROVENANCE_OVERLAP_KEYWORDS` lists `request`, `req`, `form`, `query`, etc. that are suppressed when imported from non-web modules.
+- **Sanitizer recognition:** none in algorithm logic. `provenance_slice.rs` has a `sanitize_line()` helper that strips suppressed import tokens from a line before pattern-matching — this is an import-token suppressor, not a security sanitizer. No `SanitizerRegistry`, `SanitizerKind`, or `cleansed_for` concept exists anywhere in `src/`.
+- **Framework awareness:** the only piece is `WEB_FRAMEWORK_MODULES` in `provenance_slice.rs`, used for import-suppression. No detection layer activates per-framework source/sink overrides. No `FrameworkRegistry`, `detect_framework`, or `framework_for_file` function exists in `src/`.
+
+### Tentative answers to handoff §10 open questions
+
+- **Q1 Config vs code (source/sink/sanitizer registries):** Rust modules with declarative const arrays — matches the existing `taint.rs` / `provenance_slice.rs` pattern. The eval team's stated value of "add sources mid-run for debugging" can be served by a CLI passthrough (`--taint-source-extra`, `--taint-sink-extra`) that doesn't require config-file parsing. Type safety + fast path beats config-file flexibility for the volume of patterns expected.
+- **Q2 Per-framework module structure:** per-framework modules under `src/frameworks/{flask,django,fastapi,express,nethttp,gin,gorilla_mux}.rs`, registered through a small `FrameworkRegistry` enum. Mirrors the existing `src/languages/<lang>.rs` shape.
+- **Q3 Sanitizer granularity:** boolean cleansed/uncleansed per category. A `cleansed_for: BTreeSet<SanitizerCategory>` on taint values is sufficient; confidence values are unwarranted complexity for this round.
+- **Q4 Phasing:** agree with the eval team — Phase 1 Go (CWE-78 + CWE-22 sinks + net/http framework + shell-escape/path-validation sanitizers) → Phase 2 Python (CWE-79/89/918/502 + Flask/Django/FastAPI + HTML-escape/SQL-parametrize/URL-allowlist/path-validation sanitizers) → Phase 3 JS (Express + same CWE coverage) → Phase 4 Java (stretch, Tier 2.6 alignment).
+- **Q5 Unknown-framework default:** quiet mode (eval team's stated preference). Existing `provenance_slice` already uses import-suppression for the noisy case; that pattern generalizes.
+
+### Phasing recommendation
+
+| Phase | Scope | Estimate |
+|---|---|---|
+| Phase 0 | This hygiene pass (T1 algorithms with tests + hapi regression + this baseline) | Done |
+| Phase 1 | Go CWE-78/22 + net/http framework + shell/path sanitizers (aligns with eval C1 fixtures) | 1-2 weeks |
+| Phase 2 | Python CWE-79/89/918/502 sinks + Flask/Django/FastAPI detection + 4 sanitizer categories | 2-3 weeks |
+| Phase 3 | JS for the same CWE coverage on Express | 1-2 weeks |
+| Phase 4 stretch | Java + Spring (Tier 2.6) | TBD |
+
+### Known cross-language gap notes (from this hygiene pass)
+
+- `primitive_slice::detect_hardcoded_secret` only matches bare `NAME = "literal"` and `obj.field = "literal"` LHS forms. `const`/`let`/`var` (JS), `:=` (Go), and `static const char *` (C) all bypass the LHS-identifier check. Deferred rather than patched — the handoff's category-aware sanitizer/source registry is likely to subsume this rule entirely.
+
+### Reference
+
+- Handoff: `~/code/agent-eval/analysis/prism-cwe-coverage-handoff.md`
+- Eval-team Prism assessment: `~/code/agent-eval/analysis/prism-assessment.md`
+- Eval-team algorithm matrix: `~/code/agent-eval/analysis/prism-algorithm-matrix.md`
+- Implementation plan for this hygiene pass: `docs/superpowers/plans/2026-04-24-t1-hygiene-pre-cwe-handoff.md`
+- Spec for this hygiene pass: `docs/superpowers/specs/2026-04-24-hygiene-pass-pre-cwe-handoff-design.md`
+
+---
+
 ## Architecture Notes
 
 ### Key Design Decisions
@@ -164,11 +222,11 @@ These formats need a different analysis model: parse → find touched units → 
 - No semantic scoping — `find_variable_references_scoped` handles some variable shadowing cases
 
 ### Test Coverage
-- **489 tests** total (93 unit + 65 CLI + 331 integration)
-- 9 languages covered (Python, JS/TS, Go, Java, C/C++, Rust, Lua)
+- **1,406 tests** total (counts as of 2026-04-25; run `cargo test` for current)
+- 11 languages covered (Python, JS, TS, Go, Java, C, C++, Rust, Lua, Terraform/HCL, Bash)
 - Field isolation tests across all 8 field-capable languages
 - Must-alias tests for C, Python, JS, Go, Rust with chain and negative cases
-- 26 algorithms with at least basic coverage
+- 30 algorithms with at least basic coverage (T1-002 peer/callback and T1-005 primitive added in this branch)
 - C/C++ specific: 32 tests covering taint, provenance, absence, quantum (incl. ISR self-detection), membrane, phantom, pointer aliasing, function pointer dispatch (Level 0/1/2), static linkage disambiguation
 - Multi-language taint: 6 tests covering Python (pickle, subprocess), JS (innerHTML, execSync), Go (exec.Command, template.HTML)
 - Multi-language provenance: 6 tests covering Python (request.form, cursor.fetchone), JS (document.cookie, process.env), Go (r.FormValue, viper config)

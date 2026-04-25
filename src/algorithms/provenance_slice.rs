@@ -369,8 +369,7 @@ const WEB_FRAMEWORK_MODULES: &[&str] = &[
 /// Local-name keywords that overlap with provenance patterns and are therefore
 /// candidates for suppression when imported from non-web modules.
 const PROVENANCE_OVERLAP_KEYWORDS: &[&str] = &[
-    "request", "req", "form", "query", "body", "params", "args", "input",
-    "stdin", "data",
+    "request", "req", "form", "query", "body", "params", "args", "input", "stdin", "data",
 ];
 
 /// Build a per-file suppression set: local import aliases that shadow provenance
@@ -379,7 +378,9 @@ const PROVENANCE_OVERLAP_KEYWORDS: &[&str] = &[
 /// Example: `from mylib import request` → `request` is suppressed because
 /// `mylib` is not Flask/Django/etc. Without suppression, any line containing
 /// the word `request` would be classified as UserInput.
-fn build_import_suppression(imports: &std::collections::BTreeMap<String, String>) -> BTreeSet<String> {
+fn build_import_suppression(
+    imports: &std::collections::BTreeMap<String, String>,
+) -> BTreeSet<String> {
     let mut suppressed = BTreeSet::new();
     for (alias, module_path) in imports {
         let module_lower = module_path.to_lowercase();
@@ -388,7 +389,10 @@ fn build_import_suppression(imports: &std::collections::BTreeMap<String, String>
             .any(|fw| module_lower.contains(fw));
         if !is_web {
             let alias_lower = alias.to_lowercase();
-            if PROVENANCE_OVERLAP_KEYWORDS.iter().any(|kw| &alias_lower == kw) {
+            if PROVENANCE_OVERLAP_KEYWORDS
+                .iter()
+                .any(|kw| &alias_lower == kw)
+            {
                 suppressed.insert(alias.clone());
             }
         }
@@ -588,9 +592,8 @@ pub fn slice(ctx: &CpgContext, diff: &DiffInput) -> Result<SliceResult> {
                             let rlines: Vec<&str> = rparsed.source.lines().collect();
                             if r.line > 0 && r.line <= rlines.len() {
                                 let lt = rlines[r.line - 1];
-                                let r_suppressed = suppression_map
-                                    .get(&r.file)
-                                    .unwrap_or(&empty_suppressed);
+                                let r_suppressed =
+                                    suppression_map.get(&r.file).unwrap_or(&empty_suppressed);
                                 let sanitized = sanitize_line(lt, r_suppressed);
                                 let classified = classify_line(&sanitized);
                                 if classified != Origin::Unknown {

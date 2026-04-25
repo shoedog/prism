@@ -1,6 +1,7 @@
 pub mod absence_slice;
 pub mod angle_slice;
 pub mod barrier_slice;
+pub mod callback_dispatcher_slice;
 pub mod chop;
 pub mod circular_slice;
 pub mod conditioned_slice;
@@ -14,7 +15,9 @@ pub mod left_flow;
 pub mod membrane_slice;
 pub mod original_diff;
 pub mod parent_function;
+pub mod peer_consistency_slice;
 pub mod phantom_slice;
+pub mod primitive_slice;
 pub mod provenance_slice;
 pub mod quantum_slice;
 pub mod relevant_slice;
@@ -163,6 +166,11 @@ pub fn run_slicing(
         SlicingAlgorithm::MembraneSlice => membrane_slice::slice(ctx, diff),
         SlicingAlgorithm::EchoSlice => echo_slice::slice(ctx, diff),
         SlicingAlgorithm::ContractSlice => contract_slice::slice(ctx.files, diff),
+        SlicingAlgorithm::PeerConsistencySlice => peer_consistency_slice::slice(ctx.files, diff),
+        SlicingAlgorithm::CallbackDispatcherSlice => {
+            callback_dispatcher_slice::slice(ctx.files, diff)
+        }
+        SlicingAlgorithm::PrimitiveSlice => primitive_slice::slice(ctx.files, diff),
     }
 }
 
