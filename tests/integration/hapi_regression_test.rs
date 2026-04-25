@@ -93,22 +93,4 @@ fn test_hapi_4552_review_suite_smoke() {
          (This may indicate that line-number alignment between the trimmed source and the diff has drifted.)",
         target_lines
     );
-
-    // (c) Loose: parent_function output ideally surfaces 'destroyPipe' as a function name —
-    //     anonymous-function-assignment naming is brittle, so emit a NOTE rather than fail.
-    let has_destroy_pipe_function = results.iter().any(|r| {
-        r.findings.iter().any(|f| {
-            f.function_name
-                .as_ref()
-                .map(|n| n.contains("destroyPipe"))
-                .unwrap_or(false)
-        })
-    });
-    if !has_destroy_pipe_function {
-        eprintln!(
-            "NOTE: review preset did not surface 'destroyPipe' as a function name. \
-             May be acceptable depending on how parent_function names anonymous \
-             function expressions assigned to internals.destroyPipe."
-        );
-    }
 }
