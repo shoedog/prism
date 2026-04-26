@@ -299,6 +299,70 @@ func handler(c *gin.Context) {
     );
 }
 
+#[test]
+fn test_taint_cwe78_literal_binary_with_tainted_later_arg_no_finding() {
+    // Path C regression: exec.Command("ffmpeg", "-i", taintedInput) — binary is a
+    // literal so the tainted-binary sink's semantic_check (arg[0] non-literal)
+    // returns false, suppressing the over-fire that line-granularity matching
+    // would otherwise produce. Shape comes from eval-team go2rtc / LocalAI fixtures.
+    let source = r#"package main
+
+import (
+	"os/exec"
+
+	"github.com/gin-gonic/gin"
+)
+
+func handler(c *gin.Context) {
+	input := c.Query("input")
+	_ = exec.Command("ffmpeg", "-i", input).Run()
+}
+"#;
+    // Diff anchored at line 11 (the c.Query source) — taint flows into line 12.
+    // Without Path C: line-taint reaches arg-position-0 check trivially, fires.
+    // With Path C: arg[0] = "ffmpeg" literal -> semantic_check returns false ->
+    // tainted-binary pattern silent. Shell-wrapper variant also silent
+    // (arg[0] not in shell list). No CWE-78 finding.
+    let result = run_taint_go_single(source, "main.go", BTreeSet::from([11]));
+    let line_12_sink = result
+        .findings
+        .iter()
+        .any(|f| f.category.as_deref() == Some("taint_sink") && f.line == 12);
+    assert!(
+        !line_12_sink,
+        "literal binary in arg[0] should suppress the tainted-binary sink even when later args are tainted"
+    );
+}
+
+#[test]
+fn test_taint_cwe78_commandcontext_literal_binary_no_finding() {
+    // Same Path C suppression for exec.CommandContext (tainted-binary variant
+    // checks arg[1] — the ctx-shifted binary position).
+    let source = r#"package main
+
+import (
+	"context"
+	"os/exec"
+
+	"github.com/gin-gonic/gin"
+)
+
+func handler(c *gin.Context) {
+	input := c.Query("input")
+	_ = exec.CommandContext(context.Background(), "ffmpeg", "-i", input).Run()
+}
+"#;
+    let result = run_taint_go_single(source, "main.go", BTreeSet::from([12]));
+    let line_13_sink = result
+        .findings
+        .iter()
+        .any(|f| f.category.as_deref() == Some("taint_sink") && f.line == 13);
+    assert!(
+        !line_13_sink,
+        "literal binary in arg[1] should suppress the CommandContext tainted-binary sink"
+    );
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Phase 1 — Go CWE-22 (path traversal) tests
 //
