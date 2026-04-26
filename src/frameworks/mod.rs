@@ -108,11 +108,14 @@ impl<'a> CallSite<'a> {
             if child.kind() == "interpreted_string_literal" || child.kind() == "raw_string_literal"
             {
                 let text = child.utf8_text(self.source.as_bytes()).ok()?;
+                // Strip exactly one leading and one trailing quote (or backtick for
+                // raw strings). `trim_*_matches` strips all occurrences and would
+                // over-strip a value like `"\"foo\""`.
                 let trimmed = text
-                    .trim_start_matches('"')
-                    .trim_end_matches('"')
-                    .trim_start_matches('`')
-                    .trim_end_matches('`');
+                    .strip_prefix('"')
+                    .and_then(|s| s.strip_suffix('"'))
+                    .or_else(|| text.strip_prefix('`').and_then(|s| s.strip_suffix('`')))
+                    .unwrap_or(text);
                 return Some(trimmed);
             }
             // Argument exists at this index but is not a string literal.

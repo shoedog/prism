@@ -394,21 +394,18 @@ func main() {
 
 #[test]
 fn test_taint_cwe22_servefile_outside_nethttp_no_finding() {
-    // No net/http import + no *http.Request signature -> framework detection
-    // returns None -> the framework-gated http.ServeFile sink is not consulted.
-    // (The bare http.ServeFile call without a real net/http import is contrived
-    // but exercises the framework gate cleanly.)
+    // http.ServeFile call without `import "net/http"` -> framework() returns None
+    // -> the framework-gated http.ServeFile sink is NOT consulted. Cross-cutting
+    // GO_CWE22_SINKS does not include http.ServeFile (it is framework-gated only),
+    // so no sink fires even with taint flow on line 4. This pins the framework gate.
     let source = r#"package main
 
-func handler(w interface{}, r interface{}, name string) {
-	// no net/http import means framework() returns None and the
-	// framework-gated SINKS list is never consulted.
-	_ = w
-	_ = r
-	_ = name
+func main() {
+	name := "user-controlled-input"
+	http.ServeFile(nil, nil, name)
 }
 "#;
-    let result = run_taint_go_single(source, "main.go", BTreeSet::from([1]));
+    let result = run_taint_go_single(source, "main.go", BTreeSet::from([4]));
     assert!(
         !has_taint_sink(&result),
         "framework-gated sink should not fire when no framework is detected"
