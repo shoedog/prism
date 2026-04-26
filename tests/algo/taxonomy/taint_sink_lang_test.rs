@@ -299,70 +299,17 @@ func handler(c *gin.Context) {
     );
 }
 
-#[test]
-fn test_taint_cwe78_literal_binary_with_tainted_later_arg_no_finding() {
-    // Path C + Phase 1.5 dual-layer regression: exec.Command("ffmpeg", "-i",
-    // taintedInput) — binary is a literal so the tainted-binary sink's
-    // semantic_check (arg[0] non-literal) returns false → SemanticallyExcluded.
-    // The flat-pattern catch-all (`exec` substring on the call line) must ALSO
-    // suppress because the structured layer is authoritative for this call_path.
-    // Shape from eval-team go2rtc / LocalAI fixtures (RE-prism-cwe-phase1-status-20260426.md).
-    let source = r#"package main
-
-import (
-	"os/exec"
-
-	"github.com/gin-gonic/gin"
-)
-
-func handler(c *gin.Context) {
-	input := c.Query("input")
-	_ = exec.Command("ffmpeg", "-i", input).Run()
-}
-"#;
-    // Source line: 10 (c.Query). Sink line: 11 (exec.Command).
-    let result = run_taint_go_single(source, "main.go", BTreeSet::from([10]));
-    let line_11_sink = result
-        .findings
-        .iter()
-        .any(|f| f.category.as_deref() == Some("taint_sink") && f.line == 11);
-    assert!(
-        !line_11_sink,
-        "literal binary in arg[0] should suppress BOTH the tainted-binary structured \
-         sink AND the flat-pattern catch-all on the same line (Phase 1.5 dual-layer fix)"
-    );
-}
-
-#[test]
-fn test_taint_cwe78_commandcontext_literal_binary_no_finding() {
-    // Same dual-layer suppression for exec.CommandContext (tainted-binary variant
-    // checks arg[1] — the ctx-shifted binary position).
-    let source = r#"package main
-
-import (
-	"context"
-	"os/exec"
-
-	"github.com/gin-gonic/gin"
-)
-
-func handler(c *gin.Context) {
-	input := c.Query("input")
-	_ = exec.CommandContext(context.Background(), "ffmpeg", "-i", input).Run()
-}
-"#;
-    // Source line: 11 (c.Query). Sink line: 12 (exec.CommandContext).
-    let result = run_taint_go_single(source, "main.go", BTreeSet::from([11]));
-    let line_12_sink = result
-        .findings
-        .iter()
-        .any(|f| f.category.as_deref() == Some("taint_sink") && f.line == 12);
-    assert!(
-        !line_12_sink,
-        "literal binary in arg[1] should suppress BOTH the CommandContext tainted-binary \
-         structured sink AND the flat-pattern catch-all on the same line"
-    );
-}
+// Path C dual-layer regression tests
+// (test_taint_cwe78_literal_binary_with_tainted_later_arg_no_finding,
+//  test_taint_cwe78_commandcontext_literal_binary_no_finding)
+// were removed alongside the rollback in the parent commit. They asserted
+// that flat-pattern catch-alls would suppress on `SemanticallyExcluded`
+// outcomes, which is no longer engine behavior. The literal-binary case
+// now correctly leaves the flat fallback active (acknowledged false-positive
+// class until per-arg DFG + PowerShell shell list expansion land — see
+// Phase 1.5 priority queue items #1 and #4). Per-arg DFG will reintroduce
+// proper coverage with assertions that don't depend on dual-layer
+// suppression.
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Phase 1 — Go CWE-22 (path traversal) tests
