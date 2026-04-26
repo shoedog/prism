@@ -237,23 +237,28 @@ const SINK_PATTERNS: &[&str] = &[
 // Both registries are consulted independently in the analysis pass.
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// Helper: check that args[0] = "sh"|"bash"|... and args[1] = "-c"|"/c".
-/// Used by the shell-wrapper variant of CWE-78 sink patterns
-/// (`exec.Command("sh", "-c", X)` etc.).
-fn check_shell_wrapper(call: &CallSite) -> bool {
-    let arg0 = call.literal_arg(0).unwrap_or("");
-    let arg1 = call.literal_arg(1).unwrap_or("");
-    matches!(arg0, "sh" | "bash" | "cmd.exe" | "/bin/sh" | "/bin/bash")
-        && matches!(arg1, "-c" | "/c")
+/// Returns true if `call`'s arguments at `name_idx` and `flag_idx` form a shell-wrapper
+/// invocation (e.g. `("sh", "-c", ...)`).
+///
+/// Common Linux/Windows shells only; PowerShell (`pwsh`/`powershell.exe`) and exotic
+/// absolute paths (`/usr/bin/sh`) deliberately NOT included per spec §3.2 scope note.
+fn is_shell_wrapper_at(call: &CallSite, name_idx: usize, flag_idx: usize) -> bool {
+    let name = call.literal_arg(name_idx).unwrap_or("");
+    let flag = call.literal_arg(flag_idx).unwrap_or("");
+    matches!(name, "sh" | "bash" | "cmd.exe" | "/bin/sh" | "/bin/bash")
+        && matches!(flag, "-c" | "/c")
 }
 
-/// Helper: same as `check_shell_wrapper` but for `exec.CommandContext` where args
-/// are shifted by 1 (`ctx, name, "-c", X`).
+/// Adapter for `exec.Command("sh", "-c", X)`-shaped sinks
+/// (function-pointer compatible — `semantic_check` is `Option<fn(...)>`, not a closure).
+fn check_shell_wrapper(call: &CallSite) -> bool {
+    is_shell_wrapper_at(call, 0, 1)
+}
+
+/// Adapter for `exec.CommandContext(ctx, "sh", "-c", X)`-shaped sinks
+/// where the context arg shifts everything by one.
 fn check_shell_wrapper_ctx(call: &CallSite) -> bool {
-    let arg1 = call.literal_arg(1).unwrap_or("");
-    let arg2 = call.literal_arg(2).unwrap_or("");
-    matches!(arg1, "sh" | "bash" | "cmd.exe" | "/bin/sh" | "/bin/bash")
-        && matches!(arg2, "-c" | "/c")
+    is_shell_wrapper_at(call, 1, 2)
 }
 
 /// Cross-cutting Go CWE-78 (OS command injection) sinks. See spec §3.2.
@@ -727,7 +732,17 @@ fn collect_go_calls<'a>(node: Node<'a>, out: &mut Vec<Node<'a>>) {
     }
 }
 
-/// Detect framework-aware taint sources across all parsed Go files.
+/// Detect taint sources from per-file framework specs (e.g., `c.Query` for gin,
+/// `r.URL.Query` for net/http).
+///
+/// **Phase 1 scope:** only Go files contribute (see early `continue` for non-Go
+/// languages). Future phases extend this by registering Python (Flask/Django/FastAPI),
+/// JS (Express), or Java framework specs in `src/frameworks/` — no engine change
+/// needed; this loop will pick them up via the framework registry.
+///
+/// Unlike `detect_ipc_sources`, framework sources are file-wide (not diff-restricted):
+/// handler-shaped functions are stable taint origins regardless of whether the diff
+/// touched them.
 ///
 /// Returns `(file, line)` pairs for every call expression that matches a
 /// framework `SourcePattern` (after prefix substitution) and lives inside a

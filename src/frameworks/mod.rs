@@ -55,6 +55,12 @@ pub struct SourcePattern {
 pub struct SinkPattern {
     pub call_path: &'static str,
     pub category: SanitizerCategory,
+    /// 0-indexed argument positions whose taint fires this sink.
+    ///
+    /// **Phase 1 status:** captured for forward compatibility but NOT
+    /// consulted by the current engine — taint matching is line-granularity
+    /// (see `taint.rs::line_matches_structured_sink`). Per-argument
+    /// precision is a Phase 2/3 concern.
     pub tainted_arg_indices: &'static [usize],
     pub semantic_check: Option<fn(&CallSite) -> bool>,
 }
