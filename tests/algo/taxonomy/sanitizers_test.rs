@@ -75,6 +75,44 @@ func handler(c *gin.Context) {
 }
 
 #[test]
+fn test_path_clean_same_line_unrelated_flat_sink_still_fires() {
+    // A path cleanser should suppress the flat WriteFile fallback that overlaps
+    // the cleansed structured os.WriteFile call, but it must not suppress an
+    // unrelated db.Exec sink packed onto the same line.
+    let source = r#"package main
+
+import (
+	"database/sql"
+	"os"
+	"path/filepath"
+	"strings"
+
+	"github.com/gin-gonic/gin"
+)
+
+func handler(c *gin.Context, db *sql.DB) {
+	name := c.Param("file")
+	cleaned := filepath.Clean(name)
+	if !strings.HasPrefix(cleaned, "/safe") {
+		return
+	}
+	query := c.Query("q")
+	_ = os.WriteFile(cleaned, []byte("data"), 0644); _, _ = db.Exec(query)
+}
+"#;
+    let result = run_taint_go(source, BTreeSet::from([18]));
+    assert!(
+        has_structured_sink(&result, 19),
+        "cleansed os.WriteFile must not suppress unrelated db.Exec on the same line (got: {:#?})",
+        result
+            .findings
+            .iter()
+            .filter(|f| f.category.as_deref() == Some("taint_sink"))
+            .collect::<Vec<_>>()
+    );
+}
+
+#[test]
 fn test_path_clean_without_hasprefix_fires() {
     // filepath.Clean alone (no strings.HasPrefix paired check) is not enough to
     // cleanse — the recognizer requires the paired textual co-occurrence.
