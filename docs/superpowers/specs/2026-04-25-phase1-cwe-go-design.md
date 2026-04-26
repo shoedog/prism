@@ -258,18 +258,19 @@ pub const GO_CWE78_SINKS: &[SinkPattern] = &[
         tainted_arg_indices: &[3],  // ctx, sh, -c, X
         semantic_check: Some(check_shell_wrapper_ctx),
     },
-    // Tainted-binary: exec.Command(taintedPath, ...) — first arg itself is tainted
+    // Tainted-binary: exec.Command(taintedPath, ...) — first arg itself is tainted.
+    // semantic_check requires the binary arg to be non-literal (Path C interim).
     SinkPattern {
         call_path: "exec.Command",
         category: SanitizerCategory::OsCommand,
         tainted_arg_indices: &[0],
-        semantic_check: None,
+        semantic_check: Some(check_command_taintable_binary),
     },
     SinkPattern {
         call_path: "exec.CommandContext",
         category: SanitizerCategory::OsCommand,
         tainted_arg_indices: &[1],  // ctx, taintedPath
-        semantic_check: None,
+        semantic_check: Some(check_commandcontext_taintable_binary),
     },
     // syscall.Exec(argv0, argv, envv) — argv0 or the argv slice tainted (whole-slice analysis)
     SinkPattern {
@@ -293,9 +294,22 @@ fn check_shell_wrapper_ctx(call: &CallSite) -> bool {
     matches!(arg1, "sh" | "bash" | "cmd.exe" | "/bin/sh" | "/bin/bash")
         && matches!(arg2, "-c" | "/c")
 }
+
+// Path C: tainted-binary semantic_checks require the binary-position arg to be
+// non-literal so a hardcoded binary like exec.Command("ffmpeg", "-i", taintedX)
+// does NOT fire the tainted-binary pattern.
+fn check_command_taintable_binary(call: &CallSite) -> bool {
+    call.literal_arg(0).is_none()
+}
+
+fn check_commandcontext_taintable_binary(call: &CallSite) -> bool {
+    call.literal_arg(1).is_none()
+}
 ```
 
 `CallSite::literal_arg(i)` returns `Option<&str>` if arg `i` is a string literal, `None` otherwise. Defined as a helper in `taint.rs`.
+
+**Tainted-binary `semantic_check` (Path C interim).** Phase 1's line-granularity sink-matching does not consult `tainted_arg_indices` — see the field's doc-comment. The naive tainted-binary pattern (`semantic_check: None`) would fire whenever any taint reaches the call line, including the false-positive shape `exec.Command("ffmpeg", "-i", taintedInput)` where the binary is a hardcoded literal and only later args are tainted. The `check_command_taintable_binary` / `check_commandcontext_taintable_binary` semantic_checks suppress that shape syntactically (literal in arg[0]/[1] cannot be tainted). Phase 1.5+ will honor `tainted_arg_indices` directly via per-arg DFG, at which point this check becomes redundant scaffolding and can be removed.
 
 **Slice-taint behavior for `syscall.Exec`:** Prism's existing DFG models slices conservatively — any tainted element taints the slice as a whole, and reads of `slice[i]` produce tainted values regardless of which element was assigned the taint. The `tainted_arg_indices: &[0, 1]` entry means: arg 0 (`argv0`) is checked directly; arg 1 (`argv` slice) fires the sink if the slice itself is taint-flagged in the DFG, which captures the case where any element was assigned from a tainted source. Per-element tracking (knowing exactly *which* `argv[i]` is tainted) is not modeled today and is out of scope for Phase 1.
 

@@ -73,6 +73,10 @@ path = "tests/algo/taxonomy/misc_test.rs"
 name = "algo_taxonomy_misc_lang"
 path = "tests/algo/taxonomy/misc_lang_test.rs"
 
+[[test]]
+name = "algo_taxonomy_sanitizers"
+path = "tests/algo/taxonomy/sanitizers_test.rs"
+
 # ── Algorithm tests: Theoretical ──
 
 [[test]]
@@ -394,6 +398,28 @@ path = "tests/integration/coverage_test.rs"
 [[test]]
 name = "integration_hapi_regression"
 path = "tests/integration/hapi_regression_test.rs"
+
+[[test]]
+name = "integration_cwe_phase1_suppression"
+path = "tests/integration/cwe_phase1_suppression_test.rs"
+
+# ── Framework detection tests ──
+
+[[test]]
+name = "frameworks_nethttp"
+path = "tests/frameworks/nethttp_test.rs"
+
+[[test]]
+name = "frameworks_gin"
+path = "tests/frameworks/gin_test.rs"
+
+[[test]]
+name = "frameworks_gorilla_mux"
+path = "tests/frameworks/gorilla_mux_test.rs"
+
+[[test]]
+name = "frameworks_registry"
+path = "tests/frameworks/registry_test.rs"
 
 # ── CLI tests ──
 

@@ -1782,6 +1782,7 @@ impl CodePropertyGraph {
                                 to: target.clone(),
                             })
                             .collect(),
+                        cleansed_for: std::collections::BTreeSet::new(),
                     };
                     paths.push(path);
                 }
@@ -2059,6 +2060,7 @@ impl CodePropertyGraph {
                                 to: target.clone(),
                             })
                             .collect(),
+                        cleansed_for: std::collections::BTreeSet::new(),
                     };
                     paths.push(path);
                 }

@@ -54,6 +54,8 @@ pub struct ParsedFile {
     /// Byte offset of each line start (0-indexed by line number).
     /// `line_offsets[i]` is the byte offset where line `i+1` begins (1-indexed lines).
     line_offsets: Vec<usize>,
+    /// Lazy framework detection, populated on first call to `framework()`.
+    pub framework: std::cell::OnceCell<Option<&'static crate::frameworks::FrameworkSpec>>,
 }
 
 impl ParsedFile {
@@ -83,7 +85,17 @@ impl ParsedFile {
             parse_error_count,
             parse_node_count,
             line_offsets,
+            framework: std::cell::OnceCell::new(),
         })
+    }
+
+    /// Returns the active framework for this file, detected lazily on first call.
+    /// First-match wins per `crate::frameworks::ALL_FRAMEWORKS` ordering.
+    /// `None` means no framework matched (quiet mode default).
+    pub fn framework(&self) -> Option<&'static crate::frameworks::FrameworkSpec> {
+        *self
+            .framework
+            .get_or_init(|| crate::frameworks::detect_for(self))
     }
 
     /// Fraction of AST nodes that are ERROR or MISSING (0.0–1.0).
