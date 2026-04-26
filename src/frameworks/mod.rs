@@ -17,9 +17,11 @@ pub mod nethttp;
 /// Re-exported here for convenience in framework specs.
 pub use crate::algorithms::provenance_slice::Origin;
 
-/// A category that a sink consumes or a sanitizer cleanses.
-/// Defined here in Commit 1 (used by FrameworkSpec.sinks); SanitizerCategory
-/// is the same enum, fully populated in Commit 3 with all variants.
+/// Category that a sink consumes or a sanitizer cleanses.
+///
+/// Defined here so `FrameworkSpec.sinks` and `FrameworkSpec.sanitizers` can reference
+/// it without a circular dependency on `crate::sanitizers`. The `sanitizers` module
+/// re-exports this for callers operating in that context.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum SanitizerCategory {
     Xss,
@@ -65,8 +67,12 @@ pub struct SinkPattern {
     pub semantic_check: Option<fn(&CallSite) -> bool>,
 }
 
-/// A sanitizer recognizer (defined here in Commit 1 as an empty type for forward
-/// compatibility; populated in Commit 3 via `src/sanitizers/mod.rs`).
+/// A sanitizer recognizer: a call expression whose presence (and optionally a paired
+/// textual co-occurrence) marks taint as cleansed for a category.
+///
+/// `paired_check` is resolved by textual co-occurrence in the same function body
+/// per spec §3.4 — not type-safe binding to a specific Rust function. Concrete
+/// recognizers live in `src/sanitizers/mod.rs`.
 pub struct SanitizerRecognizer {
     pub call_path: &'static str,
     pub category: SanitizerCategory,

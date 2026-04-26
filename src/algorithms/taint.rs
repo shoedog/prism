@@ -863,10 +863,7 @@ fn line_matches_structured_sink(parsed: &ParsedFile, line: usize, sink_pat: &Sin
 /// (e.g. exec.Command shell-wrapper vs. tainted-binary form), the more specific
 /// `semantic_check`-bearing pattern is listed first in the const arrays so it
 /// wins. Both share `OsCommand` category so suppression behaves identically.
-fn first_matching_go_sink<'a>(parsed: &ParsedFile, line: usize) -> Option<&'a SinkPattern>
-where
-    'static: 'a,
-{
+fn first_matching_go_sink(parsed: &ParsedFile, line: usize) -> Option<&'static SinkPattern> {
     for pat in GO_CWE78_SINKS {
         if line_matches_structured_sink(parsed, line, pat) {
             return Some(pat);
@@ -887,51 +884,35 @@ where
     None
 }
 
-/// Apply cleansers to a `FlowPath`, mutating `cleansed_for` in place per spec §3.6.
+/// Returns true if the function body containing `line` in `parsed` has at least one
+/// active sanitizer recognizer call whose category equals `category`. Walks the
+/// enclosing function for the line, applies each recognizer's `semantic_check` and
+/// textual `paired_check`, and returns on first match.
 ///
-/// For each active sanitizer recognizer:
-///   1. Find the function body containing the flow's source.
-///   2. Look for any call expression matching the recognizer's `call_path` on a
-///      line that lies between the source line and any reachable target line
-///      (i.e. somewhere along the data flow path).
-///   3. If the recognizer has a `semantic_check`, verify it on the matched call.
-///   4. If the recognizer has a `paired_check`, verify the token appears
-///      anywhere in the same function body (textual co-occurrence per §3.4 / §3.8).
-///   5. If all checks pass, insert the recognizer's category into `cleansed_for`.
+/// Used both by `apply_cleansers` (per-FlowPath, all categories) and by the
+/// source==sink fallback (single-category check when no FlowPath exists for the line).
 ///
-/// The walk is intraprocedural (cleanser must live in same function as source);
-/// cross-function cleansing is a Phase 1.5+ concern.
-fn apply_cleansers(path: &mut crate::data_flow::FlowPath, files: &BTreeMap<String, ParsedFile>) {
-    if path.edges.is_empty() {
-        return;
-    }
-    // The source location is the `from` of the first edge (FlowPaths are
-    // single-source fans built by taint_forward_cfg).
-    let src = &path.edges[0].from;
-    let parsed = match files.get(&src.file) {
-        Some(p) => p,
-        None => return,
-    };
-    if parsed.language != Language::Go {
-        return; // Phase 1: Go-only sanitizer registry.
-    }
-
-    let func_node = match parsed.enclosing_function(src.line) {
+/// The walk is intraprocedural (cleanser must live in same function as `line`);
+/// cross-function cleansing is a Phase 1.5+ concern. Phase 1 is Go-only — callers
+/// must gate by language; this helper does not re-check.
+fn function_body_cleansed_for(
+    parsed: &ParsedFile,
+    line: usize,
+    category: SanitizerCategory,
+) -> bool {
+    let func_node = match parsed.enclosing_function(line) {
         Some(n) => n,
-        None => return,
+        None => return false,
     };
     let func_text = func_node.utf8_text(parsed.source.as_bytes()).unwrap_or("");
 
-    // Collect all calls in the function body once.
     let mut calls = Vec::new();
     collect_go_calls(func_node, &mut calls);
 
     for recognizer in crate::sanitizers::active_recognizers() {
-        // Skip categories already cleansed.
-        if path.cleansed_for.contains(&recognizer.category) {
+        if recognizer.category != category {
             continue;
         }
-
         // Look for a call to the recognizer's call_path within the function.
         let mut matched = false;
         for call in &calls {
@@ -957,7 +938,6 @@ fn apply_cleansers(path: &mut crate::data_flow::FlowPath, files: &BTreeMap<Strin
         if !matched {
             continue;
         }
-
         // For paired-check recognizers, the second-half check must also appear
         // in the function body (textual co-occurrence per §3.4 / §3.8).
         if let Some(paired) = recognizer.paired_check {
@@ -965,8 +945,46 @@ fn apply_cleansers(path: &mut crate::data_flow::FlowPath, files: &BTreeMap<Strin
                 continue;
             }
         }
+        return true;
+    }
+    false
+}
 
-        path.cleansed_for.insert(recognizer.category);
+/// Apply cleansers to a `FlowPath`, mutating `cleansed_for` in place per spec §3.6.
+///
+/// For each active sanitizer recognizer category, calls
+/// `function_body_cleansed_for` on the flow's source line. If a recognizer in
+/// that category fires (with `semantic_check` and `paired_check` satisfied per
+/// §3.4 / §3.8), the category is inserted into `path.cleansed_for`.
+///
+/// The walk is intraprocedural (cleanser must live in same function as source);
+/// cross-function cleansing is a Phase 1.5+ concern.
+fn apply_cleansers(path: &mut crate::data_flow::FlowPath, files: &BTreeMap<String, ParsedFile>) {
+    if path.edges.is_empty() {
+        return;
+    }
+    // The source location is the `from` of the first edge (FlowPaths are
+    // single-source fans built by taint_forward_cfg).
+    let src = &path.edges[0].from;
+    let parsed = match files.get(&src.file) {
+        Some(p) => p,
+        None => return,
+    };
+    if parsed.language != Language::Go {
+        return; // Phase 1: Go-only sanitizer registry.
+    }
+
+    // Iterate distinct recognizer categories so each is checked at most once.
+    let categories: BTreeSet<SanitizerCategory> = crate::sanitizers::active_recognizers()
+        .map(|r| r.category)
+        .collect();
+    for category in categories {
+        if path.cleansed_for.contains(&category) {
+            continue;
+        }
+        if function_body_cleansed_for(parsed, src.line, category) {
+            path.cleansed_for.insert(category);
+        }
     }
 }
 
@@ -1137,42 +1155,7 @@ pub fn slice(
                 // function-body cleanser scan so source==sink shapes still
                 // honor in-function cleansing. (FlowPaths are constructed
                 // only when the DFG has at least one reachable target.)
-                let mut cleansed = false;
-                if let Some(func_node) = parsed.enclosing_function(*line) {
-                    let func_text = func_node.utf8_text(parsed.source.as_bytes()).unwrap_or("");
-                    let mut calls = Vec::new();
-                    collect_go_calls(func_node, &mut calls);
-                    'recog: for recognizer in crate::sanitizers::active_recognizers() {
-                        if recognizer.category != sink_pat.category {
-                            continue;
-                        }
-                        for call in &calls {
-                            let actual = match go_call_path_text(parsed, call) {
-                                Some(s) => s,
-                                None => continue,
-                            };
-                            if actual != recognizer.call_path {
-                                continue;
-                            }
-                            if let Some(check) = recognizer.semantic_check {
-                                let cs = CallSite {
-                                    call_node: *call,
-                                    source: parsed.source.as_str(),
-                                };
-                                if !check(&cs) {
-                                    continue;
-                                }
-                            }
-                            if let Some(paired) = recognizer.paired_check {
-                                if !crate::sanitizers::paired_check_satisfied(func_text, paired) {
-                                    continue;
-                                }
-                            }
-                            cleansed = true;
-                            break 'recog;
-                        }
-                    }
-                }
+                let cleansed = function_body_cleansed_for(parsed, *line, sink_pat.category);
                 if !cleansed {
                     sink_lines.insert((file.clone(), *line));
                 }

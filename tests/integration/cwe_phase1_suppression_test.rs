@@ -74,6 +74,7 @@ fn test_cwe_phase1_suppression_rate_meets_80pct() {
         sanitized_files.len()
     );
 
+    let sanitized_total = sanitized_files.len();
     let mut suppressed = 0;
     let mut leaked: Vec<String> = Vec::new();
     for f in &sanitized_files {
@@ -84,6 +85,12 @@ fn test_cwe_phase1_suppression_rate_meets_80pct() {
             leaked.push(f.file_name().unwrap().to_str().unwrap().to_string());
         }
     }
+    eprintln!(
+        "[cwe_phase1_suppression] sanitizer suppression rate: {}/{} ({}% — pinned floor: 80%)",
+        suppressed,
+        sanitized_total,
+        (suppressed * 100) / sanitized_total
+    );
     assert!(
         suppressed >= 8,
         "≥80% suppression rate required. Got {}/10. Leaks: {:?}",
@@ -106,6 +113,7 @@ fn test_cwe_phase1_suppression_rate_meets_80pct() {
         unsanitized_files.len()
     );
 
+    let unsanitized_total = unsanitized_files.len();
     let mut missed: Vec<String> = Vec::new();
     for f in &unsanitized_files {
         let result = run_taint_on_file(f);
@@ -113,6 +121,13 @@ fn test_cwe_phase1_suppression_rate_meets_80pct() {
             missed.push(f.file_name().unwrap().to_str().unwrap().to_string());
         }
     }
+    let leaked_count = unsanitized_total - missed.len();
+    eprintln!(
+        "[cwe_phase1_suppression] unsanitized leakage detection: {}/{} ({}% — pinned floor: 100%)",
+        leaked_count,
+        unsanitized_total,
+        (leaked_count * 100) / unsanitized_total
+    );
     assert!(
         missed.is_empty(),
         "all unsanitized fixtures must fire. Missed: {:?}",
