@@ -854,28 +854,120 @@ fn line_matches_structured_sink(parsed: &ParsedFile, line: usize, sink_pat: &Sin
     false
 }
 
-/// Returns true if any cross-cutting Go sink (`GO_CWE78_SINKS`, `GO_CWE22_SINKS`)
-/// or active framework's `sinks` matches a call on `line`. Used by the taint
-/// pass to flag a tainted line as a structured sink.
-fn line_matches_any_go_sink(parsed: &ParsedFile, line: usize) -> bool {
+/// Returns the first matching Go sink pattern on `line` (cross-cutting CWE-78/22
+/// or framework-gated). Used during path-aware suppression: knowing the matched
+/// pattern's `category` is required to consult `FlowPath.cleansed_for`.
+///
+/// First-match-wins ordering: GO_CWE78_SINKS, then GO_CWE22_SINKS, then the
+/// active framework's sinks. When multiple patterns could match the same call
+/// (e.g. exec.Command shell-wrapper vs. tainted-binary form), the more specific
+/// `semantic_check`-bearing pattern is listed first in the const arrays so it
+/// wins. Both share `OsCommand` category so suppression behaves identically.
+fn first_matching_go_sink<'a>(parsed: &ParsedFile, line: usize) -> Option<&'a SinkPattern>
+where
+    'static: 'a,
+{
     for pat in GO_CWE78_SINKS {
         if line_matches_structured_sink(parsed, line, pat) {
-            return true;
+            return Some(pat);
         }
     }
     for pat in GO_CWE22_SINKS {
         if line_matches_structured_sink(parsed, line, pat) {
-            return true;
+            return Some(pat);
         }
     }
     if let Some(spec) = parsed.framework() {
         for pat in spec.sinks {
             if line_matches_structured_sink(parsed, line, pat) {
-                return true;
+                return Some(pat);
             }
         }
     }
-    false
+    None
+}
+
+/// Apply cleansers to a `FlowPath`, mutating `cleansed_for` in place per spec §3.6.
+///
+/// For each active sanitizer recognizer:
+///   1. Find the function body containing the flow's source.
+///   2. Look for any call expression matching the recognizer's `call_path` on a
+///      line that lies between the source line and any reachable target line
+///      (i.e. somewhere along the data flow path).
+///   3. If the recognizer has a `semantic_check`, verify it on the matched call.
+///   4. If the recognizer has a `paired_check`, verify the token appears
+///      anywhere in the same function body (textual co-occurrence per §3.4 / §3.8).
+///   5. If all checks pass, insert the recognizer's category into `cleansed_for`.
+///
+/// The walk is intraprocedural (cleanser must live in same function as source);
+/// cross-function cleansing is a Phase 1.5+ concern.
+fn apply_cleansers(path: &mut crate::data_flow::FlowPath, files: &BTreeMap<String, ParsedFile>) {
+    if path.edges.is_empty() {
+        return;
+    }
+    // The source location is the `from` of the first edge (FlowPaths are
+    // single-source fans built by taint_forward_cfg).
+    let src = &path.edges[0].from;
+    let parsed = match files.get(&src.file) {
+        Some(p) => p,
+        None => return,
+    };
+    if parsed.language != Language::Go {
+        return; // Phase 1: Go-only sanitizer registry.
+    }
+
+    let func_node = match parsed.enclosing_function(src.line) {
+        Some(n) => n,
+        None => return,
+    };
+    let func_text = func_node.utf8_text(parsed.source.as_bytes()).unwrap_or("");
+
+    // Collect all calls in the function body once.
+    let mut calls = Vec::new();
+    collect_go_calls(func_node, &mut calls);
+
+    for recognizer in crate::sanitizers::active_recognizers() {
+        // Skip categories already cleansed.
+        if path.cleansed_for.contains(&recognizer.category) {
+            continue;
+        }
+
+        // Look for a call to the recognizer's call_path within the function.
+        let mut matched = false;
+        for call in &calls {
+            let actual = match go_call_path_text(parsed, call) {
+                Some(s) => s,
+                None => continue,
+            };
+            if actual != recognizer.call_path {
+                continue;
+            }
+            if let Some(check) = recognizer.semantic_check {
+                let cs = CallSite {
+                    call_node: *call,
+                    source: parsed.source.as_str(),
+                };
+                if !check(&cs) {
+                    continue;
+                }
+            }
+            matched = true;
+            break;
+        }
+        if !matched {
+            continue;
+        }
+
+        // For paired-check recognizers, the second-half check must also appear
+        // in the function body (textual co-occurrence per §3.4 / §3.8).
+        if let Some(paired) = recognizer.paired_check {
+            if !crate::sanitizers::paired_check_satisfied(func_text, paired) {
+                continue;
+            }
+        }
+
+        path.cleansed_for.insert(recognizer.category);
+    }
 }
 
 pub fn slice(
@@ -917,9 +1009,26 @@ pub fn slice(
             taint_sources.push(fw_src.clone());
         }
     }
+    // Lines whose identifiers are recognized framework SOURCE calls (e.g.
+    // `r.URL.Query()`, `c.Query()`, `mux.Vars()`). These overlap textually with
+    // the cross-language flat sink registry — `Query` is in SINK_PATTERNS as a
+    // generic `sql.Query` substring matcher — so without this set, a tainted
+    // source line would double-fire as a sink. Used during sink evaluation to
+    // suppress flat substring matches on lines positively identified as sources.
+    let framework_source_set: BTreeSet<(String, usize)> =
+        framework_sources.iter().cloned().collect();
 
     // Forward propagation from each source (CFG-constrained when available)
-    let paths = ctx.cpg.taint_forward_cfg(&taint_sources);
+    let mut paths = ctx.cpg.taint_forward_cfg(&taint_sources);
+
+    // Sanitizer propagation hook (spec §3.6): for each path, walk the function
+    // body containing its source and mark `cleansed_for` for any cleanser whose
+    // call_path occurs there (with paired_check satisfied if required). This
+    // happens after path construction but before sink evaluation so the
+    // suppression check below can consult the cleansed-for set.
+    for path in &mut paths {
+        apply_cleansers(path, ctx.files);
+    }
 
     // Detect variadic wrapper functions and add them as dynamic sinks
     let wrapper_sinks = detect_format_string_wrappers(ctx.files);
@@ -948,19 +1057,45 @@ pub fn slice(
 
             // Check if the target location involves a sink
             if let Some(parsed) = ctx.files.get(&edge.to.file) {
-                let ids = parsed.identifiers_on_line(edge.to.line);
-                for id in &ids {
-                    let text = parsed.node_text(id);
-                    if all_sinks.iter().any(|s| matches_sink(text, s)) {
+                // Path-aware suppression (spec §3.7): if this line matches a
+                // structured Go sink whose category the path has been cleansed
+                // for, suppress ALL sink matches on this line — including flat
+                // substring sinks that overlap (`WriteFile`, `Remove`, `Query`,
+                // etc., which the cross-language SINK_PATTERNS list contains as
+                // generic catch-alls). The path-level cleansing is the
+                // ground-truth; flat catch-alls would otherwise re-fire.
+                let go_sink_pat = if parsed.language == Language::Go {
+                    first_matching_go_sink(parsed, edge.to.line)
+                } else {
+                    None
+                };
+                let suppressed_by_cleanser = go_sink_pat
+                    .map(|p| path.cleansed_for.contains(&p.category))
+                    .unwrap_or(false);
+
+                if !suppressed_by_cleanser {
+                    // Suppress flat substring matches on lines that are
+                    // recognized framework SOURCE calls — e.g., `Query` would
+                    // otherwise fire as a flat sink on `r.URL.Query()` even
+                    // though that's the source, not a sink. Structured Go
+                    // sinks (which we know are sinks, not sources) are not
+                    // affected by this filter.
+                    let is_framework_source_line =
+                        framework_source_set.contains(&(edge.to.file.clone(), edge.to.line));
+                    if !is_framework_source_line {
+                        let ids = parsed.identifiers_on_line(edge.to.line);
+                        for id in &ids {
+                            let text = parsed.node_text(id);
+                            if all_sinks.iter().any(|s| matches_sink(text, s)) {
+                                sink_lines.insert((edge.to.file.clone(), edge.to.line));
+                            }
+                        }
+                    }
+
+                    // Phase 1 structured Go sinks (cross-cutting + framework-gated).
+                    if go_sink_pat.is_some() {
                         sink_lines.insert((edge.to.file.clone(), edge.to.line));
                     }
-                }
-
-                // Phase 1 structured Go sinks (cross-cutting + framework-gated).
-                // A tainted line whose call matches one of these patterns fires a sink.
-                if parsed.language == Language::Go && line_matches_any_go_sink(parsed, edge.to.line)
-                {
-                    sink_lines.insert((edge.to.file.clone(), edge.to.line));
                 }
             }
         }
@@ -969,11 +1104,83 @@ pub fn slice(
     // Source lines themselves are taint-bearing — a structured sink on the
     // exact source line still fires. (E.g., `c.File(c.Param("f"))` — the
     // c.Param source and the c.File sink share a line.)
+    //
+    // Path-aware suppression: if every path originating at this source line is
+    // cleansed for the matched sink's category, suppress. This handles the
+    // `cleaned := filepath.Clean(name); ... os.ReadFile(cleaned)` shape where
+    // the source and sink may be on the same or different lines but the source
+    // is c.Param/etc. The check uses the same first-matching-pattern approach.
     for (file, line) in &taint_sources {
         if let Some(parsed) = ctx.files.get(file) {
-            if parsed.language == Language::Go && line_matches_any_go_sink(parsed, *line) {
+            if parsed.language != Language::Go {
+                continue;
+            }
+            let sink_pat = match first_matching_go_sink(parsed, *line) {
+                Some(p) => p,
+                None => continue,
+            };
+            // Find every path whose source is this (file, line). If any is NOT
+            // cleansed for the sink's category, the sink fires; if all are
+            // cleansed, suppress.
+            let path_states: Vec<bool> = paths
+                .iter()
+                .filter(|p| {
+                    p.edges
+                        .first()
+                        .map(|e| e.from.file == *file && e.from.line == *line)
+                        .unwrap_or(false)
+                })
+                .map(|p| p.cleansed_for.contains(&sink_pat.category))
+                .collect();
+            if path_states.is_empty() {
+                // No FlowPath originates at this source — fall back to a
+                // function-body cleanser scan so source==sink shapes still
+                // honor in-function cleansing. (FlowPaths are constructed
+                // only when the DFG has at least one reachable target.)
+                let mut cleansed = false;
+                if let Some(func_node) = parsed.enclosing_function(*line) {
+                    let func_text = func_node.utf8_text(parsed.source.as_bytes()).unwrap_or("");
+                    let mut calls = Vec::new();
+                    collect_go_calls(func_node, &mut calls);
+                    'recog: for recognizer in crate::sanitizers::active_recognizers() {
+                        if recognizer.category != sink_pat.category {
+                            continue;
+                        }
+                        for call in &calls {
+                            let actual = match go_call_path_text(parsed, call) {
+                                Some(s) => s,
+                                None => continue,
+                            };
+                            if actual != recognizer.call_path {
+                                continue;
+                            }
+                            if let Some(check) = recognizer.semantic_check {
+                                let cs = CallSite {
+                                    call_node: *call,
+                                    source: parsed.source.as_str(),
+                                };
+                                if !check(&cs) {
+                                    continue;
+                                }
+                            }
+                            if let Some(paired) = recognizer.paired_check {
+                                if !crate::sanitizers::paired_check_satisfied(func_text, paired) {
+                                    continue;
+                                }
+                            }
+                            cleansed = true;
+                            break 'recog;
+                        }
+                    }
+                }
+                if !cleansed {
+                    sink_lines.insert((file.clone(), *line));
+                }
+            } else if path_states.iter().any(|c| !c) {
                 sink_lines.insert((file.clone(), *line));
             }
+            // else: every FlowPath originating here is cleansed for this
+            // sink's category — suppress per spec §3.7.
         }
     }
 

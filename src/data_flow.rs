@@ -50,6 +50,11 @@ pub struct FlowEdge {
 #[derive(Debug, Clone)]
 pub struct FlowPath {
     pub edges: Vec<FlowEdge>,
+    /// Sanitizer categories this flow has been cleansed for. A sink whose
+    /// category is in this set causes the finding to be suppressed at
+    /// evaluation time. Per spec §3.5 — path-sensitive: different flows
+    /// reaching the same use-site may disagree on cleansing status.
+    pub cleansed_for: BTreeSet<crate::frameworks::SanitizerCategory>,
 }
 
 /// The data flow graph for a set of parsed files.
@@ -602,6 +607,7 @@ impl DataFlowGraph {
                                 to: target.clone(),
                             })
                             .collect(),
+                        cleansed_for: BTreeSet::new(),
                     };
                     paths.push(path);
                 }

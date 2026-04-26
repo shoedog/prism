@@ -44,6 +44,7 @@ pub mod live_types;
 pub mod output;
 pub mod queries;
 pub mod react_hooks;
+pub mod sanitizers;
 pub mod slice;
 pub mod terraform;
 pub mod type_db;
