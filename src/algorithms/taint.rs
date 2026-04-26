@@ -839,7 +839,32 @@ fn detect_framework_sources(ctx: &CpgContext) -> Vec<(String, usize)> {
 // (3) is checked by the existing taint pass — this helper handles (1) and (2).
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// Returns true if any call expression on `line` matches `sink_pat`.
+/// Outcome of consulting the structured Go sink registry for a given call line.
+///
+/// Distinguishes three states that the previous `Option<&SinkPattern>` shape
+/// conflated as `None`:
+///
+/// - `Match` — a pattern's `call_path` matched AND its `semantic_check` (if any)
+///   accepted. The structured layer fires for this line; the flat-pattern catch-all
+///   should also be allowed to add findings (subject to path-aware cleanser
+///   suppression on the matched pattern's category).
+/// - `SemanticallyExcluded` — at least one pattern's `call_path` matched but every
+///   matching pattern's `semantic_check` rejected. The structured layer is the
+///   authoritative judge for this `call_path`: it has decided the call is NOT a
+///   sink. The flat-pattern catch-all should suppress for this line so that
+///   substring matches on identifiers like `exec` / `Command` / `Sprintf` don't
+///   re-fire what the structured layer just excluded. Phase 1.5 fix per
+///   eval-team `RE-prism-cwe-phase1-status-20260426.md`.
+/// - `NoMatch` — no pattern's `call_path` matched. The structured layer has no
+///   opinion; flat-pattern catch-all proceeds normally.
+#[derive(Clone, Copy)]
+enum SinkMatchOutcome {
+    Match(&'static SinkPattern),
+    SemanticallyExcluded,
+    NoMatch,
+}
+
+/// Returns the structured-sink outcome for `sink_pat` on `line` of `parsed`.
 /// Caller is responsible for confirming taint flow reaches this line.
 ///
 /// Note: `tainted_arg_indices` is *not* checked here. The current taint engine
@@ -849,12 +874,17 @@ fn detect_framework_sources(ctx: &CpgContext) -> Vec<(String, usize)> {
 /// such cases are vanishingly rare in normal Go style and tightening this
 /// requires per-argument taint precision (out of scope for Phase 1, see spec
 /// §3.2 slice-taint behavior note).
-fn line_matches_structured_sink(parsed: &ParsedFile, line: usize, sink_pat: &SinkPattern) -> bool {
+fn line_matches_structured_sink(
+    parsed: &ParsedFile,
+    line: usize,
+    sink_pat: &'static SinkPattern,
+) -> SinkMatchOutcome {
     if parsed.language != Language::Go {
-        return false;
+        return SinkMatchOutcome::NoMatch;
     }
     let mut calls = Vec::new();
     collect_go_calls(parsed.tree.root_node(), &mut calls);
+    let mut had_call_path_match = false;
     for call in &calls {
         let call_line = call.start_position().row + 1;
         if call_line != line {
@@ -867,6 +897,7 @@ fn line_matches_structured_sink(parsed: &ParsedFile, line: usize, sink_pat: &Sin
         if actual != sink_pat.call_path {
             continue;
         }
+        had_call_path_match = true;
         if let Some(check) = sink_pat.semantic_check {
             let cs = CallSite {
                 call_node: *call,
@@ -876,39 +907,60 @@ fn line_matches_structured_sink(parsed: &ParsedFile, line: usize, sink_pat: &Sin
                 continue;
             }
         }
-        return true;
+        return SinkMatchOutcome::Match(sink_pat);
     }
-    false
+    if had_call_path_match {
+        SinkMatchOutcome::SemanticallyExcluded
+    } else {
+        SinkMatchOutcome::NoMatch
+    }
 }
 
-/// Returns the first matching Go sink pattern on `line` (cross-cutting CWE-78/22
-/// or framework-gated). Used during path-aware suppression: knowing the matched
-/// pattern's `category` is required to consult `FlowPath.cleansed_for`.
+/// Returns the structured-sink outcome for `line` across the full Go sink registry
+/// (cross-cutting CWE-78/22 + framework-gated). Used during path-aware suppression.
 ///
-/// First-match-wins ordering: GO_CWE78_SINKS, then GO_CWE22_SINKS, then the
-/// active framework's sinks. When multiple patterns could match the same call
-/// (e.g. exec.Command shell-wrapper vs. tainted-binary form), the more specific
-/// `semantic_check`-bearing pattern is listed first in the const arrays so it
-/// wins. Both share `OsCommand` category so suppression behaves identically.
-fn first_matching_go_sink(parsed: &ParsedFile, line: usize) -> Option<&'static SinkPattern> {
+/// Aggregation rules:
+/// - If any pattern returns `Match`, the first such pattern wins (priority order:
+///   GO_CWE78_SINKS, GO_CWE22_SINKS, framework SINKS). The matched pattern's
+///   category drives `FlowPath.cleansed_for` consultation.
+/// - Else if any pattern returned `SemanticallyExcluded`, aggregate is
+///   `SemanticallyExcluded`. The flat-pattern catch-all should suppress.
+/// - Else `NoMatch`. Flat-pattern catch-all proceeds normally.
+///
+/// Note: when multiple patterns share a `call_path` (exec.Command shell-wrapper +
+/// tainted-binary), the shell-wrapper variant is listed first; if it `Match`-es
+/// it wins, otherwise the tainted-binary variant is checked next. If both
+/// `SemanticallyExclude`, the aggregate is `SemanticallyExcluded`.
+fn go_sink_outcome(parsed: &ParsedFile, line: usize) -> SinkMatchOutcome {
+    let mut any_call_path_match = false;
     for pat in GO_CWE78_SINKS {
-        if line_matches_structured_sink(parsed, line, pat) {
-            return Some(pat);
+        match line_matches_structured_sink(parsed, line, pat) {
+            SinkMatchOutcome::Match(p) => return SinkMatchOutcome::Match(p),
+            SinkMatchOutcome::SemanticallyExcluded => any_call_path_match = true,
+            SinkMatchOutcome::NoMatch => {}
         }
     }
     for pat in GO_CWE22_SINKS {
-        if line_matches_structured_sink(parsed, line, pat) {
-            return Some(pat);
+        match line_matches_structured_sink(parsed, line, pat) {
+            SinkMatchOutcome::Match(p) => return SinkMatchOutcome::Match(p),
+            SinkMatchOutcome::SemanticallyExcluded => any_call_path_match = true,
+            SinkMatchOutcome::NoMatch => {}
         }
     }
     if let Some(spec) = parsed.framework() {
         for pat in spec.sinks {
-            if line_matches_structured_sink(parsed, line, pat) {
-                return Some(pat);
+            match line_matches_structured_sink(parsed, line, pat) {
+                SinkMatchOutcome::Match(p) => return SinkMatchOutcome::Match(p),
+                SinkMatchOutcome::SemanticallyExcluded => any_call_path_match = true,
+                SinkMatchOutcome::NoMatch => {}
             }
         }
     }
-    None
+    if any_call_path_match {
+        SinkMatchOutcome::SemanticallyExcluded
+    } else {
+        SinkMatchOutcome::NoMatch
+    }
 }
 
 /// Returns true if the function body containing `line` in `parsed` has at least one
@@ -1102,23 +1154,35 @@ pub fn slice(
 
             // Check if the target location involves a sink
             if let Some(parsed) = ctx.files.get(&edge.to.file) {
-                // Path-aware suppression (spec §3.7): if this line matches a
-                // structured Go sink whose category the path has been cleansed
-                // for, suppress ALL sink matches on this line — including flat
-                // substring sinks that overlap (`WriteFile`, `Remove`, `Query`,
-                // etc., which the cross-language SINK_PATTERNS list contains as
-                // generic catch-alls). The path-level cleansing is the
-                // ground-truth; flat catch-alls would otherwise re-fire.
-                let go_sink_pat = if parsed.language == Language::Go {
-                    first_matching_go_sink(parsed, edge.to.line)
+                // Consult the structured Go sink registry. Three outcomes:
+                // - `Match(p)`: structured sink fires (modulo cleanser
+                //   suppression by category).
+                // - `SemanticallyExcluded`: a structured pattern's call_path
+                //   matched but its semantic_check rejected (e.g., Path C's
+                //   literal-binary check on `exec.Command("ffmpeg", …)`). The
+                //   structured layer is authoritative for this call_path —
+                //   flat-pattern catch-alls (`exec`, `Command`, `Sprintf`)
+                //   must NOT re-fire what the structured layer just excluded.
+                //   Phase 1.5 fix per eval-team RE-prism-cwe-phase1-status-20260426.md.
+                // - `NoMatch`: no structured opinion; flat-pattern catch-all
+                //   runs normally.
+                //
+                // Path-aware cleanser suppression (spec §3.7): if `Match(p)` and
+                // the path is cleansed for `p.category`, suppress ALL sink
+                // matches on this line — flat catch-alls included.
+                let outcome = if parsed.language == Language::Go {
+                    go_sink_outcome(parsed, edge.to.line)
                 } else {
-                    None
+                    SinkMatchOutcome::NoMatch
                 };
-                let suppressed_by_cleanser = go_sink_pat
-                    .map(|p| path.cleansed_for.contains(&p.category))
-                    .unwrap_or(false);
+                let suppressed_by_cleanser = matches!(
+                    outcome,
+                    SinkMatchOutcome::Match(p) if path.cleansed_for.contains(&p.category)
+                );
+                let suppressed_by_structured_exclusion =
+                    matches!(outcome, SinkMatchOutcome::SemanticallyExcluded);
 
-                if !suppressed_by_cleanser {
+                if !suppressed_by_cleanser && !suppressed_by_structured_exclusion {
                     // Suppress flat substring matches on lines that are
                     // recognized framework SOURCE calls — e.g., `Query` would
                     // otherwise fire as a flat sink on `r.URL.Query()` even
@@ -1138,7 +1202,7 @@ pub fn slice(
                     }
 
                     // Phase 1 structured Go sinks (cross-cutting + framework-gated).
-                    if go_sink_pat.is_some() {
+                    if matches!(outcome, SinkMatchOutcome::Match(_)) {
                         sink_lines.insert((edge.to.file.clone(), edge.to.line));
                     }
                 }
@@ -1160,9 +1224,11 @@ pub fn slice(
             if parsed.language != Language::Go {
                 continue;
             }
-            let sink_pat = match first_matching_go_sink(parsed, *line) {
-                Some(p) => p,
-                None => continue,
+            // Source-line sink check uses Match only — SemanticallyExcluded means
+            // the structured layer rejected this call_path, so no fire here either.
+            let sink_pat = match go_sink_outcome(parsed, *line) {
+                SinkMatchOutcome::Match(p) => p,
+                SinkMatchOutcome::SemanticallyExcluded | SinkMatchOutcome::NoMatch => continue,
             };
             // Find every path whose source is this (file, line). If any is NOT
             // cleansed for the sink's category, the sink fires; if all are
