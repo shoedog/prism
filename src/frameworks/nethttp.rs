@@ -67,8 +67,16 @@ const SOURCES: &[SourcePattern] = &[
     },
 ];
 
-// Empty in Commit 1; populated in Commit 2 with `http.ServeFile` etc.
-const SINKS: &[SinkPattern] = &[];
+/// Framework-gated CWE-22 sinks (spec §3.3 / §2.7). Cross-cutting Go path
+/// sinks (`os.Open`, etc.) live in `taint.rs::GO_CWE22_SINKS`; this list is
+/// for sinks that are only meaningful in a net/http context.
+const SINKS: &[SinkPattern] = &[SinkPattern {
+    call_path: "http.ServeFile",
+    category: super::SanitizerCategory::PathTraversal,
+    // ServeFile(w http.ResponseWriter, r *http.Request, name string)
+    tainted_arg_indices: &[2],
+    semantic_check: None,
+}];
 
 // Empty for Phase 1; reserved for Phase 2/3.
 const SANITIZERS: &[SanitizerRecognizer] = &[];

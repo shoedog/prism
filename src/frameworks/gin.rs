@@ -49,7 +49,14 @@ const SOURCES: &[SourcePattern] = &[
     },
 ];
 
-// Empty in Commit 1; populated in Commit 2 with `c.File` etc.
-const SINKS: &[SinkPattern] = &[];
+/// Framework-gated CWE-22 sinks (spec §3.3 / §2.7). Cross-cutting Go path
+/// sinks (`os.Open`, etc.) live in `taint.rs::GO_CWE22_SINKS`; this list is
+/// for sinks that are only meaningful in a gin context.
+const SINKS: &[SinkPattern] = &[SinkPattern {
+    call_path: "c.File",
+    category: super::SanitizerCategory::PathTraversal,
+    tainted_arg_indices: &[0],
+    semantic_check: None,
+}];
 
 const SANITIZERS: &[SanitizerRecognizer] = &[];

@@ -7,10 +7,12 @@
 use crate::ast::ParsedFile;
 use crate::cpg::CpgContext;
 use crate::diff::{DiffBlock, DiffInput, ModifyType};
+use crate::frameworks::{CallSite, SanitizerCategory, SinkPattern};
 use crate::languages::Language;
 use crate::slice::{SliceFinding, SliceResult, SlicingAlgorithm};
 use anyhow::Result;
 use std::collections::{BTreeMap, BTreeSet};
+use tree_sitter::Node;
 
 /// Built-in taint sink patterns matched against AST identifier nodes.
 ///
@@ -222,6 +224,166 @@ const SINK_PATTERNS: &[&str] = &[
     // Kernel copy-out — information leak to userspace
     "copy_to_user", // Linux kernel: copies potentially sensitive data to user-space
     "put_user",     // Linux kernel: writes single value to user-space
+];
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Phase 1 Go CWE-78 / CWE-22 structured sinks (spec §3.2 / §3.3).
+//
+// These coexist with `SINK_PATTERNS` above: the flat list uses substring
+// identifier matching for cross-language coverage; the structured list below
+// uses qualified call-path matching with optional `semantic_check` predicates
+// for argument-shape discrimination (e.g., shell-wrapper detection).
+//
+// Both registries are consulted independently in the analysis pass.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Helper: check that args[0] = "sh"|"bash"|... and args[1] = "-c"|"/c".
+/// Used by the shell-wrapper variant of CWE-78 sink patterns
+/// (`exec.Command("sh", "-c", X)` etc.).
+fn check_shell_wrapper(call: &CallSite) -> bool {
+    let arg0 = call.literal_arg(0).unwrap_or("");
+    let arg1 = call.literal_arg(1).unwrap_or("");
+    matches!(arg0, "sh" | "bash" | "cmd.exe" | "/bin/sh" | "/bin/bash")
+        && matches!(arg1, "-c" | "/c")
+}
+
+/// Helper: same as `check_shell_wrapper` but for `exec.CommandContext` where args
+/// are shifted by 1 (`ctx, name, "-c", X`).
+fn check_shell_wrapper_ctx(call: &CallSite) -> bool {
+    let arg1 = call.literal_arg(1).unwrap_or("");
+    let arg2 = call.literal_arg(2).unwrap_or("");
+    matches!(arg1, "sh" | "bash" | "cmd.exe" | "/bin/sh" | "/bin/bash")
+        && matches!(arg2, "-c" | "/c")
+}
+
+/// Cross-cutting Go CWE-78 (OS command injection) sinks. See spec §3.2.
+///
+/// Both `exec.Command` and `exec.CommandContext` appear twice:
+/// - Once for the shell-wrapper form (`semantic_check` filters to shell calls);
+///   tainted-arg index points at the `X` payload after `"-c"`.
+/// - Once for the tainted-binary form (no `semantic_check`); tainted-arg index
+///   is the binary-path argument itself.
+///
+/// `syscall.Exec(argv0, argv, envv)` checks both `argv0` (literal-or-tainted)
+/// and the `argv` slice (DFG-conservative: any tainted slice element taints
+/// the slice as a whole). Per-element tracking is out of scope for Phase 1.
+pub const GO_CWE78_SINKS: &[SinkPattern] = &[
+    // Shell-wrapped variants — payload is the arg after "-c".
+    SinkPattern {
+        call_path: "exec.Command",
+        category: SanitizerCategory::OsCommand,
+        tainted_arg_indices: &[2],
+        semantic_check: Some(check_shell_wrapper),
+    },
+    SinkPattern {
+        call_path: "exec.CommandContext",
+        category: SanitizerCategory::OsCommand,
+        tainted_arg_indices: &[3],
+        semantic_check: Some(check_shell_wrapper_ctx),
+    },
+    // Tainted-binary variants — first non-ctx arg is the binary path.
+    SinkPattern {
+        call_path: "exec.Command",
+        category: SanitizerCategory::OsCommand,
+        tainted_arg_indices: &[0],
+        semantic_check: None,
+    },
+    SinkPattern {
+        call_path: "exec.CommandContext",
+        category: SanitizerCategory::OsCommand,
+        tainted_arg_indices: &[1],
+        semantic_check: None,
+    },
+    // syscall.Exec — argv0 + argv slice.
+    SinkPattern {
+        call_path: "syscall.Exec",
+        category: SanitizerCategory::OsCommand,
+        tainted_arg_indices: &[0, 1],
+        semantic_check: None,
+    },
+];
+
+/// Cross-cutting Go CWE-22 (path traversal) sinks. See spec §3.3.
+///
+/// `os.Rename(old, new)` checks both arguments; everything else is single-arg.
+/// `filepath.Join` is *not* a sink — it's a path-construction primitive that
+/// taint flows through; the downstream `os.*` call is what fires.
+pub const GO_CWE22_SINKS: &[SinkPattern] = &[
+    // Read sinks
+    SinkPattern {
+        call_path: "os.Open",
+        category: SanitizerCategory::PathTraversal,
+        tainted_arg_indices: &[0],
+        semantic_check: None,
+    },
+    SinkPattern {
+        call_path: "os.OpenFile",
+        category: SanitizerCategory::PathTraversal,
+        tainted_arg_indices: &[0],
+        semantic_check: None,
+    },
+    SinkPattern {
+        call_path: "os.ReadFile",
+        category: SanitizerCategory::PathTraversal,
+        tainted_arg_indices: &[0],
+        semantic_check: None,
+    },
+    SinkPattern {
+        call_path: "ioutil.ReadFile",
+        category: SanitizerCategory::PathTraversal,
+        tainted_arg_indices: &[0],
+        semantic_check: None,
+    },
+    // Write sinks
+    SinkPattern {
+        call_path: "os.Create",
+        category: SanitizerCategory::PathTraversal,
+        tainted_arg_indices: &[0],
+        semantic_check: None,
+    },
+    SinkPattern {
+        call_path: "os.WriteFile",
+        category: SanitizerCategory::PathTraversal,
+        tainted_arg_indices: &[0],
+        semantic_check: None,
+    },
+    SinkPattern {
+        call_path: "ioutil.WriteFile",
+        category: SanitizerCategory::PathTraversal,
+        tainted_arg_indices: &[0],
+        semantic_check: None,
+    },
+    // Mutation sinks
+    SinkPattern {
+        call_path: "os.Remove",
+        category: SanitizerCategory::PathTraversal,
+        tainted_arg_indices: &[0],
+        semantic_check: None,
+    },
+    SinkPattern {
+        call_path: "os.RemoveAll",
+        category: SanitizerCategory::PathTraversal,
+        tainted_arg_indices: &[0],
+        semantic_check: None,
+    },
+    SinkPattern {
+        call_path: "os.Mkdir",
+        category: SanitizerCategory::PathTraversal,
+        tainted_arg_indices: &[0],
+        semantic_check: None,
+    },
+    SinkPattern {
+        call_path: "os.MkdirAll",
+        category: SanitizerCategory::PathTraversal,
+        tainted_arg_indices: &[0],
+        semantic_check: None,
+    },
+    SinkPattern {
+        call_path: "os.Rename",
+        category: SanitizerCategory::PathTraversal,
+        tainted_arg_indices: &[0, 1],
+        semantic_check: None,
+    },
 ];
 
 /// GLib/D-Bus IPC accessor patterns.
@@ -458,6 +620,249 @@ fn find_unquoted_on_line(
     }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Framework-aware source detection (spec §2.6 / §2.8 — pull model).
+//
+// For each Go file with a detected framework, walk every function definition
+// in the file:
+//   1. Collect parameter names whose type matches the framework's request type
+//      (`*http.Request` for net/http and gorilla/mux; `*gin.Context` for gin).
+//   2. For each `SourcePattern` in the framework spec, substitute each matched
+//      parameter name into the pattern's `call_path` prefix.
+//   3. Scan the function body for call expressions whose textual prefix matches
+//      the substituted path. Each match's start line becomes a taint source.
+//
+// Patterns without a conventional prefix (like gorilla/mux's `mux.Vars`) are
+// matched as-is — `mux.Vars(r)` is a free function that takes the request as
+// an argument rather than living on a method receiver.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Type strings that bind to a request-like parameter for each framework.
+/// `*http.Request` covers net/http + gorilla/mux; `*gin.Context` covers gin.
+fn framework_request_types(framework_name: &str) -> &'static [&'static str] {
+    match framework_name {
+        "gin" => &["*gin.Context"],
+        "net/http" | "gorilla/mux" => &["*http.Request"],
+        _ => &[],
+    }
+}
+
+/// The conventional receiver-name prefixes a framework expects in its source
+/// patterns. When the bound parameter name differs, we substitute these
+/// prefixes textually. Patterns whose `call_path` starts with neither prefix
+/// (e.g. gorilla/mux's `mux.Vars`) are matched without substitution.
+fn framework_prefixes(framework_name: &str) -> &'static [&'static str] {
+    match framework_name {
+        "gin" => &["c."],
+        "net/http" | "gorilla/mux" => &["r."],
+        _ => &[],
+    }
+}
+
+/// Substitute the conventional framework prefix in `call_path` with the bound
+/// parameter name. If `call_path` doesn't start with any framework prefix,
+/// returns it unchanged (covers free-function patterns like `mux.Vars`).
+fn substitute_prefix(call_path: &str, param_name: &str, framework_name: &str) -> String {
+    for prefix in framework_prefixes(framework_name) {
+        if let Some(rest) = call_path.strip_prefix(prefix) {
+            return format!("{}.{}", param_name, rest);
+        }
+    }
+    call_path.to_string()
+}
+
+/// Collect names of parameters in `func_node` whose type matches one of `target_types`.
+/// Per spec §2.6, ALL matching parameters bind (not just the first), to handle
+/// pathological signatures like `func cmp(a, b *http.Request)`.
+fn collect_request_param_names(
+    parsed: &ParsedFile,
+    func_node: &Node<'_>,
+    target_types: &[&str],
+) -> Vec<String> {
+    let mut names = Vec::new();
+    let params = match func_node.child_by_field_name("parameters") {
+        Some(p) => p,
+        None => return names,
+    };
+    let mut cursor = params.walk();
+    for param in params.named_children(&mut cursor) {
+        if param.kind() != "parameter_declaration" {
+            continue;
+        }
+        let type_text = match param.child_by_field_name("type") {
+            Some(t) => parsed.node_text(&t).trim().to_string(),
+            None => continue,
+        };
+        if !target_types.contains(&type_text.as_str()) {
+            continue;
+        }
+        // A single parameter_declaration may declare multiple names sharing one type
+        // (Go: `func f(a, b *http.Request)`). Collect every identifier child.
+        let mut name_cursor = param.walk();
+        for child in param.named_children(&mut name_cursor) {
+            if child.kind() == "identifier" {
+                names.push(parsed.node_text(&child).to_string());
+            }
+        }
+    }
+    names
+}
+
+/// Compute the textual call path for a Go call expression by joining selector
+/// segments. For `r.URL.Query()`, returns `Some("r.URL.Query")`. For
+/// unqualified or non-selector callees, returns the bare identifier or `None`.
+fn go_call_path_text(parsed: &ParsedFile, call_node: &Node<'_>) -> Option<String> {
+    let func = call_node.child_by_field_name("function")?;
+    Some(parsed.node_text(&func).to_string())
+}
+
+/// Walk `root` collecting every Go `call_expression` node.
+fn collect_go_calls<'a>(node: Node<'a>, out: &mut Vec<Node<'a>>) {
+    if node.kind() == "call_expression" {
+        out.push(node);
+    }
+    let mut cursor = node.walk();
+    for child in node.children(&mut cursor) {
+        collect_go_calls(child, out);
+    }
+}
+
+/// Detect framework-aware taint sources across all parsed Go files.
+///
+/// Returns `(file, line)` pairs for every call expression that matches a
+/// framework `SourcePattern` (after prefix substitution) and lives inside a
+/// function whose signature exposes the framework's request type.
+fn detect_framework_sources(ctx: &CpgContext) -> Vec<(String, usize)> {
+    let mut sources: Vec<(String, usize)> = Vec::new();
+    for (file_path, parsed) in ctx.files {
+        if parsed.language != Language::Go {
+            continue;
+        }
+        let spec = match parsed.framework() {
+            Some(s) => s,
+            None => continue,
+        };
+        let target_types = framework_request_types(spec.name);
+        if target_types.is_empty() {
+            continue;
+        }
+
+        for func in parsed.all_functions() {
+            let param_names = collect_request_param_names(parsed, &func, target_types);
+            if param_names.is_empty() {
+                continue;
+            }
+            let mut calls = Vec::new();
+            collect_go_calls(func, &mut calls);
+
+            for source_pat in spec.sources {
+                // Compute every concrete call path to look for in this function.
+                let concrete_paths: Vec<String> = if framework_prefixes(spec.name)
+                    .iter()
+                    .any(|p| source_pat.call_path.starts_with(p))
+                {
+                    param_names
+                        .iter()
+                        .map(|n| substitute_prefix(source_pat.call_path, n, spec.name))
+                        .collect()
+                } else {
+                    // No conventional prefix — match as-is (e.g. mux.Vars).
+                    vec![source_pat.call_path.to_string()]
+                };
+
+                for call in &calls {
+                    let actual = match go_call_path_text(parsed, call) {
+                        Some(s) => s,
+                        None => continue,
+                    };
+                    if concrete_paths.contains(&actual) {
+                        let line = call.start_position().row + 1;
+                        sources.push((file_path.clone(), line));
+                    }
+                }
+            }
+        }
+    }
+    sources
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Structured sink matching (spec §3.1 / §3.2 / §3.3).
+//
+// A sink fires when:
+//   1. The call's qualified path equals `sink_pat.call_path`, AND
+//   2. The optional `semantic_check` returns true (or is `None`), AND
+//   3. The taint engine has flagged the line as carrying tainted data.
+//
+// (3) is checked by the existing taint pass — this helper handles (1) and (2).
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Returns true if any call expression on `line` matches `sink_pat`.
+/// Caller is responsible for confirming taint flow reaches this line.
+///
+/// Note: `tainted_arg_indices` is *not* checked here. The current taint engine
+/// tracks taint at line granularity, not per-argument. Treating "taint reaches
+/// the line containing this call" as evidence is a conservative approximation:
+/// it may over-fire when an unrelated tainted statement shares the line, but
+/// such cases are vanishingly rare in normal Go style and tightening this
+/// requires per-argument taint precision (out of scope for Phase 1, see spec
+/// §3.2 slice-taint behavior note).
+fn line_matches_structured_sink(parsed: &ParsedFile, line: usize, sink_pat: &SinkPattern) -> bool {
+    if parsed.language != Language::Go {
+        return false;
+    }
+    let mut calls = Vec::new();
+    collect_go_calls(parsed.tree.root_node(), &mut calls);
+    for call in &calls {
+        let call_line = call.start_position().row + 1;
+        if call_line != line {
+            continue;
+        }
+        let actual = match go_call_path_text(parsed, call) {
+            Some(s) => s,
+            None => continue,
+        };
+        if actual != sink_pat.call_path {
+            continue;
+        }
+        if let Some(check) = sink_pat.semantic_check {
+            let cs = CallSite {
+                call_node: *call,
+                source: parsed.source.as_str(),
+            };
+            if !check(&cs) {
+                continue;
+            }
+        }
+        return true;
+    }
+    false
+}
+
+/// Returns true if any cross-cutting Go sink (`GO_CWE78_SINKS`, `GO_CWE22_SINKS`)
+/// or active framework's `sinks` matches a call on `line`. Used by the taint
+/// pass to flag a tainted line as a structured sink.
+fn line_matches_any_go_sink(parsed: &ParsedFile, line: usize) -> bool {
+    for pat in GO_CWE78_SINKS {
+        if line_matches_structured_sink(parsed, line, pat) {
+            return true;
+        }
+    }
+    for pat in GO_CWE22_SINKS {
+        if line_matches_structured_sink(parsed, line, pat) {
+            return true;
+        }
+    }
+    if let Some(spec) = parsed.framework() {
+        for pat in spec.sinks {
+            if line_matches_structured_sink(parsed, line, pat) {
+                return true;
+            }
+        }
+    }
+    false
+}
+
 pub fn slice(
     ctx: &CpgContext,
     diff: &DiffInput,
@@ -486,6 +891,17 @@ pub fn slice(
         taint_sources.push(ipc_src.clone());
     }
     let ipc_source_set: BTreeSet<(String, usize)> = ipc_sources.into_iter().collect();
+
+    // Add framework-aware taint sources (Phase 1 Go: net/http, gin, gorilla/mux).
+    // For each Go file with a detected framework, every call to a framework
+    // SourcePattern (`c.Query`, `r.URL.Query`, `mux.Vars`, …) is a taint source.
+    // These extend (not replace) diff-line and IPC sources.
+    let framework_sources: Vec<(String, usize)> = detect_framework_sources(ctx);
+    for fw_src in &framework_sources {
+        if !taint_sources.contains(fw_src) {
+            taint_sources.push(fw_src.clone());
+        }
+    }
 
     // Forward propagation from each source (CFG-constrained when available)
     let paths = ctx.cpg.taint_forward_cfg(&taint_sources);
@@ -524,6 +940,24 @@ pub fn slice(
                         sink_lines.insert((edge.to.file.clone(), edge.to.line));
                     }
                 }
+
+                // Phase 1 structured Go sinks (cross-cutting + framework-gated).
+                // A tainted line whose call matches one of these patterns fires a sink.
+                if parsed.language == Language::Go && line_matches_any_go_sink(parsed, edge.to.line)
+                {
+                    sink_lines.insert((edge.to.file.clone(), edge.to.line));
+                }
+            }
+        }
+    }
+
+    // Source lines themselves are taint-bearing — a structured sink on the
+    // exact source line still fires. (E.g., `c.File(c.Param("f"))` — the
+    // c.Param source and the c.File sink share a line.)
+    for (file, line) in &taint_sources {
+        if let Some(parsed) = ctx.files.get(file) {
+            if parsed.language == Language::Go && line_matches_any_go_sink(parsed, *line) {
+                sink_lines.insert((file.clone(), *line));
             }
         }
     }

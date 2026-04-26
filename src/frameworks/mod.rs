@@ -71,19 +71,41 @@ pub struct SanitizerRecognizer {
     pub paired_check: Option<&'static str>,
 }
 
-/// Call-site reflection helper used by `semantic_check` callbacks. Implementation
-/// is in `taint.rs` (added in Commit 2); declared here as an opaque type so framework
-/// specs can compile in Commit 1 without depending on Commit 2 internals.
-pub struct CallSite {
-    // Fields populated in Commit 2; opaque for Commit 1.
-    _private: (),
+/// Call-site reflection helper. Wraps a tree-sitter call expression node + the
+/// originating source so `semantic_check` callbacks can inspect literal arguments.
+pub struct CallSite<'a> {
+    pub call_node: tree_sitter::Node<'a>,
+    pub source: &'a str,
 }
 
-impl CallSite {
-    /// Stub for Commit 1 — full implementation in Commit 2.
-    /// Returns the literal string value of argument `i`, if it is a string-literal
-    /// expression; `None` otherwise.
-    pub fn literal_arg(&self, _i: usize) -> Option<&str> {
+impl<'a> CallSite<'a> {
+    /// Returns the literal string value of argument `i` (0-indexed) if it is a
+    /// string-literal expression; `None` if the argument is non-literal (variable,
+    /// expression, etc.) or out of range.
+    ///
+    /// String-literal kinds recognized:
+    /// - Go `interpreted_string_literal` (double-quoted) — quotes stripped.
+    /// - Go `raw_string_literal` (backtick-quoted) — backticks stripped.
+    pub fn literal_arg(&self, i: usize) -> Option<&'a str> {
+        let args = self.call_node.child_by_field_name("arguments")?;
+        let mut cursor = args.walk();
+        for (idx, child) in args.named_children(&mut cursor).enumerate() {
+            if idx != i {
+                continue;
+            }
+            if child.kind() == "interpreted_string_literal" || child.kind() == "raw_string_literal"
+            {
+                let text = child.utf8_text(self.source.as_bytes()).ok()?;
+                let trimmed = text
+                    .trim_start_matches('"')
+                    .trim_end_matches('"')
+                    .trim_start_matches('`')
+                    .trim_end_matches('`');
+                return Some(trimmed);
+            }
+            // Argument exists at this index but is not a string literal.
+            return None;
+        }
         None
     }
 }
