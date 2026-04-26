@@ -6,6 +6,7 @@
 
 use crate::ast::ParsedFile;
 use crate::cpg::CpgContext;
+use crate::data_flow::FlowPath;
 use crate::diff::{DiffBlock, DiffInput, ModifyType};
 use crate::frameworks::{CallSite, SanitizerCategory, SinkPattern};
 use crate::languages::Language;
@@ -261,38 +262,17 @@ fn check_shell_wrapper_ctx(call: &CallSite) -> bool {
     is_shell_wrapper_at(call, 1, 2)
 }
 
-/// Returns true if argument `idx` of `call` is NOT a string literal (i.e. could plausibly
-/// hold a tainted value). Used by the tainted-binary CWE-78 sink variants to suppress
-/// the false-positive shape `exec.Command("ffmpeg", "-i", taintedX)` where the binary
-/// position is a literal and only later args are tainted.
-///
-/// **Phase 1 interim fix (Path C):** Phase 1's line-granularity matching does not
-/// consult `tainted_arg_indices`, so a literal binary plus tainted later args would
-/// otherwise fire the tainted-binary pattern. This syntactic check sidesteps that
-/// without per-arg DFG. Phase 1.5+ should honor `tainted_arg_indices` directly,
-/// at which point this check becomes redundant scaffolding and can be removed.
-fn check_arg_is_non_literal_at(call: &CallSite, idx: usize) -> bool {
-    call.literal_arg(idx).is_none()
-}
-
-/// Adapter for `exec.Command(taintedBin, ...)` tainted-binary form.
-fn check_command_taintable_binary(call: &CallSite) -> bool {
-    check_arg_is_non_literal_at(call, 0)
-}
-
-/// Adapter for `exec.CommandContext(ctx, taintedBin, ...)` tainted-binary form.
-fn check_commandcontext_taintable_binary(call: &CallSite) -> bool {
-    check_arg_is_non_literal_at(call, 1)
-}
-
 /// Cross-cutting Go CWE-78 (OS command injection) sinks. See spec §3.2.
 ///
 /// Both `exec.Command` and `exec.CommandContext` appear twice:
 /// - Once for the shell-wrapper form (`semantic_check` filters to shell calls);
 ///   tainted-arg index points at the `X` payload after `"-c"`.
 /// - Once for the tainted-binary form; tainted-arg index is the binary-path
-///   argument itself, and `semantic_check` requires that argument to be
-///   non-literal (Path C interim — see `check_arg_is_non_literal_at` doc).
+///   argument itself. `semantic_check: None` because per-arg taint resolution
+///   at sink-eval time (see `arg_is_tainted_in_path`) is the structural gate:
+///   a literal binary has no identifier and is never tainted; a variable
+///   bound to a non-tainted source isn't reached by any FlowPath edge at the
+///   call line.
 ///
 /// `syscall.Exec(argv0, argv, envv)` checks both `argv0` (literal-or-tainted)
 /// and the `argv` slice (DFG-conservative: any tainted slice element taints
@@ -318,13 +298,13 @@ pub const GO_CWE78_SINKS: &[SinkPattern] = &[
         call_path: "exec.Command",
         category: SanitizerCategory::OsCommand,
         tainted_arg_indices: &[0],
-        semantic_check: Some(check_command_taintable_binary),
+        semantic_check: None,
     },
     SinkPattern {
         call_path: "exec.CommandContext",
         category: SanitizerCategory::OsCommand,
         tainted_arg_indices: &[1],
-        semantic_check: Some(check_commandcontext_taintable_binary),
+        semantic_check: None,
     },
     // syscall.Exec — argv0 + argv slice.
     SinkPattern {
@@ -867,20 +847,253 @@ enum SinkMatchOutcome {
     NoMatch,
 }
 
-/// Returns the structured-sink outcome for `sink_pat` on `line` of `parsed`.
-/// Caller is responsible for confirming taint flow reaches this line.
+/// Returns true if argument `arg_idx` of the call expression is tainted along `path`.
 ///
-/// Note: `tainted_arg_indices` is *not* checked here. The current taint engine
-/// tracks taint at line granularity, not per-argument. Treating "taint reaches
-/// the line containing this call" as evidence is a conservative approximation:
-/// it may over-fire when an unrelated tainted statement shares the line, but
-/// such cases are vanishingly rare in normal Go style and tightening this
-/// requires per-argument taint precision (out of scope for Phase 1, see spec
-/// §3.2 slice-taint behavior note).
+/// Resolution rules:
+/// - Literal arg (string, int, bool, nil) → always false (literals can't be tainted).
+/// - Bare identifier → check if any `FlowEdge` in `path` has this identifier as a `to`
+///   location matching `parsed.path` (file scoping prevents cross-file collisions),
+///   `call_line`, and `var_name()`. Without the file-scoping guard, an interprocedural
+///   FlowEdge ending in another file at the same line/name could falsely register
+///   as taint here.
+/// - Complex expression (call, selector, binary, ...) → conservative recurse into
+///   descendants; if ANY identifier descendant is tainted on the path (with file
+///   scoping), the arg is considered tainted. Phase 1.5 keeps this conservative;
+///   tightening (e.g., only considering specific positions in a selector chain) is
+///   Phase 2+.
+///
+/// Returns false if the call has fewer than `arg_idx + 1` arguments.
+fn arg_is_tainted_in_path(
+    parsed: &ParsedFile,
+    call: &Node<'_>,
+    arg_idx: usize,
+    path: &FlowPath,
+) -> bool {
+    let arguments = match call.child_by_field_name("arguments") {
+        Some(n) => n,
+        None => return false,
+    };
+    let mut cursor = arguments.walk();
+    let mut idx = 0usize;
+    let mut target_arg: Option<Node<'_>> = None;
+    for child in arguments.named_children(&mut cursor) {
+        if idx == arg_idx {
+            target_arg = Some(child);
+            break;
+        }
+        idx += 1;
+    }
+    let arg_node = match target_arg {
+        Some(n) => n,
+        None => return false,
+    };
+    let call_line = call.start_position().row + 1;
+    arg_node_taints_match(parsed, &arg_node, call_line, path)
+}
+
+/// Walk `arg_node` and any descendants for identifiers that are tainted on `path` at
+/// `call_line` in `parsed`'s file. Returns true on first hit.
+fn arg_node_taints_match(
+    parsed: &ParsedFile,
+    arg_node: &Node<'_>,
+    call_line: usize,
+    path: &FlowPath,
+) -> bool {
+    match arg_node.kind() {
+        // Literal kinds — definitely not tainted.
+        "interpreted_string_literal"
+        | "raw_string_literal"
+        | "rune_literal"
+        | "int_literal"
+        | "float_literal"
+        | "imaginary_literal"
+        | "true"
+        | "false"
+        | "nil" => false,
+
+        // Bare identifier — direct check with file scoping.
+        "identifier" => {
+            let name = parsed.node_text(arg_node);
+            path.edges.iter().any(|e| {
+                e.to.file == parsed.path && e.to.line == call_line && e.to.var_name() == name
+            })
+        }
+
+        // Composite expression — recurse into descendants. Conservative: any
+        // tainted identifier within counts.
+        _ => {
+            let mut cursor = arg_node.walk();
+            for child in arg_node.named_children(&mut cursor) {
+                if arg_node_taints_match(parsed, &child, call_line, path) {
+                    return true;
+                }
+            }
+            false
+        }
+    }
+}
+
+/// Returns the first structured sink pattern on `line` whose tainted_arg subtrees
+/// contain a descendant call_expression matching the active framework's source
+/// patterns (e.g. `c.Param`, `r.URL.Query`). Used as a secondary fallback in the
+/// source==sink loop to catch inline source==sink shapes that the per-arg DFG with
+/// a real FlowPath cannot resolve — inline framework-source calls don't generate
+/// FlowEdges because their results are consumed inline.
+///
+/// Scanning is exhaustive over (sink_pat, call) on this line, not first-match.
+/// First-match would miss inline shapes when an unrelated structured sink earlier
+/// on the line shadows the inline-bearing one (e.g. `exec.Command("ls"); c.File(c.Param("f"))`).
+///
+/// Request param names are scoped to the enclosing function of `line`, mirroring
+/// `detect_framework_sources`. File-wide collection would treat unrelated handlers'
+/// receiver names as valid binders here. The empty-collection short-circuit
+/// (return None when `request_param_names.is_empty()`) is also load-bearing: it
+/// matches the `detect_framework_sources` guard at L794, preventing non-prefixed
+/// sources like `mux.Vars` from being recognized in functions that don't bind a
+/// `*http.Request` parameter.
+///
+/// Phase 1.5 limitation: only framework sources are recognized, not IPC sources.
+/// IPC source==sink shapes are rare and remain a Phase 1.5.1+ refinement.
+fn find_sink_with_inline_framework_source(
+    parsed: &ParsedFile,
+    line: usize,
+) -> Option<&'static SinkPattern> {
+    let framework = parsed.framework()?;
+
+    // Function-scoped request param name collection. Mirrors
+    // `detect_framework_sources` — only binds receiver names that appear in the
+    // enclosing function's signature.
+    let func_node = parsed.enclosing_function(line)?;
+    let target_types = framework_request_types(framework.name);
+    if target_types.is_empty() {
+        return None;
+    }
+    let request_param_names = collect_request_param_names(parsed, &func_node, target_types);
+    // Empty-function-scope guard: mirrors the early `continue` in
+    // `detect_framework_sources`. Without it, non-prefixed sources like
+    // `mux.Vars` would still be inserted into `source_paths` even when the
+    // enclosing function has no `*http.Request` / `*gin.Context` parameter,
+    // wrongly recognizing them as framework sources for this line.
+    if request_param_names.is_empty() {
+        return None;
+    }
+
+    // Build the set of concrete framework-source call_paths for THIS function
+    // (mirrors detect_framework_sources's prefix-substitution logic).
+    let mut source_paths: BTreeSet<String> = BTreeSet::new();
+    for src in framework.sources {
+        if framework_prefixes(framework.name)
+            .iter()
+            .any(|p| src.call_path.starts_with(p))
+        {
+            for n in &request_param_names {
+                source_paths.insert(substitute_prefix(src.call_path, n, framework.name));
+            }
+        } else {
+            // No conventional prefix — match as-is (e.g. mux.Vars).
+            source_paths.insert(src.call_path.to_string());
+        }
+    }
+    if source_paths.is_empty() {
+        return None;
+    }
+
+    // Walk all calls on `line`. For each, check against EVERY structured sink
+    // pattern (priority order: GO_CWE78_SINKS, GO_CWE22_SINKS, framework SINKS).
+    // First (call, sink_pat) pair where the tainted_arg subtree contains an
+    // inline framework source returns its sink_pat.
+    let mut calls = Vec::new();
+    collect_go_calls(parsed.tree.root_node(), &mut calls);
+    for call in &calls {
+        if call.start_position().row + 1 != line {
+            continue;
+        }
+        let actual = match go_call_path_text(parsed, call) {
+            Some(s) => s,
+            None => continue,
+        };
+
+        let pattern_iter = GO_CWE78_SINKS
+            .iter()
+            .chain(GO_CWE22_SINKS.iter())
+            .chain(framework.sinks.iter());
+
+        for pat in pattern_iter {
+            if actual != pat.call_path {
+                continue;
+            }
+            // Apply semantic_check (matches go_sink_outcome's gating). If
+            // semantic_check rejects, this pattern doesn't describe THIS call —
+            // skip and try the next pattern.
+            if let Some(check) = pat.semantic_check {
+                let cs = CallSite {
+                    call_node: *call,
+                    source: parsed.source.as_str(),
+                };
+                if !check(&cs) {
+                    continue;
+                }
+            }
+            let arguments = match call.child_by_field_name("arguments") {
+                Some(n) => n,
+                None => continue,
+            };
+            let mut cursor = arguments.walk();
+            let mut idx = 0usize;
+            for arg in arguments.named_children(&mut cursor) {
+                if pat.tainted_arg_indices.contains(&idx)
+                    && subtree_has_call_in(parsed, &arg, &source_paths)
+                {
+                    return Some(pat);
+                }
+                idx += 1;
+            }
+        }
+    }
+    None
+}
+
+/// Walk `node` and descendants; returns true if any `call_expression` node has
+/// a call_path text in `paths`.
+fn subtree_has_call_in(parsed: &ParsedFile, node: &Node<'_>, paths: &BTreeSet<String>) -> bool {
+    if node.kind() == "call_expression" {
+        if let Some(cp) = go_call_path_text(parsed, node) {
+            if paths.contains(&cp) {
+                return true;
+            }
+        }
+    }
+    let mut cursor = node.walk();
+    for child in node.named_children(&mut cursor) {
+        if subtree_has_call_in(parsed, &child, paths) {
+            return true;
+        }
+    }
+    false
+}
+
+/// Returns the structured-sink outcome for `sink_pat` on `line` of `parsed`,
+/// using `path` to resolve per-argument taint via `arg_is_tainted_in_path`.
+///
+/// Outcome rules:
+/// - `Match(sink_pat)` — call_path matches, semantic_check (if any) passes,
+///   AND at least one arg in `sink_pat.tainted_arg_indices` is tainted on `path`.
+/// - `SemanticallyExcluded` — call_path matches but EITHER `semantic_check`
+///   rejects OR no arg in `tainted_arg_indices` is tainted on this path.
+/// - `NoMatch` — no call expression on `line` matches `sink_pat.call_path`.
+///
+/// `path == None` is the source==sink no-originating-path fallback (see design
+/// note §2.3); in that branch we trust call_path + semantic_check without per-arg
+/// precision, preserving today's source==sink behavior for shapes like
+/// `c.File(c.Param("f"))`.
+///
+/// Caller is responsible for confirming `parsed.language == Language::Go`
+/// (the function returns `NoMatch` for non-Go files).
 fn line_matches_structured_sink(
     parsed: &ParsedFile,
     line: usize,
     sink_pat: &'static SinkPattern,
+    path: Option<&FlowPath>,
 ) -> SinkMatchOutcome {
     if parsed.language != Language::Go {
         return SinkMatchOutcome::NoMatch;
@@ -910,6 +1123,26 @@ fn line_matches_structured_sink(
                 continue;
             }
         }
+
+        // Per-arg taint check — only when a FlowPath is provided. `path == None`
+        // is the source==sink no-originating-path fallback (see design note §2.3);
+        // in that case we trust the existing call_path + semantic_check gate
+        // without per-arg precision, preserving today's source==sink behavior for
+        // shapes like `c.File(c.Param("f"))`.
+        if let Some(p) = path {
+            let any_arg_tainted = sink_pat
+                .tainted_arg_indices
+                .iter()
+                .any(|&idx| arg_is_tainted_in_path(parsed, call, idx, p));
+            if !any_arg_tainted {
+                // call_path + semantic_check passed, but the relevant args
+                // aren't tainted on this path. Mark as a structural match-but-
+                // not-actually-firing; subsequent iterations may find a
+                // different call on this line that DOES have tainted args.
+                continue;
+            }
+        }
+
         return SinkMatchOutcome::Match(sink_pat);
     }
     if had_call_path_match {
@@ -922,32 +1155,34 @@ fn line_matches_structured_sink(
 /// Returns the structured-sink outcome for `line` across the full Go sink registry
 /// (cross-cutting CWE-78/22 + framework-gated). Used during path-aware suppression.
 ///
+/// `path` is forwarded to `line_matches_structured_sink` for per-argument taint
+/// resolution (Phase 1.5 #1). Pass `Some(path)` from forward-flow callers; the
+/// source==sink loop passes `None` for the no-originating-path branch (canonical
+/// `c.File(c.Param("f"))` shape) so the engine falls back to call_path +
+/// semantic_check matching without per-arg precision.
+///
 /// Aggregation rules:
 /// - If any pattern returns `Match`, the first such pattern wins (priority order:
 ///   GO_CWE78_SINKS, GO_CWE22_SINKS, framework SINKS). The matched pattern's
 ///   category drives `FlowPath.cleansed_for` consultation.
 /// - Else if any pattern returned `SemanticallyExcluded`, aggregate is
-///   `SemanticallyExcluded`. **Currently a no-op for engine behavior** — the
-///   flat-pattern catch-all is NOT suppressed (see `SinkMatchOutcome` doc for
-///   why this design was rolled back). The variant exists as forward-compat
-///   scaffolding for the per-arg DFG follow-up (Phase 1.5 #1).
+///   `SemanticallyExcluded`.
 /// - Else `NoMatch`. Flat-pattern catch-all proceeds normally.
 ///
 /// Note: when multiple patterns share a `call_path` (exec.Command shell-wrapper +
 /// tainted-binary), the shell-wrapper variant is listed first; if it `Match`-es
-/// it wins, otherwise the tainted-binary variant is checked next. If both
-/// `SemanticallyExclude`, the aggregate is `SemanticallyExcluded`.
-fn go_sink_outcome(parsed: &ParsedFile, line: usize) -> SinkMatchOutcome {
+/// it wins, otherwise the tainted-binary variant is checked next.
+fn go_sink_outcome(parsed: &ParsedFile, line: usize, path: Option<&FlowPath>) -> SinkMatchOutcome {
     let mut any_call_path_match = false;
     for pat in GO_CWE78_SINKS {
-        match line_matches_structured_sink(parsed, line, pat) {
+        match line_matches_structured_sink(parsed, line, pat, path) {
             SinkMatchOutcome::Match(p) => return SinkMatchOutcome::Match(p),
             SinkMatchOutcome::SemanticallyExcluded => any_call_path_match = true,
             SinkMatchOutcome::NoMatch => {}
         }
     }
     for pat in GO_CWE22_SINKS {
-        match line_matches_structured_sink(parsed, line, pat) {
+        match line_matches_structured_sink(parsed, line, pat, path) {
             SinkMatchOutcome::Match(p) => return SinkMatchOutcome::Match(p),
             SinkMatchOutcome::SemanticallyExcluded => any_call_path_match = true,
             SinkMatchOutcome::NoMatch => {}
@@ -955,7 +1190,7 @@ fn go_sink_outcome(parsed: &ParsedFile, line: usize) -> SinkMatchOutcome {
     }
     if let Some(spec) = parsed.framework() {
         for pat in spec.sinks {
-            match line_matches_structured_sink(parsed, line, pat) {
+            match line_matches_structured_sink(parsed, line, pat, path) {
                 SinkMatchOutcome::Match(p) => return SinkMatchOutcome::Match(p),
                 SinkMatchOutcome::SemanticallyExcluded => any_call_path_match = true,
                 SinkMatchOutcome::NoMatch => {}
@@ -1182,14 +1417,43 @@ pub fn slice(
                 // the path is cleansed for `p.category`, suppress ALL sink
                 // matches on this line — flat catch-alls included.
                 let outcome = if parsed.language == Language::Go {
-                    go_sink_outcome(parsed, edge.to.line)
+                    go_sink_outcome(parsed, edge.to.line, Some(path))
                 } else {
                     SinkMatchOutcome::NoMatch
                 };
-                let suppressed_by_cleanser = matches!(
-                    outcome,
-                    SinkMatchOutcome::Match(p) if path.cleansed_for.contains(&p.category)
-                );
+                // Path-aware cleanser suppression. Two cases trigger:
+                //   1. Outcome is `Match(p)` and `path.cleansed_for` contains
+                //      `p.category` — the standard pre-DFG behavior.
+                //   2. Outcome is `SemanticallyExcluded` AND the same line
+                //      *would* have matched a structured sink without per-arg
+                //      precision (pre-DFG path) AND the path is cleansed for
+                //      that would-have-matched category. This case handles
+                //      paths whose source IS the sink line itself — an
+                //      artifact of treating every diff line as a taint source
+                //      via `taint_forward_cfg`. Such paths' edges from a
+                //      use-node at line N typically don't include the same
+                //      use-node as a `to` target, so per-arg DFG returns
+                //      `SemanticallyExcluded` even though the path is
+                //      cleansed for the relevant category. Pre-DFG, these
+                //      paths returned Match and were correctly suppressed by
+                //      cleansing; we preserve that suppression so the flat
+                //      catch-all doesn't spuriously fire on cleansed
+                //      function bodies. This does NOT re-introduce P1/P2
+                //      because the suppression is conditional on
+                //      `path.cleansed_for` containing the category — pwsh
+                //      shell coverage and same-line unrelated sinks have
+                //      `cleansed_for` empty for the relevant category and so
+                //      the flat catch-all still fires.
+                let suppressed_by_cleanser = match outcome {
+                    SinkMatchOutcome::Match(p) => path.cleansed_for.contains(&p.category),
+                    SinkMatchOutcome::SemanticallyExcluded if parsed.language == Language::Go => {
+                        match go_sink_outcome(parsed, edge.to.line, None) {
+                            SinkMatchOutcome::Match(p) => path.cleansed_for.contains(&p.category),
+                            _ => false,
+                        }
+                    }
+                    _ => false,
+                };
 
                 if !suppressed_by_cleanser {
                     // Suppress flat substring matches on lines that are
@@ -1223,26 +1487,25 @@ pub fn slice(
     // exact source line still fires. (E.g., `c.File(c.Param("f"))` — the
     // c.Param source and the c.File sink share a line.)
     //
-    // Path-aware suppression: if every path originating at this source line is
-    // cleansed for the matched sink's category, suppress. This handles the
-    // `cleaned := filepath.Clean(name); ... os.ReadFile(cleaned)` shape where
-    // the source and sink may be on the same or different lines but the source
-    // is c.Param/etc. The check uses the same first-matching-pattern approach.
+    // Three branches (see design note §2.3):
+    //   1. originating.is_empty() → primary Option::None fallback for pure
+    //      source==sink shapes (no FlowEdge connects source to sink because
+    //      they share a line and the source result is consumed inline).
+    //   2. originating non-empty → per-path Match-and-cleansing combined loop.
+    //      Fire iff at least one matching path is uncleansed. Non-matching
+    //      paths are skipped — their cleansing state is irrelevant because
+    //      per-arg DFG already says they don't fire this sink.
+    //   3. originating non-empty + branch 2 found no fire → secondary inline-
+    //      source fallback for mixed same-line shapes (the line hosts both a
+    //      non-inline source driving the FlowPath AND an inline source==sink
+    //      shape that conservative recursion can't recognize).
     for (file, line) in &taint_sources {
         if let Some(parsed) = ctx.files.get(file) {
             if parsed.language != Language::Go {
                 continue;
             }
-            // Source-line sink check uses Match only — SemanticallyExcluded means
-            // the structured layer rejected this call_path, so no fire here either.
-            let sink_pat = match go_sink_outcome(parsed, *line) {
-                SinkMatchOutcome::Match(p) => p,
-                SinkMatchOutcome::SemanticallyExcluded | SinkMatchOutcome::NoMatch => continue,
-            };
-            // Find every path whose source is this (file, line). If any is NOT
-            // cleansed for the sink's category, the sink fires; if all are
-            // cleansed, suppress.
-            let path_states: Vec<bool> = paths
+            // Find every path whose source is this (file, line).
+            let originating: Vec<&FlowPath> = paths
                 .iter()
                 .filter(|p| {
                     p.edges
@@ -1250,22 +1513,73 @@ pub fn slice(
                         .map(|e| e.from.file == *file && e.from.line == *line)
                         .unwrap_or(false)
                 })
-                .map(|p| p.cleansed_for.contains(&sink_pat.category))
                 .collect();
-            if path_states.is_empty() {
-                // No FlowPath originates at this source — fall back to a
-                // function-body cleanser scan so source==sink shapes still
-                // honor in-function cleansing. (FlowPaths are constructed
-                // only when the DFG has at least one reachable target.)
+
+            if originating.is_empty() {
+                // No FlowPath originates — pure source==sink shape (e.g.
+                // c.File(c.Param("f"))). Pass None to skip per-arg DFG; the
+                // engine falls back to call_path + semantic_check matching.
+                // Preserves today's source==sink behavior.
+                let sink_pat = match go_sink_outcome(parsed, *line, None) {
+                    SinkMatchOutcome::Match(p) => p,
+                    SinkMatchOutcome::SemanticallyExcluded | SinkMatchOutcome::NoMatch => continue,
+                };
+                // No FlowPath cleansing applies. Fall back to function-body scan.
                 let cleansed = function_body_cleansed_for(parsed, *line, sink_pat.category);
                 if !cleansed {
                     sink_lines.insert((file.clone(), *line));
                 }
-            } else if path_states.iter().any(|c| !c) {
-                sink_lines.insert((file.clone(), *line));
+            } else {
+                // Per-arg DFG applies. Walk originating paths; for each that
+                // Matches, check whether its FlowPath is cleansed for the
+                // matched category. Fire iff AT LEAST ONE matching path is
+                // not cleansed.
+                //
+                // Crucially, we ONLY consult cleansing for paths that actually
+                // Match (per-arg DFG: relevant args are tainted on this path).
+                // A non-matching path's cleansing state is irrelevant — per-arg
+                // DFG already says it doesn't fire this sink, so its cleansing-
+                // or-not can't move the decision.
+                let mut any_matching_uncleansed = false;
+                for p in &originating {
+                    if let SinkMatchOutcome::Match(pat) = go_sink_outcome(parsed, *line, Some(p)) {
+                        if !p.cleansed_for.contains(&pat.category) {
+                            any_matching_uncleansed = true;
+                            break;
+                        }
+                    }
+                }
+
+                // Secondary inline-source fallback for mixed same-line shapes.
+                // The line may host both a non-inline source (driving an
+                // originating FlowPath) AND an inline source==sink shape (e.g.
+                // `c.File(c.Param("f"))`) that the primary per-arg DFG can't
+                // recognize because its conservative recursion only checks
+                // identifiers against FlowPath edges, and the inline c.Param
+                // call generates no FlowEdge.
+                //
+                // The helper scans ALL (call, sink_pat) combinations on the
+                // line and returns the first sink pattern whose tainted_arg
+                // subtree contains an inline framework-source call. This is
+                // intentionally NOT routed through go_sink_outcome's first-
+                // match-wins aggregation — that would only consider the first
+                // matching sink and miss inline shapes when an unrelated
+                // structured sink earlier on the line shadows them.
+                if !any_matching_uncleansed {
+                    if let Some(pat) = find_sink_with_inline_framework_source(parsed, *line) {
+                        let cleansed = function_body_cleansed_for(parsed, *line, pat.category);
+                        if !cleansed {
+                            any_matching_uncleansed = true;
+                        }
+                    }
+                }
+
+                if any_matching_uncleansed {
+                    sink_lines.insert((file.clone(), *line));
+                }
+                // else: every matching path is cleansed (or no path matches
+                // AND no inline source==sink shape was detected). Suppress.
             }
-            // else: every FlowPath originating here is cleansed for this
-            // sink's category — suppress per spec §3.7.
         }
     }
 

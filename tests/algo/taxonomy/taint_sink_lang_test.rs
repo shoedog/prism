@@ -393,6 +393,199 @@ func handler(c *gin.Context, db *sql.DB) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Phase 1.5 (#1) — Per-arg DFG regression tests
+//
+// These tests pin the per-arg DFG behavior introduced in the parent commit.
+// They use **structured-only sinks** (e.g. `c.File`) where absence-of-finding
+// is the discriminating assertion — flat-pattern overlap (e.g. `Command`,
+// `Rename`) defeats absence assertions because `sink_lines` line-dedupes, so
+// a `count <= 1` assertion can't distinguish "structured + flat" from
+// "flat-only." See design note §3.1 for the rationale.
+// ─────────────────────────────────────────────────────────────────────────────
+
+#[test]
+fn test_taint_cwe22_cfile_variable_bound_to_literal_no_finding() {
+    // Phase 1.5 (#1) discriminating regression. `bin = "/etc/static.txt"` is a
+    // literal-bound variable; pre-DFG, the structured c.File pattern fires
+    // because the line is line-tainted (input from c.Query is referenced on
+    // the same line via `_ = input`). Post-DFG: arg[0] = bin identifier; bin
+    // is not in any FlowEdge — defined as a literal — so arg[0] is not
+    // tainted → SemanticallyExcluded → no fire. c.File has no flat-pattern
+    // overlap, so absence of any taint_sink on the call line discriminates
+    // pre vs post DFG behavior.
+    let source = r#"package main
+
+import "github.com/gin-gonic/gin"
+
+func handler(c *gin.Context) {
+	input := c.Query("input")
+	bin := "/etc/static.txt"
+	_ = c.File(bin); _ = input
+}
+"#;
+    // Source line: 6 (c.Query). Sink line: 8 (c.File).
+    let result = run_taint_go_single(source, "main.go", BTreeSet::from([6]));
+    let sink_line_finding = result
+        .findings
+        .iter()
+        .any(|f| f.category.as_deref() == Some("taint_sink") && f.line == 8);
+    assert!(
+        !sink_line_finding,
+        "c.File(bin) where bin is bound to a literal should NOT fire post-DFG, \
+         even when an unrelated tainted variable shares the line"
+    );
+}
+
+#[test]
+fn test_taint_cwe22_os_rename_smoke() {
+    // Smoke test for os.Rename firing on tainted arg[1].
+    //
+    // Limitation: not a discriminator for any-tainted semantics on
+    // `tainted_arg_indices: &[0, 1]` because flat SINK_PATTERNS already
+    // includes "Rename" (taint.rs:123). The test would still pass via flat
+    // fallback even if structured per-arg DFG mishandled multi-index. For a
+    // discriminating assertion of any-tainted semantics, queue a unit test
+    // against `go_sink_outcome` internals — Phase 1.5.1 follow-up.
+    let source = r#"package main
+
+import (
+	"os"
+
+	"github.com/gin-gonic/gin"
+)
+
+func handler(c *gin.Context) {
+	dest := c.Query("dest")
+	_ = os.Rename("/tmp/static.txt", dest)
+}
+"#;
+    let result = run_taint_go_single(source, "main.go", BTreeSet::from([10]));
+    assert!(
+        has_taint_sink(&result),
+        "os.Rename should fire when arg[1] is tainted (smoke; not diagnostic \
+         for structured any-tainted semantics due to flat-pattern overlap)"
+    );
+}
+
+#[test]
+fn test_taint_cwe22_cfile_literal_arg_with_unrelated_line_taint_no_finding() {
+    // Phase 1.5 negative control on a structured-only sink. Tainted `input` is
+    // referenced on the same line as a c.File call whose arg[0] is a literal.
+    // Pre-DFG: line-granular over-fire (line tainted via input). Post-DFG:
+    // arg[0] = "/etc/static.txt" literal → not tainted → SemanticallyExcluded
+    // → no fire. c.File has no flat overlap; absence of taint_sink on the
+    // call line discriminates.
+    let source = r#"package main
+
+import "github.com/gin-gonic/gin"
+
+func handler(c *gin.Context) {
+	input := c.Query("input")
+	_ = c.File("/etc/static.txt"); _ = input
+}
+"#;
+    // Source line: 6 (c.Query). Sink line: 7 (c.File with literal arg).
+    let result = run_taint_go_single(source, "main.go", BTreeSet::from([6]));
+    let sink_line_finding = result
+        .findings
+        .iter()
+        .any(|f| f.category.as_deref() == Some("taint_sink") && f.line == 7);
+    assert!(
+        !sink_line_finding,
+        "c.File with a literal arg should NOT fire post-DFG even when an unrelated \
+         tainted variable shares the line"
+    );
+}
+
+#[test]
+fn test_taint_cwe78_complex_arg_expression_fires() {
+    // exec.Command takes the result of a method call as the binary arg. The
+    // method call itself returns tainted data via DFG. Per-arg conservative
+    // recursion: descend into the call_expression for arg[0]; the inner
+    // identifier is tainted, so arg[0] is treated as tainted; structured fires.
+    let source = r#"package main
+
+import (
+	"os/exec"
+
+	"github.com/gin-gonic/gin"
+)
+
+func handler(c *gin.Context) {
+	bin := c.Query("bin")
+	_ = exec.Command(string([]byte(bin)), "--help").Run()
+}
+"#;
+    // Source line: 10 (c.Query). Sink line: 11 (exec.Command with complex expr).
+    let result = run_taint_go_single(source, "main.go", BTreeSet::from([10]));
+    assert!(
+        has_taint_sink(&result),
+        "exec.Command with a complex-expression arg[0] containing a tainted \
+         identifier should fire via per-arg conservative recursion"
+    );
+}
+
+#[test]
+fn test_taint_cwe22_cfile_inline_param_source_still_fires() {
+    // Source==sink shape. c.Param is the source AND its return value is
+    // c.File's arg[0]. No FlowEdge connects them (no intermediate variable),
+    // so paths.iter().filter(originating) is empty. The source==sink loop's
+    // no-originating-path branch passes None for the FlowPath argument; the
+    // engine falls back to call_path + semantic_check matching (skipping
+    // per-arg DFG) and fires.
+    let source = r#"package main
+
+import "github.com/gin-gonic/gin"
+
+func handler(c *gin.Context) {
+	c.File(c.Param("f"))
+}
+"#;
+    // Source/sink line: 6 (c.File and c.Param share this line).
+    let result = run_taint_go_single(source, "main.go", BTreeSet::from([6]));
+    assert!(
+        has_taint_sink(&result),
+        "c.File(c.Param(\"f\")) source==sink shape must still fire post-DFG \
+         via the Option<&FlowPath>::None fallback in the source==sink loop"
+    );
+}
+
+#[test]
+fn test_taint_cwe22_cfile_inline_param_with_parallel_path_still_fires() {
+    // Mixed same-line regression. Single-line function body has TWO sources:
+    // c.Query (generates a FlowPath via def-use of `other`) AND c.Param
+    // (inline inside c.File, no FlowPath). Source 1's FlowPath makes
+    // `originating` non-empty for this line, so the primary
+    // Option<&FlowPath>::None fallback (gated on originating.is_empty()) is
+    // skipped. The secondary inline-source fallback (gated on
+    // find_sink_with_inline_framework_source) detects c.Param as an inline
+    // framework-source call inside c.File's arg[0] and fires the c.File sink
+    // (modulo function-body cleansing).
+    let source = r#"package main
+
+import (
+	"fmt"
+
+	"github.com/gin-gonic/gin"
+)
+
+func handler(c *gin.Context) {
+	other := c.Query("other"); c.File(c.Param("f")); fmt.Println(other)
+}
+"#;
+    // All three statements share line 10. taint_sources contains (file, 10).
+    let result = run_taint_go_single(source, "main.go", BTreeSet::from([10]));
+    assert!(
+        has_taint_sink(&result),
+        "c.File(c.Param(\"f\")) on a line with a parallel c.Query/FlowPath \
+         must still fire post-DFG via the inline-source secondary fallback. \
+         If this fails, audit find_sink_with_inline_framework_source's \
+         framework-source recognition + concretize_source_call_path's prefix \
+         substitution."
+    );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Phase 1 — Go CWE-22 (path traversal) tests
 //
 // Cross-cutting (`os.ReadFile`, `os.Open`) and framework-gated (`http.ServeFile`,
