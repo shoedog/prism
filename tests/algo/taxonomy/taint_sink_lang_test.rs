@@ -299,12 +299,30 @@ func handler(c *gin.Context) {
     );
 }
 
+// Path C dual-layer regression tests
+// (test_taint_cwe78_literal_binary_with_tainted_later_arg_no_finding,
+//  test_taint_cwe78_commandcontext_literal_binary_no_finding)
+// were removed alongside the rollback in the parent commit. They asserted
+// that flat-pattern catch-alls would suppress on `SemanticallyExcluded`
+// outcomes, which is no longer engine behavior. The literal-binary case
+// now correctly leaves the flat fallback active (acknowledged false-positive
+// class until per-arg DFG + PowerShell shell list expansion land — see
+// Phase 1.5 priority queue items #1 and #4). Per-arg DFG will reintroduce
+// proper coverage with assertions that don't depend on dual-layer
+// suppression.
+
 #[test]
-fn test_taint_cwe78_literal_binary_with_tainted_later_arg_no_finding() {
-    // Path C regression: exec.Command("ffmpeg", "-i", taintedInput) — binary is a
-    // literal so the tainted-binary sink's semantic_check (arg[0] non-literal)
-    // returns false, suppressing the over-fire that line-granularity matching
-    // would otherwise produce. Shape comes from eval-team go2rtc / LocalAI fixtures.
+fn test_taint_cwe78_pwsh_unmodeled_shell_preserves_flat_fallback() {
+    // P1 regression guard. exec.Command("pwsh", "-c", taintedInput) is a real
+    // PowerShell shell-interpretation risk that Phase 1's structured registry
+    // does NOT model (PowerShell binaries are out of `is_shell_wrapper_at`'s
+    // literal list — Phase 1.5 queue #4). The flat-pattern catch-all on the
+    // `Command` substring is the only signal that fires; the dual-layer
+    // suppression in PR #73's original form would have silently dropped this
+    // (see PR #73 review comment and the rollback rationale).
+    //
+    // Until per-arg DFG + PowerShell expansion land, this test pins the flat
+    // fallback firing for unmodeled shells.
     let source = r#"package main
 
 import (
@@ -315,51 +333,62 @@ import (
 
 func handler(c *gin.Context) {
 	input := c.Query("input")
-	_ = exec.Command("ffmpeg", "-i", input).Run()
+	_ = exec.Command("pwsh", "-c", input).Run()
 }
 "#;
-    // Diff anchored at line 11 (the c.Query source) — taint flows into line 12.
-    // Without Path C: line-taint reaches arg-position-0 check trivially, fires.
-    // With Path C: arg[0] = "ffmpeg" literal -> semantic_check returns false ->
-    // tainted-binary pattern silent. Shell-wrapper variant also silent
-    // (arg[0] not in shell list). No CWE-78 finding.
+    // Source line: 10 (c.Query). Sink line: 11 (exec.Command pwsh shell).
+    let result = run_taint_go_single(source, "main.go", BTreeSet::from([10]));
+    let line_11_sink = result
+        .findings
+        .iter()
+        .any(|f| f.category.as_deref() == Some("taint_sink") && f.line == 11);
+    assert!(
+        line_11_sink,
+        "exec.Command(\"pwsh\", \"-c\", taintedInput) should still produce a taint_sink \
+         finding via the flat-pattern fallback — PowerShell is a real shell-interpretation \
+         risk that the structured registry does not model. Suppressing this would silently \
+         lose coverage; see PR #73 review feedback (P1)."
+    );
+}
+
+#[test]
+fn test_taint_cwe78_same_line_unrelated_sink_preserved() {
+    // P2 regression guard. A literal-binary exec.Command (which the structured
+    // tainted-binary pattern excludes via Path C) sharing a line with an
+    // unrelated db.Exec(query) where query is tainted: the db.Exec sink must
+    // NOT be hidden by the structured exclusion of the exec.Command. Pre-
+    // rollback, the dual-layer suppression at line granularity hid all sinks
+    // on the line as soon as any structured pattern returned
+    // SemanticallyExcluded — a false negative for the unrelated SQL sink.
+    //
+    // Post-rollback, both calls share the line; flat-layer fires on the `Exec`
+    // substring (db.Exec) and `Command` substring (exec.Command), producing a
+    // taint_sink finding on this line.
+    let source = r#"package main
+
+import (
+	"database/sql"
+	"os/exec"
+
+	"github.com/gin-gonic/gin"
+)
+
+func handler(c *gin.Context, db *sql.DB) {
+	query := c.Query("q")
+	_ = exec.Command("ffmpeg", "-i", "static.mp4"); _, _ = db.Exec(query)
+}
+"#;
+    // Source line: 11 (c.Query). Sink line: 12 (both exec.Command + db.Exec).
     let result = run_taint_go_single(source, "main.go", BTreeSet::from([11]));
     let line_12_sink = result
         .findings
         .iter()
         .any(|f| f.category.as_deref() == Some("taint_sink") && f.line == 12);
     assert!(
-        !line_12_sink,
-        "literal binary in arg[0] should suppress the tainted-binary sink even when later args are tainted"
-    );
-}
-
-#[test]
-fn test_taint_cwe78_commandcontext_literal_binary_no_finding() {
-    // Same Path C suppression for exec.CommandContext (tainted-binary variant
-    // checks arg[1] — the ctx-shifted binary position).
-    let source = r#"package main
-
-import (
-	"context"
-	"os/exec"
-
-	"github.com/gin-gonic/gin"
-)
-
-func handler(c *gin.Context) {
-	input := c.Query("input")
-	_ = exec.CommandContext(context.Background(), "ffmpeg", "-i", input).Run()
-}
-"#;
-    let result = run_taint_go_single(source, "main.go", BTreeSet::from([12]));
-    let line_13_sink = result
-        .findings
-        .iter()
-        .any(|f| f.category.as_deref() == Some("taint_sink") && f.line == 13);
-    assert!(
-        !line_13_sink,
-        "literal binary in arg[1] should suppress the CommandContext tainted-binary sink"
+        line_12_sink,
+        "db.Exec(taintedQuery) on the same line as a literal-binary exec.Command must still \
+         fire a taint_sink finding. Pre-rollback dual-layer suppression hid this; the \
+         rollback restores correct fallback. See PR #73 review feedback (P2)."
     );
 }
 
