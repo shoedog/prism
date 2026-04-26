@@ -262,38 +262,17 @@ fn check_shell_wrapper_ctx(call: &CallSite) -> bool {
     is_shell_wrapper_at(call, 1, 2)
 }
 
-/// Returns true if argument `idx` of `call` is NOT a string literal (i.e. could plausibly
-/// hold a tainted value). Used by the tainted-binary CWE-78 sink variants to suppress
-/// the false-positive shape `exec.Command("ffmpeg", "-i", taintedX)` where the binary
-/// position is a literal and only later args are tainted.
-///
-/// **Phase 1 interim fix (Path C):** Phase 1's line-granularity matching does not
-/// consult `tainted_arg_indices`, so a literal binary plus tainted later args would
-/// otherwise fire the tainted-binary pattern. This syntactic check sidesteps that
-/// without per-arg DFG. Phase 1.5+ should honor `tainted_arg_indices` directly,
-/// at which point this check becomes redundant scaffolding and can be removed.
-fn check_arg_is_non_literal_at(call: &CallSite, idx: usize) -> bool {
-    call.literal_arg(idx).is_none()
-}
-
-/// Adapter for `exec.Command(taintedBin, ...)` tainted-binary form.
-fn check_command_taintable_binary(call: &CallSite) -> bool {
-    check_arg_is_non_literal_at(call, 0)
-}
-
-/// Adapter for `exec.CommandContext(ctx, taintedBin, ...)` tainted-binary form.
-fn check_commandcontext_taintable_binary(call: &CallSite) -> bool {
-    check_arg_is_non_literal_at(call, 1)
-}
-
 /// Cross-cutting Go CWE-78 (OS command injection) sinks. See spec §3.2.
 ///
 /// Both `exec.Command` and `exec.CommandContext` appear twice:
 /// - Once for the shell-wrapper form (`semantic_check` filters to shell calls);
 ///   tainted-arg index points at the `X` payload after `"-c"`.
 /// - Once for the tainted-binary form; tainted-arg index is the binary-path
-///   argument itself, and `semantic_check` requires that argument to be
-///   non-literal (Path C interim — see `check_arg_is_non_literal_at` doc).
+///   argument itself. `semantic_check: None` because per-arg taint resolution
+///   at sink-eval time (see `arg_is_tainted_in_path`) is the structural gate:
+///   a literal binary has no identifier and is never tainted; a variable
+///   bound to a non-tainted source isn't reached by any FlowPath edge at the
+///   call line.
 ///
 /// `syscall.Exec(argv0, argv, envv)` checks both `argv0` (literal-or-tainted)
 /// and the `argv` slice (DFG-conservative: any tainted slice element taints
@@ -319,13 +298,13 @@ pub const GO_CWE78_SINKS: &[SinkPattern] = &[
         call_path: "exec.Command",
         category: SanitizerCategory::OsCommand,
         tainted_arg_indices: &[0],
-        semantic_check: Some(check_command_taintable_binary),
+        semantic_check: None,
     },
     SinkPattern {
         call_path: "exec.CommandContext",
         category: SanitizerCategory::OsCommand,
         tainted_arg_indices: &[1],
-        semantic_check: Some(check_commandcontext_taintable_binary),
+        semantic_check: None,
     },
     // syscall.Exec — argv0 + argv slice.
     SinkPattern {

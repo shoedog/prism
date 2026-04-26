@@ -57,12 +57,17 @@ pub struct SourcePattern {
 pub struct SinkPattern {
     pub call_path: &'static str,
     pub category: SanitizerCategory,
-    /// 0-indexed argument positions whose taint fires this sink.
+    /// 0-indexed argument positions whose taint fires this sink. Any-tainted
+    /// semantics: the sink fires if AT LEAST ONE indexed arg is tainted on
+    /// the matching FlowPath (see `taint.rs::arg_is_tainted_in_path`).
     ///
-    /// **Phase 1 status:** captured for forward compatibility but NOT
-    /// consulted by the current engine — taint matching is line-granularity
-    /// (see `taint.rs::line_matches_structured_sink`). Per-argument
-    /// precision is a Phase 2/3 concern.
+    /// Examples:
+    /// - `&[0]` for `exec.Command(taintedBin, ...)` — fires when arg[0] is tainted.
+    /// - `&[2]` for `exec.Command("sh", "-c", taintedCmd)` — fires when arg[2] is
+    ///   tainted (paired with `semantic_check` confirming the shell-wrapper shape).
+    /// - `&[0, 1]` for `os.Rename(old, new)` — fires when EITHER arg is tainted.
+    /// - `&[0, 1]` for `syscall.Exec(argv0, argv, envv)` — argv slice is treated
+    ///   conservatively (any tainted element taints the whole slice via DFG).
     pub tainted_arg_indices: &'static [usize],
     pub semantic_check: Option<fn(&CallSite) -> bool>,
 }
