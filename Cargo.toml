@@ -395,6 +395,24 @@ path = "tests/integration/coverage_test.rs"
 name = "integration_hapi_regression"
 path = "tests/integration/hapi_regression_test.rs"
 
+# ── Framework detection tests ──
+
+[[test]]
+name = "frameworks_nethttp"
+path = "tests/frameworks/nethttp_test.rs"
+
+[[test]]
+name = "frameworks_gin"
+path = "tests/frameworks/gin_test.rs"
+
+[[test]]
+name = "frameworks_gorilla_mux"
+path = "tests/frameworks/gorilla_mux_test.rs"
+
+[[test]]
+name = "frameworks_registry"
+path = "tests/frameworks/registry_test.rs"
+
 # ── CLI tests ──
 
 [[test]]

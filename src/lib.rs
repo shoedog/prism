@@ -38,6 +38,7 @@ pub mod cpg;
 pub mod cpg_cache;
 pub mod data_flow;
 pub mod diff;
+pub mod frameworks;
 pub mod languages;
 pub mod live_types;
 pub mod output;

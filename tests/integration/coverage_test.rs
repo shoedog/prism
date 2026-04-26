@@ -186,6 +186,10 @@ fn test_algorithm_language_matrix() {
         "tests/lang/tsx/algo_expand_test.rs",
         "tests/lang/javascript/arrow_test.rs",
         "tests/lang/javascript/algo_expand_test.rs",
+        "tests/frameworks/nethttp_test.rs",
+        "tests/frameworks/gin_test.rs",
+        "tests/frameworks/gorilla_mux_test.rs",
+        "tests/frameworks/registry_test.rs",
     ];
     let mut test_names_buf: Vec<String> = Vec::new();
     for tf in all_test_files {
@@ -393,6 +397,10 @@ fn test_language_coverage_minimum() {
         "tests/lang/tsx/algo_expand_test.rs",
         "tests/lang/javascript/arrow_test.rs",
         "tests/lang/javascript/algo_expand_test.rs",
+        "tests/frameworks/nethttp_test.rs",
+        "tests/frameworks/gin_test.rs",
+        "tests/frameworks/gorilla_mux_test.rs",
+        "tests/frameworks/registry_test.rs",
     ];
     let mut test_names_buf: Vec<String> = Vec::new();
     for tf in all_test_files {
@@ -528,6 +536,10 @@ fn test_coverage_matrix_validation() {
         "tests/lang/tsx/algo_expand_test.rs",
         "tests/lang/javascript/arrow_test.rs",
         "tests/lang/javascript/algo_expand_test.rs",
+        "tests/frameworks/nethttp_test.rs",
+        "tests/frameworks/gin_test.rs",
+        "tests/frameworks/gorilla_mux_test.rs",
+        "tests/frameworks/registry_test.rs",
         "src/cfg.rs",
         "src/cpg.rs",
         "src/type_db.rs",
