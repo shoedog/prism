@@ -849,12 +849,15 @@ fn detect_framework_sources(ctx: &CpgContext) -> Vec<(String, usize)> {
 ///   should also be allowed to add findings (subject to path-aware cleanser
 ///   suppression on the matched pattern's category).
 /// - `SemanticallyExcluded` — at least one pattern's `call_path` matched but every
-///   matching pattern's `semantic_check` rejected. The structured layer is the
-///   authoritative judge for this `call_path`: it has decided the call is NOT a
-///   sink. The flat-pattern catch-all should suppress for this line so that
-///   substring matches on identifiers like `exec` / `Command` / `Sprintf` don't
-///   re-fire what the structured layer just excluded. Phase 1.5 fix per
-///   eval-team `RE-prism-cwe-phase1-status-20260426.md`.
+///   matching pattern's `semantic_check` rejected. **Currently treated the same
+///   as `NoMatch` by the engine** — the flat-pattern catch-all is NOT suppressed
+///   on this outcome. The original PR #73 design propagated `SemanticallyExcluded`
+///   into flat-suppression, but reviewer feedback (P1: `exec.Command("pwsh", "-c",
+///   tainted)` would silently lose the flat fallback for unmodeled shells; P2:
+///   per-line scoping would hide unrelated sinks like `db.Exec` sharing a line)
+///   forced a rollback. The variant is preserved as type-level forward-compat
+///   scaffolding for the per-arg DFG follow-up (Phase 1.5 #1), which will give
+///   the structured layer real arg-position taint precision.
 /// - `NoMatch` — no pattern's `call_path` matched. The structured layer has no
 ///   opinion; flat-pattern catch-all proceeds normally.
 #[derive(Clone, Copy)]
@@ -924,7 +927,10 @@ fn line_matches_structured_sink(
 ///   GO_CWE78_SINKS, GO_CWE22_SINKS, framework SINKS). The matched pattern's
 ///   category drives `FlowPath.cleansed_for` consultation.
 /// - Else if any pattern returned `SemanticallyExcluded`, aggregate is
-///   `SemanticallyExcluded`. The flat-pattern catch-all should suppress.
+///   `SemanticallyExcluded`. **Currently a no-op for engine behavior** — the
+///   flat-pattern catch-all is NOT suppressed (see `SinkMatchOutcome` doc for
+///   why this design was rolled back). The variant exists as forward-compat
+///   scaffolding for the per-arg DFG follow-up (Phase 1.5 #1).
 /// - Else `NoMatch`. Flat-pattern catch-all proceeds normally.
 ///
 /// Note: when multiple patterns share a `call_path` (exec.Command shell-wrapper +

@@ -311,6 +311,87 @@ func handler(c *gin.Context) {
 // proper coverage with assertions that don't depend on dual-layer
 // suppression.
 
+#[test]
+fn test_taint_cwe78_pwsh_unmodeled_shell_preserves_flat_fallback() {
+    // P1 regression guard. exec.Command("pwsh", "-c", taintedInput) is a real
+    // PowerShell shell-interpretation risk that Phase 1's structured registry
+    // does NOT model (PowerShell binaries are out of `is_shell_wrapper_at`'s
+    // literal list — Phase 1.5 queue #4). The flat-pattern catch-all on the
+    // `Command` substring is the only signal that fires; the dual-layer
+    // suppression in PR #73's original form would have silently dropped this
+    // (see PR #73 review comment and the rollback rationale).
+    //
+    // Until per-arg DFG + PowerShell expansion land, this test pins the flat
+    // fallback firing for unmodeled shells.
+    let source = r#"package main
+
+import (
+	"os/exec"
+
+	"github.com/gin-gonic/gin"
+)
+
+func handler(c *gin.Context) {
+	input := c.Query("input")
+	_ = exec.Command("pwsh", "-c", input).Run()
+}
+"#;
+    // Source line: 10 (c.Query). Sink line: 11 (exec.Command pwsh shell).
+    let result = run_taint_go_single(source, "main.go", BTreeSet::from([10]));
+    let line_11_sink = result
+        .findings
+        .iter()
+        .any(|f| f.category.as_deref() == Some("taint_sink") && f.line == 11);
+    assert!(
+        line_11_sink,
+        "exec.Command(\"pwsh\", \"-c\", taintedInput) should still produce a taint_sink \
+         finding via the flat-pattern fallback — PowerShell is a real shell-interpretation \
+         risk that the structured registry does not model. Suppressing this would silently \
+         lose coverage; see PR #73 review feedback (P1)."
+    );
+}
+
+#[test]
+fn test_taint_cwe78_same_line_unrelated_sink_preserved() {
+    // P2 regression guard. A literal-binary exec.Command (which the structured
+    // tainted-binary pattern excludes via Path C) sharing a line with an
+    // unrelated db.Exec(query) where query is tainted: the db.Exec sink must
+    // NOT be hidden by the structured exclusion of the exec.Command. Pre-
+    // rollback, the dual-layer suppression at line granularity hid all sinks
+    // on the line as soon as any structured pattern returned
+    // SemanticallyExcluded — a false negative for the unrelated SQL sink.
+    //
+    // Post-rollback, both calls share the line; flat-layer fires on the `Exec`
+    // substring (db.Exec) and `Command` substring (exec.Command), producing a
+    // taint_sink finding on this line.
+    let source = r#"package main
+
+import (
+	"database/sql"
+	"os/exec"
+
+	"github.com/gin-gonic/gin"
+)
+
+func handler(c *gin.Context, db *sql.DB) {
+	query := c.Query("q")
+	_ = exec.Command("ffmpeg", "-i", "static.mp4"); _, _ = db.Exec(query)
+}
+"#;
+    // Source line: 11 (c.Query). Sink line: 12 (both exec.Command + db.Exec).
+    let result = run_taint_go_single(source, "main.go", BTreeSet::from([11]));
+    let line_12_sink = result
+        .findings
+        .iter()
+        .any(|f| f.category.as_deref() == Some("taint_sink") && f.line == 12);
+    assert!(
+        line_12_sink,
+        "db.Exec(taintedQuery) on the same line as a literal-binary exec.Command must still \
+         fire a taint_sink finding. Pre-rollback dual-layer suppression hid this; the \
+         rollback restores correct fallback. See PR #73 review feedback (P2)."
+    );
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Phase 1 — Go CWE-22 (path traversal) tests
 //
