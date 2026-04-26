@@ -62,7 +62,7 @@ These are intentional Phase 1 boundaries; not silent gaps:
 - **Path-validation paired-check direction ambiguity** (spec §3.8) — both correct (`if HasPrefix(rel, "..") { return error }`) and inverted (`if HasPrefix(rel, "..") { use rel }`) guard shapes suppress equally. Documented inline at `src/sanitizers/path.rs` and `src/sanitizers/mod.rs`. CFG-aware refinement is the principled fix.
 - **`syscall.Exec` slice-element taint = whole-slice** (spec §3.2) — Prism's existing DFG models slices conservatively. Per-element tracking out of scope.
 - **PowerShell + exotic shell paths** not in shell-wrapper detection list (spec §3.2). `pwsh`, `powershell.exe`, `/usr/bin/sh`, `/usr/local/bin/bash` not covered. Add to the `is_shell_wrapper_at` literal list if C1 fixtures exercise.
-- **`tainted_arg_indices` not honored by line-matching engine** — Path C is interim. Phase 1.5+ should add per-arg DFG so `tainted_arg_indices` is genuinely consulted at sink evaluation. When that lands, `check_command_taintable_binary` becomes redundant.
+- ~~**`tainted_arg_indices` not honored by line-matching engine**~~ — **CLOSED** in PR #74. Per-arg DFG (`arg_is_tainted_in_path`) is now the structural gate; Path C `semantic_check` scaffolding retired.
 - **Tree-walk caching** — `first_matching_go_sink` re-walks the AST per (line × pattern). Worst case O(edges × patterns × tree_size). Phase 1 fixtures are small enough this isn't a perf cliff in practice; flagged for Phase 2 before sink registries grow significantly. Mitigation: cache `collect_go_calls(root)` per `ParsedFile` (similar to `framework: OnceCell<...>`).
 - **`HARDCODED_SECRET` keyword-prefixed LHS forms** (`const NAME = "..."`, `let NAME = "..."`, `var NAME = "..."` in JS; `static const char *NAME = "..."` in C) — out of Phase 1 scope per ACK §4.1; Phase 2/3 registry redesign will subsume.
 
@@ -87,12 +87,13 @@ If a fixture exercises a Phase-1-limitation shape (Rel direction ambiguity, slic
 
 Prioritized by the C1-review-surfaced issues + design-time deferrals:
 
-1. **Per-arg DFG in line-matching engine** — honors `tainted_arg_indices`, retires Path C scaffolding, addresses broader false-positive class beyond the literal-binary case.
-2. **CFG-aware paired-check direction** — distinguishes positive vs inverted guard for path-validation; addresses the Rel direction ambiguity.
-3. **Tree-walk caching** — `collect_go_calls` memoization on `ParsedFile`. Perf hardening before Phase 2 expands sink registries.
-4. **PowerShell + exotic shell paths** — add to `is_shell_wrapper_at` literal list. Trivial; do when C1 evidence shows the gap matters.
+1. ~~**Per-arg DFG in line-matching engine**~~ — **CLOSED** in [PR #74](https://github.com/shoedog/prism/pull/74) (merged 2026-04-26 as `fbd962a`). `arg_is_tainted_in_path` is now the structural gate; Path C `semantic_check` scaffolding retired. Variable-bound-to-literal false positives no longer fire structured sinks. Pinned by `test_taint_cwe22_cfile_variable_bound_to_literal_no_finding` (and 5 other regression tests).
+2. ~~**Per-call (not per-line) flat-suppression**~~ — **CLOSED** as a follow-up to PR #74 (commit `9a77d3a`). The cleanser suppression now records cleansed structured sink call byte ranges and skips only flat identifiers inside those calls; unrelated flat sinks on the same line still run. Pinned by `test_path_clean_same_line_unrelated_flat_sink_still_fires`.
+3. **CFG-aware paired-check direction** — distinguishes positive vs inverted guard for path-validation; addresses the Rel direction ambiguity.
+4. **Tree-walk caching** — `collect_go_calls` memoization on `ParsedFile`. Perf hardening before Phase 2 expands sink registries.
+5. **PowerShell + exotic shell paths** — add to `is_shell_wrapper_at` literal list. Trivial; do when C1 evidence shows the gap matters.
 
-These are not ranked against Phase 2 (Python) until your next go-signal. Happy to defer all four to Phase 2 if Python is the higher-leverage next step.
+Items 1-2 close the eval-team RE finding from 2026-04-26 (variable-bound-to-literal false positives + dual-layer line-scoping). Items 3-5 remain open; not ranked against Phase 2 (Python) until your next go-signal. Happy to defer all three to Phase 2 if Python is the higher-leverage next step.
 
 ## Cross-references
 
