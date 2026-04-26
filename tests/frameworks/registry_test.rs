@@ -29,7 +29,6 @@ func main() {
 
 #[test]
 fn test_framework_caching_via_oncecell() {
-    // Calling framework() twice should return the same value without re-detecting.
     let source = r#"
 package main
 
@@ -38,10 +37,19 @@ import "github.com/gin-gonic/gin"
 func handler(c *gin.Context) {}
 "#;
     let parsed = parse_go(source);
-    let first = parsed.framework().map(|f| f.name);
-    let second = parsed.framework().map(|f| f.name);
-    assert_eq!(first, Some("gin"));
-    assert_eq!(first, second);
+    // Cell empty before first call.
+    assert!(
+        parsed.framework.get().is_none(),
+        "cache empty before first call"
+    );
+    // First call populates.
+    assert_eq!(parsed.framework().map(|f| f.name), Some("gin"));
+    // Cell now populated; second call hits cache.
+    assert!(
+        parsed.framework.get().is_some(),
+        "cache populated after first call"
+    );
+    assert_eq!(parsed.framework().map(|f| f.name), Some("gin"));
 }
 
 #[test]

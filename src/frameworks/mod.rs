@@ -95,10 +95,8 @@ pub const ALL_FRAMEWORKS: &[&FrameworkSpec] = &[&gin::SPEC, &gorilla_mux::SPEC, 
 /// Detect the active framework for a file. First match wins.
 /// Returns `None` if no framework matches (quiet-mode default per ACK §3 Q5).
 pub fn detect_for(parsed: &ParsedFile) -> Option<&'static FrameworkSpec> {
-    for spec in ALL_FRAMEWORKS {
-        if (spec.detect)(parsed) {
-            return Some(spec);
-        }
-    }
-    None
+    ALL_FRAMEWORKS
+        .iter()
+        .copied()
+        .find(|spec| (spec.detect)(parsed))
 }
