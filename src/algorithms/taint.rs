@@ -1158,12 +1158,17 @@ pub fn slice(
                 // - `Match(p)`: structured sink fires (modulo cleanser
                 //   suppression by category).
                 // - `SemanticallyExcluded`: a structured pattern's call_path
-                //   matched but its semantic_check rejected (e.g., Path C's
-                //   literal-binary check on `exec.Command("ffmpeg", …)`). The
-                //   structured layer is authoritative for this call_path —
-                //   flat-pattern catch-alls (`exec`, `Command`, `Sprintf`)
-                //   must NOT re-fire what the structured layer just excluded.
-                //   Phase 1.5 fix per eval-team RE-prism-cwe-phase1-status-20260426.md.
+                //   matched but its semantic_check rejected. NOT used to
+                //   suppress flat-pattern catch-alls — see PR #73 review
+                //   feedback (P1: shell-wrapper inclusion-filter rejection
+                //   doesn't prove call safety; pwsh shell-interpretation
+                //   would silently drop coverage. P2: per-line suppression
+                //   would hide unrelated sinks like db.Exec sharing a line).
+                //   Properly closing the eval-team RE finding here requires
+                //   per-arg DFG (Phase 1.5 #1) plus PowerShell shell list
+                //   expansion (#4) plus per-call (not per-line) scoping.
+                //   Until those land, treat `SemanticallyExcluded` same as
+                //   `NoMatch` for flat-layer purposes.
                 // - `NoMatch`: no structured opinion; flat-pattern catch-all
                 //   runs normally.
                 //
@@ -1179,10 +1184,8 @@ pub fn slice(
                     outcome,
                     SinkMatchOutcome::Match(p) if path.cleansed_for.contains(&p.category)
                 );
-                let suppressed_by_structured_exclusion =
-                    matches!(outcome, SinkMatchOutcome::SemanticallyExcluded);
 
-                if !suppressed_by_cleanser && !suppressed_by_structured_exclusion {
+                if !suppressed_by_cleanser {
                     // Suppress flat substring matches on lines that are
                     // recognized framework SOURCE calls — e.g., `Query` would
                     // otherwise fire as a flat sink on `r.URL.Query()` even
