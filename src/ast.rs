@@ -1886,26 +1886,22 @@ impl ParsedFile {
 
             if kind == "return_statement" && self.language == Language::Go {
                 // Go: return may have an expression_list child
-                let mut cursor = node.walk();
-                for child in node.named_children(&mut cursor) {
+                if let Some(child) = node.named_child(0) {
                     let ck = child.kind();
                     if ck == "expression_list" {
                         value_text = Some(self.node_text(&child).to_string());
                         value_kind = Some(ck.to_string());
-                        break;
+                    } else {
+                        // Single expression (not expression_list)
+                        value_text = Some(self.node_text(&child).to_string());
+                        value_kind = Some(ck.to_string());
                     }
-                    // Single expression (not expression_list)
-                    value_text = Some(self.node_text(&child).to_string());
-                    value_kind = Some(ck.to_string());
-                    break;
                 }
             } else {
                 // All other languages: first named child is the expression
-                let mut cursor = node.walk();
-                for child in node.named_children(&mut cursor) {
+                if let Some(child) = node.named_child(0) {
                     value_text = Some(self.node_text(&child).to_string());
                     value_kind = Some(child.kind().to_string());
-                    break;
                 }
             }
 
@@ -1995,8 +1991,7 @@ impl ParsedFile {
                 return;
             }
             // Check children for if/match expressions
-            let mut cursor = last_child.walk();
-            for child in last_child.named_children(&mut cursor) {
+            if let Some(child) = last_child.named_child(0) {
                 let ck = child.kind();
                 if ck == "if_expression" || ck == "if_let_expression" {
                     self.collect_if_trailing_returns(&child, func_node, out);
