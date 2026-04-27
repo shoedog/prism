@@ -403,7 +403,7 @@ Per eval-team's handoff §2.1–§2.4, the Python sink lists by CWE are:
 - **CWE-79 (XSS):** `mark_safe`, `markupsafe.Markup`, `format_html` only when the format-string arg is tainted, `Template().render` (with autoescape=False), `render_template_string` (conditional per §4.3).
 - **CWE-89 (SQLi):** `cursor.execute`, `cursor.executemany`, `session.execute(text(raw_sql))`, `Model.objects.raw`.
 - **CWE-918 (SSRF):** `requests.{get,post,put,delete,patch,head,options,request}`, `urllib.request.urlopen`, `urllib.request.Request`, `httpx.{get,post,put,delete,patch,head,options}`, `aiohttp.ClientSession.{get,post,...}`, `urllib3.PoolManager.request`.
-- **CWE-502 (Deserialization):** `pickle.{loads,load}`, `cPickle.loads`, `yaml.load` (without SafeLoader), `jsonpickle.decode`, `marshal.loads`, `dill.loads`.
+- **CWE-502 (Deserialization):** `pickle.{loads,load}`, `cPickle.{loads,load}`, `cloudpickle.{loads,load}`, `yaml.load` (without SafeLoader), `jsonpickle.decode`, `marshal.{loads,load}`, `dill.{loads,load}`.
 
 `tainted_arg_indices` per sink:
 
@@ -481,7 +481,7 @@ Mirrors Phase 1's test structure:
 
 - **CWE-22 (path traversal) in Python** — eval-team's C2 plan §"Open questions" Q7 explicitly notes "no CWE-22 in this set (CWE-22 is C1/Phase 1 territory)." Revisit in Phase 2.5 if fixtures surface.
 - **CWE-78 (OS command injection) in Python** — Phase 1 covered Go; Python's `subprocess.run`/`os.system`/`shell=True` patterns are different enough to warrant their own design pass. Defer.
-- **`jsonpickle.decode`, `marshal.loads`, `dill.loads`** — listed in eval-team's CWE-502 sink set, but C2 fixtures don't exercise them. Add if real fixtures surface.
+- **Imported deserializer aliases** — `from pickle import loads; loads(data)` and similar aliases are not resolved in Phase 2. Explicit qualified unsafe deserializer calls are modeled; broad bare `loads` / `load` matching is intentionally avoided to prevent `json.loads` false positives.
 - **Field-sensitive Pydantic taint (Option B in §4.1)** — Phase 2.5 hardening if §4.1 lands as Option A and downstream fixtures need precision.
 - **External Jinja2 template file analysis (§4.3 caveat)** — Phase 2.5 if external-template CVEs surface. Inline-template substring scan is the MVP.
 - **Async-aware taint propagation** — `await request.body()` is treated as a synchronous source; `asyncio` task boundary tracking is a Phase 3+ concern.
