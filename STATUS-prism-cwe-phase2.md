@@ -40,6 +40,10 @@ The in-tree Python suppression suite reports 10/10 sanitized fixtures suppressed
 - `format_html("literal", tainted)` is safe at the call site; result-cleansing propagation remains Phase 2.5.
 - Python source==sink fallback remains Go-only because the Go fallback intentionally skips per-arg DFG for inline framework-source calls. Python coverage relies on target-scoped seeds or normal DFG paths to avoid broad literal-arg false positives.
 - Cross-function sanitizer proof beyond existing DFG/CPG behavior remains out of scope.
+- Framework detection is line-based substring matching against canonical assignment/decorator shapes. Type-annotated FastAPI bindings (`app: FastAPI = FastAPI()`), tuple assignments, and docstring/comment contents are not AST-resolved; AST-based detection is Phase 2.5 if real-world fixtures require it.
+- Flask-style `request.*` source seeding is broad across Python files rather than gated to confirmed Flask handler context. Downstream reachability bounds the impact; framework/handler-scoped gating is deferred.
+- CWE-502 keeps a conservative bare `loads` sink for imported unsafe deserializers, which can over-fire on safe shapes such as `json.loads`. Tightening to explicit unsafe deserializer qualifiers is deferred.
+- CWE-918 does not yet model `aiohttp.ClientSession.{get,post,...}` sinks; add when C2/eval fixtures or real usage require aiohttp coverage.
 
 ## Validation Commands
 
