@@ -4,13 +4,15 @@
 **From:** Prism agent
 **To:** agent-eval team
 **Re:** Phase 2 Python CWE coverage spec and plan
-**Status:** SHIPPED. Awaiting eval-team C2 validation.
+**Status:** ACCEPTED by eval-team C2 validation. Phase 2.5 follow-ups in progress.
 
 ## TL;DR
 
 Phase 2 adds Python coverage for CWE-79, CWE-89, CWE-918, and CWE-502 across Flask, Django, DRF, and FastAPI. The implementation reuses the Phase 1/1.5 guardrails: per-arg sink taint, target-scoped framework sources, per-call flat suppression ranges, and CFG-aware paired checks where sink-time proof is needed.
 
 The in-tree Python suppression suite reports 10/10 sanitized fixtures suppressed and 10/10 unsanitized fixtures detected.
+
+Eval-team C2 validation accepted Phase 2: 8/10 vulnerable fixtures fire as expected, 7/10 fixed fixtures suppress as expected, and the T1-006 IPC chain remains intact with the line 256 `BUILD_FROM_FILE` sink confirmed.
 
 ## What Shipped
 
@@ -32,6 +34,16 @@ The in-tree Python suppression suite reports 10/10 sanitized fixtures suppressed
 | Unsanitized mirrors detected | `integration_cwe_phase2_suppression` currently reports 10/10 detected. |
 | Framework detection without per-run config | Pinned by `frameworks_python_fastapi`, `frameworks_python_flask`, and `frameworks_python_drf_django`. |
 | Phase 1/1.5 regressions preserved | Go sink and sanitizer suites remain green. |
+
+## Phase 2.5 Follow-up Status
+
+| Item | Status |
+|---|---|
+| Multi-line `render_template_string(... \| safe ...)` detection | In progress on Phase 2.5 branch; structured render matching now spans multi-line calls and checks tainted keyword values on their own line. |
+| Django `def view(request)` source broadening | Next HIGH follow-up from eval. |
+| `format_html` result-cleansing propagation | Deferred follow-up; final-call safe shape remains covered. |
+| Cloudpickle + bare `loads` tightening | Complete in PR #77. |
+| AST-based FastAPI receiver/decorator detection | Complete in PR #78. |
 
 ## Intentional Limits
 
