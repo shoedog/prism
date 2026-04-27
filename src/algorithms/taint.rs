@@ -1099,6 +1099,10 @@ fn detect_python_framework_sources(
     sources: &mut Vec<TaintSeed>,
 ) {
     let pydantic_models = collect_python_pydantic_models(parsed);
+    // Compute FastAPI route receivers once per file rather than per function;
+    // the AST walk is O(tree_size) and `function_has_route_decorator_with_receivers`
+    // re-uses the result for each handler check.
+    let fastapi_receivers = crate::frameworks::python::fastapi::route_receivers(parsed);
     for func in parsed.all_functions() {
         if python_is_inner_decorated_function(&func) {
             continue;
@@ -1106,7 +1110,11 @@ fn detect_python_framework_sources(
         let line = func.start_position().row + 1;
         let text = parsed.node_text(&func);
         let is_fastapi_route =
-            crate::frameworks::python::fastapi::function_has_route_decorator(parsed, &func);
+            crate::frameworks::python::fastapi::function_has_route_decorator_with_receivers(
+                parsed,
+                &func,
+                &fastapi_receivers,
+            );
         let is_drf_or_django_view = text.contains("request")
             && (parsed.source.contains("django") || parsed.source.contains("rest_framework"));
 
