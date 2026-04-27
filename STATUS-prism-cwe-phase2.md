@@ -4,7 +4,7 @@
 **From:** Prism agent
 **To:** agent-eval team
 **Re:** Phase 2 Python CWE coverage spec and plan
-**Status:** IMPLEMENTED on `claude/phase2-cwe-python`; pending PR review/merge.
+**Status:** SHIPPED. Awaiting eval-team C2 validation.
 
 ## TL;DR
 
@@ -19,7 +19,7 @@ The in-tree Python suppression suite reports 10/10 sanitized fixtures suppressed
 | Engine generalization | Language-neutral call collection/sink dispatch, target-scoped taint seeds, synthetic handler-param flow paths, Python-aware flat-range suppression, and Python sanitizer execution. |
 | Framework detection | Flask, Django, DRF, and FastAPI modules registered ahead of Go frameworks. FastAPI route decorators are receiver-aware for `FastAPI()` and `APIRouter()` bindings. |
 | Sources | Flask request accessors, Django/DRF `request` handler params, FastAPI scalar/request/Pydantic handler params. |
-| Sinks | Python CWE-79 (`mark_safe`, `Markup`, `format_html`, unsafe `render_template_string`), CWE-89 (`execute`, `executemany`, `raw`), CWE-918 (`requests`, `httpx`, `urllib`, `urllib3`), CWE-502 (`pickle`, `yaml.load`, `jsonpickle`, `marshal`, `dill`). |
+| Sinks | Python CWE-79 (`mark_safe`, `Markup`, `format_html`, unsafe `render_template_string`), CWE-89 (`execute`, `executemany`, `raw`), CWE-918 (`requests`, `httpx`, `urllib`, `urllib3`), CWE-502 (`pickle`, `cloudpickle`, `yaml.load`, `jsonpickle`, `marshal`, `dill`). |
 | Sanitizers/safe sinks | HTML escaping recognizers, Jinja2 default autoescape semantics, DB-API parametrized SQL, SQLAlchemy `text(...).bindparams/params`, CFG-aware URL hostname allowlist, `yaml.safe_load`, and `yaml.load(..., Loader=SafeLoader)`. |
 | Fixtures | `tests/fixtures/sanitizer-suite-python/{sanitized,unsanitized}/` with 10+10 Python fixtures. |
 
@@ -42,7 +42,7 @@ The in-tree Python suppression suite reports 10/10 sanitized fixtures suppressed
 - Cross-function sanitizer proof beyond existing DFG/CPG behavior remains out of scope.
 - Framework detection is line-based substring matching against canonical assignment/decorator shapes. Type-annotated FastAPI bindings (`app: FastAPI = FastAPI()`), tuple assignments, and docstring/comment contents are not AST-resolved; AST-based detection is Phase 2.5 if real-world fixtures require it.
 - Flask-style `request.*` source seeding is broad across Python files rather than gated to confirmed Flask handler context. Downstream reachability bounds the impact; framework/handler-scoped gating is deferred.
-- CWE-502 keeps a conservative bare `loads` sink for imported unsafe deserializers, which can over-fire on safe shapes such as `json.loads`. Tightening to explicit unsafe deserializer qualifiers is deferred.
+- CWE-502 broad bare `loads` / `load` matching was removed in the Phase 2.5 O3 cleanup. Unsafe deserializers are modeled by explicit qualified call paths; imported aliases such as `from pickle import loads` are not resolved yet.
 - CWE-918 does not yet model `aiohttp.ClientSession.{get,post,...}` sinks; add when C2/eval fixtures or real usage require aiohttp coverage.
 
 ## Validation Commands

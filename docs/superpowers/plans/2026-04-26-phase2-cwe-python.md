@@ -139,8 +139,8 @@ Sink requirements:
   - `aiohttp.ClientSession.{get,post,...}`.
   - `urllib3.PoolManager.request(method, url, ...)` with URL at arg1.
 - CWE-502:
-  - `pickle.{loads,load}`, `cPickle.loads`, `yaml.load` without SafeLoader.
-  - `jsonpickle.decode`, `marshal.loads`, `dill.loads` may be added now if cheap, but C2 does not require them.
+  - `pickle.{loads,load}`, `cPickle.{loads,load}`, `cloudpickle.{loads,load}`, `yaml.load` without SafeLoader.
+  - `jsonpickle.decode`, `marshal.{loads,load}`, `dill.{loads,load}`.
 
 Inline Jinja2 requirements:
 
@@ -283,6 +283,17 @@ rg -n "collect_go_calls|go_call_path_text|go_sink_outcome|cleansed_structured_si
 - Gate 1 after Commit 1: reviewer checks engine generalization before Python registries build on it.
 - Gate 2 after Commit 3: reviewer checks XSS render semantics and flat fallback behavior before sanitizer fixtures depend on it.
 - Gate 3 before PR push: full verification plus eval C2 fixture pass if fixtures are available.
+
+---
+
+## Phase 2.5 Follow-On Queue
+
+While awaiting eval-team C2 validation, track the small correctness/polish items surfaced during Phase 2 PR review:
+
+1. **O3 - Tighten CWE-502 bare `loads` matching.** Remove broad bare `loads` / `load` sinks, rely on explicit unsafe deserializer qualifiers (`pickle`, `cPickle`, `cloudpickle`, `marshal`, `dill`, `jsonpickle`, `yaml.load`), and pin `json.loads` as a negative. First Phase 2.5 cleanup.
+2. **O2 - Gate Flask `request.*` sources.** Narrow broad `request.*` source seeding to detected Flask/framework context where practical, without regressing C2 fixtures.
+3. **O1 - AST-based FastAPI receiver/decorator detection.** Replace line-substring receiver detection with AST-aware assignment/decorator traversal for annotated bindings, tuple assignment, and comment/docstring immunity.
+4. **O4 - aiohttp SSRF sinks.** Add `aiohttp.ClientSession.{get,post,...}` coverage only if eval fixtures or real usage require it.
 
 ---
 

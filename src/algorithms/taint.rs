@@ -69,9 +69,9 @@ const SINK_PATTERNS: &[&str] = &[
     "vsprintf",
     "vsnprintf",
     // === Python ===
-    // Deserialization (arbitrary code execution)
-    "=loads", // pickle.loads, marshal.loads, yaml.loads (exact to avoid "downloads", "preloads")
-    "=load",  // pickle.load, yaml.load (exact to avoid "download", "upload")
+    // Deserialization is handled by explicit structured PY_CWE502_SINKS entries.
+    // Do not add broad `=loads` / `=load` flat fallbacks here: `json.loads` and
+    // `json.load` parse data without code execution and are not CWE-502 sinks.
     // Process execution
     "=Popen",        // subprocess.Popen (exact; "subprocess" omitted — too generic)
     "=popen",        // os.popen
@@ -584,19 +584,31 @@ pub const PY_CWE502_SINKS: &[SinkPattern] = &[
         semantic_check: None,
     },
     SinkPattern {
-        call_path: "loads",
-        category: SanitizerCategory::Deserialization,
-        tainted_arg_indices: &[0],
-        semantic_check: None,
-    },
-    SinkPattern {
         call_path: "pickle.load",
         category: SanitizerCategory::Deserialization,
         tainted_arg_indices: &[0],
         semantic_check: None,
     },
     SinkPattern {
-        call_path: "load",
+        call_path: "cPickle.loads",
+        category: SanitizerCategory::Deserialization,
+        tainted_arg_indices: &[0],
+        semantic_check: None,
+    },
+    SinkPattern {
+        call_path: "cPickle.load",
+        category: SanitizerCategory::Deserialization,
+        tainted_arg_indices: &[0],
+        semantic_check: None,
+    },
+    SinkPattern {
+        call_path: "cloudpickle.loads",
+        category: SanitizerCategory::Deserialization,
+        tainted_arg_indices: &[0],
+        semantic_check: None,
+    },
+    SinkPattern {
+        call_path: "cloudpickle.load",
         category: SanitizerCategory::Deserialization,
         tainted_arg_indices: &[0],
         semantic_check: None,
@@ -620,7 +632,19 @@ pub const PY_CWE502_SINKS: &[SinkPattern] = &[
         semantic_check: None,
     },
     SinkPattern {
+        call_path: "marshal.load",
+        category: SanitizerCategory::Deserialization,
+        tainted_arg_indices: &[0],
+        semantic_check: None,
+    },
+    SinkPattern {
         call_path: "dill.loads",
+        category: SanitizerCategory::Deserialization,
+        tainted_arg_indices: &[0],
+        semantic_check: None,
+    },
+    SinkPattern {
+        call_path: "dill.load",
         category: SanitizerCategory::Deserialization,
         tainted_arg_indices: &[0],
         semantic_check: None,

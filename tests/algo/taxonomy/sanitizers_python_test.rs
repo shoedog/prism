@@ -233,3 +233,58 @@ def load_config():
         "yaml.load without SafeLoader should fire"
     );
 }
+
+#[test]
+fn test_python_json_loads_does_not_fire_deserialization() {
+    let source = r#"from flask import Flask, request
+import json
+
+app = Flask(__name__)
+
+@app.route("/load")
+def load_config():
+    payload = request.get_data()
+    return json.loads(payload)
+"#;
+    let result = run_taint_python_single(source, "app.py", BTreeSet::from([1]));
+    assert!(
+        !has_taint_sink(&result),
+        "json.loads parses data but is not a CWE-502 code-execution sink"
+    );
+}
+
+#[test]
+fn test_python_explicit_unsafe_deserializers_still_fire() {
+    let cases = [
+        ("import cPickle", "cPickle.loads(payload)"),
+        ("import cPickle", "cPickle.load(payload)"),
+        ("import cloudpickle", "cloudpickle.loads(payload)"),
+        ("import cloudpickle", "cloudpickle.load(payload)"),
+        ("import marshal", "marshal.loads(payload)"),
+        ("import marshal", "marshal.load(payload)"),
+        ("import dill", "dill.loads(payload)"),
+        ("import dill", "dill.load(payload)"),
+        ("import jsonpickle", "jsonpickle.decode(payload)"),
+    ];
+
+    for (import_line, call) in cases {
+        let source = format!(
+            r#"from flask import Flask, request
+{}
+
+app = Flask(__name__)
+
+@app.route("/load")
+def load_config():
+    payload = request.get_data()
+    return {}
+"#,
+            import_line, call
+        );
+        let result = run_taint_python_single(&source, "app.py", BTreeSet::from([1]));
+        assert!(
+            has_taint_sink(&result),
+            "{call} should remain a CWE-502 sink"
+        );
+    }
+}
