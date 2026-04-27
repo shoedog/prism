@@ -5,7 +5,7 @@
 //! paths from taint sources to potential sinks (SQL, exec, file ops, HTTP responses).
 
 use crate::ast::ParsedFile;
-use crate::cpg::CpgContext;
+use crate::cpg::{CodePropertyGraph, CpgContext};
 use crate::data_flow::FlowPath;
 use crate::diff::{DiffBlock, DiffInput, ModifyType};
 use crate::frameworks::{CallSite, SanitizerCategory, SinkPattern};
@@ -1075,6 +1075,598 @@ fn subtree_has_call_in(parsed: &ParsedFile, node: &Node<'_>, paths: &BTreeSet<St
     false
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum PathSanitizerKind {
+    Clean,
+    Rel,
+}
+
+struct PathSanitizerBinding {
+    kind: PathSanitizerKind,
+    result_var: String,
+    call_line: usize,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum GuardControl {
+    RejectBranch,
+    AllowBranch,
+}
+
+fn flow_path_cleansed_for_sink(
+    parsed: &ParsedFile,
+    cpg: &CodePropertyGraph,
+    path: &FlowPath,
+    sink_line: usize,
+    sink_pat: &'static SinkPattern,
+) -> bool {
+    if parsed.language == Language::Go && sink_pat.category == SanitizerCategory::PathTraversal {
+        return go_path_traversal_cleansed_for_sink(
+            parsed,
+            cpg,
+            Some(path),
+            sink_line,
+            Some(sink_pat),
+            None,
+        );
+    }
+    path.cleansed_for.contains(&sink_pat.category)
+}
+
+fn flow_path_cleansed_for_sink_call(
+    parsed: &ParsedFile,
+    cpg: &CodePropertyGraph,
+    path: &FlowPath,
+    sink_line: usize,
+    sink_pat: &'static SinkPattern,
+    call: &Node<'_>,
+) -> bool {
+    if parsed.language == Language::Go && sink_pat.category == SanitizerCategory::PathTraversal {
+        return go_path_traversal_cleansed_for_sink(
+            parsed,
+            cpg,
+            Some(path),
+            sink_line,
+            Some(sink_pat),
+            Some(call),
+        );
+    }
+    path.cleansed_for.contains(&sink_pat.category)
+}
+
+fn source_line_cleansed_for_sink(
+    parsed: &ParsedFile,
+    cpg: &CodePropertyGraph,
+    sink_line: usize,
+    sink_pat: &'static SinkPattern,
+) -> bool {
+    if parsed.language == Language::Go && sink_pat.category == SanitizerCategory::PathTraversal {
+        return go_path_traversal_cleansed_for_sink(
+            parsed,
+            cpg,
+            None,
+            sink_line,
+            Some(sink_pat),
+            None,
+        );
+    }
+    function_body_cleansed_for(parsed, sink_line, sink_pat.category)
+}
+
+fn structured_sink_line_cleansed_for_path(
+    parsed: &ParsedFile,
+    cpg: &CodePropertyGraph,
+    path: &FlowPath,
+    line: usize,
+    sink_pat: &'static SinkPattern,
+) -> bool {
+    if parsed.language != Language::Go || sink_pat.category != SanitizerCategory::PathTraversal {
+        return path.cleansed_for.contains(&sink_pat.category);
+    }
+
+    let mut calls = Vec::new();
+    collect_go_calls(parsed.tree.root_node(), &mut calls);
+
+    let mut matched = false;
+    for call in &calls {
+        if call.start_position().row + 1 != line {
+            continue;
+        }
+        let actual = match go_call_path_text(parsed, call) {
+            Some(s) => s,
+            None => continue,
+        };
+        if actual != sink_pat.call_path || !call_passes_sink_semantics(parsed, call, sink_pat) {
+            continue;
+        }
+        if !sink_call_has_tainted_arg_in_path(parsed, call, sink_pat, path) {
+            continue;
+        }
+        matched = true;
+        if !flow_path_cleansed_for_sink_call(parsed, cpg, path, line, sink_pat, call) {
+            return false;
+        }
+    }
+
+    matched
+}
+
+fn go_path_traversal_cleansed_for_sink(
+    parsed: &ParsedFile,
+    cpg: &CodePropertyGraph,
+    path: Option<&FlowPath>,
+    sink_line: usize,
+    sink_pat: Option<&'static SinkPattern>,
+    sink_call: Option<&Node<'_>>,
+) -> bool {
+    if parsed.language != Language::Go || !cpg.has_cfg_edges() {
+        return false;
+    }
+
+    let func_node = match parsed.enclosing_function(sink_line) {
+        Some(n) => n,
+        None => return false,
+    };
+
+    for binding in collect_path_sanitizer_bindings(parsed, &func_node) {
+        if binding.call_line > sink_line {
+            continue;
+        }
+        if let Some(p) = path {
+            if !path_targets_var_at_line(parsed, p, sink_line, &binding.result_var) {
+                continue;
+            }
+        }
+        if let (Some(call), Some(pat)) = (sink_call, sink_pat) {
+            if !sink_call_uses_var_in_tainted_arg(parsed, call, pat, &binding.result_var) {
+                continue;
+            }
+        } else if let Some(pat) = sink_pat {
+            if !line_has_matching_sink_call_using_var(
+                parsed,
+                sink_line,
+                pat,
+                &binding.result_var,
+                path,
+            ) {
+                continue;
+            }
+        } else if path.is_none() {
+            continue;
+        }
+
+        if guard_safely_controls_sink(parsed, cpg, &func_node, &binding, sink_line) {
+            return true;
+        }
+    }
+
+    false
+}
+
+fn collect_path_sanitizer_bindings(
+    parsed: &ParsedFile,
+    func_node: &Node<'_>,
+) -> Vec<PathSanitizerBinding> {
+    let mut assignments = Vec::new();
+    collect_go_assignments(*func_node, parsed, &mut assignments);
+
+    let mut bindings = Vec::new();
+    for assignment in assignments {
+        let lhs = match parsed.language.assignment_target(&assignment) {
+            Some(n) => n,
+            None => continue,
+        };
+        let rhs = match parsed.language.assignment_value(&assignment) {
+            Some(n) => n,
+            None => continue,
+        };
+        let lhs_items = assignment_lhs_identifiers(parsed, &lhs);
+        if lhs_items.is_empty() {
+            continue;
+        }
+        let rhs_items = assignment_rhs_expressions(&rhs);
+
+        for (idx, expr) in rhs_items.iter().enumerate() {
+            if expr.kind() != "call_expression" {
+                continue;
+            }
+            let kind = match go_call_path_text(parsed, expr).as_deref() {
+                Some("filepath.Clean") => PathSanitizerKind::Clean,
+                Some("filepath.Rel") => PathSanitizerKind::Rel,
+                _ => continue,
+            };
+            let result_var = match lhs_items.get(idx).or_else(|| {
+                if rhs_items.len() == 1 {
+                    lhs_items.first()
+                } else {
+                    None
+                }
+            }) {
+                Some(name) if name != "_" => name.clone(),
+                _ => continue,
+            };
+            bindings.push(PathSanitizerBinding {
+                kind,
+                result_var,
+                call_line: expr.start_position().row + 1,
+            });
+        }
+    }
+    bindings
+}
+
+fn collect_go_assignments<'a>(node: Node<'a>, parsed: &ParsedFile, out: &mut Vec<Node<'a>>) {
+    if parsed.language.is_assignment_node(node.kind()) {
+        out.push(node);
+    }
+    let mut cursor = node.walk();
+    for child in node.children(&mut cursor) {
+        collect_go_assignments(child, parsed, out);
+    }
+}
+
+fn assignment_lhs_identifiers(parsed: &ParsedFile, lhs: &Node<'_>) -> Vec<String> {
+    if lhs.kind() == "identifier" {
+        return vec![parsed.node_text(lhs).to_string()];
+    }
+    let mut names = Vec::new();
+    let mut cursor = lhs.walk();
+    for child in lhs.named_children(&mut cursor) {
+        if child.kind() == "identifier" {
+            names.push(parsed.node_text(&child).to_string());
+        }
+    }
+    names
+}
+
+fn assignment_rhs_expressions<'a>(rhs: &Node<'a>) -> Vec<Node<'a>> {
+    if rhs.kind() == "call_expression" {
+        return vec![*rhs];
+    }
+    let mut items = Vec::new();
+    let mut cursor = rhs.walk();
+    for child in rhs.named_children(&mut cursor) {
+        items.push(child);
+    }
+    if items.is_empty() {
+        items.push(*rhs);
+    }
+    items
+}
+
+fn path_targets_var_at_line(
+    parsed: &ParsedFile,
+    path: &FlowPath,
+    line: usize,
+    var_name: &str,
+) -> bool {
+    path.edges
+        .iter()
+        .any(|e| e.to.file == parsed.path && e.to.line == line && e.to.var_name() == var_name)
+}
+
+fn sink_call_has_tainted_arg_in_path(
+    parsed: &ParsedFile,
+    call: &Node<'_>,
+    sink_pat: &'static SinkPattern,
+    path: &FlowPath,
+) -> bool {
+    sink_pat
+        .tainted_arg_indices
+        .iter()
+        .any(|&idx| arg_is_tainted_in_path(parsed, call, idx, path))
+}
+
+fn line_has_matching_sink_call_using_var(
+    parsed: &ParsedFile,
+    line: usize,
+    sink_pat: &'static SinkPattern,
+    var_name: &str,
+    path: Option<&FlowPath>,
+) -> bool {
+    let mut calls = Vec::new();
+    collect_go_calls(parsed.tree.root_node(), &mut calls);
+    for call in &calls {
+        if call.start_position().row + 1 != line {
+            continue;
+        }
+        let actual = match go_call_path_text(parsed, call) {
+            Some(s) => s,
+            None => continue,
+        };
+        if actual != sink_pat.call_path || !call_passes_sink_semantics(parsed, call, sink_pat) {
+            continue;
+        }
+        if let Some(p) = path {
+            if !sink_call_has_tainted_arg_in_path(parsed, call, sink_pat, p) {
+                continue;
+            }
+        }
+        if sink_call_uses_var_in_tainted_arg(parsed, call, sink_pat, var_name) {
+            return true;
+        }
+    }
+    false
+}
+
+fn sink_call_uses_var_in_tainted_arg(
+    parsed: &ParsedFile,
+    call: &Node<'_>,
+    sink_pat: &'static SinkPattern,
+    var_name: &str,
+) -> bool {
+    let arguments = match call.child_by_field_name("arguments") {
+        Some(n) => n,
+        None => return false,
+    };
+    let mut cursor = arguments.walk();
+    for (idx, arg) in arguments.named_children(&mut cursor).enumerate() {
+        if sink_pat.tainted_arg_indices.contains(&idx)
+            && node_contains_identifier(parsed, &arg, var_name)
+        {
+            return true;
+        }
+    }
+    false
+}
+
+fn node_contains_identifier(parsed: &ParsedFile, node: &Node<'_>, var_name: &str) -> bool {
+    if node.kind() == "identifier" && parsed.node_text(node) == var_name {
+        return true;
+    }
+    let mut cursor = node.walk();
+    for child in node.named_children(&mut cursor) {
+        if node_contains_identifier(parsed, &child, var_name) {
+            return true;
+        }
+    }
+    false
+}
+
+fn guard_safely_controls_sink(
+    parsed: &ParsedFile,
+    cpg: &CodePropertyGraph,
+    func_node: &Node<'_>,
+    binding: &PathSanitizerBinding,
+    sink_line: usize,
+) -> bool {
+    let mut guards = Vec::new();
+    collect_if_statements(*func_node, &mut guards);
+
+    for guard in guards {
+        let condition = match guard.child_by_field_name("condition") {
+            Some(n) => n,
+            None => continue,
+        };
+        let control = match classify_guard_control(parsed, &condition, binding) {
+            Some(c) => c,
+            None => continue,
+        };
+        let consequence = match guard.child_by_field_name("consequence") {
+            Some(n) => n,
+            None => continue,
+        };
+        let consequence_entry = match first_statement_line(parsed, &consequence) {
+            Some(line) => line,
+            None => continue,
+        };
+
+        match control {
+            GuardControl::RejectBranch => {
+                if !block_ends_with_return(parsed, &consequence) {
+                    continue;
+                }
+                let safe_entry = match safe_successor_line(cpg, parsed, &guard, consequence_entry) {
+                    Some(line) => line,
+                    None => continue,
+                };
+                if cfg_line_reaches(cpg, &parsed.path, safe_entry, sink_line)
+                    && !cfg_line_reaches(cpg, &parsed.path, consequence_entry, sink_line)
+                {
+                    return true;
+                }
+            }
+            GuardControl::AllowBranch => {
+                if node_contains_line(&consequence, sink_line)
+                    && cfg_line_reaches(cpg, &parsed.path, consequence_entry, sink_line)
+                {
+                    return true;
+                }
+            }
+        }
+    }
+
+    false
+}
+
+fn collect_if_statements<'a>(node: Node<'a>, out: &mut Vec<Node<'a>>) {
+    if node.kind() == "if_statement" {
+        out.push(node);
+    }
+    let mut cursor = node.walk();
+    for child in node.children(&mut cursor) {
+        collect_if_statements(child, out);
+    }
+}
+
+fn classify_guard_control(
+    parsed: &ParsedFile,
+    condition: &Node<'_>,
+    binding: &PathSanitizerBinding,
+) -> Option<GuardControl> {
+    let condition = unwrap_parenthesized(*condition);
+    let condition_text = parsed.node_text(&condition);
+    if condition_text.contains("&&") {
+        return None;
+    }
+    if condition_text.contains("||") {
+        return if binding.kind == PathSanitizerKind::Rel
+            && contains_positive_hasprefix_call(parsed, &condition, &binding.result_var, false)
+        {
+            Some(GuardControl::RejectBranch)
+        } else {
+            None
+        };
+    }
+    if is_negated_hasprefix_condition(parsed, &condition, &binding.result_var) {
+        return match binding.kind {
+            PathSanitizerKind::Clean => Some(GuardControl::RejectBranch),
+            PathSanitizerKind::Rel => Some(GuardControl::AllowBranch),
+        };
+    }
+    if is_bare_hasprefix_condition(parsed, &condition, &binding.result_var) {
+        return match binding.kind {
+            PathSanitizerKind::Clean => Some(GuardControl::AllowBranch),
+            PathSanitizerKind::Rel => Some(GuardControl::RejectBranch),
+        };
+    }
+    None
+}
+
+fn unwrap_parenthesized(mut node: Node<'_>) -> Node<'_> {
+    loop {
+        if node.kind() != "parenthesized_expression" {
+            return node;
+        }
+        node = match node.named_child(0) {
+            Some(child) => child,
+            None => return node,
+        };
+    }
+}
+
+fn is_negated_hasprefix_condition(
+    parsed: &ParsedFile,
+    condition: &Node<'_>,
+    var_name: &str,
+) -> bool {
+    let condition_text = parsed.node_text(condition).trim();
+    if condition.kind() != "unary_expression" || !condition_text.starts_with('!') {
+        return false;
+    }
+    if let Some(child) = condition.named_child(0) {
+        let child = unwrap_parenthesized(child);
+        is_bare_hasprefix_condition(parsed, &child, var_name)
+    } else {
+        false
+    }
+}
+
+fn is_bare_hasprefix_condition(parsed: &ParsedFile, condition: &Node<'_>, var_name: &str) -> bool {
+    let condition = unwrap_parenthesized(*condition);
+    is_hasprefix_call_for_var(parsed, &condition, var_name)
+}
+
+fn contains_positive_hasprefix_call(
+    parsed: &ParsedFile,
+    node: &Node<'_>,
+    var_name: &str,
+    negated: bool,
+) -> bool {
+    let node_text = parsed.node_text(node).trim();
+    let next_negated = negated || (node.kind() == "unary_expression" && node_text.starts_with('!'));
+    if node.kind() == "call_expression"
+        && !next_negated
+        && is_hasprefix_call_for_var(parsed, node, var_name)
+    {
+        return true;
+    }
+    let mut cursor = node.walk();
+    for child in node.named_children(&mut cursor) {
+        if contains_positive_hasprefix_call(parsed, &child, var_name, next_negated) {
+            return true;
+        }
+    }
+    false
+}
+
+fn is_hasprefix_call_for_var(parsed: &ParsedFile, node: &Node<'_>, var_name: &str) -> bool {
+    if node.kind() != "call_expression" {
+        return false;
+    }
+    if go_call_path_text(parsed, node).as_deref() != Some("strings.HasPrefix") {
+        return false;
+    }
+    let arguments = match node.child_by_field_name("arguments") {
+        Some(n) => n,
+        None => return false,
+    };
+    let mut cursor = arguments.walk();
+    let first_arg = match arguments.named_children(&mut cursor).next() {
+        Some(n) => unwrap_parenthesized(n),
+        None => return false,
+    };
+    first_arg.kind() == "identifier" && parsed.node_text(&first_arg) == var_name
+}
+
+fn first_statement_line(parsed: &ParsedFile, node: &Node<'_>) -> Option<usize> {
+    if parsed.language.is_statement_node(node.kind()) {
+        return Some(node.start_position().row + 1);
+    }
+    let mut cursor = node.walk();
+    for child in node.children(&mut cursor) {
+        if parsed.language.is_statement_node(child.kind()) {
+            return Some(child.start_position().row + 1);
+        }
+        if parsed.language.is_scope_block(child.kind()) {
+            if let Some(line) = first_statement_line(parsed, &child) {
+                return Some(line);
+            }
+        }
+    }
+    None
+}
+
+fn block_ends_with_return(parsed: &ParsedFile, node: &Node<'_>) -> bool {
+    last_statement_node(parsed, node).is_some_and(|n| parsed.language.is_return_node(n.kind()))
+}
+
+fn last_statement_node<'a>(parsed: &ParsedFile, node: &Node<'a>) -> Option<Node<'a>> {
+    let mut last = None;
+    let mut cursor = node.walk();
+    for child in node.children(&mut cursor) {
+        if parsed.language.is_statement_node(child.kind()) {
+            last = Some(child);
+        } else if parsed.language.is_scope_block(child.kind()) {
+            if let Some(n) = last_statement_node(parsed, &child) {
+                last = Some(n);
+            }
+        }
+    }
+    last
+}
+
+fn safe_successor_line(
+    cpg: &CodePropertyGraph,
+    parsed: &ParsedFile,
+    if_node: &Node<'_>,
+    reject_entry: usize,
+) -> Option<usize> {
+    let if_line = if_node.start_position().row + 1;
+    let if_idx = cpg.statement_at(&parsed.path, if_line)?;
+    cpg.cfg_successors(if_idx)
+        .into_iter()
+        .map(|idx| cpg.node(idx).line())
+        .find(|line| *line != reject_entry)
+}
+
+fn cfg_line_reaches(
+    cpg: &CodePropertyGraph,
+    file: &str,
+    start_line: usize,
+    target_line: usize,
+) -> bool {
+    start_line == target_line
+        || cpg
+            .cfg_reachable_lines(file, start_line)
+            .contains(&(file.to_string(), target_line))
+}
+
+fn node_contains_line(node: &Node<'_>, line: usize) -> bool {
+    let row = line.saturating_sub(1);
+    node.start_position().row <= row && row <= node.end_position().row
+}
+
 /// Returns the structured-sink outcome for `sink_pat` on `line` of `parsed`,
 /// using `path` to resolve per-argument taint via `arg_is_tainted_in_path`.
 ///
@@ -1226,15 +1818,45 @@ fn call_passes_sink_semantics(
 fn push_cleansed_structured_sink_range(
     ranges: &mut Vec<(usize, usize)>,
     parsed: &ParsedFile,
+    cpg: &CodePropertyGraph,
     call: &Node<'_>,
     actual: &str,
     sink_pat: &'static SinkPattern,
     path: &FlowPath,
 ) -> bool {
-    if actual != sink_pat.call_path || !path.cleansed_for.contains(&sink_pat.category) {
+    if actual != sink_pat.call_path {
         return false;
     }
     if !call_passes_sink_semantics(parsed, call, sink_pat) {
+        return false;
+    }
+    if parsed.language == Language::Go && sink_pat.category == SanitizerCategory::PathTraversal {
+        let call_line = call.start_position().row + 1;
+        if sink_call_has_tainted_arg_in_path(parsed, call, sink_pat, path) {
+            if !flow_path_cleansed_for_sink_call(parsed, cpg, path, call_line, sink_pat, call) {
+                return false;
+            }
+        } else if path
+            .cleansed_for
+            .contains(&SanitizerCategory::PathTraversal)
+        {
+            // Flat substring matching has no per-arg precision. For diff-line
+            // artifact paths whose structured sink is SemanticallyExcluded, still
+            // suppress only identifiers inside this specific safely-guarded call.
+            if !go_path_traversal_cleansed_for_sink(
+                parsed,
+                cpg,
+                None,
+                call_line,
+                Some(sink_pat),
+                Some(call),
+            ) {
+                return false;
+            }
+        } else {
+            return false;
+        }
+    } else if !path.cleansed_for.contains(&sink_pat.category) {
         return false;
     }
     ranges.push((call.start_byte(), call.end_byte()));
@@ -1247,10 +1869,11 @@ fn push_cleansed_structured_sink_range(
 /// unrelated flat sinks that happen to share the same source line still run.
 fn cleansed_structured_sink_call_ranges(
     parsed: &ParsedFile,
+    cpg: &CodePropertyGraph,
     line: usize,
     path: &FlowPath,
 ) -> Vec<(usize, usize)> {
-    if parsed.language != Language::Go || path.cleansed_for.is_empty() {
+    if parsed.language != Language::Go {
         return Vec::new();
     }
 
@@ -1269,7 +1892,15 @@ fn cleansed_structured_sink_call_ranges(
 
         let mut pushed = false;
         for pat in GO_CWE78_SINKS {
-            if push_cleansed_structured_sink_range(&mut ranges, parsed, call, &actual, pat, path) {
+            if push_cleansed_structured_sink_range(
+                &mut ranges,
+                parsed,
+                cpg,
+                call,
+                &actual,
+                pat,
+                path,
+            ) {
                 pushed = true;
                 break;
             }
@@ -1278,7 +1909,15 @@ fn cleansed_structured_sink_call_ranges(
             continue;
         }
         for pat in GO_CWE22_SINKS {
-            if push_cleansed_structured_sink_range(&mut ranges, parsed, call, &actual, pat, path) {
+            if push_cleansed_structured_sink_range(
+                &mut ranges,
+                parsed,
+                cpg,
+                call,
+                &actual,
+                pat,
+                path,
+            ) {
                 pushed = true;
                 break;
             }
@@ -1291,6 +1930,7 @@ fn cleansed_structured_sink_call_ranges(
                 if push_cleansed_structured_sink_range(
                     &mut ranges,
                     parsed,
+                    cpg,
                     call,
                     &actual,
                     pat,
@@ -1523,9 +2163,15 @@ pub fn slice(
                     SinkMatchOutcome::NoMatch
                 };
                 let cleansed_structured_ranges =
-                    cleansed_structured_sink_call_ranges(parsed, edge.to.line, path);
+                    cleansed_structured_sink_call_ranges(parsed, &ctx.cpg, edge.to.line, path);
                 let structured_suppressed_by_cleanser = match outcome {
-                    SinkMatchOutcome::Match(p) => path.cleansed_for.contains(&p.category),
+                    SinkMatchOutcome::Match(p) => structured_sink_line_cleansed_for_path(
+                        parsed,
+                        &ctx.cpg,
+                        path,
+                        edge.to.line,
+                        p,
+                    ),
                     _ => false,
                 };
 
@@ -1601,7 +2247,7 @@ pub fn slice(
                     SinkMatchOutcome::SemanticallyExcluded | SinkMatchOutcome::NoMatch => continue,
                 };
                 // No FlowPath cleansing applies. Fall back to function-body scan.
-                let cleansed = function_body_cleansed_for(parsed, *line, sink_pat.category);
+                let cleansed = source_line_cleansed_for_sink(parsed, &ctx.cpg, *line, sink_pat);
                 if !cleansed {
                     sink_lines.insert((file.clone(), *line));
                 }
@@ -1619,7 +2265,7 @@ pub fn slice(
                 let mut any_matching_uncleansed = false;
                 for p in &originating {
                     if let SinkMatchOutcome::Match(pat) = go_sink_outcome(parsed, *line, Some(p)) {
-                        if !p.cleansed_for.contains(&pat.category) {
+                        if !flow_path_cleansed_for_sink(parsed, &ctx.cpg, p, *line, pat) {
                             any_matching_uncleansed = true;
                             break;
                         }
@@ -1643,7 +2289,7 @@ pub fn slice(
                 // structured sink earlier on the line shadows them.
                 if !any_matching_uncleansed {
                     if let Some(pat) = find_sink_with_inline_framework_source(parsed, *line) {
-                        let cleansed = function_body_cleansed_for(parsed, *line, pat.category);
+                        let cleansed = source_line_cleansed_for_sink(parsed, &ctx.cpg, *line, pat);
                         if !cleansed {
                             any_matching_uncleansed = true;
                         }

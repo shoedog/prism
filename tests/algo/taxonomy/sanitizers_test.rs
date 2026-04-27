@@ -1,9 +1,9 @@
 //! Per-cleanser unit tests for the Phase 1 sanitizer registry (spec §3.4–§3.10).
 //!
 //! Exercises path-validation cleansers (`filepath.Clean`, `filepath.Rel`) with
-//! the textual `paired_check` heuristic on `strings.HasPrefix`, plus a category-
-//! isolation negative confirming that path cleansing does not suppress an
-//! `OsCommand` sink.
+//! sink-time `strings.HasPrefix` guard validation, plus category-isolation and
+//! regression negatives confirming that path cleansing does not suppress
+//! unrelated sinks or inverted guards.
 
 #[path = "../../common/mod.rs"]
 mod common;
@@ -39,9 +39,9 @@ fn has_structured_sink(result: &prism::slice::SliceResult, line: usize) -> bool 
 
 #[test]
 fn test_path_clean_with_hasprefix_suppresses() {
-    // filepath.Clean + strings.HasPrefix is the canonical CWE-22 cleanser pair.
-    // The textual paired_check should detect "strings.HasPrefix" anywhere in the
-    // function body and suppress the os.ReadFile finding.
+    // filepath.Clean + reject-on-fail strings.HasPrefix is the canonical CWE-22
+    // cleanser pair. The sink-time helper validates both variable coupling and
+    // guard direction before suppressing.
     let source = r#"package main
 
 import (
@@ -71,6 +71,117 @@ func handler(c *gin.Context) {
             .iter()
             .filter(|f| f.category.as_deref() == Some("taint_sink"))
             .collect::<Vec<_>>()
+    );
+}
+
+#[test]
+fn test_path_clean_positive_guard_branch_suppresses() {
+    let source = r#"package main
+
+import (
+	"os"
+	"path/filepath"
+	"strings"
+
+	"github.com/gin-gonic/gin"
+)
+
+func handler(c *gin.Context) {
+	name := c.Param("file")
+	cleaned := filepath.Clean(name)
+	if strings.HasPrefix(cleaned, "/safe") {
+		_, _ = os.ReadFile(cleaned)
+	}
+}
+"#;
+    let result = run_taint_go(source, BTreeSet::from([1]));
+    assert!(
+        !has_structured_sink(&result, 15),
+        "sink inside positive HasPrefix safe branch should be suppressed"
+    );
+}
+
+#[test]
+fn test_path_clean_inverted_guard_does_not_suppress() {
+    let source = r#"package main
+
+import (
+	"os"
+	"path/filepath"
+	"strings"
+
+	"github.com/gin-gonic/gin"
+)
+
+func handler(c *gin.Context) {
+	name := c.Param("file")
+	cleaned := filepath.Clean(name)
+	if !strings.HasPrefix(cleaned, "/safe") {
+		_, _ = os.ReadFile(cleaned)
+	}
+}
+"#;
+    let result = run_taint_go(source, BTreeSet::from([1]));
+    assert!(
+        has_structured_sink(&result, 15),
+        "sink inside Clean reject branch should fire"
+    );
+}
+
+#[test]
+fn test_path_clean_unrelated_hasprefix_does_not_suppress() {
+    let source = r#"package main
+
+import (
+	"os"
+	"path/filepath"
+	"strings"
+
+	"github.com/gin-gonic/gin"
+)
+
+func handler(c *gin.Context) {
+	name := c.Param("file")
+	other := "/tmp"
+	cleaned := filepath.Clean(name)
+	if !strings.HasPrefix(other, "/safe") {
+		return
+	}
+	_, _ = os.ReadFile(cleaned)
+}
+"#;
+    let result = run_taint_go(source, BTreeSet::from([1]));
+    assert!(
+        has_structured_sink(&result, 18),
+        "HasPrefix on an unrelated variable must not suppress the cleaned path sink"
+    );
+}
+
+#[test]
+fn test_path_clean_guard_after_sink_does_not_suppress() {
+    let source = r#"package main
+
+import (
+	"os"
+	"path/filepath"
+	"strings"
+
+	"github.com/gin-gonic/gin"
+)
+
+func handler(c *gin.Context) {
+	name := c.Param("file")
+	cleaned := filepath.Clean(name)
+	_, _ = os.ReadFile(cleaned)
+	if !strings.HasPrefix(cleaned, "/safe") {
+		return
+	}
+}
+"#;
+    let result = run_taint_go(source, BTreeSet::from([1]));
+    assert!(
+        has_structured_sink(&result, 14),
+        "guard after the sink must not suppress"
     );
 }
 
@@ -166,9 +277,8 @@ func handler(c *gin.Context) {
 
 #[test]
 fn test_path_rel_with_hasprefix_suppresses() {
-    // filepath.Rel + strings.HasPrefix(rel, "..") guards path traversal. The
-    // recognizer's paired_check matches "strings.HasPrefix" textually anywhere
-    // in the function body — this suppresses the os.ReadFile finding.
+    // filepath.Rel + strings.HasPrefix(rel, "..") guards path traversal when the
+    // bad-prefix branch terminates before the sink.
     let source = r#"package main
 
 import (
@@ -192,6 +302,118 @@ func handler(c *gin.Context) {
     assert!(
         !has_structured_sink(&result, 17),
         "filepath.Rel + strings.HasPrefix paired check should suppress finding"
+    );
+}
+
+#[test]
+fn test_path_rel_or_with_positive_prefix_guard_suppresses() {
+    // Pure OR with positive HasPrefix in a return branch is the common Rel
+    // guard shape: either error or bad-prefix rejects before the sink.
+    let source = r#"package main
+
+import (
+	"os"
+	"path/filepath"
+	"strings"
+
+	"github.com/gin-gonic/gin"
+)
+
+func handler(c *gin.Context) {
+	name := c.Param("file")
+	rel, err := filepath.Rel("/safe", name)
+	if err != nil || strings.HasPrefix(rel, "..") {
+		return
+	}
+	_, _ = os.ReadFile(rel)
+}
+"#;
+    let result = run_taint_go(source, BTreeSet::from([1]));
+    assert!(
+        !has_structured_sink(&result, 17),
+        "Rel OR guard with positive bad-prefix rejection should suppress"
+    );
+}
+
+#[test]
+fn test_path_rel_negative_prefix_guard_branch_suppresses() {
+    let source = r#"package main
+
+import (
+	"os"
+	"path/filepath"
+	"strings"
+
+	"github.com/gin-gonic/gin"
+)
+
+func handler(c *gin.Context) {
+	name := c.Param("file")
+	rel, _ := filepath.Rel("/safe", name)
+	if !strings.HasPrefix(rel, "..") {
+		_, _ = os.ReadFile(rel)
+	}
+}
+"#;
+    let result = run_taint_go(source, BTreeSet::from([1]));
+    assert!(
+        !has_structured_sink(&result, 15),
+        "sink inside !HasPrefix(rel, \"..\") safe branch should be suppressed"
+    );
+}
+
+#[test]
+fn test_path_rel_inverted_guard_does_not_suppress() {
+    let source = r#"package main
+
+import (
+	"os"
+	"path/filepath"
+	"strings"
+
+	"github.com/gin-gonic/gin"
+)
+
+func handler(c *gin.Context) {
+	name := c.Param("file")
+	rel, _ := filepath.Rel("/safe", name)
+	if strings.HasPrefix(rel, "..") {
+		_, _ = os.ReadFile(rel)
+	}
+}
+"#;
+    let result = run_taint_go(source, BTreeSet::from([1]));
+    assert!(
+        has_structured_sink(&result, 15),
+        "sink inside Rel reject branch should fire"
+    );
+}
+
+#[test]
+fn test_path_rel_and_guard_does_not_suppress() {
+    let source = r#"package main
+
+import (
+	"os"
+	"path/filepath"
+	"strings"
+
+	"github.com/gin-gonic/gin"
+)
+
+func handler(c *gin.Context) {
+	name := c.Param("file")
+	rel, err := filepath.Rel("/safe", name)
+	if err != nil && strings.HasPrefix(rel, "..") {
+		return
+	}
+	_, _ = os.ReadFile(rel)
+}
+"#;
+    let result = run_taint_go(source, BTreeSet::from([1]));
+    assert!(
+        has_structured_sink(&result, 17),
+        "AND-combined bad-prefix guard is not sufficient and must not suppress"
     );
 }
 

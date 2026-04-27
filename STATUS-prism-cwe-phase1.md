@@ -26,7 +26,7 @@ Branch: `claude/cwe-phase1-go` (now closed).
 | CWE-22 sinks (cross-cutting) | `src/algorithms/taint.rs` `GO_CWE22_SINKS` | 12 entries: `os.{Open,OpenFile,ReadFile,Create,WriteFile,Remove,RemoveAll,Mkdir,MkdirAll,Rename}`, `ioutil.{ReadFile,WriteFile}`. |
 | Framework-gated sinks | `src/frameworks/{nethttp,gin}.rs` | `http.ServeFile` (net/http) + `c.File` (gin). |
 | Sanitizer registry | `src/sanitizers/` (mod, shell, path) | `filepath.Clean+strings.HasPrefix`, `filepath.Rel+strings.HasPrefix` — both `PathTraversal` cleansers. `SHELL_RECOGNIZERS = &[]` per spec §3.9. |
-| Path-sensitive cleansing | `src/data_flow.rs` (`FlowPath.cleansed_for`) + `src/algorithms/taint.rs` (`apply_cleansers`, `function_body_cleansed_for`) | Boolean `BTreeSet<SanitizerCategory>` per FlowPath. Suppress at sink when `path.cleansed_for.contains(sink.category)`. |
+| Path-sensitive cleansing | `src/data_flow.rs` (`FlowPath.cleansed_for`) + `src/algorithms/taint.rs` (`apply_cleansers`, `function_body_cleansed_for`, `go_path_traversal_cleansed_for_sink`) | Boolean `BTreeSet<SanitizerCategory>` per FlowPath. Non-PathTraversal categories still suppress by category membership; Go `PathTraversal` uses sink-time AST + CFG validation to couple the sanitized variable to the sink and prove the guard direction. |
 | Tests | `tests/frameworks/`, `tests/algo/taxonomy/{taint_sink_lang,sanitizers}_test.rs`, `tests/integration/cwe_phase1_suppression_test.rs` | 32 new tests (1,406 → 1,438). |
 | Fixture suite | `tests/fixtures/sanitizer-suite-go/{sanitized,unsanitized}/{01..10}_*.go` | 10+10 self-contained Go web-handler examples. |
 
@@ -59,7 +59,7 @@ The C1 review also flagged a class of false positives:
 
 These are intentional Phase 1 boundaries; not silent gaps:
 
-- **Path-validation paired-check direction ambiguity** (spec §3.8) — both correct (`if HasPrefix(rel, "..") { return error }`) and inverted (`if HasPrefix(rel, "..") { use rel }`) guard shapes suppress equally. Documented inline at `src/sanitizers/path.rs` and `src/sanitizers/mod.rs`. CFG-aware refinement is the principled fix.
+- ~~**Path-validation paired-check direction ambiguity**~~ — **CLOSED** as a Phase 1.5 follow-up. Go `PathTraversal` suppression now runs at sink time, couples `filepath.Clean` / `filepath.Rel` result variables to the sink argument, and validates supported `strings.HasPrefix` guard direction with AST + CFG reachability. Inverted guards, unrelated `HasPrefix`, guard-after-sink, and unsafe `&&` combinations fire.
 - **`syscall.Exec` slice-element taint = whole-slice** (spec §3.2) — Prism's existing DFG models slices conservatively. Per-element tracking out of scope.
 - **Exotic shell paths** not in shell-wrapper detection list (spec §3.2). `/usr/bin/sh`, `/usr/local/bin/bash` not covered. PowerShell (`pwsh`, `powershell`, `powershell.exe`) is covered by the shell-wrapper registry.
 - ~~**`tainted_arg_indices` not honored by line-matching engine**~~ — **CLOSED** in PR #74. Per-arg DFG (`arg_is_tainted_in_path`) is now the structural gate; Path C `semantic_check` scaffolding retired.
@@ -89,12 +89,12 @@ Prioritized by the C1-review-surfaced issues + design-time deferrals:
 
 1. ~~**Per-arg DFG in line-matching engine**~~ — **CLOSED** in [PR #74](https://github.com/shoedog/prism/pull/74) (merged 2026-04-26 as `fbd962a`). `arg_is_tainted_in_path` is now the structural gate; Path C `semantic_check` scaffolding retired. Variable-bound-to-literal false positives no longer fire structured sinks. Pinned by `test_taint_cwe22_cfile_variable_bound_to_literal_no_finding` (and 5 other regression tests).
 2. ~~**Per-call (not per-line) flat-suppression**~~ — **CLOSED** as a follow-up to PR #74 (commit `9a77d3a`). The cleanser suppression now records cleansed structured sink call byte ranges and skips only flat identifiers inside those calls; unrelated flat sinks on the same line still run. Pinned by `test_path_clean_same_line_unrelated_flat_sink_still_fires`.
-3. **CFG-aware paired-check direction** — distinguishes positive vs inverted guard for path-validation; addresses the Rel direction ambiguity.
+3. ~~**CFG-aware paired-check direction**~~ — **CLOSED** as a Phase 1.5 follow-up on branch `claude/phase15-cfg-aware-paired-check`. Sink-time `go_path_traversal_cleansed_for_sink` distinguishes positive vs inverted path-validation guards and fails closed when CFG proof is unavailable. Pinned by `test_path_clean_inverted_guard_does_not_suppress`, `test_path_rel_inverted_guard_does_not_suppress`, `test_path_clean_unrelated_hasprefix_does_not_suppress`, `test_path_clean_guard_after_sink_does_not_suppress`, and `test_path_rel_and_guard_does_not_suppress`.
 4. **Tree-walk caching** — `collect_go_calls` memoization on `ParsedFile`. Perf hardening before Phase 2 expands sink registries.
 5. ~~**PowerShell shell wrappers**~~ — **CLOSED** as a Phase 1.5 follow-up. `is_shell_wrapper_at` covers `pwsh`, `powershell`, and `powershell.exe` with `-c` / `-Command` variants. Pinned by `powershell_shell_wrappers_match_structured_registry`.
 6. **Exotic absolute shell paths** — add `/usr/bin/sh`, `/usr/local/bin/bash`, etc. only if fixtures show the gap matters.
 
-Items 1-2 close the eval-team RE finding from 2026-04-26 (variable-bound-to-literal false positives + dual-layer line-scoping). Item 5 closes the PowerShell coverage gap that was previously papered over by the flat `Command` fallback. Items 3, 4, and 6 remain open; not ranked against Phase 2 (Python) until your next go-signal.
+Items 1-2 close the eval-team RE finding from 2026-04-26 (variable-bound-to-literal false positives + dual-layer line-scoping). Item 3 closes the path paired-check direction false-negative class. Item 5 closes the PowerShell coverage gap that was previously papered over by the flat `Command` fallback. Items 4 and 6 remain open; not ranked against Phase 2 (Python) until your next go-signal.
 
 ## Cross-references
 
