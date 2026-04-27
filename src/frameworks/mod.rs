@@ -12,6 +12,7 @@ use crate::ast::ParsedFile;
 pub mod gin;
 pub mod gorilla_mux;
 pub mod nethttp;
+pub mod python;
 
 /// Origin classification matching `provenance_slice.rs::Origin` enum.
 /// Re-exported here for convenience in framework specs.
@@ -132,7 +133,15 @@ impl<'a> CallSite<'a> {
 
 /// Ordered registry of all known frameworks. Ordering matters: more specific frameworks
 /// (gin, gorilla/mux) take precedence over net/http per spec §2.3.
-pub const ALL_FRAMEWORKS: &[&FrameworkSpec] = &[&gin::SPEC, &gorilla_mux::SPEC, &nethttp::SPEC];
+pub const ALL_FRAMEWORKS: &[&FrameworkSpec] = &[
+    &python::fastapi::SPEC,
+    &python::drf::SPEC,
+    &python::flask::SPEC,
+    &python::django::SPEC,
+    &gin::SPEC,
+    &gorilla_mux::SPEC,
+    &nethttp::SPEC,
+];
 
 /// Detect the active framework for a file. First match wins.
 /// Returns `None` if no framework matches (quiet-mode default per ACK §3 Q5).

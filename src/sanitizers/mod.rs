@@ -8,16 +8,18 @@
 //! See `docs/superpowers/specs/2026-04-25-phase1-cwe-go-design.md` §3.4–§3.9.
 
 pub mod path;
+pub mod python;
 pub mod shell;
 
 pub use crate::frameworks::{CallSite, SanitizerCategory, SanitizerRecognizer};
 
 /// Aggregate all active recognizers across categories. Iteration order is by
-/// the const arrays in `shell.rs` and `path.rs` (shell first, then path).
+/// the const arrays in `shell.rs`, `path.rs`, and `python.rs`.
 pub fn active_recognizers() -> impl Iterator<Item = &'static SanitizerRecognizer> {
     shell::SHELL_RECOGNIZERS
         .iter()
         .chain(path::PATH_RECOGNIZERS.iter())
+        .chain(python::PYTHON_RECOGNIZERS.iter())
 }
 
 /// Check whether a `paired_check` token appears anywhere in the given source slice.
