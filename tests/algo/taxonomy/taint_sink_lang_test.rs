@@ -306,23 +306,15 @@ func handler(c *gin.Context) {
 // that flat-pattern catch-alls would suppress on `SemanticallyExcluded`
 // outcomes, which is no longer engine behavior. The literal-binary case
 // now correctly leaves the flat fallback active (acknowledged false-positive
-// class until per-arg DFG + PowerShell shell list expansion land — see
-// Phase 1.5 priority queue items #1 and #4). Per-arg DFG will reintroduce
-// proper coverage with assertions that don't depend on dual-layer
-// suppression.
+// class for generic flat `Command` matches). Per-arg DFG provides the
+// structured-layer gate, and PowerShell shell wrappers are now modeled
+// directly by the shell-wrapper registry.
 
 #[test]
-fn test_taint_cwe78_pwsh_unmodeled_shell_preserves_flat_fallback() {
-    // P1 regression guard. exec.Command("pwsh", "-c", taintedInput) is a real
-    // PowerShell shell-interpretation risk that Phase 1's structured registry
-    // does NOT model (PowerShell binaries are out of `is_shell_wrapper_at`'s
-    // literal list — Phase 1.5 queue #4). The flat-pattern catch-all on the
-    // `Command` substring is the only signal that fires; the dual-layer
-    // suppression in PR #73's original form would have silently dropped this
-    // (see PR #73 review comment and the rollback rationale).
-    //
-    // Until per-arg DFG + PowerShell expansion land, this test pins the flat
-    // fallback firing for unmodeled shells.
+fn test_taint_cwe78_pwsh_shell_wrapper_fires() {
+    // PowerShell shell-wrapper coverage. This still has flat `Command`
+    // overlap at the public-result level, so the structured registry behavior
+    // is pinned separately by unit tests in taint.rs.
     let source = r#"package main
 
 import (
@@ -345,9 +337,7 @@ func handler(c *gin.Context) {
     assert!(
         line_11_sink,
         "exec.Command(\"pwsh\", \"-c\", taintedInput) should still produce a taint_sink \
-         finding via the flat-pattern fallback — PowerShell is a real shell-interpretation \
-         risk that the structured registry does not model. Suppressing this would silently \
-         lose coverage; see PR #73 review feedback (P1)."
+         finding; PowerShell shell-wrapper coverage is a real command-injection risk"
     );
 }
 

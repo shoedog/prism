@@ -1235,7 +1235,7 @@ Returning `SinkMatchOutcome::SemanticallyExcluded` for "no arg tainted" lands cl
 - [x] `cargo test` — 1,444 passing / 0 failing / 0 ignored (1,438 prior + 6 new)
 - [x] `cargo fmt --check` clean
 - [x] `cargo clippy --all-targets` — no new warnings
-- [x] PR #73 P1/P2 regression guards remain green (`test_taint_cwe78_pwsh_unmodeled_shell_preserves_flat_fallback`, `test_taint_cwe78_same_line_unrelated_sink_preserved`)
+- [x] PR #73 P1/P2 regression guards remain green (`test_taint_cwe78_pwsh_shell_wrapper_fires`, `test_taint_cwe78_same_line_unrelated_sink_preserved`)
 - [x] Sanitized suppression rate: 10/10 (100% — pinned floor: 80%)
 - [x] Variable-bound-to-literal probe shape no longer produces a structured tainted-binary `taint_sink` finding (regression test `test_taint_cwe78_variable_bound_to_literal_no_finding`)
 

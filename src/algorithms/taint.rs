@@ -239,15 +239,21 @@ const SINK_PATTERNS: &[&str] = &[
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// Returns true if `call`'s arguments at `name_idx` and `flag_idx` form a shell-wrapper
-/// invocation (e.g. `("sh", "-c", ...)`).
+/// invocation (e.g. `("sh", "-c", ...)`, `("pwsh", "-Command", ...)`).
 ///
-/// Common Linux/Windows shells only; PowerShell (`pwsh`/`powershell.exe`) and exotic
-/// absolute paths (`/usr/bin/sh`) deliberately NOT included per spec §3.2 scope note.
+/// Common Linux/macOS/Windows shells only; exotic absolute paths (`/usr/bin/sh`,
+/// `/usr/local/bin/bash`) deliberately NOT included per spec §3.2 scope note.
 fn is_shell_wrapper_at(call: &CallSite, name_idx: usize, flag_idx: usize) -> bool {
     let name = call.literal_arg(name_idx).unwrap_or("");
     let flag = call.literal_arg(flag_idx).unwrap_or("");
-    matches!(name, "sh" | "bash" | "cmd.exe" | "/bin/sh" | "/bin/bash")
-        && matches!(flag, "-c" | "/c")
+    match name {
+        "sh" | "bash" | "/bin/sh" | "/bin/bash" => flag == "-c",
+        "cmd.exe" => flag == "/c",
+        "pwsh" | "powershell" | "powershell.exe" => {
+            matches!(flag, "-c" | "-Command" | "-command")
+        }
+        _ => false,
+    }
 }
 
 /// Adapter for `exec.Command("sh", "-c", X)`-shaped sinks
@@ -1763,4 +1769,74 @@ pub fn slice(
     }
 
     Ok(result)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::access_path::AccessPath;
+    use crate::data_flow::{FlowEdge, VarAccessKind, VarLocation};
+
+    fn flow_path_to(line: usize, var_name: &str) -> FlowPath {
+        let from = VarLocation {
+            file: "main.go".to_string(),
+            function: "handler".to_string(),
+            line: 3,
+            path: AccessPath::simple(var_name),
+            kind: VarAccessKind::Def,
+        };
+        let to = VarLocation {
+            file: "main.go".to_string(),
+            function: "handler".to_string(),
+            line,
+            path: AccessPath::simple(var_name),
+            kind: VarAccessKind::Use,
+        };
+        FlowPath {
+            edges: vec![FlowEdge { from, to }],
+            cleansed_for: BTreeSet::new(),
+        }
+    }
+
+    #[test]
+    fn powershell_shell_wrappers_match_structured_registry() {
+        let source = r#"package main
+import "os/exec"
+func handler(input string) {
+	_ = exec.Command("pwsh", "-c", input).Run()
+	_ = exec.Command("powershell", "-command", input).Run()
+	_ = exec.Command("powershell.exe", "-Command", input).Run()
+	_ = exec.CommandContext(ctx, "pwsh", "-Command", input).Run()
+}
+"#;
+        let parsed = ParsedFile::parse("main.go", source, Language::Go).unwrap();
+
+        for line in [4, 5, 6, 7] {
+            let path = flow_path_to(line, "input");
+            assert!(matches!(
+                go_sink_outcome(&parsed, line, Some(&path)),
+                SinkMatchOutcome::Match(p) if p.category == SanitizerCategory::OsCommand
+            ));
+        }
+    }
+
+    #[test]
+    fn shell_wrapper_flags_are_shell_family_specific() {
+        let source = r#"package main
+import "os/exec"
+func handler(input string) {
+	_ = exec.Command("sh", "-Command", input).Run()
+	_ = exec.Command("cmd.exe", "-c", input).Run()
+}
+"#;
+        let parsed = ParsedFile::parse("main.go", source, Language::Go).unwrap();
+
+        for line in [4, 5] {
+            let path = flow_path_to(line, "input");
+            assert!(matches!(
+                go_sink_outcome(&parsed, line, Some(&path)),
+                SinkMatchOutcome::SemanticallyExcluded
+            ));
+        }
+    }
 }

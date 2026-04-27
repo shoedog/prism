@@ -26,7 +26,7 @@ But misses:
 
 Eval team confirmed 2026-04-26: *"Constant-folding would catch it but that's the DFG work Path B/1.5 brings. Not common in real Go style — agree it's deferrable."* — and queued this as item #1.
 
-**What this PR does and does NOT close.** Per-arg DFG fixes the structured-layer false positive on the variable-bound-to-literal shape (eliminates a class of spurious tainted-binary `taint_sink` findings). It does **not** change the flat-pattern catch-all behavior on the literal-binary case — `exec.Command("ffmpeg", "-i", taintedInput)` will continue to produce a flat-layer `taint_sink` finding via the `Command` substring pattern, just like today. Closing the eval-team's literal-binary RE finding properly requires more pieces in addition (PowerShell shell list expansion, structured CWE-79 sinks for Sprintf/Fprintf, per-call vs per-line scoping). Eval team is aware: per their 2026-04-26 message, they're waiting for either per-arg DFG OR Phase 2 STATUS — both of which warrant their re-validation cycle. The variable-bound-to-literal probe shape is the specific eval-side win this PR delivers.
+**What this PR does and does NOT close.** Per-arg DFG fixes the structured-layer false positive on the variable-bound-to-literal shape (eliminates a class of spurious tainted-binary `taint_sink` findings). It does **not** change the flat-pattern catch-all behavior on the literal-binary case — `exec.Command("ffmpeg", "-i", taintedInput)` will continue to produce a flat-layer `taint_sink` finding via the `Command` substring pattern, just like today. Closing that flat fallback false-positive class requires further flat-catch-all policy work; PowerShell shell-wrapper coverage is handled by a separate Phase 1.5 shell-list follow-up. Eval team is aware: per their 2026-04-26 message, they're waiting for either per-arg DFG OR Phase 2 STATUS — both of which warrant their re-validation cycle. The variable-bound-to-literal probe shape is the specific eval-side win this PR delivers.
 
 ## 2. Design
 
@@ -335,7 +335,7 @@ All 1,438 tests must continue to pass. Particular attention to:
 
 Both regression tests added in `583d114` MUST continue to pass under per-arg DFG:
 
-- `test_taint_cwe78_pwsh_unmodeled_shell_preserves_flat_fallback` — `exec.Command("pwsh", "-c", taintedInput)` should still produce a `taint_sink` finding via the flat-pattern fallback. Per-arg DFG returns `SemanticallyExcluded` for this call (arg[0] is literal `"pwsh"` → not in taint set; shell-wrapper inclusion-filter rejects on pwsh not in shell list). `SemanticallyExcluded` is a no-op → flat layer fires on `Command` substring → finding produced. ✓
+- `test_taint_cwe78_pwsh_shell_wrapper_fires` — `exec.Command("pwsh", "-c", taintedInput)` should produce a `taint_sink` finding. Public results still have flat `Command` overlap, so structured PowerShell recognition is pinned by the internal `powershell_shell_wrappers_match_structured_registry` unit test.
 - `test_taint_cwe78_same_line_unrelated_sink_preserved` — literal-binary `exec.Command(...)` + `db.Exec(taintedQuery)` on the same line: the `db.Exec` finding must not be hidden by the structured exclusion of the `exec.Command`. Per-arg DFG: `exec.Command` returns `SemanticallyExcluded` (literal binary, no relevant arg tainted). `db.Exec` is not in any structured registry → `NoMatch`. Aggregate is `SemanticallyExcluded` (because at least one pattern was call_path-matched). Currently no-op → flat layer fires on `Exec` substring → finding produced. ✓
 
 If either regression test fails after per-arg DFG lands, that's a sign the no-op behavior of `SemanticallyExcluded` was accidentally re-coupled to flat suppression. Stop and audit before continuing.
@@ -344,7 +344,7 @@ If either regression test fails after per-arg DFG lands, that's a sign the no-op
 
 - **CFG-aware paired_check direction** (queue item #2) — orthogonal; defer to Phase 1.6 or roll into Phase 2 if eval expands fixtures with inverted-guard shape.
 - **Tree-walk caching** (queue item #3) — pure perf; defer.
-- **PowerShell + exotic shell paths** (queue item #4) — literal-list extension; defer until C1 expansion fixtures exercise it.
+- **Exotic shell paths** — literal-list extension for `/usr/bin/sh`, `/usr/local/bin/bash`, etc.; defer until fixtures exercise it. PowerShell wrappers are covered by the Phase 1.5 shell-list follow-up.
 - **Per-arg taint for non-Go languages** — Phase 2 (Python) will introduce framework specs that may want similar precision; the engine helper (`arg_is_tainted_in_path`) should be Go-agnostic by construction.
 - **Field-sensitive arg taint** — `req.Body.Read(buf)` where `req.Body` is the tainted field, not `req`. Existing `AccessPath` machinery in `src/access_path.rs` could power this; out of scope for Phase 1.5 but worth flagging.
 
@@ -378,6 +378,6 @@ PR title: `Phase 1.5 (item #1): per-arg DFG — honor tainted_arg_indices`.
 - Mixed same-line source==sink (e.g. `other := c.Query(...); c.File(c.Param("f")); fmt.Println(other)` — three statements, one line) continues to fire via the secondary inline-source fallback gated on `find_sink_with_inline_framework_source` (regression test §3.6 passes). This pins the line-scoping correctness class that PR #73's review iteration repeatedly flagged.
 - All Phase 1 positive tests still pass (1,438 unchanged).
 - Sanitizer suppression rate still 10/10.
-- PR #73 P1/P2 regression guards remain green (test_taint_cwe78_pwsh_unmodeled_shell_preserves_flat_fallback and test_taint_cwe78_same_line_unrelated_sink_preserved both pass — see §3.7).
+- PR #73 P1/P2 regression guards remain green (`test_taint_cwe78_pwsh_shell_wrapper_fires` and `test_taint_cwe78_same_line_unrelated_sink_preserved` both pass — see §3.7).
 - Path C semantic_checks removed; spec §3.2 updated; `tainted_arg_indices` doc-comment in `src/frameworks/mod.rs` updated.
-- Eval-team re-runs C1 validation on the new build; the variable-bound-to-literal shape they flagged is now suppressed at the structured layer. Their literal-binary fixed.go fixtures will continue to show flat-layer `taint_sink` until further pieces land (PowerShell shell expansion, structured CWE-79 sinks, or per-call scoping) — eval team is aware per their 2026-04-26 message.
+- Eval-team re-runs C1 validation on the new build; the variable-bound-to-literal shape they flagged is now suppressed at the structured layer. Their literal-binary fixed.go fixtures will continue to show flat-layer `taint_sink` until further flat-catch-all policy work lands; PowerShell shell-wrapper coverage is handled separately by the Phase 1.5 shell-list follow-up.

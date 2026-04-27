@@ -305,7 +305,7 @@ fn check_shell_wrapper_ctx(call: &CallSite) -> bool {
 
 **Slice-taint behavior for `syscall.Exec`:** Prism's existing DFG models slices conservatively — any tainted element taints the slice as a whole, and reads of `slice[i]` produce tainted values regardless of which element was assigned the taint. The `tainted_arg_indices: &[0, 1]` entry means: arg 0 (`argv0`) is checked directly; arg 1 (`argv` slice) fires the sink if the slice itself is taint-flagged in the DFG, which captures the case where any element was assigned from a tainted source. Per-element tracking (knowing exactly *which* `argv[i]` is tainted) is not modeled today and is out of scope for Phase 1.
 
-**Shell-wrapper binary list — scope:** `sh`, `bash`, `cmd.exe`, `/bin/sh`, `/bin/bash` cover common Linux/Windows shell invocations. PowerShell (`pwsh`, `powershell.exe`) and exotic absolute paths (`/usr/local/bin/bash` etc.) are deferred — add to the literal list in a follow-up if C1 fixtures exercise them.
+**Shell-wrapper binary list — scope:** `sh`, `bash`, `cmd.exe`, `/bin/sh`, `/bin/bash`, `pwsh`, `powershell`, and `powershell.exe` cover common Linux/macOS/Windows shell invocations. PowerShell accepts `-c` / `-Command` variants; POSIX shells use `-c`; `cmd.exe` uses `/c`. Exotic absolute paths (`/usr/local/bin/bash` etc.) are deferred — add to the literal list in a follow-up if fixtures exercise them.
 
 ### 3.3 Go CWE-22 sink patterns (cross-cutting)
 
@@ -594,7 +594,7 @@ Per ACK §5 and §1 of this design:
 - No Python/JS/Java framework detection.
 - No `HARDCODED_SECRET` LHS patches (deferred per ACK §4.1).
 - No CFG-aware path-validation refinement (Phase 1.5+).
-- No PowerShell / exotic shell binaries in CWE-78 sink list (deferred).
+- No exotic absolute shell binaries in CWE-78 sink list (deferred).
 
 ---
 

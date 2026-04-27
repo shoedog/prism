@@ -73,7 +73,7 @@ These are intentional false-negatives the eval team has accepted. The implemente
 - Path-validation paired-check direction ambiguity — both correct and inverted guard shapes suppress (spec §3.8).
 - `syscall.Exec` slice-element taint = whole-slice DFG-conservative; no per-element tracking (spec §3.2).
 - `HARDCODED_SECRET` keyword-prefixed LHS forms not matched (spec §1; ACK §4.1; deferred to Phase 2/3 registry redesign).
-- PowerShell + exotic shell paths not in CWE-78 sink list (spec §3.2).
+- Exotic absolute shell paths not in CWE-78 sink list (spec §3.2). PowerShell wrappers are covered by the Phase 1.5 shell-list follow-up.
 
 If C1 fixtures from the eval team end up exercising any of these and the eval team flags it post-merge, address as a Phase 1.5 follow-up — not as a Phase 1 amendment.
 
