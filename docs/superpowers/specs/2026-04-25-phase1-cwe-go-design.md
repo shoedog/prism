@@ -374,7 +374,7 @@ The `paired_check` field handles the path-validation case where cleansing requir
 - `paired_check: Some("strings.HasPrefix")` for `filepath.Clean` recognizer.
 - `paired_check: None` for one-call cleansers.
 
-**Resolution model:** `paired_check` is a string name resolved at suppression time by **textual co-occurrence in the same function body** — not a type-safe binding to a Rust function. The implementation walks the function body looking for the literal token; presence anywhere in the body (regardless of placement relative to the cleanser call or the sink) is enough to satisfy the pair. See §3.8 for the heuristic limitations this implies.
+**Resolution model:** `paired_check` is a string name resolved by textual co-occurrence in the same function body for the legacy `FlowPath.cleansed_for` marker. Phase 1.5 keeps that marker for compatibility, but Go `PathTraversal` sink suppression no longer trusts it by itself: sink evaluation performs AST + CFG validation for the specific sink line. See §3.8.
 
 ### 3.5 Taint-value extension — `cleansed_for` field
 
@@ -428,13 +428,17 @@ SanitizerRecognizer {
 }
 ```
 
-Heuristic for the paired check: when taint analysis sees a sink consume `cleaned := filepath.Clean(tainted)`, before firing it walks back through the function body looking for `strings.HasPrefix(cleaned, ...)` or `strings.HasPrefix(cleaned + ..., ...)`. If found anywhere in the function body, mark `cleaned` as `cleansed_for(PathTraversal)`.
+Phase 1 heuristic for the paired check: when taint analysis saw a sink consume `cleaned := filepath.Clean(tainted)`, before firing it walked back through the function body looking for `strings.HasPrefix(cleaned, ...)` or `strings.HasPrefix(cleaned + ..., ...)`. If found anywhere in the function body, it marked the flow as `cleansed_for(PathTraversal)`.
 
-Limitations explicitly accepted:
+Phase 1.5 update: Go `PathTraversal` sink suppression is now sink-specific. `taint.rs::go_path_traversal_cleansed_for_sink` collects `filepath.Clean` / `filepath.Rel` result bindings in the enclosing function, requires the sanitized result variable to feed the sink's `tainted_arg_indices`, and validates the `strings.HasPrefix` guard with AST + CFG reachability. Unsupported or ambiguous shapes fail closed and the sink fires.
 
-- Doesn't distinguish guard-true branch from guard-false branch (textual co-occurrence is enough). False negatives possible if the guard is in a different function reachable only by the guard-failure path; false positives possible if the guard is dead code. Per handoff, acceptable.
+Current scope and limitations:
+
+- Distinguishes guard-true branch from guard-false branch for the supported MVP shapes: `Clean` reject-on-fail, `Clean` allow-on-pass, `Rel` reject-on-bad-prefix, `Rel` allow-on-not-bad-prefix, and pure OR reject conditions such as `err != nil || strings.HasPrefix(rel, "..")`.
+- Does not support the symmetric Clean OR reject form (`err != nil || !strings.HasPrefix(cleaned, allowed)`) in the MVP; it fails closed and the sink fires.
+- Does not treat `&&` combinations or mixed/nested boolean expressions as safe; ambiguous shapes fail closed.
 - Doesn't model `strings.HasPrefix(cleaned, base)` where `base` is itself tainted (a contrived case where the prefix being checked is attacker-controlled). Document, defer.
-- Doesn't model `filepath.Rel(base, p)` followed by `strings.HasPrefix(rel, "..")` *negation* check — the Rel-form needs its own paired_check entry pointing to a custom function `check_rel_no_dotdot` rather than just `strings.HasPrefix`.
+- Cross-function sanitizer validation remains out of scope.
 
 Recognizer list for path-validation:
 
@@ -455,9 +459,7 @@ pub const PATH_RECOGNIZERS: &[SanitizerRecognizer] = &[
 ];
 ```
 
-A future Phase 1.5 / Phase 2 enhancement: CFG-aware version using existing CFG infrastructure (Phase 6 done) to check guard-true vs guard-false branch placement. Out of scope for Phase 1.
-
-**Rel-form direction ambiguity (Phase 1 limitation):** the `filepath.Rel` recognizer's `paired_check: Some("strings.HasPrefix")` matches by textual co-occurrence — it does not distinguish whether the prefix check is used as a *negative* guard (`if HasPrefix(rel, "..") { return error }`) or a *positive* guard (`if HasPrefix(rel, "..") { use rel }`). Both shapes contain the literal `strings.HasPrefix(rel, "..")` in the function body and both will suppress the finding under the textual heuristic. The negative-guard shape is correct usage; the positive-guard shape is a real bug that Phase 1's recognizer would mis-suppress. This is a known false-negative; CFG-aware enhancement (deferred above) resolves it.
+**Rel-form direction ambiguity (Phase 1.5 closed):** the Phase 1 textual recognizer could not distinguish a negative guard (`if HasPrefix(rel, "..") { return error }`) from an inverted bug branch (`if HasPrefix(rel, "..") { use rel }`). Phase 1.5's CFG-aware sink-time helper resolves that false-negative class for the supported Go shapes.
 
 ### 3.9 Shell-escape — no cleanser needed in Phase 1
 

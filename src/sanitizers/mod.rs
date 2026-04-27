@@ -21,13 +21,12 @@ pub fn active_recognizers() -> impl Iterator<Item = &'static SanitizerRecognizer
 }
 
 /// Check whether a `paired_check` token appears anywhere in the given source slice.
-/// Used by paired-check recognizers (e.g., `filepath.Clean` → `strings.HasPrefix`).
-/// Textual co-occurrence per spec §3.4 / §3.8.
+/// Used by paired-check recognizers (e.g., `filepath.Clean` → `strings.HasPrefix`)
+/// as the legacy category-wide `FlowPath.cleansed_for` marker.
 ///
-/// Known limitation: does not distinguish positive vs negative guard direction —
-/// both `if strings.HasPrefix(rel, "..") { return error }` (correct) and
-/// `if strings.HasPrefix(rel, "..") { use rel }` (real bug) suppress equally.
-/// CFG-aware refinement is deferred to Phase 1.5+.
+/// Go `PathTraversal` sink suppression no longer trusts this textual marker by
+/// itself: `taint.rs` performs sink-time AST + CFG validation so inverted guards,
+/// unrelated `HasPrefix` calls, and guard-after-sink shapes do not suppress.
 pub fn paired_check_satisfied(function_body_source: &str, check_name: &str) -> bool {
     function_body_source.contains(check_name)
 }

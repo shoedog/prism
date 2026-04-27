@@ -1,10 +1,11 @@
 //! Path-validation sanitizers (CWE-22 / PathTraversal category).
 //!
-//! See spec §3.8. Heuristic textual co-occurrence — the recognizer fires when
-//! `filepath.Clean(X)` (or `filepath.Rel(base, X)`) is followed by a textual
-//! `strings.HasPrefix` call anywhere in the function body. Known limitation:
-//! does not distinguish positive vs negative guard direction (Phase 1.5+ for
-//! CFG-aware refinement).
+//! See spec §3.8. These recognizers still record the transform half of the
+//! cleanser pair (`filepath.Clean` / `filepath.Rel`) and the paired-check token.
+//! Go `PathTraversal` suppression is refined at sink evaluation time by
+//! `taint.rs`: the sink-specific helper couples the sanitized result variable
+//! to the sink argument and validates `strings.HasPrefix` guard direction with
+//! AST + CFG reachability.
 
 use super::SanitizerRecognizer;
 use crate::frameworks::SanitizerCategory;
