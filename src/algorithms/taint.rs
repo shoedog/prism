@@ -4,9 +4,10 @@
 //! propagates taint forward through assignments and function calls. Reports all
 //! paths from taint sources to potential sinks (SQL, exec, file ops, HTTP responses).
 
+use crate::access_path::AccessPath;
 use crate::ast::ParsedFile;
 use crate::cpg::{CodePropertyGraph, CpgContext};
-use crate::data_flow::FlowPath;
+use crate::data_flow::{FlowEdge, FlowPath, VarAccessKind, VarLocation};
 use crate::diff::{DiffBlock, DiffInput, ModifyType};
 use crate::frameworks::{CallSite, SanitizerCategory, SinkPattern};
 use crate::languages::Language;
@@ -404,6 +405,228 @@ pub const GO_CWE22_SINKS: &[SinkPattern] = &[
     },
 ];
 
+pub const PY_CWE79_SINKS: &[SinkPattern] = &[
+    SinkPattern {
+        call_path: "mark_safe",
+        category: SanitizerCategory::Xss,
+        tainted_arg_indices: &[0],
+        semantic_check: None,
+    },
+    SinkPattern {
+        call_path: "Markup",
+        category: SanitizerCategory::Xss,
+        tainted_arg_indices: &[0],
+        semantic_check: None,
+    },
+    SinkPattern {
+        call_path: "markupsafe.Markup",
+        category: SanitizerCategory::Xss,
+        tainted_arg_indices: &[0],
+        semantic_check: None,
+    },
+    SinkPattern {
+        call_path: "format_html",
+        category: SanitizerCategory::Xss,
+        tainted_arg_indices: &[0],
+        semantic_check: None,
+    },
+    SinkPattern {
+        call_path: "render_template_string",
+        category: SanitizerCategory::Xss,
+        tainted_arg_indices: &[1],
+        semantic_check: None,
+    },
+];
+
+pub const PY_CWE89_SINKS: &[SinkPattern] = &[
+    SinkPattern {
+        call_path: "execute",
+        category: SanitizerCategory::Sqli,
+        tainted_arg_indices: &[0],
+        semantic_check: None,
+    },
+    SinkPattern {
+        call_path: "executemany",
+        category: SanitizerCategory::Sqli,
+        tainted_arg_indices: &[0],
+        semantic_check: None,
+    },
+    SinkPattern {
+        call_path: "raw",
+        category: SanitizerCategory::Sqli,
+        tainted_arg_indices: &[0],
+        semantic_check: None,
+    },
+];
+
+pub const PY_CWE918_SINKS: &[SinkPattern] = &[
+    SinkPattern {
+        call_path: "requests.get",
+        category: SanitizerCategory::Ssrf,
+        tainted_arg_indices: &[0],
+        semantic_check: None,
+    },
+    SinkPattern {
+        call_path: "requests.post",
+        category: SanitizerCategory::Ssrf,
+        tainted_arg_indices: &[0],
+        semantic_check: None,
+    },
+    SinkPattern {
+        call_path: "requests.put",
+        category: SanitizerCategory::Ssrf,
+        tainted_arg_indices: &[0],
+        semantic_check: None,
+    },
+    SinkPattern {
+        call_path: "requests.delete",
+        category: SanitizerCategory::Ssrf,
+        tainted_arg_indices: &[0],
+        semantic_check: None,
+    },
+    SinkPattern {
+        call_path: "requests.patch",
+        category: SanitizerCategory::Ssrf,
+        tainted_arg_indices: &[0],
+        semantic_check: None,
+    },
+    SinkPattern {
+        call_path: "requests.head",
+        category: SanitizerCategory::Ssrf,
+        tainted_arg_indices: &[0],
+        semantic_check: None,
+    },
+    SinkPattern {
+        call_path: "requests.options",
+        category: SanitizerCategory::Ssrf,
+        tainted_arg_indices: &[0],
+        semantic_check: None,
+    },
+    SinkPattern {
+        call_path: "requests.request",
+        category: SanitizerCategory::Ssrf,
+        tainted_arg_indices: &[1],
+        semantic_check: None,
+    },
+    SinkPattern {
+        call_path: "urllib.request.urlopen",
+        category: SanitizerCategory::Ssrf,
+        tainted_arg_indices: &[0],
+        semantic_check: None,
+    },
+    SinkPattern {
+        call_path: "urllib.request.Request",
+        category: SanitizerCategory::Ssrf,
+        tainted_arg_indices: &[0],
+        semantic_check: None,
+    },
+    SinkPattern {
+        call_path: "httpx.get",
+        category: SanitizerCategory::Ssrf,
+        tainted_arg_indices: &[0],
+        semantic_check: None,
+    },
+    SinkPattern {
+        call_path: "httpx.post",
+        category: SanitizerCategory::Ssrf,
+        tainted_arg_indices: &[0],
+        semantic_check: None,
+    },
+    SinkPattern {
+        call_path: "httpx.put",
+        category: SanitizerCategory::Ssrf,
+        tainted_arg_indices: &[0],
+        semantic_check: None,
+    },
+    SinkPattern {
+        call_path: "httpx.delete",
+        category: SanitizerCategory::Ssrf,
+        tainted_arg_indices: &[0],
+        semantic_check: None,
+    },
+    SinkPattern {
+        call_path: "httpx.patch",
+        category: SanitizerCategory::Ssrf,
+        tainted_arg_indices: &[0],
+        semantic_check: None,
+    },
+    SinkPattern {
+        call_path: "httpx.head",
+        category: SanitizerCategory::Ssrf,
+        tainted_arg_indices: &[0],
+        semantic_check: None,
+    },
+    SinkPattern {
+        call_path: "httpx.options",
+        category: SanitizerCategory::Ssrf,
+        tainted_arg_indices: &[0],
+        semantic_check: None,
+    },
+    SinkPattern {
+        call_path: "httpx.request",
+        category: SanitizerCategory::Ssrf,
+        tainted_arg_indices: &[1],
+        semantic_check: None,
+    },
+    SinkPattern {
+        call_path: "request",
+        category: SanitizerCategory::Ssrf,
+        tainted_arg_indices: &[1],
+        semantic_check: None,
+    },
+];
+
+pub const PY_CWE502_SINKS: &[SinkPattern] = &[
+    SinkPattern {
+        call_path: "pickle.loads",
+        category: SanitizerCategory::Deserialization,
+        tainted_arg_indices: &[0],
+        semantic_check: None,
+    },
+    SinkPattern {
+        call_path: "loads",
+        category: SanitizerCategory::Deserialization,
+        tainted_arg_indices: &[0],
+        semantic_check: None,
+    },
+    SinkPattern {
+        call_path: "pickle.load",
+        category: SanitizerCategory::Deserialization,
+        tainted_arg_indices: &[0],
+        semantic_check: None,
+    },
+    SinkPattern {
+        call_path: "load",
+        category: SanitizerCategory::Deserialization,
+        tainted_arg_indices: &[0],
+        semantic_check: None,
+    },
+    SinkPattern {
+        call_path: "yaml.load",
+        category: SanitizerCategory::Deserialization,
+        tainted_arg_indices: &[0],
+        semantic_check: None,
+    },
+    SinkPattern {
+        call_path: "jsonpickle.decode",
+        category: SanitizerCategory::Deserialization,
+        tainted_arg_indices: &[0],
+        semantic_check: None,
+    },
+    SinkPattern {
+        call_path: "marshal.loads",
+        category: SanitizerCategory::Deserialization,
+        tainted_arg_indices: &[0],
+        semantic_check: None,
+    },
+    SinkPattern {
+        call_path: "dill.loads",
+        category: SanitizerCategory::Deserialization,
+        tainted_arg_indices: &[0],
+        semantic_check: None,
+    },
+];
+
 /// GLib/D-Bus IPC accessor patterns.
 ///
 /// These function-call patterns read values from IPC messages (D-Bus) or
@@ -477,6 +700,31 @@ impl Default for TaintConfig {
             sources: Vec::new(),
             taint_from_diff: true,
             extra_sinks: Vec::new(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+struct TaintSeed {
+    file: String,
+    line: usize,
+    target: Option<AccessPath>,
+}
+
+impl TaintSeed {
+    fn line(file: String, line: usize) -> Self {
+        Self {
+            file,
+            line,
+            target: None,
+        }
+    }
+
+    fn target(file: String, line: usize, target: AccessPath) -> Self {
+        Self {
+            file,
+            line,
+            target: Some(target),
         }
     }
 }
@@ -726,12 +974,27 @@ fn collect_request_param_names(
     names
 }
 
-/// Compute the textual call path for a Go call expression by joining selector
-/// segments. For `r.URL.Query()`, returns `Some("r.URL.Query")`. For
-/// unqualified or non-selector callees, returns the bare identifier or `None`.
-fn go_call_path_text(parsed: &ParsedFile, call_node: &Node<'_>) -> Option<String> {
+/// Compute the textual call path for a call expression. For `r.URL.Query()`,
+/// returns `Some("r.URL.Query")`; for Python `request.args.get()`, returns
+/// `Some("request.args.get")`.
+fn call_path_text(parsed: &ParsedFile, call_node: &Node<'_>) -> Option<String> {
     let func = call_node.child_by_field_name("function")?;
     Some(parsed.node_text(&func).to_string())
+}
+
+fn go_call_path_text(parsed: &ParsedFile, call_node: &Node<'_>) -> Option<String> {
+    call_path_text(parsed, call_node)
+}
+
+/// Walk `root` collecting every call node for the file's language.
+fn collect_calls<'a>(parsed: &ParsedFile, node: Node<'a>, out: &mut Vec<Node<'a>>) {
+    if parsed.language.is_call_node(node.kind()) {
+        out.push(node);
+    }
+    let mut cursor = node.walk();
+    for child in node.children(&mut cursor) {
+        collect_calls(parsed, child, out);
+    }
 }
 
 /// Walk `root` collecting every Go `call_expression` node.
@@ -745,73 +1008,308 @@ fn collect_go_calls<'a>(node: Node<'a>, out: &mut Vec<Node<'a>>) {
     }
 }
 
-/// Detect taint sources from per-file framework specs (e.g., `c.Query` for gin,
-/// `r.URL.Query` for net/http).
-///
-/// **Phase 1 scope:** only Go files contribute (see early `continue` for non-Go
-/// languages). Future phases extend this by registering Python (Flask/Django/FastAPI),
-/// JS (Express), or Java framework specs in `src/frameworks/` — no engine change
-/// needed; this loop will pick them up via the framework registry.
-///
-/// Unlike `detect_ipc_sources`, framework sources are file-wide (not diff-restricted):
-/// handler-shaped functions are stable taint origins regardless of whether the diff
-/// touched them.
-///
-/// Returns `(file, line)` pairs for every call expression that matches a
-/// framework `SourcePattern` (after prefix substitution) and lives inside a
-/// function whose signature exposes the framework's request type.
-fn detect_framework_sources(ctx: &CpgContext) -> Vec<(String, usize)> {
-    let mut sources: Vec<(String, usize)> = Vec::new();
+fn detect_framework_sources(ctx: &CpgContext) -> Vec<TaintSeed> {
+    let mut sources: Vec<TaintSeed> = Vec::new();
     for (file_path, parsed) in ctx.files {
-        if parsed.language != Language::Go {
+        match parsed.language {
+            Language::Go => detect_go_framework_sources(file_path, parsed, &mut sources),
+            Language::Python => detect_python_framework_sources(file_path, parsed, &mut sources),
+            _ => {}
+        }
+    }
+    sources.sort();
+    sources.dedup();
+    sources
+}
+
+fn detect_go_framework_sources(file_path: &str, parsed: &ParsedFile, sources: &mut Vec<TaintSeed>) {
+    let spec = match parsed.framework() {
+        Some(s) => s,
+        None => return,
+    };
+    let target_types = framework_request_types(spec.name);
+    if target_types.is_empty() {
+        return;
+    }
+
+    for func in parsed.all_functions() {
+        let param_names = collect_request_param_names(parsed, &func, target_types);
+        if param_names.is_empty() {
             continue;
         }
-        let spec = match parsed.framework() {
-            Some(s) => s,
-            None => continue,
-        };
-        let target_types = framework_request_types(spec.name);
-        if target_types.is_empty() {
-            continue;
-        }
+        let mut calls = Vec::new();
+        collect_go_calls(func, &mut calls);
 
-        for func in parsed.all_functions() {
-            let param_names = collect_request_param_names(parsed, &func, target_types);
-            if param_names.is_empty() {
-                continue;
-            }
-            let mut calls = Vec::new();
-            collect_go_calls(func, &mut calls);
-
-            for source_pat in spec.sources {
-                // Compute every concrete call path to look for in this function.
-                let concrete_paths: Vec<String> = if framework_prefixes(spec.name)
+        for source_pat in spec.sources {
+            let concrete_paths: Vec<String> = if framework_prefixes(spec.name)
+                .iter()
+                .any(|p| source_pat.call_path.starts_with(p))
+            {
+                param_names
                     .iter()
-                    .any(|p| source_pat.call_path.starts_with(p))
-                {
-                    param_names
-                        .iter()
-                        .map(|n| substitute_prefix(source_pat.call_path, n, spec.name))
-                        .collect()
-                } else {
-                    // No conventional prefix — match as-is (e.g. mux.Vars).
-                    vec![source_pat.call_path.to_string()]
-                };
+                    .map(|n| substitute_prefix(source_pat.call_path, n, spec.name))
+                    .collect()
+            } else {
+                vec![source_pat.call_path.to_string()]
+            };
 
-                for call in &calls {
-                    let actual = match go_call_path_text(parsed, call) {
-                        Some(s) => s,
-                        None => continue,
-                    };
-                    if concrete_paths.contains(&actual) {
-                        let line = call.start_position().row + 1;
-                        sources.push((file_path.clone(), line));
-                    }
+            for call in &calls {
+                let actual = match go_call_path_text(parsed, call) {
+                    Some(s) => s,
+                    None => continue,
+                };
+                if concrete_paths.contains(&actual) {
+                    sources.push(TaintSeed::line(
+                        file_path.to_string(),
+                        call.start_position().row + 1,
+                    ));
                 }
             }
         }
     }
-    sources
+}
+
+fn detect_python_framework_sources(
+    file_path: &str,
+    parsed: &ParsedFile,
+    sources: &mut Vec<TaintSeed>,
+) {
+    let pydantic_models = collect_python_pydantic_models(parsed);
+    for func in parsed.all_functions() {
+        let line = func.start_position().row + 1;
+        let text = parsed.node_text(&func);
+        let is_fastapi_route = python_function_has_route_decorator(parsed, &func);
+        let is_drf_or_django_view = text.contains("request")
+            && (parsed.source.contains("django") || parsed.source.contains("rest_framework"));
+
+        if is_fastapi_route {
+            for param in python_function_params(parsed, &func) {
+                if param.name == "self" {
+                    continue;
+                }
+                let annotation = param.annotation.as_deref().unwrap_or("");
+                if annotation.contains("Request")
+                    || annotation.contains("Query")
+                    || annotation.contains("Path")
+                    || annotation.contains("Body")
+                    || annotation.contains("Header")
+                    || annotation.contains("Form")
+                    || annotation.contains("File")
+                    || pydantic_models.contains(annotation)
+                {
+                    sources.push(TaintSeed::target(
+                        file_path.to_string(),
+                        line,
+                        AccessPath::simple(param.name),
+                    ));
+                }
+            }
+        } else if is_drf_or_django_view {
+            for param in python_function_params(parsed, &func) {
+                if param.name == "request" {
+                    sources.push(TaintSeed::target(
+                        file_path.to_string(),
+                        line,
+                        AccessPath::simple("request"),
+                    ));
+                }
+            }
+        }
+    }
+
+    let mut calls = Vec::new();
+    collect_calls(parsed, parsed.tree.root_node(), &mut calls);
+    for call in calls {
+        let actual = match call_path_text(parsed, &call) {
+            Some(s) => s,
+            None => continue,
+        };
+        if actual.starts_with("request.")
+            || actual == "request.get_json"
+            || actual == "request.get_data"
+        {
+            sources.push(TaintSeed::line(
+                file_path.to_string(),
+                call.start_position().row + 1,
+            ));
+        }
+    }
+}
+
+#[derive(Debug)]
+struct PythonParam {
+    name: String,
+    annotation: Option<String>,
+}
+
+fn python_function_params(parsed: &ParsedFile, func: &Node<'_>) -> Vec<PythonParam> {
+    let mut out = Vec::new();
+    let function_node = if func.kind() == "decorated_definition" {
+        let mut cursor = func.walk();
+        let found = func
+            .children(&mut cursor)
+            .find(|child| child.kind() == "function_definition")
+            .unwrap_or(*func);
+        found
+    } else {
+        *func
+    };
+    let params = match function_node.child_by_field_name("parameters") {
+        Some(p) => p,
+        None => return out,
+    };
+    let mut cursor = params.walk();
+    for child in params.named_children(&mut cursor) {
+        let text = parsed.node_text(&child).trim();
+        if text.is_empty() || text == "/" || text == "*" {
+            continue;
+        }
+        let text = text.trim_start_matches('*');
+        let (name_part, rest) = text
+            .split_once(':')
+            .map(|(n, r)| (n.trim(), Some(r.trim())))
+            .unwrap_or((text.trim(), None));
+        let name = name_part
+            .split('=')
+            .next()
+            .unwrap_or(name_part)
+            .trim()
+            .to_string();
+        if name.is_empty() {
+            continue;
+        }
+        let annotation = rest.map(|r| {
+            r.split('=')
+                .next()
+                .unwrap_or(r)
+                .trim()
+                .trim_matches('"')
+                .trim_matches('\'')
+                .to_string()
+        });
+        out.push(PythonParam { name, annotation });
+    }
+    out
+}
+
+fn collect_python_pydantic_models(parsed: &ParsedFile) -> BTreeSet<String> {
+    let mut models = BTreeSet::new();
+    for line in parsed.source.lines() {
+        let trimmed = line.trim();
+        if !trimmed.starts_with("class ") || !trimmed.contains("BaseModel") {
+            continue;
+        }
+        if let Some(rest) = trimmed.strip_prefix("class ") {
+            let name = rest
+                .split(['(', ':'])
+                .next()
+                .unwrap_or("")
+                .trim()
+                .to_string();
+            if !name.is_empty() {
+                models.insert(name);
+            }
+        }
+    }
+    models
+}
+
+fn python_function_has_route_decorator(parsed: &ParsedFile, func: &Node<'_>) -> bool {
+    if !parsed.source.contains("FastAPI(") && !parsed.source.contains("APIRouter(") {
+        return false;
+    }
+    let text = parsed.node_text(func);
+    let route_receivers = python_fastapi_route_receivers(parsed);
+    route_receivers.iter().any(|receiver| {
+        let prefix = format!("@{}.", receiver);
+        text.contains(&format!("{}get(", prefix))
+            || text.contains(&format!("{}post(", prefix))
+            || text.contains(&format!("{}put(", prefix))
+            || text.contains(&format!("{}delete(", prefix))
+            || text.contains(&format!("{}patch(", prefix))
+            || text.contains(&format!("{}head(", prefix))
+            || text.contains(&format!("{}options(", prefix))
+            || text.contains(&format!("{}api_route(", prefix))
+    })
+}
+
+fn python_fastapi_route_receivers(parsed: &ParsedFile) -> BTreeSet<String> {
+    let mut receivers = BTreeSet::new();
+    for line in parsed.source.lines() {
+        let trimmed = line.trim();
+        if !(trimmed.contains("= FastAPI(") || trimmed.contains("= APIRouter(")) {
+            continue;
+        }
+        if let Some((lhs, _)) = trimmed.split_once('=') {
+            let name = lhs.trim();
+            if !name.is_empty() && name.chars().all(|c| c.is_alphanumeric() || c == '_') {
+                receivers.insert(name.to_string());
+            }
+        }
+    }
+    receivers
+}
+
+fn synthesize_target_seed_paths(seeds: &[TaintSeed], ctx: &CpgContext, paths: &mut Vec<FlowPath>) {
+    for seed in seeds {
+        let target = match &seed.target {
+            Some(t) => t,
+            None => continue,
+        };
+        let parsed = match ctx.files.get(&seed.file) {
+            Some(p) => p,
+            None => continue,
+        };
+        let func = match parsed.enclosing_function(seed.line) {
+            Some(f) => f,
+            None => continue,
+        };
+        let func_name = parsed
+            .language
+            .function_name(&func)
+            .map(|n| parsed.node_text(&n).to_string())
+            .unwrap_or_else(|| "<anonymous>".to_string());
+        let reachable = if ctx.cpg.has_cfg_edges() {
+            Some(ctx.cpg.cfg_reachable_lines(&seed.file, seed.line))
+        } else {
+            None
+        };
+        let refs = parsed.find_variable_references_scoped(&func, &target.base, seed.line);
+        let from = VarLocation {
+            file: seed.file.clone(),
+            function: func_name.clone(),
+            line: seed.line,
+            path: target.clone(),
+            kind: VarAccessKind::Def,
+        };
+        let mut edges = Vec::new();
+        for ref_line in refs {
+            if ref_line <= seed.line {
+                continue;
+            }
+            if let Some(cfg_set) = &reachable {
+                if !cfg_set.contains(&(seed.file.clone(), ref_line)) {
+                    continue;
+                }
+            }
+            edges.push(FlowEdge {
+                from: from.clone(),
+                to: VarLocation {
+                    file: seed.file.clone(),
+                    function: func_name.clone(),
+                    line: ref_line,
+                    path: AccessPath::simple(target.base.clone()),
+                    kind: VarAccessKind::Use,
+                },
+            });
+        }
+        if !edges.is_empty() {
+            paths.push(FlowPath {
+                edges,
+                cleansed_for: BTreeSet::new(),
+            });
+        }
+    }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -850,6 +1348,56 @@ enum SinkMatchOutcome {
     NoMatch,
 }
 
+fn call_arg_node<'a>(call: &Node<'a>, arg_idx: usize) -> Option<Node<'a>> {
+    let arguments = call.child_by_field_name("arguments")?;
+    let mut cursor = arguments.walk();
+    let arg = arguments.named_children(&mut cursor).nth(arg_idx);
+    arg
+}
+
+fn call_literal_arg(parsed: &ParsedFile, call: &Node<'_>, arg_idx: usize) -> Option<String> {
+    let arg = call_arg_node(call, arg_idx)?;
+    let text = parsed.node_text(&arg).trim();
+    if matches!(
+        arg.kind(),
+        "interpreted_string_literal" | "raw_string_literal" | "string"
+    ) || ((text.starts_with('"') || text.starts_with('\'')) && text.len() >= 2)
+    {
+        let quote_idx = text.find(['"', '\'']).unwrap_or(0);
+        let prefix = &text[..quote_idx];
+        if prefix.chars().any(|c| c == 'f' || c == 'F') {
+            return None;
+        }
+        let without_prefix = &text[quote_idx..];
+        let trimmed = without_prefix
+            .strip_prefix("\"\"\"")
+            .and_then(|s| s.strip_suffix("\"\"\""))
+            .or_else(|| {
+                without_prefix
+                    .strip_prefix("'''")
+                    .and_then(|s| s.strip_suffix("'''"))
+            })
+            .or_else(|| {
+                without_prefix
+                    .strip_prefix('"')
+                    .and_then(|s| s.strip_suffix('"'))
+            })
+            .or_else(|| {
+                without_prefix
+                    .strip_prefix('\'')
+                    .and_then(|s| s.strip_suffix('\''))
+            })
+            .or_else(|| {
+                without_prefix
+                    .strip_prefix('`')
+                    .and_then(|s| s.strip_suffix('`'))
+            })
+            .unwrap_or(without_prefix);
+        return Some(trimmed.to_string());
+    }
+    None
+}
+
 /// Returns true if argument `arg_idx` of the call expression is tainted along `path`.
 ///
 /// Resolution rules:
@@ -872,21 +1420,7 @@ fn arg_is_tainted_in_path(
     arg_idx: usize,
     path: &FlowPath,
 ) -> bool {
-    let arguments = match call.child_by_field_name("arguments") {
-        Some(n) => n,
-        None => return false,
-    };
-    let mut cursor = arguments.walk();
-    let mut idx = 0usize;
-    let mut target_arg: Option<Node<'_>> = None;
-    for child in arguments.named_children(&mut cursor) {
-        if idx == arg_idx {
-            target_arg = Some(child);
-            break;
-        }
-        idx += 1;
-    }
-    let arg_node = match target_arg {
+    let arg_node = match call_arg_node(call, arg_idx) {
         Some(n) => n,
         None => return false,
     };
@@ -1093,6 +1627,12 @@ enum GuardControl {
     AllowBranch,
 }
 
+struct UrlSanitizerBinding {
+    url_var: String,
+    result_var: String,
+    call_line: usize,
+}
+
 fn flow_path_cleansed_for_sink(
     parsed: &ParsedFile,
     cpg: &CodePropertyGraph,
@@ -1131,6 +1671,21 @@ fn flow_path_cleansed_for_sink_call(
             Some(call),
         );
     }
+    if parsed.language == Language::Python {
+        if sink_pat.category == SanitizerCategory::Sqli
+            && python_sql_call_is_parametrized(parsed, call)
+        {
+            return true;
+        }
+        if sink_pat.category == SanitizerCategory::Deserialization
+            && python_yaml_load_uses_safe_loader(parsed, call)
+        {
+            return true;
+        }
+        if sink_pat.category == SanitizerCategory::Ssrf {
+            return python_ssrf_cleansed_for_sink(parsed, cpg, path, sink_line, sink_pat, call);
+        }
+    }
     path.cleansed_for.contains(&sink_pat.category)
 }
 
@@ -1160,6 +1715,36 @@ fn structured_sink_line_cleansed_for_path(
     line: usize,
     sink_pat: &'static SinkPattern,
 ) -> bool {
+    if parsed.language == Language::Python {
+        let mut calls = Vec::new();
+        collect_calls(parsed, parsed.tree.root_node(), &mut calls);
+
+        let mut matched = false;
+        for call in &calls {
+            if call.start_position().row + 1 != line {
+                continue;
+            }
+            let actual = match call_path_text(parsed, call) {
+                Some(s) => s,
+                None => continue,
+            };
+            if !call_path_matches(parsed, &actual, sink_pat.call_path)
+                || !call_passes_sink_semantics(parsed, call, sink_pat)
+            {
+                continue;
+            }
+            if !sink_call_has_tainted_arg_in_path(parsed, call, sink_pat, path) {
+                continue;
+            }
+            matched = true;
+            if !flow_path_cleansed_for_sink_call(parsed, cpg, path, line, sink_pat, call) {
+                return false;
+            }
+        }
+
+        return matched;
+    }
+
     if parsed.language != Language::Go || sink_pat.category != SanitizerCategory::PathTraversal {
         return path.cleansed_for.contains(&sink_pat.category);
     }
@@ -1690,11 +2275,8 @@ fn line_matches_structured_sink(
     sink_pat: &'static SinkPattern,
     path: Option<&FlowPath>,
 ) -> SinkMatchOutcome {
-    if parsed.language != Language::Go {
-        return SinkMatchOutcome::NoMatch;
-    }
     let mut calls = Vec::new();
-    collect_go_calls(parsed.tree.root_node(), &mut calls);
+    collect_calls(parsed, parsed.tree.root_node(), &mut calls);
     let mut had_call_path_match = false;
     for call in &calls {
         let call_line = call.start_position().row + 1;
@@ -1705,7 +2287,7 @@ fn line_matches_structured_sink(
             Some(s) => s,
             None => continue,
         };
-        if actual != sink_pat.call_path {
+        if !call_path_matches(parsed, &actual, sink_pat.call_path) {
             continue;
         }
         had_call_path_match = true;
@@ -1745,6 +2327,16 @@ fn line_matches_structured_sink(
     } else {
         SinkMatchOutcome::NoMatch
     }
+}
+
+fn call_path_matches(parsed: &ParsedFile, actual: &str, expected: &str) -> bool {
+    actual == expected
+        || (parsed.language == Language::Python
+            && !expected.contains('.')
+            && actual
+                .rsplit('.')
+                .next()
+                .is_some_and(|tail| tail == expected))
 }
 
 /// Returns the structured-sink outcome for `line` across the full Go sink registry
@@ -1797,6 +2389,477 @@ fn go_sink_outcome(parsed: &ParsedFile, line: usize, path: Option<&FlowPath>) ->
     } else {
         SinkMatchOutcome::NoMatch
     }
+}
+
+fn structured_sink_outcome(
+    parsed: &ParsedFile,
+    line: usize,
+    path: Option<&FlowPath>,
+) -> SinkMatchOutcome {
+    match parsed.language {
+        Language::Go => go_sink_outcome(parsed, line, path),
+        Language::Python => python_sink_outcome(parsed, line, path),
+        _ => SinkMatchOutcome::NoMatch,
+    }
+}
+
+fn python_sink_outcome(
+    parsed: &ParsedFile,
+    line: usize,
+    path: Option<&FlowPath>,
+) -> SinkMatchOutcome {
+    if let Some(outcome) = python_render_template_string_outcome(parsed, line, path) {
+        return outcome;
+    }
+
+    let mut any_call_path_match = false;
+    for pat in PY_CWE79_SINKS
+        .iter()
+        .chain(PY_CWE89_SINKS.iter())
+        .chain(PY_CWE918_SINKS.iter())
+        .chain(PY_CWE502_SINKS.iter())
+    {
+        match line_matches_structured_sink(parsed, line, pat, path) {
+            SinkMatchOutcome::Match(p) => return SinkMatchOutcome::Match(p),
+            SinkMatchOutcome::SemanticallyExcluded => any_call_path_match = true,
+            SinkMatchOutcome::NoMatch => {}
+        }
+    }
+    if any_call_path_match {
+        SinkMatchOutcome::SemanticallyExcluded
+    } else {
+        SinkMatchOutcome::NoMatch
+    }
+}
+
+fn python_render_template_string_outcome(
+    parsed: &ParsedFile,
+    line: usize,
+    path: Option<&FlowPath>,
+) -> Option<SinkMatchOutcome> {
+    let mut calls = Vec::new();
+    collect_calls(parsed, parsed.tree.root_node(), &mut calls);
+    let pat = PY_CWE79_SINKS
+        .iter()
+        .find(|p| p.call_path == "render_template_string")?;
+    let mut had_call = false;
+    for call in &calls {
+        if call.start_position().row + 1 != line {
+            continue;
+        }
+        let actual = call_path_text(parsed, call)?;
+        if !call_path_matches(parsed, &actual, "render_template_string") {
+            continue;
+        }
+        had_call = true;
+        if let Some(p) = path {
+            if arg_is_tainted_in_path(parsed, call, 0, p) {
+                return Some(SinkMatchOutcome::Match(pat));
+            }
+        }
+        let unsafe_vars = python_render_unsafe_template_vars(parsed, call);
+        let autoescape_disabled = python_render_autoescape_disabled(parsed, call);
+        if unsafe_vars.is_empty() && !autoescape_disabled {
+            continue;
+        }
+        if path.is_none() {
+            return Some(SinkMatchOutcome::Match(pat));
+        }
+        if python_render_tainted_context_matches(
+            parsed,
+            call,
+            path?,
+            &unsafe_vars,
+            autoescape_disabled,
+        ) {
+            return Some(SinkMatchOutcome::Match(pat));
+        }
+    }
+    if had_call {
+        Some(SinkMatchOutcome::SemanticallyExcluded)
+    } else {
+        None
+    }
+}
+
+fn python_render_unsafe_template_vars(parsed: &ParsedFile, call: &Node<'_>) -> BTreeSet<String> {
+    let template = match call_literal_arg(parsed, call, 0) {
+        Some(s) => s,
+        None => return BTreeSet::new(),
+    };
+    let mut vars = BTreeSet::new();
+    for part in template.split("{{").skip(1) {
+        let expr = part.split("}}").next().unwrap_or(part);
+        if !expr.contains("| safe") && !expr.contains("|safe") {
+            continue;
+        }
+        let name = expr
+            .split('|')
+            .next()
+            .unwrap_or("")
+            .trim()
+            .split(|c: char| !c.is_alphanumeric() && c != '_')
+            .next()
+            .unwrap_or("")
+            .trim();
+        if !name.is_empty() {
+            vars.insert(name.to_string());
+        }
+    }
+    vars
+}
+
+fn python_render_autoescape_disabled(parsed: &ParsedFile, call: &Node<'_>) -> bool {
+    call_literal_arg(parsed, call, 0).is_some_and(|s| {
+        let compact: String = s
+            .to_ascii_lowercase()
+            .chars()
+            .filter(|c| !c.is_whitespace())
+            .collect();
+        compact.contains("{%autoescapefalse%}")
+    })
+}
+
+fn python_render_tainted_context_matches(
+    parsed: &ParsedFile,
+    call: &Node<'_>,
+    path: &FlowPath,
+    unsafe_vars: &BTreeSet<String>,
+    autoescape_disabled: bool,
+) -> bool {
+    let args = match call.child_by_field_name("arguments") {
+        Some(a) => a,
+        None => return false,
+    };
+    let mut cursor = args.walk();
+    for child in args.named_children(&mut cursor) {
+        if child.kind() != "keyword_argument" {
+            continue;
+        }
+        let key = match child.child_by_field_name("name") {
+            Some(n) => parsed.node_text(&n).to_string(),
+            None => continue,
+        };
+        if !autoescape_disabled && !unsafe_vars.contains(&key) {
+            continue;
+        }
+        let value = child
+            .child_by_field_name("value")
+            .or_else(|| child.named_child(1));
+        if let Some(v) = value {
+            let call_line = call.start_position().row + 1;
+            if arg_node_taints_match(parsed, &v, call_line, path) {
+                return true;
+            }
+        }
+    }
+    false
+}
+
+fn python_sql_call_is_parametrized(parsed: &ParsedFile, call: &Node<'_>) -> bool {
+    let actual = match call_path_text(parsed, call) {
+        Some(s) => s,
+        None => return false,
+    };
+    if !call_path_matches(parsed, &actual, "execute")
+        && !call_path_matches(parsed, &actual, "executemany")
+    {
+        return false;
+    }
+
+    if let Some(query) = call_literal_arg(parsed, call, 0) {
+        return python_sql_literal_has_placeholder(&query) && call_has_arg_after(call, 0);
+    }
+
+    let arg0 = match call_arg_node(call, 0) {
+        Some(n) => n,
+        None => return false,
+    };
+    let arg0_text = parsed.node_text(&arg0);
+    if !(arg0_text.contains(".bindparams(") || arg0_text.contains(".params(")) {
+        return false;
+    }
+    let Some(query) = first_string_literal_text(parsed, &arg0) else {
+        return false;
+    };
+    arg0_text.contains("text(") && python_sql_literal_has_named_placeholder(&query)
+}
+
+fn python_sql_literal_has_placeholder(query: &str) -> bool {
+    query.contains("%s") || query.contains('?') || python_sql_literal_has_named_placeholder(query)
+}
+
+fn python_sql_literal_has_named_placeholder(query: &str) -> bool {
+    let bytes = query.as_bytes();
+    bytes.iter().enumerate().any(|(idx, b)| {
+        *b == b':'
+            && bytes
+                .get(idx + 1)
+                .is_some_and(|next| (*next as char).is_ascii_alphabetic() || *next == b'_')
+    })
+}
+
+fn call_has_arg_after(call: &Node<'_>, arg_idx: usize) -> bool {
+    let Some(arguments) = call.child_by_field_name("arguments") else {
+        return false;
+    };
+    let mut cursor = arguments.walk();
+    arguments.named_children(&mut cursor).count() > arg_idx + 1
+}
+
+fn first_string_literal_text(parsed: &ParsedFile, node: &Node<'_>) -> Option<String> {
+    let text = parsed.node_text(node).trim();
+    if node.kind() == "string"
+        || node.kind() == "interpreted_string_literal"
+        || node.kind() == "raw_string_literal"
+        || text.starts_with('"')
+        || text.starts_with('\'')
+        || text.starts_with('r')
+        || text.starts_with('R')
+        || text.starts_with('u')
+        || text.starts_with('U')
+        || text.starts_with('b')
+        || text.starts_with('B')
+    {
+        let quote_idx = text.find(['"', '\'']).unwrap_or(0);
+        let prefix = &text[..quote_idx];
+        if prefix.chars().any(|c| c == 'f' || c == 'F') {
+            return None;
+        }
+        let without_prefix = &text[quote_idx..];
+        let trimmed = without_prefix
+            .strip_prefix("\"\"\"")
+            .and_then(|s| s.strip_suffix("\"\"\""))
+            .or_else(|| {
+                without_prefix
+                    .strip_prefix("'''")
+                    .and_then(|s| s.strip_suffix("'''"))
+            })
+            .or_else(|| {
+                without_prefix
+                    .strip_prefix('"')
+                    .and_then(|s| s.strip_suffix('"'))
+            })
+            .or_else(|| {
+                without_prefix
+                    .strip_prefix('\'')
+                    .and_then(|s| s.strip_suffix('\''))
+            })
+            .unwrap_or(without_prefix);
+        return Some(trimmed.to_string());
+    }
+
+    let mut cursor = node.walk();
+    for child in node.named_children(&mut cursor) {
+        if let Some(text) = first_string_literal_text(parsed, &child) {
+            return Some(text);
+        }
+    }
+    None
+}
+
+fn python_yaml_load_uses_safe_loader(parsed: &ParsedFile, call: &Node<'_>) -> bool {
+    let actual = match call_path_text(parsed, call) {
+        Some(s) => s,
+        None => return false,
+    };
+    if !call_path_matches(parsed, &actual, "yaml.load")
+        && !call_path_matches(parsed, &actual, "load")
+    {
+        return false;
+    }
+    let Some(arguments) = call.child_by_field_name("arguments") else {
+        return false;
+    };
+    let mut cursor = arguments.walk();
+    for (idx, arg) in arguments.named_children(&mut cursor).enumerate() {
+        if idx == 0 {
+            continue;
+        }
+        let text = parsed.node_text(&arg);
+        if text.contains("SafeLoader") || text.contains("CSafeLoader") {
+            return true;
+        }
+    }
+    false
+}
+
+fn python_ssrf_cleansed_for_sink(
+    parsed: &ParsedFile,
+    cpg: &CodePropertyGraph,
+    path: &FlowPath,
+    sink_line: usize,
+    sink_pat: &'static SinkPattern,
+    sink_call: &Node<'_>,
+) -> bool {
+    if !cpg.has_cfg_edges() {
+        return false;
+    }
+    let func_node = match parsed.enclosing_function(sink_line) {
+        Some(n) => n,
+        None => return false,
+    };
+    for binding in collect_url_sanitizer_bindings(parsed, &func_node) {
+        if binding.call_line > sink_line {
+            continue;
+        }
+        if !path_targets_var_at_line(parsed, path, sink_line, &binding.url_var) {
+            continue;
+        }
+        if !sink_call_uses_var_in_tainted_arg(parsed, sink_call, sink_pat, &binding.url_var) {
+            continue;
+        }
+        if python_url_guard_safely_controls_sink(parsed, cpg, &func_node, &binding, sink_line) {
+            return true;
+        }
+    }
+    false
+}
+
+fn collect_url_sanitizer_bindings(
+    parsed: &ParsedFile,
+    func_node: &Node<'_>,
+) -> Vec<UrlSanitizerBinding> {
+    let mut assignments = Vec::new();
+    collect_assignments(*func_node, parsed, &mut assignments);
+
+    let mut bindings = Vec::new();
+    for assignment in assignments {
+        let lhs = match parsed.language.assignment_target(&assignment) {
+            Some(n) => n,
+            None => continue,
+        };
+        let rhs = match parsed.language.assignment_value(&assignment) {
+            Some(n) => n,
+            None => continue,
+        };
+        if rhs.kind() != "call" && rhs.kind() != "call_expression" {
+            continue;
+        }
+        let actual = match call_path_text(parsed, &rhs) {
+            Some(s) => s,
+            None => continue,
+        };
+        if !call_path_matches(parsed, &actual, "urlparse")
+            && !call_path_matches(parsed, &actual, "urllib.parse.urlparse")
+        {
+            continue;
+        }
+        let result_var = match assignment_lhs_identifiers(parsed, &lhs).first() {
+            Some(name) => name.clone(),
+            None => continue,
+        };
+        let url_arg = match call_arg_node(&rhs, 0) {
+            Some(n) => n,
+            None => continue,
+        };
+        if url_arg.kind() != "identifier" {
+            continue;
+        }
+        bindings.push(UrlSanitizerBinding {
+            url_var: parsed.node_text(&url_arg).to_string(),
+            result_var,
+            call_line: rhs.start_position().row + 1,
+        });
+    }
+    bindings
+}
+
+fn collect_assignments<'a>(node: Node<'a>, parsed: &ParsedFile, out: &mut Vec<Node<'a>>) {
+    if parsed.language.is_assignment_node(node.kind()) {
+        out.push(node);
+    }
+    let mut cursor = node.walk();
+    for child in node.children(&mut cursor) {
+        collect_assignments(child, parsed, out);
+    }
+}
+
+fn python_url_guard_safely_controls_sink(
+    parsed: &ParsedFile,
+    cpg: &CodePropertyGraph,
+    func_node: &Node<'_>,
+    binding: &UrlSanitizerBinding,
+    sink_line: usize,
+) -> bool {
+    let mut guards = Vec::new();
+    collect_if_statements(*func_node, &mut guards);
+
+    for guard in guards {
+        let condition = match guard.child_by_field_name("condition") {
+            Some(n) => n,
+            None => continue,
+        };
+        let control = match classify_python_url_guard(parsed, &condition, binding) {
+            Some(c) => c,
+            None => continue,
+        };
+        let consequence = match guard.child_by_field_name("consequence") {
+            Some(n) => n,
+            None => continue,
+        };
+        let consequence_entry = match first_statement_line(parsed, &consequence) {
+            Some(line) => line,
+            None => continue,
+        };
+
+        match control {
+            GuardControl::RejectBranch => {
+                if !block_ends_with_return(parsed, &consequence) {
+                    continue;
+                }
+                let safe_entry = match safe_successor_line(cpg, parsed, &guard, consequence_entry) {
+                    Some(line) => line,
+                    None => continue,
+                };
+                if cfg_line_reaches(cpg, &parsed.path, safe_entry, sink_line)
+                    && !cfg_line_reaches(cpg, &parsed.path, consequence_entry, sink_line)
+                {
+                    return true;
+                }
+            }
+            GuardControl::AllowBranch => {
+                if node_contains_line(&consequence, sink_line)
+                    && cfg_line_reaches(cpg, &parsed.path, consequence_entry, sink_line)
+                {
+                    return true;
+                }
+            }
+        }
+    }
+
+    false
+}
+
+fn classify_python_url_guard(
+    parsed: &ParsedFile,
+    condition: &Node<'_>,
+    binding: &UrlSanitizerBinding,
+) -> Option<GuardControl> {
+    let condition = unwrap_parenthesized(*condition);
+    let condition_text = parsed.node_text(&condition);
+    if !python_url_condition_targets_binding(condition_text, binding) {
+        return None;
+    }
+    if condition_text.contains(" not in ") {
+        Some(GuardControl::RejectBranch)
+    } else if condition_text.contains(" in ") {
+        Some(GuardControl::AllowBranch)
+    } else {
+        None
+    }
+}
+
+fn python_url_condition_targets_binding(
+    condition_text: &str,
+    binding: &UrlSanitizerBinding,
+) -> bool {
+    let parsed_host = format!("{}.hostname", binding.result_var);
+    let direct_urlparse = format!("urlparse({}).hostname", binding.url_var);
+    let qualified_urlparse = format!("urllib.parse.urlparse({}).hostname", binding.url_var);
+    condition_text.contains(&parsed_host)
+        || condition_text.contains(&direct_urlparse)
+        || condition_text.contains(&qualified_urlparse)
 }
 
 fn call_passes_sink_semantics(
@@ -1873,6 +2936,9 @@ fn cleansed_structured_sink_call_ranges(
     line: usize,
     path: &FlowPath,
 ) -> Vec<(usize, usize)> {
+    if parsed.language == Language::Python {
+        return python_safe_structured_sink_call_ranges(parsed, cpg, line, path);
+    }
     if parsed.language != Language::Go {
         return Vec::new();
     }
@@ -1944,6 +3010,81 @@ fn cleansed_structured_sink_call_ranges(
     ranges
 }
 
+fn python_safe_structured_sink_call_ranges(
+    parsed: &ParsedFile,
+    cpg: &CodePropertyGraph,
+    line: usize,
+    path: &FlowPath,
+) -> Vec<(usize, usize)> {
+    let mut calls = Vec::new();
+    collect_calls(parsed, parsed.tree.root_node(), &mut calls);
+    let mut ranges = Vec::new();
+    for call in &calls {
+        if call.start_position().row + 1 != line {
+            continue;
+        }
+        let actual = match call_path_text(parsed, call) {
+            Some(s) => s,
+            None => continue,
+        };
+        for pat in PY_CWE79_SINKS
+            .iter()
+            .chain(PY_CWE89_SINKS.iter())
+            .chain(PY_CWE918_SINKS.iter())
+            .chain(PY_CWE502_SINKS.iter())
+        {
+            if !call_path_matches(parsed, &actual, pat.call_path) {
+                continue;
+            }
+            if !call_passes_sink_semantics(parsed, call, pat) {
+                continue;
+            }
+            if sink_call_has_tainted_arg_in_path(parsed, call, pat, path)
+                && flow_path_cleansed_for_sink_call(parsed, cpg, path, line, pat, call)
+            {
+                ranges.push((call.start_byte(), call.end_byte()));
+                break;
+            }
+        }
+        if call_path_matches(parsed, &actual, "render_template_string") {
+            let unsafe_vars = python_render_unsafe_template_vars(parsed, call);
+            let autoescape_disabled = python_render_autoescape_disabled(parsed, call);
+            if (unsafe_vars.is_empty() && !autoescape_disabled)
+                || !python_render_tainted_context_matches(
+                    parsed,
+                    call,
+                    path,
+                    &unsafe_vars,
+                    autoescape_disabled,
+                )
+            {
+                ranges.push((call.start_byte(), call.end_byte()));
+            }
+        }
+        if call_path_matches(parsed, &actual, "execute")
+            && python_sql_call_is_parametrized(parsed, call)
+        {
+            ranges.push((call.start_byte(), call.end_byte()));
+        }
+        if call_path_matches(parsed, &actual, "executemany")
+            && python_sql_call_is_parametrized(parsed, call)
+        {
+            ranges.push((call.start_byte(), call.end_byte()));
+        }
+        if python_yaml_load_uses_safe_loader(parsed, call) {
+            ranges.push((call.start_byte(), call.end_byte()));
+        }
+        if call_path_matches(parsed, &actual, "format_html")
+            && call_literal_arg(parsed, call, 0).is_some()
+        {
+            ranges.push((call.start_byte(), call.end_byte()));
+        }
+    }
+    ranges.sort_unstable();
+    ranges.dedup();
+    ranges
+}
+
 fn node_in_ranges(node: &Node<'_>, ranges: &[(usize, usize)]) -> bool {
     ranges
         .iter()
@@ -1973,7 +3114,7 @@ fn function_body_cleansed_for(
     let func_text = func_node.utf8_text(parsed.source.as_bytes()).unwrap_or("");
 
     let mut calls = Vec::new();
-    collect_go_calls(func_node, &mut calls);
+    collect_calls(parsed, func_node, &mut calls);
 
     for recognizer in crate::sanitizers::active_recognizers() {
         if recognizer.category != category {
@@ -1982,11 +3123,11 @@ fn function_body_cleansed_for(
         // Look for a call to the recognizer's call_path within the function.
         let mut matched = false;
         for call in &calls {
-            let actual = match go_call_path_text(parsed, call) {
+            let actual = match call_path_text(parsed, call) {
                 Some(s) => s,
                 None => continue,
             };
-            if actual != recognizer.call_path {
+            if !call_path_matches(parsed, &actual, recognizer.call_path) {
                 continue;
             }
             if let Some(check) = recognizer.semantic_check {
@@ -2036,8 +3177,8 @@ fn apply_cleansers(path: &mut crate::data_flow::FlowPath, files: &BTreeMap<Strin
         Some(p) => p,
         None => return,
     };
-    if parsed.language != Language::Go {
-        return; // Phase 1: Go-only sanitizer registry.
+    if !matches!(parsed.language, Language::Go | Language::Python) {
+        return;
     }
 
     // Iterate distinct recognizer categories so each is checked at most once.
@@ -2061,13 +3202,18 @@ pub fn slice(
 ) -> Result<SliceResult> {
     let mut result = SliceResult::new(SlicingAlgorithm::Taint);
 
-    // Collect taint sources
-    let mut taint_sources: Vec<(String, usize)> = taint_config.sources.clone();
+    // Collect taint sources. Line-scoped seeds preserve existing behavior;
+    // target-scoped seeds are used by framework handler parameters.
+    let mut taint_seeds: Vec<TaintSeed> = taint_config
+        .sources
+        .iter()
+        .map(|(file, line)| TaintSeed::line(file.clone(), *line))
+        .collect();
 
     if taint_config.taint_from_diff {
         for diff_info in &diff.files {
             for &line in &diff_info.diff_lines {
-                taint_sources.push((diff_info.file_path.clone(), line));
+                taint_seeds.push(TaintSeed::line(diff_info.file_path.clone(), line));
             }
         }
     }
@@ -2079,7 +3225,7 @@ pub fn slice(
     // These are additional sources that extend (not replace) diff-line sources.
     let ipc_sources: Vec<(String, usize)> = detect_ipc_sources(ctx, diff);
     for ipc_src in &ipc_sources {
-        taint_sources.push(ipc_src.clone());
+        taint_seeds.push(TaintSeed::line(ipc_src.0.clone(), ipc_src.1));
     }
     let ipc_source_set: BTreeSet<(String, usize)> = ipc_sources.into_iter().collect();
 
@@ -2087,23 +3233,32 @@ pub fn slice(
     // For each Go file with a detected framework, every call to a framework
     // SourcePattern (`c.Query`, `r.URL.Query`, `mux.Vars`, …) is a taint source.
     // These extend (not replace) diff-line and IPC sources.
-    let framework_sources: Vec<(String, usize)> = detect_framework_sources(ctx);
+    let framework_sources: Vec<TaintSeed> = detect_framework_sources(ctx);
     for fw_src in &framework_sources {
-        if !taint_sources.contains(fw_src) {
-            taint_sources.push(fw_src.clone());
-        }
+        taint_seeds.push(fw_src.clone());
     }
+    taint_seeds.sort();
+    taint_seeds.dedup();
+    let taint_sources: Vec<(String, usize)> = taint_seeds
+        .iter()
+        .map(|s| (s.file.clone(), s.line))
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .collect();
     // Lines whose identifiers are recognized framework SOURCE calls (e.g.
     // `r.URL.Query()`, `c.Query()`, `mux.Vars()`). These overlap textually with
     // the cross-language flat sink registry — `Query` is in SINK_PATTERNS as a
     // generic `sql.Query` substring matcher — so without this set, a tainted
     // source line would double-fire as a sink. Used during sink evaluation to
     // suppress flat substring matches on lines positively identified as sources.
-    let framework_source_set: BTreeSet<(String, usize)> =
-        framework_sources.iter().cloned().collect();
+    let framework_source_set: BTreeSet<(String, usize)> = framework_sources
+        .iter()
+        .map(|s| (s.file.clone(), s.line))
+        .collect();
 
     // Forward propagation from each source (CFG-constrained when available)
     let mut paths = ctx.cpg.taint_forward_cfg(&taint_sources);
+    synthesize_target_seed_paths(&framework_sources, ctx, &mut paths);
 
     // Sanitizer propagation hook (spec §3.6): for each path, walk the function
     // body containing its source and mark `cleansed_for` for any cleanser whose
@@ -2157,11 +3312,7 @@ pub fn slice(
                 // the path is cleansed for `p.category`, suppress the structured
                 // finding and flat identifiers inside that structured call. Do
                 // not suppress unrelated flat sinks that share the same line.
-                let outcome = if parsed.language == Language::Go {
-                    go_sink_outcome(parsed, edge.to.line, Some(path))
-                } else {
-                    SinkMatchOutcome::NoMatch
-                };
+                let outcome = structured_sink_outcome(parsed, edge.to.line, Some(path));
                 let cleansed_structured_ranges =
                     cleansed_structured_sink_call_ranges(parsed, &ctx.cpg, edge.to.line, path);
                 let structured_suppressed_by_cleanser = match outcome {
@@ -2195,7 +3346,7 @@ pub fn slice(
                     }
                 }
 
-                // Phase 1 structured Go sinks (cross-cutting + framework-gated).
+                // Structured sinks (Go Phase 1 plus Python Phase 2).
                 if matches!(outcome, SinkMatchOutcome::Match(_))
                     && !structured_suppressed_by_cleanser
                 {

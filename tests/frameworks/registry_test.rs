@@ -54,11 +54,20 @@ func handler(c *gin.Context) {}
 
 #[test]
 fn test_registry_iteration_order() {
-    // Sanity-check that ALL_FRAMEWORKS is in the expected order: gin, gorilla/mux, nethttp.
+    // Sanity-check that ALL_FRAMEWORKS is in the expected order: Python
+    // framework-specific entries first, then Go's more-specific entries.
     let names: Vec<&str> = frameworks::ALL_FRAMEWORKS.iter().map(|f| f.name).collect();
     assert_eq!(
         names,
-        vec!["gin", "gorilla/mux", "net/http"],
-        "registry order must be: gin, gorilla/mux, net/http (more-specific first)"
+        vec![
+            "fastapi",
+            "drf",
+            "flask",
+            "django",
+            "gin",
+            "gorilla/mux",
+            "net/http"
+        ],
+        "registry order must keep more-specific frameworks first"
     );
 }
