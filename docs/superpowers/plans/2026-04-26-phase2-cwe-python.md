@@ -1,6 +1,6 @@
 # Phase 2 - Python CWE Coverage Implementation Plan
 
-> **Status:** Draft implementation plan for review. Pairs with `docs/superpowers/specs/2026-04-26-phase2-cwe-python.md` committed on main as `261b437`.
+> **Status:** Implementation plan approved; implemented on `claude/phase2-cwe-python`. Pairs with `docs/superpowers/specs/2026-04-26-phase2-cwe-python.md` committed on main as `261b437`.
 >
 > **For agentic workers:** this is larger than Phase 1.5 and should be executed as a branch-and-PR series, not directly on main. The execution rhythm is: branch off main -> land preparatory engine generalization -> land Python frameworks/sources -> land Python sinks -> land Python sanitizers/fixtures -> final docs/status -> push + PR.
 

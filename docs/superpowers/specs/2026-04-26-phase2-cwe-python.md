@@ -1,6 +1,6 @@
 # Phase 2 — CWE Coverage: Python (Flask, Django, DRF, FastAPI)
 
-**Status:** DRAFT design spec for Prism implementation review (2026-04-26). Eval-team has signed off on C2 coverage needs; this draft records Prism-side engine decisions and implementation constraints.
+**Status:** Implemented on `claude/phase2-cwe-python` (2026-04-27). Eval-team has signed off on C2 coverage needs; this spec records Prism-side engine decisions and implementation constraints.
 **Parent:** Eval-team C2 plan (`~/code/agent-eval/analysis/c2-python-expansion-plan.md`, committed `be710f9`).
 **Source-of-truth references:**
 - Eval-side handoff: `~/code/agent-eval/analysis/prism-cwe-coverage-handoff.md` §2.1–§2.4 (Python sink lists), §3.1–§3.4 (sanitizer recognition), §4 (framework-aware source/sink inference), §10 Q4 (Phase 2 phasing)
@@ -32,7 +32,7 @@ Mirrors Phase 1's ACK §1 acceptance pattern.
 
 | # | Criterion | Measure |
 |---|---|---|
-| 1 | Taint fires on ≥1 vulnerable example for each of CWE-79, CWE-89, CWE-918, CWE-502 | In-tree positive tests in `tests/algo/taxonomy/taint_sink_lang_test.rs` (rename or split per language as needed) |
+| 1 | Taint fires on ≥1 vulnerable example for each of CWE-79, CWE-89, CWE-918, CWE-502 | In-tree positive tests in `tests/algo/taxonomy/taint_sink_python_test.rs` and `tests/algo/taxonomy/sanitizers_python_test.rs` |
 | 2 | ≥80% sanitizer suppression rate on Python sanitizer fixture suite | `tests/integration/cwe_phase2_suppression_test.rs` modeled on `cwe_phase1_suppression_test.rs`; 10+10 sanitized/unsanitized fixtures in `tests/fixtures/sanitizer-suite-python/` |
 | 3 | Framework detection without per-run config for Flask, Django, DRF, FastAPI | `tests/frameworks/python/{flask,django,drf,fastapi,registry}_test.rs` |
 | 4 | D2 coexistence — no Prism-side dedup | Same as Phase 1 (no new dedup logic added) |
@@ -447,7 +447,7 @@ Mirrors Phase 1's test structure:
 
 ### 8.1 In-tree positive/negative tests
 
-`tests/algo/taxonomy/taint_sink_lang_test.rs` (rename to `_go_test.rs` and add `_python_test.rs` if file size warrants split per CLAUDE.md's <600-line rule):
+`tests/algo/taxonomy/taint_sink_go_test.rs`, `tests/algo/taxonomy/taint_sink_python_test.rs`, and `tests/algo/taxonomy/sanitizers_python_test.rs`:
 
 - ≥3 positive tests per CWE family per framework where applicable (12 cells × 1-3 tests per cell = ~30 tests).
 - ≥1 negative test per CWE family per framework (no-fire shape: fully sanitized or unrelated).
@@ -513,4 +513,4 @@ Mirrors Phase 1's test structure:
 
 ---
 
-*End of draft. Awaiting Prism-side review on the §3 engine-generalization seams and §8 diagnostic tests before the implementation plan (`docs/superpowers/plans/2026-04-26-phase2-cwe-python-DRAFT.md`) is finalized. Implementation follows the Phase 1 cadence: 3-5 commits, branch-and-PR workflow with two-stage review.*
+*Implemented on `claude/phase2-cwe-python`; see `STATUS-prism-cwe-phase2.md` for validation status.*
