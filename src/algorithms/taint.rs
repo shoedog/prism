@@ -1099,10 +1099,22 @@ fn detect_python_framework_sources(
     sources: &mut Vec<TaintSeed>,
 ) {
     let pydantic_models = collect_python_pydantic_models(parsed);
+    // Compute FastAPI route receivers once per file rather than per function;
+    // the AST walk is O(tree_size) and `function_has_route_decorator_with_receivers`
+    // re-uses the result for each handler check.
+    let fastapi_receivers = crate::frameworks::python::fastapi::route_receivers(parsed);
     for func in parsed.all_functions() {
+        if python_is_inner_decorated_function(&func) {
+            continue;
+        }
         let line = func.start_position().row + 1;
         let text = parsed.node_text(&func);
-        let is_fastapi_route = python_function_has_route_decorator(parsed, &func);
+        let is_fastapi_route =
+            crate::frameworks::python::fastapi::function_has_route_decorator_with_receivers(
+                parsed,
+                &func,
+                &fastapi_receivers,
+            );
         let is_drf_or_django_view = text.contains("request")
             && (parsed.source.contains("django") || parsed.source.contains("rest_framework"));
 
@@ -1158,6 +1170,13 @@ fn detect_python_framework_sources(
             ));
         }
     }
+}
+
+fn python_is_inner_decorated_function(func: &Node<'_>) -> bool {
+    func.kind() == "function_definition"
+        && func
+            .parent()
+            .is_some_and(|parent| parent.kind() == "decorated_definition")
 }
 
 #[derive(Debug)]
@@ -1236,42 +1255,6 @@ fn collect_python_pydantic_models(parsed: &ParsedFile) -> BTreeSet<String> {
         }
     }
     models
-}
-
-fn python_function_has_route_decorator(parsed: &ParsedFile, func: &Node<'_>) -> bool {
-    if !parsed.source.contains("FastAPI(") && !parsed.source.contains("APIRouter(") {
-        return false;
-    }
-    let text = parsed.node_text(func);
-    let route_receivers = python_fastapi_route_receivers(parsed);
-    route_receivers.iter().any(|receiver| {
-        let prefix = format!("@{}.", receiver);
-        text.contains(&format!("{}get(", prefix))
-            || text.contains(&format!("{}post(", prefix))
-            || text.contains(&format!("{}put(", prefix))
-            || text.contains(&format!("{}delete(", prefix))
-            || text.contains(&format!("{}patch(", prefix))
-            || text.contains(&format!("{}head(", prefix))
-            || text.contains(&format!("{}options(", prefix))
-            || text.contains(&format!("{}api_route(", prefix))
-    })
-}
-
-fn python_fastapi_route_receivers(parsed: &ParsedFile) -> BTreeSet<String> {
-    let mut receivers = BTreeSet::new();
-    for line in parsed.source.lines() {
-        let trimmed = line.trim();
-        if !(trimmed.contains("= FastAPI(") || trimmed.contains("= APIRouter(")) {
-            continue;
-        }
-        if let Some((lhs, _)) = trimmed.split_once('=') {
-            let name = lhs.trim();
-            if !name.is_empty() && name.chars().all(|c| c.is_alphanumeric() || c == '_') {
-                receivers.insert(name.to_string());
-            }
-        }
-    }
-    receivers
 }
 
 fn synthesize_target_seed_paths(seeds: &[TaintSeed], ctx: &CpgContext, paths: &mut Vec<FlowPath>) {

@@ -55,6 +55,27 @@ def create_item(item: Item):
 }
 
 #[test]
+fn test_python_fastapi_type_annotated_receiver_taints_pydantic_source() {
+    let source = r#"from fastapi import FastAPI
+from pydantic import BaseModel
+
+app: FastAPI = FastAPI()
+
+class Item(BaseModel):
+    filter_field: str
+
+@app.post("/items")
+def create_item(item: Item):
+    cursor.execute(f"SELECT * FROM x WHERE f = {item.filter_field}")
+"#;
+    let result = run_taint_python_single(source, "app.py", BTreeSet::from([1]));
+    assert!(
+        has_taint_sink_on(&result, 11),
+        "type-annotated FastAPI receiver should still mark route params as tainted"
+    );
+}
+
+#[test]
 fn test_python_target_scoped_source_does_not_taint_same_line_db_param() {
     let source = r#"from fastapi import FastAPI
 from pydantic import BaseModel
