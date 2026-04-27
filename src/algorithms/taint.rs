@@ -1108,18 +1108,26 @@ fn detect_python_framework_sources(
             continue;
         }
         let line = func.start_position().row + 1;
-        let text = parsed.node_text(&func);
+        let params = python_function_params(parsed, &func);
+        let has_request_param = params.iter().any(|param| param.name == "request");
+        let django_request_data_lines = if has_request_param {
+            python_django_request_data_access_lines(parsed, &func)
+        } else {
+            BTreeSet::new()
+        };
         let is_fastapi_route =
             crate::frameworks::python::fastapi::function_has_route_decorator_with_receivers(
                 parsed,
                 &func,
                 &fastapi_receivers,
             );
-        let is_drf_or_django_view = text.contains("request")
-            && (parsed.source.contains("django") || parsed.source.contains("rest_framework"));
+        let is_drf_or_django_view = has_request_param
+            && (parsed.source.contains("django")
+                || parsed.source.contains("rest_framework")
+                || !django_request_data_lines.is_empty());
 
         if is_fastapi_route {
-            for param in python_function_params(parsed, &func) {
+            for param in &params {
                 if param.name == "self" {
                     continue;
                 }
@@ -1136,12 +1144,12 @@ fn detect_python_framework_sources(
                     sources.push(TaintSeed::target(
                         file_path.to_string(),
                         line,
-                        AccessPath::simple(param.name),
+                        AccessPath::simple(param.name.as_str()),
                     ));
                 }
             }
         } else if is_drf_or_django_view {
-            for param in python_function_params(parsed, &func) {
+            for param in &params {
                 if param.name == "request" {
                     sources.push(TaintSeed::target(
                         file_path.to_string(),
@@ -1149,6 +1157,9 @@ fn detect_python_framework_sources(
                         AccessPath::simple("request"),
                     ));
                 }
+            }
+            for source_line in django_request_data_lines {
+                sources.push(TaintSeed::line(file_path.to_string(), source_line));
             }
         }
     }
@@ -1170,6 +1181,41 @@ fn detect_python_framework_sources(
             ));
         }
     }
+}
+
+fn python_django_request_data_access_lines(
+    parsed: &ParsedFile,
+    func: &Node<'_>,
+) -> BTreeSet<usize> {
+    let mut lines = BTreeSet::new();
+    collect_django_request_data_access_lines(parsed, *func, &mut lines);
+    lines
+}
+
+fn collect_django_request_data_access_lines(
+    parsed: &ParsedFile,
+    node: Node<'_>,
+    lines: &mut BTreeSet<usize>,
+) {
+    if node.kind() == "attribute" {
+        let text = parsed.node_text(&node);
+        if python_is_django_request_data_access(text.trim()) {
+            lines.insert(node.start_position().row + 1);
+        }
+    }
+
+    let mut cursor = node.walk();
+    for child in node.named_children(&mut cursor) {
+        collect_django_request_data_access_lines(parsed, child, lines);
+    }
+}
+
+fn python_is_django_request_data_access(path: &str) -> bool {
+    const ACCESSORS: &[&str] = &["GET", "POST", "FILES", "COOKIES", "META", "body"];
+    ACCESSORS.iter().any(|accessor| {
+        let prefix = format!("request.{accessor}");
+        path == prefix || path.starts_with(&format!("{prefix}."))
+    })
 }
 
 fn python_is_inner_decorated_function(func: &Node<'_>) -> bool {

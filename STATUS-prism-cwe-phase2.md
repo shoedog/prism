@@ -39,8 +39,8 @@ Eval-team C2 validation accepted Phase 2: 8/10 vulnerable fixtures fire as expec
 
 | Item | Status |
 |---|---|
-| Multi-line `render_template_string(... \| safe ...)` detection | In progress on Phase 2.5 branch; structured render matching now spans multi-line calls and checks tainted keyword values on their own line. |
-| Django `def view(request)` source broadening | Next HIGH follow-up from eval. |
+| Multi-line `render_template_string(... \| safe ...)` detection | Complete in PR #79. |
+| Django `def view(request)` source broadening | In progress on Phase 2.5 branch; standalone function views with `request.GET` / `request.POST` style data accessors are modeled without requiring same-file URL patterns. |
 | `format_html` result-cleansing propagation | Deferred follow-up; final-call safe shape remains covered. |
 | Cloudpickle + bare `loads` tightening | Complete in PR #77. |
 | AST-based FastAPI receiver/decorator detection | Complete in PR #78. |
