@@ -77,9 +77,7 @@ pub fn function_has_route_decorator_with_receivers(
     if receivers.is_empty() {
         return false;
     }
-    function_route_receiver(parsed, func)
-        .as_ref()
-        .is_some_and(|receiver| receivers.contains(receiver))
+    function_has_registered_route_decorator(parsed, func, receivers)
 }
 
 fn collect_route_receivers(
@@ -118,31 +116,37 @@ fn collect_receivers_from_assignment(
     {
         for (lhs_element, rhs_element) in lhs_elements.into_iter().zip(rhs_elements) {
             if is_fastapi_constructor_call(parsed, imports, rhs_element) {
-                collect_identifier_names(parsed, lhs_element, receivers);
+                collect_receiver_identifier(parsed, lhs_element, receivers);
             }
         }
         return;
     }
 
     if is_fastapi_constructor_call(parsed, imports, rhs) {
-        collect_identifier_names(parsed, lhs, receivers);
+        collect_receiver_identifier(parsed, lhs, receivers);
     }
 }
 
-fn function_route_receiver(parsed: &ParsedFile, func: &Node<'_>) -> Option<String> {
-    let decorated = decorated_definition_node(*func)?;
+fn function_has_registered_route_decorator(
+    parsed: &ParsedFile,
+    func: &Node<'_>,
+    receivers: &BTreeSet<String>,
+) -> bool {
+    let Some(decorated) = decorated_definition_node(*func) else {
+        return false;
+    };
     let mut cursor = decorated.walk();
     for child in decorated.children(&mut cursor) {
         if child.kind() != "decorator" {
             continue;
         }
         if let Some((receiver, method)) = decorator_receiver_and_method(parsed, child) {
-            if ROUTE_METHODS.contains(&method.as_str()) {
-                return Some(receiver);
+            if ROUTE_METHODS.contains(&method.as_str()) && receivers.contains(&receiver) {
+                return true;
             }
         }
     }
-    None
+    false
 }
 
 fn decorated_definition_node(func: Node<'_>) -> Option<Node<'_>> {
@@ -276,14 +280,13 @@ fn unwrap_parens(mut node: Node<'_>) -> Node<'_> {
     node
 }
 
-fn collect_identifier_names(parsed: &ParsedFile, node: Node<'_>, receivers: &mut BTreeSet<String>) {
+fn collect_receiver_identifier(
+    parsed: &ParsedFile,
+    node: Node<'_>,
+    receivers: &mut BTreeSet<String>,
+) {
+    let node = unwrap_parens(node);
     if node.kind() == "identifier" {
         receivers.insert(parsed.node_text(&node).to_string());
-        return;
-    }
-
-    let mut cursor = node.walk();
-    for child in node.named_children(&mut cursor) {
-        collect_identifier_names(parsed, child, receivers);
     }
 }

@@ -105,6 +105,48 @@ def helper():
 }
 
 #[test]
+fn test_fastapi_attribute_lhs_receiver_negative() {
+    // Route receivers must be bare local identifiers. `holder.app = FastAPI()`
+    // should not register either `holder` or nested child identifier `app`.
+    let source = r#"from fastapi import FastAPI
+
+class Holder:
+    pass
+
+holder = Holder()
+holder.app = FastAPI()
+
+@app.get("/items")
+def helper():
+    pass
+"#;
+    let parsed = parse_python(source);
+    assert_eq!(parsed.framework().map(|f| f.name), None);
+}
+
+#[test]
+fn test_fastapi_scans_past_unregistered_route_decorator_positive() {
+    // Multiple route-shaped decorators should scan all decorators, not stop at
+    // the first unregistered receiver.
+    let source = r#"from fastapi import FastAPI
+
+class Other:
+    def get(self, path):
+        return lambda f: f
+
+other = Other()
+app = FastAPI()
+
+@other.get("/shadow")
+@app.get("/items")
+def list_items():
+    pass
+"#;
+    let parsed = parse_python(source);
+    assert_eq!(parsed.framework().map(|f| f.name), Some("fastapi"));
+}
+
+#[test]
 fn test_fastapi_module_qualified_constructor_positive() {
     // `import fastapi; app = fastapi.FastAPI()` resolves the namespace via the
     // import map.
