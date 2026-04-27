@@ -2451,7 +2451,7 @@ fn python_render_template_string_outcome(
         .find(|p| p.call_path == "render_template_string")?;
     let mut had_call = false;
     for call in &calls {
-        if call.start_position().row + 1 != line {
+        if !node_contains_line(call, line) {
             continue;
         }
         let actual = call_path_text(parsed, call)?;
@@ -2554,8 +2554,8 @@ fn python_render_tainted_context_matches(
             .child_by_field_name("value")
             .or_else(|| child.named_child(1));
         if let Some(v) = value {
-            let call_line = call.start_position().row + 1;
-            if arg_node_taints_match(parsed, &v, call_line, path) {
+            let value_line = v.start_position().row + 1;
+            if arg_node_taints_match(parsed, &v, value_line, path) {
                 return true;
             }
         }
@@ -3027,7 +3027,7 @@ fn python_safe_structured_sink_call_ranges(
     collect_calls(parsed, parsed.tree.root_node(), &mut calls);
     let mut ranges = Vec::new();
     for call in &calls {
-        if call.start_position().row + 1 != line {
+        if !node_contains_line(call, line) {
             continue;
         }
         let actual = match call_path_text(parsed, call) {

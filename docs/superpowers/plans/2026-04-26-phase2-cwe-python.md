@@ -288,12 +288,15 @@ rg -n "collect_go_calls|go_call_path_text|go_sink_outcome|cleansed_structured_si
 
 ## Phase 2.5 Follow-On Queue
 
-While awaiting eval-team C2 validation, track the small correctness/polish items surfaced during Phase 2 PR review:
+Eval-team C2 validation accepted Phase 2 and surfaced the next Phase 2.5 priorities:
 
-1. **O3 - Tighten CWE-502 bare `loads` matching.** Remove broad bare `loads` / `load` sinks, rely on explicit unsafe deserializer qualifiers (`pickle`, `cPickle`, `cloudpickle`, `marshal`, `dill`, `jsonpickle`, `yaml.load`), and pin `json.loads` as a negative. First Phase 2.5 cleanup.
-2. **O1 - AST-based FastAPI receiver/decorator detection.** Replace line-substring receiver detection with AST-aware assignment/decorator traversal for annotated bindings, tuple assignment, and comment/docstring immunity. Completed as the second Phase 2.5 cleanup after O3.
-3. **O2 - Gate Flask `request.*` sources.** Narrow broad `request.*` source seeding to detected Flask/framework context where practical, without regressing C2 fixtures.
-4. **O4 - aiohttp SSRF sinks.** Add `aiohttp.ClientSession.{get,post,...}` coverage only if eval fixtures or real usage require it.
+1. **Multi-line `render_template_string(... | safe ...)` detection.** Structured render matching must cover calls that span multiple lines and must match tainted keyword values on their own source line. Current PR #79 cleanup.
+2. **Django `def view(request)` source broadening.** Treat standalone Django function views with a `request` parameter as handler source contexts where practical, even without same-file `urlpatterns` / `path()` corroboration.
+3. **`format_html` result-cleansing propagation.** `format_html("literal", tainted)` is safe at the call site today; model the assigned result as XSS-cleansed if downstream render fixtures require it.
+4. **O2 - Gate Flask `request.*` sources.** Narrow broad `request.*` source seeding to detected Flask/framework context where practical, without regressing C2 fixtures.
+5. **O4 - aiohttp SSRF sinks.** Add `aiohttp.ClientSession.{get,post,...}` coverage only if eval fixtures or real usage require it.
+
+Already completed: O3 bare `loads` tightening, explicit `cloudpickle` CWE-502 coverage, and `json.loads` negative regression coverage landed in PR #77. O1 AST-based FastAPI receiver/decorator detection landed in PR #78.
 
 ---
 

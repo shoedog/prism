@@ -33,6 +33,13 @@ fn has_taint_sink_on(result: &prism::slice::SliceResult, line: usize) -> bool {
         .any(|f| f.category.as_deref() == Some("taint_sink") && f.line == line)
 }
 
+fn has_taint_sink(result: &prism::slice::SliceResult) -> bool {
+    result
+        .findings
+        .iter()
+        .any(|f| f.category.as_deref() == Some("taint_sink"))
+}
+
 #[test]
 fn test_python_target_scoped_pydantic_field_only_source_reaches_sql() {
     let source = r#"from fastapi import FastAPI
@@ -147,6 +154,48 @@ def profile():
     assert!(
         has_taint_sink_on(&result, 8),
         "inline | safe disables autoescape for tainted keyword value"
+    );
+}
+
+#[test]
+fn test_python_render_template_string_multiline_safe_filter_fires() {
+    let source = r#"from flask import Flask, request, render_template_string
+
+app = Flask(__name__)
+
+@app.route("/profile")
+def profile():
+    provider = request.args.get("provider")
+    return render_template_string(
+        "{{ provider | safe }}",
+        provider=provider,
+    )
+"#;
+    let result = run_taint_python_single(source, "app.py", BTreeSet::from([1]));
+    assert!(
+        has_taint_sink(&result),
+        "multi-line inline | safe must fire for the tainted keyword value"
+    );
+}
+
+#[test]
+fn test_python_render_template_string_multiline_autoescape_safe_no_flat_leak() {
+    let source = r#"from flask import Flask, request, render_template_string
+
+app = Flask(__name__)
+
+@app.route("/profile")
+def profile():
+    provider = request.args.get("provider")
+    return render_template_string(
+        "Hello {{ provider }}",
+        provider=provider,
+    )
+"#;
+    let result = run_taint_python_single(source, "app.py", BTreeSet::from([1]));
+    assert!(
+        !has_taint_sink(&result),
+        "multi-line default-autoescaped render must not leak through flat fallback"
     );
 }
 
