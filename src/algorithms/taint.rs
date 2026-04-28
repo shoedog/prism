@@ -1771,6 +1771,11 @@ struct UrlSanitizerBinding {
     call_line: usize,
 }
 
+struct SafeFormatHtmlBinding {
+    result_var: String,
+    call_line: usize,
+}
+
 fn flow_path_cleansed_for_sink(
     parsed: &ParsedFile,
     cpg: &CodePropertyGraph,
@@ -1817,6 +1822,11 @@ fn flow_path_cleansed_for_sink_call(
         }
         if sink_pat.category == SanitizerCategory::Deserialization
             && python_yaml_load_uses_safe_loader(parsed, call)
+        {
+            return true;
+        }
+        if sink_pat.category == SanitizerCategory::Xss
+            && python_xss_cleansed_for_sink(parsed, path, sink_line, sink_pat, call)
         {
             return true;
         }
@@ -1971,7 +1981,7 @@ fn collect_path_sanitizer_bindings(
     func_node: &Node<'_>,
 ) -> Vec<PathSanitizerBinding> {
     let mut assignments = Vec::new();
-    collect_go_assignments(*func_node, parsed, &mut assignments);
+    collect_assignments(*func_node, parsed, &mut assignments);
 
     let mut bindings = Vec::new();
     for assignment in assignments {
@@ -2016,16 +2026,6 @@ fn collect_path_sanitizer_bindings(
         }
     }
     bindings
-}
-
-fn collect_go_assignments<'a>(node: Node<'a>, parsed: &ParsedFile, out: &mut Vec<Node<'a>>) {
-    if parsed.language.is_assignment_node(node.kind()) {
-        out.push(node);
-    }
-    let mut cursor = node.walk();
-    for child in node.children(&mut cursor) {
-        collect_go_assignments(child, parsed, out);
-    }
 }
 
 fn assignment_lhs_identifiers(parsed: &ParsedFile, lhs: &Node<'_>) -> Vec<String> {
@@ -2144,6 +2144,92 @@ fn node_contains_identifier(parsed: &ParsedFile, node: &Node<'_>, var_name: &str
         }
     }
     false
+}
+
+fn python_xss_cleansed_for_sink(
+    parsed: &ParsedFile,
+    path: &FlowPath,
+    sink_line: usize,
+    sink_pat: &'static SinkPattern,
+    sink_call: &Node<'_>,
+) -> bool {
+    if parsed.language != Language::Python || sink_pat.category != SanitizerCategory::Xss {
+        return false;
+    }
+    let func_node = match parsed.enclosing_function(sink_line) {
+        Some(n) => n,
+        None => return false,
+    };
+    for binding in collect_safe_format_html_bindings(parsed, &func_node) {
+        if binding.call_line > sink_line {
+            continue;
+        }
+        if !path_targets_var_at_line(parsed, path, sink_line, &binding.result_var) {
+            continue;
+        }
+        if !sink_call_uses_var_in_tainted_arg(parsed, sink_call, sink_pat, &binding.result_var) {
+            continue;
+        }
+        return true;
+    }
+    false
+}
+
+fn collect_safe_format_html_bindings(
+    parsed: &ParsedFile,
+    func_node: &Node<'_>,
+) -> Vec<SafeFormatHtmlBinding> {
+    let mut assignments = Vec::new();
+    collect_assignments(*func_node, parsed, &mut assignments);
+
+    let mut bindings = Vec::new();
+    for assignment in assignments {
+        let lhs = match parsed.language.assignment_target(&assignment) {
+            Some(n) => n,
+            None => continue,
+        };
+        let rhs = match parsed.language.assignment_value(&assignment) {
+            Some(n) => n,
+            None => continue,
+        };
+        let lhs_items = assignment_lhs_identifiers(parsed, &lhs);
+        if lhs_items.is_empty() {
+            continue;
+        }
+        let rhs_items = if call_path_text(parsed, &rhs).is_some() {
+            vec![rhs]
+        } else {
+            assignment_rhs_expressions(&rhs)
+        };
+
+        for (idx, expr) in rhs_items.iter().enumerate() {
+            let actual = match call_path_text(parsed, expr) {
+                Some(s) => s,
+                None => continue,
+            };
+            if !call_path_matches(parsed, &actual, "format_html") {
+                continue;
+            }
+            if call_literal_arg(parsed, expr, 0).is_none() {
+                continue;
+            }
+            let result_var = match lhs_items.get(idx).or_else(|| {
+                if rhs_items.len() == 1 {
+                    lhs_items.first()
+                } else {
+                    None
+                }
+            }) {
+                Some(name) if name != "_" => name.clone(),
+                _ => continue,
+            };
+            bindings.push(SafeFormatHtmlBinding {
+                result_var,
+                call_line: expr.start_position().row + 1,
+            });
+        }
+    }
+    bindings
 }
 
 fn guard_safely_controls_sink(

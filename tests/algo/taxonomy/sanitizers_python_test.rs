@@ -35,6 +35,13 @@ fn has_taint_sink(result: &prism::slice::SliceResult) -> bool {
         .any(|f| f.category.as_deref() == Some("taint_sink"))
 }
 
+fn has_taint_sink_on(result: &prism::slice::SliceResult, line: usize) -> bool {
+    result
+        .findings
+        .iter()
+        .any(|f| f.category.as_deref() == Some("taint_sink") && f.line == line)
+}
+
 #[test]
 fn test_python_html_escape_suppresses_mark_safe() {
     let source = r#"from flask import Flask, request
@@ -70,6 +77,69 @@ def profile():
 "#;
     let result = run_taint_python_single(source, "app.py", BTreeSet::from([1]));
     assert!(has_taint_sink(&result), "unsanitized mark_safe should fire");
+}
+
+#[test]
+fn test_python_format_html_result_suppresses_mark_safe() {
+    let source = r#"from flask import Flask, request
+from django.utils.html import format_html
+from django.utils.safestring import mark_safe
+
+app = Flask(__name__)
+
+@app.route("/profile")
+def profile():
+    name = request.args.get("name")
+    safe_html = format_html("<b>{}</b>", name)
+    return mark_safe(safe_html)
+"#;
+    let result = run_taint_python_single(source, "app.py", BTreeSet::from([1]));
+    assert!(
+        !has_taint_sink(&result),
+        "format_html with a literal format string should cleanse its assigned result"
+    );
+}
+
+#[test]
+fn test_python_format_html_tainted_format_does_not_suppress_downstream_mark_safe() {
+    let source = r#"from flask import Flask, request
+from django.utils.html import format_html
+from django.utils.safestring import mark_safe
+
+app = Flask(__name__)
+
+@app.route("/profile")
+def profile():
+    fmt = request.args.get("fmt")
+    safe_html = format_html(fmt, "value")
+    return mark_safe(safe_html)
+"#;
+    let result = run_taint_python_single(source, "app.py", BTreeSet::from([1]));
+    assert!(
+        has_taint_sink_on(&result, 11),
+        "format_html with a tainted format string must not cleanse the downstream result"
+    );
+}
+
+#[test]
+fn test_python_format_html_result_cleansing_is_variable_scoped() {
+    let source = r#"from flask import Flask, request
+from django.utils.html import format_html
+from django.utils.safestring import mark_safe
+
+app = Flask(__name__)
+
+@app.route("/profile")
+def profile():
+    name = request.args.get("name")
+    safe_html = format_html("<b>{}</b>", "literal")
+    return mark_safe(name)
+"#;
+    let result = run_taint_python_single(source, "app.py", BTreeSet::from([1]));
+    assert!(
+        has_taint_sink_on(&result, 11),
+        "safe format_html result must not cleanse unrelated tainted variables"
+    );
 }
 
 #[test]

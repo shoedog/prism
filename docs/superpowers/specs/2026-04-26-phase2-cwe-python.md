@@ -496,7 +496,7 @@ Mirrors Phase 1's test structure:
 2. **Python flat fallback:** implementation plan must explicitly handle safe structured calls that otherwise match `SINK_PATTERNS`, especially `render_template_string`.
 3. **Inline Jinja2 selector:** implementation plan must include keyword-arg coupling for `{{ x | safe }}` rather than treating every context kwarg as sink-relevant.
 4. **External Jinja2 template handling:** Phase 2.5 deferred unless eval produces a C2 fixture that requires external template file analysis.
-5. **`format_html` result-cleansing:** C2 fixture #1 is covered because `format_html("literal template", tainted_value)` is the final render-shaped operation and arg0 is literal. Explicitly marking the result as `cleansed_for(Xss)` is deferred to Phase 2.5 unless a downstream-propagation fixture appears.
+5. **`format_html` result-cleansing:** Phase 2.5 models the intraprocedural assigned-result shape: `safe_html = format_html("literal template", tainted_value)` is treated as XSS-cleansed when `safe_html` reaches a downstream XSS sink. Tainted format strings still fire; cross-function/result-alias precision remains deferred.
 6. **CWE-78 in Python:** explicitly out of Phase 2 scope per §9.
 7. **C2 plan gaps:** confirm no additional eval fixtures require field-sensitive Pydantic, external-template scanning, or Python subprocess coverage.
 
