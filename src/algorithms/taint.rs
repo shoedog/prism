@@ -569,6 +569,60 @@ pub const PY_CWE918_SINKS: &[SinkPattern] = &[
         semantic_check: None,
     },
     SinkPattern {
+        call_path: "aiohttp.request",
+        category: SanitizerCategory::Ssrf,
+        tainted_arg_indices: &[1],
+        semantic_check: None,
+    },
+    SinkPattern {
+        call_path: "aiohttp.ClientSession.get",
+        category: SanitizerCategory::Ssrf,
+        tainted_arg_indices: &[0],
+        semantic_check: None,
+    },
+    SinkPattern {
+        call_path: "aiohttp.ClientSession.post",
+        category: SanitizerCategory::Ssrf,
+        tainted_arg_indices: &[0],
+        semantic_check: None,
+    },
+    SinkPattern {
+        call_path: "aiohttp.ClientSession.put",
+        category: SanitizerCategory::Ssrf,
+        tainted_arg_indices: &[0],
+        semantic_check: None,
+    },
+    SinkPattern {
+        call_path: "aiohttp.ClientSession.delete",
+        category: SanitizerCategory::Ssrf,
+        tainted_arg_indices: &[0],
+        semantic_check: None,
+    },
+    SinkPattern {
+        call_path: "aiohttp.ClientSession.patch",
+        category: SanitizerCategory::Ssrf,
+        tainted_arg_indices: &[0],
+        semantic_check: None,
+    },
+    SinkPattern {
+        call_path: "aiohttp.ClientSession.head",
+        category: SanitizerCategory::Ssrf,
+        tainted_arg_indices: &[0],
+        semantic_check: None,
+    },
+    SinkPattern {
+        call_path: "aiohttp.ClientSession.options",
+        category: SanitizerCategory::Ssrf,
+        tainted_arg_indices: &[0],
+        semantic_check: None,
+    },
+    SinkPattern {
+        call_path: "aiohttp.ClientSession.request",
+        category: SanitizerCategory::Ssrf,
+        tainted_arg_indices: &[1],
+        semantic_check: None,
+    },
+    SinkPattern {
         call_path: "request",
         category: SanitizerCategory::Ssrf,
         tainted_arg_indices: &[1],
@@ -2128,7 +2182,7 @@ fn structured_sink_line_cleansed_for_path(
                 Some(s) => s,
                 None => continue,
             };
-            if !call_path_matches(parsed, &actual, sink_pat.call_path)
+            if !sink_call_path_matches(parsed, call, &actual, sink_pat)
                 || !call_passes_sink_semantics(parsed, call, sink_pat)
             {
                 continue;
@@ -2763,7 +2817,7 @@ fn line_matches_structured_sink(
             Some(s) => s,
             None => continue,
         };
-        if !call_path_matches(parsed, &actual, sink_pat.call_path) {
+        if !sink_call_path_matches(parsed, call, &actual, sink_pat) {
             continue;
         }
         had_call_path_match = true;
@@ -2813,6 +2867,245 @@ fn call_path_matches(parsed: &ParsedFile, actual: &str, expected: &str) -> bool 
                 .rsplit('.')
                 .next()
                 .is_some_and(|tail| tail == expected))
+}
+
+fn sink_call_path_matches(
+    parsed: &ParsedFile,
+    call: &Node<'_>,
+    actual: &str,
+    sink_pat: &'static SinkPattern,
+) -> bool {
+    if call_path_matches(parsed, actual, sink_pat.call_path) {
+        return true;
+    }
+    if parsed.language != Language::Python || sink_pat.category != SanitizerCategory::Ssrf {
+        return false;
+    }
+    if sink_pat.call_path == "aiohttp.request" {
+        return python_is_aiohttp_request_call(parsed, call);
+    }
+    let Some(method) = sink_pat.call_path.strip_prefix("aiohttp.ClientSession.") else {
+        return false;
+    };
+    python_is_aiohttp_client_session_method_call(parsed, call, method)
+}
+
+fn python_is_aiohttp_request_call(parsed: &ParsedFile, call: &Node<'_>) -> bool {
+    let Some(function) = call.child_by_field_name("function") else {
+        return false;
+    };
+    let imports = parsed.extract_imports();
+    let function = unwrap_parenthesized(function);
+    if function.kind() == "identifier" {
+        let name = parsed.node_text(&function);
+        return name == "request" && python_imports_resolve_to_module(&imports, name, "aiohttp");
+    }
+    if function.kind() != "attribute" {
+        return false;
+    }
+    let Some(attribute) = function.child_by_field_name("attribute") else {
+        return false;
+    };
+    if parsed.node_text(&attribute) != "request" {
+        return false;
+    }
+    let Some(object) = function.child_by_field_name("object") else {
+        return false;
+    };
+    python_expression_resolves_to_module(parsed, &imports, object, "aiohttp")
+}
+
+fn python_is_aiohttp_client_session_method_call(
+    parsed: &ParsedFile,
+    call: &Node<'_>,
+    expected_method: &str,
+) -> bool {
+    let Some(function) = call.child_by_field_name("function") else {
+        return false;
+    };
+    let function = unwrap_parenthesized(function);
+    if function.kind() != "attribute" {
+        return false;
+    }
+    let Some(attribute) = function.child_by_field_name("attribute") else {
+        return false;
+    };
+    if parsed.node_text(&attribute) != expected_method {
+        return false;
+    }
+    let Some(object) = function.child_by_field_name("object") else {
+        return false;
+    };
+    let object = unwrap_parenthesized(object);
+    if python_is_aiohttp_client_session_constructor_call(parsed, object) {
+        return true;
+    }
+    if object.kind() != "identifier" {
+        return false;
+    }
+    let receiver = parsed.node_text(&object);
+    python_aiohttp_client_session_vars(parsed, call.start_position().row + 1).contains(receiver)
+}
+
+fn python_aiohttp_client_session_vars(parsed: &ParsedFile, sink_line: usize) -> BTreeSet<String> {
+    let Some(func_node) = parsed.enclosing_function(sink_line) else {
+        return BTreeSet::new();
+    };
+    let imports = parsed.extract_imports();
+    let mut names = BTreeSet::new();
+
+    let mut assignments = Vec::new();
+    collect_assignments(func_node, parsed, &mut assignments);
+    for assignment in assignments {
+        if assignment.start_position().row + 1 > sink_line {
+            continue;
+        }
+        let (Some(lhs), Some(rhs)) = (
+            parsed.language.assignment_target(&assignment),
+            parsed.language.assignment_value(&assignment),
+        ) else {
+            continue;
+        };
+        let lhs_items = python_assignment_items(lhs);
+        let rhs_items = python_assignment_items(rhs);
+        if lhs_items.len() == rhs_items.len() && lhs_items.len() > 1 {
+            for (lhs_item, rhs_item) in lhs_items.into_iter().zip(rhs_items) {
+                if python_is_aiohttp_client_session_constructor_call(parsed, rhs_item) {
+                    collect_bare_identifier_name(parsed, lhs_item, &mut names);
+                }
+            }
+        } else if python_is_aiohttp_client_session_constructor_call(parsed, rhs) {
+            collect_bare_identifier_name(parsed, lhs, &mut names);
+        }
+    }
+
+    collect_aiohttp_client_session_with_aliases(parsed, &imports, func_node, sink_line, &mut names);
+    names
+}
+
+fn collect_bare_identifier_name(parsed: &ParsedFile, node: Node<'_>, names: &mut BTreeSet<String>) {
+    let node = unwrap_parenthesized(node);
+    if node.kind() == "identifier" {
+        names.insert(parsed.node_text(&node).to_string());
+    }
+}
+
+fn collect_aiohttp_client_session_with_aliases(
+    parsed: &ParsedFile,
+    imports: &BTreeMap<String, String>,
+    node: Node<'_>,
+    sink_line: usize,
+    names: &mut BTreeSet<String>,
+) {
+    if node.start_position().row + 1 > sink_line {
+        return;
+    }
+    if node.kind() == "with_statement" {
+        let text = parsed.node_text(&node);
+        let header = text.split_once(':').map(|(h, _)| h).unwrap_or(text);
+        if python_text_has_aiohttp_client_session_constructor(imports, header) {
+            for alias in python_with_as_identifiers(header) {
+                names.insert(alias);
+            }
+        }
+    }
+    let mut cursor = node.walk();
+    for child in node.children(&mut cursor) {
+        collect_aiohttp_client_session_with_aliases(parsed, imports, child, sink_line, names);
+    }
+}
+
+fn python_with_as_identifiers(text: &str) -> Vec<String> {
+    let mut names = Vec::new();
+    let mut rest = text;
+    while let Some(idx) = rest.find(" as ") {
+        let after_as = rest[idx + 4..].trim_start();
+        let ident: String = after_as
+            .chars()
+            .take_while(|c| c.is_ascii_alphanumeric() || *c == '_')
+            .collect();
+        if !ident.is_empty() {
+            names.push(ident.clone());
+        }
+        rest = &after_as[ident.len()..];
+    }
+    names
+}
+
+fn python_text_has_aiohttp_client_session_constructor(
+    imports: &BTreeMap<String, String>,
+    text: &str,
+) -> bool {
+    if imports
+        .get("ClientSession")
+        .is_some_and(|module| python_module_matches(module, "aiohttp"))
+        && text.contains("ClientSession(")
+    {
+        return true;
+    }
+    imports.iter().any(|(alias, module)| {
+        python_module_matches(module, "aiohttp")
+            && text.contains(&format!("{}.ClientSession(", alias))
+    })
+}
+
+fn python_is_aiohttp_client_session_constructor_call(parsed: &ParsedFile, node: Node<'_>) -> bool {
+    let node = unwrap_parenthesized(node);
+    if node.kind() != "call" {
+        return false;
+    }
+    let Some(function) = node.child_by_field_name("function") else {
+        return false;
+    };
+    let callee = parsed.node_text(&function).trim();
+    let (namespace, basename) = match callee.rsplit_once('.') {
+        Some((ns, name)) => (Some(ns.trim()), name.trim()),
+        None => (None, callee),
+    };
+    if basename != "ClientSession" {
+        return false;
+    }
+    let imports = parsed.extract_imports();
+    match namespace {
+        Some(ns) => python_expression_text_resolves_to_module(&imports, ns, "aiohttp"),
+        None => python_imports_resolve_to_module(&imports, basename, "aiohttp"),
+    }
+}
+
+fn python_expression_resolves_to_module(
+    parsed: &ParsedFile,
+    imports: &BTreeMap<String, String>,
+    node: Node<'_>,
+    module_name: &str,
+) -> bool {
+    let node = unwrap_parenthesized(node);
+    if node.kind() != "identifier" && node.kind() != "attribute" {
+        return false;
+    }
+    python_expression_text_resolves_to_module(imports, parsed.node_text(&node).trim(), module_name)
+}
+
+fn python_expression_text_resolves_to_module(
+    imports: &BTreeMap<String, String>,
+    text: &str,
+    module_name: &str,
+) -> bool {
+    let head = text.split('.').next().unwrap_or(text);
+    python_imports_resolve_to_module(imports, head, module_name)
+}
+
+fn python_imports_resolve_to_module(
+    imports: &BTreeMap<String, String>,
+    name: &str,
+    module_name: &str,
+) -> bool {
+    imports
+        .get(name)
+        .is_some_and(|module| python_module_matches(module, module_name))
+}
+
+fn python_module_matches(module: &str, expected: &str) -> bool {
+    module == expected || module.starts_with(&format!("{}.", expected))
 }
 
 /// Returns the structured-sink outcome for `line` across the full Go sink registry
@@ -3069,7 +3362,7 @@ fn python_sink_with_inline_flask_source(
             .chain(PY_CWE918_SINKS.iter())
             .chain(PY_CWE502_SINKS.iter())
         {
-            if !call_path_matches(parsed, &actual, pat.call_path) {
+            if !sink_call_path_matches(parsed, call, &actual, pat) {
                 continue;
             }
             if !call_passes_sink_semantics(parsed, call, pat) {
@@ -3606,7 +3899,7 @@ fn python_safe_structured_sink_call_ranges(
             .chain(PY_CWE918_SINKS.iter())
             .chain(PY_CWE502_SINKS.iter())
         {
-            if !call_path_matches(parsed, &actual, pat.call_path) {
+            if !sink_call_path_matches(parsed, call, &actual, pat) {
                 continue;
             }
             if !call_passes_sink_semantics(parsed, call, pat) {
