@@ -58,7 +58,7 @@ fn test_cwe_phase2_python_suppression_rate_meets_80pct() {
         .filter(|p| p.extension().map(|x| x == "py").unwrap_or(false))
         .collect();
     sanitized_files.sort();
-    assert_eq!(sanitized_files.len(), 10);
+    assert_eq!(sanitized_files.len(), 11);
 
     let mut suppressed = 0;
     let mut leaked: Vec<String> = Vec::new();
@@ -78,8 +78,9 @@ fn test_cwe_phase2_python_suppression_rate_meets_80pct() {
     );
     assert!(
         suppressed >= 8,
-        ">=80% suppression rate required. Got {}/10. Leaks: {:?}",
+        ">=80% suppression rate required. Got {}/{}. Leaks: {:?}",
         suppressed,
+        sanitized_files.len(),
         leaked
     );
 
@@ -90,7 +91,7 @@ fn test_cwe_phase2_python_suppression_rate_meets_80pct() {
         .filter(|p| p.extension().map(|x| x == "py").unwrap_or(false))
         .collect();
     unsanitized_files.sort();
-    assert_eq!(unsanitized_files.len(), 10);
+    assert_eq!(unsanitized_files.len(), 11);
 
     let mut missed: Vec<String> = Vec::new();
     for f in &unsanitized_files {

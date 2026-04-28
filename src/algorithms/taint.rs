@@ -521,6 +521,12 @@ pub const PY_CWE918_SINKS: &[SinkPattern] = &[
         semantic_check: None,
     },
     SinkPattern {
+        call_path: "urllib3.PoolManager.request",
+        category: SanitizerCategory::Ssrf,
+        tainted_arg_indices: &[1],
+        semantic_check: None,
+    },
+    SinkPattern {
         call_path: "httpx.get",
         category: SanitizerCategory::Ssrf,
         tainted_arg_indices: &[0],
@@ -618,12 +624,6 @@ pub const PY_CWE918_SINKS: &[SinkPattern] = &[
     },
     SinkPattern {
         call_path: "aiohttp.ClientSession.request",
-        category: SanitizerCategory::Ssrf,
-        tainted_arg_indices: &[1],
-        semantic_check: None,
-    },
-    SinkPattern {
-        call_path: "request",
         category: SanitizerCategory::Ssrf,
         tainted_arg_indices: &[1],
         semantic_check: None,
@@ -2881,6 +2881,9 @@ fn sink_call_path_matches(
     if parsed.language != Language::Python || sink_pat.category != SanitizerCategory::Ssrf {
         return false;
     }
+    if sink_pat.call_path == "urllib3.PoolManager.request" {
+        return python_is_urllib3_pool_manager_request_call(parsed, call);
+    }
     if sink_pat.call_path == "aiohttp.request" {
         return python_is_aiohttp_request_call(parsed, call);
     }
@@ -2947,7 +2950,49 @@ fn python_is_aiohttp_client_session_method_call(
     python_aiohttp_client_session_vars(parsed, call.start_position().row + 1).contains(receiver)
 }
 
+fn python_is_urllib3_pool_manager_request_call(parsed: &ParsedFile, call: &Node<'_>) -> bool {
+    let Some(function) = call.child_by_field_name("function") else {
+        return false;
+    };
+    let function = unwrap_parenthesized(function);
+    if function.kind() != "attribute" {
+        return false;
+    }
+    let Some(attribute) = function.child_by_field_name("attribute") else {
+        return false;
+    };
+    if parsed.node_text(&attribute) != "request" {
+        return false;
+    }
+    let Some(object) = function.child_by_field_name("object") else {
+        return false;
+    };
+    let object = unwrap_parenthesized(object);
+    if python_is_urllib3_pool_manager_constructor_call(parsed, object) {
+        return true;
+    }
+    if object.kind() != "identifier" {
+        return false;
+    }
+    let receiver = parsed.node_text(&object);
+    python_urllib3_pool_manager_vars(parsed, call.start_position().row + 1).contains(receiver)
+}
+
 fn python_aiohttp_client_session_vars(parsed: &ParsedFile, sink_line: usize) -> BTreeSet<String> {
+    python_constructor_receiver_vars(parsed, sink_line, "aiohttp", "ClientSession", true)
+}
+
+fn python_urllib3_pool_manager_vars(parsed: &ParsedFile, sink_line: usize) -> BTreeSet<String> {
+    python_constructor_receiver_vars(parsed, sink_line, "urllib3", "PoolManager", false)
+}
+
+fn python_constructor_receiver_vars(
+    parsed: &ParsedFile,
+    sink_line: usize,
+    module_name: &str,
+    constructor_name: &str,
+    include_with_aliases: bool,
+) -> BTreeSet<String> {
     let Some(func_node) = parsed.enclosing_function(sink_line) else {
         return BTreeSet::new();
     };
@@ -2970,16 +3015,38 @@ fn python_aiohttp_client_session_vars(parsed: &ParsedFile, sink_line: usize) -> 
         let rhs_items = python_assignment_items(rhs);
         if lhs_items.len() == rhs_items.len() && lhs_items.len() > 1 {
             for (lhs_item, rhs_item) in lhs_items.into_iter().zip(rhs_items) {
-                if python_is_aiohttp_client_session_constructor_call(parsed, rhs_item) {
+                if python_is_constructor_call_from_module(
+                    parsed,
+                    &imports,
+                    rhs_item,
+                    module_name,
+                    constructor_name,
+                ) {
                     collect_bare_identifier_name(parsed, lhs_item, &mut names);
                 }
             }
-        } else if python_is_aiohttp_client_session_constructor_call(parsed, rhs) {
+        } else if python_is_constructor_call_from_module(
+            parsed,
+            &imports,
+            rhs,
+            module_name,
+            constructor_name,
+        ) {
             collect_bare_identifier_name(parsed, lhs, &mut names);
         }
     }
 
-    collect_aiohttp_client_session_with_aliases(parsed, &imports, func_node, sink_line, &mut names);
+    if include_with_aliases {
+        collect_constructor_with_aliases_from_with(
+            parsed,
+            &imports,
+            func_node,
+            sink_line,
+            module_name,
+            constructor_name,
+            &mut names,
+        );
+    }
     names
 }
 
@@ -2990,66 +3057,172 @@ fn collect_bare_identifier_name(parsed: &ParsedFile, node: Node<'_>, names: &mut
     }
 }
 
-fn collect_aiohttp_client_session_with_aliases(
+fn collect_constructor_with_aliases_from_with(
     parsed: &ParsedFile,
     imports: &BTreeMap<String, String>,
     node: Node<'_>,
     sink_line: usize,
+    module_name: &str,
+    constructor_name: &str,
     names: &mut BTreeSet<String>,
 ) {
     if node.start_position().row + 1 > sink_line {
         return;
     }
     if node.kind() == "with_statement" {
-        let text = parsed.node_text(&node);
-        let header = text.split_once(':').map(|(h, _)| h).unwrap_or(text);
-        if python_text_has_aiohttp_client_session_constructor(imports, header) {
-            for alias in python_with_as_identifiers(header) {
-                names.insert(alias);
-            }
+        collect_constructor_as_pattern_aliases(
+            parsed,
+            imports,
+            node,
+            module_name,
+            constructor_name,
+            names,
+        );
+    }
+    let mut cursor = node.walk();
+    for child in node.children(&mut cursor) {
+        collect_constructor_with_aliases_from_with(
+            parsed,
+            imports,
+            child,
+            sink_line,
+            module_name,
+            constructor_name,
+            names,
+        );
+    }
+}
+
+fn collect_constructor_as_pattern_aliases(
+    parsed: &ParsedFile,
+    imports: &BTreeMap<String, String>,
+    with_node: Node<'_>,
+    module_name: &str,
+    constructor_name: &str,
+    names: &mut BTreeSet<String>,
+) {
+    let header_end = with_node
+        .child_by_field_name("body")
+        .map(|body| body.start_byte())
+        .unwrap_or(with_node.end_byte());
+    collect_constructor_as_patterns_before_body(
+        parsed,
+        imports,
+        with_node,
+        header_end,
+        module_name,
+        constructor_name,
+        names,
+    );
+}
+
+fn collect_constructor_as_patterns_before_body(
+    parsed: &ParsedFile,
+    imports: &BTreeMap<String, String>,
+    node: Node<'_>,
+    header_end: usize,
+    module_name: &str,
+    constructor_name: &str,
+    names: &mut BTreeSet<String>,
+) {
+    if node.start_byte() >= header_end {
+        return;
+    }
+    if node.kind() == "as_pattern" {
+        if let Some(alias) =
+            constructor_as_pattern_alias(parsed, imports, node, module_name, constructor_name)
+        {
+            names.insert(alias);
         }
     }
     let mut cursor = node.walk();
     for child in node.children(&mut cursor) {
-        collect_aiohttp_client_session_with_aliases(parsed, imports, child, sink_line, names);
+        collect_constructor_as_patterns_before_body(
+            parsed,
+            imports,
+            child,
+            header_end,
+            module_name,
+            constructor_name,
+            names,
+        );
     }
 }
 
-fn python_with_as_identifiers(text: &str) -> Vec<String> {
-    let mut names = Vec::new();
-    let mut rest = text;
-    while let Some(idx) = rest.find(" as ") {
-        let after_as = rest[idx + 4..].trim_start();
-        let ident: String = after_as
-            .chars()
-            .take_while(|c| c.is_ascii_alphanumeric() || *c == '_')
-            .collect();
-        if !ident.is_empty() {
-            names.push(ident.clone());
-        }
-        rest = &after_as[ident.len()..];
-    }
-    names
-}
-
-fn python_text_has_aiohttp_client_session_constructor(
+fn constructor_as_pattern_alias(
+    parsed: &ParsedFile,
     imports: &BTreeMap<String, String>,
-    text: &str,
+    as_pattern: Node<'_>,
+    module_name: &str,
+    constructor_name: &str,
+) -> Option<String> {
+    let mut alias = None;
+    let mut has_constructor = false;
+    let mut cursor = as_pattern.walk();
+    for child in as_pattern.children(&mut cursor) {
+        if child.kind() == "as_pattern_target" {
+            let name = parsed.node_text(&child).trim();
+            if is_python_identifier(name) {
+                alias = Some(name.to_string());
+            }
+            continue;
+        }
+        if node_contains_constructor_call_from_module(
+            parsed,
+            imports,
+            child,
+            module_name,
+            constructor_name,
+        ) {
+            has_constructor = true;
+        }
+    }
+    has_constructor.then_some(alias).flatten()
+}
+
+fn node_contains_constructor_call_from_module(
+    parsed: &ParsedFile,
+    imports: &BTreeMap<String, String>,
+    node: Node<'_>,
+    module_name: &str,
+    constructor_name: &str,
 ) -> bool {
-    if imports
-        .get("ClientSession")
-        .is_some_and(|module| python_module_matches(module, "aiohttp"))
-        && text.contains("ClientSession(")
+    if python_is_constructor_call_from_module(parsed, imports, node, module_name, constructor_name)
     {
         return true;
     }
-    imports.iter().any(|(alias, module)| {
-        python_module_matches(module, "aiohttp")
-            && text.contains(&format!("{}.ClientSession(", alias))
-    })
+    let mut cursor = node.walk();
+    for child in node.named_children(&mut cursor) {
+        if node_contains_constructor_call_from_module(
+            parsed,
+            imports,
+            child,
+            module_name,
+            constructor_name,
+        ) {
+            return true;
+        }
+    }
+    false
 }
 
 fn python_is_aiohttp_client_session_constructor_call(parsed: &ParsedFile, node: Node<'_>) -> bool {
+    let imports = parsed.extract_imports();
+    python_is_constructor_call_from_module(parsed, &imports, node, "aiohttp", "ClientSession")
+}
+
+fn python_is_urllib3_pool_manager_constructor_call(parsed: &ParsedFile, node: Node<'_>) -> bool {
+    let imports = parsed.extract_imports();
+    python_is_constructor_call_from_module(parsed, &imports, node, "urllib3", "PoolManager")
+}
+
+fn python_is_constructor_call_from_module(
+    parsed: &ParsedFile,
+    imports: &BTreeMap<String, String>,
+    node: Node<'_>,
+    module_name: &str,
+    constructor_name: &str,
+) -> bool {
     let node = unwrap_parenthesized(node);
     if node.kind() != "call" {
         return false;
@@ -3062,14 +3235,21 @@ fn python_is_aiohttp_client_session_constructor_call(parsed: &ParsedFile, node: 
         Some((ns, name)) => (Some(ns.trim()), name.trim()),
         None => (None, callee),
     };
-    if basename != "ClientSession" {
+    if basename != constructor_name {
         return false;
     }
-    let imports = parsed.extract_imports();
     match namespace {
-        Some(ns) => python_expression_text_resolves_to_module(&imports, ns, "aiohttp"),
-        None => python_imports_resolve_to_module(&imports, basename, "aiohttp"),
+        Some(ns) => python_expression_text_resolves_to_module(imports, ns, module_name),
+        None => python_imports_resolve_to_module(imports, basename, module_name),
     }
+}
+
+fn is_python_identifier(text: &str) -> bool {
+    let mut chars = text.chars();
+    chars
+        .next()
+        .is_some_and(|c| c == '_' || c.is_ascii_alphabetic())
+        && chars.all(|c| c == '_' || c.is_ascii_alphanumeric())
 }
 
 fn python_expression_resolves_to_module(

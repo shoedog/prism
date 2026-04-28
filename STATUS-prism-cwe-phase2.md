@@ -23,15 +23,15 @@ Eval-team C2 validation accepted Phase 2: 8/10 vulnerable fixtures fire as expec
 | Sources | Flask request accessors, Django/DRF `request` handler params, FastAPI scalar/request/Pydantic handler params. |
 | Sinks | Python CWE-79 (`mark_safe`, `Markup`, `format_html`, unsafe `render_template_string`), CWE-89 (`execute`, `executemany`, `raw`), CWE-918 (`requests`, `httpx`, `urllib`, `urllib3`, `aiohttp`), CWE-502 (`pickle`, `cloudpickle`, `yaml.load`, `jsonpickle`, `marshal`, `dill`). |
 | Sanitizers/safe sinks | HTML escaping recognizers, Jinja2 default autoescape semantics, DB-API parametrized SQL, SQLAlchemy `text(...).bindparams/params`, CFG-aware URL hostname allowlist, `yaml.safe_load`, and `yaml.load(..., Loader=SafeLoader)`. |
-| Fixtures | `tests/fixtures/sanitizer-suite-python/{sanitized,unsanitized}/` with 10+10 Python fixtures. |
+| Fixtures | `tests/fixtures/sanitizer-suite-python/{sanitized,unsanitized}/` with 11+11 Python fixtures. |
 
 ## Acceptance Status
 
 | Criterion | Status |
 |---|---|
 | At least one vulnerable example per CWE family | Pinned by `algo_taint_sink_python` and `algo_taxonomy_sanitizers_python`. |
-| Sanitized suppression rate >=80% | `integration_cwe_phase2_suppression` currently reports 10/10 suppressed. |
-| Unsanitized mirrors detected | `integration_cwe_phase2_suppression` currently reports 10/10 detected. |
+| Sanitized suppression rate >=80% | `integration_cwe_phase2_suppression` currently reports 11/11 suppressed. |
+| Unsanitized mirrors detected | `integration_cwe_phase2_suppression` currently reports 11/11 detected. |
 | Framework detection without per-run config | Pinned by `frameworks_python_fastapi`, `frameworks_python_flask`, and `frameworks_python_drf_django`. |
 | Phase 1/1.5 regressions preserved | Go sink and sanitizer suites remain green. |
 
@@ -45,7 +45,7 @@ Eval-team C2 validation accepted Phase 2: 8/10 vulnerable fixtures fire as expec
 | Flask `request.*` source gating | Complete in PR #82. `request.*` accessors are modeled inside registered Flask route handlers via target-scoped assignment/walrus seeds plus inline source==sink fallback, instead of file-wide line seeds. |
 | Cloudpickle + bare `loads` tightening | Complete in PR #77. |
 | AST-based FastAPI receiver/decorator detection | Complete in PR #78. |
-| aiohttp SSRF sink coverage | In progress on Phase 2.5 branch; adds import-aware `aiohttp.request(method, url)` and `ClientSession.{get,post,put,delete,patch,head,options,request}` matching with existing URL allowlist suppression. |
+| aiohttp SSRF sink coverage | In progress on Phase 2.5 branch; adds import-aware `aiohttp.request(method, url)` and `ClientSession.{get,post,put,delete,patch,head,options,request}` matching with existing URL allowlist suppression and an 11th Phase 2 fixture pair. Also replaces the broad bare `.request(method, url)` fallback with import-aware `urllib3.PoolManager.request`. |
 
 ## Intentional Limits
 
@@ -57,7 +57,8 @@ Eval-team C2 validation accepted Phase 2: 8/10 vulnerable fixtures fire as expec
 - FastAPI receiver/decorator detection was upgraded in the Phase 2.5 O1 cleanup to AST-scoped assignment/decorator traversal for canonical, type-annotated, and tuple receiver bindings. Other Python framework detection remains intentionally lean unless eval or real fixtures surface gaps.
 - Flask-style `request.*` source seeding is scoped to registered route handlers and target-scoped assignment/walrus results, with inline source==sink coverage for direct sink arguments; interprocedural helper sourcing remains deferred.
 - CWE-502 broad bare `loads` / `load` matching was removed in the Phase 2.5 O3 cleanup. Unsafe deserializers are modeled by explicit qualified call paths; imported aliases such as `from pickle import loads` are not resolved yet.
-- CWE-918 aiohttp coverage is import-aware for canonical `aiohttp.ClientSession()` receiver variables, direct `aiohttp.ClientSession().method(...)` calls, and top-level `aiohttp.request(method, url)`. Attribute-stored sessions such as `self.session.get(url)` remain deferred until real fixtures require receiver type tracking.
+- CWE-918 aiohttp coverage is import-aware for canonical `aiohttp.ClientSession()` receiver variables, direct `aiohttp.ClientSession().method(...)` calls, AST-extracted `with ... as session` aliases, and top-level `aiohttp.request(method, url)`. Nested session construction in comprehensions, factory-returned sessions, wrapper context managers, and attribute-stored sessions such as `self.session.get(url)` remain deferred until real fixtures require receiver type tracking.
+- CWE-918 no longer uses the broad bare `.request(method, url)` fallback; `urllib3.PoolManager.request` is modeled via import-aware receiver tracking.
 
 ## Validation Commands
 
