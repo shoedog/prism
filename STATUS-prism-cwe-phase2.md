@@ -41,7 +41,8 @@ Eval-team C2 validation accepted Phase 2: 8/10 vulnerable fixtures fire as expec
 |---|---|
 | Multi-line `render_template_string(... \| safe ...)` detection | Complete in PR #79. |
 | Django `def view(request)` source broadening | Complete in PR #80. Standalone function views with `request.GET` / `request.POST` style data accessors are modeled with target-scoped assignment seeds and no same-file URL-pattern requirement; generic non-view helpers are not treated as Django sources. |
-| `format_html` result-cleansing propagation | In progress on Phase 2.5 branch; assigned results from literal-format `format_html(...)` are treated as XSS-cleansed at downstream XSS sinks, while tainted format strings still fire. |
+| `format_html` result-cleansing propagation | Complete in PR #81. Assigned results from literal-format `format_html(...)` are treated as XSS-cleansed at downstream XSS sinks, while tainted format strings still fire. |
+| Flask `request.*` source gating | In progress on Phase 2.5 branch; request accessors are modeled inside registered Flask route handlers via target-scoped assignment/walrus seeds plus inline source==sink fallback, instead of file-wide line seeds. |
 | Cloudpickle + bare `loads` tightening | Complete in PR #77. |
 | AST-based FastAPI receiver/decorator detection | Complete in PR #78. |
 
@@ -53,7 +54,7 @@ Eval-team C2 validation accepted Phase 2: 8/10 vulnerable fixtures fire as expec
 - Python source==sink fallback remains Go-only because the Go fallback intentionally skips per-arg DFG for inline framework-source calls. Python coverage relies on target-scoped seeds or normal DFG paths to avoid broad literal-arg false positives.
 - Cross-function sanitizer proof beyond existing DFG/CPG behavior remains out of scope.
 - FastAPI receiver/decorator detection was upgraded in the Phase 2.5 O1 cleanup to AST-scoped assignment/decorator traversal for canonical, type-annotated, and tuple receiver bindings. Other Python framework detection remains intentionally lean unless eval or real fixtures surface gaps.
-- Flask-style `request.*` source seeding is gated to files detected as Flask; handler-level route scoping remains deferred.
+- Flask-style `request.*` source seeding is scoped to registered route handlers and target-scoped assignment/walrus results, with inline source==sink coverage for direct sink arguments; interprocedural helper sourcing remains deferred.
 - CWE-502 broad bare `loads` / `load` matching was removed in the Phase 2.5 O3 cleanup. Unsafe deserializers are modeled by explicit qualified call paths; imported aliases such as `from pickle import loads` are not resolved yet.
 - CWE-918 does not yet model `aiohttp.ClientSession.{get,post,...}` sinks; add when C2/eval fixtures or real usage require aiohttp coverage.
 

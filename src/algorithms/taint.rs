@@ -1099,6 +1099,7 @@ fn detect_python_framework_sources(
     sources: &mut Vec<TaintSeed>,
 ) {
     let pydantic_models = collect_python_pydantic_models(parsed);
+    let flask_receivers = crate::frameworks::python::flask::route_receivers(parsed);
     // Compute FastAPI route receivers once per file rather than per function;
     // the AST walk is O(tree_size) and `function_has_route_decorator_with_receivers`
     // re-uses the result for each handler check.
@@ -1122,6 +1123,12 @@ fn detect_python_framework_sources(
                 parsed,
                 &func,
                 &fastapi_receivers,
+            );
+        let is_flask_route =
+            crate::frameworks::python::flask::function_has_route_decorator_with_receivers(
+                parsed,
+                &func,
+                &flask_receivers,
             );
         let is_drf_or_django_view = has_request_param
             && (has_django_import_context
@@ -1167,21 +1174,16 @@ fn detect_python_framework_sources(
                     target,
                 ));
             }
-        }
-    }
-
-    if parsed.framework().map(|f| f.name) == Some("flask") {
-        let mut calls = Vec::new();
-        collect_calls(parsed, parsed.tree.root_node(), &mut calls);
-        for call in calls {
-            let actual = match call_path_text(parsed, &call) {
-                Some(s) => s,
-                None => continue,
-            };
-            if python_is_flask_request_source_call(actual.as_str()) {
-                sources.push(TaintSeed::line(
+        } else if is_flask_route {
+            let flask_request_data = python_flask_request_data_sources(parsed, &func);
+            for source_line in flask_request_data.lines {
+                sources.push(TaintSeed::line(file_path.to_string(), source_line));
+            }
+            for (source_line, target) in flask_request_data.targets {
+                sources.push(TaintSeed::target(
                     file_path.to_string(),
-                    call.start_position().row + 1,
+                    source_line,
+                    target,
                 ));
             }
         }
@@ -1194,6 +1196,12 @@ struct PythonDjangoRequestDataSources {
     targets: BTreeSet<(usize, AccessPath)>,
 }
 
+#[derive(Default)]
+struct PythonFlaskRequestDataSources {
+    targets: BTreeSet<(usize, AccessPath)>,
+    lines: BTreeSet<usize>,
+}
+
 fn python_django_request_data_sources(
     parsed: &ParsedFile,
     func: &Node<'_>,
@@ -1201,6 +1209,150 @@ fn python_django_request_data_sources(
     let mut sources = PythonDjangoRequestDataSources::default();
     collect_django_request_data_sources(parsed, *func, &mut sources);
     sources
+}
+
+fn python_flask_request_data_sources(
+    parsed: &ParsedFile,
+    func: &Node<'_>,
+) -> PythonFlaskRequestDataSources {
+    let mut sources = PythonFlaskRequestDataSources::default();
+    collect_flask_request_data_sources(parsed, *func, &mut sources);
+    sources
+}
+
+fn collect_flask_request_data_sources(
+    parsed: &ParsedFile,
+    node: Node<'_>,
+    sources: &mut PythonFlaskRequestDataSources,
+) {
+    if parsed.language.is_assignment_node(node.kind()) {
+        if let (Some(lhs), Some(rhs)) = (
+            parsed.language.assignment_target(&node),
+            parsed.language.assignment_value(&node),
+        ) {
+            collect_flask_request_assignment_targets(parsed, lhs, rhs, sources);
+        }
+        return;
+    }
+
+    if let Some((target, value)) = python_named_expression_parts(parsed, node) {
+        if node_contains_flask_request_data_access(parsed, value) {
+            collect_flask_request_targets(parsed, target, node.start_position().row + 1, sources);
+        }
+        return;
+    }
+
+    if parsed.language.is_call_node(node.kind()) {
+        if let Some(path) = call_path_text(parsed, &node) {
+            if python_is_flask_request_source_call(path.trim()) {
+                sources.lines.insert(node.start_position().row + 1);
+                return;
+            }
+        }
+    }
+
+    let mut cursor = node.walk();
+    for child in node.named_children(&mut cursor) {
+        collect_flask_request_data_sources(parsed, child, sources);
+    }
+}
+
+fn collect_flask_request_assignment_targets(
+    parsed: &ParsedFile,
+    lhs: Node<'_>,
+    rhs: Node<'_>,
+    sources: &mut PythonFlaskRequestDataSources,
+) {
+    let lhs_items = python_assignment_items(lhs);
+    let rhs_items = python_assignment_items(rhs);
+    if lhs_items.len() == rhs_items.len() && lhs_items.len() > 1 {
+        for (lhs_item, rhs_item) in lhs_items.into_iter().zip(rhs_items) {
+            if node_contains_flask_request_data_access(parsed, rhs_item) {
+                collect_flask_request_targets(
+                    parsed,
+                    lhs_item,
+                    rhs_item.start_position().row + 1,
+                    sources,
+                );
+            }
+        }
+        return;
+    }
+
+    if node_contains_flask_request_data_access(parsed, rhs) {
+        collect_flask_request_targets(parsed, lhs, rhs.start_position().row + 1, sources);
+    }
+}
+
+fn collect_flask_request_targets(
+    parsed: &ParsedFile,
+    node: Node<'_>,
+    line: usize,
+    sources: &mut PythonFlaskRequestDataSources,
+) {
+    match node.kind() {
+        "identifier" => {
+            let name = parsed.node_text(&node);
+            if name != "_" {
+                sources.targets.insert((line, AccessPath::simple(name)));
+            }
+        }
+        "pattern_list"
+        | "tuple_pattern"
+        | "list_pattern"
+        | "tuple"
+        | "list"
+        | "parenthesized_expression" => {
+            let mut cursor = node.walk();
+            for child in node.named_children(&mut cursor) {
+                collect_flask_request_targets(parsed, child, line, sources);
+            }
+        }
+        _ => {}
+    }
+}
+
+fn python_assignment_items(node: Node<'_>) -> Vec<Node<'_>> {
+    let node = unwrap_python_parenthesized_expression(node);
+    if !matches!(
+        node.kind(),
+        "pattern_list" | "expression_list" | "tuple" | "list" | "tuple_pattern" | "list_pattern"
+    ) {
+        return vec![node];
+    }
+    let mut cursor = node.walk();
+    node.named_children(&mut cursor).collect()
+}
+
+fn unwrap_python_parenthesized_expression(mut node: Node<'_>) -> Node<'_> {
+    while node.kind() == "parenthesized_expression" {
+        let mut cursor = node.walk();
+        let next = node.named_children(&mut cursor).next();
+        match next {
+            Some(child) => node = child,
+            None => return node,
+        }
+    }
+    node
+}
+
+fn python_named_expression_parts<'a>(
+    parsed: &ParsedFile,
+    node: Node<'a>,
+) -> Option<(Node<'a>, Node<'a>)> {
+    if parsed.language != Language::Python
+        || !matches!(node.kind(), "named_expression" | "assignment_expression")
+    {
+        return None;
+    }
+    let mut cursor = node.walk();
+    let children: Vec<Node<'a>> = node.named_children(&mut cursor).collect();
+    let target = children.first().copied()?;
+    let value = children.last().copied()?;
+    if target.id() == value.id() {
+        return None;
+    }
+    Some((target, value))
 }
 
 fn collect_django_request_data_sources(
@@ -1254,6 +1406,29 @@ fn node_contains_django_request_data_access(parsed: &ParsedFile, node: Node<'_>)
     false
 }
 
+fn node_contains_flask_request_data_access(parsed: &ParsedFile, node: Node<'_>) -> bool {
+    if parsed.language.is_call_node(node.kind()) {
+        if let Some(path) = call_path_text(parsed, &node) {
+            if python_is_flask_request_source_call(path.trim()) {
+                return true;
+            }
+        }
+    }
+    if node.kind() == "attribute" {
+        let text = parsed.node_text(&node);
+        if python_is_flask_request_data_access(text.trim()) {
+            return true;
+        }
+    }
+    let mut cursor = node.walk();
+    for child in node.named_children(&mut cursor) {
+        if node_contains_flask_request_data_access(parsed, child) {
+            return true;
+        }
+    }
+    false
+}
+
 fn collect_bare_identifier_targets(
     parsed: &ParsedFile,
     node: Node<'_>,
@@ -1285,13 +1460,18 @@ fn python_is_django_request_data_access(path: &str) -> bool {
 }
 
 fn python_is_flask_request_source_call(path: &str) -> bool {
+    python_is_flask_request_data_access(path)
+        || matches!(path, "request.get_json" | "request.get_data")
+}
+
+fn python_is_flask_request_data_access(path: &str) -> bool {
     const ACCESSORS: &[&str] = &[
-        "args", "form", "values", "cookies", "headers", "files", "json",
+        "args", "form", "values", "cookies", "headers", "files", "json", "data",
     ];
     ACCESSORS.iter().any(|accessor| {
-        let prefix = format!("request.{accessor}.");
-        path.starts_with(&prefix)
-    }) || matches!(path, "request.get_json" | "request.get_data")
+        let prefix = format!("request.{accessor}");
+        path == prefix || path.starts_with(&format!("{prefix}."))
+    })
 }
 
 fn python_looks_like_standalone_django_view(parsed: &ParsedFile, func: &Node<'_>) -> bool {
@@ -1412,7 +1592,6 @@ fn synthesize_target_seed_paths(seeds: &[TaintSeed], ctx: &CpgContext, paths: &m
         } else {
             None
         };
-        let refs = parsed.find_variable_references_scoped(&func, &target.base, seed.line);
         let from = VarLocation {
             file: seed.file.clone(),
             function: func_name.clone(),
@@ -1421,25 +1600,55 @@ fn synthesize_target_seed_paths(seeds: &[TaintSeed], ctx: &CpgContext, paths: &m
             kind: VarAccessKind::Def,
         };
         let mut edges = Vec::new();
-        for ref_line in refs {
-            if ref_line <= seed.line {
+        let reachable_dfg = ctx.cpg.dfg_forward_reachable(&from);
+        for target_loc in reachable_dfg {
+            if target_loc.file == seed.file
+                && target_loc.function == func_name
+                && target_loc.line <= seed.line
+            {
                 continue;
             }
             if let Some(cfg_set) = &reachable {
-                if !cfg_set.contains(&(seed.file.clone(), ref_line)) {
+                if target_loc.file == seed.file
+                    && target_loc.function == func_name
+                    && !reference_line_cfg_reachable(
+                        parsed,
+                        &func,
+                        &seed.file,
+                        target_loc.line,
+                        cfg_set,
+                    )
+                {
                     continue;
                 }
             }
             edges.push(FlowEdge {
                 from: from.clone(),
-                to: VarLocation {
-                    file: seed.file.clone(),
-                    function: func_name.clone(),
-                    line: ref_line,
-                    path: AccessPath::simple(target.base.clone()),
-                    kind: VarAccessKind::Use,
-                },
+                to: target_loc,
             });
+        }
+        if edges.is_empty() {
+            let refs = parsed.find_variable_references_scoped(&func, &target.base, seed.line);
+            for ref_line in refs {
+                if ref_line <= seed.line {
+                    continue;
+                }
+                if let Some(cfg_set) = &reachable {
+                    if !reference_line_cfg_reachable(parsed, &func, &seed.file, ref_line, cfg_set) {
+                        continue;
+                    }
+                }
+                edges.push(FlowEdge {
+                    from: from.clone(),
+                    to: VarLocation {
+                        file: seed.file.clone(),
+                        function: func_name.clone(),
+                        line: ref_line,
+                        path: AccessPath::simple(target.base.clone()),
+                        kind: VarAccessKind::Use,
+                    },
+                });
+            }
         }
         if !edges.is_empty() {
             paths.push(FlowPath {
@@ -1448,6 +1657,49 @@ fn synthesize_target_seed_paths(seeds: &[TaintSeed], ctx: &CpgContext, paths: &m
             });
         }
     }
+}
+
+fn reference_line_cfg_reachable(
+    parsed: &ParsedFile,
+    func: &Node<'_>,
+    file: &str,
+    ref_line: usize,
+    cfg_set: &BTreeSet<(String, usize)>,
+) -> bool {
+    if cfg_set.contains(&(file.to_string(), ref_line)) {
+        return true;
+    }
+    reachable_multiline_node_contains_line(parsed, *func, file, ref_line, cfg_set)
+}
+
+fn reachable_multiline_node_contains_line(
+    parsed: &ParsedFile,
+    node: Node<'_>,
+    file: &str,
+    ref_line: usize,
+    cfg_set: &BTreeSet<(String, usize)>,
+) -> bool {
+    if !node_contains_line(&node, ref_line) {
+        return false;
+    }
+
+    let start_line = node.start_position().row + 1;
+    if start_line < ref_line
+        && cfg_set.contains(&(file.to_string(), start_line))
+        && (parsed.language.is_call_node(node.kind())
+            || parsed.language.is_assignment_node(node.kind())
+            || matches!(node.kind(), "return_statement" | "expression_statement"))
+    {
+        return true;
+    }
+
+    let mut cursor = node.walk();
+    for child in node.named_children(&mut cursor) {
+        if reachable_multiline_node_contains_line(parsed, child, file, ref_line, cfg_set) {
+            return true;
+        }
+    }
+    false
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -2780,6 +3032,103 @@ fn python_render_tainted_context_matches(
     false
 }
 
+fn python_sink_with_inline_flask_source(
+    parsed: &ParsedFile,
+    line: usize,
+) -> Option<&'static SinkPattern> {
+    if parsed.language != Language::Python {
+        return None;
+    }
+
+    let mut calls = Vec::new();
+    collect_calls(parsed, parsed.tree.root_node(), &mut calls);
+    let render_pat = PY_CWE79_SINKS
+        .iter()
+        .find(|p| p.call_path == "render_template_string");
+
+    for call in &calls {
+        if !node_contains_line(call, line) {
+            continue;
+        }
+        let actual = match call_path_text(parsed, call) {
+            Some(s) => s,
+            None => continue,
+        };
+        if call_path_matches(parsed, &actual, "render_template_string") {
+            if let Some(pat) = render_pat {
+                if python_render_inline_flask_source_matches(parsed, call) {
+                    return Some(pat);
+                }
+            }
+            continue;
+        }
+
+        for pat in PY_CWE79_SINKS
+            .iter()
+            .chain(PY_CWE89_SINKS.iter())
+            .chain(PY_CWE918_SINKS.iter())
+            .chain(PY_CWE502_SINKS.iter())
+        {
+            if !call_path_matches(parsed, &actual, pat.call_path) {
+                continue;
+            }
+            if !call_passes_sink_semantics(parsed, call, pat) {
+                continue;
+            }
+            if pat.category == SanitizerCategory::Sqli
+                && python_sql_call_is_parametrized(parsed, call)
+            {
+                continue;
+            }
+            if pat.category == SanitizerCategory::Deserialization
+                && python_yaml_load_uses_safe_loader(parsed, call)
+            {
+                continue;
+            }
+            if pat.tainted_arg_indices.iter().any(|&idx| {
+                call_arg_node(call, idx)
+                    .is_some_and(|arg| node_contains_flask_request_data_access(parsed, arg))
+            }) {
+                return Some(pat);
+            }
+        }
+    }
+    None
+}
+
+fn python_render_inline_flask_source_matches(parsed: &ParsedFile, call: &Node<'_>) -> bool {
+    let unsafe_vars = python_render_unsafe_template_vars(parsed, call);
+    let autoescape_disabled = python_render_autoescape_disabled(parsed, call);
+    if unsafe_vars.is_empty() && !autoescape_disabled {
+        return false;
+    }
+
+    let args = match call.child_by_field_name("arguments") {
+        Some(a) => a,
+        None => return false,
+    };
+    let mut cursor = args.walk();
+    for child in args.named_children(&mut cursor) {
+        if child.kind() != "keyword_argument" {
+            continue;
+        }
+        let key = match child.child_by_field_name("name") {
+            Some(n) => parsed.node_text(&n).to_string(),
+            None => continue,
+        };
+        if !autoescape_disabled && !unsafe_vars.contains(&key) {
+            continue;
+        }
+        let value = child
+            .child_by_field_name("value")
+            .or_else(|| child.named_child(1));
+        if value.is_some_and(|v| node_contains_flask_request_data_access(parsed, v)) {
+            return true;
+        }
+    }
+    false
+}
+
 fn python_sql_call_is_parametrized(parsed: &ParsedFile, call: &Node<'_>) -> bool {
     let actual = match call_path_text(parsed, call) {
         Some(s) => s,
@@ -3600,6 +3949,15 @@ pub fn slice(
     //      shape that conservative recursion can't recognize).
     for (file, line) in &taint_sources {
         if let Some(parsed) = ctx.files.get(file) {
+            if parsed.language == Language::Python {
+                if let Some(pat) = python_sink_with_inline_flask_source(parsed, *line) {
+                    let cleansed = source_line_cleansed_for_sink(parsed, &ctx.cpg, *line, pat);
+                    if !cleansed {
+                        sink_lines.insert((file.clone(), *line));
+                    }
+                }
+                continue;
+            }
             if parsed.language != Language::Go {
                 continue;
             }
