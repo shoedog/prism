@@ -122,6 +122,100 @@ async def upload(request: Request):
 }
 
 #[test]
+fn test_python_django_function_view_request_get_reaches_sql() {
+    let source = r#"def lookup_view(request):
+    q = request.GET.get("q")
+    cursor.execute(f"SELECT * FROM users WHERE name = '{q}'")
+"#;
+    let result = run_taint_python_single(source, "views.py", BTreeSet::from([1]));
+    assert!(
+        has_taint_sink_on(&result, 3),
+        "standalone Django-style function view request.GET data should reach SQL sink"
+    );
+}
+
+#[test]
+fn test_python_django_function_view_request_get_subscript_reaches_sql() {
+    let source = r#"def lookup_view(request):
+    q = request.GET["q"]
+    cursor.execute(f"SELECT * FROM users WHERE name = '{q}'")
+"#;
+    let result = run_taint_python_single(source, "views.py", BTreeSet::from([1]));
+    assert!(
+        has_taint_sink_on(&result, 3),
+        "standalone Django-style function view request.GET subscript data should reach SQL sink"
+    );
+}
+
+#[test]
+fn test_python_django_request_data_does_not_taint_same_line_literal_assignment() {
+    let source = r#"def lookup_view(request):
+    q = request.GET["q"]; other = "literal"
+    cursor.execute(other)
+"#;
+    let result = run_taint_python_single(source, "views.py", BTreeSet::from([1]));
+    assert!(
+        !has_taint_sink_on(&result, 3),
+        "Django request data should taint the assigned target, not unrelated same-line defs"
+    );
+}
+
+#[test]
+fn test_python_generic_request_get_outside_django_view_shape_does_not_taint_sql() {
+    let source = r#"def helper(request):
+    q = request.GET.get("q")
+    cursor.execute(f"SELECT * FROM users WHERE name = '{q}'")
+"#;
+    let result = run_taint_python_single(source, "worker.py", BTreeSet::from([1]));
+    assert!(
+        !has_taint_sink_on(&result, 3),
+        "request.GET without Django imports, views.py, or view-like function name should not taint"
+    );
+}
+
+#[test]
+fn test_python_django_function_view_request_method_reaches_sql() {
+    let source = r#"def lookup_view(request):
+    method = request.method
+    cursor.execute(f"SELECT * FROM logs WHERE method = '{method}'")
+"#;
+    let result = run_taint_python_single(source, "views.py", BTreeSet::from([1]));
+    assert!(
+        has_taint_sink_on(&result, 3),
+        "Django request.method should be modeled as client-controlled request data"
+    );
+}
+
+#[test]
+fn test_python_request_param_without_django_data_accessor_does_not_taint_sql() {
+    let source = r#"def helper(request):
+    q = request.user["name"]
+    cursor.execute(f"SELECT * FROM users WHERE name = '{q}'")
+"#;
+    let result = run_taint_python_single(source, "views.py", BTreeSet::from([1]));
+    assert!(
+        !has_taint_sink_on(&result, 3),
+        "bare request parameter should not be tainted without a Django request data accessor"
+    );
+}
+
+#[test]
+fn test_python_django_imported_function_view_request_get_reaches_sql() {
+    let source = r#"from django.db import connection
+
+def lookup_view(request):
+    q = request.GET.get("q")
+    with connection.cursor() as cursor:
+        cursor.execute(f"SELECT * FROM users WHERE name = '{q}'")
+"#;
+    let result = run_taint_python_single(source, "views.py", BTreeSet::from([1]));
+    assert!(
+        has_taint_sink_on(&result, 6),
+        "standalone Django function view request.GET data should reach SQL sink"
+    );
+}
+
+#[test]
 fn test_python_render_template_string_autoescape_safe_no_flat_leak() {
     let source = r#"from flask import Flask, request, render_template_string
 
