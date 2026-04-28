@@ -267,6 +267,192 @@ def fetch():
 }
 
 #[test]
+fn test_python_ssrf_aiohttp_client_session_get_fires() {
+    let source = r#"from flask import Flask, request
+import aiohttp
+
+app = Flask(__name__)
+
+@app.route("/fetch")
+async def fetch():
+    url = request.args.get("url")
+    async with aiohttp.ClientSession() as session:
+        return await session.get(url)
+"#;
+    let result = run_taint_python_single(source, "app.py", BTreeSet::from([1]));
+    assert!(
+        has_taint_sink_on(&result, 10),
+        "aiohttp ClientSession.get should fire when its URL argument is tainted"
+    );
+}
+
+#[test]
+fn test_python_ssrf_aiohttp_client_session_allowlist_suppresses() {
+    let source = r#"from flask import Flask, request
+from urllib.parse import urlparse
+import aiohttp
+
+ALLOWED_HOSTS = {"example.com"}
+app = Flask(__name__)
+
+@app.route("/fetch")
+async def fetch():
+    url = request.args.get("url")
+    parsed = urlparse(url)
+    if parsed.hostname not in ALLOWED_HOSTS:
+        return "blocked"
+    async with aiohttp.ClientSession() as session:
+        return await session.get(url)
+"#;
+    let result = run_taint_python_single(source, "app.py", BTreeSet::from([1]));
+    assert!(
+        !has_taint_sink(&result),
+        "urlparse hostname allowlist should suppress aiohttp SSRF"
+    );
+}
+
+#[test]
+fn test_python_ssrf_aiohttp_with_alias_without_spaced_as_fires() {
+    let source = r#"from flask import Flask, request
+import aiohttp
+
+app = Flask(__name__)
+
+@app.route("/fetch")
+async def fetch():
+    url = request.args.get("url")
+    async with aiohttp.ClientSession()as session:
+        return await session.get(url)
+"#;
+    let result = run_taint_python_single(source, "app.py", BTreeSet::from([1]));
+    assert!(
+        has_taint_sink_on(&result, 10),
+        "AST-based with alias extraction should not depend on spaced ` as ` text"
+    );
+}
+
+#[test]
+fn test_python_ssrf_aiohttp_top_level_request_alias_fires() {
+    let source = r#"from flask import Flask, request
+import aiohttp as ah
+
+app = Flask(__name__)
+
+@app.route("/fetch")
+async def fetch():
+    url = request.args.get("url")
+    return await ah.request("GET", url)
+"#;
+    let result = run_taint_python_single(source, "app.py", BTreeSet::from([1]));
+    assert!(
+        has_taint_sink_on(&result, 9),
+        "aiohttp.request should treat arg1 as the tainted URL"
+    );
+}
+
+#[test]
+fn test_python_ssrf_aiohttp_direct_client_session_post_fires() {
+    let source = r#"from flask import Flask, request
+import aiohttp
+
+app = Flask(__name__)
+
+@app.route("/fetch")
+async def fetch():
+    url = request.args.get("url")
+    return await aiohttp.ClientSession().post(url)
+"#;
+    let result = run_taint_python_single(source, "app.py", BTreeSet::from([1]));
+    assert!(
+        has_taint_sink_on(&result, 9),
+        "direct aiohttp ClientSession().post should fire on tainted URL"
+    );
+}
+
+#[test]
+fn test_python_ssrf_urllib3_poolmanager_request_fires() {
+    let source = r#"from flask import Flask, request
+import urllib3
+
+app = Flask(__name__)
+
+@app.route("/fetch")
+def fetch():
+    url = request.args.get("url")
+    http = urllib3.PoolManager()
+    return http.request("GET", url)
+"#;
+    let result = run_taint_python_single(source, "app.py", BTreeSet::from([1]));
+    assert!(
+        has_taint_sink_on(&result, 10),
+        "urllib3 PoolManager.request should fire with URL at arg1"
+    );
+}
+
+#[test]
+fn test_python_ssrf_urllib3_poolmanager_allowlist_suppresses() {
+    let source = r#"from flask import Flask, request
+from urllib.parse import urlparse
+import urllib3
+
+ALLOWED_HOSTS = {"example.com"}
+app = Flask(__name__)
+
+@app.route("/fetch")
+def fetch():
+    url = request.args.get("url")
+    parsed = urlparse(url)
+    if parsed.hostname not in ALLOWED_HOSTS:
+        return "blocked"
+    http = urllib3.PoolManager()
+    return http.request("GET", url)
+"#;
+    let result = run_taint_python_single(source, "app.py", BTreeSet::from([1]));
+    assert!(
+        !has_taint_sink(&result),
+        "urlparse hostname allowlist should suppress urllib3 SSRF"
+    );
+}
+
+#[test]
+fn test_python_ssrf_unrelated_request_method_does_not_fire_with_urllib3_import() {
+    let source = r#"from flask import Flask, request
+import urllib3
+
+app = Flask(__name__)
+
+@app.route("/fetch")
+def fetch(client):
+    url = request.args.get("url")
+    return client.request("GET", url)
+"#;
+    let result = run_taint_python_single(source, "app.py", BTreeSet::from([1]));
+    assert!(
+        !has_taint_sink(&result),
+        "urllib3 support must not keep the broad bare .request fallback"
+    );
+}
+
+#[test]
+fn test_python_ssrf_unrelated_get_method_does_not_fire_with_aiohttp_import() {
+    let source = r#"from flask import Flask, request
+import aiohttp
+
+app = Flask(__name__)
+
+@app.route("/fetch")
+def fetch(cache):
+    url = request.args.get("url")
+    return cache.get(url)
+"#;
+    let result = run_taint_python_single(source, "app.py", BTreeSet::from([1]));
+    assert!(
+        !has_taint_sink(&result),
+        "aiohttp support must not turn unrelated .get calls into SSRF sinks"
+    );
+}
+
+#[test]
 fn test_python_yaml_safe_loader_suppresses() {
     let source = r#"from flask import Flask, request
 import yaml
