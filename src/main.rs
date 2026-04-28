@@ -17,6 +17,7 @@ use std::path::PathBuf;
 #[derive(Parser, Debug)]
 #[command(
     name = "slicing",
+    version = env!("CARGO_PKG_VERSION"),
     about = "Code slicing for defect-focused automated code review (arXiv:2505.17928)"
 )]
 struct Cli {

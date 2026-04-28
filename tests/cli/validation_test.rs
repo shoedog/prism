@@ -12,6 +12,15 @@ fn fixture_path(relative: &str) -> String {
 }
 
 #[test]
+fn test_version_flag_reports_package_version() {
+    prism_cmd()
+        .arg("--version")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains(env!("CARGO_PKG_VERSION")));
+}
+
+#[test]
 fn test_relevant_slice_cli() {
     prism_cmd()
         .args([
