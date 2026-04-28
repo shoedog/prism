@@ -273,6 +273,59 @@ def lookup():
 }
 
 #[test]
+fn test_python_flask_inline_request_arg_reaches_template_sink() {
+    let source = r#"from flask import Flask, request, render_template_string
+
+app = Flask(__name__)
+
+@app.route("/profile")
+def profile():
+    return render_template_string("{{ greeting | safe }}", greeting=request.args.get("name"))
+"#;
+    let result = run_taint_python_single(source, "app.py", BTreeSet::from([1]));
+    assert!(
+        has_taint_sink_on(&result, 7),
+        "inline Flask request.args access should taint the template keyword value"
+    );
+}
+
+#[test]
+fn test_python_flask_tuple_assignment_only_taints_matching_request_target() {
+    let source = r#"from flask import Flask, request
+
+app = Flask(__name__)
+
+@app.route("/lookup")
+def lookup():
+    q, other = request.args.get("q"), "literal"
+    cursor.execute(other)
+"#;
+    let result = run_taint_python_single(source, "app.py", BTreeSet::from([1]));
+    assert!(
+        !has_taint_sink_on(&result, 8),
+        "mixed tuple assignment should not taint literal siblings of request-derived values"
+    );
+}
+
+#[test]
+fn test_python_flask_walrus_request_arg_reaches_sql() {
+    let source = r#"from flask import Flask, request
+
+app = Flask(__name__)
+
+@app.route("/lookup")
+def lookup():
+    if (q := request.args.get("q")):
+        cursor.execute(f"SELECT * FROM users WHERE name = '{q}'")
+"#;
+    let result = run_taint_python_single(source, "app.py", BTreeSet::from([1]));
+    assert!(
+        has_taint_sink_on(&result, 8),
+        "walrus-bound Flask request data should seed the bound variable"
+    );
+}
+
+#[test]
 fn test_python_render_template_string_autoescape_safe_no_flat_leak() {
     let source = r#"from flask import Flask, request, render_template_string
 

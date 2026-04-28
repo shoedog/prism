@@ -292,7 +292,7 @@ Eval-team C2 validation accepted Phase 2 and surfaced the next Phase 2.5 priorit
 
 1. **Django `def view(request)` source broadening.** Complete in PR #80. Standalone Django function views with a `request` parameter are modeled as handler source contexts where practical, even without same-file `urlpatterns` / `path()` corroboration.
 2. **`format_html` result-cleansing propagation.** Complete in PR #81. Assigned results from literal-format `format_html(...)` are treated as XSS-cleansed at downstream XSS sinks, with tainted format strings still firing.
-3. **O2 - Gate Flask `request.*` sources.** Phase 2.5 branch scopes Flask `request.*` source seeding to registered route handlers and target-scoped assignment results, without regressing C2 fixtures.
+3. **O2 - Gate Flask `request.*` sources.** Phase 2.5 branch scopes Flask `request.*` source seeding to registered route handlers, target-scoped assignment/walrus results, and inline source==sink arguments without regressing C2 fixtures.
 4. **O4 - aiohttp SSRF sinks.** Add `aiohttp.ClientSession.{get,post,...}` coverage only if eval fixtures or real usage require it.
 
 Already completed: O3 bare `loads` tightening, explicit `cloudpickle` CWE-502 coverage, and `json.loads` negative regression coverage landed in PR #77. O1 AST-based FastAPI receiver/decorator detection landed in PR #78. Multi-line `render_template_string(... | safe ...)` detection landed in PR #79. Django function-view broadening landed in PR #80. `format_html` result-cleansing landed in PR #81.
