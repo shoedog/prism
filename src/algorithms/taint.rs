@@ -1099,6 +1099,7 @@ fn detect_python_framework_sources(
     sources: &mut Vec<TaintSeed>,
 ) {
     let pydantic_models = collect_python_pydantic_models(parsed);
+    let flask_receivers = crate::frameworks::python::flask::route_receivers(parsed);
     // Compute FastAPI route receivers once per file rather than per function;
     // the AST walk is O(tree_size) and `function_has_route_decorator_with_receivers`
     // re-uses the result for each handler check.
@@ -1122,6 +1123,12 @@ fn detect_python_framework_sources(
                 parsed,
                 &func,
                 &fastapi_receivers,
+            );
+        let is_flask_route =
+            crate::frameworks::python::flask::function_has_route_decorator_with_receivers(
+                parsed,
+                &func,
+                &flask_receivers,
             );
         let is_drf_or_django_view = has_request_param
             && (has_django_import_context
@@ -1167,21 +1174,13 @@ fn detect_python_framework_sources(
                     target,
                 ));
             }
-        }
-    }
-
-    if parsed.framework().map(|f| f.name) == Some("flask") {
-        let mut calls = Vec::new();
-        collect_calls(parsed, parsed.tree.root_node(), &mut calls);
-        for call in calls {
-            let actual = match call_path_text(parsed, &call) {
-                Some(s) => s,
-                None => continue,
-            };
-            if python_is_flask_request_source_call(actual.as_str()) {
-                sources.push(TaintSeed::line(
+        } else if is_flask_route {
+            let flask_request_data = python_flask_request_data_sources(parsed, &func);
+            for (source_line, target) in flask_request_data.targets {
+                sources.push(TaintSeed::target(
                     file_path.to_string(),
-                    call.start_position().row + 1,
+                    source_line,
+                    target,
                 ));
             }
         }
@@ -1194,6 +1193,11 @@ struct PythonDjangoRequestDataSources {
     targets: BTreeSet<(usize, AccessPath)>,
 }
 
+#[derive(Default)]
+struct PythonFlaskRequestDataSources {
+    targets: BTreeSet<(usize, AccessPath)>,
+}
+
 fn python_django_request_data_sources(
     parsed: &ParsedFile,
     func: &Node<'_>,
@@ -1201,6 +1205,66 @@ fn python_django_request_data_sources(
     let mut sources = PythonDjangoRequestDataSources::default();
     collect_django_request_data_sources(parsed, *func, &mut sources);
     sources
+}
+
+fn python_flask_request_data_sources(
+    parsed: &ParsedFile,
+    func: &Node<'_>,
+) -> PythonFlaskRequestDataSources {
+    let mut sources = PythonFlaskRequestDataSources::default();
+    collect_flask_request_data_sources(parsed, *func, &mut sources);
+    sources
+}
+
+fn collect_flask_request_data_sources(
+    parsed: &ParsedFile,
+    node: Node<'_>,
+    sources: &mut PythonFlaskRequestDataSources,
+) {
+    if parsed.language.is_assignment_node(node.kind()) {
+        if let (Some(lhs), Some(rhs)) = (
+            parsed.language.assignment_target(&node),
+            parsed.language.assignment_value(&node),
+        ) {
+            if node_contains_flask_request_data_access(parsed, rhs) {
+                collect_flask_request_targets(parsed, lhs, node.start_position().row + 1, sources);
+            }
+        }
+        return;
+    }
+
+    let mut cursor = node.walk();
+    for child in node.named_children(&mut cursor) {
+        collect_flask_request_data_sources(parsed, child, sources);
+    }
+}
+
+fn collect_flask_request_targets(
+    parsed: &ParsedFile,
+    node: Node<'_>,
+    line: usize,
+    sources: &mut PythonFlaskRequestDataSources,
+) {
+    match node.kind() {
+        "identifier" => {
+            let name = parsed.node_text(&node);
+            if name != "_" {
+                sources.targets.insert((line, AccessPath::simple(name)));
+            }
+        }
+        "pattern_list"
+        | "tuple_pattern"
+        | "list_pattern"
+        | "tuple"
+        | "list"
+        | "parenthesized_expression" => {
+            let mut cursor = node.walk();
+            for child in node.named_children(&mut cursor) {
+                collect_flask_request_targets(parsed, child, line, sources);
+            }
+        }
+        _ => {}
+    }
 }
 
 fn collect_django_request_data_sources(
@@ -1254,6 +1318,29 @@ fn node_contains_django_request_data_access(parsed: &ParsedFile, node: Node<'_>)
     false
 }
 
+fn node_contains_flask_request_data_access(parsed: &ParsedFile, node: Node<'_>) -> bool {
+    if parsed.language.is_call_node(node.kind()) {
+        if let Some(path) = call_path_text(parsed, &node) {
+            if python_is_flask_request_source_call(path.trim()) {
+                return true;
+            }
+        }
+    }
+    if node.kind() == "attribute" {
+        let text = parsed.node_text(&node);
+        if python_is_flask_request_data_access(text.trim()) {
+            return true;
+        }
+    }
+    let mut cursor = node.walk();
+    for child in node.named_children(&mut cursor) {
+        if node_contains_flask_request_data_access(parsed, child) {
+            return true;
+        }
+    }
+    false
+}
+
 fn collect_bare_identifier_targets(
     parsed: &ParsedFile,
     node: Node<'_>,
@@ -1285,13 +1372,18 @@ fn python_is_django_request_data_access(path: &str) -> bool {
 }
 
 fn python_is_flask_request_source_call(path: &str) -> bool {
+    python_is_flask_request_data_access(path)
+        || matches!(path, "request.get_json" | "request.get_data")
+}
+
+fn python_is_flask_request_data_access(path: &str) -> bool {
     const ACCESSORS: &[&str] = &[
-        "args", "form", "values", "cookies", "headers", "files", "json",
+        "args", "form", "values", "cookies", "headers", "files", "json", "data",
     ];
     ACCESSORS.iter().any(|accessor| {
-        let prefix = format!("request.{accessor}.");
-        path.starts_with(&prefix)
-    }) || matches!(path, "request.get_json" | "request.get_data")
+        let prefix = format!("request.{accessor}");
+        path == prefix || path.starts_with(&format!("{prefix}."))
+    })
 }
 
 fn python_looks_like_standalone_django_view(parsed: &ParsedFile, func: &Node<'_>) -> bool {
@@ -1412,7 +1504,6 @@ fn synthesize_target_seed_paths(seeds: &[TaintSeed], ctx: &CpgContext, paths: &m
         } else {
             None
         };
-        let refs = parsed.find_variable_references_scoped(&func, &target.base, seed.line);
         let from = VarLocation {
             file: seed.file.clone(),
             function: func_name.clone(),
@@ -1421,25 +1512,55 @@ fn synthesize_target_seed_paths(seeds: &[TaintSeed], ctx: &CpgContext, paths: &m
             kind: VarAccessKind::Def,
         };
         let mut edges = Vec::new();
-        for ref_line in refs {
-            if ref_line <= seed.line {
+        let reachable_dfg = ctx.cpg.dfg_forward_reachable(&from);
+        for target_loc in reachable_dfg {
+            if target_loc.file == seed.file
+                && target_loc.function == func_name
+                && target_loc.line <= seed.line
+            {
                 continue;
             }
             if let Some(cfg_set) = &reachable {
-                if !cfg_set.contains(&(seed.file.clone(), ref_line)) {
+                if target_loc.file == seed.file
+                    && target_loc.function == func_name
+                    && !reference_line_cfg_reachable(
+                        parsed,
+                        &func,
+                        &seed.file,
+                        target_loc.line,
+                        cfg_set,
+                    )
+                {
                     continue;
                 }
             }
             edges.push(FlowEdge {
                 from: from.clone(),
-                to: VarLocation {
-                    file: seed.file.clone(),
-                    function: func_name.clone(),
-                    line: ref_line,
-                    path: AccessPath::simple(target.base.clone()),
-                    kind: VarAccessKind::Use,
-                },
+                to: target_loc,
             });
+        }
+        if edges.is_empty() {
+            let refs = parsed.find_variable_references_scoped(&func, &target.base, seed.line);
+            for ref_line in refs {
+                if ref_line <= seed.line {
+                    continue;
+                }
+                if let Some(cfg_set) = &reachable {
+                    if !reference_line_cfg_reachable(parsed, &func, &seed.file, ref_line, cfg_set) {
+                        continue;
+                    }
+                }
+                edges.push(FlowEdge {
+                    from: from.clone(),
+                    to: VarLocation {
+                        file: seed.file.clone(),
+                        function: func_name.clone(),
+                        line: ref_line,
+                        path: AccessPath::simple(target.base.clone()),
+                        kind: VarAccessKind::Use,
+                    },
+                });
+            }
         }
         if !edges.is_empty() {
             paths.push(FlowPath {
@@ -1448,6 +1569,49 @@ fn synthesize_target_seed_paths(seeds: &[TaintSeed], ctx: &CpgContext, paths: &m
             });
         }
     }
+}
+
+fn reference_line_cfg_reachable(
+    parsed: &ParsedFile,
+    func: &Node<'_>,
+    file: &str,
+    ref_line: usize,
+    cfg_set: &BTreeSet<(String, usize)>,
+) -> bool {
+    if cfg_set.contains(&(file.to_string(), ref_line)) {
+        return true;
+    }
+    reachable_multiline_node_contains_line(parsed, *func, file, ref_line, cfg_set)
+}
+
+fn reachable_multiline_node_contains_line(
+    parsed: &ParsedFile,
+    node: Node<'_>,
+    file: &str,
+    ref_line: usize,
+    cfg_set: &BTreeSet<(String, usize)>,
+) -> bool {
+    if !node_contains_line(&node, ref_line) {
+        return false;
+    }
+
+    let start_line = node.start_position().row + 1;
+    if start_line < ref_line
+        && cfg_set.contains(&(file.to_string(), start_line))
+        && (parsed.language.is_call_node(node.kind())
+            || parsed.language.is_assignment_node(node.kind())
+            || matches!(node.kind(), "return_statement" | "expression_statement"))
+    {
+        return true;
+    }
+
+    let mut cursor = node.walk();
+    for child in node.named_children(&mut cursor) {
+        if reachable_multiline_node_contains_line(parsed, child, file, ref_line, cfg_set) {
+            return true;
+        }
+    }
+    false
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

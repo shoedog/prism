@@ -216,6 +216,63 @@ def lookup_view(request):
 }
 
 #[test]
+fn test_python_flask_route_request_args_reaches_sql() {
+    let source = r#"from flask import Flask, request
+
+app = Flask(__name__)
+
+@app.route("/lookup")
+def lookup():
+    q = request.args.get("q")
+    cursor.execute(f"SELECT * FROM users WHERE name = '{q}'")
+"#;
+    let result = run_taint_python_single(source, "app.py", BTreeSet::from([1]));
+    assert!(
+        has_taint_sink_on(&result, 8),
+        "Flask route request.args assignment should reach SQL sink"
+    );
+}
+
+#[test]
+fn test_python_flask_request_source_is_route_scoped() {
+    let source = r#"from flask import Flask, request
+
+app = Flask(__name__)
+
+@app.route("/")
+def index():
+    return "ok"
+
+def helper():
+    q = request.args.get("q")
+    cursor.execute(f"SELECT * FROM users WHERE name = '{q}'")
+"#;
+    let result = run_taint_python_single(source, "app.py", BTreeSet::from([1]));
+    assert!(
+        !has_taint_sink_on(&result, 11),
+        "Flask request.* outside registered route handlers should not seed taint"
+    );
+}
+
+#[test]
+fn test_python_flask_request_data_does_not_taint_same_line_literal_assignment() {
+    let source = r#"from flask import Flask, request
+
+app = Flask(__name__)
+
+@app.route("/lookup")
+def lookup():
+    q = request.args.get("q"); other = "literal"
+    cursor.execute(other)
+"#;
+    let result = run_taint_python_single(source, "app.py", BTreeSet::from([1]));
+    assert!(
+        !has_taint_sink_on(&result, 8),
+        "Flask request data should taint the assigned target, not unrelated same-line defs"
+    );
+}
+
+#[test]
 fn test_python_render_template_string_autoescape_safe_no_flat_leak() {
     let source = r#"from flask import Flask, request, render_template_string
 
