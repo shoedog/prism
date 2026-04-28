@@ -40,8 +40,8 @@ Eval-team C2 validation accepted Phase 2: 8/10 vulnerable fixtures fire as expec
 | Item | Status |
 |---|---|
 | Multi-line `render_template_string(... \| safe ...)` detection | Complete in PR #79. |
-| Django `def view(request)` source broadening | In progress on Phase 2.5 branch; standalone function views with `request.GET` / `request.POST` style data accessors are modeled with target-scoped assignment seeds and no same-file URL-pattern requirement; generic non-view helpers are not treated as Django sources. |
-| `format_html` result-cleansing propagation | Deferred follow-up; final-call safe shape remains covered. |
+| Django `def view(request)` source broadening | Complete in PR #80. Standalone function views with `request.GET` / `request.POST` style data accessors are modeled with target-scoped assignment seeds and no same-file URL-pattern requirement; generic non-view helpers are not treated as Django sources. |
+| `format_html` result-cleansing propagation | In progress on Phase 2.5 branch; assigned results from literal-format `format_html(...)` are treated as XSS-cleansed at downstream XSS sinks, while tainted format strings still fire. |
 | Cloudpickle + bare `loads` tightening | Complete in PR #77. |
 | AST-based FastAPI receiver/decorator detection | Complete in PR #78. |
 
@@ -49,7 +49,7 @@ Eval-team C2 validation accepted Phase 2: 8/10 vulnerable fixtures fire as expec
 
 - Pydantic is coarse variable-scoped, not field-sensitive.
 - External Jinja2 template file parsing is out of scope; inline `render_template_string` semantics are modeled.
-- `format_html("literal", tainted)` is safe at the call site; result-cleansing propagation remains Phase 2.5.
+- `format_html("literal", tainted)` is safe at the call site, and intraprocedural assigned-result cleansing is modeled for downstream XSS sinks. Cross-function/result-alias precision remains out of scope.
 - Python source==sink fallback remains Go-only because the Go fallback intentionally skips per-arg DFG for inline framework-source calls. Python coverage relies on target-scoped seeds or normal DFG paths to avoid broad literal-arg false positives.
 - Cross-function sanitizer proof beyond existing DFG/CPG behavior remains out of scope.
 - FastAPI receiver/decorator detection was upgraded in the Phase 2.5 O1 cleanup to AST-scoped assignment/decorator traversal for canonical, type-annotated, and tuple receiver bindings. Other Python framework detection remains intentionally lean unless eval or real fixtures surface gaps.
