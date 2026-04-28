@@ -1110,11 +1110,13 @@ fn detect_python_framework_sources(
         let line = func.start_position().row + 1;
         let params = python_function_params(parsed, &func);
         let has_request_param = params.iter().any(|param| param.name == "request");
-        let django_request_data_lines = if has_request_param {
-            python_django_request_data_access_lines(parsed, &func)
+        let django_request_data = if has_request_param {
+            python_django_request_data_sources(parsed, &func)
         } else {
-            BTreeSet::new()
+            PythonDjangoRequestDataSources::default()
         };
+        let has_django_import_context =
+            parsed.source.contains("django") || parsed.source.contains("rest_framework");
         let is_fastapi_route =
             crate::frameworks::python::fastapi::function_has_route_decorator_with_receivers(
                 parsed,
@@ -1122,9 +1124,9 @@ fn detect_python_framework_sources(
                 &fastapi_receivers,
             );
         let is_drf_or_django_view = has_request_param
-            && (parsed.source.contains("django")
-                || parsed.source.contains("rest_framework")
-                || !django_request_data_lines.is_empty());
+            && (has_django_import_context
+                || (django_request_data.has_access
+                    && python_looks_like_standalone_django_view(parsed, &func)));
 
         if is_fastapi_route {
             for param in &params {
@@ -1158,64 +1160,147 @@ fn detect_python_framework_sources(
                     ));
                 }
             }
-            for source_line in django_request_data_lines {
-                sources.push(TaintSeed::line(file_path.to_string(), source_line));
+            for (source_line, target) in django_request_data.targets {
+                sources.push(TaintSeed::target(
+                    file_path.to_string(),
+                    source_line,
+                    target,
+                ));
             }
         }
     }
 
-    let mut calls = Vec::new();
-    collect_calls(parsed, parsed.tree.root_node(), &mut calls);
-    for call in calls {
-        let actual = match call_path_text(parsed, &call) {
-            Some(s) => s,
-            None => continue,
-        };
-        if actual.starts_with("request.")
-            || actual == "request.get_json"
-            || actual == "request.get_data"
-        {
-            sources.push(TaintSeed::line(
-                file_path.to_string(),
-                call.start_position().row + 1,
-            ));
+    if parsed.framework().map(|f| f.name) == Some("flask") {
+        let mut calls = Vec::new();
+        collect_calls(parsed, parsed.tree.root_node(), &mut calls);
+        for call in calls {
+            let actual = match call_path_text(parsed, &call) {
+                Some(s) => s,
+                None => continue,
+            };
+            if python_is_flask_request_source_call(actual.as_str()) {
+                sources.push(TaintSeed::line(
+                    file_path.to_string(),
+                    call.start_position().row + 1,
+                ));
+            }
         }
     }
 }
 
-fn python_django_request_data_access_lines(
-    parsed: &ParsedFile,
-    func: &Node<'_>,
-) -> BTreeSet<usize> {
-    let mut lines = BTreeSet::new();
-    collect_django_request_data_access_lines(parsed, *func, &mut lines);
-    lines
+#[derive(Default)]
+struct PythonDjangoRequestDataSources {
+    has_access: bool,
+    targets: BTreeSet<(usize, AccessPath)>,
 }
 
-fn collect_django_request_data_access_lines(
+fn python_django_request_data_sources(
+    parsed: &ParsedFile,
+    func: &Node<'_>,
+) -> PythonDjangoRequestDataSources {
+    let mut sources = PythonDjangoRequestDataSources::default();
+    collect_django_request_data_sources(parsed, *func, &mut sources);
+    sources
+}
+
+fn collect_django_request_data_sources(
     parsed: &ParsedFile,
     node: Node<'_>,
-    lines: &mut BTreeSet<usize>,
+    sources: &mut PythonDjangoRequestDataSources,
 ) {
+    if parsed.language.is_assignment_node(node.kind()) {
+        if let (Some(lhs), Some(rhs)) = (
+            parsed.language.assignment_target(&node),
+            parsed.language.assignment_value(&node),
+        ) {
+            if node_contains_django_request_data_access(parsed, rhs) {
+                sources.has_access = true;
+                collect_bare_identifier_targets(
+                    parsed,
+                    lhs,
+                    node.start_position().row + 1,
+                    sources,
+                );
+            }
+        }
+    }
+
     if node.kind() == "attribute" {
         let text = parsed.node_text(&node);
         if python_is_django_request_data_access(text.trim()) {
-            lines.insert(node.start_position().row + 1);
+            sources.has_access = true;
         }
     }
 
     let mut cursor = node.walk();
     for child in node.named_children(&mut cursor) {
-        collect_django_request_data_access_lines(parsed, child, lines);
+        collect_django_request_data_sources(parsed, child, sources);
+    }
+}
+
+fn node_contains_django_request_data_access(parsed: &ParsedFile, node: Node<'_>) -> bool {
+    if node.kind() == "attribute" {
+        let text = parsed.node_text(&node);
+        if python_is_django_request_data_access(text.trim()) {
+            return true;
+        }
+    }
+    let mut cursor = node.walk();
+    for child in node.named_children(&mut cursor) {
+        if node_contains_django_request_data_access(parsed, child) {
+            return true;
+        }
+    }
+    false
+}
+
+fn collect_bare_identifier_targets(
+    parsed: &ParsedFile,
+    node: Node<'_>,
+    line: usize,
+    sources: &mut PythonDjangoRequestDataSources,
+) {
+    match node.kind() {
+        "identifier" => {
+            sources
+                .targets
+                .insert((line, AccessPath::simple(parsed.node_text(&node))));
+        }
+        "pattern_list" | "tuple_pattern" | "list_pattern" | "tuple" | "list" => {
+            let mut cursor = node.walk();
+            for child in node.named_children(&mut cursor) {
+                collect_bare_identifier_targets(parsed, child, line, sources);
+            }
+        }
+        _ => {}
     }
 }
 
 fn python_is_django_request_data_access(path: &str) -> bool {
-    const ACCESSORS: &[&str] = &["GET", "POST", "FILES", "COOKIES", "META", "body"];
+    const ACCESSORS: &[&str] = &["GET", "POST", "FILES", "COOKIES", "META", "body", "method"];
     ACCESSORS.iter().any(|accessor| {
         let prefix = format!("request.{accessor}");
         path == prefix || path.starts_with(&format!("{prefix}."))
     })
+}
+
+fn python_is_flask_request_source_call(path: &str) -> bool {
+    const ACCESSORS: &[&str] = &[
+        "args", "form", "values", "cookies", "headers", "files", "json",
+    ];
+    ACCESSORS.iter().any(|accessor| {
+        let prefix = format!("request.{accessor}.");
+        path.starts_with(&prefix)
+    }) || matches!(path, "request.get_json" | "request.get_data")
+}
+
+fn python_looks_like_standalone_django_view(parsed: &ParsedFile, func: &Node<'_>) -> bool {
+    parsed.path.ends_with("views.py")
+        || parsed
+            .language
+            .function_name(func)
+            .map(|name| parsed.node_text(&name).contains("view"))
+            .unwrap_or(false)
 }
 
 fn python_is_inner_decorated_function(func: &Node<'_>) -> bool {
@@ -3294,6 +3379,7 @@ pub fn slice(
     taint_seeds.dedup();
     let taint_sources: Vec<(String, usize)> = taint_seeds
         .iter()
+        .filter(|s| s.target.is_none())
         .map(|s| (s.file.clone(), s.line))
         .collect::<BTreeSet<_>>()
         .into_iter()
@@ -3306,6 +3392,7 @@ pub fn slice(
     // suppress flat substring matches on lines positively identified as sources.
     let framework_source_set: BTreeSet<(String, usize)> = framework_sources
         .iter()
+        .filter(|s| s.target.is_none())
         .map(|s| (s.file.clone(), s.line))
         .collect();
 
