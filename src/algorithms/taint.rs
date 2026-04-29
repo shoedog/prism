@@ -705,6 +705,436 @@ pub const PY_CWE502_SINKS: &[SinkPattern] = &[
     },
 ];
 
+fn js_spawn_uses_shell_true(call: &CallSite) -> bool {
+    call.call_node
+        .utf8_text(call.source.as_bytes())
+        .is_ok_and(|text| text.contains("shell") && text.contains("true"))
+}
+
+fn js_yaml_load_uses_unsafe_schema(call: &CallSite) -> bool {
+    call.call_node
+        .utf8_text(call.source.as_bytes())
+        .map_or(true, |text| !js_yaml_load_text_uses_safe_schema(text))
+}
+
+fn js_yaml_load_text_uses_safe_schema(text: &str) -> bool {
+    js_text_top_level_call_args(text)
+        .get(1)
+        .is_some_and(|arg| js_yaml_schema_arg_is_safe(arg))
+}
+
+fn js_yaml_schema_arg_is_safe(arg: &str) -> bool {
+    let arg = arg.trim();
+    js_yaml_schema_expr_is_exact_safe(arg)
+        || js_trusted_object_property_value_text(arg, "schema")
+            .is_some_and(js_yaml_schema_expr_is_exact_safe)
+}
+
+fn js_yaml_schema_expr_is_exact_safe(expr: &str) -> bool {
+    let expr = expr.trim().trim_end_matches(';').trim();
+    matches!(expr, "SAFE_SCHEMA" | "FAILSAFE_SCHEMA" | "JSON_SCHEMA")
+        || ["SAFE_SCHEMA", "FAILSAFE_SCHEMA", "JSON_SCHEMA"]
+            .iter()
+            .any(|schema| {
+                expr.strip_suffix(schema)
+                    .and_then(|prefix| prefix.strip_suffix('.'))
+                    .is_some_and(|prefix| {
+                        !prefix.is_empty()
+                            && prefix.chars().all(|c| {
+                                c.is_ascii_alphanumeric() || c == '_' || c == '$' || c == '.'
+                            })
+                    })
+            })
+}
+
+fn js_trusted_object_property_value_text<'a>(object_text: &'a str, key: &str) -> Option<&'a str> {
+    let object_text = object_text.trim();
+    let inner = object_text.strip_prefix('{')?.strip_suffix('}')?;
+    let mut value = None;
+    for prop in js_split_top_level_commas(inner) {
+        if prop.is_empty() {
+            continue;
+        }
+        if prop.trim_start().starts_with("...") {
+            return None;
+        }
+        let Some(colon) = js_find_top_level_colon(prop) else {
+            continue;
+        };
+        let prop_key_text = prop[..colon].trim();
+        if prop_key_text.starts_with('[') {
+            return None;
+        }
+        let prop_key = prop_key_text.trim_matches(['"', '\'', '`']);
+        if prop_key == key {
+            if value.is_some() {
+                return None;
+            }
+            value = Some(prop[colon + 1..].trim());
+        }
+    }
+    value
+}
+
+fn js_text_top_level_call_args(text: &str) -> Vec<&str> {
+    let Some(open) = text.find('(') else {
+        return Vec::new();
+    };
+    let body = &text[open + 1..];
+    let mut depth = 0usize;
+    let mut start = 0usize;
+    let mut quote = None;
+    let mut escape = false;
+    let mut args = Vec::new();
+
+    for (idx, ch) in body.char_indices() {
+        if let Some(q) = quote {
+            if escape {
+                escape = false;
+            } else if ch == '\\' {
+                escape = true;
+            } else if ch == q {
+                quote = None;
+            }
+            continue;
+        }
+        match ch {
+            '"' | '\'' | '`' => quote = Some(ch),
+            '(' | '[' | '{' => depth += 1,
+            ')' if depth == 0 => {
+                args.push(body[start..idx].trim());
+                return args;
+            }
+            ')' | ']' | '}' => depth = depth.saturating_sub(1),
+            ',' if depth == 0 => {
+                args.push(body[start..idx].trim());
+                start = idx + ch.len_utf8();
+            }
+            _ => {}
+        }
+    }
+    args
+}
+
+fn js_split_top_level_commas(text: &str) -> Vec<&str> {
+    let mut depth = 0usize;
+    let mut start = 0usize;
+    let mut quote = None;
+    let mut escape = false;
+    let mut parts = Vec::new();
+
+    for (idx, ch) in text.char_indices() {
+        if let Some(q) = quote {
+            if escape {
+                escape = false;
+            } else if ch == '\\' {
+                escape = true;
+            } else if ch == q {
+                quote = None;
+            }
+            continue;
+        }
+        match ch {
+            '"' | '\'' | '`' => quote = Some(ch),
+            '(' | '[' | '{' => depth += 1,
+            ')' | ']' | '}' => depth = depth.saturating_sub(1),
+            ',' if depth == 0 => {
+                parts.push(text[start..idx].trim());
+                start = idx + ch.len_utf8();
+            }
+            _ => {}
+        }
+    }
+    parts.push(text[start..].trim());
+    parts
+}
+
+fn js_find_top_level_colon(text: &str) -> Option<usize> {
+    let mut depth = 0usize;
+    let mut quote = None;
+    let mut escape = false;
+    for (idx, ch) in text.char_indices() {
+        if let Some(q) = quote {
+            if escape {
+                escape = false;
+            } else if ch == '\\' {
+                escape = true;
+            } else if ch == q {
+                quote = None;
+            }
+            continue;
+        }
+        match ch {
+            '"' | '\'' | '`' => quote = Some(ch),
+            '(' | '[' | '{' => depth += 1,
+            ')' | ']' | '}' => depth = depth.saturating_sub(1),
+            ':' if depth == 0 => return Some(idx),
+            _ => {}
+        }
+    }
+    None
+}
+
+fn js_sql_call_is_not_parametrized(call: &CallSite) -> bool {
+    call.call_node
+        .utf8_text(call.source.as_bytes())
+        .map_or(true, |text| {
+            !(text.contains("bind") || text.contains("parameters"))
+        })
+}
+
+pub const JS_CWE79_SINKS: &[SinkPattern] = &[
+    SinkPattern {
+        call_path: "insertAdjacentHTML",
+        category: SanitizerCategory::Xss,
+        tainted_arg_indices: &[1],
+        semantic_check: None,
+    },
+    SinkPattern {
+        call_path: "dangerouslySetInnerHTML",
+        category: SanitizerCategory::Xss,
+        tainted_arg_indices: &[0],
+        semantic_check: None,
+    },
+];
+
+pub const JS_CWE89_SINKS: &[SinkPattern] = &[
+    SinkPattern {
+        call_path: "query",
+        category: SanitizerCategory::Sqli,
+        tainted_arg_indices: &[0],
+        semantic_check: Some(js_sql_call_is_not_parametrized),
+    },
+    SinkPattern {
+        call_path: "execute",
+        category: SanitizerCategory::Sqli,
+        tainted_arg_indices: &[0],
+        semantic_check: Some(js_sql_call_is_not_parametrized),
+    },
+    SinkPattern {
+        call_path: "raw",
+        category: SanitizerCategory::Sqli,
+        tainted_arg_indices: &[0],
+        semantic_check: None,
+    },
+    SinkPattern {
+        call_path: "literal",
+        category: SanitizerCategory::Sqli,
+        tainted_arg_indices: &[0],
+        semantic_check: None,
+    },
+    SinkPattern {
+        call_path: "$where",
+        category: SanitizerCategory::Sqli,
+        tainted_arg_indices: &[0],
+        semantic_check: None,
+    },
+    SinkPattern {
+        call_path: "$queryRawUnsafe",
+        category: SanitizerCategory::Sqli,
+        tainted_arg_indices: &[0],
+        semantic_check: None,
+    },
+    SinkPattern {
+        call_path: "$executeRawUnsafe",
+        category: SanitizerCategory::Sqli,
+        tainted_arg_indices: &[0],
+        semantic_check: None,
+    },
+];
+
+pub const JS_CWE918_SINKS: &[SinkPattern] = &[
+    SinkPattern {
+        call_path: "fetch",
+        category: SanitizerCategory::Ssrf,
+        tainted_arg_indices: &[0],
+        semantic_check: None,
+    },
+    SinkPattern {
+        call_path: "get",
+        category: SanitizerCategory::Ssrf,
+        tainted_arg_indices: &[0],
+        semantic_check: None,
+    },
+    SinkPattern {
+        call_path: "post",
+        category: SanitizerCategory::Ssrf,
+        tainted_arg_indices: &[0],
+        semantic_check: None,
+    },
+    SinkPattern {
+        call_path: "request",
+        category: SanitizerCategory::Ssrf,
+        tainted_arg_indices: &[0, 1],
+        semantic_check: None,
+    },
+    SinkPattern {
+        call_path: "axios",
+        category: SanitizerCategory::Ssrf,
+        tainted_arg_indices: &[0],
+        semantic_check: None,
+    },
+    SinkPattern {
+        call_path: "got",
+        category: SanitizerCategory::Ssrf,
+        tainted_arg_indices: &[0],
+        semantic_check: None,
+    },
+];
+
+pub const JS_CWE502_SINKS: &[SinkPattern] = &[
+    SinkPattern {
+        call_path: "unserialize",
+        category: SanitizerCategory::Deserialization,
+        tainted_arg_indices: &[0],
+        semantic_check: None,
+    },
+    SinkPattern {
+        call_path: "yaml.load",
+        category: SanitizerCategory::Deserialization,
+        tainted_arg_indices: &[0],
+        semantic_check: Some(js_yaml_load_uses_unsafe_schema),
+    },
+    SinkPattern {
+        call_path: "deserialize",
+        category: SanitizerCategory::Deserialization,
+        tainted_arg_indices: &[0],
+        semantic_check: None,
+    },
+    SinkPattern {
+        call_path: "eval",
+        category: SanitizerCategory::Deserialization,
+        tainted_arg_indices: &[0],
+        semantic_check: None,
+    },
+    SinkPattern {
+        call_path: "Function",
+        category: SanitizerCategory::Deserialization,
+        tainted_arg_indices: &[0],
+        semantic_check: None,
+    },
+    SinkPattern {
+        call_path: "runInNewContext",
+        category: SanitizerCategory::Deserialization,
+        tainted_arg_indices: &[0],
+        semantic_check: None,
+    },
+    SinkPattern {
+        call_path: "runInThisContext",
+        category: SanitizerCategory::Deserialization,
+        tainted_arg_indices: &[0],
+        semantic_check: None,
+    },
+    SinkPattern {
+        call_path: "runInContext",
+        category: SanitizerCategory::Deserialization,
+        tainted_arg_indices: &[0],
+        semantic_check: None,
+    },
+    SinkPattern {
+        call_path: "Script",
+        category: SanitizerCategory::Deserialization,
+        tainted_arg_indices: &[0],
+        semantic_check: None,
+    },
+];
+
+pub const JS_CWE78_SINKS: &[SinkPattern] = &[
+    SinkPattern {
+        call_path: "exec",
+        category: SanitizerCategory::OsCommand,
+        tainted_arg_indices: &[0],
+        semantic_check: None,
+    },
+    SinkPattern {
+        call_path: "execSync",
+        category: SanitizerCategory::OsCommand,
+        tainted_arg_indices: &[0],
+        semantic_check: None,
+    },
+    SinkPattern {
+        call_path: "spawn",
+        category: SanitizerCategory::OsCommand,
+        tainted_arg_indices: &[0, 1],
+        semantic_check: Some(js_spawn_uses_shell_true),
+    },
+    SinkPattern {
+        call_path: "spawnSync",
+        category: SanitizerCategory::OsCommand,
+        tainted_arg_indices: &[0, 1],
+        semantic_check: Some(js_spawn_uses_shell_true),
+    },
+];
+
+pub const JS_CWE22_SINKS: &[SinkPattern] = &[
+    SinkPattern {
+        call_path: "readFile",
+        category: SanitizerCategory::PathTraversal,
+        tainted_arg_indices: &[0],
+        semantic_check: None,
+    },
+    SinkPattern {
+        call_path: "readFileSync",
+        category: SanitizerCategory::PathTraversal,
+        tainted_arg_indices: &[0],
+        semantic_check: None,
+    },
+    SinkPattern {
+        call_path: "writeFile",
+        category: SanitizerCategory::PathTraversal,
+        tainted_arg_indices: &[0],
+        semantic_check: None,
+    },
+    SinkPattern {
+        call_path: "writeFileSync",
+        category: SanitizerCategory::PathTraversal,
+        tainted_arg_indices: &[0],
+        semantic_check: None,
+    },
+    SinkPattern {
+        call_path: "createReadStream",
+        category: SanitizerCategory::PathTraversal,
+        tainted_arg_indices: &[0],
+        semantic_check: None,
+    },
+    SinkPattern {
+        call_path: "createWriteStream",
+        category: SanitizerCategory::PathTraversal,
+        tainted_arg_indices: &[0],
+        semantic_check: None,
+    },
+    SinkPattern {
+        call_path: "unlink",
+        category: SanitizerCategory::PathTraversal,
+        tainted_arg_indices: &[0],
+        semantic_check: None,
+    },
+    SinkPattern {
+        call_path: "rm",
+        category: SanitizerCategory::PathTraversal,
+        tainted_arg_indices: &[0],
+        semantic_check: None,
+    },
+    SinkPattern {
+        call_path: "rename",
+        category: SanitizerCategory::PathTraversal,
+        tainted_arg_indices: &[0, 1],
+        semantic_check: None,
+    },
+    SinkPattern {
+        call_path: "sendFile",
+        category: SanitizerCategory::PathTraversal,
+        tainted_arg_indices: &[0],
+        semantic_check: None,
+    },
+    SinkPattern {
+        call_path: "download",
+        category: SanitizerCategory::PathTraversal,
+        tainted_arg_indices: &[0],
+        semantic_check: None,
+    },
+];
+
 /// GLib/D-Bus IPC accessor patterns.
 ///
 /// These function-call patterns read values from IPC messages (D-Bus) or
@@ -1064,6 +1494,13 @@ fn go_call_path_text(parsed: &ParsedFile, call_node: &Node<'_>) -> Option<String
     call_path_text(parsed, call_node)
 }
 
+fn is_js_ts_language(language: Language) -> bool {
+    matches!(
+        language,
+        Language::JavaScript | Language::TypeScript | Language::Tsx
+    )
+}
+
 /// Walk `root` collecting every call node for the file's language.
 fn collect_calls<'a>(parsed: &ParsedFile, node: Node<'a>, out: &mut Vec<Node<'a>>) {
     if parsed.language.is_call_node(node.kind()) {
@@ -1092,6 +1529,9 @@ fn detect_framework_sources(ctx: &CpgContext) -> Vec<TaintSeed> {
         match parsed.language {
             Language::Go => detect_go_framework_sources(file_path, parsed, &mut sources),
             Language::Python => detect_python_framework_sources(file_path, parsed, &mut sources),
+            Language::JavaScript | Language::TypeScript | Language::Tsx => {
+                detect_js_ts_framework_sources(file_path, parsed, &mut sources)
+            }
             _ => {}
         }
     }
@@ -1144,6 +1584,374 @@ fn detect_go_framework_sources(file_path: &str, parsed: &ParsedFile, sources: &m
                 }
             }
         }
+    }
+}
+
+fn detect_js_ts_framework_sources(
+    file_path: &str,
+    parsed: &ParsedFile,
+    sources: &mut Vec<TaintSeed>,
+) {
+    let framework = match parsed.framework() {
+        Some(spec) => spec.name,
+        None => return,
+    };
+    if !matches!(framework, "nestjs" | "fastify" | "express" | "koa") {
+        return;
+    }
+
+    for func in parsed.all_functions() {
+        let line = func.start_position().row + 1;
+        let params = js_ts_function_params(parsed, &func);
+        if params.is_empty() {
+            continue;
+        }
+
+        let source_params = js_ts_framework_source_params(parsed, &func, framework, &params);
+        if source_params.is_empty() {
+            continue;
+        }
+
+        for param in &source_params {
+            sources.push(TaintSeed::target(
+                file_path.to_string(),
+                line,
+                AccessPath::simple(param.as_str()),
+            ));
+        }
+
+        let assignment_sources =
+            js_ts_request_data_assignment_sources(parsed, &func, framework, &source_params);
+        for (source_line, target) in assignment_sources {
+            sources.push(TaintSeed::target(
+                file_path.to_string(),
+                source_line,
+                target,
+            ));
+        }
+    }
+}
+
+#[derive(Clone)]
+struct JsTsParam {
+    name: String,
+    text: String,
+}
+
+fn js_ts_function_params(parsed: &ParsedFile, func: &Node<'_>) -> Vec<JsTsParam> {
+    let params = match find_js_ts_parameters_node(*func) {
+        Some(n) => n,
+        None => return Vec::new(),
+    };
+    let mut out = Vec::new();
+    let mut cursor = params.walk();
+    for child in params.named_children(&mut cursor) {
+        if let Some(name) = js_ts_param_name(parsed, &child) {
+            out.push(JsTsParam {
+                name,
+                text: parsed.node_text(&child).to_string(),
+            });
+        }
+    }
+    out
+}
+
+fn find_js_ts_parameters_node(node: Node<'_>) -> Option<Node<'_>> {
+    if let Some(params) = node.child_by_field_name("parameters") {
+        return Some(params);
+    }
+    let mut cursor = node.walk();
+    let found = node
+        .named_children(&mut cursor)
+        .find(|child| child.kind() == "formal_parameters");
+    found
+}
+
+fn js_ts_param_name(parsed: &ParsedFile, param: &Node<'_>) -> Option<String> {
+    for field in ["pattern", "name", "parameter", "left"] {
+        if let Some(node) = param.child_by_field_name(field) {
+            if let Some(name) = js_ts_first_identifier(parsed, node) {
+                return Some(name);
+            }
+        }
+    }
+    if parsed.language.is_identifier_node(param.kind()) {
+        return Some(parsed.node_text(param).to_string());
+    }
+    let mut names = Vec::new();
+    collect_identifier_names(parsed, *param, &mut names);
+    names.into_iter().find(|name| {
+        !matches!(
+            name.as_str(),
+            "Body"
+                | "Query"
+                | "Param"
+                | "Headers"
+                | "Req"
+                | "Request"
+                | "Get"
+                | "Post"
+                | "Put"
+                | "Patch"
+                | "Delete"
+                | "All"
+        )
+    })
+}
+
+fn js_ts_first_identifier(parsed: &ParsedFile, node: Node<'_>) -> Option<String> {
+    if parsed.language.is_identifier_node(node.kind()) {
+        return Some(parsed.node_text(&node).to_string());
+    }
+    let mut cursor = node.walk();
+    for child in node.named_children(&mut cursor) {
+        if let Some(name) = js_ts_first_identifier(parsed, child) {
+            return Some(name);
+        }
+    }
+    None
+}
+
+fn collect_identifier_names(parsed: &ParsedFile, node: Node<'_>, out: &mut Vec<String>) {
+    if parsed.language.is_identifier_node(node.kind()) {
+        out.push(parsed.node_text(&node).to_string());
+        return;
+    }
+    let mut cursor = node.walk();
+    for child in node.named_children(&mut cursor) {
+        collect_identifier_names(parsed, child, out);
+    }
+}
+
+fn js_ts_framework_source_params(
+    parsed: &ParsedFile,
+    func: &Node<'_>,
+    framework: &str,
+    params: &[JsTsParam],
+) -> BTreeSet<String> {
+    let mut out = BTreeSet::new();
+    match framework {
+        "nestjs" => {
+            if !js_ts_has_route_decorator(parsed, func) {
+                return out;
+            }
+            for param in params {
+                if js_ts_param_has_nest_source_decorator(&param.text) {
+                    out.insert(param.name.clone());
+                }
+            }
+        }
+        "fastify" => {
+            if let Some(first) = params.first() {
+                if matches!(first.name.as_str(), "request" | "req") {
+                    out.insert(first.name.clone());
+                }
+            }
+        }
+        "express" => {
+            if params.len() >= 2
+                && matches!(params[0].name.as_str(), "req" | "request")
+                && matches!(params[1].name.as_str(), "res" | "response")
+            {
+                out.insert(params[0].name.clone());
+            }
+        }
+        "koa" => {
+            if let Some(first) = params.first() {
+                if first.name == "ctx" || first.name == "context" {
+                    out.insert(first.name.clone());
+                }
+            }
+        }
+        _ => {}
+    }
+    out
+}
+
+fn js_ts_param_has_nest_source_decorator(text: &str) -> bool {
+    ["@Body", "@Query", "@Param", "@Headers", "@Req", "@Request"]
+        .iter()
+        .any(|needle| text.contains(needle))
+}
+
+fn js_ts_has_route_decorator(parsed: &ParsedFile, func: &Node<'_>) -> bool {
+    let mut current = Some(*func);
+    while let Some(node) = current {
+        let text = parsed.node_text(&node);
+        if [
+            "@Get",
+            "@Post",
+            "@Put",
+            "@Patch",
+            "@Delete",
+            "@All",
+            "@Controller",
+        ]
+        .iter()
+        .any(|needle| text.contains(needle))
+        {
+            return true;
+        }
+        current = node.parent();
+    }
+    false
+}
+
+fn js_ts_request_data_assignment_sources(
+    parsed: &ParsedFile,
+    func: &Node<'_>,
+    framework: &str,
+    source_params: &BTreeSet<String>,
+) -> BTreeSet<(usize, AccessPath)> {
+    let mut out = BTreeSet::new();
+    collect_js_ts_request_assignments(parsed, *func, framework, source_params, &mut out);
+    out
+}
+
+fn collect_js_ts_request_assignments(
+    parsed: &ParsedFile,
+    node: Node<'_>,
+    framework: &str,
+    source_params: &BTreeSet<String>,
+    out: &mut BTreeSet<(usize, AccessPath)>,
+) {
+    if node.kind() == "variable_declarator" {
+        if let (Some(lhs), Some(rhs)) = (
+            node.child_by_field_name("name"),
+            node.child_by_field_name("value"),
+        ) {
+            collect_js_ts_request_assignment_targets(
+                parsed,
+                lhs,
+                rhs,
+                framework,
+                source_params,
+                out,
+            );
+        }
+        return;
+    }
+
+    if parsed.language.is_assignment_node(node.kind()) {
+        if let (Some(lhs), Some(rhs)) = (
+            parsed.language.assignment_target(&node),
+            parsed.language.assignment_value(&node),
+        ) {
+            collect_js_ts_request_assignment_targets(
+                parsed,
+                lhs,
+                rhs,
+                framework,
+                source_params,
+                out,
+            );
+        }
+        return;
+    }
+
+    let mut cursor = node.walk();
+    for child in node.named_children(&mut cursor) {
+        collect_js_ts_request_assignments(parsed, child, framework, source_params, out);
+    }
+}
+
+fn collect_js_ts_request_assignment_targets(
+    parsed: &ParsedFile,
+    lhs: Node<'_>,
+    rhs: Node<'_>,
+    framework: &str,
+    source_params: &BTreeSet<String>,
+    out: &mut BTreeSet<(usize, AccessPath)>,
+) {
+    if !node_contains_js_ts_source_access(parsed, rhs, framework, source_params) {
+        return;
+    }
+    let line = rhs.start_position().row + 1;
+    collect_js_ts_lhs_targets(parsed, lhs, line, out);
+}
+
+fn collect_js_ts_lhs_targets(
+    parsed: &ParsedFile,
+    node: Node<'_>,
+    line: usize,
+    out: &mut BTreeSet<(usize, AccessPath)>,
+) {
+    match node.kind() {
+        "identifier" | "shorthand_property_identifier_pattern" => {
+            let name = parsed.node_text(&node);
+            if name != "_" {
+                out.insert((line, AccessPath::simple(name)));
+            }
+        }
+        "member_expression" => {
+            out.insert((line, AccessPath::from_expr(parsed.node_text(&node))));
+        }
+        _ => {
+            let mut cursor = node.walk();
+            for child in node.named_children(&mut cursor) {
+                collect_js_ts_lhs_targets(parsed, child, line, out);
+            }
+        }
+    }
+}
+
+fn node_contains_js_ts_source_access(
+    parsed: &ParsedFile,
+    node: Node<'_>,
+    framework: &str,
+    source_params: &BTreeSet<String>,
+) -> bool {
+    let text = parsed.node_text(&node);
+    if source_params
+        .iter()
+        .any(|param| js_ts_source_access_text_matches(text, framework, param))
+    {
+        return true;
+    }
+    let mut cursor = node.walk();
+    for child in node.named_children(&mut cursor) {
+        if node_contains_js_ts_source_access(parsed, child, framework, source_params) {
+            return true;
+        }
+    }
+    false
+}
+
+fn js_ts_source_access_text_matches(text: &str, framework: &str, param: &str) -> bool {
+    let text = text.trim();
+    match framework {
+        "nestjs" => {
+            text == param
+                || text.starts_with(&format!("{}.", param))
+                || text.starts_with(&format!("{}[", param))
+        }
+        "fastify" => ["body", "query", "params", "headers"].iter().any(|field| {
+            text == format!("{}.{}", param, field)
+                || text.starts_with(&format!("{}.{}.", param, field))
+                || text.starts_with(&format!("{}.{}[", param, field))
+        }),
+        "express" => ["body", "query", "params", "headers", "cookies"]
+            .iter()
+            .any(|field| {
+                text == format!("{}.{}", param, field)
+                    || text.starts_with(&format!("{}.{}.", param, field))
+                    || text.starts_with(&format!("{}.{}[", param, field))
+            }),
+        "koa" => {
+            ["query", "params", "headers", "cookies"]
+                .iter()
+                .any(|field| {
+                    text == format!("{}.{}", param, field)
+                        || text.starts_with(&format!("{}.{}.", param, field))
+                        || text.starts_with(&format!("{}.{}[", param, field))
+                })
+                || ["body", "headers"].iter().any(|field| {
+                    text == format!("{}.request.{}", param, field)
+                        || text.starts_with(&format!("{}.request.{}.", param, field))
+                        || text.starts_with(&format!("{}.request.{}[", param, field))
+                })
+        }
+        _ => false,
     }
 }
 
@@ -1681,34 +2489,143 @@ fn synthesize_target_seed_paths(seeds: &[TaintSeed], ctx: &CpgContext, paths: &m
                 to: target_loc,
             });
         }
-        if edges.is_empty() {
-            let refs = parsed.find_variable_references_scoped(&func, &target.base, seed.line);
-            for ref_line in refs {
-                if ref_line <= seed.line {
-                    continue;
-                }
-                if let Some(cfg_set) = &reachable {
-                    if !reference_line_cfg_reachable(parsed, &func, &seed.file, ref_line, cfg_set) {
-                        continue;
-                    }
-                }
-                edges.push(FlowEdge {
-                    from: from.clone(),
-                    to: VarLocation {
-                        file: seed.file.clone(),
-                        function: func_name.clone(),
-                        line: ref_line,
-                        path: AccessPath::simple(target.base.clone()),
-                        kind: VarAccessKind::Use,
-                    },
-                });
-            }
-        }
+        let synth_ctx = TargetSeedSynthesisContext {
+            seed,
+            parsed,
+            func,
+            func_name: &func_name,
+            target,
+            reachable: reachable.as_ref(),
+            from: &from,
+        };
+        synthesize_js_ts_assignment_alias_edges(&synth_ctx, &mut edges);
+        synthesize_direct_target_reference_edges(&synth_ctx, &mut edges);
         if !edges.is_empty() {
             paths.push(FlowPath {
                 edges,
                 cleansed_for: BTreeSet::new(),
             });
+        }
+    }
+}
+
+struct TargetSeedSynthesisContext<'a> {
+    seed: &'a TaintSeed,
+    parsed: &'a ParsedFile,
+    func: Node<'a>,
+    func_name: &'a str,
+    target: &'a AccessPath,
+    reachable: Option<&'a BTreeSet<(String, usize)>>,
+    from: &'a VarLocation,
+}
+
+fn synthesize_direct_target_reference_edges(
+    ctx: &TargetSeedSynthesisContext<'_>,
+    edges: &mut Vec<FlowEdge>,
+) {
+    let refs =
+        ctx.parsed
+            .find_variable_references_scoped(&ctx.func, &ctx.target.base, ctx.seed.line);
+    for ref_line in refs {
+        if ref_line <= ctx.seed.line {
+            continue;
+        }
+        if let Some(cfg_set) = ctx.reachable {
+            if !reference_line_cfg_reachable(
+                ctx.parsed,
+                &ctx.func,
+                &ctx.seed.file,
+                ref_line,
+                cfg_set,
+            ) {
+                continue;
+            }
+        }
+        if edges.iter().any(|edge| {
+            edge.to.file == ctx.seed.file
+                && edge.to.line == ref_line
+                && edge.to.var_name() == ctx.target.base
+        }) {
+            continue;
+        }
+        edges.push(FlowEdge {
+            from: ctx.from.clone(),
+            to: VarLocation {
+                file: ctx.seed.file.clone(),
+                function: ctx.func_name.to_string(),
+                line: ref_line,
+                path: AccessPath::simple(ctx.target.base.clone()),
+                kind: VarAccessKind::Use,
+            },
+        });
+    }
+}
+
+fn synthesize_js_ts_assignment_alias_edges(
+    ctx: &TargetSeedSynthesisContext<'_>,
+    edges: &mut Vec<FlowEdge>,
+) {
+    if !is_js_ts_language(ctx.parsed.language) {
+        return;
+    }
+
+    let mut assignments = Vec::new();
+    collect_js_ts_assignment_like_nodes(ctx.func, ctx.parsed, &mut assignments);
+    for assignment in assignments {
+        let assignment_line = assignment.start_position().row + 1;
+        if assignment_line <= ctx.seed.line {
+            continue;
+        }
+        if let Some(cfg_set) = ctx.reachable {
+            if !reference_line_cfg_reachable(
+                ctx.parsed,
+                &ctx.func,
+                &ctx.seed.file,
+                assignment_line,
+                cfg_set,
+            ) {
+                continue;
+            }
+        }
+        let Some((lhs, rhs)) = js_ts_assignment_target_and_value(ctx.parsed, &assignment) else {
+            continue;
+        };
+        if !node_contains_identifier(ctx.parsed, &rhs, &ctx.target.base) {
+            continue;
+        }
+        for alias in assignment_lhs_identifiers(ctx.parsed, &lhs) {
+            if alias == "_" {
+                continue;
+            }
+            let refs =
+                ctx.parsed
+                    .find_variable_references_scoped(&ctx.func, &alias, assignment_line);
+            for ref_line in refs {
+                if ref_line <= assignment_line {
+                    continue;
+                }
+                if let Some(cfg_set) = ctx.reachable {
+                    if !reference_line_cfg_reachable(
+                        ctx.parsed,
+                        &ctx.func,
+                        &ctx.seed.file,
+                        ref_line,
+                        cfg_set,
+                    ) {
+                        continue;
+                    }
+                }
+                edges.push(FlowEdge {
+                    from: ctx.from.clone(),
+                    to: VarLocation {
+                        file: ctx.seed.file.clone(),
+                        function: ctx.func_name.to_string(),
+                        line: ref_line,
+                        path: AccessPath::simple(alias.clone()),
+                        kind: VarAccessKind::Use,
+                    },
+                });
+            }
         }
     }
 }
@@ -1793,7 +2710,13 @@ enum SinkMatchOutcome {
 }
 
 fn call_arg_node<'a>(call: &Node<'a>, arg_idx: usize) -> Option<Node<'a>> {
-    let arguments = call.child_by_field_name("arguments")?;
+    let arguments = call.child_by_field_name("arguments").or_else(|| {
+        let mut cursor = call.walk();
+        let found = call
+            .named_children(&mut cursor)
+            .find(|child| child.kind() == "arguments");
+        found
+    })?;
     let mut cursor = arguments.walk();
     let arg = arguments.named_children(&mut cursor).nth(arg_idx);
     arg
@@ -1805,9 +2728,13 @@ fn call_literal_arg(parsed: &ParsedFile, call: &Node<'_>, arg_idx: usize) -> Opt
     if matches!(
         arg.kind(),
         "interpreted_string_literal" | "raw_string_literal" | "string"
-    ) || ((text.starts_with('"') || text.starts_with('\'')) && text.len() >= 2)
+    ) || ((text.starts_with('"') || text.starts_with('\'') || text.starts_with('`'))
+        && text.len() >= 2)
     {
-        let quote_idx = text.find(['"', '\'']).unwrap_or(0);
+        if text.starts_with('`') && text.contains("${") {
+            return None;
+        }
+        let quote_idx = text.find(['"', '\'', '`']).unwrap_or(0);
         let prefix = &text[..quote_idx];
         if prefix.chars().any(|c| c == 'f' || c == 'F') {
             return None;
@@ -1887,9 +2814,13 @@ fn arg_node_taints_match(
         | "rune_literal"
         | "int_literal"
         | "float_literal"
+        | "number"
+        | "string"
         | "imaginary_literal"
         | "true"
         | "false"
+        | "null"
+        | "undefined"
         | "nil" => false,
 
         // Bare identifier — direct check with file scoping.
@@ -2077,6 +3008,11 @@ struct UrlSanitizerBinding {
     call_line: usize,
 }
 
+struct JsTsPathSanitizerBinding {
+    result_var: String,
+    call_line: usize,
+}
+
 struct SafeFormatHtmlBinding {
     result_var: String,
     call_line: usize,
@@ -2140,6 +3076,31 @@ fn flow_path_cleansed_for_sink_call(
             return python_ssrf_cleansed_for_sink(parsed, cpg, path, sink_line, sink_pat, call);
         }
     }
+    if is_js_ts_language(parsed.language) {
+        if sink_pat.category == SanitizerCategory::Sqli
+            && js_ts_sql_call_is_parametrized(parsed, call)
+        {
+            return true;
+        }
+        if sink_pat.category == SanitizerCategory::Deserialization
+            && js_ts_yaml_load_uses_safe_schema(parsed, call)
+        {
+            return true;
+        }
+        if sink_pat.category == SanitizerCategory::Ssrf {
+            return js_ts_ssrf_cleansed_for_sink(parsed, cpg, path, sink_line, sink_pat, call);
+        }
+        if sink_pat.category == SanitizerCategory::PathTraversal
+            && js_ts_path_traversal_cleansed_for_sink(parsed, cpg, path, sink_line, sink_pat, call)
+        {
+            return true;
+        }
+        if sink_pat.category == SanitizerCategory::OsCommand
+            && js_ts_exec_file_is_literal_binary(parsed, call)
+        {
+            return true;
+        }
+    }
     path.cleansed_for.contains(&sink_pat.category)
 }
 
@@ -2197,6 +3158,36 @@ fn structured_sink_line_cleansed_for_path(
         }
 
         return matched;
+    }
+
+    if is_js_ts_language(parsed.language) {
+        let mut calls = Vec::new();
+        collect_calls(parsed, parsed.tree.root_node(), &mut calls);
+
+        let mut matched = false;
+        for call in &calls {
+            if !node_contains_line(call, line) {
+                continue;
+            }
+            let actual = match call_path_text(parsed, call) {
+                Some(s) => s,
+                None => continue,
+            };
+            if !sink_call_path_matches(parsed, call, &actual, sink_pat)
+                || !call_passes_sink_semantics(parsed, call, sink_pat)
+            {
+                continue;
+            }
+            if !sink_call_has_tainted_arg_in_path(parsed, call, sink_pat, path) {
+                continue;
+            }
+            matched = true;
+            if !flow_path_cleansed_for_sink_call(parsed, cpg, path, line, sink_pat, call) {
+                return false;
+            }
+        }
+
+        return matched || path.cleansed_for.contains(&sink_pat.category);
     }
 
     if parsed.language != Language::Go || sink_pat.category != SanitizerCategory::PathTraversal {
@@ -2809,8 +3800,15 @@ fn line_matches_structured_sink(
     collect_calls(parsed, parsed.tree.root_node(), &mut calls);
     let mut had_call_path_match = false;
     for call in &calls {
-        let call_line = call.start_position().row + 1;
-        if call_line != line {
+        let call_on_line = if matches!(
+            parsed.language,
+            Language::Python | Language::JavaScript | Language::TypeScript | Language::Tsx
+        ) {
+            node_contains_line(call, line)
+        } else {
+            call.start_position().row + 1 == line
+        };
+        if !call_on_line {
             continue;
         }
         let actual = match go_call_path_text(parsed, call) {
@@ -2867,6 +3865,12 @@ fn call_path_matches(parsed: &ParsedFile, actual: &str, expected: &str) -> bool 
                 .rsplit('.')
                 .next()
                 .is_some_and(|tail| tail == expected))
+        || (is_js_ts_language(parsed.language)
+            && !expected.contains('.')
+            && actual
+                .rsplit('.')
+                .next()
+                .is_some_and(|tail| tail == expected))
 }
 
 fn sink_call_path_matches(
@@ -2875,6 +3879,9 @@ fn sink_call_path_matches(
     actual: &str,
     sink_pat: &'static SinkPattern,
 ) -> bool {
+    if is_js_ts_language(parsed.language) && sink_pat.category == SanitizerCategory::Ssrf {
+        return js_ts_ssrf_sink_call_path_matches(parsed, actual, sink_pat.call_path);
+    }
     if call_path_matches(parsed, actual, sink_pat.call_path) {
         return true;
     }
@@ -2891,6 +3898,28 @@ fn sink_call_path_matches(
         return false;
     };
     python_is_aiohttp_client_session_method_call(parsed, call, method)
+}
+
+fn js_ts_ssrf_sink_call_path_matches(parsed: &ParsedFile, actual: &str, expected: &str) -> bool {
+    if call_path_matches(parsed, actual, expected)
+        && !matches!(expected, "get" | "post" | "request")
+    {
+        return true;
+    }
+    if !matches!(expected, "get" | "post" | "request") {
+        return false;
+    }
+    let Some((receiver, method)) = actual.rsplit_once('.') else {
+        return false;
+    };
+    if method != expected {
+        return false;
+    }
+    let receiver_tail = receiver.rsplit('.').next().unwrap_or(receiver);
+    matches!(
+        receiver_tail,
+        "axios" | "got" | "superagent" | "http" | "https" | "undici" | "nodeFetch"
+    )
 }
 
 fn python_is_aiohttp_request_call(parsed: &ParsedFile, call: &Node<'_>) -> bool {
@@ -3348,7 +4377,89 @@ fn structured_sink_outcome(
     match parsed.language {
         Language::Go => go_sink_outcome(parsed, line, path),
         Language::Python => python_sink_outcome(parsed, line, path),
+        Language::JavaScript | Language::TypeScript | Language::Tsx => {
+            js_ts_sink_outcome(parsed, line, path)
+        }
         _ => SinkMatchOutcome::NoMatch,
+    }
+}
+
+fn js_ts_sink_outcome(
+    parsed: &ParsedFile,
+    line: usize,
+    path: Option<&FlowPath>,
+) -> SinkMatchOutcome {
+    if let Some(outcome) = js_ts_dangerously_set_inner_html_outcome(parsed, line, path) {
+        return outcome;
+    }
+
+    let mut any_call_path_match = false;
+    for pat in JS_CWE79_SINKS
+        .iter()
+        .chain(JS_CWE89_SINKS.iter())
+        .chain(JS_CWE918_SINKS.iter())
+        .chain(JS_CWE502_SINKS.iter())
+        .chain(JS_CWE78_SINKS.iter())
+        .chain(JS_CWE22_SINKS.iter())
+    {
+        if pat.call_path == "dangerouslySetInnerHTML" {
+            continue;
+        }
+        match line_matches_structured_sink(parsed, line, pat, path) {
+            SinkMatchOutcome::Match(p) => return SinkMatchOutcome::Match(p),
+            SinkMatchOutcome::SemanticallyExcluded => any_call_path_match = true,
+            SinkMatchOutcome::NoMatch => {}
+        }
+    }
+    if any_call_path_match {
+        SinkMatchOutcome::SemanticallyExcluded
+    } else {
+        SinkMatchOutcome::NoMatch
+    }
+}
+
+fn js_ts_dangerously_set_inner_html_outcome(
+    parsed: &ParsedFile,
+    line: usize,
+    path: Option<&FlowPath>,
+) -> Option<SinkMatchOutcome> {
+    let pat = JS_CWE79_SINKS
+        .iter()
+        .find(|p| p.call_path == "dangerouslySetInnerHTML")?;
+    let mut attrs = Vec::new();
+    collect_nodes_of_kind(parsed.tree.root_node(), "jsx_attribute", &mut attrs);
+    let mut had_attr = false;
+    for attr in &attrs {
+        if !node_contains_line(attr, line) {
+            continue;
+        }
+        let text = parsed.node_text(attr);
+        if !text.contains("dangerouslySetInnerHTML") || !text.contains("__html") {
+            continue;
+        }
+        had_attr = true;
+        if let Some(p) = path {
+            if arg_node_taints_match(parsed, attr, line, p) {
+                return Some(SinkMatchOutcome::Match(pat));
+            }
+        } else {
+            return Some(SinkMatchOutcome::Match(pat));
+        }
+    }
+    if had_attr {
+        Some(SinkMatchOutcome::SemanticallyExcluded)
+    } else {
+        None
+    }
+}
+
+fn collect_nodes_of_kind<'a>(node: Node<'a>, kind: &str, out: &mut Vec<Node<'a>>) {
+    if node.kind() == kind {
+        out.push(node);
+    }
+    let mut cursor = node.walk();
+    for child in node.named_children(&mut cursor) {
+        collect_nodes_of_kind(child, kind, out);
     }
 }
 
@@ -3730,6 +4841,951 @@ fn python_yaml_load_uses_safe_loader(parsed: &ParsedFile, call: &Node<'_>) -> bo
     false
 }
 
+fn js_ts_exec_file_is_literal_binary(parsed: &ParsedFile, call: &Node<'_>) -> bool {
+    let actual = match call_path_text(parsed, call) {
+        Some(s) => s,
+        None => return false,
+    };
+    if !call_path_matches(parsed, &actual, "execFile")
+        && !call_path_matches(parsed, &actual, "execFileSync")
+    {
+        return false;
+    }
+    let Some(binary) = call_literal_arg(parsed, call, 0) else {
+        return false;
+    };
+    match js_ts_literal_binary_kind(&binary) {
+        JsTsLiteralBinaryKind::Shell => return false,
+        JsTsLiteralBinaryKind::Interpreter => {
+            if !js_ts_exec_file_interpreter_argv_is_inspectably_safe(parsed, call) {
+                return false;
+            }
+        }
+        JsTsLiteralBinaryKind::Other => {}
+    }
+    !js_ts_exec_file_shell_option_is_unsafe(parsed, call)
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum JsTsLiteralBinaryKind {
+    Shell,
+    Interpreter,
+    Other,
+}
+
+fn js_ts_literal_binary_kind(binary: &str) -> JsTsLiteralBinaryKind {
+    let basename = binary
+        .rsplit(['/', '\\'])
+        .next()
+        .unwrap_or(binary)
+        .to_ascii_lowercase();
+    if matches!(
+        basename.as_str(),
+        "sh" | "bash"
+            | "dash"
+            | "zsh"
+            | "ksh"
+            | "csh"
+            | "fish"
+            | "cmd"
+            | "cmd.exe"
+            | "pwsh"
+            | "powershell"
+            | "powershell.exe"
+    ) {
+        return JsTsLiteralBinaryKind::Shell;
+    }
+    if matches!(
+        basename.as_str(),
+        "node" | "node.exe" | "python" | "python3" | "python.exe" | "perl" | "ruby" | "php"
+    ) {
+        return JsTsLiteralBinaryKind::Interpreter;
+    }
+    JsTsLiteralBinaryKind::Other
+}
+
+fn js_ts_exec_file_interpreter_argv_is_inspectably_safe(
+    parsed: &ParsedFile,
+    call: &Node<'_>,
+) -> bool {
+    let Some(argv) = call_arg_node(call, 1) else {
+        return true;
+    };
+    let argv = unwrap_parenthesized(argv);
+    if argv.kind() != "array" {
+        return false;
+    }
+    let mut cursor = argv.walk();
+    for arg in argv.named_children(&mut cursor) {
+        let Some(value) = js_ts_literal_string_value(parsed, &arg) else {
+            return false;
+        };
+        if js_ts_interpreter_eval_flag(&value) {
+            return false;
+        }
+    }
+    true
+}
+
+fn js_ts_exec_file_shell_option_is_unsafe(parsed: &ParsedFile, call: &Node<'_>) -> bool {
+    let call_line = call.start_position().row + 1;
+    (1..=3).any(|arg_idx| match call_arg_node(call, arg_idx) {
+        Some(arg) if arg_idx == 1 && js_ts_exec_file_arg_is_argv_or_callback(&arg) => false,
+        Some(arg) if js_ts_exec_file_arg_is_callback(&arg) => false,
+        Some(arg) => js_ts_node_has_unsafe_shell_option(parsed, &arg, call_line),
+        None => false,
+    })
+}
+
+fn js_ts_exec_file_arg_is_argv_or_callback(arg: &Node<'_>) -> bool {
+    let arg = unwrap_parenthesized(*arg);
+    arg.kind() == "array" || js_ts_exec_file_arg_is_callback(&arg)
+}
+
+fn js_ts_exec_file_arg_is_callback(arg: &Node<'_>) -> bool {
+    let arg = unwrap_parenthesized(*arg);
+    matches!(
+        arg.kind(),
+        "function" | "function_expression" | "arrow_function"
+    )
+}
+
+fn js_ts_node_has_unsafe_shell_option(
+    parsed: &ParsedFile,
+    node: &Node<'_>,
+    before_line: usize,
+) -> bool {
+    let node = unwrap_parenthesized(*node);
+    let text = parsed.node_text(&node);
+    if text.trim_start().starts_with('{') && js_ts_object_text_has_unsafe_shell_option(text) {
+        return true;
+    }
+    if node.kind() != "identifier" {
+        return true;
+    }
+    js_ts_identifier_bound_to_unsafe_shell_options(parsed, parsed.node_text(&node), before_line)
+}
+
+fn js_ts_identifier_bound_to_unsafe_shell_options(
+    parsed: &ParsedFile,
+    var_name: &str,
+    before_line: usize,
+) -> bool {
+    let mut assignments = Vec::new();
+    collect_js_ts_assignment_like_nodes(parsed.tree.root_node(), parsed, &mut assignments);
+
+    let mut saw_inspectable_safe_options = false;
+    for assignment in assignments {
+        if assignment.start_position().row + 1 >= before_line {
+            continue;
+        }
+        let Some((lhs, rhs)) = js_ts_assignment_target_and_value(parsed, &assignment) else {
+            continue;
+        };
+        if !assignment_lhs_identifiers(parsed, &lhs)
+            .iter()
+            .any(|name| name == var_name)
+        {
+            continue;
+        }
+        let rhs_text = parsed.node_text(&rhs);
+        if !rhs_text.trim_start().starts_with('{') {
+            return true;
+        }
+        if js_ts_object_text_has_unsafe_shell_option(rhs_text) {
+            return true;
+        }
+        saw_inspectable_safe_options = true;
+    }
+    !saw_inspectable_safe_options
+        || js_ts_shell_options_have_unsafe_mutation(parsed, var_name, before_line)
+}
+
+fn js_ts_shell_options_have_unsafe_mutation(
+    parsed: &ParsedFile,
+    var_name: &str,
+    before_line: usize,
+) -> bool {
+    let receiver_names = js_ts_collection_aliases_before(parsed, var_name, before_line);
+    let mut assignments = Vec::new();
+    collect_js_ts_assignment_like_nodes(parsed.tree.root_node(), parsed, &mut assignments);
+    for assignment in assignments {
+        if assignment.start_position().row + 1 >= before_line {
+            continue;
+        }
+        let Some((lhs, _rhs)) = js_ts_assignment_target_and_value(parsed, &assignment) else {
+            continue;
+        };
+        let lhs_text = parsed.node_text(&lhs);
+        if receiver_names.iter().any(|name| {
+            lhs_text.starts_with(&format!("{name}.shell"))
+                || lhs_text.starts_with(&format!("{name}["))
+        }) {
+            return true;
+        }
+    }
+
+    let mut calls = Vec::new();
+    collect_calls(parsed, parsed.tree.root_node(), &mut calls);
+    for call in calls {
+        if call.start_position().row + 1 >= before_line {
+            continue;
+        }
+        let Some(actual) = call_path_text(parsed, &call) else {
+            continue;
+        };
+        if actual != "Object.assign" {
+            continue;
+        }
+        let Some(target) = call_arg_node(&call, 0) else {
+            continue;
+        };
+        let target = unwrap_parenthesized(target);
+        if target.kind() == "identifier" && receiver_names.contains(parsed.node_text(&target)) {
+            return true;
+        }
+    }
+
+    false
+}
+
+fn js_ts_object_text_has_unsafe_shell_option(text: &str) -> bool {
+    let Some(inner) = text
+        .trim()
+        .strip_prefix('{')
+        .and_then(|s| s.strip_suffix('}'))
+    else {
+        return true;
+    };
+    for prop in js_split_top_level_commas(inner) {
+        let prop = prop.trim();
+        if prop.is_empty() {
+            continue;
+        }
+        if prop.starts_with("...") {
+            return true;
+        }
+        let Some(colon) = js_find_top_level_colon(prop) else {
+            if prop.trim_matches(['"', '\'', '`']) == "shell" {
+                return true;
+            }
+            continue;
+        };
+        let prop_key_text = prop[..colon].trim();
+        if prop_key_text.starts_with('[') {
+            return true;
+        }
+        let prop_key = prop_key_text.trim_matches(['"', '\'', '`']);
+        if prop_key == "shell" && prop[colon + 1..].trim() != "false" {
+            return true;
+        }
+    }
+    false
+}
+
+fn js_ts_interpreter_eval_flag(flag: &str) -> bool {
+    matches!(
+        flag,
+        "-c" | "-e" | "-p" | "-r" | "--eval" | "--print" | "--command"
+    )
+}
+
+fn js_ts_literal_string_value(parsed: &ParsedFile, node: &Node<'_>) -> Option<String> {
+    let node = unwrap_parenthesized(*node);
+    let text = parsed.node_text(&node).trim();
+    if !(matches!(node.kind(), "string" | "template_string")
+        || text.starts_with('"')
+        || text.starts_with('\'')
+        || text.starts_with('`'))
+    {
+        return None;
+    }
+    if text.starts_with('`') && text.contains("${") {
+        return None;
+    }
+    text.strip_prefix('"')
+        .and_then(|s| s.strip_suffix('"'))
+        .or_else(|| text.strip_prefix('\'').and_then(|s| s.strip_suffix('\'')))
+        .or_else(|| text.strip_prefix('`').and_then(|s| s.strip_suffix('`')))
+        .map(ToString::to_string)
+}
+
+fn js_ts_yaml_load_uses_safe_schema(parsed: &ParsedFile, call: &Node<'_>) -> bool {
+    let actual = match call_path_text(parsed, call) {
+        Some(s) => s,
+        None => return false,
+    };
+    if !call_path_matches(parsed, &actual, "yaml.load")
+        && !call_path_matches(parsed, &actual, "load")
+    {
+        return false;
+    }
+    let text = parsed.node_text(call);
+    js_yaml_load_text_uses_safe_schema(text)
+}
+
+fn js_ts_sql_call_is_parametrized(parsed: &ParsedFile, call: &Node<'_>) -> bool {
+    let actual = match call_path_text(parsed, call) {
+        Some(s) => s,
+        None => return false,
+    };
+    if !["query", "execute"]
+        .iter()
+        .any(|expected| call_path_matches(parsed, &actual, expected))
+    {
+        return false;
+    }
+    let text = parsed.node_text(call);
+    (text.contains("bind") || text.contains("parameters"))
+        && call_literal_arg(parsed, call, 0)
+            .as_deref()
+            .is_some_and(js_sql_literal_has_placeholder)
+}
+
+fn js_sql_literal_has_placeholder(query: &str) -> bool {
+    query.contains('?')
+        || query.contains("$1")
+        || query.contains("@")
+        || python_sql_literal_has_named_placeholder(query)
+}
+
+fn js_ts_prisma_tagged_template_is_safe(parsed: &ParsedFile, call: &Node<'_>) -> bool {
+    let actual = match call_path_text(parsed, call) {
+        Some(s) => s,
+        None => return false,
+    };
+    (call_path_matches(parsed, &actual, "$queryRaw")
+        || call_path_matches(parsed, &actual, "$executeRaw"))
+        && parsed.node_text(call).contains('`')
+        && !parsed.node_text(call).contains("Prisma.raw")
+}
+
+fn js_ts_ssrf_cleansed_for_sink(
+    parsed: &ParsedFile,
+    cpg: &CodePropertyGraph,
+    path: &FlowPath,
+    sink_line: usize,
+    sink_pat: &'static SinkPattern,
+    sink_call: &Node<'_>,
+) -> bool {
+    if !cpg.has_cfg_edges() {
+        return false;
+    }
+    let func_node = match parsed.enclosing_function(sink_line) {
+        Some(n) => n,
+        None => return false,
+    };
+    for binding in collect_js_ts_url_sanitizer_bindings(parsed, &func_node) {
+        if binding.call_line > sink_line {
+            continue;
+        }
+        if !path_targets_var_at_line(parsed, path, sink_line, &binding.url_var) {
+            continue;
+        }
+        if !sink_call_uses_var_in_tainted_arg(parsed, sink_call, sink_pat, &binding.url_var) {
+            continue;
+        }
+        if js_ts_url_guard_safely_controls_sink(parsed, cpg, path, &func_node, &binding, sink_line)
+        {
+            return true;
+        }
+    }
+    false
+}
+
+fn js_ts_path_traversal_cleansed_for_sink(
+    parsed: &ParsedFile,
+    cpg: &CodePropertyGraph,
+    path: &FlowPath,
+    sink_line: usize,
+    sink_pat: &'static SinkPattern,
+    sink_call: &Node<'_>,
+) -> bool {
+    if !cpg.has_cfg_edges() {
+        return false;
+    }
+    let func_node = match parsed.enclosing_function(sink_line) {
+        Some(n) => n,
+        None => return false,
+    };
+    for binding in collect_js_ts_path_sanitizer_bindings(parsed, &func_node) {
+        if binding.call_line > sink_line {
+            continue;
+        }
+        if !path_targets_var_at_line(parsed, path, sink_line, &binding.result_var) {
+            continue;
+        }
+        if !sink_call_uses_var_in_tainted_arg(parsed, sink_call, sink_pat, &binding.result_var) {
+            continue;
+        }
+        if js_ts_path_guard_safely_controls_sink(parsed, cpg, path, &func_node, &binding, sink_line)
+        {
+            return true;
+        }
+    }
+    false
+}
+
+fn call_or_constructor_path_text(parsed: &ParsedFile, node: &Node<'_>) -> Option<String> {
+    if let Some(path) = call_path_text(parsed, node) {
+        return Some(path);
+    }
+    let constructor = node
+        .child_by_field_name("constructor")
+        .or_else(|| node.child_by_field_name("function"))?;
+    Some(parsed.node_text(&constructor).to_string())
+}
+
+fn collect_js_ts_url_sanitizer_bindings(
+    parsed: &ParsedFile,
+    func_node: &Node<'_>,
+) -> Vec<UrlSanitizerBinding> {
+    let mut assignments = Vec::new();
+    collect_js_ts_assignment_like_nodes(*func_node, parsed, &mut assignments);
+
+    let mut bindings = Vec::new();
+    for assignment in assignments {
+        let (lhs, rhs) = match js_ts_assignment_target_and_value(parsed, &assignment) {
+            Some(parts) => parts,
+            None => continue,
+        };
+        let actual = match call_or_constructor_path_text(parsed, &rhs) {
+            Some(s) => s,
+            None => continue,
+        };
+        if !call_path_matches(parsed, &actual, "URL")
+            && !call_path_matches(parsed, &actual, "URL.parse")
+            && !call_path_matches(parsed, &actual, "url.parse")
+        {
+            continue;
+        }
+        let result_var = match assignment_lhs_identifiers(parsed, &lhs).first() {
+            Some(name) => name.clone(),
+            None => continue,
+        };
+        let url_arg = match call_arg_node(&rhs, 0) {
+            Some(n) => unwrap_parenthesized(n),
+            None => continue,
+        };
+        if url_arg.kind() != "identifier" {
+            continue;
+        }
+        bindings.push(UrlSanitizerBinding {
+            url_var: parsed.node_text(&url_arg).to_string(),
+            result_var,
+            call_line: rhs.start_position().row + 1,
+        });
+    }
+    bindings
+}
+
+fn collect_js_ts_path_sanitizer_bindings(
+    parsed: &ParsedFile,
+    func_node: &Node<'_>,
+) -> Vec<JsTsPathSanitizerBinding> {
+    let mut assignments = Vec::new();
+    collect_js_ts_assignment_like_nodes(*func_node, parsed, &mut assignments);
+
+    let mut bindings = Vec::new();
+    for assignment in assignments {
+        let (lhs, rhs) = match js_ts_assignment_target_and_value(parsed, &assignment) {
+            Some(parts) => parts,
+            None => continue,
+        };
+        let actual = match call_or_constructor_path_text(parsed, &rhs) {
+            Some(s) => s,
+            None => continue,
+        };
+        if !js_ts_path_sanitizer_call_path_matches(parsed, &actual) {
+            continue;
+        }
+        let result_var = match assignment_lhs_identifiers(parsed, &lhs).first() {
+            Some(name) if name != "_" => name.clone(),
+            _ => continue,
+        };
+        bindings.push(JsTsPathSanitizerBinding {
+            result_var,
+            call_line: rhs.start_position().row + 1,
+        });
+    }
+    bindings
+}
+
+fn collect_js_ts_assignment_like_nodes<'a>(
+    node: Node<'a>,
+    parsed: &ParsedFile,
+    out: &mut Vec<Node<'a>>,
+) {
+    if node.kind() == "variable_declarator" || parsed.language.is_assignment_node(node.kind()) {
+        out.push(node);
+    }
+    let mut cursor = node.walk();
+    for child in node.named_children(&mut cursor) {
+        collect_js_ts_assignment_like_nodes(child, parsed, out);
+    }
+}
+
+fn js_ts_assignment_target_and_value<'a>(
+    parsed: &ParsedFile,
+    node: &Node<'a>,
+) -> Option<(Node<'a>, Node<'a>)> {
+    if node.kind() == "variable_declarator" {
+        return Some((
+            node.child_by_field_name("name")?,
+            node.child_by_field_name("value")?,
+        ));
+    }
+    Some((
+        parsed.language.assignment_target(node)?,
+        parsed.language.assignment_value(node)?,
+    ))
+}
+
+fn js_ts_path_sanitizer_call_path_matches(parsed: &ParsedFile, actual: &str) -> bool {
+    [
+        "path.resolve",
+        "path.normalize",
+        "path.relative",
+        "fs.realpathSync",
+        "fs.promises.realpath",
+        "realpath",
+        "realpathSync",
+    ]
+    .iter()
+    .any(|expected| call_path_matches(parsed, actual, expected))
+}
+
+fn js_ts_url_guard_safely_controls_sink(
+    parsed: &ParsedFile,
+    cpg: &CodePropertyGraph,
+    path: &FlowPath,
+    func_node: &Node<'_>,
+    binding: &UrlSanitizerBinding,
+    sink_line: usize,
+) -> bool {
+    let mut guards = Vec::new();
+    collect_if_statements(*func_node, &mut guards);
+
+    for guard in guards {
+        let condition = match guard.child_by_field_name("condition") {
+            Some(n) => n,
+            None => continue,
+        };
+        let control = match classify_js_ts_url_guard(parsed, &condition, binding, path) {
+            Some(c) => c,
+            None => continue,
+        };
+        if js_ts_guard_safely_controls_sink(parsed, cpg, &guard, control, sink_line) {
+            return true;
+        }
+    }
+    false
+}
+
+fn js_ts_path_guard_safely_controls_sink(
+    parsed: &ParsedFile,
+    cpg: &CodePropertyGraph,
+    path: &FlowPath,
+    func_node: &Node<'_>,
+    binding: &JsTsPathSanitizerBinding,
+    sink_line: usize,
+) -> bool {
+    let mut guards = Vec::new();
+    collect_if_statements(*func_node, &mut guards);
+
+    for guard in guards {
+        let condition = match guard.child_by_field_name("condition") {
+            Some(n) => n,
+            None => continue,
+        };
+        let control = match classify_js_ts_path_guard(parsed, &condition, binding, path) {
+            Some(c) => c,
+            None => continue,
+        };
+        if js_ts_guard_safely_controls_sink(parsed, cpg, &guard, control, sink_line) {
+            return true;
+        }
+    }
+    false
+}
+
+fn classify_js_ts_url_guard(
+    parsed: &ParsedFile,
+    condition: &Node<'_>,
+    binding: &UrlSanitizerBinding,
+    path: &FlowPath,
+) -> Option<GuardControl> {
+    let (call, negated) = js_ts_single_guard_call(parsed, condition)?;
+    let actual = call_path_text(parsed, &call)?;
+    let (receiver, method) = actual.rsplit_once('.')?;
+    if !matches!(method, "includes" | "has")
+        || !js_ts_allowlist_receiver_is_trusted(
+            parsed,
+            receiver,
+            path,
+            condition.start_position().row + 1,
+        )
+        || !call_arg_node(&call, 0)
+            .is_some_and(|arg| js_ts_node_is_hostname_for_url_binding(parsed, &arg, binding))
+    {
+        return None;
+    }
+    if negated {
+        Some(GuardControl::RejectBranch)
+    } else {
+        Some(GuardControl::AllowBranch)
+    }
+}
+
+fn classify_js_ts_path_guard(
+    parsed: &ParsedFile,
+    condition: &Node<'_>,
+    binding: &JsTsPathSanitizerBinding,
+    path: &FlowPath,
+) -> Option<GuardControl> {
+    let (call, negated) = js_ts_single_guard_call(parsed, condition)?;
+    let actual = call_path_text(parsed, &call)?;
+    let (receiver, method) = actual.rsplit_once('.')?;
+    if method != "startsWith"
+        || receiver != binding.result_var
+        || !call_arg_node(&call, 0).is_some_and(|arg| {
+            js_ts_path_prefix_arg_is_trusted(parsed, &arg, path, condition.start_position().row + 1)
+        })
+    {
+        return None;
+    }
+    if negated {
+        Some(GuardControl::RejectBranch)
+    } else {
+        Some(GuardControl::AllowBranch)
+    }
+}
+
+fn js_ts_single_guard_call<'a>(
+    parsed: &ParsedFile,
+    condition: &Node<'a>,
+) -> Option<(Node<'a>, bool)> {
+    let condition = unwrap_parenthesized(*condition);
+    let condition_text = parsed.node_text(&condition);
+    if condition_text.contains("&&") || condition_text.contains("||") {
+        return None;
+    }
+    if condition.kind() == "unary_expression" && condition_text.trim_start().starts_with('!') {
+        let child = unwrap_parenthesized(condition.named_child(0)?);
+        return (child.kind() == "call_expression").then_some((child, true));
+    }
+    (condition.kind() == "call_expression").then_some((condition, false))
+}
+
+fn js_ts_allowlist_receiver_is_trusted(
+    parsed: &ParsedFile,
+    receiver: &str,
+    path: &FlowPath,
+    guard_line: usize,
+) -> bool {
+    if !receiver.chars().all(|c| c.is_alphanumeric() || c == '_') {
+        return false;
+    }
+    let lower = receiver.to_ascii_lowercase();
+    if [
+        "block",
+        "deny",
+        "forbid",
+        "reject",
+        "ban",
+        "blacklist",
+        "disallow",
+        "exclude",
+        "invalid",
+        "unsafe",
+        "untrusted",
+        "not_allow",
+        "notallow",
+        "not_safe",
+        "notsafe",
+    ]
+    .iter()
+    .any(|word| lower.contains(word))
+    {
+        return false;
+    }
+    if !["allow", "whitelist", "trusted", "safe"]
+        .iter()
+        .any(|word| lower.contains(word))
+    {
+        return false;
+    }
+    if path
+        .edges
+        .iter()
+        .any(|edge| edge.to.file == parsed.path && edge.to.var_name() == receiver)
+    {
+        return false;
+    }
+    js_ts_identifier_bound_to_literal_collection(parsed, receiver, guard_line)
+}
+
+fn js_ts_identifier_bound_to_literal_collection(
+    parsed: &ParsedFile,
+    var_name: &str,
+    before_line: usize,
+) -> bool {
+    let mut assignments = Vec::new();
+    collect_js_ts_assignment_like_nodes(parsed.tree.root_node(), parsed, &mut assignments);
+
+    let mut saw_literal_collection = false;
+    for assignment in assignments {
+        if assignment.start_position().row + 1 >= before_line {
+            continue;
+        }
+        let Some((lhs, rhs)) = js_ts_assignment_target_and_value(parsed, &assignment) else {
+            continue;
+        };
+        if !assignment_lhs_identifiers(parsed, &lhs)
+            .iter()
+            .any(|name| name == var_name)
+        {
+            continue;
+        }
+        if js_ts_node_is_literal_string_collection(parsed, &rhs) {
+            saw_literal_collection = true;
+        } else {
+            return false;
+        }
+    }
+    saw_literal_collection && !js_ts_collection_has_untrusted_update(parsed, var_name, before_line)
+}
+
+fn js_ts_node_is_literal_string_collection(parsed: &ParsedFile, node: &Node<'_>) -> bool {
+    let node = unwrap_parenthesized(*node);
+    if node.kind() == "array" {
+        let mut cursor = node.walk();
+        return node
+            .named_children(&mut cursor)
+            .all(|child| js_ts_literal_string_value(parsed, &child).is_some());
+    }
+    let Some(actual) = call_or_constructor_path_text(parsed, &node) else {
+        return false;
+    };
+    if !call_path_matches(parsed, &actual, "Set") {
+        return false;
+    }
+    match call_arg_node(&node, 0) {
+        Some(arg) => js_ts_node_is_literal_string_collection(parsed, &arg),
+        None => true,
+    }
+}
+
+fn js_ts_collection_has_untrusted_update(
+    parsed: &ParsedFile,
+    var_name: &str,
+    before_line: usize,
+) -> bool {
+    let receiver_names = js_ts_collection_aliases_before(parsed, var_name, before_line);
+    let mut calls = Vec::new();
+    collect_calls(parsed, parsed.tree.root_node(), &mut calls);
+    for call in calls {
+        if call.start_position().row + 1 >= before_line {
+            continue;
+        }
+        let Some(actual) = call_path_text(parsed, &call) else {
+            continue;
+        };
+        let Some((receiver, method)) = actual.rsplit_once('.') else {
+            continue;
+        };
+        if !receiver_names.contains(receiver)
+            || !matches!(method, "add" | "push" | "unshift" | "splice" | "set")
+        {
+            continue;
+        }
+        if !js_ts_call_args_are_literal_strings(parsed, &call) {
+            return true;
+        }
+    }
+
+    let mut assignments = Vec::new();
+    collect_js_ts_assignment_like_nodes(parsed.tree.root_node(), parsed, &mut assignments);
+    for assignment in assignments {
+        if assignment.start_position().row + 1 >= before_line {
+            continue;
+        }
+        let Some((lhs, rhs)) = js_ts_assignment_target_and_value(parsed, &assignment) else {
+            continue;
+        };
+        let lhs_text = parsed.node_text(&lhs);
+        if !receiver_names.iter().any(|name| {
+            lhs_text.starts_with(&format!("{name}[")) || lhs_text.starts_with(&format!("{name}."))
+        }) {
+            continue;
+        }
+        if js_ts_literal_string_value(parsed, &rhs).is_none() {
+            return true;
+        }
+    }
+
+    false
+}
+
+fn js_ts_collection_aliases_before(
+    parsed: &ParsedFile,
+    var_name: &str,
+    before_line: usize,
+) -> BTreeSet<String> {
+    let mut assignments = Vec::new();
+    collect_js_ts_assignment_like_nodes(parsed.tree.root_node(), parsed, &mut assignments);
+
+    let mut aliases = BTreeSet::new();
+    aliases.insert(var_name.to_string());
+
+    let mut changed = true;
+    while changed {
+        changed = false;
+        for assignment in &assignments {
+            if assignment.start_position().row + 1 >= before_line {
+                continue;
+            }
+            let Some((lhs, rhs)) = js_ts_assignment_target_and_value(parsed, assignment) else {
+                continue;
+            };
+            let rhs = unwrap_parenthesized(rhs);
+            if rhs.kind() != "identifier" || !aliases.contains(parsed.node_text(&rhs)) {
+                continue;
+            }
+            for lhs_name in assignment_lhs_identifiers(parsed, &lhs) {
+                if lhs_name != "_" && aliases.insert(lhs_name) {
+                    changed = true;
+                }
+            }
+        }
+    }
+
+    aliases
+}
+
+fn js_ts_call_args_are_literal_strings(parsed: &ParsedFile, call: &Node<'_>) -> bool {
+    let Some(args) = call.child_by_field_name("arguments") else {
+        return true;
+    };
+    let mut cursor = args.walk();
+    let all_literal = args
+        .named_children(&mut cursor)
+        .all(|arg| js_ts_literal_string_value(parsed, &arg).is_some());
+    all_literal
+}
+
+fn js_ts_node_is_hostname_for_url_binding(
+    parsed: &ParsedFile,
+    node: &Node<'_>,
+    binding: &UrlSanitizerBinding,
+) -> bool {
+    let node = unwrap_parenthesized(*node);
+    parsed.node_text(&node).trim() == format!("{}.hostname", binding.result_var)
+}
+
+fn js_ts_path_prefix_arg_is_trusted(
+    parsed: &ParsedFile,
+    node: &Node<'_>,
+    path: &FlowPath,
+    guard_line: usize,
+) -> bool {
+    let node = unwrap_parenthesized(*node);
+    if let Some(prefix) = js_ts_literal_string_value(parsed, &node) {
+        return js_ts_path_prefix_value_has_boundary(&prefix);
+    }
+    if node.kind() != "identifier" {
+        return false;
+    }
+    let name = parsed.node_text(&node);
+    if path
+        .edges
+        .iter()
+        .any(|edge| edge.to.file == parsed.path && edge.to.var_name() == name)
+    {
+        return false;
+    }
+    js_ts_identifier_literal_string_before(parsed, name, guard_line)
+        .is_some_and(|prefix| js_ts_path_prefix_value_has_boundary(&prefix))
+}
+
+fn js_ts_path_prefix_value_has_boundary(prefix: &str) -> bool {
+    let prefix = prefix.trim();
+    if matches!(prefix, "/" | "\\") {
+        return false;
+    }
+    let bytes = prefix.as_bytes();
+    if bytes.len() == 3
+        && bytes[0].is_ascii_alphabetic()
+        && bytes[1] == b':'
+        && matches!(bytes[2], b'/' | b'\\')
+    {
+        return false;
+    }
+    prefix.ends_with('/') || prefix.ends_with('\\')
+}
+
+fn js_ts_identifier_literal_string_before(
+    parsed: &ParsedFile,
+    var_name: &str,
+    before_line: usize,
+) -> Option<String> {
+    let mut assignments = Vec::new();
+    collect_js_ts_assignment_like_nodes(parsed.tree.root_node(), parsed, &mut assignments);
+
+    let mut literal = None;
+    for assignment in assignments {
+        if assignment.start_position().row + 1 >= before_line {
+            continue;
+        }
+        let Some((lhs, rhs)) = js_ts_assignment_target_and_value(parsed, &assignment) else {
+            continue;
+        };
+        if !assignment_lhs_identifiers(parsed, &lhs)
+            .iter()
+            .any(|name| name == var_name)
+        {
+            continue;
+        }
+        literal = Some(js_ts_literal_string_value(parsed, &rhs)?);
+    }
+    literal
+}
+
+fn js_ts_guard_safely_controls_sink(
+    parsed: &ParsedFile,
+    cpg: &CodePropertyGraph,
+    guard: &Node<'_>,
+    control: GuardControl,
+    sink_line: usize,
+) -> bool {
+    let consequence = match guard.child_by_field_name("consequence") {
+        Some(n) => n,
+        None => return false,
+    };
+    let consequence_entry = match first_statement_line(parsed, &consequence) {
+        Some(line) => line,
+        None => return false,
+    };
+
+    match control {
+        GuardControl::RejectBranch => {
+            if !block_ends_with_return(parsed, &consequence) {
+                return false;
+            }
+            let safe_entry = match safe_successor_line(cpg, parsed, guard, consequence_entry) {
+                Some(line) => line,
+                None => return false,
+            };
+            cfg_line_reaches(cpg, &parsed.path, safe_entry, sink_line)
+                && !cfg_line_reaches(cpg, &parsed.path, consequence_entry, sink_line)
+        }
+        GuardControl::AllowBranch => {
+            node_contains_line(&consequence, sink_line)
+                && cfg_line_reaches(cpg, &parsed.path, consequence_entry, sink_line)
+        }
+    }
+}
+
 fn python_ssrf_cleansed_for_sink(
     parsed: &ParsedFile,
     cpg: &CodePropertyGraph,
@@ -3985,6 +6041,9 @@ fn cleansed_structured_sink_call_ranges(
     if parsed.language == Language::Python {
         return python_safe_structured_sink_call_ranges(parsed, cpg, line, path);
     }
+    if is_js_ts_language(parsed.language) {
+        return js_ts_safe_structured_sink_call_ranges(parsed, cpg, line, path);
+    }
     if parsed.language != Language::Go {
         return Vec::new();
     }
@@ -4053,6 +6112,72 @@ fn cleansed_structured_sink_call_ranges(
             }
         }
     }
+    ranges
+}
+
+fn js_ts_safe_structured_sink_call_ranges(
+    parsed: &ParsedFile,
+    cpg: &CodePropertyGraph,
+    line: usize,
+    path: &FlowPath,
+) -> Vec<(usize, usize)> {
+    let mut calls = Vec::new();
+    collect_calls(parsed, parsed.tree.root_node(), &mut calls);
+    let mut ranges = Vec::new();
+    for call in &calls {
+        if !node_contains_line(call, line) {
+            continue;
+        }
+        let actual = match call_path_text(parsed, call) {
+            Some(s) => s,
+            None => continue,
+        };
+        for pat in JS_CWE79_SINKS
+            .iter()
+            .chain(JS_CWE89_SINKS.iter())
+            .chain(JS_CWE918_SINKS.iter())
+            .chain(JS_CWE502_SINKS.iter())
+            .chain(JS_CWE78_SINKS.iter())
+            .chain(JS_CWE22_SINKS.iter())
+        {
+            if pat.call_path == "dangerouslySetInnerHTML" {
+                continue;
+            }
+            if !sink_call_path_matches(parsed, call, &actual, pat) {
+                continue;
+            }
+            if !call_passes_sink_semantics(parsed, call, pat) {
+                continue;
+            }
+            if sink_call_has_tainted_arg_in_path(parsed, call, pat, path)
+                && flow_path_cleansed_for_sink_call(parsed, cpg, path, line, pat, call)
+            {
+                ranges.push((call.start_byte(), call.end_byte()));
+                break;
+            }
+        }
+
+        if js_ts_exec_file_is_literal_binary(parsed, call)
+            || js_ts_yaml_load_uses_safe_schema(parsed, call)
+            || js_ts_sql_call_is_parametrized(parsed, call)
+            || js_ts_prisma_tagged_template_is_safe(parsed, call)
+        {
+            ranges.push((call.start_byte(), call.end_byte()));
+        }
+    }
+
+    let mut attrs = Vec::new();
+    collect_nodes_of_kind(parsed.tree.root_node(), "jsx_attribute", &mut attrs);
+    for attr in &attrs {
+        if node_contains_line(attr, line)
+            && parsed.node_text(attr).contains("dangerouslySetInnerHTML")
+            && path.cleansed_for.contains(&SanitizerCategory::Xss)
+        {
+            ranges.push((attr.start_byte(), attr.end_byte()));
+        }
+    }
+    ranges.sort_unstable();
+    ranges.dedup();
     ranges
 }
 
@@ -4223,7 +6348,9 @@ fn apply_cleansers(path: &mut crate::data_flow::FlowPath, files: &BTreeMap<Strin
         Some(p) => p,
         None => return,
     };
-    if !matches!(parsed.language, Language::Go | Language::Python) {
+    if !matches!(parsed.language, Language::Go | Language::Python)
+        && !is_js_ts_language(parsed.language)
+    {
         return;
     }
 

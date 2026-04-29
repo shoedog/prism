@@ -54,12 +54,16 @@ func handler(c *gin.Context) {}
 
 #[test]
 fn test_registry_iteration_order() {
-    // Sanity-check that ALL_FRAMEWORKS is in the expected order: Python
-    // framework-specific entries first, then Go's more-specific entries.
+    // Sanity-check that ALL_FRAMEWORKS is in the expected order: JS/TS and
+    // Python framework-specific entries first, then Go's more-specific entries.
     let names: Vec<&str> = frameworks::ALL_FRAMEWORKS.iter().map(|f| f.name).collect();
     assert_eq!(
         names,
         vec![
+            "nestjs",
+            "fastify",
+            "express",
+            "koa",
             "fastapi",
             "drf",
             "flask",
