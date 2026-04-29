@@ -3993,11 +3993,14 @@ fn js_ts_identifier_has_local_shadow_before_call(
     if js_ts_function_parameter_binds_name(parsed, &func, local_name) {
         return true;
     }
+    if js_ts_function_declaration_shadows_call(parsed, &func, call, local_name) {
+        return true;
+    }
 
     let mut assignments = Vec::new();
     collect_js_ts_assignment_like_nodes(func, parsed, &mut assignments);
     for assignment in assignments {
-        if assignment.start_position().row + 1 >= call_line {
+        if assignment.start_byte() >= call.start_byte() {
             continue;
         }
         let Some((lhs, rhs)) = js_ts_assignment_target_and_value(parsed, &assignment) else {
@@ -4022,6 +4025,76 @@ fn js_ts_identifier_has_local_shadow_before_call(
         return true;
     }
     false
+}
+
+fn js_ts_function_declaration_shadows_call(
+    parsed: &ParsedFile,
+    func: &Node<'_>,
+    call: &Node<'_>,
+    local_name: &str,
+) -> bool {
+    let call_scope_id = js_ts_nearest_scope_block_id(parsed, call, func.id());
+    js_ts_scope_has_function_declaration_shadow(parsed, *func, func.id(), call_scope_id, local_name)
+}
+
+fn js_ts_scope_has_function_declaration_shadow(
+    parsed: &ParsedFile,
+    node: Node<'_>,
+    root_func_id: usize,
+    call_scope_id: Option<usize>,
+    local_name: &str,
+) -> bool {
+    let mut cursor = node.walk();
+    for child in node.named_children(&mut cursor) {
+        if parsed
+            .language
+            .function_node_types()
+            .contains(&child.kind())
+        {
+            if matches!(
+                child.kind(),
+                "function_declaration" | "generator_function_declaration"
+            ) && js_ts_nearest_scope_block_id(parsed, &child, root_func_id) == call_scope_id
+                && parsed
+                    .language
+                    .function_name(&child)
+                    .is_some_and(|name| parsed.node_text(&name) == local_name)
+            {
+                return true;
+            }
+            // Function declarations introduce the binding; their bodies are a
+            // nested scope and should not contribute shadows to the caller.
+            continue;
+        }
+        if js_ts_scope_has_function_declaration_shadow(
+            parsed,
+            child,
+            root_func_id,
+            call_scope_id,
+            local_name,
+        ) {
+            return true;
+        }
+    }
+    false
+}
+
+fn js_ts_nearest_scope_block_id(
+    parsed: &ParsedFile,
+    node: &Node<'_>,
+    root_func_id: usize,
+) -> Option<usize> {
+    let mut current = Some(*node);
+    while let Some(parent) = current {
+        if parent.id() == root_func_id {
+            return Some(root_func_id);
+        }
+        if parsed.language.is_scope_block(parent.kind()) {
+            return Some(parent.id());
+        }
+        current = parent.parent();
+    }
+    None
 }
 
 fn js_ts_function_parameter_binds_name(

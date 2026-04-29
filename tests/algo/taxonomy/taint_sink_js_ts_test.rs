@@ -284,6 +284,23 @@ app.post("/yaml", (req, res) => {
 }
 
 #[test]
+fn test_express_same_line_shadowed_yaml_schema_still_fires() {
+    let source = r#"import express from "express";
+import { load, JSON_SCHEMA } from "js-yaml";
+
+const app = express();
+
+app.post("/yaml", (req, res) => { const payload = req.body.payload; const JSON_SCHEMA = req.body.schema; return load(payload, { schema: JSON_SCHEMA }); });
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        has_taint_sink(&result),
+        "same-line local schema bindings must shadow imported safe schema constants"
+    );
+}
+
+#[test]
 fn test_express_commonjs_aliased_yaml_load_still_fires() {
     let source = r#"import express from "express";
 const { load: yamlLoad } = require("js-yaml");
@@ -361,6 +378,29 @@ app.post("/yaml", (req, res) => {
     assert!(
         !has_taint_sink(&result),
         "local handler bindings should shadow imported js-yaml load"
+    );
+}
+
+#[test]
+fn test_express_function_shadowed_yaml_load_import_does_not_fire() {
+    let source = r#"import express from "express";
+import { load } from "js-yaml";
+
+const app = express();
+
+app.post("/yaml", (req, res) => {
+  const payload = req.body.payload;
+  function load(value) {
+    return value;
+  }
+  return load(payload);
+});
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        !has_taint_sink(&result),
+        "local function declarations should shadow imported js-yaml load"
     );
 }
 
