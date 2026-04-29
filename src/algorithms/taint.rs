@@ -4003,6 +4003,9 @@ fn js_ts_identifier_has_local_shadow_before_call(
         if assignment.start_byte() >= call.start_byte() {
             continue;
         }
+        if !js_ts_binding_scope_reaches_call(parsed, func.id(), call, &assignment) {
+            continue;
+        }
         let Some((lhs, rhs)) = js_ts_assignment_target_and_value(parsed, &assignment) else {
             continue;
         };
@@ -4027,21 +4030,33 @@ fn js_ts_identifier_has_local_shadow_before_call(
     false
 }
 
+fn js_ts_binding_scope_reaches_call(
+    parsed: &ParsedFile,
+    root_func_id: usize,
+    call: &Node<'_>,
+    binding_node: &Node<'_>,
+) -> bool {
+    let Some(binding_scope_id) = js_ts_nearest_scope_block_id(parsed, binding_node, root_func_id)
+    else {
+        return false;
+    };
+    js_ts_scope_chain_contains(call, root_func_id, binding_scope_id)
+}
+
 fn js_ts_function_declaration_shadows_call(
     parsed: &ParsedFile,
     func: &Node<'_>,
     call: &Node<'_>,
     local_name: &str,
 ) -> bool {
-    let call_scope_id = js_ts_nearest_scope_block_id(parsed, call, func.id());
-    js_ts_scope_has_function_declaration_shadow(parsed, *func, func.id(), call_scope_id, local_name)
+    js_ts_scope_has_function_declaration_shadow(parsed, *func, func.id(), call, local_name)
 }
 
 fn js_ts_scope_has_function_declaration_shadow(
     parsed: &ParsedFile,
     node: Node<'_>,
     root_func_id: usize,
-    call_scope_id: Option<usize>,
+    call: &Node<'_>,
     local_name: &str,
 ) -> bool {
     let mut cursor = node.walk();
@@ -4054,7 +4069,7 @@ fn js_ts_scope_has_function_declaration_shadow(
             if matches!(
                 child.kind(),
                 "function_declaration" | "generator_function_declaration"
-            ) && js_ts_nearest_scope_block_id(parsed, &child, root_func_id) == call_scope_id
+            ) && js_ts_binding_scope_reaches_call(parsed, root_func_id, call, &child)
                 && parsed
                     .language
                     .function_name(&child)
@@ -4070,7 +4085,7 @@ fn js_ts_scope_has_function_declaration_shadow(
             parsed,
             child,
             root_func_id,
-            call_scope_id,
+            call,
             local_name,
         ) {
             return true;
@@ -4095,6 +4110,24 @@ fn js_ts_nearest_scope_block_id(
         current = parent.parent();
     }
     None
+}
+
+fn js_ts_scope_chain_contains(
+    node: &Node<'_>,
+    root_func_id: usize,
+    target_scope_id: usize,
+) -> bool {
+    let mut current = Some(*node);
+    while let Some(parent) = current {
+        if parent.id() == target_scope_id {
+            return true;
+        }
+        if parent.id() == root_func_id {
+            return target_scope_id == root_func_id;
+        }
+        current = parent.parent();
+    }
+    false
 }
 
 fn js_ts_function_parameter_binds_name(

@@ -382,6 +382,30 @@ app.post("/yaml", (req, res) => {
 }
 
 #[test]
+fn test_express_nested_block_yaml_load_shadow_still_fires_outer_call() {
+    let source = r#"import express from "express";
+import { load } from "js-yaml";
+
+const app = express();
+
+app.post("/yaml", (req, res) => {
+  const payload = req.body.payload;
+  {
+    const load = (value) => value;
+    load("safe");
+  }
+  return load(payload);
+});
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        has_taint_sink(&result),
+        "block-local load bindings must not shadow outer imported js-yaml load calls"
+    );
+}
+
+#[test]
 fn test_express_function_shadowed_yaml_load_import_does_not_fire() {
     let source = r#"import express from "express";
 import { load } from "js-yaml";
@@ -401,6 +425,31 @@ app.post("/yaml", (req, res) => {
     assert!(
         !has_taint_sink(&result),
         "local function declarations should shadow imported js-yaml load"
+    );
+}
+
+#[test]
+fn test_express_nested_function_yaml_load_shadow_still_fires_outer_call() {
+    let source = r#"import express from "express";
+import { load } from "js-yaml";
+
+const app = express();
+
+app.post("/yaml", (req, res) => {
+  const payload = req.body.payload;
+  function helper() {
+    const load = (value) => value;
+    return load("safe");
+  }
+  helper();
+  return load(payload);
+});
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        has_taint_sink(&result),
+        "nested-function load bindings must not shadow outer imported js-yaml load calls"
     );
 }
 
