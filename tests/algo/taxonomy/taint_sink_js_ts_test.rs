@@ -264,6 +264,26 @@ app.post("/yaml", (req, res) => {
 }
 
 #[test]
+fn test_express_commonjs_aliased_yaml_load_still_fires() {
+    let source = r#"import express from "express";
+const { load: yamlLoad } = require("js-yaml");
+
+const app = express();
+
+app.post("/yaml", (req, res) => {
+  const payload = req.body.payload;
+  return yamlLoad(payload);
+});
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        has_taint_sink(&result),
+        "CommonJS destructuring aliases from js-yaml should be registered as CWE-502 sinks"
+    );
+}
+
+#[test]
 fn test_express_unrelated_bare_load_does_not_fire() {
     let source = r#"import express from "express";
 import { load } from "./local-loader";
