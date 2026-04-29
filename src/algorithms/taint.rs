@@ -995,6 +995,12 @@ pub const JS_CWE502_SINKS: &[SinkPattern] = &[
         semantic_check: Some(js_yaml_load_uses_unsafe_schema),
     },
     SinkPattern {
+        call_path: "load",
+        category: SanitizerCategory::Deserialization,
+        tainted_arg_indices: &[0],
+        semantic_check: Some(js_yaml_load_uses_unsafe_schema),
+    },
+    SinkPattern {
         call_path: "deserialize",
         category: SanitizerCategory::Deserialization,
         tainted_arg_indices: &[0],
@@ -2525,8 +2531,9 @@ fn synthesize_direct_target_reference_edges(
     let refs =
         ctx.parsed
             .find_variable_references_scoped(&ctx.func, &ctx.target.base, ctx.seed.line);
+    let allow_same_line_refs = is_js_ts_language(ctx.parsed.language);
     for ref_line in refs {
-        if ref_line <= ctx.seed.line {
+        if ref_line < ctx.seed.line || (!allow_same_line_refs && ref_line == ctx.seed.line) {
             continue;
         }
         if let Some(cfg_set) = ctx.reachable {
@@ -2794,18 +2801,12 @@ fn arg_is_tainted_in_path(
         Some(n) => n,
         None => return false,
     };
-    let call_line = call.start_position().row + 1;
-    arg_node_taints_match(parsed, &arg_node, call_line, path)
+    arg_node_taints_match(parsed, &arg_node, path)
 }
 
 /// Walk `arg_node` and any descendants for identifiers that are tainted on `path` at
-/// `call_line` in `parsed`'s file. Returns true on first hit.
-fn arg_node_taints_match(
-    parsed: &ParsedFile,
-    arg_node: &Node<'_>,
-    call_line: usize,
-    path: &FlowPath,
-) -> bool {
+/// the identifier's own source line in `parsed`'s file. Returns true on first hit.
+fn arg_node_taints_match(parsed: &ParsedFile, arg_node: &Node<'_>, path: &FlowPath) -> bool {
     match arg_node.kind() {
         // Literal kinds — definitely not tainted.
         "interpreted_string_literal"
@@ -2825,8 +2826,9 @@ fn arg_node_taints_match(
         // Bare identifier — direct check with file scoping.
         "identifier" => {
             let name = parsed.node_text(arg_node);
+            let identifier_line = arg_node.start_position().row + 1;
             path.edges.iter().any(|e| {
-                e.to.file == parsed.path && e.to.line == call_line && e.to.var_name() == name
+                e.to.file == parsed.path && e.to.line == identifier_line && e.to.var_name() == name
             })
         }
 
@@ -2835,7 +2837,7 @@ fn arg_node_taints_match(
         _ => {
             let mut cursor = arg_node.walk();
             for child in arg_node.named_children(&mut cursor) {
-                if arg_node_taints_match(parsed, &child, call_line, path) {
+                if arg_node_taints_match(parsed, &child, path) {
                     return true;
                 }
             }
@@ -3881,6 +3883,12 @@ fn sink_call_path_matches(
     if is_js_ts_language(parsed.language) && sink_pat.category == SanitizerCategory::Ssrf {
         return js_ts_ssrf_sink_call_path_matches(parsed, actual, sink_pat.call_path);
     }
+    if is_js_ts_language(parsed.language)
+        && sink_pat.category == SanitizerCategory::Deserialization
+        && sink_pat.call_path == "load"
+    {
+        return js_ts_js_yaml_bare_load_call_matches(parsed, actual);
+    }
     if call_path_matches(parsed, actual, sink_pat.call_path) {
         return true;
     }
@@ -3897,6 +3905,16 @@ fn sink_call_path_matches(
         return false;
     };
     python_is_aiohttp_client_session_method_call(parsed, call, method)
+}
+
+fn js_ts_js_yaml_bare_load_call_matches(parsed: &ParsedFile, actual: &str) -> bool {
+    if actual.contains('.') {
+        return false;
+    }
+    parsed
+        .extract_imports()
+        .get(actual)
+        .is_some_and(|module| module == "js-yaml")
 }
 
 fn js_ts_ssrf_sink_call_path_matches(parsed: &ParsedFile, actual: &str, expected: &str) -> bool {
@@ -4438,7 +4456,7 @@ fn js_ts_dangerously_set_inner_html_outcome(
         }
         had_attr = true;
         if let Some(p) = path {
-            if arg_node_taints_match(parsed, attr, line, p) {
+            if arg_node_taints_match(parsed, attr, p) {
                 return Some(SinkMatchOutcome::Match(pat));
             }
         } else {
@@ -4606,8 +4624,7 @@ fn python_render_tainted_context_matches(
             .child_by_field_name("value")
             .or_else(|| child.named_child(1));
         if let Some(v) = value {
-            let value_line = v.start_position().row + 1;
-            if arg_node_taints_match(parsed, &v, value_line, path) {
+            if arg_node_taints_match(parsed, &v, path) {
                 return true;
             }
         }

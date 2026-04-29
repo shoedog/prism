@@ -101,6 +101,27 @@ app.get("/search", function(req, res) {
 }
 
 #[test]
+fn test_express_multiline_query_arg_reaches_sequelize_query() {
+    let source = r#"import express from "express";
+
+const app = express();
+
+app.get("/search", function(req, res) {
+  const term = req.query.term;
+  return sequelize.query(
+    `SELECT * FROM users WHERE name = '${term}'`
+  );
+});
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        has_taint_sink(&result),
+        "multi-line structured sink args should match tainted identifiers on their own lines"
+    );
+}
+
+#[test]
 fn test_express_request_param_multi_hop_alias_reaches_sql() {
     let source = r#"import express from "express";
 
@@ -219,6 +240,46 @@ app.post("/yaml", (req, res) => {
     assert!(
         has_taint_sink(&result),
         "UNSAFE_SCHEMA must not be treated as SAFE_SCHEMA by substring matching"
+    );
+}
+
+#[test]
+fn test_express_destructured_yaml_load_still_fires() {
+    let source = r#"import express from "express";
+import { load } from "js-yaml";
+
+const app = express();
+
+app.post("/yaml", (req, res) => {
+  const payload = req.body.payload;
+  return load(payload);
+});
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        has_taint_sink(&result),
+        "destructured js-yaml load imports should be registered as CWE-502 sinks"
+    );
+}
+
+#[test]
+fn test_express_unrelated_bare_load_does_not_fire() {
+    let source = r#"import express from "express";
+import { load } from "./local-loader";
+
+const app = express();
+
+app.post("/load", (req, res) => {
+  const payload = req.body.payload;
+  return load(payload);
+});
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        !has_taint_sink(&result),
+        "bare load should only be a deserialization sink when it resolves to js-yaml"
     );
 }
 
@@ -997,6 +1058,22 @@ app.get("/download/:name", (req, res) => {
     assert!(
         has_taint_sink_on(&result, 8),
         "Express req.params filename should reach res.sendFile path traversal sink"
+    );
+}
+
+#[test]
+fn test_express_same_line_handler_reference_reaches_send_file() {
+    let source = r#"import express from "express";
+
+const app = express();
+
+app.get("/download/:name", (req, res) => res.sendFile(req.params.name));
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([5]));
+    assert!(
+        has_taint_sink_on(&result, 5),
+        "same-line JS/TS handler param references should remain visible to sink matching"
     );
 }
 
