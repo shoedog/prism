@@ -746,6 +746,36 @@ fn js_yaml_schema_expr_is_exact_safe(expr: &str, yaml_receiver: Option<&str>) ->
         .any(|schema| expr == format!("{yaml_receiver}.{schema}"))
 }
 
+fn js_yaml_load_call_uses_unsafe_schema(parsed: &ParsedFile, call: &Node<'_>) -> bool {
+    call_arg_node(call, 1).is_none_or(|arg| !js_yaml_schema_arg_node_is_safe(parsed, call, &arg))
+}
+
+fn js_yaml_schema_arg_node_is_safe(parsed: &ParsedFile, call: &Node<'_>, arg: &Node<'_>) -> bool {
+    let text = parsed.node_text(arg).trim();
+    js_yaml_schema_expr_text_is_safe(parsed, call, text)
+        || js_trusted_object_property_value_text(text, "schema")
+            .is_some_and(|value| js_yaml_schema_expr_text_is_safe(parsed, call, value))
+}
+
+fn js_yaml_schema_expr_text_is_safe(parsed: &ParsedFile, call: &Node<'_>, expr: &str) -> bool {
+    let expr = expr.trim().trim_end_matches(';').trim();
+    for schema in ["SAFE_SCHEMA", "FAILSAFE_SCHEMA", "JSON_SCHEMA"] {
+        if expr == schema
+            && js_ts_identifier_binds_imported_member_at_call(parsed, call, expr, "js-yaml", schema)
+        {
+            return true;
+        }
+        if let Some(receiver) = expr.strip_suffix(schema).and_then(|p| p.strip_suffix('.')) {
+            if !receiver.is_empty()
+                && js_ts_identifier_binds_module_at_call(parsed, call, receiver, "js-yaml")
+            {
+                return true;
+            }
+        }
+    }
+    false
+}
+
 fn js_trusted_object_property_value_text<'a>(object_text: &'a str, key: &str) -> Option<&'a str> {
     let object_text = object_text.trim();
     let inner = object_text.strip_prefix('{')?.strip_suffix('}')?;
@@ -2938,14 +2968,8 @@ fn find_sink_with_inline_framework_source(
             // Apply semantic_check (matches go_sink_outcome's gating). If
             // semantic_check rejects, this pattern doesn't describe THIS call —
             // skip and try the next pattern.
-            if let Some(check) = pat.semantic_check {
-                let cs = CallSite {
-                    call_node: *call,
-                    source: parsed.source.as_str(),
-                };
-                if !check(&cs) {
-                    continue;
-                }
+            if !call_passes_sink_semantics(parsed, call, pat) {
+                continue;
             }
             let arguments = match call.child_by_field_name("arguments") {
                 Some(n) => n,
@@ -3820,14 +3844,8 @@ fn line_matches_structured_sink(
             continue;
         }
         had_call_path_match = true;
-        if let Some(check) = sink_pat.semantic_check {
-            let cs = CallSite {
-                call_node: *call,
-                source: parsed.source.as_str(),
-            };
-            if !check(&cs) {
-                continue;
-            }
+        if !call_passes_sink_semantics(parsed, call, sink_pat) {
+            continue;
         }
 
         // Per-arg taint check — only when a FlowPath is provided. `path == None`
@@ -3887,7 +3905,7 @@ fn sink_call_path_matches(
         && sink_pat.category == SanitizerCategory::Deserialization
         && sink_pat.call_path == "load"
     {
-        return js_ts_js_yaml_bare_load_call_matches(parsed, actual);
+        return js_ts_js_yaml_bare_load_call_matches(parsed, call, actual);
     }
     if call_path_matches(parsed, actual, sink_pat.call_path) {
         return true;
@@ -3907,15 +3925,20 @@ fn sink_call_path_matches(
     python_is_aiohttp_client_session_method_call(parsed, call, method)
 }
 
-fn js_ts_js_yaml_bare_load_call_matches(parsed: &ParsedFile, actual: &str) -> bool {
+fn js_ts_js_yaml_bare_load_call_matches(
+    parsed: &ParsedFile,
+    call: &Node<'_>,
+    actual: &str,
+) -> bool {
     if actual.contains('.') {
         return false;
     }
-    js_ts_identifier_binds_imported_member(parsed, actual, "js-yaml", "load")
+    js_ts_identifier_binds_imported_member_at_call(parsed, call, actual, "js-yaml", "load")
 }
 
-fn js_ts_identifier_binds_imported_member(
+fn js_ts_identifier_binds_imported_member_at_call(
     parsed: &ParsedFile,
+    call: &Node<'_>,
     local_name: &str,
     module_name: &str,
     imported_member: &str,
@@ -3926,7 +3949,120 @@ fn js_ts_identifier_binds_imported_member(
         local_name,
         module_name,
         imported_member,
+    ) && !js_ts_identifier_has_local_shadow_before_call(
+        parsed,
+        call,
+        local_name,
+        module_name,
+        Some(imported_member),
     )
+}
+
+fn js_ts_identifier_binds_module_at_call(
+    parsed: &ParsedFile,
+    call: &Node<'_>,
+    local_name: &str,
+    module_name: &str,
+) -> bool {
+    parsed
+        .extract_imports()
+        .get(local_name)
+        .is_some_and(|module| {
+            module == module_name
+                && !js_ts_identifier_has_local_shadow_before_call(
+                    parsed,
+                    call,
+                    local_name,
+                    module_name,
+                    None,
+                )
+        })
+}
+
+fn js_ts_identifier_has_local_shadow_before_call(
+    parsed: &ParsedFile,
+    call: &Node<'_>,
+    local_name: &str,
+    module_name: &str,
+    imported_member: Option<&str>,
+) -> bool {
+    let call_line = call.start_position().row + 1;
+    let Some(func) = parsed.enclosing_function(call_line) else {
+        return false;
+    };
+    if js_ts_function_parameter_binds_name(parsed, &func, local_name) {
+        return true;
+    }
+
+    let mut assignments = Vec::new();
+    collect_js_ts_assignment_like_nodes(func, parsed, &mut assignments);
+    for assignment in assignments {
+        if assignment.start_position().row + 1 >= call_line {
+            continue;
+        }
+        let Some((lhs, rhs)) = js_ts_assignment_target_and_value(parsed, &assignment) else {
+            continue;
+        };
+        if !assignment_lhs_identifiers(parsed, &lhs)
+            .iter()
+            .any(|name| name == local_name)
+        {
+            continue;
+        }
+        if js_ts_assignment_imports_allowed_binding(
+            parsed,
+            &lhs,
+            &rhs,
+            local_name,
+            module_name,
+            imported_member,
+        ) {
+            continue;
+        }
+        return true;
+    }
+    false
+}
+
+fn js_ts_function_parameter_binds_name(
+    parsed: &ParsedFile,
+    func: &Node<'_>,
+    local_name: &str,
+) -> bool {
+    let Some(params) = func.child_by_field_name("parameters") else {
+        return false;
+    };
+    let mut ids = Vec::new();
+    collect_nodes_of_kind(params, "identifier", &mut ids);
+    ids.iter().any(|id| parsed.node_text(id) == local_name)
+}
+
+fn js_ts_assignment_imports_allowed_binding(
+    parsed: &ParsedFile,
+    lhs: &Node<'_>,
+    rhs: &Node<'_>,
+    local_name: &str,
+    module_name: &str,
+    imported_member: Option<&str>,
+) -> bool {
+    match imported_member {
+        Some(member) => {
+            if js_ts_require_call_module(parsed, rhs).is_some_and(|module| module == module_name) {
+                return js_ts_pattern_binds_member(parsed, lhs, member, local_name);
+            }
+            lhs.kind() == "identifier"
+                && parsed.node_text(lhs) == local_name
+                && js_ts_require_member_expression(parsed, rhs).is_some_and(
+                    |(module, actual_member)| module == module_name && actual_member == member,
+                )
+        }
+        None => {
+            lhs.kind() == "identifier"
+                && parsed.node_text(lhs) == local_name
+                && js_ts_require_call_module(parsed, rhs)
+                    .is_some_and(|module| module == module_name)
+        }
+    }
 }
 
 fn js_ts_node_binds_imported_member(
@@ -6207,6 +6343,9 @@ fn call_passes_sink_semantics(
     call: &Node<'_>,
     sink_pat: &'static SinkPattern,
 ) -> bool {
+    if is_js_yaml_load_sink_pattern(parsed, sink_pat) {
+        return js_yaml_load_call_uses_unsafe_schema(parsed, call);
+    }
     if let Some(check) = sink_pat.semantic_check {
         let cs = CallSite {
             call_node: *call,
@@ -6216,6 +6355,12 @@ fn call_passes_sink_semantics(
     } else {
         true
     }
+}
+
+fn is_js_yaml_load_sink_pattern(parsed: &ParsedFile, sink_pat: &'static SinkPattern) -> bool {
+    is_js_ts_language(parsed.language)
+        && sink_pat.category == SanitizerCategory::Deserialization
+        && matches!(sink_pat.call_path, "yaml.load" | "load")
 }
 
 fn push_cleansed_structured_sink_range(

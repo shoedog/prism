@@ -264,6 +264,26 @@ app.post("/yaml", (req, res) => {
 }
 
 #[test]
+fn test_express_destructured_yaml_load_safe_schema_suppresses() {
+    let source = r#"import express from "express";
+import { load, JSON_SCHEMA } from "js-yaml";
+
+const app = express();
+
+app.post("/yaml", (req, res) => {
+  const payload = req.body.payload;
+  return load(payload, { schema: JSON_SCHEMA });
+});
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        !has_taint_sink(&result),
+        "bare js-yaml load imports should honor imported safe schema constants"
+    );
+}
+
+#[test]
 fn test_express_commonjs_aliased_yaml_load_still_fires() {
     let source = r#"import express from "express";
 const { load: yamlLoad } = require("js-yaml");
@@ -320,6 +340,27 @@ app.post("/yaml", (req, res) => {
     assert!(
         !has_taint_sink(&result),
         "js-yaml dump serializes and must not be treated as the bare load sink"
+    );
+}
+
+#[test]
+fn test_express_shadowed_yaml_load_import_does_not_fire() {
+    let source = r#"import express from "express";
+import { load } from "js-yaml";
+
+const app = express();
+
+app.post("/yaml", (req, res) => {
+  const payload = req.body.payload;
+  const load = (value) => value;
+  return load(payload);
+});
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        !has_taint_sink(&result),
+        "local handler bindings should shadow imported js-yaml load"
     );
 }
 
