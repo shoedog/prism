@@ -477,6 +477,14 @@ impl ParsedFile {
         let name = node.child_by_field_name("name");
 
         if let Some(val) = value {
+            if let (Some(n), Some((module_path, _member))) =
+                (name, self.js_require_member_binding(&val))
+            {
+                if n.kind() == "identifier" {
+                    out.insert(self.node_text(&n).to_string(), module_path);
+                    return;
+                }
+            }
             // Check if value is a require() call
             if self.language.is_call_node(val.kind()) {
                 if let Some(func_name) = self.language.call_function_name(&val) {
@@ -506,6 +514,39 @@ impl ParsedFile {
                 }
             }
         }
+    }
+
+    fn js_require_member_binding(&self, node: &Node<'_>) -> Option<(String, String)> {
+        if node.kind() != "member_expression" {
+            return None;
+        }
+        let object = node.child_by_field_name("object")?;
+        let property = node.child_by_field_name("property")?;
+        let module_path = self.js_require_call_module_path(&object)?;
+        let member = self
+            .node_text(&property)
+            .trim_matches(|c| c == '\'' || c == '"' || c == '`')
+            .to_string();
+        Some((module_path, member))
+    }
+
+    fn js_require_call_module_path(&self, node: &Node<'_>) -> Option<String> {
+        if !self.language.is_call_node(node.kind()) {
+            return None;
+        }
+        let func_name = self.language.call_function_name(node)?;
+        if self.node_text(&func_name) != "require" {
+            return None;
+        }
+        let args = self.language.call_arguments(node)?;
+        let mut cursor = args.walk();
+        for child in args.children(&mut cursor) {
+            if child.is_named() {
+                let text = self.node_text(&child);
+                return Some(text.trim_matches(|c| c == '\'' || c == '"').to_string());
+            }
+        }
+        None
     }
 
     fn collect_js_require_pattern_bindings(

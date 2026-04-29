@@ -284,6 +284,46 @@ app.post("/yaml", (req, res) => {
 }
 
 #[test]
+fn test_express_commonjs_require_member_yaml_load_still_fires() {
+    let source = r#"import express from "express";
+const yamlLoad = require("js-yaml").load;
+
+const app = express();
+
+app.post("/yaml", (req, res) => {
+  const payload = req.body.payload;
+  return yamlLoad(payload);
+});
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        has_taint_sink(&result),
+        "CommonJS require(\"js-yaml\").load aliases should be registered as CWE-502 sinks"
+    );
+}
+
+#[test]
+fn test_express_yaml_dump_import_does_not_fire() {
+    let source = r#"import express from "express";
+import { dump } from "js-yaml";
+
+const app = express();
+
+app.post("/yaml", (req, res) => {
+  const payload = req.body.payload;
+  return dump(payload);
+});
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        !has_taint_sink(&result),
+        "js-yaml dump serializes and must not be treated as the bare load sink"
+    );
+}
+
+#[test]
 fn test_express_unrelated_bare_load_does_not_fire() {
     let source = r#"import express from "express";
 import { load } from "./local-loader";

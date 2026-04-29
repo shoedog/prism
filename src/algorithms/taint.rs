@@ -3911,10 +3911,197 @@ fn js_ts_js_yaml_bare_load_call_matches(parsed: &ParsedFile, actual: &str) -> bo
     if actual.contains('.') {
         return false;
     }
-    parsed
-        .extract_imports()
-        .get(actual)
-        .is_some_and(|module| module == "js-yaml")
+    js_ts_identifier_binds_imported_member(parsed, actual, "js-yaml", "load")
+}
+
+fn js_ts_identifier_binds_imported_member(
+    parsed: &ParsedFile,
+    local_name: &str,
+    module_name: &str,
+    imported_member: &str,
+) -> bool {
+    js_ts_node_binds_imported_member(
+        parsed,
+        parsed.tree.root_node(),
+        local_name,
+        module_name,
+        imported_member,
+    )
+}
+
+fn js_ts_node_binds_imported_member(
+    parsed: &ParsedFile,
+    node: Node<'_>,
+    local_name: &str,
+    module_name: &str,
+    imported_member: &str,
+) -> bool {
+    match node.kind() {
+        "import_statement" => {
+            if js_ts_import_statement_binds_member(
+                parsed,
+                &node,
+                local_name,
+                module_name,
+                imported_member,
+            ) {
+                return true;
+            }
+        }
+        "variable_declarator" => {
+            if js_ts_require_declarator_binds_member(
+                parsed,
+                &node,
+                local_name,
+                module_name,
+                imported_member,
+            ) {
+                return true;
+            }
+        }
+        _ => {}
+    }
+    let mut cursor = node.walk();
+    for child in node.children(&mut cursor) {
+        if js_ts_node_binds_imported_member(parsed, child, local_name, module_name, imported_member)
+        {
+            return true;
+        }
+    }
+    false
+}
+
+fn js_ts_import_statement_binds_member(
+    parsed: &ParsedFile,
+    node: &Node<'_>,
+    local_name: &str,
+    module_name: &str,
+    imported_member: &str,
+) -> bool {
+    let Some(source) = node.child_by_field_name("source") else {
+        return false;
+    };
+    let source_text = parsed
+        .node_text(&source)
+        .trim_matches(|c| c == '\'' || c == '"')
+        .to_string();
+    if source_text != module_name {
+        return false;
+    }
+    let mut specs = Vec::new();
+    collect_nodes_of_kind(*node, "import_specifier", &mut specs);
+    for spec in specs {
+        let Some(name) = spec.child_by_field_name("name") else {
+            continue;
+        };
+        if parsed.node_text(&name) != imported_member {
+            continue;
+        }
+        let local = spec
+            .child_by_field_name("alias")
+            .map(|alias| parsed.node_text(&alias))
+            .unwrap_or_else(|| parsed.node_text(&name));
+        if local == local_name {
+            return true;
+        }
+    }
+    false
+}
+
+fn js_ts_require_declarator_binds_member(
+    parsed: &ParsedFile,
+    node: &Node<'_>,
+    local_name: &str,
+    module_name: &str,
+    imported_member: &str,
+) -> bool {
+    let Some(name) = node.child_by_field_name("name") else {
+        return false;
+    };
+    let Some(value) = node.child_by_field_name("value") else {
+        return false;
+    };
+    if js_ts_require_call_module(parsed, &value).is_some_and(|module| module == module_name) {
+        return js_ts_pattern_binds_member(parsed, &name, imported_member, local_name);
+    }
+    if name.kind() == "identifier" && parsed.node_text(&name) == local_name {
+        return js_ts_require_member_expression(parsed, &value)
+            .is_some_and(|(module, member)| module == module_name && member == imported_member);
+    }
+    false
+}
+
+fn js_ts_pattern_binds_member(
+    parsed: &ParsedFile,
+    pattern: &Node<'_>,
+    imported_member: &str,
+    local_name: &str,
+) -> bool {
+    let mut cursor = pattern.walk();
+    for child in pattern.children(&mut cursor) {
+        match child.kind() {
+            "shorthand_property_identifier_pattern" | "identifier" => {
+                if imported_member == local_name && parsed.node_text(&child) == imported_member {
+                    return true;
+                }
+            }
+            "pair_pattern" => {
+                let key_matches = child
+                    .child_by_field_name("key")
+                    .is_some_and(|key| parsed.node_text(&key) == imported_member);
+                let value_matches = child.child_by_field_name("value").is_some_and(|value| {
+                    if value.kind() == "identifier" {
+                        parsed.node_text(&value) == local_name
+                    } else if value.kind() == "object_pattern" || value.kind() == "array_pattern" {
+                        js_ts_pattern_binds_member(parsed, &value, imported_member, local_name)
+                    } else {
+                        false
+                    }
+                });
+                if key_matches && value_matches {
+                    return true;
+                }
+            }
+            "object_pattern" | "array_pattern" => {
+                if js_ts_pattern_binds_member(parsed, &child, imported_member, local_name) {
+                    return true;
+                }
+            }
+            _ => {}
+        }
+    }
+    false
+}
+
+fn js_ts_require_member_expression(
+    parsed: &ParsedFile,
+    node: &Node<'_>,
+) -> Option<(String, String)> {
+    let node = unwrap_parenthesized(*node);
+    if node.kind() != "member_expression" {
+        return None;
+    }
+    let object = node.child_by_field_name("object")?;
+    let property = node.child_by_field_name("property")?;
+    let module = js_ts_require_call_module(parsed, &object)?;
+    let member = parsed
+        .node_text(&property)
+        .trim_matches(|c| c == '\'' || c == '"' || c == '`')
+        .to_string();
+    Some((module, member))
+}
+
+fn js_ts_require_call_module(parsed: &ParsedFile, node: &Node<'_>) -> Option<String> {
+    let node = unwrap_parenthesized(*node);
+    if !parsed.language.is_call_node(node.kind()) {
+        return None;
+    }
+    let function = parsed.language.call_function_name(&node)?;
+    if parsed.node_text(&function) != "require" {
+        return None;
+    }
+    let arg = call_arg_node(&node, 0)?;
+    js_ts_literal_string_value(parsed, &arg)
 }
 
 fn js_ts_ssrf_sink_call_path_matches(parsed: &ParsedFile, actual: &str, expected: &str) -> bool {
