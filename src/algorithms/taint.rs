@@ -718,33 +718,32 @@ fn js_yaml_load_uses_unsafe_schema(call: &CallSite) -> bool {
 }
 
 fn js_yaml_load_text_uses_safe_schema(text: &str) -> bool {
+    let yaml_receiver = js_yaml_load_receiver(text);
     js_text_top_level_call_args(text)
         .get(1)
-        .is_some_and(|arg| js_yaml_schema_arg_is_safe(arg))
+        .is_some_and(|arg| js_yaml_schema_arg_is_safe(arg, yaml_receiver))
 }
 
-fn js_yaml_schema_arg_is_safe(arg: &str) -> bool {
+fn js_yaml_load_receiver(text: &str) -> Option<&str> {
+    let callee = text.split_once('(')?.0.trim();
+    callee.strip_suffix(".load")
+}
+
+fn js_yaml_schema_arg_is_safe(arg: &str, yaml_receiver: Option<&str>) -> bool {
     let arg = arg.trim();
-    js_yaml_schema_expr_is_exact_safe(arg)
+    js_yaml_schema_expr_is_exact_safe(arg, yaml_receiver)
         || js_trusted_object_property_value_text(arg, "schema")
-            .is_some_and(js_yaml_schema_expr_is_exact_safe)
+            .is_some_and(|value| js_yaml_schema_expr_is_exact_safe(value, yaml_receiver))
 }
 
-fn js_yaml_schema_expr_is_exact_safe(expr: &str) -> bool {
+fn js_yaml_schema_expr_is_exact_safe(expr: &str, yaml_receiver: Option<&str>) -> bool {
     let expr = expr.trim().trim_end_matches(';').trim();
-    matches!(expr, "SAFE_SCHEMA" | "FAILSAFE_SCHEMA" | "JSON_SCHEMA")
-        || ["SAFE_SCHEMA", "FAILSAFE_SCHEMA", "JSON_SCHEMA"]
-            .iter()
-            .any(|schema| {
-                expr.strip_suffix(schema)
-                    .and_then(|prefix| prefix.strip_suffix('.'))
-                    .is_some_and(|prefix| {
-                        !prefix.is_empty()
-                            && prefix.chars().all(|c| {
-                                c.is_ascii_alphanumeric() || c == '_' || c == '$' || c == '.'
-                            })
-                    })
-            })
+    let Some(yaml_receiver) = yaml_receiver else {
+        return false;
+    };
+    ["SAFE_SCHEMA", "FAILSAFE_SCHEMA", "JSON_SCHEMA"]
+        .iter()
+        .any(|schema| expr == format!("{yaml_receiver}.{schema}"))
 }
 
 fn js_trusted_object_property_value_text<'a>(object_text: &'a str, key: &str) -> Option<&'a str> {
@@ -5066,7 +5065,7 @@ fn js_ts_object_text_has_unsafe_shell_option(text: &str) -> bool {
             return true;
         }
         let Some(colon) = js_find_top_level_colon(prop) else {
-            if prop.trim_matches(['"', '\'', '`']) == "shell" {
+            if js_ts_colonless_object_property_may_define_key(prop, "shell") {
                 return true;
             }
             continue;
@@ -5081,6 +5080,24 @@ fn js_ts_object_text_has_unsafe_shell_option(text: &str) -> bool {
         }
     }
     false
+}
+
+fn js_ts_colonless_object_property_may_define_key(prop: &str, key: &str) -> bool {
+    let prop = prop.trim();
+    if prop.starts_with('[') || prop.contains('[') {
+        return true;
+    }
+    let name = prop
+        .split_once('(')
+        .map(|(head, _)| head.trim())
+        .unwrap_or(prop)
+        .trim_start_matches("async ")
+        .trim_start_matches('*')
+        .split_whitespace()
+        .last()
+        .unwrap_or(prop)
+        .trim_matches(['"', '\'', '`']);
+    name == key
 }
 
 fn js_ts_interpreter_eval_flag(flag: &str) -> bool {
@@ -5591,6 +5608,23 @@ fn js_ts_collection_has_untrusted_update(
         let Some(actual) = call_path_text(parsed, &call) else {
             continue;
         };
+        if actual == "Object.assign" {
+            let Some(target) = call_arg_node(&call, 0).map(unwrap_parenthesized) else {
+                continue;
+            };
+            if target.kind() != "identifier" || !receiver_names.contains(parsed.node_text(&target))
+            {
+                continue;
+            }
+            let mut source_idx = 1;
+            while let Some(source_arg) = call_arg_node(&call, source_idx) {
+                if !js_ts_node_is_literal_string_collection(parsed, &source_arg) {
+                    return true;
+                }
+                source_idx += 1;
+            }
+            continue;
+        }
         let Some((receiver, method)) = actual.rsplit_once('.') else {
             continue;
         };

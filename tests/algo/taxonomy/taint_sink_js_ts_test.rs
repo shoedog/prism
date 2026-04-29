@@ -324,6 +324,27 @@ app.post("/yaml", (req, res) => {
 }
 
 #[test]
+fn test_express_yaml_request_controlled_schema_holder_still_fires() {
+    let source = r#"import express from "express";
+import yaml from "js-yaml";
+
+const app = express();
+
+app.post("/yaml", (req, res) => {
+  const payload = req.body.payload;
+  const schemaHolder = { JSON_SCHEMA: req.body.schema };
+  return yaml.load(payload, { schema: schemaHolder.JSON_SCHEMA });
+});
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        has_taint_sink(&result),
+        "safe schema suppression must not trust arbitrary objects ending in JSON_SCHEMA"
+    );
+}
+
+#[test]
 fn test_express_body_reaches_new_function_rce_bucket() {
     let source = r#"import express from "express";
 
@@ -598,6 +619,31 @@ app.use(async (ctx, next) => {
 }
 
 #[test]
+fn test_js_ts_ssrf_object_assign_array_allowlist_does_not_suppress() {
+    let source = r#"import Koa from "koa";
+
+const app = new Koa();
+const allowedHosts = ["example.com"];
+
+app.use(async (ctx, next) => {
+  const target = ctx.request.body.url;
+  Object.assign(allowedHosts, [ctx.query.allowedHost]);
+  const parsed = new URL(target);
+  if (!allowedHosts.includes(parsed.hostname)) {
+    return;
+  }
+  return fetch(target);
+});
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        has_taint_sink(&result),
+        "Object.assign array mutations can replace literal allowlist entries and must fail closed"
+    );
+}
+
+#[test]
 fn test_express_query_reaches_superagent_get_ssrf() {
     let source = r#"import express from "express";
 import superagent from "superagent";
@@ -804,6 +850,27 @@ app.post("/run", async (request, reply) => {
     assert!(
         has_taint_sink(&result),
         "computed option keys can override shell:false at runtime and must fail closed"
+    );
+}
+
+#[test]
+fn test_exec_file_literal_binary_getter_shell_option_still_fires() {
+    let source = r#"import fastify from "fastify";
+import { execFile } from "child_process";
+
+const app = fastify();
+
+app.post("/run", async (request, reply) => {
+  const arg = request.body.shellArg;
+  const opts = { get shell() { return request.body.useShell; } };
+  return execFile("psql", ["-c", arg], opts);
+});
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.ts", Language::TypeScript, BTreeSet::from([1]));
+    assert!(
+        has_taint_sink(&result),
+        "accessor option properties can enable shell at runtime and must fail closed"
     );
 }
 
