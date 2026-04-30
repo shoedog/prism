@@ -11,6 +11,7 @@ use crate::ast::ParsedFile;
 
 pub mod gin;
 pub mod gorilla_mux;
+pub mod js_ts;
 pub mod nethttp;
 pub mod python;
 
@@ -134,6 +135,10 @@ impl<'a> CallSite<'a> {
 /// Ordered registry of all known frameworks. Ordering matters: more specific frameworks
 /// (gin, gorilla/mux) take precedence over net/http per spec §2.3.
 pub const ALL_FRAMEWORKS: &[&FrameworkSpec] = &[
+    &js_ts::nestjs::SPEC,
+    &js_ts::fastify::SPEC,
+    &js_ts::express::SPEC,
+    &js_ts::koa::SPEC,
     &python::fastapi::SPEC,
     &python::drf::SPEC,
     &python::flask::SPEC,

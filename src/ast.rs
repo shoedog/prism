@@ -477,6 +477,14 @@ impl ParsedFile {
         let name = node.child_by_field_name("name");
 
         if let Some(val) = value {
+            if let (Some(n), Some((module_path, _member))) =
+                (name, self.js_require_member_binding(&val))
+            {
+                if n.kind() == "identifier" {
+                    out.insert(self.node_text(&n).to_string(), module_path);
+                    return;
+                }
+            }
             // Check if value is a require() call
             if self.language.is_call_node(val.kind()) {
                 if let Some(func_name) = self.language.call_function_name(&val) {
@@ -493,18 +501,7 @@ impl ParsedFile {
                                     if let Some(n) = &name {
                                         if n.kind() == "object_pattern" {
                                             // Destructuring: `const { a, b } = require('./mod')`
-                                            let mut inner = n.walk();
-                                            for prop in n.children(&mut inner) {
-                                                if prop.kind()
-                                                    == "shorthand_property_identifier_pattern"
-                                                    || prop.kind() == "identifier"
-                                                {
-                                                    out.insert(
-                                                        self.node_text(&prop).to_string(),
-                                                        path.clone(),
-                                                    );
-                                                }
-                                            }
+                                            self.collect_js_require_pattern_bindings(n, &path, out);
                                         } else {
                                             out.insert(self.node_text(n).to_string(), path.clone());
                                         }
@@ -515,6 +512,81 @@ impl ParsedFile {
                         }
                     }
                 }
+            }
+        }
+    }
+
+    fn js_require_member_binding(&self, node: &Node<'_>) -> Option<(String, String)> {
+        if node.kind() != "member_expression" {
+            return None;
+        }
+        let object = node.child_by_field_name("object")?;
+        let property = node.child_by_field_name("property")?;
+        let module_path = self.js_require_call_module_path(&object)?;
+        let member = self
+            .node_text(&property)
+            .trim_matches(|c| c == '\'' || c == '"' || c == '`')
+            .to_string();
+        Some((module_path, member))
+    }
+
+    fn js_require_call_module_path(&self, node: &Node<'_>) -> Option<String> {
+        if !self.language.is_call_node(node.kind()) {
+            return None;
+        }
+        let func_name = self.language.call_function_name(node)?;
+        if self.node_text(&func_name) != "require" {
+            return None;
+        }
+        let args = self.language.call_arguments(node)?;
+        let mut cursor = args.walk();
+        for child in args.children(&mut cursor) {
+            if child.is_named() {
+                let text = self.node_text(&child);
+                return Some(text.trim_matches(|c| c == '\'' || c == '"').to_string());
+            }
+        }
+        None
+    }
+
+    fn collect_js_require_pattern_bindings(
+        &self,
+        pattern: &Node<'_>,
+        module_path: &str,
+        out: &mut BTreeMap<String, String>,
+    ) {
+        let mut cursor = pattern.walk();
+        for child in pattern.children(&mut cursor) {
+            match child.kind() {
+                "shorthand_property_identifier_pattern" | "identifier" => {
+                    out.insert(self.node_text(&child).to_string(), module_path.to_string());
+                }
+                "pair_pattern" => {
+                    if let Some(value) = child.child_by_field_name("value") {
+                        if value.kind() == "identifier" {
+                            out.insert(self.node_text(&value).to_string(), module_path.to_string());
+                        } else if value.kind() == "object_pattern"
+                            || value.kind() == "array_pattern"
+                        {
+                            self.collect_js_require_pattern_bindings(&value, module_path, out);
+                        }
+                    }
+                }
+                "rest_pattern" => {
+                    let mut inner = child.walk();
+                    for inner_child in child.children(&mut inner) {
+                        if inner_child.kind() == "identifier" {
+                            out.insert(
+                                self.node_text(&inner_child).to_string(),
+                                module_path.to_string(),
+                            );
+                        }
+                    }
+                }
+                "object_pattern" | "array_pattern" => {
+                    self.collect_js_require_pattern_bindings(&child, module_path, out);
+                }
+                _ => {}
             }
         }
     }

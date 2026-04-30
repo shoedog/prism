@@ -66,6 +66,10 @@ name = "algo_taint_sink_python"
 path = "tests/algo/taxonomy/taint_sink_python_test.rs"
 
 [[test]]
+name = "algo_taint_sink_js_ts"
+path = "tests/algo/taxonomy/taint_sink_js_ts_test.rs"
+
+[[test]]
 name = "algo_taint_interprocedural"
 path = "tests/algo/taxonomy/taint_interprocedural_test.rs"
 
@@ -415,6 +419,10 @@ path = "tests/integration/cwe_phase1_suppression_test.rs"
 name = "integration_cwe_phase2_suppression"
 path = "tests/integration/cwe_phase2_suppression_test.rs"
 
+[[test]]
+name = "integration_cwe_phase3_suppression"
+path = "tests/integration/cwe_phase3_suppression_test.rs"
+
 # ── Framework detection tests ──
 
 [[test]]
@@ -444,6 +452,10 @@ path = "tests/frameworks/python_flask_test.rs"
 [[test]]
 name = "frameworks_python_drf_django"
 path = "tests/frameworks/python_drf_django_test.rs"
+
+[[test]]
+name = "frameworks_js_ts"
+path = "tests/frameworks/js_ts_test.rs"
 
 # ── CLI tests ──
 
