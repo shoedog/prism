@@ -4000,13 +4000,15 @@ fn js_ts_identifier_has_local_shadow_before_call(
     let mut assignments = Vec::new();
     collect_js_ts_assignment_like_nodes(func, parsed, &mut assignments);
     for assignment in assignments {
-        if assignment.start_byte() >= call.start_byte() {
+        let is_function_scoped_var = js_ts_binding_is_function_scoped_var(&assignment);
+        let binding_starts_after_call = assignment.start_byte() >= call.start_byte();
+        if binding_starts_after_call && !is_function_scoped_var {
             continue;
         }
         if !js_ts_binding_scope_reaches_call(parsed, func.id(), call, &assignment) {
             continue;
         }
-        let Some((lhs, rhs)) = js_ts_assignment_target_and_value(parsed, &assignment) else {
+        let Some(lhs) = js_ts_assignment_target(parsed, &assignment) else {
             continue;
         };
         if !assignment_lhs_identifiers(parsed, &lhs)
@@ -4015,15 +4017,19 @@ fn js_ts_identifier_has_local_shadow_before_call(
         {
             continue;
         }
-        if js_ts_assignment_imports_allowed_binding(
-            parsed,
-            &lhs,
-            &rhs,
-            local_name,
-            module_name,
-            imported_member,
-        ) {
-            continue;
+        if !binding_starts_after_call {
+            if let Some(rhs) = js_ts_assignment_value(parsed, &assignment) {
+                if js_ts_assignment_imports_allowed_binding(
+                    parsed,
+                    &lhs,
+                    &rhs,
+                    local_name,
+                    module_name,
+                    imported_member,
+                ) {
+                    continue;
+                }
+            }
         }
         return true;
     }
@@ -5828,16 +5834,24 @@ fn js_ts_assignment_target_and_value<'a>(
     parsed: &ParsedFile,
     node: &Node<'a>,
 ) -> Option<(Node<'a>, Node<'a>)> {
-    if node.kind() == "variable_declarator" {
-        return Some((
-            node.child_by_field_name("name")?,
-            node.child_by_field_name("value")?,
-        ));
-    }
     Some((
-        parsed.language.assignment_target(node)?,
-        parsed.language.assignment_value(node)?,
+        js_ts_assignment_target(parsed, node)?,
+        js_ts_assignment_value(parsed, node)?,
     ))
+}
+
+fn js_ts_assignment_target<'a>(parsed: &ParsedFile, node: &Node<'a>) -> Option<Node<'a>> {
+    if node.kind() == "variable_declarator" {
+        return node.child_by_field_name("name");
+    }
+    parsed.language.assignment_target(node)
+}
+
+fn js_ts_assignment_value<'a>(parsed: &ParsedFile, node: &Node<'a>) -> Option<Node<'a>> {
+    if node.kind() == "variable_declarator" {
+        return node.child_by_field_name("value");
+    }
+    parsed.language.assignment_value(node)
 }
 
 fn js_ts_path_sanitizer_call_path_matches(parsed: &ParsedFile, actual: &str) -> bool {

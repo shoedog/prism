@@ -324,6 +324,49 @@ app.post("/yaml", (req, res) => {
 }
 
 #[test]
+fn test_express_later_var_shadowed_yaml_schema_still_fires() {
+    let source = r#"import express from "express";
+import { load, JSON_SCHEMA } from "js-yaml";
+
+const app = express();
+
+app.post("/yaml", (req, res) => {
+  const payload = req.body.payload;
+  const parsed = load(payload, { schema: JSON_SCHEMA });
+  var JSON_SCHEMA = req.body.schema;
+  return parsed;
+});
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        has_taint_sink(&result),
+        "later var schema declarations are hoisted and must shadow imported safe schema constants"
+    );
+}
+
+#[test]
+fn test_express_uninitialized_yaml_schema_shadow_still_fires() {
+    let source = r#"import express from "express";
+import { load, JSON_SCHEMA } from "js-yaml";
+
+const app = express();
+
+app.post("/yaml", (req, res) => {
+  const payload = req.body.payload;
+  let JSON_SCHEMA;
+  return load(payload, { schema: JSON_SCHEMA });
+});
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        has_taint_sink(&result),
+        "uninitialized local declarations must shadow imported safe schema constants"
+    );
+}
+
+#[test]
 fn test_express_commonjs_aliased_yaml_load_still_fires() {
     let source = r#"import express from "express";
 const { load: yamlLoad } = require("js-yaml");
