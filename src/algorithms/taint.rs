@@ -4036,11 +4036,24 @@ fn js_ts_binding_scope_reaches_call(
     call: &Node<'_>,
     binding_node: &Node<'_>,
 ) -> bool {
-    let Some(binding_scope_id) = js_ts_nearest_scope_block_id(parsed, binding_node, root_func_id)
-    else {
+    let binding_scope_id = if js_ts_binding_is_function_scoped_var(binding_node) {
+        js_ts_nearest_function_scope_id(parsed, binding_node, root_func_id)
+    } else {
+        js_ts_nearest_scope_block_id(parsed, binding_node, root_func_id)
+    };
+    let Some(binding_scope_id) = binding_scope_id else {
         return false;
     };
     js_ts_scope_chain_contains(call, root_func_id, binding_scope_id)
+}
+
+fn js_ts_binding_is_function_scoped_var(binding_node: &Node<'_>) -> bool {
+    if binding_node.kind() != "variable_declarator" {
+        return false;
+    }
+    binding_node
+        .parent()
+        .is_some_and(|parent| parent.kind() == "variable_declaration")
 }
 
 fn js_ts_function_declaration_shadows_call(
@@ -4105,6 +4118,29 @@ fn js_ts_nearest_scope_block_id(
             return Some(root_func_id);
         }
         if parsed.language.is_scope_block(parent.kind()) {
+            return Some(parent.id());
+        }
+        current = parent.parent();
+    }
+    None
+}
+
+fn js_ts_nearest_function_scope_id(
+    parsed: &ParsedFile,
+    node: &Node<'_>,
+    root_func_id: usize,
+) -> Option<usize> {
+    let mut current = Some(*node);
+    while let Some(parent) = current {
+        if parent.id() == root_func_id {
+            return Some(root_func_id);
+        }
+        if parent.id() != node.id()
+            && parsed
+                .language
+                .function_node_types()
+                .contains(&parent.kind())
+        {
             return Some(parent.id());
         }
         current = parent.parent();
