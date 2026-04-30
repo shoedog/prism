@@ -413,6 +413,26 @@ app.post("/yaml", (req, res) => {
 }
 
 #[test]
+fn test_express_late_top_level_commonjs_yaml_load_still_fires() {
+    let source = r#"import express from "express";
+
+const app = express();
+
+app.post("/yaml", (req, res) => {
+  return load(req.body.payload);
+});
+
+const { load } = require("js-yaml");
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        has_taint_sink(&result),
+        "top-level CommonJS bindings declared after a route callback are visible when the handler runs"
+    );
+}
+
+#[test]
 fn test_express_commonjs_require_member_yaml_load_still_fires() {
     let source = r#"import express from "express";
 const yamlLoad = require("js-yaml").load;
@@ -1483,6 +1503,27 @@ app.get("/download/:name", (req, res) => res.sendFile(req.params.name));
     assert!(
         has_taint_sink_on(&result, 5),
         "same-line JS/TS handler param references should remain visible to sink matching"
+    );
+}
+
+#[test]
+fn test_express_request_param_alias_chain_reaches_send_file() {
+    let source = r#"import express from "express";
+
+const app = express();
+
+app.get("/download/:name", (req, res) => {
+  const file = req.params.name;
+  const candidate = file;
+  const finalPath = candidate;
+  return res.sendFile(finalPath);
+});
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        has_taint_sink(&result),
+        "JS/TS target-seed alias synthesis should follow assignment chains beyond one hop"
     );
 }
 

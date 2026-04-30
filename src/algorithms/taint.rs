@@ -2607,60 +2607,84 @@ fn synthesize_js_ts_assignment_alias_edges(
 
     let mut assignments = Vec::new();
     collect_js_ts_assignment_like_nodes(ctx.func, ctx.parsed, &mut assignments);
-    for assignment in assignments {
-        let assignment_line = assignment.start_position().row + 1;
-        if assignment_line <= ctx.seed.line {
-            continue;
-        }
-        if let Some(cfg_set) = ctx.reachable {
-            if !reference_line_cfg_reachable(
-                ctx.parsed,
-                &ctx.func,
-                &ctx.seed.file,
-                assignment_line,
-                cfg_set,
-            ) {
+    assignments.sort_by_key(|node| node.start_byte());
+
+    let mut alias_defs = BTreeMap::new();
+    alias_defs.insert(ctx.target.base.clone(), ctx.seed.line);
+
+    let mut changed = true;
+    while changed {
+        changed = false;
+        for assignment in &assignments {
+            let assignment_line = assignment.start_position().row + 1;
+            if assignment_line <= ctx.seed.line {
                 continue;
             }
-        }
-        let Some((lhs, rhs)) = js_ts_assignment_target_and_value(ctx.parsed, &assignment) else {
-            continue;
-        };
-        if !node_contains_identifier(ctx.parsed, &rhs, &ctx.target.base) {
-            continue;
-        }
-        for alias in assignment_lhs_identifiers(ctx.parsed, &lhs) {
-            if alias == "_" {
-                continue;
-            }
-            let refs =
-                ctx.parsed
-                    .find_variable_references_scoped(&ctx.func, &alias, assignment_line);
-            for ref_line in refs {
-                if ref_line <= assignment_line {
+            if let Some(cfg_set) = ctx.reachable {
+                if !reference_line_cfg_reachable(
+                    ctx.parsed,
+                    &ctx.func,
+                    &ctx.seed.file,
+                    assignment_line,
+                    cfg_set,
+                ) {
                     continue;
                 }
-                if let Some(cfg_set) = ctx.reachable {
-                    if !reference_line_cfg_reachable(
-                        ctx.parsed,
-                        &ctx.func,
-                        &ctx.seed.file,
-                        ref_line,
-                        cfg_set,
-                    ) {
+            }
+            let Some((lhs, rhs)) = js_ts_assignment_target_and_value(ctx.parsed, assignment) else {
+                continue;
+            };
+            let rhs_uses_alias = alias_defs.iter().any(|(alias, alias_line)| {
+                *alias_line < assignment_line && node_contains_identifier(ctx.parsed, &rhs, alias)
+            });
+            if !rhs_uses_alias {
+                continue;
+            }
+            for alias in assignment_lhs_identifiers(ctx.parsed, &lhs) {
+                if alias == "_" {
+                    continue;
+                }
+                if alias_defs.contains_key(&alias) {
+                    continue;
+                }
+                alias_defs.insert(alias.clone(), assignment_line);
+                changed = true;
+                let refs =
+                    ctx.parsed
+                        .find_variable_references_scoped(&ctx.func, &alias, assignment_line);
+                for ref_line in refs {
+                    if ref_line <= assignment_line {
                         continue;
                     }
+                    if let Some(cfg_set) = ctx.reachable {
+                        if !reference_line_cfg_reachable(
+                            ctx.parsed,
+                            &ctx.func,
+                            &ctx.seed.file,
+                            ref_line,
+                            cfg_set,
+                        ) {
+                            continue;
+                        }
+                    }
+                    if edges.iter().any(|edge| {
+                        edge.to.file == ctx.seed.file
+                            && edge.to.line == ref_line
+                            && edge.to.var_name() == alias
+                    }) {
+                        continue;
+                    }
+                    edges.push(FlowEdge {
+                        from: ctx.from.clone(),
+                        to: VarLocation {
+                            file: ctx.seed.file.clone(),
+                            function: ctx.func_name.to_string(),
+                            line: ref_line,
+                            path: AccessPath::simple(alias.clone()),
+                            kind: VarAccessKind::Use,
+                        },
+                    });
                 }
-                edges.push(FlowEdge {
-                    from: ctx.from.clone(),
-                    to: VarLocation {
-                        file: ctx.seed.file.clone(),
-                        function: ctx.func_name.to_string(),
-                        line: ref_line,
-                        path: AccessPath::simple(alias.clone()),
-                        kind: VarAccessKind::Use,
-                    },
-                });
             }
         }
     }
@@ -4284,10 +4308,19 @@ fn js_ts_assignment_visible_before_context(
     context: &Node<'_>,
     assignment: &Node<'_>,
 ) -> bool {
-    if assignment.start_byte() >= context.start_byte() {
-        return false;
+    if assignment.start_byte() < context.start_byte() {
+        return js_ts_binding_visible_at_context(parsed, context, assignment);
     }
-    js_ts_binding_visible_at_context(parsed, context, assignment)
+
+    // Top-level CommonJS bindings declared after a route callback are still
+    // visible when that callback executes after module initialization.
+    if js_ts_enclosing_function_id(parsed, assignment).is_none()
+        && js_ts_enclosing_function_id(parsed, context).is_some()
+    {
+        return js_ts_binding_visible_at_context(parsed, context, assignment);
+    }
+
+    false
 }
 
 fn js_ts_binding_visible_at_context(
