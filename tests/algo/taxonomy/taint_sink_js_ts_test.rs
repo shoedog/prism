@@ -367,6 +367,32 @@ app.post("/yaml", (req, res) => {
 }
 
 #[test]
+fn test_express_nested_imported_yaml_schema_does_not_suppress_outer_call() {
+    let source = r#"import express from "express";
+import { load } from "js-yaml";
+
+const JSON_SCHEMA = {};
+const app = express();
+
+function helper() {
+  const { JSON_SCHEMA } = require("js-yaml");
+  return JSON_SCHEMA;
+}
+
+app.post("/yaml", (req, res) => {
+  const payload = req.body.payload;
+  return load(payload, { schema: JSON_SCHEMA });
+});
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        has_taint_sink(&result),
+        "nested helper js-yaml schema imports must not make outer JSON_SCHEMA references trusted"
+    );
+}
+
+#[test]
 fn test_express_commonjs_aliased_yaml_load_still_fires() {
     let source = r#"import express from "express";
 const { load: yamlLoad } = require("js-yaml");
@@ -541,6 +567,30 @@ app.post("/yaml", (req, res) => {
     assert!(
         has_taint_sink(&result),
         "nested-function var load bindings must not shadow outer imported js-yaml load calls"
+    );
+}
+
+#[test]
+fn test_express_nested_imported_yaml_load_does_not_fire_outer_call() {
+    let source = r#"import express from "express";
+
+const app = express();
+
+function helper() {
+  const { load } = require("js-yaml");
+  return load("safe");
+}
+
+app.post("/yaml", (req, res) => {
+  const payload = req.body.payload;
+  return load(payload);
+});
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        !has_taint_sink(&result),
+        "nested helper js-yaml load imports must not make outer bare load calls sinks"
     );
 }
 

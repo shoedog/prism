@@ -3943,9 +3943,9 @@ fn js_ts_identifier_binds_imported_member_at_call(
     module_name: &str,
     imported_member: &str,
 ) -> bool {
-    js_ts_node_binds_imported_member(
+    js_ts_imported_member_binding_visible_at_call(
         parsed,
-        parsed.tree.root_node(),
+        call,
         local_name,
         module_name,
         imported_member,
@@ -4213,46 +4213,81 @@ fn js_ts_assignment_imports_allowed_binding(
     }
 }
 
-fn js_ts_node_binds_imported_member(
+fn js_ts_imported_member_binding_visible_at_call(
     parsed: &ParsedFile,
-    node: Node<'_>,
+    call: &Node<'_>,
     local_name: &str,
     module_name: &str,
     imported_member: &str,
 ) -> bool {
-    match node.kind() {
-        "import_statement" => {
-            if js_ts_import_statement_binds_member(
+    let root = parsed.tree.root_node();
+    let mut cursor = root.walk();
+    for child in root.named_children(&mut cursor) {
+        if child.kind() == "import_statement"
+            && js_ts_import_statement_binds_member(
                 parsed,
-                &node,
+                &child,
                 local_name,
                 module_name,
                 imported_member,
-            ) {
-                return true;
-            }
-        }
-        "variable_declarator" => {
-            if js_ts_require_declarator_binds_member(
-                parsed,
-                &node,
-                local_name,
-                module_name,
-                imported_member,
-            ) {
-                return true;
-            }
-        }
-        _ => {}
-    }
-    let mut cursor = node.walk();
-    for child in node.children(&mut cursor) {
-        if js_ts_node_binds_imported_member(parsed, child, local_name, module_name, imported_member)
+            )
         {
             return true;
         }
     }
-    false
+
+    let mut declarations = Vec::new();
+    collect_js_ts_assignment_like_nodes(root, parsed, &mut declarations);
+    declarations.iter().any(|decl| {
+        decl.kind() == "variable_declarator"
+            && js_ts_require_declarator_binds_member(
+                parsed,
+                decl,
+                local_name,
+                module_name,
+                imported_member,
+            )
+            && js_ts_import_declarator_visible_at_call(parsed, call, decl)
+    })
+}
+
+fn js_ts_import_declarator_visible_at_call(
+    parsed: &ParsedFile,
+    call: &Node<'_>,
+    declarator: &Node<'_>,
+) -> bool {
+    let root_id = parsed.tree.root_node().id();
+    let call_func_id = parsed
+        .enclosing_function(call.start_position().row + 1)
+        .map(|func| func.id());
+    let decl_func_id = js_ts_enclosing_function_id(parsed, declarator);
+
+    if let Some(decl_func_id) = decl_func_id {
+        if call_func_id != Some(decl_func_id) {
+            return false;
+        }
+        if declarator.start_byte() >= call.start_byte() {
+            return false;
+        }
+        return js_ts_binding_scope_reaches_call(parsed, decl_func_id, call, declarator);
+    }
+
+    js_ts_binding_scope_reaches_call(parsed, root_id, call, declarator)
+}
+
+fn js_ts_enclosing_function_id(parsed: &ParsedFile, node: &Node<'_>) -> Option<usize> {
+    let mut current = node.parent();
+    while let Some(parent) = current {
+        if parsed
+            .language
+            .function_node_types()
+            .contains(&parent.kind())
+        {
+            return Some(parent.id());
+        }
+        current = parent.parent();
+    }
+    None
 }
 
 fn js_ts_import_statement_binds_member(
