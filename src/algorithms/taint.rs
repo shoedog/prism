@@ -5646,11 +5646,11 @@ fn js_ts_identifier_bound_to_unsafe_shell_options(
     var_name: &str,
     context: &Node<'_>,
 ) -> bool {
-    let before_line = context.start_position().row + 1;
     let mut assignments = Vec::new();
     collect_js_ts_assignment_like_nodes(parsed.tree.root_node(), parsed, &mut assignments);
 
     let mut saw_inspectable_safe_options = false;
+    let mut saw_module_lifetime_binding = false;
     for assignment in assignments {
         if !js_ts_assignment_visible_before_context(parsed, context, &assignment) {
             continue;
@@ -5672,21 +5672,40 @@ fn js_ts_identifier_bound_to_unsafe_shell_options(
             return true;
         }
         saw_inspectable_safe_options = true;
+        if js_ts_enclosing_function_id(parsed, &assignment).is_none() {
+            saw_module_lifetime_binding = true;
+        }
     }
     !saw_inspectable_safe_options
-        || js_ts_shell_options_have_unsafe_mutation(parsed, var_name, before_line)
+        || js_ts_shell_options_have_unsafe_mutation(
+            parsed,
+            var_name,
+            context,
+            saw_module_lifetime_binding,
+        )
 }
 
 fn js_ts_shell_options_have_unsafe_mutation(
     parsed: &ParsedFile,
     var_name: &str,
-    before_line: usize,
+    context: &Node<'_>,
+    include_module_init_after_context: bool,
 ) -> bool {
-    let receiver_names = js_ts_collection_aliases_before(parsed, var_name, before_line);
+    let receiver_names = js_ts_collection_aliases_visible_at_context(
+        parsed,
+        var_name,
+        context,
+        include_module_init_after_context,
+    );
     let mut assignments = Vec::new();
     collect_js_ts_assignment_like_nodes(parsed.tree.root_node(), parsed, &mut assignments);
     for assignment in assignments {
-        if assignment.start_position().row + 1 >= before_line {
+        if !js_ts_effect_visible_at_context(
+            parsed,
+            context,
+            &assignment,
+            include_module_init_after_context,
+        ) {
             continue;
         }
         let Some((lhs, _rhs)) = js_ts_assignment_target_and_value(parsed, &assignment) else {
@@ -5704,7 +5723,12 @@ fn js_ts_shell_options_have_unsafe_mutation(
     let mut calls = Vec::new();
     collect_calls(parsed, parsed.tree.root_node(), &mut calls);
     for call in calls {
-        if call.start_position().row + 1 >= before_line {
+        if !js_ts_effect_visible_at_context(
+            parsed,
+            context,
+            &call,
+            include_module_init_after_context,
+        ) {
             continue;
         }
         let Some(actual) = call_path_text(parsed, &call) else {
@@ -6225,11 +6249,11 @@ fn js_ts_identifier_bound_to_literal_collection(
     var_name: &str,
     context: &Node<'_>,
 ) -> bool {
-    let before_line = context.start_position().row + 1;
     let mut assignments = Vec::new();
     collect_js_ts_assignment_like_nodes(parsed.tree.root_node(), parsed, &mut assignments);
 
     let mut saw_literal_collection = false;
+    let mut saw_module_lifetime_binding = false;
     for assignment in assignments {
         if !js_ts_assignment_visible_before_context(parsed, context, &assignment) {
             continue;
@@ -6245,11 +6269,20 @@ fn js_ts_identifier_bound_to_literal_collection(
         }
         if js_ts_node_is_literal_string_collection(parsed, &rhs) {
             saw_literal_collection = true;
+            if js_ts_enclosing_function_id(parsed, &assignment).is_none() {
+                saw_module_lifetime_binding = true;
+            }
         } else {
             return false;
         }
     }
-    saw_literal_collection && !js_ts_collection_has_untrusted_update(parsed, var_name, before_line)
+    saw_literal_collection
+        && !js_ts_collection_has_untrusted_update(
+            parsed,
+            var_name,
+            context,
+            saw_module_lifetime_binding,
+        )
 }
 
 fn js_ts_node_is_literal_string_collection(parsed: &ParsedFile, node: &Node<'_>) -> bool {
@@ -6275,13 +6308,24 @@ fn js_ts_node_is_literal_string_collection(parsed: &ParsedFile, node: &Node<'_>)
 fn js_ts_collection_has_untrusted_update(
     parsed: &ParsedFile,
     var_name: &str,
-    before_line: usize,
+    context: &Node<'_>,
+    include_module_init_after_context: bool,
 ) -> bool {
-    let receiver_names = js_ts_collection_aliases_before(parsed, var_name, before_line);
+    let receiver_names = js_ts_collection_aliases_visible_at_context(
+        parsed,
+        var_name,
+        context,
+        include_module_init_after_context,
+    );
     let mut calls = Vec::new();
     collect_calls(parsed, parsed.tree.root_node(), &mut calls);
     for call in calls {
-        if call.start_position().row + 1 >= before_line {
+        if !js_ts_effect_visible_at_context(
+            parsed,
+            context,
+            &call,
+            include_module_init_after_context,
+        ) {
             continue;
         }
         let Some(actual) = call_path_text(parsed, &call) else {
@@ -6320,7 +6364,12 @@ fn js_ts_collection_has_untrusted_update(
     let mut assignments = Vec::new();
     collect_js_ts_assignment_like_nodes(parsed.tree.root_node(), parsed, &mut assignments);
     for assignment in assignments {
-        if assignment.start_position().row + 1 >= before_line {
+        if !js_ts_effect_visible_at_context(
+            parsed,
+            context,
+            &assignment,
+            include_module_init_after_context,
+        ) {
             continue;
         }
         let Some((lhs, rhs)) = js_ts_assignment_target_and_value(parsed, &assignment) else {
@@ -6340,10 +6389,11 @@ fn js_ts_collection_has_untrusted_update(
     false
 }
 
-fn js_ts_collection_aliases_before(
+fn js_ts_collection_aliases_visible_at_context(
     parsed: &ParsedFile,
     var_name: &str,
-    before_line: usize,
+    context: &Node<'_>,
+    include_module_init_after_context: bool,
 ) -> BTreeSet<String> {
     let mut assignments = Vec::new();
     collect_js_ts_assignment_like_nodes(parsed.tree.root_node(), parsed, &mut assignments);
@@ -6355,7 +6405,12 @@ fn js_ts_collection_aliases_before(
     while changed {
         changed = false;
         for assignment in &assignments {
-            if assignment.start_position().row + 1 >= before_line {
+            if !js_ts_effect_visible_at_context(
+                parsed,
+                context,
+                assignment,
+                include_module_init_after_context,
+            ) {
                 continue;
             }
             let Some((lhs, rhs)) = js_ts_assignment_target_and_value(parsed, assignment) else {
@@ -6374,6 +6429,36 @@ fn js_ts_collection_aliases_before(
     }
 
     aliases
+}
+
+fn js_ts_effect_visible_at_context(
+    parsed: &ParsedFile,
+    context: &Node<'_>,
+    effect: &Node<'_>,
+    include_module_init_after_context: bool,
+) -> bool {
+    if effect.start_byte() < context.start_byte() {
+        return js_ts_effect_scope_reaches_context(parsed, context, effect);
+    }
+
+    include_module_init_after_context
+        && js_ts_enclosing_function_id(parsed, effect).is_none()
+        && js_ts_enclosing_function_id(parsed, context).is_some()
+}
+
+fn js_ts_effect_scope_reaches_context(
+    parsed: &ParsedFile,
+    context: &Node<'_>,
+    effect: &Node<'_>,
+) -> bool {
+    let context_func_id = js_ts_enclosing_function_id(parsed, context);
+    let effect_func_id = js_ts_enclosing_function_id(parsed, effect);
+
+    match (effect_func_id, context_func_id) {
+        (Some(effect_func_id), Some(context_func_id)) => effect_func_id == context_func_id,
+        (None, _) => true,
+        _ => false,
+    }
 }
 
 fn js_ts_call_args_are_literal_strings(parsed: &ParsedFile, call: &Node<'_>) -> bool {

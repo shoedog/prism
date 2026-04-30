@@ -1109,6 +1109,32 @@ app.use(async (ctx, next) => {
 }
 
 #[test]
+fn test_js_ts_ssrf_late_top_level_allowlist_mutation_does_not_suppress() {
+    let source = r#"import Koa from "koa";
+
+const app = new Koa();
+
+app.use(async (ctx, next) => {
+  const target = ctx.request.body.url;
+  const parsed = new URL(target);
+  if (!allowedHosts.has(parsed.hostname)) {
+    return;
+  }
+  return fetch(target);
+});
+
+const allowedHosts = new Set(["example.com"]);
+allowedHosts.add(process.env.ALLOWED_HOST);
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        has_taint_sink(&result),
+        "top-level allowlist mutations after handler registration run before requests and must fail closed"
+    );
+}
+
+#[test]
 fn test_express_query_reaches_superagent_get_ssrf() {
     let source = r#"import express from "express";
 import superagent from "superagent";
@@ -1406,6 +1432,29 @@ app.post("/run", async (request, reply) => {
     assert!(
         has_taint_sink(&result),
         "nested helper options bindings must not make outer execFile options inspectably safe"
+    );
+}
+
+#[test]
+fn test_exec_file_late_top_level_options_mutation_still_fires() {
+    let source = r#"import fastify from "fastify";
+import { execFile } from "child_process";
+
+const app = fastify();
+
+app.get("/run", async (request, reply) => {
+  const arg = request.query.arg;
+  return execFile("git", ["status", arg], opts);
+});
+
+const opts = { shell: false };
+Object.assign(opts, { shell: process.env.SHELL });
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.ts", Language::TypeScript, BTreeSet::from([1]));
+    assert!(
+        has_taint_sink(&result),
+        "top-level options mutations after handler registration run before requests and must fail closed"
     );
 }
 
