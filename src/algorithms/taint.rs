@@ -3964,19 +3964,14 @@ fn js_ts_identifier_binds_module_at_call(
     local_name: &str,
     module_name: &str,
 ) -> bool {
-    parsed
-        .extract_imports()
-        .get(local_name)
-        .is_some_and(|module| {
-            module == module_name
-                && !js_ts_identifier_has_local_shadow_before_call(
-                    parsed,
-                    call,
-                    local_name,
-                    module_name,
-                    None,
-                )
-        })
+    js_ts_module_binding_visible_at_call(parsed, call, local_name, module_name)
+        && !js_ts_identifier_has_local_shadow_before_call(
+            parsed,
+            call,
+            local_name,
+            module_name,
+            None,
+        )
 }
 
 fn js_ts_identifier_has_local_shadow_before_call(
@@ -4256,23 +4251,61 @@ fn js_ts_import_declarator_visible_at_call(
     call: &Node<'_>,
     declarator: &Node<'_>,
 ) -> bool {
-    let root_id = parsed.tree.root_node().id();
-    let call_func_id = parsed
-        .enclosing_function(call.start_position().row + 1)
-        .map(|func| func.id());
-    let decl_func_id = js_ts_enclosing_function_id(parsed, declarator);
+    js_ts_assignment_visible_before_context(parsed, call, declarator)
+}
 
-    if let Some(decl_func_id) = decl_func_id {
-        if call_func_id != Some(decl_func_id) {
-            return false;
+fn js_ts_module_binding_visible_at_call(
+    parsed: &ParsedFile,
+    call: &Node<'_>,
+    local_name: &str,
+    module_name: &str,
+) -> bool {
+    let root = parsed.tree.root_node();
+    let mut cursor = root.walk();
+    for child in root.named_children(&mut cursor) {
+        if child.kind() == "import_statement"
+            && js_ts_import_statement_binds_module(parsed, &child, local_name, module_name)
+        {
+            return true;
         }
-        if declarator.start_byte() >= call.start_byte() {
-            return false;
-        }
-        return js_ts_binding_scope_reaches_call(parsed, decl_func_id, call, declarator);
     }
 
-    js_ts_binding_scope_reaches_call(parsed, root_id, call, declarator)
+    let mut declarations = Vec::new();
+    collect_js_ts_assignment_like_nodes(root, parsed, &mut declarations);
+    declarations.iter().any(|decl| {
+        decl.kind() == "variable_declarator"
+            && js_ts_require_declarator_binds_module(parsed, decl, local_name, module_name)
+            && js_ts_assignment_visible_before_context(parsed, call, decl)
+    })
+}
+
+fn js_ts_assignment_visible_before_context(
+    parsed: &ParsedFile,
+    context: &Node<'_>,
+    assignment: &Node<'_>,
+) -> bool {
+    if assignment.start_byte() >= context.start_byte() {
+        return false;
+    }
+    js_ts_binding_visible_at_context(parsed, context, assignment)
+}
+
+fn js_ts_binding_visible_at_context(
+    parsed: &ParsedFile,
+    context: &Node<'_>,
+    binding_node: &Node<'_>,
+) -> bool {
+    let root_id = parsed.tree.root_node().id();
+    let context_func_id = js_ts_enclosing_function_id(parsed, context);
+    let binding_func_id = js_ts_enclosing_function_id(parsed, binding_node);
+
+    match (binding_func_id, context_func_id) {
+        (Some(binding_func_id), Some(context_func_id)) if binding_func_id == context_func_id => {
+            js_ts_binding_scope_reaches_call(parsed, context_func_id, context, binding_node)
+        }
+        (Some(_), _) => false,
+        (None, _) => js_ts_binding_scope_reaches_call(parsed, root_id, context, binding_node),
+    }
 }
 
 fn js_ts_enclosing_function_id(parsed: &ParsedFile, node: &Node<'_>) -> Option<usize> {
@@ -4327,6 +4360,77 @@ fn js_ts_import_statement_binds_member(
     false
 }
 
+fn js_ts_import_statement_binds_module(
+    parsed: &ParsedFile,
+    node: &Node<'_>,
+    local_name: &str,
+    module_name: &str,
+) -> bool {
+    let Some(source) = node.child_by_field_name("source") else {
+        return false;
+    };
+    let source_text = parsed
+        .node_text(&source)
+        .trim_matches(|c| c == '\'' || c == '"')
+        .to_string();
+    if source_text != module_name {
+        return false;
+    }
+    let mut cursor = node.walk();
+    for child in node.children(&mut cursor) {
+        match child.kind() {
+            "import_clause" => {
+                if js_ts_import_clause_binds_module(parsed, &child, local_name) {
+                    return true;
+                }
+            }
+            "identifier" => {
+                if parsed.node_text(&child) == local_name {
+                    return true;
+                }
+            }
+            _ => {}
+        }
+    }
+    false
+}
+
+fn js_ts_import_clause_binds_module(
+    parsed: &ParsedFile,
+    node: &Node<'_>,
+    local_name: &str,
+) -> bool {
+    let mut cursor = node.walk();
+    for child in node.children(&mut cursor) {
+        match child.kind() {
+            "identifier" => {
+                if parsed.node_text(&child) == local_name {
+                    return true;
+                }
+            }
+            "namespace_import" => {
+                if child
+                    .child_by_field_name("name")
+                    .is_some_and(|name| parsed.node_text(&name) == local_name)
+                {
+                    return true;
+                }
+                let mut inner = child.walk();
+                if child
+                    .children(&mut inner)
+                    .any(|n| n.kind() == "identifier" && parsed.node_text(&n) == local_name)
+                {
+                    return true;
+                }
+            }
+            // Named imports bind members, not the module namespace object.
+            "named_imports" => {}
+            _ => {}
+        }
+    }
+    false
+}
+
 fn js_ts_require_declarator_binds_member(
     parsed: &ParsedFile,
     node: &Node<'_>,
@@ -4348,6 +4452,23 @@ fn js_ts_require_declarator_binds_member(
             .is_some_and(|(module, member)| module == module_name && member == imported_member);
     }
     false
+}
+
+fn js_ts_require_declarator_binds_module(
+    parsed: &ParsedFile,
+    node: &Node<'_>,
+    local_name: &str,
+    module_name: &str,
+) -> bool {
+    let Some(name) = node.child_by_field_name("name") else {
+        return false;
+    };
+    let Some(value) = node.child_by_field_name("value") else {
+        return false;
+    };
+    name.kind() == "identifier"
+        && parsed.node_text(&name) == local_name
+        && js_ts_require_call_module(parsed, &value).is_some_and(|module| module == module_name)
 }
 
 fn js_ts_pattern_binds_member(
@@ -5450,11 +5571,10 @@ fn js_ts_exec_file_interpreter_argv_is_inspectably_safe(
 }
 
 fn js_ts_exec_file_shell_option_is_unsafe(parsed: &ParsedFile, call: &Node<'_>) -> bool {
-    let call_line = call.start_position().row + 1;
     (1..=3).any(|arg_idx| match call_arg_node(call, arg_idx) {
         Some(arg) if arg_idx == 1 && js_ts_exec_file_arg_is_argv_or_callback(&arg) => false,
         Some(arg) if js_ts_exec_file_arg_is_callback(&arg) => false,
-        Some(arg) => js_ts_node_has_unsafe_shell_option(parsed, &arg, call_line),
+        Some(arg) => js_ts_node_has_unsafe_shell_option(parsed, &arg, call),
         None => false,
     })
 }
@@ -5475,7 +5595,7 @@ fn js_ts_exec_file_arg_is_callback(arg: &Node<'_>) -> bool {
 fn js_ts_node_has_unsafe_shell_option(
     parsed: &ParsedFile,
     node: &Node<'_>,
-    before_line: usize,
+    context: &Node<'_>,
 ) -> bool {
     let node = unwrap_parenthesized(*node);
     let text = parsed.node_text(&node);
@@ -5485,20 +5605,21 @@ fn js_ts_node_has_unsafe_shell_option(
     if node.kind() != "identifier" {
         return true;
     }
-    js_ts_identifier_bound_to_unsafe_shell_options(parsed, parsed.node_text(&node), before_line)
+    js_ts_identifier_bound_to_unsafe_shell_options(parsed, parsed.node_text(&node), context)
 }
 
 fn js_ts_identifier_bound_to_unsafe_shell_options(
     parsed: &ParsedFile,
     var_name: &str,
-    before_line: usize,
+    context: &Node<'_>,
 ) -> bool {
+    let before_line = context.start_position().row + 1;
     let mut assignments = Vec::new();
     collect_js_ts_assignment_like_nodes(parsed.tree.root_node(), parsed, &mut assignments);
 
     let mut saw_inspectable_safe_options = false;
     for assignment in assignments {
-        if assignment.start_position().row + 1 >= before_line {
+        if !js_ts_assignment_visible_before_context(parsed, context, &assignment) {
             continue;
         }
         let Some((lhs, rhs)) = js_ts_assignment_target_and_value(parsed, &assignment) else {
@@ -5656,12 +5777,11 @@ fn js_ts_yaml_load_uses_safe_schema(parsed: &ParsedFile, call: &Node<'_>) -> boo
         None => return false,
     };
     if !call_path_matches(parsed, &actual, "yaml.load")
-        && !call_path_matches(parsed, &actual, "load")
+        && !js_ts_js_yaml_bare_load_call_matches(parsed, call, &actual)
     {
         return false;
     }
-    let text = parsed.node_text(call);
-    js_yaml_load_text_uses_safe_schema(text)
+    !js_yaml_load_call_uses_unsafe_schema(parsed, call)
 }
 
 fn js_ts_sql_call_is_parametrized(parsed: &ParsedFile, call: &Node<'_>) -> bool {
@@ -5967,12 +6087,7 @@ fn classify_js_ts_url_guard(
     let actual = call_path_text(parsed, &call)?;
     let (receiver, method) = actual.rsplit_once('.')?;
     if !matches!(method, "includes" | "has")
-        || !js_ts_allowlist_receiver_is_trusted(
-            parsed,
-            receiver,
-            path,
-            condition.start_position().row + 1,
-        )
+        || !js_ts_allowlist_receiver_is_trusted(parsed, receiver, path, condition)
         || !call_arg_node(&call, 0)
             .is_some_and(|arg| js_ts_node_is_hostname_for_url_binding(parsed, &arg, binding))
     {
@@ -5996,9 +6111,8 @@ fn classify_js_ts_path_guard(
     let (receiver, method) = actual.rsplit_once('.')?;
     if method != "startsWith"
         || receiver != binding.result_var
-        || !call_arg_node(&call, 0).is_some_and(|arg| {
-            js_ts_path_prefix_arg_is_trusted(parsed, &arg, path, condition.start_position().row + 1)
-        })
+        || !call_arg_node(&call, 0)
+            .is_some_and(|arg| js_ts_path_prefix_arg_is_trusted(parsed, &arg, path, condition))
     {
         return None;
     }
@@ -6029,7 +6143,7 @@ fn js_ts_allowlist_receiver_is_trusted(
     parsed: &ParsedFile,
     receiver: &str,
     path: &FlowPath,
-    guard_line: usize,
+    guard: &Node<'_>,
 ) -> bool {
     if !receiver.chars().all(|c| c.is_alphanumeric() || c == '_') {
         return false;
@@ -6070,20 +6184,21 @@ fn js_ts_allowlist_receiver_is_trusted(
     {
         return false;
     }
-    js_ts_identifier_bound_to_literal_collection(parsed, receiver, guard_line)
+    js_ts_identifier_bound_to_literal_collection(parsed, receiver, guard)
 }
 
 fn js_ts_identifier_bound_to_literal_collection(
     parsed: &ParsedFile,
     var_name: &str,
-    before_line: usize,
+    context: &Node<'_>,
 ) -> bool {
+    let before_line = context.start_position().row + 1;
     let mut assignments = Vec::new();
     collect_js_ts_assignment_like_nodes(parsed.tree.root_node(), parsed, &mut assignments);
 
     let mut saw_literal_collection = false;
     for assignment in assignments {
-        if assignment.start_position().row + 1 >= before_line {
+        if !js_ts_assignment_visible_before_context(parsed, context, &assignment) {
             continue;
         }
         let Some((lhs, rhs)) = js_ts_assignment_target_and_value(parsed, &assignment) else {
@@ -6252,7 +6367,7 @@ fn js_ts_path_prefix_arg_is_trusted(
     parsed: &ParsedFile,
     node: &Node<'_>,
     path: &FlowPath,
-    guard_line: usize,
+    guard: &Node<'_>,
 ) -> bool {
     let node = unwrap_parenthesized(*node);
     if let Some(prefix) = js_ts_literal_string_value(parsed, &node) {
@@ -6269,7 +6384,7 @@ fn js_ts_path_prefix_arg_is_trusted(
     {
         return false;
     }
-    js_ts_identifier_literal_string_before(parsed, name, guard_line)
+    js_ts_identifier_literal_string_before(parsed, name, guard)
         .is_some_and(|prefix| js_ts_path_prefix_value_has_boundary(&prefix))
 }
 
@@ -6292,14 +6407,14 @@ fn js_ts_path_prefix_value_has_boundary(prefix: &str) -> bool {
 fn js_ts_identifier_literal_string_before(
     parsed: &ParsedFile,
     var_name: &str,
-    before_line: usize,
+    context: &Node<'_>,
 ) -> Option<String> {
     let mut assignments = Vec::new();
     collect_js_ts_assignment_like_nodes(parsed.tree.root_node(), parsed, &mut assignments);
 
     let mut literal = None;
     for assignment in assignments {
-        if assignment.start_position().row + 1 >= before_line {
+        if !js_ts_assignment_visible_before_context(parsed, context, &assignment) {
             continue;
         }
         let Some((lhs, rhs)) = js_ts_assignment_target_and_value(parsed, &assignment) else {

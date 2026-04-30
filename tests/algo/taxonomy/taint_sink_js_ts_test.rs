@@ -655,6 +655,31 @@ app.post("/yaml", (req, res) => {
 }
 
 #[test]
+fn test_express_nested_module_alias_yaml_schema_does_not_suppress_outer_call() {
+    let source = r#"import express from "express";
+
+const yaml = { load: (value) => value, JSON_SCHEMA: {} };
+const app = express();
+
+function helper() {
+  const yaml = require("js-yaml");
+  return yaml.JSON_SCHEMA;
+}
+
+app.post("/yaml", (req, res) => {
+  const payload = req.body.payload;
+  return yaml.load(payload, { schema: yaml.JSON_SCHEMA });
+});
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        has_taint_sink(&result),
+        "nested helper js-yaml module aliases must not make outer yaml.JSON_SCHEMA references trusted"
+    );
+}
+
+#[test]
 fn test_express_yaml_duplicate_schema_override_still_fires() {
     let source = r#"import express from "express";
 import yaml from "js-yaml";
@@ -1036,6 +1061,34 @@ app.use(async (ctx, next) => {
 }
 
 #[test]
+fn test_js_ts_ssrf_nested_allowlist_literal_does_not_suppress_outer_guard() {
+    let source = r#"import Koa from "koa";
+
+const app = new Koa();
+
+function helper() {
+  const allowedHosts = new Set(["example.com"]);
+  return allowedHosts;
+}
+
+app.use(async (ctx, next) => {
+  const target = ctx.request.body.url;
+  const parsed = new URL(target);
+  if (!allowedHosts.has(parsed.hostname)) {
+    return;
+  }
+  return fetch(target);
+});
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        has_taint_sink(&result),
+        "nested helper allowlists must not prove trust for an outer SSRF guard"
+    );
+}
+
+#[test]
 fn test_express_query_reaches_superagent_get_ssrf() {
     let source = r#"import express from "express";
 import superagent from "superagent";
@@ -1312,6 +1365,31 @@ app.post("/run", async (request, reply) => {
 }
 
 #[test]
+fn test_exec_file_nested_safe_options_do_not_suppress_outer_call() {
+    let source = r#"import fastify from "fastify";
+import { execFile } from "child_process";
+
+const app = fastify();
+
+function helper() {
+  const opts = { shell: false };
+  return opts;
+}
+
+app.post("/run", async (request, reply) => {
+  const arg = request.body.shellArg;
+  return execFile("psql", ["-c", arg], opts);
+});
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.ts", Language::TypeScript, BTreeSet::from([1]));
+    assert!(
+        has_taint_sink(&result),
+        "nested helper options bindings must not make outer execFile options inspectably safe"
+    );
+}
+
+#[test]
 fn test_exec_file_shell_wrapper_still_fires() {
     let source = r#"import fastify from "fastify";
 import { execFile } from "child_process";
@@ -1529,6 +1607,35 @@ app.get("/download/:name", (req, res) => {
     assert!(
         !has_taint_sink(&result),
         "startsWith(base) may suppress only when the trusted base preserves a path boundary"
+    );
+}
+
+#[test]
+fn test_js_ts_path_nested_prefix_literal_does_not_suppress_outer_guard() {
+    let source = r#"import express from "express";
+import path from "path";
+
+const app = express();
+
+function helper() {
+  const uploadsDir = "/uploads/";
+  return uploadsDir;
+}
+
+app.get("/download/:name", (req, res) => {
+  const filename = req.params.name;
+  const resolved = path.resolve(uploadsDir, filename);
+  if (!resolved.startsWith(uploadsDir)) {
+    return;
+  }
+  return res.sendFile(resolved);
+});
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        has_taint_sink(&result),
+        "nested helper path-prefix constants must not prove containment for an outer guard"
     );
 }
 
