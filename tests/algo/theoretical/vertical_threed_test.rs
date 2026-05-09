@@ -302,3 +302,22 @@ fn test_vertical_slice_python_layer_detection() {
         "VerticalSlice should trace layers for service function"
     );
 }
+
+#[test]
+fn vertical_result_carries_layered_diagram() {
+    let (files, _, diff) = make_python_test();
+    let config = SliceConfig::default().with_algorithm(SlicingAlgorithm::VerticalSlice);
+    let result = algorithms::run_slicing_compat(&files, &diff, &config, None).unwrap();
+    if result.blocks.is_empty() {
+        // No path traced — diagram should also be absent.
+        assert!(result.diagrams.is_empty());
+        return;
+    }
+    assert_eq!(result.diagrams.len(), 1);
+    let g = &result.diagrams[0];
+    assert!(matches!(g.shape, prism::slice::GraphShape::Layered));
+    assert!(!g.nodes.is_empty(), "should have nodes when blocks exist");
+    assert!(!g.clusters.is_empty(), "should have at least one cluster");
+    assert!(!g.mermaid.is_empty());
+    assert!(g.mermaid.starts_with("flowchart TD"));
+}

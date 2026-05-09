@@ -7,7 +7,11 @@
 use crate::ast::ParsedFile;
 use crate::cpg::CpgContext;
 use crate::diff::{DiffBlock, DiffInput, ModifyType};
-use crate::slice::{SliceResult, SlicingAlgorithm};
+use crate::output::mermaid::safe_node_id;
+use crate::slice::{
+    EdgeStyle, GraphEdge, GraphNode, GraphShape, NodeCluster, NodeKind, SliceGraph, SliceResult,
+    SlicingAlgorithm,
+};
 use anyhow::Result;
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -72,6 +76,13 @@ pub fn slice(
         assign_layers(ctx.files, &vertical_config.layers)
     };
 
+    // Diagram accumulators (one Layered diagram per result).
+    let mut graph_nodes: Vec<GraphNode> = Vec::new();
+    let mut graph_edges: Vec<GraphEdge> = Vec::new();
+    let mut layer_to_nodes: BTreeMap<String, Vec<String>> = BTreeMap::new();
+    let mut layer_order: Vec<String> = Vec::new();
+    let mut seen_node_ids: BTreeSet<String> = BTreeSet::new();
+
     // For each diff function, trace upward and downward through layers
     let mut block_id = 0;
     for diff_info in &diff.files {
@@ -131,6 +142,41 @@ pub fn slice(
                 let mut seen: BTreeSet<String> = BTreeSet::new();
                 path.retain(|e| seen.insert(format!("{}:{}", e.file, e.function_name)));
 
+                // For the diagram: each unique LayerEntry becomes a node; consecutive
+                // entries within this path become an edge.
+                let mut path_node_ids: Vec<String> = Vec::new();
+                for entry in &path {
+                    let nid = safe_node_id(&entry.file, entry.start_line);
+                    path_node_ids.push(nid.clone());
+                    if seen_node_ids.insert(nid.clone()) {
+                        graph_nodes.push(GraphNode {
+                            id: nid.clone(),
+                            label: format!(
+                                "{}:{}\n{}",
+                                entry.file, entry.start_line, entry.function_name
+                            ),
+                            kind: NodeKind::Step,
+                            file: Some(entry.file.clone()),
+                            line: Some(entry.start_line),
+                        });
+                        if !layer_to_nodes.contains_key(&entry.layer_name) {
+                            layer_order.push(entry.layer_name.clone());
+                        }
+                        layer_to_nodes
+                            .entry(entry.layer_name.clone())
+                            .or_default()
+                            .push(nid);
+                    }
+                }
+                for pair in path_node_ids.windows(2) {
+                    graph_edges.push(GraphEdge {
+                        from: pair[0].clone(),
+                        to: pair[1].clone(),
+                        label: None,
+                        style: EdgeStyle::Solid,
+                    });
+                }
+
                 // Build block
                 if !path.is_empty() {
                     let mut block =
@@ -155,6 +201,24 @@ pub fn slice(
                 }
             }
         }
+    }
+
+    if !graph_nodes.is_empty() {
+        let clusters: Vec<NodeCluster> = layer_order
+            .iter()
+            .map(|layer| NodeCluster {
+                label: layer.clone(),
+                node_ids: layer_to_nodes.get(layer).cloned().unwrap_or_default(),
+            })
+            .collect();
+        result.diagrams.push(SliceGraph {
+            title: Some("Layered call graph".to_string()),
+            shape: GraphShape::Layered,
+            nodes: graph_nodes,
+            edges: graph_edges,
+            clusters,
+            mermaid: String::new(),
+        });
     }
 
     Ok(result)
