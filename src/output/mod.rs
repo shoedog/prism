@@ -3,6 +3,7 @@
 //! - `review` — line-numbered text, paper JSON, review JSON, callers JSON
 //! - `mermaid` — Mermaid flowchart rendering for SliceGraph (added in Task 5)
 
+pub mod mermaid;
 pub mod review;
 
 // Re-export the previous flat-file public API so existing imports keep working.
