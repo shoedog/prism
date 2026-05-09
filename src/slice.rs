@@ -376,3 +376,108 @@ pub struct AlgorithmError {
     pub algorithm: String,
     pub error: String,
 }
+
+/// Shape category for a diagram. Drives which renderer template is used.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum GraphShape {
+    Chain,
+    Layered,
+    Cycle,
+    Fanout,
+}
+
+/// Semantic role of a node, drives classDef styling in Mermaid.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum NodeKind {
+    Origin,
+    Source,
+    Sink,
+    Step,
+    Caller,
+    Callee,
+}
+
+/// Edge style maps directly to Mermaid arrow syntax.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum EdgeStyle {
+    Solid,  // -->
+    Bold,   // ==> (cycle back-edge)
+    Dotted, // -.->
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct GraphNode {
+    pub id: String,
+    pub label: String,
+    pub kind: NodeKind,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub file: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub line: Option<usize>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct GraphEdge {
+    pub from: String,
+    pub to: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub label: Option<String>,
+    pub style: EdgeStyle,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct NodeCluster {
+    pub label: String,
+    pub node_ids: Vec<String>,
+}
+
+/// A flow / call / cycle / fanout diagram for one algorithm output.
+/// Algorithms populate the structured fields. The `mermaid` string is filled
+/// by the finalize pass via `output::mermaid::render`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SliceGraph {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+    pub shape: GraphShape,
+    pub nodes: Vec<GraphNode>,
+    pub edges: Vec<GraphEdge>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub clusters: Vec<NodeCluster>,
+    /// Pre-rendered Mermaid string. Populated by finalize pass; algorithms must leave empty.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub mermaid: String,
+}
+
+#[cfg(test)]
+mod diagram_tests {
+    use super::*;
+
+    #[test]
+    fn slice_graph_serde_round_trip() {
+        let g = SliceGraph {
+            title: Some("data flow".to_string()),
+            shape: GraphShape::Chain,
+            nodes: vec![GraphNode {
+                id: "n_foo_42".to_string(),
+                label: "foo.c:42 read_input".to_string(),
+                kind: NodeKind::Source,
+                file: Some("foo.c".to_string()),
+                line: Some(42),
+            }],
+            edges: vec![GraphEdge {
+                from: "n_foo_42".to_string(),
+                to: "n_foo_67".to_string(),
+                label: Some("tainted".to_string()),
+                style: EdgeStyle::Solid,
+            }],
+            clusters: vec![],
+            mermaid: String::new(),
+        };
+        let json = serde_json::to_string(&g).unwrap();
+        let back: SliceGraph = serde_json::from_str(&json).unwrap();
+        assert_eq!(g.shape, back.shape);
+        assert_eq!(g.nodes.len(), back.nodes.len());
+        assert_eq!(g.nodes[0].kind, back.nodes[0].kind);
+        assert_eq!(g.edges[0].style, back.edges[0].style);
+    }
+}
