@@ -457,27 +457,41 @@ mod diagram_tests {
         let g = SliceGraph {
             title: Some("data flow".to_string()),
             shape: GraphShape::Chain,
-            nodes: vec![GraphNode {
-                id: "n_foo_42".to_string(),
-                label: "foo.c:42 read_input".to_string(),
-                kind: NodeKind::Source,
-                file: Some("foo.c".to_string()),
-                line: Some(42),
-            }],
+            nodes: vec![
+                GraphNode {
+                    id: "n_foo_42".to_string(),
+                    label: "foo.c:42 read_input".to_string(),
+                    kind: NodeKind::Source,
+                    file: Some("foo.c".to_string()),
+                    line: Some(42),
+                },
+                GraphNode {
+                    id: "n_bar_10".to_string(),
+                    label: "bar.c:10 render".to_string(),
+                    kind: NodeKind::Step,
+                    file: Some("bar.c".to_string()),
+                    line: Some(10),
+                },
+            ],
             edges: vec![GraphEdge {
                 from: "n_foo_42".to_string(),
-                to: "n_foo_67".to_string(),
+                to: "n_bar_10".to_string(),
                 label: Some("tainted".to_string()),
                 style: EdgeStyle::Solid,
             }],
-            clusters: vec![],
-            mermaid: String::new(),
+            clusters: vec![NodeCluster {
+                label: "UI".to_string(),
+                node_ids: vec!["n_bar_10".to_string()],
+            }],
+            mermaid: "graph LR\n  n_foo_42 --> n_bar_10".to_string(),
         };
         let json = serde_json::to_string(&g).unwrap();
         let back: SliceGraph = serde_json::from_str(&json).unwrap();
+        assert_eq!(g.title, back.title);
         assert_eq!(g.shape, back.shape);
-        assert_eq!(g.nodes.len(), back.nodes.len());
-        assert_eq!(g.nodes[0].kind, back.nodes[0].kind);
-        assert_eq!(g.edges[0].style, back.edges[0].style);
+        assert_eq!(g.nodes, back.nodes);
+        assert_eq!(g.edges, back.edges);
+        assert_eq!(g.clusters, back.clusters);
+        assert_eq!(g.mermaid, back.mermaid);
     }
 }
