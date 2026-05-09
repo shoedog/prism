@@ -316,6 +316,7 @@ fn test_multi_algorithm_findings_merged() {
         errors: vec![],
         warnings: vec![],
         parse_quality: BTreeMap::new(),
+        diagram_warnings: vec![],
     };
 
     assert_eq!(multi.version, "1.0");

@@ -382,6 +382,22 @@ pub struct MultiSliceResult {
     /// Structured per-file parse quality data.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub parse_quality: BTreeMap<String, FileParseQuality>,
+    /// Diagram warnings collected at the multi-run level (e.g. from finalize_diagrams).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub diagram_warnings: Vec<DiagramWarning>,
+}
+
+impl MultiSliceResult {
+    /// Walk every per-algorithm result and the top-level list, returning all diagram
+    /// warnings as a single flat `Vec`. CLI consumers use this to drive
+    /// `--strict-diagrams` exit-code behaviour and stderr emission.
+    pub fn aggregate_diagram_warnings(&self) -> Vec<DiagramWarning> {
+        let mut out: Vec<DiagramWarning> = self.diagram_warnings.clone();
+        for r in &self.results {
+            out.extend(r.diagram_warnings.iter().cloned());
+        }
+        out
+    }
 }
 
 /// A per-algorithm error captured during multi-algorithm runs.
@@ -560,6 +576,33 @@ mod diagram_tests {
         assert_eq!(g.edges, back.edges);
         assert_eq!(g.clusters, back.clusters);
         assert_eq!(g.mermaid, back.mermaid);
+    }
+
+    #[test]
+    fn multi_slice_result_aggregates_diagram_warnings() {
+        use crate::slice::DiagramWarningKind;
+        let mut r1 = SliceResult::new(SlicingAlgorithm::Taint);
+        r1.diagram_warnings.push(DiagramWarning {
+            algorithm: "Taint".to_string(),
+            graph_title: None,
+            kind: DiagramWarningKind::EmptyGraph,
+            detail: "no nodes".to_string(),
+        });
+        let r2 = SliceResult::new(SlicingAlgorithm::EchoSlice);
+
+        let multi = MultiSliceResult {
+            version: "test".to_string(),
+            algorithms_run: vec!["Taint".to_string(), "EchoSlice".to_string()],
+            results: vec![r1, r2],
+            findings: vec![],
+            errors: vec![],
+            warnings: vec![],
+            parse_quality: BTreeMap::new(),
+            diagram_warnings: vec![],
+        };
+        let aggregated = multi.aggregate_diagram_warnings();
+        assert_eq!(aggregated.len(), 1);
+        assert_eq!(aggregated[0].kind, DiagramWarningKind::EmptyGraph);
     }
 
     #[test]
