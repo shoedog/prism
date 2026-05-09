@@ -2653,6 +2653,22 @@ fn synthesize_js_ts_assignment_alias_edges(
                 }
                 alias_defs.insert(alias.clone(), assignment_line);
                 changed = true;
+                if !edges.iter().any(|edge| {
+                    edge.to.file == ctx.seed.file
+                        && edge.to.line == assignment_line
+                        && edge.to.var_name() == alias
+                }) {
+                    edges.push(FlowEdge {
+                        from: ctx.from.clone(),
+                        to: VarLocation {
+                            file: ctx.seed.file.clone(),
+                            function: ctx.func_name.to_string(),
+                            line: assignment_line,
+                            path: AccessPath::simple(alias.clone()),
+                            kind: VarAccessKind::Def,
+                        },
+                    });
+                }
                 let refs =
                     ctx.parsed
                         .find_variable_references_scoped(&ctx.func, &alias, assignment_line);
@@ -3885,7 +3901,8 @@ fn line_matches_structured_sink(
             let any_arg_tainted = sink_pat
                 .tainted_arg_indices
                 .iter()
-                .any(|&idx| arg_is_tainted_in_path(parsed, call, idx, p));
+                .any(|&idx| arg_is_tainted_in_path(parsed, call, idx, p))
+                || js_ts_sink_call_has_inline_framework_source_arg(parsed, call, sink_pat);
             if !any_arg_tainted {
                 // call_path + semantic_check passed, but the relevant args
                 // aren't tainted on this path. Mark as a structural match-but-
@@ -3902,6 +3919,75 @@ fn line_matches_structured_sink(
     } else {
         SinkMatchOutcome::NoMatch
     }
+}
+
+fn js_ts_sink_call_has_inline_framework_source_arg(
+    parsed: &ParsedFile,
+    call: &Node<'_>,
+    sink_pat: &'static SinkPattern,
+) -> bool {
+    if !is_js_ts_language(parsed.language) {
+        return false;
+    }
+    let Some(framework) = parsed.framework().map(|spec| spec.name) else {
+        return false;
+    };
+    if !matches!(framework, "nestjs" | "fastify" | "express" | "koa") {
+        return false;
+    }
+    let Some(func) = parsed.enclosing_function(call.start_position().row + 1) else {
+        return false;
+    };
+    let params = js_ts_function_params(parsed, &func);
+    if params.is_empty() {
+        return false;
+    }
+    let source_params = js_ts_framework_source_params(parsed, &func, framework, &params);
+    if source_params.is_empty() {
+        return false;
+    }
+    let Some(arguments) = call.child_by_field_name("arguments") else {
+        return false;
+    };
+    let mut cursor = arguments.walk();
+    for (idx, arg) in arguments.named_children(&mut cursor).enumerate() {
+        if sink_pat.tainted_arg_indices.contains(&idx)
+            && node_contains_js_ts_source_access(parsed, arg, framework, &source_params)
+        {
+            return true;
+        }
+    }
+    false
+}
+
+fn js_ts_inline_framework_source_yaml_sink_lines(parsed: &ParsedFile) -> BTreeSet<usize> {
+    let mut lines = BTreeSet::new();
+    if !is_js_ts_language(parsed.language) {
+        return lines;
+    }
+    let mut calls = Vec::new();
+    collect_calls(parsed, parsed.tree.root_node(), &mut calls);
+    for call in &calls {
+        let actual = match call_path_text(parsed, call) {
+            Some(actual) => actual,
+            None => continue,
+        };
+        for pat in JS_CWE502_SINKS {
+            if !matches!(pat.call_path, "yaml.load" | "load") {
+                continue;
+            }
+            if !sink_call_path_matches(parsed, call, &actual, pat)
+                || !call_passes_sink_semantics(parsed, call, pat)
+            {
+                continue;
+            }
+            if js_ts_sink_call_has_inline_framework_source_arg(parsed, call, pat) {
+                lines.insert(call.start_position().row + 1);
+                break;
+            }
+        }
+    }
+    lines
 }
 
 fn call_path_matches(parsed: &ParsedFile, actual: &str, expected: &str) -> bool {
@@ -7193,6 +7279,26 @@ fn build_taint_chain_diagram(
     sink_text: &str,
     intermediate: &[(String, usize, String)],
 ) -> SliceGraph {
+    // Degenerate case: source == sink with no intermediates. Emit a single
+    // Sink node rather than a duplicate-id pair.
+    if intermediate.is_empty() && source_file == sink_file && source_line == sink_line {
+        let node = GraphNode {
+            id: safe_node_id(sink_file, sink_line),
+            label: format!("{}:{}\n{}", sink_file, sink_line, sink_text),
+            kind: NodeKind::Sink,
+            file: Some(sink_file.to_string()),
+            line: Some(sink_line),
+        };
+        return SliceGraph {
+            title: Some("Data flow".to_string()),
+            shape: GraphShape::Chain,
+            nodes: vec![node],
+            edges: vec![],
+            clusters: vec![],
+            mermaid: String::new(),
+        };
+    }
+    // Normal path: build [source, ...intermediate, sink] chain.
     let mut nodes = vec![GraphNode {
         id: safe_node_id(source_file, source_line),
         label: format!("{}:{}\n{}", source_file, source_line, source_text),
@@ -7409,6 +7515,14 @@ pub fn slice(
         }
     }
 
+    for (file, parsed) in ctx.files {
+        if is_js_ts_language(parsed.language) {
+            for line in js_ts_inline_framework_source_yaml_sink_lines(parsed) {
+                sink_lines.insert((file.clone(), line));
+            }
+        }
+    }
+
     // Source lines themselves are taint-bearing — a structured sink on the
     // exact source line still fires. (E.g., `c.File(c.Param("f"))` — the
     // c.Param source and the c.File sink share a line.)
@@ -7587,9 +7701,7 @@ pub fn slice(
         } else {
             // No upstream source resolved; emit a single-step chain with sink only.
             // Use the sink as both source and sink nodes to satisfy the Chain contract.
-            build_taint_chain_diagram(
-                file, *line, &sink_text, file, *line, &sink_text, &[],
-            )
+            build_taint_chain_diagram(file, *line, &sink_text, file, *line, &sink_text, &[])
         };
 
         let mut finding = SliceFinding {
@@ -7734,5 +7846,38 @@ func handler(input string) {
                 SinkMatchOutcome::SemanticallyExcluded
             ));
         }
+    }
+
+    #[test]
+    fn build_taint_chain_diagram_collapses_self_loop() {
+        let g = build_taint_chain_diagram(
+            "foo.c",
+            42,
+            "x = sink_call(y)",
+            "foo.c",
+            42,
+            "x = sink_call(y)",
+            &[],
+        );
+        assert_eq!(g.nodes.len(), 1);
+        assert_eq!(g.edges.len(), 0);
+        assert!(matches!(g.nodes[0].kind, NodeKind::Sink));
+    }
+
+    #[test]
+    fn build_taint_chain_diagram_distinct_source_sink() {
+        let g = build_taint_chain_diagram(
+            "foo.c",
+            10,
+            "x = read_input()",
+            "foo.c",
+            42,
+            "system(x)",
+            &[],
+        );
+        assert_eq!(g.nodes.len(), 2);
+        assert_eq!(g.edges.len(), 1);
+        assert!(matches!(g.nodes[0].kind, NodeKind::Source));
+        assert!(matches!(g.nodes[1].kind, NodeKind::Sink));
     }
 }
