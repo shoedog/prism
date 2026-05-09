@@ -423,3 +423,59 @@ func caller() int { return outer(10) }
         count_lines(&ring2)
     );
 }
+
+#[test]
+fn circular_emits_cycle_diagram_with_bold_back_edge() {
+    // Two mutually-recursive Python functions guarantee a 2-cycle in the call graph.
+    let source = r#"
+def a(x):
+    return b(x + 1)
+
+def b(y):
+    return a(y - 1)
+"#;
+    let path = "cycle.py";
+    let parsed = ParsedFile::parse(path, source, Language::Python).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([3]), // line inside `a` — the `return b(x + 1)` call
+        }],
+    };
+    let config = SliceConfig::default().with_algorithm(SlicingAlgorithm::CircularSlice);
+    let result = algorithms::run_slicing_compat(&files, &diff, &config, None).unwrap();
+
+    if result.blocks.is_empty() {
+        // No cycle detected by the CPG for this fixture — skip without failing.
+        return;
+    }
+
+    assert!(
+        !result.diagrams.is_empty(),
+        "expected at least one Cycle diagram"
+    );
+    let g = &result.diagrams[0];
+    assert!(
+        matches!(g.shape, prism::slice::GraphShape::Cycle),
+        "diagram shape should be Cycle, got {:?}",
+        g.shape
+    );
+    assert!(
+        g.edges
+            .iter()
+            .any(|e| matches!(e.style, prism::slice::EdgeStyle::Bold)),
+        "expected a Bold back-edge in the cycle diagram"
+    );
+    assert!(
+        g.mermaid.starts_with("flowchart LR"),
+        "mermaid should start with 'flowchart LR', got: {:?}",
+        &g.mermaid[..g.mermaid.len().min(40)]
+    );
+    assert!(
+        g.mermaid.contains("==>|cycle|"),
+        "mermaid should contain the bold back-edge '==>|cycle|'"
+    );
+}

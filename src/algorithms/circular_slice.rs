@@ -11,10 +11,49 @@
 
 use crate::cpg::{CpgContext, CpgEdge, CpgNode};
 use crate::diff::{DiffBlock, DiffInput, ModifyType};
-use crate::slice::{SliceResult, SlicingAlgorithm};
+use crate::output::mermaid::safe_node_id;
+use crate::slice::{
+    EdgeStyle, GraphEdge, GraphNode, GraphShape, NodeKind, SliceGraph, SliceResult,
+    SlicingAlgorithm,
+};
 use anyhow::Result;
 use petgraph::visit::EdgeRef;
 use std::collections::BTreeSet;
+
+fn push_cycle_diagram(result: &mut SliceResult, nodes: Vec<GraphNode>, title: &str) {
+    // Dedupe by id, preserving first occurrence.
+    let mut seen: BTreeSet<String> = BTreeSet::new();
+    let nodes: Vec<GraphNode> = nodes
+        .into_iter()
+        .filter(|n| seen.insert(n.id.clone()))
+        .collect();
+    if nodes.len() < 2 {
+        return; // Skip degenerate cycles that can't visualize as a loop
+    }
+    let mut edges: Vec<GraphEdge> = nodes
+        .windows(2)
+        .map(|pair| GraphEdge {
+            from: pair[0].id.clone(),
+            to: pair[1].id.clone(),
+            label: None,
+            style: EdgeStyle::Solid,
+        })
+        .collect();
+    edges.push(GraphEdge {
+        from: nodes.last().unwrap().id.clone(),
+        to: nodes.first().unwrap().id.clone(),
+        label: Some("cycle".to_string()),
+        style: EdgeStyle::Bold,
+    });
+    result.diagrams.push(SliceGraph {
+        title: Some(title.to_string()),
+        shape: GraphShape::Cycle,
+        nodes,
+        edges,
+        clusters: vec![],
+        mermaid: String::new(),
+    });
+}
 
 pub fn slice(ctx: &CpgContext, diff: &DiffInput) -> Result<SliceResult> {
     let mut result = SliceResult::new(SlicingAlgorithm::CircularSlice);
@@ -90,6 +129,21 @@ pub fn slice(ctx: &CpgContext, diff: &DiffInput) -> Result<SliceResult> {
         if !block.file_line_map.is_empty() {
             result.blocks.push(block);
             block_id += 1;
+
+            // Build a Cycle diagram for this call-graph cycle.
+            let mut cycle_nodes: Vec<GraphNode> = Vec::new();
+            for &func_idx in cycle {
+                if let Some(fid) = ctx.cpg.to_function_id(func_idx) {
+                    cycle_nodes.push(GraphNode {
+                        id: safe_node_id(&fid.file, fid.start_line),
+                        label: format!("{}:{}\n{}", fid.file, fid.start_line, fid.name),
+                        kind: NodeKind::Step,
+                        file: Some(fid.file.clone()),
+                        line: Some(fid.start_line),
+                    });
+                }
+            }
+            push_cycle_diagram(&mut result, cycle_nodes, "Call cycle");
         }
     }
 
@@ -125,6 +179,20 @@ pub fn slice(ctx: &CpgContext, diff: &DiffInput) -> Result<SliceResult> {
         if !block.file_line_map.is_empty() {
             result.blocks.push(block);
             block_id += 1;
+
+            // Build a Cycle diagram for this data-flow cycle.
+            let mut cycle_nodes: Vec<GraphNode> = Vec::new();
+            for &idx in cycle {
+                let node = ctx.cpg.node(idx);
+                cycle_nodes.push(GraphNode {
+                    id: safe_node_id(node.file(), node.line()),
+                    label: format!("{}:{}", node.file(), node.line()),
+                    kind: NodeKind::Step,
+                    file: Some(node.file().to_string()),
+                    line: Some(node.line()),
+                });
+            }
+            push_cycle_diagram(&mut result, cycle_nodes, "Data-flow cycle");
         }
     }
 
