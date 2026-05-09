@@ -257,6 +257,8 @@ fn main() -> Result<()> {
         include_returns: !cli.no_returns,
         trace_callees: !cli.no_trace_callees,
         scoped_cpg: cli.scoped_cpg,
+        diagram_node_cap: 40,
+        strict_diagrams: false,
     };
 
     let repo = cli.repo.as_ref().context("--repo is required")?;
@@ -484,6 +486,8 @@ fn main() -> Result<()> {
                 include_returns: !cli.no_returns,
                 trace_callees: !cli.no_trace_callees,
                 scoped_cpg: cli.scoped_cpg,
+                diagram_node_cap: 40,
+                strict_diagrams: false,
             };
             match run_algorithm(algo, &ctx, &diff_input, &algo_config, &cli, repo) {
                 Ok(r) => results.push(r),

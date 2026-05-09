@@ -801,6 +801,7 @@ fn make_finding(
         related_files: vec![],
         category: Some(rule_id.to_string()),
         parse_quality: None,
+        diagrams: vec![],
     }
 }
 

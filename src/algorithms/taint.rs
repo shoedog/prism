@@ -7465,6 +7465,7 @@ pub fn slice(
             related_files: vec![],
             category: Some("taint_source".to_string()),
             parse_quality: None,
+            diagrams: vec![],
         });
     }
 
@@ -7506,6 +7507,7 @@ pub fn slice(
             related_files: vec![],
             category: Some("taint_sink".to_string()),
             parse_quality: None,
+            diagrams: vec![],
         });
     }
 
@@ -7534,6 +7536,7 @@ pub fn slice(
                 related_files: vec![],
                 category: Some("unquoted_expansion".to_string()),
                 parse_quality: None,
+                diagrams: vec![],
             });
         }
     }

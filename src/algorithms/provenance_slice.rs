@@ -670,6 +670,7 @@ pub fn slice(ctx: &CpgContext, diff: &DiffInput) -> Result<SliceResult> {
                         },
                         category: Some("untrusted_origin".to_string()),
                         parse_quality: None,
+                        diagrams: vec![],
                     });
                 }
 

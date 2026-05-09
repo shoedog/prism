@@ -725,6 +725,7 @@ pub fn slice(files: &BTreeMap<String, ParsedFile>, diff: &DiffInput) -> Result<S
                         related_files: vec![],
                         category: Some("missing_counterpart".to_string()),
                         parse_quality: None,
+                        diagrams: vec![],
                     });
                     result.blocks.push(block);
                     block_id += 1;
@@ -784,6 +785,7 @@ pub fn slice(files: &BTreeMap<String, ParsedFile>, diff: &DiffInput) -> Result<S
                             related_files: vec![],
                             category: Some("close_only_on_error_path".to_string()),
                             parse_quality: None,
+                            diagrams: vec![],
                         });
                         result.blocks.push(block);
                         block_id += 1;
@@ -901,6 +903,7 @@ pub fn slice(files: &BTreeMap<String, ParsedFile>, diff: &DiffInput) -> Result<S
                                 related_files: vec![],
                                 category: Some("missing_close_on_error_path".to_string()),
                                 parse_quality: None,
+                                diagrams: vec![],
                             });
                             result.blocks.push(block);
                             block_id += 1;
@@ -1002,6 +1005,7 @@ pub fn slice(files: &BTreeMap<String, ParsedFile>, diff: &DiffInput) -> Result<S
                                             related_files: vec![],
                                             category: Some("double_close".to_string()),
                                             parse_quality: None,
+                                            diagrams: vec![],
                                         });
                                         result.blocks.push(block);
                                         block_id += 1;

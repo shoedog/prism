@@ -38,6 +38,8 @@ pub struct SliceFinding {
     /// Set when the file has >1% ERROR nodes in its tree-sitter parse tree.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub parse_quality: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub diagrams: Vec<SliceGraph>,
 }
 
 /// All slicing strategies.
@@ -302,6 +304,10 @@ pub struct SliceResult {
     /// Parse quality warnings for input files (e.g. high ERROR-node rate).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub warnings: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub diagrams: Vec<SliceGraph>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub diagram_warnings: Vec<DiagramWarning>,
 }
 
 impl SliceResult {
@@ -311,6 +317,8 @@ impl SliceResult {
             blocks: Vec::new(),
             findings: Vec::new(),
             warnings: Vec::new(),
+            diagrams: Vec::new(),
+            diagram_warnings: Vec::new(),
         }
     }
 
@@ -332,6 +340,10 @@ pub struct SliceConfig {
     /// Build the CPG from only diff-changed files + direct callers/callees.
     /// Reduces CPG construction time proportionally to the scope reduction.
     pub scoped_cpg: bool,
+    /// Maximum number of nodes a diagram may contain before truncation.
+    pub diagram_node_cap: usize,
+    /// Exit non-zero if any bug-class diagram warning is emitted.
+    pub strict_diagrams: bool,
 }
 
 impl Default for SliceConfig {
@@ -342,6 +354,8 @@ impl Default for SliceConfig {
             include_returns: true,
             trace_callees: true,
             scoped_cpg: false,
+            diagram_node_cap: 40,
+            strict_diagrams: false,
         }
     }
 }
@@ -487,6 +501,23 @@ pub struct DiagramWarning {
 #[cfg(test)]
 mod diagram_tests {
     use super::*;
+
+    #[test]
+    fn slice_result_default_omits_diagram_fields_in_json() {
+        // A new empty SliceResult must serialize without `diagrams` or `diagram_warnings`
+        // so existing JSON consumers see byte-identical output.
+        let r = SliceResult::new(SlicingAlgorithm::OriginalDiff);
+        let json = serde_json::to_string(&r).unwrap();
+        assert!(!json.contains("diagrams"));
+        assert!(!json.contains("diagram_warnings"));
+    }
+
+    #[test]
+    fn slice_config_diagram_node_cap_default() {
+        let c = SliceConfig::default();
+        assert_eq!(c.diagram_node_cap, 40);
+        assert!(!c.strict_diagrams);
+    }
 
     #[test]
     fn slice_graph_serde_round_trip() {
