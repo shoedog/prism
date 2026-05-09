@@ -1,7 +1,11 @@
 //! Mermaid flowchart rendering for SliceGraph.
 //! See docs/superpowers/specs/2026-05-09-data-flow-visualization-design.md.
 
-use crate::slice::{EdgeStyle, GraphEdge, GraphNode, GraphShape, NodeKind, SliceGraph};
+use std::collections::BTreeSet;
+
+use crate::slice::{
+    EdgeStyle, GraphEdge, GraphNode, GraphShape, NodeCluster, NodeKind, SliceGraph,
+};
 
 /// Build a Mermaid-safe stable node id from a file path and line number.
 /// Non-alphanumeric chars in the file path collapse to `_`.
@@ -90,6 +94,47 @@ pub(crate) fn render_chain(g: &SliceGraph) -> String {
             .map(|c| format!(":::{}", c))
             .unwrap_or_default();
         out.push_str(&format!("    {}[\"{}\"]{}\n", node.id, label, class_suffix));
+    }
+    for edge in &g.edges {
+        let arrow = arrow_for(edge.style, &edge.label);
+        out.push_str(&format!("    {} {} {}\n", edge.from, arrow, edge.to));
+    }
+    out.push_str(CLASS_DEFS);
+    out
+}
+
+/// Render a `Layered`-shaped `SliceGraph` as a Mermaid `flowchart TD` string.
+/// Each `NodeCluster` becomes a `subgraph` block. Nodes not in any cluster
+/// render at the top level after all subgraphs. Edges render last.
+pub(crate) fn render_layered(g: &SliceGraph) -> String {
+    let mut out = String::from("flowchart TD\n");
+    let mut clustered: BTreeSet<&str> = BTreeSet::new();
+    for cluster in &g.clusters {
+        out.push_str(&format!("    subgraph {}\n", cluster.label));
+        for nid in &cluster.node_ids {
+            clustered.insert(nid.as_str());
+            if let Some(node) = g.nodes.iter().find(|n| &n.id == nid) {
+                let (label, _trunc) = escape_label_inner(&node.label);
+                let class_suffix = class_for(node.kind)
+                    .map(|c| format!(":::{}", c))
+                    .unwrap_or_default();
+                out.push_str(&format!(
+                    "        {}[\"{}\"]{}\n",
+                    node.id, label, class_suffix
+                ));
+            }
+        }
+        out.push_str("    end\n");
+    }
+    // Orphan nodes (not in any cluster) emit at top level.
+    for node in &g.nodes {
+        if !clustered.contains(node.id.as_str()) {
+            let (label, _trunc) = escape_label_inner(&node.label);
+            let class_suffix = class_for(node.kind)
+                .map(|c| format!(":::{}", c))
+                .unwrap_or_default();
+            out.push_str(&format!("    {}[\"{}\"]{}\n", node.id, label, class_suffix));
+        }
     }
     for edge in &g.edges {
         let arrow = arrow_for(edge.style, &edge.label);
@@ -224,5 +269,96 @@ mod tests {
         let out = render_chain(&g);
         assert!(out.contains("a --> b"));
         assert!(!out.contains("|tainted|"));
+    }
+
+    fn layered_fixture() -> SliceGraph {
+        SliceGraph {
+            title: Some("Layered call graph".to_string()),
+            shape: GraphShape::Layered,
+            nodes: vec![
+                GraphNode {
+                    id: "h".to_string(),
+                    label: "handler.c:10".to_string(),
+                    kind: NodeKind::Step,
+                    file: None,
+                    line: None,
+                },
+                GraphNode {
+                    id: "s".to_string(),
+                    label: "service.c:22".to_string(),
+                    kind: NodeKind::Step,
+                    file: None,
+                    line: None,
+                },
+                GraphNode {
+                    id: "r".to_string(),
+                    label: "repo.c:55".to_string(),
+                    kind: NodeKind::Step,
+                    file: None,
+                    line: None,
+                },
+            ],
+            edges: vec![
+                GraphEdge {
+                    from: "h".to_string(),
+                    to: "s".to_string(),
+                    label: None,
+                    style: EdgeStyle::Solid,
+                },
+                GraphEdge {
+                    from: "s".to_string(),
+                    to: "r".to_string(),
+                    label: None,
+                    style: EdgeStyle::Solid,
+                },
+            ],
+            clusters: vec![
+                NodeCluster {
+                    label: "UI".to_string(),
+                    node_ids: vec!["h".to_string()],
+                },
+                NodeCluster {
+                    label: "Business".to_string(),
+                    node_ids: vec!["s".to_string()],
+                },
+                NodeCluster {
+                    label: "Data".to_string(),
+                    node_ids: vec!["r".to_string()],
+                },
+            ],
+            mermaid: String::new(),
+        }
+    }
+
+    #[test]
+    fn render_layered_emits_subgraphs_in_order() {
+        let g = layered_fixture();
+        let out = render_layered(&g);
+        assert!(out.starts_with("flowchart TD\n"));
+        assert!(out.contains("subgraph UI"));
+        assert!(out.contains("subgraph Business"));
+        assert!(out.contains("subgraph Data"));
+        // Subgraph order matches cluster order:
+        let ui_pos = out.find("subgraph UI").unwrap();
+        let bz_pos = out.find("subgraph Business").unwrap();
+        let dt_pos = out.find("subgraph Data").unwrap();
+        assert!(ui_pos < bz_pos && bz_pos < dt_pos);
+        // Cross-layer edge present:
+        assert!(out.contains("h --> s"));
+        assert!(out.contains("s --> r"));
+    }
+
+    #[test]
+    fn render_layered_orphan_nodes_render_outside_subgraphs() {
+        let mut g = layered_fixture();
+        g.nodes.push(GraphNode {
+            id: "x".to_string(),
+            label: "loose".to_string(),
+            kind: NodeKind::Step,
+            file: None,
+            line: None,
+        });
+        let out = render_layered(&g);
+        assert!(out.contains("x[\"loose\"]"));
     }
 }
