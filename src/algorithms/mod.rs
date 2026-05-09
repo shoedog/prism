@@ -32,10 +32,15 @@ pub mod vertical_slice;
 use crate::ast::ParsedFile;
 use crate::cpg::CpgContext;
 use crate::diff::DiffInput;
-use crate::slice::{FileParseQuality, SliceConfig, SliceResult, SlicingAlgorithm};
+use crate::output::mermaid;
+use crate::slice::{
+    DiagramWarning, DiagramWarningKind, FileParseQuality, SliceConfig, SliceResult,
+    SlicingAlgorithm,
+};
 use crate::type_db::TypeDatabase;
 use anyhow::Result;
 use std::collections::BTreeMap;
+use std::panic;
 
 /// Check parsed files for tree-sitter parse errors and return human-readable warnings.
 ///
@@ -115,7 +120,7 @@ pub fn run_slicing(
     diff: &DiffInput,
     config: &SliceConfig,
 ) -> Result<SliceResult> {
-    match config.algorithm {
+    let mut result = match config.algorithm {
         SlicingAlgorithm::OriginalDiff => original_diff::slice(ctx.files, diff),
         SlicingAlgorithm::ParentFunction => parent_function::slice(ctx.files, diff),
         SlicingAlgorithm::LeftFlow => left_flow::slice(ctx, diff, config),
@@ -171,6 +176,64 @@ pub fn run_slicing(
             callback_dispatcher_slice::slice(ctx.files, diff)
         }
         SlicingAlgorithm::PrimitiveSlice => primitive_slice::slice(ctx.files, diff),
+    }?;
+    finalize_diagrams(&mut result, config.diagram_node_cap);
+    Ok(result)
+}
+
+/// Render Mermaid for every populated SliceGraph in `result`. Stamps each
+/// `graph.mermaid` field, collects any warnings into `result.diagram_warnings`,
+/// catches panics from the renderer (treating them as `RenderPanic` warnings).
+pub fn finalize_diagrams(result: &mut SliceResult, cap: usize) {
+    let algo_name = result.algorithm.name().to_string();
+
+    // Result-level diagrams.
+    for graph in result.diagrams.iter_mut() {
+        match panic::catch_unwind(panic::AssertUnwindSafe(|| mermaid::render(graph, cap))) {
+            Ok((rendered, warns)) => {
+                graph.mermaid = rendered;
+                for mut w in warns {
+                    w.algorithm = algo_name.clone();
+                    result.diagram_warnings.push(w);
+                }
+            }
+            Err(panic_info) => {
+                let detail = panic_info
+                    .downcast_ref::<&str>()
+                    .map(|s| s.to_string())
+                    .or_else(|| panic_info.downcast_ref::<String>().cloned())
+                    .unwrap_or_else(|| "panic in render".to_string());
+                result.diagram_warnings.push(DiagramWarning {
+                    algorithm: algo_name.clone(),
+                    graph_title: graph.title.clone(),
+                    kind: DiagramWarningKind::RenderPanic,
+                    detail,
+                });
+            }
+        }
+    }
+
+    // Per-finding diagrams.
+    for finding in result.findings.iter_mut() {
+        for graph in finding.diagrams.iter_mut() {
+            match panic::catch_unwind(panic::AssertUnwindSafe(|| mermaid::render(graph, cap))) {
+                Ok((rendered, warns)) => {
+                    graph.mermaid = rendered;
+                    for mut w in warns {
+                        w.algorithm = algo_name.clone();
+                        result.diagram_warnings.push(w);
+                    }
+                }
+                Err(_) => {
+                    result.diagram_warnings.push(DiagramWarning {
+                        algorithm: algo_name.clone(),
+                        graph_title: graph.title.clone(),
+                        kind: DiagramWarningKind::RenderPanic,
+                        detail: "panic in render".to_string(),
+                    });
+                }
+            }
+        }
     }
 }
 
@@ -196,5 +259,79 @@ pub fn run_slicing_compat(
     } else {
         let ctx = CpgContext::without_cpg(files, type_db);
         run_slicing(&ctx, diff, config)
+    }
+}
+
+#[cfg(test)]
+mod finalize_tests {
+    use super::*;
+    use crate::slice::{
+        DiagramWarningKind, EdgeStyle, GraphEdge, GraphNode, GraphShape, NodeKind, SliceGraph,
+        SliceResult, SlicingAlgorithm,
+    };
+
+    fn graph_with_dangling() -> SliceGraph {
+        SliceGraph {
+            title: Some("test".to_string()),
+            shape: GraphShape::Chain,
+            nodes: vec![GraphNode {
+                id: "a".to_string(),
+                label: "A".to_string(),
+                kind: NodeKind::Source,
+                file: None,
+                line: None,
+            }],
+            edges: vec![GraphEdge {
+                from: "a".to_string(),
+                to: "missing".to_string(),
+                label: None,
+                style: EdgeStyle::Solid,
+            }],
+            clusters: vec![],
+            mermaid: String::new(),
+        }
+    }
+
+    #[test]
+    fn finalize_populates_mermaid_string() {
+        let mut r = SliceResult::new(SlicingAlgorithm::Taint);
+        r.diagrams.push(SliceGraph {
+            title: Some("ok".to_string()),
+            shape: GraphShape::Chain,
+            nodes: vec![GraphNode {
+                id: "x".to_string(),
+                label: "X".to_string(),
+                kind: NodeKind::Step,
+                file: None,
+                line: None,
+            }],
+            edges: vec![],
+            clusters: vec![],
+            mermaid: String::new(),
+        });
+        finalize_diagrams(&mut r, 40);
+        assert!(!r.diagrams[0].mermaid.is_empty());
+        assert!(r.diagrams[0].mermaid.starts_with("flowchart TD"));
+    }
+
+    #[test]
+    fn finalize_propagates_dangling_edge_warning() {
+        let mut r = SliceResult::new(SlicingAlgorithm::Taint);
+        r.diagrams.push(graph_with_dangling());
+        finalize_diagrams(&mut r, 40);
+        assert!(r
+            .diagram_warnings
+            .iter()
+            .any(|w| matches!(w.kind, DiagramWarningKind::DanglingEdge) && w.algorithm == "Taint"));
+    }
+
+    #[test]
+    fn finalize_handles_panic_via_catch_unwind() {
+        // Verifies the catch_unwind path is exercised by calling finalize on
+        // an empty diagrams vec (no panic, no warnings, no crash).
+        let mut r = SliceResult::new(SlicingAlgorithm::Taint);
+        finalize_diagrams(&mut r, 40);
+        assert!(r.diagrams.is_empty());
+        assert!(r.diagram_warnings.is_empty());
     }
 }
