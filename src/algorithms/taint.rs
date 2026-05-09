@@ -11,7 +11,11 @@ use crate::data_flow::{FlowEdge, FlowPath, VarAccessKind, VarLocation};
 use crate::diff::{DiffBlock, DiffInput, ModifyType};
 use crate::frameworks::{CallSite, SanitizerCategory, SinkPattern};
 use crate::languages::Language;
-use crate::slice::{SliceFinding, SliceResult, SlicingAlgorithm};
+use crate::output::mermaid::safe_node_id;
+use crate::slice::{
+    EdgeStyle, GraphEdge, GraphNode, GraphShape, NodeKind, SliceFinding, SliceGraph, SliceResult,
+    SlicingAlgorithm,
+};
 use anyhow::Result;
 use std::collections::{BTreeMap, BTreeSet};
 use tree_sitter::Node;
@@ -7175,6 +7179,73 @@ fn apply_cleansers(path: &mut crate::data_flow::FlowPath, files: &BTreeMap<Strin
     }
 }
 
+/// Build a Chain-shaped `SliceGraph` representing one source-to-sink taint path.
+///
+/// `intermediate` contains any intermediate step nodes (file, line, line-text)
+/// ordered from source to sink. For Plan 1 the caller passes `&[]`; later plans
+/// can populate it from `FlowPath` edges.
+fn build_taint_chain_diagram(
+    source_file: &str,
+    source_line: usize,
+    source_text: &str,
+    sink_file: &str,
+    sink_line: usize,
+    sink_text: &str,
+    intermediate: &[(String, usize, String)],
+) -> SliceGraph {
+    let mut nodes = vec![GraphNode {
+        id: safe_node_id(source_file, source_line),
+        label: format!("{}:{}\n{}", source_file, source_line, source_text),
+        kind: NodeKind::Source,
+        file: Some(source_file.to_string()),
+        line: Some(source_line),
+    }];
+    for (f, l, t) in intermediate {
+        nodes.push(GraphNode {
+            id: safe_node_id(f, *l),
+            label: format!("{}:{}\n{}", f, l, t),
+            kind: NodeKind::Step,
+            file: Some(f.clone()),
+            line: Some(*l),
+        });
+    }
+    nodes.push(GraphNode {
+        id: safe_node_id(sink_file, sink_line),
+        label: format!("{}:{}\n{}", sink_file, sink_line, sink_text),
+        kind: NodeKind::Sink,
+        file: Some(sink_file.to_string()),
+        line: Some(sink_line),
+    });
+    let edges: Vec<GraphEdge> = nodes
+        .windows(2)
+        .map(|pair| GraphEdge {
+            from: pair[0].id.clone(),
+            to: pair[1].id.clone(),
+            label: Some("tainted".to_string()),
+            style: EdgeStyle::Solid,
+        })
+        .collect();
+    SliceGraph {
+        title: Some("Data flow".to_string()),
+        shape: GraphShape::Chain,
+        nodes,
+        edges,
+        clusters: vec![],
+        mermaid: String::new(),
+    }
+}
+
+/// Extract the trimmed text of a 1-indexed line from a source string.
+/// Returns an empty string if the line number is out of range.
+fn source_line_text(source: &str, line: usize) -> String {
+    source
+        .lines()
+        .nth(line.saturating_sub(1))
+        .unwrap_or("")
+        .trim()
+        .to_string()
+}
+
 pub fn slice(
     ctx: &CpgContext,
     diff: &DiffInput,
@@ -7476,20 +7547,52 @@ pub fn slice(
         // Prefer the nearest IPC source before the sink (user-controlled IPC reads
         // are the semantically interesting starting point for confused-deputy analysis).
         // Fall back to the nearest diff-line source, then any source in the same file.
-        let source_desc = ipc_source_set
+        let source_location: Option<(&str, usize)> = ipc_source_set
             .iter()
             .filter(|(sf, sl)| sf == file && *sl < *line)
             .max_by_key(|(_, sl)| *sl)
+            .map(|(sf, sl)| (sf.as_str(), *sl))
             .or_else(|| {
                 taint_sources
                     .iter()
                     .filter(|(sf, sl)| sf == file && *sl < *line)
                     .max_by_key(|(_, sl)| *sl)
+                    .map(|(sf, sl)| (sf.as_str(), *sl))
             })
-            .or_else(|| taint_sources.iter().find(|(sf, _)| sf == file))
+            .or_else(|| {
+                taint_sources
+                    .iter()
+                    .find(|(sf, _)| sf == file)
+                    .map(|(sf, sl)| (sf.as_str(), *sl))
+            });
+        let source_desc = source_location
             .map(|(_, sl)| format!("line {}", sl))
             .unwrap_or_else(|| "diff lines".to_string());
-        result.findings.push(SliceFinding {
+
+        // Build a Chain diagram for this sink finding.
+        // If we have an identified source location, use it as the Source node;
+        // otherwise fall back to a sink-only diagram (Source == Sink as the taint origin).
+        let sink_text = ctx
+            .files
+            .get(file.as_str())
+            .map(|p| source_line_text(&p.source, *line))
+            .unwrap_or_default();
+        let diagram = if let Some((src_file, src_line)) = source_location {
+            let src_text = ctx
+                .files
+                .get(src_file)
+                .map(|p| source_line_text(&p.source, src_line))
+                .unwrap_or_default();
+            build_taint_chain_diagram(src_file, src_line, &src_text, file, *line, &sink_text, &[])
+        } else {
+            // No upstream source resolved; emit a single-step chain with sink only.
+            // Use the sink as both source and sink nodes to satisfy the Chain contract.
+            build_taint_chain_diagram(
+                file, *line, &sink_text, file, *line, &sink_text, &[],
+            )
+        };
+
+        let mut finding = SliceFinding {
             algorithm: "taint".to_string(),
             file: file.clone(),
             line: *line,
@@ -7508,7 +7611,9 @@ pub fn slice(
             category: Some("taint_sink".to_string()),
             parse_quality: None,
             diagrams: vec![],
-        });
+        };
+        finding.diagrams.push(diagram);
+        result.findings.push(finding);
     }
 
     // Bash-specific: detect unquoted variable expansions on tainted lines.
