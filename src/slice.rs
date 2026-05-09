@@ -448,6 +448,42 @@ pub struct SliceGraph {
     pub mermaid: String,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum DiagramWarningKind {
+    /// Renderer panicked. Caught by catch_unwind. Indicates a bug in the renderer.
+    RenderPanic,
+    /// Graph edge references a node id not present in `nodes`. Indicates a bug in the algorithm.
+    DanglingEdge,
+    /// Two nodes share an id. Second is dropped. Indicates a bug in the algorithm.
+    DuplicateNodeId,
+    /// Algorithm pushed a SliceGraph with zero nodes. Indicates a bug in the algorithm.
+    EmptyGraph,
+    /// Label exceeded 80 characters and was truncated. Informational.
+    LabelTruncated,
+    /// Node count exceeded the cap; nodes were elided in the rendered string. Informational.
+    NodeCapExceeded,
+}
+
+impl DiagramWarningKind {
+    /// True for kinds that indicate a real bug (algorithm or renderer).
+    /// `--strict-diagrams` exits non-zero when any bug-class warning is present.
+    pub fn is_bug(self) -> bool {
+        matches!(
+            self,
+            Self::RenderPanic | Self::DanglingEdge | Self::DuplicateNodeId | Self::EmptyGraph
+        )
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct DiagramWarning {
+    pub algorithm: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub graph_title: Option<String>,
+    pub kind: DiagramWarningKind,
+    pub detail: String,
+}
+
 #[cfg(test)]
 mod diagram_tests {
     use super::*;
@@ -493,5 +529,28 @@ mod diagram_tests {
         assert_eq!(g.edges, back.edges);
         assert_eq!(g.clusters, back.clusters);
         assert_eq!(g.mermaid, back.mermaid);
+    }
+
+    #[test]
+    fn diagram_warning_serde_round_trip_and_kind_classification() {
+        let w = DiagramWarning {
+            algorithm: "Taint".to_string(),
+            graph_title: Some("Data flow".to_string()),
+            kind: DiagramWarningKind::DanglingEdge,
+            detail: "edge from n_a to n_b — n_b not in nodes".to_string(),
+        };
+        let json = serde_json::to_string(&w).unwrap();
+        let back: DiagramWarning = serde_json::from_str(&json).unwrap();
+        assert_eq!(w.kind, back.kind);
+        assert_eq!(w.detail, back.detail);
+        assert_eq!(w, back);
+
+        // Bug-class predicate must be deterministic:
+        assert!(DiagramWarningKind::RenderPanic.is_bug());
+        assert!(DiagramWarningKind::DanglingEdge.is_bug());
+        assert!(DiagramWarningKind::DuplicateNodeId.is_bug());
+        assert!(DiagramWarningKind::EmptyGraph.is_bug());
+        assert!(!DiagramWarningKind::LabelTruncated.is_bug());
+        assert!(!DiagramWarningKind::NodeCapExceeded.is_bug());
     }
 }
