@@ -164,6 +164,36 @@ pub(crate) fn render_layered(g: &SliceGraph) -> String {
     out
 }
 
+/// Render a `Fanout`-shaped `SliceGraph` as a Mermaid `flowchart LR` string.
+/// `NodeKind::Origin` nodes use the stadium shape `id[("label")]` to visually
+/// distinguish the change point that callers fan out from. All other node kinds
+/// use the standard rectangular shape `id["label"]`.
+pub(crate) fn render_fanout(g: &SliceGraph) -> String {
+    let mut out = String::from("flowchart LR\n");
+    for node in &g.nodes {
+        let (label, _trunc) = escape_label_inner(&node.label);
+        let class_suffix = class_for(node.kind)
+            .map(|c| format!(":::{}", c))
+            .unwrap_or_default();
+        // Origin nodes use the rounded-rectangle "stadium" shape: id[("label")]
+        let (open, close) = if node.kind == NodeKind::Origin {
+            ("[(", ")]")
+        } else {
+            ("[", "]")
+        };
+        out.push_str(&format!(
+            "    {}{}\"{}\"{}{}\n",
+            node.id, open, label, close, class_suffix
+        ));
+    }
+    for edge in &g.edges {
+        let arrow = arrow_for(edge.style, &edge.label);
+        out.push_str(&format!("    {} {} {}\n", edge.from, arrow, edge.to));
+    }
+    out.push_str(CLASS_DEFS);
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -442,5 +472,62 @@ mod tests {
         assert!(out.contains("a --> b"));
         assert!(out.contains("b --> c"));
         assert!(out.contains("c ==>|cycle| a"));
+    }
+
+    fn fanout_fixture() -> SliceGraph {
+        SliceGraph {
+            title: Some("Caller fanout".to_string()),
+            shape: GraphShape::Fanout,
+            nodes: vec![
+                GraphNode {
+                    id: "x".to_string(),
+                    label: "parse".to_string(),
+                    kind: NodeKind::Origin,
+                    file: None,
+                    line: None,
+                },
+                GraphNode {
+                    id: "c1".to_string(),
+                    label: "main".to_string(),
+                    kind: NodeKind::Caller,
+                    file: None,
+                    line: None,
+                },
+                GraphNode {
+                    id: "c2".to_string(),
+                    label: "worker".to_string(),
+                    kind: NodeKind::Caller,
+                    file: None,
+                    line: None,
+                },
+            ],
+            edges: vec![
+                GraphEdge {
+                    from: "c1".to_string(),
+                    to: "x".to_string(),
+                    label: None,
+                    style: EdgeStyle::Solid,
+                },
+                GraphEdge {
+                    from: "c2".to_string(),
+                    to: "x".to_string(),
+                    label: None,
+                    style: EdgeStyle::Solid,
+                },
+            ],
+            clusters: vec![],
+            mermaid: String::new(),
+        }
+    }
+
+    #[test]
+    fn render_fanout_uses_lr_and_marks_origin() {
+        let g = fanout_fixture();
+        let out = render_fanout(&g);
+        assert!(out.starts_with("flowchart LR"));
+        // Origin uses doubled brackets for stadium shape, with quoted label.
+        assert!(out.contains("x[(\"parse\")]:::origin"));
+        assert!(out.contains("c1[\"main\"]:::caller"));
+        assert!(out.contains("c1 --> x"));
     }
 }
