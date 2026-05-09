@@ -103,6 +103,26 @@ pub(crate) fn render_chain(g: &SliceGraph) -> String {
     out
 }
 
+/// Render a `Cycle`-shaped `SliceGraph` as a Mermaid `flowchart LR` string.
+/// Uses left-right orientation to naturally expose back-edges. Bold (`==>`)
+/// edges visually distinguish the cycle back-edge from normal flow edges.
+pub(crate) fn render_cycle(g: &SliceGraph) -> String {
+    let mut out = String::from("flowchart LR\n");
+    for node in &g.nodes {
+        let (label, _trunc) = escape_label_inner(&node.label);
+        let class_suffix = class_for(node.kind)
+            .map(|c| format!(":::{}", c))
+            .unwrap_or_default();
+        out.push_str(&format!("    {}[\"{}\"]{}\n", node.id, label, class_suffix));
+    }
+    for edge in &g.edges {
+        let arrow = arrow_for(edge.style, &edge.label);
+        out.push_str(&format!("    {} {} {}\n", edge.from, arrow, edge.to));
+    }
+    out.push_str(CLASS_DEFS);
+    out
+}
+
 /// Render a `Layered`-shaped `SliceGraph` as a Mermaid `flowchart TD` string.
 /// Each `NodeCluster` becomes a `subgraph` block. Nodes not in any cluster
 /// render at the top level after all subgraphs. Edges render last.
@@ -360,5 +380,67 @@ mod tests {
         });
         let out = render_layered(&g);
         assert!(out.contains("x[\"loose\"]"));
+    }
+
+    fn cycle_fixture() -> SliceGraph {
+        SliceGraph {
+            title: Some("Cycle".to_string()),
+            shape: GraphShape::Cycle,
+            nodes: vec![
+                GraphNode {
+                    id: "a".to_string(),
+                    label: "a.c:1".to_string(),
+                    kind: NodeKind::Step,
+                    file: None,
+                    line: None,
+                },
+                GraphNode {
+                    id: "b".to_string(),
+                    label: "b.c:1".to_string(),
+                    kind: NodeKind::Step,
+                    file: None,
+                    line: None,
+                },
+                GraphNode {
+                    id: "c".to_string(),
+                    label: "c.c:1".to_string(),
+                    kind: NodeKind::Step,
+                    file: None,
+                    line: None,
+                },
+            ],
+            edges: vec![
+                GraphEdge {
+                    from: "a".to_string(),
+                    to: "b".to_string(),
+                    label: None,
+                    style: EdgeStyle::Solid,
+                },
+                GraphEdge {
+                    from: "b".to_string(),
+                    to: "c".to_string(),
+                    label: None,
+                    style: EdgeStyle::Solid,
+                },
+                GraphEdge {
+                    from: "c".to_string(),
+                    to: "a".to_string(),
+                    label: Some("cycle".to_string()),
+                    style: EdgeStyle::Bold,
+                },
+            ],
+            clusters: vec![],
+            mermaid: String::new(),
+        }
+    }
+
+    #[test]
+    fn render_cycle_uses_lr_orientation_and_bold_back_edge() {
+        let g = cycle_fixture();
+        let out = render_cycle(&g);
+        assert!(out.starts_with("flowchart LR"));
+        assert!(out.contains("a --> b"));
+        assert!(out.contains("b --> c"));
+        assert!(out.contains("c ==>|cycle| a"));
     }
 }
