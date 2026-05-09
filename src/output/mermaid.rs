@@ -320,6 +320,118 @@ pub(crate) fn truncate_to_cap(g: &SliceGraph, cap: usize) -> (SliceGraph, Vec<Di
     (working, warns)
 }
 
+/// Render a SliceGraph to Mermaid. Returns the rendered string and any warnings
+/// (validation issues, cap exceedance). Caller is responsible for prefixing
+/// warnings with the algorithm name.
+pub fn render(g: &SliceGraph, cap: usize) -> (String, Vec<DiagramWarning>) {
+    let mut warnings: Vec<DiagramWarning> = vec![];
+
+    // Validation pass: empty graph
+    if g.nodes.is_empty() {
+        warnings.push(DiagramWarning {
+            algorithm: String::new(),
+            graph_title: g.title.clone(),
+            kind: DiagramWarningKind::EmptyGraph,
+            detail: "no nodes".to_string(),
+        });
+        return (String::new(), warnings);
+    }
+
+    // Validation pass: duplicate node ids
+    let mut seen: BTreeSet<&str> = BTreeSet::new();
+    let mut duplicates: BTreeSet<String> = BTreeSet::new();
+    for n in &g.nodes {
+        if !seen.insert(n.id.as_str()) {
+            duplicates.insert(n.id.clone());
+        }
+    }
+    for d in &duplicates {
+        warnings.push(DiagramWarning {
+            algorithm: String::new(),
+            graph_title: g.title.clone(),
+            kind: DiagramWarningKind::DuplicateNodeId,
+            detail: format!("node id '{}' appears multiple times", d),
+        });
+    }
+
+    // Validation pass: dangling edges
+    let node_ids: BTreeSet<&str> = g.nodes.iter().map(|n| n.id.as_str()).collect();
+    for e in &g.edges {
+        if !node_ids.contains(e.from.as_str()) {
+            warnings.push(DiagramWarning {
+                algorithm: String::new(),
+                graph_title: g.title.clone(),
+                kind: DiagramWarningKind::DanglingEdge,
+                detail: format!(
+                    "edge from '{}' to '{}' — '{}' missing from nodes",
+                    e.from, e.to, e.from
+                ),
+            });
+        }
+        if !node_ids.contains(e.to.as_str()) {
+            warnings.push(DiagramWarning {
+                algorithm: String::new(),
+                graph_title: g.title.clone(),
+                kind: DiagramWarningKind::DanglingEdge,
+                detail: format!(
+                    "edge from '{}' to '{}' — '{}' missing from nodes",
+                    e.from, e.to, e.to
+                ),
+            });
+        }
+    }
+
+    // Build a sanitized graph (drop dangling edges, dedup nodes by id keeping first).
+    let mut sanitized_nodes: Vec<GraphNode> = vec![];
+    let mut keep: BTreeSet<&str> = BTreeSet::new();
+    for n in &g.nodes {
+        if keep.insert(n.id.as_str()) {
+            sanitized_nodes.push(n.clone());
+        }
+    }
+    let sanitized_node_ids: BTreeSet<&str> =
+        sanitized_nodes.iter().map(|n| n.id.as_str()).collect();
+    let sanitized_edges: Vec<GraphEdge> = g
+        .edges
+        .iter()
+        .filter(|e| {
+            sanitized_node_ids.contains(e.from.as_str())
+                && sanitized_node_ids.contains(e.to.as_str())
+        })
+        .cloned()
+        .collect();
+    let sanitized = SliceGraph {
+        nodes: sanitized_nodes,
+        edges: sanitized_edges,
+        ..g.clone()
+    };
+
+    // Apply size cap.
+    let (capped, cap_warns) = truncate_to_cap(&sanitized, cap);
+    warnings.extend(cap_warns);
+
+    // Detect label truncation on the capped graph — escape_label_inner returns the flag.
+    for n in &capped.nodes {
+        let (_label, trunc) = escape_label_inner(&n.label);
+        if trunc {
+            warnings.push(DiagramWarning {
+                algorithm: String::new(),
+                graph_title: g.title.clone(),
+                kind: DiagramWarningKind::LabelTruncated,
+                detail: format!("label on node '{}' exceeded 80 chars", n.id),
+            });
+        }
+    }
+
+    let out = match capped.shape {
+        GraphShape::Chain => render_chain(&capped),
+        GraphShape::Layered => render_layered(&capped),
+        GraphShape::Cycle => render_cycle(&capped),
+        GraphShape::Fanout => render_fanout(&capped),
+    };
+    (out, warnings)
+}
+
 fn parse_hops(label: &Option<String>) -> Option<usize> {
     let l = label.as_ref()?;
     l.strip_suffix(" hops").and_then(|s| s.parse().ok())
@@ -716,6 +828,61 @@ mod tests {
         assert!(warns
             .iter()
             .any(|w| matches!(w.kind, DiagramWarningKind::NodeCapExceeded)));
+    }
+
+    #[test]
+    fn render_dispatches_by_shape() {
+        let mut g = chain_fixture();
+        g.shape = GraphShape::Chain;
+        let (out, warns) = render(&g, 40);
+        assert!(out.starts_with("flowchart TD"));
+        assert!(warns.is_empty());
+
+        g.shape = GraphShape::Cycle;
+        let (out, _) = render(&g, 40);
+        assert!(out.starts_with("flowchart LR"));
+    }
+
+    #[test]
+    fn render_emits_dangling_edge_warning() {
+        let mut g = chain_fixture();
+        g.edges.push(GraphEdge {
+            from: "a".to_string(),
+            to: "missing".to_string(),
+            label: None,
+            style: EdgeStyle::Solid,
+        });
+        let (_out, warns) = render(&g, 40);
+        assert!(warns
+            .iter()
+            .any(|w| matches!(w.kind, DiagramWarningKind::DanglingEdge)));
+    }
+
+    #[test]
+    fn render_emits_duplicate_node_warning() {
+        let mut g = chain_fixture();
+        let dup = g.nodes[0].clone();
+        g.nodes.push(dup);
+        let (_out, warns) = render(&g, 40);
+        assert!(warns
+            .iter()
+            .any(|w| matches!(w.kind, DiagramWarningKind::DuplicateNodeId)));
+    }
+
+    #[test]
+    fn render_emits_empty_graph_warning() {
+        let g = SliceGraph {
+            title: None,
+            shape: GraphShape::Chain,
+            nodes: vec![],
+            edges: vec![],
+            clusters: vec![],
+            mermaid: String::new(),
+        };
+        let (_out, warns) = render(&g, 40);
+        assert!(warns
+            .iter()
+            .any(|w| matches!(w.kind, DiagramWarningKind::EmptyGraph)));
     }
 
     #[test]
