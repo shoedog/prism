@@ -1,10 +1,11 @@
 //! Mermaid flowchart rendering for SliceGraph.
 //! See docs/superpowers/specs/2026-05-09-data-flow-visualization-design.md.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use crate::slice::{
-    EdgeStyle, GraphEdge, GraphNode, GraphShape, NodeCluster, NodeKind, SliceGraph,
+    DiagramWarning, DiagramWarningKind, EdgeStyle, GraphEdge, GraphNode, GraphShape, NodeCluster,
+    NodeKind, SliceGraph,
 };
 
 /// Build a Mermaid-safe stable node id from a file path and line number.
@@ -192,6 +193,136 @@ pub(crate) fn render_fanout(g: &SliceGraph) -> String {
     }
     out.push_str(CLASS_DEFS);
     out
+}
+
+/// Apply size cap to a graph. Returns the truncated graph and any
+/// `NodeCapExceeded` warnings if elision happened.
+pub(crate) fn truncate_to_cap(g: &SliceGraph, cap: usize) -> (SliceGraph, Vec<DiagramWarning>) {
+    if g.nodes.len() <= cap {
+        return (g.clone(), vec![]);
+    }
+    let original_count = g.nodes.len();
+    let mut working = g.clone();
+
+    // Pass 1: collapse linear chains. A node B with indegree=outdegree=1 and
+    // not Source/Sink/Origin can be removed; its single in-edge and single
+    // out-edge fuse into one edge labeled with hop count.
+    loop {
+        if working.nodes.len() <= cap {
+            break;
+        }
+        let mut indeg: BTreeMap<&str, usize> = BTreeMap::new();
+        let mut outdeg: BTreeMap<&str, usize> = BTreeMap::new();
+        for e in &working.edges {
+            *outdeg.entry(e.from.as_str()).or_default() += 1;
+            *indeg.entry(e.to.as_str()).or_default() += 1;
+        }
+        // Find first removable node.
+        let target = working.nodes.iter().find(|n| {
+            let preserve = matches!(n.kind, NodeKind::Source | NodeKind::Sink | NodeKind::Origin);
+            !preserve
+                && indeg.get(n.id.as_str()).copied().unwrap_or(0) == 1
+                && outdeg.get(n.id.as_str()).copied().unwrap_or(0) == 1
+        });
+        let target_id = match target {
+            Some(n) => n.id.clone(),
+            None => break, // no further linear collapse possible
+        };
+        // Remove the node and fuse edges.
+        let in_edge = working.edges.iter().find(|e| e.to == target_id).cloned();
+        let out_edge = working.edges.iter().find(|e| e.from == target_id).cloned();
+        if let (Some(i_e), Some(o_e)) = (in_edge, out_edge) {
+            working
+                .edges
+                .retain(|e| e.from != target_id && e.to != target_id);
+            let hops_in = parse_hops(&i_e.label).unwrap_or(1);
+            let hops_out = parse_hops(&o_e.label).unwrap_or(1);
+            let total = hops_in + hops_out;
+            working.edges.push(GraphEdge {
+                from: i_e.from,
+                to: o_e.to,
+                label: Some(format!("{} hops", total)),
+                style: i_e.style,
+            });
+        }
+        working.nodes.retain(|n| n.id != target_id);
+    }
+
+    // Pass 2: head + tail elision with a ghost node.
+    if working.nodes.len() > cap {
+        let head_n = (cap + 1) / 2;
+        let tail_n = cap.saturating_sub(head_n + 1).max(1);
+        let head: Vec<GraphNode> = working.nodes.iter().take(head_n).cloned().collect();
+        let tail: Vec<GraphNode> = working
+            .nodes
+            .iter()
+            .rev()
+            .take(tail_n)
+            .cloned()
+            .collect::<Vec<_>>()
+            .into_iter()
+            .rev()
+            .collect();
+        let elided = working.nodes.len() - head.len() - tail.len();
+        let ghost_id = "n_ellipsis".to_string();
+        let ghost = GraphNode {
+            id: ghost_id.clone(),
+            label: format!("[{} more nodes elided]", elided),
+            kind: NodeKind::Step,
+            file: None,
+            line: None,
+        };
+        let head_ids: BTreeSet<&str> = head.iter().map(|n| n.id.as_str()).collect();
+        let tail_ids: BTreeSet<&str> = tail.iter().map(|n| n.id.as_str()).collect();
+        let mut new_edges: Vec<GraphEdge> = vec![];
+        let mut head_to_ghost = false;
+        let mut ghost_to_tail = false;
+        for e in &working.edges {
+            let in_head = head_ids.contains(e.from.as_str()) && head_ids.contains(e.to.as_str());
+            let in_tail = tail_ids.contains(e.from.as_str()) && tail_ids.contains(e.to.as_str());
+            if in_head || in_tail {
+                new_edges.push(e.clone());
+            } else if head_ids.contains(e.from.as_str()) && !head_to_ghost {
+                new_edges.push(GraphEdge {
+                    from: e.from.clone(),
+                    to: ghost_id.clone(),
+                    label: None,
+                    style: EdgeStyle::Dotted,
+                });
+                head_to_ghost = true;
+            } else if tail_ids.contains(e.to.as_str()) && !ghost_to_tail {
+                new_edges.push(GraphEdge {
+                    from: ghost_id.clone(),
+                    to: e.to.clone(),
+                    label: None,
+                    style: EdgeStyle::Dotted,
+                });
+                ghost_to_tail = true;
+            }
+        }
+        let mut all_nodes: Vec<GraphNode> = head;
+        all_nodes.push(ghost);
+        all_nodes.extend(tail);
+        working.nodes = all_nodes;
+        working.edges = new_edges;
+    }
+
+    let warns = vec![DiagramWarning {
+        algorithm: String::new(),
+        graph_title: g.title.clone(),
+        kind: DiagramWarningKind::NodeCapExceeded,
+        detail: format!(
+            "elided to {} nodes from original {}",
+            working.nodes.len(),
+            original_count
+        ),
+    }];
+    (working, warns)
+}
+
+fn parse_hops(label: &Option<String>) -> Option<usize> {
+    let l = label.as_ref()?;
+    l.strip_suffix(" hops").and_then(|s| s.parse().ok())
 }
 
 #[cfg(test)]
@@ -529,5 +660,107 @@ mod tests {
         assert!(out.contains("x[(\"parse\")]:::origin"));
         assert!(out.contains("c1[\"main\"]:::caller"));
         assert!(out.contains("c1 --> x"));
+    }
+
+    fn linear_chain(n: usize) -> SliceGraph {
+        let nodes: Vec<GraphNode> = (0..n)
+            .map(|i| GraphNode {
+                id: format!("n{}", i),
+                label: format!("step {}", i),
+                kind: if i == 0 {
+                    NodeKind::Source
+                } else if i == n - 1 {
+                    NodeKind::Sink
+                } else {
+                    NodeKind::Step
+                },
+                file: None,
+                line: None,
+            })
+            .collect();
+        let edges: Vec<GraphEdge> = (0..n - 1)
+            .map(|i| GraphEdge {
+                from: format!("n{}", i),
+                to: format!("n{}", i + 1),
+                label: None,
+                style: EdgeStyle::Solid,
+            })
+            .collect();
+        SliceGraph {
+            title: None,
+            shape: GraphShape::Chain,
+            nodes,
+            edges,
+            clusters: vec![],
+            mermaid: String::new(),
+        }
+    }
+
+    #[test]
+    fn truncate_below_cap_unchanged() {
+        let g = linear_chain(10);
+        let (out, warns) = truncate_to_cap(&g, 40);
+        assert_eq!(out.nodes.len(), 10);
+        assert!(warns.is_empty());
+    }
+
+    #[test]
+    fn truncate_collapses_linear_chain_first() {
+        // 50-node linear chain. Pass 1 collapses linear pass-through nodes.
+        // The endpoints (Source, Sink) should be preserved.
+        let g = linear_chain(50);
+        let (out, warns) = truncate_to_cap(&g, 40);
+        assert!(out.nodes.len() <= 40);
+        assert_eq!(out.nodes.first().unwrap().kind, NodeKind::Source);
+        assert_eq!(out.nodes.last().unwrap().kind, NodeKind::Sink);
+        assert!(warns
+            .iter()
+            .any(|w| matches!(w.kind, DiagramWarningKind::NodeCapExceeded)));
+    }
+
+    #[test]
+    fn truncate_head_tail_with_ellipsis_when_collapse_insufficient() {
+        // 100-leaf star. Pass 1 cannot collapse (each leaf has indeg=0/outdeg=1, center has indeg=100/outdeg=0).
+        // Pass 2 takes over with head/tail elision.
+        let mut nodes = vec![GraphNode {
+            id: "center".to_string(),
+            label: "center".to_string(),
+            kind: NodeKind::Origin,
+            file: None,
+            line: None,
+        }];
+        let mut edges = vec![];
+        for i in 0..100 {
+            nodes.push(GraphNode {
+                id: format!("leaf{}", i),
+                label: format!("leaf {}", i),
+                kind: NodeKind::Caller,
+                file: None,
+                line: None,
+            });
+            edges.push(GraphEdge {
+                from: format!("leaf{}", i),
+                to: "center".to_string(),
+                label: None,
+                style: EdgeStyle::Solid,
+            });
+        }
+        let g = SliceGraph {
+            title: None,
+            shape: GraphShape::Fanout,
+            nodes,
+            edges,
+            clusters: vec![],
+            mermaid: String::new(),
+        };
+        let (out, warns) = truncate_to_cap(&g, 40);
+        assert!(out.nodes.len() <= 40);
+        assert!(out
+            .nodes
+            .iter()
+            .any(|n| n.label.contains("more nodes elided")));
+        assert!(warns
+            .iter()
+            .any(|w| matches!(w.kind, DiagramWarningKind::NodeCapExceeded)));
     }
 }
