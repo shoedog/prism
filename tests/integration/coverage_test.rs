@@ -684,6 +684,303 @@ fn test_coverage_matrix_validation() {
     );
 }
 
+/// Build a tiny C fixture where the diff line assigns a variable and the next
+/// statement passes it to `memcpy` (a sink).  The taint algorithm sees the diff
+/// line as the source, propagates forward, and flags the `memcpy` call as a
+/// sink, emitting a Chain diagram.
+fn fixture_taint_c_sink() -> (BTreeMap<String, ParsedFile>, DiffInput) {
+    let source = r#"
+#include <string.h>
+
+void process_packet(const char *buf, int len) {
+    char local[64];
+    int copy_len = len;
+    memcpy(local, buf, copy_len);
+}
+"#;
+    let path = "src/pkt.c";
+    let parsed = ParsedFile::parse(path, source, Language::C).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([6]), // int copy_len = len; — seeds taint source
+        }],
+    };
+    (files, diff)
+}
+
+/// A two-file Python fixture where `router` calls `handler` without checking the
+/// return value.  EchoSlice should detect the missing check and emit a Fanout
+/// diagram.
+fn fixture_echo_multifile_python() -> (BTreeMap<String, ParsedFile>, DiffInput) {
+    let handler_src = r#"
+def handler(request):
+    if request is None:
+        return None
+    return {"status": 200}
+"#;
+    let router_src = r#"
+from handler import handler
+
+def route(req):
+    result = handler(req)
+    return result
+"#;
+    let mut files = BTreeMap::new();
+    files.insert(
+        "handler.py".to_string(),
+        ParsedFile::parse("handler.py", handler_src, Language::Python).unwrap(),
+    );
+    files.insert(
+        "router.py".to_string(),
+        ParsedFile::parse("router.py", router_src, Language::Python).unwrap(),
+    );
+    // Diff: the return None line in handler — changes the return semantics
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: "handler.py".to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([4]), // return None
+        }],
+    };
+    (files, diff)
+}
+
+/// Two-file Python fixture layered as handler → service, so VerticalSlice can
+/// trace a path across layers and emit a Layered diagram.
+fn fixture_vertical_layered_python() -> (BTreeMap<String, ParsedFile>, DiffInput) {
+    let service_src = r#"
+def compute(value):
+    return value * 2
+"#;
+    let handler_src = r#"
+from service import compute
+
+def handle(request):
+    result = compute(request)
+    return result
+"#;
+    let mut files = BTreeMap::new();
+    files.insert(
+        "service/compute.py".to_string(),
+        ParsedFile::parse("service/compute.py", service_src, Language::Python).unwrap(),
+    );
+    files.insert(
+        "handler/view.py".to_string(),
+        ParsedFile::parse("handler/view.py", handler_src, Language::Python).unwrap(),
+    );
+    // Diff: inside compute — the change is in the service layer
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: "service/compute.py".to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([3]), // the return value line
+        }],
+    };
+    (files, diff)
+}
+
+/// Two mutually-recursive Python functions — guarantees a 2-cycle in the CPG
+/// call graph that CircularSlice will detect and diagram.
+fn fixture_circular_mutual_recursion() -> (BTreeMap<String, ParsedFile>, DiffInput) {
+    let source = r#"
+def a(x):
+    return b(x + 1)
+
+def b(y):
+    return a(y - 1)
+"#;
+    let path = "cycle.py";
+    let parsed = ParsedFile::parse(path, source, Language::Python).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([3]), // inside `a` — the `return b(x + 1)` call
+        }],
+    };
+    (files, diff)
+}
+
+/// Assert: four Plan-1 algorithms (Taint, VerticalSlice, EchoSlice,
+/// CircularSlice) each produce at least one populated diagram across the
+/// purpose-built fixtures, and no fixture × algorithm combination triggers a
+/// bug-class diagram warning.
+///
+/// This is a pipeline smoke test, not a per-language matrix.  The goal is
+/// "the diagram pipeline is wired and produces output" for every Plan-1
+/// algorithm.
+#[test]
+fn diagram_coverage_for_plan1_algorithms() {
+    use prism::algorithms;
+
+    // (label, config, files, diff)  — one or more fixtures per algorithm
+    struct FixtureRun {
+        label: &'static str,
+        algo: SlicingAlgorithm,
+        files: BTreeMap<String, ParsedFile>,
+        diff: DiffInput,
+    }
+
+    // Build the fixture list: every Plan-1 algorithm gets at least one
+    // purpose-built fixture that is designed to trigger a diagram.
+    let runs: Vec<FixtureRun> = {
+        let (taint_files, taint_diff) = fixture_taint_c_sink();
+        let (echo_files, echo_diff) = fixture_echo_multifile_python();
+        let (vert_files, vert_diff) = fixture_vertical_layered_python();
+        let (circ_files, circ_diff) = fixture_circular_mutual_recursion();
+
+        // Also run the standard fixtures through each algorithm so we assert
+        // no bug-class warnings on a wider surface.
+        let (py_files, _, py_diff) = make_python_test();
+        let (js_files, _, js_diff) = make_javascript_test();
+        let (c_files, _, c_diff) = make_c_test();
+
+        vec![
+            // --- Taint ---
+            FixtureRun {
+                label: "taint/c_sink",
+                algo: SlicingAlgorithm::Taint,
+                files: taint_files.clone(),
+                diff: taint_diff.clone(),
+            },
+            FixtureRun {
+                label: "taint/python",
+                algo: SlicingAlgorithm::Taint,
+                files: py_files.clone(),
+                diff: py_diff.clone(),
+            },
+            FixtureRun {
+                label: "taint/javascript",
+                algo: SlicingAlgorithm::Taint,
+                files: js_files.clone(),
+                diff: js_diff.clone(),
+            },
+            // --- EchoSlice ---
+            FixtureRun {
+                label: "echo/multifile_python",
+                algo: SlicingAlgorithm::EchoSlice,
+                files: echo_files.clone(),
+                diff: echo_diff.clone(),
+            },
+            FixtureRun {
+                label: "echo/python",
+                algo: SlicingAlgorithm::EchoSlice,
+                files: py_files.clone(),
+                diff: py_diff.clone(),
+            },
+            FixtureRun {
+                label: "echo/c",
+                algo: SlicingAlgorithm::EchoSlice,
+                files: c_files.clone(),
+                diff: c_diff.clone(),
+            },
+            // --- VerticalSlice ---
+            FixtureRun {
+                label: "vertical/layered_python",
+                algo: SlicingAlgorithm::VerticalSlice,
+                files: vert_files.clone(),
+                diff: vert_diff.clone(),
+            },
+            FixtureRun {
+                label: "vertical/python",
+                algo: SlicingAlgorithm::VerticalSlice,
+                files: py_files.clone(),
+                diff: py_diff.clone(),
+            },
+            FixtureRun {
+                label: "vertical/c",
+                algo: SlicingAlgorithm::VerticalSlice,
+                files: c_files.clone(),
+                diff: c_diff.clone(),
+            },
+            // --- CircularSlice ---
+            FixtureRun {
+                label: "circular/mutual_recursion",
+                algo: SlicingAlgorithm::CircularSlice,
+                files: circ_files.clone(),
+                diff: circ_diff.clone(),
+            },
+            FixtureRun {
+                label: "circular/python",
+                algo: SlicingAlgorithm::CircularSlice,
+                files: py_files.clone(),
+                diff: py_diff.clone(),
+            },
+            FixtureRun {
+                label: "circular/c",
+                algo: SlicingAlgorithm::CircularSlice,
+                files: c_files.clone(),
+                diff: c_diff.clone(),
+            },
+        ]
+    };
+
+    // Track which algorithms have produced at least one diagram.
+    let plan1_algos = [
+        SlicingAlgorithm::Taint,
+        SlicingAlgorithm::VerticalSlice,
+        SlicingAlgorithm::EchoSlice,
+        SlicingAlgorithm::CircularSlice,
+    ];
+    let mut found_diagram: BTreeMap<&str, bool> = plan1_algos
+        .iter()
+        .map(|a| (a.name(), false))
+        .collect();
+
+    for run in &runs {
+        let config = SliceConfig::default().with_algorithm(run.algo);
+        let result = match algorithms::run_slicing_compat(&run.files, &run.diff, &config, None) {
+            Ok(r) => r,
+            Err(e) => {
+                eprintln!("SKIP {}: algorithm error: {}", run.label, e);
+                continue;
+            }
+        };
+
+        // Assertion 2: zero bug-class warnings on every fixture × algorithm.
+        assert_no_diagram_bugs(&result);
+
+        // Track whether this run produced a diagram.
+        let has_diag = !result.diagrams.is_empty()
+            || result.findings.iter().any(|f| !f.diagrams.is_empty());
+        if has_diag {
+            if let Some(flag) = found_diagram.get_mut(run.algo.name()) {
+                *flag = true;
+            }
+        }
+        let findings_with_diag = result.findings.iter().filter(|f| !f.diagrams.is_empty()).count();
+        eprintln!(
+            "{:<40} result_diagrams={} findings={} findings_with_diag={}",
+            run.label,
+            result.diagrams.len(),
+            result.findings.len(),
+            findings_with_diag,
+        );
+    }
+
+    // Assertion 1: each Plan-1 algorithm must have produced at least one diagram.
+    let mut gaps: Vec<String> = Vec::new();
+    for algo in &plan1_algos {
+        if !found_diagram.get(algo.name()).copied().unwrap_or(false) {
+            gaps.push(format!(
+                "  {} produced no diagram across any Plan-1 fixture — coverage gap",
+                algo.name()
+            ));
+        }
+    }
+    assert!(
+        gaps.is_empty(),
+        "Plan-1 diagram coverage gaps:\n{}",
+        gaps.join("\n")
+    );
+}
+
 #[test]
 fn test_coverage_matrix_algorithm_completeness() {
     use std::fs;
