@@ -488,6 +488,37 @@ pub fn render(g: &SliceGraph, cap: usize) -> (String, Vec<DiagramWarning>) {
         }
     }
 
+    // Edge label truncation detection.
+    for e in &capped.edges {
+        if let Some(label) = &e.label {
+            let (_escaped, trunc) = escape_label_inner(label);
+            if trunc {
+                warnings.push(DiagramWarning {
+                    algorithm: String::new(),
+                    graph_title: g.title.clone(),
+                    kind: DiagramWarningKind::LabelTruncated,
+                    detail: format!("edge label on '{}->{}' exceeded 80 chars", e.from, e.to),
+                });
+            }
+        }
+    }
+
+    // Cluster label truncation detection.
+    for c in &capped.clusters {
+        let (_escaped, trunc) = escape_label_inner(&c.label);
+        if trunc {
+            warnings.push(DiagramWarning {
+                algorithm: String::new(),
+                graph_title: g.title.clone(),
+                kind: DiagramWarningKind::LabelTruncated,
+                detail: format!(
+                    "cluster label '{}' exceeded 80 chars",
+                    c.label.chars().take(20).collect::<String>()
+                ),
+            });
+        }
+    }
+
     let out = match capped.shape {
         GraphShape::Chain => render_chain(&capped),
         GraphShape::Layered => render_layered(&capped),
@@ -1346,5 +1377,37 @@ mod tests {
         // The label inside the quotes is preserved character-for-character
         // (escape_label_inner doesn't strip brackets).
         assert!(out.contains("[\"UI [main]\"]"));
+    }
+
+    #[test]
+    fn render_emits_label_truncated_for_long_edge_label() {
+        let mut g = chain_fixture();
+        let long: String = "a".repeat(120);
+        g.edges[0].label = Some(long);
+        let (_out, warns) = render(&g, 40);
+        assert!(
+            warns
+                .iter()
+                .any(|w| matches!(w.kind, DiagramWarningKind::LabelTruncated)
+                    && w.detail.contains("edge label")),
+            "expected LabelTruncated for edge label, got: {:?}",
+            warns
+        );
+    }
+
+    #[test]
+    fn render_emits_label_truncated_for_long_cluster_label() {
+        let mut g = layered_fixture();
+        let long: String = "u".repeat(120);
+        g.clusters[0].label = long;
+        let (_out, warns) = render(&g, 40);
+        assert!(
+            warns
+                .iter()
+                .any(|w| matches!(w.kind, DiagramWarningKind::LabelTruncated)
+                    && w.detail.contains("cluster label")),
+            "expected LabelTruncated for cluster label, got: {:?}",
+            warns
+        );
     }
 }
