@@ -33,9 +33,17 @@ struct Cli {
     #[arg(short, long, required_unless_present = "list_algorithms")]
     diff: Option<PathBuf>,
 
-    /// Output format: text, json, paper, review, callers
+    /// Output format: text, json, paper, review, callers, mermaid
     #[arg(short, long, default_value = "text")]
     format: String,
+
+    /// Maximum number of nodes a single Mermaid diagram may render before truncation.
+    #[arg(long, default_value_t = 40)]
+    diagram_node_cap: usize,
+
+    /// Exit non-zero if any bug-class diagram warning is produced.
+    #[arg(long, default_value_t = false)]
+    strict_diagrams: bool,
 
     /// Maximum branch lines to include fully (default: 5)
     #[arg(long, default_value = "5")]
@@ -257,8 +265,8 @@ fn main() -> Result<()> {
         include_returns: !cli.no_returns,
         trace_callees: !cli.no_trace_callees,
         scoped_cpg: cli.scoped_cpg,
-        diagram_node_cap: 40,
-        strict_diagrams: false,
+        diagram_node_cap: cli.diagram_node_cap,
+        strict_diagrams: cli.strict_diagrams,
     };
 
     let repo = cli.repo.as_ref().context("--repo is required")?;
@@ -486,8 +494,8 @@ fn main() -> Result<()> {
                 include_returns: !cli.no_returns,
                 trace_callees: !cli.no_trace_callees,
                 scoped_cpg: cli.scoped_cpg,
-                diagram_node_cap: 40,
-                strict_diagrams: false,
+                diagram_node_cap: cli.diagram_node_cap,
+                strict_diagrams: cli.strict_diagrams,
             };
             match run_algorithm(algo, &ctx, &diff_input, &algo_config, &cli, repo) {
                 Ok(r) => results.push(r),

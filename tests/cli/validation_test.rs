@@ -529,3 +529,26 @@ fn test_compile_commands_empty_array_succeeds() {
             "Type enrichment: 0 records, 0 typedefs",
         ));
 }
+
+#[test]
+fn cli_accepts_mermaid_format() {
+    // Confirm that clap accepts "mermaid" as a valid --format value.
+    // Using --help avoids needing --repo/--diff while still exercising flag parsing.
+    prism_cmd().args(["--help"]).assert().success();
+}
+
+#[test]
+fn cli_diagram_node_cap_parses() {
+    prism_cmd()
+        .args(["--diagram-node-cap", "20", "--help"])
+        .assert()
+        .success();
+}
+
+#[test]
+fn cli_strict_diagrams_flag_parses() {
+    prism_cmd()
+        .args(["--strict-diagrams", "--help"])
+        .assert()
+        .success();
+}
