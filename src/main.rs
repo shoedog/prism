@@ -529,6 +529,15 @@ fn main() -> Result<()> {
                     parse_quality: parse_quality.clone(),
                 };
                 println!("{}", serde_json::to_string_pretty(&out)?);
+                let all_diagram_warnings: Vec<_> = results
+                    .iter()
+                    .flat_map(|r| r.diagram_warnings.iter().cloned())
+                    .collect();
+                emit_warnings_to_stderr(&all_diagram_warnings);
+                let exit_code = determine_exit_code(cli.strict_diagrams, &all_diagram_warnings);
+                if exit_code != 0 {
+                    std::process::exit(exit_code);
+                }
             }
             "json" => {
                 // json and review produce the same ReviewOutput structure so that
@@ -547,6 +556,15 @@ fn main() -> Result<()> {
                     parse_quality: parse_quality.clone(),
                 };
                 println!("{}", serde_json::to_string_pretty(&out)?);
+                let all_diagram_warnings: Vec<_> = results
+                    .iter()
+                    .flat_map(|r| r.diagram_warnings.iter().cloned())
+                    .collect();
+                emit_warnings_to_stderr(&all_diagram_warnings);
+                let exit_code = determine_exit_code(cli.strict_diagrams, &all_diagram_warnings);
+                if exit_code != 0 {
+                    std::process::exit(exit_code);
+                }
             }
             "mermaid" => {
                 let multi_result = MultiSliceResult {
@@ -561,6 +579,12 @@ fn main() -> Result<()> {
                 };
                 let report = output::format_mermaid_report(&multi_result);
                 println!("{}", report);
+                let warnings = multi_result.aggregate_diagram_warnings();
+                emit_warnings_to_stderr(&warnings);
+                let exit_code = determine_exit_code(cli.strict_diagrams, &warnings);
+                if exit_code != 0 {
+                    std::process::exit(exit_code);
+                }
             }
             _ => {
                 for w in &parse_warnings {
@@ -569,6 +593,15 @@ fn main() -> Result<()> {
                 for result in &results {
                     println!("=== {} ===", result.algorithm.name());
                     print!("{}", output::format_slice_result(&result.blocks, &sources));
+                }
+                let all_diagram_warnings: Vec<_> = results
+                    .iter()
+                    .flat_map(|r| r.diagram_warnings.iter().cloned())
+                    .collect();
+                emit_warnings_to_stderr(&all_diagram_warnings);
+                let exit_code = determine_exit_code(cli.strict_diagrams, &all_diagram_warnings);
+                if exit_code != 0 {
+                    std::process::exit(exit_code);
                 }
             }
         }
@@ -585,10 +618,20 @@ fn main() -> Result<()> {
                 // slice_text (rendered source code) is always present in structured output.
                 let review = output::to_review_output(&result, &sources);
                 println!("{}", serde_json::to_string_pretty(&review)?);
+                emit_warnings_to_stderr(&result.diagram_warnings);
+                let exit_code = determine_exit_code(cli.strict_diagrams, &result.diagram_warnings);
+                if exit_code != 0 {
+                    std::process::exit(exit_code);
+                }
             }
             "paper" => {
                 let paper_output = output::to_paper_format(&result.blocks);
                 println!("{}", serde_json::to_string_pretty(&paper_output)?);
+                emit_warnings_to_stderr(&result.diagram_warnings);
+                let exit_code = determine_exit_code(cli.strict_diagrams, &result.diagram_warnings);
+                if exit_code != 0 {
+                    std::process::exit(exit_code);
+                }
             }
             "mermaid" => {
                 let algorithms_run = vec![result.algorithm.name().to_string()];
@@ -604,12 +647,23 @@ fn main() -> Result<()> {
                 };
                 let report = output::format_mermaid_report(&multi_result);
                 println!("{}", report);
+                let warnings = multi_result.aggregate_diagram_warnings();
+                emit_warnings_to_stderr(&warnings);
+                let exit_code = determine_exit_code(cli.strict_diagrams, &warnings);
+                if exit_code != 0 {
+                    std::process::exit(exit_code);
+                }
             }
             _ => {
                 for w in &result.warnings {
                     eprintln!("WARNING: {}", w);
                 }
                 print!("{}", output::format_slice_result(&result.blocks, &sources));
+                emit_warnings_to_stderr(&result.diagram_warnings);
+                let exit_code = determine_exit_code(cli.strict_diagrams, &result.diagram_warnings);
+                if exit_code != 0 {
+                    std::process::exit(exit_code);
+                }
             }
         }
     }
@@ -804,4 +858,66 @@ fn parse_file_line(s: &str) -> Result<(String, usize)> {
         .parse()
         .context(format!("Invalid line number: {}", parts[0]))?;
     Ok((parts[1].to_string(), line))
+}
+
+fn emit_warnings_to_stderr(warnings: &[prism::slice::DiagramWarning]) {
+    use std::io::Write;
+    let mut err = std::io::stderr().lock();
+    for w in warnings {
+        let title = w.graph_title.as_deref().unwrap_or("(no title)");
+        let _ = writeln!(
+            err,
+            "prism: diagram warning: {}/{} - {:?}: {}",
+            w.algorithm, title, w.kind, w.detail
+        );
+    }
+}
+
+fn determine_exit_code(strict: bool, warnings: &[prism::slice::DiagramWarning]) -> i32 {
+    if !strict {
+        return 0;
+    }
+    if warnings.iter().any(|w| w.kind.is_bug()) {
+        return 2;
+    }
+    0
+}
+
+#[cfg(test)]
+mod exit_tests {
+    use super::*;
+    use prism::slice::{DiagramWarning, DiagramWarningKind};
+
+    fn warn(kind: DiagramWarningKind) -> DiagramWarning {
+        DiagramWarning {
+            algorithm: "Taint".to_string(),
+            graph_title: None,
+            kind,
+            detail: "x".to_string(),
+        }
+    }
+
+    #[test]
+    fn determine_exit_code_strict_with_bug_warning() {
+        let warns = vec![warn(DiagramWarningKind::DanglingEdge)];
+        assert_eq!(determine_exit_code(true, &warns), 2);
+    }
+
+    #[test]
+    fn determine_exit_code_strict_with_only_informational() {
+        let warns = vec![warn(DiagramWarningKind::NodeCapExceeded)];
+        assert_eq!(determine_exit_code(true, &warns), 0);
+    }
+
+    #[test]
+    fn determine_exit_code_strict_off() {
+        let warns = vec![warn(DiagramWarningKind::DanglingEdge)];
+        assert_eq!(determine_exit_code(false, &warns), 0);
+    }
+
+    #[test]
+    fn determine_exit_code_strict_no_warnings() {
+        let warns: Vec<DiagramWarning> = vec![];
+        assert_eq!(determine_exit_code(true, &warns), 0);
+    }
 }
