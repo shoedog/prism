@@ -176,6 +176,13 @@ pub(crate) fn render_fanout(g: &SliceGraph) -> String {
 
 /// Apply size cap to a graph. Returns the truncated graph and any
 /// `NodeCapExceeded` warnings if elision happened.
+///
+/// **Cycle shape special case:** For `GraphShape::Cycle`, the bold back-edge
+/// endpoints are always preserved (they define the cycle's visual identity).
+/// Pass 2 (head/tail elision) is skipped entirely for cycles — the size cap is
+/// best-effort when structural integrity requires more nodes than `cap` allows.
+/// A `NodeCapExceeded` warning is still emitted, but with a note that the
+/// diagram size was preserved for structural integrity.
 pub(crate) fn truncate_to_cap(g: &SliceGraph, cap: usize) -> (SliceGraph, Vec<DiagramWarning>) {
     if g.nodes.len() <= cap {
         return (g.clone(), vec![]);
@@ -183,9 +190,23 @@ pub(crate) fn truncate_to_cap(g: &SliceGraph, cap: usize) -> (SliceGraph, Vec<Di
     let original_count = g.nodes.len();
     let mut working = g.clone();
 
+    // Identify cycle back-edge endpoints when shape is Cycle.
+    // These nodes are treated like Source/Sink/Origin — never removed — so
+    // that the bold back-edge (which visually identifies the cycle) survives.
+    let cycle_back_edge_endpoints: BTreeSet<String> = if g.shape == GraphShape::Cycle {
+        g.edges
+            .iter()
+            .filter(|e| matches!(e.style, EdgeStyle::Bold))
+            .flat_map(|e| [e.from.clone(), e.to.clone()])
+            .collect()
+    } else {
+        BTreeSet::new()
+    };
+
     // Pass 1: collapse linear chains. A node B with indegree=outdegree=1 and
-    // not Source/Sink/Origin can be removed; its single in-edge and single
-    // out-edge fuse into one edge labeled with hop count.
+    // not Source/Sink/Origin (or a cycle back-edge endpoint) can be removed;
+    // its single in-edge and single out-edge fuse into one edge labeled with
+    // hop count.
     loop {
         if working.nodes.len() <= cap {
             break;
@@ -198,7 +219,8 @@ pub(crate) fn truncate_to_cap(g: &SliceGraph, cap: usize) -> (SliceGraph, Vec<Di
         }
         // Find first removable node.
         let target = working.nodes.iter().find(|n| {
-            let preserve = matches!(n.kind, NodeKind::Source | NodeKind::Sink | NodeKind::Origin);
+            let preserve = matches!(n.kind, NodeKind::Source | NodeKind::Sink | NodeKind::Origin)
+                || cycle_back_edge_endpoints.contains(&n.id);
             !preserve
                 && indeg.get(n.id.as_str()).copied().unwrap_or(0) == 1
                 && outdeg.get(n.id.as_str()).copied().unwrap_or(0) == 1
@@ -228,7 +250,10 @@ pub(crate) fn truncate_to_cap(g: &SliceGraph, cap: usize) -> (SliceGraph, Vec<Di
     }
 
     // Pass 2: head + tail elision with a ghost node.
-    if working.nodes.len() > cap {
+    // Skip for Cycle shape — the back-edge identity is more important than
+    // the size cap. If Pass 1's preservation rules left us above cap, accept
+    // the larger diagram.
+    if working.nodes.len() > cap && g.shape != GraphShape::Cycle {
         let head_n = (cap + 1) / 2;
         let tail_n = cap.saturating_sub(head_n + 1).max(1);
         let head: Vec<GraphNode> = working.nodes.iter().take(head_n).cloned().collect();
@@ -286,16 +311,30 @@ pub(crate) fn truncate_to_cap(g: &SliceGraph, cap: usize) -> (SliceGraph, Vec<Di
         working.edges = new_edges;
     }
 
-    let warns = vec![DiagramWarning {
-        algorithm: String::new(),
-        graph_title: g.title.clone(),
-        kind: DiagramWarningKind::NodeCapExceeded,
-        detail: format!(
-            "elided to {} nodes from original {}",
-            working.nodes.len(),
-            original_count
-        ),
-    }];
+    let warns = if working.nodes.len() < original_count {
+        vec![DiagramWarning {
+            algorithm: String::new(),
+            graph_title: g.title.clone(),
+            kind: DiagramWarningKind::NodeCapExceeded,
+            detail: format!(
+                "elided to {} nodes from original {}",
+                working.nodes.len(),
+                original_count
+            ),
+        }]
+    } else {
+        // Cycle preservation kept us at original size despite being over cap.
+        vec![DiagramWarning {
+            algorithm: String::new(),
+            graph_title: g.title.clone(),
+            kind: DiagramWarningKind::NodeCapExceeded,
+            detail: format!(
+                "diagram size {} exceeds cap {} but structural integrity preserved",
+                working.nodes.len(),
+                cap
+            ),
+        }]
+    };
     (working, warns)
 }
 
@@ -1003,6 +1042,73 @@ mod tests {
         };
         let report = format_mermaid_report(&multi);
         assert!(report.contains("No flow-shaped findings produced"));
+    }
+
+    fn long_cycle(n: usize) -> SliceGraph {
+        let nodes: Vec<GraphNode> = (0..n)
+            .map(|i| GraphNode {
+                id: format!("c{}", i),
+                label: format!("step {}", i),
+                kind: NodeKind::Step,
+                file: None,
+                line: None,
+            })
+            .collect();
+        let mut edges: Vec<GraphEdge> = (0..n - 1)
+            .map(|i| GraphEdge {
+                from: format!("c{}", i),
+                to: format!("c{}", i + 1),
+                label: None,
+                style: EdgeStyle::Solid,
+            })
+            .collect();
+        // Bold back-edge: last → first
+        edges.push(GraphEdge {
+            from: format!("c{}", n - 1),
+            to: "c0".to_string(),
+            label: Some("cycle".to_string()),
+            style: EdgeStyle::Bold,
+        });
+        SliceGraph {
+            title: Some("Cycle".to_string()),
+            shape: GraphShape::Cycle,
+            nodes,
+            edges,
+            clusters: vec![],
+            mermaid: String::new(),
+        }
+    }
+
+    #[test]
+    fn truncate_cycle_preserves_back_edge_endpoints() {
+        let g = long_cycle(50);
+        let (out, warns) = truncate_to_cap(&g, 10);
+        // Both endpoints of the bold back-edge survive truncation.
+        let has_first = out.nodes.iter().any(|n| n.id == "c0");
+        let has_last = out.nodes.iter().any(|n| n.id == "c49");
+        assert!(has_first, "back-edge endpoint c0 must survive");
+        assert!(has_last, "back-edge endpoint c49 must survive");
+        // Bold back-edge edge must still be present and labeled "cycle".
+        let bold_edge = out
+            .edges
+            .iter()
+            .find(|e| matches!(e.style, EdgeStyle::Bold));
+        assert!(bold_edge.is_some(), "bold back-edge must survive");
+        let bold_edge = bold_edge.unwrap();
+        assert_eq!(bold_edge.from, "c49");
+        assert_eq!(bold_edge.to, "c0");
+        // Warning should fire (cycle exceeded cap, even if not fully truncated).
+        assert!(warns
+            .iter()
+            .any(|w| matches!(w.kind, DiagramWarningKind::NodeCapExceeded)));
+    }
+
+    #[test]
+    fn truncate_small_cycle_unchanged() {
+        let g = long_cycle(3);
+        let (out, warns) = truncate_to_cap(&g, 40);
+        assert_eq!(out.nodes.len(), 3);
+        assert!(warns.is_empty());
     }
 
     #[test]
