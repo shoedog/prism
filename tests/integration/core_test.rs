@@ -721,6 +721,43 @@ void init(struct device *dev) {
     assert_eq!(cpg.field_type("device", "name"), Some("char *".to_string()));
 }
 
+#[cfg(test)]
+mod assert_helper_tests {
+    use crate::common::{assert_no_diagram_bugs, DiagramWarning, DiagramWarningKind, SliceResult};
+    use prism::slice::SlicingAlgorithm;
+
+    #[test]
+    #[should_panic(expected = "diagram bugs")]
+    fn assert_no_diagram_bugs_panics_on_bug_warning() {
+        let mut r = SliceResult::new(SlicingAlgorithm::Taint);
+        r.diagram_warnings.push(DiagramWarning {
+            algorithm: "Taint".to_string(),
+            graph_title: None,
+            kind: DiagramWarningKind::DanglingEdge,
+            detail: "x".to_string(),
+        });
+        assert_no_diagram_bugs(&r);
+    }
+
+    #[test]
+    fn assert_no_diagram_bugs_passes_on_informational_only() {
+        let mut r = SliceResult::new(SlicingAlgorithm::Taint);
+        r.diagram_warnings.push(DiagramWarning {
+            algorithm: "Taint".to_string(),
+            graph_title: None,
+            kind: DiagramWarningKind::NodeCapExceeded,
+            detail: "x".to_string(),
+        });
+        assert_no_diagram_bugs(&r);
+    }
+
+    #[test]
+    fn assert_no_diagram_bugs_passes_on_no_warnings() {
+        let r = SliceResult::new(SlicingAlgorithm::Taint);
+        assert_no_diagram_bugs(&r);
+    }
+}
+
 #[test]
 fn test_needs_cpg_classification() {
     // Verify that AST-only algorithms don't need CPG

@@ -448,8 +448,14 @@ pub fn format_mermaid_report(multi: &crate::slice::MultiSliceResult) -> String {
             }
             out.push_str(&format!("## {}\n\n", r.algorithm.name()));
             for (idx, g) in r.diagrams.iter().enumerate() {
-                let title = g.title.clone().unwrap_or_else(|| format!("Diagram {}", idx + 1));
-                out.push_str(&format!("### {}\n\n```mermaid\n{}\n```\n\n", title, g.mermaid));
+                let title = g
+                    .title
+                    .clone()
+                    .unwrap_or_else(|| format!("Diagram {}", idx + 1));
+                out.push_str(&format!(
+                    "### {}\n\n```mermaid\n{}\n```\n\n",
+                    title, g.mermaid
+                ));
             }
             let findings_with_diagrams: Vec<_> = r
                 .findings
@@ -469,7 +475,10 @@ pub fn format_mermaid_report(multi: &crate::slice::MultiSliceResult) -> String {
                     f.file
                 );
                 for g in &f.diagrams {
-                    out.push_str(&format!("### {}\n\n```mermaid\n{}\n```\n\n", label, g.mermaid));
+                    out.push_str(&format!(
+                        "### {}\n\n```mermaid\n{}\n```\n\n",
+                        label, g.mermaid
+                    ));
                 }
             }
         }
