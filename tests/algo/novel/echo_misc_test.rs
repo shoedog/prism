@@ -477,11 +477,13 @@ void init_system(void) {
     let config = SliceConfig::default().with_algorithm(SlicingAlgorithm::EchoSlice);
     let result = algorithms::run_slicing_compat(&files, &diff, &config, None).unwrap();
 
-    if result.findings.is_empty() {
-        // No unsafe callers detected — diagram should also be absent.
-        assert!(result.diagrams.is_empty());
-        return;
-    }
+    // The C fixture has a caller (init_system) that assigns the return value of
+    // open_device to a local but never checks it. EchoSlice must flag that.
+    // If findings are empty the fixture or algorithm has regressed.
+    assert!(
+        !result.findings.is_empty(),
+        "EchoSlice must detect that init_system does not check open_device's return value"
+    );
 
     assert_eq!(
         result.diagrams.len(),

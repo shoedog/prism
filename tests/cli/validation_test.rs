@@ -530,25 +530,122 @@ fn test_compile_commands_empty_array_succeeds() {
         ));
 }
 
+/// Write a small Django-style `views.py` fixture into a temp directory.
+/// request.GET["q"] → cursor.execute produces a taint finding with a diagram.
+/// Returns (TempDir, repo_root, patch_path) — keep TempDir alive for the test.
+fn write_small_fixture() -> (TempDir, String, String) {
+    let tmp = TempDir::new().unwrap();
+    let repo = tmp.path().to_path_buf();
+    std::fs::write(
+        repo.join("views.py"),
+        "def lookup_view(request):\n\
+         \tq = request.GET[\"q\"]\n\
+         \tcursor.execute(f\"SELECT * FROM users WHERE name = '{q}'\")\n",
+    )
+    .unwrap();
+    let patch = repo.join("test.patch");
+    std::fs::write(
+        &patch,
+        "diff --git a/views.py b/views.py\n\
+         index 0000001..0000002 100644\n\
+         --- a/views.py\n\
+         +++ b/views.py\n\
+         @@ -1,3 +1,3 @@\n\
+          def lookup_view(request):\n\
+         -\tq = request.GET[\"q\"]\n\
+         +\tq = request.GET[\"query\"]\n\
+          \tcursor.execute(f\"SELECT * FROM users WHERE name = '{q}'\")\n",
+    )
+    .unwrap();
+    let repo_str = repo.to_str().unwrap().to_string();
+    let patch_str = patch.to_str().unwrap().to_string();
+    (tmp, repo_str, patch_str)
+}
+
 #[test]
 fn cli_accepts_mermaid_format() {
-    // Confirm that clap accepts "mermaid" as a valid --format value.
-    // Using --help avoids needing --repo/--diff while still exercising flag parsing.
-    prism_cmd().args(["--help"]).assert().success();
+    // Verify that --format mermaid is accepted by clap AND that the actual output
+    // starts with the expected Prism report header.
+    let (_tmp, repo, patch) = write_small_fixture();
+    let output = prism_cmd()
+        .args([
+            "--repo",
+            &repo,
+            "--diff",
+            &patch,
+            "--algorithm",
+            "taint",
+            "--format",
+            "mermaid",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "prism should exit 0 for --format mermaid"
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.starts_with("# Prism diagram report"),
+        "--format mermaid should produce a '# Prism diagram report' header; got: {}",
+        &stdout[..stdout.len().min(120)]
+    );
 }
 
 #[test]
 fn cli_diagram_node_cap_parses() {
-    prism_cmd()
-        .args(["--diagram-node-cap", "20", "--help"])
-        .assert()
-        .success();
+    // Verify --diagram-node-cap is accepted AND actually constrains diagram size.
+    // Cap of 1 on a 2-node taint Chain triggers NodeCapExceeded in diagram_warnings.
+    let (_tmp, repo, patch) = write_small_fixture();
+    let output = prism_cmd()
+        .args([
+            "--repo",
+            &repo,
+            "--diff",
+            &patch,
+            "--algorithm",
+            "taint",
+            "--diagram-node-cap",
+            "1",
+            "--format",
+            "json",
+        ])
+        .output()
+        .unwrap();
+    assert!(output.status.success(), "prism should exit 0");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let v: serde_json::Value = serde_json::from_str(&stdout).expect("output should be valid JSON");
+    // diagram_warnings is skipped_serializing_if Vec::is_empty, so it only appears
+    // when warnings were emitted. With cap=1 and a 2-node diagram, NodeCapExceeded fires.
+    let warns = v["diagram_warnings"]
+        .as_array()
+        .cloned()
+        .unwrap_or_default();
+    assert!(
+        warns
+            .iter()
+            .any(|w| w["kind"].as_str() == Some("NodeCapExceeded")),
+        "--diagram-node-cap 1 should produce NodeCapExceeded warning; \
+         diagram_warnings: {:?}",
+        warns
+    );
 }
 
 #[test]
 fn cli_strict_diagrams_flag_parses() {
+    // Verify --strict-diagrams is accepted by clap AND that a clean run exits 0
+    // (the Django fixture has no bug-class diagram warnings at default cap).
+    let (_tmp, repo, patch) = write_small_fixture();
     prism_cmd()
-        .args(["--strict-diagrams", "--help"])
+        .args([
+            "--repo",
+            &repo,
+            "--diff",
+            &patch,
+            "--algorithm",
+            "taint",
+            "--strict-diagrams",
+        ])
         .assert()
         .success();
 }

@@ -331,15 +331,53 @@ fn vertical_diagram_dedupes_overlapping_path_edges() {
 
 #[test]
 fn vertical_result_carries_layered_diagram() {
-    let (files, _, diff) = make_python_test();
+    // Use the same two-file layered fixture as coverage_test::fixture_vertical_layered_python:
+    // handler/view.py calls service/compute.py, so VerticalSlice traces a cross-layer path.
+    // Raw string literals with a leading newline match tree-sitter line numbers (line 3 = body).
+    let service_src = r#"
+def compute(value):
+    return value * 2
+"#;
+    let handler_src = r#"
+from service import compute
+
+def handle(request):
+    result = compute(request)
+    return result
+"#;
+    let mut files = BTreeMap::new();
+    files.insert(
+        "service/compute.py".to_string(),
+        ParsedFile::parse("service/compute.py", service_src, Language::Python).unwrap(),
+    );
+    files.insert(
+        "handler/view.py".to_string(),
+        ParsedFile::parse("handler/view.py", handler_src, Language::Python).unwrap(),
+    );
+    // Diff touches line 3 of service_src: "    return value * 2" (line 1 is the leading blank).
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: "service/compute.py".to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([3]),
+        }],
+    };
+
     let config = SliceConfig::default().with_algorithm(SlicingAlgorithm::VerticalSlice);
     let result = algorithms::run_slicing_compat(&files, &diff, &config, None).unwrap();
-    if result.blocks.is_empty() {
-        // No path traced — diagram should also be absent.
-        assert!(result.diagrams.is_empty());
-        return;
-    }
-    assert_eq!(result.diagrams.len(), 1);
+
+    // The layered two-file fixture must produce blocks — if not, the algorithm
+    // or fixture has regressed.
+    assert!(
+        !result.blocks.is_empty(),
+        "VerticalSlice must trace layers for the handler→service fixture and produce blocks"
+    );
+
+    assert_eq!(
+        result.diagrams.len(),
+        1,
+        "VerticalSlice should produce exactly one Layered diagram"
+    );
     let g = &result.diagrams[0];
     assert!(matches!(g.shape, prism::slice::GraphShape::Layered));
     assert!(!g.nodes.is_empty(), "should have nodes when blocks exist");

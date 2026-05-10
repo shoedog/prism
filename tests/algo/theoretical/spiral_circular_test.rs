@@ -448,10 +448,12 @@ def b(y):
     let config = SliceConfig::default().with_algorithm(SlicingAlgorithm::CircularSlice);
     let result = algorithms::run_slicing_compat(&files, &diff, &config, None).unwrap();
 
-    if result.blocks.is_empty() {
-        // No cycle detected by the CPG for this fixture — skip without failing.
-        return;
-    }
+    // The mutual-recursion fixture (a → b → a) guarantees CPG cycle detection.
+    // If blocks are empty the fixture or algorithm has regressed.
+    assert!(
+        !result.blocks.is_empty(),
+        "CircularSlice must detect the a→b→a mutual-recursion cycle and produce blocks"
+    );
 
     assert!(
         !result.diagrams.is_empty(),
