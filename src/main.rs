@@ -515,6 +515,10 @@ fn main() -> Result<()> {
 
         match cli.format.as_str() {
             "review" => {
+                let all_diagram_warnings: Vec<_> = results
+                    .iter()
+                    .flat_map(|r| r.diagram_warnings.iter().cloned())
+                    .collect();
                 let review_results: Vec<_> = results
                     .iter()
                     .map(|r| output::to_review_output(r, &sources))
@@ -527,12 +531,9 @@ fn main() -> Result<()> {
                     errors: all_errors,
                     warnings: parse_warnings,
                     parse_quality: parse_quality.clone(),
+                    diagram_warnings: all_diagram_warnings.clone(),
                 };
                 println!("{}", serde_json::to_string_pretty(&out)?);
-                let all_diagram_warnings: Vec<_> = results
-                    .iter()
-                    .flat_map(|r| r.diagram_warnings.iter().cloned())
-                    .collect();
                 emit_warnings_to_stderr(&all_diagram_warnings);
                 let exit_code = determine_exit_code(cli.strict_diagrams, &all_diagram_warnings);
                 if exit_code != 0 {
@@ -542,6 +543,10 @@ fn main() -> Result<()> {
             "json" => {
                 // json and review produce the same ReviewOutput structure so that
                 // slice_text (rendered source code) is always present in structured output.
+                let all_diagram_warnings: Vec<_> = results
+                    .iter()
+                    .flat_map(|r| r.diagram_warnings.iter().cloned())
+                    .collect();
                 let review_results: Vec<_> = results
                     .iter()
                     .map(|r| output::to_review_output(r, &sources))
@@ -554,12 +559,9 @@ fn main() -> Result<()> {
                     errors: all_errors,
                     warnings: parse_warnings,
                     parse_quality: parse_quality.clone(),
+                    diagram_warnings: all_diagram_warnings.clone(),
                 };
                 println!("{}", serde_json::to_string_pretty(&out)?);
-                let all_diagram_warnings: Vec<_> = results
-                    .iter()
-                    .flat_map(|r| r.diagram_warnings.iter().cloned())
-                    .collect();
                 emit_warnings_to_stderr(&all_diagram_warnings);
                 let exit_code = determine_exit_code(cli.strict_diagrams, &all_diagram_warnings);
                 if exit_code != 0 {
