@@ -594,9 +594,15 @@ fn cli_accepts_mermaid_format() {
 
 #[test]
 fn cli_diagram_node_cap_parses() {
-    // Verify --diagram-node-cap is accepted AND actually constrains diagram size.
-    // Cap of 1 on a 2-node taint Chain triggers NodeCapExceeded in diagram_warnings.
+    // Verify --diagram-node-cap is accepted for valid values (>= 4) and rejected
+    // for values below the minimum.
+    //
+    // The minimum cap of 4 is the smallest that can accommodate head + ghost + tail
+    // with at least one real node on each side.  Values < 4 are rejected by the
+    // CLI parser (clap value_parser) with a clear error message.
     let (_tmp, repo, patch) = write_small_fixture();
+
+    // (a) Values below the minimum must cause clap to reject the command (exit non-zero).
     let output = prism_cmd()
         .args([
             "--repo",
@@ -606,28 +612,44 @@ fn cli_diagram_node_cap_parses() {
             "--algorithm",
             "taint",
             "--diagram-node-cap",
-            "1",
+            "3",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        !output.status.success(),
+        "--diagram-node-cap 3 should be rejected (exit non-zero); \
+         stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("4") || stderr.contains("must be"),
+        "--diagram-node-cap 3 rejection message should mention the minimum; got: {}",
+        stderr
+    );
+
+    // (b) The minimum valid value (4) must be accepted (exit 0).
+    let output = prism_cmd()
+        .args([
+            "--repo",
+            &repo,
+            "--diff",
+            &patch,
+            "--algorithm",
+            "taint",
+            "--diagram-node-cap",
+            "4",
             "--format",
             "json",
         ])
         .output()
         .unwrap();
-    assert!(output.status.success(), "prism should exit 0");
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let v: serde_json::Value = serde_json::from_str(&stdout).expect("output should be valid JSON");
-    // diagram_warnings is skipped_serializing_if Vec::is_empty, so it only appears
-    // when warnings were emitted. With cap=1 and a 2-node diagram, NodeCapExceeded fires.
-    let warns = v["diagram_warnings"]
-        .as_array()
-        .cloned()
-        .unwrap_or_default();
     assert!(
-        warns
-            .iter()
-            .any(|w| w["kind"].as_str() == Some("NodeCapExceeded")),
-        "--diagram-node-cap 1 should produce NodeCapExceeded warning; \
-         diagram_warnings: {:?}",
-        warns
+        output.status.success(),
+        "--diagram-node-cap 4 should be accepted (exit 0); \
+         stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
     );
 }
 

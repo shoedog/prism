@@ -14,6 +14,25 @@ use std::collections::{BTreeMap, HashSet};
 use std::fs;
 use std::path::PathBuf;
 
+/// Validate `--diagram-node-cap`: must be >= 4.
+///
+/// 4 is the smallest cap that meaningfully fits head + ghost + tail with at
+/// least one node on each side of the elision point.  Values below 4 cause
+/// `truncate_to_cap`'s arithmetic to produce more nodes than the cap allows
+/// (the internal clamp handles it defensively, but we surface a clear error
+/// at the CLI boundary so users understand why their cap was rejected).
+fn parse_diagram_cap(s: &str) -> Result<usize, String> {
+    let n: usize = s.parse().map_err(|e| format!("invalid integer: {}", e))?;
+    if n < 4 {
+        return Err(format!(
+            "--diagram-node-cap must be >= 4 (got {}); \
+             values below 4 cannot fit head + ghost + tail",
+            n
+        ));
+    }
+    Ok(n)
+}
+
 #[derive(Parser, Debug)]
 #[command(
     name = "slicing",
@@ -38,7 +57,8 @@ struct Cli {
     format: String,
 
     /// Maximum number of nodes a single Mermaid diagram may render before truncation.
-    #[arg(long, default_value_t = 40)]
+    /// Must be >= 4 (the minimum that fits head + ghost + tail).
+    #[arg(long, default_value_t = 40, value_parser = parse_diagram_cap)]
     diagram_node_cap: usize,
 
     /// Exit non-zero if any bug-class diagram warning is produced.
@@ -847,7 +867,11 @@ fn run_algorithm(
                 prism::algorithms::contract_slice::slice(ctx.files, diff_input)
             }
         }
-        _ => algorithms::run_slicing(ctx, diff_input, config),
+        // Fallback: use run_slicing_inner (not run_slicing) so that the
+        // finalize_diagrams call below is the single owner.  run_slicing
+        // would finalize and then the call below would finalize again,
+        // duplicating all diagram warnings.
+        _ => algorithms::run_slicing_inner(ctx, diff_input, config),
     }?;
     prism::algorithms::finalize_diagrams(&mut result, config.diagram_node_cap);
     Ok(result)
@@ -885,6 +909,48 @@ fn determine_exit_code(strict: bool, warnings: &[prism::slice::DiagramWarning]) 
         return 2;
     }
     0
+}
+
+#[cfg(test)]
+mod cli_parse_tests {
+    use super::*;
+
+    #[test]
+    fn parse_diagram_cap_rejects_too_small() {
+        assert!(parse_diagram_cap("0").is_err(), "0 must be rejected");
+        assert!(parse_diagram_cap("1").is_err(), "1 must be rejected");
+        assert!(parse_diagram_cap("2").is_err(), "2 must be rejected");
+        assert!(parse_diagram_cap("3").is_err(), "3 must be rejected");
+        assert!(parse_diagram_cap("4").is_ok(), "4 must be accepted");
+        assert!(parse_diagram_cap("100").is_ok(), "100 must be accepted");
+    }
+
+    #[test]
+    fn parse_diagram_cap_rejects_non_integer() {
+        assert!(parse_diagram_cap("abc").is_err());
+        assert!(parse_diagram_cap("-1").is_err());
+        assert!(parse_diagram_cap("").is_err());
+    }
+
+    /// Architecture pin: `run_slicing_inner` must be a public symbol in
+    /// `prism::algorithms`.  The `run_algorithm` fallback path calls it so that
+    /// the single `finalize_diagrams` call at the end of `run_algorithm` is the
+    /// only one — if the fallback used `run_slicing` (which finalizes), then the
+    /// trailing `finalize_diagrams` call would be a second invocation, duplicating
+    /// all diagram warnings in JSON output and `## Diagnostics` sections.
+    ///
+    /// This test does not call the function at runtime; it merely references the
+    /// path so that removing the symbol breaks compilation.
+    #[test]
+    fn run_slicing_inner_is_accessible_for_no_double_finalize_seam() {
+        // Compile-time pin: the symbol must be reachable.
+        let _ = prism::algorithms::run_slicing_inner
+            as fn(
+                &prism::cpg::CpgContext,
+                &prism::diff::DiffInput,
+                &prism::slice::SliceConfig,
+            ) -> anyhow::Result<prism::slice::SliceResult>;
+    }
 }
 
 #[cfg(test)]

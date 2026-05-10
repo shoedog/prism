@@ -111,16 +111,23 @@ pub fn check_parse_quality(
     (warnings, quality)
 }
 
-/// Run the configured slicing algorithm with a shared CPG context.
+/// Run the configured slicing algorithm with a shared CPG context, returning
+/// the raw (unfinalized) result.
 ///
-/// For algorithms that need additional configuration (barrier, chop, taint, etc.),
-/// use the algorithm-specific `slice()` functions directly.
-pub fn run_slicing(
+/// Callers that need Mermaid rendering must call `finalize_diagrams` themselves
+/// (or use `run_slicing`, which does it automatically).
+///
+/// This seam exists so that `run_algorithm` in `main.rs` can call
+/// `run_slicing_inner` for its fallback path and then apply a single
+/// `finalize_diagrams` call — avoiding the double-finalize that would occur if
+/// it used `run_slicing` (which finalizes) and then called `finalize_diagrams`
+/// again afterwards.
+pub fn run_slicing_inner(
     ctx: &CpgContext,
     diff: &DiffInput,
     config: &SliceConfig,
 ) -> Result<SliceResult> {
-    let mut result = match config.algorithm {
+    match config.algorithm {
         SlicingAlgorithm::OriginalDiff => original_diff::slice(ctx.files, diff),
         SlicingAlgorithm::ParentFunction => parent_function::slice(ctx.files, diff),
         SlicingAlgorithm::LeftFlow => left_flow::slice(ctx, diff, config),
@@ -176,7 +183,23 @@ pub fn run_slicing(
             callback_dispatcher_slice::slice(ctx.files, diff)
         }
         SlicingAlgorithm::PrimitiveSlice => primitive_slice::slice(ctx.files, diff),
-    }?;
+    }
+}
+
+/// Run the configured slicing algorithm with a shared CPG context.
+///
+/// For algorithms that need additional configuration (barrier, chop, taint, etc.),
+/// use the algorithm-specific `slice()` functions directly.
+///
+/// This function calls `finalize_diagrams` before returning.  If you need an
+/// unfinalized result (e.g., to avoid double-finalization in a wrapper that
+/// also calls `finalize_diagrams`), use `run_slicing_inner` instead.
+pub fn run_slicing(
+    ctx: &CpgContext,
+    diff: &DiffInput,
+    config: &SliceConfig,
+) -> Result<SliceResult> {
+    let mut result = run_slicing_inner(ctx, diff, config)?;
     finalize_diagrams(&mut result, config.diagram_node_cap);
     Ok(result)
 }

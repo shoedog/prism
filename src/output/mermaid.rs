@@ -193,6 +193,11 @@ pub(crate) fn render_fanout(g: &SliceGraph) -> String {
 /// A `NodeCapExceeded` warning is still emitted, but with a note that the
 /// diagram size was preserved for structural integrity.
 pub(crate) fn truncate_to_cap(g: &SliceGraph, cap: usize) -> (SliceGraph, Vec<DiagramWarning>) {
+    // Enforce a minimum cap of 4: that is the smallest value that can
+    // accommodate head + ghost + tail with at least one node on each side.
+    // Below 4, head_n and tail_n + ghost always exceed the budget.
+    const MIN_CAP: usize = 4;
+    let cap = cap.max(MIN_CAP);
     if g.nodes.len() <= cap {
         return (g.clone(), vec![]);
     }
@@ -1332,6 +1337,26 @@ mod tests {
         assert!(
             has_ghost_to_tail,
             "expected at least one edge starting at ghost"
+        );
+    }
+
+    // ── MIN_CAP clamp test ────────────────────────────────────────────────────
+
+    #[test]
+    fn truncate_clamps_cap_at_minimum() {
+        // cap=1 should be clamped to MIN_CAP=4 internally; a 6-node chain
+        // stays at exactly 4 nodes after truncation (head=2, ghost=1, tail=1).
+        let g = linear_chain(6);
+        let (out, _) = truncate_to_cap(&g, 1);
+        assert!(
+            out.nodes.len() >= 3,
+            "must preserve at least head + ghost + tail (got {})",
+            out.nodes.len()
+        );
+        assert!(
+            out.nodes.len() <= 4,
+            "must not exceed clamped minimum of 4 (got {})",
+            out.nodes.len()
         );
     }
 
