@@ -7,7 +7,7 @@ use prism::cpg_cache::{self, CacheResult};
 use prism::diff::DiffInput;
 use prism::languages::Language;
 use prism::output;
-use prism::slice::{AlgorithmError, SliceConfig, SliceFinding, SlicingAlgorithm};
+use prism::slice::{AlgorithmError, MultiSliceResult, SliceConfig, SliceFinding, SlicingAlgorithm};
 use prism::type_db::TypeDatabase;
 use prism::type_provider::LanguageVersion;
 use std::collections::{BTreeMap, HashSet};
@@ -548,6 +548,20 @@ fn main() -> Result<()> {
                 };
                 println!("{}", serde_json::to_string_pretty(&out)?);
             }
+            "mermaid" => {
+                let multi_result = MultiSliceResult {
+                    version: "1.0".to_string(),
+                    algorithms_run,
+                    results,
+                    findings: all_findings,
+                    errors: all_errors,
+                    warnings: parse_warnings,
+                    parse_quality: parse_quality.clone(),
+                    diagram_warnings: vec![],
+                };
+                let report = output::format_mermaid_report(&multi_result);
+                println!("{}", report);
+            }
             _ => {
                 for w in &parse_warnings {
                     eprintln!("WARNING: {}", w);
@@ -575,6 +589,21 @@ fn main() -> Result<()> {
             "paper" => {
                 let paper_output = output::to_paper_format(&result.blocks);
                 println!("{}", serde_json::to_string_pretty(&paper_output)?);
+            }
+            "mermaid" => {
+                let algorithms_run = vec![result.algorithm.name().to_string()];
+                let multi_result = MultiSliceResult {
+                    version: "1.0".to_string(),
+                    algorithms_run,
+                    results: vec![result],
+                    findings: vec![],
+                    errors: vec![],
+                    warnings: vec![],
+                    parse_quality: BTreeMap::new(),
+                    diagram_warnings: vec![],
+                };
+                let report = output::format_mermaid_report(&multi_result);
+                println!("{}", report);
             }
             _ => {
                 for w in &result.warnings {

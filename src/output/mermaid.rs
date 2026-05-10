@@ -432,6 +432,62 @@ pub fn render(g: &SliceGraph, cap: usize) -> (String, Vec<DiagramWarning>) {
     (out, warnings)
 }
 
+/// Render a complete `--format mermaid` markdown report from a multi-result.
+pub fn format_mermaid_report(multi: &crate::slice::MultiSliceResult) -> String {
+    let any_diagram = multi
+        .results
+        .iter()
+        .any(|r| !r.diagrams.is_empty() || r.findings.iter().any(|f| !f.diagrams.is_empty()));
+    let mut out = String::from("# Prism diagram report\n\n");
+    if !any_diagram {
+        out.push_str("_No flow-shaped findings produced for this run._\n");
+    } else {
+        for r in &multi.results {
+            if r.diagrams.is_empty() && r.findings.iter().all(|f| f.diagrams.is_empty()) {
+                continue;
+            }
+            out.push_str(&format!("## {}\n\n", r.algorithm.name()));
+            for (idx, g) in r.diagrams.iter().enumerate() {
+                let title = g.title.clone().unwrap_or_else(|| format!("Diagram {}", idx + 1));
+                out.push_str(&format!("### {}\n\n```mermaid\n{}\n```\n\n", title, g.mermaid));
+            }
+            let findings_with_diagrams: Vec<_> = r
+                .findings
+                .iter()
+                .enumerate()
+                .filter(|(_, f)| !f.diagrams.is_empty())
+                .collect();
+            for (idx, f) in findings_with_diagrams {
+                let label = format!(
+                    "Finding {}: {}{}",
+                    idx + 1,
+                    if f.description.is_empty() {
+                        String::new()
+                    } else {
+                        format!("{} at ", f.description)
+                    },
+                    f.file
+                );
+                for g in &f.diagrams {
+                    out.push_str(&format!("### {}\n\n```mermaid\n{}\n```\n\n", label, g.mermaid));
+                }
+            }
+        }
+    }
+    let warnings = multi.aggregate_diagram_warnings();
+    if !warnings.is_empty() {
+        out.push_str("## Diagnostics\n\n");
+        for w in &warnings {
+            let title = w.graph_title.as_deref().unwrap_or("(no title)");
+            out.push_str(&format!(
+                "- {}/{}: {:?}: {}\n",
+                w.algorithm, title, w.kind, w.detail
+            ));
+        }
+    }
+    out
+}
+
 fn parse_hops(label: &Option<String>) -> Option<usize> {
     let l = label.as_ref()?;
     l.strip_suffix(" hops").and_then(|s| s.parse().ok())
@@ -929,5 +985,97 @@ mod tests {
         assert!(warns
             .iter()
             .any(|w| matches!(w.kind, DiagramWarningKind::NodeCapExceeded)));
+    }
+
+    #[test]
+    fn format_mermaid_report_groups_by_algorithm() {
+        use crate::slice::{MultiSliceResult, SliceFinding, SliceResult, SlicingAlgorithm};
+        use std::collections::BTreeMap;
+        let mut taint = SliceResult::new(SlicingAlgorithm::Taint);
+        taint.findings.push(SliceFinding {
+            algorithm: "Taint".to_string(),
+            file: "foo.c".to_string(),
+            line: 67,
+            severity: "concern".to_string(),
+            description: "tainted strcpy".to_string(),
+            function_name: None,
+            related_lines: vec![],
+            related_files: vec![],
+            category: Some("taint_sink".to_string()),
+            parse_quality: None,
+            diagrams: vec![SliceGraph {
+                title: Some("Data flow".to_string()),
+                shape: GraphShape::Chain,
+                nodes: vec![GraphNode {
+                    id: "n1".to_string(),
+                    label: "src".to_string(),
+                    kind: NodeKind::Source,
+                    file: None,
+                    line: None,
+                }],
+                edges: vec![],
+                clusters: vec![],
+                mermaid: "flowchart TD\n    n1[\"src\"]:::source\n".to_string(),
+            }],
+        });
+        let multi = MultiSliceResult {
+            version: "test".to_string(),
+            algorithms_run: vec!["Taint".to_string()],
+            results: vec![taint],
+            findings: vec![],
+            errors: vec![],
+            warnings: vec![],
+            parse_quality: BTreeMap::new(),
+            diagram_warnings: vec![],
+        };
+        let report = format_mermaid_report(&multi);
+        assert!(report.starts_with("# Prism diagram report"));
+        assert!(report.contains("## Taint"));
+        assert!(report.contains("### Finding 1"));
+        assert!(report.contains("flowchart TD"));
+    }
+
+    #[test]
+    fn format_mermaid_report_empty_run_says_nothing_produced() {
+        use crate::slice::MultiSliceResult;
+        use std::collections::BTreeMap;
+        let multi = MultiSliceResult {
+            version: "test".to_string(),
+            algorithms_run: vec![],
+            results: vec![],
+            findings: vec![],
+            errors: vec![],
+            warnings: vec![],
+            parse_quality: BTreeMap::new(),
+            diagram_warnings: vec![],
+        };
+        let report = format_mermaid_report(&multi);
+        assert!(report.contains("No flow-shaped findings produced"));
+    }
+
+    #[test]
+    fn format_mermaid_report_includes_diagnostics_when_warnings_present() {
+        use crate::slice::{DiagramWarningKind, MultiSliceResult, SliceResult, SlicingAlgorithm};
+        use std::collections::BTreeMap;
+        let mut r = SliceResult::new(SlicingAlgorithm::Taint);
+        r.diagram_warnings.push(DiagramWarning {
+            algorithm: "Taint".to_string(),
+            graph_title: Some("Data flow".to_string()),
+            kind: DiagramWarningKind::DanglingEdge,
+            detail: "n_a missing".to_string(),
+        });
+        let multi = MultiSliceResult {
+            version: "test".to_string(),
+            algorithms_run: vec!["Taint".to_string()],
+            results: vec![r],
+            findings: vec![],
+            errors: vec![],
+            warnings: vec![],
+            parse_quality: BTreeMap::new(),
+            diagram_warnings: vec![],
+        };
+        let report = format_mermaid_report(&multi);
+        assert!(report.contains("## Diagnostics"));
+        assert!(report.contains("DanglingEdge"));
     }
 }

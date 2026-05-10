@@ -6,6 +6,8 @@
 pub mod mermaid;
 pub mod review;
 
+pub use mermaid::{format_mermaid_report, render};
+
 // Re-export the previous flat-file public API so existing imports keep working.
 pub use review::{
     format_block, format_slice_result, render_review_block, to_callers_output, to_paper_format,
