@@ -233,6 +233,7 @@ fn test_review_output_json_schema_multi() {
         errors: vec![],
         warnings: vec![],
         parse_quality: BTreeMap::new(),
+        diagram_warnings: vec![],
     };
 
     // Verify schema
