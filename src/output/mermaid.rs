@@ -281,12 +281,28 @@ pub(crate) fn truncate_to_cap(g: &SliceGraph, cap: usize) -> (SliceGraph, Vec<Di
         let mut new_edges: Vec<GraphEdge> = vec![];
         let mut head_to_ghost = false;
         let mut ghost_to_tail = false;
+        let mut tail_to_ghost = false;
+        let mut ghost_to_head = false;
         for e in &working.edges {
-            let in_head = head_ids.contains(e.from.as_str()) && head_ids.contains(e.to.as_str());
-            let in_tail = tail_ids.contains(e.from.as_str()) && tail_ids.contains(e.to.as_str());
+            let from_in_head = head_ids.contains(e.from.as_str());
+            let to_in_head = head_ids.contains(e.to.as_str());
+            let from_in_tail = tail_ids.contains(e.from.as_str());
+            let to_in_tail = tail_ids.contains(e.to.as_str());
+
+            let in_head = from_in_head && to_in_head;
+            let in_tail = from_in_tail && to_in_tail;
+
             if in_head || in_tail {
                 new_edges.push(e.clone());
-            } else if head_ids.contains(e.from.as_str()) && !head_to_ghost {
+                continue;
+            }
+
+            // Cross-region edges: emit ghost-bridging edges as appropriate.
+            // Use independent if-statements so each direction is added at most once
+            // but both halves of a crossing can be emitted for the same edge.
+
+            // head → tail (chain crossing): bridge via ghost in both directions.
+            if from_in_head && to_in_tail && !head_to_ghost {
                 new_edges.push(GraphEdge {
                     from: e.from.clone(),
                     to: ghost_id.clone(),
@@ -294,7 +310,8 @@ pub(crate) fn truncate_to_cap(g: &SliceGraph, cap: usize) -> (SliceGraph, Vec<Di
                     style: EdgeStyle::Dotted,
                 });
                 head_to_ghost = true;
-            } else if tail_ids.contains(e.to.as_str()) && !ghost_to_tail {
+            }
+            if from_in_head && to_in_tail && !ghost_to_tail {
                 new_edges.push(GraphEdge {
                     from: ghost_id.clone(),
                     to: e.to.clone(),
@@ -302,6 +319,70 @@ pub(crate) fn truncate_to_cap(g: &SliceGraph, cap: usize) -> (SliceGraph, Vec<Di
                     style: EdgeStyle::Dotted,
                 });
                 ghost_to_tail = true;
+            }
+
+            // tail → head (fanout/reverse edges): bridge via ghost in both directions.
+            if from_in_tail && to_in_head && !tail_to_ghost {
+                new_edges.push(GraphEdge {
+                    from: e.from.clone(),
+                    to: ghost_id.clone(),
+                    label: None,
+                    style: EdgeStyle::Dotted,
+                });
+                tail_to_ghost = true;
+            }
+            if from_in_tail && to_in_head && !ghost_to_head {
+                new_edges.push(GraphEdge {
+                    from: ghost_id.clone(),
+                    to: e.to.clone(),
+                    label: None,
+                    style: EdgeStyle::Dotted,
+                });
+                ghost_to_head = true;
+            }
+
+            // head → elided interior: bridge head to ghost only.
+            if from_in_head && !to_in_head && !to_in_tail && !head_to_ghost {
+                new_edges.push(GraphEdge {
+                    from: e.from.clone(),
+                    to: ghost_id.clone(),
+                    label: None,
+                    style: EdgeStyle::Dotted,
+                });
+                head_to_ghost = true;
+            }
+
+            // elided interior → tail: bridge ghost to tail only.
+            if !from_in_head && !from_in_tail && to_in_tail && !ghost_to_tail {
+                new_edges.push(GraphEdge {
+                    from: ghost_id.clone(),
+                    to: e.to.clone(),
+                    label: None,
+                    style: EdgeStyle::Dotted,
+                });
+                ghost_to_tail = true;
+            }
+
+            // tail → elided interior: bridge tail to ghost only.
+            if from_in_tail && !to_in_head && !to_in_tail && !tail_to_ghost {
+                new_edges.push(GraphEdge {
+                    from: e.from.clone(),
+                    to: ghost_id.clone(),
+                    label: None,
+                    style: EdgeStyle::Dotted,
+                });
+                tail_to_ghost = true;
+            }
+
+            // elided interior → head: bridge ghost to head only.
+            if !from_in_head && !from_in_tail && to_in_head && !ghost_to_head {
+                new_edges.push(GraphEdge {
+                    from: ghost_id.clone(),
+                    to: e.to.clone(),
+                    label: None,
+                    style: EdgeStyle::Dotted,
+                });
+                ghost_to_head = true;
             }
         }
         let mut all_nodes: Vec<GraphNode> = head;
@@ -1135,5 +1216,123 @@ mod tests {
         let report = format_mermaid_report(&multi);
         assert!(report.contains("## Diagnostics"));
         assert!(report.contains("DanglingEdge"));
+    }
+
+    // ── Problem 1: Pass-2 truncation shape-aware tests ────────────────────────
+
+    #[test]
+    fn truncate_fanout_preserves_tail_caller_via_ghost() {
+        // 100-leaf star: center is the origin, leaves are callers. Edges are leaf -> center.
+        // After truncation, both head leaves and tail leaves should connect to center via the ghost.
+        let mut nodes = vec![GraphNode {
+            id: "center".to_string(),
+            label: "center".to_string(),
+            kind: NodeKind::Origin,
+            file: None,
+            line: None,
+        }];
+        let mut edges = vec![];
+        for i in 0..100 {
+            nodes.push(GraphNode {
+                id: format!("leaf{}", i),
+                label: format!("leaf {}", i),
+                kind: NodeKind::Caller,
+                file: None,
+                line: None,
+            });
+            edges.push(GraphEdge {
+                from: format!("leaf{}", i),
+                to: "center".to_string(),
+                label: None,
+                style: EdgeStyle::Solid,
+            });
+        }
+        let g = SliceGraph {
+            title: None,
+            shape: GraphShape::Fanout,
+            nodes,
+            edges,
+            clusters: vec![],
+            mermaid: String::new(),
+        };
+        let (out, _warns) = truncate_to_cap(&g, 10);
+        // Find the ghost node.
+        let ghost_id = out
+            .nodes
+            .iter()
+            .find(|n| n.label.contains("more nodes elided"))
+            .map(|n| n.id.clone())
+            .expect("ghost node must exist");
+        // Every preserved leaf must reach center via either a direct edge OR through the ghost.
+        for n in &out.nodes {
+            if n.id == "center" || n.id == ghost_id {
+                continue;
+            }
+            let direct = out.edges.iter().any(|e| e.from == n.id && e.to == "center");
+            let via_ghost = out.edges.iter().any(|e| e.from == n.id && e.to == ghost_id)
+                || out
+                    .edges
+                    .iter()
+                    .any(|e| e.from == ghost_id && e.to == "center");
+            assert!(
+                direct || via_ghost,
+                "leaf {} is disconnected (no direct edge to center, no path through ghost)",
+                n.id
+            );
+        }
+    }
+
+    #[test]
+    fn truncate_chain_crossing_edge_emits_both_ghost_halves() {
+        // Build a 50-node chain where every node is Source or Sink (non-collapsible),
+        // so Pass 1 cannot reduce any nodes and Pass 2 must run.
+        // After truncation the head and tail are bridged by edges through the ghost.
+        let nodes: Vec<GraphNode> = (0..50)
+            .map(|i| GraphNode {
+                id: format!("n{}", i),
+                label: format!("step {}", i),
+                kind: if i % 2 == 0 {
+                    NodeKind::Source
+                } else {
+                    NodeKind::Sink
+                },
+                file: None,
+                line: None,
+            })
+            .collect();
+        let edges: Vec<GraphEdge> = (0..49)
+            .map(|i| GraphEdge {
+                from: format!("n{}", i),
+                to: format!("n{}", i + 1),
+                label: None,
+                style: EdgeStyle::Solid,
+            })
+            .collect();
+        let g = SliceGraph {
+            title: None,
+            shape: GraphShape::Chain,
+            nodes,
+            edges,
+            clusters: vec![],
+            mermaid: String::new(),
+        };
+        let (out, _warns) = truncate_to_cap(&g, 10);
+        let ghost_id = out
+            .nodes
+            .iter()
+            .find(|n| n.label.contains("more nodes elided"))
+            .map(|n| n.id.clone())
+            .expect("ghost node must exist");
+        // Both `head_to_ghost` and `ghost_to_tail` directions should have at least one edge.
+        let has_head_to_ghost = out.edges.iter().any(|e| e.to == ghost_id);
+        let has_ghost_to_tail = out.edges.iter().any(|e| e.from == ghost_id);
+        assert!(
+            has_head_to_ghost,
+            "expected at least one edge ending at ghost"
+        );
+        assert!(
+            has_ghost_to_tail,
+            "expected at least one edge starting at ghost"
+        );
     }
 }
