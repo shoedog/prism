@@ -7434,6 +7434,10 @@ pub fn slice(
     // Collect all tainted lines and identify sinks
     let mut all_tainted: BTreeMap<String, BTreeSet<usize>> = BTreeMap::new();
     let mut sink_lines: BTreeSet<(String, usize)> = BTreeSet::new();
+    // For each sink location, the set of source locations that reach it via a FlowPath.
+    // Empty set means "added by non-path code" — caller falls back to file-scan heuristic.
+    let mut sink_to_path_sources: BTreeMap<(String, usize), BTreeSet<(String, usize)>> =
+        BTreeMap::new();
 
     let all_sinks: Vec<&str> = SINK_PATTERNS
         .iter()
@@ -7501,6 +7505,12 @@ pub fn slice(
                         let text = parsed.node_text(id);
                         if all_sinks.iter().any(|s| matches_sink(text, s)) {
                             sink_lines.insert((edge.to.file.clone(), edge.to.line));
+                            if let Some(first_edge) = path.edges.first() {
+                                sink_to_path_sources
+                                    .entry((edge.to.file.clone(), edge.to.line))
+                                    .or_default()
+                                    .insert((first_edge.from.file.clone(), first_edge.from.line));
+                            }
                         }
                     }
                 }
@@ -7510,6 +7520,12 @@ pub fn slice(
                     && !structured_suppressed_by_cleanser
                 {
                     sink_lines.insert((edge.to.file.clone(), edge.to.line));
+                    if let Some(first_edge) = path.edges.first() {
+                        sink_to_path_sources
+                            .entry((edge.to.file.clone(), edge.to.line))
+                            .or_default()
+                            .insert((first_edge.from.file.clone(), first_edge.from.line));
+                    }
                 }
             }
         }
@@ -7656,29 +7672,45 @@ pub fn slice(
 
     // Emit findings for each taint sink reached
     for (file, line) in &sink_lines {
-        // Find a source that reaches this sink (use first taint source as representative)
-        // Pick the most descriptive source for this sink.
-        // Prefer the nearest IPC source before the sink (user-controlled IPC reads
-        // are the semantically interesting starting point for confused-deputy analysis).
-        // Fall back to the nearest diff-line source, then any source in the same file.
-        let source_location: Option<(&str, usize)> = ipc_source_set
-            .iter()
-            .filter(|(sf, sl)| sf == file && *sl < *line)
-            .max_by_key(|(_, sl)| *sl)
-            .map(|(sf, sl)| (sf.as_str(), *sl))
-            .or_else(|| {
-                taint_sources
-                    .iter()
-                    .filter(|(sf, sl)| sf == file && *sl < *line)
+        // Find a source that reaches this sink.
+        // Prefer a source that the actual FlowPath identified as flowing into this sink.
+        // Pick the one nearest to the sink (largest line number that's still <= sink line)
+        // to remain consistent with the existing "nearest-in-file" semantics for the
+        // reviewer-friendly source description.
+        let path_derived_source: Option<(&str, usize)> = sink_to_path_sources
+            .get(&(file.clone(), *line))
+            .and_then(|set| {
+                set.iter()
+                    .filter(|(sf, sl)| sf == file && *sl <= *line)
                     .max_by_key(|(_, sl)| *sl)
                     .map(|(sf, sl)| (sf.as_str(), *sl))
-            })
-            .or_else(|| {
-                taint_sources
-                    .iter()
-                    .find(|(sf, _)| sf == file)
-                    .map(|(sf, sl)| (sf.as_str(), *sl))
             });
+
+        // Fall back to existing heuristic for sinks added without path linkage
+        // (e.g., YAML inline-framework-source sinks, IPC sources).
+        // Prefer the nearest IPC source before the sink (user-controlled IPC reads
+        // are the semantically interesting starting point for confused-deputy analysis).
+        // Then fall back to the nearest diff-line source, then any source in the same file.
+        let source_location: Option<(&str, usize)> = path_derived_source.or_else(|| {
+            ipc_source_set
+                .iter()
+                .filter(|(sf, sl)| sf == file && *sl < *line)
+                .max_by_key(|(_, sl)| *sl)
+                .map(|(sf, sl)| (sf.as_str(), *sl))
+                .or_else(|| {
+                    taint_sources
+                        .iter()
+                        .filter(|(sf, sl)| sf == file && *sl < *line)
+                        .max_by_key(|(_, sl)| *sl)
+                        .map(|(sf, sl)| (sf.as_str(), *sl))
+                })
+                .or_else(|| {
+                    taint_sources
+                        .iter()
+                        .find(|(sf, _)| sf == file)
+                        .map(|(sf, sl)| (sf.as_str(), *sl))
+                })
+        });
         let source_desc = source_location
             .map(|(_, sl)| format!("line {}", sl))
             .unwrap_or_else(|| "diff lines".to_string());
