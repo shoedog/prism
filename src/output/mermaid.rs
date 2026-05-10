@@ -43,7 +43,11 @@ fn arrow_for(style: EdgeStyle, label: &Option<String>) -> String {
         EdgeStyle::Dotted => "-.->",
     };
     match label {
-        Some(l) if !l.is_empty() => format!("{}|{}|", arrow, l),
+        Some(l) if !l.is_empty() => {
+            let (escaped, _trunc) = escape_label_inner(l);
+            // Wrap in quotes inside |...| to handle | and other specials uniformly.
+            format!("{}|\"{}\"|", arrow, escaped)
+        }
         _ => arrow.to_string(),
     }
 }
@@ -109,8 +113,13 @@ pub(crate) fn render_cycle(g: &SliceGraph) -> String {
 pub(crate) fn render_layered(g: &SliceGraph) -> String {
     let mut out = String::from("flowchart TD\n");
     let mut clustered: BTreeSet<&str> = BTreeSet::new();
-    for cluster in &g.clusters {
-        out.push_str(&format!("    subgraph {}\n", cluster.label));
+    for (cluster_idx, cluster) in g.clusters.iter().enumerate() {
+        let subgraph_id = format!("cluster_{}", cluster_idx);
+        let (escaped_label, _trunc) = escape_label_inner(&cluster.label);
+        out.push_str(&format!(
+            "    subgraph {}[\"{}\"]\n",
+            subgraph_id, escaped_label
+        ));
         for nid in &cluster.node_ids {
             clustered.insert(nid.as_str());
             if let Some(node) = g.nodes.iter().find(|n| &n.id == nid) {
@@ -675,8 +684,8 @@ mod tests {
         assert!(out.contains("a[\"foo.c:42 read_input\"]:::source"));
         assert!(out.contains("b[\"foo.c:51 name\"]"));
         assert!(out.contains("c[\"foo.c:67 strcpy\"]:::sink"));
-        assert!(out.contains("a -->|tainted| b"));
-        assert!(out.contains("b -->|tainted| c"));
+        assert!(out.contains("a -->|\"tainted\"| b"));
+        assert!(out.contains("b -->|\"tainted\"| c"));
         assert!(out.contains("classDef source"));
         assert!(out.contains("classDef sink"));
     }
@@ -756,13 +765,13 @@ mod tests {
         let g = layered_fixture();
         let out = render_layered(&g);
         assert!(out.starts_with("flowchart TD\n"));
-        assert!(out.contains("subgraph UI"));
-        assert!(out.contains("subgraph Business"));
-        assert!(out.contains("subgraph Data"));
+        assert!(out.contains("[\"UI\"]"));
+        assert!(out.contains("[\"Business\"]"));
+        assert!(out.contains("[\"Data\"]"));
         // Subgraph order matches cluster order:
-        let ui_pos = out.find("subgraph UI").unwrap();
-        let bz_pos = out.find("subgraph Business").unwrap();
-        let dt_pos = out.find("subgraph Data").unwrap();
+        let ui_pos = out.find("[\"UI\"]").unwrap();
+        let bz_pos = out.find("[\"Business\"]").unwrap();
+        let dt_pos = out.find("[\"Data\"]").unwrap();
         assert!(ui_pos < bz_pos && bz_pos < dt_pos);
         // Cross-layer edge present:
         assert!(out.contains("h --> s"));
@@ -842,7 +851,7 @@ mod tests {
         assert!(out.starts_with("flowchart LR"));
         assert!(out.contains("a --> b"));
         assert!(out.contains("b --> c"));
-        assert!(out.contains("c ==>|cycle| a"));
+        assert!(out.contains("c ==>|\"cycle\"| a"));
     }
 
     fn fanout_fixture() -> SliceGraph {
@@ -1334,5 +1343,49 @@ mod tests {
             has_ghost_to_tail,
             "expected at least one edge starting at ghost"
         );
+    }
+
+    // ── Problem 2: Edge label and cluster label escaping tests ────────────────
+
+    #[test]
+    fn render_chain_escapes_edge_label_with_pipe() {
+        let mut g = chain_fixture();
+        g.edges[0].label = Some("a|b".to_string());
+        let out = render_chain(&g);
+        // The literal `|a|b|` must NOT appear; the escaped form has the label quoted.
+        assert!(!out.contains("|a|b|"));
+        assert!(out.contains("|\"a|b\"|"));
+    }
+
+    #[test]
+    fn render_chain_escapes_edge_label_with_newline() {
+        let mut g = chain_fixture();
+        g.edges[0].label = Some("a\nb".to_string());
+        let out = render_chain(&g);
+        // Newlines convert to <br/> via escape_label_inner; the rendered edge
+        // label must not contain a raw newline that would break the line.
+        assert!(!out.contains("|a\nb|"));
+    }
+
+    #[test]
+    fn render_layered_uses_quoted_subgraph_id_for_keyword_label() {
+        let mut g = layered_fixture();
+        g.clusters[0].label = "end".to_string();
+        let out = render_layered(&g);
+        // Mermaid: `subgraph end` is parsed as the end of a block.
+        // After fix, the rendered string must NOT contain `subgraph end\n`.
+        assert!(!out.contains("subgraph end\n"));
+        // It SHOULD contain a quoted label form, e.g. `subgraph cluster_0["end"]`.
+        assert!(out.contains("[\"end\"]"));
+    }
+
+    #[test]
+    fn render_layered_escapes_cluster_label_with_brackets() {
+        let mut g = layered_fixture();
+        g.clusters[0].label = "UI [main]".to_string();
+        let out = render_layered(&g);
+        // The label inside the quotes is preserved character-for-character
+        // (escape_label_inner doesn't strip brackets).
+        assert!(out.contains("[\"UI [main]\"]"));
     }
 }

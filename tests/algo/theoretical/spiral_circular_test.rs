@@ -477,7 +477,7 @@ def b(y):
         &g.mermaid[..g.mermaid.len().min(40)]
     );
     assert!(
-        g.mermaid.contains("==>|cycle|"),
-        "mermaid should contain the bold back-edge '==>|cycle|'"
+        g.mermaid.contains("==>|\"cycle\"|"),
+        "mermaid should contain the bold back-edge '==>|\"cycle\"|'"
     );
 }
