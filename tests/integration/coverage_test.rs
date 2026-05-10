@@ -928,10 +928,8 @@ fn diagram_coverage_for_plan1_algorithms() {
         SlicingAlgorithm::EchoSlice,
         SlicingAlgorithm::CircularSlice,
     ];
-    let mut found_diagram: BTreeMap<&str, bool> = plan1_algos
-        .iter()
-        .map(|a| (a.name(), false))
-        .collect();
+    let mut found_diagram: BTreeMap<&str, bool> =
+        plan1_algos.iter().map(|a| (a.name(), false)).collect();
 
     for run in &runs {
         let config = SliceConfig::default().with_algorithm(run.algo);
@@ -947,14 +945,18 @@ fn diagram_coverage_for_plan1_algorithms() {
         assert_no_diagram_bugs(&result);
 
         // Track whether this run produced a diagram.
-        let has_diag = !result.diagrams.is_empty()
-            || result.findings.iter().any(|f| !f.diagrams.is_empty());
+        let has_diag =
+            !result.diagrams.is_empty() || result.findings.iter().any(|f| !f.diagrams.is_empty());
         if has_diag {
             if let Some(flag) = found_diagram.get_mut(run.algo.name()) {
                 *flag = true;
             }
         }
-        let findings_with_diag = result.findings.iter().filter(|f| !f.diagrams.is_empty()).count();
+        let findings_with_diag = result
+            .findings
+            .iter()
+            .filter(|f| !f.diagrams.is_empty())
+            .count();
         eprintln!(
             "{:<40} result_diagrams={} findings={} findings_with_diag={}",
             run.label,

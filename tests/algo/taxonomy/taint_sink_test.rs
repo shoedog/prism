@@ -473,11 +473,15 @@ def handle(user_input):
         "diagram shape must be Chain"
     );
     assert!(
-        g.nodes.iter().any(|n| matches!(n.kind, prism::slice::NodeKind::Source)),
+        g.nodes
+            .iter()
+            .any(|n| matches!(n.kind, prism::slice::NodeKind::Source)),
         "diagram must have a Source node"
     );
     assert!(
-        g.nodes.iter().any(|n| matches!(n.kind, prism::slice::NodeKind::Sink)),
+        g.nodes
+            .iter()
+            .any(|n| matches!(n.kind, prism::slice::NodeKind::Sink)),
         "diagram must have a Sink node"
     );
     assert!(
