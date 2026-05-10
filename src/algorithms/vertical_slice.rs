@@ -82,6 +82,7 @@ pub fn slice(
     let mut layer_to_nodes: BTreeMap<String, Vec<String>> = BTreeMap::new();
     let mut layer_order: Vec<String> = Vec::new();
     let mut seen_node_ids: BTreeSet<String> = BTreeSet::new();
+    let mut seen_edges: BTreeSet<(String, String)> = BTreeSet::new();
 
     // For each diff function, trace upward and downward through layers
     let mut block_id = 0;
@@ -169,12 +170,15 @@ pub fn slice(
                     }
                 }
                 for pair in path_node_ids.windows(2) {
-                    graph_edges.push(GraphEdge {
-                        from: pair[0].clone(),
-                        to: pair[1].clone(),
-                        label: None,
-                        style: EdgeStyle::Solid,
-                    });
+                    let edge_key = (pair[0].clone(), pair[1].clone());
+                    if seen_edges.insert(edge_key) {
+                        graph_edges.push(GraphEdge {
+                            from: pair[0].clone(),
+                            to: pair[1].clone(),
+                            label: None,
+                            style: EdgeStyle::Solid,
+                        });
+                    }
                 }
 
                 // Build block

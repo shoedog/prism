@@ -304,6 +304,32 @@ fn test_vertical_slice_python_layer_detection() {
 }
 
 #[test]
+fn vertical_diagram_dedupes_overlapping_path_edges() {
+    // Two diff lines in the same function should produce the same caller→callee
+    // chain in path_node_ids. With dedup, the same edge appears once. Without
+    // dedup, it would appear twice.
+    let (files, _, diff) = make_python_test();
+    let config = SliceConfig::default().with_algorithm(SlicingAlgorithm::VerticalSlice);
+    let result = algorithms::run_slicing_compat(&files, &diff, &config, None).unwrap();
+    if result.diagrams.is_empty() {
+        return;
+    }
+    let g = &result.diagrams[0];
+    let mut edge_keys: std::collections::BTreeMap<(String, String), usize> =
+        std::collections::BTreeMap::new();
+    for e in &g.edges {
+        *edge_keys.entry((e.from.clone(), e.to.clone())).or_default() += 1;
+    }
+    for ((from, to), count) in &edge_keys {
+        assert_eq!(
+            *count, 1,
+            "edge {}->{} appears {} times — dedup failed",
+            from, to, count
+        );
+    }
+}
+
+#[test]
 fn vertical_result_carries_layered_diagram() {
     let (files, _, diff) = make_python_test();
     let config = SliceConfig::default().with_algorithm(SlicingAlgorithm::VerticalSlice);
