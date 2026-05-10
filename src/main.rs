@@ -702,7 +702,7 @@ fn run_algorithm(
     cli: &Cli,
     repo: &std::path::Path,
 ) -> Result<prism::slice::SliceResult> {
-    match algorithm {
+    let mut result = match algorithm {
         SlicingAlgorithm::BarrierSlice => {
             let barrier_config = prism::algorithms::barrier_slice::BarrierConfig {
                 max_depth: cli.barrier_depth,
@@ -846,7 +846,9 @@ fn run_algorithm(
             }
         }
         _ => algorithms::run_slicing(ctx, diff_input, config),
-    }
+    }?;
+    prism::algorithms::finalize_diagrams(&mut result, config.diagram_node_cap);
+    Ok(result)
 }
 
 fn parse_file_line(s: &str) -> Result<(String, usize)> {
