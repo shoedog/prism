@@ -4438,7 +4438,7 @@ fn sink_call_path_matches(
     sink_pat: &'static SinkPattern,
 ) -> bool {
     if is_js_ts_language(parsed.language) && sink_pat.category == SanitizerCategory::Ssrf {
-        return js_ts_ssrf_sink_call_path_matches(parsed, actual, sink_pat.call_path);
+        return js_ts_ssrf_sink_call_path_matches(parsed, call, actual, sink_pat.call_path);
     }
     if is_js_ts_language(parsed.language)
         && sink_pat.category == SanitizerCategory::Deserialization
@@ -5092,26 +5092,241 @@ fn js_ts_require_call_module(parsed: &ParsedFile, node: &Node<'_>) -> Option<Str
     js_ts_literal_string_value(parsed, &arg)
 }
 
-fn js_ts_ssrf_sink_call_path_matches(parsed: &ParsedFile, actual: &str, expected: &str) -> bool {
-    if call_path_matches(parsed, actual, expected)
-        && !matches!(expected, "get" | "post" | "request")
-    {
+fn js_ts_ssrf_sink_call_path_matches(
+    parsed: &ParsedFile,
+    call: &Node<'_>,
+    actual: &str,
+    expected: &str,
+) -> bool {
+    match expected {
+        "fetch" => js_ts_ssrf_fetch_call_matches(parsed, call, actual),
+        "axios" => js_ts_ssrf_direct_module_call_matches(parsed, call, &["axios"]),
+        "got" => js_ts_ssrf_direct_module_call_matches(parsed, call, &["got"]),
+        "get" | "post" | "request" => js_ts_ssrf_method_call_matches(parsed, call, expected),
+        _ => call_path_matches(parsed, actual, expected),
+    }
+}
+
+fn js_ts_ssrf_fetch_call_matches(parsed: &ParsedFile, call: &Node<'_>, actual: &str) -> bool {
+    if matches!(actual, "fetch" | "globalThis.fetch" | "window.fetch") {
         return true;
     }
-    if !matches!(expected, "get" | "post" | "request") {
-        return false;
-    }
-    let Some((receiver, method)) = actual.rsplit_once('.') else {
+    let Some(function) = call.child_by_field_name("function") else {
         return false;
     };
-    if method != expected {
+    let function = unwrap_parenthesized(function);
+    if function.kind() == "identifier" {
+        let local = parsed.node_text(&function);
+        return js_ts_identifier_binds_any_module_at_call(
+            parsed,
+            call,
+            local,
+            &["node-fetch", "cross-fetch", "isomorphic-fetch"],
+        ) || js_ts_identifier_binds_any_imported_member_at_call(
+            parsed,
+            call,
+            local,
+            &["undici"],
+            "fetch",
+        );
+    }
+    if function.kind() != "member_expression" {
         return false;
     }
-    let receiver_tail = receiver.rsplit('.').next().unwrap_or(receiver);
-    matches!(
-        receiver_tail,
-        "axios" | "got" | "superagent" | "http" | "https" | "undici" | "nodeFetch"
-    )
+    let Some(property) = function.child_by_field_name("property") else {
+        return false;
+    };
+    if parsed
+        .node_text(&property)
+        .trim_matches(|c| c == '\'' || c == '"' || c == '`')
+        != "fetch"
+    {
+        return false;
+    }
+    function
+        .child_by_field_name("object")
+        .is_some_and(|object| {
+            js_ts_expr_binds_any_module_at_call(parsed, call, object, &["undici"])
+        })
+}
+
+fn js_ts_ssrf_direct_module_call_matches(
+    parsed: &ParsedFile,
+    call: &Node<'_>,
+    modules: &[&str],
+) -> bool {
+    let Some(function) = call.child_by_field_name("function") else {
+        return false;
+    };
+    js_ts_expr_binds_any_module_at_call(parsed, call, function, modules)
+}
+
+fn js_ts_ssrf_method_call_matches(
+    parsed: &ParsedFile,
+    call: &Node<'_>,
+    expected_method: &str,
+) -> bool {
+    let Some(function) = call.child_by_field_name("function") else {
+        return false;
+    };
+    let function = unwrap_parenthesized(function);
+    if function.kind() == "identifier" {
+        let local = parsed.node_text(&function);
+        return js_ts_identifier_binds_any_imported_member_at_call(
+            parsed,
+            call,
+            local,
+            js_ts_ssrf_method_modules(expected_method),
+            expected_method,
+        );
+    }
+    if function.kind() != "member_expression" {
+        return false;
+    }
+    let Some(property) = function.child_by_field_name("property") else {
+        return false;
+    };
+    let method = parsed
+        .node_text(&property)
+        .trim_matches(|c| c == '\'' || c == '"' || c == '`');
+    if method != expected_method {
+        return false;
+    }
+    let Some(receiver) = function.child_by_field_name("object") else {
+        return false;
+    };
+    js_ts_expr_binds_any_module_at_call(
+        parsed,
+        call,
+        receiver,
+        js_ts_ssrf_method_modules(expected_method),
+    ) || js_ts_expr_is_ssrf_client_factory_call(parsed, call, receiver)
+        || js_ts_expr_is_ssrf_factory_client_binding(parsed, call, receiver)
+}
+
+fn js_ts_ssrf_method_modules(method: &str) -> &'static [&'static str] {
+    match method {
+        "get" | "post" | "request" => &[
+            "axios",
+            "got",
+            "superagent",
+            "http",
+            "node:http",
+            "https",
+            "node:https",
+            "undici",
+        ],
+        _ => &[],
+    }
+}
+
+fn js_ts_identifier_binds_any_module_at_call(
+    parsed: &ParsedFile,
+    call: &Node<'_>,
+    local_name: &str,
+    modules: &[&str],
+) -> bool {
+    modules
+        .iter()
+        .any(|module| js_ts_identifier_binds_module_at_call(parsed, call, local_name, module))
+}
+
+fn js_ts_identifier_binds_any_imported_member_at_call(
+    parsed: &ParsedFile,
+    call: &Node<'_>,
+    local_name: &str,
+    modules: &[&str],
+    imported_member: &str,
+) -> bool {
+    modules.iter().any(|module| {
+        js_ts_identifier_binds_imported_member_at_call(
+            parsed,
+            call,
+            local_name,
+            module,
+            imported_member,
+        )
+    })
+}
+
+fn js_ts_expr_binds_any_module_at_call(
+    parsed: &ParsedFile,
+    call: &Node<'_>,
+    expr: Node<'_>,
+    modules: &[&str],
+) -> bool {
+    let expr = unwrap_parenthesized(expr);
+    if expr.kind() == "identifier" {
+        return js_ts_identifier_binds_any_module_at_call(
+            parsed,
+            call,
+            parsed.node_text(&expr),
+            modules,
+        );
+    }
+    if let Some(module) = js_ts_require_call_module(parsed, &expr) {
+        return modules.iter().any(|expected| module == *expected);
+    }
+    false
+}
+
+fn js_ts_expr_is_ssrf_client_factory_call(
+    parsed: &ParsedFile,
+    context_call: &Node<'_>,
+    expr: Node<'_>,
+) -> bool {
+    let expr = unwrap_parenthesized(expr);
+    if !parsed.language.is_call_node(expr.kind()) {
+        return false;
+    }
+    let Some(function) = expr.child_by_field_name("function") else {
+        return false;
+    };
+    let function = unwrap_parenthesized(function);
+    if function.kind() != "member_expression" {
+        return false;
+    }
+    let Some(property) = function.child_by_field_name("property") else {
+        return false;
+    };
+    let factory = parsed
+        .node_text(&property)
+        .trim_matches(|c| c == '\'' || c == '"' || c == '`');
+    let Some(object) = function.child_by_field_name("object") else {
+        return false;
+    };
+    match factory {
+        "create" => js_ts_expr_binds_any_module_at_call(parsed, context_call, object, &["axios"]),
+        "extend" => js_ts_expr_binds_any_module_at_call(parsed, context_call, object, &["got"]),
+        "agent" => {
+            js_ts_expr_binds_any_module_at_call(parsed, context_call, object, &["superagent"])
+        }
+        _ => false,
+    }
+}
+
+fn js_ts_expr_is_ssrf_factory_client_binding(
+    parsed: &ParsedFile,
+    call: &Node<'_>,
+    expr: Node<'_>,
+) -> bool {
+    let expr = unwrap_parenthesized(expr);
+    if expr.kind() != "identifier" {
+        return false;
+    }
+    let local_name = parsed.node_text(&expr);
+    let mut declarations = Vec::new();
+    collect_js_ts_assignment_like_nodes(parsed.tree.root_node(), parsed, &mut declarations);
+    declarations.iter().any(|decl| {
+        decl.kind() == "variable_declarator"
+            && decl.child_by_field_name("name").is_some_and(|name| {
+                name.kind() == "identifier" && parsed.node_text(&name) == local_name
+            })
+            && js_ts_assignment_visible_before_context(parsed, call, decl)
+            && decl
+                .child_by_field_name("value")
+                .is_some_and(|value| js_ts_expr_is_ssrf_client_factory_call(parsed, call, value))
+    })
 }
 
 fn python_is_aiohttp_request_call(parsed: &ParsedFile, call: &Node<'_>) -> bool {

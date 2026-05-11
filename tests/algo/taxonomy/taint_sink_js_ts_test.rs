@@ -969,6 +969,128 @@ app.get("/proxy", (req, res) => {
 }
 
 #[test]
+fn test_express_query_reaches_aliased_axios_get_ssrf() {
+    let source = r#"import express from "express";
+import httpClient from "axios";
+
+const app = express();
+
+app.get("/proxy", (req, res) => {
+  const target = req.query.target_url;
+  return httpClient.get(target);
+});
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        has_taint_sink_on(&result, 8),
+        "aliased axios default imports should be recognized as SSRF receivers"
+    );
+}
+
+#[test]
+fn test_express_query_reaches_imported_axios_get_member_ssrf() {
+    let source = r#"import express from "express";
+import { get as axiosGet } from "axios";
+
+const app = express();
+
+app.get("/proxy", (req, res) => {
+  const target = req.query.target_url;
+  return axiosGet(target);
+});
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        has_taint_sink_on(&result, 8),
+        "bare get aliases imported from axios should be recognized as SSRF sinks"
+    );
+}
+
+#[test]
+fn test_express_query_reaches_axios_create_client_ssrf() {
+    let source = r#"import express from "express";
+import axios from "axios";
+
+const app = express();
+const client = axios.create({ timeout: 1000 });
+
+app.get("/proxy", (req, res) => {
+  const target = req.query.target_url;
+  return client.get(target);
+});
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        has_taint_sink_on(&result, 9),
+        "axios.create-bound clients should be recognized as SSRF receivers"
+    );
+}
+
+#[test]
+fn test_express_query_reaches_commonjs_axios_create_client_ssrf() {
+    let source = r#"const express = require("express");
+const axios = require("axios");
+
+const app = express();
+const client = axios.create({ timeout: 1000 });
+
+app.get("/proxy", (req, res) => {
+  const target = req.query.target_url;
+  return client.get(target);
+});
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        has_taint_sink_on(&result, 9),
+        "CommonJS axios.create-bound clients should be recognized as SSRF receivers"
+    );
+}
+
+#[test]
+fn test_express_query_reaches_inline_axios_create_client_ssrf() {
+    let source = r#"import express from "express";
+import axios from "axios";
+
+const app = express();
+
+app.get("/proxy", (req, res) => {
+  const target = req.query.target_url;
+  return axios.create({ timeout: 1000 }).post(target);
+});
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        has_taint_sink_on(&result, 8),
+        "inline axios.create() clients should be recognized as SSRF receivers"
+    );
+}
+
+#[test]
+fn test_local_object_named_axios_does_not_fire_ssrf() {
+    let source = r#"import express from "express";
+
+const app = express();
+const axios = { get: (key) => key };
+
+app.get("/cache", (req, res) => {
+  const target = req.query.key;
+  return axios.get(target);
+});
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        !has_taint_sink_on(&result, 8),
+        "objects named axios should not be SSRF sinks unless they bind the axios module"
+    );
+}
+
+#[test]
 fn test_js_ts_ssrf_unrelated_url_allowlist_does_not_suppress() {
     let source = r#"import Koa from "koa";
 
