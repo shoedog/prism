@@ -101,6 +101,46 @@ app.get("/search", function(req, res) {
 }
 
 #[test]
+fn test_express_import_unregistered_handler_shape_does_not_taint() {
+    let source = r#"import express from "express";
+
+const app = express();
+
+function helper(req, res) {
+  const term = req.query.term;
+  return sequelize.query(`SELECT * FROM users WHERE name = '${term}'`);
+}
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        !has_taint_sink(&result),
+        "Express import plus req/res-shaped helper must not seed request taint without route registration"
+    );
+}
+
+#[test]
+fn test_express_named_route_handler_still_taints() {
+    let source = r#"import express from "express";
+
+const app = express();
+
+function search(req, res) {
+  const term = req.query.term;
+  return sequelize.query(`SELECT * FROM users WHERE name = '${term}'`);
+}
+
+app.get("/search", search);
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        has_taint_sink(&result),
+        "registered named Express handlers should still seed request taint"
+    );
+}
+
+#[test]
 fn test_express_multiline_query_arg_reaches_sequelize_query() {
     let source = r#"import express from "express";
 
@@ -841,6 +881,25 @@ app.use(async (ctx, next) => {
 }
 
 #[test]
+fn test_koa_import_unregistered_ctx_shape_does_not_taint() {
+    let source = r#"import Koa from "koa";
+
+const app = new Koa();
+
+async function helper(ctx, next) {
+  const target = ctx.request.body.url;
+  return fetch(target);
+}
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        !has_taint_sink(&result),
+        "Koa import plus ctx-shaped helper must not seed request taint without app.use registration"
+    );
+}
+
+#[test]
 fn test_express_query_reaches_axios_get_ssrf() {
     let source = r#"import express from "express";
 import axios from "axios";
@@ -1191,6 +1250,26 @@ app.post("/run", async (request, reply) => {
     assert!(
         has_taint_sink_on(&result, 8),
         "Fastify request.body should reach child_process.exec command sink"
+    );
+}
+
+#[test]
+fn test_fastify_import_unregistered_request_shape_does_not_taint() {
+    let source = r#"import fastify from "fastify";
+import { exec } from "child_process";
+
+const app = fastify();
+
+async function helper(request, reply) {
+  const arg = request.body.shellArg;
+  return exec(`psql -c ${arg}`);
+}
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.ts", Language::TypeScript, BTreeSet::from([1]));
+    assert!(
+        !has_taint_sink(&result),
+        "Fastify import plus request/reply-shaped helper must not seed request taint without route registration"
     );
 }
 

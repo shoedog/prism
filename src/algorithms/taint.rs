@@ -1638,6 +1638,7 @@ fn detect_js_ts_framework_sources(
     if !matches!(framework, "nestjs" | "fastify" | "express" | "koa") {
         return;
     }
+    let framework_receivers = js_ts_framework_receiver_names(parsed, framework);
 
     for func in parsed.all_functions() {
         let line = func.start_position().row + 1;
@@ -1646,7 +1647,8 @@ fn detect_js_ts_framework_sources(
             continue;
         }
 
-        let source_params = js_ts_framework_source_params(parsed, &func, framework, &params);
+        let source_params =
+            js_ts_framework_source_params(parsed, &func, framework, &params, &framework_receivers);
         if source_params.is_empty() {
             continue;
         }
@@ -1767,6 +1769,7 @@ fn js_ts_framework_source_params(
     func: &Node<'_>,
     framework: &str,
     params: &[JsTsParam],
+    framework_receivers: &BTreeSet<String>,
 ) -> BTreeSet<String> {
     let mut out = BTreeSet::new();
     match framework {
@@ -1781,6 +1784,9 @@ fn js_ts_framework_source_params(
             }
         }
         "fastify" => {
+            if !js_ts_is_framework_route_handler(parsed, func, framework, framework_receivers) {
+                return out;
+            }
             if let Some(first) = params.first() {
                 if matches!(first.name.as_str(), "request" | "req") {
                     out.insert(first.name.clone());
@@ -1788,6 +1794,9 @@ fn js_ts_framework_source_params(
             }
         }
         "express" => {
+            if !js_ts_is_framework_route_handler(parsed, func, framework, framework_receivers) {
+                return out;
+            }
             if params.len() >= 2
                 && matches!(params[0].name.as_str(), "req" | "request")
                 && matches!(params[1].name.as_str(), "res" | "response")
@@ -1796,6 +1805,9 @@ fn js_ts_framework_source_params(
             }
         }
         "koa" => {
+            if !js_ts_is_framework_route_handler(parsed, func, framework, framework_receivers) {
+                return out;
+            }
             if let Some(first) = params.first() {
                 if first.name == "ctx" || first.name == "context" {
                     out.insert(first.name.clone());
@@ -1805,6 +1817,352 @@ fn js_ts_framework_source_params(
         _ => {}
     }
     out
+}
+
+fn js_ts_framework_receiver_names(parsed: &ParsedFile, framework: &str) -> BTreeSet<String> {
+    let imports = parsed.extract_imports();
+    let mut receivers = BTreeSet::new();
+    let mut assignments = Vec::new();
+    collect_js_ts_assignment_like_nodes(parsed.tree.root_node(), parsed, &mut assignments);
+
+    for assignment in assignments {
+        let Some((lhs, rhs)) = js_ts_assignment_target_and_value(parsed, &assignment) else {
+            continue;
+        };
+        if lhs.kind() != "identifier" {
+            continue;
+        }
+        if js_ts_expr_constructs_framework_receiver(parsed, rhs, framework, &imports) {
+            receivers.insert(parsed.node_text(&lhs).to_string());
+        }
+    }
+    receivers
+}
+
+fn js_ts_is_framework_route_handler(
+    parsed: &ParsedFile,
+    func: &Node<'_>,
+    framework: &str,
+    framework_receivers: &BTreeSet<String>,
+) -> bool {
+    let imports = parsed.extract_imports();
+    let mut current = func.parent();
+    while let Some(node) = current {
+        if parsed.language.is_call_node(node.kind())
+            && js_ts_call_args_contain_function(parsed, &node, func.id())
+            && js_ts_route_call_matches_framework(
+                parsed,
+                &node,
+                framework,
+                framework_receivers,
+                &imports,
+            )
+        {
+            return true;
+        }
+        current = node.parent();
+    }
+
+    let binding_names = js_ts_function_binding_names(parsed, func);
+    !binding_names.is_empty()
+        && js_ts_registered_route_references_handler(
+            parsed,
+            framework,
+            framework_receivers,
+            &imports,
+            &binding_names,
+        )
+}
+
+fn js_ts_function_binding_names(parsed: &ParsedFile, func: &Node<'_>) -> BTreeSet<String> {
+    let mut names = BTreeSet::new();
+    if let Some(name) = parsed.language.function_name(func) {
+        if parsed.language.is_identifier_node(name.kind())
+            || matches!(
+                name.kind(),
+                "property_identifier" | "shorthand_property_identifier" | "field_identifier"
+            )
+        {
+            names.insert(parsed.node_text(&name).to_string());
+        }
+    }
+    names
+}
+
+fn js_ts_registered_route_references_handler(
+    parsed: &ParsedFile,
+    framework: &str,
+    framework_receivers: &BTreeSet<String>,
+    imports: &BTreeMap<String, String>,
+    binding_names: &BTreeSet<String>,
+) -> bool {
+    let mut calls = Vec::new();
+    collect_js_ts_call_nodes(parsed.tree.root_node(), parsed, &mut calls);
+    calls.iter().any(|call| {
+        js_ts_route_call_matches_framework(parsed, call, framework, framework_receivers, imports)
+            && js_ts_call_args_reference_handler_name(parsed, call, binding_names)
+    })
+}
+
+fn collect_js_ts_call_nodes<'a>(node: Node<'a>, parsed: &ParsedFile, out: &mut Vec<Node<'a>>) {
+    if parsed.language.is_call_node(node.kind()) {
+        out.push(node);
+    }
+    let mut cursor = node.walk();
+    for child in node.named_children(&mut cursor) {
+        collect_js_ts_call_nodes(child, parsed, out);
+    }
+}
+
+fn js_ts_call_args_reference_handler_name(
+    parsed: &ParsedFile,
+    call: &Node<'_>,
+    binding_names: &BTreeSet<String>,
+) -> bool {
+    let Some(args) = parsed.language.call_arguments(call) else {
+        return false;
+    };
+    js_ts_node_references_handler_name(parsed, args, binding_names)
+}
+
+fn js_ts_node_references_handler_name(
+    parsed: &ParsedFile,
+    node: Node<'_>,
+    binding_names: &BTreeSet<String>,
+) -> bool {
+    if parsed.language.function_node_types().contains(&node.kind()) {
+        return false;
+    }
+    if parsed.language.is_identifier_node(node.kind())
+        && binding_names.contains(parsed.node_text(&node))
+    {
+        return true;
+    }
+    let mut cursor = node.walk();
+    let found = node
+        .named_children(&mut cursor)
+        .any(|child| js_ts_node_references_handler_name(parsed, child, binding_names));
+    found
+}
+
+fn js_ts_call_args_contain_function(parsed: &ParsedFile, call: &Node<'_>, func_id: usize) -> bool {
+    let Some(args) = parsed.language.call_arguments(call) else {
+        return false;
+    };
+    js_ts_node_contains_function_without_intervening_function(parsed, args, func_id)
+}
+
+fn js_ts_node_contains_function_without_intervening_function(
+    parsed: &ParsedFile,
+    node: Node<'_>,
+    func_id: usize,
+) -> bool {
+    if node.id() == func_id {
+        return true;
+    }
+    if parsed.language.function_node_types().contains(&node.kind()) {
+        return false;
+    }
+    let mut cursor = node.walk();
+    let found = node.named_children(&mut cursor).any(|child| {
+        js_ts_node_contains_function_without_intervening_function(parsed, child, func_id)
+    });
+    found
+}
+
+fn js_ts_route_call_matches_framework(
+    parsed: &ParsedFile,
+    call: &Node<'_>,
+    framework: &str,
+    framework_receivers: &BTreeSet<String>,
+    imports: &BTreeMap<String, String>,
+) -> bool {
+    let Some(function) = call.child_by_field_name("function") else {
+        return false;
+    };
+    let function = unwrap_parenthesized(function);
+    if function.kind() != "member_expression" {
+        return false;
+    }
+    let Some(property) = function.child_by_field_name("property") else {
+        return false;
+    };
+    let method = parsed
+        .node_text(&property)
+        .trim_matches(|c| c == '\'' || c == '"' || c == '`');
+    if !js_ts_framework_route_method(framework, method) {
+        return false;
+    }
+    let Some(receiver) = function.child_by_field_name("object") else {
+        return false;
+    };
+    js_ts_receiver_expr_is_framework_instance(
+        parsed,
+        receiver,
+        framework,
+        framework_receivers,
+        imports,
+    ) || js_ts_receiver_expr_is_route_builder(
+        parsed,
+        receiver,
+        framework,
+        framework_receivers,
+        imports,
+    )
+}
+
+fn js_ts_framework_route_method(framework: &str, method: &str) -> bool {
+    match framework {
+        "express" => matches!(
+            method,
+            "get" | "post" | "put" | "patch" | "delete" | "all" | "use"
+        ),
+        "fastify" => matches!(
+            method,
+            "get" | "post" | "put" | "patch" | "delete" | "options" | "head" | "all" | "route"
+        ),
+        "koa" => matches!(
+            method,
+            "use" | "get" | "post" | "put" | "patch" | "delete" | "all"
+        ),
+        _ => false,
+    }
+}
+
+fn js_ts_receiver_expr_is_framework_instance(
+    parsed: &ParsedFile,
+    receiver: Node<'_>,
+    framework: &str,
+    framework_receivers: &BTreeSet<String>,
+    imports: &BTreeMap<String, String>,
+) -> bool {
+    let receiver = unwrap_parenthesized(receiver);
+    if receiver.kind() == "identifier" {
+        return framework_receivers.contains(parsed.node_text(&receiver));
+    }
+    js_ts_expr_constructs_framework_receiver(parsed, receiver, framework, imports)
+}
+
+fn js_ts_receiver_expr_is_route_builder(
+    parsed: &ParsedFile,
+    receiver: Node<'_>,
+    framework: &str,
+    framework_receivers: &BTreeSet<String>,
+    imports: &BTreeMap<String, String>,
+) -> bool {
+    let receiver = unwrap_parenthesized(receiver);
+    if !parsed.language.is_call_node(receiver.kind()) {
+        return false;
+    }
+    let Some(function) = receiver.child_by_field_name("function") else {
+        return false;
+    };
+    let function = unwrap_parenthesized(function);
+    if function.kind() != "member_expression" {
+        return false;
+    }
+    let Some(property) = function.child_by_field_name("property") else {
+        return false;
+    };
+    if parsed.node_text(&property) != "route" {
+        return false;
+    }
+    let Some(object) = function.child_by_field_name("object") else {
+        return false;
+    };
+    js_ts_receiver_expr_is_framework_instance(
+        parsed,
+        object,
+        framework,
+        framework_receivers,
+        imports,
+    )
+}
+
+fn js_ts_expr_constructs_framework_receiver(
+    parsed: &ParsedFile,
+    expr: Node<'_>,
+    framework: &str,
+    imports: &BTreeMap<String, String>,
+) -> bool {
+    let expr = unwrap_parenthesized(expr);
+    if !matches!(expr.kind(), "call_expression" | "new_expression") {
+        return false;
+    }
+    let Some(callee) = js_ts_call_or_new_callee(expr) else {
+        return false;
+    };
+    js_ts_callee_constructs_framework_receiver(parsed, callee, framework, imports)
+}
+
+fn js_ts_call_or_new_callee(node: Node<'_>) -> Option<Node<'_>> {
+    node.child_by_field_name("function")
+        .or_else(|| node.child_by_field_name("constructor"))
+        .or_else(|| node.child_by_field_name("name"))
+        .or_else(|| node.named_child(0))
+}
+
+fn js_ts_callee_constructs_framework_receiver(
+    parsed: &ParsedFile,
+    callee: Node<'_>,
+    framework: &str,
+    imports: &BTreeMap<String, String>,
+) -> bool {
+    let callee = unwrap_parenthesized(callee);
+    if callee.kind() == "identifier" {
+        let local = parsed.node_text(&callee);
+        return imports
+            .get(local)
+            .is_some_and(|module| js_ts_module_matches_framework(module, framework));
+    }
+
+    if parsed.language.is_call_node(callee.kind()) {
+        return js_ts_require_call_module(parsed, &callee)
+            .is_some_and(|module| js_ts_module_matches_framework(&module, framework));
+    }
+
+    if callee.kind() == "member_expression" {
+        let Some(property) = callee.child_by_field_name("property") else {
+            return false;
+        };
+        let Some(object) = callee.child_by_field_name("object") else {
+            return false;
+        };
+        let property_text = parsed.node_text(&property);
+        return (framework == "express" && property_text == "Router")
+            && js_ts_expr_resolves_to_framework_module(parsed, object, framework, imports);
+    }
+
+    false
+}
+
+fn js_ts_expr_resolves_to_framework_module(
+    parsed: &ParsedFile,
+    expr: Node<'_>,
+    framework: &str,
+    imports: &BTreeMap<String, String>,
+) -> bool {
+    let expr = unwrap_parenthesized(expr);
+    if expr.kind() == "identifier" {
+        let local = parsed.node_text(&expr);
+        return imports
+            .get(local)
+            .is_some_and(|module| js_ts_module_matches_framework(module, framework));
+    }
+    if parsed.language.is_call_node(expr.kind()) {
+        return js_ts_require_call_module(parsed, &expr)
+            .is_some_and(|module| js_ts_module_matches_framework(&module, framework));
+    }
+    false
+}
+
+fn js_ts_module_matches_framework(module: &str, framework: &str) -> bool {
+    match framework {
+        "express" => module == "express",
+        "fastify" => module == "fastify",
+        "koa" => matches!(module, "koa" | "@koa/router" | "koa-router"),
+        _ => false,
+    }
 }
 
 fn js_ts_param_has_nest_source_decorator(text: &str) -> bool {
@@ -3942,7 +4300,9 @@ fn js_ts_sink_call_has_inline_framework_source_arg(
     if params.is_empty() {
         return false;
     }
-    let source_params = js_ts_framework_source_params(parsed, &func, framework, &params);
+    let framework_receivers = js_ts_framework_receiver_names(parsed, framework);
+    let source_params =
+        js_ts_framework_source_params(parsed, &func, framework, &params, &framework_receivers);
     if source_params.is_empty() {
         return false;
     }
