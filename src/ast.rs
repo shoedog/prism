@@ -485,6 +485,23 @@ impl ParsedFile {
                     return;
                 }
             }
+            // CommonJS factory calls: `const app = require('fastify')()`.
+            // Treat the bound local as importing the required module so framework
+            // detection and import-aware sink logic see the canonical binding.
+            if self.language.is_call_node(val.kind()) {
+                if let Some(func) = val.child_by_field_name("function") {
+                    if let Some(path) = self.js_require_call_module_path(&func) {
+                        if let Some(n) = &name {
+                            if n.kind() == "object_pattern" {
+                                self.collect_js_require_pattern_bindings(n, &path, out);
+                            } else {
+                                out.insert(self.node_text(n).to_string(), path);
+                            }
+                        }
+                        return;
+                    }
+                }
+            }
             // Check if value is a require() call
             if self.language.is_call_node(val.kind()) {
                 if let Some(func_name) = self.language.call_function_name(&val) {

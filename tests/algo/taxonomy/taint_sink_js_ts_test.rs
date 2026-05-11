@@ -1773,3 +1773,133 @@ app.get("/file", async (req, res) => {
         "destructured fs/promises readFile should fire as a modern Node path traversal sink"
     );
 }
+
+#[test]
+fn test_nestjs_namespace_yaml_load_direct_dto_field_fires() {
+    let source = r#"import { Body, Controller, Post } from "@nestjs/common";
+import * as yaml from "js-yaml";
+
+class ConfigDto {
+  yamlContent: string;
+}
+
+@Controller("/config")
+export class ConfigController {
+  @Post("/parse")
+  parseConfig(@Body() body: ConfigDto) {
+    const config = yaml.load(body.yamlContent);
+    return { parsed: typeof config };
+  }
+}
+"#;
+    let result = run_taint_js_ts_single(
+        source,
+        "config.ts",
+        Language::TypeScript,
+        BTreeSet::from([1]),
+    );
+    assert!(
+        has_taint_sink(&result),
+        "NestJS DTO field access should reach namespace-imported js-yaml yaml.load"
+    );
+}
+
+#[test]
+fn test_nestjs_default_yaml_load_direct_dto_field_fires() {
+    let source = r#"import { Body, Controller, Post } from "@nestjs/common";
+import yaml from "js-yaml";
+
+class ConfigDto {
+  yamlContent: string;
+}
+
+@Controller("/config")
+export class ConfigController {
+  @Post("/parse")
+  parseConfig(@Body() body: ConfigDto) {
+    return yaml.load(body.yamlContent);
+  }
+}
+"#;
+    let result = run_taint_js_ts_single(
+        source,
+        "config.ts",
+        Language::TypeScript,
+        BTreeSet::from([1]),
+    );
+    assert!(
+        has_taint_sink(&result),
+        "NestJS DTO field access should reach default-imported js-yaml yaml.load"
+    );
+}
+
+#[test]
+fn test_nestjs_default_yaml_assigned_config_direct_dto_field_fires() {
+    let source = r#"import { Body, Controller, Post } from "@nestjs/common";
+import yaml from "js-yaml";
+
+class ConfigDto {
+  yamlContent: string;
+}
+
+@Controller("/config")
+export class ConfigController {
+  @Post("/parse")
+  parseConfig(@Body() body: ConfigDto) {
+    const config = yaml.load(body.yamlContent);
+    return { parsed: typeof config };
+  }
+}
+"#;
+    let result = run_taint_js_ts_single(
+        source,
+        "config.ts",
+        Language::TypeScript,
+        BTreeSet::from([1]),
+    );
+    assert!(
+        has_taint_sink(&result),
+        "NestJS DTO field access should reach assigned default-imported js-yaml yaml.load"
+    );
+}
+
+#[test]
+fn test_fastify_commonjs_factory_destructured_exec_promise_fires() {
+    let source = r#"const fastify = require("fastify")();
+const { exec } = require("child_process");
+
+fastify.post("/api/db/connect", async (request, reply) => {
+  const shellArg = request.body.shellArg;
+  return new Promise((resolve, reject) => {
+    exec(`psql -h localhost -U ${shellArg}`, (err, stdout) => {
+      if (err) return reject(err);
+      resolve({ output: stdout });
+    });
+  });
+});
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        has_taint_sink(&result),
+        "Fastify body taint should reach CommonJS destructured child_process.exec inside Promise"
+    );
+}
+
+#[test]
+fn test_fastify_commonjs_factory_destructured_exec_direct_fires() {
+    let source = r#"const fastify = require("fastify")();
+const { exec } = require("child_process");
+
+fastify.post("/api/db/connect", async (request, reply) => {
+  const shellArg = request.body.shellArg;
+  return exec(`psql -h localhost -U ${shellArg}`);
+});
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        has_taint_sink(&result),
+        "Fastify body taint should reach CommonJS destructured child_process.exec"
+    );
+}
