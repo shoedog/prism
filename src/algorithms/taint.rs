@@ -11,7 +11,11 @@ use crate::data_flow::{FlowEdge, FlowPath, VarAccessKind, VarLocation};
 use crate::diff::{DiffBlock, DiffInput, ModifyType};
 use crate::frameworks::{CallSite, SanitizerCategory, SinkPattern};
 use crate::languages::Language;
-use crate::slice::{SliceFinding, SliceResult, SlicingAlgorithm};
+use crate::output::mermaid::safe_node_id;
+use crate::slice::{
+    EdgeStyle, GraphEdge, GraphNode, GraphShape, NodeKind, SliceFinding, SliceGraph, SliceResult,
+    SlicingAlgorithm,
+};
 use anyhow::Result;
 use std::collections::{BTreeMap, BTreeSet};
 use tree_sitter::Node;
@@ -2649,6 +2653,22 @@ fn synthesize_js_ts_assignment_alias_edges(
                 }
                 alias_defs.insert(alias.clone(), assignment_line);
                 changed = true;
+                if !edges.iter().any(|edge| {
+                    edge.to.file == ctx.seed.file
+                        && edge.to.line == assignment_line
+                        && edge.to.var_name() == alias
+                }) {
+                    edges.push(FlowEdge {
+                        from: ctx.from.clone(),
+                        to: VarLocation {
+                            file: ctx.seed.file.clone(),
+                            function: ctx.func_name.to_string(),
+                            line: assignment_line,
+                            path: AccessPath::simple(alias.clone()),
+                            kind: VarAccessKind::Def,
+                        },
+                    });
+                }
                 let refs =
                     ctx.parsed
                         .find_variable_references_scoped(&ctx.func, &alias, assignment_line);
@@ -3881,7 +3901,8 @@ fn line_matches_structured_sink(
             let any_arg_tainted = sink_pat
                 .tainted_arg_indices
                 .iter()
-                .any(|&idx| arg_is_tainted_in_path(parsed, call, idx, p));
+                .any(|&idx| arg_is_tainted_in_path(parsed, call, idx, p))
+                || js_ts_sink_call_has_inline_framework_source_arg(parsed, call, sink_pat);
             if !any_arg_tainted {
                 // call_path + semantic_check passed, but the relevant args
                 // aren't tainted on this path. Mark as a structural match-but-
@@ -3898,6 +3919,75 @@ fn line_matches_structured_sink(
     } else {
         SinkMatchOutcome::NoMatch
     }
+}
+
+fn js_ts_sink_call_has_inline_framework_source_arg(
+    parsed: &ParsedFile,
+    call: &Node<'_>,
+    sink_pat: &'static SinkPattern,
+) -> bool {
+    if !is_js_ts_language(parsed.language) {
+        return false;
+    }
+    let Some(framework) = parsed.framework().map(|spec| spec.name) else {
+        return false;
+    };
+    if !matches!(framework, "nestjs" | "fastify" | "express" | "koa") {
+        return false;
+    }
+    let Some(func) = parsed.enclosing_function(call.start_position().row + 1) else {
+        return false;
+    };
+    let params = js_ts_function_params(parsed, &func);
+    if params.is_empty() {
+        return false;
+    }
+    let source_params = js_ts_framework_source_params(parsed, &func, framework, &params);
+    if source_params.is_empty() {
+        return false;
+    }
+    let Some(arguments) = call.child_by_field_name("arguments") else {
+        return false;
+    };
+    let mut cursor = arguments.walk();
+    for (idx, arg) in arguments.named_children(&mut cursor).enumerate() {
+        if sink_pat.tainted_arg_indices.contains(&idx)
+            && node_contains_js_ts_source_access(parsed, arg, framework, &source_params)
+        {
+            return true;
+        }
+    }
+    false
+}
+
+fn js_ts_inline_framework_source_yaml_sink_lines(parsed: &ParsedFile) -> BTreeSet<usize> {
+    let mut lines = BTreeSet::new();
+    if !is_js_ts_language(parsed.language) {
+        return lines;
+    }
+    let mut calls = Vec::new();
+    collect_calls(parsed, parsed.tree.root_node(), &mut calls);
+    for call in &calls {
+        let actual = match call_path_text(parsed, call) {
+            Some(actual) => actual,
+            None => continue,
+        };
+        for pat in JS_CWE502_SINKS {
+            if !matches!(pat.call_path, "yaml.load" | "load") {
+                continue;
+            }
+            if !sink_call_path_matches(parsed, call, &actual, pat)
+                || !call_passes_sink_semantics(parsed, call, pat)
+            {
+                continue;
+            }
+            if js_ts_sink_call_has_inline_framework_source_arg(parsed, call, pat) {
+                lines.insert(call.start_position().row + 1);
+                break;
+            }
+        }
+    }
+    lines
 }
 
 fn call_path_matches(parsed: &ParsedFile, actual: &str, expected: &str) -> bool {
@@ -7175,6 +7265,93 @@ fn apply_cleansers(path: &mut crate::data_flow::FlowPath, files: &BTreeMap<Strin
     }
 }
 
+/// Build a Chain-shaped `SliceGraph` representing one source-to-sink taint path.
+///
+/// `intermediate` contains any intermediate step nodes (file, line, line-text)
+/// ordered from source to sink. For Plan 1 the caller passes `&[]`; later plans
+/// can populate it from `FlowPath` edges.
+fn build_taint_chain_diagram(
+    source_file: &str,
+    source_line: usize,
+    source_text: &str,
+    sink_file: &str,
+    sink_line: usize,
+    sink_text: &str,
+    intermediate: &[(String, usize, String)],
+) -> SliceGraph {
+    // Degenerate case: source == sink with no intermediates. Emit a single
+    // Sink node rather than a duplicate-id pair.
+    if intermediate.is_empty() && source_file == sink_file && source_line == sink_line {
+        let node = GraphNode {
+            id: safe_node_id(sink_file, sink_line),
+            label: format!("{}:{}\n{}", sink_file, sink_line, sink_text),
+            kind: NodeKind::Sink,
+            file: Some(sink_file.to_string()),
+            line: Some(sink_line),
+        };
+        return SliceGraph {
+            title: Some("Data flow".to_string()),
+            shape: GraphShape::Chain,
+            nodes: vec![node],
+            edges: vec![],
+            clusters: vec![],
+            mermaid: String::new(),
+        };
+    }
+    // Normal path: build [source, ...intermediate, sink] chain.
+    let mut nodes = vec![GraphNode {
+        id: safe_node_id(source_file, source_line),
+        label: format!("{}:{}\n{}", source_file, source_line, source_text),
+        kind: NodeKind::Source,
+        file: Some(source_file.to_string()),
+        line: Some(source_line),
+    }];
+    for (f, l, t) in intermediate {
+        nodes.push(GraphNode {
+            id: safe_node_id(f, *l),
+            label: format!("{}:{}\n{}", f, l, t),
+            kind: NodeKind::Step,
+            file: Some(f.clone()),
+            line: Some(*l),
+        });
+    }
+    nodes.push(GraphNode {
+        id: safe_node_id(sink_file, sink_line),
+        label: format!("{}:{}\n{}", sink_file, sink_line, sink_text),
+        kind: NodeKind::Sink,
+        file: Some(sink_file.to_string()),
+        line: Some(sink_line),
+    });
+    let edges: Vec<GraphEdge> = nodes
+        .windows(2)
+        .map(|pair| GraphEdge {
+            from: pair[0].id.clone(),
+            to: pair[1].id.clone(),
+            label: Some("tainted".to_string()),
+            style: EdgeStyle::Solid,
+        })
+        .collect();
+    SliceGraph {
+        title: Some("Data flow".to_string()),
+        shape: GraphShape::Chain,
+        nodes,
+        edges,
+        clusters: vec![],
+        mermaid: String::new(),
+    }
+}
+
+/// Extract the trimmed text of a 1-indexed line from a source string.
+/// Returns an empty string if the line number is out of range.
+fn source_line_text(source: &str, line: usize) -> String {
+    source
+        .lines()
+        .nth(line.saturating_sub(1))
+        .unwrap_or("")
+        .trim()
+        .to_string()
+}
+
 pub fn slice(
     ctx: &CpgContext,
     diff: &DiffInput,
@@ -7257,6 +7434,10 @@ pub fn slice(
     // Collect all tainted lines and identify sinks
     let mut all_tainted: BTreeMap<String, BTreeSet<usize>> = BTreeMap::new();
     let mut sink_lines: BTreeSet<(String, usize)> = BTreeSet::new();
+    // For each sink location, the set of source locations that reach it via a FlowPath.
+    // Empty set means "added by non-path code" — caller falls back to file-scan heuristic.
+    let mut sink_to_path_sources: BTreeMap<(String, usize), BTreeSet<(String, usize)>> =
+        BTreeMap::new();
 
     let all_sinks: Vec<&str> = SINK_PATTERNS
         .iter()
@@ -7324,6 +7505,12 @@ pub fn slice(
                         let text = parsed.node_text(id);
                         if all_sinks.iter().any(|s| matches_sink(text, s)) {
                             sink_lines.insert((edge.to.file.clone(), edge.to.line));
+                            if let Some(first_edge) = path.edges.first() {
+                                sink_to_path_sources
+                                    .entry((edge.to.file.clone(), edge.to.line))
+                                    .or_default()
+                                    .insert((first_edge.from.file.clone(), first_edge.from.line));
+                            }
                         }
                     }
                 }
@@ -7333,7 +7520,21 @@ pub fn slice(
                     && !structured_suppressed_by_cleanser
                 {
                     sink_lines.insert((edge.to.file.clone(), edge.to.line));
+                    if let Some(first_edge) = path.edges.first() {
+                        sink_to_path_sources
+                            .entry((edge.to.file.clone(), edge.to.line))
+                            .or_default()
+                            .insert((first_edge.from.file.clone(), first_edge.from.line));
+                    }
                 }
+            }
+        }
+    }
+
+    for (file, parsed) in ctx.files {
+        if is_js_ts_language(parsed.language) {
+            for line in js_ts_inline_framework_source_yaml_sink_lines(parsed) {
+                sink_lines.insert((file.clone(), line));
             }
         }
     }
@@ -7465,30 +7666,77 @@ pub fn slice(
             related_files: vec![],
             category: Some("taint_source".to_string()),
             parse_quality: None,
+            diagrams: vec![],
         });
     }
 
     // Emit findings for each taint sink reached
     for (file, line) in &sink_lines {
-        // Find a source that reaches this sink (use first taint source as representative)
-        // Pick the most descriptive source for this sink.
+        // Find a source that reaches this sink.
+        // Prefer a source that the actual FlowPath identified as flowing into this sink.
+        // Pick the one nearest to the sink (largest line number that's still <= sink line)
+        // to remain consistent with the existing "nearest-in-file" semantics for the
+        // reviewer-friendly source description.
+        let path_derived_source: Option<(&str, usize)> = sink_to_path_sources
+            .get(&(file.clone(), *line))
+            .and_then(|set| {
+                set.iter()
+                    .filter(|(sf, sl)| sf == file && *sl <= *line)
+                    .max_by_key(|(_, sl)| *sl)
+                    .map(|(sf, sl)| (sf.as_str(), *sl))
+            });
+
+        // Fall back to existing heuristic for sinks added without path linkage
+        // (e.g., YAML inline-framework-source sinks, IPC sources).
         // Prefer the nearest IPC source before the sink (user-controlled IPC reads
         // are the semantically interesting starting point for confused-deputy analysis).
-        // Fall back to the nearest diff-line source, then any source in the same file.
-        let source_desc = ipc_source_set
-            .iter()
-            .filter(|(sf, sl)| sf == file && *sl < *line)
-            .max_by_key(|(_, sl)| *sl)
-            .or_else(|| {
-                taint_sources
-                    .iter()
-                    .filter(|(sf, sl)| sf == file && *sl < *line)
-                    .max_by_key(|(_, sl)| *sl)
-            })
-            .or_else(|| taint_sources.iter().find(|(sf, _)| sf == file))
+        // Then fall back to the nearest diff-line source, then any source in the same file.
+        let source_location: Option<(&str, usize)> = path_derived_source.or_else(|| {
+            ipc_source_set
+                .iter()
+                .filter(|(sf, sl)| sf == file && *sl < *line)
+                .max_by_key(|(_, sl)| *sl)
+                .map(|(sf, sl)| (sf.as_str(), *sl))
+                .or_else(|| {
+                    taint_sources
+                        .iter()
+                        .filter(|(sf, sl)| sf == file && *sl < *line)
+                        .max_by_key(|(_, sl)| *sl)
+                        .map(|(sf, sl)| (sf.as_str(), *sl))
+                })
+                .or_else(|| {
+                    taint_sources
+                        .iter()
+                        .find(|(sf, _)| sf == file)
+                        .map(|(sf, sl)| (sf.as_str(), *sl))
+                })
+        });
+        let source_desc = source_location
             .map(|(_, sl)| format!("line {}", sl))
             .unwrap_or_else(|| "diff lines".to_string());
-        result.findings.push(SliceFinding {
+
+        // Build a Chain diagram for this sink finding.
+        // If we have an identified source location, use it as the Source node;
+        // otherwise fall back to a sink-only diagram (Source == Sink as the taint origin).
+        let sink_text = ctx
+            .files
+            .get(file.as_str())
+            .map(|p| source_line_text(&p.source, *line))
+            .unwrap_or_default();
+        let diagram = if let Some((src_file, src_line)) = source_location {
+            let src_text = ctx
+                .files
+                .get(src_file)
+                .map(|p| source_line_text(&p.source, src_line))
+                .unwrap_or_default();
+            build_taint_chain_diagram(src_file, src_line, &src_text, file, *line, &sink_text, &[])
+        } else {
+            // No upstream source resolved; emit a single-step chain with sink only.
+            // Use the sink as both source and sink nodes to satisfy the Chain contract.
+            build_taint_chain_diagram(file, *line, &sink_text, file, *line, &sink_text, &[])
+        };
+
+        let mut finding = SliceFinding {
             algorithm: "taint".to_string(),
             file: file.clone(),
             line: *line,
@@ -7506,7 +7754,10 @@ pub fn slice(
             related_files: vec![],
             category: Some("taint_sink".to_string()),
             parse_quality: None,
-        });
+            diagrams: vec![],
+        };
+        finding.diagrams.push(diagram);
+        result.findings.push(finding);
     }
 
     // Bash-specific: detect unquoted variable expansions on tainted lines.
@@ -7534,6 +7785,7 @@ pub fn slice(
                 related_files: vec![],
                 category: Some("unquoted_expansion".to_string()),
                 parse_quality: None,
+                diagrams: vec![],
             });
         }
     }
@@ -7626,5 +7878,38 @@ func handler(input string) {
                 SinkMatchOutcome::SemanticallyExcluded
             ));
         }
+    }
+
+    #[test]
+    fn build_taint_chain_diagram_collapses_self_loop() {
+        let g = build_taint_chain_diagram(
+            "foo.c",
+            42,
+            "x = sink_call(y)",
+            "foo.c",
+            42,
+            "x = sink_call(y)",
+            &[],
+        );
+        assert_eq!(g.nodes.len(), 1);
+        assert_eq!(g.edges.len(), 0);
+        assert!(matches!(g.nodes[0].kind, NodeKind::Sink));
+    }
+
+    #[test]
+    fn build_taint_chain_diagram_distinct_source_sink() {
+        let g = build_taint_chain_diagram(
+            "foo.c",
+            10,
+            "x = read_input()",
+            "foo.c",
+            42,
+            "system(x)",
+            &[],
+        );
+        assert_eq!(g.nodes.len(), 2);
+        assert_eq!(g.edges.len(), 1);
+        assert!(matches!(g.nodes[0].kind, NodeKind::Source));
+        assert!(matches!(g.nodes[1].kind, NodeKind::Sink));
     }
 }

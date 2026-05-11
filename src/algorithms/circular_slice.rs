@@ -11,10 +11,53 @@
 
 use crate::cpg::{CpgContext, CpgEdge, CpgNode};
 use crate::diff::{DiffBlock, DiffInput, ModifyType};
-use crate::slice::{SliceResult, SlicingAlgorithm};
+use crate::output::mermaid::safe_node_id;
+use crate::slice::{
+    EdgeStyle, GraphEdge, GraphNode, GraphShape, NodeKind, SliceGraph, SliceResult,
+    SlicingAlgorithm,
+};
 use anyhow::Result;
 use petgraph::visit::EdgeRef;
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
+
+/// Emit a cycle diagram using pre-computed nodes and actual graph edges.
+///
+/// The caller is responsible for deriving `edges` from real graph edges
+/// (filtered to SCC members) rather than inventing adjacency from node order.
+fn push_cycle_diagram(
+    result: &mut SliceResult,
+    nodes: Vec<GraphNode>,
+    edges: Vec<GraphEdge>,
+    title: &str,
+) {
+    // Dedupe nodes by id, preserving first occurrence.
+    let mut seen: BTreeSet<String> = BTreeSet::new();
+    let nodes: Vec<GraphNode> = nodes
+        .into_iter()
+        .filter(|n| seen.insert(n.id.clone()))
+        .collect();
+    if nodes.len() < 2 || edges.is_empty() {
+        return;
+    }
+    // Mark the edge whose target is the first node as Bold (the closing back-edge).
+    // If no such edge exists, mark the last edge as Bold.
+    let first_id = &nodes[0].id;
+    let mut edges = edges;
+    let closing_idx = edges
+        .iter()
+        .position(|e| &e.to == first_id)
+        .unwrap_or(edges.len() - 1);
+    edges[closing_idx].style = EdgeStyle::Bold;
+    edges[closing_idx].label = Some("cycle".to_string());
+    result.diagrams.push(SliceGraph {
+        title: Some(title.to_string()),
+        shape: GraphShape::Cycle,
+        nodes,
+        edges,
+        clusters: vec![],
+        mermaid: String::new(),
+    });
+}
 
 pub fn slice(ctx: &CpgContext, diff: &DiffInput) -> Result<SliceResult> {
     let mut result = SliceResult::new(SlicingAlgorithm::CircularSlice);
@@ -90,6 +133,49 @@ pub fn slice(ctx: &CpgContext, diff: &DiffInput) -> Result<SliceResult> {
         if !block.file_line_map.is_empty() {
             result.blocks.push(block);
             block_id += 1;
+
+            // Build a Cycle diagram for this call-graph cycle using actual
+            // Call edges between SCC members — not invented adjacent-pair edges.
+            let mut cycle_nodes: Vec<GraphNode> = Vec::new();
+            let mut node_id_for_idx: BTreeMap<petgraph::graph::NodeIndex, String> = BTreeMap::new();
+            for &func_idx in cycle {
+                if let Some(fid) = ctx.cpg.to_function_id(func_idx) {
+                    let id = safe_node_id(&fid.file, fid.start_line);
+                    cycle_nodes.push(GraphNode {
+                        id: id.clone(),
+                        label: format!("{}:{}\n{}", fid.file, fid.start_line, fid.name),
+                        kind: NodeKind::Step,
+                        file: Some(fid.file.clone()),
+                        line: Some(fid.start_line),
+                    });
+                    node_id_for_idx.insert(func_idx, id);
+                }
+            }
+            // Only emit edges that actually exist in the call graph.
+            let mut cycle_edges: Vec<GraphEdge> = Vec::new();
+            let mut seen_edges: BTreeSet<(String, String)> = BTreeSet::new();
+            for &from_idx in cycle {
+                if let Some(from_id) = node_id_for_idx.get(&from_idx) {
+                    for edge in ctx.cpg.graph.edges(from_idx) {
+                        if matches!(edge.weight(), CpgEdge::Call)
+                            && node_id_for_idx.contains_key(&edge.target())
+                        {
+                            if let Some(to_id) = node_id_for_idx.get(&edge.target()) {
+                                let key = (from_id.clone(), to_id.clone());
+                                if seen_edges.insert(key) {
+                                    cycle_edges.push(GraphEdge {
+                                        from: from_id.clone(),
+                                        to: to_id.clone(),
+                                        label: None,
+                                        style: EdgeStyle::Solid,
+                                    });
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            push_cycle_diagram(&mut result, cycle_nodes, cycle_edges, "Call cycle");
         }
     }
 
@@ -125,6 +211,49 @@ pub fn slice(ctx: &CpgContext, diff: &DiffInput) -> Result<SliceResult> {
         if !block.file_line_map.is_empty() {
             result.blocks.push(block);
             block_id += 1;
+
+            // Build a Cycle diagram for this data-flow cycle using actual
+            // DataFlow edges between SCC members — not invented adjacent-pair edges.
+            let mut cycle_nodes: Vec<GraphNode> = Vec::new();
+            let mut df_node_id_for_idx: BTreeMap<petgraph::graph::NodeIndex, String> =
+                BTreeMap::new();
+            for &idx in cycle {
+                let node = ctx.cpg.node(idx);
+                let id = safe_node_id(node.file(), node.line());
+                cycle_nodes.push(GraphNode {
+                    id: id.clone(),
+                    label: format!("{}:{}", node.file(), node.line()),
+                    kind: NodeKind::Step,
+                    file: Some(node.file().to_string()),
+                    line: Some(node.line()),
+                });
+                df_node_id_for_idx.insert(idx, id);
+            }
+            // Only emit edges that actually exist in the data-flow graph.
+            let mut df_cycle_edges: Vec<GraphEdge> = Vec::new();
+            let mut df_seen_edges: BTreeSet<(String, String)> = BTreeSet::new();
+            for &from_idx in cycle {
+                if let Some(from_id) = df_node_id_for_idx.get(&from_idx) {
+                    for edge in ctx.cpg.graph.edges(from_idx) {
+                        if matches!(edge.weight(), CpgEdge::DataFlow)
+                            && df_node_id_for_idx.contains_key(&edge.target())
+                        {
+                            if let Some(to_id) = df_node_id_for_idx.get(&edge.target()) {
+                                let key = (from_id.clone(), to_id.clone());
+                                if df_seen_edges.insert(key) {
+                                    df_cycle_edges.push(GraphEdge {
+                                        from: from_id.clone(),
+                                        to: to_id.clone(),
+                                        label: None,
+                                        style: EdgeStyle::Solid,
+                                    });
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            push_cycle_diagram(&mut result, cycle_nodes, df_cycle_edges, "Data-flow cycle");
         }
     }
 

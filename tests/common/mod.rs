@@ -12,10 +12,32 @@ pub use prism::diff::{DiffInfo, DiffInput, ModifyType};
 pub use prism::languages::Language;
 pub use prism::output;
 pub use prism::output::{to_review_output, MultiReviewOutput};
-pub use prism::slice::{MultiSliceResult, SliceConfig, SliceFinding, SlicingAlgorithm};
+pub use prism::slice::{
+    DiagramWarning, DiagramWarningKind, MultiSliceResult, SliceConfig, SliceFinding, SliceResult,
+    SlicingAlgorithm,
+};
 pub use std::collections::{BTreeMap, BTreeSet};
 pub use std::path::Path;
 pub use tempfile::TempDir;
+
+/// Panics if any `diagram_warnings` entry is a bug-class warning.
+///
+/// Use this in algorithm tests after running a slice to assert that the
+/// diagram rendering pipeline produced no structural bugs (dangling edges,
+/// duplicate node IDs, etc.).
+pub fn assert_no_diagram_bugs(result: &prism::slice::SliceResult) {
+    let bugs: Vec<_> = result
+        .diagram_warnings
+        .iter()
+        .filter(|w| w.kind.is_bug())
+        .collect();
+    assert!(
+        bugs.is_empty(),
+        "diagram bugs in {}: {:#?}",
+        result.algorithm.name(),
+        bugs
+    );
+}
 
 pub fn make_python_test() -> (
     BTreeMap<String, ParsedFile>,

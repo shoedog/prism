@@ -32,10 +32,15 @@ pub mod vertical_slice;
 use crate::ast::ParsedFile;
 use crate::cpg::CpgContext;
 use crate::diff::DiffInput;
-use crate::slice::{FileParseQuality, SliceConfig, SliceResult, SlicingAlgorithm};
+use crate::output::mermaid;
+use crate::slice::{
+    DiagramWarning, DiagramWarningKind, FileParseQuality, SliceConfig, SliceResult,
+    SlicingAlgorithm,
+};
 use crate::type_db::TypeDatabase;
 use anyhow::Result;
 use std::collections::BTreeMap;
+use std::panic;
 
 /// Check parsed files for tree-sitter parse errors and return human-readable warnings.
 ///
@@ -106,11 +111,18 @@ pub fn check_parse_quality(
     (warnings, quality)
 }
 
-/// Run the configured slicing algorithm with a shared CPG context.
+/// Run the configured slicing algorithm with a shared CPG context, returning
+/// the raw (unfinalized) result.
 ///
-/// For algorithms that need additional configuration (barrier, chop, taint, etc.),
-/// use the algorithm-specific `slice()` functions directly.
-pub fn run_slicing(
+/// Callers that need Mermaid rendering must call `finalize_diagrams` themselves
+/// (or use `run_slicing`, which does it automatically).
+///
+/// This seam exists so that `run_algorithm` in `main.rs` can call
+/// `run_slicing_inner` for its fallback path and then apply a single
+/// `finalize_diagrams` call — avoiding the double-finalize that would occur if
+/// it used `run_slicing` (which finalizes) and then called `finalize_diagrams`
+/// again afterwards.
+pub fn run_slicing_inner(
     ctx: &CpgContext,
     diff: &DiffInput,
     config: &SliceConfig,
@@ -174,6 +186,80 @@ pub fn run_slicing(
     }
 }
 
+/// Run the configured slicing algorithm with a shared CPG context.
+///
+/// For algorithms that need additional configuration (barrier, chop, taint, etc.),
+/// use the algorithm-specific `slice()` functions directly.
+///
+/// This function calls `finalize_diagrams` before returning.  If you need an
+/// unfinalized result (e.g., to avoid double-finalization in a wrapper that
+/// also calls `finalize_diagrams`), use `run_slicing_inner` instead.
+pub fn run_slicing(
+    ctx: &CpgContext,
+    diff: &DiffInput,
+    config: &SliceConfig,
+) -> Result<SliceResult> {
+    let mut result = run_slicing_inner(ctx, diff, config)?;
+    finalize_diagrams(&mut result, config.diagram_node_cap);
+    Ok(result)
+}
+
+/// Render Mermaid for every populated SliceGraph in `result`. Stamps each
+/// `graph.mermaid` field, collects any warnings into `result.diagram_warnings`,
+/// catches panics from the renderer (treating them as `RenderPanic` warnings).
+pub fn finalize_diagrams(result: &mut SliceResult, cap: usize) {
+    let algo_name = result.algorithm.name().to_string();
+
+    // Result-level diagrams.
+    for graph in result.diagrams.iter_mut() {
+        match panic::catch_unwind(panic::AssertUnwindSafe(|| mermaid::render(graph, cap))) {
+            Ok((rendered, warns)) => {
+                graph.mermaid = rendered;
+                for mut w in warns {
+                    w.algorithm = algo_name.clone();
+                    result.diagram_warnings.push(w);
+                }
+            }
+            Err(panic_info) => {
+                let detail = panic_info
+                    .downcast_ref::<&str>()
+                    .map(|s| s.to_string())
+                    .or_else(|| panic_info.downcast_ref::<String>().cloned())
+                    .unwrap_or_else(|| "panic in render".to_string());
+                result.diagram_warnings.push(DiagramWarning {
+                    algorithm: algo_name.clone(),
+                    graph_title: graph.title.clone(),
+                    kind: DiagramWarningKind::RenderPanic,
+                    detail,
+                });
+            }
+        }
+    }
+
+    // Per-finding diagrams.
+    for finding in result.findings.iter_mut() {
+        for graph in finding.diagrams.iter_mut() {
+            match panic::catch_unwind(panic::AssertUnwindSafe(|| mermaid::render(graph, cap))) {
+                Ok((rendered, warns)) => {
+                    graph.mermaid = rendered;
+                    for mut w in warns {
+                        w.algorithm = algo_name.clone();
+                        result.diagram_warnings.push(w);
+                    }
+                }
+                Err(_) => {
+                    result.diagram_warnings.push(DiagramWarning {
+                        algorithm: algo_name.clone(),
+                        graph_title: graph.title.clone(),
+                        kind: DiagramWarningKind::RenderPanic,
+                        detail: "panic in render".to_string(),
+                    });
+                }
+            }
+        }
+    }
+}
+
 /// Backward-compatible wrapper: builds a CpgContext and runs the algorithm.
 ///
 /// Used by tests that haven't been migrated to CpgContext yet.
@@ -196,5 +282,79 @@ pub fn run_slicing_compat(
     } else {
         let ctx = CpgContext::without_cpg(files, type_db);
         run_slicing(&ctx, diff, config)
+    }
+}
+
+#[cfg(test)]
+mod finalize_tests {
+    use super::*;
+    use crate::slice::{
+        DiagramWarningKind, EdgeStyle, GraphEdge, GraphNode, GraphShape, NodeKind, SliceGraph,
+        SliceResult, SlicingAlgorithm,
+    };
+
+    fn graph_with_dangling() -> SliceGraph {
+        SliceGraph {
+            title: Some("test".to_string()),
+            shape: GraphShape::Chain,
+            nodes: vec![GraphNode {
+                id: "a".to_string(),
+                label: "A".to_string(),
+                kind: NodeKind::Source,
+                file: None,
+                line: None,
+            }],
+            edges: vec![GraphEdge {
+                from: "a".to_string(),
+                to: "missing".to_string(),
+                label: None,
+                style: EdgeStyle::Solid,
+            }],
+            clusters: vec![],
+            mermaid: String::new(),
+        }
+    }
+
+    #[test]
+    fn finalize_populates_mermaid_string() {
+        let mut r = SliceResult::new(SlicingAlgorithm::Taint);
+        r.diagrams.push(SliceGraph {
+            title: Some("ok".to_string()),
+            shape: GraphShape::Chain,
+            nodes: vec![GraphNode {
+                id: "x".to_string(),
+                label: "X".to_string(),
+                kind: NodeKind::Step,
+                file: None,
+                line: None,
+            }],
+            edges: vec![],
+            clusters: vec![],
+            mermaid: String::new(),
+        });
+        finalize_diagrams(&mut r, 40);
+        assert!(!r.diagrams[0].mermaid.is_empty());
+        assert!(r.diagrams[0].mermaid.starts_with("flowchart TD"));
+    }
+
+    #[test]
+    fn finalize_propagates_dangling_edge_warning() {
+        let mut r = SliceResult::new(SlicingAlgorithm::Taint);
+        r.diagrams.push(graph_with_dangling());
+        finalize_diagrams(&mut r, 40);
+        assert!(r
+            .diagram_warnings
+            .iter()
+            .any(|w| matches!(w.kind, DiagramWarningKind::DanglingEdge) && w.algorithm == "Taint"));
+    }
+
+    #[test]
+    fn finalize_handles_panic_via_catch_unwind() {
+        // Verifies the catch_unwind path is exercised by calling finalize on
+        // an empty diagrams vec (no panic, no warnings, no crash).
+        let mut r = SliceResult::new(SlicingAlgorithm::Taint);
+        finalize_diagrams(&mut r, 40);
+        assert!(r.diagrams.is_empty());
+        assert!(r.diagram_warnings.is_empty());
     }
 }

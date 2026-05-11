@@ -470,3 +470,13 @@ path = "tests/cli/validation_test.rs"
 [[test]]
 name = "cli_output"
 path = "tests/cli/output_test.rs"
+
+[[test]]
+name = "cli_diagram_e2e"
+path = "tests/cli/diagram_e2e_test.rs"
+
+# ── Output tests ──
+
+[[test]]
+name = "output_mermaid_snapshot"
+path = "tests/output/mermaid_snapshot_test.rs"

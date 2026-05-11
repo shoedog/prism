@@ -423,3 +423,150 @@ func caller() int { return outer(10) }
         count_lines(&ring2)
     );
 }
+
+#[test]
+fn circular_emits_cycle_diagram_with_bold_back_edge() {
+    // Two mutually-recursive Python functions guarantee a 2-cycle in the call graph.
+    let source = r#"
+def a(x):
+    return b(x + 1)
+
+def b(y):
+    return a(y - 1)
+"#;
+    let path = "cycle.py";
+    let parsed = ParsedFile::parse(path, source, Language::Python).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([3]), // line inside `a` — the `return b(x + 1)` call
+        }],
+    };
+    let config = SliceConfig::default().with_algorithm(SlicingAlgorithm::CircularSlice);
+    let result = algorithms::run_slicing_compat(&files, &diff, &config, None).unwrap();
+
+    // The mutual-recursion fixture (a → b → a) guarantees CPG cycle detection.
+    // If blocks are empty the fixture or algorithm has regressed.
+    assert!(
+        !result.blocks.is_empty(),
+        "CircularSlice must detect the a→b→a mutual-recursion cycle and produce blocks"
+    );
+
+    assert!(
+        !result.diagrams.is_empty(),
+        "expected at least one Cycle diagram"
+    );
+    let g = &result.diagrams[0];
+    assert!(
+        matches!(g.shape, prism::slice::GraphShape::Cycle),
+        "diagram shape should be Cycle, got {:?}",
+        g.shape
+    );
+    assert!(
+        g.edges
+            .iter()
+            .any(|e| matches!(e.style, prism::slice::EdgeStyle::Bold)),
+        "expected a Bold back-edge in the cycle diagram"
+    );
+    assert!(
+        g.mermaid.starts_with("flowchart LR"),
+        "mermaid should start with 'flowchart LR', got: {:?}",
+        &g.mermaid[..g.mermaid.len().min(40)]
+    );
+    assert!(
+        g.mermaid.contains("==>|\"cycle\"|"),
+        "mermaid should contain the bold back-edge '==>|\"cycle\"|'"
+    );
+}
+
+#[test]
+fn circular_diagram_uses_actual_graph_edges_not_invented_pairs() {
+    // Reproducer from PR review:
+    // a -> b, b -> a, b -> c, c -> b. SCC = {a, b, c}.
+    // The actual call edges form two 2-cycles sharing b.
+    // The diagram MUST NOT contain a -> c or c -> a (which don't exist in the graph).
+    let source = "\
+def a():
+    b()
+
+def b():
+    a()
+    c()
+
+def c():
+    b()
+";
+    let path = "rec.py";
+    let parsed = ParsedFile::parse(path, source, Language::Python).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([2]),
+        }],
+    };
+
+    let config = SliceConfig::default().with_algorithm(SlicingAlgorithm::CircularSlice);
+    let result = algorithms::run_slicing_compat(&files, &diff, &config, None).unwrap();
+    if result.diagrams.is_empty() {
+        panic!(
+            "expected at least one cycle diagram for mutual recursion fixture; \
+             got blocks={} diagrams=0",
+            result.blocks.len()
+        );
+    }
+
+    // Aggregate all (from_fn, to_fn) pairs across all cycle diagrams.
+    let mut emitted_edges: BTreeSet<(String, String)> = BTreeSet::new();
+    for g in &result.diagrams {
+        for e in &g.edges {
+            let from_label = g
+                .nodes
+                .iter()
+                .find(|n| n.id == e.from)
+                .map(|n| n.label.clone())
+                .unwrap_or_default();
+            let to_label = g
+                .nodes
+                .iter()
+                .find(|n| n.id == e.to)
+                .map(|n| n.label.clone())
+                .unwrap_or_default();
+            // Labels look like "rec.py:N\nfn_name" for call-graph nodes.
+            let from_fn = from_label.split('\n').last().unwrap_or("").to_string();
+            let to_fn = to_label.split('\n').last().unwrap_or("").to_string();
+            emitted_edges.insert((from_fn, to_fn));
+        }
+    }
+
+    // a -> c is NEVER an actual call. MUST NOT appear.
+    assert!(
+        !emitted_edges.contains(&("a".to_string(), "c".to_string())),
+        "diagram invented a -> c edge that doesn't exist in source. Emitted: {:?}",
+        emitted_edges
+    );
+    // c -> a is also NEVER an actual call. MUST NOT appear.
+    assert!(
+        !emitted_edges.contains(&("c".to_string(), "a".to_string())),
+        "diagram invented c -> a edge. Emitted: {:?}",
+        emitted_edges
+    );
+    // Only real edges allowed: a -> b, b -> a, b -> c, c -> b.
+    let allowed: BTreeSet<(String, String)> = [("a", "b"), ("b", "a"), ("b", "c"), ("c", "b")]
+        .iter()
+        .map(|(f, t)| (f.to_string(), t.to_string()))
+        .collect();
+    for edge in &emitted_edges {
+        assert!(
+            allowed.contains(edge),
+            "diagram contains edge {:?} that isn't a real call in the source. Emitted: {:?}",
+            edge,
+            emitted_edges
+        );
+    }
+}

@@ -441,3 +441,81 @@ def process_data(host):
             .collect::<Vec<_>>()
     );
 }
+
+#[test]
+fn echo_result_carries_fanout_diagram() {
+    // C caller does NOT check return value — produces at least one echo finding.
+    let callee_source = r#"
+int open_device(const char *path) {
+    int fd = open(path, 0);
+    return fd;
+}
+"#;
+    let caller_source = r#"
+void init_system(void) {
+    int fd = open_device("/dev/eth0");
+    use_fd(fd);
+}
+"#;
+    let callee_path = "src/device.c";
+    let caller_path = "src/init.c";
+    let callee_parsed = ParsedFile::parse(callee_path, callee_source, Language::C).unwrap();
+    let caller_parsed = ParsedFile::parse(caller_path, caller_source, Language::C).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(callee_path.to_string(), callee_parsed);
+    files.insert(caller_path.to_string(), caller_parsed);
+
+    // Diff touches the return statement in open_device.
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: callee_path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([4]),
+        }],
+    };
+
+    let config = SliceConfig::default().with_algorithm(SlicingAlgorithm::EchoSlice);
+    let result = algorithms::run_slicing_compat(&files, &diff, &config, None).unwrap();
+
+    // The C fixture has a caller (init_system) that assigns the return value of
+    // open_device to a local but never checks it. EchoSlice must flag that.
+    // If findings are empty the fixture or algorithm has regressed.
+    assert!(
+        !result.findings.is_empty(),
+        "EchoSlice must detect that init_system does not check open_device's return value"
+    );
+
+    assert_eq!(
+        result.diagrams.len(),
+        1,
+        "expected exactly one Fanout diagram"
+    );
+    let g = &result.diagrams[0];
+    assert!(
+        matches!(g.shape, prism::slice::GraphShape::Fanout),
+        "diagram shape should be Fanout, got {:?}",
+        g.shape
+    );
+    assert!(
+        g.nodes
+            .iter()
+            .any(|n| matches!(n.kind, prism::slice::NodeKind::Origin)),
+        "diagram must contain at least one Origin node"
+    );
+    assert!(
+        g.nodes
+            .iter()
+            .any(|n| matches!(n.kind, prism::slice::NodeKind::Caller)),
+        "diagram must contain at least one Caller node"
+    );
+    // After finalize_diagrams, mermaid must be rendered.
+    assert!(
+        !g.mermaid.is_empty(),
+        "mermaid string should be populated after finalize_diagrams"
+    );
+    assert!(
+        g.mermaid.starts_with("flowchart LR"),
+        "mermaid should start with 'flowchart LR', got: {:?}",
+        &g.mermaid[..g.mermaid.len().min(40)]
+    );
+}

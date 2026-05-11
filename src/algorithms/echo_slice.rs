@@ -11,7 +11,11 @@
 
 use crate::cpg::CpgContext;
 use crate::diff::{DiffBlock, DiffInput, ModifyType};
-use crate::slice::{SliceFinding, SliceResult, SlicingAlgorithm};
+use crate::output::mermaid::safe_node_id;
+use crate::slice::{
+    EdgeStyle, GraphEdge, GraphNode, GraphShape, NodeKind, SliceFinding, SliceGraph, SliceResult,
+    SlicingAlgorithm,
+};
 use anyhow::Result;
 use std::collections::BTreeSet;
 
@@ -100,6 +104,12 @@ pub struct EchoFinding {
 pub fn slice(ctx: &CpgContext, diff: &DiffInput) -> Result<SliceResult> {
     let mut result = SliceResult::new(SlicingAlgorithm::EchoSlice);
     let mut block_id = 0;
+
+    // Diagram accumulators (one Fanout diagram per result).
+    let mut graph_nodes: Vec<GraphNode> = Vec::new();
+    let mut graph_edges: Vec<GraphEdge> = Vec::new();
+    let mut seen_node_ids: BTreeSet<String> = BTreeSet::new();
+    let mut seen_edges: BTreeSet<(String, String)> = BTreeSet::new();
 
     for diff_info in &diff.files {
         let parsed = match ctx.files.get(&diff_info.file_path) {
@@ -230,6 +240,7 @@ pub fn slice(ctx: &CpgContext, diff: &DiffInput) -> Result<SliceResult> {
                         related_files: vec![diff_info.file_path.clone()],
                         category: Some("missing_error_handling".to_string()),
                         parse_quality: None,
+                        diagrams: vec![],
                     });
                     let mut block =
                         DiffBlock::new(block_id, caller_id.file.clone(), ModifyType::Modified);
@@ -261,9 +272,61 @@ pub fn slice(ctx: &CpgContext, diff: &DiffInput) -> Result<SliceResult> {
 
                     result.blocks.push(block);
                     block_id += 1;
+
+                    // Diagram: register the origin (changed function) and the caller as nodes,
+                    // connect caller -> origin.
+                    if let Some(func_node) = parsed.find_function_by_name(func_name) {
+                        let (origin_start, _origin_end) = parsed.node_line_range(&func_node);
+                        let origin_id = safe_node_id(&diff_info.file_path, origin_start);
+                        if seen_node_ids.insert(origin_id.clone()) {
+                            graph_nodes.push(GraphNode {
+                                id: origin_id.clone(),
+                                label: format!(
+                                    "{}:{}\n{}",
+                                    diff_info.file_path, origin_start, func_name
+                                ),
+                                kind: NodeKind::Origin,
+                                file: Some(diff_info.file_path.clone()),
+                                line: Some(origin_start),
+                            });
+                        }
+                        let caller_id_str = safe_node_id(&caller_id.file, caller_id.start_line);
+                        if seen_node_ids.insert(caller_id_str.clone()) {
+                            graph_nodes.push(GraphNode {
+                                id: caller_id_str.clone(),
+                                label: format!(
+                                    "{}:{}\n{}",
+                                    caller_id.file, caller_id.start_line, caller_id.name
+                                ),
+                                kind: NodeKind::Caller,
+                                file: Some(caller_id.file.clone()),
+                                line: Some(caller_id.start_line),
+                            });
+                        }
+                        let edge_key = (caller_id_str.clone(), origin_id.clone());
+                        if seen_edges.insert(edge_key) {
+                            graph_edges.push(GraphEdge {
+                                from: caller_id_str,
+                                to: origin_id,
+                                label: None,
+                                style: EdgeStyle::Solid,
+                            });
+                        }
+                    }
                 }
             }
         }
+    }
+
+    if !graph_nodes.is_empty() {
+        result.diagrams.push(SliceGraph {
+            title: Some("Caller fanout".to_string()),
+            shape: GraphShape::Fanout,
+            nodes: graph_nodes,
+            edges: graph_edges,
+            clusters: vec![],
+            mermaid: String::new(),
+        });
     }
 
     Ok(result)

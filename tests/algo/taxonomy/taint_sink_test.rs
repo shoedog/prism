@@ -425,3 +425,138 @@ function render(userInput) {
         "Taint should produce blocks for destructured variable flowing to innerHTML"
     );
 }
+
+#[test]
+fn taint_finding_carries_chain_diagram() {
+    // A simple Python fixture: `user_input` on the diff line flows to `os.system()`.
+    // This is the canonical taint source → sink pattern and must produce a
+    // taint_sink finding that carries a populated Chain diagram.
+    let source = r#"
+import os
+
+def handle(user_input):
+    cmd = user_input
+    os.system(cmd)
+"#;
+    let path = "src/handler.py";
+    let parsed = ParsedFile::parse(path, source, Language::Python).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    // Diff line 5: `cmd = user_input` — cmd is tainted from diff.
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([5]),
+        }],
+    };
+
+    let result = algorithms::run_slicing_compat(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::Taint),
+        None,
+    )
+    .unwrap();
+
+    // Must have at least one taint_sink finding with a diagram.
+    let finding_with_diagram = result
+        .findings
+        .iter()
+        .find(|f| f.category.as_deref() == Some("taint_sink") && !f.diagrams.is_empty())
+        .expect("taint_sink finding should carry a Chain diagram");
+
+    let g = &finding_with_diagram.diagrams[0];
+    assert!(
+        matches!(g.shape, prism::slice::GraphShape::Chain),
+        "diagram shape must be Chain"
+    );
+    assert!(
+        g.nodes
+            .iter()
+            .any(|n| matches!(n.kind, prism::slice::NodeKind::Source)),
+        "diagram must have a Source node"
+    );
+    assert!(
+        g.nodes
+            .iter()
+            .any(|n| matches!(n.kind, prism::slice::NodeKind::Sink)),
+        "diagram must have a Sink node"
+    );
+    assert!(
+        !g.mermaid.is_empty(),
+        "diagram.mermaid must be populated by finalize pass"
+    );
+    assert!(
+        g.mermaid.starts_with("flowchart TD"),
+        "mermaid output must start with 'flowchart TD'"
+    );
+}
+
+#[test]
+fn taint_diagram_source_uses_actual_flowpath_not_nearest_in_file() {
+    // Two diff-line sources, but only one (`a`) flows to the sink.
+    // Diagram for the sink MUST show `a` as the source, not `b` (even though
+    // `b = ...` is textually nearer to the sink).
+    let source = "\
+import os
+def handle(req):
+    a = req.GET['x']
+    b = req.GET['y']
+    os.system(a)
+";
+    let path = "v.py";
+    let parsed = ParsedFile::parse(path, source, Language::Python).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(path.to_string(), parsed);
+
+    // Lines 3, 4, 5 are diff lines: both `a` and `b` are taint sources on diff lines.
+    // The sink is `os.system(a)` on line 5. Only `a` (line 3) flows to the sink.
+    let diff = DiffInput {
+        files: vec![DiffInfo {
+            file_path: path.to_string(),
+            modify_type: ModifyType::Modified,
+            diff_lines: BTreeSet::from([3, 4, 5]),
+        }],
+    };
+
+    let result = algorithms::run_slicing_compat(
+        &files,
+        &diff,
+        &SliceConfig::default().with_algorithm(SlicingAlgorithm::Taint),
+        None,
+    )
+    .unwrap();
+
+    let sink_finding = result
+        .findings
+        .iter()
+        .find(|f| f.category.as_deref() == Some("taint_sink"))
+        .expect("expected at least one taint_sink finding");
+
+    let g = sink_finding
+        .diagrams
+        .first()
+        .expect("sink finding should have a diagram");
+
+    let source_node = g
+        .nodes
+        .iter()
+        .find(|n| matches!(n.kind, prism::slice::NodeKind::Source))
+        .expect("diagram should have a Source node");
+
+    // The Source node's label should reference line 3 (a = req.GET['x']),
+    // NOT line 4 (b = req.GET['y']). Line 4 is textually nearer to the sink
+    // but doesn't flow to it.
+    assert!(
+        source_node.label.contains("v.py:3"),
+        "Source node should reference line 3 (a = req.GET['x']) — the source that actually flows to os.system(a). Got label: {:?}",
+        source_node.label
+    );
+    assert!(
+        !source_node.label.contains("v.py:4"),
+        "Source node should NOT reference line 4 (b = req.GET['y']) — that source doesn't flow to the sink. Got label: {:?}",
+        source_node.label
+    );
+}

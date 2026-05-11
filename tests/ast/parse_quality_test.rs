@@ -142,6 +142,7 @@ fn test_finding_parse_quality_annotation() {
         related_files: vec![],
         category: None,
         parse_quality: Some("poor".to_string()),
+        diagrams: vec![],
     };
     assert_eq!(finding.parse_quality.as_deref(), Some("poor"));
 

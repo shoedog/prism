@@ -7,12 +7,31 @@ use prism::cpg_cache::{self, CacheResult};
 use prism::diff::DiffInput;
 use prism::languages::Language;
 use prism::output;
-use prism::slice::{AlgorithmError, SliceConfig, SliceFinding, SlicingAlgorithm};
+use prism::slice::{AlgorithmError, MultiSliceResult, SliceConfig, SliceFinding, SlicingAlgorithm};
 use prism::type_db::TypeDatabase;
 use prism::type_provider::LanguageVersion;
 use std::collections::{BTreeMap, HashSet};
 use std::fs;
 use std::path::PathBuf;
+
+/// Validate `--diagram-node-cap`: must be >= 4.
+///
+/// 4 is the smallest cap that meaningfully fits head + ghost + tail with at
+/// least one node on each side of the elision point.  Values below 4 cause
+/// `truncate_to_cap`'s arithmetic to produce more nodes than the cap allows
+/// (the internal clamp handles it defensively, but we surface a clear error
+/// at the CLI boundary so users understand why their cap was rejected).
+fn parse_diagram_cap(s: &str) -> Result<usize, String> {
+    let n: usize = s.parse().map_err(|e| format!("invalid integer: {}", e))?;
+    if n < 4 {
+        return Err(format!(
+            "--diagram-node-cap must be >= 4 (got {}); \
+             values below 4 cannot fit head + ghost + tail",
+            n
+        ));
+    }
+    Ok(n)
+}
 
 #[derive(Parser, Debug)]
 #[command(
@@ -33,9 +52,18 @@ struct Cli {
     #[arg(short, long, required_unless_present = "list_algorithms")]
     diff: Option<PathBuf>,
 
-    /// Output format: text, json, paper, review, callers
+    /// Output format: text, json, paper, review, callers, mermaid
     #[arg(short, long, default_value = "text")]
     format: String,
+
+    /// Maximum number of nodes a single Mermaid diagram may render before truncation.
+    /// Must be >= 4 (the minimum that fits head + ghost + tail).
+    #[arg(long, default_value_t = 40, value_parser = parse_diagram_cap)]
+    diagram_node_cap: usize,
+
+    /// Exit non-zero if any bug-class diagram warning is produced.
+    #[arg(long, default_value_t = false)]
+    strict_diagrams: bool,
 
     /// Maximum branch lines to include fully (default: 5)
     #[arg(long, default_value = "5")]
@@ -257,6 +285,8 @@ fn main() -> Result<()> {
         include_returns: !cli.no_returns,
         trace_callees: !cli.no_trace_callees,
         scoped_cpg: cli.scoped_cpg,
+        diagram_node_cap: cli.diagram_node_cap,
+        strict_diagrams: cli.strict_diagrams,
     };
 
     let repo = cli.repo.as_ref().context("--repo is required")?;
@@ -484,6 +514,8 @@ fn main() -> Result<()> {
                 include_returns: !cli.no_returns,
                 trace_callees: !cli.no_trace_callees,
                 scoped_cpg: cli.scoped_cpg,
+                diagram_node_cap: cli.diagram_node_cap,
+                strict_diagrams: cli.strict_diagrams,
             };
             match run_algorithm(algo, &ctx, &diff_input, &algo_config, &cli, repo) {
                 Ok(r) => results.push(r),
@@ -503,6 +535,10 @@ fn main() -> Result<()> {
 
         match cli.format.as_str() {
             "review" => {
+                let all_diagram_warnings: Vec<_> = results
+                    .iter()
+                    .flat_map(|r| r.diagram_warnings.iter().cloned())
+                    .collect();
                 let review_results: Vec<_> = results
                     .iter()
                     .map(|r| output::to_review_output(r, &sources))
@@ -515,12 +551,22 @@ fn main() -> Result<()> {
                     errors: all_errors,
                     warnings: parse_warnings,
                     parse_quality: parse_quality.clone(),
+                    diagram_warnings: all_diagram_warnings.clone(),
                 };
                 println!("{}", serde_json::to_string_pretty(&out)?);
+                emit_warnings_to_stderr(&all_diagram_warnings);
+                let exit_code = determine_exit_code(cli.strict_diagrams, &all_diagram_warnings);
+                if exit_code != 0 {
+                    std::process::exit(exit_code);
+                }
             }
             "json" => {
                 // json and review produce the same ReviewOutput structure so that
                 // slice_text (rendered source code) is always present in structured output.
+                let all_diagram_warnings: Vec<_> = results
+                    .iter()
+                    .flat_map(|r| r.diagram_warnings.iter().cloned())
+                    .collect();
                 let review_results: Vec<_> = results
                     .iter()
                     .map(|r| output::to_review_output(r, &sources))
@@ -533,8 +579,34 @@ fn main() -> Result<()> {
                     errors: all_errors,
                     warnings: parse_warnings,
                     parse_quality: parse_quality.clone(),
+                    diagram_warnings: all_diagram_warnings.clone(),
                 };
                 println!("{}", serde_json::to_string_pretty(&out)?);
+                emit_warnings_to_stderr(&all_diagram_warnings);
+                let exit_code = determine_exit_code(cli.strict_diagrams, &all_diagram_warnings);
+                if exit_code != 0 {
+                    std::process::exit(exit_code);
+                }
+            }
+            "mermaid" => {
+                let multi_result = MultiSliceResult {
+                    version: "1.0".to_string(),
+                    algorithms_run,
+                    results,
+                    findings: all_findings,
+                    errors: all_errors,
+                    warnings: parse_warnings,
+                    parse_quality: parse_quality.clone(),
+                    diagram_warnings: vec![],
+                };
+                let report = output::format_mermaid_report(&multi_result);
+                println!("{}", report);
+                let warnings = multi_result.aggregate_diagram_warnings();
+                emit_warnings_to_stderr(&warnings);
+                let exit_code = determine_exit_code(cli.strict_diagrams, &warnings);
+                if exit_code != 0 {
+                    std::process::exit(exit_code);
+                }
             }
             _ => {
                 for w in &parse_warnings {
@@ -543,6 +615,15 @@ fn main() -> Result<()> {
                 for result in &results {
                     println!("=== {} ===", result.algorithm.name());
                     print!("{}", output::format_slice_result(&result.blocks, &sources));
+                }
+                let all_diagram_warnings: Vec<_> = results
+                    .iter()
+                    .flat_map(|r| r.diagram_warnings.iter().cloned())
+                    .collect();
+                emit_warnings_to_stderr(&all_diagram_warnings);
+                let exit_code = determine_exit_code(cli.strict_diagrams, &all_diagram_warnings);
+                if exit_code != 0 {
+                    std::process::exit(exit_code);
                 }
             }
         }
@@ -559,16 +640,52 @@ fn main() -> Result<()> {
                 // slice_text (rendered source code) is always present in structured output.
                 let review = output::to_review_output(&result, &sources);
                 println!("{}", serde_json::to_string_pretty(&review)?);
+                emit_warnings_to_stderr(&result.diagram_warnings);
+                let exit_code = determine_exit_code(cli.strict_diagrams, &result.diagram_warnings);
+                if exit_code != 0 {
+                    std::process::exit(exit_code);
+                }
             }
             "paper" => {
                 let paper_output = output::to_paper_format(&result.blocks);
                 println!("{}", serde_json::to_string_pretty(&paper_output)?);
+                emit_warnings_to_stderr(&result.diagram_warnings);
+                let exit_code = determine_exit_code(cli.strict_diagrams, &result.diagram_warnings);
+                if exit_code != 0 {
+                    std::process::exit(exit_code);
+                }
+            }
+            "mermaid" => {
+                let algorithms_run = vec![result.algorithm.name().to_string()];
+                let multi_result = MultiSliceResult {
+                    version: "1.0".to_string(),
+                    algorithms_run,
+                    results: vec![result],
+                    findings: vec![],
+                    errors: vec![],
+                    warnings: vec![],
+                    parse_quality: BTreeMap::new(),
+                    diagram_warnings: vec![],
+                };
+                let report = output::format_mermaid_report(&multi_result);
+                println!("{}", report);
+                let warnings = multi_result.aggregate_diagram_warnings();
+                emit_warnings_to_stderr(&warnings);
+                let exit_code = determine_exit_code(cli.strict_diagrams, &warnings);
+                if exit_code != 0 {
+                    std::process::exit(exit_code);
+                }
             }
             _ => {
                 for w in &result.warnings {
                     eprintln!("WARNING: {}", w);
                 }
                 print!("{}", output::format_slice_result(&result.blocks, &sources));
+                emit_warnings_to_stderr(&result.diagram_warnings);
+                let exit_code = determine_exit_code(cli.strict_diagrams, &result.diagram_warnings);
+                if exit_code != 0 {
+                    std::process::exit(exit_code);
+                }
             }
         }
     }
@@ -607,7 +724,7 @@ fn run_algorithm(
     cli: &Cli,
     repo: &std::path::Path,
 ) -> Result<prism::slice::SliceResult> {
-    match algorithm {
+    let mut result = match algorithm {
         SlicingAlgorithm::BarrierSlice => {
             let barrier_config = prism::algorithms::barrier_slice::BarrierConfig {
                 max_depth: cli.barrier_depth,
@@ -750,8 +867,14 @@ fn run_algorithm(
                 prism::algorithms::contract_slice::slice(ctx.files, diff_input)
             }
         }
-        _ => algorithms::run_slicing(ctx, diff_input, config),
-    }
+        // Fallback: use run_slicing_inner (not run_slicing) so that the
+        // finalize_diagrams call below is the single owner.  run_slicing
+        // would finalize and then the call below would finalize again,
+        // duplicating all diagram warnings.
+        _ => algorithms::run_slicing_inner(ctx, diff_input, config),
+    }?;
+    prism::algorithms::finalize_diagrams(&mut result, config.diagram_node_cap);
+    Ok(result)
 }
 
 fn parse_file_line(s: &str) -> Result<(String, usize)> {
@@ -763,4 +886,108 @@ fn parse_file_line(s: &str) -> Result<(String, usize)> {
         .parse()
         .context(format!("Invalid line number: {}", parts[0]))?;
     Ok((parts[1].to_string(), line))
+}
+
+fn emit_warnings_to_stderr(warnings: &[prism::slice::DiagramWarning]) {
+    use std::io::Write;
+    let mut err = std::io::stderr().lock();
+    for w in warnings {
+        let title = w.graph_title.as_deref().unwrap_or("(no title)");
+        let _ = writeln!(
+            err,
+            "prism: diagram warning: {}/{} - {:?}: {}",
+            w.algorithm, title, w.kind, w.detail
+        );
+    }
+}
+
+fn determine_exit_code(strict: bool, warnings: &[prism::slice::DiagramWarning]) -> i32 {
+    if !strict {
+        return 0;
+    }
+    if warnings.iter().any(|w| w.kind.is_bug()) {
+        return 2;
+    }
+    0
+}
+
+#[cfg(test)]
+mod cli_parse_tests {
+    use super::*;
+
+    #[test]
+    fn parse_diagram_cap_rejects_too_small() {
+        assert!(parse_diagram_cap("0").is_err(), "0 must be rejected");
+        assert!(parse_diagram_cap("1").is_err(), "1 must be rejected");
+        assert!(parse_diagram_cap("2").is_err(), "2 must be rejected");
+        assert!(parse_diagram_cap("3").is_err(), "3 must be rejected");
+        assert!(parse_diagram_cap("4").is_ok(), "4 must be accepted");
+        assert!(parse_diagram_cap("100").is_ok(), "100 must be accepted");
+    }
+
+    #[test]
+    fn parse_diagram_cap_rejects_non_integer() {
+        assert!(parse_diagram_cap("abc").is_err());
+        assert!(parse_diagram_cap("-1").is_err());
+        assert!(parse_diagram_cap("").is_err());
+    }
+
+    /// Architecture pin: `run_slicing_inner` must be a public symbol in
+    /// `prism::algorithms`.  The `run_algorithm` fallback path calls it so that
+    /// the single `finalize_diagrams` call at the end of `run_algorithm` is the
+    /// only one — if the fallback used `run_slicing` (which finalizes), then the
+    /// trailing `finalize_diagrams` call would be a second invocation, duplicating
+    /// all diagram warnings in JSON output and `## Diagnostics` sections.
+    ///
+    /// This test does not call the function at runtime; it merely references the
+    /// path so that removing the symbol breaks compilation.
+    #[test]
+    fn run_slicing_inner_is_accessible_for_no_double_finalize_seam() {
+        // Compile-time pin: the symbol must be reachable.
+        let _ = prism::algorithms::run_slicing_inner
+            as fn(
+                &prism::cpg::CpgContext,
+                &prism::diff::DiffInput,
+                &prism::slice::SliceConfig,
+            ) -> anyhow::Result<prism::slice::SliceResult>;
+    }
+}
+
+#[cfg(test)]
+mod exit_tests {
+    use super::*;
+    use prism::slice::{DiagramWarning, DiagramWarningKind};
+
+    fn warn(kind: DiagramWarningKind) -> DiagramWarning {
+        DiagramWarning {
+            algorithm: "Taint".to_string(),
+            graph_title: None,
+            kind,
+            detail: "x".to_string(),
+        }
+    }
+
+    #[test]
+    fn determine_exit_code_strict_with_bug_warning() {
+        let warns = vec![warn(DiagramWarningKind::DanglingEdge)];
+        assert_eq!(determine_exit_code(true, &warns), 2);
+    }
+
+    #[test]
+    fn determine_exit_code_strict_with_only_informational() {
+        let warns = vec![warn(DiagramWarningKind::NodeCapExceeded)];
+        assert_eq!(determine_exit_code(true, &warns), 0);
+    }
+
+    #[test]
+    fn determine_exit_code_strict_off() {
+        let warns = vec![warn(DiagramWarningKind::DanglingEdge)];
+        assert_eq!(determine_exit_code(false, &warns), 0);
+    }
+
+    #[test]
+    fn determine_exit_code_strict_no_warnings() {
+        let warns: Vec<DiagramWarning> = vec![];
+        assert_eq!(determine_exit_code(true, &warns), 0);
+    }
 }
