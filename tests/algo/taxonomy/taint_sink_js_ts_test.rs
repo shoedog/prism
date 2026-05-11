@@ -62,6 +62,55 @@ export class PageController {
 }
 
 #[test]
+fn test_nestjs_body_comment_does_not_seed_source() {
+    let source = r#"import { Body, Controller, Post } from "@nestjs/common";
+import yaml from "js-yaml";
+
+@Controller("/config")
+export class ConfigController {
+  @Post("/parse")
+  parseConfig(/* @Body() */ body: ConfigDto) {
+    return yaml.load(body.yamlContent);
+  }
+}
+"#;
+    let result = run_taint_js_ts_single(
+        source,
+        "config.ts",
+        Language::TypeScript,
+        BTreeSet::from([1]),
+    );
+    assert!(
+        !has_taint_sink(&result),
+        "NestJS source decorators must be AST decorators, not comment text in a parameter"
+    );
+}
+
+#[test]
+fn test_nestjs_controller_without_method_route_does_not_seed_source() {
+    let source = r#"import { Body, Controller } from "@nestjs/common";
+import yaml from "js-yaml";
+
+@Controller("/config")
+export class ConfigController {
+  helper(@Body() body: ConfigDto) {
+    return yaml.load(body.yamlContent);
+  }
+}
+"#;
+    let result = run_taint_js_ts_single(
+        source,
+        "config.ts",
+        Language::TypeScript,
+        BTreeSet::from([1]),
+    );
+    assert!(
+        !has_taint_sink(&result),
+        "NestJS @Controller alone should not make a method a route source"
+    );
+}
+
+#[test]
 fn test_tsx_text_interpolation_is_not_xss_sink() {
     let source = r#"import { Body, Controller, Post } from "@nestjs/common";
 

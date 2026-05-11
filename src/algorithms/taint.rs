@@ -1676,7 +1676,7 @@ fn detect_js_ts_framework_sources(
 #[derive(Clone)]
 struct JsTsParam {
     name: String,
-    text: String,
+    has_nest_source_decorator: bool,
 }
 
 fn js_ts_function_params(parsed: &ParsedFile, func: &Node<'_>) -> Vec<JsTsParam> {
@@ -1688,9 +1688,10 @@ fn js_ts_function_params(parsed: &ParsedFile, func: &Node<'_>) -> Vec<JsTsParam>
     let mut cursor = params.walk();
     for child in params.named_children(&mut cursor) {
         if let Some(name) = js_ts_param_name(parsed, &child) {
+            let has_nest_source_decorator = js_ts_param_has_nest_source_decorator(parsed, &child);
             out.push(JsTsParam {
                 name,
-                text: parsed.node_text(&child).to_string(),
+                has_nest_source_decorator,
             });
         }
     }
@@ -1778,7 +1779,7 @@ fn js_ts_framework_source_params(
                 return out;
             }
             for param in params {
-                if js_ts_param_has_nest_source_decorator(&param.text) {
+                if param.has_nest_source_decorator {
                     out.insert(param.name.clone());
                 }
             }
@@ -2165,33 +2166,97 @@ fn js_ts_module_matches_framework(module: &str, framework: &str) -> bool {
     }
 }
 
-fn js_ts_param_has_nest_source_decorator(text: &str) -> bool {
-    ["@Body", "@Query", "@Param", "@Headers", "@Req", "@Request"]
-        .iter()
-        .any(|needle| text.contains(needle))
+fn js_ts_param_has_nest_source_decorator(parsed: &ParsedFile, param: &Node<'_>) -> bool {
+    js_ts_node_has_direct_decorator_named(
+        parsed,
+        *param,
+        &["Body", "Query", "Param", "Headers", "Req", "Request"],
+    )
 }
 
 fn js_ts_has_route_decorator(parsed: &ParsedFile, func: &Node<'_>) -> bool {
-    let mut current = Some(*func);
-    while let Some(node) = current {
-        let text = parsed.node_text(&node);
-        if [
-            "@Get",
-            "@Post",
-            "@Put",
-            "@Patch",
-            "@Delete",
-            "@All",
-            "@Controller",
-        ]
-        .iter()
-        .any(|needle| text.contains(needle))
-        {
+    let route_names = ["Get", "Post", "Put", "Patch", "Delete", "All"];
+    js_ts_node_has_direct_decorator_named(parsed, *func, &route_names)
+        || js_ts_function_header_has_decorator_named(parsed, func, &route_names)
+}
+
+fn js_ts_node_has_direct_decorator_named(
+    parsed: &ParsedFile,
+    node: Node<'_>,
+    names: &[&str],
+) -> bool {
+    let mut cursor = node.walk();
+    for child in node.children(&mut cursor) {
+        if child.kind() == "decorator" && js_ts_decorator_name_is_one_of(parsed, child, names) {
             return true;
         }
-        current = node.parent();
     }
     false
+}
+
+fn js_ts_decorator_name_is_one_of(
+    parsed: &ParsedFile,
+    decorator: Node<'_>,
+    names: &[&str],
+) -> bool {
+    js_ts_decorator_name(parsed, decorator)
+        .is_some_and(|decorator_name| names.iter().any(|name| decorator_name == *name))
+}
+
+fn js_ts_function_header_has_decorator_named(
+    parsed: &ParsedFile,
+    func: &Node<'_>,
+    names: &[&str],
+) -> bool {
+    let start_line = func.start_position().row + 1;
+    let params_line = find_js_ts_parameters_node(*func)
+        .map(|params| params.start_position().row + 1)
+        .unwrap_or(start_line);
+    let window_start = start_line.saturating_sub(5).max(1);
+    for line in window_start..=params_line {
+        if names.iter().any(|name| {
+            let decorator = format!("@{}", name);
+            parsed.line_has_code_text(line, &decorator)
+        }) {
+            return true;
+        }
+    }
+    false
+}
+
+fn js_ts_decorator_name(parsed: &ParsedFile, decorator: Node<'_>) -> Option<String> {
+    let target = js_ts_first_decorator_target(parsed, decorator)?;
+    let target = unwrap_parenthesized(target);
+    let target = if parsed.language.is_call_node(target.kind()) {
+        js_ts_call_or_new_callee(target)?
+    } else {
+        target
+    };
+    let target = unwrap_parenthesized(target);
+    let name_node = if target.kind() == "member_expression" {
+        target.child_by_field_name("property")?
+    } else {
+        target
+    };
+    if !parsed.language.is_identifier_node(name_node.kind()) {
+        return None;
+    }
+    Some(
+        parsed
+            .node_text(&name_node)
+            .trim_start_matches('@')
+            .to_string(),
+    )
+}
+
+fn js_ts_first_decorator_target<'a>(parsed: &ParsedFile, decorator: Node<'a>) -> Option<Node<'a>> {
+    let mut cursor = decorator.walk();
+    let target = decorator.named_children(&mut cursor).find(|child| {
+        parsed.language.is_call_node(child.kind())
+            || child.kind() == "member_expression"
+            || parsed.language.is_identifier_node(child.kind())
+    });
+    target
 }
 
 fn js_ts_request_data_assignment_sources(
