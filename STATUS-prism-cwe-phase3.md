@@ -50,8 +50,13 @@ The initial in-tree JS/TS suppression suite reports 6/6 sanitized fixtures suppr
 
 ## Phase 3.1 Follow-Up Queue
 
-- Tighten Express/Fastify/Koa framework source detection from import-presence + canonical handler signature to constructor/receiver-aware registration where practical.
-- Port the FastAPI-style AST decorator extraction pattern to NestJS decorators instead of relying on text-substring route decorator detection.
+### Completed
+
+- Tightened Express/Fastify/Koa framework source detection from import-presence + canonical handler signature to constructor/receiver-aware registration where practical.
+- Ported NestJS source/route detection to AST-backed decorator checks instead of method/class text-substring matching.
+
+### Remaining
+
 - Make JS/TS SSRF receiver narrowing import-aware and model factory-bound clients such as `axios.create(...).get(url)`.
 - Revisit stricter guard false-positive cases after C3 validation: non-canonical URL allowlist names (`validHosts`, `APPROVED_DOMAINS`), trusted URL allowlist collections from env/config/imported constants, trusted path bases from env/config/imported constants, and safe interpreter argv shapes with spreads/conditionals.
 - Tighten JS/TS alias-edge synthesis to request-data accessors (`body`, `query`, `params`, `headers`, `cookies`, `files`, `url`, etc.) instead of any property access on the request object; this avoids over-tainting server-controlled values such as `req.method`.
