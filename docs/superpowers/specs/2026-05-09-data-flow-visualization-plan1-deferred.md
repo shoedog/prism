@@ -162,12 +162,31 @@ The cleaner answer is the second one (drop the field), but it's a schema change 
 
 ---
 
+## 7. CircularSlice diagrams are SCC-level, not per-simple-cycle
+
+**Priority:** Low (cosmetic / completeness, not correctness).
+
+**Why deferred:** Surfaced 2026-05-10 by the round-4 reviewer after the High-severity "invented edges" bug (commit `d782804`) was fixed. The fix made CircularSlice emit only real CPG `Call` / `DataFlow` edges between SCC members — so the diagram is no longer wrong. But each SCC is still rendered as one diagram regardless of how many simple cycles live inside it. For an SCC like `{a, b, c}` with edges `a→b, b→a, b→c, c→b`, the diagram shows the full strongly-connected subgraph (4 edges, 3 nodes) rather than enumerating the two distinct simple 2-cycles (`a↔b` and `b↔c`).
+
+**Impact:** Visually busier diagrams for SCCs with multiple interleaved cycles. The Bold "closing" edge marker becomes somewhat arbitrary (it picks any edge ending at the SCC's first node, or the last edge as fallback) instead of marking the back-edge of a single chosen cycle. The diagram is still a faithful representation of the strongly connected subgraph — no invented edges, no missing edges — just less crisp than per-cycle would be.
+
+**Context for future implementor:**
+- The complexity escalation: enumerating all simple cycles in an SCC is `Johnson's algorithm` territory (O((n+e)(c+1)) where c is cycle count). For Plan 1's mutual-recursion fixtures (2-3 nodes), it'd be free. For real-world SCCs with many backref cycles, it could be slow.
+- Two reasonable design points:
+  - **One diagram per simple cycle.** Use Johnson's algorithm or DFS back-edge enumeration. One `SliceGraph` per simple cycle found in the SCC. Bold edge is unambiguous (the closing back-edge of that specific cycle). Diagram count grows with cycle count.
+  - **One diagram per SCC, with all edges (status quo after `d782804`).** Simpler, predictable diagram count, busier visuals.
+- For Plan 2, if `petgraph::algo::all_simple_cycles` or similar exists by the time you implement, switching to one-per-cycle is cheap and gives nicer output. If not, the current SCC-level rendering is acceptable.
+
+**Concrete next step:** Check if `petgraph` exposes simple-cycle enumeration. If yes, switch `circular_slice.rs::slice` to iterate `petgraph::algo::all_simple_cycles(...)` per SCC instead of using the SCC node list directly. If no, leave the SCC-level rendering and revisit when petgraph adds it.
+
+---
+
 ## How to consume this list
 
 When you start Plan 2 (or any future cleanup pass), scan this file and decide which items to fold into your work:
 
 - Items 1, 2 are most likely to come up naturally during Plan 2 algorithm work — handle them when you touch the relevant code.
-- Items 3, 4, 6 are independent cleanup; do them in a "hygiene" PR if you're feeling generous, or wait until they bite.
+- Items 3, 4, 6, 7 are independent cleanup; do them in a "hygiene" PR if you're feeling generous, or wait until they bite.
 - Item 5 stays deferred unless profiling justifies the work.
 
 Mark items as resolved by removing them from this file in the PR that fixes them.
