@@ -1,10 +1,11 @@
 # STATUS: Prism CWE Coverage Phase 3 - JavaScript / TypeScript
 
 **Date:** 2026-04-28
+**Last updated:** 2026-05-12
 **From:** Prism agent
 **To:** agent-eval team
 **Re:** Phase 3 JS/TS CWE coverage implementation
-**Status:** Implementation branch in progress; awaiting eval-team C3 fixture validation.
+**Status:** Landed on `main` at `91cc0ec`; local validation and external review are clean; awaiting eval-team C3 fixture validation.
 
 ## TL;DR
 
@@ -12,7 +13,19 @@ Phase 3 adds JavaScript, TypeScript, and TSX coverage for CWE-79, CWE-89, CWE-91
 
 The implementation reuses the Phase 1/2.5 guardrails: target-scoped framework seeds, per-arg sink taint, per-call flat suppression ranges, explicit structured safe forms, and conservative sanitizer recognition.
 
-The initial in-tree JS/TS suppression suite reports 6/6 sanitized fixtures suppressed and 6/6 unsanitized fixtures detected.
+The in-tree JS/TS suppression suite reports 6/6 sanitized fixtures suppressed and 6/6 unsanitized fixtures detected.
+
+## Current Handoff State
+
+- `main` is pushed to `origin/main` at `91cc0ec` (`Add JS taint regression coverage for review findings`).
+- Local validation passed on 2026-05-12:
+  - `cargo fmt --check`
+  - `git diff --check`
+  - `cargo clippy --all-targets` (passed with existing warnings)
+  - `cargo test --test algo_taint_sink_js_ts -- --nocapture`
+  - `cargo test --tests`
+- Claude Opus max-effort review against the accumulated JS/TS Phase 3 patch reported no actionable findings.
+- Follow-up regression coverage was added for structured SSRF multi-argument sink suppression and `switch default` fallthrough/break behavior.
 
 ## What Shipped
 
@@ -36,6 +49,8 @@ The initial in-tree JS/TS suppression suite reports 6/6 sanitized fixtures suppr
 | Sanitized suppression rate >=80% | `integration_cwe_phase3_suppression` currently reports 6/6 suppressed. |
 | Unsanitized mirrors detected | `integration_cwe_phase3_suppression` currently reports 6/6 detected. |
 | Phase 1/2 regressions preserved | Phase 1 and Phase 2 suppression suites remain green. |
+| Local validation | `fmt`, whitespace check, clippy, JS/TS taint suite, and `cargo test --tests` are green as of `91cc0ec`; clippy emits existing warnings only. |
+| External code review | Claude Opus max-effort review reported no actionable findings on the accumulated diff through `91cc0ec`. |
 | Eval C3 fixture pass | Pending eval-team C3 fixture validation. |
 
 ## Intentional Limits
@@ -56,6 +71,7 @@ The initial in-tree JS/TS suppression suite reports 6/6 sanitized fixtures suppr
 - Ported NestJS source/route detection to AST-backed decorator checks instead of method/class text-substring matching.
 - Made JS/TS SSRF receiver narrowing import-aware and added factory-bound client support for `axios.create(...)`-style receivers.
 - Tightened JS/TS request-data alias synthesis to client-controlled accessors such as `body`, `query`, `params`, `headers`, `cookies`, `files`, `url`, `path`, and `originalUrl`, including optional-chain reads, while excluding server-owned request fields such as `method`.
+- Added regression coverage for structured SSRF multi-argument sink suppression and `switch default` fallthrough/break handling after external review.
 
 ### Remaining
 
