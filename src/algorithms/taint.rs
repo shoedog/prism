@@ -1256,6 +1256,9 @@ struct TaintSeed {
     file: String,
     line: usize,
     target: Option<AccessPath>,
+    start_byte: Option<usize>,
+    scope: Option<(usize, usize)>,
+    byte_scope: Option<(usize, usize)>,
 }
 
 impl TaintSeed {
@@ -1264,15 +1267,118 @@ impl TaintSeed {
             file,
             line,
             target: None,
+            start_byte: None,
+            scope: None,
+            byte_scope: None,
         }
     }
 
     fn target(file: String, line: usize, target: AccessPath) -> Self {
+        Self::target_scoped(file, line, target, None, None, None)
+    }
+
+    fn target_scoped(
+        file: String,
+        line: usize,
+        target: AccessPath,
+        start_byte: Option<usize>,
+        scope: Option<(usize, usize)>,
+        byte_scope: Option<(usize, usize)>,
+    ) -> Self {
         Self {
             file,
             line,
             target: Some(target),
+            start_byte,
+            scope,
+            byte_scope,
         }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+struct JsTsRequestDataSource {
+    line: usize,
+    target: AccessPath,
+    start_byte: Option<usize>,
+    scope: Option<(usize, usize)>,
+    byte_scope: Option<(usize, usize)>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct JsTsAliasKill {
+    line: usize,
+    byte: usize,
+    byte_scope: Option<(usize, usize)>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct JsTsAliasDef {
+    line: usize,
+    start_byte: Option<usize>,
+    scope: Option<(usize, usize)>,
+    byte_scope: Option<(usize, usize)>,
+    kills: Vec<JsTsAliasKill>,
+}
+
+type JsTsAliasDefs = BTreeMap<String, Vec<JsTsAliasDef>>;
+
+impl JsTsAliasKill {
+    fn applies_to_range(&self, line: usize, start_byte: usize, end_byte: usize) -> bool {
+        (self.line < line || (self.line == line && self.byte < end_byte))
+            && self
+                .byte_scope
+                .map(|(start, end)| start <= start_byte && end_byte <= end)
+                .unwrap_or(true)
+    }
+}
+
+impl JsTsAliasDef {
+    fn visible_on(&self, line: usize) -> bool {
+        self.line <= line
+            && self
+                .scope
+                .map(|(start, end)| start <= line && line <= end)
+                .unwrap_or(true)
+    }
+
+    fn visible_range(&self, line: usize, start_byte: usize, end_byte: usize) -> bool {
+        self.visible_on(line)
+            && (self.line < line
+                || self
+                    .start_byte
+                    .map(|def_start| def_start <= start_byte)
+                    .unwrap_or(true))
+            && self
+                .byte_scope
+                .map(|(start, end)| start <= start_byte && end_byte <= end)
+                .unwrap_or(true)
+            && !self
+                .kills
+                .iter()
+                .any(|kill| kill.applies_to_range(line, start_byte, end_byte))
+    }
+
+    fn same_binding_as(&self, other: &Self) -> bool {
+        self.line == other.line
+            && self.start_byte == other.start_byte
+            && self.scope == other.scope
+            && self.byte_scope == other.byte_scope
+    }
+}
+
+fn js_ts_alias_def(
+    line: usize,
+    start_byte: Option<usize>,
+    scope: Option<(usize, usize)>,
+    byte_scope: Option<(usize, usize)>,
+) -> JsTsAliasDef {
+    JsTsAliasDef {
+        line,
+        start_byte,
+        scope,
+        byte_scope,
+        kills: Vec::new(),
     }
 }
 
@@ -1663,11 +1769,14 @@ fn detect_js_ts_framework_sources(
 
         let assignment_sources =
             js_ts_request_data_assignment_sources(parsed, &func, framework, &source_params);
-        for (source_line, target) in assignment_sources {
-            sources.push(TaintSeed::target(
+        for source in assignment_sources {
+            sources.push(TaintSeed::target_scoped(
                 file_path.to_string(),
-                source_line,
-                target,
+                source.line,
+                source.target,
+                source.start_byte,
+                source.scope,
+                source.byte_scope,
             ));
         }
     }
@@ -2264,19 +2373,375 @@ fn js_ts_request_data_assignment_sources(
     func: &Node<'_>,
     framework: &str,
     source_params: &BTreeSet<String>,
-) -> BTreeSet<(usize, AccessPath)> {
+) -> BTreeSet<JsTsRequestDataSource> {
     let mut out = BTreeSet::new();
-    collect_js_ts_request_assignments(parsed, *func, framework, source_params, &mut out);
+    let func_start_line = func.start_position().row + 1;
+    let mut request_alias_defs = BTreeMap::new();
+    for param in source_params {
+        js_ts_add_alias_def(
+            &mut request_alias_defs,
+            param.clone(),
+            js_ts_alias_def(func_start_line, None, None, None),
+        );
+    }
+    let mut koa_request_object_alias_defs = BTreeMap::new();
+    collect_js_ts_request_assignments(
+        parsed,
+        *func,
+        func.id(),
+        framework,
+        &mut request_alias_defs,
+        &mut koa_request_object_alias_defs,
+        &mut out,
+    );
+    collect_js_ts_request_alias_source_uses(
+        parsed,
+        *func,
+        framework,
+        &request_alias_defs,
+        &koa_request_object_alias_defs,
+        &mut out,
+    );
     out
+}
+
+fn js_ts_add_alias_def(defs: &mut JsTsAliasDefs, alias: String, def: JsTsAliasDef) -> bool {
+    let entries = defs.entry(alias).or_default();
+    if entries
+        .iter()
+        .any(|existing| existing.same_binding_as(&def))
+    {
+        return false;
+    }
+    entries.push(def);
+    true
+}
+
+fn js_ts_merge_alias_defs(into: &mut JsTsAliasDefs, from: &JsTsAliasDefs) {
+    for (alias, from_defs) in from {
+        let entries = into.entry(alias.clone()).or_default();
+        for from_def in from_defs {
+            if let Some(existing) = entries
+                .iter_mut()
+                .find(|existing| existing.same_binding_as(from_def))
+            {
+                for kill in &from_def.kills {
+                    if !existing.kills.contains(kill) {
+                        existing.kills.push(*kill);
+                    }
+                }
+            } else {
+                entries.push(from_def.clone());
+            }
+        }
+    }
+}
+
+fn js_ts_active_alias_names_at_range(
+    defs: &JsTsAliasDefs,
+    line: usize,
+    start_byte: usize,
+    end_byte: usize,
+) -> BTreeSet<String> {
+    defs.iter()
+        .filter_map(|(alias, alias_defs)| {
+            alias_defs
+                .iter()
+                .any(|def| def.visible_range(line, start_byte, end_byte))
+                .then(|| alias.clone())
+        })
+        .collect()
+}
+
+fn js_ts_kill_alias_defs_at(
+    defs: &mut JsTsAliasDefs,
+    alias: &str,
+    line: usize,
+    byte: usize,
+    byte_scope: Option<(usize, usize)>,
+) {
+    let kill = JsTsAliasKill {
+        line,
+        byte,
+        byte_scope,
+    };
+    if let Some(alias_defs) = defs.get_mut(alias) {
+        for def in alias_defs {
+            if def.visible_range(line, byte, byte) && !def.kills.contains(&kill) {
+                def.kills.push(kill);
+            }
+        }
+    }
+}
+
+fn js_ts_kill_simple_lhs_alias_defs_at(
+    parsed: &ParsedFile,
+    lhs: &Node<'_>,
+    binding_node: &Node<'_>,
+    line: usize,
+    root_func_id: usize,
+    request_alias_defs: &mut JsTsAliasDefs,
+    koa_request_object_alias_defs: &mut JsTsAliasDefs,
+) -> BTreeSet<String> {
+    let byte_scope = js_ts_assignment_kill_byte_scope(parsed, binding_node, root_func_id);
+    let mut aliases = BTreeSet::new();
+    collect_js_ts_lhs_alias_identifiers(parsed, lhs, &mut aliases);
+    for alias in &aliases {
+        if alias == "_" {
+            continue;
+        }
+        js_ts_kill_alias_defs_at(
+            request_alias_defs,
+            alias,
+            line,
+            lhs.start_byte(),
+            byte_scope,
+        );
+        js_ts_kill_alias_defs_at(
+            koa_request_object_alias_defs,
+            alias,
+            line,
+            lhs.start_byte(),
+            byte_scope,
+        );
+    }
+    aliases
+}
+
+fn js_ts_assignment_kill_byte_scope(
+    parsed: &ParsedFile,
+    binding_node: &Node<'_>,
+    root_func_id: usize,
+) -> Option<(usize, usize)> {
+    if binding_node.kind() == "variable_declarator" {
+        return js_ts_assignment_target_byte_scope(parsed, binding_node, root_func_id);
+    }
+    js_ts_conditional_execution_byte_scope(parsed, binding_node, root_func_id)
+        .or_else(|| js_ts_assignment_target_byte_scope(parsed, binding_node, root_func_id))
+}
+
+fn js_ts_conditional_execution_byte_scope(
+    parsed: &ParsedFile,
+    node: &Node<'_>,
+    root_func_id: usize,
+) -> Option<(usize, usize)> {
+    let mut child = *node;
+    let mut current = child.parent();
+    while let Some(parent) = current {
+        if parent.id() == root_func_id {
+            return None;
+        }
+        if matches!(
+            parent.kind(),
+            "catch_clause" | "else_clause" | "finally_clause" | "switch_case" | "switch_default"
+        ) {
+            return Some((parent.start_byte(), parent.end_byte()));
+        }
+        if js_ts_is_conditional_execution_boundary(parsed, &parent) {
+            return Some((child.start_byte(), child.end_byte()));
+        }
+        child = parent;
+        current = parent.parent();
+    }
+    None
+}
+
+fn js_ts_is_conditional_execution_boundary(parsed: &ParsedFile, node: &Node<'_>) -> bool {
+    let kind = node.kind();
+    matches!(
+        kind,
+        "conditional_expression"
+            | "do_statement"
+            | "for_await_statement"
+            | "for_in_statement"
+            | "for_of_statement"
+            | "for_statement"
+            | "if_statement"
+            | "switch_statement"
+            | "ternary_expression"
+            | "try_statement"
+            | "while_statement"
+    ) || (kind == "binary_expression" && {
+        let text = parsed.node_text(node);
+        text.contains("&&") || text.contains("||")
+    })
+}
+
+fn collect_js_ts_lhs_alias_identifiers(
+    parsed: &ParsedFile,
+    node: &Node<'_>,
+    out: &mut BTreeSet<String>,
+) {
+    match node.kind() {
+        "identifier" | "shorthand_property_identifier_pattern" => {
+            out.insert(parsed.node_text(node).to_string());
+        }
+        "assignment_pattern"
+        | "object_assignment_pattern"
+        | "parenthesized_expression"
+        | "rest_pattern" => {
+            if let Some(child) = node
+                .child_by_field_name("left")
+                .or_else(|| node.named_child(0))
+            {
+                collect_js_ts_lhs_alias_identifiers(parsed, &child, out);
+            }
+        }
+        "pair_pattern" => {
+            if let Some(value) = node.child_by_field_name("value") {
+                collect_js_ts_lhs_alias_identifiers(parsed, &value, out);
+            } else {
+                let mut cursor = node.walk();
+                for child in node.named_children(&mut cursor) {
+                    if child.kind() == "shorthand_property_identifier_pattern" {
+                        collect_js_ts_lhs_alias_identifiers(parsed, &child, out);
+                    }
+                }
+            }
+        }
+        "member_expression" | "subscript_expression" => {}
+        _ => {
+            let mut cursor = node.walk();
+            for child in node.named_children(&mut cursor) {
+                collect_js_ts_lhs_alias_identifiers(parsed, &child, out);
+            }
+        }
+    }
+}
+
+fn js_ts_shrink_request_sources_after_unconditional_kill(
+    parsed: &ParsedFile,
+    binding_node: &Node<'_>,
+    root_func_id: usize,
+    aliases: &BTreeSet<String>,
+    line: usize,
+    kill_byte: usize,
+    out: &mut BTreeSet<JsTsRequestDataSource>,
+) {
+    if aliases.is_empty()
+        || js_ts_conditional_execution_byte_scope(parsed, binding_node, root_func_id).is_some()
+    {
+        return;
+    }
+
+    let mut removals = Vec::new();
+    let mut replacements = Vec::new();
+    for source in out.iter() {
+        if !source.target.fields.is_empty()
+            || !aliases.contains(&source.target.base)
+            || source.line > line
+            || !js_ts_line_in_scope(source.scope, line)
+        {
+            continue;
+        }
+
+        let source_start = source
+            .start_byte
+            .or_else(|| source.byte_scope.map(|(start, _)| start))
+            .unwrap_or(0);
+        if source.line == line && source_start >= kill_byte {
+            continue;
+        }
+
+        removals.push(source.clone());
+        if source.line == line {
+            if let Some(byte_scope) =
+                js_ts_intersect_byte_scopes(source.byte_scope, Some((source_start, kill_byte)))
+            {
+                let mut replacement = source.clone();
+                replacement.byte_scope = Some(byte_scope);
+                replacements.push(replacement);
+            }
+            continue;
+        }
+
+        let scope_start = source.scope.map(|(start, _)| start).unwrap_or(source.line);
+        if let Some(scope_end) = line.checked_sub(1) {
+            if scope_start <= scope_end {
+                let mut replacement = source.clone();
+                replacement.scope = Some((scope_start, scope_end));
+                replacements.push(replacement);
+            }
+        }
+    }
+
+    for source in removals {
+        out.remove(&source);
+    }
+    for source in replacements {
+        out.insert(source);
+    }
+}
+
+fn js_ts_seed_scope_contains(seed: &TaintSeed, line: usize) -> bool {
+    seed.scope
+        .map(|(start, end)| start <= line && line <= end)
+        .unwrap_or(true)
+}
+
+fn js_ts_seed_scope_contains_range(
+    parsed: &ParsedFile,
+    seed: &TaintSeed,
+    line: usize,
+    start_byte: usize,
+    end_byte: usize,
+) -> bool {
+    js_ts_seed_scope_contains(seed, line)
+        && (seed.line < line
+            || seed
+                .start_byte
+                .map(|seed_start| seed_start <= start_byte)
+                .unwrap_or(true))
+        && seed
+            .byte_scope
+            .map(|(start, end)| start <= start_byte && end_byte <= end)
+            .unwrap_or(true)
+        && seed.start_byte.is_none_or(|seed_start| {
+            !js_ts_ranges_are_in_sibling_control_flow_branches(
+                parsed.tree.root_node(),
+                seed_start,
+                seed_start,
+                start_byte,
+                end_byte,
+            )
+        })
+}
+
+fn js_ts_line_in_scope(scope: Option<(usize, usize)>, line: usize) -> bool {
+    scope
+        .map(|(start, end)| start <= line && line <= end)
+        .unwrap_or(true)
+}
+
+fn js_ts_request_source(
+    line: usize,
+    target: AccessPath,
+    start_byte: Option<usize>,
+    scope: Option<(usize, usize)>,
+    byte_scope: Option<(usize, usize)>,
+) -> JsTsRequestDataSource {
+    JsTsRequestDataSource {
+        line,
+        target,
+        start_byte,
+        scope,
+        byte_scope,
+    }
 }
 
 fn collect_js_ts_request_assignments(
     parsed: &ParsedFile,
     node: Node<'_>,
+    root_func_id: usize,
     framework: &str,
-    source_params: &BTreeSet<String>,
-    out: &mut BTreeSet<(usize, AccessPath)>,
+    request_alias_defs: &mut JsTsAliasDefs,
+    koa_request_object_alias_defs: &mut JsTsAliasDefs,
+    out: &mut BTreeSet<JsTsRequestDataSource>,
 ) {
+    if node.id() != root_func_id && parsed.language.function_node_types().contains(&node.kind()) {
+        return;
+    }
+
     if node.kind() == "variable_declarator" {
         if let (Some(lhs), Some(rhs)) = (
             node.child_by_field_name("name"),
@@ -2286,8 +2751,11 @@ fn collect_js_ts_request_assignments(
                 parsed,
                 lhs,
                 rhs,
+                node,
+                root_func_id,
                 framework,
-                source_params,
+                request_alias_defs,
+                koa_request_object_alias_defs,
                 out,
             );
         }
@@ -2303,17 +2771,197 @@ fn collect_js_ts_request_assignments(
                 parsed,
                 lhs,
                 rhs,
+                node,
+                root_func_id,
                 framework,
-                source_params,
+                request_alias_defs,
+                koa_request_object_alias_defs,
                 out,
             );
         }
         return;
     }
 
+    if matches!(node.kind(), "if_statement" | "if_expression") {
+        collect_js_ts_request_assignments_in_if(
+            parsed,
+            node,
+            root_func_id,
+            framework,
+            request_alias_defs,
+            koa_request_object_alias_defs,
+            out,
+        );
+        return;
+    }
+
     let mut cursor = node.walk();
     for child in node.named_children(&mut cursor) {
-        collect_js_ts_request_assignments(parsed, child, framework, source_params, out);
+        collect_js_ts_request_assignments(
+            parsed,
+            child,
+            root_func_id,
+            framework,
+            request_alias_defs,
+            koa_request_object_alias_defs,
+            out,
+        );
+    }
+}
+
+fn collect_js_ts_request_assignments_in_if(
+    parsed: &ParsedFile,
+    node: Node<'_>,
+    root_func_id: usize,
+    framework: &str,
+    request_alias_defs: &mut JsTsAliasDefs,
+    koa_request_object_alias_defs: &mut JsTsAliasDefs,
+    out: &mut BTreeSet<JsTsRequestDataSource>,
+) {
+    let consequence = node.child_by_field_name("consequence");
+    let alternative = node.child_by_field_name("alternative");
+    let mut cursor = node.walk();
+    for child in node.named_children(&mut cursor) {
+        if consequence.is_some_and(|branch| branch.id() == child.id())
+            || alternative.is_some_and(|branch| branch.id() == child.id())
+        {
+            continue;
+        }
+        collect_js_ts_request_assignments(
+            parsed,
+            child,
+            root_func_id,
+            framework,
+            request_alias_defs,
+            koa_request_object_alias_defs,
+            out,
+        );
+    }
+
+    let base_request_alias_defs = request_alias_defs.clone();
+    let base_koa_request_object_alias_defs = koa_request_object_alias_defs.clone();
+    let mut branch_request_alias_defs = Vec::new();
+    let mut branch_koa_request_object_alias_defs = Vec::new();
+    for branch in [consequence, alternative].into_iter().flatten() {
+        let mut request_defs = base_request_alias_defs.clone();
+        let mut koa_defs = base_koa_request_object_alias_defs.clone();
+        let branch_exits = js_ts_node_definitely_exits(branch);
+        collect_js_ts_request_assignments(
+            parsed,
+            branch,
+            root_func_id,
+            framework,
+            &mut request_defs,
+            &mut koa_defs,
+            out,
+        );
+        collect_js_ts_request_alias_source_uses(
+            parsed,
+            branch,
+            framework,
+            &request_defs,
+            &koa_defs,
+            out,
+        );
+        if branch_exits {
+            branch_request_alias_defs.push(js_ts_branch_scoped_alias_delta(
+                &request_defs,
+                &base_request_alias_defs,
+                branch,
+            ));
+            branch_koa_request_object_alias_defs.push(js_ts_branch_scoped_alias_delta(
+                &koa_defs,
+                &base_koa_request_object_alias_defs,
+                branch,
+            ));
+        } else {
+            branch_request_alias_defs.push(request_defs);
+            branch_koa_request_object_alias_defs.push(koa_defs);
+        }
+    }
+
+    for branch_defs in &branch_request_alias_defs {
+        js_ts_merge_alias_defs(request_alias_defs, branch_defs);
+    }
+    for branch_defs in &branch_koa_request_object_alias_defs {
+        js_ts_merge_alias_defs(koa_request_object_alias_defs, branch_defs);
+    }
+}
+
+fn js_ts_branch_scoped_alias_delta(
+    branch_defs: &JsTsAliasDefs,
+    base_defs: &JsTsAliasDefs,
+    branch: Node<'_>,
+) -> JsTsAliasDefs {
+    let branch_line_scope = Some((
+        branch.start_position().row + 1,
+        branch.end_position().row + 1,
+    ));
+    let branch_byte_scope = Some((branch.start_byte(), branch.end_byte()));
+    let mut out = BTreeMap::new();
+    for (alias, defs) in branch_defs {
+        for def in defs {
+            if base_defs
+                .get(alias)
+                .is_some_and(|base| base.iter().any(|base_def| base_def.same_binding_as(def)))
+            {
+                continue;
+            }
+            let mut scoped = def.clone();
+            scoped.scope = js_ts_intersect_line_scopes(scoped.scope, branch_line_scope);
+            scoped.byte_scope = js_ts_intersect_byte_scopes(scoped.byte_scope, branch_byte_scope);
+            js_ts_add_alias_def(&mut out, alias.clone(), scoped);
+        }
+    }
+    out
+}
+
+fn js_ts_intersect_line_scopes(
+    left: Option<(usize, usize)>,
+    right: Option<(usize, usize)>,
+) -> Option<(usize, usize)> {
+    match (left, right) {
+        (Some((left_start, left_end)), Some((right_start, right_end))) => {
+            let start = left_start.max(right_start);
+            let end = left_end.min(right_end);
+            (start <= end).then_some((start, end))
+        }
+        (Some(scope), None) | (None, Some(scope)) => Some(scope),
+        (None, None) => None,
+    }
+}
+
+fn js_ts_intersect_byte_scopes(
+    left: Option<(usize, usize)>,
+    right: Option<(usize, usize)>,
+) -> Option<(usize, usize)> {
+    match (left, right) {
+        (Some((left_start, left_end)), Some((right_start, right_end))) => {
+            let start = left_start.max(right_start);
+            let end = left_end.min(right_end);
+            (start <= end).then_some((start, end))
+        }
+        (Some(scope), None) | (None, Some(scope)) => Some(scope),
+        (None, None) => None,
+    }
+}
+
+fn js_ts_node_definitely_exits(node: Node<'_>) -> bool {
+    match node.kind() {
+        "return_statement" | "throw_statement" => true,
+        "else_clause" | "statement_block" => node
+            .named_child(node.named_child_count().saturating_sub(1))
+            .is_some_and(js_ts_node_definitely_exits),
+        "if_statement" | "if_expression" => {
+            let Some(consequence) = node.child_by_field_name("consequence") else {
+                return false;
+            };
+            let Some(alternative) = node.child_by_field_name("alternative") else {
+                return false;
+            };
+            js_ts_node_definitely_exits(consequence) && js_ts_node_definitely_exits(alternative)
+        }
+        _ => false,
     }
 }
 
@@ -2321,40 +2969,497 @@ fn collect_js_ts_request_assignment_targets(
     parsed: &ParsedFile,
     lhs: Node<'_>,
     rhs: Node<'_>,
+    binding_node: Node<'_>,
+    root_func_id: usize,
     framework: &str,
-    source_params: &BTreeSet<String>,
-    out: &mut BTreeSet<(usize, AccessPath)>,
+    request_alias_defs: &mut JsTsAliasDefs,
+    koa_request_object_alias_defs: &mut JsTsAliasDefs,
+    out: &mut BTreeSet<JsTsRequestDataSource>,
 ) {
-    if !node_contains_js_ts_source_access(parsed, rhs, framework, source_params) {
+    let target_line = lhs.start_position().row + 1;
+    let binding_scope = js_ts_assignment_effective_line_scope(parsed, &binding_node, root_func_id);
+    let binding_byte_scope =
+        js_ts_assignment_effective_byte_scope(parsed, &binding_node, root_func_id);
+    let alias_def = js_ts_alias_def(
+        target_line,
+        Some(lhs.start_byte()),
+        binding_scope,
+        binding_byte_scope,
+    );
+    let request_aliases = js_ts_active_alias_names_at_range(
+        request_alias_defs,
+        target_line,
+        rhs.start_byte(),
+        rhs.end_byte(),
+    );
+    let koa_request_object_aliases = js_ts_active_alias_names_at_range(
+        koa_request_object_alias_defs,
+        target_line,
+        rhs.start_byte(),
+        rhs.end_byte(),
+    );
+    if js_ts_rhs_is_bare_alias(parsed, &rhs, &request_aliases) {
+        let collected_request_data = collect_js_ts_request_destructure_targets(
+            parsed,
+            lhs,
+            framework,
+            target_line,
+            binding_scope,
+            binding_byte_scope,
+            out,
+        );
+        let collected_koa_request_alias = framework == "koa"
+            && collect_js_ts_koa_request_object_alias_destructure_targets(
+                parsed,
+                lhs,
+                target_line,
+                binding_scope,
+                binding_byte_scope,
+                koa_request_object_alias_defs,
+                out,
+                true,
+            );
+        if collected_request_data || collected_koa_request_alias {
+            return;
+        }
+        if let Some(alias) = js_ts_simple_lhs_identifier(parsed, &lhs) {
+            if alias != "_" {
+                js_ts_add_alias_def(request_alias_defs, alias, alias_def);
+            }
+            return;
+        }
+    }
+    if framework == "koa"
+        && (js_ts_rhs_is_bare_alias(parsed, &rhs, &koa_request_object_aliases)
+            || js_ts_rhs_is_koa_request_object_alias(parsed, &rhs, &request_aliases))
+    {
+        if collect_js_ts_request_object_destructure_targets(
+            parsed,
+            lhs,
+            target_line,
+            binding_scope,
+            binding_byte_scope,
+            out,
+        ) {
+            return;
+        }
+        if let Some(alias) = js_ts_simple_lhs_identifier(parsed, &lhs) {
+            if alias != "_" {
+                js_ts_add_alias_def(koa_request_object_alias_defs, alias, alias_def);
+            }
+        }
         return;
     }
-    let line = rhs.start_position().row + 1;
-    collect_js_ts_lhs_targets(parsed, lhs, line, out);
+    if !node_contains_js_ts_source_access_with_request_object_aliases(
+        parsed,
+        rhs,
+        framework,
+        &request_aliases,
+        &koa_request_object_aliases,
+    ) {
+        let killed_aliases = js_ts_kill_simple_lhs_alias_defs_at(
+            parsed,
+            &lhs,
+            &binding_node,
+            target_line,
+            root_func_id,
+            request_alias_defs,
+            koa_request_object_alias_defs,
+        );
+        js_ts_shrink_request_sources_after_unconditional_kill(
+            parsed,
+            &binding_node,
+            root_func_id,
+            &killed_aliases,
+            target_line,
+            lhs.start_byte(),
+            out,
+        );
+        return;
+    }
+    collect_js_ts_lhs_targets(
+        parsed,
+        lhs,
+        target_line,
+        binding_scope,
+        binding_byte_scope,
+        out,
+    );
 }
 
 fn collect_js_ts_lhs_targets(
     parsed: &ParsedFile,
     node: Node<'_>,
     line: usize,
-    out: &mut BTreeSet<(usize, AccessPath)>,
+    scope: Option<(usize, usize)>,
+    byte_scope: Option<(usize, usize)>,
+    out: &mut BTreeSet<JsTsRequestDataSource>,
 ) {
     match node.kind() {
         "identifier" | "shorthand_property_identifier_pattern" => {
             let name = parsed.node_text(&node);
             if name != "_" {
-                out.insert((line, AccessPath::simple(name)));
+                out.insert(js_ts_request_source(
+                    line,
+                    AccessPath::simple(name),
+                    Some(node.start_byte()),
+                    scope,
+                    byte_scope,
+                ));
             }
         }
         "member_expression" => {
-            out.insert((line, AccessPath::from_expr(parsed.node_text(&node))));
+            out.insert(js_ts_request_source(
+                line,
+                AccessPath::from_expr(parsed.node_text(&node)),
+                Some(node.start_byte()),
+                None,
+                None,
+            ));
+        }
+        "assignment_pattern" | "object_assignment_pattern" => {
+            if let Some(left) = node
+                .child_by_field_name("left")
+                .or_else(|| node.named_child(0))
+            {
+                collect_js_ts_lhs_targets(parsed, left, line, scope, byte_scope, out);
+            }
+        }
+        "pair_pattern" => {
+            if let Some(value) = node.child_by_field_name("value") {
+                collect_js_ts_lhs_targets(parsed, value, line, scope, byte_scope, out);
+            }
         }
         _ => {
             let mut cursor = node.walk();
             for child in node.named_children(&mut cursor) {
-                collect_js_ts_lhs_targets(parsed, child, line, out);
+                collect_js_ts_lhs_targets(parsed, child, line, scope, byte_scope, out);
             }
         }
     }
+}
+
+fn collect_js_ts_request_alias_source_uses(
+    parsed: &ParsedFile,
+    func: Node<'_>,
+    framework: &str,
+    request_alias_defs: &JsTsAliasDefs,
+    koa_request_object_alias_defs: &JsTsAliasDefs,
+    out: &mut BTreeSet<JsTsRequestDataSource>,
+) {
+    for (alias, alias_defs) in request_alias_defs {
+        collect_js_ts_request_alias_source_uses_for_alias(
+            parsed,
+            func,
+            framework,
+            request_alias_defs,
+            koa_request_object_alias_defs,
+            alias,
+            alias_defs,
+            false,
+            out,
+        );
+    }
+    for (alias, alias_defs) in koa_request_object_alias_defs {
+        collect_js_ts_request_alias_source_uses_for_alias(
+            parsed,
+            func,
+            framework,
+            request_alias_defs,
+            koa_request_object_alias_defs,
+            alias,
+            alias_defs,
+            true,
+            out,
+        );
+    }
+}
+
+fn collect_js_ts_request_alias_source_uses_for_alias(
+    parsed: &ParsedFile,
+    func: Node<'_>,
+    framework: &str,
+    request_alias_defs: &JsTsAliasDefs,
+    koa_request_object_alias_defs: &JsTsAliasDefs,
+    alias: &str,
+    alias_defs: &[JsTsAliasDef],
+    is_koa_request_object_alias: bool,
+    out: &mut BTreeSet<JsTsRequestDataSource>,
+) {
+    for def in alias_defs {
+        let refs = parsed.find_variable_references_scoped(&func, alias, def.line);
+        for ref_line in refs {
+            if ref_line < def.line || !def.visible_on(ref_line) {
+                continue;
+            }
+            let source_ranges = js_ts_source_access_ranges_for_alias_from_defs(
+                parsed,
+                func,
+                ref_line,
+                framework,
+                alias,
+                is_koa_request_object_alias,
+                request_alias_defs,
+                koa_request_object_alias_defs,
+            );
+            if source_ranges.is_empty() {
+                continue;
+            }
+            out.insert(js_ts_request_source(
+                ref_line,
+                AccessPath::simple(alias.to_string()),
+                None,
+                def.scope,
+                def.byte_scope,
+            ));
+        }
+    }
+}
+
+fn collect_js_ts_request_destructure_targets(
+    parsed: &ParsedFile,
+    pattern: Node<'_>,
+    framework: &str,
+    line: usize,
+    scope: Option<(usize, usize)>,
+    byte_scope: Option<(usize, usize)>,
+    out: &mut BTreeSet<JsTsRequestDataSource>,
+) -> bool {
+    if pattern.kind() != "object_pattern" {
+        return false;
+    }
+    let before = out.len();
+    let mut cursor = pattern.walk();
+    for child in pattern.named_children(&mut cursor) {
+        match child.kind() {
+            "shorthand_property_identifier_pattern" | "identifier" => {
+                let field = parsed.node_text(&child);
+                if js_ts_request_field_allowed(framework, field) {
+                    out.insert(js_ts_request_source(
+                        line,
+                        AccessPath::simple(field.to_string()),
+                        Some(child.start_byte()),
+                        scope,
+                        byte_scope,
+                    ));
+                }
+            }
+            "assignment_pattern" | "object_assignment_pattern" => {
+                let Some(left) = child
+                    .child_by_field_name("left")
+                    .or_else(|| child.named_child(0))
+                else {
+                    continue;
+                };
+                if !matches!(
+                    left.kind(),
+                    "identifier" | "shorthand_property_identifier_pattern"
+                ) {
+                    continue;
+                }
+                let field = parsed.node_text(&left);
+                if js_ts_request_field_allowed(framework, field) {
+                    out.insert(js_ts_request_source(
+                        line,
+                        AccessPath::simple(field.to_string()),
+                        Some(left.start_byte()),
+                        scope,
+                        byte_scope,
+                    ));
+                }
+            }
+            "pair_pattern" => {
+                let Some(key) = child.child_by_field_name("key") else {
+                    continue;
+                };
+                let Some(field) = js_ts_normalized_property_key(parsed, &key) else {
+                    continue;
+                };
+                if !js_ts_request_field_allowed(framework, &field) {
+                    continue;
+                }
+                if let Some(value) = child.child_by_field_name("value") {
+                    collect_js_ts_lhs_targets(parsed, value, line, scope, byte_scope, out);
+                }
+            }
+            "object_pattern" => {
+                collect_js_ts_request_destructure_targets(
+                    parsed, child, framework, line, scope, byte_scope, out,
+                );
+            }
+            _ => {}
+        }
+    }
+    out.len() > before
+}
+
+fn collect_js_ts_koa_request_object_alias_destructure_targets(
+    parsed: &ParsedFile,
+    pattern: Node<'_>,
+    line: usize,
+    scope: Option<(usize, usize)>,
+    byte_scope: Option<(usize, usize)>,
+    koa_request_object_alias_defs: &mut JsTsAliasDefs,
+    out: &mut BTreeSet<JsTsRequestDataSource>,
+    allow_alias_defs: bool,
+) -> bool {
+    if pattern.kind() != "object_pattern" {
+        return false;
+    }
+    let before = koa_request_object_alias_defs.len();
+    let source_before = out.len();
+    let mut cursor = pattern.walk();
+    for child in pattern.named_children(&mut cursor) {
+        match child.kind() {
+            "shorthand_property_identifier_pattern" | "identifier" => {
+                if allow_alias_defs && parsed.node_text(&child) == "request" {
+                    js_ts_add_alias_def(
+                        koa_request_object_alias_defs,
+                        "request".to_string(),
+                        js_ts_alias_def(line, Some(child.start_byte()), scope, byte_scope),
+                    );
+                }
+            }
+            "pair_pattern" => {
+                let Some(key) = child.child_by_field_name("key") else {
+                    continue;
+                };
+                let Some(field) = js_ts_normalized_property_key(parsed, &key) else {
+                    continue;
+                };
+                if field != "request" {
+                    continue;
+                }
+                if let Some(value) = child.child_by_field_name("value") {
+                    if value.kind() == "object_pattern" {
+                        collect_js_ts_request_object_destructure_targets(
+                            parsed, value, line, scope, byte_scope, out,
+                        );
+                    } else {
+                        if allow_alias_defs {
+                            collect_js_ts_lhs_simple_alias_defs(
+                                parsed,
+                                value,
+                                line,
+                                scope,
+                                byte_scope,
+                                koa_request_object_alias_defs,
+                            );
+                        }
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+    koa_request_object_alias_defs.len() > before || out.len() > source_before
+}
+
+fn collect_js_ts_lhs_simple_alias_defs(
+    parsed: &ParsedFile,
+    node: Node<'_>,
+    line: usize,
+    scope: Option<(usize, usize)>,
+    byte_scope: Option<(usize, usize)>,
+    defs: &mut JsTsAliasDefs,
+) {
+    match node.kind() {
+        "identifier" | "shorthand_property_identifier_pattern" => {
+            let name = parsed.node_text(&node);
+            if name != "_" {
+                js_ts_add_alias_def(
+                    defs,
+                    name.to_string(),
+                    js_ts_alias_def(line, Some(node.start_byte()), scope, byte_scope),
+                );
+            }
+        }
+        "assignment_pattern" | "object_assignment_pattern" => {
+            if let Some(left) = node
+                .child_by_field_name("left")
+                .or_else(|| node.named_child(0))
+            {
+                collect_js_ts_lhs_simple_alias_defs(parsed, left, line, scope, byte_scope, defs);
+            }
+        }
+        _ => {}
+    }
+}
+
+fn collect_js_ts_request_object_destructure_targets(
+    parsed: &ParsedFile,
+    pattern: Node<'_>,
+    line: usize,
+    scope: Option<(usize, usize)>,
+    byte_scope: Option<(usize, usize)>,
+    out: &mut BTreeSet<JsTsRequestDataSource>,
+) -> bool {
+    if pattern.kind() != "object_pattern" {
+        return false;
+    }
+    let before = out.len();
+    let mut cursor = pattern.walk();
+    for child in pattern.named_children(&mut cursor) {
+        match child.kind() {
+            "shorthand_property_identifier_pattern" | "identifier" => {
+                let field = parsed.node_text(&child);
+                if JS_TS_REQUEST_DATA_FIELDS.contains(&field) {
+                    out.insert(js_ts_request_source(
+                        line,
+                        AccessPath::simple(field.to_string()),
+                        Some(child.start_byte()),
+                        scope,
+                        byte_scope,
+                    ));
+                }
+            }
+            "assignment_pattern" | "object_assignment_pattern" => {
+                let Some(left) = child
+                    .child_by_field_name("left")
+                    .or_else(|| child.named_child(0))
+                else {
+                    continue;
+                };
+                if !matches!(
+                    left.kind(),
+                    "identifier" | "shorthand_property_identifier_pattern"
+                ) {
+                    continue;
+                }
+                let field = parsed.node_text(&left);
+                if JS_TS_REQUEST_DATA_FIELDS.contains(&field) {
+                    out.insert(js_ts_request_source(
+                        line,
+                        AccessPath::simple(field.to_string()),
+                        Some(left.start_byte()),
+                        scope,
+                        byte_scope,
+                    ));
+                }
+            }
+            "pair_pattern" => {
+                let Some(key) = child.child_by_field_name("key") else {
+                    continue;
+                };
+                let Some(field) = js_ts_normalized_property_key(parsed, &key) else {
+                    continue;
+                };
+                if !JS_TS_REQUEST_DATA_FIELDS.contains(&field.as_str()) {
+                    continue;
+                }
+                if let Some(value) = child.child_by_field_name("value") {
+                    collect_js_ts_lhs_targets(parsed, value, line, scope, byte_scope, out);
+                }
+            }
+            "object_pattern" => {
+                collect_js_ts_request_object_destructure_targets(
+                    parsed, child, line, scope, byte_scope, out,
+                );
+            }
+            _ => {}
+        }
+    }
+    out.len() > before
 }
 
 fn node_contains_js_ts_source_access(
@@ -2379,6 +3484,285 @@ fn node_contains_js_ts_source_access(
     false
 }
 
+fn node_contains_js_ts_source_access_with_request_object_aliases(
+    parsed: &ParsedFile,
+    node: Node<'_>,
+    framework: &str,
+    source_params: &BTreeSet<String>,
+    request_object_aliases: &BTreeSet<String>,
+) -> bool {
+    node_contains_js_ts_source_access(parsed, node, framework, source_params)
+        || (framework == "koa"
+            && node_contains_js_ts_request_object_source_access(
+                parsed,
+                node,
+                request_object_aliases,
+            ))
+}
+
+fn node_contains_js_ts_source_access_on_line(
+    parsed: &ParsedFile,
+    node: Node<'_>,
+    root_func_id: usize,
+    line: usize,
+    framework: &str,
+    source_params: &BTreeSet<String>,
+) -> bool {
+    if !node_contains_line(&node, line) {
+        return false;
+    }
+    if node.id() != root_func_id && parsed.language.function_node_types().contains(&node.kind()) {
+        return false;
+    }
+    let start_line = node.start_position().row + 1;
+    if start_line == line {
+        let text = parsed.node_text(&node);
+        if source_params
+            .iter()
+            .any(|param| js_ts_source_access_text_matches(text, framework, param))
+        {
+            return true;
+        }
+    }
+    let mut cursor = node.walk();
+    for child in node.named_children(&mut cursor) {
+        if node_contains_js_ts_source_access_on_line(
+            parsed,
+            child,
+            root_func_id,
+            line,
+            framework,
+            source_params,
+        ) {
+            return true;
+        }
+    }
+    false
+}
+
+fn node_contains_js_ts_source_access_on_line_with_request_object_aliases(
+    parsed: &ParsedFile,
+    node: Node<'_>,
+    root_func_id: usize,
+    line: usize,
+    framework: &str,
+    source_params: &BTreeSet<String>,
+    request_object_aliases: &BTreeSet<String>,
+) -> bool {
+    node_contains_js_ts_source_access_on_line(
+        parsed,
+        node,
+        root_func_id,
+        line,
+        framework,
+        source_params,
+    ) || (framework == "koa"
+        && node_contains_js_ts_request_object_source_access_on_line(
+            parsed,
+            node,
+            root_func_id,
+            line,
+            request_object_aliases,
+        ))
+}
+
+fn node_contains_js_ts_request_object_source_access(
+    parsed: &ParsedFile,
+    node: Node<'_>,
+    aliases: &BTreeSet<String>,
+) -> bool {
+    let text = parsed.node_text(&node);
+    if aliases.iter().any(|alias| {
+        JS_TS_REQUEST_DATA_FIELDS
+            .iter()
+            .any(|field| js_ts_field_access_text_matches(text, alias, field))
+    }) {
+        return true;
+    }
+    let mut cursor = node.walk();
+    for child in node.named_children(&mut cursor) {
+        if node_contains_js_ts_request_object_source_access(parsed, child, aliases) {
+            return true;
+        }
+    }
+    false
+}
+
+fn node_contains_js_ts_request_object_source_access_on_line(
+    parsed: &ParsedFile,
+    node: Node<'_>,
+    root_func_id: usize,
+    line: usize,
+    aliases: &BTreeSet<String>,
+) -> bool {
+    if !node_contains_line(&node, line) {
+        return false;
+    }
+    if node.id() != root_func_id && parsed.language.function_node_types().contains(&node.kind()) {
+        return false;
+    }
+    let start_line = node.start_position().row + 1;
+    if start_line == line {
+        let text = parsed.node_text(&node);
+        if aliases.iter().any(|alias| {
+            JS_TS_REQUEST_DATA_FIELDS
+                .iter()
+                .any(|field| js_ts_field_access_text_matches(text, alias, field))
+        }) {
+            return true;
+        }
+    }
+    let mut cursor = node.walk();
+    for child in node.named_children(&mut cursor) {
+        if node_contains_js_ts_request_object_source_access_on_line(
+            parsed,
+            child,
+            root_func_id,
+            line,
+            aliases,
+        ) {
+            return true;
+        }
+    }
+    false
+}
+
+const JS_TS_REQUEST_DATA_FIELDS: &[&str] = &[
+    "body",
+    "query",
+    "params",
+    "headers",
+    "cookies",
+    "files",
+    "url",
+    "path",
+    "originalUrl",
+    "host",
+    "hostname",
+];
+
+const JS_TS_KOA_DIRECT_REQUEST_DATA_FIELDS: &[&str] = &[
+    "query",
+    "params",
+    "headers",
+    "cookies",
+    "files",
+    "url",
+    "path",
+    "originalUrl",
+    "host",
+    "hostname",
+];
+
+fn js_ts_request_field_allowed(framework: &str, field: &str) -> bool {
+    match framework {
+        "fastify" | "express" => JS_TS_REQUEST_DATA_FIELDS.contains(&field),
+        "koa" => JS_TS_KOA_DIRECT_REQUEST_DATA_FIELDS.contains(&field),
+        _ => false,
+    }
+}
+
+fn js_ts_request_source_identifier(text: &str) -> bool {
+    JS_TS_REQUEST_DATA_FIELDS.contains(&text) || text == "request"
+}
+
+fn js_ts_koa_request_base_texts(param: &str) -> [String; 6] {
+    [
+        format!("{}.request", param),
+        format!("{}?.request", param),
+        format!("{}[\"request\"]", param),
+        format!("{}['request']", param),
+        format!("{}?.[\"request\"]", param),
+        format!("{}?.['request']", param),
+    ]
+}
+
+fn js_ts_koa_request_field_access_text_matches(text: &str, param: &str, field: &str) -> bool {
+    js_ts_koa_request_base_texts(param)
+        .iter()
+        .any(|base| js_ts_field_access_text_matches(text, base, field))
+}
+
+fn js_ts_normalized_property_key(parsed: &ParsedFile, key: &Node<'_>) -> Option<String> {
+    let text = parsed.node_text(key).trim();
+    let text = if let Some(inner) = text.strip_prefix('[').and_then(|s| s.strip_suffix(']')) {
+        let inner = inner.trim();
+        inner
+            .strip_prefix('"')
+            .and_then(|s| s.strip_suffix('"'))
+            .or_else(|| inner.strip_prefix('\'').and_then(|s| s.strip_suffix('\'')))?
+    } else {
+        text
+    };
+    let text = text
+        .strip_prefix('"')
+        .and_then(|s| s.strip_suffix('"'))
+        .or_else(|| text.strip_prefix('\'').and_then(|s| s.strip_suffix('\'')))
+        .unwrap_or(text);
+    (!text.is_empty()).then(|| text.to_string())
+}
+
+fn js_ts_exact_field_access_text_matches(text: &str, base: &str, field: &str) -> bool {
+    let text = text.trim();
+    if js_ts_exact_field_access_compact_text_matches(text, base, field) {
+        return true;
+    }
+    if !text.chars().any(char::is_whitespace) {
+        return false;
+    }
+    let compact = text
+        .chars()
+        .filter(|ch| !ch.is_whitespace())
+        .collect::<String>();
+    js_ts_exact_field_access_compact_text_matches(&compact, base, field)
+}
+
+fn js_ts_exact_field_access_compact_text_matches(text: &str, base: &str, field: &str) -> bool {
+    [
+        format!("{}.{}", base, field),
+        format!("{}[\"{}\"]", base, field),
+        format!("{}['{}']", base, field),
+        format!("{}?.{}", base, field),
+        format!("{}?.[\"{}\"]", base, field),
+        format!("{}?.['{}']", base, field),
+    ]
+    .iter()
+    .any(|candidate| text == candidate)
+}
+
+fn js_ts_field_access_text_matches(text: &str, base: &str, field: &str) -> bool {
+    let text = text.trim();
+    if js_ts_field_access_compact_text_matches(text, base, field) {
+        return true;
+    }
+    if !text.chars().any(char::is_whitespace) {
+        return false;
+    }
+    let compact = text
+        .chars()
+        .filter(|ch| !ch.is_whitespace())
+        .collect::<String>();
+    js_ts_field_access_compact_text_matches(&compact, base, field)
+}
+
+fn js_ts_field_access_compact_text_matches(text: &str, base: &str, field: &str) -> bool {
+    let prefixes = [
+        format!("{}.{}", base, field),
+        format!("{}[\"{}\"]", base, field),
+        format!("{}['{}']", base, field),
+        format!("{}?.{}", base, field),
+        format!("{}?.[\"{}\"]", base, field),
+        format!("{}?.['{}']", base, field),
+    ];
+    prefixes.iter().any(|prefix| {
+        text == prefix
+            || text.starts_with(&format!("{}.", prefix))
+            || text.starts_with(&format!("{}[", prefix))
+            || text.starts_with(&format!("{}?.", prefix))
+            || text.starts_with(&format!("{}?.[", prefix))
+    })
+}
+
 fn js_ts_source_access_text_matches(text: &str, framework: &str, param: &str) -> bool {
     let text = text.trim();
     match framework {
@@ -2387,33 +3771,592 @@ fn js_ts_source_access_text_matches(text: &str, framework: &str, param: &str) ->
                 || text.starts_with(&format!("{}.", param))
                 || text.starts_with(&format!("{}[", param))
         }
-        "fastify" => ["body", "query", "params", "headers"].iter().any(|field| {
-            text == format!("{}.{}", param, field)
-                || text.starts_with(&format!("{}.{}.", param, field))
-                || text.starts_with(&format!("{}.{}[", param, field))
-        }),
-        "express" => ["body", "query", "params", "headers", "cookies"]
+        "fastify" | "express" => JS_TS_REQUEST_DATA_FIELDS
             .iter()
-            .any(|field| {
-                text == format!("{}.{}", param, field)
-                    || text.starts_with(&format!("{}.{}.", param, field))
-                    || text.starts_with(&format!("{}.{}[", param, field))
-            }),
+            .any(|field| js_ts_field_access_text_matches(text, param, field)),
         "koa" => {
-            ["query", "params", "headers", "cookies"]
+            JS_TS_KOA_DIRECT_REQUEST_DATA_FIELDS
                 .iter()
-                .any(|field| {
-                    text == format!("{}.{}", param, field)
-                        || text.starts_with(&format!("{}.{}.", param, field))
-                        || text.starts_with(&format!("{}.{}[", param, field))
-                })
-                || ["body", "headers"].iter().any(|field| {
-                    text == format!("{}.request.{}", param, field)
-                        || text.starts_with(&format!("{}.request.{}.", param, field))
-                        || text.starts_with(&format!("{}.request.{}[", param, field))
-                })
+                .any(|field| js_ts_field_access_text_matches(text, param, field))
+                || JS_TS_REQUEST_DATA_FIELDS
+                    .iter()
+                    .any(|field| js_ts_koa_request_field_access_text_matches(text, param, field))
         }
         _ => false,
+    }
+}
+
+fn js_ts_framework_source_access_ranges_by_line(
+    files: &BTreeMap<String, ParsedFile>,
+    source_lines: &BTreeSet<(String, usize)>,
+) -> BTreeMap<(String, usize), Vec<(usize, usize)>> {
+    let mut out = BTreeMap::new();
+    for (file, line) in source_lines {
+        let Some(parsed) = files.get(file) else {
+            continue;
+        };
+        if !is_js_ts_language(parsed.language) {
+            continue;
+        }
+        let ranges = js_ts_request_source_access_ranges_for_line(parsed, *line);
+        if !ranges.is_empty() {
+            out.insert((file.clone(), *line), ranges);
+        }
+    }
+    out
+}
+
+fn js_ts_request_source_access_ranges_for_line(
+    parsed: &ParsedFile,
+    line: usize,
+) -> Vec<(usize, usize)> {
+    let Some(framework) = parsed.framework().map(|spec| spec.name) else {
+        return Vec::new();
+    };
+    if !matches!(framework, "fastify" | "express" | "koa") {
+        return Vec::new();
+    }
+
+    let framework_receivers = js_ts_framework_receiver_names(parsed, framework);
+    let mut ranges = Vec::new();
+    for func in parsed.all_functions() {
+        if !node_contains_line(&func, line) {
+            continue;
+        }
+        let params = js_ts_function_params(parsed, &func);
+        if params.is_empty() {
+            continue;
+        }
+        let source_params =
+            js_ts_framework_source_params(parsed, &func, framework, &params, &framework_receivers);
+        if source_params.is_empty() {
+            continue;
+        }
+
+        let func_start_line = func.start_position().row + 1;
+        let mut request_alias_defs = BTreeMap::new();
+        for param in &source_params {
+            js_ts_add_alias_def(
+                &mut request_alias_defs,
+                param.clone(),
+                js_ts_alias_def(func_start_line, None, None, None),
+            );
+        }
+        let mut koa_request_object_alias_defs = BTreeMap::new();
+        let mut assignment_sources = BTreeSet::new();
+        collect_js_ts_request_assignments(
+            parsed,
+            func,
+            func.id(),
+            framework,
+            &mut request_alias_defs,
+            &mut koa_request_object_alias_defs,
+            &mut assignment_sources,
+        );
+        for alias in request_alias_defs.keys() {
+            ranges.extend(js_ts_source_access_ranges_for_alias_from_defs(
+                parsed,
+                func,
+                line,
+                framework,
+                alias,
+                false,
+                &request_alias_defs,
+                &koa_request_object_alias_defs,
+            ));
+        }
+        for alias in koa_request_object_alias_defs.keys() {
+            ranges.extend(js_ts_source_access_ranges_for_alias_from_defs(
+                parsed,
+                func,
+                line,
+                framework,
+                alias,
+                true,
+                &request_alias_defs,
+                &koa_request_object_alias_defs,
+            ));
+        }
+    }
+    ranges.sort_unstable();
+    ranges.dedup();
+    ranges
+}
+
+fn js_ts_request_source_access_ranges_for_alias_on_line(
+    parsed: &ParsedFile,
+    line: usize,
+    alias: &str,
+) -> Vec<(usize, usize)> {
+    let Some(framework) = parsed.framework().map(|spec| spec.name) else {
+        return Vec::new();
+    };
+    if !matches!(framework, "nestjs" | "fastify" | "express" | "koa") {
+        return Vec::new();
+    }
+
+    let mut ranges = Vec::new();
+    let framework_receivers = js_ts_framework_receiver_names(parsed, framework);
+    for func in parsed.all_functions() {
+        if !node_contains_line(&func, line) {
+            continue;
+        }
+        let params = js_ts_function_params(parsed, &func);
+        if params.is_empty() {
+            continue;
+        }
+        let source_params =
+            js_ts_framework_source_params(parsed, &func, framework, &params, &framework_receivers);
+        if source_params.is_empty() {
+            continue;
+        }
+        let func_start_line = func.start_position().row + 1;
+        let mut request_alias_defs = BTreeMap::new();
+        for param in &source_params {
+            js_ts_add_alias_def(
+                &mut request_alias_defs,
+                param.clone(),
+                js_ts_alias_def(func_start_line, None, None, None),
+            );
+        }
+        let mut koa_request_object_alias_defs = BTreeMap::new();
+        let mut assignment_sources = BTreeSet::new();
+        collect_js_ts_request_assignments(
+            parsed,
+            func,
+            func.id(),
+            framework,
+            &mut request_alias_defs,
+            &mut koa_request_object_alias_defs,
+            &mut assignment_sources,
+        );
+        let is_koa_request_object_alias = framework == "koa"
+            && koa_request_object_alias_defs
+                .get(alias)
+                .is_some_and(|defs| defs.iter().any(|def| def.visible_on(line)));
+        let alias_ranges = js_ts_source_access_ranges_for_alias_from_defs(
+            parsed,
+            func,
+            line,
+            framework,
+            alias,
+            is_koa_request_object_alias,
+            &request_alias_defs,
+            &koa_request_object_alias_defs,
+        );
+        ranges.extend(alias_ranges);
+    }
+    ranges.sort_unstable();
+    ranges.dedup();
+    ranges
+}
+
+fn js_ts_alias_def_can_reach_range(
+    parsed: &ParsedFile,
+    def: &JsTsAliasDef,
+    start_byte: usize,
+    end_byte: usize,
+) -> bool {
+    def.start_byte.is_none_or(|def_start| {
+        !js_ts_ranges_are_in_sibling_control_flow_branches(
+            parsed.tree.root_node(),
+            def_start,
+            def_start,
+            start_byte,
+            end_byte,
+        )
+    })
+}
+
+fn js_ts_ranges_are_in_sibling_control_flow_branches(
+    node: Node<'_>,
+    left_start: usize,
+    left_end: usize,
+    right_start: usize,
+    right_end: usize,
+) -> bool {
+    if !node_contains_range(&node, left_start, left_end)
+        || !node_contains_range(&node, right_start, right_end)
+    {
+        return false;
+    }
+    if matches!(
+        node.kind(),
+        "if_statement" | "if_expression" | "conditional_expression" | "ternary_expression"
+    ) {
+        let left_branch = js_ts_conditional_branch_containing_range(&node, left_start, left_end);
+        let right_branch = js_ts_conditional_branch_containing_range(&node, right_start, right_end);
+        if left_branch.is_some() && right_branch.is_some() && left_branch != right_branch {
+            return true;
+        }
+    }
+    if node.kind() == "switch_statement" {
+        let left_case = js_ts_switch_case_containing_range(node, left_start, left_end);
+        let right_case = js_ts_switch_case_containing_range(node, right_start, right_end);
+        if let (Some(left_case), Some(right_case)) = (left_case, right_case) {
+            if left_case.id() != right_case.id()
+                && !js_ts_switch_cases_can_fall_through(node, left_case, right_case)
+            {
+                return true;
+            }
+        }
+    }
+    let mut cursor = node.walk();
+    for child in node.named_children(&mut cursor) {
+        if js_ts_ranges_are_in_sibling_control_flow_branches(
+            child,
+            left_start,
+            left_end,
+            right_start,
+            right_end,
+        ) {
+            return true;
+        }
+    }
+    false
+}
+
+fn js_ts_conditional_branch_containing_range(
+    node: &Node<'_>,
+    start_byte: usize,
+    end_byte: usize,
+) -> Option<&'static str> {
+    let consequence = node.child_by_field_name("consequence");
+    if consequence.is_some_and(|branch| node_contains_range(&branch, start_byte, end_byte)) {
+        return Some("consequence");
+    }
+    let alternative = node.child_by_field_name("alternative");
+    if alternative.is_some_and(|branch| node_contains_range(&branch, start_byte, end_byte)) {
+        return Some("alternative");
+    }
+    None
+}
+
+fn js_ts_switch_case_containing_range<'a>(
+    node: Node<'a>,
+    start_byte: usize,
+    end_byte: usize,
+) -> Option<Node<'a>> {
+    if matches!(node.kind(), "switch_case" | "switch_default")
+        && node_contains_range(&node, start_byte, end_byte)
+    {
+        return Some(node);
+    }
+    let mut cursor = node.walk();
+    for child in node.named_children(&mut cursor) {
+        if !node_contains_range(&child, start_byte, end_byte) {
+            continue;
+        }
+        if let Some(case_node) = js_ts_switch_case_containing_range(child, start_byte, end_byte) {
+            return Some(case_node);
+        }
+    }
+    None
+}
+
+fn js_ts_switch_cases_can_fall_through(
+    switch_node: Node<'_>,
+    left_case: Node<'_>,
+    right_case: Node<'_>,
+) -> bool {
+    if left_case.start_byte() >= right_case.start_byte() {
+        return false;
+    }
+
+    let mut cases = Vec::new();
+    collect_js_ts_switch_cases(switch_node, &mut cases);
+    let Some(left_index) = cases
+        .iter()
+        .position(|case_node| case_node.id() == left_case.id())
+    else {
+        return false;
+    };
+    let Some(right_index) = cases
+        .iter()
+        .position(|case_node| case_node.id() == right_case.id())
+    else {
+        return false;
+    };
+    if left_index >= right_index {
+        return false;
+    }
+
+    cases[left_index..right_index]
+        .iter()
+        .all(|case_node| js_ts_switch_case_can_fall_through(*case_node))
+}
+
+fn collect_js_ts_switch_cases<'a>(node: Node<'a>, out: &mut Vec<Node<'a>>) {
+    if matches!(node.kind(), "switch_case" | "switch_default") {
+        out.push(node);
+        return;
+    }
+    let mut cursor = node.walk();
+    for child in node.named_children(&mut cursor) {
+        collect_js_ts_switch_cases(child, out);
+    }
+}
+
+fn js_ts_switch_case_can_fall_through(case_node: Node<'_>) -> bool {
+    !case_node
+        .named_child(case_node.named_child_count().saturating_sub(1))
+        .is_some_and(js_ts_node_stops_switch_fallthrough)
+}
+
+fn js_ts_node_stops_switch_fallthrough(node: Node<'_>) -> bool {
+    match node.kind() {
+        "break_statement" | "continue_statement" | "return_statement" | "throw_statement" => true,
+        "statement_block" => node
+            .named_child(node.named_child_count().saturating_sub(1))
+            .is_some_and(js_ts_node_stops_switch_fallthrough),
+        "if_statement" | "if_expression" => {
+            let Some(consequence) = node.child_by_field_name("consequence") else {
+                return false;
+            };
+            let Some(alternative) = node.child_by_field_name("alternative") else {
+                return false;
+            };
+            js_ts_node_stops_switch_fallthrough(consequence)
+                && js_ts_node_stops_switch_fallthrough(alternative)
+        }
+        _ => false,
+    }
+}
+
+fn js_ts_source_access_ranges_for_alias_from_defs(
+    parsed: &ParsedFile,
+    func: Node<'_>,
+    line: usize,
+    framework: &str,
+    alias: &str,
+    is_koa_request_object_alias: bool,
+    request_alias_defs: &JsTsAliasDefs,
+    koa_request_object_alias_defs: &JsTsAliasDefs,
+) -> Vec<(usize, usize)> {
+    let mut request_aliases = BTreeSet::new();
+    if request_alias_defs
+        .get(alias)
+        .is_some_and(|defs| defs.iter().any(|def| def.visible_on(line)))
+    {
+        request_aliases.insert(alias.to_string());
+    }
+    let mut koa_request_object_aliases = BTreeSet::new();
+    if is_koa_request_object_alias
+        && koa_request_object_alias_defs
+            .get(alias)
+            .is_some_and(|defs| defs.iter().any(|def| def.visible_on(line)))
+    {
+        koa_request_object_aliases.insert(alias.to_string());
+    }
+    if request_aliases.is_empty() && koa_request_object_aliases.is_empty() {
+        return Vec::new();
+    }
+    let mut ranges = Vec::new();
+    collect_js_ts_source_access_ranges_on_line(
+        parsed,
+        func,
+        func.id(),
+        line,
+        framework,
+        &request_aliases,
+        &koa_request_object_aliases,
+        &mut ranges,
+    );
+    ranges.retain(|(start, end)| {
+        request_alias_defs.get(alias).is_some_and(|defs| {
+            defs.iter().any(|def| {
+                def.visible_range(line, *start, *end)
+                    && js_ts_alias_def_can_reach_range(parsed, def, *start, *end)
+            })
+        }) || (is_koa_request_object_alias
+            && koa_request_object_alias_defs
+                .get(alias)
+                .is_some_and(|defs| {
+                    defs.iter().any(|def| {
+                        def.visible_range(line, *start, *end)
+                            && js_ts_alias_def_can_reach_range(parsed, def, *start, *end)
+                    })
+                }))
+    });
+    ranges.sort_unstable();
+    ranges.dedup();
+    ranges
+}
+
+fn collect_js_ts_source_access_ranges_on_line(
+    parsed: &ParsedFile,
+    node: Node<'_>,
+    root_func_id: usize,
+    line: usize,
+    framework: &str,
+    request_aliases: &BTreeSet<String>,
+    koa_request_object_aliases: &BTreeSet<String>,
+    out: &mut Vec<(usize, usize)>,
+) {
+    if !node_contains_line(&node, line) {
+        return;
+    }
+    if node.id() != root_func_id && parsed.language.function_node_types().contains(&node.kind()) {
+        return;
+    }
+
+    let start_line = node.start_position().row + 1;
+    let is_source_access = if start_line == line {
+        let text = parsed.node_text(&node);
+        request_aliases
+            .iter()
+            .any(|alias| js_ts_source_access_text_matches(text, framework, alias))
+            || (framework == "koa"
+                && koa_request_object_aliases.iter().any(|alias| {
+                    JS_TS_REQUEST_DATA_FIELDS
+                        .iter()
+                        .any(|field| js_ts_field_access_text_matches(text, alias, field))
+                }))
+    } else {
+        false
+    };
+    if is_source_access && js_ts_source_access_range_node_kind(node.kind()) {
+        out.push((node.start_byte(), node.end_byte()));
+        return;
+    }
+
+    let before_children = out.len();
+    let mut cursor = node.walk();
+    for child in node.named_children(&mut cursor) {
+        collect_js_ts_source_access_ranges_on_line(
+            parsed,
+            child,
+            root_func_id,
+            line,
+            framework,
+            request_aliases,
+            koa_request_object_aliases,
+            out,
+        );
+    }
+    if out.len() > before_children {
+        return;
+    }
+
+    if start_line == line {
+        if is_source_access {
+            out.push((node.start_byte(), node.end_byte()));
+        }
+    }
+}
+
+fn js_ts_source_access_range_node_kind(kind: &str) -> bool {
+    matches!(kind, "member_expression" | "subscript_expression")
+}
+
+fn js_ts_framework_source_target_ranges_by_line(
+    files: &BTreeMap<String, ParsedFile>,
+    framework_sources: &[TaintSeed],
+) -> BTreeMap<(String, usize), Vec<(usize, usize)>> {
+    let mut targets_by_line = BTreeMap::<(String, usize), BTreeSet<String>>::new();
+    for source in framework_sources {
+        let Some(target) = source.target.as_ref() else {
+            continue;
+        };
+        let Some(parsed) = files.get(&source.file) else {
+            continue;
+        };
+        if !is_js_ts_language(parsed.language) {
+            continue;
+        }
+        targets_by_line
+            .entry((source.file.clone(), source.line))
+            .or_default()
+            .insert(target.base.clone());
+    }
+
+    let mut out = BTreeMap::new();
+    for ((file, line), targets) in targets_by_line {
+        let Some(parsed) = files.get(&file) else {
+            continue;
+        };
+        let ranges = js_ts_lhs_binding_ranges_for_line(parsed, line, &targets);
+        if !ranges.is_empty() {
+            out.insert((file, line), ranges);
+        }
+    }
+    out
+}
+
+fn js_ts_lhs_binding_ranges_for_line(
+    parsed: &ParsedFile,
+    line: usize,
+    targets: &BTreeSet<String>,
+) -> Vec<(usize, usize)> {
+    let mut ranges = Vec::new();
+    collect_js_ts_lhs_binding_ranges_on_line(
+        parsed,
+        parsed.tree.root_node(),
+        line,
+        targets,
+        &mut ranges,
+    );
+    ranges.sort_unstable();
+    ranges.dedup();
+    ranges
+}
+
+fn collect_js_ts_lhs_binding_ranges_on_line(
+    parsed: &ParsedFile,
+    node: Node<'_>,
+    line: usize,
+    targets: &BTreeSet<String>,
+    ranges: &mut Vec<(usize, usize)>,
+) {
+    if !node_contains_line(&node, line) {
+        return;
+    }
+    if node.kind() == "variable_declarator" {
+        if let Some(lhs) = node.child_by_field_name("name") {
+            collect_js_ts_lhs_identifier_ranges(parsed, lhs, targets, ranges);
+        }
+        return;
+    }
+    if parsed.language.is_assignment_node(node.kind()) {
+        if let Some(lhs) = parsed.language.assignment_target(&node) {
+            collect_js_ts_lhs_identifier_ranges(parsed, lhs, targets, ranges);
+        }
+        return;
+    }
+
+    let mut cursor = node.walk();
+    for child in node.named_children(&mut cursor) {
+        collect_js_ts_lhs_binding_ranges_on_line(parsed, child, line, targets, ranges);
+    }
+}
+
+fn collect_js_ts_lhs_identifier_ranges(
+    parsed: &ParsedFile,
+    node: Node<'_>,
+    targets: &BTreeSet<String>,
+    ranges: &mut Vec<(usize, usize)>,
+) {
+    match node.kind() {
+        "identifier" | "shorthand_property_identifier_pattern" => {
+            if targets.contains(parsed.node_text(&node)) {
+                ranges.push((node.start_byte(), node.end_byte()));
+            }
+        }
+        "assignment_pattern" | "object_assignment_pattern" => {
+            if let Some(left) = node
+                .child_by_field_name("left")
+                .or_else(|| node.named_child(0))
+            {
+                collect_js_ts_lhs_identifier_ranges(parsed, left, targets, ranges);
+            }
+        }
+        "member_expression" => {}
+        _ => {
+            let mut cursor = node.walk();
+            for child in node.named_children(&mut cursor) {
+                collect_js_ts_lhs_identifier_ranges(parsed, child, targets, ranges);
+            }
+        }
     }
 }
 
@@ -2926,6 +4869,9 @@ fn synthesize_target_seed_paths(seeds: &[TaintSeed], ctx: &CpgContext, paths: &m
         let mut edges = Vec::new();
         let reachable_dfg = ctx.cpg.dfg_forward_reachable(&from);
         for target_loc in reachable_dfg {
+            if !js_ts_seed_scope_contains(seed, target_loc.line) {
+                continue;
+            }
             if target_loc.file == seed.file
                 && target_loc.function == func_name
                 && target_loc.line <= seed.line
@@ -2985,21 +4931,81 @@ fn synthesize_direct_target_reference_edges(
     ctx: &TargetSeedSynthesisContext<'_>,
     edges: &mut Vec<FlowEdge>,
 ) {
-    let refs =
-        ctx.parsed
-            .find_variable_references_scoped(&ctx.func, &ctx.target.base, ctx.seed.line);
+    let js_ts_request_source =
+        js_ts_request_source_seed_framework_and_params(ctx).map(|(framework, params)| {
+            let koa_request_object_aliases =
+                if framework == "koa" && js_ts_seed_is_koa_request_object_alias(ctx) {
+                    std::iter::once(ctx.target.base.clone()).collect()
+                } else {
+                    BTreeSet::new()
+                };
+            (
+                framework,
+                std::iter::once(ctx.target.base.clone())
+                    .chain(params)
+                    .collect::<BTreeSet<_>>(),
+                koa_request_object_aliases,
+            )
+        });
     let allow_same_line_refs = is_js_ts_language(ctx.parsed.language);
-    for ref_line in refs {
+    let refs = if allow_same_line_refs {
+        js_ts_variable_reference_ranges_scoped(
+            ctx.parsed,
+            ctx.func,
+            &ctx.target.base,
+            ctx.seed.line,
+        )
+    } else {
+        ctx.parsed
+            .find_variable_references_scoped(&ctx.func, &ctx.target.base, ctx.seed.line)
+            .into_iter()
+            .map(|line| (line, 0, usize::MAX))
+            .collect()
+    };
+    for (ref_line, ref_start, ref_end) in refs {
         if ref_line < ctx.seed.line || (!allow_same_line_refs && ref_line == ctx.seed.line) {
             continue;
         }
-        if let Some(cfg_set) = ctx.reachable {
-            if !reference_line_cfg_reachable(
+        if allow_same_line_refs
+            && ref_line == ctx.seed.line
+            && ctx.seed.start_byte == Some(ref_start)
+        {
+            continue;
+        }
+        if !js_ts_seed_scope_contains_range(ctx.parsed, ctx.seed, ref_line, ref_start, ref_end) {
+            continue;
+        }
+        if ref_line != ctx.seed.line {
+            if let Some(cfg_set) = ctx.reachable {
+                if !reference_line_cfg_reachable(
+                    ctx.parsed,
+                    &ctx.func,
+                    &ctx.seed.file,
+                    ref_line,
+                    cfg_set,
+                ) {
+                    continue;
+                }
+            }
+        }
+        if let Some((framework, source_params, koa_request_object_aliases)) = &js_ts_request_source
+        {
+            let source_ranges = js_ts_request_source_access_ranges_for_alias_on_line(
                 ctx.parsed,
-                &ctx.func,
-                &ctx.seed.file,
                 ref_line,
-                cfg_set,
+                &ctx.target.base,
+            );
+            if source_ranges.is_empty() {
+                continue;
+            }
+            if !node_contains_js_ts_source_access_on_line_with_request_object_aliases(
+                ctx.parsed,
+                ctx.func,
+                ctx.func.id(),
+                ref_line,
+                framework,
+                source_params,
+                koa_request_object_aliases,
             ) {
                 continue;
             }
@@ -3024,6 +5030,41 @@ fn synthesize_direct_target_reference_edges(
     }
 }
 
+fn js_ts_variable_reference_ranges_scoped(
+    parsed: &ParsedFile,
+    func: Node<'_>,
+    var_name: &str,
+    def_line: usize,
+) -> Vec<(usize, usize, usize)> {
+    let scoped_lines = parsed.find_variable_references_scoped(&func, var_name, def_line);
+    let mut refs = Vec::new();
+    collect_js_ts_identifier_reference_ranges(parsed, func, var_name, &scoped_lines, &mut refs);
+    refs.sort_unstable();
+    refs.dedup();
+    refs
+}
+
+fn collect_js_ts_identifier_reference_ranges(
+    parsed: &ParsedFile,
+    node: Node<'_>,
+    var_name: &str,
+    scoped_lines: &BTreeSet<usize>,
+    out: &mut Vec<(usize, usize, usize)>,
+) {
+    let line = node.start_position().row + 1;
+    if scoped_lines.contains(&line)
+        && node.kind() == "identifier"
+        && parsed.node_text(&node) == var_name
+    {
+        out.push((line, node.start_byte(), node.end_byte()));
+    }
+
+    let mut cursor = node.walk();
+    for child in node.named_children(&mut cursor) {
+        collect_js_ts_identifier_reference_ranges(parsed, child, var_name, scoped_lines, out);
+    }
+}
+
 fn synthesize_js_ts_assignment_alias_edges(
     ctx: &TargetSeedSynthesisContext<'_>,
     edges: &mut Vec<FlowEdge>,
@@ -3036,15 +5077,66 @@ fn synthesize_js_ts_assignment_alias_edges(
     collect_js_ts_assignment_like_nodes(ctx.func, ctx.parsed, &mut assignments);
     assignments.sort_by_key(|node| node.start_byte());
 
+    let mut request_alias_defs = BTreeMap::new();
+    let mut koa_request_object_alias_defs = BTreeMap::new();
+    let js_ts_request_source = js_ts_request_source_seed_framework_and_params(ctx);
     let mut alias_defs = BTreeMap::new();
-    alias_defs.insert(ctx.target.base.clone(), ctx.seed.line);
+    if js_ts_request_source.is_none() {
+        js_ts_add_alias_def(
+            &mut alias_defs,
+            ctx.target.base.clone(),
+            js_ts_alias_def(
+                ctx.seed.line,
+                ctx.seed.start_byte,
+                ctx.seed.scope,
+                ctx.seed.byte_scope,
+            ),
+        );
+    }
+    if let Some((framework, _)) = &js_ts_request_source {
+        if *framework == "koa" && js_ts_seed_is_koa_request_object_alias(ctx) {
+            js_ts_add_alias_def(
+                &mut koa_request_object_alias_defs,
+                ctx.target.base.clone(),
+                js_ts_alias_def(
+                    ctx.seed.line,
+                    ctx.seed.start_byte,
+                    ctx.seed.scope,
+                    ctx.seed.byte_scope,
+                ),
+            );
+        } else {
+            js_ts_add_alias_def(
+                &mut request_alias_defs,
+                ctx.target.base.clone(),
+                js_ts_alias_def(
+                    ctx.seed.line,
+                    ctx.seed.start_byte,
+                    ctx.seed.scope,
+                    ctx.seed.byte_scope,
+                ),
+            );
+        }
+    }
 
     let mut changed = true;
     while changed {
         changed = false;
         for assignment in &assignments {
             let assignment_line = assignment.start_position().row + 1;
-            if assignment_line <= ctx.seed.line {
+            if assignment_line < ctx.seed.line
+                || (assignment_line == ctx.seed.line
+                    && ctx
+                        .seed
+                        .start_byte
+                        .is_some_and(|seed_start| assignment.start_byte() <= seed_start))
+            {
+                continue;
+            }
+            if !js_ts_seed_scope_contains(ctx.seed, assignment_line) {
+                continue;
+            }
+            if js_ts_enclosing_function_id(ctx.parsed, assignment) != Some(ctx.func.id()) {
                 continue;
             }
             if let Some(cfg_set) = ctx.reachable {
@@ -3061,76 +5153,416 @@ fn synthesize_js_ts_assignment_alias_edges(
             let Some((lhs, rhs)) = js_ts_assignment_target_and_value(ctx.parsed, assignment) else {
                 continue;
             };
-            let rhs_uses_alias = alias_defs.iter().any(|(alias, alias_line)| {
-                *alias_line < assignment_line && node_contains_identifier(ctx.parsed, &rhs, alias)
+            let alias_scope =
+                js_ts_assignment_effective_line_scope(ctx.parsed, assignment, ctx.func.id());
+            let alias_byte_scope =
+                js_ts_assignment_effective_byte_scope(ctx.parsed, assignment, ctx.func.id());
+            let alias_def = js_ts_alias_def(
+                assignment_line,
+                Some(lhs.start_byte()),
+                alias_scope,
+                alias_byte_scope,
+            );
+            if let Some((framework, source_params)) = &js_ts_request_source {
+                let request_aliases = js_ts_active_alias_names_at_range(
+                    &request_alias_defs,
+                    assignment_line,
+                    rhs.start_byte(),
+                    rhs.end_byte(),
+                )
+                .into_iter()
+                .chain(source_params.iter().cloned())
+                .collect::<BTreeSet<_>>();
+                let koa_request_object_aliases = js_ts_active_alias_names_at_range(
+                    &koa_request_object_alias_defs,
+                    assignment_line,
+                    rhs.start_byte(),
+                    rhs.end_byte(),
+                );
+                if js_ts_rhs_is_bare_alias(ctx.parsed, &rhs, &request_aliases) {
+                    if let Some(alias) = js_ts_simple_lhs_identifier(ctx.parsed, &lhs) {
+                        if alias != "_"
+                            && js_ts_add_alias_def(
+                                &mut request_alias_defs,
+                                alias.clone(),
+                                alias_def,
+                            )
+                        {
+                            add_js_ts_request_alias_reference_edges(
+                                ctx,
+                                edges,
+                                &alias,
+                                assignment_line,
+                                alias_scope,
+                                framework,
+                                &source_params
+                                    .iter()
+                                    .cloned()
+                                    .chain(request_aliases)
+                                    .chain(std::iter::once(alias.clone()))
+                                    .collect(),
+                                &koa_request_object_aliases,
+                            );
+                            changed = true;
+                        }
+                    }
+                    continue;
+                }
+                if *framework == "koa"
+                    && (js_ts_rhs_is_bare_alias(ctx.parsed, &rhs, &koa_request_object_aliases)
+                        || js_ts_rhs_is_koa_request_object_alias(
+                            ctx.parsed,
+                            &rhs,
+                            &request_aliases,
+                        ))
+                {
+                    if let Some(alias) = js_ts_simple_lhs_identifier(ctx.parsed, &lhs) {
+                        if alias != "_"
+                            && js_ts_add_alias_def(
+                                &mut koa_request_object_alias_defs,
+                                alias.clone(),
+                                alias_def,
+                            )
+                        {
+                            add_js_ts_request_alias_reference_edges(
+                                ctx,
+                                edges,
+                                &alias,
+                                assignment_line,
+                                alias_scope,
+                                framework,
+                                &request_aliases,
+                                &source_params
+                                    .iter()
+                                    .cloned()
+                                    .chain(koa_request_object_aliases)
+                                    .chain(std::iter::once(alias.clone()))
+                                    .collect(),
+                            );
+                            changed = true;
+                        }
+                    }
+                    continue;
+                }
+                if node_contains_js_ts_source_access_with_request_object_aliases(
+                    ctx.parsed,
+                    rhs,
+                    framework,
+                    &request_aliases,
+                    &koa_request_object_aliases,
+                ) {
+                    continue;
+                }
+                js_ts_kill_simple_lhs_alias_defs_at(
+                    ctx.parsed,
+                    &lhs,
+                    assignment,
+                    assignment_line,
+                    ctx.func.id(),
+                    &mut request_alias_defs,
+                    &mut koa_request_object_alias_defs,
+                );
+            }
+            let rhs_uses_alias = alias_defs.iter().any(|(alias, alias_defs)| {
+                alias_defs.iter().any(|alias_def| {
+                    alias_def.visible_range(assignment_line, rhs.start_byte(), rhs.end_byte())
+                        && node_contains_identifier(ctx.parsed, &rhs, alias)
+                })
             });
             if !rhs_uses_alias {
                 continue;
             }
-            for alias in assignment_lhs_identifiers(ctx.parsed, &lhs) {
-                if alias == "_" {
-                    continue;
-                }
-                if alias_defs.contains_key(&alias) {
-                    continue;
-                }
-                alias_defs.insert(alias.clone(), assignment_line);
+            if add_js_ts_tainted_assignment_aliases(
+                ctx,
+                edges,
+                &lhs,
+                assignment,
+                assignment_line,
+                &mut alias_defs,
+            ) {
                 changed = true;
-                if !edges.iter().any(|edge| {
-                    edge.to.file == ctx.seed.file
-                        && edge.to.line == assignment_line
-                        && edge.to.var_name() == alias
-                }) {
-                    edges.push(FlowEdge {
-                        from: ctx.from.clone(),
-                        to: VarLocation {
-                            file: ctx.seed.file.clone(),
-                            function: ctx.func_name.to_string(),
-                            line: assignment_line,
-                            path: AccessPath::simple(alias.clone()),
-                            kind: VarAccessKind::Def,
-                        },
-                    });
-                }
-                let refs =
-                    ctx.parsed
-                        .find_variable_references_scoped(&ctx.func, &alias, assignment_line);
-                for ref_line in refs {
-                    if ref_line <= assignment_line {
-                        continue;
-                    }
-                    if let Some(cfg_set) = ctx.reachable {
-                        if !reference_line_cfg_reachable(
-                            ctx.parsed,
-                            &ctx.func,
-                            &ctx.seed.file,
-                            ref_line,
-                            cfg_set,
-                        ) {
-                            continue;
-                        }
-                    }
-                    if edges.iter().any(|edge| {
-                        edge.to.file == ctx.seed.file
-                            && edge.to.line == ref_line
-                            && edge.to.var_name() == alias
-                    }) {
-                        continue;
-                    }
-                    edges.push(FlowEdge {
-                        from: ctx.from.clone(),
-                        to: VarLocation {
-                            file: ctx.seed.file.clone(),
-                            function: ctx.func_name.to_string(),
-                            line: ref_line,
-                            path: AccessPath::simple(alias.clone()),
-                            kind: VarAccessKind::Use,
-                        },
-                    });
-                }
             }
         }
     }
+}
+
+fn add_js_ts_tainted_assignment_aliases(
+    ctx: &TargetSeedSynthesisContext<'_>,
+    edges: &mut Vec<FlowEdge>,
+    lhs: &Node<'_>,
+    binding_node: &Node<'_>,
+    assignment_line: usize,
+    alias_defs: &mut JsTsAliasDefs,
+) -> bool {
+    let mut added = false;
+    let alias_scope =
+        js_ts_assignment_effective_line_scope(ctx.parsed, binding_node, ctx.func.id());
+    let alias_byte_scope =
+        js_ts_assignment_effective_byte_scope(ctx.parsed, binding_node, ctx.func.id());
+    for alias in assignment_lhs_identifiers(ctx.parsed, lhs) {
+        if alias == "_" {
+            continue;
+        }
+        let alias_def = js_ts_alias_def(
+            assignment_line,
+            Some(lhs.start_byte()),
+            alias_scope,
+            alias_byte_scope,
+        );
+        if !js_ts_add_alias_def(alias_defs, alias.clone(), alias_def.clone()) {
+            continue;
+        }
+        added = true;
+        if !edges.iter().any(|edge| {
+            edge.to.file == ctx.seed.file
+                && edge.to.line == assignment_line
+                && edge.to.var_name() == alias
+        }) {
+            edges.push(FlowEdge {
+                from: ctx.from.clone(),
+                to: VarLocation {
+                    file: ctx.seed.file.clone(),
+                    function: ctx.func_name.to_string(),
+                    line: assignment_line,
+                    path: AccessPath::simple(alias.clone()),
+                    kind: VarAccessKind::Def,
+                },
+            });
+        }
+        let refs = ctx
+            .parsed
+            .find_variable_references_scoped(&ctx.func, &alias, assignment_line);
+        for ref_line in refs {
+            if ref_line <= assignment_line {
+                continue;
+            }
+            if !js_ts_seed_scope_contains(ctx.seed, ref_line) || !alias_def.visible_on(ref_line) {
+                continue;
+            }
+            if let Some(cfg_set) = ctx.reachable {
+                if !reference_line_cfg_reachable(
+                    ctx.parsed,
+                    &ctx.func,
+                    &ctx.seed.file,
+                    ref_line,
+                    cfg_set,
+                ) {
+                    continue;
+                }
+            }
+            if edges.iter().any(|edge| {
+                edge.to.file == ctx.seed.file
+                    && edge.to.line == ref_line
+                    && edge.to.var_name() == alias
+            }) {
+                continue;
+            }
+            edges.push(FlowEdge {
+                from: ctx.from.clone(),
+                to: VarLocation {
+                    file: ctx.seed.file.clone(),
+                    function: ctx.func_name.to_string(),
+                    line: ref_line,
+                    path: AccessPath::simple(alias.clone()),
+                    kind: VarAccessKind::Use,
+                },
+            });
+        }
+    }
+    added
+}
+
+fn add_js_ts_request_alias_reference_edges(
+    ctx: &TargetSeedSynthesisContext<'_>,
+    edges: &mut Vec<FlowEdge>,
+    alias: &str,
+    assignment_line: usize,
+    alias_scope: Option<(usize, usize)>,
+    framework: &str,
+    request_aliases: &BTreeSet<String>,
+    koa_request_object_aliases: &BTreeSet<String>,
+) {
+    let refs = ctx
+        .parsed
+        .find_variable_references_scoped(&ctx.func, alias, assignment_line);
+    for ref_line in refs {
+        if ref_line < assignment_line {
+            continue;
+        }
+        if !js_ts_seed_scope_contains(ctx.seed, ref_line)
+            || !js_ts_line_in_scope(alias_scope, ref_line)
+        {
+            continue;
+        }
+        if let Some(cfg_set) = ctx.reachable {
+            if !reference_line_cfg_reachable(
+                ctx.parsed,
+                &ctx.func,
+                &ctx.seed.file,
+                ref_line,
+                cfg_set,
+            ) {
+                continue;
+            }
+        }
+        if !node_contains_js_ts_source_access_on_line_with_request_object_aliases(
+            ctx.parsed,
+            ctx.func,
+            ctx.func.id(),
+            ref_line,
+            framework,
+            request_aliases,
+            koa_request_object_aliases,
+        ) {
+            continue;
+        }
+        let source_ranges =
+            js_ts_request_source_access_ranges_for_alias_on_line(ctx.parsed, ref_line, alias);
+        if source_ranges.is_empty() {
+            continue;
+        }
+        if edges.iter().any(|edge| {
+            edge.to.file == ctx.seed.file && edge.to.line == ref_line && edge.to.var_name() == alias
+        }) {
+            continue;
+        }
+        edges.push(FlowEdge {
+            from: ctx.from.clone(),
+            to: VarLocation {
+                file: ctx.seed.file.clone(),
+                function: ctx.func_name.to_string(),
+                line: ref_line,
+                path: AccessPath::simple(alias.to_string()),
+                kind: VarAccessKind::Use,
+            },
+        });
+    }
+}
+
+fn js_ts_request_source_seed_framework_and_params(
+    ctx: &TargetSeedSynthesisContext<'_>,
+) -> Option<(&'static str, BTreeSet<String>)> {
+    if !ctx.target.is_simple() {
+        return None;
+    }
+    let framework = ctx.parsed.framework()?.name;
+    if !matches!(framework, "fastify" | "express" | "koa") {
+        return None;
+    }
+    let params = js_ts_function_params(ctx.parsed, &ctx.func);
+    if params.is_empty() {
+        return None;
+    }
+    let framework_receivers = js_ts_framework_receiver_names(ctx.parsed, framework);
+    let source_params = js_ts_framework_source_params(
+        ctx.parsed,
+        &ctx.func,
+        framework,
+        &params,
+        &framework_receivers,
+    );
+    if source_params.contains(&ctx.target.base)
+        && ctx.seed.line == ctx.func.start_position().row + 1
+    {
+        return Some((framework, source_params));
+    }
+    let target_aliases = std::iter::once(ctx.target.base.clone()).collect::<BTreeSet<_>>();
+    if framework == "koa"
+        && node_contains_js_ts_request_object_source_access_on_line(
+            ctx.parsed,
+            ctx.func,
+            ctx.func.id(),
+            ctx.seed.line,
+            &target_aliases,
+        )
+    {
+        return Some((framework, source_params));
+    }
+    if !node_contains_js_ts_source_access_on_line(
+        ctx.parsed,
+        ctx.func,
+        ctx.func.id(),
+        ctx.seed.line,
+        framework,
+        &target_aliases,
+    ) {
+        return None;
+    }
+    let source_aliases = source_params
+        .iter()
+        .cloned()
+        .chain(target_aliases)
+        .collect::<BTreeSet<_>>();
+    Some((framework, source_aliases))
+}
+
+fn js_ts_seed_is_koa_request_object_alias(ctx: &TargetSeedSynthesisContext<'_>) -> bool {
+    if ctx.parsed.framework().map(|spec| spec.name) != Some("koa") {
+        return false;
+    }
+    let target_aliases = std::iter::once(ctx.target.base.clone()).collect::<BTreeSet<_>>();
+    node_contains_js_ts_request_object_source_access_on_line(
+        ctx.parsed,
+        ctx.func,
+        ctx.func.id(),
+        ctx.seed.line,
+        &target_aliases,
+    )
+}
+
+fn js_ts_rhs_is_bare_alias(
+    parsed: &ParsedFile,
+    rhs: &Node<'_>,
+    aliases: &BTreeSet<String>,
+) -> bool {
+    let rhs = unwrap_js_ts_alias_rhs(*rhs);
+    rhs.kind() == "identifier" && aliases.contains(parsed.node_text(&rhs))
+}
+
+fn js_ts_rhs_is_koa_request_object_alias(
+    parsed: &ParsedFile,
+    rhs: &Node<'_>,
+    context_aliases: &BTreeSet<String>,
+) -> bool {
+    let rhs = unwrap_js_ts_alias_rhs(*rhs);
+    let text = parsed.node_text(&rhs).trim();
+    context_aliases
+        .iter()
+        .any(|alias| js_ts_exact_field_access_text_matches(text, alias, "request"))
+}
+
+fn unwrap_js_ts_alias_rhs(mut node: Node<'_>) -> Node<'_> {
+    loop {
+        let unwrapped = unwrap_parenthesized(node);
+        if unwrapped.id() != node.id() {
+            node = unwrapped;
+            continue;
+        }
+
+        let next = match node.kind() {
+            "as_expression" | "satisfies_expression" => node
+                .child_by_field_name("left")
+                .or_else(|| node.child_by_field_name("value"))
+                .or_else(|| node.named_child(0)),
+            "non_null_expression" => node
+                .child_by_field_name("argument")
+                .or_else(|| node.named_child(0)),
+            "type_assertion" => node
+                .child_by_field_name("expression")
+                .or_else(|| node.child_by_field_name("value"))
+                .or_else(|| node.named_child(node.named_child_count().saturating_sub(1))),
+            _ => None,
+        };
+
+        match next {
+            Some(next) if next.id() != node.id() => node = next,
+            _ => return node,
+        }
+    }
+}
+
+fn js_ts_simple_lhs_identifier(parsed: &ParsedFile, lhs: &Node<'_>) -> Option<String> {
+    (lhs.kind() == "identifier").then(|| parsed.node_text(lhs).to_string())
 }
 
 fn reference_line_cfg_reachable(
@@ -3325,7 +5757,18 @@ fn arg_node_taints_match(parsed: &ParsedFile, arg_node: &Node<'_>, path: &FlowPa
             let name = parsed.node_text(arg_node);
             let identifier_line = arg_node.start_position().row + 1;
             path.edges.iter().any(|e| {
-                e.to.file == parsed.path && e.to.line == identifier_line && e.to.var_name() == name
+                if e.to.file != parsed.path
+                    || e.to.line != identifier_line
+                    || e.to.var_name() != name
+                {
+                    return false;
+                }
+                let source_ranges = js_ts_request_source_access_ranges_for_alias_on_line(
+                    parsed,
+                    identifier_line,
+                    name,
+                );
+                source_ranges.is_empty() || node_in_ranges(arg_node, &source_ranges)
             })
         }
 
@@ -4596,6 +7039,227 @@ fn js_ts_binding_is_function_scoped_var(binding_node: &Node<'_>) -> bool {
         .is_some_and(|parent| parent.kind() == "variable_declaration")
 }
 
+fn js_ts_binding_scope_line_range(
+    parsed: &ParsedFile,
+    binding_node: &Node<'_>,
+    root_func_id: usize,
+) -> Option<(usize, usize)> {
+    js_ts_binding_scope_node(parsed, binding_node, root_func_id)
+        .map(|scope| (scope.start_position().row + 1, scope.end_position().row + 1))
+}
+
+fn js_ts_binding_scope_byte_range(
+    parsed: &ParsedFile,
+    binding_node: &Node<'_>,
+    root_func_id: usize,
+) -> Option<(usize, usize)> {
+    js_ts_binding_scope_node(parsed, binding_node, root_func_id)
+        .map(|scope| (scope.start_byte(), scope.end_byte()))
+}
+
+fn js_ts_binding_scope_node<'a>(
+    parsed: &ParsedFile,
+    binding_node: &Node<'a>,
+    root_func_id: usize,
+) -> Option<Node<'a>> {
+    let function_scoped = js_ts_binding_is_function_scoped_var(binding_node);
+    let mut current = Some(*binding_node);
+    while let Some(parent) = current {
+        if parent.id() == root_func_id {
+            return Some(parent);
+        }
+        if function_scoped {
+            if parent.id() != binding_node.id()
+                && parsed
+                    .language
+                    .function_node_types()
+                    .contains(&parent.kind())
+            {
+                return Some(parent);
+            }
+        } else if js_ts_is_lexical_scope_boundary(parsed, parent.kind()) {
+            return Some(parent);
+        }
+        current = parent.parent();
+    }
+    None
+}
+
+fn js_ts_assignment_target_scope(
+    parsed: &ParsedFile,
+    binding_node: &Node<'_>,
+    root_func_id: usize,
+) -> Option<(usize, usize)> {
+    if binding_node.kind() == "variable_declarator" {
+        js_ts_binding_scope_line_range(parsed, binding_node, root_func_id)
+    } else {
+        js_ts_assignment_existing_binding_scope(parsed, binding_node, root_func_id)
+    }
+}
+
+fn js_ts_assignment_target_byte_scope(
+    parsed: &ParsedFile,
+    binding_node: &Node<'_>,
+    root_func_id: usize,
+) -> Option<(usize, usize)> {
+    if binding_node.kind() == "variable_declarator" {
+        js_ts_binding_scope_byte_range(parsed, binding_node, root_func_id)
+    } else {
+        js_ts_assignment_existing_binding_byte_scope(parsed, binding_node, root_func_id)
+    }
+}
+
+fn js_ts_assignment_effective_line_scope(
+    parsed: &ParsedFile,
+    binding_node: &Node<'_>,
+    root_func_id: usize,
+) -> Option<(usize, usize)> {
+    let binding_scope = js_ts_assignment_target_scope(parsed, binding_node, root_func_id);
+    let exiting_branch_scope =
+        js_ts_enclosing_definitely_exiting_branch(binding_node, root_func_id).map(|branch| {
+            (
+                branch.start_position().row + 1,
+                branch.end_position().row + 1,
+            )
+        });
+    js_ts_intersect_line_scopes(binding_scope, exiting_branch_scope)
+}
+
+fn js_ts_assignment_effective_byte_scope(
+    parsed: &ParsedFile,
+    binding_node: &Node<'_>,
+    root_func_id: usize,
+) -> Option<(usize, usize)> {
+    let binding_scope = js_ts_assignment_target_byte_scope(parsed, binding_node, root_func_id);
+    let exiting_branch_scope =
+        js_ts_enclosing_definitely_exiting_branch(binding_node, root_func_id)
+            .map(|branch| (branch.start_byte(), branch.end_byte()));
+    js_ts_intersect_byte_scopes(binding_scope, exiting_branch_scope)
+}
+
+fn js_ts_enclosing_definitely_exiting_branch<'a>(
+    node: &Node<'a>,
+    root_func_id: usize,
+) -> Option<Node<'a>> {
+    let mut child = *node;
+    let mut current = child.parent();
+    while let Some(parent) = current {
+        if parent.id() == root_func_id {
+            return None;
+        }
+        if matches!(parent.kind(), "if_statement" | "if_expression") {
+            let consequence = parent.child_by_field_name("consequence");
+            let alternative = parent.child_by_field_name("alternative");
+            if (consequence.is_some_and(|branch| branch.id() == child.id())
+                || alternative.is_some_and(|branch| branch.id() == child.id()))
+                && js_ts_node_definitely_exits(child)
+            {
+                return Some(child);
+            }
+        }
+        child = parent;
+        current = parent.parent();
+    }
+    None
+}
+
+fn js_ts_assignment_existing_binding_scope(
+    parsed: &ParsedFile,
+    assignment_node: &Node<'_>,
+    root_func_id: usize,
+) -> Option<(usize, usize)> {
+    let (lhs, _) = js_ts_assignment_target_and_value(parsed, assignment_node)?;
+    let aliases = js_ts_lhs_binding_names(parsed, &lhs);
+    if aliases.is_empty() {
+        return None;
+    }
+    let func = parsed.enclosing_function(assignment_node.start_position().row + 1)?;
+    if func.id() != root_func_id {
+        return None;
+    }
+
+    let mut assignments = Vec::new();
+    collect_js_ts_assignment_like_nodes(func, parsed, &mut assignments);
+    assignments
+        .into_iter()
+        .filter(|candidate| {
+            candidate.kind() == "variable_declarator"
+                && candidate.start_byte() < assignment_node.start_byte()
+                && js_ts_binding_scope_reaches_call(
+                    parsed,
+                    root_func_id,
+                    assignment_node,
+                    candidate,
+                )
+                && js_ts_assignment_target(parsed, candidate).is_some_and(|candidate_lhs| {
+                    js_ts_lhs_binding_names(parsed, &candidate_lhs)
+                        .iter()
+                        .any(|name| aliases.contains(name))
+                })
+        })
+        .max_by_key(|candidate| candidate.start_byte())
+        .and_then(|candidate| js_ts_binding_scope_line_range(parsed, &candidate, root_func_id))
+}
+
+fn js_ts_assignment_existing_binding_byte_scope(
+    parsed: &ParsedFile,
+    assignment_node: &Node<'_>,
+    root_func_id: usize,
+) -> Option<(usize, usize)> {
+    let (lhs, _) = js_ts_assignment_target_and_value(parsed, assignment_node)?;
+    let aliases = js_ts_lhs_binding_names(parsed, &lhs);
+    if aliases.is_empty() {
+        return None;
+    }
+    let func = parsed.enclosing_function(assignment_node.start_position().row + 1)?;
+    if func.id() != root_func_id {
+        return None;
+    }
+
+    let mut assignments = Vec::new();
+    collect_js_ts_assignment_like_nodes(func, parsed, &mut assignments);
+    assignments
+        .into_iter()
+        .filter(|candidate| {
+            candidate.kind() == "variable_declarator"
+                && candidate.start_byte() < assignment_node.start_byte()
+                && js_ts_binding_scope_reaches_call(
+                    parsed,
+                    root_func_id,
+                    assignment_node,
+                    candidate,
+                )
+                && js_ts_assignment_target(parsed, candidate).is_some_and(|candidate_lhs| {
+                    js_ts_lhs_binding_names(parsed, &candidate_lhs)
+                        .iter()
+                        .any(|name| aliases.contains(name))
+                })
+        })
+        .max_by_key(|candidate| candidate.start_byte())
+        .and_then(|candidate| js_ts_binding_scope_byte_range(parsed, &candidate, root_func_id))
+}
+
+fn js_ts_lhs_binding_names(parsed: &ParsedFile, lhs: &Node<'_>) -> BTreeSet<String> {
+    let mut names = BTreeSet::new();
+    collect_js_ts_lhs_alias_identifiers(parsed, lhs, &mut names);
+    names.remove("_");
+    names
+}
+
+fn js_ts_is_lexical_scope_boundary(parsed: &ParsedFile, kind: &str) -> bool {
+    parsed.language.is_scope_block(kind)
+        || matches!(
+            kind,
+            "for_statement"
+                | "for_in_statement"
+                | "for_of_statement"
+                | "for_await_statement"
+                | "switch_statement"
+                | "switch_body"
+                | "catch_clause"
+        )
+}
+
 fn js_ts_function_declaration_shadows_call(
     parsed: &ParsedFile,
     func: &Node<'_>,
@@ -4657,7 +7321,7 @@ fn js_ts_nearest_scope_block_id(
         if parent.id() == root_func_id {
             return Some(root_func_id);
         }
-        if parsed.language.is_scope_block(parent.kind()) {
+        if js_ts_is_lexical_scope_boundary(parsed, parent.kind()) {
             return Some(parent.id());
         }
         current = parent.parent();
@@ -7686,9 +10350,16 @@ fn js_ts_safe_structured_sink_call_ranges(
             if !call_passes_sink_semantics(parsed, call, pat) {
                 continue;
             }
-            if sink_call_has_tainted_arg_in_path(parsed, call, pat, path)
-                && flow_path_cleansed_for_sink_call(parsed, cpg, path, line, pat, call)
-            {
+            let tainted_arg = sink_call_has_tainted_arg_in_path(parsed, call, pat, path);
+            if !tainted_arg {
+                if let Some(function) = call.child_by_field_name("function") {
+                    ranges.push((function.start_byte(), function.end_byte()));
+                } else {
+                    ranges.push((call.start_byte(), call.end_byte()));
+                }
+                break;
+            }
+            if flow_path_cleansed_for_sink_call(parsed, cpg, path, line, pat, call) {
                 ranges.push((call.start_byte(), call.end_byte()));
                 break;
             }
@@ -7797,6 +10468,103 @@ fn node_in_ranges(node: &Node<'_>, ranges: &[(usize, usize)]) -> bool {
     ranges
         .iter()
         .any(|(start, end)| *start <= node.start_byte() && node.end_byte() <= *end)
+}
+
+fn node_contains_node(outer: &Node<'_>, inner: &Node<'_>) -> bool {
+    outer.start_byte() <= inner.start_byte() && inner.end_byte() <= outer.end_byte()
+}
+
+fn node_contains_range(node: &Node<'_>, start_byte: usize, end_byte: usize) -> bool {
+    node.start_byte() <= start_byte && end_byte <= node.end_byte()
+}
+
+fn node_contains_any_range(node: &Node<'_>, ranges: &[(usize, usize)]) -> bool {
+    ranges
+        .iter()
+        .any(|(start, end)| node_contains_range(node, *start, *end))
+}
+
+fn call_arguments_node<'a>(call: &Node<'a>) -> Option<Node<'a>> {
+    call.child_by_field_name("arguments").or_else(|| {
+        let mut cursor = call.walk();
+        let found = call
+            .named_children(&mut cursor)
+            .find(|child| child.kind() == "arguments");
+        found
+    })
+}
+
+fn js_ts_call_has_tainted_or_source_arg(
+    parsed: &ParsedFile,
+    call: &Node<'_>,
+    path: &FlowPath,
+    source_ranges: &[(usize, usize)],
+) -> bool {
+    let Some(arguments) = call_arguments_node(call) else {
+        return false;
+    };
+    let mut cursor = arguments.walk();
+    let has_tainted_arg = arguments.named_children(&mut cursor).any(|arg| {
+        arg_node_taints_match(parsed, &arg, path) || node_contains_any_range(&arg, source_ranges)
+    });
+    has_tainted_arg
+}
+
+fn js_ts_enclosing_call_for_function_identifier<'a>(
+    parsed: &ParsedFile,
+    id: &Node<'a>,
+) -> Option<Node<'a>> {
+    let mut current = id.parent();
+    while let Some(parent) = current {
+        if parsed.language.is_call_node(parent.kind()) {
+            return parent
+                .child_by_field_name("function")
+                .filter(|function| node_contains_node(function, id))
+                .map(|_| parent);
+        }
+        current = parent.parent();
+    }
+    None
+}
+
+fn js_ts_enclosing_assignment_for_lhs_identifier<'a>(
+    parsed: &ParsedFile,
+    id: &Node<'a>,
+) -> Option<Node<'a>> {
+    let mut current = Some(*id);
+    while let Some(node) = current {
+        if node.kind() == "variable_declarator" || parsed.language.is_assignment_node(node.kind()) {
+            return js_ts_assignment_target(parsed, &node)
+                .filter(|lhs| node_contains_node(lhs, id))
+                .map(|_| node);
+        }
+        current = node.parent();
+    }
+    None
+}
+
+fn js_ts_assignment_has_tainted_or_source_rhs(
+    parsed: &ParsedFile,
+    assignment: &Node<'_>,
+    path: &FlowPath,
+    source_ranges: &[(usize, usize)],
+) -> bool {
+    js_ts_assignment_value(parsed, assignment).is_some_and(|rhs| {
+        arg_node_taints_match(parsed, &rhs, path) || node_contains_any_range(&rhs, source_ranges)
+    })
+}
+
+fn js_ts_flat_sink_identifier_has_tainted_request_source(
+    parsed: &ParsedFile,
+    id: &Node<'_>,
+    path: &FlowPath,
+    source_ranges: &[(usize, usize)],
+) -> bool {
+    js_ts_enclosing_call_for_function_identifier(parsed, id).is_some_and(|call| {
+        js_ts_call_has_tainted_or_source_arg(parsed, &call, path, source_ranges)
+    }) || js_ts_enclosing_assignment_for_lhs_identifier(parsed, id).is_some_and(|assignment| {
+        js_ts_assignment_has_tainted_or_source_rhs(parsed, &assignment, path, source_ranges)
+    })
 }
 
 /// Returns true if the function body containing `line` in `parsed` has at least one
@@ -8043,17 +10811,29 @@ pub fn slice(
         .collect::<BTreeSet<_>>()
         .into_iter()
         .collect();
-    // Lines whose identifiers are recognized framework SOURCE calls (e.g.
-    // `r.URL.Query()`, `c.Query()`, `mux.Vars()`). These overlap textually with
-    // the cross-language flat sink registry — `Query` is in SINK_PATTERNS as a
-    // generic `sql.Query` substring matcher — so without this set, a tainted
-    // source line would double-fire as a sink. Used during sink evaluation to
-    // suppress flat substring matches on lines positively identified as sources.
+    // Lines whose identifiers are recognized framework SOURCE calls or JS/TS
+    // request-data accesses (e.g. `r.URL.Query()`, `c.Query()`,
+    // `req.query.term`). These overlap textually with the cross-language flat
+    // sink registry — `Query` is in SINK_PATTERNS as a generic `sql.Query`
+    // substring matcher — so without this set, a tainted source line would
+    // double-fire as a sink. Used during sink evaluation to suppress flat
+    // substring matches on lines positively identified as sources; structured
+    // sink checks still run for true source==sink lines.
     let framework_source_set: BTreeSet<(String, usize)> = framework_sources
         .iter()
-        .filter(|s| s.target.is_none())
+        .filter(|s| {
+            s.target.is_none()
+                || ctx
+                    .files
+                    .get(&s.file)
+                    .is_some_and(|parsed| is_js_ts_language(parsed.language))
+        })
         .map(|s| (s.file.clone(), s.line))
         .collect();
+    let framework_source_target_ranges =
+        js_ts_framework_source_target_ranges_by_line(ctx.files, &framework_sources);
+    let framework_source_access_ranges =
+        js_ts_framework_source_access_ranges_by_line(ctx.files, &framework_source_set);
 
     // Forward propagation from each source (CFG-constrained when available)
     let mut paths = ctx.cpg.taint_forward_cfg(&taint_sources);
@@ -8136,21 +10916,50 @@ pub fn slice(
                 // sinks, not sources) are not affected by this filter.
                 let is_framework_source_line =
                     framework_source_set.contains(&(edge.to.file.clone(), edge.to.line));
-                if !is_framework_source_line {
-                    let ids = parsed.identifiers_on_line(edge.to.line);
-                    for id in &ids {
-                        if node_in_ranges(id, &cleansed_structured_ranges) {
-                            continue;
-                        }
-                        let text = parsed.node_text(id);
-                        if all_sinks.iter().any(|s| matches_sink(text, s)) {
-                            sink_lines.insert((edge.to.file.clone(), edge.to.line));
-                            if let Some(first_edge) = path.edges.first() {
-                                sink_to_path_sources
-                                    .entry((edge.to.file.clone(), edge.to.line))
-                                    .or_default()
-                                    .insert((first_edge.from.file.clone(), first_edge.from.line));
-                            }
+                let framework_source_access_ranges =
+                    framework_source_access_ranges.get(&(edge.to.file.clone(), edge.to.line));
+                let framework_source_target_ranges =
+                    framework_source_target_ranges.get(&(edge.to.file.clone(), edge.to.line));
+                let is_js_ts_framework_source_line =
+                    is_framework_source_line && is_js_ts_language(parsed.language);
+                let ids = parsed.identifiers_on_line(edge.to.line);
+                for id in &ids {
+                    if node_in_ranges(id, &cleansed_structured_ranges) {
+                        continue;
+                    }
+                    let text = parsed.node_text(id);
+                    if is_framework_source_line
+                        && (!is_js_ts_language(parsed.language)
+                            || js_ts_request_source_identifier(text)
+                            || framework_source_target_ranges
+                                .is_some_and(|ranges| node_in_ranges(id, ranges))
+                            || framework_source_access_ranges
+                                .is_some_and(|ranges| node_in_ranges(id, ranges)))
+                    {
+                        continue;
+                    }
+                    if !all_sinks.iter().any(|s| matches_sink(text, s)) {
+                        continue;
+                    }
+                    if is_js_ts_framework_source_line
+                        && !js_ts_flat_sink_identifier_has_tainted_request_source(
+                            parsed,
+                            id,
+                            path,
+                            framework_source_access_ranges
+                                .map(|ranges| ranges.as_slice())
+                                .unwrap_or(&[]),
+                        )
+                    {
+                        continue;
+                    }
+                    {
+                        sink_lines.insert((edge.to.file.clone(), edge.to.line));
+                        if let Some(first_edge) = path.edges.first() {
+                            sink_to_path_sources
+                                .entry((edge.to.file.clone(), edge.to.line))
+                                .or_default()
+                                .insert((first_edge.from.file.clone(), first_edge.from.line));
                         }
                     }
                 }

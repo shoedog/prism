@@ -150,6 +150,79 @@ app.get("/search", function(req, res) {
 }
 
 #[test]
+fn test_express_inline_query_reaches_inner_html() {
+    let source = r#"import express from "express";
+
+const app = express();
+
+app.get("/profile", function(req, res) {
+  document.getElementById("out").innerHTML = req.query.name;
+});
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        has_taint_sink_on(&result, 6),
+        "framework-source line suppression should not hide real JS/TS flat sinks on the same line"
+    );
+}
+
+#[test]
+fn test_express_compound_same_line_query_reaches_inner_html() {
+    let source = r#"import express from "express";
+
+const app = express();
+
+app.get("/profile", function(req, res) {
+  req.query.enabled && (document.getElementById("out").innerHTML = req.query.name);
+});
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        has_taint_sink_on(&result, 6),
+        "source access ranges should stay narrow enough for later same-line flat sinks to fire"
+    );
+}
+
+#[test]
+fn test_express_nested_flat_sink_inside_safe_structured_call_still_fires() {
+    let source = r#"import express from "express";
+
+const app = express();
+
+app.get("/profile", function(req, res) {
+  const name = req.query.name;
+  return fetch("https://example.com", document.getElementById("out").innerHTML = name);
+});
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        has_taint_sink_on(&result, 7),
+        "safe structured calls must not suppress nested flat sinks in other arguments"
+    );
+}
+
+#[test]
+fn test_express_same_line_source_target_name_does_not_suppress_real_flat_sink() {
+    let source = r#"import express from "express";
+
+const app = express();
+
+app.get("/profile", function(req, res) {
+  const innerHTML = req.query.name; document.getElementById("out").innerHTML = innerHTML;
+});
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        has_taint_sink_on(&result, 6),
+        "source target bindings should not suppress same-named flat sinks elsewhere on the line"
+    );
+}
+
+#[test]
 fn test_express_import_unregistered_handler_shape_does_not_taint() {
     let source = r#"import express from "express";
 
@@ -227,6 +300,1288 @@ app.get("/item/:id", function(req, res) {
     assert!(
         has_taint_sink_on(&result, 8),
         "Express request-data aliases should keep propagating through standard JS DFG"
+    );
+}
+
+#[test]
+fn test_express_request_method_assignment_does_not_taint() {
+    let source = r#"import express from "express";
+
+const app = express();
+
+app.get("/search", function(req, res) {
+  const method = req.method;
+  return sequelize.query(`SELECT * FROM methods WHERE name = '${method}'`);
+});
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        !has_taint_sink(&result),
+        "server-controlled req.method should not be synthesized as request-data taint"
+    );
+}
+
+#[test]
+fn test_express_request_method_stays_untainted_after_query_read() {
+    let source = r#"import express from "express";
+
+const app = express();
+
+app.get("/search", function(req, res) {
+  const target = req.query.target_url;
+  const method = req.method;
+  return sequelize.query(`SELECT * FROM methods WHERE name = '${method}'`);
+});
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        !has_taint_sink(&result),
+        "reading allowed request data must not taint later server-controlled request fields"
+    );
+}
+
+#[test]
+fn test_express_request_alias_query_reaches_ssrf() {
+    let source = r#"import express from "express";
+import axios from "axios";
+
+const app = express();
+
+app.get("/proxy", function(req, res) {
+  const request = req;
+  const target = request.query.target_url;
+  return axios.get(target);
+});
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        has_taint_sink(&result),
+        "aliases of the request object should still expose allowed request-data accessors"
+    );
+}
+
+#[test]
+fn test_express_typescript_asserted_request_alias_query_reaches_ssrf() {
+    let source = r#"import express, { Request } from "express";
+import axios from "axios";
+
+const app = express();
+
+app.get("/proxy", function(req, res) {
+  const request = req as Request;
+  const target = request.query.target_url;
+  return axios.get(target);
+});
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.ts", Language::TypeScript, BTreeSet::from([1]));
+    assert!(
+        has_taint_sink_on(&result, 9),
+        "TypeScript assertion wrappers around request aliases should still expose request data"
+    );
+}
+
+#[test]
+fn test_express_request_alias_query_direct_sink_reaches_ssrf() {
+    let source = r#"import express from "express";
+import axios from "axios";
+
+const app = express();
+
+app.get("/proxy", function(req, res) {
+  const request = req;
+  return axios.get(request.query.target_url);
+});
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        has_taint_sink_on(&result, 8),
+        "request-object aliases should reach direct request-data sink dereferences"
+    );
+}
+
+#[test]
+fn test_express_block_scoped_request_alias_reaches_sink_inside_block() {
+    let source = r#"import express from "express";
+import axios from "axios";
+
+const app = express();
+
+app.get("/proxy", function(req, res) {
+  if (req.query.enabled) {
+    const request = req;
+    return axios.get(request.query.target_url);
+  }
+  return res.send("ok");
+});
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        has_taint_sink_on(&result, 9),
+        "block-scoped request aliases should remain usable within their lexical scope"
+    );
+}
+
+#[test]
+fn test_express_multiline_direct_query_reaches_ssrf() {
+    let source = r#"import express from "express";
+import axios from "axios";
+
+const app = express();
+
+app.get("/proxy", function(req, res) {
+  return axios.get(
+    req
+      .query
+      .target_url
+  );
+});
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        has_taint_sink(&result),
+        "multi-line request member accesses should still reach direct sinks"
+    );
+}
+
+#[test]
+fn test_express_multiline_request_alias_query_reaches_ssrf() {
+    let source = r#"import express from "express";
+import axios from "axios";
+
+const app = express();
+
+app.get("/proxy", function(req, res) {
+  const request = req;
+  return axios.get(
+    request
+      .query
+      .target_url
+  );
+});
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        has_taint_sink(&result),
+        "multi-line request alias member accesses should still reach direct sinks"
+    );
+}
+
+#[test]
+fn test_express_request_alias_same_line_reaches_ssrf() {
+    let source = r#"import express from "express";
+import axios from "axios";
+
+const app = express();
+
+app.get("/proxy", function(req, res) { const request = req; return axios.get(request.query.target_url); });
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        has_taint_sink_on(&result, 6),
+        "same-line request aliases should remain visible when the line dereferences allowed request data"
+    );
+}
+
+#[test]
+fn test_express_request_alias_method_does_not_taint() {
+    let source = r#"import express from "express";
+
+const app = express();
+
+app.get("/search", function(req, res) {
+  const request = req;
+  const method = request.method;
+  return sequelize.query(`SELECT * FROM methods WHERE name = '${method}'`);
+});
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        !has_taint_sink(&result),
+        "request-object aliases should not make server-controlled method fields tainted"
+    );
+}
+
+#[test]
+fn test_express_request_alias_same_line_definition_method_does_not_taint() {
+    let source = r#"import express from "express";
+
+const app = express();
+
+app.get("/search", function(req, res) {
+  const request = req; return sequelize.query(`SELECT * FROM methods WHERE name = '${request.method}'`);
+});
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        !has_taint_sink(&result),
+        "bare request-alias definitions must not taint server-owned same-line fields"
+    );
+}
+
+#[test]
+fn test_express_request_alias_method_stays_untainted_after_query_read() {
+    let source = r#"import express from "express";
+
+const app = express();
+
+app.get("/search", function(req, res) {
+  const request = req;
+  const target = request.query.target_url;
+  const method = request.method;
+  return sequelize.query(`SELECT * FROM methods WHERE name = '${method}'`);
+});
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        !has_taint_sink(&result),
+        "reading allowed request data through an alias must not taint later server-owned alias fields"
+    );
+}
+
+#[test]
+fn test_express_block_scoped_request_alias_does_not_leak_to_outer_binding() {
+    let source = r#"import express from "express";
+
+const app = express();
+
+app.get("/search", function(req, res) {
+  const request = { body: { term: "safe" } };
+  if (req.query.enabled) {
+    const request = req;
+    const local = request.body.term;
+  }
+  return sequelize.query(`SELECT * FROM users WHERE name = '${request.body.term}'`);
+});
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        !has_taint_sink(&result),
+        "request aliases declared inside a block must not taint same-named outer bindings"
+    );
+}
+
+#[test]
+fn test_express_same_line_block_scoped_request_alias_does_not_leak_after_block() {
+    let source = r#"import express from "express";
+import axios from "axios";
+const app = express();
+app.get("/proxy", function(req, res) { const request = { query: { target_url: "https://safe.example" } }; if (req.query.enabled) { const request = req; } return fetch(request.query.target_url); });
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        !has_taint_sink(&result),
+        "byte-scoped request aliases should not leak past a same-line closing block"
+    );
+}
+
+#[test]
+fn test_express_same_line_block_scoped_alias_does_not_taint_later_assignment() {
+    let source = r#"import express from "express";
+
+const app = express();
+
+app.get("/proxy", function(req, res) {
+  const request = { query: { target_url: "https://safe.example" } };
+  let target = "https://safe.example";
+  if (req.query.enabled) { const request = req; } target = request.query.target_url;
+  return fetch(target);
+});
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        !has_taint_sink(&result),
+        "block-scoped request aliases should not taint later same-line code after the block closes"
+    );
+}
+
+#[test]
+fn test_express_same_line_block_scoped_target_does_not_taint_outer_target_after_block() {
+    let source = r#"import express from "express";
+const app = express();
+app.get("/proxy", function(req, res) { let target = "https://safe.example"; if (req.query.enabled) { const request = req; const target = request.query.target_url; } return fetch(target); });
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        !has_taint_sink(&result),
+        "same-line block-scoped target seeds should not leak to same-named outer targets after the block"
+    );
+}
+
+#[test]
+fn test_express_same_line_request_alias_use_before_definition_does_not_taint() {
+    let source = r#"import express from "express";
+
+const app = express();
+
+app.get("/proxy", function(req, res) { return fetch(request.query.target_url); const request = req; });
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        !has_taint_sink(&result),
+        "request aliases should not be visible before their same-line definition"
+    );
+}
+
+#[test]
+fn test_express_block_scoped_assignment_alias_does_not_leak_to_outer_binding() {
+    let source = r#"import express from "express";
+
+const app = express();
+
+app.get("/proxy", function(req, res) {
+  const request = { query: { target_url: "https://safe.example" } };
+  if (req.query.enabled) {
+    let request;
+    request = req;
+  }
+  return fetch(request.query.target_url);
+});
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        !has_taint_sink(&result),
+        "request aliases assigned to block-scoped bindings must not leak to same-named outer bindings"
+    );
+}
+
+#[test]
+fn test_express_request_alias_safe_reassignment_drops_request_taint() {
+    let source = r#"import express from "express";
+import axios from "axios";
+
+const app = express();
+
+app.get("/proxy", function(req, res) {
+  let request = req;
+  request = { query: { target_url: "https://safe.example" } };
+  return fetch(request.query.target_url);
+});
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        !has_taint_sink(&result),
+        "safe reassignments to request aliases should end the previous request alias"
+    );
+}
+
+#[test]
+fn test_express_request_alias_conditional_safe_reassignment_preserves_request_taint() {
+    let source = r#"import express from "express";
+import axios from "axios";
+
+const app = express();
+
+app.get("/proxy", function(req, res) {
+  let request = req;
+  if (req.query.safe) {
+    request = { query: { target_url: "https://safe.example" } };
+  }
+  return fetch(request.query.target_url);
+});
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        has_taint_sink_on(&result, 11),
+        "conditional safe reassignments must not erase the request alias on paths that skip the branch"
+    );
+}
+
+#[test]
+fn test_express_request_alias_assignment_does_not_leak_to_else_branch() {
+    let source = r#"import express from "express";
+import axios from "axios";
+
+const app = express();
+
+app.get("/proxy", function(req, res) {
+  let request = {};
+  if (Math.random() > 0.5) {
+    request = req;
+  } else {
+    return fetch(request.query.target_url);
+  }
+});
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        !has_taint_sink(&result),
+        "request aliases assigned in one branch must not taint sibling branches"
+    );
+}
+
+#[test]
+fn test_express_request_alias_assignment_does_not_leak_to_ternary_sibling_arm() {
+    let source = r#"import express from "express";
+
+const app = express();
+
+app.get("/proxy", function(req, res) {
+  let request = { query: { target_url: "https://safe.example" } };
+  Math.random() > 0.5 ? (request = req) : fetch(request.query.target_url);
+});
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        !has_taint_sink(&result),
+        "request aliases assigned in one ternary arm must not taint sibling arms"
+    );
+}
+
+#[test]
+fn test_express_request_data_assignment_does_not_leak_to_else_branch() {
+    let source = r#"import express from "express";
+const app = express();
+
+app.get("/proxy", function(req, res) {
+  let target = "https://safe.example";
+  if (Math.random() > 0.5) {
+    target = req.query.target_url;
+  } else {
+    return fetch(target);
+  }
+});
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        !has_taint_sink(&result),
+        "request-data assignments in one branch must not taint sibling branches"
+    );
+}
+
+#[test]
+fn test_express_request_alias_assignment_in_branch_reaches_after_if() {
+    let source = r#"import express from "express";
+import axios from "axios";
+
+const app = express();
+
+app.get("/proxy", function(req, res) {
+  let request = {};
+  if (Math.random() > 0.5) {
+    request = req;
+  }
+  return fetch(request.query.target_url);
+});
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        has_taint_sink_on(&result, 11),
+        "request aliases assigned in a branch should conservatively taint later post-branch uses"
+    );
+}
+
+#[test]
+fn test_express_request_alias_assignment_in_returning_branch_does_not_reach_after_if() {
+    let source = r#"import express from "express";
+
+const app = express();
+
+app.get("/proxy", function(req, res) {
+  let request = { query: { target_url: "https://safe.example" } };
+  if (req.query.enabled) {
+    request = req;
+    return res.send("stopped");
+  }
+  return fetch(request.query.target_url);
+});
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        !has_taint_sink(&result),
+        "request aliases from terminating branches should not taint post-branch code"
+    );
+}
+
+#[test]
+fn test_express_request_data_assignment_in_returning_branch_does_not_reach_after_if() {
+    let source = r#"import express from "express";
+
+const app = express();
+
+app.get("/proxy", function(req, res) {
+  let target = "https://safe.example";
+  if (req.query.enabled) {
+    target = req.query.target_url;
+    return res.send("stopped");
+  }
+  return fetch(target);
+});
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        !has_taint_sink(&result),
+        "request-data assignments in terminating branches should not taint post-branch code"
+    );
+}
+
+#[test]
+fn test_express_request_alias_short_circuit_safe_reassignment_preserves_request_taint() {
+    let source = r#"import express from "express";
+
+const app = express();
+
+app.get("/proxy", function(req, res) {
+  let request = req;
+  req.query.safe && (request = { query: { target_url: "https://safe.example" } });
+  return fetch(request.query.target_url);
+});
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        has_taint_sink_on(&result, 8),
+        "short-circuit safe reassignments must not erase request aliases on paths that skip the RHS"
+    );
+}
+
+#[test]
+fn test_express_destructured_request_alias_safe_reassignment_drops_request_taint() {
+    let source = r#"import express from "express";
+
+const app = express();
+
+app.get("/proxy", function(req, res) {
+  let { query } = req;
+  ({ query } = { query: { target_url: "https://safe.example" } });
+  return fetch(query.target_url);
+});
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        !has_taint_sink(&result),
+        "safe destructuring reassignments should end previous destructured request aliases"
+    );
+}
+
+#[test]
+fn test_express_same_line_sink_before_safe_reassignment_still_taints() {
+    let source = r#"import express from "express";
+const app = express();
+app.get("/proxy", function(req, res) { let target = req.query.target_url; fetch(target); target = "https://safe.example"; });
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        has_taint_sink_on(&result, 3),
+        "safe reassignments later on the same line must not erase earlier source-to-sink flow"
+    );
+}
+
+#[test]
+fn test_express_same_line_safe_reassignment_before_sink_drops_request_data() {
+    let source = r#"import express from "express";
+const app = express();
+app.get("/search", function(req, res) { let term = req.query.term; term = "safe"; return sequelize.query(`SELECT * FROM users WHERE name = '${term}'`); });
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        !has_taint_sink(&result),
+        "safe reassignments earlier on the same line should clear later request-data uses"
+    );
+}
+
+#[test]
+fn test_express_same_line_request_data_alias_chain_reaches_sql() {
+    let source = r#"import express from "express";
+const app = express();
+app.get("/search", function(req, res) { const a = req.query.term; const b = a; return sequelize.query(`SELECT * FROM users WHERE name = '${b}'`); });
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        has_taint_sink_on(&result, 3),
+        "same-line aliases after request-data reads should remain tainted by byte order"
+    );
+}
+
+#[test]
+fn test_express_request_alias_reassignment_back_to_request_retaints() {
+    let source = r#"import express from "express";
+
+const app = express();
+
+app.get("/proxy", function(req, res) {
+  let request = { query: { target_url: "https://safe.example" } };
+  request = req;
+  return fetch(request.query.target_url);
+});
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        has_taint_sink_on(&result, 8),
+        "request aliases should become active again after reassignment back to the request object"
+    );
+}
+
+#[test]
+fn test_express_for_initializer_request_alias_does_not_leak_after_loop() {
+    let source = r#"import express from "express";
+
+const app = express();
+
+app.get("/proxy", function(req, res) {
+  const request = { query: { target_url: "https://safe.example" } };
+  for (const request = req; req.query.enabled;) {
+    break;
+  }
+  return fetch(request.query.target_url);
+});
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        !has_taint_sink(&result),
+        "request aliases declared in for initializers should stop at the loop scope"
+    );
+}
+
+#[test]
+fn test_express_for_initializer_safe_alias_shadows_outer_request_alias_inside_loop() {
+    let source = r#"import express from "express";
+
+const app = express();
+
+app.get("/proxy", function(req, res) {
+  const request = req;
+  for (const request = { query: { target_url: "https://safe.example" } }; req.query.enabled;) {
+    return fetch(request.query.target_url);
+  }
+  return res.send("ok");
+});
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        !has_taint_sink(&result),
+        "safe for-initializer declarations should shadow outer request aliases inside the loop"
+    );
+}
+
+#[test]
+fn test_express_switch_case_request_alias_does_not_leak_after_switch() {
+    let source = r#"import express from "express";
+
+const app = express();
+
+app.get("/proxy", function(req, res) {
+  const request = { query: { target_url: "https://safe.example" } };
+  switch (req.query.mode) {
+    case "x":
+      const request = req;
+      break;
+  }
+  return fetch(request.query.target_url);
+});
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        !has_taint_sink(&result),
+        "request aliases declared in switch cases should not leak past the switch body"
+    );
+}
+
+#[test]
+fn test_express_switch_case_request_alias_assignment_does_not_leak_to_sibling_case() {
+    let source = r#"import express from "express";
+
+const app = express();
+
+app.get("/proxy", function(req, res) {
+  let request = { query: { target_url: "https://safe.example" } };
+  switch (req.query.mode) {
+    case "x":
+      request = req;
+      break;
+    case "y":
+      return fetch(request.query.target_url);
+  }
+});
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        !has_taint_sink(&result),
+        "request aliases assigned in one switch case must not taint sibling cases"
+    );
+}
+
+#[test]
+fn test_express_switch_case_request_alias_assignment_falls_through_to_later_case() {
+    let source = r#"import express from "express";
+import axios from "axios";
+
+const app = express();
+
+app.get("/proxy", function(req, res) {
+  let request = { query: { target_url: "https://safe.example" } };
+  switch (req.query.mode) {
+    case "x":
+      request = req;
+    case "y":
+      return fetch(request.query.target_url);
+  }
+});
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        has_taint_sink_on(&result, 12),
+        "request aliases assigned in a fallthrough switch case should taint later cases"
+    );
+}
+
+#[test]
+fn test_express_switch_case_request_alias_assignment_reaches_after_switch() {
+    let source = r#"import express from "express";
+
+const app = express();
+
+app.get("/proxy", function(req, res) {
+  let request = { query: { target_url: "https://safe.example" } };
+  switch (req.query.mode) {
+    case "x":
+      request = req;
+      break;
+  }
+  return fetch(request.query.target_url);
+});
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        has_taint_sink_on(&result, 12),
+        "request aliases assigned in switch cases should conservatively taint post-switch uses"
+    );
+}
+
+#[test]
+fn test_express_request_alias_mixed_access_line_does_not_taint_method_sink_arg() {
+    let source = r#"import express from "express";
+
+const app = express();
+
+app.get("/search", function(req, res) {
+  const request = req;
+  console.log(request.query.term); return sequelize.query(`SELECT * FROM methods WHERE name = '${request.method}'`);
+});
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        !has_taint_sink(&result),
+        "same-line request-data reads must not taint server-owned request fields in sink args"
+    );
+}
+
+#[test]
+fn test_express_request_alias_mixed_access_line_does_not_taint_render_method_arg() {
+    let source = r#"import express from "express";
+
+const app = express();
+
+app.get("/search", function(req, res) {
+  const request = req;
+  console.log(request.query.term); return res.render(request.method);
+});
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        !has_taint_sink(&result),
+        "same-line request-data reads must not make unrelated flat call sinks line-wide"
+    );
+}
+
+#[test]
+fn test_express_request_alias_mixed_access_line_render_query_arg_still_fires() {
+    let source = r#"import express from "express";
+
+const app = express();
+
+app.get("/search", function(req, res) {
+  const request = req;
+  console.log(request.method); return res.render(request.query.term);
+});
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        has_taint_sink_on(&result, 7),
+        "flat call sinks on source lines should still fire when their argument is request data"
+    );
+}
+
+#[test]
+fn test_express_multiple_request_aliases_same_line_do_not_cross_taint_fields() {
+    let source = r#"import express from "express";
+
+const app = express();
+
+app.get("/search", function(req, res) {
+  const a = req;
+  const b = req;
+  console.log(a.query.term); return sequelize.query(`SELECT * FROM methods WHERE name = '${b.method}'`);
+});
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        !has_taint_sink(&result),
+        "a request-data read through one alias must not taint a server-owned field on another alias"
+    );
+}
+
+#[test]
+fn test_express_block_assignment_to_outer_target_reaches_sink_after_block() {
+    let source = r#"import express from "express";
+
+const app = express();
+
+app.get("/proxy", function(req, res) {
+  let target = "safe";
+  if (req.query.enabled) {
+    target = req.query.target_url;
+  }
+  return fetch(target);
+});
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        has_taint_sink_on(&result, 10),
+        "assignments to predeclared outer variables should retain the outer binding scope"
+    );
+}
+
+#[test]
+fn test_express_request_bracket_query_reaches_sql() {
+    let source = r#"import express from "express";
+
+const app = express();
+
+app.get("/search", function(req, res) {
+  const term = req["query"].term;
+  return sequelize.query(`SELECT * FROM users WHERE name = '${term}'`);
+});
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        has_taint_sink_on(&result, 7),
+        "bracket notation for allowed request-data fields should be tainted"
+    );
+}
+
+#[test]
+fn test_express_request_optional_chain_query_reaches_sql() {
+    let source = r#"import express from "express";
+
+const app = express();
+
+app.get("/search", function(req, res) {
+  const term = req?.query?.term;
+  return sequelize.query(`SELECT * FROM users WHERE name = '${term}'`);
+});
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        has_taint_sink_on(&result, 7),
+        "optional chaining on allowed request-data fields should still be tainted"
+    );
+}
+
+#[test]
+fn test_express_request_query_sink_named_property_does_not_flat_sink() {
+    let source = r#"import express from "express";
+
+const app = express();
+
+app.get("/search", function(req, res) {
+  const value = req.query.exec;
+  return "ok";
+});
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        !has_taint_sink(&result),
+        "request subproperties named like sinks should not become flat sink findings on source lines"
+    );
+}
+
+#[test]
+fn test_express_request_bracket_method_does_not_taint() {
+    let source = r#"import express from "express";
+
+const app = express();
+
+app.get("/search", function(req, res) {
+  const method = req["method"];
+  return sequelize.query(`SELECT * FROM methods WHERE name = '${method}'`);
+});
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        !has_taint_sink(&result),
+        "bracket notation must still exclude server-controlled request fields"
+    );
+}
+
+#[test]
+fn test_express_nested_request_alias_does_not_leak_to_outer_scope() {
+    let source = r#"import express from "express";
+import axios from "axios";
+
+const app = express();
+
+app.get("/proxy", function(req, res) {
+  function inner() {
+    const request = req;
+  }
+  const target = request.query.target_url;
+  return axios.get(target);
+});
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        !has_taint_sink(&result),
+        "request-object aliases from nested functions must not leak into the outer handler"
+    );
+}
+
+#[test]
+fn test_express_request_alias_use_inside_uncalled_nested_function_does_not_taint() {
+    let source = r#"import express from "express";
+import axios from "axios";
+
+const app = express();
+
+app.get("/proxy", function(req, res) {
+  const request = req;
+  function inner() {
+    return axios.get(request.query.target_url);
+  }
+  return res.send("ok");
+});
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        !has_taint_sink(&result),
+        "request-alias source scans should not cross into uncalled nested functions"
+    );
+}
+
+#[test]
+fn test_express_destructured_method_does_not_become_request_alias() {
+    let source = r#"import express from "express";
+import axios from "axios";
+
+const app = express();
+
+app.get("/proxy", function(req, res) {
+  const { method } = req;
+  const target = method.query.target_url;
+  return axios.get(target);
+});
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        !has_taint_sink(&result),
+        "destructured server-owned fields must not become request-object aliases"
+    );
+}
+
+#[test]
+fn test_express_computed_destructure_key_does_not_assume_allowed_field() {
+    let source = r#"import express from "express";
+
+const app = express();
+
+app.get("/search", function(req, res) {
+  const query = "method";
+  const { [query]: value } = req;
+  return sequelize.query(`SELECT * FROM methods WHERE name = '${value}'`);
+});
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        !has_taint_sink(&result),
+        "dynamic destructuring keys must not be treated as literal allowed request-data fields"
+    );
+}
+
+#[test]
+fn test_express_nested_computed_destructure_key_does_not_taint_key() {
+    let source = r#"import express from "express";
+
+const app = express();
+
+app.get("/search", function(req, res) {
+  const safeKey = "safe";
+  const { query: { [safeKey]: q } } = req;
+  return sequelize.query(`SELECT * FROM users WHERE name = '${safeKey}'`);
+});
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        !has_taint_sink(&result),
+        "computed destructuring keys under request-data fields are not bound request data"
+    );
+}
+
+#[test]
+fn test_express_destructured_query_reaches_sql() {
+    let source = r#"import express from "express";
+
+const app = express();
+
+app.get("/search", function(req, res) {
+  const { query } = req;
+  return sequelize.query(`SELECT * FROM users WHERE name = '${query.term}'`);
+});
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        has_taint_sink_on(&result, 7),
+        "destructured allowed request-data fields should be tainted"
+    );
+}
+
+#[test]
+fn test_express_multiline_destructured_query_reaches_sql() {
+    let source = r#"import express from "express";
+
+const app = express();
+
+app.get("/search", function(req, res) {
+  const {
+    query
+  } = req;
+  return sequelize.query(`SELECT * FROM users WHERE name = '${query.term}'`);
+});
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        has_taint_sink_on(&result, 9),
+        "multi-line destructured request-data fields should use the binding line as the source"
+    );
+}
+
+#[test]
+fn test_express_block_scoped_destructured_body_does_not_leak_to_outer_binding() {
+    let source = r#"import express from "express";
+
+const app = express();
+
+app.get("/search", function(req, res) {
+  const payload = { term: "safe" };
+  if (req.query.enabled) {
+    const { body: payload } = req;
+    const local = payload.term;
+  }
+  return sequelize.query(`SELECT * FROM users WHERE name = '${payload.term}'`);
+});
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        !has_taint_sink_on(&result, 11),
+        "block-scoped destructured request data must not taint same-named outer bindings"
+    );
+}
+
+#[test]
+fn test_express_block_scoped_destructured_assignment_does_not_leak_to_outer_binding() {
+    let source = r#"import express from "express";
+
+const app = express();
+
+app.get("/proxy", function(req, res) {
+  let query = { target_url: "https://safe.example" };
+  if (req.query.enabled) {
+    let query;
+    ({ query } = req);
+  }
+  return fetch(query.target_url);
+});
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        !has_taint_sink(&result),
+        "block-scoped destructuring assignments must not taint same-named outer bindings"
+    );
+}
+
+#[test]
+fn test_express_destructured_query_alias_reaches_sql() {
+    let source = r#"import express from "express";
+
+const app = express();
+
+app.get("/search", function(req, res) {
+  const { query: requestQuery } = req;
+  return sequelize.query(`SELECT * FROM users WHERE name = '${requestQuery.term}'`);
+});
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        has_taint_sink_on(&result, 7),
+        "aliased destructured request-data fields should be tainted"
+    );
+}
+
+#[test]
+fn test_express_destructured_query_default_does_not_taint_default() {
+    let source = r#"import express from "express";
+
+const app = express();
+
+app.get("/proxy", function(req, res) {
+  const { query: requestQuery = defaults } = req;
+  return fetch(defaults.url);
+});
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        !has_taint_sink(&result),
+        "destructuring defaults are fallback expressions and should not be marked as request data"
+    );
+}
+
+#[test]
+fn test_express_shorthand_destructured_query_default_reaches_ssrf() {
+    let source = r#"import express from "express";
+
+const app = express();
+
+app.get("/proxy", function(req, res) {
+  const { query = {} } = req;
+  return fetch(query.target_url);
+});
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        has_taint_sink_on(&result, 7),
+        "shorthand destructuring defaults should taint the request field binding, not the fallback expression"
+    );
+}
+
+#[test]
+fn test_express_request_url_reaches_fetch_ssrf() {
+    let source = r#"import express from "express";
+
+const app = express();
+
+app.get("/proxy", function(req, res) {
+  const target = req.url;
+  return fetch(target);
+});
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        has_taint_sink_on(&result, 7),
+        "req.url remains an allowed client-controlled request-data accessor"
+    );
+}
+
+#[test]
+fn test_express_request_path_reaches_send_file() {
+    let source = r#"import express from "express";
+
+const app = express();
+
+app.get("/download", function(req, res) {
+  const filename = req.path;
+  return res.sendFile(filename);
+});
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        has_taint_sink_on(&result, 7),
+        "Express req.path is derived from the client URL and should remain tainted"
+    );
+}
+
+#[test]
+fn test_express_request_original_url_reaches_fetch_ssrf() {
+    let source = r#"import express from "express";
+
+const app = express();
+
+app.get("/proxy", function(req, res) {
+  const target = req.originalUrl;
+  return fetch(target);
+});
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        has_taint_sink_on(&result, 7),
+        "Express req.originalUrl is derived from the client URL and should remain tainted"
+    );
+}
+
+#[test]
+fn test_express_request_hostname_reaches_fetch_ssrf() {
+    let source = r#"import express from "express";
+
+const app = express();
+
+app.get("/proxy", function(req, res) {
+  const target = req.hostname;
+  return fetch(`http://${target}/status`);
+});
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        has_taint_sink_on(&result, 7),
+        "host-derived request fields should remain client-controlled SSRF inputs"
     );
 }
 
@@ -926,6 +2281,182 @@ app.use(async (ctx, next) => {
     assert!(
         has_taint_sink_on(&result, 7),
         "Koa ctx.request.body URL should reach fetch SSRF sink"
+    );
+}
+
+#[test]
+fn test_koa_optional_request_body_reaches_fetch_ssrf() {
+    let source = r#"import Koa from "koa";
+
+const app = new Koa();
+
+app.use(async (ctx, next) => {
+  const target = ctx?.request?.body.url;
+  return fetch(target);
+});
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        has_taint_sink_on(&result, 7),
+        "optional chaining before ctx.request should still expose Koa request data"
+    );
+}
+
+#[test]
+fn test_koa_request_object_alias_body_reaches_fetch_ssrf() {
+    let source = r#"import Koa from "koa";
+
+const app = new Koa();
+
+app.use(async (ctx, next) => {
+  const request = ctx.request;
+  const target = request.body.url;
+  return fetch(target);
+});
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        has_taint_sink_on(&result, 8),
+        "Koa ctx.request aliases should expose request-object data fields"
+    );
+}
+
+#[test]
+fn test_koa_request_object_alias_shorthand_body_default_reaches_fetch_ssrf() {
+    let source = r#"import Koa from "koa";
+
+const app = new Koa();
+
+app.use(async (ctx, next) => {
+  const request = ctx.request;
+  const { body = {} } = request;
+  return fetch(body.url);
+});
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        has_taint_sink_on(&result, 8),
+        "defaulted shorthand destructuring from Koa request aliases should expose body data"
+    );
+}
+
+#[test]
+fn test_koa_destructured_request_object_alias_body_reaches_fetch_ssrf() {
+    let source = r#"import Koa from "koa";
+
+const app = new Koa();
+
+app.use(async (ctx, next) => {
+  const { request } = ctx;
+  const target = request.body.url;
+  return fetch(target);
+});
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        has_taint_sink_on(&result, 8),
+        "destructured Koa ctx.request aliases should expose request-object data fields"
+    );
+}
+
+#[test]
+fn test_koa_nested_request_object_destructure_body_reaches_fetch_ssrf() {
+    let source = r#"import Koa from "koa";
+
+const app = new Koa();
+
+app.use(async (ctx, next) => {
+  const { request: { body } } = ctx;
+  return fetch(body.url);
+});
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        has_taint_sink_on(&result, 7),
+        "Koa nested request destructuring should expose request body as user-controlled"
+    );
+}
+
+#[test]
+fn test_koa_request_object_alias_method_stays_untainted_after_body_read() {
+    let source = r#"import Koa from "koa";
+
+const app = new Koa();
+
+app.use(async (ctx, next) => {
+  const request = ctx.request;
+  const target = request.body.url;
+  const method = request.method;
+  return sequelize.query(`SELECT * FROM methods WHERE name = '${method}'`);
+});
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        !has_taint_sink(&result),
+        "reading Koa request body through an alias must not taint later server-owned method fields"
+    );
+}
+
+#[test]
+fn test_koa_context_alias_response_body_does_not_taint_request_data() {
+    let source = r#"import Koa from "koa";
+
+const app = new Koa();
+
+app.use(async (ctx, next) => {
+  const context = ctx;
+  context.body = "ok";
+  return fetch(context.body);
+});
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        !has_taint_sink(&result),
+        "aliases of the Koa context must not make response body look like request data"
+    );
+}
+
+#[test]
+fn test_koa_response_body_does_not_taint_request_data() {
+    let source = r#"import Koa from "koa";
+
+const app = new Koa();
+
+app.use(async (ctx, next) => {
+  ctx.body = "ok";
+  return fetch(ctx.body);
+});
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        !has_taint_sink(&result),
+        "Koa ctx.body is response data and must not be treated like ctx.request.body"
+    );
+}
+
+#[test]
+fn test_koa_context_body_same_line_as_query_does_not_taint_response_body() {
+    let source = r#"import Koa from "koa";
+
+const app = new Koa();
+
+app.use(async (ctx, next) => {
+  console.log(ctx.query.enabled); return fetch(ctx.body);
+});
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        !has_taint_sink(&result),
+        "Koa ctx.body must not become request data just because ctx.query appears on the same line"
     );
 }
 
@@ -2110,6 +3641,32 @@ export class ConfigController {
     assert!(
         has_taint_sink(&result),
         "NestJS DTO field access should reach assigned default-imported js-yaml yaml.load"
+    );
+}
+
+#[test]
+fn test_nestjs_destructured_body_field_reaches_yaml_load() {
+    let source = r#"import { Body, Controller, Post } from "@nestjs/common";
+import yaml from "js-yaml";
+
+@Controller("/config")
+export class ConfigController {
+  @Post("/parse")
+  parseConfig(@Body() body: ConfigDto) {
+    const { yamlContent } = body;
+    return yaml.load(yamlContent);
+  }
+}
+"#;
+    let result = run_taint_js_ts_single(
+        source,
+        "config.ts",
+        Language::TypeScript,
+        BTreeSet::from([1]),
+    );
+    assert!(
+        has_taint_sink_on(&result, 9),
+        "NestJS destructured DTO fields should remain taint sources"
     );
 }
 

@@ -55,11 +55,11 @@ The initial in-tree JS/TS suppression suite reports 6/6 sanitized fixtures suppr
 - Tightened Express/Fastify/Koa framework source detection from import-presence + canonical handler signature to constructor/receiver-aware registration where practical.
 - Ported NestJS source/route detection to AST-backed decorator checks instead of method/class text-substring matching.
 - Made JS/TS SSRF receiver narrowing import-aware and added factory-bound client support for `axios.create(...)`-style receivers.
+- Tightened JS/TS request-data alias synthesis to client-controlled accessors such as `body`, `query`, `params`, `headers`, `cookies`, `files`, `url`, `path`, and `originalUrl`, including optional-chain reads, while excluding server-owned request fields such as `method`.
 
 ### Remaining
 
 - Revisit stricter guard false-positive cases after C3 validation: non-canonical URL allowlist names (`validHosts`, `APPROVED_DOMAINS`), trusted URL allowlist collections from env/config/imported constants, trusted path bases from env/config/imported constants, and safe interpreter argv shapes with spreads/conditionals.
-- Tighten JS/TS alias-edge synthesis to request-data accessors (`body`, `query`, `params`, `headers`, `cookies`, `files`, `url`, etc.) instead of any property access on the request object; this avoids over-tainting server-controlled values such as `req.method`.
 - Confirm multi-hop JS/TS alias propagation remains covered by standard DFG or extend alias synthesis beyond direct aliases if real fixtures expose alias-of-alias false negatives.
 
 ## Validation Commands
