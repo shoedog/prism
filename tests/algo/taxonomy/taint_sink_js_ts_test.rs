@@ -205,6 +205,26 @@ app.get("/profile", function(req, res) {
 }
 
 #[test]
+fn test_node_http_request_tainted_second_arg_still_fires_when_first_arg_safe() {
+    let source = r#"import express from "express";
+import * as http from "node:http";
+
+const app = express();
+
+app.get("/proxy", function(req, res) {
+  const options = { path: req.query.path };
+  return http.request("https://safe.example", options);
+});
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        has_taint_sink_on(&result, 8),
+        "structured sink suppression must not hide a tainted later argument when an earlier argument is safe"
+    );
+}
+
+#[test]
 fn test_express_same_line_source_target_name_does_not_suppress_real_flat_sink() {
     let source = r#"import express from "express";
 
@@ -1057,6 +1077,59 @@ app.get("/proxy", function(req, res) {
     assert!(
         has_taint_sink_on(&result, 12),
         "request aliases assigned in a fallthrough switch case should taint later cases"
+    );
+}
+
+#[test]
+fn test_express_switch_default_middle_assignment_falls_through_to_later_case() {
+    let source = r#"import express from "express";
+
+const app = express();
+
+app.get("/proxy", function(req, res) {
+  let request = { query: { target_url: "https://safe.example" } };
+  switch (req.query.mode) {
+    case "x":
+      break;
+    default:
+      request = req;
+    case "y":
+      return fetch(request.query.target_url);
+  }
+});
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        has_taint_sink_on(&result, 13),
+        "request aliases assigned in a middle default case should taint later cases when default falls through"
+    );
+}
+
+#[test]
+fn test_express_switch_default_middle_assignment_break_does_not_reach_later_case() {
+    let source = r#"import express from "express";
+
+const app = express();
+
+app.get("/proxy", function(req, res) {
+  let request = { query: { target_url: "https://safe.example" } };
+  switch (req.query.mode) {
+    case "x":
+      break;
+    default:
+      request = req;
+      break;
+    case "y":
+      return fetch(request.query.target_url);
+  }
+});
+"#;
+    let result =
+        run_taint_js_ts_single(source, "app.js", Language::JavaScript, BTreeSet::from([1]));
+    assert!(
+        !has_taint_sink(&result),
+        "request aliases assigned in a middle default case must not taint later cases after break"
     );
 }
 
