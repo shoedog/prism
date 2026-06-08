@@ -136,6 +136,10 @@ The modern architecture centers on `CpgContext`, which bundles:
 - `files: &BTreeMap<String, ParsedFile>` — parsed ASTs
 - `type_db: Option<&TypeDatabase>` — optional C/C++ type enrichment
 
+Whole-repo `prism nav` indexes use a prism-owned per-repo cache at
+`dirs::cache_dir()/prism/nav/<hash(canonical repo root)>/`, with `--no-cache`
+and `--cache-dir` gating that navigation store specifically.
+
 Algorithms fall into two categories:
 1. **Simple** (use `ctx.files` only): `original_diff`, `parent_function`, `left_flow`, `full_flow`, `thin_slice`, `relevant_slice`, `quantum_slice`, `horizontal_slice`, `angle_slice`, `absence_slice`, `symmetry_slice`
 2. **Graph-based** (use `ctx.cpg` or full context): `barrier_slice`, `taint`, `spiral_slice`, `circular_slice`, `vertical_slice`, `threed_slice`, `delta_slice`, `conditioned_slice`, `gradient_slice`, `provenance_slice`, `phantom_slice`, `resonance_slice`, `membrane_slice`, `echo_slice`
@@ -192,6 +196,10 @@ cargo run -- --repo /path/to/repo --diff diff.patch --algorithm all     # all 26
 
 # Output formats: text (default), json, paper, review
 cargo run -- --repo /path/to/repo --diff diff.patch --format json
+
+# Navigation cache controls: these gate the nav store, not review CPG caching
+cargo run -- nav --no-cache callers --repo /path/to/repo --symbol run
+cargo run -- nav --cache-dir /tmp/prism-nav callers --repo /path/to/repo --symbol run
 ```
 
 Key algorithm-specific flags:
@@ -246,6 +254,8 @@ Key algorithm-specific flags:
 - `tree-sitter` + 9 language grammars for AST parsing
 - `petgraph` for graph data structures (CFG, CPG)
 - `clap` for CLI
+- `dirs` for prism-owned cache directory discovery
 - `serde`/`serde_json` for serialization
 - `anyhow`/`thiserror` for error handling
+- `build.rs` emits `GRAMMAR_FINGERPRINT` from `Cargo.lock` tree-sitter grammar versions for cache invalidation
 - `tempfile`, `assert_cmd`, `predicates` (dev-dependencies for testing)
