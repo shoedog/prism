@@ -421,3 +421,98 @@ fn callees_empty_for_leaf() {
     assert!(v["items"].as_array().unwrap().is_empty());
     assert_eq!(v["query"], "callees:lonely@main.py");
 }
+
+#[test]
+fn module_deps_golden() {
+    // CG/main.py: util.helper() resolves cross-file to util.py (PrismCpg) AND
+    // `import util` is labeled UnresolvedImport (HeuristicImport) + a warning.
+    let out = bin()
+        .args([
+            "nav",
+            "module-deps",
+            "--repo",
+            CG,
+            "--file",
+            "main.py",
+            "--format",
+            "json",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&out.stdout),
+        golden("module_deps_run.json")
+    );
+}
+
+#[test]
+fn repo_map_golden() {
+    let out = bin()
+        .args(["nav", "repo-map", "--repo", CG, "--format", "json"])
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&out.stdout),
+        golden("repo_map_run.json")
+    );
+}
+
+#[test]
+fn module_deps_repo_map_live_smoke() {
+    // Real repo (Rust, scoped-call heavy): the path must run + emit valid JSON.
+    // No non-empty edge assertion - Rust scoped calls don't resolve (Design-decision #4).
+    let md = bin()
+        .args([
+            "nav",
+            "module-deps",
+            "--repo",
+            ".",
+            "--file",
+            "src/main.rs",
+            "--format",
+            "json",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        md.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&md.stderr)
+    );
+    let v: serde_json::Value = serde_json::from_slice(&md.stdout).unwrap();
+    assert_eq!(v["query"], "module-deps:src/main.rs");
+    assert!(v["items"].is_array());
+    assert!(v.get("graph").is_none(), "module-deps is a flat item list");
+    // every item, if any, is call-derived on a Rust file (no spurious imports).
+    assert!(v["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .all(|it| it["source"] == "PrismCpg"));
+
+    let rm = bin()
+        .args(["nav", "repo-map", "--repo", ".", "--format", "json"])
+        .output()
+        .unwrap();
+    assert!(
+        rm.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&rm.stderr)
+    );
+    let r: serde_json::Value = serde_json::from_slice(&rm.stdout).unwrap();
+    assert_eq!(r["query"], "repo-map");
+    assert!(
+        r["graph"]["nodes"].as_array().unwrap().len() > 1,
+        "this repo has many files"
+    );
+}

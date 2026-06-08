@@ -1,45 +1,49 @@
 {
   "query": "ego:run@main.py",
-  "nodes": [
-    {
-      "symbol": {
-        "Function": {
+  "items": [],
+  "truncated": false,
+  "warnings": [],
+  "graph": {
+    "nodes": [
+      {
+        "symbol": {
+          "Function": {
+            "file": "main.py",
+            "name": "run",
+            "start_line": 3,
+            "end_line": 4,
+            "ordinal": 0
+          }
+        },
+        "location": {
           "file": "main.py",
-          "name": "run",
           "start_line": 3,
-          "end_line": 4,
-          "ordinal": 0
+          "end_line": 4
         }
       },
-      "location": {
-        "file": "main.py",
-        "start_line": 3,
-        "end_line": 4
-      }
-    },
-    {
-      "symbol": {
-        "Function": {
+      {
+        "symbol": {
+          "Function": {
+            "file": "util.py",
+            "name": "helper",
+            "start_line": 1,
+            "end_line": 2,
+            "ordinal": 0
+          }
+        },
+        "location": {
           "file": "util.py",
-          "name": "helper",
           "start_line": 1,
-          "end_line": 2,
-          "ordinal": 0
+          "end_line": 2
         }
-      },
-      "location": {
-        "file": "util.py",
-        "start_line": 1,
-        "end_line": 2
       }
-    }
-  ],
-  "edges": [
-    {
-      "from": 0,
-      "to": 1,
-      "kind": "Call"
-    }
-  ],
-  "warnings": []
+    ],
+    "edges": [
+      {
+        "from": 0,
+        "to": 1,
+        "kind": "Call"
+      }
+    ]
+  }
 }

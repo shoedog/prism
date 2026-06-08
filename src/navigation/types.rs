@@ -93,31 +93,36 @@ pub struct Warning {
     pub location: Option<Location>,
 }
 
+/// A node in a graph-shaped result (`ego`, `repo-map`).
+/// `symbol` is `None` for file-level nodes (repo-map); `Some` for symbol nodes (ego).
+#[derive(Debug, Clone, Serialize, PartialEq)]
+pub struct GraphNode {
+    pub symbol: Option<SymbolRef>,
+    pub location: Location,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq)]
+pub struct GraphEdge {
+    pub from: usize,
+    pub to: usize,
+    pub kind: String,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq)]
+pub struct GraphPayload {
+    pub nodes: Vec<GraphNode>,
+    pub edges: Vec<GraphEdge>,
+}
+
 #[derive(Debug, Clone, Serialize, PartialEq)]
 pub struct Evidence {
     pub query: String,
     pub items: Vec<EvidenceItem>,
     pub truncated: bool,
     pub warnings: Vec<Warning>,
-}
-
-#[derive(Debug, Clone, Serialize, PartialEq)]
-pub struct EgoNode {
-    pub symbol: SymbolRef,
-    pub location: Location,
-}
-#[derive(Debug, Clone, Serialize, PartialEq)]
-pub struct EgoEdge {
-    pub from: usize,
-    pub to: usize,
-    pub kind: String,
-}
-#[derive(Debug, Clone, Serialize, PartialEq)]
-pub struct EgoGraph {
-    pub query: String,
-    pub nodes: Vec<EgoNode>,
-    pub edges: Vec<EgoEdge>,
-    pub warnings: Vec<Warning>,
+    /// Present only for graph-shaped queries (`ego`, `repo-map`); omitted otherwise.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub graph: Option<GraphPayload>,
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq)]

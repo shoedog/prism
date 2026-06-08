@@ -1,4 +1,5 @@
 pub mod cache;
+pub mod module_graph;
 pub mod queries;
 pub mod seed;
 pub mod types;

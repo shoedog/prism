@@ -282,6 +282,22 @@ enum NavQuery {
         #[arg(long, default_value = "text", value_parser = ["text", "json"])]
         format: String,
     },
+    /// Outbound module dependencies of a file (call-derived + labeled imports).
+    ModuleDeps {
+        #[arg(long)]
+        repo: std::path::PathBuf,
+        #[arg(long)]
+        file: String,
+        #[arg(long, default_value = "text", value_parser = ["text", "json"])]
+        format: String,
+    },
+    /// Whole-repo file->file module dependency graph.
+    RepoMap {
+        #[arg(long)]
+        repo: std::path::PathBuf,
+        #[arg(long, default_value = "text", value_parser = ["text", "json"])]
+        format: String,
+    },
 }
 
 fn main() -> Result<()> {
@@ -381,8 +397,8 @@ fn run_nav(nav: &NavArgs) -> anyhow::Result<()> {
                 *hops,
                 &edge_kinds,
             ) {
-                Ok(g) => {
-                    println!("{}", prism::output::navigation::render_ego(&g, format));
+                Ok(ev) => {
+                    println!("{}", prism::output::navigation::render(&ev, format));
                     Ok(())
                 }
                 Err(e) => {
@@ -391,6 +407,18 @@ fn run_nav(nav: &NavArgs) -> anyhow::Result<()> {
                     std::process::exit(code);
                 }
             }
+        }
+        NavQuery::ModuleDeps { repo, file, format } => {
+            let session = build_session(repo, nav.no_cache, nav.cache_dir.as_deref())?;
+            let ev = prism::navigation::module_graph::module_deps(&session, file);
+            println!("{}", prism::output::navigation::render(&ev, format));
+            Ok(())
+        }
+        NavQuery::RepoMap { repo, format } => {
+            let session = build_session(repo, nav.no_cache, nav.cache_dir.as_deref())?;
+            let ev = prism::navigation::module_graph::repo_map(&session);
+            println!("{}", prism::output::navigation::render(&ev, format));
+            Ok(())
         }
     }
 }

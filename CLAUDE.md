@@ -139,6 +139,9 @@ The modern architecture centers on `CpgContext`, which bundles:
 Whole-repo `prism nav` indexes use a prism-owned per-repo cache at
 `dirs::cache_dir()/prism/nav/<hash(canonical repo root)>/`, with `--no-cache`
 and `--cache-dir` gating that navigation store specifically.
+Navigation queries include `nodes-at`, `callers`, `callees`, `ego`,
+`module-deps`, and `repo-map`; `module-deps`/`repo-map` live in
+`src/navigation/module_graph.rs`.
 
 Algorithms fall into two categories:
 1. **Simple** (use `ctx.files` only): `original_diff`, `parent_function`, `left_flow`, `full_flow`, `thin_slice`, `relevant_slice`, `quantum_slice`, `horizontal_slice`, `angle_slice`, `absence_slice`, `symmetry_slice`
@@ -200,6 +203,8 @@ cargo run -- --repo /path/to/repo --diff diff.patch --format json
 # Navigation cache controls: these gate the nav store, not review CPG caching
 cargo run -- nav --no-cache callers --repo /path/to/repo --symbol run
 cargo run -- nav --cache-dir /tmp/prism-nav callers --repo /path/to/repo --symbol run
+cargo run -- nav module-deps --repo /path/to/repo --file src/main.rs --format json
+cargo run -- nav repo-map --repo /path/to/repo --format json
 ```
 
 Key algorithm-specific flags:
