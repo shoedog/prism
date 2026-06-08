@@ -1,0 +1,39 @@
+Available algorithms:
+
+  Paper (arXiv:2505.17928):
+    originaldiff     Raw diff lines only
+    parentfunction   Entire enclosing function
+    leftflow         Backward data-flow from L-values (default)
+    fullflow         LeftFlow + R-value forward tracing
+
+  Established taxonomy:
+    thin             Data deps only, no control flow context
+    barrier          Interprocedural with depth limits (--barrier-depth, --barrier-symbols)
+    chop             Source-to-sink paths (--chop-source, --chop-sink)
+    taint            Forward taint propagation (--taint-source)
+    relevant         Backward + alternate branch paths
+    conditioned      Slice under assumption (--condition)
+    delta            Behavioral diff between versions (--old-repo)
+
+  Theoretical extensions:
+    spiral           Adaptive-depth concentric rings (--spiral-max-ring)
+    circular         Data flow cycle detection
+    quantum          Concurrent state enumeration (--quantum-var)
+    horizontal       Peer pattern consistency (--peer-pattern)
+    vertical         End-to-end feature path (--layers)
+    angle            Cross-cutting concern trace (--concern)
+    3d               Temporal-structural risk (--temporal-days)
+
+  Novel extensions:
+    absence          Missing counterparts (open without close, lock without unlock)
+    resonance        Files that usually co-change but aren't in this diff
+    symmetry         Broken symmetry (serialize changed, deserialize not)
+    gradient         Continuous relevance scoring with distance decay
+    provenance       Trace data origin (user input, config, database, constant)
+    phantom          Recently deleted code the diff may depend on
+    membrane         Module boundary: who calls this API and will they break
+    echo             Ripple effect: downstream callers missing new error handling
+    contract         Implicit behavioral contract extraction and violation detection
+    peer             Peer-signature guard divergence (C/C++ sibling NULL-guard clusters)
+    callback         Callback-dispatcher resolution (function-pointer registrations → invocation sites)
+    primitive        Security-primitive fingerprints (hash truncation, weak-hash-for-identity, shell-injection, TLS disabled, hardcoded secrets)

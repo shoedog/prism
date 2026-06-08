@@ -4,6 +4,7 @@
 //! - `mermaid` — Mermaid flowchart rendering for SliceGraph (added in Task 5)
 
 pub mod mermaid;
+pub mod navigation;
 pub mod review;
 
 pub use mermaid::{format_mermaid_report, render};

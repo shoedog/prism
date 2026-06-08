@@ -475,6 +475,28 @@ path = "tests/cli/output_test.rs"
 name = "cli_diagram_e2e"
 path = "tests/cli/diagram_e2e_test.rs"
 
+[[test]]
+name = "cli_nav_compat"
+path = "tests/cli/nav_compat_test.rs"
+
+# ── Navigation tests ──
+
+[[test]]
+name = "navigation_loader"
+path = "tests/navigation/loader_test.rs"
+
+[[test]]
+name = "navigation_index"
+path = "tests/navigation/index_test.rs"
+
+[[test]]
+name = "navigation_types"
+path = "tests/navigation/types_test.rs"
+
+[[test]]
+name = "navigation_nodes_at"
+path = "tests/navigation/nodes_at_test.rs"
+
 # ── Output tests ──
 
 [[test]]
