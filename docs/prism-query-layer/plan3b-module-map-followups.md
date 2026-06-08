@@ -55,13 +55,21 @@ The seam, to address when resolved imports land:
 
 ## Carried from the plan's own Deferred section
 
-### 3. Rust scoped-call resolution — **Important for Rust precision** (relates to spec §19 #2)
-- v1 resolves only **unqualified / `use`-imported** Rust calls cross-file; scoped
-  `module::func()` / `Type::method()` are unresolved (`call_function_name` returns
-  the literal path; no `scoped_identifier` arm). So Rust `module-deps` is sparse
-  (often empty for scoped-dispatch files like `src/algorithms/mod.rs`). Splitting
-  scoped paths + resolving associated functions is a CPG-core change with its own
-  goldens.
+### 3. Scoped-call resolution follow-ups — **Important for navigation precision** (relates to spec §19 #2)
+- **Delivered in Plan 3b.5:** nav-local `::`-scoped `mod::fn` / `Ns::func`
+  resolution for Rust and C++ when the module or namespace segment matches the
+  target file stem. This makes scoped-dispatch files like `src/algorithms/mod.rs`
+  produce cross-file `callees`, `callers`, `module-deps`, and `repo-map` edges.
+- **Remaining: `Type::method` associated functions.** Calls where the type name
+  differs from the target file stem need a type-to-file map before they can be
+  resolved without over-reporting.
+- **Remaining: `ego` scoped edges.** `ego` walks CPG call edges materialized in
+  the nav index, so scoped-call edges need nav-index CPG augmentation before they
+  appear there. Warning: `ego` now returns a strictly smaller neighborhood than
+  `callees` plus `callers` for scoped-dispatch symbols.
+- **Remaining: language-agnostic method/receiver resolution.** Cross-file method
+  or receiver calls need `type_db`-backed type information, independent of source
+  language.
 
 ### 4. Per-edge `reason` on `GraphEdge` — **Low** (→ 3c / nav-polish)
 - Spec §8's ego golden shows `edges[].reason`; v1 keeps `{from,to,kind}`. The call
