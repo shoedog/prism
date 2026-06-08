@@ -1,4 +1,6 @@
 use assert_cmd::Command;
+use prism::navigation::cache::nav_cache_subdir;
+use prism::repo_loader::load_repo;
 
 fn bin() -> Command {
     Command::cargo_bin("prism").unwrap()
@@ -214,6 +216,89 @@ fn nav_callers_json_on_self() {
         .unwrap()
         .starts_with("callers:build_scoped"));
     assert!(v["items"].is_array());
+}
+
+#[test]
+fn nav_cache_writes_under_repo_subdir_and_no_cache_matches_output() {
+    let repo = tempfile::tempdir().unwrap();
+    std::fs::write(
+        repo.path().join("a.py"),
+        "def helper():\n    return 1\n\ndef run():\n    return helper()\n",
+    )
+    .unwrap();
+
+    let cached_cache = tempfile::tempdir().unwrap();
+    let cached = bin()
+        .args([
+            "nav",
+            "--cache-dir",
+            cached_cache.path().to_str().unwrap(),
+            "callers",
+            "--repo",
+            repo.path().to_str().unwrap(),
+            "--symbol",
+            "helper",
+            "--format",
+            "json",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        cached.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&cached.stderr)
+    );
+    assert!(
+        nav_cache_subdir(cached_cache.path(), &load_repo(repo.path()).unwrap())
+            .join("cpg-cache.bin")
+            .exists(),
+        "cached nav run must write cpg-cache.bin under the per-repo cache subdir"
+    );
+
+    let uncached = bin()
+        .args([
+            "nav",
+            "--no-cache",
+            "callers",
+            "--repo",
+            repo.path().to_str().unwrap(),
+            "--symbol",
+            "helper",
+            "--format",
+            "json",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        uncached.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&uncached.stderr)
+    );
+    assert_eq!(cached.stdout, uncached.stdout);
+}
+
+#[test]
+fn nav_no_cache_conflicts_with_cache_dir() {
+    let out = bin()
+        .args([
+            "nav",
+            "--no-cache",
+            "--cache-dir",
+            "/tmp/prism-nav-cache",
+            "callers",
+            "--repo",
+            ".",
+            "--symbol",
+            "helper",
+        ])
+        .output()
+        .unwrap();
+    assert!(!out.status.success());
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(
+        stderr.contains("cannot be used with") || stderr.contains("conflicts with"),
+        "stderr was:\n{stderr}"
+    );
 }
 
 #[test]

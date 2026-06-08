@@ -1,3 +1,4 @@
+pub mod cache;
 pub mod queries;
 pub mod seed;
 pub mod types;
@@ -29,6 +30,10 @@ impl NavigationIndex {
     /// out of the borrowing context so the index owns them.
     pub fn build(repo: &LoadedRepo) -> Self {
         let ctx = CpgContext::build(&repo.files, repo.type_db.as_ref());
+        Self::from_ctx(ctx)
+    }
+
+    pub(crate) fn from_ctx(ctx: CpgContext<'_>) -> Self {
         debug_assert!(ctx.scope.is_none(), "nav index must be whole-repo");
         let (mut line_range_index, mut name_index) = (
             BTreeMap::<String, Vec<(usize, usize, NodeIndex)>>::new(),

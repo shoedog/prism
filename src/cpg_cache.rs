@@ -40,7 +40,10 @@ use std::path::{Path, PathBuf};
 /// History:
 /// - v1: Initial cache format (Phases 1+2)
 /// - v2: Added `has_type_db` field for type_db consistency (Phase 3)
-const CACHE_VERSION: u32 = 2;
+/// - v3: grammar_fingerprint + skip_policy_version
+const CACHE_VERSION: u32 = 3;
+
+pub const SKIP_POLICY_VERSION: u32 = 1;
 
 /// The on-disk cache structure.
 #[derive(Serialize, Deserialize)]
@@ -49,6 +52,10 @@ struct CpgCache {
     version: u32,
     /// Prism crate version string. Invalidate on upgrade.
     prism_version: String,
+    /// Build-time fingerprint of tree-sitter grammar versions.
+    grammar_fingerprint: String,
+    /// Version of parser skip-policy behavior included in the cache key.
+    skip_policy_version: u32,
     /// Per-file content hashes (SHA-256 hex) at time of cache creation.
     file_hashes: BTreeMap<String, String>,
     /// Whether the cached CPG was built with a TypeDatabase present.
@@ -153,6 +160,8 @@ pub fn save_cache(
     let cache = CpgCache {
         version: CACHE_VERSION,
         prism_version: env!("CARGO_PKG_VERSION").to_string(),
+        grammar_fingerprint: env!("GRAMMAR_FINGERPRINT").to_string(),
+        skip_policy_version: SKIP_POLICY_VERSION,
         file_hashes: file_hashes.clone(),
         has_type_db,
         graph: SerializedCpg {
@@ -263,6 +272,13 @@ pub fn load_cache(
             "TypeDatabase mismatch (cached: {}, current: {}), rebuilding",
             cache.has_type_db, has_type_db
         );
+        return CacheResult::Miss;
+    }
+
+    // Grammar / skip-policy consistency check.
+    if cache.grammar_fingerprint != env!("GRAMMAR_FINGERPRINT")
+        || cache.skip_policy_version != SKIP_POLICY_VERSION
+    {
         return CacheResult::Miss;
     }
 
@@ -414,5 +430,34 @@ mod tests {
         assert!(hashes.contains_key("b.py"));
         // Different content → different hash
         assert_ne!(hashes["a.py"], hashes["b.py"]);
+    }
+
+    #[test]
+    fn wrong_grammar_fingerprint_misses() {
+        let dir = tempfile::tempdir().unwrap();
+        let hashes: BTreeMap<String, String> = BTreeMap::from([("a.py".into(), "h".into())]);
+        let bad = CpgCache {
+            version: CACHE_VERSION,
+            prism_version: env!("CARGO_PKG_VERSION").into(),
+            grammar_fingerprint: "deadbeef".into(),
+            skip_policy_version: SKIP_POLICY_VERSION,
+            file_hashes: hashes.clone(),
+            has_type_db: false,
+            graph: SerializedCpg {
+                nodes: vec![],
+                edges: vec![],
+                call_graph: CallGraph::empty(),
+                dfg: DataFlowGraph::empty(),
+            },
+        };
+        std::fs::write(
+            dir.path().join("cpg-cache.bin"),
+            bincode::serialize(&bad).unwrap(),
+        )
+        .unwrap();
+        assert!(matches!(
+            load_cache(&hashes, false, dir.path()),
+            CacheResult::Miss
+        ));
     }
 }

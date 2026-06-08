@@ -214,6 +214,14 @@ enum Command {
 
 #[derive(clap::Args, Debug)]
 struct NavArgs {
+    /// Ignore the whole-repo navigation cache and force a full CPG rebuild.
+    #[arg(long, conflicts_with = "cache_dir")]
+    no_cache: bool,
+
+    /// Directory to use for the whole-repo navigation cache.
+    #[arg(long)]
+    cache_dir: Option<PathBuf>,
+
     #[command(subcommand)]
     query: NavQuery,
 }
@@ -295,7 +303,7 @@ fn run_nav(nav: &NavArgs) -> anyhow::Result<()> {
                 .rsplit_once(':')
                 .and_then(|(f, l)| l.parse::<usize>().ok().map(|n| (f.to_string(), n)))
                 .ok_or_else(|| anyhow::anyhow!("--location must be file:line"))?;
-            let session = build_session(repo)?;
+            let session = build_session(repo, nav.no_cache, nav.cache_dir.as_deref())?;
             let ev = prism::navigation::queries::nodes_at(&session, &file, line);
             println!("{}", prism::output::navigation::render(&ev, format));
             Ok(())
@@ -308,7 +316,7 @@ fn run_nav(nav: &NavArgs) -> anyhow::Result<()> {
             depth,
             format,
         } => {
-            let session = build_session(repo)?;
+            let session = build_session(repo, nav.no_cache, nav.cache_dir.as_deref())?;
             match prism::navigation::queries::callers(
                 &session,
                 symbol.as_deref(),
@@ -335,7 +343,7 @@ fn run_nav(nav: &NavArgs) -> anyhow::Result<()> {
             depth,
             format,
         } => {
-            let session = build_session(repo)?;
+            let session = build_session(repo, nav.no_cache, nav.cache_dir.as_deref())?;
             match prism::navigation::queries::callees(
                 &session,
                 symbol.as_deref(),
@@ -363,7 +371,7 @@ fn run_nav(nav: &NavArgs) -> anyhow::Result<()> {
             edges,
             format,
         } => {
-            let session = build_session(repo)?;
+            let session = build_session(repo, nav.no_cache, nav.cache_dir.as_deref())?;
             let edge_kinds: Vec<&str> = edges.split(',').collect();
             match prism::navigation::queries::ego_graph(
                 &session,
@@ -387,9 +395,21 @@ fn run_nav(nav: &NavArgs) -> anyhow::Result<()> {
     }
 }
 
-fn build_session(repo: &Path) -> anyhow::Result<prism::navigation::NavigationSession> {
+fn build_session(
+    repo: &Path,
+    no_cache: bool,
+    cache_dir: Option<&Path>,
+) -> anyhow::Result<prism::navigation::NavigationSession> {
     let repo = std::sync::Arc::new(prism::repo_loader::load_repo(repo)?);
-    let index = std::sync::Arc::new(prism::navigation::NavigationIndex::build(&repo));
+    let index = if no_cache {
+        prism::navigation::NavigationIndex::build(&repo)
+    } else {
+        match cache_dir {
+            Some(base) => prism::navigation::NavigationIndex::build_cached_under(&repo, base),
+            None => prism::navigation::NavigationIndex::build_cached(&repo),
+        }
+    };
+    let index = std::sync::Arc::new(index);
     Ok(prism::navigation::NavigationSession { repo, index })
 }
 
