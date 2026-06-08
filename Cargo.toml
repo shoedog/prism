@@ -522,6 +522,10 @@ path = "tests/navigation/cache_test.rs"
 name = "navigation_module_graph"
 path = "tests/navigation/module_graph_test.rs"
 
+[[test]]
+name = "navigation_scoped_calls"
+path = "tests/navigation/scoped_calls_test.rs"
+
 # ── Output tests ──
 
 [[test]]

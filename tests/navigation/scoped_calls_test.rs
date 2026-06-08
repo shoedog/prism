@@ -1,0 +1,239 @@
+use prism::navigation::call_resolve::resolve_callees_nav;
+use prism::navigation::module_graph::{module_deps, repo_map};
+use prism::navigation::queries;
+use prism::navigation::types::SymbolRef;
+use prism::navigation::{NavigationIndex, NavigationSession};
+use prism::repo_loader::load_repo;
+use std::sync::Arc;
+
+fn session(files: &[(&str, &str)]) -> NavigationSession {
+    let dir = tempfile::tempdir().unwrap();
+    for (name, src) in files {
+        let path = dir.path().join(name);
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent).unwrap();
+        }
+        std::fs::write(path, src).unwrap();
+    }
+    let repo = Arc::new(load_repo(dir.path()).unwrap());
+    let index = Arc::new(NavigationIndex::build(&repo));
+    NavigationSession { repo, index }
+}
+
+#[test]
+fn scoped_mod_fn_resolves_cross_file_rust() {
+    let s = session(&[
+        ("algo.rs", "pub fn run() -> i32 { 1 }\n"),
+        (
+            "main.rs",
+            "mod algo;\nfn dispatch() -> i32 { algo::run() }\n",
+        ),
+    ]);
+    let cg = &s.index.cpg.call_graph;
+    let resolved = resolve_callees_nav(cg, "algo::run", "main.rs", None);
+    assert!(
+        resolved
+            .iter()
+            .any(|f| f.file == "algo.rs" && f.name == "run"),
+        "algo::run should resolve to algo.rs::run, got {:?}",
+        resolved
+            .iter()
+            .map(|f| (&f.file, &f.name))
+            .collect::<Vec<_>>()
+    );
+}
+
+#[test]
+fn scoped_ns_fn_resolves_cross_file_cpp() {
+    // C++ namespace-qualified call: util::helper() -> util.cpp::helper (same `::` gap as Rust).
+    let s = session(&[
+        (
+            "util.cpp",
+            "namespace util { int helper() { return 1; } }\n",
+        ),
+        (
+            "main.cpp",
+            "namespace util { int helper(); }\nint dispatch() { return util::helper(); }\n",
+        ),
+    ]);
+    let cg = &s.index.cpg.call_graph;
+    let resolved = resolve_callees_nav(cg, "util::helper", "main.cpp", None);
+    assert!(
+        resolved
+            .iter()
+            .any(|f| f.file == "util.cpp" && f.name == "helper"),
+        "util::helper should resolve to util.cpp::helper, got {:?}",
+        resolved
+            .iter()
+            .map(|f| (&f.file, &f.name))
+            .collect::<Vec<_>>()
+    );
+}
+
+#[test]
+fn scoped_call_to_wrong_stem_does_not_resolve() {
+    let s = session(&[
+        ("algo.rs", "pub fn run() -> i32 { 1 }\n"),
+        ("main.rs", "fn dispatch() -> i32 { nope::run() }\n"),
+    ]);
+    let cg = &s.index.cpg.call_graph;
+    assert!(resolve_callees_nav(cg, "nope::run", "main.rs", None).is_empty());
+}
+
+#[test]
+fn reserved_keyword_hints_do_not_resolve() {
+    // A decoy file named `crate.rs`/`self.rs` must NOT satisfy crate::run / self::run.
+    let s = session(&[
+        ("crate.rs", "pub fn run() -> i32 { 1 }\n"),
+        ("self.rs", "pub fn go() -> i32 { 1 }\n"),
+        ("main.rs", "fn d() -> i32 { crate::run() + self::go() }\n"),
+    ]);
+    let cg = &s.index.cpg.call_graph;
+    assert!(resolve_callees_nav(cg, "crate::run", "main.rs", None).is_empty());
+    assert!(resolve_callees_nav(cg, "self::go", "main.rs", None).is_empty());
+}
+
+#[test]
+fn external_crate_path_does_not_resolve_without_stem_match() {
+    // bincode::serialize with NO bincode-stem file -> empty (external crate, not in repo).
+    let s = session(&[
+        ("main.rs", "fn d() { bincode::serialize(); }\n"),
+        ("other.rs", "pub fn serialize() -> i32 { 1 }\n"), // decoy: wrong stem, must not match
+    ]);
+    let cg = &s.index.cpg.call_graph;
+    assert!(resolve_callees_nav(cg, "bincode::serialize", "main.rs", None).is_empty());
+}
+
+#[test]
+fn multi_segment_scoped_path_uses_last_module_segment() {
+    let s = session(&[
+        ("algo.rs", "pub fn run() -> i32 { 1 }\n"),
+        (
+            "main.rs",
+            "mod algo;\nfn d() -> i32 { crate::algo::run() }\n",
+        ),
+    ]);
+    let cg = &s.index.cpg.call_graph;
+    let resolved = resolve_callees_nav(cg, "crate::algo::run", "main.rs", None);
+    assert!(resolved
+        .iter()
+        .any(|f| f.file == "algo.rs" && f.name == "run"));
+}
+
+#[test]
+fn unscoped_resolution_is_unchanged() {
+    let s = session(&[
+        ("util.rs", "pub fn helper() -> i32 { 1 }\n"),
+        (
+            "main.rs",
+            "mod util;\nuse util::helper;\nfn run() -> i32 { helper() }\n",
+        ),
+    ]);
+    let cg = &s.index.cpg.call_graph;
+    assert!(resolve_callees_nav(cg, "helper", "main.rs", None)
+        .iter()
+        .any(|f| f.file == "util.rs" && f.name == "helper"));
+}
+
+#[test]
+fn callees_resolves_scoped_dispatch() {
+    let s = session(&[
+        ("algo.rs", "pub fn run() -> i32 { 1 }\n"),
+        (
+            "main.rs",
+            "mod algo;\nfn dispatch() -> i32 { algo::run() }\n",
+        ),
+    ]);
+    let ev = queries::callees(&s, Some("dispatch"), None, None, 1).unwrap();
+    assert!(
+        ev.items.iter().any(|it| it
+            .symbol
+            .as_ref()
+            .map(|s| matches!(
+                s, SymbolRef::Function { file, name, .. } if file == "algo.rs" && name == "run"
+            ))
+            .unwrap_or(false)),
+        "callees(dispatch) should include scoped callee algo.rs::run"
+    );
+}
+
+#[test]
+fn module_deps_and_repo_map_include_scoped_edge() {
+    let s = session(&[
+        ("algo.rs", "pub fn run() -> i32 { 1 }\n"),
+        (
+            "main.rs",
+            "mod algo;\nfn dispatch() -> i32 { algo::run() }\n",
+        ),
+    ]);
+    let md = module_deps(&s, "main.rs");
+    assert!(
+        md.items.iter().any(|it| it.location.file == "algo.rs"),
+        "module-deps(main.rs) should include a scoped edge to algo.rs"
+    );
+    // repo-map shares collect_module_edges -> the edge must appear there too.
+    let rm = repo_map(&s);
+    let g = rm.graph.as_ref().unwrap();
+    let main_i = g
+        .nodes
+        .iter()
+        .position(|n| n.location.file == "main.rs")
+        .unwrap();
+    let algo_i = g
+        .nodes
+        .iter()
+        .position(|n| n.location.file == "algo.rs")
+        .unwrap();
+    assert!(g
+        .edges
+        .iter()
+        .any(|e| e.from == main_i && e.to == algo_i && e.kind == "ModuleDep"));
+}
+
+#[test]
+fn callers_finds_scoped_dispatcher() {
+    let s = session(&[
+        ("algo.rs", "pub fn run() -> i32 { 1 }\n"),
+        (
+            "main.rs",
+            "mod algo;\nfn dispatch() -> i32 { algo::run() }\n",
+        ),
+    ]);
+    let ev = queries::callers(&s, Some("run"), Some("algo.rs"), None, 1).unwrap();
+    assert!(
+        ev.items.iter().any(|it| it
+            .symbol
+            .as_ref()
+            .map(|s| matches!(
+                s, SymbolRef::Function { name, .. } if name == "dispatch"
+            ))
+            .unwrap_or(false)),
+        "callers(run@algo.rs) should include the scoped dispatcher"
+    );
+}
+
+#[test]
+fn callers_excludes_other_stem_scoped_call() {
+    // Two files define `run`; dispatcher calls other::run. callers(run@algo.rs)
+    // must NOT include it — scoped_caller_sites returns a superset the identity
+    // filter prunes (the Rust/C++ stem-collision guard).
+    let s = session(&[
+        ("algo.rs", "pub fn run() -> i32 { 1 }\n"),
+        ("other.rs", "pub fn run() -> i32 { 2 }\n"),
+        (
+            "main.rs",
+            "mod algo;\nmod other;\nfn dispatch() -> i32 { other::run() }\n",
+        ),
+    ]);
+    let ev = queries::callers(&s, Some("run"), Some("algo.rs"), None, 1).unwrap();
+    assert!(
+        !ev.items.iter().any(|it| it
+            .symbol
+            .as_ref()
+            .map(|s| matches!(
+                s, SymbolRef::Function { name, .. } if name == "dispatch"
+            ))
+            .unwrap_or(false)),
+        "callers(run@algo.rs) must exclude a dispatcher that calls other::run"
+    );
+}

@@ -142,6 +142,12 @@ and `--cache-dir` gating that navigation store specifically.
 Navigation queries include `nodes-at`, `callers`, `callees`, `ego`,
 `module-deps`, and `repo-map`; `module-deps`/`repo-map` live in
 `src/navigation/module_graph.rs`.
+Navigation call resolution covers dot-qualified package/module calls for
+Python, JS, TS, and Go; unqualified and `use`-imported calls; and
+`::`-scoped module/namespace free functions for Rust and C++. Remaining
+gaps are `Type::method` where the type name differs from the file stem,
+and cross-file method/receiver calls, which need type information and are
+language-agnostic.
 
 Algorithms fall into two categories:
 1. **Simple** (use `ctx.files` only): `original_diff`, `parent_function`, `left_flow`, `full_flow`, `thin_slice`, `relevant_slice`, `quantum_slice`, `horizontal_slice`, `angle_slice`, `absence_slice`, `symmetry_slice`
