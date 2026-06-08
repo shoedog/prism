@@ -37,9 +37,20 @@ fn parse_diagram_cap(s: &str) -> Result<usize, String> {
 #[command(
     name = "slicing",
     version = env!("CARGO_PKG_VERSION"),
-    about = "Code slicing for defect-focused automated code review (arXiv:2505.17928)"
+    about = "Code slicing for defect-focused automated code review (arXiv:2505.17928)",
+    args_conflicts_with_subcommands = true,
+    subcommand_negates_reqs = true,
 )]
 struct Cli {
+    #[command(subcommand)]
+    command: Option<Command>,
+
+    #[command(flatten)]
+    review: ReviewArgs,
+}
+
+#[derive(clap::Args, Debug)]
+struct ReviewArgs {
     /// Path to the repository root
     #[arg(short, long, required_unless_present = "list_algorithms")]
     repo: Option<PathBuf>,
@@ -195,9 +206,62 @@ struct Cli {
     rust_version: Option<String>,
 }
 
+#[derive(clap::Subcommand, Debug)]
+enum Command {
+    /// Whole-repo navigation/architecture queries.
+    Nav(NavArgs),
+}
+
+#[derive(clap::Args, Debug)]
+struct NavArgs {
+    #[command(subcommand)]
+    query: NavQuery,
+}
+
+#[derive(clap::Subcommand, Debug)]
+enum NavQuery {
+    /// CPG nodes at a file:line (plus the enclosing function).
+    NodesAt {
+        #[arg(long)]
+        repo: std::path::PathBuf,
+        /// `file:line`
+        #[arg(long)]
+        location: String,
+        #[arg(long, default_value = "text", value_parser = ["text", "json"])]
+        format: String,
+    },
+}
+
 fn main() -> Result<()> {
     let cli = Cli::parse();
+    match &cli.command {
+        Some(Command::Nav(nav)) => return run_nav(nav),
+        None => run_review(&cli.review),
+    }
+}
 
+fn run_nav(nav: &NavArgs) -> anyhow::Result<()> {
+    match &nav.query {
+        NavQuery::NodesAt {
+            repo,
+            location,
+            format,
+        } => {
+            let (file, line) = location
+                .rsplit_once(':')
+                .and_then(|(f, l)| l.parse::<usize>().ok().map(|n| (f.to_string(), n)))
+                .ok_or_else(|| anyhow::anyhow!("--location must be file:line"))?;
+            let repo = std::sync::Arc::new(prism::repo_loader::load_repo(repo)?);
+            let index = std::sync::Arc::new(prism::navigation::NavigationIndex::build(&repo));
+            let session = prism::navigation::NavigationSession { repo, index };
+            let ev = prism::navigation::queries::nodes_at(&session, &file, line);
+            println!("{}", prism::output::navigation::render(&ev, format));
+            Ok(())
+        }
+    }
+}
+
+fn run_review(cli: &ReviewArgs) -> Result<()> {
     if cli.list_algorithms {
         println!("Available algorithms:\n");
         println!("  Paper (arXiv:2505.17928):");
@@ -721,7 +785,7 @@ fn run_algorithm(
     ctx: &CpgContext,
     diff_input: &DiffInput,
     config: &SliceConfig,
-    cli: &Cli,
+    cli: &ReviewArgs,
     repo: &std::path::Path,
 ) -> Result<prism::slice::SliceResult> {
     let mut result = match algorithm {

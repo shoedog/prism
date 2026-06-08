@@ -1,0 +1,20 @@
+{
+  "algorithm": "LeftFlow",
+  "slices": [
+    {
+      "block_id": 0,
+      "file": "a.py",
+      "modify_type": "M",
+      "diff_lines": [
+        2
+      ],
+      "slice_lines": [
+        1,
+        2,
+        3
+      ],
+      "slice_text": "    1|def f(x):\n+   2|    y = x + 1\n    3|    return y\n"
+    }
+  ],
+  "findings": []
+}

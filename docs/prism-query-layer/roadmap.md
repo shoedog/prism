@@ -74,6 +74,39 @@ Decoupled from Tier 1 so navigation ships without perturbing diff-review:
 4. **Class/struct/module CPG nodes** — enables richer `nodes-at`/`ego-graph`
    (v1 returns Function/Variable only).
 
+## Plan 1 review follow-ups (deferred from the holistic code-review)
+
+Hardening/architectural items the final review raised that were intentionally
+deferred (the in-scope correctness/contract fixes were applied in-branch):
+
+1. **`NavigationSession`↔`NavigationIndex` binding** — no invariant guarantees
+   the index was built from the session's `LoadedRepo`. v1 has a single
+   construction path (`run_nav`); add a repo-identity/content-hash check (or a
+   checked constructor) when a second construction path or incremental rebuild
+   appears.
+2. **Shared repo-loading abstraction** — the nav loader is intentionally separate
+   from the diff-review pipeline, so the two can disagree on the file universe;
+   and nav does **not** load a `TypeDatabase` (fine for Rust dogfood, a gap for
+   C/C++ callee resolution). Unify behind a shared snapshot/ignore policy + pass
+   the type-db into the nav index when C/C++ precision matters.
+3. **`QueryError` plumbing** — `nodes-at` returns `Evidence`+warnings for all
+   cases; `LocationOutOfRange`/`UnsupportedFile` are unused. Wire
+   `Result<Evidence, QueryError>` when Plan 2 adds symbol/ambiguous-seed queries
+   that need to distinguish bad input from valid-empty.
+4. **Encapsulate `NavigationIndex`/`NavigationSession` fields** — currently
+   public; expose invariant-preserving query methods and privatize once the API
+   stabilizes.
+5. **Pre-existing: `review`-suite nondeterminism (Taint).** Surfaced by the
+   byte-for-byte compat test — `--algorithm taint` (and thus the `review`
+   aggregate) is **not** byte-stable (the golden captured in the Linux verify
+   container had an empty `Taint` section; the real output includes the slice).
+   This is unrelated to the nav layer (the nav changes are additive) but
+   contradicts CLAUDE.md's "BTreeMap/BTreeSet everywhere for deterministic
+   output" — some collection in Taint's source/sink path is order/seed- or
+   environment-sensitive. The compat test now byte-locks only deterministic
+   algorithms (leftflow/thin/parentfunction) and smoke-tests `review`. Worth
+   root-causing Taint's nondeterminism separately.
+
 ## Next initiative — Tier 2 reasoning layer
 
 Its own brainstorm→spec→plan cycle. Reintroduces `FocusSet` (the diff as one

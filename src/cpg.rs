@@ -1200,6 +1200,10 @@ impl CodePropertyGraph {
         &self.graph[idx]
     }
 
+    pub fn node_indices(&self) -> impl Iterator<Item = petgraph::graph::NodeIndex> + '_ {
+        self.graph.node_indices()
+    }
+
     /// Get the node index for a variable by its location.
     pub fn var_node(
         &self,
