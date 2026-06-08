@@ -102,9 +102,29 @@ pub struct Evidence {
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq)]
+pub struct EgoNode {
+    pub symbol: SymbolRef,
+    pub location: Location,
+}
+#[derive(Debug, Clone, Serialize, PartialEq)]
+pub struct EgoEdge {
+    pub from: usize,
+    pub to: usize,
+    pub kind: String,
+}
+#[derive(Debug, Clone, Serialize, PartialEq)]
+pub struct EgoGraph {
+    pub query: String,
+    pub nodes: Vec<EgoNode>,
+    pub edges: Vec<EgoEdge>,
+    pub warnings: Vec<Warning>,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq)]
 pub enum QueryError {
     AmbiguousSymbol { candidates: Vec<SymbolRef> },
     SymbolNotFound { seed: String },
     LocationOutOfRange { file: String, line: usize },
     UnsupportedFile { file: String },
+    UnknownEdge { edge: String },
 }

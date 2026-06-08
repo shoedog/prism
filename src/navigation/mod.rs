@@ -1,4 +1,5 @@
 pub mod queries;
+pub mod seed;
 pub mod types;
 
 use crate::cpg::{CodePropertyGraph, CpgContext, CpgNode};

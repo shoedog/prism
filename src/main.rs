@@ -12,7 +12,7 @@ use prism::type_db::TypeDatabase;
 use prism::type_provider::LanguageVersion;
 use std::collections::{BTreeMap, HashSet};
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 /// Validate `--diagram-node-cap`: must be >= 4.
 ///
@@ -230,6 +230,50 @@ enum NavQuery {
         #[arg(long, default_value = "text", value_parser = ["text", "json"])]
         format: String,
     },
+    Callers {
+        #[arg(long)]
+        repo: std::path::PathBuf,
+        #[arg(long)]
+        symbol: Option<String>,
+        #[arg(long)]
+        file: Option<String>,
+        #[arg(long)]
+        location: Option<String>,
+        #[arg(long, default_value_t = 1)]
+        depth: usize,
+        #[arg(long, default_value = "text", value_parser = ["text", "json"])]
+        format: String,
+    },
+    Callees {
+        #[arg(long)]
+        repo: std::path::PathBuf,
+        #[arg(long)]
+        symbol: Option<String>,
+        #[arg(long)]
+        file: Option<String>,
+        #[arg(long)]
+        location: Option<String>,
+        #[arg(long, default_value_t = 1)]
+        depth: usize,
+        #[arg(long, default_value = "text", value_parser = ["text", "json"])]
+        format: String,
+    },
+    Ego {
+        #[arg(long)]
+        repo: std::path::PathBuf,
+        #[arg(long)]
+        symbol: Option<String>,
+        #[arg(long)]
+        file: Option<String>,
+        #[arg(long)]
+        location: Option<String>,
+        #[arg(long, default_value_t = 1)]
+        hops: usize,
+        #[arg(long, default_value = "Call,Return,DataFlow,Contains")]
+        edges: String,
+        #[arg(long, default_value = "text", value_parser = ["text", "json"])]
+        format: String,
+    },
 }
 
 fn main() -> Result<()> {
@@ -251,14 +295,102 @@ fn run_nav(nav: &NavArgs) -> anyhow::Result<()> {
                 .rsplit_once(':')
                 .and_then(|(f, l)| l.parse::<usize>().ok().map(|n| (f.to_string(), n)))
                 .ok_or_else(|| anyhow::anyhow!("--location must be file:line"))?;
-            let repo = std::sync::Arc::new(prism::repo_loader::load_repo(repo)?);
-            let index = std::sync::Arc::new(prism::navigation::NavigationIndex::build(&repo));
-            let session = prism::navigation::NavigationSession { repo, index };
+            let session = build_session(repo)?;
             let ev = prism::navigation::queries::nodes_at(&session, &file, line);
             println!("{}", prism::output::navigation::render(&ev, format));
             Ok(())
         }
+        NavQuery::Callers {
+            repo,
+            symbol,
+            file,
+            location,
+            depth,
+            format,
+        } => {
+            let session = build_session(repo)?;
+            match prism::navigation::queries::callers(
+                &session,
+                symbol.as_deref(),
+                file.as_deref(),
+                location.as_deref(),
+                *depth,
+            ) {
+                Ok(ev) => {
+                    println!("{}", prism::output::navigation::render(&ev, format));
+                    Ok(())
+                }
+                Err(e) => {
+                    let (s, code) = prism::output::navigation::render_err(&e, format);
+                    println!("{s}");
+                    std::process::exit(code);
+                }
+            }
+        }
+        NavQuery::Callees {
+            repo,
+            symbol,
+            file,
+            location,
+            depth,
+            format,
+        } => {
+            let session = build_session(repo)?;
+            match prism::navigation::queries::callees(
+                &session,
+                symbol.as_deref(),
+                file.as_deref(),
+                location.as_deref(),
+                *depth,
+            ) {
+                Ok(ev) => {
+                    println!("{}", prism::output::navigation::render(&ev, format));
+                    Ok(())
+                }
+                Err(e) => {
+                    let (s, code) = prism::output::navigation::render_err(&e, format);
+                    println!("{s}");
+                    std::process::exit(code);
+                }
+            }
+        }
+        NavQuery::Ego {
+            repo,
+            symbol,
+            file,
+            location,
+            hops,
+            edges,
+            format,
+        } => {
+            let session = build_session(repo)?;
+            let edge_kinds: Vec<&str> = edges.split(',').collect();
+            match prism::navigation::queries::ego_graph(
+                &session,
+                symbol.as_deref(),
+                file.as_deref(),
+                location.as_deref(),
+                *hops,
+                &edge_kinds,
+            ) {
+                Ok(g) => {
+                    println!("{}", prism::output::navigation::render_ego(&g, format));
+                    Ok(())
+                }
+                Err(e) => {
+                    let (s, code) = prism::output::navigation::render_err(&e, format);
+                    println!("{s}");
+                    std::process::exit(code);
+                }
+            }
+        }
     }
+}
+
+fn build_session(repo: &Path) -> anyhow::Result<prism::navigation::NavigationSession> {
+    let repo = std::sync::Arc::new(prism::repo_loader::load_repo(repo)?);
+    let index = std::sync::Arc::new(prism::navigation::NavigationIndex::build(&repo));
+    Ok(prism::navigation::NavigationSession { repo, index })
 }
 
 fn run_review(cli: &ReviewArgs) -> Result<()> {

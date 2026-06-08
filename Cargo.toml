@@ -497,6 +497,22 @@ path = "tests/navigation/types_test.rs"
 name = "navigation_nodes_at"
 path = "tests/navigation/nodes_at_test.rs"
 
+[[test]]
+name = "navigation_seed"
+path = "tests/navigation/seed_test.rs"
+
+[[test]]
+name = "navigation_callers"
+path = "tests/navigation/callers_test.rs"
+
+[[test]]
+name = "navigation_callees"
+path = "tests/navigation/callees_test.rs"
+
+[[test]]
+name = "navigation_ego"
+path = "tests/navigation/ego_test.rs"
+
 # ── Output tests ──
 
 [[test]]
