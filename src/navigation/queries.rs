@@ -1,6 +1,13 @@
-use crate::cpg::CpgNode;
+use crate::call_graph::FunctionId;
+use crate::cpg::{CpgEdge, CpgNode};
+use crate::navigation::seed;
 use crate::navigation::types::*;
+use crate::navigation::types::{EgoEdge, EgoGraph, EgoNode};
 use crate::navigation::NavigationSession;
+use petgraph::graph::NodeIndex;
+use petgraph::visit::EdgeRef;
+use petgraph::Direction;
+use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
 /// Exact CPG nodes at `file:line` (Function/Variable only, spec §8 R3-M3) plus the
 /// innermost enclosing function as `EnclosingFunction` evidence.
@@ -104,6 +111,439 @@ pub fn nodes_at(s: &NavigationSession, file: &str, line: usize) -> Evidence {
         truncated: false,
         warnings: vec![],
     }
+}
+
+fn fid_of(sym: &SymbolRef) -> FunctionId {
+    match sym {
+        // `..` — SymbolRef::Function also has `ordinal` (R2-B1).
+        SymbolRef::Function {
+            name,
+            file,
+            start_line,
+            end_line,
+            ..
+        } => FunctionId {
+            name: name.clone(),
+            file: file.clone(),
+            start_line: *start_line,
+            end_line: *end_line,
+        },
+        _ => unreachable!("seed resolves to a Function"),
+    }
+}
+
+/// Direct callers of `target` (qualifier-aware identity filter): callers index is keyed by name,
+/// so each candidate CallSite is resolved from its caller's file and kept only if it reaches THIS target.
+fn direct_callers(s: &NavigationSession, target: &FunctionId) -> Vec<(FunctionId, usize)> {
+    let mut out = Vec::new();
+    if let Some(sites) = s.index.cpg.call_graph.callers.get(&target.name) {
+        for site in sites {
+            let resolved = s.index.cpg.call_graph.resolve_callees_qualified(
+                &site.callee_name,
+                &site.caller.file,
+                site.qualifier.as_deref(),
+            );
+            if resolved.iter().any(|f| **f == *target) {
+                out.push((site.caller.clone(), site.line));
+            }
+        }
+    }
+    out
+}
+
+pub fn callers(
+    s: &NavigationSession,
+    symbol: Option<&str>,
+    file: Option<&str>,
+    location: Option<&str>,
+    depth: usize,
+) -> Result<Evidence, QueryError> {
+    let resolved = seed::resolve_fn(s, symbol, file, location)?;
+    let target = fid_of(&resolved.symbol);
+    let query = format!("callers:{}@{}", target.name, target.file); // @file identity (R3-M4)
+    let mut items = Vec::new();
+    let mut visited: std::collections::BTreeSet<FunctionId> = std::collections::BTreeSet::new();
+    visited.insert(target.clone());
+    let mut frontier = vec![target];
+    for hop in 0..depth {
+        // hop 0 = direct hit → score 1.0 (R3-M2); depth=2 → hops 0,1
+        let mut next = Vec::new();
+        for fid in &frontier {
+            for (caller, line) in direct_callers(s, fid) {
+                // One item PER CALL SITE (m7 symmetry with callees); `visited` only gates BFS recursion.
+                items.push(EvidenceItem {
+                    symbol: Some(SymbolRef::Function {
+                        file: caller.file.clone(),
+                        name: caller.name.clone(),
+                        start_line: caller.start_line,
+                        end_line: caller.end_line,
+                        ordinal: 0,
+                    }),
+                    location: Location {
+                        file: caller.file.clone(),
+                        start_line: caller.start_line,
+                        end_line: caller.end_line,
+                    },
+                    score: 1.0 / (1.0 + hop as f32),
+                    source: Source::PrismCpg,
+                    fallback: false,
+                    why: vec![Reason::CalledBy {
+                        caller: caller.name.clone(),
+                        call_site_line: line,
+                    }],
+                    snippet: None,
+                });
+                if visited.insert(caller.clone()) {
+                    next.push(caller);
+                }
+            }
+        }
+        frontier = next;
+    }
+    items.sort_by(|a, b| {
+        b.score
+            .partial_cmp(&a.score)
+            .unwrap()
+            .then(a.location.file.cmp(&b.location.file))
+            .then(a.location.start_line.cmp(&b.location.start_line))
+    });
+    Ok(Evidence {
+        query,
+        items,
+        truncated: false,
+        warnings: vec![],
+    })
+}
+
+fn direct_callees(
+    s: &NavigationSession,
+    caller: &FunctionId,
+) -> Vec<(Option<FunctionId>, String, usize, Option<String>)> {
+    let mut out = Vec::new();
+    if let Some(sites) = s.index.cpg.call_graph.calls.get(caller) {
+        for site in sites {
+            // CORRECT arg order (B2): (callee_name, caller_file, qualifier)
+            let resolved = s.index.cpg.call_graph.resolve_callees_qualified(
+                &site.callee_name,
+                &site.caller.file,
+                site.qualifier.as_deref(),
+            );
+            if resolved.is_empty() {
+                out.push((
+                    None,
+                    site.callee_name.clone(),
+                    site.line,
+                    site.qualifier.clone(),
+                ));
+            } else {
+                for def in resolved {
+                    out.push((
+                        Some((*def).clone()),
+                        site.callee_name.clone(),
+                        site.line,
+                        site.qualifier.clone(),
+                    ));
+                }
+            }
+        }
+    }
+    out
+}
+
+pub fn callees(
+    s: &NavigationSession,
+    symbol: Option<&str>,
+    file: Option<&str>,
+    location: Option<&str>,
+    depth: usize,
+) -> Result<Evidence, QueryError> {
+    let resolved = seed::resolve_fn(s, symbol, file, location)?;
+    let seed_fid = fid_of(&resolved.symbol);
+    let query = format!("callees:{}@{}", seed_fid.name, seed_fid.file); // @file identity (R3-M4)
+    let mut items = Vec::new();
+    let mut visited: std::collections::BTreeSet<FunctionId> = std::collections::BTreeSet::new();
+    visited.insert(seed_fid.clone());
+    let mut frontier = vec![seed_fid];
+    for hop in 0..depth {
+        // hop 0 = direct hit → score 1.0 (R3-M2); depth=2 → hops 0,1
+        let mut next = Vec::new();
+        for fid in &frontier {
+            for (def, callee_name, line, qualifier) in direct_callees(s, fid) {
+                let (sym, loc) = match &def {
+                    Some(d) => (
+                        Some(SymbolRef::Function {
+                            file: d.file.clone(),
+                            name: d.name.clone(),
+                            start_line: d.start_line,
+                            end_line: d.end_line,
+                            ordinal: 0,
+                        }),
+                        Location {
+                            file: d.file.clone(),
+                            start_line: d.start_line,
+                            end_line: d.end_line,
+                        },
+                    ),
+                    None => (
+                        None,
+                        Location {
+                            file: fid.file.clone(),
+                            start_line: line,
+                            end_line: line,
+                        },
+                    ),
+                };
+                items.push(EvidenceItem {
+                    symbol: sym,
+                    location: loc,
+                    score: 1.0 / (1.0 + hop as f32),
+                    source: Source::PrismCpg,
+                    fallback: false,
+                    why: vec![Reason::Calls {
+                        callee: callee_name,
+                        call_site_line: line,
+                        qualifier,
+                    }],
+                    snippet: None,
+                });
+                if let Some(d) = def {
+                    if visited.insert(d.clone()) {
+                        next.push(d);
+                    }
+                }
+            }
+        }
+        frontier = next;
+    }
+    items.sort_by(|a, b| {
+        b.score
+            .partial_cmp(&a.score)
+            .unwrap()
+            .then(a.location.file.cmp(&b.location.file))
+            .then(a.location.start_line.cmp(&b.location.start_line))
+    });
+    Ok(Evidence {
+        query,
+        items,
+        truncated: false,
+        warnings: vec![],
+    })
+}
+
+fn edge_kind(e: &CpgEdge) -> &'static str {
+    match e {
+        CpgEdge::DataFlow => "DataFlow",
+        CpgEdge::ControlFlow => "ControlFlow",
+        CpgEdge::Call => "Call",
+        CpgEdge::Return => "Return",
+        CpgEdge::Contains => "Contains",
+        CpgEdge::FieldOf => "FieldOf",
+    }
+}
+
+fn parse_ego_edges(edges: &[&str]) -> Result<BTreeSet<&'static str>, QueryError> {
+    let mut parsed = BTreeSet::new();
+    for edge in edges {
+        let edge = edge.trim();
+        let kind = match edge {
+            "DataFlow" => "DataFlow",
+            "ControlFlow" => "ControlFlow",
+            "Call" => "Call",
+            "Return" => "Return",
+            "Contains" => "Contains",
+            "FieldOf" => "FieldOf",
+            _ => {
+                return Err(QueryError::UnknownEdge {
+                    edge: edge.to_string(),
+                });
+            }
+        };
+        parsed.insert(kind);
+    }
+    Ok(parsed)
+}
+
+fn node_symbol_loc(s: &NavigationSession, ni: NodeIndex) -> (SymbolRef, Location) {
+    match s.index.cpg.node(ni) {
+        CpgNode::Function {
+            name,
+            file,
+            start_line,
+            end_line,
+        } => (
+            SymbolRef::Function {
+                file: file.clone(),
+                name: name.clone(),
+                start_line: *start_line,
+                end_line: *end_line,
+                ordinal: 0,
+            },
+            Location {
+                file: file.clone(),
+                start_line: *start_line,
+                end_line: *end_line,
+            },
+        ),
+        CpgNode::Variable {
+            path,
+            file,
+            function,
+            line,
+            access,
+        } => (
+            SymbolRef::Variable {
+                file: file.clone(),
+                function: function.clone(),
+                line: *line,
+                path: format!("{path:?}"),
+                access: format!("{access:?}"),
+                ordinal: 0,
+            },
+            Location {
+                file: file.clone(),
+                start_line: *line,
+                end_line: *line,
+            },
+        ),
+        CpgNode::Statement { file, line, kind } => (
+            SymbolRef::Statement {
+                file: file.clone(),
+                line: *line,
+                kind: format!("{kind:?}"),
+                ordinal: 0,
+            },
+            Location {
+                file: file.clone(),
+                start_line: *line,
+                end_line: *line,
+            },
+        ),
+    }
+}
+
+struct EgoSeed {
+    query: String,
+    nodes: Vec<NodeIndex>,
+}
+
+fn parse_location(location: &str) -> Result<(String, usize), QueryError> {
+    location
+        .rsplit_once(':')
+        .and_then(|(f, l)| l.parse::<usize>().ok().map(|n| (f.to_string(), n)))
+        .ok_or_else(|| QueryError::SymbolNotFound {
+            seed: format!("loc:{location}"),
+        })
+}
+
+fn resolve_ego_seed(
+    s: &NavigationSession,
+    symbol: Option<&str>,
+    file: Option<&str>,
+    location: Option<&str>,
+) -> Result<EgoSeed, QueryError> {
+    if let Some(loc) = location {
+        let (f, line) = parse_location(loc)?;
+        let mut nodes = s.index.cpg.nodes_at(&f, line);
+        nodes.sort_by_key(|i| i.index());
+        nodes.dedup();
+        if nodes.is_empty() {
+            let (idx, _) =
+                s.index
+                    .enclosing_function(&f, line)
+                    .ok_or(QueryError::LocationOutOfRange {
+                        file: f.clone(),
+                        line,
+                    })?;
+            nodes.push(idx);
+        }
+        return Ok(EgoSeed {
+            query: format!("ego:{f}:{line}"),
+            nodes,
+        });
+    }
+
+    let resolved = seed::resolve_fn(s, symbol, file, None)?;
+    let ego_fid = fid_of(&resolved.symbol);
+    Ok(EgoSeed {
+        query: format!("ego:{}@{}", ego_fid.name, ego_fid.file),
+        nodes: vec![resolved.idx],
+    })
+}
+
+pub fn ego_graph(
+    s: &NavigationSession,
+    symbol: Option<&str>,
+    file: Option<&str>,
+    location: Option<&str>,
+    hops: usize,
+    edges: &[&str],
+) -> Result<EgoGraph, QueryError> {
+    let seed = resolve_ego_seed(s, symbol, file, location)?;
+    let edge_filter = parse_ego_edges(edges)?;
+    let g = &s.index.cpg.graph;
+    let mut order: BTreeMap<NodeIndex, usize> = BTreeMap::new();
+    let mut nodes: Vec<EgoNode> = Vec::new();
+    let mut ego_edges: Vec<EgoEdge> = Vec::new();
+    // returns (index, is_new) so we only enqueue freshly-discovered nodes (m9).
+    let intern = |s: &NavigationSession,
+                  ni: NodeIndex,
+                  order: &mut BTreeMap<NodeIndex, usize>,
+                  nodes: &mut Vec<EgoNode>|
+     -> (usize, bool) {
+        if let Some(&i) = order.get(&ni) {
+            return (i, false);
+        }
+        let i = nodes.len();
+        let (symbol, location) = node_symbol_loc(s, ni);
+        nodes.push(EgoNode { symbol, location });
+        order.insert(ni, i);
+        (i, true)
+    };
+    let mut q = VecDeque::new();
+    for seed_node in &seed.nodes {
+        intern(s, *seed_node, &mut order, &mut nodes);
+        q.push_back((*seed_node, 0usize));
+    }
+    while let Some((ni, d)) = q.pop_front() {
+        if d >= hops {
+            continue;
+        }
+        for dir in [Direction::Outgoing, Direction::Incoming] {
+            for er in g.edges_directed(ni, dir) {
+                if !edge_filter.contains(edge_kind(er.weight())) {
+                    continue;
+                }
+                let other = if er.source() == ni {
+                    er.target()
+                } else {
+                    er.source()
+                };
+                let (from, _) = intern(s, ni, &mut order, &mut nodes);
+                let (to, is_new) = intern(s, other, &mut order, &mut nodes);
+                let (a, b) = if dir == Direction::Outgoing {
+                    (from, to)
+                } else {
+                    (to, from)
+                };
+                ego_edges.push(EgoEdge {
+                    from: a,
+                    to: b,
+                    kind: edge_kind(er.weight()).into(),
+                });
+                if is_new {
+                    q.push_back((other, d + 1));
+                }
+            }
+        }
+    }
+    ego_edges.sort_by(|x, y| (x.from, x.to, &x.kind).cmp(&(y.from, y.to, &y.kind)));
+    ego_edges.dedup();
+    Ok(EgoGraph {
+        query: seed.query,
+        nodes,
+        edges: ego_edges,
+        warnings: vec![],
+    })
 }
 
 fn item_fn(file: &str, name: &str, start_line: usize, end_line: usize) -> EvidenceItem {

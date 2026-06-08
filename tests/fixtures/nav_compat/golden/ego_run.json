@@ -1,0 +1,45 @@
+{
+  "query": "ego:run@main.py",
+  "nodes": [
+    {
+      "symbol": {
+        "Function": {
+          "file": "main.py",
+          "name": "run",
+          "start_line": 3,
+          "end_line": 4,
+          "ordinal": 0
+        }
+      },
+      "location": {
+        "file": "main.py",
+        "start_line": 3,
+        "end_line": 4
+      }
+    },
+    {
+      "symbol": {
+        "Function": {
+          "file": "util.py",
+          "name": "helper",
+          "start_line": 1,
+          "end_line": 2,
+          "ordinal": 0
+        }
+      },
+      "location": {
+        "file": "util.py",
+        "start_line": 1,
+        "end_line": 2
+      }
+    }
+  ],
+  "edges": [
+    {
+      "from": 0,
+      "to": 1,
+      "kind": "Call"
+    }
+  ],
+  "warnings": []
+}

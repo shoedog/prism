@@ -71,6 +71,9 @@ Python, JavaScript, TypeScript, Go, Java — all via tree-sitter AST parsing.
 The sliced output is designed to be inserted into an LLM prompt for code review.
 The format uses line-numbered, diff-marked lines:
 
+Navigation helpers: `prism nav callers`, `prism nav callees`, and `prism nav ego`
+answer call-graph and bounded-neighborhood questions as JSON or text.
+
 ```
 +  12|    z = x + y        <- changed line
    13|    print(z)          <- context line

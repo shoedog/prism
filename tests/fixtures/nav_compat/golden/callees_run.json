@@ -1,0 +1,36 @@
+{
+  "query": "callees:run@main.py",
+  "items": [
+    {
+      "symbol": {
+        "Function": {
+          "file": "util.py",
+          "name": "helper",
+          "start_line": 1,
+          "end_line": 2,
+          "ordinal": 0
+        }
+      },
+      "location": {
+        "file": "util.py",
+        "start_line": 1,
+        "end_line": 2
+      },
+      "score": 1.0,
+      "source": "PrismCpg",
+      "fallback": false,
+      "why": [
+        {
+          "Calls": {
+            "callee": "helper",
+            "call_site_line": 4,
+            "qualifier": "util"
+          }
+        }
+      ],
+      "snippet": null
+    }
+  ],
+  "truncated": false,
+  "warnings": []
+}

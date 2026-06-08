@@ -54,6 +54,8 @@ Each plan ships working, testable software and maps to spec §17's build order.
   - `module-deps`/`repo-map`: call-derived file→file edges (`source:PrismCpg`) +
     labeled `UnresolvedImport` (heuristic; per-language precision tiers — Rust is
     call-derived-only, no import extraction).
+  - Align `ego` with the standard Evidence envelope:
+    `{query, items, truncated, warnings, graph:{nodes,edges}}`.
   - `prism-mcp` binary (`rmcp`, validated by a spike; stdio JSON-RPC fallback)
     exposing the five queries → `Evidence` JSON. Sequenced last.
 - **Spec:** §9, §10, §13 · **§17 steps:** 9–11.
@@ -89,10 +91,10 @@ deferred (the in-scope correctness/contract fixes were applied in-branch):
    and nav does **not** load a `TypeDatabase` (fine for Rust dogfood, a gap for
    C/C++ callee resolution). Unify behind a shared snapshot/ignore policy + pass
    the type-db into the nav index when C/C++ precision matters.
-3. **`QueryError` plumbing** — `nodes-at` returns `Evidence`+warnings for all
-   cases; `LocationOutOfRange`/`UnsupportedFile` are unused. Wire
-   `Result<Evidence, QueryError>` when Plan 2 adds symbol/ambiguous-seed queries
-   that need to distinguish bad input from valid-empty.
+3. **Closed by Plan 2: `QueryError` plumbing** — `callers`/`callees`/`ego`
+   route symbol and ambiguous-seed failures through `QueryError` with the shared
+   exit-3 JSON envelope; `nodes-at` keeps its valid-empty `Evidence`+warnings
+   behavior.
 4. **Encapsulate `NavigationIndex`/`NavigationSession` fields** — currently
    public; expose invariant-preserving query methods and privatize once the API
    stabilizes.
