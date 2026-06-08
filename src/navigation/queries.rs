@@ -2,7 +2,6 @@ use crate::call_graph::FunctionId;
 use crate::cpg::{CpgEdge, CpgNode};
 use crate::navigation::seed;
 use crate::navigation::types::*;
-use crate::navigation::types::{EgoEdge, EgoGraph, EgoNode};
 use crate::navigation::NavigationSession;
 use petgraph::graph::NodeIndex;
 use petgraph::visit::EdgeRef;
@@ -34,6 +33,7 @@ pub fn nodes_at(s: &NavigationSession, file: &str, line: usize) -> Evidence {
                     end_line: line,
                 }),
             }],
+            graph: None,
         };
     }
     let mut items = Vec::new();
@@ -110,6 +110,7 @@ pub fn nodes_at(s: &NavigationSession, file: &str, line: usize) -> Evidence {
         items,
         truncated: false,
         warnings: vec![],
+        graph: None,
     }
 }
 
@@ -212,6 +213,7 @@ pub fn callers(
         items,
         truncated: false,
         warnings: vec![],
+        graph: None,
     })
 }
 
@@ -327,6 +329,7 @@ pub fn callees(
         items,
         truncated: false,
         warnings: vec![],
+        graph: None,
     })
 }
 
@@ -477,25 +480,28 @@ pub fn ego_graph(
     location: Option<&str>,
     hops: usize,
     edges: &[&str],
-) -> Result<EgoGraph, QueryError> {
+) -> Result<Evidence, QueryError> {
     let seed = resolve_ego_seed(s, symbol, file, location)?;
     let edge_filter = parse_ego_edges(edges)?;
     let g = &s.index.cpg.graph;
     let mut order: BTreeMap<NodeIndex, usize> = BTreeMap::new();
-    let mut nodes: Vec<EgoNode> = Vec::new();
-    let mut ego_edges: Vec<EgoEdge> = Vec::new();
+    let mut nodes: Vec<GraphNode> = Vec::new();
+    let mut ego_edges: Vec<GraphEdge> = Vec::new();
     // returns (index, is_new) so we only enqueue freshly-discovered nodes (m9).
     let intern = |s: &NavigationSession,
                   ni: NodeIndex,
                   order: &mut BTreeMap<NodeIndex, usize>,
-                  nodes: &mut Vec<EgoNode>|
+                  nodes: &mut Vec<GraphNode>|
      -> (usize, bool) {
         if let Some(&i) = order.get(&ni) {
             return (i, false);
         }
         let i = nodes.len();
         let (symbol, location) = node_symbol_loc(s, ni);
-        nodes.push(EgoNode { symbol, location });
+        nodes.push(GraphNode {
+            symbol: Some(symbol),
+            location,
+        });
         order.insert(ni, i);
         (i, true)
     };
@@ -525,7 +531,7 @@ pub fn ego_graph(
                 } else {
                     (to, from)
                 };
-                ego_edges.push(EgoEdge {
+                ego_edges.push(GraphEdge {
                     from: a,
                     to: b,
                     kind: edge_kind(er.weight()).into(),
@@ -538,11 +544,15 @@ pub fn ego_graph(
     }
     ego_edges.sort_by(|x, y| (x.from, x.to, &x.kind).cmp(&(y.from, y.to, &y.kind)));
     ego_edges.dedup();
-    Ok(EgoGraph {
+    Ok(Evidence {
         query: seed.query,
-        nodes,
-        edges: ego_edges,
+        items: vec![],
+        truncated: false,
         warnings: vec![],
+        graph: Some(GraphPayload {
+            nodes,
+            edges: ego_edges,
+        }),
     })
 }
 

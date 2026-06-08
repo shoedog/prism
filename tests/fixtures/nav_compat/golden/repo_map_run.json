@@ -1,0 +1,39 @@
+{
+  "query": "repo-map",
+  "items": [],
+  "truncated": false,
+  "warnings": [
+    {
+      "kind": "UnresolvedModule",
+      "message": "1 module import(s) not filesystem-resolved (v1)",
+      "location": null
+    }
+  ],
+  "graph": {
+    "nodes": [
+      {
+        "symbol": null,
+        "location": {
+          "file": "main.py",
+          "start_line": 1,
+          "end_line": 1
+        }
+      },
+      {
+        "symbol": null,
+        "location": {
+          "file": "util.py",
+          "start_line": 1,
+          "end_line": 1
+        }
+      }
+    ],
+    "edges": [
+      {
+        "from": 0,
+        "to": 1,
+        "kind": "ModuleDep"
+      }
+    ]
+  }
+}

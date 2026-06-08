@@ -518,6 +518,10 @@ path = "tests/navigation/ego_test.rs"
 name = "navigation_cache"
 path = "tests/navigation/cache_test.rs"
 
+[[test]]
+name = "navigation_module_graph"
+path = "tests/navigation/module_graph_test.rs"
+
 # ── Output tests ──
 
 [[test]]

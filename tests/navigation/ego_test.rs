@@ -14,11 +14,16 @@ fn session(src: &str) -> NavigationSession {
 #[test]
 fn ego_includes_seed_and_call_edge() {
     let s = session("def helper():\n    return 1\n\ndef caller():\n    return helper()\n");
-    let g = queries::ego_graph(&s, Some("caller"), None, None, 1, &["Call"]).unwrap();
+    let ev = queries::ego_graph(&s, Some("caller"), None, None, 1, &["Call"]).unwrap();
+    let g = ev.graph.as_ref().expect("ego returns Some(graph)");
+    assert!(
+        ev.items.is_empty(),
+        "ego carries its result in graph, not items"
+    );
     assert!(g
         .nodes
         .iter()
-        .any(|n| matches!(&n.symbol, SymbolRef::Function { name, .. } if name == "caller")));
+        .any(|n| matches!(&n.symbol, Some(SymbolRef::Function { name, .. }) if name == "caller")));
     assert!(
         !g.edges.is_empty(),
         "expected at least one Call edge from the seed"
@@ -28,20 +33,22 @@ fn ego_includes_seed_and_call_edge() {
 #[test]
 fn ego_location_seed_centers_exact_variable_node() {
     let s = session("def f():\n    x = 1\n    return x\n");
-    let g = queries::ego_graph(&s, None, None, Some("a.py:2"), 0, &["DataFlow"]).unwrap();
+    let ev = queries::ego_graph(&s, None, None, Some("a.py:2"), 0, &["DataFlow"]).unwrap();
+    let g = ev.graph.as_ref().expect("ego returns Some(graph)");
     assert!(g.nodes.iter().any(|n| {
-        matches!(&n.symbol, SymbolRef::Variable { function, line, .. } if function == "f" && *line == 2)
+        matches!(&n.symbol, Some(SymbolRef::Variable { function, line, .. }) if function == "f" && *line == 2)
     }));
     assert!(!g
         .nodes
         .iter()
-        .any(|n| { matches!(&n.symbol, SymbolRef::Function { name, .. } if name == "f") }));
+        .any(|n| { matches!(&n.symbol, Some(SymbolRef::Function { name, .. }) if name == "f") }));
 }
 
 #[test]
 fn ego_edges_trim_whitespace() {
     let s = session("def helper():\n    return 1\n\ndef caller():\n    return helper()\n");
-    let g = queries::ego_graph(&s, Some("caller"), None, None, 1, &["Call", " Return"]).unwrap();
+    let ev = queries::ego_graph(&s, Some("caller"), None, None, 1, &["Call", " Return"]).unwrap();
+    let g = ev.graph.as_ref().expect("ego returns Some(graph)");
     assert!(g.edges.iter().any(|e| e.kind == "Call"));
     assert!(g.edges.iter().any(|e| e.kind == "Return"));
 }

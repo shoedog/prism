@@ -33,6 +33,7 @@ fn evidence_serializes_to_expected_shape() {
         }],
         truncated: false,
         warnings: vec![],
+        graph: None,
     };
     let v: serde_json::Value = serde_json::to_value(&ev).unwrap();
     assert_eq!(v["query"], "nodes-at:a.py:2");
@@ -42,4 +43,48 @@ fn evidence_serializes_to_expected_shape() {
         v["items"][0]["why"][0]["EnclosingFunction"]["function"]["Function"]["name"],
         "f"
     );
+}
+
+#[test]
+fn evidence_without_graph_omits_key() {
+    let ev = Evidence {
+        query: "nodes-at:a.rs:1".into(),
+        items: vec![],
+        truncated: false,
+        warnings: vec![],
+        graph: None,
+    };
+    let json = serde_json::to_string(&ev).unwrap();
+    assert!(
+        !json.contains("\"graph\""),
+        "graph:None must be omitted so existing nav goldens stay byte-identical: {json}"
+    );
+}
+
+#[test]
+fn evidence_with_graph_serializes_payload() {
+    let ev = Evidence {
+        query: "repo-map".into(),
+        items: vec![],
+        truncated: false,
+        warnings: vec![],
+        graph: Some(GraphPayload {
+            nodes: vec![GraphNode {
+                symbol: None,
+                location: Location {
+                    file: "a.rs".into(),
+                    start_line: 1,
+                    end_line: 1,
+                },
+            }],
+            edges: vec![GraphEdge {
+                from: 0,
+                to: 0,
+                kind: "ModuleDep".into(),
+            }],
+        }),
+    };
+    let json = serde_json::to_string(&ev).unwrap();
+    assert!(json.contains("\"graph\""));
+    assert!(json.contains("\"ModuleDep\""));
 }

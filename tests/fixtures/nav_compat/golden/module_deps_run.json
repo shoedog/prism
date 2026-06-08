@@ -1,0 +1,53 @@
+{
+  "query": "module-deps:main.py",
+  "items": [
+    {
+      "symbol": null,
+      "location": {
+        "file": "main.py",
+        "start_line": 1,
+        "end_line": 1
+      },
+      "score": 1.0,
+      "source": "HeuristicImport",
+      "fallback": false,
+      "why": [
+        {
+          "UnresolvedImport": {
+            "module": "util"
+          }
+        }
+      ],
+      "snippet": null
+    },
+    {
+      "symbol": null,
+      "location": {
+        "file": "util.py",
+        "start_line": 1,
+        "end_line": 1
+      },
+      "score": 1.0,
+      "source": "PrismCpg",
+      "fallback": false,
+      "why": [
+        {
+          "Calls": {
+            "callee": "helper",
+            "call_site_line": 4,
+            "qualifier": "util"
+          }
+        }
+      ],
+      "snippet": null
+    }
+  ],
+  "truncated": false,
+  "warnings": [
+    {
+      "kind": "UnresolvedModule",
+      "message": "1 module import(s) not filesystem-resolved (v1)",
+      "location": null
+    }
+  ]
+}

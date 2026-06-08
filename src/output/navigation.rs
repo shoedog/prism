@@ -1,4 +1,4 @@
-use crate::navigation::types::{EgoGraph, Evidence, QueryError};
+use crate::navigation::types::{Evidence, QueryError};
 
 pub fn render_err(e: &QueryError, format: &str) -> (String, i32) {
     let rendered = match format {
@@ -20,25 +20,6 @@ fn error_text(e: &QueryError) -> String {
         }
         QueryError::UnsupportedFile { file } => format!("unsupported file: {file}"),
         QueryError::UnknownEdge { edge } => format!("unknown edge: {edge}"),
-    }
-}
-
-pub fn render_ego(g: &EgoGraph, format: &str) -> String {
-    match format {
-        "json" => serde_json::to_string_pretty(g).unwrap_or_else(|_| "{}".into()),
-        _ => {
-            let mut s = format!("{}\n", g.query);
-            for (i, n) in g.nodes.iter().enumerate() {
-                s.push_str(&format!(
-                    "  [{i}] {}:{}\n",
-                    n.location.file, n.location.start_line
-                ));
-            }
-            for e in &g.edges {
-                s.push_str(&format!("  {} --{}--> {}\n", e.from, e.kind, e.to));
-            }
-            s
-        }
     }
 }
 
@@ -68,9 +49,13 @@ pub fn render(ev: &Evidence, format: &str) -> String {
                                 .as_ref()
                                 .map(|q| format!("{q}.{callee}"))
                                 .unwrap_or_else(|| callee.clone());
+                            // `call_site_line` is a SOURCE-side line; do NOT pair it with
+                            // `it.location.file` (target-side for module_deps) — that would
+                            // name the wrong file (holistic-review MAJOR). The target file is
+                            // already shown in the item header line above.
                             s.push_str(&format!(
-                                "    calls {} @ {}:{}\n",
-                                callee, it.location.file, call_site_line
+                                "    calls {} @ call-site line {}\n",
+                                callee, call_site_line
                             ));
                         }
                         crate::navigation::types::Reason::CalledBy {
@@ -93,6 +78,17 @@ pub fn render(ev: &Evidence, format: &str) -> String {
             }
             for w in &ev.warnings {
                 s.push_str(&format!("  ! {:?}: {}\n", w.kind, w.message));
+            }
+            if let Some(graph) = &ev.graph {
+                for (i, n) in graph.nodes.iter().enumerate() {
+                    s.push_str(&format!(
+                        "  [{i}] {}:{}\n",
+                        n.location.file, n.location.start_line
+                    ));
+                }
+                for e in &graph.edges {
+                    s.push_str(&format!("  {} --{}--> {}\n", e.from, e.kind, e.to));
+                }
             }
             s
         }
