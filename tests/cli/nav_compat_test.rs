@@ -470,7 +470,8 @@ fn repo_map_golden() {
 #[test]
 fn module_deps_repo_map_live_smoke() {
     // Real repo (Rust, scoped-call heavy): the path must run + emit valid JSON.
-    // No non-empty edge assertion - Rust scoped calls don't resolve (Design-decision #4).
+    // Scoped-dispatch resolution is asserted separately below; this remains a
+    // shape/source smoke test for the module graph queries.
     let md = bin()
         .args([
             "nav",
@@ -514,5 +515,44 @@ fn module_deps_repo_map_live_smoke() {
     assert!(
         r["graph"]["nodes"].as_array().unwrap().len() > 1,
         "this repo has many files"
+    );
+}
+
+#[test]
+fn callees_resolves_scoped_dispatch_dogfood() {
+    // run_slicing_inner dispatches via scoped `original_diff::slice`-style calls;
+    // before 3b.5 this resolved 0 cross-file callees, now > 0.
+    let out = bin()
+        .args([
+            "nav",
+            "callees",
+            "--repo",
+            ".",
+            "--symbol",
+            "run_slicing_inner",
+            "--file",
+            "src/algorithms/mod.rs",
+            "--format",
+            "json",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let v: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    let resolved_cross_file = v["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|it| {
+            it["symbol"].is_object() && it["symbol"]["Function"]["file"] != "src/algorithms/mod.rs"
+        })
+        .count();
+    assert!(
+        resolved_cross_file > 0,
+        "run_slicing_inner should resolve scoped algorithm callees cross-file; got {resolved_cross_file}"
     );
 }

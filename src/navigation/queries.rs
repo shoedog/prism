@@ -137,16 +137,16 @@ fn fid_of(sym: &SymbolRef) -> FunctionId {
 /// so each candidate CallSite is resolved from its caller's file and kept only if it reaches THIS target.
 fn direct_callers(s: &NavigationSession, target: &FunctionId) -> Vec<(FunctionId, usize)> {
     let mut out = Vec::new();
-    if let Some(sites) = s.index.cpg.call_graph.callers.get(&target.name) {
-        for site in sites {
-            let resolved = s.index.cpg.call_graph.resolve_callees_qualified(
-                &site.callee_name,
-                &site.caller.file,
-                site.qualifier.as_deref(),
-            );
-            if resolved.iter().any(|f| **f == *target) {
-                out.push((site.caller.clone(), site.line));
-            }
+    let cg = &s.index.cpg.call_graph;
+    for site in crate::navigation::call_resolve::scoped_caller_sites(cg, &target.name) {
+        let resolved = crate::navigation::call_resolve::resolve_callees_nav(
+            cg,
+            &site.callee_name,
+            &site.caller.file,
+            site.qualifier.as_deref(),
+        );
+        if resolved.iter().any(|f| **f == *target) {
+            out.push((site.caller.clone(), site.line));
         }
     }
     out
@@ -225,7 +225,8 @@ fn direct_callees(
     if let Some(sites) = s.index.cpg.call_graph.calls.get(caller) {
         for site in sites {
             // CORRECT arg order (B2): (callee_name, caller_file, qualifier)
-            let resolved = s.index.cpg.call_graph.resolve_callees_qualified(
+            let resolved = crate::navigation::call_resolve::resolve_callees_nav(
+                &s.index.cpg.call_graph,
                 &site.callee_name,
                 &site.caller.file,
                 site.qualifier.as_deref(),

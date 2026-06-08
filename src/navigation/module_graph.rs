@@ -31,16 +31,17 @@ type EdgeReasons = BTreeSet<(String, usize, Option<String>)>;
 /// `module_deps` (projected to one source file) and `repo_map` (all edges) so the
 /// two can never diverge (holistic-review MAJOR).
 ///
-/// NOTE: `resolve_callees_qualified` matches any file whose stem == the module
-/// qualifier (documented same-stem behavior, call_graph.rs), so a `utils` qualifier
-/// can yield edges to both lib/utils.py and src/utils.py. Deterministic
-/// over-reporting, acceptable for the v1 map.
+/// NOTE: nav-local call resolution uses documented same-stem behavior for
+/// qualified/scoped module hints, so a `utils` qualifier can yield edges to both
+/// lib/utils.py and src/utils.py. Deterministic over-reporting is acceptable for
+/// the v1 map.
 fn collect_module_edges(s: &NavigationSession) -> BTreeMap<(String, String), EdgeReasons> {
     let cg = &s.index.cpg.call_graph;
     let mut edges: BTreeMap<(String, String), EdgeReasons> = BTreeMap::new();
     for (caller, sites) in &cg.calls {
         for site in sites {
-            let resolved = cg.resolve_callees_qualified(
+            let resolved = crate::navigation::call_resolve::resolve_callees_nav(
+                cg,
                 &site.callee_name,
                 &site.caller.file,
                 site.qualifier.as_deref(),
