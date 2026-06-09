@@ -41,6 +41,8 @@ pub mod diff;
 pub mod frameworks;
 pub mod languages;
 pub mod live_types;
+#[cfg(feature = "mcp")]
+pub mod mcp;
 pub mod navigation;
 pub mod output;
 pub mod queries;

@@ -36,6 +36,12 @@ jobs:
       - name: Run tests
         run: cargo test --verbose
 
+      - name: Build MCP binary
+        run: cargo build --bin prism-mcp --features mcp
+
+      - name: Run MCP tests
+        run: cargo test --features mcp
+
   clippy:
     name: Clippy Lint
     runs-on: ubuntu-latest
@@ -59,7 +65,7 @@ jobs:
             ${{ runner.os }}-cargo-clippy-
 
       - name: Run clippy
-        run: cargo clippy --all-targets -- -W clippy::all
+        run: cargo clippy --all-targets --features mcp -- -W clippy::all
 
   format:
     name: Format Check

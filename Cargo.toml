@@ -5,9 +5,17 @@ edition = "2021"
 description = "Code slicing algorithms for defect-focused automated code review, based on arXiv:2505.17928"
 license = "Apache-2.0"
 
+[features]
+mcp = []
+
 [[bin]]
 name = "prism"
 path = "src/main.rs"
+
+[[bin]]
+name = "prism-mcp"
+path = "src/bin/prism-mcp.rs"
+required-features = ["mcp"]
 
 [dependencies]
 tree-sitter = "0.25"
@@ -37,6 +45,13 @@ dirs = "6.0.0"
 tempfile = "3"
 assert_cmd = "2"
 predicates = "3"
+
+# ── MCP tests ──
+
+[[test]]
+name = "mcp_smoke"
+path = "tests/mcp/smoke_test.rs"
+required-features = ["mcp"]
 
 # ── Algorithm tests: Paper ──
 
