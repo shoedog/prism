@@ -84,6 +84,7 @@ pub enum WarningKind {
     UnresolvedModule,
     Collision,
     SkippedPath,
+    ResultTruncated,
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq)]

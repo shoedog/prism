@@ -14,6 +14,8 @@ cargo test           # Run all tests (unit + integration)
 cargo fmt --check    # Check formatting (must pass before PR)
 cargo run -- --help  # Show CLI usage
 cargo run -- --list-algorithms  # List all 26 algorithms
+cargo build --bin prism-mcp --features mcp  # Build the MCP stdio server
+cargo test --features mcp                   # Run tests with MCP enabled
 ```
 
 ### Before Creating a PR
@@ -148,6 +150,27 @@ Python, JS, TS, and Go; unqualified and `use`-imported calls; and
 gaps are `Type::method` where the type name differs from the file stem,
 and cross-file method/receiver calls, which need type information and are
 language-agnostic.
+
+### MCP Adapter
+
+`prism-mcp` is a local stdio MCP server behind the cargo `mcp` feature:
+
+```bash
+cargo run --bin prism-mcp --features mcp -- --repo /path/to/repo
+```
+
+The server exposes six read-only navigation tools returning Prism `Evidence`
+JSON:
+
+- `nav_nodes_at` — evidence for a repository file and 1-indexed line.
+- `nav_callers` — incoming callers for a symbol or location seed.
+- `nav_callees` — outgoing callees for a symbol or location seed.
+- `nav_ego_graph` — local graph around a symbol or location seed.
+- `nav_module_deps` — outbound module dependencies for one file.
+- `nav_repo_map` — whole-repository module dependency graph.
+
+Build, test, or lint MCP code with `--features mcp`; the default build keeps
+the adapter disabled.
 
 Algorithms fall into two categories:
 1. **Simple** (use `ctx.files` only): `original_diff`, `parent_function`, `left_flow`, `full_flow`, `thin_slice`, `relevant_slice`, `quantum_slice`, `horizontal_slice`, `angle_slice`, `absence_slice`, `symmetry_slice`
