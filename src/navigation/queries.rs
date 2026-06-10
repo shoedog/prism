@@ -34,6 +34,7 @@ pub fn nodes_at(s: &NavigationSession, file: &str, line: usize) -> Evidence {
                 }),
             }],
             graph: None,
+            reasoning: None,
         };
     }
     let mut items = Vec::new();
@@ -111,6 +112,7 @@ pub fn nodes_at(s: &NavigationSession, file: &str, line: usize) -> Evidence {
         truncated: false,
         warnings: vec![],
         graph: None,
+        reasoning: None,
     }
 }
 
@@ -214,6 +216,7 @@ pub fn callers(
         truncated: false,
         warnings: vec![],
         graph: None,
+        reasoning: None,
     })
 }
 
@@ -331,6 +334,7 @@ pub fn callees(
         truncated: false,
         warnings: vec![],
         graph: None,
+        reasoning: None,
     })
 }
 
@@ -554,6 +558,7 @@ pub fn ego_graph(
             nodes,
             edges: ego_edges,
         }),
+        reasoning: None,
     })
 }
 

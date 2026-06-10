@@ -218,6 +218,13 @@ impl DataFlowGraph {
                     }
                     let refs = parsed.find_path_references_scoped(&func_node, &path, start);
 
+                    // Parameter Defs are pinned to the function's `start` line (the signature line).
+                    // `cpg/trace.rs::is_parameter_binding` DEPENDS on this convention — it treats a
+                    // Variable `Def` on a function's signature line as a parameter binding (a call
+                    // boundary) so recursion and same-name collisions don't drop the arg→param
+                    // boundary. If param Defs ever move to their actual line in a multi-line signature,
+                    // update `is_parameter_binding` (or make parameter-ness structural) or the
+                    // recursion false negative silently revives. See planA-followups.md (Round 7/8).
                     let loc = VarLocation {
                         file: file_path.clone(),
                         function: func_name.clone(),

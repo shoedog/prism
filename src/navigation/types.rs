@@ -63,6 +63,7 @@ pub enum Reason {
     UnresolvedImport {
         module: String,
     },
+    Reasoning(ReasoningReason),
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq)]
@@ -85,6 +86,7 @@ pub enum WarningKind {
     Collision,
     SkippedPath,
     ResultTruncated,
+    Reasoning(ReasoningWarning),
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq)]
@@ -116,6 +118,54 @@ pub struct GraphPayload {
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq)]
+pub enum ReasoningReason {
+    TaintedBy {
+        source: SymbolRef,
+        sanitizers_present_in_source_fn: Vec<String>,
+        path_proven: bool,
+    },
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq)]
+pub enum ReasoningWarning {
+    SeedUnresolved { seed: String },
+    InterproceduralBoundary { sink: String },
+    Cleansed { source_function: String },
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq)]
+pub enum Reachability {
+    Reached,
+    NotReached,
+    BoundaryExited,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq)]
+pub struct SinkResult {
+    pub sink: SymbolRef,
+    pub reachability: Reachability,
+    /// Index into the accompanying witness `GraphPayload.nodes` (NOT `Evidence.graph`, which the
+    /// shared ego/repo-map paths truncate/reorder at `max_results`). Plan B owns wiring this to a
+    /// non-truncating witness graph and repairing/clearing the index if that graph is ever clipped —
+    /// a dangling index is a tracked Plan B follow-up (graph_node truncation repair). `None` until
+    /// then.
+    pub graph_node: Option<usize>,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq)]
+pub struct ReasoningSummary {
+    /// Aggregate reachability across `per_sink`. AGGREGATION RULE (Plan B must honor this once it
+    /// produces the field, before the wire shape freezes): the worst case in defect-finder terms —
+    /// `Reached` if any sink is `Reached`, else `BoundaryExited` if any is `BoundaryExited`, else
+    /// `NotReached`; `None` when there are no sinks. (Recall `NotReached` is "not reached within v1's
+    /// traced scope," not proven absence.)
+    pub reachability: Option<Reachability>,
+    pub per_sink: Vec<SinkResult>,
+    pub source_count: usize,
+    pub frontier_count: usize,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq)]
 pub struct Evidence {
     pub query: String,
     pub items: Vec<EvidenceItem>,
@@ -124,6 +174,8 @@ pub struct Evidence {
     /// Present only for graph-shaped queries (`ego`, `repo-map`); omitted otherwise.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub graph: Option<GraphPayload>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reasoning: Option<ReasoningSummary>,
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq)]
@@ -133,4 +185,22 @@ pub enum QueryError {
     LocationOutOfRange { file: String, line: usize },
     UnsupportedFile { file: String },
     UnknownEdge { edge: String },
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_evidence_reasoning_omitted_when_none() {
+        let e = Evidence {
+            query: "q".into(),
+            items: vec![],
+            truncated: false,
+            warnings: vec![],
+            graph: None,
+            reasoning: None,
+        };
+        assert!(!serde_json::to_string(&e).unwrap().contains("reasoning"));
+    }
 }

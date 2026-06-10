@@ -1828,8 +1828,12 @@ impl ParsedFile {
             return self.find_variable_references_scoped(func_node, &path.base, def_line);
         }
         // For field-qualified paths, find matching field expressions.
-        // Filter to references after def_line, matching the scoping behavior
-        // of find_variable_references_scoped for simple paths.
+        // NOTE: this filters to references AFTER def_line (`line > def_line` in `collect_path_refs`),
+        // which does NOT match `find_variable_references_scoped` for simple paths — that returns ALL
+        // non-shadowed references, including earlier lines (so a loop-carried `def@N → use@M (M<N)`
+        // edge exists for simple paths but not field paths). `cpg/trace.rs::taint_neighbors` has a
+        // field-path recovery arm that re-supplies these dropped edges for the reasoning layer; this
+        // production DFG path is left as-is for byte-stability (Option C). See planA-followups Round 9.
         let mut lines = BTreeSet::new();
         self.collect_path_refs(*func_node, path, def_line, &mut lines);
         lines

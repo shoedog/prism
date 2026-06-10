@@ -10653,9 +10653,7 @@ fn apply_cleansers(path: &mut crate::data_flow::FlowPath, files: &BTreeMap<Strin
         Some(p) => p,
         None => return,
     };
-    if !matches!(parsed.language, Language::Go | Language::Python)
-        && !is_js_ts_language(parsed.language)
-    {
+    if !crate::sanitizers::sanitizer_supported(parsed.language) {
         return;
     }
 
@@ -10670,6 +10668,49 @@ fn apply_cleansers(path: &mut crate::data_flow::FlowPath, files: &BTreeMap<Strin
         if function_body_cleansed_for(parsed, src.line, category) {
             path.cleansed_for.insert(category);
         }
+    }
+}
+
+// [->Phase-IP / A2] TEMPORARY layering inversion: reasoning reaches into taint.rs. Relocate
+// cleansed_categories_for_source + function_body_cleansed_for into src/sanitizers/ when A2 lands.
+// Tracked: docs/superpowers/specs/2026-06-09-prism-tier2-planA-substrate-hardening-design.md §9.
+/// A4: the single reasoning-facing cleansing adapter. Returns the sanitizer categories present
+/// in the SOURCE FUNCTION BODY (NOT path-proof) as lowercase strings. Gated to Go/Python/JS-TS
+/// exactly like apply_cleansers; honest-empty otherwise.
+pub(crate) fn cleansed_categories_for_source(
+    files: &std::collections::BTreeMap<String, ParsedFile>,
+    source: &crate::data_flow::VarLocation,
+) -> Vec<String> {
+    let parsed = match files.get(&source.file) {
+        Some(p) => p,
+        None => return Vec::new(),
+    };
+    if !crate::sanitizers::sanitizer_supported(parsed.language) {
+        return Vec::new();
+    }
+
+    let mut out = Vec::new();
+    let cats: std::collections::BTreeSet<crate::frameworks::SanitizerCategory> =
+        crate::sanitizers::active_recognizers()
+            .map(|r| r.category)
+            .collect();
+    for category in cats {
+        if function_body_cleansed_for(parsed, source.line, category) {
+            out.push(sanitizer_category_str(category).to_string());
+        }
+    }
+    out
+}
+
+fn sanitizer_category_str(c: crate::frameworks::SanitizerCategory) -> &'static str {
+    use crate::frameworks::SanitizerCategory::*;
+    match c {
+        Xss => "xss",
+        Sqli => "sqli",
+        Ssrf => "ssrf",
+        Deserialization => "deserialization",
+        OsCommand => "os_command",
+        PathTraversal => "path_traversal",
     }
 }
 
@@ -11360,5 +11401,55 @@ func handler(input string) {
         assert_eq!(g.edges.len(), 1);
         assert!(matches!(g.nodes[0].kind, NodeKind::Source));
         assert!(matches!(g.nodes[1].kind, NodeKind::Sink));
+    }
+
+    #[test]
+    fn test_cleansed_categories_for_source_python_xss() {
+        let src = "def f(u):\n    safe = html.escape(u)\n    return safe\n";
+        let mut files = std::collections::BTreeMap::new();
+        files.insert(
+            "t.py".to_string(),
+            ParsedFile::parse("t.py", src, Language::Python).unwrap(),
+        );
+        let source = VarLocation {
+            file: "t.py".into(),
+            function: "f".into(),
+            line: 2,
+            path: AccessPath {
+                base: "u".into(),
+                fields: vec![],
+            },
+            kind: VarAccessKind::Use,
+        };
+        let cats = cleansed_categories_for_source(&files, &source);
+        assert!(
+            cats.iter().any(|c| c == "xss"),
+            "html.escape => xss: {cats:?}"
+        );
+    }
+
+    #[test]
+    fn test_cleansed_categories_for_source_rust_empty() {
+        let mut files = std::collections::BTreeMap::new();
+        files.insert(
+            "t.rs".to_string(),
+            ParsedFile::parse(
+                "t.rs",
+                "fn f(u: &str) -> String { u.to_string() }",
+                Language::Rust,
+            )
+            .unwrap(),
+        );
+        let s = VarLocation {
+            file: "t.rs".into(),
+            function: "f".into(),
+            line: 1,
+            path: AccessPath {
+                base: "u".into(),
+                fields: vec![],
+            },
+            kind: VarAccessKind::Use,
+        };
+        assert!(cleansed_categories_for_source(&files, &s).is_empty());
     }
 }

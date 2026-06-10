@@ -289,6 +289,7 @@ mod tests {
             truncated: false,
             warnings: vec![],
             graph: None,
+            reasoning: None,
         }
     }
 
@@ -317,6 +318,7 @@ mod tests {
                     })
                     .collect(),
             }),
+            reasoning: None,
         }
     }
 

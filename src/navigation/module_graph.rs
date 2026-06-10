@@ -89,6 +89,7 @@ pub fn module_deps(s: &NavigationSession, file: &str) -> Evidence {
                 }),
             }],
             graph: None,
+            reasoning: None,
         };
     }
 
@@ -167,6 +168,7 @@ pub fn module_deps(s: &NavigationSession, file: &str) -> Evidence {
         truncated: false,
         warnings,
         graph: None,
+        reasoning: None,
     }
 }
 
@@ -228,5 +230,6 @@ pub fn repo_map(s: &NavigationSession) -> Evidence {
         truncated: false,
         warnings,
         graph: Some(GraphPayload { nodes, edges }),
+        reasoning: None,
     }
 }

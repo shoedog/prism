@@ -47,6 +47,7 @@ pub mod navigation;
 pub mod output;
 pub mod queries;
 pub mod react_hooks;
+pub mod reasoning;
 pub mod repo_loader;
 pub mod sanitizers;
 pub mod slice;

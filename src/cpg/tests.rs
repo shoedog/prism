@@ -3,6 +3,505 @@ use crate::ast::ParsedFile;
 use crate::languages::Language;
 use crate::type_db::{FieldInfo, RecordInfo, RecordKind, TypeDatabase, TypedefInfo};
 
+fn build_python_cpg(src: &str) -> CodePropertyGraph {
+    let parsed =
+        crate::ast::ParsedFile::parse("test.py", src, crate::languages::Language::Python).unwrap();
+    let mut files = std::collections::BTreeMap::new();
+    files.insert("test.py".to_string(), parsed);
+    CodePropertyGraph::build(&files)
+}
+
+#[test]
+fn test_taint_trace_straight_line_frontier() {
+    let src = "def f():\n    user = input()\n    x = user\n    sink(x)\n";
+    let cpg = build_python_cpg(src);
+    let trace = cpg.taint_trace(&[("test.py".to_string(), 2usize)]);
+    let lines: std::collections::BTreeSet<usize> = trace
+        .frontier()
+        .iter()
+        .filter_map(|&i| cpg.to_var_location(i).map(|l| l.line))
+        .collect();
+    assert!(
+        lines.contains(&3) && lines.contains(&4),
+        "x (l3) and the use in sink(x) (l4): {lines:?}"
+    );
+    assert!(trace.boundary.is_empty());
+}
+
+#[test]
+fn test_taint_trace_same_line_assignment() {
+    let src = "def f():\n    x = source(); y = x\n    sink(y)\n";
+    let cpg = build_python_cpg(src);
+    let trace = cpg.taint_trace(&[("test.py".to_string(), 2usize)]);
+    let lines: std::collections::BTreeSet<usize> = trace
+        .frontier()
+        .iter()
+        .filter_map(|&i| cpg.to_var_location(i).map(|l| l.line))
+        .collect();
+    assert!(
+        lines.contains(&3),
+        "y (def on l2) must reach the use in sink(y) on l3: {lines:?}"
+    );
+}
+
+#[test]
+fn test_taint_trace_no_dead_end_witness() {
+    let src = "def f():\n    a = input()\n    b = a\n    c = b\n    sink(c)\n";
+    let cpg = build_python_cpg(src);
+    let trace = cpg.taint_trace(&[("test.py".to_string(), 2usize)]);
+    for (&root, frontier) in &trace.frontier_by_root {
+        for &node in frontier {
+            let mut cur = node;
+            let mut g = 0;
+            while let Some((p, _)) = trace.parents_by_root.get(&(root, cur)) {
+                cur = *p;
+                g += 1;
+                assert!(g < 1000);
+            }
+            assert_eq!(
+                cur, root,
+                "per-root witness walk-back must end at the seeded root"
+            );
+        }
+    }
+}
+
+#[test]
+fn test_taint_trace_no_path_empty_downstream() {
+    let src = "def f():\n    a = input()\n    b = 1\n    sink(b)\n";
+    let cpg = build_python_cpg(src);
+    let trace = cpg.taint_trace(&[("test.py".to_string(), 2usize)]);
+    let l4 = trace
+        .frontier()
+        .iter()
+        .any(|&i| cpg.to_var_location(i).map_or(false, |l| l.line == 4));
+    assert!(
+        !l4,
+        "b on line 4 is independent of a; must not be in frontier"
+    );
+}
+
+#[test]
+fn test_taint_trace_no_cfg_falls_back_to_pure_taint() {
+    let mut graph = petgraph::graph::DiGraph::new();
+    let a = graph.add_node(CpgNode::Variable {
+        path: AccessPath::simple("a"),
+        file: "manual.py".into(),
+        function: "f".into(),
+        line: 1,
+        access: VarAccess::Def,
+    });
+    let b = graph.add_node(CpgNode::Variable {
+        path: AccessPath::simple("b"),
+        file: "manual.py".into(),
+        function: "f".into(),
+        line: 2,
+        access: VarAccess::Use,
+    });
+    graph.add_edge(a, b, CpgEdge::DataFlow);
+    let mut location_index = BTreeMap::new();
+    location_index.insert(("manual.py".to_string(), 1), vec![a]);
+    location_index.insert(("manual.py".to_string(), 2), vec![b]);
+    let cpg = CodePropertyGraph::from_parts(
+        graph,
+        BTreeMap::new(),
+        BTreeMap::new(),
+        location_index,
+        crate::call_graph::CallGraph::empty(),
+        crate::data_flow::DataFlowGraph::empty(),
+    );
+    assert!(!cpg.has_cfg_edges());
+    let trace = cpg.taint_trace(&[("manual.py".to_string(), 1usize)]);
+    assert!(trace.in_frontier(b));
+}
+
+#[test]
+fn test_taint_trace_param_seed_reaches_body() {
+    let src = "def g(p):\n    x = p\n    sink(x)\n";
+    let cpg = build_python_cpg(src);
+    let trace = cpg.taint_trace(&[("test.py".to_string(), 1usize)]);
+    // A parameter seed sits at the function-start line, which has no CFG statement node, so v1 uses
+    // the pure-taint fallback (degraded) — an over-approximation. The param must still reach the
+    // body uses; CFG-precise param body-entry handling is a tracked follow-up.
+    assert!(
+        trace.degraded,
+        "a parameter seed has no CFG statement node → pure-taint fallback"
+    );
+    let lines: std::collections::BTreeSet<usize> = trace
+        .frontier()
+        .iter()
+        .filter_map(|&i| cpg.to_var_location(i).map(|l| l.line))
+        .collect();
+    assert!(
+        lines.contains(&2) && lines.contains(&3),
+        "parameter p should reach body use and sink: {lines:?}"
+    );
+}
+
+#[test]
+fn test_taint_trace_statement_miss_degrades_to_pure_taint() {
+    let mut graph = petgraph::graph::DiGraph::new();
+    let stmt1 = graph.add_node(CpgNode::Statement {
+        file: "manual.py".into(),
+        line: 1,
+        kind: StmtKind::Other,
+    });
+    let stmt2 = graph.add_node(CpgNode::Statement {
+        file: "manual.py".into(),
+        line: 2,
+        kind: StmtKind::Other,
+    });
+    graph.add_edge(stmt1, stmt2, CpgEdge::ControlFlow);
+    let src = graph.add_node(CpgNode::Variable {
+        path: AccessPath::simple("src"),
+        file: "manual.py".into(),
+        function: "f".into(),
+        line: 10,
+        access: VarAccess::Def,
+    });
+    let dst = graph.add_node(CpgNode::Variable {
+        path: AccessPath::simple("dst"),
+        file: "manual.py".into(),
+        function: "f".into(),
+        line: 11,
+        access: VarAccess::Use,
+    });
+    graph.add_edge(src, dst, CpgEdge::DataFlow);
+    let mut location_index = BTreeMap::new();
+    location_index.insert(("manual.py".to_string(), 1), vec![stmt1]);
+    location_index.insert(("manual.py".to_string(), 2), vec![stmt2]);
+    location_index.insert(("manual.py".to_string(), 10), vec![src]);
+    location_index.insert(("manual.py".to_string(), 11), vec![dst]);
+    let cpg = CodePropertyGraph::from_parts(
+        graph,
+        BTreeMap::new(),
+        BTreeMap::new(),
+        location_index,
+        crate::call_graph::CallGraph::empty(),
+        crate::data_flow::DataFlowGraph::empty(),
+    );
+    assert!(cpg.has_cfg_edges());
+    let trace = cpg.taint_trace(&[("manual.py".to_string(), 10usize)]);
+    assert!(trace.degraded);
+    assert!(!trace.warnings.is_empty());
+    assert!(trace.in_frontier(dst));
+}
+
+#[test]
+fn test_degraded_seed_line_warns_once_per_line() {
+    // Two variable roots on one degraded seed line (no CFG statement node) must produce ONE warning,
+    // not one per variable — `cfg_scope_for_seed` is hoisted to per-(file,line).
+    let mut graph = petgraph::graph::DiGraph::new();
+    let stmt1 = graph.add_node(CpgNode::Statement {
+        file: "manual.py".into(),
+        line: 1,
+        kind: StmtKind::Other,
+    });
+    let stmt2 = graph.add_node(CpgNode::Statement {
+        file: "manual.py".into(),
+        line: 2,
+        kind: StmtKind::Other,
+    });
+    graph.add_edge(stmt1, stmt2, CpgEdge::ControlFlow);
+    let a = graph.add_node(CpgNode::Variable {
+        path: AccessPath::simple("a"),
+        file: "manual.py".into(),
+        function: "f".into(),
+        line: 10,
+        access: VarAccess::Def,
+    });
+    let b = graph.add_node(CpgNode::Variable {
+        path: AccessPath::simple("b"),
+        file: "manual.py".into(),
+        function: "f".into(),
+        line: 10,
+        access: VarAccess::Def,
+    });
+    let mut location_index = BTreeMap::new();
+    location_index.insert(("manual.py".to_string(), 1), vec![stmt1]);
+    location_index.insert(("manual.py".to_string(), 2), vec![stmt2]);
+    location_index.insert(("manual.py".to_string(), 10), vec![a, b]);
+    let cpg = CodePropertyGraph::from_parts(
+        graph,
+        BTreeMap::new(),
+        BTreeMap::new(),
+        location_index,
+        crate::call_graph::CallGraph::empty(),
+        crate::data_flow::DataFlowGraph::empty(),
+    );
+    assert!(cpg.has_cfg_edges());
+    let trace = cpg.taint_trace(&[("manual.py".to_string(), 10usize)]);
+    assert!(trace.degraded);
+    assert_eq!(
+        trace.warnings.len(),
+        1,
+        "a degraded seed line must warn once, not once per variable node: {:?}",
+        trace.warnings
+    );
+    // Finding 8: a duplicate `(file,line)` seed must not re-run the BFS or re-push the warning.
+    let trace_dup = cpg.taint_trace(&[
+        ("manual.py".to_string(), 10usize),
+        ("manual.py".to_string(), 10),
+    ]);
+    assert_eq!(
+        trace_dup.warnings.len(),
+        1,
+        "duplicate seeds must be deduped: {:?}",
+        trace_dup.warnings
+    );
+}
+
+#[test]
+fn test_seed_with_no_variable_nodes_warns() {
+    // Finding 4: a seed line resolving to zero Variable nodes (e.g. a call-only or blank line) must
+    // surface a warning, not be silently dropped (indistinguishable from "reached nothing").
+    let mut graph = petgraph::graph::DiGraph::new();
+    let stmt = graph.add_node(CpgNode::Statement {
+        file: "manual.py".into(),
+        line: 5,
+        kind: StmtKind::Other,
+    });
+    let mut location_index = BTreeMap::new();
+    location_index.insert(("manual.py".to_string(), 5), vec![stmt]);
+    let cpg = CodePropertyGraph::from_parts(
+        graph,
+        BTreeMap::new(),
+        BTreeMap::new(),
+        location_index,
+        crate::call_graph::CallGraph::empty(),
+        crate::data_flow::DataFlowGraph::empty(),
+    );
+    let trace = cpg.taint_trace(&[("manual.py".to_string(), 5usize)]);
+    assert!(
+        trace
+            .warnings
+            .iter()
+            .any(|w| w.contains("no variable nodes")),
+        "unresolved seed must warn: {:?}",
+        trace.warnings
+    );
+}
+
+#[test]
+fn test_cfg_reachable_lines_unioned_covers_all_statements() {
+    // Finding 3: a minified line can host statements from two functions. `cfg_reachable_lines` seeds
+    // from the first statement only; the unioned variant must cover BOTH so neither function's flow
+    // is CFG-pruned into a false NotReached.
+    let mut graph = petgraph::graph::DiGraph::new();
+    let stmt_a = graph.add_node(CpgNode::Statement {
+        file: "m.js".into(),
+        line: 1,
+        kind: StmtKind::Other,
+    });
+    let stmt_b = graph.add_node(CpgNode::Statement {
+        file: "m.js".into(),
+        line: 1,
+        kind: StmtKind::Other,
+    });
+    let succ_a = graph.add_node(CpgNode::Statement {
+        file: "m.js".into(),
+        line: 20,
+        kind: StmtKind::Other,
+    });
+    let succ_b = graph.add_node(CpgNode::Statement {
+        file: "m.js".into(),
+        line: 30,
+        kind: StmtKind::Other,
+    });
+    graph.add_edge(stmt_a, succ_a, CpgEdge::ControlFlow);
+    graph.add_edge(stmt_b, succ_b, CpgEdge::ControlFlow);
+    let mut location_index = BTreeMap::new();
+    location_index.insert(("m.js".to_string(), 1), vec![stmt_a, stmt_b]);
+    location_index.insert(("m.js".to_string(), 20), vec![succ_a]);
+    location_index.insert(("m.js".to_string(), 30), vec![succ_b]);
+    let cpg = CodePropertyGraph::from_parts(
+        graph,
+        BTreeMap::new(),
+        BTreeMap::new(),
+        location_index,
+        crate::call_graph::CallGraph::empty(),
+        crate::data_flow::DataFlowGraph::empty(),
+    );
+    let unioned = cpg.cfg_reachable_lines_unioned("m.js", 1);
+    assert!(
+        unioned.contains(&("m.js".to_string(), 20)) && unioned.contains(&("m.js".to_string(), 30)),
+        "union must cover both functions' successors: {unioned:?}"
+    );
+    // The first-statement-only baseline reaches only one of them.
+    let single = cpg.cfg_reachable_lines("m.js", 1);
+    assert!(
+        !(single.contains(&("m.js".to_string(), 20)) && single.contains(&("m.js".to_string(), 30))),
+        "baseline should cover only the first statement's successor: {single:?}"
+    );
+}
+
+#[test]
+fn test_taint_trace_keeps_per_root_attribution() {
+    let mut graph = petgraph::graph::DiGraph::new();
+    let a = graph.add_node(CpgNode::Variable {
+        path: AccessPath::simple("a"),
+        file: "manual.py".into(),
+        function: "f".into(),
+        line: 1,
+        access: VarAccess::Def,
+    });
+    let b = graph.add_node(CpgNode::Variable {
+        path: AccessPath::simple("b"),
+        file: "manual.py".into(),
+        function: "f".into(),
+        line: 2,
+        access: VarAccess::Def,
+    });
+    let sink = graph.add_node(CpgNode::Variable {
+        path: AccessPath::simple("sink_arg"),
+        file: "manual.py".into(),
+        function: "f".into(),
+        line: 3,
+        access: VarAccess::Use,
+    });
+    graph.add_edge(a, sink, CpgEdge::DataFlow);
+    graph.add_edge(b, sink, CpgEdge::DataFlow);
+    let mut location_index = BTreeMap::new();
+    location_index.insert(("manual.py".to_string(), 1), vec![a]);
+    location_index.insert(("manual.py".to_string(), 2), vec![b]);
+    location_index.insert(("manual.py".to_string(), 3), vec![sink]);
+    let cpg = CodePropertyGraph::from_parts(
+        graph,
+        BTreeMap::new(),
+        BTreeMap::new(),
+        location_index,
+        crate::call_graph::CallGraph::empty(),
+        crate::data_flow::DataFlowGraph::empty(),
+    );
+    let trace = cpg.taint_trace(&[
+        ("manual.py".to_string(), 1usize),
+        ("manual.py".to_string(), 2usize),
+    ]);
+    assert!(trace.frontier_by_root[&a].contains(&sink));
+    assert!(trace.frontier_by_root[&b].contains(&sink));
+    assert_eq!(trace.parents_by_root[&(a, sink)].0, a);
+    assert_eq!(trace.parents_by_root[&(b, sink)].0, b);
+}
+
+#[test]
+fn test_taint_trace_dataflow_wins_same_line_tie() {
+    let mut graph = petgraph::graph::DiGraph::new();
+    let root = graph.add_node(CpgNode::Variable {
+        path: AccessPath::simple("x"),
+        file: "manual.py".into(),
+        function: "f".into(),
+        line: 1,
+        access: VarAccess::Use,
+    });
+    let target = graph.add_node(CpgNode::Variable {
+        path: AccessPath::simple("y"),
+        file: "manual.py".into(),
+        function: "f".into(),
+        line: 1,
+        access: VarAccess::Def,
+    });
+    graph.add_edge(root, target, CpgEdge::DataFlow);
+    let mut location_index = BTreeMap::new();
+    location_index.insert(("manual.py".to_string(), 1), vec![root, target]);
+    let cpg = CodePropertyGraph::from_parts(
+        graph,
+        BTreeMap::new(),
+        BTreeMap::new(),
+        location_index,
+        crate::call_graph::CallGraph::empty(),
+        crate::data_flow::DataFlowGraph::empty(),
+    );
+    let trace = cpg.taint_trace(&[("manual.py".to_string(), 1usize)]);
+    assert_eq!(
+        trace.parents_by_root[&(root, target)].1,
+        Relation::DataFlow,
+        "DataFlow must win the parent slot over same-line propagation"
+    );
+}
+
+#[test]
+fn test_taint_trace_skips_non_variable_dataflow_neighbors() {
+    let mut graph = petgraph::graph::DiGraph::new();
+    let root = graph.add_node(CpgNode::Variable {
+        path: AccessPath::simple("root"),
+        file: "manual.py".into(),
+        function: "f".into(),
+        line: 1,
+        access: VarAccess::Def,
+    });
+    let stmt = graph.add_node(CpgNode::Statement {
+        file: "manual.py".into(),
+        line: 2,
+        kind: StmtKind::Other,
+    });
+    graph.add_edge(root, stmt, CpgEdge::DataFlow);
+    let mut location_index = BTreeMap::new();
+    location_index.insert(("manual.py".to_string(), 1), vec![root]);
+    location_index.insert(("manual.py".to_string(), 2), vec![stmt]);
+    let cpg = CodePropertyGraph::from_parts(
+        graph,
+        BTreeMap::new(),
+        BTreeMap::new(),
+        location_index,
+        crate::call_graph::CallGraph::empty(),
+        crate::data_flow::DataFlowGraph::empty(),
+    );
+    let trace = cpg.taint_trace(&[("manual.py".to_string(), 1usize)]);
+    assert!(trace.boundary.is_empty());
+    assert!(!trace.in_frontier(stmt));
+}
+
+#[test]
+fn test_taint_trace_records_boundary_at_param_def() {
+    let src = "def g(p):\n    sink(p)\n\ndef f():\n    u = input()\n    g(u)\n";
+    let cpg = build_python_cpg(src);
+    let trace = cpg.taint_trace(&[("test.py".to_string(), 5usize)]);
+    assert!(
+        !trace.boundary.is_empty(),
+        "u flows into g's param across a function boundary"
+    );
+    for be in &trace.boundary {
+        assert!(
+            !trace.in_frontier(be.to),
+            "cross-function target not traversed"
+        );
+        if let Some(loc) = cpg.to_var_location(be.to) {
+            assert_eq!(loc.function, "g", "boundary target is g's parameter");
+        }
+    }
+}
+
+#[test]
+fn test_forward_reachable_in_function_is_function_scoped() {
+    // Two functions on one minified line. `forward_reachable_in_function` from `t` in `a` must NOT
+    // leak into `b` — unlike the legacy `dfg_forward_reachable`, whose `(file,line)`-keyed same-line
+    // propagation reaches `c` in `b`. This is the function-scoping the boundary classifier relies on.
+    let src = "function a(){ var t = input(); foo(t); }function b(){ var c = 1; sink(c); }\n";
+    let parsed =
+        crate::ast::ParsedFile::parse("m.js", src, crate::languages::Language::JavaScript).unwrap();
+    let mut files = std::collections::BTreeMap::new();
+    files.insert("m.js".to_string(), parsed);
+    let cpg = CodePropertyGraph::build(&files);
+    let t_use = cpg
+        .nodes_at("m.js", 1)
+        .into_iter()
+        .find(|&n| {
+            cpg.to_var_location(n).is_some_and(|l| {
+                l.path.to_string() == "t" && matches!(l.kind, crate::data_flow::VarAccessKind::Use)
+            })
+        })
+        .expect("t use in function a");
+    let reached_fns: std::collections::BTreeSet<String> = cpg
+        .forward_reachable_in_function(t_use)
+        .into_iter()
+        .filter_map(|n| cpg.to_var_location(n).map(|l| l.function))
+        .collect();
+    assert!(
+        reached_fns.iter().all(|f| f == "a"),
+        "forward reachability leaked out of function a: {reached_fns:?}"
+    );
+}
+
 #[test]
 fn test_node_accessors() {
     let func = CpgNode::Function {

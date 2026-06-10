@@ -21,6 +21,7 @@ mod context;
 mod query;
 #[cfg(test)]
 mod tests;
+mod trace;
 mod types;
 
 // Items the test module reaches via `use super::*;`. On the original
@@ -33,4 +34,5 @@ use std::collections::{BTreeMap, BTreeSet};
 
 pub use build::CodePropertyGraph;
 pub use context::{CpgContext, CpgScope};
+pub use trace::{BoundaryEdge, Relation, Trace};
 pub use types::{CpgEdge, CpgNode, StmtKind, VarAccess};

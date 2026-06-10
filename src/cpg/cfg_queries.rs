@@ -8,6 +8,29 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use super::{CodePropertyGraph, CpgEdge, CpgNode};
 
+/// Policy for [`CodePropertyGraph::cfg_reachable_including_continuation`]'s look-back over the
+/// continuation lines of a multi-line statement. Named (not a bare `usize`) so a new caller can't
+/// silently inherit the wrong cap/mode and revive a false negative.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ContinuationScan {
+    /// Production `taint_forward_cfg`: stop at the nearest preceding statement, 20-line cap. Kept
+    /// byte-stable for the existing Taint slice output (Option C).
+    Production,
+    /// Reasoning (`cfg_valid`): scan unbounded to ANY reachable preceding statement. Fail-open — a
+    /// long multi-line call, or one with an inline nested callback before the tainted argument, must
+    /// not false-`NotReached` that argument.
+    ReasoningFailOpen,
+}
+
+impl ContinuationScan {
+    fn max_span(self) -> usize {
+        match self {
+            ContinuationScan::Production => 20,
+            ContinuationScan::ReasoningFailOpen => usize::MAX,
+        }
+    }
+}
+
 impl CodePropertyGraph {
     // -----------------------------------------------------------------------
     // CFG queries (Phase 6)
@@ -60,11 +83,12 @@ impl CodePropertyGraph {
     /// Example: in `cert = lib->creds->create(...,\n  BUILD_FROM_FILE, str, ...)`,
     /// `BUILD_FROM_FILE` is on the continuation line. The statement starts one line
     /// above. If the statement start is reachable, so is the continuation.
-    fn cfg_reachable_including_continuation(
+    pub(crate) fn cfg_reachable_including_continuation(
         &self,
         file: &str,
         line: usize,
         cfg_set: &BTreeSet<(String, usize)>,
+        scan: ContinuationScan,
     ) -> bool {
         if cfg_set.contains(&(file.to_string(), line)) {
             return true;
@@ -72,12 +96,23 @@ impl CodePropertyGraph {
         // Only look back if there is no statement starting at this exact line.
         // A continuation line has no statement node; a new statement does.
         if self.statement_at(file, line).is_none() {
-            const MAX_STMT_SPAN: usize = 20;
-            for offset in 1..=MAX_STMT_SPAN.min(line.saturating_sub(1)) {
+            let max_span = scan.max_span();
+            for offset in 1..=max_span.min(line.saturating_sub(1)) {
                 let check_line = line - offset;
                 if self.statement_at(file, check_line).is_some() {
-                    // Found the enclosing statement start — check if it's reachable.
-                    return cfg_set.contains(&(file.to_string(), check_line));
+                    if cfg_set.contains(&(file.to_string(), check_line)) {
+                        // Found a reachable preceding statement (the enclosing call).
+                        return true;
+                    }
+                    // The nearest preceding statement is NOT reachable. In `Production` mode stop here
+                    // (byte-stable). In `ReasoningFailOpen` keep scanning earlier statements: the
+                    // nearest one may belong to an INLINE nested callback (`sink(() => { stmt }, arg)`)
+                    // whose body statement is not in the outer function's `cfg_set`, while the
+                    // *enclosing* `sink(` statement further back IS — admitting the continuation
+                    // (fail-open, the safe direction) instead of false-`NotReached`ing the argument.
+                    if matches!(scan, ContinuationScan::Production) {
+                        return false;
+                    }
                 }
             }
         }
@@ -117,6 +152,39 @@ impl CodePropertyGraph {
                 (node.file().to_string(), node.line())
             })
             .collect()
+    }
+
+    /// CFG-reachable lines unioned over EVERY `Statement` node at `(file,line)`, not just the first.
+    /// `cfg_reachable_lines` seeds from `statement_at` (the first statement), so on a minified line
+    /// hosting statements from two functions it returns only the first function's CFG scope —
+    /// pruning the second function's flow into a false `NotReached`. Statement nodes carry no
+    /// function field, so the union is the safe over-approximation. Used by `cfg_scope_for_seed`
+    /// (the reasoning layer); `cfg_reachable_lines` is kept byte-stable for the production paths.
+    ///
+    /// NOTE: real CPG construction indexes at most one `Statement` per `(file,line)`, so on real
+    /// graphs this reduces to `cfg_reachable_lines` — the load-bearing defense for minified
+    /// shared-line seeds is the multi-function / signature-line degrade in `taint_trace`. This helper
+    /// only differs on multi-statement-per-line inputs (manually constructed graphs, or future
+    /// construction changes); kept as the safe superset. Revisit when node-precise seeding lands.
+    pub(crate) fn cfg_reachable_lines_unioned(
+        &self,
+        file: &str,
+        line: usize,
+    ) -> BTreeSet<(String, usize)> {
+        let key = (file.to_string(), line);
+        let mut out = BTreeSet::new();
+        if let Some(nodes) = self.location_index.get(&key) {
+            for &idx in nodes {
+                if !matches!(self.graph[idx], CpgNode::Statement { .. }) {
+                    continue;
+                }
+                for r in self.reachable_forward(idx, &|e| matches!(e, CpgEdge::ControlFlow)) {
+                    let node = &self.graph[r];
+                    out.insert((node.file().to_string(), node.line()));
+                }
+            }
+        }
+        out
     }
 
     /// CFG-constrained forward taint propagation.
@@ -182,6 +250,7 @@ impl CodePropertyGraph {
                                 &target.file,
                                 target.line,
                                 &cfg_set,
+                                ContinuationScan::Production,
                             )
                     })
                     .collect();

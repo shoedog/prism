@@ -13,6 +13,7 @@ pub mod python;
 pub mod shell;
 
 pub use crate::frameworks::{CallSite, SanitizerCategory, SanitizerRecognizer};
+use crate::languages::Language;
 
 /// Aggregate all active recognizers across categories. Iteration order is by
 /// the const arrays in `shell.rs`, `path.rs`, and `python.rs`.
@@ -22,6 +23,23 @@ pub fn active_recognizers() -> impl Iterator<Item = &'static SanitizerRecognizer
         .chain(path::PATH_RECOGNIZERS.iter())
         .chain(js_ts::JS_TS_RECOGNIZERS.iter())
         .chain(python::PYTHON_RECOGNIZERS.iter())
+}
+
+/// Languages with sanitizer recognizers. NOTE: this gate is a second source of truth, parallel to the
+/// recognizer tables chained in [`active_recognizers`] (`SHELL`/`PATH` are language-agnostic; `JS_TS`
+/// covers JavaScript/TypeScript/Tsx; `PYTHON`; Go is matched by paired-check recognizers). Keep the two
+/// in sync: adding a recognizer table for a new language MUST add it here too, or cleansing silently
+/// returns honest-empty for that language. (Deriving this from a `language` field on
+/// `SanitizerRecognizer` is a tracked follow-up.)
+pub fn sanitizer_supported(language: Language) -> bool {
+    matches!(
+        language,
+        Language::Go
+            | Language::Python
+            | Language::JavaScript
+            | Language::TypeScript
+            | Language::Tsx
+    )
 }
 
 /// Check whether a `paired_check` token appears anywhere in the given source slice.

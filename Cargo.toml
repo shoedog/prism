@@ -510,6 +510,10 @@ name = "navigation_types"
 path = "tests/navigation/types_test.rs"
 
 [[test]]
+name = "reasoning_smoke"
+path = "tests/reasoning/smoke_test.rs"
+
+[[test]]
 name = "navigation_nodes_at"
 path = "tests/navigation/nodes_at_test.rs"
 

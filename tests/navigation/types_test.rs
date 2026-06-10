@@ -34,6 +34,7 @@ fn evidence_serializes_to_expected_shape() {
         truncated: false,
         warnings: vec![],
         graph: None,
+        reasoning: None,
     };
     let v: serde_json::Value = serde_json::to_value(&ev).unwrap();
     assert_eq!(v["query"], "nodes-at:a.py:2");
@@ -53,6 +54,7 @@ fn evidence_without_graph_omits_key() {
         truncated: false,
         warnings: vec![],
         graph: None,
+        reasoning: None,
     };
     let json = serde_json::to_string(&ev).unwrap();
     assert!(
@@ -83,6 +85,7 @@ fn evidence_with_graph_serializes_payload() {
                 kind: "ModuleDep".into(),
             }],
         }),
+        reasoning: None,
     };
     let json = serde_json::to_string(&ev).unwrap();
     assert!(json.contains("\"graph\""));
