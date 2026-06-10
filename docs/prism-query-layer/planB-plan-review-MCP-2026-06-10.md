@@ -1,0 +1,53 @@
+# Merged Plan Review — Plan B `taint_reaches` (Executability + Coverage)
+
+Both lenses returned full reviews; no missing lens. They agree on the core problems (Task 0.2 transport visibility, the `SeedUnresolved` shape contradiction, the `graph_node` truncation seam, test registration). Severity disagreements are resolved inline where they occur.
+
+## BLOCKER
+
+1. **Task 0.2 — test cannot compile where the plan puts it.** `InMemoryTransport`, its inherent impl, and its `Transport` impl are all `#[cfg(test)]` (`src/mcp/transport.rs:436,442,456`), so `tests/mcp/wire_cap_test.rs` importing it from `prism::mcp::transport` fails to build. The sketch also calls `InMemoryTransport::new()` argless (real signature: `new(inputs: Vec<&str>)`, `:444`) and asserts on serialized wire bytes while the transport stores `serde_json::Value`s, so `last_written()` as a JSON string isn't currently meaningful. **Fix:** move the test into the existing `src/mcp/transport_tests.rs` unit module (`#[path]` at `:468`), or export a real test-support transport behind the `mcp` feature — pin which, and decide whether the cap logic is shared by both transports.
+
+2. **Task 0.2 — the wire-cap value is unpinned.** The plan pins the marker bytes (line 24) but its own Self-Review (line 299) lists "cap value" as open; the test implies only "< 2,000,000". The task is not executable without the number, and it leaks into Step 4's "nav goldens are well under the cap" claim. **Fix:** pin a constant (e.g. `MAX_RESULT_SIZE_CHARS = 1_000_000` in `transport.rs`, the value stamped into `anthropic/maxResultSizeChars`).
+
+3. **Task 1.1 — test uses a nonexistent helper and the implementation needs an unspecified type conversion.** (Executability=BLOCKER, Coverage=NIT — Executability is right: the plan presents the sketch as a paste-ready RED test, but `var_def_node(...)` exists nowhere, so the TDD executor hits a compile error, not a failing test.) Additionally, mapping `VarLocation` back to a CPG node via "existing `var_node`" (plan :133-134) requires converting `data_flow::VarAccessKind` (`src/data_flow.rs:13-21`) to `cpg::VarAccess` (`src/cpg/query.rs:44-51`) — different types, conversion never spelled out. **Fix:** define the helper inline (only `build_python_cpg` exists, `src/cpg/tests.rs:6`) or use `nodes_at`/`to_var_location`, and name the `VarAccessKind → VarAccess` conversion in Step 3.
+
+4. **Task 1.2 — the "failing test" is only comments** (plan :146-153). It compiles and passes while exercising none of `reachability_for_node_from` / `witness_graph_for`. **Fix:** write an actual two-root fixture with real assertions before implementation.
+
+5. **Tasks 2.1 / 4.3 — the plan's pinned warning shapes contradict the merged types, and `src/navigation/types.rs` is missing from File Structure.** Merged code has `SeedUnresolved { seed }`, `InterproceduralBoundary { sink }`, `Cleansed { source_function }` (`src/navigation/types.rs:130-134`); the plan pins `SeedUnresolved { spec_description, reason }` (line 25), Task 4.3 wants `InterproceduralBoundary` "naming the dropped source/edge" (a single `sink: String` can't), and the Self-Review (line 297) simultaneously claims the vocab is "the merged surface, not redefined." An executor hits this contradiction in Task 2.1. **Fix:** either add `src/navigation/types.rs` to File Structure with an explicit variant-reshape step (compat-safe — nothing emits them yet) plus serialization/golden tests, or drop the pin and use the merged single-string shapes. The plan must pick one.
+
+6. **Task 2.2 — `function_parameter_names` / `has_bare_references` are `ParsedFile` methods requiring a tree-sitter `Node`** (`src/ast.rs:1780`, `:2743`), not data-flow helpers. `NavigationSession` exposes only CPG node indices and `repo.files` (`src/navigation/mod.rs:24-27`); the plan never bridges from a CPG `Function` node to the parsed AST node. **Fix:** use `ParsedFile::find_function_by_name` (`src/ast.rs:2715-2736`) or an equivalent file/name/start-line lookup, named in the task.
+
+7. **Task 3.2 — `session.files()` does not exist, so the written call won't compile.** (Executability=BLOCKER, Coverage=MINOR — Executability is right on severity: the fix is one line, but the plan as written fails to compile at the A4 adapter call.) The adapter expects `&BTreeMap<String, ParsedFile>` (`src/algorithms/taint.rs:10680`). **Fix:** pin `&session.repo.files` (`NavigationSession.repo: Arc<LoadedRepo>`, `LoadedRepo.files` at `src/repo_loader.rs:33`) or add an accessor in the same task.
+
+8. **Phases 4 / 5.2 — `taint_reaches(session, sources, sinks)` has no `max_results` parameter** (plan :34, :203-205), yet Phase 4 requires query-level item/node capping and `graph_node` repair (plan :229, :239). **Fix:** add a request/options struct carrying `max_results` (a contract change vs spec §2 — say so), or move all clipping to the MCP layer and repair indices there — pin which.
+
+9. **Graph-truncation ripple — the `graph_node` repair lands at the wrong seam and its contracted test is missing.** Even if the query repairs after its own clip, `build_result`'s generic `graph.nodes.truncate(kept)` (`src/mcp/output.rs:149-175`) runs later and knows nothing about `reasoning.per_sink[*].graph_node`, leaving dangling indices — exactly the repair the merged doc comment assigns to Plan B along with serialization tests that no `graph_node` points past emitted `graph.nodes` (`src/navigation/types.rs:144-152`). Task 4.2 alone cannot satisfy this. **Fix:** put the repair inside the same code that truncates (Task 5.2, or a 5.2b), and add the contracted clipped-witness serialization test. Only two of the three followups-contracted items are currently mapped into the plan.
+
+10. **Task 5.2 — dispatch cannot "shape via `build_result`": it is private** (`src/mcp/output.rs:149`); existing handlers call public `shape_result` (`src/mcp/tools.rs:6,80-86`). **Fix:** use `shape_result`, or make the visibility/API change explicit in the task — and note `shape_result` is also where the finding-9 repair belongs.
+
+11. **Task 5.2 — MCP input parsing produces `SeedInput`** (`src/mcp/input.rs:22-27`) **while the library takes `SeedSpec`** (`src/reasoning/seeds.rs:7-10`); no conversion is planned. **Fix:** add an explicit `SeedInput → SeedSpec` conversion in dispatch; do not route through `SeedInput::to_triple()`, which is nav-specific and lossy.
+
+## MAJOR
+
+12. **Test registration — new `[[test]]` targets need `path = ...` and (for MCP) `required-features = ["mcp"]`.** Subdirectory test files are not auto-discovered; every existing one is path-registered (cf. `Cargo.toml:51-54`, `:495-514`). The plan registers names only for 0.1/3.1 and registers nothing for `tests/mcp/wire_cap_test.rs` (moot if finding 1 moves it into `src/`), `tests/mcp/registry_test.rs` (5.1), or `tests/reasoning/boundary_contract_test.rs` (5.3); `prism::mcp` is feature-gated (`src/lib.rs:44-45`). Consequence: tests that silently never run. **Fix:** add a registration step to each task, or fold new tests into the registered `mcp_smoke`/`reasoning_smoke` targets and say so.
+
+13. **§7 coverage gap — the "all sinks fail" half of the truth table is untested.** Spec line 106 covers all-sources *or all-sinks* fail → `QueryError`; Task 2.3 tests sources only, and no task tests all-sinks-fail (error) vs partial-sinks-fail (warn + proceed). Cross-list precedence (some sources warn, all sinks fail) is genuinely ambiguous. **Fix:** extend Task 3.1 or 4.3 with both sink-side cases and pin the precedence.
+
+14. **Task 5.1 — the process smoke test asserts six tools** (`tests/mcp/smoke_test.rs:20-24`); serving nav + reason = seven breaks it. **Fix:** update the MCP smoke test in the same task while keeping the `nav_v1()` registry unit test frozen at six.
+
+15. **Task 5.2 / 4.1 — default `concise` verbosity strips frontier mode's entire reasoning payload.** `build_result` under `Verbosity::Concise` (the default) does `item.why.clear()` (`src/mcp/output.rs:160-165`), and frontier mode's whole output (`TaintedBy` with sanitizers and `path_proven`) lives in `item.why`. (Coverage-only finding; Executability missed it.) As planned, the tool's default response is bare scored locations with the taint rationale removed. **Fix:** pin intended behavior — either document "use `verbosity: detailed`" in the tool description or carve frontier items out of concise stripping — and add a concise-vs-detailed test.
+
+## MINOR
+
+16. **Task 0.1 — RED state is near-certain but the test is heavyweight.** Two `[[bin]]`s, no `default-run` (Cargo.toml:11-18) means `cargo run` errors as planned, but spawning `cargo run` inside `cargo test` nests a full build and departs from the repo's `assert_cmd`/`CARGO_BIN_EXE` convention. Acceptable; confirm the exact stderr string before relying on the assertion.
+
+17. **Task 2.2 — ambiguous `Symbol` seeds unpinned.** `Symbol { name, file: None }` can match multiple functions; `QueryError::AmbiguousSymbol` already exists (`types.rs:183`). **Fix:** pin error vs warn-and-skip vs take-all (erroring when all-sources-ambiguous matches nav precedent).
+
+18. **Task 4.2 — `per_sink` granularity unpinned.** A sink `Loc` resolving to N `VarLocation`s: N `SinkResult`s or one aggregate? The `VarLocation → SymbolRef` mapping for sinks is also unstated. **Fix:** pin both; `per_sink` is the surface agents are steered to.
+
+19. **Task 4.1 — frontier multi-source attribution unpinned.** `TaintedBy.source` is singular (`types.rs:122`); the plan pins depth (`min` over sources) but not which source is named. **Fix:** pin "min-depth root, tie-break by `BTreeMap` order" — Phase 1's per-root variants make this expressible.
+
+20. **Docs task missing.** CLAUDE.md says "six read-only navigation tools"; the `Evidence.graph` doc comment ("Present only for graph-shaped queries (`ego`, `repo-map`)", `types.rs:174`) goes stale under witness mode. **Fix:** add a closing docs step.
+
+21. **Truncation marker bytes inconsistent.** Plan text shows `"…[truncated N bytes]"` (Unicode ellipsis) while also saying ASCII and testing `"...[truncated"` (plan :24, :96). **Fix:** pin exactly `"...[truncated N bytes]"` for byte-safe tests.
+
+**Verdict:** Not executable as-is — close BLOCKERs 1–11 (the compile-impossible tests and calls, the warning-shape contradiction, the `max_results`/truncation-seam contract, and the two MCP dispatch conversions) plus MAJORs 12–15 in one plan-revision pass before handing to an executor; the architecture, sequencing, and substrate grounding are otherwise sound.
