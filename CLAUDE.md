@@ -53,6 +53,7 @@ cargo test --test integration_core    # Core integration tests
 - `output.rs` — Output formatters (text, JSON, paper-compatible, review).
 - `main.rs` — CLI entry point using clap with 22+ algorithm-specific flags.
 - `algorithms/` — All 26 slicing algorithms. Each is self-contained.
+- `reasoning/` — Tier-2 reasoning layer: `taint_trace` consumer, `SeedSet`, output shaper.
 
 ### Test Structure (`tests/`)
 
@@ -171,6 +172,9 @@ JSON:
 
 Build, test, or lint MCP code with `--features mcp`; the default build keeps
 the adapter disabled.
+
+`Evidence` also has an additive optional `reasoning` field. It is omitted when
+absent so existing navigation and diff-review output remains byte-compatible.
 
 Algorithms fall into two categories:
 1. **Simple** (use `ctx.files` only): `original_diff`, `parent_function`, `left_flow`, `full_flow`, `thin_slice`, `relevant_slice`, `quantum_slice`, `horizontal_slice`, `angle_slice`, `absence_slice`, `symmetry_slice`
