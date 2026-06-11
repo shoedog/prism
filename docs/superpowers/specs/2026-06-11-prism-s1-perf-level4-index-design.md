@@ -175,8 +175,23 @@ is effectively the whole build.
   the B2 plan** (review MINOR 11); B1 introduces no provenance.
 - Divergences vs B1 are **triaged** (legacy artifact vs real loss), then goldens re-blessed
   in **one isolated behavior commit** with the triage table in the PR description.
-- **Gate:** scheduled only once the Tier-A harness is live, so the change is *measured*.
-  B2 is intentionally absent from the implementation plan for this spec.
+- **Quirk retirement list (explicit B2 targets).** B1 *preserves* these legacy defects by
+  construction; each is a named candidate for measured correction once Tier A is live, and
+  each B1 quirk fixture flips at B2 time from "pins legacy behavior" to "documents the
+  corrected behavior":
+  1. **Arrow-anywhere priority** — `find(arrow).or_else(find(dot))` lets a `->field` later
+     in the line shadow a closer `.field` assignment (**false negative**: real assignment
+     dropped).
+  2. **Prefix-consumption** — a non-assignment occurrence (`->cbx` matched while scanning
+     for `->cb`) advances the scan position past a real assignment (**false negative**).
+  3. **Comment/string-literal matches** — substring scanning sees assignments inside
+     comments and string literals (**false positive**).
+  4. **Substring field anchoring** — untokenized left boundary; AST extraction replaces it.
+  5. **Single-line scope** — multi-line assignments and initializer spreads are invisible
+     (**false negative**); AST extraction lifts this.
+- **Gate:** scheduled only once the Tier-A harness is live, so each retirement is *measured*
+  (Tier-A precision/recall delta + triage table) rather than asserted. B2 is intentionally
+  absent from the implementation plan for this spec.
 
 ## 5. Slice C — parallelization (contingent)
 
