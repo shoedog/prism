@@ -1,10 +1,11 @@
 # Tier-A Accuracy Harness + Dev-Loop Test-Time Reduction — Design
 
-**Date:** 2026-06-11 · **Status:** rev 3 — folds dual spec-review round 1 (5 BLOCKER,
-11 MAJOR, 6 MINOR) and round 2 (2 BLOCKER, 7 MAJOR, 6 MINOR; records:
-`docs/prism-query-layer/tier-a-spec-review-2026-06-11.md`, `...-r2-2026-06-11.md`;
-r2 verdict: "the architecture itself needs no rework, and planning can start
-immediately after rev 3") — pending owner approval
+**Date:** 2026-06-11 · **Status:** rev 4 — **owner-approved** (rev 3 + owner review:
+corpus swap to repeat-run-friendly set, `eval/`-vs-`agent-eval` separation contract).
+Dual spec-review rounds 1 (5 BLOCKER, 11 MAJOR, 6 MINOR) and 2 (2 BLOCKER, 7 MAJOR,
+6 MINOR) folded; records: `docs/prism-query-layer/tier-a-spec-review-2026-06-11.md`,
+`...-r2-2026-06-11.md`; r2 verdict: "the architecture itself needs no rework, and
+planning can start immediately after rev 3"
 **Context docs:** `docs/prism-meta-analysis-2026-06-10.md` (§1 three-tier harness, §3 LSP
 head-to-head prototype), `docs/cpg-substrate-analysis-2026-06-10.md` (S3 precision),
 `docs/prism-query-layer/s1-followups.md` (items 1 — B2 trigger, 4 — test wall time).
@@ -49,6 +50,13 @@ future initiatives, unchanged by this spec.
   container alike; there is no looser in-container floor (rev-1 contradiction removed).
   Runtime dependencies: stdlib only. Dev dependency: `pytest` for harness self-tests.
   No coupling to the Rust workspace; `cargo` never builds or tests it.
+- **Separation contract (owner, rev 4):** prism's `eval/` is self-contained and
+  **unrelated to `~/code/agent-eval`** (the review-agent harness serving
+  `~/code/agent-knowledge`). Nothing under prism's `eval/` may import from, write to, or
+  depend on `agent-eval`/`agent-knowledge`; the only sanctioned interaction is one-time
+  *copying* of cached corpus repos (§2.9). `eval/README.md` opens with this
+  disambiguation. If genuinely shared needs ever emerge, the fallback is a separate
+  `~/code/prism-eval` repo — not entangling the two.
 - Two hard seams, defined as Python protocols (PEP 544) in `eval/tier_a/interfaces.py`:
   - **`Oracle`** — `inventory(corpus) -> list[FunctionDef]`,
     `callers(def_) -> list[CallEdge]`, `callees(def_) -> list[CallEdge]`,
@@ -182,7 +190,7 @@ Sorted by `(file, start_line)` — deterministic like every other prism output.
 **Dedup rule (required):** the Python function query captures both
 `(function_definition)` and `(decorated_definition)` (`src/queries.rs:95-97`) with no
 dedup in `build_function_table`, so every decorated function is double-captured — fatal
-on django, the decorator-dense corpus. `nav functions` emits **one record per function:
+on the decorator-dense Python corpora (flask's `@app.route` idiom everywhere). `nav functions` emits **one record per function:
 when captures nest and share a name token, only the innermost definition node is
 emitted** (wrapper spans like `decorated_definition` are dropped). This rule lives in the
 emission path; the harness does not paper over duplicates.
@@ -209,7 +217,7 @@ additive-only rule from the S1/Option-C lineage applies (existing outputs untouc
 
 **Corpus file universe (defined, applied to both sides):** for each corpus,
 `corpora.toml` declares the language's file extensions plus per-corpus exclude globs
-(vendored/generated/fixture trees — e.g. django's bundled test fixtures; prism's
+(vendored/generated/fixture trees — e.g. flask's `examples/`; prism's
 `tests/fixtures/`). The universe is: files under the corpus root matching the
 extensions, minus excludes. The **same filter** is applied to the oracle inventory
 (`documentSymbol` is only requested for universe files) and to prism's `nav functions`
@@ -393,9 +401,9 @@ post-change regression target and as guidance when adapting languages. No LSP in
   in-loop regression signal (`--matrix-only`, §2.11).
 - **The Python `decorator-wrapped fn` case is B2's designated flip indicator.** The
   §2.3 dedup rule deliberately makes measurement 1 blind to the decorator
-  double-capture quirk both before and after B2 fixes it, and pyright-on-django is the
-  acknowledged noisiest live channel — so B2's Python regression signal is carried
-  here, by construction, not by the live corpora.
+  double-capture quirk both before and after B2 fixes it, and pyright on the Python
+  corpora is the acknowledged noisiest live channel — so B2's Python regression signal
+  is carried here, by construction, not by the live corpora.
 
 ### 2.8 Adjudication
 
@@ -437,8 +445,8 @@ call site itself:
 - **Adjudication budget (baseline-sufficiency rule):** the committed baseline requires
   *all* Rust/Go pending diffs adjudicated, plus a seeded-RNG sample of ≤ 25 pending
   diffs per Python corpus — the remainder may stay pending (they are excluded from
-  corrected metrics either way). This bounds the human work on the S3/B2 critical path;
-  django diffs alone could otherwise run to hundreds of items.
+  corrected metrics either way). This bounds the human work on the S3/B2 critical path
+  against unbounded Python diff volume.
 - Records survive re-runs; a record whose site no longer appears in a run is reported as
   `stale` (corpus SHA changed) rather than deleted.
 - The two known feature-gated callers from the prototype are seeded into this file as
@@ -451,13 +459,20 @@ call site itself:
 
 `eval/corpora.toml` (committed):
 
+**Corpus selection principle (owner, rev 4): repeat-run friendliness.** Prism's CPG
+cache goes cold after every prism-side change — and measuring prism-side changes is the
+harness's whole job — so corpus cold-build cost recurs, it isn't a one-time setup tax.
+django (~15 min cold CPG build) is disqualified on this principle and moves to §8 scale
+runs; hugo (~2 min) is demoted there too in favor of caddy (~96k LOC Go, already cached
+locally). All v1 corpora cold-build in ≲1 min.
+
 | Corpus | Lang | Path | Oracle | Prep |
 |---|---|---|---|---|
 | `prism` | Rust | the repo itself | rust-analyzer | none |
 | `tokio` | Rust | `~/code/bench-repos/tokio` | rust-analyzer | none |
-| `hugo` | Go | `~/code/bench-repos/hugo` | gopls | `go mod download` |
-| `django` | Python | `~/code/bench-repos/django` | pyright (capability-probe gated, §2.2) | venv + pyright config |
-| `flask` | Python | `~/code/bench-repos/flask` | pyright (same gating) | clone + venv; **the Python corpus expected to clear the validity floors** — smaller and more statically typed than django, so Python carries a live baseline even if django lands `baseline_invalid` |
+| `caddy` | Go | `~/code/bench-repos/caddy` | gopls | copy from `~/code/agent-eval/cache/repos/caddy` (worktree at `77e9ce74`); `go mod download` |
+| `flask` | Python | `~/code/bench-repos/flask` | pyright (capability-probe gated, §2.2) | clone + venv; decorator-dense (`@app.route`) — exercises the §2.3 dedup rule on real code |
+| `click` | Python | `~/code/bench-repos/click` | pyright (same gating) | clone + venv; small and comparatively well-typed — **the Python corpus most expected to clear the validity floors**, hedging flask |
 
 Each entry carries: absolute path (machine-local; the file documents this is a
 dev-machine harness, not CI), **pinned commit SHA** (recorded at first run; the runner
@@ -467,15 +482,17 @@ warns and records `corpus_dirty: true` if HEAD differs), the file-universe defin
 name + version, seed, harness git SHA, wall time per measurement.
 
 Known asymmetry, stated in reports: Rust/Go oracle quality is compiler-grade;
-**pyright-on-django numbers carry oracle noise** (type-inference gaps on a large dynamic
-codebase). Django's report section is labeled accordingly, and `oracle_error_rate` +
-`ambiguous` adjudications are expected to be materially higher there. That noise floor is
-itself a v1 finding (meta-analysis §1 uncertainty, now quantified). **Adjudicator
-warning (carried into the report template):** django/flask M2 diffs partially reflect
-prism's own decorator double-capture quirk — the CPG's `(file, name)`-keyed `func_index`
-silently strips edges from one of each wrapper/inner pair — so Python `oracle_only`
-diffs on decorated functions are evidence *about the B2 quirk*, not only about call
-resolution; B2's regression signal itself lives in the §2.7 matrix case, not here.
+**pyright numbers on the Python corpora carry oracle noise** (dynamic-code inference
+gaps). The Python report sections are labeled accordingly, and `oracle_error_rate` +
+`ambiguous` adjudications are expected to be higher there — flask/click are deliberately
+small and comparatively typed, so if even they fail the floors, that finding gates all
+Python accuracy claims. The noise floor is itself a v1 finding (meta-analysis §1
+uncertainty, now quantified). **Adjudicator warning (carried into the report
+template):** Python-corpus M2 diffs partially reflect prism's own decorator
+double-capture quirk — the CPG's `(file, name)`-keyed `func_index` silently strips
+edges from one of each wrapper/inner pair — so Python `oracle_only` diffs on decorated
+functions are evidence *about the B2 quirk*, not only about call resolution; B2's
+regression signal itself lives in the §2.7 matrix case, not here.
 
 ### 2.10 Reports and baseline
 
@@ -632,7 +649,7 @@ and nextest/linker options move from deferred to proposed — no silent waiver.
 | G1 | **Prototype reproduction, decoupled from sample composition:** (a) on the `prism` corpus random sample, **adjudication-corrected** site-level P and R ≥ 0.95, evaluated **per direction (callers and callees separately), pooled across the `U-free`+`U-method` strata** (pinned probes excluded from denominators); (b) the pinned `target` probe carries `expected: known_fail` (the §2.7 idiom) — the gate passes when the probe either reproduces the failure (raw site-level P ≤ 0.2 and R ≤ 0.2) **or** reports a flip candidate ("update expectation — resolution improved"); an incidental upstream improvement must not fail *harness* acceptance |
 | G2 | The pinned `module_deps` and `load_repo` probes surface `prism_only` diffs that match the seeded `oracle_miss` adjudications (§2.8) |
 | G3 | **Determinism, decoupled from live-oracle variance:** samples are snapshot-derived (§2.5) — same snapshot + seed ⇒ identical samples by construction; and `--report-only` replay of a stored run JSON reproduces its metrics bit-identically. Live run-to-run variance (timeouts, inventory drift) is reported separately, not gated |
-| G4 | Baseline committed: 5 corpora × measurements 1–3 + capability matrix for 3 languages, **validity floors met per §2.2's failure-based definition** (oracle + SUT error floors; natural stratum shortfall is non-gating) — a floor-failing corpus is marked `baseline_invalid` and cannot anchor S3/B2 (Python anchors on whichever of django/flask is valid; G4 requires at least one valid corpus per language), with run metadata (SHAs incl. prism `GIT_SHA`, versions, seed, wall times) in every report |
+| G4 | Baseline committed: 5 corpora × measurements 1–3 + capability matrix for 3 languages, **validity floors met per §2.2's failure-based definition** (oracle + SUT error floors; natural stratum shortfall is non-gating) — a floor-failing corpus is marked `baseline_invalid` and cannot anchor S3/B2 (Python anchors on whichever of flask/click is valid; G4 requires at least one valid corpus per language), with run metadata (SHAs incl. prism `GIT_SHA`, versions, seed, wall times) in every report |
 | G5 | Capability matrix runs green: every fixture executes; statuses assigned (`pass`/`known_fail`); zero unexpected regressions by definition at first commit |
 | G6 | WP2: consolidated suite passes **3 consecutive full runs** (consolidation changes the concurrency topology — up to 16 files now share one process/thread pool — and a single green run won't catch intermittent cross-file interference); coverage-matrix test passes unchanged; stale references swept — both `--test <old-name>` and path-style, across `CLAUDE.md`, `scripts/`, `.github/` (repo-wide grep clean) |
 | G7 | WP2: P2 < 8 min; P1/P2 reported at all three measurement points; honest report if missed |
@@ -658,8 +675,8 @@ immediately across WP1's own Rust-side commits), then WP1.
 |---|---|
 | LSP automation flakiness (readiness, hangs) | quiescence detection + per-request timeouts + `oracle_error` accounting (§2.2); failures excluded from denominators, never converted to tool failures; validity floors prevent hollowed-out denominators from passing gates; multilspy escape trigger after ~2 days |
 | pyright call-hierarchy support unverified | capability smoke-probe as plan precondition; named fallbacks: basedpyright, then references+containment (§2.2) |
-| pyright noise on django pollutes the picture | labeled section, `oracle_error_rate` + `ambiguous` first-class; Rust/Go carry the precision claims; noise floor itself is a deliverable |
-| gopls/hugo or rust-analyzer/tokio resource cost | per-corpus caps in `corpora.toml`; quiescence cap with `oracle_not_quiescent` flag; corpora are warm after first index |
+| pyright noise on the Python corpora pollutes the picture | labeled sections, `oracle_error_rate` + `ambiguous` first-class; flask/click chosen small + comparatively typed; Rust/Go carry the precision claims; noise floor itself is a deliverable |
+| oracle indexing resource cost (gopls/caddy, rust-analyzer/tokio) | repeat-run-friendly corpus set (§2.9, all ≲1 min prism-cold); per-corpus caps in `corpora.toml`; quiescence cap with `oracle_not_quiescent` flag; corpora warm after first index |
 | Small samples → wide confidence | Wilson 95% intervals are schema fields (§2.10); v1 is a baseline, not a hypothesis test; sample sizes are config, not code |
 | Harness bugs self-confirming prism | G1 reproduction gate against hand-verified prototype numbers via pinned probes; self-tests with fakes incl. wire-format extraction (§2.12) |
 | Stale prism binary measured silently | `GIT_SHA` + dirty flag in `--version` (§2.3); harness aborts `sut_stale` unless overridden |
@@ -678,6 +695,14 @@ immediately across WP1's own Rust-side commits), then WP1.
   capability matrix) — "they complement and cover each other's weaknesses" (owner).
 - WP2: **A (umbrella binaries) + B (profile tuning)**; LOC rule may loosen to 800–1000 if
   needed (not expected to be needed) (owner).
+- rev 4 (2026-06-11, owner review): **corpus selection principle = repeat-run
+  friendliness** — prism's CPG cache recolds after every prism-side change, so corpus
+  cold-build cost recurs; django (~15 min cold) replaced, hugo demoted, v1 corpora =
+  prism/tokio/caddy/flask/click (all ≲1 min cold); caddy copied from
+  `~/code/agent-eval/cache/repos`. **Separation contract** added (§2.1): prism `eval/`
+  is unrelated to `~/code/agent-eval` (review-agent/agent-knowledge harness); copy-only
+  interaction; `~/code/prism-eval` is the fallback if separation ever blurs. Tier-B/C
+  input pointers recorded (§8): prism-cwe-fixtures, cvefixes, martian-bench.
 - rev 3 (2026-06-11): folded round-2 review — failure-based validity floors (natural
   shortfall non-gating) + symmetric SUT-error floor; snapshot-derived sampling (G3
   decoupled from live variance); M3 verdict table honoring adjudicate-not-auto-fail
@@ -706,8 +731,15 @@ immediately across WP1's own Rust-side commits), then WP1.
    (`go list -deps`, `cargo metadata`, import graphs) per language.
 3. **SCIP-as-oracle adapter** — drop a `ScipOracle` behind the `Oracle` seam (meta-analysis
    §3 stage-1 complement; offline, no server lifecycle).
-4. **Scale runs** — kubernetes (gopls), TypeScript repo, rust-analyzer-on-rust-analyzer.
+4. **Scale runs** — django (the ~15-min cold-build case that motivated the §2.9
+   selection principle), hugo, kubernetes (gopls), TypeScript repo,
+   rust-analyzer-on-rust-analyzer.
 5. **xAST direct reuse** — Tier-B input (taint-oriented cases; Java/Node.js coverage).
+   Likewise recorded for the later tiers: `~/code/agent-eval/cache/prism-cwe-fixtures`
+   (CWE-labeled fixture sets: 22/78/79/89/502/918 + manifest) and
+   `~/code/agent-eval/cache/datasets/cvefixes` are candidate **Tier-B** inputs;
+   `~/code/agent-eval/cache/martian-bench` is the **Tier-C** harness input — pointers
+   only, per the §2.1 separation contract.
 6. **cargo-nextest** — execution UX; does not attack link cost (only if G7 misses).
 7. **CI smoke gate** — revisit once the harness has a stable history.
 
