@@ -5,6 +5,7 @@
 //! circular slice, and 3D slice.
 
 use crate::ast::ParsedFile;
+use rayon::prelude::*;
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
 /// A node in the call graph: a function identified by file path and name.
@@ -157,65 +158,118 @@ impl CallGraph {
             }
         }
 
-        // Phase 1: Collect all function definitions
-        for (file_path, parsed) in files {
-            for func_node in parsed.all_functions() {
-                if let Some(name_node) = parsed.language.function_name(&func_node) {
-                    let name = parsed.node_text(&name_node).to_string();
-                    let (start, end) = parsed.node_line_range(&func_node);
-                    let func_id = FunctionId {
-                        file: file_path.clone(),
-                        name: name.clone(),
-                        start_line: start,
-                        end_line: end,
-                    };
-                    functions.entry(name.clone()).or_default().push(func_id);
+        let ordered_files: Vec<(&String, &ParsedFile)> = files.iter().collect();
 
-                    // Detect C/C++ static linkage
-                    if matches!(
-                        parsed.language,
-                        crate::languages::Language::C | crate::languages::Language::Cpp
-                    ) {
-                        if has_static_specifier(parsed, &func_node) {
-                            static_functions.insert((file_path.clone(), name));
+        struct FileFunctions {
+            functions: Vec<(String, FunctionId)>,
+            static_functions: Vec<(String, String)>,
+        }
+
+        // Phase 1: Collect all function definitions per file in parallel, then
+        // flatten serially in file order to preserve insertion order.
+        let per_file_functions: Vec<FileFunctions> = ordered_files
+            .par_iter()
+            .map(|entry| {
+                let (file_path, parsed) = *entry;
+                let mut file_functions = Vec::new();
+                let mut file_static_functions = Vec::new();
+
+                for func_node in parsed.all_functions() {
+                    if let Some(name_node) = parsed.language.function_name(&func_node) {
+                        let name = parsed.node_text(&name_node).to_string();
+                        let (start, end) = parsed.node_line_range(&func_node);
+                        let func_id = FunctionId {
+                            file: file_path.clone(),
+                            name: name.clone(),
+                            start_line: start,
+                            end_line: end,
+                        };
+                        file_functions.push((name.clone(), func_id));
+
+                        // Detect C/C++ static linkage
+                        if matches!(
+                            parsed.language,
+                            crate::languages::Language::C | crate::languages::Language::Cpp
+                        ) {
+                            if has_static_specifier(parsed, &func_node) {
+                                file_static_functions.push((file_path.clone(), name));
+                            }
                         }
                     }
                 }
+
+                FileFunctions {
+                    functions: file_functions,
+                    static_functions: file_static_functions,
+                }
+            })
+            .collect();
+
+        for file_functions in per_file_functions {
+            for (name, func_id) in file_functions.functions {
+                functions.entry(name).or_default().push(func_id);
+            }
+            for static_function in file_functions.static_functions {
+                static_functions.insert(static_function);
             }
         }
 
-        // Phase 2: Find all call sites within each function
-        for (file_path, parsed) in files {
-            for func_node in parsed.all_functions() {
-                let func_name = match parsed.language.function_name(&func_node) {
-                    Some(n) => parsed.node_text(&n).to_string(),
-                    None => continue,
-                };
-                let (start, end) = parsed.node_line_range(&func_node);
-                let caller_id = FunctionId {
-                    file: file_path.clone(),
-                    name: func_name,
-                    start_line: start,
-                    end_line: end,
-                };
+        struct FileCallSites {
+            call_sites: Vec<(FunctionId, CallSite)>,
+        }
 
-                let all_lines: BTreeSet<usize> = (start..=end).collect();
-                let call_sites =
-                    parsed.function_calls_on_lines_with_qualifier(&func_node, &all_lines);
+        // Phase 2: Find all call sites within each function in parallel, then
+        // flatten serially in file order to preserve insertion order.
+        let per_file_calls: Vec<FileCallSites> = ordered_files
+            .par_iter()
+            .map(|entry| {
+                let (file_path, parsed) = *entry;
+                let mut file_call_sites = Vec::new();
 
-                for (callee_name, line, qualifier) in call_sites {
-                    let site = CallSite {
-                        caller: caller_id.clone(),
-                        callee_name: callee_name.clone(),
-                        line,
-                        qualifier,
+                for func_node in parsed.all_functions() {
+                    let func_name = match parsed.language.function_name(&func_node) {
+                        Some(n) => parsed.node_text(&n).to_string(),
+                        None => continue,
                     };
-                    calls
-                        .entry(caller_id.clone())
-                        .or_default()
-                        .insert(site.clone());
-                    callers.entry(callee_name).or_default().push(site);
+                    let (start, end) = parsed.node_line_range(&func_node);
+                    let caller_id = FunctionId {
+                        file: file_path.clone(),
+                        name: func_name,
+                        start_line: start,
+                        end_line: end,
+                    };
+
+                    let all_lines: BTreeSet<usize> = (start..=end).collect();
+                    let call_sites =
+                        parsed.function_calls_on_lines_with_qualifier(&func_node, &all_lines);
+
+                    for (callee_name, line, qualifier) in call_sites {
+                        let site = CallSite {
+                            caller: caller_id.clone(),
+                            callee_name,
+                            line,
+                            qualifier,
+                        };
+                        file_call_sites.push((caller_id.clone(), site));
+                    }
                 }
+
+                FileCallSites {
+                    call_sites: file_call_sites,
+                }
+            })
+            .collect();
+
+        for file_calls in per_file_calls {
+            for (caller_id, site) in file_calls.call_sites {
+                calls
+                    .entry(caller_id.clone())
+                    .or_default()
+                    .insert(site.clone());
+                callers
+                    .entry(site.callee_name.clone())
+                    .or_default()
+                    .push(site);
             }
         }
 
@@ -309,6 +363,31 @@ impl CallGraph {
         //   anything->field_name = known_func
         //   anything.field_name = known_func
         //   .field_name = known_func  (designated initializer)
+        //
+        // Level-4 index (S1/B1): field -> file -> targets, built ONCE per build.
+        // Reuses the legacy per-line core, so per-(field,file) results are
+        // byte-identical to resolve_struct_field_assignment by construction.
+        type Level4Index = BTreeMap<String, BTreeMap<String, BTreeSet<String>>>;
+        let mut level4_index: Level4Index = BTreeMap::new();
+        for (path, parsed) in files {
+            let mut per_field: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
+            for line in parsed.source.lines() {
+                let trimmed = line.trim();
+                for field in crate::ast::candidate_fields_on_line(trimmed) {
+                    let targets = per_field.entry(field.clone()).or_default();
+                    crate::ast::line_field_targets(trimmed, &field, &known_fn_names, targets);
+                }
+            }
+            for (field, targets) in per_field {
+                if !targets.is_empty() {
+                    level4_index
+                        .entry(field)
+                        .or_default()
+                        .insert(path.clone(), targets);
+                }
+            }
+        }
+
         let mut level4_sites: Vec<(FunctionId, CallSite)> = Vec::new();
         for (caller_id, sites) in &calls {
             for site in sites {
@@ -335,24 +414,21 @@ impl CallGraph {
                     continue;
                 }
 
-                // Search ALL files for assignments to this field name
+                // Search the prebuilt index for assignments to this field name
                 let field_name = &site.callee_name;
-                for (_, parsed) in files {
-                    let targets = crate::ast::resolve_struct_field_assignment(
-                        &parsed.source,
-                        field_name,
-                        &known_fn_names,
-                    );
-                    for target in targets {
-                        level4_sites.push((
-                            caller_id.clone(),
-                            CallSite {
-                                caller: caller_id.clone(),
-                                callee_name: target,
-                                line: site.line,
-                                qualifier: None,
-                            },
-                        ));
+                if let Some(by_file) = level4_index.get(field_name) {
+                    for targets in by_file.values() {
+                        for target in targets {
+                            level4_sites.push((
+                                caller_id.clone(),
+                                CallSite {
+                                    caller: caller_id.clone(),
+                                    callee_name: target.clone(),
+                                    line: site.line,
+                                    qualifier: None,
+                                },
+                            ));
+                        }
                     }
                 }
             }
@@ -956,4 +1032,98 @@ fn has_static_specifier(parsed: &ParsedFile, func_node: &tree_sitter::Node<'_>) 
         }
     }
     false
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn level4_index_matches_legacy_oracle_over_full_universe() {
+        // Corpus: quirk fixtures + prism's own top-level src/*.rs sources.
+        let mut sources: Vec<(String, String)> = vec![(
+            "quirks.c".into(),
+            "s.cb = f; t->cb = g;\ns.cb = f; t->cbx = g;\nstatic struct ops o = { .open = do_open, .close = do_close };\na.cb == nope;\nb.cb = &handler;\n".into(),
+        )];
+        let src_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src");
+        for entry in std::fs::read_dir(&src_dir).unwrap().flatten() {
+            let p = entry.path();
+            if p.extension().and_then(|e| e.to_str()) == Some("rs") {
+                sources.push((
+                    p.display().to_string(),
+                    std::fs::read_to_string(&p).unwrap(),
+                ));
+            }
+        }
+        let known: std::collections::BTreeSet<String> = [
+            "f", "g", "do_open", "do_close", "handler", "build", "new", "slice", "run",
+        ]
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
+
+        // Universe: ALL post-accessor identifiers across the corpus (index-independent)
+        // + explicit negatives.
+        let mut universe: std::collections::BTreeSet<String> =
+            ["no_such_field", "cb", "cbx", "open", "close"]
+                .iter()
+                .map(|s| s.to_string())
+                .collect();
+        for (_, src) in &sources {
+            for line in src.lines() {
+                universe.extend(crate::ast::candidate_fields_on_line(line.trim()));
+            }
+        }
+
+        // Build the index exactly as CallGraph::build does.
+        let mut index: std::collections::BTreeMap<
+            String,
+            std::collections::BTreeMap<String, std::collections::BTreeSet<String>>,
+        > = Default::default();
+        for (path, src) in &sources {
+            let mut per_field: std::collections::BTreeMap<
+                String,
+                std::collections::BTreeSet<String>,
+            > = Default::default();
+            for line in src.lines() {
+                let trimmed = line.trim();
+                for field in crate::ast::candidate_fields_on_line(trimmed) {
+                    let t = per_field.entry(field.clone()).or_default();
+                    crate::ast::line_field_targets(trimmed, &field, &known, t);
+                }
+            }
+            for (field, t) in per_field {
+                if !t.is_empty() {
+                    index.entry(field).or_default().insert(path.clone(), t);
+                }
+            }
+        }
+
+        // Half 1 — EXCESS: every (field, file) the index claims must equal the legacy scan.
+        for (field, by_file) in &index {
+            for (path, targets) in by_file {
+                let src = &sources.iter().find(|(p, _)| p == path).unwrap().1;
+                let legacy = crate::ast::resolve_struct_field_assignment(src, field, &known);
+                let got: Vec<String> = targets.iter().cloned().collect();
+                assert_eq!(got, legacy, "excess: field={field} file={path}");
+            }
+        }
+        // Half 2 — MISSES: per universe field, legacy-scan ONLY files containing the
+        // ->field / .field substring (the legacy has_field check hoisted to file level —
+        // provably outcome-preserving), and assert the index agrees (absent key == empty).
+        for field in &universe {
+            let arrow = format!("->{field}");
+            let dot = format!(".{field}");
+            for (path, src) in &sources {
+                if !(src.contains(&arrow) || src.contains(&dot)) {
+                    continue; // legacy provably returns empty; index has no entry by construction
+                }
+                let legacy = crate::ast::resolve_struct_field_assignment(src, field, &known);
+                let from_index: Vec<String> = index
+                    .get(field)
+                    .and_then(|m| m.get(path))
+                    .map(|s| s.iter().cloned().collect())
+                    .unwrap_or_default();
+                assert_eq!(from_index, legacy, "miss: field={field} file={path}");
+            }
+        }
+    }
 }

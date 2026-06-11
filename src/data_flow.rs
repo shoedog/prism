@@ -6,6 +6,7 @@
 
 use crate::access_path::AccessPath;
 use crate::ast::ParsedFile;
+use rayon::prelude::*;
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
 /// A definition or use of a variable at a specific location.
@@ -165,220 +166,269 @@ impl DataFlowGraph {
         let mut uses: BTreeMap<(String, String, AccessPath), Vec<VarLocation>> = BTreeMap::new();
         let mut edges = Vec::new();
 
-        for (file_path, parsed) in files {
-            for func_node in parsed.all_functions() {
-                let func_name = match parsed.language.function_name(&func_node) {
-                    Some(n) => parsed.node_text(&n).to_string(),
-                    None => continue,
-                };
-                let (start, end) = parsed.node_line_range(&func_node);
-                let all_lines: BTreeSet<usize> = (start..=end).collect();
+        struct FileRefs {
+            file_path: String,
+            defs: BTreeMap<(String, String, AccessPath), Vec<VarLocation>>,
+            uses: BTreeMap<(String, String, AccessPath), Vec<VarLocation>>,
+            edges: Vec<FlowEdge>,
+        }
 
-                // Phase 3: Build local alias map for this function.
-                // Tracks `ptr = dev` so that `ptr->field` resolves to `dev->field`.
-                // Also tracks destructuring: `const { name } = obj` → name resolves to obj.name.
-                let (alias_map, raw_aliases) =
-                    Self::build_alias_map(parsed, &func_node, &all_lines);
+        let ordered_files: Vec<(&String, &ParsedFile)> =
+            files.iter().map(|(path, parsed)| (path, *parsed)).collect();
+        let per_file_refs: Vec<FileRefs> = ordered_files
+            .par_iter()
+            .map(|entry| {
+                let (file_path, parsed) = *entry;
+                let mut defs: BTreeMap<(String, String, AccessPath), Vec<VarLocation>> =
+                    BTreeMap::new();
+                let mut uses: BTreeMap<(String, String, AccessPath), Vec<VarLocation>> =
+                    BTreeMap::new();
+                let mut edges = Vec::new();
 
-                // Register defs for destructuring aliases that resolve to field paths.
-                // `const { name } = device` doesn't appear as an assignment L-value,
-                // so we create defs from the alias map directly.
-                for (alias, _target, alias_line) in &raw_aliases {
-                    if let Some(resolved_str) = alias_map.get(alias) {
-                        let resolved_ap = AccessPath::from_expr(resolved_str);
-                        if resolved_ap.has_fields() {
-                            let loc = VarLocation {
-                                file: file_path.clone(),
-                                function: func_name.clone(),
-                                line: *alias_line,
-                                path: resolved_ap.clone(),
-                                kind: VarAccessKind::Def,
-                            };
-                            defs.entry((file_path.clone(), func_name.clone(), resolved_ap))
-                                .or_default()
-                                .push(loc);
+                for func_node in parsed.all_functions() {
+                    let func_name = match parsed.language.function_name(&func_node) {
+                        Some(n) => parsed.node_text(&n).to_string(),
+                        None => continue,
+                    };
+                    let (start, end) = parsed.node_line_range(&func_node);
+                    let all_lines: BTreeSet<usize> = (start..=end).collect();
+
+                    // Phase 3: Build local alias map for this function.
+                    // Tracks `ptr = dev` so that `ptr->field` resolves to `dev->field`.
+                    // Also tracks destructuring: `const { name } = obj` → name resolves to obj.name.
+                    let (alias_map, raw_aliases) =
+                        Self::build_alias_map(parsed, &func_node, &all_lines);
+
+                    // Register defs for destructuring aliases that resolve to field paths.
+                    // `const { name } = device` doesn't appear as an assignment L-value,
+                    // so we create defs from the alias map directly.
+                    for (alias, _target, alias_line) in &raw_aliases {
+                        if let Some(resolved_str) = alias_map.get(alias) {
+                            let resolved_ap = AccessPath::from_expr(resolved_str);
+                            if resolved_ap.has_fields() {
+                                let loc = VarLocation {
+                                    file: file_path.clone(),
+                                    function: func_name.clone(),
+                                    line: *alias_line,
+                                    path: resolved_ap.clone(),
+                                    kind: VarAccessKind::Def,
+                                };
+                                defs.entry((file_path.clone(), func_name.clone(), resolved_ap))
+                                    .or_default()
+                                    .push(loc);
+                            }
                         }
                     }
-                }
 
-                // Register function parameters as Defs at the function start line.
-                // Parameters are variable definitions that receive values from callers.
-                // Without this, interprocedural data flow edges have no target.
-                //
-                // Skip parameters that are only used via field access (e.g. `dev.name`)
-                // to preserve field isolation — a base-only Def would let taint on
-                // `dev.name` leak to unrelated fields like `dev.id`.
-                let param_names = parsed.function_parameter_names(&func_node);
-                for param_name in &param_names {
-                    let path = AccessPath::simple(param_name);
-                    // Skip parameters only used via field access (e.g. `dev.name`)
-                    // to preserve field isolation.
-                    if !parsed.has_bare_references(&func_node, param_name) {
-                        continue;
-                    }
-                    let refs = parsed.find_path_references_scoped(&func_node, &path, start);
-
-                    // Parameter Defs are pinned to the function's `start` line (the signature line).
-                    // `cpg/trace.rs::is_parameter_binding` DEPENDS on this convention — it treats a
-                    // Variable `Def` on a function's signature line as a parameter binding (a call
-                    // boundary) so recursion and same-name collisions don't drop the arg→param
-                    // boundary. If param Defs ever move to their actual line in a multi-line signature,
-                    // update `is_parameter_binding` (or make parameter-ness structural) or the
-                    // recursion false negative silently revives. See planA-followups.md (Round 7/8).
-                    let loc = VarLocation {
-                        file: file_path.clone(),
-                        function: func_name.clone(),
-                        line: start,
-                        path: path.clone(),
-                        kind: VarAccessKind::Def,
-                    };
-                    defs.entry((file_path.clone(), func_name.clone(), path.clone()))
-                        .or_default()
-                        .push(loc.clone());
-
-                    // Create edges from param def to all uses in the function body.
-                    for ref_line in &refs {
-                        if *ref_line == start {
+                    // Register function parameters as Defs at the function start line.
+                    // Parameters are variable definitions that receive values from callers.
+                    // Without this, interprocedural data flow edges have no target.
+                    //
+                    // Skip parameters that are only used via field access (e.g. `dev.name`)
+                    // to preserve field isolation — a base-only Def would let taint on
+                    // `dev.name` leak to unrelated fields like `dev.id`.
+                    let param_names = parsed.function_parameter_names(&func_node);
+                    for param_name in &param_names {
+                        let path = AccessPath::simple(param_name);
+                        // Skip parameters only used via field access (e.g. `dev.name`)
+                        // to preserve field isolation.
+                        if !parsed.has_bare_references(&func_node, param_name) {
                             continue;
                         }
-                        let use_loc = VarLocation {
+                        let refs = parsed.find_path_references_scoped(&func_node, &path, start);
+
+                        // Parameter Defs are pinned to the function's `start` line (the signature line).
+                        // `cpg/trace.rs::is_parameter_binding` DEPENDS on this convention — it treats a
+                        // Variable `Def` on a function's signature line as a parameter binding (a call
+                        // boundary) so recursion and same-name collisions don't drop the arg→param
+                        // boundary. If param Defs ever move to their actual line in a multi-line signature,
+                        // update `is_parameter_binding` (or make parameter-ness structural) or the
+                        // recursion false negative silently revives. See planA-followups.md (Round 7/8).
+                        let loc = VarLocation {
                             file: file_path.clone(),
                             function: func_name.clone(),
-                            line: *ref_line,
-                            path: path.clone(),
-                            kind: VarAccessKind::Use,
-                        };
-                        uses.entry((file_path.clone(), func_name.clone(), path.clone()))
-                            .or_default()
-                            .push(use_loc.clone());
-                        edges.push(FlowEdge {
-                            from: loc.clone(),
-                            to: use_loc,
-                        });
-                    }
-                }
-
-                // Find all definitions (L-values) with structured access paths
-                let lvalue_paths = parsed.assignment_lvalue_paths_on_lines(&func_node, &all_lines);
-                for (path, line) in &lvalue_paths {
-                    let loc = VarLocation {
-                        file: file_path.clone(),
-                        function: func_name.clone(),
-                        line: *line,
-                        path: path.clone(),
-                        kind: VarAccessKind::Def,
-                    };
-                    defs.entry((file_path.clone(), func_name.clone(), path.clone()))
-                        .or_default()
-                        .push(loc);
-
-                    // Phase 3: If this path's base is aliased, also register a def under
-                    // the resolved path so edges connect through aliases.
-                    // For field paths (ptr->field → dev->field): resolves base through alias.
-                    // For simple paths from destructuring (name → device.name): creates
-                    // a field-qualified def so taint connects through destructured variables.
-                    if let Some(resolved) = Self::resolve_path(&alias_map, path) {
-                        if resolved != *path {
-                            let resolved_loc = VarLocation {
-                                file: file_path.clone(),
-                                function: func_name.clone(),
-                                line: *line,
-                                path: resolved.clone(),
-                                kind: VarAccessKind::Def,
-                            };
-                            defs.entry((file_path.clone(), func_name.clone(), resolved.clone()))
-                                .or_default()
-                                .push(resolved_loc);
-                        }
-                    }
-                }
-
-                // Find all uses of each defined variable/path
-                for (path, def_line) in &lvalue_paths {
-                    let refs = parsed.find_path_references_scoped(&func_node, path, *def_line);
-                    for ref_line in &refs {
-                        if *ref_line == *def_line {
-                            continue; // Skip self-reference
-                        }
-                        let use_loc = VarLocation {
-                            file: file_path.clone(),
-                            function: func_name.clone(),
-                            line: *ref_line,
-                            path: path.clone(),
-                            kind: VarAccessKind::Use,
-                        };
-                        uses.entry((file_path.clone(), func_name.clone(), path.clone()))
-                            .or_default()
-                            .push(use_loc.clone());
-
-                        let def_loc = VarLocation {
-                            file: file_path.clone(),
-                            function: func_name.clone(),
-                            line: *def_line,
+                            line: start,
                             path: path.clone(),
                             kind: VarAccessKind::Def,
                         };
-                        edges.push(FlowEdge {
-                            from: def_loc,
-                            to: use_loc,
-                        });
+                        defs.entry((file_path.clone(), func_name.clone(), path.clone()))
+                            .or_default()
+                            .push(loc.clone());
+
+                        // Create edges from param def to all uses in the function body.
+                        for ref_line in &refs {
+                            if *ref_line == start {
+                                continue;
+                            }
+                            let use_loc = VarLocation {
+                                file: file_path.clone(),
+                                function: func_name.clone(),
+                                line: *ref_line,
+                                path: path.clone(),
+                                kind: VarAccessKind::Use,
+                            };
+                            uses.entry((file_path.clone(), func_name.clone(), path.clone()))
+                                .or_default()
+                                .push(use_loc.clone());
+                            edges.push(FlowEdge {
+                                from: loc.clone(),
+                                to: use_loc,
+                            });
+                        }
                     }
 
-                    // Phase 3: Also create edges for the alias-resolved path
-                    if let Some(resolved) = Self::resolve_path(&alias_map, path) {
-                        if resolved != *path {
-                            let resolved_refs = parsed
-                                .find_path_references_scoped(&func_node, &resolved, *def_line);
-                            for ref_line in &resolved_refs {
-                                if *ref_line == *def_line {
-                                    continue;
-                                }
-                                let use_loc = VarLocation {
+                    // Find all definitions (L-values) with structured access paths
+                    let lvalue_paths =
+                        parsed.assignment_lvalue_paths_on_lines(&func_node, &all_lines);
+                    for (path, line) in &lvalue_paths {
+                        let loc = VarLocation {
+                            file: file_path.clone(),
+                            function: func_name.clone(),
+                            line: *line,
+                            path: path.clone(),
+                            kind: VarAccessKind::Def,
+                        };
+                        defs.entry((file_path.clone(), func_name.clone(), path.clone()))
+                            .or_default()
+                            .push(loc);
+
+                        // Phase 3: If this path's base is aliased, also register a def under
+                        // the resolved path so edges connect through aliases.
+                        // For field paths (ptr->field → dev->field): resolves base through alias.
+                        // For simple paths from destructuring (name → device.name): creates
+                        // a field-qualified def so taint connects through destructured variables.
+                        if let Some(resolved) = Self::resolve_path(&alias_map, path) {
+                            if resolved != *path {
+                                let resolved_loc = VarLocation {
                                     file: file_path.clone(),
                                     function: func_name.clone(),
-                                    line: *ref_line,
+                                    line: *line,
                                     path: resolved.clone(),
-                                    kind: VarAccessKind::Use,
+                                    kind: VarAccessKind::Def,
                                 };
-                                uses.entry((
+                                defs.entry((
                                     file_path.clone(),
                                     func_name.clone(),
                                     resolved.clone(),
                                 ))
                                 .or_default()
-                                .push(use_loc.clone());
-
-                                let def_loc = VarLocation {
-                                    file: file_path.clone(),
-                                    function: func_name.clone(),
-                                    line: *def_line,
-                                    path: resolved.clone(),
-                                    kind: VarAccessKind::Def,
-                                };
-                                edges.push(FlowEdge {
-                                    from: def_loc,
-                                    to: use_loc,
-                                });
+                                .push(resolved_loc);
                             }
                         }
                     }
+
+                    // Find all uses of each defined variable/path
+                    for (path, def_line) in &lvalue_paths {
+                        let refs = parsed.find_path_references_scoped(&func_node, path, *def_line);
+                        for ref_line in &refs {
+                            if *ref_line == *def_line {
+                                continue; // Skip self-reference
+                            }
+                            let use_loc = VarLocation {
+                                file: file_path.clone(),
+                                function: func_name.clone(),
+                                line: *ref_line,
+                                path: path.clone(),
+                                kind: VarAccessKind::Use,
+                            };
+                            uses.entry((file_path.clone(), func_name.clone(), path.clone()))
+                                .or_default()
+                                .push(use_loc.clone());
+
+                            let def_loc = VarLocation {
+                                file: file_path.clone(),
+                                function: func_name.clone(),
+                                line: *def_line,
+                                path: path.clone(),
+                                kind: VarAccessKind::Def,
+                            };
+                            edges.push(FlowEdge {
+                                from: def_loc,
+                                to: use_loc,
+                            });
+                        }
+
+                        // Phase 3: Also create edges for the alias-resolved path
+                        if let Some(resolved) = Self::resolve_path(&alias_map, path) {
+                            if resolved != *path {
+                                let resolved_refs = parsed
+                                    .find_path_references_scoped(&func_node, &resolved, *def_line);
+                                for ref_line in &resolved_refs {
+                                    if *ref_line == *def_line {
+                                        continue;
+                                    }
+                                    let use_loc = VarLocation {
+                                        file: file_path.clone(),
+                                        function: func_name.clone(),
+                                        line: *ref_line,
+                                        path: resolved.clone(),
+                                        kind: VarAccessKind::Use,
+                                    };
+                                    uses.entry((
+                                        file_path.clone(),
+                                        func_name.clone(),
+                                        resolved.clone(),
+                                    ))
+                                    .or_default()
+                                    .push(use_loc.clone());
+
+                                    let def_loc = VarLocation {
+                                        file: file_path.clone(),
+                                        function: func_name.clone(),
+                                        line: *def_line,
+                                        path: resolved.clone(),
+                                        kind: VarAccessKind::Def,
+                                    };
+                                    edges.push(FlowEdge {
+                                        from: def_loc,
+                                        to: use_loc,
+                                    });
+                                }
+                            }
+                        }
+                    }
+
+                    // R-values: variables/paths read on each line
+                    let rvalue_paths =
+                        parsed.rvalue_identifier_paths_on_lines(&func_node, &all_lines);
+                    for (path, line) in &rvalue_paths {
+                        let use_loc = VarLocation {
+                            file: file_path.clone(),
+                            function: func_name.clone(),
+                            line: *line,
+                            path: path.clone(),
+                            kind: VarAccessKind::Use,
+                        };
+                        uses.entry((file_path.clone(), func_name.clone(), path.clone()))
+                            .or_default()
+                            .push(use_loc);
+                    }
                 }
 
-                // R-values: variables/paths read on each line
-                let rvalue_paths = parsed.rvalue_identifier_paths_on_lines(&func_node, &all_lines);
-                for (path, line) in &rvalue_paths {
-                    let use_loc = VarLocation {
-                        file: file_path.clone(),
-                        function: func_name.clone(),
-                        line: *line,
-                        path: path.clone(),
-                        kind: VarAccessKind::Use,
-                    };
-                    uses.entry((file_path.clone(), func_name.clone(), path.clone()))
-                        .or_default()
-                        .push(use_loc);
+                FileRefs {
+                    file_path: file_path.clone(),
+                    defs,
+                    uses,
+                    edges,
                 }
+            })
+            .collect();
+
+        for file_refs in per_file_refs {
+            // Invariant: per-file passes only register keys for their own file —
+            // cross-file registration would break merge disjointness (S1 review MAJOR 2).
+            debug_assert!(file_refs
+                .defs
+                .keys()
+                .chain(file_refs.uses.keys())
+                .all(|key| key.0.as_str() == file_refs.file_path.as_str()));
+            for (key, locs) in file_refs.defs {
+                defs.entry(key).or_default().extend(locs);
             }
+            for (key, locs) in file_refs.uses {
+                uses.entry(key).or_default().extend(locs);
+            }
+            edges.extend(file_refs.edges);
         }
 
         // Build adjacency maps

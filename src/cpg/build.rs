@@ -346,16 +346,13 @@ impl CodePropertyGraph {
                         None => continue,
                     };
                     let param_names = {
-                        let funcs = callee_parsed.all_functions();
-                        let func_node = funcs.iter().find(|f| {
-                            callee_parsed
-                                .language
-                                .function_name(f)
-                                .map(|n| callee_parsed.node_text(&n) == callee_id.name)
-                                .unwrap_or(false)
-                        });
-                        match func_node {
-                            Some(f) => callee_parsed.function_parameter_names(f),
+                        match callee_parsed
+                            .functions()
+                            .iter()
+                            // first name match wins — pinned-until-S2 (see step5b_param_binding_first_wins_parity)
+                            .find(|f| f.name.as_deref() == Some(callee_id.name.as_str()))
+                        {
+                            Some(f) => f.param_names.clone(),
                             None => continue,
                         }
                     };

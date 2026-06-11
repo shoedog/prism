@@ -40,6 +40,22 @@ pub struct ReturnInfo {
     pub is_conditional: bool,
 }
 
+/// One function definition captured at parse time. Plain owned data: the
+/// Sync-friendly seam for span-based function identity. `name == None` for
+/// anonymous functions (JS/TS callback lambdas). Sequence preserves the
+/// capture order of the dual-path collection (query when compiled, manual
+/// walk otherwise).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FunctionInfo {
+    pub name: Option<String>,
+    pub kind_id: u16,
+    pub start_byte: usize,
+    pub end_byte: usize,
+    pub start_line: usize, // 1-indexed, inclusive
+    pub end_line: usize,   // 1-indexed, inclusive
+    pub param_names: Vec<String>,
+}
+
 /// Wraps a tree-sitter parse tree with helpers for slicing analysis.
 #[derive(Clone)]
 pub struct ParsedFile {
@@ -55,7 +71,8 @@ pub struct ParsedFile {
     /// `line_offsets[i]` is the byte offset where line `i+1` begins (1-indexed lines).
     line_offsets: Vec<usize>,
     /// Lazy framework detection, populated on first call to `framework()`.
-    pub framework: std::cell::OnceCell<Option<&'static crate::frameworks::FrameworkSpec>>,
+    pub framework: std::sync::OnceLock<Option<&'static crate::frameworks::FrameworkSpec>>,
+    functions: Vec<FunctionInfo>,
 }
 
 impl ParsedFile {
@@ -77,7 +94,7 @@ impl ParsedFile {
                 line_offsets.push(i + 1);
             }
         }
-        Ok(Self {
+        let mut pf = Self {
             path: path.to_string(),
             source: source.to_string(),
             tree,
@@ -85,8 +102,11 @@ impl ParsedFile {
             parse_error_count,
             parse_node_count,
             line_offsets,
-            framework: std::cell::OnceCell::new(),
-        })
+            framework: std::sync::OnceLock::new(),
+            functions: Vec::new(),
+        };
+        pf.functions = pf.build_function_table();
+        Ok(pf)
     }
 
     /// Returns the active framework for this file, detected lazily on first call.
@@ -149,8 +169,51 @@ impl ParsedFile {
         }
     }
 
-    /// Find all function/method definitions in the file.
+    /// Function nodes, reconstructed from the eager table. On any reconstruction
+    /// miss, falls back to the direct dual-path collection for the WHOLE file —
+    /// never a partial sequence. The bool is the fallback-fire flag: in-module
+    /// tests assert it is false for all 12 supported languages so grammar drift
+    /// cannot silently route a language to the slow path.
     pub fn all_functions(&self) -> Vec<Node<'_>> {
+        self.all_functions_inner().0
+    }
+
+    pub(crate) fn all_functions_inner(&self) -> (Vec<Node<'_>>, bool) {
+        let mut out = Vec::with_capacity(self.functions.len());
+        for info in &self.functions {
+            match self.reconstruct_function_node(info) {
+                Some(node) => out.push(node),
+                None => return (self.all_functions_via_tree(), true),
+            }
+        }
+        (out, false)
+    }
+
+    fn reconstruct_function_node(&self, info: &FunctionInfo) -> Option<Node<'_>> {
+        let mut node = self
+            .tree
+            .root_node()
+            .descendant_for_byte_range(info.start_byte, info.end_byte)?;
+        // descendant_for_byte_range returns the DEEPEST node spanning the range,
+        // so recovery walks UP through same-span ancestors — a walk-down can
+        // never reach a same-span ancestor.
+        loop {
+            if node.start_byte() == info.start_byte
+                && node.end_byte() == info.end_byte
+                && node.kind_id() == info.kind_id
+            {
+                return Some(node);
+            }
+            match node.parent() {
+                Some(p) if p.start_byte() == info.start_byte && p.end_byte() == info.end_byte => {
+                    node = p
+                }
+                _ => return None,
+            }
+        }
+    }
+
+    fn all_functions_via_tree(&self) -> Vec<Node<'_>> {
         use crate::queries::{get_query, QueryKind};
         use tree_sitter::StreamingIterator;
 
@@ -176,6 +239,29 @@ impl ParsedFile {
         let mut functions = Vec::new();
         self.collect_functions_manual(self.tree.root_node(), &mut functions);
         functions
+    }
+
+    /// Build the eager function table via the existing dual-path collection.
+    fn build_function_table(&self) -> Vec<FunctionInfo> {
+        self.all_functions_via_tree()
+            .into_iter()
+            .map(|node| FunctionInfo {
+                name: self
+                    .language
+                    .function_name(&node)
+                    .map(|n| self.node_text(&n).to_string()),
+                kind_id: node.kind_id(),
+                start_byte: node.start_byte(),
+                end_byte: node.end_byte(),
+                start_line: node.start_position().row + 1,
+                end_line: node.end_position().row + 1,
+                param_names: self.function_parameter_names(&node),
+            })
+            .collect()
+    }
+
+    pub fn functions(&self) -> &[FunctionInfo] {
+        &self.functions
     }
 
     /// Manual recursive function collection (pre-query fallback).
@@ -3321,8 +3407,97 @@ pub fn find_assignment_eq(trimmed: &str) -> Option<usize> {
     }
 }
 
+/// The legacy per-line, per-field matcher — extracted verbatim from
+/// resolve_struct_field_assignment so the Level-4 index (call_graph) and the
+/// legacy oracle share ONE core. Quirks (arrow-anywhere priority,
+/// prefix-consumption, single-= anchor, RHS stop set, &-strip) are pinned by
+/// the level4_legacy_* tests and are CONTRACT until retired by a separate
+/// measured change.
+pub(crate) fn line_field_targets(
+    trimmed: &str,
+    field_name: &str,
+    known_fns: &BTreeSet<String>,
+    targets: &mut BTreeSet<String>,
+) {
+    let arrow_pattern = format!("->{}", field_name);
+    let dot_pattern = format!(".{}", field_name);
+    let mut search_from = 0usize;
+    while search_from < trimmed.len() {
+        let field_pos = trimmed[search_from..]
+            .find(&arrow_pattern)
+            .map(|p| (p + search_from, arrow_pattern.len()))
+            .or_else(|| {
+                trimmed[search_from..]
+                    .find(&dot_pattern)
+                    .map(|p| (p + search_from, dot_pattern.len()))
+            });
+        let (pos, pat_len) = match field_pos {
+            Some(v) => v,
+            None => break,
+        };
+        let after_field = pos + pat_len;
+        search_from = after_field;
+        let rest = trimmed[after_field..].trim_start();
+        if !rest.starts_with('=') || rest.starts_with("==") {
+            continue;
+        }
+        let rhs = rest[1..].trim();
+        let rhs_end = rhs
+            .find(|c: char| c == ';' || c == ',' || c == '}' || c == ')' || c.is_whitespace())
+            .unwrap_or(rhs.len());
+        let rhs_token = rhs[..rhs_end].trim().trim_start_matches('&');
+        if !rhs_token.is_empty()
+            && rhs_token.chars().all(|c| c.is_alphanumeric() || c == '_')
+            && known_fns.contains(rhs_token)
+        {
+            targets.insert(rhs_token.to_string());
+        }
+    }
+}
+
+/// Every maximal identifier immediately preceded by `->` or `.` on the line,
+/// under the PINNED predicate: char::is_alphanumeric(c) || c == '_' — the same
+/// Unicode-aware class the Level-4 call-site filter applies to callee names —
+/// scanned over RAW source lines including comments and string literals
+/// (reproduces legacy text-scan semantics).
+///
+/// Completeness: a field can only produce a target when the accessor occurrence
+/// is followed (after optional whitespace) by `=`, which terminates the
+/// identifier run — so every PRODUCTIVE field is a maximal run here. Prefix
+/// occurrences (`->cbx` while querying `cb`) never produce targets; their
+/// consumption side-effects are reproduced by running the legacy core.
+pub(crate) fn candidate_fields_on_line(trimmed: &str) -> BTreeSet<String> {
+    fn ident_char(c: char) -> bool {
+        c.is_alphanumeric() || c == '_'
+    }
+
+    let mut out = BTreeSet::new();
+    let mut rest = trimmed;
+    loop {
+        let arrow = rest.find("->");
+        let dot = rest.find('.');
+        let (pos, len) = match (arrow, dot) {
+            (Some(a), Some(d)) if a <= d => (a, 2),
+            (Some(a), None) => (a, 2),
+            (_, Some(d)) => (d, 1),
+            (None, None) => break,
+        };
+        let after = &rest[pos + len..];
+        let end = after.find(|c: char| !ident_char(c)).unwrap_or(after.len());
+        if end > 0 {
+            out.insert(after[..end].to_string());
+            rest = &after[end..];
+        } else {
+            rest = after;
+        }
+    }
+    out
+}
+
 /// Scan source text for struct field assignments that assign a known function
 /// to a field with the given name.
+/// Post-S1 this is the differential-test oracle; production Level-4 resolution
+/// uses the inverted index in call_graph.rs.
 ///
 /// Matches patterns:
 ///   `anything->field_name = known_func;`
@@ -3338,62 +3513,13 @@ pub fn resolve_struct_field_assignment(
     let mut targets = BTreeSet::new();
     let arrow_pattern = format!("->{}", field_name);
     let dot_pattern = format!(".{}", field_name);
-
     for line in source.lines() {
         let trimmed = line.trim();
-
-        // Must contain the field name with a struct accessor
-        let has_field = trimmed.contains(&arrow_pattern) || trimmed.contains(&dot_pattern);
-        if !has_field {
+        if !(trimmed.contains(&arrow_pattern) || trimmed.contains(&dot_pattern)) {
             continue;
         }
-
-        // A line may contain multiple `field = value` fragments (e.g. designated
-        // initializers inside braces: `{ .callback = handler, .data = NULL }`).
-        // Scan for every occurrence of the field pattern and check the assignment
-        // that follows it.
-        let mut search_from = 0usize;
-        while search_from < trimmed.len() {
-            // Find next occurrence of ->field or .field
-            let field_pos = trimmed[search_from..]
-                .find(&arrow_pattern)
-                .map(|p| (p + search_from, arrow_pattern.len()))
-                .or_else(|| {
-                    trimmed[search_from..]
-                        .find(&dot_pattern)
-                        .map(|p| (p + search_from, dot_pattern.len()))
-                });
-            let (pos, pat_len) = match field_pos {
-                Some(v) => v,
-                None => break,
-            };
-            let after_field = pos + pat_len;
-            search_from = after_field;
-
-            // After the field name, skip whitespace and look for '='
-            let rest = trimmed[after_field..].trim_start();
-            if !rest.starts_with('=') {
-                continue;
-            }
-            // Make sure it's not '=='
-            if rest.starts_with("==") {
-                continue;
-            }
-            let rhs = rest[1..].trim();
-            // Extract the identifier (stop at ';', ',', '}', ')', whitespace)
-            let rhs_end = rhs
-                .find(|c: char| c == ';' || c == ',' || c == '}' || c == ')' || c.is_whitespace())
-                .unwrap_or(rhs.len());
-            let rhs_token = rhs[..rhs_end].trim().trim_start_matches('&');
-            if !rhs_token.is_empty()
-                && rhs_token.chars().all(|c| c.is_alphanumeric() || c == '_')
-                && known_fns.contains(rhs_token)
-            {
-                targets.insert(rhs_token.to_string());
-            }
-        }
+        line_field_targets(trimmed, field_name, known_fns, &mut targets);
     }
-
     targets.into_iter().collect()
 }
 
@@ -3414,5 +3540,215 @@ fn collect_error_lines_recursive(node: Node<'_>, lines: &mut BTreeSet<usize>, ma
     let mut cursor = node.walk();
     for child in node.children(&mut cursor) {
         collect_error_lines_recursive(child, lines, max);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn fns(names: &[&str]) -> BTreeSet<String> {
+        names.iter().map(|s| s.to_string()).collect()
+    }
+
+    #[test]
+    fn parsed_file_is_send_and_sync() {
+        fn assert_send_sync<T: Send + Sync>() {}
+        assert_send_sync::<ParsedFile>();
+    }
+
+    #[test]
+    fn loaded_repo_is_send_and_sync() {
+        // Informational companion: a !Sync field elsewhere in LoadedRepo must NOT
+        // gate C2 — if only this one fails, that field is investigated separately.
+        fn assert_send_sync<T: Send + Sync>() {}
+        assert_send_sync::<crate::repo_loader::LoadedRepo>();
+    }
+
+    #[test]
+    fn candidate_fields_are_maximal_post_accessor_identifiers() {
+        let got = candidate_fields_on_line("s.cb = f; t->cbx = g; obj.data->next = h; x = 3.14;");
+        let want: BTreeSet<String> = ["cb", "cbx", "data", "next", "14"]
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
+        assert_eq!(got, want); // "14" is harmless noise: digits are identifier chars,
+                               // and no callee filter ever queries it
+    }
+
+    #[test]
+    fn candidate_fields_use_the_pinned_unicode_predicate() {
+        // same predicate as the Level-4 call-site filter (char::is_alphanumeric || '_'),
+        // Unicode-aware — `café` is ONE identifier.
+        let got = candidate_fields_on_line("obj.café = handler; p->x_1 = g;");
+        let want: BTreeSet<String> = ["café", "x_1"].iter().map(|s| s.to_string()).collect();
+        assert_eq!(got, want);
+    }
+
+    #[test]
+    fn level4_legacy_quirk_arrow_anywhere_priority() {
+        // ->field ANYWHERE in the line beats a closer .field (quirk 1):
+        // the .cb assignment to `f` is dropped because ->cb is found first.
+        let src = "s.cb = f; t->cb = g;\n";
+        let got = resolve_struct_field_assignment(src, "cb", &fns(&["f", "g"]));
+        assert_eq!(got, vec!["g".to_string()]);
+    }
+
+    #[test]
+    fn level4_legacy_quirk_prefix_consumption() {
+        // ->cbx matches find("->cb"); scan position advances past it, and the
+        // REAL earlier .cb assignment is never revisited (quirk 2).
+        let src = "s.cb = f; t->cbx = g;\n";
+        let got = resolve_struct_field_assignment(src, "cb", &fns(&["f", "g"]));
+        assert_eq!(got, Vec::<String>::new());
+    }
+
+    #[test]
+    fn level4_legacy_rhs_rules() {
+        // single-= anchor (== rejected), &-strip, stop at ; , } ) and whitespace,
+        // known_fns filter, BTreeSet dedup+sort.
+        let src =
+            "a.cb == f;\nb.cb = &handler;\nc.cb = handler, x;\nd.cb = unknown_fn;\ne.cb = handler;\n";
+        let got = resolve_struct_field_assignment(src, "cb", &fns(&["handler", "f"]));
+        assert_eq!(got, vec!["handler".to_string()]); // deduped, == rejected, unknown filtered
+    }
+
+    #[test]
+    fn level4_legacy_designated_initializer_multi_field() {
+        let src = "static struct ops o = { .open = do_open, .close = do_close };\n";
+        assert_eq!(
+            resolve_struct_field_assignment(src, "open", &fns(&["do_open", "do_close"])),
+            vec!["do_open".to_string()]
+        );
+        assert_eq!(
+            resolve_struct_field_assignment(src, "close", &fns(&["do_open", "do_close"])),
+            vec!["do_close".to_string()]
+        );
+    }
+
+    #[test]
+    fn function_table_captures_named_and_anonymous_in_query_order() {
+        // JS: named fn + anonymous callback lambda (function_name() returns None for the latter)
+        let src = "function alpha(a, b) { return a; }\nitems.forEach((x) => { use(x); });\n";
+        let pf = ParsedFile::parse("t.js", src, Language::JavaScript).unwrap();
+        let table = pf.functions();
+        // Full captured sequence preserved, query order, including unnamed entries
+        let direct = pf.all_functions();
+        assert_eq!(table.len(), direct.len());
+        for (info, node) in table.iter().zip(direct.iter()) {
+            assert_eq!(info.start_byte, node.start_byte());
+            assert_eq!(info.end_byte, node.end_byte());
+            assert_eq!(info.kind_id, node.kind_id());
+        }
+        assert_eq!(table[0].name.as_deref(), Some("alpha"));
+        assert_eq!(table[0].param_names, vec!["a".to_string(), "b".to_string()]);
+        assert!(table.iter().any(|f| f.name.is_none())); // the arrow callback
+    }
+
+    #[test]
+    fn function_table_rust_and_same_named_functions() {
+        let src = "fn f(x: u32) -> u32 { x }\nmod a { pub fn f(y: u32) -> u32 { y } }\n";
+        let pf = ParsedFile::parse("t.rs", src, Language::Rust).unwrap();
+        let named: Vec<_> = pf
+            .functions()
+            .iter()
+            .filter(|f| f.name.as_deref() == Some("f"))
+            .collect();
+        assert_eq!(named.len(), 2); // both kept, query order — no dedup/last-writer-wins
+        assert_eq!(named[0].param_names, vec!["x".to_string()]);
+    }
+
+    #[test]
+    fn all_functions_reconstructed_matches_direct_query_per_language() {
+        // (source, language, path) for all supported languages; each has >=2 functions.
+        let cases: Vec<(&str, Language, &str)> = vec![
+            (
+                "fn a() {}\nfn b(x: u32) { let _ = x; }",
+                Language::Rust,
+                "t.rs",
+            ),
+            ("func A() {}\nfunc B(x int) { _ = x }", Language::Go, "t.go"),
+            (
+                "def a():\n    pass\n\ndef b(x):\n    return x\n",
+                Language::Python,
+                "t.py",
+            ),
+            (
+                "function a() {}\nitems.map((x) => x + 1);",
+                Language::JavaScript,
+                "t.js",
+            ),
+            (
+                "function a(): void {}\nconst b = (x: number) => x + 1;",
+                Language::TypeScript,
+                "t.ts",
+            ),
+            (
+                "function A(): JSX.Element { return <div/>; }\nconst B = () => <span/>;",
+                Language::Tsx,
+                "t.tsx",
+            ),
+            (
+                "class K { void a() {} int b(int x) { return x; } }",
+                Language::Java,
+                "t.java",
+            ),
+            (
+                "void a(void) {}\nint b(int x) { return x; }",
+                Language::C,
+                "t.c",
+            ),
+            (
+                "class K { void a() {} };\nint b() { return 0; }",
+                Language::Cpp,
+                "t.cpp",
+            ),
+            (
+                "function a() end\nlocal function b(x) return x end",
+                Language::Lua,
+                "t.lua",
+            ),
+            (
+                "resource \"aws_s3_bucket\" \"a\" {}\nresource \"aws_s3_bucket\" \"b\" {}",
+                Language::Terraform,
+                "t.tf",
+            ),
+            (
+                "a() { echo hi; }\nb() { echo bye; }",
+                Language::Bash,
+                "t.sh",
+            ),
+        ];
+        for (src, lang, path) in cases {
+            let pf = ParsedFile::parse(path, src, lang).unwrap();
+            let direct = pf.all_functions_via_tree();
+            let (reconstructed, used_fallback) = pf.all_functions_inner();
+            // Anti-vacuous guard: a grammar bump that stops capturing functions for a
+            // language would otherwise make this drift detector pass on empty sets.
+            assert!(
+                direct.len() >= 2,
+                "{path}: fixture must parse to >=2 functions (got {})",
+                direct.len()
+            );
+            assert!(!used_fallback, "{path}: reconstruction must not fall back");
+            assert_eq!(direct.len(), reconstructed.len(), "{path}");
+            for (d, r) in direct.iter().zip(reconstructed.iter()) {
+                assert_eq!(
+                    (d.kind_id(), d.start_byte(), d.end_byte()),
+                    (r.kind_id(), r.start_byte(), r.end_byte()),
+                    "{path}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn all_functions_falls_back_to_direct_query_on_reconstruction_miss() {
+        let src = "fn a() {}\nfn b() {}\n";
+        let mut pf = ParsedFile::parse("t.rs", src, Language::Rust).unwrap();
+        pf.functions[0].kind_id = u16::MAX; // synthetic corruption: no node can match
+        let (nodes, used_fallback) = pf.all_functions_inner();
+        assert!(used_fallback); // the drift detector
+        assert_eq!(nodes.len(), 2); // full sequence via fallback — never silently skipped
     }
 }

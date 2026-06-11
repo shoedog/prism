@@ -40,6 +40,21 @@ impl CodePropertyGraph {
         self.graph.node_indices()
     }
 
+    /// Insertion-ordered (source, target, kind) dump for parity tests.
+    pub fn edge_dump(&self) -> Vec<String> {
+        self.graph
+            .edge_references()
+            .map(|e| {
+                format!(
+                    "{:?}->{:?}:{:?}",
+                    e.source().index(),
+                    e.target().index(),
+                    e.weight()
+                )
+            })
+            .collect()
+    }
+
     /// Get the node index for a variable by its location.
     pub fn var_node(
         &self,

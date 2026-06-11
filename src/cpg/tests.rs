@@ -642,6 +642,61 @@ void flow() {
 }
 
 #[test]
+fn step5b_param_binding_first_wins_parity() {
+    // callee file defines two same-named fns; Step 5b must bind args to the FIRST
+    // (tree-order) match — pinned-until-S2. Caller passes `tainted`.
+    // Line map (m.py): 1 `def f(p):`  2 `return p`  3 blank  4 `class K:`
+    //                  5 `def f(q):`  6 `return q`   — param defs pin to the
+    // function start line (data_flow.rs:221-237), so p@1 and q@5.
+    let callee_src = "def f(p):\n    return p\n\nclass K:\n    def f(q):\n        return q\n";
+    let caller_src = "from m import f\n\ndef call():\n    tainted = source()\n    f(tainted)\n";
+    let mut files = BTreeMap::new();
+    files.insert(
+        "m.py".to_string(),
+        ParsedFile::parse("m.py", callee_src, Language::Python).unwrap(),
+    );
+    files.insert(
+        "c.py".to_string(),
+        ParsedFile::parse("c.py", caller_src, Language::Python).unwrap(),
+    );
+    let ctx = CpgContext::build(&files, None);
+
+    fn node_matches(n: &CpgNode, (file, line, base): (&str, usize, &str)) -> bool {
+        matches!(n, CpgNode::Variable { file: f, line: l, path, .. }
+            if f == file && *l == line && path.base == base)
+    }
+
+    fn has_dataflow_edge(
+        cpg: &CodePropertyGraph,
+        from: (&str, usize, &str),
+        to: (&str, usize, &str),
+    ) -> bool {
+        cpg.graph.edge_indices().any(|e| {
+            cpg.graph[e] == CpgEdge::DataFlow
+                && cpg
+                    .graph
+                    .edge_endpoints(e)
+                    .map(|(source, target)| {
+                        node_matches(cpg.node(source), from) && node_matches(cpg.node(target), to)
+                    })
+                    .unwrap_or(false)
+        })
+    }
+
+    // arg->param edge must target p (first f) at m.py:1 — and NOT q at m.py:5
+    assert!(has_dataflow_edge(
+        &ctx.cpg,
+        ("c.py", 5, "tainted"),
+        ("m.py", 1, "p")
+    ));
+    assert!(!has_dataflow_edge(
+        &ctx.cpg,
+        ("c.py", 5, "tainted"),
+        ("m.py", 5, "q")
+    ));
+}
+
+#[test]
 fn test_cpg_call_edges() {
     let source = r#"
 void callee() {

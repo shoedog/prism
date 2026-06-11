@@ -671,6 +671,44 @@ void setup_timer(timer_t *timer) {
 }
 
 #[test]
+fn test_struct_callback_resolved_callsite_fields() {
+    let source = r#"void assigned_handler(void *ctx) { }
+
+void dispatch(void *ctx) {
+    ctx->run(ctx);
+}
+
+void configure(void *ctx) {
+    ctx->run = assigned_handler;
+}
+"#;
+
+    let mut files = BTreeMap::new();
+    files.insert(
+        "src/callsite_fields.c".to_string(),
+        ParsedFile::parse("src/callsite_fields.c", source, Language::C).unwrap(),
+    );
+    let call_graph = CallGraph::build(&files);
+
+    let dispatch_id = prism::call_graph::FunctionId {
+        file: "src/callsite_fields.c".to_string(),
+        name: "dispatch".to_string(),
+        start_line: 3,
+        end_line: 5,
+    };
+    let dispatch_calls = call_graph.calls.get(&dispatch_id).unwrap();
+    let resolved = dispatch_calls
+        .iter()
+        .find(|site| site.callee_name == "assigned_handler")
+        .expect("Level 4 should resolve ctx->run to assigned_handler");
+
+    assert_eq!(resolved.caller, dispatch_id);
+    assert_eq!(resolved.callee_name, "assigned_handler");
+    assert_eq!(resolved.line, 4);
+    assert_eq!(resolved.qualifier, None);
+}
+
+#[test]
 fn test_struct_callback_cross_file() {
     let setup_src = r#"
 void timeout_handler(void *data) { }
