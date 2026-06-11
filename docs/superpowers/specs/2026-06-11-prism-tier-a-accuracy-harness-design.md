@@ -1,8 +1,10 @@
 # Tier-A Accuracy Harness + Dev-Loop Test-Time Reduction — Design
 
-**Date:** 2026-06-11 · **Status:** rev 2 — folds the dual spec-review (5 BLOCKER, 11
-MAJOR, 6 MINOR; record: `docs/prism-query-layer/tier-a-spec-review-2026-06-11.md`) —
-pending owner re-review
+**Date:** 2026-06-11 · **Status:** rev 3 — folds dual spec-review round 1 (5 BLOCKER,
+11 MAJOR, 6 MINOR) and round 2 (2 BLOCKER, 7 MAJOR, 6 MINOR; records:
+`docs/prism-query-layer/tier-a-spec-review-2026-06-11.md`, `...-r2-2026-06-11.md`;
+r2 verdict: "the architecture itself needs no rework, and planning can start
+immediately after rev 3") — pending owner approval
 **Context docs:** `docs/prism-meta-analysis-2026-06-10.md` (§1 three-tier harness, §3 LSP
 head-to-head prototype), `docs/cpg-substrate-analysis-2026-06-10.md` (S3 precision),
 `docs/prism-query-layer/s1-followups.md` (items 1 — B2 trigger, 4 — test wall time).
@@ -32,7 +34,7 @@ while actual test execution sums to under 2 minutes (s1-followups item 4; that d
 
 | | In scope (v1) | Deferred (§8) |
 |---|---|---|
-| **WP1** | Tier-A edge-level accuracy harness in `eval/`: 4 measurements, 3 languages (Rust, Go, Python), 4 corpora, adjudication store, committed baseline scorecards, `prism nav functions` CLI surface + `GIT_SHA` in `--version`, agent guidance in `CLAUDE.md`/`AGENTS.md` | TS/JS oracles, module-edge oracle, SCIP-as-oracle adapter, kubernetes/TypeScript-repo scale runs, direct xAST case reuse, CI wiring |
+| **WP1** | Tier-A edge-level accuracy harness in `eval/`: 4 measurements, 3 languages (Rust, Go, Python), 5 corpora, adjudication store, committed baseline scorecards, `prism nav functions` CLI surface + `GIT_SHA` in `--version`, agent guidance in `CLAUDE.md`/`AGENTS.md` | TS/JS oracles, module-edge oracle, SCIP-as-oracle adapter, kubernetes/TypeScript-repo scale runs, direct xAST case reuse, CI wiring |
 | **WP2** | Umbrella test-binary consolidation (121 → 24 targets per the §3.1 migration table) + `[profile.dev]` debug tuning, measured against a defined protocol | cargo-nextest |
 
 Tier-B (flow-level taint fixtures) and Tier-C (end-task review benchmark) are separate
@@ -50,8 +52,9 @@ future initiatives, unchanged by this spec.
 - Two hard seams, defined as Python protocols (PEP 544) in `eval/tier_a/interfaces.py`:
   - **`Oracle`** — `inventory(corpus) -> list[FunctionDef]`,
     `callers(def_) -> list[CallEdge]`, `callees(def_) -> list[CallEdge]`,
-    `definitions_at(site) -> list[Location]` (LSP returns 0..n results — trait impls,
-    interface methods; the list is the honest model), plus `version() -> str` and
+    `definitions_at(site) -> list[DefTarget]` (LSP returns 0..n results — trait impls,
+    interface methods; the list is the honest model, and each target is enriched beyond
+    a bare location so §2.6 can match by name), plus `version() -> str` and
     `capability_probe() -> ProbeResult` (§2.2).
   - **`SystemUnderTest`** — `inventory(corpus)`, `callers(def_)`, `callees(def_)`
     returning the same dataclasses, plus `version() -> SutVersion` (§2.3).
@@ -72,9 +75,17 @@ class Location:            # all lines 1-based, inclusive; file repo-relative PO
 @dataclass(frozen=True)
 class FunctionDef:
     name: str | None       # None = anonymous (closure); see exclusion rule below
-    kind: str              # "function" | "method" | "constructor"
+    kind: str              # semantic: "function" | "method" | "constructor"
+    container: str | None  # enclosing class/mod/etc. from the oracle's hierarchical
+                           # documentSymbol (None at module root) — the §2.5 stratifier input
     location: Location     # full definition span
     selection_line: int    # line of the name token (LSP selectionRange; prism: start_line)
+
+@dataclass(frozen=True)
+class DefTarget:           # a definition-query result, name-enriched for §2.6 matching
+    location: Location
+    name: str | None       # resolved by containment lookup against the oracle inventory
+    kind: str | None
 
 @dataclass(frozen=True)
 class CallEdge:
@@ -92,6 +103,9 @@ repo-relative POSIX paths (probes outside the corpus root are dropped and counte
 sides. Matching tie-break everywhere: when more than one candidate satisfies a
 containment/equality rule, take the one with the smallest span, then lowest
 `start_line`, then lexicographically smallest file — fully deterministic.
+`FunctionDef.kind`/`container` are **oracle-side semantics**; the SUT inventory's `kind`
+is the raw tree-sitter node kind, informational only (Rust's `function_item` cannot
+distinguish method from function), and never feeds stratification.
 
 - v1 implementations:
   - `PrismCli(SystemUnderTest)` — subprocess calls to a release-built `prism` binary:
@@ -134,10 +148,16 @@ Per-server adapter responsibilities (the part that genuinely differs per server)
 - **Failure honesty:** a request that times out or errors is recorded as
   `oracle_error` for that probe and **excluded from P/R denominators**; per-corpus
   `oracle_error_rate` is a first-class report field. The run never silently converts an
-  oracle failure into a prism failure. **Validity floors** (config, per corpus): a
-  stratum with fewer than 6 successfully-probed symbols, or a corpus with
-  `oracle_error_rate` above 10% (Rust/Go) / 25% (Python), is marked
-  `baseline_invalid` — its numbers are reported but cannot serve as the S3/B2 baseline.
+  oracle failure into a prism failure. **Validity floors** (config, per corpus) gate
+  **probe failures, not population shortfall**: a stratum is floor-valid when successful
+  probes ≥ `min(6, eligible_population)` — a naturally undersized stratum (Go `U-free`
+  will run short by design, §2.5) records its shortfall and stays **non-gating**, per
+  the spec's honesty posture. Corpus-level floors: `oracle_error_rate` above 10%
+  (Rust/Go) / 25% (Python) ⇒ `baseline_invalid` — numbers reported but unable to serve
+  as the S3/B2 baseline. **Symmetric SUT floor:** `sut_error_rate` above 5% also ⇒
+  `baseline_invalid` — excluded-from-denominator treatment must not let a broken prism
+  build report inflated P/R on whatever probes happen to succeed (`inventory_miss` is
+  not a `sut_error`; it scores as FN per §2.5).
 
 Oracle install/prep is documented in `eval/README.md` (rust-analyzer already on PATH;
 `go install golang.org/x/tools/gopls@latest`; `npm i -g pyright` for
@@ -168,11 +188,19 @@ emitted** (wrapper spans like `decorated_definition` are dropped). This rule liv
 emission path; the harness does not paper over duplicates.
 
 **Build identity.** `build.rs` additionally embeds `GIT_SHA` + a dirty flag (same
-mechanism as the existing `GRAMMAR_FINGERPRINT`), and `prism --version` prints them.
+mechanism as the existing `GRAMMAR_FINGERPRINT`), with
+`cargo:rerun-if-changed=.git/HEAD` **and** the ref file HEAD points at, so the embedded
+SHA cannot itself go stale across commits (the dirty flag is best-effort between edits —
+the harness's HEAD comparison is the backstop). `prism --version` prints them.
 Rationale: `CARGO_PKG_VERSION` is constant across dev commits, and stale-binary drift is
 a documented silent failure of this lineage. The harness compares the binary's SHA to
 the prism repo's HEAD and **aborts with `sut_stale`** on mismatch/dirty unless
 `--allow-stale-sut` is passed (in which case the report carries `sut_stale: true`).
+
+**SUT binary discovery.** The harness never builds prism. `PrismCli` resolves the binary
+as: `--sut-bin <path>` flag → `PRISM_BIN` env var → `<prism repo>/target/release/prism`.
+`eval/README.md` documents the one-liner (`cargo build --release` — plus
+`--features mcp` only if comparing the MCP surface, not v1) and the resolution order.
 
 No other fields in v1: this is the minimal surface measurements 1–2 need, and the
 additive-only rule from the S1/Option-C lineage applies (existing outputs untouched).
@@ -212,7 +240,7 @@ precedence (collision > qualification > unique), eliminating overlap:
 |---|---|---|
 | 1 | `C-method` | name has ≥ 2 definitions in the universe; this symbol's oracle kind is method/constructor |
 | 2 | `C-name` | ≥ 2 definitions; oracle kind is function |
-| 3 | `Q-scoped` | unique name; free function defined in a nested module/package — Rust: inside an inline `mod` or in a file other than the crate root; Go: in any subdirectory package; Python: in a module inside a package (directory with `__init__.py`) |
+| 3 | `Q-scoped` | unique name; free function defined in a nested module/package — Rust: `container` is a `mod` or the file is not the crate root; Go: in any subdirectory package; Python: in a module inside a package (directory with `__init__.py`). Classified from `FunctionDef.container` + universe paths — both oracle-side |
 | 4 | `U-method` | unique name; method/constructor |
 | 5 | `U-free` | unique name; free function at module root |
 
@@ -223,10 +251,15 @@ inventory container info. In Go most unique free functions will land in `Q-scope
 realized stratum sizes.
 
 **Sample:** 8 symbols per stratum per corpus (40 total; a stratum with fewer than 8
-eligible symbols takes all of them and the report records the shortfall). Selection is
-deterministic: inventory sorted by `(file, start_line, name)`, then `random.Random(seed)`
-with the seed fixed in `eval/corpora.toml` (default 42). Same seed ⇒ same sample ⇒
-reproducible numbers.
+eligible symbols takes all of them and the report records the shortfall — non-gating per
+§2.2). Selection is deterministic **and decoupled from live-oracle variance**: the first
+run at a given corpus SHA persists its oracle inventory as a snapshot
+(`eval/snapshots/<corpus>-<sha>.json`); the sample is a pure function of
+`(snapshot, seed)` — inventory sorted by `(file, start_line, name)`, then
+`random.Random(seed)` with the seed fixed in `eval/corpora.toml` (default 42).
+Subsequent runs at the same corpus SHA load the snapshot for sampling (so one
+`documentSymbol` timeout cannot reshuffle strata and samples) and report fresh-vs-snapshot
+inventory drift ungated. Same snapshot + same seed ⇒ same sample ⇒ reproducible numbers.
 
 **Seeding the SUT (location-based, not symbol-based):** prism's symbol+file seeding
 returns `AmbiguousSymbol` when one file holds several same-name definitions
@@ -262,10 +295,17 @@ definition vs the seeded prism queries above.
 
 - **Call-site level (primary):** a prism `call_site` matches an oracle `fromRange` if
   file matches and the line falls within the range's line span. Site-level TP/FP/FN ⇒
-  precision/recall per stratum per direction.
+  precision/recall per stratum per direction. Edge identity is line-granular and prism's
+  `CallSite` carries no column, so **same-line multi-call sites are collapsed to one
+  countable site per `(file, line, direction)`** with the collapse recorded
+  (`same_line_multicall_collapsed` count) — they are excluded from per-site multiplicity
+  claims rather than guessed at.
 - **Caller-function level:** the set of containing functions (derived by line containment
-  against the oracle inventory). Coarser, robust to multi-site counting differences
-  (prototype: `all_functions` 62 sites vs 56 callers).
+  against the oracle inventory). Call sites outside any inventoried function — common at
+  Python module level, where LSP call-hierarchy behavior also varies by server — go into
+  an explicit **`module_level` pseudo-container bucket** per file, counted, never
+  silently dropped. Coarser, robust to multi-site counting differences (prototype:
+  `all_functions` 62 sites vs 56 callers).
 
 **Pinned probes (outside the random sample, fixed forever):** four dedicated probes run
 on the `prism` corpus every time, excluded from all stratum denominators:
@@ -289,12 +329,20 @@ line-granular, so the harness locates the column by finding the seed symbol's na
 on the claimed line **in call position** — followed by `(`, or preceded by `.`/`::` —
 falling back to first occurrence outside a string/comment only if no call-position
 occurrence exists (a bare-first-occurrence rule would resolve the LHS local in
-`let target = edge.target();` and mint a false confirmed-FP). If the name does not occur
-on the line at all, that is recorded as a confirmed FP. The oracle returns 0..n
-definitions (`definitions_at`); the edge is confirmed iff **any** returned definition
-matches the seed symbol's definition (selection-line containment + name, per §2.4) —
-otherwise it is a confirmed false positive (the petgraph-`.target()` class is
-mechanically confirmed this way rather than hand-read). This is the direct S3
+`let target = edge.target();` and mint a false confirmed-FP).
+
+M3 verdicts honor the §0 contract — **auto-classification only where the oracle is
+structurally unambiguous; everything else routes to adjudication**
+(`measurement: "m3"` in the §2.8 store):
+
+| Outcome at the site | Classification |
+|---|---|
+| any returned `DefTarget` matches the seed definition (selection-line containment + name, §2.4) | **confirmed TP** |
+| all returned `DefTarget`s have a name ≠ seed name | **confirmed FP** — the petgraph-`.target()` class, mechanically confirmed |
+| a returned `DefTarget` has the seed's *name* but a different definition (typically a trait/interface declaration vs prism's concrete impl — the oracle is being *less* specific, not contradicting) | **`ambiguous` → adjudication**, never auto-FP; the bias would otherwise concentrate on exactly the method strata S3 exists to measure |
+| seed name absent from the line entirely (aliased import `from m import f as g`, re-export, constructor sugar) | **`alias_site` → adjudication**, counted separately — absence of the literal token is not evidence of a false edge |
+
+The report shows confirmed and adjudicated M3 results separately. This is the direct S3
 edge-precision-floor metric, at spot-check cost instead of full-census cost
 (meta-analysis approach B was rejected for cost and zero recall signal).
 
@@ -343,6 +391,11 @@ post-change regression target and as guidance when adapting languages. No LSP in
     override; decorator-wrapped fn; closure; common-name collision.
 - The matrix needs no oracle servers and finishes in seconds — it is the cheapest
   in-loop regression signal (`--matrix-only`, §2.11).
+- **The Python `decorator-wrapped fn` case is B2's designated flip indicator.** The
+  §2.3 dedup rule deliberately makes measurement 1 blind to the decorator
+  double-capture quirk both before and after B2 fixes it, and pyright-on-django is the
+  acknowledged noisiest live channel — so B2's Python regression signal is carried
+  here, by construction, not by the live corpora.
 
 ### 2.8 Adjudication
 
@@ -360,14 +413,32 @@ call site itself:
  "adjudicated_by": "wesley", "date": "2026-06-11"}
 ```
 
-- `direction`: `prism_only` | `oracle_only`. `verdict`: `oracle_miss` (prism right,
-  oracle blind — counts as TP in corrected metrics, increments `oracle_miss_count`),
-  `prism_fp`, `prism_fn`, `oracle_artifact` (e.g. macro-expansion phantom — excluded from
-  both denominators), `ambiguous` (excluded, listed).
-- Reports always show **raw** and **adjudication-corrected** P/R side by side.
-  Unadjudicated diffs are never silently counted toward either tool: they appear in a
-  "pending triage" section of the report, and corrected metrics exclude them
-  (raw metrics count them conventionally: `prism_only` = FP, `oracle_only` = FN).
+- `direction`: `prism_only` | `oracle_only`. **Metric-contribution truth table** (the
+  complete corrected-metric math; combinations not listed are illegal and rejected by
+  the loader):
+
+  | direction | raw class | verdict | corrected contribution |
+  |---|---|---|---|
+  | both agree | TP | — | TP |
+  | `prism_only` | FP | *(pending)* | excluded; `pending_count` |
+  | `prism_only` | FP | `oracle_miss` | **TP**, increments `oracle_miss_count` |
+  | `prism_only` | FP | `prism_fp` | FP |
+  | `prism_only` | FP | `oracle_artifact` | excluded from both denominators |
+  | `prism_only` | FP | `ambiguous` / `alias_site` | excluded, listed |
+  | `oracle_only` | FN | *(pending)* | excluded; `pending_count` |
+  | `oracle_only` | FN | `prism_fn` | FN |
+  | `oracle_only` | FN | `oracle_artifact` | excluded from both denominators |
+  | `oracle_only` | FN | `ambiguous` | excluded, listed |
+
+  Corrected P = TP/(TP+FP), corrected R = TP/(TP+FN) over the post-transform counts;
+  Wilson intervals use those same denominators. `stale` records contribute nothing to
+  any metric (listed only). Raw metrics count every pending diff conventionally
+  (`prism_only` = FP, `oracle_only` = FN).
+- **Adjudication budget (baseline-sufficiency rule):** the committed baseline requires
+  *all* Rust/Go pending diffs adjudicated, plus a seeded-RNG sample of ≤ 25 pending
+  diffs per Python corpus — the remainder may stay pending (they are excluded from
+  corrected metrics either way). This bounds the human work on the S3/B2 critical path;
+  django diffs alone could otherwise run to hundreds of items.
 - Records survive re-runs; a record whose site no longer appears in a run is reported as
   `stale` (corpus SHA changed) rather than deleted.
 - The two known feature-gated callers from the prototype are seeded into this file as
@@ -386,6 +457,7 @@ call site itself:
 | `tokio` | Rust | `~/code/bench-repos/tokio` | rust-analyzer | none |
 | `hugo` | Go | `~/code/bench-repos/hugo` | gopls | `go mod download` |
 | `django` | Python | `~/code/bench-repos/django` | pyright (capability-probe gated, §2.2) | venv + pyright config |
+| `flask` | Python | `~/code/bench-repos/flask` | pyright (same gating) | clone + venv; **the Python corpus expected to clear the validity floors** — smaller and more statically typed than django, so Python carries a live baseline even if django lands `baseline_invalid` |
 
 Each entry carries: absolute path (machine-local; the file documents this is a
 dev-machine harness, not CI), **pinned commit SHA** (recorded at first run; the runner
@@ -398,7 +470,12 @@ Known asymmetry, stated in reports: Rust/Go oracle quality is compiler-grade;
 **pyright-on-django numbers carry oracle noise** (type-inference gaps on a large dynamic
 codebase). Django's report section is labeled accordingly, and `oracle_error_rate` +
 `ambiguous` adjudications are expected to be materially higher there. That noise floor is
-itself a v1 finding (meta-analysis §1 uncertainty, now quantified).
+itself a v1 finding (meta-analysis §1 uncertainty, now quantified). **Adjudicator
+warning (carried into the report template):** django/flask M2 diffs partially reflect
+prism's own decorator double-capture quirk — the CPG's `(file, name)`-keyed `func_index`
+silently strips edges from one of each wrapper/inner pair — so Python `oracle_only`
+diffs on decorated functions are evidence *about the B2 quirk*, not only about call
+resolution; B2's regression signal itself lives in the §2.7 matrix case, not here.
 
 ### 2.10 Reports and baseline
 
@@ -494,6 +571,9 @@ Mechanics:
   `mod common;` headers are removed and each file's `use common::*;` (the pattern in all
   93 affected files) becomes **`use crate::common::*;`** — glob form preserved so every
   unqualified helper call keeps compiling; no call-site rewrites.
+- **Module names are file-derived, no aliasing:** plain `mod taint_cve_test;` exposes
+  `taint_cve_test::` — filters use the full file-stem name (no `#[path]` renames; one
+  fewer thing to drift).
 - `tests/common` then compiles 24× instead of 121×, and the linker runs 24× instead of
   121× against the full prism lib + 11 grammars — the dominant cost in the 21-minute
   number.
@@ -502,7 +582,7 @@ Mechanics:
   ~20 lines of `mod` declarations).
 - Invocation changes: `cargo test --test algo_paper` →
   `cargo test --test <dir-target> <module>::` (e.g. `cargo test --test algo_taxonomy
-  taint_cve::`). **Explicit deliverables:** rewrite `CLAUDE.md`'s Build & Test section
+  taint_cve_test::`). **Explicit deliverables:** rewrite `CLAUDE.md`'s Build & Test section
   (including its `cargo test --test integration_coverage` reference and the named-suite
   examples) and the "register each as a separate `[[test]]` target" clause of design
   decision 7; sweep `.github/` workflows and `scripts/` for **both** `--test <old-name>`
@@ -510,9 +590,11 @@ Mechanics:
   `scripts/extract_tests.py` currently has zero `--test` references (verified) — the
   sweep confirms rather than assumes.
 - `tests/integration/coverage_test.rs` has **three** hardcoded path lists
-  (`all_test_files` ×2 and `test_files`) plus a fourth matrix consumer — all reference
-  file paths, not target names, and all files survive; the gate is
-  `cargo test --test integration coverage::` passing with the matrix output unchanged.
+  (`all_test_files` ×2 at lines 106/325 and `test_files` at line 472) plus one
+  algorithm-completeness consumer of the generated `coverage/matrix.json` (line 991 —
+  not a path list) — the lists reference file paths, not target names, and all files
+  survive; the gate is `cargo test --test integration coverage_test::` passing with the
+  matrix output unchanged.
 
 ### 3.2 Profile tuning
 
@@ -531,11 +613,13 @@ separate commit so its contribution is measured independently of 3.1.
 Measured on the dev machine (M-series, same conditions as the 21-minute observation),
 before WP2, after 3.1, and after 3.1+3.2:
 
-- **P1 (clean):** `cargo clean && time cargo test` — worst case.
-- **P2 (dev loop):** `touch src/lib.rs && time cargo test` — the loop that hurts.
+- **P1 (clean):** `cargo clean && /usr/bin/time -l cargo test` — worst case.
+- **P2 (dev loop):** `touch src/lib.rs && /usr/bin/time -l cargo test` — the loop that
+  hurts. **P2 runs immediately after P1 completes**, on P1's warmed target dir — that
+  ordering is part of the protocol.
 
-Single timed run per point, machine otherwise idle (matches how the 21-minute baseline
-was observed); wall, user, and sys recorded.
+Single timed pair per measurement point, machine otherwise idle (matches how the
+21-minute baseline was observed); real/user/sys + max RSS recorded from `time -l`.
 
 **Gate:** P2 < 8 minutes. P1 and P2 reported for all three measurement points. If the
 gate is missed, the numbers are reported honestly with attribution (S1 row-C precedent)
@@ -545,12 +629,12 @@ and nextest/linker options move from deferred to proposed — no silent waiver.
 
 | # | Gate |
 |---|---|
-| G1 | **Prototype reproduction, decoupled from sample composition:** (a) on the `prism` corpus random sample, **adjudication-corrected** site-level P and R ≥ 0.95 on `U-free`+`U-method` strata (pinned probes excluded from denominators); (b) the pinned `target` probe exhibits the failure: raw site-level P ≤ 0.2 and R ≤ 0.2 |
+| G1 | **Prototype reproduction, decoupled from sample composition:** (a) on the `prism` corpus random sample, **adjudication-corrected** site-level P and R ≥ 0.95, evaluated **per direction (callers and callees separately), pooled across the `U-free`+`U-method` strata** (pinned probes excluded from denominators); (b) the pinned `target` probe carries `expected: known_fail` (the §2.7 idiom) — the gate passes when the probe either reproduces the failure (raw site-level P ≤ 0.2 and R ≤ 0.2) **or** reports a flip candidate ("update expectation — resolution improved"); an incidental upstream improvement must not fail *harness* acceptance |
 | G2 | The pinned `module_deps` and `load_repo` probes surface `prism_only` diffs that match the seeded `oracle_miss` adjudications (§2.8) |
-| G3 | **Determinism, decoupled from live-oracle variance:** same seed + same corpus SHA ⇒ identical samples across two live runs; and `--report-only` replay of a stored run JSON reproduces its metrics bit-identically. Live run-to-run metric variance (timeouts) is reported separately, not gated |
-| G4 | Baseline committed: 4 corpora × measurements 1–3 + capability matrix for 3 languages, **validity floors met** (§2.2 — else the corpus is marked `baseline_invalid` and cannot anchor S3/B2), with run metadata (SHAs incl. prism `GIT_SHA`, versions, seed, wall times) in every report |
+| G3 | **Determinism, decoupled from live-oracle variance:** samples are snapshot-derived (§2.5) — same snapshot + seed ⇒ identical samples by construction; and `--report-only` replay of a stored run JSON reproduces its metrics bit-identically. Live run-to-run variance (timeouts, inventory drift) is reported separately, not gated |
+| G4 | Baseline committed: 5 corpora × measurements 1–3 + capability matrix for 3 languages, **validity floors met per §2.2's failure-based definition** (oracle + SUT error floors; natural stratum shortfall is non-gating) — a floor-failing corpus is marked `baseline_invalid` and cannot anchor S3/B2 (Python anchors on whichever of django/flask is valid; G4 requires at least one valid corpus per language), with run metadata (SHAs incl. prism `GIT_SHA`, versions, seed, wall times) in every report |
 | G5 | Capability matrix runs green: every fixture executes; statuses assigned (`pass`/`known_fail`); zero unexpected regressions by definition at first commit |
-| G6 | WP2: full suite passes post-consolidation; coverage-matrix test passes unchanged; stale references swept — both `--test <old-name>` and path-style, across `CLAUDE.md`, `scripts/`, `.github/` (repo-wide grep clean) |
+| G6 | WP2: consolidated suite passes **3 consecutive full runs** (consolidation changes the concurrency topology — up to 16 files now share one process/thread pool — and a single green run won't catch intermittent cross-file interference); coverage-matrix test passes unchanged; stale references swept — both `--test <old-name>` and path-style, across `CLAUDE.md`, `scripts/`, `.github/` (repo-wide grep clean) |
 | G7 | WP2: P2 < 8 min; P1/P2 reported at all three measurement points; honest report if missed |
 | G8 | `CLAUDE.md` + `AGENTS.md` agent guidance landed; `eval/README.md` covers oracle install/prep end-to-end |
 
@@ -594,6 +678,16 @@ immediately across WP1's own Rust-side commits), then WP1.
   capability matrix) — "they complement and cover each other's weaknesses" (owner).
 - WP2: **A (umbrella binaries) + B (profile tuning)**; LOC rule may loosen to 800–1000 if
   needed (not expected to be needed) (owner).
+- rev 3 (2026-06-11): folded round-2 review — failure-based validity floors (natural
+  shortfall non-gating) + symmetric SUT-error floor; snapshot-derived sampling (G3
+  decoupled from live variance); M3 verdict table honoring adjudicate-not-auto-fail
+  (`ambiguous`/`alias_site` routing, `DefTarget` enrichment); flask as the
+  floor-clearing Python corpus + django dedup-quirk adjudicator warning + §2.7
+  decorator case designated B2's flip indicator; same-line multicall collapse +
+  `module_level` bucket; corrected-metric truth table + adjudication budget; G1
+  aggregation pinned + `known_fail` idiom (no inverted gate); `--sut-bin` resolution +
+  `.git/HEAD` rerun triggers; file-derived umbrella module names; G6 ×3 runs;
+  `container`/`DefTarget` schema additions; `/usr/bin/time -l` protocol.
 - rev 2 (2026-06-11): folded dual spec-review — pinned `CallEdge`/extraction schemas,
   corpus file universe, location-based seeding, pinned gate probes + corrected-metric
   gates, WP2 migration table, `nav functions` dedup + data-source contract, `GIT_SHA`
