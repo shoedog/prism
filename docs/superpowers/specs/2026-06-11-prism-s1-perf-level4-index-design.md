@@ -1,5 +1,12 @@
 # Prism S1 — Build Performance Hardening + Level-4 Index Inversion (Design)
 
+> **EXECUTION OUTCOME (2026-06-11):** all slices MERGED on `s1-perf-level4` via containerized
+> codex implement (every commit verify-PASS + dual diff-review APPROVE). **C2 = GO**
+> (`ParsedFile: Send+Sync` after the OnceLock swap). Acceptance: Slice A — `all_functions` at
+> 0 samples on cold tokio, prism 29→19 s, tokio 89→47 s; Slice B1 — legacy symbol at 0
+> samples on cold hugo, hugo 469→137 s, django TIMEOUT→909 s (pre-C numbers; final table in
+> the PR). Deferred work + execution findings: `docs/prism-query-layer/s1-followups.md`.
+
 **Status:** Owner design, **revision 3 (2026-06-11)** — folded round-2 dual review
 (`docs/prism-query-layer/s1-spec-review-r2-MCP-2026-06-11.md`; verdict "fold 1–8 then
 plan"): walk-**up** reconstruction + fallback-fire counter (r2-BLOCKER 1), full-`CallSite`

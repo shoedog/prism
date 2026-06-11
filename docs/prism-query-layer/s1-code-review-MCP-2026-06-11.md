@@ -1,0 +1,31 @@
+# Merged Review — S1 perf hardening + Level-4 index inversion
+
+Both lenses completed successfully. No BLOCKERs found; three MAJORs, then MINORs.
+
+---
+
+**MAJOR — `src/repo_loader.rs:52-55` / `101-108`: peak memory is now ~2× total repo source bytes.** Both reviewers found this; Codex rated it MAJOR (correctness — OOM risk), Claude rated it a MINOR smell. **Codex is right**: the regression hits hardest on exactly the django-scale cold builds this S1 effort targets, so a repo that previously loaded can now OOM — that's a runtime regression, not just a design note. `load_repo()` keeps every candidate's `source` alive in `WalkItem::Candidate` while `parse_candidates_parallel()` builds `ParsedFile`s that clone the same source, and both live until `merge_walk_items()` finishes. **Fix:** move candidates out by value (`into_par_iter`) so each walk copy drops as its parse completes, or parse from owned source moved into `ParsedFile`; at minimum, document the trade-off where `MAX_FILE_BYTES` is defined.
+
+**MAJOR — `src/data_flow.rs:411-415` (merge loop): `defs.extend(...)` / `uses.extend(...)` rests on an unstated, unenforced key-disjointness invariant.** (Claude lens.) `BTreeMap::extend` *replaces* on collision where the old serial code accumulated via `entry().or_default().push()`. It's correct today only because every key a per-file closure produces carries that file's own `file_path` as its first component — nothing asserts or documents this. Any future cross-file registration inside the closure (e.g., arg→param defs at the callee's file, a natural next step for the interprocedural work) silently drops a whole `Vec<VarLocation>`, producing missing taint edges with no error. **Fix:** merge with `entry().or_default().append()`, or `debug_assert!(key.0 == *file_path)` inside the closure plus a comment naming the invariant.
+
+**MAJOR — `src/ast.rs:172-178` + the per-language reconstruction test: the zero-fallback invariant is claimed "per language" but enforced for only 6 of 12 variants.** (Claude lens.) The doc comment and spec promise that grammar drift becomes a test failure, but `all_functions_reconstructed_matches_direct_query_per_language` covers Rust/Go/Python/JS/C/C++ and omits TypeScript, Tsx, Java, Lua, Terraform, Bash. Production `all_functions()` discards the fallback bool (no counter, no log), so a grammar bump that breaks reconstruction for an uncovered language silently reverts every call in that language to the full re-query — the exact O(file)-per-call cliff S1 removed — with zero detection channel. **Fix:** extend the case table to all 12 variants (fixtures are ~2 lines each) and correct the overclaiming comment.
+
+**MINOR — `scripts/bench-ladder.sh:48-52`: the warm run's exit status is discarded.** (Both lenses, independently.) A warm-path crash or timeout still prints a numeric `warm_s` and `status=ok` — and the spec's §7 warm-parity verdict (followups item 8) is adjudicated from exactly this column, so this is gate-evidence integrity, not just script hygiene. **Fix:** capture `$?` after the warm `timeout` and emit a distinct `timeout`/`exitN` status, mirroring the cold path.
+
+**MINOR — `src/repo_loader.rs:merge_walk_items`: items↔outcomes pairing is positional across two functions.** `candidate_refs` (the filter) and the merge loop's `match` must apply identical criteria forever; the `expect`/`debug_assert` catch count drift but not same-count misalignment, which would pair files with the wrong hash/parse silently. **Fix:** carry `rel` inside `ParseOutcome` and `assert_eq!` it against the item during merge.
+
+**MINOR — `src/call_graph.rs` + `src/data_flow.rs`: three bespoke copies of the "par_iter per file → serial flatten in file order" pattern** (`FileFunctions`, `FileCallSites`, `FileRefs`), with followups item 3 queued as copy four. Each copy re-derives the ordering invariant by hand — where a future copy gets it subtly wrong. **Fix:** one generic `par_map_files_ordered(files, f) -> Vec<T>` helper owning the determinism guarantee.
+
+**MINOR — `src/cpg/query.rs:44` `edge_dump`: a test-only parity probe exposed as public API**, turning `Debug` formatting and insertion order into a de-facto contract — which the queued S2 `NodeIndex`-identity work must break. **Fix:** `#[doc(hidden)]` with a "parity-test only, order not stable" comment, or gate behind a test-support feature.
+
+**MINOR — `src/ast.rs`: the pinned identifier predicate (`is_alphanumeric || '_'`) is duplicated** across `candidate_fields_on_line`, `line_field_targets`' RHS check, and the Level-4 call-site filter. The index's completeness proof depends on these staying identical; a divergence breaks the superset argument and the differential test only catches it if the corpus happens to exercise it. **Fix:** one shared `pub(crate) fn is_ident_char` referenced by all three sites.
+
+**MINOR — self-hosting test corpora can silently shrink.** `tests/infra/parallel_equality_test.rs` (src/navigation, src/cpg) and the call_graph differential test (src/*.rs) derive sensitivity from prism's own tree shape; a future directory move quietly weakens the gate with no signal. **Fix:** assert a minimum corpus size (`assert!(repo.files.len() >= N)`).
+
+**MINOR (nit) — `Cargo.toml`: the new `infra_parallel_equality` target sits under the `# ── MCP tests ──` banner.** Move it above the banner or add an `# ── Infra tests ──` section.
+
+**Cleared explicitly (both lenses):** the Level-4 index/legacy parity is structurally sound — both paths share the single `line_field_targets` core, the differential test covers excess and miss directions, Step 5b first-match-wins is pinned with a parity test, and the serial flattening preserves deterministic order by construction. No traced runtime regression in the graph-order changes.
+
+---
+
+**Verdict:** ship after fixing the 3 MAJORs — loader peak memory, the unenforced merge-disjointness invariant, and the 6/12 fallback coverage gap; the bench-script status fix should accompany them if the script gates any acceptance evidence.
