@@ -16,7 +16,10 @@ framework cell to `OnceLock` (Sync investigation), parallelizes parsing with ray
 acceptance profiling.
 
 **Source spec:** `docs/superpowers/specs/2026-06-11-prism-s1-perf-level4-index-design.md`
-(rev 2.1). Review record: `docs/prism-query-layer/s1-spec-review-MCP-2026-06-11.md`.
+(**rev 3**). Review records: `docs/prism-query-layer/s1-spec-review-MCP-2026-06-11.md`
+(round 1), `…/s1-spec-review-r2-MCP-2026-06-11.md` (round 2), and
+`…/s1-plan-review-MCP-2026-06-11.md` (plan review; this plan is **rev 2**, folding its
+2 BLOCKERs / 3 MAJORs / 7 MINORs).
 
 **Recurring gate (every task):** `cargo fmt --check && cargo test` green;
 `cargo test --test cli_nav_compat` byte-identical; `cargo test --test algo_taint_cve` green.
@@ -273,31 +276,61 @@ the zero-fallback assertion per language:
 
 **Files:** Modify `src/cpg/build.rs:347-361`; test in `src/cpg/tests.rs`.
 
-- [ ] **Step 3.1: Write the failing test** (in `src/cpg/tests.rs`; build a two-file fixture
-  through the existing test helpers used by neighboring tests in that file):
+- [ ] **Step 3.1: Write the pinning test** (in `src/cpg/tests.rs`; construct the file map
+  directly — there is no multi-file fixture helper in that module, plan-review MAJOR 1):
 
 ```rust
 #[test]
 fn step5b_param_binding_first_wins_parity() {
     // callee file defines two same-named fns; Step 5b must bind args to the FIRST
     // (tree-order) match — pinned-until-S2 (spec §3). Caller passes `tainted`.
+    // Line map (m.py): 1 `def f(p):`  2 `return p`  3 blank  4 `class K:`
+    //                  5 `def f(q):`  6 `return q`   — param defs pin to the
+    // function start line (data_flow.rs:221-237), so p@1 and q@5 (plan-review MAJOR 2).
     let callee_src = "def f(p):\n    return p\n\nclass K:\n    def f(q):\n        return q\n";
     let caller_src = "from m import f\n\ndef call():\n    tainted = source()\n    f(tainted)\n";
-    let files = parse_fixture_files(&[("m.py", callee_src), ("c.py", caller_src)]);
+    let mut files = std::collections::BTreeMap::new();
+    files.insert(
+        "m.py".to_string(),
+        crate::ast::ParsedFile::parse("m.py", callee_src, crate::languages::Language::Python).unwrap(),
+    );
+    files.insert(
+        "c.py".to_string(),
+        crate::ast::ParsedFile::parse("c.py", caller_src, crate::languages::Language::Python).unwrap(),
+    );
     let ctx = CpgContext::build(&files, None);
-    // arg→param edge must target p (first f), at m.py line 1 — and NOT q
+    fn has_dataflow_edge(
+        cpg: &CodePropertyGraph,
+        from: (&str, usize, &str),
+        to: (&str, usize, &str),
+    ) -> bool {
+        use petgraph::visit::EdgeRef;
+        cpg.graph_edge_refs().any(|e| {
+            matches!(e.weight(), CpgEdge::DataFlow)
+                && node_matches(cpg.node(e.source()), from)
+                && node_matches(cpg.node(e.target()), to)
+        })
+    }
+    fn node_matches(n: &CpgNode, (file, line, base): (&str, usize, &str)) -> bool {
+        matches!(n, CpgNode::Variable { file: f, line: l, path, .. }
+            if f == file && *l == line && path.base == base)
+    }
+    // arg→param edge must target p (first f) at m.py:1 — and NOT q at m.py:5
     assert!(has_dataflow_edge(&ctx.cpg, ("c.py", 5, "tainted"), ("m.py", 1, "p")));
-    assert!(!has_dataflow_edge(&ctx.cpg, ("c.py", 5, "tainted"), ("m.py", 4, "q")));
+    assert!(!has_dataflow_edge(&ctx.cpg, ("c.py", 5, "tainted"), ("m.py", 5, "q")));
 }
 ```
 
-(Reuse the file-map + edge-assertion helpers already present in `src/cpg/tests.rs` — e.g. the
-patterns used by `test_taint_trace_records_boundary_at_param_def`; if no edge-assertion
-helper exists, add a local `has_dataflow_edge` that scans `ctx.cpg` Variable nodes/edges.)
+(If `graph_edge_refs()` does not exist on `CodePropertyGraph`, add a one-line
+`pub(crate) fn graph_edge_refs(&self) -> petgraph::graph::EdgeReferences<'_, CpgEdge>`
+accessor next to the existing node accessors — or reuse whichever edge-iteration accessor
+`src/cpg/query.rs` already exposes.)
 
-- [ ] **Step 3.2:** Run it — expected: **PASS already** (it pins current behavior). This is
-  the parity baseline; commit it before touching Step 5b so the change is bisect-proof.
-  Commit: `test(cpg): pin Step 5b first-match param binding (pinned-until-S2)`
+- [ ] **Step 3.2:** Run it — expected: **PASS already** (it pins current behavior). **If it
+  FAILS, STOP: do not change production code** — the pin must document reality. Inspect the
+  actual edges (dump Variable nodes for `m.py`), fix the TEST's expectations to match
+  current behavior, and note the discrepancy in the PR (plan-review MAJOR 1). Then commit:
+  `test(cpg): pin Step 5b first-match param binding (pinned-until-S2)`
 
 - [ ] **Step 3.3: Implement.** In `src/cpg/build.rs`, replace the lookup block (~lines
   347-361):
@@ -750,6 +783,14 @@ fn level4_index_matches_legacy_oracle_over_full_universe() {
 }
 ```
 
+- [ ] **Step 6.5b: Full-`CallSite` pin (spec §2.2 r2-2, plan-review MINOR 3).** Add one
+  end-to-end test (next to the existing Level-4 tests in
+  `tests/integration/call_graph_test.rs:630-847`, which assert callee-name membership only)
+  that resolves a struct-field callback through the index and asserts **every** `CallSite`
+  field of the resulting edge: caller `FunctionId { file, name, start_line, end_line }`,
+  `callee_name`, `line` (== the call site's line, not the assignment's), and
+  `qualifier == None` (Level-4 emissions always clear it — see the push in Step 6.4).
+
 - [ ] **Step 6.6:** `cargo test level4` → all PASS. **Full recurring gate** → green
   (byte-identity: same emission sequence, goldens unchanged).
 
@@ -776,7 +817,15 @@ fn level4_index_matches_legacy_oracle_over_full_universe() {
 #[test]
 fn parsed_file_is_send_and_sync() {
     fn assert_send_sync<T: Send + Sync>() {}
-    assert_send_sync::<ParsedFile>(); // C2 gate (spec §5)
+    assert_send_sync::<ParsedFile>(); // THE C2 gate (spec §5) — descope keys on this alone
+}
+
+#[test]
+fn loaded_repo_is_send_and_sync() {
+    // Informational companion (plan-review MINOR 6): a !Sync field elsewhere in
+    // LoadedRepo must NOT descope C2 — if only this one fails, investigate that
+    // field separately; C2 proceeds on ParsedFile's verdict.
+    fn assert_send_sync<T: Send + Sync>() {}
     assert_send_sync::<crate::repo_loader::LoadedRepo>();
 }
 ```
@@ -807,8 +856,12 @@ fn parsed_file_is_send_and_sync() {
 **Files:** Modify `Cargo.toml` (add `rayon = "1"` to `[dependencies]`),
 `src/repo_loader.rs:39-217`; tests in `tests/navigation/loader_test.rs`.
 
-- [ ] **Step 8.1: Write the failing parity test** (in `tests/navigation/loader_test.rs`,
-  alongside the existing loader tests):
+- [ ] **Step 8.1: Write the failing parity test** — in a `#[cfg(test)]` mod **inside
+  `src/repo_loader.rs`** (plan-review BLOCKER 2: the serial-reference twin is
+  `pub(crate)`, which integration tests in `tests/` cannot import; a unit module can.
+  `tempfile` is a dev-dependency, available here). Add one **absolute** classification
+  assertion so a walk-order regression cannot hide in twin-vs-twin parity (plan-review
+  MINOR 2):
 
 ```rust
 #[test]
@@ -826,11 +879,15 @@ fn parallel_loader_is_element_for_element_identical_to_serial_reference() {
     std::fs::write(p.join("bad.xyz"), [0xFFu8, 0xFE, 0x00]).unwrap(); // NotUtf8 (read happens before ext check)
     std::fs::write(p.join("big.py"), "x".repeat(3 * 1024 * 1024)).unwrap(); // TooLarge
     let repo = load_repo(p).unwrap();
-    let reference = load_repo_serial_reference(p).unwrap(); // test-only serial twin
+    let reference = load_repo_serial_reference(p).unwrap(); // pub(crate) serial twin
     assert_eq!(repo.files.keys().collect::<Vec<_>>(), reference.files.keys().collect::<Vec<_>>());
     assert_eq!(repo.file_hashes, reference.file_hashes);
     let skips = |r: &LoadedRepo| r.skipped.iter().map(|s| (s.path.clone(), format!("{:?}", s.reason))).collect::<Vec<_>>();
     assert_eq!(skips(&repo), skips(&reference)); // element-for-element, ORDER included
+    // ABSOLUTE classification pin (plan-review MINOR 2): read→UTF-8 precedes the
+    // extension check, so a non-UTF-8 file with an unsupported extension is NotUtf8.
+    // Twin-vs-twin parity alone cannot catch a walk-order regression that flips both.
+    assert!(repo.skipped.iter().any(|s| s.path == "bad.xyz" && s.reason == SkipReason::NotUtf8));
 }
 ```
 
@@ -849,12 +906,16 @@ fn parallel_loader_is_element_for_element_identical_to_serial_reference() {
      post-parse logic (Err → `ParseFailed`; `error_rate() > SEVERE_PARSE_ERROR_RATE` →
      `ParseFailed`; else insert into `files` + `file_hashes`).
   4. Add `pub(crate) fn load_repo_serial_reference(root: &Path) -> Result<LoadedRepo>`
-     (`#[cfg(test)]`-gated or `pub(crate)`): same pipeline with a plain serial `.map()` —
-     the parity twin. Keep it trivially small by sharing the walk + merge code; only the
+     (plain `pub(crate)`, NOT `#[cfg(test)]` — the unit test in this file uses it, and
+     keeping it compiled prevents drift): same pipeline with a plain serial `.map()` — the
+     parity twin. Keep it trivially small by sharing the walk + merge code; only the
      par/serial map differs.
   5. `use rayon::prelude::*;` and add `rayon = "1"` to `Cargo.toml` `[dependencies]`.
 
 - [ ] **Step 8.3:** Parity test PASS; full recurring gate + `--features mcp` build → green.
+
+- [ ] **Step 8.3b:** Update CLAUDE.md's **Dependencies** section with one line for `rayon`
+  (parallel parse/extraction) — plan-review MINOR 7.
 
 - [ ] **Step 8.4:** Commit: `perf(loader): parallel file parsing with element-identical merge (S1/C1)`
 
@@ -866,48 +927,73 @@ fn parallel_loader_is_element_for_element_identical_to_serial_reference() {
 (per-file loop); Create `tests/infra/parallel_equality_test.rs`; Modify `Cargo.toml`
 (`[[test]] name = "infra_parallel_equality" path = "tests/infra/parallel_equality_test.rs"`).
 
-- [ ] **Step 9.1: Write the failing exact-order equality test:**
+- [ ] **Step 9.0: Register the test target FIRST** (plan-review MINOR 1) — add to
+  `Cargo.toml`:
+
+```toml
+[[test]]
+name = "infra_parallel_equality"
+path = "tests/infra/parallel_equality_test.rs"
+```
+
+- [ ] **Step 9.1: Write the failing exact-order equality test.** The serial reference is
+  built **in-process** via a local one-thread rayon pool — `ThreadPoolBuilder::install()`
+  routes every `par_iter` inside the closure to that pool, so serial-vs-parallel parity is
+  a single, permanent `cargo test` gate (plan-review BLOCKER 1; the rejected
+  `RAYON_NUM_THREADS` matrix binds the global pool once per process and compares nothing):
 
 ```rust
 // tests/infra/parallel_equality_test.rs
-// Serial-vs-parallel CPG equality IN INSERTION ORDER (spec §2a): node and edge
-// vectors must match element-for-element, not as sorted sets — cache bytes
-// serialize insertion order and there is no CACHE_VERSION bump in S1.
+// Serial-vs-parallel parity IN INSERTION ORDER (spec §2a): node/edge vectors and
+// the serialized cache blob must match element-for-element / byte-for-byte —
+// cache bytes serialize insertion order and there is no CACHE_VERSION bump in S1.
 use prism::cpg::CpgContext;
 use prism::repo_loader::load_repo;
 
+fn one_thread_pool() -> rayon::ThreadPool {
+    rayon::ThreadPoolBuilder::new().num_threads(1).build().unwrap()
+}
+
 #[test]
-fn cpg_build_is_identical_under_parallel_extraction() {
+fn cpg_build_parallel_matches_serial_reference_in_order() {
     let repo = load_repo(std::path::Path::new(env!("CARGO_MANIFEST_DIR"))).unwrap();
-    let ctx1 = CpgContext::build(&repo.files, None);
-    let ctx2 = CpgContext::build(&repo.files, None);
+    let parallel = CpgContext::build(&repo.files, None);
+    let serial = one_thread_pool().install(|| CpgContext::build(&repo.files, None));
     let dump = |c: &CpgContext| {
-        let nodes: Vec<String> = c.cpg.node_indices().map(|i| format!("{:?}", c.cpg.node(i))).collect();
-        let edges: Vec<String> = c.cpg.edge_dump(); // see Step 9.2 — ordered (src, dst, kind) triples
+        let nodes: Vec<String> =
+            c.cpg.node_indices().map(|i| format!("{:?}", c.cpg.node(i))).collect();
+        let edges: Vec<String> = c.cpg.edge_dump(); // Step 9.2 — ordered (src, dst, kind)
         (nodes, edges)
     };
-    assert_eq!(dump(&ctx1), dump(&ctx2)); // build-to-build determinism incl. par scheduling
+    assert_eq!(dump(&parallel), dump(&serial));
 }
 ```
 
-(Plus a fixture-repo variant using the tempdir fixture pattern from
-`tests/navigation/loader_test.rs`, asserting equality between a build with
-`RAYON_NUM_THREADS=1` and the default — the env-var run is wired in Step 9.3's runner note.)
-
-- [ ] **Step 9.2: Implement.**
+- [ ] **Step 9.2: Implement.** (Anchors corrected per plan-review MAJOR 3 — three distinct
+  functions contain per-file loops; only `CallGraph::build`'s are in scope.)
   - Add `pub fn edge_dump(&self) -> Vec<String>` to `CodePropertyGraph` (`src/cpg/query.rs`
     or `types.rs` impl block): `self.graph.edge_references().map(|e| format!("{:?}->{:?}:{:?}", e.source().index(), e.target().index(), e.weight())).collect()` — insertion-ordered by petgraph.
-  - `src/call_graph.rs` Phase 1 (~line 67-100) and Phase 2 (~line 145-190): convert
-    `for (path, parsed) in files { …push… }` into
-    `let per_file: Vec<_> = files.par_iter().map(|(path, parsed)| { …collect this file's items into a local Vec… }).collect();`
-    followed by a **serial** flatten-in-order into the existing structures. The local-Vec
-    contents and their order must be exactly what the serial loop pushed for that file.
-  - `src/data_flow.rs` `build_from_refs` (~line 156): same pattern — par-map each file to its
-    local `(defs, uses, edges, alias)` collections, then serial merge in file order into the
-    BTreeMaps/Vec (entry-extend in the same sequence the serial code used).
+  - **In scope:** `CallGraph::build`'s Phase 1 (function collection, the `for (path, parsed)
+    in files` loop starting ~`call_graph.rs:160`) and Phase 2 (call-site extraction, the
+    loop starting ~`:187`). **Out of scope — stay serial:** `build_skeleton` (`:61-110`,
+    its own Phase 1/2 copies), `build_direct_subset` (`:542+`), Phase 3, and Step 5b.
+    Conversion pattern for each in-scope loop:
+    `let per_file: Vec<_> = files.par_iter().map(|(path, parsed)| { /* this file's items, in exactly the order the serial loop pushed them */ }).collect();`
+    then a **serial** flatten in file order into the existing structures.
+    Per-file result types: Phase 1 → `Vec<FunctionId>` + `Vec<(String, String)>` (static
+    `(file, name)` pairs); Phase 2 → `Vec<(FunctionId, CallSite)>` in source order.
+  - `src/data_flow.rs` `build_from_refs` (one long nested pass, `:163-404`): par-map each
+    file to a local
+    `struct FileRefs { defs: BTreeMap<(String, String, AccessPath), Vec<VarLocation>>, uses: BTreeMap<(String, String, AccessPath), Vec<VarLocation>>, edges: Vec<FlowEdge> }`
+    built by exactly the serial code restricted to that file, then merge in file order:
+    map keys carry the file name so they are **disjoint across files** — merging is
+    collision-free `extend`; `edges` is `Vec` — `extend` in file order reproduces the
+    serial sequence.
   - **Assembly (`cpg/build.rs`) stays serial — do not touch it** (§2a).
 
-- [ ] **Step 9.2b: Byte-level cache parity (spec §2a, r2-3).** Add to the same test file:
+- [ ] **Step 9.2b: Byte-level cache parity (spec §2a, r2-3).** Same in-process serial
+  reference (plan-review BLOCKER 1) — one blob built on the default pool, one inside the
+  one-thread pool, compared byte-for-byte:
 
 ```rust
 #[test]
@@ -915,13 +1001,11 @@ fn cache_blob_bytes_identical_serial_vs_parallel() {
     // The cache serializes CPG + CallGraph + DataFlowGraph vectors in insertion
     // order (no CACHE_VERSION bump in S1) — byte equality is the strongest §2a proof.
     let repo = load_repo(std::path::Path::new(env!("CARGO_MANIFEST_DIR"))).unwrap();
-    let d1 = tempfile::tempdir().unwrap();
-    let d2 = tempfile::tempdir().unwrap();
-    // Build + store twice through the public cached-build path (RAYON pool is
-    // process-global, so cross-thread-count comparison runs via the env-var matrix
-    // below; within one process, two builds prove scheduling determinism).
-    prism::navigation::NavigationIndex::build_cached_under(&repo, d1.path());
-    prism::navigation::NavigationIndex::build_cached_under(&repo, d2.path());
+    let d_par = tempfile::tempdir().unwrap();
+    let d_ser = tempfile::tempdir().unwrap();
+    prism::navigation::NavigationIndex::build_cached_under(&repo, d_par.path());
+    one_thread_pool()
+        .install(|| prism::navigation::NavigationIndex::build_cached_under(&repo, d_ser.path()));
     fn find_bin(d: &std::path::Path) -> std::path::PathBuf {
         for e in std::fs::read_dir(d).unwrap().flatten() {
             let p = e.path();
@@ -934,23 +1018,21 @@ fn cache_blob_bytes_identical_serial_vs_parallel() {
         }
         panic!("cpg-cache.bin not found under {}", d.display());
     }
-    let b1 = std::fs::read(find_bin(d1.path())).unwrap();
-    let b2 = std::fs::read(find_bin(d2.path())).unwrap();
-    assert_eq!(b1, b2);
+    let b_par = std::fs::read(find_bin(d_par.path())).unwrap();
+    let b_ser = std::fs::read(find_bin(d_ser.path())).unwrap();
+    assert_eq!(b_par, b_ser);
 }
 ```
 
-  And in the test-runner matrix: run the whole `infra_parallel_equality` target twice —
-  default threads and `RAYON_NUM_THREADS=1` — then compare one `cpg-cache.bin` produced
-  under each setting for byte equality (a tiny shell step in the task notes, since the env
-  var is process-global):
-  `RAYON_NUM_THREADS=1 cargo test --test infra_parallel_equality && cargo test --test infra_parallel_equality`.
+  (Also add the same `one_thread_pool().install(..)` serial-reference pattern to the Task 8
+  loader parity test if C2 is GO — the loader's par-map is then covered by the same
+  mechanism.)
 
-- [ ] **Step 9.3:** Run the equality tests under both thread settings as above — green under
-  both proves scheduling-independence. Full recurring gate → green. C acceptance (spec §7
-  row C, r2-6a): **full-command** `time` user/wall ratio ≥ 1.5 on a cold hugo build (the
-  per-phase ratio is unobservable from `/usr/bin/time`; serial phases dilute the number —
-  record the ratio with that caveat).
+- [ ] **Step 9.3:** `cargo test --test infra_parallel_equality` → green (the serial
+  reference is in-process; no env-var matrix exists or is needed). Full recurring gate →
+  green. C acceptance (spec §7 row C, r2-6a): **full-command** `time` user/wall ratio ≥ 1.5
+  on a cold hugo build (the per-phase ratio is unobservable from `/usr/bin/time`; serial
+  phases dilute the number — record the ratio with that caveat).
 
 - [ ] **Step 9.4:** Commit: `perf(cpg): parallel per-file extraction, serial assembly (S1/C2)`
 
@@ -962,7 +1044,9 @@ fn cache_blob_bytes_identical_serial_vs_parallel() {
 - [ ] **Step 10.2:** `cargo build --release && scripts/bench-ladder.sh` (default pinned
   list). Paste the before/after table into the PR description next to the baseline
   (prism 29s / tokio 89s / hugo 469s / django TIMEOUT / rust-analyzer TIMEOUT). Verify warm
-  column within 10% of baseline (spec §7 warm-parity report-out; explain if not).
+  column within 10% of baseline. **If the warm gate fails, the pre-agreed remedy is
+  converting the FunctionTable to lazy `OnceLock` construction (spec §3 r2-11 names it the
+  designated fallback)** — not an ad-hoc explanation (plan-review MINOR 5).
 - [ ] **Step 10.3:** Profile evidence: attach the three `sample` summaries (A: tokio, B1:
   hugo, C: user/wall ratio) with the <1% sample-share numbers.
 - [ ] **Step 10.4:** Update `docs/superpowers/specs/…s1….md` status line with outcomes
