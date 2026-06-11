@@ -24,9 +24,11 @@ Every slice merged with containerized verify PASS + dual diff-review APPROVE.
    PR). Step 5b is deliberately serial assembly territory, so C2 does not mask it.
    Candidate S1.5: per-file call-args index (same shape as the FunctionTable move).
 4. **Local debug test-suite wall time is compile-dominated.** Full `cargo test` ≈ 21 min
-   cold-incremental (123 targets linking in debug); actual test execution sums to <2 min.
-   Not S1 scope; worth a CI/dev-loop look (e.g. shared test binaries, fewer `[[test]]`
-   targets, or `cargo nextest`).
+   cold-incremental (121 `[[test]]` targets linking in debug — the "123" originally noted
+   here counted two non-test targets; reconciled per the Tier-A spec review); actual test
+   execution sums to <2 min. Not S1 scope; worth a CI/dev-loop look (e.g. shared test
+   binaries, fewer `[[test]]` targets, or `cargo nextest`).
+   **→ Picked up as WP2 of `docs/superpowers/specs/2026-06-11-prism-tier-a-accuracy-harness-design.md`.**
 5. **Wedged macOS `spindump` can park process launches at `_dyld_start`**
    (dyld `RemoteNotificationResponder::blockOnSynchronousEvent`), masquerading as test
    hangs. Diagnosed during Task 10; cleared by killing `spindump`/`spindump_agent`.
