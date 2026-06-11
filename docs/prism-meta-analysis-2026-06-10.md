@@ -77,6 +77,11 @@ measured, not asserted.
 - Caller items repeat near-identical `why` arrays per call site; multi-site callers appear as
   duplicate items (e.g. `test_degraded_seed_line_warns_once_per_line` twice). Compact
   encoding (one item, `call_site_lines: [..]`) would cut the callers payload roughly in half.
+- Two more, observed over the live MCP server: `concise` verbosity clears `why` but still
+  ships the empty `"why": []` array per item; and **truncation at `max_results` drops items
+  in path-alphabetical order, not relevance** (every `score` is 1.0) — a truncated caller
+  list can show only test callers while silently dropping production ones. Ranking before
+  truncation (and the §7 `is_test` label) fixes both.
 
 ### Conclusions
 
@@ -223,21 +228,42 @@ LOC counted over prism-supported extensions excluding prism's own skip-dirs.
 |---|---|---|---|---|---|---|---|
 | prism | Rust(+fixtures) | 108k | 321 | 29 s | 0.53 GB | 59 MB | 0.46 s |
 | tokio | Rust | 175k | 781 | 89 s | 0.59 GB | 61 MB | 0.72 s |
-| hugo | Go | (pending) | | | | | |
-| django | Python | (pending) | | | | | |
-| rust-analyzer | Rust | (pending) | | | | | |
-| TypeScript | TS | (pending) | | | | | |
-| kubernetes | Go | (pending) | | | | | |
+| hugo | Go | 234k | 938 | **469 s** | **1.97 GB** | 289 MB | 1.63 s |
+| django | Python | 551k | 3,035 | **TIMEOUT > 2400 s** | 1.46 GB at kill | — | — |
+| rust-analyzer | Rust | 589k | 1,514 | **TIMEOUT > 2400 s** | 1.36 GB at kill | — | — |
+| TypeScript | TS | 4.15M | 39,308 | not run to completion (≫ hours by extrapolation) | **4.16 GB at 15-min kill, still climbing** | — | — |
+| kubernetes | Go | 3.66M | 13,129 | not run to completion (≫ hours by extrapolation) | **4.34 GB at 15-min kill, still climbing** | — | — |
 
-*(table to be completed when the ladder finishes; timeout 30–60 min per repo)*
+Findings:
 
-Already-visible findings:
-
-- **Scaling is superlinear in files**: 90 ms/file at 321 files → 114 ms/file at 781 files,
-  consistent with the profiled quadratic patterns (repeated `all_functions` queries; Phase-3
-  Level-3/4 whole-file scans per unresolved call; Step-5b per-call-site re-query). The
-  substrate analysis's S1 (memoize + parallelize) is what bends this curve; 15 cores are
-  idle today (single-threaded build).
+- **The practical cold-build ceiling today is a few hundred thousand LOC.** Hugo (234k Go)
+  already takes 7.8 minutes; django (551k Python) and **rust-analyzer (589k Rust — the
+  priority language)** both exceeded a 40-minute timeout. The two multi-M LOC repos were
+  capped at 15 minutes purely for memory data; by extrapolation their cold builds are in the
+  hours-to-tens-of-hours class.
+- **Scaling is superlinear in files AND strongly codebase-dependent, not LOC-driven**:
+  90 ms/file (prism, 321 files) → 114 ms/file (tokio, 781) → **500 ms/file (hugo, 938)**.
+  Hugo has only 1.2× tokio's files and 1.34× its LOC but costs 5.3× the time and 3.3× the
+  RSS. The mechanism was confirmed by sampling the running kubernetes build: **100% of the
+  sampled window sits in `CallGraph::build` → `ast::resolve_struct_field_assignment`** — the
+  Phase-3 *Level-4* pass that rescans source text per unresolved call
+  (`call_graph.rs:312-360`). Go's receiver-method density makes most calls "unresolved," so
+  the term is `unresolved_calls × files` and dominates everything at scale. Two fixes
+  compose: (a) **invert Level 4 into a precomputed index** — one O(files) pass collecting
+  `field = func` assignments, replacing per-call repo scans (likely the single biggest
+  scale win, ~1–2 days); (b) the §3/S3 precision work shrinks the unresolved set itself —
+  call-resolution accuracy and build speed are the same problem at scale.
+- **Cache size and warm cost are graph-density-driven, not LOC-proportional**: hugo's cache
+  is 289 MB (4.9× prism's) for 2.2× the LOC; warm CLI queries already cost 1.63 s there
+  (whole-blob deserialize per invocation). The substrate analysis's S1
+  (memoize + parallelize; 15 cores idle today, single-threaded build) is what bends the
+  cold curve, but at multi-100k scale the *resident MCP server* becomes the only sane
+  serving mode — which makes the §4 staleness fix a hard prerequisite for big-repo use.
+- **Memory at multi-M LOC is multi-GB before the build even finishes**: 4.16 GB
+  (TypeScript) and 4.34 GB (kubernetes) at the 15-minute kill, still climbing, vs ~2 GB
+  peak for hugo. Holding everything (all `ParsedFile` trees + sources + the full petgraph)
+  resident simultaneously is the design assumption that breaks first; per-repo federation
+  (§3 stage 2) rather than a bigger single graph is the right response.
 - **The 2 MB file cap silently amputates real repos**: TypeScript's `src/compiler/checker.ts`
   is 3.15 MB → skipped (`MAX_FILE_BYTES`, `repo_loader.rs:9`). The most-connected file in
   that repo would be absent from every nav answer, recorded only in `LoadedRepo.skipped`,
@@ -260,9 +286,10 @@ makes scale a routing problem.
 
 ### Uncertainty
 
-- Pending rows; if TypeScript/kubernetes hit the 1h timeout, the ceiling statement becomes
-  "TIMEOUT at N files" — equally informative. RSS at multi-million LOC is the open risk
-  (24 GB machine).
+- The multi-M LOC repos were not run to completion, so true peak RSS and cache size at that
+  scale are extrapolations beyond the 15-minute probes; the timeout rows bound cold-build
+  time from below only. Numbers are one machine (M-series, 15 cores, 24 GB), one run each —
+  no variance estimate.
 
 ---
 
@@ -274,7 +301,9 @@ makes scale a routing problem.
   the *plugin cache* or on PATH; neither exists after `/plugin install` (the repo checkout's
   binary doesn't count). The failure surfaced in the client as a bare "✘ Failed to connect"
   — the launcher's helpful stderr message never reaches the user. (Worked around this
-  session by copying the binary into the plugin cache.)
+  session by copying the binary into the plugin cache; after a plugin reload the MCP server
+  connected and served `nav_callers` correctly end-to-end, confirming the launcher path was
+  the only break.)
 - **Stale-binary drift is silent:** the checked-in `target/release/prism` predated the whole
   nav layer (no `nav` subcommand) despite a fresh-looking mtime; nothing detects
   plugin-version ↔ binary-version skew. The pieces for a handshake already exist —
@@ -347,8 +376,8 @@ doc remain the top block):
 
 - LSP-oracle noise for dynamic languages (§1); agent-behavior deltas unmeasured until Tier C
   (§2); SCIP indexer maturity/coverage outside Rust untested (§3); MCP process lifecycle in
-  Claude Code unmeasured (§4); pending big-repo rows + RSS ceiling (§5); marketplace binary
-  distribution mechanics unverified (§6).
+  Claude Code unmeasured (§4); multi-M-LOC peak RSS extrapolated from capped probes (§5);
+  marketplace binary distribution mechanics unverified (§6).
 - All precision/recall numbers are from **one Rust repo (this one)**; the bimodal pattern's
   *frequency* (how much of a real repo's call mass is collision-prone) will vary by codebase
   and language — exactly what the Tier-A harness should quantify per language.
