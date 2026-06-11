@@ -19,6 +19,30 @@ cargo build --release --bin prism-mcp --features mcp
 # binary: target/release/prism-mcp
 ```
 
+## Install as a Claude Code plugin (recommended)
+
+Prism ships a Claude Code **plugin** that pre-wires the MCP server to your current project and installs
+both skills in one step — no manual `claude mcp add`, no skill symlinks.
+
+```text
+# 1. Build the server (once, from a prism checkout):
+cargo build --release --bin prism-mcp --features mcp
+
+# 2. In Claude Code, add this repo as a marketplace and install the plugin:
+/plugin marketplace add shoedog/prism        # or: /plugin marketplace add /abs/path/to/prism
+/plugin install prism@prism-dev
+```
+
+The plugin wires `prism-mcp --repo ${CLAUDE_PROJECT_DIR}` (so it navigates whatever project you're in)
+through a launcher (`scripts/prism-mcp-launch.sh`) that finds the binary you built — in the plugin
+checkout's `target/release/` or on `$PATH` — and prints a clear "build it" message if you skipped step 1.
+The two skills (`prism-code-navigation`, `prism-code-slicing`) load automatically; approve the `prism` MCP
+server when prompted.
+
+> The plugin only handles **wiring** — it can't ship a compiled binary cross-platform, so step 1 (build)
+> is required. The plugin source is this repo (`source: "./"` in `.claude-plugin/marketplace.json`); the
+> manifest is `.claude-plugin/plugin.json`. For Codex/Kiro (no plugin system), use the manual config below.
+
 ## Run / arguments
 
 ```bash
@@ -40,13 +64,14 @@ prism-mcp --repo /abs/path/to/repo --no-cache                        # disable t
 
 ---
 
-## Add it to your agent
+## Add it to your agent manually (without the plugin)
 
-Use **absolute paths** everywhere — the agent launches the server from an arbitrary working directory.
-**One server instance navigates one repo;** add another named instance (`prism-acme`, …) with a different
-`--repo` to navigate another repo. (Multi-repo / HTTP transport is a roadmap item, not available yet.)
+Use this if you're not using the Claude Code plugin above, or you're on Codex/Kiro. Use **absolute
+paths** everywhere — the agent launches the server from an arbitrary working directory. **One server
+instance navigates one repo;** add another named instance (`prism-acme`, …) with a different `--repo`
+to navigate another repo. (Multi-repo / HTTP transport is a roadmap item, not available yet.)
 
-### Claude Code
+### Claude Code (manual — the plugin above does this for you)
 
 ```bash
 # claude mcp add [options] <name> -- <command> [args...]
@@ -133,8 +158,10 @@ follow the [Agent Skills standard](https://agentskills.io) and live in [`../skil
 
 Install them for your agent:
 
-- **Claude Code:** copy or symlink a skill directory into `~/.claude/skills/` (user-level) or
-  `<repo>/.claude/skills/` (project-level) — e.g. `ln -s "$PWD/skills/prism-code-navigation" ~/.claude/skills/`.
+- **Claude Code:** the [plugin](#install-as-a-claude-code-plugin-recommended) installs both skills (and
+  wires the MCP). To install skills without the plugin, copy or symlink a skill directory into
+  `~/.claude/skills/` (user-level) or `<repo>/.claude/skills/` (project-level) — e.g.
+  `ln -s "$PWD/skills/prism-code-navigation" ~/.claude/skills/`.
 - **Other providers:** point your skills loader at `skills/<name>/SKILL.md` (the standard layout).
 
 A skill activates on its `description`; once active, the agent reads `SKILL.md` and applies the workflow.

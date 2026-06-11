@@ -14,8 +14,14 @@ Each skill is a directory with a `SKILL.md` (YAML frontmatter + Markdown), per t
 
 ## Installing
 
-- **Claude Code** — copy or symlink a skill directory into `~/.claude/skills/` (user-level) or
-  `<repo>/.claude/skills/` (project-level):
+- **Claude Code (recommended)** — install the [Prism plugin](../.claude-plugin/plugin.json), which
+  bundles both skills *and* wires the MCP server to your current project:
+  ```text
+  /plugin marketplace add shoedog/prism
+  /plugin install prism@prism-dev
+  ```
+- **Claude Code (skills only, no plugin)** — copy or symlink a skill directory into `~/.claude/skills/`
+  (user-level) or `<repo>/.claude/skills/` (project-level):
   ```bash
   ln -s "$PWD/skills/prism-code-navigation" ~/.claude/skills/
   ln -s "$PWD/skills/prism-code-slicing"   ~/.claude/skills/

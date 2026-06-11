@@ -119,13 +119,24 @@ calls a symbol, what it calls, what breaks if you change it, the module dependen
 
 ```bash
 cargo build --release --bin prism-mcp --features mcp          # build (behind the `mcp` feature)
+```
 
-claude mcp add --transport stdio prism \                       # add to Claude Code
+**Claude Code (plugin — recommended):** installs the skills *and* wires the MCP to your current project:
+
+```text
+/plugin marketplace add shoedog/prism
+/plugin install prism@prism-dev
+```
+
+**Or wire it manually / on Codex/Kiro:**
+
+```bash
+claude mcp add --transport stdio prism \
   -- /abs/path/to/prism/target/release/prism-mcp --repo /abs/path/to/your/repo
 ```
 
-**See [`docs/MCP.md`](docs/MCP.md)** for the full guide: Codex/Kiro config, the six `nav_*` tools,
-cache warming, the gotchas, and the bundled **skills** ([`skills/`](skills/)) that teach an agent
+**See [`docs/MCP.md`](docs/MCP.md)** for the full guide: the plugin, Codex/Kiro config, the six `nav_*`
+tools, cache warming, the gotchas, and the bundled **skills** ([`skills/`](skills/)) that teach an agent
 *how* to use the connection. One server instance navigates one repo.
 
 ---

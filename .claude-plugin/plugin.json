@@ -1,0 +1,27 @@
+{
+  "name": "prism",
+  "displayName": "Prism",
+  "version": "3.1.2",
+  "description": "Whole-repo code navigation (the prism-mcp server) plus defect-focused diff slicing, packaged for coding agents. Pre-wires the prism MCP server to the current project and ships two Agent Skills (prism-code-navigation, prism-code-slicing) that teach an agent when and how to use them.",
+  "author": {
+    "name": "Wesley Jinks"
+  },
+  "homepage": "https://github.com/shoedog/prism",
+  "repository": "https://github.com/shoedog/prism",
+  "license": "Apache-2.0",
+  "keywords": [
+    "code-navigation",
+    "mcp",
+    "code-slicing",
+    "cpg",
+    "taint",
+    "static-analysis",
+    "skills"
+  ],
+  "mcpServers": {
+    "prism": {
+      "command": "${CLAUDE_PLUGIN_ROOT}/scripts/prism-mcp-launch.sh",
+      "args": ["${CLAUDE_PROJECT_DIR}"]
+    }
+  }
+}
