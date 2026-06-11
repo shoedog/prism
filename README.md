@@ -113,71 +113,20 @@ slicing --list-algorithms
 
 ## MCP server — whole-repo navigation for coding agents
 
-Beyond the diff-slicing CLI, Prism ships **`prism-mcp`**, a local **stdio MCP server** that exposes
-read-only, whole-repo code navigation to MCP-capable coding agents (Claude Code, Codex, etc.). It serves
-a Code Property Graph of one repository and answers structural questions an agent would otherwise grep for.
-
-### Build
-
-The MCP server lives behind the cargo `mcp` feature (the default build excludes it):
+Beyond the diff-slicing CLI, Prism ships **`prism-mcp`**, a local **stdio MCP server** that gives
+MCP-capable coding agents (Claude Code, Codex, Kiro, …) read-only, whole-repo code navigation — who
+calls a symbol, what it calls, what breaks if you change it, the module dependency graph.
 
 ```bash
-cargo build --release --bin prism-mcp --features mcp
-# binary: target/release/prism-mcp
-```
+cargo build --release --bin prism-mcp --features mcp          # build (behind the `mcp` feature)
 
-### Run / arguments
-
-```bash
-prism-mcp --repo /abs/path/to/your/repo            # serve one repo over stdio
-prism-mcp --repo /abs/path/to/repo --cache-dir ~/.cache/prism-nav   # pin the nav cache location
-prism-mcp --repo /abs/path/to/repo --no-cache      # disable the nav cache (rebuild every start)
-```
-
-| Flag | Required | Meaning |
-|---|---|---|
-| `--repo <PATH>` | yes | The repository this server instance navigates (one repo per process; pin an absolute path). |
-| `--cache-dir <PATH>` | no | Where to store the per-repo navigation CPG cache (default: an OS cache dir, keyed by the canonical repo path). |
-| `--no-cache` | no | Don't read/write the nav cache. Conflicts with `--cache-dir`. |
-
-> **First start warms a cache** (a cold whole-repo CPG build can take ~30s on a large repo); subsequent
-> starts on an unchanged tree are near-instant. Pre-warm once with
-> `prism-mcp --repo <REPO> --cache-dir <DIR> < /dev/null` if your agent host has a short MCP handshake timeout.
-
-### Add it to Claude Code
-
-```bash
-# claude mcp add [options] <name> -- <command> [args...]
-claude mcp add --transport stdio prism \
+claude mcp add --transport stdio prism \                       # add to Claude Code
   -- /abs/path/to/prism/target/release/prism-mcp --repo /abs/path/to/your/repo
 ```
 
-Use **absolute paths** (the agent launches the server from an arbitrary working directory). One server
-instance navigates one repo — add another named instance (`prism-acme`, …) with a different `--repo` to
-navigate another. Verify with `claude mcp list`; the tools appear as `mcp__prism__nav_*`.
-
-### Add it to Codex
-
-Codex reads MCP servers from `~/.codex/config.toml`:
-
-```toml
-[mcp_servers.prism]
-command = "/abs/path/to/prism/target/release/prism-mcp"
-args = ["--repo", "/abs/path/to/your/repo"]
-```
-
-### Tools (all read-only)
-
-| Tool | Answers |
-|---|---|
-| `nav_nodes_at` | What symbols/nodes are at `{file, line}` (1-indexed)? |
-| `nav_callers` | Who calls this symbol / location? |
-| `nav_callees` | What does this symbol / location call? |
-| `nav_ego_graph` | The local call/dependency graph around a seed. |
-| `nav_module_deps` | Outbound module dependencies for one file. |
-| `nav_repo_map` | The whole-repo module dependency graph. |
-
-Each returns a Prism `Evidence` JSON envelope. The server is read-only — it never modifies the repo.
+**See [`docs/MCP.md`](docs/MCP.md)** for the full guide: Codex/Kiro config, the six `nav_*` tools,
+cache warming, the gotchas, and the bundled **skills** ([`skills/`](skills/)) that teach an agent
+*how* to use the connection. One server instance navigates one repo.
 
 ---
 

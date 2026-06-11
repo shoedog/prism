@@ -154,6 +154,10 @@ language-agnostic.
 
 ### MCP Adapter
 
+> **User-facing install/usage guide:** [`docs/MCP.md`](docs/MCP.md) — `claude mcp add` / Codex / Kiro
+> wiring, cache warming, the gotchas, and the bundled agent **skills** in [`skills/`](skills/)
+> (`prism-code-navigation`, `prism-code-slicing`). This section is the architecture notes.
+
 `prism-mcp` is a local stdio MCP server behind the cargo `mcp` feature:
 
 ```bash
