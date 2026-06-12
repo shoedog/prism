@@ -1,6 +1,4 @@
-#[path = "../../common/mod.rs"]
-mod common;
-use common::*;
+use crate::common::*;
 
 #[test]
 fn test_taint_negative_raw_data_not_a_sink() {

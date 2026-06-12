@@ -1,6 +1,4 @@
-#[path = "../../common/mod.rs"]
-mod common;
-use common::*;
+use crate::common::*;
 
 #[test]
 fn test_membrane_cpp_try_catch_recognised() {

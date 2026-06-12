@@ -1,6 +1,4 @@
-#[path = "../../common/mod.rs"]
-mod common;
-use common::*;
+use crate::common::*;
 
 // === Tier 1: Quantum — Rust thread::spawn (std) ===
 

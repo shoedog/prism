@@ -1,6 +1,4 @@
-#[path = "../common/mod.rs"]
-mod common;
-use common::*;
+use crate::common::*;
 
 #[test]
 fn test_line_has_code_text_python_comment() {

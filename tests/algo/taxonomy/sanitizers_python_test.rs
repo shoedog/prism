@@ -1,8 +1,6 @@
 //! Python Phase 2 sanitizer and safe-sink tests.
 
-#[path = "../../common/mod.rs"]
-mod common;
-use common::*;
+use crate::common::*;
 
 fn run_taint_python_single(
     source: &str,

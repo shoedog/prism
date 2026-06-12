@@ -1,6 +1,4 @@
-#[path = "../common/mod.rs"]
-mod common;
-use common::*;
+use crate::common::*;
 
 #[test]
 fn test_go_multi_return_individual_defs() {

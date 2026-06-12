@@ -1,6 +1,4 @@
-#[path = "../common/mod.rs"]
-mod common;
-use common::*;
+use crate::common::*;
 
 #[test]
 fn test_without_cpg_context_runs_ast_only() {

@@ -5,9 +5,7 @@
 //! regression negatives confirming that path cleansing does not suppress
 //! unrelated sinks or inverted guards.
 
-#[path = "../../common/mod.rs"]
-mod common;
-use common::*;
+use crate::common::*;
 
 fn run_taint_go(source: &str, diff_lines: BTreeSet<usize>) -> prism::slice::SliceResult {
     let path = "test.go";

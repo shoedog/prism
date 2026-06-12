@@ -1,6 +1,4 @@
-#[path = "../../common/mod.rs"]
-mod common;
-use common::*;
+use crate::common::*;
 use prism::slice::SliceResult;
 
 fn run_peer_consistency(

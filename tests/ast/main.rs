@@ -1,0 +1,19 @@
+mod access_path_test;
+mod binding_test;
+mod comment_string_test;
+#[allow(dead_code)]
+#[path = "../common/mod.rs"]
+mod common;
+mod cpg_cache_test;
+mod cpg_test;
+mod cpp_type_provider_test;
+mod dfg_test;
+mod field_test;
+mod import_test;
+mod java_type_provider_test;
+mod live_types_test;
+mod parse_quality_test;
+mod python_type_provider_test;
+mod rust_type_provider_test;
+mod ts_type_provider_test;
+mod type_provider_test;

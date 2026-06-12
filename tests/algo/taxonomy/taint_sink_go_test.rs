@@ -1,6 +1,4 @@
-#[path = "../../common/mod.rs"]
-mod common;
-use common::*;
+use crate::common::*;
 
 // === Tier 1: Taint — JS basic sinks (innerHTML, execSync) ===
 

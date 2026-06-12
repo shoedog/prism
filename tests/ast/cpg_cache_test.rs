@@ -1,6 +1,4 @@
-#[path = "../common/mod.rs"]
-mod common;
-use common::*;
+use crate::common::*;
 
 use prism::cpg::CodePropertyGraph;
 use prism::cpg_cache::{self, CacheResult};

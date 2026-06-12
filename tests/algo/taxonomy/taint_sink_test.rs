@@ -1,6 +1,4 @@
-#[path = "../../common/mod.rs"]
-mod common;
-use common::*;
+use crate::common::*;
 
 fn make_taint_test_fixture() -> (
     BTreeMap<String, ParsedFile>,

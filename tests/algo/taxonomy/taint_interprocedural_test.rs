@@ -1,6 +1,4 @@
-#[path = "../../common/mod.rs"]
-mod common;
-use common::*;
+use crate::common::*;
 
 /// Multi-file fixture: caller.py passes tainted data to callee.py which has a sink.
 fn make_python_interprocedural() -> (BTreeMap<String, ParsedFile>, DiffInput) {

@@ -1,6 +1,4 @@
-#[path = "../../common/mod.rs"]
-mod common;
-use common::*;
+use crate::common::*;
 
 fn make_mutual_recursion_test() -> (BTreeMap<String, ParsedFile>, DiffInput) {
     let source = r#"
