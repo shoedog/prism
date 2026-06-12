@@ -49,15 +49,6 @@ predicates = "3"
 
 # ── MCP tests ──
 
-[[test]]
-name = "infra_parallel_equality"
-path = "tests/infra/parallel_equality_test.rs"
-
-[[test]]
-name = "mcp_smoke"
-path = "tests/mcp/smoke_test.rs"
-required-features = ["mcp"]
-
 # ── Algorithm tests: Paper ──
 
 # ── Algorithm tests: Taxonomy ──
@@ -78,15 +69,7 @@ required-features = ["mcp"]
 
 # ── Navigation tests ──
 
-[[test]]
-name = "reasoning_smoke"
-path = "tests/reasoning/smoke_test.rs"
-
 # ── Output tests ──
-
-[[test]]
-name = "output_mermaid_snapshot"
-path = "tests/output/mermaid_snapshot_test.rs"
 
 [[test]]
 name = "ast"
@@ -167,3 +150,20 @@ path = "tests/frameworks/main.rs"
 [[test]]
 name = "cli"
 path = "tests/cli/main.rs"
+
+[[test]]
+name = "reasoning"
+path = "tests/reasoning/main.rs"
+
+[[test]]
+name = "output"
+path = "tests/output/main.rs"
+
+[[test]]
+name = "mcp"
+path = "tests/mcp/main.rs"
+required-features = ["mcp"]
+
+[[test]]
+name = "infra"
+path = "tests/infra/main.rs"

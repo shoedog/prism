@@ -26,13 +26,15 @@ cargo fmt            # Fix formatting
 cargo test           # All tests must pass
 ```
 
-Run specific test suites:
+Run specific test suites (one umbrella binary per tests/ subdirectory; filter by
+file-derived module name):
 ```bash
-cargo test --test algo_paper          # Paper algorithm tests
-cargo test --test algo_taint_cve      # Taint CVE tests
-cargo test --test lang_c_algo         # C language-specific tests
-cargo test --test cli_validation      # CLI validation tests
-cargo test --test integration_core    # Core integration tests
+cargo test --test algo_paper                       # Paper algorithm tests
+cargo test --test algo_taxonomy taint_cve_test::   # Taint CVE tests
+cargo test --test lang_c algo_test::               # C language-specific tests
+cargo test --test cli validation_test::            # CLI validation tests
+cargo test --test integration core_test::          # Core integration tests
+cargo test --test integration coverage_test::      # Coverage matrix
 ```
 
 ## Code Organization
@@ -80,7 +82,8 @@ tests/
     └── typescript/    # typescript, lang
 ```
 
-Cargo.toml defines named test targets (e.g., `cargo test --test algo_paper`).
+Cargo.toml defines one umbrella test target per `tests/` subdirectory (e.g.,
+`cargo test --test algo_paper`).
 Shared test helpers in `tests/common/mod.rs` provide fixture generators like
 `make_python_test()`, `make_javascript_test()`, etc.
 
@@ -92,7 +95,7 @@ algorithm × language coverage matrix. **This list appears 3 times** — once in
 each of `test_algorithm_language_matrix`, `test_language_coverage_minimum`, and
 `test_coverage_matrix_validation`. When adding or renaming test files, all 3
 copies must be updated or the matrix will under-report coverage. Run
-`cargo test --test integration_coverage` to verify.
+`cargo test --test integration coverage_test::` to verify.
 
 ## Algorithm Implementation Map
 
@@ -213,8 +216,9 @@ Algorithms fall into two categories:
 
 7. **Keep files under 600 lines.** Split test files and source modules when
    they approach this limit. For tests, group by category (e.g., `algo_test.rs`,
-   `advanced_test.rs`, `lang_test.rs`) and register each as a separate
-   `[[test]]` target in `Cargo.toml`.
+   `advanced_test.rs`, `lang_test.rs`) and register **one umbrella `[[test]]`
+   target per `tests/` subdirectory** (its `main.rs` declares the files as
+   modules); individual files stay under 600 lines.
 
 ## Supported Languages
 
@@ -264,7 +268,8 @@ Key algorithm-specific flags:
 2. Add a variant to `Language` enum in `src/languages/mod.rs`
 3. Implement all the node type methods for the new language
 4. Add a fixture generator in `tests/common/mod.rs`
-5. Add language-specific tests in `tests/lang/`
+5. Add language-specific tests in `tests/lang/` and add a `mod <stem>;` line to
+   that directory's `main.rs`
 6. Add the new test file paths to the `all_test_files` arrays in
    `tests/integration/coverage_test.rs` (there are 3 copies — one each in
    `test_algorithm_language_matrix`, `test_language_coverage_minimum`, and
@@ -277,7 +282,8 @@ Key algorithm-specific flags:
 3. Add `pub mod your_algo;` in `src/algorithms/mod.rs`
 4. Wire it up in the `run_slicing` dispatcher in `src/algorithms/mod.rs`
 5. Add CLI flags in `src/main.rs` if it needs algorithm-specific config
-6. Add tests in `tests/algo/` (appropriate subcategory)
+6. Add tests in `tests/algo/` (appropriate subcategory) and add a `mod <stem>;`
+   line to that directory's `main.rs`
 7. Add the algorithm to the `algorithms` list in `test_algorithm_language_matrix`
    and `test_language_coverage_minimum` in `tests/integration/coverage_test.rs`
 

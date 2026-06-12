@@ -19,6 +19,12 @@ cargo build --release --bin prism-mcp --features mcp
 # binary: target/release/prism-mcp
 ```
 
+Verify the MCP smoke tests through the umbrella test target:
+
+```bash
+cargo test --features mcp --test mcp
+```
+
 ## Install as a Claude Code plugin (recommended)
 
 Prism ships a Claude Code **plugin** that pre-wires the MCP server to your current project and installs
