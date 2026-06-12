@@ -1,5 +1,13 @@
 # Tier-A Accuracy Harness + Dev-Loop Test-Time Reduction — Design
 
+> **EXECUTION OUTCOME (2026-06-12): SHIPPED.** All 21 plan tasks executed, final
+> whole-branch dual review + 8 MAJOR fixes folded, merged to main (`b740b24..e063543`,
+> 9-commit shape). Gates: G1b/G2/G3/G5/G6/G7/G8 MET; **G1a NOT MET** (recall 0.89/0.70,
+> callers precision 0.89 after the 1:1-matching fix — recorded, not waived); G4 Rust+Go
+> anchored, **Python floor-failed** (pyright 31–36% err). Baseline + S3 work-list:
+> `docs/eval/tier-a/baseline.md`. Deferred: `docs/prism-query-layer/tier-a-followups.md`.
+> Next-session orientation: `docs/prism-query-layer/tier-a-handoff-2026-06-12.md`.
+
 **Date:** 2026-06-11 · **Status:** rev 4 — **owner-approved** (rev 3 + owner review:
 corpus swap to repeat-run-friendly set, `eval/`-vs-`agent-eval` separation contract).
 Dual spec-review rounds 1 (5 BLOCKER, 11 MAJOR, 6 MINOR) and 2 (2 BLOCKER, 7 MAJOR,

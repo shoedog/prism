@@ -122,7 +122,7 @@ chosen to stratify name-collision risk; this repo; full agreement tables verifie
 | `slice --file original_diff.rs` | very common fn | 2 | 2 | 1.0 | 1.0 | exact |
 | `target` | common **method** name | 19 | 2 | **0.0** | **0.0** | all 19 are petgraph `.target()` receiver calls mis-attributed; both real callers (`TaintSeed::target(..)`) missed because the type name ≠ file stem |
 
-**Reading:** prism's resolution is **bimodal** — perfect on repo-unique names and on
+**[2026-06-12 amendment: superseded by the Tier-A baseline (`docs/eval/tier-a/baseline.md`) — precision claims held, recall claims did not survive callee-direction/qualified-call measurement at scale.]** **Reading:** prism's resolution is **bimodal** — perfect on repo-unique names and on
 file-disambiguated seeds; total failure on collision-prone *method* names, where it exhibits
 both documented gaps at once (receiver-call capture → false positives; `Type::method` with
 type ≠ file stem → false negatives). The unseeded call-derived surfaces (module-deps,
