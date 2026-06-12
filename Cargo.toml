@@ -167,3 +167,6 @@ required-features = ["mcp"]
 [[test]]
 name = "infra"
 path = "tests/infra/main.rs"
+
+[profile.dev]
+debug = "line-tables-only"
