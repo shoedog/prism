@@ -1,9 +1,11 @@
 # S3 — Call-Resolution Precision Floor — Design
 
-**Date:** 2026-06-12 · **Status:** rev 2 — dual cleanroom review folded (codex gpt-5.5
-xhigh rigor + claude fable xhigh soundness, R6 redacted for both; record:
-`docs/prism-query-layer/s3-spec-review-2026-06-12.md`). Both reviewers independently
-recommended the R6 policy now in §2.3; rev 1 was owner-approved in brainstorm.
+**Date:** 2026-06-12 · **Status:** rev 2.1 — **owner-approved.** Dual cleanroom review
+folded (codex gpt-5.5 xhigh rigor + claude fable xhigh soundness, R6 redacted for
+both; record: `docs/prism-query-layer/s3-spec-review-2026-06-12.md`). Both reviewers
+independently recommended the R6 policy now in §2.3; owner confirmed P6-lite (with the
+P2-only fallback) after a lite-vs-full comparison, adding the std-wrapper peel list
+and the §7.4 S3.1 field-index candidate.
 **Context docs:** `docs/eval/tier-a/baseline.md` (the measured S3 work-list — the
 anchor), `docs/cpg-substrate-analysis-2026-06-10.md` §3 S3 row (prescribed fix shape),
 `docs/prism-query-layer/tier-a-handoff-2026-06-12.md` (sequencing: S3 → S2 → Plan B).
@@ -33,7 +35,11 @@ Measured scale (operator census, regex-estimated, recorded for design rationale)
 prism — 9,106 non-self `x.m()` sites, 17% hit in-repo method names (16% single-owner,
 **1% multi-owner**); tokio — 67% hit in-repo names (17% single, **50% multi**); method-
 name collision rates prism 11%, caddy 18% (top: `UnmarshalCaddyfile` ×93, `Provision`
-×91 — interface-shaped), tokio 30%.
+×91 — interface-shaped), tokio 30%. Receiver shapes at multi-owner sites (the
+drop-exposed class): single-ident receivers — P6-lite's ceiling — are 62% (prism) /
+54% (tokio); the remainder splits across `self.field` (0% / 18%), chained `).m()`
+(19% / 14%), and other dotted paths (13% / 6%), all full-P6/Phase-IP territory
+(§7.4).
 
 ## 1. Scope and decisions
 
@@ -117,8 +123,11 @@ the invariant makes it a contract, not luck.
 
 1. **P6-lite syntactic receiver-type recovery — Rust + Go only** (the
    confident-change languages), minimal subset:
-   - typed parameters (`fn f(x: &mut Foo)`, `func f(x *Foo)`) with `&`/`&mut`/`*`
-     stripping;
+   - typed parameters (`fn f(x: &mut Foo)`, `func f(x *Foo)`) with a **fixed
+     std-wrapper peel list**: `&`/`&mut`/`*` plus `Box<_>`, `Arc<_>`, `Rc<_>`,
+     `Pin<_>` peeled recursively (e.g. `Pin<&mut Self>` → `Self`, the canonical
+     `poll` receiver shape). The list is closed — peeling stays a syntactic rule,
+     never `Deref`-semantic;
    - constructor locals: `let x = Type::new(...)` / `let x: Type = ...` /
      `x := Type{...}` / `x := NewType(...)` (the `NewX`→`X` Go convention only when
      `X` is an OwnerKey);
@@ -279,8 +288,14 @@ first under token pressure — an emergent benefit).
    5 (nested-def attribution).
 3. Type-confirmed dispatch via E12 `DispatchProvider` (Phase-IP) — recovers the
    dropped multi-owner residue properly (P5 reaffirmed as Phase-IP, not S3).
-4. P6 expansion: typed locals beyond the minimal subset; C++ receivers via
-   `type_db`; JS object-literal method owners; Python `super()`.
+4. P6 expansion — with one **named S3.1 candidate**: a **struct-field type index**
+   for `self.field.m()` / field receivers (Rust fields are declared typed — one
+   extraction; the largest unrecovered multi-owner class on tokio-shaped code, ≈18%
+   of multi-owner sites; ~0% on the prism anchor). Promote to S3.1 (before
+   re-baselining) **if** the acceptance rerun shows callee-recall pain; otherwise it
+   waits with the rest: return-type propagation (chained `).m()`, fn-return locals),
+   generic-bound recovery, alias following, typed locals beyond the minimal subset,
+   C++ receivers via `type_db`, JS object-literal method owners, Python `super()`.
 5. Matrix v2 collision-rich fixtures beyond the Rust/Go sliver (tier-a-followups 8).
 6. If P6-lite is deferred at the §2.3 fallback: **S3.1 lands it before
    re-baselining.**
