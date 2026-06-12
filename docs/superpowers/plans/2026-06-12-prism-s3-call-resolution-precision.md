@@ -8,7 +8,16 @@
 
 **Tech Stack:** Rust, tree-sitter, petgraph, serde/bincode (CPG cache), the Tier-A eval harness (`eval/`, uv Python) for acceptance.
 
-**Spec:** `docs/superpowers/specs/2026-06-12-prism-s3-call-resolution-precision-design.md` (rev 2.1, owner-approved). Review record: `docs/prism-query-layer/s3-spec-review-2026-06-12.md`.
+**Spec:** `docs/superpowers/specs/2026-06-12-prism-s3-call-resolution-precision-design.md` (rev 2.1, owner-approved). Spec review record: `docs/prism-query-layer/s3-spec-review-2026-06-12.md`.
+
+**Plan rev 2** — codex xhigh dual-lens plan review folded (record:
+`docs/prism-query-layer/s3-plan-review-2026-06-12.md`; all 5 BLOCKER + 8 MAJOR +
+4 MINOR findings fixed in-plan: incremental `build_direct_subset` recovery parity,
+`ResolutionOutcome`/`DropReason` classification, `ReceiverRecovery` carried on
+`CallSite`, call-line-ordered shadow bail, both traversal branches per-site, 5b
+param path via `FunctionInfo.param_names`, nav migration enumerated with
+`NavCallEdge`, ego warnings, module-graph reason struct, telemetry split, fixture
+empty-callers schema, JS class-field arrows).
 
 **Branch:** create `s3-precision` from `main` before Task 1 (`git checkout -b s3-precision`).
 
@@ -20,8 +29,8 @@
 |---|---|
 | `src/languages/mod.rs` | NEW `method_owner()` + `rust_impl_trait()` + `go_receiver_var()` node accessors; Lua `function_name` keying fix |
 | `src/ast.rs` | `FunctionInfo.owner`/`receiver_var` fields; `build_function_table` populates them; NEW `receiver_type_in_fn()` (P6-lite scan, Rust+Go); NEW `function_node_spanning()` helper |
-| `src/resolution.rs` | **NEW module**: `ResolutionConfidence`, `ResolutionKind`, `ResolvedCallee`, `owner_key()` normalization, `peel_type()`, and `impl CallGraph { resolve_call_site, classify_site }` (the R1–R7 ladder) |
-| `src/call_graph.rs` | `CallSite.receiver_type` field; `CallGraph.methods` index + `method_owners`/`method_traits`/`receiver_vars` side maps; maintenance in `empty/build/build_skeleton/build_direct_subset/remove_files/merge`; Phase 2 P6-lite recovery; 4 traversal helpers switch to `resolve_call_site` |
+| `src/resolution.rs` | **NEW module**: `ResolutionConfidence`, `ResolutionKind`, `ResolvedCallee`, `ReceiverRecovery`, `DropReason`, `ResolutionOutcome`, `owner_key()`, `peel_type()`, and `impl CallGraph { resolve_call_site, resolve_call_site_full }` (the R1–R7 ladder; `_full` carries the drop classification) |
+| `src/call_graph.rs` | `CallSite.receiver_type` + `receiver_recovery` fields; `CallGraph.methods` index + `method_owners`/`receiver_vars` side maps; maintenance in `empty/build/build_skeleton/build_direct_subset/remove_files/merge`; Phase 2 P6-lite recovery in `build` **and `build_direct_subset`** (incremental updates must match full builds); 4 traversal helpers switch to `resolve_call_site` |
 | `src/cpg/build.rs` | Step 5/5b consume `resolve_call_site` (Exact+NameOnly in, drops out); Step 5b Python `self`/`cls` param skip |
 | `src/cpg/context.rs` | `compute_scope` pinned to recall-biased `resolve_callees` (name-only) — comment contract only, no behavior change |
 | `src/cpg_cache.rs` | `CACHE_VERSION` 3 → 4 |
@@ -287,12 +296,14 @@ fn python_direct_member_only() {
 #[test]
 fn js_class_method_owner() {
     let pf = parse(
-        "class Widget {\n  render() {}\n}\nfunction free() {}\n",
+        "class Widget {\n  render() {}\n  handler = () => {};\n}\nfunction free() {}\n",
         Language::JavaScript,
         "a.js",
     );
     let o = owners(&pf);
     assert!(o.contains(&(Some("render".into()), Some("Widget".into()))));
+    // class-field arrow method (plan-review MINOR): owner via field_definition → class_body
+    assert!(o.contains(&(Some("handler".into()), Some("Widget".into()))));
     assert!(o.contains(&(Some("free".into()), None)));
 }
 
@@ -351,7 +362,12 @@ Extend `method_owner`'s match (the ancestor-walk pattern; each language stops at
                 None
             }
             Language::JavaScript | Language::TypeScript | Language::Tsx => {
-                let body = func_node.parent()?;
+                // method_definition → class_body, OR class-field arrow:
+                // arrow_function → field_definition/public_field_definition → class_body
+                let mut body = func_node.parent()?;
+                if matches!(body.kind(), "field_definition" | "public_field_definition") {
+                    body = body.parent()?;
+                }
                 if body.kind() != "class_body" {
                     return None;
                 }
@@ -373,6 +389,8 @@ Extend `method_owner`'s match (the ancestor-walk pattern; each language stops at
                 None
             }
 ```
+
+If the class-field arrow test fails on `name == None` (anonymous arrow): extend the JS/TS arm of `function_name` to return the enclosing `field_definition`'s `property` name node when the function node's parent is a field definition — the same pattern as the Lua keying fix in Task 3.
 
 And `go_receiver_var`:
 
@@ -564,6 +582,11 @@ pub struct CallSite {
     /// (typed param / constructor local, peeled). None = unrecovered.
     #[serde(default)]
     pub receiver_type: Option<String>,
+    /// S3 P6-lite: which syntactic fact recovered `receiver_type`
+    /// (telemetry + ResolutionKind split). Excluded from cmp_key —
+    /// derived from the same scan as receiver_type.
+    #[serde(default)]
+    pub receiver_recovery: Option<crate::resolution::ReceiverRecovery>,
 }
 
 pub struct CallGraph {
@@ -585,7 +608,7 @@ pub struct CallGraph {
 }
 ```
 
-Add `receiver_type: None` to every existing `CallSite { ... }` literal (build, build_skeleton, build_direct_subset, Phase 3 sites at lines ~321/350/428/516/534 — Phase-3 synthesized sites are *verified receiver-less* per the spec invariant, so `qualifier: None, receiver_type: None` is correct there). Extend `CallSite::cmp_key` with `self.receiver_type.as_deref()` as the final tuple element.
+Add `receiver_type: None, receiver_recovery: None` to every existing `CallSite { ... }` literal (build, build_skeleton, build_direct_subset, Phase 3 sites at lines ~321/350/428/516/534 — Phase-3 synthesized sites are *verified receiver-less* per the spec invariant, so `qualifier: None, receiver_type: None, receiver_recovery: None` is correct there). Extend `CallSite::cmp_key` with `self.receiver_type.as_deref()` as the final tuple element (`receiver_recovery` is derived data — excluded).
 
 Phase-1 population (in `build`'s per-file closure; same loop has `func_node` + `parsed`):
 
@@ -785,6 +808,55 @@ pub struct ResolvedCallee<'a> {
     pub confidence: ResolutionConfidence,
     pub kind: ResolutionKind,
 }
+
+/// Which syntactic fact recovered a receiver type (stored on CallSite).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ReceiverRecovery {
+    TypedParam,
+    ConstructorLocal,
+}
+
+/// Why a call site resolved to nothing — the classification API that
+/// Collision warnings (Task 11) and call-stats telemetry (Task 12) consume.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DropReason {
+    /// R6: method name defined on multiple owner types, receiver unknown.
+    MultiOwnerCollision,
+    /// P6-lite: receiver type recovered but (T, m) has no entry — provably
+    /// external (Vec::truncate class) or wrong-name.
+    ExternalReceiver,
+    /// R3: qualifier is an import that narrows to no in-repo candidate.
+    ImportExternal,
+    /// Name not defined in-repo at all (ordinary unresolved call).
+    UnknownName,
+}
+
+pub struct ResolutionOutcome<'a> {
+    pub resolved: Vec<ResolvedCallee<'a>>,
+    /// Some(..) iff `resolved` is empty for a classified reason.
+    pub drop: Option<DropReason>,
+}
+
+impl<'a> ResolutionOutcome<'a> {
+    fn hit(resolved: Vec<ResolvedCallee<'a>>) -> Self {
+        Self { resolved, drop: None }
+    }
+    fn dropped(reason: DropReason) -> Self {
+        Self { resolved: Vec::new(), drop: Some(reason) }
+    }
+}
+```
+
+**Ladder body convention (applies to every snippet in Tasks 5–8):** the ladder is
+implemented ONCE as `resolve_call_site_full(&self, site) -> ResolutionOutcome`;
+`resolve_call_site` is `self.resolve_call_site_full(site).resolved`. Each
+`return Vec::new()` in the Task 5–8 snippets translates mechanically:
+R3 empty-narrowing → `ResolutionOutcome::dropped(DropReason::ImportExternal)`;
+P6 recovered-type index-miss → `dropped(ExternalReceiver)`; R6 multi-owner →
+`dropped(MultiOwnerCollision)`; name absent from `functions` (and `methods`) →
+`dropped(UnknownName)`; non-empty paths → `ResolutionOutcome::hit(..)`.
+
+```rust
 
 fn exact<'a>(ids: impl IntoIterator<Item = &'a FunctionId>, kind: ResolutionKind) -> Vec<ResolvedCallee<'a>> {
     ids.into_iter()
@@ -1384,21 +1456,28 @@ pub fn peel_type(text: &str) -> String {
 `src/ast.rs` — recovery scan (Rust + Go), called per call site at Phase-2 time:
 
 ```rust
-    /// S3 P6-lite: syntactically-provable receiver type for `receiver` inside the
-    /// function spanning `start_line..=end_line`. Typed params + constructor
-    /// locals only; bails (None) on rebinding. Rust + Go.
+    /// S3 P6-lite: syntactically-provable receiver type for `receiver` at a call
+    /// on `call_line`. Typed params + constructor locals only; only bindings at
+    /// or before `call_line` count (a rebinding AFTER the call must not cancel
+    /// recovery); >1 binding before the call ⇒ shadow bail (None). Rust + Go.
+    /// Returns the raw (unpeeled) type text + which fact recovered it.
     pub fn receiver_type_in_fn(
         &self,
         func_node: &Node<'_>,
         receiver: &str,
-    ) -> Option<String> {
+        call_line: usize,
+    ) -> Option<(String, crate::resolution::ReceiverRecovery)> {
         use crate::languages::Language;
         if !matches!(self.language, Language::Rust | Language::Go) {
             return None;
         }
+        use crate::resolution::ReceiverRecovery;
         let src = self.source.as_bytes();
-        let mut found: Option<String> = None;
+        let mut found: Option<(String, ReceiverRecovery)> = None;
         let mut bindings = 0usize;
+        // walk_bindings/param scan below: wrap every binding-site check with
+        //   if node.start_position().row + 1 > call_line { skip }
+        // (params have no line guard — they always precede the call).
 
         // (1) typed parameters
         if let Some(params) = func_node.child_by_field_name("parameters") {
@@ -1412,7 +1491,7 @@ pub fn peel_type(text: &str) -> String {
                             continue;
                         };
                         if pat.utf8_text(src).ok() == Some(receiver) {
-                            found = Some(self.node_text(&ty).to_string());
+                            found = Some((self.node_text(&ty).to_string(), ReceiverRecovery::TypedParam));
                             bindings += 1;
                         }
                     }
@@ -1438,19 +1517,27 @@ pub fn peel_type(text: &str) -> String {
             pf: &ParsedFile,
             node: Node<'_>,
             receiver: &str,
-            found: &mut Option<String>,
+            call_line: usize,
+            found: &mut Option<(String, ReceiverRecovery)>,
             bindings: &mut usize,
         ) {
             let src = pf.source.as_bytes();
+            if node.start_position().row + 1 > call_line {
+                return; // bindings after the call cannot type this receiver (M6)
+            }
             match node.kind() {
                 "let_declaration" => {
                     if let Some(pat) = node.child_by_field_name("pattern") {
                         if pat.utf8_text(src).ok() == Some(receiver) {
                             *bindings += 1;
                             if let Some(ty) = node.child_by_field_name("type") {
-                                *found = Some(pf.node_text(&ty).to_string());
+                                *found = Some((
+                                    pf.node_text(&ty).to_string(),
+                                    ReceiverRecovery::ConstructorLocal,
+                                ));
                             } else if let Some(val) = node.child_by_field_name("value") {
-                                *found = constructor_type(pf, &val);
+                                *found = constructor_type(pf, &val)
+                                    .map(|t| (t, ReceiverRecovery::ConstructorLocal));
                             }
                         }
                     }
@@ -1465,7 +1552,7 @@ pub fn peel_type(text: &str) -> String {
                             let mut rc = right.walk();
                             for ch in right.children(&mut rc) {
                                 if let Some(t) = constructor_type(pf, &ch) {
-                                    *found = Some(t);
+                                    *found = Some((t, ReceiverRecovery::ConstructorLocal));
                                 }
                             }
                         }
@@ -1483,7 +1570,7 @@ pub fn peel_type(text: &str) -> String {
             }
             let mut c = node.walk();
             for ch in node.children(&mut c) {
-                walk_bindings(pf, ch, receiver, found, bindings);
+                walk_bindings(pf, ch, receiver, call_line, found, bindings);
             }
         }
 
@@ -1510,19 +1597,26 @@ pub fn peel_type(text: &str) -> String {
             }
         }
 
-        walk_bindings(self, *func_node, receiver, &mut found, &mut bindings);
+        walk_bindings(self, *func_node, receiver, call_line, &mut found, &mut bindings);
         if bindings > 1 {
-            return None; // shadow/rebind bail
+            return None; // shadow/rebind bail (count = bindings at/before call_line)
         }
         found
     }
 ```
 
-`src/call_graph.rs` Phase 2 (in `build` only — skeleton/subset stay receiver-blind): after constructing each site, when the qualifier is a simple identifier that is NOT self/this/cls, NOT the caller's receiver var, and NOT an import alias:
+`src/call_graph.rs` Phase 2 — in **`build` AND `build_direct_subset`** (incremental
+cache updates splice in `build_direct_subset` output; the two MUST recover
+identically or full and incremental builds diverge — plan-review BLOCKER 1).
+`build_skeleton` stays receiver-blind (scope-only). Extract the shared block as a
+free fn `recover_receiver(parsed, func_node, recv_var, file_imports, q, line)` so
+both builders call one implementation. After constructing each site, when the
+qualifier is a simple identifier that is NOT self/this/cls, NOT the caller's
+receiver var, and NOT an import alias:
 
 ```rust
                     for (callee_name, line, qualifier) in call_sites {
-                        let receiver_type = qualifier.as_deref().and_then(|q| {
+                        let recovered = qualifier.as_deref().and_then(|q| {
                             let simple = !q.is_empty()
                                 && q.chars().all(|c| c.is_alphanumeric() || c == '_');
                             let is_kw = matches!(q, "self" | "this" | "cls");
@@ -1532,9 +1626,8 @@ pub fn peel_type(text: &str) -> String {
                                 .unwrap_or(false);
                             if simple && !is_kw && !is_recv && !is_import {
                                 parsed
-                                    .function_calls_recovery_node(&func_node) // = &func_node
-                                    .and_then(|_| parsed.receiver_type_in_fn(&func_node, q))
-                                    .map(|t| crate::resolution::peel_type(&t))
+                                    .receiver_type_in_fn(&func_node, q, line)
+                                    .map(|(t, how)| (crate::resolution::peel_type(&t), how))
                             } else {
                                 None
                             }
@@ -1544,9 +1637,14 @@ pub fn peel_type(text: &str) -> String {
                             callee_name,
                             line,
                             qualifier,
-                            receiver_type,
+                            receiver_type: recovered.as_ref().map(|(t, _)| t.clone()),
+                            receiver_recovery: recovered.as_ref().map(|(_, how)| *how),
                         };
 ```
+
+Add an integration test pinning build/incremental equivalence: build a 2-file repo
+fully, then `remove_files` one file + `merge(build_direct_subset(..))` and assert
+the affected sites carry identical `receiver_type` values both ways.
 
 (`recv_var` = `parsed.language.go_receiver_var(&func_node).map(|n| parsed.node_text(&n).to_string())` computed once per function above the loop; `file_imports_ref` = the imports map entry for this file, captured before the par_iter from the already-built `imports`. Adjust the closure to take `&imports`.)
 
@@ -1555,29 +1653,32 @@ pub fn peel_type(text: &str) -> String {
 ```rust
                 // ---- R6 step 1: P6-lite recovered receiver ----
                 if let Some(recv_ty) = site.receiver_type.as_deref() {
-                    let is_trait_key = false; // owner_lookup handles trait demotion
-                    let _ = is_trait_key;
+                    let recovered_kind = match site.receiver_recovery {
+                        Some(crate::resolution::ReceiverRecovery::ConstructorLocal) => {
+                            ResolutionKind::ConstructorLocal
+                        }
+                        _ => ResolutionKind::TypedParam,
+                    };
                     return match self.owner_lookup(recv_ty, name) {
                         Some(mut r) => {
                             for c in &mut r {
                                 if c.kind == ResolutionKind::QualifiedOwner {
-                                    // distinguish param vs local is not observable
-                                    // here; extraction sets the kind via... — keep
-                                    // simple: TypedParam covers both unless the
-                                    // wrapper recorded ConstructorLocal (see note)
-                                    c.kind = ResolutionKind::TypedParam;
+                                    c.kind = recovered_kind;
                                 }
+                                // trait-CHA hits keep TraitCha (dyn Trait receivers)
                             }
-                            r
+                            ResolutionOutcome::hit(r)
                         }
                         // Recovered type with no (T, m) entry ⇒ provably external
                         // or wrong-name ⇒ drop (kills the Vec::truncate class).
-                        None => Vec::new(),
+                        None => ResolutionOutcome::dropped(DropReason::ExternalReceiver),
                     };
                 }
 ```
 
-Note: distinguishing `TypedParam` vs `ConstructorLocal` in telemetry requires the extraction to record which path recovered the type. Acceptable simplification: encode it in `CallSite.receiver_type` is NOT possible without another field — instead have `receiver_type_in_fn` return `(String, RecoveryPath)` and store `CallSite.receiver_type: Option<String>` + reuse kind `TypedParam` for both in v1, with `ConstructorLocal` reserved. If the telemetry split matters at PR time, add `CallSite.receiver_kind: Option<u8>` then — do NOT block this task on it; assert `ResolutionKind::TypedParam` in the constructor-local test instead and note it. **Decide here: v1 uses `TypedParam` for both recovery paths; update the test in Step 1 accordingly (`assert_eq!(r[0].kind, ResolutionKind::TypedParam)` in `p6_constructor_local_recovers`).**
+`CallSite.receiver_recovery` (Task 4) carries the param-vs-local split, so
+`p6_constructor_local_recovers` asserts `ResolutionKind::ConstructorLocal` exactly
+as written in Step 1.
 
 - [ ] **Step 4: Run** `cargo test --test integration resolution_test:: 2>&1 | tail -6` — all pass (NewFoo-guess validation: `owner_lookup(recv_ty, ..)` returning None drops — so a wrong `New`-strip guess is safe).
 
@@ -1627,7 +1728,18 @@ fn traversal_helpers_respect_ladder_not_bare_names() {
 
 In each helper, replace name-only resolution with the ladder over the site in hand:
 
-- `callers_of_in_file` (`:857`): replace `let resolved = self.resolve_callees(&name, &site.caller.file);` with `let resolved = self.resolve_call_site(site); let resolves_to_target = resolved.iter().any(|c| c.target.file == tf);`
+- `callers_of_in_file` (`:857`): **both branches** must resolve per-site (plan-review MAJOR: the no-target branch otherwise stays name-indexed and collision-prone). Replace the `if let Some(tf) = target_file { ... }` block with:
+
+```rust
+                    let resolved = self.resolve_call_site(site);
+                    let hit = match target_file {
+                        Some(tf) => resolved.iter().any(|c| c.target.file == tf),
+                        None => !resolved.is_empty(),
+                    };
+                    if !hit {
+                        continue;
+                    }
+```
 - `resolve_callers` (`:883`): same substitution inside the filter.
 - `callees_of` (`:925`): `let callee_ids = self.resolve_call_site(site); for c in callee_ids { queue.push_back((c.target.clone(), depth + 1)); }`
 - `dfs_cycles` (`:992`): same shape.
@@ -1704,26 +1816,20 @@ Step 5 (`src/cpg/build.rs:311-316`):
             }
 ```
 
-Step 5b: same substitution for its `resolve_callees_qualified` call (`:330-334`); the rest of 5b is unchanged except the **receiver-binding rule**: where 5b zips `arg_texts` against callee parameter names, skip a leading `self`/`cls` parameter for Python callees:
+Step 5b: same substitution for its `resolve_callees_qualified` call (`:330-334`); the rest of 5b is unchanged except the **receiver-binding rule**. 5b gets callee params from the callee's `FunctionInfo.param_names` (the "first name match wins — pinned-until-S2" lookup at `cpg/build.rs:349-357` — there is NO `callee_node` in scope; plan-review BLOCKER 3). Apply the skip on that existing path:
 
 ```rust
                     // S3 (spec §3.3): the receiver never binds to a parameter;
                     // Python declares self/cls explicitly — skip it so explicit
                     // args align with the remaining params.
-                    let param_names: Vec<String> = {
-                        let names = callee_parsed.function_parameter_names(&callee_node);
-                        match names.first().map(String::as_str) {
-                            Some("self") | Some("cls")
-                                if matches!(callee_parsed.language, crate::languages::Language::Python) =>
-                            {
-                                names[1..].to_vec()
-                            }
-                            _ => names,
-                        }
+                    let is_python = callee_parsed.language == crate::languages::Language::Python;
+                    let param_names: &[String] = match info.param_names.first().map(String::as_str) {
+                        Some("self") | Some("cls") if is_python => &info.param_names[1..],
+                        _ => &info.param_names[..],
                     };
 ```
 
-(Locate the actual zip in Step 5b around `:344-401`; apply at the point where the callee's parameter names are obtained. Add a focused Python test in `tests/ast/cpg_test.rs`: `obj.method(x)` with `def method(self, a)` produces an arg-edge to `a`, not `self`.)
+(`info` = the matched `FunctionInfo`; adapt the binding to however `:349-357` names it. Add a focused Python test in `tests/ast/cpg_test.rs`: `obj.method(x)` with `def method(self, a)` produces an arg-edge to `a`, not `self`.)
 
 After this lands, grep for remaining `resolve_callees_qualified` callers: `rg -n "resolve_callees_qualified" src/` — should be only its own definition + `navigation/call_resolve.rs` (Task 11 removes that). Delete the method once callers reach zero (Task 11 Step 5).
 
@@ -1778,17 +1884,48 @@ Write these as real tests against the session helper (the existing files show th
     },
 ```
 
-`call_resolve.rs` — replace `resolve_callees_nav` body with the adapter (stem logic now lives in ladder R7):
+`call_resolve.rs` — **migrate, don't rename-and-strand** (plan-review BLOCKER 5): `resolve_callees_nav` is DELETED and every caller migrated in this task — enumerate with `rg -n "resolve_callees_nav" src/ tests/` (expected: `queries.rs:144`, `queries.rs:231`, `module_graph.rs` `collect_module_edges`, plus `tests/navigation/scoped_calls_test.rs` and any sibling tests — update each test to the new API). The replacement adapter returns full metadata (plan-review MAJOR: helper return types must carry confidence/kind):
 
 ```rust
-use crate::resolution::ResolvedCallee;
+use crate::resolution::{DropReason, ResolvedCallee};
 
-pub fn resolve_call_site_nav<'a>(cg: &'a CallGraph, site: &CallSite) -> Vec<ResolvedCallee<'a>> {
+/// One resolved nav call edge with everything queries need for
+/// score + Reason::Resolution (no metadata discarded between layers).
+pub struct NavCallEdge<'a> {
+    pub target: &'a FunctionId,
+    pub call_site_line: usize,
+    pub qualifier: Option<String>,
+    pub confidence: crate::resolution::ResolutionConfidence,
+    pub kind: crate::resolution::ResolutionKind,
+}
+
+pub fn resolve_site_nav<'a>(cg: &'a CallGraph, site: &'a CallSite) -> Vec<NavCallEdge<'a>> {
     cg.resolve_call_site(site)
+        .into_iter()
+        .map(|r: ResolvedCallee<'a>| NavCallEdge {
+            target: r.target,
+            call_site_line: site.line,
+            qualifier: site.qualifier.clone(),
+            confidence: r.confidence,
+            kind: r.kind,
+        })
+        .collect()
+}
+
+/// Collision-dropped same-name receiver sites for a seed name
+/// (callers/ego warnings; counts ONLY MultiOwnerCollision — not external
+/// imports, external receivers, or unknown names).
+pub fn collision_dropped_sites(cg: &CallGraph, seed_name: &str) -> usize {
+    scoped_caller_sites(cg, seed_name)
+        .into_iter()
+        .filter(|site| {
+            cg.resolve_call_site_full(site).drop == Some(DropReason::MultiOwnerCollision)
+        })
+        .count()
 }
 ```
 
-Keep `scoped_caller_sites` unchanged. Update the two call sites in `queries.rs` (`:144`, `:231`) to build/use the `CallSite` they already iterate (both loops have `site` in hand — pass it through instead of `(name, file, qualifier)` triples). Score mapping where items are constructed (`:190`, `:305` and the direct-item constructors):
+Keep `scoped_caller_sites` unchanged. Both `queries.rs` loops (`:144`, `:231`) already iterate `site` — pass it to `resolve_site_nav` instead of `(name, file, qualifier)` triples; `direct_callers`/`direct_callees` change return type from `Vec<(FunctionId, usize)>` to `Vec<NavCallEdge>` so confidence/kind survive to item construction. Score mapping where items are constructed (`:190`, `:305` and the direct-item constructors):
 
 ```rust
 fn confidence_score(c: crate::resolution::ResolutionConfidence) -> f32 {
@@ -1801,33 +1938,42 @@ fn confidence_score(c: crate::resolution::ResolutionConfidence) -> f32 {
 // item why: push Reason::Resolution { kind: resolved.kind.as_str() } alongside Calls/CalledBy
 ```
 
-Collision warning in the callers query: after assembling items for the seed, classify the seed-name sites that resolved empty:
+Collision warning in **both** the callers query and `ego_graph` (spec §2.5 names callers/ego; plan-review MAJOR) — after assembling items/edges for the seed:
 
 ```rust
-    let dropped = crate::navigation::call_resolve::scoped_caller_sites(cg, &target.name)
-        .into_iter()
-        .filter(|site| {
-            site.qualifier.is_some() && cg.resolve_call_site(site).is_empty()
-        })
-        .count();
+    let dropped = crate::navigation::call_resolve::collision_dropped_sites(cg, &target.name);
     if dropped > 0 {
         warnings.push(Warning {
             kind: WarningKind::Collision,
             message: format!(
-                "{dropped} same-name receiver call site(s) unresolved (unknown receiver type); not attributed as callers"
+                "{dropped} same-name receiver call site(s) with unknown receiver type across multiple owner types; not attributed as callers"
             ),
             location: None,
         });
     }
 ```
 
-`module_graph.rs` `collect_module_edges`: carry `(callee, line, qualifier, score)` per reason; aggregate per `(source, target)` with `f32::max`; emit the max as the item score (replaces the constant at `:119`).
+(In `ego_graph`, emit it when the seed's incoming Call edges are being collected — same helper, same message.)
+
+`module_graph.rs` `collect_module_edges`: the tuple reasons can't carry score/kind (plan-review MAJOR) — replace with a struct:
+
+```rust
+pub struct ModuleCallReason {
+    pub callee: String,
+    pub call_site_line: usize,
+    pub qualifier: Option<String>,
+    pub score: f32,                 // confidence_score(confidence), no hop decay here
+    pub kind: &'static str,         // ResolutionKind::as_str()
+}
+```
+
+Aggregate per `(source, target)` file pair with `f32::max` over reason scores; emit the max as the item score (replaces the constant at `:119`) and push `Reason::Resolution { kind }` alongside each `Reason::Calls`.
 
 - [ ] **Step 4: Run** `cargo test --test navigation 2>&1 | tail -4`; then `cargo test --test cli nav_compat_test:: 2>&1 | tail -4`. nav_compat pins output shapes — score changes WILL drift it; re-bless per the golden discipline (every drifted line traces to a demotion/drop/new-Exact). Full `cargo test`.
 
 - [ ] **Step 5: Delete dead code + fmt + harness + commit**
 
-`rg -n "resolve_callees_qualified" src/` → only the definition remains → delete it (and its doc comment); `resolve_callees` stays (scope/Phase-3, documented).
+**`resolve_callees` currently delegates to `resolve_callees_qualified(None)`** (plan-review BLOCKER 4) — before deleting the latter, re-home the recall-biased body: move the name-lookup + static-linkage filtering (the current `resolve_callees_qualified` minus the qualifier block) INTO `resolve_callees` directly, with the doc comment "recall-biased name+static resolver — scope computation and Phase-3 indirect resolution ONLY; edge creation uses resolve_call_site". Then `rg -n "resolve_callees_qualified" src/ tests/` → migrate any remaining test callers to `resolve_call_site` or `resolve_callees` as semantically appropriate → delete the definition.
 
 ```bash
 cargo fmt && cargo test 2>&1 | tail -3
@@ -1874,24 +2020,26 @@ fn call_stats_reports_kind_counts_and_drops() {
 
 ```rust
 pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
+    use crate::resolution::{DropReason, ResolutionConfidence};
     use std::collections::BTreeMap;
     let mut kinds: BTreeMap<&'static str, usize> = BTreeMap::new();
     let mut demoted = 0usize;
-    let mut dropped = 0usize;
     let mut total = 0usize;
+    let (mut multi, mut external, mut import_ext, mut unknown) = (0usize, 0usize, 0usize, 0usize);
     for sites in cg.calls.values() {
         for site in sites {
             total += 1;
-            let r = cg.resolve_call_site(site);
-            if r.is_empty() {
-                if site.qualifier.is_some() {
-                    dropped += 1; // receiver call with no resolution
-                }
-                continue;
+            let out = cg.resolve_call_site_full(site);
+            match out.drop {
+                Some(DropReason::MultiOwnerCollision) => multi += 1,
+                Some(DropReason::ExternalReceiver) => external += 1,
+                Some(DropReason::ImportExternal) => import_ext += 1,
+                Some(DropReason::UnknownName) => unknown += 1,
+                None => {}
             }
-            for c in &r {
+            for c in &out.resolved {
                 *kinds.entry(c.kind.as_str()).or_default() += 1;
-                if c.confidence == crate::resolution::ResolutionConfidence::NameOnly {
+                if c.confidence == ResolutionConfidence::NameOnly {
                     demoted += 1;
                 }
             }
@@ -1901,12 +2049,17 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
         "total_call_sites": total,
         "kinds": kinds,
         "demoted_edges": demoted,
-        "dropped_multi_owner": dropped,
+        "dropped_multi_owner": multi,
+        "dropped_external_receiver": external,
+        "dropped_import_external": import_ext,
+        "unresolved_unknown_name": unknown,
     })
 }
 ```
 
-(`dropped` counts all unresolved receiver calls, which includes provably-external P6 drops — acceptable for v1 telemetry; name the field honestly in the PR text.)
+(The split per `DropReason` is plan-review-mandated: a single drop counter would
+conflate collision drops with ordinary unresolved calls and misreport the §5.4
+telemetry.)
 
 - [ ] **Step 4: Run** `cargo test --test cli call_stats_test:: 2>&1 | tail -4` — pass.
 
@@ -1937,7 +2090,7 @@ Expected: exit 1 with flip-candidates listed — `type_method_qualified` (and po
 - [ ] **Step 2: Update statuses** — for each `known_fail → pass` flip, edit the fixture's `expected.toml` `status` field to `"pass"`. For any `ok → fail` flip: **STOP — regression**; fix code, do not edit the status.
 
 - [ ] **Step 3: Add missing R6-policy fixtures** (mirror the `expected.toml` schema shown in `eval/fixtures/rust/type_method_qualified/`; one dir per capability, status `"pass"` with the new resolver):
-  - `rust/r6_multi_owner_drop` — two owners of `poll`, unknown receiver; `[[expect.callers]]` empty + `exact = true` (consult `eval/tests/test_matrix.py` for the empty-expectation form; if unsupported, expect callers of the *true* impl to exclude the collision site's caller).
+  - `rust/r6_multi_owner_drop` — two owners of `poll`, unknown receiver; the empty-expectation form is `[expect]` with `callers = []` and `exact = true` (an omitted callers key fails the loader; `[[expect.callers]]` without file/line is invalid — plan-review M14; confirm against `eval/tests/test_matrix.py` before authoring).
   - `rust/r6_single_owner_demote` — one owner, unknown receiver; callers include the site.
   - `rust/p6_typed_param_recovery` — collision + typed param; callers attribute ONLY the typed site.
   - `rust/p6_shadow_bail` — rebinding; no attribution.
@@ -1983,6 +2136,6 @@ git add -A && git commit -m "test(s3): golden re-bless — each drift traced to 
 ## Self-review (performed at plan-write time)
 
 - **Spec coverage:** §2.1 owners (T1–T3), OwnerKey (T1 `owner_key`), dual-key + trait demotion (T4/T5), §2.2 CallTarget shapes (T5 ::-parsing; dot-qualifier classes T6/T7; the contract is realized in the ladder's input handling rather than a separate enum — the `CallSite{qualifier, receiver_type}` + name-with-`::` carries every §2.2 shape), R1–R7 (T5–T8), §2.3 P6-lite+peel+bail+external-drop (T8), residue (T7), §2.5 visibility (T11), §3.2 four helpers (T9), §3.3 CPG rule + 5b binding (T10), §3.4 scope pin (T9) + scores/Reason/max-score (T11), §3.5 cache v4 + mutators (T4), §4 same-file-overload exclusion (inherent — func_index untouched), §5 fixtures (T13), gates/telemetry (T12/T15), Lua keying (T3). **Gap check:** spec's `Reason::Resolution` kind list includes `stem_single/stem_multi` — covered; `import_qualified` exact — covered.
-- **Placeholder scan:** Task 8 contains one explicitly-resolved decision (TypedParam covers both recovery paths in v1; constructor-local kind reserved) — decided inline, not deferred. Task 11 Step 1 tests are summarized in comments where the existing session-helper shape must be copied from neighboring files — the assertions to write are stated concretely.
+- **Placeholder scan (rev 2):** the TypedParam/ConstructorLocal collapse was rejected by plan review — `CallSite.receiver_recovery` now carries the split end-to-end. Task 11 Step 1 tests are summarized in comments where the existing session-helper shape must be copied from neighboring files — the assertions to write are stated concretely.
 - **Type consistency:** `resolve_call_site(&self, site: &CallSite) -> Vec<ResolvedCallee>` used identically in T5–T12; `ResolutionKind::as_str` snake_case values match spec §3.4's list (plus `static_linkage`, an existing behavior given a name); `confidence_score` 1.0/0.6 matches spec; `CACHE_VERSION = 4` referenced once.
 - **Order safety:** every task leaves `cargo test` green (T5–T7 build the ladder behind new tests while old resolver paths still serve consumers until T9–T11 switch them; the brief dual-path window is intentional and tested on both sides).
