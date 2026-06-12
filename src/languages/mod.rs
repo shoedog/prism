@@ -955,7 +955,9 @@ impl Language {
                 // Pattern 4: class Foo { handler = () => {} }
                 if parent.kind() == "public_field_definition" || parent.kind() == "field_definition"
                 {
-                    return parent.child_by_field_name("name");
+                    return parent
+                        .child_by_field_name("property")
+                        .or_else(|| parent.child_by_field_name("name"));
                 }
 
                 // Pattern 5: exports.handler = () => {}
@@ -994,6 +996,61 @@ impl Language {
                 }
                 None
             }
+            Language::Go => {
+                if func_node.kind() != "method_declaration" {
+                    return None;
+                }
+                let recv = func_node.child_by_field_name("receiver")?;
+                let mut c = recv.walk();
+                for ch in recv.children(&mut c) {
+                    if ch.kind() == "parameter_declaration" {
+                        return ch.child_by_field_name("type");
+                    }
+                }
+                None
+            }
+            Language::Python => {
+                let mut n = *func_node;
+                if let Some(p) = n.parent() {
+                    if p.kind() == "decorated_definition" {
+                        n = p;
+                    }
+                }
+                let block = n.parent()?;
+                if block.kind() != "block" {
+                    return None;
+                }
+                let cls = block.parent()?;
+                if cls.kind() == "class_definition" {
+                    return cls.child_by_field_name("name");
+                }
+                None
+            }
+            Language::JavaScript | Language::TypeScript | Language::Tsx => {
+                let mut body = func_node.parent()?;
+                if matches!(body.kind(), "field_definition" | "public_field_definition") {
+                    body = body.parent()?;
+                }
+                if body.kind() != "class_body" {
+                    return None;
+                }
+                let cls = body.parent()?;
+                if matches!(cls.kind(), "class_declaration" | "class") {
+                    return cls.child_by_field_name("name");
+                }
+                None
+            }
+            Language::Java => {
+                let body = func_node.parent()?;
+                if body.kind() != "class_body" {
+                    return None;
+                }
+                let cls = body.parent()?;
+                if matches!(cls.kind(), "class_declaration" | "enum_declaration") {
+                    return cls.child_by_field_name("name");
+                }
+                None
+            }
             _ => None,
         }
     }
@@ -1016,7 +1073,17 @@ impl Language {
     }
 
     /// S3 (Go): receiver variable name node (`t` in `func (t *T) m()`).
-    pub fn go_receiver_var<'a>(&self, _func_node: &Node<'a>) -> Option<Node<'a>> {
+    pub fn go_receiver_var<'a>(&self, func_node: &Node<'a>) -> Option<Node<'a>> {
+        if !matches!(self, Language::Go) || func_node.kind() != "method_declaration" {
+            return None;
+        }
+        let recv = func_node.child_by_field_name("receiver")?;
+        let mut c = recv.walk();
+        for ch in recv.children(&mut c) {
+            if ch.kind() == "parameter_declaration" {
+                return ch.child_by_field_name("name");
+            }
+        }
         None
     }
 }
