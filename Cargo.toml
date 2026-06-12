@@ -70,154 +70,6 @@ required-features = ["mcp"]
 
 # ── Language-specific tests ──
 
-[[test]]
-name = "lang_c_algo"
-path = "tests/lang/c/algo_test.rs"
-
-[[test]]
-name = "lang_c_algo_expand"
-path = "tests/lang/c/algo_expand_test.rs"
-
-[[test]]
-name = "lang_c_cve"
-path = "tests/lang/c/cve_test.rs"
-
-[[test]]
-name = "lang_c_cve_fixture"
-path = "tests/lang/c/cve_fixture_test.rs"
-
-[[test]]
-name = "lang_c_complex"
-path = "tests/lang/c/complex_test.rs"
-
-[[test]]
-name = "lang_c_firmware"
-path = "tests/lang/c/firmware_test.rs"
-
-[[test]]
-name = "lang_cpp"
-path = "tests/lang/cpp/cpp_test.rs"
-
-[[test]]
-name = "lang_cpp_algo"
-path = "tests/lang/cpp/algo_test.rs"
-
-[[test]]
-name = "lang_javascript_algo"
-path = "tests/lang/javascript/algo_test.rs"
-
-[[test]]
-name = "lang_javascript_destructuring"
-path = "tests/lang/javascript/destructuring_test.rs"
-
-[[test]]
-name = "lang_javascript_lang"
-path = "tests/lang/javascript/lang_test.rs"
-
-[[test]]
-name = "lang_javascript_arrow"
-path = "tests/lang/javascript/arrow_test.rs"
-
-[[test]]
-name = "lang_javascript_algo_expand"
-path = "tests/lang/javascript/algo_expand_test.rs"
-
-[[test]]
-name = "lang_go"
-path = "tests/lang/go/algo_test.rs"
-
-[[test]]
-name = "lang_go_advanced"
-path = "tests/lang/go/advanced_test.rs"
-
-[[test]]
-name = "lang_go_lang"
-path = "tests/lang/go/lang_test.rs"
-
-[[test]]
-name = "lang_java_algo"
-path = "tests/lang/java/algo_test.rs"
-
-[[test]]
-name = "lang_java_algo_expand"
-path = "tests/lang/java/algo_expand_test.rs"
-
-[[test]]
-name = "lang_lua"
-path = "tests/lang/lua/lua_test.rs"
-
-[[test]]
-name = "lang_lua_algo"
-path = "tests/lang/lua/algo_test.rs"
-
-[[test]]
-name = "lang_lua_algo_expand"
-path = "tests/lang/lua/algo_expand_test.rs"
-
-[[test]]
-name = "lang_rust"
-path = "tests/lang/rust/rust_test.rs"
-
-[[test]]
-name = "lang_rust_algo"
-path = "tests/lang/rust/algo_test.rs"
-
-[[test]]
-name = "lang_rust_algo_expand"
-path = "tests/lang/rust/algo_expand_test.rs"
-
-[[test]]
-name = "lang_bash"
-path = "tests/lang/bash/bash_test.rs"
-
-[[test]]
-name = "lang_bash_algo"
-path = "tests/lang/bash/algo_test.rs"
-
-[[test]]
-name = "lang_bash_algo_expand"
-path = "tests/lang/bash/algo_expand_test.rs"
-
-[[test]]
-name = "lang_terraform"
-path = "tests/lang/terraform/terraform_test.rs"
-
-[[test]]
-name = "lang_terraform_algo"
-path = "tests/lang/terraform/algo_test.rs"
-
-[[test]]
-name = "lang_terraform_algo_expand"
-path = "tests/lang/terraform/algo_expand_test.rs"
-
-[[test]]
-name = "lang_tsx"
-path = "tests/lang/tsx/tsx_test.rs"
-
-[[test]]
-name = "lang_tsx_jsx_call"
-path = "tests/lang/tsx/jsx_call_test.rs"
-
-[[test]]
-name = "lang_tsx_hooks"
-path = "tests/lang/tsx/hooks_test.rs"
-
-[[test]]
-name = "lang_tsx_algo_expand"
-path = "tests/lang/tsx/algo_expand_test.rs"
-
-[[test]]
-name = "lang_typescript"
-path = "tests/lang/typescript/typescript_test.rs"
-
-[[test]]
-name = "lang_typescript_lang"
-path = "tests/lang/typescript/lang_test.rs"
-
-[[test]]
-name = "lang_typescript_algo_expand"
-path = "tests/lang/typescript/algo_expand_test.rs"
-
 # ── Integration tests ──
 
 [[test]]
@@ -383,3 +235,47 @@ path = "tests/algo/theoretical/main.rs"
 [[test]]
 name = "algo_paper"
 path = "tests/algo/paper/main.rs"
+
+[[test]]
+name = "lang_c"
+path = "tests/lang/c/main.rs"
+
+[[test]]
+name = "lang_cpp"
+path = "tests/lang/cpp/main.rs"
+
+[[test]]
+name = "lang_go"
+path = "tests/lang/go/main.rs"
+
+[[test]]
+name = "lang_java"
+path = "tests/lang/java/main.rs"
+
+[[test]]
+name = "lang_javascript"
+path = "tests/lang/javascript/main.rs"
+
+[[test]]
+name = "lang_lua"
+path = "tests/lang/lua/main.rs"
+
+[[test]]
+name = "lang_rust"
+path = "tests/lang/rust/main.rs"
+
+[[test]]
+name = "lang_terraform"
+path = "tests/lang/terraform/main.rs"
+
+[[test]]
+name = "lang_tsx"
+path = "tests/lang/tsx/main.rs"
+
+[[test]]
+name = "lang_typescript"
+path = "tests/lang/typescript/main.rs"
+
+[[test]]
+name = "lang_bash"
+path = "tests/lang/bash/main.rs"

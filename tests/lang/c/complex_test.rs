@@ -1,6 +1,4 @@
-#[path = "../../common/mod.rs"]
-mod common;
-use common::*;
+use crate::common::*;
 
 fn make_macro_heavy_test() -> (BTreeMap<String, ParsedFile>, DiffInput) {
     let source = include_str!("../../fixtures/c/macro_heavy.c");

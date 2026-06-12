@@ -3,9 +3,7 @@
 //! Covers 2 algorithms not yet tested with JavaScript fixtures:
 //! Taint, ContractSlice.
 
-#[path = "../../common/mod.rs"]
-mod common;
-use common::*;
+use crate::common::*;
 
 // ---------------------------------------------------------------------------
 // Taint — user input flowing to dangerous sinks

@@ -3,9 +3,7 @@
 //! Covers 1 algorithm not yet tested with TypeScript fixtures:
 //! ContractSlice.
 
-#[path = "../../common/mod.rs"]
-mod common;
-use common::*;
+use crate::common::*;
 
 // ---------------------------------------------------------------------------
 // ContractSlice — guard validation with type narrowing

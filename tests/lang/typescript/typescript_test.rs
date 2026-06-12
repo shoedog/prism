@@ -1,6 +1,4 @@
-#[path = "../../common/mod.rs"]
-mod common;
-use common::*;
+use crate::common::*;
 
 // ====== TS Algorithm Coverage: 18 "none" algorithms ======
 

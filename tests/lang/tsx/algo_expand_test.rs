@@ -4,9 +4,7 @@
 //! Taint, ConditionedSlice, DeltaSlice, SpiralSlice, CircularSlice,
 //! VerticalSlice, ThreeDSlice, ResonanceSlice, PhantomSlice, ContractSlice, Chop.
 
-#[path = "../../common/mod.rs"]
-mod common;
-use common::*;
+use crate::common::*;
 
 // ---------------------------------------------------------------------------
 // Taint — user input in JSX expressions

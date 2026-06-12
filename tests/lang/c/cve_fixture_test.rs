@@ -1,9 +1,7 @@
 //! CVE pattern test fixtures exercising existing Prism algorithms against
 //! real-world vulnerability patterns from OpenWrt, Linux kernel, and embedded firmware.
 
-#[path = "../../common/mod.rs"]
-mod common;
-use common::*;
+use crate::common::*;
 
 // ====== Fixture 1: Format String via syslog (CWE-134) ======
 

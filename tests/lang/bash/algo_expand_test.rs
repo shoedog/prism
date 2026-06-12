@@ -5,9 +5,7 @@
 //! ThreeDSlice, ResonanceSlice, SymmetrySlice, GradientSlice, PhantomSlice,
 //! MembraneSlice, ContractSlice, Chop.
 
-#[path = "../../common/mod.rs"]
-mod common;
-use common::*;
+use crate::common::*;
 
 // ---------------------------------------------------------------------------
 // ConditionedSlice — conditional execution paths in init scripts

@@ -4,9 +4,7 @@
 //! DeltaSlice, SpiralSlice, CircularSlice, VerticalSlice,
 //! ThreeDSlice, ResonanceSlice, GradientSlice, PhantomSlice.
 
-#[path = "../../common/mod.rs"]
-mod common;
-use common::*;
+use crate::common::*;
 
 // ---------------------------------------------------------------------------
 // DeltaSlice — changed function between versions

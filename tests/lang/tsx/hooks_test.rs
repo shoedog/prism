@@ -1,6 +1,4 @@
-#[path = "../../common/mod.rs"]
-mod common;
-use common::*;
+use crate::common::*;
 use prism::react_hooks::{detect_hooks, HookType};
 
 // ====== React Hook Detection Tests ======

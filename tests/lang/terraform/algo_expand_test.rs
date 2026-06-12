@@ -5,9 +5,7 @@
 //! CircularSlice, VerticalSlice, ThreeDSlice, ResonanceSlice, GradientSlice,
 //! PhantomSlice, EchoSlice, ContractSlice, Chop.
 
-#[path = "../../common/mod.rs"]
-mod common;
-use common::*;
+use crate::common::*;
 
 // ---------------------------------------------------------------------------
 // BarrierSlice — call depth in module references

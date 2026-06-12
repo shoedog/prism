@@ -2,9 +2,7 @@
 //!
 //! Covers algorithms not yet tested with C fixtures.
 
-#[path = "../../common/mod.rs"]
-mod common;
-use common::*;
+use crate::common::*;
 
 // ---------------------------------------------------------------------------
 // OriginalDiff (Algorithm 6) — with _c suffix for coverage matrix

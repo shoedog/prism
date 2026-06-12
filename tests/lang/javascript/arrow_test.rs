@@ -1,6 +1,4 @@
-#[path = "../../common/mod.rs"]
-mod common;
-use common::*;
+use crate::common::*;
 
 // ====== Arrow Function & Anonymous Function Naming Tests ======
 

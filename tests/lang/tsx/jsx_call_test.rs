@@ -1,6 +1,4 @@
-#[path = "../../common/mod.rs"]
-mod common;
-use common::*;
+use crate::common::*;
 
 fn all_callee_names(call_graph: &CallGraph) -> Vec<String> {
     call_graph
