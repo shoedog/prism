@@ -63,3 +63,64 @@ fn rust_nested_fn_inside_method_is_not_a_method() {
     );
     assert!(owners(&pf).contains(&(Some("helper".into()), None)));
 }
+
+#[test]
+fn go_method_owner_and_receiver_var() {
+    let pf = parse(
+        "package p\n\ntype T struct{}\n\nfunc (t *T) M() {}\n\nfunc Free() {}\n",
+        Language::Go,
+        "a.go",
+    );
+    let f = pf
+        .functions()
+        .iter()
+        .find(|f| f.name.as_deref() == Some("M"))
+        .unwrap();
+    assert_eq!(f.owner.as_deref(), Some("T")); // '*' stripped by owner_key
+    assert_eq!(f.receiver_var.as_deref(), Some("t"));
+    let free = pf
+        .functions()
+        .iter()
+        .find(|f| f.name.as_deref() == Some("Free"))
+        .unwrap();
+    assert_eq!(free.owner, None);
+}
+
+#[test]
+fn python_direct_member_only() {
+    let pf = parse(
+        "class C:\n    def m(self):\n        def nested():\n            pass\n\n@deco\ndef free():\n    pass\n",
+        Language::Python,
+        "a.py",
+    );
+    let o = owners(&pf);
+    assert!(o.contains(&(Some("m".into()), Some("C".into()))));
+    assert!(o.contains(&(Some("nested".into()), None)));
+    assert!(o.contains(&(Some("free".into()), None)));
+}
+
+#[test]
+fn js_class_method_owner() {
+    let pf = parse(
+        "class Widget {\n  render() {}\n  handler = () => {};\n}\nfunction free() {}\n",
+        Language::JavaScript,
+        "a.js",
+    );
+    let o = owners(&pf);
+    assert!(o.contains(&(Some("render".into()), Some("Widget".into()))));
+    // class-field arrow method (plan-review MINOR): owner via field_definition -> class_body
+    assert!(o.contains(&(Some("handler".into()), Some("Widget".into()))));
+    assert!(o.contains(&(Some("free".into()), None)));
+}
+
+#[test]
+fn java_every_method_has_owner() {
+    let pf = parse(
+        "class App {\n    void run() {}\n    static void main(String[] a) {}\n}\n",
+        Language::Java,
+        "A.java",
+    );
+    for f in pf.functions() {
+        assert!(f.owner.as_deref() == Some("App"), "{:?}", f.name);
+    }
+}
