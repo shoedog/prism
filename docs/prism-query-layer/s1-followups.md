@@ -23,12 +23,18 @@ Every slice merged with containerized verify PASS + dual diff-review APPROVE.
    recursive `ParsedFile::collect_call_args` walk under Step 5b (profile evidence in the S1
    PR). Step 5b is deliberately serial assembly territory, so C2 does not mask it.
    Candidate S1.5: per-file call-args index (same shape as the FunctionTable move).
-4. **Local debug test-suite wall time is compile-dominated.** Full `cargo test` ≈ 21 min
-   cold-incremental (121 `[[test]]` targets linking in debug — the "123" originally noted
-   here counted two non-test targets; reconciled per the Tier-A spec review); actual test
-   execution sums to <2 min. Not S1 scope; worth a CI/dev-loop look (e.g. shared test
-   binaries, fewer `[[test]]` targets, or `cargo nextest`).
-   **→ Picked up as WP2 of `docs/superpowers/specs/2026-06-11-prism-tier-a-accuracy-harness-design.md`.**
+4. **Local debug test-suite wall time is compile-dominated.** ~~Full `cargo test` ≈ 21 min~~
+   **CORRECTED 2026-06-11 (WP2 Task 1 baseline, `docs/eval/wp2-timing.md`):** the
+   21-minute observation does not reproduce on a healthy machine — measured clean
+   `cargo test` = **119.5 s** (build 16.35 s incl. all 121 links; rest is execution of
+   3,802 tests). The original number was almost certainly taken while the wedged
+   `spindump` (item 5 below) was parking every process launch — 121 test binaries plus
+   hundreds of compiler/linker launches, each delayed, inflates 2 min to ~21. (The
+   "123" originally noted here counted two non-test targets; reconciled per the Tier-A
+   spec review.)
+   **→ Consolidation still ships as WP2 of
+   `docs/superpowers/specs/2026-06-11-prism-tier-a-accuracy-harness-design.md`** on the
+   structural + container-verify case; the dev-loop emergency is withdrawn.
 5. **Wedged macOS `spindump` can park process launches at `_dyld_start`**
    (dyld `RemoteNotificationResponder::blockOnSynchronousEvent`), masquerading as test
    hangs. Diagnosed during Task 10; cleared by killing `spindump`/`spindump_agent`.
