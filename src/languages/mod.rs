@@ -882,6 +882,19 @@ impl Language {
         // Lua function_declaration: name is in "name" field
         // local_function: name is in "name" field
         // Bash function_definition: name field
+        if matches!(self, Self::Lua) && node.kind() == "function_declaration" {
+            let name = node.child_by_field_name("name")?;
+            if matches!(
+                name.kind(),
+                "dot_index_expression" | "method_index_expression"
+            ) {
+                return name
+                    .child_by_field_name("field")
+                    .or_else(|| name.child_by_field_name("method"));
+            }
+            return Some(name);
+        }
+
         if matches!(self, Self::Bash) && node.kind() == "function_definition" {
             return node.child_by_field_name("name");
         }
@@ -1048,6 +1061,55 @@ impl Language {
                 let cls = body.parent()?;
                 if matches!(cls.kind(), "class_declaration" | "enum_declaration") {
                     return cls.child_by_field_name("name");
+                }
+                None
+            }
+            Language::Cpp => {
+                let func = if func_node.kind() == "template_declaration" {
+                    let mut cursor = func_node.walk();
+                    let inner = func_node
+                        .children(&mut cursor)
+                        .find(|child| child.kind() == "function_definition")?;
+                    inner
+                } else {
+                    *func_node
+                };
+
+                // In-class definition: ancestor field_declaration_list -> class_specifier.
+                let mut anc = func.parent();
+                while let Some(n) = anc {
+                    match n.kind() {
+                        "field_declaration_list" => {
+                            let cls = n.parent()?;
+                            if matches!(cls.kind(), "class_specifier" | "struct_specifier") {
+                                return cls.child_by_field_name("name");
+                            }
+                            return None;
+                        }
+                        "function_definition" => break,
+                        _ => {}
+                    }
+                    anc = n.parent();
+                }
+
+                // Out-of-line definition: declarator chain contains Foo::bar.
+                let mut d = func.child_by_field_name("declarator")?;
+                loop {
+                    if d.kind() == "qualified_identifier" {
+                        return d.child_by_field_name("scope");
+                    }
+                    d = d.child_by_field_name("declarator")?;
+                }
+            }
+            Language::Lua => {
+                let name = func_node.child_by_field_name("name")?;
+                if matches!(
+                    name.kind(),
+                    "dot_index_expression" | "method_index_expression"
+                ) {
+                    return name
+                        .child_by_field_name("table")
+                        .or_else(|| name.child_by_field_name("object"));
                 }
                 None
             }

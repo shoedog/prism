@@ -124,3 +124,43 @@ fn java_every_method_has_owner() {
         assert!(f.owner.as_deref() == Some("App"), "{:?}", f.name);
     }
 }
+
+#[test]
+fn cpp_in_class_and_out_of_line_owners() {
+    let pf = parse(
+        "class Foo {\n  void bar();\n  void inline_m() {}\n};\nvoid Foo::bar() {}\nvoid free_fn() {}\nnamespace ns { void nf(); }\nvoid ns::nf() {}\n",
+        Language::Cpp,
+        "a.cpp",
+    );
+    let o = owners(&pf);
+    assert!(o.contains(&(Some("inline_m".into()), Some("Foo".into()))));
+    assert!(o.contains(&(Some("bar".into()), Some("Foo".into())))); // out-of-line
+    assert!(o.contains(&(Some("free_fn".into()), None)));
+    // namespace prefix indexes uniformly as the prefix key (spec 2.1 C++ row)
+    assert!(o.contains(&(Some("nf".into()), Some("ns".into()))));
+}
+
+#[test]
+fn cpp_templated_out_of_line_method_has_owner() {
+    let pf = parse(
+        "template <typename T>\nclass Foo {\n  void bar();\n};\ntemplate <typename T>\nvoid Foo<T>::bar() {}\n",
+        Language::Cpp,
+        "a.cpp",
+    );
+
+    assert!(owners(&pf).contains(&(Some("bar".into()), Some("Foo".into()))));
+}
+
+#[test]
+fn lua_table_methods_key_by_bare_name_with_owner() {
+    let pf = parse(
+        "local M = {}\nfunction M.f() end\nfunction M:g() end\nfunction free() end\n",
+        Language::Lua,
+        "a.lua",
+    );
+    let o = owners(&pf);
+    // KEYING CHANGE (spec 2.1): name is now "f", not "M.f"
+    assert!(o.contains(&(Some("f".into()), Some("M".into()))));
+    assert!(o.contains(&(Some("g".into()), Some("M".into()))));
+    assert!(o.contains(&(Some("free".into()), None)));
+}
