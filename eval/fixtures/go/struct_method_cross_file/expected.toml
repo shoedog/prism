@@ -1,0 +1,13 @@
+[case]
+language = "go"
+capability = "struct_method_cross_file"
+status = "pass"
+[seed]
+symbol = "Start"
+file = "engine.go"
+line = 5
+[[expect.callers]]
+file = "main.go"
+line = 4
+[expect]
+exact = true

@@ -1,0 +1,13 @@
+[case]
+language = "python"
+capability = "inherited_override"
+status = "pass"
+[seed]
+symbol = "go"
+file = "app.py"
+line = 6
+[[expect.callers]]
+file = "app.py"
+line = 10
+[expect]
+exact = true

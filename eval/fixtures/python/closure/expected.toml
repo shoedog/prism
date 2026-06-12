@@ -1,0 +1,13 @@
+[case]
+language = "python"
+capability = "closure"
+status = "pass"
+[seed]
+symbol = "target"
+file = "app.py"
+line = 1
+[[expect.callers]]
+file = "app.py"
+line = 6
+[expect]
+exact = true

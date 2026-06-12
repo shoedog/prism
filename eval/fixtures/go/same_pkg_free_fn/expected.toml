@@ -1,0 +1,13 @@
+[case]
+language = "go"
+capability = "same_pkg_free_fn"
+status = "pass"
+[seed]
+symbol = "helper"
+file = "main.go"
+line = 3
+[[expect.callers]]
+file = "main.go"
+line = 6
+[expect]
+exact = true

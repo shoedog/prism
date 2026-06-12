@@ -1,0 +1,13 @@
+[case]
+language = "rust"
+capability = "type_method_qualified"
+status = "known_fail"
+[seed]
+symbol = "start_static"
+file = "engine.rs"
+line = 4
+[[expect.callers]]
+file = "main.rs"
+line = 4
+[expect]
+exact = true

@@ -1,0 +1,13 @@
+[case]
+language = "go"
+capability = "closure"
+status = "pass"
+[seed]
+symbol = "target"
+file = "main.go"
+line = 3
+[[expect.callers]]
+file = "main.go"
+line = 6
+[expect]
+exact = true

@@ -1,0 +1,23 @@
+[
+  {
+    "file": "nav_callgraph/main.py",
+    "name": "run",
+    "start_line": 3,
+    "end_line": 4,
+    "kind": "function_definition"
+  },
+  {
+    "file": "nav_callgraph/main.py",
+    "name": "lonely",
+    "start_line": 6,
+    "end_line": 7,
+    "kind": "function_definition"
+  },
+  {
+    "file": "nav_callgraph/util.py",
+    "name": "helper",
+    "start_line": 1,
+    "end_line": 2,
+    "kind": "function_definition"
+  }
+]

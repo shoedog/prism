@@ -1,0 +1,13 @@
+[case]
+language = "python"
+capability = "instance_method_cross_file"
+status = "pass"
+[seed]
+symbol = "start"
+file = "engine.py"
+line = 2
+[[expect.callers]]
+file = "app.py"
+line = 5
+[expect]
+exact = true

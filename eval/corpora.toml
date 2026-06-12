@@ -1,0 +1,44 @@
+# Tier-A corpora (spec §2.9). SHAs pinned at first baseline run (Task 21).
+# Selection principle: repeat-run friendliness — prism CPG cold-builds recur.
+[defaults]
+seed = 42
+per_stratum = 8
+quiescence_cap_s = 300
+settle_s = 5.0
+oracle_error_floor = { rust = 0.10, go = 0.10, python = 0.25 }
+sut_error_floor = 0.05
+
+[corpus.prism]
+lang = "rust"
+path = "."                       # the prism repo itself
+oracle = "rust-analyzer"
+excludes = ["tests/fixtures/*", "eval/fixtures/*", "target/*"]
+pinned_sha = "144d7c93d78d"                  # filled at first run
+
+[corpus.tokio]
+lang = "rust"
+path = "~/code/bench-repos/tokio"
+oracle = "rust-analyzer"
+excludes = []
+pinned_sha = "ecb5125a6787"
+
+[corpus.caddy]
+lang = "go"
+path = "~/code/bench-repos/caddy"
+oracle = "gopls"
+excludes = []
+pinned_sha = "77e9ce7404c4"                  # copied from ~/code/agent-eval/cache/repos/caddy @ 77e9ce74
+
+[corpus.flask]
+lang = "python"
+path = "~/code/bench-repos/flask"
+oracle = "pyright"
+excludes = ["examples/*", ".venv/*"]
+pinned_sha = "36e4a824f340"
+
+[corpus.click]
+lang = "python"
+path = "~/code/bench-repos/click"
+oracle = "pyright"
+excludes = ["examples/*", ".venv/*"]
+pinned_sha = "8a1b1a33d739"

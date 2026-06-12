@@ -1,0 +1,13 @@
+[case]
+language = "rust"
+capability = "inherent_method_same_file"
+status = "pass"
+[seed]
+symbol = "start"
+file = "main.rs"
+line = 4
+[[expect.callers]]
+file = "main.rs"
+line = 8
+[expect]
+exact = true

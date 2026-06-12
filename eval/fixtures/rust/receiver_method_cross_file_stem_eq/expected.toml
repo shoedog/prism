@@ -1,0 +1,13 @@
+[case]
+language = "rust"
+capability = "receiver_method_cross_file_stem_eq"
+status = "pass"
+[seed]
+symbol = "start"
+file = "engine.rs"
+line = 4
+[[expect.callers]]
+file = "main.rs"
+line = 4
+[expect]
+exact = true

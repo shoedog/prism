@@ -16,6 +16,25 @@ fn test_python_decorated_function_emits_one_record() {
 }
 
 #[test]
+fn test_python_nested_same_name_functions_both_emit_records() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(
+        dir.path().join("app.py"),
+        "def f():\n    def f():\n        return 1\n    return f()\n",
+    )
+    .unwrap();
+    let recs = functions_inventory(dir.path()).unwrap();
+    assert_eq!(
+        recs.len(),
+        2,
+        "expected nested same-name records, got {recs:?}"
+    );
+    assert!(recs.iter().all(|r| r.name.as_deref() == Some("f")));
+    assert_eq!(recs[0].start_line, 1);
+    assert_eq!(recs[1].start_line, 2);
+}
+
+#[test]
 fn test_sorted_with_resolved_kind_names() {
     let dir = tempfile::tempdir().unwrap();
     std::fs::write(dir.path().join("a.rs"), "fn alpha() {}\nfn beta() {}\n").unwrap();

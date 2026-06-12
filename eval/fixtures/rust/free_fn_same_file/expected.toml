@@ -1,0 +1,13 @@
+[case]
+language = "rust"
+capability = "free_fn_same_file"
+status = "pass"
+[seed]
+symbol = "helper"
+file = "main.rs"
+line = 1
+[[expect.callers]]
+file = "main.rs"
+line = 4
+[expect]
+exact = true

@@ -1,0 +1,13 @@
+[case]
+language = "rust"
+capability = "closure_call"
+status = "pass"
+[seed]
+symbol = "target_fn"
+file = "main.rs"
+line = 1
+[[expect.callers]]
+file = "main.rs"
+line = 4
+[expect]
+exact = true

@@ -1,0 +1,13 @@
+[case]
+language = "go"
+capability = "cross_pkg_qualified"
+status = "pass"
+[seed]
+symbol = "Tick"
+file = "util/util.go"
+line = 3
+[[expect.callers]]
+file = "main.go"
+line = 6
+[expect]
+exact = true

@@ -1,0 +1,13 @@
+[case]
+language = "python"
+capability = "module_fn"
+status = "pass"
+[seed]
+symbol = "helper"
+file = "app.py"
+line = 1
+[[expect.callers]]
+file = "app.py"
+line = 5
+[expect]
+exact = true

@@ -1,0 +1,13 @@
+[case]
+language = "python"
+capability = "import_module_call"
+status = "pass"
+[seed]
+symbol = "tick"
+file = "util.py"
+line = 1
+[[expect.callers]]
+file = "app.py"
+line = 4
+[expect]
+exact = true

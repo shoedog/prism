@@ -1,0 +1,13 @@
+[case]
+language = "rust"
+capability = "common_name_collision"
+status = "pass"
+[seed]
+symbol = "process"
+file = "alpha.rs"
+line = 1
+[[expect.callers]]
+file = "main.rs"
+line = 5
+[expect]
+exact = true

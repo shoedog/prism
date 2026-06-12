@@ -1,0 +1,94 @@
+{
+  "query": "callees:load_repo@src/repo_loader.rs",
+  "items": [
+    {
+      "symbol": {
+        "Function": {
+          "file": "src/repo_loader.rs",
+          "name": "collect_walk_items",
+          "start_line": 70,
+          "end_line": 76,
+          "ordinal": 0
+        }
+      },
+      "location": {
+        "file": "src/repo_loader.rs",
+        "start_line": 70,
+        "end_line": 76
+      },
+      "score": 1.0,
+      "source": "PrismCpg",
+      "fallback": false,
+      "why": [
+        {
+          "Calls": {
+            "callee": "collect_walk_items",
+            "call_site_line": 58,
+            "qualifier": null
+          }
+        }
+      ],
+      "snippet": null
+    },
+    {
+      "symbol": {
+        "Function": {
+          "file": "src/repo_loader.rs",
+          "name": "parse_candidates_parallel",
+          "start_line": 78,
+          "end_line": 80,
+          "ordinal": 0
+        }
+      },
+      "location": {
+        "file": "src/repo_loader.rs",
+        "start_line": 78,
+        "end_line": 80
+      },
+      "score": 1.0,
+      "source": "PrismCpg",
+      "fallback": false,
+      "why": [
+        {
+          "Calls": {
+            "callee": "parse_candidates_parallel",
+            "call_site_line": 59,
+            "qualifier": null
+          }
+        }
+      ],
+      "snippet": null
+    },
+    {
+      "symbol": {
+        "Function": {
+          "file": "src/repo_loader.rs",
+          "name": "merge_walk_items",
+          "start_line": 101,
+          "end_line": 147,
+          "ordinal": 0
+        }
+      },
+      "location": {
+        "file": "src/repo_loader.rs",
+        "start_line": 101,
+        "end_line": 147
+      },
+      "score": 1.0,
+      "source": "PrismCpg",
+      "fallback": false,
+      "why": [
+        {
+          "Calls": {
+            "callee": "merge_walk_items",
+            "call_site_line": 60,
+            "qualifier": null
+          }
+        }
+      ],
+      "snippet": null
+    }
+  ],
+  "truncated": false,
+  "warnings": []
+}

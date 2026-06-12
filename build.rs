@@ -74,7 +74,7 @@ fn main() {
         }
     }
     let sha = git(&["rev-parse", "--short=12", "HEAD"]).unwrap_or_else(|| "unknown".into());
-    let dirty = git(&["status", "--porcelain"])
+    let dirty = git(&["status", "--porcelain", "-uno"])
         .map(|s| !s.is_empty())
         .unwrap_or(false);
     println!(

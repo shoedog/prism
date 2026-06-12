@@ -1,0 +1,13 @@
+[case]
+language = "rust"
+capability = "method_cross_file_type_ne_stem"
+status = "pass"
+[seed]
+symbol = "process"
+file = "worker.rs"
+line = 4
+[[expect.callers]]
+file = "main.rs"
+line = 4
+[expect]
+exact = true

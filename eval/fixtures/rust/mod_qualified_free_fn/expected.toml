@@ -1,0 +1,13 @@
+[case]
+language = "rust"
+capability = "mod_qualified_free_fn"
+status = "pass"
+[seed]
+symbol = "tick"
+file = "util.rs"
+line = 1
+[[expect.callers]]
+file = "main.rs"
+line = 4
+[expect]
+exact = true

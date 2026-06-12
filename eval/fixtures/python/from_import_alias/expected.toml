@@ -1,0 +1,13 @@
+[case]
+language = "python"
+capability = "from_import_alias"
+status = "known_fail"
+[seed]
+symbol = "tick"
+file = "util.py"
+line = 1
+[[expect.callers]]
+file = "app.py"
+line = 4
+[expect]
+exact = true

@@ -1,0 +1,13 @@
+[case]
+language = "rust"
+capability = "field_receiver_method"
+status = "pass"
+[seed]
+symbol = "poke"
+file = "main.rs"
+line = 4
+[[expect.callers]]
+file = "main.rs"
+line = 12
+[expect]
+exact = true

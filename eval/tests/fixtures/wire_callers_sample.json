@@ -1,0 +1,35 @@
+{
+  "query": "callers:load_repo@src/repo_loader.rs",
+  "items": [
+    {
+      "symbol": {
+        "Function": {
+          "file": "src/main.rs",
+          "name": "build_session",
+          "start_line": 451,
+          "end_line": 467,
+          "ordinal": 0
+        }
+      },
+      "location": {
+        "file": "src/main.rs",
+        "start_line": 451,
+        "end_line": 467
+      },
+      "score": 1.0,
+      "source": "PrismCpg",
+      "fallback": false,
+      "why": [
+        {
+          "CalledBy": {
+            "caller": "build_session",
+            "call_site_line": 456
+          }
+        }
+      ],
+      "snippet": null
+    }
+  ],
+  "truncated": false,
+  "warnings": []
+}

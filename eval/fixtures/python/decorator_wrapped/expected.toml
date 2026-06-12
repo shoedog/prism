@@ -1,0 +1,14 @@
+[case]
+language = "python"
+capability = "decorator_wrapped"
+# B2's designated flip indicator (spec §2.7): the func_index (file,name) quirk
+status = "pass"
+[seed]
+symbol = "handler"
+file = "app.py"
+line = 4
+[[expect.callers]]
+file = "app.py"
+line = 8
+[expect]
+exact = true

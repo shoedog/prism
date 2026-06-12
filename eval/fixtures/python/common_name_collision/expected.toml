@@ -1,0 +1,13 @@
+[case]
+language = "python"
+capability = "common_name_collision"
+status = "pass"
+[seed]
+symbol = "process"
+file = "alpha.py"
+line = 1
+[[expect.callers]]
+file = "app.py"
+line = 4
+[expect]
+exact = true

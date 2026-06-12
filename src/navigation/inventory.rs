@@ -31,10 +31,9 @@ pub fn functions_inventory(repo: &Path) -> anyhow::Result<Vec<FunctionRecord>> {
                     .to_string(),
             })
             .collect();
-        // §2.3 dedup: when records nest, keep the innermost — drop an outer record
-        // when it shares the inner's name, or when it is a decorated_definition
-        // wrapper (whose own name capture may be absent). Wrapper kinds never
-        // survive over their inner definition.
+        // §2.3 dedup: tree-sitter-python captures BOTH (decorated_definition)
+        // wrappers and the inner function_definition. Wrapper kinds never survive
+        // over their inner definition.
         let mut keep = vec![true; recs.len()];
         for i in 0..recs.len() {
             for j in 0..recs.len() {
@@ -45,9 +44,8 @@ pub fn functions_inventory(repo: &Path) -> anyhow::Result<Vec<FunctionRecord>> {
                 let contains = outer.start_line <= inner.start_line
                     && inner.end_line <= outer.end_line
                     && (outer.start_line, outer.end_line) != (inner.start_line, inner.end_line);
-                let same_name = outer.name.is_some() && outer.name == inner.name;
                 let wrapper = outer.kind == "decorated_definition";
-                if contains && (same_name || wrapper) {
+                if contains && wrapper {
                     keep[i] = false;
                 }
             }

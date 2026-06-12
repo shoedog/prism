@@ -1,0 +1,13 @@
+[case]
+language = "python"
+capability = "class_method_same_file"
+status = "pass"
+[seed]
+symbol = "start"
+file = "app.py"
+line = 2
+[[expect.callers]]
+file = "app.py"
+line = 6
+[expect]
+exact = true

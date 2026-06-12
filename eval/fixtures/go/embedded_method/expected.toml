@@ -1,0 +1,13 @@
+[case]
+language = "go"
+capability = "embedded_method"
+status = "pass"
+[seed]
+symbol = "Ping"
+file = "main.go"
+line = 5
+[[expect.callers]]
+file = "main.go"
+line = 12
+[expect]
+exact = true

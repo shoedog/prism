@@ -1,0 +1,13 @@
+[case]
+language = "go"
+capability = "struct_method_same_file"
+status = "pass"
+[seed]
+symbol = "Start"
+file = "main.go"
+line = 5
+[[expect.callers]]
+file = "main.go"
+line = 8
+[expect]
+exact = true

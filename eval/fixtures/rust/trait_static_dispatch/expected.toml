@@ -1,0 +1,13 @@
+[case]
+language = "rust"
+capability = "trait_static_dispatch"
+status = "pass"
+[seed]
+symbol = "go"
+file = "main.rs"
+line = 8
+[[expect.callers]]
+file = "main.rs"
+line = 12
+[expect]
+exact = true
