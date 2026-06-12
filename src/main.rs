@@ -36,7 +36,7 @@ fn parse_diagram_cap(s: &str) -> Result<usize, String> {
 #[derive(Parser, Debug)]
 #[command(
     name = "slicing",
-    version = env!("CARGO_PKG_VERSION"),
+    version = concat!(env!("CARGO_PKG_VERSION"), " (", env!("GIT_SHA"), ")"),
     about = "Code slicing for defect-focused automated code review (arXiv:2505.17928)",
     args_conflicts_with_subcommands = true,
     subcommand_negates_reqs = true,
@@ -298,6 +298,13 @@ enum NavQuery {
         #[arg(long, default_value = "text", value_parser = ["text", "json"])]
         format: String,
     },
+    /// Whole-repo function inventory from the FunctionTable (Tier-A spec §2.3).
+    Functions {
+        #[arg(long)]
+        repo: std::path::PathBuf,
+        #[arg(long, default_value = "json", value_parser = ["text", "json"])]
+        format: String,
+    },
 }
 
 fn main() -> Result<()> {
@@ -418,6 +425,24 @@ fn run_nav(nav: &NavArgs) -> anyhow::Result<()> {
             let session = build_session(repo, nav.no_cache, nav.cache_dir.as_deref())?;
             let ev = prism::navigation::module_graph::repo_map(&session);
             println!("{}", prism::output::navigation::render(&ev, format));
+            Ok(())
+        }
+        NavQuery::Functions { repo, format } => {
+            let recs = prism::navigation::inventory::functions_inventory(repo)?;
+            if format == "json" {
+                println!("{}", serde_json::to_string_pretty(&recs)?);
+            } else {
+                for r in &recs {
+                    println!(
+                        "{}:{}-{} {} [{}]",
+                        r.file,
+                        r.start_line,
+                        r.end_line,
+                        r.name.as_deref().unwrap_or("<anon>"),
+                        r.kind
+                    );
+                }
+            }
             Ok(())
         }
     }

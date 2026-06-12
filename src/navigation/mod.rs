@@ -1,5 +1,6 @@
 pub mod cache;
 pub mod call_resolve;
+pub mod inventory;
 pub mod module_graph;
 pub mod queries;
 pub mod seed;

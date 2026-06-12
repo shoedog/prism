@@ -36,4 +36,53 @@ fn main() {
         h = h.wrapping_mul(0x100000001b3);
     }
     println!("cargo:rustc-env=GRAMMAR_FINGERPRINT={h:016x}");
+
+    // Build identity (Tier-A spec §2.3). IDENTITY GRAMMAR — single owner is this
+    // comment; consumers MUST cite it: tests/cli/version_test.rs and the eval
+    // harness's parse_version (eval/tier_a/sut.py):
+    //     version line = "slicing <semver> (<identity>)"
+    //     identity     = <sha:[0-9a-f]{12,40}>["-dirty"]  |  "unknown"
+    // "unknown" = gitless build (source archive, no git in PATH); consumers treat it
+    // as not-verifiable. Staleness model: rerun triggers cover (a) source edits
+    // within a commit (src/ watch — the binary's actual inputs), (b) commits/branch
+    // moves and (c) gc/pack-refs (resolved gitdir HEAD + loose ref + packed-refs;
+    // worktree-safe via `git rev-parse --git-dir`). The eval harness ALSO checks the
+    // repo's HEAD and dirtiness directly at run time — the embedded identity is the
+    // binary's claim about what it was built from, not the sole source of truth.
+    println!("cargo:rerun-if-changed={manifest}/src");
+    let git = |args: &[&str]| {
+        std::process::Command::new("git")
+            .args(args)
+            .current_dir(&manifest)
+            .output()
+            .ok()
+            .filter(|o| o.status.success())
+            .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+    };
+    if let Some(gd) = git(&["rev-parse", "--git-dir"]) {
+        let gd = if std::path::Path::new(&gd).is_absolute() {
+            gd
+        } else {
+            format!("{manifest}/{gd}")
+        };
+        println!("cargo:rerun-if-changed={gd}/HEAD");
+        println!("cargo:rerun-if-changed={gd}/packed-refs");
+        if let Ok(head) = std::fs::read_to_string(format!("{gd}/HEAD")) {
+            if let Some(r) = head.trim().strip_prefix("ref: ") {
+                println!("cargo:rerun-if-changed={gd}/{r}");
+            }
+        }
+    }
+    let sha = git(&["rev-parse", "--short=12", "HEAD"]).unwrap_or_else(|| "unknown".into());
+    let dirty = git(&["status", "--porcelain"])
+        .map(|s| !s.is_empty())
+        .unwrap_or(false);
+    println!(
+        "cargo:rustc-env=GIT_SHA={sha}{}",
+        if sha != "unknown" && dirty {
+            "-dirty"
+        } else {
+            ""
+        }
+    );
 }
