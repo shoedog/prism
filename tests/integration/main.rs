@@ -1,0 +1,11 @@
+mod call_graph_test;
+#[allow(dead_code)]
+#[path = "../common/mod.rs"]
+mod common;
+mod core_test;
+mod coverage_test;
+mod cwe_phase1_suppression_test;
+mod cwe_phase2_suppression_test;
+mod cwe_phase3_suppression_test;
+mod hapi_regression_test;
+mod scoped_cpg_test;

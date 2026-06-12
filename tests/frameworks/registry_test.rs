@@ -1,6 +1,4 @@
-#[path = "../common/mod.rs"]
-mod common;
-use common::*;
+use crate::common::*;
 use prism::frameworks;
 
 fn parse_go(source: &str) -> ParsedFile {

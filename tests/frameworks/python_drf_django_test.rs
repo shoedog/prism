@@ -1,6 +1,4 @@
-#[path = "../common/mod.rs"]
-mod common;
-use common::*;
+use crate::common::*;
 
 fn parse_python(source: &str) -> ParsedFile {
     ParsedFile::parse("views.py", source, Language::Python).unwrap()

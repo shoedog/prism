@@ -1,6 +1,4 @@
-#[path = "../common/mod.rs"]
-mod common;
-use common::*;
+use crate::common::*;
 
 fn lang_matches(name: &str, lang_key: &str) -> bool {
     match lang_key {

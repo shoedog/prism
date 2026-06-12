@@ -1,6 +1,4 @@
-#[path = "../common/mod.rs"]
-mod common;
-use common::*;
+use crate::common::*;
 
 fn parse_go(source: &str) -> ParsedFile {
     ParsedFile::parse("test.go", source, Language::Go).unwrap()

@@ -3,9 +3,7 @@
 //! Sanitized fixtures should suppress taint sinks; unsanitized mirrors should
 //! continue to report a `taint_sink`.
 
-#[path = "../common/mod.rs"]
-mod common;
-use common::*;
+use crate::common::*;
 
 use std::fs;
 use std::path::PathBuf;

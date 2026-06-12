@@ -1,0 +1,11 @@
+mod cache_test;
+mod callees_test;
+mod callers_test;
+mod ego_test;
+mod index_test;
+mod loader_test;
+mod module_graph_test;
+mod nodes_at_test;
+mod scoped_calls_test;
+mod seed_test;
+mod types_test;

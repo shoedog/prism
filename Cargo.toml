@@ -72,143 +72,15 @@ required-features = ["mcp"]
 
 # ── Integration tests ──
 
-[[test]]
-name = "integration_call_graph"
-path = "tests/integration/call_graph_test.rs"
-
-[[test]]
-name = "integration_core"
-path = "tests/integration/core_test.rs"
-
-[[test]]
-name = "integration_scoped_cpg"
-path = "tests/integration/scoped_cpg_test.rs"
-
-[[test]]
-name = "integration_coverage"
-path = "tests/integration/coverage_test.rs"
-
-[[test]]
-name = "integration_hapi_regression"
-path = "tests/integration/hapi_regression_test.rs"
-
-[[test]]
-name = "integration_cwe_phase1_suppression"
-path = "tests/integration/cwe_phase1_suppression_test.rs"
-
-[[test]]
-name = "integration_cwe_phase2_suppression"
-path = "tests/integration/cwe_phase2_suppression_test.rs"
-
-[[test]]
-name = "integration_cwe_phase3_suppression"
-path = "tests/integration/cwe_phase3_suppression_test.rs"
-
 # ── Framework detection tests ──
 
-[[test]]
-name = "frameworks_nethttp"
-path = "tests/frameworks/nethttp_test.rs"
-
-[[test]]
-name = "frameworks_gin"
-path = "tests/frameworks/gin_test.rs"
-
-[[test]]
-name = "frameworks_gorilla_mux"
-path = "tests/frameworks/gorilla_mux_test.rs"
-
-[[test]]
-name = "frameworks_registry"
-path = "tests/frameworks/registry_test.rs"
-
-[[test]]
-name = "frameworks_python_fastapi"
-path = "tests/frameworks/python_fastapi_test.rs"
-
-[[test]]
-name = "frameworks_python_flask"
-path = "tests/frameworks/python_flask_test.rs"
-
-[[test]]
-name = "frameworks_python_drf_django"
-path = "tests/frameworks/python_drf_django_test.rs"
-
-[[test]]
-name = "frameworks_js_ts"
-path = "tests/frameworks/js_ts_test.rs"
-
 # ── CLI tests ──
-
-[[test]]
-name = "cli_algo"
-path = "tests/cli/algo_test.rs"
-
-[[test]]
-name = "cli_validation"
-path = "tests/cli/validation_test.rs"
-
-[[test]]
-name = "cli_output"
-path = "tests/cli/output_test.rs"
-
-[[test]]
-name = "cli_diagram_e2e"
-path = "tests/cli/diagram_e2e_test.rs"
-
-[[test]]
-name = "cli_nav_compat"
-path = "tests/cli/nav_compat_test.rs"
 
 # ── Navigation tests ──
 
 [[test]]
-name = "navigation_loader"
-path = "tests/navigation/loader_test.rs"
-
-[[test]]
-name = "navigation_index"
-path = "tests/navigation/index_test.rs"
-
-[[test]]
-name = "navigation_types"
-path = "tests/navigation/types_test.rs"
-
-[[test]]
 name = "reasoning_smoke"
 path = "tests/reasoning/smoke_test.rs"
-
-[[test]]
-name = "navigation_nodes_at"
-path = "tests/navigation/nodes_at_test.rs"
-
-[[test]]
-name = "navigation_seed"
-path = "tests/navigation/seed_test.rs"
-
-[[test]]
-name = "navigation_callers"
-path = "tests/navigation/callers_test.rs"
-
-[[test]]
-name = "navigation_callees"
-path = "tests/navigation/callees_test.rs"
-
-[[test]]
-name = "navigation_ego"
-path = "tests/navigation/ego_test.rs"
-
-[[test]]
-name = "navigation_cache"
-path = "tests/navigation/cache_test.rs"
-
-[[test]]
-name = "navigation_module_graph"
-path = "tests/navigation/module_graph_test.rs"
-
-[[test]]
-name = "navigation_scoped_calls"
-path = "tests/navigation/scoped_calls_test.rs"
 
 # ── Output tests ──
 
@@ -279,3 +151,19 @@ path = "tests/lang/typescript/main.rs"
 [[test]]
 name = "lang_bash"
 path = "tests/lang/bash/main.rs"
+
+[[test]]
+name = "navigation"
+path = "tests/navigation/main.rs"
+
+[[test]]
+name = "integration"
+path = "tests/integration/main.rs"
+
+[[test]]
+name = "frameworks"
+path = "tests/frameworks/main.rs"
+
+[[test]]
+name = "cli"
+path = "tests/cli/main.rs"

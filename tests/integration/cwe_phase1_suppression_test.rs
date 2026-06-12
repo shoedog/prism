@@ -9,9 +9,7 @@
 //!
 //! See `docs/superpowers/specs/2026-04-25-phase1-cwe-go-design.md` §3.10.
 
-#[path = "../common/mod.rs"]
-mod common;
-use common::*;
+use crate::common::*;
 
 use std::fs;
 use std::path::PathBuf;
