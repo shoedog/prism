@@ -510,7 +510,7 @@ deliberately (it is the comparison anchor, not a rolling log).
 ### 2.11 Runner and quick modes
 
 ```bash
-uv run tier-a --corpus all              # full run, 4 corpora (the baseline command)
+uv run tier-a --corpus all              # full run, 5 corpora (the baseline command)
 uv run tier-a --corpus prism            # one corpus
 uv run tier-a --quick                   # prism corpus, 3/stratum, + matrix (minutes)
 uv run tier-a --matrix-only             # capability matrix only, no LSP (seconds)

@@ -50,7 +50,7 @@ Expected: P1 and P2 real/user/sys + max RSS captured; P2 ≈ the known ~21-minut
 
 - [ ] **Step 2: Record the baseline point**
 
-Write `docs/eval/wp2-timing.md`:
+Create the directory (`mkdir -p docs/eval`) and write `docs/eval/wp2-timing.md`:
 
 ```markdown
 # WP2 timing protocol results (spec §3.3)
@@ -90,15 +90,17 @@ is load-bearing — 93 files call helpers unqualified, and there are **zero** in
 `common::` references outside those two header lines, verified). Module names are
 file-derived, no `#[path]` aliasing (spec §3.1).
 
-- [ ] **Step 1: Write the one-shot transform script**
+- [ ] **Step 1: Write the transform script (committed — Tasks 3–5 and any resumed
+session need it from the tree)**
 
-Save as `/tmp/consolidate.py` (not committed):
+Save as `scripts/consolidate_tests.py` and include it in this task's commit:
 
 ```python
 #!/usr/bin/env python3
-"""One-shot per-directory test consolidation. Usage:
-   python3 /tmp/consolidate.py tests/ast ast
-   python3 /tmp/consolidate.py tests/mcp mcp --required-features mcp
+"""Per-directory test consolidation (WP2, spec §3.1). Usage:
+   python3 scripts/consolidate_tests.py tests/ast ast
+   python3 scripts/consolidate_tests.py tests/mcp mcp --required-features mcp
+Idempotence guard: refuses to run if <dir>/main.rs already exists.
 """
 import re, sys, pathlib
 
@@ -106,6 +108,7 @@ d = pathlib.Path(sys.argv[1])
 target = sys.argv[2]
 req_feat = sys.argv[4] if "--required-features" in sys.argv else None
 
+assert not (d / "main.rs").exists(), f"{d} already consolidated"
 files = sorted(p for p in d.glob("*.rs") if p.name != "main.rs")
 assert files, f"no test files under {d}"
 
@@ -148,11 +151,11 @@ by hand rather than loosening the regex.
 - [ ] **Step 2: Run for batch-1 directories**
 
 ```bash
-python3 /tmp/consolidate.py tests/ast ast
-python3 /tmp/consolidate.py tests/algo/novel algo_novel
-python3 /tmp/consolidate.py tests/algo/taxonomy algo_taxonomy
-python3 /tmp/consolidate.py tests/algo/theoretical algo_theoretical
-python3 /tmp/consolidate.py tests/algo/paper algo_paper
+python3 scripts/consolidate_tests.py tests/ast ast
+python3 scripts/consolidate_tests.py tests/algo/novel algo_novel
+python3 scripts/consolidate_tests.py tests/algo/taxonomy algo_taxonomy
+python3 scripts/consolidate_tests.py tests/algo/theoretical algo_theoretical
+python3 scripts/consolidate_tests.py tests/algo/paper algo_paper
 grep -c '^\[\[test\]\]' Cargo.toml
 ```
 
@@ -175,7 +178,7 @@ helper* in one file (never a `#[test]` fn) and note it in the commit message.
 - [ ] **Step 4: Commit**
 
 ```bash
-git add -A tests/ast tests/algo Cargo.toml
+git add -A tests/ast tests/algo Cargo.toml scripts/consolidate_tests.py
 git commit -m "test(wp2): consolidate ast+algo test dirs into 5 umbrella targets (48->5)"
 ```
 
@@ -189,7 +192,7 @@ git commit -m "test(wp2): consolidate ast+algo test dirs into 5 umbrella targets
 
 ```bash
 for d in c cpp go java javascript lua rust terraform tsx typescript bash; do
-  python3 /tmp/consolidate.py tests/lang/$d lang_$d
+  python3 scripts/consolidate_tests.py tests/lang/$d lang_$d
 done
 grep -c '^\[\[test\]\]' Cargo.toml
 ```
@@ -223,7 +226,7 @@ git commit -m "test(wp2): consolidate tests/lang into 11 umbrella targets (37->1
 
 ```bash
 for pair in "navigation navigation" "integration integration" "frameworks frameworks" "cli cli"; do
-  set -- $pair; python3 /tmp/consolidate.py tests/$1 $2
+  set -- $pair; python3 scripts/consolidate_tests.py tests/$1 $2
 done
 grep -c '^\[\[test\]\]' Cargo.toml
 ```
@@ -259,10 +262,10 @@ git commit -m "test(wp2): consolidate navigation/integration/frameworks/cli (32-
 - [ ] **Step 1: Consolidate the four single-file dirs (uniformity — filters work the same everywhere)**
 
 ```bash
-python3 /tmp/consolidate.py tests/reasoning reasoning
-python3 /tmp/consolidate.py tests/output output
-python3 /tmp/consolidate.py tests/mcp mcp --required-features mcp
-python3 /tmp/consolidate.py tests/infra infra
+python3 scripts/consolidate_tests.py tests/reasoning reasoning
+python3 scripts/consolidate_tests.py tests/output output
+python3 scripts/consolidate_tests.py tests/mcp mcp --required-features mcp
+python3 scripts/consolidate_tests.py tests/infra infra
 grep -c '^\[\[test\]\]' Cargo.toml
 ```
 
@@ -273,14 +276,18 @@ Expected: **24** — the spec §3.1 migration table, complete. Verify
 
 ```bash
 cargo fmt && cargo test && cargo test --features mcp --test mcp
-grep -rn -- "--test " CLAUDE.md scripts/ .github/ docs/MCP.md 2>/dev/null
+grep -rn -- "--test " . --include="*.md" --include="*.yml" --include="*.yaml" \
+  --include="*.json" --include="*.py" --include="*.sh" 2>/dev/null | grep -v "^./target"
 grep -rEn "tests/(ast|algo|lang|navigation|integration|frameworks|cli|reasoning|output|mcp|infra)/[a-z_]+\.rs" scripts/ .github/ 2>/dev/null
 ```
 
-Expected: full suite PASS. The first grep lists every stale `--test <old-name>`
-reference (CLAUDE.md has several; `.github/` has zero — verified pre-plan; treat any
-hit as in-scope to fix). The second (path-style, spec G6) is expected clean —
-`scripts/extract_tests.py` has zero references (verified).
+Expected: full suite PASS. The first grep is **repo-wide** (G6): fix CLAUDE.md and
+docs/MCP.md hits, and **fix `.claude/settings.local.json`** (it carries `--test`-pattern
+permission entries that would silently stop matching — live config, not historical);
+leave purely historical records (`STATUS-prism-cwe-phase*.md`,
+`docs/prism-query-layer/*.md` review records) untouched and name them as exempt in the
+commit message. The second grep (path-style) is expected clean —
+`scripts/extract_tests.py` has zero `--test` references (verified).
 
 - [ ] **Step 3: Rewrite CLAUDE.md's test-suite documentation**
 
@@ -337,14 +344,24 @@ Append to `Cargo.toml`:
 debug = "line-tables-only"
 ```
 
-- [ ] **Step 2: Verify build + a failing-test backtrace still shows file:line**
+- [ ] **Step 2: Verify build + that a backtrace genuinely keeps file:line**
+
+A passing run emits no backtrace, so probe with a deliberate (uncommitted) failure:
 
 ```bash
-cargo test --test infra 2>&1 | tail -3
-RUST_BACKTRACE=1 cargo test --test cli validation_test:: 2>&1 | head -5
+cargo test --test infra 2>&1 | tail -3       # suite still green under the new profile
+cat >> tests/infra/main.rs << 'EOF'
+#[test]
+fn wp2_backtrace_probe() {
+    panic!("probe");
+}
+EOF
+RUST_BACKTRACE=1 cargo test --test infra wp2_backtrace_probe 2>&1 | grep -E "tests/infra|src/" | head -5
+git checkout tests/infra/main.rs            # revert the probe before committing
 ```
 
-Expected: PASS; any backtrace emitted during the run shows `src/...:NN` frames.
+Expected: backtrace frames show `tests/infra/main.rs:NN` (file:line preserved under
+`line-tables-only`); probe reverted.
 
 - [ ] **Step 3: Commit (separate from 3.1 so its timing contribution is attributable)**
 
@@ -640,8 +657,8 @@ git commit -m "feat(nav): functions inventory subcommand with innermost-dedup (�
 
 **Files:**
 - Create: `eval/pyproject.toml`, `eval/.python-version`, `eval/tier_a/__init__.py`,
-  `eval/tier_a/model.py`, `eval/tests/test_model.py`, `eval/README.md` (skeleton),
-  `eval/.gitignore`
+  `eval/tier_a/model.py`, `eval/tier_a/interfaces.py`, `eval/tests/test_model.py`,
+  `eval/README.md` (skeleton), `eval/.gitignore`
 
 All eval tasks run from `eval/`: `cd eval && uv run pytest -q`. (Container fallback:
 `python3 -m pytest -q` if Python 3.12 + pytest are present; otherwise eval pytest is a
@@ -683,7 +700,7 @@ __pycache__/
 runs/
 ```
 
-`eval/README.md` skeleton (completed in Task 19):
+`eval/README.md` skeleton (completed in Task 20):
 
 ```markdown
 # prism-eval — Tier-A accuracy harness
@@ -811,13 +828,44 @@ def match_by_selection(oracle_fd: FunctionDef,
     return tie_break(cands) if cands else None
 ```
 
-- [ ] **Step 5: Run tests, verify pass**
+- [ ] **Step 5: Add `eval/tier_a/interfaces.py` — the spec-named swap seam (§2.1)**
+
+```python
+"""The two hard seams (spec §2.1, PEP 544). Sampling/comparison/adjudication/report
+code depends ONLY on these protocols — multilspy, SCIP, a Rust rewrite, or a
+non-prism SUT swap in behind them without touching anything downstream."""
+from __future__ import annotations
+
+from typing import Protocol, runtime_checkable
+
+from .model import CallEdge, DefTarget, FunctionDef
+
+
+@runtime_checkable
+class Oracle(Protocol):
+    def inventory(self, corpus_root: str) -> list[FunctionDef]: ...
+    def callers(self, def_: FunctionDef) -> list[CallEdge]: ...
+    def callees(self, def_: FunctionDef) -> list[CallEdge]: ...
+    def definitions_at(self, file: str, line: int, character: int) -> list[DefTarget]: ...
+    def version(self) -> str: ...
+    def capability_probe(self) -> bool: ...
+
+
+@runtime_checkable
+class SystemUnderTest(Protocol):
+    def inventory(self, corpus_root: str) -> list[FunctionDef]: ...
+    def callers(self, corpus_root: str, def_: FunctionDef) -> list[CallEdge]: ...
+    def callees(self, corpus_root: str, def_: FunctionDef) -> list[CallEdge]: ...
+    def version(self) -> str: ...
+```
+
+- [ ] **Step 6: Run tests, verify pass**
 
 Run: `cd eval && uv run pytest -q` — Expected: PASS (4 tests). Commit:
 
 ```bash
 git add eval
-git commit -m "feat(eval): scaffold uv project + §2.1 schemas/normalization with tests"
+git commit -m "feat(eval): scaffold uv project + §2.1 schemas/seams with tests"
 ```
 
 ### Task 11: stdlib LSP client + echo-server framing tests (spec §2.2)
@@ -951,8 +999,12 @@ class LspServerError(LspError):
 
 
 class LspClient:
-    def __init__(self, cmd: list[str], cwd: str, default_timeout: float = 30.0):
+    def __init__(self, cmd: list[str], cwd: str, default_timeout: float = 30.0,
+                 root_uri: str | None = None):
+        # root_uri: live LSP servers (rust-analyzer/gopls/pyright) need workspace
+        # context for documentSymbol/callHierarchy; the echo-server tests pass None.
         self._cmd, self._cwd, self._timeout = cmd, cwd, default_timeout
+        self._root_uri = root_uri
         self._proc: subprocess.Popen | None = None
         self._next_id = 0
         self._lock = threading.Lock()
@@ -964,8 +1016,11 @@ class LspClient:
             self._cmd, cwd=self._cwd, stdin=subprocess.PIPE,
             stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
         threading.Thread(target=self._reader, daemon=True).start()
-        self.request("initialize", {"processId": None, "rootUri": None,
-                                    "capabilities": {}})
+        params = {"processId": None, "rootUri": self._root_uri,
+                  "capabilities": {"window": {"workDoneProgress": True}}}
+        if self._root_uri:
+            params["workspaceFolders"] = [{"uri": self._root_uri, "name": "corpus"}]
+        self.server_info = self.request("initialize", params).get("serverInfo", {})
         self.notify("initialized", {})
 
     def stop(self) -> None:
@@ -1041,7 +1096,7 @@ git add eval && git commit -m "feat(eval): stdlib LSP JSON-RPC client + echo-ser
 
 The adapters have two halves: **pure mapping functions** (LSP JSON → §2.1 dataclasses;
 fully unit-tested against canned JSON, no servers) and **lifecycle** (spawn, readiness,
-capability probe; exercised only in Task 20's live run). Server commands:
+capability probe; exercised only in Task 21's live run). Server commands:
 rust-analyzer → `["rust-analyzer"]`, gopls → `["gopls", "serve"]`,
 pyright → `["pyright-langserver", "--stdio"]`.
 
@@ -1248,16 +1303,25 @@ PROBE_SOURCES = {
 }
 
 
+class OracleError(Exception):
+    """Any per-probe oracle failure (timeout, server error, bad response shape).
+    The accounting layer converts these to oracle_error counts (spec §2.2) —
+    they are NEVER converted into prism failures."""
+
+
 class LspOracle:
     """Shared lifecycle: spawn, quiescence ($/progress drain), capability probe,
-    per-method wrappers that raise OracleError on failure (the harness layer
-    converts those to oracle_error accounting — spec §2.2)."""
+    per-method wrappers that raise OracleError on failure."""
 
     def __init__(self, cmd, root, lang, settle_s=2.0, quiescence_cap_s=300.0):
+        import os as _os
+        import urllib.parse as _up
         from .lsp_client import LspClient
         self.root, self.lang = root, lang
         self.not_quiescent = False
-        self.client = LspClient(cmd, cwd=root)
+        self._cmd = cmd
+        self.client = LspClient(cmd, cwd=root,
+                                root_uri="file://" + _up.quote(_os.path.abspath(root)))
         self._settle, self._cap = settle_s, quiescence_cap_s
 
     def start(self):
@@ -1309,9 +1373,83 @@ class LspOracle:
             return False
 ```
 
+Plus the callable per-method wrappers Task 20's runner consumes — every raw
+`client.request` is funneled through `_req` so failures become `OracleError`, and
+`version()` produces the report's oracle string:
+
+```python
+    def _req(self, method, params, timeout=None):
+        from .lsp_client import LspError
+        try:
+            r = self.client.request(method, params, timeout=timeout)
+        except LspError as e:
+            raise OracleError(f"{method}: {e}") from e
+        if r is None:
+            raise OracleError(f"{method}: null result")
+        return r
+
+    def _uri(self, rel_path):
+        return "file://" + urllib.parse.quote(os.path.abspath(
+            os.path.join(self.root, rel_path)))
+
+    def document_symbols(self, rel_path):
+        from .oracles import map_document_symbols  # self-import safe at module level
+        self.did_open(rel_path)
+        syms = self._req("textDocument/documentSymbol",
+                         {"textDocument": {"uri": self._uri(rel_path)}})
+        return map_document_symbols(rel_path, syms)
+
+    def _hierarchy_item(self, fd):
+        items = self._req("textDocument/prepareCallHierarchy",
+                          {"textDocument": {"uri": self._uri(fd.location.file)},
+                           "position": {"line": fd.selection_line - 1, "character": 0}})
+        if not items:
+            raise OracleError(f"prepareCallHierarchy: no item for {fd.name}")
+        return items[0]
+
+    def callers(self, fd):
+        items = self._req("callHierarchy/incomingCalls",
+                          {"item": self._hierarchy_item(fd)})
+        return map_incoming(fd, items, self.root)
+
+    def callees(self, fd):
+        items = self._req("callHierarchy/outgoingCalls",
+                          {"item": self._hierarchy_item(fd)})
+        return map_outgoing(fd, items, self.root)
+
+    def definitions_at(self, inventory, rel_path, line, character):
+        raw = self._req("textDocument/definition",
+                        {"textDocument": {"uri": self._uri(rel_path)},
+                         "position": {"line": line - 1, "character": character}})
+        raw = raw if isinstance(raw, list) else [raw]
+        return enrich_definitions(raw, inventory, self.root)
+
+    def version(self):
+        import subprocess as _sp
+        info = getattr(self.client, "server_info", {}) or {}
+        if info.get("name"):
+            return f"{info['name']} {info.get('version', '?')}"
+        try:
+            out = _sp.run([self._cmd[0], "--version"], capture_output=True,
+                          text=True, timeout=10).stdout.strip()
+            return out.splitlines()[0] if out else self._cmd[0]
+        except Exception:
+            return self._cmd[0]
+```
+
+Note `prepareCallHierarchy` positions at `character: 0` of the selection line; if a
+live server demands the exact name-token column, extend `FunctionDef` consumers to pass
+the selectionRange character (the inventory snapshot already stores what the oracle
+returned — record the adjustment in the run report). Wrapper-level tests: add a
+`FakeRawClient` (dict-programmed `request`/`notify`/`drain_notifications`) to
+`eval/tests/test_oracles.py` and assert (a) `callers()` raises `OracleError` when the
+fake returns an LSP error, and (b) `_hierarchy_item` raises `OracleError` on an empty
+prepare result — those two paths feed the §2.2 accounting and must not be guessed.
+
 (rust-analyzer/gopls/pyright concrete classes are thin: command + any
 server-specific `initializationOptions`; start with none and add only if the live
-run in Task 20 requires them — record additions in the run report.)
+run in Task 21 requires them — record additions in the run report.)
+
 
 - [ ] **Step 5: Run tests, verify pass, commit**
 
@@ -1319,6 +1457,23 @@ run in Task 20 requires them — record additions in the run report.)
 cd eval && uv run pytest -q
 git add eval && git commit -m "feat(eval): oracle adapters — tested LSP mapping + lifecycle/probe (§2.2)"
 ```
+
+- [ ] **Step 6 [ORCHESTRATOR]: early live pyright probe (de-risk the §2.2
+precondition NOW, not at baseline time).** Run on the host as soon as this task lands:
+
+```bash
+npm i -g pyright
+cd eval && uv run python -c "
+from tier_a.oracles import LspOracle
+o = LspOracle(['pyright-langserver', '--stdio'], 'fixtures/python/module_fn', 'python')
+o.client.start(); print('capability_probe:', o.capability_probe())"
+```
+
+(If Task 18's fixtures aren't merged yet, point at any directory containing one small
+`.py` file.) `True` → pyright call hierarchy works, the fallback is struck. `False` →
+try `basedpyright`; if that also fails, **add a references-fallback task**
+(oracle `callers()` via `textDocument/references` + caller-function containment per
+spec §2.2) before Task 21 — do not let the baseline stall into unplanned work.
 
 ### Task 13: `PrismCli` SUT adapter (spec §2.3/§2.5 extraction table)
 
@@ -1509,7 +1664,40 @@ class PrismCli:
         loc = f"{seed.location.file}:{seed.location.start_line}"
         return extract_callees(seed, self._run(
             ["callees", "--repo", corpus_root, "--location", loc, "--depth", "1"]))
+
+    def callers_by_symbol(self, corpus_root: str, symbol: str,
+                          file: str | None = None) -> list[CallEdge]:
+        """Bare/with-file symbol seeding — the pathway for pinned probe #4
+        (`ambiguous_symbol_error`): a bare common name MUST raise SutAmbiguous."""
+        args = ["callers", "--repo", corpus_root, "--symbol", symbol, "--depth", "1"]
+        if file:
+            args += ["--file", file]
+        seed = FunctionDef(symbol, "function", None, Location(file or "?", 1, 1), 1)
+        return extract_callers(seed, self._run(args))
+
+    def version(self) -> str:
+        return f"prism {self.sha}{'-dirty' if self.dirty else ''}"
 ```
+
+and teach `_run` to classify the safe-fail contract instead of collapsing every
+nonzero exit into a crash:
+
+```python
+class SutAmbiguous(SutError):
+    """prism's AmbiguousSymbol safe-fail — a CONTRACT, not a crash (§2.5 probe #4)."""
+
+
+# inside _run, replace the bare `raise SutError(...)` with:
+        if p.returncode != 0:
+            blob = p.stdout or p.stderr
+            if "AmbiguousSymbol" in blob:
+                raise SutAmbiguous(blob)
+            raise SutError(f"prism nav {args[0]} failed ({p.returncode}): {blob}")
+```
+
+with one more test in `eval/tests/test_sut.py` (the classifier is pure — feed it via a
+monkeypatched `subprocess.run` returning returncode 3 and an `AmbiguousSymbol` JSON
+error body; assert `SutAmbiguous` is raised, not `SutError`).
 
 - [ ] **Step 5: Run tests, verify pass, commit**
 
@@ -1587,6 +1775,17 @@ def test_sampling_is_deterministic_and_respects_shortfall():
     assert s1 == s2
     assert len(s1["C-name"]) == 2   # shortfall: takes all eligible
     assert len(s1["U-free"]) == 8
+
+
+def test_filter_to_universe_drops_out_of_universe_prism_records():
+    # §2.4: the SAME include/exclude filter applies to prism's inventory — without
+    # this, prism's whole-repo walk floods prism_extra with tests/fixtures/ and
+    # eval/fixtures/ records on the prism corpus (review M5).
+    from tier_a.strata import filter_to_universe
+    recs = [fd("a", "src/lib.rs"), fd("b", "tests/fixtures/x.py"),
+            fd("c", "eval/fixtures/rust/free_fn_same_file/main.rs")]
+    kept = filter_to_universe(recs, universe_files={"src/lib.rs"})
+    assert [r.name for r in kept] == ["a"]
 ```
 
 - [ ] **Step 2: Run, verify failure**, then **Step 3: implement `eval/tier_a/strata.py`**
@@ -1653,6 +1852,13 @@ def inventory_diff(oracle: list[FunctionDef], prism: list[FunctionDef]) -> Inven
             d.matched.append((ofd, m))
     d.prism_extra = [p for p in named_prism if p not in used]
     return d
+
+
+def filter_to_universe(records: list[FunctionDef],
+                       universe_files: set[str]) -> list[FunctionDef]:
+    """§2.4: apply the corpus universe filter to BOTH inventories. The runner MUST
+    pass prism's `nav functions` output through this before inventory_diff."""
+    return [r for r in records if r.location.file in universe_files]
 
 
 def sample_strata(oracle: list[FunctionDef], defs_per_name: dict, lang: str,
@@ -1944,7 +2150,7 @@ git add eval && git commit -m "feat(eval): M2 site/caller-fn comparison, Wilson 
 - Create: `eval/tier_a/adjudication.py`, `eval/tests/test_adjudication.py`
 
 The two known feature-gated records are **not** committed here — their `seed_def`
-selection lines come from measurement 1's first live run (Task 20 commits them).
+selection lines come from measurement 1's first live run (Task 21 commits them).
 This task ships the loader/validator/transform with synthetic-record tests.
 
 - [ ] **Step 1: Failing tests**
@@ -1991,6 +2197,16 @@ def test_truth_table_transforms():
     assert out.pending == 2
     assert out.oracle_miss_count == 1
     assert out.excluded == 1
+
+
+def test_ambiguous_and_alias_site_are_excluded_listed():
+    # the two §2.6/§2.8 routing verdicts must land in `excluded`, not FP/FN
+    fp = {("src/a.rs", 10), ("src/b.rs", 11)}
+    records = [rec(site="src/a.rs:10", verdict="ambiguous"),
+               rec(site="src/b.rs:11", verdict="alias_site")]
+    out = apply_verdicts(tp=0, fp_sites=fp, fn_sites=set(), records=records,
+                         corpus="prism", measurement="callers", seed_def="src/s.rs:5")
+    assert (out.fp, out.excluded, out.pending) == (0, 2, 0)
 
 
 def test_stale_records_flagged_not_deleted():
@@ -3145,7 +3361,35 @@ def run_matrix(fixtures_root: Path, sut, languages: list[str]) -> list[CaseResul
     return results
 ```
 
+Also add the spec §2.12-named live self-test (skipped when the binary is absent) so
+future fixture edits get an automated real-binary check, not just the one-off
+reconciliation below — append to `eval/tests/test_matrix.py`:
+
+```python
+import os
+
+import pytest
+
+PRISM_BIN = os.environ.get("PRISM_BIN", str(Path(__file__).resolve().parents[2]
+                                            / "target/release/prism"))
+
+
+@pytest.mark.skipif(not os.path.exists(PRISM_BIN), reason="release prism binary absent")
+def test_matrix_against_real_binary_has_no_regressions():
+    from tier_a.sut import PrismCli
+    sut = PrismCli(str(Path(__file__).resolve().parents[2]), sut_bin=PRISM_BIN,
+                   allow_stale=True)   # self-test: freshness is Task 21's concern
+    results = run_matrix(FIXTURES, sut, ["rust", "go", "python"])
+    regressions = [r for r in results if r.outcome == "regression"]
+    assert not regressions, f"matrix regressions: {regressions}"
+```
+
 - [ ] **Step 5: Run tests; then reconcile fixture statuses against the real binary**
+
+*(Execution-model note: this step needs the release binary AND Python 3.12 + uv in one
+environment. If the container lacks the Python side, this step — like the pytest suite
+— falls back to the orchestrator host, per spec §5; the implementor then commits
+fixture-status edits the orchestrator reports back.)*
 
 ```bash
 cd eval && uv run pytest -q          # runner tests pass against FakeSut
@@ -3172,7 +3416,132 @@ that flipped in the commit message.
 git add eval && git commit -m "feat(eval): capability matrix — runner + 29 fixtures, statuses reconciled (§2.7)"
 ```
 
-### Task 19: corpora.toml, runner CLI, reports, README, agent guidance (spec §2.9–§2.11, G8)
+### Task 19: Probe accounting + validity floors (`accounting.py`) (spec §2.2/§2.5)
+
+**Files:**
+- Create: `eval/tier_a/accounting.py`, `eval/tests/test_accounting.py`
+
+The bookkeeping the gates stand on (review B2): per-probe outcome classification,
+the §2.5 `inventory_miss` → all-oracle-edges-FN rule, error rates, and the §2.2
+validity floors (failure-based; natural shortfall non-gating). A bug here silently
+corrupts P/R — it gets the same TDD treatment as the metrics.
+
+- [ ] **Step 1: Failing tests**
+
+`eval/tests/test_accounting.py`:
+
+```python
+from tier_a.accounting import CorpusAccounting, evaluate_floors
+
+
+def test_probe_outcomes_and_rates():
+    acc = CorpusAccounting()
+    acc.record("s1", "ok")
+    acc.record("s2", "oracle_error")
+    acc.record("s3", "sut_error")
+    acc.record("s4", "inventory_miss")
+    assert acc.oracle_error_rate() == 0.25
+    assert acc.sut_error_rate() == 0.25
+    assert acc.successful() == 1          # only fully-scored probes
+    assert acc.inventory_misses == ["s4"]
+
+
+def test_inventory_miss_scores_all_oracle_edges_as_fn():
+    # §2.5: an unmatched sampled symbol is not seeded; its oracle edges are ALL FN
+    acc = CorpusAccounting()
+    fn_sites = acc.score_inventory_miss(oracle_sites={("a.rs", 1), ("a.rs", 9)})
+    assert fn_sites == {("a.rs", 1), ("a.rs", 9)}
+
+
+def test_floors_failure_based_not_population_based():
+    # stratum floor: successful >= min(6, eligible) — natural shortfall non-gating
+    ok, reasons = evaluate_floors(
+        strata={"U-free": {"eligible": 3, "successful": 3},     # undersized but full
+                "C-method": {"eligible": 8, "successful": 5}},  # failures ate probes
+        oracle_error_rate=0.05, sut_error_rate=0.0,
+        oracle_floor=0.10, sut_floor=0.05)
+    assert not ok and any("C-method" in r for r in reasons)
+
+
+def test_floors_corpus_rates():
+    ok, reasons = evaluate_floors(
+        strata={"U-free": {"eligible": 8, "successful": 8}},
+        oracle_error_rate=0.30, sut_error_rate=0.06,
+        oracle_floor=0.25, sut_floor=0.05)
+    assert not ok and len(reasons) == 2   # both rate floors breached
+
+
+def test_floors_pass():
+    ok, reasons = evaluate_floors(
+        strata={"U-free": {"eligible": 8, "successful": 7}},
+        oracle_error_rate=0.05, sut_error_rate=0.0,
+        oracle_floor=0.10, sut_floor=0.05)
+    assert ok and reasons == []
+```
+
+- [ ] **Step 2: Run, verify failure**, then **Step 3: implement `eval/tier_a/accounting.py`**
+
+```python
+"""Probe accounting + validity floors (spec §2.2/§2.5, review B2)."""
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+
+OUTCOMES = ("ok", "oracle_error", "sut_error", "inventory_miss")
+
+
+@dataclass
+class CorpusAccounting:
+    probes: dict[str, str] = field(default_factory=dict)   # probe id -> outcome
+    inventory_misses: list[str] = field(default_factory=list)
+
+    def record(self, probe_id: str, outcome: str) -> None:
+        assert outcome in OUTCOMES, outcome
+        self.probes[probe_id] = outcome
+        if outcome == "inventory_miss":
+            self.inventory_misses.append(probe_id)
+
+    def _rate(self, outcome: str) -> float:
+        return (sum(1 for o in self.probes.values() if o == outcome)
+                / len(self.probes)) if self.probes else 0.0
+
+    def oracle_error_rate(self) -> float:
+        return self._rate("oracle_error")
+
+    def sut_error_rate(self) -> float:
+        return self._rate("sut_error")
+
+    def successful(self) -> int:
+        return sum(1 for o in self.probes.values() if o == "ok")
+
+    def score_inventory_miss(self, oracle_sites: set) -> set:
+        """§2.5: prism couldn't be seeded — every oracle site is a recall miss."""
+        return set(oracle_sites)
+
+
+def evaluate_floors(strata: dict, oracle_error_rate: float, sut_error_rate: float,
+                    oracle_floor: float, sut_floor: float) -> tuple[bool, list[str]]:
+    """§2.2 failure-based floors. Returns (baseline_valid, reasons)."""
+    reasons = []
+    for name, s in strata.items():
+        need = min(6, s["eligible"])
+        if s["successful"] < need:
+            reasons.append(f"stratum {name}: {s['successful']}/{need} successful probes")
+    if oracle_error_rate > oracle_floor:
+        reasons.append(f"oracle_error_rate {oracle_error_rate:.2f} > {oracle_floor:.2f}")
+    if sut_error_rate > sut_floor:
+        reasons.append(f"sut_error_rate {sut_error_rate:.2f} > {sut_floor:.2f}")
+    return (not reasons, reasons)
+```
+
+- [ ] **Step 4: Run tests, pass, commit**
+
+```bash
+cd eval && uv run pytest -q
+git add eval && git commit -m "feat(eval): probe accounting + §2.2 validity floors (tested)"
+```
+
+### Task 20: corpora.toml, runner CLI, reports, README, agent guidance (spec §2.9–§2.11, G8)
 
 **Files:**
 - Create: `eval/corpora.toml`, `eval/tier_a/cli.py`, `eval/tier_a/report.py`,
@@ -3182,7 +3551,7 @@ git add eval && git commit -m "feat(eval): capability matrix — runner + 29 fix
 - [ ] **Step 1: `eval/corpora.toml`**
 
 ```toml
-# Tier-A corpora (spec §2.9). SHAs pinned at first baseline run (Task 20).
+# Tier-A corpora (spec §2.9). SHAs pinned at first baseline run (Task 21).
 # Selection principle: repeat-run friendliness — prism CPG cold-builds recur.
 [defaults]
 seed = 42
@@ -3320,34 +3689,293 @@ def write_reports(run: dict, out_dir: Path) -> None:
     base.with_suffix(".md").write_text(render_markdown(run))
 ```
 
-- [ ] **Step 4: Implement `eval/tier_a/cli.py`** — the integration layer. Flags per
-spec §2.11: `--corpus <name>|all`, `--quick` (prism only, `per_stratum=3`, + matrix),
-`--matrix-only`, `--report-only <run.json>`, `--sut-bin`, `--allow-stale-sut`. The run
-flow per corpus, in order: resolve config (expand `~`), `PrismCli` freshness check,
-oracle start + quiescence, **capability probe (abort corpus with `oracle_unsupported`
-on failure)**, M1 (oracle `documentSymbol` over the §2.4 universe + `nav functions`,
-diff via `inventory_diff`), snapshot save-or-load keyed `corpus-<sha>`, stratified
-sample from the snapshot, M2 probes (oracle callHierarchy vs `PrismCli.callers/callees`
-per sampled symbol; `oracle_error`/`sut_error`/`inventory_miss` accounting per §2.2/§2.5),
-pinned probes (`pinned.PINNED`), M3 spot-check on the seeded site sample, matrix run,
-adjudication load+apply, floors evaluation, `write_reports`. Each probe's raw oracle
-and SUT responses are stored in the run JSON (`"probes"` key) — that is what
-`--report-only` replays (G3). This module is glue over already-tested parts; its only
-unit test is `--report-only` round-tripping a stored run dict (add to
-`eval/tests/test_report.py`):
+- [ ] **Step 4: Implement `eval/tier_a/cli.py`** — coded, not prose (review B2). The
+metrics blocks are a **pure function of the run JSON's stored per-probe raw sites** —
+that is the G3 replay property, and `compute_m2_from_probes` is that function.
 
 ```python
-def test_report_only_replay_is_bit_identical(tmp_path):
-    import json
-    from tier_a.cli import recompute_metrics_from_stored
-    stored = json.loads(json.dumps(RUN))     # simulate disk round-trip
-    again = recompute_metrics_from_stored(stored)
-    assert again == RUN
+"""Runner CLI (spec §2.11). Glue over the tested layers. G3 replay property:
+metrics blocks are a pure function of the run JSON's `probes` key."""
+from __future__ import annotations
+
+import argparse
+import dataclasses
+import json
+import os
+import sys
+import tomllib
+from pathlib import Path
+
+from . import pinned as pinned_mod
+from .accounting import CorpusAccounting, evaluate_floors
+from .adjudication import apply_verdicts, load_records
+from .compare import site_compare
+from .corpus import (corpus_dirty, corpus_sha, load_snapshot, save_snapshot,
+                     snapshot_path, universe)
+from .matrix import run_matrix
+from .metrics import precision_recall
+from .model import CallEdge, FunctionDef, Location
+from .report import write_reports
+from .strata import filter_to_universe, inventory_diff, sample_strata
+from .sut import PrismCli
+
+EVAL_DIR = Path(__file__).resolve().parents[1]
+
+
+def _edges(sites: list, direction: str) -> list[CallEdge]:
+    """Rebuild minimal CallEdges from stored [file, start, end] site triples."""
+    dummy = FunctionDef("_", "function", None, Location("_", 1, 1), 1)
+    return [CallEdge(direction, dummy, None, None, Location(f, s, e))
+            for f, s, e in sites]
+
+
+def compute_m2_from_probes(probes: dict, adjudications: list) -> dict:
+    """Pure: stored raw sites -> per-direction per-stratum raw+corrected metrics."""
+    corpus = probes.get("_corpus", "?")
+    out: dict = {}
+    for direction in ("callers", "callees"):
+        strata: dict = {}
+        for pid, p in sorted(probes.items()):
+            if pid == "_corpus" or p.get("outcome") != "ok" \
+                    or p.get("direction") != direction:
+                continue
+            r = site_compare(_edges(p["prism_sites"], direction),
+                             _edges(p["oracle_sites"], direction))
+            s = strata.setdefault(p["stratum"], {"tp": 0, "fp": set(), "fn": set(),
+                                                 "seed_of": {}})
+            s["tp"] += len(r.tp)
+            s["fp"] |= r.fp
+            s["fn"] |= r.fn
+            for site in r.fp | r.fn:
+                s["seed_of"][site] = p["seed_def"]
+        out[direction] = {}
+        for name, s in sorted(strata.items()):
+            raw = precision_recall(s["tp"], len(s["fp"]), len(s["fn"]))
+            corr_tp, corr_fp, corr_fn, pending = s["tp"], 0, 0, 0
+            by_seed: dict = {}
+            for site, sd in s["seed_of"].items():
+                grp = by_seed.setdefault(sd, {"fp": set(), "fn": set()})
+                (grp["fp"] if site in s["fp"] else grp["fn"]).add(site)
+            for sd, grp in sorted(by_seed.items()):
+                c = apply_verdicts(tp=0, fp_sites=grp["fp"], fn_sites=grp["fn"],
+                                   records=adjudications, corpus=corpus,
+                                   measurement=direction, seed_def=sd)
+                corr_tp += c.tp
+                corr_fp += c.fp
+                corr_fn += c.fn
+                pending += c.pending
+            out[direction][name] = {"raw": raw,
+                                    "corrected": precision_recall(corr_tp, corr_fp,
+                                                                  corr_fn),
+                                    "pending": pending,
+                                    "shortfall": 0}
+    return out
+
+
+def recompute_metrics_from_stored(stored: dict) -> dict:
+    if "probes" not in stored:
+        return stored
+    adj = load_records(EVAL_DIR / "adjudications.jsonl")
+    return {**stored, "m2": compute_m2_from_probes(stored["probes"], adj)}
+
+
+def load_corpora() -> dict:
+    cfg = tomllib.loads((EVAL_DIR / "corpora.toml").read_text())
+    for c in cfg["corpus"].values():
+        c["path"] = os.path.expanduser(c["path"])
+    return cfg
+
+
+def make_oracle(cfg: dict):
+    from .oracles import LspOracle
+    cmd = {"rust-analyzer": ["rust-analyzer"], "gopls": ["gopls", "serve"],
+           "pyright": ["pyright-langserver", "--stdio"]}[cfg["oracle"]]
+    return LspOracle(cmd, cfg["path"], cfg["lang"])
+
+
+def run_corpus(name: str, cfg: dict, defaults: dict, args) -> dict:
+    sut = PrismCli(str(EVAL_DIR.parent), sut_bin=args.sut_bin,
+                   allow_stale=args.allow_stale_sut)
+    sha = corpus_sha(cfg["path"])
+    run: dict = {"meta": {"corpus": name, "corpus_sha": sha,
+                          "corpus_dirty": corpus_dirty(cfg["path"]),
+                          "prism_sha": sut.sha, "seed": defaults["seed"],
+                          "date": args.date,
+                          "harness_sha": corpus_sha(str(EVAL_DIR.parent)),
+                          "oracle_not_quiescent": False, "wall_s": {}},
+                 "probes": {"_corpus": name}}
+    oracle = make_oracle(cfg)
+    oracle.start()
+    run["meta"]["oracle"] = oracle.version()
+    run["meta"]["oracle_not_quiescent"] = oracle.not_quiescent
+    if not oracle.capability_probe():
+        run["meta"].update(baseline_invalid=True,
+                           invalid_reasons=["oracle_unsupported"],
+                           oracle_error_rate=1.0, sut_error_rate=0.0)
+        return run
+    files = universe(cfg["path"], cfg["lang"], cfg.get("excludes", []))
+    acc = CorpusAccounting()
+    oracle_inv = []
+    for f in files:                       # M1: per-file; errors recorded, never fatal
+        try:
+            oracle_inv.extend(oracle.document_symbols(f))
+        except Exception:
+            acc.record(f"docsym:{f}", "oracle_error")
+    prism_inv = filter_to_universe(sut.inventory(cfg["path"]), set(files))  # review M5
+    diff = inventory_diff(oracle_inv, prism_inv)
+    run["m1"] = {"matched": len(diff.matched),
+                 "prism_missing": len(diff.prism_missing),
+                 "prism_extra": len(diff.prism_extra),
+                 "anon_oracle": diff.anon_oracle, "anon_prism": diff.anon_prism}
+    sp = snapshot_path(str(EVAL_DIR / "snapshots"), name, sha)   # §2.5/G3 snapshot
+    if sp.exists():
+        snap = load_snapshot(sp)
+    else:
+        snap = oracle_inv
+        save_snapshot(sp, snap)
+    n_defs: dict = {}
+    for fd in snap:
+        if fd.name:
+            n_defs[fd.name] = n_defs.get(fd.name, 0) + 1
+    per = 3 if args.quick else defaults["per_stratum"]
+    sample = sample_strata(snap, n_defs, cfg["lang"], defaults["seed"], per)
+    prism_by_oracle = dict(diff.matched)
+    strata_counts: dict = {}
+    for stratum, fds in sample.items():
+        strata_counts[stratum] = {"eligible": len(fds), "successful": 0}
+        for fd in fds:
+            sd = f"{fd.location.file}:{fd.selection_line}"
+            pfd = prism_by_oracle.get(fd)
+            for direction in ("callers", "callees"):
+                pid = f"{direction}:{sd}"
+                try:
+                    osites = (oracle.callers(fd) if direction == "callers"
+                              else oracle.callees(fd))
+                except Exception:
+                    acc.record(pid, "oracle_error")
+                    continue
+                if pfd is None:           # §2.5: inventory_miss -> all-oracle-FN probe
+                    acc.record(pid, "inventory_miss")
+                    psites = []
+                else:
+                    try:
+                        psites = (sut.callers(cfg["path"], pfd)
+                                  if direction == "callers"
+                                  else sut.callees(cfg["path"], pfd))
+                    except Exception:
+                        acc.record(pid, "sut_error")
+                        continue
+                    acc.record(pid, "ok")
+                    strata_counts[stratum]["successful"] += 1
+                run["probes"][pid] = {
+                    "outcome": "ok", "direction": direction, "stratum": stratum,
+                    "seed_def": sd,
+                    "prism_sites": [[e.call_site.file, e.call_site.start_line,
+                                     e.call_site.end_line] for e in psites
+                                    if direction == "callers"
+                                    or e.other_def is not None],
+                    "oracle_sites": [[e.call_site.file, e.call_site.start_line,
+                                      e.call_site.end_line] for e in osites]}
+    if name == "prism":
+        run["pinned"] = pinned_mod.run_pinned(oracle, sut, snap, cfg["path"])
+        run["matrix"] = [dataclasses.asdict(r) for r in
+                         run_matrix(EVAL_DIR / "fixtures", sut,
+                                    ["rust", "go", "python"])]
+    run["meta"]["oracle_error_rate"] = acc.oracle_error_rate()
+    run["meta"]["sut_error_rate"] = acc.sut_error_rate()
+    ok, reasons = evaluate_floors(strata_counts, acc.oracle_error_rate(),
+                                  acc.sut_error_rate(),
+                                  defaults["oracle_error_floor"][cfg["lang"]],
+                                  defaults["sut_error_floor"])
+    run["meta"]["baseline_invalid"] = not ok
+    run["meta"]["invalid_reasons"] = reasons
+    adj = load_records(EVAL_DIR / "adjudications.jsonl")
+    run["m2"] = compute_m2_from_probes(run["probes"], adj)
+    return run
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(prog="tier-a")
+    ap.add_argument("--corpus", default="prism")
+    ap.add_argument("--quick", action="store_true")
+    ap.add_argument("--matrix-only", action="store_true")
+    ap.add_argument("--report-only")
+    ap.add_argument("--sut-bin")
+    ap.add_argument("--allow-stale-sut", action="store_true")
+    ap.add_argument("--date", default=None)
+    args = ap.parse_args()
+    if args.date is None:
+        import datetime
+        args.date = datetime.date.today().isoformat()
+    out_dir = EVAL_DIR.parent / "docs" / "eval" / "tier-a"
+    if args.report_only:
+        write_reports(recompute_metrics_from_stored(
+            json.loads(Path(args.report_only).read_text())), out_dir)
+        return 0
+    if args.matrix_only:
+        sut = PrismCli(str(EVAL_DIR.parent), sut_bin=args.sut_bin,
+                       allow_stale=args.allow_stale_sut)
+        results = run_matrix(EVAL_DIR / "fixtures", sut, ["rust", "go", "python"])
+        for r in results:
+            print(f"{r.language}/{r.capability}: {r.outcome}")
+        return 1 if any(r.outcome == "regression" for r in results) else 0
+    cfg = load_corpora()
+    names = ["prism"] if args.quick else (
+        list(cfg["corpus"]) if args.corpus == "all" else [args.corpus])
+    rc = 0
+    for name in names:
+        run = run_corpus(name, cfg["corpus"][name], cfg["defaults"], args)
+        (EVAL_DIR / "runs").mkdir(exist_ok=True)
+        (EVAL_DIR / "runs" / f"{args.date}-{name}.json").write_text(
+            json.dumps(run, indent=1, sort_keys=True, default=str))
+        write_reports(run, out_dir)
+        if run["meta"].get("baseline_invalid"):
+            rc = 2
+    return rc
+
+
+if __name__ == "__main__":
+    sys.exit(main())
 ```
 
-(`recompute_metrics_from_stored` re-derives the metrics blocks from the stored raw
-probe data when present; for a run dict with no `"probes"` key it must return the dict
-unchanged — that is the property the test pins.)
+(`pinned.run_pinned` is a thin driver added to `pinned.py` in this task: resolve each
+pinned entry against the snapshot by `(symbol, file)`, run the oracle+SUT pair like an
+M2 probe — except probe #4, which calls `sut.callers_by_symbol("slice")` and records
+whether `SutAmbiguous` was raised — and return per-probe outcomes including the G1(b)
+`known_fail`-vs-`flip_candidate` evaluation and the G2 `oracle_miss_site` rediscovery
+booleans.)
+
+The replay tests — **with a real `probes` fixture**, not only the identity branch
+(append to `eval/tests/test_report.py`):
+
+```python
+def test_report_only_replay_recomputes_metrics_from_probes():
+    import json
+    from tier_a.cli import compute_m2_from_probes, recompute_metrics_from_stored
+    probes = {
+        "_corpus": "prism",
+        "callers:src/s.rs:5": {
+            "outcome": "ok", "direction": "callers", "stratum": "U-free",
+            "seed_def": "src/s.rs:5",
+            "prism_sites": [["src/a.rs", 10, 10], ["src/b.rs", 99, 99]],
+            "oracle_sites": [["src/a.rs", 9, 11]]},
+    }
+    stored = {"meta": {"corpus": "prism"}, "probes": probes,
+              "m2": compute_m2_from_probes(probes, [])}
+    roundtrip = json.loads(json.dumps(stored, default=str))
+    again = recompute_metrics_from_stored(roundtrip)
+    m = again["m2"]["callers"]["U-free"]
+    assert m["raw"]["tp"] == 1        # a.rs:10 falls in oracle range 9..11
+    assert m["raw"]["fp"] == 1        # b.rs:99 is prism-only
+    assert m["pending"] == 1          # the unadjudicated FP
+    assert recompute_metrics_from_stored(roundtrip)["m2"] == again["m2"]  # stable
+
+
+def test_report_only_without_probes_is_identity():
+    from tier_a.cli import recompute_metrics_from_stored
+    stored = {"meta": {"corpus": "x"}}
+    assert recompute_metrics_from_stored(stored) == stored
+```
 
 - [ ] **Step 5: Complete `eval/README.md`** — sections: the separation-contract banner
 (already present), oracle install (`rust-analyzer` on PATH;
@@ -3386,13 +4014,16 @@ git add eval CLAUDE.md AGENTS.md
 git commit -m "feat(eval): runner CLI, reports, corpora config, README + agent guidance (G8)"
 ```
 
-### Task 20: [ORCHESTRATOR] Live baseline — corpora prep, probes, run, adjudicate, gates
+### Task 21: [ORCHESTRATOR] Live baseline — corpora prep, probes, run, adjudicate, gates
 
 - [ ] **Step 1: Prep corpora + oracles (one-time)**
 
 ```bash
 go install golang.org/x/tools/gopls@latest
 npm i -g pyright
+# tokio: already at ~/code/bench-repos/tokio on this host, but do not depend on the
+# accident (review B4) — clone if absent:
+[ -d ~/code/bench-repos/tokio ] || git clone --depth 50 https://github.com/tokio-rs/tokio ~/code/bench-repos/tokio
 cp -R ~/code/agent-eval/cache/repos/caddy ~/code/bench-repos/caddy
 git clone --depth 50 https://github.com/pallets/flask ~/code/bench-repos/flask
 git clone --depth 50 https://github.com/pallets/click ~/code/bench-repos/click
@@ -3407,8 +4038,8 @@ cargo build --release
 `pyrightconfig.json` with `venvPath`/`venv` in the corpus root if auto-detection
 misses; record whatever was needed in `eval/README.md`.)
 
-Record each corpus's `git rev-parse --short=12 HEAD` into `eval/corpora.toml`
-(`pinned_sha`).
+Record **every** corpus's `git rev-parse --short=12 HEAD` into `eval/corpora.toml`
+(`pinned_sha`) — including prism and tokio.
 
 - [ ] **Step 2: pyright capability probe (spec §2.2 plan precondition)**
 
@@ -3458,8 +4089,19 @@ measured against this baseline).
 
 - WP2 batch arithmetic verified: 48+37+32+4 = 121 absorbed; final count 24.
 - Type consistency: `FunctionDef`/`CallEdge`/`Location`/`DefTarget` signatures match
-  across Tasks 10–19; `PrismCli(prism_repo, sut_bin, allow_stale)` consistent between
-  Tasks 13/18/19.
+  across Tasks 10–20; `PrismCli(prism_repo, sut_bin, allow_stale)` consistent between
+  Tasks 13/18/20.
+- rev 2 folds the merged plan-review
+  (`docs/prism-query-layer/tier-a-plan-review-2026-06-11.md`): consolidation script
+  committed under `scripts/`; cli.py fully coded with a probes-fixture replay test
+  (B2) + new Task 19 accounting/floors layer; OracleError + lifecycle wrappers +
+  `version()` on both seams (B3); tokio prep (B4); §2.4 universe filter applied to
+  prism inventory (M5); early host-side pyright probe after Task 12 (M6);
+  rootUri/workspaceFolders in initialize (M7); `mkdir -p docs/eval` (M8); real
+  backtrace probe for the profile change (M9); ambiguous/alias_site verdict tests
+  (m10); live skipif matrix test (m11); `callers_by_symbol` + `SutAmbiguous` (m12);
+  repo-wide sweep incl. `.claude/settings.local.json` (m13); `interfaces.py` (m14);
+  Task 18 Step 5 execution-model note (m15); spec §2.11 corpus-count fix (m16).
 - Fixture line numbers were hand-counted; Task 18 Step 5's reconciliation run is the
   authoritative check (the binary is the referee for `status`, the source files for
   lines — if a line is off by one, fix `expected.toml` to match the source, which is
@@ -3467,4 +4109,4 @@ measured against this baseline).
 - Deliberate scope notes: `cli.py` run-flow is specified as ordered integration of
   fully-coded, fully-tested parts rather than inlined (it is glue; its replay property
   is pinned by test). Oracle lifecycle (quiescence/probe) is live-only by design —
-  exercised in Task 20, failure modes accounted per §2.2.
+  exercised in Task 21, failure modes accounted per §2.2.
