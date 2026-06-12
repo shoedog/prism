@@ -974,6 +974,51 @@ impl Language {
 
         node.child_by_field_name("name")
     }
+
+    /// S3: the type that owns a method definition: the enclosing
+    /// impl/trait/class type name node. None for free functions and for
+    /// languages without methods (C/Bash/Terraform). Direct-member rule:
+    /// a nested function inside a method returns None.
+    pub fn method_owner<'a>(&self, func_node: &Node<'a>) -> Option<Node<'a>> {
+        match self {
+            Language::Rust => {
+                let mut anc = func_node.parent();
+                while let Some(n) = anc {
+                    match n.kind() {
+                        "impl_item" => return n.child_by_field_name("type"),
+                        "trait_item" => return n.child_by_field_name("name"),
+                        "function_item" | "closure_expression" => return None,
+                        _ => {}
+                    }
+                    anc = n.parent();
+                }
+                None
+            }
+            _ => None,
+        }
+    }
+
+    /// S3 (Rust): for `impl Trait for Type`, the trait name node (dual-key).
+    pub fn rust_impl_trait<'a>(&self, func_node: &Node<'a>) -> Option<Node<'a>> {
+        if !matches!(self, Language::Rust) {
+            return None;
+        }
+        let mut anc = func_node.parent();
+        while let Some(n) = anc {
+            match n.kind() {
+                "impl_item" => return n.child_by_field_name("trait"),
+                "function_item" | "closure_expression" => return None,
+                _ => {}
+            }
+            anc = n.parent();
+        }
+        None
+    }
+
+    /// S3 (Go): receiver variable name node (`t` in `func (t *T) m()`).
+    pub fn go_receiver_var<'a>(&self, _func_node: &Node<'a>) -> Option<Node<'a>> {
+        None
+    }
 }
 
 /// Navigate the C/C++ declarator chain to find the function name identifier.

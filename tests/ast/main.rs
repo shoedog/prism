@@ -12,6 +12,7 @@ mod field_test;
 mod import_test;
 mod java_type_provider_test;
 mod live_types_test;
+mod owner_test;
 mod parse_quality_test;
 mod python_type_provider_test;
 mod rust_type_provider_test;

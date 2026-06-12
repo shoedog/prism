@@ -54,6 +54,10 @@ pub struct FunctionInfo {
     pub start_line: usize, // 1-indexed, inclusive
     pub end_line: usize,   // 1-indexed, inclusive
     pub param_names: Vec<String>,
+    /// S3: owning type for methods (bare key, generics stripped). None = free fn.
+    pub owner: Option<String>,
+    /// S3 (Go only): receiver variable name (`t` in `func (t *T) m()`).
+    pub receiver_var: Option<String>,
 }
 
 /// Wraps a tree-sitter parse tree with helpers for slicing analysis.
@@ -256,6 +260,14 @@ impl ParsedFile {
                 start_line: node.start_position().row + 1,
                 end_line: node.end_position().row + 1,
                 param_names: self.function_parameter_names(&node),
+                owner: self
+                    .language
+                    .method_owner(&node)
+                    .map(|n| crate::resolution::owner_key(self.node_text(&n))),
+                receiver_var: self
+                    .language
+                    .go_receiver_var(&node)
+                    .map(|n| self.node_text(&n).to_string()),
             })
             .collect()
     }
