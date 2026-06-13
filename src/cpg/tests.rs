@@ -45,6 +45,34 @@ fn test_taint_trace_same_line_assignment() {
 }
 
 #[test]
+fn test_taint_trace_recovered_hops_do_not_cross_same_name_functions() {
+    let src = "def run(o):\n    o.v = source()\ndef run(o):\n    sink(o.v)\n";
+    let cpg = build_python_cpg(src);
+    let trace = cpg.taint_trace(&[("test.py".to_string(), 2usize)]);
+    let reached_sink = trace.frontier().iter().any(|&i| {
+        matches!(
+            cpg.node(i),
+            CpgNode::Variable {
+                line: 4,
+                function,
+                function_start_line,
+                path,
+                access: VarAccess::Use,
+                ..
+            } if function == "run"
+                && *function_start_line == 3
+                && path.base == "o"
+                && path.fields.len() == 1
+                && path.fields[0] == "v"
+        )
+    });
+    assert!(
+        !reached_sink,
+        "same-path recovered hops must not cross same-name functions"
+    );
+}
+
+#[test]
 fn test_taint_trace_no_dead_end_witness() {
     let src = "def f():\n    a = input()\n    b = a\n    c = b\n    sink(c)\n";
     let cpg = build_python_cpg(src);

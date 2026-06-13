@@ -341,7 +341,7 @@ fn reconstruct_cpg(ser: SerializedCpg) -> CodePropertyGraph {
     // Rebuild indexes by iterating nodes.
     let mut func_index: BTreeMap<(String, String, usize), NodeIndex> = BTreeMap::new();
     let mut name_index: BTreeMap<(String, String), Vec<NodeIndex>> = BTreeMap::new();
-    let mut var_index: BTreeMap<(String, String, usize, AccessPath, VarAccess), NodeIndex> =
+    let mut var_index: BTreeMap<(String, String, usize, usize, AccessPath, VarAccess), NodeIndex> =
         BTreeMap::new();
     let mut location_index: BTreeMap<(String, usize), Vec<NodeIndex>> = BTreeMap::new();
 
@@ -368,12 +368,20 @@ fn reconstruct_cpg(ser: SerializedCpg) -> CodePropertyGraph {
                 path,
                 file,
                 function,
+                function_start_line,
                 line,
                 access,
                 ..
             } => {
                 var_index.insert(
-                    (file.clone(), function.clone(), *line, path.clone(), *access),
+                    (
+                        file.clone(),
+                        function.clone(),
+                        *function_start_line,
+                        *line,
+                        path.clone(),
+                        *access,
+                    ),
                     idx,
                 );
                 location_index

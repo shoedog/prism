@@ -22,7 +22,8 @@ pub enum Relation {
     RecoveredDefUse,
 }
 
-/// A def-use edge crossing a `(file,function)` boundary, recorded but not traversed in v1.
+/// A def-use edge crossing a `(file,function,function_start_line)` boundary, recorded but not
+/// traversed in v1.
 /// `Ord` so [`Trace::boundary`] can be a set — parallel DataFlow edges and multi-root traces
 /// would otherwise push duplicate `(root, from, to)` triples and double-count downstream warnings.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -99,10 +100,14 @@ impl CodePropertyGraph {
             let multi_function = roots
                 .iter()
                 .filter_map(|&n| match &self.graph[n] {
-                    CpgNode::Variable { function, .. } => Some(function.as_str()),
+                    CpgNode::Variable {
+                        function,
+                        function_start_line,
+                        ..
+                    } => Some((function.as_str(), *function_start_line)),
                     _ => None,
                 })
-                .collect::<BTreeSet<&str>>()
+                .collect::<BTreeSet<(&str, usize)>>()
                 .len()
                 > 1;
             // A seed line that is a function's signature line is also unsafe to CFG-scope: its only
@@ -170,9 +175,14 @@ impl CodePropertyGraph {
         trace
     }
 
-    fn node_file_fn(&self, idx: NodeIndex) -> Option<(String, String)> {
+    fn node_file_fn(&self, idx: NodeIndex) -> Option<(String, String, usize)> {
         match &self.graph[idx] {
-            CpgNode::Variable { file, function, .. } => Some((file.clone(), function.clone())),
+            CpgNode::Variable {
+                file,
+                function,
+                function_start_line,
+                ..
+            } => Some((file.clone(), function.clone(), *function_start_line)),
             _ => None,
         }
     }
@@ -222,6 +232,7 @@ impl CodePropertyGraph {
                 file,
                 line,
                 function,
+                function_start_line,
                 ..
             } => {
                 if let Some(at) = self.location_index.get(&(file.clone(), *line)) {
@@ -234,8 +245,9 @@ impl CodePropertyGraph {
                                 CpgNode::Variable {
                                     access: VarAccess::Def,
                                     function: def_fn,
+                                    function_start_line: def_start_line,
                                     ..
-                                } if def_fn == function
+                                } if def_fn == function && def_start_line == function_start_line
                             )
                         })
                         .collect();
@@ -279,7 +291,7 @@ impl CodePropertyGraph {
     /// Function-scoped forward reachability over the SAME edges [`CodePropertyGraph::taint_trace`]
     /// traverses: DataFlow edges plus function-scoped same-line assignment propagation (including the
     /// Def → same-line-Use arm that re-supplies `data_flow.rs`'s dropped same-line def→use edges),
-    /// staying within `start`'s `(file,function)`. Boundary classification
+    /// staying within `start`'s `(file,function,function_start_line)`. Boundary classification
     /// ([`crate::reasoning::shape::reachability_for_node`]) uses this instead of the legacy
     /// `dfg_forward_reachable`, whose same-line propagation keys on `(file,line)` alone and so leaks
     /// across functions that share a line in minified one-line-per-file JS/TS — there it would
@@ -317,6 +329,7 @@ impl CodePropertyGraph {
             access: VarAccess::Def,
             file,
             function,
+            function_start_line,
             path,
             ..
         } = &self.graph[def]
@@ -333,9 +346,10 @@ impl CodePropertyGraph {
                     CpgNode::Variable {
                         access: VarAccess::Use,
                         function: f2,
+                        function_start_line: fsl2,
                         path: p2,
                         ..
-                    } if f2 == function && p2 == path
+                    } if f2 == function && fsl2 == function_start_line && p2 == path
                 )
             })
             .collect();
@@ -353,6 +367,7 @@ impl CodePropertyGraph {
             file,
             line,
             function,
+            function_start_line,
             path,
             ..
         } = &self.graph[def]
@@ -371,9 +386,10 @@ impl CodePropertyGraph {
                     CpgNode::Variable {
                         access: VarAccess::Use,
                         function: f2,
+                        function_start_line: fsl2,
                         path: p2,
                         ..
-                    } if f2 == function && p2 == path
+                    } if f2 == function && fsl2 == function_start_line && p2 == path
                 )
             })
             .collect();
