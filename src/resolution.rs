@@ -234,9 +234,10 @@ impl CallGraph {
         }
 
         // Static linkage preservation from the legacy resolver.
-        if self
-            .static_functions
-            .contains(&(caller.file.clone(), name.to_string()))
+        if site.qualifier.is_none()
+            && self
+                .static_functions
+                .contains(&(caller.file.clone(), name.to_string()))
         {
             if let Some(ids) = self.functions.get(name) {
                 let local: Vec<&FunctionId> =
@@ -313,8 +314,46 @@ impl CallGraph {
                     }
                 }
 
-                // R6: unknown receiver - Task 7.
-                ResolutionOutcome::dropped(DropReason::UnknownName)
+                // R6 residue (P2): method candidates only, never free fns.
+                // P6-lite recovered-receiver handling lands in Task 8 ahead of this.
+                let method_ids: Vec<&FunctionId> = self
+                    .functions
+                    .get(name)
+                    .map(|v| {
+                        v.iter()
+                            .filter(|fid| self.method_owners.contains_key(*fid))
+                            .collect()
+                    })
+                    .unwrap_or_default();
+                if method_ids.is_empty() {
+                    return ResolutionOutcome::dropped(DropReason::UnknownName);
+                }
+
+                // Caller's-own-file preference: exactly one owner defining it there.
+                let local: Vec<&FunctionId> = method_ids
+                    .iter()
+                    .copied()
+                    .filter(|f| f.file == caller.file)
+                    .collect();
+                let local_owners: BTreeSet<&str> = local
+                    .iter()
+                    .filter_map(|f| self.method_owners.get(*f).map(String::as_str))
+                    .collect();
+                if local_owners.len() == 1 {
+                    return ResolutionOutcome::hit(demoted(local, ResolutionKind::R6SingleOwner));
+                }
+
+                let owners: BTreeSet<&str> = method_ids
+                    .iter()
+                    .filter_map(|f| self.method_owners.get(*f).map(String::as_str))
+                    .collect();
+                if owners.len() == 1 {
+                    return ResolutionOutcome::hit(demoted(
+                        method_ids,
+                        ResolutionKind::R6SingleOwner,
+                    ));
+                }
+                ResolutionOutcome::dropped(DropReason::MultiOwnerCollision)
             }
             None => {
                 let ids = match self.functions.get(name) {
