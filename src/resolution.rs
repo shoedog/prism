@@ -144,6 +144,10 @@ fn demoted<'a>(
         .collect()
 }
 
+fn is_simple_ident(s: &str) -> bool {
+    !s.is_empty() && s.chars().all(|c| c.is_alphanumeric() || c == '_')
+}
+
 impl CallGraph {
     /// Owner-index lookup that knows whether the key is a multi-impl trait key.
     fn owner_lookup(&self, owner: &str, name: &str) -> Option<Vec<ResolvedCallee<'_>>> {
@@ -263,7 +267,111 @@ impl CallGraph {
                 }
                 ResolutionOutcome::dropped(DropReason::UnknownName)
             }
-            Some(_) | None => ResolutionOutcome::dropped(DropReason::UnknownName),
+            Some(q) => {
+                // R3: imported-module qualifier. If an import matches, the
+                // narrowed set is final; empty means the call is external.
+                if let Some(file_imports) = self.imports.get(&caller.file) {
+                    if let Some(module_path) = file_imports.get(q) {
+                        let ids = match self.functions.get(name) {
+                            Some(v) => v.as_slice(),
+                            None => return ResolutionOutcome::dropped(DropReason::UnknownName),
+                        };
+                        let module_last = module_path.rsplit('/').next().unwrap_or(module_path);
+                        let module_stem = module_last.rsplit('.').last().unwrap_or(module_last);
+                        let matched: Vec<&FunctionId> = ids
+                            .iter()
+                            .filter(|fid| {
+                                let stem_hit = file_stem(&fid.file) == module_stem;
+                                let dir_hit = fid
+                                    .file
+                                    .rsplit('/')
+                                    .nth(1)
+                                    .map(|d| d == module_last)
+                                    .unwrap_or(false);
+                                stem_hit || dir_hit
+                            })
+                            .collect();
+                        if matched.is_empty() {
+                            return ResolutionOutcome::dropped(DropReason::ImportExternal);
+                        }
+                        return ResolutionOutcome::hit(exact(
+                            matched,
+                            ResolutionKind::ImportQualified,
+                        ));
+                    }
+                }
+
+                // R3b: qualifier text is itself an owner key.
+                if is_simple_ident(q) {
+                    if let Some(mut resolved) = self.owner_lookup(q, name) {
+                        for callee in &mut resolved {
+                            if callee.kind == ResolutionKind::QualifiedOwner {
+                                callee.kind = ResolutionKind::QualifierOwner;
+                            }
+                        }
+                        return ResolutionOutcome::hit(resolved);
+                    }
+                }
+
+                // R6: unknown receiver - Task 7.
+                ResolutionOutcome::dropped(DropReason::UnknownName)
+            }
+            None => {
+                let ids = match self.functions.get(name) {
+                    Some(v) => v,
+                    None => return ResolutionOutcome::dropped(DropReason::UnknownName),
+                };
+
+                let free: Vec<&FunctionId> = ids
+                    .iter()
+                    .filter(|fid| !self.method_owners.contains_key(*fid))
+                    .collect();
+
+                // R4: local free definition wins alone.
+                let local: Vec<&FunctionId> = free
+                    .iter()
+                    .copied()
+                    .filter(|f| f.file == caller.file)
+                    .collect();
+                if !local.is_empty() {
+                    return ResolutionOutcome::hit(exact(local, ResolutionKind::LocalDef));
+                }
+
+                // R4b: Java/C++ unqualified calls inside methods are implicit-this.
+                if let Some(owner) = self.method_owners.get(caller) {
+                    if caller.file.ends_with(".java")
+                        || caller.file.ends_with(".cpp")
+                        || caller.file.ends_with(".cc")
+                        || caller.file.ends_with(".cxx")
+                        || caller.file.ends_with(".hpp")
+                        || caller.file.ends_with(".h")
+                    {
+                        if let Some(mut resolved) = self.owner_lookup(owner, name) {
+                            for callee in &mut resolved {
+                                if callee.kind == ResolutionKind::QualifiedOwner {
+                                    callee.kind = ResolutionKind::ImplicitThis;
+                                }
+                            }
+                            return ResolutionOutcome::hit(resolved);
+                        }
+                    }
+                }
+
+                // R5: cross-file free functions only, preserving legacy static exclusion.
+                let nonstatic: Vec<&FunctionId> = free
+                    .into_iter()
+                    .filter(|fid| {
+                        !self
+                            .static_functions
+                            .contains(&(fid.file.clone(), name.to_string()))
+                    })
+                    .collect();
+                match nonstatic.len() {
+                    0 => ResolutionOutcome::dropped(DropReason::UnknownName),
+                    1 => ResolutionOutcome::hit(exact(nonstatic, ResolutionKind::FreeSingle)),
+                    _ => ResolutionOutcome::hit(demoted(nonstatic, ResolutionKind::FreeMulti)),
+                }
+            }
         }
     }
 
