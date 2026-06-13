@@ -16,7 +16,9 @@
         "location": {
           "file": "main.py",
           "start_line": 1,
-          "end_line": 1
+          "end_line": 1,
+          "start_byte": 0,
+          "end_byte": 0
         }
       },
       {
@@ -24,7 +26,9 @@
         "location": {
           "file": "util.py",
           "start_line": 1,
-          "end_line": 1
+          "end_line": 1,
+          "start_byte": 0,
+          "end_byte": 0
         }
       }
     ],

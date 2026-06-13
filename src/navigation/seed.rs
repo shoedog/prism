@@ -16,12 +16,15 @@ pub(crate) fn fn_symbol(s: &NavigationSession, idx: NodeIndex) -> Option<SymbolR
             file,
             start_line,
             end_line,
-            ..
+            start_byte,
+            end_byte,
         } => Some(SymbolRef::Function {
             file: file.clone(),
             name: name.clone(),
             start_line: *start_line,
             end_line: *end_line,
+            start_byte: *start_byte,
+            end_byte: *end_byte,
             ordinal: 0,
         }),
         _ => None,

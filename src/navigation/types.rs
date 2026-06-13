@@ -5,6 +5,8 @@ pub struct Location {
     pub file: String,
     pub start_line: usize,
     pub end_line: usize,
+    pub start_byte: usize,
+    pub end_byte: usize,
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq)]
@@ -14,12 +16,16 @@ pub enum SymbolRef {
         name: String,
         start_line: usize,
         end_line: usize,
+        start_byte: usize,
+        end_byte: usize,
         ordinal: usize,
     },
     Statement {
         file: String,
         line: usize,
         kind: String,
+        start_byte: usize,
+        end_byte: usize,
         ordinal: usize,
     },
     Variable {
@@ -28,6 +34,8 @@ pub enum SymbolRef {
         line: usize,
         path: String,
         access: String,
+        start_byte: usize,
+        end_byte: usize,
         ordinal: usize,
     },
 }
