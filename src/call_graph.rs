@@ -28,6 +28,15 @@ pub struct CallSite {
     /// Module/object qualifier for the call (e.g., `utils` in `utils.process()`).
     /// `None` for unqualified calls like `process()`.
     pub qualifier: Option<String>,
+    /// S3 P6-lite: receiver type recovered syntactically at extraction time
+    /// (typed param / constructor local, peeled). None = unrecovered.
+    #[serde(default)]
+    pub receiver_type: Option<String>,
+    /// S3 P6-lite: which syntactic fact recovered `receiver_type`
+    /// (telemetry + ResolutionKind split). Excluded from cmp_key —
+    /// derived from the same scan as receiver_type.
+    #[serde(default)]
+    pub receiver_recovery: Option<crate::resolution::ReceiverRecovery>,
 }
 
 /// The call graph for a set of parsed files.
@@ -45,6 +54,16 @@ pub struct CallGraph {
     /// Per-file import maps: file_path → (local_alias → module_path).
     /// Used for import-aware call resolution (E6).
     pub imports: BTreeMap<String, BTreeMap<String, String>>,
+    /// S3: (owner_key, method_name) → definitions. Trait impls dual-keyed
+    /// under both the impl type and the trait name.
+    #[serde(default)]
+    pub methods: BTreeMap<(String, String), Vec<FunctionId>>,
+    /// S3: owning type per method FunctionId (primary owner, not the trait).
+    #[serde(default)]
+    pub method_owners: BTreeMap<FunctionId, String>,
+    /// S3 (Go): receiver variable name per method FunctionId.
+    #[serde(default)]
+    pub receiver_vars: BTreeMap<FunctionId, String>,
 }
 
 impl CallGraph {
@@ -56,6 +75,9 @@ impl CallGraph {
             callers: BTreeMap::new(),
             static_functions: BTreeSet::new(),
             imports: BTreeMap::new(),
+            methods: BTreeMap::new(),
+            method_owners: BTreeMap::new(),
+            receiver_vars: BTreeMap::new(),
         }
     }
 
@@ -70,6 +92,9 @@ impl CallGraph {
         let mut calls: BTreeMap<FunctionId, BTreeSet<CallSite>> = BTreeMap::new();
         let mut callers: BTreeMap<String, Vec<CallSite>> = BTreeMap::new();
         let mut static_functions: BTreeSet<(String, String)> = BTreeSet::new();
+        let mut methods: BTreeMap<(String, String), Vec<FunctionId>> = BTreeMap::new();
+        let mut method_owners: BTreeMap<FunctionId, String> = BTreeMap::new();
+        let mut receiver_vars: BTreeMap<FunctionId, String> = BTreeMap::new();
 
         // Phase 1: Collect all function definitions
         for (file_path, parsed) in files {
@@ -83,7 +108,27 @@ impl CallGraph {
                         start_line: start,
                         end_line: end,
                     };
-                    functions.entry(name.clone()).or_default().push(func_id);
+                    functions
+                        .entry(name.clone())
+                        .or_default()
+                        .push(func_id.clone());
+                    let (owner, trait_key, recv_var) = Self::method_metadata(parsed, &func_node);
+                    if let Some(o) = owner {
+                        methods
+                            .entry((o.clone(), name.clone()))
+                            .or_default()
+                            .push(func_id.clone());
+                        method_owners.insert(func_id.clone(), o);
+                    }
+                    if let Some(t) = trait_key {
+                        methods
+                            .entry((t, name.clone()))
+                            .or_default()
+                            .push(func_id.clone());
+                    }
+                    if let Some(rv) = recv_var {
+                        receiver_vars.insert(func_id.clone(), rv);
+                    }
 
                     if matches!(
                         parsed.language,
@@ -121,6 +166,8 @@ impl CallGraph {
                         callee_name: callee_name.clone(),
                         line,
                         qualifier: None,
+                        receiver_type: None,
+                        receiver_recovery: None,
                     };
                     calls
                         .entry(caller_id.clone())
@@ -139,6 +186,9 @@ impl CallGraph {
             callers,
             static_functions,
             imports: BTreeMap::new(),
+            methods,
+            method_owners,
+            receiver_vars,
         }
     }
 
@@ -148,6 +198,9 @@ impl CallGraph {
         let mut calls: BTreeMap<FunctionId, BTreeSet<CallSite>> = BTreeMap::new();
         let mut callers: BTreeMap<String, Vec<CallSite>> = BTreeMap::new();
         let mut static_functions: BTreeSet<(String, String)> = BTreeSet::new();
+        let mut methods: BTreeMap<(String, String), Vec<FunctionId>> = BTreeMap::new();
+        let mut method_owners: BTreeMap<FunctionId, String> = BTreeMap::new();
+        let mut receiver_vars: BTreeMap<FunctionId, String> = BTreeMap::new();
 
         // Collect per-file import maps for import-aware call resolution.
         let mut imports: BTreeMap<String, BTreeMap<String, String>> = BTreeMap::new();
@@ -161,7 +214,13 @@ impl CallGraph {
         let ordered_files: Vec<(&String, &ParsedFile)> = files.iter().collect();
 
         struct FileFunctions {
-            functions: Vec<(String, FunctionId)>,
+            functions: Vec<(
+                String,
+                FunctionId,
+                Option<String>,
+                Option<String>,
+                Option<String>,
+            )>,
             static_functions: Vec<(String, String)>,
         }
 
@@ -184,7 +243,9 @@ impl CallGraph {
                             start_line: start,
                             end_line: end,
                         };
-                        file_functions.push((name.clone(), func_id));
+                        let (owner, trait_key, recv_var) =
+                            Self::method_metadata(parsed, &func_node);
+                        file_functions.push((name.clone(), func_id, owner, trait_key, recv_var));
 
                         // Detect C/C++ static linkage
                         if matches!(
@@ -206,8 +267,27 @@ impl CallGraph {
             .collect();
 
         for file_functions in per_file_functions {
-            for (name, func_id) in file_functions.functions {
-                functions.entry(name).or_default().push(func_id);
+            for (name, func_id, owner, trait_key, recv_var) in file_functions.functions {
+                functions
+                    .entry(name.clone())
+                    .or_default()
+                    .push(func_id.clone());
+                if let Some(o) = owner {
+                    methods
+                        .entry((o.clone(), name.clone()))
+                        .or_default()
+                        .push(func_id.clone());
+                    method_owners.insert(func_id.clone(), o);
+                }
+                if let Some(t) = trait_key {
+                    methods
+                        .entry((t, name.clone()))
+                        .or_default()
+                        .push(func_id.clone());
+                }
+                if let Some(rv) = recv_var {
+                    receiver_vars.insert(func_id.clone(), rv);
+                }
             }
             for static_function in file_functions.static_functions {
                 static_functions.insert(static_function);
@@ -249,6 +329,8 @@ impl CallGraph {
                             callee_name,
                             line,
                             qualifier,
+                            receiver_type: None,
+                            receiver_recovery: None,
                         };
                         file_call_sites.push((caller_id.clone(), site));
                     }
@@ -323,6 +405,8 @@ impl CallGraph {
                                 callee_name: target.clone(),
                                 line: site.line,
                                 qualifier: None,
+                                receiver_type: None,
+                                receiver_recovery: None,
                             },
                         ));
                     }
@@ -348,6 +432,8 @@ impl CallGraph {
                                 callee_name: resolved,
                                 line: site.line,
                                 qualifier: None,
+                                receiver_type: None,
+                                receiver_recovery: None,
                             },
                         ));
                     }
@@ -426,6 +512,8 @@ impl CallGraph {
                                     callee_name: target.clone(),
                                     line: site.line,
                                     qualifier: None,
+                                    receiver_type: None,
+                                    receiver_recovery: None,
                                 },
                             ));
                         }
@@ -514,6 +602,8 @@ impl CallGraph {
                                         callee_name: arg_text,
                                         line: site.line,
                                         qualifier: None,
+                                        receiver_type: None,
+                                        receiver_recovery: None,
                                     },
                                 ));
                             } else {
@@ -532,6 +622,8 @@ impl CallGraph {
                                             callee_name: resolved,
                                             line: site.line,
                                             qualifier: None,
+                                            receiver_type: None,
+                                            receiver_recovery: None,
                                         },
                                     ));
                                 }
@@ -557,6 +649,9 @@ impl CallGraph {
             callers,
             static_functions,
             imports,
+            methods,
+            method_owners,
+            receiver_vars,
         }
     }
 
@@ -590,6 +685,18 @@ impl CallGraph {
 
         // imports: remove entries for excluded files.
         self.imports.retain(|f, _| !exclude.contains(f));
+
+        // methods: remove FunctionId entries from excluded files.
+        for func_ids in self.methods.values_mut() {
+            func_ids.retain(|fid| !exclude.contains(&fid.file));
+        }
+        self.methods.retain(|_, v| !v.is_empty());
+
+        // method_owners / receiver_vars: keyed by FunctionId.
+        self.method_owners
+            .retain(|fid, _| !exclude.contains(&fid.file));
+        self.receiver_vars
+            .retain(|fid, _| !exclude.contains(&fid.file));
     }
 
     /// Merge another CallGraph into this one.
@@ -608,6 +715,11 @@ impl CallGraph {
         }
         self.static_functions.extend(other.static_functions);
         self.imports.extend(other.imports);
+        for (key, fids) in other.methods {
+            self.methods.entry(key).or_default().extend(fids);
+        }
+        self.method_owners.extend(other.method_owners);
+        self.receiver_vars.extend(other.receiver_vars);
     }
 
     /// Build a call graph from only the specified files (Phases 1+2: direct calls only).
@@ -624,6 +736,9 @@ impl CallGraph {
         let mut callers: BTreeMap<String, Vec<CallSite>> = BTreeMap::new();
         let mut static_functions: BTreeSet<(String, String)> = BTreeSet::new();
         let mut imports: BTreeMap<String, BTreeMap<String, String>> = BTreeMap::new();
+        let mut methods: BTreeMap<(String, String), Vec<FunctionId>> = BTreeMap::new();
+        let mut method_owners: BTreeMap<FunctionId, String> = BTreeMap::new();
+        let mut receiver_vars: BTreeMap<FunctionId, String> = BTreeMap::new();
 
         for (file_path, parsed) in files {
             if !only_files.contains(file_path) {
@@ -650,7 +765,27 @@ impl CallGraph {
                         start_line: start,
                         end_line: end,
                     };
-                    functions.entry(name.clone()).or_default().push(func_id);
+                    functions
+                        .entry(name.clone())
+                        .or_default()
+                        .push(func_id.clone());
+                    let (owner, trait_key, recv_var) = Self::method_metadata(parsed, &func_node);
+                    if let Some(o) = owner {
+                        methods
+                            .entry((o.clone(), name.clone()))
+                            .or_default()
+                            .push(func_id.clone());
+                        method_owners.insert(func_id.clone(), o);
+                    }
+                    if let Some(t) = trait_key {
+                        methods
+                            .entry((t, name.clone()))
+                            .or_default()
+                            .push(func_id.clone());
+                    }
+                    if let Some(rv) = recv_var {
+                        receiver_vars.insert(func_id.clone(), rv);
+                    }
 
                     if matches!(
                         parsed.language,
@@ -691,6 +826,8 @@ impl CallGraph {
                         callee_name: callee_name.clone(),
                         line,
                         qualifier,
+                        receiver_type: None,
+                        receiver_recovery: None,
                     };
                     calls
                         .entry(caller_id.clone())
@@ -707,6 +844,9 @@ impl CallGraph {
             callers,
             static_functions,
             imports,
+            methods,
+            method_owners,
+            receiver_vars,
         }
     }
 
@@ -796,6 +936,25 @@ impl CallGraph {
                         .contains(&(fid.file.clone(), callee_name.to_string()))
             })
             .collect()
+    }
+
+    fn method_metadata(
+        parsed: &ParsedFile,
+        func_node: &tree_sitter::Node<'_>,
+    ) -> (Option<String>, Option<String>, Option<String>) {
+        let owner = parsed
+            .language
+            .method_owner(func_node)
+            .map(|n| crate::resolution::owner_key(parsed.node_text(&n)));
+        let trait_key = parsed
+            .language
+            .rust_impl_trait(func_node)
+            .map(|n| crate::resolution::owner_key(parsed.node_text(&n)));
+        let recv_var = parsed
+            .language
+            .go_receiver_var(func_node)
+            .map(|n| parsed.node_text(&n).to_string());
+        (owner, trait_key, recv_var)
     }
 
     /// Extract the source text for a function from its parsed file.
@@ -1001,12 +1160,13 @@ impl CallGraph {
 }
 
 impl CallSite {
-    fn cmp_key(&self) -> (&str, &str, usize, Option<&str>) {
+    fn cmp_key(&self) -> (&str, &str, usize, Option<&str>, Option<&str>) {
         (
             &self.caller.name,
             &self.callee_name,
             self.line,
             self.qualifier.as_deref(),
+            self.receiver_type.as_deref(),
         )
     }
 }

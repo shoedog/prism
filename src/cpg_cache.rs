@@ -41,7 +41,8 @@ use std::path::{Path, PathBuf};
 /// - v1: Initial cache format (Phases 1+2)
 /// - v2: Added `has_type_db` field for type_db consistency (Phase 3)
 /// - v3: grammar_fingerprint + skip_policy_version
-const CACHE_VERSION: u32 = 3;
+/// - v4: CallGraph methods/owner indexes + CallSite.receiver_type (S3)
+const CACHE_VERSION: u32 = 4;
 
 pub const SKIP_POLICY_VERSION: u32 = 1;
 

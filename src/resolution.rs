@@ -15,3 +15,10 @@ pub fn owner_key(text: &str) -> String {
     let t = t.rsplit("::").next().unwrap_or(t);
     t.trim().to_string()
 }
+
+/// Which syntactic fact recovered a receiver type (stored on CallSite).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ReceiverRecovery {
+    TypedParam,
+    ConstructorLocal,
+}
