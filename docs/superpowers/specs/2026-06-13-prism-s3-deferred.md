@@ -57,7 +57,28 @@ consumer (MCP, CLI) that keeps a warm cache across a prism upgrade can read stal
 content-hash key is insufficient. **Fix sketch:** include `GIT_SHA` (already a build
 identity via `build.rs`, commit 6dc2336) in the nav cache key, or a resolver-behavior
 version distinct from the serialized-format version; add a test that a binary rebuilt at a
-new SHA invalidates a warm nav cache.
+new SHA invalidates a warm nav cache. **Note (full-branch review, codex 2026-06-13,
+MAJOR5):** the main→S3 path is already safe — the Task-4 v3→v4 `CACHE_VERSION` bump
+invalidates any main-built v3 cache. What remains is the *durable* fix so future
+resolver changes (S3→S4…) auto-invalidate without a manual bump.
+
+## 4b. Self-receiver qualifier recovery uses line-substring matching
+
+**Priority:** Low (robustness). **Why deferred:** rare; the AST-based rewrite is more
+than a one-liner. **Impact** (full-branch review MINOR1, `call_graph.rs`
+`recover_self_receiver_qualifier`): a bare `helper(); // self.helper` in a comment, or
+multiple calls on one line, can be misclassified as a `self.`-receiver call. **Fix
+sketch:** make the recovery span/AST-node based instead of line-text; add comment/string
+and same-line regression tests.
+
+## 4c. Callees nav evidence drops the DropReason detail
+
+**Priority:** Low (telemetry). **Why deferred:** enhancement, not a correctness bug —
+`nav call-stats` already exposes the global drop classification. **Impact** (full-branch
+review MINOR2, `navigation/queries.rs`): unresolved *callee* evidence items can't
+distinguish UnknownName / ImportExternal / ExternalReceiver / MultiOwnerCollision drops.
+**Fix sketch:** carry `DropReason` into unresolved callee evidence + a warning/score
+field, mirroring the callers-side `Collision` warning.
 
 ## 5. C++ receiver typing not covered by P6-lite
 

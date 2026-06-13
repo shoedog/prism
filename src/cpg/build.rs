@@ -346,10 +346,14 @@ impl CodePropertyGraph {
                     else {
                         continue;
                     };
-                    // S3 (spec §3.3): Python receivers never bind to explicit call args.
+                    // S3 (spec §3.3): a Python METHOD's self/cls receiver never binds
+                    // to an explicit call arg. Gate on actual ownership — a free
+                    // function whose first param merely happens to be named `self`
+                    // must keep all its params (else arg→param edges shift by one).
                     let param_names = match info.param_names.first().map(String::as_str) {
                         Some("self") | Some("cls")
-                            if callee_parsed.language == crate::languages::Language::Python =>
+                            if info.owner.is_some()
+                                && callee_parsed.language == crate::languages::Language::Python =>
                         {
                             &info.param_names[1..]
                         }

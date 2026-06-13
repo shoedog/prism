@@ -131,3 +131,28 @@ fn cpg_python_method_arg_binds_to_explicit_param_not_receiver() {
         ("m.py", "method", 2, "self")
     ));
 }
+
+#[test]
+fn cpg_python_free_function_with_self_param_keeps_all_args() {
+    // Review fix (MAJOR 3): the self/cls receiver skip must be gated on actual
+    // method ownership. A FREE function whose first param happens to be named
+    // `self` keeps all its params — args must not shift by one.
+    let cpg = build_cpg(&[(
+        // both params used so each gets a var node (an unused param has none).
+        "m.py",
+        "def helper(self, x):\n    return self + x\n\ndef call(a, b):\n    helper(a, b)\n",
+        Language::Python,
+    )]);
+
+    // helper is module-level (no owner) -> no skip: a -> self, b -> x.
+    assert!(has_dataflow_edge(
+        &cpg,
+        ("m.py", "call", 5, "a"),
+        ("m.py", "helper", 1, "self")
+    ));
+    assert!(has_dataflow_edge(
+        &cpg,
+        ("m.py", "call", 5, "b"),
+        ("m.py", "helper", 1, "x")
+    ));
+}
