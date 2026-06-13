@@ -449,6 +449,41 @@ fn chrono_free_timestamp() -> String {
 mod tests {
     use super::*;
 
+    fn parse_py(path: &str, source: &str) -> crate::ast::ParsedFile {
+        crate::ast::ParsedFile::parse(path, source, crate::languages::Language::Python).unwrap()
+    }
+
+    fn force_cache_version(cache_dir: &Path, version: u32) {
+        let bin_path = cache_bin_path(cache_dir);
+        let data = std::fs::read(&bin_path).unwrap();
+        let mut cache: CpgCache = bincode::deserialize(&data).unwrap();
+        cache.version = version;
+        std::fs::write(bin_path, bincode::serialize(&cache).unwrap()).unwrap();
+    }
+
+    fn node_dump(cpg: &crate::cpg::CodePropertyGraph) -> Vec<String> {
+        cpg.node_indices()
+            .map(|idx| format!("{:?}", cpg.node(idx)))
+            .collect()
+    }
+
+    fn call_site_dump(cpg: &crate::cpg::CodePropertyGraph) -> Vec<String> {
+        cpg.call_graph
+            .calls
+            .values()
+            .flat_map(|sites| sites.iter())
+            .map(|site| format!("{:?}", site))
+            .collect()
+    }
+
+    fn cache_result_kind(result: &CacheResult) -> &'static str {
+        match result {
+            CacheResult::Hit(_) => "Hit",
+            CacheResult::PartialHit { .. } => "PartialHit",
+            CacheResult::Miss => "Miss",
+        }
+    }
+
     #[test]
     fn test_sha256_hex() {
         let hash = sha256_hex("hello world");
@@ -472,6 +507,136 @@ mod tests {
         assert!(hashes.contains_key("b.py"));
         // Different content → different hash
         assert_ne!(hashes["a.py"], hashes["b.py"]);
+    }
+
+    #[test]
+    fn v5_round_trip_preserves_byte_identity() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut sources = BTreeMap::new();
+        sources.insert(
+            "t.py".to_string(),
+            "class C:\n    def m(self, p):\n        q = p\n        return q\n\ndef g(c):\n    return c.m(1)\n"
+                .to_string(),
+        );
+        let files: BTreeMap<String, crate::ast::ParsedFile> = sources
+            .iter()
+            .map(|(path, source)| (path.clone(), parse_py(path, source)))
+            .collect();
+
+        let cpg = crate::cpg::CodePropertyGraph::build(&files);
+        let hashes = compute_file_hashes(&sources);
+
+        assert!(
+            cpg.node_indices().any(|idx| matches!(
+                cpg.node(idx),
+                crate::cpg::CpgNode::Variable {
+                    file,
+                    function_start_line,
+                    start_byte,
+                    end_byte,
+                    ..
+                } if file == "t.py"
+                    && *function_start_line > 0
+                    && *start_byte > 0
+                    && *end_byte > *start_byte
+            )),
+            "fixture should contain a variable node with real byte identity"
+        );
+        assert!(
+            cpg.call_graph
+                .calls
+                .values()
+                .flat_map(|sites| sites.iter())
+                .any(|site| site.start_byte > 0 && site.end_byte > site.start_byte),
+            "fixture should contain a call site with real byte identity"
+        );
+
+        save_cache(&cpg, &hashes, false, dir.path()).unwrap();
+
+        match load_cache(&hashes, false, dir.path()) {
+            CacheResult::Hit(restored) => {
+                assert_eq!(
+                    node_dump(&cpg),
+                    node_dump(&restored),
+                    "node byte fields and function_start_line should survive round trip"
+                );
+                assert_eq!(
+                    call_site_dump(&cpg),
+                    call_site_dump(&restored),
+                    "CallSite byte fields should survive round trip"
+                );
+            }
+            other => panic!("expected Hit, got {}", cache_result_kind(&other)),
+        }
+    }
+
+    #[test]
+    fn v4_cache_is_a_miss() {
+        let dir = tempfile::tempdir().unwrap();
+        let sources = BTreeMap::new();
+        let cpg = crate::cpg::CodePropertyGraph::empty();
+        let hashes = compute_file_hashes(&sources);
+
+        save_cache(&cpg, &hashes, false, dir.path()).unwrap();
+        force_cache_version(dir.path(), 4);
+
+        assert!(matches!(
+            load_cache(&hashes, false, dir.path()),
+            CacheResult::Miss
+        ));
+    }
+
+    #[test]
+    fn partial_hit_incremental_rebuild_round_trips() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut sources = BTreeMap::new();
+        sources.insert("a.py".to_string(), "def a(p):\n    return p\n".to_string());
+        sources.insert("b.py".to_string(), "def b(q):\n    return q\n".to_string());
+        let mut files: BTreeMap<String, crate::ast::ParsedFile> = sources
+            .iter()
+            .map(|(path, source)| (path.clone(), parse_py(path, source)))
+            .collect();
+
+        let cpg = crate::cpg::CodePropertyGraph::build(&files);
+        let h0 = compute_file_hashes(&sources);
+        save_cache(&cpg, &h0, false, dir.path()).unwrap();
+
+        sources.insert(
+            "b.py".to_string(),
+            "def b(q):\n    r = q\n    return r\n".to_string(),
+        );
+        files.insert("b.py".to_string(), parse_py("b.py", &sources["b.py"]));
+        let h1 = compute_file_hashes(&sources);
+
+        match load_cache(&h1, false, dir.path()) {
+            CacheResult::PartialHit {
+                cached_call_graph,
+                cached_dfg,
+                changed_files,
+            } => {
+                assert_eq!(changed_files, BTreeSet::from(["b.py".to_string()]));
+                let rebuilt = crate::cpg::CodePropertyGraph::build_incremental(
+                    cached_call_graph,
+                    cached_dfg,
+                    &changed_files,
+                    &files,
+                    None,
+                );
+                assert!(
+                    rebuilt.node_indices().any(|idx| matches!(
+                        rebuilt.node(idx),
+                        crate::cpg::CpgNode::Variable {
+                            file,
+                            start_byte,
+                            end_byte,
+                            ..
+                        } if file == "a.py" && *start_byte > 0 && *end_byte > *start_byte
+                    )),
+                    "a.py variable nodes should retain real byte spans through incremental rebuild"
+                );
+            }
+            other => panic!("expected PartialHit, got {}", cache_result_kind(&other)),
+        }
     }
 
     #[test]
