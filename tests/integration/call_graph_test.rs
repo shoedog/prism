@@ -916,3 +916,50 @@ fn methods_index_and_side_maps_populated() {
     let free_fid = &cg.functions["free"][0];
     assert!(!cg.method_owners.contains_key(free_fid));
 }
+
+#[test]
+fn p6_receiver_recovery_matches_full_and_direct_subset_merge() {
+    let mut files = std::collections::BTreeMap::new();
+    files.insert(
+        "defs.rs".to_string(),
+        ParsedFile::parse(
+            "defs.rs",
+            "impl Sender {\n    fn send(&self) {}\n}\nimpl Pipe {\n    fn send(&self) {}\n}\n",
+            Language::Rust,
+        )
+        .unwrap(),
+    );
+    files.insert(
+        "main.rs".to_string(),
+        ParsedFile::parse(
+            "main.rs",
+            "fn run(tx: &Sender) {\n    tx.send();\n}\n",
+            Language::Rust,
+        )
+        .unwrap(),
+    );
+
+    let full = CallGraph::build(&files);
+    let mut incremental = full.clone();
+    let changed = BTreeSet::from(["main.rs".to_string()]);
+    incremental.remove_files(&changed);
+    incremental.merge(CallGraph::build_direct_subset(&files, &changed));
+
+    let full_site = full
+        .callers
+        .get("send")
+        .and_then(|sites| sites.iter().find(|s| s.caller.file == "main.rs"))
+        .expect("full send site");
+    let incremental_site = incremental
+        .callers
+        .get("send")
+        .and_then(|sites| sites.iter().find(|s| s.caller.file == "main.rs"))
+        .expect("incremental send site");
+
+    assert_eq!(full_site.receiver_type, incremental_site.receiver_type);
+    assert_eq!(
+        full_site.receiver_recovery,
+        incremental_site.receiver_recovery
+    );
+    assert_eq!(full_site.receiver_type.as_deref(), Some("Sender"));
+}

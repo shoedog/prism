@@ -310,6 +310,7 @@ impl CallGraph {
             .map(|entry| {
                 let (file_path, parsed) = *entry;
                 let mut file_call_sites = Vec::new();
+                let file_imports_ref = imports.get(file_path);
 
                 for func_node in parsed.all_functions() {
                     let func_name = match parsed.language.function_name(&func_node) {
@@ -327,6 +328,10 @@ impl CallGraph {
                     let all_lines: BTreeSet<usize> = (start..=end).collect();
                     let call_sites =
                         parsed.function_calls_on_lines_with_qualifier(&func_node, &all_lines);
+                    let recv_var = parsed
+                        .language
+                        .go_receiver_var(&func_node)
+                        .map(|n| parsed.node_text(&n).to_string());
 
                     for (callee_name, line, qualifier) in call_sites {
                         let qualifier = Self::recover_self_receiver_qualifier(
@@ -335,13 +340,21 @@ impl CallGraph {
                             line,
                             qualifier,
                         );
+                        let recovered = recover_receiver(
+                            parsed,
+                            &func_node,
+                            recv_var.as_deref(),
+                            file_imports_ref,
+                            qualifier.as_deref(),
+                            line,
+                        );
                         let site = CallSite {
                             caller: caller_id.clone(),
                             callee_name,
                             line,
                             qualifier,
-                            receiver_type: None,
-                            receiver_recovery: None,
+                            receiver_type: recovered.as_ref().map(|(ty, _)| ty.clone()),
+                            receiver_recovery: recovered.as_ref().map(|(_, how)| *how),
                         };
                         file_call_sites.push((caller_id.clone(), site));
                     }
@@ -830,6 +843,11 @@ impl CallGraph {
                 let all_lines: BTreeSet<usize> = (start..=end).collect();
                 let call_sites =
                     parsed.function_calls_on_lines_with_qualifier(&func_node, &all_lines);
+                let recv_var = parsed
+                    .language
+                    .go_receiver_var(&func_node)
+                    .map(|n| parsed.node_text(&n).to_string());
+                let file_imports_ref = imports.get(file_path);
 
                 for (callee_name, line, qualifier) in call_sites {
                     let qualifier = Self::recover_self_receiver_qualifier(
@@ -838,13 +856,21 @@ impl CallGraph {
                         line,
                         qualifier,
                     );
+                    let recovered = recover_receiver(
+                        parsed,
+                        &func_node,
+                        recv_var.as_deref(),
+                        file_imports_ref,
+                        qualifier.as_deref(),
+                        line,
+                    );
                     let site = CallSite {
                         caller: caller_id.clone(),
                         callee_name: callee_name.clone(),
                         line,
                         qualifier,
-                        receiver_type: None,
-                        receiver_recovery: None,
+                        receiver_type: recovered.as_ref().map(|(ty, _)| ty.clone()),
+                        receiver_recovery: recovered.as_ref().map(|(_, how)| *how),
                     };
                     calls
                         .entry(caller_id.clone())
@@ -1228,6 +1254,36 @@ fn has_static_specifier(parsed: &ParsedFile, func_node: &tree_sitter::Node<'_>) 
         }
     }
     false
+}
+
+fn recover_receiver(
+    parsed: &ParsedFile,
+    func_node: &tree_sitter::Node<'_>,
+    recv_var: Option<&str>,
+    file_imports: Option<&BTreeMap<String, String>>,
+    qualifier: Option<&str>,
+    line: usize,
+) -> Option<(String, crate::resolution::ReceiverRecovery)> {
+    if !matches!(
+        parsed.language,
+        crate::languages::Language::Rust | crate::languages::Language::Go
+    ) {
+        return None;
+    }
+    let q = qualifier?;
+    let simple = !q.is_empty() && q.chars().all(|c| c.is_alphanumeric() || c == '_');
+    let is_kw = matches!(q, "self" | "this" | "cls");
+    let is_recv = recv_var == Some(q);
+    let is_import = file_imports.map(|m| m.contains_key(q)).unwrap_or(false);
+    if !(simple && !is_kw && !is_recv && !is_import) {
+        return None;
+    }
+    parsed
+        .receiver_type_in_fn(func_node, q, line)
+        .map(|(ty, how)| {
+            let peeled = crate::resolution::peel_type(&ty);
+            (crate::resolution::owner_key(&peeled), how)
+        })
 }
 
 #[cfg(test)]

@@ -276,6 +276,91 @@ impl ParsedFile {
         &self.functions
     }
 
+    /// Find the smallest function node spanning the given 1-indexed line.
+    pub fn function_node_spanning(&self, line: usize) -> Option<Node<'_>> {
+        self.all_functions()
+            .into_iter()
+            .filter(|node| {
+                let (start, end) = self.node_line_range(node);
+                start <= line && line <= end
+            })
+            .min_by_key(|node| node.end_byte().saturating_sub(node.start_byte()))
+    }
+
+    /// S3 P6-lite: syntactically-provable receiver type for `receiver` at a call
+    /// on `call_line`. Typed params + constructor locals only; only bindings at
+    /// or before `call_line` count (a rebinding AFTER the call must not cancel
+    /// recovery); >1 binding before the call means shadow bail. Rust + Go.
+    /// Returns the raw, unpeeled type text + which fact recovered it.
+    pub fn receiver_type_in_fn(
+        &self,
+        func_node: &Node<'_>,
+        receiver: &str,
+        call_line: usize,
+    ) -> Option<(String, crate::resolution::ReceiverRecovery)> {
+        use crate::languages::Language;
+        use crate::resolution::ReceiverRecovery;
+
+        if !matches!(self.language, Language::Rust | Language::Go) {
+            return None;
+        }
+
+        let mut found: Option<(String, ReceiverRecovery)> = None;
+        let mut bindings = 0usize;
+
+        if let Some(params) = self.find_parameters_node(func_node) {
+            let mut cursor = params.walk();
+            for param in params.children(&mut cursor) {
+                match self.language {
+                    Language::Rust if param.kind() == "parameter" => {
+                        let (Some(pattern), Some(ty)) = (
+                            param.child_by_field_name("pattern"),
+                            param.child_by_field_name("type"),
+                        ) else {
+                            continue;
+                        };
+                        if self.simple_binding_text(&pattern).as_deref() == Some(receiver) {
+                            found = Some((
+                                self.node_text(&ty).to_string(),
+                                ReceiverRecovery::TypedParam,
+                            ));
+                            bindings += 1;
+                        } else if self.node_binds_name(pattern, receiver) {
+                            bindings += 1;
+                            found = None;
+                        }
+                    }
+                    Language::Go if param.kind() == "parameter_declaration" => {
+                        let Some(ty) = param.child_by_field_name("type") else {
+                            continue;
+                        };
+                        if self.go_parameter_binds_name(param, ty, receiver) {
+                            found = Some((
+                                self.node_text(&ty).to_string(),
+                                ReceiverRecovery::TypedParam,
+                            ));
+                            bindings += 1;
+                        }
+                    }
+                    _ => {}
+                }
+            }
+        }
+
+        self.walk_receiver_bindings(
+            *func_node,
+            true,
+            receiver,
+            call_line,
+            &mut found,
+            &mut bindings,
+        );
+        if bindings > 1 {
+            return None;
+        }
+        found
+    }
+
     /// Manual recursive function collection (pre-query fallback).
     /// `pub(crate)` for dual-path consistency testing in `queries::tests`.
     pub(crate) fn collect_functions_manual<'a>(&self, node: Node<'a>, out: &mut Vec<Node<'a>>) {
@@ -2885,6 +2970,171 @@ impl ParsedFile {
             }
         }
         None
+    }
+
+    fn walk_receiver_bindings(
+        &self,
+        node: Node<'_>,
+        is_root: bool,
+        receiver: &str,
+        call_line: usize,
+        found: &mut Option<(String, crate::resolution::ReceiverRecovery)>,
+        bindings: &mut usize,
+    ) {
+        use crate::languages::Language;
+        use crate::resolution::ReceiverRecovery;
+
+        if node.start_position().row + 1 > call_line {
+            return;
+        }
+        if !is_root && self.language.function_node_types().contains(&node.kind()) {
+            return;
+        }
+
+        match (self.language, node.kind()) {
+            (Language::Rust, "let_declaration") => {
+                if let Some(pattern) = node.child_by_field_name("pattern") {
+                    if self.simple_binding_text(&pattern).as_deref() == Some(receiver) {
+                        *bindings += 1;
+                        if let Some(ty) = node.child_by_field_name("type") {
+                            *found = Some((
+                                self.node_text(&ty).to_string(),
+                                ReceiverRecovery::ConstructorLocal,
+                            ));
+                        } else if let Some(value) = node.child_by_field_name("value") {
+                            *found = self
+                                .constructor_type(&value)
+                                .map(|ty| (ty, ReceiverRecovery::ConstructorLocal));
+                        } else {
+                            *found = None;
+                        }
+                    } else if self.node_binds_name(pattern, receiver) {
+                        *bindings += 1;
+                        *found = None;
+                    }
+                }
+            }
+            (Language::Go, "short_var_declaration") => {
+                let left = node
+                    .child_by_field_name("left")
+                    .or_else(|| node.child_by_field_name("name"));
+                let right = node
+                    .child_by_field_name("right")
+                    .or_else(|| node.child_by_field_name("value"));
+                if let Some(left) = left {
+                    if self.simple_binding_text(&left).as_deref() == Some(receiver) {
+                        *bindings += 1;
+                        *found = right.and_then(|r| {
+                            self.constructor_type(&r)
+                                .or_else(|| self.first_constructor_type_child(&r))
+                                .map(|ty| (ty, ReceiverRecovery::ConstructorLocal))
+                        });
+                    } else if self.node_binds_name(left, receiver) {
+                        *bindings += 1;
+                        *found = None;
+                    }
+                }
+            }
+            (Language::Go, "assignment_statement") | (Language::Rust, "assignment_expression") => {
+                let left = node
+                    .child_by_field_name("left")
+                    .or_else(|| node.child_by_field_name("left_operand"));
+                if let Some(left) = left {
+                    if self.simple_binding_text(&left).as_deref() == Some(receiver) {
+                        *bindings += 1;
+                        *found = None;
+                    }
+                }
+            }
+            _ => {}
+        }
+
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            self.walk_receiver_bindings(child, false, receiver, call_line, found, bindings);
+        }
+    }
+
+    fn constructor_type(&self, node: &Node<'_>) -> Option<String> {
+        use crate::languages::Language;
+
+        match node.kind() {
+            "call_expression" => {
+                let function = node
+                    .child_by_field_name("function")
+                    .or_else(|| node.child_by_field_name("name"))?;
+                let text = self.node_text(&function).trim();
+                if let (Language::Rust, Some((ty, constructor))) =
+                    (self.language, text.rsplit_once("::"))
+                {
+                    if !matches!(constructor, "new" | "default") {
+                        return None;
+                    }
+                    return Some(ty.rsplit("::").next().unwrap_or(ty).to_string());
+                }
+                if self.language == Language::Go {
+                    return text
+                        .strip_prefix("New")
+                        .filter(|s| !s.is_empty())
+                        .map(str::to_string);
+                }
+                None
+            }
+            "struct_expression" | "composite_literal" => {
+                let ty = node
+                    .child_by_field_name("name")
+                    .or_else(|| node.child_by_field_name("type"))?;
+                Some(self.node_text(&ty).to_string())
+            }
+            _ => None,
+        }
+    }
+
+    fn first_constructor_type_child(&self, node: &Node<'_>) -> Option<String> {
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            if let Some(ty) = self.constructor_type(&child) {
+                return Some(ty);
+            }
+        }
+        None
+    }
+
+    fn node_binds_name(&self, node: Node<'_>, receiver: &str) -> bool {
+        if self.language.is_identifier_node(node.kind()) && self.node_text(&node) == receiver {
+            return true;
+        }
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            if self.node_binds_name(child, receiver) {
+                return true;
+            }
+        }
+        false
+    }
+
+    fn simple_binding_text(&self, node: &Node<'_>) -> Option<String> {
+        let text = self.node_text(node).trim();
+        if text.chars().all(|c| c.is_alphanumeric() || c == '_') {
+            return Some(text.to_string());
+        }
+        text.strip_prefix("mut ")
+            .map(str::trim)
+            .filter(|s| s.chars().all(|c| c.is_alphanumeric() || c == '_'))
+            .map(str::to_string)
+    }
+
+    fn go_parameter_binds_name(&self, param: Node<'_>, ty: Node<'_>, receiver: &str) -> bool {
+        let mut cursor = param.walk();
+        for child in param.children(&mut cursor) {
+            if child.start_byte() >= ty.start_byte() {
+                continue;
+            }
+            if child.kind() == "identifier" && self.node_text(&child) == receiver {
+                return true;
+            }
+        }
+        false
     }
 
     /// Extract the parameter name from a parameter declaration node.

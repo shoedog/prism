@@ -73,6 +73,34 @@ pub fn owner_key(text: &str) -> String {
     t.trim().to_string()
 }
 
+/// Closed-list syntactic peel (spec section 2.3): refs/pointers and std wrappers,
+/// recursively; then generic args; then dyn/impl. NEVER Deref-semantic.
+pub fn peel_type(text: &str) -> String {
+    let mut t = text.trim();
+    loop {
+        let before = t;
+        t = t
+            .trim_start_matches("&mut ")
+            .trim_start_matches('&')
+            .trim_start_matches('*')
+            .trim();
+        for w in ["Box", "Arc", "Rc", "Pin"] {
+            if let Some(inner) = t.strip_prefix(w) {
+                if let Some(inner) = inner.trim().strip_prefix('<') {
+                    if let Some(inner) = inner.strip_suffix('>') {
+                        t = inner.trim();
+                    }
+                }
+            }
+        }
+        if t == before {
+            break;
+        }
+    }
+    let t = t.trim_start_matches("dyn ").trim_start_matches("impl ");
+    t.split('<').next().unwrap_or(t).trim().to_string()
+}
+
 /// Which syntactic fact recovered a receiver type (stored on CallSite).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum ReceiverRecovery {
@@ -314,8 +342,29 @@ impl CallGraph {
                     }
                 }
 
+                // R6 step 1: P6-lite recovered receiver.
+                if let Some(recv_ty) = site.receiver_type.as_deref() {
+                    let recovered_kind = match site.receiver_recovery {
+                        Some(ReceiverRecovery::ConstructorLocal) => {
+                            ResolutionKind::ConstructorLocal
+                        }
+                        _ => ResolutionKind::TypedParam,
+                    };
+                    return match self.owner_lookup(recv_ty, name) {
+                        Some(mut resolved) => {
+                            for callee in &mut resolved {
+                                if callee.kind == ResolutionKind::QualifiedOwner {
+                                    callee.kind = recovered_kind;
+                                }
+                                // Trait-CHA hits keep TraitCha (dyn Trait receivers).
+                            }
+                            ResolutionOutcome::hit(resolved)
+                        }
+                        None => ResolutionOutcome::dropped(DropReason::ExternalReceiver),
+                    };
+                }
+
                 // R6 residue (P2): method candidates only, never free fns.
-                // P6-lite recovered-receiver handling lands in Task 8 ahead of this.
                 let method_ids: Vec<&FunctionId> = self
                     .functions
                     .get(name)
