@@ -239,9 +239,11 @@ impl CodePropertyGraph {
                     .filter(|target| {
                         // Same line as source is always included
                         (target.file == *file && target.line == *line)
-                            // Cross-function targets bypass CFG filter
+                            // Cross-function targets bypass CFG filter — a different overload
+                            // (same name, different start line) is also cross-function (S2 de-conflation)
                             || target.file != *file
                             || target.function != src_loc.function
+                            || target.function_start_line != src_loc.function_start_line
                             // Intraprocedural: must be CFG-reachable.
                             // Also accepts continuation lines of multi-line statements
                             // (e.g. BUILD_FROM_FILE on line 256 when the call_expression
