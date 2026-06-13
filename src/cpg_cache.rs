@@ -403,6 +403,26 @@ fn reconstruct_cpg(ser: SerializedCpg) -> CodePropertyGraph {
             _ => usize::MAX,
         });
     }
+    for nodes in location_index.values_mut() {
+        nodes.sort_by_key(|&i| match &graph[i] {
+            CpgNode::Variable {
+                start_byte,
+                end_byte,
+                access,
+                ..
+            } => (
+                0u8,
+                *start_byte,
+                *end_byte,
+                match access {
+                    VarAccess::Def => 0,
+                    VarAccess::Use => 1,
+                },
+                i.index(),
+            ),
+            _ => (1u8, 0, 0, 0, i.index()),
+        });
+    }
 
     CodePropertyGraph::from_parts(
         graph,

@@ -60,6 +60,28 @@ impl Trace {
 }
 
 impl CodePropertyGraph {
+    /// Total, deterministic same-line ordering key (S2 §3): byte range, then access (Def<Use),
+    /// then build-order NodeIndex. Non-Variable nodes sort last.
+    fn node_sort_key(&self, idx: NodeIndex) -> (usize, usize, u8, usize) {
+        match &self.graph[idx] {
+            CpgNode::Variable {
+                start_byte,
+                end_byte,
+                access,
+                ..
+            } => (
+                *start_byte,
+                *end_byte,
+                match access {
+                    VarAccess::Def => 0,
+                    VarAccess::Use => 1,
+                },
+                idx.index(),
+            ),
+            _ => (usize::MAX, usize::MAX, 2, idx.index()),
+        }
+    }
+
     /// Single inline-CFG-filtered predecessor BFS. Every frontier member is CFG-reachable from
     /// the seed, so the parent walk-back never dead-ends. Determinism: neighbors sorted by
     /// NodeIndex; first enqueue per root wins the parent slot; DataFlow beats same-line.
@@ -218,6 +240,7 @@ impl CodePropertyGraph {
             .filter(|e| matches!(e.weight(), CpgEdge::DataFlow))
             .map(|e| e.target())
             .collect();
+        // General DFG neighbors can cross lines; NodeIndex order is build-deterministic.
         df.sort_by_key(|i| i.index());
         out.extend(df.into_iter().map(|t| (t, Relation::DataFlow)));
 
@@ -251,7 +274,7 @@ impl CodePropertyGraph {
                             )
                         })
                         .collect();
-                    same.sort_by_key(|i| i.index());
+                    same.sort_by_key(|&i| self.node_sort_key(i));
                     out.extend(
                         same.into_iter()
                             .map(|t| (t, Relation::AssignmentPropagation)),
@@ -353,7 +376,7 @@ impl CodePropertyGraph {
                 )
             })
             .collect();
-        out.sort_by_key(|i| i.index());
+        out.sort_by_key(|&i| self.node_sort_key(i));
         out
     }
 
@@ -393,7 +416,7 @@ impl CodePropertyGraph {
                 )
             })
             .collect();
-        out.sort_by_key(|i| i.index());
+        out.sort_by_key(|&i| self.node_sort_key(i));
         out
     }
 
