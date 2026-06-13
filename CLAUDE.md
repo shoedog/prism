@@ -165,12 +165,26 @@ and `--cache-dir` gating that navigation store specifically.
 Navigation queries include `nodes-at`, `callers`, `callees`, `ego`,
 `module-deps`, and `repo-map`; `module-deps`/`repo-map` live in
 `src/navigation/module_graph.rs`.
-Navigation call resolution covers dot-qualified package/module calls for
-Python, JS, TS, and Go; unqualified and `use`-imported calls; and
-`::`-scoped module/namespace free functions for Rust and C++. Remaining
-gaps are `Type::method` where the type name differs from the file stem,
-and cross-file method/receiver calls, which need type information and are
-language-agnostic.
+Navigation and CPG call resolution share one ordered ladder (S3),
+`CallGraph::resolve_call_site` in `src/resolution.rs`, which returns each callee
+with a `ResolutionConfidence` (`Exact` | `NameOnly`) and a `ResolutionKind`. The
+rungs (R1–R7): qualified `T::m`/`mod::T::m` and `Self::`/`self.`/receiver-var
+calls bind via a per-`(owner, name)` method index (Rust trait impls are dual-keyed
+under the trait, demoted when >1 impl); import-qualified `pkg.f()` narrows by file
+stem or Go package directory with no permissive fall-through; `Class.m()` binds
+when the qualifier is itself an owner key; unqualified calls prefer a local free
+definition, then Java/C++ implicit-`this`, then cross-file free functions
+(methods excluded — a method needs a receiver); unknown-receiver `x.m()` uses
+**P6-lite** syntactic receiver typing (Rust/Go typed params + constructor locals,
+with a std-wrapper peel list and shadow-bail) and otherwise demotes a single
+in-repo owner / drops a multi-owner collision (the precision floor); module-
+qualified free functions fall back to file-stem matching. Navigation maps
+confidence to `score` (Exact 1.0 / NameOnly 0.6) with a `Reason::Resolution` and a
+`Collision` warning when same-name receiver sites are dropped. Remaining gaps
+(spec §2.4, deferred to Phase-IP type-confirmed dispatch): Go embedding promotion,
+Go interface satisfaction, Python inheritance, and field/return-typed receivers
+(the S3.1 struct-field-index candidate). `prism nav call-stats --repo <dir>`
+reports the resolution-kind histogram and drop classification.
 
 ### MCP Adapter
 
