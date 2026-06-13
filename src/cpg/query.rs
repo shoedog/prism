@@ -18,9 +18,17 @@ impl CodePropertyGraph {
 
     /// Get the node index for a function by file and name.
     pub fn function_node(&self, file: &str, name: &str) -> Option<NodeIndex> {
-        self.func_index
+        self.name_index
             .get(&(file.to_string(), name.to_string()))
-            .copied()
+            .and_then(|v| v.first().copied())
+    }
+
+    /// Get all candidate node indices for a function by file and name.
+    pub fn function_candidates(&self, file: &str, name: &str) -> Vec<NodeIndex> {
+        self.name_index
+            .get(&(file.to_string(), name.to_string()))
+            .cloned()
+            .unwrap_or_default()
     }
 
     /// Get all node indices at a specific file and line.
@@ -349,7 +357,7 @@ impl CodePropertyGraph {
     /// Find the function containing a specific line in a file.
     /// Equivalent to `CallGraph::function_at()`.
     pub fn function_at(&self, file: &str, line: usize) -> Option<(NodeIndex, FunctionId)> {
-        for (&(ref f, ref _name), &idx) in &self.func_index {
+        for (&(ref f, ref _name, ref _sl), &idx) in &self.func_index {
             if f == file {
                 if let CpgNode::Function {
                     start_line,
@@ -374,7 +382,7 @@ impl CodePropertyGraph {
         let mut queue: VecDeque<(NodeIndex, usize)> = VecDeque::new();
 
         // Find all function nodes with this name
-        for (&(ref _file, ref name), &idx) in &self.func_index {
+        for (&(ref _file, ref name, ref _sl), &idx) in &self.func_index {
             if name == func_name {
                 queue.push_back((idx, 0));
                 visited.insert(idx);
@@ -420,10 +428,7 @@ impl CodePropertyGraph {
         let mut queue: VecDeque<(NodeIndex, usize)> = VecDeque::new();
 
         // Find the starting function node
-        if let Some(&idx) = self
-            .func_index
-            .get(&(file.to_string(), func_name.to_string()))
-        {
+        if let Some(idx) = self.function_node(file, func_name) {
             queue.push_back((idx, 0));
             visited.insert(idx);
         }
@@ -472,7 +477,7 @@ impl CodePropertyGraph {
         let mut queue: VecDeque<(NodeIndex, usize)> = VecDeque::new();
 
         // Start from function nodes with this name in the target file
-        for (&(ref file, ref name), &idx) in &self.func_index {
+        for (&(ref file, ref name, ref _sl), &idx) in &self.func_index {
             if name == func_name && file == tf {
                 queue.push_back((idx, 0));
                 visited.insert(idx);

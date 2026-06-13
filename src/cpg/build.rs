@@ -28,8 +28,11 @@ pub struct CodePropertyGraph {
     /// The underlying petgraph directed graph.
     pub graph: DiGraph<CpgNode, CpgEdge>,
 
-    /// Index: (file, function_name) → function node index
-    pub(crate) func_index: BTreeMap<(String, String), NodeIndex>,
+    /// Index: (file, function_name, start_line) → function node index
+    pub(crate) func_index: BTreeMap<(String, String, usize), NodeIndex>,
+
+    /// Index: (file, function_name) → function node indexes sorted by start_line.
+    pub(crate) name_index: BTreeMap<(String, String), Vec<NodeIndex>>,
 
     /// Index: VarLocation-like key → variable node index.
     /// Key: (file, function, line, path, access_kind)
@@ -80,7 +83,8 @@ impl CodePropertyGraph {
     /// with the graph contents.
     pub fn from_parts(
         graph: DiGraph<CpgNode, CpgEdge>,
-        func_index: BTreeMap<(String, String), NodeIndex>,
+        func_index: BTreeMap<(String, String, usize), NodeIndex>,
+        name_index: BTreeMap<(String, String), Vec<NodeIndex>>,
         var_index: BTreeMap<(String, String, usize, AccessPath, VarAccess), NodeIndex>,
         location_index: BTreeMap<(String, usize), Vec<NodeIndex>>,
         call_graph: CallGraph,
@@ -89,6 +93,7 @@ impl CodePropertyGraph {
         CodePropertyGraph {
             graph,
             func_index,
+            name_index,
             var_index,
             location_index,
             call_graph,
@@ -104,6 +109,7 @@ impl CodePropertyGraph {
         CodePropertyGraph {
             graph: DiGraph::new(),
             func_index: BTreeMap::new(),
+            name_index: BTreeMap::new(),
             var_index: BTreeMap::new(),
             location_index: BTreeMap::new(),
             call_graph: CallGraph::empty(),
@@ -194,7 +200,8 @@ impl CodePropertyGraph {
         type_db: Option<TypeDatabase>,
     ) -> Self {
         let mut graph = DiGraph::new();
-        let mut func_index: BTreeMap<(String, String), NodeIndex> = BTreeMap::new();
+        let mut func_index: BTreeMap<(String, String, usize), NodeIndex> = BTreeMap::new();
+        let mut name_index: BTreeMap<(String, String), Vec<NodeIndex>> = BTreeMap::new();
         let mut var_index: BTreeMap<(String, String, usize, AccessPath, VarAccess), NodeIndex> =
             BTreeMap::new();
         let mut location_index: BTreeMap<(String, usize), Vec<NodeIndex>> = BTreeMap::new();
@@ -222,12 +229,22 @@ impl CodePropertyGraph {
                     start_byte,
                     end_byte,
                 });
-                func_index.insert((fid.file.clone(), fid.name.clone()), idx);
+                func_index.insert((fid.file.clone(), fid.name.clone(), fid.start_line), idx);
+                name_index
+                    .entry((fid.file.clone(), fid.name.clone()))
+                    .or_default()
+                    .push(idx);
                 location_index
                     .entry((fid.file.clone(), fid.start_line))
                     .or_default()
                     .push(idx);
             }
+        }
+        for nodes in name_index.values_mut() {
+            nodes.sort_by_key(|&n| match &graph[n] {
+                CpgNode::Function { start_line, .. } => *start_line,
+                _ => usize::MAX,
+            });
         }
 
         // --- Steps 2-3: Variable nodes from DFG ---
@@ -323,7 +340,11 @@ impl CodePropertyGraph {
 
         // --- Step 5: Call edges ---
         for (caller_id, sites) in &cg.calls {
-            let caller_key = (caller_id.file.clone(), caller_id.name.clone());
+            let caller_key = (
+                caller_id.file.clone(),
+                caller_id.name.clone(),
+                caller_id.start_line,
+            );
             let caller_idx = match func_index.get(&caller_key) {
                 Some(&idx) => idx,
                 None => continue,
@@ -332,7 +353,11 @@ impl CodePropertyGraph {
                 // S3: Exact + NameOnly included; drops excluded.
                 for resolved in cg.resolve_call_site(site) {
                     let callee_id = resolved.target;
-                    let callee_key = (callee_id.file.clone(), callee_id.name.clone());
+                    let callee_key = (
+                        callee_id.file.clone(),
+                        callee_id.name.clone(),
+                        callee_id.start_line,
+                    );
                     if let Some(&callee_idx) = func_index.get(&callee_key) {
                         graph.add_edge(caller_idx, callee_idx, CpgEdge::Call);
                         graph.add_edge(callee_idx, caller_idx, CpgEdge::Return);
@@ -358,12 +383,10 @@ impl CodePropertyGraph {
                         Some(p) => p,
                         None => continue,
                     };
-                    let Some(info) = callee_parsed
-                        .functions()
-                        .iter()
-                        // first name match wins — pinned-until-S2 (see step5b_param_binding_first_wins_parity)
-                        .find(|f| f.name.as_deref() == Some(callee_id.name.as_str()))
-                    else {
+                    let Some(info) = callee_parsed.functions().iter().find(|f| {
+                        f.name.as_deref() == Some(callee_id.name.as_str())
+                            && f.start_line == callee_id.start_line
+                    }) else {
                         continue;
                     };
                     // S3 (spec §3.3): a Python METHOD's self/cls receiver never binds
@@ -426,8 +449,10 @@ impl CodePropertyGraph {
 
         // --- Step 6: Contains edges ---
         for (&(ref file, ref func, ref _line, ref _path, ref _access), &var_idx) in &var_index {
-            let func_key = (file.clone(), func.clone());
-            if let Some(&func_idx) = func_index.get(&func_key) {
+            if let Some(&func_idx) = name_index
+                .get(&(file.clone(), func.clone()))
+                .and_then(|v| v.first())
+            {
                 graph.add_edge(func_idx, var_idx, CpgEdge::Contains);
             }
         }
@@ -468,7 +493,7 @@ impl CodePropertyGraph {
                 BTreeMap::new();
             for record in tdb.records.values() {
                 for method_name in record.virtual_methods.keys() {
-                    for (&(ref _file, ref name), &idx) in &func_index {
+                    for (&(ref _file, ref name, ref _start_line), &idx) in &func_index {
                         if name == method_name {
                             virtual_method_nodes
                                 .entry(method_name.clone())
@@ -515,6 +540,7 @@ impl CodePropertyGraph {
         CodePropertyGraph {
             graph,
             func_index,
+            name_index,
             var_index,
             location_index,
             call_graph: cg,

@@ -112,6 +112,7 @@ fn test_taint_trace_no_cfg_falls_back_to_pure_taint() {
         graph,
         BTreeMap::new(),
         BTreeMap::new(),
+        BTreeMap::new(),
         location_index,
         crate::call_graph::CallGraph::empty(),
         crate::data_flow::DataFlowGraph::empty(),
@@ -192,6 +193,7 @@ fn test_taint_trace_statement_miss_degrades_to_pure_taint() {
         graph,
         BTreeMap::new(),
         BTreeMap::new(),
+        BTreeMap::new(),
         location_index,
         crate::call_graph::CallGraph::empty(),
         crate::data_flow::DataFlowGraph::empty(),
@@ -251,6 +253,7 @@ fn test_degraded_seed_line_warns_once_per_line() {
         graph,
         BTreeMap::new(),
         BTreeMap::new(),
+        BTreeMap::new(),
         location_index,
         crate::call_graph::CallGraph::empty(),
         crate::data_flow::DataFlowGraph::empty(),
@@ -293,6 +296,7 @@ fn test_seed_with_no_variable_nodes_warns() {
     location_index.insert(("manual.py".to_string(), 5), vec![stmt]);
     let cpg = CodePropertyGraph::from_parts(
         graph,
+        BTreeMap::new(),
         BTreeMap::new(),
         BTreeMap::new(),
         location_index,
@@ -352,6 +356,7 @@ fn test_cfg_reachable_lines_unioned_covers_all_statements() {
     location_index.insert(("m.js".to_string(), 30), vec![succ_b]);
     let cpg = CodePropertyGraph::from_parts(
         graph,
+        BTreeMap::new(),
         BTreeMap::new(),
         BTreeMap::new(),
         location_index,
@@ -414,6 +419,7 @@ fn test_taint_trace_keeps_per_root_attribution() {
         graph,
         BTreeMap::new(),
         BTreeMap::new(),
+        BTreeMap::new(),
         location_index,
         crate::call_graph::CallGraph::empty(),
         crate::data_flow::DataFlowGraph::empty(),
@@ -458,6 +464,7 @@ fn test_taint_trace_dataflow_wins_same_line_tie() {
         graph,
         BTreeMap::new(),
         BTreeMap::new(),
+        BTreeMap::new(),
         location_index,
         crate::call_graph::CallGraph::empty(),
         crate::data_flow::DataFlowGraph::empty(),
@@ -496,6 +503,7 @@ fn test_taint_trace_skips_non_variable_dataflow_neighbors() {
     location_index.insert(("manual.py".to_string(), 2), vec![stmt]);
     let cpg = CodePropertyGraph::from_parts(
         graph,
+        BTreeMap::new(),
         BTreeMap::new(),
         BTreeMap::new(),
         location_index,
