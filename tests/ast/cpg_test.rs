@@ -474,3 +474,14 @@ fn rust_let_mut_does_not_emit_mut_path() {
     });
     assert!(has_x_def, "`let mut x` must produce a Def for x");
 }
+
+// S2 Task 10 (acceptance): byte fields + byte-ordered buckets are deterministic across
+// builds (BTreeMap/BTreeSet throughout + total byte tie-breaks).
+#[test]
+fn cpg_build_is_deterministic() {
+    let src = "def f(p):\n    q = p\n    r = q\n    return r\n";
+    assert_eq!(
+        node_byte_dump(&build_python_cpg(src)),
+        node_byte_dump(&build_python_cpg(src))
+    );
+}

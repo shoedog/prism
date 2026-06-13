@@ -28,8 +28,11 @@ span-*quality* or coverage refinements. Priority L unless noted.
 
 ## Task 4 — coverage bookkeeping
 
-3. **New `lang_python` test target.** (Priority M — do in Task 10.) Task 4 added
-   `tests/lang/python/{main.rs,span_test.rs}` and a `[[test]] name = "lang_python"` target
-   (Python previously had no per-language target). Task 10 must add the new test file(s)
-   to the 3 `all_test_files` arrays in `tests/integration/coverage_test.rs` (per CLAUDE.md)
-   so the algorithm×language matrix doesn't under-report.
+3. **New `lang_python` test target.** ✅ RESOLVED in Task 10 — verified **no change
+   needed.** Task 4 added `tests/lang/python/{main.rs,span_test.rs}` and a
+   `[[test]] name = "lang_python"` target (Python previously had no per-language target).
+   The `span_test.rs` files are span-*extraction* tests, not algorithm tests, so they do
+   not belong in the algo×language matrix; Python's algorithm coverage already comes from
+   `tests/algo/*` (via `make_python_test`). `coverage_test::*` (all 4) and
+   `umbrella_completeness_test` pass as-is (the new files are registered in their lang
+   `main.rs`), so the matrix does not under-report.
