@@ -375,6 +375,37 @@ impl CallGraph {
                     })
                     .unwrap_or_default();
                 if method_ids.is_empty() {
+                    // C has no methods: a receiver-syntax call `ptr->field()` /
+                    // `s.field()` is a FUNCTION-POINTER field access, not a method
+                    // call, so R6's "never bind to free functions" rule does not
+                    // apply. Bind to a single same-named free function, demoted
+                    // (the struct-callback heuristic membrane relies on; spec
+                    // tiering: a single candidate is not provably-wrong → demote,
+                    // not drop). Gated to C only — method-languages keep the
+                    // method-only rule, since there `x.m()` is syntactically a
+                    // method call.
+                    if matches!(
+                        crate::languages::Language::from_path(&caller.file),
+                        Some(crate::languages::Language::C)
+                    ) {
+                        if let Some(ids) = self.functions.get(name) {
+                            let free: Vec<&FunctionId> = ids
+                                .iter()
+                                .filter(|fid| {
+                                    fid.file == caller.file
+                                        || !self
+                                            .static_functions
+                                            .contains(&(fid.file.clone(), name.to_string()))
+                                })
+                                .collect();
+                            if free.len() == 1 {
+                                return ResolutionOutcome::hit(demoted(
+                                    free,
+                                    ResolutionKind::R6SingleOwner,
+                                ));
+                            }
+                        }
+                    }
                     return ResolutionOutcome::dropped(DropReason::UnknownName);
                 }
 

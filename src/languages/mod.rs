@@ -699,6 +699,15 @@ impl Language {
     /// For `os.path.join()`, returns the `os.path` attribute node (or its text).
     /// For unqualified calls like `process()`, returns `None`.
     pub fn call_function_qualifier<'a>(&self, node: &Node<'a>) -> Option<Node<'a>> {
+        // Java method_invocation carries the receiver directly as its `object`
+        // field (not nested in a member/field expression), so it must be handled
+        // before the generic func_node extraction — otherwise `svc.readData()`
+        // yields no qualifier and the S3 ladder cannot route it to R6/R3b
+        // (the receiver call would look unqualified and never bind to a method).
+        if node.kind() == "method_invocation" {
+            return node.child_by_field_name("object");
+        }
+
         let func_node = node
             .child_by_field_name("function")
             .or_else(|| node.child_by_field_name("name"))

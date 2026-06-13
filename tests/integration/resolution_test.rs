@@ -612,3 +612,54 @@ fn p6_go_wrong_constructor_guess_drops_after_owner_lookup_miss() {
         Some(DropReason::ExternalReceiver)
     );
 }
+
+#[test]
+fn java_receiver_method_call_resolves_via_qualifier() {
+    use prism::languages::Language::Java;
+    // Java method_invocation `svc.readData()` must carry qualifier `svc` so the
+    // ladder routes it to R6 (single-owner method) rather than treating it as an
+    // unqualified call that R5 drops. (Merge-gate fix: Task 10 surfaced that Java
+    // method_invocation qualifiers were never extracted.)
+    let (cg, _) = build(&[
+        (
+            "svc.java",
+            "class FileService {\n    public String readData(String p) { return p; }\n}\n",
+            Java,
+        ),
+        (
+            "h.java",
+            "class Handler {\n    void handle() {\n        FileService svc = new FileService();\n        svc.readData(\"/tmp\");\n    }\n}\n",
+            Java,
+        ),
+    ]);
+    let site = site_in(&cg, "handle", "readData");
+    let r = cg.resolve_call_site(&site);
+    assert_eq!(r.len(), 1, "java receiver call must resolve: {r:?}");
+    assert_eq!(r[0].target.file, "svc.java");
+    assert_eq!(r[0].confidence, ResolutionConfidence::NameOnly);
+}
+
+#[test]
+fn c_function_pointer_field_call_binds_single_free_fn_demoted() {
+    use prism::languages::Language::C;
+    // C has no methods: `ops->process()` is a function-pointer field access, so
+    // R6 binds it to a single same-named free function, demoted (the struct-
+    // callback heuristic membrane relies on). Method-languages keep method-only.
+    let (cg, _) = build(&[
+        (
+            "api.c",
+            "int process(int *d, int len) {\n    return 0;\n}\n",
+            C,
+        ),
+        (
+            "driver.c",
+            "int run(struct ops *o, int *d, int len) {\n    return o->process(d, len);\n}\n",
+            C,
+        ),
+    ]);
+    let site = site_in(&cg, "run", "process");
+    let r = cg.resolve_call_site(&site);
+    assert_eq!(r.len(), 1, "C fptr field call must bind: {r:?}");
+    assert_eq!(r[0].target.file, "api.c");
+    assert_eq!(r[0].confidence, ResolutionConfidence::NameOnly);
+}
