@@ -1,7 +1,12 @@
 [case]
 language = "go"
 capability = "embedded_method"
-status = "pass"
+# S3: reconciled pass -> known_fail (expected_gap). `w.Ping()` where Wrap embeds
+# Base: P6-lite recovers Wrap, but Ping is promoted from the embedded Base, so the
+# owner index (keyed by the defining type) misses and the edge drops. Go embedding
+# promotion needs type-hierarchy modeling — spec §2.4 defers it to Phase-IP.
+# Owner-approved 2026-06-13.
+status = "known_fail"
 [seed]
 symbol = "Ping"
 file = "main.go"

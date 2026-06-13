@@ -1,0 +1,16 @@
+[case]
+language = "rust"
+capability = "p6_typed_param_recovery"
+# S3 P6-lite: tx is a typed param (&Sender), so tx.send() resolves exactly to
+# Sender::send among the Sender/Pipe collision. Seeding Sender::send, run is the
+# caller; Pipe::send (not seeded here) must not receive it.
+status = "pass"
+[seed]
+symbol = "send"
+file = "a.rs"
+line = 3
+[[expect.callers]]
+file = "m.rs"
+line = 2
+[expect]
+exact = true

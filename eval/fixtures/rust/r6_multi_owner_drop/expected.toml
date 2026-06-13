@@ -1,0 +1,14 @@
+[case]
+language = "rust"
+capability = "r6_multi_owner_drop"
+# S3 precision floor: x.poll() with an unrecoverable receiver and `poll` on 2+
+# owner types is a multi-owner collision -> dropped. Seeding A::poll, the call
+# must NOT be attributed as a caller (no false edge).
+status = "pass"
+[seed]
+symbol = "poll"
+file = "a.rs"
+line = 3
+[expect]
+callers = []
+exact = true

@@ -48,6 +48,22 @@ def load_case(toml_path: Path) -> Case:
 
 
 def run_matrix(fixtures_root: Path, sut, languages: list[str]) -> list[CaseResult]:
+    # Fixture eval must be deterministic: bypass the per-repo nav cache, which
+    # otherwise persists pre-change results across binary versions and fakes
+    # regressions (S3 Task 13). Restore the SUT's prior setting afterward so
+    # corpus measurements (sharing the SUT) keep caching. FakeSut in the
+    # self-tests lacks the attribute — guard with getattr/setattr.
+    prev_no_cache = getattr(sut, "no_cache", None)
+    if prev_no_cache is not None:
+        sut.no_cache = True
+    try:
+        return _run_matrix_inner(fixtures_root, sut, languages)
+    finally:
+        if prev_no_cache is not None:
+            sut.no_cache = prev_no_cache
+
+
+def _run_matrix_inner(fixtures_root: Path, sut, languages: list[str]) -> list[CaseResult]:
     results = []
     for lang in languages:
         for toml_path in sorted((fixtures_root / lang).glob("*/expected.toml")):

@@ -1,7 +1,9 @@
 [case]
 language = "rust"
 capability = "type_method_qualified"
-status = "known_fail"
+# S3: flipped known_fail -> pass. Qualified `Type::fn` calls now bind via the
+# R1 owner-index lookup (the dominant U-callee recall gap the baseline measured).
+status = "pass"
 [seed]
 symbol = "start_static"
 file = "engine.rs"

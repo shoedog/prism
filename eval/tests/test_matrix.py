@@ -30,29 +30,30 @@ def test_load_case_parses_expected_toml():
 
 
 def test_run_matrix_statuses():
-    results = run_matrix(FIXTURES, FakeSut(), languages=["rust"])
+    results = run_matrix(FIXTURES, FakeSut(), languages=["rust", "go", "python"])
     by_cap = {r.capability: r for r in results}
     assert by_cap["free_fn_same_file"].outcome == "ok"
     # a `pass` case the FakeSut can't resolve -> regression
     assert by_cap["free_fn_cross_file_use"].outcome == "regression"
-    # a `known_fail` case still failing -> expected_gap
-    # (type_method_qualified is the post-reconciliation known_fail — the §2.7
-    # step-5 run flipped trait_dyn_dispatch to pass)
-    assert by_cap["type_method_qualified"].outcome == "expected_gap"
+    # a `known_fail` case still failing -> expected_gap. S3 flipped
+    # type_method_qualified to pass, so the canonical known_fail exemplar is now a
+    # reconciled dispatch gap (spec §2.4 — needs Phase-IP type-confirmed dispatch).
+    assert by_cap["inherited_override"].outcome == "expected_gap"
 
 
 def test_run_matrix_flags_flip_candidates():
     class FlipSut(FakeSut):
         def callers(self, root, seed):
-            if root.endswith("type_method_qualified"):
-                # expected.toml: caller at main.rs:4
-                return [CallEdge("caller", seed, Location("main.rs", 3, 5), "run",
-                                 Location("main.rs", 4, 4))]
+            # a known_fail case the SUT *can* resolve -> flip_candidate
+            if root.endswith("inherited_override"):
+                # expected.toml: caller at app.py:10
+                return [CallEdge("caller", seed, Location("app.py", 9, 11), "run",
+                                 Location("app.py", 10, 10))]
             return super().callers(root, seed)
 
-    results = run_matrix(FIXTURES, FlipSut(), languages=["rust"])
+    results = run_matrix(FIXTURES, FlipSut(), languages=["rust", "go", "python"])
     by_cap = {r.capability: r for r in results}
-    assert by_cap["type_method_qualified"].outcome == "flip_candidate"
+    assert by_cap["inherited_override"].outcome == "flip_candidate"
 
 
 @pytest.mark.skipif(not os.path.exists(PRISM_BIN), reason="release prism binary absent")
