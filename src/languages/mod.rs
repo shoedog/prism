@@ -714,12 +714,17 @@ impl Language {
         // Python attribute call: func_node is "attribute" with object/attribute fields
         // JS/TS member_expression: has "object" and "property" fields
         // Go selector_expression: has "operand" and "field" fields
-        // C field_expression: has "argument" and "field" fields
+        // C/C++ field_expression: has "argument" and "field" fields
+        // Rust field_expression: has "value" and "field" fields (S3: without the
+        // `value` fallback every Rust receiver call carried qualifier=None and
+        // resolved as a bare name — the measured tokio collision-FP mechanism)
         match func_node.kind() {
             "attribute" => func_node.child_by_field_name("object"),
             "member_expression" => func_node.child_by_field_name("object"),
             "selector_expression" => func_node.child_by_field_name("operand"),
-            "field_expression" => func_node.child_by_field_name("argument"),
+            "field_expression" => func_node
+                .child_by_field_name("argument")
+                .or_else(|| func_node.child_by_field_name("value")),
             "dot_index_expression" | "method_index_expression" => func_node
                 .child_by_field_name("table")
                 .or_else(|| func_node.child_by_field_name("object")),

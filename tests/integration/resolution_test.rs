@@ -264,3 +264,100 @@ fn r5_cross_file_free_multi_kept_demoted() {
         .all(|c| c.confidence == ResolutionConfidence::NameOnly));
     assert!(r.iter().all(|c| c.kind == ResolutionKind::FreeMulti));
 }
+
+#[test]
+fn r6_multi_owner_unknown_receiver_drops() {
+    use prism::languages::Language::Rust;
+    // The tokio `poll` class: x.poll() with poll on 2+ owner types => unresolved.
+    let (cg, _) = build(&[
+        ("a.rs", "impl A {\n    fn poll(&self) {}\n}\n", Rust),
+        ("b.rs", "impl B {\n    fn poll(&self) {}\n}\n", Rust),
+        (
+            "m.rs",
+            "fn drive(x: UnknownToIndex) {\n    x.poll();\n}\n",
+            Rust,
+        ),
+    ]);
+    let site = site_in(&cg, "drive", "poll");
+    assert!(cg.resolve_call_site(&site).is_empty());
+    assert_eq!(
+        cg.resolve_call_site_full(&site).drop,
+        Some(DropReason::MultiOwnerCollision)
+    );
+}
+
+#[test]
+fn r6_single_owner_unknown_receiver_kept_demoted() {
+    use prism::languages::Language::Rust;
+    let (cg, _) = build(&[
+        (
+            "a.rs",
+            "impl OnlyOwner {\n    fn frobnicate(&self) {}\n}\n",
+            Rust,
+        ),
+        (
+            "m.rs",
+            "fn run(x: UnknownToIndex) {\n    x.frobnicate();\n}\n",
+            Rust,
+        ),
+    ]);
+    let site = site_in(&cg, "run", "frobnicate");
+    let r = cg.resolve_call_site(&site);
+    assert_eq!(r.len(), 1);
+    assert_eq!(r[0].confidence, ResolutionConfidence::NameOnly);
+    assert_eq!(r[0].kind, ResolutionKind::R6SingleOwner);
+}
+
+#[test]
+fn r6_caller_file_single_owner_preferred_over_repo_multi() {
+    use prism::languages::Language::Rust;
+    let (cg, _) = build(&[
+        (
+            "m.rs",
+            "impl Local {\n    fn step(&self) {}\n}\nfn run(x: UnknownToIndex) {\n    x.step();\n}\n",
+            Rust,
+        ),
+        ("far.rs", "impl Far {\n    fn step(&self) {}\n}\n", Rust),
+    ]);
+    let site = site_in(&cg, "run", "step");
+    let r = cg.resolve_call_site(&site);
+    assert_eq!(r.len(), 1);
+    assert_eq!(r[0].target.file, "m.rs");
+    assert_eq!(r[0].confidence, ResolutionConfidence::NameOnly);
+}
+
+#[test]
+fn r6_never_binds_receiver_call_to_free_function() {
+    use prism::languages::Language::Go;
+    // The caddy `t.Error` class: receiver call must not hit free `Error`.
+    let (cg, _) = build(&[
+        (
+            "notify/n.go",
+            "package notify\nfunc Error(e error) error { return e }\n",
+            Go,
+        ),
+        (
+            "x.go",
+            "package x\nfunc run(t Untyped) {\n    t.Error(nil)\n}\n",
+            Go,
+        ),
+    ]);
+    let site = site_in(&cg, "run", "Error");
+    assert!(cg.resolve_call_site(&site).is_empty());
+}
+
+#[test]
+fn r6_never_binds_receiver_call_to_local_static_function() {
+    use prism::languages::Language::Cpp;
+    let (cg, _) = build(&[(
+        "m.cpp",
+        "static void poll() {}\nvoid drive(Unknown x) {\n    x.poll();\n}\n",
+        Cpp,
+    )]);
+    let site = site_in(&cg, "drive", "poll");
+    assert!(cg.resolve_call_site(&site).is_empty());
+    assert_eq!(
+        cg.resolve_call_site_full(&site).drop,
+        Some(DropReason::UnknownName)
+    );
+}
