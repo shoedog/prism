@@ -3410,6 +3410,51 @@ impl ParsedFile {
         calls
     }
 
+    /// Find function calls on the given lines and return the called function
+    /// names plus the call node's byte range.
+    pub fn function_calls_with_spans_on_lines(
+        &self,
+        func_node: &Node<'_>,
+        lines: &BTreeSet<usize>,
+    ) -> Vec<(String, usize, usize, usize)> {
+        use crate::queries::{get_query, QueryKind};
+        use tree_sitter::StreamingIterator;
+
+        if let Some(query) = get_query(self.language, QueryKind::Calls) {
+            let call_idx = query
+                .capture_index_for_name("call")
+                .expect("Calls query must have @call capture");
+            let mut cursor = tree_sitter::QueryCursor::new();
+            cursor.set_byte_range(func_node.byte_range());
+            let mut matches = cursor.matches(query, self.tree.root_node(), self.source.as_bytes());
+            let mut calls = Vec::new();
+            while let Some(m) = matches.next() {
+                for capture in m.captures {
+                    if capture.index == call_idx {
+                        let line = capture.node.start_position().row + 1;
+                        if lines.contains(&line) {
+                            if let Some(name_node) = self.language.call_function_name(&capture.node)
+                            {
+                                let name = self.node_text(&name_node).to_string();
+                                calls.push((
+                                    name,
+                                    line,
+                                    capture.node.start_byte(),
+                                    capture.node.end_byte(),
+                                ));
+                            }
+                        }
+                    }
+                }
+            }
+            return calls;
+        }
+
+        let mut calls = Vec::new();
+        self.collect_calls_manual_with_spans(*func_node, lines, &mut calls);
+        calls
+    }
+
     /// Like `function_calls_on_lines`, but also extracts the module/object qualifier.
     /// Returns `(callee_name, line, qualifier)` tuples.
     pub fn function_calls_on_lines_with_qualifier(
@@ -3454,6 +3499,81 @@ impl ParsedFile {
         calls
     }
 
+    /// Like `function_calls_on_lines_with_qualifier`, but also returns the call
+    /// node's byte range as `(callee_name, line, qualifier, start_byte, end_byte)`.
+    pub fn function_calls_with_qualifier_and_spans_on_lines(
+        &self,
+        func_node: &Node<'_>,
+        lines: &BTreeSet<usize>,
+    ) -> Vec<(String, usize, Option<String>, usize, usize)> {
+        use crate::queries::{get_query, QueryKind};
+        use tree_sitter::StreamingIterator;
+
+        if let Some(query) = get_query(self.language, QueryKind::Calls) {
+            let call_idx = query
+                .capture_index_for_name("call")
+                .expect("Calls query must have @call capture");
+            let mut cursor = tree_sitter::QueryCursor::new();
+            cursor.set_byte_range(func_node.byte_range());
+            let mut matches = cursor.matches(query, self.tree.root_node(), self.source.as_bytes());
+            let mut calls = Vec::new();
+            while let Some(m) = matches.next() {
+                for capture in m.captures {
+                    if capture.index == call_idx {
+                        let line = capture.node.start_position().row + 1;
+                        if lines.contains(&line) {
+                            if let Some(name_node) = self.language.call_function_name(&capture.node)
+                            {
+                                let name = self.node_text(&name_node).to_string();
+                                let qualifier = self
+                                    .language
+                                    .call_function_qualifier(&capture.node)
+                                    .map(|q| self.node_text(&q).to_string());
+                                calls.push((
+                                    name,
+                                    line,
+                                    qualifier,
+                                    capture.node.start_byte(),
+                                    capture.node.end_byte(),
+                                ));
+                            }
+                        }
+                    }
+                }
+            }
+            return calls;
+        }
+
+        let mut calls = Vec::new();
+        self.collect_calls_manual_with_qualifier_and_spans(*func_node, lines, &mut calls);
+        calls
+    }
+
+    fn collect_calls_manual_with_qualifier_and_spans(
+        &self,
+        node: Node<'_>,
+        lines: &BTreeSet<usize>,
+        out: &mut Vec<(String, usize, Option<String>, usize, usize)>,
+    ) {
+        let line = node.start_position().row + 1;
+
+        if lines.contains(&line) && self.language.is_call_node(node.kind()) {
+            if let Some(name_node) = self.language.call_function_name(&node) {
+                let name = self.node_text(&name_node).to_string();
+                let qualifier = self
+                    .language
+                    .call_function_qualifier(&node)
+                    .map(|q| self.node_text(&q).to_string());
+                out.push((name, line, qualifier, node.start_byte(), node.end_byte()));
+            }
+        }
+
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            self.collect_calls_manual_with_qualifier_and_spans(child, lines, out);
+        }
+    }
+
     fn collect_calls_manual_with_qualifier(
         &self,
         node: Node<'_>,
@@ -3476,6 +3596,27 @@ impl ParsedFile {
         let mut cursor = node.walk();
         for child in node.children(&mut cursor) {
             self.collect_calls_manual_with_qualifier(child, lines, out);
+        }
+    }
+
+    fn collect_calls_manual_with_spans(
+        &self,
+        node: Node<'_>,
+        lines: &BTreeSet<usize>,
+        out: &mut Vec<(String, usize, usize, usize)>,
+    ) {
+        let line = node.start_position().row + 1;
+
+        if lines.contains(&line) && self.language.is_call_node(node.kind()) {
+            if let Some(name_node) = self.language.call_function_name(&node) {
+                let name = self.node_text(&name_node).to_string();
+                out.push((name, line, node.start_byte(), node.end_byte()));
+            }
+        }
+
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            self.collect_calls_manual_with_spans(child, lines, out);
         }
     }
 

@@ -1,5 +1,25 @@
 use crate::common::*;
 
+fn build_call_graph_one(file: &str, src: &str) -> CallGraph {
+    let parsed = ParsedFile::parse(file, src, Language::Python).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(file.to_string(), parsed);
+    CallGraph::build(&files)
+}
+
+#[test]
+fn same_line_duplicate_calls_are_distinct_call_sites() {
+    let src = "def caller():\n    foo(); bar()\n    baz(); baz()\n";
+    let cg = build_call_graph_one("test.py", src);
+    let baz = cg
+        .calls
+        .values()
+        .flatten()
+        .filter(|s| s.callee_name == "baz" && s.line == 3)
+        .count();
+    assert_eq!(baz, 2, "same-line duplicate calls preserved");
+}
+
 #[test]
 fn traversal_helpers_respect_ladder_not_bare_names() {
     use prism::languages::Language::Rust;

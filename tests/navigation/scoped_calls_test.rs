@@ -50,6 +50,8 @@ fn resolved_targets(
                 caller,
                 callee_name: callee_name.to_string(),
                 line: 1,
+                start_byte: 0,
+                end_byte: 0,
                 qualifier: qualifier.map(str::to_string),
                 receiver_type: None,
                 receiver_recovery: None,
