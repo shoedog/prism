@@ -893,29 +893,9 @@ impl CallGraph {
         }
     }
 
-    /// Resolve a callee name to the appropriate FunctionId(s), considering static linkage.
-    ///
-    /// If the callee name has a `static` definition in `caller_file`, return only that one.
-    /// Otherwise, return all non-static definitions (excluding static functions in other files).
+    /// Recall-biased name+static resolver for scope computation and Phase-3
+    /// indirect resolution only. Edge creation uses `resolve_call_site`.
     pub fn resolve_callees(&self, callee_name: &str, caller_file: &str) -> Vec<&FunctionId> {
-        self.resolve_callees_qualified(callee_name, caller_file, None)
-    }
-
-    /// Resolve a callee with an optional module qualifier (e.g., `utils` in `utils.process()`).
-    ///
-    /// When a qualifier is present, looks up the caller file's import map to find
-    /// which module the qualifier refers to, then narrows candidates to functions
-    /// in files whose path stem matches the module stem.
-    ///
-    /// **Known limitation:** if two files share the same stem (e.g., `lib/utils.py`
-    /// and `src/utils.py`), both will match a qualifier resolving to `utils`.
-    /// This is inherent to name-based resolution without full path normalization.
-    pub fn resolve_callees_qualified(
-        &self,
-        callee_name: &str,
-        caller_file: &str,
-        qualifier: Option<&str>,
-    ) -> Vec<&FunctionId> {
         let func_ids = match self.functions.get(callee_name) {
             Some(ids) => ids,
             None => return Vec::new(),
@@ -930,42 +910,6 @@ impl CallGraph {
                 .iter()
                 .filter(|fid| fid.file == caller_file)
                 .collect();
-        }
-
-        // Import-aware narrowing: if a qualifier is present, resolve it via the import map.
-        if let Some(qual) = qualifier {
-            if let Some(file_imports) = self.imports.get(caller_file) {
-                if let Some(module_path) = file_imports.get(qual) {
-                    // Extract the module stem (last component) for file path matching.
-                    let module_stem = module_path
-                        .rsplit('/')
-                        .next()
-                        .unwrap_or(module_path)
-                        .rsplit('.')
-                        .last()
-                        .unwrap_or(module_path);
-                    let candidates: Vec<&FunctionId> = func_ids
-                        .iter()
-                        .filter(|fid| {
-                            // Match if the file path contains the module stem
-                            // e.g., module_path="utils" matches "src/utils.py"
-                            let file_stem = fid
-                                .file
-                                .rsplit('/')
-                                .next()
-                                .unwrap_or(&fid.file)
-                                .rsplit('.')
-                                .last()
-                                .unwrap_or(&fid.file);
-                            file_stem == module_stem
-                        })
-                        .collect();
-                    if !candidates.is_empty() {
-                        return candidates;
-                    }
-                    // Fall through to standard resolution if no import match found
-                }
-            }
         }
 
         // Otherwise, return all definitions that are NOT static in other files

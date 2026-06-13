@@ -1,4 +1,4 @@
-use prism::navigation::types::{Reason, SymbolRef};
+use prism::navigation::types::{Reason, SymbolRef, WarningKind};
 use prism::navigation::{queries, NavigationIndex, NavigationSession};
 use prism::repo_loader::load_repo;
 use std::sync::Arc;
@@ -56,4 +56,63 @@ fn callers_depth_zero_has_no_expansion() {
     )]);
     let ev = queries::callers(&s, Some("target"), None, None, 0).unwrap();
     assert!(ev.items.is_empty());
+}
+
+#[test]
+fn callers_query_emits_collision_warning_for_dropped_sites() {
+    let s = session(&[
+        ("a.py", "class A:\n    def poll(self):\n        return 1\n"),
+        ("b.py", "class B:\n    def poll(self):\n        return 2\n"),
+        ("main.py", "def drive(x):\n    return x.poll()\n"),
+    ]);
+    let ev = queries::callers(&s, Some("poll"), Some("a.py"), None, 1).unwrap();
+    assert!(!ev.items.iter().any(|i| {
+        matches!(
+            &i.symbol,
+            Some(SymbolRef::Function { file, name, .. }) if file == "main.py" && name == "drive"
+        )
+    }));
+    assert!(ev.warnings.iter().any(|w| {
+        matches!(w.kind, WarningKind::Collision)
+            && w.message.contains('1')
+            && w.message
+                .contains("unknown receiver type across multiple owner types")
+    }));
+}
+
+#[test]
+fn ego_graph_emits_collision_warning_for_seed() {
+    let s = session(&[
+        ("a.py", "class A:\n    def poll(self):\n        return 1\n"),
+        ("b.py", "class B:\n    def poll(self):\n        return 2\n"),
+        ("main.py", "def drive(x):\n    return x.poll()\n"),
+    ]);
+    let ev = queries::ego_graph(&s, Some("poll"), Some("a.py"), None, 1, &["Call"]).unwrap();
+    assert!(ev.warnings.iter().any(|w| {
+        matches!(w.kind, WarningKind::Collision)
+            && w.message.contains('1')
+            && w.message
+                .contains("unknown receiver type across multiple owner types")
+    }));
+}
+
+#[test]
+fn ego_graph_does_not_emit_collision_warning_when_call_edges_not_collected() {
+    let s = session(&[
+        ("a.py", "class A:\n    def poll(self):\n        return 1\n"),
+        ("b.py", "class B:\n    def poll(self):\n        return 2\n"),
+        ("main.py", "def drive(x):\n    return x.poll()\n"),
+    ]);
+    let dataflow_only =
+        queries::ego_graph(&s, Some("poll"), Some("a.py"), None, 1, &["DataFlow"]).unwrap();
+    assert!(!dataflow_only
+        .warnings
+        .iter()
+        .any(|w| matches!(w.kind, WarningKind::Collision)));
+
+    let zero_hops = queries::ego_graph(&s, Some("poll"), Some("a.py"), None, 0, &["Call"]).unwrap();
+    assert!(!zero_hops
+        .warnings
+        .iter()
+        .any(|w| matches!(w.kind, WarningKind::Collision)));
 }

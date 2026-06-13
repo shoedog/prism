@@ -50,6 +50,9 @@ pub enum Reason {
         caller: String,
         call_site_line: usize,
     },
+    Resolution {
+        kind: String,
+    },
     EnclosingFunction {
         function: SymbolRef,
     },

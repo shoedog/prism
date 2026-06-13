@@ -8,6 +8,29 @@ use petgraph::visit::EdgeRef;
 use petgraph::Direction;
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
+fn confidence_score(c: crate::resolution::ResolutionConfidence) -> f32 {
+    match c {
+        crate::resolution::ResolutionConfidence::Exact => 1.0,
+        crate::resolution::ResolutionConfidence::NameOnly => 0.6,
+    }
+}
+
+fn resolution_reason(kind: crate::resolution::ResolutionKind) -> Reason {
+    Reason::Resolution {
+        kind: kind.as_str().to_string(),
+    }
+}
+
+fn collision_warning(count: usize) -> Warning {
+    Warning {
+        kind: WarningKind::Collision,
+        message: format!(
+            "{count} same-name receiver call site(s) with unknown receiver type across multiple owner types; not attributed as callers"
+        ),
+        location: None,
+    }
+}
+
 /// Exact CPG nodes at `file:line` (Function/Variable only, spec §8 R3-M3) plus the
 /// innermost enclosing function as `EnclosingFunction` evidence.
 pub fn nodes_at(s: &NavigationSession, file: &str, line: usize) -> Evidence {
@@ -137,18 +160,18 @@ fn fid_of(sym: &SymbolRef) -> FunctionId {
 
 /// Direct callers of `target` (qualifier-aware identity filter): callers index is keyed by name,
 /// so each candidate CallSite is resolved from its caller's file and kept only if it reaches THIS target.
-fn direct_callers(s: &NavigationSession, target: &FunctionId) -> Vec<(FunctionId, usize)> {
+fn direct_callers<'a>(
+    s: &'a NavigationSession,
+    target: &FunctionId,
+) -> Vec<(FunctionId, crate::navigation::call_resolve::NavCallEdge<'a>)> {
     let mut out = Vec::new();
     let cg = &s.index.cpg.call_graph;
     for site in crate::navigation::call_resolve::scoped_caller_sites(cg, &target.name) {
-        let resolved = crate::navigation::call_resolve::resolve_callees_nav(
-            cg,
-            &site.callee_name,
-            &site.caller.file,
-            site.qualifier.as_deref(),
-        );
-        if resolved.iter().any(|f| **f == *target) {
-            out.push((site.caller.clone(), site.line));
+        let resolved = crate::navigation::call_resolve::resolve_site_nav(cg, site);
+        for edge in resolved {
+            if *edge.target == *target {
+                out.push((site.caller.clone(), edge));
+            }
         }
     }
     out
@@ -163,6 +186,7 @@ pub fn callers(
 ) -> Result<Evidence, QueryError> {
     let resolved = seed::resolve_fn(s, symbol, file, location)?;
     let target = fid_of(&resolved.symbol);
+    let target_for_warning = target.clone();
     let query = format!("callers:{}@{}", target.name, target.file); // @file identity (R3-M4)
     let mut items = Vec::new();
     let mut visited: std::collections::BTreeSet<FunctionId> = std::collections::BTreeSet::new();
@@ -172,7 +196,7 @@ pub fn callers(
         // hop 0 = direct hit → score 1.0 (R3-M2); depth=2 → hops 0,1
         let mut next = Vec::new();
         for fid in &frontier {
-            for (caller, line) in direct_callers(s, fid) {
+            for (caller, edge) in direct_callers(s, fid) {
                 // One item PER CALL SITE (m7 symmetry with callees); `visited` only gates BFS recursion.
                 items.push(EvidenceItem {
                     symbol: Some(SymbolRef::Function {
@@ -187,13 +211,16 @@ pub fn callers(
                         start_line: caller.start_line,
                         end_line: caller.end_line,
                     },
-                    score: 1.0 / (1.0 + hop as f32),
+                    score: confidence_score(edge.confidence) / (1.0 + hop as f32),
                     source: Source::PrismCpg,
                     fallback: false,
                     why: vec![Reason::CalledBy {
                         caller: caller.name.clone(),
-                        call_site_line: line,
-                    }],
+                        call_site_line: edge.call_site_line,
+                    }]
+                    .into_iter()
+                    .chain(std::iter::once(resolution_reason(edge.kind)))
+                    .collect(),
                     snippet: None,
                 });
                 if visited.insert(caller.clone()) {
@@ -210,30 +237,39 @@ pub fn callers(
             .then(a.location.file.cmp(&b.location.file))
             .then(a.location.start_line.cmp(&b.location.start_line))
     });
+    let dropped = crate::navigation::call_resolve::collision_dropped_sites(
+        &s.index.cpg.call_graph,
+        &target_for_warning.name,
+    );
+    let warnings = if dropped > 0 {
+        vec![collision_warning(dropped)]
+    } else {
+        vec![]
+    };
     Ok(Evidence {
         query,
         items,
         truncated: false,
-        warnings: vec![],
+        warnings,
         graph: None,
         reasoning: None,
     })
 }
 
-fn direct_callees(
-    s: &NavigationSession,
+fn direct_callees<'a>(
+    s: &'a NavigationSession,
     caller: &FunctionId,
-) -> Vec<(Option<FunctionId>, String, usize, Option<String>)> {
+) -> Vec<(
+    Option<crate::navigation::call_resolve::NavCallEdge<'a>>,
+    String,
+    usize,
+    Option<String>,
+)> {
     let mut out = Vec::new();
     if let Some(sites) = s.index.cpg.call_graph.calls.get(caller) {
         for site in sites {
-            // CORRECT arg order (B2): (callee_name, caller_file, qualifier)
-            let resolved = crate::navigation::call_resolve::resolve_callees_nav(
-                &s.index.cpg.call_graph,
-                &site.callee_name,
-                &site.caller.file,
-                site.qualifier.as_deref(),
-            );
+            let resolved =
+                crate::navigation::call_resolve::resolve_site_nav(&s.index.cpg.call_graph, site);
             if resolved.is_empty() {
                 out.push((
                     None,
@@ -242,9 +278,9 @@ fn direct_callees(
                     site.qualifier.clone(),
                 ));
             } else {
-                for def in resolved {
+                for edge in resolved {
                     out.push((
-                        Some((*def).clone()),
+                        Some(edge),
                         site.callee_name.clone(),
                         site.line,
                         site.qualifier.clone(),
@@ -274,7 +310,8 @@ pub fn callees(
         // hop 0 = direct hit → score 1.0 (R3-M2); depth=2 → hops 0,1
         let mut next = Vec::new();
         for fid in &frontier {
-            for (def, callee_name, line, qualifier) in direct_callees(s, fid) {
+            for (edge, callee_name, line, qualifier) in direct_callees(s, fid) {
+                let def = edge.as_ref().map(|e| e.target);
                 let (sym, loc) = match &def {
                     Some(d) => (
                         Some(SymbolRef::Function {
@@ -302,19 +339,29 @@ pub fn callees(
                 items.push(EvidenceItem {
                     symbol: sym,
                     location: loc,
-                    score: 1.0 / (1.0 + hop as f32),
+                    score: edge
+                        .as_ref()
+                        .map(|e| confidence_score(e.confidence))
+                        .unwrap_or(1.0)
+                        / (1.0 + hop as f32),
                     source: Source::PrismCpg,
                     fallback: false,
-                    why: vec![Reason::Calls {
-                        callee: callee_name,
-                        call_site_line: line,
-                        qualifier,
-                    }],
+                    why: {
+                        let mut why = vec![Reason::Calls {
+                            callee: callee_name,
+                            call_site_line: line,
+                            qualifier,
+                        }];
+                        if let Some(edge) = &edge {
+                            why.push(resolution_reason(edge.kind));
+                        }
+                        why
+                    },
                     snippet: None,
                 });
                 if let Some(d) = def {
-                    if visited.insert(d.clone()) {
-                        next.push(d);
+                    if visited.insert((*d).clone()) {
+                        next.push((*d).clone());
                     }
                 }
             }
@@ -549,11 +596,33 @@ pub fn ego_graph(
     }
     ego_edges.sort_by(|x, y| (x.from, x.to, &x.kind).cmp(&(y.from, y.to, &y.kind)));
     ego_edges.dedup();
+    let dropped: usize = if hops > 0 && edge_filter.contains("Call") {
+        seed.nodes
+            .iter()
+            .filter_map(|ni| match s.index.cpg.node(*ni) {
+                CpgNode::Function { name, .. } => Some(name.as_str()),
+                _ => None,
+            })
+            .map(|name| {
+                crate::navigation::call_resolve::collision_dropped_sites(
+                    &s.index.cpg.call_graph,
+                    name,
+                )
+            })
+            .sum()
+    } else {
+        0
+    };
+    let warnings = if dropped > 0 {
+        vec![collision_warning(dropped)]
+    } else {
+        vec![]
+    };
     Ok(Evidence {
         query: seed.query,
         items: vec![],
         truncated: false,
-        warnings: vec![],
+        warnings,
         graph: Some(GraphPayload {
             nodes,
             edges: ego_edges,

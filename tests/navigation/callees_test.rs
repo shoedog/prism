@@ -27,7 +27,7 @@ fn callees_reports_callee_and_line() {
 
 #[test]
 fn callees_resolves_qualified_import() {
-    // qualified call `util.helper()` — exercises resolve_callees_qualified (B2/M8).
+    // qualified call `util.helper()` exercises the S3 import-qualified ladder path.
     let s = session(&[
         ("util.py", "def helper():\n    return 1\n"),
         (
@@ -39,6 +39,63 @@ fn callees_resolves_qualified_import() {
     assert!(ev.items.iter().any(|i| i.why.iter().any(
         |r| matches!(r, Reason::Calls { callee, qualifier, .. } if callee == "helper" && qualifier.as_deref() == Some("util"))
     )));
+    assert!(ev.items.iter().any(|i| i
+        .why
+        .iter()
+        .any(|r| matches!(r, Reason::Resolution { kind } if kind == "import_qualified"))));
+}
+
+#[test]
+fn demoted_callee_scores_0_6_with_resolution_reason() {
+    let s = session(&[
+        (
+            "owner.py",
+            "class OnlyOwner:\n    def frobnicate(self):\n        return 1\n",
+        ),
+        ("main.py", "def run(x):\n    return x.frobnicate()\n"),
+    ]);
+    let ev = queries::callees(&s, Some("run"), Some("main.py"), None, 1).unwrap();
+    let item = ev
+        .items
+        .iter()
+        .find(|i| {
+            matches!(
+                &i.symbol,
+                Some(SymbolRef::Function { file, name, .. })
+                    if file == "owner.py" && name == "frobnicate"
+            )
+        })
+        .expect("demoted R6 single-owner callee");
+    assert_eq!(item.score, 0.6);
+    assert!(item
+        .why
+        .iter()
+        .any(|r| matches!(r, Reason::Resolution { kind } if kind == "r6_single_owner")));
+}
+
+#[test]
+fn exact_callee_scores_1_0_with_resolution_reason() {
+    let s = session(&[(
+        "engine.rs",
+        "struct Engine;\nimpl Engine { fn start(&self) {} }\nfn run(e: Engine) { Engine::start(&e); }\n",
+    )]);
+    let ev = queries::callees(&s, Some("run"), Some("engine.rs"), None, 1).unwrap();
+    let item = ev
+        .items
+        .iter()
+        .find(|i| {
+            matches!(
+                &i.symbol,
+                Some(SymbolRef::Function { file, name, .. })
+                    if file == "engine.rs" && name == "start"
+            )
+        })
+        .expect("exact qualified-owner callee");
+    assert_eq!(item.score, 1.0);
+    assert!(item
+        .why
+        .iter()
+        .any(|r| matches!(r, Reason::Resolution { kind } if kind == "qualified_owner")));
 }
 
 #[test]

@@ -1,5 +1,5 @@
 use prism::navigation::module_graph::{module_deps, repo_map};
-use prism::navigation::types::{Source, WarningKind};
+use prism::navigation::types::{Reason, Source, WarningKind};
 use prism::navigation::{NavigationIndex, NavigationSession};
 use prism::repo_loader::load_repo;
 use std::sync::Arc;
@@ -39,6 +39,14 @@ fn module_deps_python_cross_file_call_and_import() {
     assert!(call_item.why.iter().any(|r| matches!(
         r,
         prism::navigation::types::Reason::Calls { callee, .. } if callee == "helper"
+    )));
+    // `from util import helper; helper()` is a BARE call (qualifier-less), so it
+    // resolves via R5 cross-file free-function single match (free_single), NOT R3
+    // import-qualified — that kind is for `import util; util.helper()` (covered by
+    // the nav_compat callees_run/module_deps_run goldens).
+    assert!(call_item.why.iter().any(|r| matches!(
+        r,
+        Reason::Resolution { kind } if kind == "free_single"
     )));
 
     // Extracted import labeled UnresolvedImport (HeuristicImport).
@@ -92,6 +100,57 @@ fn module_deps_rust_is_call_derived_only_no_import_items() {
             .any(|w| matches!(w.kind, WarningKind::UnresolvedModule)),
         "no extracted imports -> no UnresolvedModule warning"
     );
+}
+
+#[test]
+fn module_deps_uses_resolution_score_and_reason() {
+    let s = session(&[
+        (
+            "owner.py",
+            "class OnlyOwner:\n    def frobnicate(self):\n        return 1\n",
+        ),
+        ("main.py", "def run(x):\n    return x.frobnicate()\n"),
+    ]);
+    let ev = module_deps(&s, "main.py");
+    let item = ev
+        .items
+        .iter()
+        .find(|it| matches!(it.source, Source::PrismCpg) && it.location.file == "owner.py")
+        .expect("call-derived dependency to owner.py");
+    assert_eq!(item.score, 0.6);
+    assert!(item
+        .why
+        .iter()
+        .any(|r| matches!(r, Reason::Resolution { kind } if kind == "r6_single_owner")));
+}
+
+#[test]
+fn module_deps_aggregates_file_pair_with_max_resolution_score() {
+    let s = session(&[
+        (
+            "owner.py",
+            "class OnlyOwner:\n    def frobnicate(self):\n        return 1\n\ndef exact():\n    return 2\n",
+        ),
+        (
+            "main.py",
+            "from owner import exact\n\ndef run(x):\n    x.frobnicate()\n    return exact()\n",
+        ),
+    ]);
+    let ev = module_deps(&s, "main.py");
+    let item = ev
+        .items
+        .iter()
+        .find(|it| matches!(it.source, Source::PrismCpg) && it.location.file == "owner.py")
+        .expect("call-derived dependency to owner.py");
+    assert_eq!(item.score, 1.0);
+    assert!(item
+        .why
+        .iter()
+        .any(|r| matches!(r, Reason::Resolution { kind } if kind == "r6_single_owner")));
+    assert!(item
+        .why
+        .iter()
+        .any(|r| matches!(r, Reason::Resolution { kind } if kind == "free_single")));
 }
 
 #[test]

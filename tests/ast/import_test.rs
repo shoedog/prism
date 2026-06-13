@@ -252,11 +252,25 @@ def process(data):
 
     let cg = CallGraph::build(&files);
 
-    // The call graph should resolve utils.process() → process in utils.py
-    let callees = cg.resolve_callees_qualified("process", "src/caller.py", Some("utils"));
+    // The call graph should resolve utils.process() -> process in utils.py.
+    let site = cg
+        .calls
+        .values()
+        .flatten()
+        .find(|site| {
+            site.caller.file == "src/caller.py"
+                && site.callee_name == "process"
+                && site.qualifier.as_deref() == Some("utils")
+        })
+        .unwrap();
+    let callees = cg.resolve_call_site(site);
     assert_eq!(callees.len(), 1);
-    assert_eq!(callees[0].file, "src/utils.py");
-    assert_eq!(callees[0].name, "process");
+    assert_eq!(callees[0].target.file, "src/utils.py");
+    assert_eq!(callees[0].target.name, "process");
+    assert_eq!(
+        callees[0].kind,
+        prism::resolution::ResolutionKind::ImportQualified
+    );
 }
 
 #[test]
@@ -283,10 +297,24 @@ function validate(data) {
 
     let cg = CallGraph::build(&files);
 
-    let callees = cg.resolve_callees_qualified("validate", "src/app.js", Some("helpers"));
+    let site = cg
+        .calls
+        .values()
+        .flatten()
+        .find(|site| {
+            site.caller.file == "src/app.js"
+                && site.callee_name == "validate"
+                && site.qualifier.as_deref() == Some("helpers")
+        })
+        .unwrap();
+    let callees = cg.resolve_call_site(site);
     assert_eq!(callees.len(), 1);
-    assert_eq!(callees[0].file, "src/helpers.js");
-    assert_eq!(callees[0].name, "validate");
+    assert_eq!(callees[0].target.file, "src/helpers.js");
+    assert_eq!(callees[0].target.name, "validate");
+    assert_eq!(
+        callees[0].kind,
+        prism::resolution::ResolutionKind::ImportQualified
+    );
 }
 
 #[test]
