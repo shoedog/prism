@@ -2052,6 +2052,19 @@ impl ParsedFile {
         (node.start_position().row + 1, node.end_position().row + 1)
     }
 
+    /// Byte offset where 1-indexed `line` begins. Saturates to source length for
+    /// out-of-range / parse-degraded lines. Best-effort anchor for line-collapsed
+    /// occurrences (S2 §3).
+    pub fn line_start_byte(&self, line: usize) -> usize {
+        if line == 0 {
+            return 0;
+        }
+        self.line_offsets
+            .get(line - 1)
+            .copied()
+            .unwrap_or(self.source.len())
+    }
+
     /// Find condition variables in control flow statements on the given lines.
     pub fn condition_variables_on_lines(
         &self,

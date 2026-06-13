@@ -105,6 +105,7 @@ pub fn nodes_at(s: &NavigationSession, file: &str, line: usize) -> Evidence {
                 file: f,
                 start_line,
                 end_line,
+                ..
             } => items.push(item_fn(f, name, *start_line, *end_line)),
             CpgNode::Variable {
                 path,
@@ -112,6 +113,7 @@ pub fn nodes_at(s: &NavigationSession, file: &str, line: usize) -> Evidence {
                 function,
                 line: l,
                 access,
+                ..
             } => items.push(EvidenceItem {
                 symbol: Some(SymbolRef::Variable {
                     file: f.clone(),
@@ -142,6 +144,7 @@ pub fn nodes_at(s: &NavigationSession, file: &str, line: usize) -> Evidence {
             file: f,
             start_line,
             end_line,
+            ..
         } = s.index.cpg.node(eidx)
         {
             let func = SymbolRef::Function {
@@ -462,6 +465,7 @@ fn node_symbol_loc(s: &NavigationSession, ni: NodeIndex) -> (SymbolRef, Location
             file,
             start_line,
             end_line,
+            ..
         } => (
             SymbolRef::Function {
                 file: file.clone(),
@@ -482,6 +486,7 @@ fn node_symbol_loc(s: &NavigationSession, ni: NodeIndex) -> (SymbolRef, Location
             function,
             line,
             access,
+            ..
         } => (
             SymbolRef::Variable {
                 file: file.clone(),
@@ -497,7 +502,9 @@ fn node_symbol_loc(s: &NavigationSession, ni: NodeIndex) -> (SymbolRef, Location
                 end_line: *line,
             },
         ),
-        CpgNode::Statement { file, line, kind } => (
+        CpgNode::Statement {
+            file, line, kind, ..
+        } => (
             SymbolRef::Statement {
                 file: file.clone(),
                 line: *line,

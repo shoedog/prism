@@ -6,7 +6,7 @@ pub use prism::access_path::AccessPath;
 pub use prism::algorithms;
 pub use prism::ast::ParsedFile;
 pub use prism::call_graph::CallGraph;
-pub use prism::cpg::CpgContext;
+pub use prism::cpg::{CodePropertyGraph, CpgContext};
 pub use prism::data_flow::DataFlowGraph;
 pub use prism::diff::{DiffInfo, DiffInput, ModifyType};
 pub use prism::languages::Language;
@@ -19,6 +19,101 @@ pub use prism::slice::{
 pub use std::collections::{BTreeMap, BTreeSet};
 pub use std::path::Path;
 pub use tempfile::TempDir;
+
+pub fn build_cpg(file: &str, src: &str, lang: Language) -> CodePropertyGraph {
+    let parsed = ParsedFile::parse(file, src, lang).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert(file.to_string(), parsed);
+    CodePropertyGraph::build(&files)
+}
+
+pub fn build_python_cpg(src: &str) -> CodePropertyGraph {
+    build_cpg("test.py", src, Language::Python)
+}
+
+pub fn build_rust_cpg(src: &str) -> CodePropertyGraph {
+    build_cpg("test.rs", src, Language::Rust)
+}
+
+pub fn test_py() -> &'static str {
+    "test.py"
+}
+
+pub fn test_rs() -> &'static str {
+    "test.rs"
+}
+
+/// nodes_at(file,line), Variable nodes only, sorted by (start_byte,end_byte,access,index),
+/// formatted "{def|use}:{path.base}". The RAW production order is asserted separately (Task 5).
+pub fn same_line_var_byte_order(cpg: &CodePropertyGraph, file: &str, line: usize) -> Vec<String> {
+    use prism::cpg::{CpgNode, VarAccess};
+    let mut ns: Vec<_> = cpg
+        .nodes_at(file, line)
+        .into_iter()
+        .filter_map(|n| match cpg.node(n) {
+            CpgNode::Variable {
+                path,
+                access,
+                start_byte,
+                end_byte,
+                ..
+            } => Some((
+                *start_byte,
+                *end_byte,
+                matches!(access, VarAccess::Use),
+                format!(
+                    "{}:{}",
+                    if matches!(access, VarAccess::Def) {
+                        "def"
+                    } else {
+                        "use"
+                    },
+                    path.base
+                ),
+            )),
+            _ => None,
+        })
+        .collect();
+    ns.sort_by(|a, b| (a.0, a.1, a.2).cmp(&(b.0, b.1, b.2)));
+    ns.into_iter().map(|t| t.3).collect()
+}
+
+/// All CpgNode byte spans as a stable sorted dump (for cache/determinism round-trip).
+pub fn node_byte_dump(cpg: &CodePropertyGraph) -> Vec<String> {
+    use prism::cpg::CpgNode;
+    let mut out: Vec<String> = cpg
+        .node_indices()
+        .map(|n| match cpg.node(n) {
+            CpgNode::Function {
+                name,
+                start_byte,
+                end_byte,
+                ..
+            } => format!("fn {name} [{start_byte},{end_byte})"),
+            CpgNode::Variable {
+                path,
+                function,
+                line,
+                start_byte,
+                end_byte,
+                ..
+            } => {
+                format!(
+                    "var {function}:{line}:{} [{start_byte},{end_byte})",
+                    path.base
+                )
+            }
+            CpgNode::Statement {
+                line,
+                start_byte,
+                end_byte,
+                ..
+            } => format!("stmt {line} [{start_byte},{end_byte})"),
+        })
+        .collect();
+    out.sort();
+    out
+}
 
 /// Panics if any `diagram_warnings` entry is a bug-class warning.
 ///

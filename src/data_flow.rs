@@ -8,30 +8,73 @@ use crate::access_path::AccessPath;
 use crate::ast::ParsedFile;
 use rayon::prelude::*;
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
+use std::hash::{Hash, Hasher};
 
 /// A definition or use of a variable at a specific location.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct VarLocation {
     pub file: String,
     pub function: String,
+    pub function_start_line: usize,
     pub line: usize,
     /// Structured access path for this variable reference.
     pub path: AccessPath,
+    pub start_byte: usize,
+    pub end_byte: usize,
     /// Backward-compatible accessor: returns the base variable name.
     /// Algorithms that don't need field sensitivity can use this.
     pub kind: VarAccessKind,
 }
 
 impl VarLocation {
+    /// Identity tuple — byte excluded. Ord/Eq/Hash ALL derive from this so they
+    /// cannot disagree (would corrupt BTreeMap/HashMap keys). Pinned by §7.6.
+    fn identity_key(&self) -> (&str, &str, usize, usize, &AccessPath, VarAccessKind) {
+        (
+            &self.file,
+            &self.function,
+            self.function_start_line,
+            self.line,
+            &self.path,
+            self.kind,
+        )
+    }
+
     /// Backward-compatible accessor: returns the base variable name.
     pub fn var_name(&self) -> &str {
         &self.path.base
     }
 }
 
+impl PartialEq for VarLocation {
+    fn eq(&self, other: &Self) -> bool {
+        self.identity_key() == other.identity_key()
+    }
+}
+
+impl Eq for VarLocation {}
+
+impl PartialOrd for VarLocation {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for VarLocation {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.identity_key().cmp(&other.identity_key())
+    }
+}
+
+impl Hash for VarLocation {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.identity_key().hash(state);
+    }
+}
+
 /// Whether a variable access is a definition or a use.
 #[derive(
-    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, serde::Serialize, serde::Deserialize,
+    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize, serde::Deserialize,
 )]
 pub enum VarAccessKind {
     /// Variable is being assigned to (written).
@@ -209,8 +252,11 @@ impl DataFlowGraph {
                                 let loc = VarLocation {
                                     file: file_path.clone(),
                                     function: func_name.clone(),
+                                    function_start_line: start,
                                     line: *alias_line,
                                     path: resolved_ap.clone(),
+                                    start_byte: parsed.line_start_byte(*alias_line),
+                                    end_byte: parsed.line_start_byte(*alias_line),
                                     kind: VarAccessKind::Def,
                                 };
                                 defs.entry((file_path.clone(), func_name.clone(), resolved_ap))
@@ -247,8 +293,11 @@ impl DataFlowGraph {
                         let loc = VarLocation {
                             file: file_path.clone(),
                             function: func_name.clone(),
+                            function_start_line: start,
                             line: start,
                             path: path.clone(),
+                            start_byte: parsed.line_start_byte(start),
+                            end_byte: parsed.line_start_byte(start),
                             kind: VarAccessKind::Def,
                         };
                         defs.entry((file_path.clone(), func_name.clone(), path.clone()))
@@ -263,8 +312,11 @@ impl DataFlowGraph {
                             let use_loc = VarLocation {
                                 file: file_path.clone(),
                                 function: func_name.clone(),
+                                function_start_line: start,
                                 line: *ref_line,
                                 path: path.clone(),
+                                start_byte: parsed.line_start_byte(*ref_line),
+                                end_byte: parsed.line_start_byte(*ref_line),
                                 kind: VarAccessKind::Use,
                             };
                             uses.entry((file_path.clone(), func_name.clone(), path.clone()))
@@ -284,8 +336,11 @@ impl DataFlowGraph {
                         let loc = VarLocation {
                             file: file_path.clone(),
                             function: func_name.clone(),
+                            function_start_line: start,
                             line: *line,
                             path: path.clone(),
+                            start_byte: parsed.line_start_byte(*line),
+                            end_byte: parsed.line_start_byte(*line),
                             kind: VarAccessKind::Def,
                         };
                         defs.entry((file_path.clone(), func_name.clone(), path.clone()))
@@ -302,8 +357,11 @@ impl DataFlowGraph {
                                 let resolved_loc = VarLocation {
                                     file: file_path.clone(),
                                     function: func_name.clone(),
+                                    function_start_line: start,
                                     line: *line,
                                     path: resolved.clone(),
+                                    start_byte: parsed.line_start_byte(*line),
+                                    end_byte: parsed.line_start_byte(*line),
                                     kind: VarAccessKind::Def,
                                 };
                                 defs.entry((
@@ -327,8 +385,11 @@ impl DataFlowGraph {
                             let use_loc = VarLocation {
                                 file: file_path.clone(),
                                 function: func_name.clone(),
+                                function_start_line: start,
                                 line: *ref_line,
                                 path: path.clone(),
+                                start_byte: parsed.line_start_byte(*ref_line),
+                                end_byte: parsed.line_start_byte(*ref_line),
                                 kind: VarAccessKind::Use,
                             };
                             uses.entry((file_path.clone(), func_name.clone(), path.clone()))
@@ -338,8 +399,11 @@ impl DataFlowGraph {
                             let def_loc = VarLocation {
                                 file: file_path.clone(),
                                 function: func_name.clone(),
+                                function_start_line: start,
                                 line: *def_line,
                                 path: path.clone(),
+                                start_byte: parsed.line_start_byte(*def_line),
+                                end_byte: parsed.line_start_byte(*def_line),
                                 kind: VarAccessKind::Def,
                             };
                             edges.push(FlowEdge {
@@ -360,8 +424,11 @@ impl DataFlowGraph {
                                     let use_loc = VarLocation {
                                         file: file_path.clone(),
                                         function: func_name.clone(),
+                                        function_start_line: start,
                                         line: *ref_line,
                                         path: resolved.clone(),
+                                        start_byte: parsed.line_start_byte(*ref_line),
+                                        end_byte: parsed.line_start_byte(*ref_line),
                                         kind: VarAccessKind::Use,
                                     };
                                     uses.entry((
@@ -375,8 +442,11 @@ impl DataFlowGraph {
                                     let def_loc = VarLocation {
                                         file: file_path.clone(),
                                         function: func_name.clone(),
+                                        function_start_line: start,
                                         line: *def_line,
                                         path: resolved.clone(),
+                                        start_byte: parsed.line_start_byte(*def_line),
+                                        end_byte: parsed.line_start_byte(*def_line),
                                         kind: VarAccessKind::Def,
                                     };
                                     edges.push(FlowEdge {
@@ -395,8 +465,11 @@ impl DataFlowGraph {
                         let use_loc = VarLocation {
                             file: file_path.clone(),
                             function: func_name.clone(),
+                            function_start_line: start,
                             line: *line,
                             path: path.clone(),
+                            start_byte: parsed.line_start_byte(*line),
+                            end_byte: parsed.line_start_byte(*line),
                             kind: VarAccessKind::Use,
                         };
                         uses.entry((file_path.clone(), func_name.clone(), path.clone()))

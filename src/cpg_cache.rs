@@ -42,7 +42,7 @@ use std::path::{Path, PathBuf};
 /// - v2: Added `has_type_db` field for type_db consistency (Phase 3)
 /// - v3: grammar_fingerprint + skip_policy_version
 /// - v4: CallGraph methods/owner indexes + CallSite.receiver_type (S3)
-const CACHE_VERSION: u32 = 4;
+const CACHE_VERSION: u32 = 5; // S2 node bytes + VarLocation identity + CallSite bytes.
 
 pub const SKIP_POLICY_VERSION: u32 = 1;
 
@@ -365,6 +365,7 @@ fn reconstruct_cpg(ser: SerializedCpg) -> CodePropertyGraph {
                 function,
                 line,
                 access,
+                ..
             } => {
                 var_index.insert(
                     (file.clone(), function.clone(), *line, path.clone(), *access),

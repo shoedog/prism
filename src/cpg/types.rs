@@ -8,7 +8,7 @@ use crate::access_path::AccessPath;
 // ---------------------------------------------------------------------------
 
 /// A node in the Code Property Graph.
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub enum CpgNode {
     /// A function definition.
     Function {
@@ -16,6 +16,8 @@ pub enum CpgNode {
         file: String,
         start_line: usize,
         end_line: usize,
+        start_byte: usize,
+        end_byte: usize,
     },
 
     /// A statement or expression at a specific source location.
@@ -23,6 +25,8 @@ pub enum CpgNode {
         file: String,
         line: usize,
         kind: StmtKind,
+        start_byte: usize,
+        end_byte: usize,
     },
 
     /// A variable access (definition or use) with a structured access path.
@@ -30,10 +34,82 @@ pub enum CpgNode {
         path: AccessPath,
         file: String,
         function: String,
+        function_start_line: usize,
         line: usize,
         access: VarAccess,
+        start_byte: usize,
+        end_byte: usize,
     },
 }
+
+impl PartialEq for CpgNode {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (
+                CpgNode::Function {
+                    name,
+                    file,
+                    start_line,
+                    end_line,
+                    ..
+                },
+                CpgNode::Function {
+                    name: other_name,
+                    file: other_file,
+                    start_line: other_start_line,
+                    end_line: other_end_line,
+                    ..
+                },
+            ) => {
+                name == other_name
+                    && file == other_file
+                    && start_line == other_start_line
+                    && end_line == other_end_line
+            }
+            (
+                CpgNode::Statement {
+                    file, line, kind, ..
+                },
+                CpgNode::Statement {
+                    file: other_file,
+                    line: other_line,
+                    kind: other_kind,
+                    ..
+                },
+            ) => file == other_file && line == other_line && kind == other_kind,
+            (
+                CpgNode::Variable {
+                    path,
+                    file,
+                    function,
+                    function_start_line,
+                    line,
+                    access,
+                    ..
+                },
+                CpgNode::Variable {
+                    path: other_path,
+                    file: other_file,
+                    function: other_function,
+                    function_start_line: other_function_start_line,
+                    line: other_line,
+                    access: other_access,
+                    ..
+                },
+            ) => {
+                path == other_path
+                    && file == other_file
+                    && function == other_function
+                    && function_start_line == other_function_start_line
+                    && line == other_line
+                    && access == other_access
+            }
+            _ => false,
+        }
+    }
+}
+
+impl Eq for CpgNode {}
 
 /// Classification of statements relevant for analysis.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -101,6 +177,29 @@ pub enum CpgEdge {
 // ---------------------------------------------------------------------------
 
 impl CpgNode {
+    /// Construct a variable occurrence with additive byte metadata.
+    pub fn variable_occurrence(
+        path: AccessPath,
+        file: String,
+        function: String,
+        function_start_line: usize,
+        line: usize,
+        access: VarAccess,
+        start_byte: usize,
+        end_byte: usize,
+    ) -> Self {
+        CpgNode::Variable {
+            path,
+            file,
+            function,
+            function_start_line,
+            line,
+            access,
+            start_byte,
+            end_byte,
+        }
+    }
+
     /// The file path this node belongs to.
     pub fn file(&self) -> &str {
         match self {

@@ -4862,8 +4862,11 @@ fn synthesize_target_seed_paths(seeds: &[TaintSeed], ctx: &CpgContext, paths: &m
         let from = VarLocation {
             file: seed.file.clone(),
             function: func_name.clone(),
+            function_start_line: func.start_position().row + 1,
             line: seed.line,
             path: target.clone(),
+            start_byte: 0,
+            end_byte: 0,
             kind: VarAccessKind::Def,
         };
         let mut edges = Vec::new();
@@ -5022,8 +5025,11 @@ fn synthesize_direct_target_reference_edges(
             to: VarLocation {
                 file: ctx.seed.file.clone(),
                 function: ctx.func_name.to_string(),
+                function_start_line: ctx.func.start_position().row + 1,
                 line: ref_line,
                 path: AccessPath::simple(ctx.target.base.clone()),
+                start_byte: 0,
+                end_byte: 0,
                 kind: VarAccessKind::Use,
             },
         });
@@ -5323,8 +5329,11 @@ fn add_js_ts_tainted_assignment_aliases(
                 to: VarLocation {
                     file: ctx.seed.file.clone(),
                     function: ctx.func_name.to_string(),
+                    function_start_line: ctx.func.start_position().row + 1,
                     line: assignment_line,
                     path: AccessPath::simple(alias.clone()),
+                    start_byte: 0,
+                    end_byte: 0,
                     kind: VarAccessKind::Def,
                 },
             });
@@ -5362,8 +5371,11 @@ fn add_js_ts_tainted_assignment_aliases(
                 to: VarLocation {
                     file: ctx.seed.file.clone(),
                     function: ctx.func_name.to_string(),
+                    function_start_line: ctx.func.start_position().row + 1,
                     line: ref_line,
                     path: AccessPath::simple(alias.clone()),
+                    start_byte: 0,
+                    end_byte: 0,
                     kind: VarAccessKind::Use,
                 },
             });
@@ -5431,8 +5443,11 @@ fn add_js_ts_request_alias_reference_edges(
             to: VarLocation {
                 file: ctx.seed.file.clone(),
                 function: ctx.func_name.to_string(),
+                function_start_line: ctx.func.start_position().row + 1,
                 line: ref_line,
                 path: AccessPath::simple(alias.to_string()),
+                start_byte: 0,
+                end_byte: 0,
                 kind: VarAccessKind::Use,
             },
         });
@@ -11311,15 +11326,21 @@ mod tests {
         let from = VarLocation {
             file: "main.go".to_string(),
             function: "handler".to_string(),
+            function_start_line: 3,
             line: 3,
             path: AccessPath::simple(var_name),
+            start_byte: 0,
+            end_byte: 0,
             kind: VarAccessKind::Def,
         };
         let to = VarLocation {
             file: "main.go".to_string(),
             function: "handler".to_string(),
+            function_start_line: 3,
             line,
             path: AccessPath::simple(var_name),
+            start_byte: 0,
+            end_byte: 0,
             kind: VarAccessKind::Use,
         };
         FlowPath {
@@ -11414,11 +11435,14 @@ func handler(input string) {
         let source = VarLocation {
             file: "t.py".into(),
             function: "f".into(),
+            function_start_line: 1,
             line: 2,
             path: AccessPath {
                 base: "u".into(),
                 fields: vec![],
             },
+            start_byte: 0,
+            end_byte: 0,
             kind: VarAccessKind::Use,
         };
         let cats = cleansed_categories_for_source(&files, &source);
@@ -11443,11 +11467,14 @@ func handler(input string) {
         let s = VarLocation {
             file: "t.rs".into(),
             function: "f".into(),
+            function_start_line: 1,
             line: 1,
             path: AccessPath {
                 base: "u".into(),
                 fields: vec![],
             },
+            start_byte: 0,
+            end_byte: 0,
             kind: VarAccessKind::Use,
         };
         assert!(cleansed_categories_for_source(&files, &s).is_empty());

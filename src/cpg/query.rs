@@ -275,13 +275,19 @@ impl CodePropertyGraph {
                 path,
                 file,
                 function,
+                function_start_line,
                 line,
                 access,
+                start_byte,
+                end_byte,
             } => Some(VarLocation {
                 file: file.clone(),
                 function: function.clone(),
+                function_start_line: *function_start_line,
                 line: *line,
                 path: path.clone(),
+                start_byte: *start_byte,
+                end_byte: *end_byte,
                 kind: match access {
                     VarAccess::Def => VarAccessKind::Def,
                     VarAccess::Use => VarAccessKind::Use,
@@ -299,6 +305,7 @@ impl CodePropertyGraph {
                 file,
                 start_line,
                 end_line,
+                ..
             } => Some(FunctionId {
                 file: file.clone(),
                 name: name.clone(),

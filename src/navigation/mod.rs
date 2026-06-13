@@ -48,6 +48,7 @@ impl NavigationIndex {
                 file,
                 start_line,
                 end_line,
+                ..
             } = ctx.cpg.node(idx)
             {
                 line_range_index.entry(file.clone()).or_default().push((

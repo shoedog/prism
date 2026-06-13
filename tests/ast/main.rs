@@ -2,7 +2,6 @@ mod access_path_test;
 mod binding_test;
 mod comment_string_test;
 #[allow(dead_code)]
-#[path = "../common/mod.rs"]
 mod common;
 mod cpg_cache_test;
 mod cpg_test;
