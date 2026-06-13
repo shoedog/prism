@@ -1,7 +1,10 @@
 # S2 — Node-Identity Hardening — Design
 
-**Date:** 2026-06-13 · **Status:** rev 4 — three dual spec-review rounds folded (codex
-gpt-5.5 xhigh + claude opus/max). rev 1 made the byte the identity *key* (broke
+**Date:** 2026-06-13 · **Status:** rev 5 — three dual spec-review rounds + a codex plan-review
+folded (codex gpt-5.5 xhigh + claude opus/max). rev 5 corrects the §7.3 same-line ordering
+wording (byte order is leftmost-source-position-first — for `x = y` that is def-of-x then
+use-of-y, NOT "use before def"; the sort delivers determinism + source fidelity, data-flow
+direction lives in the edge label) and repoints the §5 `.function` audit cites. rev 1 made the byte the identity *key* (broke
 uniqueness/CFG/edges → rev 2 additive); round 2 found the rev-2 function key
 `(file,start_line)` *regresses* different-name-same-line and under-lists the func_index
 migration → rev 3 keyed functions by **`(file, name, start_line)`**; **round 3
@@ -193,9 +196,9 @@ populated wherever call sites are extracted.
   tests); `to_var_location` populates the new byte fields (and thus feeds the wire).
 - **`.function` audit rule:** every *scope/equality* use of the function string switches
   to the `(function, function_start_line)` identity; `.function` stays for *display/output*
-  only. Named sites: **`node_file_fn` (trace.rs:173, primary)**, `cfg_queries.rs:237`,
-  `taint.rs:4875`, plus the algorithms. Acceptance includes a grep-audit of
-  `.function ==` / scope comparisons.
+  only. Named sites: **`node_file_fn` (trace.rs:173, primary)**, `cfg_queries.rs:244`
+  (the `!=` interprocedural-boundary test), `taint.rs:4876`/`:4883`, plus the algorithms.
+  Acceptance includes a grep-audit of `.function ==` / `!=` / scope comparisons.
 - **`src/navigation/` + witness wire (`src/reasoning/shape.rs`)** —
   **`node_of` (shape.rs:206) emits the node's byte on `Location` (`start_byte`/`end_byte`)
   and on `SymbolRef::Variable`; `ordinal` stays `0` — reserved, NOT populated from byte
@@ -246,8 +249,11 @@ populated wherever call sites are extracted.
    stays distinct (the regression guard); `function_candidates` returns both overloads;
    the **`step5b_param_binding_first_wins_parity` test kept and re-pointed** to assert the
    overload arg→param edge now resolves.
-3. **Same-line ordering** (`tests/ast/cpg_test.rs`): `x = y` use-of-y precedes def-of-x by
-   `start_byte` through BOTH `same_line_same_path_uses` and the assignment-propagation arm.
+3. **Same-line ordering** (`tests/ast/cpg_test.rs`): same-line occurrences sort by `start_byte`
+   (leftmost source position first) — for `x = y` that is def-of-x then use-of-y — through BOTH
+   `same_line_same_path_uses` and the assignment-propagation arm; assert the RAW `nodes_at`
+   bucket order (not a test-side re-sort). The sort gives determinism + source fidelity;
+   data-flow direction is the edge label, not the order.
 4. **Edge-set with EXPECTED flips** (the right invariant, not "unchanged"): before/after
    normalized DFG/call/contains edge-set + CPG-node-dump fixtures; de-conflation *should*
    flip some previously-false reachability — those flips are enumerated and asserted
@@ -313,6 +319,11 @@ Each deferral is designed so adding it later is **additive, not a refactor**:
   call-site **span is now in scope** (§4/§5 — `CallSite` byte de-collapses duplicates);
   only an ordinal on top rides with occurrence-splitting. *Seam:* mirror the reserved-
   ordinal pattern onto call evidence if ever needed.
+- **Byte-aware interprocedural argument binding.** Step-5b binds args→params via
+  `call_argument_texts(line, callee_name)` (line-keyed), so two same-line duplicate calls to
+  one callee with *different* arguments still bind ambiguously (a pre-existing limitation,
+  not introduced by S2). The new `CallSite` byte makes a byte-keyed `call_argument_texts`
+  an **additive follow-up** (no schema change); deferred here as orthogonal to node identity.
 - **Sub-statement EOG / control-dependence edges.** *Seam:* byte ranges are the 80/20 EOG
   substitute now; a later PDG-lite adds a new edge kind (additive, M4-quarantine pattern),
   no node change.
