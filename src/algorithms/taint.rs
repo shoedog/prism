@@ -4877,6 +4877,7 @@ fn synthesize_target_seed_paths(seeds: &[TaintSeed], ctx: &CpgContext, paths: &m
             }
             if target_loc.file == seed.file
                 && target_loc.function == func_name
+                && target_loc.function_start_line == from.function_start_line
                 && target_loc.line <= seed.line
             {
                 continue;
@@ -4884,6 +4885,7 @@ fn synthesize_target_seed_paths(seeds: &[TaintSeed], ctx: &CpgContext, paths: &m
             if let Some(cfg_set) = &reachable {
                 if target_loc.file == seed.file
                     && target_loc.function == func_name
+                    && target_loc.function_start_line == from.function_start_line
                     && !reference_line_cfg_reachable(
                         parsed,
                         &func,

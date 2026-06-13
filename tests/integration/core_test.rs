@@ -859,3 +859,28 @@ fn test_needs_cpg_classification() {
         assert!(algo.needs_cpg(), "{:?} should need CPG", algo);
     }
 }
+
+// S2 Task 7 (.function scope audit): no DataFlow edge may connect two same-name function
+// instances (different start lines). Pins the de-conflation end-to-end — name-only scope
+// (pre-S2) would merge the two `run` bodies' `v` and create spurious cross edges.
+#[test]
+fn no_dataflow_edge_crosses_same_named_functions() {
+    let src = "struct A; struct B;\n\
+               impl A { fn run(&self) { let v = src(); sink(v); } }\n\
+               impl B { fn run(&self) { let v = src(); other(v); } }\n";
+    let cpg = build_rust_cpg(src);
+    for e in cpg.graph.edge_indices() {
+        if cpg.graph[e] != prism::cpg::CpgEdge::DataFlow {
+            continue;
+        }
+        let (s, t) = cpg.graph.edge_endpoints(e).unwrap();
+        if let (Some(sl), Some(tl)) = (cpg.to_var_location(s), cpg.to_var_location(t)) {
+            if sl.function == tl.function {
+                assert_eq!(
+                    sl.function_start_line, tl.function_start_line,
+                    "DataFlow edge crossed two same-name `run` instances: {sl:?} -> {tl:?}"
+                );
+            }
+        }
+    }
+}
