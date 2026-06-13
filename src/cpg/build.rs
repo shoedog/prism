@@ -35,8 +35,9 @@ pub struct CodePropertyGraph {
     pub(crate) name_index: BTreeMap<(String, String), Vec<NodeIndex>>,
 
     /// Index: VarLocation-like key → variable node index.
-    /// Key: (file, function, line, path, access_kind)
-    pub(crate) var_index: BTreeMap<(String, String, usize, AccessPath, VarAccess), NodeIndex>,
+    /// Key: (file, function, function_start_line, line, path, access_kind)
+    pub(crate) var_index:
+        BTreeMap<(String, String, usize, usize, AccessPath, VarAccess), NodeIndex>,
 
     /// Index: (file, line) → all node indices at that location
     pub(crate) location_index: BTreeMap<(String, usize), Vec<NodeIndex>>,
@@ -85,7 +86,7 @@ impl CodePropertyGraph {
         graph: DiGraph<CpgNode, CpgEdge>,
         func_index: BTreeMap<(String, String, usize), NodeIndex>,
         name_index: BTreeMap<(String, String), Vec<NodeIndex>>,
-        var_index: BTreeMap<(String, String, usize, AccessPath, VarAccess), NodeIndex>,
+        var_index: BTreeMap<(String, String, usize, usize, AccessPath, VarAccess), NodeIndex>,
         location_index: BTreeMap<(String, usize), Vec<NodeIndex>>,
         call_graph: CallGraph,
         dfg: DataFlowGraph,
@@ -202,8 +203,10 @@ impl CodePropertyGraph {
         let mut graph = DiGraph::new();
         let mut func_index: BTreeMap<(String, String, usize), NodeIndex> = BTreeMap::new();
         let mut name_index: BTreeMap<(String, String), Vec<NodeIndex>> = BTreeMap::new();
-        let mut var_index: BTreeMap<(String, String, usize, AccessPath, VarAccess), NodeIndex> =
-            BTreeMap::new();
+        let mut var_index: BTreeMap<
+            (String, String, usize, usize, AccessPath, VarAccess),
+            NodeIndex,
+        > = BTreeMap::new();
         let mut location_index: BTreeMap<(String, usize), Vec<NodeIndex>> = BTreeMap::new();
 
         // --- Step 1: Function nodes ---
@@ -254,6 +257,7 @@ impl CodePropertyGraph {
                 let key = (
                     loc.file.clone(),
                     loc.function.clone(),
+                    loc.function_start_line,
                     loc.line,
                     loc.path.clone(),
                     access,
@@ -283,6 +287,7 @@ impl CodePropertyGraph {
                 let key = (
                     loc.file.clone(),
                     loc.function.clone(),
+                    loc.function_start_line,
                     loc.line,
                     loc.path.clone(),
                     access,
@@ -320,6 +325,7 @@ impl CodePropertyGraph {
             let from_key = (
                 edge.from.file.clone(),
                 edge.from.function.clone(),
+                edge.from.function_start_line,
                 edge.from.line,
                 edge.from.path.clone(),
                 from_access,
@@ -327,6 +333,7 @@ impl CodePropertyGraph {
             let to_key = (
                 edge.to.file.clone(),
                 edge.to.function.clone(),
+                edge.to.function_start_line,
                 edge.to.line,
                 edge.to.path.clone(),
                 to_access,
@@ -413,6 +420,7 @@ impl CodePropertyGraph {
                         let arg_key = (
                             caller_id.file.clone(),
                             caller_id.name.clone(),
+                            caller_id.start_line,
                             site.line,
                             arg_path.clone(),
                             VarAccess::Use,
@@ -421,6 +429,7 @@ impl CodePropertyGraph {
                             let def_key = (
                                 caller_id.file.clone(),
                                 caller_id.name.clone(),
+                                caller_id.start_line,
                                 site.line,
                                 arg_path,
                                 VarAccess::Def,
@@ -433,6 +442,7 @@ impl CodePropertyGraph {
                                 let key = (
                                     callee_id.file.clone(),
                                     callee_id.name.clone(),
+                                    callee_id.start_line,
                                     line,
                                     param_path.clone(),
                                     VarAccess::Def,
@@ -448,10 +458,10 @@ impl CodePropertyGraph {
         }
 
         // --- Step 6: Contains edges ---
-        for (&(ref file, ref func, ref _line, ref _path, ref _access), &var_idx) in &var_index {
-            if let Some(&func_idx) = name_index
-                .get(&(file.clone(), func.clone()))
-                .and_then(|v| v.first())
+        for (&(ref file, ref func, func_start_line, ref _line, ref _path, ref _access), &var_idx) in
+            &var_index
+        {
+            if let Some(&func_idx) = func_index.get(&(file.clone(), func.clone(), func_start_line))
             {
                 graph.add_edge(func_idx, var_idx, CpgEdge::Contains);
             }

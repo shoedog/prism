@@ -106,10 +106,10 @@ pub struct FlowPath {
 pub struct DataFlowGraph {
     /// All def-use edges.
     pub edges: Vec<FlowEdge>,
-    /// Index: (file, function, access_path) → definitions
-    pub defs: BTreeMap<(String, String, AccessPath), Vec<VarLocation>>,
-    /// Index: (file, function, access_path) → uses
-    pub uses: BTreeMap<(String, String, AccessPath), Vec<VarLocation>>,
+    /// Index: (file, function, function_start_line, access_path) → definitions
+    pub defs: BTreeMap<(String, String, usize, AccessPath), Vec<VarLocation>>,
+    /// Index: (file, function, function_start_line, access_path) → uses
+    pub uses: BTreeMap<(String, String, usize, AccessPath), Vec<VarLocation>>,
     /// Forward adjacency: def location → use locations it reaches
     pub forward: BTreeMap<VarLocation, Vec<VarLocation>>,
     /// Backward adjacency: use location → def locations it comes from
@@ -142,8 +142,10 @@ impl DataFlowGraph {
             .retain(|e| !exclude.contains(&e.from.file) && !exclude.contains(&e.to.file));
 
         // Remove defs/uses entries for excluded files.
-        self.defs.retain(|(file, _, _), _| !exclude.contains(file));
-        self.uses.retain(|(file, _, _), _| !exclude.contains(file));
+        self.defs
+            .retain(|(file, _, _, _), _| !exclude.contains(file));
+        self.uses
+            .retain(|(file, _, _, _), _| !exclude.contains(file));
 
         // Rebuild adjacency from retained edges.
         self.rebuild_adjacency();
@@ -205,14 +207,16 @@ impl DataFlowGraph {
 
     /// Build a DFG from file references (shared implementation for build and build_subset).
     fn build_from_refs(files: &BTreeMap<String, &ParsedFile>) -> Self {
-        let mut defs: BTreeMap<(String, String, AccessPath), Vec<VarLocation>> = BTreeMap::new();
-        let mut uses: BTreeMap<(String, String, AccessPath), Vec<VarLocation>> = BTreeMap::new();
+        let mut defs: BTreeMap<(String, String, usize, AccessPath), Vec<VarLocation>> =
+            BTreeMap::new();
+        let mut uses: BTreeMap<(String, String, usize, AccessPath), Vec<VarLocation>> =
+            BTreeMap::new();
         let mut edges = Vec::new();
 
         struct FileRefs {
             file_path: String,
-            defs: BTreeMap<(String, String, AccessPath), Vec<VarLocation>>,
-            uses: BTreeMap<(String, String, AccessPath), Vec<VarLocation>>,
+            defs: BTreeMap<(String, String, usize, AccessPath), Vec<VarLocation>>,
+            uses: BTreeMap<(String, String, usize, AccessPath), Vec<VarLocation>>,
             edges: Vec<FlowEdge>,
         }
 
@@ -222,9 +226,9 @@ impl DataFlowGraph {
             .par_iter()
             .map(|entry| {
                 let (file_path, parsed) = *entry;
-                let mut defs: BTreeMap<(String, String, AccessPath), Vec<VarLocation>> =
+                let mut defs: BTreeMap<(String, String, usize, AccessPath), Vec<VarLocation>> =
                     BTreeMap::new();
-                let mut uses: BTreeMap<(String, String, AccessPath), Vec<VarLocation>> =
+                let mut uses: BTreeMap<(String, String, usize, AccessPath), Vec<VarLocation>> =
                     BTreeMap::new();
                 let mut edges = Vec::new();
 
@@ -259,9 +263,14 @@ impl DataFlowGraph {
                                     end_byte: parsed.line_start_byte(*alias_line),
                                     kind: VarAccessKind::Def,
                                 };
-                                defs.entry((file_path.clone(), func_name.clone(), resolved_ap))
-                                    .or_default()
-                                    .push(loc);
+                                defs.entry((
+                                    file_path.clone(),
+                                    func_name.clone(),
+                                    start,
+                                    resolved_ap,
+                                ))
+                                .or_default()
+                                .push(loc);
                             }
                         }
                     }
@@ -300,7 +309,7 @@ impl DataFlowGraph {
                             end_byte: parsed.line_start_byte(start),
                             kind: VarAccessKind::Def,
                         };
-                        defs.entry((file_path.clone(), func_name.clone(), path.clone()))
+                        defs.entry((file_path.clone(), func_name.clone(), start, path.clone()))
                             .or_default()
                             .push(loc.clone());
 
@@ -319,7 +328,7 @@ impl DataFlowGraph {
                                 end_byte: parsed.line_start_byte(*ref_line),
                                 kind: VarAccessKind::Use,
                             };
-                            uses.entry((file_path.clone(), func_name.clone(), path.clone()))
+                            uses.entry((file_path.clone(), func_name.clone(), start, path.clone()))
                                 .or_default()
                                 .push(use_loc.clone());
                             edges.push(FlowEdge {
@@ -343,7 +352,7 @@ impl DataFlowGraph {
                             end_byte: parsed.line_start_byte(*line),
                             kind: VarAccessKind::Def,
                         };
-                        defs.entry((file_path.clone(), func_name.clone(), path.clone()))
+                        defs.entry((file_path.clone(), func_name.clone(), start, path.clone()))
                             .or_default()
                             .push(loc);
 
@@ -367,6 +376,7 @@ impl DataFlowGraph {
                                 defs.entry((
                                     file_path.clone(),
                                     func_name.clone(),
+                                    start,
                                     resolved.clone(),
                                 ))
                                 .or_default()
@@ -392,7 +402,7 @@ impl DataFlowGraph {
                                 end_byte: parsed.line_start_byte(*ref_line),
                                 kind: VarAccessKind::Use,
                             };
-                            uses.entry((file_path.clone(), func_name.clone(), path.clone()))
+                            uses.entry((file_path.clone(), func_name.clone(), start, path.clone()))
                                 .or_default()
                                 .push(use_loc.clone());
 
@@ -434,6 +444,7 @@ impl DataFlowGraph {
                                     uses.entry((
                                         file_path.clone(),
                                         func_name.clone(),
+                                        start,
                                         resolved.clone(),
                                     ))
                                     .or_default()
@@ -472,7 +483,7 @@ impl DataFlowGraph {
                             end_byte: parsed.line_start_byte(*line),
                             kind: VarAccessKind::Use,
                         };
-                        uses.entry((file_path.clone(), func_name.clone(), path.clone()))
+                        uses.entry((file_path.clone(), func_name.clone(), start, path.clone()))
                             .or_default()
                             .push(use_loc);
                     }
@@ -625,8 +636,8 @@ impl DataFlowGraph {
             if loc.kind == VarAccessKind::Use {
                 let _key = (loc.file.clone(), loc.function.clone(), loc.path.clone());
                 // Find defs of other variables on the same line
-                for ((f, func, _path), def_locs) in &self.defs {
-                    if f == &loc.file && func == &loc.function {
+                for ((f, func, fsl, _path), def_locs) in &self.defs {
+                    if f == &loc.file && func == &loc.function && *fsl == loc.function_start_line {
                         for dl in def_locs {
                             if dl.line == loc.line && !visited.contains(dl) {
                                 queue.push_back(dl.clone());
@@ -751,7 +762,7 @@ impl DataFlowGraph {
     /// Matches any AccessPath whose base equals `var_name` (field-insensitive lookup).
     pub fn all_defs_of(&self, file: &str, var_name: &str) -> Vec<VarLocation> {
         let mut result = Vec::new();
-        for ((f, _func, path), locs) in &self.defs {
+        for ((f, _func, _fsl, path), locs) in &self.defs {
             if f == file && path.base == var_name {
                 result.extend(locs.clone());
             }

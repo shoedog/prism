@@ -68,6 +68,7 @@ impl CodePropertyGraph {
         &self,
         file: &str,
         function: &str,
+        function_start_line: usize,
         line: usize,
         path: &AccessPath,
         access: VarAccess,
@@ -76,6 +77,7 @@ impl CodePropertyGraph {
             .get(&(
                 file.to_string(),
                 function.to_string(),
+                function_start_line,
                 line,
                 path.clone(),
                 access,
@@ -517,7 +519,7 @@ impl CodePropertyGraph {
     /// Equivalent to `DataFlowGraph::all_defs_of()`.
     pub fn all_defs_of(&self, file: &str, var_name: &str) -> Vec<VarLocation> {
         let mut result = Vec::new();
-        for (&(ref f, ref _func, ref _line, ref path, ref access), &_idx) in &self.var_index {
+        for (&(ref f, ref _func, _fsl, ref _line, ref path, ref access), &_idx) in &self.var_index {
             if f == file && path.base == var_name && *access == VarAccess::Def {
                 if let Some(loc) = self.to_var_location(_idx) {
                     result.push(loc);
@@ -540,6 +542,7 @@ impl CodePropertyGraph {
         let start = match self.var_node(
             &from.file,
             &from.function,
+            from.function_start_line,
             from.line,
             &from.path,
             from_access,
@@ -606,6 +609,7 @@ impl CodePropertyGraph {
         let start = match self.var_node(
             &from.file,
             &from.function,
+            from.function_start_line,
             from.line,
             &from.path,
             from_access,

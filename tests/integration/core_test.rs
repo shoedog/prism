@@ -29,6 +29,38 @@ fn same_name_functions_on_different_lines_are_distinct_nodes() {
 }
 
 #[test]
+fn same_path_in_same_named_functions_does_not_collide() {
+    let src = "struct A; struct B;\nimpl A { fn run(&self) { let v = 1; sink(v); } }\nimpl B { fn run(&self) { let v = 2; sink(v); } }\n";
+    let cpg = build_rust_cpg(src);
+    let v_defs = cpg
+        .node_indices()
+        .filter(|&n| {
+            matches!(
+                cpg.node(n),
+                prism::cpg::CpgNode::Variable { path, access, .. }
+                    if path.base == "v" && *access == prism::cpg::VarAccess::Def
+            )
+        })
+        .count();
+    assert_eq!(v_defs, 2, "v is distinct per function");
+
+    let v_def_function_starts: std::collections::BTreeSet<_> = cpg
+        .dfg
+        .defs
+        .keys()
+        .filter_map(|(file, function, function_start_line, path)| {
+            (file == "test.rs" && function == "run" && path.base == "v")
+                .then_some(*function_start_line)
+        })
+        .collect();
+    assert_eq!(
+        v_def_function_starts.len(),
+        2,
+        "DFG defs keep v distinct per function_start_line"
+    );
+}
+
+#[test]
 fn test_paper_format_output() {
     let (files, _, diff) = make_python_test();
     let config = SliceConfig::default().with_algorithm(SlicingAlgorithm::OriginalDiff);
