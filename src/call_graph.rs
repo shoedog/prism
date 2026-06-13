@@ -25,6 +25,10 @@ pub struct CallSite {
     pub caller: FunctionId,
     pub callee_name: String,
     pub line: usize,
+    #[serde(default)]
+    pub start_byte: usize,
+    #[serde(default)]
+    pub end_byte: usize,
     /// Module/object qualifier for the call (e.g., `utils` in `utils.process()`).
     /// `None` for unqualified calls like `process()`.
     pub qualifier: Option<String>,
@@ -158,13 +162,15 @@ impl CallGraph {
                 };
 
                 let all_lines: BTreeSet<usize> = (start..=end).collect();
-                let call_sites = parsed.function_calls_on_lines(&func_node, &all_lines);
+                let call_sites = parsed.function_calls_with_spans_on_lines(&func_node, &all_lines);
 
-                for (callee_name, line) in call_sites {
+                for (callee_name, line, start_byte, end_byte) in call_sites {
                     let site = CallSite {
                         caller: caller_id.clone(),
                         callee_name: callee_name.clone(),
                         line,
+                        start_byte,
+                        end_byte,
                         qualifier: Self::recover_self_receiver_qualifier(
                             parsed,
                             &callee_name,
@@ -326,14 +332,14 @@ impl CallGraph {
                     };
 
                     let all_lines: BTreeSet<usize> = (start..=end).collect();
-                    let call_sites =
-                        parsed.function_calls_on_lines_with_qualifier(&func_node, &all_lines);
+                    let call_sites = parsed
+                        .function_calls_with_qualifier_and_spans_on_lines(&func_node, &all_lines);
                     let recv_var = parsed
                         .language
                         .go_receiver_var(&func_node)
                         .map(|n| parsed.node_text(&n).to_string());
 
-                    for (callee_name, line, qualifier) in call_sites {
+                    for (callee_name, line, qualifier, start_byte, end_byte) in call_sites {
                         let qualifier = Self::recover_self_receiver_qualifier(
                             parsed,
                             &callee_name,
@@ -352,6 +358,8 @@ impl CallGraph {
                             caller: caller_id.clone(),
                             callee_name,
                             line,
+                            start_byte,
+                            end_byte,
                             qualifier,
                             receiver_type: recovered.as_ref().map(|(ty, _)| ty.clone()),
                             receiver_recovery: recovered.as_ref().map(|(_, how)| *how),
@@ -428,6 +436,9 @@ impl CallGraph {
                                 caller: caller_id.clone(),
                                 callee_name: target.clone(),
                                 line: site.line,
+                                // Synthesized indirect edge: no concrete call node span.
+                                start_byte: 0,
+                                end_byte: 0,
                                 qualifier: None,
                                 receiver_type: None,
                                 receiver_recovery: None,
@@ -455,6 +466,9 @@ impl CallGraph {
                                 caller: caller_id.clone(),
                                 callee_name: resolved,
                                 line: site.line,
+                                // Synthesized indirect edge: no concrete call node span.
+                                start_byte: 0,
+                                end_byte: 0,
                                 qualifier: None,
                                 receiver_type: None,
                                 receiver_recovery: None,
@@ -535,6 +549,9 @@ impl CallGraph {
                                     caller: caller_id.clone(),
                                     callee_name: target.clone(),
                                     line: site.line,
+                                    // Synthesized indirect edge: no concrete call node span.
+                                    start_byte: 0,
+                                    end_byte: 0,
                                     qualifier: None,
                                     receiver_type: None,
                                     receiver_recovery: None,
@@ -625,6 +642,9 @@ impl CallGraph {
                                         caller: caller_id.clone(),
                                         callee_name: arg_text,
                                         line: site.line,
+                                        // Synthesized indirect edge: no concrete call node span.
+                                        start_byte: 0,
+                                        end_byte: 0,
                                         qualifier: None,
                                         receiver_type: None,
                                         receiver_recovery: None,
@@ -645,6 +665,9 @@ impl CallGraph {
                                             caller: caller_id.clone(),
                                             callee_name: resolved,
                                             line: site.line,
+                                            // Synthesized indirect edge: no concrete call node span.
+                                            start_byte: 0,
+                                            end_byte: 0,
                                             qualifier: None,
                                             receiver_type: None,
                                             receiver_recovery: None,
@@ -842,14 +865,14 @@ impl CallGraph {
                 };
                 let all_lines: BTreeSet<usize> = (start..=end).collect();
                 let call_sites =
-                    parsed.function_calls_on_lines_with_qualifier(&func_node, &all_lines);
+                    parsed.function_calls_with_qualifier_and_spans_on_lines(&func_node, &all_lines);
                 let recv_var = parsed
                     .language
                     .go_receiver_var(&func_node)
                     .map(|n| parsed.node_text(&n).to_string());
                 let file_imports_ref = imports.get(file_path);
 
-                for (callee_name, line, qualifier) in call_sites {
+                for (callee_name, line, qualifier, start_byte, end_byte) in call_sites {
                     let qualifier = Self::recover_self_receiver_qualifier(
                         parsed,
                         &callee_name,
@@ -868,6 +891,8 @@ impl CallGraph {
                         caller: caller_id.clone(),
                         callee_name: callee_name.clone(),
                         line,
+                        start_byte,
+                        end_byte,
                         qualifier,
                         receiver_type: recovered.as_ref().map(|(ty, _)| ty.clone()),
                         receiver_recovery: recovered.as_ref().map(|(_, how)| *how),
@@ -1174,11 +1199,13 @@ impl CallGraph {
 }
 
 impl CallSite {
-    fn cmp_key(&self) -> (&str, &str, usize, Option<&str>, Option<&str>) {
+    fn cmp_key(&self) -> (&str, &str, usize, usize, usize, Option<&str>, Option<&str>) {
         (
             &self.caller.name,
             &self.callee_name,
             self.line,
+            self.start_byte,
+            self.end_byte,
             self.qualifier.as_deref(),
             self.receiver_type.as_deref(),
         )
