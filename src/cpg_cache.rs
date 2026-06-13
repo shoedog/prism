@@ -339,7 +339,8 @@ fn reconstruct_cpg(ser: SerializedCpg) -> CodePropertyGraph {
     }
 
     // Rebuild indexes by iterating nodes.
-    let mut func_index: BTreeMap<(String, String), NodeIndex> = BTreeMap::new();
+    let mut func_index: BTreeMap<(String, String, usize), NodeIndex> = BTreeMap::new();
+    let mut name_index: BTreeMap<(String, String), Vec<NodeIndex>> = BTreeMap::new();
     let mut var_index: BTreeMap<(String, String, usize, AccessPath, VarAccess), NodeIndex> =
         BTreeMap::new();
     let mut location_index: BTreeMap<(String, usize), Vec<NodeIndex>> = BTreeMap::new();
@@ -353,7 +354,11 @@ fn reconstruct_cpg(ser: SerializedCpg) -> CodePropertyGraph {
                 start_line,
                 ..
             } => {
-                func_index.insert((file.clone(), name.clone()), idx);
+                func_index.insert((file.clone(), name.clone(), *start_line), idx);
+                name_index
+                    .entry((file.clone(), name.clone()))
+                    .or_default()
+                    .push(idx);
                 location_index
                     .entry((file.clone(), *start_line))
                     .or_default()
@@ -384,10 +389,17 @@ fn reconstruct_cpg(ser: SerializedCpg) -> CodePropertyGraph {
             }
         }
     }
+    for nodes in name_index.values_mut() {
+        nodes.sort_by_key(|&n| match &graph[n] {
+            CpgNode::Function { start_line, .. } => *start_line,
+            _ => usize::MAX,
+        });
+    }
 
     CodePropertyGraph::from_parts(
         graph,
         func_index,
+        name_index,
         var_index,
         location_index,
         ser.call_graph,

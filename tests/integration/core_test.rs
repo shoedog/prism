@@ -1,6 +1,34 @@
 use crate::common::*;
 
 #[test]
+fn same_name_functions_on_different_lines_are_distinct_nodes() {
+    let src = "struct A; struct B;\nimpl A { fn helper(&self) -> i32 { 1 } }\nimpl B { fn helper(&self) -> i32 { 2 } }\n";
+    let cpg = build_rust_cpg(src);
+    let helpers: Vec<_> = cpg
+        .function_nodes()
+        .into_iter()
+        .filter(|&n| {
+            matches!(cpg.node(n), prism::cpg::CpgNode::Function { name, .. } if name == "helper")
+        })
+        .collect();
+    assert_eq!(helpers.len(), 2);
+    let candidates = cpg.function_candidates("test.rs", "helper");
+    assert_eq!(candidates.len(), 2);
+    let candidate_start_lines: Vec<_> = candidates
+        .iter()
+        .map(|&n| match cpg.node(n) {
+            prism::cpg::CpgNode::Function { start_line, .. } => *start_line,
+            _ => unreachable!("function_candidates returned a non-function"),
+        })
+        .collect();
+    assert_eq!(candidate_start_lines, vec![2, 3]);
+    assert_eq!(
+        cpg.function_node("test.rs", "helper"),
+        candidates.first().copied()
+    );
+}
+
+#[test]
 fn test_paper_format_output() {
     let (files, _, diff) = make_python_test();
     let config = SliceConfig::default().with_algorithm(SlicingAlgorithm::OriginalDiff);
