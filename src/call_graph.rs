@@ -1027,6 +1027,24 @@ impl CallGraph {
         lines[start..end].join("\n")
     }
 
+    /// Caller sites targeting a function named `name`, including `::`-scoped
+    /// keys: the `callers` map is keyed by the raw callee text, so a qualified
+    /// call `T::name()` lives under `"T::name"`, not `"name"`. Returns sites
+    /// under both the bare key and any `"*::name"` key. Over-collection is safe:
+    /// every consumer re-resolves each site via `resolve_call_site` and filters
+    /// by exact target, so scoped keys only add *true* callers (S3 — mirrors the
+    /// navigation-side `scoped_caller_sites`).
+    fn caller_sites_scoped(&self, name: &str) -> Vec<&CallSite> {
+        let suffix = format!("::{name}");
+        let mut out: Vec<&CallSite> = Vec::new();
+        for (key, sites) in &self.callers {
+            if key == name || key.ends_with(&suffix) {
+                out.extend(sites.iter());
+            }
+        }
+        out
+    }
+
     /// Find all callers of a function by name, up to a given depth.
     ///
     /// Respects static linkage: a call to `func_name` in file X only counts
@@ -1046,44 +1064,39 @@ impl CallGraph {
         target_file: Option<&str>,
     ) -> Vec<(FunctionId, usize)> {
         let mut result = Vec::new();
-        let mut visited: BTreeSet<String> = BTreeSet::new();
-        let mut queue: VecDeque<(String, usize)> = VecDeque::new();
+        let mut visited: BTreeSet<FunctionId> = BTreeSet::new();
+        let mut queue: VecDeque<(FunctionId, usize)> = VecDeque::new();
 
-        queue.push_back((func_name.to_string(), 0));
-        visited.insert(func_name.to_string());
-
-        while let Some((name, depth)) = queue.pop_front() {
-            if depth > 0 {
-                if let Some(func_ids) = self.functions.get(&name) {
-                    for fid in func_ids {
-                        result.push((fid.clone(), depth));
-                    }
+        if let Some(func_ids) = self.functions.get(func_name) {
+            for fid in func_ids {
+                let in_target_file = match target_file {
+                    Some(tf) => fid.file == tf,
+                    None => true,
+                };
+                if in_target_file && visited.insert(fid.clone()) {
+                    queue.push_back((fid.clone(), 0));
                 }
+            }
+        }
+
+        while let Some((target, depth)) = queue.pop_front() {
+            if depth > 0 {
+                result.push((target.clone(), depth));
             }
 
             if depth >= max_depth {
                 continue;
             }
 
-            if let Some(sites) = self.callers.get(&name) {
-                for site in sites {
-                    if visited.contains(&site.caller.name) {
-                        continue;
-                    }
+            for site in self.caller_sites_scoped(&target.name) {
+                let resolved = self.resolve_call_site(site);
+                let hit = resolved.iter().any(|c| c.target == &target);
+                if !hit {
+                    continue;
+                }
 
-                    // Static linkage filter: if the caller is in a different file
-                    // and their call to `name` resolves to a static function in
-                    // their own file (not target_file), skip this caller.
-                    if let Some(tf) = target_file {
-                        let resolved = self.resolve_callees(&name, &site.caller.file);
-                        let resolves_to_target = resolved.iter().any(|fid| fid.file == tf);
-                        if !resolves_to_target {
-                            continue;
-                        }
-                    }
-
-                    visited.insert(site.caller.name.clone());
-                    queue.push_back((site.caller.name.clone(), depth + 1));
+                if visited.insert(site.caller.clone()) {
+                    queue.push_back((site.caller.clone(), depth + 1));
                 }
             }
         }
@@ -1096,16 +1109,13 @@ impl CallGraph {
     /// Returns only CallSites where the call to `callee_name` from the caller's
     /// file actually resolves to the function in `target_file`.
     pub fn resolve_callers(&self, callee_name: &str, target_file: &str) -> Vec<&CallSite> {
-        match self.callers.get(callee_name) {
-            None => Vec::new(),
-            Some(sites) => sites
-                .iter()
-                .filter(|site| {
-                    let resolved = self.resolve_callees(callee_name, &site.caller.file);
-                    resolved.iter().any(|fid| fid.file == target_file)
-                })
-                .collect(),
-        }
+        self.caller_sites_scoped(callee_name)
+            .into_iter()
+            .filter(|site| {
+                let resolved = self.resolve_call_site(site);
+                resolved.iter().any(|c| c.target.file == target_file)
+            })
+            .collect()
     }
 
     /// Find all callees of a function by name, up to a given depth.
@@ -1116,7 +1126,7 @@ impl CallGraph {
         max_depth: usize,
     ) -> Vec<(FunctionId, usize)> {
         let mut result = Vec::new();
-        let mut visited: BTreeSet<String> = BTreeSet::new();
+        let mut visited: BTreeSet<FunctionId> = BTreeSet::new();
         let mut queue: VecDeque<(FunctionId, usize)> = VecDeque::new();
 
         // Find the starting function
@@ -1124,7 +1134,7 @@ impl CallGraph {
             for fid in func_ids {
                 if fid.file == file {
                     queue.push_back((fid.clone(), 0));
-                    visited.insert(fid.name.clone());
+                    visited.insert(fid.clone());
                 }
             }
         }
@@ -1140,12 +1150,10 @@ impl CallGraph {
 
             if let Some(sites) = self.calls.get(&func_id) {
                 for site in sites {
-                    if !visited.contains(&site.callee_name) {
-                        visited.insert(site.callee_name.clone());
-                        // Resolve callee to FunctionId, respecting static linkage
-                        let callee_ids = self.resolve_callees(&site.callee_name, &func_id.file);
-                        for callee_id in callee_ids {
-                            queue.push_back((callee_id.clone(), depth + 1));
+                    let callee_ids = self.resolve_call_site(site);
+                    for c in callee_ids {
+                        if visited.insert(c.target.clone()) {
+                            queue.push_back((c.target.clone(), depth + 1));
                         }
                     }
                 }
@@ -1173,7 +1181,7 @@ impl CallGraph {
 
         for &start_name in start_funcs {
             let mut path: Vec<FunctionId> = Vec::new();
-            let mut visited: BTreeSet<String> = BTreeSet::new();
+            let mut visited: BTreeSet<FunctionId> = BTreeSet::new();
 
             if let Some(func_ids) = self.functions.get(start_name) {
                 for fid in func_ids {
@@ -1189,10 +1197,10 @@ impl CallGraph {
         &self,
         node: &FunctionId,
         path: &mut Vec<FunctionId>,
-        visited: &mut BTreeSet<String>,
+        visited: &mut BTreeSet<FunctionId>,
         cycles: &mut Vec<Vec<FunctionId>>,
     ) {
-        if let Some(pos) = path.iter().position(|f| f.name == node.name) {
+        if let Some(pos) = path.iter().position(|f| f == node) {
             // Found a cycle
             let cycle: Vec<FunctionId> = path[pos..].to_vec();
             if !cycle.is_empty() {
@@ -1201,18 +1209,18 @@ impl CallGraph {
             return;
         }
 
-        if visited.contains(&node.name) {
+        if visited.contains(node) {
             return;
         }
 
-        visited.insert(node.name.clone());
+        visited.insert(node.clone());
         path.push(node.clone());
 
         if let Some(sites) = self.calls.get(node) {
             for site in sites {
-                let callee_ids = self.resolve_callees(&site.callee_name, &node.file);
-                for callee_id in callee_ids {
-                    self.dfs_cycles(callee_id, path, visited, cycles);
+                let callee_ids = self.resolve_call_site(site);
+                for c in callee_ids {
+                    self.dfs_cycles(c.target, path, visited, cycles);
                 }
             }
         }

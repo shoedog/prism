@@ -1,6 +1,190 @@
 use crate::common::*;
 
 #[test]
+fn traversal_helpers_respect_ladder_not_bare_names() {
+    use prism::languages::Language::Rust;
+    let mut files = std::collections::BTreeMap::new();
+    for (p, s) in [
+        ("a.rs", "impl A {\n    fn poll(&self) {}\n}\n"),
+        ("b.rs", "impl B {\n    fn poll(&self) {}\n}\n"),
+        ("m.rs", "fn drive(x: Unknown) {\n    x.poll();\n}\n"),
+    ] {
+        files.insert(
+            p.to_string(),
+            prism::ast::ParsedFile::parse(p, s, Rust).unwrap(),
+        );
+    }
+    let cg = prism::call_graph::CallGraph::build(&files);
+    // callees_of must NOT fan `drive` out to both polls (multi-owner drop)
+    let callees = cg.callees_of("drive", "m.rs", 2);
+    assert!(callees.is_empty(), "got {callees:?}");
+    // resolve_callers must NOT report drive as a caller of A::poll
+    let callers = cg.resolve_callers("poll", "a.rs");
+    assert!(callers.is_empty(), "got {callers:?}");
+}
+
+#[test]
+fn callers_of_in_file_respects_ladder_for_target_and_no_target() {
+    let mut files = BTreeMap::new();
+    for (p, s) in [
+        ("a.rs", "struct A;\nimpl A {\n    fn poll(&self) {}\n}\n"),
+        ("b.rs", "struct B;\nimpl B {\n    fn poll(&self) {}\n}\n"),
+        (
+            "m.rs",
+            "struct A;\nstruct Unknown;\nfn drive(x: Unknown) {\n    x.poll();\n}\nfn drive_a(a: A) {\n    a.poll();\n}\n",
+        ),
+    ] {
+        files.insert(p.to_string(), ParsedFile::parse(p, s, Language::Rust).unwrap());
+    }
+    let cg = CallGraph::build(&files);
+
+    let callers_a = cg.callers_of_in_file("poll", 1, Some("a.rs"));
+    let caller_names_a: BTreeSet<&str> =
+        callers_a.iter().map(|(fid, _)| fid.name.as_str()).collect();
+    assert!(
+        caller_names_a.contains("drive_a"),
+        "typed A::poll caller should resolve to a.rs, got {caller_names_a:?}",
+    );
+    assert!(
+        !caller_names_a.contains("drive"),
+        "unknown receiver should not be reported for target a.rs, got {caller_names_a:?}",
+    );
+
+    let callers_b = cg.callers_of_in_file("poll", 1, Some("b.rs"));
+    let caller_names_b: BTreeSet<&str> =
+        callers_b.iter().map(|(fid, _)| fid.name.as_str()).collect();
+    assert!(
+        !caller_names_b.contains("drive_a"),
+        "A::poll caller should not resolve to b.rs, got {caller_names_b:?}",
+    );
+    assert!(
+        !caller_names_b.contains("drive"),
+        "unknown receiver should not be reported for target b.rs, got {caller_names_b:?}",
+    );
+
+    let callers_any = cg.callers_of_in_file("poll", 1, None);
+    let caller_names_any: BTreeSet<&str> = callers_any
+        .iter()
+        .map(|(fid, _)| fid.name.as_str())
+        .collect();
+    assert!(
+        caller_names_any.contains("drive_a"),
+        "no-target traversal should keep resolved typed callers, got {caller_names_any:?}",
+    );
+    assert!(
+        !caller_names_any.contains("drive"),
+        "no-target traversal should drop unresolved ambiguous callers, got {caller_names_any:?}",
+    );
+}
+
+#[test]
+fn callers_of_in_file_tracks_function_identity_across_reverse_hops() {
+    let mut files = BTreeMap::new();
+    for (p, s) in [
+        ("target.rs", "fn target() {}\n"),
+        ("hit.rs", "fn same() {\n    target();\n}\n"),
+        ("miss.rs", "fn same() {}\n"),
+        ("mid.rs", "fn mid() {\n    target();\n}\n"),
+        ("top.rs", "fn top() {\n    mid();\n}\n"),
+    ] {
+        files.insert(
+            p.to_string(),
+            ParsedFile::parse(p, s, Language::Rust).unwrap(),
+        );
+    }
+    let cg = CallGraph::build(&files);
+
+    let direct = cg.callers_of_in_file("target", 1, Some("target.rs"));
+    assert!(
+        direct
+            .iter()
+            .any(|(fid, depth)| fid.name == "same" && fid.file == "hit.rs" && *depth == 1),
+        "same() in hit.rs should be reported as the direct caller, got {direct:?}",
+    );
+    assert!(
+        !direct
+            .iter()
+            .any(|(fid, _)| fid.name == "same" && fid.file == "miss.rs"),
+        "same() in miss.rs does not call target and must not be emitted, got {direct:?}",
+    );
+
+    let transitive = cg.callers_of_in_file("target", 2, Some("target.rs"));
+    assert!(
+        transitive
+            .iter()
+            .any(|(fid, depth)| fid.name == "top" && fid.file == "top.rs" && *depth == 2),
+        "top -> mid -> target should survive target-file filtering on later hops, got {transitive:?}",
+    );
+}
+
+#[test]
+fn callees_of_resolves_before_deduping_same_name_targets() {
+    let mut files = BTreeMap::new();
+    files.insert(
+        "a.rs".to_string(),
+        ParsedFile::parse(
+            "a.rs",
+            "struct A;\nstruct Unknown;\nimpl A {\n    fn poll(&self) {}\n}\nfn chain(x: Unknown, a: A) {\n    x.poll();\n    a.poll();\n}\n",
+            Language::Rust,
+        )
+        .unwrap(),
+    );
+    files.insert(
+        "b.rs".to_string(),
+        ParsedFile::parse(
+            "b.rs",
+            "struct B;\nimpl B {\n    fn poll(&self) {}\n}\n",
+            Language::Rust,
+        )
+        .unwrap(),
+    );
+    let cg = CallGraph::build(&files);
+    let a_poll = &cg.methods[&("A".to_string(), "poll".to_string())][0];
+    let b_poll = &cg.methods[&("B".to_string(), "poll".to_string())][0];
+
+    let callees = cg.callees_of("chain", "a.rs", 1);
+    let callee_ids: BTreeSet<_> = callees.iter().map(|(fid, _)| fid).collect();
+    assert!(
+        callee_ids.contains(a_poll),
+        "later typed A::poll call should not be suppressed by earlier dropped x.poll(), got {callees:?}",
+    );
+    assert!(
+        !callee_ids.contains(b_poll),
+        "dropped x.poll() should not fan out to unrelated B::poll, got {callees:?}",
+    );
+}
+
+#[test]
+fn dfs_cycles_uses_function_identity_for_same_name_methods() {
+    let mut files = BTreeMap::new();
+    files.insert(
+        "a.rs".to_string(),
+        ParsedFile::parse(
+            "a.rs",
+            "struct A;\nstruct B;\nimpl A {\n    fn poll(&self, b: B) {\n        b.poll();\n    }\n}\n",
+            Language::Rust,
+        )
+        .unwrap(),
+    );
+    files.insert(
+        "b.rs".to_string(),
+        ParsedFile::parse(
+            "b.rs",
+            "struct B;\nimpl B {\n    fn poll(&self) {}\n}\n",
+            Language::Rust,
+        )
+        .unwrap(),
+    );
+    let cg = CallGraph::build(&files);
+
+    let cycles = cg.find_cycles_from(&["poll"]);
+    assert!(
+        cycles.is_empty(),
+        "A::poll -> B::poll is same-name cross-owner traversal, not a cycle: {cycles:?}",
+    );
+}
+
+#[test]
 fn test_call_graph_field_expression_call() {
     let source = r#"
 #include <stdlib.h>
@@ -962,4 +1146,43 @@ fn p6_receiver_recovery_matches_full_and_direct_subset_merge() {
         incremental_site.receiver_recovery
     );
     assert_eq!(full_site.receiver_type.as_deref(), Some("Sender"));
+}
+
+#[test]
+fn callers_find_qualified_callsites_via_scoped_keys() {
+    // The `callers` map is keyed by raw callee text, so a qualified call
+    // `Engine::start()` lives under "Engine::start". The reverse traversal must
+    // scan scoped keys, not just the bare name, or qualified callers are missed.
+    let mut files = std::collections::BTreeMap::new();
+    files.insert(
+        "engine.rs".to_string(),
+        prism::ast::ParsedFile::parse(
+            "engine.rs",
+            "pub struct Engine;\nimpl Engine {\n    pub fn start() {}\n}\n",
+            prism::languages::Language::Rust,
+        )
+        .unwrap(),
+    );
+    files.insert(
+        "main.rs".to_string(),
+        prism::ast::ParsedFile::parse(
+            "main.rs",
+            "fn run() {\n    Engine::start();\n}\n",
+            prism::languages::Language::Rust,
+        )
+        .unwrap(),
+    );
+    let cg = prism::call_graph::CallGraph::build(&files);
+
+    // resolve_callers: `run` must be found as a caller of engine.rs's `start`.
+    let callers = cg.resolve_callers("start", "engine.rs");
+    assert_eq!(callers.len(), 1, "qualified caller missed: {callers:?}");
+    assert_eq!(callers[0].caller.name, "run");
+
+    // callers_of_in_file: same, via BFS.
+    let bfs = cg.callers_of_in_file("start", 1, Some("engine.rs"));
+    assert!(
+        bfs.iter().any(|(fid, _)| fid.name == "run"),
+        "qualified caller missed in BFS: {bfs:?}"
+    );
 }
