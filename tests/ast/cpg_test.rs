@@ -120,6 +120,36 @@ fn scoped_return_use_keeps_real_member_span() {
 }
 
 #[test]
+fn same_line_assignment_orders_by_source_position() {
+    let src = "def f(p):\n    q = p\n    return q\n";
+    let cpg = build_python_cpg(src);
+
+    // RAW nodes_at order (production order) must be byte-sorted, leftmost first.
+    let order = same_line_var_byte_order(&cpg, "test.py", 2);
+    let q = order.iter().position(|s| s == "def:q").unwrap();
+    let p = order.iter().position(|s| s == "use:p").unwrap();
+    assert!(q < p, "lhs `q` precedes rhs `p` by source byte: {order:?}");
+
+    // And the production location_index bucket is already in this order (not just the test's sort).
+    let raw: Vec<_> = cpg
+        .nodes_at("test.py", 2)
+        .into_iter()
+        .filter_map(|n| match cpg.node(n) {
+            prism::cpg::CpgNode::Variable {
+                path, start_byte, ..
+            } => Some((*start_byte, path.base.clone())),
+            _ => None,
+        })
+        .collect();
+    let mut sorted = raw.clone();
+    sorted.sort();
+    assert_eq!(
+        raw, sorted,
+        "location_index bucket is byte-ordered in production"
+    );
+}
+
+#[test]
 fn statement_node_carries_real_span() {
     let src = "def f():\n    return 1\n";
     let cpg = build_python_cpg(src);
