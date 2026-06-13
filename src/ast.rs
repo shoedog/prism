@@ -60,6 +60,24 @@ pub struct FunctionInfo {
     pub receiver_var: Option<String>,
 }
 
+/// A variable occurrence the parser located, with its real source span.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PathSpan {
+    pub path: AccessPath,
+    pub line: usize,
+    pub start_byte: usize,
+    pub end_byte: usize,
+}
+
+/// A statement the parser located, with its real source span.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StatementSpan {
+    pub line: usize,
+    pub kind: String,
+    pub start_byte: usize,
+    pub end_byte: usize,
+}
+
 /// Wraps a tree-sitter parse tree with helpers for slicing analysis.
 #[derive(Clone)]
 pub struct ParsedFile {
@@ -976,6 +994,44 @@ impl ParsedFile {
         paths
     }
 
+    /// Byte-bearing sibling of `assignment_lvalue_paths_on_lines`.
+    pub fn assignment_lvalue_spans_on_lines(
+        &self,
+        func_node: &Node<'_>,
+        lines: &BTreeSet<usize>,
+    ) -> Vec<PathSpan> {
+        use crate::queries::{get_query, QueryKind};
+        use tree_sitter::StreamingIterator;
+
+        if let Some(query) = get_query(self.language, QueryKind::Assignments) {
+            let assign_idx = query
+                .capture_index_for_name("assign")
+                .expect("Assignments query must have @assign capture");
+            let mut cursor = tree_sitter::QueryCursor::new();
+            cursor.set_byte_range(func_node.byte_range());
+            let mut matches = cursor.matches(query, self.tree.root_node(), self.source.as_bytes());
+            let mut spans = Vec::new();
+            while let Some(m) = matches.next() {
+                for capture in m.captures {
+                    if capture.index == assign_idx {
+                        let line = capture.node.start_position().row + 1;
+                        if lines.contains(&line) {
+                            self.extract_assignment_lvalue_spans(&capture.node, &mut spans);
+                        }
+                    }
+                }
+            }
+            self.collect_assignment_span_gaps(*func_node, lines, &mut spans);
+            spans.sort_by_key(|span| (span.line, span.start_byte, span.end_byte));
+            return spans;
+        }
+
+        let mut spans = Vec::new();
+        self.collect_assignment_spans_manual(*func_node, lines, &mut spans);
+        spans.sort_by_key(|span| (span.line, span.start_byte, span.end_byte));
+        spans
+    }
+
     /// Extract L-value AccessPaths from a matched assignment/declaration node.
     fn extract_assignment_lvalue_paths(
         &self,
@@ -1003,6 +1059,24 @@ impl ParsedFile {
                     let name = self.node_text(&name_node).to_string();
                     out.push((AccessPath::simple(name), line));
                 }
+            }
+        }
+    }
+
+    fn extract_assignment_lvalue_spans(&self, node: &Node<'_>, out: &mut Vec<PathSpan>) {
+        if self.language.is_assignment_node(node.kind()) {
+            if let Some(lhs) = self.language.assignment_target(node) {
+                self.extract_lvalue_spans_from_node(lhs, out);
+            }
+        }
+        if self.language.is_declaration_node(node.kind()) {
+            if let Some(name_node) = node
+                .child_by_field_name("pattern")
+                .or_else(|| node.child_by_field_name("name"))
+                .or_else(|| node.child_by_field_name("declarator"))
+                .or_else(|| self.language.declaration_name(node))
+            {
+                self.extract_lvalue_spans_from_node(name_node, out);
             }
         }
     }
@@ -1044,6 +1118,43 @@ impl ParsedFile {
         let mut cursor = node.walk();
         for child in node.children(&mut cursor) {
             self.collect_assignment_paths_gaps(child, lines, out);
+        }
+    }
+
+    /// Byte-bearing gap patterns not covered by the Assignments query.
+    fn collect_assignment_span_gaps(
+        &self,
+        node: Node<'_>,
+        lines: &BTreeSet<usize>,
+        out: &mut Vec<PathSpan>,
+    ) {
+        let line = node.start_position().row + 1;
+
+        if lines.contains(&line)
+            && node.kind() == "for_in_statement"
+            && matches!(
+                self.language,
+                Language::JavaScript | Language::TypeScript | Language::Tsx
+            )
+        {
+            self.extract_for_in_lvalue_spans(&node, out);
+        }
+
+        if lines.contains(&line)
+            && node.kind() == "as_pattern"
+            && matches!(self.language, Language::Python)
+        {
+            let mut c = node.walk();
+            for child in node.children(&mut c) {
+                if child.kind() == "as_pattern_target" {
+                    self.push_simple_lvalue_span(child, out);
+                }
+            }
+        }
+
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            self.collect_assignment_span_gaps(child, lines, out);
         }
     }
 
@@ -1111,6 +1222,60 @@ impl ParsedFile {
         }
     }
 
+    /// Manual recursive assignment span collection (pre-query fallback).
+    fn collect_assignment_spans_manual(
+        &self,
+        node: Node<'_>,
+        lines: &BTreeSet<usize>,
+        out: &mut Vec<PathSpan>,
+    ) {
+        let line = node.start_position().row + 1;
+
+        if lines.contains(&line) && self.language.is_assignment_node(node.kind()) {
+            if let Some(lhs) = self.language.assignment_target(&node) {
+                self.extract_lvalue_spans_from_node(lhs, out);
+            }
+        }
+
+        if lines.contains(&line) && self.language.is_declaration_node(node.kind()) {
+            if let Some(name_node) = node
+                .child_by_field_name("pattern")
+                .or_else(|| node.child_by_field_name("name"))
+                .or_else(|| node.child_by_field_name("declarator"))
+                .or_else(|| self.language.declaration_name(&node))
+            {
+                self.extract_lvalue_spans_from_node(name_node, out);
+            }
+        }
+
+        if lines.contains(&line)
+            && node.kind() == "for_in_statement"
+            && matches!(
+                self.language,
+                Language::JavaScript | Language::TypeScript | Language::Tsx
+            )
+        {
+            self.extract_for_in_lvalue_spans(&node, out);
+        }
+
+        if lines.contains(&line)
+            && node.kind() == "as_pattern"
+            && matches!(self.language, Language::Python)
+        {
+            let mut c = node.walk();
+            for child in node.children(&mut c) {
+                if child.kind() == "as_pattern_target" {
+                    self.push_simple_lvalue_span(child, out);
+                }
+            }
+        }
+
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            self.collect_assignment_spans_manual(child, lines, out);
+        }
+    }
+
     /// Extract individual L-value paths from a multi-target node (pattern_list, expression_list).
     ///
     /// Handles:
@@ -1164,6 +1329,109 @@ impl ParsedFile {
         }
     }
 
+    fn extract_lvalue_spans_from_node(&self, node: Node<'_>, out: &mut Vec<PathSpan>) {
+        let kind = node.kind();
+
+        if Self::is_field_access_node(kind) || Self::is_index_access_node(kind) {
+            let text = self.node_text(&node).to_string();
+            for path in extract_lvalue_paths(&text) {
+                out.push(PathSpan {
+                    path,
+                    line: node.start_position().row + 1,
+                    start_byte: node.start_byte(),
+                    end_byte: node.end_byte(),
+                });
+            }
+            return;
+        }
+
+        if self.is_binding_identifier_node(kind) {
+            self.push_simple_lvalue_span(node, out);
+            return;
+        }
+
+        match kind {
+            "object_pattern" | "array_pattern" => {
+                self.extract_destructuring_def_spans(&node, out);
+                return;
+            }
+            "pair_pattern" => {
+                if let Some(value) = node.child_by_field_name("value") {
+                    self.extract_lvalue_spans_from_node(value, out);
+                    return;
+                }
+            }
+            "rest_pattern"
+            | "list_splat_pattern"
+            | "dictionary_splat_pattern"
+            | "spread_element"
+            | "mutable_pattern"
+            | "mut_pattern"
+            | "reference_pattern"
+            | "ref_pattern"
+            | "tuple_pattern"
+            | "pattern_list"
+            | "expression_list"
+            | "parenthesized_expression"
+            | "parenthesized_pattern" => {
+                let mut cursor = node.walk();
+                for child in node.children(&mut cursor) {
+                    self.extract_lvalue_spans_from_node(child, out);
+                }
+                return;
+            }
+            _ => {}
+        }
+
+        let text = self.node_text(&node).to_string();
+        let paths = extract_lvalue_paths(&text);
+        if !paths.is_empty() {
+            for path in paths {
+                out.push(PathSpan {
+                    path,
+                    line: node.start_position().row + 1,
+                    start_byte: node.start_byte(),
+                    end_byte: node.end_byte(),
+                });
+            }
+            return;
+        }
+
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            self.extract_lvalue_spans_from_node(child, out);
+        }
+    }
+
+    fn is_binding_identifier_node(&self, kind: &str) -> bool {
+        matches!(
+            kind,
+            "identifier"
+                | "shorthand_property_identifier_pattern"
+                | "property_identifier"
+                | "field_identifier"
+        )
+    }
+
+    fn is_index_access_node(kind: &str) -> bool {
+        matches!(
+            kind,
+            "subscript_expression" | "index_expression" | "slice_expression"
+        )
+    }
+
+    fn push_simple_lvalue_span(&self, node: Node<'_>, out: &mut Vec<PathSpan>) {
+        let name = self.node_text(&node).to_string();
+        if is_plain_ident(&name) {
+            out.push(PathSpan {
+                path: AccessPath::simple(name),
+                line: node.start_position().row + 1,
+                start_byte: node.start_byte(),
+                end_byte: node.end_byte(),
+            });
+        }
+    }
+
     /// Extract L-value defs from a JS/TS `for_in_statement` loop header.
     ///
     /// Handles:
@@ -1188,6 +1456,24 @@ impl ParsedFile {
                 // Destructuring: { name, id } or [a, b]
                 "object_pattern" | "array_pattern" => {
                     self.extract_destructuring_defs(&child, line, out);
+                }
+                _ => {}
+            }
+        }
+    }
+
+    fn extract_for_in_lvalue_spans(&self, node: &Node<'_>, out: &mut Vec<PathSpan>) {
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            match child.kind() {
+                "identifier" => {
+                    let name = self.node_text(&child).to_string();
+                    if is_plain_ident(&name) && name != "const" && name != "let" && name != "var" {
+                        self.push_simple_lvalue_span(child, out);
+                    }
+                }
+                "object_pattern" | "array_pattern" => {
+                    self.extract_destructuring_def_spans(&child, out);
                 }
                 _ => {}
             }
@@ -1236,6 +1522,34 @@ impl ParsedFile {
                 }
                 "object_pattern" | "array_pattern" => {
                     self.extract_destructuring_defs(&child, line, out);
+                }
+                _ => {}
+            }
+        }
+    }
+
+    fn extract_destructuring_def_spans(&self, pattern: &Node<'_>, out: &mut Vec<PathSpan>) {
+        let mut cursor = pattern.walk();
+        for child in pattern.children(&mut cursor) {
+            match child.kind() {
+                "shorthand_property_identifier_pattern" | "identifier" => {
+                    self.push_simple_lvalue_span(child, out);
+                }
+                "pair_pattern" => {
+                    if let Some(val) = child.child_by_field_name("value") {
+                        self.extract_lvalue_spans_from_node(val, out);
+                    }
+                }
+                "rest_pattern" => {
+                    let mut inner_cursor = child.walk();
+                    for inner in child.children(&mut inner_cursor) {
+                        if inner.kind() == "identifier" {
+                            self.push_simple_lvalue_span(inner, out);
+                        }
+                    }
+                }
+                "object_pattern" | "array_pattern" => {
+                    self.extract_destructuring_def_spans(&child, out);
                 }
                 _ => {}
             }
@@ -1582,6 +1896,83 @@ impl ParsedFile {
         paths
     }
 
+    /// Byte-bearing sibling of `rvalue_identifier_paths_on_lines`.
+    pub fn rvalue_identifier_spans_on_lines(
+        &self,
+        func_node: &Node<'_>,
+        lines: &BTreeSet<usize>,
+    ) -> Vec<PathSpan> {
+        use crate::queries::{get_query, QueryKind};
+        use tree_sitter::StreamingIterator;
+
+        if let Some(assign_query) = get_query(self.language, QueryKind::Assignments) {
+            let assign_idx = assign_query
+                .capture_index_for_name("assign")
+                .expect("Assignments query must have @assign capture");
+            let mut spans = Vec::new();
+
+            let mut cursor = tree_sitter::QueryCursor::new();
+            cursor.set_byte_range(func_node.byte_range());
+            let mut matches =
+                cursor.matches(assign_query, self.tree.root_node(), self.source.as_bytes());
+            while let Some(m) = matches.next() {
+                for capture in m.captures {
+                    if capture.index == assign_idx {
+                        let line = capture.node.start_position().row + 1;
+                        if lines.contains(&line)
+                            && self.language.is_assignment_node(capture.node.kind())
+                        {
+                            if self.is_augmented_assignment(&capture.node) {
+                                if let Some(lhs) = self.language.assignment_target(&capture.node) {
+                                    self.collect_identifier_path_spans(lhs, &mut spans);
+                                }
+                            }
+                            if let Some(rhs) = self.language.assignment_value(&capture.node) {
+                                self.collect_identifier_path_spans(rhs, &mut spans);
+                            }
+                        }
+                    }
+                }
+            }
+
+            if let Some(call_query) = get_query(self.language, QueryKind::Calls) {
+                let call_idx = call_query
+                    .capture_index_for_name("call")
+                    .expect("Calls query must have @call capture");
+                let mut cursor2 = tree_sitter::QueryCursor::new();
+                cursor2.set_byte_range(func_node.byte_range());
+                let mut matches2 =
+                    cursor2.matches(call_query, self.tree.root_node(), self.source.as_bytes());
+                while let Some(m) = matches2.next() {
+                    for capture in m.captures {
+                        if capture.index == call_idx {
+                            let line = capture.node.start_position().row + 1;
+                            if lines.contains(&line) {
+                                if let Some(args) = self.language.call_arguments(&capture.node) {
+                                    self.collect_identifier_path_spans(args, &mut spans);
+                                }
+                                if let Some(func_name_node) =
+                                    self.language.call_function_name(&capture.node)
+                                {
+                                    self.push_identifier_path_span(func_name_node, &mut spans);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            self.collect_return_value_identifier_spans(func_node, lines, &mut spans);
+            spans.sort_by_key(|span| (span.line, span.start_byte, span.end_byte));
+            return spans;
+        }
+
+        let mut spans = Vec::new();
+        self.collect_rvalue_spans_manual(*func_node, lines, &mut spans);
+        spans.sort_by_key(|span| (span.line, span.start_byte, span.end_byte));
+        spans
+    }
+
     /// Manual recursive R-value path collection (pre-query fallback).
     fn collect_rvalue_paths_manual(
         &self,
@@ -1613,6 +2004,46 @@ impl ParsedFile {
         }
     }
 
+    /// Manual recursive R-value span collection (pre-query fallback).
+    fn collect_rvalue_spans_manual(
+        &self,
+        node: Node<'_>,
+        lines: &BTreeSet<usize>,
+        out: &mut Vec<PathSpan>,
+    ) {
+        let line = node.start_position().row + 1;
+
+        if lines.contains(&line) && self.language.is_assignment_node(node.kind()) {
+            if self.is_augmented_assignment(&node) {
+                if let Some(lhs) = self.language.assignment_target(&node) {
+                    self.collect_identifier_path_spans(lhs, out);
+                }
+            }
+            if let Some(rhs) = self.language.assignment_value(&node) {
+                self.collect_identifier_path_spans(rhs, out);
+            }
+        }
+
+        if lines.contains(&line) && self.language.is_call_node(node.kind()) {
+            if let Some(args) = self.language.call_arguments(&node) {
+                self.collect_identifier_path_spans(args, out);
+            }
+            if let Some(func_name_node) = self.language.call_function_name(&node) {
+                self.push_identifier_path_span(func_name_node, out);
+            }
+        }
+
+        if lines.contains(&line) && self.language.is_return_node(node.kind()) {
+            self.collect_return_node_value_spans(node, out);
+            return;
+        }
+
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            self.collect_rvalue_spans_manual(child, lines, out);
+        }
+    }
+
     /// Check if a node kind represents a field/member access expression.
     /// Each language has a different tree-sitter node kind for this:
     /// - C/C++, Rust: field_expression
@@ -1632,6 +2063,32 @@ impl ParsedFile {
                 | "dot_index_expression"
                 | "method_index_expression"
         )
+    }
+
+    fn is_augmented_assignment(&self, node: &Node<'_>) -> bool {
+        if matches!(
+            node.kind(),
+            "augmented_assignment"
+                | "augmented_assignment_expression"
+                | "compound_assignment_expr"
+                | "update_expression"
+        ) {
+            return true;
+        }
+
+        const AUGMENTED_ASSIGN_OPS: &[&str] = &[
+            "+=", "-=", "*=", "/=", "%=", "&=", "|=", "^=", "<<=", ">>=", "**=", "//=",
+        ];
+        let mut cursor = node.walk();
+        let found = node.children(&mut cursor).any(|child| {
+            if child.is_named() {
+                return false;
+            }
+            let kind = child.kind();
+            let text = self.node_text(&child);
+            AUGMENTED_ASSIGN_OPS.contains(&kind) || AUGMENTED_ASSIGN_OPS.contains(&text.trim())
+        });
+        found
     }
 
     fn collect_identifier_paths<'a>(&self, node: Node<'a>, out: &mut Vec<(AccessPath, usize)>) {
@@ -1667,6 +2124,93 @@ impl ParsedFile {
         let mut cursor = node.walk();
         for child in node.children(&mut cursor) {
             self.collect_identifier_paths(child, out);
+        }
+    }
+
+    fn collect_identifier_path_spans(&self, node: Node<'_>, out: &mut Vec<PathSpan>) {
+        if Self::is_field_access_node(node.kind()) {
+            let text = self.node_text(&node).to_string();
+            let line = node.start_position().row + 1;
+            out.push(PathSpan {
+                path: AccessPath::from_expr(&text),
+                line,
+                start_byte: node.start_byte(),
+                end_byte: node.end_byte(),
+            });
+
+            let base_node = node
+                .child_by_field_name("argument")
+                .or_else(|| node.child_by_field_name("object"))
+                .or_else(|| node.child_by_field_name("operand"))
+                .or_else(|| node.named_child(0));
+            if let Some(base) = base_node {
+                if self.language.is_identifier_node(base.kind()) {
+                    self.push_identifier_path_span(base, out);
+                }
+            }
+            return;
+        }
+
+        if self.language.is_identifier_node(node.kind()) {
+            self.push_identifier_path_span(node, out);
+        }
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            self.collect_identifier_path_spans(child, out);
+        }
+    }
+
+    fn push_identifier_path_span(&self, node: Node<'_>, out: &mut Vec<PathSpan>) {
+        let name = self.node_text(&node).to_string();
+        if is_plain_ident(&name) {
+            out.push(PathSpan {
+                path: AccessPath::simple(name),
+                line: node.start_position().row + 1,
+                start_byte: node.start_byte(),
+                end_byte: node.end_byte(),
+            });
+        }
+    }
+
+    fn collect_return_value_identifier_spans(
+        &self,
+        func_node: &Node<'_>,
+        lines: &BTreeSet<usize>,
+        out: &mut Vec<PathSpan>,
+    ) {
+        use crate::queries::{get_query, QueryKind};
+        use tree_sitter::StreamingIterator;
+
+        if let Some(query) = get_query(self.language, QueryKind::Returns) {
+            let ret_idx = query
+                .capture_index_for_name("ret")
+                .expect("Returns query must have @ret capture");
+            let mut cursor = tree_sitter::QueryCursor::new();
+            cursor.set_byte_range(func_node.byte_range());
+            let mut matches = cursor.matches(query, self.tree.root_node(), self.source.as_bytes());
+            while let Some(m) = matches.next() {
+                for capture in m.captures {
+                    if capture.index == ret_idx {
+                        let line = capture.node.start_position().row + 1;
+                        if lines.contains(&line) {
+                            self.collect_return_node_value_spans(capture.node, out);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    fn collect_return_node_value_spans(&self, node: Node<'_>, out: &mut Vec<PathSpan>) {
+        if self.language == Language::Go {
+            if let Some(child) = node.named_child(0) {
+                self.collect_identifier_path_spans(child, out);
+            }
+            return;
+        }
+
+        if let Some(child) = node.named_child(0) {
+            self.collect_identifier_path_spans(child, out);
         }
     }
 
@@ -1961,11 +2505,50 @@ impl ParsedFile {
     /// `dev` in `dev.name` does not). Used to decide whether to register a parameter
     /// Def for interprocedural data flow.
     pub fn has_bare_references(&self, func_node: &Node<'_>, var_name: &str) -> bool {
-        let func_start_line = func_node.start_position().row + 1;
-        self.find_bare_ref(*func_node, var_name, func_start_line)
+        if let Some(body) = self.function_body_node(func_node) {
+            return self.find_bare_ref(body, var_name);
+        }
+        self.find_bare_ref_excluding_parameters(*func_node, func_node, var_name)
     }
 
-    fn find_bare_ref(&self, node: Node<'_>, var_name: &str, skip_line: usize) -> bool {
+    fn function_body_node<'a>(&self, func_node: &Node<'a>) -> Option<Node<'a>> {
+        func_node
+            .child_by_field_name("body")
+            .or_else(|| func_node.child_by_field_name("consequence"))
+    }
+
+    fn find_bare_ref_excluding_parameters(
+        &self,
+        node: Node<'_>,
+        func_node: &Node<'_>,
+        var_name: &str,
+    ) -> bool {
+        if let Some(params) = self.find_parameters_node(func_node) {
+            if node.start_byte() >= params.start_byte() && node.end_byte() <= params.end_byte() {
+                return false;
+            }
+        }
+        if Self::is_field_access_node(node.kind()) {
+            return false;
+        }
+        if self.language.is_identifier_node(node.kind()) && self.node_text(&node) == var_name {
+            if let Some(parent) = node.parent() {
+                if Self::is_field_access_node(parent.kind()) {
+                    return false;
+                }
+            }
+            return true;
+        }
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            if self.find_bare_ref_excluding_parameters(child, func_node, var_name) {
+                return true;
+            }
+        }
+        false
+    }
+
+    fn find_bare_ref(&self, node: Node<'_>, var_name: &str) -> bool {
         // If this is a field access (dev.name, dev->name), skip it — the `dev`
         // identifier inside is not a bare reference.
         if Self::is_field_access_node(node.kind()) {
@@ -1973,11 +2556,6 @@ impl ParsedFile {
         }
 
         if self.language.is_identifier_node(node.kind()) && self.node_text(&node) == var_name {
-            let line = node.start_position().row + 1;
-            // Skip identifiers on the function definition line (parameter declarations).
-            if line == skip_line {
-                return false;
-            }
             // Check parent: if parent is a field access, this isn't a bare ref.
             if let Some(parent) = node.parent() {
                 if Self::is_field_access_node(parent.kind()) {
@@ -1989,7 +2567,7 @@ impl ParsedFile {
 
         let mut cursor = node.walk();
         for child in node.children(&mut cursor) {
-            if self.find_bare_ref(child, var_name, skip_line) {
+            if self.find_bare_ref(child, var_name) {
                 return true;
             }
         }
@@ -2063,6 +2641,15 @@ impl ParsedFile {
             .get(line - 1)
             .copied()
             .unwrap_or(self.source.len())
+    }
+
+    /// 1-indexed line containing `byte`.
+    pub fn line_for_byte(&self, byte: usize) -> usize {
+        let byte = byte.min(self.source.len());
+        match self.line_offsets.binary_search(&byte) {
+            Ok(idx) => idx + 1,
+            Err(idx) => idx,
+        }
     }
 
     /// Find condition variables in control flow statements on the given lines.
@@ -2428,6 +3015,17 @@ impl ParsedFile {
         stmts
     }
 
+    /// Byte-bearing sibling of `statements_in_function`.
+    pub fn statement_spans_in_function(&self, func_node: &Node<'_>) -> Vec<StatementSpan> {
+        let mut stmts = Vec::new();
+        if let Some(body_node) = self.function_body_node(func_node) {
+            self.collect_statement_spans(body_node, &mut stmts);
+        }
+        stmts.sort_by_key(|stmt| stmt.line);
+        stmts.dedup_by_key(|stmt| stmt.line);
+        stmts
+    }
+
     fn collect_statements(&self, node: Node<'_>, out: &mut Vec<(usize, String)>) {
         let mut cursor = node.walk();
         for child in node.children(&mut cursor) {
@@ -2445,6 +3043,29 @@ impl ParsedFile {
             } else if kind == "compound_statement" || kind == "block" || kind == "statement_block" {
                 // Recurse into blocks
                 self.collect_statements(child, out);
+            }
+        }
+    }
+
+    fn collect_statement_spans(&self, node: Node<'_>, out: &mut Vec<StatementSpan>) {
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            let kind = child.kind();
+            let line = child.start_position().row + 1;
+
+            if self.language.is_statement_node(kind) {
+                out.push(StatementSpan {
+                    line,
+                    kind: kind.to_string(),
+                    start_byte: child.start_byte(),
+                    end_byte: child.end_byte(),
+                });
+
+                if self.language.is_control_flow_node(kind) {
+                    self.collect_nested_statement_spans(child, out);
+                }
+            } else if kind == "compound_statement" || kind == "block" || kind == "statement_block" {
+                self.collect_statement_spans(child, out);
             }
         }
     }
@@ -2472,6 +3093,36 @@ impl ParsedFile {
                 let line = child.start_position().row + 1;
                 out.push((line, kind.to_string()));
                 self.collect_nested_statements(child, out);
+            }
+        }
+    }
+
+    fn collect_nested_statement_spans(&self, node: Node<'_>, out: &mut Vec<StatementSpan>) {
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            let kind = child.kind();
+            if kind == "compound_statement"
+                || kind == "block"
+                || kind == "statement_block"
+                || kind == "else_clause"
+                || kind == "elif_clause"
+                || kind == "else_if_clause"
+                || kind == "switch_body"
+                || kind == "case_statement"
+                || kind == "default_statement"
+                || kind == "match_block"
+                || kind == "match_arm"
+            {
+                self.collect_statement_spans(child, out);
+                self.collect_nested_statement_spans(child, out);
+            } else if self.language.is_control_flow_node(kind) {
+                out.push(StatementSpan {
+                    line: child.start_position().row + 1,
+                    kind: kind.to_string(),
+                    start_byte: child.start_byte(),
+                    end_byte: child.end_byte(),
+                });
+                self.collect_nested_statement_spans(child, out);
             }
         }
     }
@@ -2950,6 +3601,31 @@ impl ParsedFile {
         names
     }
 
+    /// Byte-bearing sibling of `function_parameter_names`.
+    ///
+    /// The tuple is `(name, start_byte, end_byte)` for the actual parameter
+    /// binding token. The DFG still anchors parameter defs to the function start
+    /// line for call-boundary compatibility.
+    pub fn function_parameter_occurrences(
+        &self,
+        func_node: &Node<'_>,
+    ) -> Vec<(String, usize, usize)> {
+        let mut params_out = Vec::new();
+        if let Some(params) = self.find_parameters_node(func_node) {
+            let mut cursor = params.walk();
+            for child in params.children(&mut cursor) {
+                if let Some(name_node) = self.extract_param_name_node(&child) {
+                    params_out.push((
+                        self.node_text(&name_node).to_string(),
+                        name_node.start_byte(),
+                        name_node.end_byte(),
+                    ));
+                }
+            }
+        }
+        params_out
+    }
+
     /// Find the parameters node within a function definition.
     /// Handles the C/C++ declarator chain (function_definition → declarator → function_declarator → parameters).
     fn find_parameters_node<'a>(&self, node: &Node<'a>) -> Option<Node<'a>> {
@@ -3209,6 +3885,69 @@ impl ParsedFile {
         }
     }
 
+    fn extract_param_name_node<'a>(&self, node: &Node<'a>) -> Option<Node<'a>> {
+        match node.kind() {
+            "parameter_declaration" | "optional_parameter_declaration" => {
+                if let Some(decl) = node.child_by_field_name("declarator") {
+                    return self.innermost_identifier_node(&decl);
+                }
+                let mut cursor = node.walk();
+                for child in node.children(&mut cursor) {
+                    if child.kind() == "identifier" {
+                        return Some(child);
+                    }
+                }
+                None
+            }
+            "parameter" => {
+                if let Some(name) = node.child_by_field_name("name") {
+                    return Some(name);
+                }
+                if let Some(pattern) = node.child_by_field_name("pattern") {
+                    return self.first_binding_identifier(pattern);
+                }
+                let mut cursor = node.walk();
+                for child in node.children(&mut cursor) {
+                    if child.kind() == "identifier" {
+                        return Some(child);
+                    }
+                }
+                None
+            }
+            "identifier" => Some(*node),
+            "typed_parameter"
+            | "typed_default_parameter"
+            | "default_parameter"
+            | "list_splat_pattern"
+            | "dictionary_splat_pattern" => {
+                if let Some(name) = node.child_by_field_name("name") {
+                    return Some(name);
+                }
+                let mut cursor = node.walk();
+                for child in node.children(&mut cursor) {
+                    if child.kind() == "identifier" {
+                        return Some(child);
+                    }
+                }
+                None
+            }
+            _ => None,
+        }
+    }
+
+    fn first_binding_identifier<'a>(&self, node: Node<'a>) -> Option<Node<'a>> {
+        if self.is_binding_identifier_node(node.kind()) {
+            return Some(node);
+        }
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            if let Some(found) = self.first_binding_identifier(child) {
+                return Some(found);
+            }
+        }
+        None
+    }
+
     /// Find the innermost identifier in a C/C++ declarator chain.
     fn innermost_identifier(&self, node: &Node<'_>) -> String {
         if node.kind() == "identifier" || node.kind() == "field_identifier" {
@@ -3229,6 +3968,29 @@ impl ParsedFile {
             }
         }
         self.node_text(node).to_string()
+    }
+
+    fn innermost_identifier_node<'a>(&self, node: &Node<'a>) -> Option<Node<'a>> {
+        if node.kind() == "identifier" || node.kind() == "field_identifier" {
+            return Some(*node);
+        }
+        if let Some(decl) = node.child_by_field_name("declarator") {
+            if let Some(found) = self.innermost_identifier_node(&decl) {
+                return Some(found);
+            }
+        }
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            if child.kind() == "identifier" || child.kind() == "field_identifier" {
+                return Some(child);
+            }
+            if child.kind().contains("declarator") {
+                if let Some(found) = self.innermost_identifier_node(&child) {
+                    return Some(found);
+                }
+            }
+        }
+        None
     }
 
     /// Extract the Nth argument expression text from a call expression on a given line.
