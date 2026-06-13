@@ -165,7 +165,12 @@ impl CallGraph {
                         caller: caller_id.clone(),
                         callee_name: callee_name.clone(),
                         line,
-                        qualifier: None,
+                        qualifier: Self::recover_self_receiver_qualifier(
+                            parsed,
+                            &callee_name,
+                            line,
+                            None,
+                        ),
                         receiver_type: None,
                         receiver_recovery: None,
                     };
@@ -324,6 +329,12 @@ impl CallGraph {
                         parsed.function_calls_on_lines_with_qualifier(&func_node, &all_lines);
 
                     for (callee_name, line, qualifier) in call_sites {
+                        let qualifier = Self::recover_self_receiver_qualifier(
+                            parsed,
+                            &callee_name,
+                            line,
+                            qualifier,
+                        );
                         let site = CallSite {
                             caller: caller_id.clone(),
                             callee_name,
@@ -821,6 +832,12 @@ impl CallGraph {
                     parsed.function_calls_on_lines_with_qualifier(&func_node, &all_lines);
 
                 for (callee_name, line, qualifier) in call_sites {
+                    let qualifier = Self::recover_self_receiver_qualifier(
+                        parsed,
+                        &callee_name,
+                        line,
+                        qualifier,
+                    );
                     let site = CallSite {
                         caller: caller_id.clone(),
                         callee_name: callee_name.clone(),
@@ -955,6 +972,25 @@ impl CallGraph {
             .go_receiver_var(func_node)
             .map(|n| parsed.node_text(&n).to_string());
         (owner, trait_key, recv_var)
+    }
+
+    fn recover_self_receiver_qualifier(
+        parsed: &ParsedFile,
+        callee_name: &str,
+        line: usize,
+        qualifier: Option<String>,
+    ) -> Option<String> {
+        if qualifier.is_some() {
+            return qualifier;
+        }
+        if !matches!(parsed.language, crate::languages::Language::Rust) {
+            return None;
+        }
+        let line_text = parsed.source.lines().nth(line.saturating_sub(1))?;
+        ["self", "this", "cls"]
+            .into_iter()
+            .find(|receiver| line_text.contains(&format!("{receiver}.{callee_name}")))
+            .map(str::to_string)
     }
 
     /// Extract the source text for a function from its parsed file.
