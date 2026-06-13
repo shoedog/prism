@@ -18,23 +18,31 @@ fn bound_symbol_ref(symbol: SymbolRef) -> SymbolRef {
             name,
             start_line,
             end_line,
+            start_byte,
+            end_byte,
             ordinal,
         } => SymbolRef::Function {
             file: output::clamp_user_text(&file),
             name: output::clamp_user_text(&name),
             start_line,
             end_line,
+            start_byte,
+            end_byte,
             ordinal,
         },
         SymbolRef::Statement {
             file,
             line,
             kind,
+            start_byte,
+            end_byte,
             ordinal,
         } => SymbolRef::Statement {
             file: output::clamp_user_text(&file),
             line,
             kind: output::clamp_user_text(&kind),
+            start_byte,
+            end_byte,
             ordinal,
         },
         SymbolRef::Variable {
@@ -43,6 +51,8 @@ fn bound_symbol_ref(symbol: SymbolRef) -> SymbolRef {
             line,
             path,
             access,
+            start_byte,
+            end_byte,
             ordinal,
         } => SymbolRef::Variable {
             file: output::clamp_user_text(&file),
@@ -50,6 +60,8 @@ fn bound_symbol_ref(symbol: SymbolRef) -> SymbolRef {
             line,
             path: output::clamp_user_text(&path),
             access: output::clamp_user_text(&access),
+            start_byte,
+            end_byte,
             ordinal,
         },
     }
@@ -179,6 +191,8 @@ mod tests {
             name: format!("f{n}"),
             start_line: n,
             end_line: n,
+            start_byte: 0,
+            end_byte: 0,
             ordinal: 0,
         }
     }
@@ -235,6 +249,8 @@ mod tests {
             name: "n".repeat(5000),
             start_line: 1,
             end_line: 1,
+            start_byte: 0,
+            end_byte: 0,
             ordinal: 0,
         };
         let bounded = bound_query_error(QueryError::AmbiguousSymbol {

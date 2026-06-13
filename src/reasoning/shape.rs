@@ -205,7 +205,7 @@ pub fn witness_graph_for_node(
 
 fn node_of(cpg: &CodePropertyGraph, n: NodeIndex) -> GraphNode {
     let loc = cpg.to_var_location(n);
-    let (file, line, function, path, access) = match &loc {
+    let (file, line, function, path, access, start_byte, end_byte) = match &loc {
         Some(l) => (
             l.file.clone(),
             l.line,
@@ -215,6 +215,8 @@ fn node_of(cpg: &CodePropertyGraph, n: NodeIndex) -> GraphNode {
                 crate::data_flow::VarAccessKind::Def => "def",
                 crate::data_flow::VarAccessKind::Use => "use",
             },
+            l.start_byte,
+            l.end_byte,
         ),
         None => {
             // Unreachable while witness chains are all Variable nodes (frontier/parents are
@@ -224,7 +226,7 @@ fn node_of(cpg: &CodePropertyGraph, n: NodeIndex) -> GraphNode {
                 false,
                 "node_of: non-Variable chain node {n:?} has no VarLocation"
             );
-            (String::new(), 0, String::new(), String::new(), "use")
+            (String::new(), 0, String::new(), String::new(), "use", 0, 0)
         }
     };
     GraphNode {
@@ -234,12 +236,17 @@ fn node_of(cpg: &CodePropertyGraph, n: NodeIndex) -> GraphNode {
             line,
             path,
             access: access.into(),
+            start_byte,
+            end_byte,
+            // RESERVED — occurrence discriminator deferred (S2 section 9), NOT byte rank.
             ordinal: 0,
         }),
         location: Location {
             file,
             start_line: line,
             end_line: line,
+            start_byte,
+            end_byte,
         },
     }
 }
@@ -593,6 +600,41 @@ mod tests {
             "{:?}",
             g.edges
         );
+    }
+
+    #[test]
+    fn test_witness_node_carries_occurrence_byte_and_reserved_ordinal() {
+        let cpg = build_python_cpg("def f(p):\n    q = p\n    return q\n");
+        let trace = cpg.taint_trace(&[("test.py".to_string(), 2usize)]);
+        let q_return = cpg
+            .nodes_at("test.py", 3)
+            .into_iter()
+            .find(|&n| {
+                cpg.to_var_location(n).is_some_and(|l| {
+                    l.path.to_string() == "q"
+                        && matches!(l.kind, crate::data_flow::VarAccessKind::Use)
+                })
+            })
+            .expect("q use in return");
+        let payload = witness_graph_for_node(&cpg, &trace, q_return).expect("witness graph");
+        let n = &payload.nodes[0];
+        match n.symbol.as_ref().unwrap() {
+            SymbolRef::Variable {
+                start_byte,
+                end_byte,
+                ordinal,
+                ..
+            } => {
+                assert!(end_byte >= start_byte);
+                assert_eq!(*ordinal, 0, "reserved");
+                assert_eq!(
+                    (*start_byte, *end_byte),
+                    (n.location.start_byte, n.location.end_byte)
+                );
+            }
+            _ => panic!("variable symbol"),
+        }
+        assert!(n.location.end_byte >= n.location.start_byte);
     }
 
     #[test]

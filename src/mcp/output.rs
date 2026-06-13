@@ -8,7 +8,8 @@ use serde_json::{Map, Value};
 /// character limit is a documented follow-up (holistic re-review MINOR).
 pub const MAX_RESULT_CHARS: usize = 80_000;
 pub const MAX_RESULT_CHARS_FLOOR: usize = 4_000;
-pub const SCHEMA_VERSION: &str = "0.1";
+// S2: navigation symbols/locations carry byte ranges (additive).
+pub const SCHEMA_VERSION: &str = "0.2";
 
 /// Byte ceiling for echoing a user-controlled string into an error-path result.
 pub(crate) const MAX_ECHO_BYTES: usize = 256;
@@ -263,12 +264,16 @@ mod tests {
                 name: format!("f{n}"),
                 start_line: n,
                 end_line: n,
+                start_byte: 0,
+                end_byte: 0,
                 ordinal: 0,
             }),
             location: Location {
                 file: "a.rs".into(),
                 start_line: n,
                 end_line: n,
+                start_byte: 0,
+                end_byte: 0,
             },
             score: 1.0,
             source: Source::PrismCpg,
@@ -307,6 +312,8 @@ mod tests {
                             file: format!("f{i}.rs"),
                             start_line: 1,
                             end_line: 1,
+                            start_byte: 0,
+                            end_byte: 0,
                         },
                     })
                     .collect(),
@@ -332,7 +339,7 @@ mod tests {
             .unwrap()
             .iter()
             .any(|w| w["kind"] == "ResultTruncated"));
-        assert_eq!(r.meta["prism/schema_version"], "0.1");
+        assert_eq!(r.meta["prism/schema_version"], "0.2");
         assert!(r.meta.contains_key("anthropic/maxResultSizeChars"));
     } // M12 positive _meta
 

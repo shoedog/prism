@@ -39,6 +39,34 @@ fn nodes_at_includes_enclosing_function() {
 }
 
 #[test]
+fn nodes_at_enclosing_function_location_carries_function_bytes() {
+    let s = session("def f():\n    y = 1\n    return y\n", "a.py");
+    let ev = queries::nodes_at(&s.session, "a.py", 2);
+    let item = ev
+        .items
+        .iter()
+        .find(|i| matches!(&i.symbol, Some(SymbolRef::Function { name, .. }) if name == "f"))
+        .expect("enclosing function evidence");
+
+    match item.symbol.as_ref().unwrap() {
+        SymbolRef::Function {
+            start_byte,
+            end_byte,
+            ordinal,
+            ..
+        } => {
+            assert!(*end_byte >= *start_byte);
+            assert_eq!(*ordinal, 0, "reserved");
+            assert_eq!(
+                (*start_byte, *end_byte),
+                (item.location.start_byte, item.location.end_byte)
+            );
+        }
+        _ => panic!("function symbol"),
+    }
+}
+
+#[test]
 fn nodes_at_skipped_path_warns_empty() {
     let s = session("def f(): pass\n", "a.py");
     let ev = queries::nodes_at(&s.session, "missing.py", 1);

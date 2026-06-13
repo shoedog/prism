@@ -58,6 +58,23 @@ fn resolution_reason(kind: crate::resolution::ResolutionKind) -> Reason {
     }
 }
 
+fn function_bytes(s: &NavigationSession, fid: &FunctionId) -> (usize, usize) {
+    s.index
+        .cpg
+        .function_candidates(&fid.file, &fid.name)
+        .into_iter()
+        .find_map(|idx| match s.index.cpg.node(idx) {
+            CpgNode::Function {
+                start_line,
+                start_byte,
+                end_byte,
+                ..
+            } if *start_line == fid.start_line => Some((*start_byte, *end_byte)),
+            _ => None,
+        })
+        .unwrap_or((0, 0))
+}
+
 fn collision_warning(count: usize) -> Warning {
     Warning {
         kind: WarningKind::Collision,
@@ -91,6 +108,8 @@ pub fn nodes_at(s: &NavigationSession, file: &str, line: usize) -> Evidence {
                     file: file.into(),
                     start_line: line,
                     end_line: line,
+                    start_byte: 0,
+                    end_byte: 0,
                 }),
             }],
             graph: None,
@@ -105,14 +124,25 @@ pub fn nodes_at(s: &NavigationSession, file: &str, line: usize) -> Evidence {
                 file: f,
                 start_line,
                 end_line,
+                start_byte,
+                end_byte,
                 ..
-            } => items.push(item_fn(f, name, *start_line, *end_line)),
+            } => items.push(item_fn(
+                f,
+                name,
+                *start_line,
+                *end_line,
+                *start_byte,
+                *end_byte,
+            )),
             CpgNode::Variable {
                 path,
                 file: f,
                 function,
                 line: l,
                 access,
+                start_byte,
+                end_byte,
                 ..
             } => items.push(EvidenceItem {
                 symbol: Some(SymbolRef::Variable {
@@ -121,12 +151,16 @@ pub fn nodes_at(s: &NavigationSession, file: &str, line: usize) -> Evidence {
                     line: *l,
                     path: format!("{path:?}"),
                     access: format!("{access:?}"),
+                    start_byte: *start_byte,
+                    end_byte: *end_byte,
                     ordinal: 0,
                 }),
                 location: Location {
                     file: f.clone(),
                     start_line: *l,
                     end_line: *l,
+                    start_byte: *start_byte,
+                    end_byte: *end_byte,
                 },
                 score: 1.0,
                 source: Source::PrismCpg,
@@ -144,7 +178,8 @@ pub fn nodes_at(s: &NavigationSession, file: &str, line: usize) -> Evidence {
             file: f,
             start_line,
             end_line,
-            ..
+            start_byte,
+            end_byte,
         } = s.index.cpg.node(eidx)
         {
             let func = SymbolRef::Function {
@@ -152,6 +187,8 @@ pub fn nodes_at(s: &NavigationSession, file: &str, line: usize) -> Evidence {
                 name: name.clone(),
                 start_line: *start_line,
                 end_line: *end_line,
+                start_byte: *start_byte,
+                end_byte: *end_byte,
                 ordinal: 0,
             };
             items.push(EvidenceItem {
@@ -160,6 +197,8 @@ pub fn nodes_at(s: &NavigationSession, file: &str, line: usize) -> Evidence {
                     file: f.clone(),
                     start_line: line,
                     end_line: line,
+                    start_byte: *start_byte,
+                    end_byte: *end_byte,
                 },
                 score: 1.0,
                 source: Source::PrismCpg,
@@ -237,6 +276,7 @@ pub fn callers(
         let mut next = Vec::new();
         for fid in &frontier {
             for (caller, edge) in direct_callers(s, fid) {
+                let (start_byte, end_byte) = function_bytes(s, &caller);
                 // One item PER CALL SITE (m7 symmetry with callees); `visited` only gates BFS recursion.
                 items.push(EvidenceItem {
                     symbol: Some(SymbolRef::Function {
@@ -244,12 +284,16 @@ pub fn callers(
                         name: caller.name.clone(),
                         start_line: caller.start_line,
                         end_line: caller.end_line,
+                        start_byte,
+                        end_byte,
                         ordinal: 0,
                     }),
                     location: Location {
                         file: caller.file.clone(),
                         start_line: caller.start_line,
                         end_line: caller.end_line,
+                        start_byte,
+                        end_byte,
                     },
                     score: confidence_score(edge.confidence) / (1.0 + hop as f32),
                     source: Source::PrismCpg,
@@ -353,26 +397,35 @@ pub fn callees(
             for (edge, callee_name, line, qualifier) in direct_callees(s, fid) {
                 let def = edge.as_ref().map(|e| e.target);
                 let (sym, loc) = match &def {
-                    Some(d) => (
-                        Some(SymbolRef::Function {
-                            file: d.file.clone(),
-                            name: d.name.clone(),
-                            start_line: d.start_line,
-                            end_line: d.end_line,
-                            ordinal: 0,
-                        }),
-                        Location {
-                            file: d.file.clone(),
-                            start_line: d.start_line,
-                            end_line: d.end_line,
-                        },
-                    ),
+                    Some(d) => {
+                        let (start_byte, end_byte) = function_bytes(s, d);
+                        (
+                            Some(SymbolRef::Function {
+                                file: d.file.clone(),
+                                name: d.name.clone(),
+                                start_line: d.start_line,
+                                end_line: d.end_line,
+                                start_byte,
+                                end_byte,
+                                ordinal: 0,
+                            }),
+                            Location {
+                                file: d.file.clone(),
+                                start_line: d.start_line,
+                                end_line: d.end_line,
+                                start_byte,
+                                end_byte,
+                            },
+                        )
+                    }
                     None => (
                         None,
                         Location {
                             file: fid.file.clone(),
                             start_line: line,
                             end_line: line,
+                            start_byte: 0,
+                            end_byte: 0,
                         },
                     ),
                 };
@@ -465,19 +518,24 @@ fn node_symbol_loc(s: &NavigationSession, ni: NodeIndex) -> (SymbolRef, Location
             file,
             start_line,
             end_line,
-            ..
+            start_byte,
+            end_byte,
         } => (
             SymbolRef::Function {
                 file: file.clone(),
                 name: name.clone(),
                 start_line: *start_line,
                 end_line: *end_line,
+                start_byte: *start_byte,
+                end_byte: *end_byte,
                 ordinal: 0,
             },
             Location {
                 file: file.clone(),
                 start_line: *start_line,
                 end_line: *end_line,
+                start_byte: *start_byte,
+                end_byte: *end_byte,
             },
         ),
         CpgNode::Variable {
@@ -486,6 +544,8 @@ fn node_symbol_loc(s: &NavigationSession, ni: NodeIndex) -> (SymbolRef, Location
             function,
             line,
             access,
+            start_byte,
+            end_byte,
             ..
         } => (
             SymbolRef::Variable {
@@ -494,27 +554,40 @@ fn node_symbol_loc(s: &NavigationSession, ni: NodeIndex) -> (SymbolRef, Location
                 line: *line,
                 path: format!("{path:?}"),
                 access: format!("{access:?}"),
+                start_byte: *start_byte,
+                end_byte: *end_byte,
                 ordinal: 0,
             },
             Location {
                 file: file.clone(),
                 start_line: *line,
                 end_line: *line,
+                start_byte: *start_byte,
+                end_byte: *end_byte,
             },
         ),
         CpgNode::Statement {
-            file, line, kind, ..
+            file,
+            line,
+            kind,
+            start_byte,
+            end_byte,
+            ..
         } => (
             SymbolRef::Statement {
                 file: file.clone(),
                 line: *line,
                 kind: format!("{kind:?}"),
+                start_byte: *start_byte,
+                end_byte: *end_byte,
                 ordinal: 0,
             },
             Location {
                 file: file.clone(),
                 start_line: *line,
                 end_line: *line,
+                start_byte: *start_byte,
+                end_byte: *end_byte,
             },
         ),
     }
@@ -675,12 +748,21 @@ pub fn ego_graph(
     })
 }
 
-fn item_fn(file: &str, name: &str, start_line: usize, end_line: usize) -> EvidenceItem {
+fn item_fn(
+    file: &str,
+    name: &str,
+    start_line: usize,
+    end_line: usize,
+    start_byte: usize,
+    end_byte: usize,
+) -> EvidenceItem {
     let sym = SymbolRef::Function {
         file: file.into(),
         name: name.into(),
         start_line,
         end_line,
+        start_byte,
+        end_byte,
         ordinal: 0,
     };
     EvidenceItem {
@@ -689,6 +771,8 @@ fn item_fn(file: &str, name: &str, start_line: usize, end_line: usize) -> Eviden
             file: file.into(),
             start_line,
             end_line,
+            start_byte,
+            end_byte,
         },
         score: 1.0,
         source: Source::PrismCpg,
