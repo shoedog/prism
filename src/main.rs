@@ -298,6 +298,11 @@ enum NavQuery {
         #[arg(long, default_value = "text", value_parser = ["text", "json"])]
         format: String,
     },
+    /// Whole-repo call-resolution telemetry.
+    CallStats {
+        #[arg(long)]
+        repo: std::path::PathBuf,
+    },
     /// Whole-repo function inventory from the FunctionTable (Tier-A spec §2.3).
     Functions {
         #[arg(long)]
@@ -425,6 +430,12 @@ fn run_nav(nav: &NavArgs) -> anyhow::Result<()> {
             let session = build_session(repo, nav.no_cache, nav.cache_dir.as_deref())?;
             let ev = prism::navigation::module_graph::repo_map(&session);
             println!("{}", prism::output::navigation::render(&ev, format));
+            Ok(())
+        }
+        NavQuery::CallStats { repo } => {
+            let session = build_session(repo, nav.no_cache, nav.cache_dir.as_deref())?;
+            let stats = prism::navigation::queries::call_stats(&session.index.cpg.call_graph);
+            println!("{}", serde_json::to_string_pretty(&stats)?);
             Ok(())
         }
         NavQuery::Functions { repo, format } => {

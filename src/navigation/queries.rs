@@ -1,4 +1,4 @@
-use crate::call_graph::FunctionId;
+use crate::call_graph::{CallGraph, FunctionId};
 use crate::cpg::{CpgEdge, CpgNode};
 use crate::navigation::seed;
 use crate::navigation::types::*;
@@ -7,6 +7,43 @@ use petgraph::graph::NodeIndex;
 use petgraph::visit::EdgeRef;
 use petgraph::Direction;
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
+
+pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
+    use crate::resolution::{DropReason, ResolutionConfidence};
+
+    let mut kinds: BTreeMap<&'static str, usize> = BTreeMap::new();
+    let mut demoted = 0usize;
+    let mut total = 0usize;
+    let (mut multi, mut external, mut import_ext, mut unknown) = (0usize, 0usize, 0usize, 0usize);
+    for sites in cg.calls.values() {
+        for site in sites {
+            total += 1;
+            let out = cg.resolve_call_site_full(site);
+            match out.drop {
+                Some(DropReason::MultiOwnerCollision) => multi += 1,
+                Some(DropReason::ExternalReceiver) => external += 1,
+                Some(DropReason::ImportExternal) => import_ext += 1,
+                Some(DropReason::UnknownName) => unknown += 1,
+                None => {}
+            }
+            for c in &out.resolved {
+                *kinds.entry(c.kind.as_str()).or_default() += 1;
+                if c.confidence == ResolutionConfidence::NameOnly {
+                    demoted += 1;
+                }
+            }
+        }
+    }
+    serde_json::json!({
+        "total_call_sites": total,
+        "kinds": kinds,
+        "demoted_edges": demoted,
+        "dropped_multi_owner": multi,
+        "dropped_external_receiver": external,
+        "dropped_import_external": import_ext,
+        "unresolved_unknown_name": unknown,
+    })
+}
 
 fn confidence_score(c: crate::resolution::ResolutionConfidence) -> f32 {
     match c {
