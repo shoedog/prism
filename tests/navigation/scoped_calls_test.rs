@@ -1,4 +1,5 @@
-use prism::navigation::call_resolve::resolve_callees_nav;
+use prism::call_graph::CallSite;
+use prism::navigation::call_resolve::resolve_site_nav;
 use prism::navigation::module_graph::{module_deps, repo_map};
 use prism::navigation::queries;
 use prism::navigation::types::SymbolRef;
@@ -20,6 +21,62 @@ fn session(files: &[(&str, &str)]) -> NavigationSession {
     NavigationSession { repo, index }
 }
 
+fn resolved_targets(
+    s: &NavigationSession,
+    callee_name: &str,
+    caller_file: &str,
+    qualifier: Option<&str>,
+) -> Vec<(String, String)> {
+    let cg = &s.index.cpg.call_graph;
+    let site = cg
+        .calls
+        .values()
+        .flatten()
+        .find(|site| {
+            site.caller.file == caller_file
+                && site.callee_name == callee_name
+                && site.qualifier.as_deref() == qualifier
+        })
+        .cloned()
+        .unwrap_or_else(|| {
+            let caller = cg
+                .functions
+                .values()
+                .flatten()
+                .find(|fid| fid.file == caller_file)
+                .unwrap()
+                .clone();
+            CallSite {
+                caller,
+                callee_name: callee_name.to_string(),
+                line: 1,
+                qualifier: qualifier.map(str::to_string),
+                receiver_type: None,
+                receiver_recovery: None,
+            }
+        });
+    resolve_site_nav(cg, &site)
+        .into_iter()
+        .map(|edge| (edge.target.file.clone(), edge.target.name.clone()))
+        .collect()
+}
+
+fn resolves_to(
+    s: &NavigationSession,
+    callee_name: &str,
+    caller_file: &str,
+    target_file: &str,
+    target_name: &str,
+) -> bool {
+    resolved_targets(s, callee_name, caller_file, None)
+        .iter()
+        .any(|(file, name)| file == target_file && name == target_name)
+}
+
+fn resolves_empty(s: &NavigationSession, callee_name: &str, caller_file: &str) -> bool {
+    resolved_targets(s, callee_name, caller_file, None).is_empty()
+}
+
 #[test]
 fn scoped_mod_fn_resolves_cross_file_rust() {
     let s = session(&[
@@ -29,17 +86,10 @@ fn scoped_mod_fn_resolves_cross_file_rust() {
             "mod algo;\nfn dispatch() -> i32 { algo::run() }\n",
         ),
     ]);
-    let cg = &s.index.cpg.call_graph;
-    let resolved = resolve_callees_nav(cg, "algo::run", "main.rs", None);
     assert!(
-        resolved
-            .iter()
-            .any(|f| f.file == "algo.rs" && f.name == "run"),
+        resolves_to(&s, "algo::run", "main.rs", "algo.rs", "run"),
         "algo::run should resolve to algo.rs::run, got {:?}",
-        resolved
-            .iter()
-            .map(|f| (&f.file, &f.name))
-            .collect::<Vec<_>>()
+        resolved_targets(&s, "algo::run", "main.rs", None)
     );
 }
 
@@ -56,17 +106,10 @@ fn scoped_ns_fn_resolves_cross_file_cpp() {
             "namespace util { int helper(); }\nint dispatch() { return util::helper(); }\n",
         ),
     ]);
-    let cg = &s.index.cpg.call_graph;
-    let resolved = resolve_callees_nav(cg, "util::helper", "main.cpp", None);
     assert!(
-        resolved
-            .iter()
-            .any(|f| f.file == "util.cpp" && f.name == "helper"),
+        resolves_to(&s, "util::helper", "main.cpp", "util.cpp", "helper"),
         "util::helper should resolve to util.cpp::helper, got {:?}",
-        resolved
-            .iter()
-            .map(|f| (&f.file, &f.name))
-            .collect::<Vec<_>>()
+        resolved_targets(&s, "util::helper", "main.cpp", None)
     );
 }
 
@@ -76,8 +119,7 @@ fn scoped_call_to_wrong_stem_does_not_resolve() {
         ("algo.rs", "pub fn run() -> i32 { 1 }\n"),
         ("main.rs", "fn dispatch() -> i32 { nope::run() }\n"),
     ]);
-    let cg = &s.index.cpg.call_graph;
-    assert!(resolve_callees_nav(cg, "nope::run", "main.rs", None).is_empty());
+    assert!(resolves_empty(&s, "nope::run", "main.rs"));
 }
 
 #[test]
@@ -88,9 +130,8 @@ fn reserved_keyword_hints_do_not_resolve() {
         ("self.rs", "pub fn go() -> i32 { 1 }\n"),
         ("main.rs", "fn d() -> i32 { crate::run() + self::go() }\n"),
     ]);
-    let cg = &s.index.cpg.call_graph;
-    assert!(resolve_callees_nav(cg, "crate::run", "main.rs", None).is_empty());
-    assert!(resolve_callees_nav(cg, "self::go", "main.rs", None).is_empty());
+    assert!(resolves_empty(&s, "crate::run", "main.rs"));
+    assert!(resolves_empty(&s, "self::go", "main.rs"));
 }
 
 #[test]
@@ -100,8 +141,7 @@ fn external_crate_path_does_not_resolve_without_stem_match() {
         ("main.rs", "fn d() { bincode::serialize(); }\n"),
         ("other.rs", "pub fn serialize() -> i32 { 1 }\n"), // decoy: wrong stem, must not match
     ]);
-    let cg = &s.index.cpg.call_graph;
-    assert!(resolve_callees_nav(cg, "bincode::serialize", "main.rs", None).is_empty());
+    assert!(resolves_empty(&s, "bincode::serialize", "main.rs"));
 }
 
 #[test]
@@ -113,11 +153,13 @@ fn multi_segment_scoped_path_uses_last_module_segment() {
             "mod algo;\nfn d() -> i32 { crate::algo::run() }\n",
         ),
     ]);
-    let cg = &s.index.cpg.call_graph;
-    let resolved = resolve_callees_nav(cg, "crate::algo::run", "main.rs", None);
-    assert!(resolved
-        .iter()
-        .any(|f| f.file == "algo.rs" && f.name == "run"));
+    assert!(resolves_to(
+        &s,
+        "crate::algo::run",
+        "main.rs",
+        "algo.rs",
+        "run"
+    ));
 }
 
 #[test]
@@ -129,10 +171,7 @@ fn unscoped_resolution_is_unchanged() {
             "mod util;\nuse util::helper;\nfn run() -> i32 { helper() }\n",
         ),
     ]);
-    let cg = &s.index.cpg.call_graph;
-    assert!(resolve_callees_nav(cg, "helper", "main.rs", None)
-        .iter()
-        .any(|f| f.file == "util.rs" && f.name == "helper"));
+    assert!(resolves_to(&s, "helper", "main.rs", "util.rs", "helper"));
 }
 
 #[test]

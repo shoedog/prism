@@ -26,6 +26,11 @@
             "call_site_line": 4,
             "qualifier": "util"
           }
+        },
+        {
+          "Resolution": {
+            "kind": "import_qualified"
+          }
         }
       ],
       "snippet": null

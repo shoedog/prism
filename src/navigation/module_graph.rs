@@ -1,5 +1,7 @@
 use crate::navigation::types::*;
 use crate::navigation::NavigationSession;
+use crate::resolution::ResolutionConfidence;
+use std::cmp::Ordering;
 use std::collections::{BTreeMap, BTreeSet};
 
 /// Stable secondary sort rank when score/file/line tie.
@@ -22,9 +24,54 @@ fn sort_items(items: &mut [EvidenceItem]) {
     });
 }
 
-/// The call sites establishing one cross-file dependency: `(callee, call_site_line, qualifier)`.
+fn confidence_score(c: ResolutionConfidence) -> f32 {
+    match c {
+        ResolutionConfidence::Exact => 1.0,
+        ResolutionConfidence::NameOnly => 0.6,
+    }
+}
+
+fn resolution_kind_reason(kind: &str) -> Reason {
+    Reason::Resolution {
+        kind: kind.to_string(),
+    }
+}
+
+/// The call sites establishing one cross-file dependency.
 /// `call_site_line` is a line in the SOURCE (caller) file, not the target.
-type EdgeReasons = BTreeSet<(String, usize, Option<String>)>;
+#[derive(Debug, Clone, PartialEq)]
+pub struct ModuleCallReason {
+    pub callee: String,
+    pub call_site_line: usize,
+    pub qualifier: Option<String>,
+    pub score: f32,
+    pub kind: String,
+}
+
+impl Eq for ModuleCallReason {}
+
+impl PartialOrd for ModuleCallReason {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for ModuleCallReason {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.callee
+            .cmp(&other.callee)
+            .then(self.call_site_line.cmp(&other.call_site_line))
+            .then(self.qualifier.cmp(&other.qualifier))
+            .then(self.score.to_bits().cmp(&other.score.to_bits()))
+            .then(self.kind.cmp(&other.kind))
+    }
+}
+
+#[derive(Debug, Default)]
+struct EdgeReasons {
+    max_score: f32,
+    reasons: BTreeSet<ModuleCallReason>,
+}
 
 /// Derive every distinct call-derived cross-file edge once, keyed
 /// `(source_file, target_file) -> reasons` (self-file edges excluded). Shared by
@@ -40,18 +87,22 @@ fn collect_module_edges(s: &NavigationSession) -> BTreeMap<(String, String), Edg
     let mut edges: BTreeMap<(String, String), EdgeReasons> = BTreeMap::new();
     for (caller, sites) in &cg.calls {
         for site in sites {
-            let resolved = crate::navigation::call_resolve::resolve_callees_nav(
-                cg,
-                &site.callee_name,
-                &site.caller.file,
-                site.qualifier.as_deref(),
-            );
-            for def in resolved {
+            let resolved = crate::navigation::call_resolve::resolve_site_nav(cg, site);
+            for edge in resolved {
+                let def = edge.target;
                 if def.file != caller.file {
-                    edges
+                    let score = confidence_score(edge.confidence);
+                    let entry = edges
                         .entry((caller.file.clone(), def.file.clone()))
-                        .or_default()
-                        .insert((site.callee_name.clone(), site.line, site.qualifier.clone()));
+                        .or_default();
+                    entry.max_score = entry.max_score.max(score);
+                    entry.reasons.insert(ModuleCallReason {
+                        callee: site.callee_name.clone(),
+                        call_site_line: site.line,
+                        qualifier: edge.qualifier,
+                        score,
+                        kind: edge.kind.as_str().to_string(),
+                    });
                 }
             }
         }
@@ -102,11 +153,15 @@ pub fn module_deps(s: &NavigationSession, file: &str) -> Evidence {
             continue;
         }
         let why = reasons
+            .reasons
             .iter()
-            .map(|(callee, line, qualifier)| Reason::Calls {
-                callee: callee.clone(),
-                call_site_line: *line,
-                qualifier: qualifier.clone(),
+            .flat_map(|reason| {
+                std::iter::once(Reason::Calls {
+                    callee: reason.callee.clone(),
+                    call_site_line: reason.call_site_line,
+                    qualifier: reason.qualifier.clone(),
+                })
+                .chain(std::iter::once(resolution_kind_reason(&reason.kind)))
             })
             .collect();
         items.push(EvidenceItem {
@@ -116,7 +171,7 @@ pub fn module_deps(s: &NavigationSession, file: &str) -> Evidence {
                 start_line: 1,
                 end_line: 1,
             },
-            score: 1.0,
+            score: reasons.max_score,
             source: Source::PrismCpg,
             fallback: false,
             why,
