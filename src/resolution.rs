@@ -82,8 +82,16 @@ pub fn peel_type(text: &str) -> String {
         t = t
             .trim_start_matches("&mut ")
             .trim_start_matches('&')
+            .trim_start_matches("*const ")
+            .trim_start_matches("*mut ")
             .trim_start_matches('*')
             .trim();
+        // Rust lifetime after a reference: `&'a Sender` / `&'a mut Sender`.
+        // Drop a leading `'lifetime` token (and an optional following `mut`).
+        if let Some(rest) = t.strip_prefix('\'') {
+            let rest = rest.trim_start_matches(|c: char| c.is_alphanumeric() || c == '_');
+            t = rest.trim().trim_start_matches("mut ").trim();
+        }
         for w in ["Box", "Arc", "Rc", "Pin"] {
             if let Some(inner) = t.strip_prefix(w) {
                 if let Some(inner) = inner.trim().strip_prefix('<') {
@@ -179,15 +187,47 @@ fn is_simple_ident(s: &str) -> bool {
 impl CallGraph {
     /// Owner-index lookup that knows whether the key is a multi-impl trait key.
     fn owner_lookup(&self, owner: &str, name: &str) -> Option<Vec<ResolvedCallee<'_>>> {
+        self.owner_lookup_in_modules(owner, name, &[])
+    }
+
+    /// Like `owner_lookup`, but for a qualified `mod::T::m` call the preceding
+    /// module segments narrow candidates to files under that module — so
+    /// `foo::Engine::start()` does NOT also resolve `bar::Engine::start()` (same
+    /// bare owner key, different module) as Exact. Narrowing only applies when
+    /// module segments are present AND there is >1 candidate; if it eliminates
+    /// everything it is ignored (a wrong module hint must not drop a real edge).
+    fn owner_lookup_in_modules(
+        &self,
+        owner: &str,
+        name: &str,
+        module_segs: &[&str],
+    ) -> Option<Vec<ResolvedCallee<'_>>> {
         let ids = self.methods.get(&(owner.to_string(), name.to_string()))?;
-        let primary_owners: BTreeSet<&str> = ids
-            .iter()
-            .filter_map(|fid| self.method_owners.get(fid).map(|s| s.as_str()))
-            .collect();
-        Some(if ids.len() > 1 && primary_owners.len() > 1 {
-            demoted(ids.iter(), ResolutionKind::TraitCha)
+        let pool: Vec<&FunctionId> = if !module_segs.is_empty() && ids.len() > 1 {
+            let narrowed: Vec<&FunctionId> = ids
+                .iter()
+                .filter(|fid| {
+                    module_segs
+                        .iter()
+                        .any(|seg| file_has_path_segment(&fid.file, seg))
+                })
+                .collect();
+            if narrowed.is_empty() {
+                ids.iter().collect()
+            } else {
+                narrowed
+            }
         } else {
-            exact(ids.iter(), ResolutionKind::QualifiedOwner)
+            ids.iter().collect()
+        };
+        let primary_owners: BTreeSet<&str> = pool
+            .iter()
+            .filter_map(|fid| self.method_owners.get(*fid).map(|s| s.as_str()))
+            .collect();
+        Some(if pool.len() > 1 && primary_owners.len() > 1 {
+            demoted(pool, ResolutionKind::TraitCha)
+        } else {
+            exact(pool, ResolutionKind::QualifiedOwner)
         })
     }
 
@@ -232,7 +272,11 @@ impl CallGraph {
                     return ResolutionOutcome::dropped(DropReason::UnknownName);
                 }
 
-                if let Some(resolved) = self.owner_lookup(head, fn_name) {
+                // R1: `T::m` / `mod::T::m` — the segments before the type narrow
+                // candidates by module (so same-named types in different modules
+                // don't all resolve Exact).
+                let module_segs = &segs[..segs.len() - 1];
+                if let Some(resolved) = self.owner_lookup_in_modules(head, fn_name, module_segs) {
                     return ResolutionOutcome::hit(resolved);
                 }
 
@@ -309,6 +353,11 @@ impl CallGraph {
                         let module_stem = module_last.rsplit('.').last().unwrap_or(module_last);
                         let matched: Vec<&FunctionId> = ids
                             .iter()
+                            // `pkg.f()` names a module-level function, never a method
+                            // on a class defined in that module — exclude methods so
+                            // an imported module with a same-named method can't forge
+                            // a false package-function edge.
+                            .filter(|fid| !self.method_owners.contains_key(*fid))
                             .filter(|fid| {
                                 let stem_hit = file_stem(&fid.file) == module_stem;
                                 let dir_hit = fid
@@ -507,4 +556,11 @@ pub fn file_stem(path: &str) -> &str {
         .rsplit('.')
         .last()
         .unwrap_or(path)
+}
+
+/// Whether `seg` (a module path segment) names a directory component of `path`
+/// or its file stem — e.g. `worker` matches both `src/worker.rs` and
+/// `src/worker/mod.rs`. Used to narrow `mod::T::m` candidates by module.
+fn file_has_path_segment(path: &str, seg: &str) -> bool {
+    file_stem(path) == seg || path.split('/').any(|c| c == seg)
 }

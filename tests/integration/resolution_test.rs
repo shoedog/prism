@@ -663,3 +663,89 @@ fn c_function_pointer_field_call_binds_single_free_fn_demoted() {
     assert_eq!(r[0].target.file, "api.c");
     assert_eq!(r[0].confidence, ResolutionConfidence::NameOnly);
 }
+
+// ---- full-branch review fixes (codex 2026-06-13) ----
+
+#[test]
+fn r1_module_prefix_disambiguates_same_named_type() {
+    use prism::languages::Language::Rust;
+    // foo::Engine::start() must NOT also resolve bar::Engine::start() (same bare
+    // owner key, different module) — module prefix narrows to foo's.
+    let (cg, _) = build(&[
+        (
+            "foo.rs",
+            "pub struct Engine;\nimpl Engine {\n    pub fn start() {}\n}\n",
+            Rust,
+        ),
+        (
+            "bar.rs",
+            "pub struct Engine;\nimpl Engine {\n    pub fn start() {}\n}\n",
+            Rust,
+        ),
+        (
+            "main.rs",
+            "fn run() {\n    foo::Engine::start();\n}\n",
+            Rust,
+        ),
+    ]);
+    let site = site_in(&cg, "run", "foo::Engine::start");
+    let r = cg.resolve_call_site(&site);
+    assert_eq!(r.len(), 1, "module prefix must narrow: {r:?}");
+    assert_eq!(r[0].target.file, "foo.rs");
+    assert_eq!(r[0].confidence, ResolutionConfidence::Exact);
+}
+
+#[test]
+fn r3_import_qualified_does_not_bind_to_method() {
+    use prism::languages::Language::Python;
+    // import util; util.f() must NOT bind to a METHOD f in util.py (only a
+    // module-level free function counts).
+    let (cg, _) = build(&[
+        (
+            "util.py",
+            "class C:\n    def f(self):\n        pass\n",
+            Python,
+        ),
+        ("main.py", "import util\ndef run():\n    util.f()\n", Python),
+    ]);
+    let site = site_in(&cg, "run", "f");
+    assert!(
+        cg.resolve_call_site(&site).is_empty(),
+        "must not bind to the class method"
+    );
+}
+
+#[test]
+fn p6_peel_strips_lifetimes_and_raw_pointers() {
+    assert_eq!(prism::resolution::peel_type("&'a Sender"), "Sender");
+    assert_eq!(prism::resolution::peel_type("&'a mut Sender"), "Sender");
+    assert_eq!(prism::resolution::peel_type("*const Foo"), "Foo");
+    assert_eq!(prism::resolution::peel_type("*mut Foo"), "Foo");
+}
+
+#[test]
+fn p6_lifetime_typed_param_recovers_among_collisions() {
+    use prism::languages::Language::Rust;
+    let (cg, _) = build(&[
+        (
+            "a.rs",
+            "struct Sender;\nimpl Sender {\n    fn send(&self) {}\n}\n",
+            Rust,
+        ),
+        (
+            "b.rs",
+            "struct Pipe;\nimpl Pipe {\n    fn send(&self) {}\n}\n",
+            Rust,
+        ),
+        (
+            "m.rs",
+            "fn run<'a>(tx: &'a Sender) {\n    tx.send();\n}\n",
+            Rust,
+        ),
+    ]);
+    let site = site_in(&cg, "run", "send");
+    let r = cg.resolve_call_site(&site);
+    assert_eq!(r.len(), 1, "lifetime ref param must still recover: {r:?}");
+    assert_eq!(r[0].target.file, "a.rs");
+    assert_eq!(r[0].confidence, ResolutionConfidence::Exact);
+}
