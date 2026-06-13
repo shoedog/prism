@@ -1,0 +1,16 @@
+[case]
+language = "go"
+capability = "import_package_path"
+# S3 R3: import-qualified caddyhttp.Error() narrows by the import path's last
+# segment matching the file's parent directory (errors.go lives in modules/
+# caddyhttp/, stem != "caddyhttp"), so the cross-file call resolves.
+status = "pass"
+[seed]
+symbol = "Error"
+file = "modules/caddyhttp/errors.go"
+line = 3
+[[expect.callers]]
+file = "main.go"
+line = 6
+[expect]
+exact = true

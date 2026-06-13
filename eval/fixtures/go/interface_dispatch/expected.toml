@@ -1,7 +1,14 @@
 [case]
 language = "go"
 capability = "interface_dispatch"
-status = "pass"
+# S3: reconciled pass -> known_fail (expected_gap). `r.Go()` where r: Runner
+# (interface) and Fast implements it: P6-lite recovers the interface type Runner,
+# but Go satisfaction is structural (no syntactic `impl`), so the owner index has
+# (Fast, Go) not (Runner, Go) and the edge drops. Interface satisfaction needs
+# method-set modeling — spec §2.4 defers it to Phase-IP. (Contrast Rust
+# trait_dyn_dispatch, which passes via the syntactic impl dual-key.)
+# Owner-approved 2026-06-13.
+status = "known_fail"
 [seed]
 symbol = "Go"
 file = "main.go"

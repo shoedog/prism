@@ -117,6 +117,11 @@ class PrismCli:
             prism_repo, "target/release/prism"
         )
         self.allow_stale = allow_stale
+        # When True, nav calls pass `--no-cache` so the per-repo nav store is
+        # bypassed. The matrix runner sets this for deterministic fixture eval —
+        # a stale fixture cache silently served pre-S3 results and produced false
+        # regressions (S3 Task 13). Corpus measurements leave it False for speed.
+        self.no_cache = False
         self.sha, self.dirty = self._check_freshness()
 
     def _check_freshness(self) -> tuple[str, bool]:
@@ -153,8 +158,11 @@ class PrismCli:
         return sha, dirty
 
     def _run(self, args: list[str]) -> dict | list:
+        # getattr default keeps objects built via __new__ in tests working
+        # (and defaults to cache-on, the safe behavior).
+        cache_args = ["--no-cache"] if getattr(self, "no_cache", False) else []
         p = subprocess.run(
-            [self.bin, "nav", *args, "--format", "json"],
+            [self.bin, "nav", *cache_args, *args, "--format", "json"],
             capture_output=True,
             text=True,
         )

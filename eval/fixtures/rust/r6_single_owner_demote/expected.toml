@@ -1,0 +1,15 @@
+[case]
+language = "rust"
+capability = "r6_single_owner_demote"
+# S3: x.frob() with unrecoverable receiver but exactly one in-repo owner is kept
+# (NameOnly/demoted), so the caller is still discoverable.
+status = "pass"
+[seed]
+symbol = "frob"
+file = "a.rs"
+line = 3
+[[expect.callers]]
+file = "m.rs"
+line = 3
+[expect]
+exact = true
