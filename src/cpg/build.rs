@@ -309,12 +309,9 @@ impl CodePropertyGraph {
                 None => continue,
             };
             for site in sites {
-                let callee_ids = cg.resolve_callees_qualified(
-                    &site.callee_name,
-                    &caller_id.file,
-                    site.qualifier.as_deref(),
-                );
-                for callee_id in callee_ids {
+                // S3: Exact + NameOnly included; drops excluded.
+                for resolved in cg.resolve_call_site(site) {
+                    let callee_id = resolved.target;
                     let callee_key = (callee_id.file.clone(), callee_id.name.clone());
                     if let Some(&callee_idx) = func_index.get(&callee_key) {
                         graph.add_edge(caller_idx, callee_idx, CpgEdge::Call);
@@ -327,12 +324,8 @@ impl CodePropertyGraph {
         // --- Step 5b: Interprocedural data flow edges ---
         for (caller_id, sites) in &cg.calls {
             for site in sites {
-                let callee_ids = cg.resolve_callees_qualified(
-                    &site.callee_name,
-                    &caller_id.file,
-                    site.qualifier.as_deref(),
-                );
-                for callee_id in &callee_ids {
+                for resolved in cg.resolve_call_site(site) {
+                    let callee_id = resolved.target;
                     let caller_parsed = match files.get(&caller_id.file) {
                         Some(p) => p,
                         None => continue,
@@ -345,16 +338,22 @@ impl CodePropertyGraph {
                         Some(p) => p,
                         None => continue,
                     };
-                    let param_names = {
-                        match callee_parsed
-                            .functions()
-                            .iter()
-                            // first name match wins — pinned-until-S2 (see step5b_param_binding_first_wins_parity)
-                            .find(|f| f.name.as_deref() == Some(callee_id.name.as_str()))
+                    let Some(info) = callee_parsed
+                        .functions()
+                        .iter()
+                        // first name match wins — pinned-until-S2 (see step5b_param_binding_first_wins_parity)
+                        .find(|f| f.name.as_deref() == Some(callee_id.name.as_str()))
+                    else {
+                        continue;
+                    };
+                    // S3 (spec §3.3): Python receivers never bind to explicit call args.
+                    let param_names = match info.param_names.first().map(String::as_str) {
+                        Some("self") | Some("cls")
+                            if callee_parsed.language == crate::languages::Language::Python =>
                         {
-                            Some(f) => f.param_names.clone(),
-                            None => continue,
+                            &info.param_names[1..]
                         }
+                        _ => &info.param_names[..],
                     };
                     for (i, param_name) in param_names.iter().enumerate() {
                         if i >= arg_texts.len() {
