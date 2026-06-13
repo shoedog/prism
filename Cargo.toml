@@ -116,6 +116,10 @@ name = "lang_lua"
 path = "tests/lang/lua/main.rs"
 
 [[test]]
+name = "lang_python"
+path = "tests/lang/python/main.rs"
+
+[[test]]
 name = "lang_rust"
 path = "tests/lang/rust/main.rs"
 

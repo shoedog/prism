@@ -245,11 +245,124 @@ impl DataFlowGraph {
                     // Also tracks destructuring: `const { name } = obj` → name resolves to obj.name.
                     let (alias_map, raw_aliases) =
                         Self::build_alias_map(parsed, &func_node, &all_lines);
+                    let lvalue_spans =
+                        parsed.assignment_lvalue_spans_on_lines(&func_node, &all_lines);
+                    let mut def_locs_by_occurrence: BTreeMap<(AccessPath, usize), VarLocation> =
+                        BTreeMap::new();
+                    let mut resolved_def_locs_by_occurrence: BTreeMap<
+                        (AccessPath, usize),
+                        VarLocation,
+                    > = BTreeMap::new();
+                    let mut param_ref_jobs = Vec::new();
 
-                    // Register defs for destructuring aliases that resolve to field paths.
-                    // `const { name } = device` doesn't appear as an assignment L-value,
-                    // so we create defs from the alias map directly.
+                    // Register function parameters as Defs at the function start line.
+                    // Parameters are variable definitions that receive values from callers.
+                    // Without this, interprocedural data flow edges have no target.
+                    //
+                    // Skip parameters that are only used via field access (e.g. `dev.name`)
+                    // to preserve field isolation — a base-only Def would let taint on
+                    // `dev.name` leak to unrelated fields like `dev.id`.
+                    let param_occurrences = parsed.function_parameter_occurrences(&func_node);
+                    for (param_name, param_start_byte, param_end_byte) in &param_occurrences {
+                        let path = AccessPath::simple(param_name.clone());
+                        // Skip parameters only used via field access (e.g. `dev.name`)
+                        // to preserve field isolation.
+                        if !parsed.has_bare_references(&func_node, param_name) {
+                            continue;
+                        }
+                        let refs = parsed.find_path_references_scoped(&func_node, &path, start);
+                        let param_decl_line = parsed.line_for_byte(*param_start_byte);
+
+                        // Parameter Defs are pinned to the function's `start` line (the signature line).
+                        // `cpg/trace.rs::is_parameter_binding` DEPENDS on this convention — it treats a
+                        // Variable `Def` on a function's signature line as a parameter binding (a call
+                        // boundary) so recursion and same-name collisions don't drop the arg→param
+                        // boundary. If param Defs ever move to their actual line in a multi-line signature,
+                        // update `is_parameter_binding` (or make parameter-ness structural) or the
+                        // recursion false negative silently revives. See planA-followups.md (Round 7/8).
+                        let loc = VarLocation {
+                            file: file_path.clone(),
+                            function: func_name.clone(),
+                            function_start_line: start,
+                            line: start,
+                            path: path.clone(),
+                            start_byte: *param_start_byte,
+                            end_byte: *param_end_byte,
+                            kind: VarAccessKind::Def,
+                        };
+                        defs.entry((file_path.clone(), func_name.clone(), start, path.clone()))
+                            .or_default()
+                            .push(loc.clone());
+                        param_ref_jobs.push((path, loc, refs, param_decl_line));
+                    }
+
+                    // Find all definitions (L-values) with structured access paths
+                    for span in &lvalue_spans {
+                        let loc = VarLocation {
+                            file: file_path.clone(),
+                            function: func_name.clone(),
+                            function_start_line: start,
+                            line: span.line,
+                            path: span.path.clone(),
+                            start_byte: span.start_byte,
+                            end_byte: span.end_byte,
+                            kind: VarAccessKind::Def,
+                        };
+                        defs.entry((
+                            file_path.clone(),
+                            func_name.clone(),
+                            start,
+                            span.path.clone(),
+                        ))
+                        .or_default()
+                        .push(loc.clone());
+                        def_locs_by_occurrence
+                            .entry((span.path.clone(), span.line))
+                            .or_insert(loc.clone());
+
+                        // Phase 3: If this path's base is aliased, also register a def under
+                        // the resolved path so edges connect through aliases.
+                        // For field paths (ptr->field → dev->field): resolves base through alias.
+                        // For simple paths from destructuring (name → device.name): creates
+                        // a field-qualified def so taint connects through destructured variables.
+                        if let Some(resolved) = Self::resolve_path(&alias_map, &span.path) {
+                            if resolved != span.path.clone() {
+                                let resolved_loc = VarLocation {
+                                    file: file_path.clone(),
+                                    function: func_name.clone(),
+                                    function_start_line: start,
+                                    line: span.line,
+                                    path: resolved.clone(),
+                                    start_byte: span.start_byte,
+                                    end_byte: span.end_byte,
+                                    kind: VarAccessKind::Def,
+                                };
+                                defs.entry((
+                                    file_path.clone(),
+                                    func_name.clone(),
+                                    start,
+                                    resolved.clone(),
+                                ))
+                                .or_default()
+                                .push(resolved_loc.clone());
+                                resolved_def_locs_by_occurrence
+                                    .entry((resolved, span.line))
+                                    .or_insert(resolved_loc);
+                            }
+                        }
+                    }
+
+                    // Register defs for alias-resolved paths that did not surface
+                    // through lvalue spans. When they do surface, the lvalue loop
+                    // above already registered the resolved def with the raw span.
                     for (alias, _target, alias_line) in &raw_aliases {
+                        if lvalue_spans.iter().any(|span| {
+                            span.line == *alias_line
+                                && span.path.is_simple()
+                                && span.path.base == *alias
+                        }) {
+                            continue;
+                        }
                         if let Some(resolved_str) = alias_map.get(alias) {
                             let resolved_ap = AccessPath::from_expr(resolved_str);
                             if resolved_ap.has_fields() {
@@ -267,199 +380,143 @@ impl DataFlowGraph {
                                     file_path.clone(),
                                     func_name.clone(),
                                     start,
-                                    resolved_ap,
+                                    resolved_ap.clone(),
                                 ))
                                 .or_default()
-                                .push(loc);
+                                .push(loc.clone());
+                                resolved_def_locs_by_occurrence
+                                    .entry((resolved_ap, *alias_line))
+                                    .or_insert(loc);
                             }
                         }
                     }
 
-                    // Register function parameters as Defs at the function start line.
-                    // Parameters are variable definitions that receive values from callers.
-                    // Without this, interprocedural data flow edges have no target.
-                    //
-                    // Skip parameters that are only used via field access (e.g. `dev.name`)
-                    // to preserve field isolation — a base-only Def would let taint on
-                    // `dev.name` leak to unrelated fields like `dev.id`.
-                    let param_names = parsed.function_parameter_names(&func_node);
-                    for param_name in &param_names {
-                        let path = AccessPath::simple(param_name);
-                        // Skip parameters only used via field access (e.g. `dev.name`)
-                        // to preserve field isolation.
-                        if !parsed.has_bare_references(&func_node, param_name) {
-                            continue;
-                        }
-                        let refs = parsed.find_path_references_scoped(&func_node, &path, start);
-
-                        // Parameter Defs are pinned to the function's `start` line (the signature line).
-                        // `cpg/trace.rs::is_parameter_binding` DEPENDS on this convention — it treats a
-                        // Variable `Def` on a function's signature line as a parameter binding (a call
-                        // boundary) so recursion and same-name collisions don't drop the arg→param
-                        // boundary. If param Defs ever move to their actual line in a multi-line signature,
-                        // update `is_parameter_binding` (or make parameter-ness structural) or the
-                        // recursion false negative silently revives. See planA-followups.md (Round 7/8).
-                        let loc = VarLocation {
+                    // R-values: insert real-span occurrences before any line
+                    // anchors so CPG var-node dedup keeps the real span.
+                    let rvalue_spans =
+                        parsed.rvalue_identifier_spans_on_lines(&func_node, &all_lines);
+                    let mut preferred_use_locs: BTreeMap<(AccessPath, usize), VarLocation> =
+                        BTreeMap::new();
+                    for span in &rvalue_spans {
+                        let use_loc = VarLocation {
                             file: file_path.clone(),
                             function: func_name.clone(),
                             function_start_line: start,
-                            line: start,
-                            path: path.clone(),
-                            start_byte: parsed.line_start_byte(start),
-                            end_byte: parsed.line_start_byte(start),
-                            kind: VarAccessKind::Def,
+                            line: span.line,
+                            path: span.path.clone(),
+                            start_byte: span.start_byte,
+                            end_byte: span.end_byte,
+                            kind: VarAccessKind::Use,
                         };
-                        defs.entry((file_path.clone(), func_name.clone(), start, path.clone()))
-                            .or_default()
-                            .push(loc.clone());
+                        preferred_use_locs
+                            .entry((span.path.clone(), span.line))
+                            .or_insert(use_loc.clone());
+                        uses.entry((
+                            file_path.clone(),
+                            func_name.clone(),
+                            start,
+                            span.path.clone(),
+                        ))
+                        .or_default()
+                        .push(use_loc);
+                    }
 
-                        // Create edges from param def to all uses in the function body.
+                    let mut get_use = |path: &AccessPath, ref_line: usize, allow: bool| {
+                        if let Some(existing) = preferred_use_locs.get(&(path.clone(), ref_line)) {
+                            return Some(existing.clone());
+                        }
+                        if !allow {
+                            return None;
+                        }
+                        let use_loc = VarLocation {
+                            file: file_path.clone(),
+                            function: func_name.clone(),
+                            function_start_line: start,
+                            line: ref_line,
+                            path: path.clone(),
+                            start_byte: parsed.line_start_byte(ref_line),
+                            end_byte: parsed.line_start_byte(ref_line),
+                            kind: VarAccessKind::Use,
+                        };
+                        uses.entry((file_path.clone(), func_name.clone(), start, path.clone()))
+                            .or_default()
+                            .push(use_loc.clone());
+                        preferred_use_locs.insert((path.clone(), ref_line), use_loc.clone());
+                        Some(use_loc)
+                    };
+
+                    // Create edges from param def to all uses in the function body.
+                    for (path, loc, refs, param_decl_line) in &param_ref_jobs {
+                        for ref_line in refs {
+                            let in_signature_line =
+                                *ref_line >= start && *ref_line <= *param_decl_line;
+                            if let Some(use_loc) = get_use(path, *ref_line, !in_signature_line) {
+                                edges.push(FlowEdge {
+                                    from: loc.clone(),
+                                    to: use_loc,
+                                });
+                            }
+                        }
+                    }
+
+                    // Find all uses of each defined variable/path.
+                    // Cross-line references remain line-anchored unless a real
+                    // rvalue span already exists for the same identity key.
+                    for span in &lvalue_spans {
+                        let path = &span.path;
+                        let def_line = span.line;
+                        let refs = parsed.find_path_references_scoped(&func_node, path, def_line);
                         for ref_line in &refs {
-                            if *ref_line == start {
-                                continue;
+                            if *ref_line == def_line {
+                                continue; // Skip self-reference
                             }
-                            let use_loc = VarLocation {
-                                file: file_path.clone(),
-                                function: func_name.clone(),
-                                function_start_line: start,
-                                line: *ref_line,
-                                path: path.clone(),
-                                start_byte: parsed.line_start_byte(*ref_line),
-                                end_byte: parsed.line_start_byte(*ref_line),
-                                kind: VarAccessKind::Use,
+                            let Some(use_loc) = get_use(path, *ref_line, true) else {
+                                continue;
                             };
-                            uses.entry((file_path.clone(), func_name.clone(), start, path.clone()))
-                                .or_default()
-                                .push(use_loc.clone());
-                            edges.push(FlowEdge {
-                                from: loc.clone(),
-                                to: use_loc,
-                            });
-                        }
-                    }
-
-                    // Find all definitions (L-values) with structured access paths
-                    let lvalue_paths =
-                        parsed.assignment_lvalue_paths_on_lines(&func_node, &all_lines);
-                    for (path, line) in &lvalue_paths {
-                        let loc = VarLocation {
-                            file: file_path.clone(),
-                            function: func_name.clone(),
-                            function_start_line: start,
-                            line: *line,
-                            path: path.clone(),
-                            start_byte: parsed.line_start_byte(*line),
-                            end_byte: parsed.line_start_byte(*line),
-                            kind: VarAccessKind::Def,
-                        };
-                        defs.entry((file_path.clone(), func_name.clone(), start, path.clone()))
-                            .or_default()
-                            .push(loc);
-
-                        // Phase 3: If this path's base is aliased, also register a def under
-                        // the resolved path so edges connect through aliases.
-                        // For field paths (ptr->field → dev->field): resolves base through alias.
-                        // For simple paths from destructuring (name → device.name): creates
-                        // a field-qualified def so taint connects through destructured variables.
-                        if let Some(resolved) = Self::resolve_path(&alias_map, path) {
-                            if resolved != *path {
-                                let resolved_loc = VarLocation {
+                            let def_loc = def_locs_by_occurrence
+                                .get(&(path.clone(), def_line))
+                                .cloned()
+                                .unwrap_or_else(|| VarLocation {
                                     file: file_path.clone(),
                                     function: func_name.clone(),
                                     function_start_line: start,
-                                    line: *line,
-                                    path: resolved.clone(),
-                                    start_byte: parsed.line_start_byte(*line),
-                                    end_byte: parsed.line_start_byte(*line),
+                                    line: def_line,
+                                    path: path.clone(),
+                                    start_byte: span.start_byte,
+                                    end_byte: span.end_byte,
                                     kind: VarAccessKind::Def,
-                                };
-                                defs.entry((
-                                    file_path.clone(),
-                                    func_name.clone(),
-                                    start,
-                                    resolved.clone(),
-                                ))
-                                .or_default()
-                                .push(resolved_loc);
-                            }
-                        }
-                    }
-
-                    // Find all uses of each defined variable/path
-                    for (path, def_line) in &lvalue_paths {
-                        let refs = parsed.find_path_references_scoped(&func_node, path, *def_line);
-                        for ref_line in &refs {
-                            if *ref_line == *def_line {
-                                continue; // Skip self-reference
-                            }
-                            let use_loc = VarLocation {
-                                file: file_path.clone(),
-                                function: func_name.clone(),
-                                function_start_line: start,
-                                line: *ref_line,
-                                path: path.clone(),
-                                start_byte: parsed.line_start_byte(*ref_line),
-                                end_byte: parsed.line_start_byte(*ref_line),
-                                kind: VarAccessKind::Use,
-                            };
-                            uses.entry((file_path.clone(), func_name.clone(), start, path.clone()))
-                                .or_default()
-                                .push(use_loc.clone());
-
-                            let def_loc = VarLocation {
-                                file: file_path.clone(),
-                                function: func_name.clone(),
-                                function_start_line: start,
-                                line: *def_line,
-                                path: path.clone(),
-                                start_byte: parsed.line_start_byte(*def_line),
-                                end_byte: parsed.line_start_byte(*def_line),
-                                kind: VarAccessKind::Def,
-                            };
+                                });
                             edges.push(FlowEdge {
                                 from: def_loc,
                                 to: use_loc,
                             });
                         }
 
-                        // Phase 3: Also create edges for the alias-resolved path
+                        // Phase 3: Also create edges for the alias-resolved path.
                         if let Some(resolved) = Self::resolve_path(&alias_map, path) {
                             if resolved != *path {
                                 let resolved_refs = parsed
-                                    .find_path_references_scoped(&func_node, &resolved, *def_line);
+                                    .find_path_references_scoped(&func_node, &resolved, def_line);
                                 for ref_line in &resolved_refs {
-                                    if *ref_line == *def_line {
+                                    if *ref_line == def_line {
                                         continue;
                                     }
-                                    let use_loc = VarLocation {
-                                        file: file_path.clone(),
-                                        function: func_name.clone(),
-                                        function_start_line: start,
-                                        line: *ref_line,
-                                        path: resolved.clone(),
-                                        start_byte: parsed.line_start_byte(*ref_line),
-                                        end_byte: parsed.line_start_byte(*ref_line),
-                                        kind: VarAccessKind::Use,
+                                    let Some(use_loc) = get_use(&resolved, *ref_line, true) else {
+                                        continue;
                                     };
-                                    uses.entry((
-                                        file_path.clone(),
-                                        func_name.clone(),
-                                        start,
-                                        resolved.clone(),
-                                    ))
-                                    .or_default()
-                                    .push(use_loc.clone());
-
-                                    let def_loc = VarLocation {
-                                        file: file_path.clone(),
-                                        function: func_name.clone(),
-                                        function_start_line: start,
-                                        line: *def_line,
-                                        path: resolved.clone(),
-                                        start_byte: parsed.line_start_byte(*def_line),
-                                        end_byte: parsed.line_start_byte(*def_line),
-                                        kind: VarAccessKind::Def,
-                                    };
+                                    let def_loc = resolved_def_locs_by_occurrence
+                                        .get(&(resolved.clone(), def_line))
+                                        .cloned()
+                                        .unwrap_or_else(|| VarLocation {
+                                            file: file_path.clone(),
+                                            function: func_name.clone(),
+                                            function_start_line: start,
+                                            line: def_line,
+                                            path: resolved.clone(),
+                                            start_byte: span.start_byte,
+                                            end_byte: span.end_byte,
+                                            kind: VarAccessKind::Def,
+                                        });
                                     edges.push(FlowEdge {
                                         from: def_loc,
                                         to: use_loc,
@@ -467,25 +524,6 @@ impl DataFlowGraph {
                                 }
                             }
                         }
-                    }
-
-                    // R-values: variables/paths read on each line
-                    let rvalue_paths =
-                        parsed.rvalue_identifier_paths_on_lines(&func_node, &all_lines);
-                    for (path, line) in &rvalue_paths {
-                        let use_loc = VarLocation {
-                            file: file_path.clone(),
-                            function: func_name.clone(),
-                            function_start_line: start,
-                            line: *line,
-                            path: path.clone(),
-                            start_byte: parsed.line_start_byte(*line),
-                            end_byte: parsed.line_start_byte(*line),
-                            kind: VarAccessKind::Use,
-                        };
-                        uses.entry((file_path.clone(), func_name.clone(), start, path.clone()))
-                            .or_default()
-                            .push(use_loc);
                     }
                 }
 

@@ -400,14 +400,35 @@ impl CodePropertyGraph {
                     // to an explicit call arg. Gate on actual ownership — a free
                     // function whose first param merely happens to be named `self`
                     // must keep all its params (else arg→param edges shift by one).
-                    let param_names = match info.param_names.first().map(String::as_str) {
+                    let normalized_param_names: Vec<String> = callee_parsed
+                        .all_functions()
+                        .into_iter()
+                        .find(|node| {
+                            callee_parsed
+                                .language
+                                .function_name(node)
+                                .map(|name| {
+                                    callee_parsed.node_text(&name) == callee_id.name.as_str()
+                                })
+                                .unwrap_or(false)
+                                && callee_parsed.node_line_range(node).0 == callee_id.start_line
+                        })
+                        .map(|node| {
+                            callee_parsed
+                                .function_parameter_occurrences(&node)
+                                .into_iter()
+                                .map(|(name, _, _)| name)
+                                .collect()
+                        })
+                        .unwrap_or_else(|| info.param_names.clone());
+                    let param_names = match normalized_param_names.first().map(String::as_str) {
                         Some("self") | Some("cls")
                             if info.owner.is_some()
                                 && callee_parsed.language == crate::languages::Language::Python =>
                         {
-                            &info.param_names[1..]
+                            &normalized_param_names[1..]
                         }
-                        _ => &info.param_names[..],
+                        _ => &normalized_param_names[..],
                     };
                     for (i, param_name) in param_names.iter().enumerate() {
                         if i >= arg_texts.len() {
@@ -575,19 +596,20 @@ impl CodePropertyGraph {
         location_index: &mut BTreeMap<(String, usize), Vec<NodeIndex>>,
     ) {
         if func_types.contains(&node.kind()) {
-            let stmts = parsed.statements_in_function(&node);
-            for (line, kind_str) in stmts {
+            let stmts = parsed.statement_spans_in_function(&node);
+            for stmt in stmts {
+                let line = stmt.line;
                 let key = (file.to_string(), line);
                 if stmt_index.contains_key(&key) {
                     continue;
                 }
-                let kind = Self::classify_stmt_kind(&kind_str, parsed, line);
+                let kind = Self::classify_stmt_kind(&stmt.kind, parsed, line);
                 let idx = graph.add_node(CpgNode::Statement {
                     file: file.to_string(),
                     line,
                     kind,
-                    start_byte: parsed.line_start_byte(line),
-                    end_byte: parsed.line_start_byte(line),
+                    start_byte: stmt.start_byte,
+                    end_byte: stmt.end_byte,
                 });
                 stmt_index.insert(key.clone(), idx);
                 location_index.entry(key).or_default().push(idx);

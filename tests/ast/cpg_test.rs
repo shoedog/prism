@@ -73,6 +73,255 @@ fn function_node_carries_real_byte_span() {
 }
 
 #[test]
+fn variable_occurrence_carries_real_member_span() {
+    let src = "def f(o):\n    o.config.timeout = 5\n    return o.config.timeout\n";
+    let cpg = build_python_cpg(src);
+    let (sb, eb) = cpg
+        .node_indices()
+        .find_map(|n| match cpg.node(n) {
+            CpgNode::Variable {
+                path,
+                line,
+                access,
+                start_byte,
+                end_byte,
+                ..
+            } if *line == 2 && *access == prism::cpg::VarAccess::Def && path.has_fields() => {
+                Some((*start_byte, *end_byte))
+            }
+            _ => None,
+        })
+        .expect("o.config.timeout def");
+    assert_eq!(&src[sb..eb], "o.config.timeout");
+}
+
+#[test]
+fn scoped_return_use_keeps_real_member_span() {
+    let src = "def f(o, x):\n    o.config.timeout = x\n    return o.config.timeout\n";
+    let cpg = build_python_cpg(src);
+    let (sb, eb) = cpg
+        .nodes_at("test.py", 3)
+        .into_iter()
+        .find_map(|n| match cpg.node(n) {
+            CpgNode::Variable {
+                path,
+                access,
+                start_byte,
+                end_byte,
+                ..
+            } if *access == prism::cpg::VarAccess::Use && path.has_fields() => {
+                Some((*start_byte, *end_byte))
+            }
+            _ => None,
+        })
+        .expect("return o.config.timeout use");
+    assert!(eb > sb, "return use should not be a line anchor");
+    assert_eq!(&src[sb..eb], "o.config.timeout");
+}
+
+#[test]
+fn statement_node_carries_real_span() {
+    let src = "def f():\n    return 1\n";
+    let cpg = build_python_cpg(src);
+    let (sb, eb) = cpg
+        .nodes_at("test.py", 2)
+        .into_iter()
+        .find_map(|n| match cpg.node(n) {
+            CpgNode::Statement {
+                start_byte,
+                end_byte,
+                ..
+            } => Some((*start_byte, *end_byte)),
+            _ => None,
+        })
+        .expect("stmt");
+    assert!(eb > sb && src[sb..eb].contains("return"));
+}
+
+#[test]
+fn augmented_assignment_emits_def_and_use() {
+    let src = "def f(x):\n    x += 1\n    return x\n";
+    let cpg = build_python_cpg(src);
+    let on2: Vec<_> = cpg
+        .nodes_at("test.py", 2)
+        .into_iter()
+        .filter_map(|n| match cpg.node(n) {
+            CpgNode::Variable { path, access, .. } if path.base == "x" => Some(*access),
+            _ => None,
+        })
+        .collect();
+    assert!(
+        on2.contains(&prism::cpg::VarAccess::Def) && on2.contains(&prism::cpg::VarAccess::Use),
+        "x += 1 reads and writes x"
+    );
+}
+
+#[test]
+fn augmented_assignment_emits_def_and_use_across_languages() {
+    let cases = [
+        (Language::Python, "test.py", "def f(x):\n    x += 1\n", 2),
+        (
+            Language::Go,
+            "test.go",
+            "package main\nfunc f() {\n    x := 0\n    x += 1\n}\n",
+            4,
+        ),
+        (
+            Language::Java,
+            "Test.java",
+            "class Test {\n    void f() {\n        int x = 0;\n        x += 1;\n    }\n}\n",
+            4,
+        ),
+        (
+            Language::Rust,
+            "test.rs",
+            "fn f() {\n    let mut x = 0;\n    x += 1;\n}\n",
+            3,
+        ),
+        (
+            Language::JavaScript,
+            "test.js",
+            "function f() {\n    let x = 0;\n    x += 1;\n}\n",
+            3,
+        ),
+    ];
+
+    for (lang, file, src, line) in cases {
+        let cpg = build_cpg(file, src, lang);
+        let accesses: Vec<_> = cpg
+            .nodes_at(file, line)
+            .into_iter()
+            .filter_map(|n| match cpg.node(n) {
+                CpgNode::Variable { path, access, .. } if path.base == "x" => Some(*access),
+                _ => None,
+            })
+            .collect();
+        assert!(
+            accesses.contains(&prism::cpg::VarAccess::Def)
+                && accesses.contains(&prism::cpg::VarAccess::Use),
+            "{lang:?} augmented assignment should read and write x, got {accesses:?}"
+        );
+    }
+}
+
+#[test]
+fn augmented_member_assignment_emits_member_and_base_use() {
+    let src = "def f(o):\n    o.field += 1\n";
+    let cpg = build_python_cpg(src);
+    let mut has_member_def = false;
+    let mut has_member_use = false;
+    let mut has_base_use = false;
+    for node in cpg.nodes_at("test.py", 2) {
+        if let CpgNode::Variable { path, access, .. } = cpg.node(node) {
+            has_member_def |= path.has_fields() && *access == prism::cpg::VarAccess::Def;
+            has_member_use |= path.has_fields() && *access == prism::cpg::VarAccess::Use;
+            has_base_use |=
+                path.is_simple() && path.base == "o" && *access == prism::cpg::VarAccess::Use;
+        }
+    }
+    assert!(has_member_def, "member target should be a def");
+    assert!(has_member_use, "augmented member target should be a use");
+    assert!(
+        has_base_use,
+        "augmented member target should emit base fallback use"
+    );
+}
+
+#[test]
+fn rust_mut_pattern_def_uses_identifier_span() {
+    let src = "fn f() {\n    let mut x = 0;\n    x\n}\n";
+    let cpg = build_rust_cpg(src);
+    let (sb, eb) = cpg
+        .nodes_at("test.rs", 2)
+        .into_iter()
+        .find_map(|n| match cpg.node(n) {
+            CpgNode::Variable {
+                path,
+                access,
+                start_byte,
+                end_byte,
+                ..
+            } if path.base == "x" && *access == prism::cpg::VarAccess::Def => {
+                Some((*start_byte, *end_byte))
+            }
+            _ => None,
+        })
+        .expect("x def");
+    assert_eq!(&src[sb..eb], "x");
+}
+
+#[test]
+fn alias_resolved_def_keeps_raw_occurrence_span() {
+    let src = "function f(device) {\n    const { name } = device;\n    return name;\n}\n";
+    let cpg = build_cpg("test.js", src, Language::JavaScript);
+    let (sb, eb) = cpg
+        .nodes_at("test.js", 2)
+        .into_iter()
+        .find_map(|n| match cpg.node(n) {
+            CpgNode::Variable {
+                path,
+                access,
+                start_byte,
+                end_byte,
+                ..
+            } if path.base == "device"
+                && path.fields.len() == 1
+                && path.fields[0].as_str() == "name"
+                && *access == prism::cpg::VarAccess::Def =>
+            {
+                Some((*start_byte, *end_byte))
+            }
+            _ => None,
+        })
+        .expect("device.name alias-resolved def");
+    assert_eq!(&src[sb..eb], "name");
+}
+
+#[test]
+fn multiline_field_only_parameter_does_not_create_base_def() {
+    let src = "def f(\n    dev,\n):\n    return dev.name\n";
+    let cpg = build_python_cpg(src);
+    let has_param_def = cpg.nodes_at("test.py", 1).into_iter().any(|n| {
+        matches!(
+            cpg.node(n),
+            CpgNode::Variable {
+                path,
+                access: prism::cpg::VarAccess::Def,
+                ..
+            } if path.is_simple() && path.base == "dev"
+        )
+    });
+    assert!(
+        !has_param_def,
+        "field-only multiline parameter should keep field isolation"
+    );
+}
+
+#[test]
+fn multiline_parameter_same_line_body_use_keeps_dataflow_edge() {
+    let src = "def f(\n    x): return x\n";
+    let cpg = build_python_cpg(src);
+
+    assert!(has_dataflow_edge(
+        &cpg,
+        ("test.py", "f", 1, "x"),
+        ("test.py", "f", 2, "x")
+    ));
+}
+
+#[test]
+fn cpg_rust_mut_parameter_call_binding_uses_normalized_name() {
+    let src = "fn callee(mut x: i32) -> i32 {\n    x += 1;\n    x\n}\nfn caller(y: i32) {\n    callee(y);\n}\n";
+    let cpg = build_rust_cpg(src);
+
+    assert!(has_dataflow_edge(
+        &cpg,
+        ("test.rs", "caller", 6, "y"),
+        ("test.rs", "callee", 1, "x")
+    ));
+}
+
+#[test]
 fn test_without_cpg_context_runs_ast_only() {
     // CpgContext::without_cpg should work for AST-only algorithms
     let source = r#"
@@ -175,4 +424,23 @@ fn cpg_python_free_function_with_self_param_keeps_all_args() {
         ("m.py", "call", 5, "b"),
         ("m.py", "helper", 1, "x")
     ));
+}
+
+// S2 Task 4 (review-requested negative regression): a Rust `let mut x` wrapper pattern
+// must yield a Def for `x` and must NOT leak a bogus `mut` variable path.
+#[test]
+fn rust_let_mut_does_not_emit_mut_path() {
+    let cpg = build_rust_cpg("fn f() {\n    let mut x = 0;\n    let _ = x;\n}\n");
+    let has_mut = cpg.node_indices().any(
+        |n| matches!(cpg.node(n), prism::cpg::CpgNode::Variable { path, .. } if path.base == "mut"),
+    );
+    assert!(
+        !has_mut,
+        "`let mut x` must not produce a `mut` variable path"
+    );
+    let has_x_def = cpg.node_indices().any(|n| {
+        matches!(cpg.node(n), prism::cpg::CpgNode::Variable { path, access, .. }
+            if path.base == "x" && *access == prism::cpg::VarAccess::Def)
+    });
+    assert!(has_x_def, "`let mut x` must produce a Def for x");
 }
