@@ -269,12 +269,16 @@ fn r5_cross_file_free_multi_kept_demoted() {
 fn r6_multi_owner_unknown_receiver_drops() {
     use prism::languages::Language::Rust;
     // The tokio `poll` class: x.poll() with poll on 2+ owner types => unresolved.
+    // Receiver `x` is bound from a plain call whose return type prism cannot
+    // infer — genuinely unrecoverable by P6-lite, so this exercises the R6
+    // residue policy (a *typed* param would be recovered and dropped as
+    // ExternalReceiver instead — see r6_typed_param_to_undefined_type_is_external).
     let (cg, _) = build(&[
         ("a.rs", "impl A {\n    fn poll(&self) {}\n}\n", Rust),
         ("b.rs", "impl B {\n    fn poll(&self) {}\n}\n", Rust),
         (
             "m.rs",
-            "fn drive(x: UnknownToIndex) {\n    x.poll();\n}\n",
+            "fn drive() {\n    let x = mystery();\n    x.poll();\n}\n",
             Rust,
         ),
     ]);
@@ -297,7 +301,7 @@ fn r6_single_owner_unknown_receiver_kept_demoted() {
         ),
         (
             "m.rs",
-            "fn run(x: UnknownToIndex) {\n    x.frobnicate();\n}\n",
+            "fn run() {\n    let x = mystery();\n    x.frobnicate();\n}\n",
             Rust,
         ),
     ]);
@@ -314,7 +318,7 @@ fn r6_caller_file_single_owner_preferred_over_repo_multi() {
     let (cg, _) = build(&[
         (
             "m.rs",
-            "impl Local {\n    fn step(&self) {}\n}\nfn run(x: UnknownToIndex) {\n    x.step();\n}\n",
+            "impl Local {\n    fn step(&self) {}\n}\nfn run() {\n    let x = mystery();\n    x.step();\n}\n",
             Rust,
         ),
         ("far.rs", "impl Far {\n    fn step(&self) {}\n}\n", Rust),
@@ -324,6 +328,53 @@ fn r6_caller_file_single_owner_preferred_over_repo_multi() {
     assert_eq!(r.len(), 1);
     assert_eq!(r[0].target.file, "m.rs");
     assert_eq!(r[0].confidence, ResolutionConfidence::NameOnly);
+}
+
+#[test]
+fn r6_typed_param_to_undefined_type_is_external() {
+    use prism::languages::Language::Rust;
+    // A *typed* param whose type is not in the owner index is provably
+    // external (the Vec::truncate class generalized): P6-lite recovers the
+    // type, finds no owner, and drops as ExternalReceiver — NOT as a
+    // multi-owner collision, even though `poll` has multiple owners.
+    let (cg, _) = build(&[
+        ("a.rs", "impl A {\n    fn poll(&self) {}\n}\n", Rust),
+        ("b.rs", "impl B {\n    fn poll(&self) {}\n}\n", Rust),
+        (
+            "m.rs",
+            "fn drive(x: UnknownToIndex) {\n    x.poll();\n}\n",
+            Rust,
+        ),
+    ]);
+    let site = site_in(&cg, "drive", "poll");
+    assert!(cg.resolve_call_site(&site).is_empty());
+    assert_eq!(
+        cg.resolve_call_site_full(&site).drop,
+        Some(DropReason::ExternalReceiver)
+    );
+}
+
+#[test]
+fn p6_rebinding_after_call_does_not_cancel_recovery() {
+    use prism::languages::Language::Rust;
+    // M6 (plan review): only bindings AT OR BEFORE the call line count toward
+    // the shadow bail. A rebinding that occurs *after* the call must not
+    // retroactively cancel a valid typed-param recovery.
+    let (cg, _) = build(&[
+        ("a.rs", "impl Sender {\n    fn send(&self) {}\n}\n", Rust),
+        ("b.rs", "impl Pipe {\n    fn send(&self) {}\n}\n", Rust),
+        (
+            "m.rs",
+            "fn run(x: &Sender) {\n    x.send();\n    let x = other();\n}\n",
+            Rust,
+        ),
+    ]);
+    let site = site_in(&cg, "run", "send");
+    let r = cg.resolve_call_site(&site);
+    assert_eq!(r.len(), 1, "after-call rebind must not cancel recovery");
+    assert_eq!(r[0].target.file, "a.rs");
+    assert_eq!(r[0].confidence, ResolutionConfidence::Exact);
+    assert_eq!(r[0].kind, ResolutionKind::TypedParam);
 }
 
 #[test]
@@ -359,5 +410,205 @@ fn r6_never_binds_receiver_call_to_local_static_function() {
     assert_eq!(
         cg.resolve_call_site_full(&site).drop,
         Some(DropReason::UnknownName)
+    );
+}
+
+#[test]
+fn p6_typed_param_recovers_exact_among_collisions() {
+    use prism::languages::Language::Rust;
+    let (cg, _) = build(&[
+        ("a.rs", "impl Sender {\n    fn send(&self) {}\n}\n", Rust),
+        ("b.rs", "impl Pipe {\n    fn send(&self) {}\n}\n", Rust),
+        ("m.rs", "fn run(tx: &Sender) {\n    tx.send();\n}\n", Rust),
+    ]);
+    let site = site_in(&cg, "run", "send");
+    let r = cg.resolve_call_site(&site);
+    assert_eq!(r.len(), 1, "typed param defeats the multi-owner drop");
+    assert_eq!(r[0].target.file, "a.rs");
+    assert_eq!(r[0].confidence, ResolutionConfidence::Exact);
+    assert_eq!(r[0].kind, ResolutionKind::TypedParam);
+}
+
+#[test]
+fn p6_peel_list_handles_pin_mut_self_shape() {
+    assert_eq!(prism::resolution::peel_type("Pin<&mut Self>"), "Self");
+    assert_eq!(prism::resolution::peel_type("Arc<Mutex<Conn>>"), "Mutex"); // outermost wrapper peeled, Mutex<Conn> → Mutex
+    assert_eq!(prism::resolution::peel_type("&mut Foo"), "Foo");
+    assert_eq!(prism::resolution::peel_type("Box<dyn Render>"), "Render");
+    assert_eq!(prism::resolution::peel_type("*T"), "T");
+}
+
+#[test]
+fn p6_constructor_local_recovers() {
+    use prism::languages::Language::Rust;
+    let (cg, _) = build(&[
+        (
+            "a.rs",
+            "impl Engine {\n    pub fn new() -> Engine { Engine }\n    pub fn start(&self) {}\n}\n",
+            Rust,
+        ),
+        ("b.rs", "impl Other {\n    fn start(&self) {}\n}\n", Rust),
+        (
+            "m.rs",
+            "fn main() {\n    let e = Engine::new();\n    e.start();\n}\n",
+            Rust,
+        ),
+    ]);
+    let site = site_in(&cg, "main", "start");
+    let r = cg.resolve_call_site(&site);
+    assert_eq!(r.len(), 1);
+    assert_eq!(r[0].target.file, "a.rs");
+    assert_eq!(r[0].kind, ResolutionKind::ConstructorLocal);
+}
+
+#[test]
+fn p6_shadowing_bails_to_residue() {
+    use prism::languages::Language::Rust;
+    let (cg, _) = build(&[
+        ("a.rs", "impl A {\n    fn go(&self) {}\n}\n", Rust),
+        ("b.rs", "impl B {\n    fn go(&self) {}\n}\n", Rust),
+        (
+            "m.rs",
+            "fn main() {\n    let x = A::new();\n    let x = mystery();\n    x.go();\n}\n",
+            Rust,
+        ),
+    ]);
+    let site = site_in(&cg, "main", "go");
+    assert!(
+        cg.resolve_call_site(&site).is_empty(),
+        "rebinding ⇒ bail ⇒ multi-owner drop"
+    );
+}
+
+#[test]
+fn p6_external_recovered_type_drops_stdlib_binding() {
+    use prism::languages::Language::Rust;
+    // The Vec::truncate→AccessPath::truncate class: receiver provably Vec ⇒ drop,
+    // even though `truncate` has exactly one in-repo owner.
+    let (cg, _) = build(&[
+        (
+            "ap.rs",
+            "impl AccessPath {\n    fn truncate(&mut self) {}\n}\n",
+            Rust,
+        ),
+        (
+            "m.rs",
+            "fn run(items: &mut Vec<String>) {\n    items.truncate(5);\n}\n",
+            Rust,
+        ),
+    ]);
+    let site = site_in(&cg, "run", "truncate");
+    assert!(cg.resolve_call_site(&site).is_empty());
+}
+
+#[test]
+fn p6_rust_associated_non_constructor_does_not_recover() {
+    use prism::languages::Language::Rust;
+    let (cg, _) = build(&[
+        (
+            "a.rs",
+            "impl A {\n    fn make_b() -> B { B }\n    fn go(&self) {}\n}\n",
+            Rust,
+        ),
+        ("b.rs", "impl B {\n    fn go(&self) {}\n}\n", Rust),
+        (
+            "m.rs",
+            "fn run() {\n    let x = A::make_b();\n    x.go();\n}\n",
+            Rust,
+        ),
+    ]);
+    let site = site_in(&cg, "run", "go");
+    assert!(cg.resolve_call_site(&site).is_empty());
+    assert_eq!(
+        cg.resolve_call_site_full(&site).drop,
+        Some(DropReason::MultiOwnerCollision)
+    );
+}
+
+#[test]
+fn p6_rust_qualified_typed_param_normalizes_to_owner_key() {
+    use prism::languages::Language::Rust;
+    let (cg, _) = build(&[
+        ("a.rs", "impl Sender {\n    fn send(&self) {}\n}\n", Rust),
+        ("b.rs", "impl Pipe {\n    fn send(&self) {}\n}\n", Rust),
+        (
+            "m.rs",
+            "fn run(tx: &crate::Sender) {\n    tx.send();\n}\n",
+            Rust,
+        ),
+    ]);
+    let site = site_in(&cg, "run", "send");
+    let r = cg.resolve_call_site(&site);
+    assert_eq!(r.len(), 1);
+    assert_eq!(r[0].target.file, "a.rs");
+    assert_eq!(r[0].confidence, ResolutionConfidence::Exact);
+    assert_eq!(r[0].kind, ResolutionKind::TypedParam);
+}
+
+#[test]
+fn p6_compound_rust_param_pattern_bails_to_residue() {
+    use prism::languages::Language::Rust;
+    let (cg, _) = build(&[
+        ("a.rs", "impl Sender {\n    fn send(&self) {}\n}\n", Rust),
+        ("b.rs", "impl Pipe {\n    fn send(&self) {}\n}\n", Rust),
+        (
+            "m.rs",
+            "fn run((tx, _): (&Sender, &Pipe)) {\n    tx.send();\n}\n",
+            Rust,
+        ),
+    ]);
+    let site = site_in(&cg, "run", "send");
+    assert!(cg.resolve_call_site(&site).is_empty());
+    assert_eq!(
+        cg.resolve_call_site_full(&site).drop,
+        Some(DropReason::MultiOwnerCollision)
+    );
+}
+
+#[test]
+fn p6_go_typed_param_recovers_exact_among_collisions() {
+    use prism::languages::Language::Go;
+    let (cg, _) = build(&[(
+        "main.go",
+        "package p\n\ntype Sender struct{}\nfunc (s *Sender) Send() {}\ntype Pipe struct{}\nfunc (p *Pipe) Send() {}\nfunc run(tx *Sender) {\n    tx.Send()\n}\n",
+        Go,
+    )]);
+    let site = site_in(&cg, "run", "Send");
+    let r = cg.resolve_call_site(&site);
+    assert_eq!(r.len(), 1);
+    assert_eq!(r[0].target.name, "Send");
+    assert_eq!(r[0].target.file, "main.go");
+    assert_eq!(r[0].confidence, ResolutionConfidence::Exact);
+    assert_eq!(r[0].kind, ResolutionKind::TypedParam);
+}
+
+#[test]
+fn p6_go_constructor_local_recovers_new_type_convention() {
+    use prism::languages::Language::Go;
+    let (cg, _) = build(&[(
+        "main.go",
+        "package p\n\ntype Engine struct{}\nfunc NewEngine() *Engine { return &Engine{} }\nfunc (e *Engine) Start() {}\ntype Other struct{}\nfunc (o *Other) Start() {}\nfunc run() {\n    e := NewEngine()\n    e.Start()\n}\n",
+        Go,
+    )]);
+    let site = site_in(&cg, "run", "Start");
+    let r = cg.resolve_call_site(&site);
+    assert_eq!(r.len(), 1);
+    assert_eq!(r[0].target.file, "main.go");
+    assert_eq!(r[0].kind, ResolutionKind::ConstructorLocal);
+}
+
+#[test]
+fn p6_go_wrong_constructor_guess_drops_after_owner_lookup_miss() {
+    use prism::languages::Language::Go;
+    let (cg, _) = build(&[(
+        "main.go",
+        "package p\n\ntype AccessPath struct{}\nfunc (a *AccessPath) Truncate() {}\nfunc run() {\n    items := NewVec()\n    items.Truncate()\n}\n",
+        Go,
+    )]);
+    let site = site_in(&cg, "run", "Truncate");
+    assert!(cg.resolve_call_site(&site).is_empty());
+    assert_eq!(
+        cg.resolve_call_site_full(&site).drop,
+        Some(DropReason::ExternalReceiver)
     );
 }
