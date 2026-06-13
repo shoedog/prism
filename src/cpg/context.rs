@@ -352,7 +352,10 @@ fn compute_scope(
     for fid in &changed_fn_ids {
         if let Some(sites) = skeleton_cg.calls.get(fid) {
             for site in sites {
-                // Resolve callee to actual function definitions.
+                // S3 contract: scope computation deliberately uses the
+                // recall-biased name-only resolver — scope is a superset
+                // heuristic, not a truth claim (spec §3.4). Edge creation
+                // (cpg/build.rs Step 5) uses the precision ladder.
                 let callee_ids = skeleton_cg.resolve_callees(&site.callee_name, &fid.file);
                 for callee_id in callee_ids {
                     scope.insert(callee_id.file.clone());
