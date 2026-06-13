@@ -88,15 +88,21 @@ fn test_taint_trace_no_cfg_falls_back_to_pure_taint() {
         path: AccessPath::simple("a"),
         file: "manual.py".into(),
         function: "f".into(),
+        function_start_line: 1,
         line: 1,
         access: VarAccess::Def,
+        start_byte: 0,
+        end_byte: 0,
     });
     let b = graph.add_node(CpgNode::Variable {
         path: AccessPath::simple("b"),
         file: "manual.py".into(),
         function: "f".into(),
+        function_start_line: 1,
         line: 2,
         access: VarAccess::Use,
+        start_byte: 0,
+        end_byte: 0,
     });
     graph.add_edge(a, b, CpgEdge::DataFlow);
     let mut location_index = BTreeMap::new();
@@ -145,26 +151,36 @@ fn test_taint_trace_statement_miss_degrades_to_pure_taint() {
         file: "manual.py".into(),
         line: 1,
         kind: StmtKind::Other,
+        start_byte: 0,
+        end_byte: 0,
     });
     let stmt2 = graph.add_node(CpgNode::Statement {
         file: "manual.py".into(),
         line: 2,
         kind: StmtKind::Other,
+        start_byte: 0,
+        end_byte: 0,
     });
     graph.add_edge(stmt1, stmt2, CpgEdge::ControlFlow);
     let src = graph.add_node(CpgNode::Variable {
         path: AccessPath::simple("src"),
         file: "manual.py".into(),
         function: "f".into(),
+        function_start_line: 1,
         line: 10,
         access: VarAccess::Def,
+        start_byte: 0,
+        end_byte: 0,
     });
     let dst = graph.add_node(CpgNode::Variable {
         path: AccessPath::simple("dst"),
         file: "manual.py".into(),
         function: "f".into(),
+        function_start_line: 1,
         line: 11,
         access: VarAccess::Use,
+        start_byte: 0,
+        end_byte: 0,
     });
     graph.add_edge(src, dst, CpgEdge::DataFlow);
     let mut location_index = BTreeMap::new();
@@ -196,26 +212,36 @@ fn test_degraded_seed_line_warns_once_per_line() {
         file: "manual.py".into(),
         line: 1,
         kind: StmtKind::Other,
+        start_byte: 0,
+        end_byte: 0,
     });
     let stmt2 = graph.add_node(CpgNode::Statement {
         file: "manual.py".into(),
         line: 2,
         kind: StmtKind::Other,
+        start_byte: 0,
+        end_byte: 0,
     });
     graph.add_edge(stmt1, stmt2, CpgEdge::ControlFlow);
     let a = graph.add_node(CpgNode::Variable {
         path: AccessPath::simple("a"),
         file: "manual.py".into(),
         function: "f".into(),
+        function_start_line: 1,
         line: 10,
         access: VarAccess::Def,
+        start_byte: 0,
+        end_byte: 0,
     });
     let b = graph.add_node(CpgNode::Variable {
         path: AccessPath::simple("b"),
         file: "manual.py".into(),
         function: "f".into(),
+        function_start_line: 1,
         line: 10,
         access: VarAccess::Def,
+        start_byte: 0,
+        end_byte: 0,
     });
     let mut location_index = BTreeMap::new();
     location_index.insert(("manual.py".to_string(), 1), vec![stmt1]);
@@ -260,6 +286,8 @@ fn test_seed_with_no_variable_nodes_warns() {
         file: "manual.py".into(),
         line: 5,
         kind: StmtKind::Other,
+        start_byte: 0,
+        end_byte: 0,
     });
     let mut location_index = BTreeMap::new();
     location_index.insert(("manual.py".to_string(), 5), vec![stmt]);
@@ -292,21 +320,29 @@ fn test_cfg_reachable_lines_unioned_covers_all_statements() {
         file: "m.js".into(),
         line: 1,
         kind: StmtKind::Other,
+        start_byte: 0,
+        end_byte: 0,
     });
     let stmt_b = graph.add_node(CpgNode::Statement {
         file: "m.js".into(),
         line: 1,
         kind: StmtKind::Other,
+        start_byte: 0,
+        end_byte: 0,
     });
     let succ_a = graph.add_node(CpgNode::Statement {
         file: "m.js".into(),
         line: 20,
         kind: StmtKind::Other,
+        start_byte: 0,
+        end_byte: 0,
     });
     let succ_b = graph.add_node(CpgNode::Statement {
         file: "m.js".into(),
         line: 30,
         kind: StmtKind::Other,
+        start_byte: 0,
+        end_byte: 0,
     });
     graph.add_edge(stmt_a, succ_a, CpgEdge::ControlFlow);
     graph.add_edge(stmt_b, succ_b, CpgEdge::ControlFlow);
@@ -342,22 +378,31 @@ fn test_taint_trace_keeps_per_root_attribution() {
         path: AccessPath::simple("a"),
         file: "manual.py".into(),
         function: "f".into(),
+        function_start_line: 1,
         line: 1,
         access: VarAccess::Def,
+        start_byte: 0,
+        end_byte: 0,
     });
     let b = graph.add_node(CpgNode::Variable {
         path: AccessPath::simple("b"),
         file: "manual.py".into(),
         function: "f".into(),
+        function_start_line: 1,
         line: 2,
         access: VarAccess::Def,
+        start_byte: 0,
+        end_byte: 0,
     });
     let sink = graph.add_node(CpgNode::Variable {
         path: AccessPath::simple("sink_arg"),
         file: "manual.py".into(),
         function: "f".into(),
+        function_start_line: 1,
         line: 3,
         access: VarAccess::Use,
+        start_byte: 0,
+        end_byte: 0,
     });
     graph.add_edge(a, sink, CpgEdge::DataFlow);
     graph.add_edge(b, sink, CpgEdge::DataFlow);
@@ -390,15 +435,21 @@ fn test_taint_trace_dataflow_wins_same_line_tie() {
         path: AccessPath::simple("x"),
         file: "manual.py".into(),
         function: "f".into(),
+        function_start_line: 1,
         line: 1,
         access: VarAccess::Use,
+        start_byte: 0,
+        end_byte: 0,
     });
     let target = graph.add_node(CpgNode::Variable {
         path: AccessPath::simple("y"),
         file: "manual.py".into(),
         function: "f".into(),
+        function_start_line: 1,
         line: 1,
         access: VarAccess::Def,
+        start_byte: 0,
+        end_byte: 0,
     });
     graph.add_edge(root, target, CpgEdge::DataFlow);
     let mut location_index = BTreeMap::new();
@@ -426,13 +477,18 @@ fn test_taint_trace_skips_non_variable_dataflow_neighbors() {
         path: AccessPath::simple("root"),
         file: "manual.py".into(),
         function: "f".into(),
+        function_start_line: 1,
         line: 1,
         access: VarAccess::Def,
+        start_byte: 0,
+        end_byte: 0,
     });
     let stmt = graph.add_node(CpgNode::Statement {
         file: "manual.py".into(),
         line: 2,
         kind: StmtKind::Other,
+        start_byte: 0,
+        end_byte: 0,
     });
     graph.add_edge(root, stmt, CpgEdge::DataFlow);
     let mut location_index = BTreeMap::new();
@@ -509,6 +565,8 @@ fn test_node_accessors() {
         file: "src/main.c".into(),
         start_line: 1,
         end_line: 10,
+        start_byte: 0,
+        end_byte: 0,
     };
     assert_eq!(func.file(), "src/main.c");
     assert_eq!(func.line(), 1);
@@ -518,8 +576,11 @@ fn test_node_accessors() {
         path: AccessPath::from_expr("dev->name"),
         file: "src/dev.c".into(),
         function: "init".into(),
+        function_start_line: 1,
         line: 5,
         access: VarAccess::Def,
+        start_byte: 0,
+        end_byte: 0,
     };
     assert!(var_def.is_def());
     assert!(!var_def.is_use());
@@ -530,8 +591,81 @@ fn test_node_accessors() {
         kind: StmtKind::Call {
             callee: "init".into(),
         },
+        start_byte: 0,
+        end_byte: 0,
     };
     assert!(call.is_call());
+}
+
+#[test]
+fn test_cpg_node_equality_excludes_byte_spans() {
+    let function_a = CpgNode::Function {
+        name: "main".into(),
+        file: "src/main.c".into(),
+        start_line: 1,
+        end_line: 10,
+        start_byte: 0,
+        end_byte: 100,
+    };
+    let function_b = CpgNode::Function {
+        name: "main".into(),
+        file: "src/main.c".into(),
+        start_line: 1,
+        end_line: 10,
+        start_byte: 900,
+        end_byte: 1000,
+    };
+    assert_eq!(function_a, function_b);
+
+    let statement_a = CpgNode::Statement {
+        file: "src/main.c".into(),
+        line: 3,
+        kind: StmtKind::Return,
+        start_byte: 10,
+        end_byte: 20,
+    };
+    let statement_b = CpgNode::Statement {
+        file: "src/main.c".into(),
+        line: 3,
+        kind: StmtKind::Return,
+        start_byte: 30,
+        end_byte: 40,
+    };
+    assert_eq!(statement_a, statement_b);
+
+    let variable_a = CpgNode::Variable {
+        path: AccessPath::simple("x"),
+        file: "src/main.c".into(),
+        function: "main".into(),
+        function_start_line: 1,
+        line: 4,
+        access: VarAccess::Use,
+        start_byte: 10,
+        end_byte: 11,
+    };
+    let variable_b = CpgNode::Variable {
+        path: AccessPath::simple("x"),
+        file: "src/main.c".into(),
+        function: "main".into(),
+        function_start_line: 1,
+        line: 4,
+        access: VarAccess::Use,
+        start_byte: 99,
+        end_byte: 100,
+    };
+    assert_eq!(variable_a, variable_b);
+
+    let variable_c = CpgNode::Variable {
+        path: AccessPath::simple("x"),
+        file: "src/main.c".into(),
+        function: "main".into(),
+        function_start_line: 2,
+        line: 4,
+        access: VarAccess::Use,
+        start_byte: 10,
+        end_byte: 11,
+    };
+    assert_ne!(variable_b, variable_c);
 }
 
 #[test]
@@ -552,8 +686,11 @@ fn test_variable_node_accessors() {
         path: AccessPath::from_expr("dev->id"),
         file: "src/dev.c".into(),
         function: "get_id".into(),
+        function_start_line: 1,
         line: 8,
         access: VarAccess::Use,
+        start_byte: 0,
+        end_byte: 0,
     };
     assert!(var_use.is_use());
     assert!(!var_use.is_def());
@@ -569,6 +706,8 @@ fn test_statement_node_non_call() {
         file: "src/main.c".into(),
         line: 15,
         kind: StmtKind::Branch,
+        start_byte: 0,
+        end_byte: 0,
     };
     assert!(!branch.is_call());
     assert!(!branch.is_function());
@@ -580,6 +719,8 @@ fn test_statement_node_non_call() {
         file: "src/main.c".into(),
         line: 20,
         kind: StmtKind::Return,
+        start_byte: 0,
+        end_byte: 0,
     };
     assert!(!ret.is_call());
 }

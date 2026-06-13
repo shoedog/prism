@@ -354,6 +354,7 @@ impl CodePropertyGraph {
             line,
             function,
             path,
+            ..
         } = &self.graph[def]
         else {
             return Vec::new();

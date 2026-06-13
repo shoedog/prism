@@ -202,11 +202,25 @@ impl CodePropertyGraph {
         // --- Step 1: Function nodes ---
         for func_ids in cg.functions.values() {
             for fid in func_ids {
+                let (start_byte, end_byte) = files
+                    .get(&fid.file)
+                    .and_then(|p| {
+                        p.functions()
+                            .iter()
+                            .find(|f| {
+                                f.name.as_deref() == Some(fid.name.as_str())
+                                    && f.start_line == fid.start_line
+                            })
+                            .map(|f| (f.start_byte, f.end_byte))
+                    })
+                    .unwrap_or((0, 0));
                 let idx = graph.add_node(CpgNode::Function {
                     name: fid.name.clone(),
                     file: fid.file.clone(),
                     start_line: fid.start_line,
                     end_line: fid.end_line,
+                    start_byte,
+                    end_byte,
                 });
                 func_index.insert((fid.file.clone(), fid.name.clone()), idx);
                 location_index
@@ -232,8 +246,11 @@ impl CodePropertyGraph {
                         path: loc.path.clone(),
                         file: loc.file.clone(),
                         function: loc.function.clone(),
+                        function_start_line: loc.function_start_line,
                         line: loc.line,
                         access,
+                        start_byte: loc.start_byte,
+                        end_byte: loc.end_byte,
                     });
                     var_index.insert(key, idx);
                     location_index
@@ -258,8 +275,11 @@ impl CodePropertyGraph {
                         path: loc.path.clone(),
                         file: loc.file.clone(),
                         function: loc.function.clone(),
+                        function_start_line: loc.function_start_line,
                         line: loc.line,
                         access,
+                        start_byte: loc.start_byte,
+                        end_byte: loc.end_byte,
                     });
                     var_index.insert(key, idx);
                     location_index
@@ -530,6 +550,8 @@ impl CodePropertyGraph {
                     file: file.to_string(),
                     line,
                     kind,
+                    start_byte: parsed.line_start_byte(line),
+                    end_byte: parsed.line_start_byte(line),
                 });
                 stmt_index.insert(key.clone(), idx);
                 location_index.entry(key).or_default().push(idx);

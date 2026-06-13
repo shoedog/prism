@@ -16,6 +16,7 @@ pub(crate) fn fn_symbol(s: &NavigationSession, idx: NodeIndex) -> Option<SymbolR
             file,
             start_line,
             end_line,
+            ..
         } => Some(SymbolRef::Function {
             file: file.clone(),
             name: name.clone(),

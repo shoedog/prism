@@ -1,6 +1,42 @@
 use crate::common::*;
 
 #[test]
+fn var_location_ord_eq_hash_agree_excluding_byte() {
+    use prism::access_path::AccessPath;
+    use prism::data_flow::{VarAccessKind, VarLocation};
+    use std::collections::hash_map::DefaultHasher;
+    use std::hash::{Hash, Hasher};
+
+    let base = |sb, eb| VarLocation {
+        file: "a.rs".into(),
+        function: "f".into(),
+        function_start_line: 1,
+        line: 5,
+        path: AccessPath::simple("x"),
+        start_byte: sb,
+        end_byte: eb,
+        kind: VarAccessKind::Use,
+    };
+    let (a, b) = (base(10, 11), base(99, 100));
+    assert_eq!(a, b, "byte excluded from Eq");
+    assert_eq!(
+        a.cmp(&b),
+        std::cmp::Ordering::Equal,
+        "byte excluded from Ord"
+    );
+    let h = |v: &VarLocation| {
+        let mut s = DefaultHasher::new();
+        v.hash(&mut s);
+        s.finish()
+    };
+    assert_eq!(h(&a), h(&b), "byte excluded from Hash");
+    let mut c = base(10, 11);
+    c.function_start_line = 7;
+    assert_ne!(a, c);
+    assert_ne!(a.cmp(&c), std::cmp::Ordering::Equal);
+}
+
+#[test]
 fn test_dfg_field_qualified_paths_created() {
     // Verify that the DFG creates AccessPath entries with field chains,
     // not just bare base names.

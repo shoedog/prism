@@ -1,7 +1,7 @@
 use crate::common::*;
 use prism::cpg::{CodePropertyGraph, CpgEdge, CpgNode};
 
-fn build_cpg(files: &[(&str, &str, Language)]) -> CodePropertyGraph {
+fn build_cpg_files(files: &[(&str, &str, Language)]) -> CodePropertyGraph {
     let mut parsed_files = BTreeMap::new();
     for (path, source, language) in files {
         parsed_files.insert(
@@ -53,6 +53,26 @@ fn has_dataflow_edge(
 }
 
 #[test]
+fn function_node_carries_real_byte_span() {
+    let src = "fn alpha() {}\nfn beta() {}\n";
+    let cpg = build_rust_cpg(src);
+    let (sb, eb) = cpg
+        .function_nodes()
+        .into_iter()
+        .find_map(|n| match cpg.node(n) {
+            prism::cpg::CpgNode::Function {
+                name,
+                start_byte,
+                end_byte,
+                ..
+            } if name == "alpha" => Some((*start_byte, *end_byte)),
+            _ => None,
+        })
+        .expect("alpha");
+    assert_eq!(&src[sb..eb], "fn alpha() {}");
+}
+
+#[test]
 fn test_without_cpg_context_runs_ast_only() {
     // CpgContext::without_cpg should work for AST-only algorithms
     let source = r#"
@@ -86,7 +106,7 @@ def add(x, y):
 fn cpg_call_edges_exclude_multi_owner_drops_include_demoted() {
     use prism::languages::Language::Rust;
 
-    let cpg = build_cpg(&[
+    let cpg = build_cpg_files(&[
         (
             "a.rs",
             "impl A {\n    fn poll(&self) {}\n}\nimpl OnlyOwner {\n    fn frob(&self) {}\n}\n",
@@ -114,7 +134,7 @@ fn cpg_call_edges_exclude_multi_owner_drops_include_demoted() {
 
 #[test]
 fn cpg_python_method_arg_binds_to_explicit_param_not_receiver() {
-    let cpg = build_cpg(&[(
+    let cpg = build_cpg_files(&[(
         "m.py",
         "class C:\n    def method(self, a):\n        return a\n\ndef call(obj, x):\n    obj.method(x)\n",
         Language::Python,
@@ -137,7 +157,7 @@ fn cpg_python_free_function_with_self_param_keeps_all_args() {
     // Review fix (MAJOR 3): the self/cls receiver skip must be gated on actual
     // method ownership. A FREE function whose first param happens to be named
     // `self` keeps all its params — args must not shift by one.
-    let cpg = build_cpg(&[(
+    let cpg = build_cpg_files(&[(
         // both params used so each gets a var node (an unused param has none).
         "m.py",
         "def helper(self, x):\n    return self + x\n\ndef call(a, b):\n    helper(a, b)\n",
