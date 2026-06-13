@@ -884,3 +884,35 @@ void caller(void) {
         callee_names
     );
 }
+
+#[test]
+fn methods_index_and_side_maps_populated() {
+    let mut files = std::collections::BTreeMap::new();
+    files.insert(
+        "a.rs".to_string(),
+        prism::ast::ParsedFile::parse(
+            "a.rs",
+            "struct Foo;\nimpl Foo {\n    fn m(&self) {}\n}\nimpl Clone for Foo {\n    fn clone(&self) -> Foo { Foo }\n}\nfn free() {}\n",
+            prism::languages::Language::Rust,
+        )
+        .unwrap(),
+    );
+    let cg = prism::call_graph::CallGraph::build(&files);
+    // (owner, name) index
+    assert!(cg
+        .methods
+        .contains_key(&("Foo".to_string(), "m".to_string())));
+    // dual-key: trait impl indexed under the trait too
+    assert!(cg
+        .methods
+        .contains_key(&("Clone".to_string(), "clone".to_string())));
+    assert!(cg
+        .methods
+        .contains_key(&("Foo".to_string(), "clone".to_string())));
+    // side map: owner by FunctionId
+    let m_fid = &cg.functions["m"][0];
+    assert_eq!(cg.method_owners.get(m_fid).map(|s| s.as_str()), Some("Foo"));
+    // free fn absent
+    let free_fid = &cg.functions["free"][0];
+    assert!(!cg.method_owners.contains_key(free_fid));
+}
