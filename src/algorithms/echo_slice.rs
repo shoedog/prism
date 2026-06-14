@@ -171,6 +171,8 @@ pub fn slice(ctx: &CpgContext, diff: &DiffInput) -> Result<SliceResult> {
                 .filter_map(|(idx, depth)| ctx.cpg.to_function_id(idx).map(|id| (id, depth)))
                 .collect();
 
+            // resolved_caller_edges scans every repo call site — compute once, not per caller.
+            let caller_edges = ctx.cpg.call_graph.resolved_caller_edges(func_id);
             for (caller_id, _depth) in &callers {
                 let caller_parsed = match ctx.files.get(&caller_id.file) {
                     Some(f) => f,
@@ -180,11 +182,8 @@ pub fn slice(ctx: &CpgContext, diff: &DiffInput) -> Result<SliceResult> {
                 let caller_source: Vec<&str> = caller_parsed.source.lines().collect();
 
                 // Find call site lines, keeping Exact and NameOnly caller edges.
-                let call_lines: Vec<usize> = ctx
-                    .cpg
-                    .call_graph
-                    .resolved_caller_edges(func_id)
-                    .into_iter()
+                let call_lines: Vec<usize> = caller_edges
+                    .iter()
                     .filter(|edge| edge.caller == *caller_id)
                     .map(|edge| edge.call_site_line)
                     .collect();

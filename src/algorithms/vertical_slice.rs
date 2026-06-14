@@ -201,7 +201,9 @@ pub fn slice(
                         block.add_line(&entry.file, entry.start_line, false);
                         block.add_line(&entry.file, entry.end_line, false);
                         // For the diff function, include actual diff lines
-                        if entry.file == diff_info.file_path && entry.function_name == func_id.name
+                        if entry.file == diff_info.file_path
+                            && entry.function_name == func_id.name
+                            && entry.start_line == func_id.start_line
                         {
                             for &dl in &diff_info.diff_lines {
                                 if dl >= entry.start_line && dl <= entry.end_line {

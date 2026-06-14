@@ -204,7 +204,11 @@ pub fn slice(
             continue;
         }
 
-        // Check if this test file references any changed function
+        // Check if this test file references any changed function.
+        // NOTE: this is a RECALL-biased textual ring — `find_variable_references` matches by
+        // NAME, so a same-named function on another type can be pulled in. The ExactOnly
+        // promise applies to spiral's CALL rings (`callers_of_node`/`callees_of_node`), not
+        // these outer textual reference rings (by design — outer rings widen the net).
         for func_id in &diff_functions {
             let root = parsed.tree.root_node();
             let refs = parsed.find_variable_references(&root, &func_id.name);
@@ -227,8 +231,9 @@ pub fn slice(
     }
 
     // Ring 6: Shared utilities (files imported by multiple changed files)
-    // Heuristic: find files that are referenced from multiple changed files
-    // This is approximate since we don't have full import resolution
+    // Heuristic: find files that are referenced from multiple changed files.
+    // This is approximate since we don't have full import resolution — and, like the test
+    // ring above, it is RECALL-biased (name-based matching, NOT the ExactOnly call-ring promise).
     let changed_files: BTreeSet<&str> = diff.files.iter().map(|f| f.file_path.as_str()).collect();
     for (file_path, parsed) in ctx.files {
         if changed_files.contains(file_path.as_str()) {

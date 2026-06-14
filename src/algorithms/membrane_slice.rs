@@ -66,6 +66,8 @@ pub fn slice(ctx: &CpgContext, diff: &DiffInput) -> Result<SliceResult> {
                 block.add_line(&diff_info.file_path, line, is_diff);
             }
 
+            // resolved_caller_edges scans every repo call site — compute once, not per caller.
+            let caller_edges = ctx.cpg.call_graph.resolved_caller_edges(func_id);
             // Include each cross-file caller with surrounding context
             for (caller_id, _) in &cross_file_callers {
                 if let Some(caller_parsed) = ctx.files.get(&caller_id.file) {
@@ -74,7 +76,7 @@ pub fn slice(ctx: &CpgContext, diff: &DiffInput) -> Result<SliceResult> {
                     block.add_line(&caller_id.file, caller_id.end_line, false);
 
                     // Find the specific call site line(s), keeping Exact and NameOnly.
-                    for edge in ctx.cpg.call_graph.resolved_caller_edges(func_id) {
+                    for edge in &caller_edges {
                         if edge.caller == *caller_id {
                             // Include the call site and a few lines of context
                             let ctx_start = edge.call_site_line.saturating_sub(2);
@@ -87,10 +89,11 @@ pub fn slice(ctx: &CpgContext, diff: &DiffInput) -> Result<SliceResult> {
                         }
                     }
 
-                    // Check if the caller handles errors from the changed function
-                    let caller_func = caller_parsed.find_function_by_name(&caller_id.name);
-                    if let Some(cf) = caller_func {
-                        let (cs, ce) = caller_parsed.node_line_range(&cf);
+                    // Check if the caller handles errors — scan the EXACT caller body by its
+                    // FunctionId range, NOT find_function_by_name (first same-name match), which
+                    // would scan the wrong body in a file with multiple same-named functions.
+                    {
+                        let (cs, ce) = (caller_id.start_line, caller_id.end_line);
                         let caller_source: Vec<&str> = caller_parsed.source.lines().collect();
 
                         // Look for error handling around the call site
@@ -192,7 +195,7 @@ pub fn slice(ctx: &CpgContext, diff: &DiffInput) -> Result<SliceResult> {
                         if !has_error_handling {
                             // Mark the call site as potentially unprotected
                             // (it's already included but highlight it).
-                            for edge in ctx.cpg.call_graph.resolved_caller_edges(func_id) {
+                            for edge in &caller_edges {
                                 if edge.caller == *caller_id {
                                     block.add_line(&caller_id.file, edge.call_site_line, true);
                                     result.findings.push(SliceFinding {

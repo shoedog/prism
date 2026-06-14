@@ -96,6 +96,17 @@ pub fn slice(
                 .iter()
                 .map(|(caller_id, _)| caller_id.clone())
                 .collect();
+            // Exact call-site witnesses for the selected callers, computed ONCE:
+            // resolved_caller_edges scans every repo call site, so hoist it out of the
+            // per-caller loop (results identical — caller_set is loop-invariant).
+            let exact_edges: Vec<_> = ctx
+                .cpg
+                .call_graph
+                .resolved_caller_edges(func_id)
+                .into_iter()
+                .filter(|edge| edge.confidence == ResolutionConfidence::Exact)
+                .filter(|edge| caller_set.contains(&edge.caller))
+                .collect();
             for (caller_id, _depth) in &callers {
                 if barrier_config.barrier_symbols.contains(&caller_id.name) {
                     continue;
@@ -113,18 +124,9 @@ pub fn slice(
                 entry.insert(caller_id.start_line, false);
                 entry.insert(caller_id.end_line, false);
 
-                // Find the specific Exact call-site lines for the selected callers.
-                for edge in ctx
-                    .cpg
-                    .call_graph
-                    .resolved_caller_edges(func_id)
-                    .into_iter()
-                    .filter(|edge| edge.confidence == ResolutionConfidence::Exact)
-                    .filter(|edge| caller_set.contains(&edge.caller))
-                {
-                    if edge.caller == *caller_id {
-                        entry.insert(edge.call_site_line, false);
-                    }
+                // Find the specific Exact call-site lines for this caller.
+                for edge in exact_edges.iter().filter(|edge| edge.caller == *caller_id) {
+                    entry.insert(edge.call_site_line, false);
                 }
             }
 
