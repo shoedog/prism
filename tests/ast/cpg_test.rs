@@ -630,3 +630,64 @@ fn caller(x: &dyn Render) {
         "expected the Exact owner call plus a CHA-upgraded override edge",
     );
 }
+
+#[test]
+fn callers_of_node_filters_by_confidence_and_excludes_seed() {
+    use prism::cpg::query::ConfidenceFilter;
+
+    let cpg = build_cpg_files(&[(
+        "src/lib.rs",
+        r#"
+struct A; struct B;
+impl A { fn run(&self) {} }
+impl B { fn run(&self) {} }
+fn exact_caller(a: A) { a.run(); }       // Exact caller of A::run
+fn nameonly_caller(x: &dyn Run) { x.run(); } // name-only caller (not A::run specifically)
+trait Run { fn run(&self); }
+"#,
+        Language::Rust,
+    )]);
+
+    // Seed = A::run by exact identity (file, name, start_line).
+    let a_run = cpg
+        .function_candidates("src/lib.rs", "run")
+        .into_iter()
+        .find(|&n| cpg.to_function_id(n).is_some())
+        .expect("A::run node");
+    let exact = cpg.callers_of_node(a_run, 2, ConfidenceFilter::ExactOnly);
+    let all = cpg.callers_of_node(a_run, 2, ConfidenceFilter::All);
+    assert!(all.len() >= exact.len(), "All is a superset of ExactOnly");
+    assert!(
+        !exact.iter().any(|(n, _)| *n == a_run),
+        "seed excluded at depth 0"
+    );
+    assert!(
+        exact.iter().all(|(_, d)| *d >= 1),
+        "depths are 1-based for callers"
+    );
+    let all_nodes: std::collections::BTreeSet<_> = all.iter().map(|(n, _)| *n).collect();
+    assert!(
+        exact.iter().all(|(n, _)| all_nodes.contains(n)),
+        "ExactOnly is a subset of All"
+    );
+    assert!(!all.is_empty(), "the typed Exact caller is found under All");
+}
+
+#[test]
+fn function_node_for_id_is_start_line_keyed() {
+    let cpg = build_cpg_files(&[(
+        "src/lib.rs",
+        "fn dup() {}\nmod a { pub fn dup() {} }\n",
+        Language::Rust,
+    )]);
+    let ids: Vec<_> = cpg
+        .call_graph
+        .functions
+        .get("dup")
+        .cloned()
+        .unwrap_or_default();
+    assert!(ids.len() >= 2, "two `dup` defs");
+    let n0 = cpg.function_node_for_id(&ids[0]).unwrap();
+    let n1 = cpg.function_node_for_id(&ids[1]).unwrap();
+    assert_ne!(n0, n1, "distinct nodes by start_line, not first-candidate");
+}

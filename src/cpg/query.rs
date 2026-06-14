@@ -11,6 +11,15 @@ use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
 use super::{CodePropertyGraph, CpgEdge, CpgNode, VarAccess};
 
+/// Confidence filter for node-seeded traversal.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ConfidenceFilter {
+    /// Only traverse Call/Return edges resolved Exact.
+    ExactOnly,
+    /// Traverse all Call/Return edges (today's recall behavior).
+    All,
+}
+
 impl CodePropertyGraph {
     // -----------------------------------------------------------------------
     // Index lookups
@@ -29,6 +38,13 @@ impl CodePropertyGraph {
             .get(&(file.to_string(), name.to_string()))
             .cloned()
             .unwrap_or_default()
+    }
+
+    /// Exact identity lookup keyed by (file, name, start_line), not first-candidate.
+    pub fn function_node_for_id(&self, id: &FunctionId) -> Option<NodeIndex> {
+        self.func_index
+            .get(&(id.file.clone(), id.name.clone(), id.start_line))
+            .copied()
     }
 
     /// Get all node indices at a specific file and line.
@@ -328,6 +344,7 @@ impl CodePropertyGraph {
 
     /// Get all function nodes reachable from the given functions via Call edges.
     /// Returns (NodeIndex, FunctionId) pairs for convenience.
+    /// Recall/by-name path (uses function_node first-candidate); NOT part of the EFT precision migration.
     pub fn call_reachable_functions(
         &self,
         start_func_names: &[(&str, &str)], // (file, name) pairs
@@ -376,6 +393,79 @@ impl CodePropertyGraph {
         None
     }
 
+    fn confidence_ok(w: &CpgEdge, f: ConfidenceFilter) -> bool {
+        use crate::resolution::ResolutionConfidence::Exact;
+
+        match f {
+            ConfidenceFilter::All => true,
+            ConfidenceFilter::ExactOnly => {
+                matches!(w, CpgEdge::Call(Exact) | CpgEdge::Return(Exact))
+            }
+        }
+    }
+
+    /// BFS over Return edges (callee to caller) from a node seed, confidence-filtered.
+    /// Returns (caller node, depth); seed excluded; deduped by node.
+    pub fn callers_of_node(
+        &self,
+        callee: NodeIndex,
+        max_depth: usize,
+        filter: ConfidenceFilter,
+    ) -> Vec<(NodeIndex, usize)> {
+        self.bfs_interproc(callee, max_depth, filter, false)
+    }
+
+    /// BFS over Call edges (caller to callee) from a node seed, confidence-filtered.
+    /// Returns (callee node, depth); seed excluded; deduped by node.
+    pub fn callees_of_node(
+        &self,
+        caller: NodeIndex,
+        max_depth: usize,
+        filter: ConfidenceFilter,
+    ) -> Vec<(NodeIndex, usize)> {
+        self.bfs_interproc(caller, max_depth, filter, true)
+    }
+
+    fn bfs_interproc(
+        &self,
+        seed: NodeIndex,
+        max_depth: usize,
+        filter: ConfidenceFilter,
+        forward: bool,
+    ) -> Vec<(NodeIndex, usize)> {
+        let mut result = Vec::new();
+        let mut visited: BTreeSet<NodeIndex> = BTreeSet::new();
+        let mut queue: VecDeque<(NodeIndex, usize)> = VecDeque::new();
+        queue.push_back((seed, 0));
+        visited.insert(seed);
+
+        while let Some((node, depth)) = queue.pop_front() {
+            if depth > 0 {
+                result.push((node, depth));
+            }
+
+            if depth >= max_depth {
+                continue;
+            }
+
+            for edge in self.graph.edges(node) {
+                let keep = if forward {
+                    matches!(edge.weight(), CpgEdge::Call(_))
+                } else {
+                    matches!(edge.weight(), CpgEdge::Return(_))
+                };
+                if keep && Self::confidence_ok(edge.weight(), filter) {
+                    let next = edge.target();
+                    if visited.insert(next) {
+                        queue.push_back((next, depth + 1));
+                    }
+                }
+            }
+        }
+
+        result
+    }
+
     /// Find all callers of a function by name, up to a given depth.
     /// Returns (FunctionId, depth) pairs. Equivalent to `CallGraph::callers_of()`.
     pub fn callers_of(&self, func_name: &str, max_depth: usize) -> Vec<(FunctionId, usize)> {
@@ -419,6 +509,7 @@ impl CodePropertyGraph {
 
     /// Find all callees of a function by name and file, up to a given depth.
     /// Returns (FunctionId, depth) pairs. Equivalent to `CallGraph::callees_of()`.
+    /// Recall/by-name path (uses function_node first-candidate); NOT part of the EFT precision migration.
     pub fn callees_of(
         &self,
         func_name: &str,

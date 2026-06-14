@@ -18,7 +18,7 @@
 mod build;
 mod cfg_queries;
 mod context;
-mod query;
+pub mod query;
 #[cfg(test)]
 mod tests;
 mod trace;
