@@ -17,6 +17,47 @@ fn expect_hit(result: CacheResult) -> CodePropertyGraph {
 // ---------------------------------------------------------------------------
 
 #[test]
+fn cache_v6_round_trips_edge_confidence() {
+    use prism::cpg::CpgEdge;
+    use prism::resolution::ResolutionConfidence;
+
+    let mut sources = std::collections::BTreeMap::new();
+    sources.insert(
+        "src/lib.rs".to_string(),
+        "struct A;\nimpl A { fn run(&self) {} }\nfn c(a: A) { a.run(); }\n".to_string(),
+    );
+    let mut files = std::collections::BTreeMap::new();
+    for (path, src) in &sources {
+        files.insert(
+            path.clone(),
+            ParsedFile::parse(path, src, Language::Rust).unwrap(),
+        );
+    }
+    let ctx = CpgContext::build(&files, None);
+    let count_exact = |cpg: &CodePropertyGraph| {
+        cpg.graph
+            .edge_weights()
+            .filter(|w| matches!(w, CpgEdge::Call(ResolutionConfidence::Exact)))
+            .count()
+    };
+    let before = count_exact(&ctx.cpg);
+    assert!(
+        before >= 1,
+        "typed-receiver call should yield a Call(Exact) edge"
+    );
+
+    let cache_dir = TempDir::new().unwrap();
+    let hashes = cpg_cache::compute_file_hashes(&sources);
+    cpg_cache::save_cache(&ctx.cpg, &hashes, false, cache_dir.path()).unwrap();
+    let loaded = expect_hit(cpg_cache::load_cache(&hashes, false, cache_dir.path()));
+    assert_eq!(
+        before,
+        count_exact(&loaded),
+        "Call(Exact) confidence must survive the v6 cache round-trip"
+    );
+}
+
+#[test]
 fn test_cache_round_trip_python() {
     let (files, sources, diff) = make_python_test();
 
