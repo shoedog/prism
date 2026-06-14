@@ -568,11 +568,17 @@ impl CodePropertyGraph {
                 }
             }
 
-            // Assignment propagation: Use on line N → find Defs on same line
+            // Assignment propagation: Use on line N → find Defs on the SAME line AND the SAME
+            // function. Filtering on `(function, function_start_line)` (not just `(file,line)`)
+            // is the S2 de-conflation guard: minified / same-line code can host two functions on
+            // one line, and a bare `(file,line)` match leaks the Use's taint into the other
+            // function's Def (S2 full-branch review BLOCKER). Mirrors trace.rs::taint_neighbors.
             if let CpgNode::Variable {
                 access: VarAccess::Use,
                 file,
                 line,
+                function,
+                function_start_line,
                 ..
             } = &self.graph[node]
             {
@@ -580,10 +586,15 @@ impl CodePropertyGraph {
                     for &other in nodes_at {
                         if let CpgNode::Variable {
                             access: VarAccess::Def,
+                            function: def_fn,
+                            function_start_line: def_fsl,
                             ..
                         } = &self.graph[other]
                         {
-                            if !visited.contains(&other) {
+                            if def_fn == function
+                                && def_fsl == function_start_line
+                                && !visited.contains(&other)
+                            {
                                 queue.push_back(other);
                             }
                         }

@@ -36,3 +36,42 @@ span-*quality* or coverage refinements. Priority L unless noted.
    `tests/algo/*` (via `make_python_test`). `coverage_test::*` (all 4) and
    `umbrella_completeness_test` pass as-is (the new files are registered in their lang
    `main.rs`), so the matrix does not under-report.
+
+## Full-branch review (codex xhigh) — deferred (out of S2 spec scope)
+
+The S2 full-branch review (`docs/prism-query-layer/s2-full-branch-review-2026-06-13.md`)
+found 2 BLOCKERs + 5 MAJOR/MINOR. **Three were in-scope and FIXED** (BLOCKER 2 same-line
+`dfg_forward_reachable` cross-function leak; MAJOR `nodes_at` enclosing-function
+line/byte coherence; MAJOR synthetic-`CallSite` source-span). These four are deferred
+because the spec deliberately kept the name-based query/resolution APIs (§5) — they are
+**pre-existing imprecisions S2 enables fixing, not S2 regressions**, each additively
+fixable (no costly refactor):
+
+4. **Exact-`FunctionId` algorithm traversal** (reviewer-labeled BLOCKER). Priority **M**.
+   `callers_of`/`callees_of` stayed name-based (spec §5), so `vertical_slice` /
+   `threed_slice` / `barrier_slice` traverse by name and union/pick overloads — imprecise
+   for same-name functions. *Pre-S2 was last-writer-wins (also imprecise); S2's node
+   identity now ENABLES exact traversal but doesn't deliver it.* *Fix:* add
+   `callers_of_node(NodeIndex)` / `callees_of_node` exact APIs and migrate those algorithms
+   (`function_at` → node → exact traversal). The natural next increment after S2.
+
+5. **CallSite byte in nav `Reason::Calls`/`CalledBy`.** Priority **L**. Spec §5 said the
+   call span "may additively" surface on call evidence; it doesn't yet, so two same-line
+   duplicate calls serialize indistinguishably in nav evidence (the CPG-level de-collapse
+   from Task 8 IS in place; only the nav projection is missing). *Fix:* add a call-site
+   `Location`/byte to those `Reason`s + include in ordering/dedup.
+
+6. **Level-3 parameter-passed function-pointer resolution is name-only.** Priority **L**.
+   `call_graph.rs` resolves the caller via `find_function_by_name(&caller_id.name)` /
+   `callers.get(&caller_id.name)`, mixing same-name functions with different callback
+   params. Indirect-call resolution (S3 / Phase-IP territory), pre-existing. *Fix:* resolve
+   the caller by `(file, name, start_line)`.
+
+7. **`CpgNode` equality excludes byte → `assert_eq!`/snapshots blind to span corruption.**
+   Priority **L**. Deliberate (byte is additive identity), mitigated by `node_byte_dump` +
+   the per-language span tests. *Optional:* add a byte-sensitive identity helper for tests.
+
+8. **Span-bearing extractors duplicate the line-only traversal logic** (two sources of
+   truth; future grammar support could diverge). Priority **L**. The sibling-API trade-off
+   (chosen to avoid breaking line-only callers). *Fix:* make the span-bearing records the
+   source of truth and project the line-only APIs from them.
