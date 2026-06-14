@@ -366,16 +366,18 @@ impl DataFlowGraph {
                         if let Some(resolved_str) = alias_map.get(alias) {
                             let resolved_ap = AccessPath::from_expr(resolved_str);
                             if resolved_ap.has_fields() {
+                                let anchor = parsed.line_start_byte(*alias_line);
                                 let loc = VarLocation {
                                     file: file_path.clone(),
                                     function: func_name.clone(),
                                     function_start_line: start,
                                     line: *alias_line,
                                     path: resolved_ap.clone(),
-                                    start_byte: parsed.line_start_byte(*alias_line),
-                                    end_byte: parsed.line_start_byte(*alias_line),
+                                    start_byte: anchor,
+                                    end_byte: anchor,
                                     kind: VarAccessKind::Def,
                                 };
+                                debug_assert_eq!(loc.start_byte, loc.end_byte);
                                 defs.entry((
                                     file_path.clone(),
                                     func_name.clone(),
@@ -428,16 +430,18 @@ impl DataFlowGraph {
                         if !allow {
                             return None;
                         }
+                        let anchor = parsed.line_start_byte(ref_line);
                         let use_loc = VarLocation {
                             file: file_path.clone(),
                             function: func_name.clone(),
                             function_start_line: start,
                             line: ref_line,
                             path: path.clone(),
-                            start_byte: parsed.line_start_byte(ref_line),
-                            end_byte: parsed.line_start_byte(ref_line),
+                            start_byte: anchor,
+                            end_byte: anchor,
                             kind: VarAccessKind::Use,
                         };
+                        debug_assert_eq!(use_loc.start_byte, use_loc.end_byte);
                         uses.entry((file_path.clone(), func_name.clone(), start, path.clone()))
                             .or_default()
                             .push(use_loc.clone());

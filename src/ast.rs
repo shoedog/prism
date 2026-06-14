@@ -2138,15 +2138,8 @@ impl ParsedFile {
                 end_byte: node.end_byte(),
             });
 
-            let base_node = node
-                .child_by_field_name("argument")
-                .or_else(|| node.child_by_field_name("object"))
-                .or_else(|| node.child_by_field_name("operand"))
-                .or_else(|| node.named_child(0));
-            if let Some(base) = base_node {
-                if self.language.is_identifier_node(base.kind()) {
-                    self.push_identifier_path_span(base, out);
-                }
+            if let Some(base) = self.leftmost_receiver_identifier(node) {
+                self.push_identifier_path_span(base, out);
             }
             return;
         }
@@ -2157,6 +2150,24 @@ impl ParsedFile {
         let mut cursor = node.walk();
         for child in node.children(&mut cursor) {
             self.collect_identifier_path_spans(child, out);
+        }
+    }
+
+    fn leftmost_receiver_identifier<'a>(&self, mut node: Node<'a>) -> Option<Node<'a>> {
+        loop {
+            let receiver = node
+                .child_by_field_name("argument")
+                .or_else(|| node.child_by_field_name("object"))
+                .or_else(|| node.child_by_field_name("operand"))
+                .or_else(|| node.named_child(0))?;
+            if Self::is_field_access_node(receiver.kind()) {
+                node = receiver;
+                continue;
+            }
+            return self
+                .language
+                .is_identifier_node(receiver.kind())
+                .then_some(receiver);
         }
     }
 

@@ -45,6 +45,58 @@ fn two_calls_one_line_bind_their_own_args() {
 }
 
 #[test]
+fn nested_augmented_base_peels_to_leftmost() {
+    let source = concat!(
+        "struct C { config: Cfg }\n",
+        "struct Cfg { timeout: i32 }\n",
+        "fn f(mut o: C) { o.config.timeout += 1; }\n",
+    );
+    let parsed = ParsedFile::parse("src/lib.rs", source, Language::Rust).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert("src/lib.rs".to_string(), parsed);
+
+    let dfg = DataFlowGraph::build(&files);
+    let has_leftmost_o_use = dfg.uses.values().any(|locs| {
+        locs.iter().any(|loc| {
+            loc.path == AccessPath::simple("o") && loc.kind == prism::data_flow::VarAccessKind::Use
+        })
+    });
+
+    assert!(
+        has_leftmost_o_use,
+        "`o.config.timeout += 1` should emit a Use of leftmost base `o`"
+    );
+}
+
+#[test]
+fn line_collapsed_reference_start_eq_end() {
+    let source = "fn f(x: i32) {\n    if x > 0 {}\n}\n";
+    let parsed = ParsedFile::parse("src/lib.rs", source, Language::Rust).unwrap();
+    let mut files = BTreeMap::new();
+    files.insert("src/lib.rs".to_string(), parsed);
+
+    let dfg = DataFlowGraph::build(&files);
+    let parsed = files.get("src/lib.rs").unwrap();
+    let collapsed_refs: Vec<_> = dfg
+        .uses
+        .values()
+        .flat_map(|locs| locs.iter())
+        .filter(|loc| loc.start_byte == parsed.line_start_byte(loc.line))
+        .collect();
+
+    assert!(
+        !collapsed_refs.is_empty(),
+        "expected at least one line-collapsed reference"
+    );
+    assert!(
+        collapsed_refs
+            .iter()
+            .all(|loc| loc.start_byte == loc.end_byte),
+        "line-collapsed references must be zero-width anchors: {collapsed_refs:?}"
+    );
+}
+
+#[test]
 fn test_dfg_field_qualified_paths_created() {
     // Verify that the DFG creates AccessPath entries with field chains,
     // not just bare base names.
