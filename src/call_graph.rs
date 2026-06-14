@@ -436,9 +436,9 @@ impl CallGraph {
                                 caller: caller_id.clone(),
                                 callee_name: target.clone(),
                                 line: site.line,
-                                // Synthesized indirect edge: no concrete call node span.
-                                start_byte: 0,
-                                end_byte: 0,
+                                // S2: carry the source call site span so same-line indirect dups don't collapse (review MAJOR).
+                                start_byte: site.start_byte,
+                                end_byte: site.end_byte,
                                 qualifier: None,
                                 receiver_type: None,
                                 receiver_recovery: None,
@@ -466,9 +466,9 @@ impl CallGraph {
                                 caller: caller_id.clone(),
                                 callee_name: resolved,
                                 line: site.line,
-                                // Synthesized indirect edge: no concrete call node span.
-                                start_byte: 0,
-                                end_byte: 0,
+                                // S2: carry the source call site span so same-line indirect dups don't collapse (review MAJOR).
+                                start_byte: site.start_byte,
+                                end_byte: site.end_byte,
                                 qualifier: None,
                                 receiver_type: None,
                                 receiver_recovery: None,
@@ -549,9 +549,9 @@ impl CallGraph {
                                     caller: caller_id.clone(),
                                     callee_name: target.clone(),
                                     line: site.line,
-                                    // Synthesized indirect edge: no concrete call node span.
-                                    start_byte: 0,
-                                    end_byte: 0,
+                                    // S2: carry the source call site span so same-line indirect dups don't collapse (review MAJOR).
+                                    start_byte: site.start_byte,
+                                    end_byte: site.end_byte,
                                     qualifier: None,
                                     receiver_type: None,
                                     receiver_recovery: None,
@@ -642,9 +642,9 @@ impl CallGraph {
                                         caller: caller_id.clone(),
                                         callee_name: arg_text,
                                         line: site.line,
-                                        // Synthesized indirect edge: no concrete call node span.
-                                        start_byte: 0,
-                                        end_byte: 0,
+                                        // S2: carry the source call site span so same-line indirect dups don't collapse (review MAJOR).
+                                        start_byte: site.start_byte,
+                                        end_byte: site.end_byte,
                                         qualifier: None,
                                         receiver_type: None,
                                         receiver_recovery: None,
@@ -665,9 +665,9 @@ impl CallGraph {
                                             caller: caller_id.clone(),
                                             callee_name: resolved,
                                             line: site.line,
-                                            // Synthesized indirect edge: no concrete call node span.
-                                            start_byte: 0,
-                                            end_byte: 0,
+                                            // S2: carry the source call site span so same-line indirect dups don't collapse (review MAJOR).
+                                            start_byte: site.start_byte,
+                                            end_byte: site.end_byte,
                                             qualifier: None,
                                             receiver_type: None,
                                             receiver_recovery: None,

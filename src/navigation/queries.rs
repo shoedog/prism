@@ -193,10 +193,14 @@ pub fn nodes_at(s: &NavigationSession, file: &str, line: usize) -> Evidence {
             };
             items.push(EvidenceItem {
                 symbol: Some(func.clone()),
+                // The enclosing-function evidence's Location mirrors the function's FULL span so
+                // line and byte coordinates are coherent (S2 review MAJOR: queried-line + full-
+                // function bytes was incoherent). The queried line is the query input, not the
+                // evidence extent; the symbol + location both describe the function.
                 location: Location {
                     file: f.clone(),
-                    start_line: line,
-                    end_line: line,
+                    start_line: *start_line,
+                    end_line: *end_line,
                     start_byte: *start_byte,
                     end_byte: *end_byte,
                 },

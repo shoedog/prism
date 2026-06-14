@@ -373,3 +373,30 @@ void main() {
         "Stack allocation should count as instantiation"
     );
 }
+
+// S2 full-branch review BLOCKER 2: dfg_forward_reachable's same-line Use->Def propagation
+// must stay within the Use's function. Two functions on ONE minified line — a Use in `a`
+// must not leak to a Def in `b` via the (file,line) bucket.
+#[test]
+fn dfg_forward_reachable_does_not_leak_across_same_line_functions() {
+    use prism::access_path::AccessPath;
+    use prism::data_flow::{VarAccessKind, VarLocation};
+
+    let src = "fn a() { let x = src(); sink(x); } fn b() { let y = src(); sink(y); }\n";
+    let cpg = build_rust_cpg(src);
+    let seed = VarLocation {
+        file: "test.rs".into(),
+        function: "a".into(),
+        function_start_line: 1,
+        line: 1,
+        path: AccessPath::simple("x"),
+        start_byte: 0,
+        end_byte: 0,
+        kind: VarAccessKind::Use,
+    };
+    let reached = cpg.dfg_forward_reachable(&seed);
+    assert!(
+        reached.iter().all(|l| l.function == "a"),
+        "forward reachability leaked out of a() into another same-line function: {reached:?}"
+    );
+}
