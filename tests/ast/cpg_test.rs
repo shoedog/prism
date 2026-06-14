@@ -516,6 +516,26 @@ fn exact_caller(a: A) { a.run(); }      // typed receiver -> Exact
     );
 }
 
+#[test]
+fn resolved_caller_edges_carry_confidence_and_line() {
+    let cpg = build_cpg_files(&[(
+        "src/lib.rs",
+        "struct A;\nimpl A { fn run(&self) {} }\nfn c(a: A) {\n    a.run();\n}\n",
+        Language::Rust,
+    )]);
+    let a_run = cpg.call_graph.functions.get("run").unwrap()[0].clone();
+    let edges = cpg.call_graph.resolved_caller_edges(&a_run);
+
+    assert!(
+        edges.iter().any(|e| {
+            e.caller.name == "c"
+                && e.call_site_line == 4
+                && e.confidence == prism::resolution::ResolutionConfidence::Exact
+        }),
+        "expected Exact caller edge from c at line 4, got {edges:?}"
+    );
+}
+
 fn build_rust_cpg_with_virtual_methods(files: &[(&str, &str)]) -> CodePropertyGraph {
     use prism::type_db::{RecordInfo, RecordKind, TypeDatabase};
 

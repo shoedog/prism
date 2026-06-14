@@ -61,6 +61,14 @@ pub struct ResolvedCallee<'a> {
     pub kind: ResolutionKind,
 }
 
+/// A resolved caller edge: who calls the seed, with what confidence, at which line.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ResolvedCallEdge {
+    pub caller: FunctionId,
+    pub call_site_line: usize,
+    pub confidence: ResolutionConfidence,
+}
+
 /// Normalize an owner type's source text to its bare index key:
 /// strip refs/pointers, smart-pointer wrappers are NOT peeled here (that is
 /// receiver peeling, `peel_type`), strip generic args, strip `dyn `/`impl `.
@@ -547,6 +555,26 @@ impl CallGraph {
 
     pub fn resolve_call_site(&self, site: &CallSite) -> Vec<ResolvedCallee<'_>> {
         self.resolve_call_site_full(site).resolved
+    }
+
+    /// All call sites that resolve to `callee`, with caller, line, and confidence.
+    /// The site-line source for slice witnesses; CPG edges carry no line.
+    pub fn resolved_caller_edges(&self, callee: &FunctionId) -> Vec<ResolvedCallEdge> {
+        let mut out = Vec::new();
+        for sites in self.calls.values() {
+            for site in sites {
+                for r in self.resolve_call_site(site) {
+                    if r.target == callee {
+                        out.push(ResolvedCallEdge {
+                            caller: site.caller.clone(),
+                            call_site_line: site.line,
+                            confidence: r.confidence,
+                        });
+                    }
+                }
+            }
+        }
+        out
     }
 }
 
