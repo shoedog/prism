@@ -3,6 +3,7 @@ use crate::cpg::{CpgEdge, CpgNode};
 use crate::navigation::seed;
 use crate::navigation::types::*;
 use crate::navigation::NavigationSession;
+use crate::resolution::ResolutionConfidence;
 use petgraph::graph::NodeIndex;
 use petgraph::visit::EdgeRef;
 use petgraph::Direction;
@@ -267,6 +268,17 @@ pub fn callers(
     location: Option<&str>,
     depth: usize,
 ) -> Result<Evidence, QueryError> {
+    callers_with_confidence(s, symbol, file, location, depth, false)
+}
+
+pub fn callers_with_confidence(
+    s: &NavigationSession,
+    symbol: Option<&str>,
+    file: Option<&str>,
+    location: Option<&str>,
+    depth: usize,
+    exact_only: bool,
+) -> Result<Evidence, QueryError> {
     let resolved = seed::resolve_fn(s, symbol, file, location)?;
     let target = fid_of(&resolved.symbol);
     let target_for_warning = target.clone();
@@ -280,6 +292,9 @@ pub fn callers(
         let mut next = Vec::new();
         for fid in &frontier {
             for (caller, edge) in direct_callers(s, fid) {
+                if exact_only && edge.confidence != ResolutionConfidence::Exact {
+                    continue;
+                }
                 let (start_byte, end_byte) = function_bytes(s, &caller);
                 // One item PER CALL SITE (m7 symmetry with callees); `visited` only gates BFS recursion.
                 items.push(EvidenceItem {
@@ -387,6 +402,17 @@ pub fn callees(
     location: Option<&str>,
     depth: usize,
 ) -> Result<Evidence, QueryError> {
+    callees_with_confidence(s, symbol, file, location, depth, false)
+}
+
+pub fn callees_with_confidence(
+    s: &NavigationSession,
+    symbol: Option<&str>,
+    file: Option<&str>,
+    location: Option<&str>,
+    depth: usize,
+    exact_only: bool,
+) -> Result<Evidence, QueryError> {
     let resolved = seed::resolve_fn(s, symbol, file, location)?;
     let seed_fid = fid_of(&resolved.symbol);
     let query = format!("callees:{}@{}", seed_fid.name, seed_fid.file); // @file identity (R3-M4)
@@ -399,6 +425,13 @@ pub fn callees(
         let mut next = Vec::new();
         for fid in &frontier {
             for (edge, callee_name, line, qualifier) in direct_callees(s, fid) {
+                if exact_only
+                    && !edge
+                        .as_ref()
+                        .map_or(false, |e| e.confidence == ResolutionConfidence::Exact)
+                {
+                    continue;
+                }
                 let def = edge.as_ref().map(|e| e.target);
                 let (sym, loc) = match &def {
                     Some(d) => {

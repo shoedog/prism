@@ -249,6 +249,8 @@ enum NavQuery {
         location: Option<String>,
         #[arg(long, default_value_t = 1)]
         depth: usize,
+        #[arg(long, default_value = "all", value_parser = ["exact", "all"])]
+        confidence: String,
         #[arg(long, default_value = "text", value_parser = ["text", "json"])]
         format: String,
     },
@@ -263,6 +265,8 @@ enum NavQuery {
         location: Option<String>,
         #[arg(long, default_value_t = 1)]
         depth: usize,
+        #[arg(long, default_value = "all", value_parser = ["exact", "all"])]
+        confidence: String,
         #[arg(long, default_value = "text", value_parser = ["text", "json"])]
         format: String,
     },
@@ -342,15 +346,18 @@ fn run_nav(nav: &NavArgs) -> anyhow::Result<()> {
             file,
             location,
             depth,
+            confidence,
             format,
         } => {
             let session = build_session(repo, nav.no_cache, nav.cache_dir.as_deref())?;
-            match prism::navigation::queries::callers(
+            let exact = confidence == "exact";
+            match prism::navigation::queries::callers_with_confidence(
                 &session,
                 symbol.as_deref(),
                 file.as_deref(),
                 location.as_deref(),
                 *depth,
+                exact,
             ) {
                 Ok(ev) => {
                     println!("{}", prism::output::navigation::render(&ev, format));
@@ -369,15 +376,18 @@ fn run_nav(nav: &NavArgs) -> anyhow::Result<()> {
             file,
             location,
             depth,
+            confidence,
             format,
         } => {
             let session = build_session(repo, nav.no_cache, nav.cache_dir.as_deref())?;
-            match prism::navigation::queries::callees(
+            let exact = confidence == "exact";
+            match prism::navigation::queries::callees_with_confidence(
                 &session,
                 symbol.as_deref(),
                 file.as_deref(),
                 location.as_deref(),
                 *depth,
+                exact,
             ) {
                 Ok(ev) => {
                     println!("{}", prism::output::navigation::render(&ev, format));
