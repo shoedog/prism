@@ -1,6 +1,7 @@
 use super::*;
 use crate::ast::ParsedFile;
 use crate::languages::Language;
+use crate::resolution::ResolutionConfidence;
 use crate::type_db::{FieldInfo, RecordInfo, RecordKind, TypeDatabase, TypedefInfo};
 
 fn build_python_cpg(src: &str) -> CodePropertyGraph {
@@ -707,9 +708,9 @@ fn test_cpg_node_equality_excludes_byte_spans() {
 #[test]
 fn test_edge_classification() {
     assert!(CpgEdge::DataFlow.is_data_flow());
-    assert!(!CpgEdge::Call.is_data_flow());
-    assert!(CpgEdge::Call.is_interprocedural());
-    assert!(CpgEdge::Return.is_interprocedural());
+    assert!(!CpgEdge::Call(ResolutionConfidence::Exact).is_data_flow());
+    assert!(CpgEdge::Call(ResolutionConfidence::Exact).is_interprocedural());
+    assert!(CpgEdge::Return(ResolutionConfidence::Exact).is_interprocedural());
     assert!(!CpgEdge::DataFlow.is_interprocedural());
     assert!(!CpgEdge::Contains.is_interprocedural());
     assert!(!CpgEdge::FieldOf.is_interprocedural());
@@ -895,14 +896,14 @@ void caller() {
     let caller_idx = cpg.function_node(path, "caller").unwrap();
     let callee_idx = cpg.function_node(path, "callee").unwrap();
 
-    let call_reachable = cpg.reachable_forward(caller_idx, &|e| matches!(e, CpgEdge::Call));
+    let call_reachable = cpg.reachable_forward(caller_idx, &|e| matches!(e, CpgEdge::Call(_)));
     assert!(
         call_reachable.contains(&callee_idx),
         "caller should reach callee via Call edge"
     );
 
     // Check callee → caller Return edge
-    let return_reachable = cpg.reachable_forward(callee_idx, &|e| matches!(e, CpgEdge::Return));
+    let return_reachable = cpg.reachable_forward(callee_idx, &|e| matches!(e, CpgEdge::Return(_)));
     assert!(
         return_reachable.contains(&caller_idx),
         "callee should reach caller via Return edge"
@@ -967,7 +968,7 @@ void main_func() {
     let helper_idx = cpg.function_node(path, "helper").unwrap();
 
     // Call-only should reach helper
-    let call_reach = cpg.reachable_forward(main_idx, &|e| matches!(e, CpgEdge::Call));
+    let call_reach = cpg.reachable_forward(main_idx, &|e| matches!(e, CpgEdge::Call(_)));
     assert!(call_reach.contains(&helper_idx));
 
     // DataFlow-only from main_func should NOT reach helper function node
@@ -1037,7 +1038,7 @@ void c() {
     let b_idx = cpg.function_node(path, "b").unwrap();
     let c_idx = cpg.function_node(path, "c").unwrap();
 
-    let distances = cpg.bfs_with_distance(&[a_idx], 5, &|e| matches!(e, CpgEdge::Call));
+    let distances = cpg.bfs_with_distance(&[a_idx], 5, &|e| matches!(e, CpgEdge::Call(_)));
 
     assert_eq!(distances.get(&a_idx), Some(&0));
     assert_eq!(distances.get(&b_idx), Some(&1));

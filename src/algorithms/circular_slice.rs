@@ -115,7 +115,8 @@ pub fn slice(ctx: &CpgContext, diff: &DiffInput) -> Result<SliceResult> {
                     let next_func_idx = cycle[(pos + 1) % cycle.len()];
                     // Check all Call edges from this function
                     for edge in ctx.cpg.graph.edges(func_idx) {
-                        if matches!(edge.weight(), CpgEdge::Call) && edge.target() == next_func_idx
+                        if matches!(edge.weight(), CpgEdge::Call(_))
+                            && edge.target() == next_func_idx
                         {
                             // The call site is at the caller's call graph construction.
                             // We include the callee's start line as the call target indicator.
@@ -157,7 +158,7 @@ pub fn slice(ctx: &CpgContext, diff: &DiffInput) -> Result<SliceResult> {
             for &from_idx in cycle {
                 if let Some(from_id) = node_id_for_idx.get(&from_idx) {
                     for edge in ctx.cpg.graph.edges(from_idx) {
-                        if matches!(edge.weight(), CpgEdge::Call)
+                        if matches!(edge.weight(), CpgEdge::Call(_))
                             && node_id_for_idx.contains_key(&edge.target())
                         {
                             if let Some(to_id) = node_id_for_idx.get(&edge.target()) {

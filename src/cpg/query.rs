@@ -200,7 +200,7 @@ impl CodePropertyGraph {
     /// Find SCCs in the call graph (Call edges only).
     /// Returns cycles as lists of function node indices.
     pub fn call_graph_cycles(&self) -> Vec<Vec<NodeIndex>> {
-        self.strongly_connected_components(&|e| matches!(e, CpgEdge::Call))
+        self.strongly_connected_components(&|e| matches!(e, CpgEdge::Call(_)))
     }
 
     /// Find SCCs in the data flow graph (DataFlow edges only).
@@ -339,7 +339,7 @@ impl CodePropertyGraph {
             .collect();
 
         for &start in &starts {
-            let reachable = self.reachable_forward(start, &|e| matches!(e, CpgEdge::Call));
+            let reachable = self.reachable_forward(start, &|e| matches!(e, CpgEdge::Call(_)));
             for idx in reachable {
                 if let Some(fid) = self.to_function_id(idx) {
                     result.push((idx, fid));
@@ -404,7 +404,7 @@ impl CodePropertyGraph {
 
             // Follow Return edges (callee → caller) to find callers
             for edge in self.graph.edges(node) {
-                if matches!(edge.weight(), CpgEdge::Return) {
+                if matches!(edge.weight(), CpgEdge::Return(_)) {
                     let caller_idx = edge.target();
                     if !visited.contains(&caller_idx) {
                         visited.insert(caller_idx);
@@ -448,7 +448,7 @@ impl CodePropertyGraph {
 
             // Follow Call edges to find callees
             for edge in self.graph.edges(node) {
-                if matches!(edge.weight(), CpgEdge::Call) {
+                if matches!(edge.weight(), CpgEdge::Call(_)) {
                     let callee_idx = edge.target();
                     if !visited.contains(&callee_idx) {
                         visited.insert(callee_idx);
@@ -498,7 +498,7 @@ impl CodePropertyGraph {
             }
 
             for edge in self.graph.edges(node) {
-                if matches!(edge.weight(), CpgEdge::Return) {
+                if matches!(edge.weight(), CpgEdge::Return(_)) {
                     let caller_idx = edge.target();
                     if !visited.contains(&caller_idx) {
                         visited.insert(caller_idx);

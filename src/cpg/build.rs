@@ -6,6 +6,7 @@ use crate::access_path::AccessPath;
 use crate::call_graph::CallGraph;
 use crate::cfg;
 use crate::data_flow::{DataFlowGraph, VarAccessKind};
+use crate::resolution::ResolutionConfidence;
 use crate::type_db::TypeDatabase;
 
 use petgraph::graph::{DiGraph, NodeIndex};
@@ -366,8 +367,12 @@ impl CodePropertyGraph {
                         callee_id.start_line,
                     );
                     if let Some(&callee_idx) = func_index.get(&callee_key) {
-                        graph.add_edge(caller_idx, callee_idx, CpgEdge::Call);
-                        graph.add_edge(callee_idx, caller_idx, CpgEdge::Return);
+                        graph.add_edge(caller_idx, callee_idx, CpgEdge::Call(resolved.confidence));
+                        graph.add_edge(
+                            callee_idx,
+                            caller_idx,
+                            CpgEdge::Return(resolved.confidence),
+                        );
                     }
                 }
             }
@@ -538,7 +543,7 @@ impl CodePropertyGraph {
             for &caller_idx in &all_func_nodes {
                 let callees: Vec<_> = graph
                     .edges(caller_idx)
-                    .filter(|e| matches!(e.weight(), CpgEdge::Call))
+                    .filter(|e| matches!(e.weight(), CpgEdge::Call(_)))
                     .map(|e| e.target())
                     .collect();
                 for callee_idx in callees {
@@ -560,10 +565,10 @@ impl CodePropertyGraph {
             for (from, to) in &virtual_edges {
                 let already_exists = graph
                     .edges(*from)
-                    .any(|e| e.target() == *to && matches!(e.weight(), CpgEdge::Call));
+                    .any(|e| e.target() == *to && matches!(e.weight(), CpgEdge::Call(_)));
                 if !already_exists {
-                    graph.add_edge(*from, *to, CpgEdge::Call);
-                    graph.add_edge(*to, *from, CpgEdge::Return);
+                    graph.add_edge(*from, *to, CpgEdge::Call(ResolutionConfidence::Exact));
+                    graph.add_edge(*to, *from, CpgEdge::Return(ResolutionConfidence::Exact));
                 }
             }
         }

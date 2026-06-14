@@ -486,8 +486,8 @@ fn edge_kind(e: &CpgEdge) -> &'static str {
     match e {
         CpgEdge::DataFlow => "DataFlow",
         CpgEdge::ControlFlow => "ControlFlow",
-        CpgEdge::Call => "Call",
-        CpgEdge::Return => "Return",
+        CpgEdge::Call(_) => "Call",
+        CpgEdge::Return(_) => "Return",
         CpgEdge::Contains => "Contains",
         CpgEdge::FieldOf => "FieldOf",
     }

@@ -485,3 +485,33 @@ fn cpg_build_is_deterministic() {
         node_byte_dump(&build_python_cpg(src))
     );
 }
+
+#[test]
+fn call_edge_carries_resolution_confidence() {
+    // Two same-named methods; a typed receiver call should materialize as Exact.
+    use prism::cpg::CpgEdge;
+    use prism::resolution::ResolutionConfidence;
+
+    let cpg = build_cpg_files(&[(
+        "src/lib.rs",
+        r#"
+struct A; struct B;
+impl A { fn run(&self) {} }
+impl B { fn run(&self) {} }
+fn exact_caller(a: A) { a.run(); }      // typed receiver -> Exact
+"#,
+        Language::Rust,
+    )]);
+    let confs: Vec<ResolutionConfidence> = cpg
+        .graph
+        .edge_weights()
+        .filter_map(|w| match w {
+            CpgEdge::Call(c) => Some(*c),
+            _ => None,
+        })
+        .collect();
+    assert!(
+        confs.contains(&ResolutionConfidence::Exact),
+        "expected at least one Call(Exact) edge, got {confs:?}"
+    );
+}

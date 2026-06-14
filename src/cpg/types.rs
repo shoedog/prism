@@ -2,6 +2,7 @@
 //! accessors.
 
 use crate::access_path::AccessPath;
+use crate::resolution::ResolutionConfidence;
 
 // ---------------------------------------------------------------------------
 // Node types
@@ -159,11 +160,11 @@ pub enum CpgEdge {
     /// Added in Phase 6.
     ControlFlow,
 
-    /// Call: a call site invokes a callee function.
-    Call,
+    /// Call: a call site invokes a callee function, tagged with resolution confidence.
+    Call(ResolutionConfidence),
 
-    /// Return: a function returns to the call site.
-    Return,
+    /// Return: a function returns to the call site, with the same confidence as its Call.
+    Return(ResolutionConfidence),
 
     /// Containment: a function contains this statement or variable.
     Contains,
@@ -265,6 +266,6 @@ impl CpgEdge {
 
     /// Whether this is a call or return edge.
     pub fn is_interprocedural(&self) -> bool {
-        matches!(self, CpgEdge::Call | CpgEdge::Return)
+        matches!(self, CpgEdge::Call(_) | CpgEdge::Return(_))
     }
 }

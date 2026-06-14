@@ -107,7 +107,7 @@ pub fn slice(ctx: &CpgContext, diff: &DiffInput, config: &GradientConfig) -> Res
         for edge in ctx.cpg.graph.edges(node_idx) {
             let follow = matches!(
                 edge.weight(),
-                CpgEdge::DataFlow | CpgEdge::Call | CpgEdge::Return
+                CpgEdge::DataFlow | CpgEdge::Call(_) | CpgEdge::Return(_)
             );
             if !follow {
                 continue;

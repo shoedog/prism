@@ -42,7 +42,9 @@ use std::path::{Path, PathBuf};
 /// - v2: Added `has_type_db` field for type_db consistency (Phase 3)
 /// - v3: grammar_fingerprint + skip_policy_version
 /// - v4: CallGraph methods/owner indexes + CallSite.receiver_type (S3)
-const CACHE_VERSION: u32 = 5; // S2 node bytes + VarLocation identity + CallSite bytes.
+/// - v5: S2 node bytes + VarLocation identity + CallSite bytes.
+/// - v6: EFT CpgEdge::Call/Return carry ResolutionConfidence.
+const CACHE_VERSION: u32 = 6; // EFT: CpgEdge::Call/Return carry ResolutionConfidence.
 
 pub const SKIP_POLICY_VERSION: u32 = 1;
 

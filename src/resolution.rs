@@ -5,7 +5,9 @@
 use crate::call_graph::{CallGraph, CallSite, FunctionId};
 use std::collections::BTreeSet;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, serde::Serialize, serde::Deserialize,
+)]
 pub enum ResolutionConfidence {
     Exact,
     NameOnly,
