@@ -9,6 +9,7 @@
 //! - Y: Structural depth (caller/callee via call graph)
 //! - Z: Temporal (git history)
 
+use crate::cpg::query::ConfidenceFilter;
 use crate::cpg::CpgContext;
 use crate::diff::{DiffBlock, DiffInput, ModifyType};
 use crate::slice::{SliceResult, SlicingAlgorithm};
@@ -66,21 +67,17 @@ pub fn slice(ctx: &CpgContext, diff: &DiffInput, config: &ThreeDConfig) -> Resul
             None => continue,
         };
 
-        let mut scored_funcs: BTreeSet<String> = BTreeSet::new();
+        let mut scored_funcs = BTreeSet::new();
 
         for &line in &diff_info.diff_lines {
-            if let Some((_idx, func_id)) = ctx.cpg.function_at(&diff_info.file_path, line) {
-                if scored_funcs.contains(&func_id.name) {
+            if let Some((idx, func_id)) = ctx.cpg.function_at(&diff_info.file_path, line) {
+                if !scored_funcs.insert(func_id.clone()) {
                     continue;
                 }
-                scored_funcs.insert(func_id.name.clone());
 
-                // Structural coupling: callers + callees (file-scoped to
-                // disambiguate static functions with the same name)
-                let callers =
-                    ctx.cpg
-                        .callers_of_in_file(&func_id.name, 1, Some(&diff_info.file_path));
-                let callees = ctx.cpg.callees_of(&func_id.name, &diff_info.file_path, 1);
+                // Structural coupling: exact callers + callees from the function node.
+                let callers = ctx.cpg.callers_of_node(idx, 1, ConfidenceFilter::ExactOnly);
+                let callees = ctx.cpg.callees_of_node(idx, 1, ConfidenceFilter::ExactOnly);
                 let structural_coupling = callers.len() + callees.len();
 
                 // Temporal activity
@@ -113,25 +110,44 @@ pub fn slice(ctx: &CpgContext, diff: &DiffInput, config: &ThreeDConfig) -> Resul
     }
 
     // Also score connected functions (callers/callees)
-    let diff_funcs: Vec<(String, String)> = scores
+    let diff_funcs: Vec<_> = scores
         .iter()
-        .map(|s| (s.file.clone(), s.function_name.clone()))
+        .map(|s| crate::call_graph::FunctionId {
+            file: s.file.clone(),
+            name: s.function_name.clone(),
+            start_line: s.start_line,
+            end_line: s.end_line,
+        })
         .collect();
-    for (func_file, func_name) in &diff_funcs {
-        let callers = ctx.cpg.callers_of_in_file(func_name, 2, Some(func_file));
+    for func_id in &diff_funcs {
+        let Some(func_idx) = ctx.cpg.function_node_for_id(func_id) else {
+            continue;
+        };
+        let callers: Vec<_> = ctx
+            .cpg
+            .callers_of_node(func_idx, 2, ConfidenceFilter::ExactOnly)
+            .into_iter()
+            .filter_map(|(idx, depth)| ctx.cpg.to_function_id(idx).map(|id| (id, depth)))
+            .collect();
         for (caller_id, _) in &callers {
-            if scores
-                .iter()
-                .any(|s| s.function_name == caller_id.name && s.file == caller_id.file)
-            {
+            if scores.iter().any(|s| {
+                s.function_name == caller_id.name
+                    && s.file == caller_id.file
+                    && s.start_line == caller_id.start_line
+            }) {
                 continue;
             }
 
             let temporal_activity = git_churn.get(&caller_id.file).copied().unwrap_or(0);
+            let Some(caller_idx) = ctx.cpg.function_node_for_id(caller_id) else {
+                continue;
+            };
             let callers_of_caller =
                 ctx.cpg
-                    .callers_of_in_file(&caller_id.name, 1, Some(&caller_id.file));
-            let callees_of_caller = ctx.cpg.callees_of(&caller_id.name, &caller_id.file, 1);
+                    .callers_of_node(caller_idx, 1, ConfidenceFilter::ExactOnly);
+            let callees_of_caller =
+                ctx.cpg
+                    .callees_of_node(caller_idx, 1, ConfidenceFilter::ExactOnly);
 
             scores.push(RiskScore {
                 file: caller_id.file.clone(),

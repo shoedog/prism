@@ -4,8 +4,10 @@
 //! stopping at barrier functions or modules. This solves the "how deep should
 //! I trace?" problem by making the boundary explicit.
 
+use crate::cpg::query::ConfidenceFilter;
 use crate::cpg::CpgContext;
 use crate::diff::{DiffBlock, DiffInput};
+use crate::resolution::ResolutionConfidence;
 use crate::slice::{SliceConfig, SliceResult, SlicingAlgorithm};
 use anyhow::Result;
 use std::collections::{BTreeMap, BTreeSet};
@@ -41,51 +43,59 @@ pub fn slice(
     let mut block_id = 0;
 
     for diff_info in &diff.files {
-        let parsed = match ctx.files.get(&diff_info.file_path) {
+        let _parsed = match ctx.files.get(&diff_info.file_path) {
             Some(f) => f,
             None => continue,
         };
 
         // Find functions containing diff lines
-        let mut diff_functions: BTreeSet<String> = BTreeSet::new();
+        let mut diff_functions = Vec::new();
+        let mut seen_diff_functions = BTreeSet::new();
         for &line in &diff_info.diff_lines {
-            if let Some((_idx, func_id)) = ctx.cpg.function_at(&diff_info.file_path, line) {
-                diff_functions.insert(func_id.name.clone());
+            if let Some((idx, func_id)) = ctx.cpg.function_at(&diff_info.file_path, line) {
+                if seen_diff_functions.insert(func_id.clone()) {
+                    diff_functions.push((idx, func_id));
+                }
             }
         }
 
-        for func_name in &diff_functions {
+        for (func_idx, func_id) in &diff_functions {
             let mut slice_lines: BTreeMap<String, BTreeMap<usize, bool>> = BTreeMap::new();
 
             // Include the diff lines in the original function
-            if let Some(func_node) = parsed.find_function_by_name(func_name) {
-                let (start, end) = parsed.node_line_range(&func_node);
-                for &line in &diff_info.diff_lines {
-                    if line >= start && line <= end {
-                        slice_lines
-                            .entry(diff_info.file_path.clone())
-                            .or_default()
-                            .insert(line, true);
-                    }
+            for &line in &diff_info.diff_lines {
+                if line >= func_id.start_line && line <= func_id.end_line {
+                    slice_lines
+                        .entry(diff_info.file_path.clone())
+                        .or_default()
+                        .insert(line, true);
                 }
-                // Include function signature
-                slice_lines
-                    .entry(diff_info.file_path.clone())
-                    .or_default()
-                    .insert(start, false);
-                slice_lines
-                    .entry(diff_info.file_path.clone())
-                    .or_default()
-                    .insert(end, false);
             }
+            // Include function signature
+            slice_lines
+                .entry(diff_info.file_path.clone())
+                .or_default()
+                .insert(func_id.start_line, false);
+            slice_lines
+                .entry(diff_info.file_path.clone())
+                .or_default()
+                .insert(func_id.end_line, false);
 
-            // Trace callers (up), scoped to the correct file to disambiguate
-            // static functions with the same name across files
-            let callers = ctx.cpg.callers_of_in_file(
-                func_name,
-                barrier_config.max_depth,
-                Some(&diff_info.file_path),
-            );
+            // Trace callers (up) from the exact function node to avoid same-name unions.
+            let callers: Vec<_> = ctx
+                .cpg
+                .callers_of_node(
+                    *func_idx,
+                    barrier_config.max_depth,
+                    ConfidenceFilter::ExactOnly,
+                )
+                .into_iter()
+                .filter_map(|(idx, depth)| ctx.cpg.to_function_id(idx).map(|id| (id, depth)))
+                .collect();
+            let caller_set: BTreeSet<_> = callers
+                .iter()
+                .map(|(caller_id, _)| caller_id.clone())
+                .collect();
             for (caller_id, _depth) in &callers {
                 if barrier_config.barrier_symbols.contains(&caller_id.name) {
                     continue;
@@ -103,23 +113,32 @@ pub fn slice(
                 entry.insert(caller_id.start_line, false);
                 entry.insert(caller_id.end_line, false);
 
-                // Find the specific call site lines.
-                // Uses the raw callers index because caller_id already comes from
-                // the file-scoped callers_of_in_file query above; the name filter
-                // selects the exact call site within that known-correct caller.
-                if let Some(sites) = ctx.cpg.call_graph.callers.get(func_name) {
-                    for site in sites {
-                        if site.caller.name == caller_id.name {
-                            entry.insert(site.line, false);
-                        }
+                // Find the specific Exact call-site lines for the selected callers.
+                for edge in ctx
+                    .cpg
+                    .call_graph
+                    .resolved_caller_edges(func_id)
+                    .into_iter()
+                    .filter(|edge| edge.confidence == ResolutionConfidence::Exact)
+                    .filter(|edge| caller_set.contains(&edge.caller))
+                {
+                    if edge.caller == *caller_id {
+                        entry.insert(edge.call_site_line, false);
                     }
                 }
             }
 
             // Trace callees (down)
-            let callees =
-                ctx.cpg
-                    .callees_of(func_name, &diff_info.file_path, barrier_config.max_depth);
+            let callees: Vec<_> = ctx
+                .cpg
+                .callees_of_node(
+                    *func_idx,
+                    barrier_config.max_depth,
+                    ConfidenceFilter::ExactOnly,
+                )
+                .into_iter()
+                .filter_map(|(idx, depth)| ctx.cpg.to_function_id(idx).map(|id| (id, depth)))
+                .collect();
             for (callee_id, _depth) in &callees {
                 if barrier_config.barrier_symbols.contains(&callee_id.name) {
                     continue;

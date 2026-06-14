@@ -5,6 +5,7 @@
 //! handler → service → model → database.
 
 use crate::ast::ParsedFile;
+use crate::cpg::query::ConfidenceFilter;
 use crate::cpg::CpgContext;
 use crate::diff::{DiffBlock, DiffInput, ModifyType};
 use crate::output::mermaid::safe_node_id;
@@ -88,14 +89,16 @@ pub fn slice(
     let mut block_id = 0;
     for diff_info in &diff.files {
         for &line in &diff_info.diff_lines {
-            if let Some((_idx, func_id)) = ctx.cpg.function_at(&diff_info.file_path, line) {
+            if let Some((idx, func_id)) = ctx.cpg.function_at(&diff_info.file_path, line) {
                 let mut path: Vec<LayerEntry> = Vec::new();
 
-                // Trace up: callers toward the entry point, scoped to the
-                // correct file to disambiguate static functions
-                let callers =
-                    ctx.cpg
-                        .callers_of_in_file(&func_id.name, 10, Some(&diff_info.file_path));
+                // Trace up: callers toward the entry point from the exact function node.
+                let callers: Vec<_> = ctx
+                    .cpg
+                    .callers_of_node(idx, 10, ConfidenceFilter::ExactOnly)
+                    .into_iter()
+                    .filter_map(|(idx, depth)| ctx.cpg.to_function_id(idx).map(|id| (id, depth)))
+                    .collect();
                 for (caller_id, _depth) in callers.iter().rev() {
                     let layer = file_layers
                         .get(&caller_id.file)
@@ -117,14 +120,19 @@ pub fn slice(
                     .unwrap_or_else(|| "Unknown".to_string());
                 path.push(LayerEntry {
                     layer_name: diff_layer,
-                    file: diff_info.file_path.clone(),
+                    file: func_id.file.clone(),
                     function_name: func_id.name.clone(),
                     start_line: func_id.start_line,
                     end_line: func_id.end_line,
                 });
 
                 // Trace down: callees toward persistence
-                let callees = ctx.cpg.callees_of(&func_id.name, &diff_info.file_path, 10);
+                let callees: Vec<_> = ctx
+                    .cpg
+                    .callees_of_node(idx, 10, ConfidenceFilter::ExactOnly)
+                    .into_iter()
+                    .filter_map(|(idx, depth)| ctx.cpg.to_function_id(idx).map(|id| (id, depth)))
+                    .collect();
                 for (callee_id, _depth) in &callees {
                     let layer = file_layers
                         .get(&callee_id.file)
@@ -139,9 +147,12 @@ pub fn slice(
                     });
                 }
 
-                // Deduplicate by function name
+                // Deduplicate by FunctionId identity (file + name + start_line) — NOT
+                // file+name, which would collapse distinct same-file same-name functions.
                 let mut seen: BTreeSet<String> = BTreeSet::new();
-                path.retain(|e| seen.insert(format!("{}:{}", e.file, e.function_name)));
+                path.retain(|e| {
+                    seen.insert(format!("{}:{}:{}", e.file, e.function_name, e.start_line))
+                });
 
                 // For the diagram: each unique LayerEntry becomes a node; consecutive
                 // entries within this path become an edge.

@@ -9,6 +9,8 @@
 //! Catches: missing null checks after a return type change, unhandled new error
 //! cases, callers that depend on side effects that were removed.
 
+use crate::call_graph::FunctionId;
+use crate::cpg::query::ConfidenceFilter;
 use crate::cpg::CpgContext;
 use crate::diff::{DiffBlock, DiffInput, ModifyType};
 use crate::output::mermaid::safe_node_id;
@@ -118,18 +120,16 @@ pub fn slice(ctx: &CpgContext, diff: &DiffInput) -> Result<SliceResult> {
         };
 
         // Find changed functions
-        let mut changed_functions: BTreeSet<String> = BTreeSet::new();
+        let mut changed_functions: BTreeSet<FunctionId> = BTreeSet::new();
         for &line in &diff_info.diff_lines {
-            if let Some(func_node) = parsed.enclosing_function(line) {
-                if let Some(name_node) = parsed.language.function_name(&func_node) {
-                    changed_functions.insert(parsed.node_text(&name_node).to_string());
-                }
+            if let Some((_idx, func_id)) = ctx.cpg.function_at(&diff_info.file_path, line) {
+                changed_functions.insert(func_id);
             }
         }
 
         let source_lines: Vec<&str> = parsed.source.lines().collect();
 
-        for func_name in &changed_functions {
+        for func_id in &changed_functions {
             // Detect what kind of change was made
             let change_touches_return = diff_info.diff_lines.iter().any(|&l| {
                 if l == 0 || l > source_lines.len() {
@@ -160,11 +160,16 @@ pub fn slice(ctx: &CpgContext, diff: &DiffInput) -> Result<SliceResult> {
                     .unwrap_or(false)
             });
 
-            // Find all callers across all files, scoped to the correct file
-            // to disambiguate static functions with the same name
-            let callers = ctx
+            // Find all callers across all files from the exact function node.
+            let Some(func_idx) = ctx.cpg.function_node_for_id(func_id) else {
+                continue;
+            };
+            let callers: Vec<_> = ctx
                 .cpg
-                .callers_of_in_file(func_name, 2, Some(&diff_info.file_path));
+                .callers_of_node(func_idx, 2, ConfidenceFilter::All)
+                .into_iter()
+                .filter_map(|(idx, depth)| ctx.cpg.to_function_id(idx).map(|id| (id, depth)))
+                .collect();
 
             for (caller_id, _depth) in &callers {
                 let caller_parsed = match ctx.files.get(&caller_id.file) {
@@ -174,22 +179,18 @@ pub fn slice(ctx: &CpgContext, diff: &DiffInput) -> Result<SliceResult> {
 
                 let caller_source: Vec<&str> = caller_parsed.source.lines().collect();
 
-                // Find call site lines.
-                // Uses the raw callers index because caller_id already comes from
-                // the file-scoped callers_of_in_file query above; the name+file
-                // filter selects the exact call site within that known-correct caller.
-                let call_lines: Vec<usize> =
-                    if let Some(sites) = ctx.cpg.call_graph.callers.get(func_name) {
-                        sites
-                            .iter()
-                            .filter(|s| {
-                                s.caller.name == caller_id.name && s.caller.file == caller_id.file
-                            })
-                            .map(|s| s.line)
-                            .collect()
-                    } else {
-                        continue;
-                    };
+                // Find call site lines, keeping Exact and NameOnly caller edges.
+                let call_lines: Vec<usize> = ctx
+                    .cpg
+                    .call_graph
+                    .resolved_caller_edges(func_id)
+                    .into_iter()
+                    .filter(|edge| edge.caller == *caller_id)
+                    .map(|edge| edge.call_site_line)
+                    .collect();
+                if call_lines.is_empty() {
+                    continue;
+                }
 
                 let mut missing_checks: Vec<String> = Vec::new();
 
@@ -232,7 +233,7 @@ pub fn slice(ctx: &CpgContext, diff: &DiffInput) -> Result<SliceResult> {
                         description: format!(
                             "'{}' calls '{}' without handling: {}",
                             caller_id.name,
-                            func_name,
+                            func_id.name,
                             missing_checks.join(", ")
                         ),
                         function_name: Some(caller_id.name.clone()),
@@ -246,17 +247,14 @@ pub fn slice(ctx: &CpgContext, diff: &DiffInput) -> Result<SliceResult> {
                         DiffBlock::new(block_id, caller_id.file.clone(), ModifyType::Modified);
 
                     // Include the changed function signature
-                    if let Some(func_node) = parsed.find_function_by_name(func_name) {
-                        let (fs, fe) = parsed.node_line_range(&func_node);
-                        block.add_line(&diff_info.file_path, fs, false);
-                        // Include changed lines
-                        for &l in &diff_info.diff_lines {
-                            if l >= fs && l <= fe {
-                                block.add_line(&diff_info.file_path, l, true);
-                            }
+                    block.add_line(&func_id.file, func_id.start_line, false);
+                    // Include changed lines
+                    for &l in &diff_info.diff_lines {
+                        if l >= func_id.start_line && l <= func_id.end_line {
+                            block.add_line(&func_id.file, l, true);
                         }
-                        block.add_line(&diff_info.file_path, fe, false);
                     }
+                    block.add_line(&func_id.file, func_id.end_line, false);
 
                     // Include the caller with call site highlighted
                     block.add_line(&caller_id.file, caller_id.start_line, false);
@@ -275,43 +273,40 @@ pub fn slice(ctx: &CpgContext, diff: &DiffInput) -> Result<SliceResult> {
 
                     // Diagram: register the origin (changed function) and the caller as nodes,
                     // connect caller -> origin.
-                    if let Some(func_node) = parsed.find_function_by_name(func_name) {
-                        let (origin_start, _origin_end) = parsed.node_line_range(&func_node);
-                        let origin_id = safe_node_id(&diff_info.file_path, origin_start);
-                        if seen_node_ids.insert(origin_id.clone()) {
-                            graph_nodes.push(GraphNode {
-                                id: origin_id.clone(),
-                                label: format!(
-                                    "{}:{}\n{}",
-                                    diff_info.file_path, origin_start, func_name
-                                ),
-                                kind: NodeKind::Origin,
-                                file: Some(diff_info.file_path.clone()),
-                                line: Some(origin_start),
-                            });
-                        }
-                        let caller_id_str = safe_node_id(&caller_id.file, caller_id.start_line);
-                        if seen_node_ids.insert(caller_id_str.clone()) {
-                            graph_nodes.push(GraphNode {
-                                id: caller_id_str.clone(),
-                                label: format!(
-                                    "{}:{}\n{}",
-                                    caller_id.file, caller_id.start_line, caller_id.name
-                                ),
-                                kind: NodeKind::Caller,
-                                file: Some(caller_id.file.clone()),
-                                line: Some(caller_id.start_line),
-                            });
-                        }
-                        let edge_key = (caller_id_str.clone(), origin_id.clone());
-                        if seen_edges.insert(edge_key) {
-                            graph_edges.push(GraphEdge {
-                                from: caller_id_str,
-                                to: origin_id,
-                                label: None,
-                                style: EdgeStyle::Solid,
-                            });
-                        }
+                    let origin_id = safe_node_id(&func_id.file, func_id.start_line);
+                    if seen_node_ids.insert(origin_id.clone()) {
+                        graph_nodes.push(GraphNode {
+                            id: origin_id.clone(),
+                            label: format!(
+                                "{}:{}\n{}",
+                                func_id.file, func_id.start_line, func_id.name
+                            ),
+                            kind: NodeKind::Origin,
+                            file: Some(func_id.file.clone()),
+                            line: Some(func_id.start_line),
+                        });
+                    }
+                    let caller_id_str = safe_node_id(&caller_id.file, caller_id.start_line);
+                    if seen_node_ids.insert(caller_id_str.clone()) {
+                        graph_nodes.push(GraphNode {
+                            id: caller_id_str.clone(),
+                            label: format!(
+                                "{}:{}\n{}",
+                                caller_id.file, caller_id.start_line, caller_id.name
+                            ),
+                            kind: NodeKind::Caller,
+                            file: Some(caller_id.file.clone()),
+                            line: Some(caller_id.start_line),
+                        });
+                    }
+                    let edge_key = (caller_id_str.clone(), origin_id.clone());
+                    if seen_edges.insert(edge_key) {
+                        graph_edges.push(GraphEdge {
+                            from: caller_id_str,
+                            to: origin_id,
+                            label: None,
+                            style: EdgeStyle::Solid,
+                        });
                     }
                 }
             }

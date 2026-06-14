@@ -376,6 +376,7 @@ impl CodePropertyGraph {
     /// Find the function containing a specific line in a file.
     /// Equivalent to `CallGraph::function_at()`.
     pub fn function_at(&self, file: &str, line: usize) -> Option<(NodeIndex, FunctionId)> {
+        let mut best: Option<(NodeIndex, usize)> = None;
         for (&(ref f, ref _name, ref _sl), &idx) in &self.func_index {
             if f == file {
                 if let CpgNode::Function {
@@ -385,12 +386,18 @@ impl CodePropertyGraph {
                 } = self.graph[idx]
                 {
                     if line >= start_line && line <= end_line {
-                        return Some((idx, self.to_function_id(idx).unwrap()));
+                        let range_len = end_line.saturating_sub(start_line);
+                        if best
+                            .map(|(_, best_range_len)| range_len < best_range_len)
+                            .unwrap_or(true)
+                        {
+                            best = Some((idx, range_len));
+                        }
                     }
                 }
             }
         }
-        None
+        best.and_then(|(idx, _)| self.to_function_id(idx).map(|id| (idx, id)))
     }
 
     fn confidence_ok(w: &CpgEdge, f: ConfidenceFilter) -> bool {

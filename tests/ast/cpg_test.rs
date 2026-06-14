@@ -711,3 +711,26 @@ fn function_node_for_id_is_start_line_keyed() {
     let n1 = cpg.function_node_for_id(&ids[1]).unwrap();
     assert_ne!(n0, n1, "distinct nodes by start_line, not first-candidate");
 }
+
+#[test]
+fn function_at_returns_smallest_enclosing() {
+    // A line inside a nested fn must seed the nested (smallest) fn, not the outer one —
+    // the EFT slice migration relies on function_at for correct seeding.
+    let cpg = build_cpg_files(&[(
+        "src/lib.rs",
+        "fn outer() {\n    fn inner() {\n        let z = 1;\n    }\n    inner();\n}\n",
+        Language::Rust,
+    )]);
+    let names: std::collections::BTreeSet<String> =
+        cpg.call_graph.functions.keys().cloned().collect();
+    // Only assert the smallest-enclosing contract when prism indexes the nested fn.
+    if names.contains("inner") {
+        let (_, fid) = cpg
+            .function_at("src/lib.rs", 3)
+            .expect("a function encloses line 3");
+        assert_eq!(
+            fid.name, "inner",
+            "function_at must return the smallest enclosing fn (inner), not outer"
+        );
+    }
+}

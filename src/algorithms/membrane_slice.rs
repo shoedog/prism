@@ -10,6 +10,8 @@
 //! Catches breaking changes, missing error handling at call sites, and
 //! parameter mismatches.
 
+use crate::call_graph::FunctionId;
+use crate::cpg::query::ConfidenceFilter;
 use crate::cpg::CpgContext;
 use crate::diff::{DiffBlock, DiffInput, ModifyType};
 use crate::slice::{SliceFinding, SliceResult, SlicingAlgorithm};
@@ -21,30 +23,31 @@ pub fn slice(ctx: &CpgContext, diff: &DiffInput) -> Result<SliceResult> {
     let mut block_id = 0;
 
     for diff_info in &diff.files {
-        let parsed = match ctx.files.get(&diff_info.file_path) {
+        let _parsed = match ctx.files.get(&diff_info.file_path) {
             Some(f) => f,
             None => continue,
         };
 
         // Find functions with diff lines
-        let mut changed_functions: BTreeMap<String, (usize, usize)> = BTreeMap::new();
+        let mut changed_functions: BTreeMap<FunctionId, (usize, usize)> = BTreeMap::new();
         for &line in &diff_info.diff_lines {
-            if let Some(func_node) = parsed.enclosing_function(line) {
-                if let Some(name_node) = parsed.language.function_name(&func_node) {
-                    let name = parsed.node_text(&name_node).to_string();
-                    let range = parsed.node_line_range(&func_node);
-                    changed_functions.insert(name, range);
-                }
+            if let Some((_, func_id)) = ctx.cpg.function_at(&diff_info.file_path, line) {
+                changed_functions.insert(func_id.clone(), (func_id.start_line, func_id.end_line));
             }
         }
 
-        for (func_name, (func_start, func_end)) in &changed_functions {
+        for (func_id, (func_start, func_end)) in &changed_functions {
+            let Some(func_idx) = ctx.cpg.function_node_for_id(func_id) else {
+                continue;
+            };
             // Find all callers in OTHER files (cross-module boundary),
-            // respecting static linkage so file-local functions don't create
-            // false cross-file edges.
-            let callers = ctx
+            // preserving Exact and NameOnly recall for callback/fptr paths.
+            let callers: Vec<_> = ctx
                 .cpg
-                .callers_of_in_file(func_name, 1, Some(&diff_info.file_path));
+                .callers_of_node(func_idx, 1, ConfidenceFilter::All)
+                .into_iter()
+                .filter_map(|(idx, depth)| ctx.cpg.to_function_id(idx).map(|id| (id, depth)))
+                .collect();
             let cross_file_callers: Vec<_> = callers
                 .iter()
                 .filter(|(caller_id, _)| caller_id.file != diff_info.file_path)
@@ -70,23 +73,15 @@ pub fn slice(ctx: &CpgContext, diff: &DiffInput) -> Result<SliceResult> {
                     block.add_line(&caller_id.file, caller_id.start_line, false);
                     block.add_line(&caller_id.file, caller_id.end_line, false);
 
-                    // Find the specific call site line(s).
-                    // Note: this uses the raw callers index (not callers_of_in_file)
-                    // because caller_id already comes from a file-scoped query above.
-                    // The name+file filter below selects the exact call site within
-                    // that known-correct caller.
-                    if let Some(sites) = ctx.cpg.call_graph.callers.get(func_name) {
-                        for site in sites {
-                            if site.caller.name == caller_id.name
-                                && site.caller.file == caller_id.file
-                            {
-                                // Include the call site and a few lines of context
-                                let ctx_start = site.line.saturating_sub(2);
-                                let ctx_end = site.line + 2;
-                                for l in ctx_start..=ctx_end {
-                                    if l >= caller_id.start_line && l <= caller_id.end_line {
-                                        block.add_line(&caller_id.file, l, false);
-                                    }
+                    // Find the specific call site line(s), keeping Exact and NameOnly.
+                    for edge in ctx.cpg.call_graph.resolved_caller_edges(func_id) {
+                        if edge.caller == *caller_id {
+                            // Include the call site and a few lines of context
+                            let ctx_start = edge.call_site_line.saturating_sub(2);
+                            let ctx_end = edge.call_site_line + 2;
+                            for l in ctx_start..=ctx_end {
+                                if l >= caller_id.start_line && l <= caller_id.end_line {
+                                    block.add_line(&caller_id.file, l, false);
                                 }
                             }
                         }
@@ -197,30 +192,25 @@ pub fn slice(ctx: &CpgContext, diff: &DiffInput) -> Result<SliceResult> {
                         if !has_error_handling {
                             // Mark the call site as potentially unprotected
                             // (it's already included but highlight it).
-                            // Same rationale as above: caller_id is already validated
-                            // by the file-scoped callers_of_in_file query, so the
-                            // raw index lookup + name filter is correct here.
-                            if let Some(sites) = ctx.cpg.call_graph.callers.get(func_name) {
-                                for site in sites {
-                                    if site.caller.name == caller_id.name {
-                                        block.add_line(&caller_id.file, site.line, true);
-                                        result.findings.push(SliceFinding {
-                                            algorithm: "membrane".to_string(),
-                                            file: caller_id.file.clone(),
-                                            line: site.line,
-                                            severity: "concern".to_string(),
-                                            description: format!(
-                                                "unprotected call to '{}' from '{}'",
-                                                func_name, caller_id.name
-                                            ),
-                                            function_name: Some(caller_id.name.clone()),
-                                            related_lines: vec![],
-                                            related_files: vec![diff_info.file_path.clone()],
-                                            category: Some("unprotected_caller".to_string()),
-                                            parse_quality: None,
-                                            diagrams: vec![],
-                                        });
-                                    }
+                            for edge in ctx.cpg.call_graph.resolved_caller_edges(func_id) {
+                                if edge.caller == *caller_id {
+                                    block.add_line(&caller_id.file, edge.call_site_line, true);
+                                    result.findings.push(SliceFinding {
+                                        algorithm: "membrane".to_string(),
+                                        file: caller_id.file.clone(),
+                                        line: edge.call_site_line,
+                                        severity: "concern".to_string(),
+                                        description: format!(
+                                            "unprotected call to '{}' from '{}'",
+                                            func_id.name, caller_id.name
+                                        ),
+                                        function_name: Some(caller_id.name.clone()),
+                                        related_lines: vec![],
+                                        related_files: vec![diff_info.file_path.clone()],
+                                        category: Some("unprotected_caller".to_string()),
+                                        parse_quality: None,
+                                        diagrams: vec![],
+                                    });
                                 }
                             }
                         }
