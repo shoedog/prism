@@ -115,6 +115,35 @@ pub fn node_byte_dump(cpg: &CodePropertyGraph) -> Vec<String> {
     out
 }
 
+pub fn arg_binds(cpg: &CodePropertyGraph, arg_name: &str, param_name: &str) -> bool {
+    use prism::cpg::{CpgEdge, CpgNode, VarAccess};
+
+    cpg.graph.edge_indices().any(|edge| {
+        cpg.graph[edge] == CpgEdge::DataFlow
+            && cpg
+                .graph
+                .edge_endpoints(edge)
+                .map(|(source, target)| {
+                    matches!(
+                        cpg.node(source),
+                        CpgNode::Variable {
+                            path,
+                            access: VarAccess::Use,
+                            ..
+                        } if path.base == arg_name
+                    ) && matches!(
+                        cpg.node(target),
+                        CpgNode::Variable {
+                            path,
+                            access: VarAccess::Def,
+                            ..
+                        } if path.base == param_name
+                    )
+                })
+                .unwrap_or(false)
+    })
+}
+
 /// Panics if any `diagram_warnings` entry is a bug-class warning.
 ///
 /// Use this in algorithm tests after running a slice to assert that the

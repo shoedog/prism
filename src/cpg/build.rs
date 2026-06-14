@@ -387,7 +387,8 @@ impl CodePropertyGraph {
                         Some(p) => p,
                         None => continue,
                     };
-                    let arg_texts = caller_parsed.call_argument_texts(site.line, &site.callee_name);
+                    let arg_texts =
+                        caller_parsed.call_argument_texts_at(site.start_byte, &site.callee_name);
                     if arg_texts.is_empty() {
                         continue;
                     }

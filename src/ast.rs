@@ -4200,6 +4200,14 @@ impl ParsedFile {
         args
     }
 
+    /// Like `call_argument_texts`, but selects the call expression whose start
+    /// byte == `start_byte` (disambiguates multiple calls on one line).
+    pub fn call_argument_texts_at(&self, start_byte: usize, callee_name: &str) -> Vec<String> {
+        let mut args = Vec::new();
+        self.collect_call_args_at(self.tree.root_node(), start_byte, callee_name, &mut args);
+        args
+    }
+
     fn collect_call_args(
         &self,
         node: Node<'_>,
@@ -4234,6 +4242,41 @@ impl ParsedFile {
                 return;
             }
             self.collect_call_args(child, line, callee_name, out);
+        }
+    }
+
+    fn collect_call_args_at(
+        &self,
+        node: Node<'_>,
+        start_byte: usize,
+        callee_name: &str,
+        out: &mut Vec<String>,
+    ) {
+        if node.start_byte() == start_byte && self.language.is_call_node(node.kind()) {
+            if let Some(name_node) = self.language.call_function_name(&node) {
+                let name = self.node_text(&name_node);
+                if name == callee_name {
+                    if let Some(args_node) = self.language.call_arguments(&node) {
+                        let mut cursor = args_node.walk();
+                        for child in args_node.children(&mut cursor) {
+                            if child.is_named() {
+                                let text = self.node_text(&child).trim().to_string();
+                                let text = text.trim_start_matches('&').to_string();
+                                out.push(text);
+                            }
+                        }
+                    }
+                    return; // Found the call, stop.
+                }
+            }
+        }
+
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            if !out.is_empty() {
+                return;
+            }
+            self.collect_call_args_at(child, start_byte, callee_name, out);
         }
     }
 

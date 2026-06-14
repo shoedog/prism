@@ -37,6 +37,14 @@ fn var_location_ord_eq_hash_agree_excluding_byte() {
 }
 
 #[test]
+fn two_calls_one_line_bind_their_own_args() {
+    let cpg = build_rust_cpg("fn f(p: i32) { let _ = p; }\nfn c(a: i32, b: i32) { f(a); f(b); }\n");
+
+    assert!(arg_binds(&cpg, "a", "p"), "a -> p");
+    assert!(arg_binds(&cpg, "b", "p"), "b -> p");
+}
+
+#[test]
 fn test_dfg_field_qualified_paths_created() {
     // Verify that the DFG creates AccessPath entries with field chains,
     // not just bare base names.
