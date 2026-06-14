@@ -224,6 +224,26 @@ def test_public_methods_wire_flags_to_run_and_extract(monkeypatch):
     ]
 
 
+def test_callers_callees_thread_confidence_flag(monkeypatch):
+    seen = []
+
+    def fake_run(_self, args):
+        seen.append(args)
+        return {"items": []}
+
+    monkeypatch.setattr(PrismCli, "_run", fake_run)
+    cli = PrismCli.__new__(PrismCli)
+
+    cli.callers("/repo", SEED, confidence="exact")
+    cli.callees("/repo", SEED, confidence="exact")
+    assert all("--confidence" in a and "exact" in a for a in seen), seen
+
+    seen.clear()
+    cli.callers("/repo", SEED)  # default "all" omits the flag (byte-for-byte)
+    cli.callees("/repo", SEED)
+    assert all("--confidence" not in a for a in seen), seen
+
+
 def test_public_edge_methods_map_seed_miss_to_empty(monkeypatch):
     def fake_run(_self, _args):
         raise SutSeedMiss("no seed")

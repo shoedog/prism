@@ -181,18 +181,29 @@ class PrismCli:
     def inventory(self, corpus_root: str) -> list[FunctionDef]:
         return extract_functions(self._run(["functions", "--repo", corpus_root]))
 
-    def callers(self, corpus_root: str, seed: FunctionDef) -> list[CallEdge]:
+    def callers(
+        self, corpus_root: str, seed: FunctionDef, confidence: str = "all"
+    ) -> list[CallEdge]:
         loc = f"{seed.location.file}:{seed.location.start_line}"
+        args = ["callers", "--repo", corpus_root, "--location", loc, "--depth", "1"]
+        # Default ("all") omits the flag so existing baselines stay byte-for-byte.
+        if confidence != "all":
+            args += ["--confidence", confidence]
         try:
-            ev = self._run(["callers", "--repo", corpus_root, "--location", loc, "--depth", "1"])
+            ev = self._run(args)
         except SutSeedMiss:
             return []
         return extract_callers(seed, ev)
 
-    def callees(self, corpus_root: str, seed: FunctionDef) -> list[CallEdge]:
+    def callees(
+        self, corpus_root: str, seed: FunctionDef, confidence: str = "all"
+    ) -> list[CallEdge]:
         loc = f"{seed.location.file}:{seed.location.start_line}"
+        args = ["callees", "--repo", corpus_root, "--location", loc, "--depth", "1"]
+        if confidence != "all":
+            args += ["--confidence", confidence]
         try:
-            ev = self._run(["callees", "--repo", corpus_root, "--location", loc, "--depth", "1"])
+            ev = self._run(args)
         except SutSeedMiss:
             return []
         return extract_callees(seed, ev)

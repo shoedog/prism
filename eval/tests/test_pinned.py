@@ -71,6 +71,45 @@ def test_ambiguous_symbol_contract_records_safe_fail():
     assert got["ambiguous_ok"]
 
 
+def test_target_c_method_records_exact_supplementary(monkeypatch):
+    import tier_a.pinned as pinned
+
+    seed = FunctionDef(
+        "target", "method", None, Location("src/algorithms/taint.rs", 1276, 1300), 1276
+    )
+
+    class FakeOracle:
+        def callers(self, _fd):
+            return [edge("src/algorithms/taint.rs", 1763)]  # the one real caller
+
+    class FakeSut:
+        def callers(self, _root, _fd, confidence="all"):
+            real = edge("src/algorithms/taint.rs", 1763)
+            if confidence == "exact":
+                return [real]  # exact drops the collision FP -> P=R=1.0
+            return [real, edge("src/cpg/query.rs", 408)]  # default keeps a NameOnly FP
+
+    monkeypatch.setattr(
+        pinned,
+        "PINNED",
+        [{
+            "id": "target-c-method",
+            "symbol": "target",
+            "file": "src/algorithms/taint.rs",
+            "expected": "known_fail",
+        }],
+    )
+    [got] = run_pinned(
+        oracle=FakeOracle(), sut=FakeSut(), snapshot=[seed], corpus_root="/repo"
+    )
+    # Headline stays on the DEFAULT measurement (no expected flip).
+    assert got["expected"] == "known_fail"
+    assert got["outcome"] == "flip_candidate"
+    # Exact-confidence P/R recorded as a SUPPLEMENTARY metric only.
+    assert got["exact_supplementary"]["precision"][0] == 1.0
+    assert got["exact_supplementary"]["recall"][0] == 1.0
+
+
 def test_ambiguous_symbol_unexpected_error_is_recorded_not_raised(monkeypatch):
     import tier_a.pinned as pinned
 

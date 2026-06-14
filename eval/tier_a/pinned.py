@@ -118,5 +118,19 @@ def run_pinned(oracle, sut, snapshot: list[FunctionDef], corpus_root: str,
                 "error": str(exc),
             })
             continue
-        out.append(evaluate_pinned(probe, prism_edges, oracle_edges, False))
+        result = evaluate_pinned(probe, prism_edges, oracle_edges, False)
+        # EFT re-bless: the headline outcome stays on the DEFAULT measurement
+        # (flip_candidate, R=1.0/P~0.21). Additionally record the exact-confidence
+        # caller P/R as a SUPPLEMENTARY metric — NOT a new `expected` that retires
+        # the pin (the default-nav NameOnly FPs are deferred to Phase-IP).
+        if probe["id"] == "target-c-method":
+            try:
+                exact_edges = sut.callers(corpus_root, pfd, confidence="exact")
+                ediff = site_compare(exact_edges, oracle_edges)
+                result["exact_supplementary"] = precision_recall(
+                    len(ediff.tp), len(ediff.fp), len(ediff.fn)
+                )
+            except Exception as exc:  # supplementary only — never fails the probe
+                result["exact_supplementary_error"] = str(exc)
+        out.append(result)
     return out
