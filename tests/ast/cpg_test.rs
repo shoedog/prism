@@ -515,3 +515,118 @@ fn exact_caller(a: A) { a.run(); }      // typed receiver -> Exact
         "expected at least one Call(Exact) edge, got {confs:?}"
     );
 }
+
+fn build_rust_cpg_with_virtual_methods(files: &[(&str, &str)]) -> CodePropertyGraph {
+    use prism::type_db::{RecordInfo, RecordKind, TypeDatabase};
+
+    let mut parsed_files = BTreeMap::new();
+    for (path, source) in files {
+        parsed_files.insert(
+            (*path).to_string(),
+            ParsedFile::parse(path, source, Language::Rust).unwrap(),
+        );
+    }
+
+    let mut type_db = TypeDatabase::default();
+    for class_name in ["A", "B"] {
+        type_db.records.insert(
+            class_name.to_string(),
+            RecordInfo {
+                name: class_name.to_string(),
+                kind: RecordKind::Class,
+                fields: vec![],
+                bases: vec![],
+                virtual_methods: BTreeMap::from([("draw".to_string(), "void".to_string())]),
+                size: None,
+                file: String::new(),
+            },
+        );
+    }
+
+    CodePropertyGraph::build_with_types(&parsed_files, type_db)
+}
+
+fn count_call_edges(
+    cpg: &CodePropertyGraph,
+    caller_name: &str,
+    callee_name: &str,
+    confidence: prism::resolution::ResolutionConfidence,
+) -> usize {
+    cpg.graph
+        .edge_indices()
+        .filter(|&edge| cpg.graph[edge] == CpgEdge::Call(confidence))
+        .filter(|&edge| {
+            cpg.graph
+                .edge_endpoints(edge)
+                .map(|(source, target)| {
+                    matches!(
+                        (cpg.node(source), cpg.node(target)),
+                        (
+                            CpgNode::Function { name: caller, .. },
+                            CpgNode::Function { name: callee, .. },
+                        ) if caller == caller_name && callee == callee_name
+                    )
+                })
+                .unwrap_or(false)
+        })
+        .count()
+}
+
+#[test]
+fn cha_does_not_launder_nameonly_into_exact() {
+    // A NameOnly call edge alone must not seed a CHA Exact edge.
+    use prism::resolution::ResolutionConfidence;
+
+    let cpg = build_rust_cpg_with_virtual_methods(&[
+        (
+            "src/a.rs",
+            r#"
+impl A { fn draw(&self) {} }
+fn caller() {
+    let x = mystery();
+    x.draw();
+}
+"#,
+        ),
+        ("src/b.rs", "impl B { fn draw(&self) {} }\n"),
+    ]);
+
+    assert_eq!(
+        count_call_edges(&cpg, "caller", "draw", ResolutionConfidence::NameOnly),
+        1,
+        "expected the local single-owner receiver dispatch to produce one NameOnly edge",
+    );
+    assert_eq!(
+        count_call_edges(&cpg, "caller", "draw", ResolutionConfidence::Exact),
+        0,
+        "a NameOnly seed must not be laundered into Exact CHA edges",
+    );
+}
+
+#[test]
+fn cha_upgrades_nameonly_pair_to_exact() {
+    // A CHA-confirmed override dispatch should add Call(Exact) even when the
+    // same caller/callee pair already has a demoted TraitCha edge.
+    use prism::resolution::ResolutionConfidence;
+
+    let cpg = build_rust_cpg_with_virtual_methods(&[(
+        "src/lib.rs",
+        r#"
+impl Render for A { fn draw(&self) {} }
+impl Render for B { fn draw(&self) {} }
+fn caller(x: &dyn Render) {
+    Render::draw(x);
+    A::draw();
+}
+"#,
+    )]);
+
+    assert!(
+        count_call_edges(&cpg, "caller", "draw", ResolutionConfidence::NameOnly) >= 1,
+        "expected a pre-existing NameOnly trait dispatch edge",
+    );
+    assert!(
+        count_call_edges(&cpg, "caller", "draw", ResolutionConfidence::Exact) >= 2,
+        "expected the Exact owner call plus a CHA-upgraded override edge",
+    );
+}

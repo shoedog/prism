@@ -543,7 +543,9 @@ impl CodePropertyGraph {
             for &caller_idx in &all_func_nodes {
                 let callees: Vec<_> = graph
                     .edges(caller_idx)
-                    .filter(|e| matches!(e.weight(), CpgEdge::Call(_)))
+                    // EFT: only Exact call edges seed CHA expansion. A NameOnly
+                    // edge must not launder into freshly minted Exact CHA edges.
+                    .filter(|e| matches!(e.weight(), CpgEdge::Call(ResolutionConfidence::Exact)))
                     .map(|e| e.target())
                     .collect();
                 for callee_idx in callees {
@@ -563,9 +565,12 @@ impl CodePropertyGraph {
                 }
             }
             for (from, to) in &virtual_edges {
-                let already_exists = graph
-                    .edges(*from)
-                    .any(|e| e.target() == *to && matches!(e.weight(), CpgEdge::Call(_)));
+                // CHA dispatch is type-confirmed = Exact. Guard only on an
+                // existing Exact edge so a NameOnly pair is upgraded.
+                let already_exists = graph.edges(*from).any(|e| {
+                    e.target() == *to
+                        && matches!(e.weight(), CpgEdge::Call(ResolutionConfidence::Exact))
+                });
                 if !already_exists {
                     graph.add_edge(*from, *to, CpgEdge::Call(ResolutionConfidence::Exact));
                     graph.add_edge(*to, *from, CpgEdge::Return(ResolutionConfidence::Exact));
