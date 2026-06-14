@@ -104,6 +104,32 @@ All Rust/Go pending diffs and up to 25 sampled Python pending diffs per corpus a
 the v1 adjudication budget. Paste regressions and flip-candidates into review
 notes; do not re-baseline to hide them.
 
+### Hydrating pending diffs — `tools/hydrate_pending.py`
+
+A pending record is the minimal SHA-agnostic key above; an adjudicator (human or an
+LLM running `a2a-bridge/prompts/adjudicate-sample.md`) needs the surrounding source to
+judge it. `tools/hydrate_pending.py` is that bridge: it reads the `pending` list from
+one or more per-corpus report JSONs and emits, per corpus, the rich evidence shape the
+adjudicator prompt consumes (`seed_context` ±2 lines, `site_context` ±3 lines with the
+exact line `>`-marked, a per-corpus `id` that verdicts join back on). It is kept out of
+`tier_a` proper because it reads corpus *source*, which the metric pipeline never does.
+
+It resolves corpus roots from `corpora.toml` and refuses to run if a corpus checkout's
+`HEAD` doesn't match the report's `meta.corpus_sha` (line numbers would be wrong) unless
+`--allow-sha-drift` is passed. Run it after a `tier-a` run, before dispatching
+adjudicators (needs the harness env for `tomllib`):
+
+```bash
+uv run python tools/hydrate_pending.py \
+  --report ../docs/eval/tier-a/2026-06-13-prism.json \
+  --report ../docs/eval/tier-a/2026-06-13-caddy.json \
+  --out /tmp/tier-a-adj
+```
+
+The loop: hydrate → adjudicate (per `adjudicate-sample.md`) → append verdicts to
+`adjudications.jsonl` → `uv run tier-a --report-only` to fold corrected metrics. See
+`docs/eval/tier-a/re-anchor-adjudication-2026-06-14.md` for a worked example.
+
 ## Snapshots and Baselines
 
 Oracle inventories are snapshotted under `eval/snapshots/<corpus>-<sha>.json` so

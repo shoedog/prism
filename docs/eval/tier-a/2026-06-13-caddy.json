@@ -1,0 +1,4344 @@
+{
+ "m1": {
+  "anon_oracle": 0,
+  "anon_prism": 0,
+  "matched": 2519,
+  "prism_extra": 0,
+  "prism_missing": 100,
+  "snapshot_prism_missing": 100
+ },
+ "m2": {
+  "callees": {
+   "C-method": {
+    "corrected": {
+     "fn": 0,
+     "fp": 2,
+     "precision": [
+      0.3333333333333333,
+      0.06149194402093078,
+      0.7923404011921757
+     ],
+     "recall": [
+      1.0,
+      0.2065493117918027,
+      1.0
+     ],
+     "tp": 1
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 5,
+      "precision": [
+       0.16666666666666666,
+       0.030053369411815023,
+       0.5635028250257673
+      ],
+      "recall": [
+       1.0,
+       0.2065493117918027,
+       1.0
+      ],
+      "tp": 1
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 5,
+      "precision": [
+       0.16666666666666666,
+       0.030053369411815023,
+       0.5635028250257673
+      ],
+      "recall": [
+       1.0,
+       0.2065493117918027,
+       1.0
+      ],
+      "tp": 1
+     }
+    },
+    "pending": 0,
+    "raw": {
+     "fn": 0,
+     "fp": 2,
+     "precision": [
+      0.3333333333333333,
+      0.06149194402093078,
+      0.7923404011921757
+     ],
+     "recall": [
+      1.0,
+      0.2065493117918027,
+      1.0
+     ],
+     "tp": 1
+    },
+    "shortfall": 0
+   },
+   "C-name": {
+    "corrected": {
+     "fn": 6,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.43850296436068037,
+      1.0
+     ],
+     "recall": [
+      0.3333333333333333,
+      0.12058381743407343,
+      0.6457978664749412
+     ],
+     "tp": 3
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 3,
+      "precision": [
+       0.625,
+       0.30574239265377096,
+       0.8631557152608771
+      ],
+      "recall": [
+       1.0,
+       0.5655175313406071,
+       1.0
+      ],
+      "tp": 5
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 3,
+      "precision": [
+       0.625,
+       0.30574239265377096,
+       0.8631557152608771
+      ],
+      "recall": [
+       1.0,
+       0.5655175313406071,
+       1.0
+      ],
+      "tp": 5
+     }
+    },
+    "pending": 0,
+    "raw": {
+     "fn": 6,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.43850296436068037,
+      1.0
+     ],
+     "recall": [
+      0.3333333333333333,
+      0.12058381743407343,
+      0.6457978664749412
+     ],
+     "tp": 3
+    },
+    "shortfall": 0
+   },
+   "Q-scoped": {
+    "corrected": {
+     "fn": 1,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.8453609790128563,
+      1.0
+     ],
+     "recall": [
+      0.9545454545454546,
+      0.7820195397089796,
+      0.991930572468161
+     ],
+     "tp": 21
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 2,
+      "precision": [
+       0.75,
+       0.40927542792725174,
+       0.9285207879020445
+      ],
+      "recall": [
+       1.0,
+       0.6096657083436265,
+       1.0
+      ],
+      "tp": 6
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 2,
+      "precision": [
+       0.75,
+       0.40927542792725174,
+       0.9285207879020445
+      ],
+      "recall": [
+       1.0,
+       0.6096657083436265,
+       1.0
+      ],
+      "tp": 6
+     }
+    },
+    "pending": 0,
+    "raw": {
+     "fn": 1,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.8453609790128563,
+      1.0
+     ],
+     "recall": [
+      0.9545454545454546,
+      0.7820195397089796,
+      0.991930572468161
+     ],
+     "tp": 21
+    },
+    "shortfall": 0
+   },
+   "U-free": {
+    "corrected": {
+     "fn": 2,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.8241207740667156,
+      1.0
+     ],
+     "recall": [
+      0.9,
+      0.6989663528135878,
+      0.9721335190383086
+     ],
+     "tp": 18
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 1,
+      "precision": [
+       0.875,
+       0.5291118149439162,
+       0.9775825088000281
+      ],
+      "recall": [
+       1.0,
+       0.6456695613241317,
+       1.0
+      ],
+      "tp": 7
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 1,
+      "precision": [
+       0.875,
+       0.5291118149439162,
+       0.9775825088000281
+      ],
+      "recall": [
+       1.0,
+       0.6456695613241317,
+       1.0
+      ],
+      "tp": 7
+     }
+    },
+    "pending": 0,
+    "raw": {
+     "fn": 3,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.8241207740667156,
+      1.0
+     ],
+     "recall": [
+      0.8571428571428571,
+      0.653639395331373,
+      0.9501898753920957
+     ],
+     "tp": 18
+    },
+    "shortfall": 0
+   },
+   "U-method": {
+    "corrected": {
+     "fn": 1,
+     "fp": 1,
+     "precision": [
+      0.8888888888888888,
+      0.565000291629209,
+      0.9801091125830901
+     ],
+     "recall": [
+      0.8888888888888888,
+      0.565000291629209,
+      0.9801091125830901
+     ],
+     "tp": 8
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 2,
+      "precision": [
+       0.75,
+       0.40927542792725174,
+       0.9285207879020445
+      ],
+      "recall": [
+       1.0,
+       0.6096657083436265,
+       1.0
+      ],
+      "tp": 6
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 2,
+      "precision": [
+       0.75,
+       0.40927542792725174,
+       0.9285207879020445
+      ],
+      "recall": [
+       1.0,
+       0.6096657083436265,
+       1.0
+      ],
+      "tp": 6
+     }
+    },
+    "pending": 0,
+    "raw": {
+     "fn": 1,
+     "fp": 2,
+     "precision": [
+      0.8,
+      0.4901624691221323,
+      0.9433178490622331
+     ],
+     "recall": [
+      0.8888888888888888,
+      0.565000291629209,
+      0.9801091125830901
+     ],
+     "tp": 8
+    },
+    "shortfall": 0
+   }
+  },
+  "callers": {
+   "C-method": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.2065493117918027,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.2065493117918027,
+      1.0
+     ],
+     "tp": 1
+    },
+    "function": {
+     "corrected": {
+      "fn": 87,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.2065493117918027,
+       1.0
+      ],
+      "recall": [
+       0.011363636363636364,
+       0.0020087852955039953,
+       0.061594939563070134
+      ],
+      "tp": 1
+     },
+     "raw": {
+      "fn": 87,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.2065493117918027,
+       1.0
+      ],
+      "recall": [
+       0.011363636363636364,
+       0.0020087852955039953,
+       0.061594939563070134
+      ],
+      "tp": 1
+     }
+    },
+    "pending": 48,
+    "raw": {
+     "fn": 107,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.2065493117918027,
+      1.0
+     ],
+     "recall": [
+      0.009259259259259259,
+      0.0016363608358019519,
+      0.05059345572529895
+     ],
+     "tp": 1
+    },
+    "shortfall": 0
+   },
+   "C-name": {
+    "corrected": {
+     "fn": 1,
+     "fp": 8,
+     "precision": [
+      0.2,
+      0.05668215093776685,
+      0.5098375308778678
+     ],
+     "recall": [
+      0.6666666666666666,
+      0.2076595988078242,
+      0.9385080559790691
+     ],
+     "tp": 2
+    },
+    "function": {
+     "corrected": {
+      "fn": 1,
+      "fp": 7,
+      "precision": [
+       0.2222222222222222,
+       0.06322510654056959,
+       0.5474110333077882
+      ],
+      "recall": [
+       0.6666666666666666,
+       0.2076595988078242,
+       0.9385080559790691
+      ],
+      "tp": 2
+     },
+     "raw": {
+      "fn": 1,
+      "fp": 7,
+      "precision": [
+       0.2222222222222222,
+       0.06322510654056959,
+       0.5474110333077882
+      ],
+      "recall": [
+       0.6666666666666666,
+       0.2076595988078242,
+       0.9385080559790691
+      ],
+      "tp": 2
+     }
+    },
+    "pending": 0,
+    "raw": {
+     "fn": 1,
+     "fp": 9,
+     "precision": [
+      0.18181818181818182,
+      0.051367689278583956,
+      0.47698056435423286
+     ],
+     "recall": [
+      0.6666666666666666,
+      0.2076595988078242,
+      0.9385080559790691
+     ],
+     "tp": 2
+    },
+    "shortfall": 0
+   },
+   "Q-scoped": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.43850296436068037,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.43850296436068037,
+      1.0
+     ],
+     "tp": 3
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.3423802239546494,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.3423802239546494,
+       1.0
+      ],
+      "tp": 2
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.3423802239546494,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.3423802239546494,
+       1.0
+      ],
+      "tp": 2
+     }
+    },
+    "pending": 0,
+    "raw": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.43850296436068037,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.43850296436068037,
+      1.0
+     ],
+     "tp": 3
+    },
+    "shortfall": 0
+   },
+   "U-free": {
+    "corrected": {
+     "fn": 4,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.7224671969739421,
+      0.9999999999999999
+     ],
+     "recall": [
+      0.7142857142857143,
+      0.45350915474002584,
+      0.8827862143729825
+     ],
+     "tp": 10
+    },
+    "function": {
+     "corrected": {
+      "fn": 4,
+      "fp": 1,
+      "precision": [
+       0.8888888888888888,
+       0.565000291629209,
+       0.9801091125830901
+      ],
+      "recall": [
+       0.6666666666666666,
+       0.3906220869404939,
+       0.86187990987514
+      ],
+      "tp": 8
+     },
+     "raw": {
+      "fn": 4,
+      "fp": 1,
+      "precision": [
+       0.8888888888888888,
+       0.565000291629209,
+       0.9801091125830901
+      ],
+      "recall": [
+       0.6666666666666666,
+       0.3906220869404939,
+       0.86187990987514
+      ],
+      "tp": 8
+     }
+    },
+    "pending": 0,
+    "raw": {
+     "fn": 4,
+     "fp": 2,
+     "precision": [
+      0.8,
+      0.4901624691221323,
+      0.9433178490622331
+     ],
+     "recall": [
+      0.6666666666666666,
+      0.3906220869404939,
+      0.86187990987514
+     ],
+     "tp": 8
+    },
+    "shortfall": 0
+   },
+   "U-method": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.8513451233948545,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.8513451233948545,
+      1.0
+     ],
+     "tp": 22
+    },
+    "function": {
+     "corrected": {
+      "fn": 3,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.8156818626193445,
+       1.0
+      ],
+      "recall": [
+       0.85,
+       0.6395811333571357,
+       0.9476312545132735
+      ],
+      "tp": 17
+     },
+     "raw": {
+      "fn": 3,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.8156818626193445,
+       1.0
+      ],
+      "recall": [
+       0.85,
+       0.6395811333571357,
+       0.9476312545132735
+      ],
+      "tp": 17
+     }
+    },
+    "pending": 0,
+    "raw": {
+     "fn": 3,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.8513451233948545,
+      1.0
+     ],
+     "recall": [
+      0.88,
+      0.7004420590811532,
+      0.9583318288209496
+     ],
+     "tp": 22
+    },
+    "shortfall": 0
+   }
+  }
+ },
+ "m3": {
+  "cap": 25,
+  "checked": [
+   {
+    "probe": "callers:listeners.go:610",
+    "site": "listen.go:131",
+    "verdict": "confirmed_tp"
+   },
+   {
+    "probe": "callers:listeners.go:610",
+    "site": "listen.go:163",
+    "verdict": "confirmed_tp"
+   },
+   {
+    "probe": "callers:modules/metrics/metrics.go:74",
+    "site": "caddyconfig/httpcaddyfile/directives.go:131",
+    "verdict": "alias_site"
+   },
+   {
+    "probe": "callers:notify/notify_windows.go:105",
+    "site": "modules/caddyhttp/ip_matchers.go:161",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:notify/notify_windows.go:105",
+    "site": "modules/caddyhttp/ip_matchers.go:268",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:notify/notify_windows.go:105",
+    "site": "modules/caddyhttp/metrics_test.go:87",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:notify/notify_windows.go:105",
+    "site": "modules/caddyhttp/metrics_test.go:261",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:notify/notify_windows.go:105",
+    "site": "modules/caddyhttp/server.go:526",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:notify/notify_windows.go:105",
+    "site": "modules/caddyhttp/staticerror.go:104",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:notify/notify_windows.go:105",
+    "site": "modules/caddyhttp/staticerror.go:108",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:notify/notify_windows.go:105",
+    "site": "modules/caddyhttp/staticresp.go:239",
+    "verdict": "ambiguous"
+   }
+  ],
+  "counts": {
+   "alias_site": 1,
+   "ambiguous": 8,
+   "confirmed_fp": 0,
+   "confirmed_tp": 2
+  }
+ },
+ "meta": {
+  "baseline_invalid": false,
+  "corpus": "caddy",
+  "corpus_dirty": false,
+  "corpus_dirty_reasons": [],
+  "corpus_sha": "77e9ce7404c4",
+  "date": "2026-06-13",
+  "harness_sha": "dd60ed68dda5",
+  "invalid_reasons": [],
+  "oracle": "gopls {\"GoVersion\":\"go1.26.2\",\"Path\":\"golang.org/x/tools/gopls\",\"Main\":{\"Path\":\"golang.org/x/tools/gopls\",\"Version\":\"v0.22.0\",\"Sum\":\"h1:9aON2mTxKrZ1y71RbQVnlPTTNfKZ9y5cv3x/f6XpsZw=\"},\"Deps\":[{\"Path\":\"github.com/BurntSushi/toml\",\"Version\":\"v1.6.0\",\"Sum\":\"h1:dRaEfpa2VI55EwlIW72hMRHdWouJeRF7TPYhI+AUQjk=\"},{\"Path\":\"github.com/fatih/camelcase\",\"Version\":\"v1.0.0\",\"Sum\":\"h1:hxNvNX/xYBp0ovncs8WyWZrOrpBNub/JfaMvbURyft8=\"},{\"Path\":\"github.com/fatih/gomodifytags\",\"Version\":\"v1.17.1-0.20250423142747-f3939df9aa3c\",\"Sum\":\"h1:dDSgAjoOMp8da3egfz0t2S+t8RGOpEmEXZubcGuc0Bg=\"},{\"Path\":\"github.com/fatih/structtag\",\"Version\":\"v1.2.0\",\"Sum\":\"h1:/OdNE99OxoI/PqaW/SuSK9uxxT3f/tcSZgon/ssNSx4=\"},{\"Path\":\"github.com/fsnotify/fsnotify\",\"Version\":\"v1.9.0\",\"Sum\":\"h1:2Ml+OJNzbYCTzsxtv8vKSFD9PbJjmhYF14k/jKC7S9k=\"},{\"Path\":\"github.com/google/go-cmp\",\"Version\":\"v0.7.0\",\"Sum\":\"h1:wk8382ETsv4JYUZwIsn6YpYiWiBsYLSJiTsyBybVuN8=\"},{\"Path\":\"github.com/google/jsonschema-go\",\"Version\":\"v0.4.2\",\"Sum\":\"h1:tmrUohrwoLZZS/P3x7ex0WAVknEkBZM46iALbcqoRA8=\"},{\"Path\":\"github.com/modelcontextprotocol/go-sdk\",\"Version\":\"v1.4.0\",\"Sum\":\"h1:u0kr8lbJc1oBcawK7Df+/ajNMpIDFE41OEPxdeTLOn8=\"},{\"Path\":\"github.com/segmentio/asm\",\"Version\":\"v1.2.1\",\"Sum\":\"h1:DTNbBqs57ioxAD4PrArqftgypG4/qNpXoJx8TVXxPR0=\"},{\"Path\":\"github.com/segmentio/encoding\",\"Version\":\"v0.5.3\",\"Sum\":\"h1:OjMgICtcSFuNvQCdwqMCv9Tg7lEOXGwm1J5RPQccx6w=\"},{\"Path\":\"github.com/yosida95/uritemplate/v3\",\"Version\":\"v3.0.2\",\"Sum\":\"h1:Ed3Oyj9yrmi9087+NczuL5BwkIc4wvTb5zIM+UJPGz4=\"},{\"Path\":\"golang.org/x/exp/typeparams\",\"Version\":\"v0.0.0-20260312153236-7ab1446f8b90\",\"Sum\":\"h1:cfW8UCYSVdPblxA7qQe3o5Iad55Vsx4BFmuGS9RNOmc=\"},{\"Path\":\"golang.org/x/mod\",\"Version\":\"v0.35.0\",\"Sum\":\"h1:Ww1D637e6Pg+Zb2KrWfHQUnH2dQRLBQyAtpr/haaJeM=\"},{\"Path\":\"golang.org/x/oauth2\",\"Version\":\"v0.36.0\",\"Sum\":\"h1:peZ/1z27fi9hUOFCAZaHyrpWG5lwe0RJEEEeH0ThlIs=\"},{\"Path\":\"golang.org/x/sync\",\"Version\":\"v0.20.0\",\"Sum\":\"h1:e0PTpb7pjO8GAtTs2dQ6jYa5BWYlMuX047Dco/pItO4=\"},{\"Path\":\"golang.org/x/sys\",\"Version\":\"v0.43.0\",\"Sum\":\"h1:Rlag2XtaFTxp19wS8MXlJwTvoh8ArU6ezoyFsMyCTNI=\"},{\"Path\":\"golang.org/x/telemetry\",\"Version\":\"v0.0.0-20260409153401-be6f6cb8b1fa\",\"Sum\":\"h1:efT73AJZfAAUV7SOip6pWGkwJDzIGiKBZGVzHYa+ve4=\"},{\"Path\":\"golang.org/x/text\",\"Version\":\"v0.36.0\",\"Sum\":\"h1:JfKh3XmcRPqZPKevfXVpI1wXPTqbkE5f7JA92a55Yxg=\"},{\"Path\":\"golang.org/x/tools\",\"Version\":\"v0.44.1-0.20260513175300-635ae9663724\",\"Sum\":\"h1:rz7KAMVmPA+7ecCT/BHKLE353MUOoCAwMqlUveE8508=\"},{\"Path\":\"golang.org/x/vuln\",\"Version\":\"v1.1.4\",\"Sum\":\"h1:Ju8QsuyhX3Hk8ma3CesTbO8vfJD9EvUBgHvkxHBzj0I=\"},{\"Path\":\"honnef.co/go/tools\",\"Version\":\"v0.7.0\",\"Sum\":\"h1:w6WUp1VbkqPEgLz4rkBzH/CSU6HkoqNLp6GstyTx3lU=\"},{\"Path\":\"mvdan.cc/gofumpt\",\"Version\":\"v0.9.2\",\"Sum\":\"h1:zsEMWL8SVKGHNztrx6uZrXdp7AX8r421Vvp23sz7ik4=\"},{\"Path\":\"mvdan.cc/xurls/v2\",\"Version\":\"v2.6.0\",\"Sum\":\"h1:3NTZpeTxYVWNSokW3MKeyVkz/j7uYXYiMtXRUfmjbgI=\"}],\"Settings\":[{\"Key\":\"-buildmode\",\"Value\":\"exe\"},{\"Key\":\"-compiler\",\"Value\":\"gc\"},{\"Key\":\"CGO_ENABLED\",\"Value\":\"1\"},{\"Key\":\"CGO_CFLAGS\"},{\"Key\":\"CGO_CPPFLAGS\"},{\"Key\":\"CGO_CXXFLAGS\"},{\"Key\":\"CGO_LDFLAGS\"},{\"Key\":\"GOARCH\",\"Value\":\"arm64\"},{\"Key\":\"GOOS\",\"Value\":\"darwin\"},{\"Key\":\"GOARM64\",\"Value\":\"v8.0\"}],\"Version\":\"v0.22.0\"}",
+  "oracle_error_rate": 0.0,
+  "oracle_not_quiescent": false,
+  "prism_dirty": false,
+  "prism_sha": "dd60ed68dda5",
+  "seed": 42,
+  "stale_adjudications": 471,
+  "sut_error_rate": 0.0,
+  "wall_s": {
+   "m1_oracle_inventory": 10.837,
+   "m2": 26.943,
+   "m3": 0.003,
+   "oracle_start": 5.791
+  }
+ },
+ "pending": [],
+ "probes": {
+  "_corpus": "caddy",
+  "_strata": {
+   "C-method": {
+    "eligible_probes": 16,
+    "eligible_symbols": 8,
+    "target": 8
+   },
+   "C-name": {
+    "eligible_probes": 16,
+    "eligible_symbols": 8,
+    "target": 8
+   },
+   "Q-scoped": {
+    "eligible_probes": 16,
+    "eligible_symbols": 8,
+    "target": 8
+   },
+   "U-free": {
+    "eligible_probes": 16,
+    "eligible_symbols": 8,
+    "target": 8
+   },
+   "U-method": {
+    "eligible_probes": 16,
+    "eligible_symbols": 8,
+    "target": 8
+   }
+  },
+  "callees:admin.go:461": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "admin.go",
+     "manageIdentity"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "admin.go",
+     499,
+     499
+    ],
+    [
+     "admin.go",
+     491,
+     491
+    ],
+    [
+     "admin.go",
+     476,
+     476
+    ],
+    [
+     "admin.go",
+     490,
+     490
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "admin.go",
+     "manageIdentity"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "admin.go",
+     476,
+     476
+    ],
+    [
+     "admin.go",
+     490,
+     490
+    ],
+    [
+     "admin.go",
+     491,
+     491
+    ]
+   ],
+   "seed_def": "admin.go:461",
+   "stratum": "U-free"
+  },
+  "callees:caddy.go:589": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "caddy.go",
+     "ProvisionContext"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "caddy.go",
+     590,
+     590
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "caddy.go",
+     "ProvisionContext"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "caddy.go",
+     590,
+     590
+    ]
+   ],
+   "seed_def": "caddy.go:589",
+   "stratum": "U-free"
+  },
+  "callees:caddy.go:594": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "caddy.go",
+     "finishSettingUp"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "caddy.go",
+     599,
+     599
+    ],
+    [
+     "caddy.go",
+     605,
+     605
+    ],
+    [
+     "caddy.go",
+     623,
+     623
+    ],
+    [
+     "caddy.go",
+     643,
+     643
+    ],
+    [
+     "caddy.go",
+     668,
+     668
+    ],
+    [
+     "caddy.go",
+     612,
+     612
+    ],
+    [
+     "caddy.go",
+     617,
+     617
+    ],
+    [
+     "caddy.go",
+     618,
+     618
+    ],
+    [
+     "caddy.go",
+     618,
+     618
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "caddy.go",
+     "finishSettingUp"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "caddy.go",
+     599,
+     599
+    ],
+    [
+     "caddy.go",
+     605,
+     605
+    ],
+    [
+     "caddy.go",
+     623,
+     623
+    ],
+    [
+     "caddy.go",
+     612,
+     612
+    ],
+    [
+     "caddy.go",
+     617,
+     617
+    ],
+    [
+     "caddy.go",
+     618,
+     618
+    ],
+    [
+     "caddy.go",
+     643,
+     643
+    ],
+    [
+     "caddy.go",
+     668,
+     668
+    ]
+   ],
+   "seed_def": "caddy.go:594",
+   "stratum": "U-free"
+  },
+  "callees:caddy_test.go:77": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "caddy_test.go",
+     "TestEvent_CloudEvent_NilOrigin"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "caddy_test.go",
+     79,
+     79
+    ],
+    [
+     "caddy_test.go",
+     85,
+     85
+    ],
+    [
+     "caddy_test.go",
+     78,
+     78
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "caddy_test.go",
+     "TestEvent_CloudEvent_NilOrigin"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "caddy_test.go",
+     79,
+     79
+    ],
+    [
+     "caddy_test.go",
+     78,
+     78
+    ],
+    [
+     "caddy_test.go",
+     85,
+     85
+    ]
+   ],
+   "seed_def": "caddy_test.go:77",
+   "stratum": "U-free"
+  },
+  "callees:caddyconfig/caddyfile/adapter.go:107": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "inventory_miss",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "caddyconfig/caddyfile/adapter.go:107",
+   "stratum": "C-method"
+  },
+  "callees:caddyconfig/caddyfile/parse_test.go:374": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "caddyconfig/caddyfile/parse_test.go",
+     "TestRecursiveImport"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "caddyconfig/caddyfile/parse_test.go",
+     377,
+     377
+    ],
+    [
+     "caddyconfig/caddyfile/parse_test.go",
+     378,
+     378
+    ],
+    [
+     "caddyconfig/caddyfile/parse_test.go",
+     383,
+     383
+    ],
+    [
+     "caddyconfig/caddyfile/parse_test.go",
+     376,
+     376
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "caddyconfig/caddyfile/parse_test.go",
+     "TestRecursiveImport"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "caddyconfig/caddyfile/parse_test.go",
+     376,
+     376
+    ],
+    [
+     "caddyconfig/caddyfile/parse_test.go",
+     378,
+     378
+    ],
+    [
+     "caddyconfig/caddyfile/parse_test.go",
+     383,
+     383
+    ]
+   ],
+   "seed_def": "caddyconfig/caddyfile/parse_test.go:374",
+   "stratum": "Q-scoped"
+  },
+  "callees:caddyconfig/caddyfile/parse_test.go:636": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "caddyconfig/caddyfile/parse_test.go",
+     "TestEnvironmentReplacement"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "caddyconfig/caddyfile/parse_test.go",
+     725,
+     725
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "caddyconfig/caddyfile/parse_test.go",
+     "TestEnvironmentReplacement"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "caddyconfig/caddyfile/parse_test.go",
+     725,
+     725
+    ]
+   ],
+   "seed_def": "caddyconfig/caddyfile/parse_test.go:636",
+   "stratum": "Q-scoped"
+  },
+  "callees:caddyconfig/caddyfile/parse_test.go:762": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "caddyconfig/caddyfile/parse_test.go",
+     "TestSnippets"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "caddyconfig/caddyfile/parse_test.go",
+     772,
+     772
+    ],
+    [
+     "caddyconfig/caddyfile/parse_test.go",
+     779,
+     779
+    ],
+    [
+     "caddyconfig/caddyfile/parse_test.go",
+     763,
+     763
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "caddyconfig/caddyfile/parse_test.go",
+     "TestSnippets"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "caddyconfig/caddyfile/parse_test.go",
+     763,
+     763
+    ],
+    [
+     "caddyconfig/caddyfile/parse_test.go",
+     772,
+     772
+    ],
+    [
+     "caddyconfig/caddyfile/parse_test.go",
+     779,
+     779
+    ]
+   ],
+   "seed_def": "caddyconfig/caddyfile/parse_test.go:762",
+   "stratum": "Q-scoped"
+  },
+  "callees:caddyconfig/httpcaddyfile/httptype.go:1677": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "caddyconfig/httpcaddyfile/httptype.go",
+     "tryDuration"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "caddyconfig/httpcaddyfile/httptype.go:1677",
+   "stratum": "Q-scoped"
+  },
+  "callees:caddyconfig/load.go:137": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "caddyconfig/load.go",
+     "handleAdapt"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "caddyconfig/load.go",
+     157,
+     157
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "caddyconfig/load.go",
+     "handleAdapt"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "caddyconfig/load.go",
+     157,
+     157
+    ],
+    [
+     "caddyconfig/load.go",
+     146,
+     146
+    ]
+   ],
+   "seed_def": "caddyconfig/load.go:137",
+   "stratum": "U-method"
+  },
+  "callees:caddytest/caddytest.go:584": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "caddytest/caddytest.go",
+     "AssertPutResponseBody"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "caddytest/caddytest.go",
+     593,
+     593
+    ],
+    [
+     "caddytest/caddytest.go",
+     595,
+     595
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "caddytest/caddytest.go",
+     "AssertPutResponseBody"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "caddytest/caddytest.go",
+     593,
+     593
+    ],
+    [
+     "caddytest/caddytest.go",
+     595,
+     595
+    ]
+   ],
+   "seed_def": "caddytest/caddytest.go:584",
+   "stratum": "U-method"
+  },
+  "callees:caddytest/integration/h2listener_test.go:103": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "caddytest/integration/h2listener_test.go",
+     "TestH2ListenerWithoutTLS"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "caddytest/integration/h2listener_test.go",
+     126,
+     126
+    ],
+    [
+     "caddytest/integration/h2listener_test.go",
+     118,
+     118
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "caddytest/integration/h2listener_test.go",
+     "TestH2ListenerWithoutTLS"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "caddytest/integration/h2listener_test.go",
+     118,
+     118
+    ],
+    [
+     "caddytest/integration/h2listener_test.go",
+     126,
+     126
+    ]
+   ],
+   "seed_def": "caddytest/integration/h2listener_test.go:103",
+   "stratum": "Q-scoped"
+  },
+  "callees:caddytest/integration/proxyprotocol_test.go:228": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "caddytest/integration/proxyprotocol_test.go",
+     "proxyProtoTLSConfig"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "caddytest/integration/proxyprotocol_test.go:228",
+   "stratum": "Q-scoped"
+  },
+  "callees:cmd/removebinary_windows.go:31": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "cmd/removebinary_windows.go",
+     "removeCaddyBinary"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "cmd/removebinary_windows.go:31",
+   "stratum": "C-name"
+  },
+  "callees:internal/testmocks/dummyverifier.go:11": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "internal/testmocks/dummyverifier.go",
+     "init"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "internal/testmocks/dummyverifier.go",
+     12,
+     12
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "internal/testmocks/dummyverifier.go",
+     "init"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "internal/testmocks/dummyverifier.go:11",
+   "stratum": "C-name"
+  },
+  "callees:listeners.go:610": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "listeners.go",
+     "fakeClosedErr"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "listeners.go",
+     613,
+     613
+    ],
+    [
+     "listeners.go",
+     614,
+     614
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "listeners.go",
+     "fakeClosedErr"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "listeners.go",
+     613,
+     613
+    ]
+   ],
+   "seed_def": "listeners.go:610",
+   "stratum": "U-free"
+  },
+  "callees:logging.go:653": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "logging.go",
+     "CaddyModule"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "logging.go:653",
+   "stratum": "C-method"
+  },
+  "callees:logging.go:735": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "logging.go",
+     "newDefaultProductionLogEncoder"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "logging.go",
+     737,
+     737
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "logging.go",
+     "newDefaultProductionLogEncoder"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "logging.go",
+     737,
+     737
+    ]
+   ],
+   "seed_def": "logging.go:735",
+   "stratum": "U-free"
+  },
+  "callees:modules/caddyfs/filesystem.go:50": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "modules/caddyfs/filesystem.go",
+     "CaddyModule"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "modules/caddyfs/filesystem.go:50",
+   "stratum": "C-method"
+  },
+  "callees:modules/caddyhttp/encode/gzip/gzip.go:38": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "modules/caddyhttp/encode/gzip/gzip.go",
+     "CaddyModule"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "modules/caddyhttp/encode/gzip/gzip.go:38",
+   "stratum": "C-method"
+  },
+  "callees:modules/caddyhttp/fileserver/browsetplcontext.go:337": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "modules/caddyhttp/fileserver/browsetplcontext.go",
+     "Less"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "modules/caddyhttp/fileserver/browsetplcontext.go:337",
+   "stratum": "C-method"
+  },
+  "callees:modules/caddyhttp/fileserver/matcher.go:579": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "modules/caddyhttp/fileserver/matcher.go",
+     "firstSplit"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "modules/caddyhttp/fileserver/matcher.go",
+     581,
+     581
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "modules/caddyhttp/fileserver/matcher.go",
+     "firstSplit"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "modules/caddyhttp/fileserver/matcher.go",
+     581,
+     581
+    ]
+   ],
+   "seed_def": "modules/caddyhttp/fileserver/matcher.go:579",
+   "stratum": "U-method"
+  },
+  "callees:modules/caddyhttp/http2listener.go:33": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "modules/caddyhttp/http2listener.go",
+     "Accept"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "modules/caddyhttp/http2listener.go",
+     34,
+     34
+    ]
+   ],
+   "seed_def": "modules/caddyhttp/http2listener.go:33",
+   "stratum": "C-method"
+  },
+  "callees:modules/caddyhttp/reverseproxy/command.go:37": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "modules/caddyhttp/reverseproxy/command.go",
+     "init"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "modules/caddyhttp/reverseproxy/command.go",
+     82,
+     82
+    ],
+    [
+     "modules/caddyhttp/reverseproxy/command.go",
+     38,
+     38
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "modules/caddyhttp/reverseproxy/command.go",
+     "init"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "modules/caddyhttp/reverseproxy/command.go",
+     82,
+     82
+    ],
+    [
+     "modules/caddyhttp/reverseproxy/command.go",
+     38,
+     38
+    ]
+   ],
+   "seed_def": "modules/caddyhttp/reverseproxy/command.go:37",
+   "stratum": "C-name"
+  },
+  "callees:modules/caddyhttp/reverseproxy/hosts.go:199": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "modules/caddyhttp/reverseproxy/hosts.go",
+     "activeHealthFails"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "modules/caddyhttp/reverseproxy/hosts.go",
+     200,
+     200
+    ]
+   ],
+   "seed_def": "modules/caddyhttp/reverseproxy/hosts.go:199",
+   "stratum": "U-method"
+  },
+  "callees:modules/caddyhttp/reverseproxy/hosts.go:85": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "modules/caddyhttp/reverseproxy/hosts.go",
+     "Healthy"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "modules/caddyhttp/reverseproxy/hosts.go",
+     91,
+     91
+    ],
+    [
+     "modules/caddyhttp/reverseproxy/hosts.go",
+     88,
+     88
+    ],
+    [
+     "modules/caddyhttp/reverseproxy/hosts.go",
+     86,
+     86
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "modules/caddyhttp/reverseproxy/hosts.go",
+     "Healthy"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "modules/caddyhttp/reverseproxy/hosts.go",
+     86,
+     86
+    ],
+    [
+     "modules/caddyhttp/reverseproxy/hosts.go",
+     88,
+     88
+    ]
+   ],
+   "seed_def": "modules/caddyhttp/reverseproxy/hosts.go:85",
+   "stratum": "U-method"
+  },
+  "callees:modules/caddyhttp/reverseproxy/passive_health_test.go:292": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "modules/caddyhttp/reverseproxy/passive_health_test.go",
+     "TestDynamicUpstreamFailCountPersistedBetweenRequests"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "modules/caddyhttp/reverseproxy/passive_health_test.go",
+     293,
+     293
+    ],
+    [
+     "modules/caddyhttp/reverseproxy/passive_health_test.go",
+     300,
+     300
+    ],
+    [
+     "modules/caddyhttp/reverseproxy/passive_health_test.go",
+     321,
+     321
+    ],
+    [
+     "modules/caddyhttp/reverseproxy/passive_health_test.go",
+     322,
+     322
+    ],
+    [
+     "modules/caddyhttp/reverseproxy/passive_health_test.go",
+     302,
+     302
+    ],
+    [
+     "modules/caddyhttp/reverseproxy/passive_health_test.go",
+     303,
+     303
+    ],
+    [
+     "modules/caddyhttp/reverseproxy/passive_health_test.go",
+     316,
+     316
+    ],
+    [
+     "modules/caddyhttp/reverseproxy/passive_health_test.go",
+     317,
+     317
+    ],
+    [
+     "modules/caddyhttp/reverseproxy/passive_health_test.go",
+     294,
+     294
+    ],
+    [
+     "modules/caddyhttp/reverseproxy/passive_health_test.go",
+     299,
+     299
+    ],
+    [
+     "modules/caddyhttp/reverseproxy/passive_health_test.go",
+     311,
+     311
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "modules/caddyhttp/reverseproxy/passive_health_test.go",
+     "TestDynamicUpstreamFailCountPersistedBetweenRequests"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "modules/caddyhttp/reverseproxy/passive_health_test.go",
+     293,
+     293
+    ],
+    [
+     "modules/caddyhttp/reverseproxy/passive_health_test.go",
+     294,
+     294
+    ],
+    [
+     "modules/caddyhttp/reverseproxy/passive_health_test.go",
+     300,
+     300
+    ],
+    [
+     "modules/caddyhttp/reverseproxy/passive_health_test.go",
+     321,
+     321
+    ],
+    [
+     "modules/caddyhttp/reverseproxy/passive_health_test.go",
+     322,
+     322
+    ],
+    [
+     "modules/caddyhttp/reverseproxy/passive_health_test.go",
+     302,
+     302
+    ],
+    [
+     "modules/caddyhttp/reverseproxy/passive_health_test.go",
+     303,
+     303
+    ],
+    [
+     "modules/caddyhttp/reverseproxy/passive_health_test.go",
+     316,
+     316
+    ],
+    [
+     "modules/caddyhttp/reverseproxy/passive_health_test.go",
+     317,
+     317
+    ],
+    [
+     "modules/caddyhttp/reverseproxy/passive_health_test.go",
+     299,
+     299
+    ],
+    [
+     "modules/caddyhttp/reverseproxy/passive_health_test.go",
+     311,
+     311
+    ]
+   ],
+   "seed_def": "modules/caddyhttp/reverseproxy/passive_health_test.go:292",
+   "stratum": "Q-scoped"
+  },
+  "callees:modules/caddyhttp/server.go:607": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "modules/caddyhttp/server.go",
+     "hasTLSClientAuth"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "modules/caddyhttp/server.go",
+     609,
+     609
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "modules/caddyhttp/server.go",
+     "hasTLSClientAuth"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "modules/caddyhttp/server.go",
+     609,
+     609
+    ]
+   ],
+   "seed_def": "modules/caddyhttp/server.go:607",
+   "stratum": "U-method"
+  },
+  "callees:modules/caddyhttp/server_test.go:194": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "modules/caddyhttp/server_test.go",
+     "TestServer_TrustedRealClientIP_OneTrustedHeaderValid"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "modules/caddyhttp/server_test.go",
+     198,
+     198
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "modules/caddyhttp/server_test.go",
+     "TestServer_TrustedRealClientIP_OneTrustedHeaderValid"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "modules/caddyhttp/server_test.go",
+     198,
+     198
+    ]
+   ],
+   "seed_def": "modules/caddyhttp/server_test.go:194",
+   "stratum": "Q-scoped"
+  },
+  "callees:modules/caddyhttp/templates/tplcontext.go:265": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "modules/caddyhttp/templates/tplcontext.go",
+     "funcEnv"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "modules/caddyhttp/templates/tplcontext.go:265",
+   "stratum": "U-method"
+  },
+  "callees:modules/caddyhttp/templates/tplcontext.go:386": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "modules/caddyhttp/templates/tplcontext.go",
+     "funcSplitFrontMatter"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "modules/caddyhttp/templates/tplcontext.go",
+     387,
+     387
+    ],
+    [
+     "modules/caddyhttp/templates/tplcontext.go",
+     387,
+     387
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "modules/caddyhttp/templates/tplcontext.go",
+     "funcSplitFrontMatter"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "modules/caddyhttp/templates/tplcontext.go",
+     387,
+     387
+    ]
+   ],
+   "seed_def": "modules/caddyhttp/templates/tplcontext.go:386",
+   "stratum": "U-method"
+  },
+  "callees:modules/caddytls/capools.go:44": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "inventory_miss",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "modules/caddytls/capools.go:44",
+   "stratum": "C-method"
+  },
+  "callees:modules/caddytls/connpolicy.go:40": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "modules/caddytls/connpolicy.go",
+     "init"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "modules/caddytls/connpolicy.go",
+     41,
+     41
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "modules/caddytls/connpolicy.go",
+     "init"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "modules/caddytls/connpolicy.go:40",
+   "stratum": "C-name"
+  },
+  "callees:modules/caddytls/leafstorageloader.go:85": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "modules/caddytls/leafstorageloader.go",
+     "LoadLeafCertificates"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "modules/caddytls/leafstorageloader.go",
+     93,
+     93
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "modules/caddytls/leafstorageloader.go",
+     "LoadLeafCertificates"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "modules/caddytls/leafstorageloader.go",
+     93,
+     93
+    ],
+    [
+     "modules/caddytls/leafstorageloader.go",
+     88,
+     88
+    ]
+   ],
+   "seed_def": "modules/caddytls/leafstorageloader.go:85",
+   "stratum": "C-method"
+  },
+  "callees:modules/caddytls/matchers.go:37": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "modules/caddytls/matchers.go",
+     "init"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "modules/caddytls/matchers.go",
+     38,
+     38
+    ],
+    [
+     "modules/caddytls/matchers.go",
+     39,
+     39
+    ],
+    [
+     "modules/caddytls/matchers.go",
+     40,
+     40
+    ],
+    [
+     "modules/caddytls/matchers.go",
+     41,
+     41
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "modules/caddytls/matchers.go",
+     "init"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "modules/caddytls/matchers.go:37",
+   "stratum": "C-name"
+  },
+  "callees:modules/metrics/metrics.go:74": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "modules/metrics/metrics.go",
+     "parseCaddyfile"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "modules/metrics/metrics.go",
+     76,
+     76
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "modules/metrics/metrics.go",
+     "parseCaddyfile"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "modules/metrics/metrics.go",
+     76,
+     76
+    ]
+   ],
+   "seed_def": "modules/metrics/metrics.go:74",
+   "stratum": "C-name"
+  },
+  "callees:notify/notify_windows.go:105": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "notify/notify_windows.go",
+     "Error"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "notify/notify_windows.go:105",
+   "stratum": "C-name"
+  },
+  "callees:replacer.go:291": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "replacer.go",
+     "ToString"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "replacer.go:291",
+   "stratum": "U-free"
+  },
+  "callees:replacer_test.go:181": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "replacer_test.go",
+     "TestReplacerSet"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "replacer_test.go",
+     221,
+     221
+    ],
+    [
+     "replacer_test.go",
+     182,
+     182
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "replacer_test.go",
+     "TestReplacerSet"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "replacer_test.go",
+     182,
+     182
+    ]
+   ],
+   "seed_def": "replacer_test.go:181",
+   "stratum": "U-free"
+  },
+  "callees:service_windows.go:26": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "service_windows.go",
+     "init"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "service_windows.go:26",
+   "stratum": "C-name"
+  },
+  "callers:admin.go:461": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "admin_test.go",
+     "TestManageIdentity"
+    ],
+    [
+     "caddy.go",
+     "finishSettingUp"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "admin_test.go",
+     1086,
+     1086
+    ],
+    [
+     "caddy.go",
+     599,
+     599
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "admin_test.go",
+     "TestManageIdentity"
+    ],
+    [
+     "caddy.go",
+     "finishSettingUp"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "admin_test.go",
+     1086,
+     1086
+    ],
+    [
+     "caddy.go",
+     599,
+     599
+    ]
+   ],
+   "seed_def": "admin.go:461",
+   "stratum": "U-free"
+  },
+  "callers:caddy.go:589": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "modules/caddytls/tls_wildcard_test.go",
+     "TestAvoidDuplicateAutomation"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "modules/caddytls/tls_wildcard_test.go",
+     70,
+     70
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "caddy.go:589",
+   "stratum": "U-free"
+  },
+  "callers:caddy.go:594": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "caddy.go",
+     "run"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "caddy.go",
+     475,
+     475
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "caddy.go",
+     "run"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "caddy.go",
+     475,
+     475
+    ]
+   ],
+   "seed_def": "caddy.go:594",
+   "stratum": "U-free"
+  },
+  "callers:caddy_test.go:77": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "caddy_test.go:77",
+   "stratum": "U-free"
+  },
+  "callers:caddyconfig/caddyfile/adapter.go:107": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "caddyconfig/caddyfile/adapter.go",
+     "UnmarshalModule"
+    ],
+    [
+     "caddyconfig/httpcaddyfile/builtins.go",
+     "parseError"
+    ],
+    [
+     "caddyconfig/httpcaddyfile/builtins.go",
+     "parseRespond"
+    ],
+    [
+     "caddyconfig/httpcaddyfile/builtins.go",
+     "parseTLS"
+    ],
+    [
+     "caddyconfig/httpcaddyfile/builtins.go",
+     "parseVars"
+    ],
+    [
+     "caddyconfig/httpcaddyfile/httptype.go",
+     "parseMatcherDefinitions"
+    ],
+    [
+     "modules/caddyfs/filesystem.go",
+     "parseFilesystems"
+    ],
+    [
+     "modules/caddyhttp/encode/caddyfile.go",
+     "parseCaddyfile"
+    ],
+    [
+     "modules/caddyhttp/fileserver/caddyfile.go",
+     "parseCaddyfile"
+    ],
+    [
+     "modules/caddyhttp/intercept/intercept.go",
+     "parseCaddyfile"
+    ],
+    [
+     "modules/caddyhttp/logging/caddyfile.go",
+     "parseCaddyfile"
+    ],
+    [
+     "modules/caddyhttp/matchers.go",
+     "ParseCaddyfileNestedMatcherSet"
+    ],
+    [
+     "modules/caddyhttp/responsematchers.go",
+     "ParseNamedResponseMatcher"
+    ],
+    [
+     "modules/caddyhttp/reverseproxy/caddyfile.go",
+     "parseCaddyfile"
+    ],
+    [
+     "modules/caddyhttp/reverseproxy/caddyfile.go",
+     "parseCopyResponseCaddyfile"
+    ],
+    [
+     "modules/caddyhttp/reverseproxy/caddyfile.go",
+     "parseCopyResponseHeadersCaddyfile"
+    ],
+    [
+     "modules/caddyhttp/reverseproxy/fastcgi/caddyfile.go",
+     "parsePHPFastCGI"
+    ],
+    [
+     "modules/caddyhttp/reverseproxy/forwardauth/caddyfile.go",
+     "parseCaddyfile"
+    ],
+    [
+     "modules/caddyhttp/reverseproxy/httptransport_test.go",
+     "TestHTTPTransportUnmarshalCaddyFileWithCaPools"
+    ],
+    [
+     "modules/caddyhttp/reverseproxy/retries_test.go",
+     "TestRetryMatchAllowsExpressionMixedWithOtherMatchers"
+    ],
+    [
+     "modules/caddyhttp/tracing/module.go",
+     "parseCaddyfile"
+    ],
+    [
+     "modules/caddyhttp/tracing/module_test.go",
+     "TestTracing_UnmarshalCaddyfile"
+    ],
+    [
+     "modules/caddyhttp/tracing/module_test.go",
+     "TestTracing_UnmarshalCaddyfile_Error"
+    ],
+    [
+     "modules/caddytls/capools_test.go",
+     "TestCombinedCAPoolUnmarshalCaddyfile"
+    ],
+    [
+     "modules/caddytls/capools_test.go",
+     "TestFileCAPoolUnmarshalCaddyfile"
+    ],
+    [
+     "modules/caddytls/capools_test.go",
+     "TestHTTPCertPoolUnmarshalCaddyfile"
+    ],
+    [
+     "modules/caddytls/capools_test.go",
+     "TestInlineCAPoolUnmarshalCaddyfile"
+    ],
+    [
+     "modules/caddytls/capools_test.go",
+     "TestPKIIntermediateCAPoolUnmarshalCaddyfile"
+    ],
+    [
+     "modules/caddytls/capools_test.go",
+     "TestPKIRootCAPoolUnmarshalCaddyfile"
+    ],
+    [
+     "modules/caddytls/capools_test.go",
+     "TestStoragePoolUnmarshalCaddyfile"
+    ],
+    [
+     "modules/caddytls/capools_test.go",
+     "TestSystemCAPoolUnmarshalCaddyfile"
+    ],
+    [
+     "modules/caddytls/connpolicy.go",
+     "UnmarshalCaddyfile"
+    ],
+    [
+     "modules/caddytls/connpolicy_test.go",
+     "TestClientAuthenticationUnmarshalCaddyfileWithDirectiveName"
+    ],
+    [
+     "modules/logging/encoders.go",
+     "UnmarshalCaddyfile"
+    ],
+    [
+     "modules/logging/filewriter_test.go",
+     "TestCaddyfile_DirMode_FromFile"
+    ],
+    [
+     "modules/logging/filewriter_test.go",
+     "TestCaddyfile_DirMode_Inherit"
+    ],
+    [
+     "modules/logging/filewriter_test.go",
+     "TestCaddyfile_DirMode_Invalid"
+    ],
+    [
+     "modules/logging/filewriter_test.go",
+     "TestCaddyfile_DirMode_Octal"
+    ],
+    [
+     "modules/logging/filewriter_test.go",
+     "TestFileModeConfig"
+    ],
+    [
+     "modules/logging/journaldencoder_test.go",
+     "TestJournaldEncoderUnmarshalCaddyfile"
+    ],
+    [
+     "modules/metrics/metrics.go",
+     "parseCaddyfile"
+    ],
+    [
+     "modules/metrics/metrics_test.go",
+     "TestMetricsUnmarshalCaddyfile"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "caddyconfig/caddyfile/adapter.go",
+     137,
+     137
+    ],
+    [
+     "caddyconfig/httpcaddyfile/builtins.go",
+     245,
+     245
+    ],
+    [
+     "caddyconfig/httpcaddyfile/builtins.go",
+     697,
+     697
+    ],
+    [
+     "caddyconfig/httpcaddyfile/builtins.go",
+     786,
+     786
+    ],
+    [
+     "caddyconfig/httpcaddyfile/builtins.go",
+     802,
+     802
+    ],
+    [
+     "caddyconfig/httpcaddyfile/httptype.go",
+     1567,
+     1567
+    ],
+    [
+     "modules/caddyfs/filesystem.go",
+     41,
+     41
+    ],
+    [
+     "modules/caddyhttp/encode/caddyfile.go",
+     33,
+     33
+    ],
+    [
+     "modules/caddyhttp/fileserver/caddyfile.go",
+     40,
+     40
+    ],
+    [
+     "modules/caddyhttp/intercept/intercept.go",
+     367,
+     367
+    ],
+    [
+     "modules/caddyhttp/logging/caddyfile.go",
+     34,
+     34
+    ],
+    [
+     "modules/caddyhttp/matchers.go",
+     1586,
+     1586
+    ],
+    [
+     "modules/caddyhttp/responsematchers.go",
+     87,
+     87
+    ],
+    [
+     "modules/caddyhttp/reverseproxy/caddyfile.go",
+     47,
+     47
+    ],
+    [
+     "modules/caddyhttp/reverseproxy/caddyfile.go",
+     1374,
+     1374
+    ],
+    [
+     "modules/caddyhttp/reverseproxy/caddyfile.go",
+     1413,
+     1413
+    ],
+    [
+     "modules/caddyhttp/reverseproxy/fastcgi/caddyfile.go",
+     398,
+     398
+    ],
+    [
+     "modules/caddyhttp/reverseproxy/forwardauth/caddyfile.go",
+     263,
+     263
+    ],
+    [
+     "modules/caddyhttp/reverseproxy/httptransport_test.go",
+     89,
+     89
+    ],
+    [
+     "modules/caddyhttp/reverseproxy/retries_test.go",
+     726,
+     726
+    ],
+    [
+     "modules/caddyhttp/tracing/module.go",
+     135,
+     135
+    ],
+    [
+     "modules/caddyhttp/tracing/module_test.go",
+     80,
+     80
+    ],
+    [
+     "modules/caddyhttp/tracing/module_test.go",
+     151,
+     151
+    ],
+    [
+     "modules/caddytls/capools_test.go",
+     96,
+     96
+    ],
+    [
+     "modules/caddytls/capools_test.go",
+     197,
+     197
+    ],
+    [
+     "modules/caddytls/capools_test.go",
+     291,
+     291
+    ],
+    [
+     "modules/caddytls/capools_test.go",
+     380,
+     380
+    ],
+    [
+     "modules/caddytls/capools_test.go",
+     471,
+     471
+    ],
+    [
+     "modules/caddytls/capools_test.go",
+     771,
+     771
+    ],
+    [
+     "modules/caddytls/capools_test.go",
+     817,
+     817
+    ],
+    [
+     "modules/caddytls/capools_test.go",
+     902,
+     902
+    ],
+    [
+     "modules/caddytls/connpolicy.go",
+     503,
+     503
+    ],
+    [
+     "modules/caddytls/connpolicy.go",
+     512,
+     512
+    ],
+    [
+     "modules/caddytls/connpolicy_test.go",
+     272,
+     272
+    ],
+    [
+     "modules/logging/encoders.go",
+     72,
+     72
+    ],
+    [
+     "modules/logging/encoders.go",
+     112,
+     112
+    ],
+    [
+     "modules/logging/filewriter_test.go",
+     288,
+     288
+    ],
+    [
+     "modules/logging/filewriter_test.go",
+     598,
+     598
+    ],
+    [
+     "modules/logging/filewriter_test.go",
+     616,
+     616
+    ],
+    [
+     "modules/logging/filewriter_test.go",
+     633,
+     633
+    ],
+    [
+     "modules/logging/filewriter_test.go",
+     647,
+     647
+    ],
+    [
+     "modules/logging/journaldencoder_test.go",
+     78,
+     78
+    ],
+    [
+     "modules/metrics/metrics.go",
+     76,
+     76
+    ],
+    [
+     "modules/metrics/metrics_test.go",
+     12,
+     12
+    ],
+    [
+     "modules/metrics/metrics_test.go",
+     19,
+     19
+    ],
+    [
+     "modules/metrics/metrics_test.go",
+     30,
+     30
+    ],
+    [
+     "modules/metrics/metrics_test.go",
+     41,
+     41
+    ]
+   ],
+   "outcome": "inventory_miss",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "caddyconfig/caddyfile/adapter.go:107",
+   "stratum": "C-method"
+  },
+  "callers:caddyconfig/caddyfile/parse_test.go:374": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "caddyconfig/caddyfile/parse_test.go:374",
+   "stratum": "Q-scoped"
+  },
+  "callers:caddyconfig/caddyfile/parse_test.go:636": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "caddyconfig/caddyfile/parse_test.go:636",
+   "stratum": "Q-scoped"
+  },
+  "callers:caddyconfig/caddyfile/parse_test.go:762": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "caddyconfig/caddyfile/parse_test.go:762",
+   "stratum": "Q-scoped"
+  },
+  "callers:caddyconfig/httpcaddyfile/httptype.go:1677": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "caddyconfig/httpcaddyfile/httptype.go",
+     "Setup"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "caddyconfig/httpcaddyfile/httptype.go",
+     207,
+     207
+    ],
+    [
+     "caddyconfig/httpcaddyfile/httptype.go",
+     208,
+     208
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "caddyconfig/httpcaddyfile/httptype.go",
+     "Setup"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "caddyconfig/httpcaddyfile/httptype.go",
+     207,
+     207
+    ],
+    [
+     "caddyconfig/httpcaddyfile/httptype.go",
+     208,
+     208
+    ]
+   ],
+   "seed_def": "caddyconfig/httpcaddyfile/httptype.go:1677",
+   "stratum": "Q-scoped"
+  },
+  "callers:caddyconfig/load.go:137": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "caddyconfig/load.go",
+     "Routes"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "caddyconfig/load.go",
+     63,
+     63
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "caddyconfig/load.go:137",
+   "stratum": "U-method"
+  },
+  "callers:caddytest/caddytest.go:584": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "caddytest/caddytest_test.go",
+     "TestCheckID"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "caddytest/caddytest_test.go",
+     166,
+     166
+    ],
+    [
+     "caddytest/caddytest_test.go",
+     209,
+     209
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "caddytest/caddytest_test.go",
+     "TestCheckID"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "caddytest/caddytest_test.go",
+     166,
+     166
+    ],
+    [
+     "caddytest/caddytest_test.go",
+     209,
+     209
+    ]
+   ],
+   "seed_def": "caddytest/caddytest.go:584",
+   "stratum": "U-method"
+  },
+  "callers:caddytest/integration/h2listener_test.go:103": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "caddytest/integration/h2listener_test.go:103",
+   "stratum": "Q-scoped"
+  },
+  "callers:caddytest/integration/proxyprotocol_test.go:228": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "caddytest/integration/proxyprotocol_test.go",
+     "testTLSProxyProtocolMatrix"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "caddytest/integration/proxyprotocol_test.go",
+     287,
+     287
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "caddytest/integration/proxyprotocol_test.go",
+     "testTLSProxyProtocolMatrix"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "caddytest/integration/proxyprotocol_test.go",
+     287,
+     287
+    ]
+   ],
+   "seed_def": "caddytest/integration/proxyprotocol_test.go:228",
+   "stratum": "Q-scoped"
+  },
+  "callers:cmd/removebinary_windows.go:31": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "cmd/packagesfuncs.go",
+     "upgradeBuild"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "cmd/packagesfuncs.go",
+     204,
+     204
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "cmd/packagesfuncs.go",
+     "upgradeBuild"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "cmd/packagesfuncs.go",
+     204,
+     204
+    ]
+   ],
+   "seed_def": "cmd/removebinary_windows.go:31",
+   "stratum": "C-name"
+  },
+  "callers:internal/testmocks/dummyverifier.go:11": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "internal/testmocks/dummyverifier.go:11",
+   "stratum": "C-name"
+  },
+  "callers:listeners.go:610": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "listeners.go",
+     "Accept"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "listeners.go",
+     646,
+     646
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "listen.go",
+     "Accept"
+    ],
+    [
+     "listeners.go",
+     "Accept"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "listen.go",
+     131,
+     131
+    ],
+    [
+     "listen.go",
+     163,
+     163
+    ],
+    [
+     "listeners.go",
+     646,
+     646
+    ]
+   ],
+   "seed_def": "listeners.go:610",
+   "stratum": "U-free"
+  },
+  "callers:logging.go:653": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "caddy.go",
+     "CloudEvent"
+    ],
+    [
+     "caddy.go",
+     "finishSettingUp"
+    ],
+    [
+     "caddyconfig/httpcaddyfile/httptype.go",
+     "Setup"
+    ],
+    [
+     "caddyconfig/httpcaddyfile/httptype.go",
+     "serversFromPairings"
+    ],
+    [
+     "caddyconfig/httpcaddyfile/serveroptions.go",
+     "unmarshalCaddyfileServerOptions"
+    ],
+    [
+     "caddyconfig/httpcaddyfile/tlsapp.go",
+     "buildTLSApp"
+    ],
+    [
+     "caddyconfig/httpcaddyfile/tlsapp.go",
+     "fillInGlobalACMEDefaults"
+    ],
+    [
+     "context.go",
+     "Slogger"
+    ],
+    [
+     "logging.go",
+     "Logger"
+    ],
+    [
+     "modules.go",
+     "GetModuleID"
+    ],
+    [
+     "modules.go",
+     "GetModuleName"
+    ],
+    [
+     "modules.go",
+     "RegisterModule"
+    ],
+    [
+     "modules/caddyevents/app.go",
+     "Emit"
+    ],
+    [
+     "modules/caddytls/ech.go",
+     "PublisherKey"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "caddy.go",
+     618,
+     618
+    ],
+    [
+     "caddy.go",
+     1164,
+     1164
+    ],
+    [
+     "caddyconfig/httpcaddyfile/httptype.go",
+     301,
+     301
+    ],
+    [
+     "caddyconfig/httpcaddyfile/httptype.go",
+     851,
+     851
+    ],
+    [
+     "caddyconfig/httpcaddyfile/httptype.go",
+     865,
+     865
+    ],
+    [
+     "caddyconfig/httpcaddyfile/serveroptions.go",
+     100,
+     100
+    ],
+    [
+     "caddyconfig/httpcaddyfile/serveroptions.go",
+     120,
+     120
+    ],
+    [
+     "caddyconfig/httpcaddyfile/serveroptions.go",
+     268,
+     268
+    ],
+    [
+     "caddyconfig/httpcaddyfile/tlsapp.go",
+     180,
+     180
+    ],
+    [
+     "caddyconfig/httpcaddyfile/tlsapp.go",
+     334,
+     334
+    ],
+    [
+     "caddyconfig/httpcaddyfile/tlsapp.go",
+     480,
+     480
+    ],
+    [
+     "caddyconfig/httpcaddyfile/tlsapp.go",
+     558,
+     558
+    ],
+    [
+     "context.go",
+     638,
+     638
+    ],
+    [
+     "logging.go",
+     220,
+     220
+    ],
+    [
+     "modules.go",
+     139,
+     139
+    ],
+    [
+     "modules.go",
+     180,
+     180
+    ],
+    [
+     "modules.go",
+     190,
+     190
+    ],
+    [
+     "modules/caddyevents/app.go",
+     219,
+     219
+    ],
+    [
+     "modules/caddytls/ech.go",
+     815,
+     815
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "logging.go:653",
+   "stratum": "C-method"
+  },
+  "callers:logging.go:735": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "logging.go",
+     "newDefaultProductionLog"
+    ],
+    [
+     "logging.go",
+     "provisionCommon"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "logging.go",
+     382,
+     382
+    ],
+    [
+     "logging.go",
+     718,
+     718
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "logging.go",
+     "newDefaultProductionLog"
+    ],
+    [
+     "logging.go",
+     "provisionCommon"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "logging.go",
+     382,
+     382
+    ],
+    [
+     "logging.go",
+     718,
+     718
+    ]
+   ],
+   "seed_def": "logging.go:735",
+   "stratum": "U-free"
+  },
+  "callers:modules/caddyfs/filesystem.go:50": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "caddy.go",
+     "CloudEvent"
+    ],
+    [
+     "caddy.go",
+     "finishSettingUp"
+    ],
+    [
+     "caddyconfig/httpcaddyfile/httptype.go",
+     "Setup"
+    ],
+    [
+     "caddyconfig/httpcaddyfile/httptype.go",
+     "serversFromPairings"
+    ],
+    [
+     "caddyconfig/httpcaddyfile/serveroptions.go",
+     "unmarshalCaddyfileServerOptions"
+    ],
+    [
+     "caddyconfig/httpcaddyfile/tlsapp.go",
+     "buildTLSApp"
+    ],
+    [
+     "caddyconfig/httpcaddyfile/tlsapp.go",
+     "fillInGlobalACMEDefaults"
+    ],
+    [
+     "context.go",
+     "Slogger"
+    ],
+    [
+     "logging.go",
+     "Logger"
+    ],
+    [
+     "modules.go",
+     "GetModuleID"
+    ],
+    [
+     "modules.go",
+     "GetModuleName"
+    ],
+    [
+     "modules.go",
+     "RegisterModule"
+    ],
+    [
+     "modules/caddyevents/app.go",
+     "Emit"
+    ],
+    [
+     "modules/caddytls/ech.go",
+     "PublisherKey"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "caddy.go",
+     618,
+     618
+    ],
+    [
+     "caddy.go",
+     1164,
+     1164
+    ],
+    [
+     "caddyconfig/httpcaddyfile/httptype.go",
+     301,
+     301
+    ],
+    [
+     "caddyconfig/httpcaddyfile/httptype.go",
+     851,
+     851
+    ],
+    [
+     "caddyconfig/httpcaddyfile/httptype.go",
+     865,
+     865
+    ],
+    [
+     "caddyconfig/httpcaddyfile/serveroptions.go",
+     100,
+     100
+    ],
+    [
+     "caddyconfig/httpcaddyfile/serveroptions.go",
+     120,
+     120
+    ],
+    [
+     "caddyconfig/httpcaddyfile/serveroptions.go",
+     268,
+     268
+    ],
+    [
+     "caddyconfig/httpcaddyfile/tlsapp.go",
+     180,
+     180
+    ],
+    [
+     "caddyconfig/httpcaddyfile/tlsapp.go",
+     334,
+     334
+    ],
+    [
+     "caddyconfig/httpcaddyfile/tlsapp.go",
+     480,
+     480
+    ],
+    [
+     "caddyconfig/httpcaddyfile/tlsapp.go",
+     558,
+     558
+    ],
+    [
+     "context.go",
+     638,
+     638
+    ],
+    [
+     "logging.go",
+     220,
+     220
+    ],
+    [
+     "modules.go",
+     139,
+     139
+    ],
+    [
+     "modules.go",
+     180,
+     180
+    ],
+    [
+     "modules.go",
+     190,
+     190
+    ],
+    [
+     "modules/caddyevents/app.go",
+     219,
+     219
+    ],
+    [
+     "modules/caddytls/ech.go",
+     815,
+     815
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "modules/caddyfs/filesystem.go:50",
+   "stratum": "C-method"
+  },
+  "callers:modules/caddyhttp/encode/gzip/gzip.go:38": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "caddy.go",
+     "CloudEvent"
+    ],
+    [
+     "caddy.go",
+     "finishSettingUp"
+    ],
+    [
+     "caddyconfig/httpcaddyfile/httptype.go",
+     "Setup"
+    ],
+    [
+     "caddyconfig/httpcaddyfile/httptype.go",
+     "serversFromPairings"
+    ],
+    [
+     "caddyconfig/httpcaddyfile/serveroptions.go",
+     "unmarshalCaddyfileServerOptions"
+    ],
+    [
+     "caddyconfig/httpcaddyfile/tlsapp.go",
+     "buildTLSApp"
+    ],
+    [
+     "caddyconfig/httpcaddyfile/tlsapp.go",
+     "fillInGlobalACMEDefaults"
+    ],
+    [
+     "context.go",
+     "Slogger"
+    ],
+    [
+     "logging.go",
+     "Logger"
+    ],
+    [
+     "modules.go",
+     "GetModuleID"
+    ],
+    [
+     "modules.go",
+     "GetModuleName"
+    ],
+    [
+     "modules.go",
+     "RegisterModule"
+    ],
+    [
+     "modules/caddyevents/app.go",
+     "Emit"
+    ],
+    [
+     "modules/caddytls/ech.go",
+     "PublisherKey"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "caddy.go",
+     618,
+     618
+    ],
+    [
+     "caddy.go",
+     1164,
+     1164
+    ],
+    [
+     "caddyconfig/httpcaddyfile/httptype.go",
+     301,
+     301
+    ],
+    [
+     "caddyconfig/httpcaddyfile/httptype.go",
+     851,
+     851
+    ],
+    [
+     "caddyconfig/httpcaddyfile/httptype.go",
+     865,
+     865
+    ],
+    [
+     "caddyconfig/httpcaddyfile/serveroptions.go",
+     100,
+     100
+    ],
+    [
+     "caddyconfig/httpcaddyfile/serveroptions.go",
+     120,
+     120
+    ],
+    [
+     "caddyconfig/httpcaddyfile/serveroptions.go",
+     268,
+     268
+    ],
+    [
+     "caddyconfig/httpcaddyfile/tlsapp.go",
+     180,
+     180
+    ],
+    [
+     "caddyconfig/httpcaddyfile/tlsapp.go",
+     334,
+     334
+    ],
+    [
+     "caddyconfig/httpcaddyfile/tlsapp.go",
+     480,
+     480
+    ],
+    [
+     "caddyconfig/httpcaddyfile/tlsapp.go",
+     558,
+     558
+    ],
+    [
+     "context.go",
+     638,
+     638
+    ],
+    [
+     "logging.go",
+     220,
+     220
+    ],
+    [
+     "modules.go",
+     139,
+     139
+    ],
+    [
+     "modules.go",
+     180,
+     180
+    ],
+    [
+     "modules.go",
+     190,
+     190
+    ],
+    [
+     "modules/caddyevents/app.go",
+     219,
+     219
+    ],
+    [
+     "modules/caddytls/ech.go",
+     815,
+     815
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "modules/caddyhttp/encode/gzip/gzip.go:38",
+   "stratum": "C-method"
+  },
+  "callers:modules/caddyhttp/fileserver/browsetplcontext.go:337": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "modules/caddyhttp/fileserver/browsetplcontext.go:337",
+   "stratum": "C-method"
+  },
+  "callers:modules/caddyhttp/fileserver/matcher.go:579": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "modules/caddyhttp/fileserver/matcher.go",
+     "selectFile"
+    ],
+    [
+     "modules/caddyhttp/fileserver/matcher_test.go",
+     "TestFirstSplit"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "modules/caddyhttp/fileserver/matcher.go",
+     384,
+     384
+    ],
+    [
+     "modules/caddyhttp/fileserver/matcher_test.go",
+     409,
+     409
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "modules/caddyhttp/fileserver/matcher.go",
+     "selectFile"
+    ],
+    [
+     "modules/caddyhttp/fileserver/matcher_test.go",
+     "TestFirstSplit"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "modules/caddyhttp/fileserver/matcher.go",
+     384,
+     384
+    ],
+    [
+     "modules/caddyhttp/fileserver/matcher_test.go",
+     409,
+     409
+    ]
+   ],
+   "seed_def": "modules/caddyhttp/fileserver/matcher.go:579",
+   "stratum": "U-method"
+  },
+  "callers:modules/caddyhttp/http2listener.go:33": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "modules/caddyhttp/http2listener.go",
+     "Accept"
+    ],
+    [
+     "modules/caddyhttp/httpredirectlistener.go",
+     "Accept"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "modules/caddyhttp/http2listener.go",
+     34,
+     34
+    ],
+    [
+     "modules/caddyhttp/httpredirectlistener.go",
+     78,
+     78
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "modules/caddyhttp/http2listener.go",
+     "Accept"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "modules/caddyhttp/http2listener.go",
+     34,
+     34
+    ]
+   ],
+   "seed_def": "modules/caddyhttp/http2listener.go:33",
+   "stratum": "C-method"
+  },
+  "callers:modules/caddyhttp/reverseproxy/command.go:37": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "modules/caddyhttp/reverseproxy/command.go:37",
+   "stratum": "C-name"
+  },
+  "callers:modules/caddyhttp/reverseproxy/hosts.go:199": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "modules/caddyhttp/reverseproxy/healthchecks.go",
+     "doActiveHealthCheck"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "modules/caddyhttp/reverseproxy/healthchecks.go",
+     476,
+     476
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "modules/caddyhttp/reverseproxy/healthchecks.go",
+     "doActiveHealthCheck"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "modules/caddyhttp/reverseproxy/healthchecks.go",
+     476,
+     476
+    ]
+   ],
+   "seed_def": "modules/caddyhttp/reverseproxy/hosts.go:199",
+   "stratum": "U-method"
+  },
+  "callers:modules/caddyhttp/reverseproxy/hosts.go:85": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "modules/caddyhttp/reverseproxy/dynamic_upstreams_test.go",
+     "TestDynamicHostHealthyConsultsFails"
+    ],
+    [
+     "modules/caddyhttp/reverseproxy/hosts.go",
+     "Available"
+    ],
+    [
+     "modules/caddyhttp/reverseproxy/metrics.go",
+     "update"
+    ],
+    [
+     "modules/caddyhttp/reverseproxy/passive_health_test.go",
+     "TestDynamicUpstreamFailCountPersistedBetweenRequests"
+    ],
+    [
+     "modules/caddyhttp/reverseproxy/passive_health_test.go",
+     "TestDynamicUpstreamHealthyWithNoFailures"
+    ],
+    [
+     "modules/caddyhttp/reverseproxy/passive_health_test.go",
+     "TestDynamicUpstreamRecoveryAfterFailDuration"
+    ],
+    [
+     "modules/caddyhttp/reverseproxy/passive_health_test.go",
+     "TestDynamicUpstreamUnhealthyAtMaxFails"
+    ],
+    [
+     "modules/caddyhttp/reverseproxy/passive_health_test.go",
+     "TestStaticUpstreamHealthPersistedAcrossReprovisioning"
+    ],
+    [
+     "modules/caddyhttp/reverseproxy/passive_health_test.go",
+     "TestStaticUpstreamHealthyWithNoFailures"
+    ],
+    [
+     "modules/caddyhttp/reverseproxy/passive_health_test.go",
+     "TestStaticUpstreamRecoversAfterFailDuration"
+    ],
+    [
+     "modules/caddyhttp/reverseproxy/passive_health_test.go",
+     "TestStaticUpstreamUnhealthyAtMaxFails"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "modules/caddyhttp/reverseproxy/dynamic_upstreams_test.go",
+     246,
+     246
+    ],
+    [
+     "modules/caddyhttp/reverseproxy/hosts.go",
+     79,
+     79
+    ],
+    [
+     "modules/caddyhttp/reverseproxy/metrics.go",
+     93,
+     93
+    ],
+    [
+     "modules/caddyhttp/reverseproxy/passive_health_test.go",
+     174,
+     174
+    ],
+    [
+     "modules/caddyhttp/reverseproxy/passive_health_test.go",
+     190,
+     190
+    ],
+    [
+     "modules/caddyhttp/reverseproxy/passive_health_test.go",
+     195,
+     195
+    ],
+    [
+     "modules/caddyhttp/reverseproxy/passive_health_test.go",
+     212,
+     212
+    ],
+    [
+     "modules/caddyhttp/reverseproxy/passive_health_test.go",
+     218,
+     218
+    ],
+    [
+     "modules/caddyhttp/reverseproxy/passive_health_test.go",
+     245,
+     245
+    ],
+    [
+     "modules/caddyhttp/reverseproxy/passive_health_test.go",
+     262,
+     262
+    ],
+    [
+     "modules/caddyhttp/reverseproxy/passive_health_test.go",
+     278,
+     278
+    ],
+    [
+     "modules/caddyhttp/reverseproxy/passive_health_test.go",
+     283,
+     283
+    ],
+    [
+     "modules/caddyhttp/reverseproxy/passive_health_test.go",
+     322,
+     322
+    ],
+    [
+     "modules/caddyhttp/reverseproxy/passive_health_test.go",
+     344,
+     344
+    ],
+    [
+     "modules/caddyhttp/reverseproxy/passive_health_test.go",
+     354,
+     354
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "modules/caddyhttp/reverseproxy/dynamic_upstreams_test.go",
+     "TestDynamicHostHealthyConsultsFails"
+    ],
+    [
+     "modules/caddyhttp/reverseproxy/hosts.go",
+     "Available"
+    ],
+    [
+     "modules/caddyhttp/reverseproxy/metrics.go",
+     "update"
+    ],
+    [
+     "modules/caddyhttp/reverseproxy/passive_health_test.go",
+     "TestDynamicUpstreamFailCountPersistedBetweenRequests"
+    ],
+    [
+     "modules/caddyhttp/reverseproxy/passive_health_test.go",
+     "TestDynamicUpstreamHealthyWithNoFailures"
+    ],
+    [
+     "modules/caddyhttp/reverseproxy/passive_health_test.go",
+     "TestDynamicUpstreamRecoveryAfterFailDuration"
+    ],
+    [
+     "modules/caddyhttp/reverseproxy/passive_health_test.go",
+     "TestDynamicUpstreamUnhealthyAtMaxFails"
+    ],
+    [
+     "modules/caddyhttp/reverseproxy/passive_health_test.go",
+     "TestStaticUpstreamHealthPersistedAcrossReprovisioning"
+    ],
+    [
+     "modules/caddyhttp/reverseproxy/passive_health_test.go",
+     "TestStaticUpstreamHealthyWithNoFailures"
+    ],
+    [
+     "modules/caddyhttp/reverseproxy/passive_health_test.go",
+     "TestStaticUpstreamRecoversAfterFailDuration"
+    ],
+    [
+     "modules/caddyhttp/reverseproxy/passive_health_test.go",
+     "TestStaticUpstreamUnhealthyAtMaxFails"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "modules/caddyhttp/reverseproxy/hosts.go",
+     79,
+     79
+    ],
+    [
+     "modules/caddyhttp/reverseproxy/dynamic_upstreams_test.go",
+     246,
+     246
+    ],
+    [
+     "modules/caddyhttp/reverseproxy/metrics.go",
+     93,
+     93
+    ],
+    [
+     "modules/caddyhttp/reverseproxy/passive_health_test.go",
+     174,
+     174
+    ],
+    [
+     "modules/caddyhttp/reverseproxy/passive_health_test.go",
+     190,
+     190
+    ],
+    [
+     "modules/caddyhttp/reverseproxy/passive_health_test.go",
+     195,
+     195
+    ],
+    [
+     "modules/caddyhttp/reverseproxy/passive_health_test.go",
+     212,
+     212
+    ],
+    [
+     "modules/caddyhttp/reverseproxy/passive_health_test.go",
+     218,
+     218
+    ],
+    [
+     "modules/caddyhttp/reverseproxy/passive_health_test.go",
+     245,
+     245
+    ],
+    [
+     "modules/caddyhttp/reverseproxy/passive_health_test.go",
+     262,
+     262
+    ],
+    [
+     "modules/caddyhttp/reverseproxy/passive_health_test.go",
+     278,
+     278
+    ],
+    [
+     "modules/caddyhttp/reverseproxy/passive_health_test.go",
+     283,
+     283
+    ],
+    [
+     "modules/caddyhttp/reverseproxy/passive_health_test.go",
+     322,
+     322
+    ],
+    [
+     "modules/caddyhttp/reverseproxy/passive_health_test.go",
+     344,
+     344
+    ],
+    [
+     "modules/caddyhttp/reverseproxy/passive_health_test.go",
+     354,
+     354
+    ]
+   ],
+   "seed_def": "modules/caddyhttp/reverseproxy/hosts.go:85",
+   "stratum": "U-method"
+  },
+  "callers:modules/caddyhttp/reverseproxy/passive_health_test.go:292": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "modules/caddyhttp/reverseproxy/passive_health_test.go:292",
+   "stratum": "Q-scoped"
+  },
+  "callers:modules/caddyhttp/server.go:607": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "modules/caddyhttp/app.go",
+     "Provision"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "modules/caddyhttp/app.go",
+     268,
+     268
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "modules/caddyhttp/app.go",
+     "Provision"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "modules/caddyhttp/app.go",
+     268,
+     268
+    ]
+   ],
+   "seed_def": "modules/caddyhttp/server.go:607",
+   "stratum": "U-method"
+  },
+  "callers:modules/caddyhttp/server_test.go:194": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "modules/caddyhttp/server_test.go:194",
+   "stratum": "Q-scoped"
+  },
+  "callers:modules/caddyhttp/templates/tplcontext.go:265": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "modules/caddyhttp/templates/tplcontext.go",
+     "NewTemplate"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "modules/caddyhttp/templates/tplcontext.go",
+     89,
+     89
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "modules/caddyhttp/templates/tplcontext.go:265",
+   "stratum": "U-method"
+  },
+  "callers:modules/caddyhttp/templates/tplcontext.go:386": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "modules/caddyhttp/templates/tplcontext.go",
+     "NewTemplate"
+    ],
+    [
+     "modules/caddyhttp/templates/tplcontext_test.go",
+     "TestSplitFrontMatter"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "modules/caddyhttp/templates/tplcontext.go",
+     86,
+     86
+    ],
+    [
+     "modules/caddyhttp/templates/tplcontext_test.go",
+     595,
+     595
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "modules/caddyhttp/templates/tplcontext_test.go",
+     "TestSplitFrontMatter"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "modules/caddyhttp/templates/tplcontext_test.go",
+     595,
+     595
+    ]
+   ],
+   "seed_def": "modules/caddyhttp/templates/tplcontext.go:386",
+   "stratum": "U-method"
+  },
+  "callers:modules/caddytls/capools.go:44": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "modules/caddytls/capools.go",
+     "Provision"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "modules/caddytls/capools.go",
+     876,
+     876
+    ]
+   ],
+   "outcome": "inventory_miss",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "modules/caddytls/capools.go:44",
+   "stratum": "C-method"
+  },
+  "callers:modules/caddytls/connpolicy.go:40": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "modules/caddytls/connpolicy.go:40",
+   "stratum": "C-name"
+  },
+  "callers:modules/caddytls/leafstorageloader.go:85": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "modules/caddytls/connpolicy.go",
+     "Provision"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "modules/caddytls/connpolicy.go",
+     977,
+     977
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "modules/caddytls/leafstorageloader.go:85",
+   "stratum": "C-method"
+  },
+  "callers:modules/caddytls/matchers.go:37": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "modules/caddytls/matchers.go:37",
+   "stratum": "C-name"
+  },
+  "callers:modules/metrics/metrics.go:74": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "modules/metrics/metrics.go",
+     "init"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "modules/metrics/metrics.go",
+     33,
+     33
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "caddyconfig/httpcaddyfile/directives.go",
+     "RegisterHandlerDirective"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "caddyconfig/httpcaddyfile/directives.go",
+     131,
+     131
+    ],
+    [
+     "caddyconfig/httpcaddyfile/directives.go",
+     131,
+     131
+    ],
+    [
+     "caddyconfig/httpcaddyfile/directives.go",
+     131,
+     131
+    ],
+    [
+     "caddyconfig/httpcaddyfile/directives.go",
+     131,
+     131
+    ],
+    [
+     "caddyconfig/httpcaddyfile/directives.go",
+     131,
+     131
+    ],
+    [
+     "caddyconfig/httpcaddyfile/directives.go",
+     131,
+     131
+    ],
+    [
+     "caddyconfig/httpcaddyfile/directives.go",
+     131,
+     131
+    ],
+    [
+     "caddyconfig/httpcaddyfile/directives.go",
+     131,
+     131
+    ],
+    [
+     "caddyconfig/httpcaddyfile/directives.go",
+     131,
+     131
+    ],
+    [
+     "caddyconfig/httpcaddyfile/directives.go",
+     131,
+     131
+    ],
+    [
+     "caddyconfig/httpcaddyfile/directives.go",
+     131,
+     131
+    ],
+    [
+     "caddyconfig/httpcaddyfile/directives.go",
+     131,
+     131
+    ],
+    [
+     "caddyconfig/httpcaddyfile/directives.go",
+     131,
+     131
+    ]
+   ],
+   "seed_def": "modules/metrics/metrics.go:74",
+   "stratum": "C-name"
+  },
+  "callers:notify/notify_windows.go:105": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "caddy.go",
+     "Load"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "caddy.go",
+     125,
+     125
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "caddy.go",
+     "Load"
+    ],
+    [
+     "modules/caddyhttp/ip_matchers.go",
+     "MatchWithError"
+    ],
+    [
+     "modules/caddyhttp/metrics_test.go",
+     "TestMetricsInstrumentedHandler"
+    ],
+    [
+     "modules/caddyhttp/metrics_test.go",
+     "TestMetricsInstrumentedHandlerPerHost"
+    ],
+    [
+     "modules/caddyhttp/server.go",
+     "enforcementHandler"
+    ],
+    [
+     "modules/caddyhttp/staticerror.go",
+     "ServeHTTP"
+    ],
+    [
+     "modules/caddyhttp/staticresp.go",
+     "ServeHTTP"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "caddy.go",
+     125,
+     125
+    ],
+    [
+     "modules/caddyhttp/ip_matchers.go",
+     161,
+     161
+    ],
+    [
+     "modules/caddyhttp/ip_matchers.go",
+     268,
+     268
+    ],
+    [
+     "modules/caddyhttp/metrics_test.go",
+     87,
+     87
+    ],
+    [
+     "modules/caddyhttp/metrics_test.go",
+     261,
+     261
+    ],
+    [
+     "modules/caddyhttp/server.go",
+     526,
+     526
+    ],
+    [
+     "modules/caddyhttp/staticerror.go",
+     104,
+     104
+    ],
+    [
+     "modules/caddyhttp/staticerror.go",
+     108,
+     108
+    ],
+    [
+     "modules/caddyhttp/staticresp.go",
+     239,
+     239
+    ]
+   ],
+   "seed_def": "notify/notify_windows.go:105",
+   "stratum": "C-name"
+  },
+  "callers:replacer.go:291": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "modules/caddyhttp/map/map.go",
+     "ServeHTTP"
+    ],
+    [
+     "modules/caddyhttp/templates/tplcontext.go",
+     "funcMarkdown"
+    ],
+    [
+     "modules/caddyhttp/templates/tplcontext.go",
+     "funcSplitFrontMatter"
+    ],
+    [
+     "replacer.go",
+     "GetString"
+    ],
+    [
+     "replacer.go",
+     "replace"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "modules/caddyhttp/map/map.go",
+     144,
+     144
+    ],
+    [
+     "modules/caddyhttp/templates/tplcontext.go",
+     351,
+     351
+    ],
+    [
+     "modules/caddyhttp/templates/tplcontext.go",
+     387,
+     387
+    ],
+    [
+     "replacer.go",
+     113,
+     113
+    ],
+    [
+     "replacer.go",
+     263,
+     263
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "replacer.go",
+     "GetString"
+    ],
+    [
+     "replacer.go",
+     "replace"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "replacer.go",
+     113,
+     113
+    ],
+    [
+     "replacer.go",
+     263,
+     263
+    ]
+   ],
+   "seed_def": "replacer.go:291",
+   "stratum": "U-free"
+  },
+  "callers:replacer_test.go:181": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "replacer_test.go:181",
+   "stratum": "U-free"
+  },
+  "callers:service_windows.go:26": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "service_windows.go:26",
+   "stratum": "C-name"
+  }
+ }
+}

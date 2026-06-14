@@ -1,0 +1,2337 @@
+{
+ "m1": {
+  "anon_oracle": 0,
+  "anon_prism": 0,
+  "matched": 7004,
+  "prism_extra": 0,
+  "prism_missing": 237,
+  "snapshot_prism_missing": 239
+ },
+ "m2": {
+  "callees": {
+   "C-method": {
+    "corrected": {
+     "fn": 1,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.6456695613241317,
+      1.0
+     ],
+     "recall": [
+      0.875,
+      0.5291118149439162,
+      0.9775825088000281
+     ],
+     "tp": 7
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 1,
+      "precision": [
+       0.875,
+       0.5291118149439162,
+       0.9775825088000281
+      ],
+      "recall": [
+       1.0,
+       0.6456695613241317,
+       1.0
+      ],
+      "tp": 7
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 1,
+      "precision": [
+       0.875,
+       0.5291118149439162,
+       0.9775825088000281
+      ],
+      "recall": [
+       1.0,
+       0.6456695613241317,
+       1.0
+      ],
+      "tp": 7
+     }
+    },
+    "pending": 0,
+    "raw": {
+     "fn": 4,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.6456695613241317,
+      1.0
+     ],
+     "recall": [
+      0.6363636363636364,
+      0.35380117262012434,
+      0.8483352901086686
+     ],
+     "tp": 7
+    },
+    "shortfall": 0
+   },
+   "C-name": {
+    "corrected": {
+     "fn": 5,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.5655175313406071,
+      1.0
+     ],
+     "recall": [
+      0.5,
+      0.23659308901147935,
+      0.7634069109885206
+     ],
+     "tp": 5
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 1,
+      "precision": [
+       0.8,
+       0.375534627029995,
+       0.9637758917743693
+      ],
+      "recall": [
+       1.0,
+       0.5101091596030786,
+       0.9999999999999999
+      ],
+      "tp": 4
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 1,
+      "precision": [
+       0.8,
+       0.375534627029995,
+       0.9637758917743693
+      ],
+      "recall": [
+       1.0,
+       0.5101091596030786,
+       0.9999999999999999
+      ],
+      "tp": 4
+     }
+    },
+    "pending": 0,
+    "raw": {
+     "fn": 8,
+     "fp": 4,
+     "precision": [
+      0.2,
+      0.03622410822563066,
+      0.6244653729700049
+     ],
+     "recall": [
+      0.1111111111111111,
+      0.01989088741690992,
+      0.4349997083707909
+     ],
+     "tp": 1
+    },
+    "shortfall": 0
+   },
+   "Q-scoped": {
+    "corrected": {
+     "fn": 2,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.2065493117918027,
+      1.0
+     ],
+     "recall": [
+      0.3333333333333333,
+      0.06149194402093078,
+      0.7923404011921757
+     ],
+     "tp": 1
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 2,
+      "precision": [
+       0.5,
+       0.15003898774401986,
+       0.8499610122559802
+      ],
+      "recall": [
+       1.0,
+       0.3423802239546494,
+       1.0
+      ],
+      "tp": 2
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 2,
+      "precision": [
+       0.5,
+       0.15003898774401986,
+       0.8499610122559802
+      ],
+      "recall": [
+       1.0,
+       0.3423802239546494,
+       1.0
+      ],
+      "tp": 2
+     }
+    },
+    "pending": 0,
+    "raw": {
+     "fn": 3,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.2065493117918027,
+      1.0
+     ],
+     "recall": [
+      0.25,
+      0.04558726029536886,
+      0.6993581599030918
+     ],
+     "tp": 1
+    },
+    "shortfall": 0
+   },
+   "U-method": {
+    "corrected": {
+     "fn": 1,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.6755924316585924,
+      1.0
+     ],
+     "recall": [
+      0.8888888888888888,
+      0.565000291629209,
+      0.9801091125830901
+     ],
+     "tp": 8
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 1,
+      "precision": [
+       0.8571428571428571,
+       0.486872167860775,
+       0.9743203759421759
+      ],
+      "recall": [
+       1.0,
+       0.6096657083436265,
+       1.0
+      ],
+      "tp": 6
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 1,
+      "precision": [
+       0.8571428571428571,
+       0.486872167860775,
+       0.9743203759421759
+      ],
+      "recall": [
+       1.0,
+       0.6096657083436265,
+       1.0
+      ],
+      "tp": 6
+     }
+    },
+    "pending": 0,
+    "raw": {
+     "fn": 1,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.6755924316585924,
+      1.0
+     ],
+     "recall": [
+      0.8888888888888888,
+      0.565000291629209,
+      0.9801091125830901
+     ],
+     "tp": 8
+    },
+    "shortfall": 0
+   }
+  },
+  "callers": {
+   "C-method": {
+    "corrected": {
+     "fn": 0,
+     "fp": 11,
+     "precision": [
+      0.0,
+      0.0,
+      0.25883296999442634
+     ],
+     "recall": [
+      0.0,
+      0.0,
+      1.0
+     ],
+     "tp": 0
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 6,
+      "precision": [
+       0.0,
+       0.0,
+       0.39033429165637346
+      ],
+      "recall": [
+       0.0,
+       0.0,
+       1.0
+      ],
+      "tp": 0
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 6,
+      "precision": [
+       0.0,
+       0.0,
+       0.39033429165637346
+      ],
+      "recall": [
+       0.0,
+       0.0,
+       1.0
+      ],
+      "tp": 0
+     }
+    },
+    "pending": 0,
+    "raw": {
+     "fn": 0,
+     "fp": 11,
+     "precision": [
+      0.0,
+      0.0,
+      0.25883296999442634
+     ],
+     "recall": [
+      0.0,
+      0.0,
+      1.0
+     ],
+     "tp": 0
+    },
+    "shortfall": 0
+   },
+   "C-name": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.2065493117918027,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.2065493117918027,
+      1.0
+     ],
+     "tp": 1
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.2065493117918027,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.2065493117918027,
+       1.0
+      ],
+      "tp": 1
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.2065493117918027,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.2065493117918027,
+       1.0
+      ],
+      "tp": 1
+     }
+    },
+    "pending": 0,
+    "raw": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.2065493117918027,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.2065493117918027,
+      1.0
+     ],
+     "tp": 1
+    },
+    "shortfall": 0
+   },
+   "Q-scoped": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.5655175313406071,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.5655175313406071,
+      1.0
+     ],
+     "tp": 5
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.5655175313406071,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.5655175313406071,
+       1.0
+      ],
+      "tp": 5
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.5655175313406071,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.5655175313406071,
+       1.0
+      ],
+      "tp": 5
+     }
+    },
+    "pending": 0,
+    "raw": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.5655175313406071,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.5655175313406071,
+      1.0
+     ],
+     "tp": 5
+    },
+    "shortfall": 0
+   },
+   "U-method": {
+    "corrected": {
+     "fn": 1,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.8388748398148705,
+      1.0
+     ],
+     "recall": [
+      0.9523809523809523,
+      0.7733063972991618,
+      0.9915440122838988
+     ],
+     "tp": 20
+    },
+    "function": {
+     "corrected": {
+      "fn": 1,
+      "fp": 1,
+      "precision": [
+       0.9444444444444444,
+       0.7424269900391908,
+       0.990124809131223
+      ],
+      "recall": [
+       0.9444444444444444,
+       0.7424269900391908,
+       0.990124809131223
+      ],
+      "tp": 17
+     },
+     "raw": {
+      "fn": 1,
+      "fp": 1,
+      "precision": [
+       0.9444444444444444,
+       0.7424269900391908,
+       0.990124809131223
+      ],
+      "recall": [
+       0.9444444444444444,
+       0.7424269900391908,
+       0.990124809131223
+      ],
+      "tp": 17
+     }
+    },
+    "pending": 0,
+    "raw": {
+     "fn": 1,
+     "fp": 1,
+     "precision": [
+      0.95,
+      0.7638688045357189,
+      0.9911185512976646
+     ],
+     "recall": [
+      0.95,
+      0.7638688045357189,
+      0.9911185512976646
+     ],
+     "tp": 19
+    },
+    "shortfall": 0
+   }
+  }
+ },
+ "m3": {
+  "cap": 25,
+  "checked": [
+   {
+    "probe": "callers:tokio-stream/src/stream_ext/try_next.rs:41",
+    "site": "tokio-stream/src/stream_ext/try_next.rs:43",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:tokio-util/src/io/sync_bridge.rs:316",
+    "site": "tokio-util/src/io/sync_bridge.rs:318",
+    "verdict": "confirmed_fp"
+   },
+   {
+    "probe": "callers:tokio-util/src/io/sync_bridge.rs:316",
+    "site": "tokio/src/io/async_write.rs:290",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:tokio-util/src/io/sync_bridge.rs:316",
+    "site": "tokio/src/io/async_write.rs:320",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:tokio-util/src/io/sync_bridge.rs:316",
+    "site": "tokio/src/io/async_write.rs:350",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:tokio-util/src/io/sync_bridge.rs:316",
+    "site": "tokio/src/io/async_write.rs:380",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:tokio/src/io/util/chain.rs:126",
+    "site": "tokio-util/src/compat.rs:271",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:tokio/src/io/util/chain.rs:126",
+    "site": "tokio-util/src/compat.rs:287",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:tokio/src/io/util/chain.rs:126",
+    "site": "tokio/src/io/util/chain.rs:129",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:tokio/src/io/util/chain.rs:126",
+    "site": "tokio/src/io/util/chain.rs:131",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:tokio/src/process/mod.rs:1446",
+    "site": "tests-integration/tests/process_stdio.rs:101",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:tokio/src/time/instant.rs:190",
+    "site": "tokio/src/time/instant.rs:191",
+    "verdict": "ambiguous"
+   }
+  ],
+  "counts": {
+   "alias_site": 0,
+   "ambiguous": 11,
+   "confirmed_fp": 1,
+   "confirmed_tp": 0
+  }
+ },
+ "meta": {
+  "baseline_invalid": true,
+  "corpus": "tokio",
+  "corpus_dirty": false,
+  "corpus_dirty_reasons": [],
+  "corpus_sha": "ecb5125a6787",
+  "date": "2026-06-13",
+  "harness_sha": "dd60ed68dda5",
+  "invalid_reasons": [
+   "oracle_error_rate 0.22 > 0.10"
+  ],
+  "oracle": "rust-analyzer 1.94.0 (4a4ef493 2026-03-02)",
+  "oracle_error_rate": 0.21875,
+  "oracle_not_quiescent": false,
+  "prism_dirty": false,
+  "prism_sha": "dd60ed68dda5",
+  "seed": 42,
+  "stale_adjudications": 427,
+  "sut_error_rate": 0.0,
+  "wall_s": {
+   "m1_oracle_inventory": 6.841,
+   "m2": 58.662,
+   "m3": 0.008,
+   "oracle_start": 8.201
+  }
+ },
+ "pending": [],
+ "probes": {
+  "_corpus": "tokio",
+  "_strata": {
+   "C-method": {
+    "eligible_probes": 16,
+    "eligible_symbols": 8,
+    "target": 8
+   },
+   "C-name": {
+    "eligible_probes": 16,
+    "eligible_symbols": 8,
+    "target": 8
+   },
+   "Q-scoped": {
+    "eligible_probes": 16,
+    "eligible_symbols": 8,
+    "target": 8
+   },
+   "U-free": {
+    "eligible_probes": 0,
+    "eligible_symbols": 0,
+    "target": 8
+   },
+   "U-method": {
+    "eligible_probes": 16,
+    "eligible_symbols": 8,
+    "target": 8
+   }
+  },
+  "callees:examples/hello_world.rs:20": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "examples/hello_world.rs",
+     "main"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "examples/hello_world.rs",
+     24,
+     24
+    ],
+    [
+     "examples/hello_world.rs",
+     27,
+     27
+    ],
+    [
+     "examples/hello_world.rs",
+     30,
+     30
+    ],
+    [
+     "examples/hello_world.rs",
+     30,
+     30
+    ],
+    [
+     "examples/hello_world.rs",
+     30,
+     30
+    ],
+    [
+     "examples/hello_world.rs",
+     30,
+     30
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "examples/hello_world.rs",
+     "main"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "examples/hello_world.rs:20",
+   "stratum": "C-name"
+  },
+  "callees:examples/named-pipe-ready.rs:149": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "examples/named-pipe-ready.rs",
+     "main"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "examples/named-pipe-ready.rs",
+     160,
+     160
+    ],
+    [
+     "examples/named-pipe-ready.rs",
+     150,
+     150
+    ],
+    [
+     "examples/named-pipe-ready.rs",
+     160,
+     160
+    ],
+    [
+     "examples/named-pipe-ready.rs",
+     150,
+     150
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "examples/named-pipe-ready.rs",
+     "main"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "examples/named-pipe-ready.rs",
+     152,
+     152
+    ]
+   ],
+   "seed_def": "examples/named-pipe-ready.rs:149",
+   "stratum": "C-name"
+  },
+  "callees:tokio-macros/src/entry.rs:114": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "tokio-macros/src/entry.rs",
+     "set_flavor"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tokio-macros/src/entry.rs",
+     119,
+     119
+    ],
+    [
+     "tokio-macros/src/entry.rs",
+     121,
+     121
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tokio-macros/src/entry.rs",
+     "set_flavor"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "tokio-macros/src/entry.rs",
+     121,
+     121
+    ],
+    [
+     "tokio-macros/src/entry.rs",
+     119,
+     119
+    ]
+   ],
+   "seed_def": "tokio-macros/src/entry.rs:114",
+   "stratum": "U-method"
+  },
+  "callees:tokio-stream/src/stream_ext/take_while.rs:33": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "tokio-stream/src/stream_ext/take_while.rs:33",
+   "stratum": "C-name"
+  },
+  "callees:tokio-stream/src/stream_ext/try_next.rs:41": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "tokio-stream/src/stream_ext/try_next.rs",
+     "poll"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tokio-stream/src/stream_ext/try_next.rs",
+     42,
+     42
+    ],
+    [
+     "tokio-stream/src/stream_ext/try_next.rs",
+     43,
+     43
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tokio-stream/src/stream_ext/try_next.rs",
+     "poll"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "tokio-stream/src/stream_ext/try_next.rs",
+     43,
+     43
+    ]
+   ],
+   "seed_def": "tokio-stream/src/stream_ext/try_next.rs:41",
+   "stratum": "C-method"
+  },
+  "callees:tokio-util/src/io/sync_bridge.rs:316": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "tokio-util/src/io/sync_bridge.rs",
+     "write"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tokio-util/src/io/sync_bridge.rs",
+     318,
+     318
+    ],
+    [
+     "tokio-util/src/io/sync_bridge.rs",
+     318,
+     318
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tokio-util/src/io/sync_bridge.rs",
+     "write"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "tokio-util/src/io/sync_bridge.rs",
+     318,
+     318
+    ]
+   ],
+   "seed_def": "tokio-util/src/io/sync_bridge.rs:316",
+   "stratum": "C-method"
+  },
+  "callees:tokio-util/src/sync/cancellation_token/guard_ref.rs:19": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tokio-util/src/sync/cancellation_token/guard_ref.rs",
+     "disarm"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "tokio-util/src/sync/cancellation_token/guard_ref.rs:19",
+   "stratum": "C-method"
+  },
+  "callees:tokio-util/src/task/task_tracker.rs:697": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "tokio-util/src/task/task_tracker.rs",
+     "poll"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tokio-util/src/task/task_tracker.rs",
+     698,
+     698
+    ],
+    [
+     "tokio-util/src/task/task_tracker.rs",
+     705,
+     705
+    ],
+    [
+     "tokio-util/src/task/task_tracker.rs",
+     705,
+     705
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tokio-util/src/task/task_tracker.rs",
+     "poll"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "tokio-util/src/task/task_tracker.rs",
+     705,
+     705
+    ]
+   ],
+   "seed_def": "tokio-util/src/task/task_tracker.rs:697",
+   "stratum": "C-method"
+  },
+  "callees:tokio-util/tests/io_sync_bridge.rs:33": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "tokio-util/tests/io_sync_bridge.rs",
+     "test_async_write_to_sync"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tokio-util/tests/io_sync_bridge.rs",
+     36,
+     36
+    ],
+    [
+     "tokio-util/tests/io_sync_bridge.rs",
+     37,
+     37
+    ],
+    [
+     "tokio-util/tests/io_sync_bridge.rs",
+     43,
+     43
+    ],
+    [
+     "tokio-util/tests/io_sync_bridge.rs",
+     43,
+     43
+    ],
+    [
+     "tokio-util/tests/io_sync_bridge.rs",
+     43,
+     43
+    ],
+    [
+     "tokio-util/tests/io_sync_bridge.rs",
+     43,
+     43
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tokio-util/tests/io_sync_bridge.rs",
+     "test_async_write_to_sync"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "tokio-util/tests/io_sync_bridge.rs",
+     37,
+     37
+    ]
+   ],
+   "seed_def": "tokio-util/tests/io_sync_bridge.rs:33",
+   "stratum": "Q-scoped"
+  },
+  "callees:tokio/src/io/blocking.rs:233": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "tokio/src/io/blocking.rs:233",
+   "stratum": "U-method"
+  },
+  "callees:tokio/src/io/stdin.rs:68": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "tokio/src/io/stdin.rs",
+     "as_fd"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tokio/src/io/stdin.rs",
+     69,
+     69
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tokio/src/io/stdin.rs",
+     "as_fd"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "tokio/src/io/stdin.rs",
+     69,
+     69
+    ]
+   ],
+   "seed_def": "tokio/src/io/stdin.rs:68",
+   "stratum": "C-method"
+  },
+  "callees:tokio/src/io/util/chain.rs:126": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "tokio/src/io/util/chain.rs",
+     "consume"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tokio/src/io/util/chain.rs",
+     127,
+     127
+    ],
+    [
+     "tokio/src/io/util/chain.rs",
+     129,
+     129
+    ],
+    [
+     "tokio/src/io/util/chain.rs",
+     131,
+     131
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tokio/src/io/util/chain.rs",
+     "consume"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "tokio/src/io/util/chain.rs",
+     129,
+     129
+    ],
+    [
+     "tokio/src/io/util/chain.rs",
+     131,
+     131
+    ]
+   ],
+   "seed_def": "tokio/src/io/util/chain.rs:126",
+   "stratum": "C-method"
+  },
+  "callees:tokio/src/net/addr.rs:110": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "tokio/src/net/addr.rs",
+     "to_socket_addrs"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tokio/src/net/addr.rs",
+     112,
+     112
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tokio/src/net/addr.rs",
+     "to_socket_addrs"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "tokio/src/net/addr.rs:110",
+   "stratum": "C-method"
+  },
+  "callees:tokio/src/process/mod.rs:1446": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "tokio/src/process/mod.rs",
+     "read_to_end"
+    ],
+    [
+     "tokio/src/process/mod.rs",
+     "wait_with_output"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tokio/src/process/mod.rs",
+     1452,
+     1452
+    ],
+    [
+     "tokio/src/process/mod.rs",
+     1460,
+     1460
+    ],
+    [
+     "tokio/src/process/mod.rs",
+     1461,
+     1461
+    ],
+    [
+     "tokio/src/process/mod.rs",
+     1463,
+     1463
+    ],
+    [
+     "tokio/src/process/mod.rs",
+     1463,
+     1463
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tokio/src/process/mod.rs",
+     "read_to_end"
+    ],
+    [
+     "tokio/src/process/mod.rs",
+     "wait_with_output"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "tokio/src/process/mod.rs",
+     1463,
+     1463
+    ],
+    [
+     "tokio/src/process/mod.rs",
+     1463,
+     1463
+    ],
+    [
+     "tokio/src/process/mod.rs",
+     1460,
+     1460
+    ],
+    [
+     "tokio/src/process/mod.rs",
+     1461,
+     1461
+    ]
+   ],
+   "seed_def": "tokio/src/process/mod.rs:1446",
+   "stratum": "U-method"
+  },
+  "callees:tokio/src/runtime/io/driver/signal.rs:6": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tokio/src/runtime/io/driver/signal.rs",
+     "register_signal_receiver"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "tokio/src/runtime/io/driver/signal.rs:6",
+   "stratum": "U-method"
+  },
+  "callees:tokio/src/runtime/scheduler/multi_thread/idle.rs:172": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tokio/src/runtime/scheduler/multi_thread/idle.rs",
+     "unpark_one"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "tokio/src/runtime/scheduler/multi_thread/idle.rs:172",
+   "stratum": "Q-scoped"
+  },
+  "callees:tokio/src/runtime/scheduler/multi_thread/worker.rs:1179": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "tokio/src/runtime/scheduler/multi_thread/worker.rs",
+     "transition_from_searching"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tokio/src/runtime/scheduler/multi_thread/worker.rs",
+     1185,
+     1185
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tokio/src/runtime/scheduler/multi_thread/worker.rs",
+     "transition_from_searching"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "tokio/src/runtime/scheduler/multi_thread/worker.rs",
+     1185,
+     1185
+    ]
+   ],
+   "seed_def": "tokio/src/runtime/scheduler/multi_thread/worker.rs:1179",
+   "stratum": "U-method"
+  },
+  "callees:tokio/src/runtime/task/error.rs:93": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "tokio/src/runtime/task/error.rs",
+     "into_panic"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tokio/src/runtime/task/error.rs",
+     94,
+     94
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tokio/src/runtime/task/error.rs",
+     "into_panic"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "tokio/src/runtime/task/error.rs",
+     94,
+     94
+    ]
+   ],
+   "seed_def": "tokio/src/runtime/task/error.rs:93",
+   "stratum": "U-method"
+  },
+  "callees:tokio/src/signal/unix.rs:125": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "tokio/src/signal/unix.rs",
+     "child"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tokio/src/signal/unix.rs",
+     126,
+     126
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tokio/src/signal/unix.rs",
+     "child"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "tokio/src/signal/unix.rs:125",
+   "stratum": "Q-scoped"
+  },
+  "callees:tokio/src/sync/semaphore.rs:921": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "tokio/src/sync/semaphore.rs",
+     "try_acquire_many_owned"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tokio/src/sync/semaphore.rs",
+     925,
+     925
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tokio/src/sync/semaphore.rs",
+     "try_acquire_many_owned"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "tokio/src/sync/semaphore.rs",
+     925,
+     925
+    ]
+   ],
+   "seed_def": "tokio/src/sync/semaphore.rs:921",
+   "stratum": "U-method"
+  },
+  "callees:tokio/src/time/instant.rs:154": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "tokio/src/time/instant.rs",
+     "from"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tokio/src/time/instant.rs",
+     155,
+     155
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tokio/src/time/instant.rs",
+     "from"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "tokio/src/time/instant.rs",
+     155,
+     155
+    ]
+   ],
+   "seed_def": "tokio/src/time/instant.rs:154",
+   "stratum": "C-name"
+  },
+  "callees:tokio/src/time/instant.rs:190": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "tokio/src/time/instant.rs",
+     "sub"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tokio/src/time/instant.rs",
+     191,
+     191
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tokio/src/time/instant.rs",
+     "sub"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "tokio/src/time/instant.rs",
+     191,
+     191
+    ],
+    [
+     "tokio/src/time/instant.rs",
+     191,
+     191
+    ],
+    [
+     "tokio/src/time/instant.rs",
+     191,
+     191
+    ]
+   ],
+   "seed_def": "tokio/src/time/instant.rs:190",
+   "stratum": "C-method"
+  },
+  "callees:tokio/tests/sync_mpsc.rs:1389": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tokio/tests/sync_mpsc.rs",
+     "test_rx_unbounded_is_closed_when_calling_close_with_sender"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "tokio/tests/sync_mpsc.rs:1389",
+   "stratum": "Q-scoped"
+  },
+  "callees:tokio/tests/sync_mpsc_weak.rs:265": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "tokio/tests/sync_mpsc_weak.rs",
+     "test_tx_count_weak_sender"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tokio/tests/sync_mpsc_weak.rs",
+     266,
+     266
+    ],
+    [
+     "tokio/tests/sync_mpsc_weak.rs",
+     267,
+     267
+    ],
+    [
+     "tokio/tests/sync_mpsc_weak.rs",
+     268,
+     268
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tokio/tests/sync_mpsc_weak.rs",
+     "test_tx_count_weak_sender"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "tokio/tests/sync_mpsc_weak.rs:265",
+   "stratum": "C-name"
+  },
+  "callees:tokio/tests/task_local.rs:9": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tokio/tests/task_local.rs",
+     "local"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "tokio/tests/task_local.rs",
+     15,
+     15
+    ],
+    [
+     "tokio/tests/task_local.rs",
+     20,
+     20
+    ],
+    [
+     "tokio/tests/task_local.rs",
+     31,
+     31
+    ]
+   ],
+   "seed_def": "tokio/tests/task_local.rs:9",
+   "stratum": "C-name"
+  },
+  "callers:examples/hello_world.rs:20": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "examples/hello_world.rs:20",
+   "stratum": "C-name"
+  },
+  "callers:examples/named-pipe-ready.rs:149": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "examples/named-pipe-ready.rs:149",
+   "stratum": "C-name"
+  },
+  "callers:tokio-macros/src/entry.rs:114": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "tokio-macros/src/entry.rs",
+     "build_config"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tokio-macros/src/entry.rs",
+     374,
+     374
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tokio-macros/src/entry.rs",
+     "build_config"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "tokio-macros/src/entry.rs",
+     374,
+     374
+    ]
+   ],
+   "seed_def": "tokio-macros/src/entry.rs:114",
+   "stratum": "U-method"
+  },
+  "callers:tokio-stream/src/stream_ext/take_while.rs:33": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "tokio-stream/src/stream_ext.rs",
+     "take_while"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tokio-stream/src/stream_ext.rs",
+     604,
+     604
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tokio-stream/src/stream_ext.rs",
+     "take_while"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "tokio-stream/src/stream_ext.rs",
+     604,
+     604
+    ]
+   ],
+   "seed_def": "tokio-stream/src/stream_ext/take_while.rs:33",
+   "stratum": "C-name"
+  },
+  "callers:tokio-stream/src/stream_ext/try_next.rs:41": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tokio-stream/src/stream_ext/try_next.rs",
+     "poll"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "tokio-stream/src/stream_ext/try_next.rs",
+     43,
+     43
+    ]
+   ],
+   "seed_def": "tokio-stream/src/stream_ext/try_next.rs:41",
+   "stratum": "C-method"
+  },
+  "callers:tokio-util/src/io/sync_bridge.rs:316": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tokio-util/src/io/sync_bridge.rs",
+     "write"
+    ],
+    [
+     "tokio/src/io/async_write.rs",
+     "poll_write"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "tokio/src/io/async_write.rs",
+     290,
+     290
+    ],
+    [
+     "tokio/src/io/async_write.rs",
+     320,
+     320
+    ],
+    [
+     "tokio/src/io/async_write.rs",
+     350,
+     350
+    ],
+    [
+     "tokio/src/io/async_write.rs",
+     380,
+     380
+    ],
+    [
+     "tokio-util/src/io/sync_bridge.rs",
+     318,
+     318
+    ]
+   ],
+   "seed_def": "tokio-util/src/io/sync_bridge.rs:316",
+   "stratum": "C-method"
+  },
+  "callers:tokio-util/src/sync/cancellation_token/guard_ref.rs:19": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "tokio-util/src/sync/cancellation_token/guard_ref.rs:19",
+   "stratum": "C-method"
+  },
+  "callers:tokio-util/src/task/task_tracker.rs:697": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "tokio-util/src/task/task_tracker.rs:697",
+   "stratum": "C-method"
+  },
+  "callers:tokio-util/tests/io_sync_bridge.rs:33": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "tokio-util/tests/io_sync_bridge.rs:33",
+   "stratum": "Q-scoped"
+  },
+  "callers:tokio/src/io/blocking.rs:233": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "tokio/src/io/blocking.rs",
+     "<module_level>"
+    ],
+    [
+     "tokio/src/io/blocking.rs",
+     "copy_to"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tokio/src/io/blocking.rs",
+     316,
+     316
+    ],
+    [
+     "tokio/src/io/blocking.rs",
+     213,
+     213
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tokio/src/io/blocking.rs",
+     "copy_to"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "tokio/src/io/blocking.rs",
+     213,
+     213
+    ]
+   ],
+   "seed_def": "tokio/src/io/blocking.rs:233",
+   "stratum": "U-method"
+  },
+  "callers:tokio/src/io/stdin.rs:68": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "tokio/src/io/stdin.rs:68",
+   "stratum": "C-method"
+  },
+  "callers:tokio/src/io/util/chain.rs:126": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tokio-util/src/compat.rs",
+     "consume"
+    ],
+    [
+     "tokio/src/io/util/chain.rs",
+     "consume"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "tokio-util/src/compat.rs",
+     271,
+     271
+    ],
+    [
+     "tokio-util/src/compat.rs",
+     287,
+     287
+    ],
+    [
+     "tokio/src/io/util/chain.rs",
+     129,
+     129
+    ],
+    [
+     "tokio/src/io/util/chain.rs",
+     131,
+     131
+    ]
+   ],
+   "seed_def": "tokio/src/io/util/chain.rs:126",
+   "stratum": "C-method"
+  },
+  "callers:tokio/src/net/addr.rs:110": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "tokio/src/net/addr.rs:110",
+   "stratum": "C-method"
+  },
+  "callers:tokio/src/process/mod.rs:1446": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "tokio/src/process/mod.rs",
+     "output"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tokio/src/process/mod.rs",
+     1071,
+     1071
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tests-integration/tests/process_stdio.rs",
+     "wait_with_output_captures"
+    ],
+    [
+     "tokio/src/process/mod.rs",
+     "output"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "tests-integration/tests/process_stdio.rs",
+     101,
+     101
+    ],
+    [
+     "tokio/src/process/mod.rs",
+     1071,
+     1071
+    ]
+   ],
+   "seed_def": "tokio/src/process/mod.rs:1446",
+   "stratum": "U-method"
+  },
+  "callers:tokio/src/runtime/io/driver/signal.rs:6": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "tokio/src/runtime/signal/mod.rs",
+     "new"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tokio/src/runtime/signal/mod.rs",
+     74,
+     74
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tokio/src/runtime/signal/mod.rs",
+     "new"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "tokio/src/runtime/signal/mod.rs",
+     74,
+     74
+    ]
+   ],
+   "seed_def": "tokio/src/runtime/io/driver/signal.rs:6",
+   "stratum": "U-method"
+  },
+  "callers:tokio/src/runtime/scheduler/multi_thread/idle.rs:172": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "tokio/src/runtime/scheduler/multi_thread/idle.rs",
+     "unpark_worker_by_id"
+    ],
+    [
+     "tokio/src/runtime/scheduler/multi_thread/idle.rs",
+     "worker_to_notify"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tokio/src/runtime/scheduler/multi_thread/idle.rs",
+     75,
+     75
+    ],
+    [
+     "tokio/src/runtime/scheduler/multi_thread/idle.rs",
+     138,
+     138
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tokio/src/runtime/scheduler/multi_thread/idle.rs",
+     "unpark_worker_by_id"
+    ],
+    [
+     "tokio/src/runtime/scheduler/multi_thread/idle.rs",
+     "worker_to_notify"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "tokio/src/runtime/scheduler/multi_thread/idle.rs",
+     75,
+     75
+    ],
+    [
+     "tokio/src/runtime/scheduler/multi_thread/idle.rs",
+     138,
+     138
+    ]
+   ],
+   "seed_def": "tokio/src/runtime/scheduler/multi_thread/idle.rs:172",
+   "stratum": "Q-scoped"
+  },
+  "callers:tokio/src/runtime/scheduler/multi_thread/worker.rs:1179": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "tokio/src/runtime/scheduler/multi_thread/worker.rs",
+     "run_task"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tokio/src/runtime/scheduler/multi_thread/worker.rs",
+     638,
+     638
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tokio/src/runtime/scheduler/multi_thread/worker.rs",
+     "run_task"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "tokio/src/runtime/scheduler/multi_thread/worker.rs",
+     638,
+     638
+    ]
+   ],
+   "seed_def": "tokio/src/runtime/scheduler/multi_thread/worker.rs:1179",
+   "stratum": "U-method"
+  },
+  "callers:tokio/src/runtime/task/error.rs:93": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "tokio-util/src/task/join_queue.rs",
+     "join_all"
+    ],
+    [
+     "tokio-util/src/task/spawn_pinned.rs",
+     "spawn_pinned"
+    ],
+    [
+     "tokio-util/tests/spawn_pinned.rs",
+     "callback_panic_does_not_kill_worker"
+    ],
+    [
+     "tokio-util/tests/spawn_pinned.rs",
+     "task_panic_propagates"
+    ],
+    [
+     "tokio/src/task/join_set.rs",
+     "join_all"
+    ],
+    [
+     "tokio/tests/rt_panic.rs",
+     "into_panic_panic_caller"
+    ],
+    [
+     "tokio/tests/task_local_set.rs",
+     "complete"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tokio/tests/task_local_set.rs",
+     178,
+     178
+    ],
+    [
+     "tokio/src/task/join_set.rs",
+     452,
+     452
+    ],
+    [
+     "tokio-util/src/task/join_queue.rs",
+     276,
+     276
+    ],
+    [
+     "tokio-util/tests/spawn_pinned.rs",
+     86,
+     86
+    ],
+    [
+     "tokio-util/tests/spawn_pinned.rs",
+     113,
+     113
+    ],
+    [
+     "tokio/tests/rt_panic.rs",
+     39,
+     39
+    ],
+    [
+     "tokio-util/src/task/spawn_pinned.rs",
+     291,
+     291
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tokio-util/src/task/join_queue.rs",
+     "join_all"
+    ],
+    [
+     "tokio-util/src/task/spawn_pinned.rs",
+     "spawn_pinned"
+    ],
+    [
+     "tokio-util/tests/spawn_pinned.rs",
+     "callback_panic_does_not_kill_worker"
+    ],
+    [
+     "tokio-util/tests/spawn_pinned.rs",
+     "task_panic_propagates"
+    ],
+    [
+     "tokio/src/task/join_set.rs",
+     "join_all"
+    ],
+    [
+     "tokio/tests/rt_panic.rs",
+     "into_panic_panic_caller"
+    ],
+    [
+     "tokio/tests/task_local_set.rs",
+     "complete"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "tokio-util/src/task/join_queue.rs",
+     276,
+     276
+    ],
+    [
+     "tokio-util/src/task/spawn_pinned.rs",
+     291,
+     291
+    ],
+    [
+     "tokio-util/tests/spawn_pinned.rs",
+     86,
+     86
+    ],
+    [
+     "tokio-util/tests/spawn_pinned.rs",
+     113,
+     113
+    ],
+    [
+     "tokio/src/task/join_set.rs",
+     452,
+     452
+    ],
+    [
+     "tokio/tests/rt_panic.rs",
+     39,
+     39
+    ],
+    [
+     "tokio/tests/task_local_set.rs",
+     178,
+     178
+    ]
+   ],
+   "seed_def": "tokio/src/runtime/task/error.rs:93",
+   "stratum": "U-method"
+  },
+  "callers:tokio/src/signal/unix.rs:125": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "benches/signal.rs",
+     "many_signals"
+    ],
+    [
+     "tokio/src/process/unix/mod.rs",
+     "build_child"
+    ],
+    [
+     "tokio/src/process/unix/orphan.rs",
+     "reap_orphans"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tokio/src/process/unix/orphan.rs",
+     102,
+     102
+    ],
+    [
+     "benches/signal.rs",
+     69,
+     69
+    ],
+    [
+     "tokio/src/process/unix/mod.rs",
+     137,
+     137
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "benches/signal.rs",
+     "many_signals"
+    ],
+    [
+     "tokio/src/process/unix/mod.rs",
+     "build_child"
+    ],
+    [
+     "tokio/src/process/unix/orphan.rs",
+     "reap_orphans"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "benches/signal.rs",
+     69,
+     69
+    ],
+    [
+     "tokio/src/process/unix/mod.rs",
+     137,
+     137
+    ],
+    [
+     "tokio/src/process/unix/orphan.rs",
+     102,
+     102
+    ]
+   ],
+   "seed_def": "tokio/src/signal/unix.rs:125",
+   "stratum": "Q-scoped"
+  },
+  "callers:tokio/src/sync/semaphore.rs:921": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "tokio-util/src/sync/poll_semaphore.rs",
+     "poll_acquire_many"
+    ],
+    [
+     "tokio/tests/sync_semaphore_owned.rs",
+     "acquire_many"
+    ],
+    [
+     "tokio/tests/sync_semaphore_owned.rs",
+     "merge"
+    ],
+    [
+     "tokio/tests/sync_semaphore_owned.rs",
+     "split"
+    ],
+    [
+     "tokio/tests/sync_semaphore_owned.rs",
+     "try_acquire_many"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tokio/tests/sync_semaphore_owned.rs",
+     55,
+     55
+    ],
+    [
+     "tokio/tests/sync_semaphore_owned.rs",
+     26,
+     26
+    ],
+    [
+     "tokio/tests/sync_semaphore_owned.rs",
+     31,
+     31
+    ],
+    [
+     "tokio/tests/sync_semaphore_owned.rs",
+     33,
+     33
+    ],
+    [
+     "tokio/tests/sync_semaphore_owned.rs",
+     98,
+     98
+    ],
+    [
+     "tokio/tests/sync_semaphore_owned.rs",
+     120,
+     120
+    ],
+    [
+     "tokio-util/src/sync/poll_semaphore.rs",
+     92,
+     92
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tokio-util/src/sync/poll_semaphore.rs",
+     "poll_acquire_many"
+    ],
+    [
+     "tokio/tests/sync_semaphore_owned.rs",
+     "acquire_many"
+    ],
+    [
+     "tokio/tests/sync_semaphore_owned.rs",
+     "merge"
+    ],
+    [
+     "tokio/tests/sync_semaphore_owned.rs",
+     "split"
+    ],
+    [
+     "tokio/tests/sync_semaphore_owned.rs",
+     "try_acquire_many"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "tokio-util/src/sync/poll_semaphore.rs",
+     92,
+     92
+    ],
+    [
+     "tokio/tests/sync_semaphore_owned.rs",
+     26,
+     26
+    ],
+    [
+     "tokio/tests/sync_semaphore_owned.rs",
+     31,
+     31
+    ],
+    [
+     "tokio/tests/sync_semaphore_owned.rs",
+     33,
+     33
+    ],
+    [
+     "tokio/tests/sync_semaphore_owned.rs",
+     55,
+     55
+    ],
+    [
+     "tokio/tests/sync_semaphore_owned.rs",
+     98,
+     98
+    ],
+    [
+     "tokio/tests/sync_semaphore_owned.rs",
+     120,
+     120
+    ]
+   ],
+   "seed_def": "tokio/src/sync/semaphore.rs:921",
+   "stratum": "U-method"
+  },
+  "callers:tokio/src/time/instant.rs:154": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "tokio/src/time/instant.rs:154",
+   "stratum": "C-name"
+  },
+  "callers:tokio/src/time/instant.rs:190": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tokio/src/time/instant.rs",
+     "sub"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "tokio/src/time/instant.rs",
+     191,
+     191
+    ]
+   ],
+   "seed_def": "tokio/src/time/instant.rs:190",
+   "stratum": "C-method"
+  },
+  "callers:tokio/tests/sync_mpsc.rs:1389": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "tokio/tests/sync_mpsc.rs:1389",
+   "stratum": "Q-scoped"
+  },
+  "callers:tokio/tests/sync_mpsc_weak.rs:265": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "tokio/tests/sync_mpsc_weak.rs:265",
+   "stratum": "C-name"
+  },
+  "callers:tokio/tests/task_local.rs:9": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "tokio/tests/task_local.rs:9",
+   "stratum": "C-name"
+  }
+ }
+}

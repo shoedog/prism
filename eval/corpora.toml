@@ -13,7 +13,7 @@ lang = "rust"
 path = "."                       # the prism repo itself
 oracle = "rust-analyzer"
 excludes = ["tests/fixtures/*", "eval/fixtures/*", "target/*"]
-pinned_sha = "144d7c93d78d"                  # filled at first run
+pinned_sha = "dd60ed68dda5"                  # re-anchored to the S2 merge (2026-06-14)
 
 [corpus.tokio]
 lang = "rust"

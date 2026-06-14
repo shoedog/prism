@@ -1,0 +1,3649 @@
+{
+ "m1": {
+  "anon_oracle": 0,
+  "anon_prism": 1,
+  "matched": 1521,
+  "prism_extra": 62,
+  "prism_missing": 0,
+  "snapshot_prism_missing": 0
+ },
+ "m2": {
+  "callees": {
+   "C-method": {
+    "corrected": {
+     "fn": 6,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.5655175313406071,
+      1.0
+     ],
+     "recall": [
+      0.45454545454545453,
+      0.21271271487637833,
+      0.7199084642140241
+     ],
+     "tp": 5
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 1,
+      "precision": [
+       0.8571428571428571,
+       0.486872167860775,
+       0.9743203759421759
+      ],
+      "recall": [
+       1.0,
+       0.6096657083436265,
+       1.0
+      ],
+      "tp": 6
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 1,
+      "precision": [
+       0.8571428571428571,
+       0.486872167860775,
+       0.9743203759421759
+      ],
+      "recall": [
+       1.0,
+       0.6096657083436265,
+       1.0
+      ],
+      "tp": 6
+     }
+    },
+    "pending": 0,
+    "raw": {
+     "fn": 6,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.5655175313406071,
+      1.0
+     ],
+     "recall": [
+      0.45454545454545453,
+      0.21271271487637833,
+      0.7199084642140241
+     ],
+     "tp": 5
+    },
+    "shortfall": 0
+   },
+   "C-name": {
+    "corrected": {
+     "fn": 14,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.6456695613241317,
+      1.0
+     ],
+     "recall": [
+      0.3333333333333333,
+      0.1719475251228901,
+      0.5462654818728245
+     ],
+     "tp": 7
+    },
+    "function": {
+     "corrected": {
+      "fn": 2,
+      "fp": 1,
+      "precision": [
+       0.8571428571428571,
+       0.486872167860775,
+       0.9743203759421759
+      ],
+      "recall": [
+       0.75,
+       0.40927542792725174,
+       0.9285207879020445
+      ],
+      "tp": 6
+     },
+     "raw": {
+      "fn": 2,
+      "fp": 1,
+      "precision": [
+       0.8571428571428571,
+       0.486872167860775,
+       0.9743203759421759
+      ],
+      "recall": [
+       0.75,
+       0.40927542792725174,
+       0.9285207879020445
+      ],
+      "tp": 6
+     }
+    },
+    "pending": 0,
+    "raw": {
+     "fn": 15,
+     "fp": 1,
+     "precision": [
+      0.8571428571428571,
+      0.486872167860775,
+      0.9743203759421759
+     ],
+     "recall": [
+      0.2857142857142857,
+      0.1381386287176154,
+      0.4995638088483033
+     ],
+     "tp": 6
+    },
+    "shortfall": 0
+   },
+   "Q-scoped": {
+    "corrected": {
+     "fn": 3,
+     "fp": 1,
+     "precision": [
+      0.875,
+      0.5291118149439162,
+      0.9775825088000281
+     ],
+     "recall": [
+      0.7,
+      0.3967781453459709,
+      0.892208733443606
+     ],
+     "tp": 7
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 2,
+      "precision": [
+       0.6666666666666666,
+       0.29999331299474324,
+       0.9032285897864654
+      ],
+      "recall": [
+       1.0,
+       0.5101091596030786,
+       0.9999999999999999
+      ],
+      "tp": 4
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 2,
+      "precision": [
+       0.6666666666666666,
+       0.29999331299474324,
+       0.9032285897864654
+      ],
+      "recall": [
+       1.0,
+       0.5101091596030786,
+       0.9999999999999999
+      ],
+      "tp": 4
+     }
+    },
+    "pending": 0,
+    "raw": {
+     "fn": 3,
+     "fp": 1,
+     "precision": [
+      0.875,
+      0.5291118149439162,
+      0.9775825088000281
+     ],
+     "recall": [
+      0.7,
+      0.3967781453459709,
+      0.892208733443606
+     ],
+     "tp": 7
+    },
+    "shortfall": 0
+   },
+   "U-free": {
+    "corrected": {
+     "fn": 26,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.8388748398148705,
+      1.0
+     ],
+     "recall": [
+      0.43478260869565216,
+      0.30209262684948346,
+      0.5775256641341373
+     ],
+     "tp": 20
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 1,
+      "precision": [
+       0.8888888888888888,
+       0.565000291629209,
+       0.9801091125830901
+      ],
+      "recall": [
+       1.0,
+       0.6755924316585924,
+       1.0
+      ],
+      "tp": 8
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 1,
+      "precision": [
+       0.8888888888888888,
+       0.565000291629209,
+       0.9801091125830901
+      ],
+      "recall": [
+       1.0,
+       0.6755924316585924,
+       1.0
+      ],
+      "tp": 8
+     }
+    },
+    "pending": 0,
+    "raw": {
+     "fn": 26,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.8388748398148705,
+      1.0
+     ],
+     "recall": [
+      0.43478260869565216,
+      0.30209262684948346,
+      0.5775256641341373
+     ],
+     "tp": 20
+    },
+    "shortfall": 0
+   },
+   "U-method": {
+    "corrected": {
+     "fn": 1,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.7961166964035129,
+      1.0
+     ],
+     "recall": [
+      0.9375,
+      0.716712622018518,
+      0.9888806553587528
+     ],
+     "tp": 15
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 4,
+      "precision": [
+       0.5,
+       0.21521606069626764,
+       0.7847839393037324
+      ],
+      "recall": [
+       1.0,
+       0.5101091596030786,
+       0.9999999999999999
+      ],
+      "tp": 4
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 4,
+      "precision": [
+       0.5,
+       0.21521606069626764,
+       0.7847839393037324
+      ],
+      "recall": [
+       1.0,
+       0.5101091596030786,
+       0.9999999999999999
+      ],
+      "tp": 4
+     }
+    },
+    "pending": 0,
+    "raw": {
+     "fn": 1,
+     "fp": 1,
+     "precision": [
+      0.9333333333333333,
+      0.7018346989112435,
+      0.9881331046384677
+     ],
+     "recall": [
+      0.9333333333333333,
+      0.7018346989112435,
+      0.9881331046384677
+     ],
+     "tp": 14
+    },
+    "shortfall": 0
+   }
+  },
+  "callers": {
+   "C-method": {
+    "corrected": {
+     "fn": 2,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.3423802239546494,
+      1.0
+     ],
+     "recall": [
+      0.5,
+      0.15003898774401986,
+      0.8499610122559802
+     ],
+     "tp": 2
+    },
+    "function": {
+     "corrected": {
+      "fn": 2,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.3423802239546494,
+       1.0
+      ],
+      "recall": [
+       0.5,
+       0.15003898774401986,
+       0.8499610122559802
+      ],
+      "tp": 2
+     },
+     "raw": {
+      "fn": 2,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.3423802239546494,
+       1.0
+      ],
+      "recall": [
+       0.5,
+       0.15003898774401986,
+       0.8499610122559802
+      ],
+      "tp": 2
+     }
+    },
+    "pending": 0,
+    "raw": {
+     "fn": 2,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.3423802239546494,
+      1.0
+     ],
+     "recall": [
+      0.5,
+      0.15003898774401986,
+      0.8499610122559802
+     ],
+     "tp": 2
+    },
+    "shortfall": 0
+   },
+   "Q-scoped": {
+    "corrected": {
+     "fn": 0,
+     "fp": 1,
+     "precision": [
+      0.9655172413793104,
+      0.8282447796220433,
+      0.9938867857749234
+     ],
+     "recall": [
+      1.0,
+      0.8793566935605293,
+      1.0
+     ],
+     "tp": 28
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 1,
+      "precision": [
+       0.9333333333333333,
+       0.7018346989112435,
+       0.9881331046384677
+      ],
+      "recall": [
+       1.0,
+       0.7846891945970195,
+       0.9999999999999999
+      ],
+      "tp": 14
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 1,
+      "precision": [
+       0.9333333333333333,
+       0.7018346989112435,
+       0.9881331046384677
+      ],
+      "recall": [
+       1.0,
+       0.7846891945970195,
+       0.9999999999999999
+      ],
+      "tp": 14
+     }
+    },
+    "pending": 0,
+    "raw": {
+     "fn": 0,
+     "fp": 1,
+     "precision": [
+      0.9655172413793104,
+      0.8282447796220433,
+      0.9938867857749234
+     ],
+     "recall": [
+      1.0,
+      0.8793566935605293,
+      1.0
+     ],
+     "tp": 28
+    },
+    "shortfall": 0
+   },
+   "U-method": {
+    "corrected": {
+     "fn": 1,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.866807747239609,
+      1.0
+     ],
+     "recall": [
+      0.9615384615384616,
+      0.8110722092608273,
+      0.9931780150820144
+     ],
+     "tp": 25
+    },
+    "function": {
+     "corrected": {
+      "fn": 1,
+      "fp": 1,
+      "precision": [
+       0.9375,
+       0.716712622018518,
+       0.9888806553587528
+      ],
+      "recall": [
+       0.9375,
+       0.716712622018518,
+       0.9888806553587528
+      ],
+      "tp": 15
+     },
+     "raw": {
+      "fn": 1,
+      "fp": 1,
+      "precision": [
+       0.9375,
+       0.716712622018518,
+       0.9888806553587528
+      ],
+      "recall": [
+       0.9375,
+       0.716712622018518,
+       0.9888806553587528
+      ],
+      "tp": 15
+     }
+    },
+    "pending": 0,
+    "raw": {
+     "fn": 1,
+     "fp": 1,
+     "precision": [
+      0.96,
+      0.8045593608838223,
+      0.9929037665766179
+     ],
+     "recall": [
+      0.96,
+      0.8045593608838223,
+      0.9929037665766179
+     ],
+     "tp": 24
+    },
+    "shortfall": 0
+   }
+  }
+ },
+ "m3": {
+  "cap": 25,
+  "checked": [
+   {
+    "probe": "callers:src/click/_compat.py:150",
+    "site": "src/click/_compat.py:246",
+    "verdict": "alias_site"
+   },
+   {
+    "probe": "callers:src/click/core.py:1844",
+    "site": "examples/imagepipe/imagepipe.py:23",
+    "verdict": "ambiguous"
+   }
+  ],
+  "counts": {
+   "alias_site": 1,
+   "ambiguous": 1,
+   "confirmed_fp": 0,
+   "confirmed_tp": 0
+  }
+ },
+ "meta": {
+  "baseline_invalid": true,
+  "corpus": "click",
+  "corpus_dirty": false,
+  "corpus_dirty_reasons": [],
+  "corpus_sha": "8a1b1a33d739",
+  "date": "2026-06-13",
+  "harness_sha": "dd60ed68dda5",
+  "invalid_reasons": [
+   "oracle_error_rate 0.31 > 0.25"
+  ],
+  "oracle": "pyright-langserver",
+  "oracle_error_rate": 0.3125,
+  "oracle_not_quiescent": false,
+  "prism_dirty": false,
+  "prism_sha": "dd60ed68dda5",
+  "seed": 42,
+  "stale_adjudications": 12,
+  "sut_error_rate": 0.0,
+  "wall_s": {
+   "m1_oracle_inventory": 0.078,
+   "m2": 18.04,
+   "m3": 0.001,
+   "oracle_start": 5.132
+  }
+ },
+ "pending": [],
+ "probes": {
+  "_corpus": "click",
+  "_strata": {
+   "C-method": {
+    "eligible_probes": 16,
+    "eligible_symbols": 8,
+    "target": 8
+   },
+   "C-name": {
+    "eligible_probes": 16,
+    "eligible_symbols": 8,
+    "target": 8
+   },
+   "Q-scoped": {
+    "eligible_probes": 16,
+    "eligible_symbols": 8,
+    "target": 8
+   },
+   "U-free": {
+    "eligible_probes": 16,
+    "eligible_symbols": 8,
+    "target": 8
+   },
+   "U-method": {
+    "eligible_probes": 16,
+    "eligible_symbols": 8,
+    "target": 8
+   }
+  },
+  "callees:src/click/_compat.py:150": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/click/_compat.py",
+     "_is_binary_reader"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/click/_compat.py",
+     152,
+     152
+    ]
+   ],
+   "seed_def": "src/click/_compat.py:150",
+   "stratum": "Q-scoped"
+  },
+  "callees:src/click/_compat.py:532": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "src/click/_compat.py",
+     "term_len"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/click/_compat.py",
+     533,
+     533
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/click/_compat.py",
+     "term_len"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/click/_compat.py",
+     533,
+     533
+    ]
+   ],
+   "seed_def": "src/click/_compat.py:532",
+   "stratum": "Q-scoped"
+  },
+  "callees:src/click/_termui_impl.py:58": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "src/click/_termui_impl.py",
+     "__init__"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/click/_termui_impl.py",
+     126,
+     126
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/click/_termui_impl.py",
+     "__init__"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/click/_termui_impl.py",
+     126,
+     126
+    ]
+   ],
+   "seed_def": "src/click/_termui_impl.py:58",
+   "stratum": "C-method"
+  },
+  "callees:src/click/core.py:1549": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "src/click/core.py",
+     "_main_shell_completion"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/click/core.py",
+     1578,
+     1578
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/click/core.py",
+     "_main_shell_completion"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/click/core.py",
+     1578,
+     1578
+    ]
+   ],
+   "seed_def": "src/click/core.py:1549",
+   "stratum": "U-method"
+  },
+  "callees:src/click/core.py:1844": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/click/core.py",
+     "decorator"
+    ],
+    [
+     "src/click/core.py",
+     "function"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/click/core.py",
+     1882,
+     1882
+    ],
+    [
+     "src/click/core.py",
+     1882,
+     1882
+    ]
+   ],
+   "seed_def": "src/click/core.py:1844",
+   "stratum": "U-method"
+  },
+  "callees:src/click/core.py:1936": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "src/click/core.py",
+     "parse_args"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/click/core.py",
+     1938,
+     1938
+    ],
+    [
+     "src/click/core.py",
+     1940,
+     1940
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/click/core.py",
+     "parse_args"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "src/click/core.py:1936",
+   "stratum": "C-method"
+  },
+  "callees:src/click/core.py:2103": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "src/click/core.py",
+     "get_command"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/click/core.py",
+     2104,
+     2104
+    ],
+    [
+     "src/click/core.py",
+     2110,
+     2110
+    ],
+    [
+     "src/click/core.py",
+     2114,
+     2114
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/click/core.py",
+     "get_command"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/click/core.py",
+     2114,
+     2114
+    ]
+   ],
+   "seed_def": "src/click/core.py:2103",
+   "stratum": "C-method"
+  },
+  "callees:src/click/core.py:2661": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "src/click/core.py",
+     "value_from_envvar"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/click/core.py",
+     2670,
+     2670
+    ],
+    [
+     "src/click/core.py",
+     2673,
+     2673
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/click/core.py",
+     "value_from_envvar"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/click/core.py",
+     2670,
+     2670
+    ],
+    [
+     "src/click/core.py",
+     2673,
+     2673
+    ]
+   ],
+   "seed_def": "src/click/core.py:2661",
+   "stratum": "C-method"
+  },
+  "callees:src/click/core.py:644": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/click/core.py",
+     "with_resource"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "src/click/core.py:644",
+   "stratum": "U-method"
+  },
+  "callees:src/click/decorators.py:115": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "src/click/decorators.py",
+     "new_func"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/click/decorators.py",
+     117,
+     117
+    ],
+    [
+     "src/click/decorators.py",
+     118,
+     118
+    ],
+    [
+     "src/click/decorators.py",
+     119,
+     119
+    ],
+    [
+     "src/click/decorators.py",
+     119,
+     119
+    ],
+    [
+     "src/click/decorators.py",
+     119,
+     119
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/click/decorators.py",
+     "decorator"
+    ],
+    [
+     "src/click/decorators.py",
+     "new_func"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/click/decorators.py",
+     117,
+     117
+    ],
+    [
+     "src/click/decorators.py",
+     117,
+     117
+    ],
+    [
+     "src/click/decorators.py",
+     117,
+     117
+    ],
+    [
+     "src/click/decorators.py",
+     117,
+     117
+    ],
+    [
+     "src/click/decorators.py",
+     117,
+     117
+    ]
+   ],
+   "seed_def": "src/click/decorators.py:115",
+   "stratum": "C-name"
+  },
+  "callees:src/click/decorators.py:116": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "src/click/decorators.py",
+     "new_func"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/click/decorators.py",
+     117,
+     117
+    ],
+    [
+     "src/click/decorators.py",
+     118,
+     118
+    ],
+    [
+     "src/click/decorators.py",
+     119,
+     119
+    ],
+    [
+     "src/click/decorators.py",
+     119,
+     119
+    ],
+    [
+     "src/click/decorators.py",
+     119,
+     119
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/click/decorators.py",
+     "new_func"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/click/decorators.py",
+     117,
+     117
+    ],
+    [
+     "src/click/decorators.py",
+     117,
+     117
+    ],
+    [
+     "src/click/decorators.py",
+     117,
+     117
+    ],
+    [
+     "src/click/decorators.py",
+     117,
+     117
+    ],
+    [
+     "src/click/decorators.py",
+     117,
+     117
+    ]
+   ],
+   "seed_def": "src/click/decorators.py:116",
+   "stratum": "C-name"
+  },
+  "callees:src/click/exceptions.py:348": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "src/click/exceptions.py",
+     "__init__"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/click/exceptions.py",
+     352,
+     352
+    ],
+    [
+     "src/click/exceptions.py",
+     353,
+     353
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/click/exceptions.py",
+     "__init__"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/click/exceptions.py",
+     353,
+     353
+    ]
+   ],
+   "seed_def": "src/click/exceptions.py:348",
+   "stratum": "C-method"
+  },
+  "callees:src/click/formatting.py:14": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "src/click/formatting.py",
+     "measure_table"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/click/formatting.py",
+     19,
+     19
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/click/formatting.py",
+     "measure_table"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/click/formatting.py",
+     19,
+     19
+    ]
+   ],
+   "seed_def": "src/click/formatting.py:14",
+   "stratum": "Q-scoped"
+  },
+  "callees:src/click/formatting.py:229": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "src/click/formatting.py",
+     "write_dl"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/click/formatting.py",
+     244,
+     244
+    ],
+    [
+     "src/click/formatting.py",
+     250,
+     250
+    ],
+    [
+     "src/click/formatting.py",
+     251,
+     251
+    ],
+    [
+     "src/click/formatting.py",
+     253,
+     253
+    ],
+    [
+     "src/click/formatting.py",
+     256,
+     256
+    ],
+    [
+     "src/click/formatting.py",
+     258,
+     258
+    ],
+    [
+     "src/click/formatting.py",
+     259,
+     259
+    ],
+    [
+     "src/click/formatting.py",
+     266,
+     266
+    ],
+    [
+     "src/click/formatting.py",
+     269,
+     269
+    ],
+    [
+     "src/click/formatting.py",
+     271,
+     271
+    ],
+    [
+     "src/click/formatting.py",
+     255,
+     255
+    ],
+    [
+     "src/click/formatting.py",
+     256,
+     256
+    ],
+    [
+     "src/click/formatting.py",
+     262,
+     262
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/click/formatting.py",
+     "write_dl"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/click/formatting.py",
+     255,
+     255
+    ],
+    [
+     "src/click/formatting.py",
+     256,
+     256
+    ],
+    [
+     "src/click/formatting.py",
+     244,
+     244
+    ],
+    [
+     "src/click/formatting.py",
+     250,
+     250
+    ],
+    [
+     "src/click/formatting.py",
+     262,
+     262
+    ],
+    [
+     "src/click/formatting.py",
+     251,
+     251
+    ],
+    [
+     "src/click/formatting.py",
+     253,
+     253
+    ],
+    [
+     "src/click/formatting.py",
+     256,
+     256
+    ],
+    [
+     "src/click/formatting.py",
+     258,
+     258
+    ],
+    [
+     "src/click/formatting.py",
+     259,
+     259
+    ],
+    [
+     "src/click/formatting.py",
+     266,
+     266
+    ],
+    [
+     "src/click/formatting.py",
+     269,
+     269
+    ],
+    [
+     "src/click/formatting.py",
+     271,
+     271
+    ]
+   ],
+   "seed_def": "src/click/formatting.py:229",
+   "stratum": "U-method"
+  },
+  "callees:src/click/parser.py:290": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "src/click/parser.py",
+     "add_argument"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/click/parser.py",
+     296,
+     296
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/click/parser.py",
+     "add_argument"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "src/click/parser.py:290",
+   "stratum": "U-method"
+  },
+  "callees:src/click/shell_completion.py:425": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/click/shell_completion.py",
+     "format_completion"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "src/click/shell_completion.py:425",
+   "stratum": "C-method"
+  },
+  "callees:src/click/shell_completion.py:576": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "src/click/shell_completion.py",
+     "_resolve_context"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/click/shell_completion.py",
+     591,
+     591
+    ],
+    [
+     "src/click/shell_completion.py",
+     604,
+     604
+    ],
+    [
+     "src/click/shell_completion.py",
+     618,
+     618
+    ],
+    [
+     "src/click/shell_completion.py",
+     599,
+     599
+    ],
+    [
+     "src/click/shell_completion.py",
+     613,
+     613
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/click/shell_completion.py",
+     "_resolve_context"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/click/shell_completion.py",
+     591,
+     591
+    ],
+    [
+     "src/click/shell_completion.py",
+     604,
+     604
+    ],
+    [
+     "src/click/shell_completion.py",
+     618,
+     618
+    ]
+   ],
+   "seed_def": "src/click/shell_completion.py:576",
+   "stratum": "Q-scoped"
+  },
+  "callees:src/click/termui.py:111": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/click/termui.py",
+     "_format_default"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "src/click/termui.py:111",
+   "stratum": "Q-scoped"
+  },
+  "callees:src/click/termui.py:180": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "src/click/termui.py",
+     "prompt_func"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/click/termui.py",
+     183,
+     183
+    ],
+    [
+     "src/click/termui.py",
+     189,
+     189
+    ],
+    [
+     "src/click/termui.py",
+     190,
+     190
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/click/termui.py",
+     "prompt_func"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/click/termui.py",
+     183,
+     183
+    ],
+    [
+     "src/click/termui.py",
+     189,
+     189
+    ],
+    [
+     "src/click/termui.py",
+     189,
+     189
+    ],
+    [
+     "src/click/termui.py",
+     189,
+     189
+    ]
+   ],
+   "seed_def": "src/click/termui.py:180",
+   "stratum": "Q-scoped"
+  },
+  "callees:src/click/types.py:420": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "src/click/types.py",
+     "get_invalid_choice_message"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/click/types.py",
+     427,
+     427
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/click/types.py",
+     "get_invalid_choice_message"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/click/types.py",
+     427,
+     427
+    ]
+   ],
+   "seed_def": "src/click/types.py:420",
+   "stratum": "U-method"
+  },
+  "callees:tests/test_arguments.py:220": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "tests/test_arguments.py",
+     "cmd"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tests/test_arguments.py",
+     218,
+     218
+    ],
+    [
+     "tests/test_arguments.py",
+     219,
+     219
+    ],
+    [
+     "tests/test_arguments.py",
+     221,
+     221
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tests/test_arguments.py",
+     "cmd"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "tests/test_arguments.py",
+     221,
+     221
+    ]
+   ],
+   "seed_def": "tests/test_arguments.py:220",
+   "stratum": "C-name"
+  },
+  "callees:tests/test_arguments.py:290": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "tests/test_arguments.py",
+     "cli"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tests/test_arguments.py",
+     288,
+     288
+    ],
+    [
+     "tests/test_arguments.py",
+     289,
+     289
+    ],
+    [
+     "tests/test_arguments.py",
+     291,
+     291
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tests/test_arguments.py",
+     "cli"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "tests/test_arguments.py",
+     291,
+     291
+    ]
+   ],
+   "seed_def": "tests/test_arguments.py:290",
+   "stratum": "C-name"
+  },
+  "callees:tests/test_arguments.py:82": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "tests/test_arguments.py",
+     "from_bytes"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tests/test_arguments.py",
+     83,
+     83
+    ],
+    [
+     "tests/test_arguments.py",
+     84,
+     84
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tests/test_arguments.py",
+     "from_bytes"
+    ],
+    [
+     "tests/test_arguments.py",
+     "test_bytes_args"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "tests/test_arguments.py",
+     83,
+     83
+    ],
+    [
+     "tests/test_arguments.py",
+     83,
+     83
+    ],
+    [
+     "tests/test_arguments.py",
+     83,
+     83
+    ],
+    [
+     "tests/test_arguments.py",
+     83,
+     83
+    ],
+    [
+     "tests/test_arguments.py",
+     83,
+     83
+    ],
+    [
+     "tests/test_arguments.py",
+     83,
+     83
+    ],
+    [
+     "tests/test_arguments.py",
+     83,
+     83
+    ],
+    [
+     "tests/test_arguments.py",
+     83,
+     83
+    ],
+    [
+     "tests/test_arguments.py",
+     83,
+     83
+    ],
+    [
+     "tests/test_arguments.py",
+     84,
+     84
+    ]
+   ],
+   "seed_def": "tests/test_arguments.py:82",
+   "stratum": "U-free"
+  },
+  "callees:tests/test_basic.py:710": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "tests/test_basic.py",
+     "cli"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tests/test_basic.py",
+     709,
+     709
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "tests/test_basic.py:710",
+   "stratum": "C-name"
+  },
+  "callees:tests/test_chain.py:70": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "tests/test_chain.py",
+     "cli"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tests/test_chain.py",
+     69,
+     69
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "tests/test_chain.py:70",
+   "stratum": "C-name"
+  },
+  "callees:tests/test_context.py:405": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tests/test_context.py",
+     "reset_state"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "tests/test_context.py:405",
+   "stratum": "U-method"
+  },
+  "callees:tests/test_context.py:592": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "tests/test_context.py",
+     "test_with_resource_nested_exception"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tests/test_context.py",
+     622,
+     622
+    ],
+    [
+     "tests/test_context.py",
+     622,
+     622
+    ],
+    [
+     "tests/test_context.py",
+     626,
+     626
+    ],
+    [
+     "tests/test_context.py",
+     635,
+     635
+    ],
+    [
+     "tests/test_context.py",
+     645,
+     645
+    ],
+    [
+     "tests/test_context.py",
+     627,
+     627
+    ],
+    [
+     "tests/test_context.py",
+     628,
+     628
+    ],
+    [
+     "tests/test_context.py",
+     636,
+     636
+    ],
+    [
+     "tests/test_context.py",
+     637,
+     637
+    ],
+    [
+     "tests/test_context.py",
+     646,
+     646
+    ],
+    [
+     "tests/test_context.py",
+     647,
+     647
+    ],
+    [
+     "tests/test_context.py",
+     656,
+     656
+    ],
+    [
+     "tests/test_context.py",
+     657,
+     657
+    ],
+    [
+     "tests/test_context.py",
+     627,
+     627
+    ],
+    [
+     "tests/test_context.py",
+     628,
+     628
+    ],
+    [
+     "tests/test_context.py",
+     636,
+     636
+    ],
+    [
+     "tests/test_context.py",
+     637,
+     637
+    ],
+    [
+     "tests/test_context.py",
+     646,
+     646
+    ],
+    [
+     "tests/test_context.py",
+     648,
+     648
+    ],
+    [
+     "tests/test_context.py",
+     656,
+     656
+    ],
+    [
+     "tests/test_context.py",
+     658,
+     658
+    ],
+    [
+     "tests/test_context.py",
+     638,
+     638
+    ],
+    [
+     "tests/test_context.py",
+     650,
+     650
+    ],
+    [
+     "tests/test_context.py",
+     660,
+     660
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tests/test_context.py",
+     "test_with_resource_nested_exception"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "tests/test_context.py",
+     626,
+     626
+    ],
+    [
+     "tests/test_context.py",
+     635,
+     635
+    ],
+    [
+     "tests/test_context.py",
+     645,
+     645
+    ],
+    [
+     "tests/test_context.py",
+     626,
+     626
+    ],
+    [
+     "tests/test_context.py",
+     635,
+     635
+    ],
+    [
+     "tests/test_context.py",
+     645,
+     645
+    ],
+    [
+     "tests/test_context.py",
+     627,
+     627
+    ],
+    [
+     "tests/test_context.py",
+     628,
+     628
+    ],
+    [
+     "tests/test_context.py",
+     636,
+     636
+    ],
+    [
+     "tests/test_context.py",
+     637,
+     637
+    ],
+    [
+     "tests/test_context.py",
+     646,
+     646
+    ],
+    [
+     "tests/test_context.py",
+     647,
+     647
+    ],
+    [
+     "tests/test_context.py",
+     656,
+     656
+    ],
+    [
+     "tests/test_context.py",
+     657,
+     657
+    ]
+   ],
+   "seed_def": "tests/test_context.py:592",
+   "stratum": "U-free"
+  },
+  "callees:tests/test_context.py:700": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "tests/test_context.py",
+     "test_propagate_show_default_setting"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tests/test_context.py",
+     704,
+     704
+    ],
+    [
+     "tests/test_context.py",
+     706,
+     706
+    ],
+    [
+     "tests/test_context.py",
+     706,
+     706
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tests/test_context.py",
+     "test_propagate_show_default_setting"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "tests/test_context.py:700",
+   "stratum": "U-free"
+  },
+  "callees:tests/test_defaults.py:408": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "tests/test_defaults.py",
+     "cli"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tests/test_defaults.py",
+     404,
+     404
+    ],
+    [
+     "tests/test_defaults.py",
+     405,
+     405
+    ],
+    [
+     "tests/test_defaults.py",
+     406,
+     406
+    ],
+    [
+     "tests/test_defaults.py",
+     410,
+     410
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tests/test_defaults.py",
+     "cli"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "tests/test_defaults.py",
+     410,
+     410
+    ],
+    [
+     "tests/test_defaults.py",
+     409,
+     409
+    ]
+   ],
+   "seed_def": "tests/test_defaults.py:408",
+   "stratum": "C-name"
+  },
+  "callees:tests/test_info_dict.py:212": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "tests/test_info_dict.py",
+     "test_parameter"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tests/test_info_dict.py",
+     99,
+     99
+    ],
+    [
+     "tests/test_info_dict.py",
+     110,
+     110
+    ],
+    [
+     "tests/test_info_dict.py",
+     120,
+     120
+    ],
+    [
+     "tests/test_info_dict.py",
+     126,
+     126
+    ],
+    [
+     "tests/test_info_dict.py",
+     142,
+     142
+    ],
+    [
+     "tests/test_info_dict.py",
+     159,
+     159
+    ],
+    [
+     "tests/test_info_dict.py",
+     164,
+     164
+    ],
+    [
+     "tests/test_info_dict.py",
+     178,
+     178
+    ],
+    [
+     "tests/test_info_dict.py",
+     188,
+     188
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tests/test_info_dict.py",
+     "test_parameter"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "tests/test_info_dict.py:212",
+   "stratum": "U-free"
+  },
+  "callees:tests/test_options.py:1250": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "tests/test_options.py",
+     "test_hide_false_default_boolean_flag_value"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tests/test_options.py",
+     1254,
+     1254
+    ],
+    [
+     "tests/test_options.py",
+     1261,
+     1261
+    ],
+    [
+     "tests/test_options.py",
+     1261,
+     1261
+    ],
+    [
+     "tests/test_options.py",
+     1262,
+     1262
+    ],
+    [
+     "tests/test_options.py",
+     1263,
+     1263
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tests/test_options.py",
+     "test_hide_false_default_boolean_flag_value"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "tests/test_options.py",
+     1262,
+     1262
+    ],
+    [
+     "tests/test_options.py",
+     1263,
+     1263
+    ],
+    [
+     "tests/test_options.py",
+     1263,
+     1263
+    ]
+   ],
+   "seed_def": "tests/test_options.py:1250",
+   "stratum": "U-free"
+  },
+  "callees:tests/test_options.py:1721": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "tests/test_options.py",
+     "cmd"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tests/test_options.py",
+     1719,
+     1719
+    ],
+    [
+     "tests/test_options.py",
+     1720,
+     1720
+    ],
+    [
+     "tests/test_options.py",
+     1722,
+     1722
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tests/test_options.py",
+     "cmd"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "tests/test_options.py",
+     1722,
+     1722
+    ]
+   ],
+   "seed_def": "tests/test_options.py:1721",
+   "stratum": "C-name"
+  },
+  "callees:tests/test_shell_completion.py:177": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "tests/test_shell_completion.py",
+     "test_option_optional"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tests/test_shell_completion.py",
+     178,
+     178
+    ],
+    [
+     "tests/test_shell_completion.py",
+     182,
+     182
+    ],
+    [
+     "tests/test_shell_completion.py",
+     183,
+     183
+    ],
+    [
+     "tests/test_shell_completion.py",
+     186,
+     186
+    ],
+    [
+     "tests/test_shell_completion.py",
+     187,
+     187
+    ],
+    [
+     "tests/test_shell_completion.py",
+     188,
+     188
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tests/test_shell_completion.py",
+     "test_option_optional"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "tests/test_shell_completion.py",
+     186,
+     186
+    ],
+    [
+     "tests/test_shell_completion.py",
+     187,
+     187
+    ],
+    [
+     "tests/test_shell_completion.py",
+     188,
+     188
+    ]
+   ],
+   "seed_def": "tests/test_shell_completion.py:177",
+   "stratum": "U-free"
+  },
+  "callees:tests/test_shell_completion.py:226": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "tests/test_shell_completion.py",
+     "test_flag_option_with_nargs_option"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tests/test_shell_completion.py",
+     227,
+     227
+    ],
+    [
+     "tests/test_shell_completion.py",
+     231,
+     231
+    ],
+    [
+     "tests/test_shell_completion.py",
+     231,
+     231
+    ],
+    [
+     "tests/test_shell_completion.py",
+     233,
+     233
+    ],
+    [
+     "tests/test_shell_completion.py",
+     232,
+     232
+    ],
+    [
+     "tests/test_shell_completion.py",
+     233,
+     233
+    ],
+    [
+     "tests/test_shell_completion.py",
+     236,
+     236
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tests/test_shell_completion.py",
+     "test_flag_option_with_nargs_option"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "tests/test_shell_completion.py",
+     236,
+     236
+    ]
+   ],
+   "seed_def": "tests/test_shell_completion.py:226",
+   "stratum": "U-free"
+  },
+  "callees:tests/test_termui.py:1335": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "tests/test_termui.py",
+     "convert"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tests/test_termui.py",
+     1337,
+     1337
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tests/test_termui.py",
+     "convert"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "tests/test_termui.py:1335",
+   "stratum": "C-method"
+  },
+  "callees:tests/test_termui.py:560": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "tests/test_termui.py",
+     "test_editor_failure_exception"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tests/test_termui.py",
+     564,
+     564
+    ],
+    [
+     "tests/test_termui.py",
+     564,
+     564
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tests/test_termui.py",
+     "test_editor_failure_exception"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "tests/test_termui.py",
+     564,
+     564
+    ]
+   ],
+   "seed_def": "tests/test_termui.py:560",
+   "stratum": "U-free"
+  },
+  "callers:src/click/_compat.py:150": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/click/_compat.py",
+     "_find_binary_reader"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/click/_compat.py",
+     177,
+     177
+    ],
+    [
+     "src/click/_compat.py",
+     184,
+     184
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/click/_compat.py",
+     "_find_binary_reader"
+    ],
+    [
+     "src/click/_compat.py",
+     "_force_correct_text_stream"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/click/_compat.py",
+     177,
+     177
+    ],
+    [
+     "src/click/_compat.py",
+     184,
+     184
+    ],
+    [
+     "src/click/_compat.py",
+     246,
+     246
+    ]
+   ],
+   "seed_def": "src/click/_compat.py:150",
+   "stratum": "Q-scoped"
+  },
+  "callers:src/click/_compat.py:532": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/click/_termui_impl.py",
+     "render_progress"
+    ],
+    [
+     "src/click/_textwrap.py",
+     "_wrap_chunks"
+    ],
+    [
+     "src/click/formatting.py",
+     "measure_table"
+    ],
+    [
+     "src/click/formatting.py",
+     "wrap_text"
+    ],
+    [
+     "src/click/formatting.py",
+     "write_dl"
+    ],
+    [
+     "src/click/formatting.py",
+     "write_usage"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/click/_termui_impl.py",
+     274,
+     274
+    ],
+    [
+     "src/click/_termui_impl.py",
+     288,
+     288
+    ],
+    [
+     "src/click/_textwrap.py",
+     89,
+     89
+    ],
+    [
+     "src/click/_textwrap.py",
+     89,
+     89
+    ],
+    [
+     "src/click/_textwrap.py",
+     103,
+     103
+    ],
+    [
+     "src/click/_textwrap.py",
+     109,
+     109
+    ],
+    [
+     "src/click/_textwrap.py",
+     118,
+     118
+    ],
+    [
+     "src/click/_textwrap.py",
+     123,
+     123
+    ],
+    [
+     "src/click/_textwrap.py",
+     143,
+     143
+    ],
+    [
+     "src/click/_textwrap.py",
+     148,
+     148
+    ],
+    [
+     "src/click/_textwrap.py",
+     154,
+     154
+    ],
+    [
+     "src/click/_textwrap.py",
+     154,
+     154
+    ],
+    [
+     "src/click/formatting.py",
+     19,
+     19
+    ],
+    [
+     "src/click/formatting.py",
+     93,
+     93
+    ],
+    [
+     "src/click/formatting.py",
+     95,
+     95
+    ],
+    [
+     "src/click/formatting.py",
+     180,
+     180
+    ],
+    [
+     "src/click/formatting.py",
+     182,
+     182
+    ],
+    [
+     "src/click/formatting.py",
+     195,
+     195
+    ],
+    [
+     "src/click/formatting.py",
+     255,
+     255
+    ],
+    [
+     "src/click/formatting.py",
+     256,
+     256
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/click/_termui_impl.py",
+     "render_progress"
+    ],
+    [
+     "src/click/_textwrap.py",
+     "_wrap_chunks"
+    ],
+    [
+     "src/click/formatting.py",
+     "measure_table"
+    ],
+    [
+     "src/click/formatting.py",
+     "wrap_text"
+    ],
+    [
+     "src/click/formatting.py",
+     "write_dl"
+    ],
+    [
+     "src/click/formatting.py",
+     "write_usage"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/click/_termui_impl.py",
+     274,
+     274
+    ],
+    [
+     "src/click/_termui_impl.py",
+     288,
+     288
+    ],
+    [
+     "src/click/_textwrap.py",
+     89,
+     89
+    ],
+    [
+     "src/click/_textwrap.py",
+     89,
+     89
+    ],
+    [
+     "src/click/_textwrap.py",
+     103,
+     103
+    ],
+    [
+     "src/click/_textwrap.py",
+     109,
+     109
+    ],
+    [
+     "src/click/_textwrap.py",
+     118,
+     118
+    ],
+    [
+     "src/click/_textwrap.py",
+     123,
+     123
+    ],
+    [
+     "src/click/_textwrap.py",
+     143,
+     143
+    ],
+    [
+     "src/click/_textwrap.py",
+     148,
+     148
+    ],
+    [
+     "src/click/_textwrap.py",
+     154,
+     154
+    ],
+    [
+     "src/click/_textwrap.py",
+     154,
+     154
+    ],
+    [
+     "src/click/formatting.py",
+     19,
+     19
+    ],
+    [
+     "src/click/formatting.py",
+     93,
+     93
+    ],
+    [
+     "src/click/formatting.py",
+     95,
+     95
+    ],
+    [
+     "src/click/formatting.py",
+     180,
+     180
+    ],
+    [
+     "src/click/formatting.py",
+     182,
+     182
+    ],
+    [
+     "src/click/formatting.py",
+     195,
+     195
+    ],
+    [
+     "src/click/formatting.py",
+     255,
+     255
+    ],
+    [
+     "src/click/formatting.py",
+     256,
+     256
+    ]
+   ],
+   "seed_def": "src/click/_compat.py:532",
+   "stratum": "Q-scoped"
+  },
+  "callers:src/click/core.py:1549": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/click/core.py",
+     "main"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/click/core.py",
+     1499,
+     1499
+    ],
+    [
+     "src/click/core.py",
+     1499,
+     1499
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/click/core.py",
+     "main"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/click/core.py",
+     1499,
+     1499
+    ]
+   ],
+   "seed_def": "src/click/core.py:1549",
+   "stratum": "U-method"
+  },
+  "callers:src/click/core.py:1844": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "tests/test_chain.py",
+     "process_pipeline"
+    ],
+    [
+     "tests/test_chain.py",
+     "process_result"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tests/test_chain.py",
+     99,
+     99
+    ],
+    [
+     "tests/test_chain.py",
+     99,
+     99
+    ],
+    [
+     "tests/test_chain.py",
+     141,
+     141
+    ],
+    [
+     "tests/test_chain.py",
+     141,
+     141
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "examples/imagepipe/imagepipe.py",
+     "<module_level>"
+    ],
+    [
+     "tests/test_chain.py",
+     "process_pipeline"
+    ],
+    [
+     "tests/test_chain.py",
+     "process_result"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "examples/imagepipe/imagepipe.py",
+     23,
+     23
+    ],
+    [
+     "tests/test_chain.py",
+     99,
+     99
+    ],
+    [
+     "tests/test_chain.py",
+     99,
+     99
+    ],
+    [
+     "tests/test_chain.py",
+     99,
+     99
+    ],
+    [
+     "tests/test_chain.py",
+     141,
+     141
+    ],
+    [
+     "tests/test_chain.py",
+     141,
+     141
+    ],
+    [
+     "tests/test_chain.py",
+     141,
+     141
+    ]
+   ],
+   "seed_def": "src/click/core.py:1844",
+   "stratum": "U-method"
+  },
+  "callers:src/click/core.py:1936": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/click/core.py",
+     "resolve_command"
+    ],
+    [
+     "tests/test_commands.py",
+     "test_group_parse_args_collects_base_option_prefixes"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/click/core.py",
+     2040,
+     2040
+    ],
+    [
+     "src/click/core.py",
+     2040,
+     2040
+    ],
+    [
+     "tests/test_commands.py",
+     580,
+     580
+    ],
+    [
+     "tests/test_commands.py",
+     580,
+     580
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/click/core.py",
+     "resolve_command"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/click/core.py",
+     2040,
+     2040
+    ]
+   ],
+   "seed_def": "src/click/core.py:1936",
+   "stratum": "C-method"
+  },
+  "callers:src/click/core.py:2661": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/click/core.py",
+     "consume_value"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/click/core.py",
+     2452,
+     2452
+    ],
+    [
+     "src/click/core.py",
+     2452,
+     2452
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/click/core.py",
+     "consume_value"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/click/core.py",
+     2452,
+     2452
+    ]
+   ],
+   "seed_def": "src/click/core.py:2661",
+   "stratum": "C-method"
+  },
+  "callers:src/click/core.py:644": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "tests/test_context.py",
+     "test_with_resource"
+    ],
+    [
+     "tests/test_context.py",
+     "test_with_resource_exception"
+    ],
+    [
+     "tests/test_context.py",
+     "test_with_resource_nested_exception"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tests/test_context.py",
+     532,
+     532
+    ],
+    [
+     "tests/test_context.py",
+     532,
+     532
+    ],
+    [
+     "tests/test_context.py",
+     573,
+     573
+    ],
+    [
+     "tests/test_context.py",
+     573,
+     573
+    ],
+    [
+     "tests/test_context.py",
+     579,
+     579
+    ],
+    [
+     "tests/test_context.py",
+     579,
+     579
+    ],
+    [
+     "tests/test_context.py",
+     586,
+     586
+    ],
+    [
+     "tests/test_context.py",
+     586,
+     586
+    ],
+    [
+     "tests/test_context.py",
+     627,
+     627
+    ],
+    [
+     "tests/test_context.py",
+     627,
+     627
+    ],
+    [
+     "tests/test_context.py",
+     628,
+     628
+    ],
+    [
+     "tests/test_context.py",
+     628,
+     628
+    ],
+    [
+     "tests/test_context.py",
+     636,
+     636
+    ],
+    [
+     "tests/test_context.py",
+     636,
+     636
+    ],
+    [
+     "tests/test_context.py",
+     637,
+     637
+    ],
+    [
+     "tests/test_context.py",
+     637,
+     637
+    ],
+    [
+     "tests/test_context.py",
+     646,
+     646
+    ],
+    [
+     "tests/test_context.py",
+     646,
+     646
+    ],
+    [
+     "tests/test_context.py",
+     647,
+     647
+    ],
+    [
+     "tests/test_context.py",
+     647,
+     647
+    ],
+    [
+     "tests/test_context.py",
+     656,
+     656
+    ],
+    [
+     "tests/test_context.py",
+     656,
+     656
+    ],
+    [
+     "tests/test_context.py",
+     657,
+     657
+    ],
+    [
+     "tests/test_context.py",
+     657,
+     657
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tests/test_context.py",
+     "test_with_resource"
+    ],
+    [
+     "tests/test_context.py",
+     "test_with_resource_exception"
+    ],
+    [
+     "tests/test_context.py",
+     "test_with_resource_nested_exception"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "tests/test_context.py",
+     532,
+     532
+    ],
+    [
+     "tests/test_context.py",
+     573,
+     573
+    ],
+    [
+     "tests/test_context.py",
+     579,
+     579
+    ],
+    [
+     "tests/test_context.py",
+     586,
+     586
+    ],
+    [
+     "tests/test_context.py",
+     627,
+     627
+    ],
+    [
+     "tests/test_context.py",
+     628,
+     628
+    ],
+    [
+     "tests/test_context.py",
+     636,
+     636
+    ],
+    [
+     "tests/test_context.py",
+     637,
+     637
+    ],
+    [
+     "tests/test_context.py",
+     646,
+     646
+    ],
+    [
+     "tests/test_context.py",
+     647,
+     647
+    ],
+    [
+     "tests/test_context.py",
+     656,
+     656
+    ],
+    [
+     "tests/test_context.py",
+     657,
+     657
+    ]
+   ],
+   "seed_def": "src/click/core.py:644",
+   "stratum": "U-method"
+  },
+  "callers:src/click/core.py:757": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/click/core.py",
+     "consume_value"
+    ],
+    [
+     "src/click/core.py",
+     "get_default"
+    ],
+    [
+     "src/click/core.py",
+     "lookup_default"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/click/core.py",
+     791,
+     791
+    ],
+    [
+     "src/click/core.py",
+     791,
+     791
+    ],
+    [
+     "src/click/core.py",
+     2417,
+     2417
+    ],
+    [
+     "src/click/core.py",
+     2417,
+     2417
+    ],
+    [
+     "src/click/core.py",
+     2459,
+     2459
+    ],
+    [
+     "src/click/core.py",
+     2459,
+     2459
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/click/core.py",
+     "consume_value"
+    ],
+    [
+     "src/click/core.py",
+     "get_default"
+    ],
+    [
+     "src/click/core.py",
+     "lookup_default"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/click/core.py",
+     791,
+     791
+    ],
+    [
+     "src/click/core.py",
+     2417,
+     2417
+    ],
+    [
+     "src/click/core.py",
+     2459,
+     2459
+    ]
+   ],
+   "seed_def": "src/click/core.py:757",
+   "stratum": "U-method"
+  },
+  "callers:src/click/formatting.py:14": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/click/formatting.py",
+     "write_dl"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/click/formatting.py",
+     244,
+     244
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/click/formatting.py",
+     "write_dl"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/click/formatting.py",
+     244,
+     244
+    ]
+   ],
+   "seed_def": "src/click/formatting.py:14",
+   "stratum": "Q-scoped"
+  },
+  "callers:src/click/formatting.py:229": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/click/core.py",
+     "format_arguments"
+    ],
+    [
+     "src/click/core.py",
+     "format_commands"
+    ],
+    [
+     "src/click/core.py",
+     "format_options"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/click/core.py",
+     1257,
+     1257
+    ],
+    [
+     "src/click/core.py",
+     1257,
+     1257
+    ],
+    [
+     "src/click/core.py",
+     1269,
+     1269
+    ],
+    [
+     "src/click/core.py",
+     1269,
+     1269
+    ],
+    [
+     "src/click/core.py",
+     1934,
+     1934
+    ],
+    [
+     "src/click/core.py",
+     1934,
+     1934
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/click/core.py",
+     "format_arguments"
+    ],
+    [
+     "src/click/core.py",
+     "format_commands"
+    ],
+    [
+     "src/click/core.py",
+     "format_options"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/click/core.py",
+     1257,
+     1257
+    ],
+    [
+     "src/click/core.py",
+     1269,
+     1269
+    ],
+    [
+     "src/click/core.py",
+     1934,
+     1934
+    ]
+   ],
+   "seed_def": "src/click/formatting.py:229",
+   "stratum": "U-method"
+  },
+  "callers:src/click/globals.py:49": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/click/core.py",
+     "__exit__"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/click/core.py",
+     560,
+     560
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/click/core.py",
+     "__exit__"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/click/core.py",
+     560,
+     560
+    ]
+   ],
+   "seed_def": "src/click/globals.py:49",
+   "stratum": "Q-scoped"
+  },
+  "callers:src/click/parser.py:290": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/click/core.py",
+     "add_to_parser"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/click/core.py",
+     3652,
+     3652
+    ],
+    [
+     "src/click/core.py",
+     3652,
+     3652
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/click/core.py",
+     "add_to_parser"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/click/core.py",
+     3652,
+     3652
+    ]
+   ],
+   "seed_def": "src/click/parser.py:290",
+   "stratum": "U-method"
+  },
+  "callers:src/click/shell_completion.py:425": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "tests/test_shell_completion.py",
+     "test_fish_format_completion_escapes_help"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tests/test_shell_completion.py",
+     587,
+     587
+    ],
+    [
+     "tests/test_shell_completion.py",
+     587,
+     587
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "src/click/shell_completion.py:425",
+   "stratum": "C-method"
+  },
+  "callers:src/click/shell_completion.py:452": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "tests/test_shell_completion.py",
+     "test_add_completion_class"
+    ],
+    [
+     "tests/test_shell_completion.py",
+     "test_add_completion_class_with_name"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tests/test_shell_completion.py",
+     510,
+     510
+    ],
+    [
+     "tests/test_shell_completion.py",
+     535,
+     535
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tests/test_shell_completion.py",
+     "test_add_completion_class"
+    ],
+    [
+     "tests/test_shell_completion.py",
+     "test_add_completion_class_with_name"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "tests/test_shell_completion.py",
+     510,
+     510
+    ],
+    [
+     "tests/test_shell_completion.py",
+     510,
+     510
+    ],
+    [
+     "tests/test_shell_completion.py",
+     535,
+     535
+    ],
+    [
+     "tests/test_shell_completion.py",
+     535,
+     535
+    ]
+   ],
+   "seed_def": "src/click/shell_completion.py:452",
+   "stratum": "Q-scoped"
+  },
+  "callers:src/click/shell_completion.py:576": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/click/shell_completion.py",
+     "get_completions"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/click/shell_completion.py",
+     285,
+     285
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/click/shell_completion.py",
+     "get_completions"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/click/shell_completion.py",
+     285,
+     285
+    ]
+   ],
+   "seed_def": "src/click/shell_completion.py:576",
+   "stratum": "Q-scoped"
+  },
+  "callers:src/click/termui.py:111": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/click/termui.py",
+     "_build_prompt"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/click/termui.py",
+     107,
+     107
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/click/termui.py",
+     "_build_prompt"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/click/termui.py",
+     107,
+     107
+    ]
+   ],
+   "seed_def": "src/click/termui.py:111",
+   "stratum": "Q-scoped"
+  },
+  "callers:src/click/termui.py:180": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/click/termui.py",
+     "prompt"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/click/termui.py",
+     207,
+     207
+    ],
+    [
+     "src/click/termui.py",
+     222,
+     222
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/click/termui.py",
+     "prompt"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/click/termui.py",
+     207,
+     207
+    ],
+    [
+     "src/click/termui.py",
+     222,
+     222
+    ]
+   ],
+   "seed_def": "src/click/termui.py:180",
+   "stratum": "Q-scoped"
+  },
+  "callers:src/click/types.py:420": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/click/types.py",
+     "convert"
+    ],
+    [
+     "tests/test_types.py",
+     "test_choice_get_invalid_choice_message"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/click/types.py",
+     415,
+     415
+    ],
+    [
+     "src/click/types.py",
+     415,
+     415
+    ],
+    [
+     "tests/test_types.py",
+     284,
+     284
+    ],
+    [
+     "tests/test_types.py",
+     284,
+     284
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/click/types.py",
+     "convert"
+    ],
+    [
+     "tests/test_types.py",
+     "test_choice_get_invalid_choice_message"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/click/types.py",
+     415,
+     415
+    ],
+    [
+     "tests/test_types.py",
+     284,
+     284
+    ]
+   ],
+   "seed_def": "src/click/types.py:420",
+   "stratum": "U-method"
+  },
+  "callers:tests/test_context.py:405": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "tests/test_context.py",
+     "set_state"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tests/test_context.py",
+     409,
+     409
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "tests/test_context.py:405",
+   "stratum": "U-method"
+  }
+ }
+}

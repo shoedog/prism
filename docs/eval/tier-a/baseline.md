@@ -1,93 +1,94 @@
-# Tier-A Baseline — 2026-06-11/12 (the S3/B2 anchor)
+# Tier-A Baseline — 2026-06-13/14 (the S2 anchor)
 
-First full adjudicated run of the Tier-A accuracy harness
-(spec `docs/superpowers/specs/2026-06-11-prism-tier-a-accuracy-harness-design.md` rev 4;
-prism @ the tier-a branch, oracle versions in the per-corpus reports). **This file is
-the comparison anchor — update only deliberately.**
+Re-anchored full adjudicated run of the Tier-A accuracy harness onto **prism @ `dd60ed6`**
+(post-S2 node-identity merge to `main`), from the human-triggered `uv run tier-a
+--corpus all` of 2026-06-13, adjudicated 2026-06-14. Supersedes the pre-S2
+2026-06-11/12 S3/B2 anchor (preserved in git history). Adjudication record:
+`re-anchor-adjudication-2026-06-14.md`. **This file is the comparison anchor — update
+only deliberately.**
 
 ## Corpus validity (G4)
 
-| Corpus | Lang | Floor-valid | oracle_err | M1 matched / extra / missing | Adjudicated diffs |
+| Corpus | Lang | Floor-valid | oracle_err | M1 matched / extra / missing | Adjudicated (cumulative) |
 |---|---|---|---|---|---|
-| prism | Rust | ✅ | 0.10 | 3,415 / 0 / 10 (trait-method decls) | 174 |
-| tokio | Rust | ❌ 0.22 > 0.10 | 0.22 | 7,000 / 0 / 243 | 440 |
-| caddy | Go | ✅ | 0.00 | 2,519 / 0 / 100 (interface decls) | 491 |
-| flask | Python | ❌ 0.36 > 0.25 | 0.36 | 1,367 / 32 / 0 | 38 |
-| click | Python | ❌ 0.31 > 0.25 | 0.31 | 1,521 / 62 / 1 | 59 |
+| prism | Rust | ✅ | 0.05 | 3,627 / 0 / 10 (trait-method decls) | 391 |
+| tokio | Rust | ❌ 0.22 > 0.10 | 0.22 | 7,004 / 0 / 237 | 460 |
+| caddy | Go | ✅ | 0.00 | 2,519 / 0 / 100 (interface decls) | 564 |
+| flask | Python | ❌ 0.36 > 0.25 | 0.36 | 1,367 / 32 / 0 | 50 |
+| click | Python | ❌ 0.31 > 0.25 | 0.31 | 1,521 / 62 / 1 | 71 |
 
-Rust anchors on prism, Go on caddy. **Python fails both floors — the spec-anticipated
-v1 finding**: pyright call-hierarchy error rates of 31–36% on small, comparatively
-typed corpora gate all Python accuracy claims until a better Python oracle lands
-(basedpyright / references-fallback are the named candidates). tokio's 0.22 floor
-breach is macro/cfg-density (the full feature matrix is off by default); its numbers
-are reported as supplementary, not anchoring.
+Rust anchors on prism, Go on caddy. prism's substance is floor-valid (oracle_err 0.05);
+its report-level `baseline_invalid` was **only** the pinned-SHA drift (`144d7c` → `dd60ed6`
+after S2 merged) — this re-anchor resolves it by re-pinning `eval/corpora.toml`. caddy is
+clean (`baseline_invalid=False`). **Python fails both floors** (pyright call-hierarchy
+error 31–36% — the spec-anticipated v1 finding; basedpyright / references-fallback are the
+named candidates). **tokio's 0.22** is macro/cfg density — supplementary, not anchoring.
+
+S2 reshaped the call graphs: caddy **471** and tokio **427** prior line-keyed adjudications
+went stale (their sites left the live diff). Stale records don't contribute to corrected
+metrics; fingerprint re-anchoring is the planned durability migration.
 
 ## Acceptance gates
 
 | Gate | Verdict |
 |---|---|
-| G1(a) corrected U-strata ≥ 0.95 | **Precision: callees MET (0.99); callers NOT MET (0.89** — five adjudicated FPs surfaced when the final-review 1:1 matching fix removed greedy many-to-one credit**). Recall: NOT MET** (callers 0.89, callees 0.70) — all recorded, not waived. The prototype's "perfect on unique names" was a caller-direction, non-qualified-call artifact of its 8-symbol sample; at scale, unique-name *recall* has two structural gaps (below). |
-| G1(b) pinned `target` known_fail | ✅ reproduced (raw P=R=0) |
-| G2 feature-gated oracle-misses | ✅ both rediscovered (`src/mcp/tools.rs:162`, `src/mcp/session.rs:28`) and seeded as adjudications |
-| G3 snapshot determinism + replay | ✅ exercised throughout: samples snapshot-derived; every metric in this baseline was recomputed from stored probes via `--report-only` replay (incl. after the two §"methodology" fixes, with zero oracle re-runs) |
-| G4 floors per language | ✅ Rust (prism), ✅ Go (caddy), ❌ Python (finding above) |
-| G5 capability matrix | ✅ 27 ok + 2 expected_gap (`type_method_qualified`, `from_import_alias`); statuses binary-reconciled |
+| G1(a) corrected U-strata ≥ 0.95 | **Precision: callees MET (U-free 0.98, U-method 1.00); callers U-method NOT MET (0.81** — collision FPs survive even on unique method names**). Recall: NOT MET** (U-free callees 0.87, U-method callees 0.92) — all recorded, not waived. The recall gaps trace to the G5 `expected_gap`s + receiver-typing (Phase-IP). |
+| G1(b) pinned `target` known_fail | **FLIPPED → `flip_candidate`** (S2 win): recall **0 → 1.00** (the 5 real `taint.rs` sites recovered by node identity), precision **0.208** (19 surviving `target`-name collisions: petgraph `EdgeRef::target`, etc.). Precision recovery is the EFT increment's success metric (P→1.00 at exact confidence). Probe self-reports the flip (no code change). See `target-c-method-flip-adjudication-2026-06-14.md`. |
+| G2 feature-gated oracle-misses | ✅ both rediscovered (`src/mcp/tools.rs:162`, `src/mcp/session.rs:28`), `miss_found=True` |
+| G3 snapshot determinism + replay | ✅ every metric here recomputed from stored probes via `--report-only` after appending the 292 new adjudications — zero oracle re-runs |
+| G4 floors per language | ✅ Rust (prism), ✅ Go (caddy), ❌ Python (finding above), ❌ tokio (supplementary) |
+| G5 capability matrix | **29 ok + 4 expected_gap** — `go/embedded_method`, `go/interface_dispatch`, `python/from_import_alias`, `python/inherited_override` (the Phase-IP work-list). S3 flipped the prior `type_method_qualified` gap to ok. |
 
-## The classed findings (1,218 adjudicated records, `eval/adjudications.jsonl`)
+## The classed findings (1,536 adjudicated records, `eval/adjudications.jsonl`)
 
-**922 prism_fp — the S3 precision evidence, now measured:**
-- Collision-prone method names claimed across receiver types at devastating scale:
-  tokio C-method callers corrected **P = 0.00 with 390 FPs** (`poll`/`as_fd`/`write`);
-  caddy C-name callers **441 FPs** (every `t.Error`/`zap.Error`/`caddyhttp.Error`
-  attributed to a platform-gated `notify.Error`).
-- Stdlib methods bound in-corpus (`Vec::truncate`→`AccessPath::truncate`,
-  petgraph `.target()`, map `.get`) — the prototype's `target` class, everywhere.
+**952 prism_fp — the precision evidence:**
+- Collision-prone method names claimed across receiver types at scale: tokio C-method
+  callers **P = 0.00 with 406 FPs** (`poll`/`as_fd`/`write`); caddy C-name callers **441
+  FPs** (`t.Error`/`zap.Error` attributed to a platform-gated `notify.Error`).
+- Stdlib/library methods bound in-corpus (`Vec::truncate`→`AccessPath::truncate`, petgraph
+  `.edges()`/`.target()`, map `.get`, `BTreeMap::default`→`*Config::default`) — the
+  `target` class, everywhere. EFT (exact-confidence traversal) targets this class.
 
-**215 prism_fn — the recall gaps G1(a) exposed:**
-- Qualified `Type::fn` / `mod::Type::fn` calls missed (matches the capability matrix's
-  `type_method_qualified` known_fail) — the dominant U-callee class.
-- Constructor edges unmodeled: tuple-struct `Self(..)`, enum variants, Python
-  class/exception instantiation.
-- Local-helper calls inside `#[test]` modules missed.
+**421 prism_fn — the recall gaps, now quantified (→ Phase-IP):**
+- **Method calls on receiver-typed locals** prism cannot type (the dominant new class):
+  `dfg.all_defs_of`, `parsed.enclosing_function`, `provider.resolve_type`. prism
+  `callers/C-method` recall is **0.121** corrected (was an optimistic 1.00 when pending
+  was excluded). This is the P6-lite/Phase-IP receiver-typing gap.
+- `super().m()` and inherited-`self` calls (Python) — `python/inherited_override`.
+- Qualified / cross-package calls missed (`caddy.ProvisionContext`, `RegisterModule`).
+- Local-helper calls inside `#[test]` / macro args (`assert!(helper(...))`).
 
-**26 oracle_miss — prism's structural advantage, quantified:** feature-gated
-(`#[cfg]`), platform-gated (GOOS), and untyped-receiver (pytest fixtures, decorator
-objects) code the compiler-grade oracles cannot see.
+**110 ambiguous — interface/dynamic dispatch, fairly excluded:** caddy `x.(Module).CaddyModule()`
+across 3 implementers (gopls interface-satisfaction), embedded `l.Listener.Accept()`,
+anon-interface `SetConfig`, generic/deref. Excluded from corrected P and R — prism
+correctly declines these; the oracle's attribution is the liberal model.
 
-**7 oracle_artifact / 35 ambiguous:** property-getters counted as calls by pyright,
-method-values vs calls in Go, generic/deref dispatch where attribution is undecidable.
+**41 oracle_miss — prism's structural advantage:** feature-gated (`#[cfg]`),
+platform-gated (GOOS), untyped-receiver code the compiler-grade oracles cannot see.
 
-## Methodology validated this run
+**12 oracle_artifact:** pin-project attribute-macro `self.project()`, enum/tuple-variant
+constructors counted as calls (`Ok(())`), pyright property-getters.
 
-- **Dual-adjudicator protocol** (owner-approved): a 78-item blinded sample judged
-  independently by claude-fable-5 and codex-gpt-5.5 — raw agreement 83%, κ≈0.74,
-  **zero FP↔FN flips**; post-probe-resolution 87%. Codex then bulk-adjudicated 1,130
-  items with high-confidence FP/FN accepted under class rationale and 85 escalations
-  re-judged individually. Records carry adjudicator identity.
-- **Two harness fixes the sample surfaced** (both committed with tests): multi-line
-  method-chain line tolerance in `site_compare` (receiver-line vs name-line phantom
-  FP/FN pairs), and exclusion of inventory-miss (declaration-seeded) probes from
-  pendings (Go interface / Rust trait declarations — counted by M1, not adjudicable).
-- The probe-resolution example that reversed a class verdict (caddy interface
-  dispatch: prism has the edge at the concrete impl) is in
-  `docs/prism-query-layer/tier-a-task8-review-2026-06-11.md`'s sibling records and
-  the run JSONs.
+## Methodology
 
-## S3 work-list distilled
+- **Dual-adjudicator** (codex gpt-5.5 xhigh + claude opus-4-8, identical hydrated
+  evidence): prism κ=**0.923** (180/182), caddy κ=**0.900** (70/72); 4 disagreements,
+  all operator-tiebroken via source to the claude verdict. Supplementary
+  (tokio/flask/click) were solo-claude and non-anchoring. Records carry adjudicator
+  identity. Full record: `re-anchor-adjudication-2026-06-14.md`.
+- 292 net-pending diffs adjudicated → store 1,244 → **1,536**; all adjudicable pending
+  now drained (0). Residual per-stratum pending (e.g. caddy `callers/C-method` 48) is
+  non-adjudicable `inventory_miss` (interface/trait declaration seeds, counted by M1).
 
-1. Collision-method caller claims (the P=0.00-at-scale class) — receiver/type-aware
-   filtering or confidence demotion of name-only method edges.
-2. Qualified `Type::fn`/`mod::Type::fn` call binding (flips `type_method_qualified`).
-3. Constructor edges (`Self(..)`, enum variants, Python classes).
-4. M2 seed mapping for declarations (interface/trait) → implementing methods.
+## Next-increment work-lists
 
-## Post-final-review amendment (2026-06-12)
-
-The whole-branch final review's MAJOR fixes (notably 1:1 site matching replacing
-greedy many-to-one) were applied and the baseline replayed: 11 newly-exposed diffs
-adjudicated (9 real-call accounting leftovers credited oracle_miss; 2 a new
-**nested-def attribution** FP sub-class — callee edges inside nested `@app.route`
-handlers attributed to the enclosing test function — added to the S3 work-list).
-G1(a) callers corrected precision moved 1.00 → 0.89: the greedy matcher had been
-crediting adjudicated FPs that sat within the chain-tolerance window of real calls.
-Honest number stands.
+1. **EFT — precision** (`docs/superpowers/specs/2026-06-14-prism-exact-functionid-traversal-design.md`):
+   exact-FunctionId / confidence-aware caller·callee traversal eliminates the
+   name-collision FP class; success metric is `target-c-method` P 0.208 → 1.00 at exact
+   confidence, recall held 1.00.
+2. **Phase-IP — recall**: the 4 G5 `expected_gap`s (go embedded/interface, python
+   inherited/import-alias) plus field/return-typed receiver typing (the C-method caller
+   recall 0.121 class).
+3. **Python oracle**: replace pyright (floor-failed) — basedpyright / references-fallback.
+4. **Adjudication durability**: fingerprint-keyed records (line-keyed records went stale
+   under S2 churn: caddy 471, tokio 427).
