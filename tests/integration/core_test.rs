@@ -884,3 +884,31 @@ fn no_dataflow_edge_crosses_same_named_functions() {
         }
     }
 }
+
+// S2 second-pass review (claude opus): the explicit regression the (file,name,start_line)
+// func key exists to prevent. The rev-2 key (file,start_line) collapsed two DIFFERENT-name
+// functions sharing a start line; keeping `name` in the key fixes it. This guards against a
+// future key-narrowing that would silently reintroduce the conflation.
+#[test]
+fn different_name_functions_on_same_line_are_distinct() {
+    let src = "fn a() -> i32 { 1 } fn b() -> i32 { 2 }\n"; // both definitions on line 1
+    let cpg = build_rust_cpg(src);
+    let on_line1: Vec<_> = cpg
+        .function_nodes()
+        .into_iter()
+        .filter_map(|n| match cpg.node(n) {
+            prism::cpg::CpgNode::Function {
+                name, start_line, ..
+            } if *start_line == 1 => Some(name.clone()),
+            _ => None,
+        })
+        .collect();
+    assert!(on_line1.contains(&"a".to_string()) && on_line1.contains(&"b".to_string()));
+    // Distinct func_index entries despite the shared start_line=1 (distinguished by name).
+    assert_eq!(cpg.function_candidates("test.rs", "a").len(), 1);
+    assert_eq!(cpg.function_candidates("test.rs", "b").len(), 1);
+    assert_ne!(
+        cpg.function_node("test.rs", "a"),
+        cpg.function_node("test.rs", "b")
+    );
+}
