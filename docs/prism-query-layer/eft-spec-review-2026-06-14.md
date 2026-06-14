@@ -34,3 +34,31 @@ correctly NOT migrated). Cache v6 round-trip is sound (CpgEdge in `Vec<(u32,u32,
 
 Nothing requires redesign. rev 2 folds F1-F14; next is the owner spec-review gate, then
 writing-plans.
+
+---
+
+# Round 2 — second-pass dual review of rev 2 → rev 3 — 2026-06-14
+
+Owner asked for a fresh codex + opus pass against rev 2. codex gpt-5.5 xhigh (rigor, via
+a2a-bridge `spec-review-eft2`, prism MCP; `n`/LSP not exposed) + claude opus 4.8 (soundness,
+operator subagent, Read/Grep). Both **verified all F1–F14 folds actually landed** and are
+internally consistent (opus explicitly confirmed the F4 re-bless honesty and the F5 two-surface
+framing against `pinned.py` + `queries.rs`). **Both verdicts: tighten** (no redesign). Raw:
+`/tmp/eft-review2-codex.md`, opus task a4343501.
+
+## Round-2 findings → disposition (folded into rev 3)
+
+| # | Finding (reviewer) | Disposition (rev 3) |
+|---|---|---|
+| R2-1 | **BLOCKER — Step-9 CHA laundering only half-fixed** (codex, build.rs:541/545). rev 2's F6 fold changed the *duplicate guard* (build.rs:563) but the CHA *seed scan* (build.rs:541) still expands from every `Call` edge — a `Call(NameOnly)` seed still mints new Exact CHA edges. | **§2 Step-9 rewritten to TWO Exact-gated points:** seed scan (541) expands only `Call(Exact)`; dup guard (563) matches `Call(Exact)` for the upgrade. §9.2 now tests both directions (Exact basis → Exact CHA; NameOnly alone → none). |
+| R2-2 | **MAJOR — F7 helper substrate** (codex §5:112 + opus M1). "All slices keep today's raw-index behavior" contradicts the helper; and **CPG `Call`/`Return` edges carry no call-site line** — the line lives in `CallSite.line`. | **§5 F7 rewritten:** the helper is a `CallGraph`/`resolution.rs` method (peer of `resolve_call_site`) returning `(caller,callee,confidence,call_site_line)`; ALL migrated slices go through it (not the raw index); `All` = Exact+NameOnly via the helper. Named the **two-substrate join** (CPG node set ∩ helper site set, keyed by caller `start_line` + resolved `FunctionId`). |
+| R2-3 | **MAJOR — acceptance misses threed/spiral** (codex §9:156). Tests barrier/vertical + membrane/echo; threed/spiral could stay by-name and still pass. | **§9.5:** all six consumers asserted to seed via `function_node_for_id` → node traversal with the table's filter (shared harness check or per-slice fixture). |
+| R2-4 | MINOR — two in-source `function_node` first-candidate sites not scoped (opus N1: query.rs:338, query.rs:433). | **§3** notes they are deliberately left on the by-name recall path, NOT in the precision migration. |
+| R2-5 | MINOR — `§6 "(now on CallSite)"` stale; `start_byte` already exists (opus N3). | **§6:** only new work is `call_argument_texts_at`; `start_byte` landed in S2. |
+| R2-6 | MINOR — seed-excluded-at-depth-0 not asserted (opus N4); re-bless should name `flip_candidate` + exact P=0.208 (codex MINOR). | **§9.4** asserts seed excluded at depth 0; **§1/§9.8/§0** use exact **P=0.208** and "default outcome `flip_candidate`, no `expected` flip"; citation drift swept (Step-9 541/563/565-566; `sut.callers` sut.py:184). |
+
+**Confirmed sound (no change):** F4 re-bless (pin stays `flip_candidate` on default, exact
+supplementary) and F5 (two independent confidence surfaces; nav never reads CPG edges) were
+re-verified against `pinned.py` and `navigation/queries.rs`/`call_resolve.rs`. Scope is one
+coherent increment; Phase-IP seam still clean. rev 3 folds R2-1…R2-6; next is the owner
+spec-review gate, then writing-plans.
