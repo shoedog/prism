@@ -234,6 +234,8 @@ git commit -m "feat(go): promoted_struct_methods — transitive embedded-struct 
 
 (Task 1 touches only `type_providers/go.rs` — not call resolution/CPG/nav — so no Accuracy-Harness gate yet.)
 
+> **Executed (dff2b3d):** the merged implementation also records **embedded** field names in `field_depth` (an embedded field is a selector that can shadow a *sibling* embed's promoted method — a Go-selector case codex flagged during execution), i.e. `walk_embedding` does **not** skip embedded entries when recording fields; the test block has **7** tests (adds `embedded_field_name_shadows_promoted_method`).
+
 ---
 
 ## Task 2: `ResolutionKind::EmbeddedPromotion`
