@@ -154,6 +154,31 @@ def test_no_reanchor_when_fingerprint_differs():
     assert out.stale == 1 and out.pending == 1 and out.reanchored == 0
 
 
+def test_no_reanchor_when_two_live_sites_share_one_fingerprint():
+    # The review BLOCKER: one stale record must NOT re-anchor to (and double-count against)
+    # two live sites sharing its fingerprint. Unique 1:1 only — else both fall to pending.
+    fp = fingerprint(["    a();", "    dup();", "    b();"])
+    records = [
+        dataclasses.replace(
+            rec(site="src/a.rs:10", verdict="prism_fp"), site_fingerprint=fp
+        )
+    ]
+    out = apply_verdicts(
+        tp=0,
+        fp_sites={("src/a.rs", 20), ("src/a.rs", 30)},  # two moved sites, same fingerprint
+        fn_sites=set(),
+        records=records,
+        corpus="prism",
+        measurement="callers",
+        seed_def="src/s.rs:5",
+        site_fps={"src/a.rs:20": fp, "src/a.rs:30": fp},
+    )
+    assert out.reanchored == 0  # ambiguous live side -> no re-anchor (no double-apply)
+    assert out.pending == 2  # both sites pending (conservative)
+    assert out.fp == 0
+    assert out.stale == 1  # the record stays stale (not consumed)
+
+
 def test_jsonl_roundtrip(tmp_path):
     p = tmp_path / "adj.jsonl"
     p.write_text(json.dumps(dataclasses.asdict(rec())) + "\n")

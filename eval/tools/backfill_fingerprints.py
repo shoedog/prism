@@ -40,6 +40,20 @@ def corpora() -> dict[str, tuple[str, str]]:
     return out
 
 
+# A record adjudicated before a corpus's current pin must be fingerprinted from ITS
+# ORIGINAL source SHA, not the pin — else a drifted line yields a wrong-content fingerprint
+# that could later false-re-anchor. Only prism's pin moved (144d7c -> dd60ed6 at the S2
+# re-anchor); bench pins are stable, so they fingerprint from the pin regardless of date.
+PRISM_PRE_REANCHOR_SHA = "144d7c93d78d"
+REANCHOR_DATE = "2026-06-13"  # prism records dated before this were adjudicated @ 144d7c
+
+
+def sha_for(record: dict, pin: str) -> str:
+    if record["corpus"] == "prism" and record["date"] < REANCHOR_DATE:
+        return PRISM_PRE_REANCHOR_SHA
+    return pin
+
+
 _cache: dict[tuple, list | None] = {}
 
 
@@ -76,7 +90,8 @@ def main() -> int:
         if root_sha is None:
             skipped += 1
             continue
-        root, sha = root_sha
+        root, pin = root_sha
+        sha = sha_for(r, pin)
         file, line_s = r["site"].rsplit(":", 1)
         line = int(line_s)
         src = source_at(root, sha, file)

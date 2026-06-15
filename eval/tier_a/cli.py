@@ -15,7 +15,7 @@ from pathlib import Path
 
 from . import pinned as pinned_mod
 from .accounting import CorpusAccounting, evaluate_floors
-from .adjudication import apply_verdicts, load_records
+from .adjudication import apply_verdicts, load_records, reanchor_map
 from .compare import caller_fn_sets, site_compare
 from .corpus import (
     corpus_dirty,
@@ -107,17 +107,21 @@ def _pending_for_probe(
         _edges(probe["prism_sites"], direction),
         _edges(probe["oracle_sites"], direction),
     )
-    adjudicated = {
-        (r.direction, r.site)
+    scoped = [
+        r
         for r in adjudications
         if r.corpus == corpus
         and r.measurement == direction
         and r.seed_def == probe["seed_def"]
-    }
+    ]
+    adjudicated = {(r.direction, r.site) for r in scoped}
+    # Sites that re-anchor to a moved verdict are resolved (not pending) — same
+    # resolver apply_verdicts uses, so counts and the pending list can't disagree.
+    ra = reanchor_map(diff.fp, diff.fn, scoped, site_fps)
     pending = []
     for file, line in sorted(diff.fp):
         key = ("prism_only", _site_key(file, line))
-        if key not in adjudicated:
+        if key not in adjudicated and key not in ra:
             pending.append({
                 "corpus": corpus,
                 "measurement": direction,
@@ -128,7 +132,7 @@ def _pending_for_probe(
             })
     for file, line in sorted(diff.fn):
         key = ("oracle_only", _site_key(file, line))
-        if key not in adjudicated:
+        if key not in adjudicated and key not in ra:
             pending.append({
                 "corpus": corpus,
                 "measurement": direction,
