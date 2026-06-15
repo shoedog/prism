@@ -1,6 +1,14 @@
-# Phase-IP — Type-Confirmed Receiver Dispatch (Go) — Design
+# Phase-IP — Go INTERFACE Dispatch — Design (DEFERRED)
 
-**Date:** 2026-06-14 · **Status:** rev 3 — **two dual-review rounds folded** (round 1: codex
+> **SPLIT 2026-06-15:** after three review rounds, **embedding was extracted to ship first** as the
+> clean, low-risk half — see `2026-06-15-prism-phase-ip-go-embedding-design.md`. **This spec is now
+> scoped to Go interface dispatch and is DEFERRED.** §4 (embedding) is **superseded** by the embedding
+> spec. The round-3 review surfaced substantial interface-only rework — see the **rev-4 work-list at
+> the end** before picking this up, including the scope decision (in-scope typed-param interface
+> receivers only vs. expanding P6-lite to type-assertion/`var` receivers to own caddy's interface
+> recall). Round-3 records: `docs/prism-query-layer/phase-ip-spec-review3-{codex,claude}-2026-06-15.md`.
+
+**Date:** 2026-06-14 · **Status:** rev 3 (interface half DEFERRED; needs rev 4) — **two dual-review rounds folded** (round 1: codex
 rigor 4 BLOCKERs + claude soundness "sound-to-plan"; round 2 **focused on the Option-B §6/§7
 surface**: codex + claude both "needs changes", 4+ BLOCKERs each). Records:
 `docs/prism-query-layer/phase-ip-spec-review{,2}-{codex,claude}-2026-06-14.md`. **Owner decisions:**
@@ -321,3 +329,54 @@ default `flip_candidate`; prism/tokio/flask/click matrix + quick unchanged.
   lever 0.121).
 - **`DispatchProvider` as the algorithm-facing API** — the registered provider's `resolve_dispatch`
   for slice algorithms with `CpgContext.live_types`; distinct from this resolver-internal consumption.
+
+---
+
+## rev-4 work-list (round-3 interface findings — address before planning this spec)
+
+The round-3 deep review (codex r3 + claude r3, both "needs changes") concentrated on the interface
+half. Embedding shipped separately; these remain for this spec's rev 4. All are "concrete edits, no
+redesign" per both reviewers, **except the scope decision**, which is an owner call.
+
+**Owner scope decision (first):** caddy's interface recall is dominated by **type-assertion** receivers
+(`x.(Module).CaddyModule()` — the "57 ambiguous sites") and `var r Runner` locals, which P6-lite does
+**not** recover (it recovers typed *params* — `func run(r Runner)` — which *do* work, and constructor
+locals). So: (a) **in-scope-only** — accept a modest caddy lift from typed-param interface receivers;
+or (b) **expand** P6-lite to recover type-assertion / `var` / interface-slice receivers to own caddy's
+interface recall (bigger). This decides the §14 denominator.
+
+**BLOCKERs:**
+- **§14 acceptance is vacuous + contradictory** (claude r3-B1/A5, codex r3-#4). The "57 caddy sites"
+  are type-assertion (out of scope) so the gate passes proving nothing; the harness has **no
+  interface-FP attribution** (no dispatch-kind on `CallEdge`/`Adjudication`; no interface verdict/
+  stratum); "57" is in no committed manifest; and §14's denominator contradicts the §15 anon/generic
+  exclusions. Fix: re-derive the gate over **in-scope** interface sites, build a **fingerprinted
+  manifest** (inclusion/exclusion reasons), and **surface `ResolutionKind::InterfaceDispatch` on the
+  SUT `CallEdge`** so FPs can be attributed.
+- **`normalize_go_key` conflates roles** (codex r3-#1). One normalizer cannot both strip pointers and
+  preserve the `T`/`*T` admission key §7 needs, nor collapse generics that §6 must gap. Define
+  **separate contracts**: bare-owner key · admission key (pointer-preserving) · dispatchable-interface
+  key · gap-producing unsupported key.
+- **provider→CallGraph API missing** (codex r3-#3). `GoTypeData`'s satisfaction/method maps are
+  private; specify public helpers for named-interface satisfier sets, canonical method sets, admission
+  keys, satisfier `FunctionId`s, and gap records.
+- **scoped-build targets won't exist as CPG nodes** (codex r3-#2). Full-repo dispatch may name targets
+  absent from the scoped graph → Step 5 can't add edges (build.rs:360-370). Define filter/expand/
+  tolerate; nav re-resolves on the full owner index regardless (caddy metric safe), CPG slice edges
+  best-effort in scoped mode.
+
+**MAJORs:** canon_type completeness — variadic, named multiple results, parenthesized, **unknown →
+non-dispatchable gap** (claude r3-A1, codex r3-#9); a real **gap contract** (`GoDispatchGap` enum +
+`call-stats` counters; codex r3-#8); Go **liveness** specifics — concrete-vs-interface filtering,
+called-vs-all factories, the factory rule (its ast.rs:3899 citation is wrong — `constructor_type`
+doesn't scan func result types; claude r3-A3); **interface fan-out multiplies Step-5b DataFlow edges**
+into taint/chop/delta — decide + telemetry (claude r3-B3); **Step-9 CHA seed-scan** reads Go Exact
+edges in mixed Go+C++ repos — correct the "no shared path" claim or gate by owner-language (claude
+r3-B4); **promoted-alias storage** for the §7 value/pointer split (claude r3-B5, codex r3-#7);
+fan-out/FP telemetry fields in `call-stats` (codex r3-#10); **`CACHE_VERSION`** — already bumped to v8
+by the embedding spec; ensure `interface_impls` is covered when this lands.
+
+**Carry-forward (already specified in rev 3, keep):** §6 canon_sig core, §7 three-key receiver
+encoding invariant + value/pointer satisfaction split, §8 comprehensive `scan_go`, the RTA
+receiver-kind-aware-empty fallback (owner: keep Exact), replace-not-merge, the §13.8 multi-implementer
+barrier-precision **gating** fixture (claude r3-B8).
