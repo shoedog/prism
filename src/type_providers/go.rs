@@ -29,6 +29,14 @@ pub enum GoDispatchOverApprox {
     NonLocalConstructionFallback, // empty-live fallback fired: full satisfier set
 }
 
+pub struct InterfaceDispatchTable {
+    pub impls: BTreeMap<(String, String), Vec<FunctionId>>,
+    pub gaps: Vec<GoDispatchGap>,
+    pub overapprox: Vec<GoDispatchOverApprox>,
+    pub fanout: BTreeMap<(String, String), usize>,
+    pub fallback_fired: BTreeMap<(String, String), bool>,
+}
+
 // ---------------------------------------------------------------------------
 // Extracted type information
 // ---------------------------------------------------------------------------
@@ -181,6 +189,53 @@ impl GoTypeProvider {
         GoTypeProvider {
             data: Arc::new(inner),
         }
+    }
+
+    /// Compute named in-repo interface dispatch, RTA-pruned to `live` (admission keys),
+    /// receiver-kind-aware, with the empty-live fallback kept Exact (spec §5/§7/§8).
+    pub fn compute_interface_dispatch(&self, live: &BTreeSet<String>) -> InterfaceDispatchTable {
+        let mut t = InterfaceDispatchTable {
+            impls: BTreeMap::new(),
+            gaps: self.data.dispatch_gaps.clone(),
+            overapprox: self.data.dispatch_overapprox.clone(), // CrossPackageBareName seeded in Task 4
+            fanout: BTreeMap::new(),
+            fallback_fired: BTreeMap::new(),
+        };
+        // sat_keys: (iface, method) -> Vec<(admission_key, FunctionId)>  (Task 4)
+        for ((iface, method), sats) in &self.data.sat_keys {
+            if sats.is_empty() {
+                continue;
+            }
+            let live_hits: Vec<&FunctionId> = sats
+                .iter()
+                .filter(|(k, _)| live.contains(k))
+                .map(|(_, fid)| fid)
+                .collect();
+            let (chosen, fired): (Vec<FunctionId>, bool) = if live_hits.is_empty() {
+                // receiver-kind-aware-empty fallback: full satisfier set, kept Exact.
+                (sats.iter().map(|(_, fid)| fid.clone()).collect(), true)
+            } else {
+                (live_hits.into_iter().cloned().collect(), false)
+            };
+            // de-dup FunctionIds (a value+pointer satisfier may appear twice).
+            let mut uniq: Vec<FunctionId> = Vec::new();
+            for fid in chosen {
+                if !uniq.contains(&fid) {
+                    uniq.push(fid);
+                }
+            }
+            let key = (iface.clone(), method.clone());
+            t.fanout.insert(key.clone(), uniq.len());
+            t.fallback_fired.insert(key.clone(), fired);
+            if fired {
+                t.overapprox
+                    .push(GoDispatchOverApprox::NonLocalConstructionFallback);
+            }
+            if !uniq.is_empty() {
+                t.impls.insert(key, uniq);
+            }
+        }
+        t
     }
 
     // -----------------------------------------------------------------------
@@ -1387,6 +1442,52 @@ impl DispatchProvider for GoTypeProvider {
 /// Strip leading `*` from a pointer type: `*Server` → `Server`.
 fn strip_pointer(s: &str) -> &str {
     s.strip_prefix('*').unwrap_or(s).trim()
+}
+
+#[cfg(test)]
+mod dispatch_tests {
+    use super::*;
+    use crate::ast::ParsedFile;
+    use crate::languages::Language;
+    use std::collections::{BTreeMap, BTreeSet};
+
+    fn provider(src: &str) -> GoTypeProvider {
+        let mut files = BTreeMap::new();
+        files.insert(
+            "t.go".to_string(),
+            ParsedFile::parse("t.go", src, Language::Go).unwrap(),
+        );
+        GoTypeProvider::from_parsed_files(&files)
+    }
+    const SRC: &str = "package p\n\
+        type I interface { Do() }\n\
+        type Fast struct{}\nfunc (f Fast) Do() {}\n\
+        type Slow struct{}\nfunc (s Slow) Do() {}\n";
+
+    #[test]
+    fn rta_prunes_to_live() {
+        let p = provider(SRC);
+        let live: BTreeSet<String> = ["Fast".to_string()].into_iter().collect();
+        let t = p.compute_interface_dispatch(&live);
+        let ids = t.impls.get(&("I".to_string(), "Do".to_string())).unwrap();
+        assert_eq!(ids.len(), 1, "only live Fast");
+        assert_eq!(ids[0].name, "Do");
+        assert_eq!(ids[0].file, "t.go");
+        assert!(!t.fallback_fired[&("I".to_string(), "Do".to_string())]);
+    }
+
+    #[test]
+    fn empty_live_fires_fallback_full_set() {
+        let p = provider(SRC);
+        let live: BTreeSet<String> = BTreeSet::new();
+        let t = p.compute_interface_dispatch(&live);
+        let ids = t.impls.get(&("I".to_string(), "Do".to_string())).unwrap();
+        assert_eq!(ids.len(), 2, "fallback -> all satisfiers");
+        assert!(t.fallback_fired[&("I".to_string(), "Do".to_string())]);
+        assert!(t
+            .overapprox
+            .contains(&GoDispatchOverApprox::NonLocalConstructionFallback));
+    }
 }
 
 #[cfg(test)]
