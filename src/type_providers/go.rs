@@ -14,6 +14,21 @@ use crate::type_provider::{
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 
+/// Non-dispatchable, fail-closed — mints NO edge (spec §15).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GoDispatchGap {
+    Generic,            // decl carries a type_parameter_list / interface type-set
+    AnonymousInterface, // non-empty anonymous interface in a signature
+    UnknownCanonType,   // unenumerated type node — fail closed
+}
+
+/// Admitted over-approximation — the Exact edge IS minted; a precision counter (spec §15).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GoDispatchOverApprox {
+    CrossPackageBareName,         // io.Reader ≡ bufio.Reader under bare-name canon
+    NonLocalConstructionFallback, // empty-live fallback fired: full satisfier set
+}
+
 // ---------------------------------------------------------------------------
 // Extracted type information
 // ---------------------------------------------------------------------------
@@ -384,6 +399,195 @@ impl GoTypeProvider {
             }
         }
         parts.join(" -> ")
+    }
+
+    /// Canonical type string, recursive. Fails closed on unknown nodes (spec §6).
+    fn canon_type(node: &tree_sitter::Node, parsed: &ParsedFile) -> Result<String, GoDispatchGap> {
+        match node.kind() {
+            "type_identifier" | "qualified_type" => {
+                // bare name; pkg.T -> T
+                let txt = parsed.node_text(node);
+                let bare = txt.trim().rsplit('.').next().unwrap_or(txt.trim()).trim();
+                Ok(bare.to_string())
+            }
+            "pointer_type" => {
+                let inner = node.named_child(0).ok_or(GoDispatchGap::UnknownCanonType)?;
+                Ok(format!("*{}", Self::canon_type(&inner, parsed)?))
+            }
+            "slice_type" => {
+                let inner = node
+                    .child_by_field_name("element")
+                    .ok_or(GoDispatchGap::UnknownCanonType)?;
+                Ok(format!("[]{}", Self::canon_type(&inner, parsed)?))
+            }
+            "array_type" => {
+                let inner = node
+                    .child_by_field_name("element")
+                    .ok_or(GoDispatchGap::UnknownCanonType)?;
+                // Array length is part of Go type identity ([3]int != [4]int) — preserve the
+                // literal length text (round-4 codex MINOR). Non-literal/const length kept as text.
+                let len = node
+                    .child_by_field_name("length")
+                    .map(|n| parsed.node_text(&n).trim().to_string())
+                    .unwrap_or_default();
+                Ok(format!("[{len}]{}", Self::canon_type(&inner, parsed)?))
+            }
+            "map_type" => {
+                let k = node
+                    .child_by_field_name("key")
+                    .ok_or(GoDispatchGap::UnknownCanonType)?;
+                let v = node
+                    .child_by_field_name("value")
+                    .ok_or(GoDispatchGap::UnknownCanonType)?;
+                Ok(format!(
+                    "map[{}]{}",
+                    Self::canon_type(&k, parsed)?,
+                    Self::canon_type(&v, parsed)?
+                ))
+            }
+            "channel_type" => {
+                // direction-preserving: `chan<-` / `<-chan` / `chan`
+                // Use only this node's prefix before the value child; nested channel
+                // element types can contain their own direction tokens.
+                let inner = node
+                    .child_by_field_name("value")
+                    .ok_or(GoDispatchGap::UnknownCanonType)?;
+                let prefix = parsed
+                    .source
+                    .get(node.start_byte()..inner.start_byte())
+                    .ok_or(GoDispatchGap::UnknownCanonType)?
+                    .replace(char::is_whitespace, "");
+                let dir = if prefix.starts_with("<-chan") {
+                    "<-chan"
+                } else if prefix.starts_with("chan<-") {
+                    "chan<-"
+                } else if prefix.starts_with("chan") {
+                    "chan"
+                } else {
+                    return Err(GoDispatchGap::UnknownCanonType);
+                };
+                // element type is field `value` in tree-sitter-go 0.23.4 (round-4 claude MAJOR)
+                Ok(format!("{dir} {}", Self::canon_type(&inner, parsed)?))
+            }
+            "function_type" => {
+                let params = node.child_by_field_name("parameters");
+                let result = node.child_by_field_name("result");
+                Ok(format!(
+                    "func{}",
+                    Self::canon_sig(params.as_ref(), result.as_ref(), parsed)?
+                ))
+            }
+            "interface_type" => {
+                // empty interface{} / any -> "any"; non-empty anonymous -> gap
+                let txt = parsed.node_text(node).replace(char::is_whitespace, "");
+                if txt == "interface{}" || txt == "any" {
+                    Ok("any".to_string())
+                } else {
+                    Err(GoDispatchGap::AnonymousInterface)
+                }
+            }
+            "generic_type" => Err(GoDispatchGap::Generic),
+            "variadic_parameter_declaration" => {
+                // handled in canon_sig; reaching here is a structural surprise
+                Err(GoDispatchGap::UnknownCanonType)
+            }
+            _ => Err(GoDispatchGap::UnknownCanonType),
+        }
+    }
+
+    /// Canonical `(params)(results)`; names dropped, grouped params expanded, variadic
+    /// as `...T`. Either side gapping fails the whole sig (spec §6).
+    fn canon_sig(
+        params: Option<&tree_sitter::Node>,
+        result: Option<&tree_sitter::Node>,
+        parsed: &ParsedFile,
+    ) -> Result<String, GoDispatchGap> {
+        let ps = Self::canon_param_list(params, parsed)?;
+        // result may be a single type node OR a parameter_list (multi/parenthesized).
+        let rs = match result {
+            None => Vec::new(),
+            Some(r) if r.kind() == "parameter_list" => Self::canon_param_list(Some(r), parsed)?,
+            Some(r) => vec![Self::canon_type(r, parsed)?],
+        };
+        Ok(format!("({})({})", ps.join(","), rs.join(",")))
+    }
+
+    /// Expand a parameter_list to canonical type strings: drop names, expand grouped
+    /// `(a, b int)` -> [int,int], variadic `...T` -> `...T`.
+    fn canon_param_list(
+        list: Option<&tree_sitter::Node>,
+        parsed: &ParsedFile,
+    ) -> Result<Vec<String>, GoDispatchGap> {
+        let mut out = Vec::new();
+        let list = match list {
+            Some(l) => l,
+            None => return Ok(out),
+        };
+        let mut cursor = list.walk();
+        for decl in list.named_children(&mut cursor) {
+            match decl.kind() {
+                "parameter_declaration" => {
+                    let ty = decl
+                        .child_by_field_name("type")
+                        .ok_or(GoDispatchGap::UnknownCanonType)?;
+                    let canon = Self::canon_type(&ty, parsed)?;
+                    // grouped `(a, b int)`: count name children (>=1) -> repeat the type.
+                    let names = decl
+                        .children(&mut decl.walk())
+                        .filter(|c| c.kind() == "identifier")
+                        .count()
+                        .max(1);
+                    for _ in 0..names {
+                        out.push(canon.clone());
+                    }
+                }
+                "variadic_parameter_declaration" => {
+                    let ty = decl
+                        .child_by_field_name("type")
+                        .ok_or(GoDispatchGap::UnknownCanonType)?;
+                    out.push(format!("...{}", Self::canon_type(&ty, parsed)?));
+                }
+                _ => {}
+            }
+        }
+        Ok(out)
+    }
+
+    #[cfg(test)]
+    pub fn first_canon_sig_for_test(
+        parsed: &ParsedFile,
+        method: &str,
+    ) -> Result<String, GoDispatchGap> {
+        // Walk for a method_declaration or interface method_spec named `method`.
+        fn find<'a>(
+            n: tree_sitter::Node<'a>,
+            parsed: &ParsedFile,
+            method: &str,
+        ) -> Option<tree_sitter::Node<'a>> {
+            let is_match = matches!(
+                n.kind(),
+                "method_declaration" | "method_spec" | "method_elem"
+            ) && n
+                .child_by_field_name("name")
+                .map(|x| parsed.node_text(&x).trim() == method)
+                .unwrap_or(false);
+            if is_match {
+                return Some(n);
+            }
+            let mut c = n.walk();
+            for ch in n.children(&mut c) {
+                if let Some(f) = find(ch, parsed, method) {
+                    return Some(f);
+                }
+            }
+            None
+        }
+        let node = find(parsed.tree.root_node(), parsed, method).expect("method not found");
+        GoTypeProvider::canon_sig(
+            node.child_by_field_name("parameters").as_ref(),
+            node.child_by_field_name("result").as_ref(),
+            parsed,
+        )
     }
 
     /// Extract a method_declaration (method with receiver).
@@ -874,5 +1078,65 @@ mod embedding_tests {
             ms(&v, "A", "F").is_empty(),
             "an embedded field named F shadows the promoted method D.F"
         );
+    }
+}
+
+#[cfg(test)]
+mod canon_tests {
+    use super::*;
+    use crate::ast::ParsedFile;
+    use crate::languages::Language;
+
+    // Parse a Go file and return the canon_sig of the first method named `m` on any
+    // receiver, or the first interface method spec named `m`. Helper for byte-equality.
+    fn sig_of(src: &str, method: &str) -> Result<String, GoDispatchGap> {
+        let p = ParsedFile::parse("t.go", src, Language::Go).unwrap();
+        GoTypeProvider::first_canon_sig_for_test(&p, method)
+    }
+
+    #[test]
+    fn param_names_dropped_iface_eq_concrete() {
+        let iface = "package p\ntype I interface { Do(a int, b string) error }\n";
+        let conc =
+            "package p\ntype T struct{}\nfunc (t T) Do(x int, y string) error { return nil }\n";
+        assert_eq!(sig_of(iface, "Do").unwrap(), sig_of(conc, "Do").unwrap());
+    }
+
+    #[test]
+    fn grouped_params_expand() {
+        let grouped = "package p\ntype T struct{}\nfunc (t T) F(a, b int) {}\n";
+        let expanded = "package p\ntype I interface { F(int, int) }\n";
+        assert_eq!(
+            sig_of(grouped, "F").unwrap(),
+            sig_of(expanded, "F").unwrap()
+        );
+    }
+
+    #[test]
+    fn channel_direction_distinguishes() {
+        let send = "package p\ntype T struct{}\nfunc (t T) C(c chan<- int) {}\n";
+        let bidi = "package p\ntype I interface { C(c chan int) }\n";
+        assert_ne!(sig_of(send, "C").unwrap(), sig_of(bidi, "C").unwrap());
+    }
+
+    #[test]
+    fn any_equals_empty_interface() {
+        let a = "package p\ntype T struct{}\nfunc (t T) F(x any) {}\n";
+        let b = "package p\ntype I interface { F(x interface{}) }\n";
+        assert_eq!(sig_of(a, "F").unwrap(), sig_of(b, "F").unwrap());
+    }
+
+    #[test]
+    fn variadic_canonicalizes() {
+        let a = "package p\ntype T struct{}\nfunc (t T) F(xs ...int) {}\n";
+        let b = "package p\ntype I interface { F(...int) }\n";
+        assert_eq!(sig_of(a, "F").unwrap(), sig_of(b, "F").unwrap());
+    }
+
+    #[test]
+    fn return_mismatch_differs() {
+        let a = "package p\ntype T struct{}\nfunc (t T) F() error { return nil }\n";
+        let b = "package p\ntype I interface { F() string }\n";
+        assert_ne!(sig_of(a, "F").unwrap(), sig_of(b, "F").unwrap());
     }
 }
