@@ -7,6 +7,7 @@ from tier_a.adjudication import (
     Adjudication,
     IllegalAdjudication,
     apply_verdicts,
+    fingerprint,
     load_records,
     validate,
 )
@@ -99,6 +100,58 @@ def test_stale_records_flagged_not_deleted():
         seed_def="src/s.rs:5",
     )
     assert out.stale == 1 and out.fp == 0
+
+
+def test_fingerprint_is_line_number_independent():
+    # Same call code, different surrounding whitespace -> same fingerprint (drift-stable).
+    a = fingerprint(["  x();", "  call(arg);", "  y();"])
+    b = fingerprint(["x();", "call(arg);", "y();"])
+    assert a == b
+    # Different call code -> different fingerprint.
+    assert a != fingerprint(["x();", "DIFFERENT(arg);", "y();"])
+
+
+def test_fingerprint_reanchors_stale_verdict_to_moved_site():
+    # A verdict adjudicated at line 10 (now stale) re-anchors to the same call at line 14.
+    fp_match = fingerprint(["    a();", "    x.foo(y);", "    b();"])
+    records = [
+        dataclasses.replace(
+            rec(site="src/a.rs:10", verdict="prism_fp"), site_fingerprint=fp_match
+        )
+    ]
+    out = apply_verdicts(
+        tp=0,
+        fp_sites={("src/a.rs", 14)},  # the call moved 10 -> 14 under churn
+        fn_sites=set(),
+        records=records,
+        corpus="prism",
+        measurement="callers",
+        seed_def="src/s.rs:5",
+        site_fps={"src/a.rs:14": fp_match},
+    )
+    assert out.fp == 1  # verdict applied at the moved site
+    assert out.reanchored == 1
+    assert out.stale == 0  # NOT counted stale
+    assert out.pending == 0
+
+
+def test_no_reanchor_when_fingerprint_differs():
+    records = [
+        dataclasses.replace(
+            rec(site="src/a.rs:10", verdict="prism_fp"), site_fingerprint="aaaaaaaaaaaaaaaa"
+        )
+    ]
+    out = apply_verdicts(
+        tp=0,
+        fp_sites={("src/a.rs", 14)},
+        fn_sites=set(),
+        records=records,
+        corpus="prism",
+        measurement="callers",
+        seed_def="src/s.rs:5",
+        site_fps={"src/a.rs:14": "bbbbbbbbbbbbbbbb"},
+    )
+    assert out.stale == 1 and out.pending == 1 and out.reanchored == 0
 
 
 def test_jsonl_roundtrip(tmp_path):

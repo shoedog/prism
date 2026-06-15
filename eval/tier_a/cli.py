@@ -57,6 +57,34 @@ def _pair_metrics(prism: set[tuple], oracle: set[tuple]) -> dict:
     return precision_recall(tp, len(prism - oracle), len(oracle - prism))
 
 
+def _site_fingerprints_for_probes(probes: dict, corpus_root: str) -> dict[str, str]:
+    """Fingerprint every probe diff-site's call line (+/- 1) from corpus source, so
+    verdicts re-anchor across line drift. Keyed "file:line"; each file read once."""
+    from .adjudication import fingerprint
+
+    by_file: dict[str, set] = {}
+    for pid, p in probes.items():
+        if pid.startswith("_"):
+            continue
+        for triple in list(p.get("prism_sites", [])) + list(p.get("oracle_sites", [])):
+            by_file.setdefault(triple[0], set()).add(triple[1])
+    out: dict[str, str] = {}
+    for f, lines in by_file.items():
+        try:
+            src = (
+                (Path(corpus_root) / f)
+                .read_text(encoding="utf-8", errors="replace")
+                .splitlines()
+            )
+        except (FileNotFoundError, IsADirectoryError):
+            continue
+        for line in lines:
+            lo = max(1, line - 1)
+            hi = min(len(src), line + 1)
+            out[f"{f}:{line}"] = fingerprint(src[lo - 1 : hi])
+    return out
+
+
 def check_pinned(cfg: dict, sha: str, allow: bool) -> tuple[bool, str | None]:
     pinned = cfg.get("pinned_sha")
     if allow or not pinned or pinned == sha:
@@ -64,7 +92,10 @@ def check_pinned(cfg: dict, sha: str, allow: bool) -> tuple[bool, str | None]:
     return False, f"corpus_sha_drift: {sha} != pinned {pinned}"
 
 
-def _pending_for_probe(probe: dict, corpus: str, adjudications: list) -> list[dict]:
+def _pending_for_probe(
+    probe: dict, corpus: str, adjudications: list, site_fps: dict | None = None
+) -> list[dict]:
+    site_fps = site_fps or {}
     if probe.get("outcome") == "inventory_miss":
         # the seed has no prism inventory match (declarations, etc.) — its oracle
         # edges are systematic recall already counted by M1; they are not
@@ -93,6 +124,7 @@ def _pending_for_probe(probe: dict, corpus: str, adjudications: list) -> list[di
                 "direction": "prism_only",
                 "seed_def": probe["seed_def"],
                 "site": key[1],
+                "site_fingerprint": site_fps.get(key[1]),
             })
     for file, line in sorted(diff.fn):
         key = ("oracle_only", _site_key(file, line))
@@ -103,12 +135,20 @@ def _pending_for_probe(probe: dict, corpus: str, adjudications: list) -> list[di
                 "direction": "oracle_only",
                 "seed_def": probe["seed_def"],
                 "site": key[1],
+                "site_fingerprint": site_fps.get(key[1]),
             })
     return pending
 
 
-def _compute_m2_and_pending(probes: dict, adjudications: list) -> tuple[dict, list[dict], int]:
-    """Pure replay over stored probes plus the current adjudication store."""
+def _compute_m2_and_pending(
+    probes: dict, adjudications: list, site_fps: dict | None = None
+) -> tuple[dict, list[dict], int]:
+    """Pure replay over stored probes plus the current adjudication store.
+
+    ``site_fps`` ({"file:line": fingerprint}) lets stale verdicts re-anchor across line
+    drift (see ``adjudication.apply_verdicts``); empty for legacy runs without it.
+    """
+    site_fps = site_fps or {}
     corpus = probes.get("_corpus", "?")
     shortfalls = {
         name: max(0, meta.get("target", 0) - meta.get("eligible_symbols", 0))
@@ -160,6 +200,7 @@ def _compute_m2_and_pending(probes: dict, adjudications: list) -> tuple[dict, li
                 corpus=corpus,
                 measurement=direction,
                 seed_def=p["seed_def"],
+                site_fps=site_fps,
             )
             s["corr_tp"] += c.tp
             s["corr_fp"] += c.fp
@@ -169,7 +210,7 @@ def _compute_m2_and_pending(probes: dict, adjudications: list) -> tuple[dict, li
             s["function_tp"] += function_raw["tp"]
             s["function_fp"] += function_raw["fp"]
             s["function_fn"] += function_raw["fn"]
-            pending_records.extend(_pending_for_probe(p, corpus, adjudications))
+            pending_records.extend(_pending_for_probe(p, corpus, adjudications, site_fps))
         out[direction] = {}
         for name, s in sorted(strata.items()):
             function_metrics = precision_recall(
@@ -194,16 +235,19 @@ def _compute_m2_and_pending(probes: dict, adjudications: list) -> tuple[dict, li
     return out, pending_records, stale_adjudications
 
 
-def compute_m2_from_probes(probes: dict, adjudications: list) -> dict:
+def compute_m2_from_probes(
+    probes: dict, adjudications: list, site_fps: dict | None = None
+) -> dict:
     """Pure: stored raw sites -> per-direction per-stratum raw+corrected metrics."""
-    return _compute_m2_and_pending(probes, adjudications)[0]
+    return _compute_m2_and_pending(probes, adjudications, site_fps)[0]
 
 
 def recompute_metrics_from_stored(stored: dict) -> dict:
     if "probes" not in stored:
         return stored
     adj = load_records(EVAL_DIR / "adjudications.jsonl")
-    m2, pending, stale = _compute_m2_and_pending(stored["probes"], adj)
+    site_fps = stored.get("site_fingerprints", {})
+    m2, pending, stale = _compute_m2_and_pending(stored["probes"], adj, site_fps)
     meta = {
         **stored.get("meta", {}),
         "stale_adjudications": stale,
@@ -543,7 +587,10 @@ def run_corpus(name: str, cfg: dict, defaults: dict, args) -> dict:
         run["meta"]["baseline_invalid"] = (not ok) or bool(initial_invalid_reasons)
         run["meta"]["invalid_reasons"] = initial_invalid_reasons + reasons
         adj = load_records(EVAL_DIR / "adjudications.jsonl")
-        run["m2"], run["pending"], stale = _compute_m2_and_pending(run["probes"], adj)
+        run["site_fingerprints"] = _site_fingerprints_for_probes(run["probes"], cfg["path"])
+        run["m2"], run["pending"], stale = _compute_m2_and_pending(
+            run["probes"], adj, run["site_fingerprints"]
+        )
         run["meta"]["stale_adjudications"] = stale
         return run
     finally:

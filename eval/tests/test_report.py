@@ -169,6 +169,7 @@ def test_replay_reports_function_level_metrics_and_pending_records():
         "direction": "prism_only",
         "seed_def": "src/s.rs:5",
         "site": "src/a.rs:10",
+        "site_fingerprint": None,
     }]
 
 
