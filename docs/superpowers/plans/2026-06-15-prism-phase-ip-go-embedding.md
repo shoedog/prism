@@ -94,6 +94,14 @@ mod embedding_tests {
         let v = provider("package main\ntype Base struct{}\nfunc (b Base) Ping() {}\ntype Wrap struct {\n\tBase\n\tPing int\n}\n").promoted_struct_methods();
         assert!(ms(&v, "Wrap", "Ping").is_empty(), "a direct field named Ping shadows the promoted method");
     }
+
+    #[test]
+    fn intermediate_embedded_field_shadows_deeper_method() {
+        // A embeds B; B has field M AND embeds D; D has method M. Go selector rules:
+        // B's field M (depth 1) shadows D.M (depth 2) -> NOT promoted to A.
+        let v = provider("package main\ntype D struct{}\nfunc (d D) M() {}\ntype B struct {\n\tD\n\tM int\n}\ntype A struct{ B }\n").promoted_struct_methods();
+        assert!(ms(&v, "A", "M").is_empty(), "intermediate field M shadows the deeper promoted method");
+    }
 }
 ```
 
@@ -117,56 +125,76 @@ Add inside `impl GoTypeProvider` (after `collect_promoted_methods_from`, ~line 5
 
 ```rust
 /// All concrete methods promoted onto each struct via transitive **struct**
-/// embedding, with depth. Embedded **interface** fields are skipped (no concrete
-/// body — interface dispatch, deferred). A method whose name collides with one of
-/// the outer struct's own (non-embedded) fields is **shadowed** and skipped (Go
-/// selector rule). Returns every promotion including same-name duplicates from
-/// different embed paths (the caller resolves direct-method-wins + equal-depth
-/// ambiguity). Uses **path-local** cycle detection so diamond paths are preserved.
+/// embedding, with depth. One walk per struct collects (a) method candidates at
+/// depth>=1 and (b) the shallowest depth of every field name (incl. the outer
+/// struct's own fields at depth 0). A method at depth `d` is emitted only if NO
+/// same-name field exists at depth `<= d` — the Go selector rule, which lets an
+/// intermediate embedded struct's field shadow a deeper promoted method. Embedded
+/// **interface** fields are skipped (no concrete body — interface dispatch,
+/// deferred). Duplicates from different embed paths are kept (the caller resolves
+/// direct-method-wins + equal-depth ambiguity). **Path-local** cycle detection so
+/// diamond paths are preserved.
 pub fn promoted_struct_methods(&self) -> Vec<PromotedMethod> {
     let mut out = Vec::new();
     for struct_name in self.data.structs.keys() {
-        // Field names that shadow a promoted method (exclude embedded-as-field entries).
-        let shadow: BTreeSet<&str> = self.data.structs[struct_name]
-            .fields
-            .iter()
-            .filter(|(n, _)| !self.data.structs[struct_name].embedded.contains(n))
-            .map(|(n, _)| n.as_str())
-            .collect();
-        let mut path = BTreeSet::new();
-        path.insert(struct_name.as_str());
-        Self::collect_promotions(&self.data, struct_name, struct_name, 1, &shadow, &mut path, &mut out);
+        let mut field_depth: BTreeMap<String, usize> = BTreeMap::new();
+        let mut cands: Vec<PromotedMethod> = Vec::new();
+        let mut path: BTreeSet<String> = BTreeSet::new();
+        path.insert(struct_name.clone());
+        Self::walk_embedding(
+            &self.data,
+            struct_name,
+            struct_name,
+            0,
+            &mut path,
+            &mut field_depth,
+            &mut cands,
+        );
+        for pm in cands {
+            // Shadowed if a same-name field sits at a shallower-or-equal depth.
+            match field_depth.get(&pm.method) {
+                Some(fd) if *fd <= pm.depth => {}
+                _ => out.push(pm),
+            }
+        }
     }
     out
 }
 
-fn collect_promotions(
+#[allow(clippy::too_many_arguments)]
+fn walk_embedding(
     data: &GoTypeData,
     outer: &str,
     current: &str,
-    depth: usize,
-    shadow: &BTreeSet<&str>,
+    depth: usize, // depth of `current` within `outer` (0 = the outer struct itself)
     path: &mut BTreeSet<String>,
-    out: &mut Vec<PromotedMethod>,
+    field_depth: &mut BTreeMap<String, usize>,
+    cands: &mut Vec<PromotedMethod>,
 ) {
     let go_struct = match data.structs.get(current) {
         Some(s) => s,
         None => return,
     };
-    for embedded_name in &go_struct.embedded {
-        let bare = strip_pointer(embedded_name);
-        if data.interfaces.contains_key(bare) {
-            continue; // embedded interface -> interface dispatch, deferred
+    // Record this struct's own (non-embedded) field names at `depth` (keep the min).
+    for (fname, _) in &go_struct.fields {
+        if go_struct.embedded.contains(fname) {
+            continue; // an embedded-as-field entry, not a real shadowing field
         }
-        if !path.insert(bare.to_string()) {
-            continue; // cycle along THIS path only
-        }
-        if let Some(methods) = data.methods.get(bare) {
-            for m in methods {
-                if shadow.contains(m.name.as_str()) {
-                    continue; // outer struct has a field of this name
+        field_depth
+            .entry(fname.clone())
+            .and_modify(|d| {
+                if depth < *d {
+                    *d = depth;
                 }
-                out.push(PromotedMethod {
+            })
+            .or_insert(depth);
+    }
+    // Methods of `current` promote to `outer` (depth>=1; the outer struct's own
+    // depth-0 methods are NOT promoted — direct-method-wins is the caller's job).
+    if depth >= 1 {
+        if let Some(methods) = data.methods.get(current) {
+            for m in methods {
+                cands.push(PromotedMethod {
                     struct_name: outer.to_string(),
                     method: m.name.clone(),
                     func_id: FunctionId {
@@ -179,14 +207,23 @@ fn collect_promotions(
                 });
             }
         }
-        Self::collect_promotions(data, outer, bare, depth + 1, shadow, path, out);
+    }
+    for embedded_name in &go_struct.embedded {
+        let bare = strip_pointer(embedded_name);
+        if data.interfaces.contains_key(bare) {
+            continue; // embedded interface -> interface dispatch, deferred
+        }
+        if !path.insert(bare.to_string()) {
+            continue; // cycle along THIS path only
+        }
+        Self::walk_embedding(data, outer, bare, depth + 1, path, field_depth, cands);
         path.remove(bare); // restore for sibling paths (path-local)
     }
 }
 ```
 
 - [ ] **Step 4: Run to verify it passes** — `cargo test --lib type_providers::go::embedding_tests`
-Expected: PASS (5 tests).
+Expected: PASS (6 tests).
 
 - [ ] **Step 5: Commit**
 
