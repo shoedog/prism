@@ -30,6 +30,7 @@ pub enum ResolutionKind {
     R6SingleOwner,
     StemSingle,
     StemMulti,
+    EmbeddedPromotion,
 }
 
 impl ResolutionKind {
@@ -50,6 +51,7 @@ impl ResolutionKind {
             ResolutionKind::R6SingleOwner => "r6_single_owner",
             ResolutionKind::StemSingle => "stem_single",
             ResolutionKind::StemMulti => "stem_multi",
+            ResolutionKind::EmbeddedPromotion => "embedded_promotion",
         }
     }
 }
@@ -593,4 +595,16 @@ pub fn file_stem(path: &str) -> &str {
 /// `src/worker/mod.rs`. Used to narrow `mod::T::m` candidates by module.
 fn file_has_path_segment(path: &str, seg: &str) -> bool {
     file_stem(path) == seg || path.split('/').any(|c| c == seg)
+}
+
+#[cfg(test)]
+mod embedding_kind_tests {
+    use super::ResolutionKind;
+    #[test]
+    fn embedded_promotion_as_str() {
+        assert_eq!(
+            ResolutionKind::EmbeddedPromotion.as_str(),
+            "embedded_promotion"
+        );
+    }
 }
