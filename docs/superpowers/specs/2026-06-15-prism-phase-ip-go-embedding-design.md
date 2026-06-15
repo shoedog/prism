@@ -1,10 +1,22 @@
 # Phase-IP — Go Struct Embedding Method Promotion — Design
 
-**Date:** 2026-06-15 · **Status:** rev 1 — **split** from the combined Phase-IP dispatch spec
+**Date:** 2026-06-15 · **Status:** rev 2 (plan-review folded) — **split** from the combined Phase-IP dispatch spec
 (`2026-06-14-prism-phase-ip-type-confirmed-dispatch-design.md`) after three review rounds. Owner
 decision (2026-06-15): **ship embedding first** as the clean, low-risk half; Go *interface* dispatch
 becomes its own deferred spec. This spec folds only the **embedding-relevant** round-1/2/3 findings;
 all interface findings stay with the interface spec.
+
+> **rev 2 (2026-06-15, plan-review folded — codex+claude).** CORRECTIONS that supersede the body below:
+> (1) **Generics + cross-package structs GAP** — they do **not** resolve-via-stripping. The alias key and
+> the recovered receiver both use the existing `owner_key` (strips `*`/`&`/`<…>`/`::` but **not** Go `[…]`
+> or `pkg.`), so a generic/`pkg.`-qualified receiver simply doesn't match (no false alias). **There is no
+> `normalize_go_struct_key`** — the rev-1a "generics resolve via the `[…]` strip" wording in §3/§6/§7/§8/§12
+> is superseded. (2) The **`EmbeddedPromotion` relabel lives in `owner_lookup`** (the chokepoint every hit
+> path goes through), not the P6-lite seam — so self/receiver-var and qualifier calls are labeled too; no
+> seam or `recover_receiver` edit. (3) **Field-shadowed** method names (a direct field named like the
+> promoted method) are skipped (Go selector rule). (4) `collect_promotions` uses **path-local** cycle
+> detection so diamond paths surface equal-depth ambiguity. (5) **build_scoped stays best-effort** (§9).
+> Authoritative task code: the plan rev 2 (`docs/superpowers/plans/2026-06-15-prism-phase-ip-go-embedding.md`).
 
 Builds on **EFT** (`e7a37e5`: confidence-tagged `CpgEdge::Call/Return`, exact traversal) + **pre-IP**
 (`710cb86`: cache GIT_SHA `v7`). Closes the embedding half of `s3-deferred §1`/`§2`.

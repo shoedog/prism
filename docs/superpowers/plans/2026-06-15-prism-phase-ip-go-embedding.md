@@ -1,149 +1,141 @@
-# Go Struct Embedding Method Promotion — Implementation Plan
+# Go Struct Embedding Method Promotion — Implementation Plan (rev 2)
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Resolve Go embedded-struct method calls (`w.Ping()` where `Wrap` embeds `Base`) by promoting the embedded type's concrete methods into the outer type's owner index, so the existing P6-lite seam resolves them as `Exact`.
 
-**Architecture:** `CallGraph::build` consumes the existing (registry-independent) `GoTypeProvider` to read promoted concrete methods, then writes owner-index aliases `methods[(Wrap,Ping)] += Base::Ping` (the trait dual-key pattern) plus a `promoted_aliases` map for telemetry/incremental-replace. The unchanged `owner_lookup` at the resolver seam then hits the alias; the seam relabels the hit `EmbeddedPromotion`. Promotion is whole-program and recomputed (replace-not-merge) on incremental builds. Confidence is `Exact` (deterministic Go rule, single target — no fan-out).
+**Architecture:** `CallGraph::build` consumes the existing (registry-independent) `GoTypeProvider` to read promoted concrete methods, then writes owner-index aliases `methods[(Wrap,Ping)] += Base::Ping` (the trait dual-key pattern) plus a `promoted_aliases` map (for telemetry + incremental replace). The `EmbeddedPromotion` relabel happens centrally in `owner_lookup`, so it is correct on every path (P6-lite, self/receiver-var, qualifier). Promotion is whole-program and recomputed (replace-not-merge) on incremental builds. Keys use the existing `owner_key` (bare name); generic + cross-package structs consistently **gap** (no false match). Confidence is `Exact` (deterministic Go rule, single target).
 
-**Tech Stack:** Rust, tree-sitter (Go grammar), `bincode` CPG cache, Python `uv` Tier-A harness.
+**Tech Stack:** Rust, tree-sitter (Go), `bincode` CPG cache, Python `uv` Tier-A harness. **Spec:** `docs/superpowers/specs/2026-06-15-prism-phase-ip-go-embedding-design.md`. **Branch:** `phase-ip`.
 
-**Spec:** `docs/superpowers/specs/2026-06-15-prism-phase-ip-go-embedding-design.md`. **Branch:** `phase-ip` (already checked out).
+**rev 2 (plan-review fold, codex+claude 2026-06-15):** path-local `visited` (diamond ambiguity, codex); field-shadow filtering (codex); relabel in `owner_lookup` not the seam (codex); cross-file stale-alias test (codex); **generics gap via `owner_key`** — dropped the rev-1 `normalize_go_struct_key` task (codex/claude MAJOR3, lean resolution); Task-4 line `6`→`7` + `cpg.call_graph` field (both); `embedding_gaps["ambiguous"]==1` assertion (codex); `set -o pipefail`/subshell validation (codex); Accuracy-Harness gate before resolution/CPG/nav commits (codex, CLAUDE.md). build_scoped stays best-effort (claude; out-of-scope target nodes can't materialize regardless, nav builds full).
 
 ---
 
 ## File Structure
 
-- **Modify `src/type_providers/go.rs`** — add the public `PromotedMethod` struct + `GoTypeProvider::promoted_struct_methods()` helper (transitive embedded-**struct** method promotion with depth; embedded interfaces skipped). Add an internal `#[cfg(test)] mod` test.
-- **Modify `src/resolution.rs`** — add `ResolutionKind::EmbeddedPromotion` + its `as_str` arm; add the pure `normalize_go_struct_key` fn; add the `EmbeddedPromotion` label in the P6-lite seam.
-- **Modify `src/call_graph.rs`** — add `CallGraph.promoted_aliases` + `embedding_gaps` fields (init in all 4 constructors); add `apply_go_embedding_promotion(&mut self, files)`; call it at the end of `build()`; Go-gate a `[…]`-strip in `recover_receiver`.
-- **Modify `src/cpg/build.rs`** — call `apply_go_embedding_promotion(files)` after `merge` in `build_incremental` (replace-not-merge).
-- **Modify `src/cpg_cache.rs`** — bump `CACHE_VERSION` 7→8 (new serialized `CallGraph` fields; bincode ignores `serde(default)`).
-- **Modify `src/navigation/queries.rs`** — surface `embedding_gaps` in `call_stats` JSON.
-- **Modify `eval/fixtures/go/embedded_method/expected.toml`** — flip `status` `known_fail`→`pass`.
-- **Add tests** in `tests/integration/resolution_test.rs` (resolution behavior) and `tests/cli/call_stats_test.rs` (telemetry).
+- **`src/type_providers/go.rs`** — public `PromotedMethod` + `GoTypeProvider::promoted_struct_methods()` (transitive embedded-**struct** promotion, **path-local** cycle detection, embedded-interface skip, **field-shadow** skip, depth). Internal `#[cfg(test)] mod`.
+- **`src/resolution.rs`** — `ResolutionKind::EmbeddedPromotion` + `as_str`; relabel inside `owner_lookup`.
+- **`src/call_graph.rs`** — `promoted_aliases` + `embedding_gaps` fields (init in all 4 constructors); `apply_go_embedding_promotion`; call at end of `build()`.
+- **`src/cpg/build.rs`** — `apply_go_embedding_promotion(files)` after `merge` in `build_incremental`.
+- **`src/cpg_cache.rs`** — `CACHE_VERSION` 7→8.
+- **`src/navigation/queries.rs`** — `embedding_gaps` in `call_stats`.
+- **`eval/fixtures/go/embedded_method/expected.toml`** — `known_fail`→`pass`.
+- **Tests:** `tests/integration/resolution_test.rs`, `tests/cli/call_stats_test.rs`.
 
-**Provider FunctionId identity (load-bearing):** the `FunctionId` built in `promoted_struct_methods` from a `GoMethod` (`{name, file, start_line, end_line}`) must equal the CallGraph function node so resolved edges materialize. `extract_method` (go.rs:399-400) computes `start_line/end_line = node.start_position().row + 1` / `…end…+1` from the `method_declaration`, identical to `node_line_range` used by `CallGraph::build` (call_graph.rs:250). They match.
+**No `normalize_go_struct_key`** (rev-1 had it): the existing `owner_key` (resolution.rs:75) is used for the alias struct key, and `recover_receiver` already `owner_key`s the receiver — so non-generic, non-`pkg.` structs match and generic/`pkg.` structs gap, with **one** key function. **No seam edit, no `recover_receiver` edit** (rev-1 had both): the relabel lives in `owner_lookup`, the chokepoint every hit path goes through.
+
+**FunctionId identity:** `extract_method` builds `start_line/end_line = row+1` (go.rs:399-400) = `node_line_range` (call_graph.rs:250), so a `PromotedMethod.func_id` equals the CallGraph function node — edges materialize.
 
 ---
 
 ## Task 1: `promoted_struct_methods` provider helper
 
-**Files:**
-- Modify: `src/type_providers/go.rs` (add `PromotedMethod` near the other type structs ~line 70; add the public method in the `impl GoTypeProvider` block near `collect_promoted_methods_from` ~line 550; add/extend `#[cfg(test)] mod tests` at end of file)
+**Files:** Modify `src/type_providers/go.rs` (add `PromotedMethod` ~line 70; method after `collect_promoted_methods_from` ~line 549; internal test mod at end).
 
-- [ ] **Step 1: Write the failing test**
-
-Add at the end of `src/type_providers/go.rs`:
+- [ ] **Step 1: Write the failing test** — append to `src/type_providers/go.rs`:
 
 ```rust
 #[cfg(test)]
 mod embedding_tests {
     use super::*;
-    use crate::ast::ParsedFile;
     use std::collections::BTreeMap;
 
     fn provider(src: &str) -> GoTypeProvider {
         let mut files = BTreeMap::new();
         files.insert(
             "main.go".to_string(),
-            ParsedFile::parse("main.go", src, Language::Go).unwrap(),
+            crate::ast::ParsedFile::parse("main.go", src, Language::Go).unwrap(),
         );
         GoTypeProvider::from_parsed_files(&files)
     }
 
+    fn ms<'a>(v: &'a [PromotedMethod], s: &str, m: &str) -> Vec<&'a PromotedMethod> {
+        v.iter().filter(|p| p.struct_name == s && p.method == m).collect()
+    }
+
     #[test]
     fn promotes_concrete_method_from_embedded_struct() {
-        let p = provider(
-            "package main\ntype Base struct{}\nfunc (b Base) Ping() {}\ntype Wrap struct {\n\tBase\n}\n",
-        );
-        let got = p.promoted_struct_methods();
-        let pings: Vec<_> = got
-            .iter()
-            .filter(|m| m.struct_name == "Wrap" && m.method == "Ping")
-            .collect();
-        assert_eq!(pings.len(), 1, "Wrap should promote one Ping");
-        assert_eq!(pings[0].func_id.name, "Ping");
-        assert_eq!(pings[0].func_id.file, "main.go");
-        assert_eq!(pings[0].depth, 1);
+        let v = provider("package main\ntype Base struct{}\nfunc (b Base) Ping() {}\ntype Wrap struct {\n\tBase\n}\n").promoted_struct_methods();
+        let p = ms(&v, "Wrap", "Ping");
+        assert_eq!(p.len(), 1);
+        assert_eq!(p[0].func_id.name, "Ping");
+        assert_eq!(p[0].func_id.file, "main.go");
+        assert_eq!(p[0].depth, 1);
     }
 
     #[test]
-    fn promotes_transitively_with_increasing_depth() {
-        let p = provider(
-            "package main\ntype C struct{}\nfunc (c C) M() {}\ntype B struct{ C }\ntype A struct{ B }\n",
-        );
-        let got = p.promoted_struct_methods();
-        let a_m: Vec<_> = got.iter().filter(|m| m.struct_name == "A" && m.method == "M").collect();
-        assert_eq!(a_m.len(), 1);
-        assert_eq!(a_m[0].depth, 2, "A embeds B embeds C: depth 2");
+    fn promotes_transitively_with_depth() {
+        let v = provider("package main\ntype C struct{}\nfunc (c C) M() {}\ntype B struct{ C }\ntype A struct{ B }\n").promoted_struct_methods();
+        let p = ms(&v, "A", "M");
+        assert_eq!(p.len(), 1);
+        assert_eq!(p[0].depth, 2);
     }
 
     #[test]
-    fn equal_depth_collision_returns_both_for_caller_to_drop() {
-        // A embeds X and Y, both have M at depth 1 -> helper returns BOTH;
-        // ambiguity resolution happens in CallGraph (Task 4).
-        let p = provider(
-            "package main\ntype X struct{}\nfunc (x X) M() {}\ntype Y struct{}\nfunc (y Y) M() {}\ntype A struct{\n\tX\n\tY\n}\n",
-        );
-        let got = p.promoted_struct_methods();
-        let a_m: Vec<_> = got.iter().filter(|m| m.struct_name == "A" && m.method == "M").collect();
-        assert_eq!(a_m.len(), 2, "both equal-depth M's returned");
-        assert!(a_m.iter().all(|m| m.depth == 1));
+    fn diamond_returns_both_equal_depth_paths() {
+        // A embeds B,C; B,C embed D; D.M reachable via two depth-2 paths.
+        // Path-local visited must NOT suppress the second path (so CallGraph sees the ambiguity).
+        let v = provider("package main\ntype D struct{}\nfunc (d D) M() {}\ntype B struct{ D }\ntype C struct{ D }\ntype A struct{\n\tB\n\tC\n}\n").promoted_struct_methods();
+        let p = ms(&v, "A", "M");
+        assert_eq!(p.len(), 2, "both depth-2 paths to D.M returned");
+        assert!(p.iter().all(|m| m.depth == 2));
     }
 
     #[test]
-    fn embedded_interface_is_not_promoted() {
-        // Embedding an interface is interface dispatch (deferred), not concrete promotion.
-        let p = provider(
-            "package main\ntype R interface { Read() }\ntype S struct {\n\tR\n}\n",
-        );
-        let got = p.promoted_struct_methods();
-        assert!(
-            got.iter().all(|m| m.struct_name != "S"),
-            "interface methods must not be promoted as concrete"
-        );
+    fn embedded_interface_not_promoted() {
+        let v = provider("package main\ntype R interface { Read() }\ntype S struct {\n\tR\n}\n").promoted_struct_methods();
+        assert!(ms(&v, "S", "Read").is_empty());
+    }
+
+    #[test]
+    fn direct_field_shadows_promoted_method() {
+        // Wrap has a field named Ping -> the embedded Base.Ping is shadowed, not promoted.
+        let v = provider("package main\ntype Base struct{}\nfunc (b Base) Ping() {}\ntype Wrap struct {\n\tBase\n\tPing int\n}\n").promoted_struct_methods();
+        assert!(ms(&v, "Wrap", "Ping").is_empty(), "a direct field named Ping shadows the promoted method");
     }
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [ ] **Step 2: Run to verify it fails** — `cargo test --lib type_providers::go::embedding_tests`
+Expected: FAIL (`cannot find type PromotedMethod` / `no method promoted_struct_methods`).
 
-Run: `cargo test --lib type_providers::go::embedding_tests 2>&1 | tail -20`
-Expected: FAIL — `no method named promoted_struct_methods` / `cannot find type PromotedMethod`.
-
-- [ ] **Step 3: Write minimal implementation**
-
-In `src/type_providers/go.rs`, add the public struct after `GoMethod` (~line 70, before the `GoTypeData` section):
+- [ ] **Step 3: Implement.** Add `PromotedMethod` after `GoMethod` (~line 70):
 
 ```rust
 /// A concrete method promoted onto an outer struct via embedding.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PromotedMethod {
-    /// The outer struct that gains the method.
     pub struct_name: String,
-    /// The promoted method's name.
     pub method: String,
-    /// The defining method's identity (owner stays the defining type).
     pub func_id: FunctionId,
-    /// Embedding depth (1 = directly embedded, 2 = embedded-of-embedded, …).
     pub depth: usize,
 }
 ```
 
-Add this method inside `impl GoTypeProvider` (place it right after `collect_promoted_methods_from`, ~line 549):
+Add inside `impl GoTypeProvider` (after `collect_promoted_methods_from`, ~line 549):
 
 ```rust
-/// All concrete methods promoted onto each struct via **struct** embedding,
-/// transitively, with depth. Embedded **interface** fields are skipped (their
-/// methods have no concrete body — that is interface dispatch, deferred).
-/// Returns every promotion including same-name duplicates from different embed
-/// paths (the caller resolves direct-wins + equal-depth ambiguity).
+/// All concrete methods promoted onto each struct via transitive **struct**
+/// embedding, with depth. Embedded **interface** fields are skipped (no concrete
+/// body — interface dispatch, deferred). A method whose name collides with one of
+/// the outer struct's own (non-embedded) fields is **shadowed** and skipped (Go
+/// selector rule). Returns every promotion including same-name duplicates from
+/// different embed paths (the caller resolves direct-method-wins + equal-depth
+/// ambiguity). Uses **path-local** cycle detection so diamond paths are preserved.
 pub fn promoted_struct_methods(&self) -> Vec<PromotedMethod> {
     let mut out = Vec::new();
     for struct_name in self.data.structs.keys() {
-        let mut visited = BTreeSet::new();
-        Self::collect_promotions(&self.data, struct_name, struct_name, 1, &mut visited, &mut out);
+        // Field names that shadow a promoted method (exclude embedded-as-field entries).
+        let shadow: BTreeSet<&str> = self.data.structs[struct_name]
+            .fields
+            .iter()
+            .filter(|(n, _)| !self.data.structs[struct_name].embedded.contains(n))
+            .map(|(n, _)| n.as_str())
+            .collect();
+        let mut path = BTreeSet::new();
+        path.insert(struct_name.as_str());
+        Self::collect_promotions(&self.data, struct_name, struct_name, 1, &shadow, &mut path, &mut out);
     }
     out
 }
@@ -153,7 +145,8 @@ fn collect_promotions(
     outer: &str,
     current: &str,
     depth: usize,
-    visited: &mut BTreeSet<String>,
+    shadow: &BTreeSet<&str>,
+    path: &mut BTreeSet<String>,
     out: &mut Vec<PromotedMethod>,
 ) {
     let go_struct = match data.structs.get(current) {
@@ -161,16 +154,18 @@ fn collect_promotions(
         None => return,
     };
     for embedded_name in &go_struct.embedded {
-        let bare = strip_generic(strip_pointer(embedded_name));
-        if !visited.insert(bare.to_string()) {
-            continue;
-        }
-        // Embedded interface -> skip (interface dispatch, deferred).
+        let bare = strip_pointer(embedded_name);
         if data.interfaces.contains_key(bare) {
-            continue;
+            continue; // embedded interface -> interface dispatch, deferred
+        }
+        if !path.insert(bare.to_string()) {
+            continue; // cycle along THIS path only
         }
         if let Some(methods) = data.methods.get(bare) {
             for m in methods {
+                if shadow.contains(m.name.as_str()) {
+                    continue; // outer struct has a field of this name
+                }
                 out.push(PromotedMethod {
                     struct_name: outer.to_string(),
                     method: m.name.clone(),
@@ -184,47 +179,35 @@ fn collect_promotions(
                 });
             }
         }
-        // Recurse into the embedded struct (transitive promotion).
-        Self::collect_promotions(data, outer, bare, depth + 1, visited, out);
+        Self::collect_promotions(data, outer, bare, depth + 1, shadow, path, out);
+        path.remove(bare); // restore for sibling paths (path-local)
     }
 }
 ```
 
-Add the `strip_generic` helper next to `strip_pointer` (~line 688):
-
-```rust
-/// Strip a Go generic type-argument suffix: `Wrap[T]` → `Wrap`.
-fn strip_generic(s: &str) -> &str {
-    s.split('[').next().unwrap_or(s).trim()
-}
-```
-
-- [ ] **Step 4: Run test to verify it passes**
-
-Run: `cargo test --lib type_providers::go::embedding_tests 2>&1 | tail -20`
-Expected: PASS (4 tests).
+- [ ] **Step 4: Run to verify it passes** — `cargo test --lib type_providers::go::embedding_tests`
+Expected: PASS (5 tests).
 
 - [ ] **Step 5: Commit**
 
 ```bash
 git add src/type_providers/go.rs
-git commit -m "feat(go): promoted_struct_methods helper — transitive embedded-struct method promotion"
+git commit -m "feat(go): promoted_struct_methods — transitive embedded-struct promotion (path-local, field-shadow, interface-skip)"
 ```
+
+(Task 1 touches only `type_providers/go.rs` — not call resolution/CPG/nav — so no Accuracy-Harness gate yet.)
 
 ---
 
 ## Task 2: `ResolutionKind::EmbeddedPromotion`
 
-**Files:**
-- Modify: `src/resolution.rs:16-54` (enum + `as_str`)
+**Files:** Modify `src/resolution.rs:16-54`.
 
-- [ ] **Step 1: Write the failing test**
-
-Add to the bottom of `src/resolution.rs` (inside the existing `#[cfg(test)] mod tests` if present, else add one):
+- [ ] **Step 1: Failing test** — append to `src/resolution.rs`:
 
 ```rust
 #[cfg(test)]
-mod kind_tests {
+mod embedding_kind_tests {
     use super::ResolutionKind;
     #[test]
     fn embedded_promotion_as_str() {
@@ -233,34 +216,24 @@ mod kind_tests {
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [ ] **Step 2: Verify fails** — `cargo test --lib resolution::embedding_kind_tests`
+Expected: FAIL (`no variant EmbeddedPromotion`).
 
-Run: `cargo test --lib resolution::kind_tests 2>&1 | tail -20`
-Expected: FAIL — `no variant named EmbeddedPromotion`.
-
-- [ ] **Step 3: Write minimal implementation**
-
-In `src/resolution.rs`, add the variant to the enum (after `StemMulti`, line 32):
+- [ ] **Step 3: Implement.** Add the variant after `StemMulti` (line 32) and the arm after the `StemMulti` arm (line 52):
 
 ```rust
-    StemSingle,
     StemMulti,
     EmbeddedPromotion,
 }
 ```
-
-Add the arm to `as_str` (after the `StemMulti` arm, line 52):
-
 ```rust
             ResolutionKind::StemMulti => "stem_multi",
             ResolutionKind::EmbeddedPromotion => "embedded_promotion",
         }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
-
-Run: `cargo test --lib resolution::kind_tests 2>&1 | tail -20`
-Expected: PASS.
+- [ ] **Step 4: Verify passes** — `cargo test --lib resolution::embedding_kind_tests`
+Expected: PASS. The only exhaustive `match` over `ResolutionKind` is `as_str` (verified, no other ripple).
 
 - [ ] **Step 5: Commit**
 
@@ -269,78 +242,15 @@ git add src/resolution.rs
 git commit -m "feat(resolution): add EmbeddedPromotion resolution kind"
 ```
 
----
-
-## Task 3: `normalize_go_struct_key`
-
-**Files:**
-- Modify: `src/resolution.rs` (add the pure fn after `owner_key`, ~line 84)
-
-- [ ] **Step 1: Write the failing test**
-
-Add to `src/resolution.rs` `#[cfg(test)] mod kind_tests` (or a new test module):
-
-```rust
-#[cfg(test)]
-mod go_key_tests {
-    use super::normalize_go_struct_key;
-    #[test]
-    fn strips_pointer_ref_and_generic_args() {
-        assert_eq!(normalize_go_struct_key("Wrap"), "Wrap");
-        assert_eq!(normalize_go_struct_key("*Wrap"), "Wrap");
-        assert_eq!(normalize_go_struct_key("&Wrap"), "Wrap");
-        assert_eq!(normalize_go_struct_key("Wrap[User]"), "Wrap");
-        assert_eq!(normalize_go_struct_key("*Repo[T]"), "Repo");
-    }
-}
-```
-
-- [ ] **Step 2: Run test to verify it fails**
-
-Run: `cargo test --lib resolution::go_key_tests 2>&1 | tail -20`
-Expected: FAIL — `cannot find function normalize_go_struct_key`.
-
-- [ ] **Step 3: Write minimal implementation**
-
-In `src/resolution.rs`, after `owner_key` (line 84):
-
-```rust
-/// Bare-name key for a Go struct/receiver type: `owner_key` (strips refs/pointers
-/// and `<…>`) then strips Go `[…]` generic type-arguments. Used for embedding
-/// owner keys and the recovered Go receiver so they match. (Cross-package `pkg.`
-/// normalization is deferred to the interface spec.)
-pub fn normalize_go_struct_key(text: &str) -> String {
-    let k = owner_key(text);
-    k.split('[').next().unwrap_or(&k).trim().to_string()
-}
-```
-
-- [ ] **Step 4: Run test to verify it passes**
-
-Run: `cargo test --lib resolution::go_key_tests 2>&1 | tail -20`
-Expected: PASS.
-
-- [ ] **Step 5: Commit**
-
-```bash
-git add src/resolution.rs
-git commit -m "feat(resolution): normalize_go_struct_key (owner_key + Go generic strip)"
-```
+(Pure enum addition, no resolution-behavior change → no harness gate.)
 
 ---
 
-## Task 4: CallGraph promotion fields, `apply_go_embedding_promotion`, build() wiring, and the seam
+## Task 3: CallGraph promotion + `owner_lookup` relabel (the integration)
 
-This is the integration task: it makes the embedded-method call resolve. Several files change together; the resolution tests pass at the end.
+**Files:** `src/call_graph.rs` (struct 47-71, `empty` 75-86, `build_skeleton` ~195, `build` ~693, `build_direct_subset` ~909, add `apply_go_embedding_promotion` near `merge` ~770), `src/resolution.rs` (`owner_lookup` 199-204), `tests/integration/resolution_test.rs`.
 
-**Files:**
-- Modify: `src/call_graph.rs` — `CallGraph` struct (47-71), `empty()` (75-86), `build_skeleton` (94-204 init region), `build()` (206-…), `build_direct_subset` (777-…), `recover_receiver` (1260-1265)
-- Modify: `src/resolution.rs` — the P6-lite seam (404-424)
-- Test: `tests/integration/resolution_test.rs`
-
-- [ ] **Step 1: Write the failing tests**
-
-Append to `tests/integration/resolution_test.rs`:
+- [ ] **Step 1: Failing tests** — append to `tests/integration/resolution_test.rs`:
 
 ```rust
 #[test]
@@ -353,11 +263,51 @@ fn go_embedded_method_resolves_exact() {
     )]);
     let site = site_in(&cg, "run", "Ping");
     let r = cg.resolve_call_site(&site);
-    assert_eq!(r.len(), 1, "w.Ping() resolves to Base::Ping");
+    assert_eq!(r.len(), 1);
     assert_eq!(r[0].target.name, "Ping");
     assert_eq!(r[0].target.file, "main.go");
     assert_eq!(r[0].confidence, ResolutionConfidence::Exact);
     assert_eq!(r[0].kind, ResolutionKind::EmbeddedPromotion);
+}
+
+#[test]
+fn go_embedded_transitive_resolves() {
+    use prism::languages::Language::Go;
+    let (cg, _) = build(&[(
+        "main.go",
+        "package main\ntype C struct{}\nfunc (c C) M() {}\ntype B struct{ C }\ntype A struct{ B }\nfunc run(a A) {\n\ta.M()\n}\n",
+        Go,
+    )]);
+    let r = cg.resolve_call_site(&site_in(&cg, "run", "M"));
+    assert_eq!(r.len(), 1);
+    assert_eq!(r[0].kind, ResolutionKind::EmbeddedPromotion);
+}
+
+#[test]
+fn go_embedded_pointer_receiver_addressable_resolves() {
+    use prism::languages::Language::Go;
+    let (cg, _) = build(&[(
+        "main.go",
+        "package main\ntype Base struct{}\nfunc (b *Base) Ping() {}\ntype Wrap struct {\n\tBase\n}\nfunc run(w Wrap) {\n\tw.Ping()\n}\n",
+        Go,
+    )]);
+    let r = cg.resolve_call_site(&site_in(&cg, "run", "Ping"));
+    assert_eq!(r.len(), 1, "addressable value receiver can call a pointer-receiver promoted method");
+    assert_eq!(r[0].kind, ResolutionKind::EmbeddedPromotion);
+}
+
+#[test]
+fn go_embedded_method_labeled_on_receiver_var_path() {
+    use prism::languages::Language::Go;
+    // The call is via the method receiver `w` (self/receiver-var path, not P6-lite param).
+    let (cg, _) = build(&[(
+        "main.go",
+        "package main\ntype Base struct{}\nfunc (b Base) Ping() {}\ntype Wrap struct {\n\tBase\n}\nfunc (w Wrap) Run() {\n\tw.Ping()\n}\n",
+        Go,
+    )]);
+    let r = cg.resolve_call_site(&site_in(&cg, "Run", "Ping"));
+    assert_eq!(r.len(), 1);
+    assert_eq!(r[0].kind, ResolutionKind::EmbeddedPromotion, "relabel must apply on the receiver-var path too");
 }
 
 #[test]
@@ -368,11 +318,9 @@ fn go_direct_method_wins_over_promoted() {
         "package main\ntype Base struct{}\nfunc (b Base) Ping() {}\ntype Wrap struct {\n\tBase\n}\nfunc (w Wrap) Ping() {}\nfunc run(w Wrap) {\n\tw.Ping()\n}\n",
         Go,
     )]);
-    let site = site_in(&cg, "run", "Ping");
-    let r = cg.resolve_call_site(&site);
+    let r = cg.resolve_call_site(&site_in(&cg, "run", "Ping"));
     assert_eq!(r.len(), 1);
-    // The direct Wrap.Ping is on a later line than Base.Ping; assert it's the direct one.
-    assert_eq!(r[0].target.start_line, 6, "direct Wrap.Ping (line 6) wins");
+    assert_eq!(r[0].target.start_line, 7, "direct Wrap.Ping (line 7) wins");
     assert_ne!(r[0].kind, ResolutionKind::EmbeddedPromotion);
 }
 
@@ -385,10 +333,8 @@ fn go_equal_depth_embedding_ambiguity_drops() {
         "package main\ntype X struct{}\nfunc (x X) M() {}\ntype Y struct{}\nfunc (y Y) M() {}\ntype A struct {\n\tX\n\tY\n}\nfunc run(a A) {\n\ta.M()\n}\n",
         Go,
     )]);
-    let site = site_in(&cg, "run", "M");
-    let out = cg.resolve_call_site_full(&site);
+    let out = cg.resolve_call_site_full(&site_in(&cg, "run", "M"));
     assert!(out.resolved.is_empty(), "equal-depth M is ambiguous -> not promoted");
-    // Falls through to the existing receiver drop (no in-scope owner for A.M).
     assert!(matches!(out.drop, Some(DropReason::ExternalReceiver) | Some(DropReason::MultiOwnerCollision)));
 }
 
@@ -400,28 +346,21 @@ fn go_embedded_interface_field_not_promoted() {
         "package main\ntype R interface { Read() }\ntype S struct {\n\tR\n}\nfunc run(s S) {\n\ts.Read()\n}\n",
         Go,
     )]);
-    let site = site_in(&cg, "run", "Read");
-    let out = cg.resolve_call_site_full(&site);
-    assert!(out.resolved.is_empty(), "embedded interface method is not concrete-promoted");
+    assert!(cg.resolve_call_site_full(&site_in(&cg, "run", "Read")).resolved.is_empty());
 }
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [ ] **Step 2: Verify fails** — `cargo test --test integration resolution_test::go_embedded`
+Expected: FAIL (`go_embedded_method_resolves_exact` resolves to 0 — current `ExternalReceiver` drop).
 
-Run: `cargo test --test integration resolution_test::go_embedded 2>&1 | tail -25`
-Expected: FAIL — `go_embedded_method_resolves_exact` resolves to 0 callees (current `ExternalReceiver` drop).
-
-- [ ] **Step 3a: Add the CallGraph fields**
-
-In `src/call_graph.rs`, add to the `CallGraph` struct (after `receiver_vars`, line 70):
+- [ ] **Step 3a: CallGraph fields.** In `src/call_graph.rs` after `receiver_vars` (line 70):
 
 ```rust
-    /// S3 (Go): receiver variable name per method FunctionId.
     #[serde(default)]
     pub receiver_vars: BTreeMap<FunctionId, String>,
-    /// Phase-IP (Go embedding): promoted alias `(outer_struct_key, method)` →
-    /// the embedded methods' FunctionIds. Keys are also the EmbeddedPromotion
-    /// label set; the map carries fids for clean incremental replace.
+    /// Phase-IP (Go embedding): promoted alias `(owner_key, method)` → embedded
+    /// methods' FunctionIds. Key set is the EmbeddedPromotion label set; carries
+    /// fids for clean incremental replace.
     #[serde(default)]
     pub promoted_aliases: BTreeMap<(String, String), Vec<FunctionId>>,
     /// Phase-IP (Go embedding): gap telemetry, e.g. {"ambiguous": n}.
@@ -430,33 +369,18 @@ In `src/call_graph.rs`, add to the `CallGraph` struct (after `receiver_vars`, li
 }
 ```
 
-In `empty()` (line 76-85), add both fields:
+Initialize both (empty) in **all four** constructors: `empty()` (after `receiver_vars: BTreeMap::new(),`), `build_skeleton`’s returned literal, `build`’s returned literal (see 3c), and `build_direct_subset`’s returned literal. Each gets:
 
 ```rust
-            receiver_vars: BTreeMap::new(),
             promoted_aliases: BTreeMap::new(),
             embedding_gaps: BTreeMap::new(),
-        }
 ```
 
-In `build_skeleton` (the returned struct literal, ~line 195-203) and `build_direct_subset` (its returned struct literal, ~line 190 region of that fn) add the two fields initialized empty:
-
-```rust
-            receiver_vars,
-            promoted_aliases: BTreeMap::new(),
-            embedding_gaps: BTreeMap::new(),
-        }
-```
-
-(`build_skeleton` and `build_direct_subset` do **not** promote — promotion is whole-program, applied in `build()` and after merge in `build_incremental`.)
-
-- [ ] **Step 3b: Add `apply_go_embedding_promotion`**
-
-In `src/call_graph.rs`, add this method to `impl CallGraph` (place near `merge`, ~line 770):
+- [ ] **Step 3b: `apply_go_embedding_promotion`.** Add to `impl CallGraph` near `merge` (~line 770):
 
 ```rust
 /// Recompute Go embedding promotions over `files` and write owner-index aliases.
-/// Idempotent: clears prior aliases first (supports incremental replace).
+/// Idempotent: clears prior aliases first (incremental replace).
 pub fn apply_go_embedding_promotion(&mut self, files: &BTreeMap<String, ParsedFile>) {
     // 1. Remove prior promoted aliases, preserving any direct methods on the key.
     let prior = std::mem::take(&mut self.promoted_aliases);
@@ -469,27 +393,19 @@ pub fn apply_go_embedding_promotion(&mut self, files: &BTreeMap<String, ParsedFi
         }
     }
     self.embedding_gaps.clear();
-
-    // Skip the provider build entirely if there are no Go files.
     if !files.values().any(|p| p.language == crate::languages::Language::Go) {
         return;
     }
-
-    // 2. Group promotions by (normalized struct key, method).
+    // 2. Group promotions by (owner_key(struct), method).
     let provider = crate::type_providers::go::GoTypeProvider::from_parsed_files(files);
     let mut by_key: BTreeMap<(String, String), Vec<(usize, FunctionId)>> = BTreeMap::new();
     for pm in provider.promoted_struct_methods() {
-        let key = (
-            crate::resolution::normalize_go_struct_key(&pm.struct_name),
-            pm.method,
-        );
+        let key = (crate::resolution::owner_key(&pm.struct_name), pm.method);
         by_key.entry(key).or_default().push((pm.depth, pm.func_id));
     }
-
-    // 3. For each (struct, method): direct-wins, then uniquely-shallowest else ambiguous-drop.
+    // 3. Direct-method-wins, then uniquely-shallowest else ambiguous-drop.
     let mut ambiguous = 0usize;
     for ((owner, method), mut cands) in by_key {
-        // direct-wins: a method the struct itself owns under this key.
         let has_direct = self
             .methods
             .get(&(owner.clone(), method.clone()))
@@ -500,21 +416,15 @@ pub fn apply_go_embedding_promotion(&mut self, files: &BTreeMap<String, ParsedFi
         }
         cands.sort_by_key(|(d, _)| *d);
         let min_depth = cands[0].0;
-        let shallowest: Vec<&FunctionId> =
-            cands.iter().filter(|(d, _)| *d == min_depth).map(|(_, f)| f).collect();
-        if shallowest.len() > 1 {
-            ambiguous += 1; // equal-depth selector ambiguity -> not promoted
+        let shallow: Vec<FunctionId> =
+            cands.iter().filter(|(d, _)| *d == min_depth).map(|(_, f)| f.clone()).collect();
+        if shallow.len() > 1 {
+            ambiguous += 1;
             continue;
         }
-        let fid = shallowest[0].clone();
-        self.methods
-            .entry((owner.clone(), method.clone()))
-            .or_default()
-            .push(fid.clone());
-        self.promoted_aliases
-            .entry((owner, method))
-            .or_default()
-            .push(fid);
+        let fid = shallow.into_iter().next().unwrap();
+        self.methods.entry((owner.clone(), method.clone())).or_default().push(fid.clone());
+        self.promoted_aliases.entry((owner, method)).or_default().push(fid);
     }
     if ambiguous > 0 {
         self.embedding_gaps.insert("ambiguous".to_string(), ambiguous);
@@ -522,9 +432,7 @@ pub fn apply_go_embedding_promotion(&mut self, files: &BTreeMap<String, ParsedFi
 }
 ```
 
-- [ ] **Step 3c: Call it at the end of `build()`**
-
-In `src/call_graph.rs build()`, the function currently ends by returning a `CallGraph { … }` literal (after Phase 3, ~line 700). Bind it and apply before returning. Change the final `CallGraph { … }` expression to:
+- [ ] **Step 3c: Call from `build()`.** `CallGraph::build` ends with a `CallGraph { … }` literal (~line 693). Bind it and apply (the `files` param is in scope):
 
 ```rust
         let mut cg = CallGraph {
@@ -543,155 +451,115 @@ In `src/call_graph.rs build()`, the function currently ends by returning a `Call
         cg
 ```
 
-(If `build()`'s tail is structured differently, the rule is: construct the `CallGraph` with the two new fields empty, then call `cg.apply_go_embedding_promotion(files)` on it, then return `cg`. `files` is the `&BTreeMap<String, ParsedFile>` parameter of `build`.)
-
-- [ ] **Step 3d: Go-gate a generic strip in `recover_receiver`**
-
-In `src/call_graph.rs recover_receiver` (line 1260-1265), the recovered receiver is `owner_key`-normalized. For Go, also strip generic args so a `Wrap[T]` receiver matches the bare promoted key. Replace the `.map(...)` closure:
+- [ ] **Step 3d: Relabel in `owner_lookup`.** In `src/resolution.rs`, `owner_lookup` (199-204) delegates to `owner_lookup_in_modules`. Wrap the result so every hit path (P6-lite, self/receiver-var, qualifier) gets the label:
 
 ```rust
-    parsed
-        .receiver_type_in_fn(func_node, q, line)
-        .map(|(ty, how)| {
-            let peeled = crate::resolution::peel_type(&ty);
-            let key = if parsed.language == crate::languages::Language::Go {
-                crate::resolution::normalize_go_struct_key(&peeled)
-            } else {
-                crate::resolution::owner_key(&peeled)
-            };
-            (key, how)
-        })
+    fn owner_lookup(&self, owner: &str, name: &str) -> Option<Vec<ResolvedCallee<'_>>> {
+        let mut resolved = self.owner_lookup_in_modules(owner, name, &[])?;
+        if self
+            .promoted_aliases
+            .contains_key(&(owner.to_string(), name.to_string()))
+        {
+            for c in &mut resolved {
+                c.kind = ResolutionKind::EmbeddedPromotion;
+            }
+        }
+        Some(resolved)
+    }
 ```
 
-- [ ] **Step 3e: Label the seam**
+(No seam edit and no `recover_receiver` edit: the alias key is `owner_key(struct)` and `recover_receiver` already `owner_key`s the receiver, so they match for non-generic/non-`pkg.` structs; the P6-lite seam’s `if kind == QualifiedOwner` branch leaves an already-`EmbeddedPromotion` kind untouched.)
 
-In `src/resolution.rs`, the P6-lite recovered-receiver block (404-424) calls `self.owner_lookup(recv_ty, name)`. On a hit, relabel an embedding alias. Replace the `Some(mut resolved) => { … }` arm (lines 412-421):
+- [ ] **Step 4: Verify passes** — `cargo test --test integration resolution_test::go_embedded` then the direct/equal-depth tests, then the whole resolution suite:
 
-```rust
-                    return match self.owner_lookup(recv_ty, name) {
-                        Some(mut resolved) => {
-                            let is_embed = self
-                                .promoted_aliases
-                                .contains_key(&(recv_ty.to_string(), name.to_string()));
-                            for callee in &mut resolved {
-                                if is_embed {
-                                    callee.kind = ResolutionKind::EmbeddedPromotion;
-                                } else if callee.kind == ResolutionKind::QualifiedOwner {
-                                    callee.kind = recovered_kind;
-                                }
-                                // Trait-CHA hits keep TraitCha (dyn Trait receivers).
-                            }
-                            ResolutionOutcome::hit(resolved)
-                        }
-                        None => ResolutionOutcome::dropped(DropReason::ExternalReceiver),
-                    };
+```bash
+cargo test --test integration resolution_test::go_embedded
+cargo test --test integration resolution_test::go_direct_method_wins_over_promoted
+cargo test --test integration resolution_test::go_equal_depth_embedding_ambiguity_drops
+cargo test --test integration resolution_test::
 ```
+Expected: all PASS (no regressions in the existing resolution tests).
 
-(`recv_ty` here is the Go-normalized receiver from `recover_receiver` (3d), so it matches the promoted alias key inserted with `normalize_go_struct_key`.)
+- [ ] **Step 5: Accuracy-Harness gate (CLAUDE.md — this touches call resolution) then commit**
 
-- [ ] **Step 4: Run tests to verify they pass**
-
-Run: `cargo test --test integration resolution_test::go_embedded 2>&1 | tail -25`
-Run: `cargo test --test integration resolution_test::go_direct_method_wins 2>&1 | tail -25`
-Run: `cargo test --test integration resolution_test::go_equal_depth 2>&1 | tail -25`
-Expected: PASS (4 tests). Then run the full Go resolution suite for no regressions:
-Run: `cargo test --test integration resolution_test:: 2>&1 | tail -25`
-Expected: all PASS.
-
-- [ ] **Step 5: Commit**
+```bash
+cargo build --release && (cd eval && uv run tier-a --matrix-only --allow-stale-sut)
+```
+Expected: exit 0; `go/embedded_method` reports `flip_candidate` (resolves now; fixture still `known_fail` until Task 7); **no** `regression` lines. Then:
 
 ```bash
 git add src/call_graph.rs src/resolution.rs tests/integration/resolution_test.rs
-git commit -m "feat(go): promote embedded-struct methods into the owner index (Exact, direct-wins, equal-depth drop)"
+git commit -m "feat(go): promote embedded-struct methods into the owner index (Exact, direct-wins, equal-depth drop, owner_lookup-labeled)"
 ```
 
 ---
 
-## Task 5: Replace-not-merge on incremental builds
+## Task 4: Replace-not-merge on incremental builds (cross-file)
 
-**Files:**
-- Modify: `src/cpg/build.rs:185-191` (`build_incremental`)
-- Test: `tests/integration/resolution_test.rs`
+**Files:** `src/cpg/build.rs:185-191`; `tests/integration/resolution_test.rs`.
 
-- [ ] **Step 1: Write the failing test**
-
-Append to `tests/integration/resolution_test.rs`:
+- [ ] **Step 1: Failing test (cross-file — the real hazard).** Append:
 
 ```rust
 #[test]
-fn go_embedding_recomputed_on_incremental_rebuild() {
+fn go_embedding_dropped_on_incremental_when_embedding_file_changes() {
     use prism::cpg::CodePropertyGraph;
     use prism::data_flow::DataFlowGraph;
     use prism::languages::Language::Go;
     use std::collections::{BTreeMap, BTreeSet};
 
-    // v1: Wrap embeds Base (has Ping). Full build promotes Wrap.Ping.
-    let mut files = BTreeMap::new();
-    files.insert(
-        "main.go".to_string(),
-        prism::ast::ParsedFile::parse(
-            "main.go",
-            "package main\ntype Base struct{}\nfunc (b Base) Ping() {}\ntype Wrap struct {\n\tBase\n}\n",
-            Go,
-        )
-        .unwrap(),
-    );
-    let cg_v1 = prism::call_graph::CallGraph::build(&files);
+    // Base.Ping in base.go (UNCHANGED); Wrap embeds Base in wrap.go.
+    let parse = |p: &str, s: &str| (p.to_string(), prism::ast::ParsedFile::parse(p, s, Go).unwrap());
+    let mut v1 = BTreeMap::new();
+    v1.extend([
+        parse("base.go", "package p\ntype Base struct{}\nfunc (b Base) Ping() {}\n"),
+        parse("wrap.go", "package p\ntype Wrap struct {\n\tBase\n}\n"),
+    ]);
+    let cg_v1 = prism::call_graph::CallGraph::build(&v1);
     assert!(cg_v1.promoted_aliases.contains_key(&("Wrap".to_string(), "Ping".to_string())));
 
-    // v2: edit main.go to remove the embedding. Incremental rebuild must DROP the alias.
-    let mut files2 = BTreeMap::new();
-    files2.insert(
-        "main.go".to_string(),
-        prism::ast::ParsedFile::parse(
-            "main.go",
-            "package main\ntype Base struct{}\nfunc (b Base) Ping() {}\ntype Wrap struct{}\n",
-            Go,
-        )
-        .unwrap(),
-    );
-    let changed: BTreeSet<String> = ["main.go".to_string()].into_iter().collect();
-    let dfg = DataFlowGraph::build(&files);
-    let cpg = CodePropertyGraph::build_incremental(cg_v1, dfg, &changed, &files2, None);
+    // v2: wrap.go removes the embedding (base.go's fid file is UNCHANGED -> remove_files won't prune it).
+    let mut v2 = BTreeMap::new();
+    v2.extend([
+        parse("base.go", "package p\ntype Base struct{}\nfunc (b Base) Ping() {}\n"),
+        parse("wrap.go", "package p\ntype Wrap struct{}\n"),
+    ]);
+    let changed: BTreeSet<String> = ["wrap.go".to_string()].into_iter().collect();
+    let dfg = DataFlowGraph::build(&v2);
+    let cpg = CodePropertyGraph::build_incremental(cg_v1, dfg, &changed, &v2, None);
     assert!(
-        !cpg.call_graph().promoted_aliases.contains_key(&("Wrap".to_string(), "Ping".to_string())),
-        "stale promoted alias must be cleared on incremental rebuild"
+        !cpg.call_graph.promoted_aliases.contains_key(&("Wrap".to_string(), "Ping".to_string())),
+        "stale promoted alias must be cleared even though Base.Ping's file is unchanged"
     );
 }
 ```
 
-(Note: if `CodePropertyGraph` does not expose `call_graph()`, use the public accessor the codebase already provides for the merged CallGraph; check `src/cpg.rs` / `src/cpg/types.rs` for the field/getter and adjust this assertion to read `promoted_aliases` off it.)
+- [ ] **Step 2: Verify fails** — `cargo test --test integration resolution_test::go_embedding_dropped_on_incremental`
+Expected: FAIL — the stale `Wrap→Ping` alias survives (`merge` carried `methods`; `remove_files` prunes by `fid.file`=base.go which didn't change).
 
-- [ ] **Step 2: Run test to verify it fails**
-
-Run: `cargo test --test integration resolution_test::go_embedding_recomputed 2>&1 | tail -25`
-Expected: FAIL — the stale `Wrap→Ping` alias survives (merge carried it; no recompute).
-
-- [ ] **Step 3: Write minimal implementation**
-
-In `src/cpg/build.rs build_incremental`, after the merge (line 187), before `assemble_graph` (line 191), add:
+- [ ] **Step 3: Implement.** In `src/cpg/build.rs build_incremental`, after the merge (line 187), before `assemble_graph` (line 191):
 
 ```rust
-        // Step 3: Merge fresh into retained.
         cached_cg.merge(fresh_cg);
         cached_dfg.merge(fresh_dfg);
 
-        // Step 3b (Phase-IP): Go embedding promotion is whole-program — recompute
-        // (replace-not-merge) over ALL merged files so a removed/changed embedding
-        // does not leave a stale promoted alias (remove_files prunes methods by
-        // fid.file only).
+        // Phase-IP: Go embedding promotion is whole-program — recompute (replace-
+        // not-merge) over ALL merged files so a removed/changed embedding cannot
+        // leave a stale alias (remove_files prunes methods by fid.file only).
         cached_cg.apply_go_embedding_promotion(files);
 
-        // Step 4: Assemble the petgraph from the merged CG/DFG.
         Self::assemble_graph(cached_cg, cached_dfg, files, type_db)
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
-
-Run: `cargo test --test integration resolution_test::go_embedding_recomputed 2>&1 | tail -25`
+- [ ] **Step 4: Verify passes** — `cargo test --test integration resolution_test::go_embedding_dropped_on_incremental`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 5: Harness gate (touches CPG) + commit**
+
+```bash
+cargo build --release && (cd eval && uv run tier-a --matrix-only --allow-stale-sut)
+```
+Expected: exit 0; no `regression`. Then:
 
 ```bash
 git add src/cpg/build.rs tests/integration/resolution_test.rs
@@ -700,33 +568,23 @@ git commit -m "fix(go): recompute embedding promotion on incremental rebuild (re
 
 ---
 
-## Task 6: Bump `CACHE_VERSION` to 8
+## Task 5: Bump `CACHE_VERSION` to 8
 
-**Files:**
-- Modify: `src/cpg_cache.rs:44-47`
+**Files:** `src/cpg_cache.rs:44-47`.
 
-- [ ] **Step 1: Write the failing test**
-
-Add to `src/cpg_cache.rs` (inside the existing `#[cfg(test)] mod tests`):
+- [ ] **Step 1: Failing test** — add to `src/cpg_cache.rs` `#[cfg(test)] mod tests`:
 
 ```rust
     #[test]
     fn cache_version_is_8_for_embedding_fields() {
-        // promoted_aliases/embedding_gaps are new serialized CallGraph fields;
-        // bincode ignores serde(default), so the version bump is the format-safety
-        // mechanism (not GIT_SHA alone).
         assert_eq!(super::CACHE_VERSION, 8);
     }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [ ] **Step 2: Verify fails** — `cargo test --lib cpg_cache::tests::cache_version_is_8`
+Expected: FAIL (7 != 8).
 
-Run: `cargo test --lib cpg_cache::tests::cache_version_is_8 2>&1 | tail -20`
-Expected: FAIL — `assertion left == right` (7 != 8).
-
-- [ ] **Step 3: Write minimal implementation**
-
-In `src/cpg_cache.rs`, update the version constant + doc (line 44-47):
+- [ ] **Step 3: Implement** (lines 44-47):
 
 ```rust
 /// - v6: EFT CpgEdge::Call/Return carry ResolutionConfidence.
@@ -735,9 +593,7 @@ In `src/cpg_cache.rs`, update the version constant + doc (line 44-47):
 const CACHE_VERSION: u32 = 8; // bincode ignores serde(default) for new trailing fields.
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
-
-Run: `cargo test --lib cpg_cache::tests::cache_version_is_8 2>&1 | tail -20`
+- [ ] **Step 4: Verify passes** — `cargo test --lib cpg_cache::tests::cache_version_is_8`
 Expected: PASS.
 
 - [ ] **Step 5: Commit**
@@ -749,23 +605,20 @@ git commit -m "chore(cache): bump CACHE_VERSION 7->8 for Go embedding CallGraph 
 
 ---
 
-## Task 7: Surface embedding telemetry in `call-stats`
+## Task 6: `call-stats` embedding telemetry + ambiguity assertion
 
-**Files:**
-- Modify: `src/navigation/queries.rs:38-46` (`call_stats` JSON)
-- Test: `tests/cli/call_stats_test.rs`
+**Files:** `src/navigation/queries.rs:38-46`; `tests/cli/call_stats_test.rs`.
 
-- [ ] **Step 1: Write the failing test**
-
-Append to `tests/cli/call_stats_test.rs`:
+- [ ] **Step 1: Failing test** — append to `tests/cli/call_stats_test.rs`:
 
 ```rust
 #[test]
-fn call_stats_reports_embedded_promotion_kind() {
+fn call_stats_reports_embedded_promotion_and_ambiguity() {
     let dir = tempfile::tempdir().unwrap();
+    // One resolved promotion (Wrap.Ping) + one equal-depth ambiguity (A.M via X,Y).
     std::fs::write(
         dir.path().join("main.go"),
-        "package main\ntype Base struct{}\nfunc (b Base) Ping() {}\ntype Wrap struct {\n\tBase\n}\nfunc run(w Wrap) {\n\tw.Ping()\n}\n",
+        "package main\ntype Base struct{}\nfunc (b Base) Ping() {}\ntype Wrap struct {\n\tBase\n}\nfunc run(w Wrap) {\n\tw.Ping()\n}\ntype X struct{}\nfunc (x X) M() {}\ntype Y struct{}\nfunc (y Y) M() {}\ntype A struct {\n\tX\n\tY\n}\n",
     )
     .unwrap();
     let out = Command::cargo_bin("prism")
@@ -777,20 +630,14 @@ fn call_stats_reports_embedded_promotion_kind() {
     assert!(out.status.success(), "stderr: {}", String::from_utf8_lossy(&out.stderr));
     let v: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
     assert_eq!(v["kinds"]["embedded_promotion"], 1);
-    assert!(v["embedding_gaps"].is_object());
+    assert_eq!(v["embedding_gaps"]["ambiguous"], 1);
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [ ] **Step 2: Verify fails** — `cargo test --test cli call_stats_test::call_stats_reports_embedded_promotion_and_ambiguity`
+Expected: FAIL — `embedding_gaps` absent (`null`). (`kinds.embedded_promotion` is already populated automatically since `call_stats` keys off `c.kind.as_str()`, queries.rs:31.)
 
-Run: `cargo test --test cli call_stats_test::call_stats_reports_embedded_promotion 2>&1 | tail -25`
-Expected: FAIL — `embedding_gaps` key absent (`null`), `kinds.embedded_promotion` absent.
-
-The `kinds` histogram already includes `embedded_promotion` automatically (queries.rs:31 keys off `c.kind.as_str()`), so only `embedding_gaps` needs surfacing.
-
-- [ ] **Step 3: Write minimal implementation**
-
-In `src/navigation/queries.rs call_stats`, add `embedding_gaps` to the JSON (line 38-46):
+- [ ] **Step 3: Implement.** Add `embedding_gaps` to the `call_stats` JSON (queries.rs:38-46):
 
 ```rust
     serde_json::json!({
@@ -805,42 +652,43 @@ In `src/navigation/queries.rs call_stats`, add `embedding_gaps` to the JSON (lin
     })
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
-
-Run: `cargo test --test cli call_stats_test::call_stats_reports_embedded_promotion 2>&1 | tail -25`
+- [ ] **Step 4: Verify passes** — `cargo test --test cli call_stats_test::call_stats_reports_embedded_promotion_and_ambiguity`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 5: Harness gate (touches navigation) + commit**
+
+```bash
+cargo build --release && (cd eval && uv run tier-a --matrix-only --allow-stale-sut)
+```
+Expected: exit 0; no `regression`. Then:
 
 ```bash
 git add src/navigation/queries.rs tests/cli/call_stats_test.rs
-git commit -m "feat(nav): surface embedding_gaps in call-stats; EmbeddedPromotion kind histogrammed"
+git commit -m "feat(nav): surface embedding_gaps in call-stats; assert EmbeddedPromotion + ambiguous counter"
 ```
 
 ---
 
-## Task 8: Flip the capability fixture
+## Task 7: Flip the capability fixture
 
-**Files:**
-- Modify: `eval/fixtures/go/embedded_method/expected.toml`
+**Files:** `eval/fixtures/go/embedded_method/expected.toml`.
 
-- [ ] **Step 1: Verify the gap is now a flip candidate (pre-change)**
+- [ ] **Step 1: Confirm flip-candidate (pre-change)**
 
-Run: `cargo build --release && cd eval && uv run tier-a --matrix-only --allow-stale-sut 2>&1 | grep -i embedded_method; cd ..`
-Expected: `embedded_method` reports `flip_candidate` (status is still `known_fail` but the resolver now matches the expected caller). If it still reports `expected_gap`, Task 4 is incomplete — stop and fix.
+```bash
+cargo build --release && (cd eval && uv run tier-a --matrix-only --allow-stale-sut) | grep -i embedded_method
+```
+Expected line contains `flip_candidate`. (The `grep` is for display only here — the build/run ran in the subshell with its own exit; if unsure, run the subshell alone and read the full output.) If it still says `expected_gap`, Task 3 is incomplete — stop.
 
-- [ ] **Step 2: Flip the fixture status**
-
-Edit `eval/fixtures/go/embedded_method/expected.toml` — replace the `status` line and rationale comment:
+- [ ] **Step 2: Flip the fixture.** Edit `eval/fixtures/go/embedded_method/expected.toml`:
 
 ```toml
 [case]
 language = "go"
 capability = "embedded_method"
-# Phase-IP (2026-06-15): RESOLVED. `w.Ping()` where Wrap embeds Base now resolves —
-# CallGraph::build promotes the embedded Base.Ping into Wrap's owner index
-# (apply_go_embedding_promotion), so owner_lookup hits and the seam labels it
-# EmbeddedPromotion (Exact). See docs/superpowers/specs/2026-06-15-prism-phase-ip-go-embedding-design.md.
+# Phase-IP (2026-06-15): RESOLVED. CallGraph::build promotes the embedded Base.Ping
+# into Wrap's owner index (apply_go_embedding_promotion); owner_lookup hits and
+# labels it EmbeddedPromotion (Exact). See the Go embedding spec.
 status = "pass"
 [seed]
 symbol = "Ping"
@@ -853,10 +701,12 @@ line = 12
 exact = true
 ```
 
-- [ ] **Step 3: Verify the fixture now passes**
+- [ ] **Step 3: Verify pass + no regression**
 
-Run: `cargo build --release && cd eval && uv run tier-a --matrix-only --allow-stale-sut 2>&1 | grep -iE 'embedded_method|interface_dispatch|regression'; cd ..`
-Expected: `embedded_method` → `ok`; `interface_dispatch` stays `expected_gap` (deferred); **no** `regression` lines anywhere.
+```bash
+cargo build --release && (cd eval && uv run tier-a --matrix-only --allow-stale-sut)
+```
+Read the full output: `embedded_method` → `ok`; `interface_dispatch` still `expected_gap`; **no** `regression`.
 
 - [ ] **Step 4: Commit**
 
@@ -867,54 +717,43 @@ git commit -m "test(eval): flip go/embedded_method known_fail -> pass (Phase-IP 
 
 ---
 
-## Task 9: Full repo validation + final commit
+## Task 8: Full repo validation
 
-**Files:** none (validation only)
+**Files:** none.
 
-- [ ] **Step 1: Format**
+- [ ] **Step 1: Format** — `cargo fmt` then `cargo fmt --check` (expect exit 0).
 
-Run: `cargo fmt`
-Then: `cargo fmt --check` — Expected: clean (exit 0).
+- [ ] **Step 2: Full suite (pipefail so failures aren't masked)**
 
-- [ ] **Step 2: Full test suite (default + mcp features)**
+```bash
+set -o pipefail
+cargo test 2>&1 | tail -40
+cargo test --features mcp 2>&1 | tail -20
+```
+Expected: both exit 0 (pipefail propagates a test failure through `tail`).
 
-Run: `cargo test 2>&1 | tail -30`
-Expected: all PASS.
-Run: `cargo test --features mcp 2>&1 | tail -15`
-Expected: all PASS.
+- [ ] **Step 3: Tier-A matrix + quick**
 
-- [ ] **Step 3: Tier-A matrix + quick (accuracy harness)**
-
-Run: `cargo build --release && cd eval && uv run tier-a --matrix-only --allow-stale-sut 2>&1 | tail -30; cd ..`
-Expected: exit 0; `go/embedded_method` `ok`; no `regression`.
-Run: `cd eval && uv run tier-a --quick --allow-stale-sut 2>&1 | tail -30; cd ..`
-Expected: exit 0; no new regressions vs the committed baseline. Paste any regression/flip-candidate lines into the PR description (do **not** re-baseline — full-corpus runs are human-triggered, spec §11).
+```bash
+cargo build --release && (cd eval && uv run tier-a --matrix-only --allow-stale-sut)
+cargo build --release && (cd eval && uv run tier-a --quick --allow-stale-sut)
+```
+Expected: exit 0; `go/embedded_method` `ok`; no `regression`. Paste any regression/flip-candidate lines into the PR (do **not** re-baseline — full-corpus runs are human-triggered, spec §11).
 
 - [ ] **Step 4: Commit any fmt-only changes**
 
 ```bash
-git add -A
-git commit -m "chore: cargo fmt" || echo "nothing to format"
+git add -A && git commit -m "chore: cargo fmt" || echo "nothing to format"
 ```
 
 ---
 
 ## Self-Review
 
-**1. Spec coverage** (each spec section → task):
-- §0/§4 embedding promotion (owner-index dual-key, transitive, direct-wins, equal-depth drop) → Tasks 1, 4.
-- §2 consume registry-independent `GoTypeProvider` in `CallGraph::build` → Tasks 1, 4.
-- §3 confidence Exact + `EmbeddedPromotion` kind → Tasks 2, 4.
-- §5 receiver recovery + addressability → Task 4 (typed-param fixture; addressability is the existing recovery surface — value selectors of value-receiver methods covered; pointer-receiver-of-addressable is the same FunctionId so no extra code; non-addressable bases never reach the recovered-receiver seam).
-- §6 `normalize_go_struct_key` (owner_key + generic strip; pkg. deferred) → Task 3, applied in Tasks 4 (recover_receiver + alias keys).
-- §7 gap contract (ambiguity counter) → Tasks 4 (count) + 7 (surface). **Note:** the spec listed three gap counters; this plan ships the `"ambiguous"` counter (the meaningful one) and skips embedded-interface/generic counters as silent (generics are *resolved* via stripping, not gapped; embedded interfaces are skipped in Task 1). A one-line spec trim is warranted (see below).
-- §8 failure modes → Tasks 1, 4 tests.
-- §9 cache v8 + replace-not-merge across build/incremental; build_scoped best-effort → Tasks 5, 6 (build + incremental). `build_scoped` is **not** modified: it builds the CallGraph over its scoped subset, so embedding is scoped/best-effort there exactly as the spec's §9 states (nav builds over all files → metric safe). No task needed; documented here as intentional.
-- §10 tests + matrix flip → Tasks 4, 7, 8, 9.
-- §11 human-triggered caddy rerun → out of plan scope (noted in Task 9 Step 3).
+**Spec coverage:** §4 promotion → Tasks 1,3. §5 receiver/addressability → Task 3 (`go_embedded_pointer_receiver_addressable_resolves`). §6 keys (owner_key; generics/pkg gap) → Task 3 (alias key via `owner_key`; no normalize). §7 gap (ambiguity counter; interface skip; generics gap) → Tasks 1 (skip/shadow), 3 (ambiguous), 6 (surface). §8 failure modes → Tasks 1,3 tests. §9 cache v8 + replace-not-merge (build/incremental; scoped best-effort, not modified) → Tasks 4,5. §10 tests + matrix → Tasks 3,4,6,7,8. §11 human-triggered → Task 8 note.
 
-**2. Placeholder scan:** none. Every code step shows complete code. The two "if the codebase differs, adjust" notes (Task 5 `call_graph()` accessor; Task 4 `build()` tail shape) are guardrails for exact-line drift, with the rule stated, not placeholders.
+**Placeholder scan:** none — every step has complete code/commands.
 
-**3. Type consistency:** `PromotedMethod {struct_name, method, func_id, depth}` (Task 1) is consumed unchanged in Task 4. `promoted_aliases: BTreeMap<(String,String), Vec<FunctionId>>` and `embedding_gaps: BTreeMap<String,usize>` (Task 4 fields) are read in Task 5 (`promoted_aliases`), Task 7 (`embedding_gaps`). `normalize_go_struct_key` (Task 3) used in Task 4 (recover_receiver + alias keys) and is the same fn the seam's `recv_ty` already carries (Task 4 3d). `ResolutionKind::EmbeddedPromotion` (Task 2) set in Task 4 seam, read in Task 7 via `as_str`. Consistent.
+**Type consistency:** `PromotedMethod{struct_name,method,func_id,depth}` (Task 1) consumed in Task 3. `promoted_aliases: BTreeMap<(String,String),Vec<FunctionId>>` + `embedding_gaps: BTreeMap<String,usize>` (Task 3) read in Task 4 (`promoted_aliases`), Task 6 (`embedding_gaps`). `EmbeddedPromotion` (Task 2) set in `owner_lookup` (Task 3), read in Task 6 via `as_str`. `owner_key` (existing) used for the alias key; no `normalize_go_struct_key`.
 
-**Spec trim to apply before execution:** in the embedding spec, narrow §7 to the `"ambiguous"` gap counter and state that generic structs are **resolved** via `normalize_go_struct_key` stripping `[…]` (not a gap), and embedded-interface fields are skipped in `promoted_struct_methods` (deferred to the interface spec, no counter). This matches Tasks 1/3/4/7.
+**Spec edits applied alongside this rev2:** §3/§6/§7/§8/§12 reverted to **generics gap** (drop the normalize/[…]-strip claim); §9 strike the build_scoped "Requires threading full files" clause (best-effort is the chosen reading); §10 the key-normalization test targets `*Wrap` + a generic-receiver **gap** assertion (not `pkg.Wrap`, which is deferred).
