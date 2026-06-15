@@ -25,6 +25,14 @@ fn site_in(cg: &CallGraph, caller_name: &str, callee: &str) -> CallSite {
 }
 
 #[test]
+fn interface_dispatch_kind_as_str() {
+    assert_eq!(
+        prism::resolution::ResolutionKind::InterfaceDispatch.as_str(),
+        "interface_dispatch"
+    );
+}
+
+#[test]
 fn r1_type_qualified_call_resolves_to_owner_method_exact() {
     use prism::languages::Language::Rust;
     let (cg, _) = build(&[

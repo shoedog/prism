@@ -31,6 +31,7 @@ pub enum ResolutionKind {
     StemSingle,
     StemMulti,
     EmbeddedPromotion,
+    InterfaceDispatch,
 }
 
 impl ResolutionKind {
@@ -52,6 +53,7 @@ impl ResolutionKind {
             ResolutionKind::StemSingle => "stem_single",
             ResolutionKind::StemMulti => "stem_multi",
             ResolutionKind::EmbeddedPromotion => "embedded_promotion",
+            ResolutionKind::InterfaceDispatch => "interface_dispatch",
         }
     }
 }
