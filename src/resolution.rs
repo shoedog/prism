@@ -200,12 +200,17 @@ impl CallGraph {
     /// Owner-index lookup that knows whether the key is a multi-impl trait key.
     fn owner_lookup(&self, owner: &str, name: &str) -> Option<Vec<ResolvedCallee<'_>>> {
         let mut resolved = self.owner_lookup_in_modules(owner, name, &[])?;
-        if self
+        // Relabel ONLY the promoted FunctionIds (defensive: direct-wins means a
+        // promoted key has no direct method, but label by fid so a future mixed
+        // bucket can't mislabel a non-promoted callee).
+        if let Some(fids) = self
             .promoted_aliases
-            .contains_key(&(owner.to_string(), name.to_string()))
+            .get(&(owner.to_string(), name.to_string()))
         {
             for c in &mut resolved {
-                c.kind = ResolutionKind::EmbeddedPromotion;
+                if fids.contains(c.target) {
+                    c.kind = ResolutionKind::EmbeddedPromotion;
+                }
             }
         }
         Some(resolved)

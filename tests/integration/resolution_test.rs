@@ -909,3 +909,39 @@ fn go_embedding_dropped_on_incremental_when_embedding_file_changes() {
         "stale promoted alias must be cleared even though Base.Ping's file is unchanged"
     );
 }
+
+#[test]
+fn go_remove_files_clears_promoted_aliases_cross_file() {
+    // Hardening: remove_files alone (no re-apply) must not leave a stale promoted alias
+    // whose target fid lives in an UNCHANGED file (by-fid.file pruning can't catch it).
+    use prism::languages::Language::Go;
+    use std::collections::{BTreeMap, BTreeSet};
+    let parse = |p: &str, s: &str| {
+        (
+            p.to_string(),
+            prism::ast::ParsedFile::parse(p, s, Go).unwrap(),
+        )
+    };
+    let mut files = BTreeMap::new();
+    files.extend([
+        parse(
+            "base.go",
+            "package p\ntype Base struct{}\nfunc (b Base) Ping() {}\n",
+        ),
+        parse("wrap.go", "package p\ntype Wrap struct {\n\tBase\n}\n"),
+    ]);
+    let mut cg = prism::call_graph::CallGraph::build(&files);
+    let key = ("Wrap".to_string(), "Ping".to_string());
+    assert!(cg.promoted_aliases.contains_key(&key));
+    // Remove ONLY wrap.go; base.go (the alias target's file) is untouched.
+    let excl: BTreeSet<String> = ["wrap.go".to_string()].into_iter().collect();
+    cg.remove_files(&excl);
+    assert!(
+        cg.promoted_aliases.is_empty(),
+        "remove_files clears promoted aliases"
+    );
+    assert!(
+        !cg.methods.contains_key(&key),
+        "stale promoted alias dropped from methods despite base.go unchanged"
+    );
+}

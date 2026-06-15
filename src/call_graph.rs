@@ -760,6 +760,12 @@ impl CallGraph {
             .retain(|fid, _| !exclude.contains(&fid.file));
         self.receiver_vars
             .retain(|fid, _| !exclude.contains(&fid.file));
+
+        // Promoted embedding aliases are whole-program; drop them all so no caller
+        // that merges without re-applying promotion leaves a stale alias (by-fid.file
+        // pruning can't catch an alias whose target fid lives in an unchanged file).
+        // `apply_go_embedding_promotion` repopulates from all files.
+        self.clear_promoted_embedding();
     }
 
     /// Merge another CallGraph into this one.
@@ -785,10 +791,11 @@ impl CallGraph {
         self.receiver_vars.extend(other.receiver_vars);
     }
 
-    /// Recompute Go embedding promotions over `files` and write owner-index aliases.
-    /// Idempotent: clears prior aliases first (incremental replace).
-    pub fn apply_go_embedding_promotion(&mut self, files: &BTreeMap<String, ParsedFile>) {
-        // 1. Remove prior promoted aliases, preserving any direct methods on the key.
+    /// Remove all promoted embedding aliases from the owner index (preserving any
+    /// direct method on the same key) and clear the alias + gap maps. Idempotent.
+    /// Shared by `apply_go_embedding_promotion` (step 1) and `remove_files`, so no
+    /// incremental path can leave a stale promoted alias even if it never re-applies.
+    fn clear_promoted_embedding(&mut self) {
         let prior = std::mem::take(&mut self.promoted_aliases);
         for (key, fids) in &prior {
             if let Some(v) = self.methods.get_mut(key) {
@@ -799,6 +806,13 @@ impl CallGraph {
             }
         }
         self.embedding_gaps.clear();
+    }
+
+    /// Recompute Go embedding promotions over `files` and write owner-index aliases.
+    /// Idempotent: clears prior aliases first (incremental replace).
+    pub fn apply_go_embedding_promotion(&mut self, files: &BTreeMap<String, ParsedFile>) {
+        // 1. Remove prior promoted aliases (preserving direct methods on the key).
+        self.clear_promoted_embedding();
         if !files
             .values()
             .any(|p| p.language == crate::languages::Language::Go)
