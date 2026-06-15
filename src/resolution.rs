@@ -87,6 +87,37 @@ pub fn owner_key(text: &str) -> String {
     t.trim().to_string()
 }
 
+/// Interface lookup key (Go): strip `&`/`*` and a `pkg.` qualifier to the bare
+/// interface name. Returns `None` for a generic instantiation (`Foo[T]`), which
+/// is non-dispatchable (a recorded gap, never a key) — spec §6/§10.
+pub fn iface_key(text: &str) -> Option<String> {
+    let t = text
+        .trim()
+        .trim_start_matches('&')
+        .trim_start_matches('*')
+        .trim();
+    if t.contains('[') {
+        return None; // generic instantiation -> gap, not a key
+    }
+    let bare = t.rsplit('.').next().unwrap_or(t).trim();
+    if bare.is_empty() {
+        None
+    } else {
+        Some(bare.to_string())
+    }
+}
+
+/// Admission key (Go method-set asymmetry): a value-receiver satisfier admits as
+/// `T`; a pointer-receiver-only satisfier admits as `*T` (spec §7). Bare `T` must
+/// already be normalized (no `pkg.`).
+pub fn admission_key(bare_type: &str, is_pointer: bool) -> String {
+    if is_pointer {
+        format!("*{bare_type}")
+    } else {
+        bare_type.to_string()
+    }
+}
+
 /// Closed-list syntactic peel (spec section 2.3): refs/pointers and std wrappers,
 /// recursively; then generic args; then dyn/impl. NEVER Deref-semantic.
 pub fn peel_type(text: &str) -> String {

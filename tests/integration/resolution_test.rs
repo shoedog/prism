@@ -1,4 +1,5 @@
 use prism::call_graph::{CallGraph, CallSite};
+use prism::resolution::{admission_key, iface_key};
 use prism::resolution::{DropReason, ResolutionConfidence, ResolutionKind};
 use std::collections::BTreeMap;
 
@@ -30,6 +31,25 @@ fn interface_dispatch_kind_as_str() {
         prism::resolution::ResolutionKind::InterfaceDispatch.as_str(),
         "interface_dispatch"
     );
+}
+
+#[test]
+fn iface_key_strips_pkg_and_pointer() {
+    assert_eq!(iface_key("Runner").as_deref(), Some("Runner"));
+    assert_eq!(iface_key("io.Reader").as_deref(), Some("Reader"));
+    assert_eq!(iface_key("*Runner").as_deref(), Some("Runner"));
+}
+
+#[test]
+fn iface_key_gaps_on_generic_instantiation() {
+    assert_eq!(iface_key("Container[T]"), None);
+    assert_eq!(iface_key("pkg.Map[string,int]"), None);
+}
+
+#[test]
+fn admission_key_distinguishes_pointer() {
+    assert_eq!(admission_key("Fast", false), "Fast");
+    assert_eq!(admission_key("Fast", true), "*Fast");
 }
 
 #[test]
