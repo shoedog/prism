@@ -44,7 +44,7 @@ use std::path::{Path, PathBuf};
 /// - v4: CallGraph methods/owner indexes + CallSite.receiver_type (S3)
 /// - v5: S2 node bytes + VarLocation identity + CallSite bytes.
 /// - v6: EFT CpgEdge::Call/Return carry ResolutionConfidence.
-const CACHE_VERSION: u32 = 6; // EFT: CpgEdge::Call/Return carry ResolutionConfidence.
+const CACHE_VERSION: u32 = 7; // + git_sha in cache key (resolver auto-invalidation, S3-deferred #4).
 
 pub const SKIP_POLICY_VERSION: u32 = 1;
 
@@ -57,6 +57,10 @@ struct CpgCache {
     prism_version: String,
     /// Build-time fingerprint of tree-sitter grammar versions.
     grammar_fingerprint: String,
+    /// Build git SHA (env `GIT_SHA`). Any rebuild at a new commit invalidates, so a
+    /// resolver-behavior change auto-invalidates warm caches without a manual
+    /// `CACHE_VERSION` bump (S3-deferred #4).
+    git_sha: String,
     /// Version of parser skip-policy behavior included in the cache key.
     skip_policy_version: u32,
     /// Per-file content hashes (SHA-256 hex) at time of cache creation.
@@ -164,6 +168,7 @@ pub fn save_cache(
         version: CACHE_VERSION,
         prism_version: env!("CARGO_PKG_VERSION").to_string(),
         grammar_fingerprint: env!("GRAMMAR_FINGERPRINT").to_string(),
+        git_sha: env!("GIT_SHA").to_string(),
         skip_policy_version: SKIP_POLICY_VERSION,
         file_hashes: file_hashes.clone(),
         has_type_db,
@@ -282,6 +287,19 @@ pub fn load_cache(
     if cache.grammar_fingerprint != env!("GRAMMAR_FINGERPRINT")
         || cache.skip_policy_version != SKIP_POLICY_VERSION
     {
+        return CacheResult::Miss;
+    }
+
+    // Resolver/binary identity: a rebuild at a new commit (or a clean<->dirty flip)
+    // invalidates, so a resolver-behavior change auto-invalidates warm nav/CPG caches
+    // without a manual CACHE_VERSION bump (S3-deferred #4). Dirty-vs-dirty dev iteration
+    // shares a `-dirty` git_sha — that path relies on --no-cache.
+    if cache.git_sha != env!("GIT_SHA") {
+        eprintln!(
+            "Cache git_sha mismatch (cached: {}, current: {}), rebuilding",
+            cache.git_sha,
+            env!("GIT_SHA")
+        );
         return CacheResult::Miss;
     }
 
@@ -649,6 +667,39 @@ mod tests {
             version: CACHE_VERSION,
             prism_version: env!("CARGO_PKG_VERSION").into(),
             grammar_fingerprint: "deadbeef".into(),
+            git_sha: env!("GIT_SHA").into(),
+            skip_policy_version: SKIP_POLICY_VERSION,
+            file_hashes: hashes.clone(),
+            has_type_db: false,
+            graph: SerializedCpg {
+                nodes: vec![],
+                edges: vec![],
+                call_graph: CallGraph::empty(),
+                dfg: DataFlowGraph::empty(),
+            },
+        };
+        std::fs::write(
+            dir.path().join("cpg-cache.bin"),
+            bincode::serialize(&bad).unwrap(),
+        )
+        .unwrap();
+        assert!(matches!(
+            load_cache(&hashes, false, dir.path()),
+            CacheResult::Miss
+        ));
+    }
+
+    #[test]
+    fn wrong_git_sha_misses() {
+        // A warm cache built at a different prism commit must NOT be served — this is
+        // what auto-invalidates a resolver change (Phase-IP etc.) with no CACHE_VERSION bump.
+        let dir = tempfile::tempdir().unwrap();
+        let hashes: BTreeMap<String, String> = BTreeMap::from([("a.py".into(), "h".into())]);
+        let bad = CpgCache {
+            version: CACHE_VERSION,
+            prism_version: env!("CARGO_PKG_VERSION").into(),
+            grammar_fingerprint: env!("GRAMMAR_FINGERPRINT").into(),
+            git_sha: "0000000000000000-stale".into(),
             skip_policy_version: SKIP_POLICY_VERSION,
             file_hashes: hashes.clone(),
             has_type_db: false,
