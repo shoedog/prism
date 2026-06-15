@@ -199,7 +199,16 @@ fn is_simple_ident(s: &str) -> bool {
 impl CallGraph {
     /// Owner-index lookup that knows whether the key is a multi-impl trait key.
     fn owner_lookup(&self, owner: &str, name: &str) -> Option<Vec<ResolvedCallee<'_>>> {
-        self.owner_lookup_in_modules(owner, name, &[])
+        let mut resolved = self.owner_lookup_in_modules(owner, name, &[])?;
+        if self
+            .promoted_aliases
+            .contains_key(&(owner.to_string(), name.to_string()))
+        {
+            for c in &mut resolved {
+                c.kind = ResolutionKind::EmbeddedPromotion;
+            }
+        }
+        Some(resolved)
     }
 
     /// Like `owner_lookup`, but for a qualified `mod::T::m` call the preceding

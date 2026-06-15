@@ -749,3 +749,116 @@ fn p6_lifetime_typed_param_recovers_among_collisions() {
     assert_eq!(r[0].target.file, "a.rs");
     assert_eq!(r[0].confidence, ResolutionConfidence::Exact);
 }
+
+#[test]
+fn go_embedded_method_resolves_exact() {
+    use prism::languages::Language::Go;
+    let (cg, _) = build(&[(
+        "main.go",
+        "package main\ntype Base struct{}\nfunc (b Base) Ping() {}\ntype Wrap struct {\n\tBase\n}\nfunc run(w Wrap) {\n\tw.Ping()\n}\n",
+        Go,
+    )]);
+    let site = site_in(&cg, "run", "Ping");
+    let r = cg.resolve_call_site(&site);
+    assert_eq!(r.len(), 1);
+    assert_eq!(r[0].target.name, "Ping");
+    assert_eq!(r[0].target.file, "main.go");
+    assert_eq!(r[0].confidence, ResolutionConfidence::Exact);
+    assert_eq!(r[0].kind, ResolutionKind::EmbeddedPromotion);
+}
+
+#[test]
+fn go_embedded_transitive_resolves() {
+    use prism::languages::Language::Go;
+    let (cg, _) = build(&[(
+        "main.go",
+        "package main\ntype C struct{}\nfunc (c C) M() {}\ntype B struct{ C }\ntype A struct{ B }\nfunc run(a A) {\n\ta.M()\n}\n",
+        Go,
+    )]);
+    let r = cg.resolve_call_site(&site_in(&cg, "run", "M"));
+    assert_eq!(r.len(), 1);
+    assert_eq!(r[0].kind, ResolutionKind::EmbeddedPromotion);
+}
+
+#[test]
+fn go_embedded_pointer_receiver_addressable_resolves() {
+    use prism::languages::Language::Go;
+    let (cg, _) = build(&[(
+        "main.go",
+        "package main\ntype Base struct{}\nfunc (b *Base) Ping() {}\ntype Wrap struct {\n\tBase\n}\nfunc run(w Wrap) {\n\tw.Ping()\n}\n",
+        Go,
+    )]);
+    let r = cg.resolve_call_site(&site_in(&cg, "run", "Ping"));
+    assert_eq!(
+        r.len(),
+        1,
+        "addressable value receiver can call a pointer-receiver promoted method"
+    );
+    assert_eq!(r[0].kind, ResolutionKind::EmbeddedPromotion);
+}
+
+#[test]
+fn go_embedded_method_labeled_on_receiver_var_path() {
+    use prism::languages::Language::Go;
+    // The call is via the method receiver `w` (self/receiver-var path, not P6-lite param).
+    let (cg, _) = build(&[(
+        "main.go",
+        "package main\ntype Base struct{}\nfunc (b Base) Ping() {}\ntype Wrap struct {\n\tBase\n}\nfunc (w Wrap) Run() {\n\tw.Ping()\n}\n",
+        Go,
+    )]);
+    let r = cg.resolve_call_site(&site_in(&cg, "Run", "Ping"));
+    assert_eq!(r.len(), 1);
+    assert_eq!(
+        r[0].kind,
+        ResolutionKind::EmbeddedPromotion,
+        "relabel must apply on the receiver-var path too"
+    );
+}
+
+#[test]
+fn go_direct_method_wins_over_promoted() {
+    use prism::languages::Language::Go;
+    let (cg, _) = build(&[(
+        "main.go",
+        "package main\ntype Base struct{}\nfunc (b Base) Ping() {}\ntype Wrap struct {\n\tBase\n}\nfunc (w Wrap) Ping() {}\nfunc run(w Wrap) {\n\tw.Ping()\n}\n",
+        Go,
+    )]);
+    let r = cg.resolve_call_site(&site_in(&cg, "run", "Ping"));
+    assert_eq!(r.len(), 1);
+    assert_eq!(r[0].target.start_line, 7, "direct Wrap.Ping (line 7) wins");
+    assert_ne!(r[0].kind, ResolutionKind::EmbeddedPromotion);
+}
+
+#[test]
+fn go_equal_depth_embedding_ambiguity_drops() {
+    use prism::languages::Language::Go;
+    use prism::resolution::DropReason;
+    let (cg, _) = build(&[(
+        "main.go",
+        "package main\ntype X struct{}\nfunc (x X) M() {}\ntype Y struct{}\nfunc (y Y) M() {}\ntype A struct {\n\tX\n\tY\n}\nfunc run(a A) {\n\ta.M()\n}\n",
+        Go,
+    )]);
+    let out = cg.resolve_call_site_full(&site_in(&cg, "run", "M"));
+    assert!(
+        out.resolved.is_empty(),
+        "equal-depth M is ambiguous -> not promoted"
+    );
+    assert!(matches!(
+        out.drop,
+        Some(DropReason::ExternalReceiver) | Some(DropReason::MultiOwnerCollision)
+    ));
+}
+
+#[test]
+fn go_embedded_interface_field_not_promoted() {
+    use prism::languages::Language::Go;
+    let (cg, _) = build(&[(
+        "main.go",
+        "package main\ntype R interface { Read() }\ntype S struct {\n\tR\n}\nfunc run(s S) {\n\ts.Read()\n}\n",
+        Go,
+    )]);
+    assert!(cg
+        .resolve_call_site_full(&site_in(&cg, "run", "Read"))
+        .resolved
+        .is_empty());
+}
