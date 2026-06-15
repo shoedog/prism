@@ -41,12 +41,19 @@ struct GoStruct {
     name: String,
     /// Fields: (name, type_string). Anonymous/embedded fields have name == type.
     fields: Vec<(String, String)>,
-    /// Embedded type names (for promoted methods).
-    embedded: Vec<String>,
+    /// Embedded fields (for promoted methods).
+    embedded: Vec<GoEmbeddedField>,
     /// Source file path.
     file: String,
     /// Line number of the type declaration.
     line: usize,
+}
+
+/// An embedded struct field, preserving whether it was written as `T` or `*T`.
+#[derive(Debug, Clone)]
+struct GoEmbeddedField {
+    name: String,
+    is_pointer: bool,
 }
 
 /// A Go interface definition.
@@ -55,10 +62,12 @@ struct GoStruct {
 struct GoInterface {
     /// Interface name.
     name: String,
-    /// Method signatures: method_name → parameter/return signature string.
-    methods: BTreeMap<String, String>,
+    /// Method signatures: method_name → canonical parameter/return signature.
+    methods: BTreeMap<String, Result<String, GoDispatchGap>>,
     /// Embedded interfaces.
     embedded: Vec<String>,
+    /// Whether the enclosing type_spec carries type parameters.
+    generic: bool,
     /// Source file path.
     file: String,
 }
@@ -73,8 +82,10 @@ struct GoMethod {
     receiver_type: String,
     /// Whether the receiver is a pointer receiver (*T).
     is_pointer_receiver: bool,
-    /// Signature string for interface matching (parameter types → return types).
-    signature: String,
+    /// Canonical signature for interface matching (parameter types → return types).
+    signature: Result<String, GoDispatchGap>,
+    /// Whether the method declaration carries type parameters.
+    generic: bool,
     /// Source file.
     file: String,
     /// Start line.
@@ -90,6 +101,12 @@ pub struct PromotedMethod {
     pub method: String,
     pub func_id: FunctionId,
     pub depth: usize,
+}
+
+#[derive(Debug, Clone)]
+struct PromotedMethodCandidate {
+    promoted: PromotedMethod,
+    value_method_set: bool,
 }
 
 // ---------------------------------------------------------------------------
@@ -109,6 +126,24 @@ pub struct GoTypeData {
     aliases: BTreeMap<String, String>,
     /// Precomputed interface satisfaction: interface_name → set of concrete types.
     satisfaction: BTreeMap<String, BTreeSet<String>>,
+    /// Full-interface satisfier admission keys: (interface, method) → (T/*T, method id).
+    sat_keys: BTreeMap<(String, String), Vec<(String, FunctionId)>>,
+    /// Fail-closed dispatch gaps observed during canonical satisfaction.
+    dispatch_gaps: Vec<GoDispatchGap>,
+    /// Over-approximations admitted during canonical satisfaction.
+    dispatch_overapprox: Vec<GoDispatchOverApprox>,
+}
+
+#[derive(Debug, Clone)]
+struct CanonMethod {
+    signature: String,
+    func_id: FunctionId,
+}
+
+#[derive(Debug, Default)]
+struct ReceiverMethodSet {
+    value: BTreeMap<String, CanonMethod>,
+    pointer: BTreeMap<String, CanonMethod>,
 }
 
 /// Go type provider that extracts struct/interface definitions and method sets
@@ -130,6 +165,9 @@ impl GoTypeProvider {
             methods: BTreeMap::new(),
             aliases: BTreeMap::new(),
             satisfaction: BTreeMap::new(),
+            sat_keys: BTreeMap::new(),
+            dispatch_gaps: Vec::new(),
+            dispatch_overapprox: Vec::new(),
         };
 
         for (path, parsed) in files {
@@ -222,13 +260,18 @@ impl GoTypeProvider {
                 );
             }
             "interface_type" => {
-                let (methods, embedded) = Self::extract_interface_methods(&type_node, parsed);
+                let generic = Self::has_generic_syntax(node)
+                    || Self::interface_type_has_type_set(&type_node, parsed);
+                let (methods, embedded, overapprox) =
+                    Self::extract_interface_methods(&type_node, parsed);
+                data.dispatch_overapprox.extend(overapprox);
                 data.interfaces.insert(
                     name.clone(),
                     GoInterface {
                         name,
                         methods,
                         embedded,
+                        generic,
                         file: path.to_string(),
                     },
                 );
@@ -241,6 +284,76 @@ impl GoTypeProvider {
                 }
             }
         }
+    }
+
+    fn has_generic_syntax(node: &tree_sitter::Node) -> bool {
+        Self::node_has_any_kind(
+            node,
+            &["type_parameter_list", "generic_type", "type_arguments"],
+        )
+    }
+
+    fn interface_type_has_type_set(node: &tree_sitter::Node, parsed: &ParsedFile) -> bool {
+        if node.kind() != "interface_type" {
+            return false;
+        }
+        let mut cursor = node.walk();
+        let children: Vec<_> = node.named_children(&mut cursor).collect();
+        children.iter().any(|child| {
+            child.kind() == "type_elem" && !Self::is_plain_embedded_interface_elem(child, parsed)
+        })
+    }
+
+    fn is_plain_embedded_interface_elem(node: &tree_sitter::Node, parsed: &ParsedFile) -> bool {
+        let text = parsed.node_text(node);
+        let compact = text.replace(char::is_whitespace, "");
+        if compact.contains('~') || compact.contains('|') || Self::is_predeclared_go_type(&compact)
+        {
+            return false;
+        }
+
+        let mut cursor = node.walk();
+        let children: Vec<_> = node.named_children(&mut cursor).collect();
+        children.len() == 1 && matches!(children[0].kind(), "type_identifier" | "qualified_type")
+    }
+
+    fn is_predeclared_go_type(name: &str) -> bool {
+        matches!(
+            name,
+            "any"
+                | "bool"
+                | "byte"
+                | "comparable"
+                | "complex64"
+                | "complex128"
+                | "error"
+                | "float32"
+                | "float64"
+                | "int"
+                | "int8"
+                | "int16"
+                | "int32"
+                | "int64"
+                | "rune"
+                | "string"
+                | "uint"
+                | "uint8"
+                | "uint16"
+                | "uint32"
+                | "uint64"
+                | "uintptr"
+        )
+    }
+
+    fn node_has_any_kind(node: &tree_sitter::Node, kinds: &[&str]) -> bool {
+        if kinds.contains(&node.kind()) {
+            return true;
+        }
+        let mut cursor = node.walk();
+        let children: Vec<_> = node.children(&mut cursor).collect();
+        children
+            .iter()
+            .any(|child| Self::node_has_any_kind(child, kinds))
     }
 
     /// Extract a type alias: `type Name = OtherType`.
@@ -264,7 +377,7 @@ impl GoTypeProvider {
     fn extract_struct_fields(
         node: &tree_sitter::Node,
         parsed: &ParsedFile,
-    ) -> (Vec<(String, String)>, Vec<String>) {
+    ) -> (Vec<(String, String)>, Vec<GoEmbeddedField>) {
         let mut fields = Vec::new();
         let mut embedded = Vec::new();
 
@@ -287,7 +400,7 @@ impl GoTypeProvider {
         node: &tree_sitter::Node,
         parsed: &ParsedFile,
         fields: &mut Vec<(String, String)>,
-        embedded: &mut Vec<String>,
+        embedded: &mut Vec<GoEmbeddedField>,
     ) {
         let mut names: Vec<String> = Vec::new();
         let mut type_str = String::new();
@@ -315,7 +428,10 @@ impl GoTypeProvider {
         if names.is_empty() {
             let embedded_name = strip_pointer(&type_str);
             if !embedded_name.is_empty() {
-                embedded.push(embedded_name.to_string());
+                embedded.push(GoEmbeddedField {
+                    name: embedded_name.to_string(),
+                    is_pointer: type_str.trim().starts_with('*'),
+                });
                 fields.push((embedded_name.to_string(), type_str));
             }
         } else {
@@ -329,23 +445,29 @@ impl GoTypeProvider {
     fn extract_interface_methods(
         node: &tree_sitter::Node,
         parsed: &ParsedFile,
-    ) -> (BTreeMap<String, String>, Vec<String>) {
+    ) -> (
+        BTreeMap<String, Result<String, GoDispatchGap>>,
+        Vec<String>,
+        Vec<GoDispatchOverApprox>,
+    ) {
         let mut methods = BTreeMap::new();
         let mut embedded = Vec::new();
+        let mut overapprox = Vec::new();
 
         let mut cursor = node.walk();
         for child in node.children(&mut cursor) {
-            Self::walk_interface_body(&child, parsed, &mut methods, &mut embedded);
+            Self::walk_interface_body(&child, parsed, &mut methods, &mut embedded, &mut overapprox);
         }
 
-        (methods, embedded)
+        (methods, embedded, overapprox)
     }
 
     fn walk_interface_body(
         node: &tree_sitter::Node,
         parsed: &ParsedFile,
-        methods: &mut BTreeMap<String, String>,
+        methods: &mut BTreeMap<String, Result<String, GoDispatchGap>>,
         embedded: &mut Vec<String>,
+        overapprox: &mut Vec<GoDispatchOverApprox>,
     ) {
         match node.kind() {
             "method_spec" | "method_elem" => {
@@ -358,6 +480,9 @@ impl GoTypeProvider {
                 }
                 if !name.is_empty() {
                     let sig = Self::extract_method_signature(node, parsed);
+                    if sig.is_ok() && Self::signature_has_qualified_type(node) {
+                        overapprox.push(GoDispatchOverApprox::CrossPackageBareName);
+                    }
                     methods.insert(name, sig);
                 }
             }
@@ -370,35 +495,22 @@ impl GoTypeProvider {
             _ => {
                 let mut cursor = node.walk();
                 for child in node.children(&mut cursor) {
-                    Self::walk_interface_body(&child, parsed, methods, embedded);
+                    Self::walk_interface_body(&child, parsed, methods, embedded, overapprox);
                 }
             }
         }
     }
 
     /// Extract a method's parameter+return type signature for comparison.
-    fn extract_method_signature(node: &tree_sitter::Node, parsed: &ParsedFile) -> String {
-        let mut parts = Vec::new();
-        let mut cursor = node.walk();
-        let mut skip_name = true;
-        for child in node.children(&mut cursor) {
-            match child.kind() {
-                "field_identifier" if skip_name => {
-                    skip_name = false;
-                    continue;
-                }
-                "parameter_list" => {
-                    parts.push(parsed.node_text(&child).trim().to_string());
-                }
-                "type_identifier" | "pointer_type" | "qualified_type" | "slice_type"
-                | "map_type" | "channel_type" | "array_type" | "interface_type"
-                | "function_type" => {
-                    parts.push(parsed.node_text(&child).trim().to_string());
-                }
-                _ => {}
-            }
-        }
-        parts.join(" -> ")
+    fn extract_method_signature(
+        node: &tree_sitter::Node,
+        parsed: &ParsedFile,
+    ) -> Result<String, GoDispatchGap> {
+        Self::canon_sig(
+            node.child_by_field_name("parameters").as_ref(),
+            node.child_by_field_name("result").as_ref(),
+            parsed,
+        )
     }
 
     /// Canonical type string, recursive. Fails closed on unknown nodes (spec §6).
@@ -486,7 +598,7 @@ impl GoTypeProvider {
                     Err(GoDispatchGap::AnonymousInterface)
                 }
             }
-            "generic_type" => Err(GoDispatchGap::Generic),
+            "generic_type" | "type_arguments" => Err(GoDispatchGap::Generic),
             "variadic_parameter_declaration" => {
                 // handled in canon_sig; reaching here is a structural surprise
                 Err(GoDispatchGap::UnknownCanonType)
@@ -590,6 +702,24 @@ impl GoTypeProvider {
         )
     }
 
+    #[cfg(test)]
+    pub fn satisfier_admission_keys_for_test(&self, iface: &str, method: &str) -> Vec<String> {
+        let mut v: Vec<String> = self
+            .data
+            .sat_keys
+            .get(&(iface.to_string(), method.to_string()))
+            .map(|s| s.iter().map(|(k, _)| k.clone()).collect())
+            .unwrap_or_default();
+        v.sort();
+        v.dedup();
+        v
+    }
+
+    #[cfg(test)]
+    pub fn dispatch_gaps_for_test(&self) -> Vec<GoDispatchGap> {
+        self.data.dispatch_gaps.clone()
+    }
+
     /// Extract a method_declaration (method with receiver).
     fn extract_method(
         data: &mut GoTypeData,
@@ -609,6 +739,11 @@ impl GoTypeProvider {
         };
 
         let sig = Self::extract_func_signature(node, parsed);
+        if sig.is_ok() && Self::signature_has_qualified_type(node) {
+            data.dispatch_overapprox
+                .push(GoDispatchOverApprox::CrossPackageBareName);
+        }
+        let generic = Self::has_generic_syntax(node);
         let start_line = node.start_position().row + 1;
         let end_line = node.end_position().row + 1;
 
@@ -620,6 +755,7 @@ impl GoTypeProvider {
                 receiver_type,
                 is_pointer_receiver: is_pointer,
                 signature: sig,
+                generic,
                 file: path.to_string(),
                 start_line,
                 end_line,
@@ -646,18 +782,36 @@ impl GoTypeProvider {
     }
 
     /// Extract function signature (parameters + return) for interface matching.
-    fn extract_func_signature(node: &tree_sitter::Node, parsed: &ParsedFile) -> String {
-        let mut parts = Vec::new();
+    fn extract_func_signature(
+        node: &tree_sitter::Node,
+        parsed: &ParsedFile,
+    ) -> Result<String, GoDispatchGap> {
+        Self::canon_sig(
+            node.child_by_field_name("parameters").as_ref(),
+            node.child_by_field_name("result").as_ref(),
+            parsed,
+        )
+    }
 
-        if let Some(params) = node.child_by_field_name("parameters") {
-            parts.push(parsed.node_text(&params).trim().to_string());
+    fn signature_has_qualified_type(node: &tree_sitter::Node) -> bool {
+        node.child_by_field_name("parameters")
+            .map(|params| Self::node_has_kind(&params, "qualified_type"))
+            .unwrap_or(false)
+            || node
+                .child_by_field_name("result")
+                .map(|result| Self::node_has_kind(&result, "qualified_type"))
+                .unwrap_or(false)
+    }
+
+    fn node_has_kind(node: &tree_sitter::Node, kind: &str) -> bool {
+        if node.kind() == kind {
+            return true;
         }
-
-        if let Some(result) = node.child_by_field_name("result") {
-            parts.push(parsed.node_text(&result).trim().to_string());
-        }
-
-        parts.join(" -> ")
+        let mut cursor = node.walk();
+        let children: Vec<_> = node.children(&mut cursor).collect();
+        children
+            .iter()
+            .any(|child| Self::node_has_kind(child, kind))
     }
 
     // -----------------------------------------------------------------------
@@ -666,17 +820,80 @@ impl GoTypeProvider {
 
     /// Compute which concrete types satisfy which interfaces.
     fn compute_satisfaction(data: &mut GoTypeData) {
+        data.satisfaction.clear();
+        data.sat_keys.clear();
+        data.dispatch_gaps.clear();
+
         let interface_methods = Self::resolve_all_interface_methods(data);
         let concrete_methods = Self::resolve_all_concrete_methods(data);
 
         for (iface_name, iface_methods) in &interface_methods {
+            let Some(iface) = data.interfaces.get(iface_name) else {
+                continue;
+            };
+            if iface.generic {
+                data.dispatch_gaps.push(GoDispatchGap::Generic);
+                data.satisfaction
+                    .insert(iface_name.clone(), BTreeSet::new());
+                continue;
+            }
+
+            let mut canonical_iface_methods = BTreeMap::new();
+            let mut has_gap = false;
+            for (method_name, sig) in iface_methods {
+                match sig {
+                    Ok(sig) => {
+                        canonical_iface_methods.insert(method_name.clone(), sig.clone());
+                    }
+                    Err(gap) => {
+                        data.dispatch_gaps.push(*gap);
+                        has_gap = true;
+                    }
+                }
+            }
+            if has_gap {
+                data.satisfaction
+                    .insert(iface_name.clone(), BTreeSet::new());
+                continue;
+            }
+
             let mut satisfying = BTreeSet::new();
-            for (type_name, type_methods) in &concrete_methods {
-                if iface_methods
-                    .keys()
-                    .all(|method_name| type_methods.contains_key(method_name))
-                {
+            for (type_name, method_set) in &concrete_methods {
+                let value_matches =
+                    Self::method_set_satisfies(&method_set.value, &canonical_iface_methods);
+                let pointer_matches =
+                    Self::method_set_satisfies(&method_set.pointer, &canonical_iface_methods);
+
+                if value_matches || pointer_matches {
                     satisfying.insert(type_name.clone());
+                }
+
+                if value_matches {
+                    Self::insert_sat_keys(
+                        data,
+                        iface_name,
+                        &canonical_iface_methods,
+                        &method_set.value,
+                        type_name,
+                        false,
+                    );
+                    Self::insert_sat_keys(
+                        data,
+                        iface_name,
+                        &canonical_iface_methods,
+                        &method_set.pointer,
+                        type_name,
+                        true,
+                    );
+                } else if pointer_matches {
+                    Self::insert_sat_keys(
+                        data,
+                        iface_name,
+                        &canonical_iface_methods,
+                        &method_set.pointer,
+                        type_name,
+                        true,
+                    );
                 }
             }
             data.satisfaction.insert(iface_name.clone(), satisfying);
@@ -686,7 +903,7 @@ impl GoTypeProvider {
     /// Resolve all methods for each interface, flattening embedded interfaces.
     fn resolve_all_interface_methods(
         data: &GoTypeData,
-    ) -> BTreeMap<String, BTreeMap<String, String>> {
+    ) -> BTreeMap<String, BTreeMap<String, Result<String, GoDispatchGap>>> {
         let mut result = BTreeMap::new();
         for iface_name in data.interfaces.keys() {
             let methods =
@@ -700,7 +917,7 @@ impl GoTypeProvider {
         data: &GoTypeData,
         name: &str,
         visited: &mut BTreeSet<String>,
-    ) -> BTreeMap<String, String> {
+    ) -> BTreeMap<String, Result<String, GoDispatchGap>> {
         if !visited.insert(name.to_string()) {
             return BTreeMap::new();
         }
@@ -718,46 +935,205 @@ impl GoTypeProvider {
     }
 
     /// Resolve all methods for each concrete type, including promoted methods.
-    fn resolve_all_concrete_methods(
-        data: &GoTypeData,
-    ) -> BTreeMap<String, BTreeMap<String, String>> {
+    fn resolve_all_concrete_methods(data: &GoTypeData) -> BTreeMap<String, ReceiverMethodSet> {
         let mut result = BTreeMap::new();
 
-        for (type_name, type_methods) in &data.methods {
-            let mut method_map = BTreeMap::new();
-            for m in type_methods {
-                method_map.insert(m.name.clone(), m.signature.clone());
-            }
-            result.insert(type_name.clone(), method_map);
+        for type_name in data.structs.keys() {
+            result
+                .entry(type_name.clone())
+                .or_insert_with(ReceiverMethodSet::default);
         }
 
-        for (struct_name, go_struct) in &data.structs {
-            let entry = result.entry(struct_name.clone()).or_default();
-            Self::collect_promoted_methods_from(data, go_struct, entry, &mut BTreeSet::new());
+        for (type_name, type_methods) in &data.methods {
+            let method_set = result.entry(type_name.clone()).or_default();
+            for m in type_methods {
+                if m.generic {
+                    continue;
+                }
+                let Ok(signature) = &m.signature else {
+                    continue;
+                };
+                Self::insert_concrete_method(
+                    method_set,
+                    &m.name,
+                    signature,
+                    Self::method_function_id(m),
+                    m.is_pointer_receiver,
+                );
+            }
         }
+
+        Self::collect_promoted_methods_from(data, &mut result);
 
         result
     }
 
     fn collect_promoted_methods_from(
         data: &GoTypeData,
-        go_struct: &GoStruct,
-        methods: &mut BTreeMap<String, String>,
-        visited: &mut BTreeSet<String>,
+        result: &mut BTreeMap<String, ReceiverMethodSet>,
     ) {
-        if !visited.insert(go_struct.name.clone()) {
-            return;
+        let mut methods_by_id = BTreeMap::new();
+        for methods in data.methods.values() {
+            for method in methods {
+                methods_by_id.insert(Self::method_function_id(method), method);
+            }
         }
 
-        for embedded_name in &go_struct.embedded {
-            if let Some(embedded_methods) = data.methods.get(embedded_name) {
-                for m in embedded_methods {
-                    methods.entry(m.name.clone()).or_insert(m.signature.clone());
+        let mut by_key: BTreeMap<(String, String), Vec<PromotedMethodCandidate>> = BTreeMap::new();
+        for candidate in Self::promoted_struct_method_candidates_from_data(data) {
+            let key = (
+                candidate.promoted.struct_name.clone(),
+                candidate.promoted.method.clone(),
+            );
+            by_key.entry(key).or_default().push(candidate);
+        }
+
+        for ((struct_name, method_name), candidates) in by_key {
+            let direct_value = data
+                .methods
+                .get(&struct_name)
+                .map(|methods| {
+                    methods
+                        .iter()
+                        .any(|m| m.name == method_name && !m.is_pointer_receiver)
+                })
+                .unwrap_or(false);
+            let direct_pointer = data
+                .methods
+                .get(&struct_name)
+                .map(|methods| methods.iter().any(|m| m.name == method_name))
+                .unwrap_or(false);
+
+            if !direct_value {
+                let value_candidates = candidates
+                    .iter()
+                    .filter(|candidate| candidate.value_method_set);
+                if let Some(candidate) =
+                    Self::unique_shallowest_promoted_candidate(value_candidates)
+                {
+                    if let Some(method) = Self::canonical_promoted_method(candidate, &methods_by_id)
+                    {
+                        let method_set = result.entry(struct_name.clone()).or_default();
+                        method_set
+                            .value
+                            .entry(method_name.clone())
+                            .or_insert(method);
+                    }
                 }
             }
-            if let Some(inner_struct) = data.structs.get(embedded_name) {
-                Self::collect_promoted_methods_from(data, inner_struct, methods, visited);
+
+            if !direct_pointer {
+                if let Some(candidate) =
+                    Self::unique_shallowest_promoted_candidate(candidates.iter())
+                {
+                    if let Some(method) = Self::canonical_promoted_method(candidate, &methods_by_id)
+                    {
+                        let method_set = result.entry(struct_name).or_default();
+                        method_set.pointer.entry(method_name).or_insert(method);
+                    }
+                }
             }
+        }
+    }
+
+    fn unique_shallowest_promoted_candidate<'a>(
+        candidates: impl Iterator<Item = &'a PromotedMethodCandidate>,
+    ) -> Option<&'a PromotedMethodCandidate> {
+        let mut candidates: Vec<_> = candidates.collect();
+        if candidates.is_empty() {
+            return None;
+        }
+        candidates.sort_by_key(|candidate| candidate.promoted.depth);
+        let min_depth = candidates[0].promoted.depth;
+        let shallow_count = candidates
+            .iter()
+            .filter(|candidate| candidate.promoted.depth == min_depth)
+            .count();
+        (shallow_count == 1).then_some(candidates[0])
+    }
+
+    fn canonical_promoted_method(
+        candidate: &PromotedMethodCandidate,
+        methods_by_id: &BTreeMap<FunctionId, &GoMethod>,
+    ) -> Option<CanonMethod> {
+        let method = methods_by_id.get(&candidate.promoted.func_id)?;
+        if method.generic {
+            return None;
+        }
+        let Ok(signature) = &method.signature else {
+            return None;
+        };
+        Some(CanonMethod {
+            signature: signature.to_string(),
+            func_id: candidate.promoted.func_id.clone(),
+        })
+    }
+
+    fn method_set_satisfies(
+        concrete: &BTreeMap<String, CanonMethod>,
+        iface: &BTreeMap<String, String>,
+    ) -> bool {
+        iface.iter().all(|(method_name, iface_sig)| {
+            concrete
+                .get(method_name)
+                .map(|method| method.signature.as_str() == iface_sig.as_str())
+                .unwrap_or(false)
+        })
+    }
+
+    fn insert_sat_keys(
+        data: &mut GoTypeData,
+        iface_name: &str,
+        iface_methods: &BTreeMap<String, String>,
+        concrete_methods: &BTreeMap<String, CanonMethod>,
+        type_name: &str,
+        is_pointer: bool,
+    ) {
+        let key = crate::resolution::admission_key(type_name, is_pointer);
+        for method_name in iface_methods.keys() {
+            if let Some(method) = concrete_methods.get(method_name) {
+                data.sat_keys
+                    .entry((iface_name.to_string(), method_name.clone()))
+                    .or_default()
+                    .push((key.clone(), method.func_id.clone()));
+            }
+        }
+    }
+
+    fn insert_concrete_method(
+        method_set: &mut ReceiverMethodSet,
+        method_name: &str,
+        signature: &str,
+        func_id: FunctionId,
+        is_pointer_receiver: bool,
+    ) {
+        let method = CanonMethod {
+            signature: signature.to_string(),
+            func_id,
+        };
+        if is_pointer_receiver {
+            method_set
+                .pointer
+                .entry(method_name.to_string())
+                .or_insert(method);
+        } else {
+            method_set
+                .value
+                .entry(method_name.to_string())
+                .or_insert(method.clone());
+            method_set
+                .pointer
+                .entry(method_name.to_string())
+                .or_insert(method);
+        }
+    }
+
+    fn method_function_id(method: &GoMethod) -> FunctionId {
+        FunctionId {
+            name: method.name.clone(),
+            file: method.file.clone(),
+            start_line: method.start_line,
+            end_line: method.end_line,
         }
     }
 
@@ -772,26 +1148,36 @@ impl GoTypeProvider {
     /// direct-method-wins + equal-depth ambiguity). **Path-local** cycle detection so
     /// diamond paths are preserved.
     pub fn promoted_struct_methods(&self) -> Vec<PromotedMethod> {
+        Self::promoted_struct_method_candidates_from_data(self.data.as_ref())
+            .into_iter()
+            .map(|candidate| candidate.promoted)
+            .collect()
+    }
+
+    fn promoted_struct_method_candidates_from_data(
+        data: &GoTypeData,
+    ) -> Vec<PromotedMethodCandidate> {
         let mut out = Vec::new();
-        for struct_name in self.data.structs.keys() {
+        for struct_name in data.structs.keys() {
             let mut field_depth: BTreeMap<String, usize> = BTreeMap::new();
-            let mut cands: Vec<PromotedMethod> = Vec::new();
+            let mut cands: Vec<PromotedMethodCandidate> = Vec::new();
             let mut path: BTreeSet<String> = BTreeSet::new();
             path.insert(struct_name.clone());
             Self::walk_embedding(
-                &self.data,
+                data,
                 struct_name,
                 struct_name,
                 0,
                 &mut path,
                 &mut field_depth,
                 &mut cands,
+                false,
             );
-            for pm in cands {
+            for candidate in cands {
                 // Shadowed if a same-name field sits at a shallower-or-equal depth.
-                match field_depth.get(&pm.method) {
-                    Some(fd) if *fd <= pm.depth => {}
-                    _ => out.push(pm),
+                match field_depth.get(&candidate.promoted.method) {
+                    Some(fd) if *fd <= candidate.promoted.depth => {}
+                    _ => out.push(candidate),
                 }
             }
         }
@@ -806,7 +1192,8 @@ impl GoTypeProvider {
         depth: usize, // depth of `current` within `outer` (0 = the outer struct itself)
         path: &mut BTreeSet<String>,
         field_depth: &mut BTreeMap<String, usize>,
-        cands: &mut Vec<PromotedMethod>,
+        cands: &mut Vec<PromotedMethodCandidate>,
+        value_can_use_pointer_receiver: bool,
     ) {
         let go_struct = match data.structs.get(current) {
             Some(s) => s,
@@ -828,29 +1215,41 @@ impl GoTypeProvider {
         if depth >= 1 {
             if let Some(methods) = data.methods.get(current) {
                 for m in methods {
-                    cands.push(PromotedMethod {
-                        struct_name: outer.to_string(),
-                        method: m.name.clone(),
-                        func_id: FunctionId {
-                            name: m.name.clone(),
-                            file: m.file.clone(),
-                            start_line: m.start_line,
-                            end_line: m.end_line,
+                    cands.push(PromotedMethodCandidate {
+                        promoted: PromotedMethod {
+                            struct_name: outer.to_string(),
+                            method: m.name.clone(),
+                            func_id: FunctionId {
+                                name: m.name.clone(),
+                                file: m.file.clone(),
+                                start_line: m.start_line,
+                                end_line: m.end_line,
+                            },
+                            depth,
                         },
-                        depth,
+                        value_method_set: !m.is_pointer_receiver || value_can_use_pointer_receiver,
                     });
                 }
             }
         }
-        for embedded_name in &go_struct.embedded {
-            let bare = strip_pointer(embedded_name);
+        for embedded in &go_struct.embedded {
+            let bare = embedded.name.as_str();
             if data.interfaces.contains_key(bare) {
                 continue; // embedded interface -> interface dispatch, deferred
             }
             if !path.insert(bare.to_string()) {
                 continue; // cycle along THIS path only
             }
-            Self::walk_embedding(data, outer, bare, depth + 1, path, field_depth, cands);
+            Self::walk_embedding(
+                data,
+                outer,
+                bare,
+                depth + 1,
+                path,
+                field_depth,
+                cands,
+                value_can_use_pointer_receiver || embedded.is_pointer,
+            );
             path.remove(bare); // restore for sibling paths (path-local)
         }
     }
@@ -957,26 +1356,22 @@ impl DispatchProvider for GoTypeProvider {
             };
 
             // If RTA filtering eliminates all targets, fall back to full set.
-            let targets = if candidates.is_empty() && !live_types.is_empty() {
+            let fallback_to_full_set = candidates.is_empty() && !live_types.is_empty();
+            let targets = if fallback_to_full_set {
                 satisfying.iter().collect::<Vec<_>>()
             } else {
                 candidates.into_iter().collect::<Vec<_>>()
             };
 
+            // NOTE: interface dispatch for Phase-IP flows through the CallGraph-internal
+            // `compute_interface_dispatch` + the resolution seam, NOT this DispatchProvider
+            // path. `resolve_dispatch` keeps its original bare-name contract: `live_types`
+            // here is a bare-name set, so it must NOT be filtered against admission-keyed
+            // `sat_keys` (`*T` would never match a bare `T`). Stay on `data.satisfaction`.
             let mut results = Vec::new();
-            for type_name in targets {
-                if let Some(type_methods) = self.data.methods.get(type_name) {
-                    for m in type_methods {
-                        if m.name == method {
-                            results.push(FunctionId {
-                                name: method.to_string(),
-                                file: m.file.clone(),
-                                start_line: m.start_line,
-                                end_line: m.end_line,
-                            });
-                        }
-                    }
-                }
+            let target_types: BTreeSet<String> = targets.into_iter().cloned().collect();
+            for type_name in target_types {
+                results.extend(self.resolve_dispatch(&type_name, method, &BTreeSet::new()));
             }
             return results;
         }
@@ -992,6 +1387,172 @@ impl DispatchProvider for GoTypeProvider {
 /// Strip leading `*` from a pointer type: `*Server` → `Server`.
 fn strip_pointer(s: &str) -> &str {
     s.strip_prefix('*').unwrap_or(s).trim()
+}
+
+#[cfg(test)]
+mod satisfaction_tests {
+    use super::*;
+    use crate::ast::ParsedFile;
+    use crate::languages::Language;
+    use std::collections::{BTreeMap, BTreeSet};
+
+    fn provider(src: &str) -> GoTypeProvider {
+        let mut files = BTreeMap::new();
+        files.insert(
+            "t.go".to_string(),
+            ParsedFile::parse("t.go", src, Language::Go).unwrap(),
+        );
+        GoTypeProvider::from_parsed_files(&files)
+    }
+
+    #[test]
+    fn signature_mismatch_does_not_satisfy() {
+        let p = provider(
+            "package p\n\
+             type I interface { Do() error }\n\
+             type T struct{}\nfunc (t T) Do() string { return \"\" }\n",
+        );
+        assert!(p.satisfier_admission_keys_for_test("I", "Do").is_empty());
+    }
+
+    #[test]
+    fn multi_method_partial_satisfier_not_admitted() {
+        // codex#1: T has only Do(), interface needs Do()+Stop() -> NOT a satisfier.
+        let p = provider(
+            "package p\n\
+             type I interface { Do(); Stop() }\n\
+             type T struct{}\nfunc (t T) Do() {}\n",
+        );
+        assert!(p.satisfier_admission_keys_for_test("I", "Do").is_empty());
+        assert!(p.satisfier_admission_keys_for_test("I", "Stop").is_empty());
+    }
+
+    #[test]
+    fn value_receiver_admits_as_both_t_and_ptr_t() {
+        // set_ptr ⊇ set_value: a value-receiver method satisfies via BOTH T and *T.
+        let p = provider(
+            "package p\n\
+             type I interface { Do() }\n\
+             type T struct{}\nfunc (t T) Do() {}\n",
+        );
+        assert_eq!(
+            p.satisfier_admission_keys_for_test("I", "Do"),
+            vec!["*T".to_string(), "T".to_string()]
+        ); // sorted: '*' < 'T'
+    }
+
+    #[test]
+    fn pointer_receiver_only_admits_as_pointer() {
+        let p = provider(
+            "package p\n\
+             type I interface { Do() }\n\
+             type T struct{}\nfunc (t *T) Do() {}\n",
+        );
+        assert_eq!(
+            p.satisfier_admission_keys_for_test("I", "Do"),
+            vec!["*T".to_string()]
+        );
+    }
+
+    #[test]
+    fn mixed_value_and_pointer_method_admits_as_pointer_only() {
+        // I needs A()+B(); T has value A + pointer B -> only *T's set has both.
+        let p = provider(
+            "package p\n\
+             type I interface { A(); B() }\n\
+             type T struct{}\nfunc (t T) A() {}\nfunc (t *T) B() {}\n",
+        );
+        assert_eq!(
+            p.satisfier_admission_keys_for_test("I", "A"),
+            vec!["*T".to_string()]
+        );
+        assert_eq!(
+            p.satisfier_admission_keys_for_test("I", "B"),
+            vec!["*T".to_string()]
+        );
+    }
+
+    #[test]
+    fn embedded_method_satisfies() {
+        // codex#11: Wrap embeds Base (Base has Do); Wrap satisfies I via the promoted Do.
+        let p = provider(
+            "package p\n\
+             type I interface { Do() }\n\
+             type Base struct{}\nfunc (b Base) Do() {}\n\
+             type Wrap struct { Base }\n",
+        );
+        let sats = p.satisfier_admission_keys_for_test("I", "Do");
+        // Wrap admits (value-embedded value method) as both; Base also satisfies.
+        assert!(
+            sats.contains(&"Wrap".to_string()) || sats.contains(&"*Wrap".to_string()),
+            "promoted method must make Wrap satisfy I: {sats:?}"
+        );
+    }
+
+    #[test]
+    fn ambiguous_equal_depth_promoted_method_does_not_satisfy() {
+        let p = provider(
+            "package p\n\
+             type I interface { M() }\n\
+             type X struct{}\nfunc (x X) M() {}\n\
+             type Y struct{}\nfunc (y Y) M() {}\n\
+             type A struct { X; Y }\n",
+        );
+        let sats = p.satisfier_admission_keys_for_test("I", "M");
+        assert!(!sats.contains(&"A".to_string()));
+        assert!(!sats.contains(&"*A".to_string()));
+    }
+
+    #[test]
+    fn type_set_interface_is_non_dispatchable() {
+        let p = provider(
+            "package p\n\
+             type I interface { ~int }\n\
+             type T struct{}\n",
+        );
+        assert!(p.dispatch_gaps_for_test().contains(&GoDispatchGap::Generic));
+        assert!(p
+            .data
+            .satisfaction
+            .get("I")
+            .map(|s| s.is_empty())
+            .unwrap_or(false));
+    }
+
+    #[test]
+    fn generic_receiver_method_is_excluded_from_satisfaction() {
+        let p = provider(
+            "package p\n\
+             type I interface { M(int) }\n\
+             type R[T any] struct{}\nfunc (r R[T]) M(x int) {}\n",
+        );
+        assert!(p.satisfier_admission_keys_for_test("I", "M").is_empty());
+    }
+
+    #[test]
+    fn generic_interface_is_non_dispatchable() {
+        let p = provider(
+            "package p\n\
+             type I[X any] interface { Do(X) }\n\
+             type T struct{}\nfunc (t T) Do(int) {}\n",
+        );
+        assert!(p.dispatch_gaps_for_test().contains(&GoDispatchGap::Generic));
+        assert!(p.satisfier_admission_keys_for_test("I", "Do").is_empty());
+    }
+
+    #[test]
+    fn anonymous_interface_method_is_gap() {
+        // §13.3: a method whose param is a non-empty anonymous interface is non-dispatchable.
+        let p = provider(
+            "package p\n\
+             type I interface { Do(x interface{ Run() }) }\n\
+             type T struct{}\nfunc (t T) Do(x interface{ Run() }) {}\n",
+        );
+        assert!(p
+            .dispatch_gaps_for_test()
+            .contains(&GoDispatchGap::AnonymousInterface));
+        assert!(p.satisfier_admission_keys_for_test("I", "Do").is_empty());
+    }
 }
 
 #[cfg(test)]
