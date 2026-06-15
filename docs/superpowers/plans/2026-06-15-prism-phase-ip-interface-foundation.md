@@ -17,6 +17,90 @@
 
 ---
 
+## Execution Handoff & Orientation (READ FIRST — written for a cold session)
+
+**What this is.** Phase-IP = type-confirmed Go receiver dispatch — the **recall** counterpart to EFT's
+precision. It was split: the **embedding** half **SHIPPED** (commit `e03f547`, PR #95). This plan is the
+**interface-dispatch FOUNDATION (PR-1)** — resolve `r.Go()` where `r: Runner` (interface) to its in-repo
+implementers, minted `Exact`/`InterfaceDispatch`. A follow-on **PR-2** (receiver-expansion) is deferred.
+
+**Branch + commit state (you start here):**
+- Branch **`phase-ip-interface`** (off `main`). Tip `a115420`. Do all task commits here. **Do NOT push or
+  open a PR until the owner asks.** `main` is `e03f547`.
+- `d64c957` = spec rev 5 + round-4 dual review; `a115420` = this plan rev 2 + spec §14 reconciliation.
+
+**Read these (all in-repo):**
+- **Spec (the contract):** `docs/superpowers/specs/2026-06-14-prism-phase-ip-type-confirmed-dispatch-design.md`
+  (rev 5 — read §0-§17 for PR-1; the **PR-2 work-list at the very end** is OUT OF SCOPE).
+- **Plan-review records (why the code looks like it does):**
+  `docs/prism-query-layer/phase-ip-plan-review-{codex,claude}-2026-06-15.md`.
+- **Embedding precedent (the sibling that shipped):** spec `…/specs/2026-06-15-prism-phase-ip-go-embedding-design.md`,
+  plan `…/plans/2026-06-15-prism-phase-ip-go-embedding.md`. Interface dispatch mirrors its
+  `apply_go_embedding_promotion`/`clear_promoted_embedding`/`promoted_aliases` pattern.
+- **Memory:** `~/.claude/projects/-Users-wesleyjinks-code-slicing/memory/project_prism_phase_ip.md`.
+
+**Execution mechanism — a2a-bridge `implement`, per task (owner-directed):**
+- **Bridge:** `~/code/a2a-bridge` (binary `~/code/a2a-bridge/target/release/a2a-bridge`).
+- **Config (owner choice = codex gpt-5.5 *xhigh* implementer):**
+  `examples/a2a-bridge.slicing-implement-s2xhigh.toml` — `impl` = `codex-acp` `effort="xhigh"`
+  (container_rw, `sandbox_mode=danger-full-access`); per-task **diff review = codex xhigh**
+  (`[review]`→`implement-review`, codex-only FAST variant); `[verify]` = `cargo fmt --check` +
+  `cargo build --locked` + `cargo test --locked`; `[implement] max_attempts=3` with `implement-fix`.
+- **Prereqs (containerized; verify before Task 1 — same setup the embedding increment used):**
+  `docker compose -f deploy/containers/compose.egress.yaml up -d --build` (from `~/code/a2a-bridge`),
+  the reader+toolchain images built, and creds at `~/.config/a2a-creds/{claude,codex}`. See
+  `~/code/a2a-bridge/docs/containerized-agents.md`. If Docker/containers aren't up, fall back to
+  implementing the task yourself in-session (TDD per the task) rather than blocking.
+- **Per-task loop** (the [subagent-driven-development] rhythm, bridge as implementer):
+  1. `cd ~/code/a2a-bridge && ./target/release/a2a-bridge implement "<paste Task N's full body, or a tight
+     paraphrase + 'follow docs/superpowers/plans/2026-06-15-prism-phase-ip-interface-foundation.md Task N exactly'>"
+     --repo /Users/wesleyjinks/code/slicing
+     --config examples/a2a-bridge.slicing-implement-s2xhigh.toml
+     --base-ref phase-ip-interface` (base-ref = the **current tip** of the branch, so each task builds on the last).
+  2. The bridge clones to a quarantine, codex(xhigh) edits + the bridge verifies (fmt/build/test) + codex(xhigh)
+     reviews the diff + bounded fix loop, then hands off a branch in the clone (path/branch in its output).
+  3. **You review the handoff diff yourself** (the bridge review is advisory). If good, graft it onto
+     `phase-ip-interface`:
+     `git fetch <clone-path> <handoff-branch> && git cherry-pick -n FETCH_HEAD && git commit -C FETCH_HEAD --reset-author`
+     (the embedding increment's proven hand-off). Then go to Task N+1 with the new tip.
+  4. If the bridge can't run (prereqs), do the task in-session via TDD and commit directly.
+- **Matrix gate after Task 8** (the seam/flip): `cargo build --release && cd eval && uv run tier-a
+  --matrix-only --allow-stale-sut` → `go/interface_dispatch` must be `ok`, **no other flips**. Paste any
+  regression/flip-candidate into the eventual PR description; **do not re-baseline**.
+- **Bridge defect to remember:** the a2a-bridge *claude* reviewer leg returns a literal `{{reviewer_claude}}`
+  marker (model-override defect) → per-task review is **codex-only**; run the claude lens as an operator
+  subagent if you want a second opinion on a risky task.
+
+**Gotchas digest (the load-bearing ones the plan-review caught — full detail in each task):**
+1. **Task 4 satisfaction:** AUGMENT `data.satisfaction` (don't replace — `subtypes_of`/`resolve_dispatch`
+   read it; `tests/ast/type_provider_test.rs::test_go_interface_satisfaction` must stay green); it's
+   **full-interface** (not per-method); `set_ptr(T) ⊇ set_value(T)`; **promoted/embedded** methods count.
+2. **tree-sitter-go 0.23.4:** `&T{}` is a `unary_expression` wrapping the literal (the `&` is on the parent);
+   `channel_type` element is field **`value`**; preserve array length; interface methods are `method_elem`.
+3. **Tests:** `CpgContext::build(&files, None)` (two-arg); Go method-call `callee_name` is the **bare name**
+   (`"Go"`, not `"r.Go"`); inspect CPG edges via the **public `ctx.cpg.graph`** in `tests/ast/cpg_test.rs`
+   (`#[cfg(test)]` accessors are invisible to the integration-test crate); call-stats test is the **`cli`**
+   binary; Python harness tests live in **`eval/tests/`** importing **`tier_a.*`**.
+4. **Wiring:** init the new CallGraph fields in **all 5** constructors (grep `promoted_aliases: BTreeMap::new()`);
+   **bump `CACHE_VERSION` 8→9**; the CHA candidate-index filter is the load-bearing fix (§17), no current
+   corpus is mixed Go+C++ so metrics are unaffected.
+5. **Build order:** `CallGraph::build` runs before the `TypeRegistry`; dispatch must be CallGraph-internal
+   and flow through `resolve_call_site` (nav never reads CPG edges). `apply_go_interface_dispatch` is a
+   sibling of the merged `apply_go_embedding_promotion`.
+
+**Acceptance (after all 13 tasks)** — see the "Final acceptance" section below. PR-1 is **caddy-corpus-neutral
+by construction** (the win is the capability flip + the engine + the measurement); the heavy 5-corpus
+re-baseline + caddy re-adjudication are **PR-2's** ceremony. Finish with a whole-branch codex+claude code
+review before the PR.
+
+**Next phase (PR-2, deferred — do NOT start here):** expand P6-lite receiver recovery to type-assertion
+(`x.(Module).CaddyModule()` — the "57 caddy sites"), `var r Runner` locals, and interface-slice receivers;
+build the fingerprinted manifest + the (then-meaningful) precision gate; re-adjudicate + re-baseline caddy.
+Full work-list at the end of the spec. Further-deferred: Python inheritance, `from_import_alias`, Rust S3.1,
+Go generics/type-sets, anonymous interfaces.
+
+---
+
 ## File Structure
 
 **Rust (engine):**
