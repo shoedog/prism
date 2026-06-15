@@ -44,7 +44,9 @@ use std::path::{Path, PathBuf};
 /// - v4: CallGraph methods/owner indexes + CallSite.receiver_type (S3)
 /// - v5: S2 node bytes + VarLocation identity + CallSite bytes.
 /// - v6: EFT CpgEdge::Call/Return carry ResolutionConfidence.
-const CACHE_VERSION: u32 = 7; // + git_sha in cache key (resolver auto-invalidation, S3-deferred #4).
+/// - v7: + git_sha in cache key (resolver auto-invalidation).
+/// - v8: Phase-IP CallGraph.promoted_aliases + embedding_gaps (Go embedding).
+const CACHE_VERSION: u32 = 8; // bincode ignores serde(default) for new trailing fields.
 
 pub const SKIP_POLICY_VERSION: u32 = 1;
 
@@ -502,6 +504,11 @@ mod tests {
             CacheResult::PartialHit { .. } => "PartialHit",
             CacheResult::Miss => "Miss",
         }
+    }
+
+    #[test]
+    fn cache_version_is_8_for_embedding_fields() {
+        assert_eq!(super::CACHE_VERSION, 8);
     }
 
     #[test]
