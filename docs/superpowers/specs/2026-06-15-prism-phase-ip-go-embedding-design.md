@@ -52,15 +52,15 @@ owner-index aliases that serialize with `CallGraph` and that `resolve_call_site`
 
 | Decision | Choice |
 |---|---|
-| Scope | Concrete-method promotion from embedded **struct** fields only. Embedded interfaces, generics, all interface dispatch → deferred (§7). |
+| Scope | Concrete-method promotion from embedded **struct** fields only. Embedded interfaces + all interface dispatch → deferred (§7); generic structs resolve via the `[…]` strip (§6), not deferred. |
 | Confidence | **Exact** — deterministic Go promotion rule; enters EFT `ExactOnly` slices honestly. |
-| Source | Reuse `GoTypeProvider` (registry-independent) via a new public `promoted_methods` helper (codex r3-BLOCKER3). No reinvented logic. |
-| Storage | `CallGraph.promoted_method_keys: BTreeSet<(owner_key, method)>` (the alias `FunctionId`s live in the existing `methods` map). `serde(default)`. |
+| Source | Reuse `GoTypeProvider` (registry-independent) via a new public `promoted_struct_methods() -> Vec<PromotedMethod>` helper (codex r3-BLOCKER3). No reinvented logic. |
+| Storage | `CallGraph.promoted_aliases: BTreeMap<(owner_key, method), Vec<FunctionId>>` (carries the alias `FunctionId`s for clean incremental replace; its key set is the `EmbeddedPromotion` label set) + `embedding_gaps: BTreeMap<String,usize>`; both `serde(default)`. Aliases are also written into the existing `methods` map. |
 | Precedence | Direct method on `S` wins over a promoted `m` (alias only when `S` has no direct `m`). Equal-depth embedded ambiguity → **not** promoted (drop). |
-| Keys | A single bare-name `normalize_go_struct_key` (strip `*`,`&`,`pkg.`) for owner keys at extraction AND the recovered receiver before `owner_lookup`, **Go-gated** (non-Go keeps `owner_key`). No admission/pointer-preservation complexity (that is interface-side). |
+| Keys | `normalize_go_struct_key` = `owner_key` + strip Go `[…]` generic args (`Wrap[T]`→`Wrap`), for owner keys AND the recovered receiver (**Go-gated** in `recover_receiver`; non-Go keeps `owner_key`). Cross-package `pkg.` normalization is deferred to the interface spec. No admission/pointer-preservation complexity (interface-side). |
 | Addressability | Promotion applies to **recovered addressable** receivers (typed params/locals); a value selector may call a pointer-receiver promoted method (Go auto-addresses). Non-addressable bases (temporaries, map index) → not in scope (codex r3-MINOR12). |
 | Resolution kind | `EmbeddedPromotion` (telemetry; → `Exact` via `exact()`; kind is not serialized — only `as_str`). |
-| Gap contract | A `call-stats` counter for embedding ambiguity drops + skipped generic/embedded-interface promotions (codex r3-MAJOR8, minimal form). |
+| Gap contract | A `call-stats` `embedding_gaps` counter for equal-depth **ambiguity** drops (codex r3-MAJOR8, minimal form). Embedded **interface** fields are skipped in `promoted_struct_methods` (no counter); generic structs are **resolved** via the `[…]` strip (not gapped). |
 | Cache | **Bump `CACHE_VERSION` v7→v8** — bincode does **not** honor `serde(default)` for the new trailing `CallGraph` field; the version bump (not GIT_SHA alone) is the format-safety mechanism (claude r3-B2). |
 | Build paths | Promotion is whole-program: full-repo recompute + **replace-not-merge** across `build`/`build_incremental`/`build_scoped` (§9). |
 
@@ -70,8 +70,8 @@ Embedding promotes the embedded type's concrete method set onto the outer type �
 unconditionally** — structurally identical to the trait dual-key already in the index (`methods:
 (owner_key, method) → [FunctionId]`, "trait impls dual-keyed", call_graph.rs:61-64).
 
-1. **Provider helper (new, public):** `GoTypeProvider::promoted_methods(struct_name) -> Vec<(String
-   /*method*/, FunctionId, usize /*embed depth*/)>` — walks the transitive embedded **struct** closure
+1. **Provider helper (new, public):** `GoTypeProvider::promoted_struct_methods() -> Vec<PromotedMethod>`
+   (where `PromotedMethod { struct_name, method, func_id, depth }`) — walks each struct's transitive embedded **struct** closure
    (`collect_promoted_methods_from`, go.rs:529) and returns **every** promoted concrete method
    (including duplicates of the same name reached via different embed paths, each with its depth) so
    `CallGraph::build` can apply direct-wins + equal-depth ambiguity. Each `FunctionId` is built from
@@ -84,13 +84,13 @@ unconditionally** — structurally identical to the trait dual-key already in th
    - **Equal-depth ambiguity:** if two embedded paths provide `m` at the same shallowest depth →
      **drop** (no alias; count a gap). (The provider's `or_insert` does not detect this — the helper
      returns depth so `CallGraph::build` can apply the rule.)
-   - Else insert `methods[(normalize_go_struct_key(S), m)] += fid` and record
-     `promoted_method_keys += (normalize_go_struct_key(S), m)`.
+   - Else insert `methods[(normalize_go_struct_key(S), m)] += fid` and record it in
+     `promoted_aliases[(normalize_go_struct_key(S), m)] += fid`.
 3. `method_owners[fid]` stays the **defining** type (`Base`) — only the lookup key is aliased.
 
 Resolution (resolution.rs:412-424): `owner_lookup(normalize_go_struct_key(recv_ty), name)` now hits
 the promoted alias → `Exact`, labeled `EmbeddedPromotion` when `(norm(recv_ty), name) ∈
-promoted_method_keys`. The promoted method resolves to a **single** `FunctionId` (no fan-out) — so
+promoted_aliases`. The promoted method resolves to a **single** `FunctionId` (no fan-out) — so
 Step-5b interprocedural arg binding (build.rs:382-485) binds one callee, no DataFlow multiplication
 (the interface-side concern, deferred).
 
@@ -111,26 +111,27 @@ The combined spec's "one normalizer for everything" was wrong because interface 
 *preserve* `T`/`*T`. Embedding has no admission keys — it keys by **bare struct name** only. So
 embedding defines a single, simple `normalize_go_struct_key(s)`:
 
-- strip a leading `*` / `&`; strip a `pkg.` qualifier to the bare type; (generic struct `S[T]` → §7
-  gap, not stripped-and-matched).
-- Applied at owner-key construction (extraction) **and** to the recovered receiver before
-  `owner_lookup`, **Go-gated** (the seam stays language-blind for non-Go: a non-Go receiver keeps
-  `owner_key`; a Rust receiver never matches `promoted_method_keys`, which is Go-only → no behavior
+- `owner_key` (strips `*`/`&`/`<…>`) then strip Go `[…]` generic args (`Wrap[T]`→`Wrap`), so generic
+  structs **resolve** (name-only embedding needs no signature matching). Cross-package `pkg.`
+  normalization is deferred to the interface spec.
+- Applied at owner-key construction (extraction) **and** to the recovered receiver in
+  `recover_receiver`, **Go-gated** (the seam stays language-blind for non-Go: a non-Go receiver keeps
+  `owner_key`; a Rust receiver never matches `promoted_aliases`, which is Go-only → no behavior
   change, by emptiness not gating).
 
 The interface-side key contracts (admission `T`/`*T`, dispatchable-interface, generic-gap) are defined
 in the interface spec.
 
-## 7. Out-of-scope gaps & their contract (codex r3-MAJOR8)
+## 7. Gap contract (codex r3-MAJOR8, minimal form)
 
-Embedding records (does not silently mishandle) these as gaps, surfaced as `call-stats` counters:
+- **Equal-depth ambiguity** — not promoted; counted in `embedding_gaps["ambiguous"]`, surfaced in
+  `call-stats` (§10). This is the one meaningful, hard-to-otherwise-observe gap.
+- **Embedded interface fields** (`type S struct { io.Reader }`) — skipped in `promoted_struct_methods`
+  (interface dispatch, deferred); no counter (it is simply not this increment's job).
+- **Generic structs** (`type S[T any] struct{…}`) — **resolved**, not gapped: `normalize_go_struct_key`
+  strips `[…]` so name-only embedding promotion works; no special handling needed.
 
-- **Generic structs** (`type S[T any] struct{…}`) — not promoted; `embedding_generic_skipped++`.
-- **Embedded interface fields** (`type S struct { io.Reader }`) — not promoted here (interface
-  dispatch, deferred); `embedding_interface_skipped++`.
-- **Equal-depth ambiguity** — not promoted; `embedding_ambiguous_dropped++`.
-
-No false aliases are ever created for these.
+No false aliases are ever created.
 
 ## 8. Failure modes
 
@@ -138,22 +139,23 @@ No false aliases are ever created for these.
 |---|---|
 | `S` directly defines `m` and embeds `E.m` | direct wins; no alias. |
 | Two embeds provide `m` at equal shallowest depth | dropped (gap counter); receiver falls through to R6/drop. |
-| Embedded interface field | not promoted (gap); deferred to interface spec. |
-| Generic struct | not promoted (gap). |
+| Embedded interface field | not promoted (skipped in `promoted_struct_methods`); deferred to interface spec. |
+| Generic struct | resolved via `normalize_go_struct_key` `[…]` strip (§6). |
 | Non-addressable selector base | not promoted (out of scope); drops upstream. |
 | Warm cache from pre-IP / v7 | rejected by `CACHE_VERSION` v8 (§9). |
-| Non-Go repos | `promoted_method_keys` empty; zero behavior change (regression guard §10). |
+| Non-Go repos | `promoted_aliases` empty; zero behavior change (regression guard §10). |
 
 ## 9. Cache & build paths
 
 - **`CACHE_VERSION` v7→v8.** `CallGraph` is bincode-serialized whole inside `SerializedCpg`
   (cpg_cache.rs:89,183,251); bincode is non-self-describing and ignores `serde(default)` for missing
-  trailing fields, so the new `promoted_method_keys` requires a version bump — that, not GIT_SHA alone,
-  is the format-safety mechanism (claude r3-B2). GIT_SHA still covers the resolver-behavior change.
+  trailing fields, so the new `promoted_aliases`/`embedding_gaps` fields require a version bump — that,
+  not GIT_SHA alone, is the format-safety mechanism (claude r3-B2). GIT_SHA still covers the resolver
+  change.
 - **Whole-program, replace-not-merge** (codex r3-MAJOR7 / claude r3-B5):
   - `build` (build.rs:136): promotion over all `files`.
-  - `build_incremental` (build.rs:166): after CG `merge`, **clear** `promoted_method_keys` and remove
-    all promoted aliases from `methods`, then recompute from `from_parsed_files(all merged files)` —
+  - `build_incremental` (build.rs:166): after CG `merge`, **clear** `promoted_aliases` and remove
+    those aliases from `methods`, then recompute from `from_parsed_files(all merged files)` —
     `remove_files` prunes `methods` by `fid.file` only (call_graph.rs:736-740), so a promoted alias
     whose `fid` lives in an unchanged file would otherwise survive stale.
   - `build_scoped` (context.rs:135): promotion computed over the **full** repo file set (a struct's
@@ -172,7 +174,7 @@ No false aliases are ever created for these.
 1. **Embedding** (tests/lang/go/): (a) `w.Ping()` → `Base::Ping`, kind `EmbeddedPromotion`, Exact;
    (b) transitive `A→B→C`; (c) equal-depth ambiguity → dropped (gap counter); (d) direct method
    shadows promoted; (e) value selector of an embedded *pointer-receiver* method on an addressable
-   param resolves; (f) embedded **interface** field → NOT promoted (gap counter), no false edge.
+   param resolves; (f) embedded **interface** field → NOT promoted (skipped; no false edge).
 2. **Capability matrix flip:** `eval/fixtures/go/embedded_method/expected.toml` `known_fail → pass`;
    update rationale; matrix asserts `ok`. (`go/interface_dispatch` stays `known_fail` — interface
    spec.)
@@ -207,5 +209,5 @@ exact P=R=1.0; prism/tokio/flask/click matrix + quick unchanged.
   nearly all of the round-3 findings; see the interface spec's rev-4 work-list.
 - **Embedded-interface promotion** — promoting an embedded *interface*'s method set is interface
   dispatch.
-- **Generic structs** — recorded gap (§7).
 - **Python inheritance, `from_import_alias`, Rust S3.1.**
+  (Generic structs are **not** deferred — they resolve via the `[…]` strip, §6.)
