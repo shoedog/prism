@@ -862,3 +862,50 @@ fn go_embedded_interface_field_not_promoted() {
         .resolved
         .is_empty());
 }
+
+#[test]
+fn go_embedding_dropped_on_incremental_when_embedding_file_changes() {
+    use prism::cpg::CodePropertyGraph;
+    use prism::data_flow::DataFlowGraph;
+    use prism::languages::Language::Go;
+    use std::collections::{BTreeMap, BTreeSet};
+
+    // Base.Ping in base.go (UNCHANGED); Wrap embeds Base in wrap.go.
+    let parse = |p: &str, s: &str| {
+        (
+            p.to_string(),
+            prism::ast::ParsedFile::parse(p, s, Go).unwrap(),
+        )
+    };
+    let mut v1 = BTreeMap::new();
+    v1.extend([
+        parse(
+            "base.go",
+            "package p\ntype Base struct{}\nfunc (b Base) Ping() {}\n",
+        ),
+        parse("wrap.go", "package p\ntype Wrap struct {\n\tBase\n}\n"),
+    ]);
+    let cg_v1 = prism::call_graph::CallGraph::build(&v1);
+    assert!(cg_v1
+        .promoted_aliases
+        .contains_key(&("Wrap".to_string(), "Ping".to_string())));
+
+    // v2: wrap.go removes the embedding (base.go's fid file is UNCHANGED -> remove_files won't prune it).
+    let mut v2 = BTreeMap::new();
+    v2.extend([
+        parse(
+            "base.go",
+            "package p\ntype Base struct{}\nfunc (b Base) Ping() {}\n",
+        ),
+        parse("wrap.go", "package p\ntype Wrap struct{}\n"),
+    ]);
+    let changed: BTreeSet<String> = ["wrap.go".to_string()].into_iter().collect();
+    let dfg = DataFlowGraph::build(&v2);
+    let cpg = CodePropertyGraph::build_incremental(cg_v1, dfg, &changed, &v2, None);
+    assert!(
+        !cpg.call_graph
+            .promoted_aliases
+            .contains_key(&("Wrap".to_string(), "Ping".to_string())),
+        "stale promoted alias must be cleared even though Base.Ping's file is unchanged"
+    );
+}
