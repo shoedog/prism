@@ -76,6 +76,12 @@ pub struct CallGraph {
     /// Phase-IP (Go embedding): gap telemetry, e.g. {"ambiguous": n}.
     #[serde(default)]
     pub embedding_gaps: BTreeMap<String, usize>,
+    #[serde(default)]
+    pub interface_impls: BTreeMap<(String, String), Vec<FunctionId>>,
+    #[serde(default)]
+    pub interface_gaps: BTreeMap<String, usize>,
+    #[serde(default)]
+    pub interface_overapprox: BTreeMap<String, usize>,
 }
 
 impl CallGraph {
@@ -92,6 +98,9 @@ impl CallGraph {
             receiver_vars: BTreeMap::new(),
             promoted_aliases: BTreeMap::new(),
             embedding_gaps: BTreeMap::new(),
+            interface_impls: BTreeMap::new(),
+            interface_gaps: BTreeMap::new(),
+            interface_overapprox: BTreeMap::new(),
         }
     }
 
@@ -212,6 +221,9 @@ impl CallGraph {
             receiver_vars,
             promoted_aliases: BTreeMap::new(),
             embedding_gaps: BTreeMap::new(),
+            interface_impls: BTreeMap::new(),
+            interface_gaps: BTreeMap::new(),
+            interface_overapprox: BTreeMap::new(),
         }
     }
 
@@ -713,8 +725,12 @@ impl CallGraph {
             receiver_vars,
             promoted_aliases: BTreeMap::new(),
             embedding_gaps: BTreeMap::new(),
+            interface_impls: BTreeMap::new(),
+            interface_gaps: BTreeMap::new(),
+            interface_overapprox: BTreeMap::new(),
         };
         cg.apply_go_embedding_promotion(files);
+        cg.apply_go_interface_dispatch(files);
         cg
     }
 
@@ -766,6 +782,7 @@ impl CallGraph {
         // pruning can't catch an alias whose target fid lives in an unchanged file).
         // `apply_go_embedding_promotion` repopulates from all files.
         self.clear_promoted_embedding();
+        self.clear_interface_dispatch();
     }
 
     /// Merge another CallGraph into this one.
@@ -806,6 +823,12 @@ impl CallGraph {
             }
         }
         self.embedding_gaps.clear();
+    }
+
+    fn clear_interface_dispatch(&mut self) {
+        self.interface_impls.clear();
+        self.interface_gaps.clear();
+        self.interface_overapprox.clear();
     }
 
     /// Recompute Go embedding promotions over `files` and write owner-index aliases.
@@ -861,6 +884,29 @@ impl CallGraph {
         if ambiguous > 0 {
             self.embedding_gaps
                 .insert("ambiguous".to_string(), ambiguous);
+        }
+    }
+
+    pub fn apply_go_interface_dispatch(&mut self, files: &BTreeMap<String, ParsedFile>) {
+        self.clear_interface_dispatch();
+        if !files
+            .values()
+            .any(|p| p.language == crate::languages::Language::Go)
+        {
+            return;
+        }
+        let live = crate::live_types::go_admission_live_set(files);
+        let provider = crate::type_providers::go::GoTypeProvider::from_parsed_files(files);
+        let table = provider.compute_interface_dispatch(&live);
+        self.interface_impls = table.impls;
+        for g in &table.gaps {
+            *self.interface_gaps.entry(format!("{g:?}")).or_insert(0) += 1;
+        }
+        for o in &table.overapprox {
+            *self
+                .interface_overapprox
+                .entry(format!("{o:?}"))
+                .or_insert(0) += 1;
         }
     }
 
@@ -1012,6 +1058,9 @@ impl CallGraph {
             receiver_vars,
             promoted_aliases: BTreeMap::new(),
             embedding_gaps: BTreeMap::new(),
+            interface_impls: BTreeMap::new(),
+            interface_gaps: BTreeMap::new(),
+            interface_overapprox: BTreeMap::new(),
         }
     }
 

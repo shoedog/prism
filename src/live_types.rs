@@ -49,6 +49,19 @@ pub fn collect_live_types(
     live
 }
 
+/// Public Go-scoped live set over the admission-key alphabet (spec §8).
+pub fn go_admission_live_set(
+    files: &std::collections::BTreeMap<String, crate::ast::ParsedFile>,
+) -> std::collections::BTreeSet<String> {
+    let mut live = std::collections::BTreeSet::new();
+    for parsed in files.values() {
+        if parsed.language == crate::languages::Language::Go {
+            scan_go(parsed, &mut live);
+        }
+    }
+    live
+}
+
 // ---------------------------------------------------------------------------
 // C++ instantiation scanning
 // ---------------------------------------------------------------------------

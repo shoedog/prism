@@ -53,6 +53,27 @@ fn admission_key_distinguishes_pointer() {
 }
 
 #[test]
+fn callgraph_exposes_interface_impls() {
+    use prism::languages::Language::Go;
+    let (cg, _) = build(&[(
+        "main.go",
+        "package main\n\
+         type Runner interface { Go() }\n\
+         type Fast struct{}\nfunc (f Fast) Go() {}\n\
+         func use() { _ = Fast{} }\n\
+         func run(r Runner) { r.Go() }\n",
+        Go,
+    )]);
+    // Fast is constructed -> live -> interface_impls has (Runner, Go) -> [Fast.Go].
+    let ids = cg
+        .interface_impls
+        .get(&("Runner".to_string(), "Go".to_string()))
+        .expect("interface_impls populated");
+    assert_eq!(ids.len(), 1);
+    assert_eq!(ids[0].name, "Go");
+}
+
+#[test]
 fn r1_type_qualified_call_resolves_to_owner_method_exact() {
     use prism::languages::Language::Rust;
     let (cg, _) = build(&[

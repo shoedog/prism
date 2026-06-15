@@ -190,6 +190,7 @@ impl CodePropertyGraph {
         // not-merge) over ALL merged files so a removed/changed embedding cannot
         // leave a stale alias (remove_files prunes methods by fid.file only).
         cached_cg.apply_go_embedding_promotion(files);
+        cached_cg.apply_go_interface_dispatch(files);
 
         Self::assemble_graph(cached_cg, cached_dfg, files, type_db)
     }
