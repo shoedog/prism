@@ -68,6 +68,15 @@ struct GoMethod {
     end_line: usize,
 }
 
+/// A concrete method promoted onto an outer struct via embedding.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PromotedMethod {
+    pub struct_name: String,
+    pub method: String,
+    pub func_id: FunctionId,
+    pub depth: usize,
+}
+
 // ---------------------------------------------------------------------------
 // GoTypeProvider
 // ---------------------------------------------------------------------------
@@ -547,6 +556,100 @@ impl GoTypeProvider {
             }
         }
     }
+
+    /// All concrete methods promoted onto each struct via transitive **struct**
+    /// embedding, with depth. One walk per struct collects (a) method candidates at
+    /// depth>=1 and (b) the shallowest depth of every field name (incl. the outer
+    /// struct's own fields at depth 0). A method at depth `d` is emitted only if NO
+    /// same-name field exists at depth `<= d` — the Go selector rule, which lets an
+    /// intermediate embedded struct's field shadow a deeper promoted method. Embedded
+    /// **interface** fields are skipped (no concrete body — interface dispatch,
+    /// deferred). Duplicates from different embed paths are kept (the caller resolves
+    /// direct-method-wins + equal-depth ambiguity). **Path-local** cycle detection so
+    /// diamond paths are preserved.
+    pub fn promoted_struct_methods(&self) -> Vec<PromotedMethod> {
+        let mut out = Vec::new();
+        for struct_name in self.data.structs.keys() {
+            let mut field_depth: BTreeMap<String, usize> = BTreeMap::new();
+            let mut cands: Vec<PromotedMethod> = Vec::new();
+            let mut path: BTreeSet<String> = BTreeSet::new();
+            path.insert(struct_name.clone());
+            Self::walk_embedding(
+                &self.data,
+                struct_name,
+                struct_name,
+                0,
+                &mut path,
+                &mut field_depth,
+                &mut cands,
+            );
+            for pm in cands {
+                // Shadowed if a same-name field sits at a shallower-or-equal depth.
+                match field_depth.get(&pm.method) {
+                    Some(fd) if *fd <= pm.depth => {}
+                    _ => out.push(pm),
+                }
+            }
+        }
+        out
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn walk_embedding(
+        data: &GoTypeData,
+        outer: &str,
+        current: &str,
+        depth: usize, // depth of `current` within `outer` (0 = the outer struct itself)
+        path: &mut BTreeSet<String>,
+        field_depth: &mut BTreeMap<String, usize>,
+        cands: &mut Vec<PromotedMethod>,
+    ) {
+        let go_struct = match data.structs.get(current) {
+            Some(s) => s,
+            None => return,
+        };
+        // Record this struct's own field names at `depth` (keep the min).
+        for (fname, _) in &go_struct.fields {
+            field_depth
+                .entry(fname.clone())
+                .and_modify(|d| {
+                    if depth < *d {
+                        *d = depth;
+                    }
+                })
+                .or_insert(depth);
+        }
+        // Methods of `current` promote to `outer` (depth>=1; the outer struct's own
+        // depth-0 methods are NOT promoted — direct-method-wins is the caller's job).
+        if depth >= 1 {
+            if let Some(methods) = data.methods.get(current) {
+                for m in methods {
+                    cands.push(PromotedMethod {
+                        struct_name: outer.to_string(),
+                        method: m.name.clone(),
+                        func_id: FunctionId {
+                            name: m.name.clone(),
+                            file: m.file.clone(),
+                            start_line: m.start_line,
+                            end_line: m.end_line,
+                        },
+                        depth,
+                    });
+                }
+            }
+        }
+        for embedded_name in &go_struct.embedded {
+            let bare = strip_pointer(embedded_name);
+            if data.interfaces.contains_key(bare) {
+                continue; // embedded interface -> interface dispatch, deferred
+            }
+            if !path.insert(bare.to_string()) {
+                continue; // cycle along THIS path only
+            }
+            Self::walk_embedding(data, outer, bare, depth + 1, path, field_depth, cands);
+            path.remove(bare); // restore for sibling paths (path-local)
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -685,4 +788,91 @@ impl DispatchProvider for GoTypeProvider {
 /// Strip leading `*` from a pointer type: `*Server` → `Server`.
 fn strip_pointer(s: &str) -> &str {
     s.strip_prefix('*').unwrap_or(s).trim()
+}
+
+#[cfg(test)]
+mod embedding_tests {
+    use super::*;
+    use std::collections::BTreeMap;
+
+    fn provider(src: &str) -> GoTypeProvider {
+        let mut files = BTreeMap::new();
+        files.insert(
+            "main.go".to_string(),
+            crate::ast::ParsedFile::parse("main.go", src, Language::Go).unwrap(),
+        );
+        GoTypeProvider::from_parsed_files(&files)
+    }
+
+    fn ms<'a>(v: &'a [PromotedMethod], s: &str, m: &str) -> Vec<&'a PromotedMethod> {
+        v.iter()
+            .filter(|p| p.struct_name == s && p.method == m)
+            .collect()
+    }
+
+    #[test]
+    fn promotes_concrete_method_from_embedded_struct() {
+        let v = provider("package main\ntype Base struct{}\nfunc (b Base) Ping() {}\ntype Wrap struct {\n\tBase\n}\n").promoted_struct_methods();
+        let p = ms(&v, "Wrap", "Ping");
+        assert_eq!(p.len(), 1);
+        assert_eq!(p[0].func_id.name, "Ping");
+        assert_eq!(p[0].func_id.file, "main.go");
+        assert_eq!(p[0].depth, 1);
+    }
+
+    #[test]
+    fn promotes_transitively_with_depth() {
+        let v = provider("package main\ntype C struct{}\nfunc (c C) M() {}\ntype B struct{ C }\ntype A struct{ B }\n").promoted_struct_methods();
+        let p = ms(&v, "A", "M");
+        assert_eq!(p.len(), 1);
+        assert_eq!(p[0].depth, 2);
+    }
+
+    #[test]
+    fn diamond_returns_both_equal_depth_paths() {
+        // A embeds B,C; B,C embed D; D.M reachable via two depth-2 paths.
+        // Path-local visited must NOT suppress the second path (so CallGraph sees the ambiguity).
+        let v = provider("package main\ntype D struct{}\nfunc (d D) M() {}\ntype B struct{ D }\ntype C struct{ D }\ntype A struct{\n\tB\n\tC\n}\n").promoted_struct_methods();
+        let p = ms(&v, "A", "M");
+        assert_eq!(p.len(), 2, "both depth-2 paths to D.M returned");
+        assert!(p.iter().all(|m| m.depth == 2));
+    }
+
+    #[test]
+    fn embedded_interface_not_promoted() {
+        let v = provider("package main\ntype R interface { Read() }\ntype S struct {\n\tR\n}\n")
+            .promoted_struct_methods();
+        assert!(ms(&v, "S", "Read").is_empty());
+    }
+
+    #[test]
+    fn direct_field_shadows_promoted_method() {
+        // Wrap has a field named Ping -> the embedded Base.Ping is shadowed, not promoted.
+        let v = provider("package main\ntype Base struct{}\nfunc (b Base) Ping() {}\ntype Wrap struct {\n\tBase\n\tPing int\n}\n").promoted_struct_methods();
+        assert!(
+            ms(&v, "Wrap", "Ping").is_empty(),
+            "a direct field named Ping shadows the promoted method"
+        );
+    }
+
+    #[test]
+    fn intermediate_embedded_field_shadows_deeper_method() {
+        // A embeds B; B has field M AND embeds D; D has method M. Go selector rules:
+        // B's field M (depth 1) shadows D.M (depth 2) -> NOT promoted to A.
+        let v = provider("package main\ntype D struct{}\nfunc (d D) M() {}\ntype B struct {\n\tD\n\tM int\n}\ntype A struct{ B }\n").promoted_struct_methods();
+        assert!(
+            ms(&v, "A", "M").is_empty(),
+            "intermediate field M shadows the deeper promoted method"
+        );
+    }
+
+    #[test]
+    fn embedded_field_name_shadows_promoted_method() {
+        // A's embedded field F is still a selector field, so it shadows D.F.
+        let v = provider("package main\ntype F struct{}\ntype D struct{}\nfunc (d D) F() {}\ntype A struct {\n\tF\n\tD\n}\n").promoted_struct_methods();
+        assert!(
+            ms(&v, "A", "F").is_empty(),
+            "an embedded field named F shadows the promoted method D.F"
+        );
+    }
 }
