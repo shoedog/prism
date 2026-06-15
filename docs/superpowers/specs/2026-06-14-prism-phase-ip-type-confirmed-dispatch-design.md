@@ -419,6 +419,13 @@ rev 3's §14 gate was **vacuous** (the "57 caddy sites" are type-assertion → o
 attribution existed). rev 4 builds the apparatus so interface precision is *measurable*, scoped to
 **in-scope** (P6-lite-typed) interface sites.
 
+**PR-1 / PR-2 boundary (rev 5, round-4 plan-review reconciliation).** **PR-1 ships:** (a) per-edge
+`resolution_kind` extraction + (c) per-site `dispatch_kind` metadata + **probe-JSON/pending persistence so
+attribution survives `--report-only` replay** (the run JSON otherwise stores only site triples). **PR-2
+ships:** (b) the fingerprinted in-scope manifest and (d) the precision gate — both are **unfalsifiable in
+PR-1** (the corpus gate is dormant — caddy-neutral, §14e) and the PR-2 receiver classes need a separate
+AST/drop-telemetry source anyway. This split keeps PR-1 self-contained while making PR-2's gate non-vacuous.
+
 **(a) Surface the kind on every SUT call edge.** prism **already emits** `Reason::Resolution{kind}`
 (types.rs:61-63, queries.rs:326); the harness just doesn't read it. Changes:
 - prism: the §5 seam mints `InterfaceDispatch` (its `as_str` `"interface_dispatch"` rides into the
@@ -426,7 +433,9 @@ attribution existed). rev 4 builds the apparatus so interface precision is *meas
 - harness: `sut.py` (callers :78-89 / callees :92-105) extracts `Resolution.kind` from `why[]` into a
   new `CallEdge.resolution_kind` (model.py:36-41).
 
-**(b) Fingerprinted in-scope interface-site manifest.** Reuse the existing fingerprint/re-anchor store
+**(b) Fingerprinted in-scope interface-site manifest [PR-2].** (PR-1 instead persists each edge's
+`resolution_kind`/`dispatch_kind` into the probe/run JSON so attribution survives replay — see the boundary
+note above.) Reuse the existing fingerprint/re-anchor store
 (adjudication.py:79-125; SHA256[:16] of the ±1-line window). Build a manifest keyed by `file:line` over
 edges whose `resolution_kind == "interface_dispatch"`, recording `{seed_def, direction, fingerprint,
 fallback_fired, inclusion_reason}`. **Inclusion** = an in-scope interface-dispatch edge (P6-lite-typed
@@ -446,16 +455,17 @@ property, not a seed property. So: **keep the five seed strata unchanged**; carr
 edge (`CallEdge.resolution_kind`, set in (a) after SUT extraction) and on `Adjudication.dispatch_kind`
 (adjudication.py:26-44); the precision gate (d) **filters the site-diff set by that per-site metadata**.
 
-**(d) Precision gate (corrected).** At the manifest's **in-scope** interface sites:
+**(d) Precision gate [PR-2].** At the manifest's **in-scope** interface sites:
 **interface-dispatch-attributable FPs in `ExactOnly` = 0** — a *delta* gate on that set, NOT the
 aggregate 0.81. If it trips, apply the §18 width-lever before any re-baseline. Fan-out-width telemetry
-reviewed for outliers (`error`-class).
+reviewed for outliers (`error`-class). (Dormant in PR-1 — caddy-neutral — hence its move to PR-2.)
 
 **(e) Acceptance scope for PR-1 (light — caddy-neutral by construction).** Because PR-1 resolves only
 typed-param receivers (rare in caddy), the caddy corpus metric does **not** move: PR-1 acceptance is
-`--matrix-only` + `--quick` + the §13.7 barrier fixture + the §13.11 harness unit test. **No 5-corpus
-re-baseline and no caddy re-adjudication in PR-1** — those are PR-2's heavy ceremony (where the metric
-actually moves). The apparatus built here is what makes PR-2's gate non-vacuous.
+`--matrix-only` + `--quick` + the §13.7 barrier fixture + the §13.11 harness unit test + the replay test
+(boundary note). **No 5-corpus re-baseline and no caddy re-adjudication in PR-1** — those are PR-2's heavy
+ceremony (where the metric actually moves). The per-edge plumbing + persistence built here is what makes
+PR-2's manifest + gate non-vacuous.
 
 ## 15. Gap taxonomy — fatal vs admitted (rev 5, round-4 codex MAJOR + claude note)
 
