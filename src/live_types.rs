@@ -156,19 +156,98 @@ fn scan_go(parsed: &ParsedFile, live: &mut BTreeSet<String>) {
 }
 
 fn scan_go_node(node: &tree_sitter::Node, parsed: &ParsedFile, live: &mut BTreeSet<String>) {
-    if node.kind() == "composite_literal" {
-        // Go composite literal: `StructName{field: value}`
-        // The type is the first child (before the literal_value `{...}`).
-        if let Some(type_node) = node.child_by_field_name("type") {
-            let type_name = parsed.node_text(&type_node).trim().to_string();
-            // Handle pointer types: &StructName{} → StructName
-            let name = type_name.trim_start_matches('&');
-            // Handle qualified: pkg.StructName → StructName
-            let base = name.split('.').last().unwrap_or(name);
-            if !base.is_empty() && base.starts_with(|c: char| c.is_ascii_uppercase()) {
-                live.insert(base.to_string());
+    match node.kind() {
+        "composite_literal" => {
+            // value literal T{} -> T. NOTE: in `&T{}` the `&` is on the PARENT
+            // unary_expression (round-2 plan-review BLOCKER), handled in the next arm.
+            if let Some(type_node) = node.child_by_field_name("type") {
+                let base = parsed
+                    .node_text(&type_node)
+                    .trim()
+                    .trim_start_matches('*')
+                    .split('.')
+                    .last()
+                    .unwrap_or("")
+                    .to_string();
+                if !base.is_empty() && base.starts_with(|c: char| c.is_ascii_uppercase()) {
+                    live.insert(base);
+                }
             }
         }
+        "unary_expression" => {
+            // &T{} -> addressable -> T AND *T. The `&` operator lives here, not in the literal.
+            let is_addr = node
+                .child_by_field_name("operator")
+                .map(|op| parsed.node_text(&op).trim() == "&")
+                .unwrap_or_else(|| parsed.node_text(node).trim_start().starts_with('&'));
+            if is_addr {
+                if let Some(operand) = node.child_by_field_name("operand") {
+                    if operand.kind() == "composite_literal" {
+                        if let Some(type_node) = operand.child_by_field_name("type") {
+                            let base = parsed
+                                .node_text(&type_node)
+                                .trim()
+                                .split('.')
+                                .last()
+                                .unwrap_or("")
+                                .to_string();
+                            if !base.is_empty()
+                                && base.starts_with(|c: char| c.is_ascii_uppercase())
+                            {
+                                live.insert(base.clone());
+                                live.insert(format!("*{base}"));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        "call_expression" => {
+            // new(T) builtin -> T and *T
+            if let Some(func) = node.child_by_field_name("function") {
+                if parsed.node_text(&func).trim() == "new" {
+                    if let Some(args) = node.child_by_field_name("arguments") {
+                        if let Some(arg) = args.named_child(0) {
+                            let base = parsed
+                                .node_text(&arg)
+                                .trim()
+                                .split('.')
+                                .last()
+                                .unwrap_or("")
+                                .to_string();
+                            if !base.is_empty()
+                                && base.starts_with(|c: char| c.is_ascii_uppercase())
+                            {
+                                live.insert(base.clone());
+                                live.insert(format!("*{base}"));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        "var_declaration" => {
+            // var x T -> T (concrete only)
+            let mut cur = node.walk();
+            for spec in node.named_children(&mut cur) {
+                if spec.kind() == "var_spec" {
+                    if let Some(ty) = spec.child_by_field_name("type") {
+                        let base = parsed
+                            .node_text(&ty)
+                            .trim()
+                            .trim_start_matches('*')
+                            .split('.')
+                            .last()
+                            .unwrap_or("")
+                            .to_string();
+                        if !base.is_empty() && base.starts_with(|c: char| c.is_ascii_uppercase()) {
+                            live.insert(base);
+                        }
+                    }
+                }
+            }
+        }
+        _ => {}
     }
 }
 
@@ -306,5 +385,35 @@ fn insert_trimmed(parsed: &ParsedFile, node: &tree_sitter::Node, live: &mut BTre
     let text = parsed.node_text(node).trim().to_string();
     if !text.is_empty() {
         live.insert(text);
+    }
+}
+
+#[cfg(test)]
+mod go_liveness_tests {
+    use super::*;
+    use crate::ast::ParsedFile;
+    use crate::languages::Language;
+    use std::collections::BTreeSet;
+
+    fn live(src: &str) -> BTreeSet<String> {
+        let p = ParsedFile::parse("t.go", src, Language::Go).unwrap();
+        let mut s = BTreeSet::new();
+        scan_go(&p, &mut s);
+        s
+    }
+
+    #[test]
+    fn admission_alphabet() {
+        let s = live(
+            "package p\nfunc f() {\n\
+             _ = T{}\n\
+             _ = &U{}\n\
+             _ = new(V)\n\
+             var w W\n_ = w\n}\n",
+        );
+        assert!(s.contains("T")); // value literal
+        assert!(s.contains("U") && s.contains("*U")); // addressable -> both
+        assert!(s.contains("V") && s.contains("*V")); // new(V) -> both
+        assert!(s.contains("W")); // var decl, concrete
     }
 }
