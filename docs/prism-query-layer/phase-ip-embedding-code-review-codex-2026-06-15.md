@@ -1,0 +1,15 @@
+BLOCKER — `src/type_providers/go.rs:86-92`, `src/type_providers/go.rs:556-652`, `src/call_graph.rs:785-845`, `src/resolution.rs:199-209`: promoted Go methods are keyed by bare `(owner_key, method)` and injected into the global method index, with no Go package or language identity. This can resolve `Wrap.Ping` to an unrelated package’s `Base.Ping`, or collide with non-Go owners. Fix by carrying package/import/language-qualified type identity through structs, methods, embedded fields, and call-site lookup, or keep promotions in a Go-only context-aware index.
+
+MAJOR — `src/cpg/context.rs:149-167`, `src/cpg/context.rs:342-359`, `src/cpg/build.rs:189-193`: scoped CPG builds compute promotion from only filtered files. If `run.go` calls `w.Ping()`, `base.go` defines `Base.Ping`, and `wrap.go` declares `type Wrap struct { Base }`, a scoped build that omits `wrap.go` cannot reconstruct the promoted edge. Fix by computing Go promotion from the full parsed file map while keeping scoped graph nodes filtered, or by expanding scope to include embedding/type-definition files.
+
+MAJOR — `src/type_providers/go.rs:243`, `src/type_providers/go.rs:607`, `src/type_providers/go.rs:642`: Go type aliases are recorded but ignored during embedding traversal. `type Alias = Base; type Wrap struct { Alias }` should promote `Base.Ping`, but the walk looks for `structs["Alias"]` and drops the edge. Fix embedded-name resolution through aliases, with tests for alias embedding.
+
+MAJOR — `src/call_graph.rs:746-784`, `src/call_graph.rs:785-845`: direct `CallGraph` incremental flows can leave stale promoted aliases unless callers remember to rerun `apply_go_embedding_promotion`. Removing `Base` from `Wrap` can leave `(Wrap, Ping) -> Base.Ping` because pruning is by `FunctionId.file`. Fix by clearing promoted aliases in `remove_files`, or expose a single incremental API that always recomputes promotions.
+
+MAJOR — `src/type_providers/go.rs:516-558`, `src/type_providers/go.rs:560-652`: there are now two separate Go promotion/method-set algorithms with different invariants, so interface satisfaction and concrete call resolution can diverge on shadowing, ambiguity, or future dispatch changes. Fix by extracting one promotion engine that returns depth, shadowing, ambiguity, and promoted-method metadata for both consumers.
+
+MINOR — `src/resolution.rs:199-209`: `EmbeddedPromotion` labeling is keyed only by `(owner, method)`, so any bucket containing both promoted and non-promoted candidates would label all returned callees as promoted. Fix by labeling only `FunctionId`s present in `promoted_aliases[(owner, method)]`.
+
+Disagreement resolution: Claude’s package/language-boundary blocker is the broader correct framing; Codex’s unrelated-package `Base` case is a concrete instance of the same underlying defect.
+
+Overall verdict: ship after fixing the BLOCKER and the scoped/incremental promotion correctness issues.
