@@ -30,6 +30,7 @@ pub enum ResolutionKind {
     R6SingleOwner,
     StemSingle,
     StemMulti,
+    EmbeddedPromotion,
 }
 
 impl ResolutionKind {
@@ -50,6 +51,7 @@ impl ResolutionKind {
             ResolutionKind::R6SingleOwner => "r6_single_owner",
             ResolutionKind::StemSingle => "stem_single",
             ResolutionKind::StemMulti => "stem_multi",
+            ResolutionKind::EmbeddedPromotion => "embedded_promotion",
         }
     }
 }
@@ -197,7 +199,21 @@ fn is_simple_ident(s: &str) -> bool {
 impl CallGraph {
     /// Owner-index lookup that knows whether the key is a multi-impl trait key.
     fn owner_lookup(&self, owner: &str, name: &str) -> Option<Vec<ResolvedCallee<'_>>> {
-        self.owner_lookup_in_modules(owner, name, &[])
+        let mut resolved = self.owner_lookup_in_modules(owner, name, &[])?;
+        // Relabel ONLY the promoted FunctionIds (defensive: direct-wins means a
+        // promoted key has no direct method, but label by fid so a future mixed
+        // bucket can't mislabel a non-promoted callee).
+        if let Some(fids) = self
+            .promoted_aliases
+            .get(&(owner.to_string(), name.to_string()))
+        {
+            for c in &mut resolved {
+                if fids.contains(c.target) {
+                    c.kind = ResolutionKind::EmbeddedPromotion;
+                }
+            }
+        }
+        Some(resolved)
     }
 
     /// Like `owner_lookup`, but for a qualified `mod::T::m` call the preceding
@@ -593,4 +609,16 @@ pub fn file_stem(path: &str) -> &str {
 /// `src/worker/mod.rs`. Used to narrow `mod::T::m` candidates by module.
 fn file_has_path_segment(path: &str, seg: &str) -> bool {
     file_stem(path) == seg || path.split('/').any(|c| c == seg)
+}
+
+#[cfg(test)]
+mod embedding_kind_tests {
+    use super::ResolutionKind;
+    #[test]
+    fn embedded_promotion_as_str() {
+        assert_eq!(
+            ResolutionKind::EmbeddedPromotion.as_str(),
+            "embedded_promotion"
+        );
+    }
 }

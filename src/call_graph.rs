@@ -68,6 +68,14 @@ pub struct CallGraph {
     /// S3 (Go): receiver variable name per method FunctionId.
     #[serde(default)]
     pub receiver_vars: BTreeMap<FunctionId, String>,
+    /// Phase-IP (Go embedding): promoted alias `(owner_key, method)` → embedded
+    /// methods' FunctionIds. Key set is the EmbeddedPromotion label set; carries
+    /// fids for clean incremental replace.
+    #[serde(default)]
+    pub promoted_aliases: BTreeMap<(String, String), Vec<FunctionId>>,
+    /// Phase-IP (Go embedding): gap telemetry, e.g. {"ambiguous": n}.
+    #[serde(default)]
+    pub embedding_gaps: BTreeMap<String, usize>,
 }
 
 impl CallGraph {
@@ -82,6 +90,8 @@ impl CallGraph {
             methods: BTreeMap::new(),
             method_owners: BTreeMap::new(),
             receiver_vars: BTreeMap::new(),
+            promoted_aliases: BTreeMap::new(),
+            embedding_gaps: BTreeMap::new(),
         }
     }
 
@@ -200,6 +210,8 @@ impl CallGraph {
             methods,
             method_owners,
             receiver_vars,
+            promoted_aliases: BTreeMap::new(),
+            embedding_gaps: BTreeMap::new(),
         }
     }
 
@@ -690,7 +702,7 @@ impl CallGraph {
             callers.entry(callee_name).or_default().push(site);
         }
 
-        CallGraph {
+        let mut cg = CallGraph {
             functions,
             calls,
             callers,
@@ -699,7 +711,11 @@ impl CallGraph {
             methods,
             method_owners,
             receiver_vars,
-        }
+            promoted_aliases: BTreeMap::new(),
+            embedding_gaps: BTreeMap::new(),
+        };
+        cg.apply_go_embedding_promotion(files);
+        cg
     }
 
     // -----------------------------------------------------------------------
@@ -744,6 +760,12 @@ impl CallGraph {
             .retain(|fid, _| !exclude.contains(&fid.file));
         self.receiver_vars
             .retain(|fid, _| !exclude.contains(&fid.file));
+
+        // Promoted embedding aliases are whole-program; drop them all so no caller
+        // that merges without re-applying promotion leaves a stale alias (by-fid.file
+        // pruning can't catch an alias whose target fid lives in an unchanged file).
+        // `apply_go_embedding_promotion` repopulates from all files.
+        self.clear_promoted_embedding();
     }
 
     /// Merge another CallGraph into this one.
@@ -767,6 +789,79 @@ impl CallGraph {
         }
         self.method_owners.extend(other.method_owners);
         self.receiver_vars.extend(other.receiver_vars);
+    }
+
+    /// Remove all promoted embedding aliases from the owner index (preserving any
+    /// direct method on the same key) and clear the alias + gap maps. Idempotent.
+    /// Shared by `apply_go_embedding_promotion` (step 1) and `remove_files`, so no
+    /// incremental path can leave a stale promoted alias even if it never re-applies.
+    fn clear_promoted_embedding(&mut self) {
+        let prior = std::mem::take(&mut self.promoted_aliases);
+        for (key, fids) in &prior {
+            if let Some(v) = self.methods.get_mut(key) {
+                v.retain(|f| !fids.contains(f));
+                if v.is_empty() {
+                    self.methods.remove(key);
+                }
+            }
+        }
+        self.embedding_gaps.clear();
+    }
+
+    /// Recompute Go embedding promotions over `files` and write owner-index aliases.
+    /// Idempotent: clears prior aliases first (incremental replace).
+    pub fn apply_go_embedding_promotion(&mut self, files: &BTreeMap<String, ParsedFile>) {
+        // 1. Remove prior promoted aliases (preserving direct methods on the key).
+        self.clear_promoted_embedding();
+        if !files
+            .values()
+            .any(|p| p.language == crate::languages::Language::Go)
+        {
+            return;
+        }
+        // 2. Group promotions by (owner_key(struct), method).
+        let provider = crate::type_providers::go::GoTypeProvider::from_parsed_files(files);
+        let mut by_key: BTreeMap<(String, String), Vec<(usize, FunctionId)>> = BTreeMap::new();
+        for pm in provider.promoted_struct_methods() {
+            let key = (crate::resolution::owner_key(&pm.struct_name), pm.method);
+            by_key.entry(key).or_default().push((pm.depth, pm.func_id));
+        }
+        // 3. Direct-method-wins, then uniquely-shallowest else ambiguous-drop.
+        let mut ambiguous = 0usize;
+        for ((owner, method), mut cands) in by_key {
+            let has_direct = self
+                .methods
+                .get(&(owner.clone(), method.clone()))
+                .map(|v| v.iter().any(|f| self.method_owners.get(f) == Some(&owner)))
+                .unwrap_or(false);
+            if has_direct {
+                continue;
+            }
+            cands.sort_by_key(|(d, _)| *d);
+            let min_depth = cands[0].0;
+            let shallow: Vec<FunctionId> = cands
+                .iter()
+                .filter(|(d, _)| *d == min_depth)
+                .map(|(_, f)| f.clone())
+                .collect();
+            if shallow.len() > 1 {
+                ambiguous += 1;
+                continue;
+            }
+            let fid = shallow.into_iter().next().unwrap();
+            self.methods
+                .entry((owner.clone(), method.clone()))
+                .or_default()
+                .push(fid.clone());
+            self.promoted_aliases
+                .entry((owner, method))
+                .or_default()
+                .push(fid);
+        }
+        if ambiguous > 0 {
+            self.embedding_gaps
+                .insert("ambiguous".to_string(), ambiguous);
+        }
     }
 
     /// Build a call graph from only the specified files (Phases 1+2: direct calls only).
@@ -915,6 +1010,8 @@ impl CallGraph {
             methods,
             method_owners,
             receiver_vars,
+            promoted_aliases: BTreeMap::new(),
+            embedding_gaps: BTreeMap::new(),
         }
     }
 

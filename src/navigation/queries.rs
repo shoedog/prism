@@ -43,6 +43,7 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
         "dropped_external_receiver": external,
         "dropped_import_external": import_ext,
         "unresolved_unknown_name": unknown,
+        "embedding_gaps": cg.embedding_gaps,
     })
 }
 

@@ -186,8 +186,11 @@ impl CodePropertyGraph {
         cached_cg.merge(fresh_cg);
         cached_dfg.merge(fresh_dfg);
 
-        // Step 4: Assemble the petgraph from the merged CG/DFG.
-        // This reuses the same assembly logic as build_impl (Steps 1–9).
+        // Phase-IP: Go embedding promotion is whole-program — recompute (replace-
+        // not-merge) over ALL merged files so a removed/changed embedding cannot
+        // leave a stale alias (remove_files prunes methods by fid.file only).
+        cached_cg.apply_go_embedding_promotion(files);
+
         Self::assemble_graph(cached_cg, cached_dfg, files, type_db)
     }
 

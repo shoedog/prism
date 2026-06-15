@@ -749,3 +749,199 @@ fn p6_lifetime_typed_param_recovers_among_collisions() {
     assert_eq!(r[0].target.file, "a.rs");
     assert_eq!(r[0].confidence, ResolutionConfidence::Exact);
 }
+
+#[test]
+fn go_embedded_method_resolves_exact() {
+    use prism::languages::Language::Go;
+    let (cg, _) = build(&[(
+        "main.go",
+        "package main\ntype Base struct{}\nfunc (b Base) Ping() {}\ntype Wrap struct {\n\tBase\n}\nfunc run(w Wrap) {\n\tw.Ping()\n}\n",
+        Go,
+    )]);
+    let site = site_in(&cg, "run", "Ping");
+    let r = cg.resolve_call_site(&site);
+    assert_eq!(r.len(), 1);
+    assert_eq!(r[0].target.name, "Ping");
+    assert_eq!(r[0].target.file, "main.go");
+    assert_eq!(r[0].confidence, ResolutionConfidence::Exact);
+    assert_eq!(r[0].kind, ResolutionKind::EmbeddedPromotion);
+}
+
+#[test]
+fn go_embedded_transitive_resolves() {
+    use prism::languages::Language::Go;
+    let (cg, _) = build(&[(
+        "main.go",
+        "package main\ntype C struct{}\nfunc (c C) M() {}\ntype B struct{ C }\ntype A struct{ B }\nfunc run(a A) {\n\ta.M()\n}\n",
+        Go,
+    )]);
+    let r = cg.resolve_call_site(&site_in(&cg, "run", "M"));
+    assert_eq!(r.len(), 1);
+    assert_eq!(r[0].kind, ResolutionKind::EmbeddedPromotion);
+}
+
+#[test]
+fn go_embedded_pointer_receiver_addressable_resolves() {
+    use prism::languages::Language::Go;
+    let (cg, _) = build(&[(
+        "main.go",
+        "package main\ntype Base struct{}\nfunc (b *Base) Ping() {}\ntype Wrap struct {\n\tBase\n}\nfunc run(w Wrap) {\n\tw.Ping()\n}\n",
+        Go,
+    )]);
+    let r = cg.resolve_call_site(&site_in(&cg, "run", "Ping"));
+    assert_eq!(
+        r.len(),
+        1,
+        "addressable value receiver can call a pointer-receiver promoted method"
+    );
+    assert_eq!(r[0].kind, ResolutionKind::EmbeddedPromotion);
+}
+
+#[test]
+fn go_embedded_method_labeled_on_receiver_var_path() {
+    use prism::languages::Language::Go;
+    // The call is via the method receiver `w` (self/receiver-var path, not P6-lite param).
+    let (cg, _) = build(&[(
+        "main.go",
+        "package main\ntype Base struct{}\nfunc (b Base) Ping() {}\ntype Wrap struct {\n\tBase\n}\nfunc (w Wrap) Run() {\n\tw.Ping()\n}\n",
+        Go,
+    )]);
+    let r = cg.resolve_call_site(&site_in(&cg, "Run", "Ping"));
+    assert_eq!(r.len(), 1);
+    assert_eq!(
+        r[0].kind,
+        ResolutionKind::EmbeddedPromotion,
+        "relabel must apply on the receiver-var path too"
+    );
+}
+
+#[test]
+fn go_direct_method_wins_over_promoted() {
+    use prism::languages::Language::Go;
+    let (cg, _) = build(&[(
+        "main.go",
+        "package main\ntype Base struct{}\nfunc (b Base) Ping() {}\ntype Wrap struct {\n\tBase\n}\nfunc (w Wrap) Ping() {}\nfunc run(w Wrap) {\n\tw.Ping()\n}\n",
+        Go,
+    )]);
+    let r = cg.resolve_call_site(&site_in(&cg, "run", "Ping"));
+    assert_eq!(r.len(), 1);
+    assert_eq!(r[0].target.start_line, 7, "direct Wrap.Ping (line 7) wins");
+    assert_ne!(r[0].kind, ResolutionKind::EmbeddedPromotion);
+}
+
+#[test]
+fn go_equal_depth_embedding_ambiguity_drops() {
+    use prism::languages::Language::Go;
+    use prism::resolution::DropReason;
+    let (cg, _) = build(&[(
+        "main.go",
+        "package main\ntype X struct{}\nfunc (x X) M() {}\ntype Y struct{}\nfunc (y Y) M() {}\ntype A struct {\n\tX\n\tY\n}\nfunc run(a A) {\n\ta.M()\n}\n",
+        Go,
+    )]);
+    let out = cg.resolve_call_site_full(&site_in(&cg, "run", "M"));
+    assert!(
+        out.resolved.is_empty(),
+        "equal-depth M is ambiguous -> not promoted"
+    );
+    assert!(matches!(
+        out.drop,
+        Some(DropReason::ExternalReceiver) | Some(DropReason::MultiOwnerCollision)
+    ));
+}
+
+#[test]
+fn go_embedded_interface_field_not_promoted() {
+    use prism::languages::Language::Go;
+    let (cg, _) = build(&[(
+        "main.go",
+        "package main\ntype R interface { Read() }\ntype S struct {\n\tR\n}\nfunc run(s S) {\n\ts.Read()\n}\n",
+        Go,
+    )]);
+    assert!(cg
+        .resolve_call_site_full(&site_in(&cg, "run", "Read"))
+        .resolved
+        .is_empty());
+}
+
+#[test]
+fn go_embedding_dropped_on_incremental_when_embedding_file_changes() {
+    use prism::cpg::CodePropertyGraph;
+    use prism::data_flow::DataFlowGraph;
+    use prism::languages::Language::Go;
+    use std::collections::{BTreeMap, BTreeSet};
+
+    // Base.Ping in base.go (UNCHANGED); Wrap embeds Base in wrap.go.
+    let parse = |p: &str, s: &str| {
+        (
+            p.to_string(),
+            prism::ast::ParsedFile::parse(p, s, Go).unwrap(),
+        )
+    };
+    let mut v1 = BTreeMap::new();
+    v1.extend([
+        parse(
+            "base.go",
+            "package p\ntype Base struct{}\nfunc (b Base) Ping() {}\n",
+        ),
+        parse("wrap.go", "package p\ntype Wrap struct {\n\tBase\n}\n"),
+    ]);
+    let cg_v1 = prism::call_graph::CallGraph::build(&v1);
+    assert!(cg_v1
+        .promoted_aliases
+        .contains_key(&("Wrap".to_string(), "Ping".to_string())));
+
+    // v2: wrap.go removes the embedding (base.go's fid file is UNCHANGED -> remove_files won't prune it).
+    let mut v2 = BTreeMap::new();
+    v2.extend([
+        parse(
+            "base.go",
+            "package p\ntype Base struct{}\nfunc (b Base) Ping() {}\n",
+        ),
+        parse("wrap.go", "package p\ntype Wrap struct{}\n"),
+    ]);
+    let changed: BTreeSet<String> = ["wrap.go".to_string()].into_iter().collect();
+    let dfg = DataFlowGraph::build(&v2);
+    let cpg = CodePropertyGraph::build_incremental(cg_v1, dfg, &changed, &v2, None);
+    assert!(
+        !cpg.call_graph
+            .promoted_aliases
+            .contains_key(&("Wrap".to_string(), "Ping".to_string())),
+        "stale promoted alias must be cleared even though Base.Ping's file is unchanged"
+    );
+}
+
+#[test]
+fn go_remove_files_clears_promoted_aliases_cross_file() {
+    // Hardening: remove_files alone (no re-apply) must not leave a stale promoted alias
+    // whose target fid lives in an UNCHANGED file (by-fid.file pruning can't catch it).
+    use prism::languages::Language::Go;
+    use std::collections::{BTreeMap, BTreeSet};
+    let parse = |p: &str, s: &str| {
+        (
+            p.to_string(),
+            prism::ast::ParsedFile::parse(p, s, Go).unwrap(),
+        )
+    };
+    let mut files = BTreeMap::new();
+    files.extend([
+        parse(
+            "base.go",
+            "package p\ntype Base struct{}\nfunc (b Base) Ping() {}\n",
+        ),
+        parse("wrap.go", "package p\ntype Wrap struct {\n\tBase\n}\n"),
+    ]);
+    let mut cg = prism::call_graph::CallGraph::build(&files);
+    let key = ("Wrap".to_string(), "Ping".to_string());
+    assert!(cg.promoted_aliases.contains_key(&key));
+    // Remove ONLY wrap.go; base.go (the alias target's file) is untouched.
+    let excl: BTreeSet<String> = ["wrap.go".to_string()].into_iter().collect();
+    cg.remove_files(&excl);
+    assert!(
+        cg.promoted_aliases.is_empty(),
+        "remove_files clears promoted aliases"
+    );
+    assert!(
+        !cg.methods.contains_key(&key),
+        "stale promoted alias dropped from methods despite base.go unchanged"
+    );
+}
