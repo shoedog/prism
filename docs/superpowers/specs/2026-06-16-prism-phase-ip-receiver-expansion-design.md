@@ -179,10 +179,16 @@ PR-1 already extracts + persists + replays per-edge `resolution_kind`/`dispatch_
 - **Stratify** by receiver class (incl. the §5 manifest-only `slice-candidate`).
 
 **(b) Precision gate — a REPORT, not a hard fail (owner: measure-then-decide).** Over the manifest's
-in-scope sites, emit per-receiver-class JSON: `{corpus, direction, receiver_class, raw_fp, corrected_fp,
-pending, ambiguous, fanout_width}`. **FP computation rule (defined):** `raw_fp` = prism-only sites;
-`corrected_fp` = prism-only **after** adjudication, **excluding** `ambiguous`/`oracle_artifact` verdicts;
-`pending` = unadjudicated. The gate is reported, never gating, in PR-2. **Oracle dependency:** the
+in-scope sites, emit per-receiver-class JSON: `{corpus, direction, receiver_class, dispatch_sites,
+concrete_sites, raw_fp, corrected_fp, pending, ambiguous, fanout_width}`. **FP computation rule (defined,
+as-built — supersedes the original subtractive wording, per the whole-branch re-review):** the FP metric is
+over interface-**dispatch** sites only (`fanout > 0`); concrete owner-resolved receivers (`fanout == 0`) are
+reported as `concrete_sites` and excluded from the FP counts. `raw_fp` = prism-only dispatch candidates (the
+pre-adjudication upper bound; the oracle-derived prism-only set narrows the FP numerator in Slice E, all
+in-scope in PR-2). `corrected_fp` = **positive selection** of sites adjudicated `prism_fp` only — `oracle_miss`
+is a TP (prism was right), `alias_site`/`ambiguous`/`oracle_artifact` are excluded, and an unadjudicated site is
+`pending`. The denominator fields (`dispatch_sites`/`concrete_sites`/`fanout_width`) are over all in-scope class
+sites; the FP numerator over the prism-only subset. `pending` = unadjudicated. The gate is reported, never gating, in PR-2. **Oracle dependency:** the
 denominator + stratification + `fanout_width` run in **Slice D alone** (structural, no oracle); the
 `corrected_fp` line is meaningful only **after Slice E** re-adjudicates the now-resolved sites (against
 existing `adjudications.jsonl` it is labeled *provisional*). After the first real run we read it and decide

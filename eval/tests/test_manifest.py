@@ -249,12 +249,14 @@ def test_gate_report_prism_only_keys_narrows_raw():
     to it — but the denominator (dispatch_sites) is NOT narrowed (review MAJOR 2)."""
     sites = [
         _site(line=10, start_byte=10, end_byte=20, fanout=2),
-        _site(line=20, start_byte=20, end_byte=30, fanout=2),
+        _site(line=20, start_byte=20, end_byte=30, fanout=4),  # distinct fanout (re-review MINOR)
     ]
     only = {"main.go:10:20"}  # byte_key of the first site only
     row = gate_report(sites, [], corpus="caddy", direction="callers", prism_only_keys=only)[0]
     assert row["raw_fp"] == 1          # FP numerator: site :20 is not in the prism-only set
     assert row["dispatch_sites"] == 2  # denominator over ALL class dispatch sites (MAJOR 2)
+    # fanout_width is the mean over ALL dispatch (2, 4) = 3.0, NOT the prism-only-narrowed 2.0
+    assert row["fanout_width"] == pytest.approx(3.0)
 
 
 def test_gate_report_fanout_width_is_mean():

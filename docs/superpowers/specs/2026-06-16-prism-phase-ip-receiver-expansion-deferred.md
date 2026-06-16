@@ -134,3 +134,32 @@ BLOCKER 1 + MAJOR 2 (gate-report FP truth-table + denominator) and MAJOR 4 (Go-c
   CLI-flag implementor.
 - **Fix sketch:** derive "legacy" from *all per-form booleans false* and drop the `ReceiverRecoveryMode` enum
   (one source of truth), bundled with the deferred `--receiver-recovery` CLI flag.
+
+### Focused codex re-review deferrals (owner-approved 2026-06-16) — the §8 adjudication-join-precision cluster
+
+The focused codex re-review (codex gpt-5.5 xhigh) of the gate-report/manifest fixes found **no blocker** (the
+positive-`prism_fp` rule, the all-class denominator, and the Go-caller gate are correct), one MAJOR, and two
+design minors — all in the **non-gating, provisional §8 report**, all the same "make the adjudication join
+precise for Slice-E re-adjudication" theme as item **A** (byte-key + fingerprint). The owner approved deferring
+the whole cluster to Slice E.
+
+#### MAJOR — `gate_report` join is not seed-scoped (order-dependent) — DEFERRED → Slice E (with item A)
+- **Priority:** Important (for Slice-E metric fidelity).
+- **Why deferred:** `gate_report` builds `verdict_by_site = {r.site: r.verdict …}` keyed by `file:line` only, but
+  the adjudication store is **seed-scoped + per-edge** (`(seed_def, site)`). A manifest site (structural — it has
+  no seed) adjudicated under multiple seeds/edges keeps the last JSONL record → JSONL-order-dependent. This is
+  the **same adjudication-join-precision cluster as item A**: the manifest is per-call-site while adjudications
+  are per-(seed, edge), so reconciling them is fundamentally Slice-E re-adjudication work. The report is
+  non-gating + provisional and **all PR-2 sites are `pending`** (no oracle run), so it does not bite in PR-2.
+- **Production impact:** none in PR-2 (provisional, all pending). Order-dependence would only affect Slice-E
+  numbers, and only for a site adjudicated under multiple seeds with conflicting verdicts.
+- **Fix sketch (with item A):** carry `seed_def` + the byte-span key into the §8 report model so the join is
+  `(seed_def, byte_key)`-precise, with a deterministic per-site aggregation that surfaces conflicts; fold into
+  the Slice-E re-adjudication. Two related design minors fold in here: (i) **share** an adjudication
+  verdict-classification helper with `adjudication.py` instead of duplicating the truth table in `gate_report`
+  (and fail closed on unknown verdicts); (ii) **centralize** the Go interface-dispatch eligibility predicate
+  (resolver + manifest) instead of copying `Language::from_path`, or carry parsed language on `CallSite`.
+
+(Two focused-re-review MINORs were FIXED in `review-fixes-3`, not deferred: the `prism_only_keys` test now uses
+distinct fanouts and asserts the denominator-wide `fanout_width`; the design-spec §8b FP rule was updated to the
+as-built positive-`prism_fp`-selection wording.)
