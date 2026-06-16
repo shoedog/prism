@@ -306,15 +306,16 @@ impl ParsedFile {
     }
 
     /// S3 P6-lite: syntactically-provable receiver type for `receiver` at a call
-    /// on `call_line`. Typed params + constructor locals only; only bindings at
-    /// or before `call_line` count (a rebinding AFTER the call must not cancel
-    /// recovery); >1 binding before the call means shadow bail. Rust + Go.
+    /// on `call_line`. Typed params + constructor locals; when `recover_var` is true
+    /// also recovers `var r T` declarations. Only bindings at or before `call_line`
+    /// count; >1 binding before the call means shadow bail. Rust + Go.
     /// Returns the raw, unpeeled type text + which fact recovered it.
     pub fn receiver_type_in_fn(
         &self,
         func_node: &Node<'_>,
         receiver: &str,
         call_line: usize,
+        recover_var: bool,
     ) -> Option<(String, crate::resolution::ReceiverRecovery)> {
         use crate::languages::Language;
         use crate::resolution::ReceiverRecovery;
@@ -372,6 +373,7 @@ impl ParsedFile {
             call_line,
             &mut found,
             &mut bindings,
+            recover_var,
         );
         if bindings > 1 {
             return None;
@@ -3511,12 +3513,24 @@ impl ParsedFile {
     }
 
     /// Like `function_calls_on_lines_with_qualifier`, but also returns the call
-    /// node's byte range as `(callee_name, line, qualifier, start_byte, end_byte)`.
-    pub fn function_calls_with_qualifier_and_spans_on_lines(
-        &self,
+    /// node's byte range plus the qualifier/receiver node as
+    /// `(callee_name, line, qualifier, start_byte, end_byte, receiver_node)`.
+    /// `receiver_node` (the selector operand — e.g. the `type_assertion_expression`
+    /// in `x.(Module).M()`) feeds the S3 `ReceiverClassifier`. It is surfaced on the
+    /// query path only; the manual fallback yields `None` (type-assertion recovery is
+    /// Go-only, and Go uses the query path).
+    pub fn function_calls_with_qualifier_and_spans_on_lines<'a>(
+        &'a self,
         func_node: &Node<'_>,
         lines: &BTreeSet<usize>,
-    ) -> Vec<(String, usize, Option<String>, usize, usize)> {
+    ) -> Vec<(
+        String,
+        usize,
+        Option<String>,
+        usize,
+        usize,
+        Option<Node<'a>>,
+    )> {
         use crate::queries::{get_query, QueryKind};
         use tree_sitter::StreamingIterator;
 
@@ -3536,16 +3550,17 @@ impl ParsedFile {
                             if let Some(name_node) = self.language.call_function_name(&capture.node)
                             {
                                 let name = self.node_text(&name_node).to_string();
-                                let qualifier = self
-                                    .language
-                                    .call_function_qualifier(&capture.node)
-                                    .map(|q| self.node_text(&q).to_string());
+                                let qualifier_node =
+                                    self.language.call_function_qualifier(&capture.node);
+                                let qualifier =
+                                    qualifier_node.map(|q| self.node_text(&q).to_string());
                                 calls.push((
                                     name,
                                     line,
                                     qualifier,
                                     capture.node.start_byte(),
                                     capture.node.end_byte(),
+                                    qualifier_node,
                                 ));
                             }
                         }
@@ -3560,11 +3575,18 @@ impl ParsedFile {
         calls
     }
 
-    fn collect_calls_manual_with_qualifier_and_spans(
-        &self,
+    fn collect_calls_manual_with_qualifier_and_spans<'a>(
+        &'a self,
         node: Node<'_>,
         lines: &BTreeSet<usize>,
-        out: &mut Vec<(String, usize, Option<String>, usize, usize)>,
+        out: &mut Vec<(
+            String,
+            usize,
+            Option<String>,
+            usize,
+            usize,
+            Option<Node<'a>>,
+        )>,
     ) {
         let line = node.start_position().row + 1;
 
@@ -3575,7 +3597,16 @@ impl ParsedFile {
                     .language
                     .call_function_qualifier(&node)
                     .map(|q| self.node_text(&q).to_string());
-                out.push((name, line, qualifier, node.start_byte(), node.end_byte()));
+                // Manual fallback surfaces no receiver node (None); type-assertion
+                // recovery is Go-only and Go uses the query path above.
+                out.push((
+                    name,
+                    line,
+                    qualifier,
+                    node.start_byte(),
+                    node.end_byte(),
+                    None,
+                ));
             }
         }
 
@@ -3821,6 +3852,7 @@ impl ParsedFile {
         call_line: usize,
         found: &mut Option<(String, crate::resolution::ReceiverRecovery)>,
         bindings: &mut usize,
+        recover_var: bool,
     ) {
         use crate::languages::Language;
         use crate::resolution::ReceiverRecovery;
@@ -3876,6 +3908,35 @@ impl ParsedFile {
                     }
                 }
             }
+            (Language::Go, "var_spec") if recover_var => {
+                // var_spec.name is multiple:true; match only the bound name(s), never names in
+                // the declared type or initializer (that would be a false recovery).
+                let mut cur = node.walk();
+                let names: Vec<_> = node.children_by_field_name("name", &mut cur).collect();
+                let matched = names
+                    .iter()
+                    .any(|n| self.simple_binding_text(n).as_deref() == Some(receiver));
+                if matched {
+                    *bindings += 1;
+                    if let Some(ty) = node.child_by_field_name("type") {
+                        // `var r T` / `var a, b T` — the declared type applies to every name.
+                        *found = Some((self.node_text(&ty).to_string(), ReceiverRecovery::VarDecl));
+                    } else if names.len() == 1 {
+                        // `var r = X{}` — single name ↔ single value; safe to recover the type.
+                        *found = node
+                            .child_by_field_name("value")
+                            .and_then(|value| {
+                                self.constructor_type(&value)
+                                    .or_else(|| self.first_constructor_type_child(&value))
+                            })
+                            .map(|ty| (ty, ReceiverRecovery::VarDecl));
+                    } else {
+                        // multi-name untyped (`var a, b = X{}, Y{}`) — name↔value alignment is
+                        // ambiguous; bail rather than emit a wrong edge (whole-branch review #2).
+                        *found = None;
+                    }
+                }
+            }
             (Language::Go, "assignment_statement") | (Language::Rust, "assignment_expression") => {
                 let left = node
                     .child_by_field_name("left")
@@ -3892,7 +3953,15 @@ impl ParsedFile {
 
         let mut cursor = node.walk();
         for child in node.children(&mut cursor) {
-            self.walk_receiver_bindings(child, false, receiver, call_line, found, bindings);
+            self.walk_receiver_bindings(
+                child,
+                false,
+                receiver,
+                call_line,
+                found,
+                bindings,
+                recover_var,
+            );
         }
     }
 

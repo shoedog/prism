@@ -307,6 +307,11 @@ enum NavQuery {
         #[arg(long)]
         repo: std::path::PathBuf,
     },
+    /// Whole-repo interface-dispatch in-scope manifest (Phase-IP PR-2 §8a).
+    InterfaceManifest {
+        #[arg(long)]
+        repo: std::path::PathBuf,
+    },
     /// Whole-repo function inventory from the FunctionTable (Tier-A spec §2.3).
     Functions {
         #[arg(long)]
@@ -446,6 +451,14 @@ fn run_nav(nav: &NavArgs) -> anyhow::Result<()> {
             let session = build_session(repo, nav.no_cache, nav.cache_dir.as_deref())?;
             let stats = prism::navigation::queries::call_stats(&session.index.cpg.call_graph);
             println!("{}", serde_json::to_string_pretty(&stats)?);
+            Ok(())
+        }
+        NavQuery::InterfaceManifest { repo } => {
+            let session = build_session(repo, nav.no_cache, nav.cache_dir.as_deref())?;
+            let manifest = prism::navigation::queries::interface_dispatch_manifest(
+                &session.index.cpg.call_graph,
+            );
+            println!("{}", serde_json::to_string_pretty(&manifest)?);
             Ok(())
         }
         NavQuery::Functions { repo, format } => {

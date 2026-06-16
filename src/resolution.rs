@@ -159,6 +159,203 @@ pub fn peel_type(text: &str) -> String {
 pub enum ReceiverRecovery {
     TypedParam,
     ConstructorLocal,
+    /// Go type assertion: `x.(T).M()` — `T` is the statically-asserted type.
+    TypeAssertion,
+    /// Go `var r T` declaration — `T` is the declared type of the local.
+    VarDecl,
+    /// Reserved (spec §5/§10): interface-slice element receiver, e.g.
+    /// `for _, r := range xs { r.M() }`. The classifier returns `None` for it
+    /// (sketched only); the variant exists so the wire/manifest shape is settled.
+    SliceElem,
+}
+
+/// S3 receiver-recovery: a syntactically-recovered static receiver type plus the
+/// fact that recovered it. Routing (owner_lookup → interface_impls → drop) happens
+/// downstream in `resolve_call_site` (spec §2 recover-and-route); this is recovery only.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RecoveredReceiver {
+    pub static_type: String,
+    pub recovery: ReceiverRecovery,
+}
+
+/// Inputs a `ReceiverClassifier` needs to recover a receiver's static type. Borrows
+/// from the ParsedFile/tree of the call's enclosing function. Carries `recv_var` +
+/// `file_imports` because the legacy gate tests `is_recv`/`is_import`
+/// (call_graph.rs). Recover-and-route needs NO GoTypeProvider here.
+#[derive(Clone, Copy)]
+pub struct ReceiverCtx<'a> {
+    /// Receiver/selector-operand node (e.g. the `type_assertion_expression` in
+    /// `x.(Module).M()`). `None` on the manual-fallback path / unqualified calls.
+    pub receiver_expr: Option<tree_sitter::Node<'a>>,
+    /// Qualifier text (e.g. `x` in `x.M()`), as today.
+    pub qualifier: Option<&'a str>,
+    /// Enclosing function node.
+    pub fn_node: tree_sitter::Node<'a>,
+    /// 1-indexed call line.
+    pub call_line: usize,
+    /// For node_text + the legacy `receiver_type_in_fn` scan.
+    pub parsed: &'a crate::ast::ParsedFile,
+    /// Go receiver variable of the enclosing method (legacy gate: `is_recv`).
+    pub recv_var: Option<&'a str>,
+    /// Per-file import map (legacy gate: `is_import`).
+    pub file_imports: Option<&'a std::collections::BTreeMap<String, String>>,
+}
+
+/// Swappable receiver-recovery strategy (strangler seam, spec §2). `Sync` because
+/// the CPG build extracts call sites with rayon (`call_graph.rs` par_iter).
+pub trait ReceiverClassifier: Sync {
+    fn classify(&self, ctx: ReceiverCtx<'_>) -> Option<RecoveredReceiver>;
+}
+
+/// Receiver-recovery mode (spec §13.3). `Expanded` (default) turns the implemented
+/// forms on; `Legacy` is the granular fall-back / parity-test mode.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ReceiverRecoveryMode {
+    Legacy,
+    Expanded,
+}
+
+/// Build-time receiver-recovery config. Default = `Expanded` with all forms on.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ReceiverRecoveryConfig {
+    pub mode: ReceiverRecoveryMode,
+    pub type_assertion: bool,
+    pub var_local: bool,
+}
+
+impl Default for ReceiverRecoveryConfig {
+    fn default() -> Self {
+        Self {
+            mode: ReceiverRecoveryMode::Expanded,
+            type_assertion: true,
+            var_local: true,
+        }
+    }
+}
+
+impl ReceiverRecoveryConfig {
+    /// The granular fall-back: PR-1 behavior, no new forms.
+    pub fn legacy() -> Self {
+        Self {
+            mode: ReceiverRecoveryMode::Legacy,
+            type_assertion: false,
+            var_local: false,
+        }
+    }
+
+    /// The classifier this config selects (built once per CPG build).
+    pub fn classifier(&self) -> Box<dyn ReceiverClassifier> {
+        match self.mode {
+            ReceiverRecoveryMode::Legacy => Box::new(LegacyClassifier),
+            ReceiverRecoveryMode::Expanded => Box::new(ExpandedClassifier {
+                type_assertion: self.type_assertion,
+                var_local: self.var_local,
+            }),
+        }
+    }
+}
+
+/// Inner gate + scan shared by `legacy_recover` and `ExpandedClassifier`.
+/// Runs the qualifier/keyword/recv-var/import gate, then the typed-param /
+/// constructor-local scan (and optionally `var` declarations when `recover_var`
+/// is true), peeled + owner-keyed.
+fn recover_simple_ident(ctx: &ReceiverCtx<'_>, recover_var: bool) -> Option<RecoveredReceiver> {
+    use crate::languages::Language;
+    if !matches!(ctx.parsed.language, Language::Rust | Language::Go) {
+        return None;
+    }
+    let q = ctx.qualifier?;
+    let simple = !q.is_empty() && q.chars().all(|c| c.is_alphanumeric() || c == '_');
+    let is_kw = matches!(q, "self" | "this" | "cls");
+    let is_recv = ctx.recv_var == Some(q);
+    let is_import = ctx.file_imports.map(|m| m.contains_key(q)).unwrap_or(false);
+    if !(simple && !is_kw && !is_recv && !is_import) {
+        return None;
+    }
+    ctx.parsed
+        .receiver_type_in_fn(&ctx.fn_node, q, ctx.call_line, recover_var)
+        .map(|(ty, how)| RecoveredReceiver {
+            static_type: owner_key(&peel_type(&ty)),
+            recovery: how,
+        })
+}
+
+/// PR-1 P6-lite recovery, extracted verbatim from the former
+/// `call_graph::recover_receiver` (the qualifier/keyword/recv-var/import gate, then
+/// the typed-param / constructor-local scan, peeled + owner-keyed).
+/// Byte-identical to PR-1: `recover_var = false`.
+pub fn legacy_recover(ctx: &ReceiverCtx<'_>) -> Option<RecoveredReceiver> {
+    recover_simple_ident(ctx, false)
+}
+
+/// `legacy` — PR-1 behavior, no new forms.
+pub struct LegacyClassifier;
+impl ReceiverClassifier for LegacyClassifier {
+    fn classify(&self, ctx: ReceiverCtx<'_>) -> Option<RecoveredReceiver> {
+        legacy_recover(&ctx)
+    }
+}
+
+/// `expanded` — `legacy` ∪ the new forms.
+pub struct ExpandedClassifier {
+    pub type_assertion: bool,
+    pub var_local: bool,
+}
+impl ReceiverClassifier for ExpandedClassifier {
+    fn classify(&self, ctx: ReceiverCtx<'_>) -> Option<RecoveredReceiver> {
+        if let Some(r) = recover_simple_ident(&ctx, self.var_local) {
+            return Some(r);
+        }
+        if self.type_assertion {
+            if let Some(r) = recover_type_assertion(&ctx) {
+                return Some(r);
+            }
+        }
+        None
+    }
+}
+
+/// Recover the statically-asserted type from a Go `x.(T).M()` call.
+///
+/// The grammar for `type_assertion_expression` (tree-sitter-go §primary):
+/// `operand '.' '(' type ')'`. The `type` field is any `_type`, including
+/// `parenthesized_type` (`(T)`), `pointer_type` (`*T`), `qualified_type`
+/// (`pkg.T`), or `type_identifier` (`T`).
+///
+/// Normalization:
+/// - `parenthesized_type` is unwrapped one level at a time.
+/// - `peel_type` strips `*` (pointer); `owner_key` strips the remaining `::` paths.
+/// - `pkg.T` is NOT stripped here — `iface_key` handles that at route time in
+///   `resolve_call_site` so owner-lookup routes correctly for concrete types too.
+///
+/// Deferred gap (D2): cross-package concrete `pkg.T` where `T` is not an interface
+/// will fail `owner_lookup` (key `"pkg.T"` has no owner entry). Recorded in spec §D2.
+fn recover_type_assertion(ctx: &ReceiverCtx<'_>) -> Option<RecoveredReceiver> {
+    use crate::languages::Language;
+    if ctx.parsed.language != Language::Go {
+        return None;
+    }
+    let node = ctx.receiver_expr?;
+    if node.kind() != "type_assertion_expression" {
+        return None;
+    }
+    let mut ty = node.child_by_field_name("type")?;
+    // Unwrap parenthesized_type: `(T)` → `T` (handles `x.((Runner)).M()`)
+    while ty.kind() == "parenthesized_type" {
+        ty = ty.named_child(0)?;
+    }
+    // Same normalization as the legacy path → consistent routing: an interface
+    // (`Runner`/`pkg.Module`) routes via iface_key→interface_impls; a same-package
+    // concrete (`*Fast`) owner_lookup-resolves. Cross-package concrete `pkg.T`
+    // does NOT owner-resolve (owner_key keeps `pkg.`) — deferred gap D2.
+    let static_type = owner_key(&peel_type(ctx.parsed.node_text(&ty)));
+    if static_type.is_empty() {
+        return None;
+    }
+    Some(RecoveredReceiver {
+        static_type,
+        recovery: ReceiverRecovery::TypeAssertion,
+    })
 }
 
 /// Why a call site resolved to nothing - the classification API that

@@ -17,6 +17,257 @@ fn build(
     (CallGraph::build(&files), files)
 }
 
+fn build_cfg(
+    sources: &[(&str, &str, prism::languages::Language)],
+    cfg: &prism::resolution::ReceiverRecoveryConfig,
+) -> (CallGraph, BTreeMap<String, prism::ast::ParsedFile>) {
+    let mut files = BTreeMap::new();
+    for (path, src, lang) in sources {
+        files.insert(
+            path.to_string(),
+            prism::ast::ParsedFile::parse(path, src, *lang).unwrap(),
+        );
+    }
+    (CallGraph::build_with_receiver_config(&files, cfg), files)
+}
+
+// Slice A parity gate: `legacy` reproduces PR-1's P6-lite recovery byte-for-byte,
+// and the default `expanded` mode is identical to it (no new forms yet).
+#[test]
+fn slice_a_legacy_parity_p6_typed_param() {
+    use prism::languages::Language::Go;
+    use prism::resolution::{ReceiverRecovery, ReceiverRecoveryConfig};
+    let legacy = build_cfg(
+        &[("main.go", go_iface_src(), Go)],
+        &ReceiverRecoveryConfig::legacy(),
+    );
+    let expanded = build_cfg(
+        &[("main.go", go_iface_src(), Go)],
+        &ReceiverRecoveryConfig::default(),
+    );
+    for (cg, _) in [&legacy, &expanded] {
+        let site = site_in(cg, "run", "Go");
+        assert_eq!(site.receiver_type.as_deref(), Some("Runner"));
+        assert_eq!(site.receiver_recovery, Some(ReceiverRecovery::TypedParam));
+        let r = cg.resolve_call_site(&site);
+        assert_eq!(r.len(), 2);
+        assert!(r
+            .iter()
+            .all(|c| c.kind == ResolutionKind::InterfaceDispatch));
+    }
+}
+
+// Slice D: the interface-dispatch in-scope manifest (structural; spec §8a).
+#[test]
+fn callgraph_interface_method_names_populated() {
+    use prism::languages::Language::Go;
+    let (cg, _) = build(&[("main.go", go_iface_src(), Go)]);
+    // "Go" is declared on interface Runner → in the interface-method-name set.
+    assert!(cg.interface_method_names.contains("Go"));
+}
+
+#[test]
+fn interface_manifest_includes_inscope_excludes_noninterface_method() {
+    use prism::languages::Language::Go;
+    let (cg, _) = build(&[(
+        "main.go",
+        "package main\n\
+         type Runner interface { Go() }\n\
+         type Fast struct{}\n\
+         func (f Fast) Go() {}\n\
+         func (f Fast) Stop() {}\n\
+         func use() { _ = Fast{} }\n\
+         func run(r Runner) { r.Go(); r.Stop() }\n",
+        Go,
+    )]);
+    let manifest = prism::navigation::queries::interface_dispatch_manifest(&cg);
+    let sites = manifest["sites"].as_array().expect("sites array");
+    // r.Go(): typed_param receiver, method "Go" ∈ interface Runner → in scope.
+    assert!(
+        sites
+            .iter()
+            .any(|s| s["method"] == "Go" && s["receiver_class"] == "typed_param"),
+        "r.Go() must be an in-scope manifest site"
+    );
+    // r.Stop(): "Stop" is on no interface → excluded by the denominator predicate.
+    assert!(
+        sites.iter().all(|s| s["method"] != "Stop"),
+        "r.Stop() (non-interface method) must be excluded"
+    );
+    // byte-span identity present on every record.
+    assert!(sites.iter().all(|s| {
+        s["start_byte"].is_number() && s["end_byte"].is_number() && s["file"].is_string()
+    }));
+}
+
+// Re-review MAJOR 4: the manifest must only count Go-CALLER sites (real interface dispatch
+// is Go-gated in resolution.rs). A non-Go caller that syntactically recovers a same-named
+// receiver type must NOT enter the manifest, even when the called method is on a Go interface.
+#[test]
+fn interface_manifest_excludes_non_go_caller() {
+    use prism::languages::Language::{Go, Rust};
+    let (cg, _) = build(&[
+        (
+            "main.go",
+            "package main\n\
+             type Runner interface { Go() }\n\
+             type Fast struct{}\nfunc (f Fast) Go() {}\nfunc use() { _ = Fast{} }\n\
+             func run(r Runner) { r.Go() }\n",
+            Go,
+        ),
+        // Rust caller whose typed param `r: Runner` recovers a receiver and calls `Go`
+        // (a method name shared with the Go interface). It must be excluded by the Go gate.
+        (
+            "lib.rs",
+            "struct Runner;\nfn run(r: Runner) {\n    r.Go();\n}\n",
+            Rust,
+        ),
+    ]);
+    let m = prism::navigation::queries::interface_dispatch_manifest(&cg);
+    let sites = m["sites"].as_array().expect("sites array");
+    // The Go caller site for `Go` is present.
+    assert!(
+        sites
+            .iter()
+            .any(|s| s["method"] == "Go" && s["file"] == "main.go"),
+        "Go caller site for Go must be in the manifest"
+    );
+    // The Rust caller site must NOT be present (non-Go caller gate, MAJOR 4).
+    assert!(
+        sites.iter().all(|s| s["file"] != "lib.rs"),
+        "non-Go (Rust) caller site must be excluded from the manifest"
+    );
+}
+
+// Re-review MINOR 8: pin the manifest `fanout` VALUE. A dispatch receiver (interface type
+// with 2 live in-repo implementers) carries `fanout == 2`; a concrete-receiver site (the
+// receiver type is a struct, not an interface key) carries `fanout == 0`.
+#[test]
+fn interface_manifest_fanout_value() {
+    use prism::languages::Language::Go;
+    // Two implementers Fast + Slow of Runner, both constructed (live). `var r Runner`
+    // is an interface receiver -> iface_key("Runner") -> (Runner, Go) -> 2 impls.
+    let (cg, _) = build(&[(
+        "main.go",
+        "package main\n\
+         type Runner interface { Go() }\n\
+         type Fast struct{}\nfunc (f Fast) Go() {}\n\
+         type Slow struct{}\nfunc (s Slow) Go() {}\n\
+         func use() { _ = Fast{}; _ = Slow{} }\n\
+         func dispatch() { var r Runner; r.Go() }\n",
+        Go,
+    )]);
+    let m = prism::navigation::queries::interface_dispatch_manifest(&cg);
+    let sites = m["sites"].as_array().expect("sites array");
+    let dispatch_site = sites
+        .iter()
+        .find(|s| s["method"] == "Go")
+        .expect("dispatch site present");
+    assert_eq!(
+        dispatch_site["fanout"].as_u64(),
+        Some(2),
+        "Runner has 2 live in-repo implementers (Fast + Slow)"
+    );
+
+    // Concrete receiver: `var r Fast` is a concrete struct type, so iface_key("Fast")
+    // misses (Fast, Go) in interface_impls -> fanout 0, even though `Go` is an interface
+    // method name (so the site is still in scope).
+    let (cg2, _) = build(&[(
+        "main.go",
+        "package main\n\
+         type Runner interface { Go() }\n\
+         type Fast struct{}\nfunc (f Fast) Go() {}\n\
+         func use() { _ = Fast{} }\n\
+         func concrete() { var r Fast; r.Go() }\n",
+        Go,
+    )]);
+    let m2 = prism::navigation::queries::interface_dispatch_manifest(&cg2);
+    let sites2 = m2["sites"].as_array().expect("sites array");
+    let concrete_site = sites2
+        .iter()
+        .find(|s| s["method"] == "Go")
+        .expect("concrete site present (Go is an interface method name)");
+    assert_eq!(
+        concrete_site["fanout"].as_u64(),
+        Some(0),
+        "concrete struct receiver Fast is not an interface key -> fanout 0"
+    );
+}
+
+// Slice F (sketch only): the reserved variant exists; the classifier returns None for it.
+#[test]
+#[ignore = "SliceElem is reserved (spec §5/§10); classifier returns None until a future slice"]
+fn slice_elem_variant_reserved() {
+    // Compiles iff the variant exists; no recovery behavior is wired yet.
+    let _ = prism::resolution::ReceiverRecovery::SliceElem;
+}
+
+// Whole-branch review #2: untyped multi-name `var` must NOT mis-recover the first
+// initializer's type for every bound name (a wrong resolution edge).
+#[test]
+fn var_local_untyped_multiname_does_not_mis_recover() {
+    use prism::languages::Language::Go;
+    let (cg, _) = build(&[(
+        "main.go",
+        "package main\n\
+         type Slow struct{}\nfunc (s Slow) Go() {}\n\
+         type Fast struct{}\nfunc (f Fast) Go() {}\n\
+         func run() { var slow, fast = Slow{}, Fast{}; _ = slow; fast.Go() }\n",
+        Go,
+    )]);
+    // `fast` is Fast, not Slow — untyped multi-name is ambiguous, so recovery must bail.
+    assert_eq!(site_in(&cg, "run", "Go").receiver_type, None);
+}
+
+#[test]
+fn var_local_typed_multiname_recovers_shared_type() {
+    use prism::languages::Language::Go;
+    use prism::resolution::ReceiverRecovery;
+    // `var a, b Runner` — the declared type is shared across names, so it is safe.
+    let (cg, _) = build(&[(
+        "main.go",
+        "package main\n\
+         type Runner interface { Go() }\n\
+         type Fast struct{}\nfunc (f Fast) Go() {}\nfunc use() { _ = Fast{} }\n\
+         func run() { var a, b Runner; _ = a; b.Go() }\n",
+        Go,
+    )]);
+    let site = site_in(&cg, "run", "Go");
+    assert_eq!(site.receiver_type.as_deref(), Some("Runner"));
+    assert_eq!(site.receiver_recovery, Some(ReceiverRecovery::VarDecl));
+}
+
+// Whole-branch review MAJOR 5 + MINOR 6: pin the receiver_class wire strings + the
+// interface_dispatch_computed signal. The reserved "slice_elem" and the deferred
+// "slice_candidate" never appear on real sites.
+#[test]
+fn interface_manifest_receiver_class_strings() {
+    use prism::languages::Language::Go;
+    let (cg, _) = build(&[(
+        "main.go",
+        "package main\n\
+         type Runner interface { Go() }\n\
+         type Fast struct{}\nfunc (f Fast) Go() {}\nfunc use() { _ = Fast{} }\n\
+         func tp(r Runner) { r.Go() }\n\
+         func ta(x any) { x.(Runner).Go() }\n\
+         func vd() { var r Runner; r.Go() }\n",
+        Go,
+    )]);
+    let m = prism::navigation::queries::interface_dispatch_manifest(&cg);
+    let classes: std::collections::BTreeSet<&str> = m["sites"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|s| s["receiver_class"].as_str().unwrap())
+        .collect();
+    assert!(classes.contains("typed_param"));
+    assert!(classes.contains("type_assertion"));
+    assert!(classes.contains("var_local"));
+    assert!(!classes.contains("slice_elem"));
+    assert!(!classes.contains("slice_candidate"));
+    assert!(m["interface_dispatch_computed"].as_bool().unwrap());
+}
+
 fn site_in(cg: &CallGraph, caller_name: &str, callee: &str) -> CallSite {
     cg.calls
         .iter()
@@ -1131,4 +1382,236 @@ fn go_remove_files_clears_promoted_aliases_cross_file() {
         !cg.methods.contains_key(&key),
         "stale promoted alias dropped from methods despite base.go unchanged"
     );
+}
+
+// ---------------------------------------------------------------------------
+// Slice B — TypeAssertion receiver recovery
+// ---------------------------------------------------------------------------
+
+fn go_assert_src() -> &'static str {
+    "package main\n\
+     type Runner interface { Go() }\n\
+     type Fast struct{}\nfunc (f Fast) Go() {}\n\
+     func use() { _ = Fast{} }\n\
+     func run(x any) { x.(Runner).Go() }\n"
+}
+
+#[test]
+fn type_assertion_interface_receiver_dispatches_exact() {
+    use prism::languages::Language::Go;
+    use prism::resolution::ReceiverRecovery;
+    let (cg, _) = build(&[("main.go", go_assert_src(), Go)]);
+    let site = site_in(&cg, "run", "Go");
+    assert_eq!(site.receiver_type.as_deref(), Some("Runner"));
+    assert_eq!(
+        site.receiver_recovery,
+        Some(ReceiverRecovery::TypeAssertion)
+    );
+    let r = cg.resolve_call_site(&site);
+    assert_eq!(r.len(), 1); // assert BEFORE .all() (no vacuous pass)
+    assert!(r
+        .iter()
+        .all(|c| c.kind == ResolutionKind::InterfaceDispatch));
+}
+
+#[test]
+fn type_assertion_concrete_pointer_receiver_owner_resolves() {
+    use prism::languages::Language::Go;
+    let (cg, _) = build(&[(
+        "main.go",
+        "package main\n\
+         type Fast struct{}\nfunc (f Fast) Go() {}\n\
+         func run(x any) { x.(*Fast).Go() }\n",
+        Go,
+    )]);
+    let site = site_in(&cg, "run", "Go");
+    assert_eq!(site.receiver_type.as_deref(), Some("Fast")); // owner_key peels the '*'
+    let r = cg.resolve_call_site(&site);
+    assert_eq!(r.len(), 1);
+    assert_eq!(r[0].target.name, "Go");
+}
+
+#[test]
+fn type_assertion_comma_ok_is_not_a_call_receiver() {
+    use prism::languages::Language::Go;
+    use prism::resolution::ReceiverRecovery;
+    let (cg, _) = build(&[(
+        "main.go",
+        "package main\n\
+         type Runner interface { Go() }\n\
+         func run(x any) { v, ok := x.(Runner); _ = ok; _ = v }\n",
+        Go,
+    )]);
+    if let Some((_, sites)) = cg.calls.iter().find(|(fid, _)| fid.name == "run") {
+        assert!(sites
+            .iter()
+            .all(|c| c.receiver_recovery != Some(ReceiverRecovery::TypeAssertion)));
+    }
+}
+
+#[test]
+fn type_assertion_grammar_pin_normalization() {
+    use prism::languages::Language::Go;
+    use prism::resolution::ReceiverRecovery;
+    let cases = [
+        ("x.(Runner).Go()", "Runner"),
+        ("x.(pkg.Runner).Go()", "pkg.Runner"), // owner_key keeps pkg.; iface_key strips at route time
+        ("x.(*Fast).Go()", "Fast"),
+        ("x.((Runner)).Go()", "Runner"), // parenthesized_type unwrapped
+    ];
+    for (call, want) in cases {
+        let src = format!("package main\nfunc run(x any) {{ {call} }}\n");
+        let (cg, _) = build(&[("main.go", Box::leak(src.into_boxed_str()), Go)]);
+        let site = site_in(&cg, "run", "Go");
+        assert_eq!(site.receiver_type.as_deref(), Some(want), "call {call}");
+        assert_eq!(
+            site.receiver_recovery,
+            Some(ReceiverRecovery::TypeAssertion),
+            "call {call}"
+        );
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Slice C — VarDecl receiver recovery (`var r Runner`)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn var_local_interface_receiver_dispatches_exact() {
+    use prism::languages::Language::Go;
+    use prism::resolution::ReceiverRecovery;
+    let (cg, _) = build(&[(
+        "main.go",
+        "package main\n\
+         type Runner interface { Go() }\n\
+         type Fast struct{}\nfunc (f Fast) Go() {}\n\
+         func use() { _ = Fast{} }\n\
+         func run() { var r Runner; r.Go() }\n",
+        Go,
+    )]);
+    let site = site_in(&cg, "run", "Go");
+    assert_eq!(site.receiver_type.as_deref(), Some("Runner"));
+    assert_eq!(site.receiver_recovery, Some(ReceiverRecovery::VarDecl));
+    let r = cg.resolve_call_site(&site);
+    assert_eq!(r.len(), 1); // assert BEFORE .all()
+    assert!(r
+        .iter()
+        .all(|c| c.kind == ResolutionKind::InterfaceDispatch));
+}
+
+#[test]
+fn var_local_concrete_receiver_owner_resolves() {
+    use prism::languages::Language::Go;
+    let (cg, _) = build(&[(
+        "main.go",
+        "package main\n\
+         type Fast struct{}\nfunc (f Fast) Go() {}\n\
+         func run() { var r Fast; r.Go() }\n",
+        Go,
+    )]);
+    let site = site_in(&cg, "run", "Go");
+    assert_eq!(site.receiver_type.as_deref(), Some("Fast"));
+    assert_eq!(cg.resolve_call_site(&site).len(), 1);
+}
+
+#[test]
+fn var_local_shadowed_binding_bails() {
+    use prism::languages::Language::Go;
+    let (cg, _) = build(&[(
+        "main.go",
+        "package main\n\
+         type Runner interface { Go() }\n\
+         func run(x Runner) { var r Runner; r = x; r.Go() }\n",
+        Go,
+    )]);
+    assert_eq!(site_in(&cg, "run", "Go").receiver_type, None); // >1 binding → bail
+}
+
+#[test]
+fn var_local_false_name_in_initializer_not_recovered() {
+    use prism::languages::Language::Go;
+    let (cg, _) = build(&[(
+        "main.go",
+        "package main\n\
+         type Runner interface { Go() }\n\
+         func run() { var r Runner = f(); f.Go() }\n",
+        Go,
+    )]);
+    // `f.Go()` must NOT recover `f` as Runner (f appears only in the initializer).
+    if let Some((_, sites)) = cg.calls.iter().find(|(fid, _)| fid.name == "run") {
+        for s in sites.iter().filter(|s| s.qualifier.as_deref() == Some("f")) {
+            assert_eq!(s.receiver_type, None);
+        }
+    }
+}
+
+#[test]
+fn var_local_off_in_legacy_mode() {
+    use prism::languages::Language::Go;
+    use prism::resolution::ReceiverRecoveryConfig;
+    let (cg, _) = build_cfg(
+        &[(
+            "main.go",
+            "package main\n\
+             type Runner interface { Go() }\n\
+             func run() { var r Runner; r.Go() }\n",
+            Go,
+        )],
+        &ReceiverRecoveryConfig::legacy(),
+    );
+    assert_eq!(site_in(&cg, "run", "Go").receiver_type, None);
+}
+
+#[test]
+fn config_var_local_only_gates_type_assertion_off() {
+    use prism::languages::Language::Go;
+    use prism::resolution::{ReceiverRecovery, ReceiverRecoveryConfig, ReceiverRecoveryMode};
+    let cfg = ReceiverRecoveryConfig {
+        mode: ReceiverRecoveryMode::Expanded,
+        type_assertion: false,
+        var_local: true,
+    };
+    let (cg, _) = build_cfg(
+        &[(
+            "main.go",
+            "package main\n\
+             type Runner interface { Go() }\n\
+             func a(x any) { x.(Runner).Go() }\n\
+             func b() { var r Runner; r.Go() }\n",
+            Go,
+        )],
+        &cfg,
+    );
+    assert_eq!(site_in(&cg, "a", "Go").receiver_type, None); // type-assertion OFF
+    assert_eq!(
+        site_in(&cg, "b", "Go").receiver_recovery,
+        Some(ReceiverRecovery::VarDecl)
+    ); // var ON
+}
+
+#[test]
+fn config_type_assertion_only_gates_var_local_off() {
+    use prism::languages::Language::Go;
+    use prism::resolution::{ReceiverRecovery, ReceiverRecoveryConfig, ReceiverRecoveryMode};
+    let cfg = ReceiverRecoveryConfig {
+        mode: ReceiverRecoveryMode::Expanded,
+        type_assertion: true,
+        var_local: false,
+    };
+    let (cg, _) = build_cfg(
+        &[(
+            "main.go",
+            "package main\n\
+             type Runner interface { Go() }\n\
+             func a(x any) { x.(Runner).Go() }\n\
+             func b() { var r Runner; r.Go() }\n",
+            Go,
+        )],
+        &cfg,
+    );
+    assert_eq!(
+        site_in(&cg, "a", "Go").receiver_recovery,
+        Some(ReceiverRecovery::TypeAssertion)
+    ); // assert ON
+    assert_eq!(site_in(&cg, "b", "Go").receiver_type, None); // var OFF
 }

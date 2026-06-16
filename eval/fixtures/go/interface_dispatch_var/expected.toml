@@ -1,0 +1,13 @@
+[case]
+language = "go"
+capability = "interface_dispatch_var"
+status = "pass"
+[seed]
+symbol = "Go"
+file = "main.go"
+line = 9
+[[expect.callers]]
+file = "main.go"
+line = 15
+[expect]
+exact = true

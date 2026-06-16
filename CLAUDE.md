@@ -175,16 +175,23 @@ stem or Go package directory with no permissive fall-through; `Class.m()` binds
 when the qualifier is itself an owner key; unqualified calls prefer a local free
 definition, then Java/C++ implicit-`this`, then cross-file free functions
 (methods excluded — a method needs a receiver); unknown-receiver `x.m()` uses
-**P6-lite** syntactic receiver typing (Rust/Go typed params + constructor locals,
-with a std-wrapper peel list and shadow-bail) and otherwise demotes a single
-in-repo owner / drops a multi-owner collision (the precision floor); module-
-qualified free functions fall back to file-stem matching. Navigation maps
-confidence to `score` (Exact 1.0 / NameOnly 0.6) with a `Reason::Resolution` and a
-`Collision` warning when same-name receiver sites are dropped. Remaining gaps
-(spec §2.4, deferred to Phase-IP type-confirmed dispatch): Go embedding promotion,
-Go interface satisfaction, Python inheritance, and field/return-typed receivers
-(the S3.1 struct-field-index candidate). `prism nav call-stats --repo <dir>`
-reports the resolution-kind histogram and drop classification.
+**P6-lite** syntactic receiver typing behind a swappable `ReceiverClassifier` seam
+(`resolution.rs`, `legacy ↔ expanded`): Rust/Go typed params + constructor locals,
+plus Phase-IP PR-2's Go type-assertion (`x.(Module).M()`) and `var`-declared
+(`var r Runner`) receivers, with a std-wrapper peel list and shadow-bail; recovered
+receivers route through the existing `owner_lookup → interface_impls → drop` ladder
+(recover-and-route — recovery is syntactic, routing decides interface-vs-concrete).
+It otherwise demotes a single in-repo owner / drops a multi-owner collision (the
+precision floor); module-qualified free functions fall back to file-stem matching.
+Navigation maps confidence to `score` (Exact 1.0 / NameOnly 0.6) with a
+`Reason::Resolution` and a `Collision` warning when same-name receiver sites are
+dropped. Phase-IP type-confirmed dispatch has **shipped** Go embedding promotion
+(#95) and Go interface satisfaction (#96); remaining gaps (spec §2.4): Python
+inheritance, field/return-typed receivers (the S3.1 struct-field-index candidate),
+cross-package concrete-asserted keys, and package-level `var` receivers.
+`prism nav call-stats --repo <dir>` reports the resolution-kind histogram and drop
+classification; `prism nav interface-manifest --repo <dir>` emits the PR-2 in-scope
+interface-dispatch manifest (the §8a denominator for the precision gate report).
 
 ### MCP Adapter
 

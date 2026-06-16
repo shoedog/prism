@@ -54,6 +54,80 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
     })
 }
 
+/// Phase-IP PR-2 in-scope interface-dispatch manifest (spec §8a, structural — no oracle).
+///
+/// A call-site is *in-scope* iff its receiver was syntactically recovered
+/// (typed_param / constructor_local / type_assertion / var_local) AND the called
+/// method appears on some known Go interface (`cg.interface_method_names`). Each
+/// in-scope site is keyed by its byte-span (`file:start_byte:end_byte`) and stratified
+/// by receiver class. `fanout` is the in-repo implementer count minted for that
+/// (interface, method) — 0 for a concrete owner-resolved receiver.
+///
+/// The §5 `slice_candidate` (range-element) class is a manifest-only AST scan that is
+/// **deferred** (see the PR-2 deferred doc); the recovered classes above do not depend
+/// on it. The `corrected_fp` line of the gate report (the Python harness consumes this
+/// JSON) is provisional until the Slice-E re-adjudication.
+pub fn interface_dispatch_manifest(cg: &CallGraph) -> serde_json::Value {
+    use crate::resolution::ReceiverRecovery;
+    // receiver_class wire strings (the Rust→JSON→Python contract; pinned by the
+    // `interface_manifest_receiver_class_strings` test). NOTE (review MAJOR 5):
+    // `SliceElem`/"slice_elem" is the RESERVED variant (Slice F) — the classifier returns
+    // None for it, so it never appears on a real site. It is DISTINCT from the spec-§5
+    // deferred manifest-only "slice_candidate" range class (a CpgContext AST scan,
+    // deferred — see the PR-2 deferred doc); the manifest currently emits only the four
+    // recovered classes below.
+    let class = |r: ReceiverRecovery| match r {
+        ReceiverRecovery::TypedParam => "typed_param",
+        ReceiverRecovery::ConstructorLocal => "constructor_local",
+        ReceiverRecovery::TypeAssertion => "type_assertion",
+        ReceiverRecovery::VarDecl => "var_local",
+        ReceiverRecovery::SliceElem => "slice_elem",
+    };
+    let mut sites = Vec::new();
+    for site_set in cg.calls.values() {
+        for site in site_set {
+            let (Some(recv_ty), Some(recovery)) =
+                (site.receiver_type.as_deref(), site.receiver_recovery)
+            else {
+                continue;
+            };
+            // Go-caller gate (review MAJOR 4): real interface dispatch is Go-gated in
+            // resolution.rs (caller.file is Go), so only count Go-caller sites. A non-Go
+            // caller that syntactically recovers a same-named receiver type is not a real
+            // interface-dispatch site and would inflate the denominator.
+            if crate::languages::Language::from_path(&site.caller.file)
+                != Some(crate::languages::Language::Go)
+            {
+                continue;
+            }
+            // Denominator predicate (§8a): the called method is on some known interface.
+            if !cg.interface_method_names.contains(&site.callee_name) {
+                continue;
+            }
+            let fanout = crate::resolution::iface_key(recv_ty)
+                .and_then(|k| cg.interface_impls.get(&(k, site.callee_name.clone())))
+                .map(|ids| ids.len())
+                .unwrap_or(0);
+            sites.push(serde_json::json!({
+                "file": site.caller.file,
+                "start_byte": site.start_byte,
+                "end_byte": site.end_byte,
+                "line": site.line,
+                "receiver_class": class(recovery),
+                "method": site.callee_name,
+                "fanout": fanout,
+            }));
+        }
+    }
+    // `interface_dispatch_computed` (review MINOR 6): false on a raw build_direct_subset
+    // graph (apply_go_interface_dispatch never ran) → an empty `sites` means "not computed",
+    // not "no dispatch found". The CLI feeds a full-build graph, so this is true in practice.
+    serde_json::json!({
+        "sites": sites,
+        "interface_dispatch_computed": cg.interface_dispatch_computed,
+    })
+}
+
 fn confidence_score(c: crate::resolution::ResolutionConfidence) -> f32 {
     match c {
         crate::resolution::ResolutionConfidence::Exact => 1.0,
