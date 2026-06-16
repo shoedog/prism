@@ -755,6 +755,174 @@ fn count_call_edges(
 }
 
 #[test]
+fn cha_does_not_mint_cross_language_edge() {
+    use prism::type_db::{RecordInfo, RecordKind, TypeDatabase};
+
+    let mut files = BTreeMap::new();
+    files.insert(
+        "svc.go".to_string(),
+        ParsedFile::parse("svc.go", "package main\nfunc Handle() {}\n", Language::Go).unwrap(),
+    );
+    files.insert(
+        "h.cpp".to_string(),
+        ParsedFile::parse(
+            "h.cpp",
+            "struct Base { virtual void Handle(); };\n\
+             struct D : Base { void Handle() override {} };\n\
+             void drive(Base* b) { Base base; D d; b->Handle(); D::Handle(); }\n",
+            Language::Cpp,
+        )
+        .unwrap(),
+    );
+
+    let mut tdb = TypeDatabase::default();
+    tdb.records.insert(
+        "Base".to_string(),
+        RecordInfo {
+            name: "Base".to_string(),
+            kind: RecordKind::Struct,
+            fields: vec![],
+            bases: vec![],
+            virtual_methods: BTreeMap::from([("Handle".to_string(), "void()".to_string())]),
+            size: None,
+            file: "h.cpp".to_string(),
+        },
+    );
+
+    let ctx = CpgContext::build(&files, Some(&tdb));
+    let go_handle = ctx
+        .cpg
+        .graph
+        .node_indices()
+        .find(|&idx| {
+            matches!(
+                &ctx.cpg.graph[idx],
+                CpgNode::Function { name, file, .. } if name == "Handle" && file == "svc.go"
+            )
+        })
+        .expect("expected Go Handle function node");
+
+    let inbound_exact = ctx
+        .cpg
+        .graph
+        .edges_directed(go_handle, petgraph::Direction::Incoming)
+        .filter(|edge| matches!(edge.weight(), CpgEdge::Call(ResolutionConfidence::Exact)))
+        .count();
+    assert_eq!(
+        inbound_exact, 0,
+        "CHA must not mint Exact call edges from C++ virtual dispatch to a same-named Go function",
+    );
+}
+
+#[test]
+fn cha_does_not_mint_unowned_cpp_same_name_edge() {
+    use prism::type_db::{RecordInfo, RecordKind, TypeDatabase};
+
+    let mut files = BTreeMap::new();
+    files.insert(
+        "owned.cpp".to_string(),
+        ParsedFile::parse(
+            "owned.cpp",
+            "struct Base { virtual void Handle(); };\n\
+             struct D : Base { void Handle() override {} };\n\
+             void drive(Base* b) { Base base; D d; D::Handle(); }\n",
+            Language::Cpp,
+        )
+        .unwrap(),
+    );
+    files.insert(
+        "other.cpp".to_string(),
+        ParsedFile::parse("other.cpp", "void Handle() {}\n", Language::Cpp).unwrap(),
+    );
+
+    let mut tdb = TypeDatabase::default();
+    tdb.records.insert(
+        "Base".to_string(),
+        RecordInfo {
+            name: "Base".to_string(),
+            kind: RecordKind::Struct,
+            fields: vec![],
+            bases: vec![],
+            virtual_methods: BTreeMap::from([("Handle".to_string(), "void()".to_string())]),
+            size: None,
+            file: "owned.cpp".to_string(),
+        },
+    );
+
+    let ctx = CpgContext::build(&files, Some(&tdb));
+    let other_handle = ctx
+        .cpg
+        .graph
+        .node_indices()
+        .find(|&idx| {
+            matches!(
+                &ctx.cpg.graph[idx],
+                CpgNode::Function { name, file, .. } if name == "Handle" && file == "other.cpp"
+            )
+        })
+        .expect("expected unowned C++ Handle function node");
+
+    let inbound_exact = ctx
+        .cpg
+        .graph
+        .edges_directed(other_handle, petgraph::Direction::Incoming)
+        .filter(|edge| matches!(edge.weight(), CpgEdge::Call(ResolutionConfidence::Exact)))
+        .count();
+    assert_eq!(
+        inbound_exact, 0,
+        "CHA must not mint Exact edges to same-named C++ functions outside RecordInfo.file ownership",
+    );
+}
+
+#[test]
+fn cha_does_not_seed_from_unowned_cpp_caller() {
+    use prism::type_db::{RecordInfo, RecordKind, TypeDatabase};
+
+    let mut files = BTreeMap::new();
+    files.insert(
+        "owned.cpp".to_string(),
+        ParsedFile::parse(
+            "owned.cpp",
+            "struct Base { virtual void Handle(); };\n\
+             struct D : Base { void Handle() override {} };\n\
+             struct E : Base { void Handle() override {} };\n",
+            Language::Cpp,
+        )
+        .unwrap(),
+    );
+    files.insert(
+        "caller.cpp".to_string(),
+        ParsedFile::parse(
+            "caller.cpp",
+            "void drive(Base* b) { Base base; D d; E e; D::Handle(); }\n",
+            Language::Cpp,
+        )
+        .unwrap(),
+    );
+
+    let mut tdb = TypeDatabase::default();
+    tdb.records.insert(
+        "Base".to_string(),
+        RecordInfo {
+            name: "Base".to_string(),
+            kind: RecordKind::Struct,
+            fields: vec![],
+            bases: vec![],
+            virtual_methods: BTreeMap::from([("Handle".to_string(), "void()".to_string())]),
+            size: None,
+            file: "owned.cpp".to_string(),
+        },
+    );
+
+    let ctx = CpgContext::build(&files, Some(&tdb));
+    assert_eq!(
+        count_call_edges(&ctx.cpg, "drive", "Handle", ResolutionConfidence::Exact),
+        1,
+        "unowned C++ callers may keep their direct Exact edge but must not seed CHA fan-out",
+    );
+}
+
+#[test]
 fn cha_does_not_launder_nameonly_into_exact() {
     // A NameOnly call edge alone must not seed a CHA Exact edge.
     use prism::resolution::ResolutionConfidence;

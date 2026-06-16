@@ -530,12 +530,27 @@ impl CodePropertyGraph {
         if let Some(ref tdb) = type_db {
             let mut virtual_edges: Vec<(NodeIndex, NodeIndex)> = Vec::new();
             let live_classes = TypeDatabase::collect_live_classes(files);
+            // §17: restrict CHA enrichment to type_db-owned (C/C++) functions so a
+            // same-named function in another language (e.g. Go `Handle`) can never be
+            // minted a cross-language Exact override edge. Sound exact file match on the
+            // `RecordInfo.file` set; empty set (records without file info, e.g. synthetic
+            // tests) disables the filter rather than excluding everything. NOTE: absolute
+            // vs. repo-relative path reconciliation is deferred to PR-2 — exact match is
+            // conservative (it can only *drop* edges, never mint a wrong one).
+            let owned: BTreeSet<&str> = tdb
+                .records
+                .values()
+                .map(|r| r.file.as_str())
+                .filter(|f| !f.is_empty())
+                .collect();
             let mut virtual_method_nodes: BTreeMap<String, Vec<(String, NodeIndex)>> =
                 BTreeMap::new();
             for record in tdb.records.values() {
                 for method_name in record.virtual_methods.keys() {
-                    for (&(ref _file, ref name, ref _start_line), &idx) in &func_index {
-                        if name == method_name {
+                    for ((file, name, _start_line), &idx) in &func_index {
+                        if name == method_name
+                            && (owned.is_empty() || owned.contains(file.as_str()))
+                        {
                             virtual_method_nodes
                                 .entry(method_name.clone())
                                 .or_default()
@@ -544,8 +559,10 @@ impl CodePropertyGraph {
                     }
                 }
             }
-            let all_func_nodes: Vec<NodeIndex> = func_index.values().copied().collect();
-            for &caller_idx in &all_func_nodes {
+            for ((caller_file, _name, _start_line), &caller_idx) in &func_index {
+                if !owned.is_empty() && !owned.contains(caller_file.as_str()) {
+                    continue;
+                }
                 let callees: Vec<_> = graph
                     .edges(caller_idx)
                     // EFT: only Exact call edges seed CHA expansion. A NameOnly
