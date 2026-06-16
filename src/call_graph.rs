@@ -87,6 +87,11 @@ pub struct CallGraph {
     /// denominator predicate for the interface-dispatch in-scope manifest.
     #[serde(default)]
     pub interface_method_names: BTreeSet<String>,
+    /// Phase-IP PR-2 (review MINOR 6): true once `apply_go_interface_dispatch` has run
+    /// (even on a non-Go repo → empty result). Left `false` on a raw `build_direct_subset`
+    /// graph, so the manifest can signal "dispatch not computed" vs "computed, none found".
+    #[serde(default)]
+    pub interface_dispatch_computed: bool,
 }
 
 impl CallGraph {
@@ -107,6 +112,7 @@ impl CallGraph {
             interface_gaps: BTreeMap::new(),
             interface_overapprox: BTreeMap::new(),
             interface_method_names: BTreeSet::new(),
+            interface_dispatch_computed: false,
         }
     }
 
@@ -231,6 +237,7 @@ impl CallGraph {
             interface_gaps: BTreeMap::new(),
             interface_overapprox: BTreeMap::new(),
             interface_method_names: BTreeSet::new(),
+            interface_dispatch_computed: false,
         }
     }
 
@@ -753,6 +760,7 @@ impl CallGraph {
             interface_gaps: BTreeMap::new(),
             interface_overapprox: BTreeMap::new(),
             interface_method_names: BTreeSet::new(),
+            interface_dispatch_computed: false,
         };
         cg.apply_go_embedding_promotion(files);
         cg.apply_go_interface_dispatch(files);
@@ -855,6 +863,7 @@ impl CallGraph {
         self.interface_gaps.clear();
         self.interface_overapprox.clear();
         self.interface_method_names.clear();
+        self.interface_dispatch_computed = false;
     }
 
     /// Recompute Go embedding promotions over `files` and write owner-index aliases.
@@ -915,6 +924,9 @@ impl CallGraph {
 
     pub fn apply_go_interface_dispatch(&mut self, files: &BTreeMap<String, ParsedFile>) {
         self.clear_interface_dispatch();
+        // The dispatch pass ran (even if there are no Go files → empty result); a raw
+        // build_direct_subset graph leaves this false (review MINOR 6 signal).
+        self.interface_dispatch_computed = true;
         if !files
             .values()
             .any(|p| p.language == crate::languages::Language::Go)
@@ -1109,6 +1121,7 @@ impl CallGraph {
             interface_gaps: BTreeMap::new(),
             interface_overapprox: BTreeMap::new(),
             interface_method_names: BTreeSet::new(),
+            interface_dispatch_computed: false,
         }
     }
 

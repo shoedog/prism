@@ -108,6 +108,72 @@ fn slice_elem_variant_reserved() {
     let _ = prism::resolution::ReceiverRecovery::SliceElem;
 }
 
+// Whole-branch review #2: untyped multi-name `var` must NOT mis-recover the first
+// initializer's type for every bound name (a wrong resolution edge).
+#[test]
+fn var_local_untyped_multiname_does_not_mis_recover() {
+    use prism::languages::Language::Go;
+    let (cg, _) = build(&[(
+        "main.go",
+        "package main\n\
+         type Slow struct{}\nfunc (s Slow) Go() {}\n\
+         type Fast struct{}\nfunc (f Fast) Go() {}\n\
+         func run() { var slow, fast = Slow{}, Fast{}; _ = slow; fast.Go() }\n",
+        Go,
+    )]);
+    // `fast` is Fast, not Slow — untyped multi-name is ambiguous, so recovery must bail.
+    assert_eq!(site_in(&cg, "run", "Go").receiver_type, None);
+}
+
+#[test]
+fn var_local_typed_multiname_recovers_shared_type() {
+    use prism::languages::Language::Go;
+    use prism::resolution::ReceiverRecovery;
+    // `var a, b Runner` — the declared type is shared across names, so it is safe.
+    let (cg, _) = build(&[(
+        "main.go",
+        "package main\n\
+         type Runner interface { Go() }\n\
+         type Fast struct{}\nfunc (f Fast) Go() {}\nfunc use() { _ = Fast{} }\n\
+         func run() { var a, b Runner; _ = a; b.Go() }\n",
+        Go,
+    )]);
+    let site = site_in(&cg, "run", "Go");
+    assert_eq!(site.receiver_type.as_deref(), Some("Runner"));
+    assert_eq!(site.receiver_recovery, Some(ReceiverRecovery::VarDecl));
+}
+
+// Whole-branch review MAJOR 5 + MINOR 6: pin the receiver_class wire strings + the
+// interface_dispatch_computed signal. The reserved "slice_elem" and the deferred
+// "slice_candidate" never appear on real sites.
+#[test]
+fn interface_manifest_receiver_class_strings() {
+    use prism::languages::Language::Go;
+    let (cg, _) = build(&[(
+        "main.go",
+        "package main\n\
+         type Runner interface { Go() }\n\
+         type Fast struct{}\nfunc (f Fast) Go() {}\nfunc use() { _ = Fast{} }\n\
+         func tp(r Runner) { r.Go() }\n\
+         func ta(x any) { x.(Runner).Go() }\n\
+         func vd() { var r Runner; r.Go() }\n",
+        Go,
+    )]);
+    let m = prism::navigation::queries::interface_dispatch_manifest(&cg);
+    let classes: std::collections::BTreeSet<&str> = m["sites"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|s| s["receiver_class"].as_str().unwrap())
+        .collect();
+    assert!(classes.contains("typed_param"));
+    assert!(classes.contains("type_assertion"));
+    assert!(classes.contains("var_local"));
+    assert!(!classes.contains("slice_elem"));
+    assert!(!classes.contains("slice_candidate"));
+    assert!(m["interface_dispatch_computed"].as_bool().unwrap());
+}
+
 fn site_in(cg: &CallGraph, caller_name: &str, callee: &str) -> CallSite {
     cg.calls
         .iter()

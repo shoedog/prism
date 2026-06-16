@@ -158,56 +158,74 @@ def test_stratify_preserves_all_four_classes():
 # ---------------------------------------------------------------------------
 
 def test_gate_report_fp_rule():
-    """Verify the FP rule with synthetic data.
-
-    Class 'type_assertion' has 4 sites with these adjudications:
-      site :10 -> prism_fp       -> raw_fp=1, corrected_fp=1
-      site :20 -> ambiguous      -> ambiguous=1, NOT in raw/corrected
-      site :30 -> oracle_artifact -> excluded from corrected_fp; not a real prism FP
-                                    (neither raw_fp nor corrected_fp)
-      site :40 -> (no record)    -> pending=1
-    Expected: raw_fp=1, corrected_fp=1, pending=1, ambiguous=1, fanout_width=2.0
+    """FP rule (review BLOCKER 1 + MAJOR 3/4) over 4 dispatch sites (fanout>0), provisional
+    (no prism_only_keys → all are raw candidates):
+      :10 prism_fp   :20 ambiguous   :30 oracle_artifact   :40 (no record)
+    raw_fp=4 (all dispatch), ambiguous=1, pending=1, corrected_fp = 4 - 1 - 1 = 2.
     """
     sites = [
-        _site(line=10, start_byte=100, end_byte=110, fanout=2),  # prism_fp
-        _site(line=20, start_byte=200, end_byte=210, fanout=2),  # ambiguous
-        _site(line=30, start_byte=300, end_byte=310, fanout=2),  # oracle_artifact
-        _site(line=40, start_byte=400, end_byte=410, fanout=2),  # pending (no adj)
+        _site(line=10, start_byte=100, end_byte=110, fanout=2),
+        _site(line=20, start_byte=200, end_byte=210, fanout=2),
+        _site(line=30, start_byte=300, end_byte=310, fanout=2),
+        _site(line=40, start_byte=400, end_byte=410, fanout=2),
     ]
     adjs = [
         _adj(site="main.go:10", verdict="prism_fp"),
         _adj(site="main.go:20", verdict="ambiguous"),
         _adj(site="main.go:30", verdict="oracle_artifact"),
-        # no record for main.go:40
     ]
     rows = gate_report(sites, adjs, corpus="caddy", direction="callers")
-
     assert len(rows) == 1
     row = rows[0]
     assert row["receiver_class"] == "type_assertion"
-    assert row["raw_fp"] == 1
-    assert row["corrected_fp"] == 1
-    assert row["pending"] == 1
+    assert row["dispatch_sites"] == 4
+    assert row["concrete_sites"] == 0
+    assert row["raw_fp"] == 4          # all dispatch sites are raw FP candidates
     assert row["ambiguous"] == 1
+    assert row["pending"] == 1
+    assert row["corrected_fp"] == 2    # 4 - ambiguous(1) - oracle_artifact(1)
     assert row["fanout_width"] == pytest.approx(2.0)
     assert row["corpus"] == "caddy"
     assert row["direction"] == "callers"
 
 
-def test_gate_report_oracle_artifact_excluded_from_both_raw_and_corrected():
-    """oracle_artifact contributes to NEITHER raw_fp NOR corrected_fp."""
+def test_gate_report_oracle_artifact_excused_from_corrected_but_counts_raw():
+    """oracle_artifact IS raw prism-only membership (raw_fp) but excused from corrected_fp."""
     sites = [_site(line=10, fanout=1)]
     adjs = [_adj(site="main.go:10", verdict="oracle_artifact")]
-    rows = gate_report(sites, adjs, corpus="caddy", direction="callers")
-    row = rows[0]
-    assert row["raw_fp"] == 0
-    assert row["corrected_fp"] == 0
+    row = gate_report(sites, adjs, corpus="caddy", direction="callers")[0]
+    assert row["raw_fp"] == 1          # raw membership counts (review BLOCKER 1)
+    assert row["corrected_fp"] == 0    # excused
     assert row["pending"] == 0
     assert row["ambiguous"] == 0
 
 
+def test_gate_report_concrete_sites_excluded_from_fp():
+    """fanout==0 (concrete owner-resolved) sites are concrete_sites, never FP (review MAJOR 4)."""
+    sites = [
+        _site(line=10, start_byte=10, end_byte=20, fanout=0),  # concrete
+        _site(line=20, start_byte=20, end_byte=30, fanout=3),  # dispatch
+    ]
+    row = gate_report(sites, [], corpus="caddy", direction="callers")[0]
+    assert row["concrete_sites"] == 1
+    assert row["dispatch_sites"] == 1
+    assert row["raw_fp"] == 1          # only the dispatch site
+    assert row["fanout_width"] == pytest.approx(3.0)
+
+
+def test_gate_report_prism_only_keys_narrows_raw():
+    """When the oracle-derived prism-only set is supplied (Slice E), raw_fp narrows to it."""
+    sites = [
+        _site(line=10, start_byte=10, end_byte=20, fanout=2),
+        _site(line=20, start_byte=20, end_byte=30, fanout=2),
+    ]
+    only = {"main.go:10:20"}  # byte_key of the first site only
+    row = gate_report(sites, [], corpus="caddy", direction="callers", prism_only_keys=only)[0]
+    assert row["raw_fp"] == 1          # site :20 is not in the prism-only set
+    assert row["dispatch_sites"] == 1
+
+
 def test_gate_report_fanout_width_is_mean():
-    """fanout_width is mean fanout across all sites in the class."""
     sites = [
         _site(line=10, start_byte=10, end_byte=20, fanout=4),
         _site(line=20, start_byte=20, end_byte=30, fanout=2),
@@ -230,31 +248,33 @@ def test_gate_report_multiple_classes_sorted():
 
 
 def test_gate_report_corpus_filter_ignores_other_corpus():
-    """Adjudications from a different corpus do NOT apply to sites."""
+    """A different-corpus adjudication does not apply; the site stays pending (still raw)."""
     sites = [_site(line=10, fanout=1)]
-    adjs = [
-        _adj(site="main.go:10", verdict="prism_fp", corpus="tokio"),  # wrong corpus
-    ]
-    rows = gate_report(sites, adjs, corpus="caddy", direction="callers")
-    # should be pending since the adj is for a different corpus
-    assert rows[0]["pending"] == 1
-    assert rows[0]["raw_fp"] == 0
+    adjs = [_adj(site="main.go:10", verdict="prism_fp", corpus="tokio")]
+    row = gate_report(sites, adjs, corpus="caddy", direction="callers")[0]
+    assert row["pending"] == 1
+    assert row["raw_fp"] == 1          # raw dispatch membership regardless of adjudication
 
 
 def test_gate_report_direction_filter_ignores_wrong_measurement():
-    """Adjudications with wrong measurement (direction) do NOT apply."""
     sites = [_site(line=10, fanout=1)]
-    adjs = [
-        _adj(site="main.go:10", verdict="prism_fp", measurement="callees"),  # wrong direction
-    ]
-    rows = gate_report(sites, adjs, corpus="caddy", direction="callers")
-    assert rows[0]["pending"] == 1
-    assert rows[0]["raw_fp"] == 0
+    adjs = [_adj(site="main.go:10", verdict="prism_fp", measurement="callees")]
+    row = gate_report(sites, adjs, corpus="caddy", direction="callers")[0]
+    assert row["pending"] == 1
+    assert row["raw_fp"] == 1
+
+
+def test_gate_report_ignores_oracle_only_direction_record():
+    """An oracle_only-direction record at the same line must not steal the verdict (MAJOR 3)."""
+    sites = [_site(line=10, fanout=1)]
+    adjs = [_adj(site="main.go:10", verdict="ambiguous", direction="oracle_only")]
+    row = gate_report(sites, adjs, corpus="caddy", direction="callers")[0]
+    assert row["pending"] == 1         # the oracle_only record is ignored
+    assert row["ambiguous"] == 0
 
 
 def test_gate_report_empty_sites_returns_empty():
-    rows = gate_report([], [], corpus="caddy", direction="callers")
-    assert rows == []
+    assert gate_report([], [], corpus="caddy", direction="callers") == []
 
 
 # ---------------------------------------------------------------------------

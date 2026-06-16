@@ -3912,20 +3912,27 @@ impl ParsedFile {
                 // var_spec.name is multiple:true; match only the bound name(s), never names in
                 // the declared type or initializer (that would be a false recovery).
                 let mut cur = node.walk();
-                let matched = node
-                    .children_by_field_name("name", &mut cur)
-                    .any(|n| self.simple_binding_text(&n).as_deref() == Some(receiver));
+                let names: Vec<_> = node.children_by_field_name("name", &mut cur).collect();
+                let matched = names
+                    .iter()
+                    .any(|n| self.simple_binding_text(n).as_deref() == Some(receiver));
                 if matched {
                     *bindings += 1;
                     if let Some(ty) = node.child_by_field_name("type") {
+                        // `var r T` / `var a, b T` — the declared type applies to every name.
                         *found = Some((self.node_text(&ty).to_string(), ReceiverRecovery::VarDecl));
-                    } else if let Some(value) = node.child_by_field_name("value") {
-                        // single-constructor initializer only; multi-value expr_list → None (safe)
-                        *found = self
-                            .constructor_type(&value)
-                            .or_else(|| self.first_constructor_type_child(&value))
+                    } else if names.len() == 1 {
+                        // `var r = X{}` — single name ↔ single value; safe to recover the type.
+                        *found = node
+                            .child_by_field_name("value")
+                            .and_then(|value| {
+                                self.constructor_type(&value)
+                                    .or_else(|| self.first_constructor_type_child(&value))
+                            })
                             .map(|ty| (ty, ReceiverRecovery::VarDecl));
                     } else {
+                        // multi-name untyped (`var a, b = X{}, Y{}`) — name↔value alignment is
+                        // ambiguous; bail rather than emit a wrong edge (whole-branch review #2).
                         *found = None;
                     }
                 }

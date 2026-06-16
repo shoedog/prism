@@ -69,6 +69,13 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
 /// JSON) is provisional until the Slice-E re-adjudication.
 pub fn interface_dispatch_manifest(cg: &CallGraph) -> serde_json::Value {
     use crate::resolution::ReceiverRecovery;
+    // receiver_class wire strings (the Rust→JSON→Python contract; pinned by the
+    // `interface_manifest_receiver_class_strings` test). NOTE (review MAJOR 5):
+    // `SliceElem`/"slice_elem" is the RESERVED variant (Slice F) — the classifier returns
+    // None for it, so it never appears on a real site. It is DISTINCT from the spec-§5
+    // deferred manifest-only "slice_candidate" range class (a CpgContext AST scan,
+    // deferred — see the PR-2 deferred doc); the manifest currently emits only the four
+    // recovered classes below.
     let class = |r: ReceiverRecovery| match r {
         ReceiverRecovery::TypedParam => "typed_param",
         ReceiverRecovery::ConstructorLocal => "constructor_local",
@@ -103,7 +110,13 @@ pub fn interface_dispatch_manifest(cg: &CallGraph) -> serde_json::Value {
             }));
         }
     }
-    serde_json::json!({ "sites": sites })
+    // `interface_dispatch_computed` (review MINOR 6): false on a raw build_direct_subset
+    // graph (apply_go_interface_dispatch never ran) → an empty `sites` means "not computed",
+    // not "no dispatch found". The CLI feeds a full-build graph, so this is true in practice.
+    serde_json::json!({
+        "sites": sites,
+        "interface_dispatch_computed": cg.interface_dispatch_computed,
+    })
 }
 
 fn confidence_score(c: crate::resolution::ResolutionConfidence) -> f32 {
