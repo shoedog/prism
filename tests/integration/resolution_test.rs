@@ -1172,3 +1172,91 @@ fn go_remove_files_clears_promoted_aliases_cross_file() {
         "stale promoted alias dropped from methods despite base.go unchanged"
     );
 }
+
+// ---------------------------------------------------------------------------
+// Slice B — TypeAssertion receiver recovery
+// ---------------------------------------------------------------------------
+
+fn go_assert_src() -> &'static str {
+    "package main\n\
+     type Runner interface { Go() }\n\
+     type Fast struct{}\nfunc (f Fast) Go() {}\n\
+     func use() { _ = Fast{} }\n\
+     func run(x any) { x.(Runner).Go() }\n"
+}
+
+#[test]
+fn type_assertion_interface_receiver_dispatches_exact() {
+    use prism::languages::Language::Go;
+    use prism::resolution::ReceiverRecovery;
+    let (cg, _) = build(&[("main.go", go_assert_src(), Go)]);
+    let site = site_in(&cg, "run", "Go");
+    assert_eq!(site.receiver_type.as_deref(), Some("Runner"));
+    assert_eq!(
+        site.receiver_recovery,
+        Some(ReceiverRecovery::TypeAssertion)
+    );
+    let r = cg.resolve_call_site(&site);
+    assert_eq!(r.len(), 1); // assert BEFORE .all() (no vacuous pass)
+    assert!(r
+        .iter()
+        .all(|c| c.kind == ResolutionKind::InterfaceDispatch));
+}
+
+#[test]
+fn type_assertion_concrete_pointer_receiver_owner_resolves() {
+    use prism::languages::Language::Go;
+    let (cg, _) = build(&[(
+        "main.go",
+        "package main\n\
+         type Fast struct{}\nfunc (f Fast) Go() {}\n\
+         func run(x any) { x.(*Fast).Go() }\n",
+        Go,
+    )]);
+    let site = site_in(&cg, "run", "Go");
+    assert_eq!(site.receiver_type.as_deref(), Some("Fast")); // owner_key peels the '*'
+    let r = cg.resolve_call_site(&site);
+    assert_eq!(r.len(), 1);
+    assert_eq!(r[0].target.name, "Go");
+}
+
+#[test]
+fn type_assertion_comma_ok_is_not_a_call_receiver() {
+    use prism::languages::Language::Go;
+    use prism::resolution::ReceiverRecovery;
+    let (cg, _) = build(&[(
+        "main.go",
+        "package main\n\
+         type Runner interface { Go() }\n\
+         func run(x any) { v, ok := x.(Runner); _ = ok; _ = v }\n",
+        Go,
+    )]);
+    if let Some((_, sites)) = cg.calls.iter().find(|(fid, _)| fid.name == "run") {
+        assert!(sites
+            .iter()
+            .all(|c| c.receiver_recovery != Some(ReceiverRecovery::TypeAssertion)));
+    }
+}
+
+#[test]
+fn type_assertion_grammar_pin_normalization() {
+    use prism::languages::Language::Go;
+    use prism::resolution::ReceiverRecovery;
+    let cases = [
+        ("x.(Runner).Go()", "Runner"),
+        ("x.(pkg.Runner).Go()", "pkg.Runner"), // owner_key keeps pkg.; iface_key strips at route time
+        ("x.(*Fast).Go()", "Fast"),
+        ("x.((Runner)).Go()", "Runner"), // parenthesized_type unwrapped
+    ];
+    for (call, want) in cases {
+        let src = format!("package main\nfunc run(x any) {{ {call} }}\n");
+        let (cg, _) = build(&[("main.go", Box::leak(src.into_boxed_str()), Go)]);
+        let site = site_in(&cg, "run", "Go");
+        assert_eq!(site.receiver_type.as_deref(), Some(want), "call {call}");
+        assert_eq!(
+            site.receiver_recovery,
+            Some(ReceiverRecovery::TypeAssertion),
+            "call {call}"
+        );
+    }
+}

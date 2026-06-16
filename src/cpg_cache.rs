@@ -47,7 +47,8 @@ use std::path::{Path, PathBuf};
 /// - v7: + git_sha in cache key (resolver auto-invalidation).
 /// - v8: Phase-IP CallGraph.promoted_aliases + embedding_gaps (Go embedding).
 /// - v9: Phase-IP CallGraph.interface_impls + interface telemetry.
-const CACHE_VERSION: u32 = 9; // bincode ignores serde(default) for new trailing fields.
+/// - v10: PR-2 ReceiverRecovery variants (TypeAssertion/VarDecl/SliceElem).
+const CACHE_VERSION: u32 = 10; // bincode ignores serde(default) for new trailing fields.
 
 pub const SKIP_POLICY_VERSION: u32 = 1;
 
@@ -508,8 +509,8 @@ mod tests {
     }
 
     #[test]
-    fn cache_version_is_9_for_interface_fields() {
-        assert_eq!(super::CACHE_VERSION, 9);
+    fn cache_version_is_10_for_phase_ip_pr2() {
+        assert_eq!(super::CACHE_VERSION, 10);
     }
 
     #[test]

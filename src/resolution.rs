@@ -159,6 +159,8 @@ pub fn peel_type(text: &str) -> String {
 pub enum ReceiverRecovery {
     TypedParam,
     ConstructorLocal,
+    /// Go type assertion: `x.(T).M()` — `T` is the statically-asserted type.
+    TypeAssertion,
 }
 
 /// S3 receiver-recovery: a syntactically-recovered static receiver type plus the
@@ -282,16 +284,65 @@ impl ReceiverClassifier for LegacyClassifier {
 /// `expanded` — `legacy` ∪ the new forms. Slices B/C extend `classify` to read these
 /// flags; in Slice A it is identical to `legacy`.
 pub struct ExpandedClassifier {
-    #[allow(dead_code)] // read by `classify` once Slice B adds the type-assertion arm
     pub type_assertion: bool,
     #[allow(dead_code)] // read by `classify` once Slice C adds the var-local arm
     pub var_local: bool,
 }
 impl ReceiverClassifier for ExpandedClassifier {
     fn classify(&self, ctx: ReceiverCtx<'_>) -> Option<RecoveredReceiver> {
-        // Slice A: identical to legacy (no forms yet).
-        legacy_recover(&ctx)
+        if let Some(r) = legacy_recover(&ctx) {
+            return Some(r);
+        }
+        if self.type_assertion {
+            if let Some(r) = recover_type_assertion(&ctx) {
+                return Some(r);
+            }
+        }
+        None
     }
+}
+
+/// Recover the statically-asserted type from a Go `x.(T).M()` call.
+///
+/// The grammar for `type_assertion_expression` (tree-sitter-go §primary):
+/// `operand '.' '(' type ')'`. The `type` field is any `_type`, including
+/// `parenthesized_type` (`(T)`), `pointer_type` (`*T`), `qualified_type`
+/// (`pkg.T`), or `type_identifier` (`T`).
+///
+/// Normalization:
+/// - `parenthesized_type` is unwrapped one level at a time.
+/// - `peel_type` strips `*` (pointer); `owner_key` strips the remaining `::` paths.
+/// - `pkg.T` is NOT stripped here — `iface_key` handles that at route time in
+///   `resolve_call_site` so owner-lookup routes correctly for concrete types too.
+///
+/// Deferred gap (D2): cross-package concrete `pkg.T` where `T` is not an interface
+/// will fail `owner_lookup` (key `"pkg.T"` has no owner entry). Recorded in spec §D2.
+fn recover_type_assertion(ctx: &ReceiverCtx<'_>) -> Option<RecoveredReceiver> {
+    use crate::languages::Language;
+    if ctx.parsed.language != Language::Go {
+        return None;
+    }
+    let node = ctx.receiver_expr?;
+    if node.kind() != "type_assertion_expression" {
+        return None;
+    }
+    let mut ty = node.child_by_field_name("type")?;
+    // Unwrap parenthesized_type: `(T)` → `T` (handles `x.((Runner)).M()`)
+    while ty.kind() == "parenthesized_type" {
+        ty = ty.named_child(0)?;
+    }
+    // Same normalization as the legacy path → consistent routing: an interface
+    // (`Runner`/`pkg.Module`) routes via iface_key→interface_impls; a same-package
+    // concrete (`*Fast`) owner_lookup-resolves. Cross-package concrete `pkg.T`
+    // does NOT owner-resolve (owner_key keeps `pkg.`) — deferred gap D2.
+    let static_type = owner_key(&peel_type(ctx.parsed.node_text(&ty)));
+    if static_type.is_empty() {
+        return None;
+    }
+    Some(RecoveredReceiver {
+        static_type,
+        recovery: ReceiverRecovery::TypeAssertion,
+    })
 }
 
 /// Why a call site resolved to nothing - the classification API that
