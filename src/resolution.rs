@@ -468,6 +468,25 @@ impl CallGraph {
                             }
                             ResolutionOutcome::hit(resolved)
                         }
+                        // Gate the interface consult to Go callers: P6-lite receiver
+                        // recovery also fires for Rust, and `interface_impls` is Go-only,
+                        // so an un-gated consult could mint a cross-language edge (e.g. a
+                        // Rust `x.Go()` matching a Go interface named the same). Mirrors the
+                        // language gate at the C-only free-fn fallback below.
+                        None if crate::languages::Language::from_path(&site.caller.file)
+                            == Some(crate::languages::Language::Go) =>
+                        {
+                            match crate::resolution::iface_key(recv_ty) {
+                                Some(k) => match self.interface_impls.get(&(k, name.to_string())) {
+                                    Some(ids) if !ids.is_empty() => ResolutionOutcome::hit(exact(
+                                        ids.iter(),
+                                        ResolutionKind::InterfaceDispatch,
+                                    )),
+                                    _ => ResolutionOutcome::dropped(DropReason::ExternalReceiver),
+                                },
+                                None => ResolutionOutcome::dropped(DropReason::ExternalReceiver),
+                            }
+                        }
                         None => ResolutionOutcome::dropped(DropReason::ExternalReceiver),
                     };
                 }

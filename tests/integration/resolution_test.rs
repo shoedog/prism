@@ -73,6 +73,46 @@ fn callgraph_exposes_interface_impls() {
     assert_eq!(ids[0].name, "Go");
 }
 
+fn go_iface_src() -> &'static str {
+    "package main\n\
+     type Runner interface { Go() }\n\
+     type Fast struct{}\nfunc (f Fast) Go() {}\n\
+     type Slow struct{}\nfunc (s Slow) Go() {}\n\
+     func use() { _ = Fast{}; _ = Slow{} }\n\
+     func run(r Runner) { r.Go() }\n"
+}
+
+#[test]
+fn interface_dispatch_resolves_multi_implementer_exact() {
+    use prism::languages::Language::Go;
+    let (cg, _) = build(&[("main.go", go_iface_src(), Go)]);
+    let site = site_in(&cg, "run", "Go");
+    let r = cg.resolve_call_site(&site);
+    assert_eq!(r.len(), 2, "Fast + Slow (both live)");
+    assert!(r
+        .iter()
+        .all(|c| c.confidence == ResolutionConfidence::Exact));
+    assert!(r
+        .iter()
+        .all(|c| c.kind == ResolutionKind::InterfaceDispatch));
+}
+
+#[test]
+fn interface_dispatch_does_not_cross_language() {
+    use prism::languages::Language::{Go, Rust};
+    let (cg, _) = build(&[
+        ("main.go", go_iface_src(), Go),
+        (
+            "lib.rs",
+            "struct Runner;\nfn run_rust(x: Runner) {\n    x.Go();\n}\n",
+            Rust,
+        ),
+    ]);
+    let out = cg.resolve_call_site_full(&site_in(&cg, "run_rust", "Go"));
+    assert!(out.resolved.is_empty());
+    assert_eq!(out.drop, Some(DropReason::ExternalReceiver));
+}
+
 #[test]
 fn r1_type_qualified_call_resolves_to_owner_method_exact() {
     use prism::languages::Language::Rust;
