@@ -306,15 +306,16 @@ impl ParsedFile {
     }
 
     /// S3 P6-lite: syntactically-provable receiver type for `receiver` at a call
-    /// on `call_line`. Typed params + constructor locals only; only bindings at
-    /// or before `call_line` count (a rebinding AFTER the call must not cancel
-    /// recovery); >1 binding before the call means shadow bail. Rust + Go.
+    /// on `call_line`. Typed params + constructor locals; when `recover_var` is true
+    /// also recovers `var r T` declarations. Only bindings at or before `call_line`
+    /// count; >1 binding before the call means shadow bail. Rust + Go.
     /// Returns the raw, unpeeled type text + which fact recovered it.
     pub fn receiver_type_in_fn(
         &self,
         func_node: &Node<'_>,
         receiver: &str,
         call_line: usize,
+        recover_var: bool,
     ) -> Option<(String, crate::resolution::ReceiverRecovery)> {
         use crate::languages::Language;
         use crate::resolution::ReceiverRecovery;
@@ -372,6 +373,7 @@ impl ParsedFile {
             call_line,
             &mut found,
             &mut bindings,
+            recover_var,
         );
         if bindings > 1 {
             return None;
@@ -3850,6 +3852,7 @@ impl ParsedFile {
         call_line: usize,
         found: &mut Option<(String, crate::resolution::ReceiverRecovery)>,
         bindings: &mut usize,
+        recover_var: bool,
     ) {
         use crate::languages::Language;
         use crate::resolution::ReceiverRecovery;
@@ -3905,6 +3908,28 @@ impl ParsedFile {
                     }
                 }
             }
+            (Language::Go, "var_spec") if recover_var => {
+                // var_spec.name is multiple:true; match only the bound name(s), never names in
+                // the declared type or initializer (that would be a false recovery).
+                let mut cur = node.walk();
+                let matched = node
+                    .children_by_field_name("name", &mut cur)
+                    .any(|n| self.simple_binding_text(&n).as_deref() == Some(receiver));
+                if matched {
+                    *bindings += 1;
+                    if let Some(ty) = node.child_by_field_name("type") {
+                        *found = Some((self.node_text(&ty).to_string(), ReceiverRecovery::VarDecl));
+                    } else if let Some(value) = node.child_by_field_name("value") {
+                        // single-constructor initializer only; multi-value expr_list → None (safe)
+                        *found = self
+                            .constructor_type(&value)
+                            .or_else(|| self.first_constructor_type_child(&value))
+                            .map(|ty| (ty, ReceiverRecovery::VarDecl));
+                    } else {
+                        *found = None;
+                    }
+                }
+            }
             (Language::Go, "assignment_statement") | (Language::Rust, "assignment_expression") => {
                 let left = node
                     .child_by_field_name("left")
@@ -3921,7 +3946,15 @@ impl ParsedFile {
 
         let mut cursor = node.walk();
         for child in node.children(&mut cursor) {
-            self.walk_receiver_bindings(child, false, receiver, call_line, found, bindings);
+            self.walk_receiver_bindings(
+                child,
+                false,
+                receiver,
+                call_line,
+                found,
+                bindings,
+                recover_var,
+            );
         }
     }
 

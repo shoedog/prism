@@ -161,6 +161,8 @@ pub enum ReceiverRecovery {
     ConstructorLocal,
     /// Go type assertion: `x.(T).M()` — `T` is the statically-asserted type.
     TypeAssertion,
+    /// Go `var r T` declaration — `T` is the declared type of the local.
+    VarDecl,
 }
 
 /// S3 receiver-recovery: a syntactically-recovered static receiver type plus the
@@ -249,10 +251,11 @@ impl ReceiverRecoveryConfig {
     }
 }
 
-/// PR-1 P6-lite recovery, extracted verbatim from the former
-/// `call_graph::recover_receiver` (the qualifier/keyword/recv-var/import gate, then
-/// the typed-param / constructor-local scan, peeled + owner-keyed).
-pub fn legacy_recover(ctx: &ReceiverCtx<'_>) -> Option<RecoveredReceiver> {
+/// Inner gate + scan shared by `legacy_recover` and `ExpandedClassifier`.
+/// Runs the qualifier/keyword/recv-var/import gate, then the typed-param /
+/// constructor-local scan (and optionally `var` declarations when `recover_var`
+/// is true), peeled + owner-keyed.
+fn recover_simple_ident(ctx: &ReceiverCtx<'_>, recover_var: bool) -> Option<RecoveredReceiver> {
     use crate::languages::Language;
     if !matches!(ctx.parsed.language, Language::Rust | Language::Go) {
         return None;
@@ -266,11 +269,19 @@ pub fn legacy_recover(ctx: &ReceiverCtx<'_>) -> Option<RecoveredReceiver> {
         return None;
     }
     ctx.parsed
-        .receiver_type_in_fn(&ctx.fn_node, q, ctx.call_line)
+        .receiver_type_in_fn(&ctx.fn_node, q, ctx.call_line, recover_var)
         .map(|(ty, how)| RecoveredReceiver {
             static_type: owner_key(&peel_type(&ty)),
             recovery: how,
         })
+}
+
+/// PR-1 P6-lite recovery, extracted verbatim from the former
+/// `call_graph::recover_receiver` (the qualifier/keyword/recv-var/import gate, then
+/// the typed-param / constructor-local scan, peeled + owner-keyed).
+/// Byte-identical to PR-1: `recover_var = false`.
+pub fn legacy_recover(ctx: &ReceiverCtx<'_>) -> Option<RecoveredReceiver> {
+    recover_simple_ident(ctx, false)
 }
 
 /// `legacy` — PR-1 behavior, no new forms.
@@ -281,16 +292,14 @@ impl ReceiverClassifier for LegacyClassifier {
     }
 }
 
-/// `expanded` — `legacy` ∪ the new forms. Slices B/C extend `classify` to read these
-/// flags; in Slice A it is identical to `legacy`.
+/// `expanded` — `legacy` ∪ the new forms.
 pub struct ExpandedClassifier {
     pub type_assertion: bool,
-    #[allow(dead_code)] // read by `classify` once Slice C adds the var-local arm
     pub var_local: bool,
 }
 impl ReceiverClassifier for ExpandedClassifier {
     fn classify(&self, ctx: ReceiverCtx<'_>) -> Option<RecoveredReceiver> {
-        if let Some(r) = legacy_recover(&ctx) {
+        if let Some(r) = recover_simple_ident(&ctx, self.var_local) {
             return Some(r);
         }
         if self.type_assertion {

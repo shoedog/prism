@@ -1260,3 +1260,147 @@ fn type_assertion_grammar_pin_normalization() {
         );
     }
 }
+
+// ---------------------------------------------------------------------------
+// Slice C — VarDecl receiver recovery (`var r Runner`)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn var_local_interface_receiver_dispatches_exact() {
+    use prism::languages::Language::Go;
+    use prism::resolution::ReceiverRecovery;
+    let (cg, _) = build(&[(
+        "main.go",
+        "package main\n\
+         type Runner interface { Go() }\n\
+         type Fast struct{}\nfunc (f Fast) Go() {}\n\
+         func use() { _ = Fast{} }\n\
+         func run() { var r Runner; r.Go() }\n",
+        Go,
+    )]);
+    let site = site_in(&cg, "run", "Go");
+    assert_eq!(site.receiver_type.as_deref(), Some("Runner"));
+    assert_eq!(site.receiver_recovery, Some(ReceiverRecovery::VarDecl));
+    let r = cg.resolve_call_site(&site);
+    assert_eq!(r.len(), 1); // assert BEFORE .all()
+    assert!(r
+        .iter()
+        .all(|c| c.kind == ResolutionKind::InterfaceDispatch));
+}
+
+#[test]
+fn var_local_concrete_receiver_owner_resolves() {
+    use prism::languages::Language::Go;
+    let (cg, _) = build(&[(
+        "main.go",
+        "package main\n\
+         type Fast struct{}\nfunc (f Fast) Go() {}\n\
+         func run() { var r Fast; r.Go() }\n",
+        Go,
+    )]);
+    let site = site_in(&cg, "run", "Go");
+    assert_eq!(site.receiver_type.as_deref(), Some("Fast"));
+    assert_eq!(cg.resolve_call_site(&site).len(), 1);
+}
+
+#[test]
+fn var_local_shadowed_binding_bails() {
+    use prism::languages::Language::Go;
+    let (cg, _) = build(&[(
+        "main.go",
+        "package main\n\
+         type Runner interface { Go() }\n\
+         func run(x Runner) { var r Runner; r = x; r.Go() }\n",
+        Go,
+    )]);
+    assert_eq!(site_in(&cg, "run", "Go").receiver_type, None); // >1 binding → bail
+}
+
+#[test]
+fn var_local_false_name_in_initializer_not_recovered() {
+    use prism::languages::Language::Go;
+    let (cg, _) = build(&[(
+        "main.go",
+        "package main\n\
+         type Runner interface { Go() }\n\
+         func run() { var r Runner = f(); f.Go() }\n",
+        Go,
+    )]);
+    // `f.Go()` must NOT recover `f` as Runner (f appears only in the initializer).
+    if let Some((_, sites)) = cg.calls.iter().find(|(fid, _)| fid.name == "run") {
+        for s in sites.iter().filter(|s| s.qualifier.as_deref() == Some("f")) {
+            assert_eq!(s.receiver_type, None);
+        }
+    }
+}
+
+#[test]
+fn var_local_off_in_legacy_mode() {
+    use prism::languages::Language::Go;
+    use prism::resolution::ReceiverRecoveryConfig;
+    let (cg, _) = build_cfg(
+        &[(
+            "main.go",
+            "package main\n\
+             type Runner interface { Go() }\n\
+             func run() { var r Runner; r.Go() }\n",
+            Go,
+        )],
+        &ReceiverRecoveryConfig::legacy(),
+    );
+    assert_eq!(site_in(&cg, "run", "Go").receiver_type, None);
+}
+
+#[test]
+fn config_var_local_only_gates_type_assertion_off() {
+    use prism::languages::Language::Go;
+    use prism::resolution::{ReceiverRecovery, ReceiverRecoveryConfig, ReceiverRecoveryMode};
+    let cfg = ReceiverRecoveryConfig {
+        mode: ReceiverRecoveryMode::Expanded,
+        type_assertion: false,
+        var_local: true,
+    };
+    let (cg, _) = build_cfg(
+        &[(
+            "main.go",
+            "package main\n\
+             type Runner interface { Go() }\n\
+             func a(x any) { x.(Runner).Go() }\n\
+             func b() { var r Runner; r.Go() }\n",
+            Go,
+        )],
+        &cfg,
+    );
+    assert_eq!(site_in(&cg, "a", "Go").receiver_type, None); // type-assertion OFF
+    assert_eq!(
+        site_in(&cg, "b", "Go").receiver_recovery,
+        Some(ReceiverRecovery::VarDecl)
+    ); // var ON
+}
+
+#[test]
+fn config_type_assertion_only_gates_var_local_off() {
+    use prism::languages::Language::Go;
+    use prism::resolution::{ReceiverRecovery, ReceiverRecoveryConfig, ReceiverRecoveryMode};
+    let cfg = ReceiverRecoveryConfig {
+        mode: ReceiverRecoveryMode::Expanded,
+        type_assertion: true,
+        var_local: false,
+    };
+    let (cg, _) = build_cfg(
+        &[(
+            "main.go",
+            "package main\n\
+             type Runner interface { Go() }\n\
+             func a(x any) { x.(Runner).Go() }\n\
+             func b() { var r Runner; r.Go() }\n",
+            Go,
+        )],
+        &cfg,
+    );
+    assert_eq!(
+        site_in(&cg, "a", "Go").receiver_recovery,
+        Some(ReceiverRecovery::TypeAssertion)
+    ); // assert ON
+    assert_eq!(site_in(&cg, "b", "Go").receiver_type, None); // var OFF
+}
