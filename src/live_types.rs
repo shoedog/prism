@@ -174,10 +174,11 @@ fn scan_go_node(node: &tree_sitter::Node, parsed: &ParsedFile, live: &mut BTreeS
             // value literal T{} -> T. NOTE: in `&T{}` the `&` is on the PARENT
             // unary_expression (round-2 plan-review BLOCKER), handled in the next arm.
             if let Some(type_node) = node.child_by_field_name("type") {
+                // A value composite literal's type is never `*T` (the `&` of `&T{}` lives
+                // on the parent unary_expression, handled below) — no pointer to strip.
                 let base = parsed
                     .node_text(&type_node)
                     .trim()
-                    .trim_start_matches('*')
                     .split('.')
                     .last()
                     .unwrap_or("")
@@ -240,20 +241,25 @@ fn scan_go_node(node: &tree_sitter::Node, parsed: &ParsedFile, live: &mut BTreeS
             }
         }
         "var_declaration" => {
-            // var x T -> T (concrete only)
+            // var x T -> T; var p *T -> T AND *T (so a pointer-only satisfier isn't dropped
+            // when a value satisfier is also live and suppresses the fallback — review MAJOR).
             let mut cur = node.walk();
             for spec in node.named_children(&mut cur) {
                 if spec.kind() == "var_spec" {
                     if let Some(ty) = spec.child_by_field_name("type") {
-                        let base = parsed
-                            .node_text(&ty)
-                            .trim()
+                        let raw = parsed.node_text(&ty);
+                        let raw = raw.trim();
+                        let is_pointer = raw.starts_with('*');
+                        let base = raw
                             .trim_start_matches('*')
                             .split('.')
                             .last()
                             .unwrap_or("")
                             .to_string();
                         if !base.is_empty() && base.starts_with(|c: char| c.is_ascii_uppercase()) {
+                            if is_pointer {
+                                live.insert(format!("*{base}"));
+                            }
                             live.insert(base);
                         }
                     }
@@ -428,5 +434,14 @@ mod go_liveness_tests {
         assert!(s.contains("U") && s.contains("*U")); // addressable -> both
         assert!(s.contains("V") && s.contains("*V")); // new(V) -> both
         assert!(s.contains("W")); // var decl, concrete
+    }
+
+    #[test]
+    fn pointer_var_records_pointer_admission_key() {
+        // `var p *T` makes both `T` and `*T` live, so a pointer-only satisfier (admits as
+        // `*T`) isn't dropped when a value satisfier is also live (review MAJOR).
+        let s = live("package p\nfunc f() {\n\tvar p *T\n\t_ = p\n}\n");
+        assert!(s.contains("*T"), "var p *T must make *T live: {s:?}");
+        assert!(s.contains("T"));
     }
 }

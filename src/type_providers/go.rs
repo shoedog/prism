@@ -348,6 +348,21 @@ impl GoTypeProvider {
         )
     }
 
+    /// Generic-syntax detection scoped to a declaration's SIGNATURE (receiver / type
+    /// parameters / parameters / result), never its body `block`. A generic
+    /// instantiation *inside* a method body (`var _ Box[int]`) must NOT flag the method
+    /// itself as generic — that would wrongly exclude it from satisfaction (review MAJOR).
+    fn signature_has_generic_syntax(node: &tree_sitter::Node) -> bool {
+        let mut cursor = node.walk();
+        let children: Vec<_> = node.children(&mut cursor).collect();
+        children.iter().filter(|c| c.kind() != "block").any(|c| {
+            Self::node_has_any_kind(
+                c,
+                &["type_parameter_list", "generic_type", "type_arguments"],
+            )
+        })
+    }
+
     fn interface_type_has_type_set(node: &tree_sitter::Node, parsed: &ParsedFile) -> bool {
         if node.kind() != "interface_type" {
             return false;
@@ -658,6 +673,12 @@ impl GoTypeProvider {
                 // handled in canon_sig; reaching here is a structural surprise
                 Err(GoDispatchGap::UnknownCanonType)
             }
+            // `(T)` ≡ `T` recursively, at any nesting depth (review MINOR — previously
+            // fail-closed gapped a parenthesized type instead of unwrapping it).
+            "parenthesized_type" => {
+                let inner = node.named_child(0).ok_or(GoDispatchGap::UnknownCanonType)?;
+                Self::canon_type(&inner, parsed)
+            }
             _ => Err(GoDispatchGap::UnknownCanonType),
         }
     }
@@ -798,7 +819,7 @@ impl GoTypeProvider {
             data.dispatch_overapprox
                 .push(GoDispatchOverApprox::CrossPackageBareName);
         }
-        let generic = Self::has_generic_syntax(node);
+        let generic = Self::signature_has_generic_syntax(node);
         let start_line = node.start_position().row + 1;
         let end_line = node.end_position().row + 1;
 
@@ -981,9 +1002,21 @@ impl GoTypeProvider {
         if let Some(iface) = data.interfaces.get(name) {
             methods.extend(iface.methods.clone());
             for embedded in &iface.embedded {
-                let embedded_methods =
-                    Self::collect_interface_methods_from(data, embedded, visited);
-                methods.extend(embedded_methods);
+                match data.interfaces.get(embedded) {
+                    Some(e) if !e.generic => {
+                        methods.extend(Self::collect_interface_methods_from(
+                            data, embedded, visited,
+                        ));
+                    }
+                    _ => {
+                        // Review BLOCKER (codex): an embedded interface term that is
+                        // external/qualified (`io.Reader`), missing, or generic cannot
+                        // contribute its (unknowable) method set. Fail closed — gap the
+                        // whole interface rather than under-constrain satisfaction and
+                        // over-admit a satisfier (a wrong Exact InterfaceDispatch edge).
+                        methods.insert(embedded.clone(), Err(GoDispatchGap::UnknownCanonType));
+                    }
+                }
             }
         }
         methods
@@ -1654,6 +1687,41 @@ mod satisfaction_tests {
             .contains(&GoDispatchGap::AnonymousInterface));
         assert!(p.satisfier_admission_keys_for_test("I", "Do").is_empty());
     }
+
+    #[test]
+    fn embedded_external_interface_fails_closed_not_partial() {
+        // Review BLOCKER (codex): `interface { io.Reader; Close() }` embeds an UNRESOLVED
+        // external interface. Its full method set is unknowable, so it must fail closed
+        // (gap) — NOT be under-constrained to just {Close}, which would over-admit a
+        // Close-only type and mint a WRONG Exact InterfaceDispatch edge.
+        let p = provider(
+            "package p\n\
+             type I interface {\n\tio.Reader\n\tClose() error\n}\n\
+             type T struct{}\nfunc (t T) Close() error { return nil }\n",
+        );
+        assert!(
+            p.satisfier_admission_keys_for_test("I", "Close").is_empty(),
+            "a Close-only type must not satisfy an interface embedding unresolved io.Reader"
+        );
+    }
+
+    #[test]
+    fn generic_instantiation_in_method_body_does_not_exclude_method() {
+        // Review MAJOR (codex): the generic gate must inspect the method SIGNATURE only.
+        // A non-generic method whose BODY contains a generic instantiation (`var _ Box[int]`)
+        // must still count toward satisfaction (else a recall miss).
+        let p = provider(
+            "package p\n\
+             type I interface { Do() }\n\
+             type Box[T any] struct{}\n\
+             type S struct{}\nfunc (s S) Do() { var _ Box[int] }\n",
+        );
+        let sats = p.satisfier_admission_keys_for_test("I", "Do");
+        assert!(
+            sats.contains(&"S".to_string()) || sats.contains(&"*S".to_string()),
+            "a method with a generic instantiation in its body must still satisfy: {sats:?}"
+        );
+    }
 }
 
 #[cfg(test)]
@@ -1800,5 +1868,14 @@ mod canon_tests {
         let a = "package p\ntype T struct{}\nfunc (t T) F() error { return nil }\n";
         let b = "package p\ntype I interface { F() string }\n";
         assert_ne!(sig_of(a, "F").unwrap(), sig_of(b, "F").unwrap());
+    }
+
+    #[test]
+    fn parenthesized_type_unwraps() {
+        // `chan (int)` ≡ `chan int` — a parenthesized element type must unwrap, not gap
+        // (review MINOR). tree-sitter-go parses `chan (int)` value as a parenthesized_type.
+        let paren = "package p\ntype T struct{}\nfunc (t T) C(c chan (int)) {}\n";
+        let plain = "package p\ntype I interface { C(c chan int) }\n";
+        assert_eq!(sig_of(paren, "C").unwrap(), sig_of(plain, "C").unwrap());
     }
 }
