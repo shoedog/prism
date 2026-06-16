@@ -41,4 +41,4 @@
 
 | Slice | Item | Judgement | Rationale |
 |-------|------|-----------|-----------|
-| _(none yet)_ | | | |
+| D | `slice_candidate` manifest-only class (§5: `for _, r := range xs { r.M() }` range-element receivers, enumerated even though the classifier recovers nothing) | **defer** | The emitter runs on `&CallGraph` (recovered-class sites: typed_param/constructor_local/type_assertion/var_local), which needs no `ParsedFiles`. `slice_candidate` is a net-new intra-procedural AST scan requiring live `ParsedFiles` (a `CpgContext` emitter) — out of proportion to a manifest-only enumeration class with zero metric impact (caddy's 57 sites are type-assertion). The recovered-class denominator (what the §8b gate report measures) does not depend on it. Fix-sketch: a `CpgContext`-based emitter variant that scans `range` clauses for the slice element type, emitting `receiver_class = "slice_candidate"` rows. Reserved `ReceiverRecovery::SliceElem` already lands (Slice F). |

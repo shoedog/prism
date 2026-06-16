@@ -57,6 +57,57 @@ fn slice_a_legacy_parity_p6_typed_param() {
     }
 }
 
+// Slice D: the interface-dispatch in-scope manifest (structural; spec §8a).
+#[test]
+fn callgraph_interface_method_names_populated() {
+    use prism::languages::Language::Go;
+    let (cg, _) = build(&[("main.go", go_iface_src(), Go)]);
+    // "Go" is declared on interface Runner → in the interface-method-name set.
+    assert!(cg.interface_method_names.contains("Go"));
+}
+
+#[test]
+fn interface_manifest_includes_inscope_excludes_noninterface_method() {
+    use prism::languages::Language::Go;
+    let (cg, _) = build(&[(
+        "main.go",
+        "package main\n\
+         type Runner interface { Go() }\n\
+         type Fast struct{}\n\
+         func (f Fast) Go() {}\n\
+         func (f Fast) Stop() {}\n\
+         func use() { _ = Fast{} }\n\
+         func run(r Runner) { r.Go(); r.Stop() }\n",
+        Go,
+    )]);
+    let manifest = prism::navigation::queries::interface_dispatch_manifest(&cg);
+    let sites = manifest["sites"].as_array().expect("sites array");
+    // r.Go(): typed_param receiver, method "Go" ∈ interface Runner → in scope.
+    assert!(
+        sites
+            .iter()
+            .any(|s| s["method"] == "Go" && s["receiver_class"] == "typed_param"),
+        "r.Go() must be an in-scope manifest site"
+    );
+    // r.Stop(): "Stop" is on no interface → excluded by the denominator predicate.
+    assert!(
+        sites.iter().all(|s| s["method"] != "Stop"),
+        "r.Stop() (non-interface method) must be excluded"
+    );
+    // byte-span identity present on every record.
+    assert!(sites.iter().all(|s| {
+        s["start_byte"].is_number() && s["end_byte"].is_number() && s["file"].is_string()
+    }));
+}
+
+// Slice F (sketch only): the reserved variant exists; the classifier returns None for it.
+#[test]
+#[ignore = "SliceElem is reserved (spec §5/§10); classifier returns None until a future slice"]
+fn slice_elem_variant_reserved() {
+    // Compiles iff the variant exists; no recovery behavior is wired yet.
+    let _ = prism::resolution::ReceiverRecovery::SliceElem;
+}
+
 fn site_in(cg: &CallGraph, caller_name: &str, callee: &str) -> CallSite {
     cg.calls
         .iter()

@@ -82,6 +82,11 @@ pub struct CallGraph {
     pub interface_gaps: BTreeMap<String, usize>,
     #[serde(default)]
     pub interface_overapprox: BTreeMap<String, usize>,
+    /// Phase-IP PR-2 (manifest §8a): method names declared on some known Go
+    /// interface, captured at build (the GoTypeProvider is not retained). The
+    /// denominator predicate for the interface-dispatch in-scope manifest.
+    #[serde(default)]
+    pub interface_method_names: BTreeSet<String>,
 }
 
 impl CallGraph {
@@ -101,6 +106,7 @@ impl CallGraph {
             interface_impls: BTreeMap::new(),
             interface_gaps: BTreeMap::new(),
             interface_overapprox: BTreeMap::new(),
+            interface_method_names: BTreeSet::new(),
         }
     }
 
@@ -224,6 +230,7 @@ impl CallGraph {
             interface_impls: BTreeMap::new(),
             interface_gaps: BTreeMap::new(),
             interface_overapprox: BTreeMap::new(),
+            interface_method_names: BTreeSet::new(),
         }
     }
 
@@ -745,6 +752,7 @@ impl CallGraph {
             interface_impls: BTreeMap::new(),
             interface_gaps: BTreeMap::new(),
             interface_overapprox: BTreeMap::new(),
+            interface_method_names: BTreeSet::new(),
         };
         cg.apply_go_embedding_promotion(files);
         cg.apply_go_interface_dispatch(files);
@@ -846,6 +854,7 @@ impl CallGraph {
         self.interface_impls.clear();
         self.interface_gaps.clear();
         self.interface_overapprox.clear();
+        self.interface_method_names.clear();
     }
 
     /// Recompute Go embedding promotions over `files` and write owner-index aliases.
@@ -916,6 +925,9 @@ impl CallGraph {
         let provider = crate::type_providers::go::GoTypeProvider::from_parsed_files(files);
         let table = provider.compute_interface_dispatch(&live);
         self.interface_impls = table.impls;
+        // Capture the interface-method-name set for the PR-2 manifest denominator
+        // (§8a) while the provider is live (it is dropped after this fn).
+        self.interface_method_names = provider.interface_method_names();
         for g in &table.gaps {
             *self.interface_gaps.entry(format!("{g:?}")).or_insert(0) += 1;
         }
@@ -1096,6 +1108,7 @@ impl CallGraph {
             interface_impls: BTreeMap::new(),
             interface_gaps: BTreeMap::new(),
             interface_overapprox: BTreeMap::new(),
+            interface_method_names: BTreeSet::new(),
         }
     }
 

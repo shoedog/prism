@@ -163,6 +163,10 @@ pub enum ReceiverRecovery {
     TypeAssertion,
     /// Go `var r T` declaration — `T` is the declared type of the local.
     VarDecl,
+    /// Reserved (spec §5/§10): interface-slice element receiver, e.g.
+    /// `for _, r := range xs { r.M() }`. The classifier returns `None` for it
+    /// (sketched only); the variant exists so the wire/manifest shape is settled.
+    SliceElem,
 }
 
 /// S3 receiver-recovery: a syntactically-recovered static receiver type plus the

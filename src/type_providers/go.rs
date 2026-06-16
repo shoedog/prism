@@ -191,6 +191,18 @@ impl GoTypeProvider {
         }
     }
 
+    /// All method names declared on some known interface (Phase-IP PR-2 manifest
+    /// denominator, spec §8a). Captured onto `CallGraph` at build time because the
+    /// provider is not retained post-build; lets the manifest decide whether an
+    /// interface-method call-site is in-scope without a live provider.
+    pub fn interface_method_names(&self) -> std::collections::BTreeSet<String> {
+        self.data
+            .interfaces
+            .values()
+            .flat_map(|iface| iface.methods.keys().cloned())
+            .collect()
+    }
+
     /// Compute named in-repo interface dispatch, RTA-pruned to `live` (admission keys),
     /// receiver-kind-aware, with the empty-live fallback kept Exact (spec §5/§7/§8).
     pub fn compute_interface_dispatch(&self, live: &BTreeSet<String>) -> InterfaceDispatchTable {
