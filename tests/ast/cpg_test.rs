@@ -1,5 +1,7 @@
 use crate::common::*;
-use prism::cpg::{CodePropertyGraph, CpgEdge, CpgNode};
+use petgraph::visit::EdgeRef;
+use prism::cpg::{CodePropertyGraph, CpgContext, CpgEdge, CpgNode};
+use prism::resolution::ResolutionConfidence;
 
 fn build_cpg_files(files: &[(&str, &str, Language)]) -> CodePropertyGraph {
     let mut parsed_files = BTreeMap::new();
@@ -10,6 +12,24 @@ fn build_cpg_files(files: &[(&str, &str, Language)]) -> CodePropertyGraph {
         );
     }
     CodePropertyGraph::build(&parsed_files)
+}
+
+fn exact_callee_names(ctx: &CpgContext, caller: &str) -> Vec<String> {
+    let g: &CodePropertyGraph = &ctx.cpg;
+    let mut out = Vec::new();
+    for n in g.graph.node_indices() {
+        if !matches!(&g.graph[n], CpgNode::Function { name, .. } if name == caller) {
+            continue;
+        }
+        for e in g.graph.edges(n) {
+            if matches!(e.weight(), CpgEdge::Call(ResolutionConfidence::Exact)) {
+                if let CpgNode::Function { name, .. } = &g.graph[e.target()] {
+                    out.push(name.clone());
+                }
+            }
+        }
+    }
+    out
 }
 
 fn cpg_var_node_matches(
@@ -50,6 +70,30 @@ fn has_dataflow_edge(
                 })
                 .unwrap_or(false)
     })
+}
+
+#[test]
+fn interface_fallback_edge_is_cpg_exact() {
+    use prism::languages::Language::Go;
+    let mut files = std::collections::BTreeMap::new();
+    files.insert(
+        "main.go".to_string(),
+        prism::ast::ParsedFile::parse(
+            "main.go",
+            "package main\n\
+         type Runner interface { Go() }\n\
+         type Fast struct{}\nfunc (f Fast) Go() {}\n\
+         func run(r Runner) { r.Go() }\n",
+            Go,
+        )
+        .unwrap(),
+    );
+    let ctx = CpgContext::build(&files, None);
+    // fallback fires (nothing constructed); the edge MUST be Exact to enter ExactOnly slices.
+    assert!(
+        exact_callee_names(&ctx, "run").iter().any(|n| n == "Go"),
+        "fallback interface edge must be Exact to survive ExactOnly"
+    );
 }
 
 #[test]

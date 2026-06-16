@@ -98,6 +98,47 @@ fn interface_dispatch_resolves_multi_implementer_exact() {
 }
 
 #[test]
+fn interface_fallback_no_construction_full_set_exact() {
+    use prism::languages::Language::Go;
+    // constructs nothing -> empty live -> fallback -> full satisfier set, Exact.
+    let (cg, _) = build(&[(
+        "main.go",
+        "package main\n\
+         type Runner interface { Go() }\n\
+         type Fast struct{}\nfunc (f Fast) Go() {}\n\
+         type Slow struct{}\nfunc (s Slow) Go() {}\n\
+         func run(r Runner) { r.Go() }\n",
+        Go,
+    )]);
+    let site = site_in(&cg, "run", "Go");
+    let r = cg.resolve_call_site(&site);
+    assert_eq!(r.len(), 2);
+    assert!(r
+        .iter()
+        .all(|c| c.confidence == ResolutionConfidence::Exact));
+}
+
+#[test]
+fn interface_rta_prunes_uninstantiated() {
+    use prism::languages::Language::Go;
+    // only Fast constructed -> Slow pruned.
+    let (cg, _) = build(&[(
+        "main.go",
+        "package main\n\
+         type Runner interface { Go() }\n\
+         type Fast struct{}\nfunc (f Fast) Go() {}\n\
+         type Slow struct{}\nfunc (s Slow) Go() {}\n\
+         func use() { _ = Fast{} }\n\
+         func run(r Runner) { r.Go() }\n",
+        Go,
+    )]);
+    let site = site_in(&cg, "run", "Go");
+    let r = cg.resolve_call_site(&site);
+    assert_eq!(r.len(), 1);
+    assert_eq!(r[0].target.name, "Go");
+}
+
+#[test]
 fn interface_dispatch_does_not_cross_language() {
     use prism::languages::Language::{Go, Rust};
     let (cg, _) = build(&[
