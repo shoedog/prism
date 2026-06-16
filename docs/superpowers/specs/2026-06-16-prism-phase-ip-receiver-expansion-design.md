@@ -1,273 +1,275 @@
 # Phase-IP Go interface dispatch — receiver-expansion (PR-2) — DESIGN
 
-> **rev 1 (2026-06-16).** Brainstormed design, pre dual-review. Owner decisions locked: scope =
-> type-assertion + interface-typed-`var` locals (implemented) + interface-slice (sketched, behind
-> the seam); precision gate = **measure-then-decide** (report first, no pre-committed tightening);
-> caddy re-baseline = human-gated; per-receiver-form incremental check-ins. Dual review (codex
-> gpt-5.5 xhigh + claude opus) is the next gate — they should assess architecture, the seam, fit
-> with the substrate progression + `docs/prism-meta-analysis-2026-06-10.md` /
-> `docs/cpg-substrate-analysis-2026-06-10.md`, weak portions, and prerequisite work.
+> **rev 2 (2026-06-16) — dual spec-review folded (codex gpt-5.5 xhigh + claude opus).** Both:
+> strategically sound (engine-vs-recovery split right; no-build/no-SCIP posture aligned with
+> `cpg-substrate-analysis-2026-06-10.md` / `prism-meta-analysis-2026-06-10.md`; S3 receiver-recovery
+> component, not a parallel layer), with buildability/spec gaps now fixed. Key folds: **recover-and-route**
+> (recover the receiver's static type by syntactic fact; the existing `owner_lookup → interface_impls →
+> drop` ladder routes it — no `GoTypeProvider` at extraction, no interface-set predicate; resolves the
+> rev-1 var-local blockers + the §3↔§12 contradiction); the seam is **`recover_receiver`
+> (`call_graph.rs:1384`, two call sites)** + the `ast.rs` scanners, and it must be **fed the receiver
+> node** (today it gets only qualifier text, and type-assertions are rejected by its simple-ident gate) —
+> a real extraction-API change; **Slice A (seam refactor, byte-identical `legacy` parity) is a mandatory
+> pre-PR**; grammar **pinned** (`type_assertion_expression`); manifest keyed by **byte-span**; gate FP rule
+> + config surface specified. rev-1 in git history (`2076e05`).
+>
+> **PR-1 is MERGED** (`5cd1ac9` on `main`, #96). This branch (`phase-ip-receiver-expansion`) is stacked
+> directly on it.
 
 ## §0 — Context & goal
 
-Phase-IP is type-confirmed Go receiver dispatch — the **recall** counterpart to EFT's precision.
-The **embedding** half shipped (#95). The **interface FOUNDATION (PR-1)** is in review (#96,
-branch `phase-ip-interface`): it resolves `r.Go()` where `r` is a P6-lite-**already-typed**
-receiver (typed param / constructor local) to in-repo implementers of interface `Runner`, minted
-`Exact` / `InterfaceDispatch`, via signature-confirmed structural satisfaction + RTA liveness +
-a kept-Exact empty-live fallback.
+Phase-IP is type-confirmed Go receiver dispatch — the **recall** counterpart to EFT's precision. The
+**embedding** half shipped (#95); the **interface FOUNDATION (PR-1)** merged (#96): it resolves `r.Go()`
+where `r` is a P6-lite-**already-typed** receiver (typed param / constructor local) to in-repo implementers
+of interface `Runner`, minted `Exact`/`InterfaceDispatch`, via signature-confirmed structural satisfaction
++ RTA liveness + a kept-Exact empty-live fallback, gated to Go callers.
 
-**PR-2 expands which receivers P6-lite recovers a static type for**, so more interface-method
-call-sites reach PR-1's dispatch engine. The engine itself does **not** change — PR-2 is "recover
-more receiver types"; the dispatch core (`iface_key` → `interface_impls` → satisfaction →
-fallback) is inherited unchanged.
+**PR-2 expands which receivers carry a recovered static type**, so more interface-method call-sites reach
+PR-1's dispatch engine. **The engine does not change.** Per the recover-and-route model (§2), recovery is
+purely syntactic and the *existing* resolution ladder routes it — so PR-2 is "recover more receiver
+types," nothing in `compute_interface_dispatch` / satisfaction / the seam moves.
 
-**Why this is the increment that moves caddy.** caddy's interface recall lives in **57 diff sites
-(~19 distinct sites × 3 `CaddyModule` implementers)**, and **all 57 are type-assertion receivers**
-(`x.(Module).CaddyModule()`). P6-lite does not recover an asserted receiver's type today, so PR-1
-is **caddy-corpus-neutral by construction**. PR-2 recovers them → the 57 sites become resolvable →
-caddy interface recall can finally move (after re-adjudication + a deliberate re-baseline).
+**Why this moves caddy.** caddy's interface recall lives in **57 diff sites** (~19 distinct ×3 `CaddyModule`
+implementers), **all type-assertion receivers** (`x.(Module).CaddyModule()`), today adjudicated `ambiguous`
+(`docs/eval/tier-a/re-anchor-adjudication-2026-06-14.md:84`). P6-lite doesn't recover an asserted receiver,
+so PR-1 is caddy-corpus-neutral. PR-2 recovers them → resolvable → caddy interface recall can move (after
+re-adjudication + a deliberate re-baseline). *Metric movement is a spec expectation, not yet remeasured.*
 
-**Dependency.** PR-2 builds on PR-1 (the `interface_impls` consult + signature-confirmed
-satisfaction in `src/type_providers/go.rs` / `src/resolution.rs`). PR-2 branches from
-`phase-ip-interface` (or `main` once #96 merges). This is the **only** foundational dependency
-(see §11).
+**Dependency:** PR-1 (`main`). No other hard dependency (§11).
 
 ## §1 — Scope
 
-**Implemented:**
-1. **Type-assertion receivers** — `x.(Module).CaddyModule()`. The asserted type is explicit in
-   source. (All 57 caddy sites.)
-2. **Interface-typed `var` locals** — `var r Runner` (and `r := …` where the declared/annotated
-   static type is a known interface). PR-1 deliberately did not recover these; the
-   interface-set predicate (§4) makes it safe.
+**In PR-2 scope (implemented):**
+1. **Type-assertion receivers** — `x.(Module).CaddyModule()` (all 57 caddy sites).
+2. **`var`-declared local receivers** — `var r Runner` / `var r Runner = f()` (recover-and-route: recover
+   the *declared* type whether interface or concrete; §2 routes it).
 
-**Sketched (designed-for, not implemented):**
-3. **Interface-slice element receivers** — `for _, r := range runners { r.Go() }` where
-   `runners []Runner`. The seam reserves this case; the implementation is stubbed. If forms 1–2
-   land cleanly it is a small follow-on; if complexity balloons, **type-assertion alone is the
-   floor** (it carries all the caddy value).
+**Sketched (designed-for behind the seam, not implemented):**
+3. **Interface-slice element receivers** — `for _, r := range runners` where `runners []Runner` (§5).
 
-**Deferred-conditional** (activated only if the §8 gate *report* shows the corresponding FP/recall
-class — *measure-then-decide*, not pre-committed): precise cross-package keys (D2), non-local /
-factory-return liveness (D4), the fan-out width-lever. **Stays deferred:** pointer-embed promoted
-admission (D5), CHA absolute-vs-relative path canonicalization (D6), Python inheritance, Rust
-S3.1 struct-field-index, Go generics/type-sets, anonymous interfaces.
+**Deferred-conditional** (activate only if the §8 gate *report* shows that FP/recall class —
+measure-then-decide): precise cross-package keys (D2), non-local/factory-return + return-type-inferred
+recovery (D4), the fan-out width-lever. **Stays deferred:** pointer-embed admission (D5), CHA abs/rel path
+(D6), Python inheritance, Rust S3.1, Go generics/type-sets, anonymous interfaces.
 
 ## §2 — The receiver-classifier seam (core abstraction)
 
-Today receiver recovery is **two inline cases** in AST extraction (`src/ast.rs`): typed-param
-recovery (`receiver_type_in_fn`, ~`ast.rs:313`) and constructor-local recovery
-(`walk_receiver_bindings`, ~`ast.rs:3816`), each assigning `CallSite.receiver_type` +
-`CallSite.receiver_recovery` at extraction time. PR-2 consolidates these **and** the new forms
-behind one seam.
+**Where recovery actually lives today (corrected from rev 1).** The orchestrator is
+`CallGraph::recover_receiver` (`src/call_graph.rs:1384`), called from **both** extraction paths
+(`build` ~`:373`, `build_direct_subset` ~`:1023`); it applies the qualifier/keyword/import/`recv_var` gates
+(`:1398-1411`) then delegates the type-text scan to `ParsedFile::receiver_type_in_fn` /
+`walk_receiver_bindings` (`src/ast.rs:313/3816`, which use private helpers `find_parameters_node`,
+`constructor_type`, `simple_binding_text`, …). `CallSite.receiver_type`/`receiver_recovery` are assigned at
+**two** sites (`call_graph.rs:~388`, `~1038`). The seam must subsume `recover_receiver` (both call sites),
+and `legacy` must preserve its **gate logic** verbatim, not just the scanners.
 
-**Placement.** The classifier is the **S3 receiver-recovery component** — it lives in the S3
-vocabulary (`src/resolution.rs`, alongside `ReceiverRecovery` / `peel_type` / the shared
-`resolve_call_site` ladder), as a pure function **called by** AST extraction. It does not invent a
-new layer and it is not a `TypeProvider` responsibility (the `TypeProvider` answers "what is type
-T"; the classifier answers "what is the static type of *this receiver expression*"). Per CLAUDE.md
-nav + CPG already share one ladder, so recovering richer receiver types benefits diff-review,
-nav, and Tier-2 Step-5b uniformly through that single seam.
+**Extraction-API change (load-bearing, both reviewers).** `recover_receiver` today receives only the
+**qualifier string** + call span; type-assertions are rejected by its simple-identifier gate. To recover
+`x.(Module).M()` the classifier needs the **receiver/selector node** (or the call node) — so the call
+extractor (`function_calls_with_qualifier_and_spans_on_lines`) must additionally surface the receiver
+expression node into `ReceiverCtx`. This is the one real interface change PR-2 makes upstream of the engine.
 
-**Seam shape (owner's swap requirement).** A `ReceiverClassifier` with two implementations:
-- `legacy` — the current two cases (`TypedParam` + `ConstructorLocal`), extracted **verbatim**.
-- `expanded` — `legacy` ∪ the new forms (type-assertion, interface-local, [sketched] slice).
+**The seam.** A `ReceiverClassifier` with two implementations:
+- `legacy` — the current behavior (gates + `TypedParam`/`ConstructorLocal` scans), extracted **verbatim**.
+- `expanded` — `legacy` ∪ the new forms (type-assertion, var-local; reserved slice).
 
-Selection is explicit (a `SliceConfig`/build flag, default `expanded`; `legacy` is the clean
-fall-back). This is a **strangler seam**: we can ship `expanded`, and if a corpus regression
-appears we flip to `legacy` (or `legacy` + a single new case) **without reverting commits**. Each
-new form is independently gated so the fall-back is granular.
-
-**Signature (illustrative; exact threading verified at plan time):**
 ```rust
-// src/resolution.rs
-pub struct RecoveredReceiver {
-    pub static_type: String,        // bare/owner-normalized type name, as today
-    pub recovery: ReceiverRecovery, // the syntactic fact that recovered it
-}
+// src/resolution.rs  (S3 vocabulary; called by call_graph.rs extraction)
+pub struct RecoveredReceiver { pub static_type: String, pub recovery: ReceiverRecovery }
 
-pub trait ReceiverClassifier {
-    /// Recover the static type of a method-call receiver, or None (unrecovered → existing
-    /// drop/over-approx behavior is unchanged).
-    fn classify(&self, ctx: ReceiverCtx<'_>) -> Option<RecoveredReceiver>;
+pub struct ReceiverCtx<'a> {
+    pub receiver_expr: tree_sitter::Node<'a>, // NEW: the receiver/selector node (not just qualifier)
+    pub qualifier: Option<&'a str>,           // existing
+    pub fn_node: tree_sitter::Node<'a>,        // enclosing fn (existing)
+    pub call_line: usize,                      // existing
+    pub parsed: &'a ParsedFile,                // for node_text / helper reuse
+    // NOTE: recover-and-route needs NO GoTypeProvider here (see §4).
 }
-// ReceiverCtx bundles what the two inline cases already read: the receiver expr node, the
-// enclosing fn node, the call line, and Option<&GoTypeProvider> (interface set; see §4).
+pub trait ReceiverClassifier { fn classify(&self, ctx: ReceiverCtx<'_>) -> Option<RecoveredReceiver>; }
 ```
 
-**Wire-compatibility (load-bearing per cpg-substrate "HOLD window").** `ReceiverRecovery` gains
-additive variants — `TypeAssertion`, `InterfaceLocal`, and a **reserved** `SliceElem` — which is
-serde/bincode-additive. `CallSite.receiver_type: Option<String>` /
-`receiver_recovery: Option<ReceiverRecovery>` are **unchanged** (no struct/wire change, no forced
-`CACHE_VERSION` bump from the recovery side; only the satisfaction/telemetry surface from PR-1
-already moved). The **output** classification stays `ResolutionKind::InterfaceDispatch` —
-`ReceiverRecovery` is the *input fact*, not a new output kind.
+**Recover-and-route (the unifying model).** The classifier recovers a **syntactic** static type and tags
+the *fact* (`TypedParam`/`ConstructorLocal`/`TypeAssertion`/`VarDecl`/reserved `SliceElem`). It performs
+**no** interface-vs-concrete test. The existing ladder routes: `owner_lookup(recovered, m)` resolves a
+concrete type (a recall win, same precision class as typed-params) and only on a **miss** does
+`iface_key → interface_impls` dispatch (where a concrete type has no entry → drop). A concrete type
+therefore cannot receive a wrong interface edge. This eliminates any need for the `GoTypeProvider`
+interface set at extraction (the rev-1 var-local blockers B1/B2) and removes the §3↔§12 concrete-asserted
+contradiction.
+
+**Wire/cache (corrected).** `ReceiverRecovery` gains additive variants `TypeAssertion`, `VarDecl`, and a
+reserved `SliceElem`. No `CallSite` struct change. Enum additions are cache read-compatible if existing
+discriminants stay stable; `CallGraph` is serialized into the CPG cache (`cpg_cache.rs`), and cache
+validity already includes `GIT_SHA` (`cpg_cache.rs:296-307`), so a *built* binary self-invalidates per
+commit — **dirty-vs-dirty dev iteration shares `-dirty` and needs `--no-cache`** (existing discipline,
+`cpg_cache.rs:296-300`). Bumping `CACHE_VERSION` 9→10 when the variants land is a one-line option to also
+close the dirty hole (matches PR-1's v8→v9 precedent); recommended but not required. The **output** stays
+`ResolutionKind::InterfaceDispatch` (for interface hits) or the existing owner-index kind (concrete) —
+`ReceiverRecovery` is the input fact, not a new output kind.
 
 ## §3 — Form 1: type-assertion receivers (`x.(Module).CaddyModule()`)
 
-The call `x.(Module).CaddyModule()` is a method call whose receiver expression is a **type
-assertion** `x.(Module)` — the asserted type `Module` is explicit. The classifier detects the
-type-assertion node in the receiver position and recovers `Module` (owner-normalized), tagged
-`ReceiverRecovery::TypeAssertion`. `Module` is then an interface name (or concrete) that flows to
-the existing `iface_key` → `interface_impls` consult exactly as PR-1's typed-param path.
+Grammar (**pinned**, tree-sitter-go 0.23.4): the call is `call_expression` whose `function` is a
+`selector_expression` whose `operand` is a `type_assertion_expression` with fields `operand` (the asserted
+expression) and `type` (the asserted type). Precedent: `taint.rs:5567` already walks a type-assertion via
+`child_by_field_name`. The classifier, when the receiver node is a `type_assertion_expression`, recovers its
+`type` child (owner-normalized: strip `*`, take the bare segment of `pkg.Module`, unwrap a parenthesized
+type), tagged `TypeAssertion`. **Excluded:** the comma-ok form `v, ok := x.(T)` — that is an assignment, not
+a method-call receiver, so it never enters the classifier (it is not in receiver position of a call). The
+recovered type routes per §2 (interface → dispatch; concrete `x.(*Foo).Bar()` → `owner_lookup`). Pin all of
+`Module` / `pkg.Module` / `*T` / `(T)` with tests against the pinned grammar (the PR-1 6-canon-facts
+precedent).
 
-> Grammar note (verify at plan time): the tree-sitter-go node for `x.(T)` is the type-assertion
-> expression; the outer `…​.CaddyModule()` is a `call_expression` whose `function` is a
-> `selector_expression` whose `operand` is that type-assertion. The classifier walks
-> receiver-expr → (type_assertion) → asserted type. The 6 canon/grammar facts PR-1 pinned
-> (channel `value`, etc.) are the precedent for verifying node kinds against the pinned 0.23.4
-> grammar with tests as the oracle.
+## §4 — Form 2: `var`-declared local receivers (`var r Runner`)
 
-## §4 — Form 2: interface-typed `var` locals (`var r Runner`)
-
-When a local's **declared static type is a known interface**, recover it (tagged
-`ReceiverRecovery::InterfaceLocal`). The safety predicate is **`declared_type ∈
-GoTypeProvider.interfaces`** — the same interface set PR-1's satisfaction is built from. This is
-why PR-1 could not safely do it: without the interface-set check, an untyped/concrete `var`
-receiver would over-recover. With the check, only genuine interface-typed locals are recovered,
-and they flow to `interface_impls` (a concrete-typed local already resolves via the existing
-owner index, untouched).
-
-Covers `var r Runner` and the annotated short-var `var r Runner = f()`; the bare `r := f()` where
-`f`'s return type is an interface is **inference-dependent** and treated as the boundary toward the
-sketched/deferred work (return-type inference is the D4/factory-return seam — out of PR-2 unless
-the gate motivates it).
+Recover the **declared static type** of a local whose receiver is `r`, tagged `VarDecl`, and route per §2 —
+**no interface predicate, no `GoTypeProvider` at extraction.** An interface-typed local dispatches via
+`interface_impls`; a concrete-typed local resolves via `owner_lookup` (recall win); neither needs a type
+test. Binding coverage (reuse the existing "bindings at/before call; >1 binding bails" rule at
+`ast.rs:326-379`/`3828-3887`, extended to `var`): `var r Runner`, `var r Runner = f()`, `var ( r Runner; … )`
+blocks, and package-level `var r Runner`. Multiple/reassigned/shadowed bindings → **bail** (recover nothing,
+unchanged behavior), as today. The bare `r := f()` (no annotation) is *return-type-inference*-dependent and
+stays in D4/deferred (the boundary toward the sketched/conditional work). (Naming: `VarDecl` supersedes
+rev-1's `InterfaceLocal` and matches the PR-1 work-list; recover-and-route makes "is it an interface" a
+routing outcome, not a recovery predicate, so the syntactic name is correct.)
 
 ## §5 — Form 3 (SKETCH ONLY): interface-slice element receivers
 
-`for _, r := range runners { r.Go() }` where `runners []Runner`: the range variable `r`'s static
-type is the slice's element type. The seam reserves `ReceiverRecovery::SliceElem`; the classifier
-case is **stubbed** (returns `None`). Designing the seam to accommodate it now (the `ReceiverCtx`
-already carries the enclosing-fn scope needed to find the range source's element type) ensures the
-abstraction is right; implementing it is a follow-on. **Open question for review:** does element
-type come from the slice's declaration site (intra-procedural) only, or does it need light
-return-type/threading inference (shared with D4)?
+`for _, r := range runners { r.Go() }`: `r`'s static type is the slice's element type. **There is no
+existing element-type recovery helper** (`canon_type`'s `slice_type` handling is signature
+canonicalization, a different concern). Implementing `SliceElem` requires a **new intra-procedural
+range-source declared-type resolver** (find `runners`'s declared `[]Runner`, take the element type) — the
+same binding-resolution shape as the constructor-local case, scoped **declaration-site only** (return-type
+inference stays in D4). The seam **reserves** `ReceiverRecovery::SliceElem`; the classifier case is stubbed
+(`None`). For §8 manifest stratification, unrecovered slice-receiver sites are enumerated as a
+**manifest-only candidate class** (the AST scan can recognize the `range` shape even though the classifier
+recovers nothing), so the variant not appearing on call sites does not hide them.
 
 ## §6 — Dispatch flow (unchanged, inherited from PR-1)
 
-For every recovered interface receiver type `I` and method `m`: `iface_key(I)` → consult
-`interface_impls[(I, m)]` at the P6-lite seam → if non-empty, mint N `Exact` /
-`InterfaceDispatch` callees; satisfaction is signature-confirmed (`set_ptr ⊇ set_value`, promoted
-methods, generics/embedded gaps); RTA prunes to the live admission-key set; the empty-live
-fallback is kept **Exact**. The Go-language gate on the consult (PR-1) still applies. **No engine
-change** — PR-2 only increases the population of receivers that carry a recovered `I`.
+For a recovered interface type `I` + method `m`: `owner_lookup(I,m)` misses (interfaces have no owner-index
+bodies) → `iface_key(I)` → `interface_impls[(I,m)]` → mint N `Exact`/`InterfaceDispatch` callees;
+signature-confirmed satisfaction (`set_ptr ⊇ set_value`, promoted, generics/embedded gaps), RTA pruning to
+the live admission set, kept-Exact empty-live fallback, Go-language gate — all unchanged. A recovered
+**concrete** type resolves at `owner_lookup` and never reaches the interface consult. **No engine change.**
 
 ## §7 — Confidence & honesty
 
-Inherited from PR-1 + the substrate honesty norm ("label confidence, don't delete edges"): a
-recovered-interface dispatch is `Exact` **only** when signature-confirmed; otherwise the kept-Exact
-empty-live fallback fires (no silent drops). PR-2 introduces no new confidence rule; the new
-receiver forms reuse PR-1's confidence/kind exactly. (If the §8 report shows a recovery form is a
-precision liability, the *measure-then-decide* response — width-lever / cross-package keys / a
-confidence downgrade — is chosen then, not pre-committed.)
+Inherited: `Exact` only when signature-confirmed (interface) or owner-index-resolved (concrete); otherwise
+the kept-Exact fallback (no silent drops); "label confidence, don't delete edges." PR-2 adds no new
+confidence rule. If the §8 report shows a recovery form is a precision liability, the measure-then-decide
+response (width-lever / cross-package keys / a confidence downgrade) is chosen then, not pre-committed.
 
-## §8 — Acceptance: the in-scope manifest + the precision gate (as a report)
+## §8 — Acceptance: in-scope manifest + precision gate (as a report)
 
-PR-1 ships the per-edge `resolution_kind`/`dispatch_kind` extraction + run-JSON persistence +
-replay (spec §14). PR-2 owns the two pieces PR-1 deferred:
+PR-1 already extracts + persists + replays per-edge `resolution_kind`/`dispatch_kind`
+(`sut.py:78-108`, `test_replay_keeps_resolution_kind.py`). PR-2 owns the deferred pieces:
 
-**(a) The in-scope interface-site manifest (§14b "separate AST/drop-telemetry source").** PR-1's
-manifest can only enumerate *resolved* `InterfaceDispatch` edges — it cannot see receivers that
-were never recovered. PR-2 adds an **AST scan** that enumerates **every interface-method
-call-site** (resolved or not), keyed `file:line`, **fingerprinted** (window-hash, reusing the
-existing `adjudication.fingerprint`), **stratified by receiver class** (`TypedParam`,
-`ConstructorLocal`, `TypeAssertion`, `InterfaceLocal`, `SliceElem`, `unrecovered`). This is the
-denominator the resolved-edge manifest cannot produce, and the unit of the gate.
+**(a) In-scope manifest (the §14b separate AST source).**
+- **Denominator predicate (defined):** an interface-method call-site is **in-scope** iff its receiver is one
+  of the recognized forms — typed-param, constructor-local, type-assertion, `var`-local, or
+  range/slice-element — **AND** the called method name appears on **some known interface** in
+  `GoTypeProvider` (so the manifest counts genuine interface-dispatch candidates, not every method call).
+  The AST scan recognizes the receiver shape syntactically; the "method ∈ some interface" check uses the
+  provider at *manifest-build* time (post-extraction, where the provider exists — not the extraction-time
+  constraint §4 avoids).
+- **Identity (corrected): byte-span keys.** Key each site by `file:start_byte:end_byte` (the `CallSite`
+  already carries + orders by byte spans, `call_graph.rs:27-31/1347-1357`), with `file:line` as display
+  only. Fingerprint with the existing `adjudication.fingerprint` window-hash for drift re-anchoring.
+- **Stratify** by receiver class (incl. the §5 manifest-only `slice-candidate`).
 
-**(b) The precision gate — built as a REPORT, not a hard fail (owner: measure-then-decide).** Over
-the manifest's in-scope sites, compute **interface-dispatch-attributable false positives in
-`ExactOnly`**, per receiver class. PR-2 *runs and reports* it; it does **not** pre-commit to a
-hard-zero bar or to any tightening (cross-package keys / width-lever). After the first real run we
-read the report — what trips, and from what class — and decide the response together. (If/when we
-choose to make it gating, the bar and the response are set then.)
-
-The harness already has the pieces this builds on: `fingerprint` (`adjudication.py`), the
-re-anchor map, site-fingerprint collection (`cli.py`), and `Adjudication.dispatch_kind`
-(`model.py`). PR-2 adds the AST-scan manifest source + the per-class FP report.
+**(b) Precision gate — a REPORT, not a hard fail (owner: measure-then-decide).** Over the manifest's
+in-scope sites, emit per-receiver-class JSON: `{corpus, direction, receiver_class, raw_fp, corrected_fp,
+pending, ambiguous, fanout_width}`. **FP computation rule (defined):** `raw_fp` = prism-only sites;
+`corrected_fp` = prism-only **after** adjudication, **excluding** `ambiguous`/`oracle_artifact` verdicts;
+`pending` = unadjudicated. The gate is reported, never gating, in PR-2. **Oracle dependency:** the
+denominator + stratification + `fanout_width` run in **Slice D alone** (structural, no oracle); the
+`corrected_fp` line is meaningful only **after Slice E** re-adjudicates the now-resolved sites (against
+existing `adjudications.jsonl` it is labeled *provisional*). After the first real run we read it and decide
+any tightening together.
 
 ## §9 — caddy re-adjudication + re-baseline (human-gated)
 
-The 57 caddy sites are currently adjudicated `ambiguous` (gopls returns ambiguous interface
-satisfaction; caddy `callers/C-method` recall holds at 1.000). Once PR-2 resolves them:
-1. **Re-adjudicate** the 57 via the dual-adjudicator protocol (codex + claude), record Cohen's κ,
-   re-anchor stale verdicts by fingerprint (the established 1:1 fingerprint match).
-2. **Re-baseline** caddy — full 5-corpus rerun (`uv run tier-a --corpus all`) + a deliberate
-   update of the committed anchor in `docs/eval/tier-a/`, with the adjudication record. This is
-   **human-gated** (multi-corpus runs are human-triggered); the spec/plan prepares it, the owner
-   runs it. **This is the PR that should move the caddy metric** — the move is recorded, not
-   silent.
+Once PR-2 resolves the 57 sites: (1) **re-adjudicate** via the dual-adjudicator protocol (codex + claude),
+record Cohen's κ, re-anchor stale verdicts by fingerprint; (2) **re-baseline** caddy — full 5-corpus rerun
+(`uv run tier-a --corpus all`) + deliberate anchor update in `docs/eval/tier-a/`, with the adjudication
+record. **Human-gated** (multi-corpus runs are human-triggered). This is the PR that should move the caddy
+metric; the move is recorded, not silent.
 
 ## §10 — Incremental check-ins (slicing)
 
-Each receiver form is an **independent check-in behind the seam**, regardless of whether PR-2 ships
-as one PR or splits:
-- **Slice A:** the `ReceiverClassifier` seam + `legacy` impl (pure refactor; PR-1 recovery tests
-  pin behavior — byte-identical resolution).
-- **Slice B:** `TypeAssertion` form + tests + a new tier-A `interface_dispatch_assert` capability
-  fixture (the caddy pattern).
-- **Slice C:** `InterfaceLocal` form + tests + fixture.
+- **Slice A — MANDATORY PRE-PR (both reviewers):** the `ReceiverClassifier` seam + `legacy` impl + the
+  extraction-API change to pass the receiver node. **Pure refactor, byte-identical resolution**, guarded by
+  PR-1's P6-lite fixtures as the parity gate. Lands alone (clean bisect) before any new form.
+- **Slice B:** `TypeAssertion` form + tests + a `go/interface_dispatch_assert` tier-A fixture.
+- **Slice C:** `VarDecl` form + tests + a `go/interface_dispatch_var` fixture.
 - **Slice D:** the manifest source + the gate report.
 - **Slice E (human-gated):** caddy re-adjudication + re-baseline.
-- Slice F (`SliceElem`) is sketched only.
+- Slice F (`SliceElem`) sketched only.
 
-The seam (Slice A) landing first means B/C/D are additive and individually revertable to `legacy`.
+Each form is independently revertable to `legacy` via the config (§13).
 
 ## §11 — Substrate alignment & prerequisites
 
-**Alignment (for the reviewers to verify).** PR-2 is the **S3 receiver-recovery component** of the
-`S1→S2→S3→S4` call-resolution precision floor (`cpg-substrate-analysis-2026-06-10.md`): it tightens
-the *shared* resolver (benefiting diff-review, nav, and Tier-2 Step-5b together), extends the
-existing `ReceiverRecovery` vocabulary rather than a parallel one, consumes the **E12
-`TypeProvider`** oracle (the GoTypeProvider interface set), and feeds the **Phase-IP**
-interprocedural dispatch (PR-1). It respects the "no-build / all-text" load-bearing property
-(`prism-meta-analysis-2026-06-10.md`): recovery is syntactic + optionally type-provider-confirmed,
-never compiler-dependent; the `Source::ExternalIndex`/SCIP oracle remains a *future* arbitration
-seam, not a PR-2 dependency.
+**Alignment (reviewer-confirmed, no drift).** PR-2 is the **S3 receiver-recovery component** of the
+`S1→S2→S3→S4` floor (`cpg-substrate-analysis-2026-06-10.md`): it tightens the **shared** resolver
+(benefiting diff-review, nav — verified nav is always whole-repo — and Tier-2 Step-5b together), extends
+the existing `ReceiverRecovery` vocabulary (not a parallel one), and feeds Phase-IP dispatch. It honors the
+no-build/all-text load-bearing property (`prism-meta-analysis-2026-06-10.md`): recovery is **syntactic**,
+never compiler-dependent; `Source::ExternalIndex`/SCIP stays a *future* arbitration seam, not a PR-2
+dependency. "Label confidence, don't delete edges" is preserved (kept-Exact fallback; concrete misses drop
+exactly as today).
 
-**Prerequisites — what must be true before PR-2 begins (reviewers should pressure-test this):**
-- **PR-1 (#96) merged or branched-from.** The only hard dependency — PR-2's recovered types are
-  inert without the `interface_impls` consult + satisfaction.
-- **S1/S2/S3/E12/embedding already merged** — confirmed in current `main` (S2 `dd60ed6`; the
-  shared `resolve_call_site` ladder; `GoTypeProvider`; #95). The 2026-06-10 docs predate these
-  landings; their "S1/S2 pending" framing is the stale snapshot.
-- **Open prerequisite question for review:** does the manifest's AST-scan source (§8a) want any S2
-  node-identity affordance (byte-range site keys) that isn't already present, or is `file:line` +
-  fingerprint sufficient? And should Slice A (the seam refactor) land as its own PR *before* the
-  new forms, to de-risk the strangler swap?
+**Prerequisites:**
+- **PR-1 (`main`) — satisfied** (merged #96, `5cd1ac9`). S1/S2/S3/E12/embedding all in `main`.
+- **Slice A first** (§10) — the seam refactor + node-passing API is the implementation prerequisite for the
+  forms; it is *in* PR-2 (its first slice), not a separate dependency.
+- **No node-identity gap:** the manifest's byte-span keys use spans `CallSite` already carries (S2 landed),
+  so no new AST-bytes work is needed. The Tier-A `Location` model is line-keyed today; the manifest can be
+  byte-stricter than the harness without changing the harness `Location`.
 
 ## §12 — Testing
 
-- **Classifier unit tests** (per form): `TypeAssertion` recovers the asserted type;
-  `InterfaceLocal` recovers iff declared type ∈ interface set (and does **not** recover a
-  concrete-typed local); `SliceElem` is an `#[ignore]`d placeholder pinning the reserved variant.
-- **`legacy` parity test:** `legacy` classifier reproduces PR-1's recovery byte-for-byte on the
-  existing P6-lite fixtures (the strangler-swap guard).
-- **Resolution tests:** `x.(Module).CaddyModule()` and `var r Runner; r.Go()` → in-repo
-  implementers, `Exact` / `InterfaceDispatch`; non-interface asserted/var receivers unaffected;
-  the Go-language gate still blocks cross-language.
-- **tier-A fixtures:** `go/interface_dispatch_assert` (+ `_var`) capability fixtures mirroring the
-  caddy 57-site pattern.
-- **Harness:** manifest-source enumeration/stratification test; gate-report computation test.
+- **Classifier unit tests** (per form): `TypeAssertion` recovers the asserted type (`Module`/`pkg.Module`/
+  `*T`/`(T)`; comma-ok excluded); `VarDecl` recovers the declared type for interface **and** concrete
+  locals, bails on multi/shadow bindings; `SliceElem` `#[ignore]`d placeholder pinning the reserved variant.
+- **`legacy` parity test:** `legacy` reproduces PR-1's recovery byte-for-byte on the existing P6-lite
+  fixtures (the strangler-swap guard) — the Slice A gate.
+- **Resolution tests:** `x.(Module).M()` + `var r Runner; r.M()` → in-repo implementers
+  `Exact`/`InterfaceDispatch`; `x.(*Concrete).M()` + `var r Concrete; r.M()` → `owner_lookup` resolution;
+  Go-language gate still blocks cross-language.
+- **tier-A fixtures:** `go/interface_dispatch_assert`, `go/interface_dispatch_var`.
+- **Harness:** manifest denominator/stratification + byte-span-key test; gate-report computation test
+  (raw/corrected/pending/ambiguous fields).
+- **Config tests:** `legacy`, `type_assertion_only`, `var_local_only`, full `expanded` selection.
 
-## §13 — Open decisions (resolved via measure-then-decide / review)
+## §13 — Resolved decisions
 
-1. Slice-element type source (§5): declaration-site only vs. light return-type inference.
-2. Gate response if it trips (§8b): cross-package keys vs. width-lever vs. documented threshold —
-   decided after the first report.
-3. Should Slice A (seam refactor) be its own pre-PR (§11)?
-4. `expanded` vs `legacy` default selection + how the flag is surfaced (build flag vs `SliceConfig`).
+1. **Recovery model:** recover-and-route (§2) — owner-confirmed.
+2. **Form-2 interface predicate:** none (routing handles it) — kills B1/B2.
+3. **Config surface:** a `ReceiverRecoveryMode` enum (`Legacy` | `Expanded`) **plus per-form booleans**
+   (`type_assertion`, `var_local`) on the build config; **default `Expanded`** (all implemented forms on).
+   `Legacy` is the granular fall-back. (§2/§13 rev-1 contradiction resolved → default is `Expanded`.)
+4. **Slice A:** mandatory pre-PR (§10).
+5. **Slice-element source:** declaration-site intra-procedural only (return-type inference → D4).
+6. **Cache:** GIT_SHA covers built; dirty needs `--no-cache`; `CACHE_VERSION` 9→10 optional-recommended.
+
+## §14 — Open decisions (measure-then-decide)
+
+1. Gate response if it trips (§8b): cross-package keys vs. width-lever vs. documented threshold — after the
+   first report.
+2. Whether to bump `CACHE_VERSION` (§13.6) — decide when the variants land.
 
 ---
 
-### Self-review (author)
+### Self-review (author, rev 2)
 
-- **Placeholders:** none. The illustrative `ReceiverClassifier` signature is explicitly "verified
-  at plan time"; AST node kinds are flagged "verify against grammar" (the PR-1 precedent).
-- **Consistency:** `ReceiverRecovery` = input fact (extended additively); `ResolutionKind` =
-  output (unchanged, stays `InterfaceDispatch`) — stated identically in §2/§6. Scope (§1) matches
-  the slices (§10) and tests (§12).
-- **Scope:** one implementation plan's worth — seam + 2 forms + manifest/report + (human-gated)
-  re-baseline; slice sketched; tightening deferred-conditional. Not over-bundled.
-- **Ambiguity:** the precision gate is a **report** (not gating) in PR-2 — stated explicitly to
-  avoid the "is it hard-zero?" reading. The caddy re-baseline is **human-gated** — stated.
+- **Placeholders:** none. Grammar is pinned (§3); the `ReceiverClassifier`/`ReceiverCtx` shapes are
+  illustrative-but-anchored (named files/lines verified by review).
+- **Consistency:** recover-and-route stated identically in §2/§3/§4/§6; `ReceiverRecovery` = input fact
+  (additive), `ResolutionKind` unchanged; §1 scope ↔ §10 slices ↔ §12 tests ↔ §13 decisions aligned;
+  §3↔§12 (concrete asserted) and §2↔§13 (default config) contradictions resolved.
+- **Scope:** one plan — Slice A (seam+API) + 2 forms + manifest/report + (human-gated) re-baseline; slice
+  sketched; tightening deferred-conditional.
+- **Ambiguity:** "report not gating" (§8b) and "human-gated re-baseline" (§9) stated explicitly; the FP rule
+  + oracle dependency defined; manifest identity is byte-span (not line).
