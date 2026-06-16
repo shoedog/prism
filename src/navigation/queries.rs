@@ -91,6 +91,15 @@ pub fn interface_dispatch_manifest(cg: &CallGraph) -> serde_json::Value {
             else {
                 continue;
             };
+            // Go-caller gate (review MAJOR 4): real interface dispatch is Go-gated in
+            // resolution.rs (caller.file is Go), so only count Go-caller sites. A non-Go
+            // caller that syntactically recovers a same-named receiver type is not a real
+            // interface-dispatch site and would inflate the denominator.
+            if crate::languages::Language::from_path(&site.caller.file)
+                != Some(crate::languages::Language::Go)
+            {
+                continue;
+            }
             // Denominator predicate (§8a): the called method is on some known interface.
             if !cg.interface_method_names.contains(&site.callee_name) {
                 continue;

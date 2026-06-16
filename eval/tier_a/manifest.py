@@ -57,30 +57,23 @@ def gate_report(
     """Per-receiver-class precision report (spec §8b). REPORTED, never gating;
     `corrected_fp` is provisional until the Slice-E re-adjudication.
 
-    The FP metric is computed over INTERFACE-DISPATCH sites only (``fanout > 0``); concrete
-    owner-resolved receivers (``fanout == 0`` — e.g. a typed-param `*Foo` calling a method
-    that merely shares a name with some interface method) are reported separately as
-    ``concrete_sites`` and excluded from the FP numerator/denominator (review MAJOR 4 —
-    otherwise the per-class FP rate is uninterpretable).
+    Denominator fields (`dispatch_sites`, `concrete_sites`, `fanout_width`) are computed over
+    ALL in-scope sites of the class (review MAJOR 2). The FP numerator is computed over the
+    prism-only DISPATCH subset (fanout>0) — `prism_only_keys` is the oracle-derived prism-only
+    byte-key set in Slice E; when None (PR-2, no oracle run) every in-scope dispatch site is a
+    provisional candidate.
 
-    FP rule (review BLOCKER 1 — ``raw_fp`` is raw prism-only membership, NOT verdict-derived):
-      raw_fp       = dispatch sites in the prism-only set (raw FP candidates, pre-adjudication).
-                     ``prism_only_keys`` (byte-keys) is the oracle-derived prism-only set when
-                     available (Slice E); when None (PR-2, no oracle run) every in-scope
-                     dispatch site is provisionally a candidate.
-      corrected_fp = raw_fp MINUS sites adjudicated ``ambiguous`` / ``oracle_artifact``
-                     (excused — not real prism FPs).
-      pending      = raw dispatch sites with NO adjudication record.
-      ambiguous    = dispatch sites adjudicated ``ambiguous``.
-      fanout_width = mean fanout over dispatch sites (0.0 if none).
+    FP rule (review BLOCKER 1 — positive selection against the adjudication truth table):
+      corrected_fp = sites adjudicated `prism_fp` only (oracle_miss=TP, alias_site/ambiguous/
+                     oracle_artifact=excused, no-record=pending are all NOT corrected FPs).
+      raw_fp       = prism-only dispatch candidates (pre-adjudication upper bound).
+      pending      = prism-only dispatch sites with no adjudication record.
+      ambiguous    = prism-only dispatch sites adjudicated `ambiguous`.
 
-    The adjudication join is line-keyed (``file:line``) and scoped to ``direction ==
-    "prism_only"`` records for this corpus + measurement (review MAJOR 3 — an ``oracle_only``
-    record at the same line must not steal the verdict). A byte-keyed store + fingerprint
-    re-anchoring is deferred to Slice E (see the PR-2 deferred doc); byte-span remains the
-    manifest's own identity (``ManifestSite.byte_key``).
+    The join is line-keyed (`file:line`) and scoped to `direction == "prism_only"` records for
+    this corpus + measurement (an `oracle_only` record at the same line must not steal the
+    verdict). A byte-keyed store + fingerprint re-anchoring is deferred to Slice E.
     """
-    # Prism-only-direction verdicts for this corpus + measurement, keyed by line (MAJOR 3).
     verdict_by_site: dict[str, str] = {
         r.site: r.verdict
         for r in adjudications
@@ -88,29 +81,30 @@ def gate_report(
     }
     out: list[dict] = []
     for receiver_class, class_sites in sorted(stratify(sites).items()):
-        # Prism-only membership (BLOCKER 1): the supplied oracle set, else provisional (all).
+        # Denominator over ALL class sites (review MAJOR 2):
+        all_dispatch = [s for s in class_sites if s.fanout > 0]
+        concrete = [s for s in class_sites if s.fanout == 0]
+        # FP numerator over the prism-only dispatch subset:
         prism_only = [
-            s for s in class_sites
+            s for s in all_dispatch
             if prism_only_keys is None or s.byte_key in prism_only_keys
         ]
-        # Interface-dispatch vs concrete (MAJOR 4): the FP metric is dispatch-only.
-        dispatch = [s for s in prism_only if s.fanout > 0]
-        concrete = [s for s in prism_only if s.fanout == 0]
-        ambiguous = sum(1 for s in dispatch if verdict_by_site.get(s.line_key) == "ambiguous")
-        oracle_artifact = sum(
-            1 for s in dispatch if verdict_by_site.get(s.line_key) == "oracle_artifact"
+        corrected_fp = sum(
+            1 for s in prism_only if verdict_by_site.get(s.line_key) == "prism_fp"
         )
-        pending = sum(1 for s in dispatch if verdict_by_site.get(s.line_key) is None)
-        raw_fp = len(dispatch)
-        corrected_fp = raw_fp - ambiguous - oracle_artifact
+        ambiguous = sum(
+            1 for s in prism_only if verdict_by_site.get(s.line_key) == "ambiguous"
+        )
+        pending = sum(1 for s in prism_only if verdict_by_site.get(s.line_key) is None)
+        raw_fp = len(prism_only)
         fanout_width = (
-            sum(s.fanout for s in dispatch) / len(dispatch) if dispatch else 0.0
+            sum(s.fanout for s in all_dispatch) / len(all_dispatch) if all_dispatch else 0.0
         )
         out.append({
             "corpus": corpus,
             "direction": direction,
             "receiver_class": receiver_class,
-            "dispatch_sites": len(dispatch),
+            "dispatch_sites": len(all_dispatch),
             "concrete_sites": len(concrete),
             "raw_fp": raw_fp,
             "corrected_fp": corrected_fp,

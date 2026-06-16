@@ -82,3 +82,55 @@ the items below are **deferred** (large or re-adjudication-coupled).
   CPG recovery mismatch.
 - **Fix sketch:** one parity test routing a P6-lite + type-assertion fixture through the subset path, or
   factor the shared per-site `ReceiverCtx` construction into one helper used by both call sites.
+
+### Re-review deferrals (owner-approved 2026-06-16)
+
+The whole-branch dual re-review (codex gpt-5.5 xhigh + claude/Opus xhigh) of the §8 in-scope manifest + its
+(non-gating, provisional) Python gate report returned 1 BLOCKER + 4 MAJOR + 4 MINOR. The owner approved fixing
+BLOCKER 1 + MAJOR 2 (gate-report FP truth-table + denominator) and MAJOR 4 (Go-caller gate) and MINOR 8 (the
+`fanout` value test) in a `review-fixes` commit; the items below are **deferred**.
+
+#### MAJOR 3 — `walk_receiver_bindings` is not block-scope-aware (`src/ast.rs`) — DEFERRED
+- **Priority:** Important (recall).
+- **Why deferred:** an out-of-scope inner `var r Other` declared in a sibling/nested block of a function that
+  also has a typed param `r` increments the per-name binding count → `>1` → the conservative shadow-bail
+  fires → the typed-param recovery is dropped. The result is a recall MISS (a receiver that *should* recover
+  does not), **not** a wrong edge — and it is consistent with the pre-existing non-scope-aware `let` /
+  `short_var` arms, which already count declarations across the whole function subtree. Rare shape.
+- **Production impact:** recall only; no false edges. Negligible for the PR-2 metric target (caddy's 57 sites
+  are type-assertion, not param-shadowed-by-inner-`var`).
+- **Fix sketch:** a block-scope-aware binding walk that counts only declarations whose lexical scope encloses
+  the call site, applied uniformly across **all** arms (param / `let` / `short_var` / `var`); add an
+  out-of-scope-`var` regression test pinning that the typed-param recovery survives.
+
+#### MINOR 5 — emit the routing rung instead of inferring it from `fanout` — DEFERRED → Slice E
+- **Priority:** Low (reporting fidelity).
+- **Why deferred:** `fanout == 0` conflates two distinct outcomes — "concrete owner-resolved receiver" and
+  "interface receiver with zero in-repo implementers (dropped)". The FP rate is **unaffected** (the gate
+  report's FP numerator is dispatch-only, `fanout > 0`), but `concrete_sites` overstates owner-resolution on
+  corpora whose implementers are all out-of-repo. A Slice-E reporting refinement.
+- **Production impact:** none on FP/precision; only the `concrete_sites` breakdown is imprecise on
+  out-of-repo-only-impl corpora.
+- **Fix sketch:** emit an explicit `routing ∈ {owner_resolved, dispatched, dropped}` per manifest site (read
+  from `resolve_call_site_full`) and stratify on it, rather than inferring concrete-vs-dispatch from `fanout`.
+
+#### MINOR 6 — default `Expanded` is not a strict superset of legacy/main — DEFERRED (bundle with MAJOR 3)
+- **Priority:** Low.
+- **Why deferred:** a typed param shadowed by an *earlier* same-name `var` of a different type now bails
+  (more correct — the type is genuinely ambiguous), but that is a silent recall flip versus `main`. The
+  `slice_a_legacy_parity_*` tests cannot see it because they compare legacy-vs-legacy, not expanded-vs-main.
+- **Production impact:** recall only; the flip is in the *more correct* direction (it suppresses a possibly
+  wrong recovery). No false edges.
+- **Fix sketch:** document the intentional behavior change and add a default-mode (`Expanded`) regression test
+  pinning the shadowed-param-bail; bundle the implementation with the MAJOR 3 block-scope-aware walk.
+
+#### MINOR 7 — `ReceiverRecoveryConfig` has redundant representable states — DEFERRED (bundle with CLI flag)
+- **Priority:** Low.
+- **Why deferred:** `classifier()` switches only on `mode`, so a state like `{mode: Legacy, type_assertion:
+  true}` is representable but the per-form booleans are silently ignored when `mode == Legacy`. The footgun is
+  only reachable via the `--receiver-recovery` CLI flag, which is itself deferred (item 3 above), so there is
+  no live path that constructs the contradictory state today.
+- **Production impact:** none today (no caller builds the contradictory config); a latent trap for a future
+  CLI-flag implementor.
+- **Fix sketch:** derive "legacy" from *all per-form booleans false* and drop the `ReceiverRecoveryMode` enum
+  (one source of truth), bundled with the deferred `--receiver-recovery` CLI flag.

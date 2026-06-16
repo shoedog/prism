@@ -100,6 +100,100 @@ fn interface_manifest_includes_inscope_excludes_noninterface_method() {
     }));
 }
 
+// Re-review MAJOR 4: the manifest must only count Go-CALLER sites (real interface dispatch
+// is Go-gated in resolution.rs). A non-Go caller that syntactically recovers a same-named
+// receiver type must NOT enter the manifest, even when the called method is on a Go interface.
+#[test]
+fn interface_manifest_excludes_non_go_caller() {
+    use prism::languages::Language::{Go, Rust};
+    let (cg, _) = build(&[
+        (
+            "main.go",
+            "package main\n\
+             type Runner interface { Go() }\n\
+             type Fast struct{}\nfunc (f Fast) Go() {}\nfunc use() { _ = Fast{} }\n\
+             func run(r Runner) { r.Go() }\n",
+            Go,
+        ),
+        // Rust caller whose typed param `r: Runner` recovers a receiver and calls `Go`
+        // (a method name shared with the Go interface). It must be excluded by the Go gate.
+        (
+            "lib.rs",
+            "struct Runner;\nfn run(r: Runner) {\n    r.Go();\n}\n",
+            Rust,
+        ),
+    ]);
+    let m = prism::navigation::queries::interface_dispatch_manifest(&cg);
+    let sites = m["sites"].as_array().expect("sites array");
+    // The Go caller site for `Go` is present.
+    assert!(
+        sites
+            .iter()
+            .any(|s| s["method"] == "Go" && s["file"] == "main.go"),
+        "Go caller site for Go must be in the manifest"
+    );
+    // The Rust caller site must NOT be present (non-Go caller gate, MAJOR 4).
+    assert!(
+        sites.iter().all(|s| s["file"] != "lib.rs"),
+        "non-Go (Rust) caller site must be excluded from the manifest"
+    );
+}
+
+// Re-review MINOR 8: pin the manifest `fanout` VALUE. A dispatch receiver (interface type
+// with 2 live in-repo implementers) carries `fanout == 2`; a concrete-receiver site (the
+// receiver type is a struct, not an interface key) carries `fanout == 0`.
+#[test]
+fn interface_manifest_fanout_value() {
+    use prism::languages::Language::Go;
+    // Two implementers Fast + Slow of Runner, both constructed (live). `var r Runner`
+    // is an interface receiver -> iface_key("Runner") -> (Runner, Go) -> 2 impls.
+    let (cg, _) = build(&[(
+        "main.go",
+        "package main\n\
+         type Runner interface { Go() }\n\
+         type Fast struct{}\nfunc (f Fast) Go() {}\n\
+         type Slow struct{}\nfunc (s Slow) Go() {}\n\
+         func use() { _ = Fast{}; _ = Slow{} }\n\
+         func dispatch() { var r Runner; r.Go() }\n",
+        Go,
+    )]);
+    let m = prism::navigation::queries::interface_dispatch_manifest(&cg);
+    let sites = m["sites"].as_array().expect("sites array");
+    let dispatch_site = sites
+        .iter()
+        .find(|s| s["method"] == "Go")
+        .expect("dispatch site present");
+    assert_eq!(
+        dispatch_site["fanout"].as_u64(),
+        Some(2),
+        "Runner has 2 live in-repo implementers (Fast + Slow)"
+    );
+
+    // Concrete receiver: `var r Fast` is a concrete struct type, so iface_key("Fast")
+    // misses (Fast, Go) in interface_impls -> fanout 0, even though `Go` is an interface
+    // method name (so the site is still in scope).
+    let (cg2, _) = build(&[(
+        "main.go",
+        "package main\n\
+         type Runner interface { Go() }\n\
+         type Fast struct{}\nfunc (f Fast) Go() {}\n\
+         func use() { _ = Fast{} }\n\
+         func concrete() { var r Fast; r.Go() }\n",
+        Go,
+    )]);
+    let m2 = prism::navigation::queries::interface_dispatch_manifest(&cg2);
+    let sites2 = m2["sites"].as_array().expect("sites array");
+    let concrete_site = sites2
+        .iter()
+        .find(|s| s["method"] == "Go")
+        .expect("concrete site present (Go is an interface method name)");
+    assert_eq!(
+        concrete_site["fanout"].as_u64(),
+        Some(0),
+        "concrete struct receiver Fast is not an interface key -> fanout 0"
+    );
+}
+
 // Slice F (sketch only): the reserved variant exists; the classifier returns None for it.
 #[test]
 #[ignore = "SliceElem is reserved (spec §5/§10); classifier returns None until a future slice"]
