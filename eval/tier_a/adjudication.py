@@ -42,6 +42,7 @@ class Adjudication:
     adjudicated_by: str
     date: str
     site_fingerprint: str | None = None
+    dispatch_kind: str | None = None
 
 
 def validate(r: Adjudication) -> Adjudication:

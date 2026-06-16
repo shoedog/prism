@@ -53,4 +53,7 @@ fn call_stats_reports_embedded_promotion_and_ambiguity() {
     let v: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
     assert_eq!(v["kinds"]["embedded_promotion"], 1);
     assert_eq!(v["embedding_gaps"]["ambiguous"], 1);
+    assert!(v["interface_gaps"].is_object());
+    assert!(v["interface_overapprox"].is_object());
+    assert!(v["interface_fanout"].is_object());
 }

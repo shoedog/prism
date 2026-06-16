@@ -1,5 +1,7 @@
 use crate::common::*;
-use prism::cpg::{CodePropertyGraph, CpgEdge, CpgNode};
+use petgraph::visit::EdgeRef;
+use prism::cpg::{CodePropertyGraph, CpgContext, CpgEdge, CpgNode};
+use prism::resolution::ResolutionConfidence;
 
 fn build_cpg_files(files: &[(&str, &str, Language)]) -> CodePropertyGraph {
     let mut parsed_files = BTreeMap::new();
@@ -11,6 +13,91 @@ fn build_cpg_files(files: &[(&str, &str, Language)]) -> CodePropertyGraph {
     }
     CodePropertyGraph::build(&parsed_files)
 }
+
+fn exact_callee_names(ctx: &CpgContext, caller: &str) -> Vec<String> {
+    let g: &CodePropertyGraph = &ctx.cpg;
+    let mut out = Vec::new();
+    for n in g.graph.node_indices() {
+        if !matches!(&g.graph[n], CpgNode::Function { name, .. } if name == caller) {
+            continue;
+        }
+        for e in g.graph.edges(n) {
+            if matches!(e.weight(), CpgEdge::Call(ResolutionConfidence::Exact)) {
+                if let CpgNode::Function { name, .. } = &g.graph[e.target()] {
+                    out.push(name.clone());
+                }
+            }
+        }
+    }
+    out
+}
+
+fn cpg_enclosing_function_name(
+    ctx: &CpgContext,
+    node: petgraph::graph::NodeIndex,
+) -> Option<String> {
+    let g = &ctx.cpg.graph;
+    match &g[node] {
+        CpgNode::Function { name, .. } => Some(name.clone()),
+        CpgNode::Variable {
+            file,
+            function,
+            function_start_line,
+            ..
+        } => g
+            .node_indices()
+            .find_map(|n| match &g[n] {
+                CpgNode::Function {
+                    name,
+                    file: fn_file,
+                    start_line,
+                    ..
+                } if fn_file == file && name == function && start_line == function_start_line => {
+                    Some(name.clone())
+                }
+                _ => None,
+            })
+            .or_else(|| Some(function.clone())),
+        CpgNode::Statement { file, line, .. } => g.node_indices().find_map(|n| match &g[n] {
+            CpgNode::Function {
+                name,
+                file: fn_file,
+                start_line,
+                end_line,
+                ..
+            } if fn_file == file && (*start_line..=*end_line).contains(line) => Some(name.clone()),
+            _ => None,
+        }),
+    }
+}
+
+fn dataflow_callee_funcs(ctx: &CpgContext, caller: &str) -> BTreeSet<String> {
+    let g = &ctx.cpg.graph;
+    let mut out = BTreeSet::new();
+    for e in g.edge_references() {
+        if !e.weight().is_data_flow() {
+            continue;
+        }
+        if cpg_enclosing_function_name(ctx, e.source()).as_deref() != Some(caller) {
+            continue;
+        }
+        if let Some(function) = cpg_enclosing_function_name(ctx, e.target()) {
+            if function != caller {
+                out.insert(function);
+            }
+        }
+    }
+    out
+}
+
+const BARRIER_FANOUT_SRC: &str = "package main\n\
+type Runner interface { Go() }\n\
+type Fast struct{}\n\
+func (f Fast) Go() {}\n\
+type Slow struct{}\n\
+func (s Slow) Go() {}\n\
+type Other struct{}\n\
+func (o Other) Go(x int) {}\n";
 
 fn cpg_var_node_matches(
     node: &CpgNode,
@@ -50,6 +137,81 @@ fn has_dataflow_edge(
                 })
                 .unwrap_or(false)
     })
+}
+
+#[test]
+fn interface_fallback_edge_is_cpg_exact() {
+    use prism::languages::Language::Go;
+    let mut files = std::collections::BTreeMap::new();
+    files.insert(
+        "main.go".to_string(),
+        prism::ast::ParsedFile::parse(
+            "main.go",
+            "package main\n\
+         type Runner interface { Go() }\n\
+         type Fast struct{}\nfunc (f Fast) Go() {}\n\
+         func run(r Runner) { r.Go() }\n",
+            Go,
+        )
+        .unwrap(),
+    );
+    let ctx = CpgContext::build(&files, None);
+    // fallback fires (nothing constructed); the edge MUST be Exact to enter ExactOnly slices.
+    assert!(
+        exact_callee_names(&ctx, "run").iter().any(|n| n == "Go"),
+        "fallback interface edge must be Exact to survive ExactOnly"
+    );
+}
+
+#[test]
+fn barrier_fanout_live_intersection_exact_no_leak() {
+    let src = format!(
+        "{BARRIER_FANOUT_SRC}{}",
+        "func use(){ _ = Fast{}; _ = Slow{}; _ = Other{} }\nfunc run(r Runner){ r.Go() }\n"
+    );
+    let mut files = BTreeMap::new();
+    files.insert(
+        "main.go".to_string(),
+        ParsedFile::parse("main.go", &src, Language::Go).unwrap(),
+    );
+    let ctx = CpgContext::build(&files, None);
+
+    let go: Vec<_> = exact_callee_names(&ctx, "run")
+        .into_iter()
+        .filter(|n| n == "Go")
+        .collect();
+    assert_eq!(
+        go.len(),
+        2,
+        "exactly the 2 satisfiers (Fast,Slow); Other leaked?"
+    );
+}
+
+#[test]
+fn barrier_fanout_empty_live_fallback_exact_no_leak() {
+    let src = format!("{BARRIER_FANOUT_SRC}{}", "func run(r Runner){ r.Go() }\n");
+    let mut files = BTreeMap::new();
+    files.insert(
+        "main.go".to_string(),
+        ParsedFile::parse("main.go", &src, Language::Go).unwrap(),
+    );
+    let ctx = CpgContext::build(&files, None);
+
+    let go: Vec<_> = exact_callee_names(&ctx, "run")
+        .into_iter()
+        .filter(|n| n == "Go")
+        .collect();
+    assert_eq!(
+        go.len(),
+        2,
+        "fallback -> full satisfier set; Other (wrong sig) must not leak"
+    );
+
+    let df = dataflow_callee_funcs(&ctx, "run");
+    assert!(
+        !df.contains("Other"),
+        "non-satisfier received an interprocedural data-flow edge"
+    );
 }
 
 #[test]
@@ -590,6 +752,174 @@ fn count_call_edges(
                 .unwrap_or(false)
         })
         .count()
+}
+
+#[test]
+fn cha_does_not_mint_cross_language_edge() {
+    use prism::type_db::{RecordInfo, RecordKind, TypeDatabase};
+
+    let mut files = BTreeMap::new();
+    files.insert(
+        "svc.go".to_string(),
+        ParsedFile::parse("svc.go", "package main\nfunc Handle() {}\n", Language::Go).unwrap(),
+    );
+    files.insert(
+        "h.cpp".to_string(),
+        ParsedFile::parse(
+            "h.cpp",
+            "struct Base { virtual void Handle(); };\n\
+             struct D : Base { void Handle() override {} };\n\
+             void drive(Base* b) { Base base; D d; b->Handle(); D::Handle(); }\n",
+            Language::Cpp,
+        )
+        .unwrap(),
+    );
+
+    let mut tdb = TypeDatabase::default();
+    tdb.records.insert(
+        "Base".to_string(),
+        RecordInfo {
+            name: "Base".to_string(),
+            kind: RecordKind::Struct,
+            fields: vec![],
+            bases: vec![],
+            virtual_methods: BTreeMap::from([("Handle".to_string(), "void()".to_string())]),
+            size: None,
+            file: "h.cpp".to_string(),
+        },
+    );
+
+    let ctx = CpgContext::build(&files, Some(&tdb));
+    let go_handle = ctx
+        .cpg
+        .graph
+        .node_indices()
+        .find(|&idx| {
+            matches!(
+                &ctx.cpg.graph[idx],
+                CpgNode::Function { name, file, .. } if name == "Handle" && file == "svc.go"
+            )
+        })
+        .expect("expected Go Handle function node");
+
+    let inbound_exact = ctx
+        .cpg
+        .graph
+        .edges_directed(go_handle, petgraph::Direction::Incoming)
+        .filter(|edge| matches!(edge.weight(), CpgEdge::Call(ResolutionConfidence::Exact)))
+        .count();
+    assert_eq!(
+        inbound_exact, 0,
+        "CHA must not mint Exact call edges from C++ virtual dispatch to a same-named Go function",
+    );
+}
+
+#[test]
+fn cha_does_not_mint_unowned_cpp_same_name_edge() {
+    use prism::type_db::{RecordInfo, RecordKind, TypeDatabase};
+
+    let mut files = BTreeMap::new();
+    files.insert(
+        "owned.cpp".to_string(),
+        ParsedFile::parse(
+            "owned.cpp",
+            "struct Base { virtual void Handle(); };\n\
+             struct D : Base { void Handle() override {} };\n\
+             void drive(Base* b) { Base base; D d; D::Handle(); }\n",
+            Language::Cpp,
+        )
+        .unwrap(),
+    );
+    files.insert(
+        "other.cpp".to_string(),
+        ParsedFile::parse("other.cpp", "void Handle() {}\n", Language::Cpp).unwrap(),
+    );
+
+    let mut tdb = TypeDatabase::default();
+    tdb.records.insert(
+        "Base".to_string(),
+        RecordInfo {
+            name: "Base".to_string(),
+            kind: RecordKind::Struct,
+            fields: vec![],
+            bases: vec![],
+            virtual_methods: BTreeMap::from([("Handle".to_string(), "void()".to_string())]),
+            size: None,
+            file: "owned.cpp".to_string(),
+        },
+    );
+
+    let ctx = CpgContext::build(&files, Some(&tdb));
+    let other_handle = ctx
+        .cpg
+        .graph
+        .node_indices()
+        .find(|&idx| {
+            matches!(
+                &ctx.cpg.graph[idx],
+                CpgNode::Function { name, file, .. } if name == "Handle" && file == "other.cpp"
+            )
+        })
+        .expect("expected unowned C++ Handle function node");
+
+    let inbound_exact = ctx
+        .cpg
+        .graph
+        .edges_directed(other_handle, petgraph::Direction::Incoming)
+        .filter(|edge| matches!(edge.weight(), CpgEdge::Call(ResolutionConfidence::Exact)))
+        .count();
+    assert_eq!(
+        inbound_exact, 0,
+        "CHA must not mint Exact edges to same-named C++ functions outside RecordInfo.file ownership",
+    );
+}
+
+#[test]
+fn cha_does_not_seed_from_unowned_cpp_caller() {
+    use prism::type_db::{RecordInfo, RecordKind, TypeDatabase};
+
+    let mut files = BTreeMap::new();
+    files.insert(
+        "owned.cpp".to_string(),
+        ParsedFile::parse(
+            "owned.cpp",
+            "struct Base { virtual void Handle(); };\n\
+             struct D : Base { void Handle() override {} };\n\
+             struct E : Base { void Handle() override {} };\n",
+            Language::Cpp,
+        )
+        .unwrap(),
+    );
+    files.insert(
+        "caller.cpp".to_string(),
+        ParsedFile::parse(
+            "caller.cpp",
+            "void drive(Base* b) { Base base; D d; E e; D::Handle(); }\n",
+            Language::Cpp,
+        )
+        .unwrap(),
+    );
+
+    let mut tdb = TypeDatabase::default();
+    tdb.records.insert(
+        "Base".to_string(),
+        RecordInfo {
+            name: "Base".to_string(),
+            kind: RecordKind::Struct,
+            fields: vec![],
+            bases: vec![],
+            virtual_methods: BTreeMap::from([("Handle".to_string(), "void()".to_string())]),
+            size: None,
+            file: "owned.cpp".to_string(),
+        },
+    );
+
+    let ctx = CpgContext::build(&files, Some(&tdb));
+    assert_eq!(
+        count_call_edges(&ctx.cpg, "drive", "Handle", ResolutionConfidence::Exact),
+        1,
+        "unowned C++ callers may keep their direct Exact edge but must not seed CHA fan-out",
+    );
 }
 
 #[test]

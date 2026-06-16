@@ -31,6 +31,7 @@ pub enum ResolutionKind {
     StemSingle,
     StemMulti,
     EmbeddedPromotion,
+    InterfaceDispatch,
 }
 
 impl ResolutionKind {
@@ -52,6 +53,7 @@ impl ResolutionKind {
             ResolutionKind::StemSingle => "stem_single",
             ResolutionKind::StemMulti => "stem_multi",
             ResolutionKind::EmbeddedPromotion => "embedded_promotion",
+            ResolutionKind::InterfaceDispatch => "interface_dispatch",
         }
     }
 }
@@ -83,6 +85,37 @@ pub fn owner_key(text: &str) -> String {
     // C++ out-of-line `ns::Foo` declarator prefix -> last segment.
     let t = t.rsplit("::").next().unwrap_or(t);
     t.trim().to_string()
+}
+
+/// Interface lookup key (Go): strip `&`/`*` and a `pkg.` qualifier to the bare
+/// interface name. Returns `None` for a generic instantiation (`Foo[T]`), which
+/// is non-dispatchable (a recorded gap, never a key) — spec §6/§10.
+pub fn iface_key(text: &str) -> Option<String> {
+    let t = text
+        .trim()
+        .trim_start_matches('&')
+        .trim_start_matches('*')
+        .trim();
+    if t.contains('[') {
+        return None; // generic instantiation -> gap, not a key
+    }
+    let bare = t.rsplit('.').next().unwrap_or(t).trim();
+    if bare.is_empty() {
+        None
+    } else {
+        Some(bare.to_string())
+    }
+}
+
+/// Admission key (Go method-set asymmetry): a value-receiver satisfier admits as
+/// `T`; a pointer-receiver-only satisfier admits as `*T` (spec §7). Bare `T` must
+/// already be normalized (no `pkg.`).
+pub fn admission_key(bare_type: &str, is_pointer: bool) -> String {
+    if is_pointer {
+        format!("*{bare_type}")
+    } else {
+        bare_type.to_string()
+    }
 }
 
 /// Closed-list syntactic peel (spec section 2.3): refs/pointers and std wrappers,
@@ -434,6 +467,25 @@ impl CallGraph {
                                 // Trait-CHA hits keep TraitCha (dyn Trait receivers).
                             }
                             ResolutionOutcome::hit(resolved)
+                        }
+                        // Gate the interface consult to Go callers: P6-lite receiver
+                        // recovery also fires for Rust, and `interface_impls` is Go-only,
+                        // so an un-gated consult could mint a cross-language edge (e.g. a
+                        // Rust `x.Go()` matching a Go interface named the same). Mirrors the
+                        // language gate at the C-only free-fn fallback below.
+                        None if crate::languages::Language::from_path(&site.caller.file)
+                            == Some(crate::languages::Language::Go) =>
+                        {
+                            match crate::resolution::iface_key(recv_ty) {
+                                Some(k) => match self.interface_impls.get(&(k, name.to_string())) {
+                                    Some(ids) if !ids.is_empty() => ResolutionOutcome::hit(exact(
+                                        ids.iter(),
+                                        ResolutionKind::InterfaceDispatch,
+                                    )),
+                                    _ => ResolutionOutcome::dropped(DropReason::ExternalReceiver),
+                                },
+                                None => ResolutionOutcome::dropped(DropReason::ExternalReceiver),
+                            }
                         }
                         None => ResolutionOutcome::dropped(DropReason::ExternalReceiver),
                     };

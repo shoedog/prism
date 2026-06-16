@@ -1,4 +1,6 @@
 use prism::call_graph::{CallGraph, CallSite};
+use prism::cpg::CpgContext;
+use prism::resolution::{admission_key, iface_key};
 use prism::resolution::{DropReason, ResolutionConfidence, ResolutionKind};
 use std::collections::BTreeMap;
 
@@ -22,6 +24,191 @@ fn site_in(cg: &CallGraph, caller_name: &str, callee: &str) -> CallSite {
         .and_then(|(_, sites)| sites.iter().find(|s| s.callee_name == callee))
         .unwrap_or_else(|| panic!("no site {caller_name}->{callee}"))
         .clone()
+}
+
+#[test]
+fn interface_dispatch_kind_as_str() {
+    assert_eq!(
+        prism::resolution::ResolutionKind::InterfaceDispatch.as_str(),
+        "interface_dispatch"
+    );
+}
+
+#[test]
+fn iface_key_strips_pkg_and_pointer() {
+    assert_eq!(iface_key("Runner").as_deref(), Some("Runner"));
+    assert_eq!(iface_key("io.Reader").as_deref(), Some("Reader"));
+    assert_eq!(iface_key("*Runner").as_deref(), Some("Runner"));
+}
+
+#[test]
+fn iface_key_gaps_on_generic_instantiation() {
+    assert_eq!(iface_key("Container[T]"), None);
+    assert_eq!(iface_key("pkg.Map[string,int]"), None);
+}
+
+#[test]
+fn admission_key_distinguishes_pointer() {
+    assert_eq!(admission_key("Fast", false), "Fast");
+    assert_eq!(admission_key("Fast", true), "*Fast");
+}
+
+#[test]
+fn callgraph_exposes_interface_impls() {
+    use prism::languages::Language::Go;
+    let (cg, _) = build(&[(
+        "main.go",
+        "package main\n\
+         type Runner interface { Go() }\n\
+         type Fast struct{}\nfunc (f Fast) Go() {}\n\
+         func use() { _ = Fast{} }\n\
+         func run(r Runner) { r.Go() }\n",
+        Go,
+    )]);
+    // Fast is constructed -> live -> interface_impls has (Runner, Go) -> [Fast.Go].
+    let ids = cg
+        .interface_impls
+        .get(&("Runner".to_string(), "Go".to_string()))
+        .expect("interface_impls populated");
+    assert_eq!(ids.len(), 1);
+    assert_eq!(ids[0].name, "Go");
+}
+
+#[test]
+fn removing_implementer_drops_interface_edge_no_phantom() {
+    use prism::languages::Language::Go;
+
+    let key = ("Runner".to_string(), "Go".to_string());
+    let mut files = BTreeMap::new();
+    files.insert(
+        "iface.go".to_string(),
+        prism::ast::ParsedFile::parse(
+            "iface.go",
+            "package main\n\
+             type Runner interface { Go() }\n\
+             func run(r Runner) { r.Go() }\n",
+            Go,
+        )
+        .unwrap(),
+    );
+    files.insert(
+        "fast.go".to_string(),
+        prism::ast::ParsedFile::parse(
+            "fast.go",
+            "package main\n\
+             type Fast struct{}\n\
+             func (f Fast) Go() {}\n\
+             func use() { _ = Fast{} }\n",
+            Go,
+        )
+        .unwrap(),
+    );
+
+    let cg = CallGraph::build(&files);
+    assert!(
+        cg.interface_impls.contains_key(&key),
+        "constructed Fast should populate Runner.Go"
+    );
+
+    files.remove("fast.go");
+    let cg = CallGraph::build(&files);
+    assert!(
+        !cg.interface_impls.contains_key(&key),
+        "removed implementer must not leave a phantom Runner.Go edge"
+    );
+    let _ctx = CpgContext::build(&files, None);
+}
+
+#[test]
+fn non_go_repo_has_empty_interface_impls() {
+    use prism::languages::Language::Rust;
+    let (cg, _) = build(&[(
+        "a.rs",
+        "pub struct A;\nimpl A { pub fn go(&self){} }\n",
+        Rust,
+    )]);
+    assert!(cg.interface_impls.is_empty());
+}
+
+fn go_iface_src() -> &'static str {
+    "package main\n\
+     type Runner interface { Go() }\n\
+     type Fast struct{}\nfunc (f Fast) Go() {}\n\
+     type Slow struct{}\nfunc (s Slow) Go() {}\n\
+     func use() { _ = Fast{}; _ = Slow{} }\n\
+     func run(r Runner) { r.Go() }\n"
+}
+
+#[test]
+fn interface_dispatch_resolves_multi_implementer_exact() {
+    use prism::languages::Language::Go;
+    let (cg, _) = build(&[("main.go", go_iface_src(), Go)]);
+    let site = site_in(&cg, "run", "Go");
+    let r = cg.resolve_call_site(&site);
+    assert_eq!(r.len(), 2, "Fast + Slow (both live)");
+    assert!(r
+        .iter()
+        .all(|c| c.confidence == ResolutionConfidence::Exact));
+    assert!(r
+        .iter()
+        .all(|c| c.kind == ResolutionKind::InterfaceDispatch));
+}
+
+#[test]
+fn interface_fallback_no_construction_full_set_exact() {
+    use prism::languages::Language::Go;
+    // constructs nothing -> empty live -> fallback -> full satisfier set, Exact.
+    let (cg, _) = build(&[(
+        "main.go",
+        "package main\n\
+         type Runner interface { Go() }\n\
+         type Fast struct{}\nfunc (f Fast) Go() {}\n\
+         type Slow struct{}\nfunc (s Slow) Go() {}\n\
+         func run(r Runner) { r.Go() }\n",
+        Go,
+    )]);
+    let site = site_in(&cg, "run", "Go");
+    let r = cg.resolve_call_site(&site);
+    assert_eq!(r.len(), 2);
+    assert!(r
+        .iter()
+        .all(|c| c.confidence == ResolutionConfidence::Exact));
+}
+
+#[test]
+fn interface_rta_prunes_uninstantiated() {
+    use prism::languages::Language::Go;
+    // only Fast constructed -> Slow pruned.
+    let (cg, _) = build(&[(
+        "main.go",
+        "package main\n\
+         type Runner interface { Go() }\n\
+         type Fast struct{}\nfunc (f Fast) Go() {}\n\
+         type Slow struct{}\nfunc (s Slow) Go() {}\n\
+         func use() { _ = Fast{} }\n\
+         func run(r Runner) { r.Go() }\n",
+        Go,
+    )]);
+    let site = site_in(&cg, "run", "Go");
+    let r = cg.resolve_call_site(&site);
+    assert_eq!(r.len(), 1);
+    assert_eq!(r[0].target.name, "Go");
+}
+
+#[test]
+fn interface_dispatch_does_not_cross_language() {
+    use prism::languages::Language::{Go, Rust};
+    let (cg, _) = build(&[
+        ("main.go", go_iface_src(), Go),
+        (
+            "lib.rs",
+            "struct Runner;\nfn run_rust(x: Runner) {\n    x.Go();\n}\n",
+            Rust,
+        ),
+    ]);
+    let out = cg.resolve_call_site_full(&site_in(&cg, "run_rust", "Go"));
+    assert!(out.resolved.is_empty());
+    assert_eq!(out.drop, Some(DropReason::ExternalReceiver));
 }
 
 #[test]

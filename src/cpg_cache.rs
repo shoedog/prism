@@ -46,7 +46,8 @@ use std::path::{Path, PathBuf};
 /// - v6: EFT CpgEdge::Call/Return carry ResolutionConfidence.
 /// - v7: + git_sha in cache key (resolver auto-invalidation).
 /// - v8: Phase-IP CallGraph.promoted_aliases + embedding_gaps (Go embedding).
-const CACHE_VERSION: u32 = 8; // bincode ignores serde(default) for new trailing fields.
+/// - v9: Phase-IP CallGraph.interface_impls + interface telemetry.
+const CACHE_VERSION: u32 = 9; // bincode ignores serde(default) for new trailing fields.
 
 pub const SKIP_POLICY_VERSION: u32 = 1;
 
@@ -507,8 +508,8 @@ mod tests {
     }
 
     #[test]
-    fn cache_version_is_8_for_embedding_fields() {
-        assert_eq!(super::CACHE_VERSION, 8);
+    fn cache_version_is_9_for_interface_fields() {
+        assert_eq!(super::CACHE_VERSION, 9);
     }
 
     #[test]
