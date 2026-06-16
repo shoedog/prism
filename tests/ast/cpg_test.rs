@@ -32,6 +32,73 @@ fn exact_callee_names(ctx: &CpgContext, caller: &str) -> Vec<String> {
     out
 }
 
+fn cpg_enclosing_function_name(
+    ctx: &CpgContext,
+    node: petgraph::graph::NodeIndex,
+) -> Option<String> {
+    let g = &ctx.cpg.graph;
+    match &g[node] {
+        CpgNode::Function { name, .. } => Some(name.clone()),
+        CpgNode::Variable {
+            file,
+            function,
+            function_start_line,
+            ..
+        } => g
+            .node_indices()
+            .find_map(|n| match &g[n] {
+                CpgNode::Function {
+                    name,
+                    file: fn_file,
+                    start_line,
+                    ..
+                } if fn_file == file && name == function && start_line == function_start_line => {
+                    Some(name.clone())
+                }
+                _ => None,
+            })
+            .or_else(|| Some(function.clone())),
+        CpgNode::Statement { file, line, .. } => g.node_indices().find_map(|n| match &g[n] {
+            CpgNode::Function {
+                name,
+                file: fn_file,
+                start_line,
+                end_line,
+                ..
+            } if fn_file == file && (*start_line..=*end_line).contains(line) => Some(name.clone()),
+            _ => None,
+        }),
+    }
+}
+
+fn dataflow_callee_funcs(ctx: &CpgContext, caller: &str) -> BTreeSet<String> {
+    let g = &ctx.cpg.graph;
+    let mut out = BTreeSet::new();
+    for e in g.edge_references() {
+        if !e.weight().is_data_flow() {
+            continue;
+        }
+        if cpg_enclosing_function_name(ctx, e.source()).as_deref() != Some(caller) {
+            continue;
+        }
+        if let Some(function) = cpg_enclosing_function_name(ctx, e.target()) {
+            if function != caller {
+                out.insert(function);
+            }
+        }
+    }
+    out
+}
+
+const BARRIER_FANOUT_SRC: &str = "package main\n\
+type Runner interface { Go() }\n\
+type Fast struct{}\n\
+func (f Fast) Go() {}\n\
+type Slow struct{}\n\
+func (s Slow) Go() {}\n\
+type Other struct{}\n\
+func (o Other) Go(x int) {}\n";
+
 fn cpg_var_node_matches(
     node: &CpgNode,
     file: &str,
@@ -93,6 +160,57 @@ fn interface_fallback_edge_is_cpg_exact() {
     assert!(
         exact_callee_names(&ctx, "run").iter().any(|n| n == "Go"),
         "fallback interface edge must be Exact to survive ExactOnly"
+    );
+}
+
+#[test]
+fn barrier_fanout_live_intersection_exact_no_leak() {
+    let src = format!(
+        "{BARRIER_FANOUT_SRC}{}",
+        "func use(){ _ = Fast{}; _ = Slow{}; _ = Other{} }\nfunc run(r Runner){ r.Go() }\n"
+    );
+    let mut files = BTreeMap::new();
+    files.insert(
+        "main.go".to_string(),
+        ParsedFile::parse("main.go", &src, Language::Go).unwrap(),
+    );
+    let ctx = CpgContext::build(&files, None);
+
+    let go: Vec<_> = exact_callee_names(&ctx, "run")
+        .into_iter()
+        .filter(|n| n == "Go")
+        .collect();
+    assert_eq!(
+        go.len(),
+        2,
+        "exactly the 2 satisfiers (Fast,Slow); Other leaked?"
+    );
+}
+
+#[test]
+fn barrier_fanout_empty_live_fallback_exact_no_leak() {
+    let src = format!("{BARRIER_FANOUT_SRC}{}", "func run(r Runner){ r.Go() }\n");
+    let mut files = BTreeMap::new();
+    files.insert(
+        "main.go".to_string(),
+        ParsedFile::parse("main.go", &src, Language::Go).unwrap(),
+    );
+    let ctx = CpgContext::build(&files, None);
+
+    let go: Vec<_> = exact_callee_names(&ctx, "run")
+        .into_iter()
+        .filter(|n| n == "Go")
+        .collect();
+    assert_eq!(
+        go.len(),
+        2,
+        "fallback -> full satisfier set; Other (wrong sig) must not leak"
+    );
+
+    let df = dataflow_callee_funcs(&ctx, "run");
+    assert!(
+        !df.contains("Other"),
+        "non-satisfier received an interprocedural data-flow edge"
     );
 }
 
