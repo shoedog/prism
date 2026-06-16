@@ -3511,12 +3511,24 @@ impl ParsedFile {
     }
 
     /// Like `function_calls_on_lines_with_qualifier`, but also returns the call
-    /// node's byte range as `(callee_name, line, qualifier, start_byte, end_byte)`.
-    pub fn function_calls_with_qualifier_and_spans_on_lines(
-        &self,
+    /// node's byte range plus the qualifier/receiver node as
+    /// `(callee_name, line, qualifier, start_byte, end_byte, receiver_node)`.
+    /// `receiver_node` (the selector operand — e.g. the `type_assertion_expression`
+    /// in `x.(Module).M()`) feeds the S3 `ReceiverClassifier`. It is surfaced on the
+    /// query path only; the manual fallback yields `None` (type-assertion recovery is
+    /// Go-only, and Go uses the query path).
+    pub fn function_calls_with_qualifier_and_spans_on_lines<'a>(
+        &'a self,
         func_node: &Node<'_>,
         lines: &BTreeSet<usize>,
-    ) -> Vec<(String, usize, Option<String>, usize, usize)> {
+    ) -> Vec<(
+        String,
+        usize,
+        Option<String>,
+        usize,
+        usize,
+        Option<Node<'a>>,
+    )> {
         use crate::queries::{get_query, QueryKind};
         use tree_sitter::StreamingIterator;
 
@@ -3536,16 +3548,17 @@ impl ParsedFile {
                             if let Some(name_node) = self.language.call_function_name(&capture.node)
                             {
                                 let name = self.node_text(&name_node).to_string();
-                                let qualifier = self
-                                    .language
-                                    .call_function_qualifier(&capture.node)
-                                    .map(|q| self.node_text(&q).to_string());
+                                let qualifier_node =
+                                    self.language.call_function_qualifier(&capture.node);
+                                let qualifier =
+                                    qualifier_node.map(|q| self.node_text(&q).to_string());
                                 calls.push((
                                     name,
                                     line,
                                     qualifier,
                                     capture.node.start_byte(),
                                     capture.node.end_byte(),
+                                    qualifier_node,
                                 ));
                             }
                         }
@@ -3560,11 +3573,18 @@ impl ParsedFile {
         calls
     }
 
-    fn collect_calls_manual_with_qualifier_and_spans(
-        &self,
+    fn collect_calls_manual_with_qualifier_and_spans<'a>(
+        &'a self,
         node: Node<'_>,
         lines: &BTreeSet<usize>,
-        out: &mut Vec<(String, usize, Option<String>, usize, usize)>,
+        out: &mut Vec<(
+            String,
+            usize,
+            Option<String>,
+            usize,
+            usize,
+            Option<Node<'a>>,
+        )>,
     ) {
         let line = node.start_position().row + 1;
 
@@ -3575,7 +3595,16 @@ impl ParsedFile {
                     .language
                     .call_function_qualifier(&node)
                     .map(|q| self.node_text(&q).to_string());
-                out.push((name, line, qualifier, node.start_byte(), node.end_byte()));
+                // Manual fallback surfaces no receiver node (None); type-assertion
+                // recovery is Go-only and Go uses the query path above.
+                out.push((
+                    name,
+                    line,
+                    qualifier,
+                    node.start_byte(),
+                    node.end_byte(),
+                    None,
+                ));
             }
         }
 

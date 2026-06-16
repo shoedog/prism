@@ -227,8 +227,22 @@ impl CallGraph {
         }
     }
 
-    /// Build a call graph from all parsed files.
+    /// Build a call graph from all parsed files (default receiver-recovery config).
     pub fn build(files: &BTreeMap<String, ParsedFile>) -> Self {
+        Self::build_with_receiver_config(
+            files,
+            &crate::resolution::ReceiverRecoveryConfig::default(),
+        )
+    }
+
+    /// Build a call graph with an explicit receiver-recovery config (spec §2 seam).
+    /// The classifier is built once and shared across the rayon extraction loop.
+    pub fn build_with_receiver_config(
+        files: &BTreeMap<String, ParsedFile>,
+        receiver_config: &crate::resolution::ReceiverRecoveryConfig,
+    ) -> Self {
+        let classifier = receiver_config.classifier();
+        let classifier: &dyn crate::resolution::ReceiverClassifier = classifier.as_ref();
         let mut functions: BTreeMap<String, Vec<FunctionId>> = BTreeMap::new();
         let mut calls: BTreeMap<FunctionId, BTreeSet<CallSite>> = BTreeMap::new();
         let mut callers: BTreeMap<String, Vec<CallSite>> = BTreeMap::new();
@@ -363,21 +377,24 @@ impl CallGraph {
                         .go_receiver_var(&func_node)
                         .map(|n| parsed.node_text(&n).to_string());
 
-                    for (callee_name, line, qualifier, start_byte, end_byte) in call_sites {
+                    for (callee_name, line, qualifier, start_byte, end_byte, receiver_expr) in
+                        call_sites
+                    {
                         let qualifier = Self::recover_self_receiver_qualifier(
                             parsed,
                             &callee_name,
                             line,
                             qualifier,
                         );
-                        let recovered = recover_receiver(
+                        let recovered = classifier.classify(crate::resolution::ReceiverCtx {
+                            receiver_expr,
+                            qualifier: qualifier.as_deref(),
+                            fn_node: func_node,
+                            call_line: line,
                             parsed,
-                            &func_node,
-                            recv_var.as_deref(),
-                            file_imports_ref,
-                            qualifier.as_deref(),
-                            line,
-                        );
+                            recv_var: recv_var.as_deref(),
+                            file_imports: file_imports_ref,
+                        });
                         let site = CallSite {
                             caller: caller_id.clone(),
                             callee_name,
@@ -385,8 +402,8 @@ impl CallGraph {
                             start_byte,
                             end_byte,
                             qualifier,
-                            receiver_type: recovered.as_ref().map(|(ty, _)| ty.clone()),
-                            receiver_recovery: recovered.as_ref().map(|(_, how)| *how),
+                            receiver_type: recovered.as_ref().map(|r| r.static_type.clone()),
+                            receiver_recovery: recovered.as_ref().map(|r| r.recovery),
                         };
                         file_call_sites.push((caller_id.clone(), site));
                     }
@@ -919,6 +936,21 @@ impl CallGraph {
         files: &BTreeMap<String, ParsedFile>,
         only_files: &BTreeSet<String>,
     ) -> Self {
+        Self::build_direct_subset_with_receiver_config(
+            files,
+            only_files,
+            &crate::resolution::ReceiverRecoveryConfig::default(),
+        )
+    }
+
+    /// `build_direct_subset` with an explicit receiver-recovery config (spec §2 seam).
+    pub fn build_direct_subset_with_receiver_config(
+        files: &BTreeMap<String, ParsedFile>,
+        only_files: &BTreeSet<String>,
+        receiver_config: &crate::resolution::ReceiverRecoveryConfig,
+    ) -> Self {
+        let classifier = receiver_config.classifier();
+        let classifier: &dyn crate::resolution::ReceiverClassifier = classifier.as_ref();
         let mut functions: BTreeMap<String, Vec<FunctionId>> = BTreeMap::new();
         let mut calls: BTreeMap<FunctionId, BTreeSet<CallSite>> = BTreeMap::new();
         let mut callers: BTreeMap<String, Vec<CallSite>> = BTreeMap::new();
@@ -1013,21 +1045,24 @@ impl CallGraph {
                     .map(|n| parsed.node_text(&n).to_string());
                 let file_imports_ref = imports.get(file_path);
 
-                for (callee_name, line, qualifier, start_byte, end_byte) in call_sites {
+                for (callee_name, line, qualifier, start_byte, end_byte, receiver_expr) in
+                    call_sites
+                {
                     let qualifier = Self::recover_self_receiver_qualifier(
                         parsed,
                         &callee_name,
                         line,
                         qualifier,
                     );
-                    let recovered = recover_receiver(
+                    let recovered = classifier.classify(crate::resolution::ReceiverCtx {
+                        receiver_expr,
+                        qualifier: qualifier.as_deref(),
+                        fn_node: func_node,
+                        call_line: line,
                         parsed,
-                        &func_node,
-                        recv_var.as_deref(),
-                        file_imports_ref,
-                        qualifier.as_deref(),
-                        line,
-                    );
+                        recv_var: recv_var.as_deref(),
+                        file_imports: file_imports_ref,
+                    });
                     let site = CallSite {
                         caller: caller_id.clone(),
                         callee_name: callee_name.clone(),
@@ -1035,8 +1070,8 @@ impl CallGraph {
                         start_byte,
                         end_byte,
                         qualifier,
-                        receiver_type: recovered.as_ref().map(|(ty, _)| ty.clone()),
-                        receiver_recovery: recovered.as_ref().map(|(_, how)| *how),
+                        receiver_type: recovered.as_ref().map(|r| r.static_type.clone()),
+                        receiver_recovery: recovered.as_ref().map(|r| r.recovery),
                     };
                     calls
                         .entry(caller_id.clone())
@@ -1379,36 +1414,6 @@ fn has_static_specifier(parsed: &ParsedFile, func_node: &tree_sitter::Node<'_>) 
         }
     }
     false
-}
-
-fn recover_receiver(
-    parsed: &ParsedFile,
-    func_node: &tree_sitter::Node<'_>,
-    recv_var: Option<&str>,
-    file_imports: Option<&BTreeMap<String, String>>,
-    qualifier: Option<&str>,
-    line: usize,
-) -> Option<(String, crate::resolution::ReceiverRecovery)> {
-    if !matches!(
-        parsed.language,
-        crate::languages::Language::Rust | crate::languages::Language::Go
-    ) {
-        return None;
-    }
-    let q = qualifier?;
-    let simple = !q.is_empty() && q.chars().all(|c| c.is_alphanumeric() || c == '_');
-    let is_kw = matches!(q, "self" | "this" | "cls");
-    let is_recv = recv_var == Some(q);
-    let is_import = file_imports.map(|m| m.contains_key(q)).unwrap_or(false);
-    if !(simple && !is_kw && !is_recv && !is_import) {
-        return None;
-    }
-    parsed
-        .receiver_type_in_fn(func_node, q, line)
-        .map(|(ty, how)| {
-            let peeled = crate::resolution::peel_type(&ty);
-            (crate::resolution::owner_key(&peeled), how)
-        })
 }
 
 #[cfg(test)]

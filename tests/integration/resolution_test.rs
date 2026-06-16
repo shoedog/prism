@@ -17,6 +17,46 @@ fn build(
     (CallGraph::build(&files), files)
 }
 
+fn build_cfg(
+    sources: &[(&str, &str, prism::languages::Language)],
+    cfg: &prism::resolution::ReceiverRecoveryConfig,
+) -> (CallGraph, BTreeMap<String, prism::ast::ParsedFile>) {
+    let mut files = BTreeMap::new();
+    for (path, src, lang) in sources {
+        files.insert(
+            path.to_string(),
+            prism::ast::ParsedFile::parse(path, src, *lang).unwrap(),
+        );
+    }
+    (CallGraph::build_with_receiver_config(&files, cfg), files)
+}
+
+// Slice A parity gate: `legacy` reproduces PR-1's P6-lite recovery byte-for-byte,
+// and the default `expanded` mode is identical to it (no new forms yet).
+#[test]
+fn slice_a_legacy_parity_p6_typed_param() {
+    use prism::languages::Language::Go;
+    use prism::resolution::{ReceiverRecovery, ReceiverRecoveryConfig};
+    let legacy = build_cfg(
+        &[("main.go", go_iface_src(), Go)],
+        &ReceiverRecoveryConfig::legacy(),
+    );
+    let expanded = build_cfg(
+        &[("main.go", go_iface_src(), Go)],
+        &ReceiverRecoveryConfig::default(),
+    );
+    for (cg, _) in [&legacy, &expanded] {
+        let site = site_in(cg, "run", "Go");
+        assert_eq!(site.receiver_type.as_deref(), Some("Runner"));
+        assert_eq!(site.receiver_recovery, Some(ReceiverRecovery::TypedParam));
+        let r = cg.resolve_call_site(&site);
+        assert_eq!(r.len(), 2);
+        assert!(r
+            .iter()
+            .all(|c| c.kind == ResolutionKind::InterfaceDispatch));
+    }
+}
+
 fn site_in(cg: &CallGraph, caller_name: &str, callee: &str) -> CallSite {
     cg.calls
         .iter()
