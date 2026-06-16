@@ -85,7 +85,9 @@ def extract_callers(seed: FunctionDef, ev: dict) -> list[CallEdge]:
         other = Location(loc["file"], loc["start_line"], loc["end_line"])
         site = Location(loc["file"], called_by["call_site_line"], called_by["call_site_line"])
         name = _symbol_name(it.get("symbol")) or called_by.get("caller")
-        edges.append(CallEdge("caller", seed, other, name, site))
+        res = _why(it, "Resolution")
+        rkind = res.get("kind") if res else None
+        edges.append(CallEdge("caller", seed, other, name, site, rkind))
     return edges
 
 
@@ -101,7 +103,9 @@ def extract_callees(seed: FunctionDef, ev: dict) -> list[CallEdge]:
             other = Location(loc["file"], loc["start_line"], loc["end_line"])
         else:
             other = None
-        edges.append(CallEdge("callee", seed, other, calls.get("callee"), site))
+        res = _why(it, "Resolution")
+        rkind = res.get("kind") if res else None
+        edges.append(CallEdge("callee", seed, other, calls.get("callee"), site, rkind))
     return edges
 
 

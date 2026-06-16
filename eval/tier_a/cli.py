@@ -39,13 +39,49 @@ from .sut import PrismCli, SutAmbiguous, SutError, SutStale
 EVAL_DIR = Path(__file__).resolve().parents[1]
 
 
+def _site_parts(site) -> tuple[str, int, int, dict]:
+    """Read legacy site triples or metadata-bearing site records."""
+    if isinstance(site, dict):
+        return (
+            site["file"],
+            site["start_line"],
+            site.get("end_line", site["start_line"]),
+            site,
+        )
+    file, start, end, *rest = site
+    meta = {}
+    if rest:
+        raw = rest[0]
+        if isinstance(raw, dict):
+            meta = raw
+        elif raw is not None:
+            meta = {"resolution_kind": raw}
+    return file, start, end, meta
+
+
 def _edges(sites: list, direction: str) -> list[CallEdge]:
-    """Rebuild minimal CallEdges from stored [file, start, end] site triples."""
+    """Rebuild minimal CallEdges from stored site triples plus optional metadata."""
     dummy = FunctionDef("_", "function", None, Location("_", 1, 1), 1)
     return [
-        CallEdge(direction, dummy, None, None, Location(f, s, e))
-        for f, s, e in sites
+        CallEdge(
+            direction,
+            dummy,
+            None,
+            None,
+            Location(f, s, e),
+            meta.get("resolution_kind"),
+        )
+        for f, s, e, meta in (_site_parts(site) for site in sites)
     ]
+
+
+def _dispatch_kind_for_site(sites: list, file: str, line: int) -> str | None:
+    for f, s, _e, meta in (_site_parts(site) for site in sites):
+        if f == file and s == line:
+            dispatch = meta.get("dispatch_kind") or meta.get("resolution_kind")
+            if dispatch:
+                return dispatch
+    return None
 
 
 def _site_key(file: str, line: int) -> str:
@@ -66,8 +102,9 @@ def _site_fingerprints_for_probes(probes: dict, corpus_root: str) -> dict[str, s
     for pid, p in probes.items():
         if pid.startswith("_"):
             continue
-        for triple in list(p.get("prism_sites", [])) + list(p.get("oracle_sites", [])):
-            by_file.setdefault(triple[0], set()).add(triple[1])
+        for site in list(p.get("prism_sites", [])) + list(p.get("oracle_sites", [])):
+            file, line, _end, _meta = _site_parts(site)
+            by_file.setdefault(file, set()).add(line)
     out: dict[str, str] = {}
     for f, lines in by_file.items():
         try:
@@ -122,25 +159,33 @@ def _pending_for_probe(
     for file, line in sorted(diff.fp):
         key = ("prism_only", _site_key(file, line))
         if key not in adjudicated and key not in ra:
-            pending.append({
+            record = {
                 "corpus": corpus,
                 "measurement": direction,
                 "direction": "prism_only",
                 "seed_def": probe["seed_def"],
                 "site": key[1],
                 "site_fingerprint": site_fps.get(key[1]),
-            })
+            }
+            dispatch_kind = _dispatch_kind_for_site(probe.get("prism_sites", []), file, line)
+            if dispatch_kind:
+                record["dispatch_kind"] = dispatch_kind
+            pending.append(record)
     for file, line in sorted(diff.fn):
         key = ("oracle_only", _site_key(file, line))
         if key not in adjudicated and key not in ra:
-            pending.append({
+            record = {
                 "corpus": corpus,
                 "measurement": direction,
                 "direction": "oracle_only",
                 "seed_def": probe["seed_def"],
                 "site": key[1],
                 "site_fingerprint": site_fps.get(key[1]),
-            })
+            }
+            dispatch_kind = _dispatch_kind_for_site(probe.get("oracle_sites", []), file, line)
+            if dispatch_kind:
+                record["dispatch_kind"] = dispatch_kind
+            pending.append(record)
     return pending
 
 
@@ -302,11 +347,21 @@ def make_oracle(cfg: dict):
 
 
 def _stored_sites(edges: list[CallEdge], direction: str) -> list[list]:
-    return [
-        [e.call_site.file, e.call_site.start_line, e.call_site.end_line]
-        for e in edges
-        if direction == "callers" or e.other_def is not None
-    ]
+    out = []
+    for e in edges:
+        if direction != "callers" and e.other_def is None:
+            continue
+        site = [e.call_site.file, e.call_site.start_line, e.call_site.end_line]
+        meta = {}
+        if e.resolution_kind is not None:
+            meta["resolution_kind"] = e.resolution_kind
+        dispatch_kind = getattr(e, "dispatch_kind", None)
+        if dispatch_kind is not None:
+            meta["dispatch_kind"] = dispatch_kind
+        if meta:
+            site.append(meta)
+        out.append(site)
+    return out
 
 
 def _stored_functions(edges: list[CallEdge], inventory: list[FunctionDef]) -> list[list]:

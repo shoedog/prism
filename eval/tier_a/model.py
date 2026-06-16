@@ -39,6 +39,7 @@ class CallEdge:
     other_def: Location | None
     other_name: str | None
     call_site: Location
+    resolution_kind: str | None = None
 
 
 def from_lsp_line(line0: int) -> int:

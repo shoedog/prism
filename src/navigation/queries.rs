@@ -35,6 +35,10 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
             }
         }
     }
+    let mut interface_fanout: BTreeMap<usize, usize> = BTreeMap::new();
+    for ids in cg.interface_impls.values() {
+        *interface_fanout.entry(ids.len()).or_default() += 1;
+    }
     serde_json::json!({
         "total_call_sites": total,
         "kinds": kinds,
@@ -44,6 +48,9 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
         "dropped_import_external": import_ext,
         "unresolved_unknown_name": unknown,
         "embedding_gaps": cg.embedding_gaps,
+        "interface_gaps": cg.interface_gaps,
+        "interface_overapprox": cg.interface_overapprox,
+        "interface_fanout": interface_fanout,
     })
 }
 
