@@ -58,6 +58,43 @@ fn cache_v6_round_trips_edge_confidence() {
 }
 
 #[test]
+fn cache_v9_round_trips_interface_impls() {
+    let mut sources = BTreeMap::new();
+    sources.insert(
+        "main.go".to_string(),
+        "package main\n\
+         type Runner interface { Go() }\n\
+         type Fast struct{}\n\
+         func (f Fast) Go() {}\n\
+         func use() { _ = Fast{} }\n\
+         func run(r Runner) { r.Go() }\n"
+            .to_string(),
+    );
+    let mut files = BTreeMap::new();
+    for (path, src) in &sources {
+        files.insert(
+            path.clone(),
+            ParsedFile::parse(path, src, Language::Go).unwrap(),
+        );
+    }
+    let key = ("Runner".to_string(), "Go".to_string());
+    let ctx = CpgContext::build(&files, None);
+    assert!(
+        ctx.cpg.call_graph.interface_impls.contains_key(&key),
+        "constructed Fast should populate Runner.Go before cache save"
+    );
+
+    let cache_dir = TempDir::new().unwrap();
+    let hashes = cpg_cache::compute_file_hashes(&sources);
+    cpg_cache::save_cache(&ctx.cpg, &hashes, false, cache_dir.path()).unwrap();
+    let loaded_cpg = expect_hit(cpg_cache::load_cache(&hashes, false, cache_dir.path()));
+    assert!(
+        loaded_cpg.call_graph.interface_impls.contains_key(&key),
+        "Runner.Go interface impls must survive the v9 cache round-trip"
+    );
+}
+
+#[test]
 fn test_cache_round_trip_python() {
     let (files, sources, diff) = make_python_test();
 

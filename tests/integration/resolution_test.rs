@@ -1,4 +1,5 @@
 use prism::call_graph::{CallGraph, CallSite};
+use prism::cpg::CpgContext;
 use prism::resolution::{admission_key, iface_key};
 use prism::resolution::{DropReason, ResolutionConfidence, ResolutionKind};
 use std::collections::BTreeMap;
@@ -71,6 +72,62 @@ fn callgraph_exposes_interface_impls() {
         .expect("interface_impls populated");
     assert_eq!(ids.len(), 1);
     assert_eq!(ids[0].name, "Go");
+}
+
+#[test]
+fn removing_implementer_drops_interface_edge_no_phantom() {
+    use prism::languages::Language::Go;
+
+    let key = ("Runner".to_string(), "Go".to_string());
+    let mut files = BTreeMap::new();
+    files.insert(
+        "iface.go".to_string(),
+        prism::ast::ParsedFile::parse(
+            "iface.go",
+            "package main\n\
+             type Runner interface { Go() }\n\
+             func run(r Runner) { r.Go() }\n",
+            Go,
+        )
+        .unwrap(),
+    );
+    files.insert(
+        "fast.go".to_string(),
+        prism::ast::ParsedFile::parse(
+            "fast.go",
+            "package main\n\
+             type Fast struct{}\n\
+             func (f Fast) Go() {}\n\
+             func use() { _ = Fast{} }\n",
+            Go,
+        )
+        .unwrap(),
+    );
+
+    let cg = CallGraph::build(&files);
+    assert!(
+        cg.interface_impls.contains_key(&key),
+        "constructed Fast should populate Runner.Go"
+    );
+
+    files.remove("fast.go");
+    let cg = CallGraph::build(&files);
+    assert!(
+        !cg.interface_impls.contains_key(&key),
+        "removed implementer must not leave a phantom Runner.Go edge"
+    );
+    let _ctx = CpgContext::build(&files, None);
+}
+
+#[test]
+fn non_go_repo_has_empty_interface_impls() {
+    use prism::languages::Language::Rust;
+    let (cg, _) = build(&[(
+        "a.rs",
+        "pub struct A;\nimpl A { pub fn go(&self){} }\n",
+        Rust,
+    )]);
+    assert!(cg.interface_impls.is_empty());
 }
 
 fn go_iface_src() -> &'static str {
