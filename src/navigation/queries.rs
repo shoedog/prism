@@ -117,11 +117,22 @@ pub fn interface_dispatch_manifest(cg: &CallGraph) -> serde_json::Value {
                 .and_then(|k| cg.interface_impls.get(&(k, site.callee_name.clone())))
                 .map(|v| v.as_slice())
                 .unwrap_or(&[]);
-            let implementers: BTreeSet<String> = impls
+            // Arity-disambiguate the name-keyed candidate set BEFORE the owner-name
+            // mapping, so `fanout` (= implementers cardinality) reflects the filtered
+            // set the resolver would mint. Same shared helper as the resolution mint;
+            // an emptied set yields implementers: [] / fanout: 0. The oracle reads this
+            // manifest, so the filter MUST run here too, not just in resolution.rs.
+            let kept = crate::resolution::arity_filter(
+                impls,
+                site.arg_count,
+                site.arg_spread,
+                &cg.method_arity,
+            );
+            let implementers: BTreeSet<String> = kept
                 .iter()
                 .map(|fid| {
                     cg.method_owners
-                        .get(fid)
+                        .get(*fid)
                         .cloned()
                         .unwrap_or_else(|| crate::resolution::file_stem(&fid.file).to_string())
                 })
