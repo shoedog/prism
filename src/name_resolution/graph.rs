@@ -23,6 +23,10 @@ fn default_complete() -> bool {
     true
 }
 
+fn default_edition() -> u16 {
+    2015
+}
+
 // ── MacroWildcard — unexpanded name-introducing macro (§4.3b) ────────────────
 
 /// An *unexpanded* name-introducing macro invocation (item-position
@@ -70,6 +74,11 @@ pub struct ScopeGraph {
     /// Incomplete/subset builds are non-authoritative for every consumer site.
     #[serde(default = "default_complete")]
     pub complete: bool,
+    /// Rust crate edition used by edition-dependent path anchors.
+    ///
+    /// Phase 2: per-crate editions for mixed-edition workspaces.
+    #[serde(default = "default_edition")]
+    pub edition: u16,
     /// Repo-relative file path to deterministic `FileId` mapping.
     ///
     /// PR-2's populator already uses this sorted-key mapping; consumers need the
@@ -87,6 +96,7 @@ impl ScopeGraph {
     pub fn new() -> Self {
         ScopeGraph {
             complete: true,
+            edition: default_edition(),
             ..Self::default()
         }
     }

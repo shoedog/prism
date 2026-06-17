@@ -227,5 +227,7 @@ pub fn populate_rust(
     for (root, scope) in &to_walk {
         b.walk_root(root, *scope);
     }
-    b.finish()
+    let mut graph = b.finish();
+    graph.edition = config.edition;
+    graph
 }

@@ -13,14 +13,16 @@ use prism::name_resolution::consumer::{
 use prism::name_resolution::graph::ScopeGraph;
 use prism::name_resolution::rust_policy::{self, NS_MACRO, NS_TYPE, NS_VALUE, VIS_PUB};
 use prism::name_resolution::types::{
-    Anchor, BindTarget, Binding, BindingRef, CfgCond, Edge, ExternRef, FileId, ItemId, RawPath,
-    Scope, ScopeExtent, ScopeId, ScopeKind, SourceLoc, Span, Target, Vis,
+    Anchor, AnchorKind, BindTarget, Binding, BindingRef, CfgCond, Edge, ExternRef, FileId, ItemId,
+    RawPath, Scope, ScopeExtent, ScopeId, ScopeKind, SourceLoc, Span, Target, Vis,
 };
 
 const MAIN: FileId = FileId(0);
 const UTIL: FileId = FileId(1);
 const TYPES: FileId = FileId(2);
 const PRELUDE: FileId = FileId(3);
+const ROOT_FOO: FileId = FileId(4);
+const INNER_FOO: FileId = FileId(5);
 
 fn loc(file: FileId, byte: usize) -> SourceLoc {
     SourceLoc { file, byte }
@@ -121,6 +123,8 @@ fn base_graph() -> ScopeGraph {
         ("src/util.rs".to_string(), UTIL),
         ("src/types.rs".to_string(), TYPES),
         ("src/prelude.rs".to_string(), PRELUDE),
+        ("src/root_foo.rs".to_string(), ROOT_FOO),
+        ("src/inner_foo.rs".to_string(), INNER_FOO),
     ]);
     g.add_scope(scope(0, ScopeKind::Root, None, MAIN, 0, 1000));
     g.add_scope(scope(1, ScopeKind::Module, Some(0), UTIL, 2000, 3000));
@@ -144,6 +148,25 @@ fn base_graph() -> ScopeGraph {
         NS_TYPE,
         BindTarget::Resolved(Target::Scope(ScopeId(3))),
     ));
+    g
+}
+
+fn edition_decoy_graph(edition: u16) -> ScopeGraph {
+    let mut g = base_graph();
+    g.edition = edition;
+
+    let root_foo = Target::Scope(ScopeId(4));
+    let inner_foo = Target::Scope(ScopeId(6));
+    let root_bar = item(200, NS_VALUE, true);
+    let inner_bar = item(201, NS_VALUE, true);
+
+    g.add_scope(scope(4, ScopeKind::Module, Some(0), ROOT_FOO, 0, 100));
+    g.add_scope(scope(5, ScopeKind::Module, Some(0), MAIN, 100, 500));
+    g.add_scope(scope(6, ScopeKind::Module, Some(5), INNER_FOO, 0, 100));
+    g.add_binding(binding(0, "foo", NS_TYPE, BindTarget::Resolved(root_foo)));
+    g.add_binding(binding(4, "bar", NS_VALUE, BindTarget::Resolved(root_bar)));
+    g.add_binding(binding(5, "foo", NS_TYPE, BindTarget::Resolved(inner_foo)));
+    g.add_binding(binding(6, "bar", NS_VALUE, BindTarget::Resolved(inner_bar)));
     g
 }
 
@@ -180,6 +203,57 @@ fn macro_invocation_callable_edge_routes_to_macro_namespace_only() {
     assert_eq!(
         graph_callable_edge(&macro_only, &macro_site),
         Some(macro_fn)
+    );
+}
+
+#[test]
+fn module_dep_use_path_uses_2015_crate_root_anchor_not_inner_decoy() {
+    let g = edition_decoy_graph(2015);
+    let import = binding(
+        5,
+        "bar",
+        NS_VALUE,
+        BindTarget::Pending(
+            RawPath(vec!["foo".to_string(), "bar".to_string()]),
+            Anchor::use_path_2015(),
+        ),
+    );
+
+    assert_eq!(
+        graph_module_dep_edge(&g, GraphImport::Named(&import)),
+        ResolvedImport::File("src/root_foo.rs".to_string())
+    );
+    assert_ne!(
+        graph_module_dep_edge(&g, GraphImport::Named(&import)),
+        ResolvedImport::File("src/inner_foo.rs".to_string())
+    );
+}
+
+#[test]
+fn leading_colon_anchor_is_crate_root_in_2015_and_falls_through_in_2018() {
+    let import = binding(
+        5,
+        "bar",
+        NS_VALUE,
+        BindTarget::Pending(
+            RawPath(vec!["foo".to_string(), "bar".to_string()]),
+            Anchor {
+                kind: AnchorKind::LeadingColon,
+                prelude: None,
+            },
+        ),
+    );
+
+    let g_2015 = edition_decoy_graph(2015);
+    assert_eq!(
+        graph_module_dep_edge(&g_2015, GraphImport::Named(&import)),
+        ResolvedImport::File("src/root_foo.rs".to_string())
+    );
+
+    let g_2018 = edition_decoy_graph(2018);
+    assert_eq!(
+        graph_module_dep_edge(&g_2018, GraphImport::Named(&import)),
+        ResolvedImport::Unresolved
     );
 }
 

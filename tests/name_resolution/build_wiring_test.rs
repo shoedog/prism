@@ -85,6 +85,7 @@ fn whole_workspace_build_populates_complete_scope_graph() {
         .scope_graph
         .as_ref()
         .expect("full build should store scope_graph");
+    assert!(graph.complete, "stored full-build graph must be complete");
     assert!(graph.scopes.len() > 1, "fixture should produce real scopes");
     assert_eq!(
         resolve_crate_value(&repo, &["util", "target"]),

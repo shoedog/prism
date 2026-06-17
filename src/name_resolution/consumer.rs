@@ -80,7 +80,7 @@ pub fn graph_callable_edge(graph: &ScopeGraph, site: &CallSite) -> Option<Target
         cfg: CfgCtx::default(),
         ctx: PolicyQueryCtx::default(),
     };
-    let policy = RustPolicy::new(graph, 2018);
+    let policy = RustPolicy::new(graph, graph.edition);
     let res = resolve(graph, &q, &policy);
     match (res.status, res.candidates.as_slice()) {
         (ResStatus::Resolved, [Candidate { target, .. }]) => match target {
@@ -118,7 +118,7 @@ fn resolve_named_import(graph: &ScopeGraph, binding: &Binding) -> ResolvedImport
             let Some(at) = scope_loc(graph, binding.scope) else {
                 return ResolvedImport::Unresolved;
             };
-            let policy = RustPolicy::new(graph, 2018);
+            let policy = RustPolicy::new(graph, graph.edition);
             let res = resolve_path(
                 graph,
                 path,
@@ -156,7 +156,7 @@ fn resolve_glob_path(
     let Some(at) = scope_loc(graph, from) else {
         return ResolvedImport::Unresolved;
     };
-    let policy = RustPolicy::new(graph, 2018);
+    let policy = RustPolicy::new(graph, graph.edition);
     let res = resolve_path(graph, path, NS_TYPE, anchor, from, NS_TYPE, &at, &policy);
     import_from_resolution(graph, &res)
 }
