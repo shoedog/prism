@@ -19,6 +19,14 @@ use serde::{Deserialize, Serialize};
 
 use crate::name_resolution::types::{Binding, Edge, NamespaceId, Scope, ScopeId, Span};
 
+fn default_complete() -> bool {
+    true
+}
+
+fn default_edition() -> u16 {
+    2015
+}
+
 // ── MacroWildcard — unexpanded name-introducing macro (§4.3b) ────────────────
 
 /// An *unexpanded* name-introducing macro invocation (item-position
@@ -61,6 +69,22 @@ pub struct MacroWildcard {
 /// position for correctness beyond honoring the policy's combination rules.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ScopeGraph {
+    /// Whether this graph came from a complete whole-workspace build.
+    ///
+    /// Incomplete/subset builds are non-authoritative for every consumer site.
+    #[serde(default = "default_complete")]
+    pub complete: bool,
+    /// Rust crate edition used by edition-dependent path anchors.
+    ///
+    /// Phase 2: per-crate editions for mixed-edition workspaces.
+    #[serde(default = "default_edition")]
+    pub edition: u16,
+    /// Repo-relative file path to deterministic `FileId` mapping.
+    ///
+    /// PR-2's populator already uses this sorted-key mapping; consumers need the
+    /// path side to map call sites/import edges back onto graph file IDs.
+    #[serde(default)]
+    pub file_paths: std::collections::BTreeMap<String, crate::name_resolution::types::FileId>,
     pub scopes: std::collections::BTreeMap<ScopeId, Scope>,
     pub bindings: Vec<Binding>,
     pub edges: Vec<Edge>,
@@ -70,7 +94,11 @@ pub struct ScopeGraph {
 impl ScopeGraph {
     /// An empty graph.
     pub fn new() -> Self {
-        Self::default()
+        ScopeGraph {
+            complete: true,
+            edition: default_edition(),
+            ..Self::default()
+        }
     }
 
     /// Insert a scope (keyed by its `id`).

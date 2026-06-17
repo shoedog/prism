@@ -1,3 +1,7 @@
+use crate::name_resolution::consumer::{graph_module_dep_edge, GraphImport, ResolvedImport};
+use crate::name_resolution::graph::ScopeGraph;
+use crate::name_resolution::rust_policy::EK_GLOB;
+use crate::name_resolution::types::{BindTarget, FileId};
 use crate::navigation::types::*;
 use crate::navigation::NavigationSession;
 use crate::resolution::ResolutionConfidence;
@@ -73,6 +77,12 @@ struct EdgeReasons {
     reasons: BTreeSet<ModuleCallReason>,
 }
 
+#[derive(Debug, Default)]
+struct GraphImportDeps {
+    files: BTreeMap<String, BTreeSet<String>>,
+    external: BTreeSet<String>,
+}
+
 /// Derive every distinct call-derived cross-file edge once, keyed
 /// `(source_file, target_file) -> reasons` (self-file edges excluded). Shared by
 /// `module_deps` (projected to one source file) and `repo_map` (all edges) so the
@@ -108,6 +118,77 @@ fn collect_module_edges(s: &NavigationSession) -> BTreeMap<(String, String), Edg
         }
     }
     edges
+}
+
+fn authoritative_rust_scope_graph<'a>(
+    s: &'a NavigationSession,
+    file: &str,
+) -> Option<&'a ScopeGraph> {
+    let parsed = s.repo.files.get(file)?;
+    if !matches!(parsed.language, crate::languages::Language::Rust) {
+        return None;
+    }
+    let graph = s.index.cpg.call_graph.scope_graph.as_ref()?;
+    if !graph.complete || !graph.file_paths.contains_key(file) {
+        return None;
+    }
+    Some(graph)
+}
+
+fn scope_in_file(
+    graph: &ScopeGraph,
+    scope: crate::name_resolution::types::ScopeId,
+    file: FileId,
+) -> bool {
+    graph
+        .scope(scope)
+        .map(|s| s.extents.iter().any(|e| e.file == file))
+        .unwrap_or(false)
+}
+
+fn collect_graph_import_deps(graph: &ScopeGraph, file: &str) -> GraphImportDeps {
+    let Some(&file_id) = graph.file_paths.get(file) else {
+        return GraphImportDeps::default();
+    };
+    let mut deps = GraphImportDeps::default();
+    for binding in &graph.bindings {
+        if !scope_in_file(graph, binding.scope, file_id) {
+            continue;
+        }
+        if !matches!(binding.target, BindTarget::Pending(_, _)) {
+            continue;
+        }
+        match graph_module_dep_edge(graph, GraphImport::Named(binding)) {
+            ResolvedImport::File(target) if target != file => {
+                deps.files
+                    .entry(target)
+                    .or_default()
+                    .insert(binding.name.clone());
+            }
+            ResolvedImport::External => {
+                deps.external.insert(binding.name.clone());
+            }
+            ResolvedImport::File(_) | ResolvedImport::Unresolved => {}
+        }
+    }
+    for edge in &graph.edges {
+        if edge.kind != EK_GLOB || !scope_in_file(graph, edge.from, file_id) {
+            continue;
+        }
+        match graph_module_dep_edge(graph, GraphImport::Glob(edge)) {
+            ResolvedImport::File(target) if target != file => {
+                deps.files
+                    .entry(target)
+                    .or_default()
+                    .insert("*".to_string());
+            }
+            ResolvedImport::External => {
+                deps.external.insert("*".to_string());
+            }
+            ResolvedImport::File(_) | ResolvedImport::Unresolved => {}
+        }
+    }
+    deps
 }
 
 /// Outbound module dependencies of `file`: distinct target files reached by a
@@ -183,13 +264,65 @@ pub fn module_deps(s: &NavigationSession, file: &str) -> Evidence {
         });
     }
 
-    // Import labeling: Python/JS/TS/TSX/Go extract imports; Rust/Java/C/C++ do not.
-    // NOTE: labeling is unconditional on call resolution, so a module that is BOTH
-    // imported and call-resolved (e.g. `import util` + `util.helper()`) appears twice -
-    // once as a PrismCpg call edge and once as a HeuristicImport item. Intentional in
-    // v1 (filesystem import resolution is deferred, Design-decision #4).
     let mut warnings = Vec::new();
-    if let Some(imports) = cg.imports.get(file) {
+    if let Some(graph) = authoritative_rust_scope_graph(s, file) {
+        let deps = collect_graph_import_deps(graph, file);
+        for (target, modules) in deps.files {
+            items.push(EvidenceItem {
+                symbol: None,
+                location: Location {
+                    file: target.clone(),
+                    start_line: 1,
+                    end_line: 1,
+                    start_byte: 0,
+                    end_byte: 0,
+                },
+                score: 1.0,
+                source: Source::PrismCpg,
+                fallback: false,
+                why: modules
+                    .into_iter()
+                    .map(|module| Reason::ResolvedImport {
+                        module,
+                        target_file: target.clone(),
+                    })
+                    .collect(),
+                snippet: None,
+            });
+        }
+        for module in &deps.external {
+            items.push(EvidenceItem {
+                symbol: None,
+                location: Location {
+                    file: file.into(),
+                    start_line: 1,
+                    end_line: 1,
+                    start_byte: 0,
+                    end_byte: 0,
+                },
+                score: 1.0,
+                source: Source::HeuristicImport,
+                fallback: false,
+                why: vec![Reason::UnresolvedImport {
+                    module: module.clone(),
+                }],
+                snippet: None,
+            });
+        }
+        if !deps.external.is_empty() {
+            warnings.push(Warning {
+                kind: WarningKind::UnresolvedModule,
+                message: format!(
+                    "{} module import(s) not filesystem-resolved (v1)",
+                    deps.external.len()
+                ),
+                location: None,
+            });
+        }
+    } else if let Some(imports) = cg.imports.get(file) {
+        // Import labeling: Python/JS/TS/TSX/Go extract imports. Rust reaches
+        // this branch only when the scope graph is not authoritative, preserving
+        // the existing fallback behavior for that file.
         let modules: BTreeSet<&String> = imports.values().collect();
         for module in &modules {
             items.push(EvidenceItem {
@@ -238,7 +371,18 @@ pub fn module_deps(s: &NavigationSession, file: &str) -> Evidence {
 pub fn repo_map(s: &NavigationSession) -> Evidence {
     let cg = &s.index.cpg.call_graph;
     // Shared edge collector: distinct (source_file, target_file) keys are the edges.
-    let edges_map = collect_module_edges(s);
+    let mut edges_map = collect_module_edges(s);
+    let mut graph_external_modules = BTreeSet::new();
+    for file in s.repo.files.keys() {
+        let Some(graph) = authoritative_rust_scope_graph(s, file) else {
+            continue;
+        };
+        let deps = collect_graph_import_deps(graph, file);
+        for target in deps.files.keys() {
+            edges_map.entry((file.clone(), target.clone())).or_default();
+        }
+        graph_external_modules.extend(deps.external);
+    }
 
     // Whole-repo node set: every indexed file (isolated files included).
     let files: BTreeSet<&String> = s.repo.files.keys().collect();
@@ -272,17 +416,21 @@ pub fn repo_map(s: &NavigationSession) -> Evidence {
     // Distinct modules across the WHOLE repo: collect every module into ONE BTreeSet,
     // so a module imported from N files counts once (matches the "distinct module" unit;
     // summing per-file distinct counts would double-count - round-3 MAJOR fix).
-    let import_modules: usize = cg
+    let mut import_modules: BTreeSet<String> = cg
         .imports
         .values()
         .flat_map(|m| m.values())
-        .collect::<BTreeSet<_>>()
-        .len();
+        .cloned()
+        .collect();
+    import_modules.extend(graph_external_modules);
     let mut warnings = Vec::new();
-    if import_modules > 0 {
+    if !import_modules.is_empty() {
         warnings.push(Warning {
             kind: WarningKind::UnresolvedModule,
-            message: format!("{import_modules} module import(s) not filesystem-resolved (v1)"),
+            message: format!(
+                "{} module import(s) not filesystem-resolved (v1)",
+                import_modules.len()
+            ),
             location: None,
         });
     }

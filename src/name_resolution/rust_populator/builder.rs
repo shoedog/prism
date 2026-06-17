@@ -53,8 +53,15 @@ impl<'f> Builder<'f> {
         config: &'f RustCrateConfig,
         only_files: Option<&'f BTreeSet<String>>,
     ) -> Self {
+        let file_paths = files
+            .keys()
+            .enumerate()
+            .map(|(i, path)| (path.clone(), FileId(i as u32)))
+            .collect();
+        let mut graph = ScopeGraph::new();
+        graph.file_paths = file_paths;
         Builder {
-            graph: ScopeGraph::new(),
+            graph,
             files,
             config,
             only_files,
