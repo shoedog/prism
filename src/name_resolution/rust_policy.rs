@@ -97,22 +97,27 @@ impl<'g> RustPolicy<'g> {
     }
 
     /// The crate `Root` ancestor of `scope`.
+    ///
+    /// Walks the parent chain and returns on the **first** (nearest) `Root` found;
+    /// the `break` exits immediately, so the variable holds that Root, not a "last"
+    /// or topmost one.
     fn crate_root(&self, scope: ScopeId) -> Option<ScopeId> {
         let mut cur = Some(scope);
-        let mut last_root = None;
+        let mut root = None;
         while let Some(id) = cur {
             let s = self.graph.scope(id)?;
             if matches!(s.kind, ScopeKind::Root) {
-                last_root = Some(id);
-                break;
+                root = Some(id);
+                break; // first Root found — exit immediately
             }
             cur = s.parent;
             if cur.is_none() {
-                // A scope with no Root ancestor is malformed; the topmost is it.
-                last_root = Some(id);
+                // Graph-without-Root safety net: no Root ancestor exists; treat
+                // the topmost reachable scope as the crate root.
+                root = Some(id);
             }
         }
-        last_root
+        root
     }
 
     /// Walk `n` module hops up from `scope`'s enclosing module.

@@ -507,6 +507,16 @@ fn test_pub_self_equiv_private_not_visible_from_sibling() {
 /// `pub(super)` item is visible from the parent's subtree only.
 /// Root → m (scope1) → inner (scope2); `pub(super)` item `g` in `inner`.
 /// Visible from `m` (the parent) and its subtree; NOT visible from a sibling of m.
+///
+/// The negative path (`from_sib`) fully resolves the prefix `crate::m::inner` so
+/// that the resolution reaches the `pub(super)` binding on `g` — it is the
+/// visibility *denial* (not a missing prefix) that produces the non-`Resolved`
+/// status. The `m` Scope binding at the root is required for this.
+///
+/// Sanity reasoning: if `visible()` were stubbed to always return `true`, the
+/// negative assertion (`assert_not_item(&from_sib, 800)`) would fail because
+/// `g` would then be returned as a `Resolved` candidate — confirming that this
+/// test now genuinely exercises the denial path.
 #[test]
 fn test_pub_super_visible_from_parent_subtree_only() {
     let mut g = ScopeGraph::new();
@@ -514,7 +524,20 @@ fn test_pub_super_visible_from_parent_subtree_only() {
     g.add_scope(scope(1, ScopeKind::Module, Some(0))); // m
     g.add_scope(scope(2, ScopeKind::Module, Some(1))); // inner (child of m)
     g.add_scope(scope(3, ScopeKind::Module, Some(0))); // sib (sibling of m)
-                                                       // path prefix: `inner` Scope binding in m
+
+    // path prefix bindings to make the full crate::m::inner::g path resolvable.
+    // `m` Scope binding in the root — required so `from_sib` can walk past the
+    // first segment and reach the `pub(super)` binding on `g`.
+    g.add_binding(Binding {
+        scope: ScopeId(0),
+        name: "m".to_string(),
+        ns: NS_TYPE,
+        target: BindTarget::Resolved(Target::Scope(ScopeId(1))),
+        vis: vis(VIS_PUB),
+        cond: None,
+        vis_extents: vec![wide_span()],
+    });
+    // `inner` Scope binding in m
     g.add_binding(Binding {
         scope: ScopeId(1),
         name: "inner".to_string(),
@@ -555,8 +578,11 @@ fn test_pub_super_visible_from_parent_subtree_only() {
     );
     assert_resolved_item(&from_m, 800);
 
-    // From sib (scope 3): `super::inner::g` would be needed; resolve the same
-    // `inner::g` but anchored to reach inner via crate path crate::m::inner::g.
+    // From sib (scope 3): `crate::m::inner::g` — the prefix m::inner resolves
+    // fully (the `m` and `inner` Scope bindings are present), reaching `inner`
+    // (scope 2). The final segment `g` IS found there, but `pub(super)` restricts
+    // it to m's subtree; `sib` is NOT in m's subtree → the visibility hook denies
+    // it → Unresolved (never `Resolved`, never item 800).
     let from_sib = resolve_path(
         &g,
         &RawPath(vec!["m".to_string(), "inner".to_string(), "g".to_string()]),
@@ -567,13 +593,10 @@ fn test_pub_super_visible_from_parent_subtree_only() {
         &SourceLoc { file: F, byte: 50 },
         &pol,
     );
-    // also need `m` Scope binding in root for the prefix
-    // (added below via a second graph build would be cleaner; here we accept
-    //  Unresolved on the prefix too — either way it must NOT reach item 800).
     assert_ne!(
         from_sib.status,
         ResStatus::Resolved,
-        "pub(super) g must NOT be visible from a sibling subtree"
+        "pub(super) g must NOT be visible from a sibling subtree — the visibility denial fires"
     );
     assert_not_item(&from_sib, 800);
 }
@@ -1085,6 +1108,120 @@ fn test_glob_engine_same_target_dedup_resolved() {
     let pol = policy_for(&g, 2018);
     let res = resolve(&g, &bare_value_query("w", 1), &pol);
     assert_resolved_item(&res, 1900); // dedup → single Resolved
+}
+
+/// A non-deferred `Glob` edge whose target scope contains a still-`Pending`
+/// binding for the looked-up `(name, ns)` → `GlobOutcome::Poison` → engine
+/// returns `Poisoned` (§3.4 step 2 / engine.rs `glob_lookup` ~:289-291).
+///
+/// The glob target scope (scope 5) has `h` as a `Pending` (unresolved) import.
+/// A decoy outer `h` (item 3000) at root proves the engine never falls through
+/// to it — `Poisoned` is returned instead.
+#[test]
+fn test_glob_member_pending_poisons_not_outer_decoy() {
+    let mut g = ScopeGraph::new();
+    g.add_scope(scope(0, ScopeKind::Root, None));
+    g.add_scope(scope(1, ScopeKind::Module, Some(0))); // resolving scope
+    g.add_scope(scope(5, ScopeKind::Module, Some(0))); // glob target scope
+                                                       // Outer decoy `h` at root (item 3000) — must NOT be reached.
+    g.add_binding(item_binding(0, "h", 3000, VIS_PUB));
+    // A still-Pending `h` in the glob target scope 5 (path unresolvable in graph).
+    g.add_binding(Binding {
+        scope: ScopeId(5),
+        name: "h".to_string(),
+        ns: NS_VALUE,
+        target: BindTarget::Pending(
+            RawPath(vec!["nowhere".to_string(), "h".to_string()]),
+            Anchor::bare(),
+        ),
+        vis: vis(VIS_PUB),
+        cond: None,
+        vis_extents: vec![wide_span()],
+    });
+    // Non-deferred Glob edge from scope 1 → scope 5 (target is Resolved(Scope)).
+    g.add_edge(Edge {
+        from: ScopeId(1),
+        kind: rust_policy::EK_GLOB,
+        to: BindTarget::Resolved(Target::Scope(ScopeId(5))),
+        vis: vis(VIS_PRIV),
+        cond: None,
+        order: 0,
+        vis_range: None,
+    });
+
+    let pol = policy_for(&g, 2018);
+    let res = resolve(&g, &bare_value_query("h", 1), &pol);
+
+    assert_eq!(
+        res.status,
+        ResStatus::Poisoned,
+        "a glob whose member is still-Pending must POISON, not fall through to the outer h"
+    );
+    assert_not_item(&res, 3000); // RECALL-SAFETY: must not reach the outer decoy
+}
+
+/// `resolve_path` on `a::b::c` where non-final segment `b` resolves to a
+/// non-scope-bearing target (a callable `Item fn b`, not a module/type) →
+/// `Unresolved` (the engine falls through, never picks a wrong target).
+///
+/// This pins the `scope_of_target → None → unresolved` branch in
+/// `resolve_path_guarded` (engine.rs ~:354).
+///
+/// Decoy: a separate `c` (item 3100) at the outer scope that must never be reached.
+#[test]
+fn test_resolve_path_non_scope_bearing_segment_falls_through() {
+    let mut g = ScopeGraph::new();
+    g.add_scope(scope(0, ScopeKind::Root, None));
+    g.add_scope(scope(1, ScopeKind::Module, Some(0))); // scope `a`
+                                                       // `a` Scope binding at root (prefix segment 1 — scope-bearing, OK).
+    g.add_binding(Binding {
+        scope: ScopeId(0),
+        name: "a".to_string(),
+        ns: NS_TYPE,
+        target: BindTarget::Resolved(Target::Scope(ScopeId(1))),
+        vis: vis(VIS_PUB),
+        cond: None,
+        vis_extents: vec![wide_span()],
+    });
+    // `b` in scope `a` as a plain callable fn (Item, NOT scope-bearing: no `owns`).
+    // This is the non-final segment that cannot be walked into.
+    g.add_binding(Binding {
+        scope: ScopeId(1),
+        name: "b".to_string(),
+        ns: NS_TYPE,
+        target: BindTarget::Resolved(Target::Item {
+            id: ItemId(3099),
+            ns: NS_TYPE,
+            owns: None, // NOT scope-bearing
+            callable: true,
+        }),
+        vis: vis(VIS_PUB),
+        cond: None,
+        vis_extents: vec![wide_span()],
+    });
+    // Outer decoy `c` at root (item 3100) — must never be reached.
+    g.add_binding(item_binding(0, "c", 3100, VIS_PUB));
+
+    let pol = policy_for(&g, 2018);
+    // `a::b::c` — prefix `a` resolves to scope 1; `b` resolves to a non-scope
+    // Item (callable fn, no `owns`); `scope_of_target` returns None → Unresolved.
+    let res = resolve_path(
+        &g,
+        &RawPath(vec!["a".to_string(), "b".to_string(), "c".to_string()]),
+        NS_VALUE,
+        &Anchor::crate_root(),
+        ScopeId(0),
+        NS_TYPE,
+        &SourceLoc { file: F, byte: 50 },
+        &pol,
+    );
+    assert_eq!(
+        res.status,
+        ResStatus::Unresolved,
+        "a non-scope-bearing non-final path segment must fall through (Unresolved)"
+    );
+    assert_not_item(&res, 3100); // must not silently reach the outer decoy
+    assert_not_item(&res, 3099); // and not the fn b itself
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
