@@ -212,7 +212,7 @@ fn macro_invocations_do_not_create_call_graph_or_nav_edges_in_pr2() {
         ),
         (
             "src/lib.rs",
-            "macro_rules! foo { () => {} }\nfn foo() {}\nfn foo_real() {}\nfn g(){ foo!(); foo_real(); }\n",
+            "macro_rules! foo { () => {} }\nfn foo() {}\nfn foo_real() {}\nfn g(){ foo_real(); foo!(); }\n",
         ),
     ]);
     let repo = Arc::new(load_repo(repo_dir.path()).unwrap());

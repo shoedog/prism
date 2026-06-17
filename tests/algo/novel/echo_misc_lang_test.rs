@@ -587,6 +587,9 @@ pub fn fetch_data(url: &str) -> Result<Vec<u8>, String> {
 }
 "#;
     let source_caller = r#"
+mod fetcher;
+use crate::fetcher::fetch_data;
+
 pub fn process(url: &str) {
     let data = fetch_data(url).unwrap();
     println!("{}", data.len());

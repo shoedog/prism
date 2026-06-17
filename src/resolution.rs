@@ -3,6 +3,15 @@
 //! call_graph.rs under the size cap).
 
 use crate::call_graph::{CallGraph, CallSite, FunctionId, MethodArity};
+use crate::name_resolution::consumer::graph_callable_edge;
+use crate::name_resolution::engine::resolve_path;
+use crate::name_resolution::graph::ScopeGraph;
+use crate::name_resolution::rust_policy::{RustPolicy, NS_TYPE, NS_VALUE};
+use crate::name_resolution::rust_populator::enclosing_scope;
+use crate::name_resolution::types::{
+    Anchor, AnchorKind, BindTarget, Candidate, FileId, RawPath, ResStatus, ScopeId, SourceLoc,
+    Target,
+};
 use std::collections::{BTreeMap, BTreeSet};
 
 #[derive(
@@ -462,6 +471,81 @@ fn is_simple_ident(s: &str) -> bool {
 }
 
 impl CallGraph {
+    fn rust_scope_graph_resolution(
+        &self,
+        graph: &ScopeGraph,
+        site: &CallSite,
+        file: FileId,
+        from: ScopeId,
+    ) -> Option<Vec<ResolvedCallee<'_>>> {
+        let target = if site.callee_name.contains("::") {
+            rust_graph_qualified_callable_edge(graph, site, file, from)
+        } else if site.qualifier.is_none() {
+            graph_callable_edge(graph, site)
+        } else {
+            return None;
+        }?;
+        self.graph_target_resolution(graph, site, &target)
+    }
+
+    fn graph_target_resolution(
+        &self,
+        graph: &ScopeGraph,
+        site: &CallSite,
+        target: &Target,
+    ) -> Option<Vec<ResolvedCallee<'_>>> {
+        if !matches!(target, Target::Item { callable: true, .. }) {
+            return None;
+        }
+        let fn_name = graph_callable_name(site)?;
+        let mut ids: Vec<&FunctionId> = Vec::new();
+        for binding in graph
+            .bindings
+            .iter()
+            .filter(|binding| binding.name == fn_name)
+        {
+            if !matches!(&binding.target, BindTarget::Resolved(t) if t == target) {
+                continue;
+            }
+            let Some(file) = graph_file_for_scope(graph, binding.scope) else {
+                continue;
+            };
+            let owner = graph_owner_name_for_scope(graph, binding.scope);
+            if let Some(functions) = self.functions.get(&binding.name) {
+                for fid in functions
+                    .iter()
+                    .filter(|fid| graph.file_paths.get(&fid.file).copied() == Some(file))
+                {
+                    match owner.as_deref() {
+                        Some(owner)
+                            if self.method_owners.get(fid).map(String::as_str) != Some(owner) =>
+                        {
+                            continue;
+                        }
+                        None if self.method_owners.contains_key(fid) => {
+                            continue;
+                        }
+                        _ => {}
+                    }
+                    if !ids.contains(&fid) {
+                        ids.push(fid);
+                    }
+                }
+            }
+        }
+        if ids.len() != 1 {
+            return None;
+        }
+        let kind = if site.callee_name.contains("::") {
+            ResolutionKind::QualifiedOwner
+        } else if ids[0].file == site.caller.file {
+            ResolutionKind::LocalDef
+        } else {
+            ResolutionKind::FreeSingle
+        };
+        Some(exact(ids, kind))
+    }
+
     /// Owner-index lookup that knows whether the key is a multi-impl trait key.
     fn owner_lookup(&self, owner: &str, name: &str) -> Option<Vec<ResolvedCallee<'_>>> {
         let mut resolved = self.owner_lookup_in_modules(owner, name, &[])?;
@@ -528,6 +612,20 @@ impl CallGraph {
     pub fn resolve_call_site_full(&self, site: &CallSite) -> ResolutionOutcome<'_> {
         let name = site.callee_name.as_str();
         let caller = &site.caller;
+
+        if let Some(graph) = self.scope_graph.as_ref() {
+            if crate::languages::Language::from_path(&site.caller.file)
+                == Some(crate::languages::Language::Rust)
+                && (name.contains("::") || site.qualifier.is_none())
+            {
+                if let Some((file, from)) = rust_authoritative_scope(graph, site) {
+                    return match self.rust_scope_graph_resolution(graph, site, file, from) {
+                        Some(resolved) => ResolutionOutcome::hit(resolved),
+                        None => ResolutionOutcome::dropped(DropReason::UnknownName),
+                    };
+                }
+            }
+        }
 
         // R1/R2/R7: Rust/C++ `::` path shapes where the raw name carries the path.
         if name.contains("::") {
@@ -909,6 +1007,101 @@ pub fn file_stem(path: &str) -> &str {
 /// `src/worker/mod.rs`. Used to narrow `mod::T::m` candidates by module.
 fn file_has_path_segment(path: &str, seg: &str) -> bool {
     file_stem(path) == seg || path.split('/').any(|c| c == seg)
+}
+
+fn graph_callable_name(site: &CallSite) -> Option<&str> {
+    site.callee_name
+        .rsplit("::")
+        .next()
+        .filter(|name| !name.is_empty())
+}
+
+fn rust_authoritative_scope(graph: &ScopeGraph, site: &CallSite) -> Option<(FileId, ScopeId)> {
+    if !graph.complete {
+        return None;
+    }
+    let file = graph.file_paths.get(&site.caller.file).copied()?;
+    enclosing_scope(graph, file, site.start_byte).map(|scope| (file, scope))
+}
+
+fn rust_graph_qualified_callable_edge(
+    graph: &ScopeGraph,
+    site: &CallSite,
+    file: FileId,
+    from: ScopeId,
+) -> Option<Target> {
+    let (anchor, path) = rust_call_path_anchor(site.callee_name.as_str())?;
+    if path.0.is_empty() {
+        return None;
+    }
+    let at = SourceLoc {
+        file,
+        byte: site.start_byte,
+    };
+    let policy = RustPolicy::new(graph, graph.edition);
+    let res = resolve_path(graph, &path, NS_VALUE, &anchor, from, NS_TYPE, &at, &policy);
+    match (res.status, res.candidates.as_slice()) {
+        (ResStatus::Resolved, [Candidate { target, .. }]) => match target {
+            Target::Item { callable: true, .. } => Some(target.clone()),
+            _ => None,
+        },
+        _ => None,
+    }
+}
+
+fn rust_call_path_anchor(raw: &str) -> Option<(Anchor, RawPath)> {
+    let mut segs: Vec<String> = raw.split("::").map(str::to_string).collect();
+    if segs.is_empty() {
+        return None;
+    }
+    let anchor = match segs.first().map(String::as_str) {
+        Some("") => {
+            segs.remove(0);
+            Anchor {
+                kind: AnchorKind::LeadingColon,
+                prelude: None,
+            }
+        }
+        Some("crate") => {
+            segs.remove(0);
+            Anchor::crate_root()
+        }
+        Some("self") => {
+            segs.remove(0);
+            Anchor::self_mod()
+        }
+        Some("super") => {
+            let mut n = 0u32;
+            while matches!(segs.first().map(String::as_str), Some("super")) {
+                segs.remove(0);
+                n += 1;
+            }
+            Anchor::super_n(n)
+        }
+        Some(_) => Anchor::bare(),
+        None => return None,
+    };
+    Some((anchor, RawPath(segs)))
+}
+
+fn graph_file_for_scope(graph: &ScopeGraph, scope: ScopeId) -> Option<FileId> {
+    graph
+        .scope(scope)?
+        .extents
+        .first()
+        .map(|extent| extent.file)
+}
+
+fn graph_owner_name_for_scope(graph: &ScopeGraph, scope: ScopeId) -> Option<String> {
+    graph
+        .bindings
+        .iter()
+        .find_map(|binding| match &binding.target {
+            BindTarget::Resolved(Target::Item {
+                owns: Some(owner), ..
+            }) if *owner == scope => Some(binding.name.clone()),
+            _ => None,
+        })
 }
 
 #[cfg(test)]

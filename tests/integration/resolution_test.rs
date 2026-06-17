@@ -17,6 +17,22 @@ fn build(
     (CallGraph::build(&files), files)
 }
 
+fn build_without_scope_graph(
+    sources: &[(&str, &str, prism::languages::Language)],
+) -> (CallGraph, BTreeMap<String, prism::ast::ParsedFile>) {
+    let mut files = BTreeMap::new();
+    for (path, src, lang) in sources {
+        files.insert(
+            path.to_string(),
+            prism::ast::ParsedFile::parse(path, src, *lang).unwrap(),
+        );
+    }
+    (
+        CallGraph::build_with_scope_graph_inputs(&files, None),
+        files,
+    )
+}
+
 fn build_cfg(
     sources: &[(&str, &str, prism::languages::Language)],
     cfg: &prism::resolution::ReceiverRecoveryConfig,
@@ -759,6 +775,215 @@ fn r5_cross_file_free_multi_kept_demoted() {
         .iter()
         .all(|c| c.confidence == ResolutionConfidence::NameOnly));
     assert!(r.iter().all(|c| c.kind == ResolutionKind::FreeMulti));
+}
+
+#[test]
+fn rust_scope_graph_unqualified_import_narrows_to_single_callable() {
+    use prism::languages::Language::Rust;
+    let sources = [
+        (
+            "src/lib.rs",
+            "mod engine;\nmod other;\nuse crate::engine::process;\npub fn g() {\n    process();\n}\n",
+            Rust,
+        ),
+        ("src/engine.rs", "pub fn process() {}\n", Rust),
+        ("src/other.rs", "pub fn process() {}\n", Rust),
+    ];
+    let (with_graph, _) = build(&sources);
+    let r = with_graph.resolve_call_site(&site_in(&with_graph, "g", "process"));
+    assert_eq!(r.len(), 1);
+    assert_eq!(r[0].target.file, "src/engine.rs");
+    assert_ne!(r[0].target.file, "src/other.rs");
+
+    let (without_graph, _) = build_without_scope_graph(&sources);
+    let legacy = without_graph.resolve_call_site(&site_in(&without_graph, "g", "process"));
+    let legacy_files: std::collections::BTreeSet<&str> =
+        legacy.iter().map(|c| c.target.file.as_str()).collect();
+    assert_eq!(
+        legacy_files,
+        std::collections::BTreeSet::from(["src/engine.rs", "src/other.rs"])
+    );
+}
+
+#[test]
+fn rust_scope_graph_unqualified_declines_do_not_legacy_guess() {
+    use prism::languages::Language::Rust;
+
+    let no_import = [
+        (
+            "src/lib.rs",
+            "mod engine;\nmod other;\npub fn g() {\n    process();\n}\n",
+            Rust,
+        ),
+        ("src/engine.rs", "pub fn process() {}\n", Rust),
+        ("src/other.rs", "pub fn process() {}\n", Rust),
+    ];
+    let (cg, _) = build(&no_import);
+    assert!(
+        cg.resolve_call_site(&site_in(&cg, "g", "process"))
+            .is_empty(),
+        "authoritative unresolved bare name must not fall back to same-name fan-out"
+    );
+    let (legacy_cg, _) = build_without_scope_graph(&no_import);
+    assert_eq!(
+        legacy_cg
+            .resolve_call_site(&site_in(&legacy_cg, "g", "process"))
+            .len(),
+        2,
+        "without an authoritative graph the legacy ladder is unchanged"
+    );
+
+    let parent_name = [(
+        "src/lib.rs",
+        "fn start() {}\nmod child {\n    pub fn g() {\n        start();\n    }\n}\n",
+        Rust,
+    )];
+    let (cg, _) = build(&parent_name);
+    assert!(
+        cg.resolve_call_site(&site_in(&cg, "g", "start")).is_empty(),
+        "bare lookup must stop at the child module boundary"
+    );
+
+    let shadowed = [(
+        "src/lib.rs",
+        "fn process() {}\npub fn g() {\n    let process = || {};\n    process();\n}\n",
+        Rust,
+    )];
+    let (cg, _) = build(&shadowed);
+    assert!(
+        cg.resolve_call_site(&site_in(&cg, "g", "process"))
+            .is_empty(),
+        "a local let binding shadows the free fn and must not mint an edge"
+    );
+
+    let private_import = [
+        (
+            "src/lib.rs",
+            "mod engine;\nmod other;\nmod child {\n    use crate::engine::process;\n    pub fn g() {\n        process();\n    }\n}\n",
+            Rust,
+        ),
+        ("src/engine.rs", "fn process() {}\n", Rust),
+        ("src/other.rs", "pub fn process() {}\n", Rust),
+    ];
+    let (cg, _) = build(&private_import);
+    assert!(
+        cg.resolve_call_site(&site_in(&cg, "g", "process"))
+            .is_empty(),
+        "an inaccessible private import must fall through without a decoy edge"
+    );
+}
+
+#[test]
+fn rust_scope_graph_qualified_paths_resolve_or_disable_legacy_stem() {
+    use prism::languages::Language::Rust;
+    let positive = [
+        (
+            "src/lib.rs",
+            "mod engine;\npub fn call_crate() {\n    crate::engine::start();\n}\nmod inner {\n    pub fn start() {}\n    pub fn call_self() {\n        self::start();\n    }\n    pub mod child {\n        pub fn call_super() {\n            super::start();\n        }\n    }\n}\n",
+            Rust,
+        ),
+        ("src/engine.rs", "pub fn start() {}\n", Rust),
+        ("src/other.rs", "pub fn start() {}\n", Rust),
+    ];
+    let (cg, _) = build(&positive);
+    let crate_edge = cg.resolve_call_site(&site_in(&cg, "call_crate", "crate::engine::start"));
+    assert_eq!(crate_edge.len(), 1);
+    assert_eq!(crate_edge[0].target.file, "src/engine.rs");
+
+    let self_edge = cg.resolve_call_site(&site_in(&cg, "call_self", "self::start"));
+    assert_eq!(self_edge.len(), 1);
+    assert_eq!(self_edge[0].target.file, "src/lib.rs");
+
+    let super_edge = cg.resolve_call_site(&site_in(&cg, "call_super", "super::start"));
+    assert_eq!(super_edge.len(), 1);
+    assert_eq!(super_edge[0].target.file, "src/lib.rs");
+
+    let negative = [
+        (
+            "src/lib.rs",
+            "pub fn g() {\n    crate::missing::target();\n}\n",
+            Rust,
+        ),
+        ("src/missing.rs", "pub fn target() {}\n", Rust),
+    ];
+    let (cg, _) = build(&negative);
+    assert!(
+        cg.resolve_call_site(&site_in(&cg, "g", "crate::missing::target"))
+            .is_empty(),
+        "authoritative unresolved qualified path must not use the legacy stem heuristic"
+    );
+    let (legacy_cg, _) = build_without_scope_graph(&negative);
+    let legacy = legacy_cg.resolve_call_site(&site_in(&legacy_cg, "g", "crate::missing::target"));
+    assert_eq!(legacy.len(), 1);
+    assert_eq!(legacy[0].target.file, "src/missing.rs");
+}
+
+#[test]
+fn rust_scope_graph_authority_gate_and_poison_skip_legacy() {
+    use prism::languages::Language::Rust;
+    let resolving = [
+        (
+            "src/lib.rs",
+            "mod engine;\nmod other;\nuse crate::engine::process;\npub fn g() {\n    process();\n}\n",
+            Rust,
+        ),
+        ("src/engine.rs", "pub fn process() {}\n", Rust),
+        ("src/other.rs", "pub fn process() {}\n", Rust),
+    ];
+    let (with_graph, _) = build(&resolving);
+    let narrowed = with_graph.resolve_call_site(&site_in(&with_graph, "g", "process"));
+    assert_eq!(narrowed.len(), 1);
+    assert_eq!(narrowed[0].target.file, "src/engine.rs");
+
+    let (without_graph, _) = build_without_scope_graph(&resolving);
+    let legacy = without_graph.resolve_call_site(&site_in(&without_graph, "g", "process"));
+    assert_eq!(legacy.len(), 2);
+    assert_eq!(
+        format!("{legacy:?}"),
+        format!(
+            "{:?}",
+            without_graph.resolve_call_site(&site_in(&without_graph, "g", "process"))
+        ),
+        "no scope graph keeps the legacy resolver output stable"
+    );
+
+    let poisoned = [
+        (
+            "src/lib.rs",
+            "mod engine;\nmod other;\nuse crate::missing::process;\npub fn g() {\n    process();\n}\n",
+            Rust,
+        ),
+        ("src/engine.rs", "pub fn process() {}\n", Rust),
+        ("src/other.rs", "pub fn process() {}\n", Rust),
+    ];
+    let (cg, _) = build(&poisoned);
+    assert!(
+        cg.resolve_call_site(&site_in(&cg, "g", "process"))
+            .is_empty(),
+        "a pending/unresolved import poisons graph lookup and suppresses legacy fan-out"
+    );
+}
+
+#[test]
+fn non_rust_resolution_is_unchanged_with_scope_graph_present() {
+    use prism::languages::Language::Python;
+    let sources = [
+        ("main.py", "def run():\n    process()\n", Python),
+        ("a.py", "def process():\n    pass\n", Python),
+        ("b.py", "def process():\n    pass\n", Python),
+    ];
+    let (with_graph, _) = build(&sources);
+    let (without_graph, _) = build_without_scope_graph(&sources);
+    assert_eq!(
+        format!(
+            "{:?}",
+            with_graph.resolve_call_site_full(&site_in(&with_graph, "run", "process"))
+        ),
+        format!(
+            "{:?}",
+            without_graph.resolve_call_site_full(&site_in(&without_graph, "run", "process"))
+        )
+    );
 }
 
 #[test]

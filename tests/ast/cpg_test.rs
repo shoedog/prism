@@ -954,14 +954,18 @@ fn caller() {
 }
 
 #[test]
-fn cha_upgrades_nameonly_pair_to_exact() {
-    // A CHA-confirmed override dispatch should add Call(Exact) even when the
-    // same caller/callee pair already has a demoted TraitCha edge.
+fn cha_upgrades_graph_resolved_owner_pair_to_exact() {
+    // A graph-resolved owner dispatch should add Call(Exact) CHA fan-out.
+    // The old `Render::draw(x)` TraitCha heuristic is intentionally disabled
+    // for authoritative Rust scope-graph sites.
     use prism::resolution::ResolutionConfidence;
 
     let cpg = build_rust_cpg_with_virtual_methods(&[(
         "src/lib.rs",
         r#"
+struct A;
+struct B;
+trait Render { fn draw(&self); }
 impl Render for A { fn draw(&self) {} }
 impl Render for B { fn draw(&self) {} }
 fn caller(x: &dyn Render) {
@@ -971,13 +975,14 @@ fn caller(x: &dyn Render) {
 "#,
     )]);
 
-    assert!(
-        count_call_edges(&cpg, "caller", "draw", ResolutionConfidence::NameOnly) >= 1,
-        "expected a pre-existing NameOnly trait dispatch edge",
+    assert_eq!(
+        count_call_edges(&cpg, "caller", "draw", ResolutionConfidence::NameOnly),
+        0,
+        "authoritative graph decline must not emit the legacy TraitCha edge",
     );
     assert!(
         count_call_edges(&cpg, "caller", "draw", ResolutionConfidence::Exact) >= 2,
-        "expected the Exact owner call plus a CHA-upgraded override edge",
+        "expected the graph-resolved Exact owner call plus a CHA override edge",
     );
 }
 
