@@ -51,6 +51,13 @@
 > target → `Poisoned` *result* → fall through, not a non-authoritative site); **(F3)** re-export cycle is
 > terminal `Poisoned` with an outer-`a` decoy; **(F4)** adds `pub(crate)` cross-workspace-crate
 > visibility; do-now: manifest-only + file-existence-only cache tests.
+>
+> **Rev 7** (folds round 6, **APPROVE-WITH-NITS** — "preserves §7, stays within §11.5, handles the repo
+> integration risks"; nits purely additive, no new contracts): adds an explicit External/Scope/
+> non-callable same-name **engine** shadow decoy (Task 2), `tests/`/`examples/` crate-root fixtures
+> (Task 3), `CallSite.kind` `#[serde(default)]` + identity/order caveat, and rewords Task 5 to **paste
+> Tier-A flips into the PR body, not re-baseline**. **CONVERGED** — two consecutive APPROVE-WITH-NITS, the
+> second additive-only; ready for implementation pending owner go.
 
 **Goal:** Build the language-neutral scope-graph + the Rust populator/policy + consumers so Rust
 unqualified calls narrow to the real defining item (the F3 fix: `original_diff.rs`'s local `fn slice`
@@ -137,6 +144,11 @@ accessibility, candidate combination, the `visible()` accessibility predicate, a
     the engine must NOT continue outward to the outer callable; it falls through (`Unresolved`). An
     inaccessible inner binding wins the name-resolution race and then fails visibility — it does not
     silently fall back to a wrong outer target.
+  - **explicit External/Scope/non-callable shadow decoy (round-6 nit 1 — engine shadow rule §3.4+§7):**
+    an inner explicit binding to a non-callable target + an outer callable of the *same name* — `use ext::x`
+    (→ `External`), or `use crate::m as x` (→ `Scope`), or an inner non-callable `Item x` (a type/const) —
+    each shadows outward, so resolving `x` returns `External`/`Scope`/non-callable and the engine must NOT
+    reach the outer callable `x`. (Task 4(d) pins the *consumer* no-edge; this pins the *engine* shadow.)
   - **glob (engine, non-deferred only):** **explicit-beats-glob**; **two-glob conflict → `Ambiguous`**;
     **same-target glob dedup → `Resolved`**. NOTE (F5): these exercise engine combination over glob
     edges whose members are *already known* (non-deferred) — they are NOT Rust `use a::*` member
@@ -164,8 +176,9 @@ accessibility, candidate combination, the `visible()` accessibility predicate, a
 
 **Files:** Create `src/name_resolution/rust_populator.rs` · Modify `src/call_graph.rs` (build + store
 `scope_graph`; whole-repo rebuild incl. incremental; + a `CallSite.kind: Call | MacroInvocation`
-discriminator — round-5 F1), `src/queries.rs` (tag the `macro_invocation` capture at `:173` so the
-discriminator is set), `src/cpg_cache.rs` (widen cache key + bump `CACHE_VERSION`), `src/ast.rs` (surface
+discriminator — round-5 F1, with `#[serde(default)]` so old caches deserialize, and excluded from
+call-site identity/ordering unless intended since `CallSite` is cached + ordered — round-6 do-now),
+`src/queries.rs` (tag the `macro_invocation` capture at `:173` so the discriminator is set), `src/cpg_cache.rs` (widen cache key + bump `CACHE_VERSION`), `src/ast.rs` (surface
 `mod`/`use`/local-binding extraction if not present), `src/repo_loader.rs` (load `Cargo.toml`/manifests +
 the whole file-set, not just supported-source — currently skipped at `:277`),
 `src/cpg/build.rs`/`src/navigation/mod.rs` (thread the build inputs into `CallGraph::build` — currently
@@ -237,8 +250,8 @@ behavior stays untouched).
     `use a::{b, c::d, self}` (nested + `self` group), `use a::b as c; c()` (alias → `Pending` to `a::b`),
     `extern crate foo as bar;` (crate alias), a workspace member + a `package = "x"` dep rename,
     `[lib]`/`[[bin]]` non-convention roots, AND the remaining crate-root shapes — `src/bin/<n>/main.rs`,
-    `benches/`, and `autobins` — each builds the expected bindings/roots (resolve where in-repo,
-    poison/extern where not).
+    `tests/`, `examples/`, `benches/`, and `autobins` — each builds the expected bindings/roots (resolve
+    where in-repo, poison/extern where not).
   - **macro wildcard poison (F1):** a fixture with `m!(); f()` where an outer `f` exists → the populator
     marks the macro range wildcard-poison → `resolve(f)` in range = `Poisoned` (a call before the macro is
     unaffected).
@@ -375,7 +388,9 @@ logic).** Call narrowing and module-deps resolve *different* binding kinds:
   `--quick --allow-stale-sut` (prism, Rust): the `callers/C-method` recall (the F3 receiver-typing class
   baseline.md flagged at 0.121) should **improve or hold**, precision must **not regress**. Paste flips.
 - [ ] **Step 4:** full `cargo test` · `--features mcp` build · `cargo fmt --check`.
-- [ ] **Step 5: Commit** any baseline/doc note if matrix flips (expected precision-positive / recall-up).
+- [ ] **Step 5:** **Paste any Tier-A flips/regressions into the PR description — do NOT re-baseline**
+  (per CLAUDE.md; expected precision-positive / recall-up). Re-baselining is a separate human-triggered
+  step, not part of this PR.
 
 ## Final verification (before PR)
 - [ ] `cargo fmt --check` · full `cargo test` · `cargo build --release` · `--features mcp`
