@@ -163,3 +163,26 @@ the whole cluster to Slice E.
 (Two focused-re-review MINORs were FIXED in `review-fixes-3`, not deferred: the `prism_only_keys` test now uses
 distinct fanouts and asserts the denominator-wide `fanout_width`; the design-spec §8b FP rule was updated to the
 as-built positive-`prism_fp`-selection wording.)
+
+### Slice-E κ-session finding (2026-06-16) — the single confirmed FP
+
+#### PRECISION — arity/signature-disambiguate same-named interface methods — DEFERRED → precision follow-up
+- **Priority:** Important (the *only* false edge the whole-corpus caddy dispatch audit found; `dispatch_precision
+  = 0.9994`, κ = 1.000, 1 `prism_fp` of 63 dispatch sites).
+- **The finding:** at `modules/caddyhttp/headers/headers_test.go:366` the source is the **3-argument**
+  `handler.ServeHTTP(rr, req, next)` — the `caddyhttp.MiddlewareHandler` signature. prism's constructor-local
+  receiver recovery minted the **2-argument** `HandlerFunc` (the `Handler` satisfier) for it. Both interfaces
+  declare a method *named* `ServeHTTP`; prism keys methods by **name only** and does not check the call's
+  arity/signature against the candidate, so it conflated the two. Recorded in `eval/adjudications.jsonl`
+  (`measurement=interface_dispatch`, fingerprint `498353d980a73060`).
+- **Why deferred (not a PR-2 / Slice-E correctness blocker):** test-only site; a single FP against an otherwise
+  sound dispatch set; and it is a **name-vs-signature** gap in the resolver's method index, *not* a
+  receiver-recovery gap (the receiver class was recovered correctly — `constructor_local`). Fixing it touches the
+  per-`(owner, name)` method index / `interface_impls` minting (R1–R7 ladder, `src/resolution.rs`), a different
+  surface than the Slice-A–F receiver work.
+- **Fix sketch:** when minting `interface_impls` edges for a dispatch site, filter candidate methods whose
+  parameter arity (and, where cheaply available, parameter/return shape) does not match the call site — so a
+  3-arg `ServeHTTP` site mints only `MiddlewareHandler`, a 2-arg site only `Handler`/`HandlerFunc`. Guard against
+  variadic/`...`-spread and Go's implicit-arg cases. Add a fixture mirroring the caddy `Handler` (2-arg) vs
+  `MiddlewareHandler` (3-arg) `ServeHTTP` split. The dispatch oracle is the regression check: re-run it post-fix
+  and confirm the over_approx site flips to sound (`dispatch_precision` rises to 1.0 on caddy).

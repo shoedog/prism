@@ -130,6 +130,45 @@ The loop: hydrate → adjudicate (per `adjudicate-sample.md`) → append verdict
 `adjudications.jsonl` → `uv run tier-a --report-only` to fold corrected metrics. See
 `docs/eval/tier-a/re-anchor-adjudication-2026-06-14.md` for a worked example.
 
+### Dispatch oracle (`tools/dispatch_oracle.py`)
+
+The §8 **dispatch precision/recall regression gate** for prism's Go interface-dispatch
+resolution (Phase-IP). When prism resolves a Go dispatch site
+(`x.(caddy.Module).CaddyModule()`), it *mints an implementer set* — every in-repo type it
+believes satisfies the interface, RTA-pruned to live/constructed types. This tool checks
+that set against gopls `textDocument/implementation` (the ground truth for "what satisfies
+interface I") to decide whether prism's set is **sound** (a subset of the real satisfiers,
+no false edges) or **over-approximates** (mints a non-satisfier = a `prism_fp` candidate).
+
+It is **re-usable on any Go corpus** in `corpora.toml` and is the gate future baselines
+must hold: **`dispatch_precision` must stay at-or-above; a decrease is a deliberate,
+recorded decision** (e.g. a precision/recall trade in a refactor) — paste the new summary
+into the PR and explain the delta. (`recall_gap` is reported but does not gate — RTA
+pruning is by-design precision.)
+
+Regenerate the manifest with the current prism, then run the oracle (needs `gopls` on PATH
+and the harness env; gopls can be slow on large corpora, so the per-group timeout is
+generous — a group that still times out is recorded `oracle_timeout`, never fatal):
+
+```bash
+cargo build --release
+target/release/prism nav interface-manifest --repo ~/code/bench-repos/caddy \
+  > /tmp/caddy-manifest.json
+cd eval && uv run python tools/dispatch_oracle.py \
+  --manifest /tmp/caddy-manifest.json \
+  --repo ~/code/bench-repos/caddy \
+  --corpus caddy \
+  --out /tmp/caddy-dispatch-oracle.json
+```
+
+The summary (printed to stdout and in `comparison.json` under `summary`) reports the
+overall and per-`(interface, method)` `dispatch_precision = |prism ∩ gopls| / |prism|`,
+the `sound` / `over_approx` / `recall_gap` / `oracle_timeout` site counts, and the list of
+`over_approx` sites with their offending minted types — the FP candidates the dual-adjudicator
+κ pass examines. Per-site records (`prism_implementers`, `gopls_satisfiers`, `classification`,
+`prism_only_types`, `gopls_only_types`) live under `sites`. The full taxonomy, gate semantics,
+and the gopls-query design are in the `tools/dispatch_oracle.py` module docstring.
+
 ## Snapshots and Baselines
 
 Oracle inventories are snapshotted under `eval/snapshots/<corpus>-<sha>.json` so

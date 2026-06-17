@@ -1,0 +1,215 @@
+"""Tests for the gopls interface-satisfaction dispatch oracle (Phase-IP Slice E).
+
+TDD: the pure classification + summary logic (`classify`, `dispatch_precision`,
+`compare_site`, `summarize`) is unit-tested here BEFORE the implementation in
+`eval/tools/dispatch_oracle.py`. The live gopls query is integration (smoke-run on
+caddy), deliberately NOT unit-tested.
+"""
+import importlib.util
+from pathlib import Path
+
+import pytest
+
+# dispatch_oracle.py lives in eval/tools/ (a CLI script, not part of the tier_a
+# package), so load it by path the way other tool tests would.
+_TOOL = Path(__file__).resolve().parents[1] / "tools" / "dispatch_oracle.py"
+_spec = importlib.util.spec_from_file_location("dispatch_oracle", _TOOL)
+do = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(do)
+
+
+# ---------------------------------------------------------------------------
+# classify(prism_set, gopls_set) -> sound | over_approx | recall_gap
+# ---------------------------------------------------------------------------
+
+def test_classify_sound_exact_equality():
+    assert do.classify({"Fast", "Slow"}, {"Fast", "Slow"}) == "sound"
+
+
+def test_classify_sound_strict_subset():
+    # prism ⊂ gopls (RTA pruned to live types) — every minted edge is real => sound.
+    assert do.classify({"Fast"}, {"Fast", "Slow", "Idle"}) == "sound"
+
+
+def test_classify_over_approx_when_prism_has_a_non_satisfier():
+    # prism mints `Bogus`, which gopls says does NOT satisfy => over_approx (FP candidate).
+    assert do.classify({"Fast", "Bogus"}, {"Fast", "Slow"}) == "over_approx"
+
+
+def test_classify_over_approx_takes_precedence_over_recall_gap():
+    # prism\gopls = {Bogus} (non-empty) AND gopls\prism = {Slow} (non-empty).
+    # over_approx wins — a false edge is the precision-relevant verdict.
+    assert do.classify({"Fast", "Bogus"}, {"Fast", "Slow"}) == "over_approx"
+
+
+def test_classify_nonempty_strict_subset_is_sound_not_recall_gap():
+    # prism ⊊ gopls with prism non-empty: RTA-pruned but every minted edge is real =>
+    # SOUND (the CaddyModule §4 verdict). The strict-subset coverage gap is recorded in
+    # gopls_only_types, but the *classification* is sound, never recall_gap.
+    assert do.classify({"Fast"}, {"Fast", "Slow"}) == "sound"
+
+
+def test_classify_empty_prism_with_nonempty_gopls_is_recall_gap():
+    # prism minted NOTHING but gopls has satisfiers => recall_gap (a genuine recall hole;
+    # the only case recall_gap fires under the resolved precedence).
+    assert do.classify(set(), {"Fast"}) == "recall_gap"
+
+
+def test_classify_both_empty_is_sound():
+    # Nothing minted, nothing to satisfy — vacuously sound (no false edges).
+    assert do.classify(set(), set()) == "sound"
+
+
+def test_classify_prism_nonempty_gopls_empty_is_over_approx():
+    # gopls found no satisfiers but prism minted some => every minted edge is false.
+    assert do.classify({"Fast"}, set()) == "over_approx"
+
+
+# ---------------------------------------------------------------------------
+# dispatch_precision(prism_set, gopls_set) = |prism ∩ gopls| / |prism|
+# ---------------------------------------------------------------------------
+
+def test_dispatch_precision_perfect_when_subset():
+    assert do.dispatch_precision({"Fast"}, {"Fast", "Slow"}) == pytest.approx(1.0)
+
+
+def test_dispatch_precision_half_when_one_of_two_is_false():
+    assert do.dispatch_precision({"Fast", "Bogus"}, {"Fast", "Slow"}) == pytest.approx(0.5)
+
+
+def test_dispatch_precision_zero_when_all_false():
+    assert do.dispatch_precision({"A", "B"}, {"C"}) == pytest.approx(0.0)
+
+
+def test_dispatch_precision_empty_prism_is_vacuously_one():
+    # |prism| == 0 — no minted edges, no false edges. Vacuous precision = 1.0 so an
+    # empty-set site never drags the aggregate down.
+    assert do.dispatch_precision(set(), {"Fast"}) == pytest.approx(1.0)
+
+
+# ---------------------------------------------------------------------------
+# compare_site — per-site record assembly from prism + gopls sets
+# ---------------------------------------------------------------------------
+
+def test_compare_site_record_shape_over_approx():
+    rec = do.compare_site(
+        file="caddymodule/caddymodule.go",
+        line=42,
+        interface="caddy.Module",
+        method="CaddyModule",
+        prism_set={"Fast", "Bogus"},
+        gopls_set={"Fast", "Slow"},
+    )
+    assert rec["file"] == "caddymodule/caddymodule.go"
+    assert rec["line"] == 42
+    assert rec["interface"] == "caddy.Module"
+    assert rec["method"] == "CaddyModule"
+    assert rec["prism_implementers"] == ["Bogus", "Fast"]   # sorted
+    assert rec["gopls_satisfiers"] == ["Fast", "Slow"]      # sorted
+    assert rec["classification"] == "over_approx"
+    assert rec["prism_only_types"] == ["Bogus"]             # the offending types
+    assert rec["gopls_only_types"] == ["Slow"]
+
+
+def test_compare_site_sound_strict_subset_records_gopls_only():
+    # Non-empty strict subset => sound; prism_only empty; the coverage gap is still
+    # surfaced in gopls_only_types for the recall picture.
+    rec = do.compare_site(
+        file="a.go", line=1, interface="I", method="M",
+        prism_set={"Fast"}, gopls_set={"Fast", "Slow"},
+    )
+    assert rec["classification"] == "sound"
+    assert rec["prism_only_types"] == []
+    assert rec["gopls_only_types"] == ["Slow"]
+
+
+def test_compare_site_with_oracle_timeout_marker():
+    # When the (interface, method) group timed out, gopls_set is None: the site is
+    # recorded as oracle_timeout, never as a precision verdict.
+    rec = do.compare_site(
+        file="a.go", line=1, interface="I", method="M",
+        prism_set={"Fast"}, gopls_set=None,
+    )
+    assert rec["classification"] == "oracle_timeout"
+    assert rec["gopls_satisfiers"] is None
+    assert rec["prism_implementers"] == ["Fast"]
+
+
+# ---------------------------------------------------------------------------
+# summarize — per-(interface,method) + overall rollup
+# ---------------------------------------------------------------------------
+
+def _site(file, line, interface, method, prism_set, gopls_set):
+    return do.compare_site(file=file, line=line, interface=interface,
+                           method=method, prism_set=prism_set, gopls_set=gopls_set)
+
+
+def test_summarize_counts_and_overall_precision():
+    sites = [
+        # CaddyModule: prism = gopls exactly (sound). prism={Fast}, ∩=1, |prism|=1 -> 1.0
+        _site("a.go", 1, "caddy.Module", "CaddyModule", {"Fast"}, {"Fast"}),
+        # Same group, a sound STRICT subset: prism={Fast} ⊊ gopls (RTA pruned) -> still sound
+        _site("a.go", 2, "caddy.Module", "CaddyModule", {"Fast"}, {"Fast", "Slow", "X"}),
+        # Handler.ServeHTTP: an over_approx site. prism={H, Bogus}, ∩=1, |prism|=2 -> 0.5
+        _site("b.go", 3, "Handler", "ServeHTTP", {"H", "Bogus"}, {"H"}),
+    ]
+    summary = do.summarize(sites)
+
+    # overall: |prism ∩ gopls| summed / |prism| summed = (1 + 1 + 1) / (1 + 1 + 2) = 3/4
+    assert summary["overall"]["dispatch_precision"] == pytest.approx(0.75)
+    assert summary["overall"]["sites"] == 3
+    assert summary["overall"]["sound"] == 2
+    assert summary["overall"]["recall_gap"] == 0
+    assert summary["overall"]["over_approx"] == 1
+    assert summary["overall"]["oracle_timeout"] == 0
+
+    # per-(interface, method)
+    per = {(g["interface"], g["method"]): g for g in summary["groups"]}
+    cm = per[("caddy.Module", "CaddyModule")]
+    assert cm["sites"] == 2
+    assert cm["sound"] == 2
+    assert cm["recall_gap"] == 0
+    assert cm["over_approx"] == 0
+    assert cm["dispatch_precision"] == pytest.approx(1.0)   # (1+1)/(1+1)
+    h = per[("Handler", "ServeHTTP")]
+    assert h["over_approx"] == 1
+    assert h["dispatch_precision"] == pytest.approx(0.5)
+
+
+def test_summarize_lists_over_approx_sites_for_adjudication():
+    sites = [
+        _site("good.go", 1, "I", "M", {"Fast"}, {"Fast", "Slow"}),
+        _site("bad.go", 9, "I", "M", {"Fast", "Bogus"}, {"Fast"}),
+    ]
+    summary = do.summarize(sites)
+    oa = summary["over_approx_sites"]
+    assert len(oa) == 1
+    assert oa[0]["file"] == "bad.go"
+    assert oa[0]["line"] == 9
+    assert oa[0]["prism_only_types"] == ["Bogus"]
+
+
+def test_summarize_oracle_timeout_excluded_from_precision():
+    # A timed-out group contributes neither to the precision ratio nor to the
+    # sound/over_approx/recall_gap tallies — only to the oracle_timeout count.
+    sites = [
+        _site("a.go", 1, "I", "M", {"Fast"}, {"Fast"}),          # sound, prec 1.0
+        _site("b.go", 2, "Slow", "Run", {"X", "Y"}, None),       # timed out
+    ]
+    summary = do.summarize(sites)
+    assert summary["overall"]["oracle_timeout"] == 1
+    assert summary["overall"]["sound"] == 1
+    # precision computed only over the resolved site: 1/1 = 1.0 (the timeout's
+    # {X, Y} must NOT count as 2 false edges).
+    assert summary["overall"]["dispatch_precision"] == pytest.approx(1.0)
+    # the timed-out group is surfaced for re-run
+    assert summary["oracle_timeout_groups"] == [{"interface": "Slow", "method": "Run"}]
+
+
+def test_summarize_empty_sites():
+    summary = do.summarize([])
+    assert summary["overall"]["sites"] == 0
+    assert summary["overall"]["dispatch_precision"] == pytest.approx(1.0)
+    assert summary["groups"] == []
+    assert summary["over_approx_sites"] == []
+    assert summary["oracle_timeout_groups"] == []

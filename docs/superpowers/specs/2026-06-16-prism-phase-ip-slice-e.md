@@ -1,9 +1,12 @@
 # Phase-IP Slice E — caddy re-adjudication + 5-corpus re-baseline (plan, findings, κ-protocol)
 
-> **Status (2026-06-16):** PR-2 (#97) merged to `main` (`13c3348`). Slice E is the **owner-gated**
-> follow-up. This doc records the cheap structural pre-look, the agreed ordering + its rationale, the
-> step plan, and the dual-adjudicator κ-session protocol. Companion: the deferred doc
-> (`…-receiver-expansion-deferred.md`) §"join-precision cluster".
+> **Status (2026-06-16):** PR-2 (#97) merged to `main` (`13c3348`). The dispatch oracle + the
+> dual-adjudicator κ session are **DONE** (κ = 1.000, 1 confirmed `prism_fp`; see §7). The
+> remaining owner-gated step is the **5-corpus re-baseline** (`uv run tier-a --corpus all`). This
+> doc records the structural pre-look, the agreed ordering + rationale, the κ-session protocol
+> (§5), and now the executed κ results + findings (§7). Companion: the deferred doc
+> (`…-receiver-expansion-deferred.md`) §"join-precision cluster" and the new arity-disambiguation
+> precision follow-up.
 
 ## §1 — Structural pre-look (cheap, no oracle / no adjudication / no rebaseline)
 
@@ -123,3 +126,55 @@ per §2). Bridge: `a2a-bridge run-workflow` with codex gpt-5.5 **high** + claude
 After caddy, for corpora with same-line/multi-seed sites: seed-scope + byte-key the adjudication join +
 fingerprint re-anchoring + the two design minors (share the verdict-classification helper; centralize the
 Go-dispatch eligibility predicate). Full sketch in the deferred doc. Decoupled from caddy by §2.
+
+## §7 — κ-session results (EXECUTED 2026-06-16)
+
+The precision measure is the reusable **gopls dispatch oracle** (`eval/tools/dispatch_oracle.py`,
+documented as a regression gate in `eval/README.md`) run over the whole-repo §8 manifest, with a
+dual-adjudicator κ pass over the sites that carry a judgment (the oracle deltas + a sample of the
+sound sites). This replaced the tier-A *sampled* pending-delta path, which under-samples the
+`CaddyModule` dispatch class (0 new pending deltas — the sampled seeds don't hit those sites).
+
+**Oracle (caddy @ `77e9ce7404c4`, 63 dispatch sites):** `dispatch_precision = 0.9994`; **61 sound ·
+1 over_approx · 1 oracle_timeout · 0 recall_gap**. Headline: every `CaddyModule` site mints the
+121-implementer RTA-live registry set ⊆ gopls's 132 satisfiers (the 11 extra are uninstantiated
+test/mock modules, RTA-pruned by design) — **sound recall, not over-approximation.** Baseline:
+`docs/eval/tier-a/slice-e-caddy-dispatch-baseline.json`.
+
+**Dual-adjudicator κ (21 sites = 1 over_approx + 1 oracle_timeout + 19 sampled sound):**
+codex gpt-5.5 **high** (via a2a-bridge) + claude-opus-4-8 **xtra-high** (operator subagent),
+independent. **Cohen's κ = 1.000 · agreement 21/21 · 20 `sound` + 1 `prism_fp` · zero disagreements**
+(so no operator override was needed). pₒ = 1.000, pₑ = 0.909, categories {`prism_fp`, `sound`}.
+
+| site | file:line | recv class | method | minted | gopls | both adjudicators |
+|---|---|---|---|---|---|---|
+| **1** | `modules/caddyhttp/headers/headers_test.go:366` | constructor_local | ServeHTTP | `HandlerFunc` | `MiddlewareHandler` | **`prism_fp` (high)** |
+| 0 | `metrics.go:56` (oracle_timeout) | constructor_local | ServeHTTP | `HandlerFunc` | (gopls null) | `sound` (high/med) |
+| 2–20 | CaddyModule / Adapter / ConfigLoader / StorageConverter / ConnectionState / Encoding / MiddlewareHandler sites | (mixed) | (mixed) | ⊆ gopls | superset | `sound` (high) |
+
+**The one `prism_fp` (site-1):** the source is the 3-arg `handler.ServeHTTP(rr, req, next)` — the
+`MiddlewareHandler` signature. prism's constructor-local recovery minted the 2-arg `HandlerFunc`
+(the `Handler` satisfier) for it: a **name-based arity conflation** (prism keys methods by name and
+does not check the call's arity/signature against the candidate method's). A genuine false edge,
+**test-only**. site-0 (`metrics.go:56`, gopls timed out): the 2-arg `next.ServeHTTP(d, r)` is the
+canonical `Handler` form and `HandlerFunc` is a real satisfier → `sound` per the null-oracle rule.
+
+**Persistence + gate (verified end-to-end):**
+- 1 record appended to `eval/adjudications.jsonl`: `corpus=caddy · measurement=interface_dispatch ·
+  direction=prism_only · verdict=prism_fp · site_fingerprint=498353d980a73060 ·
+  dispatch_kind=constructor_local`. (The 20 `sound` sites carry no store record — they have no
+  prism-only edge to adjudicate; `sound` is not a legal store verdict.) The store re-validates.
+- `gate_report(direction="interface_dispatch", prism_only_keys={site-1 byte_key})` joins it:
+  constructor_local `corrected_fp=1, pending=0`; type_assertion (24 dispatch @ fanout 61) / typed_param
+  (26 @ 11) / var_local (0) all `corrected_fp=0`. Total 63 dispatch, 1 corrected_fp — matches the oracle.
+- **Integration fix folded in:** the Slice-E `implementers` field broke `tier_a.manifest.load_manifest`
+  (`ManifestSite(**s)` rejected the new key); added `implementers: tuple[str, ...] = ()` + an explicit
+  forward-compatible loader + a TDD test (legacy manifests still load).
+
+**Precision follow-up (new, see deferred doc):** arity/signature-disambiguate same-named interface
+methods so a 3-arg `MiddlewareHandler.ServeHTTP` site does not mint the 2-arg `Handler`/`HandlerFunc`
+satisfier (and vice-versa). This is the single FP the audit found; it is a name-vs-signature gap, not a
+receiver-recovery gap.
+
+**Remaining (owner-gated):** the 5-corpus re-baseline (`cd eval && uv run tier-a --corpus all`) — the
+deliberate anchor update in `docs/eval/tier-a/` that moves the caddy metric, recorded not silent (§3 step 3).
