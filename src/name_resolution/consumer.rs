@@ -1,8 +1,9 @@
-//! Inert consumer-facing helpers for the Rust scope graph (Task 4a).
+//! The live shared consumer safety layer for the Rust scope graph (Task 4a).
 //!
-//! Nothing in production calls these yet. PR-3's call narrowing and module-deps
-//! consumers will use this layer so both share the same authority and
-//! recall-safety predicates.
+//! `resolution.rs` (call narrowing + qualified-`::`) and `navigation/module_graph.rs`
+//! (module-deps) both go through this layer so they share one authority gate
+//! (`authoritative_for`) and the same recall-safety predicates — edge/narrow only
+//! on an authoritative `Resolved` single in-repo callable; everything else falls through.
 
 use crate::call_graph::{CallKind, CallSite};
 use crate::name_resolution::engine::{resolve, resolve_path};
