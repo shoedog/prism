@@ -48,14 +48,12 @@ pub struct UnitId(pub u32);
 /// Rust: Type=0 / Value=1 / Macro=2 (conventional; policy owns the registry).
 pub type NamespaceId = u16;
 
-/// Visibility kind discriminant.  Policy-owned.
-/// Rust: pub=0 / pub(crate)=1 / pub(super)=2 / pub(in)=3 / priv=4
-/// (conventional; policy owns the registry).
+/// Visibility kind discriminant.  Policy-owned (policy owns the registry).
+/// Rust: pub=0 / pub(crate)=1 / pub(super)=2 / pub(in)=3 / priv=4 (conventional).
 pub type VisKindId = u16;
 
-/// Edge kind discriminant.  Policy-owned.
-/// Rust: Glob=1 (conventional; lexical ascent is a structural engine step, not
-/// an edge kind — policy owns the registry).
+/// Edge kind discriminant.  Policy-owned (lexical ascent is structural, not an edge).
+/// Rust: Glob=1 (conventional; policy owns the registry).
 pub type EdgeKindId = u16;
 
 // ── Source locations ─────────────────────────────────────────────────────────
