@@ -494,12 +494,14 @@ fn module_deps_repo_map_live_smoke() {
     assert_eq!(v["query"], "module-deps:src/main.rs");
     assert!(v["items"].is_array());
     assert!(v.get("graph").is_none(), "module-deps is a flat item list");
-    // every item, if any, is call-derived on a Rust file (no spurious imports).
+    // Rust module-deps may now include scope-graph import edges plus
+    // unresolved/external labels for std/dep imports, but no external-index
+    // results.
     assert!(v["items"]
         .as_array()
         .unwrap()
         .iter()
-        .all(|it| it["source"] == "PrismCpg"));
+        .all(|it| it["source"] == "PrismCpg" || it["source"] == "HeuristicImport"));
 
     let rm = bin()
         .args(["nav", "repo-map", "--repo", ".", "--format", "json"])

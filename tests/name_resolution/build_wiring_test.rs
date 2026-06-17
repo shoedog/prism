@@ -7,7 +7,7 @@ use prism::name_resolution::rust_policy::{RustPolicy, NS_TYPE, NS_VALUE};
 use prism::name_resolution::rust_populator::{enclosing_scope, file_id};
 use prism::name_resolution::types::{Anchor, RawPath, ResStatus, SourceLoc};
 use prism::navigation::module_graph::module_deps;
-use prism::navigation::types::SymbolRef;
+use prism::navigation::types::{Reason, SymbolRef};
 use prism::navigation::{queries, NavigationIndex, NavigationSession};
 use prism::repo_loader::{load_repo, scope_graph_build_inputs};
 use std::collections::{BTreeMap, BTreeSet};
@@ -299,7 +299,7 @@ fn malformed_member_manifest_does_not_discard_valid_sibling_manifest() {
 }
 
 #[test]
-fn inert_nav_and_resolution_outputs_ignore_scope_graph() {
+fn module_deps_consumes_scope_graph_but_resolution_output_stays_inert() {
     let repo_dir = write_repo(&[
         (
             "Cargo.toml",
@@ -324,10 +324,29 @@ fn inert_nav_and_resolution_outputs_ignore_scope_graph() {
         repo: Arc::clone(&repo),
         index: Arc::new(nav_without),
     };
-    assert_eq!(
-        serde_json::to_string(&module_deps(&s_with, "src/lib.rs")).unwrap(),
-        serde_json::to_string(&module_deps(&s_without, "src/lib.rs")).unwrap(),
-        "module-deps must not consume scope_graph in PR-2"
+    let deps_with = module_deps(&s_with, "src/lib.rs");
+    let deps_without = module_deps(&s_without, "src/lib.rs");
+    assert!(
+        deps_with.items.iter().any(|it| {
+            it.why.iter().any(|r| {
+                matches!(
+                    r,
+                    Reason::ResolvedImport {
+                        module,
+                        target_file
+                    } if module == "target" && target_file == "src/util.rs"
+                )
+            })
+        }),
+        "authoritative scope graph should add the resolved Rust import edge"
+    );
+    assert!(
+        deps_without.items.iter().all(|it| {
+            !it.why
+                .iter()
+                .any(|r| matches!(r, Reason::ResolvedImport { .. }))
+        }),
+        "without a scope graph module-deps must keep the existing fallback"
     );
 
     let site_with = s_with

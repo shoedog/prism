@@ -172,7 +172,7 @@ pub(crate) enum UseItem {
         anchor: Anchor,
     },
     /// A glob (`use a::*`): a deferred-glob poison edge (no member expansion).
-    Glob,
+    Glob { path: RawPath, anchor: Anchor },
 }
 
 /// Flatten a `use_declaration`'s `argument` into the list of [`UseItem`]s it
@@ -254,7 +254,16 @@ fn flatten_use_tree(
             }
         }
         "use_wildcard" => {
-            out.push(UseItem::Glob);
+            let segs = node
+                .child_by_field_name("path")
+                .or_else(|| node.named_child(0))
+                .map(|path| scoped_segments(pf, &path, prefix))
+                .unwrap_or_else(|| prefix.to_vec());
+            let (anchor, path_segs) = anchor_of_segments(&segs, edition);
+            out.push(UseItem::Glob {
+                path: RawPath(path_segs),
+                anchor,
+            });
         }
         _ => {}
     }

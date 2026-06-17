@@ -6,9 +6,7 @@ use tree_sitter::Node;
 
 use crate::ast::ParsedFile;
 use crate::name_resolution::rust_policy::{NS_TYPE, NS_VALUE, VIS_PUB};
-use crate::name_resolution::types::{
-    Anchor, BindTarget, ExternRef, FileId, RawPath, ScopeId, ScopeKind, Target,
-};
+use crate::name_resolution::types::{BindTarget, ExternRef, FileId, ScopeId, ScopeKind, Target};
 
 use super::super::builder::{join, parent_dir, scope_target, Builder};
 use super::super::scopes::{
@@ -235,11 +233,11 @@ pub(in crate::name_resolution::rust_populator::walk) fn walk_use(
                     vec![extent.clone()],
                 );
             }
-            UseItem::Glob => {
+            UseItem::Glob { path: p, anchor } => {
                 // Deferred-glob poison edge (no member expansion in Phase 1).
                 b.add_glob_edge(
                     scope,
-                    BindTarget::Pending(RawPath(vec![]), Anchor::default()),
+                    BindTarget::Pending(p, anchor),
                     v.clone(),
                     cond.clone(),
                     order,

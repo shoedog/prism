@@ -10,8 +10,8 @@ use crate::name_resolution::graph::ScopeGraph;
 use crate::name_resolution::rust_policy::{RustPolicy, NS_MACRO, NS_TYPE, NS_VALUE};
 use crate::name_resolution::rust_populator::enclosing_scope;
 use crate::name_resolution::types::{
-    BindTarget, Binding, Candidate, CfgCtx, Edge, FileId, PolicyQueryCtx, RawPath, ResStatus,
-    Resolution, ResolveQuery, ScopeId, SourceLoc, Target,
+    Anchor, AnchorKind, BindTarget, Binding, Candidate, CfgCtx, Edge, FileId, PolicyQueryCtx,
+    RawPath, ResStatus, Resolution, ResolveQuery, ScopeId, SourceLoc, Target,
 };
 
 /// A Rust import-like graph artifact that can contribute a module-deps edge.
@@ -129,7 +129,12 @@ fn resolve_named_import(graph: &ScopeGraph, binding: &Binding) -> ResolvedImport
                 &at,
                 &policy,
             );
-            import_from_resolution(graph, &res)
+            match import_from_resolution(graph, &res) {
+                ResolvedImport::Unresolved if known_external_import_path(path, anchor) => {
+                    ResolvedImport::External
+                }
+                other => other,
+            }
         }
     }
 }
@@ -158,7 +163,20 @@ fn resolve_glob_path(
     };
     let policy = RustPolicy::new(graph, graph.edition);
     let res = resolve_path(graph, path, NS_TYPE, anchor, from, NS_TYPE, &at, &policy);
-    import_from_resolution(graph, &res)
+    match import_from_resolution(graph, &res) {
+        ResolvedImport::Unresolved if known_external_import_path(path, anchor) => {
+            ResolvedImport::External
+        }
+        other => other,
+    }
+}
+
+fn known_external_import_path(path: &RawPath, anchor: &Anchor) -> bool {
+    matches!(anchor.kind, AnchorKind::UsePath | AnchorKind::LeadingColon)
+        && matches!(
+            path.0.first().map(String::as_str),
+            Some("std" | "core" | "alloc")
+        )
 }
 
 fn import_from_resolution(graph: &ScopeGraph, res: &Resolution) -> ResolvedImport {

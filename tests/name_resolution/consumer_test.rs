@@ -517,6 +517,24 @@ fn module_dep_edge_resolves_named_type_reexport_external_glob_and_unresolved() {
         ResolvedImport::External
     );
 
+    let pending_std = binding(
+        0,
+        "BTreeMap",
+        NS_TYPE,
+        BindTarget::Pending(
+            RawPath(vec![
+                "std".to_string(),
+                "collections".to_string(),
+                "BTreeMap".to_string(),
+            ]),
+            Anchor::use_path_2015(),
+        ),
+    );
+    assert_eq!(
+        graph_module_dep_edge(&g, GraphImport::Named(&pending_std)),
+        ResolvedImport::External
+    );
+
     let glob = Edge {
         from: ScopeId(0),
         kind: rust_policy::EK_GLOB,
