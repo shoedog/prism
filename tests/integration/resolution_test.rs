@@ -1928,3 +1928,77 @@ fn interface_dispatch_spread_call_keeps_all_candidates() {
         .expect("ServeHTTP site");
     assert_eq!(s["fanout"].as_u64(), Some(1));
 }
+
+// Direct unit coverage of the conservative `arity_admits`/`arity_filter` contract
+// (codex code-review do-now): every "unknown" keeps the candidate; only a known,
+// non-spread, non-variadic, exact mismatch drops.
+#[test]
+fn arity_admits_and_filter_keep_on_every_unknown() {
+    use prism::call_graph::{FunctionId, MethodArity};
+    use prism::resolution::{arity_admits, arity_filter};
+    use std::collections::BTreeMap;
+
+    let two = MethodArity {
+        params: 2,
+        variadic: false,
+    };
+    let variad = MethodArity {
+        params: 1,
+        variadic: true,
+    };
+
+    // Drops ONLY on a confident exact mismatch:
+    assert!(
+        !arity_admits(Some(3), false, Some(&two)),
+        "known 3 != 2, non-spread, non-variadic -> drop"
+    );
+    assert!(
+        arity_admits(Some(2), false, Some(&two)),
+        "exact match -> keep"
+    );
+    // Every unknown keeps:
+    assert!(
+        arity_admits(None, false, Some(&two)),
+        "unknown call arity -> keep"
+    );
+    assert!(
+        arity_admits(Some(3), false, None),
+        "missing method arity -> keep"
+    );
+    assert!(
+        arity_admits(Some(3), true, Some(&two)),
+        "spread call -> keep"
+    );
+    assert!(
+        arity_admits(Some(5), false, Some(&variad)),
+        "variadic candidate -> keep"
+    );
+
+    // arity_filter: a candidate with NO recorded MethodArity is kept (unknown -> keep),
+    // even against a confidently-known call arity.
+    let fid = FunctionId {
+        file: "x.go".into(),
+        name: "M".into(),
+        start_line: 1,
+        end_line: 1,
+    };
+    let impls = vec![fid.clone()];
+    let no_arity: BTreeMap<FunctionId, MethodArity> = BTreeMap::new();
+    assert_eq!(
+        arity_filter(&impls, Some(3), false, &no_arity).len(),
+        1,
+        "missing entry -> kept"
+    );
+    // And it DOES drop when the entry is present and mismatches.
+    let with_arity = BTreeMap::from([(fid.clone(), two.clone())]);
+    assert_eq!(
+        arity_filter(&impls, Some(3), false, &with_arity).len(),
+        0,
+        "known 3 != 2 -> dropped"
+    );
+    assert_eq!(
+        arity_filter(&impls, Some(2), false, &with_arity).len(),
+        1,
+        "known 2 == 2 -> kept"
+    );
+}
