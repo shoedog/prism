@@ -1,8 +1,12 @@
 # Name Resolution — Scope-Graph Architecture Design Spec (Rust first, C++-general)
 
-> **Status:** design spec, **iterating to SOUND under codex re-review — HOLD before plan/development**
-> (owner). **Rev 6** folds round-6 (which judged the design *"close enough to proceed with Rust Phase 1
-> after [these] fixes"*): (1) **module-boundary STOP** for bare Rust names — a nested module does NOT see
+> **Status: SOUND-WITH-CONCERNS — codex round 7 = GO for Rust Phase 1** (no remaining core-shape blocker;
+> "comprehensive enough to proceed to Rust Phase 1 slicing"). **Design-of-record, pending the owner's
+> explicit go-for-slicing** (HOLD on plan/development is owner-gated). **Rev 7** folds the 5 round-7
+> clarifications (all non-core): macro **wildcard** poison (§4.3b), C++ occurrence-visibility-by-policy
+> sentence (§1), `visible(binding,q,trav)` traversal-context signature (§1), qualified-`::` Phase-1-
+> safety-vs-Phase-3-precision wording (§9), stronger stable-ID keys (§8). **Rev 6** folded round-6 (which
+> judged the design *"close enough to proceed with Rust Phase 1 after [these] fixes"*): (1) **module-boundary STOP** for bare Rust names — a nested module does NOT see
 > a parent module's unqualified names (§4, the round-6 BLOCKER); (2) **`Target::Local` + `Item.callable`**
 > so a local `let f` shadows a free `fn f` without minting a wrong call edge; (3) Phase-1 **qualified `::`
 > graph-resolves or falls through** (not left on the legacy heuristic — §10); (4) a structured
@@ -97,10 +101,13 @@ struct ResolveQuery {            // extensible — C++ ADL/two-phase add fields 
 ```
 The **policy** supplies: per-rib **edge order**; **candidate-combination** (single `Resolved` vs overload
 `ResolvedSet` vs `Ambiguous`); anchor mapping; candidate **injection** (C++ ADL, from `q.ctx`); and —
-critically (round6-4) — a **`visible(binding, q) -> bool` HOOK**: the engine does **not** hard-code a
-span/`SourceLoc` accessibility check (that would be Rust-shaped); the policy decides visibility given the
-binding + query/traversal context (so C++ occurrence-qualified header visibility is a policy concern, not
-a fixed engine span test). The shared engine walks the graph + calls these hooks. Result is **per-candidate**:
+critically (round6-4 + round7-2/3) — a **`visible(binding, q, trav) -> bool` HOOK** where `trav` carries
+the **traversal context** (current edge, current lookup scope, provenance — needed for Rust glob-re-export
+visibility + C++ access). The engine does **not** hard-code a span/`SourceLoc` check (that would be
+Rust-shaped). **Binding visibility may be occurrence-qualified by the policy** (round7-2): for C++ header
+inclusion, `visible()` may consult `ResolveQuery.ctx` + the binding's `ScopeExtent.occ` (a decl is visible
+in a TU only *after* its include point) — visibility is fully a policy concern, not only an edge/span test.
+The shared engine walks the graph + calls these hooks. Result is **per-candidate**:
 
 ```
 struct Candidate { target: Target, cond: CfgCond, provenance: Provenance }  // why/where it came from
@@ -253,9 +260,13 @@ Rust populator+policy; §5 pressure-tests Go/Java/Python/TS-JS/C++. Nothing in �
    in `Value` lookup, so `fn f(){} fn g(){ let f=||{}; f() }` does NOT mis-narrow `f()` to the free fn.
    (Target may be a non-callable/local binding; the point is it *shadows* + thus narrowing stops there or
    falls through — never resolves to the outer fn.)
-3b. **Name-introducing macros — Phase 1 poison (rev-5/round5-7):** an *unexpanded* `macro_rules!`/proc-
-   macro invocation that may introduce items/`use` into a scope ⇒ mark that scope's affected names
-   `Poisoned` (like a deferred glob) so an outer same-name is never wrongly chosen. Full expansion = Phase 3.
+3b. **Name-introducing macros — Phase 1 WILDCARD poison (rev-5/round5-7 + rev-7/round7-1):** an
+   *unexpanded* item-position `macro_rules!`/proc/attribute macro can introduce *unknowable* names, so
+   Phase 1 must **wildcard-poison** the affected namespace/range of that scope (NOT a known name-set —
+   "affected names" isn't computable pre-expansion) — exactly like a deferred glob. So `m!(); f()` where
+   `m!` may emit `fn f` ⇒ `f` is `Poisoned` → fall through, never an outer in-repo `fn f`. (`macro_rules!`
+   textual scope, when populated: precise `vis_extents` — a later same-name macro shadows an earlier one,
+   and an outer macro becomes visible again after an inner shadowing scope ends.) Full expansion = Phase 3.
 
 **Rust `ResolutionPolicy`:** namespaces `{Type, Value, Macro}` (scope-bearing for `resolve_path`
 prefixes: Type/Module + `Item.owns`); per-rib order **local explicit Binding (incl. value/pattern, 3a) →
@@ -376,9 +387,11 @@ merge — a `mod`/`#[path]`/manifest change re-shapes unchanged files' resolutio
 results for unchanged callers must be **invalidated** (the Go-embedding recompute pattern). **Cache key
 (rev-3/M11)** = all relevant **manifests** (Cargo.toml workspace+members) + path/`#[path]` overrides +
 the **source-file set/existence** (a `mod foo;` resolves differently if `foo.rs` is added/removed) + cfg/
-feature inputs — not just edited-source hashes (today `cpg_cache.rs` hashes source only). **Stable IDs:**
-`ScopeId`/`ItemId` derived deterministically from `(crate, module-path, item-name, ns, ordinal)` (not
-insertion order) so the cache + goldens are stable across rebuilds. Bump `CACHE_VERSION` for the graph.
+feature inputs — not just edited-source hashes (today `cpg_cache.rs` hashes source only). **Stable IDs
+(rev-7/round7-5):** `ScopeId`/`ItemId` derived deterministically from `(crate, module-path, item-name,
+ns, ordinal)` **plus source `(file, byte)`, a condition fingerprint, and TU/`occ`** where applicable —
+needed to disambiguate the hard cases: cfg-duplicate modules, block locals, anonymous C++ namespaces,
+macro-generated/reopened extents, and same-name items in one module. Bump `CACHE_VERSION` for the graph.
 
 ## §9 Phasing (architecture whole; build sliced — plan owns PR lines; HELD pending owner)
 - **Phase 1 (the F3 win):** scope-graph core (incl. `Pending` bindings, multi-extent scopes,
@@ -388,9 +401,10 @@ insertion order) so the cache + goldens are stable across rebuilds. Bump `CACHE_
   enforce-or-fall-through**; cfg-formula *representation*) + consumers (module-deps edges + block-scope-
   aware Value-ns narrowing) + whole-repo rebuild/cache. Everything not modeled → strict fall-through.
 - **Phase 2:** glob member *expansion*; cfg *evaluation*; dep/external precision; richer visibility.
-- **Phase 3:** macros (textual scope); prelude; qualified `::`-call resolution via the graph; the **C++
-  populator**; Python/TS/JS populators (closing `inherited_override`/`from_import_alias`, block scoping,
-  TS namespace merging).
+- **Phase 3:** macros (textual scope); prelude; **full qualified `::`-call *precision* via the graph**
+  (NB rev-7/round7-4: Phase-1 *safety* for qualified `::` is already required — graph-resolve-or-disable-
+  legacy per §10; Phase 3 adds full precision, not the safety guarantee); the **C++ populator**;
+  Python/TS/JS populators (closing `inherited_override`/`from_import_alias`, block scoping, TS namespace).
 
 ## §10 Consumers
 - **module-deps/repo-map:** named-import/re-export `Binding`s + `Glob` edges, via `resolve`, → file
@@ -406,23 +420,26 @@ insertion order) so the cache + goldens are stable across rebuilds. Bump `CACHE_
   recall-safe. Full qualified-path precision via the graph is a later phase, but the *fall-through*
   guarantee is Phase 1.
 
-## §11 Open questions for the next re-review (round 7 — the go gate)
-Rev-6 folded round-6's blocker + majors: **module-boundary stop** for bare Rust names (§4), **`Target::
-Local` + `Item.callable`** (§1, local shadows w/o a wrong edge), **Phase-1 qualified `::` graph-or-fall-
-through** (§10), structured **`ResolveQuery` + `visible()` policy hook** (§1, ADL/occurrence = policy).
-Round 6 said the design is "close enough to proceed with Rust Phase 1 after [these]". Confirm:
-1. **Rust Phase-1 SOUNDNESS (the gate):** with the module-boundary stop + local-value bindings/`Target::
-   Local` + qualified-`::` fall-through + glob accessibility + macro/pending poison, is there ANY
-   remaining **common** Rust path that resolves **wrong** (not fall-through)? **Is Rust Phase 1 sound
-   enough to slice?**
-2. **The round-6 fixes — correct + complete?** module-boundary stop (incl. `super::`/`crate::` still
-   reaching ancestors); `Target::Local`/`callable` contract (consumers edge only `Item{callable}`);
-   qualified-`::` fall-through (legacy heuristic disabled where the graph is authoritative).
-3. **Engine↔policy contract:** is `ResolveQuery` + the `visible()` hook + open `Vis`/`EdgeKind` enough to
-   keep the engine language-agnostic AND make the C++ reservation (ADL query-ctx, occurrence visibility)
-   adequate to avoid re-architecture? Any Rust-ism still leaking into the engine?
-4. **JS/TS, Java, Go still data-model-complete** after the rev-6 changes (esp. `Target::Local` for their
-   locals, the `visible()` hook for their access rules)?
-5. **GO/NO-GO for Rust Phase-1 slicing.** If GO: confirm this spec is the design-of-record, name the
-   minimal Phase-1 surface, and the spec→plan transition can proceed (other languages/C++ built later
-   from the reserved/data-model-complete shapes). If NO-GO: the specific remaining wrong-resolution path.
+## §11 Round-7 verdict (the go gate): GO for Rust Phase 1
+Codex round 7 (gpt-5.5 xhigh): **SOUND-WITH-CONCERNS, no remaining core-shape blocker — "comprehensive
+enough to proceed to Rust Phase 1 slicing, provided the Phase-1 plan preserves the spec's fall-through/
+poison rules exactly."** All Rust §2 rows + C++ §2.5 representable with **no core change**; round-6 fixes
+confirmed correct; engine↔policy seam clean (no Rust-ism in the engine); Go/Java/Python/TS-JS still fit
+(`Target::Local` + `visible()` help them). The 5 round-7 findings (folded into rev 7) are non-core:
+macro **wildcard** poison (§4.3b), C++ occurrence-visibility-by-policy (§1), `visible()` traversal-ctx
+signature (§1), qualified-`::` phasing wording (§9), stronger stable-ID keys (§8).
+
+### Minimal Rust Phase-1 surface (codex §11.5 — the Phase-1 plan must include exactly this, no more)
+core graph types · Rust crate/module/block **populator** · pending import/re-export **fixpoint** ·
+Rust **anchor policy** (editions; module-boundary stop) · **local/value shadow bindings** (`Target::
+Local`) · **visibility enforce-or-fall-through** · **cfg condition carry** · **glob/macro/pending
+poison** (macro = wildcard) · **consumer replacement** for unqualified narrowing + **qualified-`::`
+safe fall-through** (disable the legacy heuristic where the graph is authoritative). Everything else
+(glob expansion, cfg evaluation, macro expansion, full qualified precision, prelude, C++/Py/TS/JS
+populators) is later phases — **recall-safe by fall-through**.
+
+### Carried into the Phase-1 plan (the "preserve exactly" rules)
+Resolved-or-fall-through (never wrong); per-rib local→glob→parent with **module-boundary stop** for bare
+names; **wildcard** macro poison + deferred-glob poison + pending-import poison (never reach an outer
+same-name); edge/narrow only on `Resolved` single-in-repo `Item{callable}`; whole-repo rebuild + the
+widened cache key. **Status: design-of-record; spec→plan pending the owner's go-for-slicing.**
