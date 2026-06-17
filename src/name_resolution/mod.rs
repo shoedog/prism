@@ -12,4 +12,5 @@
 pub mod engine;
 pub mod graph;
 pub mod rust_policy;
+pub mod rust_populator;
 pub mod types;
