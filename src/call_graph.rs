@@ -41,6 +41,15 @@ pub struct CallSite {
     /// derived from the same scan as receiver_type.
     #[serde(default)]
     pub receiver_recovery: Option<crate::resolution::ReceiverRecovery>,
+    /// Number of arguments at the call site. `None` = not captured / unknown
+    /// (the arity-disambiguation filter treats `None` as "keep").
+    /// Excluded from cmp_key — positional data, not part of logical identity.
+    #[serde(default)]
+    pub arg_count: Option<usize>,
+    /// `true` when the last argument is a Go spread (`xs...`).
+    /// Excluded from cmp_key — same rationale as `arg_count`.
+    #[serde(default)]
+    pub arg_spread: bool,
 }
 
 /// Parameter arity for a method definition (language-agnostic shape).
@@ -229,6 +238,8 @@ impl CallGraph {
                         ),
                         receiver_type: None,
                         receiver_recovery: None,
+                        arg_count: None,
+                        arg_spread: false,
                     };
                     calls
                         .entry(caller_id.clone())
@@ -411,8 +422,16 @@ impl CallGraph {
                         .go_receiver_var(&func_node)
                         .map(|n| parsed.node_text(&n).to_string());
 
-                    for (callee_name, line, qualifier, start_byte, end_byte, receiver_expr) in
-                        call_sites
+                    for (
+                        callee_name,
+                        line,
+                        qualifier,
+                        start_byte,
+                        end_byte,
+                        receiver_expr,
+                        arg_count,
+                        arg_spread,
+                    ) in call_sites
                     {
                         let qualifier = Self::recover_self_receiver_qualifier(
                             parsed,
@@ -438,6 +457,8 @@ impl CallGraph {
                             qualifier,
                             receiver_type: recovered.as_ref().map(|r| r.static_type.clone()),
                             receiver_recovery: recovered.as_ref().map(|r| r.recovery),
+                            arg_count,
+                            arg_spread,
                         };
                         file_call_sites.push((caller_id.clone(), site));
                     }
@@ -517,6 +538,8 @@ impl CallGraph {
                                 qualifier: None,
                                 receiver_type: None,
                                 receiver_recovery: None,
+                                arg_count: None,
+                                arg_spread: false,
                             },
                         ));
                     }
@@ -547,6 +570,8 @@ impl CallGraph {
                                 qualifier: None,
                                 receiver_type: None,
                                 receiver_recovery: None,
+                                arg_count: None,
+                                arg_spread: false,
                             },
                         ));
                     }
@@ -630,6 +655,8 @@ impl CallGraph {
                                     qualifier: None,
                                     receiver_type: None,
                                     receiver_recovery: None,
+                                    arg_count: None,
+                                    arg_spread: false,
                                 },
                             ));
                         }
@@ -723,6 +750,8 @@ impl CallGraph {
                                         qualifier: None,
                                         receiver_type: None,
                                         receiver_recovery: None,
+                                        arg_count: None,
+                                        arg_spread: false,
                                     },
                                 ));
                             } else {
@@ -746,6 +775,8 @@ impl CallGraph {
                                             qualifier: None,
                                             receiver_type: None,
                                             receiver_recovery: None,
+                                            arg_count: None,
+                                            arg_spread: false,
                                         },
                                     ));
                                 }
@@ -1093,8 +1124,16 @@ impl CallGraph {
                     .map(|n| parsed.node_text(&n).to_string());
                 let file_imports_ref = imports.get(file_path);
 
-                for (callee_name, line, qualifier, start_byte, end_byte, receiver_expr) in
-                    call_sites
+                for (
+                    callee_name,
+                    line,
+                    qualifier,
+                    start_byte,
+                    end_byte,
+                    receiver_expr,
+                    arg_count,
+                    arg_spread,
+                ) in call_sites
                 {
                     let qualifier = Self::recover_self_receiver_qualifier(
                         parsed,
@@ -1120,6 +1159,8 @@ impl CallGraph {
                         qualifier,
                         receiver_type: recovered.as_ref().map(|r| r.static_type.clone()),
                         receiver_recovery: recovered.as_ref().map(|r| r.recovery),
+                        arg_count,
+                        arg_spread,
                     };
                     calls
                         .entry(caller_id.clone())

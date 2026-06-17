@@ -1702,3 +1702,31 @@ fn method_arity_records_param_count_excluding_receiver_and_variadic() {
     assert_eq!(variadic.len(), 1, "exactly one variadic Do");
     assert_eq!(variadic[0].params, 1, "one variadic param name");
 }
+
+#[test]
+fn callsite_records_go_argument_count_and_spread() {
+    use prism::languages::Language::Go;
+    let (cg, _) = build(&[(
+        "main.go",
+        "package main\n\
+         func f(a int, b int, c int) {}\n\
+         func variad(xs ...int) {}\n\
+         func g() { f(1, 2, 3); s := []int{1,2}; variad(s...) }\n",
+        Go,
+    )]);
+    let f = cg
+        .calls
+        .values()
+        .flatten()
+        .find(|s| s.callee_name == "f")
+        .expect("call f");
+    assert_eq!(f.arg_count, Some(3));
+    assert!(!f.arg_spread);
+    let v = cg
+        .calls
+        .values()
+        .flatten()
+        .find(|s| s.callee_name == "variad")
+        .expect("call variad");
+    assert!(v.arg_spread, "variad(s...) is a spread call");
+}

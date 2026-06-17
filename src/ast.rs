@@ -3530,6 +3530,8 @@ impl ParsedFile {
         usize,
         usize,
         Option<Node<'a>>,
+        Option<usize>, // arg_count
+        bool,          // arg_spread
     )> {
         use crate::queries::{get_query, QueryKind};
         use tree_sitter::StreamingIterator;
@@ -3554,6 +3556,25 @@ impl ParsedFile {
                                     self.language.call_function_qualifier(&capture.node);
                                 let qualifier =
                                     qualifier_node.map(|q| self.node_text(&q).to_string());
+                                let (arg_count, arg_spread) = self
+                                    .language
+                                    .call_arguments(&capture.node)
+                                    .map(|args| {
+                                        let mut count = 0usize;
+                                        let mut spread = false;
+                                        let mut cursor2 = args.walk();
+                                        for child in args.children(&mut cursor2) {
+                                            if !child.is_named() {
+                                                continue; // skip punctuation (, )
+                                            }
+                                            if child.kind() == "variadic_argument" {
+                                                spread = true;
+                                            }
+                                            count += 1;
+                                        }
+                                        (Some(count), spread)
+                                    })
+                                    .unwrap_or((None, false));
                                 calls.push((
                                     name,
                                     line,
@@ -3561,6 +3582,8 @@ impl ParsedFile {
                                     capture.node.start_byte(),
                                     capture.node.end_byte(),
                                     qualifier_node,
+                                    arg_count,
+                                    arg_spread,
                                 ));
                             }
                         }
@@ -3586,6 +3609,8 @@ impl ParsedFile {
             usize,
             usize,
             Option<Node<'a>>,
+            Option<usize>, // arg_count (None for manual fallback)
+            bool,          // arg_spread (false for manual fallback)
         )>,
     ) {
         let line = node.start_position().row + 1;
@@ -3599,6 +3624,7 @@ impl ParsedFile {
                     .map(|q| self.node_text(&q).to_string());
                 // Manual fallback surfaces no receiver node (None); type-assertion
                 // recovery is Go-only and Go uses the query path above.
+                // arg_count/arg_spread left as None/false — arity filter treats None as keep.
                 out.push((
                     name,
                     line,
@@ -3606,6 +3632,8 @@ impl ParsedFile {
                     node.start_byte(),
                     node.end_byte(),
                     None,
+                    None,
+                    false,
                 ));
             }
         }

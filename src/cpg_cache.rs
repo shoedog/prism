@@ -48,7 +48,8 @@ use std::path::{Path, PathBuf};
 /// - v8: Phase-IP CallGraph.promoted_aliases + embedding_gaps (Go embedding).
 /// - v9: Phase-IP CallGraph.interface_impls + interface telemetry.
 /// - v10: PR-2 ReceiverRecovery variants (TypeAssertion/VarDecl/SliceElem).
-const CACHE_VERSION: u32 = 10; // bincode ignores serde(default) for new trailing fields.
+/// - v11: CallSite arg_count/arg_spread (arity disambiguation).
+const CACHE_VERSION: u32 = 11; // bincode ignores serde(default) for new trailing fields.
 
 pub const SKIP_POLICY_VERSION: u32 = 1;
 
@@ -509,8 +510,9 @@ mod tests {
     }
 
     #[test]
-    fn cache_version_is_10_for_phase_ip_pr2() {
-        assert_eq!(super::CACHE_VERSION, 10);
+    fn cache_version_is_11_for_arity() {
+        // v11: CallSite arg_count/arg_spread (arity disambiguation).
+        assert_eq!(super::CACHE_VERSION, 11);
     }
 
     #[test]
