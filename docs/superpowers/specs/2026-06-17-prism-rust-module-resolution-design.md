@@ -1,249 +1,237 @@
-# Rust Module Resolution — Comprehensive Architecture Design Spec
+# Name Resolution — Scope-Graph Architecture Design Spec (Rust first, C++-general)
 
-> **Status:** design spec (architecture/schematic). Companion implementation plan (slicing):
-> `docs/superpowers/plans/2026-06-16-prism-rust-use-imports.md`. Supersedes that plan's rev-2/3
-> "common-conventions-only" architecture per owner direction: the *architecture* must represent the
-> **full** Rust module system up front (so phasing the implementation never forces a re-architecture);
-> *slicing* which phases ship when is the plan's job.
+> **Status:** design spec, **iterating to SOUND under codex re-review — HOLD before plan/development**
+> (owner). Rev 2 adopts a language-neutral **scope graph** as the core, replacing the rev-1
+> `module_path → file` map. Two codex reviews (rev-1 plan, rev-1 spec) found the map shape cannot
+> represent block-scoped `use`, Rust's 3 namespaces, cfg-conditioned duplicate modules, glob/re-export
+> edges, or edition-correct anchoring — and isn't C++-reusable. The scope-graph formalism (Néron–Tin–
+> Visser–Wachsmuth, *A Theory of Name Resolution*) represents all of it and generalizes across
+> languages. Companion plan (the F3 win) is **deferred** until this spec is SOUND.
 >
-> **Why comprehensive-up-front:** prism has been bitten by promising approximations (heuristics; the
-> rev-2 naive module map — codex found 2 BLOCKERs + 4 MAJORs in it) that missed the precision/recall
-> bar and required rewrites (original effort + rewrite = double waste). This spec designs the data
-> model + seam to represent *all* of Rust's module resolution; the implementation populates/consumes
-> progressively, but never needs to change shape.
+> **Standard:** comprehensive schematic up front, no naive approximation (prior approximations here
+> missed precision/recall and forced rewrites). The data model must *represent* the full system;
+> *populating/consuming* it is phased.
 
 ---
 
-## §1 Goal, consumers, and the language-agnostic seam
+## §1 Goal, the model, the seam
 
-**Goal:** a sound, complete-by-design model of "what does this Rust path/`use` refer to, and in which
-file(s)" — driving (a) `nav module-deps`/`repo-map` precise import edges and (b) import-aware call
-narrowing (the F3 fan-out fix), for the #1/dogfood language.
+**Goal:** sound, complete-by-design answers to "what does this Rust path/`use`/call name refer to, in
+which scope, in which file(s)" — driving (a) `nav module-deps`/`repo-map` precise import/re-export
+edges and (b) block-scope-aware import-aware call narrowing (the F3 fan-out fix). Designed so C++
+`using`/namespace resolution reuses the same core.
 
-**The seam (shared with C++ `using`/namespaces).** Resolution splits into a **language-specific
-populator/anchor-resolver** and a **language-agnostic resolution core**:
+**The core is a language-neutral scope graph.** Three node/edge families + a resolution algorithm:
 
 ```
-// language-agnostic. Keys are ABSOLUTE, crate-qualified module paths (anchor resolution —
-// crate::/self::/super::/edition rules — is the populator's job). A module maps to a SET of
-// files (Rust: 1 + inline submodules elsewhere; C++: a namespace spans many headers).
-struct ModuleGraph {
-    modules: Map<ModuleKey, ModuleNode>,   // ModuleKey = (CrateId, Vec<Ident>)
-    crates:  Map<CrateId, CrateNode>,
+ScopeId; ItemId; FileId; CfgCond (opaque condition expr, language-neutral)
+enum Namespace { Type, Value, Macro, /* C++ adds: Label? Tag? — extensible */ }
+enum Vis { Public, Restricted(ScopeId), Private }          // pub(in path) -> Restricted(scope)
+
+struct Scope {                 // a region that can hold bindings + out-edges
+    id: ScopeId, kind: ScopeKind, parent: Option<ScopeId>,  // lexical parent edge
+    file: FileId, range: ByteRange,        // source range — block-scoping is range containment
+    cond: Option<CfgCond>,                 // cfg-gated scope
 }
-struct ModuleNode {
-    files: Vec<FileId>,                    // defining file(s) (Vec for C++/inline generality)
-    defines: Map<Ident, ItemKind>,        // fns/types/traits/consts/submods defined here
-    reexports: Map<Ident, AbsPath>,       // `pub use` targets (re-export edges)
-    parent: Option<ModuleKey>,
+enum ScopeKind { Root, Module, Block, Type, Callable, ExternPrelude }  // lang-neutral; populator maps
+
+struct Binding {               // a name introduced INTO a scope (definition OR import alias)
+    scope: ScopeId, name: Ident, ns: Namespace,
+    target: Target, vis: Vis, cond: Option<CfgCond>, range: ByteRange,
+}                              // multiple Bindings may share (scope,name,ns): cfg-alts / genuine ambiguity
+enum Target { Scope(ScopeId), Item(ItemId, Namespace), External(ExternRef) }
+
+struct Edge {                  // how a scope reaches OTHER scopes' bindings
+    from: ScopeId, kind: EdgeKind, to: EdgeTo, cond: Option<CfgCond>,
 }
-trait ModuleResolver {
-    // resolve an already-anchor-normalized absolute path to its module + (optional) item + files,
-    // following re-export edges; glob => all public items of the terminal module.
-    fn resolve_absolute(&self, path: &AbsPath) -> Resolution;
-}
-struct Resolution { module: Option<ModuleKey>, item: Option<Ident>, files: Vec<FileId>,
-                    external: bool, via_reexport: Vec<ModuleKey> }
+enum EdgeKind { Lexical, Import /*use a::b (aliased)*/, Glob /*use a::* */, ReExport /*pub use*/ }
+enum EdgeTo { Resolved(ScopeId), Path(RawPath, /*anchor*/ Anchor) }  // Path resolved lazily/fixpoint
 ```
 
-**Invariant (the codex-BLOCKER fix, generalized):** anything Rust-specific — `crate::`/`self::`/`super::`
-anchors, lexical-module scope, the `foo.rs`-vs-`foo/mod.rs` directory rule, `#[path]`, editions — lives
-in the **Rust populator**, never in `ModuleGraph`/`ModuleResolver`. The core sees only absolute
-crate-qualified paths and multi-valued module→files. C++ reuses the core by populating it from
-namespace declarations and resolving `using`/`using namespace`/ADL anchors in a **C++ populator**.
+**Resolution** (`resolve(name, ns, from_scope, at_byte)`): scope-graph name lookup — collect visible
+`Binding`s for `(name, ns)` reachable from `from_scope` via a **well-founded edge order** (local →
+lexical-parent chain → import/glob/re-export edges), filtered by `Vis`, `at_byte` (block-scope range
+containment), and `CfgCond`; **detect ambiguity** (>1 distinct target under compatible conditions);
+guard import/re-export cycles; reach a fixpoint over `EdgeTo::Path` edges. Yields
+`Resolution { targets: Vec<(Target, CfgCond)>, status: Resolved|Ambiguous|Unresolved }`.
+
+**Seam invariant:** the scope graph + `resolve` are **language-neutral**. Everything Rust-specific —
+`crate::`/`self::`/`super::`, edition anchor rules, `mod`-file conventions, the 3 Rust namespaces'
+exact semantics — lives in the **Rust populator** (§4), which builds neutral scopes/bindings/edges and
+supplies an `Anchor` resolver. C++ (§5) adds a populator (namespaces, classes, `using`, overload sets,
+ADL) over the **same** core. No `CrateId`/`crate::`/edition leaks into the core (the prior seam's
+defect).
 
 ---
 
-## §2 The complete Rust module-resolution problem space
+## §2 The complete problem space (requirements the model is checked against)
 
-Enumerated so the architecture is checked against *all* of it (✦ = correctness-critical for common
-code; the rest is the long tail the architecture must still represent).
+✦ = correctness-critical for common code (must be Phase-1-correct: modeled, or strict-fall-through —
+never *wrong*). Each row maps to scope-graph elements in §6.
 
-### §2.1 Crate graph
-- ✦ Crate roots: `src/lib.rs` (lib), `src/main.rs` (bin). Multiple bins: `src/bin/*.rs`,
-  `src/bin/<name>/main.rs`. Also `tests/*.rs`, `benches/*.rs`, `examples/*.rs` — each is its own crate
-  with its own `crate::` root.
-- ✦ **Workspaces:** `[workspace] members = [...]`; each member is a separate crate. Cross-member
-  `use other_member::…` resolves to that member (in-repo).
-- Cargo.toml-driven overrides: `[lib] path`, `[[bin]] name/path`, `[[test]]/[[bench]]/[[example]]`,
-  `autobins`/`autotests` toggles.
-- ✦ **Dependencies + renames:** `[dependencies] foo = ...`, `bar = { package = "foo" }` (the extern
-  name `bar` ≠ package `foo`), `[dev-dependencies]`, `[build-dependencies]`. In-workspace deps resolve
-  to a member; out-of-workspace deps are **external** (known-but-not-in-repo, NOT a phantom).
-- **Editions** (`edition = "2015|2018|2021|2024"`): affect path anchoring (2015 paths are crate-root-
-  relative by default + `extern crate`; 2018+ uniform paths + bare-first-segment = extern crate),
-  macro import rules, and `dyn`/`async` keywords (orthogonal).
-- `extern crate foo;` (2015, and still legal): introduces `foo` into scope; `extern crate foo as bar;`.
-
-### §2.2 Module tree
-- ✦ `mod foo;` → `<child_dir>/foo.rs` **or** `<child_dir>/foo/mod.rs`, where `<child_dir>` is the
-  **declaring module's directory** (BLOCKER-2 fix): crate root → crate-src dir; a module in `foo.rs`
-  → `foo/`; a module in `foo/mod.rs` → `foo/`; an inline module `m` → `<containing module dir>/m/`.
-- ✦ Inline `mod foo { … }`: submodule in the **same file**; arbitrarily nested; **creates a path
-  segment AND a directory segment** for its own `mod` children.
-- ✦ `#[path = "rel/or/abs.rs"] mod foo;` and `#[path] mod foo { }` (path attr on inline changes the
-  child base dir). Overrides convention.
-- **cfg-gated** `#[cfg(...)] mod foo;` / `mod foo { #![cfg(...)] }`: for static analysis the policy is
-  **include all** (over-approximate; record the cfg as a condition) so a `NotReached` is never a false
-  proof — never silently drop a cfg-gated module.
-- Visibility (`pub`, `pub(crate)`, `pub(super)`, `pub(in path)`) on `mod` and items — needed for
-  re-export/glob correctness and for honest "is this reachable from there".
-
-### §2.3 Paths & `use`
-- ✦ Anchors: `crate::` (this crate's root), `self::` (lexical module), `super::`(×n) (ancestor of the
-  **lexical** module — BLOCKER-1: lexical, not file), bare `name::` (2018: extern crate `name`, else
-  in-scope item; 2015: crate-root or `self`), `::name::` (2018 extern / 2015 crate-root).
-- ✦ `use` forms: simple `use a::b`; alias `use a::b as c`; nested group `use a::{b, c::d}`; **`self` in
-  group** `use a::{self, b}` (imports the module `a` itself + `b`); glob `use a::*`; `pub use` /
-  `pub(in …) use` (**re-export** — adds a binding to the importing module's namespace).
-- ✦ **Item-vs-module ambiguity** (MAJOR-4): `use crate::engine` (module) vs `use crate::engine::start`
-  (item in module). Resolved by **longest-module-prefix**: descend module segments as far as they name
-  modules; the remainder is the item path.
-- ✦ **Re-export chains:** `pub use a::b;` then elsewhere `use crate::c::b` where `c` re-exports `b` →
-  follow re-export edges to the original definition (with a cycle guard).
-- Macro imports: `use foo::my_macro;` (2018), `#[macro_use] extern crate foo;` (2015), `macro_rules!`
-  textual scoping + `#[macro_export]` (crate-root visible) — a distinct namespace (macro vs type vs
-  value); model as item-kind on bindings.
-- Prelude: std/core prelude names resolvable without `use` (external; mark as resolved-external).
-
-### §2.4 Item resolution (beyond file)
-- ✦ The terminal `use`/path resolves to an **item** (fn/struct/trait/const/type/module/macro) in a
-  module — its `defining_module` + name (+ file). Glob → all public items of the terminal module.
-- Namespaces: Rust has 3 (types, values, macros); the same ident can bind in two (e.g. a unit struct
-  is both a type and a value). The binding table is keyed by `(Ident, Namespace)` where it matters;
-  for call-narrowing the **value** namespace is what counts.
+### §2.1 Rust crate graph
+- ✦ Crate roots: `src/lib.rs`, `src/main.rs`, `src/bin/*.rs`, `src/bin/<n>/main.rs`; `tests/`,
+  `benches/`, `examples/` (each its own crate/root scope). ✦ **Workspaces** (`[workspace] members`):
+  each member is a crate. ✦ **Dep extern-names + renames** (`bar = { package = "foo" }`): the in-source
+  name is `bar`; in-workspace deps → that member's Root scope, else `External`. Editions (2015/18/21/24)
+  change anchor semantics (§2.3). `[lib]`/`[[bin]]`/… path overrides; `autobins`.
+### §2.2 Rust module/scope tree
+- ✦ `mod foo;` → `<declaring-module-dir>/foo.rs` **or** `/foo/mod.rs` (declaring *module's* dir, not
+  the file's). ✦ inline `mod foo {}` (nested; own path + dir segment). ✦ **block scopes:** `use`/items
+  inside any `{}` (fn body, inner block) bind only within that range. `#[path="…"]` mod. ✦ cfg-gated /
+  **mutually-exclusive cfg duplicate** mods (`#[cfg(unix)] mod imp;` + `#[cfg(windows)] mod imp;`):
+  conditioned, never merged. `foo.rs` **and** `foo/mod.rs` both present = a rustc **error/ambiguous**
+  binding (not "prefer one"). Visibility on mods/items.
+### §2.3 Rust paths & `use`
+- ✦ Anchors: `crate::`, `self::`, `super::`×n (of the **lexical** scope), bare leading ident, `::name`
+  — **edition-dependent**: 2015 `use` paths are crate-root-relative, non-`use` bare paths lexical; 2018+
+  bare leading ident = name lookup w/ **extern-prelude** participation (not a dep-table check). ✦ `use`
+  forms: simple/alias/nested-group/`{self, …}`/glob/`pub use`(re-export)/`pub(in …)`. ✦ **item-vs-module**
+  (`use crate::engine` vs `…::start`) → longest-scope-prefix. ✦ **re-export chains** (`pub use` of a
+  `pub use`) — edge-follow with cycle guard. ✦ **glob re-export** (`pub use a::*`). Macros (3rd
+  namespace; `#[macro_export]`, `#[macro_use]`, `macro_rules!` textual order). `extern crate … as`.
+  Prelude (implicit).
+### §2.4 Rust item/namespace resolution
+- ✦ **3 namespaces** (Type, Value, Macro): one ident may bind in several (unit/tuple struct = Type +
+  Value; enum variants = Value). `use` can import multiple namespaces at once. Call-narrowing reads the
+  **Value** namespace; module-deps is namespace-agnostic (edge to file).
+### §2.5 C++ (the reuse target — §5)
+- Reopened/anonymous/inline namespaces; class/enum scopes; `using namespace` (≈Glob) / `using` decl
+  (≈Import); overload sets (multiple Value bindings per name); ADL; header inclusion (a namespace spans
+  many files → a scope with many file-ranges).
 
 ---
 
-## §3 Architecture — layers that represent §2
+## §3 The scope-graph core (language-neutral)
 
-### §3.1 Crate-graph layer (`CrateNode`)
-`CrateNode { id, name, kind, root_file, edition, deps: Map<extern_name, DepTarget> }` where
-`DepTarget = InRepoCrate(CrateId) | External(package)`. **Built from** Cargo.toml(s) when present
-(workspace members, `[lib]`/`[[bin]]`/… paths, `[dependencies]` + `package=` renames, `edition`),
-with **filename-convention fallback** when Cargo.toml is absent/partial (so a loose `src/lib.rs`
-without manifest still works). Multiple crate roots ⇒ multiple `CrateId`s; **`ModuleKey` is
-`(CrateId, path)`** so `crate::engine` never collides across crates (MAJOR-3 fix).
+### §3.1 Scopes & lexical structure
+A `Scope` is any binding region (`ScopeKind`); `parent` is the lexical enclosing scope; `(file, range)`
+gives source extent so **block-local `use`** binds only for calls whose byte is within `range`
+(BLOCKER-1 fix: scope+range, not `ModuleKey`). A file contributes many scopes (inline mods, blocks); a
+logical scope may span many file-ranges (C++ reopened namespace) — so scopes ↔ files is many-to-many,
+not a `file→module` function.
 
-### §3.2 Module-graph layer (`ModuleNode`)
-Built per crate by a worklist from the root: extract `mod` decls per file (`mod_item`: `name`,
-optional `body` = inline, optional `#[path]`), resolve each to its file via the **declaring module's
-directory** (§2.2), creating `ModuleNode`s keyed by `(CrateId, path)`. Inline modules create nodes
-backed by the same file but a **distinct path + child directory**. `#[path]` overrides the child base.
-cfg-gated mods are included (flagged). The inverse "file → module" is **not** a function (a file has
-many modules via inline) — the architecture instead carries the **lexical module on each `use`/decl
-at extraction time** (BLOCKER-1 fix), so `super::`/`self::` resolve against the lexical module, never a
-file-level guess.
+### §3.2 Bindings (namespace-qualified, conditioned)
+`(scope, name, ns) → Target`, with `Vis` + `CfgCond` + `range`. **Multiple bindings per `(scope,name,
+ns)`** are legal: cfg-alternatives (distinct `cond`) or genuine ambiguity (rustc error — recorded,
+surfaced, never silently picked). `Target::Item` carries the defining `ItemId` + its namespace
+(BLOCKER-2 fix: namespaces + item identity preserved, not `Option<Ident>`).
 
-### §3.3 Binding / use / re-export layer
-Per `ModuleNode`: `defines` (items declared lexically in that module), `uses` (each carrying its raw
-imported path + alias/glob/visibility + **its lexical `ModuleKey`**), and `reexports` (derived from
-`pub use`). Extraction walks the AST tracking the lexical module stack (inline-mod-aware) so every
-`use`/item is attributed to the correct `ModuleNode`.
+### §3.3 Edges (the non-lexical reachability)
+`Import`/`Glob`/`ReExport` edges (and `Lexical` for the parent chain) carry an `EdgeTo` that is either a
+`Resolved(ScopeId)` or an unresolved `Path` resolved at fixpoint. `Glob` brings *all* visible bindings
+of the target scope (a glob *edge*, not a map row — MAJOR-4 fix); `ReExport` makes a brought-in binding
+visible from `from` (re-export *edge*, chains followed with a cycle guard — MAJOR-5 fix). Edges carry
+`CfgCond`.
 
 ### §3.4 Resolution algorithm
-`resolve(raw_path, lexical_module)`:
-1. **Anchor-normalize** (Rust populator) → absolute `(CrateId, segs)`: `crate`→(crate,root);
-   `self`→lexical; `super`×n→ancestor(lexical,n); bare/`::` per edition (extern-crate via
-   `CrateNode.deps`, else in-crate); `extern crate` aliases applied.
-2. **Descend** `ModuleGraph` by `segs`, **longest module prefix** wins; at each `pub use` boundary
-   follow the **re-export edge** (cycle-guarded); a glob terminal expands to the module's public items.
-3. **Yield** `Resolution { module, item, files, external, via_reexport }`. External (dep / std
-   prelude) → `external: true, files: []` (known, not phantom). Unresolved (incomplete tree / unknown)
-   → empty — consumers **fall through** (recall-safe), never narrow on a guess.
+`resolve(name, ns, from_scope, at_byte, cfg_ctx)`:
+1. **Local** bindings of `from_scope` matching `(name, ns)`, `range ∋ at_byte`, visible, cfg-compatible.
+2. Else follow edges in well-founded order — **lexical parent chain**, then **import/re-export** edges
+   (resolving their `Path` targets recursively at fixpoint), then **glob** edges (lower priority, as in
+   Rust: an explicit `use` shadows a glob). Visibility + cfg filter at each hop; cycles guarded.
+3. **Ambiguity:** if ≥2 distinct `Target`s survive under *compatible* conditions → `Ambiguous`
+   (consumers fall through — never pick). Distinct cfg-exclusive targets → returned as conditioned
+   alternatives, not ambiguity.
+4. **Anchors** (`crate`/`self`/`super`/bare/`::`) are pre-resolved by the **populator's `Anchor`**
+   into a `from_scope` + starting edge set, per edition (the core just walks edges).
+Result: `Resolution { targets: [(Target, CfgCond)], status }`. **External** (dep/prelude) →
+`Resolved` to `External` (known, files `[]`). **Unresolved** → empty (fall through).
 
-### §3.5 Build, incremental, cache
-- Built once per repo at `CallGraph` build time, stored on `CallGraph` (or `CpgContext`).
-- **Incremental: whole-program rebuild after merge** (MAJOR-5) — a `mod`/`#[path]`/Cargo.toml change
-  in one file alters mappings for *unchanged* files, so the graph is recomputed over all files
-  post-merge (the established Go-embedding-promotion pattern: replace-not-merge). Cargo.toml is a build
-  input (re-read on change).
-- `CACHE_VERSION` bump iff the graph is serialized on `CallGraph` (it should be, to keep warm-cache
-  resolution); record the schema in the cache-version history.
+### §3.5 Conditions (cfg) — never merge exclusive worlds
+Scopes/bindings/edges carry an optional `CfgCond`. Default policy: **over-approximate** (include all
+cfg variants; attach the condition) so reasoning honesty holds and a `NotReached`/narrow is never a
+false proof; mutually-exclusive duplicate mods are **distinct conditioned bindings** (MAJOR-6 fix), so
+resolution returns conditioned alternatives, not a merged file set. Full cfg *evaluation* (picking a
+target platform) is deferred; representation is present now.
 
-### §3.6 Consumers (recall-safe)
-- **module-deps/repo-map:** each `use` → `resolve` → resolved file edge(s); external → resolved-external
-  label (not `UnresolvedModule`); truly-unresolved → `UnresolvedModule` (rare, long-tail). Replaces the
-  Rust call-derived-only contract.
-- **Unqualified-call narrowing:** in `resolution.rs`'s `qualifier==None`/no-`::` branch, **after**
-  local-def preference: if the bare callee name is a `use`-imported (or glob-imported) value-namespace
-  binding, `resolve` it and narrow `functions[name]` to the resolved file(s)/item. **Recall-safe:**
-  unresolved/external/ambiguous (>1 file, glob with multiple) → fall through unchanged; never drop.
-  Qualified `::` calls (R1/R2/R7) untouched.
+### §3.6 The seam
+The above is the entire language-neutral core. A `Populator` builds it; an `Anchor` resolver (populator-
+provided) maps language path-anchors to scope+edge starts. Consumers depend only on `resolve` +
+`Resolution`. C++ is a second populator (§5); nothing in §3 mentions Rust.
 
 ---
 
-## §4 Form → handling map (architecture coverage check)
+## §4 Rust populator (builds the scope graph)
+1. **Crate graph:** Cargo.toml(s) (workspace members, `[lib]`/`[[bin]]` paths, edition, `[dependencies]`
+   + `package=` renames) with filename-convention fallback → a `Root` scope per crate; dep extern-names
+   → edges to member Roots or `External`.
+2. **Module/scope tree:** per crate, worklist from Root: `mod_item` (name, `#[path]`, body=inline,
+   `#[cfg]`) → `Module` scopes via the **declaring module's directory** (foo.rs→foo/, foo/mod.rs→foo/,
+   inline→its path dir); `foo.rs`+`foo/mod.rs` both present → ambiguous binding. **Block scopes** for
+   fn bodies / blocks that introduce `use`/items.
+3. **Bindings & edges:** item defs → `Binding`s in the 3 namespaces (a unit struct → Type+Value, etc.);
+   `use` → `Import`/`Glob` edges (+ alias `Binding`s); `pub use` → `ReExport` edges; visibility/cfg
+   attached.
+4. **Anchor resolver (edition-aware):** `crate`→crate Root; `self`→lexical scope; `super`×n→ancestor;
+   2015 `use`-path→crate-root-relative; 2018+ bare leading ident→extern-prelude-or-lexical name lookup;
+   `::name`→extern; `extern crate … as` aliases. (Edition from Cargo.toml; default 2015 if absent —
+   verify.)
 
-| Rust form | Layer / handling | Phase |
+## §5 C++ populator (the reuse proof — design only; built in a later phase)
+Namespaces → `Module`-kind scopes (reopened namespace = one logical scope with many `(file, range)`
+contributions; anonymous → TU-`Block`-scoped; inline namespace → transparent re-export-like edge);
+classes/enums → `Type` scopes; `using namespace N;` → `Glob` edge; `using N::x;` → `Import` edge;
+overload sets → multiple `Value` `Binding`s per name (resolution returns the set); ADL → an anchor/
+augmentation in the C++ resolver. The core (§3) is unchanged — only a populator + anchor resolver are
+added. (This section is the *generality check*, not a Phase-1 deliverable.)
+
+## §6 Form → scope-graph mapping (coverage check)
+| Rust form | Scope-graph elements | Phase |
 |---|---|---|
-| `use a::b;` / `as` / nested / `{self, …}` | §3.3 extraction + §3.4 longest-prefix | 1 |
-| `use crate::m;` (module) vs `::m::item` (item) | §3.4 longest-module-prefix | 1 |
-| `crate::`/`self::`/`super::` (lexical) | §3.4.1 anchor-normalize w/ lexical module | 1 |
-| `mod foo;` → `foo.rs`/`foo/mod.rs` (correct base) | §3.2 declaring-module dir | 1 |
-| inline `mod foo {}` (nested) | §3.2 inline node, distinct path+dir | 1 |
-| multi-crate / workspace members | §3.1 `(CrateId, path)` keys | 1 |
-| Cargo.toml `[lib]`/`[[bin]]`/members/edition | §3.1 manifest parse (conv. fallback) | 1–2 |
-| `pub use` re-export **chains** | §3.3 reexports + §3.4.2 edge-follow | 2 |
-| glob `use a::*` expansion | §3.4.2 terminal glob → public items | 2 |
-| `#[path = "…"]` mod | §3.2 path-attr override | 2 |
-| cfg/feature-gated mods | §3.2 include-all + cfg flag | 2 |
-| dep renames (`package = `) / external | §3.1 `DepTarget::External` | 2 |
-| `extern crate` (2015) / `#[macro_use]` | §3.1 + §3.3 macro namespace | 3 |
-| macros (`my_macro!`, `#[macro_export]`) | §3.3 macro-namespace bindings | 3 |
-| visibility-aware resolution (`pub(in …)`) | §3.3 visibility on bindings | 3 |
-| std/core prelude | §3.4 external-resolved | 3 |
-| **NOT modeled** (out of scope) | proc-macro-*generated* mods/items; `build.rs`-generated code; full macro **expansion**; `include!()` | — |
+| block-local `use` | `Import` edge on a `Block` scope; `range`-gated resolve | 1 ✦ |
+| 3 namespaces; multi-ns `use` | `(name, ns)` binding keys; ns-tagged `Target::Item` | 1 ✦ |
+| `crate`/`self`/`super`/bare/`::` (editions) | `Anchor` resolver → scope+edge starts | 1 ✦ |
+| `mod foo;` correct dir; inline; nested | `Module` scopes w/ declaring-dir rule | 1 ✦ |
+| workspace / multi-crate / dep renames | Root scope per crate; extern-name edges | 1 ✦ |
+| `foo.rs`+`foo/mod.rs` both | ambiguous `Binding` (error state) | 1 ✦ |
+| `pub use` re-export **chain** | `ReExport` edges, fixpoint + cycle guard | 1 ✦ (else strict fall-through) |
+| `#[path]` mod | populator file override | 1 ✦ (detect → correct file or fall through) |
+| cfg / exclusive-cfg dup mods | `CfgCond` on scopes/bindings; conditioned alternatives | 1 (represent) / 2 (evaluate) |
+| glob `use a::*` (+ glob re-export) | `Glob`/`ReExport` edge; member expansion | 1 edge / 2 expand |
+| visibility `pub(in …)` filtering | `Vis::Restricted`; filter in resolve | 1 represent / 2 enforce |
+| macros (`#[macro_export]`, `macro_rules!`) | Macro-ns bindings; textual-order | 2–3 |
+| prelude / `#[no_implicit_prelude]` | `ExternPrelude` scope edge | 2–3 |
+| **NOT modeled (out):** proc-macro/`build.rs`-generated items, full macro **expansion**, `include!()` | — degrade to Unresolved→fall through | — |
 
-The architecture **represents** every in-scope row with the same `ModuleGraph`/`Resolution` shapes;
-later phases populate more (re-export edges, glob expansion, macro namespace, manifest depth) without
-changing the core. The "NOT modeled" rows are genuinely out (they require macro/proc-macro expansion or
-running build scripts) and degrade to **unresolved → fall through**, never wrong.
+## §7 Invariants (recall-safety is structural)
+- Narrow/edge **only** on `status==Resolved` to in-repo file(s) for the right `(name, Value-ns)` in the
+  call's scope+byte; `Ambiguous`/`Unresolved`/`External` → **fall through, never wrong** (MAJOR-5 fix —
+  no "resolve to the facade for now").
+- Block-scope (range) + namespace + visibility + cfg are all *filters in `resolve`*, not afterthoughts.
+- cfg over-approximate (never silently drop/merge). Determinism: sorted/ID-stable structures.
 
----
+## §8 Incremental & cache
+Whole-program rebuild of the scope graph after any incremental merge (a `mod`/`#[path]`/manifest change
+re-shapes unchanged files' resolution) — the established Go-embedding recompute pattern; import-narrowed
+results for unchanged callers must be invalidated. **Cargo.toml enters the cache key** (today the cache
+hashes source files only — `cpg_cache.rs`); bump `CACHE_VERSION` for the serialized graph.
 
-## §5 Phasing (architecture is whole; implementation is sliced — plan owns PR boundaries)
+## §9 Phasing (architecture whole; build sliced — plan owns PR lines; HELD pending owner)
+- **Phase 1 (the F3 win):** scope-graph core + Rust populator for the ✦ set (crate graph incl.
+  workspace+editions+dep-names; module+block scopes w/ correct dirs+inline+`#[path]`-detect; 3
+  namespaces; anchors; concrete `pub use` following; ambiguity/cfg *representation*) + consumers
+  (module-deps edges + block-scope-aware Value-ns narrowing) + whole-program rebuild/cache. Everything
+  not modeled → strict fall-through (never wrong).
+- **Phase 2:** glob member expansion; visibility enforcement; cfg evaluation; dep/external precision.
+- **Phase 3:** macros; prelude; qualified `::`-call resolution via the graph; the **C++ populator**.
 
-- **Phase 1 (first PR, the F3 win):** crate graph (convention + Cargo.toml-lite: members, edition,
-  `[lib]`/`[[bin]]` paths, dep names) · module graph (correct dirs, inline, lexical scope, `(CrateId,
-  path)`) · `use`/`mod` extraction (full path + lexical module) · resolution (anchors + longest-prefix;
-  re-export/glob/`#[path]` resolve to the re-exporting/declaring module for now — a real edge, not the
-  transitive original) · consumers (module-deps edges + unqualified narrowing) · whole-program
-  incremental rebuild + cache bump. **Covers the bulk of real Rust correctly.**
-- **Phase 2:** re-export *chain* following · glob member expansion · `#[path]` · cfg-flagging · dep
-  renames/external precision · deeper Cargo.toml.
-- **Phase 3:** macros (namespace + `#[macro_export]` + `#[macro_use]`/`extern crate`) · visibility-aware
-  resolution · prelude · qualified `::`-path call resolution via the graph (an R1/R2/R7 precision
-  upgrade).
+## §10 Consumers
+- **module-deps/repo-map:** `Import`/`ReExport`/`Glob` edges + resolved targets → file edges; `External`
+  → external label; `Unresolved` → `UnresolvedModule` (rare).
+- **Unqualified narrowing (`resolution.rs`):** for a bare call, `resolve(name, Value, call_scope,
+  call_byte)`; `Resolved` to one in-repo item/file → narrow; else fall through. Qualified `::` untouched
+  (Phase 3 upgrade).
 
-Each phase is recall-safe by construction: a form a phase hasn't populated resolves to empty/external →
-consumers fall through. No phase invalidates the architecture.
-
-## §6 C++ pairing (the seam reused, not re-architected)
-
-C++ `using`/namespaces populate the **same** `ModuleGraph`: a `namespace foo { }` (possibly reopened
-across many headers) → a `ModuleNode` with `files: Vec` (many); `using namespace foo;` ≈ a glob;
-`using foo::bar;` ≈ an item import; anonymous namespaces + ADL are the C++ populator's anchor rules.
-The resolution core (`resolve_absolute`, longest-prefix, re-export/`using`-edge follow, multi-file
-modules) is **unchanged** — only a C++ populator + anchor-resolver is added. This is why the value
-"amortizes across two languages" and why the seam must carry no Rust-isms (§1 invariant).
-
-## §7 Risks / invariants
-- **Recall-safety is structural:** narrowing/edges apply only on a **resolved** in-repo target; every
-  unresolved/external/ambiguous path falls through unchanged. The model never *guesses* a file.
-- **Lexical scope is load-bearing:** `super::`/`self::`/visibility correctness depends on per-`use`
-  lexical module attribution (not file) — the BLOCKER-1 fix is foundational, in Phase 1.
-- **Directory base is load-bearing:** `mod` child resolution uses the declaring module's canonical dir
-  (BLOCKER-2) — foundational, Phase 1.
-- **Whole-program rebuild** on any `mod`/manifest change (MAJOR-5) — no per-file merge of the graph.
-- **Over-approximate cfg** (include-all) so reasoning honesty holds; never silently drop a gated module.
-- **Determinism:** BTreeMap/sorted everywhere (prism convention) so cache + goldens are stable.
-
-## §8 Open questions for the codex re-review
-1. Is the `(CrateId, path)` + multi-file `ModuleNode` model sufficient to represent **every** §2 row,
-   or is there a Rust form that doesn't fit (forcing a core change rather than a populator addition)?
-2. Is the §1 seam truly C++-reusable, or does any Rust assumption still leak into the core?
-3. Phase-1 boundary: is anything in Phase 2/3 actually **correctness-critical for common code** (must
-   move to Phase 1), or is the recall-safe fall-through sufficient for the deferred rows?
-4. Anchor normalization across editions (2015 vs 2018 bare-path semantics) — is the §3.4.1 rule correct
-   and complete?
+## §11 Open questions for the next re-review
+1. Is `Scope/Binding/Edge/Target` + the §3.4 algorithm sufficient to represent **every** §2 row
+   (incl. C++ §2.5) with *no core change* — or does any form still force a core shape change?
+2. Is the well-founded edge order (lexical → import/re-export → glob, with visibility/cfg/range
+   filters + ambiguity) **correct** vs rustc name resolution (esp. glob-vs-explicit shadowing, 2015
+   vs 2018 anchoring, re-export cycles)?
+3. Does the `Anchor`-in-populator split keep the core truly language-neutral for C++ (§5), or does an
+   anchor/ADL/overload concept still need to live in the core?
+4. Phase-1 boundary: is any ✦ row still under-modeled such that a *common* path resolves **wrong**
+   (not merely unresolved)? Specifically re-export following, `#[path]`, and edition anchoring.
+5. Cfg representation: is `Option<CfgCond>` on scopes/bindings/edges enough, or is a richer
+   condition lattice needed to avoid merging exclusive worlds while staying recall-safe?
