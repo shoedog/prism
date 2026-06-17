@@ -9,7 +9,7 @@ use prism::name_resolution::types::{Anchor, RawPath, ResStatus, SourceLoc};
 use prism::navigation::module_graph::module_deps;
 use prism::navigation::types::SymbolRef;
 use prism::navigation::{queries, NavigationIndex, NavigationSession};
-use prism::repo_loader::load_repo;
+use prism::repo_loader::{load_repo, scope_graph_build_inputs};
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 use tempfile::TempDir;
@@ -69,6 +69,10 @@ fn whole_workspace_build_populates_complete_scope_graph() {
         ("src/util.rs", "pub fn target(){}\n"),
     ]);
     let repo = load_repo(repo_dir.path()).unwrap();
+    assert!(
+        repo.scope_graph_inputs.as_ref().unwrap().complete,
+        "whole workspace load should mark scope graph inputs complete"
+    );
     let ctx = CpgContext::build_with_scope_graph_inputs(
         &repo.files,
         repo.type_db.as_ref(),
@@ -85,6 +89,38 @@ fn whole_workspace_build_populates_complete_scope_graph() {
     assert_eq!(
         resolve_crate_value(&repo, &["util", "target"]),
         ResStatus::Resolved
+    );
+}
+
+#[test]
+fn review_diff_only_build_does_not_store_authoritative_scope_graph() {
+    let repo_dir = write_repo(&[
+        (
+            "Cargo.toml",
+            "[package]\nname = \"root\"\nedition = \"2021\"\n",
+        ),
+        ("src/lib.rs", "mod util;\nfn caller(){ util::target(); }\n"),
+        ("src/util.rs", "pub fn target(){}\n"),
+    ]);
+    let changed_only = BTreeMap::from([(
+        "src/lib.rs".to_string(),
+        ParsedFile::parse(
+            "src/lib.rs",
+            "mod util;\nfn caller(){ util::target(); }\n",
+            Language::Rust,
+        )
+        .unwrap(),
+    )]);
+    let inputs = scope_graph_build_inputs(repo_dir.path(), &changed_only);
+    assert!(
+        !inputs.complete,
+        "review/diff-only builds parse a subset and must not be authoritative"
+    );
+
+    let ctx = CpgContext::build_with_scope_graph_inputs(&changed_only, None, Some(&inputs));
+    assert!(
+        ctx.cpg.call_graph.scope_graph.is_none(),
+        "incomplete review builds must leave scope_graph unset"
     );
 }
 
@@ -222,6 +258,42 @@ fn macro_invocations_do_not_create_call_graph_or_nav_edges_in_pr2() {
                 if file == "src/lib.rs" && name == "foo"
         )),
         "nav callees must not include a foo!() -> fn foo edge"
+    );
+}
+
+#[test]
+fn malformed_member_manifest_does_not_discard_valid_sibling_manifest() {
+    let repo_dir = write_repo(&[
+        ("Cargo.toml", "[workspace]\nmembers = [\"good\", \"bad\"]\n"),
+        (
+            "good/Cargo.toml",
+            "[package]\nname = \"good\"\nedition = \"2021\"\n[lib]\npath = \"custom_lib.rs\"\n",
+        ),
+        ("good/custom_lib.rs", "pub fn good(){}\n"),
+        ("bad/Cargo.toml", "[package\nname = \"bad\"\n"),
+        ("bad/src/lib.rs", "pub fn bad(){}\n"),
+    ]);
+    let repo = load_repo(repo_dir.path()).unwrap();
+    let cfg = &repo.scope_graph_inputs.as_ref().unwrap().cfg;
+
+    assert_eq!(cfg.edition, 2021, "valid sibling edition must survive");
+    assert_eq!(
+        cfg.lib_path.as_deref(),
+        Some("good/custom_lib.rs"),
+        "valid sibling [lib] path must survive"
+    );
+    assert!(
+        cfg.crate_roots.iter().any(|p| p == "good/custom_lib.rs"),
+        "valid sibling manifest root must survive"
+    );
+    assert!(
+        cfg.crate_roots.iter().any(|p| p == "bad/src/lib.rs"),
+        "malformed sibling should fall back to convention for that member"
+    );
+    assert_eq!(
+        cfg.workspace_members,
+        vec!["bad".to_string(), "good".to_string()],
+        "workspace members from the valid root manifest must survive"
     );
 }
 

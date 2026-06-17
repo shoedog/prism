@@ -162,12 +162,13 @@ pub fn scope_graph_build_inputs(
     let manifest_hashes = collect_manifest_hashes(root);
     let cfg = parse_rust_crate_config(root, files, &manifest_hashes)
         .unwrap_or_else(|| RustCrateConfig::from_convention(files));
+    let complete = has_complete_file_coverage(root, files);
     ScopeGraphBuildInputs {
         repo_root: root.to_path_buf(),
         all_file_paths: files.keys().cloned().collect(),
         manifest_hashes,
         cfg,
-        complete: true,
+        complete,
     }
 }
 
@@ -206,6 +207,60 @@ fn collect_manifest_hashes_inner(root: &Path, dir: &Path, out: &mut BTreeMap<Str
     }
 }
 
+fn has_complete_file_coverage(root: &Path, files: &BTreeMap<String, ParsedFile>) -> bool {
+    let Some(expected) = collect_supported_source_paths(root) else {
+        return false;
+    };
+    let actual: BTreeSet<String> = files.keys().cloned().collect();
+    actual == expected
+}
+
+fn collect_supported_source_paths(root: &Path) -> Option<BTreeSet<String>> {
+    let mut out = BTreeSet::new();
+    collect_supported_source_paths_inner(root, root, &mut out).ok()?;
+    Some(out)
+}
+
+fn collect_supported_source_paths_inner(
+    root: &Path,
+    dir: &Path,
+    out: &mut BTreeSet<String>,
+) -> std::io::Result<()> {
+    for entry in std::fs::read_dir(dir)? {
+        let entry = entry?;
+        let path = entry.path();
+        let name = entry.file_name().to_string_lossy().to_string();
+        let file_type = entry.file_type()?;
+
+        if BUILTIN_SKIP_DIRS.contains(&name.as_str())
+            && (file_type.is_dir() || file_type.is_symlink())
+        {
+            continue;
+        }
+        if file_type.is_symlink() {
+            continue;
+        }
+        if file_type.is_dir() {
+            if !name.starts_with('.') {
+                collect_supported_source_paths_inner(root, &path, out)?;
+            }
+            continue;
+        }
+        if !file_type.is_file() {
+            continue;
+        }
+
+        let relp = rel(root, &path);
+        if Language::from_path(&relp).is_none() {
+            continue;
+        }
+        if entry.metadata()?.len() <= MAX_FILE_BYTES {
+            out.insert(relp);
+        }
+    }
+    Ok(())
+}
+
 fn parse_rust_crate_config(
     root: &Path,
     files: &BTreeMap<String, ParsedFile>,
@@ -223,8 +278,12 @@ fn parse_rust_crate_config(
 
     for manifest_path in manifest_hashes.keys() {
         let abs = root.join(manifest_path);
-        let text = std::fs::read_to_string(&abs).ok()?;
-        let value: toml::Value = text.parse().ok()?;
+        let Ok(text) = std::fs::read_to_string(&abs) else {
+            continue;
+        };
+        let Ok(value) = text.parse::<toml::Value>() else {
+            continue;
+        };
         parsed_any = true;
         let manifest_dir = manifest_path
             .strip_suffix("Cargo.toml")
