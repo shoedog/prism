@@ -3,7 +3,7 @@
 //! statement classification.
 
 use crate::access_path::AccessPath;
-use crate::call_graph::CallGraph;
+use crate::call_graph::{CallGraph, ScopeGraphBuildInputs};
 use crate::cfg;
 use crate::data_flow::{DataFlowGraph, VarAccessKind};
 use crate::resolution::ResolutionConfidence;
@@ -128,12 +128,32 @@ impl CodePropertyGraph {
         files: &BTreeMap<String, ParsedFile>,
         type_db: Option<&TypeDatabase>,
     ) -> Self {
-        Self::build_impl(files, type_db.cloned())
+        let inputs = ScopeGraphBuildInputs::from_files_convention(files);
+        Self::build_impl(files, type_db.cloned(), Some(&inputs))
     }
 
-    fn build_impl(files: &BTreeMap<String, ParsedFile>, type_db: Option<TypeDatabase>) -> Self {
+    pub fn build_enriched_with_scope_graph_inputs(
+        files: &BTreeMap<String, ParsedFile>,
+        type_db: Option<&TypeDatabase>,
+        scope_inputs: Option<&ScopeGraphBuildInputs>,
+    ) -> Self {
+        Self::build_impl(files, type_db.cloned(), scope_inputs)
+    }
+
+    pub(crate) fn build_enriched_without_scope_graph(
+        files: &BTreeMap<String, ParsedFile>,
+        type_db: Option<&TypeDatabase>,
+    ) -> Self {
+        Self::build_impl(files, type_db.cloned(), None)
+    }
+
+    fn build_impl(
+        files: &BTreeMap<String, ParsedFile>,
+        type_db: Option<TypeDatabase>,
+        scope_inputs: Option<&ScopeGraphBuildInputs>,
+    ) -> Self {
         let dfg = DataFlowGraph::build(files);
-        let cg = CallGraph::build(files);
+        let cg = CallGraph::build_with_scope_graph_inputs(files, scope_inputs);
         Self::assemble_graph(cg, dfg, files, type_db)
     }
 
@@ -141,7 +161,8 @@ impl CodePropertyGraph {
     ///
     /// Convenience method — equivalent to `build_impl(files, Some(type_db))`.
     pub fn build_with_types(files: &BTreeMap<String, ParsedFile>, type_db: TypeDatabase) -> Self {
-        Self::build_impl(files, Some(type_db))
+        let inputs = ScopeGraphBuildInputs::from_files_convention(files);
+        Self::build_impl(files, Some(type_db), Some(&inputs))
     }
 
     /// Build a CPG incrementally from a cached CG/DFG and a set of changed files.
@@ -164,11 +185,30 @@ impl CodePropertyGraph {
     /// code. Use `--no-cache` for C/C++ reviews with heavy function pointer
     /// usage.
     pub fn build_incremental(
+        cached_cg: CallGraph,
+        cached_dfg: DataFlowGraph,
+        changed_files: &BTreeSet<String>,
+        files: &BTreeMap<String, ParsedFile>,
+        type_db: Option<TypeDatabase>,
+    ) -> Self {
+        let inputs = ScopeGraphBuildInputs::from_files_convention(files);
+        Self::build_incremental_with_scope_graph_inputs(
+            cached_cg,
+            cached_dfg,
+            changed_files,
+            files,
+            type_db,
+            Some(&inputs),
+        )
+    }
+
+    pub fn build_incremental_with_scope_graph_inputs(
         mut cached_cg: CallGraph,
         mut cached_dfg: DataFlowGraph,
         changed_files: &BTreeSet<String>,
         files: &BTreeMap<String, ParsedFile>,
         type_db: Option<TypeDatabase>,
+        scope_inputs: Option<&ScopeGraphBuildInputs>,
     ) -> Self {
         // Step 1: Remove stale data for changed files.
         cached_cg.remove_files(changed_files);
@@ -191,6 +231,7 @@ impl CodePropertyGraph {
         // leave a stale alias (remove_files prunes methods by fid.file only).
         cached_cg.apply_go_embedding_promotion(files);
         cached_cg.apply_go_interface_dispatch(files);
+        cached_cg.rebuild_scope_graph(files, scope_inputs);
 
         Self::assemble_graph(cached_cg, cached_dfg, files, type_db)
     }

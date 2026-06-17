@@ -49,7 +49,8 @@ use std::path::{Path, PathBuf};
 /// - v9: Phase-IP CallGraph.interface_impls + interface telemetry.
 /// - v10: PR-2 ReceiverRecovery variants (TypeAssertion/VarDecl/SliceElem).
 /// - v11: CallSite arg_count/arg_spread (arity disambiguation).
-const CACHE_VERSION: u32 = 11; // bincode ignores serde(default) for new trailing fields.
+/// - v12: Rust ScopeGraph stored in CallGraph + CallSite.kind + topology key.
+const CACHE_VERSION: u32 = 12; // bincode ignores serde(default) for new trailing fields.
 
 pub const SKIP_POLICY_VERSION: u32 = 1;
 
@@ -70,6 +71,10 @@ struct CpgCache {
     skip_policy_version: u32,
     /// Per-file content hashes (SHA-256 hex) at time of cache creation.
     file_hashes: BTreeMap<String, String>,
+    /// Shape/config key: source file existence + manifest hashes. A mismatch
+    /// forces a full miss rather than an incremental source-content rebuild.
+    #[serde(default)]
+    topology_key: BTreeMap<String, String>,
     /// Whether the cached CPG was built with a TypeDatabase present.
     /// When true, the graph contains virtual dispatch Call edges (Step 9).
     /// A mismatch between this flag and the current `type_db` availability
@@ -124,6 +129,20 @@ pub fn compute_file_hashes(sources: &BTreeMap<String, String>) -> BTreeMap<Strin
         .collect()
 }
 
+pub fn compute_topology_key(
+    source_hashes: &BTreeMap<String, String>,
+    manifest_hashes: &BTreeMap<String, String>,
+) -> BTreeMap<String, String> {
+    let mut key = BTreeMap::new();
+    for path in source_hashes.keys() {
+        key.insert(format!("source:{path}"), "present".to_string());
+    }
+    for (path, hash) in manifest_hashes {
+        key.insert(format!("manifest:{path}"), hash.clone());
+    }
+    key
+}
+
 /// Path to the binary cache file within the cache directory.
 fn cache_bin_path(cache_dir: &Path) -> PathBuf {
     cache_dir.join("cpg-cache.bin")
@@ -144,6 +163,17 @@ fn cache_meta_path(cache_dir: &Path) -> PathBuf {
 pub fn save_cache(
     cpg: &CodePropertyGraph,
     file_hashes: &BTreeMap<String, String>,
+    has_type_db: bool,
+    cache_dir: &Path,
+) -> io::Result<()> {
+    let topology_key = compute_topology_key(file_hashes, &BTreeMap::new());
+    save_cache_with_topology(cpg, file_hashes, &topology_key, has_type_db, cache_dir)
+}
+
+pub fn save_cache_with_topology(
+    cpg: &CodePropertyGraph,
+    file_hashes: &BTreeMap<String, String>,
+    topology_key: &BTreeMap<String, String>,
     has_type_db: bool,
     cache_dir: &Path,
 ) -> io::Result<()> {
@@ -176,6 +206,7 @@ pub fn save_cache(
         git_sha: env!("GIT_SHA").to_string(),
         skip_policy_version: SKIP_POLICY_VERSION,
         file_hashes: file_hashes.clone(),
+        topology_key: topology_key.clone(),
         has_type_db,
         graph: SerializedCpg {
             nodes,
@@ -247,6 +278,16 @@ pub fn load_cache(
     has_type_db: bool,
     cache_dir: &Path,
 ) -> CacheResult {
+    let topology_key = compute_topology_key(current_hashes, &BTreeMap::new());
+    load_cache_with_topology(current_hashes, &topology_key, has_type_db, cache_dir)
+}
+
+pub fn load_cache_with_topology(
+    current_hashes: &BTreeMap<String, String>,
+    current_topology_key: &BTreeMap<String, String>,
+    has_type_db: bool,
+    cache_dir: &Path,
+) -> CacheResult {
     let bin_path = cache_bin_path(cache_dir);
     let data = match fs::read(&bin_path) {
         Ok(d) => d,
@@ -305,6 +346,10 @@ pub fn load_cache(
             cache.git_sha,
             env!("GIT_SHA")
         );
+        return CacheResult::Miss;
+    }
+
+    if cache.topology_key != *current_topology_key {
         return CacheResult::Miss;
     }
 
@@ -510,9 +555,9 @@ mod tests {
     }
 
     #[test]
-    fn cache_version_is_11_for_arity() {
-        // v11: CallSite arg_count/arg_spread (arity disambiguation).
-        assert_eq!(super::CACHE_VERSION, 11);
+    fn cache_version_is_12_for_rust_scope_graph_wiring() {
+        // v12: ScopeGraph in CallGraph + CallSite.kind + topology key.
+        assert_eq!(super::CACHE_VERSION, 12);
     }
 
     #[test]
@@ -681,6 +726,7 @@ mod tests {
             git_sha: env!("GIT_SHA").into(),
             skip_policy_version: SKIP_POLICY_VERSION,
             file_hashes: hashes.clone(),
+            topology_key: compute_topology_key(&hashes, &BTreeMap::new()),
             has_type_db: false,
             graph: SerializedCpg {
                 nodes: vec![],
@@ -713,6 +759,7 @@ mod tests {
             git_sha: "0000000000000000-stale".into(),
             skip_policy_version: SKIP_POLICY_VERSION,
             file_hashes: hashes.clone(),
+            topology_key: compute_topology_key(&hashes, &BTreeMap::new()),
             has_type_db: false,
             graph: SerializedCpg {
                 nodes: vec![],

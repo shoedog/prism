@@ -2,6 +2,7 @@ use crate::common::*;
 
 use prism::cpg::CodePropertyGraph;
 use prism::cpg_cache::{self, CacheResult};
+use prism::repo_loader;
 
 /// Helper: extract a CPG from a CacheResult::Hit, panicking on miss.
 fn expect_hit(result: CacheResult) -> CodePropertyGraph {
@@ -10,6 +11,16 @@ fn expect_hit(result: CacheResult) -> CodePropertyGraph {
         CacheResult::PartialHit { .. } => panic!("expected Hit, got PartialHit"),
         CacheResult::Miss => panic!("expected Hit, got Miss"),
     }
+}
+
+fn write_repo(files: &[(&str, &str)]) -> TempDir {
+    let dir = TempDir::new().unwrap();
+    for (path, src) in files {
+        let abs = dir.path().join(path);
+        std::fs::create_dir_all(abs.parent().unwrap()).unwrap();
+        std::fs::write(abs, src).unwrap();
+    }
+    dir
 }
 
 // ---------------------------------------------------------------------------
@@ -92,6 +103,115 @@ fn cache_v9_round_trips_interface_impls() {
         loaded_cpg.call_graph.interface_impls.contains_key(&key),
         "Runner.Go interface impls must survive the v9 cache round-trip"
     );
+}
+
+#[test]
+fn cache_v12_round_trips_scope_graph_and_rejects_v11() {
+    let repo_dir = write_repo(&[
+        (
+            "Cargo.toml",
+            "[package]\nname = \"root\"\nedition = \"2021\"\n",
+        ),
+        (
+            "src/lib.rs",
+            "mod util;\nuse crate::util::target;\nfn caller(){ target(); }\n",
+        ),
+        ("src/util.rs", "pub fn target(){}\n"),
+    ]);
+    let repo = repo_loader::load_repo(repo_dir.path()).unwrap();
+    let ctx = CpgContext::build_with_scope_graph_inputs(
+        &repo.files,
+        None,
+        repo.scope_graph_inputs.as_ref(),
+    );
+    assert!(
+        ctx.cpg.call_graph.scope_graph.is_some(),
+        "full build should populate scope_graph before cache save"
+    );
+
+    let cache_dir = TempDir::new().unwrap();
+    let topology = cpg_cache::compute_topology_key(&repo.file_hashes, &repo.manifest_hashes);
+    cpg_cache::save_cache_with_topology(
+        &ctx.cpg,
+        &repo.file_hashes,
+        &topology,
+        false,
+        cache_dir.path(),
+    )
+    .unwrap();
+    let loaded = expect_hit(cpg_cache::load_cache_with_topology(
+        &repo.file_hashes,
+        &topology,
+        false,
+        cache_dir.path(),
+    ));
+    assert!(
+        loaded.call_graph.scope_graph.is_some(),
+        "scope_graph must survive v12 cache round trip"
+    );
+
+    let bin = cache_dir.path().join("cpg-cache.bin");
+    let mut bytes = std::fs::read(&bin).unwrap();
+    bytes[0..4].copy_from_slice(&11u32.to_le_bytes());
+    std::fs::write(&bin, bytes).unwrap();
+    assert!(matches!(
+        cpg_cache::load_cache_with_topology(&repo.file_hashes, &topology, false, cache_dir.path()),
+        CacheResult::Miss
+    ));
+}
+
+#[test]
+fn cache_topology_key_misses_on_manifest_or_file_existence_changes() {
+    let cache_dir = TempDir::new().unwrap();
+    let cpg = CodePropertyGraph::empty();
+    let source_hashes = BTreeMap::from([
+        ("src/lib.rs".to_string(), "h-lib".to_string()),
+        ("src/old.rs".to_string(), "h-old".to_string()),
+    ]);
+    let manifest_hashes = BTreeMap::from([("Cargo.toml".to_string(), "m1".to_string())]);
+    let topology = cpg_cache::compute_topology_key(&source_hashes, &manifest_hashes);
+    cpg_cache::save_cache_with_topology(&cpg, &source_hashes, &topology, false, cache_dir.path())
+        .unwrap();
+
+    let manifest_edit = cpg_cache::compute_topology_key(
+        &source_hashes,
+        &BTreeMap::from([("Cargo.toml".to_string(), "m2".to_string())]),
+    );
+    assert!(matches!(
+        cpg_cache::load_cache_with_topology(
+            &source_hashes,
+            &manifest_edit,
+            false,
+            cache_dir.path()
+        ),
+        CacheResult::Miss
+    ));
+
+    let mut added_file_hashes = source_hashes.clone();
+    added_file_hashes.insert("src/new.rs".to_string(), "h-new".to_string());
+    let added_file_topology = cpg_cache::compute_topology_key(&added_file_hashes, &manifest_hashes);
+    assert!(matches!(
+        cpg_cache::load_cache_with_topology(
+            &added_file_hashes,
+            &added_file_topology,
+            false,
+            cache_dir.path()
+        ),
+        CacheResult::Miss
+    ));
+
+    let removed_file_hashes = BTreeMap::from([("src/lib.rs".to_string(), "h-lib".to_string())]);
+    let removed_file_topology =
+        cpg_cache::compute_topology_key(&removed_file_hashes, &manifest_hashes);
+    assert!(matches!(
+        cpg_cache::load_cache_with_topology(
+            &removed_file_hashes,
+            &removed_file_topology,
+            false,
+            cache_dir.path()
+        ),
+        CacheResult::Miss
+    ));
 }
 
 #[test]

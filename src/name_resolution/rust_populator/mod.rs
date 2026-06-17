@@ -60,7 +60,7 @@ pub const PARSE_FAIL_RATE: f64 = 0.30;
 /// from real `Cargo.toml`s; 3a accepts it so the populator stays pure).
 ///
 /// All paths are repo-relative and match the keys of the `files` map.
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct RustCrateConfig {
     /// Crate edition (2015/2018/2021/2024). Drives anchor semantics in the
     /// policy; the populator only records it so the caller can build a matching

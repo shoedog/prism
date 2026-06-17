@@ -5,8 +5,11 @@
 //! circular slice, and 3D slice.
 
 use crate::ast::ParsedFile;
+use crate::name_resolution::graph::ScopeGraph;
+use crate::name_resolution::rust_populator::{populate_rust, RustCrateConfig};
 use rayon::prelude::*;
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
+use std::path::PathBuf;
 
 /// A node in the call graph: a function identified by file path and name.
 #[derive(
@@ -19,12 +22,32 @@ pub struct FunctionId {
     pub end_line: usize,
 }
 
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    Default,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    serde::Serialize,
+    serde::Deserialize,
+)]
+pub enum CallKind {
+    #[default]
+    Call,
+    MacroInvocation,
+}
+
 /// A call site: where a function is called from.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct CallSite {
     pub caller: FunctionId,
     pub callee_name: String,
     pub line: usize,
+    #[serde(default)]
+    pub kind: CallKind,
     #[serde(default)]
     pub start_byte: usize,
     #[serde(default)]
@@ -63,6 +86,27 @@ pub struct MethodArity {
     pub params: usize,
     /// True if the last parameter is a variadic (`...T` in Go, `...` in C++/Java).
     pub variadic: bool,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct ScopeGraphBuildInputs {
+    pub repo_root: PathBuf,
+    pub all_file_paths: BTreeSet<String>,
+    pub manifest_hashes: BTreeMap<String, String>,
+    pub cfg: RustCrateConfig,
+    pub complete: bool,
+}
+
+impl ScopeGraphBuildInputs {
+    pub fn from_files_convention(files: &BTreeMap<String, ParsedFile>) -> Self {
+        ScopeGraphBuildInputs {
+            repo_root: PathBuf::new(),
+            all_file_paths: files.keys().cloned().collect(),
+            manifest_hashes: BTreeMap::new(),
+            cfg: RustCrateConfig::from_convention(files),
+            complete: true,
+        }
+    }
 }
 
 /// The call graph for a set of parsed files.
@@ -119,6 +163,8 @@ pub struct CallGraph {
     /// `interface_impls` via `clear_interface_dispatch` / `apply_go_interface_dispatch`.
     #[serde(default)]
     pub method_arity: BTreeMap<FunctionId, MethodArity>,
+    #[serde(default)]
+    pub scope_graph: Option<ScopeGraph>,
 }
 
 impl CallGraph {
@@ -141,6 +187,7 @@ impl CallGraph {
             interface_method_names: BTreeSet::new(),
             interface_dispatch_computed: false,
             method_arity: BTreeMap::new(),
+            scope_graph: None,
         }
     }
 
@@ -228,6 +275,7 @@ impl CallGraph {
                         caller: caller_id.clone(),
                         callee_name: callee_name.clone(),
                         line,
+                        kind: Self::call_kind_at(parsed, start_byte, end_byte),
                         start_byte,
                         end_byte,
                         qualifier: Self::recover_self_receiver_qualifier(
@@ -269,14 +317,17 @@ impl CallGraph {
             interface_method_names: BTreeSet::new(),
             interface_dispatch_computed: false,
             method_arity: BTreeMap::new(),
+            scope_graph: None,
         }
     }
 
     /// Build a call graph from all parsed files (default receiver-recovery config).
     pub fn build(files: &BTreeMap<String, ParsedFile>) -> Self {
-        Self::build_with_receiver_config(
+        let inputs = ScopeGraphBuildInputs::from_files_convention(files);
+        Self::build_with_receiver_config_and_scope_graph_inputs(
             files,
             &crate::resolution::ReceiverRecoveryConfig::default(),
+            Some(&inputs),
         )
     }
 
@@ -285,6 +336,30 @@ impl CallGraph {
     pub fn build_with_receiver_config(
         files: &BTreeMap<String, ParsedFile>,
         receiver_config: &crate::resolution::ReceiverRecoveryConfig,
+    ) -> Self {
+        let inputs = ScopeGraphBuildInputs::from_files_convention(files);
+        Self::build_with_receiver_config_and_scope_graph_inputs(
+            files,
+            receiver_config,
+            Some(&inputs),
+        )
+    }
+
+    pub fn build_with_scope_graph_inputs(
+        files: &BTreeMap<String, ParsedFile>,
+        inputs: Option<&ScopeGraphBuildInputs>,
+    ) -> Self {
+        Self::build_with_receiver_config_and_scope_graph_inputs(
+            files,
+            &crate::resolution::ReceiverRecoveryConfig::default(),
+            inputs,
+        )
+    }
+
+    pub fn build_with_receiver_config_and_scope_graph_inputs(
+        files: &BTreeMap<String, ParsedFile>,
+        receiver_config: &crate::resolution::ReceiverRecoveryConfig,
+        scope_inputs: Option<&ScopeGraphBuildInputs>,
     ) -> Self {
         let classifier = receiver_config.classifier();
         let classifier: &dyn crate::resolution::ReceiverClassifier = classifier.as_ref();
@@ -452,6 +527,7 @@ impl CallGraph {
                             caller: caller_id.clone(),
                             callee_name,
                             line,
+                            kind: Self::call_kind_at(parsed, start_byte, end_byte),
                             start_byte,
                             end_byte,
                             qualifier,
@@ -532,6 +608,7 @@ impl CallGraph {
                                 caller: caller_id.clone(),
                                 callee_name: target.clone(),
                                 line: site.line,
+                                kind: CallKind::Call,
                                 // S2: carry the source call site span so same-line indirect dups don't collapse (review MAJOR).
                                 start_byte: site.start_byte,
                                 end_byte: site.end_byte,
@@ -564,6 +641,7 @@ impl CallGraph {
                                 caller: caller_id.clone(),
                                 callee_name: resolved,
                                 line: site.line,
+                                kind: CallKind::Call,
                                 // S2: carry the source call site span so same-line indirect dups don't collapse (review MAJOR).
                                 start_byte: site.start_byte,
                                 end_byte: site.end_byte,
@@ -649,6 +727,7 @@ impl CallGraph {
                                     caller: caller_id.clone(),
                                     callee_name: target.clone(),
                                     line: site.line,
+                                    kind: CallKind::Call,
                                     // S2: carry the source call site span so same-line indirect dups don't collapse (review MAJOR).
                                     start_byte: site.start_byte,
                                     end_byte: site.end_byte,
@@ -744,6 +823,7 @@ impl CallGraph {
                                         caller: caller_id.clone(),
                                         callee_name: arg_text,
                                         line: site.line,
+                                        kind: CallKind::Call,
                                         // S2: carry the source call site span so same-line indirect dups don't collapse (review MAJOR).
                                         start_byte: site.start_byte,
                                         end_byte: site.end_byte,
@@ -769,6 +849,7 @@ impl CallGraph {
                                             caller: caller_id.clone(),
                                             callee_name: resolved,
                                             line: site.line,
+                                            kind: CallKind::Call,
                                             // S2: carry the source call site span so same-line indirect dups don't collapse (review MAJOR).
                                             start_byte: site.start_byte,
                                             end_byte: site.end_byte,
@@ -813,6 +894,7 @@ impl CallGraph {
             interface_method_names: BTreeSet::new(),
             interface_dispatch_computed: false,
             method_arity: BTreeMap::new(),
+            scope_graph: Self::populate_scope_graph(files, scope_inputs),
         };
         cg.apply_go_embedding_promotion(files);
         cg.apply_go_interface_dispatch(files);
@@ -868,6 +950,7 @@ impl CallGraph {
         // `apply_go_embedding_promotion` repopulates from all files.
         self.clear_promoted_embedding();
         self.clear_interface_dispatch();
+        self.scope_graph = None;
     }
 
     /// Merge another CallGraph into this one.
@@ -891,6 +974,28 @@ impl CallGraph {
         }
         self.method_owners.extend(other.method_owners);
         self.receiver_vars.extend(other.receiver_vars);
+        self.scope_graph = None;
+    }
+
+    pub fn rebuild_scope_graph(
+        &mut self,
+        files: &BTreeMap<String, ParsedFile>,
+        inputs: Option<&ScopeGraphBuildInputs>,
+    ) {
+        self.scope_graph = Self::populate_scope_graph(files, inputs);
+    }
+
+    fn populate_scope_graph(
+        files: &BTreeMap<String, ParsedFile>,
+        inputs: Option<&ScopeGraphBuildInputs>,
+    ) -> Option<ScopeGraph> {
+        let Some(inputs) = inputs else {
+            return None;
+        };
+        if !inputs.complete {
+            return None;
+        }
+        Some(populate_rust(files, &inputs.cfg, None))
     }
 
     /// Remove all promoted embedding aliases from the owner index (preserving any
@@ -1154,6 +1259,7 @@ impl CallGraph {
                         caller: caller_id.clone(),
                         callee_name: callee_name.clone(),
                         line,
+                        kind: Self::call_kind_at(parsed, start_byte, end_byte),
                         start_byte,
                         end_byte,
                         qualifier,
@@ -1188,6 +1294,7 @@ impl CallGraph {
             interface_method_names: BTreeSet::new(),
             interface_dispatch_computed: false,
             method_arity: BTreeMap::new(),
+            scope_graph: None,
         }
     }
 
@@ -1259,6 +1366,29 @@ impl CallGraph {
             .into_iter()
             .find(|receiver| line_text.contains(&format!("{receiver}.{callee_name}")))
             .map(str::to_string)
+    }
+
+    fn call_kind_at(parsed: &ParsedFile, start_byte: usize, end_byte: usize) -> CallKind {
+        if !matches!(parsed.language, crate::languages::Language::Rust) {
+            return CallKind::Call;
+        }
+        parsed
+            .tree
+            .root_node()
+            .descendant_for_byte_range(start_byte, end_byte)
+            .map(|mut node| loop {
+                if node.kind() == "macro_invocation" {
+                    return CallKind::MacroInvocation;
+                }
+                if node.start_byte() <= start_byte && node.end_byte() >= end_byte {
+                    if let Some(parent) = node.parent() {
+                        node = parent;
+                        continue;
+                    }
+                }
+                return CallKind::Call;
+            })
+            .unwrap_or(CallKind::Call)
     }
 
     /// Extract the source text for a function from its parsed file.
@@ -1472,11 +1602,23 @@ impl CallGraph {
 }
 
 impl CallSite {
-    fn cmp_key(&self) -> (&str, &str, usize, usize, usize, Option<&str>, Option<&str>) {
+    fn cmp_key(
+        &self,
+    ) -> (
+        &str,
+        &str,
+        usize,
+        CallKind,
+        usize,
+        usize,
+        Option<&str>,
+        Option<&str>,
+    ) {
         (
             &self.caller.name,
             &self.callee_name,
             self.line,
+            self.kind,
             self.start_byte,
             self.end_byte,
             self.qualifier.as_deref(),

@@ -1,4 +1,4 @@
-use prism::call_graph::CallSite;
+use prism::call_graph::{CallKind, CallSite};
 use prism::navigation::call_resolve::resolve_site_nav;
 use prism::navigation::module_graph::{module_deps, repo_map};
 use prism::navigation::queries;
@@ -50,6 +50,7 @@ fn resolved_targets(
                 caller,
                 callee_name: callee_name.to_string(),
                 line: 1,
+                kind: CallKind::Call,
                 start_byte: 0,
                 end_byte: 0,
                 qualifier: qualifier.map(str::to_string),
