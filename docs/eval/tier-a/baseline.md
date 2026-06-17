@@ -39,7 +39,7 @@ high-precision**.
 | Corpus | Lang | Floor-valid | oracle_err | Note |
 |---|---|---|---|---|
 | caddy | Go | ✅ | 0.00 | the Go anchor; clean |
-| prism | Rust | ⚠️ substance ✅ / report drift | 0.025 | `baseline_invalid` **only** on SHA-drift `dd60ed6 → 1f7330d`; substance floor-valid. **Re-pin `eval/corpora.toml` at merge** (deferred — `1f7330d` is an unmerged branch tip; precedent re-pins at the merge SHA, as the S2 anchor did) |
+| prism | Rust | ⚠️ substance ✅ / report drift | 0.025 | `baseline_invalid` was **only** SHA-drift `dd60ed6 → 1f7330d`; substance floor-valid. **Re-pinned to the #98 merge `278dd70`** (`eval/corpora.toml`); re-run at `278dd70` to validate. Day-to-day drift past the pin is expected (the pin anchors the last baseline, as `dd60ed6` did post-S2) |
 | tokio | Rust | ❌ 0.22 > 0.10 | 0.219 | rust-analyzer macro/cfg density; supplementary, non-anchoring |
 | flask | Python | ❌ 0.36 > 0.25 | 0.363 | pyright call-hierarchy noise (spec-anticipated v1 finding) |
 | click | Python | ❌ 0.31 > 0.25 | 0.313 | pyright call-hierarchy noise |
