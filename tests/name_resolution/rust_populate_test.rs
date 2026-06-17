@@ -128,6 +128,16 @@ fn assert_resolved_item(res: &Resolution) {
     );
 }
 
+fn assert_same_resolved_target(actual: &Resolution, expected: &Resolution, msg: &str) {
+    assert_resolved_item(actual);
+    assert_resolved_item(expected);
+    assert_eq!(
+        actual.candidates[0].target, expected.candidates[0].target,
+        "{msg}; got {:?}, expected {:?}",
+        actual.candidates[0].target, expected.candidates[0].target
+    );
+}
+
 fn assert_local(res: &Resolution) {
     assert_eq!(
         res.status,
@@ -439,19 +449,134 @@ fn test_block_local_use_extent() {
         "before",
         NS_VALUE,
     );
-    assert_ne!(
+    assert_eq!(
         outside_pre.status,
-        ResStatus::Resolved,
-        "the call BEFORE the block must not see the block-local import"
+        ResStatus::Unresolved,
+        "the call BEFORE the block must fall through, not see the block-local import"
+    );
+    assert!(
+        outside_pre.candidates.is_empty(),
+        "fall-through must not carry a wrong target: {:?}",
+        outside_pre.candidates
     );
 
     // The last `before();` (after the block) does NOT resolve either.
     let after_byte = byte_of_nth(&full, "before();", 2);
     let outside_post = resolve_bare_at(&g, &fs, 2015, "src/lib.rs", after_byte, "before", NS_VALUE);
-    assert_ne!(
+    assert_eq!(
         outside_post.status,
-        ResStatus::Resolved,
-        "the call AFTER the block must not see the block-local import"
+        ResStatus::Unresolved,
+        "the call AFTER the block must fall through, not see the block-local import"
+    );
+    assert!(
+        outside_post.candidates.is_empty(),
+        "fall-through must not carry a wrong target: {:?}",
+        outside_post.candidates
+    );
+}
+
+#[test]
+fn test_same_callable_named_use_is_position_gated_above_declaration() {
+    // The first `h()` is above the block-local named use, so it must resolve to
+    // the module free fn, not the same-name import. The second call sees the use.
+    let lib = concat!(
+        "fn h(){}\n",
+        "mod m { pub fn h(){} }\n",
+        "fn host(){ h(); use crate::m::h; h(); }\n",
+    );
+    let fs = files(&[("src/lib.rs", lib)]);
+    let g = populate_rust(&fs, &convention(&fs), None);
+    let free_h = resolve_crate_path(&g, &fs, 2015, "src/lib.rs", &["h"], NS_VALUE);
+    let imported_h = resolve_crate_path(&g, &fs, 2015, "src/lib.rs", &["m", "h"], NS_VALUE);
+
+    let before = resolve_bare_at(
+        &g,
+        &fs,
+        2015,
+        "src/lib.rs",
+        byte_of(lib, "h(); use"),
+        "h",
+        NS_VALUE,
+    );
+    assert_same_resolved_target(
+        &before,
+        &free_h,
+        "call above same-callable named use must resolve to the free fn decoy",
+    );
+    assert_ne!(
+        before.candidates[0].target, imported_h.candidates[0].target,
+        "call above same-callable named use must not resolve via the later import"
+    );
+
+    let after = resolve_bare_at(
+        &g,
+        &fs,
+        2015,
+        "src/lib.rs",
+        byte_of_nth(lib, "h();", 1),
+        "h",
+        NS_VALUE,
+    );
+    assert_same_resolved_target(
+        &after,
+        &imported_h,
+        "call after same-callable named use should resolve through the import",
+    );
+}
+
+#[test]
+fn test_same_callable_glob_use_is_position_gated_above_declaration() {
+    // Before the block-local glob, `f()` must recover the module free fn. At/after
+    // the glob, the deferred glob still poisons instead of resolving a wrong target.
+    let lib = concat!(
+        "fn f(){}\n",
+        "mod m { pub fn f(){} }\n",
+        "fn g(){ f(); use crate::m::*; f(); }\n",
+    );
+    let fs = files(&[("src/lib.rs", lib)]);
+    let g = populate_rust(&fs, &convention(&fs), None);
+    let free_f = resolve_crate_path(&g, &fs, 2015, "src/lib.rs", &["f"], NS_VALUE);
+    let glob_decoy = resolve_crate_path(&g, &fs, 2015, "src/lib.rs", &["m", "f"], NS_VALUE);
+
+    let before = resolve_bare_at(
+        &g,
+        &fs,
+        2015,
+        "src/lib.rs",
+        byte_of(lib, "f(); use"),
+        "f",
+        NS_VALUE,
+    );
+    assert_same_resolved_target(
+        &before,
+        &free_f,
+        "call above block-local glob must resolve as if the glob is out of scope",
+    );
+    assert_ne!(
+        before.candidates[0].target, glob_decoy.candidates[0].target,
+        "call above block-local glob must not resolve to the glob decoy"
+    );
+
+    let after = resolve_bare_at(
+        &g,
+        &fs,
+        2015,
+        "src/lib.rs",
+        byte_of_nth(lib, "f();", 1),
+        "f",
+        NS_VALUE,
+    );
+    assert_eq!(
+        after.status,
+        ResStatus::Poisoned,
+        "call after block-local glob must remain Poisoned, got {:?} ({:?})",
+        after.status,
+        after.candidates
+    );
+    assert!(
+        after.candidates.is_empty(),
+        "poisoned glob lookup must not carry the wrong decoy target: {:?}",
+        after.candidates
     );
 }
 
@@ -591,6 +716,30 @@ fn test_use_alias_binds_type_namespace_under_alias_not_original() {
         "aliased use must not bind the original last segment as a bare Type name; got {:?} ({:?})",
         original.status,
         original.candidates
+    );
+}
+
+#[test]
+fn test_non_aliased_use_binds_type_namespace_under_original_name() {
+    // Control for the alias case: without `as`, the imported Type name is `Orig`.
+    let lib = "mod a { pub struct Orig; }\nuse crate::a::Orig;\nfn h(){}\n";
+    let fs = files(&[("src/lib.rs", lib)]);
+    let g = populate_rust(&fs, &convention(&fs), None);
+    let expected = resolve_crate_path(&g, &fs, 2015, "src/lib.rs", &["a", "Orig"], NS_TYPE);
+
+    let actual = resolve_bare_at(
+        &g,
+        &fs,
+        2015,
+        "src/lib.rs",
+        byte_of(lib, "fn h"),
+        "Orig",
+        NS_TYPE,
+    );
+    assert_same_resolved_target(
+        &actual,
+        &expected,
+        "non-aliased Type import should bind the original Type name",
     );
 }
 

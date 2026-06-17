@@ -48,7 +48,7 @@ use crate::ast::ParsedFile;
 use crate::name_resolution::graph::ScopeGraph;
 use crate::name_resolution::types::{FileId, ScopeId};
 
-pub use builder::Builder;
+use builder::Builder;
 
 /// The error-rate floor at/above which a file is treated as **failed to parse**
 /// (matching the codebase's `check_parse_warnings` "skip" convention). A

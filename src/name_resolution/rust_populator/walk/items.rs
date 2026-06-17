@@ -201,6 +201,11 @@ pub(in crate::name_resolution::rust_populator::walk) fn walk_use(
         | Some(ScopeKind::ExternPrelude | ScopeKind::TranslationUnit)
         | None => vis_extent_from(b, scope, ctx.file, decl_lo),
     };
+    let glob_vis_range = match b.graph_scope(scope).map(|s| &s.kind) {
+        Some(ScopeKind::Block | ScopeKind::Callable) => Some(extent.clone()),
+        Some(ScopeKind::Module | ScopeKind::Root | ScopeKind::Type) => None,
+        Some(ScopeKind::ExternPrelude | ScopeKind::TranslationUnit) | None => Some(extent.clone()),
+    };
     let mut order = 0u32;
     for item in items {
         match item {
@@ -238,6 +243,7 @@ pub(in crate::name_resolution::rust_populator::walk) fn walk_use(
                     v.clone(),
                     cond.clone(),
                     order,
+                    glob_vis_range.clone(),
                 );
                 order += 1;
             }

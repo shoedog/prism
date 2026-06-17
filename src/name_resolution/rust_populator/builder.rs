@@ -26,7 +26,7 @@ pub(crate) enum ModFile {
 }
 
 /// Mutable build state shared across the crate/module/block walk.
-pub struct Builder<'f> {
+pub(crate) struct Builder<'f> {
     graph: ScopeGraph,
     files: &'f BTreeMap<String, ParsedFile>,
     config: &'f RustCrateConfig,
@@ -48,7 +48,7 @@ pub struct Builder<'f> {
 }
 
 impl<'f> Builder<'f> {
-    pub fn new(
+    pub(crate) fn new(
         files: &'f BTreeMap<String, ParsedFile>,
         config: &'f RustCrateConfig,
         only_files: Option<&'f BTreeSet<String>>,
@@ -90,7 +90,7 @@ impl<'f> Builder<'f> {
         s
     }
 
-    pub fn finish(self) -> ScopeGraph {
+    pub(crate) fn finish(self) -> ScopeGraph {
         self.graph
     }
 
@@ -167,6 +167,7 @@ impl<'f> Builder<'f> {
         vis: Vis,
         cond: Option<CfgCond>,
         order: u32,
+        vis_range: Option<Span>,
     ) {
         self.graph.add_edge(Edge {
             from: scope,
@@ -175,7 +176,7 @@ impl<'f> Builder<'f> {
             vis,
             cond,
             order,
-            vis_range: None,
+            vis_range,
         });
     }
 
@@ -190,6 +191,7 @@ impl<'f> Builder<'f> {
             vis,
             None,
             0,
+            None,
         );
     }
 
@@ -252,7 +254,7 @@ impl<'f> Builder<'f> {
     /// for `extern crate`), WITHOUT walking its body. Returns the Root scope, or
     /// `None` for an absent / out-of-`only_files` / parse-failed root (Unmodeled).
     /// Doing all roots first lets `extern crate dep` reach a later crate's Root.
-    pub fn create_root(&mut self, root_path: &str) -> Option<ScopeId> {
+    pub(crate) fn create_root(&mut self, root_path: &str) -> Option<ScopeId> {
         if !self.files.contains_key(root_path) {
             return None;
         }
@@ -273,7 +275,7 @@ impl<'f> Builder<'f> {
     }
 
     /// PASS 2: walk a root's items into its (already-minted) `Root` scope.
-    pub fn walk_root(&mut self, root_path: &str, root_scope: ScopeId) {
+    pub(crate) fn walk_root(&mut self, root_path: &str, root_scope: ScopeId) {
         let dir = parent_dir(root_path);
         super::walk::walk_module_file(self, root_path, root_scope, &dir);
     }
