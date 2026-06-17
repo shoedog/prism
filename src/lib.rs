@@ -43,6 +43,7 @@ pub mod languages;
 pub mod live_types;
 #[cfg(feature = "mcp")]
 pub mod mcp;
+pub mod name_resolution;
 pub mod navigation;
 pub mod output;
 pub mod queries;

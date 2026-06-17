@@ -172,5 +172,9 @@ required-features = ["mcp"]
 name = "infra"
 path = "tests/infra/main.rs"
 
+[[test]]
+name = "name_resolution"
+path = "tests/name_resolution/main.rs"
+
 [profile.dev]
 debug = "line-tables-only"
