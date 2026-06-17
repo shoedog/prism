@@ -28,9 +28,10 @@
 //! one: an unknown visibility kind is **not visible**, an un-mappable anchor is
 //! `None` (fall through), a non-provably-exclusive conflict is `Ambiguous`.
 
+use crate::name_resolution::graph::ScopeGraph;
 use crate::name_resolution::types::{
     Anchor, AnchorKind, Binding, Candidate, EdgeKindId, NamespaceId, ResStatus, Resolution,
-    ResolutionPolicy, ResolveQuery, ScopeGraph, ScopeId, ScopeKind, TraversalCtx, VisKindId,
+    ResolutionPolicy, ResolveQuery, ScopeId, ScopeKind, TraversalCtx, VisKindId,
 };
 
 // ── Rust namespace registry (policy-owned discriminants) ──────────────────────

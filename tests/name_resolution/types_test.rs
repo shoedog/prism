@@ -226,7 +226,7 @@ fn test_edge_and_bind_target_pending_serde() {
     // BindTarget::Pending wraps a RawPath + Anchor
     let raw_path = RawPath(vec!["std".to_string(), "collections".to_string()]);
     let anchor = Anchor::default();
-    let pending = BindTarget::Pending(raw_path.clone(), anchor.clone());
+    let pending = BindTarget::Pending(raw_path.clone(), anchor);
 
     // Edge with real field values
     let lo = SourceLoc {

@@ -3,15 +3,15 @@
 //! Transcribed faithfully from the design-of-record spec §1
 //! (`docs/superpowers/specs/2026-06-17-prism-rust-module-resolution-design.md`).
 //!
-//! **No engine / no behavior.** This module defines *only* the data model
-//! types and the `ResolutionPolicy` trait signature. All engine logic lives in
-//! Task 2 (`src/name_resolution/engine.rs`); population lives in PR-2.
+//! **No engine / no behavior.** This module defines *only* the leaf data-model
+//! types and the `ResolutionPolicy` trait signature. The graph *container*
+//! (`ScopeGraph` + `MacroWildcard`) lives in [`crate::name_resolution::graph`];
+//! engine logic in [`crate::name_resolution::engine`]; population in PR-2.
 //!
 //! ## Determinism
 //! All multi-item collections use `BTreeMap`/`BTreeSet`; all key types derive
-//! `Ord`/`PartialOrd`. `Vec` fields whose order is meaningful keep their
-//! insertion order (extent lists, candidate lists) — callers must insert in
-//! a stable order.
+//! `Ord`/`PartialOrd`. `Vec` fields whose order is meaningful keep insertion
+//! order (extent/candidate lists) — callers must insert in a stable order.
 //!
 //! ## Serialization stability
 //! All public types derive `Serialize` + `Deserialize`. Field names are the
@@ -123,6 +123,7 @@ impl CfgCond {
             // Two atoms with the same key but different *Some* values are exclusive
             // (e.g. target_os="linux" vs target_os="windows").
             // Atom(key, None) vs Atom(key, Some(_)): unknown — conservative false.
+            // Phase 2 (before cfg EVALUATION): exclude additive keys (feature, target_feature) — they compose, so feature="a" vs feature="b" are NOT exclusive. Safe in Phase 1 (multi-candidate falls through either way).
             (CfgCond::Atom(k1, Some(v1)), CfgCond::Atom(k2, Some(v2))) => k1 == k2 && v1 != v2,
 
             _ => false,
@@ -430,87 +431,6 @@ pub struct Edge {
     pub order: u32,
     /// RESERVED — C++ include-occurrence visibility (Phase 3).
     pub vis_range: Option<Span>,
-}
-
-// ── MacroWildcard — unexpanded name-introducing macro (§4.3b) ────────────────
-
-/// An *unexpanded* name-introducing macro invocation (item-position
-/// `macro_rules!`/proc/attribute macro) that may emit **unknowable** names.
-///
-/// Phase 1 cannot compute the introduced name-set pre-expansion, so the
-/// populator records a **wildcard** marker over `(scope, ns, range)`: any bare
-/// lookup of `ns` whose byte falls in `range` is **poisoned** (exactly like a
-/// deferred glob) — the engine must fall through, never reach an outer
-/// same-name (§4.3b / §7 poison-not-skip). Full macro expansion is Phase 3.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct MacroWildcard {
-    /// The scope the macro was invoked in.
-    pub scope: ScopeId,
-    /// The namespace the wildcard poisons.
-    pub ns: NamespaceId,
-    /// The byte range the macro's potential introductions cover.
-    pub range: Span,
-}
-
-// ── ScopeGraph — the engine's input shape ─────────────────────────────────────
-
-/// The whole-repo scope graph: the shared input to the resolution engine.
-///
-/// Built by a language populator (Task 3 for Rust) and consumed by
-/// `engine::resolve`/`resolve_path`.  Kept here in the neutral data model
-/// because it is the *shape* of the engine input, not engine logic.
-///
-/// ## Determinism
-/// `scopes` is a `BTreeMap` (sorted by `ScopeId`). `bindings`/`edges`/
-/// `macro_wildcards` are `Vec`s whose **insertion order is meaningful**:
-/// - a `Binding`'s index within its scope is its `BindingRef::ordinal` source;
-/// - an `Edge`'s `order` field carries decl order independently.
-///
-/// Populators must insert in a stable order; the engine never relies on `Vec`
-/// position for correctness beyond honoring the policy's combination rules.
-#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ScopeGraph {
-    pub scopes: std::collections::BTreeMap<ScopeId, Scope>,
-    pub bindings: Vec<Binding>,
-    pub edges: Vec<Edge>,
-    pub macro_wildcards: Vec<MacroWildcard>,
-}
-
-impl ScopeGraph {
-    /// An empty graph.
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    /// Insert a scope (keyed by its `id`).
-    pub fn add_scope(&mut self, s: Scope) {
-        self.scopes.insert(s.id, s);
-    }
-
-    /// Append a binding (its index becomes its scope-relative ordinal source).
-    pub fn add_binding(&mut self, b: Binding) {
-        self.bindings.push(b);
-    }
-
-    /// Append an edge.
-    pub fn add_edge(&mut self, e: Edge) {
-        self.edges.push(e);
-    }
-
-    /// Append an unexpanded-macro wildcard marker.
-    pub fn add_macro_wildcard(&mut self, m: MacroWildcard) {
-        self.macro_wildcards.push(m);
-    }
-
-    /// The scope record for `id`, if present.
-    pub fn scope(&self, id: ScopeId) -> Option<&Scope> {
-        self.scopes.get(&id)
-    }
-
-    /// The lexical parent of `id`, if any.
-    pub fn parent_of(&self, id: ScopeId) -> Option<ScopeId> {
-        self.scopes.get(&id).and_then(|s| s.parent)
-    }
 }
 
 // ── Resolution results ───────────────────────────────────────────────────────

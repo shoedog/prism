@@ -10,5 +10,6 @@
 //! Rust policy are exercised solely by `tests/name_resolution/`.
 
 pub mod engine;
+pub mod graph;
 pub mod rust_policy;
 pub mod types;

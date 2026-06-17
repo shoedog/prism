@@ -309,7 +309,7 @@ fn test_deferred_glob_poisons_not_outer() {
 /// because that outer f is across a module boundary).
 #[test]
 fn test_macro_wildcard_poisons_within_range_only() {
-    use prism::name_resolution::types::MacroWildcard;
+    use prism::name_resolution::graph::MacroWildcard;
     let mut g = ScopeGraph::new();
     g.add_scope(scope(0, ScopeKind::Root, None));
     g.add_scope(scope(1, ScopeKind::Module, Some(0)));
@@ -346,6 +346,36 @@ fn test_macro_wildcard_poisons_within_range_only() {
         "a call outside the macro range is unaffected and resolves the module-scope f"
     );
     assert_resolved_item(&outside, 500);
+}
+
+/// Macro-wildcard is GLOB-TIER, not before the explicit rib (§4.3b Reading B):
+/// a scope with BOTH a covering `MacroWildcard` AND an explicit `fn f` resolves a
+/// bare in-range `f` to the EXPLICIT `fn f` — the explicit local binding (step 1)
+/// shadows the wildcard exactly as it shadows a deferred glob (step 2). The
+/// wildcard only poisons when step 1 found no explicit binding for the name.
+#[test]
+fn test_macro_wildcard_shadowed_by_explicit_local() {
+    use prism::name_resolution::graph::MacroWildcard;
+    let mut g = ScopeGraph::new();
+    g.add_scope(scope(0, ScopeKind::Root, None));
+    g.add_scope(scope(1, ScopeKind::Module, Some(0)));
+    // a Block inside module `m` where `m!()` was invoked AND an explicit `fn f` is
+    // defined in the SAME scope (item 550).
+    g.add_scope(scope(2, ScopeKind::Block, Some(1)));
+    // explicit `fn f` at the same scope 2 as the wildcard (item 550)
+    g.add_binding(item_binding(2, "f", 550, VIS_PUB));
+    // unexpanded macro wildcard over bytes [40, 60) in the Value namespace of scope 2
+    g.add_macro_wildcard(MacroWildcard {
+        scope: ScopeId(2),
+        ns: NS_VALUE,
+        range: span(40, 60),
+    });
+
+    let pol = policy_for(&g, 2018);
+    // A bare `f` at byte 50 (INSIDE the wildcard range) — the explicit `fn f` in the
+    // same scope SHADOWS the wildcard → Resolved to item 550 (NOT Poisoned).
+    let res = resolve(&g, &query_at("f", NS_VALUE, 2, 50), &pol);
+    assert_resolved_item(&res, 550);
 }
 
 /// A still-`Pending` *local* `use x` (a named import not yet resolved) + an outer
@@ -431,6 +461,47 @@ fn test_private_item_not_visible_from_sibling() {
         "a private item is not visible from a sibling — fall through, not a wrong edge"
     );
     assert_not_item(&res, 700);
+}
+
+/// `pub(self)` ≡ private: the populator maps `pub(self)` to the private vis-kind
+/// (`VIS_PRIV`), so a `pub(self)` item is NOT visible from a sibling — exactly
+/// like a plain private item. This pins that equivalence at the policy hook.
+/// Same structure as `test_private_item_not_visible_from_sibling`.
+#[test]
+fn test_pub_self_equiv_private_not_visible_from_sibling() {
+    let mut g = ScopeGraph::new();
+    g.add_scope(scope(0, ScopeKind::Root, None));
+    g.add_scope(scope(1, ScopeKind::Module, Some(0))); // m
+    g.add_scope(scope(2, ScopeKind::Module, Some(0))); // sibling
+    g.add_binding(Binding {
+        scope: ScopeId(0),
+        name: "m".to_string(),
+        ns: NS_TYPE,
+        target: BindTarget::Resolved(Target::Scope(ScopeId(1))),
+        vis: vis(VIS_PUB),
+        cond: None,
+        vis_extents: vec![wide_span()],
+    });
+    // `pub(self) secret` in m — `pub(self)` maps to the private vis-kind (item 750).
+    g.add_binding(item_binding(1, "secret", 750, VIS_PRIV));
+
+    let pol = policy_for(&g, 2018);
+    let res = resolve_path(
+        &g,
+        &RawPath(vec!["m".to_string(), "secret".to_string()]),
+        NS_VALUE,
+        &Anchor::crate_root(),
+        ScopeId(2),
+        NS_TYPE,
+        &SourceLoc { file: F, byte: 50 },
+        &pol,
+    );
+    assert_eq!(
+        res.status,
+        ResStatus::Unresolved,
+        "pub(self) ≡ private: not visible from a sibling — fall through, not a wrong edge"
+    );
+    assert_not_item(&res, 750);
 }
 
 /// `pub(super)` item is visible from the parent's subtree only.

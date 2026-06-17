@@ -23,7 +23,7 @@
 //!   policies that want an unconditional walk.
 //! - `combine(candidates)` / `visible(binding, q, trav)` / `anchor(anchor, from)`.
 
-pub use crate::name_resolution::types::ScopeGraph;
+pub use crate::name_resolution::graph::ScopeGraph;
 use crate::name_resolution::types::{
     Anchor, BindTarget, Binding, Candidate, CfgCond, CfgCtx, NamespaceId, PolicyQueryCtx,
     ResStatus, Resolution, ResolutionPolicy, ResolveQuery, ScopeId, SourceLoc, Target,
@@ -98,30 +98,35 @@ fn resolve_bare(
 ) -> Resolution {
     let mut cur = Some(q.from);
     while let Some(scope_id) = cur {
-        // 0) Macro-wildcard poison FIRST — BEFORE the explicit rib (unlike a
-        //    deferred glob, which an explicit binding shadows in step 2). A
-        //    name-introducing item-position macro emits items at the SAME
-        //    priority tier as explicit defs, so a same-name macro emission could
-        //    shadow or collide with a visible explicit binding — we cannot know
-        //    pre-expansion. Poisoning the name (→ fall through) is the only
-        //    recall-safe choice; never resolve here and never reach an outer
-        //    same-name (§4.3b / §7 poison-not-skip).
-        if macro_wildcard_poisons(graph, scope_id, q.ns, &q.at) {
-            return poisoned();
-        }
-
         // 1) Local explicit bindings for (name, ns) in-range + cfg-compatible.
         //    If this rib has ANY such binding, the rib is AUTHORITATIVE for the
         //    name: we resolve/visibility-filter/combine here and STOP. We never
         //    skip past a claimed name to an outer same-name (§7 decoy rule) —
         //    even an inaccessible match stops the walk (claim-then-fail-visibility
         //    ⇒ fall through, not a wrong outer target).
+        //
+        //    An explicit binding here ALSO SHADOWS a covering macro wildcard
+        //    (§4.3b Reading B): the macro poisons "exactly like a deferred glob"
+        //    (§3.4 step 2), and a deferred glob is shadowed by an explicit step-1
+        //    binding — so the macro is checked at the GLOB TIER (step 2 below),
+        //    AFTER this rib, not before it.
         let rib = self_rib_bindings(graph, scope_id, &q.name, q.ns, &q.at);
         if !rib.is_empty() {
             return resolve_rib(graph, &rib, q, policy, guard);
         }
 
-        // 2) Else this scope's glob edges. A deferred glob poisons; otherwise
+        // 2) Glob tier (reached only when step 1 found NO explicit binding for
+        //    the name in this scope). A covering macro wildcard poisons here
+        //    FIRST — exactly like a deferred glob (§4.3b / §7 poison-not-skip): a
+        //    name-introducing item-position macro could emit `name`, and we
+        //    cannot know its identity pre-expansion, so we poison (→ never reach
+        //    an outer same-name) rather than fall through. It sits at the same
+        //    tier as (and short-circuits ahead of) a same-scope non-deferred
+        //    glob, mirroring the deferred-glob short-circuit in `glob_lookup`.
+        if macro_wildcard_poisons(graph, scope_id, q.ns, &q.at) {
+            return poisoned();
+        }
+        //    Else this scope's glob edges. A deferred glob poisons; otherwise
         //    union the visible (name, ns) members of each non-deferred glob
         //    target. Globs that yield NOTHING do not claim the name → continue.
         match glob_lookup(graph, scope_id, q, policy) {
@@ -368,14 +373,12 @@ fn scope_member_lookup(
     policy: &dyn ResolutionPolicy,
     guard: &mut CycleGuard,
 ) -> Resolution {
-    // Macro-wildcard poison applies to member lookup too.
-    if macro_wildcard_poisons(graph, scope, q.ns, &q.at) {
-        return poisoned();
-    }
     // Explicit bindings in this scope for (name, ns), cfg-compatible. For path
     // member lookup we do NOT gate on vis_extents byte-range (a module member is
     // visible across the whole module to a path); visibility is the `visible()`
-    // policy hook.
+    // policy hook. An explicit member binding SHADOWS a covering macro wildcard
+    // (the wildcard is glob-tier — §4.3b Reading B), so it is checked AFTER this
+    // rib, not before.
     let rib: Vec<usize> = graph
         .bindings
         .iter()
@@ -386,6 +389,11 @@ fn scope_member_lookup(
         .collect();
     if !rib.is_empty() {
         return resolve_rib(graph, &rib, q, policy, guard);
+    }
+    // Glob tier: a covering macro wildcard poisons here (exactly like a deferred
+    // glob), reached only when the rib above found no explicit member binding.
+    if macro_wildcard_poisons(graph, scope, q.ns, &q.at) {
+        return poisoned();
     }
     // Else this scope's globs.
     match glob_lookup(graph, scope, q, policy) {
