@@ -41,6 +41,16 @@
 > extent** (a call before `let f` doesn't see the local), and corrects PR-2's claim to **"no consumer
 > behavior change," NOT byte-for-byte** (storing `scope_graph` + the `CACHE_VERSION` bump change the cache
 > blob by design). **Plan converged — ready for implementation pending owner go.**
+>
+> **Rev 6** (folds round 5, CHANGES-REQUESTED → 2 MAJOR + 2 MINOR — two new edges the rev-4/5 folds
+> exposed): **(F1)** adds a `CallSite.kind: Call | MacroInvocation` discriminator + namespace-correct
+> `graph_callable_edge` + a guard so a `m!()` invocation can never edge to a Value `fn m`; **(F2)**
+> replaces the ambiguous "empty/poisoned" wording with one crisp **region state machine** — `Modeled` /
+> `Poisoned` (modeled-but-hazardous, incl. parse-failed *target*) / `Unmodeled` (parse-failed
+> *containing* file) — with **authority keyed on the call SITE's scope, not the target** (a poisoned
+> target → `Poisoned` *result* → fall through, not a non-authoritative site); **(F3)** re-export cycle is
+> terminal `Poisoned` with an outer-`a` decoy; **(F4)** adds `pub(crate)` cross-workspace-crate
+> visibility; do-now: manifest-only + file-existence-only cache tests.
 
 **Goal:** Build the language-neutral scope-graph + the Rust populator/policy + consumers so Rust
 unqualified calls narrow to the real defining item (the F3 fix: `original_diff.rs`'s local `fn slice`
@@ -114,8 +124,10 @@ accessibility, candidate combination, the `visible()` accessibility predicate, a
   - **visibility enforce-or-fall-through (F2):** the `visible()` policy hook, hand-built:
     `private`/`pub(self)` item in module `m`, resolved *from a sibling* → not visible → fall through
     (`Unresolved`), NOT a wrong edge to the private item; `pub(super)` visible from the parent's subtree
-    only; `pub(in path)` visible only inside `path`. **Re-export privacy (round-2 F1 — two distinct
-    cases, do not conflate):** (i) a `pub use` of a *private* item → the item is still not visible across
+    only; `pub(in path)` visible only inside `path`; **`pub(crate)` (round-5 F4):** visible anywhere in
+    the *defining* crate, but NOT through a sibling workspace crate (a cross-crate `use other_crate::m::f`
+    where `f` is `pub(crate)` in `other_crate` → not visible → fall through) unless an actually-`pub`
+    facade re-exports it. **Re-export privacy (round-2 F1 — two distinct cases, do not conflate):** (i) a `pub use` of a *private* item → the item is still not visible across
     the re-export → fall through (`Unresolved`), NEVER a wrong edge to the private item (a `pub use` does
     not launder privacy); (ii) a *public* item living in a *private module*, re-exported via `pub use`
     from an accessible scope → **resolved through the re-export** (the item itself is `pub`; only its
@@ -130,8 +142,9 @@ accessibility, candidate combination, the `visible()` accessibility predicate, a
     edges whose members are *already known* (non-deferred) — they are NOT Rust `use a::*` member
     expansion (that is deferred; the Rust populator poisons it — Task 3). State this in the test module
     doc so the engine support is not mistaken for scope creep.
-  - **re-export chain + cycle:** `Pending` chain `a→b→c` resolves to `c`; an `a→b→a` cycle → guarded
-    (`Unresolved`/`Ambiguous`, not a hang).
+  - **re-export chain + cycle:** `Pending` chain `a→b→c` resolves to `c`; an `a→b→a` cycle **with an outer
+    `a` decoy** → terminal **`Poisoned`** (the still-pending import poisons — round-5 F3), NOT a hang and
+    NOT the outer `a`.
   - **cfg:** two cfg-exclusive bindings → a multi-candidate **`ResolvedSet`** with distinct `cond` (not
     merged, not collapsed to one); non-exclusive differing → `Ambiguous`. Assert the **status** (round-4
     nit 1) — a multi-candidate result must make the call consumer fall through (never mint an edge), never
@@ -150,12 +163,14 @@ accessibility, candidate combination, the `visible()` accessibility predicate, a
 ## Task 3: The Rust populator (AST → scope graph) + build wiring + cache
 
 **Files:** Create `src/name_resolution/rust_populator.rs` · Modify `src/call_graph.rs` (build + store
-`scope_graph`; whole-repo rebuild incl. incremental), `src/cpg_cache.rs` (widen cache key + bump
-`CACHE_VERSION`), `src/ast.rs` (surface `mod`/`use`/local-binding extraction if not present),
-`src/repo_loader.rs` (load `Cargo.toml`/manifests + the whole file-set, not just supported-source —
-currently skipped at `:277`), `src/cpg/build.rs`/`src/navigation/mod.rs` (thread the build inputs into
-`CallGraph::build` — currently pass only parsed source files at `cpg/build.rs:134`/`navigation/mod.rs:35`),
-`src/cpg/context.rs` (subset/scoped builds → no authoritative graph, `:160`) · Test
+`scope_graph`; whole-repo rebuild incl. incremental; + a `CallSite.kind: Call | MacroInvocation`
+discriminator — round-5 F1), `src/queries.rs` (tag the `macro_invocation` capture at `:173` so the
+discriminator is set), `src/cpg_cache.rs` (widen cache key + bump `CACHE_VERSION`), `src/ast.rs` (surface
+`mod`/`use`/local-binding extraction if not present), `src/repo_loader.rs` (load `Cargo.toml`/manifests +
+the whole file-set, not just supported-source — currently skipped at `:277`),
+`src/cpg/build.rs`/`src/navigation/mod.rs` (thread the build inputs into `CallGraph::build` — currently
+pass only parsed source files at `cpg/build.rs:134`/`navigation/mod.rs:35`), `src/cpg/context.rs`
+(subset/scoped builds → no authoritative graph, `:160`) · Test
 `tests/name_resolution/rust_populate_test.rs`, `tests/lang/rust/`
 
 **Build inputs (round-3 F1 — do-now).** §11.5's crate graph and §8's cache key need inputs the current
@@ -182,12 +197,13 @@ expansion in Phase 1 — F5); name-introducing macros (`macro_rules!`, attribute
 **the whole `scope_graph` is REPLACED (rebuilt from all parsed files) after any incremental merge — never
 merge stale scope data** (a `mod`/`#[path]`/manifest change reshapes unchanged files; the partial-hit
 flow at `main.rs:718` hands back a cached `CallGraph` + changed files, so the graph must be recomputed
-whole, not subset-merged — round-2 do-now); cache key += manifests + file-set/existence + cfg + stable IDs. **Fail-open (F7), two levels (round-4 nit 3):** a
-*graph-wide* failure (unparseable `Cargo.toml`/workspace, crate-graph build error) → mark the whole graph
-**`complete=false` (non-authoritative)** so legacy Rust resolution is NOT disabled repo-wide; a *local*
-failure (one missing `mod` target, one file's parse error) → that **region** is empty/poisoned in an
-otherwise-complete graph and still skips legacy at covered sites. Either way: never a panic, never aborts
-CPG construction. **PR-2 is "no consumer behavior change," NOT byte-for-byte identical** (round-4 do-now):
+whole, not subset-merged — round-2 do-now); cache key += manifests + file-set/existence + cfg + stable IDs. **Fail-open (F7), using the Task-4 region state machine (round-4 nit 3 / round-5 F2):** a *graph-wide*
+failure (unparseable `Cargo.toml`/workspace, crate-graph build error) → whole graph **`complete=false`
+(non-authoritative)**, legacy NOT disabled repo-wide. A *local* failure is classified by the same
+`Poisoned` vs `Unmodeled` rule: a parse-failed **target** module or a `mod foo;` whose file is missing →
+the *target* region is **`Poisoned`** (a lookup into it falls through, but the call site's own modeled
+scope stays authoritative); a parse-failed **containing** file → that region is **`Unmodeled`** (sites in
+it are not authoritative → legacy runs). Never a panic, never aborts CPG construction. **PR-2 is "no consumer behavior change," NOT byte-for-byte identical** (round-4 do-now):
 storing `scope_graph` + bumping `CACHE_VERSION` (`cpg_cache.rs:52`) changes the cache blob's bytes by
 design — what is unchanged is resolution/nav *output* (no consumer reads the graph until PR-3).
 **Do-now:** Rust import evidence lives ONLY on the scope graph — do NOT write Rust into
@@ -237,10 +253,16 @@ behavior stays untouched).
   - **cache stale-topology (F6 — promoted from watch-item):** build a 2-file graph, then (a) ADD a
     `mod new;` + `new.rs` and (b) REMOVE a `mod`, each via the incremental path; assert the rebuilt graph
     matches a from-scratch build (the cache key change forces a whole-repo rebuild; an unchanged sibling's
-    resolution updates). Same for a `#[path="…"]` target add/remove.
-  - **fail-open (F7):** a fixture with a `mod missing;` whose file is absent, and one with malformed
-    `Cargo.toml` → the populator returns a graph (empty/poisoned region) and CPG build succeeds; assert no
-    panic and the rest of the graph still resolves.
+    resolution updates). Same for a `#[path="…"]` target add/remove. **Manifest-only + file-existence-only
+    (round-5 do-now):** a `Cargo.toml` edit (edition / `[lib]` path) with NO source change, and adding/
+    removing a file an existing `mod` references — both must invalidate (today's cache hashes source maps
+    only, `cpg_cache.rs:119`/`:311`; the widened key must catch these).
+  - **fail-open (F7) — the three region cases (round-5 F2):** (1) `mod missing;` whose file is absent →
+    `missing`'s region is **`Poisoned`** (a `use crate::missing::x` falls through; the containing module
+    still resolves its own items); (2) a **target** module that parses with errors → **`Poisoned`** target
+    (same); (3) a **containing** file that parses with errors → that file's region is **`Unmodeled`**
+    (sites in it are not authoritative). Plus graph-wide: malformed `Cargo.toml` → whole graph
+    `complete=false`. Assert no panic, CPG build succeeds, and the rest of the graph still resolves.
 - [ ] **Step 2: Run → fail.** **Step 3: Implement** the populator + the build/store wiring + the cache
   widening (`CACHE_VERSION` bump + a pin/round-trip test) + whole-repo incremental rebuild (mirror the
   Go-embedding recompute) + the fail-open guards. **Step 4: Run → pass**; `cargo test --test name_resolution` + `--test ast` (cache) green. **Step 5: Commit** `feat(rust-nameres): Rust populator + CallGraph wiring + cache (vN)`
@@ -256,28 +278,39 @@ The call-site→scope mapping is explicit (do-now): the consumer builds each `Re
 captured `CallSite.start_byte/end_byte` (`call_graph.rs:28`) so block-local shadows and block-scoped
 `use` resolve at the right rib — not just caller-function/file granularity.
 
-**The graph-authority contract (round-2 F2 / round-3 F2 — define BEFORE disabling any legacy path).** The
-legacy qualified Rust heuristic (`resolution.rs:532`/`:566` owner/stem ladder) is disabled *only* for
-sites an authoritative graph covers. `authoritative_for(callsite)` is **per-graph completeness AND
-per-site**, not "file modeled" (a subset build can include a file while its modules/import targets are
-absent — that must NOT look authoritative):
+**The graph-authority contract (round-2 F2 / round-3 F2 / round-5 F2 — define BEFORE disabling any legacy
+path).** The legacy qualified Rust heuristic (`resolution.rs:532`/`:566` owner/stem ladder) is disabled
+*only* for sites an authoritative graph covers. **Authority is keyed on the call SITE's containing scope,
+NOT the target** — a poisoned/missing *target* yields a `Poisoned`/`Unresolved` *result* (→ fall through),
+it does not make the site non-authoritative. `authoritative_for(callsite)`:
 1. **per-graph:** `scope_graph.complete == true` (a whole-workspace build per F1 — diff/scoped/subset/
    skeleton builds are `complete=false` → graph omitted/incomplete → authoritative for NO site); AND
-2. **per-site:** a containing scope/rib is found for the site's `CallSite.start_byte`; AND
-3. **not** a fail-open empty/unmodeled region.
+2. **per-site:** a **modeled** containing scope/rib is found for the site's `CallSite.start_byte` (the
+   site's own file parsed and was populated).
+The crisp region state machine (round-5 F2 — one definition, used by Task 3 AND Task 4):
+- **`Modeled`** — scopes built for this region; resolve normally.
+- **`Poisoned`** — modeled but *hazardous*: a real glob, an unexpanded macro, a pending `use`, OR a
+  parse-failed **target** module (we know a name *might* live here but can't confirm). A site whose
+  containing scope is `Modeled` but whose lookup lands in `Poisoned` → authoritative, result `Poisoned`.
+- **`Unmodeled`** — no scopes built: a parse-failed **containing** file, or a region the populator never
+  reached. A site here is **not** authoritative.
 Then:
 - **authoritative + `Resolved` single in-repo callable** → emit the graph edge (legacy skipped).
-- **authoritative + any other status** (`Poisoned`/`Ambiguous`/`ResolvedSet`/`Unresolved`/`External`,
-  incl. a fail-open *poisoned* region) → **fall through, legacy skipped** (the graph considered it and
-  declined; do not let the heuristic guess).
-- **NOT authoritative** — incomplete/subset/skeleton graph (`build_skeleton` `call_graph.rs:147`;
-  direct-subset incremental `call_graph.rs:1009`), or a fail-open *empty*/parse-failed region → **legacy
-  heuristic runs unchanged** (no recall loss; PR-3 changes nothing for uncovered sites).
+- **authoritative + any other status** (`Poisoned`/`Ambiguous`/`ResolvedSet`/`Unresolved`/`External`) →
+  **fall through, legacy skipped** (the graph considered it and declined; do not let the heuristic guess).
+- **NOT authoritative** — `complete=false` graph (`build_skeleton` `call_graph.rs:147`; direct-subset
+  incremental `call_graph.rs:1009`) OR the site sits in an `Unmodeled` region → **legacy heuristic runs
+  unchanged** (no recall loss; PR-3 changes nothing for uncovered sites).
 
 **Two distinct consumer helpers (round-3 F3 — do-now; do NOT force module-deps through callable-only
 logic).** Call narrowing and module-deps resolve *different* binding kinds:
 - `graph_callable_edge(site) -> Option<Target>` — for `resolution.rs` call narrowing; `Some` only on
-  authoritative + `Resolved` single in-repo `Item{callable}`.
+  authoritative + `Resolved` single in-repo `Item{callable}`. **Namespace-correct (round-5 F1):** a `f()`
+  site resolves in the **Value** namespace; a `m!()` **macro invocation** (captured at `queries.rs:173`)
+  resolves in the **Macro** namespace (Phase-1: `macro_rules!`/macros are poison/deferred → fall through),
+  so a macro invocation can NEVER edge to a Value `fn m`. This needs a **`CallSite` syntax discriminator**
+  (a `kind: Call | MacroInvocation`, set by the extractor — do-now; `CallSite` carries only name/bytes/
+  qualifier today, `call_graph.rs:22`) so the consumer can pick the namespace from `start_byte`.
 - `graph_module_dep_edge(import) -> ResolvedImport` / a resolved-import traversal — for
   `module_graph.rs`; resolves named `use`/`pub use` re-export **and glob** bindings via `resolve`
   *regardless of callable* (a `use crate::m;`, a type-only import, a re-export-only dep are all real
@@ -306,19 +339,26 @@ logic).** Call narrowing and module-deps resolve *different* binding kinds:
     (proves disabling the legacy heuristic did not silently drop all `::` recall). This is a golden
     fixture: a small Rust crate with known-correct `::` edges, asserted exactly (precision-not-regress
     alone is necessary-but-not-sufficient).
-  - **(c″) graph-authority four states (round-2 F2 / round-3 F2):** for the SAME `crate::engine::start()`
-    site — (1) **complete** whole-workspace graph covering the file → graph edge (legacy skipped);
-    (2) NO graph (skeleton / `scope_graph` absent) → legacy edge unchanged (no recall loss);
-    (3) **incomplete/subset** graph (`complete=false`) that includes the file but not its `mod`/import
-    targets → NOT authoritative → legacy edge unchanged (the round-3 F2 trap: a subset must not masquerade
-    as authoritative); (4) fail-open *poisoned* region in a complete graph → fall through (NO edge, legacy
-    skipped). Assert `authoritative_for` is true only for (1)+(4); (2)+(3) byte-identical to pre-PR-3.
+  - **(c″) graph-authority states (round-2 F2 / round-3 F2 / round-5 F2):** for the SAME
+    `crate::engine::start()` site — (1) **complete** whole-workspace graph covering the file → graph edge
+    (legacy skipped); (2) NO graph (skeleton / `scope_graph` absent) → legacy edge unchanged (no recall
+    loss); (3) **incomplete/subset** graph (`complete=false`) → NOT authoritative → legacy edge unchanged
+    (round-3 F2 trap: a subset must not masquerade as authoritative); (4) the **target** `engine` is
+    `Poisoned` (parse-failed / missing `mod`) but the call site's own scope is `Modeled` → authoritative,
+    result `Poisoned` → fall through (NO edge, legacy skipped); (5) the **containing** file is `Unmodeled`
+    (parse-failed) → NOT authoritative → legacy edge unchanged. Assert `authoritative_for` true only for
+    (1)+(4); (2)+(3)+(5) byte-identical to pre-PR-3. This pins the round-5 F2 site-vs-target rule (a
+    poisoned target ≠ a non-authoritative site).
   - **(d) callable-edge fall-through guards (do-now) — `graph_callable_edge` only:** every
     non-`Resolved`-single-callable result avoids a **call** edge/narrowing — assert each of:
     `Resolved(Target::External)` (e.g. `std`), `Resolved` non-callable `Item` (a type/const),
     `Resolved(Target::Scope)`, `ResolvedSet` (>1 file), a cfg-exclusive multi-candidate result, and
     `Poisoned` → NO call edge. (Note: a non-callable `Item` is NOT an error for module-deps — it is a
     valid `graph_module_dep_edge`; the two helpers diverge here by design — round-3 F3.)
+  - **(e) macro-invocation guard (round-5 F1):** `fn m(){} fn g(){ m!(); }` → the `m!()` site produces
+    **NO call edge** to the Value `fn m` (it resolves in the Macro namespace, Phase-1 poison → fall
+    through), with legacy skipped when graph-authoritative. Asserts the `CallSite` syntax discriminator is
+    wired so a macro invocation never does a Value lookup.
 - [ ] **Step 2: Run → fail.** **Step 3: Implement** the consumers via the graph; **disable the legacy
   qualified Rust heuristic where the graph is authoritative** (graph-resolve or fall through — spec §10).
   Edge/narrow only on `Resolved` single in-repo `Item{callable}`. **Step 4: (c′) + recall-guard tests
@@ -363,9 +403,11 @@ incrementally; PR-3 is the behavior-changing one (Tier-A gated).
   (per-graph `complete` AND per-site rib found) + the four-state authority tests (Task 4 c″): a
   subset/skeleton/incomplete graph is authoritative for NO site → legacy byte-for-byte (no recall loss,
   and no subset masquerading as authoritative — round-3 F2); a covered-but-poisoned site falls through
-  (no wrong-edge guess). The two helpers — `graph_callable_edge` (call) and `graph_module_dep_edge`
-  (module-deps, non-callable imports too) — share the authority/fall-through contract but resolve
-  different binding kinds (round-3 F3).
+  (no wrong-edge guess). The two helpers — `graph_callable_edge` (call, **namespace-correct** so `m!()`
+  never edges to a Value `fn m` — round-5 F1) and `graph_module_dep_edge` (module-deps, non-callable
+  imports too) — share the authority/fall-through contract but resolve different binding kinds (round-3
+  F3). The `Modeled`/`Poisoned`/`Unmodeled` region state machine (round-5 F2) keys authority on the call
+  *site's* scope, so a poisoned/missing target falls through without disabling legacy for unmodeled sites.
 - **Cache correctness:** whole-repo rebuild + the widened key (manifests/file-set/cfg). A missed input
   ⇒ stale resolution. **Pinned by the Task-3 stale-topology test (F6)** — a `mod`/`#[path]` add/remove
   must change unchanged files' resolution to match a from-scratch build.
