@@ -1,10 +1,12 @@
 use crate::ast::ParsedFile;
+use crate::call_graph::ScopeGraphBuildInputs;
 use crate::languages::Language;
+use crate::name_resolution::rust_populator::RustCrateConfig;
 use crate::type_db::TypeDatabase;
 use anyhow::{Context, Result};
 use rayon::prelude::*;
 use sha2::{Digest, Sha256};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 
 const MAX_FILE_BYTES: u64 = 2 * 1024 * 1024;
@@ -33,6 +35,8 @@ pub struct LoadedRepo {
     pub root: PathBuf,
     pub files: BTreeMap<String, ParsedFile>,
     pub file_hashes: BTreeMap<String, String>,
+    pub manifest_hashes: BTreeMap<String, String>,
+    pub scope_graph_inputs: Option<ScopeGraphBuildInputs>,
     pub skipped: Vec<SkippedFile>,
     pub type_db: Option<TypeDatabase>,
 }
@@ -137,12 +141,248 @@ fn merge_walk_items(root: &Path, items: Vec<MergeItem>, outcomes: Vec<ParseOutco
 
     debug_assert!(outcomes.next().is_none());
 
+    let scope_graph_inputs = scope_graph_build_inputs(root, &files);
+    let manifest_hashes = scope_graph_inputs.manifest_hashes.clone();
+
     LoadedRepo {
         root: root.to_path_buf(),
         files,
         file_hashes,
+        manifest_hashes,
+        scope_graph_inputs: Some(scope_graph_inputs),
         skipped,
         type_db: None,
+    }
+}
+
+pub fn scope_graph_build_inputs(
+    root: &Path,
+    files: &BTreeMap<String, ParsedFile>,
+) -> ScopeGraphBuildInputs {
+    let manifest_hashes = collect_manifest_hashes(root);
+    let cfg = parse_rust_crate_config(root, files, &manifest_hashes)
+        .unwrap_or_else(|| RustCrateConfig::from_convention(files));
+    let complete = has_complete_file_coverage(root, files);
+    ScopeGraphBuildInputs {
+        repo_root: root.to_path_buf(),
+        all_file_paths: files.keys().cloned().collect(),
+        manifest_hashes,
+        cfg,
+        complete,
+    }
+}
+
+fn collect_manifest_hashes(root: &Path) -> BTreeMap<String, String> {
+    let mut out = BTreeMap::new();
+    collect_manifest_hashes_inner(root, root, &mut out);
+    out
+}
+
+fn collect_manifest_hashes_inner(root: &Path, dir: &Path, out: &mut BTreeMap<String, String>) {
+    let entries = match std::fs::read_dir(dir) {
+        Ok(entries) => entries,
+        Err(_) => return,
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        let name = entry.file_name().to_string_lossy().to_string();
+        let file_type = match entry.file_type() {
+            Ok(file_type) => file_type,
+            Err(_) => continue,
+        };
+        if file_type.is_dir() {
+            if BUILTIN_SKIP_DIRS.contains(&name.as_str()) || name.starts_with('.') {
+                continue;
+            }
+            collect_manifest_hashes_inner(root, &path, out);
+            continue;
+        }
+        if file_type.is_file() && name == "Cargo.toml" {
+            if let Ok(bytes) = std::fs::read(&path) {
+                let mut hasher = Sha256::new();
+                hasher.update(&bytes);
+                out.insert(rel(root, &path), format!("{:x}", hasher.finalize()));
+            }
+        }
+    }
+}
+
+fn has_complete_file_coverage(root: &Path, files: &BTreeMap<String, ParsedFile>) -> bool {
+    let Some(expected) = collect_supported_source_paths(root) else {
+        return false;
+    };
+    let actual: BTreeSet<String> = files.keys().cloned().collect();
+    actual == expected
+}
+
+fn collect_supported_source_paths(root: &Path) -> Option<BTreeSet<String>> {
+    let mut out = BTreeSet::new();
+    collect_supported_source_paths_inner(root, root, &mut out).ok()?;
+    Some(out)
+}
+
+fn collect_supported_source_paths_inner(
+    root: &Path,
+    dir: &Path,
+    out: &mut BTreeSet<String>,
+) -> std::io::Result<()> {
+    for entry in std::fs::read_dir(dir)? {
+        let entry = entry?;
+        let path = entry.path();
+        let name = entry.file_name().to_string_lossy().to_string();
+        let file_type = entry.file_type()?;
+
+        if BUILTIN_SKIP_DIRS.contains(&name.as_str())
+            && (file_type.is_dir() || file_type.is_symlink())
+        {
+            continue;
+        }
+        if file_type.is_symlink() {
+            continue;
+        }
+        if file_type.is_dir() {
+            if !name.starts_with('.') {
+                collect_supported_source_paths_inner(root, &path, out)?;
+            }
+            continue;
+        }
+        if !file_type.is_file() {
+            continue;
+        }
+
+        let relp = rel(root, &path);
+        if Language::from_path(&relp).is_none() {
+            continue;
+        }
+        if entry.metadata()?.len() <= MAX_FILE_BYTES {
+            out.insert(relp);
+        }
+    }
+    Ok(())
+}
+
+fn parse_rust_crate_config(
+    root: &Path,
+    files: &BTreeMap<String, ParsedFile>,
+    manifest_hashes: &BTreeMap<String, String>,
+) -> Option<RustCrateConfig> {
+    if manifest_hashes.is_empty() {
+        return Some(RustCrateConfig::from_convention(files));
+    }
+
+    let mut cfg = RustCrateConfig::from_convention(files);
+    let mut crate_roots = BTreeSet::new();
+    let mut workspace_members = BTreeSet::new();
+    let mut bin_paths = BTreeSet::new();
+    let mut parsed_any = false;
+
+    for manifest_path in manifest_hashes.keys() {
+        let abs = root.join(manifest_path);
+        let Ok(text) = std::fs::read_to_string(&abs) else {
+            continue;
+        };
+        let Ok(value) = text.parse::<toml::Value>() else {
+            continue;
+        };
+        parsed_any = true;
+        let manifest_dir = manifest_path
+            .strip_suffix("Cargo.toml")
+            .unwrap_or("")
+            .trim_end_matches('/');
+
+        if let Some(edition) = value
+            .get("package")
+            .and_then(|p| p.get("edition"))
+            .and_then(|e| e.as_str())
+            .and_then(parse_edition)
+        {
+            cfg.edition = edition;
+        }
+
+        if let Some(members) = value
+            .get("workspace")
+            .and_then(|w| w.get("members"))
+            .and_then(|m| m.as_array())
+        {
+            for member in members.iter().filter_map(|m| m.as_str()) {
+                workspace_members.insert(join_manifest_rel(manifest_dir, member));
+            }
+        }
+
+        if let Some(path) = value
+            .get("lib")
+            .and_then(|l| l.get("path"))
+            .and_then(|p| p.as_str())
+        {
+            let p = join_manifest_rel(manifest_dir, path);
+            crate_roots.insert(p.clone());
+            cfg.lib_path = Some(p);
+        } else {
+            let lib = join_manifest_rel(manifest_dir, "src/lib.rs");
+            if files.contains_key(&lib) {
+                crate_roots.insert(lib);
+            }
+        }
+
+        let main = join_manifest_rel(manifest_dir, "src/main.rs");
+        if files.contains_key(&main) {
+            crate_roots.insert(main);
+        }
+
+        if let Some(bins) = value.get("bin").and_then(|b| b.as_array()) {
+            for bin in bins {
+                if let Some(path) = bin.get("path").and_then(|p| p.as_str()) {
+                    let p = join_manifest_rel(manifest_dir, path);
+                    crate_roots.insert(p.clone());
+                    bin_paths.insert(p);
+                }
+            }
+        }
+
+        collect_dep_renames(&value, &mut cfg.dep_renames);
+    }
+
+    if !parsed_any {
+        return None;
+    }
+    crate_roots.extend(cfg.crate_roots);
+    cfg.crate_roots = crate_roots.into_iter().collect();
+    cfg.workspace_members = workspace_members.into_iter().collect();
+    cfg.bin_paths = bin_paths.into_iter().collect();
+    Some(cfg)
+}
+
+fn parse_edition(raw: &str) -> Option<u16> {
+    match raw {
+        "2015" => Some(2015),
+        "2018" => Some(2018),
+        "2021" => Some(2021),
+        "2024" => Some(2024),
+        _ => None,
+    }
+}
+
+fn join_manifest_rel(manifest_dir: &str, rel_path: &str) -> String {
+    let mut p = if manifest_dir.is_empty() {
+        PathBuf::from(rel_path)
+    } else {
+        PathBuf::from(manifest_dir).join(rel_path)
+    };
+    if p == PathBuf::from(".") {
+        p = PathBuf::new();
+    }
+    p.to_string_lossy().replace('\\', "/")
+}
+
+fn collect_dep_renames(value: &toml::Value, out: &mut BTreeMap<String, String>) {
+    for table in ["dependencies", "dev-dependencies", "build-dependencies"] {
+        if let Some(deps) = value.get(table).and_then(|v| v.as_table()) {
+            for (alias, spec) in deps {
+                if let Some(package) = spec.get("package").and_then(|p| p.as_str()) {
+                    out.insert(alias.clone(), package.to_string());
+                }
+            }
+        }
     }
 }
 

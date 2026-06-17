@@ -32,7 +32,11 @@ impl NavigationIndex {
     /// `build_scoped` (spec section 17 Step 3 / R3-M5). Moves the owned cpg/types/live_types
     /// out of the borrowing context so the index owns them.
     pub fn build(repo: &LoadedRepo) -> Self {
-        let ctx = CpgContext::build(&repo.files, repo.type_db.as_ref());
+        let ctx = CpgContext::build_with_scope_graph_inputs(
+            &repo.files,
+            repo.type_db.as_ref(),
+            repo.scope_graph_inputs.as_ref(),
+        );
         Self::from_ctx(ctx)
     }
 

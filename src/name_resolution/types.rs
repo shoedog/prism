@@ -86,7 +86,6 @@ pub struct Span {
 /// - `compatible` → `true` (assume they may coexist → no silent merge)
 /// - `exclusive`  → `false` (assume they might coexist → no silent drop)
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-#[serde(tag = "kind", content = "data")]
 pub enum CfgCond {
     /// Unconditionally active.
     True,
@@ -355,7 +354,6 @@ pub struct ExternRef {
 
 /// What a `Binding`'s name resolves to.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-#[serde(tag = "kind", content = "data")]
 pub enum Target {
     /// The name introduces or re-exports a *scope* (a module, type body, …).
     Scope(ScopeId),
@@ -382,7 +380,6 @@ pub enum Target {
 
 /// The resolution state of a `Binding`'s target.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-#[serde(tag = "kind", content = "data")]
 pub enum BindTarget {
     /// Target already known (either from an item definition or after fixpoint).
     Resolved(Target),

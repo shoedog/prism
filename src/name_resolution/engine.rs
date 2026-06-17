@@ -262,6 +262,12 @@ fn glob_lookup(
         if e.from != scope_id || !glob_kinds.contains(&e.kind) {
             continue;
         }
+        if e.vis_range
+            .as_ref()
+            .is_some_and(|span| !span_covers(span, &q.at))
+        {
+            continue;
+        }
         saw_glob = true;
         match &e.to {
             // Deferred glob: members unknown → poison (never skip to an outer name).

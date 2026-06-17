@@ -2,7 +2,7 @@
 //! diff-scope computation used to build diff-scoped CPGs.
 
 use crate::ast::ParsedFile;
-use crate::call_graph::{CallGraph, FunctionId};
+use crate::call_graph::{CallGraph, FunctionId, ScopeGraphBuildInputs};
 use crate::diff::DiffInput;
 use crate::type_db::TypeDatabase;
 use crate::type_provider::TypeRegistry;
@@ -61,13 +61,32 @@ impl<'a> CpgContext<'a> {
         type_db: Option<&'a TypeDatabase>,
     ) -> Self {
         let cpg = CodePropertyGraph::build_enriched(files, type_db);
+        Self::from_built_cpg(files, cpg, type_db, None)
+    }
+
+    pub fn build_with_scope_graph_inputs(
+        files: &'a BTreeMap<String, ParsedFile>,
+        type_db: Option<&'a TypeDatabase>,
+        scope_inputs: Option<&ScopeGraphBuildInputs>,
+    ) -> Self {
+        let cpg =
+            CodePropertyGraph::build_enriched_with_scope_graph_inputs(files, type_db, scope_inputs);
+        Self::from_built_cpg(files, cpg, type_db, None)
+    }
+
+    fn from_built_cpg(
+        files: &'a BTreeMap<String, ParsedFile>,
+        cpg: CodePropertyGraph,
+        type_db: Option<&'a TypeDatabase>,
+        scope: Option<CpgScope>,
+    ) -> Self {
         let types = Self::build_registry(files, type_db);
         let live_types = types.collect_live_types(files);
         CpgContext {
             cpg,
             files,
             types,
-            scope: None,
+            scope,
             live_types,
         }
     }
@@ -164,7 +183,7 @@ impl<'a> CpgContext<'a> {
             .map(|(k, v)| (k.clone(), v.clone()))
             .collect();
 
-        let cpg = CodePropertyGraph::build_enriched(&filtered, type_db);
+        let cpg = CodePropertyGraph::build_enriched_without_scope_graph(&filtered, type_db);
         let types = Self::build_registry(files, type_db);
         // Collect live types from ALL files (not just scoped) for accurate RTA.
         let live_types = types.collect_live_types(files);

@@ -686,6 +686,7 @@ fn run_review(cli: &ReviewArgs) -> Result<()> {
 
     // Check parse quality for all files and collect warnings + structured data.
     let (parse_warnings, parse_quality) = algorithms::check_parse_quality(&files);
+    let scope_graph_inputs = prism::repo_loader::scope_graph_build_inputs(repo, &files);
 
     // Build CPG once — shared across all algorithm runs.
     // With --cache-dir, attempt to load from cache first.
@@ -697,6 +698,9 @@ fn run_review(cli: &ReviewArgs) -> Result<()> {
         } else {
             None
         };
+        let topology_key = file_hashes.as_ref().map(|hashes| {
+            cpg_cache::compute_topology_key(hashes, &scope_graph_inputs.manifest_hashes)
+        });
 
         // Try loading from cache.
         // Pass type_db availability so cache can detect virtual dispatch edge mismatches.
@@ -704,7 +708,12 @@ fn run_review(cli: &ReviewArgs) -> Result<()> {
         let cache_result = if use_cache {
             let cache_dir = cli.cache_dir.as_ref().unwrap();
             let hashes = file_hashes.as_ref().unwrap();
-            cpg_cache::load_cache(hashes, has_type_db, cache_dir)
+            cpg_cache::load_cache_with_topology(
+                hashes,
+                topology_key.as_ref().unwrap(),
+                has_type_db,
+                cache_dir,
+            )
         } else {
             CacheResult::Miss
         };
@@ -725,19 +734,25 @@ fn run_review(cli: &ReviewArgs) -> Result<()> {
                     changed_files.len(),
                     file_hashes.as_ref().map_or(0, |h| h.len())
                 );
-                let cpg = CodePropertyGraph::build_incremental(
+                let cpg = CodePropertyGraph::build_incremental_with_scope_graph_inputs(
                     cached_call_graph,
                     cached_dfg,
                     &changed_files,
                     &files,
                     type_db.clone(),
+                    Some(&scope_graph_inputs),
                 );
                 let ctx = CpgContext::build_with_cached_cpg(&files, cpg, type_db.as_ref());
 
                 // Save updated cache.
                 if let (Some(cache_dir), Some(hashes)) = (&cli.cache_dir, &file_hashes) {
-                    if let Err(e) = cpg_cache::save_cache(&ctx.cpg, hashes, has_type_db, cache_dir)
-                    {
+                    if let Err(e) = cpg_cache::save_cache_with_topology(
+                        &ctx.cpg,
+                        hashes,
+                        topology_key.as_ref().unwrap(),
+                        has_type_db,
+                        cache_dir,
+                    ) {
                         eprintln!("Warning: failed to write CPG cache: {}", e);
                     } else {
                         eprintln!("CPG cache updated to {}", cache_dir.display());
@@ -749,13 +764,22 @@ fn run_review(cli: &ReviewArgs) -> Result<()> {
                 let ctx = if cli.scoped_cpg {
                     CpgContext::build_scoped(&files, &diff_input, type_db.as_ref())
                 } else {
-                    CpgContext::build(&files, type_db.as_ref())
+                    CpgContext::build_with_scope_graph_inputs(
+                        &files,
+                        type_db.as_ref(),
+                        Some(&scope_graph_inputs),
+                    )
                 };
 
                 // Save cache after a full build (not for scoped builds).
                 if let (Some(cache_dir), Some(hashes)) = (&cli.cache_dir, &file_hashes) {
-                    if let Err(e) = cpg_cache::save_cache(&ctx.cpg, hashes, has_type_db, cache_dir)
-                    {
+                    if let Err(e) = cpg_cache::save_cache_with_topology(
+                        &ctx.cpg,
+                        hashes,
+                        topology_key.as_ref().unwrap(),
+                        has_type_db,
+                        cache_dir,
+                    ) {
                         eprintln!("Warning: failed to write CPG cache: {}", e);
                     } else {
                         eprintln!("CPG cache written to {}", cache_dir.display());

@@ -42,7 +42,14 @@ impl NavigationIndex {
             );
         }
         let has_type_db = repo.type_db.is_some();
-        match cpg_cache::load_cache(&repo.file_hashes, has_type_db, cache_dir) {
+        let topology_key =
+            cpg_cache::compute_topology_key(&repo.file_hashes, &repo.manifest_hashes);
+        match cpg_cache::load_cache_with_topology(
+            &repo.file_hashes,
+            &topology_key,
+            has_type_db,
+            cache_dir,
+        ) {
             CacheResult::Hit(cpg) => Self::from_ctx(CpgContext::build_with_cached_cpg(
                 &repo.files,
                 cpg,
@@ -55,10 +62,18 @@ impl NavigationIndex {
                     "nav cache: partial CPG cache hit in {}, rebuilding",
                     cache_dir.display()
                 );
-                let ctx = CpgContext::build(&repo.files, repo.type_db.as_ref());
-                if let Err(e) =
-                    cpg_cache::save_cache(&ctx.cpg, &repo.file_hashes, has_type_db, cache_dir)
-                {
+                let ctx = CpgContext::build_with_scope_graph_inputs(
+                    &repo.files,
+                    repo.type_db.as_ref(),
+                    repo.scope_graph_inputs.as_ref(),
+                );
+                if let Err(e) = cpg_cache::save_cache_with_topology(
+                    &ctx.cpg,
+                    &repo.file_hashes,
+                    &topology_key,
+                    has_type_db,
+                    cache_dir,
+                ) {
                     eprintln!(
                         "nav cache: failed to save CPG cache in {}: {e}",
                         cache_dir.display()
@@ -71,10 +86,18 @@ impl NavigationIndex {
                     "nav cache: CPG cache miss in {}, rebuilding",
                     cache_dir.display()
                 );
-                let ctx = CpgContext::build(&repo.files, repo.type_db.as_ref());
-                if let Err(e) =
-                    cpg_cache::save_cache(&ctx.cpg, &repo.file_hashes, has_type_db, cache_dir)
-                {
+                let ctx = CpgContext::build_with_scope_graph_inputs(
+                    &repo.files,
+                    repo.type_db.as_ref(),
+                    repo.scope_graph_inputs.as_ref(),
+                );
+                if let Err(e) = cpg_cache::save_cache_with_topology(
+                    &ctx.cpg,
+                    &repo.file_hashes,
+                    &topology_key,
+                    has_type_db,
+                    cache_dir,
+                ) {
                     eprintln!(
                         "nav cache: failed to save CPG cache in {}: {e}",
                         cache_dir.display()
