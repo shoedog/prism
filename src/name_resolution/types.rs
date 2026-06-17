@@ -231,13 +231,98 @@ pub struct PolicyBlob {
 
 // ── Anchor ───────────────────────────────────────────────────────────────────
 
+/// A path anchor — *how* a path's leading segment is rooted before the walk.
+///
+/// **Policy-owned / engine-opaque.** The engine never matches on `AnchorKind`;
+/// only a `ResolutionPolicy::anchor` implementation interprets it (exactly as
+/// `NamespaceId`/`VisKindId`/`EdgeKindId` are policy-interpreted scalars that
+/// nonetheless live here in the neutral data model). The variants below are the
+/// forms the Rust policy needs (Task 2); other languages may ignore them or add
+/// their own conventions via `Anchor::default()` + `payload`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+pub enum AnchorKind {
+    /// A bare leading ident in an **expression** position (edition-lexical).
+    Bare,
+    /// `self::` — module-relative to the enclosing `Module`.
+    SelfMod,
+    /// `super::` ×n — n hops up the module ancestry.
+    Super(u32),
+    /// `crate::` — the enclosing crate Root.
+    CrateRoot,
+    /// A bare leading ident inside a **`use` path** (edition-sensitive rooting:
+    /// 2015 crate-root-relative; 2018+ lexical/extern-prelude).
+    UsePath,
+    /// A leading `::` — 2015 crate-root-based; 2018+ extern-prelude-based.
+    LeadingColon,
+}
+
 /// Opaque per-policy anchor mapping for path resolution prefixes.
 ///
-/// The populator maps `crate::` / `self::` / `super::` / `::` / bare idents
-/// to a starting scope + rule via an `Anchor`.  Policy-owned; engine-opaque.
-#[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+/// The populator maps `crate::` / `self::` / `super::` / `::` / bare idents to a
+/// starting scope + rule via an `Anchor`.  Policy-owned; the engine passes it
+/// verbatim to `ResolutionPolicy::anchor` and never inspects the fields.
+///
+/// `prelude` carries the extern-prelude `ScopeId` when the populator knows it
+/// (2018 `::x`); `None` ⇒ the policy anchors conservatively (fall through over a
+/// wrong guess — §4.4).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct Anchor {
-    // Phase N: populated by the Rust policy implementation (Task 2).
+    pub kind: AnchorKind,
+    /// Extern-prelude scope, when known (for 2018 `::`/bare-crate anchoring).
+    pub prelude: Option<ScopeId>,
+}
+
+impl Default for Anchor {
+    /// A bare expression-position anchor with no known prelude — the most
+    /// conservative default (lexical walk; never a wrong cross-module guess).
+    fn default() -> Self {
+        Anchor {
+            kind: AnchorKind::Bare,
+            prelude: None,
+        }
+    }
+}
+
+impl Anchor {
+    /// `crate::` — root of the enclosing crate.
+    pub fn crate_root() -> Self {
+        Anchor {
+            kind: AnchorKind::CrateRoot,
+            prelude: None,
+        }
+    }
+    /// `self::` — the enclosing module.
+    pub fn self_mod() -> Self {
+        Anchor {
+            kind: AnchorKind::SelfMod,
+            prelude: None,
+        }
+    }
+    /// `super::` ×n.
+    pub fn super_n(n: u32) -> Self {
+        Anchor {
+            kind: AnchorKind::Super(n),
+            prelude: None,
+        }
+    }
+    /// A bare expression-position leading ident.
+    pub fn bare() -> Self {
+        Anchor::default()
+    }
+    /// A 2015 `use`-path leading ident (crate-root-relative).
+    pub fn use_path_2015() -> Self {
+        Anchor {
+            kind: AnchorKind::UsePath,
+            prelude: None,
+        }
+    }
+    /// A 2018 leading `::` with a known extern-prelude scope.
+    pub fn leading_colon_2018(prelude: u32) -> Self {
+        Anchor {
+            kind: AnchorKind::LeadingColon,
+            prelude: Some(ScopeId(prelude)),
+        }
+    }
 }
 
 // ── BindTarget / Target ──────────────────────────────────────────────────────
@@ -347,6 +432,87 @@ pub struct Edge {
     pub vis_range: Option<Span>,
 }
 
+// ── MacroWildcard — unexpanded name-introducing macro (§4.3b) ────────────────
+
+/// An *unexpanded* name-introducing macro invocation (item-position
+/// `macro_rules!`/proc/attribute macro) that may emit **unknowable** names.
+///
+/// Phase 1 cannot compute the introduced name-set pre-expansion, so the
+/// populator records a **wildcard** marker over `(scope, ns, range)`: any bare
+/// lookup of `ns` whose byte falls in `range` is **poisoned** (exactly like a
+/// deferred glob) — the engine must fall through, never reach an outer
+/// same-name (§4.3b / §7 poison-not-skip). Full macro expansion is Phase 3.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+pub struct MacroWildcard {
+    /// The scope the macro was invoked in.
+    pub scope: ScopeId,
+    /// The namespace the wildcard poisons.
+    pub ns: NamespaceId,
+    /// The byte range the macro's potential introductions cover.
+    pub range: Span,
+}
+
+// ── ScopeGraph — the engine's input shape ─────────────────────────────────────
+
+/// The whole-repo scope graph: the shared input to the resolution engine.
+///
+/// Built by a language populator (Task 3 for Rust) and consumed by
+/// `engine::resolve`/`resolve_path`.  Kept here in the neutral data model
+/// because it is the *shape* of the engine input, not engine logic.
+///
+/// ## Determinism
+/// `scopes` is a `BTreeMap` (sorted by `ScopeId`). `bindings`/`edges`/
+/// `macro_wildcards` are `Vec`s whose **insertion order is meaningful**:
+/// - a `Binding`'s index within its scope is its `BindingRef::ordinal` source;
+/// - an `Edge`'s `order` field carries decl order independently.
+///
+/// Populators must insert in a stable order; the engine never relies on `Vec`
+/// position for correctness beyond honoring the policy's combination rules.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ScopeGraph {
+    pub scopes: std::collections::BTreeMap<ScopeId, Scope>,
+    pub bindings: Vec<Binding>,
+    pub edges: Vec<Edge>,
+    pub macro_wildcards: Vec<MacroWildcard>,
+}
+
+impl ScopeGraph {
+    /// An empty graph.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Insert a scope (keyed by its `id`).
+    pub fn add_scope(&mut self, s: Scope) {
+        self.scopes.insert(s.id, s);
+    }
+
+    /// Append a binding (its index becomes its scope-relative ordinal source).
+    pub fn add_binding(&mut self, b: Binding) {
+        self.bindings.push(b);
+    }
+
+    /// Append an edge.
+    pub fn add_edge(&mut self, e: Edge) {
+        self.edges.push(e);
+    }
+
+    /// Append an unexpanded-macro wildcard marker.
+    pub fn add_macro_wildcard(&mut self, m: MacroWildcard) {
+        self.macro_wildcards.push(m);
+    }
+
+    /// The scope record for `id`, if present.
+    pub fn scope(&self, id: ScopeId) -> Option<&Scope> {
+        self.scopes.get(&id)
+    }
+
+    /// The lexical parent of `id`, if any.
+    pub fn parent_of(&self, id: ScopeId) -> Option<ScopeId> {
+        self.scopes.get(&id).and_then(|s| s.parent)
+    }
+}
+
 // ── Resolution results ───────────────────────────────────────────────────────
 
 /// Why / where a candidate was found (opaque to the engine; policy-set).
@@ -390,15 +556,27 @@ pub struct Resolution {
 
 // ── ResolveQuery ─────────────────────────────────────────────────────────────
 
-/// Opaque traversal context passed to `ResolutionPolicy::visible()`.
+/// Traversal context passed to `ResolutionPolicy::visible()`.
 ///
-/// Carries the current edge, lookup scope, and provenance chain that the
-/// policy needs to decide glob/occurrence accessibility.
+/// The engine populates this at each lookup point; policy implementations
+/// inspect it. It carries the **lookup scope** the binding was found in and
+/// whether it was reached **via a glob edge** (vs a direct rib binding) — what
+/// the Rust glob-re-export / accessible-not-just-public rule needs (§4), and
+/// what C++ access control will consult later.
 ///
-/// **RESERVED** — the engine populates this; policy implementations inspect it.
+/// The engine deliberately does **not** hard-code a span/`SourceLoc` visibility
+/// check (that would be Rust-shaped — §1); all visibility decisions go through
+/// `visible()`, which may consult these fields + the binding's own data.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TraversalCtx {
-    // Phase N: engine fills in the current edge kind, lookup scope path, etc.
+    /// The scope currently being searched (the rib the binding lives in / the
+    /// glob target scope when `via_glob`).
+    pub lookup_scope: Option<ScopeId>,
+    /// `true` when the binding was reached through a `Glob` edge rather than as
+    /// a direct binding at the current rib.
+    pub via_glob: bool,
+    /// The edge kind taken to reach the binding (when `via_glob`).
+    pub edge_kind: Option<EdgeKindId>,
 }
 
 /// Opaque policy-query context.
@@ -477,6 +655,20 @@ pub trait ResolutionPolicy {
     ///
     /// Edition-aware for Rust (2015 vs 2018+).
     fn anchor(&self, anchor: &Anchor, from: ScopeId) -> Option<(ScopeId, NamespaceId)>;
+
+    /// During a **bare-name** inner→outer walk, after looking in a scope of the
+    /// given `kind`, should the engine ascend to its lexical parent?
+    ///
+    /// This is the policy's lexical-ascent gate. The **Rust module-boundary
+    /// stop** lives here: a bare name crosses `Block`/`Callable`/`Type` parents
+    /// but **stops at the enclosing `Module`/`Root`** (Rust does not inherit
+    /// unqualified names from a parent module — §4 round6-B1).
+    ///
+    /// Default: `true` (an unconditional lexical walk) — for policies (e.g.
+    /// Python LEGB) that do walk module ancestors. Rust overrides this.
+    fn ascend_to_parent(&self, _kind: &ScopeKind) -> bool {
+        true
+    }
 
     /// Inject additional candidates (C++ ADL, prelude, …) for a query.
     ///
