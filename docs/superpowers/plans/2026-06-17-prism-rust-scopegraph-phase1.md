@@ -32,6 +32,15 @@
 > `graph_module_dep_edge` (module-deps resolves named/`pub use`/glob imports *regardless of callable*);
 > broadens local bindings to **multi-binding/non-first-identifier patterns**; adds the **outer-same-name
 > visibility decoy**. Phase-1 graph is authoritative only on **whole-workspace** builds (where F3 lands).
+>
+> **Rev 5** (folds round 4, **APPROVE-WITH-NITS** — "no fall-through/poison-rule blocker; stays inside
+> §11.5"): asserts cfg multi-candidate **status** (`ResolvedSet`, not just distinct conds), adds the
+> remaining crate-root shapes (`src/bin/<n>/main.rs`/`benches/`/autobins), splits **fail-open into
+> graph-wide (`complete=false`) vs local-region poison**, adds a **module-deps glob-edge** test (edge to
+> the glob's module without member expansion — coexists with call-poison), pins the **positional `let`
+> extent** (a call before `let f` doesn't see the local), and corrects PR-2's claim to **"no consumer
+> behavior change," NOT byte-for-byte** (storing `scope_graph` + the `CACHE_VERSION` bump change the cache
+> blob by design). **Plan converged — ready for implementation pending owner go.**
 
 **Goal:** Build the language-neutral scope-graph + the Rust populator/policy + consumers so Rust
 unqualified calls narrow to the real defining item (the F3 fix: `original_diff.rs`'s local `fn slice`
@@ -123,8 +132,10 @@ accessibility, candidate combination, the `visible()` accessibility predicate, a
     doc so the engine support is not mistaken for scope creep.
   - **re-export chain + cycle:** `Pending` chain `a→b→c` resolves to `c`; an `a→b→a` cycle → guarded
     (`Unresolved`/`Ambiguous`, not a hang).
-  - **cfg:** two cfg-exclusive bindings → two candidates w/ distinct `cond` (not merged); non-exclusive
-    differing → `Ambiguous`.
+  - **cfg:** two cfg-exclusive bindings → a multi-candidate **`ResolvedSet`** with distinct `cond` (not
+    merged, not collapsed to one); non-exclusive differing → `Ambiguous`. Assert the **status** (round-4
+    nit 1) — a multi-candidate result must make the call consumer fall through (never mint an edge), never
+    silently pick or drop a world (spec §7).
   - **edition anchors (do-now):** 2015 — a bare `use foo::…` anchors at the crate root; 2018 — `::x`
     anchors the extern-prelude and a bare `x` with no in-scope binding falls through (extern-prelude is
     not an in-repo `Item`); a `let`/item `x` shadowing an extern-prelude name resolves to the local, not
@@ -156,10 +167,12 @@ diff files (`main.rs:615`) and scoped CPG filters to a subset (`cpg/context.rs:1
 resolution unchanged there). Phase 1's graph is authoritative only on **whole-workspace** builds (nav
 `module-deps`/`repo-map` + full CPG) — which is exactly where the F3 fix lands. The new inputs are
 **purely additive** (a side channel only the populator reads): the existing parsed-supported-source file
-set, hashing, and every existing consumer are unchanged, so PR-2 stays byte-for-byte neutral.
+set, hashing, and every existing consumer are unchanged, so PR-2 changes **no consumer behavior**
+(resolution/nav output unchanged; only the cache blob shifts — see Fail-open).
 
-Build (per spec §4): crate graph (roots `lib.rs`/`main.rs`/`bin/*`/tests/examples + Cargo.toml-lite:
-members, edition, `[lib]`/`[[bin]]` paths, dep `package=` renames; convention fallback) → module/block
+Build (per spec §4): crate graph (roots `lib.rs`/`main.rs`/`src/bin/*.rs`/`src/bin/<n>/main.rs`/`benches/`/
+`tests/`/`examples/` + autobins/autobenches + Cargo.toml-lite: members, edition, `[lib]`/`[[bin]]` paths,
+dep `package=` renames; convention fallback) → module/block
 scopes (`mod` decls via declaring-module dir; inline; `#[path]`; cfg-conditioned; `foo.rs`+`foo/mod.rs`
 → ambiguous) → bindings (items in {Type,Value,Macro}; `use`→`Binding(Pending)`; `pub use`→Public;
 **all local value/pattern bindings → `Target::Local`** — `let`, fn params, closure args, and `for`/
@@ -169,10 +182,15 @@ expansion in Phase 1 — F5); name-introducing macros (`macro_rules!`, attribute
 **the whole `scope_graph` is REPLACED (rebuilt from all parsed files) after any incremental merge — never
 merge stale scope data** (a `mod`/`#[path]`/manifest change reshapes unchanged files; the partial-hit
 flow at `main.rs:718` hands back a cached `CallGraph` + changed files, so the graph must be recomputed
-whole, not subset-merged — round-2 do-now); cache key += manifests + file-set/existence + cfg + stable IDs. **Fail-open (F7):** any
-malformed/missing input (unparseable Cargo.toml, missing `mod` target, parse error) yields an empty or
-poisoned region, never a panic / never aborts CPG construction — PR-2 must be byte-for-byte behavior-
-neutral. **Do-now:** Rust import evidence lives ONLY on the scope graph — do NOT write Rust into
+whole, not subset-merged — round-2 do-now); cache key += manifests + file-set/existence + cfg + stable IDs. **Fail-open (F7), two levels (round-4 nit 3):** a
+*graph-wide* failure (unparseable `Cargo.toml`/workspace, crate-graph build error) → mark the whole graph
+**`complete=false` (non-authoritative)** so legacy Rust resolution is NOT disabled repo-wide; a *local*
+failure (one missing `mod` target, one file's parse error) → that **region** is empty/poisoned in an
+otherwise-complete graph and still skips legacy at covered sites. Either way: never a panic, never aborts
+CPG construction. **PR-2 is "no consumer behavior change," NOT byte-for-byte identical** (round-4 do-now):
+storing `scope_graph` + bumping `CACHE_VERSION` (`cpg_cache.rs:52`) changes the cache blob's bytes by
+design — what is unchanged is resolution/nav *output* (no consumer reads the graph until PR-3).
+**Do-now:** Rust import evidence lives ONLY on the scope graph — do NOT write Rust into
 `CallGraph.imports` (`ast.rs:498` `extract_imports` intentionally skips Rust; Python/JS/Go import
 behavior stays untouched).
 
@@ -196,11 +214,15 @@ behavior stays untouched).
     resolves to the imported `m::before`; the **before** and **after** calls do NOT (the `use`'s
     `vis_extents` cover only the block — proves `ResolveQuery.at` maps to the right rib and the import
     does not leak out of its block). Spec §1 byte-qualified `ScopeExtent`/`vis_extents` (:173/:351).
-  - **use-group / alias / extern crate / workspace (round-2 F5 coverage):** `use a::{b, c::d, self}` (nested
-    + `self` group), `use a::b as c; c()` (alias → `Pending` to `a::b`), `extern crate foo as bar;`
-    (crate alias), a workspace member + a `package = "x"` dep rename, and `[lib]`/`[[bin]]` non-convention
-    roots from `Cargo.toml` — each builds the expected bindings/roots (resolve where in-repo, poison/extern
-    where not).
+    **Positional `let` extent (round-4 do-now):** with a free `fn f` and `fn g(){ f(); let f = …; f() }` —
+    the call **before** `let f` does NOT see the later local (resolves to the free `fn f`); the call
+    **after** resolves to the `Local`. The local's shadow must not extend backward before its `let`.
+  - **use-group / alias / extern crate / workspace / crate-roots (round-2 F5 + round-4 nit 2):**
+    `use a::{b, c::d, self}` (nested + `self` group), `use a::b as c; c()` (alias → `Pending` to `a::b`),
+    `extern crate foo as bar;` (crate alias), a workspace member + a `package = "x"` dep rename,
+    `[lib]`/`[[bin]]` non-convention roots, AND the remaining crate-root shapes — `src/bin/<n>/main.rs`,
+    `benches/`, and `autobins` — each builds the expected bindings/roots (resolve where in-repo,
+    poison/extern where not).
   - **macro wildcard poison (F1):** a fixture with `m!(); f()` where an outer `f` exists → the populator
     marks the macro range wildcard-poison → `resolve(f)` in range = `Poisoned` (a call before the macro is
     unaffected).
@@ -269,7 +291,10 @@ logic).** Call narrowing and module-deps resolve *different* binding kinds:
     helper); external `use std::…` → `UnresolvedModule`/external label (replaces the Rust
     call-derived-only contract). Also a **`pub use` re-export chain** (`a` `pub use`s `b::thing`; a third
     module imports it from `a`) → module-deps shows the resolved edge to the defining file, not a dangling
-    re-export hop (round-2 F5).
+    re-export hop (round-2 F5). **Glob module-edge (round-4 nit 4):** `use crate::prelude::*;` → a
+    module-deps edge to `prelude` **without expanding members** — the glob is a real module dependency for
+    `module-deps` even though its members stay *poisoned* for call resolution (Task 3 real-glob-poison);
+    the two coexist (deps-edge yes, call-narrowing no).
   - **(b) unqualified narrowing:** two `fn process` (engine.rs/other.rs); a file with
     `use crate::engine::process; process()` → narrows to engine.rs only. **Recall guards:** no-import →
     unchanged; cross-module bare name → fall through (module-boundary stop); `let`-shadowed name → no
