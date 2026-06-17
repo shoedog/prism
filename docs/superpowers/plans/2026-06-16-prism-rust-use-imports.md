@@ -2,7 +2,18 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development. Steps use checkbox (`- [ ]`) syntax.
 
-> **Rev 2 (2026-06-17):** Owner re-scoped away from the stem/dir *heuristic* to **real module resolution for the common conventions**. Rationale: heuristics in this project have looked promising, missed the precision/recall bar, then required rewrites (double work); proper resolution is also the foundation the bundled **C++ `using`** work reuses, so the upfront cost amortizes across two languages. This rev replaces the heuristic with a real `crate::path → file` index behind a **language-generalizable `ModuleIndex` seam**.
+> **Rev 3 (2026-06-17) — ARCHITECTURE MOVED TO THE DESIGN SPEC.** The authoritative architecture is now
+> `docs/superpowers/specs/2026-06-17-prism-rust-module-resolution-design.md`, which designs the **full**
+> Rust module system up front (crate graph, module graph, anchors, re-exports, glob, `#[path]`, cfg,
+> editions, workspaces, macros) behind a C++-reusable seam. This plan is being re-cast as **the spec's
+> Phase 1** (the F3 win: crate graph + module graph + extraction + resolution + module-deps/narrowing
+> consumers, recall-safe). The **Tasks below (rev-2) are SUPERSEDED** — they encode the naive
+> `ModuleIndex` that the codex review found FLAWED (2 BLOCKER + 4 MAJOR: lexical-scope, directory base,
+> crate-key collision, module-vs-item, incremental staleness, seam leakage). The Phase-1 tasks will be
+> **re-derived from the spec** once the spec re-review (codex gpt-5.5 xhigh) is clean. Read the spec, not
+> the rev-2 architecture/tasks below, for the design of record.
+
+> **Rev 2 (2026-06-17, SUPERSEDED by Rev 3 / the spec):** Owner re-scoped away from the stem/dir *heuristic* to **real module resolution for the common conventions**. Rationale: heuristics in this project have looked promising, missed the precision/recall bar, then required rewrites (double work); proper resolution is also the foundation the bundled **C++ `using`** work reuses, so the upfront cost amortizes across two languages. This rev replaced the heuristic with a real `crate::path → file` index — but the codex review found that "common-conventions-only" map was itself a naive approximation with correctness BLOCKERs; the full architecture now lives in the spec.
 
 **Goal:** Extract Rust `use` declarations AND resolve crate-internal module paths to files via a real module index (crate roots + `mod` declarations), so (1) `nav module-deps`/`repo-map` show **precise** Rust import edges (today Rust is call-derived-only — `UnresolvedModule` for the #1/dogfood language) and (2) **unqualified** calls whose name was `use`-imported resolve to the **exact** defining module, not every same-named definition repo-wide (the F3 fix: `original_diff.rs`'s local `fn slice` stops pulling in 29 algorithm files).
 
