@@ -7,7 +7,7 @@
 use crate::call_graph::{CallKind, CallSite};
 use crate::name_resolution::engine::{resolve, resolve_path};
 use crate::name_resolution::graph::ScopeGraph;
-use crate::name_resolution::rust_policy::{RustPolicy, NS_TYPE, NS_VALUE};
+use crate::name_resolution::rust_policy::{RustPolicy, NS_MACRO, NS_TYPE, NS_VALUE};
 use crate::name_resolution::rust_populator::enclosing_scope;
 use crate::name_resolution::types::{
     BindTarget, Binding, Candidate, CfgCtx, Edge, FileId, PolicyQueryCtx, RawPath, ResStatus,
@@ -52,18 +52,26 @@ pub fn authoritative_for(graph: &ScopeGraph, site: &CallSite) -> bool {
 
 /// Resolve a call site to a graph call edge target.
 ///
-/// Returns `Some` only for an authoritative site whose Value-namespace lookup
+/// Returns `Some` only for an authoritative site whose kind-routed lookup
 /// resolves to exactly one in-repo callable item. Every other outcome returns
 /// `None` so the caller can apply the PR-3 fall-through contract.
+///
+/// Macro-resolution seam: `MacroInvocation` sites resolve only in the Macro
+/// namespace, never the Value namespace, so a future macro call-site increment
+/// cannot cross to a same-name `fn` when macro resolution falls through.
 pub fn graph_callable_edge(graph: &ScopeGraph, site: &CallSite) -> Option<Target> {
-    if !authoritative_for(graph, site) || site.kind != CallKind::Call {
+    if !authoritative_for(graph, site) {
         return None;
     }
+    let ns = match site.kind {
+        CallKind::Call => NS_VALUE,
+        CallKind::MacroInvocation => NS_MACRO,
+    };
     let file = file_id_for_path(graph, &site.caller.file)?;
     let from = enclosing_scope(graph, file, site.start_byte)?;
     let q = ResolveQuery {
         name: site.callee_name.clone(),
-        ns: NS_VALUE,
+        ns,
         from,
         at: SourceLoc {
             file,

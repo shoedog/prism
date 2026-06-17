@@ -11,7 +11,7 @@ use prism::name_resolution::consumer::{
     authoritative_for, graph_callable_edge, graph_module_dep_edge, GraphImport, ResolvedImport,
 };
 use prism::name_resolution::graph::ScopeGraph;
-use prism::name_resolution::rust_policy::{self, NS_TYPE, NS_VALUE, VIS_PUB};
+use prism::name_resolution::rust_policy::{self, NS_MACRO, NS_TYPE, NS_VALUE, VIS_PUB};
 use prism::name_resolution::types::{
     Anchor, BindTarget, Binding, BindingRef, CfgCond, Edge, ExternRef, FileId, ItemId, RawPath,
     Scope, ScopeExtent, ScopeId, ScopeKind, SourceLoc, Span, Target, Vis,
@@ -106,6 +106,13 @@ fn call_site(file: &str, name: &str, byte: usize) -> CallSite {
     }
 }
 
+fn macro_call_site(file: &str, name: &str, byte: usize) -> CallSite {
+    CallSite {
+        kind: CallKind::MacroInvocation,
+        ..call_site(file, name, byte)
+    }
+}
+
 fn base_graph() -> ScopeGraph {
     let mut g = ScopeGraph::new();
     g.complete = true;
@@ -138,6 +145,42 @@ fn base_graph() -> ScopeGraph {
         BindTarget::Resolved(Target::Scope(ScopeId(3))),
     ));
     g
+}
+
+#[test]
+fn macro_invocation_callable_edge_routes_to_macro_namespace_only() {
+    let call = call_site("src/main.rs", "foo", 50);
+    let macro_site = macro_call_site("src/main.rs", "foo", 50);
+    let value_fn = item(10, NS_VALUE, true);
+
+    let mut value_only = base_graph();
+    value_only.add_binding(binding(
+        0,
+        "foo",
+        NS_VALUE,
+        BindTarget::Resolved(value_fn.clone()),
+    ));
+
+    assert_eq!(graph_callable_edge(&value_only, &macro_site), None);
+    assert_ne!(
+        graph_callable_edge(&value_only, &macro_site),
+        Some(value_fn.clone())
+    );
+    assert_eq!(graph_callable_edge(&value_only, &call), Some(value_fn));
+
+    let macro_fn = item(11, NS_MACRO, true);
+    let mut macro_only = base_graph();
+    macro_only.add_binding(binding(
+        0,
+        "foo",
+        NS_MACRO,
+        BindTarget::Resolved(macro_fn.clone()),
+    ));
+
+    assert_eq!(
+        graph_callable_edge(&macro_only, &macro_site),
+        Some(macro_fn)
+    );
 }
 
 #[test]
