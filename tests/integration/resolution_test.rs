@@ -1673,3 +1673,332 @@ fn config_type_assertion_only_gates_var_local_off() {
     ); // assert ON
     assert_eq!(site_in(&cg, "b", "Go").receiver_type, None); // var OFF
 }
+
+#[test]
+fn method_arity_records_param_count_excluding_receiver_and_variadic() {
+    use prism::call_graph::MethodArity;
+    use prism::languages::Language::Go;
+    let (cg, _) = build(&[(
+        "main.go",
+        "package main\n\
+         type H struct{}\nfunc (h H) Do(a int, b int) {}\n\
+         type V struct{}\nfunc (v V) Do(xs ...int) {}\n",
+        Go,
+    )]);
+    // Collect all arities for "Do".
+    let do_arities: Vec<&MethodArity> = cg
+        .method_arity
+        .iter()
+        .filter(|(f, _)| f.name == "Do")
+        .map(|(_, a)| a)
+        .collect();
+    assert_eq!(do_arities.len(), 2, "two Do methods recorded");
+    // H.Do: 2 params (a int, b int), not variadic, receiver excluded.
+    let non_variadic: Vec<&&MethodArity> = do_arities.iter().filter(|a| !a.variadic).collect();
+    assert_eq!(non_variadic.len(), 1, "exactly one non-variadic Do");
+    assert_eq!(non_variadic[0].params, 2, "two params, receiver excluded");
+    // V.Do: variadic, 1 param name.
+    let variadic: Vec<&&MethodArity> = do_arities.iter().filter(|a| a.variadic).collect();
+    assert_eq!(variadic.len(), 1, "exactly one variadic Do");
+    assert_eq!(variadic[0].params, 1, "one variadic param name");
+}
+
+#[test]
+fn callsite_records_go_argument_count_and_spread() {
+    use prism::languages::Language::Go;
+    let (cg, _) = build(&[(
+        "main.go",
+        "package main\n\
+         func f(a int, b int, c int) {}\n\
+         func variad(xs ...int) {}\n\
+         func g() { f(1, 2, 3); s := []int{1,2}; variad(s...) }\n",
+        Go,
+    )]);
+    let f = cg
+        .calls
+        .values()
+        .flatten()
+        .find(|s| s.callee_name == "f")
+        .expect("call f");
+    assert_eq!(f.arg_count, Some(3));
+    assert!(!f.arg_spread);
+    let v = cg
+        .calls
+        .values()
+        .flatten()
+        .find(|s| s.callee_name == "variad")
+        .expect("call variad");
+    assert!(v.arg_spread, "variad(s...) is a spread call");
+}
+
+// ---------------------------------------------------------------------------
+// Arity-disambiguation of same-named interface-dispatch candidates (Task 3)
+// ---------------------------------------------------------------------------
+
+// The headline FP (caddy `MiddlewareHandler.ServeHTTP` shape): the recovered
+// receiver interface `Handler` declares a 2-param `ServeHTTP` (impl: HandlerFunc),
+// but a sibling site calls it with 3 args. Go satisfaction is signature-strict, so
+// the `interface_impls[(Handler, ServeHTTP)]` set holds ONLY the 2-param HandlerFunc
+// — but the 3-arg site still minted it pre-fix (name-keyed, arity-ignored). The
+// filter must DROP the 2-param candidate at the 3-arg site (confident exact
+// mismatch) while KEEPING it at the 2-arg site.
+#[test]
+fn interface_dispatch_filters_candidates_by_call_arity() {
+    use prism::languages::Language::Go;
+    let (cg, _) = build(&[(
+        "main.go",
+        "package main\n\
+         type Handler interface { ServeHTTP(w int, r int) }\n\
+         type HandlerFunc struct{}\nfunc (h HandlerFunc) ServeHTTP(w int, r int) {}\n\
+         func use() { _ = HandlerFunc{} }\n\
+         func twoarg(x Handler) { x.ServeHTTP(1, 2) }\n\
+         func threearg(x Handler) { x.ServeHTTP(1, 2, 3) }\n",
+        Go,
+    )]);
+    // Sanity: the impl set is the single 2-param HandlerFunc (satisfaction excludes
+    // any other arity), and the lookup is wired so the mint fires.
+    let pre = cg
+        .interface_impls
+        .get(&("Handler".to_string(), "ServeHTTP".to_string()))
+        .expect("interface_impls has (Handler, ServeHTTP)");
+    assert_eq!(
+        pre.len(),
+        1,
+        "only HandlerFunc.ServeHTTP (2 params) satisfies"
+    );
+
+    // 2-arg site: arity matches → candidate KEPT (mint fires, owner HandlerFunc).
+    let two = site_in(&cg, "twoarg", "ServeHTTP");
+    assert_eq!(two.arg_count, Some(2));
+    let r2 = cg.resolve_call_site(&two);
+    let owners2: std::collections::BTreeSet<&str> = r2
+        .iter()
+        .map(|c| cg.method_owners.get(c.target).map(|s| s.as_str()).unwrap())
+        .collect();
+    assert_eq!(
+        owners2,
+        std::collections::BTreeSet::from(["HandlerFunc"]),
+        "2-arg call must KEEP the 2-param candidate"
+    );
+
+    // 3-arg site: confident exact mismatch (3 != 2) → candidate DROPPED; the set
+    // empties, so the outcome is the no-impl drop, NOT a fall-through to another rung.
+    let three = site_in(&cg, "threearg", "ServeHTTP");
+    assert_eq!(three.arg_count, Some(3));
+    assert!(!three.arg_spread);
+    let full = cg.resolve_call_site_full(&three);
+    assert!(
+        full.resolved.is_empty(),
+        "3-arg call must DROP the 2-param HandlerFunc candidate (was minted pre-fix); got {:?}",
+        full.resolved
+            .iter()
+            .map(|c| cg.method_owners.get(c.target).cloned())
+            .collect::<Vec<_>>()
+    );
+    assert_eq!(
+        full.drop,
+        Some(DropReason::ExternalReceiver),
+        "emptied set takes the existing no-impl drop path"
+    );
+}
+
+// Manifest-level proof (the resolver test does NOT cover the oracle path: the
+// dispatch oracle reads `interface_dispatch_manifest`, which consults
+// `interface_impls` directly). The SAME shared filter must run here so `fanout`
+// reflects the arity-filtered set: the 3-arg site empties to fanout 0 /
+// implementers [], while the sibling 2-arg site keeps HandlerFunc.
+#[test]
+fn interface_manifest_arity_filters_fanout() {
+    use prism::languages::Language::Go;
+    let (cg, _) = build(&[(
+        "main.go",
+        "package main\n\
+         type Handler interface { ServeHTTP(w int, r int) }\n\
+         type HandlerFunc struct{}\nfunc (h HandlerFunc) ServeHTTP(w int, r int) {}\n\
+         func use() { _ = HandlerFunc{} }\n\
+         func twoarg(x Handler) { x.ServeHTTP(1, 2) }\n\
+         func threearg(x Handler) { x.ServeHTTP(1, 2, 3) }\n",
+        Go,
+    )]);
+    let m = prism::navigation::queries::interface_dispatch_manifest(&cg);
+    let sites = m["sites"].as_array().expect("sites array");
+    let by_line = |line: u64| {
+        sites
+            .iter()
+            .find(|s| s["method"] == "ServeHTTP" && s["line"].as_u64() == Some(line))
+            .unwrap_or_else(|| panic!("ServeHTTP site at line {line}"))
+    };
+    // 2-arg site keeps the matching candidate.
+    let two = by_line(6); // `func twoarg ... x.ServeHTTP(1, 2)`
+    assert_eq!(two["fanout"].as_u64(), Some(1));
+    let two_impls: Vec<&str> = two["implementers"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|v| v.as_str().unwrap())
+        .collect();
+    assert_eq!(two_impls, vec!["HandlerFunc"]);
+    // 3-arg site: arity-filtered to empty -> fanout 0, implementers [].
+    let three = by_line(7); // `func threearg ... x.ServeHTTP(1, 2, 3)`
+    assert_eq!(
+        three["fanout"].as_u64(),
+        Some(0),
+        "3-arg site's 2-param candidate is filtered out -> fanout 0"
+    );
+    assert_eq!(
+        three["implementers"].as_array().unwrap().len(),
+        0,
+        "filtered-empty set mints no implementers"
+    );
+}
+
+// Recall-guard (a): a VARIADIC candidate is never dropped, even when the call's
+// fixed arg count differs from the declared param count. `T.Do(xs ...int)` has
+// MethodArity{params:1, variadic:true}; `x.Do(1, 2)` (2 args) must KEEP T.
+#[test]
+fn interface_dispatch_keeps_variadic_candidate_against_mismatched_arity() {
+    use prism::languages::Language::Go;
+    let (cg, _) = build(&[(
+        "main.go",
+        "package main\n\
+         type V interface { Do(xs ...int) }\n\
+         type T struct{}\nfunc (t T) Do(xs ...int) {}\n\
+         func use() { _ = T{} }\n\
+         func call(x V) { x.Do(1, 2) }\n",
+        Go,
+    )]);
+    let site = site_in(&cg, "call", "Do");
+    assert_eq!(site.arg_count, Some(2));
+    assert!(!site.arg_spread);
+    let r = cg.resolve_call_site(&site);
+    let owners: std::collections::BTreeSet<&str> = r
+        .iter()
+        .map(|c| cg.method_owners.get(c.target).map(|s| s.as_str()).unwrap())
+        .collect();
+    assert_eq!(
+        owners,
+        std::collections::BTreeSet::from(["T"]),
+        "a variadic candidate must never be dropped on an arity mismatch"
+    );
+    // Manifest mirrors: variadic candidate kept -> fanout 1.
+    let m = prism::navigation::queries::interface_dispatch_manifest(&cg);
+    let s = m["sites"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|s| s["method"] == "Do")
+        .expect("Do site");
+    assert_eq!(s["fanout"].as_u64(), Some(1));
+}
+
+// Recall-guard (b): a SPREAD call (`x.ServeHTTP(s...)`) drops nothing — the
+// effective arg count is unknown, so every candidate is kept even when the
+// recorded fixed arg count (1, the spread slice) differs from the params (2).
+#[test]
+fn interface_dispatch_spread_call_keeps_all_candidates() {
+    use prism::languages::Language::Go;
+    let (cg, _) = build(&[(
+        "main.go",
+        "package main\n\
+         type Handler interface { ServeHTTP(w int, r int) }\n\
+         type HandlerFunc struct{}\nfunc (h HandlerFunc) ServeHTTP(w int, r int) {}\n\
+         func use() { _ = HandlerFunc{} }\n\
+         func call(x Handler) { s := []int{1, 2, 3}; x.ServeHTTP(s...) }\n",
+        Go,
+    )]);
+    let site = site_in(&cg, "call", "ServeHTTP");
+    assert!(site.arg_spread, "x.ServeHTTP(s...) is a spread call");
+    let r = cg.resolve_call_site(&site);
+    let owners: std::collections::BTreeSet<&str> = r
+        .iter()
+        .map(|c| cg.method_owners.get(c.target).map(|s| s.as_str()).unwrap())
+        .collect();
+    assert_eq!(
+        owners,
+        std::collections::BTreeSet::from(["HandlerFunc"]),
+        "a spread call must keep all candidates regardless of fixed arg count"
+    );
+    // Manifest mirrors: spread keeps the candidate -> fanout 1.
+    let m = prism::navigation::queries::interface_dispatch_manifest(&cg);
+    let s = m["sites"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|s| s["method"] == "ServeHTTP")
+        .expect("ServeHTTP site");
+    assert_eq!(s["fanout"].as_u64(), Some(1));
+}
+
+// Direct unit coverage of the conservative `arity_admits`/`arity_filter` contract
+// (codex code-review do-now): every "unknown" keeps the candidate; only a known,
+// non-spread, non-variadic, exact mismatch drops.
+#[test]
+fn arity_admits_and_filter_keep_on_every_unknown() {
+    use prism::call_graph::{FunctionId, MethodArity};
+    use prism::resolution::{arity_admits, arity_filter};
+    use std::collections::BTreeMap;
+
+    let two = MethodArity {
+        params: 2,
+        variadic: false,
+    };
+    let variad = MethodArity {
+        params: 1,
+        variadic: true,
+    };
+
+    // Drops ONLY on a confident exact mismatch:
+    assert!(
+        !arity_admits(Some(3), false, Some(&two)),
+        "known 3 != 2, non-spread, non-variadic -> drop"
+    );
+    assert!(
+        arity_admits(Some(2), false, Some(&two)),
+        "exact match -> keep"
+    );
+    // Every unknown keeps:
+    assert!(
+        arity_admits(None, false, Some(&two)),
+        "unknown call arity -> keep"
+    );
+    assert!(
+        arity_admits(Some(3), false, None),
+        "missing method arity -> keep"
+    );
+    assert!(
+        arity_admits(Some(3), true, Some(&two)),
+        "spread call -> keep"
+    );
+    assert!(
+        arity_admits(Some(5), false, Some(&variad)),
+        "variadic candidate -> keep"
+    );
+
+    // arity_filter: a candidate with NO recorded MethodArity is kept (unknown -> keep),
+    // even against a confidently-known call arity.
+    let fid = FunctionId {
+        file: "x.go".into(),
+        name: "M".into(),
+        start_line: 1,
+        end_line: 1,
+    };
+    let impls = vec![fid.clone()];
+    let no_arity: BTreeMap<FunctionId, MethodArity> = BTreeMap::new();
+    assert_eq!(
+        arity_filter(&impls, Some(3), false, &no_arity).len(),
+        1,
+        "missing entry -> kept"
+    );
+    // And it DOES drop when the entry is present and mismatches.
+    let with_arity = BTreeMap::from([(fid.clone(), two.clone())]);
+    assert_eq!(
+        arity_filter(&impls, Some(3), false, &with_arity).len(),
+        0,
+        "known 3 != 2 -> dropped"
+    );
+    assert_eq!(
+        arity_filter(&impls, Some(2), false, &with_arity).len(),
+        1,
+        "known 2 == 2 -> kept"
+    );
+}

@@ -41,6 +41,28 @@ pub struct CallSite {
     /// derived from the same scan as receiver_type.
     #[serde(default)]
     pub receiver_recovery: Option<crate::resolution::ReceiverRecovery>,
+    /// Number of arguments at the call site. `None` = not captured / unknown
+    /// (the arity-disambiguation filter treats `None` as "keep").
+    /// Excluded from cmp_key — positional data, not part of logical identity.
+    #[serde(default)]
+    pub arg_count: Option<usize>,
+    /// `true` when the last argument is a Go spread (`xs...`).
+    /// Excluded from cmp_key — same rationale as `arg_count`.
+    #[serde(default)]
+    pub arg_spread: bool,
+}
+
+/// Parameter arity for a method definition (language-agnostic shape).
+///
+/// `params` is the count of parameter NAMES (not declarations) excluding the Go
+/// receiver (or `this`/`self` for other languages).  A variadic declaration
+/// contributes exactly 1 to `params` and sets `variadic = true`.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct MethodArity {
+    /// Number of declared parameter names, excluding the receiver.
+    pub params: usize,
+    /// True if the last parameter is a variadic (`...T` in Go, `...` in C++/Java).
+    pub variadic: bool,
 }
 
 /// The call graph for a set of parsed files.
@@ -92,6 +114,11 @@ pub struct CallGraph {
     /// graph, so the manifest can signal "dispatch not computed" vs "computed, none found".
     #[serde(default)]
     pub interface_dispatch_computed: bool,
+    /// Arity (param count + variadic flag) per method FunctionId, populated from Go type
+    /// provider. Receiver is excluded from `params`. Cleared / rebuilt in lock-step with
+    /// `interface_impls` via `clear_interface_dispatch` / `apply_go_interface_dispatch`.
+    #[serde(default)]
+    pub method_arity: BTreeMap<FunctionId, MethodArity>,
 }
 
 impl CallGraph {
@@ -113,6 +140,7 @@ impl CallGraph {
             interface_overapprox: BTreeMap::new(),
             interface_method_names: BTreeSet::new(),
             interface_dispatch_computed: false,
+            method_arity: BTreeMap::new(),
         }
     }
 
@@ -210,6 +238,8 @@ impl CallGraph {
                         ),
                         receiver_type: None,
                         receiver_recovery: None,
+                        arg_count: None,
+                        arg_spread: false,
                     };
                     calls
                         .entry(caller_id.clone())
@@ -238,6 +268,7 @@ impl CallGraph {
             interface_overapprox: BTreeMap::new(),
             interface_method_names: BTreeSet::new(),
             interface_dispatch_computed: false,
+            method_arity: BTreeMap::new(),
         }
     }
 
@@ -391,8 +422,16 @@ impl CallGraph {
                         .go_receiver_var(&func_node)
                         .map(|n| parsed.node_text(&n).to_string());
 
-                    for (callee_name, line, qualifier, start_byte, end_byte, receiver_expr) in
-                        call_sites
+                    for (
+                        callee_name,
+                        line,
+                        qualifier,
+                        start_byte,
+                        end_byte,
+                        receiver_expr,
+                        arg_count,
+                        arg_spread,
+                    ) in call_sites
                     {
                         let qualifier = Self::recover_self_receiver_qualifier(
                             parsed,
@@ -418,6 +457,8 @@ impl CallGraph {
                             qualifier,
                             receiver_type: recovered.as_ref().map(|r| r.static_type.clone()),
                             receiver_recovery: recovered.as_ref().map(|r| r.recovery),
+                            arg_count,
+                            arg_spread,
                         };
                         file_call_sites.push((caller_id.clone(), site));
                     }
@@ -497,6 +538,8 @@ impl CallGraph {
                                 qualifier: None,
                                 receiver_type: None,
                                 receiver_recovery: None,
+                                arg_count: None,
+                                arg_spread: false,
                             },
                         ));
                     }
@@ -527,6 +570,8 @@ impl CallGraph {
                                 qualifier: None,
                                 receiver_type: None,
                                 receiver_recovery: None,
+                                arg_count: None,
+                                arg_spread: false,
                             },
                         ));
                     }
@@ -610,6 +655,8 @@ impl CallGraph {
                                     qualifier: None,
                                     receiver_type: None,
                                     receiver_recovery: None,
+                                    arg_count: None,
+                                    arg_spread: false,
                                 },
                             ));
                         }
@@ -703,6 +750,8 @@ impl CallGraph {
                                         qualifier: None,
                                         receiver_type: None,
                                         receiver_recovery: None,
+                                        arg_count: None,
+                                        arg_spread: false,
                                     },
                                 ));
                             } else {
@@ -726,6 +775,8 @@ impl CallGraph {
                                             qualifier: None,
                                             receiver_type: None,
                                             receiver_recovery: None,
+                                            arg_count: None,
+                                            arg_spread: false,
                                         },
                                     ));
                                 }
@@ -761,6 +812,7 @@ impl CallGraph {
             interface_overapprox: BTreeMap::new(),
             interface_method_names: BTreeSet::new(),
             interface_dispatch_computed: false,
+            method_arity: BTreeMap::new(),
         };
         cg.apply_go_embedding_promotion(files);
         cg.apply_go_interface_dispatch(files);
@@ -864,6 +916,7 @@ impl CallGraph {
         self.interface_overapprox.clear();
         self.interface_method_names.clear();
         self.interface_dispatch_computed = false;
+        self.method_arity.clear();
     }
 
     /// Recompute Go embedding promotions over `files` and write owner-index aliases.
@@ -940,6 +993,8 @@ impl CallGraph {
         // Capture the interface-method-name set for the PR-2 manifest denominator
         // (§8a) while the provider is live (it is dropped after this fn).
         self.interface_method_names = provider.interface_method_names();
+        // Capture per-method arity for later arity-filtered dispatch (Task 2).
+        self.method_arity = provider.method_arities();
         for g in &table.gaps {
             *self.interface_gaps.entry(format!("{g:?}")).or_insert(0) += 1;
         }
@@ -1069,8 +1124,16 @@ impl CallGraph {
                     .map(|n| parsed.node_text(&n).to_string());
                 let file_imports_ref = imports.get(file_path);
 
-                for (callee_name, line, qualifier, start_byte, end_byte, receiver_expr) in
-                    call_sites
+                for (
+                    callee_name,
+                    line,
+                    qualifier,
+                    start_byte,
+                    end_byte,
+                    receiver_expr,
+                    arg_count,
+                    arg_spread,
+                ) in call_sites
                 {
                     let qualifier = Self::recover_self_receiver_qualifier(
                         parsed,
@@ -1096,6 +1159,8 @@ impl CallGraph {
                         qualifier,
                         receiver_type: recovered.as_ref().map(|r| r.static_type.clone()),
                         receiver_recovery: recovered.as_ref().map(|r| r.recovery),
+                        arg_count,
+                        arg_spread,
                     };
                     calls
                         .entry(caller_id.clone())
@@ -1122,6 +1187,7 @@ impl CallGraph {
             interface_overapprox: BTreeMap::new(),
             interface_method_names: BTreeSet::new(),
             interface_dispatch_computed: false,
+            method_arity: BTreeMap::new(),
         }
     }
 

@@ -166,8 +166,9 @@ as-built positive-`prism_fp`-selection wording.)
 
 ### Slice-E κ-session finding (2026-06-16) — the single confirmed FP
 
-#### PRECISION — arity/signature-disambiguate same-named interface methods — DEFERRED → precision follow-up
-- **Priority:** Important (the *only* false edge the whole-corpus caddy dispatch audit found; `dispatch_precision
+#### PRECISION — arity-disambiguate same-named interface methods — ✅ DONE (2026-06-16)
+- **✅ RESOLVED** by the arity-disambiguation work (plan `docs/superpowers/plans/2026-06-16-prism-arity-disambiguation.md`; codex-reviewed; on branch `phase-ip-arity-disambiguation`). prism now captures method param-arity (`CallGraph.method_arity`) + call arg-count/spread (`CallSite`) and arity-filters interface-dispatch candidates via a shared `arity_filter` helper at **both** the resolution mint **and** `interface_dispatch_manifest`. Caddy `dispatch_precision 0.9994 → 1.0`, `over_approx 1 → 0`, the one FP dropped, **zero recall loss** (manifest delta: only the FP site changed). The cross-language generalization (`owner_lookup:486` same-owner overloads — C++/Java/TS/Python/Rust) remains a corpus-gated backlog item (see the arity plan's "Backlog" + `docs/eval/tier-a/corpus-expansion-backlog.md`).
+- **Priority:** Important (was the *only* false edge the whole-corpus caddy dispatch audit found; `dispatch_precision
   = 0.9994`, κ = 1.000, 1 `prism_fp` of 63 dispatch sites).
 - **The finding:** at `modules/caddyhttp/headers/headers_test.go:366` the source is the **3-argument**
   `handler.ServeHTTP(rr, req, next)` — the `caddyhttp.MiddlewareHandler` signature. prism's constructor-local

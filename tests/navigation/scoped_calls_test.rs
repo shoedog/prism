@@ -55,6 +55,8 @@ fn resolved_targets(
                 qualifier: qualifier.map(str::to_string),
                 receiver_type: None,
                 receiver_recovery: None,
+                arg_count: None,
+                arg_spread: false,
             }
         });
     resolve_site_nav(cg, &site)

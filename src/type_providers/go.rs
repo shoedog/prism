@@ -100,6 +100,10 @@ struct GoMethod {
     start_line: usize,
     /// End line.
     end_line: usize,
+    /// Number of parameter names (excluding receiver); multi-name decls counted per-name.
+    params: usize,
+    /// True if the last parameter is variadic (`...T`).
+    variadic: bool,
 }
 
 /// A concrete method promoted onto an outer struct via embedding.
@@ -200,6 +204,26 @@ impl GoTypeProvider {
             .interfaces
             .values()
             .flat_map(|iface| iface.methods.keys().cloned())
+            .collect()
+    }
+
+    /// Param arity for every Go method extracted from the parsed files.  Keyed by
+    /// `FunctionId`; receiver is excluded from `params`; variadic is flagged.
+    /// Captured onto `CallGraph.method_arity` in `apply_go_interface_dispatch`.
+    pub fn method_arities(&self) -> BTreeMap<FunctionId, crate::call_graph::MethodArity> {
+        self.data
+            .methods
+            .values()
+            .flat_map(|methods| methods.iter())
+            .map(|m| {
+                (
+                    Self::method_function_id(m),
+                    crate::call_graph::MethodArity {
+                        params: m.params,
+                        variadic: m.variadic,
+                    },
+                )
+            })
             .collect()
     }
 
@@ -834,6 +858,7 @@ impl GoTypeProvider {
         let generic = Self::signature_has_generic_syntax(node);
         let start_line = node.start_position().row + 1;
         let end_line = node.end_position().row + 1;
+        let (params, variadic) = Self::count_method_params(node);
 
         data.methods
             .entry(receiver_type.clone())
@@ -847,7 +872,41 @@ impl GoTypeProvider {
                 file: path.to_string(),
                 start_line,
                 end_line,
+                params,
+                variadic,
             });
+    }
+
+    /// Count parameter names in a method_declaration's parameter list, excluding the
+    /// receiver.  Multi-name declarations (`a, b int`) are counted per-name.  A
+    /// `variadic_parameter_declaration` contributes 1 to `params` and sets the flag.
+    fn count_method_params(method_node: &tree_sitter::Node) -> (usize, bool) {
+        let Some(params_node) = method_node.child_by_field_name("parameters") else {
+            return (0, false);
+        };
+        let mut count = 0usize;
+        let mut is_variadic = false;
+        let mut cursor = params_node.walk();
+        for decl in params_node.named_children(&mut cursor) {
+            match decl.kind() {
+                "parameter_declaration" => {
+                    // Count identifier children; unnamed params have 0 identifiers but
+                    // still represent one parameter, so max(names, 1).
+                    let names = decl
+                        .children(&mut decl.walk())
+                        .filter(|c| c.kind() == "identifier")
+                        .count()
+                        .max(1);
+                    count += names;
+                }
+                "variadic_parameter_declaration" => {
+                    count += 1;
+                    is_variadic = true;
+                }
+                _ => {}
+            }
+        }
+        (count, is_variadic)
     }
 
     /// Extract receiver type from a method_declaration.

@@ -2,8 +2,8 @@
 //! R1-R7 resolution ladder (impl on CallGraph lives here to keep
 //! call_graph.rs under the size cap).
 
-use crate::call_graph::{CallGraph, CallSite, FunctionId};
-use std::collections::BTreeSet;
+use crate::call_graph::{CallGraph, CallSite, FunctionId, MethodArity};
+use std::collections::{BTreeMap, BTreeSet};
 
 #[derive(
     Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, serde::Serialize, serde::Deserialize,
@@ -116,6 +116,41 @@ pub fn admission_key(bare_type: &str, is_pointer: bool) -> String {
     } else {
         bare_type.to_string()
     }
+}
+
+/// Arity admission for interface-dispatch candidates (language-neutral; shared by
+/// the resolution mint and the `interface_dispatch_manifest`). CONSERVATIVE on
+/// purpose — the headline risk is recall loss (dropping a valid dispatch edge), so
+/// a candidate is dropped ONLY on a confident exact mismatch and EVERY unknown
+/// keeps it:
+///   * a variadic candidate is never dropped (`a.variadic`),
+///   * a spread call (`arg_spread`) drops nothing,
+///   * an unknown `arg_count` (`None`) drops nothing,
+///   * a candidate with no recorded `MethodArity` (`m == None`) is never dropped.
+/// Only a known, non-spread call against a known, non-variadic method with a
+/// different param count is provably-wrong and dropped.
+pub fn arity_admits(arg_count: Option<usize>, arg_spread: bool, m: Option<&MethodArity>) -> bool {
+    match (arg_count, m) {
+        // Drop ONLY on a confident exact mismatch:
+        (Some(n), Some(a)) if !arg_spread && !a.variadic => a.params == n,
+        // Every unknown keeps the candidate (recall-safe):
+        _ => true,
+    }
+}
+
+/// Filter interface-dispatch candidate ids by call arity, keeping each `id` iff
+/// `arity_admits` admits its recorded `MethodArity` (a missing entry → unknown →
+/// kept). Order-preserving; borrows the input slice.
+pub fn arity_filter<'a>(
+    impls: &'a [FunctionId],
+    arg_count: Option<usize>,
+    arg_spread: bool,
+    method_arity: &BTreeMap<FunctionId, MethodArity>,
+) -> Vec<&'a FunctionId> {
+    impls
+        .iter()
+        .filter(|id| arity_admits(arg_count, arg_spread, method_arity.get(id)))
+        .collect()
 }
 
 /// Closed-list syntactic peel (spec section 2.3): refs/pointers and std wrappers,
@@ -675,10 +710,26 @@ impl CallGraph {
                         {
                             match crate::resolution::iface_key(recv_ty) {
                                 Some(k) => match self.interface_impls.get(&(k, name.to_string())) {
-                                    Some(ids) if !ids.is_empty() => ResolutionOutcome::hit(exact(
-                                        ids.iter(),
-                                        ResolutionKind::InterfaceDispatch,
-                                    )),
+                                    Some(ids) if !ids.is_empty() => {
+                                        // Arity-disambiguate the name-keyed candidate set
+                                        // (shared helper; same filter runs in
+                                        // interface_dispatch_manifest). An emptied set takes
+                                        // the existing no-impl drop path — do NOT fall through.
+                                        let kept = crate::resolution::arity_filter(
+                                            ids,
+                                            site.arg_count,
+                                            site.arg_spread,
+                                            &self.method_arity,
+                                        );
+                                        if kept.is_empty() {
+                                            ResolutionOutcome::dropped(DropReason::ExternalReceiver)
+                                        } else {
+                                            ResolutionOutcome::hit(exact(
+                                                kept,
+                                                ResolutionKind::InterfaceDispatch,
+                                            ))
+                                        }
+                                    }
                                     _ => ResolutionOutcome::dropped(DropReason::ExternalReceiver),
                                 },
                                 None => ResolutionOutcome::dropped(DropReason::ExternalReceiver),

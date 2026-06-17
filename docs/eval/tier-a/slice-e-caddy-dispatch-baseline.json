@@ -1,55 +1,58 @@
 {
-  "_doc": "Phase-IP Slice-E dispatch-precision regression baseline (caddy). THE GATE: a future oracle run on this corpus_sha must hold dispatch_precision >= gate.dispatch_precision_floor AND sound_sites >= gate.sound_sites_floor. A decrease is permitted ONLY as a deliberate, recorded decision (e.g. a precision/recall trade in a refactor) -- paste the new oracle summary into the PR and explain the delta. recall_gap is reported, never gating (RTA pruning to live types is by-design precision). Regenerate: see eval/README.md 'Dispatch oracle' + the eval/tools/dispatch_oracle.py module docstring.",
+  "_doc": "Phase-IP dispatch-precision regression baseline (caddy). THE GATE: a future oracle run on this corpus_sha must hold dispatch_precision >= gate.dispatch_precision_floor AND sound_sites >= gate.sound_sites_floor. A decrease is permitted ONLY as a deliberate, recorded decision -- paste the new oracle summary into the PR and explain the delta. recall_gap is reported, never gating. UPDATE 2026-06-16: the Slice-E baseline (0.9994, 1 prism_fp) was superseded by the arity-disambiguation fix -- the one prism_fp (headers_test.go:366) is RESOLVED, precision is now 1.0. Regenerate: see eval/README.md 'Dispatch oracle' + the eval/tools/dispatch_oracle.py module docstring.",
   "corpus": "caddy",
   "corpus_sha": "77e9ce7404c4a76853e101a9f5687a929ee56654",
-  "prism": "PR-2 (#97), commit 13c3348; implementers field + ManifestSite forward-compat on branch phase-ip-slice-e",
+  "prism": "arity-disambiguation (commit 846a016 on branch phase-ip-arity-disambiguation; on top of PR-2 #97 + Slice-E #98). Supersedes the Slice-E baseline at prism 1f7330d/278dd70.",
   "date": "2026-06-16",
   "oracle": "gopls textDocument/implementation (RTA-pruned live set)",
   "manifest": {
     "in_scope_sites": 498,
-    "dispatch_sites": 63,
-    "concrete_sites": 435,
+    "dispatch_sites": 62,
+    "concrete_sites": 436,
     "by_receiver_class": {
       "type_assertion": {"dispatch": 24, "concrete": 1, "fanout_width": 61.0},
       "typed_param": {"dispatch": 26, "concrete": 226, "fanout_width": 11.0},
-      "constructor_local": {"dispatch": 13, "concrete": 195, "fanout_width": 1.0},
+      "constructor_local": {"dispatch": 12, "concrete": 196, "fanout_width": 1.0},
       "var_local": {"dispatch": 0, "concrete": 13, "fanout_width": 0.0}
     }
   },
   "dispatch_oracle": {
-    "sites": 63,
-    "dispatch_precision": 0.9994321408290744,
+    "sites": 62,
+    "dispatch_precision": 1.0,
     "sound": 61,
-    "over_approx": 1,
+    "over_approx": 0,
     "recall_gap": 0,
     "oracle_timeout": 1
   },
-  "adjudication": {
-    "protocol": "dual-adjudicator Cohen's kappa (two independent adjudicators, operator-reconciled)",
-    "adjudicators": ["codex gpt-5.5 high (via a2a-bridge)", "claude-opus-4-8 xtra-high (operator subagent)"],
-    "sites_judged": 21,
-    "cohens_kappa": 1.0,
-    "agreement": "21/21",
-    "verdicts": {"sound": 20, "prism_fp": 1},
-    "note": "The 21 judged = the 1 over_approx + the 1 oracle_timeout + 19 sampled sound sites (incl. the high-fanout CaddyModule registry sites). The remaining 42 sound sites rest on the oracle's definitional sound classification (prism set subset of gopls satisfiers).",
-    "prism_fp_sites": [
-      {
+  "history": {
+    "slice_e_baseline": {
+      "date": "2026-06-16",
+      "prism": "1f7330d / 278dd70 (Slice-E)",
+      "dispatch_sites": 63,
+      "dispatch_precision": 0.9994321408290744,
+      "over_approx": 1,
+      "confirmed_prism_fp": 1,
+      "note": "The 1 over_approx = a 3-arg MiddlewareHandler.ServeHTTP test site (headers_test.go:366) minting the 2-arg HandlerFunc -- a name-based arity conflation. Found by the dual-adjudicator kappa session (codex gpt-5.5 high + claude-opus-4-8 xtra-high, kappa=1.000). RESOLVED by the arity-disambiguation fix (the dispatch mint + interface_dispatch_manifest now filter candidates by call arity)."
+    },
+    "kappa_session": {
+      "protocol": "dual-adjudicator Cohen's kappa",
+      "adjudicators": ["codex gpt-5.5 high", "claude-opus-4-8 xtra-high"],
+      "sites_judged": 21,
+      "cohens_kappa": 1.0,
+      "verdicts": {"sound": 20, "prism_fp": 1},
+      "prism_fp_site": {
         "site": "modules/caddyhttp/headers/headers_test.go:366",
         "byte_key": "modules/caddyhttp/headers/headers_test.go:8881:8913",
         "site_fingerprint": "498353d980a73060",
-        "receiver_class": "constructor_local",
-        "method": "ServeHTTP",
-        "minted": ["HandlerFunc"],
-        "gopls": ["MiddlewareHandler"],
-        "finding": "3-arg handler.ServeHTTP(rr,req,next) is the MiddlewareHandler signature; prism's constructor-local recovery minted the 2-arg HandlerFunc -- a name-based arity conflation. Test-only. Recorded in eval/adjudications.jsonl (measurement=interface_dispatch). Precision follow-up tracked in the deferred doc."
+        "status": "RESOLVED by arity-disambiguation: the 3-arg call now arity-filters the 2-arg HandlerFunc candidate -> fanout 0; recorded in eval/adjudications.jsonl."
       }
-    ]
+    }
   },
-  "key_finding": "CaddyModule dispatch recall is SOUND: every x.(Module).CaddyModule() site mints the 121-implementer RTA-live registry set, a subset of gopls's 132 satisfiers (the 11 extra are uninstantiated test/mock modules RTA-pruned by design). The type-confirmed dispatch PR-2 adds is sound recall, not over-approximation.",
+  "key_finding": "CaddyModule dispatch recall remains SOUND: every x.(Module).CaddyModule() site mints the 121-implementer RTA-live registry set, a subset of gopls's 132 satisfiers. The arity-disambiguation fix removed exactly the 1 prism_fp (manifest delta: only headers_test.go:366 changed, fanout 1->0; all 62 other dispatch sites byte-identical) -- a precision win with zero recall loss.",
   "gate": {
-    "dispatch_precision_floor": 0.9994321408290744,
+    "dispatch_precision_floor": 1.0,
     "sound_sites_floor": 61,
-    "confirmed_prism_fp": 1,
-    "rule": "Future runs on this corpus_sha hold dispatch_precision >= floor and sound >= floor unless a decrease is recorded with rationale in the PR. Across-corpus-drift comparison re-anchors prism_fp verdicts by site_fingerprint."
+    "confirmed_prism_fp": 0,
+    "rule": "Future runs on this corpus_sha hold dispatch_precision == 1.0 and sound >= 61 unless a decrease is recorded with rationale in the PR. A drop in dispatch-site count or a site falling to fanout 0 is a recall regression -- check the manifest delta, not just over_approx. Across-corpus-drift comparison re-anchors verdicts by site_fingerprint."
   }
 }
