@@ -86,7 +86,7 @@ pub struct Span {
 /// - `compatible` → `true` (assume they may coexist → no silent merge)
 /// - `exclusive`  → `false` (assume they might coexist → no silent drop)
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-#[serde(tag = "kind", content = "args")]
+#[serde(tag = "kind", content = "data")]
 pub enum CfgCond {
     /// Unconditionally active.
     True,
@@ -242,7 +242,7 @@ pub struct Anchor {
 
 // ── BindTarget / Target ──────────────────────────────────────────────────────
 
-/// An unresolved path awaiting fixpoint resolution.
+/// A single identifier (name segment), e.g. `"HashMap"` or `"fmt"`.
 pub type Ident = String;
 
 /// A raw (unresolved) path, as a list of name segments.

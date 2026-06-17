@@ -1,10 +1,11 @@
-/// Task 1 TDD: scope-graph core data-model types.
-///
-/// Step 1: this test must FAIL before types are implemented.
-/// Step 2: implement types to make it pass.
+//! Task 1 TDD: scope-graph core data-model types.
+//!
+//! Step 1: this test must FAIL before types are implemented.
+//! Step 2: implement types to make it pass.
 use prism::name_resolution::types::{
-    BindTarget, Binding, Candidate, CfgCond, FileId, ItemId, NamespaceId, ResStatus, Resolution,
-    Scope, ScopeExtent, ScopeId, ScopeKind, SourceLoc, Span, Target, Vis, VisKindId,
+    Anchor, BindTarget, Binding, Candidate, CfgCond, Edge, EdgeKindId, FileId, ItemId, NamespaceId,
+    RawPath, ResStatus, Resolution, Scope, ScopeExtent, ScopeId, ScopeKind, SourceLoc, Span,
+    Target, Vis, VisKindId,
 };
 
 /// Build a 2-scope graph by hand: a Root + a Module child with one Binding.
@@ -175,7 +176,11 @@ fn test_cfg_cond_compatible_exclusive() {
     // Unknown / different keys: conservative — compatible, not exclusive
     let feat_a = CfgCond::Atom("feature".to_string(), Some("a".to_string()));
     let feat_b = CfgCond::Atom("feature".to_string(), Some("b".to_string()));
-    // features can be enabled simultaneously: same key + different value ⇒ exclusive per same-key rule
+    // Heuristic: same key + different Some value ⇒ declared exclusive.
+    // This is OVER-APPROXIMATE for cfg(feature="…") (features can co-exist),
+    // but conservative for target_os="…" / target_arch="…" etc.
+    // A false-positive exclusive is safe: the engine keeps both candidates rather
+    // than wrongly merging; it does NOT cause a silent drop.
     assert!(feat_a.exclusive(&feat_b));
 
     // Atom with no value vs atom with value: same key different shape → conservative compatible
@@ -193,4 +198,79 @@ fn test_cfg_cond_compatible_exclusive() {
     // (we just check that And wrapping works without panic)
     let and_cond = CfgCond::And(vec![unix.clone(), windows.clone()]);
     let _ = and_cond.compatible(&CfgCond::True); // must not panic
+
+    // And/Or fall through to the conservative false (not provably exclusive)
+    assert!(!and_cond.exclusive(&CfgCond::True));
+    assert!(and_cond.compatible(&CfgCond::True));
+    let or_cond = CfgCond::Or(vec![unix.clone(), windows.clone()]);
+    assert!(!or_cond.exclusive(&CfgCond::True));
+    // Not(x) is NOT exclusive with Not(x) — both hold when x is false
+    let not_unix2 = CfgCond::Not(Box::new(unix.clone()));
+    assert!(!not_unix.exclusive(&not_unix2));
+}
+
+/// `Edge` field access + `BindTarget::Pending` construction + serde round-trip.
+#[test]
+fn test_edge_and_bind_target_pending_serde() {
+    let file_id = FileId(0);
+    let from_scope = ScopeId(10);
+    let to_scope = ScopeId(11);
+    let kind: EdgeKindId = 1; // Glob (conventional)
+
+    let vis = Vis {
+        kind: 0u16,
+        restrict: None,
+        payload: Default::default(),
+    };
+
+    // BindTarget::Pending wraps a RawPath + Anchor
+    let raw_path = RawPath(vec!["std".to_string(), "collections".to_string()]);
+    let anchor = Anchor::default();
+    let pending = BindTarget::Pending(raw_path.clone(), anchor.clone());
+
+    // Edge with real field values
+    let lo = SourceLoc {
+        file: file_id,
+        byte: 5,
+    };
+    let hi = SourceLoc {
+        file: file_id,
+        byte: 20,
+    };
+    let span = Span { lo, hi };
+    let edge = Edge {
+        from: from_scope,
+        kind,
+        to: BindTarget::Resolved(Target::Scope(to_scope)),
+        vis: vis.clone(),
+        cond: None,
+        order: 0,
+        vis_range: Some(span.clone()),
+    };
+
+    // field access
+    assert_eq!(edge.from, from_scope);
+    assert_eq!(edge.kind, kind);
+    assert_eq!(edge.order, 0);
+    assert!(edge.vis_range.is_some());
+
+    // BindTarget::Pending field access
+    if let BindTarget::Pending(ref rp, _) = pending {
+        assert_eq!(rp.0, vec!["std".to_string(), "collections".to_string()]);
+    } else {
+        panic!("expected Pending");
+    }
+
+    // serde round-trip for Edge
+    let edge_json = serde_json::to_string(&edge).expect("edge serialize");
+    let edge2: Edge = serde_json::from_str(&edge_json).expect("edge deserialize");
+    assert_eq!(edge, edge2, "Edge serde round-trip must be stable");
+
+    // serde round-trip for BindTarget::Pending
+    let pending_json = serde_json::to_string(&pending).expect("pending serialize");
+    let pending2: BindTarget = serde_json::from_str(&pending_json).expect("pending deserialize");
+    assert_eq!(
+        pending, pending2,
+        "BindTarget::Pending serde round-trip must be stable"
+    );
 }
