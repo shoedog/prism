@@ -118,6 +118,44 @@ def test_load_manifest_missing_sites_key(tmp_path):
     assert load_manifest(p) == []
 
 
+def test_load_manifest_with_implementers_field(tmp_path):
+    """The live `prism nav interface-manifest` emits an `implementers` field (Slice E:
+    the minted owner-type set). load_manifest must accept it and expose it as a tuple,
+    AND still load a legacy manifest that omits the field (default empty)."""
+    doc = {
+        "sites": [
+            {
+                "file": "server/server.go",
+                "start_byte": 120,
+                "end_byte": 135,
+                "line": 14,
+                "receiver_class": "type_assertion",
+                "method": "Go",
+                "fanout": 2,
+                "implementers": ["Fast", "Slow"],
+            },
+            {  # legacy site without the implementers key — must still load
+                "file": "cmd/main.go",
+                "start_byte": 200,
+                "end_byte": 210,
+                "line": 25,
+                "receiver_class": "typed_param",
+                "method": "ServeHTTP",
+                "fanout": 0,
+            },
+        ]
+    }
+    p = tmp_path / "manifest.json"
+    p.write_text(json.dumps(doc))
+
+    sites = load_manifest(p)
+
+    assert sites[0].implementers == ("Fast", "Slow")
+    assert sites[0].byte_key == "server/server.go:120:135"  # unchanged identity
+    assert sites[1].implementers == ()  # legacy default
+    assert sites[1].fanout == 0
+
+
 # ---------------------------------------------------------------------------
 # Test 2: stratify groups by receiver_class
 # ---------------------------------------------------------------------------

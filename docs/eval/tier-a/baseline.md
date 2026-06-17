@@ -1,11 +1,62 @@
-# Tier-A Baseline — 2026-06-13/14 (the S2 anchor)
+# Tier-A Baseline — 2026-06-16 (the Phase-IP anchor)
+
+Human-triggered `uv run tier-a --corpus all` on **prism @ `1f7330d`** (Phase-IP: #95 embedding
++ #96 interface foundation + #97 receiver-expansion + the Slice-E dispatch oracle, stacked on
+the S2 merge). This **refreshes** the 2026-06-13/14 **S2 anchor** (preserved below as the
+adjudication substrate — its 1,536 classed records carry forward unchanged). Only **caddy
+method-resolution recall moved**; every other corpus/stratum is identical to the S2 anchor.
+Run records: `2026-06-16-<corpus>.{json,md}`. **This file is the comparison anchor — update
+only deliberately.**
+
+## What moved (2026-06-16 vs the S2 anchor)
+
+**caddy M2 callers `C-method`: tp 1 → 43 at corrected P = 1.00 (fp 0, fn 0).** Raw site recall
+0.01 → 0.40; CI tightens `[0.21–1.00]` (n=1) → `[0.92–1.00]` (n=43). The 42 new resolutions are
+gopls-**confirmed** TPs — **0 new adjudicable pending** (no false edge, no adjudication needed).
+Every other caddy stratum (callers + callees) and M1 inventory (matched 2519 / extra 0 / missing
+100) are **byte-identical** to the S2 anchor. This is the Phase-IP receiver-typing + dispatch
+payoff — it closes the `callers/C-method` recall gap the S2 anchor flagged ("the P6-lite/Phase-IP
+receiver-typing gap"). Attribution is clean: everything between `dd60ed6` and `1f7330d` is the
+Phase-IP increment.
+
+**Capability matrix (G5): 33 ok · 2 expected_gap · 0 regression** (was 29 ok + 4 gap).
+`go/embedded_method` + `go/interface_dispatch` flipped to ok; `go/interface_dispatch_assert` +
+`go/interface_dispatch_var` (new PR-2 fixtures) landed ok. Remaining gaps:
+`python/from_import_alias`, `python/inherited_override` — the **Python** Phase-IP work-list, not
+yet addressed (Go embedding + interface dispatch from S2's work-list item 2 are now **DONE**).
+
+**Slice-E dispatch precision (companion audit, same prism `1f7330d`):** the §8 gopls dispatch
+oracle over caddy's 63 interface-dispatch sites → `dispatch_precision 0.9994`, dual-adjudicator
+κ = 1.000 (21/21), **1 confirmed `prism_fp`** (a name-based arity conflation at a 3-arg
+`MiddlewareHandler.ServeHTTP` test site → 2-arg `HandlerFunc`; deferred precision follow-up).
+CaddyModule recall is **sound** (prism 121 ⊆ gopls 132, RTA-pruned). Baseline:
+`slice-e-caddy-dispatch-baseline.json`; record in `adjudications.jsonl`
+(`measurement=interface_dispatch`). So the M2 recall gain is **both high-recall and
+high-precision**.
+
+**Validity (unchanged from the S2 anchor):**
+
+| Corpus | Lang | Floor-valid | oracle_err | Note |
+|---|---|---|---|---|
+| caddy | Go | ✅ | 0.00 | the Go anchor; clean |
+| prism | Rust | ⚠️ substance ✅ / report drift | 0.025 | `baseline_invalid` **only** on SHA-drift `dd60ed6 → 1f7330d`; substance floor-valid. **Re-pin `eval/corpora.toml` at merge** (deferred — `1f7330d` is an unmerged branch tip; precedent re-pins at the merge SHA, as the S2 anchor did) |
+| tokio | Rust | ❌ 0.22 > 0.10 | 0.219 | rust-analyzer macro/cfg density; supplementary, non-anchoring |
+| flask | Python | ❌ 0.36 > 0.25 | 0.363 | pyright call-hierarchy noise (spec-anticipated v1 finding) |
+| click | Python | ❌ 0.31 > 0.25 | 0.313 | pyright call-hierarchy noise |
+
+---
+
+# Tier-A Baseline — 2026-06-13/14 (the S2 anchor — preserved adjudication substrate)
+
+> The fields below describe the **S2 anchor** state (prism @ `dd60ed6`). They remain the
+> adjudication substrate (1,536 classed records, κ, gates); fields the 2026-06-16 refresh above
+> supersedes (caddy `C-method` callers, the G5 matrix count) are noted there.
 
 Re-anchored full adjudicated run of the Tier-A accuracy harness onto **prism @ `dd60ed6`**
 (post-S2 node-identity merge to `main`), from the human-triggered `uv run tier-a
 --corpus all` of 2026-06-13, adjudicated 2026-06-14. Supersedes the pre-S2
 2026-06-11/12 S3/B2 anchor (preserved in git history). Adjudication record:
-`re-anchor-adjudication-2026-06-14.md`. **This file is the comparison anchor — update
-only deliberately.**
+`re-anchor-adjudication-2026-06-14.md`.
 
 ## Corpus validity (G4)
 

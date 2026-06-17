@@ -194,6 +194,64 @@ fn interface_manifest_fanout_value() {
     );
 }
 
+// Slice E: a dispatch site emits the minted implementer SET (owner type names), sorted +
+// deduped, alongside `fanout` (= its cardinality). The 2-implementer Runner fixture (Fast +
+// Slow both live) must yield implementers == ["Fast", "Slow"] and fanout == 2. A concrete
+// (fanout == 0) receiver yields implementers == [].
+#[test]
+fn interface_manifest_implementers_set() {
+    use prism::languages::Language::Go;
+    let (cg, _) = build(&[(
+        "main.go",
+        "package main\n\
+         type Runner interface { Go() }\n\
+         type Fast struct{}\nfunc (f Fast) Go() {}\n\
+         type Slow struct{}\nfunc (s Slow) Go() {}\n\
+         func use() { _ = Fast{}; _ = Slow{} }\n\
+         func dispatch() { var r Runner; r.Go() }\n\
+         func concrete() { var c Fast; c.Go() }\n",
+        Go,
+    )]);
+    let m = prism::navigation::queries::interface_dispatch_manifest(&cg);
+    let sites = m["sites"].as_array().expect("sites array");
+
+    // `var r Runner; r.Go()` — interface receiver -> 2 live implementers, sorted + deduped.
+    let dispatch_site = sites
+        .iter()
+        .find(|s| s["method"] == "Go" && s["fanout"].as_u64() == Some(2))
+        .expect("2-implementer dispatch site present");
+    let implementers: Vec<&str> = dispatch_site["implementers"]
+        .as_array()
+        .expect("implementers array")
+        .iter()
+        .map(|v| v.as_str().unwrap())
+        .collect();
+    assert_eq!(
+        implementers,
+        vec!["Fast", "Slow"],
+        "implementers must be the sorted owner type names of the live impls"
+    );
+    assert_eq!(
+        dispatch_site["fanout"].as_u64(),
+        Some(implementers.len() as u64),
+        "fanout must equal implementers cardinality"
+    );
+
+    // `var c Fast; c.Go()` — concrete struct receiver -> empty implementer set, fanout 0.
+    let concrete_site = sites
+        .iter()
+        .find(|s| s["method"] == "Go" && s["fanout"].as_u64() == Some(0))
+        .expect("concrete site present (Go is an interface method name)");
+    assert_eq!(
+        concrete_site["implementers"]
+            .as_array()
+            .expect("implementers array")
+            .len(),
+        0,
+        "a concrete (fanout 0) receiver mints no implementers"
+    );
+}
+
 // Slice F (sketch only): the reserved variant exists; the classifier returns None for it.
 #[test]
 #[ignore = "SliceElem is reserved (spec §5/§10); classifier returns None until a future slice"]

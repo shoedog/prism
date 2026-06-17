@@ -60,8 +60,11 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
 /// (typed_param / constructor_local / type_assertion / var_local) AND the called
 /// method appears on some known Go interface (`cg.interface_method_names`). Each
 /// in-scope site is keyed by its byte-span (`file:start_byte:end_byte`) and stratified
-/// by receiver class. `fanout` is the in-repo implementer count minted for that
-/// (interface, method) — 0 for a concrete owner-resolved receiver.
+/// by receiver class. `implementers` (Slice E) is the sorted, deduped set of implementer
+/// owner *type names* prism mints for that (interface, method) — the RTA-pruned live set;
+/// `fanout` is its cardinality (0 / `[]` for a concrete owner-resolved receiver). The
+/// Slice-E gopls oracle (`eval/tools/dispatch_oracle.py`) compares this set per site to
+/// gopls's `textDocument/implementation` satisfier set to decide sound vs over-approx.
 ///
 /// The §5 `slice_candidate` (range-element) class is a manifest-only AST scan that is
 /// **deferred** (see the PR-2 deferred doc); the recovered classes above do not depend
@@ -104,10 +107,26 @@ pub fn interface_dispatch_manifest(cg: &CallGraph) -> serde_json::Value {
             if !cg.interface_method_names.contains(&site.callee_name) {
                 continue;
             }
-            let fanout = crate::resolution::iface_key(recv_ty)
+            // Slice E: emit the minted implementer SET (owner type names), not just the
+            // count. The fanned-out FunctionIds are mapped to their owning type via
+            // method_owners (fall back to the FunctionId's file stem if absent — a method
+            // with no recorded owner is keyed by its file). Deduped + sorted so the wire
+            // shape is deterministic and `fanout == implementers.len()`. A concrete
+            // (fanout == 0) receiver yields the empty set.
+            let impls: &[FunctionId] = crate::resolution::iface_key(recv_ty)
                 .and_then(|k| cg.interface_impls.get(&(k, site.callee_name.clone())))
-                .map(|ids| ids.len())
-                .unwrap_or(0);
+                .map(|v| v.as_slice())
+                .unwrap_or(&[]);
+            let implementers: BTreeSet<String> = impls
+                .iter()
+                .map(|fid| {
+                    cg.method_owners
+                        .get(fid)
+                        .cloned()
+                        .unwrap_or_else(|| crate::resolution::file_stem(&fid.file).to_string())
+                })
+                .collect();
+            let implementers: Vec<String> = implementers.into_iter().collect();
             sites.push(serde_json::json!({
                 "file": site.caller.file,
                 "start_byte": site.start_byte,
@@ -115,7 +134,8 @@ pub fn interface_dispatch_manifest(cg: &CallGraph) -> serde_json::Value {
                 "line": site.line,
                 "receiver_class": class(recovery),
                 "method": site.callee_name,
-                "fanout": fanout,
+                "fanout": implementers.len(),
+                "implementers": implementers,
             }));
         }
     }

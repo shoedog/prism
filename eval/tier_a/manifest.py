@@ -21,6 +21,10 @@ class ManifestSite:
     receiver_class: str
     method: str
     fanout: int
+    # Slice E: the minted implementer owner-type set (RTA-pruned live set);
+    # `len(implementers) == fanout`. A tuple so the frozen record stays hashable.
+    # Defaults to () so a legacy manifest (pre-Slice-E, no field) still loads.
+    implementers: tuple[str, ...] = ()
 
     @property
     def byte_key(self) -> str:
@@ -34,9 +38,26 @@ class ManifestSite:
 
 
 def load_manifest(path: Path) -> list[ManifestSite]:
-    """Parse a `prism nav interface-manifest` JSON document into ManifestSite records."""
+    """Parse a `prism nav interface-manifest` JSON document into ManifestSite records.
+
+    Built explicitly from the known fields (not ``**s``) so the reader is forward-compatible:
+    the live manifest carries an ``implementers`` list (converted to a tuple here) and may grow
+    further keys without breaking the load.
+    """
     doc = json.loads(Path(path).read_text())
-    return [ManifestSite(**s) for s in doc.get("sites", [])]
+    return [
+        ManifestSite(
+            file=s["file"],
+            start_byte=s["start_byte"],
+            end_byte=s["end_byte"],
+            line=s["line"],
+            receiver_class=s["receiver_class"],
+            method=s["method"],
+            fanout=s["fanout"],
+            implementers=tuple(s.get("implementers", ())),
+        )
+        for s in doc.get("sites", [])
+    ]
 
 
 def stratify(sites: list[ManifestSite]) -> dict[str, list[ManifestSite]]:
