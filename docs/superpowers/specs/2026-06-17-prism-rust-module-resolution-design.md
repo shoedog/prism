@@ -1,12 +1,16 @@
 # Name Resolution — Scope-Graph Architecture Design Spec (Rust first, C++-general)
 
 > **Status:** design spec, **iterating to SOUND under codex re-review — HOLD before plan/development**
-> (owner). Rev 2 adopts a language-neutral **scope graph** as the core, replacing the rev-1
-> `module_path → file` map. Two codex reviews (rev-1 plan, rev-1 spec) found the map shape cannot
-> represent block-scoped `use`, Rust's 3 namespaces, cfg-conditioned duplicate modules, glob/re-export
-> edges, or edition-correct anchoring — and isn't C++-reusable. The scope-graph formalism (Néron–Tin–
-> Visser–Wachsmuth, *A Theory of Name Resolution*) represents all of it and generalizes across
-> languages. Companion plan (the F3 win) is **deferred** until this spec is SOUND.
+> (owner). **Rev 3** refines the scope-graph core after the round-3 review (which **endorsed the model**
+> — "the direction is right" — and gave 11 surgical findings, all folded): unresolved `BindTarget::
+> Pending` aliases/re-exports, multi-extent `Scope.extents`, a `ResolvedSet` result (≠ `Ambiguous`) for
+> overload/multi-namespace, **per-rib resolution with glob-poison**, an explicit `resolve_path`, edge
+> `vis`, `CfgCond` as a formula, module-relative `self`/`super` + edition-correct `::`/bare anchors,
+> visibility **enforce-or-fall-through in Phase 1**, and a whole-repo cache-key + stable-ID scheme. Also
+> folds the owner's Q2: the core generalizes to **Python / TS-JS / Go**, not just C++ (§5). Rev 1 was a
+> `module_path→file` map (FLAWED — can't represent block scope, 3 namespaces, cfg-dup mods, glob/
+> re-export, editions); Rev 2 adopted the scope graph (Néron–Tin–Visser–Wachsmuth, *A Theory of Name
+> Resolution*). Companion plan (the F3 win) **deferred** until SOUND.
 >
 > **Standard:** comprehensive schematic up front, no naive approximation (prior approximations here
 > missed precision/recall and forced rewrites). The data model must *represent* the full system;
@@ -24,36 +28,61 @@ edges and (b) block-scope-aware import-aware call narrowing (the F3 fan-out fix)
 **The core is a language-neutral scope graph.** Three node/edge families + a resolution algorithm:
 
 ```
-ScopeId; ItemId; FileId; CfgCond (opaque condition expr, language-neutral)
-enum Namespace { Type, Value, Macro, /* C++ adds: Label? Tag? — extensible */ }
+ScopeId; ItemId; FileId; ByteRange
+// CfgCond is a FORMULA, not opaque text (rev-3/M10): And/Or/Not/Atom(key, val?), with
+// conservative `compatible(a,b)` / `exclusive(a,b)` (Unknown atoms => conservative: maybe-compatible).
+enum CfgCond { True, Atom(key, Option<val>), Not(Box), And(Vec), Or(Vec) }
+enum Namespace { Type, Value, Macro }     // Rust's 3; populator-extensible (C++ Tag/Label)
 enum Vis { Public, Restricted(ScopeId), Private }          // pub(in path) -> Restricted(scope)
 
-struct Scope {                 // a region that can hold bindings + out-edges
-    id: ScopeId, kind: ScopeKind, parent: Option<ScopeId>,  // lexical parent edge
-    file: FileId, range: ByteRange,        // source range — block-scoping is range containment
-    cond: Option<CfgCond>,                 // cfg-gated scope
+// A logical scope may span MANY source extents (rev-3/B3): reopened C++ namespaces, header
+// inclusion, Rust macro textual scope across a module's files.
+struct ScopeExtent { file: FileId, range: ByteRange, cond: Option<CfgCond> }
+struct Scope {
+    id: ScopeId, kind: ScopeKind, parent: Option<ScopeId>,   // lexical parent
+    extents: Vec<ScopeExtent>,                               // 1+ (rev-3/B3)
+    cond: Option<CfgCond>,
 }
 enum ScopeKind { Root, Module, Block, Type, Callable, ExternPrelude }  // lang-neutral; populator maps
 
-struct Binding {               // a name introduced INTO a scope (definition OR import alias)
+// A name introduced INTO a scope: a definition OR an import/re-export alias. An alias may be
+// UNRESOLVED until the fixpoint (rev-3/B1) -> BindTarget::Pending.
+struct Binding {
     scope: ScopeId, name: Ident, ns: Namespace,
-    target: Target, vis: Vis, cond: Option<CfgCond>, range: ByteRange,
-}                              // multiple Bindings may share (scope,name,ns): cfg-alts / genuine ambiguity
+    target: BindTarget, vis: Vis, cond: Option<CfgCond>,
+    vis_range: ByteRange,   // VISIBILITY range (rev-3/M8): block-scope + "visible after definition"
+                            // (later macro_rules! truncates an earlier macro binding's vis_range)
+}
+enum BindTarget { Resolved(Target), Pending(RawPath, Anchor) }   // Pending = alias path, resolved at fixpoint
 enum Target { Scope(ScopeId), Item(ItemId, Namespace), External(ExternRef) }
 
-struct Edge {                  // how a scope reaches OTHER scopes' bindings
-    from: ScopeId, kind: EdgeKind, to: EdgeTo, cond: Option<CfgCond>,
-}
-enum EdgeKind { Lexical, Import /*use a::b (aliased)*/, Glob /*use a::* */, ReExport /*pub use*/ }
-enum EdgeTo { Resolved(ScopeId), Path(RawPath, /*anchor*/ Anchor) }  // Path resolved lazily/fixpoint
+// Globs are EDGES (named imports/re-exports are Bindings above). Edges carry visibility
+// (rev-3/M7): a private `use a::*` vs a `pub use a::*` re-export differ only by `vis`.
+struct Edge { from: ScopeId, kind: EdgeKind, to: BindTarget, vis: Vis, cond: Option<CfgCond> }
+enum EdgeKind { Lexical, Glob /* use a::* */ }   // ReExport-ness = a Public-vis Binding/Glob
 ```
 
-**Resolution** (`resolve(name, ns, from_scope, at_byte)`): scope-graph name lookup — collect visible
-`Binding`s for `(name, ns)` reachable from `from_scope` via a **well-founded edge order** (local →
-lexical-parent chain → import/glob/re-export edges), filtered by `Vis`, `at_byte` (block-scope range
-containment), and `CfgCond`; **detect ambiguity** (>1 distinct target under compatible conditions);
-guard import/re-export cycles; reach a fixpoint over `EdgeTo::Path` edges. Yields
-`Resolution { targets: Vec<(Target, CfgCond)>, status: Resolved|Ambiguous|Unresolved }`.
+**Resolution.** Two entry points (rev-3/M9): `resolve_name(name, ns, from_scope, at_byte, cfg_ctx)`
+and `resolve_path(segments, ns, from_scope, at_byte, cfg_ctx)` (prefix segments resolve in the
+**Type/Module** namespace to `Scope` targets; the final segment in the requested `ns` — longest-prefix
+falls out). Lookup is **per-rib / per-scope, innermost-outward** (rev-3/M4): at each scope, (1) local
+explicit `Binding`s for `(name, ns)` whose `vis_range ∋ at_byte`, visible, cfg-compatible; else (2)
+**this scope's** glob `Edge`s — and a glob whose expansion is **deferred/unexpanded poisons** the
+lookup (→ `Poisoned` → consumers fall through; never skip to a lower-priority outer match); else (3)
+the lexical parent. Pending alias targets resolve at a **fixpoint** (cycle-guarded). Result:
+
+```
+enum ResStatus {
+    Resolved(Target),            // exactly one
+    ResolvedSet(Vec<Target>),    // legit multiple: C++ overload set; same name in >1 namespace (rev-3/B2)
+    Ambiguous(Vec<Target>),      // genuine conflict (2 globs, different items) -> consumers fall through
+    Poisoned,                    // a deferred glob could shadow -> fall through (recall-safe)
+    Unresolved,                  // nothing (external/unknown) -> fall through
+}
+struct Resolution { status: ResStatus, cond: Option<CfgCond> }
+```
+`ResolvedSet` is distinct from `Ambiguous` so C++ overloads (and Rust multi-namespace) are not mistaken
+for conflicts; call-narrowing treats a `ResolvedSet` spanning >1 file as fall-through (recall-safe).
 
 **Seam invariant:** the scope graph + `resolve` are **language-neutral**. Everything Rust-specific —
 `crate::`/`self::`/`super::`, edition anchor rules, `mod`-file conventions, the 3 Rust namespaces'
@@ -117,33 +146,43 @@ ns)`** are legal: cfg-alternatives (distinct `cond`) or genuine ambiguity (rustc
 surfaced, never silently picked). `Target::Item` carries the defining `ItemId` + its namespace
 (BLOCKER-2 fix: namespaces + item identity preserved, not `Option<Ident>`).
 
-### §3.3 Edges (the non-lexical reachability)
-`Import`/`Glob`/`ReExport` edges (and `Lexical` for the parent chain) carry an `EdgeTo` that is either a
-`Resolved(ScopeId)` or an unresolved `Path` resolved at fixpoint. `Glob` brings *all* visible bindings
-of the target scope (a glob *edge*, not a map row — MAJOR-4 fix); `ReExport` makes a brought-in binding
-visible from `from` (re-export *edge*, chains followed with a cycle guard — MAJOR-5 fix). Edges carry
-`CfgCond`.
+### §3.3 What carries a name vs what reaches other scopes (rev-3)
+- **Named imports/re-exports are `Binding`s** (not edges): `use a::b [as c]` and `pub use a::b` add a
+  `Binding{name=c|b, target=Pending(a::b path), vis}` to the importing scope; the `Pending` target is
+  resolved at the fixpoint (rev-3/B1), following re-export chains with a cycle guard. `pub use` ⇒
+  `vis=Public` (a re-export); private `use` ⇒ `vis=Private`.
+- **Globs are `Edge`s** with `vis` (rev-3/M7): `use a::*` ⇒ private `Glob` edge; `pub use a::*` ⇒
+  `Public` `Glob` edge (re-export). A glob brings *all* of the target scope's visible bindings of the
+  requested `(name, ns)` — resolved on demand; if expansion is **deferred**, it **poisons** (§3.4).
+- `Lexical` edges are the parent chain. All carry `CfgCond`.
 
-### §3.4 Resolution algorithm
-`resolve(name, ns, from_scope, at_byte, cfg_ctx)`:
-1. **Local** bindings of `from_scope` matching `(name, ns)`, `range ∋ at_byte`, visible, cfg-compatible.
-2. Else follow edges in well-founded order — **lexical parent chain**, then **import/re-export** edges
-   (resolving their `Path` targets recursively at fixpoint), then **glob** edges (lower priority, as in
-   Rust: an explicit `use` shadows a glob). Visibility + cfg filter at each hop; cycles guarded.
-3. **Ambiguity:** if ≥2 distinct `Target`s survive under *compatible* conditions → `Ambiguous`
-   (consumers fall through — never pick). Distinct cfg-exclusive targets → returned as conditioned
-   alternatives, not ambiguity.
-4. **Anchors** (`crate`/`self`/`super`/bare/`::`) are pre-resolved by the **populator's `Anchor`**
-   into a `from_scope` + starting edge set, per edition (the core just walks edges).
-Result: `Resolution { targets: [(Target, CfgCond)], status }`. **External** (dep/prelude) →
-`Resolved` to `External` (known, files `[]`). **Unresolved** → empty (fall through).
+### §3.4 Resolution algorithm (per-rib, innermost-outward — rev-3/M4)
+`resolve_name(name, ns, from_scope, at_byte, cfg)` walks scopes inner→outer; **at each scope, in order**:
+1. **Local explicit `Binding`s** for `(name, ns)` with `vis_range ∋ at_byte`, accessible (`Vis`), and
+   `cfg`-compatible — resolving any `Pending` target at the fixpoint (cycle-guarded). A hit here
+   **shadows** everything outward (explicit/local beats glob beats outer — the Rust rib rule).
+2. Else **this scope's `Glob` edges**: union their public `(name, ns)` bindings. **If any in-scope glob
+   is unexpanded/deferred, return `Poisoned`** (a glob *could* introduce `name` and shadow an outer
+   match) — consumers fall through; never silently skip to a lower-priority outer target.
+3. Else recurse to the **lexical parent**.
+`resolve_path(segments, ns, …)` (rev-3/M9): resolve `segments[..n-1]` in the **Type/Module** namespace
+to a `Scope` (longest-module-prefix), then `segments[n-1]` in `ns` within that scope. **Anchors**
+(`crate`/`self`/`super`/bare/`::`) are pre-mapped by the populator's edition-aware `Anchor` to the
+starting scope + namespace rules (§4.4) before the walk.
+**Result status:** exactly one ⇒ `Resolved`; a legitimate set (C++ overload set; the same name bound in
+>1 namespace) ⇒ `ResolvedSet` (rev-3/B2, NOT ambiguity); ≥2 conflicting items under compatible cfg ⇒
+`Ambiguous`; deferred-glob ⇒ `Poisoned`; nothing ⇒ `Unresolved`. `External` (dep/prelude) is a
+`Resolved`/`ResolvedSet` to `External` (known, files `[]`). Only `Resolved`(/single-file `ResolvedSet`)
+to an in-repo target narrows/edges; all else falls through (§7).
 
-### §3.5 Conditions (cfg) — never merge exclusive worlds
-Scopes/bindings/edges carry an optional `CfgCond`. Default policy: **over-approximate** (include all
-cfg variants; attach the condition) so reasoning honesty holds and a `NotReached`/narrow is never a
-false proof; mutually-exclusive duplicate mods are **distinct conditioned bindings** (MAJOR-6 fix), so
-resolution returns conditioned alternatives, not a merged file set. Full cfg *evaluation* (picking a
-target platform) is deferred; representation is present now.
+### §3.5 Conditions (cfg) — a formula, never merge exclusive worlds (rev-3/M10)
+`CfgCond` is a **formula** (`And/Or/Not/Atom`), not opaque text, with conservative `compatible()` /
+`exclusive()` (unknown atoms ⇒ treated as maybe-compatible). Resolution **accumulates the conjunction**
+of scope+edge+binding conditions along a path. Mutually-exclusive duplicate mods (`cfg(unix)` vs
+`cfg(windows)`) are distinct conditioned bindings (rev-3/M6-cfg) — never merged. If two candidates'
+conditions are **not provably exclusive** and they differ, that's `Ambiguous`/fall-through (recall-safe),
+**not** a silent merge. Full cfg *evaluation* (selecting a target) is deferred; the formula + the
+compatible/exclusive lattice are present now (so deferral never yields a wrong merge).
 
 ### §3.6 The seam
 The above is the entire language-neutral core. A `Populator` builds it; an `Anchor` resolver (populator-
@@ -163,18 +202,49 @@ provided) maps language path-anchors to scope+edge starts. Consumers depend only
 3. **Bindings & edges:** item defs → `Binding`s in the 3 namespaces (a unit struct → Type+Value, etc.);
    `use` → `Import`/`Glob` edges (+ alias `Binding`s); `pub use` → `ReExport` edges; visibility/cfg
    attached.
-4. **Anchor resolver (edition-aware):** `crate`→crate Root; `self`→lexical scope; `super`×n→ancestor;
-   2015 `use`-path→crate-root-relative; 2018+ bare leading ident→extern-prelude-or-lexical name lookup;
-   `::name`→extern; `extern crate … as` aliases. (Edition from Cargo.toml; default 2015 if absent —
-   verify.)
+4. **Anchor resolver (edition-aware — rev-3/M5).** `crate::` → the crate's Root scope. `self::`/
+   `super::`×n are **module-relative**: walk from the lexical scope **up to its enclosing `Module`
+   scope** (skipping `Block`/`Callable` ribs), then `self`=that module, `super`×n = its n-th ancestor
+   module. Leading `::` and bare idents are **edition-split**: **2015** — a `use` path is crate-root-
+   relative; `::x` is crate-root-based; a *non-`use*` bare path is module-relative. **2018+** — `::x`
+   is **extern-prelude**-based; a bare leading ident is normal name lookup with **local bindings taking
+   priority over the extern-prelude** (a local item/`use` named `foo` wins over a crate `foo`; only an
+   unshadowed leading ident hits the extern prelude). `extern crate … as` adds an alias binding in the
+   crate Root. Edition from Cargo.toml (workspace/package); **default per Cargo's rules (2015 if the
+   manifest omits `edition`)** — and if no manifest is found for a root, treat anchoring conservatively
+   (prefer fall-through over a wrong edition guess).
 
-## §5 C++ populator (the reuse proof — design only; built in a later phase)
-Namespaces → `Module`-kind scopes (reopened namespace = one logical scope with many `(file, range)`
-contributions; anonymous → TU-`Block`-scoped; inline namespace → transparent re-export-like edge);
-classes/enums → `Type` scopes; `using namespace N;` → `Glob` edge; `using N::x;` → `Import` edge;
-overload sets → multiple `Value` `Binding`s per name (resolution returns the set); ADL → an anchor/
-augmentation in the C++ resolver. The core (§3) is unchanged — only a populator + anchor resolver are
-added. (This section is the *generality check*, not a Phase-1 deliverable.)
+## §5 Other-language populators (the reuse proof — design only; later phases)
+The same core (§3) is reused by adding a populator + an edition/anchor resolver per language; **no core
+change**. This is both the generality check and the strategic payoff (one name-resolution engine for
+all of prism's languages — it would *subsume* per-language import extraction and close several open
+language gaps).
+
+- **C++.** Namespaces → `Module` scopes with **multi-extent** (reopened across headers = one scope,
+  many `ScopeExtent`s; anonymous → TU-`Block` extent; inline namespace → a transparent `Public` `Glob`
+  edge to the parent). Classes/enums → `Type` scopes. `using namespace N;` → `Glob` edge; `using N::x;`
+  → a `Binding` (Pending). **Overload sets → multiple `Value` `Binding`s per name; lookup returns
+  `ResolvedSet`** (rev-3/B2 — not `Ambiguous`). **ADL** → a C++-resolver augmentation that adds the
+  argument types' namespace scopes to the candidate set before overload resolution (an anchor/edge
+  addition, not a core change). Header inclusion → extents.
+- **Python.** Package/module scopes (files + `__init__.py`); `Callable`/`Type`/comprehension `Block`
+  scopes; **LEGB** = the lexical-parent walk + an `ExternPrelude`-like builtins scope. `from m import y`
+  → a `Binding(Pending m::y)`; `import x [as z]` → a module `Binding`; `from m import *` → a `Glob`
+  edge; **class inheritance → an `Import`/`Glob`-like edge to base-class `Type` scopes** (the MRO). This
+  closes prism's two open Python capability gaps — `from_import_alias` (alias binding) and
+  `inherited_override` (inheritance edge). Mostly one namespace (Value); decorators/`global`/`nonlocal`
+  are populator details.
+- **TS/JS.** ES-module scopes; **`let`/`const` block scopes vs `var` function scope** (range-gated
+  bindings — the same `vis_range` mechanism); `import {x}`/`import * as ns`/default → `Binding`/`Glob`
+  edges (baseline import extraction already exists; this upgrades it); class inheritance → base-`Type`
+  edges; **TS `namespace` + declaration merging** → multi-extent `Module` scopes (reopened-namespace-
+  like); TS type-vs-value namespaces → the `Namespace` enum.
+- **Go/Java** likewise (package scopes; Go already partly modeled; Java packages + inheritance edges).
+
+**Coordination consequence:** because the scope graph subsumes per-language *name resolution*, the
+open per-language name-resolution backlog items (the Python `from_import_alias`/`inherited_override`
+gaps, TS namespace merging, JS/Rust block scoping) belong *inside* this effort and must **not** be
+implemented standalone in parallel (they would be redone).
 
 ## §6 Form → scope-graph mapping (coverage check)
 | Rust form | Scope-graph elements | Phase |
@@ -185,36 +255,47 @@ added. (This section is the *generality check*, not a Phase-1 deliverable.)
 | `mod foo;` correct dir; inline; nested | `Module` scopes w/ declaring-dir rule | 1 ✦ |
 | workspace / multi-crate / dep renames | Root scope per crate; extern-name edges | 1 ✦ |
 | `foo.rs`+`foo/mod.rs` both | ambiguous `Binding` (error state) | 1 ✦ |
-| `pub use` re-export **chain** | `ReExport` edges, fixpoint + cycle guard | 1 ✦ (else strict fall-through) |
+| `pub use` re-export **chain** | `Public`-vis `Binding(Pending)`; fixpoint + cycle guard | 1 ✦ (concrete follow; else fall through) |
 | `#[path]` mod | populator file override | 1 ✦ (detect → correct file or fall through) |
-| cfg / exclusive-cfg dup mods | `CfgCond` on scopes/bindings; conditioned alternatives | 1 (represent) / 2 (evaluate) |
-| glob `use a::*` (+ glob re-export) | `Glob`/`ReExport` edge; member expansion | 1 edge / 2 expand |
-| visibility `pub(in …)` filtering | `Vis::Restricted`; filter in resolve | 1 represent / 2 enforce |
-| macros (`#[macro_export]`, `macro_rules!`) | Macro-ns bindings; textual-order | 2–3 |
-| prelude / `#[no_implicit_prelude]` | `ExternPrelude` scope edge | 2–3 |
-| **NOT modeled (out):** proc-macro/`build.rs`-generated items, full macro **expansion**, `include!()` | — degrade to Unresolved→fall through | — |
+| cfg / exclusive-cfg dup mods | `CfgCond` formula on scopes/bindings; conditioned, never merged | 1 (represent) / 2 (evaluate) |
+| glob `use a::*` (+ `pub use a::*`) | vis-carrying `Glob` edge; **deferred ⇒ poison/fall-through** | 1 edge+poison / 2 expand |
+| visibility `pub`/`pub(in …)`/private | `Vis`; **enforced in resolve OR fall through** (rev-3/M6) | **1** (enforce-or-fall-through) |
+| overload set (C++) / multi-namespace | multiple `Binding`s ⇒ `ResolvedSet` (≠ `Ambiguous`) | core now |
+| multi-extent scope (reopened ns / macro) | `Scope.extents: Vec<ScopeExtent>` | core now |
+| macros (`#[macro_export]`, `macro_rules!`) | Macro-ns `Binding`s; `vis_range` textual-order | 2–3 |
+| prelude / `#[no_implicit_prelude]` | `ExternPrelude` scope | 2–3 |
+| **NOT modeled (out):** proc-macro/`build.rs`-generated items, full macro **expansion**, `include!()` | — degrade to `Unresolved`→fall through | — |
 
 ## §7 Invariants (recall-safety is structural)
-- Narrow/edge **only** on `status==Resolved` to in-repo file(s) for the right `(name, Value-ns)` in the
-  call's scope+byte; `Ambiguous`/`Unresolved`/`External` → **fall through, never wrong** (MAJOR-5 fix —
-  no "resolve to the facade for now").
-- Block-scope (range) + namespace + visibility + cfg are all *filters in `resolve`*, not afterthoughts.
-- cfg over-approximate (never silently drop/merge). Determinism: sorted/ID-stable structures.
+- Narrow/edge **only** on `Resolved` (or a single-in-repo-file `ResolvedSet`) for the right `(name, ns)`
+  in the call's scope+byte; `ResolvedSet`(multi-file)/`Ambiguous`/`Poisoned`/`Unresolved`/`External` →
+  **fall through, never wrong** (rev-3/M4–M5: no "resolve to the facade", no skipping a poisoning glob).
+- Block-scope (`vis_range`) + namespace + **visibility (enforced)** + cfg are all *filters in resolve* —
+  a path crossing an un-enforced visibility/edition rule **falls through**, never resolves wrong (M6).
+- cfg formula, over-approximate, never silently drop/merge exclusive worlds. Determinism: stable
+  `ScopeId`/`ItemId` derivation (spec'd in §8) + sorted structures.
 
 ## §8 Incremental & cache
-Whole-program rebuild of the scope graph after any incremental merge (a `mod`/`#[path]`/manifest change
-re-shapes unchanged files' resolution) — the established Go-embedding recompute pattern; import-narrowed
-results for unchanged callers must be invalidated. **Cargo.toml enters the cache key** (today the cache
-hashes source files only — `cpg_cache.rs`); bump `CACHE_VERSION` for the serialized graph.
+**Whole-repo/workspace** scope graph (not diff-scoped); whole-program rebuild after any incremental
+merge — a `mod`/`#[path]`/manifest change re-shapes unchanged files' resolution, and import-narrowed
+results for unchanged callers must be **invalidated** (the Go-embedding recompute pattern). **Cache key
+(rev-3/M11)** = all relevant **manifests** (Cargo.toml workspace+members) + path/`#[path]` overrides +
+the **source-file set/existence** (a `mod foo;` resolves differently if `foo.rs` is added/removed) + cfg/
+feature inputs — not just edited-source hashes (today `cpg_cache.rs` hashes source only). **Stable IDs:**
+`ScopeId`/`ItemId` derived deterministically from `(crate, module-path, item-name, ns, ordinal)` (not
+insertion order) so the cache + goldens are stable across rebuilds. Bump `CACHE_VERSION` for the graph.
 
 ## §9 Phasing (architecture whole; build sliced — plan owns PR lines; HELD pending owner)
-- **Phase 1 (the F3 win):** scope-graph core + Rust populator for the ✦ set (crate graph incl.
-  workspace+editions+dep-names; module+block scopes w/ correct dirs+inline+`#[path]`-detect; 3
-  namespaces; anchors; concrete `pub use` following; ambiguity/cfg *representation*) + consumers
-  (module-deps edges + block-scope-aware Value-ns narrowing) + whole-program rebuild/cache. Everything
-  not modeled → strict fall-through (never wrong).
-- **Phase 2:** glob member expansion; visibility enforcement; cfg evaluation; dep/external precision.
-- **Phase 3:** macros; prelude; qualified `::`-call resolution via the graph; the **C++ populator**.
+- **Phase 1 (the F3 win):** scope-graph core (incl. `Pending` bindings, multi-extent scopes,
+  `ResolvedSet`, the per-rib + glob-poison resolver, `resolve_path`) + Rust populator for the ✦ set
+  (crate graph w/ workspace+editions+dep-names; module+block scopes w/ correct dirs+inline+`#[path]`
+  detection; 3 namespaces; **edition-correct anchors**; **concrete `pub use` following**; **visibility
+  enforce-or-fall-through**; cfg-formula *representation*) + consumers (module-deps edges + block-scope-
+  aware Value-ns narrowing) + whole-repo rebuild/cache. Everything not modeled → strict fall-through.
+- **Phase 2:** glob member *expansion*; cfg *evaluation*; dep/external precision; richer visibility.
+- **Phase 3:** macros (textual scope); prelude; qualified `::`-call resolution via the graph; the **C++
+  populator**; Python/TS/JS populators (closing `inherited_override`/`from_import_alias`, block scoping,
+  TS namespace merging).
 
 ## §10 Consumers
 - **module-deps/repo-map:** `Import`/`ReExport`/`Glob` edges + resolved targets → file edges; `External`
@@ -223,15 +304,25 @@ hashes source files only — `cpg_cache.rs`); bump `CACHE_VERSION` for the seria
   call_byte)`; `Resolved` to one in-repo item/file → narrow; else fall through. Qualified `::` untouched
   (Phase 3 upgrade).
 
-## §11 Open questions for the next re-review
-1. Is `Scope/Binding/Edge/Target` + the §3.4 algorithm sufficient to represent **every** §2 row
-   (incl. C++ §2.5) with *no core change* — or does any form still force a core shape change?
-2. Is the well-founded edge order (lexical → import/re-export → glob, with visibility/cfg/range
-   filters + ambiguity) **correct** vs rustc name resolution (esp. glob-vs-explicit shadowing, 2015
-   vs 2018 anchoring, re-export cycles)?
-3. Does the `Anchor`-in-populator split keep the core truly language-neutral for C++ (§5), or does an
-   anchor/ADL/overload concept still need to live in the core?
-4. Phase-1 boundary: is any ✦ row still under-modeled such that a *common* path resolves **wrong**
-   (not merely unresolved)? Specifically re-export following, `#[path]`, and edition anchoring.
-5. Cfg representation: is `Option<CfgCond>` on scopes/bindings/edges enough, or is a richer
-   condition lattice needed to avoid merging exclusive worlds while staying recall-safe?
+## §11 Open questions for the next re-review (round 4)
+The rev-3 core added: `BindTarget::Pending` (unresolved alias/re-export), `Scope.extents` (multi-extent),
+`ResStatus::{ResolvedSet, Poisoned}`, per-rib + glob-poison resolution, `resolve_path`, edge `vis`,
+`CfgCond` as a formula, module-relative `self`/`super` + edition `::`/bare anchors, visibility
+enforce-or-fall-through in Phase 1, and the cache-key/stable-ID scheme. Pressure-test:
+1. **Representability, again:** does the rev-3 core represent **every** §2 + §5 form (incl. C++ overload
+   sets + ADL, reopened/anonymous namespaces, macro textual scope) with *no further core change*? Any
+   remaining form that forces a struct/algorithm change?
+2. **Resolver correctness, again:** is the **per-rib (local → this-scope glob → outward) + glob-poison +
+   `ResolvedSet`-vs-`Ambiguous` + Pending-fixpoint + module-relative `self`/`super` + edition `::`/bare**
+   algorithm now correct vs rustc (glob-vs-explicit shadowing, 2015/2018, re-export cycles, multi-glob
+   conflict) AND adequate for C++ overload/ADL lookup?
+3. **Macro textual scope:** is `vis_range` + multi-extent enough to represent "later `macro_rules!`
+   shadows earlier" + cross-file `#[macro_use]`/module-order visibility (deferred to populate, but the
+   slots must exist)?
+4. **Recall-safety completeness:** with visibility *enforced* (or fall-through) in Phase 1, is there any
+   common path that still resolves **wrong** rather than falling through? (re-export following depth,
+   `#[path]`, edition anchors, glob poison, cfg non-exclusivity.)
+5. **Cache/IDs:** is the §8 cache key (manifests + file-set/existence + cfg inputs) + the stable
+   `ScopeId`/`ItemId` derivation complete and incremental-safe?
+6. **Is the model now comprehensive enough to proceed to slicing**, or is another revision needed?
+   (Explicit go/no-go for moving from spec → plan.)
