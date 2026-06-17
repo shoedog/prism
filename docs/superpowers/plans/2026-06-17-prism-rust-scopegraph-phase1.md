@@ -9,11 +9,19 @@
 > does not re-derive them; it slices the build and pins the TDD + the "preserve-exactly" rules.
 > Supersedes the naive `2026-06-16-prism-rust-use-imports.md` (rev-2).
 >
-> **Rev 2** (folds the codex gpt-5.5 xhigh plan-review, CHANGES-REQUESTED → the 7 findings): pins
+> **Rev 2** (folds the codex gpt-5.5 xhigh plan-review round 1, CHANGES-REQUESTED → 7 findings): pins
 > macro-wildcard-poison, visibility enforce-or-fall-through, broadened local bindings, a **positive
 > qualified-`::` recall gate**, the glob Phase-1 boundary (engine supports non-deferred globs; the Rust
 > populator **poisons** real `use a::*`), the cache stale-topology test (promoted from watch-item), and a
 > **fail-open** populator — plus the do-now edition-anchor/consumer-guard/`ResolveQuery.at` items.
+>
+> **Rev 3** (folds round 2, CHANGES-REQUESTED → 4 MAJOR + 1 MINOR, "no scope creep"): corrects the
+> re-export privacy test (a `pub use` of a *private* item falls through; only a *public* item in a
+> *private module* resolves through the facade), adds the **`authoritative_for(callsite)` contract** +
+> a shared `graph_callable_edge` helper + three-state authority tests (full / absent / fail-open-poisoned
+> graph), pins **block-local `use` extents** (before/inside/after) and the **nested out-of-line module**
+> declaring-dir rule, makes the incremental path **replace** (never merge stale) the scope graph, and
+> adds use-group/alias/`extern crate`/workspace/`[lib]`-`[[bin]]`/`pub use`-chain/`while let` coverage.
 
 **Goal:** Build the language-neutral scope-graph + the Rust populator/policy + consumers so Rust
 unqualified calls narrow to the real defining item (the F3 fix: `original_diff.rs`'s local `fn slice`
@@ -87,9 +95,13 @@ accessibility, candidate combination, the `visible()` accessibility predicate, a
   - **visibility enforce-or-fall-through (F2):** the `visible()` policy hook, hand-built:
     `private`/`pub(self)` item in module `m`, resolved *from a sibling* → not visible → fall through
     (`Unresolved`), NOT a wrong edge to the private item; `pub(super)` visible from the parent's subtree
-    only; `pub(in path)` visible only inside `path`; a `pub use` re-export visible across the re-export
-    where the underlying item is private. A glob only re-exports `pub` members (glob-accessibility, not
-    just "an edge exists").
+    only; `pub(in path)` visible only inside `path`. **Re-export privacy (round-2 F1 — two distinct
+    cases, do not conflate):** (i) a `pub use` of a *private* item → the item is still not visible across
+    the re-export → fall through (`Unresolved`), NEVER a wrong edge to the private item (a `pub use` does
+    not launder privacy); (ii) a *public* item living in a *private module*, re-exported via `pub use`
+    from an accessible scope → **resolved through the re-export** (the item itself is `pub`; only its
+    module *path* is private — the facade pattern). A glob only re-exports `pub` members
+    (glob-accessibility, not just "an edge exists").
   - **glob (engine, non-deferred only):** **explicit-beats-glob**; **two-glob conflict → `Ambiguous`**;
     **same-target glob dedup → `Resolved`**. NOTE (F5): these exercise engine combination over glob
     edges whose members are *already known* (non-deferred) — they are NOT Rust `use a::*` member
@@ -125,8 +137,10 @@ scopes (`mod` decls via declaring-module dir; inline; `#[path]`; cfg-conditioned
 `match`/`if let`/`while let` pattern bindings (F3); real `use a::*` → **deferred-glob poison** (no member
 expansion in Phase 1 — F5); name-introducing macros (`macro_rules!`, attribute/`macro!()` invocations)
 → **wildcard-poison marker** over the affected scope/range — F1) → `Glob` edges. Stored on `CallGraph`;
-**whole-repo rebuild after any incremental merge** (a `mod`/`#[path]`/manifest change reshapes unchanged
-files); cache key += manifests + file-set/existence + cfg + stable IDs. **Fail-open (F7):** any
+**the whole `scope_graph` is REPLACED (rebuilt from all parsed files) after any incremental merge — never
+merge stale scope data** (a `mod`/`#[path]`/manifest change reshapes unchanged files; the partial-hit
+flow at `main.rs:718` hands back a cached `CallGraph` + changed files, so the graph must be recomputed
+whole, not subset-merged — round-2 do-now); cache key += manifests + file-set/existence + cfg + stable IDs. **Fail-open (F7):** any
 malformed/missing input (unparseable Cargo.toml, missing `mod` target, parse error) yields an empty or
 poisoned region, never a panic / never aborts CPG construction — PR-2 must be byte-for-byte behavior-
 neutral. **Do-now:** Rust import evidence lives ONLY on the scope graph — do NOT write Rust into
@@ -138,18 +152,34 @@ behavior stays untouched).
   - **end-to-end:** `mod engine; // engine.rs: pub fn start(){}` + `use crate::engine::start; fn g(){ start() }`
     → `resolve` finds `engine.rs::start`. Also `foo.rs`+`foo/mod.rs` both → ambiguous; inline `mod`;
     `#[cfg]` dup mods → conditioned.
+  - **nested out-of-line module (round-2 F4 — declaring-module directory):** `src/foo.rs` containing
+    `mod bar;` resolves the child to `src/foo/bar.rs`, NOT `src/bar.rs` (spec §4 declaring-module-dir
+    rule). Cover both `src/foo.rs`+`src/foo/bar.rs` and the `src/foo/mod.rs`+`src/foo/bar.rs` shapes.
   - **local bindings (F3) — all forms become `Target::Local` and shadow a free `fn f`:** `let f = …; f()`;
     `fn g(f: impl Fn()) { f() }` (param); `(0..n).for_each(|f| f())` (closure arg); `for f in xs { f() }`;
-    `match x { Some(f) => f() , … }`; `if let Some(f) = x { f() }`. Each → the `Local`, never the free fn.
+    `match x { Some(f) => f() , … }`; `if let Some(f) = x { f() }`; `while let Some(f) = it.next() { f() }`.
+    Each → the `Local`, never the free fn.
+  - **block-local `use` extent (round-2 F3/vis_extents):** `fn g(){ before(); { use crate::m::before; before() } before() }`
+    where the block `use` brings a *different* `before` into the inner block only → the **inside** call
+    resolves to the imported `m::before`; the **before** and **after** calls do NOT (the `use`'s
+    `vis_extents` cover only the block — proves `ResolveQuery.at` maps to the right rib and the import
+    does not leak out of its block). Spec §1 byte-qualified `ScopeExtent`/`vis_extents` (:173/:351).
+  - **use-group / alias / extern crate / workspace (round-2 F5 coverage):** `use a::{b, c::d, self}` (nested
+    + `self` group), `use a::b as c; c()` (alias → `Pending` to `a::b`), `extern crate foo as bar;`
+    (crate alias), a workspace member + a `package = "x"` dep rename, and `[lib]`/`[[bin]]` non-convention
+    roots from `Cargo.toml` — each builds the expected bindings/roots (resolve where in-repo, poison/extern
+    where not).
   - **macro wildcard poison (F1):** a fixture with `m!(); f()` where an outer `f` exists → the populator
     marks the macro range wildcard-poison → `resolve(f)` in range = `Poisoned` (a call before the macro is
     unaffected).
   - **real glob poison (F5):** `use other::*; thing()` where `other` has a `pub fn thing` → the populator
     emits **deferred-glob poison** (NO member expansion) → `resolve(thing)` = `Poisoned`, never a synthetic
     edge to `other::thing`.
-  - **visibility (F2):** `use crate::m::private_fn; private_fn()` where `m::private_fn` is private → the
-    re-export/use is not visible across the module boundary → `resolve` falls through (`Unresolved`), no
-    edge to the private item.
+  - **visibility (F2 — both re-export cases):** (i) `use crate::m::private_fn; private_fn()` where
+    `m::private_fn` is private → not visible across the module boundary → `resolve` falls through
+    (`Unresolved`), no edge to the private item; (ii) `mod m { pub fn f(){} }` (with `m` private) +
+    `pub use crate::m::f;` from the crate root + a call to the re-exported `f` → **resolves to `m::f`**
+    (public item, private module path — the facade must still resolve).
   - **cache stale-topology (F6 — promoted from watch-item):** build a 2-file graph, then (a) ADD a
     `mod new;` + `new.rs` and (b) REMOVE a `mod`, each via the incremental path; assert the rebuilt graph
     matches a from-scratch build (the cache key change forces a whole-repo rebuild; an unchanged sibling's
@@ -166,12 +196,31 @@ behavior stays untouched).
 **Files:** Modify `src/navigation/module_graph.rs` (Rust resolved `use`/re-export edges), `src/resolution.rs` (unqualified narrowing via the graph; qualified-`::` graph-or-fall-through) · Test `tests/navigation/module_graph_test.rs`, `tests/integration/resolution_test.rs`
 
 The call-site→scope mapping is explicit (do-now): the consumer builds each `ResolveQuery.at` from the
-captured `CallSite.start_byte/end_byte` (`call_graph.rs:22`) so block-local shadows and block-scoped
+captured `CallSite.start_byte/end_byte` (`call_graph.rs:28`) so block-local shadows and block-scoped
 `use` resolve at the right rib — not just caller-function/file granularity.
+
+**The graph-authority contract (round-2 F2 — define BEFORE disabling any legacy path).** The legacy
+qualified Rust heuristic (`resolution.rs:532`/`:566` owner/stem ladder) is disabled *only* for sites the
+graph authoritatively covers. Add an explicit predicate `authoritative_for(callsite) -> bool` = "the
+populator built scopes covering this site's file" (i.e. the file is modeled, not a skeleton/unmodeled
+file):
+- **authoritative + `Resolved` single in-repo callable** → emit the graph edge (legacy skipped).
+- **authoritative + any other status** (`Poisoned`/`Ambiguous`/`ResolvedSet`/`Unresolved`/`External`,
+  incl. a fail-open *poisoned* region) → **fall through, legacy skipped** (the graph considered it and
+  declined; do not let the heuristic guess).
+- **NOT authoritative** — no graph built (`build_skeleton`, `call_graph.rs:147`), a direct-subset
+  incremental build that hasn't recomputed (`call_graph.rs:1009`), or a file the populator never modeled
+  (fail-open *empty*, parse failure) → **legacy heuristic runs unchanged** (no recall loss; PR-3 changes
+  nothing for uncovered sites).
+A single shared consumer helper (do-now) — `fn graph_callable_edge(site) -> Option<Target>` returning
+`Some` only on authoritative + `Resolved`-single-in-repo-callable — is used by BOTH `resolution.rs` and
+`module_graph.rs` so they cannot diverge on which statuses fall through.
 
 - [ ] **Step 1: Failing tests** —
   - **(a) module-deps:** `use crate::util::helper;` → resolved edge to `util.rs`; external `use std::…`
-    → `UnresolvedModule`/external label (replaces the Rust call-derived-only contract).
+    → `UnresolvedModule`/external label (replaces the Rust call-derived-only contract). Also a **`pub use`
+    re-export chain** (`a` `pub use`s `b::thing`; a third module imports it from `a`) → module-deps shows
+    the resolved edge to the defining file, not a dangling re-export hop (round-2 F5).
   - **(b) unqualified narrowing:** two `fn process` (engine.rs/other.rs); a file with
     `use crate::engine::process; process()` → narrows to engine.rs only. **Recall guards:** no-import →
     unchanged; cross-module bare name → fall through (module-boundary stop); `let`-shadowed name → no
@@ -183,10 +232,16 @@ captured `CallSite.start_byte/end_byte` (`call_graph.rs:22`) so block-local shad
     (proves disabling the legacy heuristic did not silently drop all `::` recall). This is a golden
     fixture: a small Rust crate with known-correct `::` edges, asserted exactly (precision-not-regress
     alone is necessary-but-not-sufficient).
+  - **(c″) graph-authority three states (round-2 F2):** for the SAME `crate::engine::start()` site —
+    (1) full graph covering the file → graph edge (legacy skipped); (2) NO graph built (skeleton /
+    `scope_graph` absent) → the legacy heuristic's edge is emitted unchanged (no recall loss);
+    (3) fail-open *poisoned* region covering the file → fall through (NO edge, legacy skipped). Assert
+    `authoritative_for` returns true only for (1)+(3) and that (2) is byte-identical to pre-PR-3 output.
   - **(d) consumer-guard fall-through (do-now):** every non-`Resolved`-single-callable result avoids an
     in-repo edge — assert each of: `Resolved(Target::External)` (e.g. `std`), `Resolved` non-callable
     `Item` (a type/const), `Resolved(Target::Scope)`, `ResolvedSet` (>1 file), a cfg-exclusive
-    multi-candidate result, and `Poisoned` → NO edge / narrowing.
+    multi-candidate result, and `Poisoned` → NO edge / narrowing. Drive all of these through the shared
+    `graph_callable_edge` helper so both consumers share one fall-through contract.
 - [ ] **Step 2: Run → fail.** **Step 3: Implement** the consumers via the graph; **disable the legacy
   qualified Rust heuristic where the graph is authoritative** (graph-resolve or fall through — spec §10).
   Edge/narrow only on `Resolved` single in-repo `Item{callable}`. **Step 4: (c′) + recall-guard tests
@@ -226,8 +281,11 @@ incrementally; PR-3 is the behavior-changing one (Tier-A gated).
   recall + the Tier-A precision-must-not-regress gate + the recall-safety audit. (Tier-A precision alone
   is necessary-but-not-sufficient — the golden fixtures pin recall directly.)
 - **Replacing live behavior:** Task 4 changes real resolution (`resolution.rs`/`module_graph.rs`).
-  Tier-A `--quick` is the regression net; the legacy qualified heuristic must be disabled *only* where
-  the graph is authoritative (else recall loss).
+  Tier-A `--quick` is the regression net; the legacy qualified heuristic is disabled *only* where the
+  graph is authoritative — pinned by the **`authoritative_for(callsite)` contract** + the three-state
+  authority tests (Task 4 c″): a skeleton/incremental/unmodeled site keeps legacy behavior byte-for-byte
+  (no recall loss); a covered-but-poisoned site falls through (no wrong-edge guess). One shared
+  `graph_callable_edge` helper keeps both consumers on the same fall-through contract.
 - **Cache correctness:** whole-repo rebuild + the widened key (manifests/file-set/cfg). A missed input
   ⇒ stale resolution. **Pinned by the Task-3 stale-topology test (F6)** — a `mod`/`#[path]` add/remove
   must change unchanged files' resolution to match a from-scratch build.
