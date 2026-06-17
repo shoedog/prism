@@ -1673,3 +1673,32 @@ fn config_type_assertion_only_gates_var_local_off() {
     ); // assert ON
     assert_eq!(site_in(&cg, "b", "Go").receiver_type, None); // var OFF
 }
+
+#[test]
+fn method_arity_records_param_count_excluding_receiver_and_variadic() {
+    use prism::call_graph::MethodArity;
+    use prism::languages::Language::Go;
+    let (cg, _) = build(&[(
+        "main.go",
+        "package main\n\
+         type H struct{}\nfunc (h H) Do(a int, b int) {}\n\
+         type V struct{}\nfunc (v V) Do(xs ...int) {}\n",
+        Go,
+    )]);
+    // Collect all arities for "Do".
+    let do_arities: Vec<&MethodArity> = cg
+        .method_arity
+        .iter()
+        .filter(|(f, _)| f.name == "Do")
+        .map(|(_, a)| a)
+        .collect();
+    assert_eq!(do_arities.len(), 2, "two Do methods recorded");
+    // H.Do: 2 params (a int, b int), not variadic, receiver excluded.
+    let non_variadic: Vec<&&MethodArity> = do_arities.iter().filter(|a| !a.variadic).collect();
+    assert_eq!(non_variadic.len(), 1, "exactly one non-variadic Do");
+    assert_eq!(non_variadic[0].params, 2, "two params, receiver excluded");
+    // V.Do: variadic, 1 param name.
+    let variadic: Vec<&&MethodArity> = do_arities.iter().filter(|a| a.variadic).collect();
+    assert_eq!(variadic.len(), 1, "exactly one variadic Do");
+    assert_eq!(variadic[0].params, 1, "one variadic param name");
+}

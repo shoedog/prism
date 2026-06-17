@@ -43,6 +43,19 @@ pub struct CallSite {
     pub receiver_recovery: Option<crate::resolution::ReceiverRecovery>,
 }
 
+/// Parameter arity for a method definition (language-agnostic shape).
+///
+/// `params` is the count of parameter NAMES (not declarations) excluding the Go
+/// receiver (or `this`/`self` for other languages).  A variadic declaration
+/// contributes exactly 1 to `params` and sets `variadic = true`.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct MethodArity {
+    /// Number of declared parameter names, excluding the receiver.
+    pub params: usize,
+    /// True if the last parameter is a variadic (`...T` in Go, `...` in C++/Java).
+    pub variadic: bool,
+}
+
 /// The call graph for a set of parsed files.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct CallGraph {
@@ -92,6 +105,11 @@ pub struct CallGraph {
     /// graph, so the manifest can signal "dispatch not computed" vs "computed, none found".
     #[serde(default)]
     pub interface_dispatch_computed: bool,
+    /// Arity (param count + variadic flag) per method FunctionId, populated from Go type
+    /// provider. Receiver is excluded from `params`. Cleared / rebuilt in lock-step with
+    /// `interface_impls` via `clear_interface_dispatch` / `apply_go_interface_dispatch`.
+    #[serde(default)]
+    pub method_arity: BTreeMap<FunctionId, MethodArity>,
 }
 
 impl CallGraph {
@@ -113,6 +131,7 @@ impl CallGraph {
             interface_overapprox: BTreeMap::new(),
             interface_method_names: BTreeSet::new(),
             interface_dispatch_computed: false,
+            method_arity: BTreeMap::new(),
         }
     }
 
@@ -238,6 +257,7 @@ impl CallGraph {
             interface_overapprox: BTreeMap::new(),
             interface_method_names: BTreeSet::new(),
             interface_dispatch_computed: false,
+            method_arity: BTreeMap::new(),
         }
     }
 
@@ -761,6 +781,7 @@ impl CallGraph {
             interface_overapprox: BTreeMap::new(),
             interface_method_names: BTreeSet::new(),
             interface_dispatch_computed: false,
+            method_arity: BTreeMap::new(),
         };
         cg.apply_go_embedding_promotion(files);
         cg.apply_go_interface_dispatch(files);
@@ -864,6 +885,7 @@ impl CallGraph {
         self.interface_overapprox.clear();
         self.interface_method_names.clear();
         self.interface_dispatch_computed = false;
+        self.method_arity.clear();
     }
 
     /// Recompute Go embedding promotions over `files` and write owner-index aliases.
@@ -940,6 +962,8 @@ impl CallGraph {
         // Capture the interface-method-name set for the PR-2 manifest denominator
         // (§8a) while the provider is live (it is dropped after this fn).
         self.interface_method_names = provider.interface_method_names();
+        // Capture per-method arity for later arity-filtered dispatch (Task 2).
+        self.method_arity = provider.method_arities();
         for g in &table.gaps {
             *self.interface_gaps.entry(format!("{g:?}")).or_insert(0) += 1;
         }
@@ -1122,6 +1146,7 @@ impl CallGraph {
             interface_overapprox: BTreeMap::new(),
             interface_method_names: BTreeSet::new(),
             interface_dispatch_computed: false,
+            method_arity: BTreeMap::new(),
         }
     }
 
