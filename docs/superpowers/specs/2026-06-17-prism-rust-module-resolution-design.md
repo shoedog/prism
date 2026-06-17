@@ -1,17 +1,18 @@
 # Name Resolution — Scope-Graph Architecture Design Spec (Rust first, C++-general)
 
 > **Status:** design spec, **iterating to SOUND under codex re-review — HOLD before plan/development**
-> (owner). **Rev 5** (owner: converge on Rust + reserve C++, *and ensure JS/TS, Java, Go are sufficiently
-> architected*): (a) folds the **3 Rust Phase-1 soundness fixes** from round 5 — **local value/pattern
-> bindings** populated/poisoned so a local `f` shadows a free `fn f` (B1), **glob accessibility** (local
-> glob = *accessible* not just public; vs `pub use *` re-export) (6), **name-introducing-macro + unresolved-
-> local-`use` poison** (7); (b) **opens `Vis` and `EdgeKind`** (`VisKindId`/`EdgeKindId` + edge `order`/
-> provenance) — which is what makes **Go/Java/Python/TS-JS DATA-MODEL-COMPLETE** (round-5 found the closed
-> enums too Rust-shaped for their inheritance/access); (c) **reserves C++** shapes only (`occ`/include-
-> occurrence, `Edge.vis_range`, ADL query-context API) — no full C++ lookup spec. Net: Rust is ~sound,
-> js/ts/java/go fit now (policies = later phases), C++ reserved-not-specified. History: Rev 1 module-map
-> (FLAWED) → Rev 2 scope graph (Néron–Tin–Visser–Wachsmuth) → Rev 3 refine (model endorsed) → Rev 4
-> data/policy split + pressure test. Companion plan (the F3 win) **deferred** until SOUND.
+> (owner). **Rev 6** folds round-6 (which judged the design *"close enough to proceed with Rust Phase 1
+> after [these] fixes"*): (1) **module-boundary STOP** for bare Rust names — a nested module does NOT see
+> a parent module's unqualified names (§4, the round-6 BLOCKER); (2) **`Target::Local` + `Item.callable`**
+> so a local `let f` shadows a free `fn f` without minting a wrong call edge; (3) Phase-1 **qualified `::`
+> graph-resolves or falls through** (not left on the legacy heuristic — §10); (4) a structured
+> **`ResolveQuery`** + a **`visible()` policy hook** (ADL/occurrence visibility are policy, not engine —
+> makes the C++ reservation adequate); + §6 terminology / per-kind extents. Rev 5 had folded the 3 Rust
+> soundness fixes + **opened `Vis`/`EdgeKind`** (→ Go/Java/Python/TS-JS data-model-complete) + reserved
+> C++. **Net: Rust is ~sound (1 confirming review from go); js/ts/java/go data-model-complete; C++
+> reserved.** History: Rev 1 module-map (FLAWED) → Rev 2 scope graph (Néron–Tin–Visser–Wachsmuth) → Rev 3
+> refine (model endorsed) → Rev 4 data/policy split + pressure test → Rev 5 open Vis/EdgeKind. Companion
+> plan (the F3 win) **deferred** until SOUND.
 >
 > **Standard:** comprehensive schematic up front, no naive approximation (prior approximations here
 > missed precision/recall and forced rewrites). The data model must *represent* the full system;
@@ -62,8 +63,14 @@ struct Binding {                 // a definition OR an import/re-export alias
                                  // def"; a macro may have disjoint visible regions)
 }
 enum BindTarget { Resolved(Target), Pending(RawPath, Anchor) }   // Anchor is OPAQUE/policy-owned (rev-5/round5-8)
-enum Target { Scope(ScopeId), Item { id: ItemId, ns: NamespaceId, owns: Option<ScopeId> }, External(ExternRef) }
-                                 // an Item may OWN a Scope (enum->variants, struct/trait->assoc)
+enum Target {
+    Scope(ScopeId),
+    Item { id: ItemId, ns: NamespaceId, owns: Option<ScopeId>, callable: bool },  // owns: enum->variants, etc.
+    Local(BindingRef),           // rev-6/round6-2: a local value binding (param/let/closure/pattern) —
+                                 // SHADOWS (stops lookup) but is NOT an in-repo item; consumers mint a
+                                 // call edge ONLY for `Item{callable:true}`, never `Local`/`Scope`/non-callable.
+    External(ExternRef),
+}
 
 struct Edge {                    // rev-5/round5-B3: open kind + provenance/order
     from: ScopeId, kind: EdgeKindId, to: BindTarget, vis: Vis, cond: Option<CfgCond>,
@@ -76,13 +83,24 @@ struct Edge {                    // rev-5/round5-B3: open kind + provenance/orde
 // + interprets them (e.g. Python MRO uses Inherit edges' `order`). Named imports/re-exports stay Bindings.
 ```
 
-**Resolution = data + a `ResolutionPolicy`.** Entry points `resolve_name(name, ns, from, at: SourceLoc,
-cfg)` and `resolve_path(segments, ns, from, at, cfg)` (prefix segments resolve in the policy's
-"scope-bearing" namespaces — Type/Module/Enum/Trait — to `Scope`/`Item.owns` targets, longest-prefix;
-final segment in `ns`). The **policy** supplies: the per-rib **edge order**, glob/visibility rules, the
-**candidate-combination** (single `Resolved` vs an overload `ResolvedSet` vs `Ambiguous` conflict),
-anchor mapping, and any candidate **injection** (C++ ADL). The shared engine walks the graph; the policy
-decides ordering/combination/well-formedness. Result is **per-candidate** (rev-4/M3):
+**Resolution = data + a `ResolutionPolicy`, driven by a structured `ResolveQuery` (rev-6/round6-4).**
+The single entry is `resolve(q: ResolveQuery)`; `resolve_path` is the multi-segment form (prefix
+segments resolve in the policy's scope-bearing namespaces — Type/Module/Enum/Trait — to `Scope`/
+`Item.owns` targets, longest-prefix; final segment in `q.ns`).
+
+```
+struct ResolveQuery {            // extensible — C++ ADL/two-phase add fields without changing the engine
+    name: Ident, ns: NamespaceId, from: ScopeId, at: SourceLoc, cfg: CfgCtx,
+    ctx: PolicyQueryCtx,         // RESERVED (round6-4): call syntax, arg-type candidates, template args,
+                                 // associated ns/classes, ordinary-lookup result (C++ ADL) — opaque to engine
+}
+```
+The **policy** supplies: per-rib **edge order**; **candidate-combination** (single `Resolved` vs overload
+`ResolvedSet` vs `Ambiguous`); anchor mapping; candidate **injection** (C++ ADL, from `q.ctx`); and —
+critically (round6-4) — a **`visible(binding, q) -> bool` HOOK**: the engine does **not** hard-code a
+span/`SourceLoc` accessibility check (that would be Rust-shaped); the policy decides visibility given the
+binding + query/traversal context (so C++ occurrence-qualified header visibility is a policy concern, not
+a fixed engine span test). The shared engine walks the graph + calls these hooks. Result is **per-candidate**:
 
 ```
 struct Candidate { target: Target, cond: CfgCond, provenance: Provenance }  // why/where it came from
@@ -177,10 +195,13 @@ from_scope, at: SourceLoc, cfg)` walks inner→outer; under the **Rust policy, a
 1. **Local explicit `Binding`s** for `(name, ns)` with `vis_range ∋ at_byte`, accessible (`Vis`), and
    `cfg`-compatible — resolving any `Pending` target at the fixpoint (cycle-guarded). A hit here
    **shadows** everything outward (explicit/local beats glob beats outer — the Rust rib rule).
-2. Else **this scope's `Glob` edges**: union their public `(name, ns)` bindings. **If any in-scope glob
-   is unexpanded/deferred, return `Poisoned`** (a glob *could* introduce `name` and shadow an outer
-   match) — consumers fall through; never silently skip to a lower-priority outer target.
-3. Else recurse to the **lexical parent**.
+2. Else **this scope's `Glob` edges**: union their **accessible** `(name, ns)` bindings (the policy's
+   `visible` hook decides accessibility — §1; for Rust local lookup that's accessible-not-just-public,
+   §4). **If any in-scope glob is unexpanded/deferred, return `Poisoned`** — consumers fall through;
+   never silently skip to a lower-priority outer target.
+3. Else recurse to the **lexical parent** — but the **policy decides where to stop**: the Rust policy
+   stops a *bare-name* walk at the enclosing `Module` (no parent-module inheritance — §4 round6-B1),
+   so step 3 is policy-gated, not an unconditional outward walk.
 `resolve_path(segments, ns, …)` (rev-3/M9): resolve `segments[..n-1]` in the **Type/Module** namespace
 to a `Scope` (longest-module-prefix), then `segments[n-1]` in `ns` within that scope. **Anchors**
 (`crate`/`self`/`super`/bare/`::`) are pre-mapped by the populator's edition-aware `Anchor` to the
@@ -238,8 +259,14 @@ Rust populator+policy; §5 pressure-tests Go/Java/Python/TS-JS/C++. Nothing in �
 
 **Rust `ResolutionPolicy`:** namespaces `{Type, Value, Macro}` (scope-bearing for `resolve_path`
 prefixes: Type/Module + `Item.owns`); per-rib order **local explicit Binding (incl. value/pattern, 3a) →
-this-scope `Glob` → lexical parent**, explicit/local shadows glob shadows outer; **glob accessibility
-(rev-5/round5-6):** for *local* lookup a `Glob` brings names **accessible** at the use site (incl.
+this-scope `Glob` → lexical parent**, explicit/local shadows glob shadows outer.
+**MODULE-BOUNDARY STOP (rev-6/round6-B1 — a soundness BLOCKER fix):** for a **bare (unqualified) name**,
+the rib walk crosses only `Block`/`Callable` lexical parents **up to and including the enclosing
+`Module`, then STOPS** — Rust does NOT inherit unqualified names from a *parent module* (`fn start(){}
+mod m { fn g(){ start() } }` does not see the outer `start`; it needs `super::start`/an import). Crossing
+into a parent `Module` for a bare name ⇒ `Unresolved` → fall through (never the parent/root item). Only
+explicit anchors (`super::`/`crate::`/`self::`) + the extern-prelude reach module ancestors.
+**Glob accessibility (rev-5/round5-6):** for *local* lookup a `Glob` brings names **accessible** at the use site (incl.
 `pub(super)`/`pub(in)` visible there — NOT "public only"); a *`pub use *` re-export* exposes only names
 public at the re-export site. A **deferred/unexpanded glob OR a still-`Pending` local import ⇒
 `Poisoned`** for the affected name (an unresolved local `use` must **not** continue outward to an outer
@@ -310,7 +337,9 @@ this effort (not standalone-parallel — it would be redone).
 ## §6 Form → scope-graph mapping (coverage check)
 | Rust form | Scope-graph elements | Phase |
 |---|---|---|
-| block-local `use` | `Import` edge on a `Block` scope; `range`-gated resolve | 1 ✦ |
+| block-local `use` | `Binding(Pending)` in a `Block` scope (named import — NOT an edge); `vis_extents`-gated | 1 ✦ |
+| local value/pattern binding (param/`let`/closure/`for`/`match`) | `Value` `Binding` → `Target::Local`; shadows free fns | 1 ✦ |
+| bare name does NOT cross a module boundary | rib walk stops at enclosing `Module` (round6-B1) | 1 ✦ |
 | 3 namespaces; multi-ns `use` | `(name, ns)` binding keys; ns-tagged `Target::Item` | 1 ✦ |
 | `crate`/`self`/`super`/bare/`::` (editions) | `Anchor` resolver → scope+edge starts | 1 ✦ |
 | `mod foo;` correct dir; inline; nested | `Module` scopes w/ declaring-dir rule | 1 ✦ |
@@ -366,29 +395,34 @@ insertion order) so the cache + goldens are stable across rebuilds. Bump `CACHE_
 ## §10 Consumers
 - **module-deps/repo-map:** named-import/re-export `Binding`s + `Glob` edges, via `resolve`, → file
   edges; `External` → external label; `Unresolved`/`Poisoned` → `UnresolvedModule` (rare).
-- **Unqualified narrowing (`resolution.rs`):** for a bare call, `resolve_name(name, Value, call_scope,
-  call_loc)`; a `Resolved` single in-repo item/file → narrow; `ResolvedSet`(>1 file)/`Ambiguous`/
-  `Poisoned`/`Unresolved`/`External` → fall through. Qualified `::` untouched (Phase 3 upgrade).
+- **Unqualified narrowing (`resolution.rs`):** for a bare call, `resolve(ResolveQuery{name, Value,
+  call_scope, call_loc, …})`; a `Resolved` to a single in-repo **`Item{callable:true}`** → narrow;
+  `Local`/non-callable/`ResolvedSet`(>1 file)/`Ambiguous`/`Poisoned`/`Unresolved`/`External` → fall
+  through (a local-binding shadow stops narrowing without an edge).
+- **Qualified `::` (rev-6/round6-3 — recall-safety):** Phase 1 must NOT leave qualified Rust paths on the
+  legacy stem/owner heuristic (`src/resolution.rs:~532`) — that can emit wrong edges the graph would
+  reject. Phase 1 either **graph-resolves** qualified paths via `resolve_path` **or falls through**
+  (disable the legacy qualified heuristic for Rust where the graph is authoritative). "Untouched" is not
+  recall-safe. Full qualified-path precision via the graph is a later phase, but the *fall-through*
+  guarantee is Phase 1.
 
-## §11 Open questions for the next re-review (round 6)
-Rev-5 folded the 3 Rust Phase-1 soundness fixes (local value bindings §4.3a, glob accessibility, macro/
-pending-import poison §4.3b), **opened `Vis`/`EdgeKind`** (+ edge `order`/provenance) to make
-Go/Java/Python/TS-JS data-model-complete, and **reserved** the C++ shapes (`occ`/`Edge.vis_range`/ADL
-query-context). Pressure-test:
-1. **Rust Phase-1 SOUNDNESS — the go gate:** with §4.3a local value/pattern bindings + the glob-
-   accessibility rule + macro/pending-import poison, is there ANY remaining common Rust path that
-   resolves **wrong** (not fall-through)? Is **Rust Phase 1 now sound enough to slice**, and if so, what
-   is the minimal Phase-1 policy/populator surface (the smallest set that's correct-or-fall-through)?
-2. **JS/TS, Java, Go SUFFICIENCY (owner's rev-5 ask):** with open `Vis`/`EdgeKind` + edge `order`, is
-   each of these now genuinely **data-model-complete** — fits with a future populator+policy and **no
-   core change** — or does any of them STILL force a data-model change you can name (Java access/nested
-   types, Python MRO via `Inherit`-edge `order`, TS declaration-merging/namespaces, Go capitalization +
-   dot-imports)?
-3. **C++ reservations adequacy:** are `occ` (include-occurrence) + `Edge.vis_range` + the (reserved) ADL
-   query-context API + `TranslationUnit` **sufficient to guarantee no re-architecture** when the C++
-   policy is built later — or is another reserved shape needed now?
-4. **Open-`Vis`/`EdgeKind` soundness:** does opening them break any Rust correctness (e.g. the engine
-   must stay language-agnostic while the policy interprets `VisKindId`/`EdgeKindId`)? Is the
-   engine↔policy contract clean?
-5. **Go/no-go for Rust Phase-1 slicing.** If go: confirm the spec is the design-of-record and Rust Phase
-   1 can proceed (the other languages + C++ remain spec'd-as-reserved/data-model-complete, built later).
+## §11 Open questions for the next re-review (round 7 — the go gate)
+Rev-6 folded round-6's blocker + majors: **module-boundary stop** for bare Rust names (§4), **`Target::
+Local` + `Item.callable`** (§1, local shadows w/o a wrong edge), **Phase-1 qualified `::` graph-or-fall-
+through** (§10), structured **`ResolveQuery` + `visible()` policy hook** (§1, ADL/occurrence = policy).
+Round 6 said the design is "close enough to proceed with Rust Phase 1 after [these]". Confirm:
+1. **Rust Phase-1 SOUNDNESS (the gate):** with the module-boundary stop + local-value bindings/`Target::
+   Local` + qualified-`::` fall-through + glob accessibility + macro/pending poison, is there ANY
+   remaining **common** Rust path that resolves **wrong** (not fall-through)? **Is Rust Phase 1 sound
+   enough to slice?**
+2. **The round-6 fixes — correct + complete?** module-boundary stop (incl. `super::`/`crate::` still
+   reaching ancestors); `Target::Local`/`callable` contract (consumers edge only `Item{callable}`);
+   qualified-`::` fall-through (legacy heuristic disabled where the graph is authoritative).
+3. **Engine↔policy contract:** is `ResolveQuery` + the `visible()` hook + open `Vis`/`EdgeKind` enough to
+   keep the engine language-agnostic AND make the C++ reservation (ADL query-ctx, occurrence visibility)
+   adequate to avoid re-architecture? Any Rust-ism still leaking into the engine?
+4. **JS/TS, Java, Go still data-model-complete** after the rev-6 changes (esp. `Target::Local` for their
+   locals, the `visible()` hook for their access rules)?
+5. **GO/NO-GO for Rust Phase-1 slicing.** If GO: confirm this spec is the design-of-record, name the
+   minimal Phase-1 surface, and the spec→plan transition can proceed (other languages/C++ built later
+   from the reserved/data-model-complete shapes). If NO-GO: the specific remaining wrong-resolution path.
