@@ -478,6 +478,8 @@ impl CallGraph {
         file: FileId,
         from: ScopeId,
     ) -> Option<Vec<ResolvedCallee<'_>>> {
+        // TODO: extract scope-graph bridge once the alias-target identity fix
+        // has settled; keep this behavior-change PR narrowly scoped.
         let target = if site.callee_name.contains("::") {
             rust_graph_qualified_callable_edge(graph, site, file, from)
         } else if site.qualifier.is_none() {
@@ -497,13 +499,8 @@ impl CallGraph {
         if !matches!(target, Target::Item { callable: true, .. }) {
             return None;
         }
-        let fn_name = graph_callable_name(site)?;
         let mut ids: Vec<&FunctionId> = Vec::new();
-        for binding in graph
-            .bindings
-            .iter()
-            .filter(|binding| binding.name == fn_name)
-        {
+        for binding in graph.bindings.iter() {
             if !matches!(&binding.target, BindTarget::Resolved(t) if t == target) {
                 continue;
             }
@@ -1007,13 +1004,6 @@ pub fn file_stem(path: &str) -> &str {
 /// `src/worker/mod.rs`. Used to narrow `mod::T::m` candidates by module.
 fn file_has_path_segment(path: &str, seg: &str) -> bool {
     file_stem(path) == seg || path.split('/').any(|c| c == seg)
-}
-
-fn graph_callable_name(site: &CallSite) -> Option<&str> {
-    site.callee_name
-        .rsplit("::")
-        .next()
-        .filter(|name| !name.is_empty())
 }
 
 fn rust_authoritative_scope(graph: &ScopeGraph, site: &CallSite) -> Option<(FileId, ScopeId)> {

@@ -806,6 +806,46 @@ fn rust_scope_graph_unqualified_import_narrows_to_single_callable() {
 }
 
 #[test]
+fn rust_scope_graph_alias_import_narrows_to_defining_callable_not_spelling_decoy() {
+    use prism::languages::Language::Rust;
+    let sources = [
+        (
+            "src/lib.rs",
+            "mod decoy;\nmod engine;\nuse crate::engine::process as run;\npub fn g() {\n    run();\n}\n",
+            Rust,
+        ),
+        ("src/engine.rs", "pub fn process() {}\n", Rust),
+        ("src/decoy.rs", "pub fn run() {}\n", Rust),
+    ];
+    let (cg, _) = build(&sources);
+    let r = cg.resolve_call_site(&site_in(&cg, "g", "run"));
+    assert_eq!(r.len(), 1);
+    assert_eq!(r[0].target.name, "process");
+    assert_eq!(r[0].target.file, "src/engine.rs");
+    assert_ne!(r[0].target.name, "run");
+    assert_ne!(r[0].target.file, "src/decoy.rs");
+}
+
+#[test]
+fn rust_scope_graph_ambiguous_alias_import_falls_through_without_wrong_process() {
+    use prism::languages::Language::Rust;
+    let sources = [
+        (
+            "src/lib.rs",
+            "mod engine;\nmod other;\nuse crate::engine::process as run;\nuse crate::other::process as run;\npub fn g() {\n    run();\n}\n",
+            Rust,
+        ),
+        ("src/engine.rs", "pub fn process() {}\n", Rust),
+        ("src/other.rs", "pub fn process() {}\n", Rust),
+    ];
+    let (cg, _) = build(&sources);
+    assert!(
+        cg.resolve_call_site(&site_in(&cg, "g", "run")).is_empty(),
+        "ambiguous aliases to two process definitions must fall through"
+    );
+}
+
+#[test]
 fn rust_scope_graph_unqualified_declines_do_not_legacy_guess() {
     use prism::languages::Language::Rust;
 
@@ -938,14 +978,18 @@ fn rust_scope_graph_authority_gate_and_poison_skip_legacy() {
     let (without_graph, _) = build_without_scope_graph(&resolving);
     let legacy = without_graph.resolve_call_site(&site_in(&without_graph, "g", "process"));
     assert_eq!(legacy.len(), 2);
+    let legacy_files: std::collections::BTreeSet<&str> =
+        legacy.iter().map(|c| c.target.file.as_str()).collect();
     assert_eq!(
-        format!("{legacy:?}"),
-        format!(
-            "{:?}",
-            without_graph.resolve_call_site(&site_in(&without_graph, "g", "process"))
-        ),
-        "no scope graph keeps the legacy resolver output stable"
+        legacy_files,
+        std::collections::BTreeSet::from(["src/engine.rs", "src/other.rs"]),
+        "no scope graph keeps the legacy same-name fan-out"
     );
+    assert!(legacy.iter().all(|c| c.target.name == "process"));
+    assert!(legacy
+        .iter()
+        .all(|c| c.confidence == ResolutionConfidence::NameOnly));
+    assert!(legacy.iter().all(|c| c.kind == ResolutionKind::FreeMulti));
 
     let poisoned = [
         (
