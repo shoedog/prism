@@ -9,6 +9,7 @@
 //! INERT (wired only via `pub mod name_resolution;` in `lib.rs`). The engine +
 //! Rust policy are exercised solely by `tests/name_resolution/`.
 
+pub mod consumer;
 pub mod engine;
 pub mod graph;
 pub mod rust_policy;
