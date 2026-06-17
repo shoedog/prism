@@ -192,8 +192,15 @@ pub(in crate::name_resolution::rust_populator::walk) fn walk_use(
     // `use` visibility: `pub use` is a re-export (Public); plain `use` is private.
     let v = vis(vis_kind, None);
     // Block-local `use` is visible from the use site to the END of the enclosing
-    // scope; a module-level `use` is whole-scope.
-    let extent = vis_extent_from(b, scope, ctx.file, decl_lo);
+    // scope; a module/item-level `use` is order-independent and whole-scope.
+    let extent = match b.graph_scope(scope).map(|s| &s.kind) {
+        Some(ScopeKind::Module | ScopeKind::Root | ScopeKind::Type) => {
+            full_scope_span(b, scope, ctx.file)
+        }
+        Some(ScopeKind::Block | ScopeKind::Callable)
+        | Some(ScopeKind::ExternPrelude | ScopeKind::TranslationUnit)
+        | None => vis_extent_from(b, scope, ctx.file, decl_lo),
+    };
     let mut order = 0u32;
     for item in items {
         match item {
@@ -204,7 +211,7 @@ pub(in crate::name_resolution::rust_populator::walk) fn walk_use(
             } => {
                 b.add_binding(
                     scope,
-                    name,
+                    name.clone(),
                     NS_VALUE,
                     BindTarget::Pending(p.clone(), anchor),
                     v.clone(),
@@ -215,7 +222,7 @@ pub(in crate::name_resolution::rust_populator::walk) fn walk_use(
                 // `use a::{self}`); add a Type-ns Pending so those paths resolve.
                 b.add_binding(
                     scope,
-                    p.0.last().cloned().unwrap_or_default(),
+                    name,
                     NS_TYPE,
                     BindTarget::Pending(p, anchor),
                     v.clone(),

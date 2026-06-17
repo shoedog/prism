@@ -324,6 +324,7 @@ impl<'f> Builder<'f> {
     /// Build (or poison) the child module scope for an out-of-line `mod name;`
     /// found in `parent_scope`. Returns the new module scope so the caller can
     /// add the `name` Type binding pointing at it.
+    #[allow(clippy::too_many_arguments)]
     pub(crate) fn build_out_of_line_module(
         &mut self,
         parent_scope: ScopeId,

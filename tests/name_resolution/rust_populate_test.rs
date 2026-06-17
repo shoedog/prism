@@ -455,6 +455,30 @@ fn test_block_local_use_extent() {
     );
 }
 
+#[test]
+fn test_module_level_use_visible_before_declaration() {
+    // Module/item-level `use` is order-independent: a call above the import
+    // still sees it. Block-local `use` remains position-gated by
+    // `test_block_local_use_extent`.
+    let lib = concat!(
+        "mod m { pub fn f(){} }\n",
+        "fn host(){ f(); }\n",
+        "use crate::m::f;\n",
+    );
+    let fs = files(&[("src/lib.rs", lib)]);
+    let g = populate_rust(&fs, &convention(&fs), None);
+    let res = resolve_bare_at(
+        &g,
+        &fs,
+        2015,
+        "src/lib.rs",
+        byte_of(lib, "f();"),
+        "f",
+        NS_VALUE,
+    );
+    assert_resolved_item(&res);
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // USE GROUPS / ALIAS / EXTERN CRATE / WORKSPACE / CRATE ROOTS
 // ═══════════════════════════════════════════════════════════════════════════
@@ -531,6 +555,43 @@ fn test_use_alias() {
         NS_VALUE,
     );
     assert_resolved_item(&res);
+}
+
+#[test]
+fn test_use_alias_binds_type_namespace_under_alias_not_original() {
+    // `use crate::a::Orig as C;` binds `C` in the Type namespace. It must NOT
+    // create a bare `Orig` Type binding in this scope.
+    let lib = "mod a { pub struct Orig; }\nuse crate::a::Orig as C;\nfn h(){}\n";
+    let fs = files(&[("src/lib.rs", lib)]);
+    let g = populate_rust(&fs, &convention(&fs), None);
+
+    let alias = resolve_bare_at(
+        &g,
+        &fs,
+        2015,
+        "src/lib.rs",
+        byte_of(lib, "fn h"),
+        "C",
+        NS_TYPE,
+    );
+    assert_resolved_item(&alias);
+
+    let original = resolve_bare_at(
+        &g,
+        &fs,
+        2015,
+        "src/lib.rs",
+        byte_of(lib, "fn h"),
+        "Orig",
+        NS_TYPE,
+    );
+    assert_eq!(
+        original.status,
+        ResStatus::Unresolved,
+        "aliased use must not bind the original last segment as a bare Type name; got {:?} ({:?})",
+        original.status,
+        original.candidates
+    );
 }
 
 #[test]
@@ -876,6 +937,49 @@ fn test_bare_call_in_method_routes_to_free_fn_not_assoc() {
         free_id, assoc_id,
         "the bare call must bind the FREE fn, distinct from S::helper"
     );
+}
+
+#[test]
+fn test_block_locals_inside_impl_method_resolve_as_locals() {
+    // Method bodies are re-parented to the enclosing module so associated items
+    // are not bare-visible. Locals inside the method body and nested method
+    // blocks must still live in the right inner scopes.
+    let lib = concat!(
+        "pub fn x_call(_: u32){}\n",
+        "pub fn y_call(_: u32){}\n",
+        "pub struct S;\n",
+        "impl S {\n",
+        "    fn run(){\n",
+        "        let x = 0;\n",
+        "        x_call(x);\n",
+        "        { let y = 1; y_call(y); }\n",
+        "    }\n",
+        "}\n",
+    );
+    let fs = files(&[("src/lib.rs", lib)]);
+    let g = populate_rust(&fs, &convention(&fs), None);
+
+    let x = resolve_bare_at(
+        &g,
+        &fs,
+        2015,
+        "src/lib.rs",
+        byte_of(lib, "x);"),
+        "x",
+        NS_VALUE,
+    );
+    assert_local(&x);
+
+    let y = resolve_bare_at(
+        &g,
+        &fs,
+        2015,
+        "src/lib.rs",
+        byte_of(lib, "y);"),
+        "y",
+        NS_VALUE,
+    );
+    assert_local(&y);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
