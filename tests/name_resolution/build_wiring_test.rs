@@ -7,7 +7,8 @@ use prism::name_resolution::rust_policy::{RustPolicy, NS_TYPE, NS_VALUE};
 use prism::name_resolution::rust_populator::{enclosing_scope, file_id};
 use prism::name_resolution::types::{Anchor, RawPath, ResStatus, SourceLoc};
 use prism::navigation::module_graph::module_deps;
-use prism::navigation::{NavigationIndex, NavigationSession};
+use prism::navigation::types::SymbolRef;
+use prism::navigation::{queries, NavigationIndex, NavigationSession};
 use prism::repo_loader::load_repo;
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
@@ -141,7 +142,7 @@ fn incremental_recomputes_scope_graph_from_all_files() {
 }
 
 #[test]
-fn callsite_kind_distinguishes_macros_from_calls() {
+fn callsite_kind_is_call_and_macros_are_not_sites_in_pr2() {
     let files = BTreeMap::from([(
         "src/lib.rs".to_string(),
         ParsedFile::parse(
@@ -159,11 +160,69 @@ fn callsite_kind_distinguishes_macros_from_calls() {
         .map(|s| (s.callee_name.clone(), s.kind))
         .collect();
 
-    assert!(
-        kinds.values().any(|k| *k == CallKind::MacroInvocation),
-        "m!() should be tagged as a macro invocation; got {kinds:?}"
-    );
+    // MacroInvocation tagging arrives in PR-3; PR-2 keeps macro invocations
+    // dropped so call graph/nav behavior stays inert relative to main.
+    assert!(!kinds.contains_key("m"), "m!() must not produce a CallSite");
     assert_eq!(kinds.get("f").copied(), Some(CallKind::Call));
+}
+
+#[test]
+fn macro_invocations_do_not_create_call_graph_or_nav_edges_in_pr2() {
+    let repo_dir = write_repo(&[
+        (
+            "Cargo.toml",
+            "[package]\nname = \"root\"\nedition = \"2021\"\n",
+        ),
+        (
+            "src/lib.rs",
+            "macro_rules! foo { () => {} }\nfn foo() {}\nfn foo_real() {}\nfn g(){ foo!(); foo_real(); }\n",
+        ),
+    ]);
+    let repo = Arc::new(load_repo(repo_dir.path()).unwrap());
+    let index = NavigationIndex::build(&repo);
+    let cg = &index.cpg.call_graph;
+    let g = cg.functions.get("g").unwrap().first().unwrap();
+    let sites = cg.calls.get(g).expect("g should have call sites");
+
+    assert!(
+        sites.iter().any(|s| s.callee_name == "foo_real"
+            && s.kind == CallKind::Call
+            && cg
+                .resolve_call_site(s)
+                .iter()
+                .any(|r| r.target.name == "foo_real")),
+        "normal foo_real() call should remain in the call graph"
+    );
+    assert!(
+        !sites.iter().any(|s| s.callee_name == "foo"),
+        "foo!() must not produce a call site"
+    );
+    assert!(
+        !cg.callers.contains_key("foo"),
+        "foo!() must not create a callers entry that can resolve to fn foo"
+    );
+
+    let session = NavigationSession {
+        repo,
+        index: Arc::new(index),
+    };
+    let ev = queries::callees(&session, Some("g"), Some("src/lib.rs"), None, 1).unwrap();
+    assert!(
+        ev.items.iter().any(|item| matches!(
+            &item.symbol,
+            Some(SymbolRef::Function { file, name, .. })
+                if file == "src/lib.rs" && name == "foo_real"
+        )),
+        "nav callees should still report the normal foo_real() call"
+    );
+    assert!(
+        !ev.items.iter().any(|item| matches!(
+            &item.symbol,
+            Some(SymbolRef::Function { file, name, .. })
+                if file == "src/lib.rs" && name == "foo"
+        )),
+        "nav callees must not include a foo!() -> fn foo edge"
+    );
 }
 
 #[test]

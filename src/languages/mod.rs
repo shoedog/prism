@@ -616,21 +616,6 @@ impl Language {
 
     /// Get the function name node from a call.
     pub fn call_function_name<'a>(&self, node: &Node<'a>) -> Option<Node<'a>> {
-        if node.kind() == "macro_invocation" {
-            return node
-                .child_by_field_name("macro")
-                .or_else(|| node.child_by_field_name("name"))
-                .or_else(|| {
-                    let mut cursor = node.walk();
-                    for child in node.named_children(&mut cursor) {
-                        if child.kind() == "identifier" {
-                            return Some(child);
-                        }
-                    }
-                    None
-                });
-        }
-
         // JSX elements: tag name is the first named child (identifier or member_expression)
         if node.kind() == "jsx_self_closing_element" || node.kind() == "jsx_opening_element" {
             let mut cursor = node.walk();

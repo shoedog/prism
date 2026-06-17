@@ -46,6 +46,8 @@ pub struct CallSite {
     pub caller: FunctionId,
     pub callee_name: String,
     pub line: usize,
+    // Populated in PR-3 (macro-invocation routing); always Call in PR-2 (macro
+    // invocations are not yet call sites).
     #[serde(default)]
     pub kind: CallKind,
     #[serde(default)]
