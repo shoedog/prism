@@ -13,7 +13,7 @@ lang = "rust"
 path = "."                       # the prism repo itself
 oracle = "rust-analyzer"
 excludes = ["tests/fixtures/*", "eval/fixtures/*", "target/*"]
-pinned_sha = "278dd70bcc2a"                  # re-anchored to the Phase-IP Slice-E merge #98 (2026-06-16)
+pinned_sha = "516cd3abacaf"                  # re-anchored to the Phase-1 scope-graph F3 merge #104 (2026-06-17)
 
 [corpus.tokio]
 lang = "rust"

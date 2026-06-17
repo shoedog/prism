@@ -1,3 +1,61 @@
+# Tier-A Baseline — 2026-06-17 (the Phase-1 scope-graph F3 anchor)
+
+Human-triggered `uv run tier-a --corpus all` on **prism @ `516cd3abacaf`** (the Phase-1 Rust
+name-resolution scope-graph: #102 core data-model+engine, #103 populator+build/cache, #104 consumers —
+the F3 fix). Refreshes the 2026-06-16 Phase-IP anchor (preserved below as the adjudication substrate; its
+classed records carry forward). Run records: `2026-06-17-<corpus>.{json,md}`. Re-pinned `eval/corpora.toml`
+prism → `516cd3abacaf`. **This file is the comparison anchor — update only deliberately.**
+
+## What moved (2026-06-17 vs the 2026-06-16 anchor)
+
+**prism M2 callers `C-method`: corrected site recall 0.12 → 0.44** (raw 0.14, n=92, 19 tp / 1 fp / 24 fn),
+the scope-graph F3 win — `original_diff.rs`'s local `fn slice` no longer conflates with the 28 sibling
+`pub fn slice`; `nav module-deps` resolves real `use`/re-export edges. **caddy/flask/click are
+metric-byte-identical** to the 2026-06-16 anchor (the Rust-only F3 change does not touch Go/Python — diffs
+are meta-only: date/SHA/wall-clock). **tokio** moved only in tiny-sample strata (n=0, wide CIs) — SUT-shift
+noise, non-anchoring. **Capability matrix (G5): 33 ok · 2 expected_gap · 0 regression** (unchanged; the
+gaps remain `python/from_import_alias`, `python/inherited_override`).
+
+## Honest gap — prism C-method/callers precision (the full-sample correction)
+
+The F3 PR (#104) reported **precision 1.00** for `callers/C-method`. **That was a `--quick` small-sample
+artifact.** The full `--corpus all` sample reveals prism's **standing name-based over-claim precision**:
+corrected C-method callers **P = 0.95** (1 fp), with more over-claims in adjacent strata (C-name callers
+9 fp, U-method callers 5 fp, callees C-method 4 fp). These are prism's known name-based resolution
+limitations — **NOT introduced by F3.**
+
+**F3 is precision-NEUTRAL — it introduced zero new wrong edges.** Focused recall-safety triage of the 26
+`prism_only` diffs (codex gpt-5.5 xhigh + operator structural verification): **18 prism_fp, 8 ambiguous,
+0 oracle_miss** — and all 18 prism_fp are **pre-existing legacy over-claims F3 structurally cannot
+produce**:
+- **9 receiver method calls** (`ctx.files.get(...)`, `edge.target()`, `cli.format.as_str()`) — F3's
+  `graph_callable_edge` narrows **bare** calls only; receiver method calls stay on legacy.
+- **3 trait `Default::default()`** (a `SliceConfig` literal's `..Default::default()` mis-attributed to
+  `ThreeDConfig::default`) — trait dispatch, which F3 **declines** (the CHA case → falls through to legacy).
+- **6 cross-crate test-helper collisions** (`tests/integration`'s 2-arg `parse` → `tests/ast`'s 3-arg
+  `parse`) — the scope graph is **per-crate**; a cross-crate attribution can only come from the legacy
+  global-name fallback.
+
+So F3 = **recall-positive, precision-neutral**. The standing over-claims (name-based method/trait/arity/
+cross-crate resolution) are **deferred** — outside the Phase-1 bare-in-crate-call surface. The 221
+`oracle_only` diffs (prism-missing) are carried recall gaps (the deferred phases), not adjudicated in this
+focused triage.
+
+## Validity (G4)
+
+| Corpus | Lang | Floor-valid | Note |
+|---|---|---|---|
+| prism | Rust | ✅ substance | `baseline_invalid=False`, `corpus_dirty=False` (clean `--allow-drift` run, fresh SUT @ `516cd3abacaf`). The Rust anchor |
+| caddy | Go | ✅ | metric-byte-identical to 2026-06-16; clean |
+| tokio | Rust | ❌ floor (standing rust-analyzer macro/cfg density) | supplementary, non-anchoring; only tiny-sample drift |
+| flask | Python | ❌ floor (pyright noise) | metric-byte-identical to 2026-06-16; non-anchoring |
+| click | Python | ❌ floor (pyright noise) | metric-byte-identical to 2026-06-16; non-anchoring |
+
+Adjudication: single-codex focused triage (owner-chosen) + operator structural verification on every
+prism_fp; records in `adjudications.jsonl` (`date=2026-06-17`).
+
+---
+
 # Tier-A Baseline — 2026-06-16 (the Phase-IP anchor)
 
 Human-triggered `uv run tier-a --corpus all` on **prism @ `1f7330d`** (Phase-IP: #95 embedding
