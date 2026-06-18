@@ -9,8 +9,15 @@ execution infra, and the operational gotchas.
 ## 1. Status snapshot
 - **Doing:** executing the Phase-2a implementation plan via the codex implement(high)/review(xhigh) loop on
   branch **`phase2-receiver-typing`** (off the docs branch `rust-receiver-typing-design`, off `main`).
-- **Progress:** **PR-1 ✅ COMPLETE** (T1.1–T1.5, verified inert via `--matrix-only` = 0 regressions). Next:
-  PR-2 T2.1. (Commit chain SHAs in §3; `git log --oneline` is authoritative if SHAs drifted from a rewrite.)
+- **Progress:** **PR-1 ✅ + PR-2 ✅ COMPLETE** (both read-inert, `--matrix-only` = 0 regressions throughout).
+  **Next: PR-3 T3.1** (the ONE behavior-changing PR + the Tier-A 2a gate). PR-2 chain: T2.1 `48f15d9`, T2.2
+  `287f8d2`, T2.3 `cad4310`, T2.4 `e80644c`, PR-2-review-fix `3b94052`. (`git log --oneline` is authoritative.)
+- **HANG MITIGATION (apply to every dispatch):** wrap the bridge call in `timeout 1800`; in task specs tell
+  implementer/reviewer to run ONLY `cargo test --lib` + `fmt`/`clippy -p prism --lib`/`build` and to NOT run
+  the full `cargo test` or the `cli`/`frameworks` integration targets (they stall at macOS `_dyld_start` /
+  run slow repo-wide `prism nav`, causing multi-hour hangs). The ORCHESTRATOR runs `--matrix-only` (seconds).
+  If a run hangs: kill it, then salvage — verify the uncommitted tree (compiles + targeted tests + matrix)
+  and commit on the implementer's behalf if sound (this happened on T2.3 → salvaged as `bd207e2`/`cad4310`).
 - **NOT pushed / no PRs** — owner gates push/PR. Each task = one amended commit (clean history for later PR split).
 
 ## 2. Architecture-of-record (the design chain — read these first)

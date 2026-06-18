@@ -52,6 +52,7 @@ pub mod reasoning;
 pub mod repo_loader;
 pub mod resolution;
 pub mod resolution_identity;
+pub mod resolution_receiver;
 pub mod sanitizers;
 pub mod slice;
 pub mod terraform;

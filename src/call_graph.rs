@@ -79,6 +79,10 @@ pub struct CallSite {
     /// Excluded from cmp_key — same rationale as `arg_count`.
     #[serde(default)]
     pub arg_spread: bool,
+    /// Phase-2a PR-2 receiver identity materialization for the later post-pass.
+    /// Excluded from cmp_key so logical CallSite identity/order stays inert.
+    #[serde(default)]
+    pub receiver_outcome: Option<crate::resolution_identity::ReceiverOutcome>,
 }
 
 /// Parameter arity for a method definition (language-agnostic shape).
@@ -344,6 +348,7 @@ impl CallGraph {
                         receiver_recovery: None,
                         arg_count: None,
                         arg_spread: false,
+                        receiver_outcome: None,
                     };
                     calls
                         .entry(caller_id.clone())
@@ -609,6 +614,7 @@ impl CallGraph {
                             receiver_recovery: recovered.as_ref().map(|r| r.recovery),
                             arg_count,
                             arg_spread,
+                            receiver_outcome: None,
                         };
                         file_call_sites.push((caller_id.clone(), site));
                     }
@@ -691,6 +697,7 @@ impl CallGraph {
                                 receiver_recovery: None,
                                 arg_count: None,
                                 arg_spread: false,
+                                receiver_outcome: None,
                             },
                         ));
                     }
@@ -724,6 +731,7 @@ impl CallGraph {
                                 receiver_recovery: None,
                                 arg_count: None,
                                 arg_spread: false,
+                                receiver_outcome: None,
                             },
                         ));
                     }
@@ -810,6 +818,7 @@ impl CallGraph {
                                     receiver_recovery: None,
                                     arg_count: None,
                                     arg_spread: false,
+                                    receiver_outcome: None,
                                 },
                             ));
                         }
@@ -906,6 +915,7 @@ impl CallGraph {
                                         receiver_recovery: None,
                                         arg_count: None,
                                         arg_spread: false,
+                                        receiver_outcome: None,
                                     },
                                 ));
                             } else {
@@ -932,6 +942,7 @@ impl CallGraph {
                                             receiver_recovery: None,
                                             arg_count: None,
                                             arg_spread: false,
+                                            receiver_outcome: None,
                                         },
                                     ));
                                 }
@@ -976,6 +987,7 @@ impl CallGraph {
             scope_graph: Self::populate_scope_graph(files, scope_inputs),
         };
         cg.populate_method_identity_indices(files);
+        cg.rematerialize_rust_receiver_keys(files);
         cg.apply_go_embedding_promotion(files);
         cg.apply_go_interface_dispatch(files);
         cg
@@ -1079,6 +1091,7 @@ impl CallGraph {
     ) {
         self.scope_graph = Self::populate_scope_graph(files, inputs);
         self.populate_method_identity_indices(files);
+        self.rematerialize_rust_receiver_keys(files);
     }
 
     fn populate_scope_graph(
@@ -1092,6 +1105,93 @@ impl CallGraph {
             return None;
         }
         Some(populate_rust(files, &inputs.cfg, None))
+    }
+
+    fn rematerialize_rust_receiver_keys(&mut self, files: &BTreeMap<String, ParsedFile>) {
+        if self.scope_graph.is_none() {
+            return;
+        }
+
+        let mut updates: Vec<(
+            FunctionId,
+            CallSite,
+            Option<crate::resolution_identity::ReceiverOutcome>,
+        )> = Vec::new();
+        {
+            let typer = crate::resolution_receiver::RustReceiverTyper::new(self);
+            for (caller, sites) in &self.calls {
+                let Some(parsed) = files.get(&caller.file) else {
+                    continue;
+                };
+                if !matches!(parsed.language, crate::languages::Language::Rust) {
+                    continue;
+                }
+                let Some(fn_node) = Self::function_node_for_id(parsed, caller) else {
+                    continue;
+                };
+                let all_lines: BTreeSet<usize> = (caller.start_line..=caller.end_line).collect();
+                let ast_calls =
+                    parsed.function_calls_with_qualifier_and_spans_on_lines(&fn_node, &all_lines);
+                for site in sites {
+                    let Some((_, _, qualifier, start_byte, _, receiver_expr, _, _)) = ast_calls
+                        .iter()
+                        .find(|(callee_name, _, _, start_byte, end_byte, _, _, _)| {
+                            callee_name == &site.callee_name
+                                && *start_byte == site.start_byte
+                                && *end_byte == site.end_byte
+                        })
+                    else {
+                        continue;
+                    };
+                    if receiver_expr.is_none() && qualifier.is_none() {
+                        continue;
+                    }
+                    let outcome =
+                        typer.type_of_receiver(crate::resolution_receiver::ReceiverTypeCtx {
+                            parsed,
+                            caller,
+                            fn_node,
+                            receiver_expr: *receiver_expr,
+                            qualifier: qualifier.as_deref(),
+                            call_start_byte: *start_byte,
+                        });
+                    updates.push((caller.clone(), site.clone(), outcome));
+                }
+            }
+        }
+
+        for (caller, old_site, outcome) in updates {
+            let mut updated = old_site.clone();
+            updated.receiver_outcome = outcome;
+            if let Some(sites) = self.calls.get_mut(&caller) {
+                if sites.take(&old_site).is_some() {
+                    sites.insert(updated.clone());
+                }
+            }
+            if let Some(sites) = self.callers.get_mut(&old_site.callee_name) {
+                for site in sites {
+                    if site.caller == old_site.caller && site.cmp_key() == old_site.cmp_key() {
+                        site.receiver_outcome = updated.receiver_outcome.clone();
+                    }
+                }
+            }
+        }
+    }
+
+    fn function_node_for_id<'a>(
+        parsed: &'a ParsedFile,
+        fid: &FunctionId,
+    ) -> Option<tree_sitter::Node<'a>> {
+        parsed.all_functions().into_iter().find(|node| {
+            let Some(name_node) = parsed.language.function_name(node) else {
+                return false;
+            };
+            if parsed.node_text(&name_node) != fid.name {
+                return false;
+            }
+            let (start, end) = parsed.node_line_range(node);
+            start == fid.start_line && end == fid.end_line
+        })
     }
 
     /// Remove all promoted embedding aliases from the owner index (preserving any
@@ -1367,6 +1467,7 @@ impl CallGraph {
                         receiver_recovery: recovered.as_ref().map(|r| r.recovery),
                         arg_count,
                         arg_spread,
+                        receiver_outcome: None,
                     };
                     calls
                         .entry(caller_id.clone())
@@ -2569,6 +2670,240 @@ mod tests {
             "cfg-gated alias collapsed to unconditional: {entries:?}"
         );
         assert!(entries.len() != 1 || entries[0].0.is_some());
+    }
+
+    #[test]
+    fn callsite_receiver_outcome_serde_default_and_excluded_from_cmp_key() {
+        let cg = build_rust_call_graph(
+            "struct Engine;\nimpl Engine { fn go(&self) {} }\nfn run(e: Engine) { e.go(); }\n",
+        );
+        let mut a = cg
+            .calls
+            .values()
+            .flat_map(|sites| sites.iter())
+            .find(|site| site.callee_name == "go")
+            .cloned()
+            .expect("go call site");
+        let b = a.clone();
+        a.receiver_outcome = Some(crate::resolution_identity::ReceiverOutcome {
+            key: crate::resolution_identity::ReceiverTypeKey::Bare("Engine".to_string()),
+            bare: "Engine".to_string(),
+            recovery: crate::resolution::ReceiverRecovery::TypedParam,
+        });
+
+        assert_eq!(a.cmp_key(), b.cmp_key());
+        let mut legacy_json = serde_json::to_value(&b).unwrap();
+        legacy_json
+            .as_object_mut()
+            .unwrap()
+            .remove("receiver_outcome");
+        let defaulted: CallSite = serde_json::from_value(legacy_json).unwrap();
+        assert_eq!(defaulted.receiver_outcome, None);
+
+        let back: CallSite = bincode::deserialize(&bincode::serialize(&a).unwrap()).unwrap();
+        assert_eq!(a, back);
+    }
+
+    fn site_in(cg: &CallGraph, caller: &str, callee: &str) -> CallSite {
+        cg.calls
+            .iter()
+            .find(|(fid, _)| fid.name == caller)
+            .and_then(|(_, sites)| sites.iter().find(|site| site.callee_name == callee))
+            .cloned()
+            .unwrap_or_else(|| panic!("missing call site {caller}->{callee}"))
+    }
+
+    #[test]
+    fn rematerialize_sets_receiver_outcome_and_keeps_calls_callers_in_sync() {
+        let cg = build_complete(&[(
+            "a.rs",
+            "struct Inner; impl Inner { fn poke(&self){} }\n\
+             struct Outer { inner: Inner }\n\
+             fn run(o: Outer) { let x = o.inner; x.poke(); }\n",
+        )]);
+
+        let site = site_in(&cg, "run", "poke");
+        assert_eq!(site.receiver_type, None);
+        assert_eq!(site.receiver_recovery, None);
+        let outcome = site.receiver_outcome.expect("materialized outcome");
+        assert!(matches!(
+            outcome.key,
+            crate::resolution_identity::ReceiverTypeKey::InRepo(_)
+        ));
+        assert_eq!(
+            outcome.recovery,
+            crate::resolution::ReceiverRecovery::FieldTyped
+        );
+
+        let from_callers = cg
+            .callers
+            .get("poke")
+            .unwrap()
+            .iter()
+            .find(|site| site.caller.name == "run")
+            .unwrap()
+            .receiver_outcome
+            .clone();
+        assert_eq!(Some(outcome), from_callers);
+    }
+
+    #[test]
+    fn rematerialize_unresolved_receiver_falls_back_to_bare_outcome() {
+        let cg = build_complete(&[("a.rs", "fn f(x: Unresolvable) { x.m(); }\n")]);
+        let site = site_in(&cg, "f", "m");
+
+        assert_eq!(site.receiver_type.as_deref(), Some("Unresolvable"));
+        let outcome = site.receiver_outcome.expect("materialized outcome");
+        assert_eq!(
+            outcome.key,
+            crate::resolution_identity::ReceiverTypeKey::Bare("Unresolvable".to_string())
+        );
+        assert_eq!(outcome.bare, "Unresolvable");
+        assert_eq!(
+            outcome.recovery,
+            crate::resolution::ReceiverRecovery::TypedParam
+        );
+    }
+
+    #[test]
+    fn rematerialize_generic_receiver_keeps_none_outcome() {
+        let cg = build_complete(&[("a.rs", "fn g<U>(x: U) { x.m(); }\n")]);
+        let site = site_in(&cg, "g", "m");
+
+        assert_eq!(site.receiver_type.as_deref(), Some("U"));
+        assert_eq!(site.receiver_outcome, None);
+    }
+
+    #[test]
+    fn rematerialize_typed_annotations_use_qualified_identity_not_same_name_decoy() {
+        let cg = build_complete(&[(
+            "a.rs",
+            "mod a { pub struct Inner; impl Inner { pub fn m(&self){} } }\n\
+             mod b { pub struct Inner; impl Inner { pub fn m(&self){} } }\n\
+             fn f(x: crate::a::Inner) { x.m(); }\n\
+             fn l() { let x: crate::a::Inner = crate::a::Inner; x.m(); }\n",
+        )]);
+        let a_inner = in_repo_type_scope(&cg, "a.rs", "crate::a::Inner");
+        let b_inner = in_repo_type_scope(&cg, "a.rs", "crate::b::Inner");
+        assert_ne!(a_inner, b_inner);
+
+        let param_outcome = site_in(&cg, "f", "m")
+            .receiver_outcome
+            .expect("typed-param materialized outcome");
+        assert_eq!(
+            param_outcome.key,
+            crate::resolution_identity::ReceiverTypeKey::InRepo(a_inner)
+        );
+        assert_ne!(
+            param_outcome.key,
+            crate::resolution_identity::ReceiverTypeKey::InRepo(b_inner)
+        );
+        assert_eq!(param_outcome.bare, "Inner");
+        assert_eq!(
+            param_outcome.recovery,
+            crate::resolution::ReceiverRecovery::TypedParam
+        );
+
+        let let_outcome = site_in(&cg, "l", "m")
+            .receiver_outcome
+            .expect("typed-let materialized outcome");
+        assert_eq!(
+            let_outcome.key,
+            crate::resolution_identity::ReceiverTypeKey::InRepo(a_inner)
+        );
+        assert_ne!(
+            let_outcome.key,
+            crate::resolution_identity::ReceiverTypeKey::InRepo(b_inner)
+        );
+        assert_eq!(let_outcome.bare, "Inner");
+        assert_eq!(
+            let_outcome.recovery,
+            crate::resolution::ReceiverRecovery::TypedLet
+        );
+    }
+
+    #[test]
+    fn rematerialize_preserves_call_iteration_order() {
+        use crate::ast::ParsedFile;
+        use crate::languages::Language::Rust;
+        use crate::name_resolution::rust_populator::RustCrateConfig;
+
+        let mut files = std::collections::BTreeMap::new();
+        files.insert(
+            "a.rs".into(),
+            ParsedFile::parse(
+                "a.rs",
+                "struct Inner; impl Inner { fn poke(&self){} fn tap(&self){} }\n\
+                 struct Outer { inner: Inner }\n\
+                 fn run(o: Outer) { let x = o.inner; x.poke(); x.tap(); }\n",
+                Rust,
+            )
+            .unwrap(),
+        );
+        fn order_key(
+            site: &CallSite,
+        ) -> (
+            String,
+            String,
+            usize,
+            CallKind,
+            usize,
+            usize,
+            Option<String>,
+            Option<String>,
+        ) {
+            (
+                site.caller.name.clone(),
+                site.callee_name.clone(),
+                site.line,
+                site.kind,
+                site.start_byte,
+                site.end_byte,
+                site.qualifier.clone(),
+                site.receiver_type.clone(),
+            )
+        }
+        let only = files.keys().cloned().collect();
+        let mut cg = CallGraph::build_direct_subset(&files, &only);
+        let before: Vec<_> = cg
+            .calls
+            .iter()
+            .find(|(fid, _)| fid.name == "run")
+            .unwrap()
+            .1
+            .iter()
+            .map(order_key)
+            .collect();
+
+        let mut inputs = ScopeGraphBuildInputs::from_files_convention(&files);
+        inputs.cfg = RustCrateConfig {
+            crate_roots: files.keys().cloned().collect(),
+            ..RustCrateConfig::default()
+        };
+        cg.rebuild_scope_graph(&files, Some(&inputs));
+
+        let sites: Vec<_> = cg
+            .calls
+            .iter()
+            .find(|(fid, _)| fid.name == "run")
+            .unwrap()
+            .1
+            .iter()
+            .collect();
+        let after: Vec<_> = sites.iter().map(|site| order_key(site)).collect();
+        assert_eq!(before, after);
+
+        let poke = sites
+            .iter()
+            .position(|site| site.callee_name == "poke")
+            .unwrap();
+        let tap = sites
+            .iter()
+            .position(|site| site.callee_name == "tap")
+            .unwrap();
+        assert!(poke < tap);
+        assert!(sites[poke].receiver_outcome.is_some());
+        assert!(sites[tap].receiver_outcome.is_some());
     }
 
     #[test]

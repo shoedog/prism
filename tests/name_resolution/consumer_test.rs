@@ -105,6 +105,7 @@ fn call_site(file: &str, name: &str, byte: usize) -> CallSite {
         receiver_recovery: None,
         arg_count: None,
         arg_spread: false,
+        receiver_outcome: None,
     }
 }
 

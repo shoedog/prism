@@ -52,7 +52,8 @@ use std::path::{Path, PathBuf};
 /// - v12: Rust ScopeGraph stored in CallGraph + CallSite.kind + topology key.
 /// - v13: Phase-2a PR-1 receiver-typing indices on CallGraph (method_facts,
 ///   methods_by_scope, identity_complete, field_types, return_types) — inert.
-const CACHE_VERSION: u32 = 13; // bincode ignores serde(default) for new trailing fields.
+/// - v14: Phase-2a PR-2 CallSite.receiver_outcome materialization field — inert.
+const CACHE_VERSION: u32 = 14; // bincode ignores serde(default) for new trailing fields.
 
 pub const SKIP_POLICY_VERSION: u32 = 1;
 
@@ -557,9 +558,9 @@ mod tests {
     }
 
     #[test]
-    fn cache_version_is_13_for_phase2a_receiver_indices() {
-        // v13: Phase-2a PR-1 receiver-typing indices on CallGraph (inert).
-        assert_eq!(super::CACHE_VERSION, 13);
+    fn cache_version_is_14_for_phase2a_receiver_outcome() {
+        // v14: Phase-2a PR-2 CallSite.receiver_outcome materialization field (inert).
+        assert_eq!(super::CACHE_VERSION, 14);
     }
 
     #[test]
