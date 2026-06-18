@@ -50,7 +50,9 @@ use std::path::{Path, PathBuf};
 /// - v10: PR-2 ReceiverRecovery variants (TypeAssertion/VarDecl/SliceElem).
 /// - v11: CallSite arg_count/arg_spread (arity disambiguation).
 /// - v12: Rust ScopeGraph stored in CallGraph + CallSite.kind + topology key.
-const CACHE_VERSION: u32 = 12; // bincode ignores serde(default) for new trailing fields.
+/// - v13: Phase-2a PR-1 receiver-typing indices on CallGraph (method_facts,
+///   methods_by_scope, identity_complete, field_types, return_types) — inert.
+const CACHE_VERSION: u32 = 13; // bincode ignores serde(default) for new trailing fields.
 
 pub const SKIP_POLICY_VERSION: u32 = 1;
 
@@ -555,9 +557,9 @@ mod tests {
     }
 
     #[test]
-    fn cache_version_is_12_for_rust_scope_graph_wiring() {
-        // v12: ScopeGraph in CallGraph + CallSite.kind + topology key.
-        assert_eq!(super::CACHE_VERSION, 12);
+    fn cache_version_is_13_for_phase2a_receiver_indices() {
+        // v13: Phase-2a PR-1 receiver-typing indices on CallGraph (inert).
+        assert_eq!(super::CACHE_VERSION, 13);
     }
 
     #[test]

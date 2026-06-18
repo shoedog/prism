@@ -1,0 +1,141 @@
+# Phase-2 Receiver-Typing — Execution Handoff (2026-06-17)
+
+**Purpose:** resume-from-here map for the in-flight Phase-2a build (codex implement/review loop). Survives a
+context compaction. Links the architecture-of-record, the slice/increment plan, every deferred item, the
+execution infra, and the operational gotchas.
+
+---
+
+## 1. Status snapshot
+- **Doing:** executing the Phase-2a implementation plan via the codex implement(high)/review(xhigh) loop on
+  branch **`phase2-receiver-typing`** (off the docs branch `rust-receiver-typing-design`, off `main`).
+- **Progress:** **PR-1 ✅ COMPLETE** (T1.1–T1.5, verified inert via `--matrix-only` = 0 regressions). Next:
+  PR-2 T2.1. (Commit chain SHAs in §3; `git log --oneline` is authoritative if SHAs drifted from a rewrite.)
+- **NOT pushed / no PRs** — owner gates push/PR. Each task = one amended commit (clean history for later PR split).
+
+## 2. Architecture-of-record (the design chain — read these first)
+- **Spec (WHAT/WHY):** `docs/superpowers/specs/2026-06-17-prism-rust-receiver-typing-design.md` — **rev 7,
+  CONVERGED** after 6 codex gpt-5.5 xhigh rounds. §1 goal/seam, §2 problem space + the precision/recall stance,
+  §3 the typer + identity indices + the build-time materialization, §6 form→resolution table, §7 invariants,
+  §9 phasing (2a/2b/3). §0.1–0.6 carry the full round-by-round review audit.
+- **Plan (HOW):** `docs/superpowers/plans/2026-06-17-prism-rust-receiver-typing-phase2a.md` — **rev 4,
+  PLAN-READY** after 4 codex plan-review rounds. 3 PRs / 14 tasks, each a TDD task with the failing test +
+  exact `file:line`. The self-review at the bottom maps every spec § → task and every review fold.
+- **Phase-1 predecessor (MERGED #102–#105):** `docs/superpowers/specs/2026-06-17-prism-rust-module-resolution-design.md`
+  — the language-neutral scope graph (`src/name_resolution/`) this builds on.
+- **Phase-IP Go precedent (shipped):** the Go receiver dispatch (`resolution.rs` `ReceiverClassifier` /
+  `interface_impls` / arity #100) — the proven model this generalizes (spec §5).
+- Memory: `project_prism_phase2_receiver_typing.md` (+ `project_prism_name_resolution_scopegraph`,
+  `project_prism_phase_ip`).
+
+## 3. The slices (3 PRs / 14 tasks)
+**PR-1 — foundation, INERT (no edge change; gated by `--matrix-only` parity):**
+- T1.1 ✅ `af5c5f6` MethodFacts (AST kind/has_self/recv_mode/arity_excl_self) — folded: `self: Box<Self>`.
+- T1.2 ✅ `8e48fbd` TypeKey/ReceiverTypeKey/ReceiverOutcome + in-repo-first `resolve_type_path_to_type_scope`
+  + `canonical_external` (new `src/resolution_identity.rs`) — folded: absolute `::std::` paths.
+- T1.3 ✅ `8ea87fe` `methods_by_scope` (R1: defining-type scope) + `identity_complete` guard (G2) — folded:
+  per-bucket completion (external trait buckets must be absent).
+- T1.4 ✅ `4746d8d` `field_types` + `return_types` (scope-aware, Self/alias/cfg) — folded: cfg-gated alias
+  collapse (now conditioned-or-omit, recall-safe). (SHA changed from `4df6ee0` after a history rewrite when a
+  docs commit interleaved the amend.)
+- T1.5 ✅ `50677d9` CACHE_VERSION 12→13 + pin test → 13; `--matrix-only` parity = 0 regressions (only the 2
+  pre-existing python `expected_gap`s). **PR-1 COMPLETE + verified inert.**
+
+**PR-2 — RustReceiverTyper + post-pass, READ-INERT (legacy `receiver_type` + inline classifier UNTOUCHED):**
+- T2.1 `CallSite.receiver_outcome: Option<ReceiverOutcome{key,bare,recovery}>` (serde default; **cmp_key-
+  EXCLUDED**); update ALL `CallSite` literals incl. `tests/name_resolution/*`, `tests/navigation/*`; bump
+  CACHE_VERSION 13→14.
+- T2.2 direct visible-binding lookup (F5: returns `Binding`/`Span`, not a `Candidate`) + `(FileId,def_byte)`
+  local_facts.
+- T2.3 the **new** build-time `RustReceiverTyper` (self/param/typed-let/constructor/field/return/wrapper;
+  **path-preserving `type_syntax`**; new `ReceiverRecovery` variants FieldTyped/ReturnTyped/StdWrapperPeel +
+  update the exhaustive match at `navigation/queries.rs:82-88`). Do NOT touch the inline `ExpandedClassifier`.
+- T2.4 `rematerialize_rust_receiver_keys` post-pass: run the typer, resolve `type_syntax`→`ReceiverTypeKey`,
+  set `receiver_outcome` **in place** on `calls` + `callers` (order-preserving; `BTreeSet` element = remove+
+  reinsert, cmp_key-excluded so order holds); leave `receiver_type` unchanged; `--matrix-only` parity → PR-2.
+
+**PR-3 — read path + the Tier-A gate (the ONE measured behavior change):**
+- T3.1 `combine_kind(cands, method_facts, recovery, arg_count, arg_spread)`: inherent-single→Exact;
+  trait/wrapper-single→NameOnly; multi→TraitCha-demote; empty→drop; arity via `MethodFacts.arity_excl_self`.
+- T3.2 R6 read branch on `site.receiver_outcome` (`InRepo` → methods_by_scope, empty+`identity_complete`→drop
+  else bare via `oc.bare`; `External` → bare methods (extension traits); `Bare` → today's owner_lookup; `None`
+  → residue). Go path (`receiver_type`) untouched. **The non-regression tests** (trait static/dyn as NameOnly,
+  cross-module no-collision, external-recv drop, extension-trait resolve, unrecovered→residue, incomplete-
+  identity→bare).
+- T3.3 F6 incremental: rebuild identity indices + `rematerialize_rust_receiver_keys` on incremental rebuild
+  (rebuild-together; don't merge stale).
+- T3.4 capability fixtures (`field_typed_recovery`, `return_typed_recovery`, `extension_trait_method`,
+  `cross_module_no_collision`) + `--matrix-only` (no fixture regresses; trait fixtures stay `ok` as NameOnly).
+- T3.5 the **Tier-A 2a gate**: `--quick` + `--corpus prism`; report precision↑ (the receiver-method + cross-
+  module FPs drop) / recall held; adjudicate flips; final codex xhigh branch review → PR-3.
+
+## 4. Deferred items (DO NOT LOSE)
+**Inside Phase 2a (tracked tasks #42/#43):**
+- **#42 recv_mode for typed-self** — `MethodFacts.recv_mode` is text-derived (`contains('&')&&contains("mut")`),
+  so `self: Pin<&mut Self>` mis-maps to `SelfRefMut` instead of `SelfBy` (scans the inner type). **UNUSED in
+  2a** (recv_mode feeds Phase-3 applicability only; has_self/arity/kind are correct). Fix before Phase-3
+  consumes recv_mode: typed-self (parameter-with-pattern-`self`) → `SelfBy` unconditionally; restrict the
+  `&`/`&mut` text check to `self_parameter` nodes. `src/call_graph.rs` ~:1427.
+- **#43 split receiver-index builder out of `call_graph.rs`** — file is ~2591 lines (over the 600 guideline).
+  Extract the methods_by_scope/field_types/return_types extraction to a focused module. Non-blocking (PR-2/3
+  read the public fields, not the extraction). Do at convenience.
+
+**Phase 2b (gated; separate plan):**
+- Residue removal/tightening for **unrecovered** receivers — Tier-A-gated (the `eval/fixtures/rust/
+  r6_single_owner_demote/` fixture pins the recall-risk; `let x = mystery(); x.frobnicate()` is a correct
+  demoted edge field/return typing can't recover).
+- `nav call-stats` telemetry: `ReceiverRecovery` + drop histogram.
+
+**Phase 3 (precision refinements; spec §9):**
+- Raise trait/wrapper-single **NameOnly → Exact** via trait-in-scope (resolve the trait in NS_TYPE from the
+  call scope — the scope graph supports it) + applicability (`ReceiverPlace` + recv_mode — needs #42).
+- Trait-object/generic-bound dispatch over `rust_provider.satisfaction` (the Rust `interface_impls` analog).
+- Wrapper/`Deref`-aware dispatch (the `Arc::clone` precision fix; 2a preserves today's blind peel).
+- Method-chain receivers (`a.b().c()`).
+- Binding-types-on-the-scope-graph: fold `ty` onto `Binding`; harden `BindingRef` to a stable per-scope ordinal.
+- **Full cfg-conditioned alias splitting** (beyond the recall-safe omit/condition floor landed in T1.4).
+- Go field/return-typed receiver gaps; cross-package concrete-asserted keys.
+- Python inheritance/MRO + TS receiver typers.
+- `owner_lookup:486` cross-language overload-arity generalization (from Phase-IP).
+
+## 5. Execution infrastructure
+- Branch **`phase2-receiver-typing`**. Implementer commits per task (amend on fix). Owner gates push/PR.
+- **Implementer:** `cd ~/code/a2a-bridge && ./target/release/a2a-bridge run-workflow rust-impl --input
+  /tmp/recv-task-N.md --session-cwd /Users/wesleyjinks/code/slicing --config
+  examples/a2a-bridge.rust-impl-codex.toml --out /tmp/recv-impl-N.md < /dev/null` (codex gpt-5.5 **high**).
+- **Reviewer:** `run-workflow rust-code-review-recv --input /tmp/recv-review-N.md ... --config
+  examples/a2a-bridge.rust-code-review-recv-codex.toml --out /tmp/recv-review-N.out.md < /dev/null` (gpt-5.5
+  **xhigh**, read-only, points at the receiver-typing spec/plan).
+- **Per-task loop:** write `/tmp/recv-task-N.md` (extract the plan task verbatim + spec refs + INERT/scope
+  constraints + exact commit msg w/ trailer) → dispatch implementer (background) → **orchestrator diff-vs-base
+  check** (scope + inertness, independent of the agent's self-test) → dispatch reviewer → fold findings
+  (`/tmp/recv-task-N-fix.md` → implementer amends the task commit) → verify the delta → next task.
+- **Task tracker:** `#28`–`#43` (TaskList). **DEFERRED:** #42, #43.
+
+## 6. Operational gotchas (for resume)
+- **macOS `_dyld_start` stall:** codex test runs (and direct `cargo test`) occasionally hang at loader startup
+  before any test code — terminate + rerun the target once (transient, not a failure). A targeted `cargo test
+  --test <name> < /dev/null` confirms a stalled target green (e.g. `frameworks` = 40/0).
+- **Slow CLI dogfood tests:** the `cli` target's `nav_compat` tests run repo-wide `prism nav` (~3 min, not a
+  hang) — allow time or `--test cli -- --test-threads=1`. (Also a latent `prism nav` perf signal.)
+- **`tier-a --quick` exits 2 on the feature branch** = `corpus_sha_drift` vs pinned `516cd3abacaf` (EXPECTED,
+  not a regression; `sut_error 0.0 / regressions 0` confirm). `--matrix-only` is the inert-parity gate; the
+  real measurement is the PR-3 2a gate (T3.5).
+- **Untracked run-artifacts** (`docs/eval/tier-a/2026-06-15-*`, `eval/snapshots/prism-*.json`) — leave
+  untracked, NEVER commit (owner instruction). Each tier-a run adds a `prism-<sha>.json` snapshot.
+- **Inertness contract:** PR-1/PR-2 must not change any resolved edge. `receiver_outcome` is cmp_key-excluded;
+  legacy `receiver_type`/`receiver_recovery` + the inline `ExpandedClassifier` are untouched until PR-3.
+
+## 7. Owner constraints
+- **DO NOT push or open a PR until the owner asks.**
+- codex gpt-5.5: implement **high**, review **xhigh** (keep xhigh for reviews).
+- Commit trailer: `Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>`.
+- Fold **blockers/majors** (verify against code first); minors are notes unless clustering.
+
+## 8. Resume procedure
+1. `cd /Users/wesleyjinks/code/slicing && git checkout phase2-receiver-typing && git log --oneline -8` (last
+   task commit = where to continue).
+2. `TaskList` → next non-completed task (#28–43); read this handoff §3 + the plan task.
+3. If a fix was in flight (e.g. `b2ev2fjs4` T1.4 cfg-alias), read `/tmp/recv-impl-*.md` + `git log` to see if
+   it landed; verify the delta; then continue.
+4. Continue the §5 loop from the first non-done task. Hold for owner go before push/PR (§7).

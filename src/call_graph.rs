@@ -6,10 +6,14 @@
 
 use crate::ast::ParsedFile;
 use crate::name_resolution::graph::ScopeGraph;
-use crate::name_resolution::rust_populator::{populate_rust, RustCrateConfig};
+use crate::name_resolution::rust_populator::{enclosing_scope, populate_rust, RustCrateConfig};
+use crate::name_resolution::types::{ScopeId, ScopeKind};
+use crate::resolution_identity::{resolve_type_path_to_type_scope, TypeKey};
 use rayon::prelude::*;
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::path::PathBuf;
+
+type RustTypeAliases = BTreeMap<(ScopeId, String), Vec<(Option<String>, String)>>;
 
 /// A node in the call graph: a function identified by file path and name.
 #[derive(
@@ -90,6 +94,29 @@ pub struct MethodArity {
     pub variadic: bool,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum MethodKind {
+    Inherent,
+    Trait(String),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum RecvMode {
+    None,
+    SelfBy,
+    SelfRef,
+    SelfRefMut,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct MethodFacts {
+    pub kind: MethodKind,
+    pub has_self: bool,
+    pub recv_mode: RecvMode,
+    pub arity_excl_self: usize,
+    pub cfg: Option<String>,
+}
+
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct ScopeGraphBuildInputs {
     pub repo_root: PathBuf,
@@ -133,6 +160,22 @@ pub struct CallGraph {
     /// S3: owning type per method FunctionId (primary owner, not the trait).
     #[serde(default)]
     pub method_owners: BTreeMap<FunctionId, String>,
+    /// Phase-2a PR-1: (defining-type scope, method_name) -> definitions.
+    /// Inert until the receiver-typed read path lands.
+    #[serde(default)]
+    pub methods_by_scope: BTreeMap<(ScopeId, String), Vec<FunctionId>>,
+    /// Phase-2a PR-1: bare (owner_key, method_name) buckets fully mirrored in
+    /// the identity-keyed method index.
+    #[serde(default)]
+    pub identity_complete: BTreeSet<(String, String)>,
+    /// Phase-2a PR-1: (owner type scope, field name) -> cfg-conditioned types.
+    /// Inert until the receiver-typed read path lands.
+    #[serde(default)]
+    pub field_types: BTreeMap<(ScopeId, String), Vec<(Option<String>, TypeKey)>>,
+    /// Phase-2a PR-1: function/method -> cfg-conditioned return types.
+    /// Inert until the receiver-typed read path lands.
+    #[serde(default)]
+    pub return_types: BTreeMap<FunctionId, Vec<(Option<String>, TypeKey)>>,
     /// S3 (Go): receiver variable name per method FunctionId.
     #[serde(default)]
     pub receiver_vars: BTreeMap<FunctionId, String>,
@@ -166,6 +209,8 @@ pub struct CallGraph {
     #[serde(default)]
     pub method_arity: BTreeMap<FunctionId, MethodArity>,
     #[serde(default)]
+    pub method_facts: BTreeMap<FunctionId, MethodFacts>,
+    #[serde(default)]
     pub scope_graph: Option<ScopeGraph>,
 }
 
@@ -180,6 +225,10 @@ impl CallGraph {
             imports: BTreeMap::new(),
             methods: BTreeMap::new(),
             method_owners: BTreeMap::new(),
+            methods_by_scope: BTreeMap::new(),
+            identity_complete: BTreeSet::new(),
+            field_types: BTreeMap::new(),
+            return_types: BTreeMap::new(),
             receiver_vars: BTreeMap::new(),
             promoted_aliases: BTreeMap::new(),
             embedding_gaps: BTreeMap::new(),
@@ -189,6 +238,7 @@ impl CallGraph {
             interface_method_names: BTreeSet::new(),
             interface_dispatch_computed: false,
             method_arity: BTreeMap::new(),
+            method_facts: BTreeMap::new(),
             scope_graph: None,
         }
     }
@@ -207,6 +257,7 @@ impl CallGraph {
         let mut methods: BTreeMap<(String, String), Vec<FunctionId>> = BTreeMap::new();
         let mut method_owners: BTreeMap<FunctionId, String> = BTreeMap::new();
         let mut receiver_vars: BTreeMap<FunctionId, String> = BTreeMap::new();
+        let mut method_facts: BTreeMap<FunctionId, MethodFacts> = BTreeMap::new();
 
         // Phase 1: Collect all function definitions
         for (file_path, parsed) in files {
@@ -240,6 +291,9 @@ impl CallGraph {
                     }
                     if let Some(rv) = recv_var {
                         receiver_vars.insert(func_id.clone(), rv);
+                    }
+                    if let Some(facts) = Self::method_facts(parsed, &func_node) {
+                        method_facts.insert(func_id.clone(), facts);
                     }
 
                     if matches!(
@@ -310,6 +364,10 @@ impl CallGraph {
             imports: BTreeMap::new(),
             methods,
             method_owners,
+            methods_by_scope: BTreeMap::new(),
+            identity_complete: BTreeSet::new(),
+            field_types: BTreeMap::new(),
+            return_types: BTreeMap::new(),
             receiver_vars,
             promoted_aliases: BTreeMap::new(),
             embedding_gaps: BTreeMap::new(),
@@ -319,6 +377,7 @@ impl CallGraph {
             interface_method_names: BTreeSet::new(),
             interface_dispatch_computed: false,
             method_arity: BTreeMap::new(),
+            method_facts,
             scope_graph: None,
         }
     }
@@ -372,6 +431,7 @@ impl CallGraph {
         let mut methods: BTreeMap<(String, String), Vec<FunctionId>> = BTreeMap::new();
         let mut method_owners: BTreeMap<FunctionId, String> = BTreeMap::new();
         let mut receiver_vars: BTreeMap<FunctionId, String> = BTreeMap::new();
+        let mut method_facts: BTreeMap<FunctionId, MethodFacts> = BTreeMap::new();
 
         // Collect per-file import maps for import-aware call resolution.
         let mut imports: BTreeMap<String, BTreeMap<String, String>> = BTreeMap::new();
@@ -391,6 +451,7 @@ impl CallGraph {
                 Option<String>,
                 Option<String>,
                 Option<String>,
+                Option<MethodFacts>,
             )>,
             static_functions: Vec<(String, String)>,
         }
@@ -416,7 +477,15 @@ impl CallGraph {
                         };
                         let (owner, trait_key, recv_var) =
                             Self::method_metadata(parsed, &func_node);
-                        file_functions.push((name.clone(), func_id, owner, trait_key, recv_var));
+                        let facts = Self::method_facts(parsed, &func_node);
+                        file_functions.push((
+                            name.clone(),
+                            func_id,
+                            owner,
+                            trait_key,
+                            recv_var,
+                            facts,
+                        ));
 
                         // Detect C/C++ static linkage
                         if matches!(
@@ -438,7 +507,7 @@ impl CallGraph {
             .collect();
 
         for file_functions in per_file_functions {
-            for (name, func_id, owner, trait_key, recv_var) in file_functions.functions {
+            for (name, func_id, owner, trait_key, recv_var, facts) in file_functions.functions {
                 functions
                     .entry(name.clone())
                     .or_default()
@@ -458,6 +527,9 @@ impl CallGraph {
                 }
                 if let Some(rv) = recv_var {
                     receiver_vars.insert(func_id.clone(), rv);
+                }
+                if let Some(facts) = facts {
+                    method_facts.insert(func_id.clone(), facts);
                 }
             }
             for static_function in file_functions.static_functions {
@@ -887,6 +959,10 @@ impl CallGraph {
             imports,
             methods,
             method_owners,
+            methods_by_scope: BTreeMap::new(),
+            identity_complete: BTreeSet::new(),
+            field_types: BTreeMap::new(),
+            return_types: BTreeMap::new(),
             receiver_vars,
             promoted_aliases: BTreeMap::new(),
             embedding_gaps: BTreeMap::new(),
@@ -896,8 +972,10 @@ impl CallGraph {
             interface_method_names: BTreeSet::new(),
             interface_dispatch_computed: false,
             method_arity: BTreeMap::new(),
+            method_facts,
             scope_graph: Self::populate_scope_graph(files, scope_inputs),
         };
+        cg.populate_method_identity_indices(files);
         cg.apply_go_embedding_promotion(files);
         cg.apply_go_interface_dispatch(files);
         cg
@@ -943,7 +1021,13 @@ impl CallGraph {
         // method_owners / receiver_vars: keyed by FunctionId.
         self.method_owners
             .retain(|fid, _| !exclude.contains(&fid.file));
+        self.methods_by_scope.clear();
+        self.identity_complete.clear();
+        self.field_types.clear();
+        self.return_types.clear();
         self.receiver_vars
+            .retain(|fid, _| !exclude.contains(&fid.file));
+        self.method_facts
             .retain(|fid, _| !exclude.contains(&fid.file));
 
         // Promoted embedding aliases are whole-program; drop them all so no caller
@@ -975,7 +1059,16 @@ impl CallGraph {
             self.methods.entry(key).or_default().extend(fids);
         }
         self.method_owners.extend(other.method_owners);
+        for (key, fids) in other.methods_by_scope {
+            self.methods_by_scope.entry(key).or_default().extend(fids);
+        }
+        self.identity_complete.extend(other.identity_complete);
+        for (key, types) in other.field_types {
+            self.field_types.entry(key).or_default().extend(types);
+        }
+        self.return_types.extend(other.return_types);
         self.receiver_vars.extend(other.receiver_vars);
+        self.method_facts.extend(other.method_facts);
         self.scope_graph = None;
     }
 
@@ -985,6 +1078,7 @@ impl CallGraph {
         inputs: Option<&ScopeGraphBuildInputs>,
     ) {
         self.scope_graph = Self::populate_scope_graph(files, inputs);
+        self.populate_method_identity_indices(files);
     }
 
     fn populate_scope_graph(
@@ -1145,6 +1239,7 @@ impl CallGraph {
         let mut methods: BTreeMap<(String, String), Vec<FunctionId>> = BTreeMap::new();
         let mut method_owners: BTreeMap<FunctionId, String> = BTreeMap::new();
         let mut receiver_vars: BTreeMap<FunctionId, String> = BTreeMap::new();
+        let mut method_facts: BTreeMap<FunctionId, MethodFacts> = BTreeMap::new();
 
         for (file_path, parsed) in files {
             if !only_files.contains(file_path) {
@@ -1191,6 +1286,9 @@ impl CallGraph {
                     }
                     if let Some(rv) = recv_var {
                         receiver_vars.insert(func_id.clone(), rv);
+                    }
+                    if let Some(facts) = Self::method_facts(parsed, &func_node) {
+                        method_facts.insert(func_id.clone(), facts);
                     }
 
                     if matches!(
@@ -1287,6 +1385,10 @@ impl CallGraph {
             imports,
             methods,
             method_owners,
+            methods_by_scope: BTreeMap::new(),
+            identity_complete: BTreeSet::new(),
+            field_types: BTreeMap::new(),
+            return_types: BTreeMap::new(),
             receiver_vars,
             promoted_aliases: BTreeMap::new(),
             embedding_gaps: BTreeMap::new(),
@@ -1296,6 +1398,7 @@ impl CallGraph {
             interface_method_names: BTreeSet::new(),
             interface_dispatch_computed: false,
             method_arity: BTreeMap::new(),
+            method_facts,
             scope_graph: None,
         }
     }
@@ -1332,6 +1435,474 @@ impl CallGraph {
             .collect()
     }
 
+    fn populate_method_identity_indices(&mut self, files: &BTreeMap<String, ParsedFile>) {
+        let Some(graph) = self.scope_graph.as_ref().filter(|g| g.complete) else {
+            self.methods_by_scope.clear();
+            self.identity_complete.clear();
+            self.field_types.clear();
+            self.return_types.clear();
+            return;
+        };
+
+        let mut methods_by_scope: BTreeMap<(ScopeId, String), Vec<FunctionId>> = BTreeMap::new();
+        let mut bucket_coverage: BTreeMap<(String, String), BTreeSet<FunctionId>> = BTreeMap::new();
+        let aliases = Self::rust_type_aliases_by_module(graph, files);
+        let mut field_types: BTreeMap<(ScopeId, String), Vec<(Option<String>, TypeKey)>> =
+            BTreeMap::new();
+        let mut return_types: BTreeMap<FunctionId, Vec<(Option<String>, TypeKey)>> =
+            BTreeMap::new();
+
+        for (file_path, parsed) in files {
+            if !matches!(parsed.language, crate::languages::Language::Rust) {
+                continue;
+            }
+            let Some(file_id) = graph.file_paths.get(file_path).copied() else {
+                continue;
+            };
+
+            for func_node in parsed.all_functions() {
+                let Some(name_node) = parsed.language.function_name(&func_node) else {
+                    continue;
+                };
+                let name = parsed.node_text(&name_node).to_string();
+                let (start, end) = parsed.node_line_range(&func_node);
+                let fid = FunctionId {
+                    file: file_path.clone(),
+                    name: name.clone(),
+                    start_line: start,
+                    end_line: end,
+                };
+                if !self.method_owners.contains_key(&fid) {
+                    continue;
+                }
+                let Some(enclosing) = parsed.language.rust_enclosing_method_item(&func_node) else {
+                    continue;
+                };
+                let Some(module_scope) =
+                    Self::module_scope_for_byte(graph, file_id, enclosing.start_byte())
+                else {
+                    continue;
+                };
+
+                if let Some(type_syntax) = Self::rust_method_impl_type_syntax(parsed, &func_node) {
+                    let concrete_owner_key = crate::resolution::owner_key(&type_syntax);
+                    if let Some(TypeKey::InRepo(scope)) =
+                        resolve_type_path_to_type_scope(graph, module_scope, &type_syntax)
+                    {
+                        Self::insert_method_by_scope(
+                            &mut methods_by_scope,
+                            scope,
+                            name.clone(),
+                            fid.clone(),
+                        );
+                        bucket_coverage
+                            .entry((concrete_owner_key, name.clone()))
+                            .or_default()
+                            .insert(fid.clone());
+                    }
+                }
+
+                if let Some(trait_syntax) = parsed
+                    .language
+                    .rust_impl_trait(&func_node)
+                    .map(|n| parsed.node_text(&n).to_string())
+                {
+                    let trait_key = crate::resolution::owner_key(&trait_syntax);
+                    if let Some(TypeKey::InRepo(scope)) =
+                        resolve_type_path_to_type_scope(graph, module_scope, &trait_syntax)
+                    {
+                        Self::insert_method_by_scope(
+                            &mut methods_by_scope,
+                            scope,
+                            name.clone(),
+                            fid.clone(),
+                        );
+                        bucket_coverage
+                            .entry((trait_key, name.clone()))
+                            .or_default()
+                            .insert(fid.clone());
+                    }
+                }
+            }
+
+            Self::extract_rust_field_types(graph, &aliases, file_id, parsed, &mut field_types);
+            Self::extract_rust_return_types(
+                graph,
+                &aliases,
+                file_path,
+                file_id,
+                parsed,
+                &mut return_types,
+            );
+        }
+
+        let identity_complete = self
+            .methods
+            .iter()
+            .filter_map(|(key, fids)| {
+                let expected: BTreeSet<_> = fids.iter().cloned().collect();
+                bucket_coverage
+                    .get(key)
+                    .filter(|covered| **covered == expected)
+                    .map(|_| key.clone())
+            })
+            .collect();
+
+        self.methods_by_scope = methods_by_scope;
+        self.identity_complete = identity_complete;
+        self.field_types = field_types;
+        self.return_types = return_types;
+    }
+
+    fn rust_type_aliases_by_module(
+        graph: &ScopeGraph,
+        files: &BTreeMap<String, ParsedFile>,
+    ) -> RustTypeAliases {
+        let mut aliases: RustTypeAliases = BTreeMap::new();
+        for (file_path, parsed) in files {
+            if !matches!(parsed.language, crate::languages::Language::Rust) {
+                continue;
+            }
+            let Some(file_id) = graph.file_paths.get(file_path).copied() else {
+                continue;
+            };
+            Self::visit_rust_nodes(parsed.tree.root_node(), &mut |node| {
+                if node.kind() != "type_item" || Self::has_rust_item_ancestor(&node) {
+                    return;
+                }
+                let Some(module_scope) =
+                    Self::module_scope_for_byte(graph, file_id, node.start_byte())
+                else {
+                    return;
+                };
+                let (Some(name), Some(target)) = (
+                    node.child_by_field_name("name"),
+                    node.child_by_field_name("type"),
+                ) else {
+                    return;
+                };
+                aliases
+                    .entry((module_scope, parsed.node_text(&name).trim().to_string()))
+                    .or_default()
+                    .push((
+                        Self::raw_cfg_attr(parsed, &node),
+                        parsed.node_text(&target).trim().to_string(),
+                    ));
+            });
+        }
+        aliases
+    }
+
+    fn extract_rust_field_types(
+        graph: &ScopeGraph,
+        aliases: &RustTypeAliases,
+        file_id: crate::name_resolution::types::FileId,
+        parsed: &ParsedFile,
+        field_types: &mut BTreeMap<(ScopeId, String), Vec<(Option<String>, TypeKey)>>,
+    ) {
+        Self::visit_rust_nodes(parsed.tree.root_node(), &mut |node| {
+            if node.kind() != "struct_item" || Self::has_rust_item_ancestor(&node) {
+                return;
+            }
+            let Some(module_scope) = Self::module_scope_for_byte(graph, file_id, node.start_byte())
+            else {
+                return;
+            };
+            let Some(name_node) = node.child_by_field_name("name") else {
+                return;
+            };
+            let struct_name = parsed.node_text(&name_node).trim();
+            let Some(TypeKey::InRepo(owner_scope)) =
+                resolve_type_path_to_type_scope(graph, module_scope, struct_name)
+            else {
+                return;
+            };
+            let Some(body) = node.child_by_field_name("body") else {
+                return;
+            };
+            match body.kind() {
+                "field_declaration_list" => {
+                    let mut cursor = body.walk();
+                    for child in body.children(&mut cursor) {
+                        if child.kind() != "field_declaration" {
+                            continue;
+                        }
+                        let (Some(name), Some(type_node)) = (
+                            child.child_by_field_name("name"),
+                            child.child_by_field_name("type"),
+                        ) else {
+                            continue;
+                        };
+                        let field_name = parsed.node_text(&name).trim().to_string();
+                        let type_syntax = parsed.node_text(&type_node);
+                        let item_cfg = Self::raw_cfg_attr(parsed, &child);
+                        for (type_cfg, key) in
+                            Self::resolve_index_types(graph, aliases, module_scope, type_syntax)
+                        {
+                            field_types
+                                .entry((owner_scope, field_name.clone()))
+                                .or_default()
+                                .push((Self::combine_cfg_attrs(item_cfg.clone(), type_cfg), key));
+                        }
+                    }
+                }
+                "ordered_field_declaration_list" => {
+                    let mut position = 0usize;
+                    let mut cursor = body.walk();
+                    for child in body.children(&mut cursor) {
+                        if !child.is_named()
+                            || matches!(child.kind(), "attribute_item" | "visibility_modifier")
+                        {
+                            continue;
+                        }
+                        let type_syntax = parsed.node_text(&child);
+                        let item_cfg = Self::raw_cfg_attr(parsed, &child);
+                        for (type_cfg, key) in
+                            Self::resolve_index_types(graph, aliases, module_scope, type_syntax)
+                        {
+                            field_types
+                                .entry((owner_scope, position.to_string()))
+                                .or_default()
+                                .push((Self::combine_cfg_attrs(item_cfg.clone(), type_cfg), key));
+                        }
+                        position += 1;
+                    }
+                }
+                _ => {}
+            }
+        });
+    }
+
+    fn extract_rust_return_types(
+        graph: &ScopeGraph,
+        aliases: &RustTypeAliases,
+        file_path: &str,
+        file_id: crate::name_resolution::types::FileId,
+        parsed: &ParsedFile,
+        return_types: &mut BTreeMap<FunctionId, Vec<(Option<String>, TypeKey)>>,
+    ) {
+        for func_node in parsed.all_functions() {
+            if parsed
+                .language
+                .rust_enclosing_method_item(&func_node)
+                .is_none()
+                && Self::has_rust_function_ancestor(&func_node)
+            {
+                continue;
+            }
+            let Some(return_type) = func_node.child_by_field_name("return_type") else {
+                continue;
+            };
+            let Some(name_node) = parsed.language.function_name(&func_node) else {
+                continue;
+            };
+            let Some(module_scope) =
+                Self::module_scope_for_byte(graph, file_id, func_node.start_byte())
+            else {
+                continue;
+            };
+            let return_syntax = parsed.node_text(&return_type);
+            let keys = if crate::resolution::peel_type(return_syntax) == "Self" {
+                Self::resolve_impl_self_return(graph, module_scope, parsed, &func_node)
+                    .map(|key| vec![(None, key)])
+                    .unwrap_or_default()
+            } else if matches!(
+                parsed
+                    .language
+                    .rust_enclosing_method_item(&func_node)
+                    .map(|n| n.kind()),
+                Some("trait_item")
+            ) {
+                Vec::new()
+            } else {
+                Self::resolve_index_types(graph, aliases, module_scope, return_syntax)
+            };
+            if keys.is_empty() {
+                continue;
+            }
+            let (start, end) = parsed.node_line_range(&func_node);
+            let fid = FunctionId {
+                file: file_path.to_string(),
+                name: parsed.node_text(&name_node).to_string(),
+                start_line: start,
+                end_line: end,
+            };
+            let item_cfg = Self::raw_cfg_attr(parsed, &func_node);
+            let entries = return_types.entry(fid).or_default();
+            for (type_cfg, key) in keys {
+                entries.push((Self::combine_cfg_attrs(item_cfg.clone(), type_cfg), key));
+            }
+        }
+    }
+
+    fn resolve_impl_self_return(
+        graph: &ScopeGraph,
+        module_scope: ScopeId,
+        parsed: &ParsedFile,
+        func_node: &tree_sitter::Node<'_>,
+    ) -> Option<TypeKey> {
+        let enclosing = parsed.language.rust_enclosing_method_item(func_node)?;
+        if enclosing.kind() != "impl_item" {
+            return None;
+        }
+        let owner = enclosing.child_by_field_name("type")?;
+        match resolve_type_path_to_type_scope(graph, module_scope, parsed.node_text(&owner)) {
+            Some(TypeKey::InRepo(scope)) => Some(TypeKey::InRepo(scope)),
+            _ => None,
+        }
+    }
+
+    fn resolve_index_types(
+        graph: &ScopeGraph,
+        aliases: &RustTypeAliases,
+        module_scope: ScopeId,
+        type_syntax: &str,
+    ) -> Vec<(Option<String>, TypeKey)> {
+        Self::resolve_index_type_inner(graph, aliases, module_scope, type_syntax, 0)
+    }
+
+    fn resolve_index_type_inner(
+        graph: &ScopeGraph,
+        aliases: &RustTypeAliases,
+        module_scope: ScopeId,
+        type_syntax: &str,
+        depth: usize,
+    ) -> Vec<(Option<String>, TypeKey)> {
+        if depth > 8 {
+            return Vec::new();
+        }
+        let peeled = crate::resolution::peel_type(type_syntax);
+        if peeled.is_empty() || peeled == "Self" {
+            return Vec::new();
+        }
+        if !peeled.contains("::") {
+            if let Some(targets) = aliases.get(&(module_scope, peeled.clone())) {
+                let mut entries = Vec::new();
+                for (alias_cfg, target) in targets {
+                    for (target_cfg, key) in Self::resolve_index_type_inner(
+                        graph,
+                        aliases,
+                        module_scope,
+                        target,
+                        depth + 1,
+                    ) {
+                        entries.push((Self::combine_cfg_attrs(alias_cfg.clone(), target_cfg), key));
+                    }
+                }
+                let entries = Self::dedupe_cfg_type_entries(entries);
+                if Self::has_unconditioned_conflicting_targets(&entries) {
+                    return Vec::new();
+                }
+                return entries;
+            }
+        }
+        match resolve_type_path_to_type_scope(graph, module_scope, &peeled) {
+            Some(TypeKey::InRepo(scope)) => vec![(None, TypeKey::InRepo(scope))],
+            _ => Vec::new(),
+        }
+    }
+
+    fn combine_cfg_attrs(item_cfg: Option<String>, alias_cfg: Option<String>) -> Option<String> {
+        match (item_cfg, alias_cfg) {
+            (None, None) => None,
+            (Some(cfg), None) | (None, Some(cfg)) => Some(cfg),
+            (Some(left), Some(right)) if left == right => Some(left),
+            (Some(left), Some(right)) => Some(format!("{left} && {right}")),
+        }
+    }
+
+    fn dedupe_cfg_type_entries(
+        entries: Vec<(Option<String>, TypeKey)>,
+    ) -> Vec<(Option<String>, TypeKey)> {
+        let mut deduped = Vec::new();
+        for entry in entries {
+            if !deduped.contains(&entry) {
+                deduped.push(entry);
+            }
+        }
+        deduped
+    }
+
+    fn has_unconditioned_conflicting_targets(entries: &[(Option<String>, TypeKey)]) -> bool {
+        entries.iter().any(|(cfg, _)| cfg.is_none())
+            && entries
+                .iter()
+                .any(|(_, left)| entries.iter().any(|(_, right)| left != right))
+    }
+
+    fn visit_rust_nodes<'a>(
+        node: tree_sitter::Node<'a>,
+        f: &mut impl FnMut(tree_sitter::Node<'a>),
+    ) {
+        f(node);
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            Self::visit_rust_nodes(child, f);
+        }
+    }
+
+    fn has_rust_item_ancestor(node: &tree_sitter::Node<'_>) -> bool {
+        let mut parent = node.parent();
+        while let Some(p) = parent {
+            if matches!(p.kind(), "function_item" | "impl_item" | "trait_item") {
+                return true;
+            }
+            parent = p.parent();
+        }
+        false
+    }
+
+    fn has_rust_function_ancestor(node: &tree_sitter::Node<'_>) -> bool {
+        let mut parent = node.parent();
+        while let Some(p) = parent {
+            if p.kind() == "function_item" {
+                return true;
+            }
+            parent = p.parent();
+        }
+        false
+    }
+
+    fn insert_method_by_scope(
+        methods_by_scope: &mut BTreeMap<(ScopeId, String), Vec<FunctionId>>,
+        scope: ScopeId,
+        name: String,
+        fid: FunctionId,
+    ) {
+        let fids = methods_by_scope.entry((scope, name)).or_default();
+        if !fids.contains(&fid) {
+            fids.push(fid);
+        }
+    }
+
+    fn module_scope_for_byte(
+        graph: &ScopeGraph,
+        file: crate::name_resolution::types::FileId,
+        byte: usize,
+    ) -> Option<ScopeId> {
+        let mut scope = enclosing_scope(graph, file, byte)?;
+        loop {
+            let record = graph.scope(scope)?;
+            if matches!(record.kind, ScopeKind::Root | ScopeKind::Module) {
+                return Some(scope);
+            }
+            scope = graph.parent_of(scope)?;
+        }
+    }
+
+    fn rust_method_impl_type_syntax(
+        parsed: &ParsedFile,
+        func_node: &tree_sitter::Node<'_>,
+    ) -> Option<String> {
+        let enclosing = parsed.language.rust_enclosing_method_item(func_node)?;
+        let node = match enclosing.kind() {
+            "impl_item" => enclosing.child_by_field_name("type")?,
+            "trait_item" => enclosing.child_by_field_name("name")?,
+            _ => return None,
+        };
+        Some(parsed.node_text(&node).to_string())
+    }
+
     fn method_metadata(
         parsed: &ParsedFile,
         func_node: &tree_sitter::Node<'_>,
@@ -1349,6 +1920,63 @@ impl CallGraph {
             .go_receiver_var(func_node)
             .map(|n| parsed.node_text(&n).to_string());
         (owner, trait_key, recv_var)
+    }
+
+    fn method_facts(parsed: &ParsedFile, func_node: &tree_sitter::Node<'_>) -> Option<MethodFacts> {
+        if !matches!(parsed.language, crate::languages::Language::Rust) {
+            return None;
+        }
+        let enclosing = parsed.language.rust_enclosing_method_item(func_node)?;
+        let kind = match enclosing.kind() {
+            "trait_item" => {
+                let trait_name = enclosing.child_by_field_name("name")?;
+                MethodKind::Trait(crate::resolution::owner_key(parsed.node_text(&trait_name)))
+            }
+            "impl_item" => parsed
+                .language
+                .rust_impl_trait(func_node)
+                .map(|n| MethodKind::Trait(crate::resolution::owner_key(parsed.node_text(&n))))
+                .unwrap_or(MethodKind::Inherent),
+            _ => return None,
+        };
+        let params = parsed.language.method_params(func_node);
+        let self_param = parsed.language.self_param(func_node);
+        let has_self = self_param.is_some();
+        let recv_mode = self_param
+            .map(|n| {
+                let text = parsed.node_text(&n);
+                if text.contains('&') && text.contains("mut") {
+                    RecvMode::SelfRefMut
+                } else if text.contains('&') {
+                    RecvMode::SelfRef
+                } else {
+                    RecvMode::SelfBy
+                }
+            })
+            .unwrap_or(RecvMode::None);
+        let arity_excl_self = params.len().saturating_sub(usize::from(has_self));
+        Some(MethodFacts {
+            kind,
+            has_self,
+            recv_mode,
+            arity_excl_self,
+            cfg: Self::raw_cfg_attr(parsed, func_node),
+        })
+    }
+
+    fn raw_cfg_attr(parsed: &ParsedFile, item: &tree_sitter::Node<'_>) -> Option<String> {
+        let mut prev = item.prev_sibling();
+        while let Some(sib) = prev {
+            if sib.kind() != "attribute_item" {
+                break;
+            }
+            let text = parsed.node_text(&sib).trim();
+            if text.starts_with("#[cfg(") {
+                return Some(text.to_string());
+            }
+            prev = sib.prev_sibling();
+        }
+        None
     }
 
     fn recover_self_receiver_qualifier(
@@ -1654,6 +2282,295 @@ fn has_static_specifier(parsed: &ParsedFile, func_node: &tree_sitter::Node<'_>) 
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+
+    fn build_rust_call_graph(source: &str) -> CallGraph {
+        use crate::ast::ParsedFile;
+        use crate::languages::Language::Rust;
+        use crate::name_resolution::rust_populator::RustCrateConfig;
+
+        let mut files = std::collections::BTreeMap::new();
+        files.insert(
+            "a.rs".into(),
+            ParsedFile::parse("a.rs", source, Rust).unwrap(),
+        );
+        let mut inputs = ScopeGraphBuildInputs::from_files_convention(&files);
+        inputs.cfg = RustCrateConfig {
+            crate_roots: files.keys().cloned().collect(),
+            ..RustCrateConfig::default()
+        };
+        CallGraph::build_with_scope_graph_inputs(&files, Some(&inputs))
+    }
+
+    fn build_complete(srcs: &[(&str, &str)]) -> CallGraph {
+        use crate::ast::ParsedFile;
+        use crate::languages::Language::Rust;
+        use crate::name_resolution::rust_populator::RustCrateConfig;
+
+        let mut files = std::collections::BTreeMap::new();
+        for (path, source) in srcs {
+            files.insert(
+                path.to_string(),
+                ParsedFile::parse(path, source, Rust).unwrap(),
+            );
+        }
+        let mut inputs = ScopeGraphBuildInputs::from_files_convention(&files);
+        inputs.cfg = RustCrateConfig {
+            crate_roots: files.keys().cloned().collect(),
+            ..RustCrateConfig::default()
+        };
+        CallGraph::build_with_scope_graph_inputs(&files, Some(&inputs))
+    }
+
+    fn in_repo_type_scope(cg: &CallGraph, path: &str, name: &str) -> ScopeId {
+        let graph = cg.scope_graph.as_ref().expect("scope graph");
+        let file = graph.file_paths.get(path).copied().expect("file id");
+        let scope = CallGraph::module_scope_for_byte(graph, file, 0).expect("module scope");
+        match resolve_type_path_to_type_scope(graph, scope, name) {
+            Some(TypeKey::InRepo(scope)) => scope,
+            other => panic!("expected in-repo type scope for {name}, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn method_facts_distinguish_inherent_trait_self_arity() {
+        use crate::ast::ParsedFile;
+        use crate::languages::Language::Rust;
+        let mut files = std::collections::BTreeMap::new();
+        files.insert(
+            "a.rs".to_string(),
+            ParsedFile::parse(
+                "a.rs",
+                // `td` is a DEFAULT-BODY trait method (a `function_item`, hence a FunctionId);
+                // a signature-only `fn d(&self);` is a `function_signature_item` and is NOT collected
+                // as a FunctionId today, so it is not a method_facts target — do not use it here.
+                "struct S;\nimpl S { fn inh(&self, x: u8) {} fn assoc() {} fn by(self) {} fn r(&self) {} fn rm(&mut self) {} fn boxed(self: Box<Self>, a: u8, b: u8) {} }\n\
+         trait T { fn td(&self) {} }\nimpl T for S { fn tm(&self) {} }\n",
+                Rust,
+            )
+            .unwrap(),
+        );
+        let cg = CallGraph::build(&files);
+        let fid = |n: &str| {
+            cg.functions
+                .values()
+                .flatten()
+                .find(|f| f.name == n)
+                .cloned()
+                .unwrap()
+        };
+        let inh = cg.method_facts.get(&fid("inh")).unwrap();
+        assert_eq!(inh.kind, MethodKind::Inherent);
+        assert!(inh.has_self && inh.arity_excl_self == 1);
+        assert!(!cg.method_facts.get(&fid("assoc")).unwrap().has_self);
+        let by = cg.method_facts.get(&fid("by")).unwrap();
+        assert!(by.has_self);
+        assert_eq!(by.recv_mode, RecvMode::SelfBy);
+        assert_eq!(by.arity_excl_self, 0);
+        let r = cg.method_facts.get(&fid("r")).unwrap();
+        assert!(r.has_self);
+        assert_eq!(r.recv_mode, RecvMode::SelfRef);
+        let rm = cg.method_facts.get(&fid("rm")).unwrap();
+        assert!(rm.has_self);
+        assert_eq!(rm.recv_mode, RecvMode::SelfRefMut);
+        let boxed = cg.method_facts.get(&fid("boxed")).unwrap();
+        assert!(boxed.has_self);
+        assert_eq!(boxed.recv_mode, RecvMode::SelfBy);
+        assert_eq!(boxed.arity_excl_self, 2);
+        // a default-body trait-declaration method -> Trait (NOT Inherent), via the enclosing-trait_item check
+        assert!(matches!(
+            cg.method_facts.get(&fid("td")).unwrap().kind,
+            MethodKind::Trait(_)
+        ));
+        // an impl-for-trait method -> Trait
+        assert!(matches!(
+            cg.method_facts.get(&fid("tm")).unwrap().kind,
+            MethodKind::Trait(_)
+        ));
+    }
+
+    #[test]
+    fn methods_by_scope_distinct_per_module_and_marks_complete() {
+        use crate::ast::ParsedFile;
+        use crate::languages::Language::Rust;
+        use crate::name_resolution::rust_populator::RustCrateConfig;
+        let mut files = std::collections::BTreeMap::new();
+        files.insert(
+            "a.rs".into(),
+            ParsedFile::parse("a.rs", "pub struct Foo; impl Foo { fn m(&self){} }\n", Rust)
+                .unwrap(),
+        );
+        files.insert(
+            "b.rs".into(),
+            ParsedFile::parse("b.rs", "pub struct Foo; impl Foo { fn m(&self){} }\n", Rust)
+                .unwrap(),
+        );
+        let mut inputs = ScopeGraphBuildInputs::from_files_convention(&files);
+        inputs.cfg = RustCrateConfig {
+            crate_roots: files.keys().cloned().collect(),
+            ..RustCrateConfig::default()
+        };
+        let cg = CallGraph::build_with_scope_graph_inputs(&files, Some(&inputs));
+        assert_eq!(
+            cg.methods_by_scope
+                .keys()
+                .filter(|(_, name)| name == "m")
+                .count(),
+            2
+        );
+        assert!(cg
+            .identity_complete
+            .contains(&("Foo".to_string(), "m".to_string())));
+    }
+
+    #[test]
+    fn external_trait_bucket_is_not_identity_complete() {
+        let cg = build_rust_call_graph(
+            "pub struct Foo;\nimpl std::fmt::Debug for Foo { fn fmt(&self){} }\n",
+        );
+
+        assert!(cg
+            .methods
+            .contains_key(&("Debug".to_string(), "fmt".to_string())));
+        assert!(cg.methods_by_scope.keys().any(|(_, name)| name == "fmt"));
+        assert!(!cg
+            .identity_complete
+            .contains(&("Debug".to_string(), "fmt".to_string())));
+    }
+
+    #[test]
+    fn in_repo_trait_dual_key_buckets_are_identity_complete() {
+        let cg = build_rust_call_graph(
+            "pub trait Tr { fn t(&self); }\npub struct Foo;\nimpl Tr for Foo { fn t(&self){} }\n",
+        );
+
+        assert!(cg
+            .identity_complete
+            .contains(&("Foo".to_string(), "t".to_string())));
+        assert!(cg
+            .identity_complete
+            .contains(&("Tr".to_string(), "t".to_string())));
+    }
+
+    #[test]
+    fn unresolved_concrete_owner_bucket_is_not_identity_complete() {
+        let cg = build_rust_call_graph("impl Missing { fn ghost(&self){} }\n");
+
+        assert!(cg
+            .methods
+            .contains_key(&("Missing".to_string(), "ghost".to_string())));
+        assert!(!cg
+            .identity_complete
+            .contains(&("Missing".to_string(), "ghost".to_string())));
+    }
+
+    #[test]
+    fn field_and_return_indices_resolved_self_and_def_scope() {
+        let cg = build_complete(&[(
+            "a.rs",
+            "pub struct Inner; impl Inner { fn poke(&self){} pub fn new()->Self{Inner} }\n\
+             pub struct Outer { pub inner: Inner }\npub fn make()->Inner{Inner}\n",
+        )]);
+        let inner = in_repo_type_scope(&cg, "a.rs", "Inner");
+        let outer = in_repo_type_scope(&cg, "a.rs", "Outer");
+        assert_eq!(
+            cg.field_types
+                .get(&(outer, "inner".into()))
+                .and_then(|v| v.first()),
+            Some(&(None, TypeKey::InRepo(inner)))
+        );
+        let fid = |n: &str| {
+            cg.functions
+                .values()
+                .flatten()
+                .find(|f| f.name == n)
+                .cloned()
+                .unwrap()
+        };
+        assert_eq!(
+            cg.return_types.get(&fid("make")).and_then(|v| v.first()),
+            Some(&(None, TypeKey::InRepo(inner)))
+        );
+        assert_eq!(
+            cg.return_types.get(&fid("new")).and_then(|v| v.first()),
+            Some(&(None, TypeKey::InRepo(inner)))
+        );
+    }
+
+    #[test]
+    fn field_and_return_indices_alias_cfg_and_omit_fallthrough_types() {
+        let cg = build_complete(&[(
+            "a.rs",
+            "pub struct Inner;\ntype Alias = Inner;\n\
+             pub struct Outer {\n\
+                 #[cfg(feature = \"a\")]\n\
+                 pub aliased: Alias,\n\
+                 pub missing: Missing,\n\
+                 pub text: String,\n\
+             }\n\
+             #[cfg(feature = \"a\")]\n\
+             pub fn make_alias()->Alias{Inner}\n\
+             pub fn make_text()->String{String::new()}\n",
+        )]);
+        let inner = in_repo_type_scope(&cg, "a.rs", "Inner");
+        let outer = in_repo_type_scope(&cg, "a.rs", "Outer");
+        assert_eq!(
+            cg.field_types
+                .get(&(outer, "aliased".into()))
+                .and_then(|v| v.first()),
+            Some(&(
+                Some("#[cfg(feature = \"a\")]".to_string()),
+                TypeKey::InRepo(inner)
+            ))
+        );
+        assert!(!cg.field_types.contains_key(&(outer, "missing".into())));
+        assert!(!cg.field_types.contains_key(&(outer, "text".into())));
+
+        let fid = |n: &str| {
+            cg.functions
+                .values()
+                .flatten()
+                .find(|f| f.name == n)
+                .cloned()
+                .unwrap()
+        };
+        assert_eq!(
+            cg.return_types
+                .get(&fid("make_alias"))
+                .and_then(|v| v.first()),
+            Some(&(
+                Some("#[cfg(feature = \"a\")]".to_string()),
+                TypeKey::InRepo(inner)
+            ))
+        );
+        assert!(!cg.return_types.contains_key(&fid("make_text")));
+    }
+
+    #[test]
+    fn cfg_gated_alias_does_not_collapse_to_one_unconditional_target() {
+        let cg = build_complete(&[(
+            "a.rs",
+            "pub struct A;\npub struct B;\n\
+             #[cfg(feat_a)]\n\
+             pub type Alias = A;\n\
+             #[cfg(feat_b)]\n\
+             pub type Alias = B;\n\
+             pub struct Holder { pub f: Alias }\n",
+        )]);
+        let holder = in_repo_type_scope(&cg, "a.rs", "Holder");
+        let entries = cg
+            .field_types
+            .get(&(holder, "f".into()))
+            .cloned()
+            .unwrap_or_default();
+
+        assert!(
+            entries.iter().all(|(cfg, _)| cfg.is_some()) || entries.is_empty(),
+            "cfg-gated alias collapsed to unconditional: {entries:?}"
+        );
+        assert!(entries.len() != 1 || entries[0].0.is_some());
+    }
+
     #[test]
     fn level4_index_matches_legacy_oracle_over_full_universe() {
         // Corpus: quirk fixtures + prism's own top-level src/*.rs sources.

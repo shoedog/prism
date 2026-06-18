@@ -1148,6 +1148,56 @@ impl Language {
         None
     }
 
+    /// Rust: enclosing item for a method definition (`trait_item` or `impl_item`).
+    pub fn rust_enclosing_method_item<'a>(&self, func_node: &Node<'a>) -> Option<Node<'a>> {
+        if !matches!(self, Language::Rust) {
+            return None;
+        }
+        let mut anc = func_node.parent();
+        while let Some(n) = anc {
+            match n.kind() {
+                "impl_item" | "trait_item" => return Some(n),
+                "function_item" | "closure_expression" => return None,
+                _ => {}
+            }
+            anc = n.parent();
+        }
+        None
+    }
+
+    /// Rust: ordered method parameters, including a leading `self` parameter when present.
+    pub fn method_params<'a>(&self, func_node: &Node<'a>) -> Vec<Node<'a>> {
+        if !matches!(self, Language::Rust) {
+            return Vec::new();
+        }
+        let Some(params) = func_node.child_by_field_name("parameters") else {
+            return Vec::new();
+        };
+        let mut cursor = params.walk();
+        params
+            .children(&mut cursor)
+            .filter(|child| matches!(child.kind(), "self_parameter" | "parameter"))
+            .collect()
+    }
+
+    /// Rust: leading `self` parameter (`self`, `&self`, or `&mut self`) if present.
+    pub fn self_param<'a>(&self, func_node: &Node<'a>) -> Option<Node<'a>> {
+        self.method_params(func_node)
+            .into_iter()
+            .next()
+            .filter(Self::is_rust_self_param)
+    }
+
+    fn is_rust_self_param(param: &Node<'_>) -> bool {
+        if param.kind() == "self_parameter" {
+            return true;
+        }
+        param.kind() == "parameter"
+            && param
+                .child_by_field_name("pattern")
+                .is_some_and(|pattern| pattern.kind() == "self")
+    }
+
     /// S3 (Go): receiver variable name node (`t` in `func (t *T) m()`).
     pub fn go_receiver_var<'a>(&self, func_node: &Node<'a>) -> Option<Node<'a>> {
         if !matches!(self, Language::Go) || func_node.kind() != "method_declaration" {
