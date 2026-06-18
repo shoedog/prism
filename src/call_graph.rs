@@ -2085,13 +2085,36 @@ impl CallGraph {
         let has_self = self_param.is_some();
         let recv_mode = self_param
             .map(|n| {
-                let text = parsed.node_text(&n);
-                if text.contains('&') && text.contains("mut") {
-                    RecvMode::SelfRefMut
-                } else if text.contains('&') {
-                    RecvMode::SelfRef
+                if n.kind() == "self_parameter" {
+                    // Bare `self` / `&self` / `&mut self`: the node text has no nested
+                    // types, so the `&`/`mut` scan is unambiguous.
+                    let text = parsed.node_text(&n);
+                    if text.contains('&') && text.contains("mut") {
+                        RecvMode::SelfRefMut
+                    } else if text.contains('&') {
+                        RecvMode::SelfRef
+                    } else {
+                        RecvMode::SelfBy
+                    }
                 } else {
-                    RecvMode::SelfBy
+                    // Typed self (`self: T`): the receiver mode is the TOP-LEVEL shape of
+                    // `T`, NOT any `&`/`mut` nested inside a wrapper. `self: &mut Self` is
+                    // SelfRefMut, but `self: Pin<&mut Self>` / `Box<Self>` / `Rc<Self>` are
+                    // taken BY VALUE of the wrapper (SelfBy) — the inner ref must not leak.
+                    match n.child_by_field_name("type") {
+                        Some(ty) if ty.kind() == "reference_type" => {
+                            let mut c = ty.walk();
+                            if ty
+                                .children(&mut c)
+                                .any(|ch| ch.kind() == "mutable_specifier")
+                            {
+                                RecvMode::SelfRefMut
+                            } else {
+                                RecvMode::SelfRef
+                            }
+                        }
+                        _ => RecvMode::SelfBy,
+                    }
                 }
             })
             .unwrap_or(RecvMode::None);
@@ -2485,7 +2508,7 @@ mod tests {
                 // `td` is a DEFAULT-BODY trait method (a `function_item`, hence a FunctionId);
                 // a signature-only `fn d(&self);` is a `function_signature_item` and is NOT collected
                 // as a FunctionId today, so it is not a method_facts target — do not use it here.
-                "struct S;\nimpl S { fn inh(&self, x: u8) {} fn assoc() {} fn by(self) {} fn r(&self) {} fn rm(&mut self) {} fn boxed(self: Box<Self>, a: u8, b: u8) {} }\n\
+                "struct S;\nimpl S { fn inh(&self, x: u8) {} fn assoc() {} fn by(self) {} fn r(&self) {} fn rm(&mut self) {} fn boxed(self: Box<Self>, a: u8, b: u8) {} fn pinned(self: Pin<&mut Self>) {} fn tyref(self: &Self) {} fn tymut(self: &mut Self) {} }\n\
          trait T { fn td(&self) {} }\nimpl T for S { fn tm(&self) {} }\n",
                 Rust,
             )
@@ -2518,6 +2541,21 @@ mod tests {
         assert!(boxed.has_self);
         assert_eq!(boxed.recv_mode, RecvMode::SelfBy);
         assert_eq!(boxed.arity_excl_self, 2);
+        // typed-self `self: Pin<&mut Self>` is taken BY VALUE of the wrapper; the inner
+        // `&mut` must NOT leak into recv_mode (regression: the bare text scan mis-read it
+        // as SelfRefMut). Box<Self>/Rc<Self>/Pin<..> -> SelfBy.
+        let pinned = cg.method_facts.get(&fid("pinned")).unwrap();
+        assert!(pinned.has_self);
+        assert_eq!(pinned.recv_mode, RecvMode::SelfBy);
+        // typed-self whose TOP-LEVEL type is a reference keeps the correct ref mode.
+        assert_eq!(
+            cg.method_facts.get(&fid("tyref")).unwrap().recv_mode,
+            RecvMode::SelfRef
+        );
+        assert_eq!(
+            cg.method_facts.get(&fid("tymut")).unwrap().recv_mode,
+            RecvMode::SelfRefMut
+        );
         // a default-body trait-declaration method -> Trait (NOT Inherent), via the enclosing-trait_item check
         assert!(matches!(
             cg.method_facts.get(&fid("td")).unwrap().kind,
