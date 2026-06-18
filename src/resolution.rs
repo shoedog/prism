@@ -17,6 +17,7 @@ use std::collections::{BTreeMap, BTreeSet};
 pub use crate::resolution_identity::{
     canonical_external, resolve_type_path_to_type_scope, ReceiverOutcome, ReceiverTypeKey, TypeKey,
 };
+pub use crate::resolution_receiver::{ReceiverTypeCtx, RustReceiverTyper};
 
 #[derive(
     Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, serde::Serialize, serde::Deserialize,
@@ -215,6 +216,10 @@ pub enum ReceiverRecovery {
     /// `for _, r := range xs { r.M() }`. The classifier returns `None` for it
     /// (sketched only); the variant exists so the wire/manifest shape is settled.
     SliceElem,
+    FieldTyped,
+    ReturnTyped,
+    StdWrapperPeel,
+    TypedLet,
 }
 
 /// S3 receiver-recovery: a syntactically-recovered static receiver type plus the

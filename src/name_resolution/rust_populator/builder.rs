@@ -4,6 +4,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use crate::ast::ParsedFile;
+use crate::name_resolution::binding_lookup::LocalFact;
 use crate::name_resolution::graph::{MacroWildcard, ScopeGraph};
 use crate::name_resolution::rust_policy::EK_GLOB;
 use crate::name_resolution::types::{
@@ -163,6 +164,10 @@ impl<'f> Builder<'f> {
             cond,
             vis_extents,
         });
+    }
+
+    pub(crate) fn add_local_fact(&mut self, file: FileId, def_byte: usize, fact: LocalFact) {
+        self.graph.local_facts.insert((file, def_byte), fact);
     }
 
     /// Append a `Glob` edge from `scope`. `deferred` ⇒ `to = Pending` (a Phase-1

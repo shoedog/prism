@@ -85,6 +85,10 @@ pub fn interface_dispatch_manifest(cg: &CallGraph) -> serde_json::Value {
         ReceiverRecovery::TypeAssertion => "type_assertion",
         ReceiverRecovery::VarDecl => "var_local",
         ReceiverRecovery::SliceElem => "slice_elem",
+        ReceiverRecovery::FieldTyped
+        | ReceiverRecovery::ReturnTyped
+        | ReceiverRecovery::StdWrapperPeel
+        | ReceiverRecovery::TypedLet => "rust_receiver",
     };
     let mut sites = Vec::new();
     for site_set in cg.calls.values() {

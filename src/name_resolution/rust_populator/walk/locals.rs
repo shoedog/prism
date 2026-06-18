@@ -8,6 +8,7 @@
 use tree_sitter::Node;
 
 use crate::ast::ParsedFile;
+use crate::name_resolution::binding_lookup::{BindingKind, InitExpr, LocalFact};
 use crate::name_resolution::rust_policy::{NS_VALUE, VIS_PUB};
 use crate::name_resolution::types::{
     BindTarget, BindingRef, FileId, ScopeId, ScopeKind, SourceLoc, Span, Target,
@@ -59,15 +60,39 @@ fn walk_stmt(b: &mut Builder<'_>, path: &str, nid: NodeId, scope: ScopeId, ctx: 
 }
 
 fn walk_let(b: &mut Builder<'_>, path: &str, nid: &NodeId, scope: ScopeId, ctx: &Ctx) {
-    let (names, value_nid) = with_node(b, path, nid, |pf, n| {
+    let (names, annotation, init, kind, value_nid) = with_node(b, path, nid, |pf, n| {
         let mut names = Vec::new();
+        let mut simple_pattern = false;
         if let Some(p) = n.child_by_field_name("pattern") {
+            simple_pattern = p.kind() == "identifier";
             pattern_idents(pf, &p, &mut names);
         }
-        (names, n.child_by_field_name("value").map(NodeId::of))
+        let annotation = n
+            .child_by_field_name("type")
+            .map(|ty| pf.node_text(&ty).trim().to_string())
+            .filter(|s| !s.is_empty());
+        let value = n.child_by_field_name("value");
+        let init = value.and_then(|value| init_expr(pf, &value));
+        let kind = if simple_pattern {
+            BindingKind::Let
+        } else {
+            BindingKind::Pattern
+        };
+        (names, annotation, init, kind, value.map(NodeId::of))
     });
     let scope_end = scope_end_byte(b, scope, ctx.file);
-    add_locals(b, scope, ctx.file, scope_end, &names);
+    add_locals(
+        b,
+        scope,
+        ctx.file,
+        scope_end,
+        &names,
+        LocalFact {
+            kind,
+            annotation,
+            init,
+        },
+    );
     // The initializer expression may contain closures / blocks / macros.
     if let Some(value_nid) = value_nid {
         walk_expr(b, path, &value_nid, scope, ctx);
@@ -151,7 +176,18 @@ fn walk_closure(b: &mut Builder<'_>, path: &str, nid: &NodeId, scope: ScopeId, c
     });
     // A closure body is a Callable scope; its args are locals there.
     let body_scope = b.add_scope(ScopeKind::Callable, Some(scope), ctx.file, lo, hi, None);
-    add_locals(b, body_scope, ctx.file, hi, &names);
+    add_locals(
+        b,
+        body_scope,
+        ctx.file,
+        hi,
+        &names,
+        LocalFact {
+            kind: BindingKind::Param,
+            annotation: None,
+            init: None,
+        },
+    );
     if let Some(body_nid) = body_nid {
         walk_expr(b, path, &body_nid, body_scope, ctx);
     }
@@ -173,7 +209,18 @@ fn walk_for(b: &mut Builder<'_>, path: &str, nid: &NodeId, scope: ScopeId, ctx: 
     });
     // The loop variable scopes over the loop body block.
     let loop_scope = b.add_scope(ScopeKind::Block, Some(scope), ctx.file, lo, hi, None);
-    add_locals(b, loop_scope, ctx.file, hi, &names);
+    add_locals(
+        b,
+        loop_scope,
+        ctx.file,
+        hi,
+        &names,
+        LocalFact {
+            kind: BindingKind::Pattern,
+            annotation: None,
+            init: None,
+        },
+    );
     if let Some(value_nid) = value_nid {
         walk_expr(b, path, &value_nid, scope, ctx); // iterator expr is in outer scope
     }
@@ -214,7 +261,18 @@ fn walk_match(b: &mut Builder<'_>, path: &str, nid: &NodeId, scope: ScopeId, ctx
             )
         });
         let arm_scope = b.add_scope(ScopeKind::Block, Some(scope), ctx.file, lo, hi, None);
-        add_locals(b, arm_scope, ctx.file, hi, &names);
+        add_locals(
+            b,
+            arm_scope,
+            ctx.file,
+            hi,
+            &names,
+            LocalFact {
+                kind: BindingKind::Pattern,
+                annotation: None,
+                init: None,
+            },
+        );
         if let Some(arm_value) = arm_value {
             walk_expr(b, path, &arm_value, arm_scope, ctx);
         }
@@ -243,7 +301,18 @@ fn walk_if_while(b: &mut Builder<'_>, path: &str, nid: &NodeId, scope: ScopeId, 
         (names, blocks, n.start_byte(), n.end_byte())
     });
     let cond_scope = b.add_scope(ScopeKind::Block, Some(scope), ctx.file, lo, hi, None);
-    add_locals(b, cond_scope, ctx.file, hi, &names);
+    add_locals(
+        b,
+        cond_scope,
+        ctx.file,
+        hi,
+        &names,
+        LocalFact {
+            kind: BindingKind::Pattern,
+            annotation: None,
+            init: None,
+        },
+    );
     for blk in blocks {
         walk_block_body(b, path, &blk, cond_scope, ctx);
     }
@@ -275,8 +344,23 @@ pub(in crate::name_resolution::rust_populator::walk) fn add_locals(
     file: FileId,
     scope_end: usize,
     names: &[(String, usize)],
+    fact: LocalFact,
 ) {
-    for (i, (name, def_byte)) in names.iter().enumerate() {
+    let facts = vec![fact; names.len()];
+    add_locals_with_facts(b, scope, file, scope_end, names, &facts);
+}
+
+pub(in crate::name_resolution::rust_populator::walk) fn add_locals_with_facts(
+    b: &mut Builder<'_>,
+    scope: ScopeId,
+    file: FileId,
+    scope_end: usize,
+    names: &[(String, usize)],
+    facts: &[LocalFact],
+) {
+    assert_eq!(names.len(), facts.len());
+    for (i, ((name, def_byte), fact)) in names.iter().zip(facts).enumerate() {
+        b.add_local_fact(file, *def_byte, fact.clone());
         b.add_binding(
             scope,
             name.clone(),
@@ -298,5 +382,30 @@ pub(in crate::name_resolution::rust_populator::walk) fn add_locals(
                 },
             }],
         );
+    }
+}
+
+fn init_expr(pf: &ParsedFile, value: &Node) -> Option<InitExpr> {
+    match value.kind() {
+        "call_expression" => {
+            let function = value
+                .child_by_field_name("function")
+                .or_else(|| value.child_by_field_name("name"))?;
+            let function_text = pf.node_text(&function).trim();
+            if let Some((_ty, ctor)) = function_text.rsplit_once("::") {
+                if matches!(ctor, "new" | "default") {
+                    return Some(InitExpr::Ctor(format!("{function_text}()")));
+                }
+            }
+            Some(InitExpr::Call(format!("{function_text}(...)")))
+        }
+        "struct_expression" => {
+            let ty = value
+                .child_by_field_name("name")
+                .or_else(|| value.child_by_field_name("type"))?;
+            Some(InitExpr::Ctor(format!("{}{{}}", pf.node_text(&ty).trim())))
+        }
+        "field_expression" => Some(InitExpr::Field(pf.node_text(value).trim().to_string())),
+        _ => Some(InitExpr::Other),
     }
 }

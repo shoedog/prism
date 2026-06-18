@@ -5,6 +5,7 @@
 use tree_sitter::Node;
 
 use crate::ast::ParsedFile;
+use crate::name_resolution::binding_lookup::{BindingKind, LocalFact};
 use crate::name_resolution::rust_policy::{NS_TYPE, NS_VALUE, VIS_PUB};
 use crate::name_resolution::types::{BindTarget, ExternRef, FileId, ScopeId, ScopeKind, Target};
 
@@ -13,7 +14,7 @@ use super::super::scopes::{
     child_of_kind, name_text, parse_cfg_for_item, parse_use, parse_vis, pattern_idents, vis,
     UseItem,
 };
-use super::locals::{add_locals, walk_block_body};
+use super::locals::{add_locals_with_facts, walk_block_body};
 use super::{
     full_file_span, full_scope_span, node_range, resolve_restrict, vis_extent_from, with_node, Ctx,
     NodeId,
@@ -329,17 +330,41 @@ fn bind_params(
     file: FileId,
     body_end: usize,
 ) {
-    let names = with_node(b, path, params_nid, |pf, n| {
+    let params = with_node(b, path, params_nid, |pf, n| {
         let mut out = Vec::new();
         let mut cursor = n.walk();
         for c in n.children(&mut cursor) {
             if c.kind() == "parameter" {
+                let annotation = c
+                    .child_by_field_name("type")
+                    .map(|ty| pf.node_text(&ty).trim().to_string())
+                    .filter(|s| !s.is_empty());
                 if let Some(p) = c.child_by_field_name("pattern") {
-                    pattern_idents(pf, &p, &mut out);
+                    let mut names = Vec::new();
+                    pattern_idents(pf, &p, &mut names);
+                    for (name, def_byte) in names {
+                        out.push((
+                            name,
+                            def_byte,
+                            LocalFact {
+                                kind: BindingKind::Param,
+                                annotation: annotation.clone(),
+                                init: None,
+                            },
+                        ));
+                    }
                 }
             }
         }
         out
     });
-    add_locals(b, body_scope, file, body_end, &names);
+    let names: Vec<_> = params
+        .iter()
+        .map(|(name, def_byte, _fact)| (name.clone(), *def_byte))
+        .collect();
+    let facts: Vec<_> = params
+        .into_iter()
+        .map(|(_name, _def_byte, fact)| fact)
+        .collect();
+    add_locals_with_facts(b, body_scope, file, body_end, &names, &facts);
 }

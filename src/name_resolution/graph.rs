@@ -15,9 +15,12 @@
 //! `macro_wildcards` are `Vec`s whose **insertion order is meaningful** (see the
 //! `ScopeGraph` doc).
 
+use std::collections::BTreeMap;
+
 use serde::{Deserialize, Serialize};
 
-use crate::name_resolution::types::{Binding, Edge, NamespaceId, Scope, ScopeId, Span};
+use crate::name_resolution::binding_lookup::LocalFact;
+use crate::name_resolution::types::{Binding, Edge, FileId, NamespaceId, Scope, ScopeId, Span};
 
 fn default_complete() -> bool {
     true
@@ -87,6 +90,9 @@ pub struct ScopeGraph {
     pub file_paths: std::collections::BTreeMap<String, crate::name_resolution::types::FileId>,
     pub scopes: std::collections::BTreeMap<ScopeId, Scope>,
     pub bindings: Vec<Binding>,
+    /// Rust local-binding facts keyed by `(file, def_byte)`.
+    #[serde(default)]
+    pub local_facts: BTreeMap<(FileId, usize), LocalFact>,
     pub edges: Vec<Edge>,
     pub macro_wildcards: Vec<MacroWildcard>,
 }
