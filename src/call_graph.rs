@@ -168,6 +168,11 @@ pub struct CallGraph {
     /// Inert until the receiver-typed read path lands.
     #[serde(default)]
     pub methods_by_scope: BTreeMap<(ScopeId, String), Vec<FunctionId>>,
+    /// Phase-2a PR-3 fix: (canonical external type, method_name) -> extension
+    /// impl definitions. Kept separate from the bare methods index so external
+    /// receivers cannot collide with same-bare in-repo types.
+    #[serde(default)]
+    pub extension_methods: BTreeMap<(String, String), Vec<FunctionId>>,
     /// Phase-2a PR-1: bare (owner_key, method_name) buckets fully mirrored in
     /// the identity-keyed method index.
     #[serde(default)]
@@ -230,6 +235,7 @@ impl CallGraph {
             methods: BTreeMap::new(),
             method_owners: BTreeMap::new(),
             methods_by_scope: BTreeMap::new(),
+            extension_methods: BTreeMap::new(),
             identity_complete: BTreeSet::new(),
             field_types: BTreeMap::new(),
             return_types: BTreeMap::new(),
@@ -370,6 +376,7 @@ impl CallGraph {
             methods,
             method_owners,
             methods_by_scope: BTreeMap::new(),
+            extension_methods: BTreeMap::new(),
             identity_complete: BTreeSet::new(),
             field_types: BTreeMap::new(),
             return_types: BTreeMap::new(),
@@ -971,6 +978,7 @@ impl CallGraph {
             methods,
             method_owners,
             methods_by_scope: BTreeMap::new(),
+            extension_methods: BTreeMap::new(),
             identity_complete: BTreeSet::new(),
             field_types: BTreeMap::new(),
             return_types: BTreeMap::new(),
@@ -986,8 +994,7 @@ impl CallGraph {
             method_facts,
             scope_graph: Self::populate_scope_graph(files, scope_inputs),
         };
-        cg.populate_method_identity_indices(files);
-        cg.rematerialize_rust_receiver_keys(files);
+        cg.refresh_rust_receiver_state(files);
         cg.apply_go_embedding_promotion(files);
         cg.apply_go_interface_dispatch(files);
         cg
@@ -1034,6 +1041,7 @@ impl CallGraph {
         self.method_owners
             .retain(|fid, _| !exclude.contains(&fid.file));
         self.methods_by_scope.clear();
+        self.extension_methods.clear();
         self.identity_complete.clear();
         self.field_types.clear();
         self.return_types.clear();
@@ -1074,6 +1082,9 @@ impl CallGraph {
         for (key, fids) in other.methods_by_scope {
             self.methods_by_scope.entry(key).or_default().extend(fids);
         }
+        for (key, fids) in other.extension_methods {
+            self.extension_methods.entry(key).or_default().extend(fids);
+        }
         self.identity_complete.extend(other.identity_complete);
         for (key, types) in other.field_types {
             self.field_types.entry(key).or_default().extend(types);
@@ -1090,6 +1101,10 @@ impl CallGraph {
         inputs: Option<&ScopeGraphBuildInputs>,
     ) {
         self.scope_graph = Self::populate_scope_graph(files, inputs);
+        self.refresh_rust_receiver_state(files);
+    }
+
+    fn refresh_rust_receiver_state(&mut self, files: &BTreeMap<String, ParsedFile>) {
         self.populate_method_identity_indices(files);
         self.rematerialize_rust_receiver_keys(files);
     }
@@ -1487,6 +1502,7 @@ impl CallGraph {
             methods,
             method_owners,
             methods_by_scope: BTreeMap::new(),
+            extension_methods: BTreeMap::new(),
             identity_complete: BTreeSet::new(),
             field_types: BTreeMap::new(),
             return_types: BTreeMap::new(),
@@ -1539,6 +1555,7 @@ impl CallGraph {
     fn populate_method_identity_indices(&mut self, files: &BTreeMap<String, ParsedFile>) {
         let Some(graph) = self.scope_graph.as_ref().filter(|g| g.complete) else {
             self.methods_by_scope.clear();
+            self.extension_methods.clear();
             self.identity_complete.clear();
             self.field_types.clear();
             self.return_types.clear();
@@ -1546,6 +1563,7 @@ impl CallGraph {
         };
 
         let mut methods_by_scope: BTreeMap<(ScopeId, String), Vec<FunctionId>> = BTreeMap::new();
+        let mut extension_methods: BTreeMap<(String, String), Vec<FunctionId>> = BTreeMap::new();
         let mut bucket_coverage: BTreeMap<(String, String), BTreeSet<FunctionId>> = BTreeMap::new();
         let aliases = Self::rust_type_aliases_by_module(graph, files);
         let mut field_types: BTreeMap<(ScopeId, String), Vec<(Option<String>, TypeKey)>> =
@@ -1587,19 +1605,28 @@ impl CallGraph {
 
                 if let Some(type_syntax) = Self::rust_method_impl_type_syntax(parsed, &func_node) {
                     let concrete_owner_key = crate::resolution::owner_key(&type_syntax);
-                    if let Some(TypeKey::InRepo(scope)) =
-                        resolve_type_path_to_type_scope(graph, module_scope, &type_syntax)
-                    {
-                        Self::insert_method_by_scope(
-                            &mut methods_by_scope,
-                            scope,
-                            name.clone(),
-                            fid.clone(),
-                        );
-                        bucket_coverage
-                            .entry((concrete_owner_key, name.clone()))
-                            .or_default()
-                            .insert(fid.clone());
+                    match resolve_type_path_to_type_scope(graph, module_scope, &type_syntax) {
+                        Some(TypeKey::InRepo(scope)) => {
+                            Self::insert_method_by_scope(
+                                &mut methods_by_scope,
+                                scope,
+                                name.clone(),
+                                fid.clone(),
+                            );
+                            bucket_coverage
+                                .entry((concrete_owner_key, name.clone()))
+                                .or_default()
+                                .insert(fid.clone());
+                        }
+                        Some(TypeKey::External(canon)) => {
+                            Self::insert_extension_method(
+                                &mut extension_methods,
+                                canon,
+                                name.clone(),
+                                fid.clone(),
+                            );
+                        }
+                        None => {}
                     }
                 }
 
@@ -1650,6 +1677,7 @@ impl CallGraph {
             .collect();
 
         self.methods_by_scope = methods_by_scope;
+        self.extension_methods = extension_methods;
         self.identity_complete = identity_complete;
         self.field_types = field_types;
         self.return_types = return_types;
@@ -1971,6 +1999,18 @@ impl CallGraph {
         fid: FunctionId,
     ) {
         let fids = methods_by_scope.entry((scope, name)).or_default();
+        if !fids.contains(&fid) {
+            fids.push(fid);
+        }
+    }
+
+    fn insert_extension_method(
+        extension_methods: &mut BTreeMap<(String, String), Vec<FunctionId>>,
+        canon: String,
+        name: String,
+        fid: FunctionId,
+    ) {
+        let fids = extension_methods.entry((canon, name)).or_default();
         if !fids.contains(&fid) {
             fids.push(fid);
         }

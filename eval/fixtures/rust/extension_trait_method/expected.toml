@@ -1,0 +1,13 @@
+[case]
+language = "rust"
+capability = "extension_trait_method"
+status = "pass"
+[seed]
+symbol = "ext"
+file = "main.rs"
+line = 6
+[[expect.callers]]
+file = "main.rs"
+line = 10
+[expect]
+exact = true

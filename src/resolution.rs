@@ -2,7 +2,7 @@
 //! R1-R7 resolution ladder (impl on CallGraph lives here to keep
 //! call_graph.rs under the size cap).
 
-use crate::call_graph::{CallGraph, CallSite, FunctionId, MethodArity};
+use crate::call_graph::{CallGraph, CallSite, FunctionId, MethodArity, MethodFacts, MethodKind};
 use crate::name_resolution::consumer::graph_callable_edge;
 use crate::name_resolution::engine::resolve_path;
 use crate::name_resolution::graph::ScopeGraph;
@@ -475,6 +475,61 @@ fn demoted<'a>(
         .collect()
 }
 
+fn receiver_resolution_kind(recovery: ReceiverRecovery) -> ResolutionKind {
+    match recovery {
+        ReceiverRecovery::ConstructorLocal => ResolutionKind::ConstructorLocal,
+        ReceiverRecovery::TypedParam
+        | ReceiverRecovery::TypeAssertion
+        | ReceiverRecovery::VarDecl
+        | ReceiverRecovery::SliceElem
+        | ReceiverRecovery::FieldTyped
+        | ReceiverRecovery::ReturnTyped
+        | ReceiverRecovery::StdWrapperPeel
+        | ReceiverRecovery::TypedLet => ResolutionKind::TypedParam,
+    }
+}
+
+/// Kind-aware combine for a receiver-typed candidate set (the PR-3 read-path core).
+#[allow(dead_code)]
+fn combine_kind<'a>(
+    cands: &'a [FunctionId],
+    facts: &BTreeMap<FunctionId, MethodFacts>,
+    recovery: ReceiverRecovery,
+    arg_count: Option<usize>,
+    arg_spread: bool,
+) -> Option<Vec<ResolvedCallee<'a>>> {
+    let kept: Vec<&FunctionId> = cands
+        .iter()
+        .filter(|fid| {
+            let Some(fact) = facts.get(*fid) else {
+                return false;
+            };
+            fact.has_self
+                && !matches!(
+                    arg_count,
+                    Some(n) if !arg_spread && fact.arity_excl_self != n
+                )
+        })
+        .collect();
+
+    match kept.len() {
+        0 => None,
+        1 => {
+            let fid = kept[0];
+            let kind = receiver_resolution_kind(recovery);
+            match facts.get(fid) {
+                Some(MethodFacts {
+                    kind: MethodKind::Inherent,
+                    ..
+                }) if recovery != ReceiverRecovery::StdWrapperPeel => Some(exact(kept, kind)),
+                Some(_) => Some(demoted(kept, kind)),
+                None => None,
+            }
+        }
+        _ => Some(demoted(kept, ResolutionKind::TraitCha)),
+    }
+}
+
 fn is_simple_ident(s: &str) -> bool {
     !s.is_empty() && s.chars().all(|c| c.is_alphanumeric() || c == '_')
 }
@@ -736,46 +791,60 @@ impl CallGraph {
                 ResolutionOutcome::dropped(DropReason::UnknownName)
             }
             Some(q) => {
+                // A materialized Rust receiver outcome means this is a value-method call
+                // `recv.method()`: the qualifier is a receiver expression, NOT a module or
+                // type name. The receiver's static type (the Rust branch below) is
+                // authoritative and must pre-empt both the import-qualifier (R3) and the
+                // owner-key (R3b) interpretations. Recall-safe: receiver_outcome == Some
+                // only for value-method receiver syntax, so R3/R3b never held a correct edge
+                // for these sites.
+                let rust_recv_materialized =
+                    crate::languages::Language::from_path(&site.caller.file)
+                        == Some(crate::languages::Language::Rust)
+                        && site.receiver_outcome.is_some();
+
                 // R3: imported-module qualifier. If an import matches, the
                 // narrowed set is final; empty means the call is external.
-                if let Some(file_imports) = self.imports.get(&caller.file) {
-                    if let Some(module_path) = file_imports.get(q) {
-                        let ids = match self.functions.get(name) {
-                            Some(v) => v.as_slice(),
-                            None => return ResolutionOutcome::dropped(DropReason::UnknownName),
-                        };
-                        let module_last = module_path.rsplit('/').next().unwrap_or(module_path);
-                        let module_stem = module_last.rsplit('.').last().unwrap_or(module_last);
-                        let matched: Vec<&FunctionId> = ids
-                            .iter()
-                            // `pkg.f()` names a module-level function, never a method
-                            // on a class defined in that module — exclude methods so
-                            // an imported module with a same-named method can't forge
-                            // a false package-function edge.
-                            .filter(|fid| !self.method_owners.contains_key(*fid))
-                            .filter(|fid| {
-                                let stem_hit = file_stem(&fid.file) == module_stem;
-                                let dir_hit = fid
-                                    .file
-                                    .rsplit('/')
-                                    .nth(1)
-                                    .map(|d| d == module_last)
-                                    .unwrap_or(false);
-                                stem_hit || dir_hit
-                            })
-                            .collect();
-                        if matched.is_empty() {
-                            return ResolutionOutcome::dropped(DropReason::ImportExternal);
+                if !rust_recv_materialized {
+                    if let Some(file_imports) = self.imports.get(&caller.file) {
+                        if let Some(module_path) = file_imports.get(q) {
+                            let ids = match self.functions.get(name) {
+                                Some(v) => v.as_slice(),
+                                None => return ResolutionOutcome::dropped(DropReason::UnknownName),
+                            };
+                            let module_last = module_path.rsplit('/').next().unwrap_or(module_path);
+                            let module_stem = module_last.rsplit('.').last().unwrap_or(module_last);
+                            let matched: Vec<&FunctionId> = ids
+                                .iter()
+                                // `pkg.f()` names a module-level function, never a method
+                                // on a class defined in that module — exclude methods so
+                                // an imported module with a same-named method can't forge
+                                // a false package-function edge.
+                                .filter(|fid| !self.method_owners.contains_key(*fid))
+                                .filter(|fid| {
+                                    let stem_hit = file_stem(&fid.file) == module_stem;
+                                    let dir_hit = fid
+                                        .file
+                                        .rsplit('/')
+                                        .nth(1)
+                                        .map(|d| d == module_last)
+                                        .unwrap_or(false);
+                                    stem_hit || dir_hit
+                                })
+                                .collect();
+                            if matched.is_empty() {
+                                return ResolutionOutcome::dropped(DropReason::ImportExternal);
+                            }
+                            return ResolutionOutcome::hit(exact(
+                                matched,
+                                ResolutionKind::ImportQualified,
+                            ));
                         }
-                        return ResolutionOutcome::hit(exact(
-                            matched,
-                            ResolutionKind::ImportQualified,
-                        ));
                     }
                 }
 
                 // R3b: qualifier text is itself an owner key.
-                if is_simple_ident(q) {
+                if !rust_recv_materialized && is_simple_ident(q) {
                     if let Some(mut resolved) = self.owner_lookup(q, name) {
                         for callee in &mut resolved {
                             if callee.kind == ResolutionKind::QualifiedOwner {
@@ -783,6 +852,70 @@ impl CallGraph {
                             }
                         }
                         return ResolutionOutcome::hit(resolved);
+                    }
+                }
+
+                if crate::languages::Language::from_path(&site.caller.file)
+                    == Some(crate::languages::Language::Rust)
+                {
+                    if let Some(oc) = site.receiver_outcome.as_ref() {
+                        let name_key = name.to_string();
+                        return match &oc.key {
+                            ReceiverTypeKey::InRepo(scope) => {
+                                match self
+                                    .methods_by_scope
+                                    .get(&(*scope, name_key.clone()))
+                                    .and_then(|cands| {
+                                        combine_kind(
+                                            cands,
+                                            &self.method_facts,
+                                            oc.recovery,
+                                            site.arg_count,
+                                            site.arg_spread,
+                                        )
+                                    }) {
+                                    Some(resolved) => ResolutionOutcome::hit(resolved),
+                                    None => {
+                                        if self
+                                            .identity_complete
+                                            .contains(&(oc.bare.clone(), name_key))
+                                        {
+                                            ResolutionOutcome::dropped(DropReason::ExternalReceiver)
+                                        } else {
+                                            match self.owner_lookup(&oc.bare, name) {
+                                                Some(resolved) => ResolutionOutcome::hit(resolved),
+                                                None => ResolutionOutcome::dropped(
+                                                    DropReason::ExternalReceiver,
+                                                ),
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            ReceiverTypeKey::External(canon) => {
+                                match self
+                                    .extension_methods
+                                    .get(&(canon.clone(), name_key))
+                                    .and_then(|cands| {
+                                        combine_kind(
+                                            cands,
+                                            &self.method_facts,
+                                            oc.recovery,
+                                            site.arg_count,
+                                            site.arg_spread,
+                                        )
+                                    }) {
+                                    Some(resolved) => ResolutionOutcome::hit(resolved),
+                                    None => {
+                                        ResolutionOutcome::dropped(DropReason::ExternalReceiver)
+                                    }
+                                }
+                            }
+                            ReceiverTypeKey::Bare(s) => match self.owner_lookup(s, name) {
+                                Some(resolved) => ResolutionOutcome::hit(resolved),
+                                None => ResolutionOutcome::dropped(DropReason::ExternalReceiver),
+                            },
+                        };
                     }
                 }
 
@@ -1105,12 +1238,187 @@ fn graph_owner_name_for_scope(graph: &ScopeGraph, scope: ScopeId) -> Option<Stri
 
 #[cfg(test)]
 mod embedding_kind_tests {
-    use super::ResolutionKind;
+    use super::*;
+    use crate::call_graph::{MethodFacts, MethodKind, RecvMode};
+    use std::collections::BTreeMap;
+
     #[test]
     fn embedded_promotion_as_str() {
         assert_eq!(
             ResolutionKind::EmbeddedPromotion.as_str(),
             "embedded_promotion"
         );
+    }
+
+    fn fid(name: &str) -> FunctionId {
+        FunctionId {
+            file: "a.rs".to_string(),
+            name: name.to_string(),
+            start_line: 1,
+            end_line: 1,
+        }
+    }
+
+    fn facts(kind: MethodKind, has_self: bool, arity_excl_self: usize) -> MethodFacts {
+        MethodFacts {
+            kind,
+            has_self,
+            recv_mode: if has_self {
+                RecvMode::SelfRef
+            } else {
+                RecvMode::None
+            },
+            arity_excl_self,
+            cfg: None,
+        }
+    }
+
+    #[test]
+    fn combine_kind_single_inherent_typed_param_is_exact() {
+        let method = fid("inherent");
+        let cands = vec![method.clone()];
+        let mut method_facts = BTreeMap::new();
+        method_facts.insert(method.clone(), facts(MethodKind::Inherent, true, 1));
+
+        let resolved = combine_kind(
+            &cands,
+            &method_facts,
+            ReceiverRecovery::TypedParam,
+            Some(1),
+            false,
+        )
+        .expect("inherent receiver candidate");
+
+        assert_eq!(resolved.len(), 1);
+        assert_eq!(resolved[0].target, &method);
+        assert_eq!(resolved[0].confidence, ResolutionConfidence::Exact);
+        assert_eq!(resolved[0].kind, ResolutionKind::TypedParam);
+    }
+
+    #[test]
+    fn combine_kind_single_trait_is_name_only() {
+        let method = fid("trait_method");
+        let cands = vec![method.clone()];
+        let mut method_facts = BTreeMap::new();
+        method_facts.insert(
+            method.clone(),
+            facts(MethodKind::Trait("Trait".to_string()), true, 0),
+        );
+
+        let resolved = combine_kind(
+            &cands,
+            &method_facts,
+            ReceiverRecovery::TypedParam,
+            Some(0),
+            false,
+        )
+        .expect("trait receiver candidate");
+
+        assert_eq!(resolved.len(), 1);
+        assert_eq!(resolved[0].target, &method);
+        assert_eq!(resolved[0].confidence, ResolutionConfidence::NameOnly);
+        assert_eq!(resolved[0].kind, ResolutionKind::TypedParam);
+    }
+
+    #[test]
+    fn combine_kind_single_inherent_std_wrapper_peel_is_name_only() {
+        let method = fid("wrapped");
+        let cands = vec![method.clone()];
+        let mut method_facts = BTreeMap::new();
+        method_facts.insert(method.clone(), facts(MethodKind::Inherent, true, 0));
+
+        let resolved = combine_kind(
+            &cands,
+            &method_facts,
+            ReceiverRecovery::StdWrapperPeel,
+            Some(0),
+            false,
+        )
+        .expect("wrapper peeled candidate");
+
+        assert_eq!(resolved.len(), 1);
+        assert_eq!(resolved[0].target, &method);
+        assert_eq!(resolved[0].confidence, ResolutionConfidence::NameOnly);
+        assert_eq!(resolved[0].kind, ResolutionKind::TypedParam);
+    }
+
+    #[test]
+    fn combine_kind_multi_demotes_all() {
+        let a = fid("a");
+        let b = fid("b");
+        let cands = vec![a.clone(), b.clone()];
+        let mut method_facts = BTreeMap::new();
+        method_facts.insert(a.clone(), facts(MethodKind::Inherent, true, 0));
+        method_facts.insert(
+            b.clone(),
+            facts(MethodKind::Trait("Trait".to_string()), true, 0),
+        );
+
+        let resolved = combine_kind(
+            &cands,
+            &method_facts,
+            ReceiverRecovery::TypedParam,
+            Some(0),
+            false,
+        )
+        .expect("multi candidate set");
+
+        assert_eq!(resolved.len(), 2);
+        assert!(resolved
+            .iter()
+            .all(|r| r.confidence == ResolutionConfidence::NameOnly));
+        assert!(resolved.iter().all(|r| r.kind == ResolutionKind::TraitCha));
+        assert_eq!(resolved[0].target, &a);
+        assert_eq!(resolved[1].target, &b);
+    }
+
+    #[test]
+    fn combine_kind_empty_after_has_self_filter_drops() {
+        let assoc = fid("assoc");
+        let cands = vec![assoc.clone()];
+        let mut method_facts = BTreeMap::new();
+        method_facts.insert(assoc, facts(MethodKind::Inherent, false, 0));
+
+        assert_eq!(
+            combine_kind(
+                &cands,
+                &method_facts,
+                ReceiverRecovery::TypedParam,
+                Some(0),
+                false
+            ),
+            None
+        );
+    }
+
+    #[test]
+    fn combine_kind_arity_mismatch_drops_but_unknown_keeps() {
+        let method = fid("arity");
+        let cands = vec![method.clone()];
+        let mut method_facts = BTreeMap::new();
+        method_facts.insert(method.clone(), facts(MethodKind::Inherent, true, 2));
+
+        assert_eq!(
+            combine_kind(
+                &cands,
+                &method_facts,
+                ReceiverRecovery::TypedParam,
+                Some(1),
+                false
+            ),
+            None
+        );
+
+        let unknown = combine_kind(
+            &cands,
+            &method_facts,
+            ReceiverRecovery::TypedParam,
+            None,
+            false,
+        )
+        .expect("unknown arity keeps candidate");
+        assert_eq!(unknown.len(), 1);
+        assert_eq!(unknown[0].target, &method);
+        assert_eq!(unknown[0].confidence, ResolutionConfidence::Exact);
     }
 }

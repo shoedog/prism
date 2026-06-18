@@ -7,11 +7,13 @@ execution infra, and the operational gotchas.
 ---
 
 ## 1. Status snapshot
-- **Doing:** executing the Phase-2a implementation plan via the codex implement(high)/review(xhigh) loop on
-  branch **`phase2-receiver-typing`** (off the docs branch `rust-receiver-typing-design`, off `main`).
-- **Progress:** **PR-1 ✅ + PR-2 ✅ COMPLETE** (both read-inert, `--matrix-only` = 0 regressions throughout).
-  **Next: PR-3 T3.1** (the ONE behavior-changing PR + the Tier-A 2a gate). PR-2 chain: T2.1 `48f15d9`, T2.2
-  `287f8d2`, T2.3 `cad4310`, T2.4 `e80644c`, PR-2-review-fix `3b94052`. (`git log --oneline` is authoritative.)
+- **Status: Phase-2a COMPLETE** on branch **`phase2-receiver-typing`** (off `rust-receiver-typing-design`, off
+  `main`) — PR-1 ✅ + PR-2 ✅ + PR-3 ✅, all via the codex implement(high)/review(xhigh) loop. **Held for owner
+  go on push/PR** (not pushed; no PRs).
+- **Progress:** **PR-1 ✅ + PR-2 ✅ (read-inert) + PR-3 ✅ (the behavior change, Tier-A-measured PASS).** PR-2
+  chain: T2.1 `48f15d9`, T2.2 `287f8d2`, T2.3 `cad4310`, T2.4 `e80644c`, PR-2-review-fix `3b94052`. PR-3 chain:
+  T3.1 `059503c`, T3.2 `e7800e6`+`7d85dc9`, T3.3 `125f9a8`, T3.4 `ba140e9`, **final-review BLOCKER fold
+  `842e46e`**. (`git log --oneline` is authoritative.)
 - **HANG MITIGATION (apply to every dispatch):** wrap the bridge call in `timeout 1800`; in task specs tell
   implementer/reviewer to run ONLY `cargo test --lib` + `fmt`/`clippy -p prism --lib`/`build` and to NOT run
   the full `cargo test` or the `cli`/`frameworks` integration targets (they stall at macOS `_dyld_start` /
@@ -61,20 +63,31 @@ execution infra, and the operational gotchas.
   set `receiver_outcome` **in place** on `calls` + `callers` (order-preserving; `BTreeSet` element = remove+
   reinsert, cmp_key-excluded so order holds); leave `receiver_type` unchanged; `--matrix-only` parity → PR-2.
 
-**PR-3 — read path + the Tier-A gate (the ONE measured behavior change):**
-- T3.1 `combine_kind(cands, method_facts, recovery, arg_count, arg_spread)`: inherent-single→Exact;
+**PR-3 — read path + the Tier-A gate (the ONE measured behavior change) — ✅ COMPLETE:**
+- T3.1 ✅ `059503c` `combine_kind(cands, method_facts, recovery, arg_count, arg_spread)`: inherent-single→Exact;
   trait/wrapper-single→NameOnly; multi→TraitCha-demote; empty→drop; arity via `MethodFacts.arity_excl_self`.
-- T3.2 R6 read branch on `site.receiver_outcome` (`InRepo` → methods_by_scope, empty+`identity_complete`→drop
-  else bare via `oc.bare`; `External` → bare methods (extension traits); `Bare` → today's owner_lookup; `None`
-  → residue). Go path (`receiver_type`) untouched. **The non-regression tests** (trait static/dyn as NameOnly,
-  cross-module no-collision, external-recv drop, extension-trait resolve, unrecovered→residue, incomplete-
-  identity→bare).
-- T3.3 F6 incremental: rebuild identity indices + `rematerialize_rust_receiver_keys` on incremental rebuild
+- T3.2 ✅ `e7800e6`+`7d85dc9` R6 read branch on `site.receiver_outcome` (`InRepo` → methods_by_scope, empty+
+  `identity_complete`→drop else bare via `oc.bare`; `External` → **isolated `extension_methods` index** (NOT
+  bare methods — the `7d85dc9` wrong-edge fix); `Bare` → owner_lookup; `None` → residue). Go path
+  (`receiver_type`) untouched.
+- T3.3 ✅ `125f9a8` F6 incremental: rebuild identity indices + `rematerialize_rust_receiver_keys` on incremental
   (rebuild-together; don't merge stale).
-- T3.4 capability fixtures (`field_typed_recovery`, `return_typed_recovery`, `extension_trait_method`,
-  `cross_module_no_collision`) + `--matrix-only` (no fixture regresses; trait fixtures stay `ok` as NameOnly).
-- T3.5 the **Tier-A 2a gate**: `--quick` + `--corpus prism`; report precision↑ (the receiver-method + cross-
-  module FPs drop) / recall held; adjudicate flips; final codex xhigh branch review → PR-3.
+- T3.4 ✅ `ba140e9` capability fixtures (`field_typed_recovery`, `return_typed_recovery`, `extension_trait_method`,
+  `cross_module_no_collision`) — all `ok` (trait fixtures stay `ok` as NameOnly).
+- **Final review BLOCKER fold ✅ `842e46e`:** the PR-3 cumulative review (codex xhigh) found R3/R3b pre-empting
+  the materialized Rust `receiver_outcome` branch — a `x.m()` whose receiver-var name matched a type owner key
+  resolved to the wrong owner (a wrong edge). Fixed: gate R3+R3b on `!rust_recv_materialized` so a materialized
+  Rust receiver outcome drives R6 first (§3.3); regression test `rust_receiver_outcome_wins_over_owner_key_collision`
+  (fails-before/passes-after). Re-review (codex xhigh): **APPROVE, no findings** (traced that `Foo::m()`
+  path-qualified calls carry no receiver_outcome, so R1 type-qualified resolution is untouched).
+- T3.5 ✅ **Tier-A 2a gate — PASS** (full writeup `/tmp/pr3-measurement-summary.md`): `--matrix-only` EXIT 0,
+  **19/19 rust fixtures `ok`, 0 regressions**; `--quick` M2 (dogfood) **P=1.0, fp=0 across all strata,
+  byte-identical pre→post the fix** — the PR-3 behavior change introduced zero FPs, recall preserved; the
+  precedence fix moved 0 dogfood edges (no var==type collisions in prism's Rust → its value is
+  correctness-completeness, proven by the regression test + matrix). `--quick` exits 2 only on the U-method
+  oracle/adjudication coverage floor-fail (2 probes pending re-adjudication, `stale_adjudications` 3,
+  `sut_error_rate` 0.0 — NOT a prism regression, identical pre/post; the 3 stale verdicts are flip-candidates
+  for the PR description, adjudicated via the dual-adjudicator protocol, NOT self-adjudicated).
 
 ## 4. Deferred items (DO NOT LOSE)
 **Inside Phase 2a (tracked tasks #42/#43):**
@@ -125,9 +138,14 @@ execution infra, and the operational gotchas.
   --test <name> < /dev/null` confirms a stalled target green (e.g. `frameworks` = 40/0).
 - **Slow CLI dogfood tests:** the `cli` target's `nav_compat` tests run repo-wide `prism nav` (~3 min, not a
   hang) — allow time or `--test cli -- --test-threads=1`. (Also a latent `prism nav` perf signal.)
-- **`tier-a --quick` exits 2 on the feature branch** = `corpus_sha_drift` vs pinned `516cd3abacaf` (EXPECTED,
-  not a regression; `sut_error 0.0 / regressions 0` confirm). `--matrix-only` is the inert-parity gate; the
-  real measurement is the PR-3 2a gate (T3.5).
+- **`tier-a --quick` exits 2** = `baseline_invalid` (rc 2; `cli.py:746`). On this branch the cause is the
+  U-method stratum floor-fail (2 thin-stratum probes at `src/ast.rs:753`/`src/type_db.rs:482` pending
+  re-adjudication; `stale_adjudications`>0 after a behavior change) — NOT drift and NOT a prism regression
+  (`sut_error_rate 0.0`). `--allow-drift` covers the separate `corpus_sha_drift` cause. **Output goes to
+  `eval/runs/<date>-prism.json` + `docs/eval/tier-a/`, NOT stdout** (empty stdout on the invalid path) — read
+  the run JSON's `meta.invalid_reasons` / `m2` / `matrix`. `--matrix-only` (EXIT 0 = clean) is the
+  authoritative inert+capability gate; the M2 numbers are the precision/recall payoff (with the pending-
+  adjudication caveat).
 - **Untracked run-artifacts** (`docs/eval/tier-a/2026-06-15-*`, `eval/snapshots/prism-*.json`) — leave
   untracked, NEVER commit (owner instruction). Each tier-a run adds a `prism-<sha>.json` snapshot.
 - **Inertness contract:** PR-1/PR-2 must not change any resolved edge. `receiver_outcome` is cmp_key-excluded;

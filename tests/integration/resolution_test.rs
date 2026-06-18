@@ -47,6 +47,31 @@ fn build_cfg(
     (CallGraph::build_with_receiver_config(&files, cfg), files)
 }
 
+fn build_rust_complete(
+    sources: &[(&str, &str)],
+) -> (CallGraph, BTreeMap<String, prism::ast::ParsedFile>) {
+    use prism::call_graph::ScopeGraphBuildInputs;
+    use prism::languages::Language::Rust;
+    use prism::name_resolution::rust_populator::RustCrateConfig;
+
+    let mut files = BTreeMap::new();
+    for (path, src) in sources {
+        files.insert(
+            path.to_string(),
+            prism::ast::ParsedFile::parse(path, src, Rust).unwrap(),
+        );
+    }
+    let mut inputs = ScopeGraphBuildInputs::from_files_convention(&files);
+    inputs.cfg = RustCrateConfig {
+        crate_roots: files.keys().cloned().collect(),
+        ..RustCrateConfig::default()
+    };
+    (
+        CallGraph::build_with_scope_graph_inputs(&files, Some(&inputs)),
+        files,
+    )
+}
+
 // Slice A parity gate: `legacy` reproduces PR-1's P6-lite recovery byte-for-byte,
 // and the default `expanded` mode is identical to it (no new forms yet).
 #[test]
@@ -453,6 +478,220 @@ fn non_go_repo_has_empty_interface_impls() {
         Rust,
     )]);
     assert!(cg.interface_impls.is_empty());
+}
+
+#[test]
+fn rust_receiver_outcome_cross_module_no_collision() {
+    let (cg, _) = build_rust_complete(&[(
+        "lib.rs",
+        "mod a { pub struct Foo; impl Foo { pub fn m(&self) {} } }\n\
+         mod b { pub struct Foo; impl Foo { pub fn m(&self) {} } }\n\
+         fn run(x: crate::b::Foo) { x.m(); }\n",
+    )]);
+    let site = site_in(&cg, "run", "m");
+    assert!(site.receiver_outcome.is_some(), "{site:?}");
+    let r = cg.resolve_call_site(&site);
+    assert_eq!(r.len(), 1, "b::Foo::m only; a::Foo::m is a decoy");
+    assert_eq!(r[0].target.file, "lib.rs");
+    assert_eq!(r[0].target.name, "m");
+    assert_eq!(r[0].target.start_line, 2);
+    assert_eq!(r[0].confidence, ResolutionConfidence::Exact);
+    assert_eq!(r[0].kind, ResolutionKind::TypedParam);
+}
+
+#[test]
+fn rust_receiver_outcome_wins_over_owner_key_collision() {
+    let (cg, _) = build_rust_complete(&[(
+        "lib.rs",
+        "struct x; impl x { fn m(&self){} }\n\
+         struct Real; impl Real { fn m(&self){} }\n\
+         fn run(x: Real) { x.m(); }\n",
+    )]);
+    let site = site_in(&cg, "run", "m");
+    assert!(site.receiver_outcome.is_some(), "{site:?}");
+    let r = cg.resolve_call_site(&site);
+    assert_eq!(r.len(), 1, "Real::m only; x::m is a decoy");
+    assert_eq!(r[0].target.file, "lib.rs");
+    assert_eq!(r[0].target.name, "m");
+    assert_eq!(r[0].target.start_line, 2);
+    assert_eq!(r[0].confidence, ResolutionConfidence::Exact);
+    assert_eq!(r[0].kind, ResolutionKind::TypedParam);
+}
+
+#[test]
+fn rust_receiver_outcome_trait_static_dispatch_found_as_nameonly() {
+    let (cg, _) = build_rust_complete(&[(
+        "lib.rs",
+        "trait Runner { fn go(&self); }\n\
+         struct Fast;\n\
+         impl Runner for Fast { fn go(&self) {} }\n\
+         fn run(f: crate::Fast) { f.go(); }\n",
+    )]);
+    let site = site_in(&cg, "run", "go");
+    assert!(site.receiver_outcome.is_some(), "{site:?}");
+    let r = cg.resolve_call_site(&site);
+    assert_eq!(r.len(), 1);
+    assert_eq!(r[0].confidence, ResolutionConfidence::NameOnly);
+    assert_eq!(r[0].kind, ResolutionKind::TypedParam);
+}
+
+#[test]
+fn rust_receiver_outcome_trait_dyn_dispatch_found_as_nameonly() {
+    let (cg, _) = build_rust_complete(&[(
+        "lib.rs",
+        "trait Runner { fn go(&self); }\n\
+         struct Fast;\n\
+         impl Runner for Fast { fn go(&self) {} }\n\
+         fn run(r: &dyn crate::Runner) { r.go(); }\n",
+    )]);
+    let site = site_in(&cg, "run", "go");
+    assert!(site.receiver_outcome.is_some(), "{site:?}");
+    let r = cg.resolve_call_site(&site);
+    assert_eq!(r.len(), 1);
+    assert_eq!(r[0].confidence, ResolutionConfidence::NameOnly);
+    assert_eq!(r[0].kind, ResolutionKind::TypedParam);
+}
+
+#[test]
+fn rust_receiver_outcome_external_recv_no_in_repo_method_drops() {
+    let (cg, _) = build_rust_complete(&[(
+        "lib.rs",
+        "fn get() {}\n\
+         fn run(m: std::collections::BTreeMap<u8, u8>) { m.get(&0); }\n",
+    )]);
+    let site = site_in(&cg, "run", "get");
+    assert!(site.receiver_outcome.is_some(), "{site:?}");
+    let out = cg.resolve_call_site_full(&site);
+    assert!(
+        out.resolved.is_empty(),
+        "free fn get must not be a receiver edge"
+    );
+    assert_eq!(out.drop, Some(DropReason::ExternalReceiver));
+}
+
+#[test]
+fn rust_receiver_outcome_external_same_bare_decoy_does_not_bind_local_method() {
+    let (cg, _) = build_rust_complete(&[(
+        "lib.rs",
+        "fn run(s: std::string::String) { s.ext(); }\n\
+         mod local {\n\
+             pub struct String;\n\
+             impl String { pub fn ext(&self) {} }\n\
+         }\n",
+    )]);
+    let site = site_in(&cg, "run", "ext");
+    assert!(site.receiver_outcome.is_some(), "{site:?}");
+    let out = cg.resolve_call_site_full(&site);
+    assert!(
+        out.resolved
+            .iter()
+            .all(|callee| callee.target.start_line != 4),
+        "std String receiver must not bind local::String::ext: {:?}",
+        out.resolved
+    );
+    assert!(out.resolved.is_empty(), "{out:?}");
+    assert_eq!(out.drop, Some(DropReason::ExternalReceiver));
+}
+
+#[test]
+fn rust_receiver_outcome_extension_trait_on_external_resolves() {
+    let (cg, _) = build_rust_complete(&[(
+        "lib.rs",
+        "trait Ext { fn ext(&self); }\n\
+         impl Ext for String { fn ext(&self) {} }\n\
+         mod local {\n\
+             pub struct String;\n\
+             impl String { pub fn ext(&self) {} }\n\
+         }\n\
+         fn run(s: String) { s.ext(); }\n",
+    )]);
+    let site = site_in(&cg, "run", "ext");
+    assert!(site.receiver_outcome.is_some(), "{site:?}");
+    let r = cg.resolve_call_site(&site);
+    assert_eq!(r.len(), 1);
+    assert_eq!(r[0].target.name, "ext");
+    assert_eq!(r[0].target.start_line, 2, "must bind the extension impl");
+    assert_eq!(r[0].confidence, ResolutionConfidence::NameOnly);
+}
+
+#[test]
+fn rust_receiver_outcome_unrecovered_receiver_hits_residue() {
+    let (cg, _) = build_rust_complete(&[(
+        "lib.rs",
+        "struct OnlyOwner;\n\
+         impl OnlyOwner { fn frobnicate(&self) {} }\n\
+         fn mystery() {}\n\
+         fn run() { let x = mystery(); x.frobnicate(); }\n",
+    )]);
+    let site = site_in(&cg, "run", "frobnicate");
+    assert!(
+        site.receiver_outcome.is_none(),
+        "unrecovered receiver stays unrecovered"
+    );
+    let r = cg.resolve_call_site(&site);
+    assert_eq!(r.len(), 1);
+    assert_eq!(r[0].kind, ResolutionKind::R6SingleOwner);
+    assert_eq!(r[0].confidence, ResolutionConfidence::NameOnly);
+}
+
+#[test]
+fn rust_receiver_outcome_incomplete_identity_bucket_falls_back_to_bare() {
+    use prism::resolution::ReceiverRecovery;
+    use prism::resolution_identity::{ReceiverOutcome, ReceiverTypeKey};
+
+    let (mut cg, _) = build_rust_complete(&[(
+        "lib.rs",
+        "mod a { pub struct Foo; impl Foo { pub fn m(&self) {} } }\n\
+         fn run(x: crate::a::Foo) { x.m(); }\n",
+    )]);
+    let mut site = site_in(&cg, "run", "m");
+    let (scope, _) = cg
+        .methods_by_scope
+        .keys()
+        .find(|(_, name)| name == "m")
+        .cloned()
+        .expect("identity-indexed Foo::m");
+    cg.methods_by_scope.remove(&(scope, "m".to_string()));
+    cg.identity_complete
+        .remove(&("Foo".to_string(), "m".to_string()));
+    site.receiver_outcome = Some(ReceiverOutcome {
+        key: ReceiverTypeKey::InRepo(scope),
+        bare: "Foo".to_string(),
+        recovery: ReceiverRecovery::TypedParam,
+    });
+
+    let r = cg.resolve_call_site(&site);
+    assert_eq!(r.len(), 1, "must fall back to bare owner_lookup, not drop");
+    assert_eq!(r[0].target.name, "m");
+}
+
+#[test]
+fn rust_receiver_outcome_graph_backed_combine_kind_inherent_exact_trait_nameonly() {
+    let (cg, _) = build_rust_complete(&[(
+        "lib.rs",
+        "struct Fast;\n\
+         impl Fast { fn inherent(&self) {} }\n\
+         trait Runner { fn go(&self); }\n\
+         impl Runner for Fast { fn go(&self) {} }\n\
+         fn run(f: crate::Fast) { f.inherent(); f.go(); }\n",
+    )]);
+
+    let inherent_site = site_in(&cg, "run", "inherent");
+    assert!(
+        inherent_site.receiver_outcome.is_some(),
+        "{inherent_site:?}"
+    );
+    let inherent = cg.resolve_call_site(&inherent_site);
+    assert_eq!(inherent.len(), 1);
+    assert_eq!(inherent[0].confidence, ResolutionConfidence::Exact);
+    assert_eq!(inherent[0].kind, ResolutionKind::TypedParam);
+
+    let trait_site = site_in(&cg, "run", "go");
+    assert!(trait_site.receiver_outcome.is_some(), "{trait_site:?}");
+    let trait_call = cg.resolve_call_site(&trait_site);
+    assert_eq!(trait_call.len(), 1);
+    assert_eq!(trait_call[0].confidence, ResolutionConfidence::NameOnly);
+    assert_eq!(trait_call[0].kind, ResolutionKind::TypedParam);
 }
 
 fn go_iface_src() -> &'static str {

@@ -231,6 +231,8 @@ impl CodePropertyGraph {
         // leave a stale alias (remove_files prunes methods by fid.file only).
         cached_cg.apply_go_embedding_promotion(files);
         cached_cg.apply_go_interface_dispatch(files);
+        // Rebuild-together: this also refreshes Phase-2a Rust receiver indices
+        // and re-materializes CallSite.receiver_outcome before assemble reads it.
         cached_cg.rebuild_scope_graph(files, scope_inputs);
 
         Self::assemble_graph(cached_cg, cached_dfg, files, type_db)
