@@ -49,6 +49,7 @@ pub mod output;
 pub mod queries;
 pub mod react_hooks;
 pub mod reasoning;
+mod receiver_index;
 pub mod repo_loader;
 pub mod resolution;
 pub mod resolution_identity;
