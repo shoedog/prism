@@ -1,0 +1,13 @@
+[case]
+language = "rust"
+capability = "cross_module_no_collision"
+status = "pass"
+[seed]
+symbol = "m"
+file = "b.rs"
+line = 4
+[[expect.callers]]
+file = "main.rs"
+line = 5
+[expect]
+exact = true

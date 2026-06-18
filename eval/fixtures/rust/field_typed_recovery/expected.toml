@@ -1,0 +1,13 @@
+[case]
+language = "rust"
+capability = "field_typed_recovery"
+status = "pass"
+[seed]
+symbol = "poke"
+file = "main.rs"
+line = 4
+[[expect.callers]]
+file = "main.rs"
+line = 13
+[expect]
+exact = true

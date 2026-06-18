@@ -1,6 +1,6 @@
 use prism::ast::ParsedFile;
 use prism::call_graph::{CallGraph, CallKind};
-use prism::cpg::CpgContext;
+use prism::cpg::{CodePropertyGraph, CpgContext};
 use prism::languages::Language;
 use prism::name_resolution::engine::resolve_path;
 use prism::name_resolution::rust_policy::{RustPolicy, NS_TYPE, NS_VALUE};
@@ -10,6 +10,7 @@ use prism::navigation::module_graph::module_deps;
 use prism::navigation::types::{Reason, SymbolRef};
 use prism::navigation::{queries, NavigationIndex, NavigationSession};
 use prism::repo_loader::{load_repo, scope_graph_build_inputs};
+use prism::resolution_identity::{resolve_type_path_to_type_scope, ReceiverTypeKey, TypeKey};
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 use tempfile::TempDir;
@@ -176,6 +177,95 @@ fn incremental_recomputes_scope_graph_from_all_files() {
         cached.scope_graph.is_some(),
         "incremental merge should recompute a whole-repo scope graph"
     );
+}
+
+#[test]
+fn incremental_rebuild_rematerializes_receiver_outcome_no_stale_scopeid() {
+    let parse_files = |model_src: &str| {
+        BTreeMap::from([
+            (
+                "src/lib.rs".to_string(),
+                ParsedFile::parse(
+                    "src/lib.rs",
+                    "mod model;\n\
+                     use crate::model::Outer;\n\
+                     pub fn run(o: Outer) { let x = o.inner; x.poke(); }\n",
+                    Language::Rust,
+                )
+                .unwrap(),
+            ),
+            (
+                "src/model.rs".to_string(),
+                ParsedFile::parse("src/model.rs", model_src, Language::Rust).unwrap(),
+            ),
+        ])
+    };
+    let initial_model = "pub struct Inner;\n\
+                         impl Inner { pub fn poke(&self) {} }\n\
+                         pub struct Inner2;\n\
+                         impl Inner2 { pub fn poke(&self) {} }\n\
+                         pub struct Outer { pub inner: Inner }\n";
+    let updated_model = "pub struct Inner;\n\
+                         impl Inner { pub fn poke(&self) {} }\n\
+                         pub struct Inner2;\n\
+                         impl Inner2 { pub fn poke(&self) {} }\n\
+                         pub struct Outer { pub inner: Inner2 }\n";
+
+    let initial_files = parse_files(initial_model);
+    let initial_inputs =
+        prism::call_graph::ScopeGraphBuildInputs::from_files_convention(&initial_files);
+    let initial =
+        CpgContext::build_with_scope_graph_inputs(&initial_files, None, Some(&initial_inputs));
+
+    let updated_files = parse_files(updated_model);
+    let updated_inputs =
+        prism::call_graph::ScopeGraphBuildInputs::from_files_convention(&updated_files);
+    let changed = BTreeSet::from(["src/model.rs".to_string()]);
+    let incremental = CodePropertyGraph::build_incremental_with_scope_graph_inputs(
+        initial.cpg.call_graph.clone(),
+        initial.cpg.dfg.clone(),
+        &changed,
+        &updated_files,
+        None,
+        Some(&updated_inputs),
+    );
+    let cg = &incremental.call_graph;
+
+    let graph = cg.scope_graph.as_ref().expect("fresh scope graph");
+    let lib_file = file_id(&updated_files, "src/lib.rs").expect("lib file id");
+    let lib_scope = enclosing_scope(graph, lib_file, 0).expect("lib module scope");
+    let inner2_scope =
+        match resolve_type_path_to_type_scope(graph, lib_scope, "crate::model::Inner2") {
+            Some(TypeKey::InRepo(scope)) => scope,
+            other => panic!("expected current Inner2 scope, got {other:?}"),
+        };
+    let inner_scope = match resolve_type_path_to_type_scope(graph, lib_scope, "crate::model::Inner")
+    {
+        Some(TypeKey::InRepo(scope)) => scope,
+        other => panic!("expected current Inner scope, got {other:?}"),
+    };
+    assert_ne!(inner_scope, inner2_scope, "decoy scopes must be distinct");
+
+    let site = cg
+        .calls
+        .iter()
+        .find(|(fid, _)| fid.name == "run")
+        .and_then(|(_, sites)| sites.iter().find(|site| site.callee_name == "poke"))
+        .cloned()
+        .expect("run -> poke call site");
+    let outcome = site
+        .receiver_outcome
+        .expect("receiver outcome rematerialized");
+    assert_eq!(outcome.key, ReceiverTypeKey::InRepo(inner2_scope));
+    assert_ne!(outcome.key, ReceiverTypeKey::InRepo(inner_scope));
+
+    let callers_outcome = cg
+        .callers
+        .get("poke")
+        .and_then(|sites| sites.iter().find(|site| site.caller.name == "run"))
+        .and_then(|site| site.receiver_outcome.clone())
+        .expect("callers index receiver outcome rematerialized");
+    assert_eq!(callers_outcome, outcome);
 }
 
 #[test]
