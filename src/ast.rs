@@ -5076,6 +5076,61 @@ mod tests {
     }
 
     #[test]
+    fn call_args_index_edge_cases() {
+        // For each fixture, every call site: index == reference walk.
+        let fixtures: &[(&str, Language, &str)] = &[
+            ("fn f(){ g(&x, &&y); }", Language::Rust, "ref.rs"), // leading-& strip (repeated)
+            ("fn f(){ a(b(c), d(e)); }", Language::Rust, "nest.rs"), // nested calls
+            ("fn f(){ p(1); q(2); }", Language::Rust, "twoline.rs"), // two calls, one line
+            ("fn f(){ z(); }", Language::Rust, "zero.rs"),       // zero-arg
+            ("fn f(){ a.b().c(d); }", Language::Rust, "chain.rs"), // same start_byte, distinct names
+            ("fn f(){ a.b().b(d); }", Language::Rust, "samechain.rs"), // same start_byte AND name -> outer wins
+            (
+                "fn f(){\n  obj\n    .m(\n      arg,\n    );\n}",
+                Language::Rust,
+                "multi.rs",
+            ), // multi-line
+        ];
+        for (src, lang, path) in fixtures {
+            let pf = ParsedFile::parse(path, src, *lang).unwrap();
+            for (sb, name) in all_call_sites(&pf) {
+                assert_eq!(
+                    index_texts(&pf, sb, &name),
+                    pf.call_argument_texts_at_reference(sb, &name),
+                    "{path} byte {sb} `{name}`"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn call_args_index_name_mismatch_is_empty() {
+        // Querying a real call's start_byte with the WRONG name returns empty (legacy parity).
+        let pf = ParsedFile::parse("m.rs", "fn f(){ g(a, b); }", Language::Rust).unwrap();
+        let (sb, name) = all_call_sites(&pf)
+            .into_iter()
+            .find(|(_, n)| n == "g")
+            .unwrap();
+        assert_eq!(index_texts(&pf, sb, "not_g"), Vec::<String>::new());
+        assert_eq!(
+            index_texts(&pf, sb, &name),
+            pf.call_argument_texts_at_reference(sb, &name)
+        );
+    }
+
+    #[test]
+    fn call_args_index_same_start_same_name_outer_wins() {
+        // a.b().b(d): outer and inner call both start at byte(a) and are named `b`.
+        // First-write-wins (pre-order = outer) must match the reference walk.
+        let pf =
+            ParsedFile::parse("s.rs", "fn f(){ a.b().b(outer_arg); }", Language::Rust).unwrap();
+        // The shared start_byte is the byte of `a` inside the body.
+        let a_byte = pf.source.find("a.b()").unwrap();
+        let got = index_texts(&pf, a_byte, "b");
+        assert_eq!(got, pf.call_argument_texts_at_reference(a_byte, "b"));
+    }
+
+    #[test]
     fn candidate_fields_are_maximal_post_accessor_identifiers() {
         let got = candidate_fields_on_line("s.cb = f; t->cbx = g; obj.data->next = h; x = 3.14;");
         let want: BTreeSet<String> = ["cb", "cbx", "data", "next", "14"]
