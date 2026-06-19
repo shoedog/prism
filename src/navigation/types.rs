@@ -139,9 +139,20 @@ pub enum ReasoningReason {
 
 #[derive(Debug, Clone, Serialize, PartialEq)]
 pub enum ReasoningWarning {
-    SeedUnresolved { seed: String },
-    InterproceduralBoundary { sink: String },
-    Cleansed { source_function: String },
+    SeedUnresolved {
+        seed: String,
+    },
+    InterproceduralBoundary {
+        sink: String,
+    },
+    Cleansed {
+        source_function: String,
+    },
+    UnmodeledConstruct {
+        language: String,
+        construct: String,
+        function: String,
+    },
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq)]
