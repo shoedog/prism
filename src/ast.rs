@@ -60,6 +60,24 @@ pub struct FunctionInfo {
     pub receiver_var: Option<String>,
 }
 
+/// One argument of a call, as a source byte-span (the S2 byte-identity anchor).
+/// Text is derived on demand (§3.4) so the index can later carry typed-arg info /
+/// re-descend to the node without a rewrite.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct CallArg {
+    pub start_byte: usize,
+    pub end_byte: usize,
+}
+
+/// Per-file call-argument index, keyed by (call node start_byte, callee name).
+/// Built once per file by a single pre-order walk; replaces the per-lookup
+/// full-tree walk in the legacy `collect_call_args_at`.
+#[derive(Clone, Debug, Default)]
+pub(crate) struct CallArgsIndex {
+    #[allow(dead_code)]
+    by_call: BTreeMap<(usize, String), Vec<CallArg>>,
+}
+
 /// A variable occurrence the parser located, with its real source span.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PathSpan {
@@ -95,6 +113,11 @@ pub struct ParsedFile {
     /// Lazy framework detection, populated on first call to `framework()`.
     pub framework: std::sync::OnceLock<Option<&'static crate::frameworks::FrameworkSpec>>,
     functions: Vec<FunctionInfo>,
+    /// Lazily-built call-argument index (Task S1.5). Lazy so warm nav-cache loads,
+    /// AST-only consumers, and callers with no resolved-call args pay nothing; the
+    /// cold CPG/nav build that runs Step 5b builds it on demand.
+    #[allow(dead_code)]
+    call_args: std::sync::OnceLock<CallArgsIndex>,
 }
 
 impl ParsedFile {
@@ -126,6 +149,7 @@ impl ParsedFile {
             line_offsets,
             framework: std::sync::OnceLock::new(),
             functions: Vec::new(),
+            call_args: std::sync::OnceLock::new(),
         };
         pf.functions = pf.build_function_table();
         Ok(pf)
@@ -151,6 +175,69 @@ impl ParsedFile {
     /// Get text for a node.
     pub fn node_text(&self, node: &Node) -> &str {
         node.utf8_text(self.source.as_bytes()).unwrap_or("")
+    }
+
+    #[allow(dead_code)]
+    pub(crate) fn call_args_index(&self) -> &CallArgsIndex {
+        self.call_args.get_or_init(|| self.build_call_args_index())
+    }
+
+    #[allow(dead_code)]
+    fn build_call_args_index(&self) -> CallArgsIndex {
+        let mut by_call = BTreeMap::new();
+        self.index_call_args(self.tree.root_node(), &mut by_call);
+        CallArgsIndex { by_call }
+    }
+
+    #[allow(dead_code)]
+    fn index_call_args(&self, node: Node<'_>, out: &mut BTreeMap<(usize, String), Vec<CallArg>>) {
+        if self.language.is_call_node(node.kind()) {
+            if let Some(name_node) = self.language.call_function_name(&node) {
+                let key = (node.start_byte(), self.node_text(&name_node).to_string());
+                // First pre-order occurrence wins — mirrors the legacy first-match.
+                out.entry(key)
+                    .or_insert_with(|| self.named_arg_spans(&node));
+            }
+        }
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            self.index_call_args(child, out);
+        }
+    }
+
+    #[allow(dead_code)]
+    fn named_arg_spans(&self, call_node: &Node<'_>) -> Vec<CallArg> {
+        let mut args = Vec::new();
+        if let Some(args_node) = self.language.call_arguments(call_node) {
+            let mut cursor = args_node.walk();
+            for child in args_node.children(&mut cursor) {
+                if child.is_named() {
+                    args.push(CallArg {
+                        start_byte: child.start_byte(),
+                        end_byte: child.end_byte(),
+                    });
+                }
+            }
+        }
+        args
+    }
+
+    /// Derive an argument's text from its span, byte-identically to the legacy
+    /// `node_text(child).trim().trim_start_matches('&')`. Mirrors `node_text`'s
+    /// `utf8_text(...).unwrap_or("")` (panic-safe on a malformed span — yields "").
+    #[allow(dead_code)]
+    fn arg_text(&self, a: &CallArg) -> String {
+        // `.get(..)` (not direct `[..]`) so an out-of-range span yields "" instead of
+        // panicking — matches the stated panic-safe guarantee and `node_text`'s
+        // `utf8_text(...).unwrap_or("")`.
+        self.source
+            .as_bytes()
+            .get(a.start_byte..a.end_byte)
+            .and_then(|b| std::str::from_utf8(b).ok())
+            .unwrap_or("")
+            .trim()
+            .trim_start_matches('&')
+            .to_string()
     }
 
     /// Find the smallest function/method node containing the given line (1-indexed).
@@ -4311,8 +4398,21 @@ impl ParsedFile {
     /// Like `call_argument_texts`, but selects the call expression whose start
     /// byte == `start_byte` (disambiguates multiple calls on one line).
     pub fn call_argument_texts_at(&self, start_byte: usize, callee_name: &str) -> Vec<String> {
+        self.call_argument_texts_at_reference(start_byte, callee_name)
+    }
+
+    fn call_argument_texts_at_reference(
+        &self,
+        start_byte: usize,
+        callee_name: &str,
+    ) -> Vec<String> {
         let mut args = Vec::new();
-        self.collect_call_args_at(self.tree.root_node(), start_byte, callee_name, &mut args);
+        self.collect_call_args_at_reference(
+            self.tree.root_node(),
+            start_byte,
+            callee_name,
+            &mut args,
+        );
         args
     }
 
@@ -4353,7 +4453,7 @@ impl ParsedFile {
         }
     }
 
-    fn collect_call_args_at(
+    fn collect_call_args_at_reference(
         &self,
         node: Node<'_>,
         start_byte: usize,
@@ -4384,7 +4484,7 @@ impl ParsedFile {
             if !out.is_empty() {
                 return;
             }
-            self.collect_call_args_at(child, start_byte, callee_name, out);
+            self.collect_call_args_at_reference(child, start_byte, callee_name, out);
         }
     }
 
@@ -4892,6 +4992,87 @@ mod tests {
         // gate C2 — if only this one fails, that field is investigated separately.
         fn assert_send_sync<T: Send + Sync>() {}
         assert_send_sync::<crate::repo_loader::LoadedRepo>();
+    }
+
+    fn all_call_sites(pf: &ParsedFile) -> Vec<(usize, String)> {
+        // Every call node's (start_byte, callee_name), pre-order — the keys the index must serve.
+        fn walk(pf: &ParsedFile, node: tree_sitter::Node<'_>, out: &mut Vec<(usize, String)>) {
+            if pf.language.is_call_node(node.kind()) {
+                if let Some(name_node) = pf.language.call_function_name(&node) {
+                    out.push((node.start_byte(), pf.node_text(&name_node).to_string()));
+                }
+            }
+            let mut cursor = node.walk();
+            for child in node.children(&mut cursor) {
+                walk(pf, child, out);
+            }
+        }
+        let mut out = Vec::new();
+        walk(pf, pf.tree.root_node(), &mut out);
+        out
+    }
+
+    fn index_texts(pf: &ParsedFile, sb: usize, name: &str) -> Vec<String> {
+        pf.call_args_index()
+            .by_call
+            .get(&(sb, name.to_string()))
+            .map(|spans| spans.iter().map(|a| pf.arg_text(a)).collect())
+            .unwrap_or_default()
+    }
+
+    #[test]
+    fn call_args_index_matches_reference_all_languages() {
+        // One fixture per Language::all() variant; each contains calls with varied arg shapes.
+        let cases: Vec<(&str, Language, &str)> = vec![
+            (
+                "fn f(){ g(a, &b); o.m(x); a.b().c(d); h(); }",
+                Language::Rust,
+                "t.rs",
+            ),
+            ("func f(){ g(a, b); o.M(x); h() }", Language::Go, "t.go"),
+            (
+                "def f():\n    g(a, b)\n    o.m(x)\n    h()\n",
+                Language::Python,
+                "t.py",
+            ),
+            (
+                "function f(){ g(a, b); o.m(x); h(); }",
+                Language::JavaScript,
+                "t.js",
+            ),
+            (
+                "function f(x: number){ g(a, b); o.m(x); }",
+                Language::TypeScript,
+                "t.ts",
+            ),
+            (
+                "const f = () => { g(a, b); o.m(x); };",
+                Language::Tsx,
+                "t.tsx",
+            ),
+            (
+                "class C { void f(){ g(a, b); o.m(x); h(); } }",
+                Language::Java,
+                "T.java",
+            ),
+            ("void f(){ g(a, b); o->m(x); h(); }", Language::C, "t.c"),
+            ("void f(){ g(a, b); o.m(x); h(); }", Language::Cpp, "t.cpp"),
+            ("function f() g(a, b) o.m(x) end", Language::Lua, "t.lua"),
+            ("locals { x = max(1, 2) }\n", Language::Terraform, "t.tf"),
+            ("f() { cmd arg1 arg2; g; }\n", Language::Bash, "t.sh"),
+        ];
+        for (src, lang, path) in cases {
+            let pf = ParsedFile::parse(path, src, lang).unwrap();
+            let sites = all_call_sites(&pf);
+            assert!(!sites.is_empty(), "no call sites parsed for {path}");
+            for (sb, name) in sites {
+                assert_eq!(
+                    index_texts(&pf, sb, &name),
+                    pf.call_argument_texts_at_reference(sb, &name),
+                    "mismatch in {path} at byte {sb} call `{name}`"
+                );
+            }
+        }
     }
 
     #[test]
