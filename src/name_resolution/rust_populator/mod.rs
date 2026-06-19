@@ -95,6 +95,21 @@ impl RustCrateConfig {
             .collect();
         crate_roots.sort();
         crate_roots.dedup();
+        // Standalone fallback: a SINGLE-file non-Cargo repo (one top-level
+        // `main.rs`/`lib.rs`, or one ad-hoc `.rs`) has no conventional root and
+        // would otherwise yield a complete-but-empty scope graph. Root that one
+        // file. We deliberately do NOT pick a root in a MULTI-file non-Cargo repo:
+        // without a manifest we can't distinguish crate roots from `mod`-reached
+        // module files, and rooting one would orphan its un-`mod`-wired siblings
+        // (regressing cross-file name resolution). Multi-file non-Cargo repos keep
+        // the prior whole-file-set fallback. (mod-wiring inference for those is a
+        // deferred follow-on.)
+        if crate_roots.is_empty() {
+            let rust_files: Vec<&String> = files.keys().filter(|p| p.ends_with(".rs")).collect();
+            if rust_files.len() == 1 {
+                crate_roots.push(rust_files[0].clone());
+            }
+        }
         RustCrateConfig {
             edition: 2015,
             crate_roots,
@@ -230,4 +245,77 @@ pub fn populate_rust(
     let mut graph = b.finish();
     graph.edition = config.edition;
     graph
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::languages::Language;
+
+    #[test]
+    fn from_convention_roots_top_level_main_rs() {
+        let mut files = BTreeMap::new();
+        files.insert(
+            "main.rs".to_string(),
+            ParsedFile::parse("main.rs", "fn main() {}\n", Language::Rust).unwrap(),
+        );
+        let cfg = RustCrateConfig::from_convention(&files);
+        assert_eq!(
+            cfg.crate_roots,
+            vec!["main.rs".to_string()],
+            "a top-level main.rs must be rooted (standalone fallback), not left empty"
+        );
+    }
+
+    #[test]
+    fn from_convention_roots_single_ad_hoc_rs() {
+        let mut files = BTreeMap::new();
+        files.insert(
+            "scratch.rs".to_string(),
+            ParsedFile::parse("scratch.rs", "pub struct A;\n", Language::Rust).unwrap(),
+        );
+        let cfg = RustCrateConfig::from_convention(&files);
+        assert_eq!(cfg.crate_roots, vec!["scratch.rs".to_string()]);
+    }
+
+    #[test]
+    fn from_convention_does_not_root_multifile_nonconventional() {
+        // Two ad-hoc files, no top-level main/lib, no conventional root: module
+        // files must be reached via `mod`, not minted as independent roots.
+        let mut files = BTreeMap::new();
+        for f in ["a.rs", "b.rs"] {
+            files.insert(
+                f.to_string(),
+                ParsedFile::parse(f, "pub struct X;\n", Language::Rust).unwrap(),
+            );
+        }
+        let cfg = RustCrateConfig::from_convention(&files);
+        assert!(
+            cfg.crate_roots.is_empty(),
+            "multi-file non-conventional repo must not blindly root every .rs"
+        );
+    }
+
+    #[test]
+    fn from_convention_does_not_root_multifile_even_with_top_level_main() {
+        // A top-level `main.rs` alongside an un-`mod`-wired sibling must NOT be
+        // rooted: doing so builds a scope graph from main.rs that orphans the
+        // sibling (it isn't reached via `mod`), regressing cross-file resolution
+        // that the prior whole-file-set fallback handled. Only single-file repos
+        // get the standalone root.
+        let mut files = BTreeMap::new();
+        files.insert(
+            "main.rs".to_string(),
+            ParsedFile::parse("main.rs", "fn run() {}\n", Language::Rust).unwrap(),
+        );
+        files.insert(
+            "helpers.rs".to_string(),
+            ParsedFile::parse("helpers.rs", "pub fn compute() {}\n", Language::Rust).unwrap(),
+        );
+        let cfg = RustCrateConfig::from_convention(&files);
+        assert!(
+            cfg.crate_roots.is_empty(),
+            "multi-file non-Cargo repo (even with a top-level main.rs) must not be rooted"
+        );
+    }
 }

@@ -91,6 +91,9 @@ impl CallGraph {
                         };
                         let field_name = parsed.node_text(&name).trim().to_string();
                         let type_syntax = parsed.node_text(&type_node);
+                        if crate::resolution_receiver::std_wrapper_was_peeled(type_syntax) {
+                            continue;
+                        }
                         let item_cfg = Self::raw_cfg_attr(parsed, &child);
                         for (type_cfg, key) in
                             Self::resolve_index_types(graph, aliases, module_scope, type_syntax)
@@ -112,6 +115,10 @@ impl CallGraph {
                             continue;
                         }
                         let type_syntax = parsed.node_text(&child);
+                        if crate::resolution_receiver::std_wrapper_was_peeled(type_syntax) {
+                            position += 1;
+                            continue;
+                        }
                         let item_cfg = Self::raw_cfg_attr(parsed, &child);
                         for (type_cfg, key) in
                             Self::resolve_index_types(graph, aliases, module_scope, type_syntax)
@@ -158,6 +165,9 @@ impl CallGraph {
                 continue;
             };
             let return_syntax = parsed.node_text(&return_type);
+            if crate::resolution_receiver::std_wrapper_was_peeled(return_syntax) {
+                continue;
+            }
             let keys = if crate::resolution::peel_type(return_syntax) == "Self" {
                 Self::resolve_impl_self_return(graph, module_scope, parsed, &func_node)
                     .map(|key| vec![(None, key)])
@@ -225,6 +235,14 @@ impl CallGraph {
         depth: usize,
     ) -> Vec<(Option<String>, TypeKey)> {
         if depth > 8 {
+            return Vec::new();
+        }
+        // A std wrapper (Arc/Box/Rc/Pin) at THIS level — including an alias target
+        // reached by recursion (e.g. `type BoxedFoo = Box<Foo>`) — is not a sound
+        // receiver type; fail closed so wrapper-owned methods (e.g. clone) are never
+        // dispatched on the inner type. (Reference-only `&mut Self`/`&Foo` peels are
+        // NOT std-wrapper peels, so the builder-chain buy is preserved.)
+        if crate::resolution_receiver::std_wrapper_was_peeled(type_syntax) {
             return Vec::new();
         }
         let peeled = crate::resolution::peel_type(type_syntax);

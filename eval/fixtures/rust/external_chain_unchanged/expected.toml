@@ -1,0 +1,14 @@
+# Fail-closed: `v.iter().count()` is an external chain (Vec::iter -> Iterator::count).
+# The chain typer must NOT mistype the receiver to an in-repo `LocalA`/`LocalB`,
+# so neither in-repo `count` gains a caller (no wrong edge minted).
+[case]
+language = "rust"
+capability = "external_chain_unchanged"
+status = "pass"
+[seed]
+symbol = "count"
+file = "main.rs"
+line = 2
+[expect]
+callers = []
+exact = true

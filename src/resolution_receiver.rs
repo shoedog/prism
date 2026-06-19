@@ -1,5 +1,5 @@
 use crate::ast::ParsedFile;
-use crate::call_graph::{CallGraph, FunctionId};
+use crate::call_graph::{CallGraph, FunctionId, MethodKind};
 use crate::name_resolution::binding_lookup::{
     lookup_visible_binding, BindingKind, InitExpr, LocalFact,
 };
@@ -14,6 +14,7 @@ use crate::name_resolution::types::{
 use crate::resolution::{owner_key, peel_type, ReceiverRecovery};
 use crate::resolution_identity::{ReceiverOutcome, ReceiverTypeKey, TypeKey};
 use std::collections::BTreeSet;
+use tree_sitter::Node;
 
 const MAX_RECEIVER_TYPE_DEPTH: usize = 4;
 
@@ -41,6 +42,7 @@ struct TypeVisit {
 struct RecursionCtx<'a, 'v> {
     cg: &'a CallGraph,
     graph: &'a ScopeGraph,
+    parsed: &'a ParsedFile,
     generic_params: BTreeSet<String>,
     file: FileId,
     at_byte: usize,
@@ -51,10 +53,11 @@ struct RecursionCtx<'a, 'v> {
 }
 
 impl<'a, 'v> RecursionCtx<'a, 'v> {
-    fn descend<T>(&mut self, f: impl FnOnce(&mut RecursionCtx<'_, '_>) -> T) -> T {
+    fn descend<T>(&mut self, f: impl FnOnce(&mut RecursionCtx<'a, '_>) -> T) -> T {
         let mut child = RecursionCtx {
             cg: self.cg,
             graph: self.graph,
+            parsed: self.parsed,
             generic_params: self.generic_params.clone(),
             file: self.file,
             at_byte: self.at_byte,
@@ -83,14 +86,11 @@ impl<'a> RustReceiverTyper<'a> {
         }
         let file = self.graph.file_paths.get(&ctx.caller.file).copied()?;
         let module_scope = module_scope_for_byte(self.graph, file, ctx.fn_node.start_byte())?;
-        let expr = ctx
-            .receiver_expr
-            .map(|node| receiver_expr_text(ctx.parsed, node))
-            .or_else(|| ctx.qualifier.map(str::to_string))?;
         let mut visit = TypeVisit::default();
         let mut recursion = RecursionCtx {
             cg: self.cg,
             graph: self.graph,
+            parsed: ctx.parsed,
             generic_params: enclosing_generic_type_params(ctx.parsed, ctx.fn_node),
             file,
             at_byte: ctx.call_start_byte,
@@ -99,7 +99,11 @@ impl<'a> RustReceiverTyper<'a> {
             visit: &mut visit,
             depth: 0,
         };
-        type_of_expr(&mut recursion, &expr)
+        if let Some(node) = ctx.receiver_expr {
+            type_of_node(&mut recursion, node)
+        } else {
+            type_of_expr(&mut recursion, ctx.qualifier?)
+        }
     }
 }
 
@@ -121,6 +125,40 @@ fn type_of_expr(ctx: &mut RecursionCtx<'_, '_>, expr: &str) -> Option<ReceiverOu
         return ctx.descend(|ctx| local_receiver_type(ctx, expr));
     }
     None
+}
+
+fn type_of_node<'a>(
+    ctx: &mut RecursionCtx<'a, '_>,
+    node: tree_sitter::Node<'a>,
+) -> Option<ReceiverOutcome> {
+    if ctx.depth > MAX_RECEIVER_TYPE_DEPTH {
+        return None;
+    }
+    match node.kind() {
+        "call_expression" => {
+            if let Some(call) = method_call_parts(ctx.parsed, node) {
+                return ctx.descend(|ctx| method_chain_type(ctx, call));
+            }
+            let function = node
+                .child_by_field_name("function")
+                .or_else(|| node.child_by_field_name("name"))?;
+            let function_text = ctx.parsed.node_text(&function).trim().to_string();
+            ctx.descend(|ctx| return_type_from_call(ctx, &function_text))
+        }
+        "field_expression" => {
+            let base = node.child_by_field_name("value")?;
+            let field = node.child_by_field_name("field")?;
+            let field_text = ctx.parsed.node_text(&field).trim().to_string();
+            if !is_simple_ident(&field_text) {
+                return None;
+            }
+            ctx.descend(|ctx| field_type_from_node_base(ctx, base, &field_text))
+        }
+        _ => {
+            let expr = ctx.parsed.node_text(&node).trim().to_string();
+            type_of_expr(ctx, &expr)
+        }
+    }
 }
 
 fn self_receiver_type(ctx: &RecursionCtx<'_, '_>) -> Option<ReceiverOutcome> {
@@ -150,8 +188,8 @@ fn local_receiver_type(ctx: &mut RecursionCtx<'_, '_>, name: &str) -> Option<Rec
     result
 }
 
-fn type_from_local_fact(
-    ctx: &mut RecursionCtx<'_, '_>,
+fn type_from_local_fact<'a>(
+    ctx: &mut RecursionCtx<'a, '_>,
     fact: &LocalFact,
 ) -> Option<ReceiverOutcome> {
     if matches!(fact.kind, BindingKind::Param | BindingKind::Let) {
@@ -164,6 +202,13 @@ fn type_from_local_fact(
             return type_from_annotation(ctx, annotation, recovery);
         }
     }
+    // A destructuring/tuple/struct pattern binding's type is NOT its initializer's
+    // type: `let Pair(x, _) = a.pair();` binds `x` to a FIELD of Pair, not Pair.
+    // Only a plain `let x = <init>` binds the whole initializer to the name, so
+    // init-based type recovery is sound only for `BindingKind::Let`.
+    if !matches!(fact.kind, BindingKind::Let) {
+        return None;
+    }
     match fact.init.as_ref()? {
         InitExpr::Ctor(expr) => {
             let ty = ctor_type_syntax(expr)?;
@@ -174,6 +219,9 @@ fn type_from_local_fact(
             ctx.descend(|ctx| field_type_from_base(ctx, base, field))
         }
         InitExpr::Call(expr) => {
+            if let Some(node) = call_init_node_at(ctx) {
+                return ctx.descend(|ctx| type_of_node(ctx, node));
+            }
             let function = split_call_expr(expr)?;
             ctx.descend(|ctx| return_type_from_call(ctx, function))
         }
@@ -232,6 +280,19 @@ fn field_type_from_base(
     outcome_for_type_key(ctx.graph, key, ReceiverRecovery::FieldTyped)
 }
 
+fn field_type_from_node_base<'a>(
+    ctx: &mut RecursionCtx<'a, '_>,
+    base: tree_sitter::Node<'a>,
+    field: &str,
+) -> Option<ReceiverOutcome> {
+    let base_ty = type_of_node(ctx, base)?;
+    let ReceiverTypeKey::InRepo(owner_scope) = base_ty.key else {
+        return None;
+    };
+    let key = certain_index_type(ctx.cg.field_types.get(&(owner_scope, field.to_string()))?)?;
+    outcome_for_type_key(ctx.graph, key, ReceiverRecovery::FieldTyped)
+}
+
 fn return_type_from_call(
     ctx: &mut RecursionCtx<'_, '_>,
     function: &str,
@@ -249,6 +310,75 @@ fn return_type_from_call(
     });
     ctx.visit.fns.remove(&fid);
     key
+}
+
+fn method_chain_type<'a>(
+    ctx: &mut RecursionCtx<'a, '_>,
+    call: MethodCallParts<'a>,
+) -> Option<ReceiverOutcome> {
+    let recv_ty = type_of_node(ctx, call.receiver)?;
+    let recovery = recv_ty.recovery;
+    let ReceiverTypeKey::InRepo(scope) = recv_ty.key else {
+        return None;
+    };
+    let fid = dispatch_method_single_exact(
+        ctx.cg,
+        scope,
+        call.method,
+        recovery,
+        Some(call.arg_count),
+        false,
+    )?;
+    if !ctx.visit.fns.insert(fid.clone()) {
+        return None;
+    }
+    let result = ctx.cg.return_types.get(&fid).and_then(|entries| {
+        let key = certain_index_type(entries)?;
+        if !matches!(&key, TypeKey::InRepo(_)) {
+            return None;
+        }
+        outcome_for_type_key(ctx.graph, key, ReceiverRecovery::ReturnTyped)
+    });
+    ctx.visit.fns.remove(&fid);
+    result
+}
+
+fn dispatch_method_single_exact(
+    cg: &CallGraph,
+    scope: ScopeId,
+    method: &str,
+    recovery: ReceiverRecovery,
+    arg_count: Option<usize>,
+    arg_spread: bool,
+) -> Option<FunctionId> {
+    if recovery == ReceiverRecovery::StdWrapperPeel {
+        return None;
+    }
+    let cands = cg.methods_by_scope.get(&(scope, method.to_string()))?;
+    let kept: Vec<&FunctionId> = cands
+        .iter()
+        .filter(|fid| {
+            let Some(fact) = cg.method_facts.get(*fid) else {
+                return false;
+            };
+            fact.has_self
+                && !matches!(
+                    arg_count,
+                    Some(n) if !arg_spread && fact.arity_excl_self != n
+                )
+        })
+        .collect();
+    match kept.as_slice() {
+        [fid]
+            if matches!(
+                cg.method_facts.get(*fid),
+                Some(fact) if matches!(&fact.kind, MethodKind::Inherent)
+            ) =>
+        {
+            Some((*fid).clone())
+        }
+        _ => None,
+    }
 }
 
 fn resolve_function_to_fid(ctx: &RecursionCtx<'_, '_>, function: &str) -> Option<FunctionId> {
@@ -362,16 +492,62 @@ fn outcome_for_type_key(
     })
 }
 
-fn receiver_expr_text(parsed: &ParsedFile, node: tree_sitter::Node<'_>) -> String {
-    if node.kind() == "call_expression" {
-        if let Some(function) = node
-            .child_by_field_name("function")
-            .or_else(|| node.child_by_field_name("name"))
-        {
-            return format!("{}(...)", parsed.node_text(&function).trim());
+fn call_init_node_at<'a>(ctx: &RecursionCtx<'a, '_>) -> Option<tree_sitter::Node<'a>> {
+    let mut node = ctx
+        .parsed
+        .tree
+        .root_node()
+        .descendant_for_byte_range(ctx.at_byte, ctx.at_byte.saturating_add(1))?;
+    loop {
+        if node.kind() == "let_declaration" {
+            let value = node.child_by_field_name("value")?;
+            return (value.kind() == "call_expression").then_some(value);
         }
+        if node.kind() == "function_item" {
+            return None;
+        }
+        node = node.parent()?;
     }
-    parsed.node_text(&node).trim().to_string()
+}
+
+#[derive(Clone, Copy)]
+struct MethodCallParts<'a> {
+    receiver: Node<'a>,
+    method: &'a str,
+    arg_count: usize,
+}
+
+fn method_call_parts<'a>(parsed: &'a ParsedFile, call: Node<'a>) -> Option<MethodCallParts<'a>> {
+    if call.kind() != "call_expression" {
+        return None;
+    }
+    let function = call.child_by_field_name("function")?;
+    if function.kind() != "field_expression" {
+        return None;
+    }
+    let receiver = function.child_by_field_name("value")?;
+    let field = function.child_by_field_name("field")?;
+    if field.kind() != "field_identifier" {
+        return None;
+    }
+    let method = parsed.node_text(&field).trim();
+    if !is_simple_ident(method) {
+        return None;
+    }
+    let arguments = call.child_by_field_name("arguments")?;
+    Some(MethodCallParts {
+        receiver,
+        method,
+        arg_count: rust_arg_count(arguments),
+    })
+}
+
+fn rust_arg_count(arguments: Node<'_>) -> usize {
+    let mut cursor = arguments.walk();
+    arguments
+        .children(&mut cursor)
+        .filter(|child| child.is_named())
+        .count()
 }
 
 fn certain_index_type(entries: &[(Option<String>, TypeKey)]) -> Option<TypeKey> {
@@ -491,7 +667,7 @@ fn ctor_type_syntax(expr: &str) -> Option<&str> {
     expr.strip_suffix("{}").map(str::trim)
 }
 
-fn std_wrapper_was_peeled(annotation: &str) -> bool {
+pub(crate) fn std_wrapper_was_peeled(annotation: &str) -> bool {
     let mut t = annotation.trim();
     loop {
         let before = t;

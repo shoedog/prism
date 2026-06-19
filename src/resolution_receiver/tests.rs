@@ -125,6 +125,114 @@ fn type_scope_in_module(
 }
 
 #[test]
+fn method_call_parts_decomposes_nested_arg_chain_from_ast() {
+    let files = files(&[(
+        "main.rs",
+        "pub struct A;\n\
+         pub fn drive(a: A) { a.b(1).c(2, 3).d(); }\n",
+    )]);
+    let parsed = files.get("main.rs").expect("parsed file");
+    let func_node = parsed
+        .all_functions()
+        .into_iter()
+        .find(|node| {
+            parsed
+                .language
+                .function_name(node)
+                .is_some_and(|name| parsed.node_text(&name) == "drive")
+        })
+        .expect("drive function");
+    let all_lines: BTreeSet<usize> = (1..=3).collect();
+    let (_, _, _, _, _, receiver_expr, _, _) = parsed
+        .function_calls_with_qualifier_and_spans_on_lines(&func_node, &all_lines)
+        .into_iter()
+        .find(|(name, _, _, _, _, _, _, _)| name == "d")
+        .expect("d call");
+    let c_call = receiver_expr.expect("receiver for d is the c call");
+    assert_eq!(c_call.kind(), "call_expression");
+
+    let c = super::method_call_parts(parsed, c_call).expect("c method call");
+    assert_eq!(c.method, "c");
+    assert_eq!(c.arg_count, 2);
+    assert_eq!(parsed.node_text(&c.receiver), "a.b(1)");
+
+    let b = super::method_call_parts(parsed, c.receiver).expect("b method call");
+    assert_eq!(b.method, "b");
+    assert_eq!(b.arg_count, 1);
+    assert_eq!(parsed.node_text(&b.receiver), "a");
+}
+
+#[test]
+fn dispatch_method_single_exact_filters_kind_arity_self_and_wrapper_peel() {
+    let files = files(&[(
+        "lib.rs",
+        "pub struct Inner;\n\
+         impl Inner { pub fn step(&self, n: u8) -> Inner { Inner } pub fn assoc() -> Inner { Inner } }\n\
+         pub struct Outer;\n\
+         trait T { fn m(&self); }\n\
+         impl Outer { fn m(&self) {} }\n\
+         impl T for Outer { fn m(&self) {} }\n",
+    )]);
+    let cg = graph(&files);
+    let inner = type_scope(&cg, "Inner");
+    let outer = type_scope(&cg, "Outer");
+
+    assert!(super::dispatch_method_single_exact(
+        &cg,
+        inner,
+        "step",
+        ReceiverRecovery::TypedParam,
+        Some(1),
+        false,
+    )
+    .is_some());
+    assert_eq!(
+        super::dispatch_method_single_exact(
+            &cg,
+            inner,
+            "step",
+            ReceiverRecovery::TypedParam,
+            Some(0),
+            false,
+        ),
+        None
+    );
+    assert_eq!(
+        super::dispatch_method_single_exact(
+            &cg,
+            inner,
+            "assoc",
+            ReceiverRecovery::TypedParam,
+            Some(0),
+            false,
+        ),
+        None
+    );
+    assert_eq!(
+        super::dispatch_method_single_exact(
+            &cg,
+            outer,
+            "m",
+            ReceiverRecovery::TypedParam,
+            Some(0),
+            false,
+        ),
+        None
+    );
+    assert_eq!(
+        super::dispatch_method_single_exact(
+            &cg,
+            inner,
+            "step",
+            ReceiverRecovery::StdWrapperPeel,
+            Some(1),
+            false,
+        ),
+        None
+    );
+}
+
+#[test]
 fn rust_receiver_typer_recovers_param_field_return_wrapper_and_path() {
     let files = files(&[(
         "main.rs",
@@ -256,4 +364,35 @@ fn rust_receiver_typer_falls_through_generic_and_unresolved() {
 
     assert!(ty(&files, &cg, "generic", "go").is_none());
     assert!(ty(&files, &cg, "unresolved", "go").is_none());
+}
+
+#[test]
+fn rust_receiver_chain_depth_cap_fails_closed() {
+    let files = files(&[(
+        "main.rs",
+        "pub struct B;\n\
+         impl B { pub fn a(&self) -> B { B } pub fn run(&self) {} }\n\
+         pub fn drive(b: B) { b.a().a().a().a().a().run(); }\n",
+    )]);
+    let cg = graph(&files);
+    assert_eq!(super::MAX_RECEIVER_TYPE_DEPTH, 4);
+    assert!(
+        ty(&files, &cg, "drive", "run").is_none(),
+        "chain deeper than MAX_RECEIVER_TYPE_DEPTH must fail closed"
+    );
+}
+
+#[test]
+fn rust_receiver_local_fact_cycle_fails_closed() {
+    let files = files(&[(
+        "main.rs",
+        "pub struct Inner; impl Inner { pub fn run(&self) {} }\n\
+         pub struct Holder { pub inner: Inner }\n\
+         pub fn drive() { let a = a.inner; a.run(); }\n",
+    )]);
+    let cg = graph(&files);
+    assert!(
+        ty(&files, &cg, "drive", "run").is_none(),
+        "TypeVisit locals cycle guard must fail closed"
+    );
 }

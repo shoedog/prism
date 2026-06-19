@@ -481,6 +481,331 @@ fn non_go_repo_has_empty_interface_impls() {
 }
 
 #[test]
+fn rust_receiver_chain_builder_new_cfg_arg_resolves_exact() {
+    let (cg, _) = build_rust_complete(&[(
+        "lib.rs",
+        "pub struct Builder;\n\
+         impl Builder {\n\
+             pub fn new() -> Builder { Builder }\n\
+             pub fn cfg(&self, n: u8) -> Builder { Builder }\n\
+             pub fn run(&self) {}\n\
+         }\n\
+         fn drive() { Builder::new().cfg(1).run(); }\n",
+    )]);
+    let site = site_in(&cg, "drive", "run");
+    assert!(
+        site.receiver_outcome.is_some(),
+        "chain receiver should be typed: {site:?}"
+    );
+    let resolved = cg.resolve_call_site(&site);
+    assert_eq!(resolved.len(), 1);
+    assert_eq!(resolved[0].target.name, "run");
+    assert_eq!(resolved[0].confidence, ResolutionConfidence::Exact);
+}
+
+#[test]
+fn rust_receiver_chain_nested_arg_intermediate_resolves_exact() {
+    let (cg, _) = build_rust_complete(&[(
+        "lib.rs",
+        "pub struct Builder;\n\
+         impl Builder {\n\
+             pub fn cfg(&self, n: u8) -> Builder { Builder }\n\
+             pub fn tune(&self, a: u8, b: u8) -> Builder { Builder }\n\
+             pub fn run(&self) {}\n\
+         }\n\
+         fn drive(b: Builder) { b.cfg(1).tune(2, 3).run(); }\n",
+    )]);
+    let site = site_in(&cg, "drive", "run");
+    assert!(
+        site.receiver_outcome.is_some(),
+        "nested arg-bearing chain should be typed: {site:?}"
+    );
+    let resolved = cg.resolve_call_site(&site);
+    assert_eq!(resolved.len(), 1);
+    assert_eq!(resolved[0].target.name, "run");
+    assert_eq!(resolved[0].confidence, ResolutionConfidence::Exact);
+}
+
+#[test]
+fn rust_receiver_let_bound_method_init_chain_resolves_exact() {
+    let (cg, _) = build_rust_complete(&[(
+        "lib.rs",
+        "pub struct Builder;\n\
+         impl Builder { pub fn cfg(&self) -> Builder { Builder } pub fn run(&self) {} }\n\
+         fn drive(b: Builder) { let x = b.cfg(); x.run(); }\n",
+    )]);
+    let site = site_in(&cg, "drive", "run");
+    assert!(
+        site.receiver_outcome.is_some(),
+        "let-bound method-init chain should type: {site:?}"
+    );
+    let resolved = cg.resolve_call_site(&site);
+    assert_eq!(resolved.len(), 1);
+    assert_eq!(resolved[0].target.name, "run");
+    assert_eq!(resolved[0].confidence, ResolutionConfidence::Exact);
+}
+
+#[test]
+fn rust_receiver_destructured_pattern_init_does_not_mistype() {
+    let (cg, _) = build_rust_complete(&[(
+        "lib.rs",
+        "pub struct Item; impl Item { pub fn run(&self) {} }\n\
+         pub struct Pair(pub Item); impl Pair { pub fn run(&self) {} }\n\
+         pub struct Maker; impl Maker { pub fn pair(&self) -> Pair { Pair(Item) } }\n\
+         fn drive(m: Maker) { let Pair(x) = m.pair(); x.run(); }\n",
+    )]);
+    let site = site_in(&cg, "drive", "run");
+    assert!(
+        site.receiver_outcome.is_none(),
+        "destructured pattern binding must not type x as Pair: {site:?}"
+    );
+    // With same-name decoys (Item::run AND Pair::run), a wrong typed edge would
+    // resolve to Pair::run; fail-closed means it does NOT resolve to Pair::run.
+    let resolved = cg.resolve_call_site(&site);
+    assert!(
+        !resolved.iter().any(|r| r.target.name == "run"
+            && matches!(&r.confidence, ResolutionConfidence::Exact)),
+        "must not Exact-resolve a destructured receiver: {resolved:?}"
+    );
+}
+
+#[test]
+fn rust_receiver_destructured_param_does_not_mistype() {
+    let (cg, _) = build_rust_complete(&[(
+        "lib.rs",
+        "pub struct Item; impl Item { pub fn run(&self) {} }\n\
+         pub struct Pair(pub Item); impl Pair { pub fn run(&self) {} }\n\
+         fn drive(Pair(x): Pair) { x.run(); }\n",
+    )]);
+    let site = site_in(&cg, "drive", "run");
+    assert!(
+        site.receiver_outcome.is_none(),
+        "destructured param component must not be typed as the param type: {site:?}"
+    );
+    let resolved = cg.resolve_call_site(&site);
+    assert!(
+        !resolved.iter().any(|r| r.target.name == "run"
+            && matches!(&r.confidence, ResolutionConfidence::Exact)),
+        "must not Exact-resolve a destructured-param receiver: {resolved:?}"
+    );
+}
+
+#[test]
+fn rust_receiver_struct_pattern_param_fails_closed() {
+    let (cg, _) = build_rust_complete(&[(
+        "lib.rs",
+        "pub struct Item; impl Item { pub fn run(&self) {} }\n\
+         pub struct Point { pub x: Item, pub y: Item } impl Point { pub fn run(&self) {} }\n\
+         fn drive(Point { x, .. }: Point) { x.run(); }\n",
+    )]);
+    let site = site_in(&cg, "drive", "run");
+    assert!(
+        site.receiver_outcome.is_none(),
+        "struct-pattern param component must not be typed as the param type: {site:?}"
+    );
+}
+
+#[test]
+fn rust_receiver_tuple_pattern_param_fails_closed() {
+    let (cg, _) = build_rust_complete(&[(
+        "lib.rs",
+        "pub struct A; impl A { pub fn run(&self) {} }\n\
+         pub struct B; impl B { pub fn run(&self) {} }\n\
+         fn drive((a, _b): (A, B)) { a.run(); }\n",
+    )]);
+    let site = site_in(&cg, "drive", "run");
+    assert!(
+        site.receiver_outcome.is_none(),
+        "tuple-pattern param component must not be typed: {site:?}"
+    );
+}
+
+#[test]
+fn rust_receiver_simple_param_still_types() {
+    let (cg, _) = build_rust_complete(&[(
+        "lib.rs",
+        "pub struct Foo; impl Foo { pub fn run(&self) {} }\n\
+         pub struct Bar; impl Bar { pub fn run(&self) {} }\n\
+         fn drive(x: Foo) { x.run(); }\n",
+    )]);
+    let site = site_in(&cg, "drive", "run");
+    assert!(
+        site.receiver_outcome.is_some(),
+        "a simple typed param must still type: {site:?}"
+    );
+    let resolved = cg.resolve_call_site(&site);
+    assert_eq!(resolved.len(), 1);
+    assert_eq!(resolved[0].target.name, "run");
+    assert_eq!(resolved[0].confidence, ResolutionConfidence::Exact);
+}
+
+#[test]
+fn rust_receiver_mut_param_still_types() {
+    let (cg, _) = build_rust_complete(&[(
+        "lib.rs",
+        "pub struct Foo; impl Foo { pub fn run(&self) {} }\n\
+         pub struct Bar; impl Bar { pub fn run(&self) {} }\n\
+         fn drive(mut x: Foo) { x.run(); }\n",
+    )]);
+    let site = site_in(&cg, "drive", "run");
+    assert!(
+        site.receiver_outcome.is_some(),
+        "a `mut x: T` param must still type: {site:?}"
+    );
+}
+
+#[test]
+fn rust_receiver_chain_external_intermediate_unchanged() {
+    let (cg, _) = build_rust_complete(&[(
+        "lib.rs",
+        "pub struct LocalA; impl LocalA { fn count(&self) {} }\n\
+         pub struct LocalB; impl LocalB { fn count(&self) {} }\n\
+         fn drive(v: Vec<u8>) { v.iter().count(); }\n",
+    )]);
+    let site = site_in(&cg, "drive", "count");
+    assert!(
+        site.receiver_outcome.is_none(),
+        "external chain must not type: {site:?}"
+    );
+    assert!(cg.resolve_call_site(&site).is_empty());
+}
+
+#[test]
+fn rust_receiver_chain_inrepo_then_external_unchanged() {
+    let (cg, _) = build_rust_complete(&[(
+        "lib.rs",
+        "pub struct Foo; impl Foo { pub fn ext(&self) -> String { String::new() } }\n\
+         pub struct LocalA; impl LocalA { fn m(&self) {} }\n\
+         pub struct LocalB; impl LocalB { fn m(&self) {} }\n\
+         fn a() -> Foo { Foo }\n\
+         fn drive() { a().ext().m(); }\n",
+    )]);
+    let site = site_in(&cg, "drive", "m");
+    assert!(
+        site.receiver_outcome.is_none(),
+        "external return mid-chain must fail closed: {site:?}"
+    );
+    assert!(cg.resolve_call_site(&site).is_empty());
+}
+
+#[test]
+fn rust_receiver_chain_trait_intermediate_unchanged() {
+    let (cg, _) = build_rust_complete(&[(
+        "lib.rs",
+        "pub struct Foo;\n\
+         pub trait T { fn t(&self) -> Foo; }\n\
+         impl T for Foo { fn t(&self) -> Foo { Foo } }\n\
+         impl Foo { fn m(&self) {} }\n\
+         fn drive(f: Foo) { f.t().m(); }\n",
+    )]);
+    let site = site_in(&cg, "drive", "m");
+    assert!(
+        site.receiver_outcome.is_none(),
+        "trait intermediate must fail closed: {site:?}"
+    );
+}
+
+#[test]
+fn rust_receiver_chain_wrapper_peel_intermediate_unchanged() {
+    let (cg, _) = build_rust_complete(&[(
+        "lib.rs",
+        "use std::sync::Arc;\n\
+         pub struct Foo; pub struct Next; pub struct Other;\n\
+         impl Foo { pub fn foo(&self) -> Next { Next } }\n\
+         impl Next { fn m(&self) {} }\n\
+         impl Other { fn m(&self) {} }\n\
+         fn drive(arc: Arc<Foo>) { arc.foo().m(); }\n",
+    )]);
+    let site = site_in(&cg, "drive", "m");
+    assert!(
+        site.receiver_outcome.is_none(),
+        "StdWrapperPeel intermediate must fail closed: {site:?}"
+    );
+    assert!(
+        cg.resolve_call_site(&site).is_empty(),
+        "wrong typed edge through Arc peel would resolve exactly"
+    );
+}
+
+#[test]
+fn rust_receiver_wrapper_return_chain_fails_closed() {
+    let (cg, _) = build_rust_complete(&[(
+        "lib.rs",
+        "use std::sync::Arc;\n\
+         pub struct Foo; impl Foo { pub fn step(&self) -> Next { Next } }\n\
+         pub struct Next; impl Next { pub fn m(&self) {} }\n\
+         pub struct Other; impl Other { pub fn m(&self) {} }\n\
+         pub fn make() -> Arc<Foo> { Arc::new(Foo) }\n\
+         fn drive() { make().step().m(); }\n",
+    )]);
+    let site = site_in(&cg, "drive", "m");
+    assert!(
+        site.receiver_outcome.is_none(),
+        "a chain through an Arc-wrapped return must fail closed: {site:?}"
+    );
+    assert!(cg.resolve_call_site(&site).is_empty());
+}
+
+#[test]
+fn rust_receiver_alias_wrapper_return_chain_fails_closed() {
+    let (cg, _) = build_rust_complete(&[(
+        "lib.rs",
+        "type BoxedFoo = Box<Foo>;\n\
+         pub struct Foo; impl Foo { pub fn step(&self) -> Next { Next } }\n\
+         pub struct Next; impl Next { pub fn m(&self) {} }\n\
+         pub struct Other; impl Other { pub fn m(&self) {} }\n\
+         pub fn make() -> BoxedFoo { Box::new(Foo) }\n\
+         fn drive() { make().step().m(); }\n",
+    )]);
+    let site = site_in(&cg, "drive", "m");
+    assert!(
+        site.receiver_outcome.is_none(),
+        "chain through an alias-hidden wrapper return must fail closed: {site:?}"
+    );
+    assert!(cg.resolve_call_site(&site).is_empty());
+}
+
+#[test]
+fn rust_receiver_alias_wrapper_field_chain_fails_closed() {
+    let (cg, _) = build_rust_complete(&[(
+        "lib.rs",
+        "type BoxedFoo = Box<Foo>;\n\
+         pub struct Foo; impl Foo { pub fn step(&self) -> Next { Next } }\n\
+         pub struct Next; impl Next { pub fn m(&self) {} }\n\
+         pub struct Other; impl Other { pub fn m(&self) {} }\n\
+         pub struct Holder { pub f: BoxedFoo }\n\
+         fn drive(h: Holder) { h.f.step().m(); }\n",
+    )]);
+    let site = site_in(&cg, "drive", "m");
+    assert!(
+        site.receiver_outcome.is_none(),
+        "chain through an alias-hidden wrapper FIELD must fail closed: {site:?}"
+    );
+    assert!(cg.resolve_call_site(&site).is_empty());
+}
+
+#[test]
+fn rust_receiver_mut_self_builder_chain_still_types() {
+    // &mut Self returns are reference-only peels (NOT std-wrapper) -> buy preserved.
+    let (cg, _) = build_rust_complete(&[(
+        "lib.rs",
+        "pub struct B;\n\
+         impl B { pub fn new() -> B { B } pub fn opt(&mut self, v: bool) -> &mut Self { self } pub fn run(&self) {} }\n\
+         pub struct Other; impl Other { pub fn run(&self) {} }\n\
+         fn drive() { let mut b = B::new(); b.opt(true).run(); }\n",
+    )]);
+    let site = site_in(&cg, "drive", "run");
+    assert!(
+        site.receiver_outcome.is_some(),
+        "&mut Self builder chain must still type: {site:?}"
+    );
+    let resolved = cg.resolve_call_site(&site);
+    assert_eq!(resolved.len(), 1);
+    assert_eq!(resolved[0].target.name, "run");
+    assert_eq!(resolved[0].confidence, ResolutionConfidence::Exact);
+}
+
+#[test]
 fn rust_receiver_outcome_cross_module_no_collision() {
     let (cg, _) = build_rust_complete(&[(
         "lib.rs",
