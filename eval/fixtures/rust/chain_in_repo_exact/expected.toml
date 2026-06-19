@@ -1,0 +1,17 @@
+# Discriminating: `run` has two in-repo owners (Builder, Other), so the R6
+# name-guess MUST multi-owner-drop the chained `Builder::new().cfg(1).run()`
+# call. Only chain receiver typing (Builder::new()->Builder, .cfg()->Builder)
+# resolves the receiver to Builder and links drive -> Builder::run Exact.
+[case]
+language = "rust"
+capability = "chain_in_repo_exact"
+status = "pass"
+[seed]
+symbol = "run"
+file = "main.rs"
+line = 5
+[[expect.callers]]
+file = "main.rs"
+line = 12
+[expect]
+exact = true

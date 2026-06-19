@@ -1,0 +1,14 @@
+# Fail-closed: a()->Foo (in-repo) but .ext()->String is an EXTERNAL return, so the
+# `.m()` receiver is external. The chain must fail closed at the external link and
+# not mint a wrong edge to in-repo `LocalA::m`/`LocalB::m`.
+[case]
+language = "rust"
+capability = "inrepo_then_external_unchanged"
+status = "pass"
+[seed]
+symbol = "m"
+file = "main.rs"
+line = 4
+[expect]
+callers = []
+exact = true

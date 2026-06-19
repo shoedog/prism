@@ -342,16 +342,22 @@ fn bind_params(
                 if let Some(p) = c.child_by_field_name("pattern") {
                     let mut names = Vec::new();
                     pattern_idents(pf, &p, &mut names);
+                    let is_simple_param = is_simple_ident_param(&p);
                     for (name, def_byte) in names {
-                        out.push((
-                            name,
-                            def_byte,
+                        let fact = if is_simple_param {
                             LocalFact {
                                 kind: BindingKind::Param,
                                 annotation: annotation.clone(),
                                 init: None,
-                            },
-                        ));
+                            }
+                        } else {
+                            LocalFact {
+                                kind: BindingKind::Pattern,
+                                annotation: None,
+                                init: None,
+                            }
+                        };
+                        out.push((name, def_byte, fact));
                     }
                 }
             }
@@ -367,4 +373,17 @@ fn bind_params(
         .map(|(_name, _def_byte, fact)| fact)
         .collect();
     add_locals_with_facts(b, body_scope, file, body_end, &names, &facts);
+}
+
+fn is_simple_ident_param(pat: &Node<'_>) -> bool {
+    match pat.kind() {
+        "identifier" => true,
+        "mut_pattern" | "ref_pattern" => {
+            let mut cursor = pat.walk();
+            let mut named = pat.named_children(&mut cursor);
+            matches!(named.next(), Some(child) if is_simple_ident_param(&child))
+                && named.next().is_none()
+        }
+        _ => false,
+    }
 }

@@ -12,10 +12,25 @@ use std::collections::{BTreeMap, BTreeSet, VecDeque};
 pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
     use crate::resolution::{DropReason, ResolutionConfidence};
 
+    use crate::call_graph::MethodKind;
+
     let mut kinds: BTreeMap<&'static str, usize> = BTreeMap::new();
     let mut demoted = 0usize;
     let mut total = 0usize;
     let (mut multi, mut external, mut import_ext, mut unknown) = (0usize, 0usize, 0usize, 0usize);
+    // Phase-3 stratification (re-measure for slice scoping): split each kind by
+    // confidence, and stratify NameOnly demotes by (recovery, method-kind). This
+    // isolates the #2-addressable universe — a NameOnly demote from `combine_kind`'s
+    // single-candidate arm is a *receiver-recovery* kind (TypedParam/ConstructorLocal/
+    // FieldTyped/ReturnTyped/TypedLet…) on a *trait* method — from the R6SingleOwner
+    // residue + TraitCha multi (recovery "none", not combine_kind) and the #4
+    // wrapper-peel `clone` edges. NOTE: the #2 count is an UPPER bound — it still
+    // includes `dyn Trait` / trait-scope receivers that Slice 1 must exclude.
+    let mut kind_exact: BTreeMap<&'static str, usize> = BTreeMap::new();
+    let mut kind_nameonly: BTreeMap<&'static str, usize> = BTreeMap::new();
+    let mut nameonly_recovery_mk: BTreeMap<String, usize> = BTreeMap::new();
+    let mut wrapper_peel_clone = 0usize;
+    let mut r6_rust = 0usize;
     for sites in cg.calls.values() {
         for site in sites {
             total += 1;
@@ -27,10 +42,32 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
                 Some(DropReason::UnknownName) => unknown += 1,
                 None => {}
             }
+            let recovery = site
+                .receiver_outcome
+                .as_ref()
+                .map(|o| format!("{:?}", o.recovery))
+                .unwrap_or_else(|| "none".to_string());
             for c in &out.resolved {
                 *kinds.entry(c.kind.as_str()).or_default() += 1;
+                if c.kind.as_str() == "r6_single_owner" && site.caller.file.ends_with(".rs") {
+                    r6_rust += 1;
+                }
                 if c.confidence == ResolutionConfidence::NameOnly {
                     demoted += 1;
+                    *kind_nameonly.entry(c.kind.as_str()).or_default() += 1;
+                    let mk = match cg.method_facts.get(c.target).map(|f| &f.kind) {
+                        Some(MethodKind::Trait(_)) => "trait",
+                        Some(MethodKind::Inherent) => "inherent",
+                        None => "nonmethod",
+                    };
+                    *nameonly_recovery_mk
+                        .entry(format!("{recovery}/{mk}"))
+                        .or_default() += 1;
+                    if recovery == "StdWrapperPeel" && c.target.name == "clone" {
+                        wrapper_peel_clone += 1;
+                    }
+                } else {
+                    *kind_exact.entry(c.kind.as_str()).or_default() += 1;
                 }
             }
         }
@@ -51,6 +88,11 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
         "interface_gaps": cg.interface_gaps,
         "interface_overapprox": cg.interface_overapprox,
         "interface_fanout": interface_fanout,
+        "kind_exact": kind_exact,
+        "kind_nameonly": kind_nameonly,
+        "nameonly_by_recovery_methodkind": nameonly_recovery_mk,
+        "wrapper_peel_clone_demotes": wrapper_peel_clone,
+        "r6_single_owner_rust": r6_rust,
     })
 }
 
@@ -543,9 +585,10 @@ pub fn callees_with_confidence(
         for fid in &frontier {
             for (edge, callee_name, line, qualifier) in direct_callees(s, fid) {
                 if exact_only
-                    && !edge
-                        .as_ref()
-                        .map_or(false, |e| e.confidence == ResolutionConfidence::Exact)
+                    && !matches!(
+                        edge.as_ref(),
+                        Some(e) if e.confidence == ResolutionConfidence::Exact
+                    )
                 {
                     continue;
                 }
