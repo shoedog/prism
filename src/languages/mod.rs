@@ -859,6 +859,51 @@ impl Language {
         )
     }
 
+    /// Constructs that the current reasoning layer does not model precisely enough to let
+    /// `NotReached` read as proof of absence.
+    pub fn unmodeled_reasoning_construct(
+        &self,
+        node: &Node<'_>,
+        source: &str,
+    ) -> Option<&'static str> {
+        let kind = node.kind();
+        match self {
+            Self::Rust => match kind {
+                "try_expression" => Some("Rust ? operator"),
+                "closure_expression" => Some("Rust closure"),
+                _ => None,
+            },
+            Self::Go => match kind {
+                "go_statement" => Some("Go go statement"),
+                "send_statement" => Some("Go channel send"),
+                "receive_statement" => Some("Go channel receive"),
+                "select_statement" => Some("Go select"),
+                "unary_expression" if node_text(source, node).trim_start().starts_with("<-") => {
+                    Some("Go channel receive")
+                }
+                _ => None,
+            },
+            Self::JavaScript | Self::TypeScript | Self::Tsx => match kind {
+                "await_expression" => Some("JS/TS await"),
+                "yield_expression" => Some("JS/TS yield"),
+                "arrow_function" | "function_expression" => Some("JS/TS callback"),
+                "call_expression" => js_promise_handler_call(node, source),
+                _ => None,
+            },
+            Self::Python => match kind {
+                "decorated_definition" => Some("Python decorator"),
+                "with_statement" => Some("Python with statement"),
+                "yield" | "yield_expression" | "yield_from" => Some("Python yield"),
+                "list_comprehension"
+                | "dictionary_comprehension"
+                | "set_comprehension"
+                | "generator_expression" => Some("Python comprehension binding"),
+                _ => None,
+            },
+            _ => None,
+        }
+    }
+
     /// Get the function name node from a function definition.
     pub fn function_name<'a>(&self, node: &Node<'a>) -> Option<Node<'a>> {
         // Handle decorated definitions (Python)
@@ -1212,6 +1257,30 @@ impl Language {
         }
         None
     }
+}
+
+fn node_text<'a>(source: &'a str, node: &Node<'_>) -> &'a str {
+    node.utf8_text(source.as_bytes()).unwrap_or("")
+}
+
+fn js_promise_handler_call(node: &Node<'_>, source: &str) -> Option<&'static str> {
+    let Some(function) = node.child_by_field_name("function") else {
+        return None;
+    };
+    let property = direct_member_property(function)?;
+    match node_text(source, &property) {
+        "then" => Some("JS/TS Promise .then()"),
+        "catch" => Some("JS/TS Promise .catch()"),
+        "finally" => Some("JS/TS Promise .finally()"),
+        _ => None,
+    }
+}
+
+fn direct_member_property(node: Node<'_>) -> Option<Node<'_>> {
+    if node.kind() == "member_expression" {
+        return node.child_by_field_name("property");
+    }
+    None
 }
 
 /// Navigate the C/C++ declarator chain to find the function name identifier.
