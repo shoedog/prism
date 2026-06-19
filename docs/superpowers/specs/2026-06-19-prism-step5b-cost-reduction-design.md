@@ -1,6 +1,16 @@
 # Prism Step 5b Serial-Cost Reduction (Design)
 
-**Rev 1 — 2026-06-19. Status: DRAFT (pre codex spec-review).**
+**Rev 2 — 2026-06-19. Status: PLAN-READY (codex gpt-5.5 xhigh spec-review folded).**
+
+> **Rev 2 (codex spec-review — SOUND-WITH-CONCERNS → PLAN-READY, no blockers):** folded 4 MINORs.
+> §3.1 memo now caches **`Option<Vec<String>>`** — the closure subsumes the current `let Some(info) = …
+> else { continue }`, so a callee whose `FunctionInfo` isn't found caches `None` and skips the site (the
+> miss-behavior is explicit, not hidden in an `unwrap`). §3.2/§5 Slice-2 acceptance strengthened: a
+> **serial-reference edge-order oracle** (capture the pre-refactor Step-5b edge sequence, assert the parallel
+> build reproduces it byte-for-byte) — the existing `parallel_equality_test.rs` proves thread-count
+> determinism but NOT equivalence to the old serial order. §1 wording softened (removing serial work *can*
+> raise the ratio; the re-measure gate is the safeguard). Codex independently confirmed Slice-1 memo purity
+> (no per-site leak) and that `cpg_cache.rs` serializes `edge_indices()` directly (edge order is byte-significant).
 
 **Goal:** Close the s1-followups gate-9 cold-build ratio gap (cold-hugo user/wall **1.42 → ≥1.5**, post-S1.5)
 by cutting the serial cost of `assemble_graph` Step 5b — **memoization first, parallelization only if needed.**
@@ -8,7 +18,8 @@ by cutting the serial cost of `assemble_graph` Step 5b — **memoization first, 
 **One-liner:** the directive was "parallelize Step 5b," but a confirming profile shows the dominant Step-5b
 cost is **redundant `all_functions()` reconstruction (10.9× on hugo)**, not raw CPU — so the first, lowest-risk
 lever is a per-callee param-name memo (compute-only, no cache-byte concern), with parallelization as a gated
-follow-on. Removing serial work raises the user/wall ratio exactly as parallelizing does, at a fraction of the risk.
+follow-on. Removing serial work can raise the user/wall ratio too (it cuts both user and wall, so the magnitude
+depends on the `all_functions()` share — the re-measure gate decides), at a fraction of the risk of parallelizing.
 
 ---
 
@@ -67,40 +78,45 @@ callee.start_line)`** plus the immutable `callee_parsed`: it does `callee_parsed
 
 So memoize the **final** param-name vector per callee key. In `assemble_graph` Step 5b (`src/cpg/build.rs:428`):
 
+The memo caches **`Option<Vec<String>>`**, subsuming the current `let Some(info) = … else { continue }`
+(`src/cpg/build.rs:446`): `None` = the callee's `FunctionInfo` was not found ⇒ **skip this site** (no edges),
+exactly as today; `Some(names)` = the final post-self/cls-slice param list.
+
 ```rust
 // before the Step 5b loop:
-let mut param_cache: BTreeMap<(String, String, usize), Vec<String>> = BTreeMap::new();
+let mut param_cache: BTreeMap<(String, String, usize), Option<Vec<String>>> = BTreeMap::new();
 
-// inside the loop, replacing the per-site normalized_param_names + self/cls computation
-// (current src/cpg/build.rs ~:461–500):
-let cache_key = (
-    callee_id.file.clone(),
-    callee_id.name.clone(),
-    callee_id.start_line,
-);
-let param_names: &[String] = param_cache.entry(cache_key).or_insert_with(|| {
-    // EXACTLY the current computation, returning the final (post-self/cls-slice) owned Vec<String>:
-    //   1. info = callee_parsed.functions().find(name == callee_id.name && start_line ==)
+// inside the loop, replacing the current `let Some(info) = … else { continue }` (:446) THROUGH the
+// normalized_param_names + self/cls computation (~:446–500):
+let cache_key = (callee_id.file.clone(), callee_id.name.clone(), callee_id.start_line);
+let cached = param_cache.entry(cache_key).or_insert_with(|| {
+    // EXACTLY the current logic, returning Option<owned Vec<String>>:
+    //   1. info = callee_parsed.functions().find(name == callee_id.name && start_line ==)?  // None => skip
     //   2. normalized = all_functions().find(...).map(function_parameter_occurrences)
     //                     .unwrap_or_else(|| info.param_names.clone())
-    //   3. if normalized.first() in {"self","cls"} && info.owner.is_some() && lang == Python
-    //         { normalized[1..].to_vec() } else { normalized }
-    compute_normalized_param_names(callee_parsed, callee_id, info_lookup)
+    //   3. final = if normalized.first() in {"self","cls"} && info.owner.is_some() && lang == Python
+    //                { normalized[1..].to_vec() } else { normalized }
+    //   Some(final)
+    compute_param_names(callee_parsed, callee_id)
 });
+let param_names: &[String] = match cached {
+    Some(names) => names,
+    None => continue, // callee FunctionInfo not found — same as today's `else { continue }`
+};
 ```
 
-`compute_normalized_param_names` is the current §`:461–500` logic verbatim, lifted to return the **owned**
-final `Vec<String>` (it must own, since the cache holds it). The arg→param loop then borrows the cached slice.
+`compute_param_names` is the current `:446–500` logic verbatim, returning `Option<Vec<String>>` (`None` on the
+`info`-not-found path; the value is **owned** since the cache holds it). The arg→param loop borrows the cached
+slice.
 
-**Behavior preservation:** the cached value is computed by the unchanged logic and is a pure function of the
-key, so first-write-wins memo ≡ recompute-each-time. `graph.add_edge(from, to, DataFlow)` is untouched — same
-edges, **same insertion order** ⇒ byte-identical cache, identical Tier-A. The only change is *skipping
-redundant recomputation*. No `NodeIndex`, no edge-order, no `CACHE_VERSION` concern.
+**Behavior preservation:** the cached value (incl. the `None` skip) is computed by the unchanged logic and is a
+pure function of the key, so first-write-wins memo ≡ recompute-each-time (codex-verified: no `caller`/`site`/
+`arg_texts` input leaks in). `graph.add_edge(from, to, DataFlow)` is untouched — same edges, **same insertion
+order** ⇒ byte-identical cache, identical Tier-A. The only change is *skipping redundant recomputation* (incl.
+re-searching for a missing callee). No `NodeIndex`, no edge-order, no `CACHE_VERSION` concern.
 
-**Note (the `info` fallback):** `info` (from `functions().find`) is needed inside the closure on a cache miss
-only. On a hit the whole block (incl. `all_functions()` + the `info` find) is skipped. The `param_idx` lookup
-(`callee_id.start_line..=end_line` scan, `:529`) is per-site and **unchanged** (it depends on the var_index,
-not the param names) — out of Slice 1's scope.
+**Note:** the per-site `param_idx` lookup (`callee_id.start_line..=end_line` scan × `var_index`, `:529`) stays
+per-site and **unchanged** (it depends on `var_index`, not the param names) — out of Slice 1's scope.
 
 ### §3.2 Slice 2 — parallelize Step 5b (gated on a re-measure)
 
@@ -129,9 +145,14 @@ serial pre-pass over distinct callees, then shared `&`), since `or_insert_with` 
   + cache bytes identical by construction.
 - **Slice 2:** the ordinal sort makes the serial apply emit a **byte-identical edge order** regardless of
   rayon's collect order. s1-followups item 2 + codex's `cpg_cache.rs` read confirm petgraph node/edge
-  insertion order is still cache-byte-significant (S2 hardened identity but did not remove insertion-order
-  serialization). Parity test = extend `tests/infra/parallel_equality_test.rs` (exact-order CPG node/edge
-  compare + cache-blob byte parity), and widen its corpus to a Step-5b-heavy repo (s1-followups item 7).
+  insertion order IS cache-byte-significant (it serializes `edge_indices()` directly; S2 hardened identity but
+  did not remove insertion-order serialization). **Acceptance (two distinct properties):** (i) *thread-count
+  determinism + cache-byte parity* — extend `tests/infra/parallel_equality_test.rs`, widening its corpus to a
+  Step-5b-heavy repo (s1-followups item 7); AND (ii) **equivalence to the pre-refactor SERIAL order** — the
+  parity test above proves the parallel build agrees with itself across thread counts, NOT that it matches
+  today's serial loop. So add a **serial-reference edge-order oracle**: capture the Step-5b `DataFlow`-edge
+  sequence from the unchanged serial loop (a `#[cfg(test)]` reference, the S1.5 frozen-oracle pattern) and
+  assert the parallel build reproduces it exactly. (ii) is the real cutover guard; (i) alone is insufficient.
 - **Send/Sync (Slice 2):** `resolve_call_site` is `&self` read-only (`src/resolution.rs`); `ParsedFile` is
   `Send+Sync` (existing `par_iter` in `CallGraph`/`DataFlowGraph` proves it); the `CallArgsIndex` `OnceLock`
   is concurrent-first-touch-safe. The map captures only immutable `&cg`/`&files`/`&var_index`/`&param_cache`.
@@ -144,8 +165,9 @@ serial pre-pass over distinct callees, then shared `&`), since `or_insert_with` 
 - **Slice 1:** Tier-A `--matrix-only` 0 regressions; `cargo test --lib` + the existing CPG/parity tests green;
   **re-measure** cold-hugo user/wall + absolute time (prism/tokio/hugo). Decision gate: if ≥1.5, Slice 2 is
   unnecessary (record + stop); if not, proceed to Slice 2.
-- **Slice 2:** the extended `parallel_equality_test.rs` (exact-order + cache-byte parity) green; Tier-A 0
-  regressions; re-measure gate-9.
+- **Slice 2:** BOTH parity properties green — (i) the extended `parallel_equality_test.rs` (thread-count
+  determinism + cache-byte parity) AND (ii) the **serial-reference edge-order oracle** (parallel build ==
+  pre-refactor serial Step-5b edge sequence); Tier-A 0 regressions; re-measure gate-9.
 - **Verification-scope override (macOS host):** full `cargo test` / `--test cli` / `--test frameworks` stall
   at `_dyld_start`; use `cargo test --lib`, `cargo test --test integration <filter>`, `cargo test --test infra
   <filter>` (the parity test), `fmt`, `clippy -p prism --lib`, `build`. The orchestrator runs Tier-A + perf.
