@@ -71,10 +71,9 @@ pub(crate) struct CallArg {
 
 /// Per-file call-argument index, keyed by (call node start_byte, callee name).
 /// Built once per file by a single pre-order walk; replaces the per-lookup
-/// full-tree walk in the legacy `collect_call_args_at`.
+/// full-tree walk frozen as `collect_call_args_at_reference`.
 #[derive(Clone, Debug, Default)]
 pub(crate) struct CallArgsIndex {
-    #[allow(dead_code)]
     by_call: BTreeMap<(usize, String), Vec<CallArg>>,
 }
 
@@ -116,7 +115,6 @@ pub struct ParsedFile {
     /// Lazily-built call-argument index (Task S1.5). Lazy so warm nav-cache loads,
     /// AST-only consumers, and callers with no resolved-call args pay nothing; the
     /// cold CPG/nav build that runs Step 5b builds it on demand.
-    #[allow(dead_code)]
     call_args: std::sync::OnceLock<CallArgsIndex>,
 }
 
@@ -177,19 +175,16 @@ impl ParsedFile {
         node.utf8_text(self.source.as_bytes()).unwrap_or("")
     }
 
-    #[allow(dead_code)]
     pub(crate) fn call_args_index(&self) -> &CallArgsIndex {
         self.call_args.get_or_init(|| self.build_call_args_index())
     }
 
-    #[allow(dead_code)]
     fn build_call_args_index(&self) -> CallArgsIndex {
         let mut by_call = BTreeMap::new();
         self.index_call_args(self.tree.root_node(), &mut by_call);
         CallArgsIndex { by_call }
     }
 
-    #[allow(dead_code)]
     fn index_call_args(&self, node: Node<'_>, out: &mut BTreeMap<(usize, String), Vec<CallArg>>) {
         if self.language.is_call_node(node.kind()) {
             if let Some(name_node) = self.language.call_function_name(&node) {
@@ -205,7 +200,6 @@ impl ParsedFile {
         }
     }
 
-    #[allow(dead_code)]
     fn named_arg_spans(&self, call_node: &Node<'_>) -> Vec<CallArg> {
         let mut args = Vec::new();
         if let Some(args_node) = self.language.call_arguments(call_node) {
@@ -225,7 +219,6 @@ impl ParsedFile {
     /// Derive an argument's text from its span, byte-identically to the legacy
     /// `node_text(child).trim().trim_start_matches('&')`. Mirrors `node_text`'s
     /// `utf8_text(...).unwrap_or("")` (panic-safe on a malformed span — yields "").
-    #[allow(dead_code)]
     fn arg_text(&self, a: &CallArg) -> String {
         // `.get(..)` (not direct `[..]`) so an out-of-range span yields "" instead of
         // panicking — matches the stated panic-safe guarantee and `node_text`'s
@@ -4398,9 +4391,14 @@ impl ParsedFile {
     /// Like `call_argument_texts`, but selects the call expression whose start
     /// byte == `start_byte` (disambiguates multiple calls on one line).
     pub fn call_argument_texts_at(&self, start_byte: usize, callee_name: &str) -> Vec<String> {
-        self.call_argument_texts_at_reference(start_byte, callee_name)
+        self.call_args_index()
+            .by_call
+            .get(&(start_byte, callee_name.to_string()))
+            .map(|spans| spans.iter().map(|a| self.arg_text(a)).collect())
+            .unwrap_or_default()
     }
 
+    #[cfg(test)]
     fn call_argument_texts_at_reference(
         &self,
         start_byte: usize,
@@ -4453,6 +4451,7 @@ impl ParsedFile {
         }
     }
 
+    #[cfg(test)]
     fn collect_call_args_at_reference(
         &self,
         node: Node<'_>,
@@ -5096,6 +5095,33 @@ mod tests {
             for (sb, name) in all_call_sites(&pf) {
                 assert_eq!(
                     index_texts(&pf, sb, &name),
+                    pf.call_argument_texts_at_reference(sb, &name),
+                    "{path} byte {sb} `{name}`"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn call_argument_texts_at_production_matches_reference() {
+        let cases: &[(&str, Language, &str)] = &[
+            (
+                "fn f(){ g(a, &b); o.m(x); a.b().c(d); a.b().b(z); }",
+                Language::Rust,
+                "p.rs",
+            ),
+            ("func f(){ g(a, b); o.M(x) }", Language::Go, "p.go"),
+            (
+                "def f():\n    g(a, b)\n    o.m(x)\n",
+                Language::Python,
+                "p.py",
+            ),
+        ];
+        for (src, lang, path) in cases {
+            let pf = ParsedFile::parse(path, src, *lang).unwrap();
+            for (sb, name) in all_call_sites(&pf) {
+                assert_eq!(
+                    pf.call_argument_texts_at(sb, &name),
                     pf.call_argument_texts_at_reference(sb, &name),
                     "{path} byte {sb} `{name}`"
                 );
