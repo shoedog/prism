@@ -23,6 +23,18 @@ Every slice merged with containerized verify PASS + dual diff-review APPROVE.
    recursive `ParsedFile::collect_call_args` walk under Step 5b (profile evidence in the S1
    PR). Step 5b is deliberately serial assembly territory, so C2 does not mask it.
    Candidate S1.5: per-file call-args index (same shape as the FunctionTable move).
+   **→ RESOLVED 2026-06-19 — S1.5 SHIPPED (PR #111).** Per-file call-args index
+   (`BTreeMap<(start_byte, callee_name), Vec<CallArg>>`, arg byte-spans, lazy `OnceLock` on
+   `ParsedFile`) built once per file; `call_argument_texts_at` is now a map lookup. The legacy
+   walk is frozen as a `#[cfg(test)]` reference oracle and an exhaustive parity test asserts
+   `index == walk` across all 12 `Language::all()` variants + edge cases. Behavior-preserving
+   (Tier-A `--matrix-only` 40 ok / 0 regressions). Cold-build measurements (`nav --no-cache
+   call-stats`, branch vs `e72a0c8`): **hugo 86.4→18.4 s (4.68×)**, tokio 8.2→6.5 s (1.25×),
+   prism 27.4→22.7 s (1.21×). Design/plan:
+   `docs/superpowers/specs/2026-06-19-prism-s1.5-call-args-index-design.md` (rev 2) +
+   `docs/superpowers/plans/2026-06-19-prism-s1.5-call-args-index.md`. The byte-keyed plural
+   API only; the line-keyed `call_argument_texts` (absence_slice) and singular
+   `call_argument_text_at` (callback resolution) stay as walks (cold/narrow — deferred).
 4. **Local debug test-suite wall time is compile-dominated.** ~~Full `cargo test` ≈ 21 min~~
    **CORRECTED 2026-06-11 (WP2 Task 1 baseline, `docs/eval/wp2-timing.md`):** the
    21-minute observation does not reproduce on a healthy machine — measured clean
@@ -60,3 +72,9 @@ Every slice merged with containerized verify PASS + dual diff-review APPROVE.
    proven (exact-order + cache-byte parity tests; warm path −28..−48% where parse dominates).
    The gate should be re-measured after the item-3 follow-up removes the serial dominator;
    until then this row is open evidence, owner-accepted at merge per the report-out policy.
+   **→ RE-MEASURED 2026-06-19 after S1.5 (item 3, PR #111) removed the serial dominator:**
+   cold-hugo user/wall **1.09 → 1.42** (and the absolute cold time dropped 4.68×, 86.4→18.4 s
+   — the dominator is gone). The ratio is still shy of the ≥1.5 target because the *remainder*
+   of Step 5b stays deliberately serial — S1.5 made `collect_call_args` cheap, not parallel.
+   Closing the residual ratio gap is a distinct follow-up (parallelize the rest of Step 5b),
+   not part of S1.5. Row remains open evidence at that lower-severity framing.
