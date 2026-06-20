@@ -756,9 +756,10 @@ impl CodePropertyGraph {
             .collect()
     }
 
-    /// Per-caller Step-5b emission - verbatim semantics of the original inline
-    /// loop, with a caller-local param memo (`compute_param_names` is pure, so
-    /// emitted edges are identical to the global memo).
+    /// Per-caller Step-5b emission, with a caller-local param memo
+    /// (`compute_param_names` is pure, so emitted edges are identical to the global
+    /// memo). The arg→param binding is field-sensitive (full access path first, base
+    /// fallback) — a deliberate precision change from the original base-only loop.
     fn step5b_edges_for_caller(
         caller_id: &FunctionId,
         sites: &BTreeSet<CallSite>,
@@ -802,28 +803,44 @@ impl CodePropertyGraph {
                         break;
                     }
                     let arg_text = &arg_texts[i];
-                    let arg_base = arg_text.split('.').next().unwrap_or(arg_text);
-                    let arg_base = arg_base.split("->").next().unwrap_or(arg_base);
-                    let arg_path = AccessPath::simple(arg_base);
-                    let arg_key = (
-                        caller_id.file.clone(),
-                        caller_id.name.clone(),
-                        caller_id.start_line,
-                        site.line,
-                        arg_path.clone(),
-                        VarAccess::Use,
-                    );
-                    let arg_idx = var_index.get(&arg_key).copied().or_else(|| {
-                        let def_key = (
-                            caller_id.file.clone(),
-                            caller_id.name.clone(),
-                            caller_id.start_line,
-                            site.line,
-                            arg_path,
-                            VarAccess::Def,
-                        );
-                        var_index.get(&def_key).copied()
-                    });
+                    // Field-sensitive arg binding (from PR #113): prefer the full access path
+                    // (e.g. `o.data`) so interproc taint flows from the specific field, falling
+                    // back to the base (`o`) — the pre-change behavior — when no field-path var
+                    // node exists (recall-preserving).
+                    let full_arg_path = AccessPath::from_expr(arg_text);
+                    let mut arg_paths = vec![full_arg_path.clone()];
+                    let base_arg_path = AccessPath::simple(&full_arg_path.base);
+                    if base_arg_path != full_arg_path {
+                        arg_paths.push(base_arg_path);
+                    }
+                    // Supplement, not replace: emit an edge from EACH resolved arg node (the
+                    // field path AND the base) so both field-rooted and whole-object taint cross
+                    // the boundary. prism's DFG does not propagate base taint into field nodes, so
+                    // binding only the field would drop object-level taint the base edge carries.
+                    let arg_idxs: Vec<NodeIndex> = arg_paths
+                        .into_iter()
+                        .filter_map(|arg_path| {
+                            let arg_key = (
+                                caller_id.file.clone(),
+                                caller_id.name.clone(),
+                                caller_id.start_line,
+                                site.line,
+                                arg_path.clone(),
+                                VarAccess::Use,
+                            );
+                            var_index.get(&arg_key).copied().or_else(|| {
+                                let def_key = (
+                                    caller_id.file.clone(),
+                                    caller_id.name.clone(),
+                                    caller_id.start_line,
+                                    site.line,
+                                    arg_path,
+                                    VarAccess::Def,
+                                );
+                                var_index.get(&def_key).copied()
+                            })
+                        })
+                        .collect();
                     let param_path = AccessPath::simple(param_name);
                     let param_idx = (callee_id.start_line..=callee_id.end_line).find_map(|line| {
                         let key = (
@@ -836,8 +853,10 @@ impl CodePropertyGraph {
                         );
                         var_index.get(&key).copied()
                     });
-                    if let (Some(from), Some(to)) = (arg_idx, param_idx) {
-                        out.push((from, to, CpgEdge::DataFlow));
+                    if let Some(to) = param_idx {
+                        for from in arg_idxs {
+                            out.push((from, to, CpgEdge::DataFlow));
+                        }
                     }
                 }
             }
@@ -851,7 +870,11 @@ impl CodePropertyGraph {
         var_index: &BTreeMap<(String, String, usize, usize, AccessPath, VarAccess), NodeIndex>,
         files: &BTreeMap<String, ParsedFile>,
     ) -> Vec<PendingEdge> {
-        // Verbatim original Step-5b: global lazy param_cache, no prewarm.
+        // Serial twin of Step-5b (global lazy param_cache, no prewarm) — the par==serial
+        // reference for the oracle. The arg→param binding mirrors the production helper's
+        // field-sensitive logic so the oracle proves the par_iter restructure is faithful
+        // (it is no longer a frozen pre-edge-steps original; that byte-identity is
+        // intentionally superseded by the field-sensitivity change).
         let mut out: Vec<PendingEdge> = Vec::new();
         let mut param_cache: BTreeMap<(String, String, usize), Option<Vec<String>>> =
             BTreeMap::new();
@@ -889,28 +912,41 @@ impl CodePropertyGraph {
                             break;
                         }
                         let arg_text = &arg_texts[i];
-                        let arg_base = arg_text.split('.').next().unwrap_or(arg_text);
-                        let arg_base = arg_base.split("->").next().unwrap_or(arg_base);
-                        let arg_path = AccessPath::simple(arg_base);
-                        let arg_key = (
-                            caller_id.file.clone(),
-                            caller_id.name.clone(),
-                            caller_id.start_line,
-                            site.line,
-                            arg_path.clone(),
-                            VarAccess::Use,
-                        );
-                        let arg_idx = var_index.get(&arg_key).copied().or_else(|| {
-                            let def_key = (
-                                caller_id.file.clone(),
-                                caller_id.name.clone(),
-                                caller_id.start_line,
-                                site.line,
-                                arg_path,
-                                VarAccess::Def,
-                            );
-                            var_index.get(&def_key).copied()
-                        });
+                        // Field-sensitive arg binding — mirrors the production helper so this
+                        // serial reference stays the par==serial twin for the parallelization oracle.
+                        let full_arg_path = AccessPath::from_expr(arg_text);
+                        let mut arg_paths = vec![full_arg_path.clone()];
+                        let base_arg_path = AccessPath::simple(&full_arg_path.base);
+                        if base_arg_path != full_arg_path {
+                            arg_paths.push(base_arg_path);
+                        }
+                        // Supplement, not replace (mirrors the production helper) — both the
+                        // field path and the base get an arg→param edge so object-level taint
+                        // is preserved alongside field-level precision.
+                        let arg_idxs: Vec<NodeIndex> = arg_paths
+                            .into_iter()
+                            .filter_map(|arg_path| {
+                                let arg_key = (
+                                    caller_id.file.clone(),
+                                    caller_id.name.clone(),
+                                    caller_id.start_line,
+                                    site.line,
+                                    arg_path.clone(),
+                                    VarAccess::Use,
+                                );
+                                var_index.get(&arg_key).copied().or_else(|| {
+                                    let def_key = (
+                                        caller_id.file.clone(),
+                                        caller_id.name.clone(),
+                                        caller_id.start_line,
+                                        site.line,
+                                        arg_path,
+                                        VarAccess::Def,
+                                    );
+                                    var_index.get(&def_key).copied()
+                                })
+                            })
+                            .collect();
                         let param_path = AccessPath::simple(param_name);
                         let param_idx =
                             (callee_id.start_line..=callee_id.end_line).find_map(|line| {
@@ -924,8 +960,10 @@ impl CodePropertyGraph {
                                 );
                                 var_index.get(&key).copied()
                             });
-                        if let (Some(from), Some(to)) = (arg_idx, param_idx) {
-                            out.push((from, to, CpgEdge::DataFlow));
+                        if let Some(to) = param_idx {
+                            for from in arg_idxs {
+                                out.push((from, to, CpgEdge::DataFlow));
+                            }
                         }
                     }
                 }

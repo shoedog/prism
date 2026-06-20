@@ -1005,6 +1005,110 @@ void flow() {
     );
 }
 
+/// Does an interproc `DataFlow` edge exist from a `(file, line, full-path-string)`
+/// Variable node to a `(file, line, full-path-string)` Variable node? Matches the
+/// full access path (`path.to_string()`) so field vs base nodes are distinguished.
+#[cfg(test)]
+fn has_df_path_edge(
+    cpg: &CodePropertyGraph,
+    from: (&str, usize, &str),
+    to: (&str, usize, &str),
+) -> bool {
+    fn m(n: &CpgNode, (f, l, p): (&str, usize, &str)) -> bool {
+        matches!(n, CpgNode::Variable { file, line, path, .. }
+            if file == f && *line == l && path.to_string() == p)
+    }
+    cpg.graph.edge_indices().any(|e| {
+        cpg.graph[e] == CpgEdge::DataFlow
+            && cpg
+                .graph
+                .edge_endpoints(e)
+                .map(|(s, t)| m(cpg.node(s), from) && m(cpg.node(t), to))
+                .unwrap_or(false)
+    })
+}
+
+#[test]
+fn step5b_field_arg_binds_field_and_base_supplement() {
+    // `g(o.data)`: supplement-not-replace emits BOTH `o.data -> p` (field-level taint)
+    // AND `o -> p` (whole-object taint). prism's DFG does not propagate base taint
+    // into field nodes, so the base edge must be supplemented, not replaced — else
+    // object-rooted taint (`o = source(); g(o.data)`) would stop crossing the boundary.
+    let callee_src = "def g(p):\n    return p\n";
+    let caller_src = "from m import g\n\ndef run(o):\n    o.data = source()\n    g(o.data)\n";
+    let mut files = BTreeMap::new();
+    files.insert(
+        "m.py".to_string(),
+        ParsedFile::parse("m.py", callee_src, Language::Python).unwrap(),
+    );
+    files.insert(
+        "c.py".to_string(),
+        ParsedFile::parse("c.py", caller_src, Language::Python).unwrap(),
+    );
+    let ctx = CpgContext::build(&files, None);
+    assert!(
+        has_df_path_edge(&ctx.cpg, ("c.py", 5, "o.data"), ("m.py", 1, "p")),
+        "field-level edge o.data -> p missing (field-rooted taint would not reach)"
+    );
+    assert!(
+        has_df_path_edge(&ctx.cpg, ("c.py", 5, "o"), ("m.py", 1, "p")),
+        "base (supplement) edge o -> p missing — object-rooted taint would be dropped"
+    );
+}
+
+#[test]
+fn step5b_field_arg_does_not_cross_fields() {
+    // `g(o.data)` binds o.data and o, but NOT a sibling field o.other — field
+    // precision: taint isolated to o.other must not reach p via this call.
+    let callee_src = "def g(p):\n    return p\n";
+    let caller_src =
+        "from m import g\n\ndef run(o):\n    o.other = source()\n    o.data = clean()\n    g(o.data)\n";
+    let mut files = BTreeMap::new();
+    files.insert(
+        "m.py".to_string(),
+        ParsedFile::parse("m.py", callee_src, Language::Python).unwrap(),
+    );
+    files.insert(
+        "c.py".to_string(),
+        ParsedFile::parse("c.py", caller_src, Language::Python).unwrap(),
+    );
+    let ctx = CpgContext::build(&files, None);
+    // The bound paths (field + base) reach p ...
+    assert!(has_df_path_edge(
+        &ctx.cpg,
+        ("c.py", 6, "o.data"),
+        ("m.py", 1, "p")
+    ));
+    assert!(has_df_path_edge(
+        &ctx.cpg,
+        ("c.py", 6, "o"),
+        ("m.py", 1, "p")
+    ));
+    // ... but the sibling field does not.
+    assert!(
+        !has_df_path_edge(&ctx.cpg, ("c.py", 6, "o.other"), ("m.py", 1, "p")),
+        "sibling field o.other must not bind to the param fed o.data"
+    );
+}
+
+#[test]
+fn step5b_deref_arg_normalizes_to_base_pointer() {
+    // `g(*ptr)`: switching to AccessPath::from_expr also normalizes a dereference
+    // (`*ptr` -> `ptr`), so the pointer's taint binds to the param. (The old string-split
+    // kept the literal `*ptr` and matched no var node.) Codex MINOR-3: call this out + test.
+    let src = "void g(int* p) {\n    use(p);\n}\nvoid run() {\n    int* ptr = source();\n    g(*ptr);\n}\n";
+    let mut files = BTreeMap::new();
+    files.insert(
+        "m.c".to_string(),
+        ParsedFile::parse("m.c", src, Language::C).unwrap(),
+    );
+    let ctx = CpgContext::build(&files, None);
+    assert!(
+        has_df_path_edge(&ctx.cpg, ("m.c", 6, "ptr"), ("m.c", 1, "p")),
+        "deref arg *ptr should normalize to ptr and bind ptr -> p"
+    );
+}
+
 #[test]
 fn step5b_param_binding_first_wins_parity() {
     // callee file defines two same-named fns; Step 5b must bind args to the FIRST
