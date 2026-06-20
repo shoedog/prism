@@ -124,6 +124,53 @@ fn step7_parallel_matches_serial_reference() {
     );
 }
 
+/// Shared discriminating fixture for the edge-step old-order oracles. Python
+/// (the proven `step5b_param_binding_first_wins_parity` shape - no crate-root
+/// subtlety): cross-file `from`-import calls (-> Call/Return + arg->param
+/// DataFlow), a same-name `helper` redefinition (exercises the resolver's
+/// multi-owner path, whatever it decides), an unresolved call, and branchy
+/// bodies (`if/else` -> ControlFlow). Resolution is via the free-function /
+/// import fallback; the oracle (par == serial) holds regardless of which
+/// callee(s) resolve, since both sides see the same resolution.
+fn edge_fixture() -> std::collections::BTreeMap<String, ParsedFile> {
+    let callee = "def helper(p):\n    if p > 0:\n        return p\n    return 0\n\
+                  \ndef helper(p, q):\n    return p + q\n\
+                  \ndef leaf():\n    return 1\n";
+    let caller = "from callee import helper, leaf\n\
+                  \ndef run(x):\n    y = helper(x)\n    z = leaf()\n\
+                  \n    if y > z:\n        return missing_fn(y)\n    return z\n";
+    let mut files = std::collections::BTreeMap::new();
+    files.insert(
+        "callee.py".to_string(),
+        ParsedFile::parse("callee.py", callee, Language::Python).unwrap(),
+    );
+    files.insert(
+        "caller.py".to_string(),
+        ParsedFile::parse("caller.py", caller, Language::Python).unwrap(),
+    );
+    files
+}
+
+#[test]
+fn step8_parallel_edge_collect_matches_serial_reference() {
+    use super::build::CodePropertyGraph;
+    use super::types::{CpgEdge, CpgNode};
+    use petgraph::graph::{DiGraph, NodeIndex};
+    use std::collections::BTreeMap;
+
+    let files = edge_fixture();
+    // Step 8 reads stmt_index (built by Step 7). Regenerate it deterministically;
+    // par vs serial collect share the same stmt_index -> directly comparable.
+    let mut g: DiGraph<CpgNode, CpgEdge> = DiGraph::new();
+    let mut li: BTreeMap<(String, usize), Vec<NodeIndex>> = BTreeMap::new();
+    let stmt_index = CodePropertyGraph::assemble_step7(&files, &mut g, &mut li);
+
+    let par = CodePropertyGraph::collect_step8_edges(&stmt_index, &files);
+    let serial = CodePropertyGraph::collect_step8_edges_reference(&stmt_index, &files);
+    assert_eq!(par, serial, "Step-8 ControlFlow edge sequence diverged");
+    assert!(!par.is_empty(), "fixture produced no CFG edges");
+}
+
 #[test]
 fn test_taint_trace_straight_line_frontier() {
     let src = "def f():\n    user = input()\n    x = user\n    sink(x)\n";

@@ -68,6 +68,10 @@ struct PendingStatement {
     end_byte: usize,
 }
 
+/// An edge pending insertion: (from, to, weight). Collected in deterministic
+/// unit order, then applied by a serial `add_edge` loop (S1 C2 pattern).
+pub(crate) type PendingEdge = (NodeIndex, NodeIndex, CpgEdge);
+
 // ---------------------------------------------------------------------------
 // Code Property Graph
 // ---------------------------------------------------------------------------
@@ -573,15 +577,8 @@ impl CodePropertyGraph {
         let stmt_index = Self::assemble_step7(files, &mut graph, &mut location_index);
 
         // --- Step 8: ControlFlow edges ---
-        for (_path, parsed) in files {
-            let cfg_edges = cfg::build_cfg_edges(parsed);
-            for edge in cfg_edges {
-                let from_idx = stmt_index.get(&(edge.file.clone(), edge.from_line));
-                let to_idx = stmt_index.get(&(edge.file.clone(), edge.to_line));
-                if let (Some(&from), Some(&to)) = (from_idx, to_idx) {
-                    graph.add_edge(from, to, CpgEdge::ControlFlow);
-                }
-            }
+        for (from, to, w) in Self::collect_step8_edges(&stmt_index, files) {
+            graph.add_edge(from, to, w);
         }
 
         // --- Step 9: Virtual dispatch enrichment ---
@@ -744,6 +741,51 @@ impl CodePropertyGraph {
             }
         }
         stmt_index
+    }
+
+    /// Step 8: statement->statement ControlFlow edges. Collect-then-apply.
+    /// (Inert in this task - serial `iter`; parallelized in Task 2.)
+    pub(crate) fn collect_step8_edges(
+        stmt_index: &BTreeMap<(String, usize), NodeIndex>,
+        files: &BTreeMap<String, ParsedFile>,
+    ) -> Vec<PendingEdge> {
+        let ordered: Vec<(&String, &ParsedFile)> = files.iter().collect();
+        ordered
+            .iter()
+            .map(|(_path, parsed)| {
+                let mut out: Vec<PendingEdge> = Vec::new();
+                for edge in cfg::build_cfg_edges(parsed) {
+                    let from_idx = stmt_index.get(&(edge.file.clone(), edge.from_line));
+                    let to_idx = stmt_index.get(&(edge.file.clone(), edge.to_line));
+                    if let (Some(&from), Some(&to)) = (from_idx, to_idx) {
+                        out.push((from, to, CpgEdge::ControlFlow));
+                    }
+                }
+                out
+            })
+            .collect::<Vec<Vec<PendingEdge>>>()
+            .into_iter()
+            .flatten()
+            .collect()
+    }
+
+    #[cfg(test)]
+    pub(crate) fn collect_step8_edges_reference(
+        stmt_index: &BTreeMap<(String, usize), NodeIndex>,
+        files: &BTreeMap<String, ParsedFile>,
+    ) -> Vec<PendingEdge> {
+        let mut out: Vec<PendingEdge> = Vec::new();
+        for (_path, parsed) in files {
+            let cfg_edges = cfg::build_cfg_edges(parsed);
+            for edge in cfg_edges {
+                let from_idx = stmt_index.get(&(edge.file.clone(), edge.from_line));
+                let to_idx = stmt_index.get(&(edge.file.clone(), edge.to_line));
+                if let (Some(&from), Some(&to)) = (from_idx, to_idx) {
+                    out.push((from, to, CpgEdge::ControlFlow));
+                }
+            }
+        }
+        out
     }
 
     #[cfg(test)]
