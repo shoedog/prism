@@ -34,5 +34,8 @@ use std::collections::{BTreeMap, BTreeSet};
 
 pub use build::CodePropertyGraph;
 pub use context::{CpgContext, CpgScope};
-pub use trace::{BoundaryEdge, Relation, Trace};
+pub use trace::{
+    BoundaryEdge, BoundaryKind, OrderingDecision, OrderingUnavailableReason, OrderingWarning,
+    Relation, SameLineOrderView, Trace,
+};
 pub use types::{CpgEdge, CpgNode, StmtKind, VarAccess};

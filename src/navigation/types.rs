@@ -1,5 +1,11 @@
 use serde::Serialize;
 
+pub use crate::cpg::OrderingUnavailableReason;
+pub use crate::reasoning::types::{
+    Reachability, ReasoningReason, ReasoningSummary, ReasoningWarning,
+    ScopeHonestyUnavailableReason, SinkResult, SinkSourceResult,
+};
+
 #[derive(Debug, Clone, Serialize, PartialEq)]
 pub struct Location {
     pub file: String,
@@ -126,65 +132,6 @@ pub struct GraphEdge {
 pub struct GraphPayload {
     pub nodes: Vec<GraphNode>,
     pub edges: Vec<GraphEdge>,
-}
-
-#[derive(Debug, Clone, Serialize, PartialEq)]
-pub enum ReasoningReason {
-    TaintedBy {
-        source: SymbolRef,
-        sanitizers_present_in_source_fn: Vec<String>,
-        path_proven: bool,
-    },
-}
-
-#[derive(Debug, Clone, Serialize, PartialEq)]
-pub enum ReasoningWarning {
-    SeedUnresolved {
-        seed: String,
-    },
-    InterproceduralBoundary {
-        sink: String,
-    },
-    Cleansed {
-        source_function: String,
-    },
-    UnmodeledConstruct {
-        language: String,
-        construct: String,
-        function: String,
-    },
-}
-
-#[derive(Debug, Clone, Serialize, PartialEq)]
-pub enum Reachability {
-    Reached,
-    NotReached,
-    BoundaryExited,
-}
-
-#[derive(Debug, Clone, Serialize, PartialEq)]
-pub struct SinkResult {
-    pub sink: SymbolRef,
-    pub reachability: Reachability,
-    /// Index into the accompanying witness `GraphPayload.nodes` (NOT `Evidence.graph`, which the
-    /// shared ego/repo-map paths truncate/reorder at `max_results`). Plan B owns wiring this to a
-    /// non-truncating witness graph and repairing/clearing the index if that graph is ever clipped —
-    /// a dangling index is a tracked Plan B follow-up (graph_node truncation repair). `None` until
-    /// then.
-    pub graph_node: Option<usize>,
-}
-
-#[derive(Debug, Clone, Serialize, PartialEq)]
-pub struct ReasoningSummary {
-    /// Aggregate reachability across `per_sink`. AGGREGATION RULE (Plan B must honor this once it
-    /// produces the field, before the wire shape freezes): the worst case in defect-finder terms —
-    /// `Reached` if any sink is `Reached`, else `BoundaryExited` if any is `BoundaryExited`, else
-    /// `NotReached`; `None` when there are no sinks. (Recall `NotReached` is "not reached within v1's
-    /// traced scope," not proven absence.)
-    pub reachability: Option<Reachability>,
-    pub per_sink: Vec<SinkResult>,
-    pub source_count: usize,
-    pub frontier_count: usize,
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq)]

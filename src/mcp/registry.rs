@@ -58,6 +58,18 @@ impl ToolRegistry {
         registry
     }
 
+    pub fn reason_v1() -> Self {
+        let mut registry = Self { tools: Vec::new() };
+        crate::mcp::tools_reasoning::register_all(&mut registry);
+        registry
+    }
+
+    pub fn all_v1() -> Self {
+        let mut registry = Self::nav_v1();
+        crate::mcp::tools_reasoning::register_all(&mut registry);
+        registry
+    }
+
     pub fn register(&mut self, descriptor: ToolDescriptor) {
         self.tools.push(descriptor);
     }
@@ -102,5 +114,21 @@ mod tests {
                 d.name
             );
         }
+    }
+
+    #[test]
+    fn all_registry_adds_reasoning_tools_without_changing_nav_v1() {
+        let nav = ToolRegistry::nav_v1();
+        let reason = ToolRegistry::reason_v1();
+        let all = ToolRegistry::all_v1();
+
+        assert_eq!(nav.list().len(), 6);
+        assert_eq!(
+            reason.list().iter().map(|d| d.name).collect::<Vec<_>>(),
+            ["taint_reaches"]
+        );
+        assert_eq!(all.list().len(), 7);
+        assert!(all.get("taint_reaches").is_some());
+        assert_eq!(nav.list().len(), 6);
     }
 }

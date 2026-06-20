@@ -26,11 +26,48 @@ pub enum Relation {
 /// traversed in v1.
 /// `Ord` so [`Trace::boundary`] can be a set — parallel DataFlow edges and multi-root traces
 /// would otherwise push duplicate `(root, from, to)` triples and double-count downstream warnings.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum BoundaryKind {
+    CrossFunction,
+    SelfFunctionParam,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct BoundaryEdge {
     pub root: NodeIndex,
     pub from: NodeIndex,
     pub to: NodeIndex,
+    pub kind: BoundaryKind,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum OrderingDecision {
+    Admit,
+    AdmitWithWarning { warning: OrderingWarning },
+}
+
+#[derive(Debug, Clone, Copy, serde::Serialize, PartialEq, Eq, PartialOrd, Ord)]
+pub enum OrderingUnavailableReason {
+    DuplicateOccurrences,
+    AstUnavailable,
+    OccurrenceMismatch,
+    UnsupportedSyntax,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct OrderingWarning {
+    pub file: String,
+    pub line: usize,
+    pub path: String,
+    pub reason: OrderingUnavailableReason,
+}
+
+pub trait SameLineOrderView {
+    fn admit_same_line_recovered_def_use(
+        &self,
+        def: NodeIndex,
+        use_: NodeIndex,
+    ) -> OrderingDecision;
 }
 
 #[derive(Debug, Clone, Default)]
@@ -45,6 +82,7 @@ pub struct Trace {
     pub boundary: BTreeSet<BoundaryEdge>,
     pub degraded: bool,
     pub warnings: Vec<String>,
+    pub ordering_warnings: Vec<OrderingWarning>,
 }
 
 impl Trace {
@@ -167,18 +205,20 @@ impl CodePropertyGraph {
                             continue;
                         };
                         // A neighbor is a boundary (taint exits into a callee v1 doesn't trace) if it
-                        // crosses into a different function, OR it is a parameter binding — a Variable
-                        // `Def` on a function's signature line, i.e. the target of an arg→param edge.
-                        // The parameter test is what catches a *recursive* self-call (`f` → `f`), where
-                        // `next_fn == src_fn` makes the name-keyed function check miss the boundary and
-                        // the param's signature line is not CFG-reachable, dropping a real flow. This
-                        // pairs the boundary and CFG-admit decisions so the ordering is structural, not
-                        // a documented convention (see `cfg_valid`).
-                        if next_fn != src_fn || self.is_parameter_binding(next) {
+                        // crosses into a different function, or if a recursive/self call's arg→param
+                        // DataFlow edge lands back in the same function. The edge-sensitive parameter
+                        // test avoids classifying one-line body locals as call boundaries.
+                        if next_fn != src_fn || self.is_parameter_binding_from(node, next, rel) {
+                            let kind = if next_fn != src_fn {
+                                BoundaryKind::CrossFunction
+                            } else {
+                                BoundaryKind::SelfFunctionParam
+                            };
                             trace.boundary.insert(BoundaryEdge {
                                 root,
                                 from: node,
                                 to: next,
+                                kind,
                             });
                             continue;
                         }
@@ -195,6 +235,167 @@ impl CodePropertyGraph {
             }
         }
         trace
+    }
+
+    /// Node-precise sibling of [`Self::taint_trace`]. It traverses only the supplied roots, while
+    /// still computing the line-level CFG degradation guards over all variable nodes on each root's
+    /// line so a single-node seed cannot bypass known minified/shared-line ambiguity.
+    pub fn taint_trace_nodes(
+        &self,
+        roots: &[NodeIndex],
+        order: Option<&dyn SameLineOrderView>,
+    ) -> Trace {
+        let has_cfg = self.has_cfg_edges();
+        let mut trace = Trace::default();
+
+        let mut by_line: BTreeMap<(String, usize), BTreeSet<NodeIndex>> = BTreeMap::new();
+        for &root in roots {
+            let CpgNode::Variable { file, line, .. } = &self.graph[root] else {
+                continue;
+            };
+            by_line
+                .entry((file.clone(), *line))
+                .or_default()
+                .insert(root);
+        }
+
+        for ((file, line), selected_roots) in by_line {
+            let line_roots: Vec<NodeIndex> = self
+                .nodes_at(&file, line)
+                .into_iter()
+                .filter(|&n| matches!(self.graph[n], CpgNode::Variable { .. }))
+                .collect();
+            if line_roots.is_empty() {
+                trace
+                    .warnings
+                    .push(format!("Seed {file}:{line} resolved to no variable nodes"));
+                continue;
+            }
+
+            let multi_function = line_roots
+                .iter()
+                .filter_map(|&n| match &self.graph[n] {
+                    CpgNode::Variable {
+                        function,
+                        function_start_line,
+                        ..
+                    } => Some((function.as_str(), *function_start_line)),
+                    _ => None,
+                })
+                .collect::<BTreeSet<(&str, usize)>>()
+                .len()
+                > 1;
+            let cfg_scope = if has_cfg && (multi_function || self.function_starts_at(&file, line)) {
+                trace.degraded = true;
+                trace.warnings.push(format!(
+                    "Seed line {file}:{line} is a function signature / hosts multiple functions; \
+                     using pure-taint fallback"
+                ));
+                None
+            } else {
+                self.cfg_scope_for_seed(&file, line, has_cfg, &mut trace)
+            };
+
+            for root in selected_roots {
+                let Some(src_fn) = self.node_file_fn(root) else {
+                    continue;
+                };
+                let mut enqueued: BTreeSet<NodeIndex> = BTreeSet::new();
+                let mut queue = VecDeque::new();
+                if enqueued.insert(root) {
+                    trace.frontier_by_root.entry(root).or_default().insert(root);
+                    queue.push_back(root);
+                }
+                while let Some(node) = queue.pop_front() {
+                    for (next, rel) in self.taint_neighbors(node) {
+                        if !self.ordering_admits(node, next, rel, order, &mut trace) {
+                            continue;
+                        }
+                        let Some(next_fn) = self.node_file_fn(next) else {
+                            continue;
+                        };
+                        if next_fn != src_fn || self.is_parameter_binding_from(node, next, rel) {
+                            let kind = if next_fn != src_fn {
+                                BoundaryKind::CrossFunction
+                            } else {
+                                BoundaryKind::SelfFunctionParam
+                            };
+                            trace.boundary.insert(BoundaryEdge {
+                                root,
+                                from: node,
+                                to: next,
+                                kind,
+                            });
+                            continue;
+                        }
+                        if !self.cfg_valid(&src_fn.0, line, &cfg_scope, has_cfg, next) {
+                            continue;
+                        }
+                        if enqueued.insert(next) {
+                            trace.frontier_by_root.entry(root).or_default().insert(next);
+                            trace.parents_by_root.insert((root, next), (node, rel));
+                            queue.push_back(next);
+                        }
+                    }
+                }
+            }
+        }
+        trace
+    }
+
+    fn ordering_admits(
+        &self,
+        from: NodeIndex,
+        to: NodeIndex,
+        rel: Relation,
+        order: Option<&dyn SameLineOrderView>,
+        trace: &mut Trace,
+    ) -> bool {
+        let mut warnings = Vec::new();
+        let admitted = self.ordering_admits_collect(from, to, rel, order, &mut warnings);
+        trace.ordering_warnings.extend(warnings);
+        admitted
+    }
+
+    fn ordering_admits_collect(
+        &self,
+        from: NodeIndex,
+        to: NodeIndex,
+        rel: Relation,
+        order: Option<&dyn SameLineOrderView>,
+        warnings: &mut Vec<OrderingWarning>,
+    ) -> bool {
+        if rel != Relation::RecoveredDefUse || !self.same_line_variables(from, to) {
+            return true;
+        }
+        let Some(order) = order else {
+            return true;
+        };
+        match order.admit_same_line_recovered_def_use(from, to) {
+            OrderingDecision::Admit => true,
+            OrderingDecision::AdmitWithWarning { warning } => {
+                warnings.push(warning);
+                true
+            }
+        }
+    }
+
+    fn same_line_variables(&self, a: NodeIndex, b: NodeIndex) -> bool {
+        matches!(
+            (&self.graph[a], &self.graph[b]),
+            (
+                CpgNode::Variable {
+                    file: af,
+                    line: al,
+                    ..
+                },
+                CpgNode::Variable {
+                    file: bf,
+                    line: bl,
+                    ..
+                }
+            ) if af == bf && al == bl
+        )
     }
 
     fn node_file_fn(&self, idx: NodeIndex) -> Option<(String, String, usize)> {
@@ -217,19 +418,46 @@ impl CodePropertyGraph {
         })
     }
 
-    /// Is `node` a parameter binding — a Variable `Def` on a function's signature line? Such a node
-    /// is only ever written by a caller's arg→param edge, so reaching it is a call boundary (true
-    /// even for a recursive self-call, where name-keyed function identity would mask it).
-    fn is_parameter_binding(&self, node: NodeIndex) -> bool {
-        match &self.graph[node] {
-            CpgNode::Variable {
-                access: VarAccess::Def,
-                file,
-                line,
-                ..
-            } => self.function_starts_at(file, *line),
-            _ => false,
+    /// Is `to` a parameter binding reached by an arg→param call edge from `from`?
+    ///
+    /// Parameter defs and one-line body locals can share the function start line. Statement nodes are
+    /// also line-deduped, so byte/statement heuristics misclassify locals in minified multi-function
+    /// lines. The boundary we need to preserve is narrower and edge-sensitive: a recursive/self call
+    /// whose DataFlow edge lands on the callee parameter. If call resolution misses that self-call,
+    /// this stays intra-function and fails open rather than manufacturing a false `NotReached`.
+    fn is_parameter_binding_from(&self, from: NodeIndex, to: NodeIndex, rel: Relation) -> bool {
+        if rel != Relation::DataFlow {
+            return false;
         }
+        let CpgNode::Variable {
+            access: VarAccess::Def,
+            function: callee_name,
+            ..
+        } = &self.graph[to]
+        else {
+            return false;
+        };
+        let CpgNode::Variable {
+            file: caller_file,
+            function: caller_name,
+            function_start_line: caller_start_line,
+            line: call_line,
+            ..
+        } = &self.graph[from]
+        else {
+            return false;
+        };
+        self.call_graph
+            .callers
+            .get(callee_name)
+            .is_some_and(|sites| {
+                sites.iter().any(|site| {
+                    site.line == *call_line
+                        && site.caller.file == *caller_file
+                        && site.caller.name == *caller_name
+                        && site.caller.start_line == *caller_start_line
+                })
+            })
     }
 
     fn taint_neighbors(&self, node: NodeIndex) -> Vec<(NodeIndex, Relation)> {
@@ -323,6 +551,16 @@ impl CodePropertyGraph {
     /// — and through one shared `taint_neighbors` — keeps them from diverging. The same-line def→use
     /// recovery lives in `taint_neighbors`, so this primitive needs no special seeding.
     pub(crate) fn forward_reachable_in_function(&self, start: NodeIndex) -> BTreeSet<NodeIndex> {
+        let mut warnings = Vec::new();
+        self.forward_reachable_in_function_ordered(start, None, &mut warnings)
+    }
+
+    pub(crate) fn forward_reachable_in_function_ordered(
+        &self,
+        start: NodeIndex,
+        order: Option<&dyn SameLineOrderView>,
+        ordering_warnings: &mut Vec<OrderingWarning>,
+    ) -> BTreeSet<NodeIndex> {
         let Some(start_fn) = self.node_file_fn(start) else {
             return BTreeSet::new();
         };
@@ -333,7 +571,10 @@ impl CodePropertyGraph {
             if !visited.insert(node) {
                 continue;
             }
-            for (next, _rel) in self.taint_neighbors(node) {
+            for (next, rel) in self.taint_neighbors(node) {
+                if !self.ordering_admits_collect(node, next, rel, order, ordering_warnings) {
+                    continue;
+                }
                 if self.node_file_fn(next).as_ref() == Some(&start_fn) && !visited.contains(&next) {
                     queue.push_back(next);
                 }

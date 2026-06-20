@@ -5,10 +5,12 @@ use std::collections::BTreeMap;
 use petgraph::graph::NodeIndex;
 use petgraph::Direction;
 
-use crate::cpg::{CodePropertyGraph, CpgEdge, CpgNode, Relation, StmtKind, Trace, VarAccess};
-use crate::navigation::types::{
-    GraphEdge, GraphNode, GraphPayload, Location, Reachability, SymbolRef,
+use crate::cpg::{
+    CodePropertyGraph, CpgEdge, CpgNode, OrderingWarning, Relation, SameLineOrderView, StmtKind,
+    Trace, VarAccess,
 };
+use crate::navigation::types::{GraphEdge, GraphNode, GraphPayload, Location, SymbolRef};
+use crate::reasoning::types::Reachability;
 
 /// Best-effort **line-level** reachability of a `(file,line)` sink. NOTE: the CPG has no edges
 /// from a `Call` statement to its argument `Variable` nodes, so a line bearing several variables
@@ -69,7 +71,46 @@ pub fn reachability_for_node(
     Reachability::NotReached
 }
 
-fn sink_nodes_at(cpg: &CodePropertyGraph, file: &str, line: usize) -> Vec<NodeIndex> {
+pub fn reachability_for_node_from(
+    cpg: &CodePropertyGraph,
+    trace: &Trace,
+    root: NodeIndex,
+    sink: NodeIndex,
+) -> Reachability {
+    let mut ordering_warnings = Vec::new();
+    reachability_for_node_from_ordered(cpg, trace, root, sink, None, &mut ordering_warnings)
+}
+
+pub fn reachability_for_node_from_ordered(
+    cpg: &CodePropertyGraph,
+    trace: &Trace,
+    root: NodeIndex,
+    sink: NodeIndex,
+    order: Option<&dyn SameLineOrderView>,
+    ordering_warnings: &mut Vec<OrderingWarning>,
+) -> Reachability {
+    if trace
+        .frontier_by_root
+        .get(&root)
+        .is_some_and(|frontier| frontier.contains(&sink))
+    {
+        return Reachability::Reached;
+    }
+    for b in trace.boundary.iter().filter(|b| b.root == root) {
+        if b.to == sink {
+            return Reachability::BoundaryExited;
+        }
+        if cpg
+            .forward_reachable_in_function_ordered(b.to, order, ordering_warnings)
+            .contains(&sink)
+        {
+            return Reachability::BoundaryExited;
+        }
+    }
+    Reachability::NotReached
+}
+
+pub fn sink_nodes_at(cpg: &CodePropertyGraph, file: &str, line: usize) -> Vec<NodeIndex> {
     let nodes = cpg.nodes_at(file, line);
     let callees: Vec<String> = nodes
         .iter()
@@ -203,6 +244,67 @@ pub fn witness_graph_for_node(
     Some(GraphPayload { nodes, edges })
 }
 
+pub fn witness_graph_for(
+    cpg: &CodePropertyGraph,
+    trace: &Trace,
+    root: NodeIndex,
+    sink: NodeIndex,
+) -> Option<GraphPayload> {
+    if !trace
+        .frontier_by_root
+        .get(&root)
+        .is_some_and(|frontier| frontier.contains(&sink))
+    {
+        return None;
+    }
+
+    let mut chain = Vec::new();
+    let mut cur = sink;
+    chain.push(cur);
+    let mut seen = std::collections::BTreeSet::from([cur]);
+    while let Some((p, _)) = trace.parents_by_root.get(&(root, cur)) {
+        if !seen.insert(*p) {
+            break;
+        }
+        cur = *p;
+        chain.push(cur);
+    }
+    chain.reverse();
+
+    let mut idx_of: BTreeMap<NodeIndex, usize> = BTreeMap::new();
+    let mut nodes = Vec::new();
+    for &n in &chain {
+        idx_of.entry(n).or_insert_with(|| {
+            nodes.push(node_of(cpg, n));
+            nodes.len() - 1
+        });
+    }
+
+    let mut edges = Vec::new();
+    for w in chain.windows(2) {
+        let (from, to) = (w[0], w[1]);
+        if from == to {
+            continue;
+        }
+        let relation = trace.parents_by_root.get(&(root, to)).map(|(_, rel)| *rel);
+        let kind = match relation {
+            Some(Relation::DataFlow) | None => "DataFlow",
+            Some(Relation::AssignmentPropagation) => "AssignmentPropagation",
+            Some(Relation::RecoveredDefUse) => "RecoveredDefUse",
+        };
+        edges.push(GraphEdge {
+            from: idx_of[&from],
+            to: idx_of[&to],
+            kind: kind.to_string(),
+        });
+    }
+    Some(GraphPayload { nodes, edges })
+}
+
+pub fn node_to_graph_node(cpg: &CodePropertyGraph, n: NodeIndex) -> GraphNode {
+    node_of(cpg, n)
+}
+
 fn node_of(cpg: &CodePropertyGraph, n: NodeIndex) -> GraphNode {
     let loc = cpg.to_var_location(n);
     let (file, line, function, path, access, start_byte, end_byte) = match &loc {
@@ -255,7 +357,7 @@ fn node_of(cpg: &CodePropertyGraph, n: NodeIndex) -> GraphNode {
 mod tests {
     use super::*;
     use crate::cpg::CodePropertyGraph;
-    use crate::navigation::types::Reachability;
+    use crate::reasoning::types::Reachability;
 
     fn build_python_cpg(src: &str) -> CodePropertyGraph {
         let parsed =
