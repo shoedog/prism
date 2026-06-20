@@ -10,6 +10,13 @@
 
 **Design of record:** `docs/superpowers/specs/2026-06-19-prism-step5b-cost-reduction-design.md` (rev 2, PLAN-READY).
 
+> **Plan-review folded (codex gpt-5.5 xhigh, fix-then-execute → fixed):** 2 BLOCKERs + 1 MAJOR + 2 MINORs, all
+> mechanical (algorithm verified faithful + behavior-preserving). B1: add `FunctionId` to the `build.rs` import.
+> B2: the helper lives in the private `mod build`, so the test in `src/cpg/tests.rs` must
+> `use super::build::compute_param_names;`. MAJOR: run `cargo build --release` + Tier-A `--matrix-only` BEFORE
+> the commit (AGENTS.md: CPG-construction changes gate on the matrix pre-commit). MINORs: line-ref/range
+> wording (`callee_parsed` binds at `:442–445`; the extracted logic is `:446–485`).
+
 **Verification-scope override (macOS host):** full `cargo test` / `--test cli` / `--test frameworks` stall at `_dyld_start`. Use `cargo test --lib`, `cargo test --test integration <filter>`, `cargo test --test infra <filter>`, `cargo fmt`, `cargo clippy -p prism --lib`, `cargo build -p prism`. The orchestrator runs Tier-A + perf.
 
 ---
@@ -17,7 +24,7 @@
 ## File structure
 
 - **`src/cpg/build.rs`** — Slice 1: extract `compute_param_names` + the per-callee memo in Step 5b. Slice 2: the compute→sorted-apply refactor.
-- **Test module** (`src/cpg/tests.rs` or a `#[cfg(test)] mod` in `build.rs`) — Slice 1 unit test for `compute_param_names`.
+- **`src/cpg/tests.rs`** (the existing cpg test module) — Slice 1 unit test; imports the helper via `use super::build::compute_param_names;` (the helper is in the private `mod build`, not re-exported).
 - **`tests/infra/parallel_equality_test.rs`** — Slice 2 only: extend (thread-count + cache-byte parity) + the serial-reference edge-order oracle.
 - No other files.
 
@@ -33,11 +40,12 @@
 
 - [ ] **Step 1: Write the failing unit test for the extracted helper**
 
-Add to the cpg test module. It pins the extraction's correctness (free fn → all params; Python `self`-method → `self` stripped; callee not found → `None`). References `compute_param_names`, which does not yet exist → compile-fail red.
+Add to `src/cpg/tests.rs`. It pins the extraction's correctness (free fn → all params; Python `self`-method → `self` stripped; callee not found → `None`). References `compute_param_names`, which does not yet exist → compile-fail red. **The helper is in the private `mod build`** (not re-exported by `src/cpg.rs`), so the test must import it explicitly via `use super::build::compute_param_names;`.
 
 ```rust
 #[test]
 fn compute_param_names_pins_current_behavior() {
+    use super::build::compute_param_names;
     use crate::ast::ParsedFile;
     use crate::call_graph::FunctionId;
     use crate::languages::Language;
@@ -71,7 +79,13 @@ Expected: **FAIL to compile** — `compute_param_names` does not exist.
 
 - [ ] **Step 2: Extract `compute_param_names` (verbatim current logic → `Option<Vec<String>>`)**
 
-Add a module-private `pub(crate) fn` in `src/cpg/build.rs`. This is the current `:446–500` logic — the `info` find (now `?` → `None`), the `all_functions()` param-occurrence discovery with the `info.param_names` fallback, and the Python `self`/`cls` slice gate — returning an **owned** `Option<Vec<String>>`.
+First, add `FunctionId` to the `build.rs` import (currently `use crate::call_graph::{CallGraph, ScopeGraphBuildInputs};` at `src/cpg/build.rs:6`) — the helper signature names the type:
+
+```rust
+use crate::call_graph::{CallGraph, FunctionId, ScopeGraphBuildInputs};
+```
+
+Then add a module-private `pub(crate) fn` in `src/cpg/build.rs`. This is the current **`:446–485`** logic (the per-site arg→param loop at `:486+` stays OUT of the helper) — the `info` find (now `?` → `None`), the `all_functions()` param-occurrence discovery with the `info.param_names` fallback, and the Python `self`/`cls` slice gate — returning an **owned** `Option<Vec<String>>`.
 
 ```rust
 /// The normalized parameter-name list for a resolved callee, as Step 5b computes it.
@@ -148,20 +162,24 @@ Then DELETE the current `let Some(info) = … else { continue };` block (`:446�
 
 Everything after (`for (i, param_name) in param_names.iter().enumerate()` and the `param_idx` lookup + `graph.add_edge`) is **unchanged**.
 
-> Note: `callee_parsed` is the `&ParsedFile` already bound at `:457` (`files.get(&callee_id.file)`); `callee_id` is the owned `resolved.target` at `:447` (the key clones its fields, `&callee_id` is borrowed by the closure). The arg-text extraction (`call_argument_texts_at`, `:452`) stays *before* this block (it gates the early `continue` on empty args, unchanged).
+> Note: `callee_parsed` is the `&ParsedFile` already bound at `:442–445` (`files.get(&callee_id.file)`); `callee_id` is the owned `resolved.target` at `:447` (the key clones its fields, `&callee_id` is borrowed by the closure). The arg-text extraction (`call_argument_texts_at`, `~:433–445`) stays *before* this block (it gates the early `continue` on empty args, unchanged).
 
-- [ ] **Step 4: Verify behavior-preserving + no new clippy**
+- [ ] **Step 4: Verify behavior-preserving — incl. the Tier-A matrix (AGENTS.md pre-commit gate for CPG changes)**
 
 ```bash
 cargo test --lib
 cargo test --test integration core_test::
 cargo fmt && cargo fmt --check
 cargo clippy -p prism --lib
-cargo build -p prism
+cargo build --release                                    # AGENTS.md: release build before the matrix
+cd eval && uv run tier-a --matrix-only --allow-stale-sut # 0 regressions — pre-commit gate; then cd back
 ```
-Expected: all green; no new clippy warnings naming `compute_param_names`/`param_cache`.
+Expected: lib + integration green; no new clippy warnings naming `compute_param_names`/`param_cache`;
+**Tier-A matrix 0 regressions** (behavior-preserving). `uv run tier-a` is Python/uv (not `cargo test`) so it
+does NOT hit the `_dyld_start` stall — the implementer runs it. (Per AGENTS.md, this matrix runs **before** the
+Step 5 commit, since the change touches `src/cpg/` construction.)
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 5: Commit (after the Step-4 matrix passes)**
 
 ```bash
 git add src/cpg/build.rs src/cpg/tests.rs
