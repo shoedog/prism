@@ -1125,53 +1125,7 @@ impl CallGraph {
             return;
         }
 
-        let mut updates: Vec<(
-            FunctionId,
-            CallSite,
-            Option<crate::resolution_identity::ReceiverOutcome>,
-        )> = Vec::new();
-        {
-            let typer = crate::resolution_receiver::RustReceiverTyper::new(self);
-            for (caller, sites) in &self.calls {
-                let Some(parsed) = files.get(&caller.file) else {
-                    continue;
-                };
-                if !matches!(parsed.language, crate::languages::Language::Rust) {
-                    continue;
-                }
-                let Some(fn_node) = Self::function_node_for_id(parsed, caller) else {
-                    continue;
-                };
-                let all_lines: BTreeSet<usize> = (caller.start_line..=caller.end_line).collect();
-                let ast_calls =
-                    parsed.function_calls_with_qualifier_and_spans_on_lines(&fn_node, &all_lines);
-                for site in sites {
-                    let Some((_, _, qualifier, start_byte, _, receiver_expr, _, _)) = ast_calls
-                        .iter()
-                        .find(|(callee_name, _, _, start_byte, end_byte, _, _, _)| {
-                            callee_name == &site.callee_name
-                                && *start_byte == site.start_byte
-                                && *end_byte == site.end_byte
-                        })
-                    else {
-                        continue;
-                    };
-                    if receiver_expr.is_none() && qualifier.is_none() {
-                        continue;
-                    }
-                    let outcome =
-                        typer.type_of_receiver(crate::resolution_receiver::ReceiverTypeCtx {
-                            parsed,
-                            caller,
-                            fn_node,
-                            receiver_expr: *receiver_expr,
-                            qualifier: qualifier.as_deref(),
-                            call_start_byte: *start_byte,
-                        });
-                    updates.push((caller.clone(), site.clone(), outcome));
-                }
-            }
-        }
+        let updates = self.compute_rust_receiver_updates(files);
 
         for (caller, old_site, outcome) in updates {
             let mut updated = old_site.clone();
@@ -1189,6 +1143,137 @@ impl CallGraph {
                 }
             }
         }
+    }
+
+    /// Phase 1 of receiver re-typing: read-only per-caller receiver outcomes,
+    /// collected over the `self.calls`-ordered caller list. Serial here (Task 1);
+    /// parallelized in Task 2. Only valid when `self.scope_graph` is `Some`
+    /// (`RustReceiverTyper::new` requires it) -- the caller guards that.
+    pub(crate) fn compute_rust_receiver_updates(
+        &self,
+        files: &BTreeMap<String, ParsedFile>,
+    ) -> Vec<(
+        FunctionId,
+        CallSite,
+        Option<crate::resolution_identity::ReceiverOutcome>,
+    )> {
+        let typer = crate::resolution_receiver::RustReceiverTyper::new(self);
+        let ordered: Vec<(&FunctionId, &BTreeSet<CallSite>)> = self.calls.iter().collect();
+        ordered
+            .iter()
+            .copied() // (&FunctionId, &BTreeSet) is Copy -> avoid &&-destructuring
+            .map(|(caller, sites)| Self::receiver_updates_for_caller(caller, sites, &typer, files))
+            .collect::<Vec<Vec<_>>>()
+            .into_iter()
+            .flatten()
+            .collect()
+    }
+
+    /// Per-caller receiver outcomes -- verbatim semantics of the original Phase-1
+    /// inner body. Caller-level skips return the empty `out`; site-level skips
+    /// `continue` (exactly the original `continue` placements).
+    fn receiver_updates_for_caller(
+        caller: &FunctionId,
+        sites: &BTreeSet<CallSite>,
+        typer: &crate::resolution_receiver::RustReceiverTyper<'_>,
+        files: &BTreeMap<String, ParsedFile>,
+    ) -> Vec<(
+        FunctionId,
+        CallSite,
+        Option<crate::resolution_identity::ReceiverOutcome>,
+    )> {
+        let mut out = Vec::new();
+        let Some(parsed) = files.get(&caller.file) else {
+            return out;
+        };
+        if !matches!(parsed.language, crate::languages::Language::Rust) {
+            return out;
+        }
+        let Some(fn_node) = Self::function_node_for_id(parsed, caller) else {
+            return out;
+        };
+        let all_lines: BTreeSet<usize> = (caller.start_line..=caller.end_line).collect();
+        let ast_calls =
+            parsed.function_calls_with_qualifier_and_spans_on_lines(&fn_node, &all_lines);
+        for site in sites {
+            let Some((_, _, qualifier, start_byte, _, receiver_expr, _, _)) = ast_calls
+                .iter()
+                .find(|(callee_name, _, _, start_byte, end_byte, _, _, _)| {
+                    callee_name == &site.callee_name
+                        && *start_byte == site.start_byte
+                        && *end_byte == site.end_byte
+                })
+            else {
+                continue;
+            };
+            if receiver_expr.is_none() && qualifier.is_none() {
+                continue;
+            }
+            let outcome = typer.type_of_receiver(crate::resolution_receiver::ReceiverTypeCtx {
+                parsed,
+                caller,
+                fn_node,
+                receiver_expr: *receiver_expr,
+                qualifier: qualifier.as_deref(),
+                call_start_byte: *start_byte,
+            });
+            out.push((caller.clone(), site.clone(), outcome));
+        }
+        out
+    }
+
+    /// Frozen verbatim copy of the ORIGINAL Phase-1 loop, returning the same Vec.
+    /// The old-order oracle compares the production collect against this.
+    #[cfg(test)]
+    pub(crate) fn compute_rust_receiver_updates_reference(
+        &self,
+        files: &BTreeMap<String, ParsedFile>,
+    ) -> Vec<(
+        FunctionId,
+        CallSite,
+        Option<crate::resolution_identity::ReceiverOutcome>,
+    )> {
+        let mut updates = Vec::new();
+        let typer = crate::resolution_receiver::RustReceiverTyper::new(self);
+        for (caller, sites) in &self.calls {
+            let Some(parsed) = files.get(&caller.file) else {
+                continue;
+            };
+            if !matches!(parsed.language, crate::languages::Language::Rust) {
+                continue;
+            }
+            let Some(fn_node) = Self::function_node_for_id(parsed, caller) else {
+                continue;
+            };
+            let all_lines: BTreeSet<usize> = (caller.start_line..=caller.end_line).collect();
+            let ast_calls =
+                parsed.function_calls_with_qualifier_and_spans_on_lines(&fn_node, &all_lines);
+            for site in sites {
+                let Some((_, _, qualifier, start_byte, _, receiver_expr, _, _)) = ast_calls
+                    .iter()
+                    .find(|(callee_name, _, _, start_byte, end_byte, _, _, _)| {
+                        callee_name == &site.callee_name
+                            && *start_byte == site.start_byte
+                            && *end_byte == site.end_byte
+                    })
+                else {
+                    continue;
+                };
+                if receiver_expr.is_none() && qualifier.is_none() {
+                    continue;
+                }
+                let outcome = typer.type_of_receiver(crate::resolution_receiver::ReceiverTypeCtx {
+                    parsed,
+                    caller,
+                    fn_node,
+                    receiver_expr: *receiver_expr,
+                    qualifier: qualifier.as_deref(),
+                    call_start_byte: *start_byte,
+                });
+                updates.push((caller.clone(), site.clone(), outcome));
+            }
+        }
+        updates
     }
 
     fn function_node_for_id<'a>(
@@ -2069,6 +2154,37 @@ mod tests {
             ..RustCrateConfig::default()
         };
         CallGraph::build_with_scope_graph_inputs(&files, Some(&inputs))
+    }
+
+    #[test]
+    fn rust_receiver_updates_parallel_matches_serial_reference() {
+        // Real-dir load -> populated scope_graph (in-memory ad-hoc Rust fixtures have no
+        // crate root, so RustReceiverTyper::new would panic). src/navigation: 397 updates.
+        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src/navigation");
+        let repo = crate::repo_loader::load_repo(&dir).unwrap();
+        let ctx = crate::cpg::CpgContext::build(&repo.files, None);
+        let cg = &ctx.cpg.call_graph;
+        let par = cg.compute_rust_receiver_updates(&repo.files);
+        let serial = cg.compute_rust_receiver_updates_reference(&repo.files);
+        assert_eq!(par, serial, "receiver update sequence diverged");
+        assert!(!par.is_empty(), "fixture produced no receiver updates");
+    }
+
+    #[test]
+    fn rematerialize_corpus_has_rust_receiver_updates() {
+        // Floors the cache-byte gate's corpus (src/cpg) so it actually exercises remat.
+        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src/cpg");
+        let repo = crate::repo_loader::load_repo(&dir).unwrap();
+        let ctx = crate::cpg::CpgContext::build(&repo.files, None);
+        let n = ctx
+            .cpg
+            .call_graph
+            .compute_rust_receiver_updates(&repo.files)
+            .len();
+        assert!(
+            n > 50,
+            "too few receiver updates to surface a remat divergence: {n}"
+        ); // measured 1251
     }
 
     fn call_graph_type_scope(cg: &CallGraph, path: &str, name: &str) -> ScopeId {
