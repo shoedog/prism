@@ -90,6 +90,14 @@ pub struct RepoMapInput {
     pub max_results: usize,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TaintReachesInput {
+    pub sources: Vec<SeedInput>,
+    pub sinks: Option<Vec<SeedInput>>,
+    pub max_results: usize,
+    pub verbosity: Verbosity,
+}
+
 pub fn normalize_path(path: &str) -> NormalizedPath {
     if path.starts_with('/') {
         return NormalizedPath::EscapesRoot;
@@ -185,6 +193,23 @@ pub fn parse_repo_map(args: &Value) -> Result<RepoMapInput, ToolError> {
     })
 }
 
+pub fn parse_taint_reaches(args: &Value) -> Result<TaintReachesInput, ToolError> {
+    let obj = object(
+        args,
+        "taint_reaches",
+        &["sources", "sinks", "max_results", "verbosity"],
+    )?;
+    Ok(TaintReachesInput {
+        sources: parse_seed_array(required_value(obj, "sources")?, "sources")?,
+        sinks: match obj.get("sinks") {
+            Some(value) => Some(parse_seed_array(value, "sinks")?),
+            None => None,
+        },
+        max_results: optional_usize(obj, "max_results", MAX_RESULTS_DEFAULT, 1, MAX_RESULTS_CAP)?,
+        verbosity: parse_verbosity(obj.get("verbosity"))?,
+    })
+}
+
 fn object<'a>(
     value: &'a Value,
     tool: &str,
@@ -268,6 +293,16 @@ fn parse_seed(value: &Value) -> Result<SeedInput, ToolError> {
     Ok(seed)
 }
 
+fn parse_seed_array(value: &Value, key: &str) -> Result<Vec<SeedInput>, ToolError> {
+    let Some(values) = value.as_array() else {
+        return bad_args(format!("argument `{key}` must be an array"));
+    };
+    if values.is_empty() {
+        return bad_args(format!("argument `{key}` must not be empty"));
+    }
+    values.iter().map(parse_seed).collect()
+}
+
 fn parse_verbosity(value: Option<&Value>) -> Result<Verbosity, ToolError> {
     match value {
         None => Ok(Verbosity::Concise),
@@ -332,5 +367,7 @@ mod tests {
         assert!(parse_callers(&json!({"seed":{"kind":"symbol","name":"f"}})).is_ok());
         assert!(parse_nodes_at(&json!({"file":"a.rs","line":0})).is_err());
         assert!(parse_nodes_at(&json!({"file":"a.rs","line":1})).is_ok());
+        assert!(parse_taint_reaches(&json!({"sources":[]})).is_err());
+        assert!(parse_taint_reaches(&json!({"sources":[{"kind":"symbol","name":"f"}]})).is_ok());
     }
 }

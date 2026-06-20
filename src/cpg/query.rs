@@ -101,6 +101,21 @@ impl CodePropertyGraph {
             .copied()
     }
 
+    pub fn var_node_for_location(&self, loc: &VarLocation) -> Option<NodeIndex> {
+        let access = match loc.kind {
+            VarAccessKind::Def => VarAccess::Def,
+            VarAccessKind::Use => VarAccess::Use,
+        };
+        self.var_node(
+            &loc.file,
+            &loc.function,
+            loc.function_start_line,
+            loc.line,
+            &loc.path,
+            access,
+        )
+    }
+
     /// Total number of nodes in the graph.
     pub fn node_count(&self) -> usize {
         self.graph.node_count()
