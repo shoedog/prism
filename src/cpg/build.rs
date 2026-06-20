@@ -455,85 +455,8 @@ impl CodePropertyGraph {
         }
 
         // --- Step 5b: Interprocedural data flow edges ---
-        let mut param_cache: std::collections::BTreeMap<
-            (String, String, usize),
-            Option<Vec<String>>,
-        > = std::collections::BTreeMap::new();
-        for (caller_id, sites) in &cg.calls {
-            for site in sites {
-                for resolved in cg.resolve_call_site(site) {
-                    let callee_id = resolved.target;
-                    let caller_parsed = match files.get(&caller_id.file) {
-                        Some(p) => p,
-                        None => continue,
-                    };
-                    let arg_texts =
-                        caller_parsed.call_argument_texts_at(site.start_byte, &site.callee_name);
-                    if arg_texts.is_empty() {
-                        continue;
-                    }
-                    let callee_parsed = match files.get(&callee_id.file) {
-                        Some(p) => p,
-                        None => continue,
-                    };
-                    let cache_key = (
-                        callee_id.file.clone(),
-                        callee_id.name.clone(),
-                        callee_id.start_line,
-                    );
-                    let param_names: &[String] = match param_cache
-                        .entry(cache_key)
-                        .or_insert_with(|| compute_param_names(callee_parsed, &callee_id))
-                    {
-                        Some(names) => names.as_slice(),
-                        None => continue,
-                    };
-                    for (i, param_name) in param_names.iter().enumerate() {
-                        if i >= arg_texts.len() {
-                            break;
-                        }
-                        let arg_text = &arg_texts[i];
-                        let arg_base = arg_text.split('.').next().unwrap_or(arg_text);
-                        let arg_base = arg_base.split("->").next().unwrap_or(arg_base);
-                        let arg_path = AccessPath::simple(arg_base);
-                        let arg_key = (
-                            caller_id.file.clone(),
-                            caller_id.name.clone(),
-                            caller_id.start_line,
-                            site.line,
-                            arg_path.clone(),
-                            VarAccess::Use,
-                        );
-                        let arg_idx = var_index.get(&arg_key).copied().or_else(|| {
-                            let def_key = (
-                                caller_id.file.clone(),
-                                caller_id.name.clone(),
-                                caller_id.start_line,
-                                site.line,
-                                arg_path,
-                                VarAccess::Def,
-                            );
-                            var_index.get(&def_key).copied()
-                        });
-                        let param_path = AccessPath::simple(param_name);
-                        let param_idx =
-                            (callee_id.start_line..=callee_id.end_line).find_map(|line| {
-                                let key = (
-                                    callee_id.file.clone(),
-                                    callee_id.name.clone(),
-                                    callee_id.start_line,
-                                    line,
-                                    param_path.clone(),
-                                    VarAccess::Def,
-                                );
-                                var_index.get(&key).copied()
-                            });
-                        if let (Some(from), Some(to)) = (arg_idx, param_idx) {
-                            graph.add_edge(from, to, CpgEdge::DataFlow);
-                        }
-                    }
-                }
-            }
+        for (from, to, w) in Self::collect_step5b_edges(&cg, &var_index, files) {
+            graph.add_edge(from, to, w);
         }
 
         // --- Step 6: Contains edges ---
@@ -800,6 +723,211 @@ impl CodePropertyGraph {
                     if let Some(&callee_idx) = func_index.get(&callee_key) {
                         out.push((caller_idx, callee_idx, CpgEdge::Call(resolved.confidence)));
                         out.push((callee_idx, caller_idx, CpgEdge::Return(resolved.confidence)));
+                    }
+                }
+            }
+        }
+        out
+    }
+
+    /// Step 5b: interprocedural arg->param DataFlow edges. Collect-then-apply.
+    /// (Inert here - serial; parallelized in Task 6.)
+    /// Prewarms each file's `call_args` OnceLock so the eventual parallel phase
+    /// is a literal read of an initialized, deterministic index.
+    pub(crate) fn collect_step5b_edges(
+        cg: &CallGraph,
+        var_index: &BTreeMap<(String, String, usize, usize, AccessPath, VarAccess), NodeIndex>,
+        files: &BTreeMap<String, ParsedFile>,
+    ) -> Vec<PendingEdge> {
+        // Prewarm (serial here; par_iter in Task 6). Idempotent; each file's
+        // OnceLock is independent. Compute the index now so the collect never
+        // inits under load.
+        for parsed in files.values() {
+            let _ = parsed.call_args_index();
+        }
+        let ordered: Vec<_> = cg.calls.iter().collect();
+        ordered
+            .iter()
+            .map(|(caller_id, sites)| {
+                Self::step5b_edges_for_caller(caller_id, sites, cg, var_index, files)
+            })
+            .collect::<Vec<Vec<PendingEdge>>>()
+            .into_iter()
+            .flatten()
+            .collect()
+    }
+
+    /// Per-caller Step-5b emission - verbatim semantics of the original inline
+    /// loop, with a caller-local param memo (`compute_param_names` is pure, so
+    /// emitted edges are identical to the global memo).
+    fn step5b_edges_for_caller(
+        caller_id: &FunctionId,
+        sites: &BTreeSet<CallSite>,
+        cg: &CallGraph,
+        var_index: &BTreeMap<(String, String, usize, usize, AccessPath, VarAccess), NodeIndex>,
+        files: &BTreeMap<String, ParsedFile>,
+    ) -> Vec<PendingEdge> {
+        let mut out: Vec<PendingEdge> = Vec::new();
+        let mut param_cache: BTreeMap<(String, String, usize), Option<Vec<String>>> =
+            BTreeMap::new();
+        for site in sites {
+            for resolved in cg.resolve_call_site(site) {
+                let callee_id = resolved.target;
+                let caller_parsed = match files.get(&caller_id.file) {
+                    Some(p) => p,
+                    None => continue,
+                };
+                let arg_texts =
+                    caller_parsed.call_argument_texts_at(site.start_byte, &site.callee_name);
+                if arg_texts.is_empty() {
+                    continue;
+                }
+                let callee_parsed = match files.get(&callee_id.file) {
+                    Some(p) => p,
+                    None => continue,
+                };
+                let cache_key = (
+                    callee_id.file.clone(),
+                    callee_id.name.clone(),
+                    callee_id.start_line,
+                );
+                let param_names: &[String] = match param_cache
+                    .entry(cache_key)
+                    .or_insert_with(|| compute_param_names(callee_parsed, callee_id))
+                {
+                    Some(names) => names.as_slice(),
+                    None => continue,
+                };
+                for (i, param_name) in param_names.iter().enumerate() {
+                    if i >= arg_texts.len() {
+                        break;
+                    }
+                    let arg_text = &arg_texts[i];
+                    let arg_base = arg_text.split('.').next().unwrap_or(arg_text);
+                    let arg_base = arg_base.split("->").next().unwrap_or(arg_base);
+                    let arg_path = AccessPath::simple(arg_base);
+                    let arg_key = (
+                        caller_id.file.clone(),
+                        caller_id.name.clone(),
+                        caller_id.start_line,
+                        site.line,
+                        arg_path.clone(),
+                        VarAccess::Use,
+                    );
+                    let arg_idx = var_index.get(&arg_key).copied().or_else(|| {
+                        let def_key = (
+                            caller_id.file.clone(),
+                            caller_id.name.clone(),
+                            caller_id.start_line,
+                            site.line,
+                            arg_path,
+                            VarAccess::Def,
+                        );
+                        var_index.get(&def_key).copied()
+                    });
+                    let param_path = AccessPath::simple(param_name);
+                    let param_idx = (callee_id.start_line..=callee_id.end_line).find_map(|line| {
+                        let key = (
+                            callee_id.file.clone(),
+                            callee_id.name.clone(),
+                            callee_id.start_line,
+                            line,
+                            param_path.clone(),
+                            VarAccess::Def,
+                        );
+                        var_index.get(&key).copied()
+                    });
+                    if let (Some(from), Some(to)) = (arg_idx, param_idx) {
+                        out.push((from, to, CpgEdge::DataFlow));
+                    }
+                }
+            }
+        }
+        out
+    }
+
+    #[cfg(test)]
+    pub(crate) fn collect_step5b_edges_reference(
+        cg: &CallGraph,
+        var_index: &BTreeMap<(String, String, usize, usize, AccessPath, VarAccess), NodeIndex>,
+        files: &BTreeMap<String, ParsedFile>,
+    ) -> Vec<PendingEdge> {
+        // Verbatim original Step-5b: global lazy param_cache, no prewarm.
+        let mut out: Vec<PendingEdge> = Vec::new();
+        let mut param_cache: BTreeMap<(String, String, usize), Option<Vec<String>>> =
+            BTreeMap::new();
+        for (caller_id, sites) in &cg.calls {
+            for site in sites {
+                for resolved in cg.resolve_call_site(site) {
+                    let callee_id = resolved.target;
+                    let caller_parsed = match files.get(&caller_id.file) {
+                        Some(p) => p,
+                        None => continue,
+                    };
+                    let arg_texts =
+                        caller_parsed.call_argument_texts_at(site.start_byte, &site.callee_name);
+                    if arg_texts.is_empty() {
+                        continue;
+                    }
+                    let callee_parsed = match files.get(&callee_id.file) {
+                        Some(p) => p,
+                        None => continue,
+                    };
+                    let cache_key = (
+                        callee_id.file.clone(),
+                        callee_id.name.clone(),
+                        callee_id.start_line,
+                    );
+                    let param_names: &[String] = match param_cache
+                        .entry(cache_key)
+                        .or_insert_with(|| compute_param_names(callee_parsed, callee_id))
+                    {
+                        Some(names) => names.as_slice(),
+                        None => continue,
+                    };
+                    for (i, param_name) in param_names.iter().enumerate() {
+                        if i >= arg_texts.len() {
+                            break;
+                        }
+                        let arg_text = &arg_texts[i];
+                        let arg_base = arg_text.split('.').next().unwrap_or(arg_text);
+                        let arg_base = arg_base.split("->").next().unwrap_or(arg_base);
+                        let arg_path = AccessPath::simple(arg_base);
+                        let arg_key = (
+                            caller_id.file.clone(),
+                            caller_id.name.clone(),
+                            caller_id.start_line,
+                            site.line,
+                            arg_path.clone(),
+                            VarAccess::Use,
+                        );
+                        let arg_idx = var_index.get(&arg_key).copied().or_else(|| {
+                            let def_key = (
+                                caller_id.file.clone(),
+                                caller_id.name.clone(),
+                                caller_id.start_line,
+                                site.line,
+                                arg_path,
+                                VarAccess::Def,
+                            );
+                            var_index.get(&def_key).copied()
+                        });
+                        let param_path = AccessPath::simple(param_name);
+                        let param_idx =
+                            (callee_id.start_line..=callee_id.end_line).find_map(|line| {
+                                let key = (
+                                    callee_id.file.clone(),
+                                    callee_id.name.clone(),
+                                    callee_id.start_line,
+                                    line,
+                                    param_path.clone(),
+                                    VarAccess::Def,
+                                );
+                                var_index.get(&key).copied()
+                            });
+                        if let (Some(from), Some(to)) = (arg_idx, param_idx) {
+                            out.push((from, to, CpgEdge::DataFlow));
+                        }
                     }
                 }
             }
