@@ -1146,8 +1146,8 @@ impl CallGraph {
     }
 
     /// Phase 1 of receiver re-typing: read-only per-caller receiver outcomes,
-    /// collected over the `self.calls`-ordered caller list. Serial here (Task 1);
-    /// parallelized in Task 2. Only valid when `self.scope_graph` is `Some`
+    /// parallel-collected over the `self.calls`-ordered caller list using the
+    /// shared `Sync` receiver typer. Only valid when `self.scope_graph` is `Some`
     /// (`RustReceiverTyper::new` requires it) -- the caller guards that.
     pub(crate) fn compute_rust_receiver_updates(
         &self,
@@ -1157,10 +1157,12 @@ impl CallGraph {
         CallSite,
         Option<crate::resolution_identity::ReceiverOutcome>,
     )> {
+        use rayon::prelude::*;
+
         let typer = crate::resolution_receiver::RustReceiverTyper::new(self);
         let ordered: Vec<(&FunctionId, &BTreeSet<CallSite>)> = self.calls.iter().collect();
         ordered
-            .iter()
+            .par_iter()
             .copied() // (&FunctionId, &BTreeSet) is Copy -> avoid &&-destructuring
             .map(|(caller, sites)| Self::receiver_updates_for_caller(caller, sites, &typer, files))
             .collect::<Vec<Vec<_>>>()
