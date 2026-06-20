@@ -17,12 +17,15 @@ After the assemble edge-steps slice, the next contained cold-build lever is the
 |---|---|---|---|
 | **prism** | **2.695s (98.7%)** | 34ms | 26,263 |
 | **tokio** | **1.411s (98.9%)** | 16ms | 18,619 |
-| **hugo** | — (Go: `scope_graph` is `None` → whole fn early-returns, no-op) | — | — |
+| **hugo** | — (Go: no measured cost — see below) | — | — |
 
 Phase 1 — per Rust caller: one AST query (`function_calls_with_qualifier_and_spans_on_lines`)
 plus per call site `RustReceiverTyper::type_of_receiver` — is ~99% of the cost and
-is **read-only** (`&self` via the typer). This is **Rust-only** (the whole pass
-no-ops when there is no `scope_graph`, i.e. non-Rust / convention-incomplete repos).
+is **read-only** (`&self` via the typer). This is effectively **Rust-only**: the pass
+early-returns when `scope_graph.is_none()` (`:1124`; the case hit in the hugo build
+measured here — no `[remat]` output), and *even when* a build path supplies scope
+inputs, the **per-caller Rust language guard** (`:1135`–`:1140`) skips every non-Rust
+caller before any AST/type work. Either way Go pays ~0.
 
 ## 2. The function is already compute-then-apply
 
@@ -42,13 +45,19 @@ So this slice only parallelizes Phase 1's `for (caller, sites) in &self.calls` l
 The edge steps' load-bearing risk was *edge-insertion order* = cache bytes. Here it
 is **not order** — it is the **per-site `receiver_outcome` values**:
 
-- Phase 2 writes each site's `receiver_outcome` into `self.calls` (a
-  `BTreeMap<FunctionId, BTreeSet<CallSite>>`) and `self.callers`. Both are **sorted
-  containers**; `CallSite`'s `Ord`/`cmp_key` does **not** include `receiver_outcome`
-  (it is matched by `cmp_key` at `:1186`), so take+insert keeps the site's sorted
-  position. The serialized `CallGraph` (and the downstream CPG edges, since
-  `resolve_call_site` reads `receiver_outcome`) is therefore a pure function of the
-  **set of (site → outcome)** mappings, *independent of compute/apply order*.
+- Phase 2 writes each site's `receiver_outcome` into two structures, **neither of
+  which Phase 2 reorders**:
+  - `self.calls: BTreeMap<FunctionId, BTreeSet<CallSite>>` — sorted; `CallSite`'s
+    `Ord`/`cmp_key` does **not** include `receiver_outcome` (`call_graph.rs:1983-2018`;
+    matched by `cmp_key` at `:1186`), so take+insert keeps the site's sorted position.
+  - `self.callers: BTreeMap<String, Vec<CallSite>>` — a **`Vec` value** with a
+    preexisting order set during `CallGraph` construction (not by this pass); Phase 2
+    **overwrites `site.receiver_outcome` in place** (`:1184`–`:1190`), never appending
+    or reordering, so the `Vec` order is unchanged regardless of apply order.
+  The serialized `CallGraph` (cache bincodes a cloned `CallGraph` directly,
+  `cpg_cache.rs:206-223`) and the downstream CPG edges (since `resolve_call_site`
+  reads `receiver_outcome`) are therefore a pure function of the **set of (site →
+  outcome)** mappings, *independent of compute/apply order*.
 - `type_of_receiver` is **deterministic** (a pure function of `(parsed, caller,
   fn_node, receiver_expr, qualifier, call_start_byte)` + immutable `&self`; `self`
   is not mutated until Phase 2). So parallel Phase 1 produces the **identical
@@ -85,6 +94,7 @@ fn compute_rust_receiver_updates(
     let ordered: Vec<(&FunctionId, &BTreeSet<CallSite>)> = self.calls.iter().collect();
     ordered
         .par_iter()
+        .copied() // the (&FunctionId, &BTreeSet) tuple is Copy → avoid &&-destructuring
         .map(|(caller, sites)| {
             let mut out = Vec::new();
             // ... the VERBATIM per-caller body (files.get / Rust-lang guard /
@@ -165,8 +175,12 @@ produces receiver updates (so the gate isn't hollow):
 ```rust
 #[test]
 fn rematerialize_corpus_has_rust_receiver_updates() {
-    let repo = corpus2(); // src/cpg — Rust, method-call heavy
-    let ctx = CpgContext::build(&repo.files, None);
+    // Load src/cpg directly — the infra `corpus2()` helper is private to that test
+    // file; this guard is in-crate. (src/cpg is the same Rust corpus the cache-byte
+    // gate uses, so this floors exactly what that gate exercises.)
+    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src/cpg");
+    let repo = crate::repo_loader::load_repo(&dir).unwrap();
+    let ctx = crate::cpg::CpgContext::build(&repo.files, None);
     let n = ctx.cpg.call_graph.compute_rust_receiver_updates(&repo.files).len();
     assert!(n > 50, "too few receiver updates to surface a remat divergence: {n}");
 }
@@ -174,7 +188,7 @@ fn rematerialize_corpus_has_rust_receiver_updates() {
 
 This guard lives **in-crate** next to the oracle (`call_graph.rs:2032 mod tests`),
 where `compute_rust_receiver_updates` (`pub(crate)`) is reachable — no new public
-surface. (`src/cpg` ≈ the spec author's own corpus; expect well over 50 updates.)
+surface. (`src/cpg` is method-call-heavy Rust; expect well over 50 updates.)
 
 ### 6.3 Tier-A backstop
 
@@ -195,7 +209,7 @@ on any corpus is the gate. No `CACHE_VERSION` bump (bytes identical).
 | Per-site outcome differs parallel vs serial → cache-byte break | §3: `type_of_receiver` deterministic + `self` immutable in Phase 1; §6.1 old-order oracle + §6.2 cache-byte gate. |
 | `RustReceiverTyper`/`type_of_receiver` unsound under `par_iter` | §5: `&self`, zero interior mutability (audited), per-call scratch local, `Sync` refs. |
 | Borrow: `&self` compute vs `&mut self` apply | compute returns an owned `Vec`; the `&self` borrow ends before Phase 2 — same as the current `{ }` block. |
-| Rayon overhead on tiny/Go corpora | Go no-ops (`scope_graph` `None`); small Rust repos pay only the par_iter setup over a short caller list. |
+| Rayon overhead on tiny/Go corpora | Go pays ~0 (early-return on `scope_graph.is_none()` and/or the per-caller Rust language guard at `:1135`); small Rust repos pay only par_iter setup over a short caller list. |
 | `ReceiverOutcome` not `PartialEq` for the oracle | fall back to a `{:?}` debug-dump comparison (§6.1). |
 
 ## 9. Files
