@@ -163,6 +163,22 @@ fn step5_parallel_edge_collect_matches_serial_reference() {
 }
 
 #[test]
+fn step5b_parallel_edge_collect_matches_serial_reference() {
+    use super::build::CodePropertyGraph;
+    let files = edge_fixture();
+    let cpg = CodePropertyGraph::build(&files); // sources cg + var_index (and warms call_args)
+    let par = CodePropertyGraph::collect_step5b_edges(&cpg.call_graph, &cpg.var_index, &files);
+    let serial =
+        CodePropertyGraph::collect_step5b_edges_reference(&cpg.call_graph, &cpg.var_index, &files);
+    assert_eq!(par, serial, "Step-5b DataFlow edge sequence diverged");
+    // The fixture's `let y = helper(x);` yields an arg->param DataFlow edge.
+    assert!(
+        !par.is_empty(),
+        "fixture produced no interproc DataFlow edges"
+    );
+}
+
+#[test]
 fn step8_parallel_edge_collect_matches_serial_reference() {
     use super::build::CodePropertyGraph;
     use super::types::{CpgEdge, CpgNode};
