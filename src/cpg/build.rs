@@ -716,15 +716,17 @@ impl CodePropertyGraph {
         stmt_index
     }
 
-    /// Step 5: Function->Function Call + Return edges. Collect-then-apply.
-    /// (Inert here - serial; parallelized in Task 4.)
+    /// Step 5: Function->Function Call + Return edges. Parallel collect over
+    /// ordered caller units (`par_iter`, order-preserving), then serial `add_edge`.
     pub(crate) fn collect_step5_edges(
         cg: &CallGraph,
         func_index: &BTreeMap<(String, String, usize), NodeIndex>,
     ) -> Vec<PendingEdge> {
+        use rayon::prelude::*;
+
         let ordered: Vec<_> = cg.calls.iter().collect();
         ordered
-            .iter()
+            .par_iter()
             .map(|(caller_id, sites)| {
                 Self::step5_edges_for_caller(caller_id, sites, cg, func_index)
             })
