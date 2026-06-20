@@ -57,6 +57,14 @@ Findings that shape this design:
 **Slice 2 (gated follow-on): parallelize Step 5b** (parallel-compute → ordinal-sorted serial apply) — **only if
 Slice 1 + re-measure does not reach gate-9 ≥1.5.** Carries the cache-byte-parity invariant (higher risk).
 
+**Slice 2 SHELVED (throwaway spike, 2026-06-19):** after Slice 1 shipped (PR #112, gate-9 1.41→1.53), a
+throwaway `par_iter`-over-callers spike measured the parallelization ceiling on top of the memo: **cold-hugo
+wall 14.69→~14.37s = ~0.3s** (user/wall 1.53→1.64). Far below the ~1s estimate — post-memo Step 5b is only
+~1.4s, the `add_edge` apply stays serial, and the parallelizable compute is small. A production shared-cache
+version might reach ~0.5–0.7s, no more. **A ~0.3s hugo-only gain does not justify the cache-byte-parity risk +
+the refactor/oracle cost** — the memo captured the win at zero edge-order risk. Slice 2 stays designed (below)
+for the record but is not planned.
+
 **Out of scope:**
 - The other serial `assemble_graph` steps (1/2-3/4/5/6/7/8/9 ≈ 7s on hugo) — the node-creation steps assign
   `NodeIndex` in order (load-bearing for cache bytes); a separate, harder effort. Noted as the next ceiling.
