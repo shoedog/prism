@@ -65,3 +65,27 @@ fn cache_blob_bytes_identical_serial_vs_parallel() {
     let b_ser = std::fs::read(find_bin(d_ser.path())).unwrap();
     assert_eq!(b_par, b_ser);
 }
+
+/// Step-7 non-vacuity guard: a silent corpus shrink must not erase the file-order +
+/// statement coverage the determinism / cache-byte tests rely on to surface a
+/// parallel Step-7 divergence.
+#[test]
+fn step7_corpus_has_statement_nodes_and_is_nontrivial() {
+    let repo = corpus(); // src/navigation — multi-file, many functions/statements
+    assert!(
+        repo.files.len() >= 5,
+        "corpus too few files: {}",
+        repo.files.len()
+    );
+    let cpg = CpgContext::build(&repo.files, None);
+    // CodePropertyGraph::node returns &CpgNode (not Option).
+    let stmt_count = cpg
+        .cpg
+        .node_indices()
+        .filter(|&i| matches!(cpg.cpg.node(i), prism::cpg::CpgNode::Statement { .. }))
+        .count();
+    assert!(
+        stmt_count > 100, // current src/navigation ~162; floor guards against a >38% shrink
+        "corpus too small to surface Step-7 divergence: {stmt_count}"
+    );
+}
