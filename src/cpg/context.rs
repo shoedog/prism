@@ -81,7 +81,13 @@ impl<'a> CpgContext<'a> {
         scope: Option<CpgScope>,
     ) -> Self {
         let types = Self::build_registry(files, type_db);
-        let live_types = types.collect_live_types(files);
+        // collect_live_types recursively walks each file's AST (the C/C++/Python
+        // live-type scan), which overflows the caller thread on deeply-nested
+        // files. Run it on the large-stack pool so a directly-built or
+        // cache-loaded CpgContext (library/MCP, outside the CLI command wrap) is
+        // protected too.
+        let live_types =
+            crate::build_pool::build_pool().install(|| types.collect_live_types(files));
         CpgContext {
             cpg,
             files,
@@ -105,7 +111,13 @@ impl<'a> CpgContext<'a> {
     ) -> Self {
         cpg.type_db = type_db.cloned();
         let types = Self::build_registry(files, type_db);
-        let live_types = types.collect_live_types(files);
+        // collect_live_types recursively walks each file's AST (the C/C++/Python
+        // live-type scan), which overflows the caller thread on deeply-nested
+        // files. Run it on the large-stack pool so a directly-built or
+        // cache-loaded CpgContext (library/MCP, outside the CLI command wrap) is
+        // protected too.
+        let live_types =
+            crate::build_pool::build_pool().install(|| types.collect_live_types(files));
         CpgContext {
             cpg,
             files,

@@ -80,7 +80,12 @@ fn collect_walk_items(root: &Path) -> Result<(Vec<MergeItem>, Vec<CandidateData>
 }
 
 fn parse_candidates_parallel(candidates: Vec<CandidateData>) -> Vec<ParseOutcome> {
-    candidates.into_par_iter().map(parse_candidate).collect()
+    // Parse on the large-stack pool: ParsedFile::parse walks the AST recursively
+    // (error-node counting), which overflows a default ~2 MiB rayon worker on
+    // deeply-nested files (e.g. a #if-split 8192-element C initializer). See
+    // crate::build_pool.
+    crate::build_pool::build_pool()
+        .install(|| candidates.into_par_iter().map(parse_candidate).collect())
 }
 
 #[cfg_attr(not(test), allow(dead_code))] // parity twin: used by the in-module loader test

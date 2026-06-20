@@ -2190,3 +2190,81 @@ fn test_cfg_constrained_fallback_without_cfg() {
     let paths_dfg = cpg.taint_forward(&[(path.to_string(), 1)]);
     assert_eq!(paths_cfg.len(), paths_dfg.len());
 }
+
+/// Regression (CPG-build stack overflow): a `#if`-split 8192-element C lookup
+/// table (vendored base64 tables from mypy's `mypyc/lib-rt`) drove the recursive
+/// DFG / call-graph / assemble AST walks past a default ~2 MiB rayon worker
+/// stack, aborting the process during `nav repo-map` / `callers`. The build now
+/// runs on `cpg_build_pool` (a large-stack pool); pre-fix the build's parallel
+/// walk overflows a default rayon worker (the worker thread aborts the whole
+/// process), post-fix it completes.
+///
+/// The test body runs on a generous-stack thread because `ParsedFile::parse` of
+/// this deep AST itself recurses on the *calling* thread (a separate, debug-only
+/// concern that the default 2 MiB test-harness thread can't hold); that keeps
+/// the test focused on the build-pool fix rather than the parse path. A second
+/// file is present so the parallel build schedules the deep table onto a worker.
+/// Fixture: `tests/fixtures/c/cpg_stack_regression`.
+#[test]
+fn cpg_build_survives_deep_c_initializer_without_stack_overflow() {
+    // The regression signal is purely that the build *completes* rather than
+    // overflowing: a stack overflow aborts the whole process (SIGABRT), so
+    // reaching the assertion below at all means the fix held. (These two files
+    // are declaration-only — no functions — so the CPG has no func/var/stmt
+    // nodes; correctness is covered elsewhere. This test only pins no-overflow.)
+    let built = std::thread::Builder::new()
+        .stack_size(64 * 1024 * 1024)
+        .spawn(|| {
+            let dir = concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/tests/fixtures/c/cpg_stack_regression"
+            );
+            let mut files = std::collections::BTreeMap::new();
+            for name in ["table_enc_12bit.h", "tables.c"] {
+                let src = std::fs::read_to_string(format!("{dir}/{name}"))
+                    .unwrap_or_else(|e| panic!("read fixture {name}: {e}"));
+                files.insert(
+                    name.to_string(),
+                    ParsedFile::parse(name, &src, Language::C).unwrap(),
+                );
+            }
+            // build() runs its recursive walks on cpg_build_pool (the fix); a
+            // pre-fix build overflows a default rayon worker and aborts here.
+            CodePropertyGraph::build(&files);
+            files.len()
+        })
+        .expect("spawn build thread")
+        .join()
+        .expect("CPG build must complete without overflowing the stack");
+    assert_eq!(built, 2, "both fixture files should have been built");
+}
+
+/// Companion to the build-path regression: exercises the FULL load + context
+/// build via the production entry points — `repo_loader::load_repo` (parse),
+/// `CpgContext::build` (CPG build), and the live-type scan inside it — all of
+/// which now `install()` their recursive walks onto the shared large-stack pool
+/// (`crate::build_pool`). Unlike the build-only test above this needs no
+/// big-stack caller thread: every recursive phase routes onto the pool
+/// internally. Pre-fix, parse / build / live-type scan each overflow a default
+/// ~2 MiB rayon worker on the deep fixture. Covers the parse + live-type sites
+/// the dogfood CLI tests exposed.
+#[test]
+fn load_and_context_build_survive_deep_c_initializer() {
+    let dir = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/tests/fixtures/c/cpg_stack_regression"
+    );
+    let loaded = crate::repo_loader::load_repo(std::path::Path::new(dir))
+        .expect("load_repo must complete without overflowing");
+    assert!(
+        loaded.files.len() >= 2,
+        "fixture files should parse: {:?}",
+        loaded.files.keys().collect::<Vec<_>>()
+    );
+    // Full context build covers the CPG build + the live-type scan.
+    let ctx = crate::cpg::CpgContext::build(&loaded.files, None);
+    // Reaching here means parse + build + live-type scan all completed; touch the
+    // built graph so the context is observably used (declaration-only fixture →
+    // 0 nodes, which is fine — the point is no overflow).
+    let _ = ctx.cpg.node_indices().count();
+}
