@@ -749,9 +749,11 @@ impl CodePropertyGraph {
         stmt_index: &BTreeMap<(String, usize), NodeIndex>,
         files: &BTreeMap<String, ParsedFile>,
     ) -> Vec<PendingEdge> {
+        use rayon::prelude::*;
+
         let ordered: Vec<(&String, &ParsedFile)> = files.iter().collect();
         ordered
-            .iter()
+            .par_iter()
             .map(|(_path, parsed)| {
                 let mut out: Vec<PendingEdge> = Vec::new();
                 for edge in cfg::build_cfg_edges(parsed) {
