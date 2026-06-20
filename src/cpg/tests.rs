@@ -152,6 +152,17 @@ fn edge_fixture() -> std::collections::BTreeMap<String, ParsedFile> {
 }
 
 #[test]
+fn step5_parallel_edge_collect_matches_serial_reference() {
+    use super::build::CodePropertyGraph;
+    let files = edge_fixture();
+    let cpg = CodePropertyGraph::build(&files); // sources cg + func_index
+    let par = CodePropertyGraph::collect_step5_edges(&cpg.call_graph, &cpg.func_index);
+    let serial = CodePropertyGraph::collect_step5_edges_reference(&cpg.call_graph, &cpg.func_index);
+    assert_eq!(par, serial, "Step-5 Call/Return edge sequence diverged");
+    assert!(!par.is_empty(), "fixture produced no call edges");
+}
+
+#[test]
 fn step8_parallel_edge_collect_matches_serial_reference() {
     use super::build::CodePropertyGraph;
     use super::types::{CpgEdge, CpgNode};
