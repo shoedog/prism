@@ -10,6 +10,13 @@
 
 **Design of record:** `docs/superpowers/specs/2026-06-19-prism-step7-parallel-design.md` (rev 2, PLAN-READY).
 
+> **Plan-review folded (codex gpt-5.5 xhigh, fix-then-execute → fixed):** core sound (oracle conceptually
+> valid + git-sha-immune, design faithful, Send/Sync confirmed). BLOCKER: Task 3 min-count test —
+> `cpg.cpg.node(i)` returns `&CpgNode` (query.rs:59), not `Option`, so drop the `Some(...)` pattern. MAJOR:
+> add `cargo build --release` + full `cargo test --lib` at each commit boundary, and run the Tier-A pre-commit
+> matrix for Task 1 too (it touches `src/cpg/`). MINORs: add a file-count guard (`repo.files.len() >= 5`);
+> use a subshell `(cd eval && …)` so the cwd doesn't leak past the Tier-A command.
+
 **Verification-scope override (macOS host):** full `cargo test` / `--test cli` / `--test frameworks` stall at `_dyld_start`. Use `cargo test --lib`, `cargo test --test integration <filter>`, `cargo test --test infra <filter>`, `cargo fmt`, `cargo clippy -p prism --lib`, `cargo build --release`, and `cd eval && uv run tier-a --matrix-only --allow-stale-sut` (Python/uv — does NOT stall; AGENTS.md pre-commit gate for `src/cpg/` changes). Orchestrator runs Tier-A + perf.
 
 ---
@@ -130,13 +137,18 @@ fn step7_parallel_matches_serial_reference() {
 Run: `cargo test --lib step7_parallel_matches_serial_reference`
 Expected: PASS (production Step 7 is still the serial code == reference). **The safety net is in place.**
 
-- [ ] **Step 4: fmt + clippy + commit**
+- [ ] **Step 4: full gate (incl. Tier-A — `src/cpg/` change) + commit**
 
 ```bash
-cargo fmt && cargo clippy -p prism --lib && cargo test --lib step7
+cargo fmt && cargo fmt --check
+cargo clippy -p prism --lib
+cargo test --lib                                            # full lib suite, not just step7
+cargo build --release                                       # AGENTS.md: before the matrix
+(cd eval && uv run tier-a --matrix-only --allow-stale-sut)  # 0 regressions (subshell — cwd doesn't leak)
 git add src/cpg/build.rs src/cpg/tests.rs
 git commit -m "refactor(step7): extract assemble_step7 + serial-reference parity oracle (inert)"
 ```
+Expected: full lib green; **Tier-A 0 regressions** (the extraction is verbatim — behavior-preserving).
 
 ---
 
@@ -238,7 +250,7 @@ cargo test --test infra            # parallel_equality_test (determinism + cache
 cargo fmt && cargo fmt --check
 cargo clippy -p prism --lib
 cargo build --release
-cd eval && uv run tier-a --matrix-only --allow-stale-sut   # 0 regressions — then cd back
+(cd eval && uv run tier-a --matrix-only --allow-stale-sut)  # 0 regressions (subshell — cwd doesn't leak)
 ```
 Expected: all green; **Tier-A 0 regressions**; `parallel_equality_test` green (determinism + cache-byte parity).
 
@@ -263,11 +275,15 @@ The existing `cpg_build_parallel_matches_serial_reference_in_order` (default vs 
 #[test]
 fn step7_corpus_has_statement_nodes_and_is_nontrivial() {
     let repo = corpus(); // src/navigation — many functions/statements
+    // Min FILE count (file-order coverage) + min statement count — a silent corpus
+    // shrink must not erase the divergence surface.
+    assert!(repo.files.len() >= 5, "corpus too few files: {}", repo.files.len());
     let cpg = CpgContext::build(&repo.files, None);
     let stmt_count = cpg
         .cpg
         .node_indices()
-        .filter(|&i| matches!(cpg.cpg.node(i), Some(prism::cpg::CpgNode::Statement { .. })))
+        // CodePropertyGraph::node returns &CpgNode (query.rs:59), NOT Option — no `Some`.
+        .filter(|&i| matches!(cpg.cpg.node(i), prism::cpg::CpgNode::Statement { .. }))
         .count();
     assert!(stmt_count > 200, "corpus too small to surface Step-7 divergence: {stmt_count}");
 }
@@ -276,13 +292,17 @@ fn step7_corpus_has_statement_nodes_and_is_nontrivial() {
 Run: `cargo test --test infra`
 Expected: PASS (determinism + cache-byte parity + the min-count guard).
 
-- [ ] **Step 2: Commit**
+- [ ] **Step 2: Gate + commit**
 
 ```bash
-cargo fmt
+cargo fmt && cargo fmt --check
+cargo test --lib
+cargo test --test infra
+cargo build --release
 git add tests/infra/parallel_equality_test.rs
 git commit -m "test(step7): min-count guard + Step-7 statement-node coverage in parallel_equality"
 ```
+(Task 3 touches only `tests/infra/` — no `src/cpg/` change — so no Tier-A gate here; that ran in Task 2.)
 
 ---
 
