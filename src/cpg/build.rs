@@ -730,24 +730,23 @@ impl CodePropertyGraph {
         out
     }
 
-    /// Step 5b: interprocedural arg->param DataFlow edges. Collect-then-apply.
-    /// (Inert here - serial; parallelized in Task 6.)
-    /// Prewarms each file's `call_args` OnceLock so the eventual parallel phase
-    /// is a literal read of an initialized, deterministic index.
+    /// Step 5b: interprocedural arg->param DataFlow edges. Parallel collect
+    /// over ordered caller units (`par_iter`, order-preserving), then serial
+    /// `add_edge`. Prewarms each file's `call_args` OnceLock first so the
+    /// parallel collect reads an initialized, deterministic index.
     pub(crate) fn collect_step5b_edges(
         cg: &CallGraph,
         var_index: &BTreeMap<(String, String, usize, usize, AccessPath, VarAccess), NodeIndex>,
         files: &BTreeMap<String, ParsedFile>,
     ) -> Vec<PendingEdge> {
-        // Prewarm (serial here; par_iter in Task 6). Idempotent; each file's
-        // OnceLock is independent. Compute the index now so the collect never
-        // inits under load.
-        for parsed in files.values() {
-            let _ = parsed.call_args_index();
-        }
+        use rayon::prelude::*;
+
+        files.par_iter().for_each(|(_, p)| {
+            let _ = p.call_args_index();
+        });
         let ordered: Vec<_> = cg.calls.iter().collect();
         ordered
-            .iter()
+            .par_iter()
             .map(|(caller_id, sites)| {
                 Self::step5b_edges_for_caller(caller_id, sites, cg, var_index, files)
             })
