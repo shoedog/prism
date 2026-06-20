@@ -281,10 +281,17 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 
 These are run by the orchestrator (measurement, not code); not a codex task.
 
-- [ ] **Step 1: Tier-A 0-regression gate.**
+- [ ] **Step 1: Tier-A 0-regression gates.** Per AGENTS.md, a `src/call_graph.rs` change runs BOTH `--matrix-only`
+  (fast, pre-commit) AND `--quick` (rust-analyzer LSP oracle, pre-review) — receiver typing drives Rust dispatch
+  resolution, so the `--quick` dogfood matters here.
 
 Run: `cargo build --release -p prism && (cd eval && uv run tier-a --matrix-only --allow-stale-sut)`
-Expected: 0 regressions (every fixture `ok` or `expected_gap`; the `rust/*` receiver fixtures unchanged). Paste any flip-candidates into the PR description (do not re-baseline).
+Expected: 0 regressions (every fixture `ok` or `expected_gap`; the `rust/*` receiver fixtures unchanged).
+
+Then (pre-review): `cd eval && uv run tier-a --quick --allow-stale-sut`
+Expected: 0 regressions vs baseline (M2 dogfood precision/recall unchanged). If rust-analyzer is unavailable in
+the environment, record that honestly rather than skipping silently. Paste any flip-candidates into the PR
+description (do not re-baseline).
 
 - [ ] **Step 2: Perf gate (the reward — report, don't assert).**
 
