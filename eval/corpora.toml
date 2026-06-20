@@ -13,7 +13,7 @@ lang = "rust"
 path = "."                       # the prism repo itself
 oracle = "rust-analyzer"
 excludes = ["tests/fixtures/*", "eval/fixtures/*", "target/*"]
-pinned_sha = "516cd3abacaf"                  # re-anchored to the Phase-1 scope-graph F3 merge #104 (2026-06-17)
+pinned_sha = "20c8490591a3"                  # re-anchored to post-taint_reaches main (#113/#117 + perf arc), 2026-06-20
 
 [corpus.tokio]
 lang = "rust"

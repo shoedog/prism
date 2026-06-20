@@ -1,0 +1,2898 @@
+{
+ "m1": {
+  "anon_oracle": 0,
+  "anon_prism": 0,
+  "matched": 1367,
+  "prism_extra": 32,
+  "prism_missing": 0,
+  "snapshot_prism_missing": 0
+ },
+ "m2": {
+  "callees": {
+   "C-method": {
+    "corrected": {
+     "fn": 1,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.43850296436068037,
+      1.0
+     ],
+     "recall": [
+      0.75,
+      0.3006418400969081,
+      0.954412739704631
+     ],
+     "tp": 3
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 7,
+      "precision": [
+       0.125,
+       0.022417491199971912,
+       0.47088818505608376
+      ],
+      "recall": [
+       1.0,
+       0.2065493117918027,
+       1.0
+      ],
+      "tp": 1
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 7,
+      "precision": [
+       0.125,
+       0.022417491199971912,
+       0.47088818505608376
+      ],
+      "recall": [
+       1.0,
+       0.2065493117918027,
+       1.0
+      ],
+      "tp": 1
+     }
+    },
+    "pending": 0,
+    "raw": {
+     "fn": 1,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.43850296436068037,
+      1.0
+     ],
+     "recall": [
+      0.75,
+      0.3006418400969081,
+      0.954412739704631
+     ],
+     "tp": 3
+    },
+    "shortfall": 0
+   },
+   "C-name": {
+    "corrected": {
+     "fn": 3,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.43850296436068037,
+      1.0
+     ],
+     "recall": [
+      0.5,
+      0.18761630498040816,
+      0.8123836950195918
+     ],
+     "tp": 3
+    },
+    "function": {
+     "corrected": {
+      "fn": 2,
+      "fp": 3,
+      "precision": [
+       0.5714285714285714,
+       0.25045836275303557,
+       0.8417801460075546
+      ],
+      "recall": [
+       0.6666666666666666,
+       0.29999331299474324,
+       0.9032285897864654
+      ],
+      "tp": 4
+     },
+     "raw": {
+      "fn": 2,
+      "fp": 3,
+      "precision": [
+       0.5714285714285714,
+       0.25045836275303557,
+       0.8417801460075546
+      ],
+      "recall": [
+       0.6666666666666666,
+       0.29999331299474324,
+       0.9032285897864654
+      ],
+      "tp": 4
+     }
+    },
+    "pending": 0,
+    "raw": {
+     "fn": 3,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.43850296436068037,
+      1.0
+     ],
+     "recall": [
+      0.5,
+      0.18761630498040816,
+      0.8123836950195918
+     ],
+     "tp": 3
+    },
+    "shortfall": 0
+   },
+   "Q-scoped": {
+    "corrected": {
+     "fn": 9,
+     "fp": 1,
+     "precision": [
+      0.8,
+      0.375534627029995,
+      0.9637758917743693
+     ],
+     "recall": [
+      0.3076923076923077,
+      0.12680703567070326,
+      0.5763065701492199
+     ],
+     "tp": 4
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 6,
+      "precision": [
+       0.45454545454545453,
+       0.21271271487637833,
+       0.7199084642140241
+      ],
+      "recall": [
+       1.0,
+       0.5655175313406071,
+       1.0
+      ],
+      "tp": 5
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 6,
+      "precision": [
+       0.45454545454545453,
+       0.21271271487637833,
+       0.7199084642140241
+      ],
+      "recall": [
+       1.0,
+       0.5655175313406071,
+       1.0
+      ],
+      "tp": 5
+     }
+    },
+    "pending": 0,
+    "raw": {
+     "fn": 9,
+     "fp": 1,
+     "precision": [
+      0.8,
+      0.375534627029995,
+      0.9637758917743693
+     ],
+     "recall": [
+      0.3076923076923077,
+      0.12680703567070326,
+      0.5763065701492199
+     ],
+     "tp": 4
+    },
+    "shortfall": 0
+   },
+   "U-free": {
+    "corrected": {
+     "fn": 4,
+     "fp": 1,
+     "precision": [
+      0.9,
+      0.5958499704752279,
+      0.982123787103926
+     ],
+     "recall": [
+      0.6923076923076923,
+      0.42369342985078007,
+      0.8731929643292967
+     ],
+     "tp": 9
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 3,
+      "precision": [
+       0.7,
+       0.3967781453459709,
+       0.892208733443606
+      ],
+      "recall": [
+       1.0,
+       0.6456695613241317,
+       1.0
+      ],
+      "tp": 7
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 3,
+      "precision": [
+       0.7,
+       0.3967781453459709,
+       0.892208733443606
+      ],
+      "recall": [
+       1.0,
+       0.6456695613241317,
+       1.0
+      ],
+      "tp": 7
+     }
+    },
+    "pending": 0,
+    "raw": {
+     "fn": 4,
+     "fp": 3,
+     "precision": [
+      0.75,
+      0.4676946629183366,
+      0.9110583323051143
+     ],
+     "recall": [
+      0.6923076923076923,
+      0.42369342985078007,
+      0.8731929643292967
+     ],
+     "tp": 9
+    },
+    "shortfall": 0
+   },
+   "U-method": {
+    "corrected": {
+     "fn": 4,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.7224671969739421,
+      0.9999999999999999
+     ],
+     "recall": [
+      0.7142857142857143,
+      0.45350915474002584,
+      0.8827862143729825
+     ],
+     "tp": 10
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 2,
+      "precision": [
+       0.7142857142857143,
+       0.3589344495310541,
+       0.9177810767507166
+      ],
+      "recall": [
+       1.0,
+       0.5655175313406071,
+       1.0
+      ],
+      "tp": 5
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 2,
+      "precision": [
+       0.7142857142857143,
+       0.3589344495310541,
+       0.9177810767507166
+      ],
+      "recall": [
+       1.0,
+       0.5655175313406071,
+       1.0
+      ],
+      "tp": 5
+     }
+    },
+    "pending": 0,
+    "raw": {
+     "fn": 4,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.7224671969739421,
+      0.9999999999999999
+     ],
+     "recall": [
+      0.7142857142857143,
+      0.45350915474002584,
+      0.8827862143729825
+     ],
+     "tp": 10
+    },
+    "shortfall": 0
+   }
+  },
+  "callers": {
+   "C-method": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.2065493117918027,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.2065493117918027,
+      1.0
+     ],
+     "tp": 1
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.2065493117918027,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.2065493117918027,
+       1.0
+      ],
+      "tp": 1
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.2065493117918027,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.2065493117918027,
+       1.0
+      ],
+      "tp": 1
+     }
+    },
+    "pending": 0,
+    "raw": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.2065493117918027,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.2065493117918027,
+      1.0
+     ],
+     "tp": 1
+    },
+    "shortfall": 0
+   },
+   "Q-scoped": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.8063923170025951,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.8063923170025951,
+      1.0
+     ],
+     "tp": 16
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.7961166964035129,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.7961166964035129,
+       1.0
+      ],
+      "tp": 15
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.7961166964035129,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.7961166964035129,
+       1.0
+      ],
+      "tp": 15
+     }
+    },
+    "pending": 0,
+    "raw": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.8063923170025951,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.8063923170025951,
+      1.0
+     ],
+     "tp": 16
+    },
+    "shortfall": 0
+   },
+   "U-method": {
+    "corrected": {
+     "fn": 3,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.5101091596030786,
+      0.9999999999999999
+     ],
+     "recall": [
+      0.5714285714285714,
+      0.25045836275303557,
+      0.8417801460075546
+     ],
+     "tp": 4
+    },
+    "function": {
+     "corrected": {
+      "fn": 3,
+      "fp": 3,
+      "precision": [
+       0.5714285714285714,
+       0.25045836275303557,
+       0.8417801460075546
+      ],
+      "recall": [
+       0.5714285714285714,
+       0.25045836275303557,
+       0.8417801460075546
+      ],
+      "tp": 4
+     },
+     "raw": {
+      "fn": 3,
+      "fp": 3,
+      "precision": [
+       0.5714285714285714,
+       0.25045836275303557,
+       0.8417801460075546
+      ],
+      "recall": [
+       0.5714285714285714,
+       0.25045836275303557,
+       0.8417801460075546
+      ],
+      "tp": 4
+     }
+    },
+    "pending": 0,
+    "raw": {
+     "fn": 4,
+     "fp": 3,
+     "precision": [
+      0.5714285714285714,
+      0.25045836275303557,
+      0.8417801460075546
+     ],
+     "recall": [
+      0.5,
+      0.21521606069626764,
+      0.7847839393037324
+     ],
+     "tp": 4
+    },
+    "shortfall": 0
+   }
+  }
+ },
+ "m3": {
+  "cap": 25,
+  "checked": [
+   {
+    "probe": "callers:src/flask/ctx.py:416",
+    "site": "tests/test_reqctx.py:23",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:src/flask/ctx.py:416",
+    "site": "tests/test_reqctx.py:126",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:src/flask/ctx.py:416",
+    "site": "tests/test_reqctx.py:140",
+    "verdict": "ambiguous"
+   }
+  ],
+  "counts": {
+   "alias_site": 0,
+   "ambiguous": 3,
+   "confirmed_fp": 0,
+   "confirmed_tp": 0
+  }
+ },
+ "meta": {
+  "baseline_invalid": true,
+  "corpus": "flask",
+  "corpus_dirty": false,
+  "corpus_dirty_reasons": [],
+  "corpus_sha": "36e4a824f340",
+  "date": "2026-06-20",
+  "harness_sha": "20c8490591a3",
+  "invalid_reasons": [
+   "oracle_error_rate 0.36 > 0.25"
+  ],
+  "oracle": "pyright-langserver",
+  "oracle_error_rate": 0.3625,
+  "oracle_not_quiescent": false,
+  "prism_dirty": false,
+  "prism_sha": "20c8490591a3",
+  "seed": 42,
+  "stale_adjudications": 18,
+  "sut_error_rate": 0.0,
+  "wall_s": {
+   "m1_oracle_inventory": 0.073,
+   "m2": 6.506,
+   "m3": 0.002,
+   "oracle_start": 5.157
+  }
+ },
+ "pending": [],
+ "probes": {
+  "_corpus": "flask",
+  "_strata": {
+   "C-method": {
+    "eligible_probes": 16,
+    "eligible_symbols": 8,
+    "target": 8
+   },
+   "C-name": {
+    "eligible_probes": 16,
+    "eligible_symbols": 8,
+    "target": 8
+   },
+   "Q-scoped": {
+    "eligible_probes": 16,
+    "eligible_symbols": 8,
+    "target": 8
+   },
+   "U-free": {
+    "eligible_probes": 16,
+    "eligible_symbols": 8,
+    "target": 8
+   },
+   "U-method": {
+    "eligible_probes": 16,
+    "eligible_symbols": 8,
+    "target": 8
+   }
+  },
+  "callees:src/flask/app.py:897": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "src/flask/app.py",
+     "handle_exception"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/flask/app.py",
+     940,
+     940
+    ],
+    [
+     "src/flask/app.py",
+     943,
+     943
+    ],
+    [
+     "src/flask/app.py",
+     943,
+     943
+    ],
+    [
+     "src/flask/app.py",
+     943,
+     943
+    ],
+    [
+     "src/flask/app.py",
+     946,
+     946
+    ],
+    [
+     "src/flask/app.py",
+     948,
+     948
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/flask/app.py",
+     "handle_exception"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/flask/app.py",
+     940,
+     940,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "src/flask/app.py",
+     948,
+     948,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "src/flask/app.py",
+     946,
+     946,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ]
+   ],
+   "seed_def": "src/flask/app.py:897",
+   "stratum": "C-method"
+  },
+  "callees:src/flask/app.py:97": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "src/flask/app.py",
+     "wrapper"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/flask/app.py",
+     100,
+     100
+    ],
+    [
+     "src/flask/app.py",
+     102,
+     102
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/flask/app.py",
+     "add_ctx"
+    ],
+    [
+     "src/flask/app.py",
+     "wrapper"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "src/flask/app.py:97",
+   "stratum": "Q-scoped"
+  },
+  "callees:src/flask/cli.py:120": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "src/flask/cli.py",
+     "find_app_by_string"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/flask/cli.py",
+     131,
+     131
+    ],
+    [
+     "src/flask/cli.py",
+     142,
+     142
+    ],
+    [
+     "src/flask/cli.py",
+     159,
+     159
+    ],
+    [
+     "src/flask/cli.py",
+     163,
+     163
+    ],
+    [
+     "src/flask/cli.py",
+     170,
+     170
+    ],
+    [
+     "src/flask/cli.py",
+     183,
+     183
+    ],
+    [
+     "src/flask/cli.py",
+     194,
+     194
+    ],
+    [
+     "src/flask/cli.py",
+     180,
+     180
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/flask/cli.py",
+     "find_app_by_string"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/flask/cli.py",
+     180,
+     180,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "src/flask/cli.py:120",
+   "stratum": "Q-scoped"
+  },
+  "callees:src/flask/cli.py:493": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "src/flask/cli.py",
+     "_env_file_callback"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/flask/cli.py",
+     510,
+     510
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/flask/cli.py",
+     "_env_file_callback"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/flask/cli.py",
+     510,
+     510,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "src/flask/cli.py:493",
+   "stratum": "Q-scoped"
+  },
+  "callees:src/flask/cli.py:94": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/flask/cli.py",
+     "_called_with_wrong_args"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "src/flask/cli.py:94",
+   "stratum": "Q-scoped"
+  },
+  "callees:src/flask/ctx.py:108": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/flask/ctx.py",
+     "__iter__"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "src/flask/ctx.py:108",
+   "stratum": "C-method"
+  },
+  "callees:src/flask/ctx.py:416": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "src/flask/ctx.py",
+     "push"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/flask/ctx.py",
+     439,
+     439
+    ],
+    [
+     "src/flask/ctx.py",
+     444,
+     444
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/flask/ctx.py",
+     "push"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/flask/ctx.py",
+     439,
+     439,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "src/flask/ctx.py",
+     444,
+     444,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ]
+   ],
+   "seed_def": "src/flask/ctx.py:416",
+   "stratum": "U-method"
+  },
+  "callees:src/flask/debughelpers.py:28": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/flask/debughelpers.py",
+     "__init__"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "src/flask/debughelpers.py:28",
+   "stratum": "C-method"
+  },
+  "callees:src/flask/helpers.py:28": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/flask/helpers.py",
+     "get_debug_flag"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "src/flask/helpers.py:28",
+   "stratum": "Q-scoped"
+  },
+  "callees:src/flask/helpers.py:304": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/flask/helpers.py",
+     "get_template_attribute"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "src/flask/helpers.py:304",
+   "stratum": "Q-scoped"
+  },
+  "callees:src/flask/helpers.py:587": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/flask/helpers.py",
+     "get_root_path"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "src/flask/helpers.py:587",
+   "stratum": "Q-scoped"
+  },
+  "callees:src/flask/helpers.py:63": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "src/flask/helpers.py",
+     "decorator"
+    ],
+    [
+     "src/flask/helpers.py",
+     "stream_with_context"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/flask/helpers.py",
+     122,
+     122
+    ],
+    [
+     "src/flask/helpers.py",
+     122,
+     122
+    ],
+    [
+     "src/flask/helpers.py",
+     122,
+     122
+    ],
+    [
+     "src/flask/helpers.py",
+     146,
+     146
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/flask/helpers.py",
+     "decorator"
+    ],
+    [
+     "src/flask/helpers.py",
+     "generator"
+    ],
+    [
+     "src/flask/helpers.py",
+     "stream_with_context"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/flask/helpers.py",
+     122,
+     122,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/flask/helpers.py",
+     122,
+     122,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/flask/helpers.py",
+     122,
+     122,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/flask/helpers.py",
+     122,
+     122,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/flask/helpers.py",
+     122,
+     122,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/flask/helpers.py",
+     146,
+     146,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/flask/helpers.py",
+     141,
+     141,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "src/flask/helpers.py:63",
+   "stratum": "Q-scoped"
+  },
+  "callees:src/flask/json/tag.py:122": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/flask/json/tag.py",
+     "check"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "src/flask/json/tag.py:122",
+   "stratum": "C-method"
+  },
+  "callees:src/flask/json/tag.py:150": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/flask/json/tag.py",
+     "check"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "src/flask/json/tag.py:150",
+   "stratum": "C-method"
+  },
+  "callees:src/flask/json/tag.py:195": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/flask/json/tag.py",
+     "check"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "src/flask/json/tag.py:195",
+   "stratum": "C-method"
+  },
+  "callees:src/flask/json/tag.py:297": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "src/flask/json/tag.py",
+     "untag"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/flask/json/tag.py",
+     307,
+     307
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/flask/json/tag.py",
+     "untag"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "src/flask/json/tag.py:297",
+   "stratum": "U-method"
+  },
+  "callees:src/flask/sansio/scaffold.py:657": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/flask/sansio/scaffold.py",
+     "_get_exc_class_and_code"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "src/flask/sansio/scaffold.py:657",
+   "stratum": "U-method"
+  },
+  "callees:src/flask/wrappers.py:247": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/flask/wrappers.py",
+     "max_cookie_size"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "src/flask/wrappers.py:247",
+   "stratum": "U-method"
+  },
+  "callees:tests/conftest.py:72": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tests/conftest.py",
+     "test_apps"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "tests/conftest.py",
+     74,
+     74,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "tests/conftest.py",
+     74,
+     74,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ]
+   ],
+   "seed_def": "tests/conftest.py:72",
+   "stratum": "U-free"
+  },
+  "callees:tests/test_apps/helloworld/hello.py:7": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "tests/test_apps/helloworld/hello.py",
+     "hello"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tests/test_apps/helloworld/hello.py",
+     6,
+     6
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "tests/test_apps/helloworld/hello.py:7",
+   "stratum": "C-name"
+  },
+  "callees:tests/test_basic.py:1432": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "tests/test_basic.py",
+     "test_static_url_path"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tests/test_basic.py",
+     1433,
+     1433
+    ],
+    [
+     "tests/test_basic.py",
+     1436,
+     1436
+    ],
+    [
+     "tests/test_basic.py",
+     1439,
+     1439
+    ],
+    [
+     "tests/test_basic.py",
+     1440,
+     1440
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tests/test_basic.py",
+     "test_static_url_path"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "tests/test_basic.py",
+     1440,
+     1440,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "tests/test_basic.py",
+     1436,
+     1436,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "tests/test_basic.py",
+     1439,
+     1439,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "tests/test_basic.py:1432",
+   "stratum": "U-free"
+  },
+  "callees:tests/test_basic.py:1468": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "tests/test_basic.py",
+     "test_static_folder_with_pathlib_path"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tests/test_basic.py",
+     1471,
+     1471
+    ],
+    [
+     "tests/test_basic.py",
+     1473,
+     1473
+    ],
+    [
+     "tests/test_basic.py",
+     1473,
+     1473
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tests/test_basic.py",
+     "test_static_folder_with_pathlib_path"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "tests/test_basic.py",
+     1473,
+     1473,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "tests/test_basic.py",
+     1473,
+     1473,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "tests/test_basic.py:1468",
+   "stratum": "U-free"
+  },
+  "callees:tests/test_blueprints.py:255": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "tests/test_blueprints.py",
+     "app_index"
+    ],
+    [
+     "tests/test_blueprints.py",
+     "index"
+    ],
+    [
+     "tests/test_blueprints.py",
+     "test_dotted_names_from_app"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tests/test_blueprints.py",
+     256,
+     256
+    ],
+    [
+     "tests/test_blueprints.py",
+     260,
+     260
+    ],
+    [
+     "tests/test_blueprints.py",
+     264,
+     264
+    ],
+    [
+     "tests/test_blueprints.py",
+     262,
+     262
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tests/test_blueprints.py",
+     "app_index"
+    ],
+    [
+     "tests/test_blueprints.py",
+     "index"
+    ],
+    [
+     "tests/test_blueprints.py",
+     "test_dotted_names_from_app"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "tests/test_blueprints.py",
+     260,
+     260,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "tests/test_blueprints.py",
+     264,
+     264,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "tests/test_blueprints.py",
+     262,
+     262,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "tests/test_blueprints.py",
+     262,
+     262,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "tests/test_blueprints.py:255",
+   "stratum": "U-free"
+  },
+  "callees:tests/test_blueprints.py:730": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "tests/test_blueprints.py",
+     "get_stuff_3"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tests/test_blueprints.py",
+     729,
+     729
+    ],
+    [
+     "tests/test_blueprints.py",
+     729,
+     729
+    ],
+    [
+     "tests/test_blueprints.py",
+     729,
+     729
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "tests/test_blueprints.py:730",
+   "stratum": "C-name"
+  },
+  "callees:tests/test_cli.py:231": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "tests/test_cli.py",
+     "test_get_version"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tests/test_cli.py",
+     239,
+     239
+    ],
+    [
+     "tests/test_cli.py",
+     240,
+     240
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tests/test_cli.py",
+     "test_get_version"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "tests/test_cli.py",
+     240,
+     240,
+     {
+      "resolution_kind": "free_single"
+     }
+    ]
+   ],
+   "seed_def": "tests/test_cli.py:231",
+   "stratum": "U-free"
+  },
+  "callees:tests/test_cli.py:474": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "tests/test_cli.py",
+     "test_sort"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tests/test_cli.py",
+     478,
+     478
+    ],
+    [
+     "tests/test_cli.py",
+     482,
+     482
+    ],
+    [
+     "tests/test_cli.py",
+     487,
+     487
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tests/test_cli.py",
+     "test_sort"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "tests/test_cli.py",
+     478,
+     478,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "tests/test_cli.py",
+     482,
+     482,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "tests/test_cli.py",
+     487,
+     487,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ]
+   ],
+   "seed_def": "tests/test_cli.py:474",
+   "stratum": "U-method"
+  },
+  "callees:tests/test_helpers.py:338": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "tests/test_helpers.py",
+     "test_get_debug_flag"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tests/test_helpers.py",
+     340,
+     340
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tests/test_helpers.py",
+     "test_get_debug_flag"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "tests/test_helpers.py",
+     340,
+     340,
+     {
+      "resolution_kind": "free_single"
+     }
+    ]
+   ],
+   "seed_def": "tests/test_helpers.py:338",
+   "stratum": "U-method"
+  },
+  "callees:tests/test_helpers.py:44": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "tests/test_helpers.py",
+     "test_static_file"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tests/test_helpers.py",
+     52,
+     52
+    ],
+    [
+     "tests/test_helpers.py",
+     62,
+     62
+    ],
+    [
+     "tests/test_helpers.py",
+     81,
+     81
+    ],
+    [
+     "tests/test_helpers.py",
+     66,
+     66
+    ],
+    [
+     "tests/test_helpers.py",
+     73,
+     73
+    ],
+    [
+     "tests/test_helpers.py",
+     75,
+     75
+    ],
+    [
+     "tests/test_helpers.py",
+     77,
+     77
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tests/test_helpers.py",
+     "test_static_file"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "tests/test_helpers.py",
+     52,
+     52,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "tests/test_helpers.py",
+     62,
+     62,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "tests/test_helpers.py",
+     81,
+     81,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "tests/test_helpers.py",
+     75,
+     75,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "tests/test_helpers.py:44",
+   "stratum": "U-method"
+  },
+  "callees:tests/test_instance_config.py:16": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tests/test_instance_config.py",
+     "test_uninstalled_module_paths"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "tests/test_instance_config.py",
+     23,
+     23,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "tests/test_instance_config.py",
+     23,
+     23,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ]
+   ],
+   "seed_def": "tests/test_instance_config.py:16",
+   "stratum": "U-free"
+  },
+  "callees:tests/test_instance_config.py:65": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tests/test_instance_config.py",
+     "test_installed_module_paths"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "tests/test_instance_config.py",
+     71,
+     71,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "tests/test_instance_config.py",
+     71,
+     71,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ]
+   ],
+   "seed_def": "tests/test_instance_config.py:65",
+   "stratum": "U-free"
+  },
+  "callees:tests/test_reqctx.py:155": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "tests/test_reqctx.py",
+     "index"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tests/test_reqctx.py",
+     154,
+     154
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tests/test_reqctx.py",
+     "index"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "tests/test_reqctx.py:155",
+   "stratum": "C-name"
+  },
+  "callees:tests/test_templating.py:118": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "tests/test_templating.py",
+     "test_macros"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tests/test_templating.py",
+     119,
+     119
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tests/test_templating.py",
+     "test_macros"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "tests/test_templating.py",
+     119,
+     119,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ]
+   ],
+   "seed_def": "tests/test_templating.py:118",
+   "stratum": "U-free"
+  },
+  "callees:tests/test_templating.py:332": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "tests/test_templating.py",
+     "index"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tests/test_templating.py",
+     339,
+     339
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tests/test_templating.py",
+     "index"
+    ],
+    [
+     "tests/test_templating.py",
+     "is_boolean"
+    ],
+    [
+     "tests/test_templating.py",
+     "test_template_test_with_name_and_template"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "tests/test_templating.py",
+     339,
+     339,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ]
+   ],
+   "seed_def": "tests/test_templating.py:332",
+   "stratum": "C-name"
+  },
+  "callees:tests/test_templating.py:46": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tests/test_templating.py",
+     "context_processor"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "tests/test_templating.py:46",
+   "stratum": "C-name"
+  },
+  "callees:tests/test_templating.py:494": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tests/test_templating.py",
+     "handle"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "tests/test_templating.py:494",
+   "stratum": "C-method"
+  },
+  "callees:tests/test_testing.py:372": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "tests/test_testing.py",
+     "index"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tests/test_testing.py",
+     374,
+     374
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tests/test_testing.py",
+     "index"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "tests/test_testing.py",
+     374,
+     374,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "tests/test_testing.py",
+     374,
+     374,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "tests/test_testing.py",
+     374,
+     374,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "tests/test_testing.py",
+     374,
+     374,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "tests/test_testing.py",
+     374,
+     374,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ]
+   ],
+   "seed_def": "tests/test_testing.py:372",
+   "stratum": "C-name"
+  },
+  "callees:tests/test_user_error_handler.py:52": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "tests/test_user_error_handler.py",
+     "do_abort"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tests/test_user_error_handler.py",
+     53,
+     53
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tests/test_user_error_handler.py",
+     "do_abort"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "tests/test_user_error_handler.py",
+     53,
+     53,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ]
+   ],
+   "seed_def": "tests/test_user_error_handler.py:52",
+   "stratum": "C-name"
+  },
+  "callees:tests/test_views.py:267": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tests/test_views.py",
+     "dispatch_request"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "tests/test_views.py:267",
+   "stratum": "C-method"
+  },
+  "callers:src/flask/app.py:897": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/flask/app.py",
+     "wsgi_app"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/flask/app.py",
+     1600,
+     1600
+    ],
+    [
+     "src/flask/app.py",
+     1600,
+     1600
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/flask/app.py",
+     "wsgi_app"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/flask/app.py",
+     1600,
+     1600,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ]
+   ],
+   "seed_def": "src/flask/app.py:897",
+   "stratum": "C-method"
+  },
+  "callers:src/flask/app.py:97": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/flask/app.py",
+     "__init_subclass__"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/flask/app.py",
+     308,
+     308
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/flask/app.py",
+     "__init_subclass__"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/flask/app.py",
+     308,
+     308,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "src/flask/app.py:97",
+   "stratum": "Q-scoped"
+  },
+  "callers:src/flask/cli.py:120": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/flask/cli.py",
+     "locate_app"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/flask/cli.py",
+     264,
+     264
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/flask/cli.py",
+     "locate_app"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/flask/cli.py",
+     264,
+     264,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "src/flask/cli.py:120",
+   "stratum": "Q-scoped"
+  },
+  "callers:src/flask/cli.py:94": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/flask/cli.py",
+     "find_app_by_string"
+    ],
+    [
+     "src/flask/cli.py",
+     "find_best_app"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/flask/cli.py",
+     77,
+     77
+    ],
+    [
+     "src/flask/cli.py",
+     180,
+     180
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/flask/cli.py",
+     "find_app_by_string"
+    ],
+    [
+     "src/flask/cli.py",
+     "find_best_app"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/flask/cli.py",
+     77,
+     77,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/flask/cli.py",
+     180,
+     180,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "src/flask/cli.py:94",
+   "stratum": "Q-scoped"
+  },
+  "callers:src/flask/ctx.py:416": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/flask/app.py",
+     "wsgi_app"
+    ],
+    [
+     "src/flask/ctx.py",
+     "__enter__"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/flask/app.py",
+     1596,
+     1596
+    ],
+    [
+     "src/flask/app.py",
+     1596,
+     1596
+    ],
+    [
+     "src/flask/ctx.py",
+     507,
+     507
+    ],
+    [
+     "src/flask/ctx.py",
+     507,
+     507
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/flask/app.py",
+     "wsgi_app"
+    ],
+    [
+     "src/flask/ctx.py",
+     "__enter__"
+    ],
+    [
+     "tests/test_reqctx.py",
+     "test_context_test"
+    ],
+    [
+     "tests/test_reqctx.py",
+     "test_manual_context_binding"
+    ],
+    [
+     "tests/test_reqctx.py",
+     "test_teardown_on_pop"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/flask/ctx.py",
+     507,
+     507,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "src/flask/app.py",
+     1596,
+     1596,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "tests/test_reqctx.py",
+     23,
+     23,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "tests/test_reqctx.py",
+     126,
+     126,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "tests/test_reqctx.py",
+     140,
+     140,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "src/flask/ctx.py:416",
+   "stratum": "U-method"
+  },
+  "callers:src/flask/helpers.py:28": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/flask/app.py",
+     "run"
+    ],
+    [
+     "src/flask/cli.py",
+     "load_app"
+    ],
+    [
+     "src/flask/cli.py",
+     "run_command"
+    ],
+    [
+     "src/flask/sansio/app.py",
+     "make_config"
+    ],
+    [
+     "tests/test_helpers.py",
+     "test_get_debug_flag"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/flask/app.py",
+     714,
+     714
+    ],
+    [
+     "src/flask/cli.py",
+     369,
+     369
+    ],
+    [
+     "src/flask/cli.py",
+     973,
+     973
+    ],
+    [
+     "src/flask/sansio/app.py",
+     492,
+     492
+    ],
+    [
+     "tests/test_helpers.py",
+     340,
+     340
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/flask/app.py",
+     "run"
+    ],
+    [
+     "src/flask/cli.py",
+     "load_app"
+    ],
+    [
+     "src/flask/cli.py",
+     "run_command"
+    ],
+    [
+     "src/flask/sansio/app.py",
+     "make_config"
+    ],
+    [
+     "tests/test_helpers.py",
+     "test_get_debug_flag"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/flask/app.py",
+     714,
+     714,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "src/flask/cli.py",
+     369,
+     369,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "src/flask/cli.py",
+     973,
+     973,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "src/flask/cli.py",
+     973,
+     973,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "src/flask/sansio/app.py",
+     492,
+     492,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "tests/test_helpers.py",
+     340,
+     340,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "tests/test_helpers.py",
+     340,
+     340,
+     {
+      "resolution_kind": "free_single"
+     }
+    ]
+   ],
+   "seed_def": "src/flask/helpers.py:28",
+   "stratum": "Q-scoped"
+  },
+  "callers:src/flask/helpers.py:304": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "tests/test_templating.py",
+     "test_macros"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tests/test_templating.py",
+     119,
+     119
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tests/test_templating.py",
+     "test_macros"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "tests/test_templating.py",
+     119,
+     119,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ]
+   ],
+   "seed_def": "src/flask/helpers.py:304",
+   "stratum": "Q-scoped"
+  },
+  "callers:src/flask/helpers.py:587": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/flask/sansio/scaffold.py",
+     "__init__"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/flask/sansio/scaffold.py",
+     96,
+     96
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/flask/sansio/scaffold.py",
+     "__init__"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/flask/sansio/scaffold.py",
+     96,
+     96,
+     {
+      "resolution_kind": "free_single"
+     }
+    ]
+   ],
+   "seed_def": "src/flask/helpers.py:587",
+   "stratum": "Q-scoped"
+  },
+  "callers:src/flask/helpers.py:63": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/flask/helpers.py",
+     "decorator"
+    ],
+    [
+     "src/flask/templating.py",
+     "_stream"
+    ],
+    [
+     "tests/test_helpers.py",
+     "index"
+    ],
+    [
+     "tests/test_testing.py",
+     "index"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/flask/helpers.py",
+     122,
+     122
+    ],
+    [
+     "src/flask/templating.py",
+     178,
+     178
+    ],
+    [
+     "tests/test_helpers.py",
+     237,
+     237
+    ],
+    [
+     "tests/test_helpers.py",
+     281,
+     281
+    ],
+    [
+     "tests/test_testing.py",
+     374,
+     374
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/flask/helpers.py",
+     "decorator"
+    ],
+    [
+     "src/flask/templating.py",
+     "_stream"
+    ],
+    [
+     "tests/test_helpers.py",
+     "index"
+    ],
+    [
+     "tests/test_testing.py",
+     "index"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/flask/helpers.py",
+     122,
+     122,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/flask/helpers.py",
+     122,
+     122,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "tests/test_helpers.py",
+     237,
+     237,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "tests/test_helpers.py",
+     237,
+     237,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "tests/test_helpers.py",
+     237,
+     237,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "tests/test_helpers.py",
+     281,
+     281,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "tests/test_helpers.py",
+     281,
+     281,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "tests/test_helpers.py",
+     281,
+     281,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "tests/test_testing.py",
+     374,
+     374,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "tests/test_testing.py",
+     374,
+     374,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "tests/test_testing.py",
+     374,
+     374,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "src/flask/templating.py",
+     178,
+     178,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ]
+   ],
+   "seed_def": "src/flask/helpers.py:63",
+   "stratum": "Q-scoped"
+  },
+  "callers:src/flask/json/tag.py:297": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/flask/json/tag.py",
+     "_untag_scan"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/flask/json/tag.py",
+     314,
+     314
+    ],
+    [
+     "src/flask/json/tag.py",
+     314,
+     314
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/flask/json/tag.py",
+     "_untag_scan"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/flask/json/tag.py",
+     314,
+     314,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ]
+   ],
+   "seed_def": "src/flask/json/tag.py:297",
+   "stratum": "U-method"
+  },
+  "callers:src/flask/sansio/scaffold.py:657": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/flask/sansio/app.py",
+     "_find_error_handler"
+    ],
+    [
+     "src/flask/sansio/scaffold.py",
+     "register_error_handler"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/flask/sansio/app.py",
+     876,
+     876
+    ],
+    [
+     "src/flask/sansio/app.py",
+     876,
+     876
+    ],
+    [
+     "src/flask/sansio/scaffold.py",
+     653,
+     653
+    ],
+    [
+     "src/flask/sansio/scaffold.py",
+     653,
+     653
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/flask/sansio/scaffold.py",
+     "register_error_handler"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/flask/sansio/scaffold.py",
+     653,
+     653,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "src/flask/sansio/scaffold.py",
+     653,
+     653,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ]
+   ],
+   "seed_def": "src/flask/sansio/scaffold.py:657",
+   "stratum": "U-method"
+  },
+  "callers:src/flask/sessions.py:195": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/flask/sessions.py",
+     "save_session"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/flask/sessions.py",
+     346,
+     346
+    ],
+    [
+     "src/flask/sessions.py",
+     346,
+     346
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "src/flask/sessions.py:195",
+   "stratum": "U-method"
+  },
+  "callers:src/flask/wrappers.py:247": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "tests/test_basic.py",
+     "test_max_cookie_size"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tests/test_basic.py",
+     1934,
+     1934
+    ],
+    [
+     "tests/test_basic.py",
+     1938,
+     1938
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "src/flask/wrappers.py:247",
+   "stratum": "U-method"
+  }
+ },
+ "site_fingerprints": {
+  "src/flask/app.py:100": "a94921e2ef5e4cac",
+  "src/flask/app.py:102": "0ed2b4495171b343",
+  "src/flask/app.py:1596": "a3272aa1942db596",
+  "src/flask/app.py:1600": "12a950b4c9b43420",
+  "src/flask/app.py:308": "f0f348d2075c3d44",
+  "src/flask/app.py:714": "20b006192273e1da",
+  "src/flask/app.py:940": "f917fde659d9be37",
+  "src/flask/app.py:943": "f1584f077b160d6b",
+  "src/flask/app.py:946": "43787e584277c45c",
+  "src/flask/app.py:948": "3c3169b312c11956",
+  "src/flask/cli.py:131": "db07179c266a03f2",
+  "src/flask/cli.py:142": "098d3d605fa352bb",
+  "src/flask/cli.py:159": "ac254dc3bf9ffff8",
+  "src/flask/cli.py:163": "773c114c5b093105",
+  "src/flask/cli.py:170": "ed00fc6670374fb1",
+  "src/flask/cli.py:180": "d47b17e21a2b0a13",
+  "src/flask/cli.py:183": "1a89202a706c1929",
+  "src/flask/cli.py:194": "32f670b52e7cff78",
+  "src/flask/cli.py:264": "ea28526c6b91d745",
+  "src/flask/cli.py:369": "007b0a94684d9d03",
+  "src/flask/cli.py:510": "7f22e2ccb04330d0",
+  "src/flask/cli.py:77": "20591a98aaeeb093",
+  "src/flask/cli.py:973": "b58f8fb3da7dfb70",
+  "src/flask/ctx.py:439": "d2bb5a7bf8d1bba6",
+  "src/flask/ctx.py:444": "c6d2974faa6cafc4",
+  "src/flask/ctx.py:507": "90ef7022e3acf775",
+  "src/flask/helpers.py:122": "779f4a367ea92ef5",
+  "src/flask/helpers.py:141": "539efa9bcf2f1f4b",
+  "src/flask/helpers.py:146": "113a53b2c12e36ce",
+  "src/flask/json/tag.py:307": "e378d70d33d4cd0b",
+  "src/flask/json/tag.py:314": "f6981ce59536dfcf",
+  "src/flask/sansio/app.py:492": "ed8460e627ac6fee",
+  "src/flask/sansio/app.py:876": "445373be3774754e",
+  "src/flask/sansio/scaffold.py:653": "533c5e3ed92dadc3",
+  "src/flask/sansio/scaffold.py:96": "4a5c438ab687eabe",
+  "src/flask/sessions.py:346": "edef4f4f49e2f032",
+  "src/flask/templating.py:178": "9d47aea5833ccdd8",
+  "tests/conftest.py:74": "832ec710c66ebf29",
+  "tests/test_apps/helloworld/hello.py:6": "26d812e4c853ce50",
+  "tests/test_basic.py:1433": "f6acd7a604bf4b9e",
+  "tests/test_basic.py:1436": "c67fb6dbf5d6f8a2",
+  "tests/test_basic.py:1439": "a9f841228688279b",
+  "tests/test_basic.py:1440": "23704041feca9f7e",
+  "tests/test_basic.py:1471": "14aebcd77d6ea113",
+  "tests/test_basic.py:1473": "0fedbebe89844991",
+  "tests/test_basic.py:1934": "291e5f9f5296659b",
+  "tests/test_basic.py:1938": "95ebf3eb7b70843c",
+  "tests/test_blueprints.py:256": "d76fd9496749e5f7",
+  "tests/test_blueprints.py:260": "4d0ecd5cce9f6ca1",
+  "tests/test_blueprints.py:262": "2e6cc98864262a27",
+  "tests/test_blueprints.py:264": "9b2a8194ac9749eb",
+  "tests/test_blueprints.py:729": "db8b0af6f315ece0",
+  "tests/test_cli.py:239": "cd68d897617fb7a5",
+  "tests/test_cli.py:240": "f94f93fd77ced39a",
+  "tests/test_cli.py:478": "8e4b444b3330affd",
+  "tests/test_cli.py:482": "1574116d5122cc92",
+  "tests/test_cli.py:487": "a4292309dd017b72",
+  "tests/test_helpers.py:237": "76c2703fb7b46717",
+  "tests/test_helpers.py:281": "13f41080ea126ed6",
+  "tests/test_helpers.py:340": "bea965724185902a",
+  "tests/test_helpers.py:52": "b966de9ae5916b4b",
+  "tests/test_helpers.py:62": "35b2741e65b2eae8",
+  "tests/test_helpers.py:66": "c5a5bdcca3d68607",
+  "tests/test_helpers.py:73": "46a7278d987badd2",
+  "tests/test_helpers.py:75": "4dad6f6b9c1a42fd",
+  "tests/test_helpers.py:77": "4396d65d065464d1",
+  "tests/test_helpers.py:81": "619532ec4871b399",
+  "tests/test_instance_config.py:23": "f8c770f8430ebd8f",
+  "tests/test_instance_config.py:71": "9923eeb2ad1ee8e7",
+  "tests/test_reqctx.py:126": "11aa7aad5427cebd",
+  "tests/test_reqctx.py:140": "60a67cf1451cce1b",
+  "tests/test_reqctx.py:154": "1669d8761968f64d",
+  "tests/test_reqctx.py:23": "d8394c9646b72866",
+  "tests/test_templating.py:119": "9153df91780fc769",
+  "tests/test_templating.py:339": "6548463100dd6053",
+  "tests/test_testing.py:374": "d60a839d4b6736bb",
+  "tests/test_user_error_handler.py:53": "5cac1eb514c53634"
+ }
+}

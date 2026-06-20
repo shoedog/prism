@@ -1,0 +1,8247 @@
+{
+ "m1": {
+  "anon_oracle": 0,
+  "anon_prism": 0,
+  "matched": 4530,
+  "prism_extra": 0,
+  "prism_missing": 17,
+  "snapshot_prism_missing": 17
+ },
+ "m2": {
+  "callees": {
+   "C-method": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.7224671969739421,
+      0.9999999999999999
+     ],
+     "recall": [
+      1.0,
+      0.7224671969739421,
+      0.9999999999999999
+     ],
+     "tp": 10
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.6456695613241317,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.6456695613241317,
+       1.0
+      ],
+      "tp": 7
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.6456695613241317,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.6456695613241317,
+       1.0
+      ],
+      "tp": 7
+     }
+    },
+    "pending": 6,
+    "raw": {
+     "fn": 4,
+     "fp": 2,
+     "precision": [
+      0.8333333333333334,
+      0.5519691353881888,
+      0.9530348582430792
+     ],
+     "recall": [
+      0.7142857142857143,
+      0.45350915474002584,
+      0.8827862143729825
+     ],
+     "tp": 10
+    },
+    "shortfall": 0
+   },
+   "C-name": {
+    "corrected": {
+     "fn": 0,
+     "fp": 2,
+     "precision": [
+      0.9473684210526315,
+      0.8271453773741386,
+      0.9854457919839332
+     ],
+     "recall": [
+      1.0,
+      0.9035813700311206,
+      1.0
+     ],
+     "tp": 36
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 1,
+      "precision": [
+       0.8333333333333334,
+       0.4364971749742326,
+       0.969946630588185
+      ],
+      "recall": [
+       1.0,
+       0.5655175313406071,
+       1.0
+      ],
+      "tp": 5
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 1,
+      "precision": [
+       0.8333333333333334,
+       0.4364971749742326,
+       0.969946630588185
+      ],
+      "recall": [
+       1.0,
+       0.5655175313406071,
+       1.0
+      ],
+      "tp": 5
+     }
+    },
+    "pending": 3,
+    "raw": {
+     "fn": 3,
+     "fp": 2,
+     "precision": [
+      0.9473684210526315,
+      0.8271453773741386,
+      0.9854457919839332
+     ],
+     "recall": [
+      0.9230769230769231,
+      0.7967892870242645,
+      0.9734926049027948
+     ],
+     "tp": 36
+    },
+    "shortfall": 0
+   },
+   "Q-scoped": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.7846891945970195,
+      0.9999999999999999
+     ],
+     "recall": [
+      1.0,
+      0.7846891945970195,
+      0.9999999999999999
+     ],
+     "tp": 14
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 2,
+      "precision": [
+       0.7142857142857143,
+       0.3589344495310541,
+       0.9177810767507166
+      ],
+      "recall": [
+       1.0,
+       0.5655175313406071,
+       1.0
+      ],
+      "tp": 5
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 2,
+      "precision": [
+       0.7142857142857143,
+       0.3589344495310541,
+       0.9177810767507166
+      ],
+      "recall": [
+       1.0,
+       0.5655175313406071,
+       1.0
+      ],
+      "tp": 5
+     }
+    },
+    "pending": 4,
+    "raw": {
+     "fn": 2,
+     "fp": 2,
+     "precision": [
+      0.875,
+      0.6397717251782153,
+      0.9650225125737311
+     ],
+     "recall": [
+      0.875,
+      0.6397717251782153,
+      0.9650225125737311
+     ],
+     "tp": 14
+    },
+    "shortfall": 0
+   },
+   "U-free": {
+    "corrected": {
+     "fn": 0,
+     "fp": 2,
+     "precision": [
+      0.92,
+      0.7503389087653979,
+      0.9777795989158738
+     ],
+     "recall": [
+      1.0,
+      0.8568833796149266,
+      1.0
+     ],
+     "tp": 23
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.5655175313406071,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.5655175313406071,
+       1.0
+      ],
+      "tp": 5
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.5655175313406071,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.5655175313406071,
+       1.0
+      ],
+      "tp": 5
+     }
+    },
+    "pending": 92,
+    "raw": {
+     "fn": 92,
+     "fp": 2,
+     "precision": [
+      0.92,
+      0.7503389087653979,
+      0.9777795989158738
+     ],
+     "recall": [
+      0.2,
+      0.13713065089210574,
+      0.2822638882735554
+     ],
+     "tp": 23
+    },
+    "shortfall": 0
+   },
+   "U-method": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.862023793448672,
+      0.9999999999999999
+     ],
+     "recall": [
+      1.0,
+      0.862023793448672,
+      0.9999999999999999
+     ],
+     "tp": 24
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 2,
+      "precision": [
+       0.75,
+       0.40927542792725174,
+       0.9285207879020445
+      ],
+      "recall": [
+       1.0,
+       0.6096657083436265,
+       1.0
+      ],
+      "tp": 6
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 2,
+      "precision": [
+       0.75,
+       0.40927542792725174,
+       0.9285207879020445
+      ],
+      "recall": [
+       1.0,
+       0.6096657083436265,
+       1.0
+      ],
+      "tp": 6
+     }
+    },
+    "pending": 4,
+    "raw": {
+     "fn": 3,
+     "fp": 1,
+     "precision": [
+      0.96,
+      0.8045593608838223,
+      0.9929037665766179
+     ],
+     "recall": [
+      0.8888888888888888,
+      0.7194219901786143,
+      0.9614796520175526
+     ],
+     "tp": 24
+    },
+    "shortfall": 0
+   }
+  },
+  "callers": {
+   "C-method": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.5101091596030786,
+      0.9999999999999999
+     ],
+     "recall": [
+      1.0,
+      0.5101091596030786,
+      0.9999999999999999
+     ],
+     "tp": 4
+    },
+    "function": {
+     "corrected": {
+      "fn": 19,
+      "fp": 4,
+      "precision": [
+       0.5,
+       0.21521606069626764,
+       0.7847839393037324
+      ],
+      "recall": [
+       0.17391304347826086,
+       0.0697865351446468,
+       0.3713764781499663
+      ],
+      "tp": 4
+     },
+     "raw": {
+      "fn": 19,
+      "fp": 4,
+      "precision": [
+       0.5,
+       0.21521606069626764,
+       0.7847839393037324
+      ],
+      "recall": [
+       0.17391304347826086,
+       0.0697865351446468,
+       0.3713764781499663
+      ],
+      "tp": 4
+     }
+    },
+    "pending": 27,
+    "raw": {
+     "fn": 22,
+     "fp": 5,
+     "precision": [
+      0.4444444444444444,
+      0.18877851977054566,
+      0.7333487081991259
+     ],
+     "recall": [
+      0.15384615384615385,
+      0.06150033680770284,
+      0.3353119949351658
+     ],
+     "tp": 4
+    },
+    "shortfall": 0
+   },
+   "C-name": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.8928208002353198,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.8928208002353198,
+      1.0
+     ],
+     "tp": 32
+    },
+    "function": {
+     "corrected": {
+      "fn": 3,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.8928208002353198,
+       1.0
+      ],
+      "recall": [
+       0.9142857142857143,
+       0.7762072589454966,
+       0.9704176319636569
+      ],
+      "tp": 32
+     },
+     "raw": {
+      "fn": 3,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.8928208002353198,
+       1.0
+      ],
+      "recall": [
+       0.9142857142857143,
+       0.7762072589454966,
+       0.9704176319636569
+      ],
+      "tp": 32
+     }
+    },
+    "pending": 3,
+    "raw": {
+     "fn": 3,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.8928208002353198,
+      1.0
+     ],
+     "recall": [
+      0.9142857142857143,
+      0.7762072589454966,
+      0.9704176319636569
+     ],
+     "tp": 32
+    },
+    "shortfall": 0
+   },
+   "Q-scoped": {
+    "corrected": {
+     "fn": 1,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.43850296436068037,
+      1.0
+     ],
+     "recall": [
+      0.75,
+      0.3006418400969081,
+      0.954412739704631
+     ],
+     "tp": 3
+    },
+    "function": {
+     "corrected": {
+      "fn": 2,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.3423802239546494,
+       1.0
+      ],
+      "recall": [
+       0.5,
+       0.15003898774401986,
+       0.8499610122559802
+      ],
+      "tp": 2
+     },
+     "raw": {
+      "fn": 2,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.3423802239546494,
+       1.0
+      ],
+      "recall": [
+       0.5,
+       0.15003898774401986,
+       0.8499610122559802
+      ],
+      "tp": 2
+     }
+    },
+    "pending": 1,
+    "raw": {
+     "fn": 2,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.43850296436068037,
+      1.0
+     ],
+     "recall": [
+      0.6,
+      0.23072427940911855,
+      0.8823792268590028
+     ],
+     "tp": 3
+    },
+    "shortfall": 0
+   },
+   "U-free": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.7224671969739421,
+      0.9999999999999999
+     ],
+     "recall": [
+      1.0,
+      0.7224671969739421,
+      0.9999999999999999
+     ],
+     "tp": 10
+    },
+    "function": {
+     "corrected": {
+      "fn": 2,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.43850296436068037,
+       1.0
+      ],
+      "recall": [
+       0.6,
+       0.23072427940911855,
+       0.8823792268590028
+      ],
+      "tp": 3
+     },
+     "raw": {
+      "fn": 2,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.43850296436068037,
+       1.0
+      ],
+      "recall": [
+       0.6,
+       0.23072427940911855,
+       0.8823792268590028
+      ],
+      "tp": 3
+     }
+    },
+    "pending": 4,
+    "raw": {
+     "fn": 4,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.7224671969739421,
+      0.9999999999999999
+     ],
+     "recall": [
+      0.7142857142857143,
+      0.45350915474002584,
+      0.8827862143729825
+     ],
+     "tp": 10
+    },
+    "shortfall": 0
+   },
+   "U-method": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.871271076371412,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.871271076371412,
+      1.0
+     ],
+     "tp": 26
+    },
+    "function": {
+     "corrected": {
+      "fn": 1,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.8318207737404363,
+       0.9999999999999999
+      ],
+      "recall": [
+       0.95,
+       0.7638688045357189,
+       0.9911185512976646
+      ],
+      "tp": 19
+     },
+     "raw": {
+      "fn": 1,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.8318207737404363,
+       0.9999999999999999
+      ],
+      "recall": [
+       0.95,
+       0.7638688045357189,
+       0.9911185512976646
+      ],
+      "tp": 19
+     }
+    },
+    "pending": 6,
+    "raw": {
+     "fn": 6,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.871271076371412,
+      1.0
+     ],
+     "recall": [
+      0.8125,
+      0.6469084465243861,
+      0.9111045536226888
+     ],
+     "tp": 26
+    },
+    "shortfall": 0
+   }
+  }
+ },
+ "m3": {
+  "cap": 25,
+  "checked": [
+   {
+    "probe": "callers:src/cpg/query.rs:863",
+    "site": "src/cpg/query.rs:864",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:src/name_resolution/rust_policy.rs:170",
+    "site": "src/name_resolution/engine.rs:134",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:src/name_resolution/rust_policy.rs:170",
+    "site": "src/name_resolution/engine.rs:155",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:src/name_resolution/rust_policy.rs:170",
+    "site": "src/name_resolution/engine.rs:237",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:src/name_resolution/rust_policy.rs:170",
+    "site": "src/name_resolution/engine.rs:407",
+    "verdict": "ambiguous"
+   }
+  ],
+  "counts": {
+   "alias_site": 0,
+   "ambiguous": 5,
+   "confirmed_fp": 0,
+   "confirmed_tp": 0
+  }
+ },
+ "matrix": [
+  {
+   "capability": "chain_in_repo_exact",
+   "expected": [
+    [
+     "main.rs",
+     12
+    ]
+   ],
+   "got": [
+    [
+     "main.rs",
+     12
+    ]
+   ],
+   "language": "rust",
+   "outcome": "ok"
+  },
+  {
+   "capability": "closure_call",
+   "expected": [
+    [
+     "main.rs",
+     4
+    ]
+   ],
+   "got": [
+    [
+     "main.rs",
+     4
+    ]
+   ],
+   "language": "rust",
+   "outcome": "ok"
+  },
+  {
+   "capability": "common_name_collision",
+   "expected": [
+    [
+     "main.rs",
+     5
+    ]
+   ],
+   "got": [
+    [
+     "main.rs",
+     5
+    ]
+   ],
+   "language": "rust",
+   "outcome": "ok"
+  },
+  {
+   "capability": "cross_module_no_collision",
+   "expected": [
+    [
+     "main.rs",
+     5
+    ]
+   ],
+   "got": [
+    [
+     "main.rs",
+     5
+    ]
+   ],
+   "language": "rust",
+   "outcome": "ok"
+  },
+  {
+   "capability": "extension_trait_method",
+   "expected": [
+    [
+     "main.rs",
+     10
+    ]
+   ],
+   "got": [
+    [
+     "main.rs",
+     10
+    ]
+   ],
+   "language": "rust",
+   "outcome": "ok"
+  },
+  {
+   "capability": "external_chain_unchanged",
+   "expected": [],
+   "got": [],
+   "language": "rust",
+   "outcome": "ok"
+  },
+  {
+   "capability": "field_receiver_method",
+   "expected": [
+    [
+     "main.rs",
+     12
+    ]
+   ],
+   "got": [
+    [
+     "main.rs",
+     12
+    ]
+   ],
+   "language": "rust",
+   "outcome": "ok"
+  },
+  {
+   "capability": "field_typed_recovery",
+   "expected": [
+    [
+     "main.rs",
+     13
+    ]
+   ],
+   "got": [
+    [
+     "main.rs",
+     13
+    ]
+   ],
+   "language": "rust",
+   "outcome": "ok"
+  },
+  {
+   "capability": "free_fn_cross_file_use",
+   "expected": [
+    [
+     "main.rs",
+     4
+    ]
+   ],
+   "got": [
+    [
+     "main.rs",
+     4
+    ]
+   ],
+   "language": "rust",
+   "outcome": "ok"
+  },
+  {
+   "capability": "free_fn_same_file",
+   "expected": [
+    [
+     "main.rs",
+     4
+    ]
+   ],
+   "got": [
+    [
+     "main.rs",
+     4
+    ]
+   ],
+   "language": "rust",
+   "outcome": "ok"
+  },
+  {
+   "capability": "inherent_method_same_file",
+   "expected": [
+    [
+     "main.rs",
+     8
+    ]
+   ],
+   "got": [
+    [
+     "main.rs",
+     8
+    ]
+   ],
+   "language": "rust",
+   "outcome": "ok"
+  },
+  {
+   "capability": "inrepo_then_external_unchanged",
+   "expected": [],
+   "got": [],
+   "language": "rust",
+   "outcome": "ok"
+  },
+  {
+   "capability": "method_cross_file_type_ne_stem",
+   "expected": [
+    [
+     "main.rs",
+     4
+    ]
+   ],
+   "got": [
+    [
+     "main.rs",
+     4
+    ]
+   ],
+   "language": "rust",
+   "outcome": "ok"
+  },
+  {
+   "capability": "mod_qualified_free_fn",
+   "expected": [
+    [
+     "main.rs",
+     4
+    ]
+   ],
+   "got": [
+    [
+     "main.rs",
+     4
+    ]
+   ],
+   "language": "rust",
+   "outcome": "ok"
+  },
+  {
+   "capability": "p6_typed_param_recovery",
+   "expected": [
+    [
+     "m.rs",
+     2
+    ]
+   ],
+   "got": [
+    [
+     "m.rs",
+     2
+    ]
+   ],
+   "language": "rust",
+   "outcome": "ok"
+  },
+  {
+   "capability": "r6_multi_owner_drop",
+   "expected": [],
+   "got": [],
+   "language": "rust",
+   "outcome": "ok"
+  },
+  {
+   "capability": "r6_single_owner_demote",
+   "expected": [
+    [
+     "m.rs",
+     3
+    ]
+   ],
+   "got": [
+    [
+     "m.rs",
+     3
+    ]
+   ],
+   "language": "rust",
+   "outcome": "ok"
+  },
+  {
+   "capability": "receiver_method_cross_file_stem_eq",
+   "expected": [
+    [
+     "main.rs",
+     4
+    ]
+   ],
+   "got": [
+    [
+     "main.rs",
+     4
+    ]
+   ],
+   "language": "rust",
+   "outcome": "ok"
+  },
+  {
+   "capability": "return_typed_recovery",
+   "expected": [
+    [
+     "main.rs",
+     13
+    ]
+   ],
+   "got": [
+    [
+     "main.rs",
+     13
+    ]
+   ],
+   "language": "rust",
+   "outcome": "ok"
+  },
+  {
+   "capability": "trait_dyn_dispatch",
+   "expected": [
+    [
+     "main.rs",
+     12
+    ]
+   ],
+   "got": [
+    [
+     "main.rs",
+     12
+    ]
+   ],
+   "language": "rust",
+   "outcome": "ok"
+  },
+  {
+   "capability": "trait_static_dispatch",
+   "expected": [
+    [
+     "main.rs",
+     12
+    ]
+   ],
+   "got": [
+    [
+     "main.rs",
+     12
+    ]
+   ],
+   "language": "rust",
+   "outcome": "ok"
+  },
+  {
+   "capability": "type_method_qualified",
+   "expected": [
+    [
+     "main.rs",
+     4
+    ]
+   ],
+   "got": [
+    [
+     "main.rs",
+     4
+    ]
+   ],
+   "language": "rust",
+   "outcome": "ok"
+  },
+  {
+   "capability": "closure",
+   "expected": [
+    [
+     "main.go",
+     6
+    ]
+   ],
+   "got": [
+    [
+     "main.go",
+     6
+    ]
+   ],
+   "language": "go",
+   "outcome": "ok"
+  },
+  {
+   "capability": "common_name_collision",
+   "expected": [
+    [
+     "main.go",
+     6
+    ]
+   ],
+   "got": [
+    [
+     "main.go",
+     6
+    ]
+   ],
+   "language": "go",
+   "outcome": "ok"
+  },
+  {
+   "capability": "cross_pkg_qualified",
+   "expected": [
+    [
+     "main.go",
+     6
+    ]
+   ],
+   "got": [
+    [
+     "main.go",
+     6
+    ]
+   ],
+   "language": "go",
+   "outcome": "ok"
+  },
+  {
+   "capability": "embedded_method",
+   "expected": [
+    [
+     "main.go",
+     12
+    ]
+   ],
+   "got": [
+    [
+     "main.go",
+     12
+    ]
+   ],
+   "language": "go",
+   "outcome": "ok"
+  },
+  {
+   "capability": "import_package_path",
+   "expected": [
+    [
+     "main.go",
+     6
+    ]
+   ],
+   "got": [
+    [
+     "main.go",
+     6
+    ]
+   ],
+   "language": "go",
+   "outcome": "ok"
+  },
+  {
+   "capability": "interface_dispatch",
+   "expected": [
+    [
+     "main.go",
+     12
+    ]
+   ],
+   "got": [
+    [
+     "main.go",
+     12
+    ]
+   ],
+   "language": "go",
+   "outcome": "ok"
+  },
+  {
+   "capability": "interface_dispatch_assert",
+   "expected": [
+    [
+     "main.go",
+     14
+    ]
+   ],
+   "got": [
+    [
+     "main.go",
+     14
+    ]
+   ],
+   "language": "go",
+   "outcome": "ok"
+  },
+  {
+   "capability": "interface_dispatch_var",
+   "expected": [
+    [
+     "main.go",
+     15
+    ]
+   ],
+   "got": [
+    [
+     "main.go",
+     15
+    ]
+   ],
+   "language": "go",
+   "outcome": "ok"
+  },
+  {
+   "capability": "same_pkg_free_fn",
+   "expected": [
+    [
+     "main.go",
+     6
+    ]
+   ],
+   "got": [
+    [
+     "main.go",
+     6
+    ]
+   ],
+   "language": "go",
+   "outcome": "ok"
+  },
+  {
+   "capability": "struct_method_cross_file",
+   "expected": [
+    [
+     "main.go",
+     4
+    ]
+   ],
+   "got": [
+    [
+     "main.go",
+     4
+    ]
+   ],
+   "language": "go",
+   "outcome": "ok"
+  },
+  {
+   "capability": "struct_method_same_file",
+   "expected": [
+    [
+     "main.go",
+     8
+    ]
+   ],
+   "got": [
+    [
+     "main.go",
+     8
+    ]
+   ],
+   "language": "go",
+   "outcome": "ok"
+  },
+  {
+   "capability": "class_method_same_file",
+   "expected": [
+    [
+     "app.py",
+     6
+    ]
+   ],
+   "got": [
+    [
+     "app.py",
+     6
+    ]
+   ],
+   "language": "python",
+   "outcome": "ok"
+  },
+  {
+   "capability": "closure",
+   "expected": [
+    [
+     "app.py",
+     6
+    ]
+   ],
+   "got": [
+    [
+     "app.py",
+     6
+    ]
+   ],
+   "language": "python",
+   "outcome": "ok"
+  },
+  {
+   "capability": "common_name_collision",
+   "expected": [
+    [
+     "app.py",
+     4
+    ]
+   ],
+   "got": [
+    [
+     "app.py",
+     4
+    ]
+   ],
+   "language": "python",
+   "outcome": "ok"
+  },
+  {
+   "capability": "decorator_wrapped",
+   "expected": [
+    [
+     "app.py",
+     8
+    ]
+   ],
+   "got": [
+    [
+     "app.py",
+     8
+    ]
+   ],
+   "language": "python",
+   "outcome": "ok"
+  },
+  {
+   "capability": "from_import_alias",
+   "expected": [
+    [
+     "app.py",
+     4
+    ]
+   ],
+   "got": [],
+   "language": "python",
+   "outcome": "expected_gap"
+  },
+  {
+   "capability": "import_module_call",
+   "expected": [
+    [
+     "app.py",
+     4
+    ]
+   ],
+   "got": [
+    [
+     "app.py",
+     4
+    ]
+   ],
+   "language": "python",
+   "outcome": "ok"
+  },
+  {
+   "capability": "inherited_override",
+   "expected": [
+    [
+     "app.py",
+     10
+    ]
+   ],
+   "got": [],
+   "language": "python",
+   "outcome": "expected_gap"
+  },
+  {
+   "capability": "instance_method_cross_file",
+   "expected": [
+    [
+     "app.py",
+     5
+    ]
+   ],
+   "got": [
+    [
+     "app.py",
+     5
+    ]
+   ],
+   "language": "python",
+   "outcome": "ok"
+  },
+  {
+   "capability": "module_fn",
+   "expected": [
+    [
+     "app.py",
+     5
+    ]
+   ],
+   "got": [
+    [
+     "app.py",
+     5
+    ]
+   ],
+   "language": "python",
+   "outcome": "ok"
+  }
+ ],
+ "meta": {
+  "baseline_invalid": false,
+  "corpus": "prism",
+  "corpus_dirty": true,
+  "corpus_dirty_reasons": [],
+  "corpus_sha": "20c8490591a3",
+  "date": "2026-06-20",
+  "harness_sha": "20c8490591a3",
+  "invalid_reasons": [],
+  "oracle": "rust-analyzer 1.94.0 (4a4ef493 2026-03-02)",
+  "oracle_error_rate": 0.075,
+  "oracle_not_quiescent": false,
+  "prism_dirty": false,
+  "prism_sha": "20c8490591a3",
+  "seed": 42,
+  "stale_adjudications": 5,
+  "sut_error_rate": 0.0,
+  "wall_s": {
+   "m1_oracle_inventory": 4.172,
+   "m2": 48.446,
+   "m3": 0.012,
+   "matrix": 2.264,
+   "oracle_start": 18.258,
+   "pinned": 2.757
+  }
+ },
+ "pending": [
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/access_path.rs:222",
+   "site": "src/access_path.rs:356",
+   "site_fingerprint": "a4ca46e2789f4498"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/access_path.rs:222",
+   "site": "src/access_path.rs:357",
+   "site_fingerprint": "1a03682b95b83f50"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/access_path.rs:222",
+   "site": "src/access_path.rs:358",
+   "site_fingerprint": "dd832a1c7c83fcf2"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/access_path.rs:222",
+   "site": "src/access_path.rs:359",
+   "site_fingerprint": "89583bf804979f6c"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/access_path.rs:222",
+   "site": "src/access_path.rs:362",
+   "site_fingerprint": "8d5cef64ec64822e"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/access_path.rs:222",
+   "site": "src/access_path.rs:363",
+   "site_fingerprint": "10dbca3b0496ddb8"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/algorithms/delta_slice.rs:17",
+   "site": "src/main.rs:1115",
+   "site_fingerprint": "f9ac7794148bdeff"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/algorithms/primitive_slice.rs:573",
+   "site": "src/algorithms/primitive_slice.rs:830",
+   "site_fingerprint": "0ab47b1e3600894d"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/algorithms/vertical_slice.rs:66",
+   "site": "src/main.rs:1158",
+   "site_fingerprint": "bb24433e46587f4c"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/call_graph.rs:1009",
+   "site": "tests/ast/cpg_cache_test.rs:604",
+   "site_fingerprint": "7ee819c81a50f34b"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/call_graph.rs:1009",
+   "site": "tests/ast/cpg_cache_test.rs:650",
+   "site_fingerprint": "fa63983c663a829c"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/call_graph.rs:1009",
+   "site": "tests/ast/cpg_cache_test.rs:701",
+   "site_fingerprint": "a9228fdfd9257760"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/call_graph.rs:1009",
+   "site": "tests/integration/call_graph_test.rs:1149",
+   "site_fingerprint": "702a5b100351cb26"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/call_graph.rs:1009",
+   "site": "tests/integration/resolution_test.rs:2267",
+   "site_fingerprint": "06668ffbc9efdbe5"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/call_graph.rs:1009",
+   "site": "tests/name_resolution/build_wiring_test.rs:171",
+   "site_fingerprint": "2db8c76430fb6ac0"
+  },
+  {
+   "corpus": "prism",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callers",
+   "seed_def": "src/cpg/query.rs:863",
+   "site": "src/cpg/query.rs:864",
+   "site_fingerprint": "6463e6b775111324"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/cpg/query.rs:863",
+   "site": "src/cpg/tests.rs:1605",
+   "site_fingerprint": "e6ca397cbace5fe3"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/cpg/query.rs:863",
+   "site": "src/cpg/tests.rs:1606",
+   "site_fingerprint": "18302085f8ce09f7"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/cpg/query.rs:863",
+   "site": "src/cpg/tests.rs:1607",
+   "site_fingerprint": "df72fa61255191fc"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/cpg/query.rs:863",
+   "site": "src/cpg/tests.rs:1608",
+   "site_fingerprint": "0d195a7d6257a16a"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/cpg/query.rs:863",
+   "site": "tests/integration/core_test.rs:780",
+   "site_fingerprint": "ced6d2fbaf407297"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/data_flow.rs:659",
+   "site": "tests/algo/taxonomy/taint_lang_test.rs:539",
+   "site_fingerprint": "fe0455477a81b324"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/data_flow.rs:659",
+   "site": "tests/algo/taxonomy/taint_lang_test.rs:564",
+   "site_fingerprint": "8b885b13a34c78dc"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/data_flow.rs:659",
+   "site": "tests/algo/taxonomy/taint_sink_test.rs:380",
+   "site_fingerprint": "d8eb2a2d930a395e"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/data_flow.rs:659",
+   "site": "tests/ast/dfg_test.rs:167",
+   "site_fingerprint": "cb5763fb74810c29"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/data_flow.rs:659",
+   "site": "tests/ast/dfg_test.rs:297",
+   "site_fingerprint": "ef5345c3e6c788c4"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/data_flow.rs:659",
+   "site": "tests/ast/field_test.rs:85",
+   "site_fingerprint": "fb9b59136e7218de"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/data_flow.rs:659",
+   "site": "tests/lang/c/cve_test.rs:359",
+   "site_fingerprint": "c633106875f00153"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/main.rs:1024",
+   "site": "src/main.rs:861",
+   "site_fingerprint": "b6c0ae176b5b2eda"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/main.rs:1024",
+   "site": "src/main.rs:962",
+   "site_fingerprint": "dcfbbd1d14cddb42"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/main.rs:1046",
+   "site": "src/main.rs:847",
+   "site_fingerprint": "d81d8e0311228a49"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/main.rs:1046",
+   "site": "src/main.rs:960",
+   "site_fingerprint": "83c8a08ba829291f"
+  },
+  {
+   "corpus": "prism",
+   "direction": "prism_only",
+   "dispatch_kind": "typed_param",
+   "measurement": "callers",
+   "seed_def": "src/name_resolution/rust_policy.rs:170",
+   "site": "src/name_resolution/engine.rs:134",
+   "site_fingerprint": "822b3babfae705be"
+  },
+  {
+   "corpus": "prism",
+   "direction": "prism_only",
+   "dispatch_kind": "typed_param",
+   "measurement": "callers",
+   "seed_def": "src/name_resolution/rust_policy.rs:170",
+   "site": "src/name_resolution/engine.rs:155",
+   "site_fingerprint": "6f42c77d0520630e"
+  },
+  {
+   "corpus": "prism",
+   "direction": "prism_only",
+   "dispatch_kind": "typed_param",
+   "measurement": "callers",
+   "seed_def": "src/name_resolution/rust_policy.rs:170",
+   "site": "src/name_resolution/engine.rs:237",
+   "site_fingerprint": "6e6cf43882bfca4d"
+  },
+  {
+   "corpus": "prism",
+   "direction": "prism_only",
+   "dispatch_kind": "typed_param",
+   "measurement": "callers",
+   "seed_def": "src/name_resolution/rust_policy.rs:170",
+   "site": "src/name_resolution/engine.rs:407",
+   "site_fingerprint": "6325a0779e515b3a"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/navigation/mod.rs:82",
+   "site": "src/navigation/queries.rs:335",
+   "site_fingerprint": "e6c3103e94ecde7d"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/navigation/mod.rs:82",
+   "site": "src/navigation/queries.rs:821",
+   "site_fingerprint": "d31fc8775f5dbc97"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/navigation/mod.rs:82",
+   "site": "src/navigation/seed.rs:50",
+   "site_fingerprint": "d31fc8775f5dbc97"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/navigation/mod.rs:82",
+   "site": "tests/navigation/index_test.rs:33",
+   "site_fingerprint": "4bf3376e118fb12c"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/type_providers/rust_provider.rs:536",
+   "site": "src/type_providers/rust_provider.rs:139",
+   "site_fingerprint": "2d1db17914e594ea"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/algorithms/echo_slice.rs:106",
+   "site": "src/algorithms/echo_slice.rs:275",
+   "site_fingerprint": "9b06de9ded2a8a4a"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/algorithms/echo_slice.rs:106",
+   "site": "src/algorithms/echo_slice.rs:288",
+   "site_fingerprint": "cd085b11184b09d3"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/ast.rs:2212",
+   "site": "src/ast.rs:2213",
+   "site_fingerprint": "ddd38b0c161694e2"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/cpg/query.rs:363",
+   "site": "src/cpg/query.rs:382",
+   "site_fingerprint": "b54b06341fdbc128"
+  },
+  {
+   "corpus": "prism",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callees",
+   "seed_def": "src/cpg/query.rs:579",
+   "site": "src/cpg/query.rs:615",
+   "site_fingerprint": "be6befbede93dae4"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/data_flow.rs:659",
+   "site": "src/data_flow.rs:662",
+   "site_fingerprint": "3dea01517ae05780"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/data_flow.rs:659",
+   "site": "src/data_flow.rs:665",
+   "site_fingerprint": "0ac77e4a92d8d187"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/data_flow.rs:659",
+   "site": "src/data_flow.rs:676",
+   "site_fingerprint": "89fedbaaac1e0f85"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/data_flow.rs:659",
+   "site": "src/data_flow.rs:682",
+   "site_fingerprint": "b8ccb78603ea1cf8"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/main.rs:1046",
+   "site": "src/main.rs:1066",
+   "site_fingerprint": "3260b7a0cb8f133e"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/main.rs:1046",
+   "site": "src/main.rs:1079",
+   "site_fingerprint": "3eb95aa6af1820ff"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/main.rs:1046",
+   "site": "src/main.rs:1099",
+   "site_fingerprint": "df9716942411b394"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/main.rs:1046",
+   "site": "src/main.rs:1106",
+   "site_fingerprint": "306593edaa170af1"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/main.rs:1046",
+   "site": "src/main.rs:1108",
+   "site_fingerprint": "f5254a64ca0aab98"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/main.rs:1046",
+   "site": "src/main.rs:1115",
+   "site_fingerprint": "f9ac7794148bdeff"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/main.rs:1046",
+   "site": "src/main.rs:1122",
+   "site_fingerprint": "2edaa92e17e65586"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/main.rs:1046",
+   "site": "src/main.rs:1124",
+   "site_fingerprint": "2a8544cd836973d2"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/main.rs:1046",
+   "site": "src/main.rs:1132",
+   "site_fingerprint": "5e02e0c864d55037"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/main.rs:1046",
+   "site": "src/main.rs:1137",
+   "site_fingerprint": "26f9a7f82469c81a"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/main.rs:1046",
+   "site": "src/main.rs:1142",
+   "site_fingerprint": "0131847200f7fadc"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/main.rs:1046",
+   "site": "src/main.rs:1148",
+   "site_fingerprint": "8281f9db29cb9146"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/main.rs:1046",
+   "site": "src/main.rs:1158",
+   "site_fingerprint": "bb24433e46587f4c"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/main.rs:1046",
+   "site": "src/main.rs:1166",
+   "site_fingerprint": "515ca8b722547f89"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/main.rs:1046",
+   "site": "src/main.rs:1173",
+   "site_fingerprint": "e6076d56a0d04900"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/main.rs:1046",
+   "site": "src/main.rs:1181",
+   "site_fingerprint": "49f79a22b18d04fe"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/main.rs:1046",
+   "site": "src/main.rs:1188",
+   "site_fingerprint": "bd7cfa7830019925"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/main.rs:1046",
+   "site": "src/main.rs:1192",
+   "site_fingerprint": "be2d137b589e9b2e"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/main.rs:1046",
+   "site": "src/main.rs:1194",
+   "site_fingerprint": "924dccda78093ca9"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/main.rs:1046",
+   "site": "src/main.rs:1201",
+   "site_fingerprint": "49c109170a79f77f"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/main.rs:1046",
+   "site": "src/main.rs:1203",
+   "site_fingerprint": "8a8debe76ff3f023"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/main.rs:332",
+   "site": "src/main.rs:344",
+   "site_fingerprint": "057e2e889ec6711f"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/main.rs:332",
+   "site": "src/main.rs:359",
+   "site_fingerprint": "c0a91d2a9b4c89cc"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/main.rs:332",
+   "site": "src/main.rs:372",
+   "site_fingerprint": "193b9b0c3cff3016"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/main.rs:332",
+   "site": "src/main.rs:389",
+   "site_fingerprint": "d63297fe62a4e7d9"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/main.rs:332",
+   "site": "src/main.rs:402",
+   "site_fingerprint": "193b9b0c3cff3016"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/main.rs:332",
+   "site": "src/main.rs:419",
+   "site_fingerprint": "942775fc5c8cbc73"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/main.rs:332",
+   "site": "src/main.rs:432",
+   "site_fingerprint": "193b9b0c3cff3016"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/main.rs:332",
+   "site": "src/main.rs:440",
+   "site_fingerprint": "e215e661db82dd42"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/main.rs:332",
+   "site": "src/main.rs:446",
+   "site_fingerprint": "6e04d7f48d464763"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/main.rs:332",
+   "site": "src/main.rs:452",
+   "site_fingerprint": "6e89477aa210d7cd"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/main.rs:332",
+   "site": "src/main.rs:458",
+   "site_fingerprint": "89f821ebca1e4988"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/main.rs:332",
+   "site": "src/main.rs:465",
+   "site_fingerprint": "7d1dbec5118e55b2"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/main.rs:485",
+   "site": "src/main.rs:490",
+   "site_fingerprint": "7286150a0f6fa849"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/main.rs:485",
+   "site": "src/main.rs:492",
+   "site_fingerprint": "a576addf308a3d06"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/main.rs:485",
+   "site": "src/main.rs:495",
+   "site_fingerprint": "2a45c21e7bf1b7c6"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/main.rs:485",
+   "site": "src/main.rs:496",
+   "site_fingerprint": "75de5f3a07a7f0d2"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/main.rs:503",
+   "site": "src/main.rs:561",
+   "site_fingerprint": "968fb89d691d53dc"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/main.rs:503",
+   "site": "src/main.rs:566",
+   "site_fingerprint": "03f6fc7d1c0065ef"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/main.rs:503",
+   "site": "src/main.rs:575",
+   "site_fingerprint": "9263f6813e55aa01"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/main.rs:503",
+   "site": "src/main.rs:603",
+   "site_fingerprint": "3f97723206d4d129"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/main.rs:503",
+   "site": "src/main.rs:605",
+   "site_fingerprint": "cbe7ce5252bbfffe"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/main.rs:503",
+   "site": "src/main.rs:621",
+   "site_fingerprint": "9db6b49dd1000bab"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/main.rs:503",
+   "site": "src/main.rs:635",
+   "site_fingerprint": "f5fce1580a57a280"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/main.rs:503",
+   "site": "src/main.rs:671",
+   "site_fingerprint": "07591f3c26789b57"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/main.rs:503",
+   "site": "src/main.rs:688",
+   "site_fingerprint": "b60d35af7b94274b"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/main.rs:503",
+   "site": "src/main.rs:689",
+   "site_fingerprint": "30bfc21dbb35454c"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/main.rs:503",
+   "site": "src/main.rs:697",
+   "site_fingerprint": "3ad33ebf2715ed6d"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/main.rs:503",
+   "site": "src/main.rs:702",
+   "site_fingerprint": "6e4b1e2aef84b04e"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/main.rs:503",
+   "site": "src/main.rs:711",
+   "site_fingerprint": "36c661a47caf278d"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/main.rs:503",
+   "site": "src/main.rs:725",
+   "site_fingerprint": "38e0bb990b4a0117"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/main.rs:503",
+   "site": "src/main.rs:737",
+   "site_fingerprint": "bba756cb8ede1218"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/main.rs:503",
+   "site": "src/main.rs:745",
+   "site_fingerprint": "b7e6b0a536c0359a"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/main.rs:503",
+   "site": "src/main.rs:749",
+   "site_fingerprint": "2e84b9f6fb6431db"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/main.rs:503",
+   "site": "src/main.rs:765",
+   "site_fingerprint": "2538c93aaca73383"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/main.rs:503",
+   "site": "src/main.rs:767",
+   "site_fingerprint": "833e2907d296ba11"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/main.rs:503",
+   "site": "src/main.rs:776",
+   "site_fingerprint": "2e84b9f6fb6431db"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/main.rs:503",
+   "site": "src/main.rs:795",
+   "site_fingerprint": "8ea9f062ac1c3f2f"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/main.rs:503",
+   "site": "src/main.rs:800",
+   "site_fingerprint": "1974948bd88f3c1e"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/main.rs:503",
+   "site": "src/main.rs:805",
+   "site_fingerprint": "f9d827078ccafdbb"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/main.rs:503",
+   "site": "src/main.rs:810",
+   "site_fingerprint": "73e4f3c001a3173c"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/main.rs:503",
+   "site": "src/main.rs:815",
+   "site_fingerprint": "b29546a58ccaad5c"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/main.rs:503",
+   "site": "src/main.rs:820",
+   "site_fingerprint": "e8ed93e75d81d1c4"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/main.rs:503",
+   "site": "src/main.rs:827",
+   "site_fingerprint": "5bbce23b1d5d2be7"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/main.rs:503",
+   "site": "src/main.rs:847",
+   "site_fingerprint": "d81d8e0311228a49"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/main.rs:503",
+   "site": "src/main.rs:850",
+   "site_fingerprint": "f527f414a6eb5058"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/main.rs:503",
+   "site": "src/main.rs:858",
+   "site_fingerprint": "6bf8590e5e78d353"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/main.rs:503",
+   "site": "src/main.rs:861",
+   "site_fingerprint": "b6c0ae176b5b2eda"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/main.rs:503",
+   "site": "src/main.rs:871",
+   "site_fingerprint": "0d970b9bf0882bd4"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/main.rs:503",
+   "site": "src/main.rs:884",
+   "site_fingerprint": "5d8a694c3eee64dc"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/main.rs:503",
+   "site": "src/main.rs:885",
+   "site_fingerprint": "c86d6b4f79971b9e"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/main.rs:503",
+   "site": "src/main.rs:899",
+   "site_fingerprint": "0d970b9bf0882bd4"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/main.rs:503",
+   "site": "src/main.rs:912",
+   "site_fingerprint": "5d8a694c3eee64dc"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/main.rs:503",
+   "site": "src/main.rs:913",
+   "site_fingerprint": "c86d6b4f79971b9e"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/main.rs:503",
+   "site": "src/main.rs:929",
+   "site_fingerprint": "2aa670b683b6561c"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/main.rs:503",
+   "site": "src/main.rs:932",
+   "site_fingerprint": "45858ecd560dd1fe"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/main.rs:503",
+   "site": "src/main.rs:933",
+   "site_fingerprint": "2788ace56548a245"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/main.rs:503",
+   "site": "src/main.rs:950",
+   "site_fingerprint": "0aecd8c035e76947"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/main.rs:503",
+   "site": "src/main.rs:951",
+   "site_fingerprint": "c86d6b4f79971b9e"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/main.rs:503",
+   "site": "src/main.rs:960",
+   "site_fingerprint": "83c8a08ba829291f"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/main.rs:503",
+   "site": "src/main.rs:962",
+   "site_fingerprint": "dcfbbd1d14cddb42"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/main.rs:503",
+   "site": "src/main.rs:968",
+   "site_fingerprint": "ad9972720c648e6a"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/main.rs:503",
+   "site": "src/main.rs:970",
+   "site_fingerprint": "862474acb1aff21b"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/main.rs:503",
+   "site": "src/main.rs:971",
+   "site_fingerprint": "743e407271cede95"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/main.rs:503",
+   "site": "src/main.rs:977",
+   "site_fingerprint": "e8a2bb45c6357121"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/main.rs:503",
+   "site": "src/main.rs:979",
+   "site_fingerprint": "e649ca29742dd1eb"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/main.rs:503",
+   "site": "src/main.rs:980",
+   "site_fingerprint": "743e407271cede95"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/main.rs:503",
+   "site": "src/main.rs:997",
+   "site_fingerprint": "2aa670b683b6561c"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/main.rs:503",
+   "site": "src/main.rs:1000",
+   "site_fingerprint": "45858ecd560dd1fe"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/main.rs:503",
+   "site": "src/main.rs:1001",
+   "site_fingerprint": "2788ace56548a245"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/main.rs:503",
+   "site": "src/main.rs:1011",
+   "site_fingerprint": "eaa7470efa59b58f"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/main.rs:503",
+   "site": "src/main.rs:1012",
+   "site_fingerprint": "743e407271cede95"
+  },
+  {
+   "corpus": "prism",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callees",
+   "seed_def": "src/name_resolution/graph.rs:136",
+   "site": "src/name_resolution/graph.rs:137",
+   "site_fingerprint": "59568ea0660f8a15"
+  },
+  {
+   "corpus": "prism",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callees",
+   "seed_def": "src/navigation/mod.rs:82",
+   "site": "src/navigation/mod.rs:83",
+   "site_fingerprint": "c14011a6e225d1fc"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/type_providers/go.rs:232",
+   "site": "src/type_providers/go.rs:252",
+   "site_fingerprint": "c6ac0de5aef71f0d"
+  },
+  {
+   "corpus": "prism",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callees",
+   "seed_def": "tests/ast/cpg_test.rs:35",
+   "site": "tests/ast/cpg_test.rs:47",
+   "site_fingerprint": "67e74b5efc211b53"
+  },
+  {
+   "corpus": "prism",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callees",
+   "seed_def": "tests/ast/cpg_test.rs:35",
+   "site": "tests/ast/cpg_test.rs:61",
+   "site_fingerprint": "a22299fcb95870b7"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "tests/ast/cpp_type_provider_test.rs:495",
+   "site": "tests/ast/cpp_type_provider_test.rs:521",
+   "site_fingerprint": "e588b335339e4454"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "tests/ast/python_type_provider_test.rs:442",
+   "site": "tests/ast/python_type_provider_test.rs:446",
+   "site_fingerprint": "642e1688ff292b30"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "tests/lang/c/algo_expand_test.rs:391",
+   "site": "tests/lang/c/algo_expand_test.rs:422",
+   "site_fingerprint": "89d3c387b0d49fa9"
+  }
+ ],
+ "pinned": [
+  {
+   "exact_supplementary": {
+    "fn": 0,
+    "fp": 0,
+    "precision": [
+     1.0,
+     0.5655175313406071,
+     1.0
+    ],
+    "recall": [
+     1.0,
+     0.5655175313406071,
+     1.0
+    ],
+    "tp": 5
+   },
+   "expected": "known_fail",
+   "id": "target-c-method",
+   "known_fail": false,
+   "oracle_only": [],
+   "oracle_sites": [
+    "src/algorithms/taint.rs:1763",
+    "src/algorithms/taint.rs:4420",
+    "src/algorithms/taint.rs:4430",
+    "src/algorithms/taint.rs:4438",
+    "src/algorithms/taint.rs:4450"
+   ],
+   "outcome": "flip_candidate",
+   "prism_only": [
+    "src/algorithms/circular_slice.rs:119",
+    "src/algorithms/circular_slice.rs:162",
+    "src/algorithms/circular_slice.rs:164",
+    "src/algorithms/circular_slice.rs:240",
+    "src/algorithms/circular_slice.rs:242",
+    "src/algorithms/gradient_slice.rs:116",
+    "src/cpg/build.rs:522",
+    "src/cpg/build.rs:544",
+    "src/cpg/cfg_queries.rs:51",
+    "src/cpg/query.rs:156",
+    "src/cpg/query.rs:157",
+    "src/cpg/query.rs:270",
+    "src/cpg/query.rs:480",
+    "src/cpg/query.rs:520",
+    "src/cpg/query.rs:565",
+    "src/cpg/query.rs:615",
+    "src/cpg/query.rs:679",
+    "src/cpg/query.rs:680",
+    "src/cpg/trace.rs:469",
+    "src/navigation/queries.rs:889",
+    "tests/ast/cpg_test.rs:26",
+    "tests/ast/cpg_test.rs:84"
+   ],
+   "prism_sites": [
+    "src/algorithms/taint.rs:1763",
+    "src/algorithms/taint.rs:4420",
+    "src/algorithms/taint.rs:4430",
+    "src/algorithms/taint.rs:4438",
+    "src/algorithms/taint.rs:4450",
+    "src/algorithms/circular_slice.rs:119",
+    "src/algorithms/circular_slice.rs:162",
+    "src/algorithms/circular_slice.rs:164",
+    "src/algorithms/circular_slice.rs:240",
+    "src/algorithms/circular_slice.rs:242",
+    "src/algorithms/gradient_slice.rs:116",
+    "src/cpg/build.rs:522",
+    "src/cpg/build.rs:544",
+    "src/cpg/cfg_queries.rs:51",
+    "src/cpg/query.rs:156",
+    "src/cpg/query.rs:157",
+    "src/cpg/query.rs:270",
+    "src/cpg/query.rs:480",
+    "src/cpg/query.rs:520",
+    "src/cpg/query.rs:565",
+    "src/cpg/query.rs:615",
+    "src/cpg/query.rs:679",
+    "src/cpg/query.rs:680",
+    "src/cpg/trace.rs:469",
+    "src/navigation/queries.rs:889",
+    "tests/ast/cpg_test.rs:26",
+    "tests/ast/cpg_test.rs:84"
+   ],
+   "raw": {
+    "fn": 0,
+    "fp": 22,
+    "precision": [
+     0.18518518518518517,
+     0.08180707091220948,
+     0.3669868377861317
+    ],
+    "recall": [
+     1.0,
+     0.5655175313406071,
+     1.0
+    ],
+    "tp": 5
+   }
+  },
+  {
+   "expected": "oracle_miss_site",
+   "id": "module-deps-feature-gated",
+   "oracle_miss_site_found": true,
+   "oracle_only": [
+    "src/main.rs:440",
+    "tests/navigation/module_graph_test.rs:152"
+   ],
+   "oracle_sites": [
+    "src/main.rs:440",
+    "tests/name_resolution/build_wiring_test.rs:417",
+    "tests/name_resolution/build_wiring_test.rs:418",
+    "tests/navigation/scoped_calls_test.rs:214",
+    "tests/navigation/module_graph_test.rs:93",
+    "tests/navigation/module_graph_test.rs:143",
+    "tests/navigation/module_graph_test.rs:152",
+    "tests/navigation/module_graph_test.rs:169",
+    "tests/navigation/module_graph_test.rs:213",
+    "tests/navigation/module_graph_test.rs:240",
+    "tests/navigation/module_graph_test.rs:266",
+    "tests/navigation/module_graph_test.rs:291",
+    "tests/navigation/module_graph_test.rs:311"
+   ],
+   "outcome": "ok",
+   "prism_only": [
+    "src/mcp/tools.rs:162"
+   ],
+   "prism_sites": [
+    "src/mcp/tools.rs:162",
+    "tests/name_resolution/build_wiring_test.rs:417",
+    "tests/name_resolution/build_wiring_test.rs:418",
+    "tests/navigation/module_graph_test.rs:93",
+    "tests/navigation/module_graph_test.rs:143",
+    "tests/navigation/module_graph_test.rs:169",
+    "tests/navigation/module_graph_test.rs:213",
+    "tests/navigation/module_graph_test.rs:240",
+    "tests/navigation/module_graph_test.rs:266",
+    "tests/navigation/module_graph_test.rs:291",
+    "tests/navigation/module_graph_test.rs:311",
+    "tests/navigation/scoped_calls_test.rs:214"
+   ],
+   "raw": {
+    "fn": 2,
+    "fp": 1,
+    "precision": [
+     0.9166666666666666,
+     0.6461200862787544,
+     0.9851349057603305
+    ],
+    "recall": [
+     0.8461538461538461,
+     0.5776536874893673,
+     0.9567418220347709
+    ],
+    "tp": 11
+   }
+  },
+  {
+   "expected": "oracle_miss_site",
+   "id": "load-repo-feature-gated",
+   "oracle_miss_site_found": true,
+   "oracle_only": [
+    "src/main.rs:490",
+    "src/repo_loader.rs:553",
+    "tests/cli/nav_compat_test.rs:252",
+    "tests/navigation/loader_test.rs:31"
+   ],
+   "oracle_sites": [
+    "tests/cli/nav_compat_test.rs:252",
+    "tests/navigation/seed_test.rs:11",
+    "tests/navigation/nodes_at_test.rs:17",
+    "tests/navigation/loader_test.rs:12",
+    "tests/navigation/loader_test.rs:31",
+    "tests/navigation/loader_test.rs:40",
+    "tests/navigation/loader_test.rs:58",
+    "tests/navigation/index_test.rs:13",
+    "tests/navigation/index_test.rs:31",
+    "tests/navigation/callers_test.rs:11",
+    "tests/navigation/cache_test.rs:34",
+    "tests/navigation/cache_test.rs:52",
+    "tests/navigation/cache_test.rs:90",
+    "tests/navigation/cache_test.rs:92",
+    "tests/navigation/cache_test.rs:101",
+    "tests/navigation/cache_test.rs:132",
+    "tests/navigation/cache_test.rs:133",
+    "src/main.rs:490",
+    "tests/name_resolution/build_wiring_test.rs:72",
+    "tests/name_resolution/build_wiring_test.rs:162",
+    "tests/name_resolution/build_wiring_test.rs:308",
+    "tests/name_resolution/build_wiring_test.rs:367",
+    "tests/name_resolution/build_wiring_test.rs:404",
+    "src/call_graph.rs:2166",
+    "src/call_graph.rs:2179",
+    "tests/ast/cpg_cache_test.rs:121",
+    "tests/reasoning/taint_reaches_test.rs:25",
+    "src/navigation/inventory.rs:16",
+    "tests/navigation/scoped_calls_test.rs:19",
+    "tests/infra/parallel_equality_test.rs:18",
+    "tests/infra/parallel_equality_test.rs:22",
+    "tests/navigation/module_graph_test.rs:17",
+    "src/repo_loader.rs:553",
+    "tests/navigation/ego_test.rs:9",
+    "tests/navigation/callees_test.rs:11"
+   ],
+   "outcome": "ok",
+   "prism_only": [
+    "src/mcp/session.rs:28"
+   ],
+   "prism_sites": [
+    "src/call_graph.rs:2166",
+    "src/call_graph.rs:2179",
+    "src/mcp/session.rs:28",
+    "src/navigation/inventory.rs:16",
+    "tests/ast/cpg_cache_test.rs:121",
+    "tests/infra/parallel_equality_test.rs:18",
+    "tests/infra/parallel_equality_test.rs:22",
+    "tests/name_resolution/build_wiring_test.rs:72",
+    "tests/name_resolution/build_wiring_test.rs:162",
+    "tests/name_resolution/build_wiring_test.rs:308",
+    "tests/name_resolution/build_wiring_test.rs:367",
+    "tests/name_resolution/build_wiring_test.rs:404",
+    "tests/navigation/cache_test.rs:34",
+    "tests/navigation/cache_test.rs:52",
+    "tests/navigation/cache_test.rs:90",
+    "tests/navigation/cache_test.rs:92",
+    "tests/navigation/cache_test.rs:101",
+    "tests/navigation/cache_test.rs:132",
+    "tests/navigation/cache_test.rs:133",
+    "tests/navigation/callees_test.rs:11",
+    "tests/navigation/callers_test.rs:11",
+    "tests/navigation/ego_test.rs:9",
+    "tests/navigation/index_test.rs:13",
+    "tests/navigation/index_test.rs:31",
+    "tests/navigation/loader_test.rs:12",
+    "tests/navigation/loader_test.rs:40",
+    "tests/navigation/loader_test.rs:58",
+    "tests/navigation/module_graph_test.rs:17",
+    "tests/navigation/nodes_at_test.rs:17",
+    "tests/navigation/scoped_calls_test.rs:19",
+    "tests/navigation/seed_test.rs:11",
+    "tests/reasoning/taint_reaches_test.rs:25"
+   ],
+   "raw": {
+    "fn": 4,
+    "fp": 1,
+    "precision": [
+     0.96875,
+     0.8425573603233156,
+     0.9944621398972968
+    ],
+    "recall": [
+     0.8857142857142857,
+     0.7404853121378726,
+     0.9546482069844427
+    ],
+    "tp": 31
+   }
+  },
+  {
+   "ambiguous_ok": true,
+   "expected": "ambiguous_symbol_error",
+   "id": "ambiguous-symbol-contract",
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_sites": []
+  }
+ ],
+ "probes": {
+  "_corpus": "prism",
+  "_strata": {
+   "C-method": {
+    "eligible_probes": 16,
+    "eligible_symbols": 8,
+    "target": 8
+   },
+   "C-name": {
+    "eligible_probes": 16,
+    "eligible_symbols": 8,
+    "target": 8
+   },
+   "Q-scoped": {
+    "eligible_probes": 16,
+    "eligible_symbols": 8,
+    "target": 8
+   },
+   "U-free": {
+    "eligible_probes": 16,
+    "eligible_symbols": 8,
+    "target": 8
+   },
+   "U-method": {
+    "eligible_probes": 16,
+    "eligible_symbols": 8,
+    "target": 8
+   }
+  },
+  "callees:src/access_path.rs:222": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/access_path.rs",
+     "is_prefix_of"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "src/access_path.rs:222",
+   "stratum": "U-method"
+  },
+  "callees:src/algorithms/delta_slice.rs:17": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "src/algorithms/delta_slice.rs",
+     "slice"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/algorithms/delta_slice.rs",
+     18,
+     18
+    ],
+    [
+     "src/algorithms/delta_slice.rs",
+     25,
+     25
+    ],
+    [
+     "src/algorithms/delta_slice.rs",
+     26,
+     26
+    ],
+    [
+     "src/algorithms/delta_slice.rs",
+     34,
+     34
+    ],
+    [
+     "src/algorithms/delta_slice.rs",
+     34,
+     34
+    ],
+    [
+     "src/algorithms/delta_slice.rs",
+     105,
+     105
+    ],
+    [
+     "src/algorithms/delta_slice.rs",
+     108,
+     108
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/algorithms/delta_slice.rs",
+     "slice"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/algorithms/delta_slice.rs",
+     26,
+     26,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ],
+    [
+     "src/algorithms/delta_slice.rs",
+     34,
+     34,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ],
+    [
+     "src/algorithms/delta_slice.rs",
+     34,
+     34,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ],
+    [
+     "src/algorithms/delta_slice.rs",
+     105,
+     105,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ],
+    [
+     "src/algorithms/delta_slice.rs",
+     108,
+     108,
+     {
+      "resolution_kind": "constructor_local"
+     }
+    ],
+    [
+     "src/algorithms/delta_slice.rs",
+     25,
+     25,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ],
+    [
+     "src/algorithms/delta_slice.rs",
+     18,
+     18,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ]
+   ],
+   "seed_def": "src/algorithms/delta_slice.rs:17",
+   "stratum": "C-name"
+  },
+  "callees:src/algorithms/echo_slice.rs:106": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "src/algorithms/echo_slice.rs",
+     "slice"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/algorithms/echo_slice.rs",
+     107,
+     107
+    ],
+    [
+     "src/algorithms/echo_slice.rs",
+     125,
+     125
+    ],
+    [
+     "src/algorithms/echo_slice.rs",
+     164,
+     164
+    ],
+    [
+     "src/algorithms/echo_slice.rs",
+     169,
+     169
+    ],
+    [
+     "src/algorithms/echo_slice.rs",
+     171,
+     171
+    ],
+    [
+     "src/algorithms/echo_slice.rs",
+     175,
+     175
+    ],
+    [
+     "src/algorithms/echo_slice.rs",
+     246,
+     246
+    ],
+    [
+     "src/algorithms/echo_slice.rs",
+     249,
+     249
+    ],
+    [
+     "src/algorithms/echo_slice.rs",
+     253,
+     253
+    ],
+    [
+     "src/algorithms/echo_slice.rs",
+     256,
+     256
+    ],
+    [
+     "src/algorithms/echo_slice.rs",
+     259,
+     259
+    ],
+    [
+     "src/algorithms/echo_slice.rs",
+     262,
+     262
+    ],
+    [
+     "src/algorithms/echo_slice.rs",
+     265,
+     265
+    ],
+    [
+     "src/algorithms/echo_slice.rs",
+     268,
+     268
+    ],
+    [
+     "src/algorithms/echo_slice.rs",
+     275,
+     275
+    ],
+    [
+     "src/algorithms/echo_slice.rs",
+     288,
+     288
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/algorithms/echo_slice.rs",
+     "slice"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/algorithms/echo_slice.rs",
+     164,
+     164,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ],
+    [
+     "src/algorithms/echo_slice.rs",
+     171,
+     171,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ],
+    [
+     "src/algorithms/echo_slice.rs",
+     125,
+     125,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ],
+    [
+     "src/algorithms/echo_slice.rs",
+     167,
+     167,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ],
+    [
+     "src/algorithms/echo_slice.rs",
+     246,
+     246,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ],
+    [
+     "src/algorithms/echo_slice.rs",
+     249,
+     249,
+     {
+      "resolution_kind": "constructor_local"
+     }
+    ],
+    [
+     "src/algorithms/echo_slice.rs",
+     253,
+     253,
+     {
+      "resolution_kind": "constructor_local"
+     }
+    ],
+    [
+     "src/algorithms/echo_slice.rs",
+     256,
+     256,
+     {
+      "resolution_kind": "constructor_local"
+     }
+    ],
+    [
+     "src/algorithms/echo_slice.rs",
+     259,
+     259,
+     {
+      "resolution_kind": "constructor_local"
+     }
+    ],
+    [
+     "src/algorithms/echo_slice.rs",
+     262,
+     262,
+     {
+      "resolution_kind": "constructor_local"
+     }
+    ],
+    [
+     "src/algorithms/echo_slice.rs",
+     265,
+     265,
+     {
+      "resolution_kind": "constructor_local"
+     }
+    ],
+    [
+     "src/algorithms/echo_slice.rs",
+     268,
+     268,
+     {
+      "resolution_kind": "constructor_local"
+     }
+    ],
+    [
+     "src/algorithms/echo_slice.rs",
+     175,
+     175,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ],
+    [
+     "src/algorithms/echo_slice.rs",
+     107,
+     107,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ],
+    [
+     "src/algorithms/echo_slice.rs",
+     117,
+     117,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "src/algorithms/echo_slice.rs",
+     177,
+     177,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "src/algorithms/echo_slice.rs:106",
+   "stratum": "C-name"
+  },
+  "callees:src/algorithms/primitive_slice.rs:573": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/algorithms/primitive_slice.rs",
+     "detect_weak_hash_identity"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "src/algorithms/primitive_slice.rs:573",
+   "stratum": "Q-scoped"
+  },
+  "callees:src/algorithms/vertical_slice.rs:66": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "src/algorithms/vertical_slice.rs",
+     "slice"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/algorithms/vertical_slice.rs",
+     71,
+     71
+    ],
+    [
+     "src/algorithms/vertical_slice.rs",
+     75,
+     75
+    ],
+    [
+     "src/algorithms/vertical_slice.rs",
+     77,
+     77
+    ],
+    [
+     "src/algorithms/vertical_slice.rs",
+     92,
+     92
+    ],
+    [
+     "src/algorithms/vertical_slice.rs",
+     98,
+     98
+    ],
+    [
+     "src/algorithms/vertical_slice.rs",
+     100,
+     100
+    ],
+    [
+     "src/algorithms/vertical_slice.rs",
+     134,
+     134
+    ],
+    [
+     "src/algorithms/vertical_slice.rs",
+     132,
+     132
+    ],
+    [
+     "src/algorithms/vertical_slice.rs",
+     161,
+     161
+    ],
+    [
+     "src/algorithms/vertical_slice.rs",
+     198,
+     198
+    ],
+    [
+     "src/algorithms/vertical_slice.rs",
+     201,
+     201
+    ],
+    [
+     "src/algorithms/vertical_slice.rs",
+     202,
+     202
+    ],
+    [
+     "src/algorithms/vertical_slice.rs",
+     210,
+     210
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/algorithms/vertical_slice.rs",
+     "slice"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/algorithms/vertical_slice.rs",
+     75,
+     75,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/algorithms/vertical_slice.rs",
+     77,
+     77,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/algorithms/vertical_slice.rs",
+     100,
+     100,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ],
+    [
+     "src/algorithms/vertical_slice.rs",
+     134,
+     134,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ],
+    [
+     "src/algorithms/vertical_slice.rs",
+     92,
+     92,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ],
+    [
+     "src/algorithms/vertical_slice.rs",
+     96,
+     96,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ],
+    [
+     "src/algorithms/vertical_slice.rs",
+     130,
+     130,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ],
+    [
+     "src/algorithms/vertical_slice.rs",
+     198,
+     198,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ],
+    [
+     "src/algorithms/vertical_slice.rs",
+     201,
+     201,
+     {
+      "resolution_kind": "constructor_local"
+     }
+    ],
+    [
+     "src/algorithms/vertical_slice.rs",
+     202,
+     202,
+     {
+      "resolution_kind": "constructor_local"
+     }
+    ],
+    [
+     "src/algorithms/vertical_slice.rs",
+     210,
+     210,
+     {
+      "resolution_kind": "constructor_local"
+     }
+    ],
+    [
+     "src/algorithms/vertical_slice.rs",
+     161,
+     161,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "src/algorithms/vertical_slice.rs",
+     71,
+     71,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ]
+   ],
+   "seed_def": "src/algorithms/vertical_slice.rs:66",
+   "stratum": "C-name"
+  },
+  "callees:src/ast.rs:2212": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "src/ast.rs",
+     "collect_identifier_path_spans"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/ast.rs",
+     2213,
+     2213
+    ],
+    [
+     "src/ast.rs",
+     2214,
+     2214
+    ],
+    [
+     "src/ast.rs",
+     2217,
+     2217
+    ],
+    [
+     "src/ast.rs",
+     2223,
+     2223
+    ],
+    [
+     "src/ast.rs",
+     2224,
+     2224
+    ],
+    [
+     "src/ast.rs",
+     2230,
+     2230
+    ],
+    [
+     "src/ast.rs",
+     2229,
+     2229
+    ],
+    [
+     "src/ast.rs",
+     2234,
+     2234
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/ast.rs",
+     "collect_identifier_path_spans"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/ast.rs",
+     2217,
+     2217,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ],
+    [
+     "src/ast.rs",
+     2214,
+     2214,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "src/ast.rs",
+     2234,
+     2234,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "src/ast.rs",
+     2223,
+     2223,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "src/ast.rs",
+     2224,
+     2224,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "src/ast.rs",
+     2230,
+     2230,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "src/ast.rs",
+     2229,
+     2229,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ]
+   ],
+   "seed_def": "src/ast.rs:2212",
+   "stratum": "U-method"
+  },
+  "callees:src/ast.rs:2941": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "src/ast.rs",
+     "collect_block_trailing_returns"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/ast.rs",
+     2958,
+     2958
+    ],
+    [
+     "src/ast.rs",
+     2978,
+     2978
+    ],
+    [
+     "src/ast.rs",
+     3019,
+     3019
+    ],
+    [
+     "src/ast.rs",
+     2966,
+     2966
+    ],
+    [
+     "src/ast.rs",
+     2990,
+     2990
+    ],
+    [
+     "src/ast.rs",
+     2970,
+     2970
+    ],
+    [
+     "src/ast.rs",
+     2994,
+     2994
+    ],
+    [
+     "src/ast.rs",
+     2980,
+     2980
+    ],
+    [
+     "src/ast.rs",
+     3020,
+     3020
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/ast.rs",
+     "collect_block_trailing_returns"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/ast.rs",
+     2958,
+     2958,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "src/ast.rs",
+     2978,
+     2978,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "src/ast.rs",
+     3019,
+     3019,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "src/ast.rs",
+     2980,
+     2980,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "src/ast.rs",
+     3020,
+     3020,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "src/ast.rs",
+     2966,
+     2966,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "src/ast.rs",
+     2990,
+     2990,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "src/ast.rs",
+     2970,
+     2970,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "src/ast.rs",
+     2994,
+     2994,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ]
+   ],
+   "seed_def": "src/ast.rs:2941",
+   "stratum": "U-method"
+  },
+  "callees:src/ast.rs:3858": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "src/ast.rs",
+     "find_function_by_name_inner"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/ast.rs",
+     3859,
+     3859
+    ],
+    [
+     "src/ast.rs",
+     3861,
+     3861
+    ],
+    [
+     "src/ast.rs",
+     3862,
+     3862
+    ],
+    [
+     "src/ast.rs",
+     3869,
+     3869
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/ast.rs",
+     "find_function_by_name_inner"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/ast.rs",
+     3862,
+     3862,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "src/ast.rs",
+     3869,
+     3869,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "src/ast.rs",
+     3859,
+     3859,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ],
+    [
+     "src/ast.rs",
+     3861,
+     3861,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ]
+   ],
+   "seed_def": "src/ast.rs:3858",
+   "stratum": "U-method"
+  },
+  "callees:src/call_graph.rs:1009": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "src/call_graph.rs",
+     "remove_files"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/call_graph.rs",
+     1055,
+     1055
+    ],
+    [
+     "src/call_graph.rs",
+     1056,
+     1056
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/call_graph.rs",
+     "remove_files"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/call_graph.rs",
+     1055,
+     1055,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "src/call_graph.rs",
+     1056,
+     1056,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ]
+   ],
+   "seed_def": "src/call_graph.rs:1009",
+   "stratum": "C-method"
+  },
+  "callees:src/cpg/query.rs:363": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "src/cpg/query.rs",
+     "call_reachable_functions"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/cpg/query.rs",
+     370,
+     370
+    ],
+    [
+     "src/cpg/query.rs",
+     374,
+     374
+    ],
+    [
+     "src/cpg/query.rs",
+     376,
+     376
+    ],
+    [
+     "src/cpg/query.rs",
+     382,
+     382
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/cpg/query.rs",
+     "call_reachable_functions"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/cpg/query.rs",
+     370,
+     370,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "src/cpg/query.rs",
+     374,
+     374,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "src/cpg/query.rs",
+     376,
+     376,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ]
+   ],
+   "seed_def": "src/cpg/query.rs:363",
+   "stratum": "U-method"
+  },
+  "callees:src/cpg/query.rs:579": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "src/cpg/query.rs",
+     "callers_of_in_file"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/cpg/query.rs",
+     586,
+     586
+    ],
+    [
+     "src/cpg/query.rs",
+     604,
+     604
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/cpg/query.rs",
+     "callers_of_in_file"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/cpg/query.rs",
+     604,
+     604,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "src/cpg/query.rs",
+     586,
+     586,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "src/cpg/query.rs",
+     615,
+     615,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "src/cpg/query.rs:579",
+   "stratum": "C-method"
+  },
+  "callees:src/cpg/query.rs:863": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "src/cpg/query.rs",
+     "field_type"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/cpg/query.rs",
+     864,
+     864
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/cpg/query.rs",
+     "field_type"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/cpg/query.rs",
+     864,
+     864,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "src/cpg/query.rs:863",
+   "stratum": "C-method"
+  },
+  "callees:src/cpg/trace.rs:346": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "src/cpg/trace.rs",
+     "ordering_admits"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/cpg/trace.rs",
+     355,
+     355
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/cpg/trace.rs",
+     "ordering_admits"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/cpg/trace.rs",
+     355,
+     355,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ]
+   ],
+   "seed_def": "src/cpg/trace.rs:346",
+   "stratum": "U-method"
+  },
+  "callees:src/cpg/types.rs:47": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "src/cpg/types.rs:47",
+   "stratum": "C-method"
+  },
+  "callees:src/data_flow.rs:659": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "src/data_flow.rs",
+     "forward_reachable"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/data_flow.rs",
+     662,
+     662
+    ],
+    [
+     "src/data_flow.rs",
+     665,
+     665
+    ],
+    [
+     "src/data_flow.rs",
+     670,
+     670
+    ],
+    [
+     "src/data_flow.rs",
+     682,
+     682
+    ],
+    [
+     "src/data_flow.rs",
+     676,
+     676
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/data_flow.rs",
+     "forward_reachable"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/data_flow.rs",
+     668,
+     668,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "src/data_flow.rs:659",
+   "stratum": "C-method"
+  },
+  "callees:src/main.rs:1024": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "src/main.rs",
+     "annotate_finding_parse_quality"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/main.rs",
+     1030,
+     1030
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/main.rs",
+     "annotate_finding_parse_quality"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/main.rs",
+     1030,
+     1030,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "src/main.rs:1024",
+   "stratum": "U-free"
+  },
+  "callees:src/main.rs:1046": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "src/main.rs",
+     "run_algorithm"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/main.rs",
+     1066,
+     1066
+    ],
+    [
+     "src/main.rs",
+     1077,
+     1077
+    ],
+    [
+     "src/main.rs",
+     1078,
+     1078
+    ],
+    [
+     "src/main.rs",
+     1094,
+     1094
+    ],
+    [
+     "src/main.rs",
+     1079,
+     1079
+    ],
+    [
+     "src/main.rs",
+     1099,
+     1099
+    ],
+    [
+     "src/main.rs",
+     1106,
+     1106
+    ],
+    [
+     "src/main.rs",
+     1108,
+     1108
+    ],
+    [
+     "src/main.rs",
+     1115,
+     1115
+    ],
+    [
+     "src/main.rs",
+     1122,
+     1122
+    ],
+    [
+     "src/main.rs",
+     1124,
+     1124
+    ],
+    [
+     "src/main.rs",
+     1132,
+     1132
+    ],
+    [
+     "src/main.rs",
+     1137,
+     1137
+    ],
+    [
+     "src/main.rs",
+     1142,
+     1142
+    ],
+    [
+     "src/main.rs",
+     1148,
+     1148
+    ],
+    [
+     "src/main.rs",
+     1158,
+     1158
+    ],
+    [
+     "src/main.rs",
+     1166,
+     1166
+    ],
+    [
+     "src/main.rs",
+     1173,
+     1173
+    ],
+    [
+     "src/main.rs",
+     1181,
+     1181
+    ],
+    [
+     "src/main.rs",
+     1188,
+     1188
+    ],
+    [
+     "src/main.rs",
+     1192,
+     1192
+    ],
+    [
+     "src/main.rs",
+     1194,
+     1194
+    ],
+    [
+     "src/main.rs",
+     1201,
+     1201
+    ],
+    [
+     "src/main.rs",
+     1203,
+     1203
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/main.rs",
+     "run_algorithm"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/main.rs",
+     1077,
+     1077,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/main.rs",
+     1078,
+     1078,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/main.rs",
+     1094,
+     1094,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "src/main.rs:1046",
+   "stratum": "U-free"
+  },
+  "callees:src/main.rs:1256": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "src/main.rs:1256",
+   "stratum": "U-free"
+  },
+  "callees:src/main.rs:1298": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "src/main.rs:1298",
+   "stratum": "U-free"
+  },
+  "callees:src/main.rs:1310": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "src/main.rs:1310",
+   "stratum": "U-free"
+  },
+  "callees:src/main.rs:332": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "src/main.rs",
+     "run_nav"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/main.rs",
+     343,
+     343
+    ],
+    [
+     "src/main.rs",
+     357,
+     357
+    ],
+    [
+     "src/main.rs",
+     387,
+     387
+    ],
+    [
+     "src/main.rs",
+     417,
+     417
+    ],
+    [
+     "src/main.rs",
+     439,
+     439
+    ],
+    [
+     "src/main.rs",
+     445,
+     445
+    ],
+    [
+     "src/main.rs",
+     451,
+     451
+    ],
+    [
+     "src/main.rs",
+     457,
+     457
+    ],
+    [
+     "src/main.rs",
+     344,
+     344
+    ],
+    [
+     "src/main.rs",
+     359,
+     359
+    ],
+    [
+     "src/main.rs",
+     372,
+     372
+    ],
+    [
+     "src/main.rs",
+     402,
+     402
+    ],
+    [
+     "src/main.rs",
+     432,
+     432
+    ],
+    [
+     "src/main.rs",
+     389,
+     389
+    ],
+    [
+     "src/main.rs",
+     419,
+     419
+    ],
+    [
+     "src/main.rs",
+     440,
+     440
+    ],
+    [
+     "src/main.rs",
+     446,
+     446
+    ],
+    [
+     "src/main.rs",
+     452,
+     452
+    ],
+    [
+     "src/main.rs",
+     458,
+     458
+    ],
+    [
+     "src/main.rs",
+     465,
+     465
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/main.rs",
+     "run_nav"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/main.rs",
+     343,
+     343,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/main.rs",
+     357,
+     357,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/main.rs",
+     387,
+     387,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/main.rs",
+     417,
+     417,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/main.rs",
+     439,
+     439,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/main.rs",
+     445,
+     445,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/main.rs",
+     451,
+     451,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/main.rs",
+     457,
+     457,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "src/main.rs:332",
+   "stratum": "U-free"
+  },
+  "callees:src/main.rs:485": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "src/main.rs",
+     "build_session"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/main.rs",
+     490,
+     490
+    ],
+    [
+     "src/main.rs",
+     492,
+     492
+    ],
+    [
+     "src/main.rs",
+     495,
+     495
+    ],
+    [
+     "src/main.rs",
+     496,
+     496
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/main.rs",
+     "build_session"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "src/main.rs:485",
+   "stratum": "U-free"
+  },
+  "callees:src/main.rs:503": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "src/main.rs",
+     "run_review"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/main.rs",
+     560,
+     560
+    ],
+    [
+     "src/main.rs",
+     561,
+     561
+    ],
+    [
+     "src/main.rs",
+     566,
+     566
+    ],
+    [
+     "src/main.rs",
+     575,
+     575
+    ],
+    [
+     "src/main.rs",
+     603,
+     603
+    ],
+    [
+     "src/main.rs",
+     605,
+     605
+    ],
+    [
+     "src/main.rs",
+     613,
+     613
+    ],
+    [
+     "src/main.rs",
+     621,
+     621
+    ],
+    [
+     "src/main.rs",
+     635,
+     635
+    ],
+    [
+     "src/main.rs",
+     647,
+     647
+    ],
+    [
+     "src/main.rs",
+     671,
+     671
+    ],
+    [
+     "src/main.rs",
+     688,
+     688
+    ],
+    [
+     "src/main.rs",
+     689,
+     689
+    ],
+    [
+     "src/main.rs",
+     697,
+     697
+    ],
+    [
+     "src/main.rs",
+     702,
+     702
+    ],
+    [
+     "src/main.rs",
+     711,
+     711
+    ],
+    [
+     "src/main.rs",
+     725,
+     725
+    ],
+    [
+     "src/main.rs",
+     745,
+     745
+    ],
+    [
+     "src/main.rs",
+     737,
+     737
+    ],
+    [
+     "src/main.rs",
+     749,
+     749
+    ],
+    [
+     "src/main.rs",
+     776,
+     776
+    ],
+    [
+     "src/main.rs",
+     765,
+     765
+    ],
+    [
+     "src/main.rs",
+     767,
+     767
+    ],
+    [
+     "src/main.rs",
+     795,
+     795
+    ],
+    [
+     "src/main.rs",
+     800,
+     800
+    ],
+    [
+     "src/main.rs",
+     805,
+     805
+    ],
+    [
+     "src/main.rs",
+     810,
+     810
+    ],
+    [
+     "src/main.rs",
+     815,
+     815
+    ],
+    [
+     "src/main.rs",
+     820,
+     820
+    ],
+    [
+     "src/main.rs",
+     796,
+     796
+    ],
+    [
+     "src/main.rs",
+     801,
+     801
+    ],
+    [
+     "src/main.rs",
+     806,
+     806
+    ],
+    [
+     "src/main.rs",
+     811,
+     811
+    ],
+    [
+     "src/main.rs",
+     816,
+     816
+    ],
+    [
+     "src/main.rs",
+     821,
+     821
+    ],
+    [
+     "src/main.rs",
+     827,
+     827
+    ],
+    [
+     "src/main.rs",
+     847,
+     847
+    ],
+    [
+     "src/main.rs",
+     960,
+     960
+    ],
+    [
+     "src/main.rs",
+     850,
+     850
+    ],
+    [
+     "src/main.rs",
+     858,
+     858
+    ],
+    [
+     "src/main.rs",
+     861,
+     861
+    ],
+    [
+     "src/main.rs",
+     962,
+     962
+    ],
+    [
+     "src/main.rs",
+     871,
+     871
+    ],
+    [
+     "src/main.rs",
+     899,
+     899
+    ],
+    [
+     "src/main.rs",
+     968,
+     968
+    ],
+    [
+     "src/main.rs",
+     884,
+     884
+    ],
+    [
+     "src/main.rs",
+     912,
+     912
+    ],
+    [
+     "src/main.rs",
+     932,
+     932
+    ],
+    [
+     "src/main.rs",
+     950,
+     950
+    ],
+    [
+     "src/main.rs",
+     970,
+     970
+    ],
+    [
+     "src/main.rs",
+     979,
+     979
+    ],
+    [
+     "src/main.rs",
+     1000,
+     1000
+    ],
+    [
+     "src/main.rs",
+     1011,
+     1011
+    ],
+    [
+     "src/main.rs",
+     885,
+     885
+    ],
+    [
+     "src/main.rs",
+     913,
+     913
+    ],
+    [
+     "src/main.rs",
+     933,
+     933
+    ],
+    [
+     "src/main.rs",
+     951,
+     951
+    ],
+    [
+     "src/main.rs",
+     971,
+     971
+    ],
+    [
+     "src/main.rs",
+     980,
+     980
+    ],
+    [
+     "src/main.rs",
+     1001,
+     1001
+    ],
+    [
+     "src/main.rs",
+     1012,
+     1012
+    ],
+    [
+     "src/main.rs",
+     929,
+     929
+    ],
+    [
+     "src/main.rs",
+     997,
+     997
+    ],
+    [
+     "src/main.rs",
+     931,
+     931
+    ],
+    [
+     "src/main.rs",
+     999,
+     999
+    ],
+    [
+     "src/main.rs",
+     977,
+     977
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/main.rs",
+     "run_review"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/main.rs",
+     931,
+     931,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ],
+    [
+     "src/main.rs",
+     613,
+     613,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "src/main.rs",
+     559,
+     559,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "src/main.rs",
+     645,
+     645,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "src/main.rs",
+     863,
+     863,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "src/main.rs",
+     964,
+     964,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "src/main.rs",
+     999,
+     999,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "src/main.rs",
+     796,
+     796,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "src/main.rs",
+     801,
+     801,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "src/main.rs",
+     806,
+     806,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "src/main.rs",
+     811,
+     811,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "src/main.rs",
+     816,
+     816,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "src/main.rs",
+     821,
+     821,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "src/main.rs:503",
+   "stratum": "U-free"
+  },
+  "callees:src/name_resolution/graph.rs:136": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/name_resolution/graph.rs",
+     "parent_of"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/name_resolution/graph.rs",
+     137,
+     137,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "src/name_resolution/graph.rs:136",
+   "stratum": "U-method"
+  },
+  "callees:src/name_resolution/rust_policy.rs:170": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "src/name_resolution/rust_policy.rs",
+     "combine"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/name_resolution/rust_policy.rs",
+     204,
+     204
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/name_resolution/rust_policy.rs",
+     "combine"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/name_resolution/rust_policy.rs",
+     204,
+     204,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "src/name_resolution/rust_policy.rs:170",
+   "stratum": "C-method"
+  },
+  "callees:src/name_resolution/rust_populator/builder.rs:211": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "src/name_resolution/rust_populator/builder.rs",
+     "add_macro_wildcard"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/name_resolution/rust_populator/builder.rs",
+     219,
+     219
+    ],
+    [
+     "src/name_resolution/rust_populator/builder.rs",
+     222,
+     222
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/name_resolution/rust_populator/builder.rs",
+     "add_macro_wildcard"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/name_resolution/rust_populator/builder.rs",
+     219,
+     219,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ],
+    [
+     "src/name_resolution/rust_populator/builder.rs",
+     222,
+     222,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "src/name_resolution/rust_populator/builder.rs:211",
+   "stratum": "C-method"
+  },
+  "callees:src/navigation/mod.rs:82": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "src/navigation/mod.rs",
+     "enclosing_function"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/navigation/mod.rs",
+     89,
+     89
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/navigation/mod.rs",
+     "enclosing_function"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/navigation/mod.rs",
+     89,
+     89,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ],
+    [
+     "src/navigation/mod.rs",
+     83,
+     83,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "src/navigation/mod.rs:82",
+   "stratum": "C-method"
+  },
+  "callees:src/type_providers/go.rs:232": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "src/type_providers/go.rs",
+     "compute_interface_dispatch"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/type_providers/go.rs",
+     252,
+     252
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/type_providers/go.rs",
+     "compute_interface_dispatch"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "src/type_providers/go.rs:232",
+   "stratum": "U-method"
+  },
+  "callees:src/type_providers/rust_provider.rs:536": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "src/type_providers/rust_provider.rs",
+     "compute_satisfaction"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/type_providers/rust_provider.rs",
+     555,
+     555
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/type_providers/rust_provider.rs",
+     "compute_satisfaction"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/type_providers/rust_provider.rs",
+     553,
+     553,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "src/type_providers/rust_provider.rs:536",
+   "stratum": "C-name"
+  },
+  "callees:tests/ast/cpg_cache_test.rs:16": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tests/ast/cpg_cache_test.rs",
+     "write_repo"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "tests/ast/cpg_cache_test.rs:16",
+   "stratum": "C-name"
+  },
+  "callees:tests/ast/cpg_test.rs:35": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tests/ast/cpg_test.rs",
+     "cpg_enclosing_function_name"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "tests/ast/cpg_test.rs",
+     47,
+     47,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "tests/ast/cpg_test.rs",
+     61,
+     61,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "tests/ast/cpg_test.rs:35",
+   "stratum": "Q-scoped"
+  },
+  "callees:tests/ast/cpp_type_provider_test.rs:495": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "tests/ast/cpp_type_provider_test.rs",
+     "test_cpp_cpg_context_with_type_db"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tests/ast/cpp_type_provider_test.rs",
+     510,
+     510
+    ],
+    [
+     "tests/ast/cpp_type_provider_test.rs",
+     515,
+     515
+    ],
+    [
+     "tests/ast/cpp_type_provider_test.rs",
+     516,
+     516
+    ],
+    [
+     "tests/ast/cpp_type_provider_test.rs",
+     518,
+     518
+    ],
+    [
+     "tests/ast/cpp_type_provider_test.rs",
+     521,
+     521
+    ],
+    [
+     "tests/ast/cpp_type_provider_test.rs",
+     528,
+     528
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tests/ast/cpp_type_provider_test.rs",
+     "test_cpp_cpg_context_with_type_db"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "tests/ast/cpp_type_provider_test.rs",
+     510,
+     510,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ],
+    [
+     "tests/ast/cpp_type_provider_test.rs",
+     516,
+     516,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ],
+    [
+     "tests/ast/cpp_type_provider_test.rs",
+     515,
+     515,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "tests/ast/cpp_type_provider_test.rs",
+     518,
+     518,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "tests/ast/cpp_type_provider_test.rs",
+     528,
+     528,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "tests/ast/cpp_type_provider_test.rs:495",
+   "stratum": "Q-scoped"
+  },
+  "callees:tests/ast/python_type_provider_test.rs:442": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "tests/ast/python_type_provider_test.rs",
+     "test_python_arc_sharing"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tests/ast/python_type_provider_test.rs",
+     444,
+     444
+    ],
+    [
+     "tests/ast/python_type_provider_test.rs",
+     445,
+     445
+    ],
+    [
+     "tests/ast/python_type_provider_test.rs",
+     446,
+     446
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tests/ast/python_type_provider_test.rs",
+     "test_python_arc_sharing"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "tests/ast/python_type_provider_test.rs",
+     445,
+     445,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ],
+    [
+     "tests/ast/python_type_provider_test.rs",
+     444,
+     444,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "tests/ast/python_type_provider_test.rs:442",
+   "stratum": "Q-scoped"
+  },
+  "callees:tests/cli/validation_test.rs:54": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "tests/cli/validation_test.rs",
+     "test_absence_slice_cli"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tests/cli/validation_test.rs",
+     55,
+     55
+    ],
+    [
+     "tests/cli/validation_test.rs",
+     60,
+     60
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tests/cli/validation_test.rs",
+     "test_absence_slice_cli"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "tests/cli/validation_test.rs",
+     55,
+     55,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "tests/cli/validation_test.rs",
+     60,
+     60,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "tests/cli/validation_test.rs:54",
+   "stratum": "Q-scoped"
+  },
+  "callees:tests/integration/resolution_test.rs:1946": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "tests/integration/resolution_test.rs",
+     "java_receiver_method_call_resolves_via_qualifier"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tests/integration/resolution_test.rs",
+     1952,
+     1952
+    ],
+    [
+     "tests/integration/resolution_test.rs",
+     1964,
+     1964
+    ],
+    [
+     "tests/integration/resolution_test.rs",
+     1965,
+     1965
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tests/integration/resolution_test.rs",
+     "java_receiver_method_call_resolves_via_qualifier"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "tests/integration/resolution_test.rs",
+     1952,
+     1952,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "tests/integration/resolution_test.rs",
+     1964,
+     1964,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "tests/integration/resolution_test.rs",
+     1965,
+     1965,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "tests/integration/resolution_test.rs:1946",
+   "stratum": "Q-scoped"
+  },
+  "callees:tests/integration/resolution_test.rs:674": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "tests/integration/resolution_test.rs",
+     "rust_receiver_chain_inrepo_then_external_unchanged"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tests/integration/resolution_test.rs",
+     675,
+     675
+    ],
+    [
+     "tests/integration/resolution_test.rs",
+     683,
+     683
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tests/integration/resolution_test.rs",
+     "rust_receiver_chain_inrepo_then_external_unchanged"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "tests/integration/resolution_test.rs",
+     675,
+     675,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "tests/integration/resolution_test.rs",
+     683,
+     683,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "tests/integration/resolution_test.rs:674",
+   "stratum": "Q-scoped"
+  },
+  "callees:tests/lang/c/algo_expand_test.rs:391": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "tests/lang/c/algo_expand_test.rs",
+     "test_quantum_slice_c_pthread"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tests/lang/c/algo_expand_test.rs",
+     412,
+     412
+    ],
+    [
+     "tests/lang/c/algo_expand_test.rs",
+     422,
+     422
+    ],
+    [
+     "tests/lang/c/algo_expand_test.rs",
+     425,
+     425
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tests/lang/c/algo_expand_test.rs",
+     "test_quantum_slice_c_pthread"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "tests/lang/c/algo_expand_test.rs",
+     412,
+     412,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ],
+    [
+     "tests/lang/c/algo_expand_test.rs",
+     425,
+     425,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ],
+    [
+     "tests/lang/c/algo_expand_test.rs",
+     425,
+     425,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "tests/lang/c/algo_expand_test.rs:391",
+   "stratum": "C-name"
+  },
+  "callers:src/access_path.rs:222": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/access_path.rs",
+     "test_prefix_check"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/access_path.rs",
+     356,
+     356
+    ],
+    [
+     "src/access_path.rs",
+     357,
+     357
+    ],
+    [
+     "src/access_path.rs",
+     358,
+     358
+    ],
+    [
+     "src/access_path.rs",
+     359,
+     359
+    ],
+    [
+     "src/access_path.rs",
+     362,
+     362
+    ],
+    [
+     "src/access_path.rs",
+     363,
+     363
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "src/access_path.rs:222",
+   "stratum": "U-method"
+  },
+  "callers:src/algorithms/delta_slice.rs:17": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/main.rs",
+     "run_algorithm"
+    ],
+    [
+     "tests/algo/taxonomy/misc_lang_test.rs",
+     "test_delta_slice_missing_old_file_python"
+    ],
+    [
+     "tests/algo/taxonomy/misc_test.rs",
+     "test_delta_slice_go"
+    ],
+    [
+     "tests/algo/taxonomy/misc_test.rs",
+     "test_delta_slice_python"
+    ],
+    [
+     "tests/lang/bash/algo_expand_test.rs",
+     "test_delta_slice_bash"
+    ],
+    [
+     "tests/lang/c/algo_expand_test.rs",
+     "test_delta_slice_c"
+    ],
+    [
+     "tests/lang/cpp/algo_test.rs",
+     "test_delta_slice_cpp"
+    ],
+    [
+     "tests/lang/go/algo_test.rs",
+     "test_delta_slice_go"
+    ],
+    [
+     "tests/lang/java/algo_expand_test.rs",
+     "test_delta_slice_java"
+    ],
+    [
+     "tests/lang/javascript/algo_test.rs",
+     "test_delta_slice_javascript"
+    ],
+    [
+     "tests/lang/lua/algo_expand_test.rs",
+     "test_delta_slice_lua"
+    ],
+    [
+     "tests/lang/rust/algo_expand_test.rs",
+     "test_delta_slice_rust"
+    ],
+    [
+     "tests/lang/terraform/algo_expand_test.rs",
+     "test_delta_slice_terraform"
+    ],
+    [
+     "tests/lang/tsx/algo_expand_test.rs",
+     "test_delta_slice_tsx"
+    ],
+    [
+     "tests/lang/typescript/typescript_test.rs",
+     "test_delta_slice_typescript"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tests/lang/go/algo_test.rs",
+     349,
+     349
+    ],
+    [
+     "tests/lang/cpp/algo_test.rs",
+     173,
+     173
+    ],
+    [
+     "src/main.rs",
+     1115,
+     1115
+    ],
+    [
+     "tests/lang/terraform/algo_expand_test.rs",
+     112,
+     112
+    ],
+    [
+     "tests/lang/rust/algo_expand_test.rs",
+     35,
+     35
+    ],
+    [
+     "tests/lang/java/algo_expand_test.rs",
+     35,
+     35
+    ],
+    [
+     "tests/lang/bash/algo_expand_test.rs",
+     80,
+     80
+    ],
+    [
+     "tests/algo/taxonomy/misc_test.rs",
+     374,
+     374
+    ],
+    [
+     "tests/algo/taxonomy/misc_test.rs",
+     401,
+     401
+    ],
+    [
+     "tests/algo/taxonomy/misc_lang_test.rs",
+     306,
+     306
+    ],
+    [
+     "tests/lang/c/algo_expand_test.rs",
+     241,
+     241
+    ],
+    [
+     "tests/lang/typescript/typescript_test.rs",
+     478,
+     478
+    ],
+    [
+     "tests/lang/tsx/algo_expand_test.rs",
+     113,
+     113
+    ],
+    [
+     "tests/lang/lua/algo_expand_test.rs",
+     80,
+     80
+    ],
+    [
+     "tests/lang/javascript/algo_test.rs",
+     272,
+     272
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tests/algo/taxonomy/misc_lang_test.rs",
+     "test_delta_slice_missing_old_file_python"
+    ],
+    [
+     "tests/algo/taxonomy/misc_test.rs",
+     "test_delta_slice_go"
+    ],
+    [
+     "tests/algo/taxonomy/misc_test.rs",
+     "test_delta_slice_python"
+    ],
+    [
+     "tests/lang/bash/algo_expand_test.rs",
+     "test_delta_slice_bash"
+    ],
+    [
+     "tests/lang/c/algo_expand_test.rs",
+     "test_delta_slice_c"
+    ],
+    [
+     "tests/lang/cpp/algo_test.rs",
+     "test_delta_slice_cpp"
+    ],
+    [
+     "tests/lang/go/algo_test.rs",
+     "test_delta_slice_go"
+    ],
+    [
+     "tests/lang/java/algo_expand_test.rs",
+     "test_delta_slice_java"
+    ],
+    [
+     "tests/lang/javascript/algo_test.rs",
+     "test_delta_slice_javascript"
+    ],
+    [
+     "tests/lang/lua/algo_expand_test.rs",
+     "test_delta_slice_lua"
+    ],
+    [
+     "tests/lang/rust/algo_expand_test.rs",
+     "test_delta_slice_rust"
+    ],
+    [
+     "tests/lang/terraform/algo_expand_test.rs",
+     "test_delta_slice_terraform"
+    ],
+    [
+     "tests/lang/tsx/algo_expand_test.rs",
+     "test_delta_slice_tsx"
+    ],
+    [
+     "tests/lang/typescript/typescript_test.rs",
+     "test_delta_slice_typescript"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "tests/algo/taxonomy/misc_lang_test.rs",
+     306,
+     306,
+     {
+      "resolution_kind": "stem_single"
+     }
+    ],
+    [
+     "tests/algo/taxonomy/misc_test.rs",
+     374,
+     374,
+     {
+      "resolution_kind": "stem_single"
+     }
+    ],
+    [
+     "tests/algo/taxonomy/misc_test.rs",
+     401,
+     401,
+     {
+      "resolution_kind": "stem_single"
+     }
+    ],
+    [
+     "tests/lang/bash/algo_expand_test.rs",
+     80,
+     80,
+     {
+      "resolution_kind": "stem_single"
+     }
+    ],
+    [
+     "tests/lang/c/algo_expand_test.rs",
+     241,
+     241,
+     {
+      "resolution_kind": "stem_single"
+     }
+    ],
+    [
+     "tests/lang/cpp/algo_test.rs",
+     173,
+     173,
+     {
+      "resolution_kind": "stem_single"
+     }
+    ],
+    [
+     "tests/lang/go/algo_test.rs",
+     349,
+     349,
+     {
+      "resolution_kind": "stem_single"
+     }
+    ],
+    [
+     "tests/lang/java/algo_expand_test.rs",
+     35,
+     35,
+     {
+      "resolution_kind": "stem_single"
+     }
+    ],
+    [
+     "tests/lang/javascript/algo_test.rs",
+     272,
+     272,
+     {
+      "resolution_kind": "stem_single"
+     }
+    ],
+    [
+     "tests/lang/lua/algo_expand_test.rs",
+     80,
+     80,
+     {
+      "resolution_kind": "stem_single"
+     }
+    ],
+    [
+     "tests/lang/rust/algo_expand_test.rs",
+     35,
+     35,
+     {
+      "resolution_kind": "stem_single"
+     }
+    ],
+    [
+     "tests/lang/terraform/algo_expand_test.rs",
+     112,
+     112,
+     {
+      "resolution_kind": "stem_single"
+     }
+    ],
+    [
+     "tests/lang/tsx/algo_expand_test.rs",
+     113,
+     113,
+     {
+      "resolution_kind": "stem_single"
+     }
+    ],
+    [
+     "tests/lang/typescript/typescript_test.rs",
+     478,
+     478,
+     {
+      "resolution_kind": "stem_single"
+     }
+    ]
+   ],
+   "seed_def": "src/algorithms/delta_slice.rs:17",
+   "stratum": "C-name"
+  },
+  "callers:src/algorithms/echo_slice.rs:106": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/algorithms/mod.rs",
+     "run_slicing_inner"
+    ],
+    [
+     "tests/lang/rust/algo_test.rs",
+     "test_echo_slice_rust_result_callers"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tests/lang/rust/algo_test.rs",
+     230,
+     230
+    ],
+    [
+     "src/algorithms/mod.rs",
+     179,
+     179
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/algorithms/mod.rs",
+     "run_slicing_inner"
+    ],
+    [
+     "tests/lang/rust/algo_test.rs",
+     "test_echo_slice_rust_result_callers"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/algorithms/mod.rs",
+     179,
+     179,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ],
+    [
+     "tests/lang/rust/algo_test.rs",
+     230,
+     230,
+     {
+      "resolution_kind": "stem_single"
+     }
+    ]
+   ],
+   "seed_def": "src/algorithms/echo_slice.rs:106",
+   "stratum": "C-name"
+  },
+  "callers:src/algorithms/primitive_slice.rs:573": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/algorithms/primitive_slice.rs",
+     "scan_line_for_rules"
+    ],
+    [
+     "src/algorithms/primitive_slice.rs",
+     "weak_hash_identity"
+    ],
+    [
+     "src/algorithms/primitive_slice.rs",
+     "weak_hash_non_identity_none"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/algorithms/primitive_slice.rs",
+     199,
+     199
+    ],
+    [
+     "src/algorithms/primitive_slice.rs",
+     830,
+     830
+    ],
+    [
+     "src/algorithms/primitive_slice.rs",
+     837,
+     837
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/algorithms/primitive_slice.rs",
+     "scan_line_for_rules"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/algorithms/primitive_slice.rs",
+     199,
+     199,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "src/algorithms/primitive_slice.rs:573",
+   "stratum": "Q-scoped"
+  },
+  "callers:src/algorithms/vertical_slice.rs:66": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/algorithms/mod.rs",
+     "run_slicing_inner"
+    ],
+    [
+     "src/main.rs",
+     "run_algorithm"
+    ],
+    [
+     "tests/algo/theoretical/vertical_threed_test.rs",
+     "test_vertical_slice_explicit_layers_python"
+    ],
+    [
+     "tests/algo/theoretical/vertical_threed_test.rs",
+     "test_vertical_slice_go"
+    ],
+    [
+     "tests/algo/theoretical/vertical_threed_test.rs",
+     "test_vertical_slice_python"
+    ],
+    [
+     "tests/algo/theoretical/vertical_threed_test.rs",
+     "test_vertical_slice_python_layer_detection"
+    ],
+    [
+     "tests/lang/bash/algo_expand_test.rs",
+     "test_vertical_slice_bash"
+    ],
+    [
+     "tests/lang/c/algo_expand_test.rs",
+     "test_vertical_slice_c"
+    ],
+    [
+     "tests/lang/go/advanced_test.rs",
+     "test_vertical_slice_go_layered"
+    ],
+    [
+     "tests/lang/java/algo_expand_test.rs",
+     "test_vertical_slice_java"
+    ],
+    [
+     "tests/lang/javascript/algo_test.rs",
+     "test_vertical_slice_javascript"
+    ],
+    [
+     "tests/lang/lua/algo_expand_test.rs",
+     "test_vertical_slice_lua"
+    ],
+    [
+     "tests/lang/rust/algo_expand_test.rs",
+     "test_vertical_slice_rust"
+    ],
+    [
+     "tests/lang/terraform/algo_expand_test.rs",
+     "test_vertical_slice_terraform"
+    ],
+    [
+     "tests/lang/tsx/algo_expand_test.rs",
+     "test_vertical_slice_tsx"
+    ],
+    [
+     "tests/lang/typescript/typescript_test.rs",
+     "test_vertical_slice_typescript"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tests/lang/javascript/algo_test.rs",
+     241,
+     241
+    ],
+    [
+     "tests/lang/go/advanced_test.rs",
+     272,
+     272
+    ],
+    [
+     "src/main.rs",
+     1158,
+     1158
+    ],
+    [
+     "tests/lang/terraform/algo_expand_test.rs",
+     154,
+     154
+    ],
+    [
+     "tests/lang/rust/algo_expand_test.rs",
+     152,
+     152
+    ],
+    [
+     "tests/lang/bash/algo_expand_test.rs",
+     182,
+     182
+    ],
+    [
+     "tests/lang/java/algo_expand_test.rs",
+     137,
+     137
+    ],
+    [
+     "tests/lang/c/algo_expand_test.rs",
+     360,
+     360
+    ],
+    [
+     "src/algorithms/mod.rs",
+     155,
+     155
+    ],
+    [
+     "tests/lang/typescript/typescript_test.rs",
+     447,
+     447
+    ],
+    [
+     "tests/lang/tsx/algo_expand_test.rs",
+     180,
+     180
+    ],
+    [
+     "tests/lang/lua/algo_expand_test.rs",
+     201,
+     201
+    ],
+    [
+     "tests/algo/theoretical/vertical_threed_test.rs",
+     133,
+     133
+    ],
+    [
+     "tests/algo/theoretical/vertical_threed_test.rs",
+     174,
+     174
+    ],
+    [
+     "tests/algo/theoretical/vertical_threed_test.rs",
+     217,
+     217
+    ],
+    [
+     "tests/algo/theoretical/vertical_threed_test.rs",
+     291,
+     291
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/algorithms/mod.rs",
+     "run_slicing_inner"
+    ],
+    [
+     "tests/algo/theoretical/vertical_threed_test.rs",
+     "test_vertical_slice_explicit_layers_python"
+    ],
+    [
+     "tests/algo/theoretical/vertical_threed_test.rs",
+     "test_vertical_slice_go"
+    ],
+    [
+     "tests/algo/theoretical/vertical_threed_test.rs",
+     "test_vertical_slice_python"
+    ],
+    [
+     "tests/algo/theoretical/vertical_threed_test.rs",
+     "test_vertical_slice_python_layer_detection"
+    ],
+    [
+     "tests/lang/bash/algo_expand_test.rs",
+     "test_vertical_slice_bash"
+    ],
+    [
+     "tests/lang/c/algo_expand_test.rs",
+     "test_vertical_slice_c"
+    ],
+    [
+     "tests/lang/go/advanced_test.rs",
+     "test_vertical_slice_go_layered"
+    ],
+    [
+     "tests/lang/java/algo_expand_test.rs",
+     "test_vertical_slice_java"
+    ],
+    [
+     "tests/lang/javascript/algo_test.rs",
+     "test_vertical_slice_javascript"
+    ],
+    [
+     "tests/lang/lua/algo_expand_test.rs",
+     "test_vertical_slice_lua"
+    ],
+    [
+     "tests/lang/rust/algo_expand_test.rs",
+     "test_vertical_slice_rust"
+    ],
+    [
+     "tests/lang/terraform/algo_expand_test.rs",
+     "test_vertical_slice_terraform"
+    ],
+    [
+     "tests/lang/tsx/algo_expand_test.rs",
+     "test_vertical_slice_tsx"
+    ],
+    [
+     "tests/lang/typescript/typescript_test.rs",
+     "test_vertical_slice_typescript"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/algorithms/mod.rs",
+     155,
+     155,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ],
+    [
+     "tests/algo/theoretical/vertical_threed_test.rs",
+     133,
+     133,
+     {
+      "resolution_kind": "stem_single"
+     }
+    ],
+    [
+     "tests/algo/theoretical/vertical_threed_test.rs",
+     174,
+     174,
+     {
+      "resolution_kind": "stem_single"
+     }
+    ],
+    [
+     "tests/algo/theoretical/vertical_threed_test.rs",
+     217,
+     217,
+     {
+      "resolution_kind": "stem_single"
+     }
+    ],
+    [
+     "tests/algo/theoretical/vertical_threed_test.rs",
+     291,
+     291,
+     {
+      "resolution_kind": "stem_single"
+     }
+    ],
+    [
+     "tests/lang/bash/algo_expand_test.rs",
+     182,
+     182,
+     {
+      "resolution_kind": "stem_single"
+     }
+    ],
+    [
+     "tests/lang/c/algo_expand_test.rs",
+     360,
+     360,
+     {
+      "resolution_kind": "stem_single"
+     }
+    ],
+    [
+     "tests/lang/go/advanced_test.rs",
+     272,
+     272,
+     {
+      "resolution_kind": "stem_single"
+     }
+    ],
+    [
+     "tests/lang/java/algo_expand_test.rs",
+     137,
+     137,
+     {
+      "resolution_kind": "stem_single"
+     }
+    ],
+    [
+     "tests/lang/javascript/algo_test.rs",
+     241,
+     241,
+     {
+      "resolution_kind": "stem_single"
+     }
+    ],
+    [
+     "tests/lang/lua/algo_expand_test.rs",
+     201,
+     201,
+     {
+      "resolution_kind": "stem_single"
+     }
+    ],
+    [
+     "tests/lang/rust/algo_expand_test.rs",
+     152,
+     152,
+     {
+      "resolution_kind": "stem_single"
+     }
+    ],
+    [
+     "tests/lang/terraform/algo_expand_test.rs",
+     154,
+     154,
+     {
+      "resolution_kind": "stem_single"
+     }
+    ],
+    [
+     "tests/lang/tsx/algo_expand_test.rs",
+     180,
+     180,
+     {
+      "resolution_kind": "stem_single"
+     }
+    ],
+    [
+     "tests/lang/typescript/typescript_test.rs",
+     447,
+     447,
+     {
+      "resolution_kind": "stem_single"
+     }
+    ]
+   ],
+   "seed_def": "src/algorithms/vertical_slice.rs:66",
+   "stratum": "C-name"
+  },
+  "callers:src/ast.rs:2212": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/ast.rs",
+     "collect_identifier_path_spans"
+    ],
+    [
+     "src/ast.rs",
+     "collect_return_node_value_spans"
+    ],
+    [
+     "src/ast.rs",
+     "collect_rvalue_spans_manual"
+    ],
+    [
+     "src/ast.rs",
+     "rvalue_identifier_spans_on_lines"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/ast.rs",
+     2009,
+     2009
+    ],
+    [
+     "src/ast.rs",
+     2013,
+     2013
+    ],
+    [
+     "src/ast.rs",
+     2034,
+     2034
+    ],
+    [
+     "src/ast.rs",
+     2101,
+     2101
+    ],
+    [
+     "src/ast.rs",
+     2105,
+     2105
+    ],
+    [
+     "src/ast.rs",
+     2111,
+     2111
+    ],
+    [
+     "src/ast.rs",
+     2234,
+     2234
+    ],
+    [
+     "src/ast.rs",
+     2300,
+     2300
+    ],
+    [
+     "src/ast.rs",
+     2306,
+     2306
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/ast.rs",
+     "collect_identifier_path_spans"
+    ],
+    [
+     "src/ast.rs",
+     "collect_return_node_value_spans"
+    ],
+    [
+     "src/ast.rs",
+     "collect_rvalue_spans_manual"
+    ],
+    [
+     "src/ast.rs",
+     "rvalue_identifier_spans_on_lines"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/ast.rs",
+     2009,
+     2009,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "src/ast.rs",
+     2013,
+     2013,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "src/ast.rs",
+     2034,
+     2034,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "src/ast.rs",
+     2101,
+     2101,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "src/ast.rs",
+     2105,
+     2105,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "src/ast.rs",
+     2111,
+     2111,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "src/ast.rs",
+     2234,
+     2234,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "src/ast.rs",
+     2300,
+     2300,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "src/ast.rs",
+     2306,
+     2306,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ]
+   ],
+   "seed_def": "src/ast.rs:2212",
+   "stratum": "U-method"
+  },
+  "callers:src/ast.rs:2941": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/ast.rs",
+     "collect_if_trailing_returns"
+    ],
+    [
+     "src/ast.rs",
+     "collect_match_trailing_returns"
+    ],
+    [
+     "src/ast.rs",
+     "collect_trailing_returns"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/ast.rs",
+     2937,
+     2937
+    ],
+    [
+     "src/ast.rs",
+     3037,
+     3037
+    ],
+    [
+     "src/ast.rs",
+     3046,
+     3046
+    ],
+    [
+     "src/ast.rs",
+     3053,
+     3053
+    ],
+    [
+     "src/ast.rs",
+     3075,
+     3075
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/ast.rs",
+     "collect_if_trailing_returns"
+    ],
+    [
+     "src/ast.rs",
+     "collect_match_trailing_returns"
+    ],
+    [
+     "src/ast.rs",
+     "collect_trailing_returns"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/ast.rs",
+     2937,
+     2937,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "src/ast.rs",
+     3037,
+     3037,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "src/ast.rs",
+     3046,
+     3046,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "src/ast.rs",
+     3053,
+     3053,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "src/ast.rs",
+     3075,
+     3075,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ]
+   ],
+   "seed_def": "src/ast.rs:2941",
+   "stratum": "U-method"
+  },
+  "callers:src/ast.rs:3858": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/ast.rs",
+     "find_function_by_name"
+    ],
+    [
+     "src/ast.rs",
+     "find_function_by_name_inner"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/ast.rs",
+     3855,
+     3855
+    ],
+    [
+     "src/ast.rs",
+     3869,
+     3869
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/ast.rs",
+     "find_function_by_name"
+    ],
+    [
+     "src/ast.rs",
+     "find_function_by_name_inner"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/ast.rs",
+     3855,
+     3855,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "src/ast.rs",
+     3869,
+     3869,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ]
+   ],
+   "seed_def": "src/ast.rs:3858",
+   "stratum": "U-method"
+  },
+  "callers:src/call_graph.rs:1009": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/cpg/build.rs",
+     "build_incremental_with_scope_graph_inputs"
+    ],
+    [
+     "tests/ast/cpg_cache_test.rs",
+     "test_callgraph_merge"
+    ],
+    [
+     "tests/ast/cpg_cache_test.rs",
+     "test_callgraph_remove_empty_set"
+    ],
+    [
+     "tests/ast/cpg_cache_test.rs",
+     "test_callgraph_remove_files"
+    ],
+    [
+     "tests/integration/call_graph_test.rs",
+     "p6_receiver_recovery_matches_full_and_direct_subset_merge"
+    ],
+    [
+     "tests/integration/resolution_test.rs",
+     "go_remove_files_clears_promoted_aliases_cross_file"
+    ],
+    [
+     "tests/name_resolution/build_wiring_test.rs",
+     "incremental_recomputes_scope_graph_from_all_files"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tests/ast/cpg_cache_test.rs",
+     604,
+     604
+    ],
+    [
+     "tests/ast/cpg_cache_test.rs",
+     650,
+     650
+    ],
+    [
+     "tests/ast/cpg_cache_test.rs",
+     701,
+     701
+    ],
+    [
+     "tests/integration/call_graph_test.rs",
+     1149,
+     1149
+    ],
+    [
+     "tests/name_resolution/build_wiring_test.rs",
+     171,
+     171
+    ],
+    [
+     "tests/integration/resolution_test.rs",
+     2267,
+     2267
+    ],
+    [
+     "src/cpg/build.rs",
+     270,
+     270
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/cpg/build.rs",
+     "build_incremental_with_scope_graph_inputs"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/cpg/build.rs",
+     270,
+     270,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ]
+   ],
+   "seed_def": "src/call_graph.rs:1009",
+   "stratum": "C-method"
+  },
+  "callers:src/cpg/query.rs:363": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "src/cpg/query.rs:363",
+   "stratum": "U-method"
+  },
+  "callers:src/cpg/query.rs:579": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "src/cpg/query.rs:579",
+   "stratum": "C-method"
+  },
+  "callers:src/cpg/query.rs:863": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/cpg/tests.rs",
+     "test_field_type"
+    ],
+    [
+     "tests/integration/core_test.rs",
+     "test_cpg_with_type_enrichment"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tests/integration/core_test.rs",
+     780,
+     780
+    ],
+    [
+     "src/cpg/tests.rs",
+     1605,
+     1605
+    ],
+    [
+     "src/cpg/tests.rs",
+     1606,
+     1606
+    ],
+    [
+     "src/cpg/tests.rs",
+     1607,
+     1607
+    ],
+    [
+     "src/cpg/tests.rs",
+     1608,
+     1608
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/cpg/query.rs",
+     "field_type"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/cpg/query.rs",
+     864,
+     864,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "src/cpg/query.rs:863",
+   "stratum": "C-method"
+  },
+  "callers:src/cpg/trace.rs:346": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/cpg/trace.rs",
+     "taint_trace_nodes"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/cpg/trace.rs",
+     311,
+     311
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/cpg/trace.rs",
+     "taint_trace_nodes"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/cpg/trace.rs",
+     311,
+     311,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ]
+   ],
+   "seed_def": "src/cpg/trace.rs:346",
+   "stratum": "U-method"
+  },
+  "callers:src/cpg/types.rs:47": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "src/cpg/types.rs:47",
+   "stratum": "C-method"
+  },
+  "callers:src/data_flow.rs:659": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/data_flow.rs",
+     "chop"
+    ],
+    [
+     "src/data_flow.rs",
+     "taint_forward"
+    ],
+    [
+     "tests/algo/taxonomy/taint_lang_test.rs",
+     "test_go_multi_return_taint_flow"
+    ],
+    [
+     "tests/algo/taxonomy/taint_lang_test.rs",
+     "test_python_tuple_unpack_taint_flow"
+    ],
+    [
+     "tests/algo/taxonomy/taint_sink_test.rs",
+     "test_field_isolation_taint_does_not_cross_fields"
+    ],
+    [
+     "tests/ast/dfg_test.rs",
+     "test_dfg_field_path_def_line_scoping"
+    ],
+    [
+     "tests/ast/dfg_test.rs",
+     "test_dfg_forward_reachable_field_to_simple"
+    ],
+    [
+     "tests/ast/field_test.rs",
+     "test_field_isolation_python"
+    ],
+    [
+     "tests/lang/c/cve_test.rs",
+     "test_field_isolation_c_arrow"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tests/lang/c/cve_test.rs",
+     359,
+     359
+    ],
+    [
+     "tests/ast/dfg_test.rs",
+     167,
+     167
+    ],
+    [
+     "tests/ast/dfg_test.rs",
+     297,
+     297
+    ],
+    [
+     "tests/algo/taxonomy/taint_sink_test.rs",
+     380,
+     380
+    ],
+    [
+     "tests/algo/taxonomy/taint_lang_test.rs",
+     539,
+     539
+    ],
+    [
+     "tests/algo/taxonomy/taint_lang_test.rs",
+     564,
+     564
+    ],
+    [
+     "tests/ast/field_test.rs",
+     85,
+     85
+    ],
+    [
+     "src/data_flow.rs",
+     727,
+     727
+    ],
+    [
+     "src/data_flow.rs",
+     779,
+     779
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/data_flow.rs",
+     "chop"
+    ],
+    [
+     "src/data_flow.rs",
+     "taint_forward"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/data_flow.rs",
+     727,
+     727,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "src/data_flow.rs",
+     779,
+     779,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ]
+   ],
+   "seed_def": "src/data_flow.rs:659",
+   "stratum": "C-method"
+  },
+  "callers:src/main.rs:1024": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/main.rs",
+     "run_review"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/main.rs",
+     861,
+     861
+    ],
+    [
+     "src/main.rs",
+     962,
+     962
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "src/main.rs:1024",
+   "stratum": "U-free"
+  },
+  "callers:src/main.rs:1046": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/main.rs",
+     "run_review"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/main.rs",
+     847,
+     847
+    ],
+    [
+     "src/main.rs",
+     960,
+     960
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "src/main.rs:1046",
+   "stratum": "U-free"
+  },
+  "callers:src/main.rs:1256": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "src/main.rs:1256",
+   "stratum": "U-free"
+  },
+  "callers:src/main.rs:1298": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "src/main.rs:1298",
+   "stratum": "U-free"
+  },
+  "callers:src/main.rs:1310": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "src/main.rs:1310",
+   "stratum": "U-free"
+  },
+  "callers:src/main.rs:332": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/main.rs",
+     "main"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/main.rs",
+     327,
+     327
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/main.rs",
+     "main"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/main.rs",
+     327,
+     327,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "src/main.rs:332",
+   "stratum": "U-free"
+  },
+  "callers:src/main.rs:485": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/main.rs",
+     "run_nav"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/main.rs",
+     343,
+     343
+    ],
+    [
+     "src/main.rs",
+     357,
+     357
+    ],
+    [
+     "src/main.rs",
+     387,
+     387
+    ],
+    [
+     "src/main.rs",
+     417,
+     417
+    ],
+    [
+     "src/main.rs",
+     439,
+     439
+    ],
+    [
+     "src/main.rs",
+     445,
+     445
+    ],
+    [
+     "src/main.rs",
+     451,
+     451
+    ],
+    [
+     "src/main.rs",
+     457,
+     457
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/main.rs",
+     "run_nav"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/main.rs",
+     343,
+     343,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/main.rs",
+     357,
+     357,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/main.rs",
+     387,
+     387,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/main.rs",
+     417,
+     417,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/main.rs",
+     439,
+     439,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/main.rs",
+     445,
+     445,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/main.rs",
+     451,
+     451,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/main.rs",
+     457,
+     457,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "src/main.rs:485",
+   "stratum": "U-free"
+  },
+  "callers:src/main.rs:503": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/main.rs",
+     "main"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/main.rs",
+     328,
+     328
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/main.rs",
+     "main"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/main.rs",
+     328,
+     328,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "src/main.rs:503",
+   "stratum": "U-free"
+  },
+  "callers:src/name_resolution/graph.rs:136": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/call_graph.rs",
+     "module_scope_for_byte"
+    ],
+    [
+     "src/name_resolution/binding_lookup.rs",
+     "lookup_visible_binding"
+    ],
+    [
+     "src/name_resolution/engine.rs",
+     "resolve_bare"
+    ],
+    [
+     "src/name_resolution/rust_policy.rs",
+     "is_within"
+    ],
+    [
+     "src/name_resolution/rust_policy.rs",
+     "super_n"
+    ],
+    [
+     "src/resolution_receiver.rs",
+     "module_scope_for_byte"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/name_resolution/engine.rs",
+     147,
+     147
+    ],
+    [
+     "src/name_resolution/binding_lookup.rs",
+     81,
+     81
+    ],
+    [
+     "src/name_resolution/rust_policy.rs",
+     128,
+     128
+    ],
+    [
+     "src/name_resolution/rust_policy.rs",
+     141,
+     141
+    ],
+    [
+     "src/call_graph.rs",
+     1782,
+     1782
+    ],
+    [
+     "src/resolution_receiver.rs",
+     572,
+     572
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/call_graph.rs",
+     "module_scope_for_byte"
+    ],
+    [
+     "src/name_resolution/binding_lookup.rs",
+     "lookup_visible_binding"
+    ],
+    [
+     "src/name_resolution/engine.rs",
+     "resolve_bare"
+    ],
+    [
+     "src/name_resolution/rust_policy.rs",
+     "is_within"
+    ],
+    [
+     "src/name_resolution/rust_policy.rs",
+     "super_n"
+    ],
+    [
+     "src/resolution_receiver.rs",
+     "module_scope_for_byte"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/call_graph.rs",
+     1782,
+     1782,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ],
+    [
+     "src/name_resolution/binding_lookup.rs",
+     81,
+     81,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ],
+    [
+     "src/name_resolution/engine.rs",
+     147,
+     147,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ],
+    [
+     "src/name_resolution/rust_policy.rs",
+     128,
+     128,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ],
+    [
+     "src/name_resolution/rust_policy.rs",
+     141,
+     141,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ],
+    [
+     "src/resolution_receiver.rs",
+     572,
+     572,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ]
+   ],
+   "seed_def": "src/name_resolution/graph.rs:136",
+   "stratum": "U-method"
+  },
+  "callers:src/name_resolution/rust_policy.rs:170": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/name_resolution/engine.rs",
+     "resolve_bare"
+    ],
+    [
+     "src/name_resolution/engine.rs",
+     "resolve_rib"
+    ],
+    [
+     "src/name_resolution/engine.rs",
+     "scope_member_lookup"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/name_resolution/engine.rs",
+     134,
+     134,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ],
+    [
+     "src/name_resolution/engine.rs",
+     155,
+     155,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ],
+    [
+     "src/name_resolution/engine.rs",
+     237,
+     237,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ],
+    [
+     "src/name_resolution/engine.rs",
+     407,
+     407,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ]
+   ],
+   "seed_def": "src/name_resolution/rust_policy.rs:170",
+   "stratum": "C-method"
+  },
+  "callers:src/name_resolution/rust_populator/builder.rs:211": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/name_resolution/rust_populator/walk/types.rs",
+     "walk_macro_invocation"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/name_resolution/rust_populator/walk/types.rs",
+     416,
+     416
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/name_resolution/rust_populator/walk/types.rs",
+     "walk_macro_invocation"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/name_resolution/rust_populator/walk/types.rs",
+     416,
+     416,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ]
+   ],
+   "seed_def": "src/name_resolution/rust_populator/builder.rs:211",
+   "stratum": "C-method"
+  },
+  "callers:src/navigation/mod.rs:82": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/navigation/queries.rs",
+     "nodes_at"
+    ],
+    [
+     "src/navigation/queries.rs",
+     "resolve_ego_seed"
+    ],
+    [
+     "src/navigation/seed.rs",
+     "resolve_fn"
+    ],
+    [
+     "tests/navigation/index_test.rs",
+     "line_range_index_resolves_innermost"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/navigation/queries.rs",
+     335,
+     335
+    ],
+    [
+     "src/navigation/queries.rs",
+     821,
+     821
+    ],
+    [
+     "src/navigation/seed.rs",
+     50,
+     50
+    ],
+    [
+     "tests/navigation/index_test.rs",
+     33,
+     33
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "src/navigation/mod.rs:82",
+   "stratum": "C-method"
+  },
+  "callers:src/type_providers/go.rs:232": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/call_graph.rs",
+     "apply_go_interface_dispatch"
+    ],
+    [
+     "src/type_providers/go.rs",
+     "empty_live_fires_fallback_full_set"
+    ],
+    [
+     "src/type_providers/go.rs",
+     "rta_prunes_to_live"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/call_graph.rs",
+     1392,
+     1392
+    ],
+    [
+     "src/type_providers/go.rs",
+     1575,
+     1575
+    ],
+    [
+     "src/type_providers/go.rs",
+     1587,
+     1587
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/call_graph.rs",
+     "apply_go_interface_dispatch"
+    ],
+    [
+     "src/type_providers/go.rs",
+     "empty_live_fires_fallback_full_set"
+    ],
+    [
+     "src/type_providers/go.rs",
+     "rta_prunes_to_live"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/call_graph.rs",
+     1392,
+     1392,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ],
+    [
+     "src/type_providers/go.rs",
+     1575,
+     1575,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "src/type_providers/go.rs",
+     1587,
+     1587,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "src/type_providers/go.rs:232",
+   "stratum": "U-method"
+  },
+  "callers:src/type_providers/rust_provider.rs:536": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/type_providers/rust_provider.rs",
+     "from_parsed_files"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/type_providers/rust_provider.rs",
+     139,
+     139
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "src/type_providers/rust_provider.rs:536",
+   "stratum": "C-name"
+  },
+  "callers:tests/ast/cpg_cache_test.rs:16": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "tests/ast/cpg_cache_test.rs",
+     "cache_v12_round_trips_scope_graph_and_rejects_v11"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tests/ast/cpg_cache_test.rs",
+     110,
+     110
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tests/ast/cpg_cache_test.rs",
+     "cache_v12_round_trips_scope_graph_and_rejects_v11"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "tests/ast/cpg_cache_test.rs",
+     110,
+     110,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "tests/ast/cpg_cache_test.rs:16",
+   "stratum": "C-name"
+  },
+  "callers:tests/ast/cpg_test.rs:35": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "tests/ast/cpg_test.rs",
+     "dataflow_callee_funcs"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tests/ast/cpg_test.rs",
+     81,
+     81
+    ],
+    [
+     "tests/ast/cpg_test.rs",
+     84,
+     84
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tests/ast/cpg_test.rs",
+     "dataflow_callee_funcs"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "tests/ast/cpg_test.rs",
+     81,
+     81,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "tests/ast/cpg_test.rs",
+     84,
+     84,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "tests/ast/cpg_test.rs:35",
+   "stratum": "Q-scoped"
+  },
+  "callers:tests/ast/cpp_type_provider_test.rs:495": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "tests/ast/cpp_type_provider_test.rs:495",
+   "stratum": "Q-scoped"
+  },
+  "callers:tests/ast/python_type_provider_test.rs:442": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "tests/ast/python_type_provider_test.rs:442",
+   "stratum": "Q-scoped"
+  },
+  "callers:tests/cli/validation_test.rs:54": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "tests/cli/validation_test.rs:54",
+   "stratum": "Q-scoped"
+  },
+  "callers:tests/integration/resolution_test.rs:1946": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "tests/integration/resolution_test.rs:1946",
+   "stratum": "Q-scoped"
+  },
+  "callers:tests/integration/resolution_test.rs:674": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "tests/integration/resolution_test.rs:674",
+   "stratum": "Q-scoped"
+  },
+  "callers:tests/lang/c/algo_expand_test.rs:391": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "tests/lang/c/algo_expand_test.rs:391",
+   "stratum": "C-name"
+  }
+ },
+ "site_fingerprints": {
+  "src/access_path.rs:356": "a4ca46e2789f4498",
+  "src/access_path.rs:357": "1a03682b95b83f50",
+  "src/access_path.rs:358": "dd832a1c7c83fcf2",
+  "src/access_path.rs:359": "89583bf804979f6c",
+  "src/access_path.rs:362": "8d5cef64ec64822e",
+  "src/access_path.rs:363": "10dbca3b0496ddb8",
+  "src/algorithms/delta_slice.rs:105": "3268a86bff83f16e",
+  "src/algorithms/delta_slice.rs:108": "928d21fa15d3b4d4",
+  "src/algorithms/delta_slice.rs:18": "633008f1e1e78c49",
+  "src/algorithms/delta_slice.rs:25": "b265dc807a1950ae",
+  "src/algorithms/delta_slice.rs:26": "5d4bc6e026c955fb",
+  "src/algorithms/delta_slice.rs:34": "4d4df337cb502aed",
+  "src/algorithms/echo_slice.rs:107": "671bb2952370bc84",
+  "src/algorithms/echo_slice.rs:117": "2ea6b4bc8aa222eb",
+  "src/algorithms/echo_slice.rs:125": "9115eb1febc2c967",
+  "src/algorithms/echo_slice.rs:164": "9d1f8c52a67cc52d",
+  "src/algorithms/echo_slice.rs:167": "dad051d825e10967",
+  "src/algorithms/echo_slice.rs:169": "ca2cc3e7b5f98962",
+  "src/algorithms/echo_slice.rs:171": "bdc1804256d2488b",
+  "src/algorithms/echo_slice.rs:175": "d713fb512d2afdb0",
+  "src/algorithms/echo_slice.rs:177": "3b5bed8ef94d3e56",
+  "src/algorithms/echo_slice.rs:246": "59f0cfbf6a5dfc9c",
+  "src/algorithms/echo_slice.rs:249": "e55e357a8d16e529",
+  "src/algorithms/echo_slice.rs:253": "7d927557236ddd93",
+  "src/algorithms/echo_slice.rs:256": "9727ea9885e28225",
+  "src/algorithms/echo_slice.rs:259": "b1b0c15932994f30",
+  "src/algorithms/echo_slice.rs:262": "f76efe487804adea",
+  "src/algorithms/echo_slice.rs:265": "04112adc325b40fa",
+  "src/algorithms/echo_slice.rs:268": "ed27cf3bb47699da",
+  "src/algorithms/echo_slice.rs:275": "9b06de9ded2a8a4a",
+  "src/algorithms/echo_slice.rs:288": "cd085b11184b09d3",
+  "src/algorithms/mod.rs:155": "d453040456adf5ea",
+  "src/algorithms/mod.rs:179": "99c2958a47886e98",
+  "src/algorithms/primitive_slice.rs:199": "4e0bf669a2d6cc29",
+  "src/algorithms/primitive_slice.rs:830": "0ab47b1e3600894d",
+  "src/algorithms/primitive_slice.rs:837": "ef5b6853263996fa",
+  "src/algorithms/vertical_slice.rs:100": "bdc1804256d2488b",
+  "src/algorithms/vertical_slice.rs:130": "55973e543d4e4805",
+  "src/algorithms/vertical_slice.rs:132": "82c6c3c0388daa87",
+  "src/algorithms/vertical_slice.rs:134": "bdc1804256d2488b",
+  "src/algorithms/vertical_slice.rs:161": "366792a860bf9c21",
+  "src/algorithms/vertical_slice.rs:198": "aba298a40401737a",
+  "src/algorithms/vertical_slice.rs:201": "72147e292354c59b",
+  "src/algorithms/vertical_slice.rs:202": "bb546e4e14d2560f",
+  "src/algorithms/vertical_slice.rs:210": "96d70705c8c990b0",
+  "src/algorithms/vertical_slice.rs:71": "900a4c8768b5942c",
+  "src/algorithms/vertical_slice.rs:75": "4bcb95e3c5e6401c",
+  "src/algorithms/vertical_slice.rs:77": "ed6a9ffcc99b58bb",
+  "src/algorithms/vertical_slice.rs:92": "b48aa72738310753",
+  "src/algorithms/vertical_slice.rs:96": "af802a6f7f4746ac",
+  "src/algorithms/vertical_slice.rs:98": "a6136ec28afdb0ac",
+  "src/ast.rs:2009": "22c2e0625c09f2e1",
+  "src/ast.rs:2013": "c6401c49d16df281",
+  "src/ast.rs:2034": "608a3730cc74f217",
+  "src/ast.rs:2101": "91de74e8bc410321",
+  "src/ast.rs:2105": "e4b2289d2641ee53",
+  "src/ast.rs:2111": "8a8acaff46aa7d20",
+  "src/ast.rs:2213": "ddd38b0c161694e2",
+  "src/ast.rs:2214": "d2a811b05ed015b4",
+  "src/ast.rs:2217": "d3d56e50498e3b9a",
+  "src/ast.rs:2223": "1bd12d8a73c617f1",
+  "src/ast.rs:2224": "6a704236cb1d864f",
+  "src/ast.rs:2229": "d20b6f650680bdc2",
+  "src/ast.rs:2230": "fe343ba6640e1db1",
+  "src/ast.rs:2234": "a2a906d4a450969a",
+  "src/ast.rs:2300": "3a15c2eb8f9859c0",
+  "src/ast.rs:2306": "3a15c2eb8f9859c0",
+  "src/ast.rs:2937": "376cb36a0db80bff",
+  "src/ast.rs:2958": "261590d714b5a322",
+  "src/ast.rs:2966": "2c25dc96e15b49f8",
+  "src/ast.rs:2970": "01fa849523bf7e65",
+  "src/ast.rs:2978": "d21633f10aff3f4f",
+  "src/ast.rs:2980": "ce28f3249c6f15a9",
+  "src/ast.rs:2990": "3ac7937757263c5b",
+  "src/ast.rs:2994": "d29c3da448f79e0b",
+  "src/ast.rs:3019": "7ea0ee20adb3cadd",
+  "src/ast.rs:3020": "7a2def118ea8bd03",
+  "src/ast.rs:3037": "a0c90aca0127014a",
+  "src/ast.rs:3046": "d3195bbf31eefaad",
+  "src/ast.rs:3053": "811dc91e9054e525",
+  "src/ast.rs:3075": "40b9e28f750df6b9",
+  "src/ast.rs:3855": "0ab8511d03871cef",
+  "src/ast.rs:3859": "5563fecd74fb90ed",
+  "src/ast.rs:3861": "f719e4308ebcbd69",
+  "src/ast.rs:3862": "77edb9c55dc7679c",
+  "src/ast.rs:3869": "94870cf2dc6898cf",
+  "src/call_graph.rs:1055": "df6cdb9b35e52a77",
+  "src/call_graph.rs:1056": "cea2d2fae7023b7a",
+  "src/call_graph.rs:1392": "74c6b8804c66652c",
+  "src/call_graph.rs:1782": "ab42c3e77055e144",
+  "src/cpg/build.rs:270": "3ea2eb28a20e5788",
+  "src/cpg/query.rs:370": "9162240865879e03",
+  "src/cpg/query.rs:374": "ede3c98cfc3756cc",
+  "src/cpg/query.rs:376": "a1325ab16c9bae5e",
+  "src/cpg/query.rs:382": "b54b06341fdbc128",
+  "src/cpg/query.rs:586": "67db519d025ab2f6",
+  "src/cpg/query.rs:604": "bc2c936e9edcdae4",
+  "src/cpg/query.rs:615": "be6befbede93dae4",
+  "src/cpg/query.rs:864": "6463e6b775111324",
+  "src/cpg/tests.rs:1605": "e6ca397cbace5fe3",
+  "src/cpg/tests.rs:1606": "18302085f8ce09f7",
+  "src/cpg/tests.rs:1607": "df72fa61255191fc",
+  "src/cpg/tests.rs:1608": "0d195a7d6257a16a",
+  "src/cpg/trace.rs:311": "6711c894d3f57f1a",
+  "src/cpg/trace.rs:355": "7121cdd4b1982de8",
+  "src/data_flow.rs:662": "3dea01517ae05780",
+  "src/data_flow.rs:665": "0ac77e4a92d8d187",
+  "src/data_flow.rs:668": "c9a1c8ec31b390c7",
+  "src/data_flow.rs:670": "9ea085a637b1ac83",
+  "src/data_flow.rs:676": "89fedbaaac1e0f85",
+  "src/data_flow.rs:682": "b8ccb78603ea1cf8",
+  "src/data_flow.rs:727": "7e2a62a36fa8a250",
+  "src/data_flow.rs:779": "2647903673cca10f",
+  "src/main.rs:1000": "45858ecd560dd1fe",
+  "src/main.rs:1001": "2788ace56548a245",
+  "src/main.rs:1011": "eaa7470efa59b58f",
+  "src/main.rs:1012": "743e407271cede95",
+  "src/main.rs:1030": "c9db58843ee368ae",
+  "src/main.rs:1066": "3260b7a0cb8f133e",
+  "src/main.rs:1077": "4ba53a608904764b",
+  "src/main.rs:1078": "81eedac1bd5f7e12",
+  "src/main.rs:1079": "3eb95aa6af1820ff",
+  "src/main.rs:1094": "2f31d0260a2c10a7",
+  "src/main.rs:1099": "df9716942411b394",
+  "src/main.rs:1106": "306593edaa170af1",
+  "src/main.rs:1108": "f5254a64ca0aab98",
+  "src/main.rs:1115": "f9ac7794148bdeff",
+  "src/main.rs:1122": "2edaa92e17e65586",
+  "src/main.rs:1124": "2a8544cd836973d2",
+  "src/main.rs:1132": "5e02e0c864d55037",
+  "src/main.rs:1137": "26f9a7f82469c81a",
+  "src/main.rs:1142": "0131847200f7fadc",
+  "src/main.rs:1148": "8281f9db29cb9146",
+  "src/main.rs:1158": "bb24433e46587f4c",
+  "src/main.rs:1166": "515ca8b722547f89",
+  "src/main.rs:1173": "e6076d56a0d04900",
+  "src/main.rs:1181": "49f79a22b18d04fe",
+  "src/main.rs:1188": "bd7cfa7830019925",
+  "src/main.rs:1192": "be2d137b589e9b2e",
+  "src/main.rs:1194": "924dccda78093ca9",
+  "src/main.rs:1201": "49c109170a79f77f",
+  "src/main.rs:1203": "8a8debe76ff3f023",
+  "src/main.rs:327": "d4fafead4a26f738",
+  "src/main.rs:328": "b23b7c16dadf978e",
+  "src/main.rs:343": "8ebc1018d4373371",
+  "src/main.rs:344": "057e2e889ec6711f",
+  "src/main.rs:357": "022dc22a317125d6",
+  "src/main.rs:359": "c0a91d2a9b4c89cc",
+  "src/main.rs:372": "193b9b0c3cff3016",
+  "src/main.rs:387": "022dc22a317125d6",
+  "src/main.rs:389": "d63297fe62a4e7d9",
+  "src/main.rs:402": "193b9b0c3cff3016",
+  "src/main.rs:417": "fe8604ba4a061d43",
+  "src/main.rs:419": "942775fc5c8cbc73",
+  "src/main.rs:432": "193b9b0c3cff3016",
+  "src/main.rs:439": "92caa6e4599f4c48",
+  "src/main.rs:440": "e215e661db82dd42",
+  "src/main.rs:445": "6b9002b539e49e22",
+  "src/main.rs:446": "6e04d7f48d464763",
+  "src/main.rs:451": "68c5fafe7f8ce076",
+  "src/main.rs:452": "6e89477aa210d7cd",
+  "src/main.rs:457": "fa05fb1238b7c8c8",
+  "src/main.rs:458": "89f821ebca1e4988",
+  "src/main.rs:465": "7d1dbec5118e55b2",
+  "src/main.rs:490": "7286150a0f6fa849",
+  "src/main.rs:492": "a576addf308a3d06",
+  "src/main.rs:495": "2a45c21e7bf1b7c6",
+  "src/main.rs:496": "75de5f3a07a7f0d2",
+  "src/main.rs:559": "5c6d09f3185826b1",
+  "src/main.rs:560": "993dfad86a6cdb93",
+  "src/main.rs:561": "968fb89d691d53dc",
+  "src/main.rs:566": "03f6fc7d1c0065ef",
+  "src/main.rs:575": "9263f6813e55aa01",
+  "src/main.rs:603": "3f97723206d4d129",
+  "src/main.rs:605": "cbe7ce5252bbfffe",
+  "src/main.rs:613": "2ec368c908d531dd",
+  "src/main.rs:621": "9db6b49dd1000bab",
+  "src/main.rs:635": "f5fce1580a57a280",
+  "src/main.rs:645": "999a2aac76deef1c",
+  "src/main.rs:647": "2d322708cf8944d5",
+  "src/main.rs:671": "07591f3c26789b57",
+  "src/main.rs:688": "b60d35af7b94274b",
+  "src/main.rs:689": "30bfc21dbb35454c",
+  "src/main.rs:697": "3ad33ebf2715ed6d",
+  "src/main.rs:702": "6e4b1e2aef84b04e",
+  "src/main.rs:711": "36c661a47caf278d",
+  "src/main.rs:725": "38e0bb990b4a0117",
+  "src/main.rs:737": "bba756cb8ede1218",
+  "src/main.rs:745": "b7e6b0a536c0359a",
+  "src/main.rs:749": "2e84b9f6fb6431db",
+  "src/main.rs:765": "2538c93aaca73383",
+  "src/main.rs:767": "833e2907d296ba11",
+  "src/main.rs:776": "2e84b9f6fb6431db",
+  "src/main.rs:795": "8ea9f062ac1c3f2f",
+  "src/main.rs:796": "61abd79768e3f1c2",
+  "src/main.rs:800": "1974948bd88f3c1e",
+  "src/main.rs:801": "a0011659c2b77e48",
+  "src/main.rs:805": "f9d827078ccafdbb",
+  "src/main.rs:806": "1eebce5f8f28106e",
+  "src/main.rs:810": "73e4f3c001a3173c",
+  "src/main.rs:811": "9fc45f946819a5ad",
+  "src/main.rs:815": "b29546a58ccaad5c",
+  "src/main.rs:816": "a89053f4d896ca3c",
+  "src/main.rs:820": "e8ed93e75d81d1c4",
+  "src/main.rs:821": "e6deb6bb9bea032e",
+  "src/main.rs:827": "5bbce23b1d5d2be7",
+  "src/main.rs:847": "d81d8e0311228a49",
+  "src/main.rs:850": "f527f414a6eb5058",
+  "src/main.rs:858": "6bf8590e5e78d353",
+  "src/main.rs:861": "b6c0ae176b5b2eda",
+  "src/main.rs:863": "4bd39ee29d67c4f7",
+  "src/main.rs:871": "0d970b9bf0882bd4",
+  "src/main.rs:884": "5d8a694c3eee64dc",
+  "src/main.rs:885": "c86d6b4f79971b9e",
+  "src/main.rs:899": "0d970b9bf0882bd4",
+  "src/main.rs:912": "5d8a694c3eee64dc",
+  "src/main.rs:913": "c86d6b4f79971b9e",
+  "src/main.rs:929": "2aa670b683b6561c",
+  "src/main.rs:931": "8101026b71fc7983",
+  "src/main.rs:932": "45858ecd560dd1fe",
+  "src/main.rs:933": "2788ace56548a245",
+  "src/main.rs:950": "0aecd8c035e76947",
+  "src/main.rs:951": "c86d6b4f79971b9e",
+  "src/main.rs:960": "83c8a08ba829291f",
+  "src/main.rs:962": "dcfbbd1d14cddb42",
+  "src/main.rs:964": "c76acb0ab78e7781",
+  "src/main.rs:968": "ad9972720c648e6a",
+  "src/main.rs:970": "862474acb1aff21b",
+  "src/main.rs:971": "743e407271cede95",
+  "src/main.rs:977": "e8a2bb45c6357121",
+  "src/main.rs:979": "e649ca29742dd1eb",
+  "src/main.rs:980": "743e407271cede95",
+  "src/main.rs:997": "2aa670b683b6561c",
+  "src/main.rs:999": "8101026b71fc7983",
+  "src/name_resolution/binding_lookup.rs:81": "2d4966a151dfbe23",
+  "src/name_resolution/engine.rs:134": "822b3babfae705be",
+  "src/name_resolution/engine.rs:147": "2d4966a151dfbe23",
+  "src/name_resolution/engine.rs:155": "6f42c77d0520630e",
+  "src/name_resolution/engine.rs:237": "6e6cf43882bfca4d",
+  "src/name_resolution/engine.rs:407": "6325a0779e515b3a",
+  "src/name_resolution/graph.rs:137": "59568ea0660f8a15",
+  "src/name_resolution/rust_policy.rs:128": "41e9933d45eec73c",
+  "src/name_resolution/rust_policy.rs:141": "142fd34e15a0cf60",
+  "src/name_resolution/rust_policy.rs:204": "abc8bed4844fea2d",
+  "src/name_resolution/rust_populator/builder.rs:219": "8af746789bdcfbe1",
+  "src/name_resolution/rust_populator/builder.rs:222": "a9135c7095b5ed0f",
+  "src/name_resolution/rust_populator/walk/types.rs:416": "a1848c2d9ba8a223",
+  "src/navigation/mod.rs:83": "c14011a6e225d1fc",
+  "src/navigation/mod.rs:89": "5f1252a479fb0648",
+  "src/navigation/queries.rs:335": "e6c3103e94ecde7d",
+  "src/navigation/queries.rs:821": "d31fc8775f5dbc97",
+  "src/navigation/seed.rs:50": "d31fc8775f5dbc97",
+  "src/resolution_receiver.rs:572": "ab42c3e77055e144",
+  "src/type_providers/go.rs:1575": "f627e3cb19b36f66",
+  "src/type_providers/go.rs:1587": "e64962ebea1d11b0",
+  "src/type_providers/go.rs:252": "c6ac0de5aef71f0d",
+  "src/type_providers/rust_provider.rs:139": "2d1db17914e594ea",
+  "src/type_providers/rust_provider.rs:553": "68154731a707acfa",
+  "src/type_providers/rust_provider.rs:555": "88d0ef64951577fe",
+  "tests/algo/taxonomy/misc_lang_test.rs:306": "781e57203b8a523f",
+  "tests/algo/taxonomy/misc_test.rs:374": "781e57203b8a523f",
+  "tests/algo/taxonomy/misc_test.rs:401": "781e57203b8a523f",
+  "tests/algo/taxonomy/taint_lang_test.rs:539": "fe0455477a81b324",
+  "tests/algo/taxonomy/taint_lang_test.rs:564": "8b885b13a34c78dc",
+  "tests/algo/taxonomy/taint_sink_test.rs:380": "d8eb2a2d930a395e",
+  "tests/algo/theoretical/vertical_threed_test.rs:133": "979babad818ed4bc",
+  "tests/algo/theoretical/vertical_threed_test.rs:174": "979babad818ed4bc",
+  "tests/algo/theoretical/vertical_threed_test.rs:217": "2239d1b94c92ef2e",
+  "tests/algo/theoretical/vertical_threed_test.rs:291": "979babad818ed4bc",
+  "tests/ast/cpg_cache_test.rs:110": "e978a0594ddf5600",
+  "tests/ast/cpg_cache_test.rs:604": "7ee819c81a50f34b",
+  "tests/ast/cpg_cache_test.rs:650": "fa63983c663a829c",
+  "tests/ast/cpg_cache_test.rs:701": "a9228fdfd9257760",
+  "tests/ast/cpg_test.rs:47": "67e74b5efc211b53",
+  "tests/ast/cpg_test.rs:61": "a22299fcb95870b7",
+  "tests/ast/cpg_test.rs:81": "4f3bae888d744461",
+  "tests/ast/cpg_test.rs:84": "69fcb0fc483d2e30",
+  "tests/ast/cpp_type_provider_test.rs:510": "23df49f4c91f8efa",
+  "tests/ast/cpp_type_provider_test.rs:515": "595be27420f8ea48",
+  "tests/ast/cpp_type_provider_test.rs:516": "3dc47c636b5bcdcf",
+  "tests/ast/cpp_type_provider_test.rs:518": "b3fc905da28cb9d8",
+  "tests/ast/cpp_type_provider_test.rs:521": "e588b335339e4454",
+  "tests/ast/cpp_type_provider_test.rs:528": "11cb681a5ae3f959",
+  "tests/ast/dfg_test.rs:167": "cb5763fb74810c29",
+  "tests/ast/dfg_test.rs:297": "ef5345c3e6c788c4",
+  "tests/ast/field_test.rs:85": "fb9b59136e7218de",
+  "tests/ast/python_type_provider_test.rs:444": "b87b29391ebcfc6e",
+  "tests/ast/python_type_provider_test.rs:445": "554e53739cb7a201",
+  "tests/ast/python_type_provider_test.rs:446": "642e1688ff292b30",
+  "tests/cli/validation_test.rs:55": "398e54d8885bc494",
+  "tests/cli/validation_test.rs:60": "61214ff5922e693d",
+  "tests/integration/call_graph_test.rs:1149": "702a5b100351cb26",
+  "tests/integration/core_test.rs:780": "ced6d2fbaf407297",
+  "tests/integration/resolution_test.rs:1952": "7953381656a07bfe",
+  "tests/integration/resolution_test.rs:1964": "8c2bc0a360122055",
+  "tests/integration/resolution_test.rs:1965": "d2da33ffaf5bcc2f",
+  "tests/integration/resolution_test.rs:2267": "06668ffbc9efdbe5",
+  "tests/integration/resolution_test.rs:675": "8d34e3fe305802f4",
+  "tests/integration/resolution_test.rs:683": "d09f9913451972e3",
+  "tests/lang/bash/algo_expand_test.rs:182": "979babad818ed4bc",
+  "tests/lang/bash/algo_expand_test.rs:80": "781e57203b8a523f",
+  "tests/lang/c/algo_expand_test.rs:241": "781e57203b8a523f",
+  "tests/lang/c/algo_expand_test.rs:360": "979babad818ed4bc",
+  "tests/lang/c/algo_expand_test.rs:412": "5ef489a62f16ee26",
+  "tests/lang/c/algo_expand_test.rs:422": "89d3c387b0d49fa9",
+  "tests/lang/c/algo_expand_test.rs:425": "0643d8cac905b68e",
+  "tests/lang/c/cve_test.rs:359": "c633106875f00153",
+  "tests/lang/cpp/algo_test.rs:173": "781e57203b8a523f",
+  "tests/lang/go/advanced_test.rs:272": "979babad818ed4bc",
+  "tests/lang/go/algo_test.rs:349": "781e57203b8a523f",
+  "tests/lang/java/algo_expand_test.rs:137": "979babad818ed4bc",
+  "tests/lang/java/algo_expand_test.rs:35": "781e57203b8a523f",
+  "tests/lang/javascript/algo_test.rs:241": "979babad818ed4bc",
+  "tests/lang/javascript/algo_test.rs:272": "781e57203b8a523f",
+  "tests/lang/lua/algo_expand_test.rs:201": "979babad818ed4bc",
+  "tests/lang/lua/algo_expand_test.rs:80": "781e57203b8a523f",
+  "tests/lang/rust/algo_expand_test.rs:152": "979babad818ed4bc",
+  "tests/lang/rust/algo_expand_test.rs:35": "781e57203b8a523f",
+  "tests/lang/rust/algo_test.rs:230": "04edc34c5542fc0f",
+  "tests/lang/terraform/algo_expand_test.rs:112": "781e57203b8a523f",
+  "tests/lang/terraform/algo_expand_test.rs:154": "979babad818ed4bc",
+  "tests/lang/tsx/algo_expand_test.rs:113": "781e57203b8a523f",
+  "tests/lang/tsx/algo_expand_test.rs:180": "979babad818ed4bc",
+  "tests/lang/typescript/typescript_test.rs:447": "979babad818ed4bc",
+  "tests/lang/typescript/typescript_test.rs:478": "781e57203b8a523f",
+  "tests/name_resolution/build_wiring_test.rs:171": "2db8c76430fb6ac0",
+  "tests/navigation/index_test.rs:33": "4bf3376e118fb12c"
+ }
+}

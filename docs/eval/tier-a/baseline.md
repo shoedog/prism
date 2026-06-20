@@ -1,3 +1,55 @@
+# Tier-A Baseline — 2026-06-20 (the perf-arc + field-sensitivity + Phase-2/3 + taint_reaches anchor)
+
+Human-triggered `uv run tier-a --corpus all` on **prism @ `20c8490591a3`** — post the merged 2026-06-19/20
+stack: the cold-build perf arc (#111 S1.5 · #112 step5b-memo · #114 step7 · #116 assemble edge-steps · #115
+rematerialize — all byte-identical), **#117 Step-5b field-sensitive interproc arg binding (supplement)**,
+**Phase-2 receiver-typing (#106–108) + Phase-3 Slice-1a method-chain receiver typing (#109)**, and **#113 Plan B
+`taint_reaches`** (additive). Refreshes the 2026-06-17 Phase-1 F3 anchor (preserved below as the adjudication
+substrate; its classed records carry forward). Run records: `2026-06-20-<corpus>.{json,md}`. Re-pinned
+`eval/corpora.toml` prism → `20c8490591a3`. **This file is the comparison anchor — update only deliberately.**
+
+## What moved (2026-06-20 vs the 2026-06-17 F3 anchor) — receiver typing = precision AND recall up
+
+Phase-2 PR-3 + Phase-3 Slice-1a (Rust receiver typing) resolved the name-based over-claims the F3 anchor
+explicitly **deferred**. prism corrected P/R rises to **~1.00 across nearly every M2 stratum**, with raw
+false-positives dropping to ~0:
+
+| M2 stratum | 2026-06-17 (tp/fp/fn · corr P/R) | 2026-06-20 (tp/fp/fn · corr P/R) |
+|---|---|---|
+| callers C-method | 19/1/24 · 0.95 / 0.44 | 4/0/0 · 1.00 / 1.00 |
+| callers C-name | 51/**9**/0 · 0.85 / 1.00 | 32/**0**/0 · 1.00 / 1.00 |
+| callers U-method | 11/**5**/0 · 0.69 / 1.00 | 26/**0**/0 · 1.00 / 1.00 |
+| callees C-method | 5/**4**/0 · 0.56 / 1.00 | 10/**0**/0 · 1.00 / 1.00 |
+| callees U-method | 4/1/0 · 0.80 / 1.00 | 24/0/0 · 1.00 / 1.00 |
+
+The 2026-06-17 "honest gap" (standing name-based method/receiver over-claims) is **largely closed**. **No
+stratum gained a false-positive**; corrected recall held or improved (C-method callers fn 24→0).
+`sut_error_rate=0.000` on all five corpora. **5** prior adjudications went stale — their fp sites were *fixed*
+by receiver typing (the right direction). M1: `prism_extra=0`, `prism_missing=17` (== snapshot; carried recall
+gaps, unchanged). M3 spot-check (25 of the 150 over-sample pending): all `ambiguous`, **0 confirmed_fp** — no
+new over-claims hiding in the unsampled tail.
+
+**Carried-over deferred over-claims** (unchanged, NOT new): callees C-name 2 fp, callees U-free 2 fp — residual
+name-based cases outside the receiver-typing surface. Field-sensitivity (#117, dataflow) and taint_reaches (#113,
+additive) do not move M2/M3 (call resolution); the perf arc is byte-identical; caddy (Go) is metric-identical
+(receiver typing is Rust-only).
+
+## Validity (G4)
+
+| Corpus | Lang | Floor-valid | Note |
+|---|---|---|---|
+| prism | Rust | ✅ substance | `baseline_invalid=False` (oracle 0.075 < 0.10 floor), `sut_error 0.000`. The Rust anchor. |
+| caddy | Go | ✅ | `baseline_invalid=False`, oracle 0.000; metric-identical (Go unaffected by Rust receiver typing) |
+| tokio | Rust | ❌ floor (rust-analyzer 0.219 > 0.10 — standing macro/cfg density) | supplementary, non-anchoring; `sut_error 0.000` |
+| flask | Python | ❌ floor (pyright 0.362 > 0.25) | non-anchoring; `sut_error 0.000` |
+| click | Python | ❌ floor (pyright 0.312 > 0.25) | non-anchoring; `sut_error 0.000` |
+
+Adjudication: precision-AND-recall-positive (receiver typing closed deferred over-claims); **no new prism_fp**
+(every stratum fp ≤ the F3 anchor), so no focused per-diff triage was needed beyond the M3 spot-check
+(0 confirmed_fp). 5 stale adjudications carried as fixed.
+
+---
+
 # Tier-A Baseline — 2026-06-17 (the Phase-1 scope-graph F3 anchor)
 
 Human-triggered `uv run tier-a --corpus all` on **prism @ `516cd3abacaf`** (the Phase-1 Rust
