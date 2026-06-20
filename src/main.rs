@@ -323,10 +323,16 @@ enum NavQuery {
 
 fn main() -> Result<()> {
     let cli = Cli::parse();
-    match &cli.command {
-        Some(Command::Nav(nav)) => return run_nav(nav),
+    // Run the whole command on the large-stack pool. prism walks tree-sitter
+    // ASTs recursively in parsing, CPG build, and the live-type scan; on deeply
+    // nested files those overflow a default ~2 MiB thread/worker stack. install()
+    // runs the command and every nested par_iter on big-stack workers, covering
+    // all of run_nav/run_review (incl. direct changed-file / delta / contract
+    // parses) in one place. See prism::build_pool.
+    prism::build_pool::install(|| match &cli.command {
+        Some(Command::Nav(nav)) => run_nav(nav),
         None => run_review(&cli.review),
-    }
+    })
 }
 
 fn run_nav(nav: &NavArgs) -> anyhow::Result<()> {

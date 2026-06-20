@@ -22,6 +22,12 @@ fn corpus2() -> LoadedRepo {
     load_repo(&std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src/cpg")).unwrap()
 }
 
+// NOTE: the CPG build now installs its recursive walks onto the shared
+// large-stack pool (`prism::build_pool`), so the `one_thread_pool()` ambient
+// pool below no longer forces a *serial* build — both sides build on the pool.
+// These tests therefore assert build DETERMINISM (two independent builds produce
+// byte-identical CPG / cache blobs), which is the invariant that matters; they
+// are no longer a literal serial-vs-parallel comparison.
 #[test]
 fn cpg_build_parallel_matches_serial_reference_in_order() {
     let repo = corpus();

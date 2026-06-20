@@ -15,6 +15,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use super::{CpgEdge, CpgNode, StmtKind, VarAccess};
 use crate::ast::ParsedFile;
+use crate::build_pool::build_pool;
 
 /// The normalized parameter-name list for a resolved callee, as Step 5b computes it.
 /// Pure function of `(callee.file, callee.name, callee.start_line)` + the immutable
@@ -208,9 +209,14 @@ impl CodePropertyGraph {
         type_db: Option<TypeDatabase>,
         scope_inputs: Option<&ScopeGraphBuildInputs>,
     ) -> Self {
-        let dfg = DataFlowGraph::build(files);
-        let cg = CallGraph::build_with_scope_graph_inputs(files, scope_inputs);
-        Self::assemble_graph(cg, dfg, files, type_db)
+        // Run the whole build (DFG + call-graph + assemble, all recursive AST
+        // walks) on the large-stack pool so deep ASTs don't overflow a default
+        // ~2 MiB rayon worker. install() makes every nested par_iter use it.
+        build_pool().install(|| {
+            let dfg = DataFlowGraph::build(files);
+            let cg = CallGraph::build_with_scope_graph_inputs(files, scope_inputs);
+            Self::assemble_graph(cg, dfg, files, type_db)
+        })
     }
 
     /// Build a CPG with type enrichment from a TypeDatabase.
@@ -266,32 +272,37 @@ impl CodePropertyGraph {
         type_db: Option<TypeDatabase>,
         scope_inputs: Option<&ScopeGraphBuildInputs>,
     ) -> Self {
-        // Step 1: Remove stale data for changed files.
-        cached_cg.remove_files(changed_files);
-        cached_dfg.remove_files(changed_files);
+        // Same large-stack pool as build_impl — the subset CG/DFG builds and the
+        // assemble below are the same recursive AST walks (install() routes every
+        // nested par_iter onto big-stack workers).
+        build_pool().install(move || {
+            // Step 1: Remove stale data for changed files.
+            cached_cg.remove_files(changed_files);
+            cached_dfg.remove_files(changed_files);
 
-        // Step 2: Build fresh CG/DFG for changed files only.
-        // Note: build_direct_subset only resolves direct calls (Phases 1+2),
-        // not indirect calls (Phase 3: function pointers, parameter-passed
-        // callbacks, struct field callbacks). Cached indirect resolution for
-        // unchanged files is preserved via the merge.
-        let fresh_cg = CallGraph::build_direct_subset(files, changed_files);
-        let fresh_dfg = DataFlowGraph::build_subset(files, changed_files);
+            // Step 2: Build fresh CG/DFG for changed files only.
+            // Note: build_direct_subset only resolves direct calls (Phases 1+2),
+            // not indirect calls (Phase 3: function pointers, parameter-passed
+            // callbacks, struct field callbacks). Cached indirect resolution for
+            // unchanged files is preserved via the merge.
+            let fresh_cg = CallGraph::build_direct_subset(files, changed_files);
+            let fresh_dfg = DataFlowGraph::build_subset(files, changed_files);
 
-        // Step 3: Merge fresh into retained.
-        cached_cg.merge(fresh_cg);
-        cached_dfg.merge(fresh_dfg);
+            // Step 3: Merge fresh into retained.
+            cached_cg.merge(fresh_cg);
+            cached_dfg.merge(fresh_dfg);
 
-        // Phase-IP: Go embedding promotion is whole-program — recompute (replace-
-        // not-merge) over ALL merged files so a removed/changed embedding cannot
-        // leave a stale alias (remove_files prunes methods by fid.file only).
-        cached_cg.apply_go_embedding_promotion(files);
-        cached_cg.apply_go_interface_dispatch(files);
-        // Rebuild-together: this also refreshes Phase-2a Rust receiver indices
-        // and re-materializes CallSite.receiver_outcome before assemble reads it.
-        cached_cg.rebuild_scope_graph(files, scope_inputs);
+            // Phase-IP: Go embedding promotion is whole-program — recompute (replace-
+            // not-merge) over ALL merged files so a removed/changed embedding cannot
+            // leave a stale alias (remove_files prunes methods by fid.file only).
+            cached_cg.apply_go_embedding_promotion(files);
+            cached_cg.apply_go_interface_dispatch(files);
+            // Rebuild-together: this also refreshes Phase-2a Rust receiver indices
+            // and re-materializes CallSite.receiver_outcome before assemble reads it.
+            cached_cg.rebuild_scope_graph(files, scope_inputs);
 
-        Self::assemble_graph(cached_cg, cached_dfg, files, type_db)
+            Self::assemble_graph(cached_cg, cached_dfg, files, type_db)
+        })
     }
 
     /// Assemble a CPG petgraph from pre-built CG and DFG.

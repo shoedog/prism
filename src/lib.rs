@@ -32,6 +32,7 @@
 pub mod access_path;
 pub mod algorithms;
 pub mod ast;
+pub mod build_pool;
 pub mod call_graph;
 pub mod cfg;
 pub mod cpg;
