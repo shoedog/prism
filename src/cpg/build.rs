@@ -563,20 +563,7 @@ impl CodePropertyGraph {
         }
 
         // --- Step 7: Statement nodes for CFG ---
-        let mut stmt_index: BTreeMap<(String, usize), NodeIndex> = BTreeMap::new();
-        for (path, parsed) in files {
-            let root = parsed.tree.root_node();
-            let func_types = parsed.language.function_node_types();
-            Self::collect_function_statements(
-                root,
-                &func_types,
-                parsed,
-                path,
-                &mut graph,
-                &mut stmt_index,
-                &mut location_index,
-            );
-        }
+        let stmt_index = Self::assemble_step7(files, &mut graph, &mut location_index);
 
         // --- Step 8: ControlFlow edges ---
         for (_path, parsed) in files {
@@ -703,6 +690,51 @@ impl CodePropertyGraph {
 
     /// Collect all statement-level AST nodes within functions and create
     /// `CpgNode::Statement` nodes in the graph.
+    pub(crate) fn assemble_step7(
+        files: &BTreeMap<String, ParsedFile>,
+        graph: &mut DiGraph<CpgNode, CpgEdge>,
+        location_index: &mut BTreeMap<(String, usize), Vec<NodeIndex>>,
+    ) -> BTreeMap<(String, usize), NodeIndex> {
+        let mut stmt_index: BTreeMap<(String, usize), NodeIndex> = BTreeMap::new();
+        for (path, parsed) in files {
+            let root = parsed.tree.root_node();
+            let func_types = parsed.language.function_node_types();
+            Self::collect_function_statements(
+                root,
+                &func_types,
+                parsed,
+                path,
+                graph,
+                &mut stmt_index,
+                location_index,
+            );
+        }
+        stmt_index
+    }
+
+    #[cfg(test)]
+    pub(crate) fn assemble_step7_reference(
+        files: &BTreeMap<String, ParsedFile>,
+        graph: &mut DiGraph<CpgNode, CpgEdge>,
+        location_index: &mut BTreeMap<(String, usize), Vec<NodeIndex>>,
+    ) -> BTreeMap<(String, usize), NodeIndex> {
+        let mut stmt_index: BTreeMap<(String, usize), NodeIndex> = BTreeMap::new();
+        for (path, parsed) in files {
+            let root = parsed.tree.root_node();
+            let func_types = parsed.language.function_node_types();
+            Self::collect_function_statements(
+                root,
+                &func_types,
+                parsed,
+                path,
+                graph,
+                &mut stmt_index,
+                location_index,
+            );
+        }
+        stmt_index
+    }
+
     fn collect_function_statements(
         node: tree_sitter::Node<'_>,
         func_types: &[&str],
