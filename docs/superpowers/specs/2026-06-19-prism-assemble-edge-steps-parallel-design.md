@@ -1,7 +1,7 @@
 # Assemble Edge-Steps Parallelization (Steps 5 + 5b + 8) — Design
 
 **Date:** 2026-06-19
-**Status:** DRAFT (pre spec-review)
+**Status:** rev 2 — **PLAN-READY** (codex gpt-5.5 xhigh spec-review folded: SOUND-WITH-CONCERNS, no spec-time blocker; the MAJOR `call_args` `OnceLock` → prewarm + claim correction, 2 MINORs folded)
 **Branch:** `step8-varnode-parallel`
 **Predecessors:** S1.5 call-args index (#111) · Step-5b param memo (#112) · Step-7 statement-node parallelization (#114)
 
@@ -51,11 +51,14 @@ Non-goals (this slice):
 
 ## 3. The invariant being protected
 
-`src/cpg/cpg_cache.rs` serializes `graph.node_indices()` and
-`graph.edge_indices()` **in order**. Therefore the on-disk cache blob, and every
-`NodeIndex`/`EdgeIndex`-keyed index, is a pure function of **node-insertion order
-and edge-insertion order**. This slice creates no nodes, so node order is
-trivially preserved; the load-bearing risk is **edge-insertion order**.
+`src/cpg_cache.rs` serializes `graph.node_indices()` and `graph.edge_indices()`
+**in order** (`:187` / `:193`; load replays edges in stored order at `:406`).
+Therefore the on-disk cache blob, and every `NodeIndex`/`EdgeIndex`-keyed index,
+is a pure function of **node-insertion order and edge-insertion order**. This
+slice creates no nodes, so node order is trivially preserved; the load-bearing
+risk is **edge-insertion order**. (Nothing is keyed by `EdgeIndex` beyond
+serialization — confirmed; the `location_index` post-sort at `build.rs:661`
+orders *nodes*, not edges.)
 
 Each step today emits edges in a fully-deterministic order:
 
@@ -127,8 +130,30 @@ for the rest of `assemble_graph`. We parallelize the **consumption** of the
 already-built resolver — *not* resolution construction (`CallGraph::build`,
 Phase 3), which is a separate, deferred research question.
 
-**Step 5b** — identical shape, par over callers, collecting `DataFlow` edges.
-The only state in today's loop is the `param_cache` memo (#112). Each parallel
+**Step 5b** — same shape, par over callers, collecting `DataFlow` edges, with two
+specifics the spec-review surfaced:
+
+1. **It has its own distinct skip ladder — do NOT inherit Step 5's caller-skip.**
+   Step 5 skips the whole caller on a `func_index` miss (`build.rs:455`). Step 5b
+   does *not* check `func_index`; its skips are, verbatim and in order:
+   `files.get(caller_id.file)` → `arg_texts.is_empty()` → `files.get(callee_id.file)`
+   → `compute_param_names == None` → the `var_index` arg/param lookups
+   (`build.rs:485,493,498,507,530`). Each step gets its **own** `collect_*` fn and
+   its **own** `#[cfg(test)]` reference twin reproducing its ladder verbatim — no
+   shared, over-aggressive helper.
+2. **The `call_args` `OnceLock` must be prewarmed.** `Step 5b`'s
+   `caller_parsed.call_argument_texts_at(...)` (`build.rs:494`) reads through
+   `ParsedFile::call_args` — a lazy `OnceLock<CallArgsIndex>` (`ast.rs:118`) whose
+   own doc says *"the cold CPG/nav build that runs Step 5b builds it on demand"*,
+   i.e. it is the **sole consumer** and the lock is **cold** when Step 5b runs.
+   `OnceLock::get_or_init` is thread-safe and the init is deterministic (immutable
+   pre-order tree walk → `BTreeMap`, `ast.rs:182`), so concurrent first-touch is
+   sound — but to make the parallel phase a literal read of an initialized index
+   (and to dodge init-under-contention) we **prewarm** before the collect:
+   `files.par_iter().for_each(|(_, p)| { p.call_args_index(); });` (each file's
+   `OnceLock` is independent → the prewarm is itself safely parallel).
+
+The only other Step-5b state is the `param_cache` memo (#112). Each parallel
 caller-unit keeps its **own local** param memo (`BTreeMap<(file,name,start),
 Option<Vec<String>>>`) — no shared mutability. `compute_param_names` is a pure
 function of `(callee_parsed, callee_id)`, so a per-caller-local memo yields
@@ -171,7 +196,14 @@ fn step5_parallel_edge_collect_matches_serial_reference() {
   (deterministic); par-collect vs reference-collect use the same `stmt_index`, so
   the emitted `ControlFlow` `Vec`s are directly comparable.
 - `PendingEdge` ordinals are `NodeIndex` from the same index map for both sides,
-  so equality is exact (and `CpgEdge` already `#[derive(PartialEq)]`).
+  so equality is exact (and `CpgEdge` already `#[derive(PartialEq, Eq)]`,
+  `types.rs:154`).
+- **`edge_fixture()` must be non-vacuous across the branch cases** so the oracle
+  actually exercises the order-sensitive paths: ≥1 **unresolved** call (resolves
+  to nothing → emits no edge), ≥1 site resolving to **multiple** callees, ≥1
+  **Call+Return** pair, ≥1 Step-5b **arg→param** `DataFlow` edge, ≥1 **CFG** edge.
+  Each `assert!(!par.is_empty())` plus these cases guards against a fixture that
+  silently tests nothing.
 
 This is the **old-order gate**: it proves the parallel restructure reproduces the
 pre-refactor edge order. `git_sha`-immune (in-memory, same binary).
@@ -193,7 +225,9 @@ hollow out the determinism gate.
 ### 5.3 Tier-A backstop
 
 `cd eval && uv run tier-a --matrix-only --allow-stale-sut` — **0 regressions**
-required (CPG-construction change per AGENTS.md).
+required (CPG-construction change per AGENTS.md). Kept **modest**: `--matrix-only`
+is a *behavioral* backstop and would not flip on a pure edge-order change that
+preserves the edge set — the §5.1 collect oracle is the byte-identity guard.
 
 ## 6. Perf gate
 
@@ -209,7 +243,8 @@ any corpus is the gate; the speedup is the reward. The param pre-pass decision
 | risk | mitigation |
 |---|---|
 | Edge-order divergence (cache-byte break) | §5.1 old-order oracle + §5.2 cache-byte gate; order-preserving `collect` + serial apply. |
-| `resolve_call_site` unsound under `par_iter` | Audited `&self`, zero interior mutability; parallelize consumption only. |
+| `resolve_call_site` unsound under `par_iter` | Audited `&self`, zero interior mutability (full ladder, `resolution.rs:673/1109`); parallelize consumption only. |
+| Step 5b's `call_args` `OnceLock` first-touched under `par_iter` | Thread-safe (`get_or_init`) + deterministic (`BTreeMap` pre-order walk), but **prewarmed** (`par_iter().for_each(call_args_index)`) before the collect so the parallel phase is a literal read of an initialized index. |
 | Step-5b per-caller-local memo loses #112 cross-caller sharing | Edge parity is unaffected (param names are pure). Perf gate confirms net win; fallback = a global **immutable** param map precomputed in parallel over `cg`'s callees (no shared mutability), if measurement shows param recompute dominates. |
 | Rayon nested-pool / overhead on tiny corpora | Same shared global pool as Step 7; `iter()` (1-thread pool) path is the determinism reference and stays correct. |
 | Hidden ordering in `cfg::build_cfg_edges` | Read-only, returns an ordered `Vec`; unchanged — we only move *when* it runs. |
@@ -218,7 +253,9 @@ any corpus is the gate; the speedup is the reward. The param pre-pass decision
 
 - `src/cpg/build.rs` — extract `collect_step5_edges`, `collect_step5b_edges`,
   `collect_step8_edges` (production, parallel); replace the three inline loops
-  with collect-then-serial-apply; add `#[cfg(test)]` reference twins.
+  with collect-then-serial-apply; add the Step-5b `call_args` prewarm immediately
+  before its collect; add `#[cfg(test)]` reference twins (each reproducing its
+  step's own skip ladder verbatim).
 - `src/cpg/tests.rs` — three old-order collect-parity oracles + `edge_fixture()`.
 - `tests/infra/parallel_equality_test.rs` — edge non-vacuity assert.
 
