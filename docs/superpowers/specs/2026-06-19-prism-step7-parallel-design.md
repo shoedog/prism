@@ -1,6 +1,20 @@
 # Prism Step 7 Parallelization (statement-node creation) — Design
 
-**Rev 1 — 2026-06-19. Status: DRAFT (pre codex spec-review).**
+**Rev 2 — 2026-06-19. Status: PLAN-READY (codex gpt-5.5 xhigh spec-review folded; design sound, proof gate fixed).**
+
+> **Rev 2 (codex spec-review — FLAWED → fixed; the design/approach was confirmed sound + race-free, the flaw
+> was in the proof gate):** 1 BLOCKER + 1 MAJOR + 2 MINORs.
+> **BLOCKER:** a pre-refactor "golden `cpg-cache.bin` byte parity" gate is INVALID — the cache serializes
+> `git_sha = env!("GIT_SHA")` + build metadata *before* the graph (`cpg_cache.rs:62–88`), so a golden from
+> another commit differs even with an identical graph. Fixed: the **same-binary serial-reference oracle** (§4
+> gate 1, in-memory graph, no cache bytes) is THE old-order proof; cache-byte parity is **same-build
+> serial-vs-parallel** (determinism only). **MAJOR:** `parallel_equality_test` (default vs 1-thread, same
+> build) catches scheduler nondeterminism, NOT a consistently-reordered new algorithm — so the oracle is the
+> required old-parity gate; thread-count equality is only a determinism gate (stated explicitly). **MINORs:**
+> the oracle compares `(file,line)→NodeIndex` ordinals + the final sorted `location_index` buckets (not just
+> key sets); the order-contract wording sharpened (emit-on-function-encounter then recurse; whole-file `seen`
+> checked *before* classify). Codex confirmed **no race** (classify read-only, query cache `OnceLock`,
+> `StmtKind: Send`).
 
 **Goal:** Parallelize `assemble_graph` Step 7 (statement-node creation for the CFG) — the residual serial
 dominator (**73–80%** of the post-memo assemble) — via parallel-collect → serial-create, **proving a
@@ -85,10 +99,15 @@ for (path, stmts) in &per_file {
 }
 ```
 
-`collect_pending` is the current `collect_function_statements` recursion (`:706`) with the three mutations
-(`add_node`/`stmt_index.insert`/`location_index.push`) replaced by `seen.insert(line)` (whole-file first-win)
-+ `stmts.push(PendingStatement { line, kind: classify_stmt_kind(&span.kind, parsed, span.line), .. })`. It
-reuses `statement_spans_in_function` (already line-sorted + line-deduped) and `classify_stmt_kind` verbatim.
+`collect_pending` is the current `collect_function_statements` recursion (`:706`) **structurally unchanged**:
+when a function node is encountered it processes that function's `statement_spans_in_function` (already
+line-sorted + line-deduped), THEN recurses into children (so nested functions/closures are reached in the same
+pre-order). The only change is the mutation point: the current `if stmt_index.contains_key(&(file,line)) {
+continue }` becomes `if !seen.insert(line) { continue }` — a **whole-file** `seen: BTreeSet<usize>` (shared
+across the entire file's recursion, NOT per-function), checked **before** `classify_stmt_kind` (exactly as the
+current code skips before classify); and `add_node`/`stmt_index.insert`/`location_index.push` become
+`stmts.push(PendingStatement { line, kind: classify_stmt_kind(&span.kind, parsed, span.line), .. })`.
+`statement_spans_in_function` and `classify_stmt_kind` are reused verbatim.
 
 **The order contract (the parity heart):** node creation order =
 `files`-BTreeMap-order × recursive-function-node-traversal (pre-order) × each function's
@@ -124,19 +143,35 @@ endpoints + every `NodeIndex`-keyed index. **Preserving statement `NodeIndex` or
   fields (`framework`, `call_args`) are concurrent-first-touch-safe.
 - The parallel map captures only immutable `&` (no `&mut`); `add_node` happens **only** in the serial pass.
 
-**Proof harness (three independent gates — `guard against risk`):**
-1. **Serial-reference node-order oracle** (the S1.5 frozen-oracle pattern): keep the original
-   `collect_function_statements` as a `#[cfg(test)]` reference that emits the exact creation-order record
-   sequence `(file, line, kind, start_byte, end_byte)` + the `stmt_index` keys + `location_index` appends;
-   assert the parallel-collect/serial-create plan produces an **identical** sequence. Use debug/tuple dumps —
-   **`CpgNode::PartialEq` ignores statement byte-spans** (`types.rs:70–80`), so `==` is insufficient.
-2. **Extend `tests/infra/parallel_equality_test.rs`** — it already asserts node/edge-dump order under default
-   vs 1-thread (`:25–40`) and cache-blob byte parity (`:42–66`). Add a **Step-7-heavy fixture/corpus**, run at
-   multiple thread counts, and add **minimum file/statement-count assertions** (guard against silent corpus
-   shrink masking a divergence).
-3. **Cache-blob byte parity vs a pre-refactor golden** + **Tier-A `--matrix-only` 0 regressions** (AGENTS.md
-   gate for `src/cpg/` changes). **No `CACHE_VERSION` bump** — if the bytes aren't identical, the design has
-   failed its central requirement; that's the gate, not a workaround.
+**Proof harness — distinguish the OLD-PARITY gate from the DETERMINISM gate:**
+
+1. **Serial-reference node-order oracle — THE hard old-parity gate (same binary, in-memory).** Keep the
+   original `collect_function_statements` as a `#[cfg(test)]` reference; build the CPG both ways and assert the
+   parallel-collect/serial-create produces an **identical**: (a) `Statement`-node creation sequence
+   `(file, line, kind, start_byte, end_byte)`; (b) `(file,line) → NodeIndex` (the ordinal that drives Step 8
+   endpoints) — `stmt_index` is build-local, so dump its values, not just keys; (c) the **final sorted**
+   `location_index` buckets (post `:667` sort). Use debug/tuple dumps — **`CpgNode::PartialEq` ignores
+   statement byte-spans** (`types.rs:70–80`), so `==` is insufficient. This is in-memory (no cache
+   serialization) so it is immune to the `git_sha`/build-metadata problem below, and — unlike thread-count
+   equality — it actually proves *new == old order*, not just *new is deterministic*.
+
+2. **`parallel_equality_test.rs` — the DETERMINISM gate (not old-parity).** It compares default-Rayon vs
+   1-thread node/edge dumps (`:25–40`) and cache-blob bytes (`:42–66`) **within the same build** — both share
+   `git_sha`, so it is a valid serial-vs-parallel determinism check; but it CANNOT prove equivalence to the
+   pre-refactor algorithm (a consistently-reordered new algorithm passes it). Extend it with a **Step-7-heavy
+   fixture/corpus**, multiple thread counts, and **minimum file/statement-count assertions** (guard against a
+   silent corpus shrink masking a divergence).
+
+3. **Tier-A `--matrix-only` 0 regressions** (AGENTS.md gate for `src/cpg/` changes; pre-commit). Note Tier-A
+   may NOT flip on a pure node-order change that doesn't alter resolution — so it backstops, it does not
+   replace gate 1.
+
+**No `CACHE_VERSION` bump, and the cache-byte caveat:** the full `cpg-cache.bin` serializes metadata
+(`version`/`prism_version`/`grammar_fingerprint`/**`git_sha`**/`file_hashes`/…) BEFORE the `graph: SerializedCpg`
+(`cpg_cache.rs:62–88`), so a literal cross-commit golden blob is NOT a valid parity gate (it differs on
+metadata). If a cross-build cache check is ever wanted, compare only the deserialized `SerializedCpg` graph
+payload, normalizing metadata. The same-binary oracle (gate 1) is the authoritative old-order proof; if it
+diverges, the design has failed its central requirement — that's the gate, not a workaround.
 
 **Enumerated failure modes → guards:**
 
