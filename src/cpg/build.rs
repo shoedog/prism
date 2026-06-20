@@ -3,7 +3,7 @@
 //! statement classification.
 
 use crate::access_path::AccessPath;
-use crate::call_graph::{CallGraph, FunctionId, ScopeGraphBuildInputs};
+use crate::call_graph::{CallGraph, CallSite, FunctionId, ScopeGraphBuildInputs};
 use crate::cfg;
 use crate::data_flow::{DataFlowGraph, VarAccessKind};
 use crate::resolution::ResolutionConfidence;
@@ -450,35 +450,8 @@ impl CodePropertyGraph {
         }
 
         // --- Step 5: Call edges ---
-        for (caller_id, sites) in &cg.calls {
-            let caller_key = (
-                caller_id.file.clone(),
-                caller_id.name.clone(),
-                caller_id.start_line,
-            );
-            let caller_idx = match func_index.get(&caller_key) {
-                Some(&idx) => idx,
-                None => continue,
-            };
-            for site in sites {
-                // S3: Exact + NameOnly included; drops excluded.
-                for resolved in cg.resolve_call_site(site) {
-                    let callee_id = resolved.target;
-                    let callee_key = (
-                        callee_id.file.clone(),
-                        callee_id.name.clone(),
-                        callee_id.start_line,
-                    );
-                    if let Some(&callee_idx) = func_index.get(&callee_key) {
-                        graph.add_edge(caller_idx, callee_idx, CpgEdge::Call(resolved.confidence));
-                        graph.add_edge(
-                            callee_idx,
-                            caller_idx,
-                            CpgEdge::Return(resolved.confidence),
-                        );
-                    }
-                }
-            }
+        for (from, to, w) in Self::collect_step5_edges(&cg, &func_index) {
+            graph.add_edge(from, to, w);
         }
 
         // --- Step 5b: Interprocedural data flow edges ---
@@ -741,6 +714,95 @@ impl CodePropertyGraph {
             }
         }
         stmt_index
+    }
+
+    /// Step 5: Function->Function Call + Return edges. Collect-then-apply.
+    /// (Inert here - serial; parallelized in Task 4.)
+    pub(crate) fn collect_step5_edges(
+        cg: &CallGraph,
+        func_index: &BTreeMap<(String, String, usize), NodeIndex>,
+    ) -> Vec<PendingEdge> {
+        let ordered: Vec<_> = cg.calls.iter().collect();
+        ordered
+            .iter()
+            .map(|(caller_id, sites)| {
+                Self::step5_edges_for_caller(caller_id, sites, cg, func_index)
+            })
+            .collect::<Vec<Vec<PendingEdge>>>()
+            .into_iter()
+            .flatten()
+            .collect()
+    }
+
+    /// The per-caller Step-5 emission - verbatim semantics of the original inline
+    /// loop (caller-skip on `func_index` miss; Call then Return per resolved callee).
+    fn step5_edges_for_caller(
+        caller_id: &FunctionId,
+        sites: &BTreeSet<CallSite>,
+        cg: &CallGraph,
+        func_index: &BTreeMap<(String, String, usize), NodeIndex>,
+    ) -> Vec<PendingEdge> {
+        let mut out: Vec<PendingEdge> = Vec::new();
+        let caller_key = (
+            caller_id.file.clone(),
+            caller_id.name.clone(),
+            caller_id.start_line,
+        );
+        let caller_idx = match func_index.get(&caller_key) {
+            Some(&idx) => idx,
+            None => return out,
+        };
+        for site in sites {
+            // S3: Exact + NameOnly included; drops excluded.
+            for resolved in cg.resolve_call_site(site) {
+                let callee_id = resolved.target;
+                let callee_key = (
+                    callee_id.file.clone(),
+                    callee_id.name.clone(),
+                    callee_id.start_line,
+                );
+                if let Some(&callee_idx) = func_index.get(&callee_key) {
+                    out.push((caller_idx, callee_idx, CpgEdge::Call(resolved.confidence)));
+                    out.push((callee_idx, caller_idx, CpgEdge::Return(resolved.confidence)));
+                }
+            }
+        }
+        out
+    }
+
+    #[cfg(test)]
+    pub(crate) fn collect_step5_edges_reference(
+        cg: &CallGraph,
+        func_index: &BTreeMap<(String, String, usize), NodeIndex>,
+    ) -> Vec<PendingEdge> {
+        let mut out: Vec<PendingEdge> = Vec::new();
+        for (caller_id, sites) in &cg.calls {
+            let caller_key = (
+                caller_id.file.clone(),
+                caller_id.name.clone(),
+                caller_id.start_line,
+            );
+            let caller_idx = match func_index.get(&caller_key) {
+                Some(&idx) => idx,
+                None => continue,
+            };
+            for site in sites {
+                // S3: Exact + NameOnly included; drops excluded.
+                for resolved in cg.resolve_call_site(site) {
+                    let callee_id = resolved.target;
+                    let callee_key = (
+                        callee_id.file.clone(),
+                        callee_id.name.clone(),
+                        callee_id.start_line,
+                    );
+                    if let Some(&callee_idx) = func_index.get(&callee_key) {
+                        out.push((caller_idx, callee_idx, CpgEdge::Call(resolved.confidence)));
+                        out.push((callee_idx, caller_idx, CpgEdge::Return(resolved.confidence)));
+                    }
+                }
+            }
+        }
+        out
     }
 
     /// Step 8: statement->statement ControlFlow edges. Parallel collect over
