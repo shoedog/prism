@@ -743,8 +743,8 @@ impl CodePropertyGraph {
         stmt_index
     }
 
-    /// Step 8: statement->statement ControlFlow edges. Collect-then-apply.
-    /// (Inert in this task - serial `iter`; parallelized in Task 2.)
+    /// Step 8: statement->statement ControlFlow edges. Parallel collect over
+    /// ordered file units (`par_iter`, order-preserving), then serial `add_edge`.
     pub(crate) fn collect_step8_edges(
         stmt_index: &BTreeMap<(String, usize), NodeIndex>,
         files: &BTreeMap<String, ParsedFile>,
