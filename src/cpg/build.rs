@@ -3,7 +3,7 @@
 //! statement classification.
 
 use crate::access_path::AccessPath;
-use crate::call_graph::{CallGraph, ScopeGraphBuildInputs};
+use crate::call_graph::{CallGraph, FunctionId, ScopeGraphBuildInputs};
 use crate::cfg;
 use crate::data_flow::{DataFlowGraph, VarAccessKind};
 use crate::resolution::ResolutionConfidence;
@@ -15,6 +15,51 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use super::{CpgEdge, CpgNode, StmtKind, VarAccess};
 use crate::ast::ParsedFile;
+
+/// The normalized parameter-name list for a resolved callee, as Step 5b computes it.
+/// Pure function of `(callee.file, callee.name, callee.start_line)` + the immutable
+/// `callee_parsed` - memoizable per callee. `None` mirrors the current
+/// `let Some(info) = ... else { continue }` (callee FunctionInfo not found -> skip the site).
+pub(crate) fn compute_param_names(
+    callee_parsed: &ParsedFile,
+    callee_id: &FunctionId,
+) -> Option<Vec<String>> {
+    let info = callee_parsed.functions().iter().find(|f| {
+        f.name.as_deref() == Some(callee_id.name.as_str()) && f.start_line == callee_id.start_line
+    })?;
+    // S3 (spec §3.3): a Python METHOD's self/cls receiver never binds to an explicit
+    // call arg. Gate on actual ownership — a free function whose first param merely
+    // happens to be named `self` must keep all its params.
+    let normalized: Vec<String> = callee_parsed
+        .all_functions()
+        .into_iter()
+        .find(|node| {
+            callee_parsed
+                .language
+                .function_name(node)
+                .map(|name| callee_parsed.node_text(&name) == callee_id.name.as_str())
+                .unwrap_or(false)
+                && callee_parsed.node_line_range(node).0 == callee_id.start_line
+        })
+        .map(|node| {
+            callee_parsed
+                .function_parameter_occurrences(&node)
+                .into_iter()
+                .map(|(name, _, _)| name)
+                .collect()
+        })
+        .unwrap_or_else(|| info.param_names.clone());
+    let final_names = match normalized.first().map(String::as_str) {
+        Some("self") | Some("cls")
+            if info.owner.is_some()
+                && callee_parsed.language == crate::languages::Language::Python =>
+        {
+            normalized[1..].to_vec()
+        }
+        _ => normalized,
+    };
+    Some(final_names)
+}
 
 // ---------------------------------------------------------------------------
 // Code Property Graph
@@ -426,6 +471,10 @@ impl CodePropertyGraph {
         }
 
         // --- Step 5b: Interprocedural data flow edges ---
+        let mut param_cache: std::collections::BTreeMap<
+            (String, String, usize),
+            Option<Vec<String>>,
+        > = std::collections::BTreeMap::new();
         for (caller_id, sites) in &cg.calls {
             for site in sites {
                 for resolved in cg.resolve_call_site(site) {
@@ -443,45 +492,17 @@ impl CodePropertyGraph {
                         Some(p) => p,
                         None => continue,
                     };
-                    let Some(info) = callee_parsed.functions().iter().find(|f| {
-                        f.name.as_deref() == Some(callee_id.name.as_str())
-                            && f.start_line == callee_id.start_line
-                    }) else {
-                        continue;
-                    };
-                    // S3 (spec §3.3): a Python METHOD's self/cls receiver never binds
-                    // to an explicit call arg. Gate on actual ownership — a free
-                    // function whose first param merely happens to be named `self`
-                    // must keep all its params (else arg→param edges shift by one).
-                    let normalized_param_names: Vec<String> = callee_parsed
-                        .all_functions()
-                        .into_iter()
-                        .find(|node| {
-                            callee_parsed
-                                .language
-                                .function_name(node)
-                                .map(|name| {
-                                    callee_parsed.node_text(&name) == callee_id.name.as_str()
-                                })
-                                .unwrap_or(false)
-                                && callee_parsed.node_line_range(node).0 == callee_id.start_line
-                        })
-                        .map(|node| {
-                            callee_parsed
-                                .function_parameter_occurrences(&node)
-                                .into_iter()
-                                .map(|(name, _, _)| name)
-                                .collect()
-                        })
-                        .unwrap_or_else(|| info.param_names.clone());
-                    let param_names = match normalized_param_names.first().map(String::as_str) {
-                        Some("self") | Some("cls")
-                            if info.owner.is_some()
-                                && callee_parsed.language == crate::languages::Language::Python =>
-                        {
-                            &normalized_param_names[1..]
-                        }
-                        _ => &normalized_param_names[..],
+                    let cache_key = (
+                        callee_id.file.clone(),
+                        callee_id.name.clone(),
+                        callee_id.start_line,
+                    );
+                    let param_names: &[String] = match param_cache
+                        .entry(cache_key)
+                        .or_insert_with(|| compute_param_names(callee_parsed, &callee_id))
+                    {
+                        Some(names) => names.as_slice(),
+                        None => continue,
                     };
                     for (i, param_name) in param_names.iter().enumerate() {
                         if i >= arg_texts.len() {

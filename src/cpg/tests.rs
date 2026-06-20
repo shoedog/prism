@@ -13,6 +13,51 @@ fn build_python_cpg(src: &str) -> CodePropertyGraph {
 }
 
 #[test]
+fn compute_param_names_pins_current_behavior() {
+    use super::build::compute_param_names;
+    use crate::ast::ParsedFile;
+    use crate::call_graph::FunctionId;
+    use crate::languages::Language;
+
+    // Free function: all params, no self/cls stripping.
+    let go = ParsedFile::parse("t.go", "func f(a int, b int) { _ = a }", Language::Go).unwrap();
+    let fid = FunctionId {
+        file: "t.go".into(),
+        name: "f".into(),
+        start_line: 1,
+        end_line: 1,
+    };
+    assert_eq!(
+        compute_param_names(&go, &fid),
+        Some(vec!["a".to_string(), "b".to_string()])
+    );
+
+    // Python method with a self receiver + owner: self is stripped.
+    let py = ParsedFile::parse(
+        "t.py",
+        "class C:\n    def m(self, x):\n        return x\n",
+        Language::Python,
+    )
+    .unwrap();
+    let mid = FunctionId {
+        file: "t.py".into(),
+        name: "m".into(),
+        start_line: 2,
+        end_line: 3,
+    };
+    assert_eq!(compute_param_names(&py, &mid), Some(vec!["x".to_string()]));
+
+    // Callee FunctionInfo not found -> None (the `else { continue }` path).
+    let missing = FunctionId {
+        file: "t.go".into(),
+        name: "nope".into(),
+        start_line: 99,
+        end_line: 99,
+    };
+    assert_eq!(compute_param_names(&go, &missing), None);
+}
+
+#[test]
 fn test_taint_trace_straight_line_frontier() {
     let src = "def f():\n    user = input()\n    x = user\n    sink(x)\n";
     let cpg = build_python_cpg(src);
