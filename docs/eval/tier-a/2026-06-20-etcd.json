@@ -1,0 +1,4580 @@
+{
+ "m1": {
+  "anon_oracle": 0,
+  "anon_prism": 0,
+  "matched": 9123,
+  "prism_extra": 0,
+  "prism_missing": 964,
+  "snapshot_prism_missing": 964
+ },
+ "m2": {
+  "callees": {
+   "C-method": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.43850296436068037,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.43850296436068037,
+      1.0
+     ],
+     "tp": 3
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 2,
+      "precision": [
+       0.5,
+       0.15003898774401986,
+       0.8499610122559802
+      ],
+      "recall": [
+       1.0,
+       0.3423802239546494,
+       1.0
+      ],
+      "tp": 2
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 2,
+      "precision": [
+       0.5,
+       0.15003898774401986,
+       0.8499610122559802
+      ],
+      "recall": [
+       1.0,
+       0.3423802239546494,
+       1.0
+      ],
+      "tp": 2
+     }
+    },
+    "pending": 0,
+    "raw": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.43850296436068037,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.43850296436068037,
+      1.0
+     ],
+     "tp": 3
+    },
+    "shortfall": 0
+   },
+   "C-name": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.5655175313406071,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.5655175313406071,
+      1.0
+     ],
+     "tp": 5
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 4,
+      "precision": [
+       0.42857142857142855,
+       0.15821985399244537,
+       0.7495416372469643
+      ],
+      "recall": [
+       1.0,
+       0.43850296436068037,
+       1.0
+      ],
+      "tp": 3
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 4,
+      "precision": [
+       0.42857142857142855,
+       0.15821985399244537,
+       0.7495416372469643
+      ],
+      "recall": [
+       1.0,
+       0.43850296436068037,
+       1.0
+      ],
+      "tp": 3
+     }
+    },
+    "pending": 7,
+    "raw": {
+     "fn": 6,
+     "fp": 1,
+     "precision": [
+      0.8333333333333334,
+      0.4364971749742326,
+      0.969946630588185
+     ],
+     "recall": [
+      0.45454545454545453,
+      0.21271271487637833,
+      0.7199084642140241
+     ],
+     "tp": 5
+    },
+    "shortfall": 0
+   },
+   "Q-scoped": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.921348400123914,
+      0.9999999999999999
+     ],
+     "recall": [
+      1.0,
+      0.921348400123914,
+      0.9999999999999999
+     ],
+     "tp": 45
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 2,
+      "precision": [
+       0.75,
+       0.40927542792725174,
+       0.9285207879020445
+      ],
+      "recall": [
+       1.0,
+       0.6096657083436265,
+       1.0
+      ],
+      "tp": 6
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 2,
+      "precision": [
+       0.75,
+       0.40927542792725174,
+       0.9285207879020445
+      ],
+      "recall": [
+       1.0,
+       0.6096657083436265,
+       1.0
+      ],
+      "tp": 6
+     }
+    },
+    "pending": 32,
+    "raw": {
+     "fn": 31,
+     "fp": 1,
+     "precision": [
+      0.9782608695652174,
+      0.8866470536689368,
+      0.99615214578451
+     ],
+     "recall": [
+      0.5921052631578947,
+      0.4797855242964182,
+      0.6955619730584892
+     ],
+     "tp": 45
+    },
+    "shortfall": 0
+   },
+   "U-method": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.7411670300055737,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.7411670300055737,
+      1.0
+     ],
+     "tp": 11
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 3,
+      "precision": [
+       0.625,
+       0.30574239265377096,
+       0.8631557152608771
+      ],
+      "recall": [
+       1.0,
+       0.5655175313406071,
+       1.0
+      ],
+      "tp": 5
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 3,
+      "precision": [
+       0.625,
+       0.30574239265377096,
+       0.8631557152608771
+      ],
+      "recall": [
+       1.0,
+       0.5655175313406071,
+       1.0
+      ],
+      "tp": 5
+     }
+    },
+    "pending": 5,
+    "raw": {
+     "fn": 2,
+     "fp": 3,
+     "precision": [
+      0.7857142857142857,
+      0.5241076920169465,
+      0.9242861334670647
+     ],
+     "recall": [
+      0.8461538461538461,
+      0.5776536874893673,
+      0.9567418220347709
+     ],
+     "tp": 11
+    },
+    "shortfall": 0
+   }
+  },
+  "callers": {
+   "C-method": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.6755924316585924,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.6755924316585924,
+      1.0
+     ],
+     "tp": 8
+    },
+    "function": {
+     "corrected": {
+      "fn": 10,
+      "fp": 1,
+      "precision": [
+       0.8888888888888888,
+       0.565000291629209,
+       0.9801091125830901
+      ],
+      "recall": [
+       0.4444444444444444,
+       0.24559518003796732,
+       0.6628358450657309
+      ],
+      "tp": 8
+     },
+     "raw": {
+      "fn": 10,
+      "fp": 1,
+      "precision": [
+       0.8888888888888888,
+       0.565000291629209,
+       0.9801091125830901
+      ],
+      "recall": [
+       0.4444444444444444,
+       0.24559518003796732,
+       0.6628358450657309
+      ],
+      "tp": 8
+     }
+    },
+    "pending": 13,
+    "raw": {
+     "fn": 12,
+     "fp": 1,
+     "precision": [
+      0.8888888888888888,
+      0.565000291629209,
+      0.9801091125830901
+     ],
+     "recall": [
+      0.4,
+      0.21880653127178018,
+      0.6134185007652458
+     ],
+     "tp": 8
+    },
+    "shortfall": 0
+   },
+   "C-name": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.8156818626193445,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.8156818626193445,
+      1.0
+     ],
+     "tp": 17
+    },
+    "function": {
+     "corrected": {
+      "fn": 2,
+      "fp": 2,
+      "precision": [
+       0.875,
+       0.6397717251782153,
+       0.9650225125737311
+      ],
+      "recall": [
+       0.875,
+       0.6397717251782153,
+       0.9650225125737311
+      ],
+      "tp": 14
+     },
+     "raw": {
+      "fn": 2,
+      "fp": 2,
+      "precision": [
+       0.875,
+       0.6397717251782153,
+       0.9650225125737311
+      ],
+      "recall": [
+       0.875,
+       0.6397717251782153,
+       0.9650225125737311
+      ],
+      "tp": 14
+     }
+    },
+    "pending": 4,
+    "raw": {
+     "fn": 2,
+     "fp": 2,
+     "precision": [
+      0.8947368421052632,
+      0.6860591708809097,
+      0.9706414399668032
+     ],
+     "recall": [
+      0.8947368421052632,
+      0.6860591708809097,
+      0.9706414399668032
+     ],
+     "tp": 17
+    },
+    "shortfall": 0
+   },
+   "Q-scoped": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.43850296436068037,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.43850296436068037,
+      1.0
+     ],
+     "tp": 3
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.43850296436068037,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.43850296436068037,
+       1.0
+      ],
+      "tp": 3
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.43850296436068037,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.43850296436068037,
+       1.0
+      ],
+      "tp": 3
+     }
+    },
+    "pending": 0,
+    "raw": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.43850296436068037,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.43850296436068037,
+      1.0
+     ],
+     "tp": 3
+    },
+    "shortfall": 0
+   },
+   "U-method": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.8513451233948545,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.8513451233948545,
+      1.0
+     ],
+     "tp": 22
+    },
+    "function": {
+     "corrected": {
+      "fn": 1,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.7846891945970195,
+       0.9999999999999999
+      ],
+      "recall": [
+       0.9333333333333333,
+       0.7018346989112435,
+       0.9881331046384677
+      ],
+      "tp": 14
+     },
+     "raw": {
+      "fn": 1,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.7846891945970195,
+       0.9999999999999999
+      ],
+      "recall": [
+       0.9333333333333333,
+       0.7018346989112435,
+       0.9881331046384677
+      ],
+      "tp": 14
+     }
+    },
+    "pending": 1,
+    "raw": {
+     "fn": 1,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.8513451233948545,
+      1.0
+     ],
+     "recall": [
+      0.9565217391304348,
+      0.7900884474454931,
+      0.9922833339420488
+     ],
+     "tp": 22
+    },
+    "shortfall": 0
+   }
+  }
+ },
+ "m3": {
+  "cap": 25,
+  "checked": [
+   {
+    "probe": "callers:pkg/adt/interval_tree.go:686",
+    "site": "server/etcdmain/config.go:261",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:tests/integration/clientv3/examples/example_cluster_test.go:84",
+    "site": "client/v3/concurrency/main_test.go:26",
+    "verdict": "alias_site"
+   },
+   {
+    "probe": "callers:tests/integration/clientv3/examples/example_cluster_test.go:84",
+    "site": "client/v3/main_test.go:32",
+    "verdict": "alias_site"
+   }
+  ],
+  "counts": {
+   "alias_site": 2,
+   "ambiguous": 1,
+   "confirmed_fp": 0,
+   "confirmed_tp": 0
+  }
+ },
+ "meta": {
+  "baseline_invalid": false,
+  "corpus": "etcd",
+  "corpus_dirty": false,
+  "corpus_dirty_reasons": [],
+  "corpus_sha": "61d518f55eff",
+  "date": "2026-06-20",
+  "harness_sha": "06e6ac4ee96e",
+  "invalid_reasons": [],
+  "oracle": "gopls {\"GoVersion\":\"go1.26.2\",\"Path\":\"golang.org/x/tools/gopls\",\"Main\":{\"Path\":\"golang.org/x/tools/gopls\",\"Version\":\"v0.22.0\",\"Sum\":\"h1:9aON2mTxKrZ1y71RbQVnlPTTNfKZ9y5cv3x/f6XpsZw=\"},\"Deps\":[{\"Path\":\"github.com/BurntSushi/toml\",\"Version\":\"v1.6.0\",\"Sum\":\"h1:dRaEfpa2VI55EwlIW72hMRHdWouJeRF7TPYhI+AUQjk=\"},{\"Path\":\"github.com/fatih/camelcase\",\"Version\":\"v1.0.0\",\"Sum\":\"h1:hxNvNX/xYBp0ovncs8WyWZrOrpBNub/JfaMvbURyft8=\"},{\"Path\":\"github.com/fatih/gomodifytags\",\"Version\":\"v1.17.1-0.20250423142747-f3939df9aa3c\",\"Sum\":\"h1:dDSgAjoOMp8da3egfz0t2S+t8RGOpEmEXZubcGuc0Bg=\"},{\"Path\":\"github.com/fatih/structtag\",\"Version\":\"v1.2.0\",\"Sum\":\"h1:/OdNE99OxoI/PqaW/SuSK9uxxT3f/tcSZgon/ssNSx4=\"},{\"Path\":\"github.com/fsnotify/fsnotify\",\"Version\":\"v1.9.0\",\"Sum\":\"h1:2Ml+OJNzbYCTzsxtv8vKSFD9PbJjmhYF14k/jKC7S9k=\"},{\"Path\":\"github.com/google/go-cmp\",\"Version\":\"v0.7.0\",\"Sum\":\"h1:wk8382ETsv4JYUZwIsn6YpYiWiBsYLSJiTsyBybVuN8=\"},{\"Path\":\"github.com/google/jsonschema-go\",\"Version\":\"v0.4.2\",\"Sum\":\"h1:tmrUohrwoLZZS/P3x7ex0WAVknEkBZM46iALbcqoRA8=\"},{\"Path\":\"github.com/modelcontextprotocol/go-sdk\",\"Version\":\"v1.4.0\",\"Sum\":\"h1:u0kr8lbJc1oBcawK7Df+/ajNMpIDFE41OEPxdeTLOn8=\"},{\"Path\":\"github.com/segmentio/asm\",\"Version\":\"v1.2.1\",\"Sum\":\"h1:DTNbBqs57ioxAD4PrArqftgypG4/qNpXoJx8TVXxPR0=\"},{\"Path\":\"github.com/segmentio/encoding\",\"Version\":\"v0.5.3\",\"Sum\":\"h1:OjMgICtcSFuNvQCdwqMCv9Tg7lEOXGwm1J5RPQccx6w=\"},{\"Path\":\"github.com/yosida95/uritemplate/v3\",\"Version\":\"v3.0.2\",\"Sum\":\"h1:Ed3Oyj9yrmi9087+NczuL5BwkIc4wvTb5zIM+UJPGz4=\"},{\"Path\":\"golang.org/x/exp/typeparams\",\"Version\":\"v0.0.0-20260312153236-7ab1446f8b90\",\"Sum\":\"h1:cfW8UCYSVdPblxA7qQe3o5Iad55Vsx4BFmuGS9RNOmc=\"},{\"Path\":\"golang.org/x/mod\",\"Version\":\"v0.35.0\",\"Sum\":\"h1:Ww1D637e6Pg+Zb2KrWfHQUnH2dQRLBQyAtpr/haaJeM=\"},{\"Path\":\"golang.org/x/oauth2\",\"Version\":\"v0.36.0\",\"Sum\":\"h1:peZ/1z27fi9hUOFCAZaHyrpWG5lwe0RJEEEeH0ThlIs=\"},{\"Path\":\"golang.org/x/sync\",\"Version\":\"v0.20.0\",\"Sum\":\"h1:e0PTpb7pjO8GAtTs2dQ6jYa5BWYlMuX047Dco/pItO4=\"},{\"Path\":\"golang.org/x/sys\",\"Version\":\"v0.43.0\",\"Sum\":\"h1:Rlag2XtaFTxp19wS8MXlJwTvoh8ArU6ezoyFsMyCTNI=\"},{\"Path\":\"golang.org/x/telemetry\",\"Version\":\"v0.0.0-20260409153401-be6f6cb8b1fa\",\"Sum\":\"h1:efT73AJZfAAUV7SOip6pWGkwJDzIGiKBZGVzHYa+ve4=\"},{\"Path\":\"golang.org/x/text\",\"Version\":\"v0.36.0\",\"Sum\":\"h1:JfKh3XmcRPqZPKevfXVpI1wXPTqbkE5f7JA92a55Yxg=\"},{\"Path\":\"golang.org/x/tools\",\"Version\":\"v0.44.1-0.20260513175300-635ae9663724\",\"Sum\":\"h1:rz7KAMVmPA+7ecCT/BHKLE353MUOoCAwMqlUveE8508=\"},{\"Path\":\"golang.org/x/vuln\",\"Version\":\"v1.1.4\",\"Sum\":\"h1:Ju8QsuyhX3Hk8ma3CesTbO8vfJD9EvUBgHvkxHBzj0I=\"},{\"Path\":\"honnef.co/go/tools\",\"Version\":\"v0.7.0\",\"Sum\":\"h1:w6WUp1VbkqPEgLz4rkBzH/CSU6HkoqNLp6GstyTx3lU=\"},{\"Path\":\"mvdan.cc/gofumpt\",\"Version\":\"v0.9.2\",\"Sum\":\"h1:zsEMWL8SVKGHNztrx6uZrXdp7AX8r421Vvp23sz7ik4=\"},{\"Path\":\"mvdan.cc/xurls/v2\",\"Version\":\"v2.6.0\",\"Sum\":\"h1:3NTZpeTxYVWNSokW3MKeyVkz/j7uYXYiMtXRUfmjbgI=\"}],\"Settings\":[{\"Key\":\"-buildmode\",\"Value\":\"exe\"},{\"Key\":\"-compiler\",\"Value\":\"gc\"},{\"Key\":\"CGO_ENABLED\",\"Value\":\"1\"},{\"Key\":\"CGO_CFLAGS\"},{\"Key\":\"CGO_CPPFLAGS\"},{\"Key\":\"CGO_CXXFLAGS\"},{\"Key\":\"CGO_LDFLAGS\"},{\"Key\":\"GOARCH\",\"Value\":\"arm64\"},{\"Key\":\"GOOS\",\"Value\":\"darwin\"},{\"Key\":\"GOARM64\",\"Value\":\"v8.0\"}],\"Version\":\"v0.22.0\"}",
+  "oracle_error_rate": 0.0,
+  "oracle_not_quiescent": false,
+  "prism_dirty": false,
+  "prism_sha": "20c8490591a3",
+  "seed": 42,
+  "stale_adjudications": 0,
+  "sut_error_rate": 0.0,
+  "wall_s": {
+   "m1_oracle_inventory": 62.063,
+   "m2": 60.551,
+   "m3": 0.002,
+   "oracle_start": 7.666
+  }
+ },
+ "pending": [
+  {
+   "corpus": "etcd",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "api/etcdserverpb/rpc.pb.go:1390",
+   "site": "client/v3/compare_test.go:41",
+   "site_fingerprint": "f519d8de5208a1dc"
+  },
+  {
+   "corpus": "etcd",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "api/etcdserverpb/rpc.pb.go:1390",
+   "site": "client/v3/compare_test.go:44",
+   "site_fingerprint": "b9de8b4df8372129"
+  },
+  {
+   "corpus": "etcd",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "api/etcdserverpb/rpc.pb.go:1390",
+   "site": "client/v3/leasing/cache.go:266",
+   "site_fingerprint": "460dc7acfc9e9a45"
+  },
+  {
+   "corpus": "etcd",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "api/etcdserverpb/rpc.pb.go:1390",
+   "site": "client/v3/namespace/kv.go:203",
+   "site_fingerprint": "591f12f25d658db7"
+  },
+  {
+   "corpus": "etcd",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "api/etcdserverpb/rpc.pb.go:1390",
+   "site": "client/v3/namespace/kv.go:205",
+   "site_fingerprint": "f79b556cc584d0ba"
+  },
+  {
+   "corpus": "etcd",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "api/etcdserverpb/rpc_grpc.pb.go:583",
+   "site": "api/etcdserverpb/rpc_grpc.pb.go:650",
+   "site_fingerprint": "67bf459a0099c21d"
+  },
+  {
+   "corpus": "etcd",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "api/etcdserverpb/rpc_grpc.pb.go:583",
+   "site": "server/proxy/grpcproxy/adapter/lease_client_adapter.go:43",
+   "site_fingerprint": "389c7768f69ae372"
+  },
+  {
+   "corpus": "etcd",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callers",
+   "seed_def": "pkg/adt/interval_tree.go:686",
+   "site": "server/etcdmain/config.go:261",
+   "site_fingerprint": "79efcd4a8a322bf4"
+  },
+  {
+   "corpus": "etcd",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "server/etcdserver/api/membership/membership_test.go:72",
+   "site": "server/etcdserver/api/membership/cluster.go:614",
+   "site_fingerprint": "ee6c0070495eeb43"
+  },
+  {
+   "corpus": "etcd",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "server/storage/mvcc/kvstore.go:156",
+   "site": "server/storage/mvcc/kv_test.go:647",
+   "site_fingerprint": "fcddd02df26a8f3b"
+  },
+  {
+   "corpus": "etcd",
+   "direction": "prism_only",
+   "dispatch_kind": "free_single",
+   "measurement": "callers",
+   "seed_def": "tests/integration/clientv3/examples/example_cluster_test.go:84",
+   "site": "client/v3/concurrency/main_test.go:26",
+   "site_fingerprint": "f952556f3a8c31a2"
+  },
+  {
+   "corpus": "etcd",
+   "direction": "prism_only",
+   "dispatch_kind": "free_single",
+   "measurement": "callers",
+   "seed_def": "tests/integration/clientv3/examples/example_cluster_test.go:84",
+   "site": "client/v3/main_test.go:32",
+   "site_fingerprint": "f952556f3a8c31a2"
+  },
+  {
+   "corpus": "etcd",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "tests/integration/clientv3/examples/example_cluster_test.go:84",
+   "site": "tests/integration/clientv3/examples/example_cluster_test.go:90",
+   "site_fingerprint": "561834add58e8abd"
+  },
+  {
+   "corpus": "etcd",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callees",
+   "seed_def": "api/etcdserverpb/gw/rpc.pb.gw.go:769",
+   "site": "api/etcdserverpb/gw/rpc.pb.gw.go:774",
+   "site_fingerprint": "628f9ae9fe8237fe"
+  },
+  {
+   "corpus": "etcd",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "api/etcdserverpb/gw/rpc.pb.gw.go:769",
+   "site": "api/etcdserverpb/gw/rpc.pb.gw.go:780",
+   "site_fingerprint": "e6173be0f6e8595d"
+  },
+  {
+   "corpus": "etcd",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "cache/demux_test.go:349",
+   "site": "cache/demux_test.go:352",
+   "site_fingerprint": "cc168ec6e5c4cff7"
+  },
+  {
+   "corpus": "etcd",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "cache/demux_test.go:349",
+   "site": "cache/demux_test.go:357",
+   "site_fingerprint": "547855c2288aa613"
+  },
+  {
+   "corpus": "etcd",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "cache/demux_test.go:349",
+   "site": "cache/demux_test.go:358",
+   "site_fingerprint": "1b5908e6799a55a1"
+  },
+  {
+   "corpus": "etcd",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "cache/demux_test.go:349",
+   "site": "cache/demux_test.go:363",
+   "site_fingerprint": "96baa361a307e572"
+  },
+  {
+   "corpus": "etcd",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "cache/demux_test.go:349",
+   "site": "cache/demux_test.go:367",
+   "site_fingerprint": "8709578ca4344295"
+  },
+  {
+   "corpus": "etcd",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "cache/demux_test.go:349",
+   "site": "cache/demux_test.go:373",
+   "site_fingerprint": "f920aca9adb5cda3"
+  },
+  {
+   "corpus": "etcd",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "cache/demux_test.go:349",
+   "site": "cache/demux_test.go:376",
+   "site_fingerprint": "bb89fd12144cc319"
+  },
+  {
+   "corpus": "etcd",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "cache/demux_test.go:349",
+   "site": "cache/demux_test.go:389",
+   "site_fingerprint": "cc168ec6e5c4cff7"
+  },
+  {
+   "corpus": "etcd",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "cache/demux_test.go:349",
+   "site": "cache/demux_test.go:394",
+   "site_fingerprint": "470f661cbc966745"
+  },
+  {
+   "corpus": "etcd",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "cache/demux_test.go:349",
+   "site": "cache/demux_test.go:395",
+   "site_fingerprint": "f2051eca2943cd86"
+  },
+  {
+   "corpus": "etcd",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "cache/demux_test.go:349",
+   "site": "cache/demux_test.go:400",
+   "site_fingerprint": "e9d1b8997a811c59"
+  },
+  {
+   "corpus": "etcd",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callees",
+   "seed_def": "cache/store.go:149",
+   "site": "cache/store.go:167",
+   "site_fingerprint": "6015ea033159d1ca"
+  },
+  {
+   "corpus": "etcd",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callees",
+   "seed_def": "client/v3/retry_interceptor.go:293",
+   "site": "client/v3/retry_interceptor.go:302",
+   "site_fingerprint": "9890cc1a9ee0ac40"
+  },
+  {
+   "corpus": "etcd",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callees",
+   "seed_def": "client/v3/retry_interceptor.go:293",
+   "site": "client/v3/retry_interceptor.go:306",
+   "site_fingerprint": "8239f595f7c99ad6"
+  },
+  {
+   "corpus": "etcd",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "server/etcdserver/server_test.go:665",
+   "site": "server/etcdserver/server_test.go:689",
+   "site_fingerprint": "8dcc4a95d17886c7"
+  },
+  {
+   "corpus": "etcd",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "server/etcdserver/server_test.go:665",
+   "site": "server/etcdserver/server_test.go:717",
+   "site_fingerprint": "9a0e198783cea70e"
+  },
+  {
+   "corpus": "etcd",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "server/etcdserver/server_test.go:665",
+   "site": "server/etcdserver/server_test.go:718",
+   "site_fingerprint": "a371f904db84b7f1"
+  },
+  {
+   "corpus": "etcd",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "server/etcdserver/server_test.go:665",
+   "site": "server/etcdserver/server_test.go:730",
+   "site_fingerprint": "702a3b99b45aec84"
+  },
+  {
+   "corpus": "etcd",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "server/etcdserver/server_test.go:665",
+   "site": "server/etcdserver/server_test.go:735",
+   "site_fingerprint": "51f3ee25270d1499"
+  },
+  {
+   "corpus": "etcd",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "server/etcdserver/server_test.go:665",
+   "site": "server/etcdserver/server_test.go:739",
+   "site_fingerprint": "d424a5c824c2777a"
+  },
+  {
+   "corpus": "etcd",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "server/etcdserver/server_test.go:665",
+   "site": "server/etcdserver/server_test.go:750",
+   "site_fingerprint": "c1bf233c18ec968b"
+  },
+  {
+   "corpus": "etcd",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "server/etcdserver/server_test.go:665",
+   "site": "server/etcdserver/server_test.go:754",
+   "site_fingerprint": "8fefa38400b9f227"
+  },
+  {
+   "corpus": "etcd",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "server/storage/mvcc/kvstore.go:156",
+   "site": "server/storage/mvcc/kvstore.go:160",
+   "site_fingerprint": "e333fd121b8137f7"
+  },
+  {
+   "corpus": "etcd",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "server/storage/mvcc/kvstore.go:156",
+   "site": "server/storage/mvcc/kvstore.go:161",
+   "site_fingerprint": "5d3ebbbe789ad7a3"
+  },
+  {
+   "corpus": "etcd",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "server/storage/mvcc/watcher_test.go:347",
+   "site": "server/storage/mvcc/watcher_test.go:354",
+   "site_fingerprint": "9273ac97204587e1"
+  },
+  {
+   "corpus": "etcd",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "server/storage/mvcc/watcher_test.go:347",
+   "site": "server/storage/mvcc/watcher_test.go:356",
+   "site_fingerprint": "f1af2acc7d97f477"
+  },
+  {
+   "corpus": "etcd",
+   "direction": "prism_only",
+   "dispatch_kind": "free_single",
+   "measurement": "callees",
+   "seed_def": "tests/common/user_test.go:181",
+   "site": "tests/common/user_test.go:183",
+   "site_fingerprint": "7f222f572dc3f875"
+  },
+  {
+   "corpus": "etcd",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "tests/common/user_test.go:181",
+   "site": "tests/common/user_test.go:182",
+   "site_fingerprint": "85b104e3468e04c3"
+  },
+  {
+   "corpus": "etcd",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "tests/common/user_test.go:181",
+   "site": "tests/common/user_test.go:188",
+   "site_fingerprint": "5aa33cde1c7d64e0"
+  },
+  {
+   "corpus": "etcd",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "tests/common/user_test.go:181",
+   "site": "tests/common/user_test.go:196",
+   "site_fingerprint": "ed6dd8ff8f2fafc0"
+  },
+  {
+   "corpus": "etcd",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "tests/common/user_test.go:181",
+   "site": "tests/common/user_test.go:199",
+   "site_fingerprint": "dcec4bc58132eb3f"
+  },
+  {
+   "corpus": "etcd",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "tests/common/user_test.go:181",
+   "site": "tests/common/user_test.go:202",
+   "site_fingerprint": "e637fb26883d6fb4"
+  },
+  {
+   "corpus": "etcd",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "tests/integration/clientv3/watch/v3_watch_test.go:825",
+   "site": "tests/integration/clientv3/watch/v3_watch_test.go:828",
+   "site_fingerprint": "f0104cc649ef593b"
+  },
+  {
+   "corpus": "etcd",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "tests/integration/clientv3/watch/v3_watch_test.go:825",
+   "site": "tests/integration/clientv3/watch/v3_watch_test.go:832",
+   "site_fingerprint": "e295ce008001dffe"
+  },
+  {
+   "corpus": "etcd",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "tests/integration/clientv3/watch/v3_watch_test.go:825",
+   "site": "tests/integration/clientv3/watch/v3_watch_test.go:835",
+   "site_fingerprint": "2698a78637f307b9"
+  },
+  {
+   "corpus": "etcd",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "tests/integration/clientv3/watch/v3_watch_test.go:825",
+   "site": "tests/integration/clientv3/watch/v3_watch_test.go:855",
+   "site_fingerprint": "e295ce008001dffe"
+  },
+  {
+   "corpus": "etcd",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "tests/integration/clientv3/watch/v3_watch_test.go:825",
+   "site": "tests/integration/clientv3/watch/v3_watch_test.go:858",
+   "site_fingerprint": "2698a78637f307b9"
+  },
+  {
+   "corpus": "etcd",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "tests/integration/v3_grpc_test.go:1218",
+   "site": "tests/integration/v3_grpc_test.go:1221",
+   "site_fingerprint": "bf95ed36339577cd"
+  },
+  {
+   "corpus": "etcd",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "tests/integration/v3_grpc_test.go:1218",
+   "site": "tests/integration/v3_grpc_test.go:1230",
+   "site_fingerprint": "3d22cfa5572c9fad"
+  },
+  {
+   "corpus": "etcd",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "tests/integration/v3_grpc_test.go:1218",
+   "site": "tests/integration/v3_grpc_test.go:1231",
+   "site_fingerprint": "2588bc6400fda78a"
+  },
+  {
+   "corpus": "etcd",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "tests/integration/v3_grpc_test.go:1218",
+   "site": "tests/integration/v3_grpc_test.go:1232",
+   "site_fingerprint": "a4bf9d57e7d64678"
+  },
+  {
+   "corpus": "etcd",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "tests/integration/v3_grpc_test.go:1597",
+   "site": "tests/integration/v3_grpc_test.go:1600",
+   "site_fingerprint": "6dca2d154f324301"
+  }
+ ],
+ "probes": {
+  "_corpus": "etcd",
+  "_strata": {
+   "C-method": {
+    "eligible_probes": 16,
+    "eligible_symbols": 8,
+    "target": 8
+   },
+   "C-name": {
+    "eligible_probes": 16,
+    "eligible_symbols": 8,
+    "target": 8
+   },
+   "Q-scoped": {
+    "eligible_probes": 16,
+    "eligible_symbols": 8,
+    "target": 8
+   },
+   "U-free": {
+    "eligible_probes": 0,
+    "eligible_symbols": 0,
+    "target": 8
+   },
+   "U-method": {
+    "eligible_probes": 16,
+    "eligible_symbols": 8,
+    "target": 8
+   }
+  },
+  "callees:api/etcdserverpb/gw/rpc.pb.gw.go:769": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "api/etcdserverpb/gw/rpc.pb.gw.go",
+     "request_Maintenance_Downgrade_0"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "api/etcdserverpb/gw/rpc.pb.gw.go",
+     780,
+     780
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "api/etcdserverpb/gw/rpc.pb.gw.go",
+     "request_Maintenance_Downgrade_0"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "api/etcdserverpb/gw/rpc.pb.gw.go",
+     774,
+     774,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "api/etcdserverpb/gw/rpc.pb.gw.go:769",
+   "stratum": "Q-scoped"
+  },
+  "callees:api/etcdserverpb/rpc.pb.go:1390": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "api/etcdserverpb/rpc.pb.go:1390",
+   "stratum": "C-method"
+  },
+  "callees:api/etcdserverpb/rpc.pb.go:5596": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "api/etcdserverpb/rpc.pb.go",
+     "Reset"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "api/etcdserverpb/rpc.pb.go:5596",
+   "stratum": "C-method"
+  },
+  "callees:api/etcdserverpb/rpc_grpc.pb.go:1434": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "inventory_miss",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "api/etcdserverpb/rpc_grpc.pb.go:1434",
+   "stratum": "C-method"
+  },
+  "callees:api/etcdserverpb/rpc_grpc.pb.go:583": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "api/etcdserverpb/rpc_grpc.pb.go",
+     "LeaseKeepAlive"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "api/etcdserverpb/rpc_grpc.pb.go:583",
+   "stratum": "C-method"
+  },
+  "callees:cache/demux_test.go:349": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "cache/demux_test.go",
+     "TestBroadcastProgress"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "cache/demux_test.go",
+     351,
+     351
+    ],
+    [
+     "cache/demux_test.go",
+     372,
+     372
+    ],
+    [
+     "cache/demux_test.go",
+     388,
+     388
+    ],
+    [
+     "cache/demux_test.go",
+     357,
+     357
+    ],
+    [
+     "cache/demux_test.go",
+     358,
+     358
+    ],
+    [
+     "cache/demux_test.go",
+     376,
+     376
+    ],
+    [
+     "cache/demux_test.go",
+     394,
+     394
+    ],
+    [
+     "cache/demux_test.go",
+     395,
+     395
+    ],
+    [
+     "cache/demux_test.go",
+     352,
+     352
+    ],
+    [
+     "cache/demux_test.go",
+     373,
+     373
+    ],
+    [
+     "cache/demux_test.go",
+     389,
+     389
+    ],
+    [
+     "cache/demux_test.go",
+     360,
+     360
+    ],
+    [
+     "cache/demux_test.go",
+     379,
+     379
+    ],
+    [
+     "cache/demux_test.go",
+     397,
+     397
+    ],
+    [
+     "cache/demux_test.go",
+     362,
+     362
+    ],
+    [
+     "cache/demux_test.go",
+     366,
+     366
+    ],
+    [
+     "cache/demux_test.go",
+     399,
+     399
+    ],
+    [
+     "cache/demux_test.go",
+     355,
+     355
+    ],
+    [
+     "cache/demux_test.go",
+     356,
+     356
+    ],
+    [
+     "cache/demux_test.go",
+     375,
+     375
+    ],
+    [
+     "cache/demux_test.go",
+     392,
+     392
+    ],
+    [
+     "cache/demux_test.go",
+     393,
+     393
+    ],
+    [
+     "cache/demux_test.go",
+     363,
+     363
+    ],
+    [
+     "cache/demux_test.go",
+     367,
+     367
+    ],
+    [
+     "cache/demux_test.go",
+     400,
+     400
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "cache/demux_test.go",
+     "TestBroadcastProgress"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "cache/demux_test.go",
+     351,
+     351,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "cache/demux_test.go",
+     372,
+     372,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "cache/demux_test.go",
+     388,
+     388,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "cache/demux_test.go",
+     362,
+     362,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "cache/demux_test.go",
+     366,
+     366,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "cache/demux_test.go",
+     399,
+     399,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "cache/demux_test.go",
+     355,
+     355,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "cache/demux_test.go",
+     356,
+     356,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "cache/demux_test.go",
+     375,
+     375,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "cache/demux_test.go",
+     392,
+     392,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "cache/demux_test.go",
+     393,
+     393,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "cache/demux_test.go",
+     360,
+     360,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "cache/demux_test.go",
+     379,
+     379,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "cache/demux_test.go",
+     397,
+     397,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "cache/demux_test.go:349",
+   "stratum": "Q-scoped"
+  },
+  "callees:cache/store.go:149": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "cache/store.go",
+     "applyEventsLocked"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "cache/store.go",
+     166,
+     166
+    ],
+    [
+     "cache/store.go",
+     166,
+     166
+    ],
+    [
+     "cache/store.go",
+     161,
+     161
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "cache/store.go",
+     "applyEventsLocked"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "cache/store.go",
+     166,
+     166,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "cache/store.go",
+     161,
+     161,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "cache/store.go",
+     167,
+     167,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "cache/store.go",
+     166,
+     166,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "cache/store.go:149",
+   "stratum": "U-method"
+  },
+  "callees:client/pkg/fileutil/lock_plan9.go:34": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "client/pkg/fileutil/lock_plan9.go",
+     "LockFile"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "client/pkg/fileutil/lock_plan9.go:34",
+   "stratum": "C-name"
+  },
+  "callees:client/pkg/fileutil/lock_solaris.go:46": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "client/pkg/fileutil/lock_solaris.go",
+     "LockFile"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "client/pkg/fileutil/lock_solaris.go:46",
+   "stratum": "C-name"
+  },
+  "callees:client/pkg/testutil/testingtb.go:80": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "client/pkg/testutil/testingtb.go:80",
+   "stratum": "C-method"
+  },
+  "callees:client/v3/example_cluster_test.go:49": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "inventory_miss",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "client/v3/example_cluster_test.go:49",
+   "stratum": "C-name"
+  },
+  "callees:client/v3/leasing/kv.go:191": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "client/v3/leasing/kv.go",
+     "rescind"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "client/v3/leasing/kv.go",
+     195,
+     195
+    ],
+    [
+     "client/v3/leasing/kv.go",
+     195,
+     195
+    ],
+    [
+     "client/v3/leasing/kv.go",
+     198,
+     198
+    ],
+    [
+     "client/v3/leasing/kv.go",
+     192,
+     192
+    ],
+    [
+     "client/v3/leasing/kv.go",
+     196,
+     196
+    ],
+    [
+     "client/v3/leasing/kv.go",
+     198,
+     198
+    ],
+    [
+     "client/v3/leasing/kv.go",
+     198,
+     198
+    ],
+    [
+     "client/v3/leasing/kv.go",
+     198,
+     198
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "client/v3/leasing/kv.go",
+     "rescind"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "client/v3/leasing/kv.go",
+     195,
+     195,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "client/v3/leasing/kv.go",
+     195,
+     195,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "client/v3/leasing/kv.go",
+     196,
+     196,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "client/v3/leasing/kv.go",
+     192,
+     192,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "client/v3/leasing/kv.go",
+     198,
+     198,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "client/v3/leasing/kv.go:191",
+   "stratum": "U-method"
+  },
+  "callees:client/v3/retry_interceptor.go:293": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "client/v3/retry_interceptor.go",
+     "reestablishStreamAndResendBuffer"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "client/v3/retry_interceptor.go",
+     302,
+     302,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "client/v3/retry_interceptor.go",
+     306,
+     306,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "client/v3/retry_interceptor.go:293",
+   "stratum": "U-method"
+  },
+  "callees:etcdutl/etcdutl/snapshot_command.go:48": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "etcdutl/etcdutl/snapshot_command.go",
+     "NewSnapshotCommand"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "etcdutl/etcdutl/snapshot_command.go",
+     54,
+     54
+    ],
+    [
+     "etcdutl/etcdutl/snapshot_command.go",
+     53,
+     53
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "etcdutl/etcdutl/snapshot_command.go",
+     "NewSnapshotCommand"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "etcdutl/etcdutl/snapshot_command.go",
+     54,
+     54,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "etcdutl/etcdutl/snapshot_command.go",
+     53,
+     53,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "etcdutl/etcdutl/snapshot_command.go:48",
+   "stratum": "C-name"
+  },
+  "callees:pkg/adt/interval_tree.go:585": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "pkg/adt/interval_tree.go",
+     "rotateLeft"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "pkg/adt/interval_tree.go",
+     599,
+     599
+    ],
+    [
+     "pkg/adt/interval_tree.go",
+     606,
+     606
+    ],
+    [
+     "pkg/adt/interval_tree.go",
+     602,
+     602
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "pkg/adt/interval_tree.go",
+     "rotateLeft"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "pkg/adt/interval_tree.go",
+     599,
+     599,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ],
+    [
+     "pkg/adt/interval_tree.go",
+     602,
+     602,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "pkg/adt/interval_tree.go",
+     606,
+     606,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "pkg/adt/interval_tree.go:585",
+   "stratum": "U-method"
+  },
+  "callees:pkg/adt/interval_tree.go:686": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "pkg/adt/interval_tree.go",
+     "Visit"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "pkg/adt/interval_tree.go",
+     687,
+     687
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "pkg/adt/interval_tree.go",
+     "Visit"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "pkg/adt/interval_tree.go",
+     687,
+     687,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "pkg/adt/interval_tree.go:686",
+   "stratum": "C-method"
+  },
+  "callees:pkg/adt/interval_tree.go:806": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "pkg/adt/interval_tree.go",
+     "visitLevel"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "pkg/adt/interval_tree.go",
+     824,
+     824
+    ],
+    [
+     "pkg/adt/interval_tree.go",
+     811,
+     811
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "pkg/adt/interval_tree.go",
+     "visitLevel"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "pkg/adt/interval_tree.go",
+     811,
+     811,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "pkg/adt/interval_tree.go",
+     824,
+     824,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "pkg/adt/interval_tree.go:806",
+   "stratum": "U-method"
+  },
+  "callees:pkg/osutil/interrupt_unix.go:43": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "pkg/osutil/interrupt_unix.go",
+     "RegisterInterruptHandler"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "pkg/osutil/interrupt_unix.go:43",
+   "stratum": "C-name"
+  },
+  "callees:pkg/schedule/schedule.go:158": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "pkg/schedule/schedule.go",
+     "run"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "pkg/schedule/schedule.go",
+     182,
+     182
+    ],
+    [
+     "pkg/schedule/schedule.go",
+     187,
+     187
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "pkg/schedule/schedule.go",
+     "run"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "pkg/schedule/schedule.go",
+     182,
+     182,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "pkg/schedule/schedule.go",
+     187,
+     187,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ]
+   ],
+   "seed_def": "pkg/schedule/schedule.go:158",
+   "stratum": "C-method"
+  },
+  "callees:server/embed/config.go:1171": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "server/embed/config.go",
+     "InitialClusterFromName"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "server/embed/config.go:1171",
+   "stratum": "U-method"
+  },
+  "callees:server/etcdserver/api/etcdhttp/health.go:395": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "server/etcdserver/api/etcdhttp/health.go",
+     "listToStringSet"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "server/etcdserver/api/etcdhttp/health.go:395",
+   "stratum": "Q-scoped"
+  },
+  "callees:server/etcdserver/api/membership/membership_test.go:72": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "server/etcdserver/api/membership/membership_test.go:72",
+   "stratum": "C-method"
+  },
+  "callees:server/etcdserver/api/v3lock/v3lockpb/v3lock.pb.go:283": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "server/etcdserver/api/v3lock/v3lockpb/v3lock.pb.go",
+     "file_v3lock_proto_init"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "server/etcdserver/api/v3lock/v3lockpb/v3lock.pb.go:283",
+   "stratum": "Q-scoped"
+  },
+  "callees:server/etcdserver/server_test.go:665": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "server/etcdserver/server_test.go",
+     "TestSnapshotOrdering"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "server/etcdserver/server_test.go",
+     745,
+     745
+    ],
+    [
+     "server/etcdserver/server_test.go",
+     730,
+     730
+    ],
+    [
+     "server/etcdserver/server_test.go",
+     735,
+     735
+    ],
+    [
+     "server/etcdserver/server_test.go",
+     739,
+     739
+    ],
+    [
+     "server/etcdserver/server_test.go",
+     750,
+     750
+    ],
+    [
+     "server/etcdserver/server_test.go",
+     754,
+     754
+    ],
+    [
+     "server/etcdserver/server_test.go",
+     668,
+     668
+    ],
+    [
+     "server/etcdserver/server_test.go",
+     673,
+     673
+    ],
+    [
+     "server/etcdserver/server_test.go",
+     689,
+     689
+    ],
+    [
+     "server/etcdserver/server_test.go",
+     675,
+     675
+    ],
+    [
+     "server/etcdserver/server_test.go",
+     708,
+     708
+    ],
+    [
+     "server/etcdserver/server_test.go",
+     695,
+     695
+    ],
+    [
+     "server/etcdserver/server_test.go",
+     687,
+     687
+    ],
+    [
+     "server/etcdserver/server_test.go",
+     717,
+     717
+    ],
+    [
+     "server/etcdserver/server_test.go",
+     718,
+     718
+    ],
+    [
+     "server/etcdserver/server_test.go",
+     672,
+     672
+    ],
+    [
+     "server/etcdserver/server_test.go",
+     686,
+     686
+    ],
+    [
+     "server/etcdserver/server_test.go",
+     700,
+     700
+    ],
+    [
+     "server/etcdserver/server_test.go",
+     685,
+     685
+    ],
+    [
+     "server/etcdserver/server_test.go",
+     674,
+     674
+    ],
+    [
+     "server/etcdserver/server_test.go",
+     711,
+     711
+    ],
+    [
+     "server/etcdserver/server_test.go",
+     714,
+     714
+    ],
+    [
+     "server/etcdserver/server_test.go",
+     675,
+     675
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "server/etcdserver/server_test.go",
+     "TestSnapshotOrdering"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "server/etcdserver/server_test.go",
+     745,
+     745,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "server/etcdserver/server_test.go",
+     668,
+     668,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "server/etcdserver/server_test.go",
+     673,
+     673,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "server/etcdserver/server_test.go",
+     708,
+     708,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "server/etcdserver/server_test.go",
+     695,
+     695,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "server/etcdserver/server_test.go",
+     672,
+     672,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "server/etcdserver/server_test.go",
+     686,
+     686,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "server/etcdserver/server_test.go",
+     700,
+     700,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "server/etcdserver/server_test.go",
+     685,
+     685,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "server/etcdserver/server_test.go",
+     674,
+     674,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "server/etcdserver/server_test.go",
+     711,
+     711,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "server/etcdserver/server_test.go",
+     714,
+     714,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "server/etcdserver/server_test.go",
+     675,
+     675,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "server/etcdserver/server_test.go",
+     687,
+     687,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "server/etcdserver/server_test.go",
+     687,
+     687,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ]
+   ],
+   "seed_def": "server/etcdserver/server_test.go:665",
+   "stratum": "Q-scoped"
+  },
+  "callees:server/lease/lease.go:92": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "server/lease/lease.go",
+     "forever"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "server/lease/lease.go:92",
+   "stratum": "U-method"
+  },
+  "callees:server/storage/mvcc/kvstore.go:156": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "server/storage/mvcc/kvstore.go",
+     "hash"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "server/storage/mvcc/kvstore.go",
+     161,
+     161
+    ],
+    [
+     "server/storage/mvcc/kvstore.go",
+     160,
+     160
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "server/storage/mvcc/kvstore.go",
+     "hash"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "server/storage/mvcc/kvstore.go:156",
+   "stratum": "U-method"
+  },
+  "callees:server/storage/mvcc/watcher_test.go:347": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "server/storage/mvcc/watcher_test.go",
+     "TestWatcherRequestProgressBadId"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "server/storage/mvcc/watcher_test.go",
+     348,
+     348
+    ],
+    [
+     "server/storage/mvcc/watcher_test.go",
+     351,
+     351
+    ],
+    [
+     "server/storage/mvcc/watcher_test.go",
+     349,
+     349
+    ],
+    [
+     "server/storage/mvcc/watcher_test.go",
+     352,
+     352
+    ],
+    [
+     "server/storage/mvcc/watcher_test.go",
+     356,
+     356
+    ],
+    [
+     "server/storage/mvcc/watcher_test.go",
+     354,
+     354
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "server/storage/mvcc/watcher_test.go",
+     "TestWatcherRequestProgressBadId"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "server/storage/mvcc/watcher_test.go",
+     348,
+     348,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "server/storage/mvcc/watcher_test.go",
+     351,
+     351,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "server/storage/mvcc/watcher_test.go",
+     349,
+     349,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "server/storage/mvcc/watcher_test.go",
+     352,
+     352,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "server/storage/mvcc/watcher_test.go:347",
+   "stratum": "Q-scoped"
+  },
+  "callees:tests/common/user_test.go:181": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "tests/common/user_test.go",
+     "TestUserChangePassword"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tests/common/user_test.go",
+     187,
+     187
+    ],
+    [
+     "tests/common/user_test.go",
+     182,
+     182
+    ],
+    [
+     "tests/common/user_test.go",
+     187,
+     187
+    ],
+    [
+     "tests/common/user_test.go",
+     189,
+     189
+    ],
+    [
+     "tests/common/user_test.go",
+     188,
+     188
+    ],
+    [
+     "tests/common/user_test.go",
+     196,
+     196
+    ],
+    [
+     "tests/common/user_test.go",
+     199,
+     199
+    ],
+    [
+     "tests/common/user_test.go",
+     202,
+     202
+    ],
+    [
+     "tests/common/user_test.go",
+     191,
+     191
+    ],
+    [
+     "tests/common/user_test.go",
+     189,
+     189
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tests/common/user_test.go",
+     "TestUserChangePassword"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "tests/common/user_test.go",
+     183,
+     183,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "tests/common/user_test.go",
+     187,
+     187,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "tests/common/user_test.go",
+     191,
+     191,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "tests/common/user_test.go",
+     189,
+     189,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ]
+   ],
+   "seed_def": "tests/common/user_test.go:181",
+   "stratum": "C-name"
+  },
+  "callees:tests/integration/clientv3/examples/example_cluster_test.go:84": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tests/integration/clientv3/examples/example_cluster_test.go",
+     "mockClusterMemberAddAsLearner"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "tests/integration/clientv3/examples/example_cluster_test.go:84",
+   "stratum": "C-name"
+  },
+  "callees:tests/integration/clientv3/watch/v3_watch_test.go:825": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "tests/integration/clientv3/watch/v3_watch_test.go",
+     "TestV3WatchMultipleEventsPutUnsynced"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tests/integration/clientv3/watch/v3_watch_test.go",
+     832,
+     832
+    ],
+    [
+     "tests/integration/clientv3/watch/v3_watch_test.go",
+     835,
+     835
+    ],
+    [
+     "tests/integration/clientv3/watch/v3_watch_test.go",
+     855,
+     855
+    ],
+    [
+     "tests/integration/clientv3/watch/v3_watch_test.go",
+     858,
+     858
+    ],
+    [
+     "tests/integration/clientv3/watch/v3_watch_test.go",
+     841,
+     841
+    ],
+    [
+     "tests/integration/clientv3/watch/v3_watch_test.go",
+     827,
+     827
+    ],
+    [
+     "tests/integration/clientv3/watch/v3_watch_test.go",
+     828,
+     828
+    ],
+    [
+     "tests/integration/clientv3/watch/v3_watch_test.go",
+     830,
+     830
+    ],
+    [
+     "tests/integration/clientv3/watch/v3_watch_test.go",
+     841,
+     841
+    ],
+    [
+     "tests/integration/clientv3/watch/v3_watch_test.go",
+     830,
+     830
+    ],
+    [
+     "tests/integration/clientv3/watch/v3_watch_test.go",
+     841,
+     841
+    ],
+    [
+     "tests/integration/clientv3/watch/v3_watch_test.go",
+     826,
+     826
+    ],
+    [
+     "tests/integration/clientv3/watch/v3_watch_test.go",
+     900,
+     900
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tests/integration/clientv3/watch/v3_watch_test.go",
+     "TestV3WatchMultipleEventsPutUnsynced"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "tests/integration/clientv3/watch/v3_watch_test.go",
+     827,
+     827,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "tests/integration/clientv3/watch/v3_watch_test.go",
+     830,
+     830,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "tests/integration/clientv3/watch/v3_watch_test.go",
+     841,
+     841,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "tests/integration/clientv3/watch/v3_watch_test.go",
+     830,
+     830,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "tests/integration/clientv3/watch/v3_watch_test.go",
+     841,
+     841,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "tests/integration/clientv3/watch/v3_watch_test.go",
+     826,
+     826,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "tests/integration/clientv3/watch/v3_watch_test.go",
+     900,
+     900,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "tests/integration/clientv3/watch/v3_watch_test.go",
+     830,
+     830,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "tests/integration/clientv3/watch/v3_watch_test.go",
+     841,
+     841,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "tests/integration/clientv3/watch/v3_watch_test.go:825",
+   "stratum": "Q-scoped"
+  },
+  "callees:tests/integration/v3_grpc_test.go:1218": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "tests/integration/v3_grpc_test.go",
+     "TestV3HashRestart"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tests/integration/v3_grpc_test.go",
+     1224,
+     1224
+    ],
+    [
+     "tests/integration/v3_grpc_test.go",
+     1237,
+     1237
+    ],
+    [
+     "tests/integration/v3_grpc_test.go",
+     1232,
+     1232
+    ],
+    [
+     "tests/integration/v3_grpc_test.go",
+     1230,
+     1230
+    ],
+    [
+     "tests/integration/v3_grpc_test.go",
+     1231,
+     1231
+    ],
+    [
+     "tests/integration/v3_grpc_test.go",
+     1220,
+     1220
+    ],
+    [
+     "tests/integration/v3_grpc_test.go",
+     1221,
+     1221
+    ],
+    [
+     "tests/integration/v3_grpc_test.go",
+     1223,
+     1223
+    ],
+    [
+     "tests/integration/v3_grpc_test.go",
+     1236,
+     1236
+    ],
+    [
+     "tests/integration/v3_grpc_test.go",
+     1233,
+     1233
+    ],
+    [
+     "tests/integration/v3_grpc_test.go",
+     1224,
+     1224
+    ],
+    [
+     "tests/integration/v3_grpc_test.go",
+     1233,
+     1233
+    ],
+    [
+     "tests/integration/v3_grpc_test.go",
+     1237,
+     1237
+    ],
+    [
+     "tests/integration/v3_grpc_test.go",
+     1219,
+     1219
+    ],
+    [
+     "tests/integration/v3_grpc_test.go",
+     1234,
+     1234
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tests/integration/v3_grpc_test.go",
+     "TestV3HashRestart"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "tests/integration/v3_grpc_test.go",
+     1220,
+     1220,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "tests/integration/v3_grpc_test.go",
+     1224,
+     1224,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "tests/integration/v3_grpc_test.go",
+     1233,
+     1233,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "tests/integration/v3_grpc_test.go",
+     1237,
+     1237,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "tests/integration/v3_grpc_test.go",
+     1224,
+     1224,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "tests/integration/v3_grpc_test.go",
+     1233,
+     1233,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "tests/integration/v3_grpc_test.go",
+     1237,
+     1237,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "tests/integration/v3_grpc_test.go",
+     1219,
+     1219,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "tests/integration/v3_grpc_test.go",
+     1234,
+     1234,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "tests/integration/v3_grpc_test.go",
+     1223,
+     1223,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "tests/integration/v3_grpc_test.go",
+     1236,
+     1236,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "tests/integration/v3_grpc_test.go:1218",
+   "stratum": "Q-scoped"
+  },
+  "callees:tests/integration/v3_grpc_test.go:1597": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "tests/integration/v3_grpc_test.go",
+     "rangeStream"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tests/integration/v3_grpc_test.go",
+     1600,
+     1600
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tests/integration/v3_grpc_test.go",
+     "rangeStream"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "tests/integration/v3_grpc_test.go:1597",
+   "stratum": "C-name"
+  },
+  "callers:api/etcdserverpb/gw/rpc.pb.gw.go:769": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "api/etcdserverpb/gw/rpc.pb.gw.go",
+     "RegisterMaintenanceHandlerClient"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "api/etcdserverpb/gw/rpc.pb.gw.go",
+     2860,
+     2860
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "api/etcdserverpb/gw/rpc.pb.gw.go",
+     "RegisterMaintenanceHandlerClient"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "api/etcdserverpb/gw/rpc.pb.gw.go",
+     2860,
+     2860,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "api/etcdserverpb/gw/rpc.pb.gw.go:769",
+   "stratum": "Q-scoped"
+  },
+  "callers:api/etcdserverpb/rpc.pb.go:1390": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "client/v3/compare_test.go",
+     "TestWithRangeClonesInput"
+    ],
+    [
+     "client/v3/leasing/cache.go",
+     "evalCmp"
+    ],
+    [
+     "client/v3/namespace/kv.go",
+     "prefixCmps"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "client/v3/compare_test.go",
+     41,
+     41
+    ],
+    [
+     "client/v3/compare_test.go",
+     44,
+     44
+    ],
+    [
+     "client/v3/leasing/cache.go",
+     266,
+     266
+    ],
+    [
+     "client/v3/namespace/kv.go",
+     203,
+     203
+    ],
+    [
+     "client/v3/namespace/kv.go",
+     205,
+     205
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "api/etcdserverpb/rpc.pb.go:1390",
+   "stratum": "C-method"
+  },
+  "callers:api/etcdserverpb/rpc.pb.go:5596": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "api/etcdserverpb/rpc.pb.go:5596",
+   "stratum": "C-method"
+  },
+  "callers:api/etcdserverpb/rpc_grpc.pb.go:1434": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "api/etcdserverpb/gw/rpc.pb.gw.go",
+     "request_Auth_UserDelete_0"
+    ],
+    [
+     "client/v3/auth.go",
+     "UserDelete"
+    ],
+    [
+     "client/v3/retry.go",
+     "UserDelete"
+    ],
+    [
+     "server/proxy/grpcproxy/auth.go",
+     "UserDelete"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "api/etcdserverpb/gw/rpc.pb.gw.go",
+     996,
+     996
+    ],
+    [
+     "client/v3/auth.go",
+     167,
+     167
+    ],
+    [
+     "client/v3/retry.go",
+     280,
+     280
+    ],
+    [
+     "server/proxy/grpcproxy/auth.go",
+     79,
+     79
+    ]
+   ],
+   "outcome": "inventory_miss",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "api/etcdserverpb/rpc_grpc.pb.go:1434",
+   "stratum": "C-method"
+  },
+  "callers:api/etcdserverpb/rpc_grpc.pb.go:583": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "api/etcdserverpb/rpc_grpc.pb.go",
+     "_Lease_LeaseKeepAlive_Handler"
+    ],
+    [
+     "server/proxy/grpcproxy/adapter/lease_client_adapter.go",
+     "LeaseKeepAlive"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "api/etcdserverpb/rpc_grpc.pb.go",
+     650,
+     650
+    ],
+    [
+     "server/proxy/grpcproxy/adapter/lease_client_adapter.go",
+     43,
+     43
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "api/etcdserverpb/rpc_grpc.pb.go:583",
+   "stratum": "C-method"
+  },
+  "callers:cache/demux_test.go:349": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "cache/demux_test.go:349",
+   "stratum": "Q-scoped"
+  },
+  "callers:cache/store.go:149": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "cache/store.go",
+     "Apply"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "cache/store.go",
+     135,
+     135
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "cache/store.go",
+     "Apply"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "cache/store.go",
+     135,
+     135,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ]
+   ],
+   "seed_def": "cache/store.go:149",
+   "stratum": "U-method"
+  },
+  "callers:client/pkg/fileutil/lock_plan9.go:34": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "client/pkg/fileutil/lock_test.go",
+     "TestLockAndUnlock"
+    ],
+    [
+     "client/pkg/fileutil/purge_test.go",
+     "TestPurgeFileHoldingLockFile"
+    ],
+    [
+     "server/storage/wal/repair.go",
+     "openLast"
+    ],
+    [
+     "server/storage/wal/wal.go",
+     "createNewWALFile"
+    ],
+    [
+     "server/storage/wal/wal.go",
+     "cut"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "client/pkg/fileutil/lock_test.go",
+     34,
+     34
+    ],
+    [
+     "client/pkg/fileutil/lock_test.go",
+     53,
+     53
+    ],
+    [
+     "client/pkg/fileutil/purge_test.go",
+     99,
+     99
+    ],
+    [
+     "server/storage/wal/repair.go",
+     115,
+     115
+    ],
+    [
+     "server/storage/wal/wal.go",
+     248,
+     248
+    ],
+    [
+     "server/storage/wal/wal.go",
+     813,
+     813
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "client/pkg/fileutil/lock_test.go",
+     "TestLockAndUnlock"
+    ],
+    [
+     "client/pkg/fileutil/purge_test.go",
+     "TestPurgeFileHoldingLockFile"
+    ],
+    [
+     "server/storage/wal/repair.go",
+     "openLast"
+    ],
+    [
+     "server/storage/wal/wal.go",
+     "createNewWALFile"
+    ],
+    [
+     "server/storage/wal/wal.go",
+     "cut"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "server/storage/wal/repair.go",
+     115,
+     115,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "server/storage/wal/wal.go",
+     248,
+     248,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "server/storage/wal/wal.go",
+     813,
+     813,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "client/pkg/fileutil/lock_test.go",
+     34,
+     34,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "client/pkg/fileutil/lock_test.go",
+     53,
+     53,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "client/pkg/fileutil/purge_test.go",
+     99,
+     99,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ]
+   ],
+   "seed_def": "client/pkg/fileutil/lock_plan9.go:34",
+   "stratum": "C-name"
+  },
+  "callers:client/pkg/fileutil/lock_solaris.go:46": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "client/pkg/fileutil/lock_test.go",
+     "TestLockAndUnlock"
+    ],
+    [
+     "client/pkg/fileutil/purge_test.go",
+     "TestPurgeFileHoldingLockFile"
+    ],
+    [
+     "server/storage/wal/repair.go",
+     "openLast"
+    ],
+    [
+     "server/storage/wal/wal.go",
+     "createNewWALFile"
+    ],
+    [
+     "server/storage/wal/wal.go",
+     "cut"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "client/pkg/fileutil/lock_test.go",
+     34,
+     34
+    ],
+    [
+     "client/pkg/fileutil/lock_test.go",
+     53,
+     53
+    ],
+    [
+     "client/pkg/fileutil/purge_test.go",
+     99,
+     99
+    ],
+    [
+     "server/storage/wal/repair.go",
+     115,
+     115
+    ],
+    [
+     "server/storage/wal/wal.go",
+     248,
+     248
+    ],
+    [
+     "server/storage/wal/wal.go",
+     813,
+     813
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "client/pkg/fileutil/lock_test.go",
+     "TestLockAndUnlock"
+    ],
+    [
+     "client/pkg/fileutil/purge_test.go",
+     "TestPurgeFileHoldingLockFile"
+    ],
+    [
+     "server/storage/wal/repair.go",
+     "openLast"
+    ],
+    [
+     "server/storage/wal/wal.go",
+     "createNewWALFile"
+    ],
+    [
+     "server/storage/wal/wal.go",
+     "cut"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "server/storage/wal/repair.go",
+     115,
+     115,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "server/storage/wal/wal.go",
+     248,
+     248,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "server/storage/wal/wal.go",
+     813,
+     813,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "client/pkg/fileutil/lock_test.go",
+     34,
+     34,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "client/pkg/fileutil/lock_test.go",
+     53,
+     53,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "client/pkg/fileutil/purge_test.go",
+     99,
+     99,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ]
+   ],
+   "seed_def": "client/pkg/fileutil/lock_solaris.go:46",
+   "stratum": "C-name"
+  },
+  "callers:client/pkg/testutil/testingtb.go:80": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "client/pkg/testutil/testingtb.go",
+     "Error"
+    ],
+    [
+     "client/pkg/testutil/testingtb.go",
+     "Errorf"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "client/pkg/testutil/testingtb.go",
+     72,
+     72
+    ],
+    [
+     "client/pkg/testutil/testingtb.go",
+     77,
+     77
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "client/pkg/testutil/testingtb.go",
+     "Error"
+    ],
+    [
+     "client/pkg/testutil/testingtb.go",
+     "Errorf"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "client/pkg/testutil/testingtb.go",
+     72,
+     72,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "client/pkg/testutil/testingtb.go",
+     77,
+     77,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ]
+   ],
+   "seed_def": "client/pkg/testutil/testingtb.go:80",
+   "stratum": "C-method"
+  },
+  "callers:client/v3/example_cluster_test.go:49": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "client/v3/example_cluster_test.go",
+     "ExampleCluster_memberAdd"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "client/v3/example_cluster_test.go",
+     55,
+     55
+    ]
+   ],
+   "outcome": "inventory_miss",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "client/v3/example_cluster_test.go:49",
+   "stratum": "C-name"
+  },
+  "callers:client/v3/leasing/kv.go:191": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "client/v3/leasing/kv.go",
+     "monitorLease"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "client/v3/leasing/kv.go",
+     170,
+     170
+    ],
+    [
+     "client/v3/leasing/kv.go",
+     181,
+     181
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "client/v3/leasing/kv.go",
+     "monitorLease"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "client/v3/leasing/kv.go",
+     170,
+     170,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "client/v3/leasing/kv.go",
+     181,
+     181,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ]
+   ],
+   "seed_def": "client/v3/leasing/kv.go:191",
+   "stratum": "U-method"
+  },
+  "callers:client/v3/retry_interceptor.go:293": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "client/v3/retry_interceptor.go",
+     "RecvMsg"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "client/v3/retry_interceptor.go",
+     245,
+     245
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "client/v3/retry_interceptor.go",
+     "RecvMsg"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "client/v3/retry_interceptor.go",
+     245,
+     245,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ]
+   ],
+   "seed_def": "client/v3/retry_interceptor.go:293",
+   "stratum": "U-method"
+  },
+  "callers:etcdutl/etcdutl/snapshot_command.go:48": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "etcdutl/ctl.go",
+     "init"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "etcdutl/ctl.go",
+     46,
+     46
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "etcdutl/ctl.go",
+     "init"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "etcdutl/ctl.go",
+     46,
+     46,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ]
+   ],
+   "seed_def": "etcdutl/etcdutl/snapshot_command.go:48",
+   "stratum": "C-name"
+  },
+  "callers:pkg/adt/interval_tree.go:585": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "pkg/adt/interval_tree.go",
+     "deleteFixup"
+    ],
+    [
+     "pkg/adt/interval_tree.go",
+     "insertFixup"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "pkg/adt/interval_tree.go",
+     368,
+     368
+    ],
+    [
+     "pkg/adt/interval_tree.go",
+     387,
+     387
+    ],
+    [
+     "pkg/adt/interval_tree.go",
+     409,
+     409
+    ],
+    [
+     "pkg/adt/interval_tree.go",
+     532,
+     532
+    ],
+    [
+     "pkg/adt/interval_tree.go",
+     553,
+     553
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "pkg/adt/interval_tree.go",
+     "deleteFixup"
+    ],
+    [
+     "pkg/adt/interval_tree.go",
+     "insertFixup"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "pkg/adt/interval_tree.go",
+     368,
+     368,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "pkg/adt/interval_tree.go",
+     387,
+     387,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "pkg/adt/interval_tree.go",
+     409,
+     409,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "pkg/adt/interval_tree.go",
+     532,
+     532,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "pkg/adt/interval_tree.go",
+     553,
+     553,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ]
+   ],
+   "seed_def": "pkg/adt/interval_tree.go:585",
+   "stratum": "U-method"
+  },
+  "callers:pkg/adt/interval_tree.go:686": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "pkg/adt/interval_tree.go",
+     "Contains"
+    ],
+    [
+     "pkg/adt/interval_tree.go",
+     "Stab"
+    ],
+    [
+     "pkg/adt/interval_tree.go",
+     "Union"
+    ],
+    [
+     "pkg/adt/interval_tree_test.go",
+     "TestIntervalTreeSortedVisit"
+    ],
+    [
+     "pkg/adt/interval_tree_test.go",
+     "TestIntervalTreeVisitExit"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "pkg/adt/interval_tree.go",
+     747,
+     747
+    ],
+    [
+     "pkg/adt/interval_tree.go",
+     772,
+     772
+    ],
+    [
+     "pkg/adt/interval_tree.go",
+     782,
+     782
+    ],
+    [
+     "pkg/adt/interval_tree_test.go",
+     430,
+     430
+    ],
+    [
+     "pkg/adt/interval_tree_test.go",
+     468,
+     468
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "pkg/adt/interval_tree.go",
+     "Contains"
+    ],
+    [
+     "pkg/adt/interval_tree.go",
+     "Stab"
+    ],
+    [
+     "pkg/adt/interval_tree.go",
+     "Union"
+    ],
+    [
+     "pkg/adt/interval_tree_test.go",
+     "TestIntervalTreeSortedVisit"
+    ],
+    [
+     "pkg/adt/interval_tree_test.go",
+     "TestIntervalTreeVisitExit"
+    ],
+    [
+     "server/etcdmain/config.go",
+     "configFromCmdLine"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "pkg/adt/interval_tree.go",
+     747,
+     747,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "pkg/adt/interval_tree.go",
+     772,
+     772,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "pkg/adt/interval_tree.go",
+     782,
+     782,
+     {
+      "resolution_kind": "interface_dispatch"
+     }
+    ],
+    [
+     "pkg/adt/interval_tree_test.go",
+     430,
+     430,
+     {
+      "resolution_kind": "interface_dispatch"
+     }
+    ],
+    [
+     "pkg/adt/interval_tree_test.go",
+     468,
+     468,
+     {
+      "resolution_kind": "interface_dispatch"
+     }
+    ],
+    [
+     "server/etcdmain/config.go",
+     261,
+     261,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "pkg/adt/interval_tree.go:686",
+   "stratum": "C-method"
+  },
+  "callers:pkg/adt/interval_tree.go:806": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "pkg/adt/interval_tree_test.go",
+     "TestIntervalTreeDelete"
+    ],
+    [
+     "pkg/adt/interval_tree_test.go",
+     "TestIntervalTreeInsert"
+    ],
+    [
+     "pkg/adt/interval_tree_test.go",
+     "TestIntervalTreeSelfBalanced"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "pkg/adt/interval_tree_test.go",
+     58,
+     58
+    ],
+    [
+     "pkg/adt/interval_tree_test.go",
+     110,
+     110
+    ],
+    [
+     "pkg/adt/interval_tree_test.go",
+     213,
+     213
+    ],
+    [
+     "pkg/adt/interval_tree_test.go",
+     241,
+     241
+    ],
+    [
+     "pkg/adt/interval_tree_test.go",
+     268,
+     268
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "pkg/adt/interval_tree_test.go",
+     "TestIntervalTreeDelete"
+    ],
+    [
+     "pkg/adt/interval_tree_test.go",
+     "TestIntervalTreeInsert"
+    ],
+    [
+     "pkg/adt/interval_tree_test.go",
+     "TestIntervalTreeSelfBalanced"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "pkg/adt/interval_tree_test.go",
+     58,
+     58,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "pkg/adt/interval_tree_test.go",
+     110,
+     110,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "pkg/adt/interval_tree_test.go",
+     213,
+     213,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "pkg/adt/interval_tree_test.go",
+     241,
+     241,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "pkg/adt/interval_tree_test.go",
+     268,
+     268,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "pkg/adt/interval_tree.go:806",
+   "stratum": "U-method"
+  },
+  "callers:pkg/osutil/interrupt_unix.go:43": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "pkg/osutil/osutil_test.go",
+     "TestHandleInterrupts"
+    ],
+    [
+     "server/etcdmain/etcd.go",
+     "startEtcd"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "pkg/osutil/osutil_test.go",
+     42,
+     42
+    ],
+    [
+     "pkg/osutil/osutil_test.go",
+     43,
+     43
+    ],
+    [
+     "server/etcdmain/etcd.go",
+     185,
+     185
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "pkg/osutil/osutil_test.go",
+     "TestHandleInterrupts"
+    ],
+    [
+     "server/etcdmain/etcd.go",
+     "startEtcd"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "server/etcdmain/etcd.go",
+     185,
+     185,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "pkg/osutil/osutil_test.go",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "pkg/osutil/osutil_test.go",
+     43,
+     43,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ]
+   ],
+   "seed_def": "pkg/osutil/interrupt_unix.go:43",
+   "stratum": "C-name"
+  },
+  "callers:pkg/schedule/schedule.go:158": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "pkg/schedule/schedule.go",
+     "NewFIFOScheduler"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "pkg/schedule/schedule.go",
+     101,
+     101
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "pkg/schedule/schedule.go",
+     "NewFIFOScheduler"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "pkg/schedule/schedule.go",
+     101,
+     101,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "pkg/schedule/schedule.go:158",
+   "stratum": "C-method"
+  },
+  "callers:server/embed/config.go:1171": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "server/embed/config.go",
+     "NewConfig"
+    ],
+    [
+     "server/embed/config.go",
+     "UpdateDefaultClusterFromName"
+    ],
+    [
+     "server/etcdmain/etcd.go",
+     "startEtcdOrProxyV2"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "server/embed/config.go",
+     599,
+     599
+    ],
+    [
+     "server/embed/config.go",
+     1290,
+     1290
+    ],
+    [
+     "server/embed/config.go",
+     1303,
+     1303
+    ],
+    [
+     "server/etcdmain/etcd.go",
+     146,
+     146
+    ],
+    [
+     "server/etcdmain/etcd.go",
+     152,
+     152
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "server/embed/config.go",
+     "NewConfig"
+    ],
+    [
+     "server/embed/config.go",
+     "UpdateDefaultClusterFromName"
+    ],
+    [
+     "server/etcdmain/etcd.go",
+     "startEtcdOrProxyV2"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "server/embed/config.go",
+     1290,
+     1290,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "server/embed/config.go",
+     1303,
+     1303,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "server/embed/config.go",
+     599,
+     599,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "server/etcdmain/etcd.go",
+     146,
+     146,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "server/etcdmain/etcd.go",
+     152,
+     152,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "server/embed/config.go:1171",
+   "stratum": "U-method"
+  },
+  "callers:server/etcdserver/api/etcdhttp/health.go:395": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "server/etcdserver/api/etcdhttp/health.go",
+     "installRootHTTPEndpoint"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "server/etcdserver/api/etcdhttp/health.go",
+     325,
+     325
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "server/etcdserver/api/etcdhttp/health.go",
+     "installRootHTTPEndpoint"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "server/etcdserver/api/etcdhttp/health.go",
+     325,
+     325,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "server/etcdserver/api/etcdhttp/health.go:395",
+   "stratum": "Q-scoped"
+  },
+  "callers:server/etcdserver/api/membership/membership_test.go:72": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "server/etcdserver/api/membership/cluster.go",
+     "SetVersion"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "server/etcdserver/api/membership/cluster.go",
+     614,
+     614
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "server/etcdserver/api/membership/membership_test.go:72",
+   "stratum": "C-method"
+  },
+  "callers:server/etcdserver/api/v3lock/v3lockpb/v3lock.pb.go:283": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "server/etcdserver/api/v3lock/v3lockpb/v3lock.pb.go",
+     "init"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "server/etcdserver/api/v3lock/v3lockpb/v3lock.pb.go",
+     282,
+     282
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "server/etcdserver/api/v3lock/v3lockpb/v3lock.pb.go",
+     "init"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "server/etcdserver/api/v3lock/v3lockpb/v3lock.pb.go",
+     282,
+     282,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "server/etcdserver/api/v3lock/v3lockpb/v3lock.pb.go:283",
+   "stratum": "Q-scoped"
+  },
+  "callers:server/etcdserver/server_test.go:665": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "server/etcdserver/server_test.go:665",
+   "stratum": "Q-scoped"
+  },
+  "callers:server/lease/lease.go:92": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "server/lease/lessor.go",
+     "Demote"
+    ],
+    [
+     "server/lease/lessor.go",
+     "Grant"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "server/lease/lessor.go",
+     308,
+     308
+    ],
+    [
+     "server/lease/lessor.go",
+     540,
+     540
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "server/lease/lessor.go",
+     "Demote"
+    ],
+    [
+     "server/lease/lessor.go",
+     "Grant"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "server/lease/lessor.go",
+     308,
+     308,
+     {
+      "resolution_kind": "constructor_local"
+     }
+    ],
+    [
+     "server/lease/lessor.go",
+     540,
+     540,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "server/lease/lease.go:92",
+   "stratum": "U-method"
+  },
+  "callers:server/storage/mvcc/kvstore.go:156": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "server/storage/mvcc/hash.go",
+     "Hash"
+    ],
+    [
+     "server/storage/mvcc/kv_test.go",
+     "TestKVHash"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "server/storage/mvcc/hash.go",
+     136,
+     136
+    ],
+    [
+     "server/storage/mvcc/kv_test.go",
+     647,
+     647
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "server/storage/mvcc/hash.go",
+     "Hash"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "server/storage/mvcc/hash.go",
+     136,
+     136,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "server/storage/mvcc/kvstore.go:156",
+   "stratum": "U-method"
+  },
+  "callers:server/storage/mvcc/watcher_test.go:347": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "server/storage/mvcc/watcher_test.go:347",
+   "stratum": "Q-scoped"
+  },
+  "callers:tests/common/user_test.go:181": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "tests/common/user_test.go:181",
+   "stratum": "C-name"
+  },
+  "callers:tests/integration/clientv3/examples/example_cluster_test.go:84": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "tests/integration/clientv3/examples/example_cluster_test.go",
+     "ExampleCluster_memberAddAsLearner"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tests/integration/clientv3/examples/example_cluster_test.go",
+     90,
+     90
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "client/v3/concurrency/main_test.go",
+     "forUnitTestsRunInMockedContext"
+    ],
+    [
+     "client/v3/main_test.go",
+     "forUnitTestsRunInMockedContext"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "client/v3/concurrency/main_test.go",
+     26,
+     26,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "client/v3/main_test.go",
+     32,
+     32,
+     {
+      "resolution_kind": "free_single"
+     }
+    ]
+   ],
+   "seed_def": "tests/integration/clientv3/examples/example_cluster_test.go:84",
+   "stratum": "C-name"
+  },
+  "callers:tests/integration/clientv3/watch/v3_watch_test.go:825": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "tests/integration/clientv3/watch/v3_watch_test.go:825",
+   "stratum": "Q-scoped"
+  },
+  "callers:tests/integration/v3_grpc_test.go:1218": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "tests/integration/v3_grpc_test.go:1218",
+   "stratum": "Q-scoped"
+  },
+  "callers:tests/integration/v3_grpc_test.go:1597": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "tests/integration/v3_grpc_test.go",
+     "TestV3RangeRequest"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tests/integration/v3_grpc_test.go",
+     1566,
+     1566
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tests/integration/v3_grpc_test.go",
+     "TestV3RangeRequest"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "tests/integration/v3_grpc_test.go",
+     1566,
+     1566,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "tests/integration/v3_grpc_test.go:1597",
+   "stratum": "C-name"
+  }
+ },
+ "site_fingerprints": {
+  "api/etcdserverpb/gw/rpc.pb.gw.go:2860": "66cc09baa17b0a1d",
+  "api/etcdserverpb/gw/rpc.pb.gw.go:774": "628f9ae9fe8237fe",
+  "api/etcdserverpb/gw/rpc.pb.gw.go:780": "e6173be0f6e8595d",
+  "api/etcdserverpb/gw/rpc.pb.gw.go:996": "b0868fd3d7dfb36b",
+  "api/etcdserverpb/rpc_grpc.pb.go:650": "67bf459a0099c21d",
+  "cache/demux_test.go:351": "589068d2e6ed225b",
+  "cache/demux_test.go:352": "cc168ec6e5c4cff7",
+  "cache/demux_test.go:355": "0c8f583a227e4b88",
+  "cache/demux_test.go:356": "1fde1fbdf523f64a",
+  "cache/demux_test.go:357": "547855c2288aa613",
+  "cache/demux_test.go:358": "1b5908e6799a55a1",
+  "cache/demux_test.go:360": "b72e14aec7b2c186",
+  "cache/demux_test.go:362": "d1a8b5d660141d5a",
+  "cache/demux_test.go:363": "96baa361a307e572",
+  "cache/demux_test.go:366": "f85bcb4521898d34",
+  "cache/demux_test.go:367": "8709578ca4344295",
+  "cache/demux_test.go:372": "6179154b4afed7b8",
+  "cache/demux_test.go:373": "f920aca9adb5cda3",
+  "cache/demux_test.go:375": "ac3159d3455b22f4",
+  "cache/demux_test.go:376": "bb89fd12144cc319",
+  "cache/demux_test.go:379": "60b6ab846d2d945c",
+  "cache/demux_test.go:388": "54b463e2302b5f2c",
+  "cache/demux_test.go:389": "cc168ec6e5c4cff7",
+  "cache/demux_test.go:392": "b6ab35de14366ed1",
+  "cache/demux_test.go:393": "15f56dd1d3e63765",
+  "cache/demux_test.go:394": "470f661cbc966745",
+  "cache/demux_test.go:395": "f2051eca2943cd86",
+  "cache/demux_test.go:397": "b72e14aec7b2c186",
+  "cache/demux_test.go:399": "62dd9183d26fe082",
+  "cache/demux_test.go:400": "e9d1b8997a811c59",
+  "cache/store.go:135": "62f02aa4da8e8cea",
+  "cache/store.go:161": "172cabecec67b0d2",
+  "cache/store.go:166": "7f6d77fe65fccf8a",
+  "cache/store.go:167": "6015ea033159d1ca",
+  "client/pkg/fileutil/lock_test.go:34": "8051746f37a78a8b",
+  "client/pkg/fileutil/lock_test.go:53": "2a087e7bbbf53cf4",
+  "client/pkg/fileutil/purge_test.go:99": "553865bf2da33512",
+  "client/pkg/testutil/testingtb.go:72": "143e4ebba0d66799",
+  "client/pkg/testutil/testingtb.go:77": "ca825c6a9c72a2db",
+  "client/v3/auth.go:167": "ecdc12832c47b0b9",
+  "client/v3/compare_test.go:41": "f519d8de5208a1dc",
+  "client/v3/compare_test.go:44": "b9de8b4df8372129",
+  "client/v3/concurrency/main_test.go:26": "f952556f3a8c31a2",
+  "client/v3/example_cluster_test.go:55": "f8817c621f5ec427",
+  "client/v3/leasing/cache.go:266": "460dc7acfc9e9a45",
+  "client/v3/leasing/kv.go:170": "bb3caf0081f40ea6",
+  "client/v3/leasing/kv.go:181": "13b0796d8aabd05c",
+  "client/v3/leasing/kv.go:192": "68c45cb0e5850d47",
+  "client/v3/leasing/kv.go:195": "e179f25380c919c1",
+  "client/v3/leasing/kv.go:196": "4e28703e088d2ec2",
+  "client/v3/leasing/kv.go:198": "7ca81a4f2e05b416",
+  "client/v3/main_test.go:32": "f952556f3a8c31a2",
+  "client/v3/namespace/kv.go:203": "591f12f25d658db7",
+  "client/v3/namespace/kv.go:205": "f79b556cc584d0ba",
+  "client/v3/retry.go:280": "23d8f4af09a4a0ed",
+  "client/v3/retry_interceptor.go:245": "42a3bd47a2cd5fbe",
+  "client/v3/retry_interceptor.go:302": "9890cc1a9ee0ac40",
+  "client/v3/retry_interceptor.go:306": "8239f595f7c99ad6",
+  "etcdutl/ctl.go:46": "ebbccef7f825d509",
+  "etcdutl/etcdutl/snapshot_command.go:53": "8d608ff333a8ba3f",
+  "etcdutl/etcdutl/snapshot_command.go:54": "1cbc799e3d899e3e",
+  "pkg/adt/interval_tree.go:368": "1c7f32b80e7a9816",
+  "pkg/adt/interval_tree.go:387": "a319964d0d6cfae8",
+  "pkg/adt/interval_tree.go:409": "8846a02595448e18",
+  "pkg/adt/interval_tree.go:532": "3461143886beb832",
+  "pkg/adt/interval_tree.go:553": "2c7c10f31bc2fdda",
+  "pkg/adt/interval_tree.go:599": "7ceb5316f54fea8e",
+  "pkg/adt/interval_tree.go:602": "827ee390031c5a90",
+  "pkg/adt/interval_tree.go:606": "c74e32a9ea3d0553",
+  "pkg/adt/interval_tree.go:687": "dc9d41c24bbb599c",
+  "pkg/adt/interval_tree.go:747": "423b1d7513297ede",
+  "pkg/adt/interval_tree.go:772": "9285aee5db4c4852",
+  "pkg/adt/interval_tree.go:782": "9a7dfd04cd083169",
+  "pkg/adt/interval_tree.go:811": "3a9e4ffafd3dd09f",
+  "pkg/adt/interval_tree.go:824": "33a2000163bd9145",
+  "pkg/adt/interval_tree_test.go:110": "ccf40275040e586b",
+  "pkg/adt/interval_tree_test.go:213": "3ce0619cd76653d7",
+  "pkg/adt/interval_tree_test.go:241": "75d209a30b65a89b",
+  "pkg/adt/interval_tree_test.go:268": "386fb510f46f5744",
+  "pkg/adt/interval_tree_test.go:430": "d3e004bd3425a9c8",
+  "pkg/adt/interval_tree_test.go:468": "e660db5ebf413292",
+  "pkg/adt/interval_tree_test.go:58": "ccf40275040e586b",
+  "pkg/osutil/osutil_test.go:42": "2c989e2fe05cfb36",
+  "pkg/osutil/osutil_test.go:43": "27094d5731c43fff",
+  "pkg/schedule/schedule.go:101": "b1fd3b0c77ef1264",
+  "pkg/schedule/schedule.go:182": "68446c2ecc9b8736",
+  "pkg/schedule/schedule.go:187": "f82f4f4044463d14",
+  "server/embed/config.go:1290": "030ff52713042b1f",
+  "server/embed/config.go:1303": "030ff52713042b1f",
+  "server/embed/config.go:599": "a44586278ce2df5b",
+  "server/etcdmain/config.go:261": "79efcd4a8a322bf4",
+  "server/etcdmain/etcd.go:146": "280e6a5f5b7a07c7",
+  "server/etcdmain/etcd.go:152": "d283c3c88db18523",
+  "server/etcdmain/etcd.go:185": "7249a3f0a51cb755",
+  "server/etcdserver/api/etcdhttp/health.go:325": "6d6ed88611e0a597",
+  "server/etcdserver/api/membership/cluster.go:614": "ee6c0070495eeb43",
+  "server/etcdserver/api/v3lock/v3lockpb/v3lock.pb.go:282": "b6782966a394b134",
+  "server/etcdserver/server_test.go:668": "abc27f881c29ac27",
+  "server/etcdserver/server_test.go:672": "095e8348765ce58e",
+  "server/etcdserver/server_test.go:673": "10471ec37092ede4",
+  "server/etcdserver/server_test.go:674": "cb2666871f0b1c44",
+  "server/etcdserver/server_test.go:675": "a10d07aa6e7558ab",
+  "server/etcdserver/server_test.go:685": "00f8aae8ae4c05b0",
+  "server/etcdserver/server_test.go:686": "6585e203864c2acc",
+  "server/etcdserver/server_test.go:687": "f0a6767a82878bca",
+  "server/etcdserver/server_test.go:689": "8dcc4a95d17886c7",
+  "server/etcdserver/server_test.go:695": "c51e0ea1d1c3aa6d",
+  "server/etcdserver/server_test.go:700": "5d8ccdf8d8928b3e",
+  "server/etcdserver/server_test.go:708": "0664f3e16615cfb8",
+  "server/etcdserver/server_test.go:711": "e840c64dbc516397",
+  "server/etcdserver/server_test.go:714": "b1e6cf3b66575cbf",
+  "server/etcdserver/server_test.go:717": "9a0e198783cea70e",
+  "server/etcdserver/server_test.go:718": "a371f904db84b7f1",
+  "server/etcdserver/server_test.go:730": "702a3b99b45aec84",
+  "server/etcdserver/server_test.go:735": "51f3ee25270d1499",
+  "server/etcdserver/server_test.go:739": "d424a5c824c2777a",
+  "server/etcdserver/server_test.go:745": "dd23a9e9241469c7",
+  "server/etcdserver/server_test.go:750": "c1bf233c18ec968b",
+  "server/etcdserver/server_test.go:754": "8fefa38400b9f227",
+  "server/lease/lessor.go:308": "aa39b699ec6bf5b8",
+  "server/lease/lessor.go:540": "e22fedade8ec0eed",
+  "server/proxy/grpcproxy/adapter/lease_client_adapter.go:43": "389c7768f69ae372",
+  "server/proxy/grpcproxy/auth.go:79": "7929d49577acad8c",
+  "server/storage/mvcc/hash.go:136": "0a7b9c55af5a6f6d",
+  "server/storage/mvcc/kv_test.go:647": "fcddd02df26a8f3b",
+  "server/storage/mvcc/kvstore.go:160": "e333fd121b8137f7",
+  "server/storage/mvcc/kvstore.go:161": "5d3ebbbe789ad7a3",
+  "server/storage/mvcc/watcher_test.go:348": "cf139734b7515c8f",
+  "server/storage/mvcc/watcher_test.go:349": "37a4607e15fca545",
+  "server/storage/mvcc/watcher_test.go:351": "d992eb6fd472c0e8",
+  "server/storage/mvcc/watcher_test.go:352": "007c67dd5cf8a825",
+  "server/storage/mvcc/watcher_test.go:354": "9273ac97204587e1",
+  "server/storage/mvcc/watcher_test.go:356": "f1af2acc7d97f477",
+  "server/storage/wal/repair.go:115": "49a0fd4aaa38f20c",
+  "server/storage/wal/wal.go:248": "9f38a42b7d560343",
+  "server/storage/wal/wal.go:813": "ae12ed6ee11f4365",
+  "tests/common/user_test.go:182": "85b104e3468e04c3",
+  "tests/common/user_test.go:183": "7f222f572dc3f875",
+  "tests/common/user_test.go:187": "1df269aeb78ddfc3",
+  "tests/common/user_test.go:188": "5aa33cde1c7d64e0",
+  "tests/common/user_test.go:189": "fab4e2a6889112b3",
+  "tests/common/user_test.go:191": "a4c9221bb9dd4a29",
+  "tests/common/user_test.go:196": "ed6dd8ff8f2fafc0",
+  "tests/common/user_test.go:199": "dcec4bc58132eb3f",
+  "tests/common/user_test.go:202": "e637fb26883d6fb4",
+  "tests/integration/clientv3/examples/example_cluster_test.go:90": "561834add58e8abd",
+  "tests/integration/clientv3/watch/v3_watch_test.go:826": "714342a3e88b0638",
+  "tests/integration/clientv3/watch/v3_watch_test.go:827": "d11f7be035a76d74",
+  "tests/integration/clientv3/watch/v3_watch_test.go:828": "f0104cc649ef593b",
+  "tests/integration/clientv3/watch/v3_watch_test.go:830": "5c39790507327e87",
+  "tests/integration/clientv3/watch/v3_watch_test.go:832": "e295ce008001dffe",
+  "tests/integration/clientv3/watch/v3_watch_test.go:835": "2698a78637f307b9",
+  "tests/integration/clientv3/watch/v3_watch_test.go:841": "3e6d303cd8b5f2cf",
+  "tests/integration/clientv3/watch/v3_watch_test.go:855": "e295ce008001dffe",
+  "tests/integration/clientv3/watch/v3_watch_test.go:858": "2698a78637f307b9",
+  "tests/integration/clientv3/watch/v3_watch_test.go:900": "1796e4995dadb342",
+  "tests/integration/v3_grpc_test.go:1219": "317e253d47827588",
+  "tests/integration/v3_grpc_test.go:1220": "6380d3915bf8b6bf",
+  "tests/integration/v3_grpc_test.go:1221": "bf95ed36339577cd",
+  "tests/integration/v3_grpc_test.go:1223": "bef49cbada1134bf",
+  "tests/integration/v3_grpc_test.go:1224": "f5227450e3bcd4ae",
+  "tests/integration/v3_grpc_test.go:1230": "3d22cfa5572c9fad",
+  "tests/integration/v3_grpc_test.go:1231": "2588bc6400fda78a",
+  "tests/integration/v3_grpc_test.go:1232": "a4bf9d57e7d64678",
+  "tests/integration/v3_grpc_test.go:1233": "f71bcabdae74959f",
+  "tests/integration/v3_grpc_test.go:1234": "b6f9525ee1bbef1c",
+  "tests/integration/v3_grpc_test.go:1236": "70a0d120645e2f16",
+  "tests/integration/v3_grpc_test.go:1237": "a5c0c8681d9fc7c9",
+  "tests/integration/v3_grpc_test.go:1566": "ae0e7a3595e9f685",
+  "tests/integration/v3_grpc_test.go:1600": "6dca2d154f324301"
+ }
+}

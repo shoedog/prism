@@ -1,0 +1,4256 @@
+{
+ "m1": {
+  "anon_oracle": 0,
+  "anon_prism": 0,
+  "matched": 2744,
+  "prism_extra": 0,
+  "prism_missing": 50,
+  "snapshot_prism_missing": 50
+ },
+ "m2": {
+  "callees": {
+   "C-method": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.2065493117918027,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.2065493117918027,
+      1.0
+     ],
+     "tp": 1
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 2,
+      "precision": [
+       0.3333333333333333,
+       0.06149194402093078,
+       0.7923404011921757
+      ],
+      "recall": [
+       1.0,
+       0.2065493117918027,
+       1.0
+      ],
+      "tp": 1
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 2,
+      "precision": [
+       0.3333333333333333,
+       0.06149194402093078,
+       0.7923404011921757
+      ],
+      "recall": [
+       1.0,
+       0.2065493117918027,
+       1.0
+      ],
+      "tp": 1
+     }
+    },
+    "pending": 0,
+    "raw": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.2065493117918027,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.2065493117918027,
+      1.0
+     ],
+     "tp": 1
+    },
+    "shortfall": 0
+   },
+   "C-name": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.6456695613241317,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.6456695613241317,
+      1.0
+     ],
+     "tp": 7
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 2,
+      "precision": [
+       0.6,
+       0.23072427940911855,
+       0.8823792268590028
+      ],
+      "recall": [
+       1.0,
+       0.43850296436068037,
+       1.0
+      ],
+      "tp": 3
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 2,
+      "precision": [
+       0.6,
+       0.23072427940911855,
+       0.8823792268590028
+      ],
+      "recall": [
+       1.0,
+       0.43850296436068037,
+       1.0
+      ],
+      "tp": 3
+     }
+    },
+    "pending": 3,
+    "raw": {
+     "fn": 3,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.6456695613241317,
+      1.0
+     ],
+     "recall": [
+      0.7,
+      0.3967781453459709,
+      0.892208733443606
+     ],
+     "tp": 7
+    },
+    "shortfall": 0
+   },
+   "Q-scoped": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.7575059904469021,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.7575059904469021,
+      1.0
+     ],
+     "tp": 12
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 1,
+      "precision": [
+       0.875,
+       0.5291118149439162,
+       0.9775825088000281
+      ],
+      "recall": [
+       1.0,
+       0.6456695613241317,
+       1.0
+      ],
+      "tp": 7
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 1,
+      "precision": [
+       0.875,
+       0.5291118149439162,
+       0.9775825088000281
+      ],
+      "recall": [
+       1.0,
+       0.6456695613241317,
+       1.0
+      ],
+      "tp": 7
+     }
+    },
+    "pending": 22,
+    "raw": {
+     "fn": 22,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.7575059904469021,
+      1.0
+     ],
+     "recall": [
+      0.35294117647058826,
+      0.2148792050658079,
+      0.5208603701083743
+     ],
+     "tp": 12
+    },
+    "shortfall": 0
+   },
+   "U-method": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.3423802239546494,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.3423802239546494,
+      1.0
+     ],
+     "tp": 2
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 1,
+      "precision": [
+       0.75,
+       0.3006418400969081,
+       0.954412739704631
+      ],
+      "recall": [
+       1.0,
+       0.43850296436068037,
+       1.0
+      ],
+      "tp": 3
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 1,
+      "precision": [
+       0.75,
+       0.3006418400969081,
+       0.954412739704631
+      ],
+      "recall": [
+       1.0,
+       0.43850296436068037,
+       1.0
+      ],
+      "tp": 3
+     }
+    },
+    "pending": 1,
+    "raw": {
+     "fn": 1,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.3423802239546494,
+      1.0
+     ],
+     "recall": [
+      0.6666666666666666,
+      0.2076595988078242,
+      0.9385080559790691
+     ],
+     "tp": 2
+    },
+    "shortfall": 0
+   }
+  },
+  "callers": {
+   "C-method": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      0.0,
+      0.0,
+      1.0
+     ],
+     "recall": [
+      0.0,
+      0.0,
+      1.0
+     ],
+     "tp": 0
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 9,
+      "precision": [
+       0.0,
+       0.0,
+       0.299145051727044
+      ],
+      "recall": [
+       0.0,
+       0.0,
+       1.0
+      ],
+      "tp": 0
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 9,
+      "precision": [
+       0.0,
+       0.0,
+       0.299145051727044
+      ],
+      "recall": [
+       0.0,
+       0.0,
+       1.0
+      ],
+      "tp": 0
+     }
+    },
+    "pending": 9,
+    "raw": {
+     "fn": 0,
+     "fp": 9,
+     "precision": [
+      0.0,
+      0.0,
+      0.299145051727044
+     ],
+     "recall": [
+      0.0,
+      0.0,
+      1.0
+     ],
+     "tp": 0
+    },
+    "shortfall": 0
+   },
+   "C-name": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.43850296436068037,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.43850296436068037,
+      1.0
+     ],
+     "tp": 3
+    },
+    "function": {
+     "corrected": {
+      "fn": 2,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.43850296436068037,
+       1.0
+      ],
+      "recall": [
+       0.6,
+       0.23072427940911855,
+       0.8823792268590028
+      ],
+      "tp": 3
+     },
+     "raw": {
+      "fn": 2,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.43850296436068037,
+       1.0
+      ],
+      "recall": [
+       0.6,
+       0.23072427940911855,
+       0.8823792268590028
+      ],
+      "tp": 3
+     }
+    },
+    "pending": 2,
+    "raw": {
+     "fn": 2,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.43850296436068037,
+      1.0
+     ],
+     "recall": [
+      0.6,
+      0.23072427940911855,
+      0.8823792268590028
+     ],
+     "tp": 3
+    },
+    "shortfall": 0
+   },
+   "Q-scoped": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.5655175313406071,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.5655175313406071,
+      1.0
+     ],
+     "tp": 5
+    },
+    "function": {
+     "corrected": {
+      "fn": 5,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.5655175313406071,
+       1.0
+      ],
+      "recall": [
+       0.5,
+       0.23659308901147935,
+       0.7634069109885206
+      ],
+      "tp": 5
+     },
+     "raw": {
+      "fn": 5,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.5655175313406071,
+       1.0
+      ],
+      "recall": [
+       0.5,
+       0.23659308901147935,
+       0.7634069109885206
+      ],
+      "tp": 5
+     }
+    },
+    "pending": 10,
+    "raw": {
+     "fn": 10,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.5655175313406071,
+      1.0
+     ],
+     "recall": [
+      0.3333333333333333,
+      0.15176324343669478,
+      0.582864524428801
+     ],
+     "tp": 5
+    },
+    "shortfall": 0
+   },
+   "U-method": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.8957300009841286,
+      0.9999999999999999
+     ],
+     "recall": [
+      1.0,
+      0.8957300009841286,
+      0.9999999999999999
+     ],
+     "tp": 33
+    },
+    "function": {
+     "corrected": {
+      "fn": 1,
+      "fp": 2,
+      "precision": [
+       0.9512195121951219,
+       0.8386102100596369,
+       0.9865190547563483
+      ],
+      "recall": [
+       0.975,
+       0.8711863091181636,
+       0.9955731685462955
+      ],
+      "tp": 39
+     },
+     "raw": {
+      "fn": 1,
+      "fp": 2,
+      "precision": [
+       0.9512195121951219,
+       0.8386102100596369,
+       0.9865190547563483
+      ],
+      "recall": [
+       0.975,
+       0.8711863091181636,
+       0.9955731685462955
+      ],
+      "tp": 39
+     }
+    },
+    "pending": 30,
+    "raw": {
+     "fn": 14,
+     "fp": 16,
+     "precision": [
+      0.673469387755102,
+      0.5337920520226439,
+      0.7879250307359736
+     ],
+     "recall": [
+      0.7021276595744681,
+      0.5602232596499943,
+      0.8134874956680418
+     ],
+     "tp": 33
+    },
+    "shortfall": 0
+   }
+  }
+ },
+ "m3": {
+  "cap": 25,
+  "checked": [
+   {
+    "probe": "callers:crates/core/flags/defs.rs:2291",
+    "site": "crates/core/flags/doc/help.rs:66",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:crates/core/flags/defs.rs:2291",
+    "site": "crates/core/flags/doc/help.rs:132",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:crates/core/flags/defs.rs:2291",
+    "site": "crates/core/flags/doc/man.rs:47",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:crates/core/flags/defs.rs:3094",
+    "site": "crates/core/flags/doc/help.rs:182",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:crates/core/flags/defs.rs:3094",
+    "site": "crates/core/flags/doc/man.rs:101",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:crates/core/flags/defs.rs:4507",
+    "site": "crates/core/flags/doc/help.rs:150",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:crates/core/flags/defs.rs:4507",
+    "site": "crates/core/flags/doc/man.rs:64",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:crates/core/flags/defs.rs:4835",
+    "site": "crates/core/flags/doc/help.rs:182",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:crates/core/flags/defs.rs:4835",
+    "site": "crates/core/flags/doc/man.rs:101",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:crates/ignore/src/walk.rs:1867",
+    "site": "crates/core/main.rs:309",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:crates/ignore/src/walk.rs:1867",
+    "site": "crates/ignore/examples/walk.rs:33",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:crates/ignore/src/walk.rs:1867",
+    "site": "crates/ignore/examples/walk.rs:40",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:crates/ignore/src/walk.rs:1867",
+    "site": "crates/ignore/examples/walk.rs:45",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:crates/searcher/src/testutil.rs:331",
+    "site": "crates/searcher/src/searcher/glue.rs:498",
+    "verdict": "alias_site"
+   },
+   {
+    "probe": "callers:crates/searcher/src/testutil.rs:331",
+    "site": "crates/searcher/src/searcher/glue.rs:846",
+    "verdict": "alias_site"
+   },
+   {
+    "probe": "callers:crates/searcher/src/testutil.rs:331",
+    "site": "crates/searcher/src/searcher/glue.rs:897",
+    "verdict": "alias_site"
+   },
+   {
+    "probe": "callers:crates/searcher/src/testutil.rs:331",
+    "site": "crates/searcher/src/searcher/glue.rs:950",
+    "verdict": "alias_site"
+   },
+   {
+    "probe": "callers:crates/searcher/src/testutil.rs:331",
+    "site": "crates/searcher/src/searcher/glue.rs:1001",
+    "verdict": "alias_site"
+   },
+   {
+    "probe": "callers:crates/searcher/src/testutil.rs:331",
+    "site": "crates/searcher/src/searcher/glue.rs:1066",
+    "verdict": "alias_site"
+   },
+   {
+    "probe": "callers:crates/searcher/src/testutil.rs:331",
+    "site": "crates/searcher/src/searcher/glue.rs:1113",
+    "verdict": "alias_site"
+   },
+   {
+    "probe": "callers:crates/searcher/src/testutil.rs:331",
+    "site": "crates/searcher/src/searcher/glue.rs:1169",
+    "verdict": "alias_site"
+   },
+   {
+    "probe": "callers:crates/searcher/src/testutil.rs:331",
+    "site": "crates/searcher/src/searcher/glue.rs:1230",
+    "verdict": "alias_site"
+   },
+   {
+    "probe": "callers:crates/searcher/src/testutil.rs:331",
+    "site": "crates/searcher/src/searcher/glue.rs:1299",
+    "verdict": "alias_site"
+   },
+   {
+    "probe": "callers:crates/searcher/src/testutil.rs:331",
+    "site": "crates/searcher/src/searcher/glue.rs:1373",
+    "verdict": "alias_site"
+   },
+   {
+    "probe": "callers:crates/searcher/src/testutil.rs:331",
+    "site": "crates/searcher/src/searcher/glue.rs:1449",
+    "verdict": "alias_site"
+   }
+  ],
+  "counts": {
+   "alias_site": 12,
+   "ambiguous": 13,
+   "confirmed_fp": 0,
+   "confirmed_tp": 0
+  }
+ },
+ "meta": {
+  "baseline_invalid": false,
+  "corpus": "ripgrep",
+  "corpus_dirty": false,
+  "corpus_dirty_reasons": [],
+  "corpus_sha": "82313cf95849",
+  "date": "2026-06-20",
+  "harness_sha": "06e6ac4ee96e",
+  "invalid_reasons": [],
+  "oracle": "rust-analyzer 1.94.0 (4a4ef493 2026-03-02)",
+  "oracle_error_rate": 0.0625,
+  "oracle_not_quiescent": false,
+  "prism_dirty": false,
+  "prism_sha": "20c8490591a3",
+  "seed": 42,
+  "stale_adjudications": 0,
+  "sut_error_rate": 0.0,
+  "wall_s": {
+   "m1_oracle_inventory": 0.069,
+   "m2": 27.353,
+   "m3": 0.009,
+   "oracle_start": 11.005
+  }
+ },
+ "pending": [
+  {
+   "corpus": "ripgrep",
+   "direction": "prism_only",
+   "dispatch_kind": "trait_cha",
+   "measurement": "callers",
+   "seed_def": "crates/core/flags/defs.rs:2291",
+   "site": "crates/core/flags/doc/help.rs:66",
+   "site_fingerprint": "dda87f9c85702c4b"
+  },
+  {
+   "corpus": "ripgrep",
+   "direction": "prism_only",
+   "dispatch_kind": "trait_cha",
+   "measurement": "callers",
+   "seed_def": "crates/core/flags/defs.rs:2291",
+   "site": "crates/core/flags/doc/help.rs:132",
+   "site_fingerprint": "c5c20fd9ac173c8a"
+  },
+  {
+   "corpus": "ripgrep",
+   "direction": "prism_only",
+   "dispatch_kind": "trait_cha",
+   "measurement": "callers",
+   "seed_def": "crates/core/flags/defs.rs:2291",
+   "site": "crates/core/flags/doc/man.rs:47",
+   "site_fingerprint": "9e40c9aa7872b018"
+  },
+  {
+   "corpus": "ripgrep",
+   "direction": "prism_only",
+   "dispatch_kind": "trait_cha",
+   "measurement": "callers",
+   "seed_def": "crates/core/flags/defs.rs:3094",
+   "site": "crates/core/flags/doc/help.rs:182",
+   "site_fingerprint": "df125e133f9c1c94"
+  },
+  {
+   "corpus": "ripgrep",
+   "direction": "prism_only",
+   "dispatch_kind": "trait_cha",
+   "measurement": "callers",
+   "seed_def": "crates/core/flags/defs.rs:3094",
+   "site": "crates/core/flags/doc/man.rs:101",
+   "site_fingerprint": "c3314351a14583f0"
+  },
+  {
+   "corpus": "ripgrep",
+   "direction": "prism_only",
+   "dispatch_kind": "trait_cha",
+   "measurement": "callers",
+   "seed_def": "crates/core/flags/defs.rs:4507",
+   "site": "crates/core/flags/doc/help.rs:150",
+   "site_fingerprint": "24396de7d589b084"
+  },
+  {
+   "corpus": "ripgrep",
+   "direction": "prism_only",
+   "dispatch_kind": "trait_cha",
+   "measurement": "callers",
+   "seed_def": "crates/core/flags/defs.rs:4507",
+   "site": "crates/core/flags/doc/man.rs:64",
+   "site_fingerprint": "88a0b5325bd00a04"
+  },
+  {
+   "corpus": "ripgrep",
+   "direction": "prism_only",
+   "dispatch_kind": "trait_cha",
+   "measurement": "callers",
+   "seed_def": "crates/core/flags/defs.rs:4835",
+   "site": "crates/core/flags/doc/help.rs:182",
+   "site_fingerprint": "df125e133f9c1c94"
+  },
+  {
+   "corpus": "ripgrep",
+   "direction": "prism_only",
+   "dispatch_kind": "trait_cha",
+   "measurement": "callers",
+   "seed_def": "crates/core/flags/defs.rs:4835",
+   "site": "crates/core/flags/doc/man.rs:101",
+   "site_fingerprint": "c3314351a14583f0"
+  },
+  {
+   "corpus": "ripgrep",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "crates/core/flags/hiargs.rs:1210",
+   "site": "crates/core/flags/hiargs.rs:151",
+   "site_fingerprint": "87e8f2350f948791"
+  },
+  {
+   "corpus": "ripgrep",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "crates/globset/src/glob.rs:1217",
+   "site": "crates/globset/src/glob.rs:1253",
+   "site_fingerprint": "ac8191b894b619f7"
+  },
+  {
+   "corpus": "ripgrep",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "crates/globset/src/glob.rs:1217",
+   "site": "crates/globset/src/glob.rs:1254",
+   "site_fingerprint": "719dd74352fceb69"
+  },
+  {
+   "corpus": "ripgrep",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "crates/globset/src/glob.rs:1217",
+   "site": "crates/globset/src/glob.rs:1255",
+   "site_fingerprint": "42a1d31f4fde86d1"
+  },
+  {
+   "corpus": "ripgrep",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "crates/globset/src/glob.rs:1217",
+   "site": "crates/globset/src/glob.rs:1259",
+   "site_fingerprint": "f9af730ac99680da"
+  },
+  {
+   "corpus": "ripgrep",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "crates/globset/src/glob.rs:1217",
+   "site": "crates/globset/src/glob.rs:1264",
+   "site_fingerprint": "904090b06ac21e3c"
+  },
+  {
+   "corpus": "ripgrep",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "crates/globset/src/glob.rs:1217",
+   "site": "crates/globset/src/glob.rs:1265",
+   "site_fingerprint": "1d77626127536f49"
+  },
+  {
+   "corpus": "ripgrep",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callers",
+   "seed_def": "crates/ignore/src/walk.rs:1867",
+   "site": "crates/core/main.rs:309",
+   "site_fingerprint": "c08012c288271e34"
+  },
+  {
+   "corpus": "ripgrep",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callers",
+   "seed_def": "crates/ignore/src/walk.rs:1867",
+   "site": "crates/ignore/examples/walk.rs:33",
+   "site_fingerprint": "021f506184fc4ae6"
+  },
+  {
+   "corpus": "ripgrep",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callers",
+   "seed_def": "crates/ignore/src/walk.rs:1867",
+   "site": "crates/ignore/examples/walk.rs:40",
+   "site_fingerprint": "055b65f7e834406a"
+  },
+  {
+   "corpus": "ripgrep",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callers",
+   "seed_def": "crates/ignore/src/walk.rs:1867",
+   "site": "crates/ignore/examples/walk.rs:45",
+   "site_fingerprint": "12579da585d3d4a9"
+  },
+  {
+   "corpus": "ripgrep",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "crates/printer/src/hyperlink/mod.rs:35",
+   "site": "crates/core/flags/hiargs.rs:1289",
+   "site_fingerprint": "e8790b802a66e666"
+  },
+  {
+   "corpus": "ripgrep",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "crates/printer/src/standard.rs:1541",
+   "site": "crates/printer/src/standard.rs:1320",
+   "site_fingerprint": "06762d0b5649af79"
+  },
+  {
+   "corpus": "ripgrep",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "crates/printer/src/standard.rs:1541",
+   "site": "crates/printer/src/standard.rs:1344",
+   "site_fingerprint": "5c216fffc7f4110b"
+  },
+  {
+   "corpus": "ripgrep",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "crates/searcher/src/searcher/mod.rs:79",
+   "site": "crates/core/flags/hiargs.rs:1172",
+   "site_fingerprint": "5278035275305bc8"
+  },
+  {
+   "corpus": "ripgrep",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "crates/searcher/src/searcher/mod.rs:79",
+   "site": "crates/grep/examples/simplegrep.rs:35",
+   "site_fingerprint": "d58eecf28257f1e6"
+  },
+  {
+   "corpus": "ripgrep",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "crates/searcher/src/searcher/mod.rs:79",
+   "site": "crates/printer/src/json.rs:937",
+   "site_fingerprint": "5d66226d7b955f89"
+  },
+  {
+   "corpus": "ripgrep",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "crates/searcher/src/searcher/mod.rs:79",
+   "site": "crates/printer/src/standard.rs:1822",
+   "site_fingerprint": "e7fbb2b38ed9b2b2"
+  },
+  {
+   "corpus": "ripgrep",
+   "direction": "prism_only",
+   "dispatch_kind": "typed_param",
+   "measurement": "callers",
+   "seed_def": "crates/searcher/src/testutil.rs:331",
+   "site": "crates/searcher/src/searcher/glue.rs:498",
+   "site_fingerprint": "c0e6906887015eb7"
+  },
+  {
+   "corpus": "ripgrep",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callers",
+   "seed_def": "crates/searcher/src/testutil.rs:331",
+   "site": "crates/searcher/src/searcher/glue.rs:846",
+   "site_fingerprint": "1bd045cb11834390"
+  },
+  {
+   "corpus": "ripgrep",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callers",
+   "seed_def": "crates/searcher/src/testutil.rs:331",
+   "site": "crates/searcher/src/searcher/glue.rs:897",
+   "site_fingerprint": "1bd045cb11834390"
+  },
+  {
+   "corpus": "ripgrep",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callers",
+   "seed_def": "crates/searcher/src/testutil.rs:331",
+   "site": "crates/searcher/src/searcher/glue.rs:950",
+   "site_fingerprint": "8da822d61aa39bd0"
+  },
+  {
+   "corpus": "ripgrep",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callers",
+   "seed_def": "crates/searcher/src/testutil.rs:331",
+   "site": "crates/searcher/src/searcher/glue.rs:1001",
+   "site_fingerprint": "8da822d61aa39bd0"
+  },
+  {
+   "corpus": "ripgrep",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callers",
+   "seed_def": "crates/searcher/src/testutil.rs:331",
+   "site": "crates/searcher/src/searcher/glue.rs:1066",
+   "site_fingerprint": "e1fdc44eea875e3b"
+  },
+  {
+   "corpus": "ripgrep",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callers",
+   "seed_def": "crates/searcher/src/testutil.rs:331",
+   "site": "crates/searcher/src/searcher/glue.rs:1113",
+   "site_fingerprint": "b80bfd99f59e930d"
+  },
+  {
+   "corpus": "ripgrep",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callers",
+   "seed_def": "crates/searcher/src/testutil.rs:331",
+   "site": "crates/searcher/src/searcher/glue.rs:1169",
+   "site_fingerprint": "52ec5f5958391126"
+  },
+  {
+   "corpus": "ripgrep",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callers",
+   "seed_def": "crates/searcher/src/testutil.rs:331",
+   "site": "crates/searcher/src/searcher/glue.rs:1230",
+   "site_fingerprint": "d62c8b02e5b6a3ff"
+  },
+  {
+   "corpus": "ripgrep",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callers",
+   "seed_def": "crates/searcher/src/testutil.rs:331",
+   "site": "crates/searcher/src/searcher/glue.rs:1299",
+   "site_fingerprint": "3ccd614be797226e"
+  },
+  {
+   "corpus": "ripgrep",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callers",
+   "seed_def": "crates/searcher/src/testutil.rs:331",
+   "site": "crates/searcher/src/searcher/glue.rs:1373",
+   "site_fingerprint": "3d2161e417a9d55a"
+  },
+  {
+   "corpus": "ripgrep",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callers",
+   "seed_def": "crates/searcher/src/testutil.rs:331",
+   "site": "crates/searcher/src/searcher/glue.rs:1449",
+   "site_fingerprint": "a1bd9dec5fcbd996"
+  },
+  {
+   "corpus": "ripgrep",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "crates/searcher/src/testutil.rs:331",
+   "site": "crates/searcher/src/searcher/glue.rs:501",
+   "site_fingerprint": "0b33232c508b5fd0"
+  },
+  {
+   "corpus": "ripgrep",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "crates/searcher/src/testutil.rs:331",
+   "site": "crates/searcher/src/searcher/glue.rs:851",
+   "site_fingerprint": "3a38d33e9f2691b5"
+  },
+  {
+   "corpus": "ripgrep",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "crates/searcher/src/testutil.rs:331",
+   "site": "crates/searcher/src/searcher/glue.rs:903",
+   "site_fingerprint": "3a38d33e9f2691b5"
+  },
+  {
+   "corpus": "ripgrep",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "crates/searcher/src/testutil.rs:331",
+   "site": "crates/searcher/src/searcher/glue.rs:955",
+   "site_fingerprint": "3a38d33e9f2691b5"
+  },
+  {
+   "corpus": "ripgrep",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "crates/searcher/src/testutil.rs:331",
+   "site": "crates/searcher/src/searcher/glue.rs:1007",
+   "site_fingerprint": "3a38d33e9f2691b5"
+  },
+  {
+   "corpus": "ripgrep",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "crates/searcher/src/testutil.rs:331",
+   "site": "crates/searcher/src/searcher/glue.rs:1071",
+   "site_fingerprint": "3a38d33e9f2691b5"
+  },
+  {
+   "corpus": "ripgrep",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "crates/searcher/src/testutil.rs:331",
+   "site": "crates/searcher/src/searcher/glue.rs:1118",
+   "site_fingerprint": "3a38d33e9f2691b5"
+  },
+  {
+   "corpus": "ripgrep",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "crates/searcher/src/testutil.rs:331",
+   "site": "crates/searcher/src/searcher/glue.rs:1174",
+   "site_fingerprint": "3a38d33e9f2691b5"
+  },
+  {
+   "corpus": "ripgrep",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "crates/searcher/src/testutil.rs:331",
+   "site": "crates/searcher/src/searcher/glue.rs:1235",
+   "site_fingerprint": "3a38d33e9f2691b5"
+  },
+  {
+   "corpus": "ripgrep",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "crates/searcher/src/testutil.rs:331",
+   "site": "crates/searcher/src/searcher/glue.rs:1304",
+   "site_fingerprint": "3a38d33e9f2691b5"
+  },
+  {
+   "corpus": "ripgrep",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "crates/searcher/src/testutil.rs:331",
+   "site": "crates/searcher/src/searcher/glue.rs:1378",
+   "site_fingerprint": "3a38d33e9f2691b5"
+  },
+  {
+   "corpus": "ripgrep",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "crates/searcher/src/testutil.rs:331",
+   "site": "crates/searcher/src/searcher/glue.rs:1454",
+   "site_fingerprint": "3a38d33e9f2691b5"
+  },
+  {
+   "corpus": "ripgrep",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "crates/cli/src/decompress.rs:191",
+   "site": "crates/cli/src/decompress.rs:192",
+   "site_fingerprint": "18de36a6bbd66ddd"
+  },
+  {
+   "corpus": "ripgrep",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "crates/cli/src/human.rs:113",
+   "site": "crates/cli/src/human.rs:114",
+   "site_fingerprint": "54e42a2f547b9bd3"
+  },
+  {
+   "corpus": "ripgrep",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "crates/core/flags/hiargs.rs:1210",
+   "site": "crates/core/flags/hiargs.rs:1215",
+   "site_fingerprint": "7b31458776fea822"
+  },
+  {
+   "corpus": "ripgrep",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "crates/core/flags/hiargs.rs:1210",
+   "site": "crates/core/flags/hiargs.rs:1217",
+   "site_fingerprint": "9a545dd3ef47bbdd"
+  },
+  {
+   "corpus": "ripgrep",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "crates/core/main.rs:235",
+   "site": "crates/core/main.rs:239",
+   "site_fingerprint": "91e95ce1da139b54"
+  },
+  {
+   "corpus": "ripgrep",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "crates/core/main.rs:235",
+   "site": "crates/core/main.rs:250",
+   "site_fingerprint": "109ad483d11b71e0"
+  },
+  {
+   "corpus": "ripgrep",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "crates/globset/benches/bench.rs:56",
+   "site": "crates/globset/benches/bench.rs:58",
+   "site_fingerprint": "01f3ddbbe4cf68b9"
+  },
+  {
+   "corpus": "ripgrep",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "crates/printer/src/hyperlink/mod.rs:35",
+   "site": "crates/printer/src/hyperlink/mod.rs:39",
+   "site_fingerprint": "3f7503107c83392b"
+  },
+  {
+   "corpus": "ripgrep",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "crates/printer/src/standard.rs:3700",
+   "site": "crates/printer/src/standard.rs:3701",
+   "site_fingerprint": "5b92dc07b8b3695f"
+  },
+  {
+   "corpus": "ripgrep",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "crates/printer/src/standard.rs:3700",
+   "site": "crates/printer/src/standard.rs:3703",
+   "site_fingerprint": "38ad89fbc056ebfd"
+  },
+  {
+   "corpus": "ripgrep",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "crates/printer/src/standard.rs:3700",
+   "site": "crates/printer/src/standard.rs:3704",
+   "site_fingerprint": "655e5e3533fa23ea"
+  },
+  {
+   "corpus": "ripgrep",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "crates/printer/src/standard.rs:3700",
+   "site": "crates/printer/src/standard.rs:3705",
+   "site_fingerprint": "87215d2250ce6695"
+  },
+  {
+   "corpus": "ripgrep",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "crates/printer/src/standard.rs:3700",
+   "site": "crates/printer/src/standard.rs:3707",
+   "site_fingerprint": "35ba93b519b8848f"
+  },
+  {
+   "corpus": "ripgrep",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "crates/printer/src/standard.rs:3700",
+   "site": "crates/printer/src/standard.rs:3708",
+   "site_fingerprint": "c9d487e432ec6af4"
+  },
+  {
+   "corpus": "ripgrep",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "crates/printer/src/standard.rs:3700",
+   "site": "crates/printer/src/standard.rs:3709",
+   "site_fingerprint": "1d8434e95407e672"
+  },
+  {
+   "corpus": "ripgrep",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "crates/printer/src/standard.rs:3700",
+   "site": "crates/printer/src/standard.rs:3712",
+   "site_fingerprint": "fa8a7efc80f8d936"
+  },
+  {
+   "corpus": "ripgrep",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "crates/printer/src/standard.rs:3700",
+   "site": "crates/printer/src/standard.rs:3716",
+   "site_fingerprint": "57c9f90a05c8b27a"
+  },
+  {
+   "corpus": "ripgrep",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "crates/searcher/src/line_buffer.rs:828",
+   "site": "crates/searcher/src/line_buffer.rs:831",
+   "site_fingerprint": "f4cca01d9df9a6a2"
+  },
+  {
+   "corpus": "ripgrep",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "crates/searcher/src/line_buffer.rs:828",
+   "site": "crates/searcher/src/line_buffer.rs:832",
+   "site_fingerprint": "1b39089cbd259e12"
+  },
+  {
+   "corpus": "ripgrep",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "crates/searcher/src/line_buffer.rs:828",
+   "site": "crates/searcher/src/line_buffer.rs:833",
+   "site_fingerprint": "33ab64ca23ac4235"
+  },
+  {
+   "corpus": "ripgrep",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "crates/searcher/src/searcher/glue.rs:809",
+   "site": "crates/searcher/src/searcher/glue.rs:820",
+   "site_fingerprint": "5835c02fb29cfee7"
+  },
+  {
+   "corpus": "ripgrep",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "crates/searcher/src/searcher/glue.rs:809",
+   "site": "crates/searcher/src/searcher/glue.rs:821",
+   "site_fingerprint": "713e97f6c38afe68"
+  },
+  {
+   "corpus": "ripgrep",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "crates/searcher/src/searcher/glue.rs:809",
+   "site": "crates/searcher/src/searcher/glue.rs:822",
+   "site_fingerprint": "9492d2de976b5067"
+  },
+  {
+   "corpus": "ripgrep",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "crates/searcher/src/searcher/glue.rs:809",
+   "site": "crates/searcher/src/searcher/glue.rs:823",
+   "site_fingerprint": "d52e095d286dded0"
+  },
+  {
+   "corpus": "ripgrep",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "crates/searcher/src/searcher/glue.rs:809",
+   "site": "crates/searcher/src/searcher/glue.rs:824",
+   "site_fingerprint": "328d04f2d3950eb3"
+  },
+  {
+   "corpus": "ripgrep",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "crates/searcher/src/searcher/mod.rs:79",
+   "site": "crates/searcher/src/searcher/mod.rs:80",
+   "site_fingerprint": "91d582b86aa72f80"
+  }
+ ],
+ "probes": {
+  "_corpus": "ripgrep",
+  "_strata": {
+   "C-method": {
+    "eligible_probes": 16,
+    "eligible_symbols": 8,
+    "target": 8
+   },
+   "C-name": {
+    "eligible_probes": 16,
+    "eligible_symbols": 8,
+    "target": 8
+   },
+   "Q-scoped": {
+    "eligible_probes": 16,
+    "eligible_symbols": 8,
+    "target": 8
+   },
+   "U-free": {
+    "eligible_probes": 0,
+    "eligible_symbols": 0,
+    "target": 8
+   },
+   "U-method": {
+    "eligible_probes": 16,
+    "eligible_symbols": 8,
+    "target": 8
+   }
+  },
+  "callees:crates/cli/src/decompress.rs:191": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "crates/cli/src/decompress.rs",
+     "has_command"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "crates/cli/src/decompress.rs",
+     192,
+     192
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/cli/src/decompress.rs",
+     "has_command"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "crates/cli/src/decompress.rs:191",
+   "stratum": "U-method"
+  },
+  "callees:crates/cli/src/human.rs:113": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "crates/cli/src/human.rs",
+     "suffix_k"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "crates/cli/src/human.rs",
+     114,
+     114
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/cli/src/human.rs",
+     "suffix_k"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "crates/cli/src/human.rs:113",
+   "stratum": "Q-scoped"
+  },
+  "callees:crates/cli/src/pattern.rs:40": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/cli/src/pattern.rs",
+     "from"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "crates/cli/src/pattern.rs:40",
+   "stratum": "C-name"
+  },
+  "callees:crates/core/flags/defs.rs:2291": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/core/flags/defs.rs",
+     "name_short"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "crates/core/flags/defs.rs:2291",
+   "stratum": "C-method"
+  },
+  "callees:crates/core/flags/defs.rs:2414": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "crates/core/flags/defs.rs:2414",
+   "stratum": "C-method"
+  },
+  "callees:crates/core/flags/defs.rs:3094": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "crates/core/flags/defs.rs:3094",
+   "stratum": "C-method"
+  },
+  "callees:crates/core/flags/defs.rs:442": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "crates/core/flags/defs.rs:442",
+   "stratum": "C-method"
+  },
+  "callees:crates/core/flags/defs.rs:4507": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "crates/core/flags/defs.rs:4507",
+   "stratum": "C-method"
+  },
+  "callees:crates/core/flags/defs.rs:4835": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "crates/core/flags/defs.rs:4835",
+   "stratum": "C-method"
+  },
+  "callees:crates/core/flags/defs.rs:5377": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "crates/core/flags/defs.rs",
+     "update"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "crates/core/flags/defs.rs",
+     5378,
+     5378
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/core/flags/defs.rs",
+     "update"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "crates/core/flags/defs.rs",
+     5378,
+     5378,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ]
+   ],
+   "seed_def": "crates/core/flags/defs.rs:5377",
+   "stratum": "C-method"
+  },
+  "callees:crates/core/flags/hiargs.rs:1210": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "crates/core/flags/hiargs.rs",
+     "globs"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "crates/core/flags/hiargs.rs",
+     1215,
+     1215
+    ],
+    [
+     "crates/core/flags/hiargs.rs",
+     1217,
+     1217
+    ],
+    [
+     "crates/core/flags/hiargs.rs",
+     1220,
+     1220
+    ],
+    [
+     "crates/core/flags/hiargs.rs",
+     1226,
+     1226
+    ],
+    [
+     "crates/core/flags/hiargs.rs",
+     1223,
+     1223
+    ],
+    [
+     "crates/core/flags/hiargs.rs",
+     1228,
+     1228
+    ],
+    [
+     "crates/core/flags/hiargs.rs",
+     1230,
+     1230
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/core/flags/hiargs.rs",
+     "globs"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "crates/core/flags/hiargs.rs",
+     1230,
+     1230,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ],
+    [
+     "crates/core/flags/hiargs.rs",
+     1223,
+     1223,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ],
+    [
+     "crates/core/flags/hiargs.rs",
+     1228,
+     1228,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ],
+    [
+     "crates/core/flags/hiargs.rs",
+     1220,
+     1220,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ],
+    [
+     "crates/core/flags/hiargs.rs",
+     1226,
+     1226,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ]
+   ],
+   "seed_def": "crates/core/flags/hiargs.rs:1210",
+   "stratum": "C-name"
+  },
+  "callees:crates/core/flags/hiargs.rs:1298": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/core/flags/hiargs.rs",
+     "current_dir"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "crates/core/flags/hiargs.rs:1298",
+   "stratum": "C-name"
+  },
+  "callees:crates/core/main.rs:235": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "crates/core/main.rs",
+     "files"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "crates/core/main.rs",
+     236,
+     236
+    ],
+    [
+     "crates/core/main.rs",
+     239,
+     239
+    ],
+    [
+     "crates/core/main.rs",
+     238,
+     238
+    ],
+    [
+     "crates/core/main.rs",
+     240,
+     240
+    ],
+    [
+     "crates/core/main.rs",
+     241,
+     241
+    ],
+    [
+     "crates/core/main.rs",
+     244,
+     244
+    ],
+    [
+     "crates/core/main.rs",
+     244,
+     244
+    ],
+    [
+     "crates/core/main.rs",
+     244,
+     244
+    ],
+    [
+     "crates/core/main.rs",
+     247,
+     247
+    ],
+    [
+     "crates/core/main.rs",
+     250,
+     250
+    ],
+    [
+     "crates/core/main.rs",
+     250,
+     250
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/core/main.rs",
+     "files"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "crates/core/main.rs",
+     236,
+     236,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ],
+    [
+     "crates/core/main.rs",
+     244,
+     244,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ],
+    [
+     "crates/core/main.rs",
+     247,
+     247,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ],
+    [
+     "crates/core/main.rs",
+     241,
+     241,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ],
+    [
+     "crates/core/main.rs",
+     244,
+     244,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ],
+    [
+     "crates/core/main.rs",
+     237,
+     237,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ],
+    [
+     "crates/core/main.rs",
+     240,
+     240,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ]
+   ],
+   "seed_def": "crates/core/main.rs:235",
+   "stratum": "Q-scoped"
+  },
+  "callees:crates/globset/benches/bench.rs:56": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "crates/globset/benches/bench.rs",
+     "short_regex"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "crates/globset/benches/bench.rs",
+     57,
+     57
+    ],
+    [
+     "crates/globset/benches/bench.rs",
+     58,
+     58
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/globset/benches/bench.rs",
+     "short_regex"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "crates/globset/benches/bench.rs",
+     57,
+     57,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "crates/globset/benches/bench.rs:56",
+   "stratum": "Q-scoped"
+  },
+  "callees:crates/globset/src/glob.rs:1217": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/globset/src/glob.rs",
+     "rclass"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "crates/globset/src/glob.rs:1217",
+   "stratum": "Q-scoped"
+  },
+  "callees:crates/ignore/src/lib.rs:381": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "crates/ignore/src/lib.rs",
+     "maybe_push"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "crates/ignore/src/lib.rs",
+     383,
+     383
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/ignore/src/lib.rs",
+     "maybe_push"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "crates/ignore/src/lib.rs",
+     383,
+     383,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ]
+   ],
+   "seed_def": "crates/ignore/src/lib.rs:381",
+   "stratum": "U-method"
+  },
+  "callees:crates/ignore/src/walk.rs:1867": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "crates/ignore/src/walk.rs",
+     "send"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "crates/ignore/src/walk.rs",
+     1868,
+     1868
+    ],
+    [
+     "crates/ignore/src/walk.rs",
+     1868,
+     1868
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/ignore/src/walk.rs",
+     "send"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "crates/ignore/src/walk.rs",
+     1868,
+     1868,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ]
+   ],
+   "seed_def": "crates/ignore/src/walk.rs:1867",
+   "stratum": "U-method"
+  },
+  "callees:crates/printer/src/hyperlink/mod.rs:35": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "crates/printer/src/hyperlink/mod.rs",
+     "new"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "crates/printer/src/hyperlink/mod.rs",
+     39,
+     39
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/printer/src/hyperlink/mod.rs",
+     "new"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "crates/printer/src/hyperlink/mod.rs:35",
+   "stratum": "C-name"
+  },
+  "callees:crates/printer/src/standard.rs:1541": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "crates/printer/src/standard.rs:1541",
+   "stratum": "U-method"
+  },
+  "callees:crates/printer/src/standard.rs:3700": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "crates/printer/src/standard.rs",
+     "replacement_per_match"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "crates/printer/src/standard.rs",
+     3701,
+     3701
+    ],
+    [
+     "crates/printer/src/standard.rs",
+     3705,
+     3705
+    ],
+    [
+     "crates/printer/src/standard.rs",
+     3704,
+     3704
+    ],
+    [
+     "crates/printer/src/standard.rs",
+     3703,
+     3703
+    ],
+    [
+     "crates/printer/src/standard.rs",
+     3702,
+     3702
+    ],
+    [
+     "crates/printer/src/standard.rs",
+     3709,
+     3709
+    ],
+    [
+     "crates/printer/src/standard.rs",
+     3708,
+     3708
+    ],
+    [
+     "crates/printer/src/standard.rs",
+     3707,
+     3707
+    ],
+    [
+     "crates/printer/src/standard.rs",
+     3706,
+     3706
+    ],
+    [
+     "crates/printer/src/standard.rs",
+     3712,
+     3712
+    ],
+    [
+     "crates/printer/src/standard.rs",
+     3716,
+     3716
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/printer/src/standard.rs",
+     "replacement_per_match"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "crates/printer/src/standard.rs",
+     3702,
+     3702,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ],
+    [
+     "crates/printer/src/standard.rs",
+     3702,
+     3702,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ],
+    [
+     "crates/printer/src/standard.rs",
+     3702,
+     3702,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ],
+    [
+     "crates/printer/src/standard.rs",
+     3702,
+     3702,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ],
+    [
+     "crates/printer/src/standard.rs",
+     3706,
+     3706,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "crates/printer/src/standard.rs:3700",
+   "stratum": "Q-scoped"
+  },
+  "callees:crates/printer/src/stats.rs:77": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "crates/printer/src/stats.rs:77",
+   "stratum": "U-method"
+  },
+  "callees:crates/regex/src/ast.rs:52": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "crates/regex/src/ast.rs:52",
+   "stratum": "C-name"
+  },
+  "callees:crates/regex/src/matcher.rs:300": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "crates/regex/src/matcher.rs:300",
+   "stratum": "U-method"
+  },
+  "callees:crates/regex/src/matcher.rs:429": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/regex/src/matcher.rs",
+     "capture_count"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "crates/regex/src/matcher.rs:429",
+   "stratum": "C-method"
+  },
+  "callees:crates/regex/src/matcher.rs:560": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "crates/regex/src/matcher.rs",
+     "word"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "crates/regex/src/matcher.rs",
+     562,
+     562
+    ],
+    [
+     "crates/regex/src/matcher.rs",
+     566,
+     566
+    ],
+    [
+     "crates/regex/src/matcher.rs",
+     562,
+     562
+    ],
+    [
+     "crates/regex/src/matcher.rs",
+     566,
+     566
+    ],
+    [
+     "crates/regex/src/matcher.rs",
+     562,
+     562
+    ],
+    [
+     "crates/regex/src/matcher.rs",
+     566,
+     566
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/regex/src/matcher.rs",
+     "word"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "crates/regex/src/matcher.rs",
+     562,
+     562,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "crates/regex/src/matcher.rs",
+     566,
+     566,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "crates/regex/src/matcher.rs",
+     562,
+     562,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "crates/regex/src/matcher.rs",
+     566,
+     566,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "crates/regex/src/matcher.rs:560",
+   "stratum": "C-name"
+  },
+  "callees:crates/searcher/src/line_buffer.rs:828": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "crates/searcher/src/line_buffer.rs",
+     "buffer_binary_quit3"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "crates/searcher/src/line_buffer.rs",
+     832,
+     832
+    ],
+    [
+     "crates/searcher/src/line_buffer.rs",
+     831,
+     831
+    ],
+    [
+     "crates/searcher/src/line_buffer.rs",
+     830,
+     830
+    ],
+    [
+     "crates/searcher/src/line_buffer.rs",
+     831,
+     831
+    ],
+    [
+     "crates/searcher/src/line_buffer.rs",
+     833,
+     833
+    ],
+    [
+     "crates/searcher/src/line_buffer.rs",
+     839,
+     839
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/searcher/src/line_buffer.rs",
+     "buffer_binary_quit3"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "crates/searcher/src/line_buffer.rs",
+     839,
+     839,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ],
+    [
+     "crates/searcher/src/line_buffer.rs",
+     830,
+     830,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "crates/searcher/src/line_buffer.rs",
+     830,
+     830,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "crates/searcher/src/line_buffer.rs:828",
+   "stratum": "Q-scoped"
+  },
+  "callees:crates/searcher/src/searcher/glue.rs:809": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "crates/searcher/src/searcher/glue.rs",
+     "passthru_sherlock_invert1"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "crates/searcher/src/searcher/glue.rs",
+     824,
+     824
+    ],
+    [
+     "crates/searcher/src/searcher/glue.rs",
+     823,
+     823
+    ],
+    [
+     "crates/searcher/src/searcher/glue.rs",
+     822,
+     822
+    ],
+    [
+     "crates/searcher/src/searcher/glue.rs",
+     821,
+     821
+    ],
+    [
+     "crates/searcher/src/searcher/glue.rs",
+     820,
+     820
+    ],
+    [
+     "crates/searcher/src/searcher/glue.rs",
+     819,
+     819
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/searcher/src/searcher/glue.rs",
+     "passthru_sherlock_invert1"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "crates/searcher/src/searcher/glue.rs",
+     819,
+     819,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ],
+    [
+     "crates/searcher/src/searcher/glue.rs",
+     819,
+     819,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ],
+    [
+     "crates/searcher/src/searcher/glue.rs",
+     819,
+     819,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ],
+    [
+     "crates/searcher/src/searcher/glue.rs",
+     819,
+     819,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ],
+    [
+     "crates/searcher/src/searcher/glue.rs",
+     819,
+     819,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ],
+    [
+     "crates/searcher/src/searcher/glue.rs",
+     819,
+     819,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "crates/searcher/src/searcher/glue.rs:809",
+   "stratum": "Q-scoped"
+  },
+  "callees:crates/searcher/src/searcher/mod.rs:79": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "crates/searcher/src/searcher/mod.rs",
+     "quit"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "crates/searcher/src/searcher/mod.rs",
+     80,
+     80
+    ],
+    [
+     "crates/searcher/src/searcher/mod.rs",
+     80,
+     80
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/searcher/src/searcher/mod.rs",
+     "quit"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "crates/searcher/src/searcher/mod.rs:79",
+   "stratum": "Q-scoped"
+  },
+  "callees:crates/searcher/src/sink.rs:47": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "crates/searcher/src/sink.rs:47",
+   "stratum": "C-name"
+  },
+  "callees:crates/searcher/src/testutil.rs:331": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/searcher/src/testutil.rs",
+     "expected_with_line_number"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "crates/searcher/src/testutil.rs:331",
+   "stratum": "U-method"
+  },
+  "callers:crates/cli/src/decompress.rs:191": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "crates/core/search.rs",
+     "should_decompress"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "crates/core/search.rs",
+     278,
+     278
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/core/search.rs",
+     "should_decompress"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "crates/core/search.rs",
+     278,
+     278,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "crates/cli/src/decompress.rs:191",
+   "stratum": "U-method"
+  },
+  "callers:crates/cli/src/human.rs:113": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "crates/cli/src/human.rs:113",
+   "stratum": "Q-scoped"
+  },
+  "callers:crates/cli/src/pattern.rs:40": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "crates/cli/src/pattern.rs:40",
+   "stratum": "C-name"
+  },
+  "callers:crates/core/flags/defs.rs:2291": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/core/flags/doc/help.rs",
+     "generate_long_flag"
+    ],
+    [
+     "crates/core/flags/doc/help.rs",
+     "generate_short_flag"
+    ],
+    [
+     "crates/core/flags/doc/man.rs",
+     "generate_flag"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "crates/core/flags/doc/help.rs",
+     66,
+     66,
+     {
+      "resolution_kind": "trait_cha"
+     }
+    ],
+    [
+     "crates/core/flags/doc/help.rs",
+     132,
+     132,
+     {
+      "resolution_kind": "trait_cha"
+     }
+    ],
+    [
+     "crates/core/flags/doc/man.rs",
+     47,
+     47,
+     {
+      "resolution_kind": "trait_cha"
+     }
+    ]
+   ],
+   "seed_def": "crates/core/flags/defs.rs:2291",
+   "stratum": "C-method"
+  },
+  "callers:crates/core/flags/defs.rs:2414": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "crates/core/flags/defs.rs:2414",
+   "stratum": "C-method"
+  },
+  "callers:crates/core/flags/defs.rs:3094": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/core/flags/doc/help.rs",
+     "generate_long_flag"
+    ],
+    [
+     "crates/core/flags/doc/man.rs",
+     "generate_flag"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "crates/core/flags/doc/help.rs",
+     182,
+     182,
+     {
+      "resolution_kind": "trait_cha"
+     }
+    ],
+    [
+     "crates/core/flags/doc/man.rs",
+     101,
+     101,
+     {
+      "resolution_kind": "trait_cha"
+     }
+    ]
+   ],
+   "seed_def": "crates/core/flags/defs.rs:3094",
+   "stratum": "C-method"
+  },
+  "callers:crates/core/flags/defs.rs:442": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "crates/core/flags/defs.rs:442",
+   "stratum": "C-method"
+  },
+  "callers:crates/core/flags/defs.rs:4507": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/core/flags/doc/help.rs",
+     "generate_long_flag"
+    ],
+    [
+     "crates/core/flags/doc/man.rs",
+     "generate_flag"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "crates/core/flags/doc/help.rs",
+     150,
+     150,
+     {
+      "resolution_kind": "trait_cha"
+     }
+    ],
+    [
+     "crates/core/flags/doc/man.rs",
+     64,
+     64,
+     {
+      "resolution_kind": "trait_cha"
+     }
+    ]
+   ],
+   "seed_def": "crates/core/flags/defs.rs:4507",
+   "stratum": "C-method"
+  },
+  "callers:crates/core/flags/defs.rs:4835": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/core/flags/doc/help.rs",
+     "generate_long_flag"
+    ],
+    [
+     "crates/core/flags/doc/man.rs",
+     "generate_flag"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "crates/core/flags/doc/help.rs",
+     182,
+     182,
+     {
+      "resolution_kind": "trait_cha"
+     }
+    ],
+    [
+     "crates/core/flags/doc/man.rs",
+     101,
+     101,
+     {
+      "resolution_kind": "trait_cha"
+     }
+    ]
+   ],
+   "seed_def": "crates/core/flags/defs.rs:4835",
+   "stratum": "C-method"
+  },
+  "callers:crates/core/flags/defs.rs:5377": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "crates/core/flags/defs.rs:5377",
+   "stratum": "C-method"
+  },
+  "callers:crates/core/flags/hiargs.rs:1210": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "crates/core/flags/hiargs.rs",
+     "from_low_args"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "crates/core/flags/hiargs.rs",
+     151,
+     151
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "crates/core/flags/hiargs.rs:1210",
+   "stratum": "C-name"
+  },
+  "callers:crates/core/flags/hiargs.rs:1298": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "crates/core/flags/hiargs.rs",
+     "new"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "crates/core/flags/hiargs.rs",
+     953,
+     953
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/core/flags/hiargs.rs",
+     "new"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "crates/core/flags/hiargs.rs",
+     953,
+     953,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "crates/core/flags/hiargs.rs:1298",
+   "stratum": "C-name"
+  },
+  "callers:crates/core/main.rs:235": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "crates/core/main.rs",
+     "run"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "crates/core/main.rs",
+     89,
+     89
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/core/main.rs",
+     "run"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "crates/core/main.rs",
+     89,
+     89,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "crates/core/main.rs:235",
+   "stratum": "Q-scoped"
+  },
+  "callers:crates/globset/benches/bench.rs:56": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "crates/globset/benches/bench.rs:56",
+   "stratum": "Q-scoped"
+  },
+  "callers:crates/globset/src/glob.rs:1217": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "crates/globset/src/glob.rs",
+     "<module_level>"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "crates/globset/src/glob.rs",
+     1253,
+     1253
+    ],
+    [
+     "crates/globset/src/glob.rs",
+     1254,
+     1254
+    ],
+    [
+     "crates/globset/src/glob.rs",
+     1255,
+     1255
+    ],
+    [
+     "crates/globset/src/glob.rs",
+     1259,
+     1259
+    ],
+    [
+     "crates/globset/src/glob.rs",
+     1264,
+     1264
+    ],
+    [
+     "crates/globset/src/glob.rs",
+     1265,
+     1265
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "crates/globset/src/glob.rs:1217",
+   "stratum": "Q-scoped"
+  },
+  "callers:crates/ignore/src/lib.rs:381": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "crates/ignore/src/dir.rs",
+     "add_child_path"
+    ],
+    [
+     "crates/ignore/src/dir.rs",
+     "add_parents"
+    ],
+    [
+     "crates/ignore/src/walk.rs",
+     "add_ignore"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "crates/ignore/src/walk.rs",
+     729,
+     729
+    ],
+    [
+     "crates/ignore/src/dir.rs",
+     229,
+     229
+    ],
+    [
+     "crates/ignore/src/dir.rs",
+     295,
+     295
+    ],
+    [
+     "crates/ignore/src/dir.rs",
+     307,
+     307
+    ],
+    [
+     "crates/ignore/src/dir.rs",
+     319,
+     319
+    ],
+    [
+     "crates/ignore/src/dir.rs",
+     334,
+     334
+    ],
+    [
+     "crates/ignore/src/dir.rs",
+     338,
+     338
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/ignore/src/dir.rs",
+     "add_child_path"
+    ],
+    [
+     "crates/ignore/src/dir.rs",
+     "add_parents"
+    ],
+    [
+     "crates/ignore/src/walk.rs",
+     "add_ignore"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "crates/ignore/src/dir.rs",
+     229,
+     229,
+     {
+      "resolution_kind": "constructor_local"
+     }
+    ],
+    [
+     "crates/ignore/src/dir.rs",
+     295,
+     295,
+     {
+      "resolution_kind": "constructor_local"
+     }
+    ],
+    [
+     "crates/ignore/src/dir.rs",
+     307,
+     307,
+     {
+      "resolution_kind": "constructor_local"
+     }
+    ],
+    [
+     "crates/ignore/src/dir.rs",
+     319,
+     319,
+     {
+      "resolution_kind": "constructor_local"
+     }
+    ],
+    [
+     "crates/ignore/src/dir.rs",
+     334,
+     334,
+     {
+      "resolution_kind": "constructor_local"
+     }
+    ],
+    [
+     "crates/ignore/src/dir.rs",
+     338,
+     338,
+     {
+      "resolution_kind": "constructor_local"
+     }
+    ],
+    [
+     "crates/ignore/src/walk.rs",
+     729,
+     729,
+     {
+      "resolution_kind": "constructor_local"
+     }
+    ]
+   ],
+   "seed_def": "crates/ignore/src/lib.rs:381",
+   "stratum": "U-method"
+  },
+  "callers:crates/ignore/src/walk.rs:1867": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "crates/ignore/src/walk.rs",
+     "generate_work"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "crates/ignore/src/walk.rs",
+     1798,
+     1798
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/core/main.rs",
+     "files_parallel"
+    ],
+    [
+     "crates/ignore/examples/walk.rs",
+     "main"
+    ],
+    [
+     "crates/ignore/src/walk.rs",
+     "generate_work"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "crates/ignore/src/walk.rs",
+     1798,
+     1798,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "crates/core/main.rs",
+     309,
+     309,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "crates/ignore/examples/walk.rs",
+     33,
+     33,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "crates/ignore/examples/walk.rs",
+     40,
+     40,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "crates/ignore/examples/walk.rs",
+     45,
+     45,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "crates/ignore/src/walk.rs:1867",
+   "stratum": "U-method"
+  },
+  "callers:crates/printer/src/hyperlink/mod.rs:35": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "crates/core/flags/hiargs.rs",
+     "take_hyperlink_config"
+    ],
+    [
+     "crates/printer/src/hyperlink/mod.rs",
+     "into_config"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "crates/printer/src/hyperlink/mod.rs",
+     90,
+     90
+    ],
+    [
+     "crates/core/flags/hiargs.rs",
+     1289,
+     1289
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/printer/src/hyperlink/mod.rs",
+     "into_config"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "crates/printer/src/hyperlink/mod.rs",
+     90,
+     90,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ]
+   ],
+   "seed_def": "crates/printer/src/hyperlink/mod.rs:35",
+   "stratum": "C-name"
+  },
+  "callers:crates/printer/src/standard.rs:1541": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "crates/printer/src/standard.rs",
+     "end_color_match"
+    ],
+    [
+     "crates/printer/src/standard.rs",
+     "end_hyperlink"
+    ],
+    [
+     "crates/printer/src/standard.rs",
+     "end_line_highlight"
+    ],
+    [
+     "crates/printer/src/standard.rs",
+     "start_color_match"
+    ],
+    [
+     "crates/printer/src/standard.rs",
+     "start_hyperlink"
+    ],
+    [
+     "crates/printer/src/standard.rs",
+     "start_line_highlight"
+    ],
+    [
+     "crates/printer/src/standard.rs",
+     "write"
+    ],
+    [
+     "crates/printer/src/standard.rs",
+     "write_colored_line"
+    ],
+    [
+     "crates/printer/src/standard.rs",
+     "write_exceeded_line"
+    ],
+    [
+     "crates/printer/src/standard.rs",
+     "write_path"
+    ],
+    [
+     "crates/printer/src/standard.rs",
+     "write_search_prelude"
+    ],
+    [
+     "crates/printer/src/standard.rs",
+     "write_spec"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "crates/printer/src/standard.rs",
+     1226,
+     1226
+    ],
+    [
+     "crates/printer/src/standard.rs",
+     1320,
+     1320
+    ],
+    [
+     "crates/printer/src/standard.rs",
+     1344,
+     1344
+    ],
+    [
+     "crates/printer/src/standard.rs",
+     1371,
+     1371
+    ],
+    [
+     "crates/printer/src/standard.rs",
+     1376,
+     1376
+    ],
+    [
+     "crates/printer/src/standard.rs",
+     1434,
+     1434
+    ],
+    [
+     "crates/printer/src/standard.rs",
+     1442,
+     1442
+    ],
+    [
+     "crates/printer/src/standard.rs",
+     1465,
+     1465
+    ],
+    [
+     "crates/printer/src/standard.rs",
+     1472,
+     1472
+    ],
+    [
+     "crates/printer/src/standard.rs",
+     1479,
+     1479
+    ],
+    [
+     "crates/printer/src/standard.rs",
+     1489,
+     1489
+    ],
+    [
+     "crates/printer/src/standard.rs",
+     1493,
+     1493
+    ],
+    [
+     "crates/printer/src/standard.rs",
+     1505,
+     1505
+    ],
+    [
+     "crates/printer/src/standard.rs",
+     1514,
+     1514
+    ],
+    [
+     "crates/printer/src/standard.rs",
+     1520,
+     1520
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/printer/src/standard.rs",
+     "end_color_match"
+    ],
+    [
+     "crates/printer/src/standard.rs",
+     "end_hyperlink"
+    ],
+    [
+     "crates/printer/src/standard.rs",
+     "end_line_highlight"
+    ],
+    [
+     "crates/printer/src/standard.rs",
+     "start_color_match"
+    ],
+    [
+     "crates/printer/src/standard.rs",
+     "start_hyperlink"
+    ],
+    [
+     "crates/printer/src/standard.rs",
+     "start_line_highlight"
+    ],
+    [
+     "crates/printer/src/standard.rs",
+     "write"
+    ],
+    [
+     "crates/printer/src/standard.rs",
+     "write_colored_line"
+    ],
+    [
+     "crates/printer/src/standard.rs",
+     "write_path"
+    ],
+    [
+     "crates/printer/src/standard.rs",
+     "write_search_prelude"
+    ],
+    [
+     "crates/printer/src/standard.rs",
+     "write_spec"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "crates/printer/src/standard.rs",
+     1226,
+     1226,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "crates/printer/src/standard.rs",
+     1371,
+     1371,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "crates/printer/src/standard.rs",
+     1376,
+     1376,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "crates/printer/src/standard.rs",
+     1434,
+     1434,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "crates/printer/src/standard.rs",
+     1442,
+     1442,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "crates/printer/src/standard.rs",
+     1465,
+     1465,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "crates/printer/src/standard.rs",
+     1472,
+     1472,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "crates/printer/src/standard.rs",
+     1479,
+     1479,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "crates/printer/src/standard.rs",
+     1489,
+     1489,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "crates/printer/src/standard.rs",
+     1493,
+     1493,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "crates/printer/src/standard.rs",
+     1505,
+     1505,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "crates/printer/src/standard.rs",
+     1514,
+     1514,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "crates/printer/src/standard.rs",
+     1520,
+     1520,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ]
+   ],
+   "seed_def": "crates/printer/src/standard.rs:1541",
+   "stratum": "U-method"
+  },
+  "callers:crates/printer/src/standard.rs:3700": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "crates/printer/src/standard.rs:3700",
+   "stratum": "Q-scoped"
+  },
+  "callers:crates/printer/src/stats.rs:77": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "crates/printer/src/json.rs",
+     "finish"
+    ],
+    [
+     "crates/printer/src/standard.rs",
+     "finish"
+    ],
+    [
+     "crates/printer/src/summary.rs",
+     "finish"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "crates/printer/src/json.rs",
+     822,
+     822
+    ],
+    [
+     "crates/printer/src/summary.rs",
+     718,
+     718
+    ],
+    [
+     "crates/printer/src/standard.rs",
+     859,
+     859
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/printer/src/json.rs",
+     "finish"
+    ],
+    [
+     "crates/printer/src/standard.rs",
+     "finish"
+    ],
+    [
+     "crates/printer/src/summary.rs",
+     "finish"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "crates/printer/src/json.rs",
+     822,
+     822,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ],
+    [
+     "crates/printer/src/standard.rs",
+     859,
+     859,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "crates/printer/src/summary.rs",
+     718,
+     718,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "crates/printer/src/stats.rs:77",
+   "stratum": "U-method"
+  },
+  "callers:crates/regex/src/ast.rs:52": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "crates/regex/src/ast.rs",
+     "from_ast"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "crates/regex/src/ast.rs",
+     28,
+     28
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/regex/src/ast.rs",
+     "from_ast"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "crates/regex/src/ast.rs",
+     28,
+     28,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ]
+   ],
+   "seed_def": "crates/regex/src/ast.rs:52",
+   "stratum": "C-name"
+  },
+  "callers:crates/regex/src/matcher.rs:300": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "crates/core/flags/hiargs.rs",
+     "matcher_rust"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "crates/core/flags/hiargs.rs",
+     505,
+     505
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/core/flags/hiargs.rs",
+     "matcher_rust"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "crates/core/flags/hiargs.rs",
+     505,
+     505,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ]
+   ],
+   "seed_def": "crates/regex/src/matcher.rs:300",
+   "stratum": "U-method"
+  },
+  "callers:crates/regex/src/matcher.rs:429": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "crates/regex/src/matcher.rs:429",
+   "stratum": "C-method"
+  },
+  "callers:crates/regex/src/matcher.rs:560": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "crates/regex/src/matcher.rs:560",
+   "stratum": "C-name"
+  },
+  "callers:crates/searcher/src/line_buffer.rs:828": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "crates/searcher/src/line_buffer.rs:828",
+   "stratum": "Q-scoped"
+  },
+  "callers:crates/searcher/src/searcher/glue.rs:809": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "crates/searcher/src/searcher/glue.rs:809",
+   "stratum": "Q-scoped"
+  },
+  "callers:crates/searcher/src/searcher/mod.rs:79": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "crates/core/flags/hiargs.rs",
+     "from_low_args"
+    ],
+    [
+     "crates/grep/examples/simplegrep.rs",
+     "search"
+    ],
+    [
+     "crates/printer/src/json.rs",
+     "binary_detection"
+    ],
+    [
+     "crates/printer/src/standard.rs",
+     "reports_binary"
+    ],
+    [
+     "crates/searcher/src/searcher/glue.rs",
+     "binary1"
+    ],
+    [
+     "crates/searcher/src/searcher/glue.rs",
+     "binary2"
+    ],
+    [
+     "crates/searcher/src/searcher/glue.rs",
+     "binary3"
+    ],
+    [
+     "crates/searcher/src/searcher/glue.rs",
+     "binary4"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "crates/grep/examples/simplegrep.rs",
+     35,
+     35
+    ],
+    [
+     "crates/printer/src/json.rs",
+     937,
+     937
+    ],
+    [
+     "crates/printer/src/standard.rs",
+     1822,
+     1822
+    ],
+    [
+     "crates/searcher/src/searcher/glue.rs",
+     705,
+     705
+    ],
+    [
+     "crates/searcher/src/searcher/glue.rs",
+     717,
+     717
+    ],
+    [
+     "crates/searcher/src/searcher/glue.rs",
+     750,
+     750
+    ],
+    [
+     "crates/searcher/src/searcher/glue.rs",
+     782,
+     782
+    ],
+    [
+     "crates/core/flags/hiargs.rs",
+     1172,
+     1172
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/searcher/src/searcher/glue.rs",
+     "binary1"
+    ],
+    [
+     "crates/searcher/src/searcher/glue.rs",
+     "binary2"
+    ],
+    [
+     "crates/searcher/src/searcher/glue.rs",
+     "binary3"
+    ],
+    [
+     "crates/searcher/src/searcher/glue.rs",
+     "binary4"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "crates/searcher/src/searcher/glue.rs",
+     705,
+     705,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ],
+    [
+     "crates/searcher/src/searcher/glue.rs",
+     717,
+     717,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ],
+    [
+     "crates/searcher/src/searcher/glue.rs",
+     750,
+     750,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ],
+    [
+     "crates/searcher/src/searcher/glue.rs",
+     782,
+     782,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ]
+   ],
+   "seed_def": "crates/searcher/src/searcher/mod.rs:79",
+   "stratum": "Q-scoped"
+  },
+  "callers:crates/searcher/src/sink.rs:47": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "crates/searcher/src/sink.rs:47",
+   "stratum": "C-name"
+  },
+  "callers:crates/searcher/src/testutil.rs:331": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "crates/searcher/src/searcher/glue.rs",
+     "context_code1"
+    ],
+    [
+     "crates/searcher/src/searcher/glue.rs",
+     "context_code2"
+    ],
+    [
+     "crates/searcher/src/searcher/glue.rs",
+     "context_code3"
+    ],
+    [
+     "crates/searcher/src/searcher/glue.rs",
+     "context_sherlock1"
+    ],
+    [
+     "crates/searcher/src/searcher/glue.rs",
+     "context_sherlock2"
+    ],
+    [
+     "crates/searcher/src/searcher/glue.rs",
+     "context_sherlock3"
+    ],
+    [
+     "crates/searcher/src/searcher/glue.rs",
+     "context_sherlock4"
+    ],
+    [
+     "crates/searcher/src/searcher/glue.rs",
+     "context_sherlock5"
+    ],
+    [
+     "crates/searcher/src/searcher/glue.rs",
+     "context_sherlock6"
+    ],
+    [
+     "crates/searcher/src/searcher/glue.rs",
+     "context_sherlock_invert1"
+    ],
+    [
+     "crates/searcher/src/searcher/glue.rs",
+     "context_sherlock_invert2"
+    ],
+    [
+     "crates/searcher/src/searcher/glue.rs",
+     "empty_line1"
+    ],
+    [
+     "crates/searcher/src/searcher/glue.rs",
+     "empty_line2"
+    ],
+    [
+     "crates/searcher/src/searcher/glue.rs",
+     "empty_line3"
+    ],
+    [
+     "crates/searcher/src/searcher/glue.rs",
+     "empty_line4"
+    ],
+    [
+     "crates/searcher/src/searcher/glue.rs",
+     "empty_line5"
+    ],
+    [
+     "crates/searcher/src/searcher/glue.rs",
+     "empty_line6"
+    ],
+    [
+     "crates/searcher/src/searcher/glue.rs",
+     "line_number1"
+    ],
+    [
+     "crates/searcher/src/searcher/glue.rs",
+     "line_number_invert1"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "crates/searcher/src/searcher/glue.rs",
+     478,
+     478
+    ],
+    [
+     "crates/searcher/src/searcher/glue.rs",
+     501,
+     501
+    ],
+    [
+     "crates/searcher/src/searcher/glue.rs",
+     542,
+     542
+    ],
+    [
+     "crates/searcher/src/searcher/glue.rs",
+     553,
+     553
+    ],
+    [
+     "crates/searcher/src/searcher/glue.rs",
+     564,
+     564
+    ],
+    [
+     "crates/searcher/src/searcher/glue.rs",
+     587,
+     587
+    ],
+    [
+     "crates/searcher/src/searcher/glue.rs",
+     610,
+     610
+    ],
+    [
+     "crates/searcher/src/searcher/glue.rs",
+     635,
+     635
+    ],
+    [
+     "crates/searcher/src/searcher/glue.rs",
+     851,
+     851
+    ],
+    [
+     "crates/searcher/src/searcher/glue.rs",
+     903,
+     903
+    ],
+    [
+     "crates/searcher/src/searcher/glue.rs",
+     955,
+     955
+    ],
+    [
+     "crates/searcher/src/searcher/glue.rs",
+     1007,
+     1007
+    ],
+    [
+     "crates/searcher/src/searcher/glue.rs",
+     1071,
+     1071
+    ],
+    [
+     "crates/searcher/src/searcher/glue.rs",
+     1118,
+     1118
+    ],
+    [
+     "crates/searcher/src/searcher/glue.rs",
+     1174,
+     1174
+    ],
+    [
+     "crates/searcher/src/searcher/glue.rs",
+     1235,
+     1235
+    ],
+    [
+     "crates/searcher/src/searcher/glue.rs",
+     1304,
+     1304
+    ],
+    [
+     "crates/searcher/src/searcher/glue.rs",
+     1378,
+     1378
+    ],
+    [
+     "crates/searcher/src/searcher/glue.rs",
+     1454,
+     1454
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/searcher/src/searcher/glue.rs",
+     "context_code1"
+    ],
+    [
+     "crates/searcher/src/searcher/glue.rs",
+     "context_code2"
+    ],
+    [
+     "crates/searcher/src/searcher/glue.rs",
+     "context_code3"
+    ],
+    [
+     "crates/searcher/src/searcher/glue.rs",
+     "context_sherlock1"
+    ],
+    [
+     "crates/searcher/src/searcher/glue.rs",
+     "context_sherlock2"
+    ],
+    [
+     "crates/searcher/src/searcher/glue.rs",
+     "context_sherlock3"
+    ],
+    [
+     "crates/searcher/src/searcher/glue.rs",
+     "context_sherlock4"
+    ],
+    [
+     "crates/searcher/src/searcher/glue.rs",
+     "context_sherlock5"
+    ],
+    [
+     "crates/searcher/src/searcher/glue.rs",
+     "context_sherlock6"
+    ],
+    [
+     "crates/searcher/src/searcher/glue.rs",
+     "context_sherlock_invert1"
+    ],
+    [
+     "crates/searcher/src/searcher/glue.rs",
+     "context_sherlock_invert2"
+    ],
+    [
+     "crates/searcher/src/searcher/glue.rs",
+     "empty_line1"
+    ],
+    [
+     "crates/searcher/src/searcher/glue.rs",
+     "empty_line2"
+    ],
+    [
+     "crates/searcher/src/searcher/glue.rs",
+     "empty_line3"
+    ],
+    [
+     "crates/searcher/src/searcher/glue.rs",
+     "empty_line4"
+    ],
+    [
+     "crates/searcher/src/searcher/glue.rs",
+     "empty_line5"
+    ],
+    [
+     "crates/searcher/src/searcher/glue.rs",
+     "empty_line6"
+    ],
+    [
+     "crates/searcher/src/searcher/glue.rs",
+     "line_number1"
+    ],
+    [
+     "crates/searcher/src/searcher/glue.rs",
+     "line_number_invert1"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "crates/searcher/src/searcher/glue.rs",
+     476,
+     476,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ],
+    [
+     "crates/searcher/src/searcher/glue.rs",
+     498,
+     498,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ],
+    [
+     "crates/searcher/src/searcher/glue.rs",
+     540,
+     540,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ],
+    [
+     "crates/searcher/src/searcher/glue.rs",
+     551,
+     551,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ],
+    [
+     "crates/searcher/src/searcher/glue.rs",
+     562,
+     562,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ],
+    [
+     "crates/searcher/src/searcher/glue.rs",
+     585,
+     585,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ],
+    [
+     "crates/searcher/src/searcher/glue.rs",
+     608,
+     608,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ],
+    [
+     "crates/searcher/src/searcher/glue.rs",
+     633,
+     633,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ],
+    [
+     "crates/searcher/src/searcher/glue.rs",
+     846,
+     846,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "crates/searcher/src/searcher/glue.rs",
+     897,
+     897,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "crates/searcher/src/searcher/glue.rs",
+     950,
+     950,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "crates/searcher/src/searcher/glue.rs",
+     1001,
+     1001,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "crates/searcher/src/searcher/glue.rs",
+     1066,
+     1066,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "crates/searcher/src/searcher/glue.rs",
+     1113,
+     1113,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "crates/searcher/src/searcher/glue.rs",
+     1169,
+     1169,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "crates/searcher/src/searcher/glue.rs",
+     1230,
+     1230,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "crates/searcher/src/searcher/glue.rs",
+     1299,
+     1299,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "crates/searcher/src/searcher/glue.rs",
+     1373,
+     1373,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "crates/searcher/src/searcher/glue.rs",
+     1449,
+     1449,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "crates/searcher/src/testutil.rs:331",
+   "stratum": "U-method"
+  }
+ },
+ "site_fingerprints": {
+  "crates/cli/src/decompress.rs:192": "18de36a6bbd66ddd",
+  "crates/cli/src/human.rs:114": "54e42a2f547b9bd3",
+  "crates/core/flags/defs.rs:5378": "b37dad456940749e",
+  "crates/core/flags/doc/help.rs:132": "c5c20fd9ac173c8a",
+  "crates/core/flags/doc/help.rs:150": "24396de7d589b084",
+  "crates/core/flags/doc/help.rs:182": "df125e133f9c1c94",
+  "crates/core/flags/doc/help.rs:66": "dda87f9c85702c4b",
+  "crates/core/flags/doc/man.rs:101": "c3314351a14583f0",
+  "crates/core/flags/doc/man.rs:47": "9e40c9aa7872b018",
+  "crates/core/flags/doc/man.rs:64": "88a0b5325bd00a04",
+  "crates/core/flags/hiargs.rs:1172": "5278035275305bc8",
+  "crates/core/flags/hiargs.rs:1215": "7b31458776fea822",
+  "crates/core/flags/hiargs.rs:1217": "9a545dd3ef47bbdd",
+  "crates/core/flags/hiargs.rs:1220": "8d13adff3437f064",
+  "crates/core/flags/hiargs.rs:1223": "b70c84083cb779b7",
+  "crates/core/flags/hiargs.rs:1226": "341b289a65f78be3",
+  "crates/core/flags/hiargs.rs:1228": "2a9353c8b1e716e5",
+  "crates/core/flags/hiargs.rs:1230": "fe4b447c6bafe4df",
+  "crates/core/flags/hiargs.rs:1289": "e8790b802a66e666",
+  "crates/core/flags/hiargs.rs:151": "87e8f2350f948791",
+  "crates/core/flags/hiargs.rs:505": "263dda9dfd6a6ff2",
+  "crates/core/flags/hiargs.rs:953": "b7cc43cda13256ac",
+  "crates/core/main.rs:236": "15e743aa80ba1251",
+  "crates/core/main.rs:237": "f805e08ebce7edf4",
+  "crates/core/main.rs:238": "f981a94709c51534",
+  "crates/core/main.rs:239": "91e95ce1da139b54",
+  "crates/core/main.rs:240": "cc221e06b8ac9ae8",
+  "crates/core/main.rs:241": "d2bf3f2ddf8375e1",
+  "crates/core/main.rs:244": "0b11d768937d5377",
+  "crates/core/main.rs:247": "490e629954ad2b09",
+  "crates/core/main.rs:250": "109ad483d11b71e0",
+  "crates/core/main.rs:309": "c08012c288271e34",
+  "crates/core/main.rs:89": "e5127bb140f613c6",
+  "crates/core/search.rs:278": "a6f5b594465aa4a0",
+  "crates/globset/benches/bench.rs:57": "8db286d17edcc4b2",
+  "crates/globset/benches/bench.rs:58": "01f3ddbbe4cf68b9",
+  "crates/globset/src/glob.rs:1253": "ac8191b894b619f7",
+  "crates/globset/src/glob.rs:1254": "719dd74352fceb69",
+  "crates/globset/src/glob.rs:1255": "42a1d31f4fde86d1",
+  "crates/globset/src/glob.rs:1259": "f9af730ac99680da",
+  "crates/globset/src/glob.rs:1264": "904090b06ac21e3c",
+  "crates/globset/src/glob.rs:1265": "1d77626127536f49",
+  "crates/grep/examples/simplegrep.rs:35": "d58eecf28257f1e6",
+  "crates/ignore/examples/walk.rs:33": "021f506184fc4ae6",
+  "crates/ignore/examples/walk.rs:40": "055b65f7e834406a",
+  "crates/ignore/examples/walk.rs:45": "12579da585d3d4a9",
+  "crates/ignore/src/dir.rs:229": "1d38c399505386fb",
+  "crates/ignore/src/dir.rs:295": "778868a7f94841d8",
+  "crates/ignore/src/dir.rs:307": "778868a7f94841d8",
+  "crates/ignore/src/dir.rs:319": "778868a7f94841d8",
+  "crates/ignore/src/dir.rs:334": "778868a7f94841d8",
+  "crates/ignore/src/dir.rs:338": "8b9c7ffa9ee6a086",
+  "crates/ignore/src/lib.rs:383": "34e09d4c076df1b9",
+  "crates/ignore/src/walk.rs:1798": "37671071c7bd18bf",
+  "crates/ignore/src/walk.rs:1868": "8a33168ffaf1b493",
+  "crates/ignore/src/walk.rs:729": "8e23ea54b8e75cbe",
+  "crates/printer/src/hyperlink/mod.rs:39": "3f7503107c83392b",
+  "crates/printer/src/hyperlink/mod.rs:90": "fb27891eba79c92f",
+  "crates/printer/src/json.rs:822": "90505830ea81d4b0",
+  "crates/printer/src/json.rs:937": "5d66226d7b955f89",
+  "crates/printer/src/standard.rs:1226": "f1fdca6f849611c1",
+  "crates/printer/src/standard.rs:1320": "06762d0b5649af79",
+  "crates/printer/src/standard.rs:1344": "5c216fffc7f4110b",
+  "crates/printer/src/standard.rs:1371": "70e42336a1a78ba3",
+  "crates/printer/src/standard.rs:1376": "4e15a8d6ac6451a4",
+  "crates/printer/src/standard.rs:1434": "994ef4750e00573e",
+  "crates/printer/src/standard.rs:1442": "985941d14f7ec851",
+  "crates/printer/src/standard.rs:1465": "6c4f8a7721d83cd7",
+  "crates/printer/src/standard.rs:1472": "92f938686be3b881",
+  "crates/printer/src/standard.rs:1479": "4c63cbbae1d6777f",
+  "crates/printer/src/standard.rs:1489": "021a626474f7a93c",
+  "crates/printer/src/standard.rs:1493": "c12c3ba9a57d26bb",
+  "crates/printer/src/standard.rs:1505": "021a626474f7a93c",
+  "crates/printer/src/standard.rs:1514": "6ce3b7a3ecd9abfb",
+  "crates/printer/src/standard.rs:1520": "63ee7bbeba3e0452",
+  "crates/printer/src/standard.rs:1822": "e7fbb2b38ed9b2b2",
+  "crates/printer/src/standard.rs:3701": "5b92dc07b8b3695f",
+  "crates/printer/src/standard.rs:3702": "c238aaa116dc8cd3",
+  "crates/printer/src/standard.rs:3703": "38ad89fbc056ebfd",
+  "crates/printer/src/standard.rs:3704": "655e5e3533fa23ea",
+  "crates/printer/src/standard.rs:3705": "87215d2250ce6695",
+  "crates/printer/src/standard.rs:3706": "24136a2ed0eeccb2",
+  "crates/printer/src/standard.rs:3707": "35ba93b519b8848f",
+  "crates/printer/src/standard.rs:3708": "c9d487e432ec6af4",
+  "crates/printer/src/standard.rs:3709": "1d8434e95407e672",
+  "crates/printer/src/standard.rs:3712": "fa8a7efc80f8d936",
+  "crates/printer/src/standard.rs:3716": "57c9f90a05c8b27a",
+  "crates/printer/src/standard.rs:859": "620ed119815a1293",
+  "crates/printer/src/summary.rs:718": "620ed119815a1293",
+  "crates/regex/src/ast.rs:28": "9ef2e0eda94deecc",
+  "crates/regex/src/matcher.rs:562": "191771b2724a8a36",
+  "crates/regex/src/matcher.rs:566": "53a508f83394ea9d",
+  "crates/searcher/src/line_buffer.rs:830": "89b1255d6788fa84",
+  "crates/searcher/src/line_buffer.rs:831": "f4cca01d9df9a6a2",
+  "crates/searcher/src/line_buffer.rs:832": "1b39089cbd259e12",
+  "crates/searcher/src/line_buffer.rs:833": "33ab64ca23ac4235",
+  "crates/searcher/src/line_buffer.rs:839": "2e6b81e3fec0c98b",
+  "crates/searcher/src/searcher/glue.rs:1001": "8da822d61aa39bd0",
+  "crates/searcher/src/searcher/glue.rs:1007": "3a38d33e9f2691b5",
+  "crates/searcher/src/searcher/glue.rs:1066": "e1fdc44eea875e3b",
+  "crates/searcher/src/searcher/glue.rs:1071": "3a38d33e9f2691b5",
+  "crates/searcher/src/searcher/glue.rs:1113": "b80bfd99f59e930d",
+  "crates/searcher/src/searcher/glue.rs:1118": "3a38d33e9f2691b5",
+  "crates/searcher/src/searcher/glue.rs:1169": "52ec5f5958391126",
+  "crates/searcher/src/searcher/glue.rs:1174": "3a38d33e9f2691b5",
+  "crates/searcher/src/searcher/glue.rs:1230": "d62c8b02e5b6a3ff",
+  "crates/searcher/src/searcher/glue.rs:1235": "3a38d33e9f2691b5",
+  "crates/searcher/src/searcher/glue.rs:1299": "3ccd614be797226e",
+  "crates/searcher/src/searcher/glue.rs:1304": "3a38d33e9f2691b5",
+  "crates/searcher/src/searcher/glue.rs:1373": "3d2161e417a9d55a",
+  "crates/searcher/src/searcher/glue.rs:1378": "3a38d33e9f2691b5",
+  "crates/searcher/src/searcher/glue.rs:1449": "a1bd9dec5fcbd996",
+  "crates/searcher/src/searcher/glue.rs:1454": "3a38d33e9f2691b5",
+  "crates/searcher/src/searcher/glue.rs:476": "a62d5427c360cdee",
+  "crates/searcher/src/searcher/glue.rs:478": "0b33232c508b5fd0",
+  "crates/searcher/src/searcher/glue.rs:498": "c0e6906887015eb7",
+  "crates/searcher/src/searcher/glue.rs:501": "0b33232c508b5fd0",
+  "crates/searcher/src/searcher/glue.rs:540": "bc9c3fd63c262fb8",
+  "crates/searcher/src/searcher/glue.rs:542": "5c7ae510ab2e21d8",
+  "crates/searcher/src/searcher/glue.rs:551": "a50202bf52da8d95",
+  "crates/searcher/src/searcher/glue.rs:553": "0b33232c508b5fd0",
+  "crates/searcher/src/searcher/glue.rs:562": "646697b3c6edeb4e",
+  "crates/searcher/src/searcher/glue.rs:564": "0b33232c508b5fd0",
+  "crates/searcher/src/searcher/glue.rs:585": "264066e02d06917f",
+  "crates/searcher/src/searcher/glue.rs:587": "b75e93ebfa064bd8",
+  "crates/searcher/src/searcher/glue.rs:608": "264066e02d06917f",
+  "crates/searcher/src/searcher/glue.rs:610": "b75e93ebfa064bd8",
+  "crates/searcher/src/searcher/glue.rs:633": "264066e02d06917f",
+  "crates/searcher/src/searcher/glue.rs:635": "b75e93ebfa064bd8",
+  "crates/searcher/src/searcher/glue.rs:705": "68f822c910e22cea",
+  "crates/searcher/src/searcher/glue.rs:717": "68f822c910e22cea",
+  "crates/searcher/src/searcher/glue.rs:750": "14c54a33a93aa5c0",
+  "crates/searcher/src/searcher/glue.rs:782": "14c54a33a93aa5c0",
+  "crates/searcher/src/searcher/glue.rs:819": "79630956f51619bd",
+  "crates/searcher/src/searcher/glue.rs:820": "5835c02fb29cfee7",
+  "crates/searcher/src/searcher/glue.rs:821": "713e97f6c38afe68",
+  "crates/searcher/src/searcher/glue.rs:822": "9492d2de976b5067",
+  "crates/searcher/src/searcher/glue.rs:823": "d52e095d286dded0",
+  "crates/searcher/src/searcher/glue.rs:824": "328d04f2d3950eb3",
+  "crates/searcher/src/searcher/glue.rs:846": "1bd045cb11834390",
+  "crates/searcher/src/searcher/glue.rs:851": "3a38d33e9f2691b5",
+  "crates/searcher/src/searcher/glue.rs:897": "1bd045cb11834390",
+  "crates/searcher/src/searcher/glue.rs:903": "3a38d33e9f2691b5",
+  "crates/searcher/src/searcher/glue.rs:950": "8da822d61aa39bd0",
+  "crates/searcher/src/searcher/glue.rs:955": "3a38d33e9f2691b5",
+  "crates/searcher/src/searcher/mod.rs:80": "91d582b86aa72f80"
+ }
+}

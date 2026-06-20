@@ -1,0 +1,7178 @@
+[
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 40,
+   "file": "active_help.go",
+   "start_line": 38
+  },
+  "name": "AppendActiveHelp",
+  "selection_char": 5,
+  "selection_line": 38
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 53,
+   "file": "active_help.go",
+   "start_line": 47
+  },
+  "name": "GetActiveHelpConfig",
+  "selection_char": 5,
+  "selection_line": 47
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 60,
+   "file": "active_help.go",
+   "start_line": 58
+  },
+  "name": "activeHelpEnvVar",
+  "selection_char": 5,
+  "selection_line": 58
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 82,
+   "file": "active_help_test.go",
+   "start_line": 29
+  },
+  "name": "TestActiveHelpAlone",
+  "selection_char": 5,
+  "selection_line": 29
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 167,
+   "file": "active_help_test.go",
+   "start_line": 84
+  },
+  "name": "TestActiveHelpWithComps",
+  "selection_char": 5,
+  "selection_line": 84
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 229,
+   "file": "active_help_test.go",
+   "start_line": 169
+  },
+  "name": "TestMultiActiveHelp",
+  "selection_char": 5,
+  "selection_line": 169
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 264,
+   "file": "active_help_test.go",
+   "start_line": 231
+  },
+  "name": "TestActiveHelpForFlag",
+  "selection_char": 5,
+  "selection_line": 231
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 317,
+   "file": "active_help_test.go",
+   "start_line": 266
+  },
+  "name": "TestConfigActiveHelp",
+  "selection_char": 5,
+  "selection_line": 266
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 400,
+   "file": "active_help_test.go",
+   "start_line": 319
+  },
+  "name": "TestDisableActiveHelp",
+  "selection_char": 5,
+  "selection_line": 319
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 22,
+   "file": "args.go",
+   "start_line": 22
+  },
+  "name": "PositionalArgs",
+  "selection_char": 5,
+  "selection_line": 22
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 39,
+   "file": "args.go",
+   "start_line": 28
+  },
+  "name": "legacyArgs",
+  "selection_char": 5,
+  "selection_line": 28
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 47,
+   "file": "args.go",
+   "start_line": 42
+  },
+  "name": "NoArgs",
+  "selection_char": 5,
+  "selection_line": 42
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 66,
+   "file": "args.go",
+   "start_line": 51
+  },
+  "name": "OnlyValidArgs",
+  "selection_char": 5,
+  "selection_line": 51
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 79,
+   "file": "args.go",
+   "start_line": 69
+  },
+  "name": "NoDuplicateArgs",
+  "selection_char": 5,
+  "selection_line": 69
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 84,
+   "file": "args.go",
+   "start_line": 82
+  },
+  "name": "ArbitraryArgs",
+  "selection_char": 5,
+  "selection_line": 82
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 94,
+   "file": "args.go",
+   "start_line": 87
+  },
+  "name": "MinimumNArgs",
+  "selection_char": 5,
+  "selection_line": 87
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 104,
+   "file": "args.go",
+   "start_line": 97
+  },
+  "name": "MaximumNArgs",
+  "selection_char": 5,
+  "selection_line": 97
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 114,
+   "file": "args.go",
+   "start_line": 107
+  },
+  "name": "ExactArgs",
+  "selection_char": 5,
+  "selection_line": 107
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 124,
+   "file": "args.go",
+   "start_line": 117
+  },
+  "name": "RangeArgs",
+  "selection_char": 5,
+  "selection_line": 117
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 136,
+   "file": "args.go",
+   "start_line": 127
+  },
+  "name": "MatchAll",
+  "selection_char": 5,
+  "selection_line": 127
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 144,
+   "file": "args.go",
+   "start_line": 142
+  },
+  "name": "ExactValidArgs",
+  "selection_char": 5,
+  "selection_line": 142
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 33,
+   "file": "args_test.go",
+   "start_line": 23
+  },
+  "name": "getCommand",
+  "selection_char": 5,
+  "selection_line": 23
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 42,
+   "file": "args_test.go",
+   "start_line": 35
+  },
+  "name": "expectSuccess",
+  "selection_char": 5,
+  "selection_line": 35
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 53,
+   "file": "args_test.go",
+   "start_line": 44
+  },
+  "name": "validOnlyWithInvalidArgs",
+  "selection_char": 5,
+  "selection_line": 44
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 64,
+   "file": "args_test.go",
+   "start_line": 55
+  },
+  "name": "noArgsWithArgs",
+  "selection_char": 5,
+  "selection_line": 55
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 75,
+   "file": "args_test.go",
+   "start_line": 66
+  },
+  "name": "minimumNArgsWithLessArgs",
+  "selection_char": 5,
+  "selection_line": 66
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 86,
+   "file": "args_test.go",
+   "start_line": 77
+  },
+  "name": "maximumNArgsWithMoreArgs",
+  "selection_char": 5,
+  "selection_line": 77
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 97,
+   "file": "args_test.go",
+   "start_line": 88
+  },
+  "name": "exactArgsWithInvalidCount",
+  "selection_char": 5,
+  "selection_line": 88
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 108,
+   "file": "args_test.go",
+   "start_line": 99
+  },
+  "name": "rangeArgsWithInvalidCount",
+  "selection_char": 5,
+  "selection_line": 99
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 119,
+   "file": "args_test.go",
+   "start_line": 110
+  },
+  "name": "noDuplicateArgsWithDuplicate",
+  "selection_char": 5,
+  "selection_line": 110
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 127,
+   "file": "args_test.go",
+   "start_line": 123
+  },
+  "name": "TestNoArgs",
+  "selection_char": 5,
+  "selection_line": 123
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 133,
+   "file": "args_test.go",
+   "start_line": 129
+  },
+  "name": "TestNoArgs_WithArgs",
+  "selection_char": 5,
+  "selection_line": 129
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 139,
+   "file": "args_test.go",
+   "start_line": 135
+  },
+  "name": "TestNoArgs_WithValid_WithArgs",
+  "selection_char": 5,
+  "selection_line": 135
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 145,
+   "file": "args_test.go",
+   "start_line": 141
+  },
+  "name": "TestNoArgs_WithValid_WithInvalidArgs",
+  "selection_char": 5,
+  "selection_line": 141
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 151,
+   "file": "args_test.go",
+   "start_line": 147
+  },
+  "name": "TestNoArgs_WithValidOnly_WithInvalidArgs",
+  "selection_char": 5,
+  "selection_line": 147
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 159,
+   "file": "args_test.go",
+   "start_line": 155
+  },
+  "name": "TestOnlyValidArgs",
+  "selection_char": 5,
+  "selection_line": 155
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 165,
+   "file": "args_test.go",
+   "start_line": 161
+  },
+  "name": "TestOnlyValidArgs_WithInvalidArgs",
+  "selection_char": 5,
+  "selection_line": 161
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 173,
+   "file": "args_test.go",
+   "start_line": 169
+  },
+  "name": "TestNoDuplicateArgs",
+  "selection_char": 5,
+  "selection_line": 169
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 179,
+   "file": "args_test.go",
+   "start_line": 175
+  },
+  "name": "TestNoDuplicateArgs_WithDuplicateArgs",
+  "selection_char": 5,
+  "selection_line": 175
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 185,
+   "file": "args_test.go",
+   "start_line": 181
+  },
+  "name": "TestNoDuplicateArgs_WithValid_WithDuplicateArgs",
+  "selection_char": 5,
+  "selection_line": 181
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 191,
+   "file": "args_test.go",
+   "start_line": 187
+  },
+  "name": "TestNoDuplicateArgs_WithValidOnly_WithInvalidArgs",
+  "selection_char": 5,
+  "selection_line": 187
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 199,
+   "file": "args_test.go",
+   "start_line": 195
+  },
+  "name": "TestArbitraryArgs",
+  "selection_char": 5,
+  "selection_line": 195
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 205,
+   "file": "args_test.go",
+   "start_line": 201
+  },
+  "name": "TestArbitraryArgs_WithValid",
+  "selection_char": 5,
+  "selection_line": 201
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 211,
+   "file": "args_test.go",
+   "start_line": 207
+  },
+  "name": "TestArbitraryArgs_WithValid_WithInvalidArgs",
+  "selection_char": 5,
+  "selection_line": 207
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 217,
+   "file": "args_test.go",
+   "start_line": 213
+  },
+  "name": "TestArbitraryArgs_WithValidOnly_WithInvalidArgs",
+  "selection_char": 5,
+  "selection_line": 213
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 225,
+   "file": "args_test.go",
+   "start_line": 221
+  },
+  "name": "TestMinimumNArgs",
+  "selection_char": 5,
+  "selection_line": 221
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 231,
+   "file": "args_test.go",
+   "start_line": 227
+  },
+  "name": "TestMinimumNArgs_WithValid",
+  "selection_char": 5,
+  "selection_line": 227
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 237,
+   "file": "args_test.go",
+   "start_line": 233
+  },
+  "name": "TestMinimumNArgs_WithValid__WithInvalidArgs",
+  "selection_char": 5,
+  "selection_line": 233
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 243,
+   "file": "args_test.go",
+   "start_line": 239
+  },
+  "name": "TestMinimumNArgs_WithValidOnly_WithInvalidArgs",
+  "selection_char": 5,
+  "selection_line": 239
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 249,
+   "file": "args_test.go",
+   "start_line": 245
+  },
+  "name": "TestMinimumNArgs_WithLessArgs",
+  "selection_char": 5,
+  "selection_line": 245
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 255,
+   "file": "args_test.go",
+   "start_line": 251
+  },
+  "name": "TestMinimumNArgs_WithLessArgs_WithValid",
+  "selection_char": 5,
+  "selection_line": 251
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 261,
+   "file": "args_test.go",
+   "start_line": 257
+  },
+  "name": "TestMinimumNArgs_WithLessArgs_WithValid_WithInvalidArgs",
+  "selection_char": 5,
+  "selection_line": 257
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 267,
+   "file": "args_test.go",
+   "start_line": 263
+  },
+  "name": "TestMinimumNArgs_WithLessArgs_WithValidOnly_WithInvalidArgs",
+  "selection_char": 5,
+  "selection_line": 263
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 275,
+   "file": "args_test.go",
+   "start_line": 271
+  },
+  "name": "TestMaximumNArgs",
+  "selection_char": 5,
+  "selection_line": 271
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 281,
+   "file": "args_test.go",
+   "start_line": 277
+  },
+  "name": "TestMaximumNArgs_WithValid",
+  "selection_char": 5,
+  "selection_line": 277
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 287,
+   "file": "args_test.go",
+   "start_line": 283
+  },
+  "name": "TestMaximumNArgs_WithValid_WithInvalidArgs",
+  "selection_char": 5,
+  "selection_line": 283
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 293,
+   "file": "args_test.go",
+   "start_line": 289
+  },
+  "name": "TestMaximumNArgs_WithValidOnly_WithInvalidArgs",
+  "selection_char": 5,
+  "selection_line": 289
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 299,
+   "file": "args_test.go",
+   "start_line": 295
+  },
+  "name": "TestMaximumNArgs_WithMoreArgs",
+  "selection_char": 5,
+  "selection_line": 295
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 305,
+   "file": "args_test.go",
+   "start_line": 301
+  },
+  "name": "TestMaximumNArgs_WithMoreArgs_WithValid",
+  "selection_char": 5,
+  "selection_line": 301
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 311,
+   "file": "args_test.go",
+   "start_line": 307
+  },
+  "name": "TestMaximumNArgs_WithMoreArgs_WithValid_WithInvalidArgs",
+  "selection_char": 5,
+  "selection_line": 307
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 317,
+   "file": "args_test.go",
+   "start_line": 313
+  },
+  "name": "TestMaximumNArgs_WithMoreArgs_WithValidOnly_WithInvalidArgs",
+  "selection_char": 5,
+  "selection_line": 313
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 325,
+   "file": "args_test.go",
+   "start_line": 321
+  },
+  "name": "TestExactArgs",
+  "selection_char": 5,
+  "selection_line": 321
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 331,
+   "file": "args_test.go",
+   "start_line": 327
+  },
+  "name": "TestExactArgs_WithValid",
+  "selection_char": 5,
+  "selection_line": 327
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 337,
+   "file": "args_test.go",
+   "start_line": 333
+  },
+  "name": "TestExactArgs_WithValid_WithInvalidArgs",
+  "selection_char": 5,
+  "selection_line": 333
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 343,
+   "file": "args_test.go",
+   "start_line": 339
+  },
+  "name": "TestExactArgs_WithValidOnly_WithInvalidArgs",
+  "selection_char": 5,
+  "selection_line": 339
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 349,
+   "file": "args_test.go",
+   "start_line": 345
+  },
+  "name": "TestExactArgs_WithInvalidCount",
+  "selection_char": 5,
+  "selection_line": 345
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 355,
+   "file": "args_test.go",
+   "start_line": 351
+  },
+  "name": "TestExactArgs_WithInvalidCount_WithValid",
+  "selection_char": 5,
+  "selection_line": 351
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 361,
+   "file": "args_test.go",
+   "start_line": 357
+  },
+  "name": "TestExactArgs_WithInvalidCount_WithValid_WithInvalidArgs",
+  "selection_char": 5,
+  "selection_line": 357
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 367,
+   "file": "args_test.go",
+   "start_line": 363
+  },
+  "name": "TestExactArgs_WithInvalidCount_WithValidOnly_WithInvalidArgs",
+  "selection_char": 5,
+  "selection_line": 363
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 375,
+   "file": "args_test.go",
+   "start_line": 371
+  },
+  "name": "TestRangeArgs",
+  "selection_char": 5,
+  "selection_line": 371
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 381,
+   "file": "args_test.go",
+   "start_line": 377
+  },
+  "name": "TestRangeArgs_WithValid",
+  "selection_char": 5,
+  "selection_line": 377
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 387,
+   "file": "args_test.go",
+   "start_line": 383
+  },
+  "name": "TestRangeArgs_WithValid_WithInvalidArgs",
+  "selection_char": 5,
+  "selection_line": 383
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 393,
+   "file": "args_test.go",
+   "start_line": 389
+  },
+  "name": "TestRangeArgs_WithValidOnly_WithInvalidArgs",
+  "selection_char": 5,
+  "selection_line": 389
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 399,
+   "file": "args_test.go",
+   "start_line": 395
+  },
+  "name": "TestRangeArgs_WithInvalidCount",
+  "selection_char": 5,
+  "selection_line": 395
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 405,
+   "file": "args_test.go",
+   "start_line": 401
+  },
+  "name": "TestRangeArgs_WithInvalidCount_WithValid",
+  "selection_char": 5,
+  "selection_line": 401
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 411,
+   "file": "args_test.go",
+   "start_line": 407
+  },
+  "name": "TestRangeArgs_WithInvalidCount_WithValid_WithInvalidArgs",
+  "selection_char": 5,
+  "selection_line": 407
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 417,
+   "file": "args_test.go",
+   "start_line": 413
+  },
+  "name": "TestRangeArgs_WithInvalidCount_WithValidOnly_WithInvalidArgs",
+  "selection_char": 5,
+  "selection_line": 413
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 436,
+   "file": "args_test.go",
+   "start_line": 421
+  },
+  "name": "TestRootTakesNoArgs",
+  "selection_char": 5,
+  "selection_line": 421
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 447,
+   "file": "args_test.go",
+   "start_line": 438
+  },
+  "name": "TestRootTakesArgs",
+  "selection_char": 5,
+  "selection_line": 438
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 464,
+   "file": "args_test.go",
+   "start_line": 449
+  },
+  "name": "TestChildTakesNoArgs",
+  "selection_char": 5,
+  "selection_line": 449
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 475,
+   "file": "args_test.go",
+   "start_line": 466
+  },
+  "name": "TestChildTakesArgs",
+  "selection_char": 5,
+  "selection_line": 466
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 523,
+   "file": "args_test.go",
+   "start_line": 477
+  },
+  "name": "TestMatchAll",
+  "selection_char": 5,
+  "selection_line": 477
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 531,
+   "file": "args_test.go",
+   "start_line": 527
+  },
+  "name": "TestExactValidArgs",
+  "selection_char": 5,
+  "selection_line": 527
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 537,
+   "file": "args_test.go",
+   "start_line": 533
+  },
+  "name": "TestExactValidArgs_WithInvalidCount",
+  "selection_char": 5,
+  "selection_line": 533
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 543,
+   "file": "args_test.go",
+   "start_line": 539
+  },
+  "name": "TestExactValidArgs_WithInvalidCount_WithInvalidArgs",
+  "selection_char": 5,
+  "selection_line": 539
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 549,
+   "file": "args_test.go",
+   "start_line": 545
+  },
+  "name": "TestExactValidArgs_WithInvalidArgs",
+  "selection_char": 5,
+  "selection_line": 545
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 562,
+   "file": "args_test.go",
+   "start_line": 555
+  },
+  "name": "TestLegacyArgsRootAcceptsArgs",
+  "selection_char": 5,
+  "selection_line": 555
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 578,
+   "file": "args_test.go",
+   "start_line": 567
+  },
+  "name": "TestLegacyArgsSubcmdAcceptsArgs",
+  "selection_char": 5,
+  "selection_line": 567
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 402,
+   "file": "bash_completions.go",
+   "start_line": 36
+  },
+  "name": "writePreamble",
+  "selection_char": 5,
+  "selection_line": 36
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 445,
+   "file": "bash_completions.go",
+   "start_line": 404
+  },
+  "name": "writePostscript",
+  "selection_char": 5,
+  "selection_line": 404
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 457,
+   "file": "bash_completions.go",
+   "start_line": 447
+  },
+  "name": "writeCommands",
+  "selection_char": 5,
+  "selection_line": 447
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 493,
+   "file": "bash_completions.go",
+   "start_line": 459
+  },
+  "name": "writeFlagHandler",
+  "selection_char": 5,
+  "selection_line": 459
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 506,
+   "file": "bash_completions.go",
+   "start_line": 497
+  },
+  "name": "writeShortFlag",
+  "selection_char": 5,
+  "selection_line": 497
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 521,
+   "file": "bash_completions.go",
+   "start_line": 508
+  },
+  "name": "writeFlag",
+  "selection_char": 5,
+  "selection_line": 508
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 533,
+   "file": "bash_completions.go",
+   "start_line": 523
+  },
+  "name": "writeLocalNonPersistentFlag",
+  "selection_char": 5,
+  "selection_line": 523
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 549,
+   "file": "bash_completions.go",
+   "start_line": 536
+  },
+  "name": "prepareCustomAnnotationsForFlags",
+  "selection_char": 5,
+  "selection_line": 536
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 591,
+   "file": "bash_completions.go",
+   "start_line": 551
+  },
+  "name": "writeFlags",
+  "selection_char": 5,
+  "selection_line": 551
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 613,
+   "file": "bash_completions.go",
+   "start_line": 593
+  },
+  "name": "writeRequiredFlag",
+  "selection_char": 5,
+  "selection_line": 593
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 627,
+   "file": "bash_completions.go",
+   "start_line": 615
+  },
+  "name": "writeRequiredNouns",
+  "selection_char": 5,
+  "selection_line": 615
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 643,
+   "file": "bash_completions.go",
+   "start_line": 629
+  },
+  "name": "writeCmdAliases",
+  "selection_char": 5,
+  "selection_line": 629
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 650,
+   "file": "bash_completions.go",
+   "start_line": 644
+  },
+  "name": "writeArgAliases",
+  "selection_char": 5,
+  "selection_line": 644
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 680,
+   "file": "bash_completions.go",
+   "start_line": 652
+  },
+  "name": "gen",
+  "selection_char": 5,
+  "selection_line": 652
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 694,
+   "file": "bash_completions.go",
+   "start_line": 683
+  },
+  "name": "GenBashCompletion",
+  "selection_char": 18,
+  "selection_line": 683
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 698,
+   "file": "bash_completions.go",
+   "start_line": 696
+  },
+  "name": "nonCompletableFlag",
+  "selection_char": 5,
+  "selection_line": 696
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 709,
+   "file": "bash_completions.go",
+   "start_line": 701
+  },
+  "name": "GenBashCompletionFile",
+  "selection_char": 18,
+  "selection_line": 701
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 29,
+   "file": "bash_completionsV2.go",
+   "start_line": 24
+  },
+  "name": "genBashCompletion",
+  "selection_char": 18,
+  "selection_line": 24
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 467,
+   "file": "bash_completionsV2.go",
+   "start_line": 31
+  },
+  "name": "genBashComp",
+  "selection_char": 5,
+  "selection_line": 31
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 478,
+   "file": "bash_completionsV2.go",
+   "start_line": 470
+  },
+  "name": "GenBashCompletionFileV2",
+  "selection_char": 18,
+  "selection_line": 470
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 484,
+   "file": "bash_completionsV2.go",
+   "start_line": 482
+  },
+  "name": "GenBashCompletionV2",
+  "selection_char": 18,
+  "selection_line": 482
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 33,
+   "file": "bash_completionsV2_test.go",
+   "start_line": 23
+  },
+  "name": "TestBashCompletionV2WithActiveHelp",
+  "selection_char": 5,
+  "selection_line": 23
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 31,
+   "file": "bash_completions_test.go",
+   "start_line": 27
+  },
+  "name": "checkOmit",
+  "selection_char": 5,
+  "selection_line": 27
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 37,
+   "file": "bash_completions_test.go",
+   "start_line": 33
+  },
+  "name": "check",
+  "selection_char": 5,
+  "selection_line": 33
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 44,
+   "file": "bash_completions_test.go",
+   "start_line": 39
+  },
+  "name": "checkNumOccurrences",
+  "selection_char": 5,
+  "selection_line": 39
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 54,
+   "file": "bash_completions_test.go",
+   "start_line": 46
+  },
+  "name": "checkRegex",
+  "selection_char": 5,
+  "selection_line": 46
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 75,
+   "file": "bash_completions_test.go",
+   "start_line": 56
+  },
+  "name": "runShellCheck",
+  "selection_char": 5,
+  "selection_line": 56
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 227,
+   "file": "bash_completions_test.go",
+   "start_line": 83
+  },
+  "name": "TestBashCompletions",
+  "selection_char": 5,
+  "selection_line": 83
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 243,
+   "file": "bash_completions_test.go",
+   "start_line": 229
+  },
+  "name": "TestBashCompletionHiddenFlag",
+  "selection_char": 5,
+  "selection_line": 229
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 259,
+   "file": "bash_completions_test.go",
+   "start_line": 245
+  },
+  "name": "TestBashCompletionDeprecatedFlag",
+  "selection_char": 5,
+  "selection_line": 245
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 277,
+   "file": "bash_completions_test.go",
+   "start_line": 261
+  },
+  "name": "TestBashCompletionTraverseChildren",
+  "selection_char": 5,
+  "selection_line": 261
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 289,
+   "file": "bash_completions_test.go",
+   "start_line": 279
+  },
+  "name": "TestBashCompletionNoActiveHelp",
+  "selection_char": 5,
+  "selection_line": 279
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 87,
+   "file": "cobra.go",
+   "start_line": 85
+  },
+  "name": "AddTemplateFunc",
+  "selection_char": 5,
+  "selection_line": 85
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 95,
+   "file": "cobra.go",
+   "start_line": 91
+  },
+  "name": "AddTemplateFuncs",
+  "selection_char": 5,
+  "selection_line": 91
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 101,
+   "file": "cobra.go",
+   "start_line": 99
+  },
+  "name": "OnInitialize",
+  "selection_char": 5,
+  "selection_line": 99
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 107,
+   "file": "cobra.go",
+   "start_line": 105
+  },
+  "name": "OnFinalize",
+  "selection_char": 5,
+  "selection_line": 105
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 139,
+   "file": "cobra.go",
+   "start_line": 114
+  },
+  "name": "Gt",
+  "selection_char": 5,
+  "selection_line": 114
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 157,
+   "file": "cobra.go",
+   "start_line": 144
+  },
+  "name": "Eq",
+  "selection_char": 5,
+  "selection_line": 144
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 161,
+   "file": "cobra.go",
+   "start_line": 159
+  },
+  "name": "trimRightSpace",
+  "selection_char": 5,
+  "selection_line": 159
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 171,
+   "file": "cobra.go",
+   "start_line": 166
+  },
+  "name": "appendIfNotPresent",
+  "selection_char": 5,
+  "selection_line": 166
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 177,
+   "file": "cobra.go",
+   "start_line": 174
+  },
+  "name": "rpad",
+  "selection_char": 5,
+  "selection_line": 174
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 189,
+   "file": "cobra.go",
+   "start_line": 179
+  },
+  "name": "tmpl",
+  "selection_char": 5,
+  "selection_line": 179
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 223,
+   "file": "cobra.go",
+   "start_line": 192
+  },
+  "name": "ld",
+  "selection_char": 5,
+  "selection_line": 192
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 232,
+   "file": "cobra.go",
+   "start_line": 225
+  },
+  "name": "stringInSlice",
+  "selection_char": 5,
+  "selection_line": 225
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 240,
+   "file": "cobra.go",
+   "start_line": 235
+  },
+  "name": "CheckErr",
+  "selection_char": 5,
+  "selection_line": 235
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 246,
+   "file": "cobra.go",
+   "start_line": 243
+  },
+  "name": "WriteStringAndCheck",
+  "selection_char": 5,
+  "selection_line": 243
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 31,
+   "file": "cobra_test.go",
+   "start_line": 27
+  },
+  "name": "assertNoErr",
+  "selection_char": 5,
+  "selection_line": 27
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 47,
+   "file": "cobra_test.go",
+   "start_line": 33
+  },
+  "name": "TestAddTemplateFunctions",
+  "selection_char": 5,
+  "selection_line": 33
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 119,
+   "file": "cobra_test.go",
+   "start_line": 49
+  },
+  "name": "TestLevenshteinDistance",
+  "selection_char": 5,
+  "selection_line": 49
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 183,
+   "file": "cobra_test.go",
+   "start_line": 121
+  },
+  "name": "TestStringInSlice",
+  "selection_char": 5,
+  "selection_line": 121
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 229,
+   "file": "cobra_test.go",
+   "start_line": 185
+  },
+  "name": "TestRpad",
+  "selection_char": 5,
+  "selection_line": 185
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 301,
+   "file": "cobra_test.go",
+   "start_line": 245
+  },
+  "name": "TestDeadcodeElimination",
+  "selection_char": 5,
+  "selection_line": 245
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 271,
+   "file": "command.go",
+   "start_line": 269
+  },
+  "name": "Context",
+  "selection_char": 18,
+  "selection_line": 269
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 277,
+   "file": "command.go",
+   "start_line": 275
+  },
+  "name": "SetContext",
+  "selection_char": 18,
+  "selection_line": 275
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 283,
+   "file": "command.go",
+   "start_line": 281
+  },
+  "name": "SetArgs",
+  "selection_char": 18,
+  "selection_line": 281
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 292,
+   "file": "command.go",
+   "start_line": 289
+  },
+  "name": "SetOutput",
+  "selection_char": 18,
+  "selection_line": 289
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 298,
+   "file": "command.go",
+   "start_line": 296
+  },
+  "name": "SetOut",
+  "selection_char": 18,
+  "selection_line": 296
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 304,
+   "file": "command.go",
+   "start_line": 302
+  },
+  "name": "SetErr",
+  "selection_char": 18,
+  "selection_line": 302
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 310,
+   "file": "command.go",
+   "start_line": 308
+  },
+  "name": "SetIn",
+  "selection_char": 18,
+  "selection_line": 308
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 315,
+   "file": "command.go",
+   "start_line": 313
+  },
+  "name": "SetUsageFunc",
+  "selection_char": 18,
+  "selection_line": 313
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 324,
+   "file": "command.go",
+   "start_line": 318
+  },
+  "name": "SetUsageTemplate",
+  "selection_char": 18,
+  "selection_line": 318
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 330,
+   "file": "command.go",
+   "start_line": 328
+  },
+  "name": "SetFlagErrorFunc",
+  "selection_char": 18,
+  "selection_line": 328
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 335,
+   "file": "command.go",
+   "start_line": 333
+  },
+  "name": "SetHelpFunc",
+  "selection_char": 18,
+  "selection_line": 333
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 340,
+   "file": "command.go",
+   "start_line": 338
+  },
+  "name": "SetHelpCommand",
+  "selection_char": 18,
+  "selection_line": 338
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 349,
+   "file": "command.go",
+   "start_line": 343
+  },
+  "name": "SetHelpCommandGroupID",
+  "selection_char": 18,
+  "selection_line": 343
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 355,
+   "file": "command.go",
+   "start_line": 352
+  },
+  "name": "SetCompletionCommandGroupID",
+  "selection_char": 18,
+  "selection_line": 352
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 364,
+   "file": "command.go",
+   "start_line": 358
+  },
+  "name": "SetHelpTemplate",
+  "selection_char": 18,
+  "selection_line": 358
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 373,
+   "file": "command.go",
+   "start_line": 367
+  },
+  "name": "SetVersionTemplate",
+  "selection_char": 18,
+  "selection_line": 367
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 378,
+   "file": "command.go",
+   "start_line": 376
+  },
+  "name": "SetErrPrefix",
+  "selection_char": 18,
+  "selection_line": 376
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 390,
+   "file": "command.go",
+   "start_line": 382
+  },
+  "name": "SetGlobalNormalizationFunc",
+  "selection_char": 18,
+  "selection_line": 382
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 395,
+   "file": "command.go",
+   "start_line": 393
+  },
+  "name": "OutOrStdout",
+  "selection_char": 18,
+  "selection_line": 393
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 400,
+   "file": "command.go",
+   "start_line": 398
+  },
+  "name": "OutOrStderr",
+  "selection_char": 18,
+  "selection_line": 398
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 405,
+   "file": "command.go",
+   "start_line": 403
+  },
+  "name": "ErrOrStderr",
+  "selection_char": 18,
+  "selection_line": 403
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 410,
+   "file": "command.go",
+   "start_line": 408
+  },
+  "name": "InOrStdin",
+  "selection_char": 18,
+  "selection_line": 408
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 420,
+   "file": "command.go",
+   "start_line": 412
+  },
+  "name": "getOut",
+  "selection_char": 18,
+  "selection_line": 412
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 430,
+   "file": "command.go",
+   "start_line": 422
+  },
+  "name": "getErr",
+  "selection_char": 18,
+  "selection_line": 422
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 440,
+   "file": "command.go",
+   "start_line": 432
+  },
+  "name": "getIn",
+  "selection_char": 18,
+  "selection_line": 432
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 460,
+   "file": "command.go",
+   "start_line": 444
+  },
+  "name": "UsageFunc",
+  "selection_char": 18,
+  "selection_line": 444
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 473,
+   "file": "command.go",
+   "start_line": 464
+  },
+  "name": "getUsageTemplateFunc",
+  "selection_char": 18,
+  "selection_line": 464
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 480,
+   "file": "command.go",
+   "start_line": 478
+  },
+  "name": "Usage",
+  "selection_char": 18,
+  "selection_line": 478
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 501,
+   "file": "command.go",
+   "start_line": 484
+  },
+  "name": "HelpFunc",
+  "selection_char": 18,
+  "selection_line": 484
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 515,
+   "file": "command.go",
+   "start_line": 505
+  },
+  "name": "getHelpTemplateFunc",
+  "selection_char": 18,
+  "selection_line": 505
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 523,
+   "file": "command.go",
+   "start_line": 520
+  },
+  "name": "Help",
+  "selection_char": 18,
+  "selection_line": 520
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 542,
+   "file": "command.go",
+   "start_line": 526
+  },
+  "name": "UsageString",
+  "selection_char": 18,
+  "selection_line": 526
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 558,
+   "file": "command.go",
+   "start_line": 547
+  },
+  "name": "FlagErrorFunc",
+  "selection_char": 18,
+  "selection_line": 547
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 568,
+   "file": "command.go",
+   "start_line": 563
+  },
+  "name": "UsagePadding",
+  "selection_char": 18,
+  "selection_line": 563
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 578,
+   "file": "command.go",
+   "start_line": 573
+  },
+  "name": "CommandPathPadding",
+  "selection_char": 18,
+  "selection_line": 573
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 588,
+   "file": "command.go",
+   "start_line": 583
+  },
+  "name": "NamePadding",
+  "selection_char": 18,
+  "selection_line": 583
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 601,
+   "file": "command.go",
+   "start_line": 592
+  },
+  "name": "UsageTemplate",
+  "selection_char": 18,
+  "selection_line": 592
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 614,
+   "file": "command.go",
+   "start_line": 605
+  },
+  "name": "HelpTemplate",
+  "selection_char": 18,
+  "selection_line": 605
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 627,
+   "file": "command.go",
+   "start_line": 618
+  },
+  "name": "VersionTemplate",
+  "selection_char": 18,
+  "selection_line": 618
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 640,
+   "file": "command.go",
+   "start_line": 631
+  },
+  "name": "getVersionTemplateFunc",
+  "selection_char": 18,
+  "selection_line": 631
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 652,
+   "file": "command.go",
+   "start_line": 643
+  },
+  "name": "ErrPrefix",
+  "selection_char": 18,
+  "selection_line": 643
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 660,
+   "file": "command.go",
+   "start_line": 654
+  },
+  "name": "hasNoOptDefVal",
+  "selection_char": 5,
+  "selection_line": 654
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 672,
+   "file": "command.go",
+   "start_line": 662
+  },
+  "name": "shortHasNoOptDefVal",
+  "selection_char": 5,
+  "selection_line": 662
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 710,
+   "file": "command.go",
+   "start_line": 674
+  },
+  "name": "stripFlags",
+  "selection_char": 5,
+  "selection_line": 674
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 748,
+   "file": "command.go",
+   "start_line": 715
+  },
+  "name": "argsMinusFirstX",
+  "selection_char": 18,
+  "selection_line": 715
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 753,
+   "file": "command.go",
+   "start_line": 750
+  },
+  "name": "isFlagArg",
+  "selection_char": 5,
+  "selection_line": 750
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 779,
+   "file": "command.go",
+   "start_line": 757
+  },
+  "name": "Find",
+  "selection_char": 18,
+  "selection_line": 757
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 796,
+   "file": "command.go",
+   "start_line": 781
+  },
+  "name": "findSuggestions",
+  "selection_char": 18,
+  "selection_line": 781
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 817,
+   "file": "command.go",
+   "start_line": 798
+  },
+  "name": "findNext",
+  "selection_char": 18,
+  "selection_line": 798
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 860,
+   "file": "command.go",
+   "start_line": 821
+  },
+  "name": "Traverse",
+  "selection_char": 18,
+  "selection_line": 821
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 881,
+   "file": "command.go",
+   "start_line": 863
+  },
+  "name": "SuggestionsFor",
+  "selection_char": 18,
+  "selection_line": 863
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 889,
+   "file": "command.go",
+   "start_line": 884
+  },
+  "name": "VisitParents",
+  "selection_char": 18,
+  "selection_line": 884
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 897,
+   "file": "command.go",
+   "start_line": 892
+  },
+  "name": "Root",
+  "selection_char": 18,
+  "selection_line": 892
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 903,
+   "file": "command.go",
+   "start_line": 901
+  },
+  "name": "ArgsLenAtDash",
+  "selection_char": 18,
+  "selection_line": 901
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 1045,
+   "file": "command.go",
+   "start_line": 905
+  },
+  "name": "execute",
+  "selection_char": 18,
+  "selection_line": 905
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 1051,
+   "file": "command.go",
+   "start_line": 1047
+  },
+  "name": "preRun",
+  "selection_char": 18,
+  "selection_line": 1047
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 1057,
+   "file": "command.go",
+   "start_line": 1053
+  },
+  "name": "postRun",
+  "selection_char": 18,
+  "selection_line": 1053
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 1065,
+   "file": "command.go",
+   "start_line": 1062
+  },
+  "name": "ExecuteContext",
+  "selection_char": 18,
+  "selection_line": 1062
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 1073,
+   "file": "command.go",
+   "start_line": 1070
+  },
+  "name": "Execute",
+  "selection_char": 18,
+  "selection_line": 1070
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 1081,
+   "file": "command.go",
+   "start_line": 1078
+  },
+  "name": "ExecuteContextC",
+  "selection_char": 18,
+  "selection_line": 1078
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 1170,
+   "file": "command.go",
+   "start_line": 1084
+  },
+  "name": "ExecuteC",
+  "selection_char": 18,
+  "selection_line": 1084
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 1177,
+   "file": "command.go",
+   "start_line": 1172
+  },
+  "name": "ValidateArgs",
+  "selection_char": 18,
+  "selection_line": 1172
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 1201,
+   "file": "command.go",
+   "start_line": 1180
+  },
+  "name": "ValidateRequiredFlags",
+  "selection_char": 18,
+  "selection_line": 1180
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 1214,
+   "file": "command.go",
+   "start_line": 1205
+  },
+  "name": "checkCommandGroups",
+  "selection_char": 18,
+  "selection_line": 1205
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 1232,
+   "file": "command.go",
+   "start_line": 1219
+  },
+  "name": "InitDefaultHelpFlag",
+  "selection_char": 18,
+  "selection_line": 1219
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 1258,
+   "file": "command.go",
+   "start_line": 1238
+  },
+  "name": "InitDefaultVersionFlag",
+  "selection_char": 18,
+  "selection_line": 1238
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 1314,
+   "file": "command.go",
+   "start_line": 1263
+  },
+  "name": "InitDefaultHelpCmd",
+  "selection_char": 18,
+  "selection_line": 1263
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 1322,
+   "file": "command.go",
+   "start_line": 1317
+  },
+  "name": "ResetCommands",
+  "selection_char": 18,
+  "selection_line": 1317
+ },
+ {
+  "container": "commandSorterByName",
+  "kind": "method",
+  "location": {
+   "end_line": 1327,
+   "file": "command.go",
+   "start_line": 1327
+  },
+  "name": "Len",
+  "selection_char": 29,
+  "selection_line": 1327
+ },
+ {
+  "container": "commandSorterByName",
+  "kind": "method",
+  "location": {
+   "end_line": 1328,
+   "file": "command.go",
+   "start_line": 1328
+  },
+  "name": "Swap",
+  "selection_char": 29,
+  "selection_line": 1328
+ },
+ {
+  "container": "commandSorterByName",
+  "kind": "method",
+  "location": {
+   "end_line": 1329,
+   "file": "command.go",
+   "start_line": 1329
+  },
+  "name": "Less",
+  "selection_char": 29,
+  "selection_line": 1329
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 1339,
+   "file": "command.go",
+   "start_line": 1332
+  },
+  "name": "Commands",
+  "selection_char": 18,
+  "selection_line": 1332
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 1368,
+   "file": "command.go",
+   "start_line": 1342
+  },
+  "name": "AddCommand",
+  "selection_char": 18,
+  "selection_line": 1342
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 1373,
+   "file": "command.go",
+   "start_line": 1371
+  },
+  "name": "Groups",
+  "selection_char": 18,
+  "selection_line": 1371
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 1383,
+   "file": "command.go",
+   "start_line": 1376
+  },
+  "name": "AllChildCommandsHaveGroup",
+  "selection_char": 18,
+  "selection_line": 1376
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 1393,
+   "file": "command.go",
+   "start_line": 1386
+  },
+  "name": "ContainsGroup",
+  "selection_char": 18,
+  "selection_line": 1386
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 1398,
+   "file": "command.go",
+   "start_line": 1396
+  },
+  "name": "AddGroup",
+  "selection_char": 18,
+  "selection_line": 1396
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 1432,
+   "file": "command.go",
+   "start_line": 1401
+  },
+  "name": "RemoveCommand",
+  "selection_char": 18,
+  "selection_line": 1401
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 1437,
+   "file": "command.go",
+   "start_line": 1435
+  },
+  "name": "Print",
+  "selection_char": 18,
+  "selection_line": 1435
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 1442,
+   "file": "command.go",
+   "start_line": 1440
+  },
+  "name": "Println",
+  "selection_char": 18,
+  "selection_line": 1440
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 1447,
+   "file": "command.go",
+   "start_line": 1445
+  },
+  "name": "Printf",
+  "selection_char": 18,
+  "selection_line": 1445
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 1452,
+   "file": "command.go",
+   "start_line": 1450
+  },
+  "name": "PrintErr",
+  "selection_char": 18,
+  "selection_line": 1450
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 1457,
+   "file": "command.go",
+   "start_line": 1455
+  },
+  "name": "PrintErrln",
+  "selection_char": 18,
+  "selection_line": 1455
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 1462,
+   "file": "command.go",
+   "start_line": 1460
+  },
+  "name": "PrintErrf",
+  "selection_char": 18,
+  "selection_line": 1460
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 1470,
+   "file": "command.go",
+   "start_line": 1465
+  },
+  "name": "CommandPath",
+  "selection_char": 18,
+  "selection_line": 1465
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 1479,
+   "file": "command.go",
+   "start_line": 1474
+  },
+  "name": "DisplayName",
+  "selection_char": 18,
+  "selection_line": 1474
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 1497,
+   "file": "command.go",
+   "start_line": 1482
+  },
+  "name": "UseLine",
+  "selection_char": 18,
+  "selection_line": 1482
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 1538,
+   "file": "command.go",
+   "start_line": 1501
+  },
+  "name": "DebugFlags",
+  "selection_char": 18,
+  "selection_line": 1501
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 1548,
+   "file": "command.go",
+   "start_line": 1541
+  },
+  "name": "Name",
+  "selection_char": 18,
+  "selection_line": 1541
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 1558,
+   "file": "command.go",
+   "start_line": 1551
+  },
+  "name": "HasAlias",
+  "selection_char": 18,
+  "selection_line": 1551
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 1567,
+   "file": "command.go",
+   "start_line": 1562
+  },
+  "name": "CalledAs",
+  "selection_char": 18,
+  "selection_line": 1562
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 1583,
+   "file": "command.go",
+   "start_line": 1571
+  },
+  "name": "hasNameOrAliasPrefix",
+  "selection_char": 18,
+  "selection_line": 1571
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 1588,
+   "file": "command.go",
+   "start_line": 1586
+  },
+  "name": "NameAndAliases",
+  "selection_char": 18,
+  "selection_line": 1586
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 1593,
+   "file": "command.go",
+   "start_line": 1591
+  },
+  "name": "HasExample",
+  "selection_char": 18,
+  "selection_line": 1591
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 1598,
+   "file": "command.go",
+   "start_line": 1596
+  },
+  "name": "Runnable",
+  "selection_char": 18,
+  "selection_line": 1596
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 1603,
+   "file": "command.go",
+   "start_line": 1601
+  },
+  "name": "HasSubCommands",
+  "selection_char": 18,
+  "selection_line": 1601
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 1621,
+   "file": "command.go",
+   "start_line": 1607
+  },
+  "name": "IsAvailableCommand",
+  "selection_char": 18,
+  "selection_line": 1607
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 1643,
+   "file": "command.go",
+   "start_line": 1628
+  },
+  "name": "IsAdditionalHelpTopicCommand",
+  "selection_char": 18,
+  "selection_line": 1628
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 1658,
+   "file": "command.go",
+   "start_line": 1648
+  },
+  "name": "HasHelpSubCommands",
+  "selection_char": 18,
+  "selection_line": 1648
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 1674,
+   "file": "command.go",
+   "start_line": 1662
+  },
+  "name": "HasAvailableSubCommands",
+  "selection_char": 18,
+  "selection_line": 1662
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 1679,
+   "file": "command.go",
+   "start_line": 1677
+  },
+  "name": "HasParent",
+  "selection_char": 18,
+  "selection_line": 1677
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 1684,
+   "file": "command.go",
+   "start_line": 1682
+  },
+  "name": "GlobalNormalizationFunc",
+  "selection_char": 18,
+  "selection_line": 1682
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 1698,
+   "file": "command.go",
+   "start_line": 1688
+  },
+  "name": "Flags",
+  "selection_char": 18,
+  "selection_line": 1688
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 1712,
+   "file": "command.go",
+   "start_line": 1702
+  },
+  "name": "LocalNonPersistentFlags",
+  "selection_char": 18,
+  "selection_line": 1702
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 1740,
+   "file": "command.go",
+   "start_line": 1716
+  },
+  "name": "LocalFlags",
+  "selection_char": 18,
+  "selection_line": 1716
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 1766,
+   "file": "command.go",
+   "start_line": 1744
+  },
+  "name": "InheritedFlags",
+  "selection_char": 18,
+  "selection_line": 1744
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 1772,
+   "file": "command.go",
+   "start_line": 1770
+  },
+  "name": "NonInheritedFlags",
+  "selection_char": 18,
+  "selection_line": 1770
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 1784,
+   "file": "command.go",
+   "start_line": 1775
+  },
+  "name": "PersistentFlags",
+  "selection_char": 18,
+  "selection_line": 1775
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 1798,
+   "file": "command.go",
+   "start_line": 1787
+  },
+  "name": "ResetFlags",
+  "selection_char": 18,
+  "selection_line": 1787
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 1803,
+   "file": "command.go",
+   "start_line": 1801
+  },
+  "name": "HasFlags",
+  "selection_char": 18,
+  "selection_line": 1801
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 1808,
+   "file": "command.go",
+   "start_line": 1806
+  },
+  "name": "HasPersistentFlags",
+  "selection_char": 18,
+  "selection_line": 1806
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 1813,
+   "file": "command.go",
+   "start_line": 1811
+  },
+  "name": "HasLocalFlags",
+  "selection_char": 18,
+  "selection_line": 1811
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 1818,
+   "file": "command.go",
+   "start_line": 1816
+  },
+  "name": "HasInheritedFlags",
+  "selection_char": 18,
+  "selection_line": 1816
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 1824,
+   "file": "command.go",
+   "start_line": 1822
+  },
+  "name": "HasAvailableFlags",
+  "selection_char": 18,
+  "selection_line": 1822
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 1829,
+   "file": "command.go",
+   "start_line": 1827
+  },
+  "name": "HasAvailablePersistentFlags",
+  "selection_char": 18,
+  "selection_line": 1827
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 1835,
+   "file": "command.go",
+   "start_line": 1833
+  },
+  "name": "HasAvailableLocalFlags",
+  "selection_char": 18,
+  "selection_line": 1833
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 1841,
+   "file": "command.go",
+   "start_line": 1839
+  },
+  "name": "HasAvailableInheritedFlags",
+  "selection_char": 18,
+  "selection_line": 1839
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 1852,
+   "file": "command.go",
+   "start_line": 1844
+  },
+  "name": "Flag",
+  "selection_char": 18,
+  "selection_line": 1844
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 1865,
+   "file": "command.go",
+   "start_line": 1855
+  },
+  "name": "persistentFlag",
+  "selection_char": 18,
+  "selection_line": 1855
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 1889,
+   "file": "command.go",
+   "start_line": 1868
+  },
+  "name": "ParseFlags",
+  "selection_char": 18,
+  "selection_line": 1868
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 1894,
+   "file": "command.go",
+   "start_line": 1892
+  },
+  "name": "Parent",
+  "selection_char": 18,
+  "selection_line": 1892
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 1902,
+   "file": "command.go",
+   "start_line": 1898
+  },
+  "name": "mergePersistentFlags",
+  "selection_char": 18,
+  "selection_line": 1898
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 1923,
+   "file": "command.go",
+   "start_line": 1907
+  },
+  "name": "updateParentsPflags",
+  "selection_char": 18,
+  "selection_line": 1907
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1934,
+   "file": "command.go",
+   "start_line": 1928
+  },
+  "name": "commandNameMatches",
+  "selection_char": 5,
+  "selection_line": 1928
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 2040,
+   "file": "command.go",
+   "start_line": 1974
+  },
+  "name": "defaultUsageFunc",
+  "selection_char": 5,
+  "selection_line": 1974
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 2062,
+   "file": "command.go",
+   "start_line": 2047
+  },
+  "name": "defaultHelpFunc",
+  "selection_char": 5,
+  "selection_line": 2047
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 2072,
+   "file": "command.go",
+   "start_line": 2068
+  },
+  "name": "defaultVersionFunc",
+  "selection_char": 5,
+  "selection_line": 2068
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 30,
+   "file": "command_test.go",
+   "start_line": 30
+  },
+  "name": "emptyRun",
+  "selection_char": 5,
+  "selection_line": 30
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 35,
+   "file": "command_test.go",
+   "start_line": 32
+  },
+  "name": "executeCommand",
+  "selection_char": 5,
+  "selection_line": 32
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 46,
+   "file": "command_test.go",
+   "start_line": 37
+  },
+  "name": "executeCommandWithContext",
+  "selection_char": 5,
+  "selection_line": 37
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 57,
+   "file": "command_test.go",
+   "start_line": 48
+  },
+  "name": "executeCommandC",
+  "selection_char": 5,
+  "selection_line": 48
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 68,
+   "file": "command_test.go",
+   "start_line": 59
+  },
+  "name": "executeCommandWithContextC",
+  "selection_char": 5,
+  "selection_line": 59
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 72,
+   "file": "command_test.go",
+   "start_line": 70
+  },
+  "name": "resetCommandLineFlagSet",
+  "selection_char": 5,
+  "selection_line": 70
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 78,
+   "file": "command_test.go",
+   "start_line": 74
+  },
+  "name": "checkStringContains",
+  "selection_char": 5,
+  "selection_line": 74
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 84,
+   "file": "command_test.go",
+   "start_line": 80
+  },
+  "name": "checkStringOmits",
+  "selection_char": 5,
+  "selection_line": 80
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 111,
+   "file": "command_test.go",
+   "start_line": 88
+  },
+  "name": "TestSingleCommand",
+  "selection_char": 5,
+  "selection_line": 88
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 136,
+   "file": "command_test.go",
+   "start_line": 113
+  },
+  "name": "TestChildCommand",
+  "selection_char": 5,
+  "selection_line": 113
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 144,
+   "file": "command_test.go",
+   "start_line": 138
+  },
+  "name": "TestCallCommandWithoutSubcommands",
+  "selection_char": 5,
+  "selection_line": 138
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 157,
+   "file": "command_test.go",
+   "start_line": 146
+  },
+  "name": "TestRootExecuteUnknownCommand",
+  "selection_char": 5,
+  "selection_line": 146
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 175,
+   "file": "command_test.go",
+   "start_line": 159
+  },
+  "name": "TestSubcommandExecuteC",
+  "selection_char": 5,
+  "selection_line": 159
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 204,
+   "file": "command_test.go",
+   "start_line": 177
+  },
+  "name": "TestExecuteContext",
+  "selection_char": 5,
+  "selection_line": 177
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 233,
+   "file": "command_test.go",
+   "start_line": 206
+  },
+  "name": "TestExecuteContextC",
+  "selection_char": 5,
+  "selection_line": 206
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 260,
+   "file": "command_test.go",
+   "start_line": 235
+  },
+  "name": "TestExecute_NoContext",
+  "selection_char": 5,
+  "selection_line": 235
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 272,
+   "file": "command_test.go",
+   "start_line": 262
+  },
+  "name": "TestRootUnknownCommandSilenced",
+  "selection_char": 5,
+  "selection_line": 262
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 303,
+   "file": "command_test.go",
+   "start_line": 274
+  },
+  "name": "TestCommandAlias",
+  "selection_char": 5,
+  "selection_line": 274
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 332,
+   "file": "command_test.go",
+   "start_line": 305
+  },
+  "name": "TestEnablePrefixMatching",
+  "selection_char": 5,
+  "selection_line": 305
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 367,
+   "file": "command_test.go",
+   "start_line": 334
+  },
+  "name": "TestAliasPrefixMatching",
+  "selection_char": 5,
+  "selection_line": 334
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 391,
+   "file": "command_test.go",
+   "start_line": 372
+  },
+  "name": "TestPlugin",
+  "selection_char": 5,
+  "selection_line": 372
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 432,
+   "file": "command_test.go",
+   "start_line": 394
+  },
+  "name": "TestPluginWithSubCommands",
+  "selection_char": 5,
+  "selection_line": 394
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 460,
+   "file": "command_test.go",
+   "start_line": 437
+  },
+  "name": "TestChildSameName",
+  "selection_char": 5,
+  "selection_line": 437
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 489,
+   "file": "command_test.go",
+   "start_line": 465
+  },
+  "name": "TestGrandChildSameName",
+  "selection_char": 5,
+  "selection_line": 465
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 526,
+   "file": "command_test.go",
+   "start_line": 491
+  },
+  "name": "TestFlagLong",
+  "selection_char": 5,
+  "selection_line": 491
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 560,
+   "file": "command_test.go",
+   "start_line": 528
+  },
+  "name": "TestFlagShort",
+  "selection_char": 5,
+  "selection_line": 528
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 581,
+   "file": "command_test.go",
+   "start_line": 562
+  },
+  "name": "TestChildFlag",
+  "selection_char": 5,
+  "selection_line": 562
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 602,
+   "file": "command_test.go",
+   "start_line": 583
+  },
+  "name": "TestChildFlagWithParentLocalFlag",
+  "selection_char": 5,
+  "selection_line": 583
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 614,
+   "file": "command_test.go",
+   "start_line": 604
+  },
+  "name": "TestFlagInvalidInput",
+  "selection_char": 5,
+  "selection_line": 604
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 641,
+   "file": "command_test.go",
+   "start_line": 616
+  },
+  "name": "TestFlagBeforeCommand",
+  "selection_char": 5,
+  "selection_line": 616
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 714,
+   "file": "command_test.go",
+   "start_line": 643
+  },
+  "name": "TestStripFlags",
+  "selection_char": 5,
+  "selection_line": 643
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 738,
+   "file": "command_test.go",
+   "start_line": 716
+  },
+  "name": "TestDisableFlagParsing",
+  "selection_char": 5,
+  "selection_line": 716
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 766,
+   "file": "command_test.go",
+   "start_line": 740
+  },
+  "name": "TestPersistentFlagsOnSameCommand",
+  "selection_char": 5,
+  "selection_line": 740
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 787,
+   "file": "command_test.go",
+   "start_line": 770
+  },
+  "name": "TestEmptyInputs",
+  "selection_char": 5,
+  "selection_line": 770
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 816,
+   "file": "command_test.go",
+   "start_line": 789
+  },
+  "name": "TestChildFlagShadowsParentPersistentFlag",
+  "selection_char": 5,
+  "selection_line": 789
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 851,
+   "file": "command_test.go",
+   "start_line": 818
+  },
+  "name": "TestPersistentFlagsOnChild",
+  "selection_char": 5,
+  "selection_line": 818
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 869,
+   "file": "command_test.go",
+   "start_line": 853
+  },
+  "name": "TestRequiredFlags",
+  "selection_char": 5,
+  "selection_line": 853
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 894,
+   "file": "command_test.go",
+   "start_line": 871
+  },
+  "name": "TestPersistentRequiredFlags",
+  "selection_char": 5,
+  "selection_line": 871
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 925,
+   "file": "command_test.go",
+   "start_line": 896
+  },
+  "name": "TestPersistentRequiredFlagsWithDisableFlagParsing",
+  "selection_char": 5,
+  "selection_line": 896
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 939,
+   "file": "command_test.go",
+   "start_line": 927
+  },
+  "name": "TestInitHelpFlagMergesFlags",
+  "selection_char": 5,
+  "selection_line": 927
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 951,
+   "file": "command_test.go",
+   "start_line": 941
+  },
+  "name": "TestHelpCommandExecuted",
+  "selection_char": 5,
+  "selection_line": 941
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 964,
+   "file": "command_test.go",
+   "start_line": 953
+  },
+  "name": "TestHelpCommandExecutedOnChild",
+  "selection_char": 5,
+  "selection_line": 953
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 996,
+   "file": "command_test.go",
+   "start_line": 966
+  },
+  "name": "TestHelpCommandExecutedOnChildWithFlagThatShadowsParentFlag",
+  "selection_char": 5,
+  "selection_line": 966
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1019,
+   "file": "command_test.go",
+   "start_line": 998
+  },
+  "name": "TestSetHelpCommand",
+  "selection_char": 5,
+  "selection_line": 998
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1062,
+   "file": "command_test.go",
+   "start_line": 1021
+  },
+  "name": "TestSetHelpTemplate",
+  "selection_char": 5,
+  "selection_line": 1021
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1073,
+   "file": "command_test.go",
+   "start_line": 1064
+  },
+  "name": "TestHelpFlagExecuted",
+  "selection_char": 5,
+  "selection_line": 1064
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1086,
+   "file": "command_test.go",
+   "start_line": 1075
+  },
+  "name": "TestHelpFlagExecutedOnChild",
+  "selection_char": 5,
+  "selection_line": 1075
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1104,
+   "file": "command_test.go",
+   "start_line": 1092
+  },
+  "name": "TestHelpFlagInHelp",
+  "selection_char": 5,
+  "selection_line": 1092
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1114,
+   "file": "command_test.go",
+   "start_line": 1106
+  },
+  "name": "TestFlagsInUsage",
+  "selection_char": 5,
+  "selection_line": 1106
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1127,
+   "file": "command_test.go",
+   "start_line": 1116
+  },
+  "name": "TestHelpExecutedOnNonRunnableChild",
+  "selection_char": 5,
+  "selection_line": 1116
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1166,
+   "file": "command_test.go",
+   "start_line": 1129
+  },
+  "name": "TestSetUsageTemplate",
+  "selection_char": 5,
+  "selection_line": 1129
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1177,
+   "file": "command_test.go",
+   "start_line": 1168
+  },
+  "name": "TestVersionFlagExecuted",
+  "selection_char": 5,
+  "selection_line": 1168
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1195,
+   "file": "command_test.go",
+   "start_line": 1179
+  },
+  "name": "TestVersionFlagExecutedDiplayName",
+  "selection_char": 5,
+  "selection_line": 1179
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1206,
+   "file": "command_test.go",
+   "start_line": 1197
+  },
+  "name": "TestVersionFlagExecutedWithNoName",
+  "selection_char": 5,
+  "selection_line": 1197
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1217,
+   "file": "command_test.go",
+   "start_line": 1208
+  },
+  "name": "TestShortAndLongVersionFlagInHelp",
+  "selection_char": 5,
+  "selection_line": 1208
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1230,
+   "file": "command_test.go",
+   "start_line": 1219
+  },
+  "name": "TestLongVersionFlagOnlyInHelpWhenShortPredefined",
+  "selection_char": 5,
+  "selection_line": 1219
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1241,
+   "file": "command_test.go",
+   "start_line": 1232
+  },
+  "name": "TestShorthandVersionFlagExecuted",
+  "selection_char": 5,
+  "selection_line": 1232
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1253,
+   "file": "command_test.go",
+   "start_line": 1243
+  },
+  "name": "TestVersionTemplate",
+  "selection_char": 5,
+  "selection_line": 1243
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1265,
+   "file": "command_test.go",
+   "start_line": 1255
+  },
+  "name": "TestShorthandVersionTemplate",
+  "selection_char": 5,
+  "selection_line": 1255
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1278,
+   "file": "command_test.go",
+   "start_line": 1267
+  },
+  "name": "TestRootErrPrefixExecutedOnSubcommand",
+  "selection_char": 5,
+  "selection_line": 1267
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1298,
+   "file": "command_test.go",
+   "start_line": 1280
+  },
+  "name": "TestRootAndSubErrPrefix",
+  "selection_char": 5,
+  "selection_line": 1280
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1310,
+   "file": "command_test.go",
+   "start_line": 1300
+  },
+  "name": "TestVersionFlagExecutedOnSubcommand",
+  "selection_char": 5,
+  "selection_line": 1300
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1322,
+   "file": "command_test.go",
+   "start_line": 1312
+  },
+  "name": "TestShorthandVersionFlagExecutedOnSubcommand",
+  "selection_char": 5,
+  "selection_line": 1312
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1334,
+   "file": "command_test.go",
+   "start_line": 1324
+  },
+  "name": "TestVersionFlagOnlyAddedToRoot",
+  "selection_char": 5,
+  "selection_line": 1324
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1346,
+   "file": "command_test.go",
+   "start_line": 1336
+  },
+  "name": "TestShortVersionFlagOnlyAddedToRoot",
+  "selection_char": 5,
+  "selection_line": 1336
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1356,
+   "file": "command_test.go",
+   "start_line": 1348
+  },
+  "name": "TestVersionFlagOnlyExistsIfVersionNonEmpty",
+  "selection_char": 5,
+  "selection_line": 1348
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1366,
+   "file": "command_test.go",
+   "start_line": 1358
+  },
+  "name": "TestShorthandVersionFlagOnlyExistsIfVersionNonEmpty",
+  "selection_char": 5,
+  "selection_line": 1358
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1378,
+   "file": "command_test.go",
+   "start_line": 1368
+  },
+  "name": "TestShorthandVersionFlagOnlyAddedIfShorthandNotDefined",
+  "selection_char": 5,
+  "selection_line": 1368
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1389,
+   "file": "command_test.go",
+   "start_line": 1380
+  },
+  "name": "TestShorthandVersionFlagOnlyAddedIfVersionNotDefined",
+  "selection_char": 5,
+  "selection_line": 1380
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1400,
+   "file": "command_test.go",
+   "start_line": 1391
+  },
+  "name": "TestUsageIsNotPrintedTwice",
+  "selection_char": 5,
+  "selection_line": 1391
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1429,
+   "file": "command_test.go",
+   "start_line": 1402
+  },
+  "name": "TestVisitParents",
+  "selection_char": 5,
+  "selection_line": 1402
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1476,
+   "file": "command_test.go",
+   "start_line": 1431
+  },
+  "name": "TestSuggestions",
+  "selection_char": 5,
+  "selection_line": 1431
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1569,
+   "file": "command_test.go",
+   "start_line": 1478
+  },
+  "name": "TestCaseInsensitive",
+  "selection_char": 5,
+  "selection_line": 1478
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1583,
+   "file": "command_test.go",
+   "start_line": 1573
+  },
+  "name": "TestCaseSensitivityBackwardCompatibility",
+  "selection_char": 5,
+  "selection_line": 1573
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1595,
+   "file": "command_test.go",
+   "start_line": 1585
+  },
+  "name": "TestRemoveCommand",
+  "selection_char": 5,
+  "selection_line": 1585
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1626,
+   "file": "command_test.go",
+   "start_line": 1597
+  },
+  "name": "TestReplaceCommandWithRemove",
+  "selection_char": 5,
+  "selection_line": 1597
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1643,
+   "file": "command_test.go",
+   "start_line": 1628
+  },
+  "name": "TestDeprecatedCommand",
+  "selection_char": 5,
+  "selection_line": 1628
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1695,
+   "file": "command_test.go",
+   "start_line": 1645
+  },
+  "name": "TestHooks",
+  "selection_char": 5,
+  "selection_line": 1645
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1717,
+   "file": "command_test.go",
+   "start_line": 1697
+  },
+  "name": "TestPersistentHooks",
+  "selection_char": 5,
+  "selection_line": 1697
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1786,
+   "file": "command_test.go",
+   "start_line": 1719
+  },
+  "name": "testPersistentHooks",
+  "selection_char": 5,
+  "selection_line": 1719
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1806,
+   "file": "command_test.go",
+   "start_line": 1789
+  },
+  "name": "TestGlobalNormFuncPropagation",
+  "selection_char": 5,
+  "selection_line": 1789
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1820,
+   "file": "command_test.go",
+   "start_line": 1809
+  },
+  "name": "TestNormPassedOnLocal",
+  "selection_char": 5,
+  "selection_line": 1809
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1848,
+   "file": "command_test.go",
+   "start_line": 1823
+  },
+  "name": "TestNormPassedOnInherited",
+  "selection_char": 5,
+  "selection_line": 1823
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1867,
+   "file": "command_test.go",
+   "start_line": 1851
+  },
+  "name": "TestConsistentNormalizedName",
+  "selection_char": 5,
+  "selection_line": 1851
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1880,
+   "file": "command_test.go",
+   "start_line": 1869
+  },
+  "name": "TestFlagOnPflagCommandLine",
+  "selection_char": 5,
+  "selection_line": 1869
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1903,
+   "file": "command_test.go",
+   "start_line": 1884
+  },
+  "name": "TestHiddenCommandExecutes",
+  "selection_char": 5,
+  "selection_line": 1884
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1911,
+   "file": "command_test.go",
+   "start_line": 1906
+  },
+  "name": "TestHiddenCommandIsHidden",
+  "selection_char": 5,
+  "selection_line": 1906
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1933,
+   "file": "command_test.go",
+   "start_line": 1913
+  },
+  "name": "TestCommandsAreSorted",
+  "selection_char": 5,
+  "selection_line": 1913
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1954,
+   "file": "command_test.go",
+   "start_line": 1935
+  },
+  "name": "TestEnableCommandSortingIsDisabled",
+  "selection_char": 5,
+  "selection_line": 1935
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1975,
+   "file": "command_test.go",
+   "start_line": 1956
+  },
+  "name": "TestUsageWithGroup",
+  "selection_char": 5,
+  "selection_line": 1956
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1993,
+   "file": "command_test.go",
+   "start_line": 1977
+  },
+  "name": "TestUsageHelpGroup",
+  "selection_char": 5,
+  "selection_line": 1977
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 2013,
+   "file": "command_test.go",
+   "start_line": 1995
+  },
+  "name": "TestUsageCompletionGroup",
+  "selection_char": 5,
+  "selection_line": 1995
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 2035,
+   "file": "command_test.go",
+   "start_line": 2015
+  },
+  "name": "TestUngroupedCommand",
+  "selection_char": 5,
+  "selection_line": 2015
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 2049,
+   "file": "command_test.go",
+   "start_line": 2037
+  },
+  "name": "TestAddGroup",
+  "selection_char": 5,
+  "selection_line": 2037
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 2067,
+   "file": "command_test.go",
+   "start_line": 2051
+  },
+  "name": "TestWrongGroupFirstLevel",
+  "selection_char": 5,
+  "selection_line": 2051
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 2087,
+   "file": "command_test.go",
+   "start_line": 2069
+  },
+  "name": "TestWrongGroupNestedLevel",
+  "selection_char": 5,
+  "selection_line": 2069
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 2107,
+   "file": "command_test.go",
+   "start_line": 2089
+  },
+  "name": "TestWrongGroupForHelp",
+  "selection_char": 5,
+  "selection_line": 2089
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 2127,
+   "file": "command_test.go",
+   "start_line": 2109
+  },
+  "name": "TestWrongGroupForCompletion",
+  "selection_char": 5,
+  "selection_line": 2109
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 2135,
+   "file": "command_test.go",
+   "start_line": 2129
+  },
+  "name": "TestSetOutput",
+  "selection_char": 5,
+  "selection_line": 2129
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 2143,
+   "file": "command_test.go",
+   "start_line": 2137
+  },
+  "name": "TestSetOut",
+  "selection_char": 5,
+  "selection_line": 2137
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 2151,
+   "file": "command_test.go",
+   "start_line": 2145
+  },
+  "name": "TestSetErr",
+  "selection_char": 5,
+  "selection_line": 2145
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 2159,
+   "file": "command_test.go",
+   "start_line": 2153
+  },
+  "name": "TestSetIn",
+  "selection_char": 5,
+  "selection_line": 2153
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 2175,
+   "file": "command_test.go",
+   "start_line": 2161
+  },
+  "name": "TestUsageStringRedirected",
+  "selection_char": 5,
+  "selection_line": 2161
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 2216,
+   "file": "command_test.go",
+   "start_line": 2177
+  },
+  "name": "TestCommandPrintRedirection",
+  "selection_char": 5,
+  "selection_line": 2177
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 2233,
+   "file": "command_test.go",
+   "start_line": 2218
+  },
+  "name": "TestFlagErrorFunc",
+  "selection_char": 5,
+  "selection_line": 2218
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 2265,
+   "file": "command_test.go",
+   "start_line": 2235
+  },
+  "name": "TestFlagErrorFuncHelp",
+  "selection_char": 5,
+  "selection_line": 2235
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 2290,
+   "file": "command_test.go",
+   "start_line": 2270
+  },
+  "name": "TestSortedFlags",
+  "selection_char": 5,
+  "selection_line": 2270
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 2305,
+   "file": "command_test.go",
+   "start_line": 2296
+  },
+  "name": "TestMergeCommandLineToFlags",
+  "selection_char": 5,
+  "selection_line": 2296
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 2320,
+   "file": "command_test.go",
+   "start_line": 2310
+  },
+  "name": "TestUseDeprecatedFlags",
+  "selection_char": 5,
+  "selection_line": 2310
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 2342,
+   "file": "command_test.go",
+   "start_line": 2322
+  },
+  "name": "TestTraverseWithParentFlags",
+  "selection_char": 5,
+  "selection_line": 2322
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 2362,
+   "file": "command_test.go",
+   "start_line": 2344
+  },
+  "name": "TestTraverseNoParentFlags",
+  "selection_char": 5,
+  "selection_line": 2344
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 2380,
+   "file": "command_test.go",
+   "start_line": 2364
+  },
+  "name": "TestTraverseWithBadParentFlags",
+  "selection_char": 5,
+  "selection_line": 2364
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 2401,
+   "file": "command_test.go",
+   "start_line": 2382
+  },
+  "name": "TestTraverseWithBadChildFlag",
+  "selection_char": 5,
+  "selection_line": 2382
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 2421,
+   "file": "command_test.go",
+   "start_line": 2403
+  },
+  "name": "TestTraverseWithTwoSubcommands",
+  "selection_char": 5,
+  "selection_line": 2403
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 2433,
+   "file": "command_test.go",
+   "start_line": 2425
+  },
+  "name": "TestUpdateName",
+  "selection_char": 5,
+  "selection_line": 2425
+ },
+ {
+  "container": "calledAsTestcase",
+  "kind": "method",
+  "location": {
+   "end_line": 2475,
+   "file": "command_test.go",
+   "start_line": 2442
+  },
+  "name": "test",
+  "selection_char": 28,
+  "selection_line": 2442
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 2496,
+   "file": "command_test.go",
+   "start_line": 2477
+  },
+  "name": "TestCalledAs",
+  "selection_char": 5,
+  "selection_line": 2477
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 2507,
+   "file": "command_test.go",
+   "start_line": 2498
+  },
+  "name": "TestFParseErrWhitelistBackwardCompatibility",
+  "selection_char": 5,
+  "selection_line": 2498
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 2523,
+   "file": "command_test.go",
+   "start_line": 2509
+  },
+  "name": "TestFParseErrWhitelistSameCommand",
+  "selection_char": 5,
+  "selection_line": 2509
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 2547,
+   "file": "command_test.go",
+   "start_line": 2525
+  },
+  "name": "TestFParseErrWhitelistParentCommand",
+  "selection_char": 5,
+  "selection_line": 2525
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 2570,
+   "file": "command_test.go",
+   "start_line": 2549
+  },
+  "name": "TestFParseErrWhitelistChildCommand",
+  "selection_char": 5,
+  "selection_line": 2549
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 2601,
+   "file": "command_test.go",
+   "start_line": 2572
+  },
+  "name": "TestFParseErrWhitelistSiblingCommand",
+  "selection_char": 5,
+  "selection_line": 2572
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 2626,
+   "file": "command_test.go",
+   "start_line": 2603
+  },
+  "name": "TestSetContext",
+  "selection_char": 5,
+  "selection_line": 2603
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 2652,
+   "file": "command_test.go",
+   "start_line": 2628
+  },
+  "name": "TestSetContextPreRun",
+  "selection_char": 5,
+  "selection_line": 2628
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 2673,
+   "file": "command_test.go",
+   "start_line": 2654
+  },
+  "name": "TestSetContextPreRunOverwrite",
+  "selection_char": 5,
+  "selection_line": 2654
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 2704,
+   "file": "command_test.go",
+   "start_line": 2675
+  },
+  "name": "TestSetContextPersistentPreRun",
+  "selection_char": 5,
+  "selection_line": 2675
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 2721,
+   "file": "command_test.go",
+   "start_line": 2709
+  },
+  "name": "TestNoRootRunCommandExecutedWithVersionSet",
+  "selection_char": 5,
+  "selection_line": 2709
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 2735,
+   "file": "command_test.go",
+   "start_line": 2723
+  },
+  "name": "TestNoRootRunCommandExecutedWithoutVersionSet",
+  "selection_char": 5,
+  "selection_line": 2723
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 2749,
+   "file": "command_test.go",
+   "start_line": 2737
+  },
+  "name": "TestHelpCommandExecutedWithVersionSet",
+  "selection_char": 5,
+  "selection_line": 2737
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 2763,
+   "file": "command_test.go",
+   "start_line": 2751
+  },
+  "name": "TestHelpCommandExecutedWithoutVersionSet",
+  "selection_char": 5,
+  "selection_line": 2751
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 2777,
+   "file": "command_test.go",
+   "start_line": 2765
+  },
+  "name": "TestHelpflagCommandExecutedWithVersionSet",
+  "selection_char": 5,
+  "selection_line": 2765
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 2791,
+   "file": "command_test.go",
+   "start_line": 2779
+  },
+  "name": "TestHelpflagCommandExecutedWithoutVersionSet",
+  "selection_char": 5,
+  "selection_line": 2779
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 2880,
+   "file": "command_test.go",
+   "start_line": 2793
+  },
+  "name": "TestFind",
+  "selection_char": 5,
+  "selection_line": 2793
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 2923,
+   "file": "command_test.go",
+   "start_line": 2882
+  },
+  "name": "TestUnknownFlagShouldReturnSameErrorRegardlessOfArgPosition",
+  "selection_char": 5,
+  "selection_line": 2882
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 2954,
+   "file": "command_test.go",
+   "start_line": 2925
+  },
+  "name": "TestHelpFuncExecuted",
+  "selection_char": 5,
+  "selection_line": 2925
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 41,
+   "file": "command_win.go",
+   "start_line": 30
+  },
+  "name": "preExecHook",
+  "selection_char": 5,
+  "selection_line": 30
+ },
+ {
+  "container": "flagCompError",
+  "kind": "method",
+  "location": {
+   "end_line": 54,
+   "file": "completions.go",
+   "start_line": 52
+  },
+  "name": "Error",
+  "selection_char": 24,
+  "selection_line": 52
+ },
+ {
+  "container": "CompletionOptions",
+  "kind": "method",
+  "location": {
+   "end_line": 125,
+   "file": "completions.go",
+   "start_line": 123
+  },
+  "name": "SetDefaultShellCompDirective",
+  "selection_char": 35,
+  "selection_line": 123
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 139,
+   "file": "completions.go",
+   "start_line": 139
+  },
+  "name": "CompletionFunc",
+  "selection_char": 5,
+  "selection_line": 139
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 144,
+   "file": "completions.go",
+   "start_line": 142
+  },
+  "name": "CompletionWithDesc",
+  "selection_char": 5,
+  "selection_line": 142
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 153,
+   "file": "completions.go",
+   "start_line": 151
+  },
+  "name": "NoFileCompletions",
+  "selection_char": 5,
+  "selection_line": 151
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 164,
+   "file": "completions.go",
+   "start_line": 160
+  },
+  "name": "FixedCompletions",
+  "selection_char": 5,
+  "selection_line": 160
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 183,
+   "file": "completions.go",
+   "start_line": 170
+  },
+  "name": "RegisterFlagCompletionFunc",
+  "selection_char": 18,
+  "selection_line": 170
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 197,
+   "file": "completions.go",
+   "start_line": 186
+  },
+  "name": "GetFlagCompletionFunc",
+  "selection_char": 18,
+  "selection_line": 186
+ },
+ {
+  "container": "ShellCompDirective",
+  "kind": "method",
+  "location": {
+   "end_line": 228,
+   "file": "completions.go",
+   "start_line": 200
+  },
+  "name": "string",
+  "selection_char": 28,
+  "selection_line": 200
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 306,
+   "file": "completions.go",
+   "start_line": 231
+  },
+  "name": "initCompleteCmd",
+  "selection_char": 18,
+  "selection_line": 231
+ },
+ {
+  "container": "SliceValue",
+  "kind": "method",
+  "location": {
+   "end_line": 313,
+   "file": "completions.go",
+   "start_line": 313
+  },
+  "name": "GetSlice",
+  "selection_char": 1,
+  "selection_line": 313
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 585,
+   "file": "completions.go",
+   "start_line": 316
+  },
+  "name": "getCompletions",
+  "selection_char": 18,
+  "selection_line": 316
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 597,
+   "file": "completions.go",
+   "start_line": 587
+  },
+  "name": "helpOrVersionFlagPresent",
+  "selection_char": 5,
+  "selection_line": 587
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 630,
+   "file": "completions.go",
+   "start_line": 599
+  },
+  "name": "getFlagNameCompletions",
+  "selection_char": 5,
+  "selection_line": 599
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 655,
+   "file": "completions.go",
+   "start_line": 632
+  },
+  "name": "completeRequireFlags",
+  "selection_char": 5,
+  "selection_line": 632
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 741,
+   "file": "completions.go",
+   "start_line": 657
+  },
+  "name": "checkIfFlagCompletion",
+  "selection_char": 5,
+  "selection_line": 657
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 930,
+   "file": "completions.go",
+   "start_line": 748
+  },
+  "name": "InitDefaultCompletionCmd",
+  "selection_char": 18,
+  "selection_line": 748
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 949,
+   "file": "completions.go",
+   "start_line": 932
+  },
+  "name": "findFlag",
+  "selection_char": 5,
+  "selection_line": 932
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 974,
+   "file": "completions.go",
+   "start_line": 955
+  },
+  "name": "CompDebug",
+  "selection_char": 5,
+  "selection_line": 955
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 982,
+   "file": "completions.go",
+   "start_line": 980
+  },
+  "name": "CompDebugln",
+  "selection_char": 5,
+  "selection_line": 980
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 988,
+   "file": "completions.go",
+   "start_line": 985
+  },
+  "name": "CompError",
+  "selection_char": 5,
+  "selection_line": 985
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 993,
+   "file": "completions.go",
+   "start_line": 991
+  },
+  "name": "CompErrorln",
+  "selection_char": 5,
+  "selection_line": 991
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1011,
+   "file": "completions.go",
+   "start_line": 1006
+  },
+  "name": "configEnvVar",
+  "selection_char": 5,
+  "selection_line": 1006
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1024,
+   "file": "completions.go",
+   "start_line": 1018
+  },
+  "name": "getEnvConfig",
+  "selection_char": 5,
+  "selection_line": 1018
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 39,
+   "file": "completions_test.go",
+   "start_line": 27
+  },
+  "name": "validArgsFunc",
+  "selection_char": 5,
+  "selection_line": 27
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 53,
+   "file": "completions_test.go",
+   "start_line": 41
+  },
+  "name": "validArgsFunc2",
+  "selection_char": 5,
+  "selection_line": 41
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 155,
+   "file": "completions_test.go",
+   "start_line": 55
+  },
+  "name": "TestCmdNameCompletionInGo",
+  "selection_char": 5,
+  "selection_line": 55
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 320,
+   "file": "completions_test.go",
+   "start_line": 157
+  },
+  "name": "TestNoCmdNameCompletionInGo",
+  "selection_char": 5,
+  "selection_line": 157
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 374,
+   "file": "completions_test.go",
+   "start_line": 322
+  },
+  "name": "TestValidArgsCompletionInGo",
+  "selection_char": 5,
+  "selection_line": 322
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 424,
+   "file": "completions_test.go",
+   "start_line": 376
+  },
+  "name": "TestValidArgsAndCmdCompletionInGo",
+  "selection_char": 5,
+  "selection_line": 376
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 491,
+   "file": "completions_test.go",
+   "start_line": 426
+  },
+  "name": "TestValidArgsFuncAndCmdCompletionInGo",
+  "selection_char": 5,
+  "selection_line": 426
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 581,
+   "file": "completions_test.go",
+   "start_line": 493
+  },
+  "name": "TestFlagNameCompletionInGo",
+  "selection_char": 5,
+  "selection_line": 493
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 672,
+   "file": "completions_test.go",
+   "start_line": 583
+  },
+  "name": "TestFlagNameCompletionInGoWithDesc",
+  "selection_char": 5,
+  "selection_line": 583
+ },
+ {
+  "container": "customMultiString",
+  "kind": "method",
+  "location": {
+   "end_line": 682,
+   "file": "completions_test.go",
+   "start_line": 680
+  },
+  "name": "String",
+  "selection_char": 28,
+  "selection_line": 680
+ },
+ {
+  "container": "customMultiString",
+  "kind": "method",
+  "location": {
+   "end_line": 687,
+   "file": "completions_test.go",
+   "start_line": 684
+  },
+  "name": "Set",
+  "selection_char": 28,
+  "selection_line": 684
+ },
+ {
+  "container": "customMultiString",
+  "kind": "method",
+  "location": {
+   "end_line": 691,
+   "file": "completions_test.go",
+   "start_line": 689
+  },
+  "name": "Type",
+  "selection_char": 28,
+  "selection_line": 689
+ },
+ {
+  "container": "customMultiString",
+  "kind": "method",
+  "location": {
+   "end_line": 695,
+   "file": "completions_test.go",
+   "start_line": 693
+  },
+  "name": "GetSlice",
+  "selection_char": 28,
+  "selection_line": 693
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 842,
+   "file": "completions_test.go",
+   "start_line": 697
+  },
+  "name": "TestFlagNameCompletionRepeat",
+  "selection_char": 5,
+  "selection_line": 697
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1036,
+   "file": "completions_test.go",
+   "start_line": 844
+  },
+  "name": "TestRequiredFlagNameCompletionInGo",
+  "selection_char": 5,
+  "selection_line": 844
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1158,
+   "file": "completions_test.go",
+   "start_line": 1038
+  },
+  "name": "TestFlagFileExtFilterCompletionInGo",
+  "selection_char": 5,
+  "selection_line": 1038
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1274,
+   "file": "completions_test.go",
+   "start_line": 1160
+  },
+  "name": "TestFlagDirFilterCompletionInGo",
+  "selection_char": 5,
+  "selection_line": 1160
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1316,
+   "file": "completions_test.go",
+   "start_line": 1276
+  },
+  "name": "TestValidArgsFuncCmdContext",
+  "selection_char": 5,
+  "selection_line": 1276
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1355,
+   "file": "completions_test.go",
+   "start_line": 1318
+  },
+  "name": "TestValidArgsFuncSingleCmd",
+  "selection_char": 5,
+  "selection_line": 1318
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1382,
+   "file": "completions_test.go",
+   "start_line": 1357
+  },
+  "name": "TestValidArgsFuncSingleCmdInvalidArg",
+  "selection_char": 5,
+  "selection_line": 1357
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1486,
+   "file": "completions_test.go",
+   "start_line": 1384
+  },
+  "name": "TestValidArgsFuncChildCmds",
+  "selection_char": 5,
+  "selection_line": 1384
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1542,
+   "file": "completions_test.go",
+   "start_line": 1488
+  },
+  "name": "TestValidArgsFuncAliases",
+  "selection_char": 5,
+  "selection_line": 1488
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1558,
+   "file": "completions_test.go",
+   "start_line": 1544
+  },
+  "name": "TestValidArgsFuncInBashScript",
+  "selection_char": 5,
+  "selection_line": 1544
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1573,
+   "file": "completions_test.go",
+   "start_line": 1560
+  },
+  "name": "TestNoValidArgsFuncInBashScript",
+  "selection_char": 5,
+  "selection_line": 1560
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1589,
+   "file": "completions_test.go",
+   "start_line": 1575
+  },
+  "name": "TestCompleteCmdInBashScript",
+  "selection_char": 5,
+  "selection_line": 1575
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1605,
+   "file": "completions_test.go",
+   "start_line": 1591
+  },
+  "name": "TestCompleteNoDesCmdInZshScript",
+  "selection_char": 5,
+  "selection_line": 1591
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1622,
+   "file": "completions_test.go",
+   "start_line": 1607
+  },
+  "name": "TestCompleteCmdInZshScript",
+  "selection_char": 5,
+  "selection_line": 1607
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1715,
+   "file": "completions_test.go",
+   "start_line": 1624
+  },
+  "name": "TestFlagCompletionInGo",
+  "selection_char": 5,
+  "selection_line": 1624
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1819,
+   "file": "completions_test.go",
+   "start_line": 1717
+  },
+  "name": "TestValidArgsFuncChildCmdsWithDesc",
+  "selection_char": 5,
+  "selection_line": 1717
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 2042,
+   "file": "completions_test.go",
+   "start_line": 1821
+  },
+  "name": "TestFlagCompletionWithNotInterspersedArgs",
+  "selection_char": 5,
+  "selection_line": 1821
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 2077,
+   "file": "completions_test.go",
+   "start_line": 2044
+  },
+  "name": "TestFlagCompletionWorksRootCommandAddedAfterFlags",
+  "selection_char": 5,
+  "selection_line": 2044
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 2110,
+   "file": "completions_test.go",
+   "start_line": 2079
+  },
+  "name": "TestFlagCompletionForPersistentFlagsCalledFromSubCmd",
+  "selection_char": 5,
+  "selection_line": 2079
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 2185,
+   "file": "completions_test.go",
+   "start_line": 2121
+  },
+  "name": "TestFlagCompletionConcurrentRegistration",
+  "selection_char": 5,
+  "selection_line": 2121
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 2278,
+   "file": "completions_test.go",
+   "start_line": 2187
+  },
+  "name": "TestFlagCompletionInGoWithDesc",
+  "selection_char": 5,
+  "selection_line": 2187
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 2321,
+   "file": "completions_test.go",
+   "start_line": 2280
+  },
+  "name": "TestValidArgsNotValidArgsFunc",
+  "selection_char": 5,
+  "selection_line": 2280
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 2379,
+   "file": "completions_test.go",
+   "start_line": 2323
+  },
+  "name": "TestArgAliasesCompletionInGo",
+  "selection_char": 5,
+  "selection_line": 2323
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 2449,
+   "file": "completions_test.go",
+   "start_line": 2381
+  },
+  "name": "TestCompleteHelp",
+  "selection_char": 5,
+  "selection_line": 2381
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 2459,
+   "file": "completions_test.go",
+   "start_line": 2451
+  },
+  "name": "removeCompCmd",
+  "selection_char": 5,
+  "selection_line": 2451
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 2605,
+   "file": "completions_test.go",
+   "start_line": 2461
+  },
+  "name": "TestDefaultCompletionCmd",
+  "selection_char": 5,
+  "selection_line": 2461
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 2692,
+   "file": "completions_test.go",
+   "start_line": 2607
+  },
+  "name": "TestCompleteCompletion",
+  "selection_char": 5,
+  "selection_line": 2607
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 2785,
+   "file": "completions_test.go",
+   "start_line": 2694
+  },
+  "name": "TestMultipleShorthandFlagCompletion",
+  "selection_char": 5,
+  "selection_line": 2694
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 2848,
+   "file": "completions_test.go",
+   "start_line": 2787
+  },
+  "name": "TestCompleteWithDisableFlagParsing",
+  "selection_char": 5,
+  "selection_line": 2787
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 2894,
+   "file": "completions_test.go",
+   "start_line": 2850
+  },
+  "name": "TestCompleteWithRootAndLegacyArgs",
+  "selection_char": 5,
+  "selection_line": 2850
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 2978,
+   "file": "completions_test.go",
+   "start_line": 2896
+  },
+  "name": "TestCompletionFuncCompatibility",
+  "selection_char": 5,
+  "selection_line": 2896
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 3005,
+   "file": "completions_test.go",
+   "start_line": 2980
+  },
+  "name": "TestFixedCompletions",
+  "selection_char": 5,
+  "selection_line": 2980
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 3055,
+   "file": "completions_test.go",
+   "start_line": 3007
+  },
+  "name": "TestFixedCompletionsWithCompletionHelpers",
+  "selection_char": 5,
+  "selection_line": 3007
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 3155,
+   "file": "completions_test.go",
+   "start_line": 3057
+  },
+  "name": "TestCompletionForGroupedFlags",
+  "selection_char": 5,
+  "selection_line": 3057
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 3253,
+   "file": "completions_test.go",
+   "start_line": 3157
+  },
+  "name": "TestCompletionForOneRequiredGroupFlags",
+  "selection_char": 5,
+  "selection_line": 3157
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 3347,
+   "file": "completions_test.go",
+   "start_line": 3255
+  },
+  "name": "TestCompletionForMutuallyExclusiveFlags",
+  "selection_char": 5,
+  "selection_line": 3255
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 3581,
+   "file": "completions_test.go",
+   "start_line": 3349
+  },
+  "name": "TestCompletionCobraFlags",
+  "selection_char": 5,
+  "selection_line": 3349
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 3645,
+   "file": "completions_test.go",
+   "start_line": 3583
+  },
+  "name": "TestArgsNotDetectedAsFlagsCompletionInGo",
+  "selection_char": 5,
+  "selection_line": 3583
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 3735,
+   "file": "completions_test.go",
+   "start_line": 3647
+  },
+  "name": "TestGetFlagCompletion",
+  "selection_char": 5,
+  "selection_line": 3647
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 3820,
+   "file": "completions_test.go",
+   "start_line": 3737
+  },
+  "name": "TestGetEnvConfig",
+  "selection_char": 5,
+  "selection_line": 3737
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 3926,
+   "file": "completions_test.go",
+   "start_line": 3822
+  },
+  "name": "TestDisableDescriptions",
+  "selection_char": 5,
+  "selection_line": 3822
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 4017,
+   "file": "completions_test.go",
+   "start_line": 3930
+  },
+  "name": "TestInitDefaultCompletionCmd",
+  "selection_char": 5,
+  "selection_line": 3930
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 4074,
+   "file": "completions_test.go",
+   "start_line": 4019
+  },
+  "name": "TestCustomDefaultShellCompDirective",
+  "selection_char": 5,
+  "selection_line": 4019
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 4129,
+   "file": "completions_test.go",
+   "start_line": 4076
+  },
+  "name": "TestCompletionDoesNotMutateOsArgs",
+  "selection_char": 5,
+  "selection_line": 4076
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 24,
+   "file": "doc/cmd_test.go",
+   "start_line": 24
+  },
+  "name": "emptyRun",
+  "selection_char": 5,
+  "selection_line": 24
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 45,
+   "file": "doc/cmd_test.go",
+   "start_line": 26
+  },
+  "name": "init",
+  "selection_char": 5,
+  "selection_line": 26
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 99,
+   "file": "doc/cmd_test.go",
+   "start_line": 95
+  },
+  "name": "checkStringContains",
+  "selection_char": 5,
+  "selection_line": 95
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 105,
+   "file": "doc/cmd_test.go",
+   "start_line": 101
+  },
+  "name": "checkStringOmits",
+  "selection_char": 5,
+  "selection_line": 101
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 44,
+   "file": "doc/man_docs.go",
+   "start_line": 38
+  },
+  "name": "GenManTree",
+  "selection_char": 5,
+  "selection_line": 38
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 80,
+   "file": "doc/man_docs.go",
+   "start_line": 48
+  },
+  "name": "GenManTreeFromOpts",
+  "selection_char": 5,
+  "selection_line": 48
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 116,
+   "file": "doc/man_docs.go",
+   "start_line": 105
+  },
+  "name": "GenMan",
+  "selection_char": 5,
+  "selection_line": 105
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 141,
+   "file": "doc/man_docs.go",
+   "start_line": 118
+  },
+  "name": "fillHeader",
+  "selection_char": 5,
+  "selection_line": 118
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 157,
+   "file": "doc/man_docs.go",
+   "start_line": 143
+  },
+  "name": "manPreamble",
+  "selection_char": 5,
+  "selection_line": 143
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 185,
+   "file": "doc/man_docs.go",
+   "start_line": 159
+  },
+  "name": "manPrintFlags",
+  "selection_char": 5,
+  "selection_line": 159
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 200,
+   "file": "doc/man_docs.go",
+   "start_line": 187
+  },
+  "name": "manPrintOptions",
+  "selection_char": 5,
+  "selection_line": 187
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 246,
+   "file": "doc/man_docs.go",
+   "start_line": 202
+  },
+  "name": "genMan",
+  "selection_char": 5,
+  "selection_line": 202
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 33,
+   "file": "doc/man_docs_test.go",
+   "start_line": 29
+  },
+  "name": "assertNoErr",
+  "selection_char": 5,
+  "selection_line": 29
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 37,
+   "file": "doc/man_docs_test.go",
+   "start_line": 35
+  },
+  "name": "translate",
+  "selection_char": 5,
+  "selection_line": 35
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 67,
+   "file": "doc/man_docs_test.go",
+   "start_line": 39
+  },
+  "name": "TestGenManDoc",
+  "selection_char": 5,
+  "selection_line": 39
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 103,
+   "file": "doc/man_docs_test.go",
+   "start_line": 69
+  },
+  "name": "TestGenManNoHiddenParents",
+  "selection_char": 5,
+  "selection_line": 69
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 125,
+   "file": "doc/man_docs_test.go",
+   "start_line": 105
+  },
+  "name": "TestGenManNoGenTag",
+  "selection_char": 5,
+  "selection_line": 105
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 147,
+   "file": "doc/man_docs_test.go",
+   "start_line": 127
+  },
+  "name": "TestGenManSeeAlso",
+  "selection_char": 5,
+  "selection_line": 127
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 162,
+   "file": "doc/man_docs_test.go",
+   "start_line": 149
+  },
+  "name": "TestManPrintFlagsHidesShortDeprecated",
+  "selection_char": 5,
+  "selection_line": 149
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 184,
+   "file": "doc/man_docs_test.go",
+   "start_line": 164
+  },
+  "name": "TestGenManTree",
+  "selection_char": 5,
+  "selection_line": 164
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 199,
+   "file": "doc/man_docs_test.go",
+   "start_line": 186
+  },
+  "name": "assertLineFound",
+  "selection_char": 5,
+  "selection_line": 186
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 215,
+   "file": "doc/man_docs_test.go",
+   "start_line": 201
+  },
+  "name": "assertNextLineEquals",
+  "selection_char": 5,
+  "selection_line": 201
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 231,
+   "file": "doc/man_docs_test.go",
+   "start_line": 217
+  },
+  "name": "BenchmarkGenManToFile",
+  "selection_char": 5,
+  "selection_line": 217
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 35,
+   "file": "doc/man_examples_test.go",
+   "start_line": 25
+  },
+  "name": "ExampleGenManTree",
+  "selection_char": 5,
+  "selection_line": 25
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 49,
+   "file": "doc/man_examples_test.go",
+   "start_line": 37
+  },
+  "name": "ExampleGenMan",
+  "selection_char": 5,
+  "selection_line": 37
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 49,
+   "file": "doc/md_docs.go",
+   "start_line": 32
+  },
+  "name": "printOptions",
+  "selection_char": 5,
+  "selection_line": 32
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 54,
+   "file": "doc/md_docs.go",
+   "start_line": 52
+  },
+  "name": "GenMarkdown",
+  "selection_char": 5,
+  "selection_line": 52
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 117,
+   "file": "doc/md_docs.go",
+   "start_line": 57
+  },
+  "name": "GenMarkdownCustom",
+  "selection_char": 5,
+  "selection_line": 57
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 129,
+   "file": "doc/md_docs.go",
+   "start_line": 125
+  },
+  "name": "GenMarkdownTree",
+  "selection_char": 5,
+  "selection_line": 125
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 158,
+   "file": "doc/md_docs.go",
+   "start_line": 133
+  },
+  "name": "GenMarkdownTreeCustom",
+  "selection_char": 5,
+  "selection_line": 133
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 42,
+   "file": "doc/md_docs_test.go",
+   "start_line": 26
+  },
+  "name": "TestGenMdDoc",
+  "selection_char": 5,
+  "selection_line": 26
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 56,
+   "file": "doc/md_docs_test.go",
+   "start_line": 44
+  },
+  "name": "TestGenMdDocWithNoLongOrSynopsis",
+  "selection_char": 5,
+  "selection_line": 44
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 79,
+   "file": "doc/md_docs_test.go",
+   "start_line": 58
+  },
+  "name": "TestGenMdNoHiddenParents",
+  "selection_char": 5,
+  "selection_line": 58
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 92,
+   "file": "doc/md_docs_test.go",
+   "start_line": 81
+  },
+  "name": "TestGenMdNoTag",
+  "selection_char": 5,
+  "selection_line": 81
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 109,
+   "file": "doc/md_docs_test.go",
+   "start_line": 94
+  },
+  "name": "TestGenMdTree",
+  "selection_char": 5,
+  "selection_line": 94
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 125,
+   "file": "doc/md_docs_test.go",
+   "start_line": 111
+  },
+  "name": "BenchmarkGenMarkdownToFile",
+  "selection_char": 5,
+  "selection_line": 111
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 49,
+   "file": "doc/rest_docs.go",
+   "start_line": 30
+  },
+  "name": "printOptionsReST",
+  "selection_char": 5,
+  "selection_line": 30
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 54,
+   "file": "doc/rest_docs.go",
+   "start_line": 52
+  },
+  "name": "defaultLinkHandler",
+  "selection_char": 5,
+  "selection_line": 52
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 59,
+   "file": "doc/rest_docs.go",
+   "start_line": 57
+  },
+  "name": "GenReST",
+  "selection_char": 5,
+  "selection_line": 57
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 130,
+   "file": "doc/rest_docs.go",
+   "start_line": 62
+  },
+  "name": "GenReSTCustom",
+  "selection_char": 5,
+  "selection_line": 62
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 141,
+   "file": "doc/rest_docs.go",
+   "start_line": 138
+  },
+  "name": "GenReSTTree",
+  "selection_char": 5,
+  "selection_line": 138
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 170,
+   "file": "doc/rest_docs.go",
+   "start_line": 145
+  },
+  "name": "GenReSTTreeCustom",
+  "selection_char": 5,
+  "selection_line": 145
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 186,
+   "file": "doc/rest_docs.go",
+   "start_line": 173
+  },
+  "name": "indentString",
+  "selection_char": 5,
+  "selection_line": 173
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 41,
+   "file": "doc/rest_docs_test.go",
+   "start_line": 26
+  },
+  "name": "TestGenRSTDoc",
+  "selection_char": 5,
+  "selection_line": 26
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 64,
+   "file": "doc/rest_docs_test.go",
+   "start_line": 43
+  },
+  "name": "TestGenRSTNoHiddenParents",
+  "selection_char": 5,
+  "selection_line": 43
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 78,
+   "file": "doc/rest_docs_test.go",
+   "start_line": 66
+  },
+  "name": "TestGenRSTNoTag",
+  "selection_char": 5,
+  "selection_line": 66
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 96,
+   "file": "doc/rest_docs_test.go",
+   "start_line": 80
+  },
+  "name": "TestGenRSTTree",
+  "selection_char": 5,
+  "selection_line": 80
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 112,
+   "file": "doc/rest_docs_test.go",
+   "start_line": 98
+  },
+  "name": "BenchmarkGenReSTToFile",
+  "selection_char": 5,
+  "selection_line": 98
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 37,
+   "file": "doc/util.go",
+   "start_line": 26
+  },
+  "name": "hasSeeAlso",
+  "selection_char": 5,
+  "selection_line": 26
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 46,
+   "file": "doc/util.go",
+   "start_line": 41
+  },
+  "name": "forceMultiLine",
+  "selection_char": 5,
+  "selection_line": 41
+ },
+ {
+  "container": "byName",
+  "kind": "method",
+  "location": {
+   "end_line": 50,
+   "file": "doc/util.go",
+   "start_line": 50
+  },
+  "name": "Len",
+  "selection_char": 16,
+  "selection_line": 50
+ },
+ {
+  "container": "byName",
+  "kind": "method",
+  "location": {
+   "end_line": 51,
+   "file": "doc/util.go",
+   "start_line": 51
+  },
+  "name": "Swap",
+  "selection_char": 16,
+  "selection_line": 51
+ },
+ {
+  "container": "byName",
+  "kind": "method",
+  "location": {
+   "end_line": 52,
+   "file": "doc/util.go",
+   "start_line": 52
+  },
+  "name": "Less",
+  "selection_char": 16,
+  "selection_line": 52
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 57,
+   "file": "doc/yaml_docs.go",
+   "start_line": 53
+  },
+  "name": "GenYamlTree",
+  "selection_char": 5,
+  "selection_line": 53
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 85,
+   "file": "doc/yaml_docs.go",
+   "start_line": 60
+  },
+  "name": "GenYamlTreeCustom",
+  "selection_char": 5,
+  "selection_line": 60
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 90,
+   "file": "doc/yaml_docs.go",
+   "start_line": 88
+  },
+  "name": "GenYaml",
+  "selection_char": 5,
+  "selection_line": 88
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 147,
+   "file": "doc/yaml_docs.go",
+   "start_line": 93
+  },
+  "name": "GenYamlCustom",
+  "selection_char": 5,
+  "selection_line": 93
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 175,
+   "file": "doc/yaml_docs.go",
+   "start_line": 149
+  },
+  "name": "genFlagResult",
+  "selection_char": 5,
+  "selection_line": 149
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 42,
+   "file": "doc/yaml_docs_test.go",
+   "start_line": 27
+  },
+  "name": "TestGenYamlDoc",
+  "selection_char": 5,
+  "selection_line": 27
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 55,
+   "file": "doc/yaml_docs_test.go",
+   "start_line": 44
+  },
+  "name": "TestGenYamlNoTag",
+  "selection_char": 5,
+  "selection_line": 44
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 73,
+   "file": "doc/yaml_docs_test.go",
+   "start_line": 57
+  },
+  "name": "TestGenYamlTree",
+  "selection_char": 5,
+  "selection_line": 57
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 84,
+   "file": "doc/yaml_docs_test.go",
+   "start_line": 75
+  },
+  "name": "TestGenYamlDocRunnable",
+  "selection_char": 5,
+  "selection_line": 75
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 100,
+   "file": "doc/yaml_docs_test.go",
+   "start_line": 86
+  },
+  "name": "BenchmarkGenYamlToFile",
+  "selection_char": 5,
+  "selection_line": 86
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 273,
+   "file": "fish_completions.go",
+   "start_line": 25
+  },
+  "name": "genFishComp",
+  "selection_char": 5,
+  "selection_line": 25
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 281,
+   "file": "fish_completions.go",
+   "start_line": 276
+  },
+  "name": "GenFishCompletion",
+  "selection_char": 18,
+  "selection_line": 276
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 292,
+   "file": "fish_completions.go",
+   "start_line": 284
+  },
+  "name": "GenFishCompletionFile",
+  "selection_char": 18,
+  "selection_line": 284
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 40,
+   "file": "fish_completions_test.go",
+   "start_line": 26
+  },
+  "name": "TestCompleteNoDesCmdInFishScript",
+  "selection_char": 5,
+  "selection_line": 26
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 57,
+   "file": "fish_completions_test.go",
+   "start_line": 42
+  },
+  "name": "TestCompleteCmdInFishScript",
+  "selection_char": 5,
+  "selection_line": 42
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 72,
+   "file": "fish_completions_test.go",
+   "start_line": 59
+  },
+  "name": "TestProgWithDash",
+  "selection_char": 5,
+  "selection_line": 59
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 87,
+   "file": "fish_completions_test.go",
+   "start_line": 74
+  },
+  "name": "TestProgWithColon",
+  "selection_char": 5,
+  "selection_line": 74
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 99,
+   "file": "fish_completions_test.go",
+   "start_line": 89
+  },
+  "name": "TestFishCompletionNoActiveHelp",
+  "selection_char": 5,
+  "selection_line": 89
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 118,
+   "file": "fish_completions_test.go",
+   "start_line": 101
+  },
+  "name": "TestGenFishCompletionFile",
+  "selection_char": 5,
+  "selection_line": 101
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 143,
+   "file": "fish_completions_test.go",
+   "start_line": 120
+  },
+  "name": "TestFailGenFishCompletionFile",
+  "selection_char": 5,
+  "selection_line": 120
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 45,
+   "file": "flag_groups.go",
+   "start_line": 33
+  },
+  "name": "MarkFlagsRequiredTogether",
+  "selection_char": 18,
+  "selection_line": 33
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 61,
+   "file": "flag_groups.go",
+   "start_line": 49
+  },
+  "name": "MarkFlagsOneRequired",
+  "selection_char": 18,
+  "selection_line": 49
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 77,
+   "file": "flag_groups.go",
+   "start_line": 65
+  },
+  "name": "MarkFlagsMutuallyExclusive",
+  "selection_char": 18,
+  "selection_line": 65
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 109,
+   "file": "flag_groups.go",
+   "start_line": 81
+  },
+  "name": "ValidateFlagGroups",
+  "selection_char": 18,
+  "selection_line": 81
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 119,
+   "file": "flag_groups.go",
+   "start_line": 111
+  },
+  "name": "hasAllFlags",
+  "selection_char": 5,
+  "selection_line": 111
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 142,
+   "file": "flag_groups.go",
+   "start_line": 121
+  },
+  "name": "processFlagForGroupAnnotation",
+  "selection_char": 5,
+  "selection_line": 121
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 165,
+   "file": "flag_groups.go",
+   "start_line": 144
+  },
+  "name": "validateRequiredFlagGroups",
+  "selection_char": 5,
+  "selection_line": 144
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 186,
+   "file": "flag_groups.go",
+   "start_line": 167
+  },
+  "name": "validateOneRequiredFlagGroups",
+  "selection_char": 5,
+  "selection_line": 167
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 207,
+   "file": "flag_groups.go",
+   "start_line": 188
+  },
+  "name": "validateExclusiveFlagGroups",
+  "selection_char": 5,
+  "selection_line": 188
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 218,
+   "file": "flag_groups.go",
+   "start_line": 209
+  },
+  "name": "sortedKeys",
+  "selection_char": 5,
+  "selection_line": 209
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 290,
+   "file": "flag_groups.go",
+   "start_line": 225
+  },
+  "name": "enforceFlagGroupsForCompletion",
+  "selection_char": 18,
+  "selection_line": 225
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 195,
+   "file": "flag_groups_test.go",
+   "start_line": 22
+  },
+  "name": "TestValidateFlagGroups",
+  "selection_char": 5,
+  "selection_line": 22
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 311,
+   "file": "powershell_completions.go",
+   "start_line": 28
+  },
+  "name": "genPowerShellComp",
+  "selection_char": 5,
+  "selection_line": 28
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 318,
+   "file": "powershell_completions.go",
+   "start_line": 313
+  },
+  "name": "genPowerShellCompletion",
+  "selection_char": 18,
+  "selection_line": 313
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 328,
+   "file": "powershell_completions.go",
+   "start_line": 320
+  },
+  "name": "genPowerShellCompletionFile",
+  "selection_char": 18,
+  "selection_line": 320
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 333,
+   "file": "powershell_completions.go",
+   "start_line": 331
+  },
+  "name": "GenPowerShellCompletionFile",
+  "selection_char": 18,
+  "selection_line": 331
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 339,
+   "file": "powershell_completions.go",
+   "start_line": 337
+  },
+  "name": "GenPowerShellCompletion",
+  "selection_char": 18,
+  "selection_line": 337
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 344,
+   "file": "powershell_completions.go",
+   "start_line": 342
+  },
+  "name": "GenPowerShellCompletionFileWithDesc",
+  "selection_char": 18,
+  "selection_line": 342
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 350,
+   "file": "powershell_completions.go",
+   "start_line": 348
+  },
+  "name": "GenPowerShellCompletionWithDesc",
+  "selection_char": 18,
+  "selection_line": 348
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 33,
+   "file": "powershell_completions_test.go",
+   "start_line": 23
+  },
+  "name": "TestPwshCompletionNoActiveHelp",
+  "selection_char": 5,
+  "selection_line": 23
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 26,
+   "file": "shell_completions.go",
+   "start_line": 24
+  },
+  "name": "MarkFlagRequired",
+  "selection_char": 18,
+  "selection_line": 24
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 33,
+   "file": "shell_completions.go",
+   "start_line": 31
+  },
+  "name": "MarkPersistentFlagRequired",
+  "selection_char": 18,
+  "selection_line": 31
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 40,
+   "file": "shell_completions.go",
+   "start_line": 38
+  },
+  "name": "MarkFlagRequired",
+  "selection_char": 5,
+  "selection_line": 38
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 46,
+   "file": "shell_completions.go",
+   "start_line": 44
+  },
+  "name": "MarkFlagFilename",
+  "selection_char": 18,
+  "selection_line": 44
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 56,
+   "file": "shell_completions.go",
+   "start_line": 54
+  },
+  "name": "MarkFlagCustom",
+  "selection_char": 18,
+  "selection_line": 54
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 63,
+   "file": "shell_completions.go",
+   "start_line": 61
+  },
+  "name": "MarkPersistentFlagFilename",
+  "selection_char": 18,
+  "selection_line": 61
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 69,
+   "file": "shell_completions.go",
+   "start_line": 67
+  },
+  "name": "MarkFlagFilename",
+  "selection_char": 5,
+  "selection_line": 67
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 79,
+   "file": "shell_completions.go",
+   "start_line": 77
+  },
+  "name": "MarkFlagCustom",
+  "selection_char": 5,
+  "selection_line": 77
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 85,
+   "file": "shell_completions.go",
+   "start_line": 83
+  },
+  "name": "MarkFlagDirname",
+  "selection_char": 18,
+  "selection_line": 83
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 92,
+   "file": "shell_completions.go",
+   "start_line": 90
+  },
+  "name": "MarkPersistentFlagDirname",
+  "selection_char": 18,
+  "selection_line": 90
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 98,
+   "file": "shell_completions.go",
+   "start_line": 96
+  },
+  "name": "MarkFlagDirname",
+  "selection_char": 5,
+  "selection_line": 96
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 27,
+   "file": "zsh_completions.go",
+   "start_line": 25
+  },
+  "name": "GenZshCompletionFile",
+  "selection_char": 18,
+  "selection_line": 25
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 33,
+   "file": "zsh_completions.go",
+   "start_line": 31
+  },
+  "name": "GenZshCompletion",
+  "selection_char": 18,
+  "selection_line": 31
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 38,
+   "file": "zsh_completions.go",
+   "start_line": 36
+  },
+  "name": "GenZshCompletionFileNoDesc",
+  "selection_char": 18,
+  "selection_line": 36
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 44,
+   "file": "zsh_completions.go",
+   "start_line": 42
+  },
+  "name": "GenZshCompletionNoDesc",
+  "selection_char": 18,
+  "selection_line": 42
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 57,
+   "file": "zsh_completions.go",
+   "start_line": 55
+  },
+  "name": "MarkZshCompPositionalArgumentFile",
+  "selection_char": 18,
+  "selection_line": 55
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 68,
+   "file": "zsh_completions.go",
+   "start_line": 66
+  },
+  "name": "MarkZshCompPositionalArgumentWords",
+  "selection_char": 18,
+  "selection_line": 66
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 78,
+   "file": "zsh_completions.go",
+   "start_line": 70
+  },
+  "name": "genZshCompletionFile",
+  "selection_char": 18,
+  "selection_line": 70
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 85,
+   "file": "zsh_completions.go",
+   "start_line": 80
+  },
+  "name": "genZshCompletion",
+  "selection_char": 18,
+  "selection_line": 80
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 308,
+   "file": "zsh_completions.go",
+   "start_line": 87
+  },
+  "name": "genZshComp",
+  "selection_char": 5,
+  "selection_line": 87
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 33,
+   "file": "zsh_completions_test.go",
+   "start_line": 23
+  },
+  "name": "TestZshCompletionWithActiveHelp",
+  "selection_char": 5,
+  "selection_line": 23
+ }
+]

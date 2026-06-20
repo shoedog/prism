@@ -1,0 +1,5210 @@
+[
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 26,
+   "file": "httpx/__init__.py",
+   "start_line": 18
+  },
+  "name": "main",
+  "selection_char": 8,
+  "selection_line": 18
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 120,
+   "file": "httpx/_api.py",
+   "start_line": 39
+  },
+  "name": "request",
+  "selection_char": 4,
+  "selection_line": 39
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 171,
+   "file": "httpx/_api.py",
+   "start_line": 123
+  },
+  "name": "stream",
+  "selection_char": 4,
+  "selection_line": 124
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 207,
+   "file": "httpx/_api.py",
+   "start_line": 174
+  },
+  "name": "get",
+  "selection_char": 4,
+  "selection_line": 174
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 243,
+   "file": "httpx/_api.py",
+   "start_line": 210
+  },
+  "name": "options",
+  "selection_char": 4,
+  "selection_line": 210
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 279,
+   "file": "httpx/_api.py",
+   "start_line": 246
+  },
+  "name": "head",
+  "selection_char": 4,
+  "selection_line": 246
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 320,
+   "file": "httpx/_api.py",
+   "start_line": 282
+  },
+  "name": "post",
+  "selection_char": 4,
+  "selection_line": 282
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 361,
+   "file": "httpx/_api.py",
+   "start_line": 323
+  },
+  "name": "put",
+  "selection_char": 4,
+  "selection_line": 323
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 402,
+   "file": "httpx/_api.py",
+   "start_line": 364
+  },
+  "name": "patch",
+  "selection_char": 4,
+  "selection_line": 364
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 438,
+   "file": "httpx/_api.py",
+   "start_line": 405
+  },
+  "name": "delete",
+  "selection_char": 4,
+  "selection_line": 405
+ },
+ {
+  "container": "Auth",
+  "kind": "method",
+  "location": {
+   "end_line": 60,
+   "file": "httpx/_auth.py",
+   "start_line": 38
+  },
+  "name": "auth_flow",
+  "selection_char": 8,
+  "selection_line": 38
+ },
+ {
+  "container": "Auth",
+  "kind": "method",
+  "location": {
+   "end_line": 85,
+   "file": "httpx/_auth.py",
+   "start_line": 62
+  },
+  "name": "sync_auth_flow",
+  "selection_char": 8,
+  "selection_line": 62
+ },
+ {
+  "container": "Auth",
+  "kind": "method",
+  "location": {
+   "end_line": 110,
+   "file": "httpx/_auth.py",
+   "start_line": 87
+  },
+  "name": "async_auth_flow",
+  "selection_char": 14,
+  "selection_line": 87
+ },
+ {
+  "container": "FunctionAuth",
+  "kind": "method",
+  "location": {
+   "end_line": 120,
+   "file": "httpx/_auth.py",
+   "start_line": 119
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 119
+ },
+ {
+  "container": "FunctionAuth",
+  "kind": "method",
+  "location": {
+   "end_line": 123,
+   "file": "httpx/_auth.py",
+   "start_line": 122
+  },
+  "name": "auth_flow",
+  "selection_char": 8,
+  "selection_line": 122
+ },
+ {
+  "container": "BasicAuth",
+  "kind": "method",
+  "location": {
+   "end_line": 133,
+   "file": "httpx/_auth.py",
+   "start_line": 132
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 132
+ },
+ {
+  "container": "BasicAuth",
+  "kind": "method",
+  "location": {
+   "end_line": 137,
+   "file": "httpx/_auth.py",
+   "start_line": 135
+  },
+  "name": "auth_flow",
+  "selection_char": 8,
+  "selection_line": 135
+ },
+ {
+  "container": "BasicAuth",
+  "kind": "method",
+  "location": {
+   "end_line": 142,
+   "file": "httpx/_auth.py",
+   "start_line": 139
+  },
+  "name": "_build_auth_header",
+  "selection_char": 8,
+  "selection_line": 139
+ },
+ {
+  "container": "NetRCAuth",
+  "kind": "method",
+  "location": {
+   "end_line": 155,
+   "file": "httpx/_auth.py",
+   "start_line": 150
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 150
+ },
+ {
+  "container": "NetRCAuth",
+  "kind": "method",
+  "location": {
+   "end_line": 167,
+   "file": "httpx/_auth.py",
+   "start_line": 157
+  },
+  "name": "auth_flow",
+  "selection_char": 8,
+  "selection_line": 157
+ },
+ {
+  "container": "NetRCAuth",
+  "kind": "method",
+  "location": {
+   "end_line": 172,
+   "file": "httpx/_auth.py",
+   "start_line": 169
+  },
+  "name": "_build_auth_header",
+  "selection_char": 8,
+  "selection_line": 169
+ },
+ {
+  "container": "DigestAuth",
+  "kind": "method",
+  "location": {
+   "end_line": 191,
+   "file": "httpx/_auth.py",
+   "start_line": 187
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 187
+ },
+ {
+  "container": "DigestAuth",
+  "kind": "method",
+  "location": {
+   "end_line": 222,
+   "file": "httpx/_auth.py",
+   "start_line": 193
+  },
+  "name": "auth_flow",
+  "selection_char": 8,
+  "selection_line": 193
+ },
+ {
+  "container": "DigestAuth",
+  "kind": "method",
+  "location": {
+   "end_line": 253,
+   "file": "httpx/_auth.py",
+   "start_line": 224
+  },
+  "name": "_parse_challenge",
+  "selection_char": 8,
+  "selection_line": 224
+ },
+ {
+  "container": "DigestAuth",
+  "kind": "method",
+  "location": {
+   "end_line": 301,
+   "file": "httpx/_auth.py",
+   "start_line": 255
+  },
+  "name": "_build_auth_header",
+  "selection_char": 8,
+  "selection_line": 255
+ },
+ {
+  "container": "_build_auth_header",
+  "kind": "function",
+  "location": {
+   "end_line": 261,
+   "file": "httpx/_auth.py",
+   "start_line": 260
+  },
+  "name": "digest",
+  "selection_char": 12,
+  "selection_line": 260
+ },
+ {
+  "container": "DigestAuth",
+  "kind": "method",
+  "location": {
+   "end_line": 309,
+   "file": "httpx/_auth.py",
+   "start_line": 303
+  },
+  "name": "_get_client_nonce",
+  "selection_char": 8,
+  "selection_line": 303
+ },
+ {
+  "container": "DigestAuth",
+  "kind": "method",
+  "location": {
+   "end_line": 327,
+   "file": "httpx/_auth.py",
+   "start_line": 311
+  },
+  "name": "_get_header_value",
+  "selection_char": 8,
+  "selection_line": 311
+ },
+ {
+  "container": "DigestAuth",
+  "kind": "method",
+  "location": {
+   "end_line": 340,
+   "file": "httpx/_auth.py",
+   "start_line": 329
+  },
+  "name": "_resolve_qop",
+  "selection_char": 8,
+  "selection_line": 329
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 74,
+   "file": "httpx/_client.py",
+   "start_line": 62
+  },
+  "name": "_is_https_redirect",
+  "selection_char": 4,
+  "selection_line": 62
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 80,
+   "file": "httpx/_client.py",
+   "start_line": 77
+  },
+  "name": "_port_or_default",
+  "selection_char": 4,
+  "selection_line": 77
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 91,
+   "file": "httpx/_client.py",
+   "start_line": 83
+  },
+  "name": "_same_origin",
+  "selection_char": 4,
+  "selection_line": 83
+ },
+ {
+  "container": "BoundSyncStream",
+  "kind": "method",
+  "location": {
+   "end_line": 150,
+   "file": "httpx/_client.py",
+   "start_line": 145
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 145
+ },
+ {
+  "container": "BoundSyncStream",
+  "kind": "method",
+  "location": {
+   "end_line": 154,
+   "file": "httpx/_client.py",
+   "start_line": 152
+  },
+  "name": "__iter__",
+  "selection_char": 8,
+  "selection_line": 152
+ },
+ {
+  "container": "BoundSyncStream",
+  "kind": "method",
+  "location": {
+   "end_line": 159,
+   "file": "httpx/_client.py",
+   "start_line": 156
+  },
+  "name": "close",
+  "selection_char": 8,
+  "selection_line": 156
+ },
+ {
+  "container": "BoundAsyncStream",
+  "kind": "method",
+  "location": {
+   "end_line": 173,
+   "file": "httpx/_client.py",
+   "start_line": 168
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 168
+ },
+ {
+  "container": "BoundAsyncStream",
+  "kind": "method",
+  "location": {
+   "end_line": 177,
+   "file": "httpx/_client.py",
+   "start_line": 175
+  },
+  "name": "__aiter__",
+  "selection_char": 14,
+  "selection_line": 175
+ },
+ {
+  "container": "BoundAsyncStream",
+  "kind": "method",
+  "location": {
+   "end_line": 182,
+   "file": "httpx/_client.py",
+   "start_line": 179
+  },
+  "name": "aclose",
+  "selection_char": 14,
+  "selection_line": 179
+ },
+ {
+  "container": "BaseClient",
+  "kind": "method",
+  "location": {
+   "end_line": 221,
+   "file": "httpx/_client.py",
+   "start_line": 189
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 189
+ },
+ {
+  "container": "BaseClient",
+  "kind": "method",
+  "location": {
+   "end_line": 228,
+   "file": "httpx/_client.py",
+   "start_line": 223
+  },
+  "name": "is_closed",
+  "selection_char": 8,
+  "selection_line": 224
+ },
+ {
+  "container": "BaseClient",
+  "kind": "method",
+  "location": {
+   "end_line": 232,
+   "file": "httpx/_client.py",
+   "start_line": 230
+  },
+  "name": "trust_env",
+  "selection_char": 8,
+  "selection_line": 231
+ },
+ {
+  "container": "BaseClient",
+  "kind": "method",
+  "location": {
+   "end_line": 237,
+   "file": "httpx/_client.py",
+   "start_line": 234
+  },
+  "name": "_enforce_trailing_slash",
+  "selection_char": 8,
+  "selection_line": 234
+ },
+ {
+  "container": "BaseClient",
+  "kind": "method",
+  "location": {
+   "end_line": 251,
+   "file": "httpx/_client.py",
+   "start_line": 239
+  },
+  "name": "_get_proxy_map",
+  "selection_char": 8,
+  "selection_line": 239
+ },
+ {
+  "container": "BaseClient",
+  "kind": "method",
+  "location": {
+   "end_line": 259,
+   "file": "httpx/_client.py",
+   "start_line": 257
+  },
+  "name": "timeout",
+  "selection_char": 8,
+  "selection_line": 258
+ },
+ {
+  "container": "BaseClient",
+  "kind": "method",
+  "location": {
+   "end_line": 270,
+   "file": "httpx/_client.py",
+   "start_line": 265
+  },
+  "name": "event_hooks",
+  "selection_char": 8,
+  "selection_line": 266
+ },
+ {
+  "container": "BaseClient",
+  "kind": "method",
+  "location": {
+   "end_line": 285,
+   "file": "httpx/_client.py",
+   "start_line": 283
+  },
+  "name": "auth",
+  "selection_char": 8,
+  "selection_line": 284
+ },
+ {
+  "container": "BaseClient",
+  "kind": "method",
+  "location": {
+   "end_line": 296,
+   "file": "httpx/_client.py",
+   "start_line": 294
+  },
+  "name": "base_url",
+  "selection_char": 8,
+  "selection_line": 295
+ },
+ {
+  "container": "BaseClient",
+  "kind": "method",
+  "location": {
+   "end_line": 316,
+   "file": "httpx/_client.py",
+   "start_line": 305
+  },
+  "name": "headers",
+  "selection_char": 8,
+  "selection_line": 306
+ },
+ {
+  "container": "BaseClient",
+  "kind": "method",
+  "location": {
+   "end_line": 327,
+   "file": "httpx/_client.py",
+   "start_line": 325
+  },
+  "name": "cookies",
+  "selection_char": 8,
+  "selection_line": 326
+ },
+ {
+  "container": "BaseClient",
+  "kind": "method",
+  "location": {
+   "end_line": 338,
+   "file": "httpx/_client.py",
+   "start_line": 336
+  },
+  "name": "params",
+  "selection_char": 8,
+  "selection_line": 337
+ },
+ {
+  "container": "BaseClient",
+  "kind": "method",
+  "location": {
+   "end_line": 389,
+   "file": "httpx/_client.py",
+   "start_line": 340
+  },
+  "name": "build_request",
+  "selection_char": 8,
+  "selection_line": 340
+ },
+ {
+  "container": "BaseClient",
+  "kind": "method",
+  "location": {
+   "end_line": 411,
+   "file": "httpx/_client.py",
+   "start_line": 391
+  },
+  "name": "_merge_url",
+  "selection_char": 8,
+  "selection_line": 391
+ },
+ {
+  "container": "BaseClient",
+  "kind": "method",
+  "location": {
+   "end_line": 422,
+   "file": "httpx/_client.py",
+   "start_line": 413
+  },
+  "name": "_merge_cookies",
+  "selection_char": 8,
+  "selection_line": 413
+ },
+ {
+  "container": "BaseClient",
+  "kind": "method",
+  "location": {
+   "end_line": 431,
+   "file": "httpx/_client.py",
+   "start_line": 424
+  },
+  "name": "_merge_headers",
+  "selection_char": 8,
+  "selection_line": 424
+ },
+ {
+  "container": "BaseClient",
+  "kind": "method",
+  "location": {
+   "end_line": 443,
+   "file": "httpx/_client.py",
+   "start_line": 433
+  },
+  "name": "_merge_queryparams",
+  "selection_char": 8,
+  "selection_line": 433
+ },
+ {
+  "container": "BaseClient",
+  "kind": "method",
+  "location": {
+   "end_line": 455,
+   "file": "httpx/_client.py",
+   "start_line": 445
+  },
+  "name": "_build_auth",
+  "selection_char": 8,
+  "selection_line": 445
+ },
+ {
+  "container": "BaseClient",
+  "kind": "method",
+  "location": {
+   "end_line": 473,
+   "file": "httpx/_client.py",
+   "start_line": 457
+  },
+  "name": "_build_request_auth",
+  "selection_char": 8,
+  "selection_line": 457
+ },
+ {
+  "container": "BaseClient",
+  "kind": "method",
+  "location": {
+   "end_line": 492,
+   "file": "httpx/_client.py",
+   "start_line": 475
+  },
+  "name": "_build_redirect_request",
+  "selection_char": 8,
+  "selection_line": 475
+ },
+ {
+  "container": "BaseClient",
+  "kind": "method",
+  "location": {
+   "end_line": 515,
+   "file": "httpx/_client.py",
+   "start_line": 494
+  },
+  "name": "_redirect_method",
+  "selection_char": 8,
+  "selection_line": 494
+ },
+ {
+  "container": "BaseClient",
+  "kind": "method",
+  "location": {
+   "end_line": 544,
+   "file": "httpx/_client.py",
+   "start_line": 517
+  },
+  "name": "_redirect_url",
+  "selection_char": 8,
+  "selection_line": 517
+ },
+ {
+  "container": "BaseClient",
+  "kind": "method",
+  "location": {
+   "end_line": 571,
+   "file": "httpx/_client.py",
+   "start_line": 546
+  },
+  "name": "_redirect_headers",
+  "selection_char": 8,
+  "selection_line": 546
+ },
+ {
+  "container": "BaseClient",
+  "kind": "method",
+  "location": {
+   "end_line": 582,
+   "file": "httpx/_client.py",
+   "start_line": 573
+  },
+  "name": "_redirect_stream",
+  "selection_char": 8,
+  "selection_line": 573
+ },
+ {
+  "container": "BaseClient",
+  "kind": "method",
+  "location": {
+   "end_line": 591,
+   "file": "httpx/_client.py",
+   "start_line": 584
+  },
+  "name": "_set_timeout",
+  "selection_char": 8,
+  "selection_line": 584
+ },
+ {
+  "container": "Client",
+  "kind": "method",
+  "location": {
+   "end_line": 716,
+   "file": "httpx/_client.py",
+   "start_line": 639
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 639
+ },
+ {
+  "container": "Client",
+  "kind": "method",
+  "location": {
+   "end_line": 738,
+   "file": "httpx/_client.py",
+   "start_line": 718
+  },
+  "name": "_init_transport",
+  "selection_char": 8,
+  "selection_line": 718
+ },
+ {
+  "container": "Client",
+  "kind": "method",
+  "location": {
+   "end_line": 758,
+   "file": "httpx/_client.py",
+   "start_line": 740
+  },
+  "name": "_init_proxy_transport",
+  "selection_char": 8,
+  "selection_line": 740
+ },
+ {
+  "container": "Client",
+  "kind": "method",
+  "location": {
+   "end_line": 769,
+   "file": "httpx/_client.py",
+   "start_line": 760
+  },
+  "name": "_transport_for_url",
+  "selection_char": 8,
+  "selection_line": 760
+ },
+ {
+  "container": "Client",
+  "kind": "method",
+  "location": {
+   "end_line": 825,
+   "file": "httpx/_client.py",
+   "start_line": 771
+  },
+  "name": "request",
+  "selection_char": 8,
+  "selection_line": 771
+ },
+ {
+  "container": "Client",
+  "kind": "method",
+  "location": {
+   "end_line": 877,
+   "file": "httpx/_client.py",
+   "start_line": 827
+  },
+  "name": "stream",
+  "selection_char": 8,
+  "selection_line": 828
+ },
+ {
+  "container": "Client",
+  "kind": "method",
+  "location": {
+   "end_line": 928,
+   "file": "httpx/_client.py",
+   "start_line": 879
+  },
+  "name": "send",
+  "selection_char": 8,
+  "selection_line": 879
+ },
+ {
+  "container": "Client",
+  "kind": "method",
+  "location": {
+   "end_line": 962,
+   "file": "httpx/_client.py",
+   "start_line": 930
+  },
+  "name": "_send_handling_auth",
+  "selection_char": 8,
+  "selection_line": 930
+ },
+ {
+  "container": "Client",
+  "kind": "method",
+  "location": {
+   "end_line": 999,
+   "file": "httpx/_client.py",
+   "start_line": 964
+  },
+  "name": "_send_handling_redirects",
+  "selection_char": 8,
+  "selection_line": 964
+ },
+ {
+  "container": "Client",
+  "kind": "method",
+  "location": {
+   "end_line": 1034,
+   "file": "httpx/_client.py",
+   "start_line": 1001
+  },
+  "name": "_send_single_request",
+  "selection_char": 8,
+  "selection_line": 1001
+ },
+ {
+  "container": "Client",
+  "kind": "method",
+  "location": {
+   "end_line": 1063,
+   "file": "httpx/_client.py",
+   "start_line": 1036
+  },
+  "name": "get",
+  "selection_char": 8,
+  "selection_line": 1036
+ },
+ {
+  "container": "Client",
+  "kind": "method",
+  "location": {
+   "end_line": 1092,
+   "file": "httpx/_client.py",
+   "start_line": 1065
+  },
+  "name": "options",
+  "selection_char": 8,
+  "selection_line": 1065
+ },
+ {
+  "container": "Client",
+  "kind": "method",
+  "location": {
+   "end_line": 1121,
+   "file": "httpx/_client.py",
+   "start_line": 1094
+  },
+  "name": "head",
+  "selection_char": 8,
+  "selection_line": 1094
+ },
+ {
+  "container": "Client",
+  "kind": "method",
+  "location": {
+   "end_line": 1158,
+   "file": "httpx/_client.py",
+   "start_line": 1123
+  },
+  "name": "post",
+  "selection_char": 8,
+  "selection_line": 1123
+ },
+ {
+  "container": "Client",
+  "kind": "method",
+  "location": {
+   "end_line": 1195,
+   "file": "httpx/_client.py",
+   "start_line": 1160
+  },
+  "name": "put",
+  "selection_char": 8,
+  "selection_line": 1160
+ },
+ {
+  "container": "Client",
+  "kind": "method",
+  "location": {
+   "end_line": 1232,
+   "file": "httpx/_client.py",
+   "start_line": 1197
+  },
+  "name": "patch",
+  "selection_char": 8,
+  "selection_line": 1197
+ },
+ {
+  "container": "Client",
+  "kind": "method",
+  "location": {
+   "end_line": 1261,
+   "file": "httpx/_client.py",
+   "start_line": 1234
+  },
+  "name": "delete",
+  "selection_char": 8,
+  "selection_line": 1234
+ },
+ {
+  "container": "Client",
+  "kind": "method",
+  "location": {
+   "end_line": 1273,
+   "file": "httpx/_client.py",
+   "start_line": 1263
+  },
+  "name": "close",
+  "selection_char": 8,
+  "selection_line": 1263
+ },
+ {
+  "container": "Client",
+  "kind": "method",
+  "location": {
+   "end_line": 1291,
+   "file": "httpx/_client.py",
+   "start_line": 1275
+  },
+  "name": "__enter__",
+  "selection_char": 8,
+  "selection_line": 1275
+ },
+ {
+  "container": "Client",
+  "kind": "method",
+  "location": {
+   "end_line": 1304,
+   "file": "httpx/_client.py",
+   "start_line": 1293
+  },
+  "name": "__exit__",
+  "selection_char": 8,
+  "selection_line": 1293
+ },
+ {
+  "container": "AsyncClient",
+  "kind": "method",
+  "location": {
+   "end_line": 1430,
+   "file": "httpx/_client.py",
+   "start_line": 1353
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 1353
+ },
+ {
+  "container": "AsyncClient",
+  "kind": "method",
+  "location": {
+   "end_line": 1452,
+   "file": "httpx/_client.py",
+   "start_line": 1432
+  },
+  "name": "_init_transport",
+  "selection_char": 8,
+  "selection_line": 1432
+ },
+ {
+  "container": "AsyncClient",
+  "kind": "method",
+  "location": {
+   "end_line": 1472,
+   "file": "httpx/_client.py",
+   "start_line": 1454
+  },
+  "name": "_init_proxy_transport",
+  "selection_char": 8,
+  "selection_line": 1454
+ },
+ {
+  "container": "AsyncClient",
+  "kind": "method",
+  "location": {
+   "end_line": 1483,
+   "file": "httpx/_client.py",
+   "start_line": 1474
+  },
+  "name": "_transport_for_url",
+  "selection_char": 8,
+  "selection_line": 1474
+ },
+ {
+  "container": "AsyncClient",
+  "kind": "method",
+  "location": {
+   "end_line": 1540,
+   "file": "httpx/_client.py",
+   "start_line": 1485
+  },
+  "name": "request",
+  "selection_char": 14,
+  "selection_line": 1485
+ },
+ {
+  "container": "AsyncClient",
+  "kind": "method",
+  "location": {
+   "end_line": 1592,
+   "file": "httpx/_client.py",
+   "start_line": 1542
+  },
+  "name": "stream",
+  "selection_char": 14,
+  "selection_line": 1543
+ },
+ {
+  "container": "AsyncClient",
+  "kind": "method",
+  "location": {
+   "end_line": 1643,
+   "file": "httpx/_client.py",
+   "start_line": 1594
+  },
+  "name": "send",
+  "selection_char": 14,
+  "selection_line": 1594
+ },
+ {
+  "container": "AsyncClient",
+  "kind": "method",
+  "location": {
+   "end_line": 1677,
+   "file": "httpx/_client.py",
+   "start_line": 1645
+  },
+  "name": "_send_handling_auth",
+  "selection_char": 14,
+  "selection_line": 1645
+ },
+ {
+  "container": "AsyncClient",
+  "kind": "method",
+  "location": {
+   "end_line": 1715,
+   "file": "httpx/_client.py",
+   "start_line": 1679
+  },
+  "name": "_send_handling_redirects",
+  "selection_char": 14,
+  "selection_line": 1679
+ },
+ {
+  "container": "AsyncClient",
+  "kind": "method",
+  "location": {
+   "end_line": 1749,
+   "file": "httpx/_client.py",
+   "start_line": 1717
+  },
+  "name": "_send_single_request",
+  "selection_char": 14,
+  "selection_line": 1717
+ },
+ {
+  "container": "AsyncClient",
+  "kind": "method",
+  "location": {
+   "end_line": 1778,
+   "file": "httpx/_client.py",
+   "start_line": 1751
+  },
+  "name": "get",
+  "selection_char": 14,
+  "selection_line": 1751
+ },
+ {
+  "container": "AsyncClient",
+  "kind": "method",
+  "location": {
+   "end_line": 1807,
+   "file": "httpx/_client.py",
+   "start_line": 1780
+  },
+  "name": "options",
+  "selection_char": 14,
+  "selection_line": 1780
+ },
+ {
+  "container": "AsyncClient",
+  "kind": "method",
+  "location": {
+   "end_line": 1836,
+   "file": "httpx/_client.py",
+   "start_line": 1809
+  },
+  "name": "head",
+  "selection_char": 14,
+  "selection_line": 1809
+ },
+ {
+  "container": "AsyncClient",
+  "kind": "method",
+  "location": {
+   "end_line": 1873,
+   "file": "httpx/_client.py",
+   "start_line": 1838
+  },
+  "name": "post",
+  "selection_char": 14,
+  "selection_line": 1838
+ },
+ {
+  "container": "AsyncClient",
+  "kind": "method",
+  "location": {
+   "end_line": 1910,
+   "file": "httpx/_client.py",
+   "start_line": 1875
+  },
+  "name": "put",
+  "selection_char": 14,
+  "selection_line": 1875
+ },
+ {
+  "container": "AsyncClient",
+  "kind": "method",
+  "location": {
+   "end_line": 1947,
+   "file": "httpx/_client.py",
+   "start_line": 1912
+  },
+  "name": "patch",
+  "selection_char": 14,
+  "selection_line": 1912
+ },
+ {
+  "container": "AsyncClient",
+  "kind": "method",
+  "location": {
+   "end_line": 1976,
+   "file": "httpx/_client.py",
+   "start_line": 1949
+  },
+  "name": "delete",
+  "selection_char": 14,
+  "selection_line": 1949
+ },
+ {
+  "container": "AsyncClient",
+  "kind": "method",
+  "location": {
+   "end_line": 1988,
+   "file": "httpx/_client.py",
+   "start_line": 1978
+  },
+  "name": "aclose",
+  "selection_char": 14,
+  "selection_line": 1978
+ },
+ {
+  "container": "AsyncClient",
+  "kind": "method",
+  "location": {
+   "end_line": 2006,
+   "file": "httpx/_client.py",
+   "start_line": 1990
+  },
+  "name": "__aenter__",
+  "selection_char": 14,
+  "selection_line": 1990
+ },
+ {
+  "container": "AsyncClient",
+  "kind": "method",
+  "location": {
+   "end_line": 2019,
+   "file": "httpx/_client.py",
+   "start_line": 2008
+  },
+  "name": "__aexit__",
+  "selection_char": 14,
+  "selection_line": 2008
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 69,
+   "file": "httpx/_config.py",
+   "start_line": 23
+  },
+  "name": "create_ssl_context",
+  "selection_char": 4,
+  "selection_line": 23
+ },
+ {
+  "container": "Timeout",
+  "kind": "method",
+  "location": {
+   "end_line": 130,
+   "file": "httpx/_config.py",
+   "start_line": 86
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 86
+ },
+ {
+  "container": "Timeout",
+  "kind": "method",
+  "location": {
+   "end_line": 138,
+   "file": "httpx/_config.py",
+   "start_line": 132
+  },
+  "name": "as_dict",
+  "selection_char": 8,
+  "selection_line": 132
+ },
+ {
+  "container": "Timeout",
+  "kind": "method",
+  "location": {
+   "end_line": 147,
+   "file": "httpx/_config.py",
+   "start_line": 140
+  },
+  "name": "__eq__",
+  "selection_char": 8,
+  "selection_line": 140
+ },
+ {
+  "container": "Timeout",
+  "kind": "method",
+  "location": {
+   "end_line": 156,
+   "file": "httpx/_config.py",
+   "start_line": 149
+  },
+  "name": "__repr__",
+  "selection_char": 8,
+  "selection_line": 149
+ },
+ {
+  "container": "Limits",
+  "kind": "method",
+  "location": {
+   "end_line": 182,
+   "file": "httpx/_config.py",
+   "start_line": 173
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 173
+ },
+ {
+  "container": "Limits",
+  "kind": "method",
+  "location": {
+   "end_line": 190,
+   "file": "httpx/_config.py",
+   "start_line": 184
+  },
+  "name": "__eq__",
+  "selection_char": 8,
+  "selection_line": 184
+ },
+ {
+  "container": "Limits",
+  "kind": "method",
+  "location": {
+   "end_line": 198,
+   "file": "httpx/_config.py",
+   "start_line": 192
+  },
+  "name": "__repr__",
+  "selection_char": 8,
+  "selection_line": 192
+ },
+ {
+  "container": "Proxy",
+  "kind": "method",
+  "location": {
+   "end_line": 224,
+   "file": "httpx/_config.py",
+   "start_line": 202
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 202
+ },
+ {
+  "container": "Proxy",
+  "kind": "method",
+  "location": {
+   "end_line": 233,
+   "file": "httpx/_config.py",
+   "start_line": 226
+  },
+  "name": "raw_auth",
+  "selection_char": 8,
+  "selection_line": 227
+ },
+ {
+  "container": "Proxy",
+  "kind": "method",
+  "location": {
+   "end_line": 243,
+   "file": "httpx/_config.py",
+   "start_line": 235
+  },
+  "name": "__repr__",
+  "selection_char": 8,
+  "selection_line": 235
+ },
+ {
+  "container": "ByteStream",
+  "kind": "method",
+  "location": {
+   "end_line": 33,
+   "file": "httpx/_content.py",
+   "start_line": 32
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 32
+ },
+ {
+  "container": "ByteStream",
+  "kind": "method",
+  "location": {
+   "end_line": 36,
+   "file": "httpx/_content.py",
+   "start_line": 35
+  },
+  "name": "__iter__",
+  "selection_char": 8,
+  "selection_line": 35
+ },
+ {
+  "container": "ByteStream",
+  "kind": "method",
+  "location": {
+   "end_line": 39,
+   "file": "httpx/_content.py",
+   "start_line": 38
+  },
+  "name": "__aiter__",
+  "selection_char": 14,
+  "selection_line": 38
+ },
+ {
+  "container": "IteratorByteStream",
+  "kind": "method",
+  "location": {
+   "end_line": 48,
+   "file": "httpx/_content.py",
+   "start_line": 45
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 45
+ },
+ {
+  "container": "IteratorByteStream",
+  "kind": "method",
+  "location": {
+   "end_line": 64,
+   "file": "httpx/_content.py",
+   "start_line": 50
+  },
+  "name": "__iter__",
+  "selection_char": 8,
+  "selection_line": 50
+ },
+ {
+  "container": "AsyncIteratorByteStream",
+  "kind": "method",
+  "location": {
+   "end_line": 73,
+   "file": "httpx/_content.py",
+   "start_line": 70
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 70
+ },
+ {
+  "container": "AsyncIteratorByteStream",
+  "kind": "method",
+  "location": {
+   "end_line": 89,
+   "file": "httpx/_content.py",
+   "start_line": 75
+  },
+  "name": "__aiter__",
+  "selection_char": 14,
+  "selection_line": 75
+ },
+ {
+  "container": "UnattachedStream",
+  "kind": "method",
+  "location": {
+   "end_line": 100,
+   "file": "httpx/_content.py",
+   "start_line": 99
+  },
+  "name": "__iter__",
+  "selection_char": 8,
+  "selection_line": 99
+ },
+ {
+  "container": "UnattachedStream",
+  "kind": "method",
+  "location": {
+   "end_line": 104,
+   "file": "httpx/_content.py",
+   "start_line": 102
+  },
+  "name": "__aiter__",
+  "selection_char": 14,
+  "selection_line": 102
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 133,
+   "file": "httpx/_content.py",
+   "start_line": 107
+  },
+  "name": "encode_content",
+  "selection_char": 4,
+  "selection_line": 107
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 149,
+   "file": "httpx/_content.py",
+   "start_line": 136
+  },
+  "name": "encode_urlencoded_data",
+  "selection_char": 4,
+  "selection_line": 136
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 157,
+   "file": "httpx/_content.py",
+   "start_line": 152
+  },
+  "name": "encode_multipart_data",
+  "selection_char": 4,
+  "selection_line": 152
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 165,
+   "file": "httpx/_content.py",
+   "start_line": 160
+  },
+  "name": "encode_text",
+  "selection_char": 4,
+  "selection_line": 160
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 173,
+   "file": "httpx/_content.py",
+   "start_line": 168
+  },
+  "name": "encode_html",
+  "selection_char": 4,
+  "selection_line": 168
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 183,
+   "file": "httpx/_content.py",
+   "start_line": 176
+  },
+  "name": "encode_json",
+  "selection_char": 4,
+  "selection_line": 176
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 218,
+   "file": "httpx/_content.py",
+   "start_line": 186
+  },
+  "name": "encode_request",
+  "selection_char": 4,
+  "selection_line": 186
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 240,
+   "file": "httpx/_content.py",
+   "start_line": 221
+  },
+  "name": "encode_response",
+  "selection_char": 4,
+  "selection_line": 221
+ },
+ {
+  "container": "ContentDecoder",
+  "kind": "method",
+  "location": {
+   "end_line": 38,
+   "file": "httpx/_decoders.py",
+   "start_line": 37
+  },
+  "name": "decode",
+  "selection_char": 8,
+  "selection_line": 37
+ },
+ {
+  "container": "ContentDecoder",
+  "kind": "method",
+  "location": {
+   "end_line": 41,
+   "file": "httpx/_decoders.py",
+   "start_line": 40
+  },
+  "name": "flush",
+  "selection_char": 8,
+  "selection_line": 40
+ },
+ {
+  "container": "IdentityDecoder",
+  "kind": "method",
+  "location": {
+   "end_line": 50,
+   "file": "httpx/_decoders.py",
+   "start_line": 49
+  },
+  "name": "decode",
+  "selection_char": 8,
+  "selection_line": 49
+ },
+ {
+  "container": "IdentityDecoder",
+  "kind": "method",
+  "location": {
+   "end_line": 53,
+   "file": "httpx/_decoders.py",
+   "start_line": 52
+  },
+  "name": "flush",
+  "selection_char": 8,
+  "selection_line": 52
+ },
+ {
+  "container": "DeflateDecoder",
+  "kind": "method",
+  "location": {
+   "end_line": 65,
+   "file": "httpx/_decoders.py",
+   "start_line": 63
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 63
+ },
+ {
+  "container": "DeflateDecoder",
+  "kind": "method",
+  "location": {
+   "end_line": 76,
+   "file": "httpx/_decoders.py",
+   "start_line": 67
+  },
+  "name": "decode",
+  "selection_char": 8,
+  "selection_line": 67
+ },
+ {
+  "container": "DeflateDecoder",
+  "kind": "method",
+  "location": {
+   "end_line": 82,
+   "file": "httpx/_decoders.py",
+   "start_line": 78
+  },
+  "name": "flush",
+  "selection_char": 8,
+  "selection_line": 78
+ },
+ {
+  "container": "GZipDecoder",
+  "kind": "method",
+  "location": {
+   "end_line": 93,
+   "file": "httpx/_decoders.py",
+   "start_line": 92
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 92
+ },
+ {
+  "container": "GZipDecoder",
+  "kind": "method",
+  "location": {
+   "end_line": 99,
+   "file": "httpx/_decoders.py",
+   "start_line": 95
+  },
+  "name": "decode",
+  "selection_char": 8,
+  "selection_line": 95
+ },
+ {
+  "container": "GZipDecoder",
+  "kind": "method",
+  "location": {
+   "end_line": 105,
+   "file": "httpx/_decoders.py",
+   "start_line": 101
+  },
+  "name": "flush",
+  "selection_char": 8,
+  "selection_line": 101
+ },
+ {
+  "container": "BrotliDecoder",
+  "kind": "method",
+  "location": {
+   "end_line": 134,
+   "file": "httpx/_decoders.py",
+   "start_line": 118
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 118
+ },
+ {
+  "container": "BrotliDecoder",
+  "kind": "method",
+  "location": {
+   "end_line": 143,
+   "file": "httpx/_decoders.py",
+   "start_line": 136
+  },
+  "name": "decode",
+  "selection_char": 8,
+  "selection_line": 136
+ },
+ {
+  "container": "BrotliDecoder",
+  "kind": "method",
+  "location": {
+   "end_line": 158,
+   "file": "httpx/_decoders.py",
+   "start_line": 145
+  },
+  "name": "flush",
+  "selection_char": 8,
+  "selection_line": 145
+ },
+ {
+  "container": "ZStandardDecoder",
+  "kind": "method",
+  "location": {
+   "end_line": 178,
+   "file": "httpx/_decoders.py",
+   "start_line": 170
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 170
+ },
+ {
+  "container": "ZStandardDecoder",
+  "kind": "method",
+  "location": {
+   "end_line": 192,
+   "file": "httpx/_decoders.py",
+   "start_line": 180
+  },
+  "name": "decode",
+  "selection_char": 8,
+  "selection_line": 180
+ },
+ {
+  "container": "ZStandardDecoder",
+  "kind": "method",
+  "location": {
+   "end_line": 200,
+   "file": "httpx/_decoders.py",
+   "start_line": 194
+  },
+  "name": "flush",
+  "selection_char": 8,
+  "selection_line": 194
+ },
+ {
+  "container": "MultiDecoder",
+  "kind": "method",
+  "location": {
+   "end_line": 214,
+   "file": "httpx/_decoders.py",
+   "start_line": 208
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 208
+ },
+ {
+  "container": "MultiDecoder",
+  "kind": "method",
+  "location": {
+   "end_line": 219,
+   "file": "httpx/_decoders.py",
+   "start_line": 216
+  },
+  "name": "decode",
+  "selection_char": 8,
+  "selection_line": 216
+ },
+ {
+  "container": "MultiDecoder",
+  "kind": "method",
+  "location": {
+   "end_line": 225,
+   "file": "httpx/_decoders.py",
+   "start_line": 221
+  },
+  "name": "flush",
+  "selection_char": 8,
+  "selection_line": 221
+ },
+ {
+  "container": "ByteChunker",
+  "kind": "method",
+  "location": {
+   "end_line": 235,
+   "file": "httpx/_decoders.py",
+   "start_line": 233
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 233
+ },
+ {
+  "container": "ByteChunker",
+  "kind": "method",
+  "location": {
+   "end_line": 258,
+   "file": "httpx/_decoders.py",
+   "start_line": 237
+  },
+  "name": "decode",
+  "selection_char": 8,
+  "selection_line": 237
+ },
+ {
+  "container": "ByteChunker",
+  "kind": "method",
+  "location": {
+   "end_line": 264,
+   "file": "httpx/_decoders.py",
+   "start_line": 260
+  },
+  "name": "flush",
+  "selection_char": 8,
+  "selection_line": 260
+ },
+ {
+  "container": "TextChunker",
+  "kind": "method",
+  "location": {
+   "end_line": 274,
+   "file": "httpx/_decoders.py",
+   "start_line": 272
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 272
+ },
+ {
+  "container": "TextChunker",
+  "kind": "method",
+  "location": {
+   "end_line": 297,
+   "file": "httpx/_decoders.py",
+   "start_line": 276
+  },
+  "name": "decode",
+  "selection_char": 8,
+  "selection_line": 276
+ },
+ {
+  "container": "TextChunker",
+  "kind": "method",
+  "location": {
+   "end_line": 303,
+   "file": "httpx/_decoders.py",
+   "start_line": 299
+  },
+  "name": "flush",
+  "selection_char": 8,
+  "selection_line": 299
+ },
+ {
+  "container": "TextDecoder",
+  "kind": "method",
+  "location": {
+   "end_line": 312,
+   "file": "httpx/_decoders.py",
+   "start_line": 311
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 311
+ },
+ {
+  "container": "TextDecoder",
+  "kind": "method",
+  "location": {
+   "end_line": 315,
+   "file": "httpx/_decoders.py",
+   "start_line": 314
+  },
+  "name": "decode",
+  "selection_char": 8,
+  "selection_line": 314
+ },
+ {
+  "container": "TextDecoder",
+  "kind": "method",
+  "location": {
+   "end_line": 318,
+   "file": "httpx/_decoders.py",
+   "start_line": 317
+  },
+  "name": "flush",
+  "selection_char": 8,
+  "selection_line": 317
+ },
+ {
+  "container": "LineDecoder",
+  "kind": "method",
+  "location": {
+   "end_line": 331,
+   "file": "httpx/_decoders.py",
+   "start_line": 329
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 329
+ },
+ {
+  "container": "LineDecoder",
+  "kind": "method",
+  "location": {
+   "end_line": 369,
+   "file": "httpx/_decoders.py",
+   "start_line": 333
+  },
+  "name": "decode",
+  "selection_char": 8,
+  "selection_line": 333
+ },
+ {
+  "container": "LineDecoder",
+  "kind": "method",
+  "location": {
+   "end_line": 378,
+   "file": "httpx/_decoders.py",
+   "start_line": 371
+  },
+  "name": "flush",
+  "selection_char": 8,
+  "selection_line": 371
+ },
+ {
+  "container": "HTTPError",
+  "kind": "method",
+  "location": {
+   "end_line": 94,
+   "file": "httpx/_exceptions.py",
+   "start_line": 92
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 92
+ },
+ {
+  "container": "HTTPError",
+  "kind": "method",
+  "location": {
+   "end_line": 104,
+   "file": "httpx/_exceptions.py",
+   "start_line": 102
+  },
+  "name": "request",
+  "selection_char": 8,
+  "selection_line": 103
+ },
+ {
+  "container": "RequestError",
+  "kind": "method",
+  "location": {
+   "end_line": 120,
+   "file": "httpx/_exceptions.py",
+   "start_line": 112
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 112
+ },
+ {
+  "container": "HTTPStatusError",
+  "kind": "method",
+  "location": {
+   "end_line": 268,
+   "file": "httpx/_exceptions.py",
+   "start_line": 265
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 265
+ },
+ {
+  "container": "InvalidURL",
+  "kind": "method",
+  "location": {
+   "end_line": 277,
+   "file": "httpx/_exceptions.py",
+   "start_line": 276
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 276
+ },
+ {
+  "container": "CookieConflict",
+  "kind": "method",
+  "location": {
+   "end_line": 288,
+   "file": "httpx/_exceptions.py",
+   "start_line": 287
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 287
+ },
+ {
+  "container": "StreamError",
+  "kind": "method",
+  "location": {
+   "end_line": 306,
+   "file": "httpx/_exceptions.py",
+   "start_line": 305
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 305
+ },
+ {
+  "container": "StreamConsumed",
+  "kind": "method",
+  "location": {
+   "end_line": 324,
+   "file": "httpx/_exceptions.py",
+   "start_line": 315
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 315
+ },
+ {
+  "container": "StreamClosed",
+  "kind": "method",
+  "location": {
+   "end_line": 335,
+   "file": "httpx/_exceptions.py",
+   "start_line": 333
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 333
+ },
+ {
+  "container": "ResponseNotRead",
+  "kind": "method",
+  "location": {
+   "end_line": 348,
+   "file": "httpx/_exceptions.py",
+   "start_line": 343
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 343
+ },
+ {
+  "container": "RequestNotRead",
+  "kind": "method",
+  "location": {
+   "end_line": 361,
+   "file": "httpx/_exceptions.py",
+   "start_line": 356
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 356
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 377,
+   "file": "httpx/_exceptions.py",
+   "start_line": 364
+  },
+  "name": "request_context",
+  "selection_char": 4,
+  "selection_line": 365
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 100,
+   "file": "httpx/_main.py",
+   "start_line": 26
+  },
+  "name": "print_help",
+  "selection_char": 4,
+  "selection_line": 26
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 113,
+   "file": "httpx/_main.py",
+   "start_line": 103
+  },
+  "name": "get_lexer_for_response",
+  "selection_char": 4,
+  "selection_line": 103
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 126,
+   "file": "httpx/_main.py",
+   "start_line": 116
+  },
+  "name": "format_request_headers",
+  "selection_char": 4,
+  "selection_line": 116
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 144,
+   "file": "httpx/_main.py",
+   "start_line": 129
+  },
+  "name": "format_response_headers",
+  "selection_char": 4,
+  "selection_line": 129
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 153,
+   "file": "httpx/_main.py",
+   "start_line": 147
+  },
+  "name": "print_request_headers",
+  "selection_char": 4,
+  "selection_line": 147
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 167,
+   "file": "httpx/_main.py",
+   "start_line": 156
+  },
+  "name": "print_response_headers",
+  "selection_char": 4,
+  "selection_line": 156
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 186,
+   "file": "httpx/_main.py",
+   "start_line": 170
+  },
+  "name": "print_response",
+  "selection_char": 4,
+  "selection_line": 170
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 209,
+   "file": "httpx/_main.py",
+   "start_line": 194
+  },
+  "name": "format_certificate",
+  "selection_char": 4,
+  "selection_line": 194
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 248,
+   "file": "httpx/_main.py",
+   "start_line": 212
+  },
+  "name": "trace",
+  "selection_char": 4,
+  "selection_line": 212
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 270,
+   "file": "httpx/_main.py",
+   "start_line": 251
+  },
+  "name": "download_response",
+  "selection_char": 4,
+  "selection_line": 251
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 284,
+   "file": "httpx/_main.py",
+   "start_line": 273
+  },
+  "name": "validate_json",
+  "selection_char": 4,
+  "selection_line": 273
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 298,
+   "file": "httpx/_main.py",
+   "start_line": 287
+  },
+  "name": "validate_auth",
+  "selection_char": 4,
+  "selection_line": 287
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 310,
+   "file": "httpx/_main.py",
+   "start_line": 301
+  },
+  "name": "handle_help",
+  "selection_char": 4,
+  "selection_line": 301
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 506,
+   "file": "httpx/_main.py",
+   "start_line": 313
+  },
+  "name": "main",
+  "selection_char": 4,
+  "selection_line": 452
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 64,
+   "file": "httpx/_models.py",
+   "start_line": 56
+  },
+  "name": "_is_known_encoding",
+  "selection_char": 4,
+  "selection_line": 56
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 71,
+   "file": "httpx/_models.py",
+   "start_line": 67
+  },
+  "name": "_normalize_header_key",
+  "selection_char": 4,
+  "selection_line": 67
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 82,
+   "file": "httpx/_models.py",
+   "start_line": 74
+  },
+  "name": "_normalize_header_value",
+  "selection_char": 4,
+  "selection_line": 74
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 90,
+   "file": "httpx/_models.py",
+   "start_line": 85
+  },
+  "name": "_parse_content_type_charset",
+  "selection_char": 4,
+  "selection_line": 85
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 127,
+   "file": "httpx/_models.py",
+   "start_line": 93
+  },
+  "name": "_parse_header_links",
+  "selection_char": 4,
+  "selection_line": 93
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 136,
+   "file": "httpx/_models.py",
+   "start_line": 130
+  },
+  "name": "_obfuscate_sensitive_headers",
+  "selection_char": 4,
+  "selection_line": 130
+ },
+ {
+  "container": "Headers",
+  "kind": "method",
+  "location": {
+   "end_line": 164,
+   "file": "httpx/_models.py",
+   "start_line": 144
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 144
+ },
+ {
+  "container": "Headers",
+  "kind": "method",
+  "location": {
+   "end_line": 193,
+   "file": "httpx/_models.py",
+   "start_line": 191
+  },
+  "name": "encoding",
+  "selection_char": 8,
+  "selection_line": 192
+ },
+ {
+  "container": "Headers",
+  "kind": "method",
+  "location": {
+   "end_line": 200,
+   "file": "httpx/_models.py",
+   "start_line": 195
+  },
+  "name": "raw",
+  "selection_char": 8,
+  "selection_line": 196
+ },
+ {
+  "container": "Headers",
+  "kind": "method",
+  "location": {
+   "end_line": 203,
+   "file": "httpx/_models.py",
+   "start_line": 202
+  },
+  "name": "keys",
+  "selection_char": 8,
+  "selection_line": 202
+ },
+ {
+  "container": "Headers",
+  "kind": "method",
+  "location": {
+   "end_line": 214,
+   "file": "httpx/_models.py",
+   "start_line": 205
+  },
+  "name": "values",
+  "selection_char": 8,
+  "selection_line": 205
+ },
+ {
+  "container": "Headers",
+  "kind": "method",
+  "location": {
+   "end_line": 229,
+   "file": "httpx/_models.py",
+   "start_line": 216
+  },
+  "name": "items",
+  "selection_char": 8,
+  "selection_line": 216
+ },
+ {
+  "container": "Headers",
+  "kind": "method",
+  "location": {
+   "end_line": 240,
+   "file": "httpx/_models.py",
+   "start_line": 231
+  },
+  "name": "multi_items",
+  "selection_char": 8,
+  "selection_line": 231
+ },
+ {
+  "container": "Headers",
+  "kind": "method",
+  "location": {
+   "end_line": 250,
+   "file": "httpx/_models.py",
+   "start_line": 242
+  },
+  "name": "get",
+  "selection_char": 8,
+  "selection_line": 242
+ },
+ {
+  "container": "Headers",
+  "kind": "method",
+  "location": {
+   "end_line": 272,
+   "file": "httpx/_models.py",
+   "start_line": 252
+  },
+  "name": "get_list",
+  "selection_char": 8,
+  "selection_line": 252
+ },
+ {
+  "container": "Headers",
+  "kind": "method",
+  "location": {
+   "end_line": 279,
+   "file": "httpx/_models.py",
+   "start_line": 274
+  },
+  "name": "update",
+  "selection_char": 8,
+  "selection_line": 274
+ },
+ {
+  "container": "Headers",
+  "kind": "method",
+  "location": {
+   "end_line": 282,
+   "file": "httpx/_models.py",
+   "start_line": 281
+  },
+  "name": "copy",
+  "selection_char": 8,
+  "selection_line": 281
+ },
+ {
+  "container": "Headers",
+  "kind": "method",
+  "location": {
+   "end_line": 302,
+   "file": "httpx/_models.py",
+   "start_line": 284
+  },
+  "name": "__getitem__",
+  "selection_char": 8,
+  "selection_line": 284
+ },
+ {
+  "container": "Headers",
+  "kind": "method",
+  "location": {
+   "end_line": 326,
+   "file": "httpx/_models.py",
+   "start_line": 304
+  },
+  "name": "__setitem__",
+  "selection_char": 8,
+  "selection_line": 304
+ },
+ {
+  "container": "Headers",
+  "kind": "method",
+  "location": {
+   "end_line": 344,
+   "file": "httpx/_models.py",
+   "start_line": 328
+  },
+  "name": "__delitem__",
+  "selection_char": 8,
+  "selection_line": 328
+ },
+ {
+  "container": "Headers",
+  "kind": "method",
+  "location": {
+   "end_line": 348,
+   "file": "httpx/_models.py",
+   "start_line": 346
+  },
+  "name": "__contains__",
+  "selection_char": 8,
+  "selection_line": 346
+ },
+ {
+  "container": "Headers",
+  "kind": "method",
+  "location": {
+   "end_line": 351,
+   "file": "httpx/_models.py",
+   "start_line": 350
+  },
+  "name": "__iter__",
+  "selection_char": 8,
+  "selection_line": 350
+ },
+ {
+  "container": "Headers",
+  "kind": "method",
+  "location": {
+   "end_line": 354,
+   "file": "httpx/_models.py",
+   "start_line": 353
+  },
+  "name": "__len__",
+  "selection_char": 8,
+  "selection_line": 353
+ },
+ {
+  "container": "Headers",
+  "kind": "method",
+  "location": {
+   "end_line": 364,
+   "file": "httpx/_models.py",
+   "start_line": 356
+  },
+  "name": "__eq__",
+  "selection_char": 8,
+  "selection_line": 356
+ },
+ {
+  "container": "Headers",
+  "kind": "method",
+  "location": {
+   "end_line": 379,
+   "file": "httpx/_models.py",
+   "start_line": 366
+  },
+  "name": "__repr__",
+  "selection_char": 8,
+  "selection_line": 366
+ },
+ {
+  "container": "Request",
+  "kind": "method",
+  "location": {
+   "end_line": 439,
+   "file": "httpx/_models.py",
+   "start_line": 383
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 383
+ },
+ {
+  "container": "Request",
+  "kind": "method",
+  "location": {
+   "end_line": 460,
+   "file": "httpx/_models.py",
+   "start_line": 441
+  },
+  "name": "_prepare",
+  "selection_char": 8,
+  "selection_line": 441
+ },
+ {
+  "container": "Request",
+  "kind": "method",
+  "location": {
+   "end_line": 466,
+   "file": "httpx/_models.py",
+   "start_line": 462
+  },
+  "name": "content",
+  "selection_char": 8,
+  "selection_line": 463
+ },
+ {
+  "container": "Request",
+  "kind": "method",
+  "location": {
+   "end_line": 480,
+   "file": "httpx/_models.py",
+   "start_line": 468
+  },
+  "name": "read",
+  "selection_char": 8,
+  "selection_line": 468
+ },
+ {
+  "container": "Request",
+  "kind": "method",
+  "location": {
+   "end_line": 494,
+   "file": "httpx/_models.py",
+   "start_line": 482
+  },
+  "name": "aread",
+  "selection_char": 14,
+  "selection_line": 482
+ },
+ {
+  "container": "Request",
+  "kind": "method",
+  "location": {
+   "end_line": 499,
+   "file": "httpx/_models.py",
+   "start_line": 496
+  },
+  "name": "__repr__",
+  "selection_char": 8,
+  "selection_line": 496
+ },
+ {
+  "container": "Request",
+  "kind": "method",
+  "location": {
+   "end_line": 506,
+   "file": "httpx/_models.py",
+   "start_line": 501
+  },
+  "name": "__getstate__",
+  "selection_char": 8,
+  "selection_line": 501
+ },
+ {
+  "container": "Request",
+  "kind": "method",
+  "location": {
+   "end_line": 512,
+   "file": "httpx/_models.py",
+   "start_line": 508
+  },
+  "name": "__setstate__",
+  "selection_char": 8,
+  "selection_line": 508
+ },
+ {
+  "container": "Response",
+  "kind": "method",
+  "location": {
+   "end_line": 569,
+   "file": "httpx/_models.py",
+   "start_line": 516
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 516
+ },
+ {
+  "container": "Response",
+  "kind": "method",
+  "location": {
+   "end_line": 576,
+   "file": "httpx/_models.py",
+   "start_line": 571
+  },
+  "name": "_prepare",
+  "selection_char": 8,
+  "selection_line": 571
+ },
+ {
+  "container": "Response",
+  "kind": "method",
+  "location": {
+   "end_line": 593,
+   "file": "httpx/_models.py",
+   "start_line": 591
+  },
+  "name": "elapsed",
+  "selection_char": 8,
+  "selection_line": 592
+ },
+ {
+  "container": "Response",
+  "kind": "method",
+  "location": {
+   "end_line": 608,
+   "file": "httpx/_models.py",
+   "start_line": 606
+  },
+  "name": "request",
+  "selection_char": 8,
+  "selection_line": 607
+ },
+ {
+  "container": "Response",
+  "kind": "method",
+  "location": {
+   "end_line": 617,
+   "file": "httpx/_models.py",
+   "start_line": 610
+  },
+  "name": "http_version",
+  "selection_char": 8,
+  "selection_line": 611
+ },
+ {
+  "container": "Response",
+  "kind": "method",
+  "location": {
+   "end_line": 626,
+   "file": "httpx/_models.py",
+   "start_line": 619
+  },
+  "name": "reason_phrase",
+  "selection_char": 8,
+  "selection_line": 620
+ },
+ {
+  "container": "Response",
+  "kind": "method",
+  "location": {
+   "end_line": 633,
+   "file": "httpx/_models.py",
+   "start_line": 628
+  },
+  "name": "url",
+  "selection_char": 8,
+  "selection_line": 629
+ },
+ {
+  "container": "Response",
+  "kind": "method",
+  "location": {
+   "end_line": 639,
+   "file": "httpx/_models.py",
+   "start_line": 635
+  },
+  "name": "content",
+  "selection_char": 8,
+  "selection_line": 636
+ },
+ {
+  "container": "Response",
+  "kind": "method",
+  "location": {
+   "end_line": 650,
+   "file": "httpx/_models.py",
+   "start_line": 641
+  },
+  "name": "text",
+  "selection_char": 8,
+  "selection_line": 642
+ },
+ {
+  "container": "Response",
+  "kind": "method",
+  "location": {
+   "end_line": 686,
+   "file": "httpx/_models.py",
+   "start_line": 674
+  },
+  "name": "encoding",
+  "selection_char": 8,
+  "selection_line": 675
+ },
+ {
+  "container": "Response",
+  "kind": "method",
+  "location": {
+   "end_line": 697,
+   "file": "httpx/_models.py",
+   "start_line": 688
+  },
+  "name": "charset_encoding",
+  "selection_char": 8,
+  "selection_line": 689
+ },
+ {
+  "container": "Response",
+  "kind": "method",
+  "location": {
+   "end_line": 722,
+   "file": "httpx/_models.py",
+   "start_line": 699
+  },
+  "name": "_get_content_decoder",
+  "selection_char": 8,
+  "selection_line": 699
+ },
+ {
+  "container": "Response",
+  "kind": "method",
+  "location": {
+   "end_line": 729,
+   "file": "httpx/_models.py",
+   "start_line": 724
+  },
+  "name": "is_informational",
+  "selection_char": 8,
+  "selection_line": 725
+ },
+ {
+  "container": "Response",
+  "kind": "method",
+  "location": {
+   "end_line": 736,
+   "file": "httpx/_models.py",
+   "start_line": 731
+  },
+  "name": "is_success",
+  "selection_char": 8,
+  "selection_line": 732
+ },
+ {
+  "container": "Response",
+  "kind": "method",
+  "location": {
+   "end_line": 748,
+   "file": "httpx/_models.py",
+   "start_line": 738
+  },
+  "name": "is_redirect",
+  "selection_char": 8,
+  "selection_line": 739
+ },
+ {
+  "container": "Response",
+  "kind": "method",
+  "location": {
+   "end_line": 755,
+   "file": "httpx/_models.py",
+   "start_line": 750
+  },
+  "name": "is_client_error",
+  "selection_char": 8,
+  "selection_line": 751
+ },
+ {
+  "container": "Response",
+  "kind": "method",
+  "location": {
+   "end_line": 762,
+   "file": "httpx/_models.py",
+   "start_line": 757
+  },
+  "name": "is_server_error",
+  "selection_char": 8,
+  "selection_line": 758
+ },
+ {
+  "container": "Response",
+  "kind": "method",
+  "location": {
+   "end_line": 769,
+   "file": "httpx/_models.py",
+   "start_line": 764
+  },
+  "name": "is_error",
+  "selection_char": 8,
+  "selection_line": 765
+ },
+ {
+  "container": "Response",
+  "kind": "method",
+  "location": {
+   "end_line": 792,
+   "file": "httpx/_models.py",
+   "start_line": 771
+  },
+  "name": "has_redirect_location",
+  "selection_char": 8,
+  "selection_line": 772
+ },
+ {
+  "container": "Response",
+  "kind": "method",
+  "location": {
+   "end_line": 829,
+   "file": "httpx/_models.py",
+   "start_line": 794
+  },
+  "name": "raise_for_status",
+  "selection_char": 8,
+  "selection_line": 794
+ },
+ {
+  "container": "Response",
+  "kind": "method",
+  "location": {
+   "end_line": 832,
+   "file": "httpx/_models.py",
+   "start_line": 831
+  },
+  "name": "json",
+  "selection_char": 8,
+  "selection_line": 831
+ },
+ {
+  "container": "Response",
+  "kind": "method",
+  "location": {
+   "end_line": 839,
+   "file": "httpx/_models.py",
+   "start_line": 834
+  },
+  "name": "cookies",
+  "selection_char": 8,
+  "selection_line": 835
+ },
+ {
+  "container": "Response",
+  "kind": "method",
+  "location": {
+   "end_line": 853,
+   "file": "httpx/_models.py",
+   "start_line": 841
+  },
+  "name": "links",
+  "selection_char": 8,
+  "selection_line": 842
+ },
+ {
+  "container": "Response",
+  "kind": "method",
+  "location": {
+   "end_line": 857,
+   "file": "httpx/_models.py",
+   "start_line": 855
+  },
+  "name": "num_bytes_downloaded",
+  "selection_char": 8,
+  "selection_line": 856
+ },
+ {
+  "container": "Response",
+  "kind": "method",
+  "location": {
+   "end_line": 860,
+   "file": "httpx/_models.py",
+   "start_line": 859
+  },
+  "name": "__repr__",
+  "selection_char": 8,
+  "selection_line": 859
+ },
+ {
+  "container": "Response",
+  "kind": "method",
+  "location": {
+   "end_line": 867,
+   "file": "httpx/_models.py",
+   "start_line": 862
+  },
+  "name": "__getstate__",
+  "selection_char": 8,
+  "selection_line": 862
+ },
+ {
+  "container": "Response",
+  "kind": "method",
+  "location": {
+   "end_line": 874,
+   "file": "httpx/_models.py",
+   "start_line": 869
+  },
+  "name": "__setstate__",
+  "selection_char": 8,
+  "selection_line": 869
+ },
+ {
+  "container": "Response",
+  "kind": "method",
+  "location": {
+   "end_line": 882,
+   "file": "httpx/_models.py",
+   "start_line": 876
+  },
+  "name": "read",
+  "selection_char": 8,
+  "selection_line": 876
+ },
+ {
+  "container": "Response",
+  "kind": "method",
+  "location": {
+   "end_line": 905,
+   "file": "httpx/_models.py",
+   "start_line": 884
+  },
+  "name": "iter_bytes",
+  "selection_char": 8,
+  "selection_line": 884
+ },
+ {
+  "container": "Response",
+  "kind": "method",
+  "location": {
+   "end_line": 924,
+   "file": "httpx/_models.py",
+   "start_line": 907
+  },
+  "name": "iter_text",
+  "selection_char": 8,
+  "selection_line": 907
+ },
+ {
+  "container": "Response",
+  "kind": "method",
+  "location": {
+   "end_line": 933,
+   "file": "httpx/_models.py",
+   "start_line": 926
+  },
+  "name": "iter_lines",
+  "selection_char": 8,
+  "selection_line": 926
+ },
+ {
+  "container": "Response",
+  "kind": "method",
+  "location": {
+   "end_line": 959,
+   "file": "httpx/_models.py",
+   "start_line": 935
+  },
+  "name": "iter_raw",
+  "selection_char": 8,
+  "selection_line": 935
+ },
+ {
+  "container": "Response",
+  "kind": "method",
+  "location": {
+   "end_line": 972,
+   "file": "httpx/_models.py",
+   "start_line": 961
+  },
+  "name": "close",
+  "selection_char": 8,
+  "selection_line": 961
+ },
+ {
+  "container": "Response",
+  "kind": "method",
+  "location": {
+   "end_line": 980,
+   "file": "httpx/_models.py",
+   "start_line": 974
+  },
+  "name": "aread",
+  "selection_char": 14,
+  "selection_line": 974
+ },
+ {
+  "container": "Response",
+  "kind": "method",
+  "location": {
+   "end_line": 1005,
+   "file": "httpx/_models.py",
+   "start_line": 982
+  },
+  "name": "aiter_bytes",
+  "selection_char": 14,
+  "selection_line": 982
+ },
+ {
+  "container": "Response",
+  "kind": "method",
+  "location": {
+   "end_line": 1026,
+   "file": "httpx/_models.py",
+   "start_line": 1007
+  },
+  "name": "aiter_text",
+  "selection_char": 14,
+  "selection_line": 1007
+ },
+ {
+  "container": "Response",
+  "kind": "method",
+  "location": {
+   "end_line": 1035,
+   "file": "httpx/_models.py",
+   "start_line": 1028
+  },
+  "name": "aiter_lines",
+  "selection_char": 14,
+  "selection_line": 1028
+ },
+ {
+  "container": "Response",
+  "kind": "method",
+  "location": {
+   "end_line": 1063,
+   "file": "httpx/_models.py",
+   "start_line": 1037
+  },
+  "name": "aiter_raw",
+  "selection_char": 14,
+  "selection_line": 1037
+ },
+ {
+  "container": "Response",
+  "kind": "method",
+  "location": {
+   "end_line": 1076,
+   "file": "httpx/_models.py",
+   "start_line": 1065
+  },
+  "name": "aclose",
+  "selection_char": 14,
+  "selection_line": 1065
+ },
+ {
+  "container": "Cookies",
+  "kind": "method",
+  "location": {
+   "end_line": 1099,
+   "file": "httpx/_models.py",
+   "start_line": 1084
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 1084
+ },
+ {
+  "container": "Cookies",
+  "kind": "method",
+  "location": {
+   "end_line": 1108,
+   "file": "httpx/_models.py",
+   "start_line": 1101
+  },
+  "name": "extract_cookies",
+  "selection_char": 8,
+  "selection_line": 1101
+ },
+ {
+  "container": "Cookies",
+  "kind": "method",
+  "location": {
+   "end_line": 1115,
+   "file": "httpx/_models.py",
+   "start_line": 1110
+  },
+  "name": "set_cookie_header",
+  "selection_char": 8,
+  "selection_line": 1110
+ },
+ {
+  "container": "Cookies",
+  "kind": "method",
+  "location": {
+   "end_line": 1141,
+   "file": "httpx/_models.py",
+   "start_line": 1117
+  },
+  "name": "set",
+  "selection_char": 8,
+  "selection_line": 1117
+ },
+ {
+  "container": "Cookies",
+  "kind": "method",
+  "location": {
+   "end_line": 1166,
+   "file": "httpx/_models.py",
+   "start_line": 1143
+  },
+  "name": "get",
+  "selection_char": 8,
+  "selection_line": 1143
+ },
+ {
+  "container": "Cookies",
+  "kind": "method",
+  "location": {
+   "end_line": 1190,
+   "file": "httpx/_models.py",
+   "start_line": 1168
+  },
+  "name": "delete",
+  "selection_char": 8,
+  "selection_line": 1168
+ },
+ {
+  "container": "Cookies",
+  "kind": "method",
+  "location": {
+   "end_line": 1203,
+   "file": "httpx/_models.py",
+   "start_line": 1192
+  },
+  "name": "clear",
+  "selection_char": 8,
+  "selection_line": 1192
+ },
+ {
+  "container": "Cookies",
+  "kind": "method",
+  "location": {
+   "end_line": 1208,
+   "file": "httpx/_models.py",
+   "start_line": 1205
+  },
+  "name": "update",
+  "selection_char": 8,
+  "selection_line": 1205
+ },
+ {
+  "container": "Cookies",
+  "kind": "method",
+  "location": {
+   "end_line": 1211,
+   "file": "httpx/_models.py",
+   "start_line": 1210
+  },
+  "name": "__setitem__",
+  "selection_char": 8,
+  "selection_line": 1210
+ },
+ {
+  "container": "Cookies",
+  "kind": "method",
+  "location": {
+   "end_line": 1217,
+   "file": "httpx/_models.py",
+   "start_line": 1213
+  },
+  "name": "__getitem__",
+  "selection_char": 8,
+  "selection_line": 1213
+ },
+ {
+  "container": "Cookies",
+  "kind": "method",
+  "location": {
+   "end_line": 1220,
+   "file": "httpx/_models.py",
+   "start_line": 1219
+  },
+  "name": "__delitem__",
+  "selection_char": 8,
+  "selection_line": 1219
+ },
+ {
+  "container": "Cookies",
+  "kind": "method",
+  "location": {
+   "end_line": 1223,
+   "file": "httpx/_models.py",
+   "start_line": 1222
+  },
+  "name": "__len__",
+  "selection_char": 8,
+  "selection_line": 1222
+ },
+ {
+  "container": "Cookies",
+  "kind": "method",
+  "location": {
+   "end_line": 1226,
+   "file": "httpx/_models.py",
+   "start_line": 1225
+  },
+  "name": "__iter__",
+  "selection_char": 8,
+  "selection_line": 1225
+ },
+ {
+  "container": "Cookies",
+  "kind": "method",
+  "location": {
+   "end_line": 1231,
+   "file": "httpx/_models.py",
+   "start_line": 1228
+  },
+  "name": "__bool__",
+  "selection_char": 8,
+  "selection_line": 1228
+ },
+ {
+  "container": "Cookies",
+  "kind": "method",
+  "location": {
+   "end_line": 1241,
+   "file": "httpx/_models.py",
+   "start_line": 1233
+  },
+  "name": "__repr__",
+  "selection_char": 8,
+  "selection_line": 1233
+ },
+ {
+  "container": "_CookieCompatRequest",
+  "kind": "method",
+  "location": {
+   "end_line": 1255,
+   "file": "httpx/_models.py",
+   "start_line": 1249
+  },
+  "name": "__init__",
+  "selection_char": 12,
+  "selection_line": 1249
+ },
+ {
+  "container": "_CookieCompatRequest",
+  "kind": "method",
+  "location": {
+   "end_line": 1259,
+   "file": "httpx/_models.py",
+   "start_line": 1257
+  },
+  "name": "add_unredirected_header",
+  "selection_char": 12,
+  "selection_line": 1257
+ },
+ {
+  "container": "_CookieCompatResponse",
+  "kind": "method",
+  "location": {
+   "end_line": 1268,
+   "file": "httpx/_models.py",
+   "start_line": 1267
+  },
+  "name": "__init__",
+  "selection_char": 12,
+  "selection_line": 1267
+ },
+ {
+  "container": "_CookieCompatResponse",
+  "kind": "method",
+  "location": {
+   "end_line": 1277,
+   "file": "httpx/_models.py",
+   "start_line": 1270
+  },
+  "name": "info",
+  "selection_char": 12,
+  "selection_line": 1270
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 42,
+   "file": "httpx/_multipart.py",
+   "start_line": 33
+  },
+  "name": "_format_form_param",
+  "selection_char": 4,
+  "selection_line": 33
+ },
+ {
+  "container": "_format_form_param",
+  "kind": "function",
+  "location": {
+   "end_line": 39,
+   "file": "httpx/_multipart.py",
+   "start_line": 38
+  },
+  "name": "replacer",
+  "selection_char": 8,
+  "selection_line": 38
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 53,
+   "file": "httpx/_multipart.py",
+   "start_line": 45
+  },
+  "name": "_guess_content_type",
+  "selection_char": 4,
+  "selection_line": 45
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 67,
+   "file": "httpx/_multipart.py",
+   "start_line": 56
+  },
+  "name": "get_multipart_boundary_from_content_type",
+  "selection_char": 4,
+  "selection_line": 56
+ },
+ {
+  "container": "DataField",
+  "kind": "method",
+  "location": {
+   "end_line": 88,
+   "file": "httpx/_multipart.py",
+   "start_line": 75
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 75
+ },
+ {
+  "container": "DataField",
+  "kind": "method",
+  "location": {
+   "end_line": 97,
+   "file": "httpx/_multipart.py",
+   "start_line": 90
+  },
+  "name": "render_headers",
+  "selection_char": 8,
+  "selection_line": 90
+ },
+ {
+  "container": "DataField",
+  "kind": "method",
+  "location": {
+   "end_line": 103,
+   "file": "httpx/_multipart.py",
+   "start_line": 99
+  },
+  "name": "render_data",
+  "selection_char": 8,
+  "selection_line": 99
+ },
+ {
+  "container": "DataField",
+  "kind": "method",
+  "location": {
+   "end_line": 108,
+   "file": "httpx/_multipart.py",
+   "start_line": 105
+  },
+  "name": "get_length",
+  "selection_char": 8,
+  "selection_line": 105
+ },
+ {
+  "container": "DataField",
+  "kind": "method",
+  "location": {
+   "end_line": 112,
+   "file": "httpx/_multipart.py",
+   "start_line": 110
+  },
+  "name": "render",
+  "selection_char": 8,
+  "selection_line": 110
+ },
+ {
+  "container": "FileField",
+  "kind": "method",
+  "location": {
+   "end_line": 169,
+   "file": "httpx/_multipart.py",
+   "start_line": 122
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 122
+ },
+ {
+  "container": "FileField",
+  "kind": "method",
+  "location": {
+   "end_line": 184,
+   "file": "httpx/_multipart.py",
+   "start_line": 171
+  },
+  "name": "get_length",
+  "selection_char": 8,
+  "selection_line": 171
+ },
+ {
+  "container": "FileField",
+  "kind": "method",
+  "location": {
+   "end_line": 201,
+   "file": "httpx/_multipart.py",
+   "start_line": 186
+  },
+  "name": "render_headers",
+  "selection_char": 8,
+  "selection_line": 186
+ },
+ {
+  "container": "FileField",
+  "kind": "method",
+  "location": {
+   "end_line": 217,
+   "file": "httpx/_multipart.py",
+   "start_line": 203
+  },
+  "name": "render_data",
+  "selection_char": 8,
+  "selection_line": 203
+ },
+ {
+  "container": "FileField",
+  "kind": "method",
+  "location": {
+   "end_line": 221,
+   "file": "httpx/_multipart.py",
+   "start_line": 219
+  },
+  "name": "render",
+  "selection_char": 8,
+  "selection_line": 219
+ },
+ {
+  "container": "MultipartStream",
+  "kind": "method",
+  "location": {
+   "end_line": 242,
+   "file": "httpx/_multipart.py",
+   "start_line": 229
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 229
+ },
+ {
+  "container": "MultipartStream",
+  "kind": "method",
+  "location": {
+   "end_line": 256,
+   "file": "httpx/_multipart.py",
+   "start_line": 244
+  },
+  "name": "_iter_fields",
+  "selection_char": 8,
+  "selection_line": 244
+ },
+ {
+  "container": "MultipartStream",
+  "kind": "method",
+  "location": {
+   "end_line": 263,
+   "file": "httpx/_multipart.py",
+   "start_line": 258
+  },
+  "name": "iter_chunks",
+  "selection_char": 8,
+  "selection_line": 258
+ },
+ {
+  "container": "MultipartStream",
+  "kind": "method",
+  "location": {
+   "end_line": 283,
+   "file": "httpx/_multipart.py",
+   "start_line": 265
+  },
+  "name": "get_content_length",
+  "selection_char": 8,
+  "selection_line": 265
+ },
+ {
+  "container": "MultipartStream",
+  "kind": "method",
+  "location": {
+   "end_line": 292,
+   "file": "httpx/_multipart.py",
+   "start_line": 287
+  },
+  "name": "get_headers",
+  "selection_char": 8,
+  "selection_line": 287
+ },
+ {
+  "container": "MultipartStream",
+  "kind": "method",
+  "location": {
+   "end_line": 296,
+   "file": "httpx/_multipart.py",
+   "start_line": 294
+  },
+  "name": "__iter__",
+  "selection_char": 8,
+  "selection_line": 294
+ },
+ {
+  "container": "MultipartStream",
+  "kind": "method",
+  "location": {
+   "end_line": 300,
+   "file": "httpx/_multipart.py",
+   "start_line": 298
+  },
+  "name": "__aiter__",
+  "selection_char": 14,
+  "selection_line": 298
+ },
+ {
+  "container": "codes",
+  "kind": "method",
+  "location": {
+   "end_line": 33,
+   "file": "httpx/_status_codes.py",
+   "start_line": 28
+  },
+  "name": "__new__",
+  "selection_char": 8,
+  "selection_line": 28
+ },
+ {
+  "container": "codes",
+  "kind": "method",
+  "location": {
+   "end_line": 36,
+   "file": "httpx/_status_codes.py",
+   "start_line": 35
+  },
+  "name": "__str__",
+  "selection_char": 8,
+  "selection_line": 35
+ },
+ {
+  "container": "codes",
+  "kind": "method",
+  "location": {
+   "end_line": 43,
+   "file": "httpx/_status_codes.py",
+   "start_line": 38
+  },
+  "name": "get_reason_phrase",
+  "selection_char": 8,
+  "selection_line": 39
+ },
+ {
+  "container": "codes",
+  "kind": "method",
+  "location": {
+   "end_line": 50,
+   "file": "httpx/_status_codes.py",
+   "start_line": 45
+  },
+  "name": "is_informational",
+  "selection_char": 8,
+  "selection_line": 46
+ },
+ {
+  "container": "codes",
+  "kind": "method",
+  "location": {
+   "end_line": 57,
+   "file": "httpx/_status_codes.py",
+   "start_line": 52
+  },
+  "name": "is_success",
+  "selection_char": 8,
+  "selection_line": 53
+ },
+ {
+  "container": "codes",
+  "kind": "method",
+  "location": {
+   "end_line": 64,
+   "file": "httpx/_status_codes.py",
+   "start_line": 59
+  },
+  "name": "is_redirect",
+  "selection_char": 8,
+  "selection_line": 60
+ },
+ {
+  "container": "codes",
+  "kind": "method",
+  "location": {
+   "end_line": 71,
+   "file": "httpx/_status_codes.py",
+   "start_line": 66
+  },
+  "name": "is_client_error",
+  "selection_char": 8,
+  "selection_line": 67
+ },
+ {
+  "container": "codes",
+  "kind": "method",
+  "location": {
+   "end_line": 78,
+   "file": "httpx/_status_codes.py",
+   "start_line": 73
+  },
+  "name": "is_server_error",
+  "selection_char": 8,
+  "selection_line": 74
+ },
+ {
+  "container": "codes",
+  "kind": "method",
+  "location": {
+   "end_line": 85,
+   "file": "httpx/_status_codes.py",
+   "start_line": 80
+  },
+  "name": "is_error",
+  "selection_char": 8,
+  "selection_line": 81
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 41,
+   "file": "httpx/_transports/asgi.py",
+   "start_line": 29
+  },
+  "name": "is_running_trio",
+  "selection_char": 4,
+  "selection_line": 29
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 52,
+   "file": "httpx/_transports/asgi.py",
+   "start_line": 44
+  },
+  "name": "create_event",
+  "selection_char": 4,
+  "selection_line": 44
+ },
+ {
+  "container": "ASGIResponseStream",
+  "kind": "method",
+  "location": {
+   "end_line": 57,
+   "file": "httpx/_transports/asgi.py",
+   "start_line": 56
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 56
+ },
+ {
+  "container": "ASGIResponseStream",
+  "kind": "method",
+  "location": {
+   "end_line": 60,
+   "file": "httpx/_transports/asgi.py",
+   "start_line": 59
+  },
+  "name": "__aiter__",
+  "selection_char": 14,
+  "selection_line": 59
+ },
+ {
+  "container": "ASGITransport",
+  "kind": "method",
+  "location": {
+   "end_line": 97,
+   "file": "httpx/_transports/asgi.py",
+   "start_line": 87
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 87
+ },
+ {
+  "container": "ASGITransport",
+  "kind": "method",
+  "location": {
+   "end_line": 187,
+   "file": "httpx/_transports/asgi.py",
+   "start_line": 99
+  },
+  "name": "handle_async_request",
+  "selection_char": 14,
+  "selection_line": 99
+ },
+ {
+  "container": "handle_async_request",
+  "kind": "function",
+  "location": {
+   "end_line": 146,
+   "file": "httpx/_transports/asgi.py",
+   "start_line": 134
+  },
+  "name": "receive",
+  "selection_char": 18,
+  "selection_line": 134
+ },
+ {
+  "container": "handle_async_request",
+  "kind": "function",
+  "location": {
+   "end_line": 167,
+   "file": "httpx/_transports/asgi.py",
+   "start_line": 148
+  },
+  "name": "send",
+  "selection_char": 18,
+  "selection_line": 148
+ },
+ {
+  "container": "BaseTransport",
+  "kind": "method",
+  "location": {
+   "end_line": 16,
+   "file": "httpx/_transports/base.py",
+   "start_line": 15
+  },
+  "name": "__enter__",
+  "selection_char": 8,
+  "selection_line": 15
+ },
+ {
+  "container": "BaseTransport",
+  "kind": "method",
+  "location": {
+   "end_line": 24,
+   "file": "httpx/_transports/base.py",
+   "start_line": 18
+  },
+  "name": "__exit__",
+  "selection_char": 8,
+  "selection_line": 18
+ },
+ {
+  "container": "BaseTransport",
+  "kind": "method",
+  "location": {
+   "end_line": 59,
+   "file": "httpx/_transports/base.py",
+   "start_line": 26
+  },
+  "name": "handle_request",
+  "selection_char": 8,
+  "selection_line": 26
+ },
+ {
+  "container": "BaseTransport",
+  "kind": "method",
+  "location": {
+   "end_line": 62,
+   "file": "httpx/_transports/base.py",
+   "start_line": 61
+  },
+  "name": "close",
+  "selection_char": 8,
+  "selection_line": 61
+ },
+ {
+  "container": "AsyncBaseTransport",
+  "kind": "method",
+  "location": {
+   "end_line": 67,
+   "file": "httpx/_transports/base.py",
+   "start_line": 66
+  },
+  "name": "__aenter__",
+  "selection_char": 14,
+  "selection_line": 66
+ },
+ {
+  "container": "AsyncBaseTransport",
+  "kind": "method",
+  "location": {
+   "end_line": 75,
+   "file": "httpx/_transports/base.py",
+   "start_line": 69
+  },
+  "name": "__aexit__",
+  "selection_char": 14,
+  "selection_line": 69
+ },
+ {
+  "container": "AsyncBaseTransport",
+  "kind": "method",
+  "location": {
+   "end_line": 83,
+   "file": "httpx/_transports/base.py",
+   "start_line": 77
+  },
+  "name": "handle_async_request",
+  "selection_char": 14,
+  "selection_line": 77
+ },
+ {
+  "container": "AsyncBaseTransport",
+  "kind": "method",
+  "location": {
+   "end_line": 86,
+   "file": "httpx/_transports/base.py",
+   "start_line": 85
+  },
+  "name": "aclose",
+  "selection_char": 14,
+  "selection_line": 85
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 92,
+   "file": "httpx/_transports/default.py",
+   "start_line": 74
+  },
+  "name": "_load_httpcore_exceptions",
+  "selection_char": 4,
+  "selection_line": 74
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 118,
+   "file": "httpx/_transports/default.py",
+   "start_line": 95
+  },
+  "name": "map_httpcore_exceptions",
+  "selection_char": 4,
+  "selection_line": 96
+ },
+ {
+  "container": "ResponseStream",
+  "kind": "method",
+  "location": {
+   "end_line": 123,
+   "file": "httpx/_transports/default.py",
+   "start_line": 122
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 122
+ },
+ {
+  "container": "ResponseStream",
+  "kind": "method",
+  "location": {
+   "end_line": 128,
+   "file": "httpx/_transports/default.py",
+   "start_line": 125
+  },
+  "name": "__iter__",
+  "selection_char": 8,
+  "selection_line": 125
+ },
+ {
+  "container": "ResponseStream",
+  "kind": "method",
+  "location": {
+   "end_line": 132,
+   "file": "httpx/_transports/default.py",
+   "start_line": 130
+  },
+  "name": "close",
+  "selection_char": 8,
+  "selection_line": 130
+ },
+ {
+  "container": "HTTPTransport",
+  "kind": "method",
+  "location": {
+   "end_line": 215,
+   "file": "httpx/_transports/default.py",
+   "start_line": 136
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 136
+ },
+ {
+  "container": "HTTPTransport",
+  "kind": "method",
+  "location": {
+   "end_line": 219,
+   "file": "httpx/_transports/default.py",
+   "start_line": 217
+  },
+  "name": "__enter__",
+  "selection_char": 8,
+  "selection_line": 217
+ },
+ {
+  "container": "HTTPTransport",
+  "kind": "method",
+  "location": {
+   "end_line": 228,
+   "file": "httpx/_transports/default.py",
+   "start_line": 221
+  },
+  "name": "__exit__",
+  "selection_char": 8,
+  "selection_line": 221
+ },
+ {
+  "container": "HTTPTransport",
+  "kind": "method",
+  "location": {
+   "end_line": 259,
+   "file": "httpx/_transports/default.py",
+   "start_line": 230
+  },
+  "name": "handle_request",
+  "selection_char": 8,
+  "selection_line": 230
+ },
+ {
+  "container": "HTTPTransport",
+  "kind": "method",
+  "location": {
+   "end_line": 262,
+   "file": "httpx/_transports/default.py",
+   "start_line": 261
+  },
+  "name": "close",
+  "selection_char": 8,
+  "selection_line": 261
+ },
+ {
+  "container": "AsyncResponseStream",
+  "kind": "method",
+  "location": {
+   "end_line": 267,
+   "file": "httpx/_transports/default.py",
+   "start_line": 266
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 266
+ },
+ {
+  "container": "AsyncResponseStream",
+  "kind": "method",
+  "location": {
+   "end_line": 272,
+   "file": "httpx/_transports/default.py",
+   "start_line": 269
+  },
+  "name": "__aiter__",
+  "selection_char": 14,
+  "selection_line": 269
+ },
+ {
+  "container": "AsyncResponseStream",
+  "kind": "method",
+  "location": {
+   "end_line": 276,
+   "file": "httpx/_transports/default.py",
+   "start_line": 274
+  },
+  "name": "aclose",
+  "selection_char": 14,
+  "selection_line": 274
+ },
+ {
+  "container": "AsyncHTTPTransport",
+  "kind": "method",
+  "location": {
+   "end_line": 359,
+   "file": "httpx/_transports/default.py",
+   "start_line": 280
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 280
+ },
+ {
+  "container": "AsyncHTTPTransport",
+  "kind": "method",
+  "location": {
+   "end_line": 363,
+   "file": "httpx/_transports/default.py",
+   "start_line": 361
+  },
+  "name": "__aenter__",
+  "selection_char": 14,
+  "selection_line": 361
+ },
+ {
+  "container": "AsyncHTTPTransport",
+  "kind": "method",
+  "location": {
+   "end_line": 372,
+   "file": "httpx/_transports/default.py",
+   "start_line": 365
+  },
+  "name": "__aexit__",
+  "selection_char": 14,
+  "selection_line": 365
+ },
+ {
+  "container": "AsyncHTTPTransport",
+  "kind": "method",
+  "location": {
+   "end_line": 403,
+   "file": "httpx/_transports/default.py",
+   "start_line": 374
+  },
+  "name": "handle_async_request",
+  "selection_char": 14,
+  "selection_line": 374
+ },
+ {
+  "container": "AsyncHTTPTransport",
+  "kind": "method",
+  "location": {
+   "end_line": 406,
+   "file": "httpx/_transports/default.py",
+   "start_line": 405
+  },
+  "name": "aclose",
+  "selection_char": 14,
+  "selection_line": 405
+ },
+ {
+  "container": "MockTransport",
+  "kind": "method",
+  "location": {
+   "end_line": 17,
+   "file": "httpx/_transports/mock.py",
+   "start_line": 16
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 16
+ },
+ {
+  "container": "MockTransport",
+  "kind": "method",
+  "location": {
+   "end_line": 27,
+   "file": "httpx/_transports/mock.py",
+   "start_line": 19
+  },
+  "name": "handle_request",
+  "selection_char": 8,
+  "selection_line": 19
+ },
+ {
+  "container": "MockTransport",
+  "kind": "method",
+  "location": {
+   "end_line": 43,
+   "file": "httpx/_transports/mock.py",
+   "start_line": 29
+  },
+  "name": "handle_async_request",
+  "selection_char": 14,
+  "selection_line": 29
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 27,
+   "file": "httpx/_transports/wsgi.py",
+   "start_line": 22
+  },
+  "name": "_skip_leading_empty_chunks",
+  "selection_char": 4,
+  "selection_line": 22
+ },
+ {
+  "container": "WSGIByteStream",
+  "kind": "method",
+  "location": {
+   "end_line": 33,
+   "file": "httpx/_transports/wsgi.py",
+   "start_line": 31
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 31
+ },
+ {
+  "container": "WSGIByteStream",
+  "kind": "method",
+  "location": {
+   "end_line": 37,
+   "file": "httpx/_transports/wsgi.py",
+   "start_line": 35
+  },
+  "name": "__iter__",
+  "selection_char": 8,
+  "selection_line": 35
+ },
+ {
+  "container": "WSGIByteStream",
+  "kind": "method",
+  "location": {
+   "end_line": 41,
+   "file": "httpx/_transports/wsgi.py",
+   "start_line": 39
+  },
+  "name": "close",
+  "selection_char": 8,
+  "selection_line": 39
+ },
+ {
+  "container": "WSGITransport",
+  "kind": "method",
+  "location": {
+   "end_line": 89,
+   "file": "httpx/_transports/wsgi.py",
+   "start_line": 77
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 77
+ },
+ {
+  "container": "WSGITransport",
+  "kind": "method",
+  "location": {
+   "end_line": 149,
+   "file": "httpx/_transports/wsgi.py",
+   "start_line": 91
+  },
+  "name": "handle_request",
+  "selection_char": 8,
+  "selection_line": 91
+ },
+ {
+  "container": "handle_request",
+  "kind": "function",
+  "location": {
+   "end_line": 132,
+   "file": "httpx/_transports/wsgi.py",
+   "start_line": 123
+  },
+  "name": "start_response",
+  "selection_char": 12,
+  "selection_line": 123
+ },
+ {
+  "container": "SyncByteStream",
+  "kind": "method",
+  "location": {
+   "end_line": 97,
+   "file": "httpx/_types.py",
+   "start_line": 93
+  },
+  "name": "__iter__",
+  "selection_char": 8,
+  "selection_line": 93
+ },
+ {
+  "container": "SyncByteStream",
+  "kind": "method",
+  "location": {
+   "end_line": 103,
+   "file": "httpx/_types.py",
+   "start_line": 99
+  },
+  "name": "close",
+  "selection_char": 8,
+  "selection_line": 99
+ },
+ {
+  "container": "AsyncByteStream",
+  "kind": "method",
+  "location": {
+   "end_line": 111,
+   "file": "httpx/_types.py",
+   "start_line": 107
+  },
+  "name": "__aiter__",
+  "selection_char": 14,
+  "selection_line": 107
+ },
+ {
+  "container": "AsyncByteStream",
+  "kind": "method",
+  "location": {
+   "end_line": 114,
+   "file": "httpx/_types.py",
+   "start_line": 113
+  },
+  "name": "aclose",
+  "selection_char": 14,
+  "selection_line": 113
+ },
+ {
+  "container": "ParseResult",
+  "kind": "method",
+  "location": {
+   "end_line": 175,
+   "file": "httpx/_urlparse.py",
+   "start_line": 167
+  },
+  "name": "authority",
+  "selection_char": 8,
+  "selection_line": 168
+ },
+ {
+  "container": "ParseResult",
+  "kind": "method",
+  "location": {
+   "end_line": 184,
+   "file": "httpx/_urlparse.py",
+   "start_line": 177
+  },
+  "name": "netloc",
+  "selection_char": 8,
+  "selection_line": 178
+ },
+ {
+  "container": "ParseResult",
+  "kind": "method",
+  "location": {
+   "end_line": 198,
+   "file": "httpx/_urlparse.py",
+   "start_line": 186
+  },
+  "name": "copy_with",
+  "selection_char": 8,
+  "selection_line": 186
+ },
+ {
+  "container": "ParseResult",
+  "kind": "method",
+  "location": {
+   "end_line": 210,
+   "file": "httpx/_urlparse.py",
+   "start_line": 200
+  },
+  "name": "__str__",
+  "selection_char": 8,
+  "selection_line": 200
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 345,
+   "file": "httpx/_urlparse.py",
+   "start_line": 213
+  },
+  "name": "urlparse",
+  "selection_char": 4,
+  "selection_line": 213
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 392,
+   "file": "httpx/_urlparse.py",
+   "start_line": 348
+  },
+  "name": "encode_host",
+  "selection_char": 4,
+  "selection_line": 348
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 419,
+   "file": "httpx/_urlparse.py",
+   "start_line": 395
+  },
+  "name": "normalize_port",
+  "selection_char": 4,
+  "selection_line": 395
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 444,
+   "file": "httpx/_urlparse.py",
+   "start_line": 422
+  },
+  "name": "validate_path",
+  "selection_char": 4,
+  "selection_line": 422
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 475,
+   "file": "httpx/_urlparse.py",
+   "start_line": 447
+  },
+  "name": "normalize_path",
+  "selection_char": 4,
+  "selection_line": 447
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 479,
+   "file": "httpx/_urlparse.py",
+   "start_line": 478
+  },
+  "name": "PERCENT",
+  "selection_char": 4,
+  "selection_line": 478
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 494,
+   "file": "httpx/_urlparse.py",
+   "start_line": 482
+  },
+  "name": "percent_encoded",
+  "selection_char": 4,
+  "selection_line": 482
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 527,
+   "file": "httpx/_urlparse.py",
+   "start_line": 497
+  },
+  "name": "quote",
+  "selection_char": 4,
+  "selection_line": 497
+ },
+ {
+  "container": "URL",
+  "kind": "method",
+  "location": {
+   "end_line": 124,
+   "file": "httpx/_urls.py",
+   "start_line": 77
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 77
+ },
+ {
+  "container": "URL",
+  "kind": "method",
+  "location": {
+   "end_line": 132,
+   "file": "httpx/_urls.py",
+   "start_line": 126
+  },
+  "name": "scheme",
+  "selection_char": 8,
+  "selection_line": 127
+ },
+ {
+  "container": "URL",
+  "kind": "method",
+  "location": {
+   "end_line": 140,
+   "file": "httpx/_urls.py",
+   "start_line": 134
+  },
+  "name": "raw_scheme",
+  "selection_char": 8,
+  "selection_line": 135
+ },
+ {
+  "container": "URL",
+  "kind": "method",
+  "location": {
+   "end_line": 148,
+   "file": "httpx/_urls.py",
+   "start_line": 142
+  },
+  "name": "userinfo",
+  "selection_char": 8,
+  "selection_line": 143
+ },
+ {
+  "container": "URL",
+  "kind": "method",
+  "location": {
+   "end_line": 157,
+   "file": "httpx/_urls.py",
+   "start_line": 150
+  },
+  "name": "username",
+  "selection_char": 8,
+  "selection_line": 151
+ },
+ {
+  "container": "URL",
+  "kind": "method",
+  "location": {
+   "end_line": 166,
+   "file": "httpx/_urls.py",
+   "start_line": 159
+  },
+  "name": "password",
+  "selection_char": 8,
+  "selection_line": 160
+ },
+ {
+  "container": "URL",
+  "kind": "method",
+  "location": {
+   "end_line": 193,
+   "file": "httpx/_urls.py",
+   "start_line": 168
+  },
+  "name": "host",
+  "selection_char": 8,
+  "selection_line": 169
+ },
+ {
+  "container": "URL",
+  "kind": "method",
+  "location": {
+   "end_line": 215,
+   "file": "httpx/_urls.py",
+   "start_line": 195
+  },
+  "name": "raw_host",
+  "selection_char": 8,
+  "selection_line": 196
+ },
+ {
+  "container": "URL",
+  "kind": "method",
+  "location": {
+   "end_line": 231,
+   "file": "httpx/_urls.py",
+   "start_line": 217
+  },
+  "name": "port",
+  "selection_char": 8,
+  "selection_line": 218
+ },
+ {
+  "container": "URL",
+  "kind": "method",
+  "location": {
+   "end_line": 242,
+   "file": "httpx/_urls.py",
+   "start_line": 233
+  },
+  "name": "netloc",
+  "selection_char": 8,
+  "selection_line": 234
+ },
+ {
+  "container": "URL",
+  "kind": "method",
+  "location": {
+   "end_line": 255,
+   "file": "httpx/_urls.py",
+   "start_line": 244
+  },
+  "name": "path",
+  "selection_char": 8,
+  "selection_line": 245
+ },
+ {
+  "container": "URL",
+  "kind": "method",
+  "location": {
+   "end_line": 272,
+   "file": "httpx/_urls.py",
+   "start_line": 257
+  },
+  "name": "query",
+  "selection_char": 8,
+  "selection_line": 258
+ },
+ {
+  "container": "URL",
+  "kind": "method",
+  "location": {
+   "end_line": 280,
+   "file": "httpx/_urls.py",
+   "start_line": 274
+  },
+  "name": "params",
+  "selection_char": 8,
+  "selection_line": 275
+ },
+ {
+  "container": "URL",
+  "kind": "method",
+  "location": {
+   "end_line": 297,
+   "file": "httpx/_urls.py",
+   "start_line": 282
+  },
+  "name": "raw_path",
+  "selection_char": 8,
+  "selection_line": 283
+ },
+ {
+  "container": "URL",
+  "kind": "method",
+  "location": {
+   "end_line": 305,
+   "file": "httpx/_urls.py",
+   "start_line": 299
+  },
+  "name": "fragment",
+  "selection_char": 8,
+  "selection_line": 300
+ },
+ {
+  "container": "URL",
+  "kind": "method",
+  "location": {
+   "end_line": 317,
+   "file": "httpx/_urls.py",
+   "start_line": 307
+  },
+  "name": "is_absolute_url",
+  "selection_char": 8,
+  "selection_line": 308
+ },
+ {
+  "container": "URL",
+  "kind": "method",
+  "location": {
+   "end_line": 325,
+   "file": "httpx/_urls.py",
+   "start_line": 319
+  },
+  "name": "is_relative_url",
+  "selection_char": 8,
+  "selection_line": 320
+ },
+ {
+  "container": "URL",
+  "kind": "method",
+  "location": {
+   "end_line": 340,
+   "file": "httpx/_urls.py",
+   "start_line": 327
+  },
+  "name": "copy_with",
+  "selection_char": 8,
+  "selection_line": 327
+ },
+ {
+  "container": "URL",
+  "kind": "method",
+  "location": {
+   "end_line": 343,
+   "file": "httpx/_urls.py",
+   "start_line": 342
+  },
+  "name": "copy_set_param",
+  "selection_char": 8,
+  "selection_line": 342
+ },
+ {
+  "container": "URL",
+  "kind": "method",
+  "location": {
+   "end_line": 346,
+   "file": "httpx/_urls.py",
+   "start_line": 345
+  },
+  "name": "copy_add_param",
+  "selection_char": 8,
+  "selection_line": 345
+ },
+ {
+  "container": "URL",
+  "kind": "method",
+  "location": {
+   "end_line": 349,
+   "file": "httpx/_urls.py",
+   "start_line": 348
+  },
+  "name": "copy_remove_param",
+  "selection_char": 8,
+  "selection_line": 348
+ },
+ {
+  "container": "URL",
+  "kind": "method",
+  "location": {
+   "end_line": 352,
+   "file": "httpx/_urls.py",
+   "start_line": 351
+  },
+  "name": "copy_merge_params",
+  "selection_char": 8,
+  "selection_line": 351
+ },
+ {
+  "container": "URL",
+  "kind": "method",
+  "location": {
+   "end_line": 366,
+   "file": "httpx/_urls.py",
+   "start_line": 354
+  },
+  "name": "join",
+  "selection_char": 8,
+  "selection_line": 354
+ },
+ {
+  "container": "URL",
+  "kind": "method",
+  "location": {
+   "end_line": 369,
+   "file": "httpx/_urls.py",
+   "start_line": 368
+  },
+  "name": "__hash__",
+  "selection_char": 8,
+  "selection_line": 368
+ },
+ {
+  "container": "URL",
+  "kind": "method",
+  "location": {
+   "end_line": 372,
+   "file": "httpx/_urls.py",
+   "start_line": 371
+  },
+  "name": "__eq__",
+  "selection_char": 8,
+  "selection_line": 371
+ },
+ {
+  "container": "URL",
+  "kind": "method",
+  "location": {
+   "end_line": 375,
+   "file": "httpx/_urls.py",
+   "start_line": 374
+  },
+  "name": "__str__",
+  "selection_char": 8,
+  "selection_line": 374
+ },
+ {
+  "container": "URL",
+  "kind": "method",
+  "location": {
+   "end_line": 401,
+   "file": "httpx/_urls.py",
+   "start_line": 377
+  },
+  "name": "__repr__",
+  "selection_char": 8,
+  "selection_line": 377
+ },
+ {
+  "container": "URL",
+  "kind": "method",
+  "location": {
+   "end_line": 417,
+   "file": "httpx/_urls.py",
+   "start_line": 403
+  },
+  "name": "raw",
+  "selection_char": 8,
+  "selection_line": 404
+ },
+ {
+  "container": "QueryParams",
+  "kind": "method",
+  "location": {
+   "end_line": 461,
+   "file": "httpx/_urls.py",
+   "start_line": 425
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 425
+ },
+ {
+  "container": "QueryParams",
+  "kind": "method",
+  "location": {
+   "end_line": 472,
+   "file": "httpx/_urls.py",
+   "start_line": 463
+  },
+  "name": "keys",
+  "selection_char": 8,
+  "selection_line": 463
+ },
+ {
+  "container": "QueryParams",
+  "kind": "method",
+  "location": {
+   "end_line": 484,
+   "file": "httpx/_urls.py",
+   "start_line": 474
+  },
+  "name": "values",
+  "selection_char": 8,
+  "selection_line": 474
+ },
+ {
+  "container": "QueryParams",
+  "kind": "method",
+  "location": {
+   "end_line": 496,
+   "file": "httpx/_urls.py",
+   "start_line": 486
+  },
+  "name": "items",
+  "selection_char": 8,
+  "selection_line": 486
+ },
+ {
+  "container": "QueryParams",
+  "kind": "method",
+  "location": {
+   "end_line": 510,
+   "file": "httpx/_urls.py",
+   "start_line": 498
+  },
+  "name": "multi_items",
+  "selection_char": 8,
+  "selection_line": 498
+ },
+ {
+  "container": "QueryParams",
+  "kind": "method",
+  "location": {
+   "end_line": 524,
+   "file": "httpx/_urls.py",
+   "start_line": 512
+  },
+  "name": "get",
+  "selection_char": 8,
+  "selection_line": 512
+ },
+ {
+  "container": "QueryParams",
+  "kind": "method",
+  "location": {
+   "end_line": 535,
+   "file": "httpx/_urls.py",
+   "start_line": 526
+  },
+  "name": "get_list",
+  "selection_char": 8,
+  "selection_line": 526
+ },
+ {
+  "container": "QueryParams",
+  "kind": "method",
+  "location": {
+   "end_line": 550,
+   "file": "httpx/_urls.py",
+   "start_line": 537
+  },
+  "name": "set",
+  "selection_char": 8,
+  "selection_line": 537
+ },
+ {
+  "container": "QueryParams",
+  "kind": "method",
+  "location": {
+   "end_line": 565,
+   "file": "httpx/_urls.py",
+   "start_line": 552
+  },
+  "name": "add",
+  "selection_char": 8,
+  "selection_line": 552
+ },
+ {
+  "container": "QueryParams",
+  "kind": "method",
+  "location": {
+   "end_line": 580,
+   "file": "httpx/_urls.py",
+   "start_line": 567
+  },
+  "name": "remove",
+  "selection_char": 8,
+  "selection_line": 567
+ },
+ {
+  "container": "QueryParams",
+  "kind": "method",
+  "location": {
+   "end_line": 598,
+   "file": "httpx/_urls.py",
+   "start_line": 582
+  },
+  "name": "merge",
+  "selection_char": 8,
+  "selection_line": 582
+ },
+ {
+  "container": "QueryParams",
+  "kind": "method",
+  "location": {
+   "end_line": 601,
+   "file": "httpx/_urls.py",
+   "start_line": 600
+  },
+  "name": "__getitem__",
+  "selection_char": 8,
+  "selection_line": 600
+ },
+ {
+  "container": "QueryParams",
+  "kind": "method",
+  "location": {
+   "end_line": 604,
+   "file": "httpx/_urls.py",
+   "start_line": 603
+  },
+  "name": "__contains__",
+  "selection_char": 8,
+  "selection_line": 603
+ },
+ {
+  "container": "QueryParams",
+  "kind": "method",
+  "location": {
+   "end_line": 607,
+   "file": "httpx/_urls.py",
+   "start_line": 606
+  },
+  "name": "__iter__",
+  "selection_char": 8,
+  "selection_line": 606
+ },
+ {
+  "container": "QueryParams",
+  "kind": "method",
+  "location": {
+   "end_line": 610,
+   "file": "httpx/_urls.py",
+   "start_line": 609
+  },
+  "name": "__len__",
+  "selection_char": 8,
+  "selection_line": 609
+ },
+ {
+  "container": "QueryParams",
+  "kind": "method",
+  "location": {
+   "end_line": 613,
+   "file": "httpx/_urls.py",
+   "start_line": 612
+  },
+  "name": "__bool__",
+  "selection_char": 8,
+  "selection_line": 612
+ },
+ {
+  "container": "QueryParams",
+  "kind": "method",
+  "location": {
+   "end_line": 616,
+   "file": "httpx/_urls.py",
+   "start_line": 615
+  },
+  "name": "__hash__",
+  "selection_char": 8,
+  "selection_line": 615
+ },
+ {
+  "container": "QueryParams",
+  "kind": "method",
+  "location": {
+   "end_line": 621,
+   "file": "httpx/_urls.py",
+   "start_line": 618
+  },
+  "name": "__eq__",
+  "selection_char": 8,
+  "selection_line": 618
+ },
+ {
+  "container": "QueryParams",
+  "kind": "method",
+  "location": {
+   "end_line": 624,
+   "file": "httpx/_urls.py",
+   "start_line": 623
+  },
+  "name": "__str__",
+  "selection_char": 8,
+  "selection_line": 623
+ },
+ {
+  "container": "QueryParams",
+  "kind": "method",
+  "location": {
+   "end_line": 629,
+   "file": "httpx/_urls.py",
+   "start_line": 626
+  },
+  "name": "__repr__",
+  "selection_char": 8,
+  "selection_line": 626
+ },
+ {
+  "container": "QueryParams",
+  "kind": "method",
+  "location": {
+   "end_line": 635,
+   "file": "httpx/_urls.py",
+   "start_line": 631
+  },
+  "name": "update",
+  "selection_char": 8,
+  "selection_line": 631
+ },
+ {
+  "container": "QueryParams",
+  "kind": "method",
+  "location": {
+   "end_line": 641,
+   "file": "httpx/_urls.py",
+   "start_line": 637
+  },
+  "name": "__setitem__",
+  "selection_char": 8,
+  "selection_line": 637
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 27,
+   "file": "httpx/_utils.py",
+   "start_line": 15
+  },
+  "name": "primitive_value_to_str",
+  "selection_char": 4,
+  "selection_line": 15
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 76,
+   "file": "httpx/_utils.py",
+   "start_line": 30
+  },
+  "name": "get_environment_proxies",
+  "selection_char": 4,
+  "selection_line": 30
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 80,
+   "file": "httpx/_utils.py",
+   "start_line": 79
+  },
+  "name": "to_bytes",
+  "selection_char": 4,
+  "selection_line": 79
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 84,
+   "file": "httpx/_utils.py",
+   "start_line": 83
+  },
+  "name": "to_str",
+  "selection_char": 4,
+  "selection_line": 83
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 88,
+   "file": "httpx/_utils.py",
+   "start_line": 87
+  },
+  "name": "to_bytes_or_str",
+  "selection_char": 4,
+  "selection_line": 87
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 92,
+   "file": "httpx/_utils.py",
+   "start_line": 91
+  },
+  "name": "unquote",
+  "selection_char": 4,
+  "selection_line": 91
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 117,
+   "file": "httpx/_utils.py",
+   "start_line": 95
+  },
+  "name": "peek_filelike_length",
+  "selection_char": 4,
+  "selection_line": 95
+ },
+ {
+  "container": "URLPattern",
+  "kind": "method",
+  "location": {
+   "end_line": 190,
+   "file": "httpx/_utils.py",
+   "start_line": 162
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 162
+ },
+ {
+  "container": "URLPattern",
+  "kind": "method",
+  "location": {
+   "end_line": 203,
+   "file": "httpx/_utils.py",
+   "start_line": 192
+  },
+  "name": "matches",
+  "selection_char": 8,
+  "selection_line": 192
+ },
+ {
+  "container": "URLPattern",
+  "kind": "method",
+  "location": {
+   "end_line": 217,
+   "file": "httpx/_utils.py",
+   "start_line": 205
+  },
+  "name": "priority",
+  "selection_char": 8,
+  "selection_line": 206
+ },
+ {
+  "container": "URLPattern",
+  "kind": "method",
+  "location": {
+   "end_line": 220,
+   "file": "httpx/_utils.py",
+   "start_line": 219
+  },
+  "name": "__hash__",
+  "selection_char": 8,
+  "selection_line": 219
+ },
+ {
+  "container": "URLPattern",
+  "kind": "method",
+  "location": {
+   "end_line": 223,
+   "file": "httpx/_utils.py",
+   "start_line": 222
+  },
+  "name": "__lt__",
+  "selection_char": 8,
+  "selection_line": 222
+ },
+ {
+  "container": "URLPattern",
+  "kind": "method",
+  "location": {
+   "end_line": 226,
+   "file": "httpx/_utils.py",
+   "start_line": 225
+  },
+  "name": "__eq__",
+  "selection_char": 8,
+  "selection_line": 225
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 234,
+   "file": "httpx/_utils.py",
+   "start_line": 229
+  },
+  "name": "is_ipv4_hostname",
+  "selection_char": 4,
+  "selection_line": 229
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 242,
+   "file": "httpx/_utils.py",
+   "start_line": 237
+  },
+  "name": "is_ipv6_hostname",
+  "selection_char": 4,
+  "selection_line": 237
+ }
+]

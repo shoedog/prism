@@ -1,3 +1,88 @@
+# Tier-A Baseline — 2026-06-20b (Corpus Anchor Expansion — 3+ valid anchors per language)
+
+Deliberate baseline change: expand from an effective **1 Rust / 1 Go / 0 Python** valid-anchor set to
+**3 Rust / 5 Go / 2 (+1 pending) Python**. Motivation: the prior set leaned on `prism` alone for Rust
+(tokio is oracle-**invalid**) and `caddy` alone for Go, with no committed Python anchor — too thin to trust a
+cross-language regression signal. Oracle (LSP) self-error was measured for every candidate; a corpus is an
+anchor only when its oracle resolves cleanly enough to be ground truth. Harness/config only — **no prism source
+change** (the prism SHA `20c8490591a3` and all M2/M3 call-resolution metrics below carry over unchanged from the
+2026-06-20 anchor that follows). Run records: `2026-06-20-<corpus>.{json,md}`.
+
+## Committed anchor set
+
+| Lang | Anchors (OER) | Floor | Notes |
+|---|---|---|---|
+| Rust | **prism** 0.067 · **ruff** 0.000 · **ripgrep** 0.063 | 0.10 | ruff = astral monorepo (ty's crates); ripgrep = clean app |
+| Go | **caddy** 0.000 · **cobra** 0.000 · **prometheus** 0.000 · **etcd** 0.000 · **zap** 0.025 | 0.10 | all healthy samples (64–80 probes, 180–850 oracle sites) |
+| Python | **black** 0.157 · **httpx** 0.156 | 0.25 | 3rd pending: see mypy below |
+
+Kept but **not** primary anchors: `uv` (Rust, OER 0.000 — **local only**, prism cold-build perf outlier, below);
+`tokio` (Rust, OER 0.219 — macro-density follow-up); `go-redis` (Go, OER 0.000 — valid extra); `typer`
+(Python, OER 0.225 — valid but marginal); `rich` (Python, OER 0.250 — Python 3rd-anchor fallback).
+
+## Validity matrix (all measured candidates, 2026-06-20)
+
+| Corpus | Lang | OER | Verdict |
+|---|---|---|---|
+| ruff, ripgrep, uv | Rust | 0.000 / 0.063 / 0.000 | ✅ (uv local — perf) |
+| prism | Rust | 0.067 | ✅ anchor |
+| tokio | Rust | 0.219 | ❌ macro density |
+| clap, axum | Rust | — | ⚠️ `oracle_unsupported`: rust-analyzer **false-quiescence** (returns before derive/macro expansion finishes at `settle_s=5`); retry lever `settle_s=20` set |
+| caddy, cobra, prometheus, etcd, go-redis | Go | 0.000 | ✅ |
+| zap | Go | 0.025 | ✅ anchor |
+| gin | Go | 0.125 | ❌ (just over floor; small sample) |
+| hugo | Go | 0.175 | ❌ interface/reflection-heavy |
+| black, httpx | Python | 0.157 / 0.156 | ✅ anchor |
+| mypy | Python | **0.163 (oracle clean)** | ❌ as anchor — **prism stack-overflows** building its CPG (`sut_error 0.84`); see bug below |
+| typer | Python | 0.225 | ✅ valid (marginal) |
+| rich | Python | 0.250 | ✅ at-floor (fallback) |
+| fastapi, starlette | Python | 0.344 | ❌ dynamic frameworks |
+| flask, click, packaging, pydantic | Python | 0.31–0.38 | ❌ dynamic/codegen-heavy |
+
+## Oracle findings
+
+- **No "cleaner pyright" exists.** `zuban` 0.8.2 does **not** implement `callHierarchy` (absent from `initialize`
+  capabilities; `prepareCallHierarchy` → `-32601 unknown request`) → cannot serve M2 (callers/callees) at all.
+  `basedpyright` 1.39.8 *does* support callHierarchy but is **metric-identical to pyright** (black +0.014, else
+  exactly equal across httpx/rich/flask/click) — it shares pyright's inference + callHierarchy engine, so it
+  inherits the same dynamic-Python blind spots. pyright stays the Python oracle.
+- **Floor calibration is honest, not loose.** Typed Python libraries cluster at OER ~0.15–0.16 (black, httpx);
+  everything decorator/dynamic-heavy sits ≥0.22 (typer 0.225 → flask/fastapi/starlette 0.31–0.34). gopls
+  resolves concrete-typed Go cleanly (0.00) but misses idiomatic interface dispatch (gin 0.125, hugo 0.175) —
+  the Go analogue of pyright's dynamic-Python miss.
+
+## prism analysis timing (answers "is prism the slow part?" — no)
+
+`prism nav repo-map --no-cache` = full call/module-graph build (the real per-corpus analyze cost). prism builds
+every corpus in **seconds**; the multi-minute Tier-A runs are **rust-analyzer/gopls (the oracle) indexing**, not
+prism (e.g. ruff: prism 24.4s cold vs oracle `oracle_start 53s + m1 63s + m2 168s ≈ 4.75min`).
+
+| corpus | prism cold | warm | | corpus | prism cold | warm |
+|---|---|---|---|---|---|---|
+| prism | 11.0s | 1.8s | | ruff | 24.4s | 2.3s |
+| tokio | 4.7s | 1.6s | | ripgrep | 5.8s | 0.5s |
+| **uv** | **66.7s** ⚠️ | 14.8s | | hugo | 10.4s | 0.9s |
+| caddy | 2.0s | 0.3s | | black/httpx | 2.8s / 0.6s | — |
+
+**Perf lead: `uv` is a prism outlier** — 66.7s cold / 14.8s warm, ~7× slower per-file than ruff (which is 3×
+larger). Kept local for investigation (pathological files / dense module graph suspected).
+
+## prism bug surfaced (Python 3rd-anchor blocker)
+
+**prism stack-overflows building mypy's CPG**: `thread '<unknown>' has overflowed its stack; fatal runtime error:
+stack overflow, aborting` → 84% `sut_error`. mypy's deeply-recursive type-checker code blows prism's traversal
+stack (likely unbounded recursion in the Python CPG path). mypy's *oracle* is clean (0.163), so fixing this
+unlocks mypy as the comfortable Python 3rd anchor. **Decision: fix the overflow; `rich` (0.250) is the fallback.**
+
+## Harness changes (this expansion)
+
+- `--oracle <name>` override (writes outputs under `<corpus>-<oracle>` so comparison runs don't clobber anchors)
+  + `basedpyright` registered in `make_oracle` — used for the zuban/basedpyright comparison above.
+- per-corpus `quiescence_cap_s` / `settle_s` (cfg takes precedence over `[defaults]`) — large workspaces get
+  600s indexing patience; clap/axum carry `settle_s=20` as the false-quiescence retry lever.
+
+---
+
 # Tier-A Baseline — 2026-06-20 (the perf-arc + field-sensitivity + Phase-2/3 + taint_reaches anchor)
 
 Human-triggered `uv run tier-a --corpus all` on **prism @ `20c8490591a3`** — post the merged 2026-06-19/20

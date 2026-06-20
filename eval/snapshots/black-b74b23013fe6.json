@@ -1,0 +1,7250 @@
+[
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 48,
+   "file": "action/main.py",
+   "start_line": 29
+  },
+  "name": "determine_version_specifier",
+  "selection_char": 4,
+  "selection_line": 29
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 99,
+   "file": "action/main.py",
+   "start_line": 51
+  },
+  "name": "read_version_specifier_from_pyproject",
+  "selection_char": 4,
+  "selection_line": 51
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 123,
+   "file": "action/main.py",
+   "start_line": 102
+  },
+  "name": "find_black_version_in_array",
+  "selection_char": 4,
+  "selection_line": 102
+ },
+ {
+  "container": "WriteBack",
+  "kind": "method",
+  "location": {
+   "end_line": 109,
+   "file": "src/black/__init__.py",
+   "start_line": 99
+  },
+  "name": "from_configuration",
+  "selection_char": 8,
+  "selection_line": 100
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 178,
+   "file": "src/black/__init__.py",
+   "start_line": 116
+  },
+  "name": "read_pyproject_toml",
+  "selection_char": 4,
+  "selection_line": 116
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 192,
+   "file": "src/black/__init__.py",
+   "start_line": 181
+  },
+  "name": "spellcheck_pyproject_toml_keys",
+  "selection_char": 4,
+  "selection_line": 181
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 203,
+   "file": "src/black/__init__.py",
+   "start_line": 195
+  },
+  "name": "target_version_option_callback",
+  "selection_char": 4,
+  "selection_line": 195
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 218,
+   "file": "src/black/__init__.py",
+   "start_line": 206
+  },
+  "name": "_target_versions_exceed_runtime",
+  "selection_char": 4,
+  "selection_line": 206
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 230,
+   "file": "src/black/__init__.py",
+   "start_line": 221
+  },
+  "name": "_version_mismatch_message",
+  "selection_char": 4,
+  "selection_line": 221
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 237,
+   "file": "src/black/__init__.py",
+   "start_line": 233
+  },
+  "name": "enable_unstable_feature_callback",
+  "selection_char": 4,
+  "selection_line": 233
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 248,
+   "file": "src/black/__init__.py",
+   "start_line": 240
+  },
+  "name": "re_compile_maybe_verbose",
+  "selection_char": 4,
+  "selection_line": 240
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 259,
+   "file": "src/black/__init__.py",
+   "start_line": 251
+  },
+  "name": "validate_regex",
+  "selection_char": 4,
+  "selection_line": 251
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 766,
+   "file": "src/black/__init__.py",
+   "start_line": 262
+  },
+  "name": "main",
+  "selection_char": 4,
+  "selection_line": 544
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 864,
+   "file": "src/black/__init__.py",
+   "start_line": 769
+  },
+  "name": "get_sources",
+  "selection_char": 4,
+  "selection_line": 769
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 894,
+   "file": "src/black/__init__.py",
+   "start_line": 867
+  },
+  "name": "reformat_code",
+  "selection_char": 4,
+  "selection_line": 867
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 958,
+   "file": "src/black/__init__.py",
+   "start_line": 899
+  },
+  "name": "reformat_one",
+  "selection_char": 4,
+  "selection_line": 900
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1026,
+   "file": "src/black/__init__.py",
+   "start_line": 961
+  },
+  "name": "format_file_in_place",
+  "selection_char": 4,
+  "selection_line": 961
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1078,
+   "file": "src/black/__init__.py",
+   "start_line": 1029
+  },
+  "name": "format_stdin_to_stdout",
+  "selection_char": 4,
+  "selection_line": 1029
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1105,
+   "file": "src/black/__init__.py",
+   "start_line": 1081
+  },
+  "name": "check_stability_and_equivalence",
+  "selection_char": 4,
+  "selection_line": 1081
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1133,
+   "file": "src/black/__init__.py",
+   "start_line": 1108
+  },
+  "name": "format_file_contents",
+  "selection_char": 4,
+  "selection_line": 1108
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1170,
+   "file": "src/black/__init__.py",
+   "start_line": 1136
+  },
+  "name": "format_cell",
+  "selection_char": 4,
+  "selection_line": 1136
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1182,
+   "file": "src/black/__init__.py",
+   "start_line": 1173
+  },
+  "name": "validate_metadata",
+  "selection_char": 4,
+  "selection_line": 1173
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1214,
+   "file": "src/black/__init__.py",
+   "start_line": 1185
+  },
+  "name": "format_ipynb_string",
+  "selection_char": 4,
+  "selection_line": 1185
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1261,
+   "file": "src/black/__init__.py",
+   "start_line": 1217
+  },
+  "name": "format_str",
+  "selection_char": 4,
+  "selection_line": 1217
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1324,
+   "file": "src/black/__init__.py",
+   "start_line": 1264
+  },
+  "name": "_format_str_once",
+  "selection_char": 4,
+  "selection_line": 1264
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1367,
+   "file": "src/black/__init__.py",
+   "start_line": 1327
+  },
+  "name": "decode_bytes",
+  "selection_char": 4,
+  "selection_line": 1327
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1537,
+   "file": "src/black/__init__.py",
+   "start_line": 1370
+  },
+  "name": "get_features_used",
+  "selection_char": 4,
+  "selection_line": 1370
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1550,
+   "file": "src/black/__init__.py",
+   "start_line": 1540
+  },
+  "name": "is_unpacking_comprehension",
+  "selection_char": 4,
+  "selection_line": 1540
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1566,
+   "file": "src/black/__init__.py",
+   "start_line": 1553
+  },
+  "name": "_contains_asexpr",
+  "selection_char": 4,
+  "selection_line": 1553
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1576,
+   "file": "src/black/__init__.py",
+   "start_line": 1569
+  },
+  "name": "detect_target_versions",
+  "selection_char": 4,
+  "selection_line": 1569
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1629,
+   "file": "src/black/__init__.py",
+   "start_line": 1579
+  },
+  "name": "get_future_imports",
+  "selection_char": 4,
+  "selection_line": 1579
+ },
+ {
+  "container": "get_future_imports",
+  "kind": "function",
+  "location": {
+   "end_line": 1599,
+   "file": "src/black/__init__.py",
+   "start_line": 1583
+  },
+  "name": "get_imports_from_children",
+  "selection_char": 8,
+  "selection_line": 1583
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1636,
+   "file": "src/black/__init__.py",
+   "start_line": 1632
+  },
+  "name": "_black_info",
+  "selection_char": 4,
+  "selection_line": 1632
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1669,
+   "file": "src/black/__init__.py",
+   "start_line": 1639
+  },
+  "name": "assert_equivalent",
+  "selection_char": 4,
+  "selection_line": 1639
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1697,
+   "file": "src/black/__init__.py",
+   "start_line": 1672
+  },
+  "name": "assert_stable",
+  "selection_char": 4,
+  "selection_line": 1672
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1708,
+   "file": "src/black/__init__.py",
+   "start_line": 1700
+  },
+  "name": "patched_main",
+  "selection_char": 4,
+  "selection_line": 1700
+ },
+ {
+  "container": "BracketTracker",
+  "kind": "method",
+  "location": {
+   "end_line": 129,
+   "file": "src/black/brackets.py",
+   "start_line": 71
+  },
+  "name": "mark",
+  "selection_char": 8,
+  "selection_line": 71
+ },
+ {
+  "container": "BracketTracker",
+  "kind": "method",
+  "location": {
+   "end_line": 136,
+   "file": "src/black/brackets.py",
+   "start_line": 131
+  },
+  "name": "any_open_for_or_lambda",
+  "selection_char": 8,
+  "selection_line": 131
+ },
+ {
+  "container": "BracketTracker",
+  "kind": "method",
+  "location": {
+   "end_line": 140,
+   "file": "src/black/brackets.py",
+   "start_line": 138
+  },
+  "name": "any_open_brackets",
+  "selection_char": 8,
+  "selection_line": 138
+ },
+ {
+  "container": "BracketTracker",
+  "kind": "method",
+  "location": {
+   "end_line": 148,
+   "file": "src/black/brackets.py",
+   "start_line": 142
+  },
+  "name": "max_delimiter_priority",
+  "selection_char": 8,
+  "selection_line": 142
+ },
+ {
+  "container": "BracketTracker",
+  "kind": "method",
+  "location": {
+   "end_line": 159,
+   "file": "src/black/brackets.py",
+   "start_line": 150
+  },
+  "name": "delimiter_count_with_priority",
+  "selection_char": 8,
+  "selection_line": 150
+ },
+ {
+  "container": "BracketTracker",
+  "kind": "method",
+  "location": {
+   "end_line": 172,
+   "file": "src/black/brackets.py",
+   "start_line": 161
+  },
+  "name": "maybe_increment_for_loop_variable",
+  "selection_char": 8,
+  "selection_line": 161
+ },
+ {
+  "container": "BracketTracker",
+  "kind": "method",
+  "location": {
+   "end_line": 186,
+   "file": "src/black/brackets.py",
+   "start_line": 174
+  },
+  "name": "maybe_decrement_after_for_loop_variable",
+  "selection_char": 8,
+  "selection_line": 174
+ },
+ {
+  "container": "BracketTracker",
+  "kind": "method",
+  "location": {
+   "end_line": 199,
+   "file": "src/black/brackets.py",
+   "start_line": 188
+  },
+  "name": "maybe_increment_lambda_arguments",
+  "selection_char": 8,
+  "selection_line": 188
+ },
+ {
+  "container": "BracketTracker",
+  "kind": "method",
+  "location": {
+   "end_line": 212,
+   "file": "src/black/brackets.py",
+   "start_line": 201
+  },
+  "name": "maybe_decrement_after_lambda_arguments",
+  "selection_char": 8,
+  "selection_line": 201
+ },
+ {
+  "container": "BracketTracker",
+  "kind": "method",
+  "location": {
+   "end_line": 216,
+   "file": "src/black/brackets.py",
+   "start_line": 214
+  },
+  "name": "get_open_lsqb",
+  "selection_char": 8,
+  "selection_line": 214
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 241,
+   "file": "src/black/brackets.py",
+   "start_line": 219
+  },
+  "name": "is_split_after_delimiter",
+  "selection_char": 4,
+  "selection_line": 219
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 337,
+   "file": "src/black/brackets.py",
+   "start_line": 244
+  },
+  "name": "is_split_before_delimiter",
+  "selection_char": 4,
+  "selection_line": 244
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 361,
+   "file": "src/black/brackets.py",
+   "start_line": 340
+  },
+  "name": "max_delimiter_priority_in_atom",
+  "selection_char": 4,
+  "selection_line": 340
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 391,
+   "file": "src/black/brackets.py",
+   "start_line": 364
+  },
+  "name": "_top_level_leaves",
+  "selection_char": 4,
+  "selection_line": 364
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 420,
+   "file": "src/black/brackets.py",
+   "start_line": 394
+  },
+  "name": "get_leaves_inside_matching_brackets",
+  "selection_char": 4,
+  "selection_line": 394
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 45,
+   "file": "src/black/cache.py",
+   "start_line": 31
+  },
+  "name": "get_cache_dir",
+  "selection_char": 4,
+  "selection_line": 31
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 52,
+   "file": "src/black/cache.py",
+   "start_line": 51
+  },
+  "name": "get_cache_file",
+  "selection_char": 4,
+  "selection_line": 51
+ },
+ {
+  "container": "Cache",
+  "kind": "method",
+  "location": {
+   "end_line": 85,
+   "file": "src/black/cache.py",
+   "start_line": 61
+  },
+  "name": "read",
+  "selection_char": 8,
+  "selection_line": 62
+ },
+ {
+  "container": "Cache",
+  "kind": "method",
+  "location": {
+   "end_line": 92,
+   "file": "src/black/cache.py",
+   "start_line": 87
+  },
+  "name": "hash_digest",
+  "selection_char": 8,
+  "selection_line": 88
+ },
+ {
+  "container": "Cache",
+  "kind": "method",
+  "location": {
+   "end_line": 100,
+   "file": "src/black/cache.py",
+   "start_line": 94
+  },
+  "name": "get_file_data",
+  "selection_char": 8,
+  "selection_line": 95
+ },
+ {
+  "container": "Cache",
+  "kind": "method",
+  "location": {
+   "end_line": 116,
+   "file": "src/black/cache.py",
+   "start_line": 102
+  },
+  "name": "is_changed",
+  "selection_char": 8,
+  "selection_line": 102
+ },
+ {
+  "container": "Cache",
+  "kind": "method",
+  "location": {
+   "end_line": 131,
+   "file": "src/black/cache.py",
+   "start_line": 118
+  },
+  "name": "filtered_cached",
+  "selection_char": 8,
+  "selection_line": 118
+ },
+ {
+  "container": "Cache",
+  "kind": "method",
+  "location": {
+   "end_line": 150,
+   "file": "src/black/cache.py",
+   "start_line": 133
+  },
+  "name": "write",
+  "selection_char": 8,
+  "selection_line": 133
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 86,
+   "file": "src/black/comments.py",
+   "start_line": 60
+  },
+  "name": "generate_comments",
+  "selection_char": 4,
+  "selection_line": 60
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 134,
+   "file": "src/black/comments.py",
+   "start_line": 89
+  },
+  "name": "list_comments",
+  "selection_char": 4,
+  "selection_line": 90
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 149,
+   "file": "src/black/comments.py",
+   "start_line": 137
+  },
+  "name": "normalize_trailing_prefix",
+  "selection_char": 4,
+  "selection_line": 137
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 189,
+   "file": "src/black/comments.py",
+   "start_line": 152
+  },
+  "name": "make_comment",
+  "selection_char": 4,
+  "selection_line": 152
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 203,
+   "file": "src/black/comments.py",
+   "start_line": 192
+  },
+  "name": "normalize_fmt_off",
+  "selection_char": 4,
+  "selection_line": 192
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 223,
+   "file": "src/black/comments.py",
+   "start_line": 206
+  },
+  "name": "_should_process_fmt_comment",
+  "selection_char": 4,
+  "selection_line": 206
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 247,
+   "file": "src/black/comments.py",
+   "start_line": 226
+  },
+  "name": "_is_valid_standalone_fmt_comment",
+  "selection_char": 4,
+  "selection_line": 226
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 336,
+   "file": "src/black/comments.py",
+   "start_line": 250
+  },
+  "name": "_handle_comment_only_fmt_block",
+  "selection_char": 4,
+  "selection_line": 250
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 407,
+   "file": "src/black/comments.py",
+   "start_line": 339
+  },
+  "name": "convert_one_fmt_off_pair",
+  "selection_char": 4,
+  "selection_line": 339
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 417,
+   "file": "src/black/comments.py",
+   "start_line": 410
+  },
+  "name": "_is_attached",
+  "selection_char": 4,
+  "selection_line": 410
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 525,
+   "file": "src/black/comments.py",
+   "start_line": 420
+  },
+  "name": "_handle_regular_fmt_block",
+  "selection_char": 4,
+  "selection_line": 420
+ },
+ {
+  "container": "_handle_regular_fmt_block",
+  "kind": "function",
+  "location": {
+   "end_line": 469,
+   "file": "src/black/comments.py",
+   "start_line": 459
+  },
+  "name": "stringify_node",
+  "selection_char": 20,
+  "selection_line": 459
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 574,
+   "file": "src/black/comments.py",
+   "start_line": 528
+  },
+  "name": "generate_ignored_nodes",
+  "selection_char": 4,
+  "selection_line": 528
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 615,
+   "file": "src/black/comments.py",
+   "start_line": 577
+  },
+  "name": "_find_compound_statement_context",
+  "selection_char": 4,
+  "selection_line": 577
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 641,
+   "file": "src/black/comments.py",
+   "start_line": 618
+  },
+  "name": "_should_keep_compound_statement_inline",
+  "selection_char": 4,
+  "selection_line": 618
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 666,
+   "file": "src/black/comments.py",
+   "start_line": 644
+  },
+  "name": "_get_compound_statement_header",
+  "selection_char": 4,
+  "selection_line": 644
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 677,
+   "file": "src/black/comments.py",
+   "start_line": 669
+  },
+  "name": "_find_closest_previous_sibling",
+  "selection_char": 4,
+  "selection_line": 669
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 848,
+   "file": "src/black/comments.py",
+   "start_line": 680
+  },
+  "name": "_generate_ignored_nodes_from_fmt_skip",
+  "selection_char": 4,
+  "selection_line": 680
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 861,
+   "file": "src/black/comments.py",
+   "start_line": 851
+  },
+  "name": "is_fmt_on",
+  "selection_char": 4,
+  "selection_line": 851
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 871,
+   "file": "src/black/comments.py",
+   "start_line": 864
+  },
+  "name": "children_contains_fmt_on",
+  "selection_char": 4,
+  "selection_line": 864
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 885,
+   "file": "src/black/comments.py",
+   "start_line": 874
+  },
+  "name": "contains_pragma_comment",
+  "selection_char": 4,
+  "selection_line": 874
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 917,
+   "file": "src/black/comments.py",
+   "start_line": 888
+  },
+  "name": "contains_fmt_directive",
+  "selection_char": 4,
+  "selection_line": 888
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 47,
+   "file": "src/black/concurrency.py",
+   "start_line": 30
+  },
+  "name": "maybe_use_uvloop",
+  "selection_char": 4,
+  "selection_line": 30
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 54,
+   "file": "src/black/concurrency.py",
+   "start_line": 50
+  },
+  "name": "cancel",
+  "selection_char": 4,
+  "selection_line": 50
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 74,
+   "file": "src/black/concurrency.py",
+   "start_line": 57
+  },
+  "name": "shutdown",
+  "selection_char": 4,
+  "selection_line": 57
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 139,
+   "file": "src/black/concurrency.py",
+   "start_line": 79
+  },
+  "name": "reformat_many",
+  "selection_char": 4,
+  "selection_line": 80
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 221,
+   "file": "src/black/concurrency.py",
+   "start_line": 142
+  },
+  "name": "schedule_formatting",
+  "selection_char": 10,
+  "selection_line": 142
+ },
+ {
+  "container": "DebugVisitor",
+  "kind": "method",
+  "location": {
+   "end_line": 24,
+   "file": "src/black/debug.py",
+   "start_line": 21
+  },
+  "name": "out",
+  "selection_char": 8,
+  "selection_line": 21
+ },
+ {
+  "container": "DebugVisitor",
+  "kind": "method",
+  "location": {
+   "end_line": 44,
+   "file": "src/black/debug.py",
+   "start_line": 26
+  },
+  "name": "visit_default",
+  "selection_char": 8,
+  "selection_line": 26
+ },
+ {
+  "container": "DebugVisitor",
+  "kind": "method",
+  "location": {
+   "end_line": 55,
+   "file": "src/black/debug.py",
+   "start_line": 46
+  },
+  "name": "show",
+  "selection_char": 8,
+  "selection_line": 47
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 38,
+   "file": "src/black/files.py",
+   "start_line": 35
+  },
+  "name": "_load_toml",
+  "selection_char": 4,
+  "selection_line": 36
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 43,
+   "file": "src/black/files.py",
+   "start_line": 41
+  },
+  "name": "_cached_resolve",
+  "selection_char": 4,
+  "selection_line": 42
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 74,
+   "file": "src/black/files.py",
+   "start_line": 46
+  },
+  "name": "find_project_root",
+  "selection_char": 4,
+  "selection_line": 46
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 104,
+   "file": "src/black/files.py",
+   "start_line": 77
+  },
+  "name": "_find_project_root_cached",
+  "selection_char": 4,
+  "selection_line": 78
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 126,
+   "file": "src/black/files.py",
+   "start_line": 107
+  },
+  "name": "find_pyproject_toml",
+  "selection_char": 4,
+  "selection_line": 107
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 144,
+   "file": "src/black/files.py",
+   "start_line": 129
+  },
+  "name": "parse_pyproject_toml",
+  "selection_char": 4,
+  "selection_line": 130
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 169,
+   "file": "src/black/files.py",
+   "start_line": 147
+  },
+  "name": "infer_target_version",
+  "selection_char": 4,
+  "selection_line": 147
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 184,
+   "file": "src/black/files.py",
+   "start_line": 172
+  },
+  "name": "parse_req_python_version",
+  "selection_char": 4,
+  "selection_line": 172
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 201,
+   "file": "src/black/files.py",
+   "start_line": 187
+  },
+  "name": "parse_req_python_specifier",
+  "selection_char": 4,
+  "selection_line": 187
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 226,
+   "file": "src/black/files.py",
+   "start_line": 204
+  },
+  "name": "strip_specifier_set",
+  "selection_char": 4,
+  "selection_line": 204
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 246,
+   "file": "src/black/files.py",
+   "start_line": 229
+  },
+  "name": "find_user_pyproject_toml",
+  "selection_char": 4,
+  "selection_line": 230
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 261,
+   "file": "src/black/files.py",
+   "start_line": 249
+  },
+  "name": "get_gitignore",
+  "selection_char": 4,
+  "selection_line": 250
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 285,
+   "file": "src/black/files.py",
+   "start_line": 264
+  },
+  "name": "resolves_outside_root_or_cannot_stat",
+  "selection_char": 4,
+  "selection_line": 264
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 298,
+   "file": "src/black/files.py",
+   "start_line": 288
+  },
+  "name": "best_effort_relative_path",
+  "selection_char": 4,
+  "selection_line": 288
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 318,
+   "file": "src/black/files.py",
+   "start_line": 301
+  },
+  "name": "_path_is_ignored",
+  "selection_char": 4,
+  "selection_line": 301
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 326,
+   "file": "src/black/files.py",
+   "start_line": 321
+  },
+  "name": "path_is_excluded",
+  "selection_char": 4,
+  "selection_line": 321
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 415,
+   "file": "src/black/files.py",
+   "start_line": 329
+  },
+  "name": "gen_python_files",
+  "selection_char": 4,
+  "selection_line": 329
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 435,
+   "file": "src/black/files.py",
+   "start_line": 418
+  },
+  "name": "wrap_stream_for_windows",
+  "selection_char": 4,
+  "selection_line": 418
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 61,
+   "file": "src/black/handle_ipynb_magics.py",
+   "start_line": 50
+  },
+  "name": "jupyter_dependencies_are_installed",
+  "selection_char": 4,
+  "selection_line": 51
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 89,
+   "file": "src/black/handle_ipynb_magics.py",
+   "start_line": 64
+  },
+  "name": "validate_cell",
+  "selection_char": 4,
+  "selection_line": 64
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 121,
+   "file": "src/black/handle_ipynb_magics.py",
+   "start_line": 92
+  },
+  "name": "remove_trailing_semicolon",
+  "selection_char": 4,
+  "selection_line": 92
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 145,
+   "file": "src/black/handle_ipynb_magics.py",
+   "start_line": 124
+  },
+  "name": "put_trailing_semicolon_back",
+  "selection_char": 4,
+  "selection_line": 124
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 187,
+   "file": "src/black/handle_ipynb_magics.py",
+   "start_line": 148
+  },
+  "name": "mask_cell",
+  "selection_char": 4,
+  "selection_line": 148
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 206,
+   "file": "src/black/handle_ipynb_magics.py",
+   "start_line": 190
+  },
+  "name": "create_token",
+  "selection_char": 4,
+  "selection_line": 190
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 230,
+   "file": "src/black/handle_ipynb_magics.py",
+   "start_line": 209
+  },
+  "name": "get_token",
+  "selection_char": 4,
+  "selection_line": 209
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 261,
+   "file": "src/black/handle_ipynb_magics.py",
+   "start_line": 233
+  },
+  "name": "replace_cell_magics",
+  "selection_char": 4,
+  "selection_line": 233
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 304,
+   "file": "src/black/handle_ipynb_magics.py",
+   "start_line": 264
+  },
+  "name": "replace_magics",
+  "selection_char": 4,
+  "selection_line": 264
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 324,
+   "file": "src/black/handle_ipynb_magics.py",
+   "start_line": 307
+  },
+  "name": "unmask_cell",
+  "selection_char": 4,
+  "selection_line": 307
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 339,
+   "file": "src/black/handle_ipynb_magics.py",
+   "start_line": 327
+  },
+  "name": "_get_code_start",
+  "selection_char": 4,
+  "selection_line": 327
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 354,
+   "file": "src/black/handle_ipynb_magics.py",
+   "start_line": 342
+  },
+  "name": "_is_ipython_magic",
+  "selection_char": 4,
+  "selection_line": 342
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 362,
+   "file": "src/black/handle_ipynb_magics.py",
+   "start_line": 357
+  },
+  "name": "_get_str_args",
+  "selection_char": 4,
+  "selection_line": 357
+ },
+ {
+  "container": "CellMagic",
+  "kind": "method",
+  "location": {
+   "end_line": 375,
+   "file": "src/black/handle_ipynb_magics.py",
+   "start_line": 371
+  },
+  "name": "header",
+  "selection_char": 8,
+  "selection_line": 372
+ },
+ {
+  "container": "CellMagicFinder",
+  "kind": "method",
+  "location": {
+   "end_line": 399,
+   "file": "src/black/handle_ipynb_magics.py",
+   "start_line": 398
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 398
+ },
+ {
+  "container": "CellMagicFinder",
+  "kind": "method",
+  "location": {
+   "end_line": 410,
+   "file": "src/black/handle_ipynb_magics.py",
+   "start_line": 401
+  },
+  "name": "visit_Expr",
+  "selection_char": 8,
+  "selection_line": 401
+ },
+ {
+  "container": "MagicFinder",
+  "kind": "method",
+  "location": {
+   "end_line": 441,
+   "file": "src/black/handle_ipynb_magics.py",
+   "start_line": 440
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 440
+ },
+ {
+  "container": "MagicFinder",
+  "kind": "method",
+  "location": {
+   "end_line": 474,
+   "file": "src/black/handle_ipynb_magics.py",
+   "start_line": 443
+  },
+  "name": "visit_Assign",
+  "selection_char": 8,
+  "selection_line": 443
+ },
+ {
+  "container": "MagicFinder",
+  "kind": "method",
+  "location": {
+   "end_line": 515,
+   "file": "src/black/handle_ipynb_magics.py",
+   "start_line": 476
+  },
+  "name": "visit_Expr",
+  "selection_char": 8,
+  "selection_line": 476
+ },
+ {
+  "container": "LineGenerator",
+  "kind": "method",
+  "location": {
+   "end_line": 120,
+   "file": "src/black/linegen.py",
+   "start_line": 116
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 116
+ },
+ {
+  "container": "LineGenerator",
+  "kind": "method",
+  "location": {
+   "end_line": 145,
+   "file": "src/black/linegen.py",
+   "start_line": 122
+  },
+  "name": "line",
+  "selection_char": 8,
+  "selection_line": 122
+ },
+ {
+  "container": "LineGenerator",
+  "kind": "method",
+  "location": {
+   "end_line": 171,
+   "file": "src/black/linegen.py",
+   "start_line": 147
+  },
+  "name": "visit_default",
+  "selection_char": 8,
+  "selection_line": 147
+ },
+ {
+  "container": "LineGenerator",
+  "kind": "method",
+  "location": {
+   "end_line": 190,
+   "file": "src/black/linegen.py",
+   "start_line": 173
+  },
+  "name": "visit_test",
+  "selection_char": 8,
+  "selection_line": 173
+ },
+ {
+  "container": "LineGenerator",
+  "kind": "method",
+  "location": {
+   "end_line": 196,
+   "file": "src/black/linegen.py",
+   "start_line": 192
+  },
+  "name": "visit_INDENT",
+  "selection_char": 8,
+  "selection_line": 192
+ },
+ {
+  "container": "LineGenerator",
+  "kind": "method",
+  "location": {
+   "end_line": 210,
+   "file": "src/black/linegen.py",
+   "start_line": 198
+  },
+  "name": "visit_DEDENT",
+  "selection_char": 8,
+  "selection_line": 198
+ },
+ {
+  "container": "LineGenerator",
+  "kind": "method",
+  "location": {
+   "end_line": 233,
+   "file": "src/black/linegen.py",
+   "start_line": 212
+  },
+  "name": "visit_stmt",
+  "selection_char": 8,
+  "selection_line": 212
+ },
+ {
+  "container": "LineGenerator",
+  "kind": "method",
+  "location": {
+   "end_line": 237,
+   "file": "src/black/linegen.py",
+   "start_line": 235
+  },
+  "name": "visit_typeparams",
+  "selection_char": 8,
+  "selection_line": 235
+ },
+ {
+  "container": "LineGenerator",
+  "kind": "method",
+  "location": {
+   "end_line": 241,
+   "file": "src/black/linegen.py",
+   "start_line": 239
+  },
+  "name": "visit_typevartuple",
+  "selection_char": 8,
+  "selection_line": 239
+ },
+ {
+  "container": "LineGenerator",
+  "kind": "method",
+  "location": {
+   "end_line": 245,
+   "file": "src/black/linegen.py",
+   "start_line": 243
+  },
+  "name": "visit_paramspec",
+  "selection_char": 8,
+  "selection_line": 243
+ },
+ {
+  "container": "LineGenerator",
+  "kind": "method",
+  "location": {
+   "end_line": 267,
+   "file": "src/black/linegen.py",
+   "start_line": 247
+  },
+  "name": "visit_dictsetmaker",
+  "selection_char": 8,
+  "selection_line": 247
+ },
+ {
+  "container": "LineGenerator",
+  "kind": "method",
+  "location": {
+   "end_line": 293,
+   "file": "src/black/linegen.py",
+   "start_line": 269
+  },
+  "name": "visit_funcdef",
+  "selection_char": 8,
+  "selection_line": 269
+ },
+ {
+  "container": "LineGenerator",
+  "kind": "method",
+  "location": {
+   "end_line": 303,
+   "file": "src/black/linegen.py",
+   "start_line": 295
+  },
+  "name": "visit_match_case",
+  "selection_char": 8,
+  "selection_line": 295
+ },
+ {
+  "container": "LineGenerator",
+  "kind": "method",
+  "location": {
+   "end_line": 310,
+   "file": "src/black/linegen.py",
+   "start_line": 305
+  },
+  "name": "visit_suite",
+  "selection_char": 8,
+  "selection_line": 305
+ },
+ {
+  "container": "LineGenerator",
+  "kind": "method",
+  "location": {
+   "end_line": 334,
+   "file": "src/black/linegen.py",
+   "start_line": 312
+  },
+  "name": "visit_simple_stmt",
+  "selection_char": 8,
+  "selection_line": 312
+ },
+ {
+  "container": "LineGenerator",
+  "kind": "method",
+  "location": {
+   "end_line": 350,
+   "file": "src/black/linegen.py",
+   "start_line": 336
+  },
+  "name": "visit_async_stmt",
+  "selection_char": 8,
+  "selection_line": 336
+ },
+ {
+  "container": "LineGenerator",
+  "kind": "method",
+  "location": {
+   "end_line": 356,
+   "file": "src/black/linegen.py",
+   "start_line": 352
+  },
+  "name": "visit_decorators",
+  "selection_char": 8,
+  "selection_line": 352
+ },
+ {
+  "container": "LineGenerator",
+  "kind": "method",
+  "location": {
+   "end_line": 380,
+   "file": "src/black/linegen.py",
+   "start_line": 358
+  },
+  "name": "visit_power",
+  "selection_char": 8,
+  "selection_line": 358
+ },
+ {
+  "container": "LineGenerator",
+  "kind": "method",
+  "location": {
+   "end_line": 384,
+   "file": "src/black/linegen.py",
+   "start_line": 382
+  },
+  "name": "visit_SEMI",
+  "selection_char": 8,
+  "selection_line": 382
+ },
+ {
+  "container": "LineGenerator",
+  "kind": "method",
+  "location": {
+   "end_line": 389,
+   "file": "src/black/linegen.py",
+   "start_line": 386
+  },
+  "name": "visit_ENDMARKER",
+  "selection_char": 8,
+  "selection_line": 386
+ },
+ {
+  "container": "LineGenerator",
+  "kind": "method",
+  "location": {
+   "end_line": 432,
+   "file": "src/black/linegen.py",
+   "start_line": 391
+  },
+  "name": "visit_STANDALONE_COMMENT",
+  "selection_char": 8,
+  "selection_line": 391
+ },
+ {
+  "container": "LineGenerator",
+  "kind": "method",
+  "location": {
+   "end_line": 449,
+   "file": "src/black/linegen.py",
+   "start_line": 434
+  },
+  "name": "visit_factor",
+  "selection_char": 8,
+  "selection_line": 434
+ },
+ {
+  "container": "LineGenerator",
+  "kind": "method",
+  "location": {
+   "end_line": 467,
+   "file": "src/black/linegen.py",
+   "start_line": 451
+  },
+  "name": "visit_tname",
+  "selection_char": 8,
+  "selection_line": 451
+ },
+ {
+  "container": "LineGenerator",
+  "kind": "method",
+  "location": {
+   "end_line": 555,
+   "file": "src/black/linegen.py",
+   "start_line": 469
+  },
+  "name": "visit_STRING",
+  "selection_char": 8,
+  "selection_line": 469
+ },
+ {
+  "container": "LineGenerator",
+  "kind": "method",
+  "location": {
+   "end_line": 559,
+   "file": "src/black/linegen.py",
+   "start_line": 557
+  },
+  "name": "visit_NUMBER",
+  "selection_char": 8,
+  "selection_line": 557
+ },
+ {
+  "container": "LineGenerator",
+  "kind": "method",
+  "location": {
+   "end_line": 577,
+   "file": "src/black/linegen.py",
+   "start_line": 561
+  },
+  "name": "visit_atom",
+  "selection_char": 8,
+  "selection_line": 561
+ },
+ {
+  "container": "LineGenerator",
+  "kind": "method",
+  "location": {
+   "end_line": 598,
+   "file": "src/black/linegen.py",
+   "start_line": 579
+  },
+  "name": "visit_fstring",
+  "selection_char": 8,
+  "selection_line": 579
+ },
+ {
+  "container": "LineGenerator",
+  "kind": "method",
+  "location": {
+   "end_line": 618,
+   "file": "src/black/linegen.py",
+   "start_line": 600
+  },
+  "name": "visit_tstring",
+  "selection_char": 8,
+  "selection_line": 600
+ },
+ {
+  "container": "LineGenerator",
+  "kind": "method",
+  "location": {
+   "end_line": 658,
+   "file": "src/black/linegen.py",
+   "start_line": 653
+  },
+  "name": "visit_comp_for",
+  "selection_char": 8,
+  "selection_line": 653
+ },
+ {
+  "container": "LineGenerator",
+  "kind": "method",
+  "location": {
+   "end_line": 661,
+   "file": "src/black/linegen.py",
+   "start_line": 660
+  },
+  "name": "visit_old_comp_for",
+  "selection_char": 8,
+  "selection_line": 660
+ },
+ {
+  "container": "LineGenerator",
+  "kind": "method",
+  "location": {
+   "end_line": 699,
+   "file": "src/black/linegen.py",
+   "start_line": 663
+  },
+  "name": "__post_init__",
+  "selection_char": 8,
+  "selection_line": 663
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 711,
+   "file": "src/black/linegen.py",
+   "start_line": 703
+  },
+  "name": "_hugging_power_ops_line_to_string",
+  "selection_char": 4,
+  "selection_line": 703
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 849,
+   "file": "src/black/linegen.py",
+   "start_line": 714
+  },
+  "name": "transform_line",
+  "selection_char": 4,
+  "selection_line": 714
+ },
+ {
+  "container": "transform_line",
+  "kind": "function",
+  "location": {
+   "end_line": 792,
+   "file": "src/black/linegen.py",
+   "start_line": 767
+  },
+  "name": "_rhs",
+  "selection_char": 12,
+  "selection_line": 767
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 880,
+   "file": "src/black/linegen.py",
+   "start_line": 852
+  },
+  "name": "should_split_funcdef_with_rhs",
+  "selection_char": 4,
+  "selection_line": 852
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 952,
+   "file": "src/black/linegen.py",
+   "start_line": 889
+  },
+  "name": "left_hand_split",
+  "selection_char": 4,
+  "selection_line": 889
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 972,
+   "file": "src/black/linegen.py",
+   "start_line": 955
+  },
+  "name": "right_hand_split",
+  "selection_char": 4,
+  "selection_line": 955
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1075,
+   "file": "src/black/linegen.py",
+   "start_line": 975
+  },
+  "name": "_first_right_hand_split",
+  "selection_char": 4,
+  "selection_line": 975
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1148,
+   "file": "src/black/linegen.py",
+   "start_line": 1078
+  },
+  "name": "_maybe_split_omitting_optional_parens",
+  "selection_char": 4,
+  "selection_line": 1078
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1223,
+   "file": "src/black/linegen.py",
+   "start_line": 1151
+  },
+  "name": "_prefer_split_rhs_oop_over_rhs",
+  "selection_char": 4,
+  "selection_line": 1151
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1249,
+   "file": "src/black/linegen.py",
+   "start_line": 1226
+  },
+  "name": "bracket_split_succeeded_or_raise",
+  "selection_char": 4,
+  "selection_line": 1226
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1285,
+   "file": "src/black/linegen.py",
+   "start_line": 1252
+  },
+  "name": "_ensure_trailing_comma",
+  "selection_char": 4,
+  "selection_line": 1252
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1334,
+   "file": "src/black/linegen.py",
+   "start_line": 1288
+  },
+  "name": "bracket_split_build_line",
+  "selection_char": 4,
+  "selection_line": 1288
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1351,
+   "file": "src/black/linegen.py",
+   "start_line": 1337
+  },
+  "name": "dont_increase_indentation",
+  "selection_char": 4,
+  "selection_line": 1337
+ },
+ {
+  "container": "dont_increase_indentation",
+  "kind": "function",
+  "location": {
+   "end_line": 1349,
+   "file": "src/black/linegen.py",
+   "start_line": 1343
+  },
+  "name": "split_wrapper",
+  "selection_char": 8,
+  "selection_line": 1344
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1358,
+   "file": "src/black/linegen.py",
+   "start_line": 1354
+  },
+  "name": "_get_last_non_comment_leaf",
+  "selection_char": 4,
+  "selection_line": 1354
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1366,
+   "file": "src/black/linegen.py",
+   "start_line": 1361
+  },
+  "name": "_can_add_trailing_comma",
+  "selection_char": 4,
+  "selection_line": 1361
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1378,
+   "file": "src/black/linegen.py",
+   "start_line": 1369
+  },
+  "name": "_safe_add_trailing_comma",
+  "selection_char": 4,
+  "selection_line": 1369
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1410,
+   "file": "src/black/linegen.py",
+   "start_line": 1384
+  },
+  "name": "_can_defer_lone_comparator_to_rhs",
+  "selection_char": 4,
+  "selection_line": 1384
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1508,
+   "file": "src/black/linegen.py",
+   "start_line": 1413
+  },
+  "name": "delimiter_split",
+  "selection_char": 4,
+  "selection_line": 1414
+ },
+ {
+  "container": "delimiter_split",
+  "kind": "function",
+  "location": {
+   "end_line": 1463,
+   "file": "src/black/linegen.py",
+   "start_line": 1452
+  },
+  "name": "append_to_line",
+  "selection_char": 8,
+  "selection_line": 1452
+ },
+ {
+  "container": "delimiter_split",
+  "kind": "function",
+  "location": {
+   "end_line": 1467,
+   "file": "src/black/linegen.py",
+   "start_line": 1465
+  },
+  "name": "append_comments",
+  "selection_char": 8,
+  "selection_line": 1465
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1543,
+   "file": "src/black/linegen.py",
+   "start_line": 1511
+  },
+  "name": "standalone_comment_split",
+  "selection_char": 4,
+  "selection_line": 1512
+ },
+ {
+  "container": "standalone_comment_split",
+  "kind": "function",
+  "location": {
+   "end_line": 1534,
+   "file": "src/black/linegen.py",
+   "start_line": 1523
+  },
+  "name": "append_to_line",
+  "selection_char": 8,
+  "selection_line": 1523
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1561,
+   "file": "src/black/linegen.py",
+   "start_line": 1546
+  },
+  "name": "_force_standalone_comment_split",
+  "selection_char": 4,
+  "selection_line": 1546
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1723,
+   "file": "src/black/linegen.py",
+   "start_line": 1564
+  },
+  "name": "normalize_invisible_parens",
+  "selection_char": 4,
+  "selection_line": 1564
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1737,
+   "file": "src/black/linegen.py",
+   "start_line": 1726
+  },
+  "name": "_normalize_import_from",
+  "selection_char": 4,
+  "selection_line": 1726
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1774,
+   "file": "src/black/linegen.py",
+   "start_line": 1740
+  },
+  "name": "remove_await_parens",
+  "selection_char": 4,
+  "selection_line": 1740
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1816,
+   "file": "src/black/linegen.py",
+   "start_line": 1777
+  },
+  "name": "_maybe_wrap_cms_in_parens",
+  "selection_char": 4,
+  "selection_line": 1777
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1864,
+   "file": "src/black/linegen.py",
+   "start_line": 1819
+  },
+  "name": "remove_with_parens",
+  "selection_char": 4,
+  "selection_line": 1819
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1876,
+   "file": "src/black/linegen.py",
+   "start_line": 1867
+  },
+  "name": "_atom_has_magic_trailing_comma",
+  "selection_char": 4,
+  "selection_line": 1867
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1891,
+   "file": "src/black/linegen.py",
+   "start_line": 1879
+  },
+  "name": "_is_atom_multiline",
+  "selection_char": 4,
+  "selection_line": 1879
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 2006,
+   "file": "src/black/linegen.py",
+   "start_line": 1894
+  },
+  "name": "maybe_make_parens_invisible_in_atom",
+  "selection_char": 4,
+  "selection_line": 1894
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 2033,
+   "file": "src/black/linegen.py",
+   "start_line": 2009
+  },
+  "name": "should_split_line",
+  "selection_char": 4,
+  "selection_line": 2009
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 2109,
+   "file": "src/black/linegen.py",
+   "start_line": 2036
+  },
+  "name": "generate_trailers_to_omit",
+  "selection_char": 4,
+  "selection_line": 2036
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 2140,
+   "file": "src/black/linegen.py",
+   "start_line": 2112
+  },
+  "name": "_over_length_only_due_to_subscript_comment",
+  "selection_char": 4,
+  "selection_line": 2112
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 2192,
+   "file": "src/black/linegen.py",
+   "start_line": 2143
+  },
+  "name": "run_transformer",
+  "selection_char": 4,
+  "selection_line": 2143
+ },
+ {
+  "container": "Line",
+  "kind": "method",
+  "location": {
+   "end_line": 92,
+   "file": "src/black/lines.py",
+   "start_line": 53
+  },
+  "name": "append",
+  "selection_char": 8,
+  "selection_line": 53
+ },
+ {
+  "container": "Line",
+  "kind": "method",
+  "location": {
+   "end_line": 112,
+   "file": "src/black/lines.py",
+   "start_line": 94
+  },
+  "name": "append_safe",
+  "selection_char": 8,
+  "selection_line": 94
+ },
+ {
+  "container": "Line",
+  "kind": "method",
+  "location": {
+   "end_line": 117,
+   "file": "src/black/lines.py",
+   "start_line": 114
+  },
+  "name": "is_comment",
+  "selection_char": 8,
+  "selection_line": 115
+ },
+ {
+  "container": "Line",
+  "kind": "method",
+  "location": {
+   "end_line": 122,
+   "file": "src/black/lines.py",
+   "start_line": 119
+  },
+  "name": "is_decorator",
+  "selection_char": 8,
+  "selection_line": 120
+ },
+ {
+  "container": "Line",
+  "kind": "method",
+  "location": {
+   "end_line": 127,
+   "file": "src/black/lines.py",
+   "start_line": 124
+  },
+  "name": "is_import",
+  "selection_char": 8,
+  "selection_line": 125
+ },
+ {
+  "container": "Line",
+  "kind": "method",
+  "location": {
+   "end_line": 132,
+   "file": "src/black/lines.py",
+   "start_line": 129
+  },
+  "name": "is_with_or_async_with_stmt",
+  "selection_char": 8,
+  "selection_line": 130
+ },
+ {
+  "container": "Line",
+  "kind": "method",
+  "location": {
+   "end_line": 141,
+   "file": "src/black/lines.py",
+   "start_line": 134
+  },
+  "name": "is_class",
+  "selection_char": 8,
+  "selection_line": 135
+ },
+ {
+  "container": "Line",
+  "kind": "method",
+  "location": {
+   "end_line": 148,
+   "file": "src/black/lines.py",
+   "start_line": 143
+  },
+  "name": "is_stub_class",
+  "selection_char": 8,
+  "selection_line": 144
+ },
+ {
+  "container": "Line",
+  "kind": "method",
+  "location": {
+   "end_line": 167,
+   "file": "src/black/lines.py",
+   "start_line": 150
+  },
+  "name": "is_def",
+  "selection_char": 8,
+  "selection_line": 151
+ },
+ {
+  "container": "Line",
+  "kind": "method",
+  "location": {
+   "end_line": 174,
+   "file": "src/black/lines.py",
+   "start_line": 169
+  },
+  "name": "is_stub_def",
+  "selection_char": 8,
+  "selection_line": 170
+ },
+ {
+  "container": "Line",
+  "kind": "method",
+  "location": {
+   "end_line": 190,
+   "file": "src/black/lines.py",
+   "start_line": 176
+  },
+  "name": "is_class_paren_empty",
+  "selection_char": 8,
+  "selection_line": 177
+ },
+ {
+  "container": "Line",
+  "kind": "method",
+  "location": {
+   "end_line": 202,
+   "file": "src/black/lines.py",
+   "start_line": 192
+  },
+  "name": "_is_triple_quoted_string",
+  "selection_char": 8,
+  "selection_line": 193
+ },
+ {
+  "container": "Line",
+  "kind": "method",
+  "location": {
+   "end_line": 207,
+   "file": "src/black/lines.py",
+   "start_line": 204
+  },
+  "name": "is_docstring",
+  "selection_char": 8,
+  "selection_line": 205
+ },
+ {
+  "container": "Line",
+  "kind": "method",
+  "location": {
+   "end_line": 212,
+   "file": "src/black/lines.py",
+   "start_line": 209
+  },
+  "name": "is_chained_assignment",
+  "selection_char": 8,
+  "selection_line": 210
+ },
+ {
+  "container": "Line",
+  "kind": "method",
+  "location": {
+   "end_line": 219,
+   "file": "src/black/lines.py",
+   "start_line": 214
+  },
+  "name": "opens_block",
+  "selection_char": 8,
+  "selection_line": 215
+ },
+ {
+  "container": "Line",
+  "kind": "method",
+  "location": {
+   "end_line": 239,
+   "file": "src/black/lines.py",
+   "start_line": 221
+  },
+  "name": "is_fmt_pass_converted",
+  "selection_char": 8,
+  "selection_line": 221
+ },
+ {
+  "container": "Line",
+  "kind": "method",
+  "location": {
+   "end_line": 247,
+   "file": "src/black/lines.py",
+   "start_line": 241
+  },
+  "name": "contains_standalone_comments",
+  "selection_char": 8,
+  "selection_line": 241
+ },
+ {
+  "container": "Line",
+  "kind": "method",
+  "location": {
+   "end_line": 262,
+   "file": "src/black/lines.py",
+   "start_line": 249
+  },
+  "name": "contains_implicit_multiline_string_with_comments",
+  "selection_char": 8,
+  "selection_line": 249
+ },
+ {
+  "container": "Line",
+  "kind": "method",
+  "location": {
+   "end_line": 298,
+   "file": "src/black/lines.py",
+   "start_line": 264
+  },
+  "name": "contains_uncollapsable_type_comments",
+  "selection_char": 8,
+  "selection_line": 264
+ },
+ {
+  "container": "Line",
+  "kind": "method",
+  "location": {
+   "end_line": 331,
+   "file": "src/black/lines.py",
+   "start_line": 300
+  },
+  "name": "contains_unsplittable_type_ignore",
+  "selection_char": 8,
+  "selection_line": 300
+ },
+ {
+  "container": "Line",
+  "kind": "method",
+  "location": {
+   "end_line": 334,
+   "file": "src/black/lines.py",
+   "start_line": 333
+  },
+  "name": "contains_multiline_strings",
+  "selection_char": 8,
+  "selection_line": 333
+ },
+ {
+  "container": "Line",
+  "kind": "method",
+  "location": {
+   "end_line": 378,
+   "file": "src/black/lines.py",
+   "start_line": 336
+  },
+  "name": "has_magic_trailing_comma",
+  "selection_char": 8,
+  "selection_line": 336
+ },
+ {
+  "container": "Line",
+  "kind": "method",
+  "location": {
+   "end_line": 415,
+   "file": "src/black/lines.py",
+   "start_line": 380
+  },
+  "name": "append_comment",
+  "selection_char": 8,
+  "selection_line": 380
+ },
+ {
+  "container": "Line",
+  "kind": "method",
+  "location": {
+   "end_line": 419,
+   "file": "src/black/lines.py",
+   "start_line": 417
+  },
+  "name": "comments_after",
+  "selection_char": 8,
+  "selection_line": 417
+ },
+ {
+  "container": "Line",
+  "kind": "method",
+  "location": {
+   "end_line": 427,
+   "file": "src/black/lines.py",
+   "start_line": 421
+  },
+  "name": "remove_trailing_comma",
+  "selection_char": 8,
+  "selection_line": 421
+ },
+ {
+  "container": "Line",
+  "kind": "method",
+  "location": {
+   "end_line": 446,
+   "file": "src/black/lines.py",
+   "start_line": 429
+  },
+  "name": "is_complex_subscript",
+  "selection_char": 8,
+  "selection_line": 429
+ },
+ {
+  "container": "Line",
+  "kind": "method",
+  "location": {
+   "end_line": 467,
+   "file": "src/black/lines.py",
+   "start_line": 448
+  },
+  "name": "enumerate_with_length",
+  "selection_char": 8,
+  "selection_line": 448
+ },
+ {
+  "container": "Line",
+  "kind": "method",
+  "location": {
+   "end_line": 476,
+   "file": "src/black/lines.py",
+   "start_line": 469
+  },
+  "name": "clone",
+  "selection_char": 8,
+  "selection_line": 469
+ },
+ {
+  "container": "Line",
+  "kind": "method",
+  "location": {
+   "end_line": 492,
+   "file": "src/black/lines.py",
+   "start_line": 478
+  },
+  "name": "__str__",
+  "selection_char": 8,
+  "selection_line": 478
+ },
+ {
+  "container": "Line",
+  "kind": "method",
+  "location": {
+   "end_line": 496,
+   "file": "src/black/lines.py",
+   "start_line": 494
+  },
+  "name": "__bool__",
+  "selection_char": 8,
+  "selection_line": 494
+ },
+ {
+  "container": "LinesBlock",
+  "kind": "method",
+  "location": {
+   "end_line": 529,
+   "file": "src/black/lines.py",
+   "start_line": 526
+  },
+  "name": "all_lines",
+  "selection_char": 8,
+  "selection_line": 526
+ },
+ {
+  "container": "EmptyLineTracker",
+  "kind": "method",
+  "location": {
+   "end_line": 581,
+   "file": "src/black/lines.py",
+   "start_line": 567
+  },
+  "name": "_get_funcdef_name",
+  "selection_char": 8,
+  "selection_line": 568
+ },
+ {
+  "container": "EmptyLineTracker",
+  "kind": "method",
+  "location": {
+   "end_line": 590,
+   "file": "src/black/lines.py",
+   "start_line": 583
+  },
+  "name": "_decorated_node_has_func_named",
+  "selection_char": 8,
+  "selection_line": 584
+ },
+ {
+  "container": "EmptyLineTracker",
+  "kind": "method",
+  "location": {
+   "end_line": 607,
+   "file": "src/black/lines.py",
+   "start_line": 592
+  },
+  "name": "_find_adjacent_decorated",
+  "selection_char": 8,
+  "selection_line": 593
+ },
+ {
+  "container": "EmptyLineTracker",
+  "kind": "method",
+  "location": {
+   "end_line": 620,
+   "file": "src/black/lines.py",
+   "start_line": 609
+  },
+  "name": "_get_suite_first_decorated_funcname",
+  "selection_char": 8,
+  "selection_line": 610
+ },
+ {
+  "container": "EmptyLineTracker",
+  "kind": "method",
+  "location": {
+   "end_line": 643,
+   "file": "src/black/lines.py",
+   "start_line": 622
+  },
+  "name": "_if_stmt_branch_has_func_named",
+  "selection_char": 8,
+  "selection_line": 623
+ },
+ {
+  "container": "EmptyLineTracker",
+  "kind": "method",
+  "location": {
+   "end_line": 653,
+   "file": "src/black/lines.py",
+   "start_line": 645
+  },
+  "name": "_get_def_name",
+  "selection_char": 8,
+  "selection_line": 646
+ },
+ {
+  "container": "EmptyLineTracker",
+  "kind": "method",
+  "location": {
+   "end_line": 660,
+   "file": "src/black/lines.py",
+   "start_line": 655
+  },
+  "name": "_is_line_decorated",
+  "selection_char": 8,
+  "selection_line": 656
+ },
+ {
+  "container": "EmptyLineTracker",
+  "kind": "method",
+  "location": {
+   "end_line": 675,
+   "file": "src/black/lines.py",
+   "start_line": 662
+  },
+  "name": "_find_decorated_node",
+  "selection_char": 8,
+  "selection_line": 663
+ },
+ {
+  "container": "EmptyLineTracker",
+  "kind": "method",
+  "location": {
+   "end_line": 691,
+   "file": "src/black/lines.py",
+   "start_line": 677
+  },
+  "name": "_get_decorator_target_name",
+  "selection_char": 8,
+  "selection_line": 678
+ },
+ {
+  "container": "EmptyLineTracker",
+  "kind": "method",
+  "location": {
+   "end_line": 701,
+   "file": "src/black/lines.py",
+   "start_line": 693
+  },
+  "name": "_decorator_decorates_class",
+  "selection_char": 8,
+  "selection_line": 694
+ },
+ {
+  "container": "EmptyLineTracker",
+  "kind": "method",
+  "location": {
+   "end_line": 736,
+   "file": "src/black/lines.py",
+   "start_line": 703
+  },
+  "name": "_def_is_followed_by_same_name_decorated_func",
+  "selection_char": 8,
+  "selection_line": 704
+ },
+ {
+  "container": "EmptyLineTracker",
+  "kind": "method",
+  "location": {
+   "end_line": 753,
+   "file": "src/black/lines.py",
+   "start_line": 738
+  },
+  "name": "_is_in_current_group",
+  "selection_char": 8,
+  "selection_line": 738
+ },
+ {
+  "container": "EmptyLineTracker",
+  "kind": "method",
+  "location": {
+   "end_line": 772,
+   "file": "src/black/lines.py",
+   "start_line": 755
+  },
+  "name": "_decorated_node_starts_group",
+  "selection_char": 8,
+  "selection_line": 756
+ },
+ {
+  "container": "EmptyLineTracker",
+  "kind": "method",
+  "location": {
+   "end_line": 786,
+   "file": "src/black/lines.py",
+   "start_line": 774
+  },
+  "name": "_is_start_of_decorated_group",
+  "selection_char": 8,
+  "selection_line": 775
+ },
+ {
+  "container": "EmptyLineTracker",
+  "kind": "method",
+  "location": {
+   "end_line": 801,
+   "file": "src/black/lines.py",
+   "start_line": 788
+  },
+  "name": "_get_block_first_decorated_funcname",
+  "selection_char": 8,
+  "selection_line": 789
+ },
+ {
+  "container": "EmptyLineTracker",
+  "kind": "method",
+  "location": {
+   "end_line": 831,
+   "file": "src/black/lines.py",
+   "start_line": 803
+  },
+  "name": "_block_is_part_of_overload_group",
+  "selection_char": 8,
+  "selection_line": 804
+ },
+ {
+  "container": "EmptyLineTracker",
+  "kind": "method",
+  "location": {
+   "end_line": 866,
+   "file": "src/black/lines.py",
+   "start_line": 833
+  },
+  "name": "_is_decorator_in_conditional_overload",
+  "selection_char": 8,
+  "selection_line": 834
+ },
+ {
+  "container": "EmptyLineTracker",
+  "kind": "method",
+  "location": {
+   "end_line": 954,
+   "file": "src/black/lines.py",
+   "start_line": 868
+  },
+  "name": "maybe_empty_lines",
+  "selection_char": 8,
+  "selection_line": 868
+ },
+ {
+  "container": "EmptyLineTracker",
+  "kind": "method",
+  "location": {
+   "end_line": 970,
+   "file": "src/black/lines.py",
+   "start_line": 956
+  },
+  "name": "_line_is_module_docstring",
+  "selection_char": 8,
+  "selection_line": 956
+ },
+ {
+  "container": "EmptyLineTracker",
+  "kind": "method",
+  "location": {
+   "end_line": 1131,
+   "file": "src/black/lines.py",
+   "start_line": 972
+  },
+  "name": "_maybe_empty_lines",
+  "selection_char": 8,
+  "selection_line": 972
+ },
+ {
+  "container": "EmptyLineTracker",
+  "kind": "method",
+  "location": {
+   "end_line": 1258,
+   "file": "src/black/lines.py",
+   "start_line": 1133
+  },
+  "name": "_maybe_empty_lines_for_class_or_def",
+  "selection_char": 8,
+  "selection_line": 1133
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1266,
+   "file": "src/black/lines.py",
+   "start_line": 1261
+  },
+  "name": "enumerate_reversed",
+  "selection_char": 4,
+  "selection_line": 1261
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1290,
+   "file": "src/black/lines.py",
+   "start_line": 1269
+  },
+  "name": "append_leaves",
+  "selection_char": 4,
+  "selection_line": 1269
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1378,
+   "file": "src/black/lines.py",
+   "start_line": 1293
+  },
+  "name": "is_line_short_enough",
+  "selection_char": 4,
+  "selection_line": 1293
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1414,
+   "file": "src/black/lines.py",
+   "start_line": 1381
+  },
+  "name": "can_be_split",
+  "selection_char": 4,
+  "selection_line": 1381
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1433,
+   "file": "src/black/lines.py",
+   "start_line": 1417
+  },
+  "name": "_is_annotated_assignment",
+  "selection_char": 4,
+  "selection_line": 1417
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1600,
+   "file": "src/black/lines.py",
+   "start_line": 1436
+  },
+  "name": "can_omit_invisible_parens",
+  "selection_char": 4,
+  "selection_line": 1436
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1625,
+   "file": "src/black/lines.py",
+   "start_line": 1603
+  },
+  "name": "_can_omit_opening_paren",
+  "selection_char": 4,
+  "selection_line": 1603
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1642,
+   "file": "src/black/lines.py",
+   "start_line": 1628
+  },
+  "name": "_can_omit_closing_paren",
+  "selection_char": 4,
+  "selection_line": 1628
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1650,
+   "file": "src/black/lines.py",
+   "start_line": 1645
+  },
+  "name": "line_to_string",
+  "selection_char": 4,
+  "selection_line": 1645
+ },
+ {
+  "container": "TargetVersion",
+  "kind": "method",
+  "location": {
+   "end_line": 33,
+   "file": "src/black/mode.py",
+   "start_line": 31
+  },
+  "name": "pretty",
+  "selection_char": 8,
+  "selection_line": 31
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 246,
+   "file": "src/black/mode.py",
+   "start_line": 242
+  },
+  "name": "supports_feature",
+  "selection_char": 4,
+  "selection_line": 242
+ },
+ {
+  "container": "Mode",
+  "kind": "method",
+  "location": {
+   "end_line": 305,
+   "file": "src/black/mode.py",
+   "start_line": 293
+  },
+  "name": "__contains__",
+  "selection_char": 8,
+  "selection_line": 293
+ },
+ {
+  "container": "Mode",
+  "kind": "method",
+  "location": {
+   "end_line": 339,
+   "file": "src/black/mode.py",
+   "start_line": 307
+  },
+  "name": "get_cache_key",
+  "selection_char": 8,
+  "selection_line": 307
+ },
+ {
+  "container": "Mode",
+  "kind": "method",
+  "location": {
+   "end_line": 354,
+   "file": "src/black/mode.py",
+   "start_line": 341
+  },
+  "name": "__hash__",
+  "selection_char": 8,
+  "selection_line": 341
+ },
+ {
+  "container": "Visitor",
+  "kind": "method",
+  "location": {
+   "end_line": 171,
+   "file": "src/black/nodes.py",
+   "start_line": 149
+  },
+  "name": "visit",
+  "selection_char": 8,
+  "selection_line": 149
+ },
+ {
+  "container": "Visitor",
+  "kind": "method",
+  "location": {
+   "end_line": 177,
+   "file": "src/black/nodes.py",
+   "start_line": 173
+  },
+  "name": "visit_default",
+  "selection_char": 8,
+  "selection_line": 173
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 428,
+   "file": "src/black/nodes.py",
+   "start_line": 180
+  },
+  "name": "whitespace",
+  "selection_char": 4,
+  "selection_line": 180
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 435,
+   "file": "src/black/nodes.py",
+   "start_line": 431
+  },
+  "name": "make_simple_prefix",
+  "selection_char": 4,
+  "selection_line": 431
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 453,
+   "file": "src/black/nodes.py",
+   "start_line": 438
+  },
+  "name": "preceding_leaf",
+  "selection_char": 4,
+  "selection_line": 438
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 469,
+   "file": "src/black/nodes.py",
+   "start_line": 456
+  },
+  "name": "prev_siblings_are",
+  "selection_char": 4,
+  "selection_line": 456
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 482,
+   "file": "src/black/nodes.py",
+   "start_line": 472
+  },
+  "name": "parent_type",
+  "selection_char": 4,
+  "selection_line": 472
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 490,
+   "file": "src/black/nodes.py",
+   "start_line": 485
+  },
+  "name": "child_towards",
+  "selection_char": 4,
+  "selection_line": 485
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 507,
+   "file": "src/black/nodes.py",
+   "start_line": 493
+  },
+  "name": "replace_child",
+  "selection_char": 4,
+  "selection_line": 493
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 532,
+   "file": "src/black/nodes.py",
+   "start_line": 510
+  },
+  "name": "container_of",
+  "selection_char": 4,
+  "selection_line": 510
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 542,
+   "file": "src/black/nodes.py",
+   "start_line": 535
+  },
+  "name": "first_leaf_of",
+  "selection_char": 4,
+  "selection_line": 535
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 552,
+   "file": "src/black/nodes.py",
+   "start_line": 545
+  },
+  "name": "is_arith_like",
+  "selection_char": 4,
+  "selection_line": 545
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 571,
+   "file": "src/black/nodes.py",
+   "start_line": 555
+  },
+  "name": "is_simple_exponentiation",
+  "selection_char": 4,
+  "selection_line": 555
+ },
+ {
+  "container": "is_simple_exponentiation",
+  "kind": "function",
+  "location": {
+   "end_line": 564,
+   "file": "src/black/nodes.py",
+   "start_line": 558
+  },
+  "name": "is_simple",
+  "selection_char": 8,
+  "selection_line": 558
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 603,
+   "file": "src/black/nodes.py",
+   "start_line": 574
+  },
+  "name": "is_docstring",
+  "selection_char": 4,
+  "selection_line": 574
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 613,
+   "file": "src/black/nodes.py",
+   "start_line": 606
+  },
+  "name": "is_empty_tuple",
+  "selection_char": 4,
+  "selection_line": 606
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 629,
+   "file": "src/black/nodes.py",
+   "start_line": 616
+  },
+  "name": "is_one_tuple",
+  "selection_char": 4,
+  "selection_line": 616
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 640,
+   "file": "src/black/nodes.py",
+   "start_line": 632
+  },
+  "name": "is_tuple",
+  "selection_char": 4,
+  "selection_line": 632
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 651,
+   "file": "src/black/nodes.py",
+   "start_line": 643
+  },
+  "name": "is_tuple_containing_walrus",
+  "selection_char": 4,
+  "selection_line": 643
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 662,
+   "file": "src/black/nodes.py",
+   "start_line": 654
+  },
+  "name": "is_tuple_containing_star",
+  "selection_char": 4,
+  "selection_line": 654
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 673,
+   "file": "src/black/nodes.py",
+   "start_line": 665
+  },
+  "name": "is_generator",
+  "selection_char": 4,
+  "selection_line": 665
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 723,
+   "file": "src/black/nodes.py",
+   "start_line": 676
+  },
+  "name": "is_one_sequence_between",
+  "selection_char": 4,
+  "selection_line": 676
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 729,
+   "file": "src/black/nodes.py",
+   "start_line": 726
+  },
+  "name": "is_walrus_assignment",
+  "selection_char": 4,
+  "selection_line": 726
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 755,
+   "file": "src/black/nodes.py",
+   "start_line": 732
+  },
+  "name": "is_simple_decorator_trailer",
+  "selection_char": 4,
+  "selection_line": 732
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 779,
+   "file": "src/black/nodes.py",
+   "start_line": 758
+  },
+  "name": "is_simple_decorator_expression",
+  "selection_char": 4,
+  "selection_line": 758
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 800,
+   "file": "src/black/nodes.py",
+   "start_line": 782
+  },
+  "name": "is_yield",
+  "selection_char": 4,
+  "selection_line": 782
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 823,
+   "file": "src/black/nodes.py",
+   "start_line": 803
+  },
+  "name": "is_vararg",
+  "selection_char": 4,
+  "selection_line": 803
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 828,
+   "file": "src/black/nodes.py",
+   "start_line": 826
+  },
+  "name": "is_fstring",
+  "selection_char": 4,
+  "selection_line": 826
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 836,
+   "file": "src/black/nodes.py",
+   "start_line": 831
+  },
+  "name": "fstring_tstring_to_string",
+  "selection_char": 4,
+  "selection_line": 831
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 848,
+   "file": "src/black/nodes.py",
+   "start_line": 839
+  },
+  "name": "is_multiline_string",
+  "selection_char": 4,
+  "selection_line": 839
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 855,
+   "file": "src/black/nodes.py",
+   "start_line": 851
+  },
+  "name": "is_parent_function_or_class",
+  "selection_char": 4,
+  "selection_line": 851
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 878,
+   "file": "src/black/nodes.py",
+   "start_line": 858
+  },
+  "name": "is_stub_suite",
+  "selection_char": 4,
+  "selection_line": 858
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 895,
+   "file": "src/black/nodes.py",
+   "start_line": 881
+  },
+  "name": "is_stub_body",
+  "selection_char": 4,
+  "selection_line": 881
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 913,
+   "file": "src/black/nodes.py",
+   "start_line": 898
+  },
+  "name": "is_atom_with_invisible_parens",
+  "selection_char": 4,
+  "selection_line": 898
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 917,
+   "file": "src/black/nodes.py",
+   "start_line": 916
+  },
+  "name": "is_empty_par",
+  "selection_char": 4,
+  "selection_line": 916
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 921,
+   "file": "src/black/nodes.py",
+   "start_line": 920
+  },
+  "name": "is_empty_lpar",
+  "selection_char": 4,
+  "selection_line": 920
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 925,
+   "file": "src/black/nodes.py",
+   "start_line": 924
+  },
+  "name": "is_empty_rpar",
+  "selection_char": 4,
+  "selection_line": 924
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 942,
+   "file": "src/black/nodes.py",
+   "start_line": 928
+  },
+  "name": "is_import",
+  "selection_char": 4,
+  "selection_line": 928
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 956,
+   "file": "src/black/nodes.py",
+   "start_line": 945
+  },
+  "name": "is_with_or_async_with_stmt",
+  "selection_char": 4,
+  "selection_line": 945
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 969,
+   "file": "src/black/nodes.py",
+   "start_line": 959
+  },
+  "name": "is_async_stmt_or_funcdef",
+  "selection_char": 4,
+  "selection_line": 959
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 979,
+   "file": "src/black/nodes.py",
+   "start_line": 972
+  },
+  "name": "is_type_comment",
+  "selection_char": 4,
+  "selection_line": 972
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 983,
+   "file": "src/black/nodes.py",
+   "start_line": 982
+  },
+  "name": "is_type_comment_string",
+  "selection_char": 4,
+  "selection_line": 982
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 992,
+   "file": "src/black/nodes.py",
+   "start_line": 986
+  },
+  "name": "is_type_ignore_comment",
+  "selection_char": 4,
+  "selection_line": 986
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1000,
+   "file": "src/black/nodes.py",
+   "start_line": 995
+  },
+  "name": "is_type_ignore_comment_string",
+  "selection_char": 4,
+  "selection_line": 995
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1018,
+   "file": "src/black/nodes.py",
+   "start_line": 1003
+  },
+  "name": "wrap_in_parentheses",
+  "selection_char": 4,
+  "selection_line": 1003
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1032,
+   "file": "src/black/nodes.py",
+   "start_line": 1021
+  },
+  "name": "unwrap_singleton_parenthesis",
+  "selection_char": 4,
+  "selection_line": 1021
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1044,
+   "file": "src/black/nodes.py",
+   "start_line": 1035
+  },
+  "name": "ensure_visible",
+  "selection_char": 4,
+  "selection_line": 1035
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1048,
+   "file": "src/black/nodes.py",
+   "start_line": 1047
+  },
+  "name": "is_name_token",
+  "selection_char": 4,
+  "selection_line": 1047
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1052,
+   "file": "src/black/nodes.py",
+   "start_line": 1051
+  },
+  "name": "is_lpar_token",
+  "selection_char": 4,
+  "selection_line": 1051
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1056,
+   "file": "src/black/nodes.py",
+   "start_line": 1055
+  },
+  "name": "is_rpar_token",
+  "selection_char": 4,
+  "selection_line": 1055
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1060,
+   "file": "src/black/nodes.py",
+   "start_line": 1059
+  },
+  "name": "is_number_token",
+  "selection_char": 4,
+  "selection_line": 1059
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1072,
+   "file": "src/black/nodes.py",
+   "start_line": 1063
+  },
+  "name": "get_annotation_type",
+  "selection_char": 4,
+  "selection_line": 1063
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1078,
+   "file": "src/black/nodes.py",
+   "start_line": 1075
+  },
+  "name": "is_part_of_annotation",
+  "selection_char": 4,
+  "selection_line": 1075
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1088,
+   "file": "src/black/nodes.py",
+   "start_line": 1081
+  },
+  "name": "first_leaf",
+  "selection_char": 4,
+  "selection_line": 1081
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1098,
+   "file": "src/black/nodes.py",
+   "start_line": 1091
+  },
+  "name": "last_leaf",
+  "selection_char": 4,
+  "selection_line": 1091
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1106,
+   "file": "src/black/nodes.py",
+   "start_line": 1101
+  },
+  "name": "furthest_ancestor_with_last_leaf",
+  "selection_char": 4,
+  "selection_line": 1101
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1124,
+   "file": "src/black/nodes.py",
+   "start_line": 1109
+  },
+  "name": "has_sibling_with_type",
+  "selection_char": 4,
+  "selection_line": 1109
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 13,
+   "file": "src/black/numerics.py",
+   "start_line": 8
+  },
+  "name": "format_hex",
+  "selection_char": 4,
+  "selection_line": 8
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 26,
+   "file": "src/black/numerics.py",
+   "start_line": 16
+  },
+  "name": "format_scientific_notation",
+  "selection_char": 4,
+  "selection_line": 16
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 33,
+   "file": "src/black/numerics.py",
+   "start_line": 29
+  },
+  "name": "format_complex_number",
+  "selection_char": 4,
+  "selection_line": 29
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 42,
+   "file": "src/black/numerics.py",
+   "start_line": 36
+  },
+  "name": "format_float_or_int_string",
+  "selection_char": 4,
+  "selection_line": 36
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 61,
+   "file": "src/black/numerics.py",
+   "start_line": 45
+  },
+  "name": "normalize_numeric_literal",
+  "selection_char": 4,
+  "selection_line": 45
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 22,
+   "file": "src/black/output.py",
+   "start_line": 16
+  },
+  "name": "_out",
+  "selection_char": 4,
+  "selection_line": 17
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 31,
+   "file": "src/black/output.py",
+   "start_line": 25
+  },
+  "name": "_err",
+  "selection_char": 4,
+  "selection_line": 26
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 36,
+   "file": "src/black/output.py",
+   "start_line": 34
+  },
+  "name": "out",
+  "selection_char": 4,
+  "selection_line": 35
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 40,
+   "file": "src/black/output.py",
+   "start_line": 39
+  },
+  "name": "err",
+  "selection_char": 4,
+  "selection_line": 39
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 57,
+   "file": "src/black/output.py",
+   "start_line": 43
+  },
+  "name": "ipynb_diff",
+  "selection_char": 4,
+  "selection_line": 43
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 73,
+   "file": "src/black/output.py",
+   "start_line": 63
+  },
+  "name": "_splitlines_no_ff",
+  "selection_char": 4,
+  "selection_line": 63
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 94,
+   "file": "src/black/output.py",
+   "start_line": 76
+  },
+  "name": "diff",
+  "selection_char": 4,
+  "selection_line": 76
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 112,
+   "file": "src/black/output.py",
+   "start_line": 97
+  },
+  "name": "color_diff",
+  "selection_char": 4,
+  "selection_line": 97
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 118,
+   "file": "src/black/output.py",
+   "start_line": 115
+  },
+  "name": "style_output",
+  "selection_char": 4,
+  "selection_line": 115
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 122,
+   "file": "src/black/output.py",
+   "start_line": 121
+  },
+  "name": "_color_enabled",
+  "selection_char": 4,
+  "selection_line": 121
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 135,
+   "file": "src/black/output.py",
+   "start_line": 125
+  },
+  "name": "dump_to_file",
+  "selection_char": 4,
+  "selection_line": 126
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 52,
+   "file": "src/black/parsing.py",
+   "start_line": 24
+  },
+  "name": "get_grammars",
+  "selection_char": 4,
+  "selection_line": 24
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 115,
+   "file": "src/black/parsing.py",
+   "start_line": 55
+  },
+  "name": "lib2to3_parse",
+  "selection_char": 4,
+  "selection_line": 55
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 140,
+   "file": "src/black/parsing.py",
+   "start_line": 131
+  },
+  "name": "_parse_single_version",
+  "selection_char": 4,
+  "selection_line": 131
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 162,
+   "file": "src/black/parsing.py",
+   "start_line": 143
+  },
+  "name": "parse_ast",
+  "selection_char": 4,
+  "selection_line": 143
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 172,
+   "file": "src/black/parsing.py",
+   "start_line": 165
+  },
+  "name": "_normalize",
+  "selection_char": 4,
+  "selection_line": 165
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 177,
+   "file": "src/black/parsing.py",
+   "start_line": 175
+  },
+  "name": "stringify_ast",
+  "selection_char": 4,
+  "selection_line": 175
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 185,
+   "file": "src/black/parsing.py",
+   "start_line": 180
+  },
+  "name": "_stringify_ast_with_new_parent",
+  "selection_char": 4,
+  "selection_line": 180
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 258,
+   "file": "src/black/parsing.py",
+   "start_line": 188
+  },
+  "name": "_stringify_ast",
+  "selection_char": 4,
+  "selection_line": 188
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 266,
+   "file": "src/black/parsing.py",
+   "start_line": 261
+  },
+  "name": "_unwrap_tuples",
+  "selection_char": 4,
+  "selection_line": 261
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 50,
+   "file": "src/black/ranges.py",
+   "start_line": 21
+  },
+  "name": "parse_line_ranges",
+  "selection_char": 4,
+  "selection_line": 21
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 55,
+   "file": "src/black/ranges.py",
+   "start_line": 53
+  },
+  "name": "is_valid_line_range",
+  "selection_char": 4,
+  "selection_line": 53
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 83,
+   "file": "src/black/ranges.py",
+   "start_line": 58
+  },
+  "name": "sanitized_lines",
+  "selection_char": 4,
+  "selection_line": 58
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 163,
+   "file": "src/black/ranges.py",
+   "start_line": 86
+  },
+  "name": "adjusted_lines",
+  "selection_char": 4,
+  "selection_line": 86
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 195,
+   "file": "src/black/ranges.py",
+   "start_line": 166
+  },
+  "name": "convert_unchanged_lines",
+  "selection_char": 4,
+  "selection_line": 166
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 205,
+   "file": "src/black/ranges.py",
+   "start_line": 198
+  },
+  "name": "_contains_standalone_comment",
+  "selection_char": 4,
+  "selection_line": 198
+ },
+ {
+  "container": "_TopLevelStatementsVisitor",
+  "kind": "method",
+  "location": {
+   "end_line": 219,
+   "file": "src/black/ranges.py",
+   "start_line": 218
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 218
+ },
+ {
+  "container": "_TopLevelStatementsVisitor",
+  "kind": "method",
+  "location": {
+   "end_line": 236,
+   "file": "src/black/ranges.py",
+   "start_line": 221
+  },
+  "name": "visit_simple_stmt",
+  "selection_char": 8,
+  "selection_line": 221
+ },
+ {
+  "container": "_TopLevelStatementsVisitor",
+  "kind": "method",
+  "location": {
+   "end_line": 259,
+   "file": "src/black/ranges.py",
+   "start_line": 238
+  },
+  "name": "visit_suite",
+  "selection_char": 8,
+  "selection_line": 238
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 313,
+   "file": "src/black/ranges.py",
+   "start_line": 262
+  },
+  "name": "_convert_unchanged_line_by_line",
+  "selection_char": 4,
+  "selection_line": 262
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 366,
+   "file": "src/black/ranges.py",
+   "start_line": 316
+  },
+  "name": "_convert_node_to_standalone_comment",
+  "selection_char": 4,
+  "selection_line": 316
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 396,
+   "file": "src/black/ranges.py",
+   "start_line": 369
+  },
+  "name": "_convert_nodes_to_standalone_comment",
+  "selection_char": 4,
+  "selection_line": 369
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 405,
+   "file": "src/black/ranges.py",
+   "start_line": 399
+  },
+  "name": "_leaf_line_end",
+  "selection_char": 4,
+  "selection_line": 399
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 432,
+   "file": "src/black/ranges.py",
+   "start_line": 408
+  },
+  "name": "_get_line_range",
+  "selection_char": 4,
+  "selection_line": 408
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 529,
+   "file": "src/black/ranges.py",
+   "start_line": 453
+  },
+  "name": "_calculate_lines_mappings",
+  "selection_char": 4,
+  "selection_line": 453
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 544,
+   "file": "src/black/ranges.py",
+   "start_line": 532
+  },
+  "name": "_find_lines_mapping_index",
+  "selection_char": 4,
+  "selection_line": 532
+ },
+ {
+  "container": "Report",
+  "kind": "method",
+  "location": {
+   "end_line": 48,
+   "file": "src/black/report.py",
+   "start_line": 34
+  },
+  "name": "done",
+  "selection_char": 8,
+  "selection_line": 34
+ },
+ {
+  "container": "Report",
+  "kind": "method",
+  "location": {
+   "end_line": 53,
+   "file": "src/black/report.py",
+   "start_line": 50
+  },
+  "name": "failed",
+  "selection_char": 8,
+  "selection_line": 50
+ },
+ {
+  "container": "Report",
+  "kind": "method",
+  "location": {
+   "end_line": 57,
+   "file": "src/black/report.py",
+   "start_line": 55
+  },
+  "name": "path_ignored",
+  "selection_char": 8,
+  "selection_line": 55
+ },
+ {
+  "container": "Report",
+  "kind": "method",
+  "location": {
+   "end_line": 76,
+   "file": "src/black/report.py",
+   "start_line": 59
+  },
+  "name": "return_code",
+  "selection_char": 8,
+  "selection_line": 60
+ },
+ {
+  "container": "Report",
+  "kind": "method",
+  "location": {
+   "end_line": 109,
+   "file": "src/black/report.py",
+   "start_line": 78
+  },
+  "name": "__str__",
+  "selection_char": 8,
+  "selection_line": 78
+ },
+ {
+  "container": "Ok",
+  "kind": "method",
+  "location": {
+   "end_line": 14,
+   "file": "src/black/rusty.py",
+   "start_line": 13
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 13
+ },
+ {
+  "container": "Ok",
+  "kind": "method",
+  "location": {
+   "end_line": 17,
+   "file": "src/black/rusty.py",
+   "start_line": 16
+  },
+  "name": "ok",
+  "selection_char": 8,
+  "selection_line": 16
+ },
+ {
+  "container": "Err",
+  "kind": "method",
+  "location": {
+   "end_line": 22,
+   "file": "src/black/rusty.py",
+   "start_line": 21
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 21
+ },
+ {
+  "container": "Err",
+  "kind": "method",
+  "location": {
+   "end_line": 25,
+   "file": "src/black/rusty.py",
+   "start_line": 24
+  },
+  "name": "err",
+  "selection_char": 8,
+  "selection_line": 24
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 15,
+   "file": "src/black/schema.py",
+   "start_line": 6
+  },
+  "name": "get_schema",
+  "selection_char": 4,
+  "selection_line": 6
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 35,
+   "file": "src/black/strings.py",
+   "start_line": 29
+  },
+  "name": "sub_twice",
+  "selection_char": 4,
+  "selection_line": 29
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 44,
+   "file": "src/black/strings.py",
+   "start_line": 38
+  },
+  "name": "has_triple_quotes",
+  "selection_char": 4,
+  "selection_line": 38
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 65,
+   "file": "src/black/strings.py",
+   "start_line": 47
+  },
+  "name": "lines_with_leading_tabs_expanded",
+  "selection_char": 4,
+  "selection_line": 47
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 88,
+   "file": "src/black/strings.py",
+   "start_line": 68
+  },
+  "name": "fix_multiline_docstring",
+  "selection_char": 4,
+  "selection_line": 68
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 107,
+   "file": "src/black/strings.py",
+   "start_line": 91
+  },
+  "name": "get_string_prefix",
+  "selection_char": 4,
+  "selection_line": 91
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 142,
+   "file": "src/black/strings.py",
+   "start_line": 110
+  },
+  "name": "assert_is_leaf_string",
+  "selection_char": 4,
+  "selection_line": 110
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 160,
+   "file": "src/black/strings.py",
+   "start_line": 145
+  },
+  "name": "normalize_string_prefix",
+  "selection_char": 4,
+  "selection_line": 145
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 168,
+   "file": "src/black/strings.py",
+   "start_line": 166
+  },
+  "name": "_cached_compile",
+  "selection_char": 4,
+  "selection_line": 167
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 241,
+   "file": "src/black/strings.py",
+   "start_line": 171
+  },
+  "name": "normalize_string_quotes",
+  "selection_char": 4,
+  "selection_line": 171
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 308,
+   "file": "src/black/strings.py",
+   "start_line": 244
+  },
+  "name": "normalize_fstring_quotes",
+  "selection_char": 4,
+  "selection_line": 244
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 339,
+   "file": "src/black/strings.py",
+   "start_line": 311
+  },
+  "name": "normalize_unicode_escape_sequences",
+  "selection_char": 4,
+  "selection_line": 311
+ },
+ {
+  "container": "normalize_unicode_escape_sequences",
+  "kind": "function",
+  "location": {
+   "end_line": 337,
+   "file": "src/black/strings.py",
+   "start_line": 318
+  },
+  "name": "replace",
+  "selection_char": 8,
+  "selection_line": 318
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 366,
+   "file": "src/black/strings.py",
+   "start_line": 342
+  },
+  "name": "char_width",
+  "selection_char": 4,
+  "selection_line": 343
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 379,
+   "file": "src/black/strings.py",
+   "start_line": 369
+  },
+  "name": "str_width",
+  "selection_char": 4,
+  "selection_line": 369
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 393,
+   "file": "src/black/strings.py",
+   "start_line": 382
+  },
+  "name": "count_chars_in_width",
+  "selection_char": 4,
+  "selection_line": 382
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 66,
+   "file": "src/black/trans.py",
+   "start_line": 60
+  },
+  "name": "TErr",
+  "selection_char": 4,
+  "selection_line": 60
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 134,
+   "file": "src/black/trans.py",
+   "start_line": 70
+  },
+  "name": "hug_power_op",
+  "selection_char": 4,
+  "selection_line": 70
+ },
+ {
+  "container": "hug_power_op",
+  "kind": "function",
+  "location": {
+   "end_line": 91,
+   "file": "src/black/trans.py",
+   "start_line": 82
+  },
+  "name": "is_simple_lookup",
+  "selection_char": 8,
+  "selection_line": 82
+ },
+ {
+  "container": "hug_power_op",
+  "kind": "function",
+  "location": {
+   "end_line": 107,
+   "file": "src/black/trans.py",
+   "start_line": 93
+  },
+  "name": "is_simple_operand",
+  "selection_char": 8,
+  "selection_line": 93
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 157,
+   "file": "src/black/trans.py",
+   "start_line": 138
+  },
+  "name": "handle_is_simple_look_up_prev",
+  "selection_char": 4,
+  "selection_line": 138
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 184,
+   "file": "src/black/trans.py",
+   "start_line": 161
+  },
+  "name": "handle_is_simple_lookup_forward",
+  "selection_char": 4,
+  "selection_line": 161
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 206,
+   "file": "src/black/trans.py",
+   "start_line": 188
+  },
+  "name": "is_expression_chained",
+  "selection_char": 4,
+  "selection_line": 188
+ },
+ {
+  "container": "StringTransformer",
+  "kind": "method",
+  "location": {
+   "end_line": 242,
+   "file": "src/black/trans.py",
+   "start_line": 240
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 240
+ },
+ {
+  "container": "StringTransformer",
+  "kind": "method",
+  "location": {
+   "end_line": 255,
+   "file": "src/black/trans.py",
+   "start_line": 244
+  },
+  "name": "do_match",
+  "selection_char": 8,
+  "selection_line": 245
+ },
+ {
+  "container": "StringTransformer",
+  "kind": "method",
+  "location": {
+   "end_line": 276,
+   "file": "src/black/trans.py",
+   "start_line": 257
+  },
+  "name": "do_transform",
+  "selection_char": 8,
+  "selection_line": 258
+ },
+ {
+  "container": "StringTransformer",
+  "kind": "method",
+  "location": {
+   "end_line": 312,
+   "file": "src/black/trans.py",
+   "start_line": 278
+  },
+  "name": "__call__",
+  "selection_char": 8,
+  "selection_line": 278
+ },
+ {
+  "container": "CustomSplitMapMixin",
+  "kind": "method",
+  "location": {
+   "end_line": 363,
+   "file": "src/black/trans.py",
+   "start_line": 356
+  },
+  "name": "_get_key",
+  "selection_char": 8,
+  "selection_line": 357
+ },
+ {
+  "container": "CustomSplitMapMixin",
+  "kind": "method",
+  "location": {
+   "end_line": 374,
+   "file": "src/black/trans.py",
+   "start_line": 365
+  },
+  "name": "add_custom_splits",
+  "selection_char": 8,
+  "selection_line": 365
+ },
+ {
+  "container": "CustomSplitMapMixin",
+  "kind": "method",
+  "location": {
+   "end_line": 394,
+   "file": "src/black/trans.py",
+   "start_line": 376
+  },
+  "name": "pop_custom_splits",
+  "selection_char": 8,
+  "selection_line": 376
+ },
+ {
+  "container": "CustomSplitMapMixin",
+  "kind": "method",
+  "location": {
+   "end_line": 402,
+   "file": "src/black/trans.py",
+   "start_line": 396
+  },
+  "name": "has_custom_splits",
+  "selection_char": 8,
+  "selection_line": 396
+ },
+ {
+  "container": "StringMerger",
+  "kind": "method",
+  "location": {
+   "end_line": 472,
+   "file": "src/black/trans.py",
+   "start_line": 425
+  },
+  "name": "do_match",
+  "selection_char": 8,
+  "selection_line": 425
+ },
+ {
+  "container": "StringMerger",
+  "kind": "method",
+  "location": {
+   "end_line": 502,
+   "file": "src/black/trans.py",
+   "start_line": 474
+  },
+  "name": "do_transform",
+  "selection_char": 8,
+  "selection_line": 474
+ },
+ {
+  "container": "StringMerger",
+  "kind": "method",
+  "location": {
+   "end_line": 544,
+   "file": "src/black/trans.py",
+   "start_line": 504
+  },
+  "name": "_remove_backslash_line_continuation_chars",
+  "selection_char": 8,
+  "selection_line": 505
+ },
+ {
+  "container": "StringMerger",
+  "kind": "method",
+  "location": {
+   "end_line": 599,
+   "file": "src/black/trans.py",
+   "start_line": 546
+  },
+  "name": "_merge_string_group",
+  "selection_char": 8,
+  "selection_line": 546
+ },
+ {
+  "container": "StringMerger",
+  "kind": "method",
+  "location": {
+   "end_line": 758,
+   "file": "src/black/trans.py",
+   "start_line": 601
+  },
+  "name": "_merge_one_string_group",
+  "selection_char": 8,
+  "selection_line": 601
+ },
+ {
+  "container": "_merge_one_string_group",
+  "kind": "function",
+  "location": {
+   "end_line": 661,
+   "file": "src/black/trans.py",
+   "start_line": 625
+  },
+  "name": "make_naked",
+  "selection_char": 12,
+  "selection_line": 625
+ },
+ {
+  "container": "StringMerger",
+  "kind": "method",
+  "location": {
+   "end_line": 879,
+   "file": "src/black/trans.py",
+   "start_line": 760
+  },
+  "name": "_validate_msg",
+  "selection_char": 8,
+  "selection_line": 761
+ },
+ {
+  "container": "StringParenStripper",
+  "kind": "method",
+  "location": {
+   "end_line": 1007,
+   "file": "src/black/trans.py",
+   "start_line": 903
+  },
+  "name": "do_match",
+  "selection_char": 8,
+  "selection_line": 903
+ },
+ {
+  "container": "StringParenStripper",
+  "kind": "method",
+  "location": {
+   "end_line": 1034,
+   "file": "src/black/trans.py",
+   "start_line": 1009
+  },
+  "name": "do_transform",
+  "selection_char": 8,
+  "selection_line": 1009
+ },
+ {
+  "container": "StringParenStripper",
+  "kind": "method",
+  "location": {
+   "end_line": 1069,
+   "file": "src/black/trans.py",
+   "start_line": 1036
+  },
+  "name": "_transform_to_new_line",
+  "selection_char": 8,
+  "selection_line": 1036
+ },
+ {
+  "container": "BaseStringSplitter",
+  "kind": "method",
+  "location": {
+   "end_line": 1118,
+   "file": "src/black/trans.py",
+   "start_line": 1109
+  },
+  "name": "do_splitter_match",
+  "selection_char": 8,
+  "selection_line": 1110
+ },
+ {
+  "container": "BaseStringSplitter",
+  "kind": "method",
+  "location": {
+   "end_line": 1135,
+   "file": "src/black/trans.py",
+   "start_line": 1120
+  },
+  "name": "do_match",
+  "selection_char": 8,
+  "selection_line": 1120
+ },
+ {
+  "container": "BaseStringSplitter",
+  "kind": "method",
+  "location": {
+   "end_line": 1178,
+   "file": "src/black/trans.py",
+   "start_line": 1137
+  },
+  "name": "_validate",
+  "selection_char": 8,
+  "selection_line": 1137
+ },
+ {
+  "container": "BaseStringSplitter",
+  "kind": "method",
+  "location": {
+   "end_line": 1287,
+   "file": "src/black/trans.py",
+   "start_line": 1180
+  },
+  "name": "_get_max_string_length",
+  "selection_char": 8,
+  "selection_line": 1180
+ },
+ {
+  "container": "BaseStringSplitter",
+  "kind": "method",
+  "location": {
+   "end_line": 1332,
+   "file": "src/black/trans.py",
+   "start_line": 1289
+  },
+  "name": "_prefer_paren_wrap_match",
+  "selection_char": 8,
+  "selection_line": 1290
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1379,
+   "file": "src/black/trans.py",
+   "start_line": 1335
+  },
+  "name": "iter_fexpr_spans",
+  "selection_char": 4,
+  "selection_line": 1335
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1383,
+   "file": "src/black/trans.py",
+   "start_line": 1382
+  },
+  "name": "fstring_contains_expr",
+  "selection_char": 4,
+  "selection_line": 1382
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1407,
+   "file": "src/black/trans.py",
+   "start_line": 1386
+  },
+  "name": "_toggle_fexpr_quotes",
+  "selection_char": 4,
+  "selection_line": 1386
+ },
+ {
+  "container": "StringSplitter",
+  "kind": "method",
+  "location": {
+   "end_line": 1516,
+   "file": "src/black/trans.py",
+   "start_line": 1450
+  },
+  "name": "do_splitter_match",
+  "selection_char": 8,
+  "selection_line": 1450
+ },
+ {
+  "container": "StringSplitter",
+  "kind": "method",
+  "location": {
+   "end_line": 1748,
+   "file": "src/black/trans.py",
+   "start_line": 1518
+  },
+  "name": "do_transform",
+  "selection_char": 8,
+  "selection_line": 1518
+ },
+ {
+  "container": "do_transform",
+  "kind": "function",
+  "location": {
+   "end_line": 1563,
+   "file": "src/black/trans.py",
+   "start_line": 1552
+  },
+  "name": "maybe_append_string_operators",
+  "selection_char": 12,
+  "selection_line": 1552
+ },
+ {
+  "container": "do_transform",
+  "kind": "function",
+  "location": {
+   "end_line": 1581,
+   "file": "src/black/trans.py",
+   "start_line": 1569
+  },
+  "name": "max_last_string_column",
+  "selection_char": 12,
+  "selection_line": 1569
+ },
+ {
+  "container": "do_transform",
+  "kind": "function",
+  "location": {
+   "end_line": 1619,
+   "file": "src/black/trans.py",
+   "start_line": 1610
+  },
+  "name": "more_splits_should_be_made",
+  "selection_char": 12,
+  "selection_line": 1610
+ },
+ {
+  "container": "StringSplitter",
+  "kind": "method",
+  "location": {
+   "end_line": 1779,
+   "file": "src/black/trans.py",
+   "start_line": 1750
+  },
+  "name": "_iter_nameescape_slices",
+  "selection_char": 8,
+  "selection_line": 1750
+ },
+ {
+  "container": "StringSplitter",
+  "kind": "method",
+  "location": {
+   "end_line": 1790,
+   "file": "src/black/trans.py",
+   "start_line": 1781
+  },
+  "name": "_iter_fexpr_slices",
+  "selection_char": 8,
+  "selection_line": 1781
+ },
+ {
+  "container": "StringSplitter",
+  "kind": "method",
+  "location": {
+   "end_line": 1801,
+   "file": "src/black/trans.py",
+   "start_line": 1792
+  },
+  "name": "_get_illegal_split_indices",
+  "selection_char": 8,
+  "selection_line": 1792
+ },
+ {
+  "container": "StringSplitter",
+  "kind": "method",
+  "location": {
+   "end_line": 1886,
+   "file": "src/black/trans.py",
+   "start_line": 1803
+  },
+  "name": "_get_break_idx",
+  "selection_char": 8,
+  "selection_line": 1803
+ },
+ {
+  "container": "_get_break_idx",
+  "kind": "function",
+  "location": {
+   "end_line": 1840,
+   "file": "src/black/trans.py",
+   "start_line": 1834
+  },
+  "name": "breaks_unsplittable_expression",
+  "selection_char": 12,
+  "selection_line": 1834
+ },
+ {
+  "container": "_get_break_idx",
+  "kind": "function",
+  "location": {
+   "end_line": 1866,
+   "file": "src/black/trans.py",
+   "start_line": 1842
+  },
+  "name": "passes_all_checks",
+  "selection_char": 12,
+  "selection_line": 1842
+ },
+ {
+  "container": "StringSplitter",
+  "kind": "method",
+  "location": {
+   "end_line": 1890,
+   "file": "src/black/trans.py",
+   "start_line": 1888
+  },
+  "name": "_maybe_normalize_string_quotes",
+  "selection_char": 8,
+  "selection_line": 1888
+ },
+ {
+  "container": "StringSplitter",
+  "kind": "method",
+  "location": {
+   "end_line": 1917,
+   "file": "src/black/trans.py",
+   "start_line": 1892
+  },
+  "name": "_normalize_f_string",
+  "selection_char": 8,
+  "selection_line": 1892
+ },
+ {
+  "container": "StringSplitter",
+  "kind": "method",
+  "location": {
+   "end_line": 1928,
+   "file": "src/black/trans.py",
+   "start_line": 1919
+  },
+  "name": "_get_string_operator_leaves",
+  "selection_char": 8,
+  "selection_line": 1919
+ },
+ {
+  "container": "StringParenWrapper",
+  "kind": "method",
+  "location": {
+   "end_line": 2030,
+   "file": "src/black/trans.py",
+   "start_line": 1989
+  },
+  "name": "do_splitter_match",
+  "selection_char": 8,
+  "selection_line": 1989
+ },
+ {
+  "container": "StringParenWrapper",
+  "kind": "method",
+  "location": {
+   "end_line": 2055,
+   "file": "src/black/trans.py",
+   "start_line": 2032
+  },
+  "name": "_return_match",
+  "selection_char": 8,
+  "selection_line": 2033
+ },
+ {
+  "container": "StringParenWrapper",
+  "kind": "method",
+  "location": {
+   "end_line": 2082,
+   "file": "src/black/trans.py",
+   "start_line": 2057
+  },
+  "name": "_else_match",
+  "selection_char": 8,
+  "selection_line": 2058
+ },
+ {
+  "container": "StringParenWrapper",
+  "kind": "method",
+  "location": {
+   "end_line": 2117,
+   "file": "src/black/trans.py",
+   "start_line": 2084
+  },
+  "name": "_assert_match",
+  "selection_char": 8,
+  "selection_line": 2085
+ },
+ {
+  "container": "StringParenWrapper",
+  "kind": "method",
+  "location": {
+   "end_line": 2164,
+   "file": "src/black/trans.py",
+   "start_line": 2119
+  },
+  "name": "_assign_match",
+  "selection_char": 8,
+  "selection_line": 2120
+ },
+ {
+  "container": "StringParenWrapper",
+  "kind": "method",
+  "location": {
+   "end_line": 2203,
+   "file": "src/black/trans.py",
+   "start_line": 2166
+  },
+  "name": "_dict_or_lambda_match",
+  "selection_char": 8,
+  "selection_line": 2167
+ },
+ {
+  "container": "StringParenWrapper",
+  "kind": "method",
+  "location": {
+   "end_line": 2229,
+   "file": "src/black/trans.py",
+   "start_line": 2205
+  },
+  "name": "_trailing_comma_tuple_match",
+  "selection_char": 8,
+  "selection_line": 2206
+ },
+ {
+  "container": "StringParenWrapper",
+  "kind": "method",
+  "location": {
+   "end_line": 2352,
+   "file": "src/black/trans.py",
+   "start_line": 2231
+  },
+  "name": "do_transform",
+  "selection_char": 8,
+  "selection_line": 2231
+ },
+ {
+  "container": "StringParser",
+  "kind": "method",
+  "location": {
+   "end_line": 2425,
+   "file": "src/black/trans.py",
+   "start_line": 2423
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 2423
+ },
+ {
+  "container": "StringParser",
+  "kind": "method",
+  "location": {
+   "end_line": 2443,
+   "file": "src/black/trans.py",
+   "start_line": 2427
+  },
+  "name": "parse",
+  "selection_char": 8,
+  "selection_line": 2427
+ },
+ {
+  "container": "StringParser",
+  "kind": "method",
+  "location": {
+   "end_line": 2494,
+   "file": "src/black/trans.py",
+   "start_line": 2445
+  },
+  "name": "_next_state",
+  "selection_char": 8,
+  "selection_line": 2445
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 2555,
+   "file": "src/black/trans.py",
+   "start_line": 2497
+  },
+  "name": "insert_str_child_factory",
+  "selection_char": 4,
+  "selection_line": 2497
+ },
+ {
+  "container": "insert_str_child_factory",
+  "kind": "function",
+  "location": {
+   "end_line": 2553,
+   "file": "src/black/trans.py",
+   "start_line": 2546
+  },
+  "name": "insert_str_child",
+  "selection_char": 8,
+  "selection_line": 2546
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 2582,
+   "file": "src/black/trans.py",
+   "start_line": 2558
+  },
+  "name": "is_valid_index_factory",
+  "selection_char": 4,
+  "selection_line": 2558
+ },
+ {
+  "container": "is_valid_index_factory",
+  "kind": "function",
+  "location": {
+   "end_line": 2580,
+   "file": "src/black/trans.py",
+   "start_line": 2574
+  },
+  "name": "is_valid_index",
+  "selection_char": 8,
+  "selection_line": 2574
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 118,
+   "file": "src/blackd/__init__.py",
+   "start_line": 71
+  },
+  "name": "main",
+  "selection_char": 4,
+  "selection_line": 96
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 123,
+   "file": "src/blackd/__init__.py",
+   "start_line": 121
+  },
+  "name": "executor",
+  "selection_char": 4,
+  "selection_line": 122
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 151,
+   "file": "src/blackd/__init__.py",
+   "start_line": 126
+  },
+  "name": "make_app",
+  "selection_char": 4,
+  "selection_line": 126
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 215,
+   "file": "src/blackd/__init__.py",
+   "start_line": 154
+  },
+  "name": "handle",
+  "selection_char": 10,
+  "selection_line": 154
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 243,
+   "file": "src/blackd/__init__.py",
+   "start_line": 218
+  },
+  "name": "format_code",
+  "selection_char": 10,
+  "selection_line": 218
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 294,
+   "file": "src/blackd/__init__.py",
+   "start_line": 246
+  },
+  "name": "parse_mode",
+  "selection_char": 4,
+  "selection_line": 246
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 327,
+   "file": "src/blackd/__init__.py",
+   "start_line": 297
+  },
+  "name": "parse_python_variant_header",
+  "selection_char": 4,
+  "selection_line": 297
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 332,
+   "file": "src/blackd/__init__.py",
+   "start_line": 330
+  },
+  "name": "patched_main",
+  "selection_char": 4,
+  "selection_line": 330
+ },
+ {
+  "container": "BlackDClient",
+  "kind": "method",
+  "location": {
+   "end_line": 67,
+   "file": "src/blackd/client.py",
+   "start_line": 10
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 10
+ },
+ {
+  "container": "BlackDClient",
+  "kind": "method",
+  "location": {
+   "end_line": 92,
+   "file": "src/blackd/client.py",
+   "start_line": 69
+  },
+  "name": "format_code",
+  "selection_char": 14,
+  "selection_line": 69
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 45,
+   "file": "src/blackd/middlewares.py",
+   "start_line": 12
+  },
+  "name": "cors",
+  "selection_char": 4,
+  "selection_line": 12
+ },
+ {
+  "container": "cors",
+  "kind": "function",
+  "location": {
+   "end_line": 43,
+   "file": "src/blackd/middlewares.py",
+   "start_line": 18
+  },
+  "name": "impl",
+  "selection_char": 14,
+  "selection_line": 19
+ },
+ {
+  "container": "Converter",
+  "kind": "method",
+  "location": {
+   "end_line": 53,
+   "file": "src/blib2to3/pgen2/conv.py",
+   "start_line": 49
+  },
+  "name": "run",
+  "selection_char": 8,
+  "selection_line": 49
+ },
+ {
+  "container": "Converter",
+  "kind": "method",
+  "location": {
+   "end_line": 83,
+   "file": "src/blib2to3/pgen2/conv.py",
+   "start_line": 55
+  },
+  "name": "parse_graminit_h",
+  "selection_char": 8,
+  "selection_line": 55
+ },
+ {
+  "container": "Converter",
+  "kind": "method",
+  "location": {
+   "end_line": 246,
+   "file": "src/blib2to3/pgen2/conv.py",
+   "start_line": 85
+  },
+  "name": "parse_graminit_c",
+  "selection_char": 8,
+  "selection_line": 85
+ },
+ {
+  "container": "Converter",
+  "kind": "method",
+  "location": {
+   "end_line": 256,
+   "file": "src/blib2to3/pgen2/conv.py",
+   "start_line": 248
+  },
+  "name": "finish_off",
+  "selection_char": 8,
+  "selection_line": 248
+ },
+ {
+  "container": "ReleaseRange",
+  "kind": "method",
+  "location": {
+   "end_line": 48,
+   "file": "src/blib2to3/pgen2/driver.py",
+   "start_line": 46
+  },
+  "name": "lock",
+  "selection_char": 8,
+  "selection_line": 46
+ },
+ {
+  "container": "TokenProxy",
+  "kind": "method",
+  "location": {
+   "end_line": 55,
+   "file": "src/blib2to3/pgen2/driver.py",
+   "start_line": 52
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 52
+ },
+ {
+  "container": "TokenProxy",
+  "kind": "method",
+  "location": {
+   "end_line": 66,
+   "file": "src/blib2to3/pgen2/driver.py",
+   "start_line": 57
+  },
+  "name": "release",
+  "selection_char": 8,
+  "selection_line": 58
+ },
+ {
+  "container": "TokenProxy",
+  "kind": "method",
+  "location": {
+   "end_line": 76,
+   "file": "src/blib2to3/pgen2/driver.py",
+   "start_line": 68
+  },
+  "name": "eat",
+  "selection_char": 8,
+  "selection_line": 68
+ },
+ {
+  "container": "TokenProxy",
+  "kind": "method",
+  "location": {
+   "end_line": 79,
+   "file": "src/blib2to3/pgen2/driver.py",
+   "start_line": 78
+  },
+  "name": "__iter__",
+  "selection_char": 8,
+  "selection_line": 78
+ },
+ {
+  "container": "TokenProxy",
+  "kind": "method",
+  "location": {
+   "end_line": 95,
+   "file": "src/blib2to3/pgen2/driver.py",
+   "start_line": 81
+  },
+  "name": "__next__",
+  "selection_char": 8,
+  "selection_line": 81
+ },
+ {
+  "container": "TokenProxy",
+  "kind": "method",
+  "location": {
+   "end_line": 105,
+   "file": "src/blib2to3/pgen2/driver.py",
+   "start_line": 97
+  },
+  "name": "can_advance",
+  "selection_char": 8,
+  "selection_line": 97
+ },
+ {
+  "container": "Driver",
+  "kind": "method",
+  "location": {
+   "end_line": 113,
+   "file": "src/blib2to3/pgen2/driver.py",
+   "start_line": 109
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 109
+ },
+ {
+  "container": "Driver",
+  "kind": "method",
+  "location": {
+   "end_line": 185,
+   "file": "src/blib2to3/pgen2/driver.py",
+   "start_line": 115
+  },
+  "name": "parse_tokens",
+  "selection_char": 8,
+  "selection_line": 115
+ },
+ {
+  "container": "Driver",
+  "kind": "method",
+  "location": {
+   "end_line": 193,
+   "file": "src/blib2to3/pgen2/driver.py",
+   "start_line": 187
+  },
+  "name": "parse_file",
+  "selection_char": 8,
+  "selection_line": 187
+ },
+ {
+  "container": "Driver",
+  "kind": "method",
+  "location": {
+   "end_line": 198,
+   "file": "src/blib2to3/pgen2/driver.py",
+   "start_line": 195
+  },
+  "name": "parse_string",
+  "selection_char": 8,
+  "selection_line": 195
+ },
+ {
+  "container": "Driver",
+  "kind": "method",
+  "location": {
+   "end_line": 227,
+   "file": "src/blib2to3/pgen2/driver.py",
+   "start_line": 200
+  },
+  "name": "_partially_consume_prefix",
+  "selection_char": 8,
+  "selection_line": 200
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 238,
+   "file": "src/blib2to3/pgen2/driver.py",
+   "start_line": 230
+  },
+  "name": "_generate_pickle_name",
+  "selection_char": 4,
+  "selection_line": 230
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 263,
+   "file": "src/blib2to3/pgen2/driver.py",
+   "start_line": 241
+  },
+  "name": "load_grammar",
+  "selection_char": 4,
+  "selection_line": 241
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 272,
+   "file": "src/blib2to3/pgen2/driver.py",
+   "start_line": 266
+  },
+  "name": "_newer",
+  "selection_char": 4,
+  "selection_line": 266
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 296,
+   "file": "src/blib2to3/pgen2/driver.py",
+   "start_line": 275
+  },
+  "name": "load_packaged_grammar",
+  "selection_char": 4,
+  "selection_line": 275
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 309,
+   "file": "src/blib2to3/pgen2/driver.py",
+   "start_line": 299
+  },
+  "name": "main",
+  "selection_char": 4,
+  "selection_line": 299
+ },
+ {
+  "container": "Grammar",
+  "kind": "method",
+  "location": {
+   "end_line": 98,
+   "file": "src/blib2to3/pgen2/grammar.py",
+   "start_line": 85
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 85
+ },
+ {
+  "container": "Grammar",
+  "kind": "method",
+  "location": {
+   "end_line": 115,
+   "file": "src/blib2to3/pgen2/grammar.py",
+   "start_line": 100
+  },
+  "name": "dump",
+  "selection_char": 8,
+  "selection_line": 100
+ },
+ {
+  "container": "Grammar",
+  "kind": "method",
+  "location": {
+   "end_line": 119,
+   "file": "src/blib2to3/pgen2/grammar.py",
+   "start_line": 117
+  },
+  "name": "_update",
+  "selection_char": 8,
+  "selection_line": 117
+ },
+ {
+  "container": "Grammar",
+  "kind": "method",
+  "location": {
+   "end_line": 125,
+   "file": "src/blib2to3/pgen2/grammar.py",
+   "start_line": 121
+  },
+  "name": "load",
+  "selection_char": 8,
+  "selection_line": 121
+ },
+ {
+  "container": "Grammar",
+  "kind": "method",
+  "location": {
+   "end_line": 129,
+   "file": "src/blib2to3/pgen2/grammar.py",
+   "start_line": 127
+  },
+  "name": "loads",
+  "selection_char": 8,
+  "selection_line": 127
+ },
+ {
+  "container": "Grammar",
+  "kind": "method",
+  "location": {
+   "end_line": 151,
+   "file": "src/blib2to3/pgen2/grammar.py",
+   "start_line": 131
+  },
+  "name": "copy",
+  "selection_char": 8,
+  "selection_line": 131
+ },
+ {
+  "container": "Grammar",
+  "kind": "method",
+  "location": {
+   "end_line": 167,
+   "file": "src/blib2to3/pgen2/grammar.py",
+   "start_line": 153
+  },
+  "name": "report",
+  "selection_char": 8,
+  "selection_line": 153
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 41,
+   "file": "src/blib2to3/pgen2/literals.py",
+   "start_line": 22
+  },
+  "name": "escape",
+  "selection_char": 4,
+  "selection_line": 22
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 52,
+   "file": "src/blib2to3/pgen2/literals.py",
+   "start_line": 44
+  },
+  "name": "evalString",
+  "selection_char": 4,
+  "selection_line": 44
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 61,
+   "file": "src/blib2to3/pgen2/literals.py",
+   "start_line": 55
+  },
+  "name": "test",
+  "selection_char": 4,
+  "selection_line": 55
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 35,
+   "file": "src/blib2to3/pgen2/parse.py",
+   "start_line": 33
+  },
+  "name": "lam_sub",
+  "selection_char": 4,
+  "selection_line": 33
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 46,
+   "file": "src/blib2to3/pgen2/parse.py",
+   "start_line": 42
+  },
+  "name": "stack_copy",
+  "selection_char": 4,
+  "selection_line": 42
+ },
+ {
+  "container": "Recorder",
+  "kind": "method",
+  "location": {
+   "end_line": 57,
+   "file": "src/blib2to3/pgen2/parse.py",
+   "start_line": 50
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 50
+ },
+ {
+  "container": "Recorder",
+  "kind": "method",
+  "location": {
+   "end_line": 61,
+   "file": "src/blib2to3/pgen2/parse.py",
+   "start_line": 59
+  },
+  "name": "ilabels",
+  "selection_char": 8,
+  "selection_line": 60
+ },
+ {
+  "container": "Recorder",
+  "kind": "method",
+  "location": {
+   "end_line": 72,
+   "file": "src/blib2to3/pgen2/parse.py",
+   "start_line": 63
+  },
+  "name": "switch_to",
+  "selection_char": 8,
+  "selection_line": 64
+ },
+ {
+  "container": "Recorder",
+  "kind": "method",
+  "location": {
+   "end_line": 90,
+   "file": "src/blib2to3/pgen2/parse.py",
+   "start_line": 74
+  },
+  "name": "backtrack",
+  "selection_char": 8,
+  "selection_line": 75
+ },
+ {
+  "container": "Recorder",
+  "kind": "method",
+  "location": {
+   "end_line": 98,
+   "file": "src/blib2to3/pgen2/parse.py",
+   "start_line": 92
+  },
+  "name": "add_token",
+  "selection_char": 8,
+  "selection_line": 92
+ },
+ {
+  "container": "Recorder",
+  "kind": "method",
+  "location": {
+   "end_line": 112,
+   "file": "src/blib2to3/pgen2/parse.py",
+   "start_line": 100
+  },
+  "name": "determine_route",
+  "selection_char": 8,
+  "selection_line": 100
+ },
+ {
+  "container": "ParseError",
+  "kind": "method",
+  "location": {
+   "end_line": 127,
+   "file": "src/blib2to3/pgen2/parse.py",
+   "start_line": 118
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 118
+ },
+ {
+  "container": "Parser",
+  "kind": "method",
+  "location": {
+   "end_line": 198,
+   "file": "src/blib2to3/pgen2/parse.py",
+   "start_line": 160
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 160
+ },
+ {
+  "container": "Parser",
+  "kind": "method",
+  "location": {
+   "end_line": 224,
+   "file": "src/blib2to3/pgen2/parse.py",
+   "start_line": 200
+  },
+  "name": "setup",
+  "selection_char": 8,
+  "selection_line": 200
+ },
+ {
+  "container": "Parser",
+  "kind": "method",
+  "location": {
+   "end_line": 272,
+   "file": "src/blib2to3/pgen2/parse.py",
+   "start_line": 226
+  },
+  "name": "addtoken",
+  "selection_char": 8,
+  "selection_line": 226
+ },
+ {
+  "container": "Parser",
+  "kind": "method",
+  "location": {
+   "end_line": 318,
+   "file": "src/blib2to3/pgen2/parse.py",
+   "start_line": 274
+  },
+  "name": "_addtoken",
+  "selection_char": 8,
+  "selection_line": 274
+ },
+ {
+  "container": "Parser",
+  "kind": "method",
+  "location": {
+   "end_line": 355,
+   "file": "src/blib2to3/pgen2/parse.py",
+   "start_line": 320
+  },
+  "name": "classify",
+  "selection_char": 8,
+  "selection_line": 320
+ },
+ {
+  "container": "Parser",
+  "kind": "method",
+  "location": {
+   "end_line": 368,
+   "file": "src/blib2to3/pgen2/parse.py",
+   "start_line": 357
+  },
+  "name": "shift",
+  "selection_char": 8,
+  "selection_line": 357
+ },
+ {
+  "container": "Parser",
+  "kind": "method",
+  "location": {
+   "end_line": 380,
+   "file": "src/blib2to3/pgen2/parse.py",
+   "start_line": 370
+  },
+  "name": "push",
+  "selection_char": 8,
+  "selection_line": 370
+ },
+ {
+  "container": "Parser",
+  "kind": "method",
+  "location": {
+   "end_line": 395,
+   "file": "src/blib2to3/pgen2/parse.py",
+   "start_line": 382
+  },
+  "name": "pop",
+  "selection_char": 8,
+  "selection_line": 382
+ },
+ {
+  "container": "ParserGenerator",
+  "kind": "method",
+  "location": {
+   "end_line": 36,
+   "file": "src/blib2to3/pgen2/pgen.py",
+   "start_line": 24
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 24
+ },
+ {
+  "container": "ParserGenerator",
+  "kind": "method",
+  "location": {
+   "end_line": 61,
+   "file": "src/blib2to3/pgen2/pgen.py",
+   "start_line": 38
+  },
+  "name": "make_grammar",
+  "selection_char": 8,
+  "selection_line": 38
+ },
+ {
+  "container": "ParserGenerator",
+  "kind": "method",
+  "location": {
+   "end_line": 71,
+   "file": "src/blib2to3/pgen2/pgen.py",
+   "start_line": 63
+  },
+  "name": "make_first",
+  "selection_char": 8,
+  "selection_line": 63
+ },
+ {
+  "container": "ParserGenerator",
+  "kind": "method",
+  "location": {
+   "end_line": 122,
+   "file": "src/blib2to3/pgen2/pgen.py",
+   "start_line": 73
+  },
+  "name": "make_label",
+  "selection_char": 8,
+  "selection_line": 73
+ },
+ {
+  "container": "ParserGenerator",
+  "kind": "method",
+  "location": {
+   "end_line": 129,
+   "file": "src/blib2to3/pgen2/pgen.py",
+   "start_line": 124
+  },
+  "name": "addfirstsets",
+  "selection_char": 8,
+  "selection_line": 124
+ },
+ {
+  "container": "ParserGenerator",
+  "kind": "method",
+  "location": {
+   "end_line": 162,
+   "file": "src/blib2to3/pgen2/pgen.py",
+   "start_line": 132
+  },
+  "name": "calcfirst",
+  "selection_char": 8,
+  "selection_line": 132
+ },
+ {
+  "container": "ParserGenerator",
+  "kind": "method",
+  "location": {
+   "end_line": 187,
+   "file": "src/blib2to3/pgen2/pgen.py",
+   "start_line": 164
+  },
+  "name": "parse",
+  "selection_char": 8,
+  "selection_line": 164
+ },
+ {
+  "container": "ParserGenerator",
+  "kind": "method",
+  "location": {
+   "end_line": 226,
+   "file": "src/blib2to3/pgen2/pgen.py",
+   "start_line": 189
+  },
+  "name": "make_dfa",
+  "selection_char": 8,
+  "selection_line": 189
+ },
+ {
+  "container": "make_dfa",
+  "kind": "function",
+  "location": {
+   "end_line": 200,
+   "file": "src/blib2to3/pgen2/pgen.py",
+   "start_line": 197
+  },
+  "name": "closure",
+  "selection_char": 12,
+  "selection_line": 197
+ },
+ {
+  "container": "make_dfa",
+  "kind": "function",
+  "location": {
+   "end_line": 209,
+   "file": "src/blib2to3/pgen2/pgen.py",
+   "start_line": 202
+  },
+  "name": "addclosure",
+  "selection_char": 12,
+  "selection_line": 202
+ },
+ {
+  "container": "ParserGenerator",
+  "kind": "method",
+  "location": {
+   "end_line": 247,
+   "file": "src/blib2to3/pgen2/pgen.py",
+   "start_line": 228
+  },
+  "name": "simplify_dfa",
+  "selection_char": 8,
+  "selection_line": 228
+ },
+ {
+  "container": "ParserGenerator",
+  "kind": "method",
+  "location": {
+   "end_line": 264,
+   "file": "src/blib2to3/pgen2/pgen.py",
+   "start_line": 249
+  },
+  "name": "parse_rhs",
+  "selection_char": 8,
+  "selection_line": 249
+ },
+ {
+  "container": "ParserGenerator",
+  "kind": "method",
+  "location": {
+   "end_line": 273,
+   "file": "src/blib2to3/pgen2/pgen.py",
+   "start_line": 266
+  },
+  "name": "parse_alt",
+  "selection_char": 8,
+  "selection_line": 266
+ },
+ {
+  "container": "ParserGenerator",
+  "kind": "method",
+  "location": {
+   "end_line": 293,
+   "file": "src/blib2to3/pgen2/pgen.py",
+   "start_line": 275
+  },
+  "name": "parse_item",
+  "selection_char": 8,
+  "selection_line": 275
+ },
+ {
+  "container": "ParserGenerator",
+  "kind": "method",
+  "location": {
+   "end_line": 311,
+   "file": "src/blib2to3/pgen2/pgen.py",
+   "start_line": 295
+  },
+  "name": "parse_atom",
+  "selection_char": 8,
+  "selection_line": 295
+ },
+ {
+  "container": "ParserGenerator",
+  "kind": "method",
+  "location": {
+   "end_line": 318,
+   "file": "src/blib2to3/pgen2/pgen.py",
+   "start_line": 313
+  },
+  "name": "expect",
+  "selection_char": 8,
+  "selection_line": 313
+ },
+ {
+  "container": "ParserGenerator",
+  "kind": "method",
+  "location": {
+   "end_line": 324,
+   "file": "src/blib2to3/pgen2/pgen.py",
+   "start_line": 320
+  },
+  "name": "gettoken",
+  "selection_char": 8,
+  "selection_line": 320
+ },
+ {
+  "container": "ParserGenerator",
+  "kind": "method",
+  "location": {
+   "end_line": 330,
+   "file": "src/blib2to3/pgen2/pgen.py",
+   "start_line": 327
+  },
+  "name": "raise_error",
+  "selection_char": 8,
+  "selection_line": 327
+ },
+ {
+  "container": "NFAState",
+  "kind": "method",
+  "location": {
+   "end_line": 337,
+   "file": "src/blib2to3/pgen2/pgen.py",
+   "start_line": 336
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 336
+ },
+ {
+  "container": "NFAState",
+  "kind": "method",
+  "location": {
+   "end_line": 342,
+   "file": "src/blib2to3/pgen2/pgen.py",
+   "start_line": 339
+  },
+  "name": "addarc",
+  "selection_char": 8,
+  "selection_line": 339
+ },
+ {
+  "container": "DFAState",
+  "kind": "method",
+  "location": {
+   "end_line": 356,
+   "file": "src/blib2to3/pgen2/pgen.py",
+   "start_line": 350
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 350
+ },
+ {
+  "container": "DFAState",
+  "kind": "method",
+  "location": {
+   "end_line": 362,
+   "file": "src/blib2to3/pgen2/pgen.py",
+   "start_line": 358
+  },
+  "name": "addarc",
+  "selection_char": 8,
+  "selection_line": 358
+ },
+ {
+  "container": "DFAState",
+  "kind": "method",
+  "location": {
+   "end_line": 367,
+   "file": "src/blib2to3/pgen2/pgen.py",
+   "start_line": 364
+  },
+  "name": "unifystate",
+  "selection_char": 8,
+  "selection_line": 364
+ },
+ {
+  "container": "DFAState",
+  "kind": "method",
+  "location": {
+   "end_line": 381,
+   "file": "src/blib2to3/pgen2/pgen.py",
+   "start_line": 369
+  },
+  "name": "__eq__",
+  "selection_char": 8,
+  "selection_line": 369
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 388,
+   "file": "src/blib2to3/pgen2/pgen.py",
+   "start_line": 386
+  },
+  "name": "generate_grammar",
+  "selection_char": 4,
+  "selection_line": 386
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 143,
+   "file": "src/blib2to3/pgen2/tokenize.py",
+   "start_line": 107
+  },
+  "name": "transform_whitespace",
+  "selection_char": 4,
+  "selection_line": 107
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 259,
+   "file": "src/blib2to3/pgen2/tokenize.py",
+   "start_line": 146
+  },
+  "name": "tokenize",
+  "selection_char": 4,
+  "selection_line": 146
+ },
+ {
+  "container": "tokenize",
+  "kind": "function",
+  "location": {
+   "end_line": 168,
+   "file": "src/blib2to3/pgen2/tokenize.py",
+   "start_line": 155
+  },
+  "name": "emit_stashed_lazy",
+  "selection_char": 8,
+  "selection_line": 155
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 267,
+   "file": "src/blib2to3/pgen2/tokenize.py",
+   "start_line": 262
+  },
+  "name": "printtoken",
+  "selection_char": 4,
+  "selection_line": 262
+ },
+ {
+  "container": "Symbols",
+  "kind": "method",
+  "location": {
+   "end_line": 29,
+   "file": "src/blib2to3/pygram.py",
+   "start_line": 22
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 22
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 209,
+   "file": "src/blib2to3/pygram.py",
+   "start_line": 170
+  },
+  "name": "initialize",
+  "selection_char": 4,
+  "selection_line": 170
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 44,
+   "file": "src/blib2to3/pytree.py",
+   "start_line": 30
+  },
+  "name": "type_repr",
+  "selection_char": 4,
+  "selection_line": 30
+ },
+ {
+  "container": "Base",
+  "kind": "method",
+  "location": {
+   "end_line": 73,
+   "file": "src/blib2to3/pytree.py",
+   "start_line": 70
+  },
+  "name": "__new__",
+  "selection_char": 8,
+  "selection_line": 70
+ },
+ {
+  "container": "Base",
+  "kind": "method",
+  "location": {
+   "end_line": 83,
+   "file": "src/blib2to3/pytree.py",
+   "start_line": 75
+  },
+  "name": "__eq__",
+  "selection_char": 8,
+  "selection_line": 75
+ },
+ {
+  "container": "Base",
+  "kind": "method",
+  "location": {
+   "end_line": 87,
+   "file": "src/blib2to3/pytree.py",
+   "start_line": 85
+  },
+  "name": "prefix",
+  "selection_char": 8,
+  "selection_line": 86
+ },
+ {
+  "container": "Base",
+  "kind": "method",
+  "location": {
+   "end_line": 98,
+   "file": "src/blib2to3/pytree.py",
+   "start_line": 89
+  },
+  "name": "_eq",
+  "selection_char": 8,
+  "selection_line": 89
+ },
+ {
+  "container": "Base",
+  "kind": "method",
+  "location": {
+   "end_line": 101,
+   "file": "src/blib2to3/pytree.py",
+   "start_line": 100
+  },
+  "name": "__deepcopy__",
+  "selection_char": 8,
+  "selection_line": 100
+ },
+ {
+  "container": "Base",
+  "kind": "method",
+  "location": {
+   "end_line": 109,
+   "file": "src/blib2to3/pytree.py",
+   "start_line": 103
+  },
+  "name": "clone",
+  "selection_char": 8,
+  "selection_line": 103
+ },
+ {
+  "container": "Base",
+  "kind": "method",
+  "location": {
+   "end_line": 117,
+   "file": "src/blib2to3/pytree.py",
+   "start_line": 111
+  },
+  "name": "post_order",
+  "selection_char": 8,
+  "selection_line": 111
+ },
+ {
+  "container": "Base",
+  "kind": "method",
+  "location": {
+   "end_line": 125,
+   "file": "src/blib2to3/pytree.py",
+   "start_line": 119
+  },
+  "name": "pre_order",
+  "selection_char": 8,
+  "selection_line": 119
+ },
+ {
+  "container": "Base",
+  "kind": "method",
+  "location": {
+   "end_line": 149,
+   "file": "src/blib2to3/pytree.py",
+   "start_line": 127
+  },
+  "name": "replace",
+  "selection_char": 8,
+  "selection_line": 127
+ },
+ {
+  "container": "Base",
+  "kind": "method",
+  "location": {
+   "end_line": 158,
+   "file": "src/blib2to3/pytree.py",
+   "start_line": 151
+  },
+  "name": "get_lineno",
+  "selection_char": 8,
+  "selection_line": 151
+ },
+ {
+  "container": "Base",
+  "kind": "method",
+  "location": {
+   "end_line": 165,
+   "file": "src/blib2to3/pytree.py",
+   "start_line": 160
+  },
+  "name": "changed",
+  "selection_char": 8,
+  "selection_line": 160
+ },
+ {
+  "container": "Base",
+  "kind": "method",
+  "location": {
+   "end_line": 180,
+   "file": "src/blib2to3/pytree.py",
+   "start_line": 167
+  },
+  "name": "remove",
+  "selection_char": 8,
+  "selection_line": 167
+ },
+ {
+  "container": "Base",
+  "kind": "method",
+  "location": {
+   "end_line": 194,
+   "file": "src/blib2to3/pytree.py",
+   "start_line": 182
+  },
+  "name": "next_sibling",
+  "selection_char": 8,
+  "selection_line": 183
+ },
+ {
+  "container": "Base",
+  "kind": "method",
+  "location": {
+   "end_line": 208,
+   "file": "src/blib2to3/pytree.py",
+   "start_line": 196
+  },
+  "name": "prev_sibling",
+  "selection_char": 8,
+  "selection_line": 197
+ },
+ {
+  "container": "Base",
+  "kind": "method",
+  "location": {
+   "end_line": 212,
+   "file": "src/blib2to3/pytree.py",
+   "start_line": 210
+  },
+  "name": "leaves",
+  "selection_char": 8,
+  "selection_line": 210
+ },
+ {
+  "container": "Base",
+  "kind": "method",
+  "location": {
+   "end_line": 217,
+   "file": "src/blib2to3/pytree.py",
+   "start_line": 214
+  },
+  "name": "depth",
+  "selection_char": 8,
+  "selection_line": 214
+ },
+ {
+  "container": "Base",
+  "kind": "method",
+  "location": {
+   "end_line": 228,
+   "file": "src/blib2to3/pytree.py",
+   "start_line": 219
+  },
+  "name": "get_suffix",
+  "selection_char": 8,
+  "selection_line": 219
+ },
+ {
+  "container": "Node",
+  "kind": "method",
+  "location": {
+   "end_line": 265,
+   "file": "src/blib2to3/pytree.py",
+   "start_line": 237
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 237
+ },
+ {
+  "container": "Node",
+  "kind": "method",
+  "location": {
+   "end_line": 270,
+   "file": "src/blib2to3/pytree.py",
+   "start_line": 267
+  },
+  "name": "__repr__",
+  "selection_char": 8,
+  "selection_line": 267
+ },
+ {
+  "container": "Node",
+  "kind": "method",
+  "location": {
+   "end_line": 278,
+   "file": "src/blib2to3/pytree.py",
+   "start_line": 272
+  },
+  "name": "__str__",
+  "selection_char": 8,
+  "selection_line": 272
+ },
+ {
+  "container": "Node",
+  "kind": "method",
+  "location": {
+   "end_line": 282,
+   "file": "src/blib2to3/pytree.py",
+   "start_line": 280
+  },
+  "name": "_eq",
+  "selection_char": 8,
+  "selection_line": 280
+ },
+ {
+  "container": "Node",
+  "kind": "method",
+  "location": {
+   "end_line": 291,
+   "file": "src/blib2to3/pytree.py",
+   "start_line": 284
+  },
+  "name": "clone",
+  "selection_char": 8,
+  "selection_line": 284
+ },
+ {
+  "container": "Node",
+  "kind": "method",
+  "location": {
+   "end_line": 297,
+   "file": "src/blib2to3/pytree.py",
+   "start_line": 293
+  },
+  "name": "post_order",
+  "selection_char": 8,
+  "selection_line": 293
+ },
+ {
+  "container": "Node",
+  "kind": "method",
+  "location": {
+   "end_line": 303,
+   "file": "src/blib2to3/pytree.py",
+   "start_line": 299
+  },
+  "name": "pre_order",
+  "selection_char": 8,
+  "selection_line": 299
+ },
+ {
+  "container": "Node",
+  "kind": "method",
+  "location": {
+   "end_line": 317,
+   "file": "src/blib2to3/pytree.py",
+   "start_line": 314
+  },
+  "name": "prefix",
+  "selection_char": 8,
+  "selection_line": 315
+ },
+ {
+  "container": "Node",
+  "kind": "method",
+  "location": {
+   "end_line": 329,
+   "file": "src/blib2to3/pytree.py",
+   "start_line": 319
+  },
+  "name": "set_child",
+  "selection_char": 8,
+  "selection_line": 319
+ },
+ {
+  "container": "Node",
+  "kind": "method",
+  "location": {
+   "end_line": 342,
+   "file": "src/blib2to3/pytree.py",
+   "start_line": 331
+  },
+  "name": "insert_child",
+  "selection_char": 8,
+  "selection_line": 331
+ },
+ {
+  "container": "Node",
+  "kind": "method",
+  "location": {
+   "end_line": 352,
+   "file": "src/blib2to3/pytree.py",
+   "start_line": 344
+  },
+  "name": "append_child",
+  "selection_char": 8,
+  "selection_line": 344
+ },
+ {
+  "container": "Node",
+  "kind": "method",
+  "location": {
+   "end_line": 356,
+   "file": "src/blib2to3/pytree.py",
+   "start_line": 354
+  },
+  "name": "invalidate_sibling_maps",
+  "selection_char": 8,
+  "selection_line": 354
+ },
+ {
+  "container": "Node",
+  "kind": "method",
+  "location": {
+   "end_line": 375,
+   "file": "src/blib2to3/pytree.py",
+   "start_line": 358
+  },
+  "name": "_insert_into_sibling_maps",
+  "selection_char": 8,
+  "selection_line": 358
+ },
+ {
+  "container": "Node",
+  "kind": "method",
+  "location": {
+   "end_line": 390,
+   "file": "src/blib2to3/pytree.py",
+   "start_line": 377
+  },
+  "name": "_remove_from_sibling_maps",
+  "selection_char": 8,
+  "selection_line": 377
+ },
+ {
+  "container": "Node",
+  "kind": "method",
+  "location": {
+   "end_line": 407,
+   "file": "src/blib2to3/pytree.py",
+   "start_line": 392
+  },
+  "name": "_replace_in_sibling_maps",
+  "selection_char": 8,
+  "selection_line": 392
+ },
+ {
+  "container": "Node",
+  "kind": "method",
+  "location": {
+   "end_line": 419,
+   "file": "src/blib2to3/pytree.py",
+   "start_line": 409
+  },
+  "name": "update_sibling_maps",
+  "selection_char": 8,
+  "selection_line": 409
+ },
+ {
+  "container": "Leaf",
+  "kind": "method",
+  "location": {
+   "end_line": 467,
+   "file": "src/blib2to3/pytree.py",
+   "start_line": 440
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 440
+ },
+ {
+  "container": "Leaf",
+  "kind": "method",
+  "location": {
+   "end_line": 477,
+   "file": "src/blib2to3/pytree.py",
+   "start_line": 469
+  },
+  "name": "__repr__",
+  "selection_char": 8,
+  "selection_line": 469
+ },
+ {
+  "container": "Leaf",
+  "kind": "method",
+  "location": {
+   "end_line": 485,
+   "file": "src/blib2to3/pytree.py",
+   "start_line": 479
+  },
+  "name": "__str__",
+  "selection_char": 8,
+  "selection_line": 479
+ },
+ {
+  "container": "Leaf",
+  "kind": "method",
+  "location": {
+   "end_line": 489,
+   "file": "src/blib2to3/pytree.py",
+   "start_line": 487
+  },
+  "name": "_eq",
+  "selection_char": 8,
+  "selection_line": 487
+ },
+ {
+  "container": "Leaf",
+  "kind": "method",
+  "location": {
+   "end_line": 499,
+   "file": "src/blib2to3/pytree.py",
+   "start_line": 491
+  },
+  "name": "clone",
+  "selection_char": 8,
+  "selection_line": 491
+ },
+ {
+  "container": "Leaf",
+  "kind": "method",
+  "location": {
+   "end_line": 502,
+   "file": "src/blib2to3/pytree.py",
+   "start_line": 501
+  },
+  "name": "leaves",
+  "selection_char": 8,
+  "selection_line": 501
+ },
+ {
+  "container": "Leaf",
+  "kind": "method",
+  "location": {
+   "end_line": 506,
+   "file": "src/blib2to3/pytree.py",
+   "start_line": 504
+  },
+  "name": "post_order",
+  "selection_char": 8,
+  "selection_line": 504
+ },
+ {
+  "container": "Leaf",
+  "kind": "method",
+  "location": {
+   "end_line": 510,
+   "file": "src/blib2to3/pytree.py",
+   "start_line": 508
+  },
+  "name": "pre_order",
+  "selection_char": 8,
+  "selection_line": 508
+ },
+ {
+  "container": "Leaf",
+  "kind": "method",
+  "location": {
+   "end_line": 522,
+   "file": "src/blib2to3/pytree.py",
+   "start_line": 519
+  },
+  "name": "prefix",
+  "selection_char": 8,
+  "selection_line": 520
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 542,
+   "file": "src/blib2to3/pytree.py",
+   "start_line": 525
+  },
+  "name": "convert",
+  "selection_char": 4,
+  "selection_line": 525
+ },
+ {
+  "container": "BasePattern",
+  "kind": "method",
+  "location": {
+   "end_line": 572,
+   "file": "src/blib2to3/pytree.py",
+   "start_line": 569
+  },
+  "name": "__new__",
+  "selection_char": 8,
+  "selection_line": 569
+ },
+ {
+  "container": "BasePattern",
+  "kind": "method",
+  "location": {
+   "end_line": 579,
+   "file": "src/blib2to3/pytree.py",
+   "start_line": 574
+  },
+  "name": "__repr__",
+  "selection_char": 8,
+  "selection_line": 574
+ },
+ {
+  "container": "BasePattern",
+  "kind": "method",
+  "location": {
+   "end_line": 582,
+   "file": "src/blib2to3/pytree.py",
+   "start_line": 581
+  },
+  "name": "_submatch",
+  "selection_char": 8,
+  "selection_line": 581
+ },
+ {
+  "container": "BasePattern",
+  "kind": "method",
+  "location": {
+   "end_line": 590,
+   "file": "src/blib2to3/pytree.py",
+   "start_line": 584
+  },
+  "name": "optimize",
+  "selection_char": 8,
+  "selection_line": 584
+ },
+ {
+  "container": "BasePattern",
+  "kind": "method",
+  "location": {
+   "end_line": 616,
+   "file": "src/blib2to3/pytree.py",
+   "start_line": 592
+  },
+  "name": "match",
+  "selection_char": 8,
+  "selection_line": 592
+ },
+ {
+  "container": "BasePattern",
+  "kind": "method",
+  "location": {
+   "end_line": 626,
+   "file": "src/blib2to3/pytree.py",
+   "start_line": 618
+  },
+  "name": "match_seq",
+  "selection_char": 8,
+  "selection_line": 618
+ },
+ {
+  "container": "BasePattern",
+  "kind": "method",
+  "location": {
+   "end_line": 636,
+   "file": "src/blib2to3/pytree.py",
+   "start_line": 628
+  },
+  "name": "generate_matches",
+  "selection_char": 8,
+  "selection_line": 628
+ },
+ {
+  "container": "LeafPattern",
+  "kind": "method",
+  "location": {
+   "end_line": 663,
+   "file": "src/blib2to3/pytree.py",
+   "start_line": 640
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 640
+ },
+ {
+  "container": "LeafPattern",
+  "kind": "method",
+  "location": {
+   "end_line": 669,
+   "file": "src/blib2to3/pytree.py",
+   "start_line": 665
+  },
+  "name": "match",
+  "selection_char": 8,
+  "selection_line": 665
+ },
+ {
+  "container": "LeafPattern",
+  "kind": "method",
+  "location": {
+   "end_line": 684,
+   "file": "src/blib2to3/pytree.py",
+   "start_line": 671
+  },
+  "name": "_submatch",
+  "selection_char": 8,
+  "selection_line": 671
+ },
+ {
+  "container": "NodePattern",
+  "kind": "method",
+  "location": {
+   "end_line": 725,
+   "file": "src/blib2to3/pytree.py",
+   "start_line": 690
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 690
+ },
+ {
+  "container": "NodePattern",
+  "kind": "method",
+  "location": {
+   "end_line": 752,
+   "file": "src/blib2to3/pytree.py",
+   "start_line": 727
+  },
+  "name": "_submatch",
+  "selection_char": 8,
+  "selection_line": 727
+ },
+ {
+  "container": "WildcardPattern",
+  "kind": "method",
+  "location": {
+   "end_line": 813,
+   "file": "src/blib2to3/pytree.py",
+   "start_line": 771
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 771
+ },
+ {
+  "container": "WildcardPattern",
+  "kind": "method",
+  "location": {
+   "end_line": 841,
+   "file": "src/blib2to3/pytree.py",
+   "start_line": 815
+  },
+  "name": "optimize",
+  "selection_char": 8,
+  "selection_line": 815
+ },
+ {
+  "container": "WildcardPattern",
+  "kind": "method",
+  "location": {
+   "end_line": 845,
+   "file": "src/blib2to3/pytree.py",
+   "start_line": 843
+  },
+  "name": "match",
+  "selection_char": 8,
+  "selection_line": 843
+ },
+ {
+  "container": "WildcardPattern",
+  "kind": "method",
+  "location": {
+   "end_line": 856,
+   "file": "src/blib2to3/pytree.py",
+   "start_line": 847
+  },
+  "name": "match_seq",
+  "selection_char": 8,
+  "selection_line": 847
+ },
+ {
+  "container": "WildcardPattern",
+  "kind": "method",
+  "location": {
+   "end_line": 901,
+   "file": "src/blib2to3/pytree.py",
+   "start_line": 858
+  },
+  "name": "generate_matches",
+  "selection_char": 8,
+  "selection_line": 858
+ },
+ {
+  "container": "WildcardPattern",
+  "kind": "method",
+  "location": {
+   "end_line": 930,
+   "file": "src/blib2to3/pytree.py",
+   "start_line": 903
+  },
+  "name": "_iterative_matches",
+  "selection_char": 8,
+  "selection_line": 903
+ },
+ {
+  "container": "WildcardPattern",
+  "kind": "method",
+  "location": {
+   "end_line": 947,
+   "file": "src/blib2to3/pytree.py",
+   "start_line": 932
+  },
+  "name": "_bare_name_matches",
+  "selection_char": 8,
+  "selection_line": 932
+ },
+ {
+  "container": "WildcardPattern",
+  "kind": "method",
+  "location": {
+   "end_line": 961,
+   "file": "src/blib2to3/pytree.py",
+   "start_line": 949
+  },
+  "name": "_recursive_matches",
+  "selection_char": 8,
+  "selection_line": 949
+ },
+ {
+  "container": "NegatedPattern",
+  "kind": "method",
+  "location": {
+   "end_line": 976,
+   "file": "src/blib2to3/pytree.py",
+   "start_line": 965
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 965
+ },
+ {
+  "container": "NegatedPattern",
+  "kind": "method",
+  "location": {
+   "end_line": 980,
+   "file": "src/blib2to3/pytree.py",
+   "start_line": 978
+  },
+  "name": "match",
+  "selection_char": 8,
+  "selection_line": 978
+ },
+ {
+  "container": "NegatedPattern",
+  "kind": "method",
+  "location": {
+   "end_line": 984,
+   "file": "src/blib2to3/pytree.py",
+   "start_line": 982
+  },
+  "name": "match_seq",
+  "selection_char": 8,
+  "selection_line": 982
+ },
+ {
+  "container": "NegatedPattern",
+  "kind": "method",
+  "location": {
+   "end_line": 995,
+   "file": "src/blib2to3/pytree.py",
+   "start_line": 986
+  },
+  "name": "generate_matches",
+  "selection_char": 8,
+  "selection_line": 986
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1025,
+   "file": "src/blib2to3/pytree.py",
+   "start_line": 998
+  },
+  "name": "generate_matches",
+  "selection_char": 4,
+  "selection_line": 998
+ }
+]

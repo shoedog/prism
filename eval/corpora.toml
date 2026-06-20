@@ -1,5 +1,14 @@
-# Tier-A corpora (spec §2.9). SHAs pinned at first baseline run (Task 21).
+# Tier-A corpora (spec §2.9). SHAs pinned at first baseline run.
 # Selection principle: repeat-run friendliness — prism CPG cold-builds recur.
+#
+# Layout (2026-06-20 anchor expansion — see docs/eval/tier-a/baseline.md):
+#   1. COMMITTED ANCHORS  — the canonical valid baseline set, 3+ per language.
+#   2. PENDING / LOCAL    — valid-but-not-primary, or blocked on a known issue.
+#   3. MEASURED-INVALID   — kept for the record (oracle/SUT exceeds floor).
+# `oracle_error_floor` is the per-language ceiling on oracle (LSP) self-error;
+# a corpus is a valid anchor only when its oracle resolves cleanly enough to
+# trust as ground truth. Go/Rust = 0.10, Python = 0.25 (pyright's inherent
+# dynamic-dispatch miss rate). OER values in comments are from the 2026-06-20 run.
 [defaults]
 seed = 42
 per_stratum = 8
@@ -8,37 +17,197 @@ settle_s = 5.0
 oracle_error_floor = { rust = 0.10, go = 0.10, python = 0.25 }
 sut_error_floor = 0.05
 
+# ============================================================================
+# 1. COMMITTED ANCHORS
+# ============================================================================
+
+# --- Rust (oracle: rust-analyzer, floor 0.10) ---
 [corpus.prism]
 lang = "rust"
-path = "."                       # the prism repo itself
+path = "."                       # the prism repo itself (dogfood)
 oracle = "rust-analyzer"
 excludes = ["tests/fixtures/*", "eval/fixtures/*", "target/*"]
-pinned_sha = "20c8490591a3"                  # re-anchored to post-taint_reaches main (#113/#117 + perf arc), 2026-06-20
+pinned_sha = "20c8490591a3"                  # ANCHOR · OER 0.067 · post-taint_reaches main (#113/#117 + perf arc)
+
+[corpus.ruff]
+lang = "rust"
+path = "~/code/bench-repos/ruff"
+oracle = "rust-analyzer"
+quiescence_cap_s = 600                        # large monorepo: extra rust-analyzer indexing patience
+pinned_sha = "44f6d1865fd2"                  # ANCHOR · OER 0.000 · astral monorepo (contains ty's crates)
+
+[corpus.ripgrep]
+lang = "rust"
+path = "~/code/bench-repos/ripgrep"
+oracle = "rust-analyzer"
+quiescence_cap_s = 600                        # clean real-world app code
+pinned_sha = "82313cf95849"                  # ANCHOR · OER 0.063 · clean Rust application
+
+# --- Go (oracle: gopls, floor 0.10) ---
+[corpus.caddy]
+lang = "go"
+path = "~/code/bench-repos/caddy"
+oracle = "gopls"
+excludes = []
+pinned_sha = "77e9ce7404c4"                  # ANCHOR · OER 0.000 · web server
+
+[corpus.cobra]
+lang = "go"
+path = "~/code/bench-repos/cobra"
+oracle = "gopls"
+pinned_sha = "ad460ea8f249"                  # ANCHOR · OER 0.000 · single-module CLI lib (853 oracle sites)
+
+[corpus.prometheus]
+lang = "go"
+path = "~/code/bench-repos/prometheus"
+oracle = "gopls"
+quiescence_cap_s = 600                        # large monitoring app
+pinned_sha = "505095b64b43"                  # ANCHOR · OER 0.000 · monitoring app (444 files)
+
+[corpus.etcd]
+lang = "go"
+path = "~/code/bench-repos/etcd"
+oracle = "gopls"
+quiescence_cap_s = 600                        # multi-module distributed KV
+pinned_sha = "61d518f55eff"                  # ANCHOR · OER 0.000 · distributed KV (691 files)
+
+[corpus.zap]
+lang = "go"
+path = "~/code/bench-repos/zap"
+oracle = "gopls"
+pinned_sha = "5b81b37b81b8"                  # ANCHOR · OER 0.025 · logging lib
+
+# --- Python (oracle: pyright, floor 0.25) ---
+[corpus.black]
+lang = "python"
+path = "~/code/bench-repos/black"
+oracle = "pyright"
+excludes = ["tests/*", "docs/*", "scripts/*", ".venv/*"]
+pinned_sha = "b74b23013fe6"                  # ANCHOR · OER 0.157 · typed formatter (604 sites)
+
+[corpus.httpx]
+lang = "python"
+path = "~/code/bench-repos/httpx"
+oracle = "pyright"
+excludes = ["tests/*", "docs/*", ".venv/*"]
+pinned_sha = "b5addb64f016"                  # ANCHOR · OER 0.156 · typed HTTP client
+
+# ============================================================================
+# 2. PENDING / LOCAL (valid-but-not-primary, or blocked)
+# ============================================================================
+
+[corpus.mypy]
+lang = "python"
+path = "~/code/bench-repos/mypy"
+oracle = "pyright"
+excludes = ["test-data/*", "mypyc/test/*", "mypy/test/*", "docs/*", ".venv/*"]
+pinned_sha = "5ef090270579"                  # PY 3rd-anchor TARGET · oracle clean 0.163 but BLOCKED: prism stack-overflow (sut_error 0.84)
+
+[corpus.rich]
+lang = "python"
+path = "~/code/bench-repos/rich"
+oracle = "pyright"
+excludes = ["tests/*", "docs/*", "examples/*", ".venv/*"]
+pinned_sha = "46cebbb032f9"                  # PY 3rd-anchor FALLBACK · OER 0.250 (at-floor)
+
+[corpus.typer]
+lang = "python"
+path = "~/code/bench-repos/typer"
+oracle = "pyright"
+excludes = ["tests/*", "docs_src/*", "docs/*", ".venv/*"]
+pinned_sha = "5ec6501a3c3b"                  # valid extra · OER 0.225 (marginal, decorator-heavy)
+
+[corpus.go-redis]
+lang = "go"
+path = "~/code/bench-repos/go-redis"
+oracle = "gopls"
+pinned_sha = "1cfa927b89e6"                  # valid extra · OER 0.000 · client lib
+
+[corpus.uv]
+lang = "rust"
+path = "~/code/bench-repos/uv"
+oracle = "rust-analyzer"
+quiescence_cap_s = 600                        # large workspace
+pinned_sha = "3cdf50e0924f"                  # LOCAL · OER 0.000 but prism cold-build 66.7s outlier (perf investigation)
 
 [corpus.tokio]
 lang = "rust"
 path = "~/code/bench-repos/tokio"
 oracle = "rust-analyzer"
 excludes = []
-pinned_sha = "ecb5125a6787"
+pinned_sha = "ecb5125a6787"                  # follow-up · OER 0.219 INVALID (macro density defeats rust-analyzer)
 
-[corpus.caddy]
+[corpus.clap]
+lang = "rust"
+path = "~/code/bench-repos/clap"
+oracle = "rust-analyzer"
+quiescence_cap_s = 600
+settle_s = 20.0                               # retry lever: derive-macro build trips false-quiescence at settle_s=5
+pinned_sha = "8387c812c4b9"                  # retriable · oracle_unsupported (false-quiescence, derive-heavy)
+
+[corpus.axum]
+lang = "rust"
+path = "~/code/bench-repos/axum"
+oracle = "rust-analyzer"
+quiescence_cap_s = 600
+settle_s = 20.0                               # retry lever: same false-quiescence as clap
+pinned_sha = "485c603dddce"                  # retriable · oracle_unsupported (false-quiescence, macro-heavy)
+
+# ============================================================================
+# 3. MEASURED-INVALID (kept for the record; oracle exceeds floor)
+# ============================================================================
+
+[corpus.gin]
 lang = "go"
-path = "~/code/bench-repos/caddy"
+path = "~/code/bench-repos/gin"
 oracle = "gopls"
-excludes = []
-pinned_sha = "77e9ce7404c4"                  # copied from ~/code/agent-eval/cache/repos/caddy @ 77e9ce74
+pinned_sha = "d75fcd4c9ab2"                  # INVALID · OER 0.125 (just over 0.10; small 59-file sample)
+
+[corpus.hugo]
+lang = "go"
+path = "~/code/bench-repos/hugo"
+oracle = "gopls"
+quiescence_cap_s = 600
+pinned_sha = "a00b5c72ac57"                  # INVALID · OER 0.175 (interface/reflection-heavy)
 
 [corpus.flask]
 lang = "python"
 path = "~/code/bench-repos/flask"
 oracle = "pyright"
 excludes = ["examples/*", ".venv/*"]
-pinned_sha = "36e4a824f340"
+pinned_sha = "36e4a824f340"                  # INVALID · OER 0.363 (dynamic web framework)
 
 [corpus.click]
 lang = "python"
 path = "~/code/bench-repos/click"
 oracle = "pyright"
 excludes = ["examples/*", ".venv/*"]
-pinned_sha = "8a1b1a33d739"
+pinned_sha = "8a1b1a33d739"                  # INVALID · OER 0.313 (decorator-heavy)
+
+[corpus.fastapi]
+lang = "python"
+path = "~/code/bench-repos/fastapi"
+oracle = "pyright"
+excludes = ["tests/*", "docs_src/*", "scripts/*", ".venv/*"]
+pinned_sha = "0cb4a8e284b4"                  # INVALID · OER 0.344 (dynamic web framework)
+
+[corpus.starlette]
+lang = "python"
+path = "~/code/bench-repos/starlette"
+oracle = "pyright"
+excludes = ["tests/*", "docs/*", ".venv/*"]
+pinned_sha = "de970d7b3fac"                  # INVALID · OER 0.344 (dynamic ASGI)
+
+[corpus.packaging]
+lang = "python"
+path = "~/code/bench-repos/packaging"
+oracle = "pyright"
+excludes = ["tests/*", "docs/*", ".venv/*"]
+pinned_sha = "b61e85eafa19"                  # INVALID · OER 0.375
+
+[corpus.pydantic]
+lang = "python"
+path = "~/code/bench-repos/pydantic"
+oracle = "pyright"
+excludes = ["tests/*", "docs/*", ".venv/*"]
+pinned_sha = "363728fe0b35"                  # INVALID · OER 0.375 (metaclass/codegen-heavy)

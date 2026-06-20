@@ -336,6 +336,7 @@ def make_oracle(cfg: dict):
         "rust-analyzer": ["rust-analyzer"],
         "gopls": ["gopls", "serve"],
         "pyright": ["pyright-langserver", "--stdio"],
+        "basedpyright": ["basedpyright-langserver", "--stdio"],
     }[cfg["oracle"]]
     return LspOracle(
         cmd,
@@ -483,8 +484,9 @@ def run_corpus(name: str, cfg: dict, defaults: dict, args) -> dict:
     }
     oracle_cfg = {
         **cfg,
-        "settle_s": defaults.get("settle_s", 2.0),
-        "quiescence_cap_s": defaults.get("quiescence_cap_s", 300.0),
+        "settle_s": cfg.get("settle_s", defaults.get("settle_s", 2.0)),
+        "quiescence_cap_s": cfg.get(
+            "quiescence_cap_s", defaults.get("quiescence_cap_s", 300.0)),
     }
     oracle = make_oracle(oracle_cfg)
     try:
@@ -702,6 +704,10 @@ def main() -> int:
     ap.add_argument("--sut-bin")
     ap.add_argument("--allow-stale-sut", action="store_true")
     ap.add_argument("--allow-drift", action="store_true")
+    ap.add_argument("--oracle", default=None,
+                    help="override per-corpus oracle (e.g. basedpyright); "
+                         "outputs are written under <corpus>-<oracle> so they "
+                         "do not clobber the committed baseline anchors")
     ap.add_argument("--date", default=None)
     args = ap.parse_args()
     if args.date is None:
@@ -729,17 +735,21 @@ def main() -> int:
     rc = 0
     for name in names:
         corpus_cfg = cfg["corpus"][name]
+        run_name = name
+        if args.oracle:
+            corpus_cfg = {**corpus_cfg, "oracle": args.oracle}
+            run_name = f"{name}-{args.oracle}"
         try:
-            run = run_corpus(name, corpus_cfg, cfg["defaults"], args)
+            run = run_corpus(run_name, corpus_cfg, cfg["defaults"], args)
         except SutStale as exc:
             # a stale SUT is the operator's problem, not the oracle's — abort the
             # whole invocation loudly instead of mislabeling it per-corpus
             print(f"FATAL sut_stale: {exc}", file=sys.stderr)
             return 3
         except Exception as exc:
-            run = invalid_corpus_run(name, corpus_cfg, cfg["defaults"], args, exc)
+            run = invalid_corpus_run(run_name, corpus_cfg, cfg["defaults"], args, exc)
         (EVAL_DIR / "runs").mkdir(exist_ok=True)
-        (EVAL_DIR / "runs" / f"{args.date}-{name}.json").write_text(
+        (EVAL_DIR / "runs" / f"{args.date}-{run_name}.json").write_text(
             json.dumps(run, indent=1, sort_keys=True, default=str, allow_nan=False)
         )
         write_reports(run, out_dir)
