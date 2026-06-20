@@ -61,6 +61,13 @@ pub(crate) fn compute_param_names(
     Some(final_names)
 }
 
+struct PendingStatement {
+    line: usize,
+    kind: StmtKind,
+    start_byte: usize,
+    end_byte: usize,
+}
+
 // ---------------------------------------------------------------------------
 // Code Property Graph
 // ---------------------------------------------------------------------------
@@ -695,19 +702,46 @@ impl CodePropertyGraph {
         graph: &mut DiGraph<CpgNode, CpgEdge>,
         location_index: &mut BTreeMap<(String, usize), Vec<NodeIndex>>,
     ) -> BTreeMap<(String, usize), NodeIndex> {
+        use rayon::prelude::*;
+
+        // 1. Ordered files (BTreeMap order — NOT scheduler order).
+        let ordered: Vec<(&String, &ParsedFile)> = files.iter().collect();
+
+        // 2. Parallel collect (read-only).
+        let per_file: Vec<(&String, Vec<PendingStatement>)> = ordered
+            .par_iter()
+            .map(|(path, parsed)| {
+                let func_types = parsed.language.function_node_types();
+                let mut seen: std::collections::BTreeSet<usize> = std::collections::BTreeSet::new();
+                let mut out: Vec<PendingStatement> = Vec::new();
+                Self::collect_pending(
+                    parsed.tree.root_node(),
+                    &func_types,
+                    parsed,
+                    &mut seen,
+                    &mut out,
+                );
+                (*path, out)
+            })
+            .collect(); // rayon indexed collect is order-preserving => ordered-files order
+
+        // 3. Serial create (the ONLY mutation, in files-order x walk-order).
         let mut stmt_index: BTreeMap<(String, usize), NodeIndex> = BTreeMap::new();
-        for (path, parsed) in files {
-            let root = parsed.tree.root_node();
-            let func_types = parsed.language.function_node_types();
-            Self::collect_function_statements(
-                root,
-                &func_types,
-                parsed,
-                path,
-                graph,
-                &mut stmt_index,
-                location_index,
-            );
+        for (path, stmts) in &per_file {
+            for s in stmts {
+                let idx = graph.add_node(CpgNode::Statement {
+                    file: (*path).clone(),
+                    line: s.line,
+                    kind: s.kind.clone(),
+                    start_byte: s.start_byte,
+                    end_byte: s.end_byte,
+                });
+                stmt_index.insert(((*path).clone(), s.line), idx);
+                location_index
+                    .entry(((*path).clone(), s.line))
+                    .or_default()
+                    .push(idx);
+            }
         }
         stmt_index
     }
@@ -735,6 +769,37 @@ impl CodePropertyGraph {
         stmt_index
     }
 
+    /// Read-only per-file collect: the `collect_function_statements` recursion with
+    /// node creation removed. Whole-file `seen` (by line), checked BEFORE classify -
+    /// exactly the current `if stmt_index.contains_key(&(file,line)) { continue }`.
+    fn collect_pending(
+        node: tree_sitter::Node<'_>,
+        func_types: &[&str],
+        parsed: &ParsedFile,
+        seen: &mut std::collections::BTreeSet<usize>,
+        out: &mut Vec<PendingStatement>,
+    ) {
+        if func_types.contains(&node.kind()) {
+            for span in parsed.statement_spans_in_function(&node) {
+                if !seen.insert(span.line) {
+                    continue; // duplicate (file,line) - skip BEFORE classify, as today
+                }
+                let kind = Self::classify_stmt_kind(&span.kind, parsed, span.line);
+                out.push(PendingStatement {
+                    line: span.line,
+                    kind,
+                    start_byte: span.start_byte,
+                    end_byte: span.end_byte,
+                });
+            }
+        }
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            Self::collect_pending(child, func_types, parsed, seen, out);
+        }
+    }
+
+    #[cfg(test)]
     fn collect_function_statements(
         node: tree_sitter::Node<'_>,
         func_types: &[&str],
