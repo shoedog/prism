@@ -12,7 +12,9 @@
 
 **Order (risk-ascending):** Step 8 (no resolve/memo) → Step 5 (resolve, no memo) → Step 5b (resolve + prewarm + local memo). Each: inert extract + oracle commit, then parallelize commit.
 
-**Verification scope (macOS):** full `cargo test` stalls at `_dyld_start` — use `cargo test --lib <filter>` (src/cpg/tests.rs are lib tests), `cargo test --test infra <filter>` (parallel_equality), `cargo build -p prism`, `cargo build --release -p prism`, `cargo fmt`, `cargo clippy -p prism --lib`. `cd eval && uv run tier-a --matrix-only --allow-stale-sut` is Python/uv (no stall).
+**Verification scope (macOS):** full `cargo test` / `--test cli` / `--test frameworks` stall at `_dyld_start` — but the **lib** test binary does not, so `cargo test --lib` (full unit suite, in-process) and `cargo test --test infra <filter>` (parallel_equality) are safe, plus `cargo build -p prism`, `cargo build --release -p prism`, `cargo fmt`, `cargo clippy -p prism --lib`. `cd eval && uv run tier-a --matrix-only --allow-stale-sut` is Python/uv (no stall).
+
+**Per-task boundary gate (EVERY task, before each commit):** run `cargo build -p prism && cargo test --lib` (full lib unit suite — catches cross-test breakage, e.g. the existing `step5b_param_binding_first_wins_parity`) **in addition to** that task's focused oracle test and any infra parity test it lists. All green before commit.
 
 ---
 
@@ -22,7 +24,7 @@
 - `src/cpg/tests.rs` — Modify: one shared `edge_fixture()` + three old-order collect-parity oracles.
 - `tests/infra/parallel_equality_test.rs` — Modify: edge non-vacuity guard.
 
-Type used throughout: `type PendingEdge = (petgraph::graph::NodeIndex, petgraph::graph::NodeIndex, CpgEdge);` (define once near the top of the `impl` region in `build.rs`).
+Type used throughout: `pub(crate) type PendingEdge = (NodeIndex, NodeIndex, CpgEdge);` — define once at **module scope** in `build.rs` (immediately after the `PendingStatement` struct, *before* `impl CodePropertyGraph`). **Not** inside the inherent `impl` — Rust has no inherent associated type aliases on stable. `NodeIndex` (`petgraph::graph::NodeIndex`) and `CpgEdge` are already in scope in `build.rs`.
 
 ---
 
@@ -35,35 +37,30 @@ Type used throughout: `type PendingEdge = (petgraph::graph::NodeIndex, petgraph:
 - [ ] **Step 1: Write the failing oracle test** in `src/cpg/tests.rs` (after the Step-7 oracle, ~`:125`):
 
 ```rust
-/// Shared discriminating fixture for the edge-step old-order oracles:
-/// multi-file, cross-file calls, a site that resolves to multiple same-name
-/// callees, an unresolved call, and branchy bodies (→ CFG edges).
+/// Shared discriminating fixture for the edge-step old-order oracles. Python
+/// (the proven `step5b_param_binding_first_wins_parity` shape — no crate-root
+/// subtlety): cross-file `from`-import calls (→ Call/Return + arg→param
+/// DataFlow), a same-name `helper` redefinition (exercises the resolver's
+/// multi-owner path, whatever it decides), an unresolved call, and branchy
+/// bodies (`if/else` → ControlFlow). Resolution is via the free-function /
+/// import fallback; the oracle (par == serial) holds regardless of which
+/// callee(s) resolve, since both sides see the same resolution.
 fn edge_fixture() -> std::collections::BTreeMap<String, ParsedFile> {
-    let src: &[(&str, &str, Language)] = &[
-        // callee.rs: two same-name `helper` fns (multi-callee resolution) + a leaf.
-        (
-            "callee.rs",
-            "pub fn helper(a: i32) -> i32 { if a > 0 { a } else { -a } }\n\
-             pub fn helper(a: i64) -> i64 { a + 1 }\n\
-             pub fn leaf() -> i32 { 0 }\n",
-            Language::Rust,
-        ),
-        // caller.rs: calls helper (multi), leaf, and an unresolved free fn.
-        (
-            "caller.rs",
-            "use crate::callee::{helper, leaf};\n\
-             pub fn run(x: i32) -> i32 {\n\
-                 let y = helper(x);\n\
-                 let z = leaf();\n\
-                 if y > z { unresolved_fn(y) } else { z }\n\
-             }\n",
-            Language::Rust,
-        ),
-    ];
+    let callee = "def helper(p):\n    if p > 0:\n        return p\n    return 0\n\
+                  \ndef helper(p, q):\n    return p + q\n\
+                  \ndef leaf():\n    return 1\n";
+    let caller = "from callee import helper, leaf\n\
+                  \ndef run(x):\n    y = helper(x)\n    z = leaf()\n\
+                  \n    if y > z:\n        return missing_fn(y)\n    return z\n";
     let mut files = std::collections::BTreeMap::new();
-    for (p, s, lang) in src {
-        files.insert(p.to_string(), ParsedFile::parse(p, s, *lang).unwrap());
-    }
+    files.insert(
+        "callee.py".to_string(),
+        ParsedFile::parse("callee.py", callee, Language::Python).unwrap(),
+    );
+    files.insert(
+        "caller.py".to_string(),
+        ParsedFile::parse("caller.py", caller, Language::Python).unwrap(),
+    );
     files
 }
 
@@ -95,7 +92,7 @@ Expected: FAIL — `no function or associated item named `collect_step8_edges``.
 
 - [ ] **Step 3: Add the `PendingEdge` alias + extract Step 8 (inert serial) + reference twin** in `src/cpg/build.rs`.
 
-Near the top of `impl CodePropertyGraph` (or just above `assemble_graph`), add:
+At **module scope** in `build.rs` — immediately after the `PendingStatement` struct and *before* `impl CodePropertyGraph` (NOT inside the `impl`; stable Rust has no inherent associated type aliases):
 
 ```rust
 /// An edge pending insertion: (from, to, weight). Collected in deterministic
@@ -161,10 +158,10 @@ Replace the inline Step 8 loop (`:575`–`:585`) with the apply:
         }
 ```
 
-- [ ] **Step 4: Run the oracle + build to verify GREEN:**
+- [ ] **Step 4: Boundary gate — build + full lib suite GREEN:**
 
-Run: `cargo test --lib step8_parallel_edge_collect && cargo build -p prism`
-Expected: PASS (the extraction is behavior-preserving: serial collect == reference). Build clean.
+Run: `cargo build -p prism && cargo test --lib`
+Expected: PASS — clean build; the new `step8_parallel_edge_collect_matches_serial_reference` oracle green (extraction is behavior-preserving: serial collect == reference) and no other lib test regressed.
 
 - [ ] **Step 5: fmt + clippy:**
 
@@ -208,10 +205,10 @@ pub(crate) fn collect_step8_edges(
 }
 ```
 
-- [ ] **Step 2: Run the old-order oracle (now discriminating: par vs serial-reference):**
+- [ ] **Step 2: Boundary gate — build + full lib suite (oracle now discriminating: par vs serial-reference):**
 
-Run: `cargo test --lib step8_parallel_edge_collect`
-Expected: PASS — parallel collect reproduces the exact reference edge order.
+Run: `cargo build -p prism && cargo test --lib`
+Expected: PASS — `step8_parallel_edge_collect_matches_serial_reference` proves the parallel collect reproduces the exact reference edge order; no other lib test regressed.
 
 - [ ] **Step 3: Run the determinism + cache-byte gate:**
 
@@ -357,10 +354,10 @@ Replace the inline Step 5 loop (`:448`–`:478`) with the apply:
         }
 ```
 
-- [ ] **Step 4: Build + oracle GREEN:**
+- [ ] **Step 4: Boundary gate — build + full lib suite GREEN:**
 
-Run: `cargo test --lib step5_parallel_edge_collect && cargo build -p prism`
-Expected: PASS (serial collect == reference). Build clean.
+Run: `cargo build -p prism && cargo test --lib`
+Expected: PASS — clean build; `step5_parallel_edge_collect_matches_serial_reference` green (serial collect == reference); no other lib test regressed.
 
 - [ ] **Step 5: fmt + commit:**
 
@@ -381,10 +378,10 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 
 - [ ] **Step 1: Flip to `par_iter`.** In `collect_step5_edges` add `use rayon::prelude::*;` and change `ordered.iter()` → `ordered.par_iter()`. The per-caller closure already delegates to `step5_edges_for_caller` (which only reads `cg` via `resolve_call_site` (`&self`, audited zero-interior-mutability) and the immutable `func_index`), so no body change.
 
-- [ ] **Step 2: Old-order oracle (now par vs serial-reference):**
+- [ ] **Step 2: Boundary gate — build + full lib suite (oracle now par vs serial-reference):**
 
-Run: `cargo test --lib step5_parallel_edge_collect`
-Expected: PASS.
+Run: `cargo build -p prism && cargo test --lib`
+Expected: PASS — `step5_parallel_edge_collect_matches_serial_reference` green; no other lib test regressed.
 
 - [ ] **Step 3: Determinism + cache-byte gate:**
 
@@ -650,10 +647,10 @@ Replace the inline Step 5b loop (`:480`–`:560`, the whole `let mut param_cache
         }
 ```
 
-- [ ] **Step 4: Build + oracle GREEN:**
+- [ ] **Step 4: Boundary gate — build + full lib suite GREEN:**
 
-Run: `cargo test --lib step5b_parallel_edge_collect && cargo build -p prism`
-Expected: PASS (serial collect with local memo == reference with global memo — identical edges). Build clean. Also run `cargo test --lib step5b_param_binding_first_wins_parity` (the existing #112 parity test must stay green).
+Run: `cargo build -p prism && cargo test --lib`
+Expected: PASS — clean build; `step5b_parallel_edge_collect_matches_serial_reference` green (serial collect with local memo == reference with global memo → identical edges); the existing #112 `step5b_param_binding_first_wins_parity` still green; no other lib test regressed.
 
 - [ ] **Step 5: fmt + commit:**
 
@@ -695,10 +692,10 @@ pub(crate) fn collect_step5b_edges(
 }
 ```
 
-- [ ] **Step 2: Old-order oracle (par vs serial-reference) + #112 parity:**
+- [ ] **Step 2: Boundary gate — build + full lib suite (oracle par vs serial-reference + #112 parity):**
 
-Run: `cargo test --lib step5b_parallel_edge_collect && cargo test --lib step5b_param_binding_first_wins_parity`
-Expected: PASS both.
+Run: `cargo build -p prism && cargo test --lib`
+Expected: PASS — `step5b_parallel_edge_collect_matches_serial_reference` green AND the existing `step5b_param_binding_first_wins_parity` (#112) still green; no other lib test regressed.
 
 - [ ] **Step 3: Determinism + cache-byte gate:**
 
@@ -797,4 +794,4 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 - **No placeholders:** every step has exact code/commands.
 - **Type consistency:** `PendingEdge` alias defined once (Task 1) and used in all six fns + the apply sites; `collect_step{5,5b,8}_edges` signatures are stable across inert/parallel tasks (only `iter`→`par_iter` changes).
 - **Risk isolation:** each step's extraction (faithfulness) and parallelization (concurrency) land in separate commits — clean bisect, mirrors the Step-7 cadence.
-- **Edge-case fixture:** `edge_fixture()` carries an unresolved call (`unresolved_fn`), a multi-callee site (`helper` ×2), Call+Return pairs, an arg→param DataFlow edge (`helper(x)`), and CFG edges (the `if/else`). If the dup-`fn helper` does not parse/resolve as intended on Rust, fall back to two distinct same-name free fns across an additional file; verify each oracle's `assert!(!par.is_empty())` holds during Task execution and adjust the fixture (not the asserts) if a category is empty.
+- **Edge-case fixture:** `edge_fixture()` (Python, the proven `step5b_param_binding` shape) carries an unresolved call (`missing_fn`), a same-name `helper` redefinition (multi-owner resolver path), cross-file `from`-import Call+Return pairs, an arg→param DataFlow edge (`helper(x)` → `p`), and CFG edges (the `if/else` in both `helper` and `run`). The oracle (par == serial) is correct regardless of how resolution behaves — both sides see the same resolution. During execution, verify each oracle's `assert!(!par.is_empty())` holds; if a category is empty, adjust the **fixture** (not the asserts) — e.g. ensure the caller/callee are in the same package-stem so the import/free-function fallback binds.
