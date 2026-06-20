@@ -89,3 +89,68 @@ fn step7_corpus_has_statement_nodes_and_is_nontrivial() {
         "corpus too small to surface Step-7 divergence: {stmt_count}"
     );
 }
+
+/// Edge non-vacuity guard: the determinism + cache-byte tests only surface a
+/// parallel edge-step divergence if the corpus actually has the edge kind each
+/// parallelized step produces. Floor against a silent corpus shrink.
+///
+/// The Step-5b floor counts *interprocedural* DataFlow specifically: Step 4
+/// (intraprocedural def-use) and Step 5b (arg->param) BOTH emit
+/// `CpgEdge::DataFlow`, so a plain `DataFlow` count can pass on Step-4 edges
+/// alone with zero Step-5b edges. Step 5b is the only DataFlow whose endpoints
+/// are two `Variable` nodes in DIFFERENT functions (caller arg -> callee param).
+#[test]
+fn edge_steps_corpus_has_call_dataflow_and_controlflow_edges() {
+    use prism::cpg::{CpgEdge, CpgNode};
+    let repo = corpus(); // src/navigation — cross-file calls + branchy bodies
+    let cpg = CpgContext::build(&repo.files, None);
+    let g = &cpg.cpg.graph;
+    let mut call = 0usize;
+    let mut interproc_df = 0usize; // Step 5b: Variable->Variable across functions
+    let mut controlflow = 0usize;
+    for e in g.edge_indices() {
+        match g[e] {
+            CpgEdge::Call(_) => call += 1,
+            CpgEdge::ControlFlow => controlflow += 1,
+            CpgEdge::DataFlow => {
+                if let Some((a, b)) = g.edge_endpoints(e) {
+                    if let (
+                        CpgNode::Variable {
+                            file: fa,
+                            function: fna,
+                            function_start_line: la,
+                            ..
+                        },
+                        CpgNode::Variable {
+                            file: fb,
+                            function: fnb,
+                            function_start_line: lb,
+                            ..
+                        },
+                    ) = (&g[a], &g[b])
+                    {
+                        if (fa, fna, la) != (fb, fnb, lb) {
+                            interproc_df += 1;
+                        }
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+    // src/navigation currently: call=75, interproc_df=57, controlflow=137.
+    // Floors sit ~35-50% below those (interproc DF is inherently the rarest) so a
+    // meaningful corpus shrink fails the guard without false-failing on minor drift.
+    assert!(
+        call > 50,
+        "too few Call edges to surface a Step-5 divergence: {call}"
+    );
+    assert!(
+        interproc_df > 30,
+        "too few interprocedural (Step-5b) DataFlow edges: {interproc_df}"
+    );
+    assert!(
+        controlflow > 50,
+        "too few ControlFlow edges to surface Step-8: {controlflow}"
+    );
+}
