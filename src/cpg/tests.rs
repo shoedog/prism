@@ -58,6 +58,73 @@ fn compute_param_names_pins_current_behavior() {
 }
 
 #[test]
+fn step7_parallel_matches_serial_reference() {
+    use super::build::CodePropertyGraph;
+    use super::types::{CpgEdge, CpgNode};
+    use crate::ast::ParsedFile;
+    use crate::languages::Language;
+    use petgraph::graph::{DiGraph, NodeIndex};
+    use std::collections::BTreeMap;
+
+    // Step-7-heavy + discriminating: nested fns / closures / multi-line stmts / multi-file.
+    let src: &[(&str, &str, Language)] = &[
+        (
+            "a.rs",
+            "fn outer(){ let x=1; fn inner(){ let y=2; } let z=3; }",
+            Language::Rust,
+        ),
+        (
+            "b.js",
+            "function f(){ items.forEach((x)=>{ use(x); }); return 1; }",
+            Language::JavaScript,
+        ),
+        (
+            "c.py",
+            "def f():\n    a = 1\n    def g():\n        b = 2\n    return a\n",
+            Language::Python,
+        ),
+        (
+            "d.go",
+            "func h(){ for i:=0;i<3;i++ { use(i) }; return }",
+            Language::Go,
+        ),
+    ];
+    let mut files: BTreeMap<String, ParsedFile> = BTreeMap::new();
+    for (p, s, lang) in src {
+        files.insert(p.to_string(), ParsedFile::parse(p, s, *lang).unwrap());
+    }
+
+    type Step7Fn = fn(
+        &BTreeMap<String, ParsedFile>,
+        &mut DiGraph<CpgNode, CpgEdge>,
+        &mut BTreeMap<(String, usize), Vec<NodeIndex>>,
+    ) -> BTreeMap<(String, usize), NodeIndex>;
+    let run = |f: Step7Fn| {
+        let mut g: DiGraph<CpgNode, CpgEdge> = DiGraph::new();
+        let mut li: BTreeMap<(String, usize), Vec<NodeIndex>> = BTreeMap::new();
+        let si = f(&files, &mut g, &mut li);
+        let nodes: Vec<String> = g.node_indices().map(|i| format!("{:?}", g[i])).collect();
+        (nodes, si, li)
+    };
+
+    let reference = run(CodePropertyGraph::assemble_step7_reference);
+    let production = run(CodePropertyGraph::assemble_step7);
+    assert_eq!(
+        reference.0, production.0,
+        "Statement node sequence diverged"
+    );
+    assert_eq!(
+        reference.1, production.1,
+        "stmt_index (file,line)->NodeIndex diverged"
+    );
+    assert_eq!(reference.2, production.2, "location_index appends diverged");
+    assert!(
+        !reference.0.is_empty(),
+        "fixture produced no statement nodes"
+    );
+}
+
+#[test]
 fn test_taint_trace_straight_line_frontier() {
     let src = "def f():\n    user = input()\n    x = user\n    sink(x)\n";
     let cpg = build_python_cpg(src);
