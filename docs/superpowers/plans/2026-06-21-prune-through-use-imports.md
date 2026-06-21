@@ -38,7 +38,7 @@ CLI_BIN=$(ls -t target/debug/deps/cli-* | grep -vE '\.(d|dSYM)$' | head -1)
 
 ## Accuracy-harness reminder
 
-This change touches call resolution (`src/resolution.rs`). There is **no** `CACHE_VERSION` bump, so warm nav caches are not auto-invalidated — clear them or pass `--no-cache` on every `call-stats` read (Task 3). Task 3 runs the Tier-A `--matrix-only` gate and recommends a `--corpus ruff` M2; do **not** stage `eval/` or `docs/eval/` artifacts in any commit.
+This change touches call resolution (`src/resolution.rs`). There is **no** `CACHE_VERSION` bump, so warm nav caches are not auto-invalidated — clear them or pass `--no-cache` on every `call-stats` read (Task 3). Per CLAUDE.md, Task 3 runs the **required** Tier-A `--matrix-only` (pre-commit) **and** `--quick --allow-stale-sut` (pre-review) gates plus the spec §7 `--corpus ruff` M2 recall-safety acceptance (required, or explicitly host-triggered with the deferral noted in the PR — not optional); do **not** stage `eval/` or `docs/eval/` artifacts in any commit.
 
 ---
 
@@ -310,25 +310,30 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
 
 ## Task 2: Keep-all coverage + drop/decline invariants — spec §4/§6.2-§6.6
 
-Pin the four keep-all branches (external alias, glob, ambiguous re-export, the unchanged direct-binding recovery) and re-confirm the drop invariants + the trait-CHA decline. Each new fixture must provably reach the `Pending` arm (a **single** visible `Pending` binding, `visible.as_slice() == [b]`) so it pins the helper's branches — a shape that surfaces 2 visible bindings is filtered by the outer `_ => false` arm *before* the helper and would not exercise it (spec §6 preamble).
+Pin the keep-all branches (cross-crate `use` → `Unresolved`, `extern crate` → `Target::External` candidate, module glob, ambiguous re-export, the unchanged direct-binding recovery) and re-confirm the drop invariants + the trait-CHA decline. Each new fixture must provably reach the `Pending` arm (a **single** visible `Pending` binding, `visible.as_slice() == [b]`) so it pins the helper's branches — a shape that surfaces 2 visible bindings is filtered by the outer `_ => false` arm *before* the helper and would not exercise it (spec §6 preamble).
 
 **Files:**
-- Test: `tests/integration/resolution_test.rs` — add three fixtures next to the headline test (after `scope_graph_pending_import_alias_over_colliding_pool_recovers_to_single_exact`). The glob keep-all and the direct-binding recovery already exist (`scope_graph_block_local_glob_shadow_keeps_all:1805`, `scope_graph_two_crate_owner_collision_recovers_to_single_exact:1692`) — those are re-run, not rewritten. Add a **module-level** glob keep-all to pin the "no single visible Pending for the leading segment" path (distinct from the existing block-local glob shadow, which trips ①C upstream).
+- Test: `tests/integration/resolution_test.rs` — add four fixtures next to the headline test (after `scope_graph_pending_import_alias_over_colliding_pool_recovers_to_single_exact`): the cross-crate `use` → `Unresolved` keep-all (1a), the `extern crate` → `Target::External` keep-all (1b), the ambiguous re-export keep-all, and the module-level glob keep-all. The glob keep-all and the direct-binding recovery already exist (`scope_graph_block_local_glob_shadow_keeps_all:1805`, `scope_graph_two_crate_owner_collision_recovers_to_single_exact:1692`) — those are re-run, not rewritten. Add a **module-level** glob keep-all to pin the "no single visible Pending for the leading segment" path (distinct from the existing block-local glob shadow, which trips ①C upstream).
 
-### Step 1: External alias keeps-all (`Target::External` candidate branch) — spec §6.2 (RED→GREEN as a guard)
+### Step 1: Cross-crate `use` keeps-all (the realistic external case → `Unresolved`) + an explicit `extern crate` `Target::External` guard — spec §6.2
 
-A **single-segment** external alias: `use some_external::CliTest as CliTest;`. `some_external` is not an in-repo crate, so the `Pending` chain resolves to a `Target::External` candidate (or `Unresolved`/`Poisoned`) → helper `false` → keep-all (full pool at NameOnly), not dropped. (A multi-segment `use some_external::a::CliTest` tends to surface `Unresolved`/`Poisoned`; the one-segment form is what actually exercises the `Target::External` candidate branch — spec §6.2.)
+Two fixtures pin the two distinct fail-closed engine shapes a non-in-repo import surfaces — **both** route through the helper's `else → false → keep-all` arm, but they exercise different engine results so a future engine change can't silently start pruning either (risk §8 "pin with the external/ambiguous/poison fixtures"):
+
+**(1a) The realistic cross-crate `use` → `Unresolved`.** A **bare-leading-ident multi-segment** `use some_external::CliTest as CliTest;` is the everyday cross-crate import shape. `some_external` is the non-final prefix segment and is **not** an in-repo crate/module, so `resolve_path_guarded` fails the prefix-segment scope lookup (`engine.rs:357-364`, non-`Resolved`/non-`Poisoned` → `_ => return unresolved()`) and the helper sees `ResStatus::Unresolved` → `false` → keep-all (full pool at NameOnly), not dropped. (This is NOT a `Target::External` candidate — see (1b). `Target::External` is produced only by an `extern crate` binding at the crate root [`items.rs:139-163`], not by a `use` chain that fails on a non-final segment.)
 
 Add:
 
 ```rust
 #[test]
-fn scope_graph_pending_external_alias_keeps_all() {
+fn scope_graph_pending_cross_crate_use_keeps_all() {
     use prism::languages::Language::Rust;
-    // A SINGLE visible `Pending` whose `use` chain leaves the repo
-    // (`use some_external::CliTest as CliTest;`). The engine resolves it to a
-    // `Target::External` candidate (or Unresolved/Poisoned) -> the helper declines
-    // -> keep-all. We must NOT prune to an in-repo `CliTest` we happen to also own.
+    // A SINGLE visible `Pending` whose multi-segment `use` chain leaves the repo
+    // (`use some_external::CliTest as CliTest;`). `some_external` is not an in-repo
+    // crate, so the engine fails the non-final prefix segment and returns
+    // `ResStatus::Unresolved` -> the helper declines -> keep-all. We must NOT prune
+    // to an in-repo `CliTest` we happen to also own. (The realistic cross-crate
+    // `use` shape; the `Target::External` candidate branch is pinned separately
+    // below by an explicit `extern crate`.)
     let sources = [
         (
             "src/lib.rs",
@@ -355,17 +360,71 @@ fn scope_graph_pending_external_alias_keeps_all() {
         "the bare owner key must collide across a::CliTest and b::CliTest",
     );
     let out = cg.resolve_call_site_full(&site_in(&cg, "drive", "CliTest::m"));
-    assert_eq!(out.drop, None, "an external import alias must not drop");
+    assert_eq!(out.drop, None, "an unresolved cross-crate import alias must not drop");
     assert!(
         out.resolved.len() == 2
             && out
                 .resolved
                 .iter()
                 .all(|c| c.confidence == ResolutionConfidence::NameOnly),
-        "an external `use` chain declines -> keep the full colliding pool at NameOnly",
+        "an unresolved external `use` chain declines -> keep the full colliding pool at NameOnly",
     );
 }
 ```
+
+**(1b) An explicit `extern crate` → a `Resolved` + `Target::External` candidate.** This is the fixture that genuinely reaches the `Target::External` candidate keep-all branch the helper guards against. `extern crate some_external;` binds `some_external` as a Type at the crate root targeting `BindTarget::Resolved(Target::External(..))` (the crate is not in `workspace_members`, so `crate_root_named` returns `None` → `Target::External`, `items.rs:160-163`). `use some_external as CliTest;` is then a **single-segment** `Pending` whose own path (`["some_external"]`) the helper re-resolves: single segment → `is_last` → `scope_member_lookup` finds the `extern crate` binding → `ResStatus::Resolved` with a single `Target::External` candidate. The helper requires `Target::Item { owns: Some(_), .. }`, so a `Target::External` candidate does **not** match → `false` → keep-all. (Verified cleanly constructible under the `build()` harness: `from_convention` keys no crate name for the conventional `src/lib.rs` root, so `crate_root_named("some_external")` is `None`.)
+
+Add:
+
+```rust
+#[test]
+fn scope_graph_pending_extern_crate_alias_keeps_all() {
+    use prism::languages::Language::Rust;
+    // A SINGLE visible `Pending` (`use some_external as CliTest;`) whose own path is
+    // the single segment `some_external`, bound by `extern crate some_external;` to a
+    // `Target::External` candidate at the crate root (not an in-repo crate). The
+    // helper re-resolves that path to `ResStatus::Resolved` with one `Target::External`
+    // candidate -> not a `Target::Item` -> declines -> keep-all. This is the fixture
+    // that genuinely exercises the `Target::External` candidate branch.
+    let sources = [
+        (
+            "src/lib.rs",
+            "extern crate some_external;\nmod a;\nmod b;\nuse some_external as CliTest;\npub fn drive() {\n    CliTest::m();\n}\n",
+            Rust,
+        ),
+        (
+            "src/a.rs",
+            "pub struct CliTest;\nimpl CliTest {\n    pub fn m(&self) {}\n}\n",
+            Rust,
+        ),
+        (
+            "src/b.rs",
+            "pub struct CliTest;\nimpl CliTest {\n    pub fn m(&self) {}\n}\n",
+            Rust,
+        ),
+    ];
+    let (cg, _) = build(&sources);
+    assert_eq!(
+        cg.methods
+            .get(&("CliTest".to_string(), "m".to_string()))
+            .map(|v| v.len()),
+        Some(2),
+        "the bare owner key must collide across a::CliTest and b::CliTest",
+    );
+    let out = cg.resolve_call_site_full(&site_in(&cg, "drive", "CliTest::m"));
+    assert_eq!(out.drop, None, "an `extern crate` external alias must not drop");
+    assert!(
+        out.resolved.len() == 2
+            && out
+                .resolved
+                .iter()
+                .all(|c| c.confidence == ResolutionConfidence::NameOnly),
+        "a `Target::External` candidate declines -> keep the full colliding pool at NameOnly",
+    );
+}
+```
+
+> **If `Target::External` proves not cleanly reachable in practice** (e.g. the `extern crate` binding does not survive the `build()` convention config as expected): both `Unresolved` and `Target::External` are the **same fail-closed `else → keep-all` branch** of the helper, so the (1a) `Unresolved` fixture already covers the realistic cross-crate `use` case and is sufficient for recall-safety. Keep (1b) only if it compiles and reaches the `Target::External` candidate as described; otherwise drop it and note in the PR that the `Unresolved` fixture covers the cross-crate case (the helper's `_ => false` handles both). Verify the (1b) shape empirically when implementing (assert the keep-all behavior; the comment documents the *intended* engine path).
 
 ### Step 2: Ambiguous re-export keeps-all (`Ambiguous` branch via the `Pending` arm) — spec §6.4
 
@@ -484,7 +543,8 @@ cargo test --test integration resolution_test:: 2>&1 | tail -25
 ```
 
 Expected: the whole `resolution_test::` suite passes, including:
-- `scope_graph_pending_external_alias_keeps_all` (NEW, §6.2),
+- `scope_graph_pending_cross_crate_use_keeps_all` (NEW, §6.2 — `Unresolved`),
+- `scope_graph_pending_extern_crate_alias_keeps_all` (NEW, §6.2 — `Target::External` candidate; drop if not cleanly reachable per Step 1's note),
 - `scope_graph_pending_ambiguous_reexport_keeps_all` (NEW, §6.4),
 - `scope_graph_module_glob_import_keeps_all` (NEW, §6.3),
 - `scope_graph_pending_import_alias_over_colliding_pool_recovers_to_single_exact` (Task 1),
@@ -518,12 +578,14 @@ Commit message:
 ```
 test(resolution): pin prune-through-`use` keep-all branches
 
-Cover the helper's decline branches via the `Pending` arm: a single-segment
-external alias (`Target::External` candidate), a single-visible-`Pending`
-ambiguous re-export (`Ambiguous`), and a module-level glob (no single visible
-`Pending`, empty rib) -- each keeps the full colliding owner pool at NameOnly.
-The existing direct-binding recovery, block-local shadow keep-alls, and the
-trait-CHA decline (`tests/ast cpg_test::`) are re-run unchanged.
+Cover the helper's decline branches via the `Pending` arm: a cross-crate
+`use` (multi-segment, non-in-repo prefix -> `Unresolved`), an `extern crate`
+alias (single-segment -> a `Resolved` `Target::External` candidate), a
+single-visible-`Pending` ambiguous re-export (`Ambiguous`), and a module-level
+glob (no single visible `Pending`, empty rib) -- each keeps the full colliding
+owner pool at NameOnly. The existing direct-binding recovery, block-local
+shadow keep-alls, and the trait-CHA decline (`tests/ast cpg_test::`) are re-run
+unchanged.
 
 Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
 ```
@@ -593,7 +655,14 @@ Expected direction (the acceptance signal):
 
 Report the measured `(singleton↑, failopen_demote↓)` pair per corpus in the PR description. A non-zero rise on ruff (the corpus with the largest `use`-imported collision population) is the headline; prism/ripgrep may show small or zero deltas.
 
-### Step 5: Tier-A recall gate (spec §7)
+### Step 5: Tier-A recall gate — REQUIRED (spec §7 + CLAUDE.md)
+
+This change touches **call resolution** (`src/resolution.rs`), so CLAUDE.md's
+Tier-A discipline applies: `--matrix-only` before committing **and** `--quick
+--allow-stale-sut` before the final review are **both REQUIRED** (`--allow-stale-sut`
+only with the immediate preceding `--release` rebuild in this worktree).
+
+**(a) Matrix gate (REQUIRED — before committing):**
 
 ```bash
 cargo build --release
@@ -602,13 +671,23 @@ cd eval && uv run tier-a --matrix-only --allow-stale-sut 2>&1 | tail -30
 
 Expected: matrix **0 regression** (no `ok`→`gap` flips; same validity as the committed baseline in `docs/eval/tier-a/`).
 
-Recommend (human-triggered, optional — note it in the PR, do not block on it here) a ruff M2 recall gate, the same clean validator #121 used (ruff is pinned → valid, regression-classified):
+**(b) Quick gate (REQUIRED — before the final review, per CLAUDE.md):**
+
+```bash
+cd eval && uv run tier-a --quick --allow-stale-sut 2>&1 | tail -30
+```
+
+Expected: **0 regression** vs the committed baseline (no LSP-confirmed `ok`→`gap` flips). Needs `rust-analyzer`; runs in minutes.
+
+**(c) ruff M2 real-corpus recall-safety acceptance (spec §7 — REQUIRED, or explicitly host/human-triggered, NOT optional):**
+
+The spec's recall-safety acceptance is a `--corpus ruff` M2 — the same clean validator #121 used (ruff is pinned → valid, regression-classified). It is the headline real-corpus guard for this slice (ruff has the largest `use`-imported collision population, so it is where a wrong drop would show). Run it before the final review; if the host defers it (e.g. rust-analyzer not provisioned in this worktree), the deferral must be **explicit in the PR** and host/human-triggered — it is not silently optional:
 
 ```bash
 cd eval && uv run tier-a --corpus ruff --quick --allow-stale-sut 2>&1 | tail -30
 ```
 
-Expected when run: **0 regression**.
+Expected: **0 regression**.
 
 > **Do not** stage `eval/` or `docs/eval/` artifacts produced by these runs. Paste any flip-candidates into the PR description rather than re-baselining.
 
@@ -624,12 +703,12 @@ Request an independent **codex (gpt-5.5, xhigh)** diff review of the branch per 
 - **§3 the helper** → Task 1 Step 2 (`pending_resolves_to_single_in_repo_item`: reuses the existing `resolve_path` import, `final_ns`/prefix `NS_TYPE`, `ResStatus::Resolved` + single `Target::Item{owns:Some(scope),..}` + `graph_file_for_scope(graph,*scope).is_some()`; no engine/`Provenance`/`CACHE_VERSION` change).
 - **§4 soundness / decline-only** → Task 1 P1/P2 premises + Task 2 §6.2/§6.3/§6.4 keep-all fixtures; the helper inspects the candidate **target** (no `External` status).
 - **§6.1 headline red→green** → Task 1 (flip `scope_graph_pending_import_alias_over_colliding_pool_*` in place to single Exact = `src/a.rs`).
-- **§6.2 external alias** → Task 2 Step 1 (single-segment `use some_external::CliTest as CliTest;`).
+- **§6.2 external** → Task 2 Step 1 — (1a) cross-crate `use some_external::CliTest as CliTest;` → `Unresolved` keep-all (the realistic case), plus (1b) `extern crate some_external; use some_external as CliTest;` → a `Resolved`+`Target::External` candidate keep-all (the genuine `Target::External` branch; both are the helper's `else → false`, so (1a) suffices for recall-safety if (1b) is not cleanly reachable).
 - **§6.3 glob** → Task 2 Step 3 (module-level `use crate::ru::*;`) + the existing block-local glob re-run.
 - **§6.4 ambiguous re-export** → Task 2 Step 2 (single visible `Pending` via `facade` re-exporting from two crates).
 - **§6.5 direct binding unchanged** → Task 2 Step 4 (re-run `scope_graph_two_crate_owner_collision_recovers_to_single_exact`).
 - **§6.6 drop invariants + ①C/②B + trait-CHA decline** → Task 2 Step 4 (re-run `resolution_test::` block-local/macro/edition fixtures + `tests/ast cpg_test::cha_upgrades_graph_resolved_owner_pair_to_exact`).
-- **§7 acceptance** → Task 3 (build/test/fmt + `call-stats` realized-delta on ruff/prism/ripgrep + Tier-A `--matrix-only` + ruff M2 recommendation + codex xhigh review).
+- **§7 acceptance** → Task 3 (build/test/fmt + `call-stats` realized-delta on ruff/prism/ripgrep + REQUIRED Tier-A `--matrix-only` (pre-commit) + `--quick --allow-stale-sut` (pre-review, per CLAUDE.md) + the spec §7 `--corpus ruff` M2 recall-safety acceptance (required-or-explicitly-host-triggered) + codex xhigh review).
 
 **Placeholder scan:** no `TODO`/`...`/`<fill-in>` in any code block; every fixture is complete Rust source; every command is runnable.
 
