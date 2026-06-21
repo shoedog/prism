@@ -50,6 +50,13 @@ use crate::name_resolution::types::{FileId, ScopeId};
 
 use builder::Builder;
 
+/// `serde(default)` for `RustCrateConfig::edition_uniform` and
+/// `ScopeGraph::edition_uniform`: a legacy cache without the field is treated as
+/// uniform (the prior single-edition assumption).
+pub fn default_edition_uniform() -> bool {
+    true
+}
+
 /// The error-rate floor at/above which a file is treated as **failed to parse**
 /// (matching the codebase's `check_parse_warnings` "skip" convention). A
 /// parse-failed *containing* file is left Unmodeled; a parse-failed *target*
@@ -60,7 +67,7 @@ pub const PARSE_FAIL_RATE: f64 = 0.30;
 /// from real `Cargo.toml`s; 3a accepts it so the populator stays pure).
 ///
 /// All paths are repo-relative and match the keys of the `files` map.
-#[derive(Debug, Clone, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct RustCrateConfig {
     /// Crate edition (2015/2018/2021/2024). Drives anchor semantics in the
     /// policy; the populator only records it so the caller can build a matching
@@ -79,6 +86,27 @@ pub struct RustCrateConfig {
     pub lib_path: Option<String>,
     /// `[[bin]] path = "..."` overrides (non-convention binary roots).
     pub bin_paths: Vec<String>,
+    /// Whether every parsed manifest agreed on a single edition (spec §2
+    /// BLOCKER-2). `false` for a mixed-edition workspace; the `ScopeResolution`
+    /// disproof predicate keeps-all (disproves nothing) when this is false,
+    /// because a wrong-edition anchor could mis-resolve a path and drop a real
+    /// edge (P1). Convention fallback (single edition) is `true`.
+    #[serde(default = "default_edition_uniform")]
+    pub edition_uniform: bool,
+}
+
+impl Default for RustCrateConfig {
+    fn default() -> Self {
+        RustCrateConfig {
+            edition: 2015,
+            crate_roots: Vec::new(),
+            workspace_members: Vec::new(),
+            dep_renames: BTreeMap::new(),
+            lib_path: None,
+            bin_paths: Vec::new(),
+            edition_uniform: true,
+        }
+    }
 }
 
 impl RustCrateConfig {
@@ -117,6 +145,7 @@ impl RustCrateConfig {
             dep_renames: BTreeMap::new(),
             lib_path: None,
             bin_paths: Vec::new(),
+            edition_uniform: true,
         }
     }
 
@@ -244,6 +273,7 @@ pub fn populate_rust(
     }
     let mut graph = b.finish();
     graph.edition = config.edition;
+    graph.edition_uniform = config.edition_uniform;
     graph
 }
 
@@ -251,6 +281,37 @@ pub fn populate_rust(
 mod tests {
     use super::*;
     use crate::languages::Language;
+
+    #[test]
+    fn from_convention_edition_is_uniform_by_default() {
+        let mut files = BTreeMap::new();
+        files.insert(
+            "main.rs".to_string(),
+            ParsedFile::parse("main.rs", "fn main() {}\n", Language::Rust).unwrap(),
+        );
+        let cfg = RustCrateConfig::from_convention(&files);
+        assert!(
+            cfg.edition_uniform,
+            "convention fallback is single-edition → uniform"
+        );
+    }
+
+    #[test]
+    fn populate_rust_propagates_edition_uniform_flag() {
+        let mut files = BTreeMap::new();
+        files.insert(
+            "src/lib.rs".to_string(),
+            ParsedFile::parse("src/lib.rs", "pub fn a() {}\n", Language::Rust).unwrap(),
+        );
+        let mut cfg = RustCrateConfig::from_convention(&files);
+        cfg.crate_roots = vec!["src/lib.rs".to_string()];
+        cfg.edition_uniform = false;
+        let graph = populate_rust(&files, &cfg, None);
+        assert!(
+            !graph.edition_uniform,
+            "the flag must ride onto the ScopeGraph"
+        );
+    }
 
     #[test]
     fn from_convention_roots_top_level_main_rs() {
