@@ -116,6 +116,47 @@ fn call_stats_demoted_collision_absent_from_shape_and_shadow() {
 }
 
 #[test]
+fn call_stats_recovery_counter_moves_on_recovered_owner_site() {
+    // A repo whose scope graph DOES build (all Rust -> complete) and where a
+    // `T::m` owner site recovers to a single Exact. The new recovery counter
+    // records that site under `singleton`. The same fixture without a graph
+    // would sit at NameOnly (the #120 floor); with the graph the recovery
+    // instrument shows the win.
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::create_dir_all(dir.path().join("a/src")).unwrap();
+    std::fs::create_dir_all(dir.path().join("b/src")).unwrap();
+    std::fs::write(
+        dir.path().join("a/src/lib.rs"),
+        "pub struct CliTest;\nimpl CliTest {\n    pub fn with_file(&self) {}\n}\npub fn drive() {\n    CliTest::with_file();\n}\n",
+    )
+    .unwrap();
+    std::fs::write(
+        dir.path().join("b/src/lib.rs"),
+        "pub struct CliTest;\nimpl CliTest {\n    pub fn with_file(&self) {}\n}\n",
+    )
+    .unwrap();
+    let out = Command::cargo_bin("prism")
+        .unwrap()
+        .args(["nav", "--no-cache", "call-stats", "--repo"])
+        .arg(dir.path())
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let v: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    // The recovered owner site lands a single Exact qualified_owner edge AND is
+    // counted under the new recovery instrument's `singleton` bucket.
+    assert_eq!(v["kind_exact"]["qualified_owner"], 1);
+    assert_eq!(
+        v["recovery_typepath"]["singleton"], 1,
+        "the recovered owner site is recorded as a singleton recovery"
+    );
+}
+
+#[test]
 fn call_stats_reports_embedded_promotion_and_ambiguity() {
     let dir = tempfile::tempdir().unwrap();
     // One resolved promotion (Wrap.Ping) + one equal-depth ambiguity (A.M via X,Y).

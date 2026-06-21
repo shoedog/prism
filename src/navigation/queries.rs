@@ -82,6 +82,77 @@ fn shadow_narrow_type_path(cg: &CallGraph, site: &CallSite) -> &'static str {
     }
 }
 
+/// Recovery instrument (spec §7 / review MAJOR 5). For an owner-method `T::m`
+/// site, report what the disproof prune ACTUALLY decided (re-derived measurement-
+/// only, exactly as `shadow_narrow_type_path` re-derives the narrowing — never
+/// read from final edge counts, which cannot tell a prune-demote from a fail-open
+/// demote):
+///   `singleton`        — the prune disproved down to a single survivor (the
+///                        recovered Exact: ①C+②B held and the id-set pinned one).
+///   `pruned_multiple`  — the prune disproved ≥1 but >1 survived (a real prune
+///                        that still demotes to NameOnly).
+///   `failopen_singleton` — the predicate proved nothing; the bare pool is a
+///                        singleton (the #120 floor mints Exact — not a recovery).
+///   `failopen_demote`  — the predicate proved nothing; the bare pool collides
+///                        (the #120 floor demotes to NameOnly — the un-recovered
+///                        residue this slice aims to shrink).
+///   `not_owner_method` — no bare `(owner, method)` pool / unresolvable scope.
+/// Keyed off the owner-`::` population, not the >=2-Exact population the legacy
+/// `shadow_typepath_narrow` requires.
+fn classify_recovery_typepath(cg: &CallGraph, site: &CallSite) -> &'static str {
+    use crate::name_resolution::rust_populator::enclosing_scope;
+    use crate::resolution::{prune, DisproofCx, DisproofPredicate, ScopeResolution};
+    // Owner-method key `(T, m)` from `mod::T::m` (mirror the resolver's split;
+    // `crate`/`super` stripped, `self`/`Self` heads excluded).
+    let mut segs: Vec<&str> = site.callee_name.split("::").collect();
+    let Some(method) = segs.pop() else {
+        return "not_owner_method";
+    };
+    while matches!(segs.first(), Some(&"crate") | Some(&"super")) {
+        segs.remove(0);
+    }
+    let Some(&owner) = segs.last() else {
+        return "not_owner_method";
+    };
+    if owner == "self" || owner == "Self" {
+        return "not_owner_method";
+    }
+    let Some(pool_ids) = cg.methods.get(&(owner.to_string(), method.to_string())) else {
+        return "not_owner_method";
+    };
+    // Re-derive the authoritative (file, enclosing-scope) the prune ran from. If
+    // the graph is absent/incomplete or the byte has no scope, this site never
+    // reached the prune -> not a recovery outcome.
+    let Some(graph) = cg.scope_graph.as_ref() else {
+        return "not_owner_method";
+    };
+    if !graph.complete {
+        return "not_owner_method";
+    }
+    let Some(file) = graph.file_paths.get(&site.caller.file).copied() else {
+        return "not_owner_method";
+    };
+    let Some(from) = enclosing_scope(graph, file, site.start_byte) else {
+        return "not_owner_method";
+    };
+    let pool: Vec<&FunctionId> = pool_ids.iter().collect();
+    let pred = ScopeResolution::new(cg);
+    let cx = DisproofCx { graph, file, from };
+    let kept = prune(pool.clone(), site, &cx, &[&pred as &dyn DisproofPredicate]);
+    if kept.len() < pool.len() {
+        // The predicate disproved at least one candidate (a real prune).
+        if kept.len() == 1 {
+            "singleton"
+        } else {
+            "pruned_multiple"
+        }
+    } else if pool.len() == 1 {
+        "failopen_singleton"
+    } else {
+        "failopen_demote"
+    }
+}
+
 pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
     use crate::resolution::{DropReason, ResolutionConfidence};
 
@@ -119,6 +190,11 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
     // multiple = would-demote, failopen_* = pool unchanged, split by cause).
     let mut multi_target_exact_shape: BTreeMap<&'static str, usize> = BTreeMap::new();
     let mut shadow_typepath_narrow: BTreeMap<&'static str, usize> = BTreeMap::new();
+    // Forward recovery instrument (spec §7): classify each owner-`::` `T::m` site
+    // by what the scope path now yields, keyed off the qualified_owner population
+    // (the demoted-NameOnly + recovered-Exact sites #120/this slice produce),
+    // independent of the legacy >=2-Exact shadow guard.
+    let mut recovery_typepath: BTreeMap<&'static str, usize> = BTreeMap::new();
     for sites in cg.calls.values() {
         for site in sites {
             total += 1;
@@ -129,6 +205,12 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
                 Some(DropReason::ImportExternal) => import_ext += 1,
                 Some(DropReason::UnknownName) => unknown += 1,
                 None => {}
+            }
+            if site.callee_name.contains("::") {
+                let bucket = classify_recovery_typepath(cg, site);
+                if bucket != "not_owner_method" {
+                    *recovery_typepath.entry(bucket).or_default() += 1;
+                }
             }
             let recovery = site
                 .receiver_outcome
@@ -208,6 +290,7 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
         "multi_target_exact_by_kind": multi_target_exact_by_kind,
         "multi_target_exact_shape": multi_target_exact_shape,
         "shadow_typepath_narrow": shadow_typepath_narrow,
+        "recovery_typepath": recovery_typepath,
     })
 }
 
