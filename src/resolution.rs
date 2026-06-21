@@ -35,6 +35,7 @@ pub enum ResolutionKind {
     ImportQualified,
     QualifierOwner,
     LocalDef,
+    SamePackage,
     ImplicitThis,
     FreeSingle,
     FreeMulti,
@@ -57,6 +58,7 @@ impl ResolutionKind {
             ResolutionKind::ImportQualified => "import_qualified",
             ResolutionKind::QualifierOwner => "qualifier_owner",
             ResolutionKind::LocalDef => "local_def",
+            ResolutionKind::SamePackage => "same_package",
             ResolutionKind::ImplicitThis => "implicit_this",
             ResolutionKind::FreeSingle => "free_single",
             ResolutionKind::FreeMulti => "free_multi",
@@ -1068,6 +1070,41 @@ impl CallGraph {
                     return ResolutionOutcome::hit(exact(local, ResolutionKind::LocalDef));
                 }
 
+                // R4.5: a Go unqualified call resolves within its own package
+                // (= directory). A real cross-package Go call is qualified
+                // (`pkg.Func`) and binds on an earlier rung; an unqualified call
+                // cannot reach a function in another directory, so prefer
+                // same-directory free definitions over R5's repo-wide set
+                // (FreeMulti). Go forbids two same-named funcs in one package, so
+                // the same-dir set is normally one (-> Exact); the rare cases
+                // where a directory holds more (a black-box `_test` package, or
+                // mutually-exclusive build-tag files) can't be separated by this
+                // build-agnostic whole-text scan, so demote those rather than
+                // over-claim Exact (package-clause identity would refine it).
+                if caller.file.ends_with(".go") {
+                    let dir = dir_of(&caller.file);
+                    let same_pkg: Vec<&FunctionId> = free
+                        .iter()
+                        .copied()
+                        .filter(|f| dir_of(&f.file) == dir)
+                        .collect();
+                    match same_pkg.len() {
+                        0 => {}
+                        1 => {
+                            return ResolutionOutcome::hit(exact(
+                                same_pkg,
+                                ResolutionKind::SamePackage,
+                            ))
+                        }
+                        _ => {
+                            return ResolutionOutcome::hit(demoted(
+                                same_pkg,
+                                ResolutionKind::SamePackage,
+                            ))
+                        }
+                    }
+                }
+
                 // R4b: Java/C++ unqualified calls inside methods are implicit-this.
                 if let Some(owner) = self.method_owners.get(caller) {
                     if caller.file.ends_with(".java")
@@ -1129,6 +1166,12 @@ impl CallGraph {
         }
         out
     }
+}
+
+/// The directory component of a path (`a/b/c.go` -> `a/b`; `c.go` -> ``). For
+/// Go, a package occupies exactly one directory.
+fn dir_of(path: &str) -> &str {
+    path.rsplit_once('/').map(|(d, _)| d).unwrap_or("")
 }
 
 /// File stem matching `resolve_callees_qualified`'s idiom (`a.b.rs` -> `a`).
