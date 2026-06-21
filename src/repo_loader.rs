@@ -282,6 +282,7 @@ fn parse_rust_crate_config(
     let mut workspace_members = BTreeSet::new();
     let mut bin_paths = BTreeSet::new();
     let mut parsed_any = false;
+    let mut editions_seen: BTreeSet<u16> = BTreeSet::new();
 
     for manifest_path in manifest_hashes.keys() {
         let abs = root.join(manifest_path);
@@ -297,13 +298,16 @@ fn parse_rust_crate_config(
             .unwrap_or("")
             .trim_end_matches('/');
 
-        if let Some(edition) = value
-            .get("package")
-            .and_then(|p| p.get("edition"))
-            .and_then(|e| e.as_str())
-            .and_then(parse_edition)
-        {
+        if value.get("package").is_some() {
+            // Cargo default: a `[package]` with no `edition` key is edition 2015.
+            let edition = value
+                .get("package")
+                .and_then(|p| p.get("edition"))
+                .and_then(|e| e.as_str())
+                .and_then(parse_edition)
+                .unwrap_or(2015);
             cfg.edition = edition;
+            editions_seen.insert(edition);
         }
 
         if let Some(members) = value
@@ -352,6 +356,7 @@ fn parse_rust_crate_config(
     if !parsed_any {
         return None;
     }
+    cfg.edition_uniform = editions_seen.len() <= 1;
     crate_roots.extend(cfg.crate_roots);
     cfg.crate_roots = crate_roots.into_iter().collect();
     cfg.workspace_members = workspace_members.into_iter().collect();
@@ -546,6 +551,93 @@ fn walk(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn mixed_edition_workspace_is_not_uniform() {
+        let dir = tempfile::tempdir().unwrap();
+        let p = dir.path();
+        std::fs::create_dir_all(p.join("a/src")).unwrap();
+        std::fs::create_dir_all(p.join("b/src")).unwrap();
+        std::fs::write(
+            p.join("Cargo.toml"),
+            "[workspace]\nmembers = [\"a\", \"b\"]\n",
+        )
+        .unwrap();
+        std::fs::write(
+            p.join("a/Cargo.toml"),
+            "[package]\nname = \"a\"\nedition = \"2015\"\n",
+        )
+        .unwrap();
+        std::fs::write(
+            p.join("b/Cargo.toml"),
+            "[package]\nname = \"b\"\nedition = \"2021\"\n",
+        )
+        .unwrap();
+        std::fs::write(p.join("a/src/lib.rs"), "pub fn a() {}\n").unwrap();
+        std::fs::write(p.join("b/src/lib.rs"), "pub fn b() {}\n").unwrap();
+        let repo = load_repo(p).unwrap();
+        let inputs = repo.scope_graph_inputs.expect("scope graph inputs");
+        assert!(
+            !inputs.cfg.edition_uniform,
+            "a 2015 + 2021 workspace must record edition_uniform == false"
+        );
+    }
+
+    #[test]
+    fn omitted_plus_explicit_edition_workspace_is_not_uniform() {
+        // Faithfulness to Cargo's default: crate `a` OMITS `edition` (⇒ 2015) and
+        // crate `b` sets `edition = "2021"`. The resolved edition set is
+        // {2015, 2021} ⇒ genuinely mixed ⇒ edition_uniform == false ⇒ the
+        // ScopeResolution predicate keeps-all (recall-safe, P1). If omitted were
+        // treated as "no edition" the set would be {2021} and this would WRONGLY
+        // read uniform, enabling an unsound prune on a mixed-edition repo.
+        let dir = tempfile::tempdir().unwrap();
+        let p = dir.path();
+        std::fs::create_dir_all(p.join("a/src")).unwrap();
+        std::fs::create_dir_all(p.join("b/src")).unwrap();
+        std::fs::write(
+            p.join("Cargo.toml"),
+            "[workspace]\nmembers = [\"a\", \"b\"]\n",
+        )
+        .unwrap();
+        std::fs::write(
+            p.join("a/Cargo.toml"),
+            "[package]\nname = \"a\"\n", // edition omitted ⇒ Cargo default 2015
+        )
+        .unwrap();
+        std::fs::write(
+            p.join("b/Cargo.toml"),
+            "[package]\nname = \"b\"\nedition = \"2021\"\n",
+        )
+        .unwrap();
+        std::fs::write(p.join("a/src/lib.rs"), "pub fn a() {}\n").unwrap();
+        std::fs::write(p.join("b/src/lib.rs"), "pub fn b() {}\n").unwrap();
+        let repo = load_repo(p).unwrap();
+        let inputs = repo.scope_graph_inputs.expect("scope graph inputs");
+        assert!(
+            !inputs.cfg.edition_uniform,
+            "omitted (2015) + explicit 2021 must record edition_uniform == false"
+        );
+    }
+
+    #[test]
+    fn single_edition_workspace_is_uniform() {
+        let dir = tempfile::tempdir().unwrap();
+        let p = dir.path();
+        std::fs::create_dir_all(p.join("src")).unwrap();
+        std::fs::write(
+            p.join("Cargo.toml"),
+            "[package]\nname = \"a\"\nedition = \"2021\"\n",
+        )
+        .unwrap();
+        std::fs::write(p.join("src/lib.rs"), "pub fn a() {}\n").unwrap();
+        let repo = load_repo(p).unwrap();
+        let inputs = repo.scope_graph_inputs.expect("scope graph inputs");
+        assert!(
+            inputs.cfg.edition_uniform,
+            "one manifest is trivially uniform"
+        );
+    }
 
     #[test]
     fn parallel_loader_is_element_for_element_identical_to_serial_reference() {

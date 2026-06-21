@@ -30,6 +30,10 @@ fn default_edition() -> u16 {
     2015
 }
 
+fn default_edition_uniform() -> bool {
+    true
+}
+
 // ── MacroWildcard — unexpanded name-introducing macro (§4.3b) ────────────────
 
 /// An *unexpanded* name-introducing macro invocation (item-position
@@ -82,6 +86,12 @@ pub struct ScopeGraph {
     /// Phase 2: per-crate editions for mixed-edition workspaces.
     #[serde(default = "default_edition")]
     pub edition: u16,
+    /// Whether every parsed manifest agreed on one edition (spec §2 BLOCKER-2).
+    /// Consumed by the `ScopeResolution` disproof predicate: a non-uniform
+    /// workspace is non-authoritative for disproof (keep-all), because a
+    /// wrong-edition anchor could mis-resolve and drop a real edge (P1).
+    #[serde(default = "default_edition_uniform")]
+    pub edition_uniform: bool,
     /// Repo-relative file path to deterministic `FileId` mapping.
     ///
     /// PR-2's populator already uses this sorted-key mapping; consumers need the
@@ -103,6 +113,7 @@ impl ScopeGraph {
         ScopeGraph {
             complete: true,
             edition: default_edition(),
+            edition_uniform: default_edition_uniform(),
             ..Self::default()
         }
     }
