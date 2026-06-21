@@ -1908,11 +1908,13 @@ fn scope_graph_macro_wildcard_shadow_keeps_all() {
 }
 
 #[test]
-fn scope_graph_pending_import_alias_over_colliding_pool_keeps_all() {
+fn scope_graph_pending_import_alias_over_colliding_pool_recovers_to_single_exact() {
     use prism::languages::Language::Rust;
-    // The leading segment `Foo` binds at the call site via a named import
-    // (`BindTarget::Pending`), not a direct resolved item. That uncertainty keeps
-    // the full colliding owner pool rather than pruning to `a::Foo::m`.
+    // The leading segment `Foo` binds at the call site via a SINGLE named import
+    // (`use crate::a::Foo;` -> `BindTarget::Pending`) that resolves unambiguously to
+    // one in-repo item (`a::Foo`). The prune-through-`use` slice folds that import
+    // through the engine and recovers the colliding pool to the single Exact
+    // `a::Foo::m` -- the other `b::Foo::m` is disproved.
     let sources = [
         (
             "src/lib.rs",
@@ -1939,14 +1941,212 @@ fn scope_graph_pending_import_alias_over_colliding_pool_keeps_all() {
         "the bare owner key must collide across a::Foo and b::Foo",
     );
     let out = cg.resolve_call_site_full(&site_in(&cg, "drive", "Foo::m"));
-    assert_eq!(out.drop, None, "a Pending import alias must not drop");
+    assert_eq!(out.drop, None, "the recovered owner path must not drop");
+    assert_eq!(
+        out.resolved.len(),
+        1,
+        "a single `use`-imported in-repo owner recovers to one candidate",
+    );
+    assert_eq!(
+        out.resolved[0].target.file, "src/a.rs",
+        "the recovered target is the imported `a::Foo`'s method, not `b::Foo`'s",
+    );
+    assert_eq!(
+        out.resolved[0].confidence,
+        ResolutionConfidence::Exact,
+        "pruning through the single `use` chain mints Exact",
+    );
+    assert_eq!(out.resolved[0].kind, ResolutionKind::QualifiedOwner);
+}
+
+#[test]
+fn scope_graph_pending_cross_crate_use_keeps_all() {
+    use prism::languages::Language::Rust;
+    // A SINGLE visible `Pending` whose multi-segment `use` chain leaves the repo
+    // (`use some_external::CliTest as CliTest;`). `some_external` is not an in-repo
+    // crate, so the engine fails the non-final prefix segment and returns
+    // `ResStatus::Unresolved` -> the helper declines -> keep-all. We must NOT prune
+    // to an in-repo `CliTest` we happen to also own. (The realistic cross-crate
+    // `use` shape; the `Target::External` candidate branch is pinned separately
+    // below by an explicit `extern crate`.)
+    let sources = [
+        (
+            "src/lib.rs",
+            "mod a;\nmod b;\nuse some_external::CliTest as CliTest;\npub fn drive() {\n    CliTest::m();\n}\n",
+            Rust,
+        ),
+        (
+            "src/a.rs",
+            "pub struct CliTest;\nimpl CliTest {\n    pub fn m(&self) {}\n}\n",
+            Rust,
+        ),
+        (
+            "src/b.rs",
+            "pub struct CliTest;\nimpl CliTest {\n    pub fn m(&self) {}\n}\n",
+            Rust,
+        ),
+    ];
+    let (cg, _) = build(&sources);
+    assert_eq!(
+        cg.methods
+            .get(&("CliTest".to_string(), "m".to_string()))
+            .map(|v| v.len()),
+        Some(2),
+        "the bare owner key must collide across a::CliTest and b::CliTest",
+    );
+    let out = cg.resolve_call_site_full(&site_in(&cg, "drive", "CliTest::m"));
+    assert_eq!(
+        out.drop, None,
+        "an unresolved cross-crate import alias must not drop"
+    );
     assert!(
         out.resolved.len() == 2
             && out
                 .resolved
                 .iter()
                 .all(|c| c.confidence == ResolutionConfidence::NameOnly),
-        "Pending import directness keeps the full colliding pool at NameOnly",
+        "an unresolved external `use` chain declines -> keep the full colliding pool at NameOnly",
+    );
+}
+
+#[test]
+fn scope_graph_pending_extern_crate_alias_keeps_all() {
+    use prism::languages::Language::Rust;
+    // A SINGLE visible `Pending` (`use some_external as CliTest;`) whose own path is
+    // the single segment `some_external`, bound by `extern crate some_external;` to a
+    // `Target::External` candidate at the crate root (not an in-repo crate). The
+    // helper re-resolves that path to `ResStatus::Resolved` with one `Target::External`
+    // candidate -> not a `Target::Item` -> declines -> keep-all. This is the fixture
+    // that genuinely exercises the `Target::External` candidate branch.
+    let sources = [
+        (
+            "src/lib.rs",
+            "extern crate some_external;\nmod a;\nmod b;\nuse some_external as CliTest;\npub fn drive() {\n    CliTest::m();\n}\n",
+            Rust,
+        ),
+        (
+            "src/a.rs",
+            "pub struct CliTest;\nimpl CliTest {\n    pub fn m(&self) {}\n}\n",
+            Rust,
+        ),
+        (
+            "src/b.rs",
+            "pub struct CliTest;\nimpl CliTest {\n    pub fn m(&self) {}\n}\n",
+            Rust,
+        ),
+    ];
+    let (cg, _) = build(&sources);
+    assert_eq!(
+        cg.methods
+            .get(&("CliTest".to_string(), "m".to_string()))
+            .map(|v| v.len()),
+        Some(2),
+        "the bare owner key must collide across a::CliTest and b::CliTest",
+    );
+    let out = cg.resolve_call_site_full(&site_in(&cg, "drive", "CliTest::m"));
+    assert_eq!(
+        out.drop, None,
+        "an `extern crate` external alias must not drop"
+    );
+    assert!(
+        out.resolved.len() == 2
+            && out
+                .resolved
+                .iter()
+                .all(|c| c.confidence == ResolutionConfidence::NameOnly),
+        "a `Target::External` candidate declines -> keep the full colliding pool at NameOnly",
+    );
+}
+
+#[test]
+fn scope_graph_pending_ambiguous_reexport_keeps_all() {
+    use prism::languages::Language::Rust;
+    // ONE visible `Pending` (`use crate::facade::CliTest;`) whose target module
+    // re-exports `CliTest` from TWO crates ambiguously. The binding's import path
+    // resolves `Ambiguous`, so the helper declines -> keep-all. Pins the
+    // `Ambiguous` branch via the `Pending` arm (a single visible binding).
+    let sources = [
+        (
+            "src/lib.rs",
+            "mod a;\nmod b;\nmod facade;\nuse crate::facade::CliTest;\npub fn drive() {\n    CliTest::m();\n}\n",
+            Rust,
+        ),
+        (
+            "src/a.rs",
+            "pub struct CliTest;\nimpl CliTest {\n    pub fn m(&self) {}\n}\n",
+            Rust,
+        ),
+        (
+            "src/b.rs",
+            "pub struct CliTest;\nimpl CliTest {\n    pub fn m(&self) {}\n}\n",
+            Rust,
+        ),
+        (
+            "src/facade.rs",
+            "pub use crate::a::CliTest;\npub use crate::b::CliTest;\n",
+            Rust,
+        ),
+    ];
+    let (cg, _) = build(&sources);
+    assert_eq!(
+        cg.methods
+            .get(&("CliTest".to_string(), "m".to_string()))
+            .map(|v| v.len()),
+        Some(2),
+        "the bare owner key must collide across a::CliTest and b::CliTest",
+    );
+    let out = cg.resolve_call_site_full(&site_in(&cg, "drive", "CliTest::m"));
+    assert_eq!(out.drop, None, "an ambiguous re-export must not drop");
+    assert!(
+        out.resolved.len() == 2
+            && out
+                .resolved
+                .iter()
+                .all(|c| c.confidence == ResolutionConfidence::NameOnly),
+        "an ambiguous `use` re-export declines -> keep the full pool at NameOnly",
+    );
+}
+
+#[test]
+fn scope_graph_module_glob_import_keeps_all() {
+    use prism::languages::Language::Rust;
+    // Module-level `use crate::ru::*;` brings `CliTest` via a glob EDGE, not a
+    // `Binding`, so there is no single visible `Pending` for the leading segment.
+    // `leading_segment_binds_directly` finds an empty rib and declines -> keep-all.
+    let sources = [
+        (
+            "src/lib.rs",
+            "mod ty;\nmod ru;\nuse crate::ru::*;\npub fn drive() {\n    CliTest::m();\n}\n",
+            Rust,
+        ),
+        (
+            "src/ty.rs",
+            "pub struct CliTest;\nimpl CliTest {\n    pub fn m(&self) {}\n}\n",
+            Rust,
+        ),
+        (
+            "src/ru.rs",
+            "pub struct CliTest;\nimpl CliTest {\n    pub fn m(&self) {}\n}\n",
+            Rust,
+        ),
+    ];
+    let (cg, _) = build(&sources);
+    assert_eq!(
+        cg.methods
+            .get(&("CliTest".to_string(), "m".to_string()))
+            .map(|v| v.len()),
+        Some(2),
+        "the bare owner key must collide across ty::CliTest and ru::CliTest",
+    );
+    let out = cg.resolve_call_site_full(&site_in(&cg, "drive", "CliTest::m"));
+    assert_eq!(out.drop, None, "a glob import must not drop");
+    assert!(
+        out.resolved.len() == 2
+            && out
+                .resolved
+                .iter()
+                .all(|c| c.confidence == ResolutionConfidence::NameOnly),
+        "a module-level glob keeps the full colliding pool at NameOnly",
     );
 }
 

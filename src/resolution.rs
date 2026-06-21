@@ -9,8 +9,8 @@ use crate::name_resolution::graph::ScopeGraph;
 use crate::name_resolution::rust_policy::{RustPolicy, EK_GLOB, NS_TYPE, NS_VALUE};
 use crate::name_resolution::rust_populator::enclosing_scope;
 use crate::name_resolution::types::{
-    Anchor, AnchorKind, BindTarget, Binding, Candidate, Edge, FileId, RawPath, ResStatus,
-    ResolutionPolicy, ResolveQuery, ScopeId, SourceLoc, Span, Target, TraversalCtx,
+    Anchor, AnchorKind, BindTarget, Binding, Candidate, Edge, FileId, NamespaceId, RawPath,
+    ResStatus, ResolutionPolicy, ResolveQuery, ScopeId, SourceLoc, Span, Target, TraversalCtx,
 };
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -1355,8 +1355,10 @@ impl crate::resolution_disproof::DisproofPredicate for ScopeResolution<'_> {
             return false;
         }
 
-        // ②B: the leading segment must bind directly to an in-repo Item, with no
-        // Pending hop. Prove this from the binding shape, not Candidate provenance.
+        // ②B: the leading segment must bind directly to one in-repo Item -- either
+        // a resolved `Item` binding, or a single `use`/re-export `Pending` hop that
+        // resolves unambiguously to one in-repo `Item` ((A) slice). Prove this from
+        // the binding shape, not Candidate provenance.
         if !leading_segment_binds_directly(
             graph,
             cx.file,
@@ -1381,9 +1383,12 @@ impl crate::resolution_disproof::DisproofPredicate for ScopeResolution<'_> {
     }
 }
 
-/// Prove the leading type segment binds directly at the call site: the binding
-/// the call site sees for `leading` is itself a non-glob, non-Pending
-/// `BindTarget::Resolved(Target::Item)` (§8.2 decision ②B).
+/// Prove the leading type segment binds directly at the call site: the single
+/// binding the call site sees for `leading` is either a non-glob
+/// `BindTarget::Resolved(Target::Item)`, or a single `use`/re-export
+/// `BindTarget::Pending` that resolves unambiguously to one scope-bearing in-repo
+/// `Item` ((A) slice, via `pending_resolves_to_single_in_repo_item`)
+/// (§8.2 decision ②B).
 fn leading_segment_binds_directly(
     graph: &ScopeGraph,
     file: FileId,
@@ -1428,9 +1433,59 @@ fn leading_segment_binds_directly(
         .collect();
 
     match visible.as_slice() {
-        [b] => matches!(&b.target, BindTarget::Resolved(Target::Item { .. })),
+        [b] => match &b.target {
+            // Directly bound in-repo type -- unchanged (②B).
+            BindTarget::Resolved(Target::Item { .. }) => true,
+            // (A) slice: a single `use`/re-export chain. Fold THIS binding's own
+            // import path via the engine; prune only if it resolves UNAMBIGUOUSLY
+            // to one scope-bearing in-repo `Item` (Rust `use` resolution is
+            // deterministic). Ambiguous / poisoned / unresolved / `Target::External`
+            // / a non-scope-bearing item / multiple -> keep-all (we do NOT prune).
+            BindTarget::Pending(path, anchor) => pending_resolves_to_single_in_repo_item(
+                graph, path, anchor, b.scope, b.ns, &q.at, &policy,
+            ),
+            _ => false,
+        },
         _ => false,
     }
+}
+
+/// (A) slice helper: does the leading type segment's single visible `Pending`
+/// `use`/re-export binding resolve UNAMBIGUOUSLY to exactly one scope-bearing
+/// in-repo `Item`? Re-resolves the binding's **own anchored import path** via the
+/// same `resolve_path` call shape the final callable step uses (`resolution.rs`
+/// final step), so the gate follows the same `use` chain. Returns `true` only on
+/// `ResStatus::Resolved` with a single `Target::Item { owns: Some(scope), .. }`
+/// whose defining `scope` maps to a known in-repo `FileId`; every other shape
+/// (`ResolvedSet`/`Ambiguous`/`Poisoned`/`Unresolved`, a `Target::External`/
+/// `Target::Local` candidate, `owns: None`, or >1) -> `false` -> keep-all. Note
+/// there is no `External` engine *status*: externals surface as a
+/// `Target::External` candidate *target* under a `Resolved` result, so we inspect
+/// the candidate target, not the status (spec §3/§4).
+#[allow(clippy::too_many_arguments)]
+fn pending_resolves_to_single_in_repo_item(
+    graph: &ScopeGraph,
+    path: &RawPath,
+    anchor: &Anchor,
+    from: ScopeId,
+    final_ns: NamespaceId,
+    at: &SourceLoc,
+    policy: &RustPolicy,
+) -> bool {
+    // `from` is the re-export author's scope (`b.scope`); `final_ns` is the final
+    // segment's namespace (`b.ns`, NS_TYPE for the type binding); the prefix
+    // (scope-bearing) segments use NS_TYPE.
+    let res = resolve_path(graph, path, final_ns, anchor, from, NS_TYPE, at, policy);
+    matches!(
+        (res.status, res.candidates.as_slice()),
+        (
+            ResStatus::Resolved,
+            [Candidate {
+                target: Target::Item { owns: Some(scope), .. },
+                ..
+            }],
+        ) if graph_file_for_scope(graph, *scope).is_some()
+    )
 }
 
 /// Does the lexical scope chain from `from` up to but excluding the enclosing
