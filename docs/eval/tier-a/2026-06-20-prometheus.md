@@ -3,16 +3,16 @@
 - corpus: `prometheus` @ `505095b64b43`
 - prism: `20c8490591a3` · oracle: gopls {"GoVersion":"go1.26.2","Path":"golang.org/x/tools/gopls","Main":{"Path":"golang.org/x/tools/gopls","Version":"v0.22.0","Sum":"h1:9aON2mTxKrZ1y71RbQVnlPTTNfKZ9y5cv3x/f6XpsZw="},"Deps":[{"Path":"github.com/BurntSushi/toml","Version":"v1.6.0","Sum":"h1:dRaEfpa2VI55EwlIW72hMRHdWouJeRF7TPYhI+AUQjk="},{"Path":"github.com/fatih/camelcase","Version":"v1.0.0","Sum":"h1:hxNvNX/xYBp0ovncs8WyWZrOrpBNub/JfaMvbURyft8="},{"Path":"github.com/fatih/gomodifytags","Version":"v1.17.1-0.20250423142747-f3939df9aa3c","Sum":"h1:dDSgAjoOMp8da3egfz0t2S+t8RGOpEmEXZubcGuc0Bg="},{"Path":"github.com/fatih/structtag","Version":"v1.2.0","Sum":"h1:/OdNE99OxoI/PqaW/SuSK9uxxT3f/tcSZgon/ssNSx4="},{"Path":"github.com/fsnotify/fsnotify","Version":"v1.9.0","Sum":"h1:2Ml+OJNzbYCTzsxtv8vKSFD9PbJjmhYF14k/jKC7S9k="},{"Path":"github.com/google/go-cmp","Version":"v0.7.0","Sum":"h1:wk8382ETsv4JYUZwIsn6YpYiWiBsYLSJiTsyBybVuN8="},{"Path":"github.com/google/jsonschema-go","Version":"v0.4.2","Sum":"h1:tmrUohrwoLZZS/P3x7ex0WAVknEkBZM46iALbcqoRA8="},{"Path":"github.com/modelcontextprotocol/go-sdk","Version":"v1.4.0","Sum":"h1:u0kr8lbJc1oBcawK7Df+/ajNMpIDFE41OEPxdeTLOn8="},{"Path":"github.com/segmentio/asm","Version":"v1.2.1","Sum":"h1:DTNbBqs57ioxAD4PrArqftgypG4/qNpXoJx8TVXxPR0="},{"Path":"github.com/segmentio/encoding","Version":"v0.5.3","Sum":"h1:OjMgICtcSFuNvQCdwqMCv9Tg7lEOXGwm1J5RPQccx6w="},{"Path":"github.com/yosida95/uritemplate/v3","Version":"v3.0.2","Sum":"h1:Ed3Oyj9yrmi9087+NczuL5BwkIc4wvTb5zIM+UJPGz4="},{"Path":"golang.org/x/exp/typeparams","Version":"v0.0.0-20260312153236-7ab1446f8b90","Sum":"h1:cfW8UCYSVdPblxA7qQe3o5Iad55Vsx4BFmuGS9RNOmc="},{"Path":"golang.org/x/mod","Version":"v0.35.0","Sum":"h1:Ww1D637e6Pg+Zb2KrWfHQUnH2dQRLBQyAtpr/haaJeM="},{"Path":"golang.org/x/oauth2","Version":"v0.36.0","Sum":"h1:peZ/1z27fi9hUOFCAZaHyrpWG5lwe0RJEEEeH0ThlIs="},{"Path":"golang.org/x/sync","Version":"v0.20.0","Sum":"h1:e0PTpb7pjO8GAtTs2dQ6jYa5BWYlMuX047Dco/pItO4="},{"Path":"golang.org/x/sys","Version":"v0.43.0","Sum":"h1:Rlag2XtaFTxp19wS8MXlJwTvoh8ArU6ezoyFsMyCTNI="},{"Path":"golang.org/x/telemetry","Version":"v0.0.0-20260409153401-be6f6cb8b1fa","Sum":"h1:efT73AJZfAAUV7SOip6pWGkwJDzIGiKBZGVzHYa+ve4="},{"Path":"golang.org/x/text","Version":"v0.36.0","Sum":"h1:JfKh3XmcRPqZPKevfXVpI1wXPTqbkE5f7JA92a55Yxg="},{"Path":"golang.org/x/tools","Version":"v0.44.1-0.20260513175300-635ae9663724","Sum":"h1:rz7KAMVmPA+7ecCT/BHKLE353MUOoCAwMqlUveE8508="},{"Path":"golang.org/x/vuln","Version":"v1.1.4","Sum":"h1:Ju8QsuyhX3Hk8ma3CesTbO8vfJD9EvUBgHvkxHBzj0I="},{"Path":"honnef.co/go/tools","Version":"v0.7.0","Sum":"h1:w6WUp1VbkqPEgLz4rkBzH/CSU6HkoqNLp6GstyTx3lU="},{"Path":"mvdan.cc/gofumpt","Version":"v0.9.2","Sum":"h1:zsEMWL8SVKGHNztrx6uZrXdp7AX8r421Vvp23sz7ik4="},{"Path":"mvdan.cc/xurls/v2","Version":"v2.6.0","Sum":"h1:3NTZpeTxYVWNSokW3MKeyVkz/j7uYXYiMtXRUfmjbgI="}],"Settings":[{"Key":"-buildmode","Value":"exe"},{"Key":"-compiler","Value":"gc"},{"Key":"CGO_ENABLED","Value":"1"},{"Key":"CGO_CFLAGS"},{"Key":"CGO_CPPFLAGS"},{"Key":"CGO_CXXFLAGS"},{"Key":"CGO_LDFLAGS"},{"Key":"GOARCH","Value":"arm64"},{"Key":"GOOS","Value":"darwin"},{"Key":"GOARM64","Value":"v8.0"}],"Version":"v0.22.0"} · seed: 42 · harness: `06e6ac4ee96e`
 - oracle_error_rate: 0.000 · sut_error_rate: 0.000 · baseline_invalid: False · oracle_not_quiescent: False
-- wall (s): {'oracle_start': 6.803, 'm1_oracle_inventory': 73.466, 'm2': 266.559, 'm3': 0.255}
+- wall (s): {'m1_oracle_inventory': 73.466, 'm2': 266.559, 'm3': 0.255, 'oracle_start': 6.803}
 
 ## M2 callers
 
 | stratum | site raw P | site raw R | site corr P | site corr R | fn raw P | fn raw R | tp/fp/fn | pending | shortfall |
 |---|---|---|---|---|---|---|---|---|---|
-| C-method | 0.38 [0.14–0.69] | 0.09 [0.03–0.23] | 1.00 [0.44–1.00] | 1.00 [0.44–1.00] | 0.60 [0.23–0.88] | 0.10 [0.04–0.26] | 3/0/0 | 36 | 0 |
-| C-name | 0.21 [0.13–0.31] | 1.00 [0.82–1.00] | 1.00 [0.82–1.00] | 1.00 [0.82–1.00] | 0.18 [0.11–0.28] | 1.00 [0.77–1.00] | 17/0/0 | 65 | 0 |
+| C-method | 0.38 [0.14–0.69] | 0.09 [0.03–0.23] | 0.75 [0.30–0.95] | 0.60 [0.23–0.88] | 0.60 [0.23–0.88] | 0.10 [0.04–0.26] | 3/1/2 | 33 | 0 |
+| C-name | 0.21 [0.13–0.31] | 1.00 [0.82–1.00] | 0.81 [0.60–0.92] | 1.00 [0.82–1.00] | 0.18 [0.11–0.28] | 1.00 [0.77–1.00] | 17/4/0 | 61 | 0 |
 | Q-scoped | 1.00 [0.68–1.00] | 1.00 [0.68–1.00] | 1.00 [0.68–1.00] | 1.00 [0.68–1.00] | 1.00 [0.68–1.00] | 1.00 [0.68–1.00] | 8/0/0 | 0 | 0 |
-| U-method | 0.85 [0.74–0.92] | 0.84 [0.72–0.91] | 1.00 [0.92–1.00] | 1.00 [0.92–1.00] | 1.00 [0.85–1.00] | 0.95 [0.78–0.99] | 47/0/0 | 17 | 0 |
+| U-method | 0.85 [0.74–0.92] | 0.84 [0.72–0.91] | 1.00 [0.92–1.00] | 0.98 [0.89–1.00] | 1.00 [0.85–1.00] | 0.95 [0.78–0.99] | 47/0/1 | 16 | 0 |
 
 ## M2 callees
 
@@ -20,7 +20,7 @@
 |---|---|---|---|---|---|---|---|---|---|
 | C-method | 0.83 [0.61–0.94] | 0.88 [0.66–0.97] | 1.00 [0.80–1.00] | 1.00 [0.80–1.00] | 0.86 [0.49–0.97] | 1.00 [0.61–1.00] | 15/0/0 | 5 | 0 |
 | C-name | 0.83 [0.55–0.95] | 0.59 [0.36–0.78] | 1.00 [0.72–1.00] | 1.00 [0.72–1.00] | 0.57 [0.25–0.84] | 1.00 [0.51–1.00] | 10/0/0 | 9 | 0 |
-| Q-scoped | 1.00 [0.77–1.00] | 0.36 [0.22–0.52] | 1.00 [0.77–1.00] | 1.00 [0.77–1.00] | 0.57 [0.25–0.84] | 1.00 [0.51–1.00] | 13/0/0 | 23 | 0 |
+| Q-scoped | 1.00 [0.77–1.00] | 0.36 [0.22–0.52] | 1.00 [0.77–1.00] | 0.87 [0.62–0.96] | 0.57 [0.25–0.84] | 1.00 [0.51–1.00] | 13/0/2 | 21 | 0 |
 | U-method | 1.00 [0.82–1.00] | 0.74 [0.54–0.87] | 1.00 [0.82–1.00] | 1.00 [0.82–1.00] | 0.71 [0.36–0.92] | 1.00 [0.57–1.00] | 17/0/0 | 6 | 0 |
 
 ## M1 inventory diff
@@ -183,14 +183,6 @@
 [
  {
   "corpus": "prometheus",
-  "direction": "oracle_only",
-  "measurement": "callers",
-  "seed_def": "config/config.go:1547",
-  "site": "config/config.go:462",
-  "site_fingerprint": "0a60cb53d8a020bc"
- },
- {
-  "corpus": "prometheus",
   "direction": "prism_only",
   "dispatch_kind": "free_multi",
   "measurement": "callers",
@@ -314,15 +306,6 @@
   "seed_def": "discovery/digitalocean/mock_test.go:32",
   "site": "discovery/vultr/vultr_test.go:39",
   "site_fingerprint": "36085a758cd14100"
- },
- {
-  "corpus": "prometheus",
-  "direction": "prism_only",
-  "dispatch_kind": "free_multi",
-  "measurement": "callers",
-  "seed_def": "discovery/eureka/eureka.go:127",
-  "site": "discovery/azure/azure_test.go:684",
-  "site_fingerprint": "4696d42caa1b1396"
  },
  {
   "corpus": "prometheus",
@@ -457,15 +440,6 @@
   "measurement": "callers",
   "seed_def": "discovery/eureka/eureka.go:127",
   "site": "discovery/moby/nodes_test.go:51",
-  "site_fingerprint": "6fd311b54094502a"
- },
- {
-  "corpus": "prometheus",
-  "direction": "prism_only",
-  "dispatch_kind": "free_multi",
-  "measurement": "callers",
-  "seed_def": "discovery/eureka/eureka.go:127",
-  "site": "discovery/moby/services_test.go:51",
   "site_fingerprint": "6fd311b54094502a"
  },
  {
@@ -609,15 +583,6 @@
   "dispatch_kind": "self_receiver",
   "measurement": "callers",
   "seed_def": "discovery/marathon/marathon.go:229",
-  "site": "discovery/file/file.go:273",
-  "site_fingerprint": "7c987b38e39fa20b"
- },
- {
-  "corpus": "prometheus",
-  "direction": "prism_only",
-  "dispatch_kind": "self_receiver",
-  "measurement": "callers",
-  "seed_def": "discovery/marathon/marathon.go:229",
   "site": "discovery/file/file.go:278",
   "site_fingerprint": "2d6301a702cf8a50"
  },
@@ -740,14 +705,6 @@
   "direction": "oracle_only",
   "measurement": "callers",
   "seed_def": "model/textparse/openmetricsparse.go:290",
-  "site": "scrape/scrape.go:1752",
-  "site_fingerprint": "0668ef9a0138deb5"
- },
- {
-  "corpus": "prometheus",
-  "direction": "oracle_only",
-  "measurement": "callers",
-  "seed_def": "model/textparse/openmetricsparse.go:290",
   "site": "scrape/scrape_append_v2.go:261",
   "site_fingerprint": "3e61a7704f9b0979"
  },
@@ -862,15 +819,6 @@
   "seed_def": "storage/remote/read.go:219",
   "site": "web/api/v1/api.go:835",
   "site_fingerprint": "320b6e425d6468b5"
- },
- {
-  "corpus": "prometheus",
-  "direction": "prism_only",
-  "dispatch_kind": "free_multi",
-  "measurement": "callers",
-  "seed_def": "tsdb/record/record.go:311",
-  "site": "model/labels/labels_dedupelabels.go:418",
-  "site_fingerprint": "bd99ef74b7f408ab"
  },
  {
   "corpus": "prometheus",
@@ -1013,15 +961,6 @@
   "dispatch_kind": "free_multi",
   "measurement": "callers",
   "seed_def": "tsdb/record/record.go:311",
-  "site": "model/textparse/openmetricsparse.go:736",
-  "site_fingerprint": "e2213f1c8b937cb2"
- },
- {
-  "corpus": "prometheus",
-  "direction": "prism_only",
-  "dispatch_kind": "free_multi",
-  "measurement": "callers",
-  "seed_def": "tsdb/record/record.go:311",
   "site": "model/textparse/openmetricsparse.go:761",
   "site_fingerprint": "b503d6c2489ef1e2"
  },
@@ -1152,14 +1091,6 @@
   "direction": "oracle_only",
   "measurement": "callers",
   "seed_def": "web/api/testhelpers/openapi.go:98",
-  "site": "web/api/v1/api_scenarios_test.go:316",
-  "site_fingerprint": "26c41e3e081b83ec"
- },
- {
-  "corpus": "prometheus",
-  "direction": "oracle_only",
-  "measurement": "callers",
-  "seed_def": "web/api/testhelpers/openapi.go:98",
   "site": "web/api/v1/api_scenarios_test.go:326",
   "site_fingerprint": "26c41e3e081b83ec"
  },
@@ -1276,14 +1207,6 @@
   "seed_def": "model/labels/regexp_test.go:912",
   "site": "model/labels/regexp_test.go:986",
   "site_fingerprint": "4fdaff859d5d0ccd"
- },
- {
-  "corpus": "prometheus",
-  "direction": "oracle_only",
-  "measurement": "callees",
-  "seed_def": "model/labels/regexp_test.go:912",
-  "site": "model/labels/regexp_test.go:988",
-  "site_fingerprint": "ba5fa8695148c007"
  },
  {
   "corpus": "prometheus",
@@ -1407,14 +1330,6 @@
   "seed_def": "tsdb/chunkenc/float_histogram_test.go:1252",
   "site": "tsdb/chunkenc/float_histogram_test.go:1270",
   "site_fingerprint": "aa4bcc8949b52d2e"
- },
- {
-  "corpus": "prometheus",
-  "direction": "oracle_only",
-  "measurement": "callees",
-  "seed_def": "tsdb/chunkenc/float_histogram_test.go:1252",
-  "site": "tsdb/chunkenc/float_histogram_test.go:1279",
-  "site_fingerprint": "e96f12d36c120973"
  },
  {
   "corpus": "prometheus",

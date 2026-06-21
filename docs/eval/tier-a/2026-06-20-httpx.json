@@ -11,7 +11,7 @@
   "callees": {
    "C-method": {
     "corrected": {
-     "fn": 0,
+     "fn": 1,
      "fp": 0,
      "precision": [
       1.0,
@@ -19,9 +19,9 @@
       1.0
      ],
      "recall": [
-      1.0,
-      0.43850296436068037,
-      1.0
+      0.75,
+      0.3006418400969081,
+      0.954412739704631
      ],
      "tp": 3
     },
@@ -57,7 +57,7 @@
       "tp": 5
      }
     },
-    "pending": 4,
+    "pending": 3,
     "raw": {
      "fn": 3,
      "fp": 1,
@@ -209,7 +209,7 @@
    },
    "U-method": {
     "corrected": {
-     "fn": 0,
+     "fn": 1,
      "fp": 0,
      "precision": [
       1.0,
@@ -217,9 +217,9 @@
       1.0
      ],
      "recall": [
-      1.0,
-      0.3423802239546494,
-      1.0
+      0.6666666666666666,
+      0.2076595988078242,
+      0.9385080559790691
      ],
      "tp": 2
     },
@@ -255,7 +255,7 @@
       "tp": 4
      }
     },
-    "pending": 9,
+    "pending": 8,
     "raw": {
      "fn": 7,
      "fp": 2,
@@ -277,17 +277,17 @@
   "callers": {
    "C-method": {
     "corrected": {
-     "fn": 0,
-     "fp": 0,
+     "fn": 2,
+     "fp": 1,
      "precision": [
-      1.0,
-      0.2065493117918027,
-      1.0
+      0.5,
+      0.09453120463920084,
+      0.9054687953607992
      ],
      "recall": [
-      1.0,
-      0.2065493117918027,
-      1.0
+      0.3333333333333333,
+      0.06149194402093078,
+      0.7923404011921757
      ],
      "tp": 1
     },
@@ -323,7 +323,7 @@
       "tp": 1
      }
     },
-    "pending": 41,
+    "pending": 38,
     "raw": {
      "fn": 32,
      "fp": 9,
@@ -344,11 +344,11 @@
    "C-name": {
     "corrected": {
      "fn": 0,
-     "fp": 0,
+     "fp": 1,
      "precision": [
-      1.0,
-      0.7719046248681998,
-      1.0
+      0.9285714285714286,
+      0.6853129533326209,
+      0.9872777848933957
      ],
      "recall": [
       1.0,
@@ -389,7 +389,7 @@
       "tp": 11
      }
     },
-    "pending": 1,
+    "pending": 0,
     "raw": {
      "fn": 0,
      "fp": 1,
@@ -475,7 +475,7 @@
    },
    "U-method": {
     "corrected": {
-     "fn": 0,
+     "fn": 4,
      "fp": 0,
      "precision": [
       1.0,
@@ -483,9 +483,9 @@
       1.0
      ],
      "recall": [
-      1.0,
-      0.700854948272956,
-      1.0
+      0.6923076923076923,
+      0.42369342985078007,
+      0.8731929643292967
      ],
      "tp": 9
     },
@@ -521,7 +521,7 @@
       "tp": 8
      }
     },
-    "pending": 74,
+    "pending": 70,
     "raw": {
      "fn": 68,
      "fp": 6,
@@ -659,15 +659,6 @@
  "pending": [
   {
    "corpus": "httpx",
-   "direction": "prism_only",
-   "dispatch_kind": "free_single",
-   "measurement": "callers",
-   "seed_def": "httpx/_api.py:39",
-   "site": "httpx/_client.py:524",
-   "site_fingerprint": "8d72dee5a911da76"
-  },
-  {
-   "corpus": "httpx",
    "direction": "oracle_only",
    "measurement": "callers",
    "seed_def": "httpx/_auth.py:62",
@@ -769,14 +760,6 @@
    "seed_def": "httpx/_client.py:1949",
    "site": "tests/client/test_async_client.py:163",
    "site_fingerprint": "eeab01e5953a5cf9"
-  },
-  {
-   "corpus": "httpx",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "httpx/_content.py:38",
-   "site": "httpx/_transports/asgi.py:122",
-   "site_fingerprint": "e051a6fa62a83d38"
   },
   {
    "corpus": "httpx",
@@ -906,15 +889,6 @@
   },
   {
    "corpus": "httpx",
-   "direction": "prism_only",
-   "dispatch_kind": "r6_single_owner",
-   "measurement": "callers",
-   "seed_def": "httpx/_models.py:216",
-   "site": "httpx/_models.py:1088",
-   "site_fingerprint": "abc7e233395981cf"
-  },
-  {
-   "corpus": "httpx",
    "direction": "oracle_only",
    "measurement": "callers",
    "seed_def": "httpx/_models.py:216",
@@ -1024,14 +998,6 @@
    "seed_def": "httpx/_models.py:463",
    "site": "tests/test_multipart.py:198",
    "site_fingerprint": "6d11589d4ecf6a19"
-  },
-  {
-   "corpus": "httpx",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "httpx/_models.py:463",
-   "site": "tests/test_multipart.py:200",
-   "site_fingerprint": "c16ba59f857984e1"
   },
   {
    "corpus": "httpx",
@@ -1150,14 +1116,6 @@
    "direction": "oracle_only",
    "measurement": "callers",
    "seed_def": "httpx/_models.py:642",
-   "site": "httpx/_main.py:181",
-   "site_fingerprint": "fff95650e68fa094"
-  },
-  {
-   "corpus": "httpx",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "httpx/_models.py:642",
    "site": "tests/client/test_async_client.py:17",
    "site_fingerprint": "b2c55ba07c65371b"
   },
@@ -1263,14 +1221,6 @@
    "measurement": "callers",
    "seed_def": "httpx/_models.py:642",
    "site": "tests/client/test_redirects.py:426",
-   "site_fingerprint": "2ca54e9a2a82277d"
-  },
-  {
-   "corpus": "httpx",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "httpx/_models.py:642",
-   "site": "tests/client/test_redirects.py:431",
    "site_fingerprint": "2ca54e9a2a82277d"
   },
   {
@@ -1390,14 +1340,6 @@
    "direction": "oracle_only",
    "measurement": "callers",
    "seed_def": "httpx/_models.py:642",
-   "site": "tests/models/test_responses.py:308",
-   "site_fingerprint": "276cc46dbc4aa2dc"
-  },
-  {
-   "corpus": "httpx",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "httpx/_models.py:642",
    "site": "tests/models/test_responses.py:325",
    "site_fingerprint": "25af495165c20741"
   },
@@ -1504,14 +1446,6 @@
    "seed_def": "httpx/_models.py:642",
    "site": "tests/test_content.py:501",
    "site_fingerprint": "9fc2e0c81801b24b"
-  },
-  {
-   "corpus": "httpx",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "httpx/_models.py:642",
-   "site": "tests/test_decoders.py:256",
-   "site_fingerprint": "b4753427e54f7cc1"
   },
   {
    "corpus": "httpx",
@@ -1629,14 +1563,6 @@
    "corpus": "httpx",
    "direction": "oracle_only",
    "measurement": "callees",
-   "seed_def": "httpx/_auth.py:62",
-   "site": "httpx/_auth.py:80",
-   "site_fingerprint": "59f8db3bc37ad9ef"
-  },
-  {
-   "corpus": "httpx",
-   "direction": "oracle_only",
-   "measurement": "callees",
    "seed_def": "httpx/_client.py:445",
    "site": "httpx/_client.py:449",
    "site_fingerprint": "67efb31d8fdba2c5"
@@ -1747,14 +1673,6 @@
    "seed_def": "httpx/_models.py:216",
    "site": "httpx/_models.py:229",
    "site_fingerprint": "280a6ad613fff1ce"
-  },
-  {
-   "corpus": "httpx",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "httpx/_models.py:216",
-   "site": "httpx/_models.py:223",
-   "site_fingerprint": "efb2679feaba2c00"
   },
   {
    "corpus": "httpx",

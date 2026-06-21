@@ -77,7 +77,7 @@
    },
    "C-name": {
     "corrected": {
-     "fn": 0,
+     "fn": 1,
      "fp": 0,
      "precision": [
       1.0,
@@ -85,9 +85,9 @@
       1.0
      ],
      "recall": [
-      1.0,
-      0.6456695613241317,
-      1.0
+      0.875,
+      0.5291118149439162,
+      0.9775825088000281
      ],
      "tp": 7
     },
@@ -123,7 +123,7 @@
       "tp": 3
      }
     },
-    "pending": 3,
+    "pending": 2,
     "raw": {
      "fn": 3,
      "fp": 0,
@@ -143,7 +143,7 @@
    },
    "Q-scoped": {
     "corrected": {
-     "fn": 0,
+     "fn": 2,
      "fp": 0,
      "precision": [
       1.0,
@@ -151,9 +151,9 @@
       1.0
      ],
      "recall": [
-      1.0,
-      0.7575059904469021,
-      1.0
+      0.8571428571428571,
+      0.600586202762663,
+      0.959906079092351
      ],
      "tp": 12
     },
@@ -189,7 +189,7 @@
       "tp": 7
      }
     },
-    "pending": 22,
+    "pending": 20,
     "raw": {
      "fn": 22,
      "fp": 0,
@@ -323,7 +323,7 @@
       "tp": 0
      }
     },
-    "pending": 9,
+    "pending": 7,
     "raw": {
      "fn": 0,
      "fp": 9,
@@ -409,7 +409,7 @@
    },
    "Q-scoped": {
     "corrected": {
-     "fn": 0,
+     "fn": 2,
      "fp": 0,
      "precision": [
       1.0,
@@ -417,9 +417,9 @@
       1.0
      ],
      "recall": [
-      1.0,
-      0.5655175313406071,
-      1.0
+      0.7142857142857143,
+      0.3589344495310541,
+      0.9177810767507166
      ],
      "tp": 5
     },
@@ -455,7 +455,7 @@
       "tp": 5
      }
     },
-    "pending": 10,
+    "pending": 8,
     "raw": {
      "fn": 10,
      "fp": 0,
@@ -475,17 +475,17 @@
    },
    "U-method": {
     "corrected": {
-     "fn": 0,
-     "fp": 0,
+     "fn": 1,
+     "fp": 2,
      "precision": [
-      1.0,
-      0.8957300009841286,
-      0.9999999999999999
+      0.9428571428571428,
+      0.8139294244104802,
+      0.9841868382855115
      ],
      "recall": [
-      1.0,
-      0.8957300009841286,
-      0.9999999999999999
+      0.9705882352941176,
+      0.8508442656612141,
+      0.9947890937814032
      ],
      "tp": 33
     },
@@ -521,7 +521,7 @@
       "tp": 39
      }
     },
-    "pending": 30,
+    "pending": 27,
     "raw": {
      "fn": 14,
      "fp": 16,
@@ -708,15 +708,6 @@
    "dispatch_kind": "trait_cha",
    "measurement": "callers",
    "seed_def": "crates/core/flags/defs.rs:2291",
-   "site": "crates/core/flags/doc/help.rs:66",
-   "site_fingerprint": "dda87f9c85702c4b"
-  },
-  {
-   "corpus": "ripgrep",
-   "direction": "prism_only",
-   "dispatch_kind": "trait_cha",
-   "measurement": "callers",
-   "seed_def": "crates/core/flags/defs.rs:2291",
    "site": "crates/core/flags/doc/help.rs:132",
    "site_fingerprint": "c5c20fd9ac173c8a"
   },
@@ -764,15 +755,6 @@
    "seed_def": "crates/core/flags/defs.rs:4507",
    "site": "crates/core/flags/doc/man.rs:64",
    "site_fingerprint": "88a0b5325bd00a04"
-  },
-  {
-   "corpus": "ripgrep",
-   "direction": "prism_only",
-   "dispatch_kind": "trait_cha",
-   "measurement": "callers",
-   "seed_def": "crates/core/flags/defs.rs:4835",
-   "site": "crates/core/flags/doc/help.rs:182",
-   "site_fingerprint": "df125e133f9c1c94"
   },
   {
    "corpus": "ripgrep",
@@ -830,14 +812,6 @@
    "seed_def": "crates/globset/src/glob.rs:1217",
    "site": "crates/globset/src/glob.rs:1264",
    "site_fingerprint": "904090b06ac21e3c"
-  },
-  {
-   "corpus": "ripgrep",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "crates/globset/src/glob.rs:1217",
-   "site": "crates/globset/src/glob.rs:1265",
-   "site_fingerprint": "1d77626127536f49"
   },
   {
    "corpus": "ripgrep",
@@ -904,14 +878,6 @@
    "direction": "oracle_only",
    "measurement": "callers",
    "seed_def": "crates/searcher/src/searcher/mod.rs:79",
-   "site": "crates/core/flags/hiargs.rs:1172",
-   "site_fingerprint": "5278035275305bc8"
-  },
-  {
-   "corpus": "ripgrep",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "crates/searcher/src/searcher/mod.rs:79",
    "site": "crates/grep/examples/simplegrep.rs:35",
    "site_fingerprint": "d58eecf28257f1e6"
   },
@@ -957,15 +923,6 @@
    "seed_def": "crates/searcher/src/testutil.rs:331",
    "site": "crates/searcher/src/searcher/glue.rs:897",
    "site_fingerprint": "1bd045cb11834390"
-  },
-  {
-   "corpus": "ripgrep",
-   "direction": "prism_only",
-   "dispatch_kind": "r6_single_owner",
-   "measurement": "callers",
-   "seed_def": "crates/searcher/src/testutil.rs:331",
-   "site": "crates/searcher/src/searcher/glue.rs:950",
-   "site_fingerprint": "8da822d61aa39bd0"
   },
   {
    "corpus": "ripgrep",
@@ -1032,15 +989,6 @@
   },
   {
    "corpus": "ripgrep",
-   "direction": "prism_only",
-   "dispatch_kind": "r6_single_owner",
-   "measurement": "callers",
-   "seed_def": "crates/searcher/src/testutil.rs:331",
-   "site": "crates/searcher/src/searcher/glue.rs:1449",
-   "site_fingerprint": "a1bd9dec5fcbd996"
-  },
-  {
-   "corpus": "ripgrep",
    "direction": "oracle_only",
    "measurement": "callers",
    "seed_def": "crates/searcher/src/testutil.rs:331",
@@ -1100,14 +1048,6 @@
    "direction": "oracle_only",
    "measurement": "callers",
    "seed_def": "crates/searcher/src/testutil.rs:331",
-   "site": "crates/searcher/src/searcher/glue.rs:1174",
-   "site_fingerprint": "3a38d33e9f2691b5"
-  },
-  {
-   "corpus": "ripgrep",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "crates/searcher/src/testutil.rs:331",
    "site": "crates/searcher/src/searcher/glue.rs:1235",
    "site_fingerprint": "3a38d33e9f2691b5"
   },
@@ -1150,14 +1090,6 @@
    "seed_def": "crates/cli/src/human.rs:113",
    "site": "crates/cli/src/human.rs:114",
    "site_fingerprint": "54e42a2f547b9bd3"
-  },
-  {
-   "corpus": "ripgrep",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "crates/core/flags/hiargs.rs:1210",
-   "site": "crates/core/flags/hiargs.rs:1215",
-   "site_fingerprint": "7b31458776fea822"
   },
   {
    "corpus": "ripgrep",
@@ -1220,14 +1152,6 @@
    "direction": "oracle_only",
    "measurement": "callees",
    "seed_def": "crates/printer/src/standard.rs:3700",
-   "site": "crates/printer/src/standard.rs:3704",
-   "site_fingerprint": "655e5e3533fa23ea"
-  },
-  {
-   "corpus": "ripgrep",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "crates/printer/src/standard.rs:3700",
    "site": "crates/printer/src/standard.rs:3705",
    "site_fingerprint": "87215d2250ce6695"
   },
@@ -1278,14 +1202,6 @@
    "seed_def": "crates/searcher/src/line_buffer.rs:828",
    "site": "crates/searcher/src/line_buffer.rs:831",
    "site_fingerprint": "f4cca01d9df9a6a2"
-  },
-  {
-   "corpus": "ripgrep",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "crates/searcher/src/line_buffer.rs:828",
-   "site": "crates/searcher/src/line_buffer.rs:832",
-   "site_fingerprint": "1b39089cbd259e12"
   },
   {
    "corpus": "ripgrep",

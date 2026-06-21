@@ -1,3 +1,31 @@
+# Tier-A Baseline — 2026-06-21 (new-anchor adjudication: κ-validation + characterization)
+
+The 9 new anchors (ruff/ripgrep/cobra/prometheus/etcd/zap/black/httpx/mypy) carried **1,405 unadjudicated
+pending M2 sites**. Rather than exhaustively bulk-adjudicate (the v1 budget ≈1,150), a **90-site stratified
+dual-adjudicator κ-validation** (10/corpus) was run first — codex gpt-5.5 xhigh + claude operator, blinded,
+identical evidence — to gauge reliability on the new (Go-heavy + Python) corpora before committing the bulk.
+
+**Result: codex is reliable; the pending is recall-dominated; exhaustive bulk deferred.**
+- **κ: raw 0.53 (60/90), reconciled 0.88 (79/90).** The entire gap is ONE definitional axis: the operator
+  over-applied `oracle_artifact` to **source-visible Go callback registration** (`Run: emptyRun`) and
+  **Python `@property` access** (`x.text`, `node.prev_sibling`); codex correctly classed all 19 as `prism_fn`.
+  **Taxonomy rule (codified here):** `oracle_artifact` is reserved for source-*invisible* edges (macro/derive/
+  generated expansion). Property-getter and callback-registration edges ARE in the source and the getter/callback
+  genuinely runs, so a prism miss there is a real **recall gap** (`prism_fn`), not an artifact. codex used
+  `prism_fn`/`prism_fp`/`ambiguous` only (89/90 direction-valid; 1 slip).
+- **Pending shape (codex projection):** ~**56% `prism_fn`** (recall gaps = prism's KNOWN capability limits:
+  @property, callbacks, builder chains, interface/trait dispatch), ~**32% `prism_fp`** (the precision signal =
+  name collisions, e.g. `commandSorterByName.Len` vs `bytes.Buffer.Len`; cross-package `NewDiscovery`/`yoloString`/
+  `with_file`), ~**12% ambiguous**. A full bulk would mostly re-confirm known recall gaps.
+- **Committed:** the 90 reconciled verdicts → `eval/adjudications.jsonl` (1563→1653; agreed kept, the 19
+  artifact→`prism_fn`, 11 contested residuals → conservative `ambiguous` except 2 clear chain-start `prism_fp`).
+  The 9 reports re-folded (`--report-only`): pending −10/corpus, **stale_adjudications 0** (all matched). The
+  remaining ~1,315 pending stay **characterized-not-classified** (operator chose to stop at the κ-sample).
+- Validity, anchor set, and prism metrics are unchanged from the 2026-06-20b/2026-06-20 anchors below; this is an
+  adjudication-coverage increment, not a prism or corpus change.
+
+---
+
 # Tier-A Baseline — 2026-06-20b (Corpus Anchor Expansion — 3+ valid anchors per language)
 
 Deliberate baseline change: expand from an effective **1 Rust / 1 Go / 0 Python** valid-anchor set to

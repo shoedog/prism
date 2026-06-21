@@ -78,11 +78,11 @@
    "C-name": {
     "corrected": {
      "fn": 0,
-     "fp": 0,
+     "fp": 2,
      "precision": [
-      1.0,
-      0.8241207740667156,
-      1.0
+      0.9,
+      0.6989663528135878,
+      0.9721335190383086
      ],
      "recall": [
       1.0,
@@ -123,7 +123,7 @@
       "tp": 7
      }
     },
-    "pending": 27,
+    "pending": 25,
     "raw": {
      "fn": 6,
      "fp": 21,
@@ -143,17 +143,17 @@
    },
    "Q-scoped": {
     "corrected": {
-     "fn": 0,
-     "fp": 0,
+     "fn": 2,
+     "fp": 2,
      "precision": [
-      1.0,
-      0.862023793448672,
-      0.9999999999999999
+      0.9230769230769231,
+      0.7585844605936842,
+      0.9786449117205875
      ],
      "recall": [
-      1.0,
-      0.862023793448672,
-      0.9999999999999999
+      0.9230769230769231,
+      0.7585844605936842,
+      0.9786449117205875
      ],
      "tp": 24
     },
@@ -189,7 +189,7 @@
       "tp": 5
      }
     },
-    "pending": 26,
+    "pending": 22,
     "raw": {
      "fn": 13,
      "fp": 13,
@@ -209,17 +209,17 @@
    },
    "U-free": {
     "corrected": {
-     "fn": 0,
-     "fp": 0,
+     "fn": 1,
+     "fp": 1,
      "precision": [
-      1.0,
-      0.7575059904469021,
-      1.0
+      0.9230769230769231,
+      0.666860488286395,
+      0.986289578909774
      ],
      "recall": [
-      1.0,
-      0.7575059904469021,
-      1.0
+      0.9230769230769231,
+      0.666860488286395,
+      0.986289578909774
      ],
      "tp": 12
     },
@@ -255,7 +255,7 @@
       "tp": 4
      }
     },
-    "pending": 16,
+    "pending": 14,
     "raw": {
      "fn": 3,
      "fp": 13,
@@ -389,7 +389,7 @@
       "tp": 0
      }
     },
-    "pending": 6,
+    "pending": 5,
     "raw": {
      "fn": 6,
      "fp": 0,
@@ -410,11 +410,11 @@
    "C-name": {
     "corrected": {
      "fn": 0,
-     "fp": 0,
+     "fp": 1,
      "precision": [
-      1.0,
-      0.8568833796149266,
-      1.0
+      0.9583333333333334,
+      0.7975819334115467,
+      0.9926065439164028
      ],
      "recall": [
       1.0,
@@ -455,7 +455,7 @@
       "tp": 20
      }
     },
-    "pending": 6,
+    "pending": 5,
     "raw": {
      "fn": 1,
      "fp": 5,
@@ -740,15 +740,6 @@
    "dispatch_kind": "free_multi",
    "measurement": "callers",
    "seed_def": "misc/diff-cache.py:154",
-   "site": "mypy/__main__.py:16",
-   "site_fingerprint": "0e23c8d5afdc86b8"
-  },
-  {
-   "corpus": "mypy",
-   "direction": "prism_only",
-   "dispatch_kind": "free_multi",
-   "measurement": "callers",
-   "seed_def": "misc/diff-cache.py:154",
    "site": "mypy/api.py:73",
    "site_fingerprint": "6def3c8b30879716"
   },
@@ -802,14 +793,6 @@
    "seed_def": "mypy/nodes.py:1732",
    "site": "mypy/nodes.py:4220",
    "site_fingerprint": "5d89c129d6a34eab"
-  },
-  {
-   "corpus": "mypy",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "mypy/nodes.py:299",
-   "site": "mypy/nodes.py:5018",
-   "site_fingerprint": "dd880c7205949b77"
   },
   {
    "corpus": "mypy",
@@ -878,14 +861,6 @@
    "seed_def": "misc/diff-cache.py:101",
    "site": "misc/diff-cache.py:109",
    "site_fingerprint": "c9ac5d8f5b40e51b"
-  },
-  {
-   "corpus": "mypy",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "misc/diff-cache.py:101",
-   "site": "misc/diff-cache.py:113",
-   "site_fingerprint": "3d44d9d78dd7e998"
   },
   {
    "corpus": "mypy",
@@ -961,15 +936,6 @@
   {
    "corpus": "mypy",
    "direction": "prism_only",
-   "dispatch_kind": "r6_single_owner",
-   "measurement": "callees",
-   "seed_def": "misc/diff-cache.py:154",
-   "site": "misc/diff-cache.py:186",
-   "site_fingerprint": "f82b81b11dc54ed6"
-  },
-  {
-   "corpus": "mypy",
-   "direction": "prism_only",
    "dispatch_kind": "free_multi",
    "measurement": "callees",
    "seed_def": "misc/diff-cache.py:154",
@@ -1034,15 +1000,6 @@
    "seed_def": "misc/diff-cache.py:27",
    "site": "misc/diff-cache.py:31",
    "site_fingerprint": "546df7e3bbe226ed"
-  },
-  {
-   "corpus": "mypy",
-   "direction": "prism_only",
-   "dispatch_kind": "r6_single_owner",
-   "measurement": "callees",
-   "seed_def": "misc/gen_blog_post_html.py:160",
-   "site": "misc/gen_blog_post_html.py:161",
-   "site_fingerprint": "d29167067a412947"
   },
   {
    "corpus": "mypy",
@@ -1119,15 +1076,6 @@
   {
    "corpus": "mypy",
    "direction": "prism_only",
-   "dispatch_kind": "free_single",
-   "measurement": "callees",
-   "seed_def": "mypy/build.py:4053",
-   "site": "mypy/build.py:4105",
-   "site_fingerprint": "4a2bfdf67e33c390"
-  },
-  {
-   "corpus": "mypy",
-   "direction": "prism_only",
    "dispatch_kind": "local_def",
    "measurement": "callees",
    "seed_def": "mypy/build.py:4053",
@@ -1184,15 +1132,6 @@
    "seed_def": "mypy/inspections.py:614",
    "site": "mypy/inspections.py:617",
    "site_fingerprint": "0db9a66b2096c570"
-  },
-  {
-   "corpus": "mypy",
-   "direction": "prism_only",
-   "dispatch_kind": "r6_single_owner",
-   "measurement": "callees",
-   "seed_def": "mypy/inspections.py:614",
-   "site": "mypy/inspections.py:622",
-   "site_fingerprint": "6926d337eb8e033b"
   },
   {
    "corpus": "mypy",
@@ -1259,15 +1198,6 @@
    "seed_def": "mypy/types.py:4267",
    "site": "mypy/types.py:4271",
    "site_fingerprint": "b80221a98985c86a"
-  },
-  {
-   "corpus": "mypy",
-   "direction": "prism_only",
-   "dispatch_kind": "free_single",
-   "measurement": "callees",
-   "seed_def": "mypy/types.py:4267",
-   "site": "mypy/types.py:4277",
-   "site_fingerprint": "578d5bedc1eaf0e4"
   },
   {
    "corpus": "mypy",
@@ -1346,14 +1276,6 @@
    "direction": "oracle_only",
    "measurement": "callees",
    "seed_def": "mypyc/codegen/emitclass.py:574",
-   "site": "mypyc/codegen/emitclass.py:581",
-   "site_fingerprint": "13a0c3c598a7dcb4"
-  },
-  {
-   "corpus": "mypy",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "mypyc/codegen/emitclass.py:574",
    "site": "mypyc/codegen/emitclass.py:583",
    "site_fingerprint": "fb05d96ad7d0b58d"
   },
@@ -1412,14 +1334,6 @@
    "seed_def": "mypyc/codegen/emitclass.py:574",
    "site": "mypyc/codegen/emitclass.py:606",
    "site_fingerprint": "198a0540bc1841e2"
-  },
-  {
-   "corpus": "mypy",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "mypyc/ir/class_ir.py:528",
-   "site": "mypyc/ir/class_ir.py:530",
-   "site_fingerprint": "f5a358cd7e9d2505"
   },
   {
    "corpus": "mypy",

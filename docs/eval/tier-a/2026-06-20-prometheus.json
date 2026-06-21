@@ -143,7 +143,7 @@
    },
    "Q-scoped": {
     "corrected": {
-     "fn": 0,
+     "fn": 2,
      "fp": 0,
      "precision": [
       1.0,
@@ -151,9 +151,9 @@
       1.0
      ],
      "recall": [
-      1.0,
-      0.7719046248681998,
-      1.0
+      0.8666666666666667,
+      0.6211801694601944,
+      0.9626387412357151
      ],
      "tp": 13
     },
@@ -189,7 +189,7 @@
       "tp": 4
      }
     },
-    "pending": 23,
+    "pending": 21,
     "raw": {
      "fn": 23,
      "fp": 0,
@@ -277,17 +277,17 @@
   "callers": {
    "C-method": {
     "corrected": {
-     "fn": 0,
-     "fp": 0,
+     "fn": 2,
+     "fp": 1,
      "precision": [
-      1.0,
-      0.43850296436068037,
-      1.0
+      0.75,
+      0.3006418400969081,
+      0.954412739704631
      ],
      "recall": [
-      1.0,
-      0.43850296436068037,
-      1.0
+      0.6,
+      0.23072427940911855,
+      0.8823792268590028
      ],
      "tp": 3
     },
@@ -323,7 +323,7 @@
       "tp": 3
      }
     },
-    "pending": 36,
+    "pending": 33,
     "raw": {
      "fn": 31,
      "fp": 5,
@@ -344,11 +344,11 @@
    "C-name": {
     "corrected": {
      "fn": 0,
-     "fp": 0,
+     "fp": 4,
      "precision": [
-      1.0,
-      0.8156818626193445,
-      1.0
+      0.8095238095238095,
+      0.5999943512871267,
+      0.9233243500065463
      ],
      "recall": [
       1.0,
@@ -389,7 +389,7 @@
       "tp": 13
      }
     },
-    "pending": 65,
+    "pending": 61,
     "raw": {
      "fn": 0,
      "fp": 65,
@@ -475,7 +475,7 @@
    },
    "U-method": {
     "corrected": {
-     "fn": 0,
+     "fn": 1,
      "fp": 0,
      "precision": [
       1.0,
@@ -483,9 +483,9 @@
       1.0
      ],
      "recall": [
-      1.0,
-      0.9244423947340892,
-      1.0
+      0.9791666666666666,
+      0.8910078189694375,
+      0.9963128890632689
      ],
      "tp": 47
     },
@@ -521,7 +521,7 @@
       "tp": 21
      }
     },
-    "pending": 17,
+    "pending": 16,
     "raw": {
      "fn": 9,
      "fp": 8,
@@ -704,14 +704,6 @@
  "pending": [
   {
    "corpus": "prometheus",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "config/config.go:1547",
-   "site": "config/config.go:462",
-   "site_fingerprint": "0a60cb53d8a020bc"
-  },
-  {
-   "corpus": "prometheus",
    "direction": "prism_only",
    "dispatch_kind": "free_multi",
    "measurement": "callers",
@@ -835,15 +827,6 @@
    "seed_def": "discovery/digitalocean/mock_test.go:32",
    "site": "discovery/vultr/vultr_test.go:39",
    "site_fingerprint": "36085a758cd14100"
-  },
-  {
-   "corpus": "prometheus",
-   "direction": "prism_only",
-   "dispatch_kind": "free_multi",
-   "measurement": "callers",
-   "seed_def": "discovery/eureka/eureka.go:127",
-   "site": "discovery/azure/azure_test.go:684",
-   "site_fingerprint": "4696d42caa1b1396"
   },
   {
    "corpus": "prometheus",
@@ -978,15 +961,6 @@
    "measurement": "callers",
    "seed_def": "discovery/eureka/eureka.go:127",
    "site": "discovery/moby/nodes_test.go:51",
-   "site_fingerprint": "6fd311b54094502a"
-  },
-  {
-   "corpus": "prometheus",
-   "direction": "prism_only",
-   "dispatch_kind": "free_multi",
-   "measurement": "callers",
-   "seed_def": "discovery/eureka/eureka.go:127",
-   "site": "discovery/moby/services_test.go:51",
    "site_fingerprint": "6fd311b54094502a"
   },
   {
@@ -1130,15 +1104,6 @@
    "dispatch_kind": "self_receiver",
    "measurement": "callers",
    "seed_def": "discovery/marathon/marathon.go:229",
-   "site": "discovery/file/file.go:273",
-   "site_fingerprint": "7c987b38e39fa20b"
-  },
-  {
-   "corpus": "prometheus",
-   "direction": "prism_only",
-   "dispatch_kind": "self_receiver",
-   "measurement": "callers",
-   "seed_def": "discovery/marathon/marathon.go:229",
    "site": "discovery/file/file.go:278",
    "site_fingerprint": "2d6301a702cf8a50"
   },
@@ -1261,14 +1226,6 @@
    "direction": "oracle_only",
    "measurement": "callers",
    "seed_def": "model/textparse/openmetricsparse.go:290",
-   "site": "scrape/scrape.go:1752",
-   "site_fingerprint": "0668ef9a0138deb5"
-  },
-  {
-   "corpus": "prometheus",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "model/textparse/openmetricsparse.go:290",
    "site": "scrape/scrape_append_v2.go:261",
    "site_fingerprint": "3e61a7704f9b0979"
   },
@@ -1383,15 +1340,6 @@
    "seed_def": "storage/remote/read.go:219",
    "site": "web/api/v1/api.go:835",
    "site_fingerprint": "320b6e425d6468b5"
-  },
-  {
-   "corpus": "prometheus",
-   "direction": "prism_only",
-   "dispatch_kind": "free_multi",
-   "measurement": "callers",
-   "seed_def": "tsdb/record/record.go:311",
-   "site": "model/labels/labels_dedupelabels.go:418",
-   "site_fingerprint": "bd99ef74b7f408ab"
   },
   {
    "corpus": "prometheus",
@@ -1534,15 +1482,6 @@
    "dispatch_kind": "free_multi",
    "measurement": "callers",
    "seed_def": "tsdb/record/record.go:311",
-   "site": "model/textparse/openmetricsparse.go:736",
-   "site_fingerprint": "e2213f1c8b937cb2"
-  },
-  {
-   "corpus": "prometheus",
-   "direction": "prism_only",
-   "dispatch_kind": "free_multi",
-   "measurement": "callers",
-   "seed_def": "tsdb/record/record.go:311",
    "site": "model/textparse/openmetricsparse.go:761",
    "site_fingerprint": "b503d6c2489ef1e2"
   },
@@ -1673,14 +1612,6 @@
    "direction": "oracle_only",
    "measurement": "callers",
    "seed_def": "web/api/testhelpers/openapi.go:98",
-   "site": "web/api/v1/api_scenarios_test.go:316",
-   "site_fingerprint": "26c41e3e081b83ec"
-  },
-  {
-   "corpus": "prometheus",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "web/api/testhelpers/openapi.go:98",
    "site": "web/api/v1/api_scenarios_test.go:326",
    "site_fingerprint": "26c41e3e081b83ec"
   },
@@ -1797,14 +1728,6 @@
    "seed_def": "model/labels/regexp_test.go:912",
    "site": "model/labels/regexp_test.go:986",
    "site_fingerprint": "4fdaff859d5d0ccd"
-  },
-  {
-   "corpus": "prometheus",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "model/labels/regexp_test.go:912",
-   "site": "model/labels/regexp_test.go:988",
-   "site_fingerprint": "ba5fa8695148c007"
   },
   {
    "corpus": "prometheus",
@@ -1928,14 +1851,6 @@
    "seed_def": "tsdb/chunkenc/float_histogram_test.go:1252",
    "site": "tsdb/chunkenc/float_histogram_test.go:1270",
    "site_fingerprint": "aa4bcc8949b52d2e"
-  },
-  {
-   "corpus": "prometheus",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "tsdb/chunkenc/float_histogram_test.go:1252",
-   "site": "tsdb/chunkenc/float_histogram_test.go:1279",
-   "site_fingerprint": "e96f12d36c120973"
   },
   {
    "corpus": "prometheus",

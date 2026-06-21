@@ -189,7 +189,7 @@
       "tp": 6
      }
     },
-    "pending": 19,
+    "pending": 18,
     "raw": {
      "fn": 7,
      "fp": 12,
@@ -209,7 +209,7 @@
    },
    "U-free": {
     "corrected": {
-     "fn": 0,
+     "fn": 1,
      "fp": 0,
      "precision": [
       1.0,
@@ -217,9 +217,9 @@
       0.9999999999999999
      ],
      "recall": [
-      1.0,
-      0.7846891945970195,
-      0.9999999999999999
+      0.9333333333333333,
+      0.7018346989112435,
+      0.9881331046384677
      ],
      "tp": 14
     },
@@ -255,7 +255,7 @@
       "tp": 6
      }
     },
-    "pending": 4,
+    "pending": 3,
     "raw": {
      "fn": 4,
      "fp": 0,
@@ -389,7 +389,7 @@
       "tp": 9
      }
     },
-    "pending": 61,
+    "pending": 58,
     "raw": {
      "fn": 61,
      "fp": 0,
@@ -410,18 +410,18 @@
    "C-name": {
     "corrected": {
      "fn": 0,
-     "fp": 0,
+     "fp": 2,
      "precision": [
-      1.0,
-      0.9701846058353374,
-      1.0
+      0.984375,
+      0.9448190228492295,
+      0.9957045503284907
      ],
      "recall": [
       1.0,
-      0.9701846058353374,
-      1.0
+      0.9704142350648727,
+      0.9999999999999999
      ],
-     "tp": 125
+     "tp": 126
     },
     "function": {
      "corrected": {
@@ -455,7 +455,7 @@
       "tp": 66
      }
     },
-    "pending": 61,
+    "pending": 58,
     "raw": {
      "fn": 0,
      "fp": 61,
@@ -475,7 +475,7 @@
    },
    "Q-scoped": {
     "corrected": {
-     "fn": 0,
+     "fn": 1,
      "fp": 0,
      "precision": [
       1.0,
@@ -483,9 +483,9 @@
       1.0
      ],
      "recall": [
-      1.0,
-      0.2065493117918027,
-      1.0
+      0.5,
+      0.09453120463920084,
+      0.9054687953607992
      ],
      "tp": 1
     },
@@ -521,7 +521,7 @@
       "tp": 1
      }
     },
-    "pending": 12,
+    "pending": 11,
     "raw": {
      "fn": 10,
      "fp": 2,
@@ -541,7 +541,7 @@
    },
    "U-free": {
     "corrected": {
-     "fn": 0,
+     "fn": 1,
      "fp": 0,
      "precision": [
       1.0,
@@ -549,9 +549,9 @@
       1.0
      ],
      "recall": [
-      1.0,
-      0.8241207740667156,
-      1.0
+      0.9473684210526315,
+      0.7536126862526763,
+      0.9906480060413981
      ],
      "tp": 18
     },
@@ -587,7 +587,7 @@
       "tp": 13
      }
     },
-    "pending": 2,
+    "pending": 1,
     "raw": {
      "fn": 2,
      "fp": 0,
@@ -838,14 +838,6 @@
    "corpus": "zap",
    "direction": "oracle_only",
    "measurement": "callers",
-   "seed_def": "field.go:298",
-   "site": "field.go:593",
-   "site_fingerprint": "443e21d5375ed1e1"
-  },
-  {
-   "corpus": "zap",
-   "direction": "oracle_only",
-   "measurement": "callers",
    "seed_def": "field.go:63",
    "site": "field.go:501",
    "site_fingerprint": "abd9de1eea40c83f"
@@ -969,14 +961,6 @@
    "seed_def": "level.go:60",
    "site": "zapcore/level.go:104",
    "site_fingerprint": "0467ce3374f9acb1"
-  },
-  {
-   "corpus": "zap",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "level.go:60",
-   "site": "zapcore/sampler.go:215",
-   "site_fingerprint": "8695158d6624017f"
   },
   {
    "corpus": "zap",
@@ -1111,14 +1095,6 @@
    "direction": "oracle_only",
    "measurement": "callers",
    "seed_def": "zapcore/core.go:52",
-   "site": "zapcore/hook.go:64",
-   "site_fingerprint": "093c4845d3ed396e"
-  },
-  {
-   "corpus": "zap",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "zapcore/core.go:52",
    "site": "zapcore/hook_test.go:62",
    "site_fingerprint": "c31543d65d6d5ba7"
   },
@@ -1241,14 +1217,6 @@
    "seed_def": "zapcore/encoder.go:288",
    "site": "config.go:137",
    "site_fingerprint": "0c6cecd75d48360d"
-  },
-  {
-   "corpus": "zap",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "zapcore/encoder.go:288",
-   "site": "config.go:214",
-   "site_fingerprint": "6cdedd9e44c2333e"
   },
   {
    "corpus": "zap",
@@ -1387,14 +1355,6 @@
    "seed_def": "zapcore/sampler_test.go:168",
    "site": "zapcore/increase_level.go:74",
    "site_fingerprint": "5e23f29f86855eb7"
-  },
-  {
-   "corpus": "zap",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "zapcore/sampler_test.go:168",
-   "site": "zapcore/increase_level_test.go:125",
-   "site_fingerprint": "e8a6d2882707be2a"
   },
   {
    "corpus": "zap",
@@ -1541,15 +1501,6 @@
    "dispatch_kind": "free_multi",
    "measurement": "callers",
    "seed_def": "zapgrpc/zapgrpc_test.go:256",
-   "site": "global_test.go:244",
-   "site_fingerprint": "1011045971df4718"
-  },
-  {
-   "corpus": "zap",
-   "direction": "prism_only",
-   "dispatch_kind": "free_multi",
-   "measurement": "callers",
-   "seed_def": "zapgrpc/zapgrpc_test.go:256",
    "site": "increase_level_test.go:47",
    "site_fingerprint": "69d9b71650092ef2"
   },
@@ -1687,15 +1638,6 @@
    "seed_def": "zapgrpc/zapgrpc_test.go:256",
    "site": "logger_test.go:608",
    "site_fingerprint": "41e2dae9103fd8cd"
-  },
-  {
-   "corpus": "zap",
-   "direction": "prism_only",
-   "dispatch_kind": "free_multi",
-   "measurement": "callers",
-   "seed_def": "zapgrpc/zapgrpc_test.go:256",
-   "site": "logger_test.go:643",
-   "site_fingerprint": "af0931e64dd2b171"
   },
   {
    "corpus": "zap",
@@ -1856,15 +1798,6 @@
    "dispatch_kind": "import_qualified",
    "measurement": "callers",
    "seed_def": "zaptest/observer/observer.go:155",
-   "site": "exp/zapslog/handler_test.go:189",
-   "site_fingerprint": "ed723f6c487fd458"
-  },
-  {
-   "corpus": "zap",
-   "direction": "prism_only",
-   "dispatch_kind": "import_qualified",
-   "measurement": "callers",
-   "seed_def": "zaptest/observer/observer.go:155",
    "site": "exp/zapslog/handler_test.go:308",
    "site_fingerprint": "b32973d2165bf2de"
   },
@@ -2009,15 +1942,6 @@
    "dispatch_kind": "free_single",
    "measurement": "callees",
    "seed_def": "benchmarks/scenario_bench_test.go:583",
-   "site": "benchmarks/scenario_bench_test.go:613",
-   "site_fingerprint": "b4bb0373ebf5c81b"
-  },
-  {
-   "corpus": "zap",
-   "direction": "prism_only",
-   "dispatch_kind": "free_single",
-   "measurement": "callees",
-   "seed_def": "benchmarks/scenario_bench_test.go:583",
    "site": "benchmarks/scenario_bench_test.go:623",
    "site_fingerprint": "9e58a609ff489d03"
   },
@@ -2148,14 +2072,6 @@
    "seed_def": "increase_level_test.go:68",
    "site": "increase_level_test.go:84",
    "site_fingerprint": "56f0449f5f1d032a"
-  },
-  {
-   "corpus": "zap",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "level_test.go:52",
-   "site": "level_test.go:58",
-   "site_fingerprint": "29b64455012da903"
   },
   {
    "corpus": "zap",

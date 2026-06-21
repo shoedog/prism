@@ -11,7 +11,7 @@
   "callees": {
    "C-method": {
     "corrected": {
-     "fn": 0,
+     "fn": 1,
      "fp": 0,
      "precision": [
       1.0,
@@ -19,9 +19,9 @@
       0.9999999999999999
      ],
      "recall": [
-      1.0,
-      0.8830301998708162,
-      0.9999999999999999
+      0.9666666666666667,
+      0.8332960885388428,
+      0.9940914096838022
      ],
      "tp": 29
     },
@@ -57,7 +57,7 @@
       "tp": 8
      }
     },
-    "pending": 22,
+    "pending": 20,
     "raw": {
      "fn": 14,
      "fp": 8,
@@ -78,11 +78,11 @@
    "C-name": {
     "corrected": {
      "fn": 0,
-     "fp": 0,
+     "fp": 1,
      "precision": [
-      1.0,
-      0.901099006269668,
-      1.0
+      0.9722222222222222,
+      0.8583028121147521,
+      0.9950795929146393
      ],
      "recall": [
       1.0,
@@ -123,7 +123,7 @@
       "tp": 7
      }
     },
-    "pending": 8,
+    "pending": 7,
     "raw": {
      "fn": 6,
      "fp": 2,
@@ -143,7 +143,7 @@
    },
    "Q-scoped": {
     "corrected": {
-     "fn": 0,
+     "fn": 2,
      "fp": 0,
      "precision": [
       1.0,
@@ -151,9 +151,9 @@
       1.0
      ],
      "recall": [
-      1.0,
-      0.886486605238548,
-      1.0
+      0.9375,
+      0.7985287670813637,
+      0.982689433124541
      ],
      "tp": 30
     },
@@ -189,7 +189,7 @@
       "tp": 10
      }
     },
-    "pending": 18,
+    "pending": 16,
     "raw": {
      "fn": 14,
      "fp": 4,
@@ -475,7 +475,7 @@
    },
    "U-free": {
     "corrected": {
-     "fn": 0,
+     "fn": 1,
      "fp": 0,
      "precision": [
       1.0,
@@ -483,9 +483,9 @@
       1.0
      ],
      "recall": [
-      1.0,
-      0.3423802239546494,
-      1.0
+      0.6666666666666666,
+      0.2076595988078242,
+      0.9385080559790691
      ],
      "tp": 2
     },
@@ -521,7 +521,7 @@
       "tp": 2
      }
     },
-    "pending": 1,
+    "pending": 0,
     "raw": {
      "fn": 1,
      "fp": 0,
@@ -541,7 +541,7 @@
    },
    "U-method": {
     "corrected": {
-     "fn": 0,
+     "fn": 4,
      "fp": 0,
      "precision": [
       1.0,
@@ -549,9 +549,9 @@
       1.0
      ],
      "recall": [
-      1.0,
-      0.43850296436068037,
-      1.0
+      0.42857142857142855,
+      0.15821985399244537,
+      0.7495416372469643
      ],
      "tp": 3
     },
@@ -587,7 +587,7 @@
       "tp": 3
      }
     },
-    "pending": 43,
+    "pending": 39,
     "raw": {
      "fn": 43,
      "fp": 0,
@@ -642,14 +642,6 @@
   }
  },
  "pending": [
-  {
-   "corpus": "black",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "action/main.py:29",
-   "site": "action/main.py:128",
-   "site_fingerprint": "babdd433343891ec"
-  },
   {
    "corpus": "black",
    "direction": "oracle_only",
@@ -713,14 +705,6 @@
    "seed_def": "src/blib2to3/pytree.py:197",
    "site": "src/black/comments.py:684",
    "site_fingerprint": "b14b0dabd5674c6c"
-  },
-  {
-   "corpus": "black",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "src/blib2to3/pytree.py:197",
-   "site": "src/black/comments.py:694",
-   "site_fingerprint": "c07e0240751fc1cf"
   },
   {
    "corpus": "black",
@@ -799,14 +783,6 @@
    "direction": "oracle_only",
    "measurement": "callers",
    "seed_def": "src/blib2to3/pytree.py:197",
-   "site": "src/black/linegen.py:177",
-   "site_fingerprint": "a123fcaa85b4f936"
-  },
-  {
-   "corpus": "black",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "src/blib2to3/pytree.py:197",
    "site": "src/black/linegen.py:1638",
    "site_fingerprint": "3ae2ca3514214bcf"
   },
@@ -865,14 +841,6 @@
    "seed_def": "src/blib2to3/pytree.py:197",
    "site": "src/black/lines.py:1348",
    "site_fingerprint": "8e3605a77471be39"
-  },
-  {
-   "corpus": "black",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "src/blib2to3/pytree.py:197",
-   "site": "src/black/nodes.py:212",
-   "site_fingerprint": "a943e6891e91546a"
   },
   {
    "corpus": "black",
@@ -945,14 +913,6 @@
    "seed_def": "src/blib2to3/pytree.py:197",
    "site": "src/black/ranges.py:253",
    "site_fingerprint": "12f4fd41cd5ad7e0"
-  },
-  {
-   "corpus": "black",
-   "direction": "oracle_only",
-   "measurement": "callers",
-   "seed_def": "src/blib2to3/pytree.py:197",
-   "site": "src/black/ranges.py:275",
-   "site_fingerprint": "16fcfc41b98179c8"
   },
   {
    "corpus": "black",
@@ -1032,15 +992,6 @@
    "dispatch_kind": "r6_single_owner",
    "measurement": "callees",
    "seed_def": "src/black/__init__.py:544",
-   "site": "src/black/__init__.py:731",
-   "site_fingerprint": "f0870bece5843ac8"
-  },
-  {
-   "corpus": "black",
-   "direction": "prism_only",
-   "dispatch_kind": "r6_single_owner",
-   "measurement": "callees",
-   "seed_def": "src/black/__init__.py:544",
    "site": "src/black/__init__.py:736",
    "site_fingerprint": "11f2ec506cf9f2c0"
   },
@@ -1099,14 +1050,6 @@
    "seed_def": "src/black/comments.py:420",
    "site": "src/black/comments.py:455",
    "site_fingerprint": "bdf369a73693fb09"
-  },
-  {
-   "corpus": "black",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "src/black/comments.py:420",
-   "site": "src/black/comments.py:462",
-   "site_fingerprint": "55dffe66bc12216e"
   },
   {
    "corpus": "black",
@@ -1189,14 +1132,6 @@
    "direction": "oracle_only",
    "measurement": "callees",
    "seed_def": "src/black/linegen.py:975",
-   "site": "src/black/linegen.py:1005",
-   "site_fingerprint": "dcf4cef80b1ec113"
-  },
-  {
-   "corpus": "black",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "src/black/linegen.py:975",
    "site": "src/black/linegen.py:1075",
    "site_fingerprint": "c4af80d13b546f96"
   },
@@ -1258,14 +1193,6 @@
    "seed_def": "src/black/trans.py:2231",
    "site": "src/black/trans.py:2310",
    "site_fingerprint": "a65f9d085aa1ed77"
-  },
-  {
-   "corpus": "black",
-   "direction": "oracle_only",
-   "measurement": "callees",
-   "seed_def": "src/black/trans.py:2231",
-   "site": "src/black/trans.py:2254",
-   "site_fingerprint": "8a8f1b59a1a500e4"
   },
   {
    "corpus": "black",
@@ -1338,15 +1265,6 @@
    "seed_def": "src/black/trans.py:2231",
    "site": "src/black/trans.py:2352",
    "site_fingerprint": "e00dce1a2c556672"
-  },
-  {
-   "corpus": "black",
-   "direction": "prism_only",
-   "dispatch_kind": "free_single",
-   "measurement": "callees",
-   "seed_def": "src/black/trans.py:903",
-   "site": "src/black/trans.py:933",
-   "site_fingerprint": "daebff0916946851"
   },
   {
    "corpus": "black",
