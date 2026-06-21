@@ -54,7 +54,10 @@ use std::path::{Path, PathBuf};
 ///   methods_by_scope, identity_complete, field_types, return_types) — inert.
 /// - v14: Phase-2a PR-2 CallSite.receiver_outcome materialization field — inert.
 /// - v15: Phase-2a PR-3 CallGraph.extension_methods external receiver index.
-const CACHE_VERSION: u32 = 15; // bincode ignores serde(default) for new trailing fields.
+/// - v16: Scope-graph precision recovery: ScopeGraph.edition_uniform field +
+///   Rust-scoped completeness builds the graph on more repos (changed bytes) +
+///   owner-keyed disproof prune (changed resolution behavior).
+const CACHE_VERSION: u32 = 16; // bincode ignores serde(default) for new trailing fields.
 
 pub const SKIP_POLICY_VERSION: u32 = 1;
 
@@ -559,9 +562,9 @@ mod tests {
     }
 
     #[test]
-    fn cache_version_is_15_for_phase2a_external_extension_index() {
-        // v15: Phase-2a PR-3 CallGraph.extension_methods external receiver index.
-        assert_eq!(super::CACHE_VERSION, 15);
+    fn cache_version_is_16_for_scope_graph_precision_recovery() {
+        // v16: ScopeGraph.edition_uniform + scope-graph recovery behavior.
+        assert_eq!(super::CACHE_VERSION, 16);
     }
 
     #[test]
