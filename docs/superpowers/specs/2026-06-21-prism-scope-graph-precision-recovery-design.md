@@ -1,12 +1,15 @@
 # Scope-graph precision recovery — Rust-scoped completeness + disproof-pruning seam
 
-**Status:** CHANGES-FOLDED, 2 OPEN DESIGN DECISIONS (2026-06-21) — NOT yet plan-ready.
+**Status:** CHANGES-FOLDED — all 5 codex findings addressed; both design decisions
+resolved (①C, ②B). Pending codex re-confirm before plan.
 A codex (gpt-5.5 xhigh) spec review returned CHANGES-REQUIRED (2 BLOCKER + 3 MAJOR).
 Findings 2/4/5 are folded above (edition-uniformity guard; qualified-scoped fail-open;
 recovery-signal replacement). Findings **1** (bare-anchor lexical scope for `T::m`
-pruning — §8.1) and **3** (re-export provenance for the predicate contract — §8.2) are
-**escalated to the owner**: each is a genuine design choice that gates the
-pruning-soundness contract, so the plan must not start until they are decided.
+pruning — §8.1) and **3** (re-export provenance for the predicate contract — §8.2) were
+escalated to the owner; both are now **RESOLVED** — the owner chose **(C)** for §8.1
+(block-local-shadow keep-all) and **(B)** for §8.2 (direct-binding-only prune) on
+2026-06-21, with each rejected option's (A) filed as a deferred precision follow-up
+(§9). Their contracts are folded into the `ScopeResolution` predicate (§3).
 **Area:** `src/repo_loader.rs`, `src/resolution.rs`, new `src/resolution_disproof.rs`, `src/cpg_cache.rs`
 **Predecessor:** [`2026-06-20-prism-owner-collision-demote-design.md`](2026-06-20-prism-owner-collision-demote-design.md) (#120, shipped the same-name-collision demote-not-drop; this is its §14 recovery path)
 **Companion analysis:** [`docs/owner-key-identity-analysis-2026-06-20.md`](../../owner-key-identity-analysis-2026-06-20.md)
@@ -132,30 +135,36 @@ pub fn prune<'a>(
 Given the call site and the (authoritative) scope graph, it resolves the call's owner
 type-path through the scope graph (reusing the existing
 `graph_callable_edge`/`rust_graph_qualified_callable_edge` + the binding→`Target`→`ids`
-match in `graph_target_resolution`, `resolution.rs:559`). If the path resolves to a
-concrete in-repo defining scope, yielding a matched id-set `ids`:
-- it **disproves** any candidate **not in `ids`** (Rust name resolution is
-  deterministic — at that site `CliTest` *is* `ruff::CliTest`, so `ty::CliTest` is
-  provably not the target).
+match in `graph_target_resolution`, `resolution.rs:559`). It **disproves a candidate
+only when both** of the following hold (otherwise it keeps all — uncertain ⇒ no
+disproof, P1):
 
-If the path does **not** resolve to a single concrete in-repo scope — including a
-**glob/ambiguous/re-export resolution** — it disproves **nothing** (keep all). Glob
-and re-export resolutions are treated as "not a pin" (P1); a safe refinement to prune
-under specific glob/re-export shapes is a future predicate, not this slice.
+1. **Direct binding (decision ②B — §8.2).** The owner type-path resolves to a single
+   concrete in-repo defining scope via a **direct** binding — a resolution that binds
+   the type to an in-repo definition **without being chased through a `Pending`
+   re-export/`use` chain** — yielding a matched id-set `ids`. A resolution reached via
+   a `pub use` facade, or a glob/ambiguous resolution, is **not** a direct binding and
+   disproves nothing (keep all): today's model cannot distinguish a re-exported hit
+   from a direct one (`Candidate.provenance` is empty — `engine.rs`/`types.rs`), so a
+   folded-Pending or glob result is treated as "not a pin".
+2. **No block-local shadow (decision ①C — §8.1).** The resolved type-path's **leading
+   segment has no block-local (lexical) binding for that exact identifier in scope at
+   the call site**. A bare-leading `T::m()` owner path anchors at the *enclosing
+   module* (`rust_call_path_anchor` → `Anchor::bare()`, `rust_policy.rs` `AnchorKind::Bare`),
+   not lexically, so a block-local `use`/glob shadow is invisible and the engine can
+   return a single *wrong-scope* `ids`. Therefore: if a block-local type binding for
+   that exact ident exists at the site (a potential shadow the module-anchored
+   resolution cannot see), the predicate **keeps all** (disproves nothing). This is a
+   cheap per-site scope scan — no name-resolution-engine change.
 
-> **Two soundness preconditions on this "resolves to a single concrete scope ⇒ prune"
-> rule are OPEN owner decisions (do not implement the predicate until resolved):**
-> **(§8.1)** a bare-leading `T::m()` owner path is anchored at the *enclosing module*,
-> not lexically, so a block-local `use`/glob shadow is invisible and the engine can
-> return a single *wrong-scope* `ids` that would prune the true edge; and **(§8.2)** a
-> named `pub use` re-export folds into an ordinary single `Resolved` target with empty
-> `provenance`, so the predicate cannot currently distinguish "direct type" from
-> "resolved-via-re-export" to honor the keep-all-on-re-export clause. The §8.1/§8.2
-> recommendations (observed-shadow keep-all; "prune only on a direct binding") make
-> this rule sound; the bullet above assumes one of them is adopted.
-
-Under P1's completeness premise (§2) **and the §8.1/§8.2 soundness preconditions**,
+When both hold, it **disproves** any candidate **not in `ids`** (Rust name resolution is
+deterministic — at that site `CliTest` *is* `ruff::CliTest`, so `ty::CliTest` is
+provably not the target). Under P1's completeness premise (§2) and these two contracts,
 eliminating non-`ids` candidates is sound.
+
+True lexical first-segment resolution (replacing the block-local-shadow keep-all guard)
+and re-export/glob `Provenance` markers (enabling safe pruning through `pub use` facades
+and globs) are the deferred precision follow-ups (§9).
 
 The seam is the extensibility deliverable: future precision-recovery becomes new
 predicates (reachability, arity, receiver-type, trait-bound — §7) composed into the
@@ -291,92 +300,75 @@ the cached bytes, and the resolution behavior changes, so bump `CACHE_VERSION`
 
 ## 8. Risks
 
-### 8.1 OPEN DECISION (review BLOCKER 1) — `T::m` bare-anchor scope is module-level, not lexical
+### 8.1 RESOLVED — owner chose (C) on 2026-06-21 — `T::m` bare-anchor scope is module-level, not lexical
 
-**Verified true.** For a `T::m()` call, `rust_call_path_anchor` anchors the leading
-type segment with `Anchor::bare()` (`resolution.rs:1267`). `RustPolicy::anchor` maps
-`AnchorKind::Bare` to the **enclosing module** (`rust_policy.rs:296-302`), and
-`resolve_path_guarded` then walks the path from that module scope with **no lexical
-fall-out** (`engine.rs:332`, member lookup `:370-374`). So a **block-local
-`use crate::b::Foo;`** (or block-local glob / macro wildcard — recorded at the
-Block/Callable scope, `rust_populator/walk/items.rs:195-207,237`) is **never
-consulted**: a module-level `use crate::a::Foo;` resolves cleanly to a single
-`a::Foo`, and the engine returns one Resolved candidate.
+**Resolution (owner, 2026-06-21): (C) block-local-shadow keep-all**, with (A) filed as
+the deferred precision follow-up (§9). The `ScopeResolution` predicate disproves a
+candidate only when the resolved type-path's leading segment has **no block-local
+(lexical) binding for that exact identifier in scope at the call site**; if such a
+block-local type binding exists (a potential shadow the module-anchored resolution
+cannot see), the predicate keeps all (disproves nothing). This is a cheap per-site
+scope scan — no name-resolution-engine change. Folded into the §3 predicate contract.
 
-Today this is a latent *precision* bug on the shipped `T::m` graph edge (it only ever
-picks *which single* Exact). **This change weaponizes it into a recall drop**: with
-the bare 5-candidate pool present, `ScopeResolution` would disprove every candidate
-not in `a::Foo`'s `make` set — dropping the **true** `b::Foo::make` edge. That is a
-direct P1 violation, so it must be resolved before the predicate ships.
+**The underlying problem (verified true).** For a `T::m()` call, `rust_call_path_anchor`
+anchors the leading type segment with `Anchor::bare()` (`resolution.rs:1267`).
+`RustPolicy::anchor` maps `AnchorKind::Bare` to the **enclosing module**
+(`rust_policy.rs:296-302`), and `resolve_path_guarded` then walks the path from that
+module scope with **no lexical fall-out** (`engine.rs:332`, member lookup `:370-374`).
+So a **block-local `use crate::b::Foo;`** (or block-local glob / macro wildcard —
+recorded at the Block/Callable scope, `rust_populator/walk/items.rs:195-207,237`) is
+**never consulted**: a module-level `use crate::a::Foo;` resolves cleanly to a single
+`a::Foo`, and the engine returns one Resolved candidate. Today this is a latent
+*precision* bug on the shipped `T::m` graph edge (it only ever picks *which single*
+Exact); without the guard this change would weaponize it into a recall drop (disproving
+the true `b::Foo::make` edge — a P1 violation), which (C) prevents.
 
-**Decision needed — how should `ScopeResolution` treat a bare-leading qualified
-path?** Options:
-- **(A) True lexical first-segment resolution.** Resolve the leading type segment with
+**Rejected options (for the record):**
+- **(A) True lexical first-segment resolution** — resolve the leading type segment with
   the lexical `resolve(..., NS_TYPE)` from the *actual* `from` scope (honoring
-  block-local `use`/glob, propagating `Poisoned`), then continue member lookup from
-  the resulting type scope. Most precise; recovers the most. **Cost:** real engine
-  work (a new resolve entry shape) + a poison-propagation path; larger, and it
-  perturbs the shipped `T::m` edge's behavior (needs its own regression coverage).
-- **(B) Conservatively keep-all when the leading segment is bare/non-lexical
-  (recall-safe).** In `ScopeResolution` only, when the owner path is bare-leading
-  (no `crate`/`self`/`super`/`::` prefix) AND the enclosing scope contains *any*
-  block-local type binding/glob that could shadow the segment, disprove nothing
-  (keep all). Smallest, provably recall-safe, but forgoes recovery for the common
-  bare `T::m()` shape in functions that have block-local type imports — and most
-  `T::m()` calls *are* bare-leading, so this could blunt the headline ruff recovery.
-- **(C) Keep-all only on observed shadow.** Like (B) but tighter: keep-all only when a
-  block-local binding for *that exact leading ident* exists in an enclosing
-  Block/Callable scope of the call (cheap scope-bindings scan, no resolver change);
-  otherwise prune. Preserves recovery for the overwhelmingly-common case (no
-  block-local same-name import) and is recall-safe for the dangerous one.
+  block-local `use`/glob, propagating `Poisoned`), then continue member lookup. Most
+  precise, but real engine work + a poison-propagation path; perturbs the shipped
+  `T::m` edge's behavior. **Deferred to §9** as the precision-completing follow-up.
+- **(B) Conservative keep-all for any bare-leading segment with *any* block-local type
+  binding/glob** — recall-safe but blunts recovery for the common bare `T::m()` shape
+  in functions with unrelated block-local imports. Superseded by (C)'s exact-ident scan.
 
-**Recommendation: (C)** for this slice (recall-safe + keeps the bulk of the recovery),
-with **(A)** filed as the precision-completing follow-up under §9. (C) is a
-bounded scope-scan in the predicate, not an engine change, so it keeps the slice
-small while honoring P1. Owner to confirm (C) vs (A) vs (B).
+### 8.2 RESOLVED — owner chose (B) on 2026-06-21 — the "re-export → keep all" predicate is not implementable as written
 
-### 8.2 OPEN DECISION (review MAJOR 3) — the "re-export → keep all" predicate is not implementable as written
+**Resolution (owner, 2026-06-21): (B) direct-binding-only prune**, with (A) filed as
+the deferred follow-up (§9). The `ScopeResolution` predicate prunes **only on a direct
+in-scope type binding** — a resolution that binds the type to a concrete in-repo
+definition **without being chased through a `Pending` re-export/`use` chain**. A
+resolution reached via a `pub use` facade, or a glob/ambiguous resolution, disproves
+nothing (keep all), because today's model cannot distinguish a re-exported hit from a
+direct one (`Candidate.provenance` is empty — `engine.rs`/`types.rs`). Folded into the
+§3 predicate contract.
 
-**Verified true.** Named `use`/`pub use` is stored as `BindTarget::Pending`
-(`rust_populator/walk/items.rs:216`); when the chain resolves, the engine folds the
-chased target into an ordinary `Candidate` whose `provenance` is
+**The underlying problem (verified true).** Named `use`/`pub use` is stored as
+`BindTarget::Pending` (`rust_populator/walk/items.rs:216`); when the chain resolves, the
+engine folds the chased target into an ordinary `Candidate` whose `provenance` is
 `Default::default()` (`engine.rs:213-220`), and `Provenance` is an **empty struct**
 (`name_resolution/types.rs:438-441`). So at the consumer there is **no signal** that a
-resolved `Target` arrived via a re-export vs a direct type binding — the §3 contract
-"a glob/re-export resolution disproves nothing" cannot be honored for named `pub use`
-facades (which today resolve to a single clean target and *look identical* to a direct
-hit). Tests already assert named `pub use` facades resolve as first-class targets.
+resolved `Target` arrived via a re-export vs a direct type binding — a "re-export → keep
+all" rule keyed on provenance cannot be honored for named `pub use` facades (which today
+resolve to a single clean target and *look identical* to a direct hit). (B) sidesteps
+this by keying the prune on the *direct vs folded-Pending* binding shape, which **is**
+observable today (a direct `BindTarget::Resolved` `Item`-definition vs a chased-Pending
+result), rather than on absent provenance. This is recall-safe and gives up recovery
+through re-export facades (acceptable — facades are a minority of ruff's
+`qualified_owner` pool).
 
-This is *partially* covered by §8.1's keep-all options (a re-export that resolves to a
-single target outside the lexical/block set would also be kept under (B)/(C) if it
-shadows), but **not fully**: a top-level `pub use other::Foo;` re-export is a
-module-level binding, so §8.1 keep-all does not catch it, and the predicate would prune
-on the re-exported identity. The risk this drops a true edge is lower than §8.1 (the
-re-exported `Foo` *is* the same type, so its method set is usually correct), but it is
-a real soundness gap in the stated contract.
-
-**Decision needed — how to make the predicate's re-export handling honest?** Options:
-- **(A) Add resolution provenance.** Have the Rust policy populate `Provenance` with a
-  "via re-export / via glob" marker (the struct is reserved for exactly this, "Phase
-  N: structured provenance"); the predicate keeps-all whenever provenance is non-direct.
-  Most principled and reusable (also unlocks the future safe-glob-pruning slice), but
-  it is **scope creep** — threading provenance through `resolve_rib`/`scope_member_lookup`
-  is its own change with cache-byte impact.
-- **(B) Weaken the predicate contract to "prune only on a directly-defined, in-file
-  type binding."** Drop the "re-export → keep all" language; instead the predicate
-  prunes **only** when the resolved type scope's defining binding is a direct
-  `Item`-definition in the same scope graph (not chased through any Pending), which is
-  observable today via the binding's `BindTarget::Resolved` direct shape vs a folded
-  Pending result. Smaller; keeps recall-safe; gives up recovery through re-export
-  facades (acceptable — facades are a minority of ruff's `qualified_owner` pool).
-- **(C) Accept the residual as bounded and document it.** Keep the contract but note
-  that named `pub use` resolves opaquely and rely on §8.1 + the Tier-A recall gate to
-  catch any drop. Cheapest; weakest soundness guarantee; defers the honesty to the gate.
-
-**Recommendation: (B)** — re-frame the predicate as "prune only on a *direct* type
-binding," which is implementable against today's data model, recall-safe, and defers
-provenance (A) to the future safe-glob/re-export slice (§9). Owner to confirm (B) vs (A)
-vs (C). *(Note: this is a contract change, so it is escalated rather than folded.)*
+**Rejected options (for the record):**
+- **(A) Add resolution provenance** — have the Rust policy populate `Provenance` with a
+  "via re-export / via glob" marker (the struct is reserved for exactly this, "Phase N:
+  structured provenance"); keep-all whenever provenance is non-direct. Most principled
+  and reusable (also unlocks safe glob/re-export pruning), but threading provenance
+  through `resolve_rib`/`scope_member_lookup` is its own change with cache-byte impact.
+  **Deferred to §9** as the follow-up that enables safe facade/glob pruning.
+- **(C) Accept the residual as bounded and document it** — keep the as-written contract
+  but note that named `pub use` resolves opaquely and rely on §8.1 + the Tier-A recall
+  gate to catch any drop. Cheapest, weakest soundness guarantee. Superseded by (B)'s
+  implementable direct-binding test.
 
 ### Other risks
 
@@ -384,9 +376,10 @@ vs (C). *(Note: this is a contract change, so it is escalated rather than folded
   (re-exports, glob imports, macro-generated `use`), the `ScopeResolution` predicate
   could disprove the true candidate → a dropped real edge (P1 violation). Mitigations:
   the completeness premise (§2), "uncertain → keep" (§3), fail-open (§4), the
-  edition-uniformity guard (§2), the §8.1/§8.2 decisions, and the Tier-A recall gate.
-  **Glob/re-export is the explicit watch-area** — the predicate treats them as "not a
-  pin" (keep all) until a safe refinement is designed.
+  edition-uniformity guard (§2), the §3 predicate's two resolved contracts
+  (①C block-local-shadow keep-all + ②B direct-binding-only prune — §8.1/§8.2), and the
+  Tier-A recall gate. **Glob/re-export is the explicit watch-area** — the predicate
+  treats them as "not a pin" (keep all) until a safe refinement is designed.
 - **Perf.** Building the scope graph for ruff (1,874 `.rs`) adds build time; expected
   acceptable post-S1, measured in the gate. A regression beyond a small budget is a
   blocker for the (A) default-on behavior.
@@ -395,6 +388,16 @@ vs (C). *(Note: this is a contract change, so it is escalated rather than folded
 ## 9. Out of scope / future slices
 
 Each plugs into the §3 seam or extends §2 — none in this slice:
+- **(A) true lexical first-segment resolution for `T::m`** (§8.1 follow-up): resolve the
+  leading type segment lexically from the *actual* `from` scope (honoring block-local
+  `use`/glob, propagating `Poisoned`), then continue member lookup — **replaces the
+  block-local-shadow keep-all guard** (decision ①C) with real lexical resolution, so
+  shadowed bare `T::m()` sites recover instead of keeping all.
+- **(A) re-export/glob `Provenance` markers** (§8.2 follow-up): populate `Provenance`
+  with via-re-export / via-glob markers (the struct is reserved for exactly this), so
+  the `ScopeResolution` predicate can **safely prune through `pub use` facades and
+  globs** instead of keeping all on them (the recovery decision ②B's direct-binding-only
+  rule forgoes). Also unlocks the safe-glob-pruning predicate below.
 - **Reachability/visibility predicate** (Approach 2): crate-dep-graph + import-edge
   pruning when the path doesn't fully resolve (uses `manifest_hashes`).
 - **(B) per-crate authoritativeness**: a scope is authoritative iff its crate's `.rs`
@@ -402,4 +405,5 @@ Each plugs into the §3 seam or extends §2 — none in this slice:
 - **arity / receiver-type / trait-bound predicates**; consolidating the ad-hoc
   filters (§3) into the seam.
 - **Other-language scope resolution** (generalize §2 coverage per-language).
-- **Safe glob/re-export pruning** (refine the `ScopeResolution` predicate).
+- **Safe glob/re-export pruning** (refine the `ScopeResolution` predicate; depends on
+  the `Provenance` markers above).
