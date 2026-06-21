@@ -1838,6 +1838,43 @@ fn scope_graph_block_local_glob_shadow_keeps_all() {
 }
 
 #[test]
+fn scope_graph_block_local_exact_use_shadow_keeps_all() {
+    use prism::languages::Language::Rust;
+    // Module-level `use a::Foo;` plus a block-local EXACT `use b::Foo;`. The
+    // block-local exact-ident binding may shadow the module-anchored `Foo`, so the
+    // disproof predicate's ①C exact-`NS_TYPE` scan must keep the full owner pool
+    // (the exact-binding shadow shape, distinct from the glob/macro cases).
+    let sources = [
+        (
+            "src/lib.rs",
+            "mod a;\nmod b;\nuse crate::a::Foo;\npub fn drive() {\n    use crate::b::Foo;\n    Foo::m();\n}\n",
+            Rust,
+        ),
+        (
+            "src/a.rs",
+            "pub struct Foo;\nimpl Foo {\n    pub fn m(&self) {}\n}\n",
+            Rust,
+        ),
+        (
+            "src/b.rs",
+            "pub struct Foo;\nimpl Foo {\n    pub fn m(&self) {}\n}\n",
+            Rust,
+        ),
+    ];
+    let (cg, _) = build(&sources);
+    let out = cg.resolve_call_site_full(&site_in(&cg, "drive", "Foo::m"));
+    assert_eq!(out.drop, None);
+    assert!(
+        out.resolved.len() >= 2
+            && out
+                .resolved
+                .iter()
+                .all(|c| c.confidence == ResolutionConfidence::NameOnly),
+        "block-local exact `use` shadow keeps the full pool at NameOnly"
+    );
+}
+
+#[test]
 fn scope_graph_macro_wildcard_shadow_keeps_all() {
     use prism::languages::Language::Rust;
     // An item-position macro invocation can introduce a type binding after
