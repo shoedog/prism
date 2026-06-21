@@ -92,16 +92,16 @@ oracle = "pyright"
 excludes = ["tests/*", "docs/*", ".venv/*"]
 pinned_sha = "b5addb64f016"                  # ANCHOR · OER 0.156 · typed HTTP client
 
-# ============================================================================
-# 2. PENDING / LOCAL (valid-but-not-primary, or blocked)
-# ============================================================================
-
 [corpus.mypy]
 lang = "python"
 path = "~/code/bench-repos/mypy"
 oracle = "pyright"
 excludes = ["test-data/*", "mypyc/test/*", "mypy/test/*", "docs/*", ".venv/*"]
-pinned_sha = "5ef090270579"                  # PY 3rd-anchor TARGET · oracle clean 0.163 but BLOCKED: prism stack-overflow (sut_error 0.84)
+pinned_sha = "5ef090270579"                  # ANCHOR · OER 0.163 · heavily-typed type checker; sut_error 0.0 after PR #118 (was 0.84, CPG stack-overflow)
+
+# ============================================================================
+# 2. PENDING / LOCAL (valid-but-not-primary, or blocked)
+# ============================================================================
 
 [corpus.rich]
 lang = "python"

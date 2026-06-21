@@ -14,7 +14,7 @@ change** (the prism SHA `20c8490591a3` and all M2/M3 call-resolution metrics bel
 |---|---|---|---|
 | Rust | **prism** 0.067 · **ruff** 0.000 · **ripgrep** 0.063 | 0.10 | ruff = astral monorepo (ty's crates); ripgrep = clean app |
 | Go | **caddy** 0.000 · **cobra** 0.000 · **prometheus** 0.000 · **etcd** 0.000 · **zap** 0.025 | 0.10 | all healthy samples (64–80 probes, 180–850 oracle sites) |
-| Python | **black** 0.157 · **httpx** 0.156 | 0.25 | 3rd pending: see mypy below |
+| Python | **black** 0.157 · **httpx** 0.156 · **mypy** 0.163 | 0.25 | mypy unblocked by PR #118 (CPG stack-overflow fix; `sut_error` 0.84→0.0) |
 
 Kept but **not** primary anchors: `uv` (Rust, OER 0.000 — **local only**, prism cold-build perf outlier, below);
 `tokio` (Rust, OER 0.219 — macro-density follow-up); `go-redis` (Go, OER 0.000 — valid extra); `typer`
@@ -33,7 +33,7 @@ Kept but **not** primary anchors: `uv` (Rust, OER 0.000 — **local only**, pris
 | gin | Go | 0.125 | ❌ (just over floor; small sample) |
 | hugo | Go | 0.175 | ❌ interface/reflection-heavy |
 | black, httpx | Python | 0.157 / 0.156 | ✅ anchor |
-| mypy | Python | **0.163 (oracle clean)** | ❌ as anchor — **prism stack-overflows** building its CPG (`sut_error 0.84`); see bug below |
+| mypy | Python | **0.163** | ✅ anchor — `sut_error` 0.84→**0.0** after PR #118 (the CPG stack-overflow fix); see note below |
 | typer | Python | 0.225 | ✅ valid (marginal) |
 | rich | Python | 0.250 | ✅ at-floor (fallback) |
 | fastapi, starlette | Python | 0.344 | ❌ dynamic frameworks |
@@ -67,12 +67,17 @@ prism (e.g. ruff: prism 24.4s cold vs oracle `oracle_start 53s + m1 63s + m2 168
 **Perf lead: `uv` is a prism outlier** — 66.7s cold / 14.8s warm, ~7× slower per-file than ruff (which is 3×
 larger). Kept local for investigation (pathological files / dense module graph suspected).
 
-## prism bug surfaced (Python 3rd-anchor blocker)
+## prism bug surfaced + FIXED (Python 3rd-anchor unblocked)
 
-**prism stack-overflows building mypy's CPG**: `thread '<unknown>' has overflowed its stack; fatal runtime error:
-stack overflow, aborting` → 84% `sut_error`. mypy's deeply-recursive type-checker code blows prism's traversal
-stack (likely unbounded recursion in the Python CPG path). mypy's *oracle* is clean (0.163), so fixing this
-unlocks mypy as the comfortable Python 3rd anchor. **Decision: fix the overflow; `rich` (0.250) is the fallback.**
+**prism stack-overflowed building mypy's CPG**: `fatal runtime error: stack overflow, aborting` → 84% `sut_error`.
+Root cause: prism's recursive tree-sitter AST walks (parse, CPG build, live-type scan) ran on rayon workers whose
+default ~2 MiB stack overflowed on a `#if`-split 8192-element C initializer in mypy's vendored base64 runtime
+(`mypyc/lib-rt/base64/tables/table_enc_12bit.h`). **FIXED + MERGED — PR #118 (`97dcba6`):** a shared 256 MiB-stack
+`build_pool` with the CLI command wrapped at `main()` + library-entry wraps (parse / build / live-types).
+**Re-measured on `97dcba6`: `sut_error` 0.84 → 0.000, `oracle_error_rate` 0.163, `baseline_invalid` False** — mypy
+is now the **3rd Python anchor** (comfortable margin vs the 0.25 floor; cleaner than the rich 0.250 / typer 0.225
+fallbacks). M2: callers Q-scoped/U-free/U-method P=R=1.0; 88 pending sites + 79 M1 extras to adjudicate over time
+(normal for a new corpus — mypy is a richer Python-resolution workout than black/httpx).
 
 ## Harness changes (this expansion)
 
