@@ -626,7 +626,7 @@ EOF
 
 The one shipped predicate. It disproves a candidate **only when BOTH**:
 
-- **②B direct binding (§8.2):** the owner type-path's **leading type segment** binds via a **direct `BindTarget::Resolved`** to an in-repo `Target::Item`, with **no `Pending` hop** on the way. Proven by **re-resolving the leading segment** and inspecting the binding shape — NOT by reading the resolved `Candidate` (the engine folds direct-`Resolved` and chased-`Pending` into an empty-`provenance` `Candidate`, so directness is unreadable there). A `Pending`/glob/ambiguous leading segment ⇒ keep-all.
+- **②B direct binding (§8.2):** the owner type-path's **leading type segment** binds via a **direct `BindTarget::Resolved`** to an in-repo `Target::Item`, with **no `Pending` hop**. Proven by inspecting the **call site's own visible rib binding** for that segment (the binding the engine would select at the anchored scope, BEFORE it folds any `Pending` chase) and requiring it to be a single visible non-glob `Resolved(Item)` — NOT by reading the resolved `Candidate` (the engine folds direct-`Resolved` and chased-`Pending` into an empty-`provenance` `Candidate`, so directness is unreadable there), and NOT by a global `graph.bindings` search for any `Resolved(target)` (the target type's def site always carries such a binding, so a global search mistakes a `Pending` re-export/alias hit at the call site for a direct hit — the codex BLOCKER → unsound prune → recall loss). A `Pending` (named `use`/re-export) rib binding, a glob-only hit, or an ambiguous/multi rib ⇒ keep-all.
 - **①C no block-local shadow (§8.1):** the leading segment has **no potential block-local shadow** of that exact ident at the call site. Three shapes, two recorded *without* an exact-ident binding (so an exact-ident-only scan is too narrow): **(a)** a visible `NS_TYPE` `Binding` for the exact leading ident, **(b)** a visible block-local **glob** `Edge` whose `glob_vis_range` covers the call byte, or **(c)** a covering **macro wildcard** in `NS_TYPE`. ANY of the three ⇒ keep-all.
 
 Plus the §2 guard: a **non-uniform-edition** graph (`graph.edition_uniform == false`) ⇒ keep-all.
@@ -639,7 +639,7 @@ Because the helpers in `resolution.rs` it needs (`rust_call_path_anchor`, `graph
 - Modify: `src/resolution.rs` — add the `ScopeResolution` predicate struct + `impl DisproofPredicate` + the local helpers (`leading_segment_binds_directly`, `leading_segment_has_block_local_shadow`, `scope_chain_to_module`), and `pub use` it.
 - Test: `tests/integration/resolution_test.rs` (predicate-behavior tests through the public resolve path are in Task 5; this task's tests are inline unit tests in `src/resolution.rs` driving the predicate over hand-built graphs would be heavy — instead, **pin the helpers' observable behavior through `resolve_call_site` fixtures in Task 5**, and add the *guard* unit tests here in `src/resolution.rs` that need no full pipeline).
 
-> **Note on test placement.** The predicate's end-to-end behavior (resolves-to-1, pruned-to-2, no-resolution keep-all, re-export-facade keep-all, block-local-glob keep-all, macro-wildcard keep-all, mixed-edition keep-all) is exercised through `resolve_call_site` in **Task 5**, where the integration wires the predicate into the live path and the existing `build()`/`build_rust_complete` helpers produce real graphs. This task implements the predicate and adds one inline unit test for the edition guard (the only branch reachable without the full integration). Splitting the behavior tests into Task 5 keeps each test against the real code path rather than a hand-mocked graph.
+> **Note on test placement.** The predicate's end-to-end behavior (resolves-to-1, pruned-to-2, no-resolution keep-all, Pending-import-alias-over-colliding-pool keep-all [②B directness], block-local-glob keep-all, macro-wildcard keep-all, mixed-edition keep-all) is exercised through `resolve_call_site` in **Task 5**, where the integration wires the predicate into the live path and the existing `build()`/`build_rust_complete` helpers produce real graphs. This task implements the predicate and adds one inline unit test for the edition guard (the only branch reachable without the full integration). Splitting the behavior tests into Task 5 keeps each test against the real code path rather than a hand-mocked graph.
 
 - [ ] **Step 1: Write the failing inline guard test**
 
@@ -710,7 +710,7 @@ Expected: FAIL to compile — `ScopeResolution` does not exist yet.
 
 - [ ] **Step 3: Implement the `ScopeResolution` predicate + helpers**
 
-Add to `src/resolution.rs`. First, ensure the needed imports are present. The file already imports `BindTarget`, `Candidate`, `ScopeId`, `SourceLoc`, `Target`, `Anchor`, `AnchorKind`, `RawPath`, `ResStatus`, `FileId` from `name_resolution::types` and `NS_TYPE`/`NS_VALUE` from `rust_policy`. Add the engine `resolve_path` import (it imports `resolve_path` already at the top via `use crate::name_resolution::engine::resolve_path;`). Add `EK_GLOB` to the `rust_policy` import line and `Edge`/`Span`/`Binding` to the `types` import line:
+Add to `src/resolution.rs`. First, ensure the needed imports are present. The file already imports `BindTarget`, `Candidate`, `ScopeId`, `SourceLoc`, `Target`, `Anchor`, `AnchorKind`, `RawPath`, `ResStatus`, `FileId` from `name_resolution::types` and `NS_TYPE`/`NS_VALUE` from `rust_policy` (verified: `src/resolution.rs:9` and `:11-14`). Add `EK_GLOB` to the `rust_policy` import line and `Binding`/`Edge`/`Span`/`ResolveQuery`/`TraversalCtx` to the `types` import line (`ResolveQuery`/`TraversalCtx` are needed by the corrected ②B call-site-rib directness helper to mirror the engine's `visible()` hook; `Binding`/`Span` by the ①C shadow scan; `Edge` by its glob-edge check). `resolve_path` is already imported at the top (`src/resolution.rs:7`):
 
 ```rust
 use crate::name_resolution::rust_policy::{RustPolicy, EK_GLOB, NS_TYPE, NS_VALUE};
@@ -718,8 +718,8 @@ use crate::name_resolution::rust_policy::{RustPolicy, EK_GLOB, NS_TYPE, NS_VALUE
 
 ```rust
 use crate::name_resolution::types::{
-    Anchor, AnchorKind, BindTarget, Binding, Candidate, Edge, FileId, RawPath, ResStatus, ScopeId,
-    SourceLoc, Span, Target,
+    Anchor, AnchorKind, BindTarget, Binding, Candidate, Edge, FileId, RawPath, ResolveQuery,
+    ResStatus, ScopeId, SourceLoc, Span, Target, TraversalCtx,
 };
 ```
 
@@ -796,11 +796,43 @@ impl crate::resolution_disproof::DisproofPredicate for ScopeResolution<'_> {
     }
 }
 
-/// Re-resolve the leading type segment lexically from the call site and prove it
-/// reaches an in-repo `Item` definition through a **direct, non-glob,
-/// non-Pending** binding (§8.2 decision ②B). A `Pending` re-export hop, a glob
-/// edge, an ambiguous/poisoned result, or a non-in-repo target all return `false`
-/// (keep-all). This inspects the BINDING SHAPE, not the resolved `Candidate`.
+/// Prove the leading type segment binds **directly** at the CALL SITE — i.e. the
+/// binding the call site actually sees for `leading` is itself a non-glob,
+/// non-`Pending` `BindTarget::Resolved(Target::Item)` (§8.2 decision ②B).
+///
+/// **Why a global target search is WRONG (codex BLOCKER):** the engine folds a
+/// chased re-export (`pub use Real as Facade`) — a `BindTarget::Pending` binding
+/// at the call site (rust_populator/walk/items.rs:216) — into an empty-provenance
+/// `Candidate` identical to a direct hit (engine.rs:214-220), so the resolved
+/// `Candidate` cannot tell direct from aliased. And the target type's OWN
+/// definition always carries a `BindTarget::Resolved(Item)` binding at its def
+/// site (rust_populator/walk/types.rs:52), so *any* `graph.bindings` search for
+/// `Resolved(target)` matches that def even when the call site reached it via a
+/// `Pending` facade. That mistakes an alias hit for a direct call-site hit →
+/// unsound prune → recall loss. Directness MUST be proven from the call site's
+/// own visible binding.
+///
+/// We mirror the engine's member-lookup rib selection (engine.rs
+/// `scope_member_lookup` / `resolve_rib`): anchor `leading` from the call site,
+/// take the explicit `NS_TYPE` bindings claimed at the anchored scope's rib
+/// (cfg-compatible + visible), and require the binding the rib selects to be a
+/// direct `Resolved(Target::Item)` — **without chasing any `Pending`**. A
+/// `Pending` rib binding (a named `use`/re-export — facade OR plain import), a
+/// rib that resolves only through a glob, an ambiguous/multi rib, or a non-`Item`
+/// target all return `false` (keep-all). This deliberately forgoes the recovery
+/// on *all* import aliases, not just facades — that is the spec's "direct-binding
+/// -only" precision floor (a plain `use` is itself a hop), and it is recall-safe.
+///
+/// `leading` is the path's first NON-anchor segment (`rust_call_path_anchor`
+/// folds `crate`/`self`/`super` into `anchor`). For a bare-owner `T::m` that is
+/// the owner type `T` itself (the realized-recovery case, e.g. the two-crate
+/// `CliTest::with_file` headline). For a module-qualified `mod::T::m` it is the
+/// MODULE segment, whose binding is `Resolved(Target::Scope)` (a `mod foo;` is a
+/// Scope, not an Item) → this returns `false` → keep-all. That matches the prior
+/// helper (which also required `Target::Item`, so it too kept-all on module-
+/// prefixed paths): module-qualified owner collisions stay NameOnly (recall-safe,
+/// precision-forgone). The realized recovery surface is bare-owner `T::m`, the
+/// dominant shape; extending to `mod::T::m` is the §9 deferred follow-up.
 fn leading_segment_binds_directly(
     graph: &ScopeGraph,
     file: FileId,
@@ -810,32 +842,55 @@ fn leading_segment_binds_directly(
     leading: &str,
 ) -> bool {
     let at = SourceLoc { file, byte };
-    let single = RawPath(vec![leading.to_string()]);
     let policy = RustPolicy::new(graph, graph.edition);
-    // Resolve the single leading segment as a TYPE-namespace path from the same
-    // anchor/from the full call path uses. A direct in-repo type binding resolves
-    // to exactly one `Item{owns:Some(..)}` (struct/enum/trait/type with a body)
-    // or `Item` type. We require Resolved + a single in-repo Item.
-    let res = crate::name_resolution::engine::resolve_path(
-        graph, &single, NS_TYPE, anchor, from, NS_TYPE, &at, &policy,
-    );
-    let target = match (res.status, res.candidates.as_slice()) {
-        (ResStatus::Resolved, [Candidate { target, .. }]) => target,
-        _ => return false,
-    };
-    // The target must be an in-repo Item (not External, not Local, not a bare
-    // Scope re-export without an Item). A direct type binding is `Item{..}`.
-    if !matches!(target, Target::Item { .. }) {
+    // Anchor the leading segment exactly as the full call path does. `None` ⇒
+    // conservative keep-all (no provable anchor).
+    let Some((start, _)) = policy.anchor(anchor, from) else {
         return false;
-    }
-    // Prove DIRECTNESS: there exists a binding in the graph whose target is this
-    // exact in-repo `Item` via `BindTarget::Resolved` (a definition site), i.e. a
-    // direct item binding rather than only a chased-Pending alias. A definition
-    // binding exists iff some `Binding` carries `BindTarget::Resolved(target)`.
-    graph
+    };
+    // The explicit rib for (`leading`, NS_TYPE) the call site sees in the anchored
+    // scope, cfg-compatible. (A member-lookup rib is module-wide for a path
+    // segment — engine.rs `scope_member_lookup` does NOT byte-gate it — so we do
+    // not filter on vis_extents here; we still require visibility below.)
+    let rib: Vec<&Binding> = graph
         .bindings
         .iter()
-        .any(|b| matches!(&b.target, BindTarget::Resolved(t) if t == target))
+        .filter(|b| b.scope == start && b.name == leading && b.ns == NS_TYPE)
+        .collect();
+    // No explicit binding at the anchored rib ⇒ the call site reaches `leading`
+    // only via a glob/lexical-outer/prelude path (or not at all): NOT a direct
+    // in-scope item ⇒ keep-all. (We deliberately do not consult `glob_lookup`: a
+    // glob hit is by definition not a direct binding.)
+    if rib.is_empty() {
+        return false;
+    }
+    // Exactly one visible rib binding, and it must be a DIRECT in-repo item — a
+    // `Resolved(Item)`, never a `Pending` (re-export/import) hop. >1 visible ⇒
+    // ambiguous ⇒ keep-all. The visibility check mirrors the engine's `visible()`
+    // hook via a from-vantage TYPE-ns query.
+    let q = ResolveQuery {
+        name: leading.to_string(),
+        ns: NS_TYPE,
+        from,
+        at: at.clone(),
+        cfg: Default::default(),
+        ctx: Default::default(),
+    };
+    let visible: Vec<&Binding> = rib
+        .into_iter()
+        .filter(|b| {
+            let trav = TraversalCtx {
+                lookup_scope: Some(b.scope),
+                via_glob: false,
+                edge_kind: None,
+            };
+            policy.visible(b, &q, &trav)
+        })
+        .collect();
+    match visible.as_slice() {
+        [b] => matches!(&b.target, BindTarget::Resolved(Target::Item { .. })),
+        _ => false,
+    }
 }
 
 /// Does the lexical scope chain from `from` UP TO (but not past) the enclosing
@@ -1138,14 +1193,22 @@ fn scope_graph_inherent_plus_trait_owner_demotes_not_drops() {
 #[test]
 fn scope_graph_unresolved_owner_path_keeps_full_pool_not_drop() {
     use prism::languages::Language::Rust;
-    // The owner type path does NOT resolve through the graph (no `Missing` type),
-    // but the bare owner key has candidates in another file. The predicate keeps
-    // all (no id-set), and the fail-open routes the `::` site to the #120 demote
-    // floor — NameOnly, NOT a drop, NOT a stem guess.
+    // The owner type path does NOT resolve through the graph (`Missing` is not in
+    // scope at the call site — it is neither defined nor imported in lib.rs), but
+    // the bare owner key COLLIDES across two files. ②B's call-site directness
+    // fails (no `Missing` rib binding at the call site) → keep-all, and the
+    // fail-open routes the `::` site to the #120 demote floor — NameOnly×2, NOT a
+    // drop, NOT a stem guess.
+    //
+    // The pool MUST collide (two `Missing::make` defs): `owner_lookup_in_modules`
+    // demotes a >1 same-owner pool to NameOnly but returns *Exact* for a singleton
+    // (resolution.rs:677-679) — a single-def fixture would (correctly) be Exact and
+    // FALSIFY the NameOnly assertion (codex MAJOR @ this fixture). The collision is
+    // the demote floor the test means to pin.
     let sources = [
         (
             "src/lib.rs",
-            "mod other;\npub fn drive() {\n    Missing::make();\n}\n",
+            "mod other;\nmod more;\npub fn drive() {\n    Missing::make();\n}\n",
             Rust,
         ),
         (
@@ -1153,19 +1216,37 @@ fn scope_graph_unresolved_owner_path_keeps_full_pool_not_drop() {
             "pub struct Missing;\nimpl Missing {\n    pub fn make(&self) {}\n}\n",
             Rust,
         ),
+        (
+            "src/more.rs",
+            "pub struct Missing;\nimpl Missing {\n    pub fn make(&self) {}\n}\n",
+            Rust,
+        ),
     ];
     let (cg, _) = build(&sources);
-    // The bare ("Missing","make") key exists (defined in other.rs), so the
-    // fail-open demotes rather than drops.
+    // Two same-owner `Missing::make` defs → the fail-open demotes (NameOnly),
+    // never Exact, never a drop, never the stem heuristic.
+    assert_eq!(
+        cg.methods
+            .get(&("Missing".to_string(), "make".to_string()))
+            .map(|v| v.len()),
+        Some(2),
+        "the bare owner key must collide so the floor is a NameOnly demote, not Exact",
+    );
     let out = cg.resolve_call_site_full(&site_in(&cg, "drive", "Missing::make"));
     assert_eq!(out.drop, None, "owner-keyed `::` miss demotes, not drops");
+    assert_eq!(out.resolved.len(), 2, "both colliding defs are kept (recall)");
     assert!(
         out.resolved
             .iter()
             .all(|c| c.confidence == ResolutionConfidence::NameOnly),
         "fail-open lands at the #120 NameOnly demote floor"
     );
-    assert!(!out.resolved.is_empty());
+    assert!(
+        out.resolved
+            .iter()
+            .all(|c| c.kind == ResolutionKind::QualifiedOwner),
+        "a same-owner collision demotes as QualifiedOwner (not TraitCha / not stem)"
+    );
 }
 
 #[test]
@@ -1228,51 +1309,83 @@ fn scope_graph_macro_wildcard_shadow_keeps_all() {
 }
 
 #[test]
-fn scope_graph_reexport_facade_owner_keeps_all() {
+fn scope_graph_pending_import_alias_over_colliding_pool_keeps_all() {
     use prism::languages::Language::Rust;
-    // The leading type segment binds via a named `pub use` facade
-    // (BindTarget::Pending) that resolves cleanly to one `Real`. ②B's
-    // direct-binding test fails on the Pending hop, so the predicate keeps all —
-    // even though the final callable resolves to one id. (A candidate-level
-    // provenance read would wrongly pin this.)
+    // ②B directness, against a COLLIDING pool — the test that distinguishes the
+    // correct call-site-rib directness oracle from the unsound global target
+    // search (codex BLOCKER). The leading segment `Foo` binds at the call site
+    // via a NAMED IMPORT `use crate::a::Foo;` — a `BindTarget::Pending` binding —
+    // and there is NO block-local shadow/glob (so ①C does not fire; ②B is the
+    // ONLY thing standing between the prune and a wrong drop). The bare
+    // ("Foo","m") pool COLLIDES: both `a::Foo::m` and `b::Foo::m` are in it.
+    //
+    // Correct ②B (inspect the call site's own rib binding): `Foo`'s rib binding
+    // is `Pending` → not a direct `Resolved(Item)` → keep-all → BOTH survive at
+    // NameOnly (the demote floor). The BUGGY global search would chase the
+    // `Pending` import to `a::Foo`, then find `a::Foo`'s DEFINITION binding
+    // (`Resolved(Item)`) anywhere in the graph and call it "direct", resolve the
+    // final callable to `a::Foo::m` alone, and DISPROVE `b::Foo::m` — dropping a
+    // real edge. So this test FAILS (recall loss) iff the global-search oracle is
+    // used, and PASSES only with the call-site-rib oracle.
     let sources = [
         (
             "src/lib.rs",
-            "mod inner;\npub use crate::inner::Real as Facade;\npub fn drive() {\n    Facade::m();\n}\n",
+            "mod a;\nmod b;\nuse crate::a::Foo;\npub fn drive() {\n    Foo::m();\n}\n",
             Rust,
         ),
-        (
-            "src/inner.rs",
-            "pub struct Real;\nimpl Real {\n    pub fn m(&self) {}\n}\n",
-            Rust,
-        ),
+        ("src/a.rs", "pub struct Foo;\nimpl Foo {\n    pub fn m(&self) {}\n}\n", Rust),
+        ("src/b.rs", "pub struct Foo;\nimpl Foo {\n    pub fn m(&self) {}\n}\n", Rust),
     ];
     let (cg, _) = build(&sources);
-    // Only one `Real::m` exists, so the bare ("Real","m") / facade pool resolves
-    // to a single candidate regardless; the contract under test is that the
-    // PREDICATE did not pin via a Pending hop. We assert no drop and a single
-    // NameOnly or Exact edge to `m` (the facade resolves; the predicate kept-all,
-    // so the singleton comes from graph_target_resolution's own 1→Exact, which is
-    // a direct alias-target resolution, not a predicate prune). Assert the edge
-    // exists and is not a wrong drop.
-    let out = cg.resolve_call_site_full(&site_in(&cg, "drive", "Facade::m"));
-    assert_eq!(out.drop, None, "a clean facade must not drop");
-    assert!(out.resolved.iter().any(|c| c.target.name == "m"));
+    // Pin the colliding pool so a future extraction change can't silently make
+    // this test vacuous (a singleton pool can't be wrongly pruned).
+    assert_eq!(
+        cg.methods
+            .get(&("Foo".to_string(), "m".to_string()))
+            .map(|v| v.len()),
+        Some(2),
+        "the bare owner key must collide across a::Foo and b::Foo",
+    );
+    let out = cg.resolve_call_site_full(&site_in(&cg, "drive", "Foo::m"));
+    assert_eq!(out.drop, None, "a Pending import alias must not drop");
+    assert!(
+        out.resolved.len() == 2
+            && out
+                .resolved
+                .iter()
+                .all(|c| c.confidence == ResolutionConfidence::NameOnly),
+        "②B keeps the full colliding pool at NameOnly (a global-search oracle \
+         would wrongly prune to a::Foo::m and drop b::Foo::m)",
+    );
 }
 ```
 
-> Implementation note for the reviewer/executor: the facade test asserts the **recall-safe** property (no wrong drop, the `m` edge survives). The precision detail (facade recovery is forgone by ②B) is documented as a deferred §9 follow-up; the test does not over-constrain the confidence, because `Facade::m` has a single underlying `Real::m` and `graph_target_resolution`'s own `1→Exact` alias resolution may legitimately resolve it without any predicate involvement. The point the test pins is that the **predicate's directness check did not pin on a Pending hop** — verified by the block-local/two-target tests where a Pending facade over a *colliding* pool would be the only way to wrongly prune, and those keep-all.
+> Implementation note (reviewer/executor): this replaces the earlier
+> singleton-`Facade::m` test, which could NOT distinguish the two oracles — with
+> one underlying `Real::m`, `graph_target_resolution`'s own `1→Exact` resolves the
+> edge regardless of the predicate, so a global-search directness bug would go
+> undetected. The collision above is the discriminator: the `m` edge to `b::Foo`
+> survives ONLY when directness is proven from the call site's `Pending` rib
+> binding (kept-all), not from a global `Resolved(target)` search (wrong prune).
+> The forgone *precision* on import aliases (we keep-all rather than recover the
+> single Exact) is the spec's deferred §9 follow-up; the recall-safety this test
+> pins is the contract. The `pub use … as Facade` re-export form is precision-
+> forgone for the same reason (its leading ident is also a `Pending` binding) and
+> needs no separate test — the owner key for an aliased re-export is the real
+> impl owner, not the alias, so it does not even reach the bare-pool prune.
 
 - [ ] **Step 2: Run the tests to verify they fail**
 
 ```bash
 cargo test --test integration resolution_test::scope_graph_ 2>&1 | tail -40
 ```
-Expected failures (RED): `scope_graph_inherent_plus_trait_owner_demotes_not_drops` FAILS today (drop == `UnknownName`, not demote) — but note Task 4 already rewrote `graph_target_resolution` to `>1→demoted`, so after Task 4 this test may already pass via the scope block. `scope_graph_unresolved_owner_path_keeps_full_pool_not_drop` and the glob/macro keep-all tests FAIL today because the scope branch returns `dropped(UnknownName)` on a `None` resolution (the fail-open is not yet narrowed). The two-crate headline already passes (graph present → `1→Exact`); it is kept as a regression pin.
+Expected failures (RED): `scope_graph_inherent_plus_trait_owner_demotes_not_drops` FAILS today (drop == `UnknownName`, not demote) — but note Task 4 already rewrote `graph_target_resolution` to `>1→demoted`, so after Task 4 this test may already pass via the scope block. `scope_graph_unresolved_owner_path_keeps_full_pool_not_drop` FAILS today (scope branch returns `dropped(UnknownName)` on a `None` resolution — the fail-open is not yet narrowed). The two ①C keep-all tests (`scope_graph_block_local_glob_shadow_keeps_all`, `scope_graph_macro_wildcard_shadow_keeps_all`) and the ②B directness test (`scope_graph_pending_import_alias_over_colliding_pool_keeps_all`) FAIL today for a *recall* reason that the new ordering fixes: the un-narrowed scope branch (`rust_scope_graph_resolution` first) resolves the module-anchored `Foo::m` to a single `a::Foo::m` Exact and DROPS the real shadowed/colliding `b::Foo::m` edge. (This is also why Step-3's ordering correction matters: those three tests are the regression guard for the bypass.) The two-crate headline (`scope_graph_two_crate_owner_collision_recovers_to_single_exact`) already passes (graph present → `1→Exact`) and is kept as a regression pin.
 
 - [ ] **Step 3: Rewrite the Rust scope branch of `resolve_call_site_full`**
 
-In `src/resolution.rs`, replace the scope block in `resolve_call_site_full` (the `if let Some(graph) = self.scope_graph.as_ref() { ... }` block, lines ~690-702) with the prune + fail-open logic:
+In `src/resolution.rs`, replace the scope block in `resolve_call_site_full` (the `if let Some(graph) = self.scope_graph.as_ref() { ... }` block, lines ~690-702) with the prune + fail-open logic.
+
+**Ordering correction (codex BLOCKER @ Task-5 Step-3 + MAJOR @ the keep-all fixtures).** The original draft ran `rust_scope_graph_resolution` FIRST for *every* site. But for an owner-keyed `T::m` whose leading ident the **module-anchored** callable edge resolves to a single target (a block-local glob/macro/`Pending`-import colliding pool — exactly the ①C/②B keep-all cases), that path mints a single Exact and the disproof prune (which carries the ①C shadow guard and ②B directness) **never runs** → it would drop the real shadowed/aliased edge. So an owner-method `::` site MUST be driven THROUGH the prune (the spec's owner-path authority — disproof gates the id-set resolution); `rust_scope_graph_resolution` is reserved for the shapes the prune does not own: **free-function `::` paths** (`crate::m::free_fn`, `self::f`, `super::f` — no bare `(owner, method)` pool) and **unqualified** calls (the shipped `graph_callable_edge` path). We distinguish owner-method from free-fn by whether a bare `(owner, method)` pool exists in `self.methods`.
 
 ```rust
         if let Some(graph) = self.scope_graph.as_ref() {
@@ -1281,52 +1394,99 @@ In `src/resolution.rs`, replace the scope block in `resolve_call_site_full` (the
                 && (name.contains("::") || site.qualifier.is_none())
             {
                 if let Some((file, from)) = rust_authoritative_scope(graph, site) {
-                    // 1) The existing graph resolution: 1→Exact / >1→demoted (the
-                    //    Task-4 graph_target_resolution rule), via the kind-routed
-                    //    callable edge. A clean resolution wins outright.
-                    if let Some(resolved) = self.rust_scope_graph_resolution(graph, site, file, from)
-                    {
-                        return ResolutionOutcome::hit(resolved);
-                    }
+                    // Split an owner-keyed `::` name into (owner, method) and ask
+                    // whether a bare `(owner, method)` pool exists — that is what
+                    // separates an owner-METHOD `::` site (which the disproof prune
+                    // owns) from a free-FUNCTION `::` path / `self::`/`Self::`/`::x`
+                    // (which it does not). `None` ⇒ not an owner-method site.
+                    let owner_method = if name.contains("::") {
+                        owner_method_key(name)
+                    } else {
+                        None
+                    };
+                    let has_bare_pool = owner_method
+                        .as_ref()
+                        .is_some_and(|(o, m)| self.methods.contains_key(&(o.clone(), m.clone())));
 
-                    // 2) Owner-keyed `T::m` that the callable edge did NOT resolve:
-                    //    fetch the bare pool and try the disproof prune. A prune to
-                    //    a single survivor recovers Exact; >1 survivors demote.
-                    if name.contains("::") {
+                    if has_bare_pool {
+                        // Owner-method `T::m`: the prune is the authority. It gates
+                        // the id-set resolution behind ①C (no block-local shadow)
+                        // and ②B (leading segment binds DIRECTLY), so a single Exact
+                        // is minted ONLY when both contracts hold. 1 survivor →
+                        // Exact (recovery); >1 → pruned NameOnly demote.
                         if let Some(resolved) =
                             self.rust_scope_prune_owner(graph, site, file, from, name)
                         {
                             return ResolutionOutcome::hit(resolved);
                         }
-                        // 3) Fail-open (review MAJOR 4): an owner-keyed `::` site the
-                        //    authoritative path could not resolve falls through ONLY
-                        //    to #120's owner_lookup_in_modules demote floor — NEVER
-                        //    the legacy stem heuristic. Preserves the three drop
-                        //    invariants.
-                        let mut segs: Vec<&str> = name.split("::").collect();
-                        let fn_name = segs.pop().unwrap_or(name);
-                        while matches!(segs.first(), Some(&"crate") | Some(&"super")) {
-                            segs.remove(0);
+                        // Fail-open: the predicate proved nothing (uncertain — a
+                        // shadow/alias/ambiguous leading segment, or an unresolved
+                        // owner). Route ONLY to #120's owner_lookup_in_modules demote
+                        // floor and STOP — NEVER the legacy stem heuristic (that
+                        // would re-introduce the same-stem guess the three shipped
+                        // drop invariants forbid). A singleton bare pool here is a
+                        // legitimate Exact; a collision demotes to NameOnly.
+                        let (owner, method) = owner_method.as_ref().expect("has_bare_pool");
+                        let segs: Vec<&str> = name.split("::").collect();
+                        // module_segs = the path between crate/super-stripped head
+                        // and the method, for the existing module-narrowing.
+                        let mut prefix: Vec<&str> = segs[..segs.len() - 1].to_vec();
+                        while matches!(prefix.first(), Some(&"crate") | Some(&"super")) {
+                            prefix.remove(0);
                         }
-                        if let Some(&head) = segs.last() {
-                            if head != "self" && head != "Self" {
-                                let module_segs = &segs[..segs.len() - 1];
-                                if let Some(resolved) =
-                                    self.owner_lookup_in_modules(head, fn_name, module_segs)
-                                {
-                                    return ResolutionOutcome::hit(resolved);
-                                }
-                            }
+                        let module_segs = &prefix[..prefix.len().saturating_sub(1)];
+                        if let Some(resolved) =
+                            self.owner_lookup_in_modules(owner, method, module_segs)
+                        {
+                            return ResolutionOutcome::hit(resolved);
                         }
+                        // A bare pool existed but module-narrowing eliminated it (a
+                        // wrong module hint must not drop a real edge — but here the
+                        // pool is empty post-narrow; owner_lookup_in_modules already
+                        // ignores an empty narrow, so this arm is unreachable for a
+                        // present key — fall to the drop below defensively).
+                        return ResolutionOutcome::dropped(DropReason::UnknownName);
                     }
 
-                    // Unqualified bare miss, or an owner `::` site with no bare-key
-                    // candidates: the authoritative graph declined → drop (the
-                    // shipped invariant — no legacy free-fn fan-out for bare names).
+                    // Free-function `::` path or unqualified call: the shipped
+                    // graph resolution (1→Exact / >1→demoted via the Task-4
+                    // graph_target_resolution rule). NOTE: this path does NOT mint
+                    // an owner-method Exact (no bare pool), so the ①C/②B bypass
+                    // above cannot recur here.
+                    if let Some(resolved) = self.rust_scope_graph_resolution(graph, site, file, from)
+                    {
+                        return ResolutionOutcome::hit(resolved);
+                    }
+
+                    // Authoritative graph declined → drop (the shipped invariant: no
+                    // legacy free-fn fan-out, no stem heuristic, for an authoritative
+                    // miss). A free-fn `::` miss (`crate::missing::target`) and an
+                    // unqualified bare miss both land here.
                     return ResolutionOutcome::dropped(DropReason::UnknownName);
                 }
             }
         }
+```
+
+This introduces one small free helper, `owner_method_key`, placed next to `rust_call_path_anchor` (it mirrors the owner/method split `rust_scope_prune_owner` does, so the splice and the prune agree on the key):
+
+```rust
+/// Split an owner-keyed `mod::T::m` call name into the bare `(owner, method)`
+/// key — owner = the segment immediately before the method, after stripping
+/// leading `crate::`/`super::`. Returns `None` for `self`/`Self` heads (handled
+/// by R7/SelfReceiver elsewhere) or a single-segment name (no owner).
+fn owner_method_key(name: &str) -> Option<(String, String)> {
+    let mut segs: Vec<&str> = name.split("::").collect();
+    let method = segs.pop()?;
+    while matches!(segs.first(), Some(&"crate") | Some(&"super")) {
+        segs.remove(0);
+    }
+    let owner = *segs.last()?;
+    if owner == "self" || owner == "Self" {
+        return None;
+    }
+    Some((owner.to_string(), method.to_string()))
+}
 ```
 
 - [ ] **Step 4: Add the `rust_scope_prune_owner` method**
@@ -1347,17 +1507,10 @@ In `src/resolution.rs`, inside `impl CallGraph`, add the prune helper (place it 
         from: ScopeId,
         name: &str,
     ) -> Option<Vec<ResolvedCallee<'_>>> {
-        // Split `mod::T::m` → owner key `T`, method `m` (drop crate/super).
-        let mut segs: Vec<&str> = name.split("::").collect();
-        let method = segs.pop()?;
-        while matches!(segs.first(), Some(&"crate") | Some(&"super")) {
-            segs.remove(0);
-        }
-        let owner = *segs.last()?;
-        if owner == "self" || owner == "Self" {
-            return None;
-        }
-        let pool_ids = self.methods.get(&(owner.to_string(), method.to_string()))?;
+        // Owner key `(T, m)` from `mod::T::m` (shared with the splice via
+        // owner_method_key, so both agree on the bare key).
+        let (owner, method) = owner_method_key(name)?;
+        let pool_ids = self.methods.get(&(owner, method))?;
         let pool: Vec<&FunctionId> = pool_ids.iter().collect();
         let pred = ScopeResolution::new(self);
         let cx = crate::resolution_disproof::DisproofCx { graph, file, from };
@@ -1396,7 +1549,7 @@ cargo test --test integration resolution_test::rust_scope_graph_qualified_paths_
 cargo test --test integration resolution_test::rust_scope_graph_authority_gate_and_poison_skip_legacy 2>&1 | tail -10
 cargo test --test integration resolution_test:: 2>&1 | tail -15
 ```
-Expected: all three drop-invariant tests PASS (the negative `crate::missing::target` case still drops — its bare `("missing","target")` key does not exist because `missing` is a module not a type, so `owner_lookup_in_modules` misses → `None` → the final `dropped(UnknownName)`; the unqualified-bare-miss still drops; the poison case still drops). The whole `resolution_test::` suite PASSES.
+Expected: all three drop-invariant tests PASS. The negative `crate::missing::target` case still drops via the FREE-FN path: its bare `("missing","target")` key does not exist (`missing` is a module, `target` a free fn, not a method) → `has_bare_pool == false` → it routes to `rust_scope_graph_resolution`, where the path fails to resolve (no `mod missing;` in lib.rs) → `None` → the final `dropped(UnknownName)`. It never reaches `owner_lookup_in_modules` and never reaches the legacy stem block — so the same-stem guess the invariant forbids cannot fire. The unqualified-bare-miss (`process`) still drops (no bare pool, graph declines). The poison case still drops. The whole `resolution_test::` suite PASSES.
 
 - [ ] **Step 7: Run the full test suite + fmt**
 
@@ -1413,14 +1566,19 @@ git add src/resolution.rs tests/integration/resolution_test.rs
 git commit -m "$(cat <<'EOF'
 feat(scope-graph): integrate disproof prune into the Rust scope path (Component 3)
 
-In resolve_call_site_full's Rust scope branch: after the existing callable-edge
-resolution (now 1→Exact / >1→demoted), an owner-keyed `T::m` that did not
-resolve fetches the bare pool and runs the ScopeResolution prune — 1 survivor →
-Exact recovery, >1 → pruned NameOnly demote, unchanged → fall through. The
-fail-open is narrowed to `name.contains("::")` owner sites routed ONLY to #120's
-owner_lookup_in_modules demote floor, never the legacy stem heuristic; an
-unqualified bare miss / no-bare-key `::` site still drops. The three shipped drop
-invariants are re-confirmed.
+In resolve_call_site_full's Rust scope branch, an owner-method `T::m` site (one
+with a bare `(owner, method)` pool) is driven THROUGH the ScopeResolution prune
+— which gates the id-set resolution behind ①C (no block-local shadow) and ②B
+(direct call-site binding) — so a single Exact is minted only when both contracts
+hold: 1 survivor → Exact recovery, >1 → pruned NameOnly demote. When the prune
+proves nothing (shadow/alias/ambiguous/unresolved owner) the site fail-opens ONLY
+to #120's owner_lookup_in_modules demote floor (NameOnly on a collision, Exact on
+a singleton), never the legacy stem heuristic. Free-function `::` paths and
+unqualified calls (no bare pool) take the shipped graph resolution (1→Exact /
+>1→demoted) and drop on a miss. This ordering (prune before any owner-method
+Exact) is required so a module-anchored callable edge cannot mint a single Exact
+that bypasses the ①C/②B guards and drops a real shadowed/colliding edge. The
+three shipped drop invariants are re-confirmed.
 
 Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
 EOF
@@ -1490,7 +1648,7 @@ EOF
 
 ## Task 7: Recovery counter (spec §7 / review MAJOR-5)
 
-The legacy `shadow_typepath_narrow` counter only runs inside the `exact_kinds.len() >= 2` guard (multi-target-Exact sites). #120 moved owner collisions to NameOnly (0 Exact edges → guard never entered), and this change's recovery makes them *single*-Exact (1 edge, still < 2) — so that shadow stays empty either way. Add a **new recovery counter** keyed off the demoted-NameOnly `qualified_owner` population: classify each such site by what the scope path now does (`singleton` / `pruned_multiple` / `failopen_unresolved`). Wire it into `call_stats`.
+The legacy `shadow_typepath_narrow` counter only runs inside the `exact_kinds.len() >= 2` guard (multi-target-Exact sites). #120 moved owner collisions to NameOnly (0 Exact edges → guard never entered), and this change's recovery makes them *single*-Exact (1 edge, still < 2) — so that shadow stays empty either way. Add a **new recovery counter** keyed off the owner-method `::` population: classify each such site by the disproof prune's ACTUAL decision, re-derived measurement-only (`singleton` recovered-Exact / `pruned_multiple` real-prune-still-demoted / `failopen_singleton` clean-singleton-floor / `failopen_demote` un-recovered-collision-floor / `not_owner_method` skipped). Classifying from final edge counts is insufficient — a fail-open demote and a prune demote both read as `>1 NameOnly` (codex MAJOR), so the classifier re-runs the prune and reads the predicate's decision. Wire it into `call_stats`.
 
 **Files:**
 - Modify: `src/navigation/queries.rs` — add `recovery_typepath` classification + a counter in `call_stats`.
@@ -1556,38 +1714,77 @@ Expected: FAIL — `v["recovery_typepath"]` is null (the counter does not exist 
 
 - [ ] **Step 3: Add the recovery classifier**
 
-In `src/navigation/queries.rs`, add a classifier mirroring `shadow_narrow_type_path`'s resolve-and-classify body but driven by the live resolution outcome. Add it next to `shadow_narrow_type_path`:
+In `src/navigation/queries.rs`, add a classifier mirroring `shadow_narrow_type_path`'s **measurement-only re-derivation** pattern (it re-runs the resolution logic independently — it does NOT read final edge counts). Classifying from `out.resolved`'s Exact/NameOnly counts alone is WRONG (codex MAJOR): a `>1 NameOnly` result is produced BOTH by the disproof prune (predicate disproved someone but >1 survived) AND by the #120 fail-open demote (no prune at all — the floor demotes a colliding pool) — the two are indistinguishable from counts, so a count-based classifier mislabels every fail-open demote as `pruned_multiple` and erases the recovery signal. Instead, re-run the actual prune and classify from the predicate's DECISION (did it disprove anyone; how many survived vs the bare pool). Add it next to `shadow_narrow_type_path`:
 
 ```rust
-/// Recovery instrument (spec §7 / review MAJOR 5). For a `qualified_owner` `T::m`
-/// owner site, report what the scope path NOW yields: `singleton` (recovered to a
-/// single Exact), `pruned_multiple` (>1 NameOnly after the disproof prune /
-/// owner-collision demote), or `failopen_unresolved` (the owner path did not
-/// resolve and it fell through to the #120 demote floor). Keyed off the
-/// owner-`::` population, not the >=2-Exact population the legacy
+/// Recovery instrument (spec §7 / review MAJOR 5). For an owner-method `T::m`
+/// site, report what the disproof prune ACTUALLY decided (re-derived measurement-
+/// only, exactly as `shadow_narrow_type_path` re-derives the narrowing — never
+/// read from final edge counts, which cannot tell a prune-demote from a fail-open
+/// demote):
+///   `singleton`        — the prune disproved down to a single survivor (the
+///                        recovered Exact: ①C+②B held and the id-set pinned one).
+///   `pruned_multiple`  — the prune disproved ≥1 but >1 survived (a real prune
+///                        that still demotes to NameOnly).
+///   `failopen_singleton` — the predicate proved nothing; the bare pool is a
+///                        singleton (the #120 floor mints Exact — not a recovery).
+///   `failopen_demote`  — the predicate proved nothing; the bare pool collides
+///                        (the #120 floor demotes to NameOnly — the un-recovered
+///                        residue this slice aims to shrink).
+///   `not_owner_method` — no bare `(owner, method)` pool / unresolvable scope.
+/// Keyed off the owner-`::` population, not the >=2-Exact population the legacy
 /// `shadow_typepath_narrow` requires.
-fn recovery_typepath(out: &crate::resolution::ResolutionOutcome<'_>) -> &'static str {
-    use crate::resolution::ResolutionConfidence;
-    let exact = out
-        .resolved
-        .iter()
-        .filter(|c| c.confidence == ResolutionConfidence::Exact)
-        .count();
-    let nameonly = out
-        .resolved
-        .iter()
-        .filter(|c| c.confidence == ResolutionConfidence::NameOnly)
-        .count();
-    if exact == 1 && nameonly == 0 {
-        "singleton"
-    } else if exact == 0 && nameonly >= 2 {
-        "pruned_multiple"
-    } else if exact == 0 && nameonly == 1 {
-        // A single NameOnly survivor — the #120 demote floor (no recovery yet).
-        "failopen_unresolved"
+fn classify_recovery_typepath(cg: &CallGraph, site: &CallSite) -> &'static str {
+    use crate::name_resolution::rust_populator::enclosing_scope;
+    use crate::resolution::{prune, DisproofCx, DisproofPredicate, ScopeResolution};
+    // Owner-method key `(T, m)` from `mod::T::m` (mirror the resolver's split;
+    // `crate`/`super` stripped, `self`/`Self` heads excluded).
+    let mut segs: Vec<&str> = site.callee_name.split("::").collect();
+    let Some(method) = segs.pop() else {
+        return "not_owner_method";
+    };
+    while matches!(segs.first(), Some(&"crate") | Some(&"super")) {
+        segs.remove(0);
+    }
+    let Some(&owner) = segs.last() else {
+        return "not_owner_method";
+    };
+    if owner == "self" || owner == "Self" {
+        return "not_owner_method";
+    }
+    let Some(pool_ids) = cg.methods.get(&(owner.to_string(), method.to_string())) else {
+        return "not_owner_method";
+    };
+    // Re-derive the authoritative (file, enclosing-scope) the prune ran from. If
+    // the graph is absent/incomplete or the byte has no scope, this site never
+    // reached the prune → not a recovery outcome.
+    let Some(graph) = cg.scope_graph.as_ref() else {
+        return "not_owner_method";
+    };
+    if !graph.complete {
+        return "not_owner_method";
+    }
+    let Some(file) = graph.file_paths.get(&site.caller.file).copied() else {
+        return "not_owner_method";
+    };
+    let Some(from) = enclosing_scope(graph, file, site.start_byte) else {
+        return "not_owner_method";
+    };
+    let pool: Vec<&FunctionId> = pool_ids.iter().collect();
+    let pred = ScopeResolution::new(cg);
+    let cx = DisproofCx { graph, file, from };
+    let kept = prune(pool.clone(), site, &cx, &[&pred as &dyn DisproofPredicate]);
+    if kept.len() < pool.len() {
+        // The predicate disproved at least one candidate (a real prune).
+        if kept.len() == 1 {
+            "singleton"
+        } else {
+            "pruned_multiple"
+        }
+    } else if pool.len() == 1 {
+        "failopen_singleton"
     } else {
-        // Mixed or empty (e.g. an authoritative drop): not a recovery outcome.
-        "other"
+        "failopen_demote"
     }
 }
 ```
@@ -1605,20 +1802,13 @@ In `src/navigation/queries.rs`, in `call_stats`, add the counter map near the ot
     let mut recovery_typepath: BTreeMap<&'static str, usize> = BTreeMap::new();
 ```
 
-Inside the `for site in sites` loop, after the `out` is computed (the `let out = cg.resolve_call_site_full(site);` line) and within the same iteration, add the owner-`::`-gated classification. Place it right after the existing `match out.drop { ... }` block:
+Inside the `for site in sites` loop, after the `out` is computed (the `let out = cg.resolve_call_site_full(site);` line) and within the same iteration, add the owner-`::`-gated classification. The classifier is named `classify_recovery_typepath` (distinct from the `recovery_typepath` map — no value-namespace shadow, codex MAJOR), and it only counts a site that resolves to a real owner-method outcome (it returns `not_owner_method` for free-fn `::` / `self::` / unresolvable, which we skip). Place it right after the existing `match out.drop { ... }` block:
 
 ```rust
             if site.callee_name.contains("::") {
-                let head_is_owner = {
-                    let mut segs: Vec<&str> = site.callee_name.split("::").collect();
-                    let _ = segs.pop();
-                    while matches!(segs.first(), Some(&"crate") | Some(&"super")) {
-                        segs.remove(0);
-                    }
-                    !matches!(segs.last().copied(), None | Some("self") | Some("Self"))
-                };
-                if head_is_owner {
-                    *recovery_typepath.entry(recovery_typepath(&out)).or_default() += 1;
+                let bucket = classify_recovery_typepath(cg, site);
+                if bucket != "not_owner_method" {
+                    *recovery_typepath.entry(bucket).or_default() += 1;
                 }
             }
 ```
@@ -1630,7 +1820,7 @@ Add it to the emitted JSON (in the `serde_json::json!({ ... })` block, after `"s
         "recovery_typepath": recovery_typepath,
 ```
 
-> Naming note: the local map and the classifier fn share the name `recovery_typepath`. Rust resolves the call `recovery_typepath(&out)` to the function (a value expression), and `*recovery_typepath.entry(...)` to the local binding (a place expression) — no collision. If the executor prefers, rename the map to `recovery_typepath_counts` and the JSON key stays `"recovery_typepath"`; keep the classifier fn name `recovery_typepath`. Either is fine.
+> The classifier fn (`classify_recovery_typepath`) and the counter map (`recovery_typepath`) now have distinct names, so the call site is unambiguous. (The earlier draft named both `recovery_typepath`; that does NOT compile — a `let recovery_typepath = ...` binding shadows a same-name free fn in the value namespace, so `recovery_typepath(&out)` would try to call the `BTreeMap`. The rename, not "place vs value expression", is what fixes it.)
 
 - [ ] **Step 5: Run the test to verify it passes**
 
@@ -1658,11 +1848,14 @@ feat(scope-graph): recovery counter over the owner-:: population (review MAJOR 5
 
 The legacy shadow_typepath_narrow only fires on >=2-Exact sites; #120 demotes
 collisions to NameOnly and this slice recovers them to single-Exact, so that
-shadow stays empty either way. Add recovery_typepath: classify each owner-`::`
-`T::m` site by the live outcome (singleton / pruned_multiple /
-failopen_unresolved), keyed off the qualified_owner population. The acceptance
-reads `singleton` rising from this counter plus the kind_exact/kind_nameonly
-deltas.
+shadow stays empty either way. Add recovery_typepath: classify each owner-method
+`T::m` site by the disproof prune's ACTUAL decision (re-derived measurement-only,
+like shadow_narrow_type_path — NOT from final edge counts, which cannot tell a
+prune demote from a fail-open demote): singleton / pruned_multiple /
+failopen_singleton / failopen_demote / not_owner_method. The classifier fn
+(classify_recovery_typepath) is named distinctly from the counter map so it does
+not shadow it in the value namespace. The acceptance reads `singleton` rising
+from this counter plus the kind_exact/kind_nameonly deltas.
 
 Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
 EOF
@@ -1742,4 +1935,4 @@ git status --short | grep -E 'eval/' && echo "WARNING: unstage eval artifacts" |
 - Cache (§6): Task 6 (CACHE_VERSION 15 → 16 + pin test). ✓
 - Recovery signal (§7 / MAJOR-5): Task 7 (`recovery_typepath` counter). ✓
 - Acceptance (§7): Task 8 (Tier-A matrix + quick, call-stats deltas, codex diff review). ✓
-- The seven §7 unit/integration cases map to: C1 coverage → Task 1; seam resolves-to-1 → Task 5 `scope_graph_two_crate_owner_collision_recovers_to_single_exact`; pruned-to-2 → Task 5 `scope_graph_inherent_plus_trait_owner_demotes_not_drops`; no-resolution keep-all → Task 5 `scope_graph_unresolved_owner_path_keeps_full_pool_not_drop`; re-export facade → Task 5 `scope_graph_reexport_facade_owner_keeps_all`; block-local glob → Task 5 `scope_graph_block_local_glob_shadow_keeps_all`; macro-wildcard → Task 5 `scope_graph_macro_wildcard_shadow_keeps_all`; fail-open → Task 5 `scope_graph_unresolved_owner_path_keeps_full_pool_not_drop`. ✓
+- The seven §7 unit/integration cases map to: C1 coverage → Task 1; seam resolves-to-1 → Task 5 `scope_graph_two_crate_owner_collision_recovers_to_single_exact`; pruned-to-2 → Task 5 `scope_graph_inherent_plus_trait_owner_demotes_not_drops`; no-resolution keep-all → Task 5 `scope_graph_unresolved_owner_path_keeps_full_pool_not_drop`; ②B directness (Pending import alias over a colliding pool) → Task 5 `scope_graph_pending_import_alias_over_colliding_pool_keeps_all`; block-local glob → Task 5 `scope_graph_block_local_glob_shadow_keeps_all`; macro-wildcard → Task 5 `scope_graph_macro_wildcard_shadow_keeps_all`; fail-open → Task 5 `scope_graph_unresolved_owner_path_keeps_full_pool_not_drop`. ✓
