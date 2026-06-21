@@ -6,14 +6,15 @@ use crate::call_graph::{CallGraph, CallSite, FunctionId, MethodArity, MethodFact
 use crate::name_resolution::consumer::graph_callable_edge;
 use crate::name_resolution::engine::resolve_path;
 use crate::name_resolution::graph::ScopeGraph;
-use crate::name_resolution::rust_policy::{RustPolicy, NS_TYPE, NS_VALUE};
+use crate::name_resolution::rust_policy::{RustPolicy, EK_GLOB, NS_TYPE, NS_VALUE};
 use crate::name_resolution::rust_populator::enclosing_scope;
 use crate::name_resolution::types::{
-    Anchor, AnchorKind, BindTarget, Candidate, FileId, RawPath, ResStatus, ScopeId, SourceLoc,
-    Target,
+    Anchor, AnchorKind, BindTarget, Binding, Candidate, Edge, FileId, RawPath, ResStatus,
+    ResolutionPolicy, ResolveQuery, ScopeId, SourceLoc, Span, Target, TraversalCtx,
 };
 use std::collections::{BTreeMap, BTreeSet};
 
+pub use crate::resolution_disproof::{prune, DisproofCx, DisproofPredicate};
 pub use crate::resolution_identity::{
     canonical_external, resolve_type_path_to_type_scope, ReceiverOutcome, ReceiverTypeKey, TypeKey,
 };
@@ -556,16 +557,14 @@ impl CallGraph {
         self.graph_target_resolution(graph, site, &target)
     }
 
-    fn graph_target_resolution(
-        &self,
-        graph: &ScopeGraph,
-        site: &CallSite,
-        target: &Target,
-    ) -> Option<Vec<ResolvedCallee<'_>>> {
-        if !matches!(target, Target::Item { callable: true, .. }) {
-            return None;
-        }
+    /// The in-repo `FunctionId`s a resolved callable `Target` maps to, applying
+    /// the same per-binding file + owner narrowing `graph_target_resolution`
+    /// uses. Shared by the `ScopeResolution` predicate and `graph_target_resolution`.
+    fn graph_target_ids<'b>(&'b self, graph: &ScopeGraph, target: &Target) -> Vec<&'b FunctionId> {
         let mut ids: Vec<&FunctionId> = Vec::new();
+        if !matches!(target, Target::Item { callable: true, .. }) {
+            return ids;
+        }
         for binding in graph.bindings.iter() {
             if !matches!(&binding.target, BindTarget::Resolved(t) if t == target) {
                 continue;
@@ -596,17 +595,44 @@ impl CallGraph {
                 }
             }
         }
-        if ids.len() != 1 {
+        ids
+    }
+
+    fn graph_target_resolution(
+        &self,
+        graph: &ScopeGraph,
+        site: &CallSite,
+        target: &Target,
+    ) -> Option<Vec<ResolvedCallee<'_>>> {
+        let ids = self.graph_target_ids(graph, target);
+        if ids.is_empty() {
             return None;
         }
-        let kind = if site.callee_name.contains("::") {
-            ResolutionKind::QualifiedOwner
-        } else if ids[0].file == site.caller.file {
-            ResolutionKind::LocalDef
-        } else {
-            ResolutionKind::FreeSingle
-        };
-        Some(exact(ids, kind))
+        let qualified = site.callee_name.contains("::");
+        match ids.len() {
+            1 => {
+                let kind = if qualified {
+                    ResolutionKind::QualifiedOwner
+                } else if ids[0].file == site.caller.file {
+                    ResolutionKind::LocalDef
+                } else {
+                    ResolutionKind::FreeSingle
+                };
+                Some(exact(ids, kind))
+            }
+            _ => {
+                // >1: a `::`-qualified owner that owns inherent + trait (or cfg
+                // variants) demotes to NameOnly (recall-safe - keep every edge).
+                // The unqualified LocalDef/FreeSingle arms stay singleton-only:
+                // a >1 unqualified free-fn set routes through the existing free-fn
+                // rungs, so decline here (return None) to fall through.
+                if qualified {
+                    Some(demoted(ids, ResolutionKind::QualifiedOwner))
+                } else {
+                    None
+                }
+            }
+        }
     }
 
     /// Owner-index lookup that knows whether the key is a multi-impl trait key.
@@ -1179,6 +1205,201 @@ impl CallGraph {
     }
 }
 
+/// The one shipped disproof predicate (spec §3). Disproves a candidate only when
+/// the owner type-path's leading segment binds directly to an in-repo item (②B),
+/// has no block-local shadow at the call site (①C), and the graph is
+/// edition-uniform (§2 guard). On all uncertainty it disproves nothing.
+pub struct ScopeResolution<'a> {
+    cg: &'a CallGraph,
+}
+
+impl<'a> ScopeResolution<'a> {
+    pub fn new(cg: &'a CallGraph) -> Self {
+        ScopeResolution { cg }
+    }
+}
+
+impl crate::resolution_disproof::DisproofPredicate for ScopeResolution<'_> {
+    fn disproves(
+        &self,
+        cand: &FunctionId,
+        site: &CallSite,
+        cx: &crate::resolution_disproof::DisproofCx<'_>,
+    ) -> bool {
+        let graph = cx.graph;
+        // §2 guard: a non-uniform-edition workspace is non-authoritative for
+        // disproof. Keep-all.
+        if !graph.edition_uniform {
+            return false;
+        }
+
+        // Only `T::m` / `mod::T::m` owner paths are in scope for this predicate.
+        let Some((anchor, path)) = rust_call_path_anchor(site.callee_name.as_str()) else {
+            return false;
+        };
+        // The leading type segment is the path's first segment; the trailing
+        // segment is the method. A path with <2 segments has no owner type.
+        if path.0.len() < 2 {
+            return false;
+        }
+        let leading = &path.0[0];
+
+        // ①C: any potential block-local shadow of the leading ident -> keep-all.
+        if leading_segment_has_block_local_shadow(graph, cx.from, cx.file, site.start_byte, leading)
+        {
+            return false;
+        }
+
+        // ②B: the leading segment must bind directly to an in-repo Item, with no
+        // Pending hop. Prove this from the binding shape, not Candidate provenance.
+        if !leading_segment_binds_directly(
+            graph,
+            cx.file,
+            cx.from,
+            site.start_byte,
+            &anchor,
+            leading,
+        ) {
+            return false;
+        }
+
+        // Both contracts hold. Resolve the final callable target and disprove
+        // `cand` iff it is not in that target's in-repo id set.
+        let Some(target) = rust_graph_qualified_callable_edge(graph, site, cx.file, cx.from) else {
+            return false;
+        };
+        let ids = self.cg.graph_target_ids(graph, &target);
+        if ids.is_empty() {
+            return false;
+        }
+        !ids.contains(&cand)
+    }
+}
+
+/// Prove the leading type segment binds directly at the call site: the binding
+/// the call site sees for `leading` is itself a non-glob, non-Pending
+/// `BindTarget::Resolved(Target::Item)` (§8.2 decision ②B).
+fn leading_segment_binds_directly(
+    graph: &ScopeGraph,
+    file: FileId,
+    from: ScopeId,
+    byte: usize,
+    anchor: &Anchor,
+    leading: &str,
+) -> bool {
+    let at = SourceLoc { file, byte };
+    let policy = RustPolicy::new(graph, graph.edition);
+    let Some((start, _)) = policy.anchor(anchor, from) else {
+        return false;
+    };
+
+    let rib: Vec<&Binding> = graph
+        .bindings
+        .iter()
+        .filter(|b| b.scope == start && b.name == leading && b.ns == NS_TYPE)
+        .collect();
+    if rib.is_empty() {
+        return false;
+    }
+
+    let q = ResolveQuery {
+        name: leading.to_string(),
+        ns: NS_TYPE,
+        from,
+        at: at.clone(),
+        cfg: Default::default(),
+        ctx: Default::default(),
+    };
+    let visible: Vec<&Binding> = rib
+        .into_iter()
+        .filter(|b| {
+            let trav = TraversalCtx {
+                lookup_scope: Some(b.scope),
+                via_glob: false,
+                edge_kind: None,
+            };
+            policy.visible(b, &q, &trav)
+        })
+        .collect();
+
+    match visible.as_slice() {
+        [b] => matches!(&b.target, BindTarget::Resolved(Target::Item { .. })),
+        _ => false,
+    }
+}
+
+/// Does the lexical scope chain from `from` up to but excluding the enclosing
+/// module/root contain any potential block-local shadow of `leading` at `byte`?
+/// Three shapes (§8.1 decision ①C): exact `NS_TYPE` binding, block-local glob
+/// edge covering the call byte, or covering `NS_TYPE` macro wildcard.
+fn leading_segment_has_block_local_shadow(
+    graph: &ScopeGraph,
+    from: ScopeId,
+    file: FileId,
+    byte: usize,
+    leading: &str,
+) -> bool {
+    let at = SourceLoc { file, byte };
+    for scope in scope_chain_below_module(graph, from) {
+        let exact_binding = graph.bindings.iter().any(|b| {
+            b.scope == scope && b.name == leading && b.ns == NS_TYPE && binding_vis_covers(b, &at)
+        });
+        if exact_binding {
+            return true;
+        }
+
+        let glob_shadow = graph.edges.iter().any(|e: &Edge| {
+            e.from == scope
+                && e.kind == EK_GLOB
+                && e.vis_range.as_ref().is_some_and(|s| span_covers(s, &at))
+        });
+        if glob_shadow {
+            return true;
+        }
+
+        let macro_shadow = graph
+            .macro_wildcards
+            .iter()
+            .any(|m| m.scope == scope && m.ns == NS_TYPE && span_covers(&m.range, &at));
+        if macro_shadow {
+            return true;
+        }
+    }
+    false
+}
+
+/// The lexical scope chain from `from` up to but excluding the enclosing
+/// `Module`/`Root`. The module/root scope itself is not scanned: the resolved
+/// type's own def-binding lives there and would self-shadow every direct type.
+fn scope_chain_below_module(graph: &ScopeGraph, from: ScopeId) -> Vec<ScopeId> {
+    use crate::name_resolution::types::ScopeKind;
+
+    let mut out = Vec::new();
+    let mut cur = Some(from);
+    while let Some(id) = cur {
+        let Some(s) = graph.scope(id) else { break };
+        if matches!(s.kind, ScopeKind::Module | ScopeKind::Root) {
+            break;
+        }
+        out.push(id);
+        cur = s.parent;
+    }
+    out
+}
+
+/// `Binding::vis_extents` cover `at` (empty extents means scope-wide).
+fn binding_vis_covers(b: &Binding, at: &SourceLoc) -> bool {
+    if b.vis_extents.is_empty() {
+        return true;
+    }
+    b.vis_extents.iter().any(|s| span_covers(s, at))
+}
+
+/// Half-open `[lo, hi)` same-file span cover.
+fn span_covers(s: &Span, at: &SourceLoc) -> bool {
+    s.lo.file == at.file && at.byte >= s.lo.byte && at.byte < s.hi.byte
+}
+
 /// The directory component of a path (`a/b/c.go` -> `a/b`; `c.go` -> ``). For
 /// Go, a package occupies exactly one directory.
 fn dir_of(path: &str) -> &str {
@@ -1474,5 +1695,59 @@ mod embedding_kind_tests {
         assert_eq!(unknown.len(), 1);
         assert_eq!(unknown[0].target, &method);
         assert_eq!(unknown[0].confidence, ResolutionConfidence::Exact);
+    }
+}
+
+#[cfg(test)]
+mod scope_resolution_predicate_tests {
+    use super::*;
+    use crate::call_graph::{CallSite, FunctionId};
+    use crate::name_resolution::graph::ScopeGraph;
+    use crate::name_resolution::types::{FileId, ScopeId};
+    use crate::resolution_disproof::{DisproofCx, DisproofPredicate};
+
+    fn fid(name: &str) -> FunctionId {
+        FunctionId {
+            file: "a.rs".to_string(),
+            name: name.to_string(),
+            start_line: 1,
+            end_line: 1,
+        }
+    }
+
+    fn site(callee: &str) -> CallSite {
+        CallSite {
+            caller: fid("caller"),
+            callee_name: callee.to_string(),
+            line: 1,
+            kind: Default::default(),
+            start_byte: 0,
+            end_byte: 0,
+            qualifier: None,
+            receiver_type: None,
+            receiver_recovery: None,
+            arg_count: None,
+            arg_spread: false,
+            receiver_outcome: None,
+        }
+    }
+
+    #[test]
+    fn non_uniform_edition_disproves_nothing() {
+        // §2 guard: a mixed-edition graph is non-authoritative for disproof.
+        let cg = CallGraph::build(&std::collections::BTreeMap::new());
+        let mut graph = ScopeGraph::new();
+        graph.edition_uniform = false;
+        let cx = DisproofCx {
+            graph: &graph,
+            file: FileId(0),
+            from: ScopeId(0),
+        };
+        let pred = ScopeResolution::new(&cg);
+        let cand = fid("with_file");
+        assert!(
+            !pred.disproves(&cand, &site("CliTest::with_file"), &cx),
+            "non-uniform edition must disprove nothing (keep-all)"
+        );
     }
 }
