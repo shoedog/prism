@@ -1283,8 +1283,8 @@ The probes that anchor this task's RED/GREEN (run during planning, reproducible)
 - An inherent+trait `Widget::make()` with the graph present resolves through the scope block but `graph_target_resolution` returned `None` (ids==2) → **today it DROPS (`UnknownName`)**. The §4 change makes it **`2×NameOnly` demote** (the predicate keeps both — both are owned by the resolved `Widget` scope). This is a recall fix (drop→demote).
 
 **Files:**
-- Modify: `src/resolution.rs` — the Rust scope branch of `resolve_call_site_full` (lines ~690-702) and the fail-open path.
-- Test: `tests/integration/resolution_test.rs` — the predicate behavior tests + the headline recovery + fail-open + re-confirm the three drop invariants.
+- Modify: `src/resolution.rs` — the Rust scope branch of `resolve_call_site_full` (lines ~690-702) with the free-fn guard + owner-prune + fail-open; the `rust_graph_qualified_target_is_free_fn` + `rust_scope_prune_owner` methods on `impl CallGraph`; the `owner_method_key` free helper.
+- Test: `tests/integration/resolution_test.rs` — the predicate behavior tests + the headline recovery + fail-open + the free-fn-misroute guard + re-confirm the three drop invariants.
 
 - [ ] **Step 1: Write the failing integration tests**
 
@@ -1532,6 +1532,63 @@ fn scope_graph_pending_import_alias_over_colliding_pool_keeps_all() {
          would wrongly prune to a::Foo::m and drop b::Foo::m)",
     );
 }
+
+#[test]
+fn scope_graph_free_fn_path_not_misrouted_to_colliding_method_pool() {
+    use prism::languages::Language::Rust;
+    // Residual free-fn misroute (codex re-confirm-2 P1). `crate::m::f()` is a
+    // legitimate MODULE FREE-FUNCTION call. A struct `m` with method `f` lives in
+    // a DIFFERENT module (`other`) — legal Rust — so `methods[("m","f")]` is
+    // populated and `owner_method_key("crate::m::f") == ("m","f")` collides with
+    // it: `has_bare_pool == true` even though this is a free-fn site. The free-fn
+    // guard must divert it to the shipped graph resolution (which resolves the
+    // MODULE free fn `m::f`) and NOT into the owner-prune / `owner_lookup_in_modules`
+    // fail-open (which would mint the cross-module `other::m::f` METHOD — a wrong
+    // edge). The owner-segment `m` binds to a MODULE, not a type, so the resolved
+    // graph target is a free fn (∉ method_owners) → the gate fires.
+    //
+    // NOTE: the discriminating fixture is CROSS-module on purpose. A *same-scope*
+    // `mod m` + `struct m` (codex's first-cut fixture) is illegal Rust (E0428) and
+    // the graph resolves the leading `m` as `Ambiguous` → the qualified edge is
+    // `None` → the guard does NOT fire and the site keeps the recall-safe owner-
+    // prune fail-open; it neither compiles-as-intended nor discriminates the oracle.
+    let sources = [
+        (
+            "src/lib.rs",
+            "mod m;\nmod other;\npub fn drive() {\n    crate::m::f();\n}\n",
+            Rust,
+        ),
+        ("src/m.rs", "pub fn f() {}\n", Rust),
+        (
+            "src/other.rs",
+            "pub struct m;\nimpl m {\n    pub fn f(&self) {}\n}\n",
+            Rust,
+        ),
+    ];
+    let (cg, _) = build(&sources);
+    // Pin the colliding method bucket so the test can't go vacuous (no collision →
+    // has_bare_pool false → the misroute path is never even reachable).
+    assert_eq!(
+        cg.methods
+            .get(&("m".to_string(), "f".to_string()))
+            .map(|v| v.len()),
+        Some(1),
+        "the cross-module struct `m::f` must populate the colliding method bucket",
+    );
+    let out = cg.resolve_call_site_full(&site_in(&cg, "drive", "crate::m::f"));
+    assert_eq!(out.drop, None, "the free-fn `::` path resolves, not drops");
+    assert_eq!(
+        out.resolved.len(),
+        1,
+        "the module free fn is the single resolved target"
+    );
+    assert_eq!(
+        out.resolved[0].target.file, "src/m.rs",
+        "must resolve to the MODULE free fn, never the cross-module method pool \
+         (src/other.rs)",
+    );
+    assert_eq!(out.resolved[0].confidence, ResolutionConfidence::Exact);
+}
 ```
 
 > Implementation note (reviewer/executor): this replaces the earlier
@@ -1553,13 +1610,17 @@ fn scope_graph_pending_import_alias_over_colliding_pool_keeps_all() {
 ```bash
 cargo test --test integration resolution_test::scope_graph_ 2>&1 | tail -40
 ```
-Expected failures (RED): `scope_graph_inherent_plus_trait_owner_demotes_not_drops` FAILS today (drop == `UnknownName`, not demote) — but note Task 4 already rewrote `graph_target_resolution` to `>1→demoted`, so after Task 4 this test may already pass via the scope block. `scope_graph_unresolved_owner_path_keeps_full_pool_not_drop` FAILS today (scope branch returns `dropped(UnknownName)` on a `None` resolution — the fail-open is not yet narrowed). The two ①C keep-all tests (`scope_graph_block_local_glob_shadow_keeps_all`, `scope_graph_macro_wildcard_shadow_keeps_all`) and the ②B directness test (`scope_graph_pending_import_alias_over_colliding_pool_keeps_all`) FAIL today for a *recall* reason that the new ordering fixes: the un-narrowed scope branch (`rust_scope_graph_resolution` first) resolves the module-anchored `Foo::m` to a single `a::Foo::m` Exact and DROPS the real shadowed/colliding `b::Foo::m` edge. (This is also why Step-3's ordering correction matters: those three tests are the regression guard for the bypass.) The two-crate headline (`scope_graph_two_crate_owner_collision_recovers_to_single_exact`) already passes (graph present → `1→Exact`) and is kept as a regression pin.
+Expected failures (RED): `scope_graph_inherent_plus_trait_owner_demotes_not_drops` FAILS today (drop == `UnknownName`, not demote) — but note Task 4 already rewrote `graph_target_resolution` to `>1→demoted`, so after Task 4 this test may already pass via the scope block. `scope_graph_unresolved_owner_path_keeps_full_pool_not_drop` FAILS today (scope branch returns `dropped(UnknownName)` on a `None` resolution — the fail-open is not yet narrowed). The two ①C keep-all tests (`scope_graph_block_local_glob_shadow_keeps_all`, `scope_graph_macro_wildcard_shadow_keeps_all`) and the ②B directness test (`scope_graph_pending_import_alias_over_colliding_pool_keeps_all`) FAIL today for a *recall* reason that the new ordering fixes: the un-narrowed scope branch (`rust_scope_graph_resolution` first) resolves the module-anchored `Foo::m` to a single `a::Foo::m` Exact and DROPS the real shadowed/colliding `b::Foo::m` edge. (This is also why Step-3's ordering correction matters: those three tests are the regression guard for the bypass.) The two-crate headline (`scope_graph_two_crate_owner_collision_recovers_to_single_exact`) already passes (graph present → `1→Exact`) and is kept as a regression pin. **`scope_graph_free_fn_path_not_misrouted_to_colliding_method_pool` also already PASSES at RED** — the shipped scope branch routes `crate::m::f` through `rust_scope_graph_resolution`, which resolves the module free fn correctly; it is a **regression guard for the splice** (the Step-3 `has_bare_pool` branch would *introduce* the misroute by capturing this free-fn site, so the free-fn guard is what keeps this test GREEN through the rewrite — verify it stays GREEN in Step 5, and that *removing* the guard turns it RED).
 
 - [ ] **Step 3: Rewrite the Rust scope branch of `resolve_call_site_full`**
 
 In `src/resolution.rs`, replace the scope block in `resolve_call_site_full` (the `if let Some(graph) = self.scope_graph.as_ref() { ... }` block, lines ~690-702) with the prune + fail-open logic.
 
 **Ordering correction (codex BLOCKER @ Task-5 Step-3 + MAJOR @ the keep-all fixtures).** The original draft ran `rust_scope_graph_resolution` FIRST for *every* site. But for an owner-keyed `T::m` whose leading ident the **module-anchored** callable edge resolves to a single target (a block-local glob/macro/`Pending`-import colliding pool — exactly the ①C/②B keep-all cases), that path mints a single Exact and the disproof prune (which carries the ①C shadow guard and ②B directness) **never runs** → it would drop the real shadowed/aliased edge. So an owner-method `::` site MUST be driven THROUGH the prune (the spec's owner-path authority — disproof gates the id-set resolution); `rust_scope_graph_resolution` is reserved for the shapes the prune does not own: **free-function `::` paths** (`crate::m::free_fn`, `self::f`, `super::f` — no bare `(owner, method)` pool) and **unqualified** calls (the shipped `graph_callable_edge` path). We distinguish owner-method from free-fn by whether a bare `(owner, method)` pool exists in `self.methods`.
+
+**Residual free-fn misroute correction (codex plan re-confirm-2 P1 — VERIFIED against source + empirical probe).** `has_bare_pool` is keyed *only* on the bare `(owner, method)` name pair, so it is `true` even for a legitimate **free-function** `::` call `crate::m::f()` whenever some struct named `m` with a method `f` exists *anywhere in the repo* — including a **different module** (`mod m { pub fn f() {} }` beside `mod other { pub struct m; impl m { fn f(&self) {} } }`, legal Rust). That site is a free-function call, but `owner_method_key("crate::m::f") == ("m","f")` collides with the cross-module method bucket, so the un-gated `has_bare_pool` branch would drive it into the prune, the prune proves nothing (the leading `m` binds to a *module*, not a type — ②B's directness fails), and the fail-open `owner_lookup_in_modules("m","f",[])` mints the cross-module **method** edge — bypassing the authoritative graph free-function resolution and producing a **wrong edge** (recall/precision violation). *Empirical probe (this branch, current binary):* the shipped graph path resolves `crate::m::f` → the module free fn `src/m.rs` (Exact); the un-gated splice would instead mint the `src/other.rs` method.
+
+The correct discriminator is **whether the authoritative graph resolves this `::` path to a free function vs a method** — exactly the method-vs-free-fn signal `graph_target_ids` already encodes via the resolved binding's enclosing-scope owner (`graph_owner_name_for_scope` → `Some(owner)` for an `impl`/type scope = method; `None` for a module scope = free fn; `resolution.rs:582-591,1281-1291`). So **before** entering the owner-prune/fail-open branch, ask the graph: if it resolves the `::` path to a **free-function** target (all resolved `FunctionId`s ∉ `method_owners`), keep the shipped graph resolution (`rust_scope_graph_resolution`, resolve-or-drop) and never touch the owner-prune. Only a **method** graph target — or a path the graph cannot single-resolve (e.g. an *illegal* same-scope `mod m`+`struct m`, which is `Ambiguous` → `None`; that minority non-compiling case keeps the recall-safe owner-prune fail-open, not a real-edge drop) — takes the prune. This neither reintroduces the stem heuristic for free-fn misses (the gate routes to `rust_scope_graph_resolution`, which resolve-or-**drops**) nor perturbs any owner-method site (the headline `CliTest::with_file`, the `Widget` inherent/trait pair, and every ①C/②B keep-all fixture resolve to a **method** graph target, ∈ `method_owners`, so the gate passes them straight through to the prune unchanged).
 
 ```rust
         if let Some(graph) = self.scope_graph.as_ref() {
@@ -1581,6 +1642,27 @@ In `src/resolution.rs`, replace the scope block in `resolve_call_site_full` (the
                     let has_bare_pool = owner_method
                         .as_ref()
                         .is_some_and(|(o, m)| self.methods.contains_key(&(o.clone(), m.clone())));
+
+                    // Free-fn misroute guard (codex re-confirm-2 P1): a bare
+                    // `(owner, method)` pool collides on NAME alone, so a legal
+                    // free-function `::` call `crate::m::f()` whose owner-segment
+                    // name `m` also names a struct (even in another module) would
+                    // wrongly enter the owner-prune and mint that struct's method.
+                    // If the authoritative graph resolves THIS `::` path to a
+                    // free-function target (all ids ∉ method_owners — its binding
+                    // sits in a MODULE scope, not an impl/type owner scope), keep
+                    // the shipped graph resolution (resolve-or-drop) and skip the
+                    // owner-prune entirely. A method target (or an unresolvable
+                    // path) falls through to the prune below, unchanged.
+                    if has_bare_pool
+                        && name.contains("::")
+                        && self.rust_graph_qualified_target_is_free_fn(graph, site, file, from)
+                    {
+                        return match self.rust_scope_graph_resolution(graph, site, file, from) {
+                            Some(resolved) => ResolutionOutcome::hit(resolved),
+                            None => ResolutionOutcome::dropped(DropReason::UnknownName),
+                        };
+                    }
 
                     if has_bare_pool {
                         // Owner-method `T::m`: the prune is the authority. It gates
@@ -1625,8 +1707,9 @@ In `src/resolution.rs`, replace the scope block in `resolve_call_site_full` (the
                     // Free-function `::` path or unqualified call: the shipped
                     // graph resolution (1→Exact / >1→demoted via the Task-4
                     // graph_target_resolution rule). NOTE: this path does NOT mint
-                    // an owner-method Exact (no bare pool), so the ①C/②B bypass
-                    // above cannot recur here.
+                    // an owner-method Exact (no bare pool — or a bare pool whose
+                    // owner-name collides with a free fn, already diverted to the
+                    // free-fn guard above), so the ①C/②B bypass cannot recur here.
                     if let Some(resolved) = self.rust_scope_graph_resolution(graph, site, file, from)
                     {
                         return ResolutionOutcome::hit(resolved);
@@ -1663,9 +1746,43 @@ fn owner_method_key(name: &str) -> Option<(String, String)> {
 }
 ```
 
-- [ ] **Step 4: Add the `rust_scope_prune_owner` method**
+- [ ] **Step 4: Add the `rust_scope_prune_owner` + `rust_graph_qualified_target_is_free_fn` methods**
 
-In `src/resolution.rs`, inside `impl CallGraph`, add the prune helper (place it next to `rust_scope_graph_resolution`):
+In `src/resolution.rs`, inside `impl CallGraph`, add the free-fn-target guard (the
+discriminator for the residual misroute — codex re-confirm-2 P1) next to
+`rust_scope_graph_resolution`:
+
+```rust
+    /// Does the authoritative graph resolve this `::` call's qualified-callable
+    /// path to a **free function** (vs a method)? `true` iff the path resolves to
+    /// a single callable `Target` whose id-set is non-empty and **every** resolved
+    /// `FunctionId` is a free function (∉ `method_owners`) — i.e. its binding sits
+    /// in a MODULE scope, not an `impl`/type owner scope. Used to divert a
+    /// free-function `::` call whose owner-segment NAME collides with a struct's
+    /// method bucket (the `has_bare_pool` false-positive) away from the owner-prune
+    /// and onto the shipped resolve-or-drop graph path. A method target, an
+    /// empty/unresolvable target (e.g. an illegal same-scope `mod m`+`struct m`,
+    /// which resolves `Ambiguous` → `None`), or a non-`::` site returns `false`
+    /// (take the owner-prune — recall-safe; never a real-edge drop).
+    fn rust_graph_qualified_target_is_free_fn(
+        &self,
+        graph: &ScopeGraph,
+        site: &CallSite,
+        file: FileId,
+        from: ScopeId,
+    ) -> bool {
+        if !site.callee_name.contains("::") {
+            return false;
+        }
+        let Some(target) = rust_graph_qualified_callable_edge(graph, site, file, from) else {
+            return false;
+        };
+        let ids = self.graph_target_ids(graph, &target);
+        !ids.is_empty() && ids.iter().all(|fid| !self.method_owners.contains_key(*fid))
+    }
+```
+
+Then add the prune helper (place it next to `rust_scope_graph_resolution`):
 
 ```rust
     /// Owner-keyed disproof prune (spec §4). Fetch the bare `(owner, method)` pool
@@ -1713,7 +1830,7 @@ In `src/resolution.rs`, inside `impl CallGraph`, add the prune helper (place it 
 ```bash
 cargo test --test integration resolution_test::scope_graph_ 2>&1 | tail -40
 ```
-Expected: all six new `scope_graph_*` tests PASS.
+Expected: all seven new `scope_graph_*` tests PASS — the six prune/keep-all tests plus `scope_graph_free_fn_path_not_misrouted_to_colliding_method_pool` (the free-fn guard keeps the module-free-fn resolution `crate::m::f → src/m.rs` instead of letting the `has_bare_pool` branch mint the cross-module `src/other.rs` method). Sanity-check the guard actually fires by temporarily deleting the `rust_graph_qualified_target_is_free_fn` gate: that test then FAILS (resolves to `src/other.rs`, NameOnly), confirming the guard — then restore it.
 
 - [ ] **Step 6: Re-confirm the three shipped drop invariants + the broader resolution suite**
 
@@ -1723,7 +1840,7 @@ cargo test --test integration resolution_test::rust_scope_graph_qualified_paths_
 cargo test --test integration resolution_test::rust_scope_graph_authority_gate_and_poison_skip_legacy 2>&1 | tail -10
 cargo test --test integration resolution_test:: 2>&1 | tail -15
 ```
-Expected: all three drop-invariant tests PASS. The negative `crate::missing::target` case still drops via the FREE-FN path: its bare `("missing","target")` key does not exist (`missing` is a module, `target` a free fn, not a method) → `has_bare_pool == false` → it routes to `rust_scope_graph_resolution`, where the path fails to resolve (no `mod missing;` in lib.rs) → `None` → the final `dropped(UnknownName)`. It never reaches `owner_lookup_in_modules` and never reaches the legacy stem block — so the same-stem guess the invariant forbids cannot fire. The unqualified-bare-miss (`process`) still drops (no bare pool, graph declines). The poison case still drops. The whole `resolution_test::` suite PASSES.
+Expected: all three drop-invariant tests PASS. The negative `crate::missing::target` case still drops via the FREE-FN path: its bare `("missing","target")` key does not exist (`missing` is a module, `target` a free fn, not a method) → `has_bare_pool == false` → it routes to `rust_scope_graph_resolution`, where the path fails to resolve (no `mod missing;` in lib.rs) → `None` → the final `dropped(UnknownName)`. It never reaches `owner_lookup_in_modules` and never reaches the legacy stem block — so the same-stem guess the invariant forbids cannot fire. The unqualified-bare-miss (`process`) still drops (no bare pool, graph declines). The poison case still drops. The whole `resolution_test::` suite PASSES. The **free-fn guard does not perturb any invariant fixture**: it only fires when `has_bare_pool == true` AND the graph resolves the `::` path to a free fn — but the invariant fixtures either have no bare pool (`crate::missing::target`, unqualified `process`) or are owner-method/method-target sites (so `rust_graph_qualified_target_is_free_fn` returns `false`), so the gate is transparent to all of them.
 
 - [ ] **Step 7: Run the full test suite + fmt**
 
@@ -1751,8 +1868,18 @@ a singleton), never the legacy stem heuristic. Free-function `::` paths and
 unqualified calls (no bare pool) take the shipped graph resolution (1→Exact /
 >1→demoted) and drop on a miss. This ordering (prune before any owner-method
 Exact) is required so a module-anchored callable edge cannot mint a single Exact
-that bypasses the ①C/②B guards and drops a real shadowed/colliding edge. The
-three shipped drop invariants are re-confirmed.
+that bypasses the ①C/②B guards and drops a real shadowed/colliding edge.
+
+A free-fn guard (rust_graph_qualified_target_is_free_fn) gates the owner-prune
+branch: `has_bare_pool` collides on NAME alone, so a legal free-function `::` call
+crate::m::f() whose owner-segment name `m` also names a struct's method bucket
+(even cross-module) would otherwise be misrouted into the prune/fail-open and mint
+that struct's METHOD. The guard asks the authoritative graph whether the `::` path
+resolves to a free function (resolved ids ∉ method_owners) and, if so, keeps the
+shipped resolve-or-drop graph path — never the owner-prune. A method target or an
+unresolvable path (e.g. an illegal same-scope mod m+struct m, Ambiguous → None)
+keeps the recall-safe owner-prune. The three shipped drop invariants are
+re-confirmed.
 
 Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
 EOF
