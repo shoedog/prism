@@ -137,8 +137,8 @@ Replace it with:
 
 - [ ] **Step 6: Run both Task 1 tests; verify PASS**
 
-Run: `cargo test --test integration resolution_test::owner_collision_pool_demotes_to_name_only resolution_test::owner_single_candidate_stays_exact`
-Expected: both PASS.
+Run (one substring filter matches both `owner_collision_*` and `owner_single_*`): `cargo test --test integration resolution_test::owner_`
+Expected: both PASS (and no other `resolution_test::owner_*` test exists yet at this point).
 
 - [ ] **Step 7: Verify the trait-CHA arm is untouched**
 
@@ -301,13 +301,57 @@ fn call_stats_same_name_owner_collision_demotes_out_of_multi_target_exact() {
 
 (update the function name on its `#[test]` line; leave the fixture body unchanged.)
 
+**Also update the SECOND collision test (plan-review BLOCKER).**
+`call_stats_shadow_stratifies_type_path_collision_and_runs_narrowing` (same file,
+`:77`) uses the *same* `Foo::make` collision and asserts `multi_target_exact_sites
+== 1`, `multi_target_exact_shape["type_path"] == 1`, and
+`shadow_typepath_narrow["failopen_type_unresolved"] == 1`. After the demote the site
+is NameOnly, so it is no longer multi-target-Exact and the shape/shadow block (gated
+on ≥2 Exact edges in `src/navigation/queries.rs`) never runs — all three assertions
+break. Replace its assertion block:
+
+```rust
+    let v: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(v["multi_target_exact_sites"], 1);
+    // The colliding site is recognized as a type-path (`T::m`) shape...
+    assert_eq!(v["multi_target_exact_shape"]["type_path"], 1);
+    // ...and the narrowing shadow runs over it and classifies it (here the owner
+    // type cannot be resolved to a single in-repo scope -> fail-open).
+    assert_eq!(v["shadow_typepath_narrow"]["failopen_type_unresolved"], 1);
+```
+
+with:
+
+```rust
+    let v: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    // After demote-not-drop the `Foo::make` collision resolves NameOnly, so it is no
+    // longer multi-target-Exact: the shape/shadow stratification (gated on >=2 Exact
+    // edges) does not run, and both edges land in kind_nameonly[qualified_owner].
+    assert_eq!(v["multi_target_exact_sites"], 0);
+    assert_eq!(v["multi_target_exact_shape"].as_object().unwrap().len(), 0);
+    assert_eq!(v["shadow_typepath_narrow"].as_object().unwrap().len(), 0);
+    assert_eq!(v["kind_nameonly"]["qualified_owner"], 2);
+```
+
+and rename it:
+
+```rust
+fn call_stats_demoted_collision_absent_from_shape_and_shadow() {
+```
+
+(The shadow/shape counters stay in the code — they remain the forward instrument for
+the completeness-gate follow-on, where ruff gains a scope graph and the shadow again
+measures live narrowability; post-demote they are simply empty for collisions.)
+
 - [ ] **Step 2: Build the cli test binary and run the inverted test**
 
 ```bash
 cargo build --bin prism
 cargo test --test cli --no-run
-CLI_BIN=$(ls -t target/debug/deps/cli-* | grep -v '\.d$' | head -1)
+# -type f + executable bit avoids matching the macOS `cli-*.dSYM` directory.
+CLI_BIN=$(find target/debug/deps -maxdepth 1 -type f -name 'cli-*' ! -name '*.d' -perm -111 | head -1)
 "$CLI_BIN" call_stats_test::call_stats_same_name_owner_collision_demotes_out_of_multi_target_exact --exact --nocapture
+"$CLI_BIN" call_stats_test::call_stats_demoted_collision_absent_from_shape_and_shadow --exact --nocapture
 ```
 Expected: PASS (`multi_target_exact_sites == 0`, `kind_nameonly[qualified_owner] == 2`).
 
@@ -324,8 +368,8 @@ Expected: GREEN. If any test fails because it asserted **Exact on a multi-same-o
 ```bash
 "$CLI_BIN" call_stats_test:: --nocapture
 ```
-(`$CLI_BIN` from Step 2; or re-derive: `CLI_BIN=$(ls -t target/debug/deps/cli-* | grep -v '\.d$' | head -1)`.)
-Expected: all PASS (the other three call-stats tests are unaffected — they use single-owner / embedded-promotion / drop fixtures).
+(`$CLI_BIN` from Step 2.)
+Expected: all four call-stats tests PASS — the two updated collision tests (Step 1) plus the two genuinely unaffected ones (`call_stats_reports_kind_counts_and_drops`, `call_stats_reports_embedded_promotion_and_ambiguity`, which use drop / embedded-promotion fixtures, not a same-owner collision).
 
 - [ ] **Step 5: Commit**
 
@@ -364,7 +408,7 @@ for r in /Users/wesleyjinks/code/slicing /Users/wesleyjinks/code/bench-repos/ruf
     | grep -E '"multi_target_exact_sites":'
 done
 ```
-Expected: `multi_target_exact_sites` drops substantially versus the spec §1 baseline. Note **only the `owner_lookup`-routed shapes demote** — `qualified_owner`, `typed_param`, `self_receiver`, `qualifier_field` fall out of `kind_exact` and into `kind_nameonly`; a residual from non-`owner_lookup` Exact-multi paths (`import_qualified`, `local_def`) may remain, so do not expect exactly 0. The load-bearing signal is `kind_exact[qualified_owner]`/`[typed_param]`/`[self_receiver]` dropping toward 0 with the matching `kind_nameonly` rising. For richer detail also dump `multi_target_exact_by_kind` and `kind_exact`/`kind_nameonly`. Paste before/after into the PR description.
+Expected: `multi_target_exact_sites` drops substantially versus the spec §1 baseline. Note **only the `owner_lookup`-routed shapes demote** — the resolution *kinds* `qualified_owner`, `typed_param`, `self_receiver`, `qualifier_owner` fall out of `kind_exact` and into `kind_nameonly` (note `qualifier_owner` is the kind; `qualifier_field` is a `multi_target_exact_shape` key, not a kind); a residual from non-`owner_lookup` Exact-multi paths (`import_qualified`, `local_def`) may remain, so do not expect exactly 0. The load-bearing signal is `kind_exact[qualified_owner]`/`[typed_param]`/`[self_receiver]` dropping toward 0 with the matching `kind_nameonly` rising. For richer detail also dump `multi_target_exact_by_kind` and `kind_exact`/`kind_nameonly`. Paste before/after into the PR description.
 
 - [ ] **Step 3: Tier-A matrix gate (no-LSP, fast)**
 
