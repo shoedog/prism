@@ -663,8 +663,19 @@ impl CallGraph {
             .filter_map(|fid| self.method_owners.get(*fid).map(|s| s.as_str()))
             .collect();
         Some(if pool.len() > 1 && primary_owners.len() > 1 {
+            // Multiple DISTINCT primary owners — trait-CHA (dyn Trait). Unchanged.
             demoted(pool, ResolutionKind::TraitCha)
+        } else if pool.len() > 1 {
+            // Non-trait multi-candidate owner-key ambiguity: >1 candidate under one
+            // primary owner name with no scope proof reached here — same-name-type
+            // collisions, overloads, or inherent+trait same-name dups. Demote: keep
+            // every edge (recall) but not at full confidence. Kind stays
+            // QualifiedOwner so caller relabels (R3b/Self::/R6/implicit-this) fire
+            // unchanged; only the confidence rides through as NameOnly. Recoverable
+            // to Exact once an upstream capability supplies the discrimination.
+            demoted(pool, ResolutionKind::QualifiedOwner)
         } else {
+            // Single candidate — Exact, unchanged.
             exact(pool, ResolutionKind::QualifiedOwner)
         })
     }
