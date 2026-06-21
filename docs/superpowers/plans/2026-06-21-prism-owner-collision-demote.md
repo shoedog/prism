@@ -348,8 +348,9 @@ measures live narrowability; post-demote they are simply empty for collisions.)
 ```bash
 cargo build --bin prism
 cargo test --test cli --no-run
-# -type f + executable bit avoids matching the macOS `cli-*.dSYM` directory.
-CLI_BIN=$(find target/debug/deps -maxdepth 1 -type f -name 'cli-*' ! -name '*.d' -perm -111 | head -1)
+# mtime-sorted (freshest first), excludes `.d` depfiles and the macOS `cli-*.dSYM`
+# dir; `find` is NOT used here because it does not sort and can return a stale binary.
+CLI_BIN=$(ls -t target/debug/deps/cli-* 2>/dev/null | grep -vE '\.(d|dSYM)$' | head -1)
 "$CLI_BIN" call_stats_test::call_stats_same_name_owner_collision_demotes_out_of_multi_target_exact --exact --nocapture
 "$CLI_BIN" call_stats_test::call_stats_demoted_collision_absent_from_shape_and_shadow --exact --nocapture
 ```
