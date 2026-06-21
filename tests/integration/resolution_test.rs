@@ -2835,3 +2835,74 @@ fn arity_admits_and_filter_keep_on_every_unknown() {
         "known 2 == 2 -> kept"
     );
 }
+
+#[test]
+fn go_unqualified_freefn_resolves_same_package_not_cross_package() {
+    use prism::languages::Language::Go;
+    // Two packages (= directories) each define a free fn `NewThing`. An
+    // unqualified call in package `a`, in a *different file* than the def (so the
+    // same-FILE rung R4 misses), must resolve to `a`'s NewThing ONLY — Go
+    // semantics: an unqualified call resolves within its own package, never
+    // cross-package (a real cross-package call is qualified `b.NewThing()`).
+    // Pre-fix the repo-wide free-fn rung (R5) over-attributes to both a's and b's
+    // as a demoted FreeMulti; R4.5 must narrow to the same-package def.
+    let (cg, _) = build(&[
+        (
+            "a/def.go",
+            "package a\nfunc NewThing() int { return 1 }\n",
+            Go,
+        ),
+        (
+            "a/use.go",
+            "package a\nfunc useNew() int { return NewThing() }\n",
+            Go,
+        ),
+        (
+            "b/def.go",
+            "package b\nfunc NewThing() int { return 2 }\n",
+            Go,
+        ),
+    ]);
+    let site = site_in(&cg, "useNew", "NewThing");
+    let resolved = cg.resolve_call_site(&site);
+    assert_eq!(
+        resolved.len(),
+        1,
+        "exactly the same-package target, not cross-package FreeMulti: {resolved:?}"
+    );
+    assert_eq!(resolved[0].target.file, "a/def.go");
+    assert_eq!(resolved[0].confidence, ResolutionConfidence::Exact);
+    assert_eq!(resolved[0].kind, ResolutionKind::SamePackage);
+}
+
+#[test]
+fn go_same_package_freefn_multi_def_demotes_not_exact() {
+    use prism::languages::Language::Go;
+    // A directory holding two same-name free funcs — e.g. mutually-exclusive
+    // build-tag files (or a black-box `_test` package) the build-agnostic
+    // whole-text scan can't separate — must DEMOTE rather than over-claim Exact.
+    // R4.5 still prefers the same dir over R5's repo-wide set, but the targets
+    // are NameOnly because we can't pick one without package-clause/build context.
+    let (cg, _) = build(&[
+        ("a/x.go", "package a\nfunc F() int { return 1 }\n", Go),
+        (
+            "a/y.go",
+            "//go:build other\npackage a\nfunc F() int { return 2 }\n",
+            Go,
+        ),
+        (
+            "a/use.go",
+            "package a\nfunc useF() int { return F() }\n",
+            Go,
+        ),
+    ]);
+    let site = site_in(&cg, "useF", "F");
+    let resolved = cg.resolve_call_site(&site);
+    assert_eq!(resolved.len(), 2, "both same-dir defs kept: {resolved:?}");
+    assert!(resolved
+        .iter()
+        .all(|r| r.confidence == ResolutionConfidence::NameOnly));
+    assert!(resolved
+        .iter()
+        .all(|r| r.kind == ResolutionKind::SamePackage));
+}
