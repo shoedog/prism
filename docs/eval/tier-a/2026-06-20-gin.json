@@ -1,0 +1,7673 @@
+{
+ "m1": {
+  "anon_oracle": 0,
+  "anon_prism": 0,
+  "matched": 1313,
+  "prism_extra": 0,
+  "prism_missing": 57,
+  "snapshot_prism_missing": 57
+ },
+ "m2": {
+  "callees": {
+   "C-method": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.6755924316585924,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.6755924316585924,
+      1.0
+     ],
+     "tp": 8
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 3,
+      "precision": [
+       0.4,
+       0.11762077314099711,
+       0.7692757205908813
+      ],
+      "recall": [
+       1.0,
+       0.3423802239546494,
+       1.0
+      ],
+      "tp": 2
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 3,
+      "precision": [
+       0.4,
+       0.11762077314099711,
+       0.7692757205908813
+      ],
+      "recall": [
+       1.0,
+       0.3423802239546494,
+       1.0
+      ],
+      "tp": 2
+     }
+    },
+    "pending": 1,
+    "raw": {
+     "fn": 0,
+     "fp": 1,
+     "precision": [
+      0.8888888888888888,
+      0.565000291629209,
+      0.9801091125830901
+     ],
+     "recall": [
+      1.0,
+      0.6755924316585924,
+      1.0
+     ],
+     "tp": 8
+    },
+    "shortfall": 0
+   },
+   "C-name": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.6096657083436265,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.6096657083436265,
+      1.0
+     ],
+     "tp": 6
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.6096657083436265,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.6096657083436265,
+       1.0
+      ],
+      "tp": 6
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.6096657083436265,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.6096657083436265,
+       1.0
+      ],
+      "tp": 6
+     }
+    },
+    "pending": 0,
+    "raw": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.6096657083436265,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.6096657083436265,
+      1.0
+     ],
+     "tp": 6
+    },
+    "shortfall": 0
+   },
+   "Q-scoped": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.5655175313406071,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.5655175313406071,
+      1.0
+     ],
+     "tp": 5
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 1,
+      "precision": [
+       0.875,
+       0.5291118149439162,
+       0.9775825088000281
+      ],
+      "recall": [
+       1.0,
+       0.6456695613241317,
+       1.0
+      ],
+      "tp": 7
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 1,
+      "precision": [
+       0.875,
+       0.5291118149439162,
+       0.9775825088000281
+      ],
+      "recall": [
+       1.0,
+       0.6456695613241317,
+       1.0
+      ],
+      "tp": 7
+     }
+    },
+    "pending": 6,
+    "raw": {
+     "fn": 4,
+     "fp": 2,
+     "precision": [
+      0.7142857142857143,
+      0.3589344495310541,
+      0.9177810767507166
+     ],
+     "recall": [
+      0.5555555555555556,
+      0.26665129180087416,
+      0.8112214802294544
+     ],
+     "tp": 5
+    },
+    "shortfall": 0
+   },
+   "U-free": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.8318207737404363,
+      0.9999999999999999
+     ],
+     "recall": [
+      1.0,
+      0.8318207737404363,
+      0.9999999999999999
+     ],
+     "tp": 19
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 1,
+      "precision": [
+       0.8571428571428571,
+       0.486872167860775,
+       0.9743203759421759
+      ],
+      "recall": [
+       1.0,
+       0.6096657083436265,
+       1.0
+      ],
+      "tp": 6
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 1,
+      "precision": [
+       0.8571428571428571,
+       0.486872167860775,
+       0.9743203759421759
+      ],
+      "recall": [
+       1.0,
+       0.6096657083436265,
+       1.0
+      ],
+      "tp": 6
+     }
+    },
+    "pending": 2,
+    "raw": {
+     "fn": 1,
+     "fp": 1,
+     "precision": [
+      0.95,
+      0.7638688045357189,
+      0.9911185512976646
+     ],
+     "recall": [
+      0.95,
+      0.7638688045357189,
+      0.9911185512976646
+     ],
+     "tp": 19
+    },
+    "shortfall": 0
+   },
+   "U-method": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.6456695613241317,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.6456695613241317,
+      1.0
+     ],
+     "tp": 7
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.5655175313406071,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.5655175313406071,
+       1.0
+      ],
+      "tp": 5
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.5655175313406071,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.5655175313406071,
+       1.0
+      ],
+      "tp": 5
+     }
+    },
+    "pending": 0,
+    "raw": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.6456695613241317,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.6456695613241317,
+      1.0
+     ],
+     "tp": 7
+    },
+    "shortfall": 0
+   }
+  },
+  "callers": {
+   "C-method": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.9059421728185313,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.9059421728185313,
+      1.0
+     ],
+     "tp": 37
+    },
+    "function": {
+     "corrected": {
+      "fn": 49,
+      "fp": 2,
+      "precision": [
+       0.9375,
+       0.7985287670813637,
+       0.982689433124541
+      ],
+      "recall": [
+       0.379746835443038,
+       0.2806649525098339,
+       0.4899812884354734
+      ],
+      "tp": 30
+     },
+     "raw": {
+      "fn": 49,
+      "fp": 2,
+      "precision": [
+       0.9375,
+       0.7985287670813637,
+       0.982689433124541
+      ],
+      "recall": [
+       0.379746835443038,
+       0.2806649525098339,
+       0.4899812884354734
+      ],
+      "tp": 30
+     }
+    },
+    "pending": 87,
+    "raw": {
+     "fn": 85,
+     "fp": 2,
+     "precision": [
+      0.9487179487179487,
+      0.8311435982403941,
+      0.9858220447125474
+     ],
+     "recall": [
+      0.30327868852459017,
+      0.22874648335304437,
+      0.38982119357386136
+     ],
+     "tp": 37
+    },
+    "shortfall": 0
+   },
+   "C-name": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.8830301998708162,
+      0.9999999999999999
+     ],
+     "recall": [
+      1.0,
+      0.8830301998708162,
+      0.9999999999999999
+     ],
+     "tp": 29
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.8063923170025951,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.8063923170025951,
+       1.0
+      ],
+      "tp": 16
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.8063923170025951,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.8063923170025951,
+       1.0
+      ],
+      "tp": 16
+     }
+    },
+    "pending": 0,
+    "raw": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.8830301998708162,
+      0.9999999999999999
+     ],
+     "recall": [
+      1.0,
+      0.8830301998708162,
+      0.9999999999999999
+     ],
+     "tp": 29
+    },
+    "shortfall": 0
+   },
+   "Q-scoped": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.6096657083436265,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.6096657083436265,
+      1.0
+     ],
+     "tp": 6
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.3423802239546494,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.3423802239546494,
+       1.0
+      ],
+      "tp": 2
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.3423802239546494,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.3423802239546494,
+       1.0
+      ],
+      "tp": 2
+     }
+    },
+    "pending": 0,
+    "raw": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.6096657083436265,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.6096657083436265,
+      1.0
+     ],
+     "tp": 6
+    },
+    "shortfall": 0
+   },
+   "U-free": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.7575059904469021,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.7575059904469021,
+      1.0
+     ],
+     "tp": 12
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.700854948272956,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.700854948272956,
+       1.0
+      ],
+      "tp": 9
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.700854948272956,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.700854948272956,
+       1.0
+      ],
+      "tp": 9
+     }
+    },
+    "pending": 0,
+    "raw": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.7575059904469021,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.7575059904469021,
+      1.0
+     ],
+     "tp": 12
+    },
+    "shortfall": 0
+   },
+   "U-method": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.8241207740667156,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.8241207740667156,
+      1.0
+     ],
+     "tp": 18
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 49,
+      "precision": [
+       0.20967741935483872,
+       0.12683989238428597,
+       0.3263921499842839
+      ],
+      "recall": [
+       1.0,
+       0.7719046248681998,
+       1.0
+      ],
+      "tp": 13
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 49,
+      "precision": [
+       0.20967741935483872,
+       0.12683989238428597,
+       0.3263921499842839
+      ],
+      "recall": [
+       1.0,
+       0.7719046248681998,
+       1.0
+      ],
+      "tp": 13
+     }
+    },
+    "pending": 54,
+    "raw": {
+     "fn": 0,
+     "fp": 54,
+     "precision": [
+      0.25,
+      0.16439051169632135,
+      0.3609350749812009
+     ],
+     "recall": [
+      1.0,
+      0.8241207740667156,
+      1.0
+     ],
+     "tp": 18
+    },
+    "shortfall": 0
+   }
+  }
+ },
+ "m3": {
+  "cap": 25,
+  "checked": [
+   {
+    "probe": "callers:binding/binding_test.go:1372",
+    "site": "binding/binding_test.go:535",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:binding/binding_test.go:1372",
+    "site": "binding/binding_test.go:543",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:binding/binding_test.go:1372",
+    "site": "binding/binding_test.go:560",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:binding/binding_test.go:1372",
+    "site": "binding/binding_test.go:568",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:binding/binding_test.go:1372",
+    "site": "binding/binding_test.go:585",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:binding/binding_test.go:1372",
+    "site": "binding/binding_test.go:600",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:binding/binding_test.go:1372",
+    "site": "binding/binding_test.go:614",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:binding/binding_test.go:1372",
+    "site": "binding/binding_test.go:666",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:binding/binding_test.go:1372",
+    "site": "binding/multipart_form_mapping_test.go:116",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:binding/binding_test.go:1372",
+    "site": "context.go:708",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:binding/binding_test.go:1372",
+    "site": "context.go:724",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:binding/binding_test.go:1372",
+    "site": "context.go:742",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:binding/binding_test.go:1372",
+    "site": "context_test.go:54",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:binding/binding_test.go:1372",
+    "site": "context_test.go:160",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:binding/binding_test.go:1372",
+    "site": "context_test.go:174",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:binding/binding_test.go:1372",
+    "site": "context_test.go:192",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:binding/binding_test.go:1372",
+    "site": "context_test.go:206",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:binding/binding_test.go:1372",
+    "site": "context_test.go:225",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:binding/binding_test.go:1372",
+    "site": "context_test.go:243",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:binding/binding_test.go:1372",
+    "site": "context_test.go:267",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:binding/binding_test.go:1372",
+    "site": "context_test.go:3344",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:binding/binding_test.go:1372",
+    "site": "debug_test.go:163",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:binding/binding_test.go:1372",
+    "site": "gin.go:594",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:binding/binding_test.go:1372",
+    "site": "gin.go:617",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:binding/binding_test.go:1372",
+    "site": "gin.go:622",
+    "verdict": "ambiguous"
+   }
+  ],
+  "counts": {
+   "alias_site": 0,
+   "ambiguous": 25,
+   "confirmed_fp": 0,
+   "confirmed_tp": 0
+  }
+ },
+ "meta": {
+  "baseline_invalid": true,
+  "corpus": "gin",
+  "corpus_dirty": false,
+  "corpus_dirty_reasons": [],
+  "corpus_sha": "d75fcd4c9ab2",
+  "date": "2026-06-20",
+  "harness_sha": "06e6ac4ee96e",
+  "invalid_reasons": [
+   "oracle_error_rate 0.12 > 0.10"
+  ],
+  "oracle": "gopls {\"GoVersion\":\"go1.26.2\",\"Path\":\"golang.org/x/tools/gopls\",\"Main\":{\"Path\":\"golang.org/x/tools/gopls\",\"Version\":\"v0.22.0\",\"Sum\":\"h1:9aON2mTxKrZ1y71RbQVnlPTTNfKZ9y5cv3x/f6XpsZw=\"},\"Deps\":[{\"Path\":\"github.com/BurntSushi/toml\",\"Version\":\"v1.6.0\",\"Sum\":\"h1:dRaEfpa2VI55EwlIW72hMRHdWouJeRF7TPYhI+AUQjk=\"},{\"Path\":\"github.com/fatih/camelcase\",\"Version\":\"v1.0.0\",\"Sum\":\"h1:hxNvNX/xYBp0ovncs8WyWZrOrpBNub/JfaMvbURyft8=\"},{\"Path\":\"github.com/fatih/gomodifytags\",\"Version\":\"v1.17.1-0.20250423142747-f3939df9aa3c\",\"Sum\":\"h1:dDSgAjoOMp8da3egfz0t2S+t8RGOpEmEXZubcGuc0Bg=\"},{\"Path\":\"github.com/fatih/structtag\",\"Version\":\"v1.2.0\",\"Sum\":\"h1:/OdNE99OxoI/PqaW/SuSK9uxxT3f/tcSZgon/ssNSx4=\"},{\"Path\":\"github.com/fsnotify/fsnotify\",\"Version\":\"v1.9.0\",\"Sum\":\"h1:2Ml+OJNzbYCTzsxtv8vKSFD9PbJjmhYF14k/jKC7S9k=\"},{\"Path\":\"github.com/google/go-cmp\",\"Version\":\"v0.7.0\",\"Sum\":\"h1:wk8382ETsv4JYUZwIsn6YpYiWiBsYLSJiTsyBybVuN8=\"},{\"Path\":\"github.com/google/jsonschema-go\",\"Version\":\"v0.4.2\",\"Sum\":\"h1:tmrUohrwoLZZS/P3x7ex0WAVknEkBZM46iALbcqoRA8=\"},{\"Path\":\"github.com/modelcontextprotocol/go-sdk\",\"Version\":\"v1.4.0\",\"Sum\":\"h1:u0kr8lbJc1oBcawK7Df+/ajNMpIDFE41OEPxdeTLOn8=\"},{\"Path\":\"github.com/segmentio/asm\",\"Version\":\"v1.2.1\",\"Sum\":\"h1:DTNbBqs57ioxAD4PrArqftgypG4/qNpXoJx8TVXxPR0=\"},{\"Path\":\"github.com/segmentio/encoding\",\"Version\":\"v0.5.3\",\"Sum\":\"h1:OjMgICtcSFuNvQCdwqMCv9Tg7lEOXGwm1J5RPQccx6w=\"},{\"Path\":\"github.com/yosida95/uritemplate/v3\",\"Version\":\"v3.0.2\",\"Sum\":\"h1:Ed3Oyj9yrmi9087+NczuL5BwkIc4wvTb5zIM+UJPGz4=\"},{\"Path\":\"golang.org/x/exp/typeparams\",\"Version\":\"v0.0.0-20260312153236-7ab1446f8b90\",\"Sum\":\"h1:cfW8UCYSVdPblxA7qQe3o5Iad55Vsx4BFmuGS9RNOmc=\"},{\"Path\":\"golang.org/x/mod\",\"Version\":\"v0.35.0\",\"Sum\":\"h1:Ww1D637e6Pg+Zb2KrWfHQUnH2dQRLBQyAtpr/haaJeM=\"},{\"Path\":\"golang.org/x/oauth2\",\"Version\":\"v0.36.0\",\"Sum\":\"h1:peZ/1z27fi9hUOFCAZaHyrpWG5lwe0RJEEEeH0ThlIs=\"},{\"Path\":\"golang.org/x/sync\",\"Version\":\"v0.20.0\",\"Sum\":\"h1:e0PTpb7pjO8GAtTs2dQ6jYa5BWYlMuX047Dco/pItO4=\"},{\"Path\":\"golang.org/x/sys\",\"Version\":\"v0.43.0\",\"Sum\":\"h1:Rlag2XtaFTxp19wS8MXlJwTvoh8ArU6ezoyFsMyCTNI=\"},{\"Path\":\"golang.org/x/telemetry\",\"Version\":\"v0.0.0-20260409153401-be6f6cb8b1fa\",\"Sum\":\"h1:efT73AJZfAAUV7SOip6pWGkwJDzIGiKBZGVzHYa+ve4=\"},{\"Path\":\"golang.org/x/text\",\"Version\":\"v0.36.0\",\"Sum\":\"h1:JfKh3XmcRPqZPKevfXVpI1wXPTqbkE5f7JA92a55Yxg=\"},{\"Path\":\"golang.org/x/tools\",\"Version\":\"v0.44.1-0.20260513175300-635ae9663724\",\"Sum\":\"h1:rz7KAMVmPA+7ecCT/BHKLE353MUOoCAwMqlUveE8508=\"},{\"Path\":\"golang.org/x/vuln\",\"Version\":\"v1.1.4\",\"Sum\":\"h1:Ju8QsuyhX3Hk8ma3CesTbO8vfJD9EvUBgHvkxHBzj0I=\"},{\"Path\":\"honnef.co/go/tools\",\"Version\":\"v0.7.0\",\"Sum\":\"h1:w6WUp1VbkqPEgLz4rkBzH/CSU6HkoqNLp6GstyTx3lU=\"},{\"Path\":\"mvdan.cc/gofumpt\",\"Version\":\"v0.9.2\",\"Sum\":\"h1:zsEMWL8SVKGHNztrx6uZrXdp7AX8r421Vvp23sz7ik4=\"},{\"Path\":\"mvdan.cc/xurls/v2\",\"Version\":\"v2.6.0\",\"Sum\":\"h1:3NTZpeTxYVWNSokW3MKeyVkz/j7uYXYiMtXRUfmjbgI=\"}],\"Settings\":[{\"Key\":\"-buildmode\",\"Value\":\"exe\"},{\"Key\":\"-compiler\",\"Value\":\"gc\"},{\"Key\":\"CGO_ENABLED\",\"Value\":\"1\"},{\"Key\":\"CGO_CFLAGS\"},{\"Key\":\"CGO_CPPFLAGS\"},{\"Key\":\"CGO_CXXFLAGS\"},{\"Key\":\"CGO_LDFLAGS\"},{\"Key\":\"GOARCH\",\"Value\":\"arm64\"},{\"Key\":\"GOOS\",\"Value\":\"darwin\"},{\"Key\":\"GOARM64\",\"Value\":\"v8.0\"}],\"Version\":\"v0.22.0\"}",
+  "oracle_error_rate": 0.125,
+  "oracle_not_quiescent": false,
+  "prism_dirty": false,
+  "prism_sha": "20c8490591a3",
+  "seed": 42,
+  "stale_adjudications": 0,
+  "sut_error_rate": 0.0,
+  "wall_s": {
+   "m1_oracle_inventory": 1.096,
+   "m2": 14.091,
+   "m3": 0.007,
+   "oracle_start": 6.007
+  }
+ },
+ "pending": [
+  {
+   "corpus": "gin",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callers",
+   "seed_def": "binding/binding_test.go:1372",
+   "site": "binding/binding_test.go:535",
+   "site_fingerprint": "5c05fd7b78ed859e"
+  },
+  {
+   "corpus": "gin",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callers",
+   "seed_def": "binding/binding_test.go:1372",
+   "site": "binding/binding_test.go:543",
+   "site_fingerprint": "8b800c50aa181caa"
+  },
+  {
+   "corpus": "gin",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callers",
+   "seed_def": "binding/binding_test.go:1372",
+   "site": "binding/binding_test.go:560",
+   "site_fingerprint": "5c05fd7b78ed859e"
+  },
+  {
+   "corpus": "gin",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callers",
+   "seed_def": "binding/binding_test.go:1372",
+   "site": "binding/binding_test.go:568",
+   "site_fingerprint": "764dbf24ea168211"
+  },
+  {
+   "corpus": "gin",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callers",
+   "seed_def": "binding/binding_test.go:1372",
+   "site": "binding/binding_test.go:585",
+   "site_fingerprint": "5c05fd7b78ed859e"
+  },
+  {
+   "corpus": "gin",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callers",
+   "seed_def": "binding/binding_test.go:1372",
+   "site": "binding/binding_test.go:600",
+   "site_fingerprint": "5c05fd7b78ed859e"
+  },
+  {
+   "corpus": "gin",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callers",
+   "seed_def": "binding/binding_test.go:1372",
+   "site": "binding/binding_test.go:614",
+   "site_fingerprint": "5c05fd7b78ed859e"
+  },
+  {
+   "corpus": "gin",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callers",
+   "seed_def": "binding/binding_test.go:1372",
+   "site": "binding/binding_test.go:666",
+   "site_fingerprint": "6ff8841b8549714a"
+  },
+  {
+   "corpus": "gin",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callers",
+   "seed_def": "binding/binding_test.go:1372",
+   "site": "binding/multipart_form_mapping_test.go:116",
+   "site_fingerprint": "cf1f839b93095e93"
+  },
+  {
+   "corpus": "gin",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callers",
+   "seed_def": "binding/binding_test.go:1372",
+   "site": "context.go:708",
+   "site_fingerprint": "e9b50b201182ea8b"
+  },
+  {
+   "corpus": "gin",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callers",
+   "seed_def": "binding/binding_test.go:1372",
+   "site": "context.go:724",
+   "site_fingerprint": "15d45f982d0e17d8"
+  },
+  {
+   "corpus": "gin",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callers",
+   "seed_def": "binding/binding_test.go:1372",
+   "site": "context.go:742",
+   "site_fingerprint": "18be5fb16b375996"
+  },
+  {
+   "corpus": "gin",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callers",
+   "seed_def": "binding/binding_test.go:1372",
+   "site": "context_test.go:54",
+   "site_fingerprint": "5c05fd7b78ed859e"
+  },
+  {
+   "corpus": "gin",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callers",
+   "seed_def": "binding/binding_test.go:1372",
+   "site": "context_test.go:160",
+   "site_fingerprint": "79d9227844423315"
+  },
+  {
+   "corpus": "gin",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callers",
+   "seed_def": "binding/binding_test.go:1372",
+   "site": "context_test.go:174",
+   "site_fingerprint": "e6273708110812c7"
+  },
+  {
+   "corpus": "gin",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callers",
+   "seed_def": "binding/binding_test.go:1372",
+   "site": "context_test.go:192",
+   "site_fingerprint": "79d9227844423315"
+  },
+  {
+   "corpus": "gin",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callers",
+   "seed_def": "binding/binding_test.go:1372",
+   "site": "context_test.go:206",
+   "site_fingerprint": "b414c990d4ce1b50"
+  },
+  {
+   "corpus": "gin",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callers",
+   "seed_def": "binding/binding_test.go:1372",
+   "site": "context_test.go:225",
+   "site_fingerprint": "79d9227844423315"
+  },
+  {
+   "corpus": "gin",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callers",
+   "seed_def": "binding/binding_test.go:1372",
+   "site": "context_test.go:243",
+   "site_fingerprint": "79d9227844423315"
+  },
+  {
+   "corpus": "gin",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callers",
+   "seed_def": "binding/binding_test.go:1372",
+   "site": "context_test.go:267",
+   "site_fingerprint": "79d9227844423315"
+  },
+  {
+   "corpus": "gin",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callers",
+   "seed_def": "binding/binding_test.go:1372",
+   "site": "context_test.go:3344",
+   "site_fingerprint": "48433c8284d23420"
+  },
+  {
+   "corpus": "gin",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callers",
+   "seed_def": "binding/binding_test.go:1372",
+   "site": "debug_test.go:163",
+   "site_fingerprint": "8169ad0ae4b436fe"
+  },
+  {
+   "corpus": "gin",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callers",
+   "seed_def": "binding/binding_test.go:1372",
+   "site": "gin.go:594",
+   "site_fingerprint": "a444e0f29af9c5d8"
+  },
+  {
+   "corpus": "gin",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callers",
+   "seed_def": "binding/binding_test.go:1372",
+   "site": "gin.go:617",
+   "site_fingerprint": "3a70bc03b225fdbc"
+  },
+  {
+   "corpus": "gin",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callers",
+   "seed_def": "binding/binding_test.go:1372",
+   "site": "gin.go:622",
+   "site_fingerprint": "db7e6b47fc9f011e"
+  },
+  {
+   "corpus": "gin",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callers",
+   "seed_def": "binding/binding_test.go:1372",
+   "site": "gin_integration_test.go:45",
+   "site_fingerprint": "80fa29f226e581ec"
+  },
+  {
+   "corpus": "gin",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callers",
+   "seed_def": "binding/binding_test.go:1372",
+   "site": "gin_integration_test.go:378",
+   "site_fingerprint": "7ab9a42a6909cd1b"
+  },
+  {
+   "corpus": "gin",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callers",
+   "seed_def": "binding/binding_test.go:1372",
+   "site": "gin_integration_test.go:387",
+   "site_fingerprint": "bfb42b476ee383f5"
+  },
+  {
+   "corpus": "gin",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callers",
+   "seed_def": "binding/binding_test.go:1372",
+   "site": "gin_integration_test.go:475",
+   "site_fingerprint": "bfb42b476ee383f5"
+  },
+  {
+   "corpus": "gin",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callers",
+   "seed_def": "binding/binding_test.go:1372",
+   "site": "gin_integration_test.go:600",
+   "site_fingerprint": "bfb42b476ee383f5"
+  },
+  {
+   "corpus": "gin",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callers",
+   "seed_def": "binding/binding_test.go:1372",
+   "site": "gin_test.go:74",
+   "site_fingerprint": "5d7fe69b393edf9a"
+  },
+  {
+   "corpus": "gin",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callers",
+   "seed_def": "binding/binding_test.go:1372",
+   "site": "gin_test.go:101",
+   "site_fingerprint": "fafdcf813822986b"
+  },
+  {
+   "corpus": "gin",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callers",
+   "seed_def": "binding/binding_test.go:1372",
+   "site": "gin_test.go:132",
+   "site_fingerprint": "5d7fe69b393edf9a"
+  },
+  {
+   "corpus": "gin",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callers",
+   "seed_def": "binding/binding_test.go:1372",
+   "site": "gin_test.go:152",
+   "site_fingerprint": "5d7fe69b393edf9a"
+  },
+  {
+   "corpus": "gin",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callers",
+   "seed_def": "binding/binding_test.go:1372",
+   "site": "gin_test.go:172",
+   "site_fingerprint": "5d7fe69b393edf9a"
+  },
+  {
+   "corpus": "gin",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callers",
+   "seed_def": "binding/binding_test.go:1372",
+   "site": "gin_test.go:199",
+   "site_fingerprint": "5d7fe69b393edf9a"
+  },
+  {
+   "corpus": "gin",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callers",
+   "seed_def": "binding/binding_test.go:1372",
+   "site": "gin_test.go:230",
+   "site_fingerprint": "5d7fe69b393edf9a"
+  },
+  {
+   "corpus": "gin",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callers",
+   "seed_def": "binding/binding_test.go:1372",
+   "site": "gin_test.go:250",
+   "site_fingerprint": "5d7fe69b393edf9a"
+  },
+  {
+   "corpus": "gin",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callers",
+   "seed_def": "binding/binding_test.go:1372",
+   "site": "gin_test.go:270",
+   "site_fingerprint": "5d7fe69b393edf9a"
+  },
+  {
+   "corpus": "gin",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callers",
+   "seed_def": "binding/binding_test.go:1372",
+   "site": "gin_test.go:290",
+   "site_fingerprint": "5d7fe69b393edf9a"
+  },
+  {
+   "corpus": "gin",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callers",
+   "seed_def": "binding/binding_test.go:1372",
+   "site": "gin_test.go:317",
+   "site_fingerprint": "5d7fe69b393edf9a"
+  },
+  {
+   "corpus": "gin",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callers",
+   "seed_def": "binding/binding_test.go:1372",
+   "site": "gin_test.go:339",
+   "site_fingerprint": "5d7fe69b393edf9a"
+  },
+  {
+   "corpus": "gin",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callers",
+   "seed_def": "binding/binding_test.go:1372",
+   "site": "gin_test.go:359",
+   "site_fingerprint": "5d7fe69b393edf9a"
+  },
+  {
+   "corpus": "gin",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callers",
+   "seed_def": "binding/binding_test.go:1372",
+   "site": "gin_test.go:379",
+   "site_fingerprint": "5d7fe69b393edf9a"
+  },
+  {
+   "corpus": "gin",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callers",
+   "seed_def": "binding/binding_test.go:1372",
+   "site": "gin_test.go:399",
+   "site_fingerprint": "5d7fe69b393edf9a"
+  },
+  {
+   "corpus": "gin",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callers",
+   "seed_def": "binding/binding_test.go:1372",
+   "site": "gin_test.go:426",
+   "site_fingerprint": "5d7fe69b393edf9a"
+  },
+  {
+   "corpus": "gin",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callers",
+   "seed_def": "binding/binding_test.go:1372",
+   "site": "recovery.go:155",
+   "site_fingerprint": "b853961ac312c80a"
+  },
+  {
+   "corpus": "gin",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callers",
+   "seed_def": "binding/binding_test.go:1372",
+   "site": "recovery_test.go:335",
+   "site_fingerprint": "2ebe31f24c8ed6a4"
+  },
+  {
+   "corpus": "gin",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callers",
+   "seed_def": "binding/binding_test.go:1372",
+   "site": "render/render_test.go:557",
+   "site_fingerprint": "80fa29f226e581ec"
+  },
+  {
+   "corpus": "gin",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callers",
+   "seed_def": "binding/binding_test.go:1372",
+   "site": "response_writer_test.go:266",
+   "site_fingerprint": "78132c2cd7c740a1"
+  },
+  {
+   "corpus": "gin",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callers",
+   "seed_def": "binding/binding_test.go:1372",
+   "site": "routergroup.go:235",
+   "site_fingerprint": "b9a71abc62abc65f"
+  },
+  {
+   "corpus": "gin",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callers",
+   "seed_def": "binding/binding_test.go:1372",
+   "site": "routes_test.go:391",
+   "site_fingerprint": "272973ccdf01a95c"
+  },
+  {
+   "corpus": "gin",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callers",
+   "seed_def": "binding/binding_test.go:1372",
+   "site": "routes_test.go:426",
+   "site_fingerprint": "272973ccdf01a95c"
+  },
+  {
+   "corpus": "gin",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callers",
+   "seed_def": "binding/binding_test.go:1372",
+   "site": "test_helpers.go:47",
+   "site_fingerprint": "2a4939f31375c695"
+  },
+  {
+   "corpus": "gin",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "binding/form_mapping_test.go:1043",
+   "site": "binding/form_mapping.go:208",
+   "site_fingerprint": "f40ce270cc8b56ec"
+  },
+  {
+   "corpus": "gin",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callers",
+   "seed_def": "binding/json_test.go:89",
+   "site": "binding/json_test.go:90",
+   "site_fingerprint": "36987601d5437876"
+  },
+  {
+   "corpus": "gin",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "binding/json_test.go:89",
+   "site": "binding/form_mapping.go:376",
+   "site_fingerprint": "5094587c7750d49c"
+  },
+  {
+   "corpus": "gin",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "binding/json_test.go:89",
+   "site": "binding/form_mapping.go:378",
+   "site_fingerprint": "9679d8ac1c2cd720"
+  },
+  {
+   "corpus": "gin",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "binding/plain.go:18",
+   "site": "binding/binding_msgpack_test.go:52",
+   "site_fingerprint": "7bedfc7e69dd4cd6"
+  },
+  {
+   "corpus": "gin",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "binding/plain.go:18",
+   "site": "binding/binding_test.go:184",
+   "site_fingerprint": "a3458fcd085921cc"
+  },
+  {
+   "corpus": "gin",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "binding/plain.go:18",
+   "site": "binding/binding_test.go:385",
+   "site_fingerprint": "c97c9dfed246cfdd"
+  },
+  {
+   "corpus": "gin",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "binding/plain.go:18",
+   "site": "binding/binding_test.go:398",
+   "site_fingerprint": "bfb796d8b3331328"
+  },
+  {
+   "corpus": "gin",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "binding/plain.go:18",
+   "site": "binding/binding_test.go:437",
+   "site_fingerprint": "6d5146947106f8b8"
+  },
+  {
+   "corpus": "gin",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "binding/plain.go:18",
+   "site": "binding/binding_test.go:446",
+   "site_fingerprint": "39ec17c7642a7a16"
+  },
+  {
+   "corpus": "gin",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "binding/plain.go:18",
+   "site": "binding/binding_test.go:627",
+   "site_fingerprint": "205de861d136d77b"
+  },
+  {
+   "corpus": "gin",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "binding/plain.go:18",
+   "site": "binding/binding_test.go:637",
+   "site_fingerprint": "e28853cdfa3e0e70"
+  },
+  {
+   "corpus": "gin",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "binding/plain.go:18",
+   "site": "binding/binding_test.go:646",
+   "site_fingerprint": "92404aed946fea3e"
+  },
+  {
+   "corpus": "gin",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "binding/plain.go:18",
+   "site": "binding/binding_test.go:654",
+   "site_fingerprint": "2e05cbf2ae91d435"
+  },
+  {
+   "corpus": "gin",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "binding/plain.go:18",
+   "site": "binding/binding_test.go:661",
+   "site_fingerprint": "474126d341f5b87a"
+  },
+  {
+   "corpus": "gin",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "binding/plain.go:18",
+   "site": "binding/binding_test.go:683",
+   "site_fingerprint": "d4042003e72acd65"
+  },
+  {
+   "corpus": "gin",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "binding/plain.go:18",
+   "site": "binding/binding_test.go:690",
+   "site_fingerprint": "369602bcb200039e"
+  },
+  {
+   "corpus": "gin",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "binding/plain.go:18",
+   "site": "binding/binding_test.go:700",
+   "site_fingerprint": "b0e5c3d4c40c3805"
+  },
+  {
+   "corpus": "gin",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "binding/plain.go:18",
+   "site": "binding/binding_test.go:710",
+   "site_fingerprint": "c0ecfc54dc513d81"
+  },
+  {
+   "corpus": "gin",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "binding/plain.go:18",
+   "site": "binding/binding_test.go:753",
+   "site_fingerprint": "37d3c9e77d29dcf6"
+  },
+  {
+   "corpus": "gin",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "binding/plain.go:18",
+   "site": "binding/binding_test.go:764",
+   "site_fingerprint": "3e25c8606454e590"
+  },
+  {
+   "corpus": "gin",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "binding/plain.go:18",
+   "site": "binding/binding_test.go:775",
+   "site_fingerprint": "c06d2177367f9925"
+  },
+  {
+   "corpus": "gin",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "binding/plain.go:18",
+   "site": "binding/binding_test.go:786",
+   "site_fingerprint": "3e14d004dfc64030"
+  },
+  {
+   "corpus": "gin",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "binding/plain.go:18",
+   "site": "binding/binding_test.go:801",
+   "site_fingerprint": "5dfb96f94c04ac72"
+  },
+  {
+   "corpus": "gin",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "binding/plain.go:18",
+   "site": "binding/binding_test.go:811",
+   "site_fingerprint": "c96b4cf7ad1fd50f"
+  },
+  {
+   "corpus": "gin",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "binding/plain.go:18",
+   "site": "binding/binding_test.go:867",
+   "site_fingerprint": "51f159368855c698"
+  },
+  {
+   "corpus": "gin",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "binding/plain.go:18",
+   "site": "binding/binding_test.go:883",
+   "site_fingerprint": "51f159368855c698"
+  },
+  {
+   "corpus": "gin",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "binding/plain.go:18",
+   "site": "binding/binding_test.go:890",
+   "site_fingerprint": "248c72dcfacc5083"
+  },
+  {
+   "corpus": "gin",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "binding/plain.go:18",
+   "site": "binding/binding_test.go:903",
+   "site_fingerprint": "51f159368855c698"
+  },
+  {
+   "corpus": "gin",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "binding/plain.go:18",
+   "site": "binding/binding_test.go:910",
+   "site_fingerprint": "248c72dcfacc5083"
+  },
+  {
+   "corpus": "gin",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "binding/plain.go:18",
+   "site": "binding/binding_test.go:920",
+   "site_fingerprint": "a0e6459cd5d32dec"
+  },
+  {
+   "corpus": "gin",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "binding/plain.go:18",
+   "site": "binding/binding_test.go:931",
+   "site_fingerprint": "58764e16fbc91600"
+  },
+  {
+   "corpus": "gin",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "binding/plain.go:18",
+   "site": "binding/binding_test.go:941",
+   "site_fingerprint": "a0e6459cd5d32dec"
+  },
+  {
+   "corpus": "gin",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "binding/plain.go:18",
+   "site": "binding/binding_test.go:951",
+   "site_fingerprint": "a0e6459cd5d32dec"
+  },
+  {
+   "corpus": "gin",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "binding/plain.go:18",
+   "site": "binding/binding_test.go:964",
+   "site_fingerprint": "ec7b9ed1b8af93ae"
+  },
+  {
+   "corpus": "gin",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "binding/plain.go:18",
+   "site": "binding/binding_test.go:978",
+   "site_fingerprint": "248c72dcfacc5083"
+  },
+  {
+   "corpus": "gin",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "binding/plain.go:18",
+   "site": "binding/binding_test.go:991",
+   "site_fingerprint": "b484bca4a43d73d2"
+  },
+  {
+   "corpus": "gin",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "binding/plain.go:18",
+   "site": "binding/binding_test.go:996",
+   "site_fingerprint": "248c72dcfacc5083"
+  },
+  {
+   "corpus": "gin",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "binding/plain.go:18",
+   "site": "binding/binding_test.go:1009",
+   "site_fingerprint": "b484bca4a43d73d2"
+  },
+  {
+   "corpus": "gin",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "binding/plain.go:18",
+   "site": "binding/binding_test.go:1014",
+   "site_fingerprint": "248c72dcfacc5083"
+  },
+  {
+   "corpus": "gin",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "binding/plain.go:18",
+   "site": "binding/binding_test.go:1027",
+   "site_fingerprint": "b484bca4a43d73d2"
+  },
+  {
+   "corpus": "gin",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "binding/plain.go:18",
+   "site": "binding/binding_test.go:1032",
+   "site_fingerprint": "248c72dcfacc5083"
+  },
+  {
+   "corpus": "gin",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "binding/plain.go:18",
+   "site": "binding/binding_test.go:1045",
+   "site_fingerprint": "b484bca4a43d73d2"
+  },
+  {
+   "corpus": "gin",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "binding/plain.go:18",
+   "site": "binding/binding_test.go:1050",
+   "site_fingerprint": "248c72dcfacc5083"
+  },
+  {
+   "corpus": "gin",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "binding/plain.go:18",
+   "site": "binding/binding_test.go:1063",
+   "site_fingerprint": "51f159368855c698"
+  },
+  {
+   "corpus": "gin",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "binding/plain.go:18",
+   "site": "binding/binding_test.go:1078",
+   "site_fingerprint": "51f159368855c698"
+  },
+  {
+   "corpus": "gin",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "binding/plain.go:18",
+   "site": "binding/binding_test.go:1084",
+   "site_fingerprint": "248c72dcfacc5083"
+  },
+  {
+   "corpus": "gin",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "binding/plain.go:18",
+   "site": "binding/binding_test.go:1097",
+   "site_fingerprint": "b484bca4a43d73d2"
+  },
+  {
+   "corpus": "gin",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "binding/plain.go:18",
+   "site": "binding/binding_test.go:1102",
+   "site_fingerprint": "248c72dcfacc5083"
+  },
+  {
+   "corpus": "gin",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "binding/plain.go:18",
+   "site": "binding/binding_test.go:1117",
+   "site_fingerprint": "7455e82535aee6b0"
+  },
+  {
+   "corpus": "gin",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "binding/plain.go:18",
+   "site": "binding/binding_test.go:1123",
+   "site_fingerprint": "248c72dcfacc5083"
+  },
+  {
+   "corpus": "gin",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "binding/plain.go:18",
+   "site": "binding/binding_test.go:1127",
+   "site_fingerprint": "c81b986802f8d9e2"
+  },
+  {
+   "corpus": "gin",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "binding/plain.go:18",
+   "site": "binding/binding_test.go:1136",
+   "site_fingerprint": "cabd7c7077bc2104"
+  },
+  {
+   "corpus": "gin",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "binding/plain.go:18",
+   "site": "binding/binding_test.go:1145",
+   "site_fingerprint": "3f478eb38f99d368"
+  },
+  {
+   "corpus": "gin",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "binding/plain.go:18",
+   "site": "binding/binding_test.go:1150",
+   "site_fingerprint": "6760dd16d4d27f33"
+  },
+  {
+   "corpus": "gin",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "binding/plain.go:18",
+   "site": "binding/binding_test.go:1154",
+   "site_fingerprint": "9c59b185252a8902"
+  },
+  {
+   "corpus": "gin",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "binding/plain.go:18",
+   "site": "binding/binding_test.go:1161",
+   "site_fingerprint": "6b7ed71b03800705"
+  },
+  {
+   "corpus": "gin",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "binding/plain.go:18",
+   "site": "binding/binding_test.go:1166",
+   "site_fingerprint": "af3085d098f3e104"
+  },
+  {
+   "corpus": "gin",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "binding/plain.go:18",
+   "site": "binding/binding_test.go:1171",
+   "site_fingerprint": "853fc3f0dd260e5b"
+  },
+  {
+   "corpus": "gin",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "binding/plain.go:18",
+   "site": "binding/binding_test.go:1185",
+   "site_fingerprint": "51f159368855c698"
+  },
+  {
+   "corpus": "gin",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "binding/plain.go:18",
+   "site": "binding/binding_test.go:1200",
+   "site_fingerprint": "b484bca4a43d73d2"
+  },
+  {
+   "corpus": "gin",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "binding/plain.go:18",
+   "site": "binding/binding_test.go:1213",
+   "site_fingerprint": "b484bca4a43d73d2"
+  },
+  {
+   "corpus": "gin",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "binding/plain.go:18",
+   "site": "binding/binding_test.go:1228",
+   "site_fingerprint": "ff7419bbe9225e8e"
+  },
+  {
+   "corpus": "gin",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "binding/plain.go:18",
+   "site": "binding/binding_test.go:1242",
+   "site_fingerprint": "34cb88f08697034c"
+  },
+  {
+   "corpus": "gin",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "binding/plain.go:18",
+   "site": "binding/binding_test.go:1287",
+   "site_fingerprint": "ff7419bbe9225e8e"
+  },
+  {
+   "corpus": "gin",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "binding/plain.go:18",
+   "site": "binding/binding_test.go:1305",
+   "site_fingerprint": "ff7419bbe9225e8e"
+  },
+  {
+   "corpus": "gin",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "binding/plain.go:18",
+   "site": "binding/binding_test.go:1323",
+   "site_fingerprint": "ff7419bbe9225e8e"
+  },
+  {
+   "corpus": "gin",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "binding/plain.go:18",
+   "site": "binding/binding_test.go:1339",
+   "site_fingerprint": "ff7419bbe9225e8e"
+  },
+  {
+   "corpus": "gin",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "binding/plain.go:18",
+   "site": "binding/binding_test.go:1356",
+   "site_fingerprint": "4c7130e8c83825a7"
+  },
+  {
+   "corpus": "gin",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "binding/plain.go:18",
+   "site": "binding/binding_test.go:1382",
+   "site_fingerprint": "fbc680525c817b78"
+  },
+  {
+   "corpus": "gin",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "binding/plain.go:18",
+   "site": "binding/binding_test.go:1387",
+   "site_fingerprint": "ed5bf536e6d23b87"
+  },
+  {
+   "corpus": "gin",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "binding/plain.go:18",
+   "site": "binding/binding_test.go:1392",
+   "site_fingerprint": "727610d9646658cd"
+  },
+  {
+   "corpus": "gin",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "binding/plain.go:18",
+   "site": "binding/binding_test.go:1396",
+   "site_fingerprint": "b0aa6be6283b1733"
+  },
+  {
+   "corpus": "gin",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "binding/plain.go:18",
+   "site": "binding/binding_test.go:1399",
+   "site_fingerprint": "2b2450ea21ed7a60"
+  },
+  {
+   "corpus": "gin",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "binding/plain.go:18",
+   "site": "binding/binding_test.go:1403",
+   "site_fingerprint": "21cdf29283145d97"
+  },
+  {
+   "corpus": "gin",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "binding/plain.go:18",
+   "site": "binding/binding_test.go:1427",
+   "site_fingerprint": "4c7130e8c83825a7"
+  },
+  {
+   "corpus": "gin",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "binding/plain.go:18",
+   "site": "binding/multipart_form_mapping_test.go:30",
+   "site_fingerprint": "74caf548c7f1aa1b"
+  },
+  {
+   "corpus": "gin",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "binding/plain.go:18",
+   "site": "binding/multipart_form_mapping_test.go:56",
+   "site_fingerprint": "8d3bd485e23e9977"
+  },
+  {
+   "corpus": "gin",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "binding/plain.go:18",
+   "site": "binding/multipart_form_mapping_test.go:93",
+   "site_fingerprint": "c954e595a3e468c6"
+  },
+  {
+   "corpus": "gin",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "context.go:1179",
+   "site": "context_test.go:1054",
+   "site_fingerprint": "34f62afd39b4a5b0"
+  },
+  {
+   "corpus": "gin",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "context.go:1179",
+   "site": "context_test.go:1433",
+   "site_fingerprint": "9866676ec23fab86"
+  },
+  {
+   "corpus": "gin",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "context.go:1179",
+   "site": "middleware_test.go:243",
+   "site_fingerprint": "6377b30db27dbb1b"
+  },
+  {
+   "corpus": "gin",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callers",
+   "seed_def": "errors_test.go:112",
+   "site": "errors_test.go:76",
+   "site_fingerprint": "f2525002ae6a9493"
+  },
+  {
+   "corpus": "gin",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "errors_test.go:112",
+   "site": "context_test.go:76",
+   "site_fingerprint": "f9f00754c54b35a8"
+  },
+  {
+   "corpus": "gin",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "errors_test.go:112",
+   "site": "context_test.go:3045",
+   "site_fingerprint": "d6c0ffb1d0ec9b8f"
+  },
+  {
+   "corpus": "gin",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "errors_test.go:112",
+   "site": "context_test.go:3272",
+   "site_fingerprint": "d3cf1951eb6d638f"
+  },
+  {
+   "corpus": "gin",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "errors_test.go:112",
+   "site": "errors.go:83",
+   "site_fingerprint": "7ece55976c2ea25e"
+  },
+  {
+   "corpus": "gin",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callees",
+   "seed_def": "binding/json_test.go:89",
+   "site": "binding/json_test.go:90",
+   "site_fingerprint": "36987601d5437876"
+  },
+  {
+   "corpus": "gin",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "binding/xml_test.go:14",
+   "site": "binding/xml_test.go:22",
+   "site_fingerprint": "a2d522ee74760084"
+  },
+  {
+   "corpus": "gin",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callees",
+   "seed_def": "context_test.go:1023",
+   "site": "context_test.go:1027",
+   "site_fingerprint": "112228bb9e8697ad"
+  },
+  {
+   "corpus": "gin",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "ginS/gins_test.go:183",
+   "site": "ginS/gins_test.go:185",
+   "site_fingerprint": "5ab98f6217490cdf"
+  },
+  {
+   "corpus": "gin",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "logger_test.go:436",
+   "site": "logger_test.go:442",
+   "site_fingerprint": "a122f2d4751c3ce3"
+  },
+  {
+   "corpus": "gin",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callees",
+   "seed_def": "render/render_test.go:444",
+   "site": "render/render_test.go:457",
+   "site_fingerprint": "5713683d9a8900c2"
+  },
+  {
+   "corpus": "gin",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "render/render_test.go:444",
+   "site": "render/render_test.go:450",
+   "site_fingerprint": "0d4c5ecc653355d8"
+  },
+  {
+   "corpus": "gin",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callees",
+   "seed_def": "render/render_test.go:604",
+   "site": "render/render_test.go:614",
+   "site_fingerprint": "a7c92b08e1936a24"
+  },
+  {
+   "corpus": "gin",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "render/render_test.go:604",
+   "site": "render/render_test.go:610",
+   "site_fingerprint": "e1fdf96e4140ab85"
+  }
+ ],
+ "probes": {
+  "_corpus": "gin",
+  "_strata": {
+   "C-method": {
+    "eligible_probes": 16,
+    "eligible_symbols": 8,
+    "target": 8
+   },
+   "C-name": {
+    "eligible_probes": 16,
+    "eligible_symbols": 8,
+    "target": 8
+   },
+   "Q-scoped": {
+    "eligible_probes": 16,
+    "eligible_symbols": 8,
+    "target": 8
+   },
+   "U-free": {
+    "eligible_probes": 16,
+    "eligible_symbols": 8,
+    "target": 8
+   },
+   "U-method": {
+    "eligible_probes": 16,
+    "eligible_symbols": 8,
+    "target": 8
+   }
+  },
+  "callees:binding/binding.go:122": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "binding/binding.go",
+     "validate"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "binding/binding.go",
+     126,
+     126
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "binding/binding.go",
+     "validate"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "binding/binding.go",
+     126,
+     126,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "binding/binding.go:122",
+   "stratum": "C-name"
+  },
+  "callees:binding/binding_test.go:1372": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "binding/binding_test.go:1372",
+   "stratum": "U-method"
+  },
+  "callees:binding/binding_test.go:247": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "binding/binding_test.go",
+     "TestBindingFormEmbeddedStruct"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "binding/binding_test.go",
+     248,
+     248
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "binding/binding_test.go",
+     "TestBindingFormEmbeddedStruct"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "binding/binding_test.go",
+     248,
+     248,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "binding/binding_test.go:247",
+   "stratum": "Q-scoped"
+  },
+  "callees:binding/form_mapping.go:40": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "binding/form_mapping.go",
+     "MapFormWithTag"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "binding/form_mapping.go",
+     41,
+     41
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "binding/form_mapping.go",
+     "MapFormWithTag"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "binding/form_mapping.go",
+     41,
+     41,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "binding/form_mapping.go:40",
+   "stratum": "Q-scoped"
+  },
+  "callees:binding/form_mapping.go:401": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "binding/form_mapping.go",
+     "setUintField"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "binding/form_mapping.go:401",
+   "stratum": "Q-scoped"
+  },
+  "callees:binding/form_mapping_test.go:1043": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "binding/form_mapping_test.go",
+     "UnmarshalText"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "binding/form_mapping_test.go:1043",
+   "stratum": "C-method"
+  },
+  "callees:binding/form_mapping_test.go:384": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "binding/form_mapping_test.go",
+     "TestMappingMultipleDefaultWithCollectionFormat"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "binding/form_mapping_test.go",
+     407,
+     407
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "binding/form_mapping_test.go",
+     "TestMappingMultipleDefaultWithCollectionFormat"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "binding/form_mapping_test.go",
+     407,
+     407,
+     {
+      "resolution_kind": "free_single"
+     }
+    ]
+   ],
+   "seed_def": "binding/form_mapping_test.go:384",
+   "stratum": "Q-scoped"
+  },
+  "callees:binding/json_test.go:124": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "binding/json_test.go:124",
+   "stratum": "C-method"
+  },
+  "callees:binding/json_test.go:89": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "binding/json_test.go",
+     "Unmarshal"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "binding/json_test.go",
+     90,
+     90,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "binding/json_test.go:89",
+   "stratum": "C-method"
+  },
+  "callees:binding/plain.go:18": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "binding/plain.go",
+     "Bind"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "binding/plain.go",
+     24,
+     24
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "binding/plain.go",
+     "Bind"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "binding/plain.go",
+     24,
+     24,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "binding/plain.go:18",
+   "stratum": "C-method"
+  },
+  "callees:binding/xml_test.go:14": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "binding/xml_test.go",
+     "TestXMLBindingBindBody"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "binding/xml_test.go",
+     22,
+     22
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "binding/xml_test.go",
+     "TestXMLBindingBindBody"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "binding/xml_test.go:14",
+   "stratum": "Q-scoped"
+  },
+  "callees:context.go:1129": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "context.go:1129",
+   "stratum": "U-method"
+  },
+  "callees:context.go:1179": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "context.go",
+     "Render"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "context.go",
+     1191,
+     1191
+    ],
+    [
+     "context.go",
+     1190,
+     1190
+    ],
+    [
+     "context.go",
+     1182,
+     1182
+    ],
+    [
+     "context.go",
+     1180,
+     1180
+    ],
+    [
+     "context.go",
+     1188,
+     1188
+    ],
+    [
+     "context.go",
+     1183,
+     1183
+    ],
+    [
+     "context.go",
+     1184,
+     1184
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "context.go",
+     "Render"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "context.go",
+     1191,
+     1191,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "context.go",
+     1190,
+     1190,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "context.go",
+     1182,
+     1182,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "context.go",
+     1180,
+     1180,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "context.go",
+     1188,
+     1188,
+     {
+      "resolution_kind": "interface_dispatch"
+     }
+    ],
+    [
+     "context.go",
+     1183,
+     1183,
+     {
+      "resolution_kind": "interface_dispatch"
+     }
+    ],
+    [
+     "context.go",
+     1188,
+     1188,
+     {
+      "resolution_kind": "interface_dispatch"
+     }
+    ],
+    [
+     "context.go",
+     1183,
+     1183,
+     {
+      "resolution_kind": "interface_dispatch"
+     }
+    ],
+    [
+     "context.go",
+     1188,
+     1188,
+     {
+      "resolution_kind": "interface_dispatch"
+     }
+    ],
+    [
+     "context.go",
+     1183,
+     1183,
+     {
+      "resolution_kind": "interface_dispatch"
+     }
+    ],
+    [
+     "context.go",
+     1188,
+     1188,
+     {
+      "resolution_kind": "interface_dispatch"
+     }
+    ],
+    [
+     "context.go",
+     1183,
+     1183,
+     {
+      "resolution_kind": "interface_dispatch"
+     }
+    ],
+    [
+     "context.go",
+     1188,
+     1188,
+     {
+      "resolution_kind": "interface_dispatch"
+     }
+    ],
+    [
+     "context.go",
+     1183,
+     1183,
+     {
+      "resolution_kind": "interface_dispatch"
+     }
+    ],
+    [
+     "context.go",
+     1188,
+     1188,
+     {
+      "resolution_kind": "interface_dispatch"
+     }
+    ],
+    [
+     "context.go",
+     1183,
+     1183,
+     {
+      "resolution_kind": "interface_dispatch"
+     }
+    ],
+    [
+     "context.go",
+     1188,
+     1188,
+     {
+      "resolution_kind": "interface_dispatch"
+     }
+    ],
+    [
+     "context.go",
+     1183,
+     1183,
+     {
+      "resolution_kind": "interface_dispatch"
+     }
+    ],
+    [
+     "context.go",
+     1188,
+     1188,
+     {
+      "resolution_kind": "interface_dispatch"
+     }
+    ],
+    [
+     "context.go",
+     1183,
+     1183,
+     {
+      "resolution_kind": "interface_dispatch"
+     }
+    ],
+    [
+     "context.go",
+     1188,
+     1188,
+     {
+      "resolution_kind": "interface_dispatch"
+     }
+    ],
+    [
+     "context.go",
+     1183,
+     1183,
+     {
+      "resolution_kind": "interface_dispatch"
+     }
+    ],
+    [
+     "context.go",
+     1188,
+     1188,
+     {
+      "resolution_kind": "interface_dispatch"
+     }
+    ],
+    [
+     "context.go",
+     1183,
+     1183,
+     {
+      "resolution_kind": "interface_dispatch"
+     }
+    ],
+    [
+     "context.go",
+     1183,
+     1183,
+     {
+      "resolution_kind": "interface_dispatch"
+     }
+    ],
+    [
+     "context.go",
+     1188,
+     1188,
+     {
+      "resolution_kind": "interface_dispatch"
+     }
+    ],
+    [
+     "context.go",
+     1188,
+     1188,
+     {
+      "resolution_kind": "interface_dispatch"
+     }
+    ],
+    [
+     "context.go",
+     1183,
+     1183,
+     {
+      "resolution_kind": "interface_dispatch"
+     }
+    ],
+    [
+     "context.go",
+     1188,
+     1188,
+     {
+      "resolution_kind": "interface_dispatch"
+     }
+    ],
+    [
+     "context.go",
+     1183,
+     1183,
+     {
+      "resolution_kind": "interface_dispatch"
+     }
+    ],
+    [
+     "context.go",
+     1188,
+     1188,
+     {
+      "resolution_kind": "interface_dispatch"
+     }
+    ],
+    [
+     "context.go",
+     1183,
+     1183,
+     {
+      "resolution_kind": "interface_dispatch"
+     }
+    ],
+    [
+     "context.go",
+     1188,
+     1188,
+     {
+      "resolution_kind": "interface_dispatch"
+     }
+    ],
+    [
+     "context.go",
+     1183,
+     1183,
+     {
+      "resolution_kind": "interface_dispatch"
+     }
+    ],
+    [
+     "context.go",
+     1188,
+     1188,
+     {
+      "resolution_kind": "interface_dispatch"
+     }
+    ],
+    [
+     "context.go",
+     1183,
+     1183,
+     {
+      "resolution_kind": "interface_dispatch"
+     }
+    ],
+    [
+     "context.go",
+     1188,
+     1188,
+     {
+      "resolution_kind": "interface_dispatch"
+     }
+    ],
+    [
+     "context.go",
+     1183,
+     1183,
+     {
+      "resolution_kind": "interface_dispatch"
+     }
+    ],
+    [
+     "context.go",
+     1188,
+     1188,
+     {
+      "resolution_kind": "interface_dispatch"
+     }
+    ],
+    [
+     "context.go",
+     1183,
+     1183,
+     {
+      "resolution_kind": "interface_dispatch"
+     }
+    ],
+    [
+     "context.go",
+     1188,
+     1188,
+     {
+      "resolution_kind": "interface_dispatch"
+     }
+    ],
+    [
+     "context.go",
+     1183,
+     1183,
+     {
+      "resolution_kind": "interface_dispatch"
+     }
+    ],
+    [
+     "context.go",
+     1184,
+     1184,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "context.go:1179",
+   "stratum": "C-method"
+  },
+  "callees:context.go:406": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "context.go",
+     "GetInt16Slice"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "context.go",
+     407,
+     407
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "context.go",
+     "GetInt16Slice"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "context.go",
+     407,
+     407,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "context.go:406",
+   "stratum": "U-method"
+  },
+  "callees:context.go:411": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "context.go",
+     "GetInt32Slice"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "context.go",
+     412,
+     412
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "context.go",
+     "GetInt32Slice"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "context.go",
+     412,
+     412,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "context.go:411",
+   "stratum": "U-method"
+  },
+  "callees:context.go:660": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "context.go",
+     "PostFormMap"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "context.go",
+     661,
+     661
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "context.go",
+     "PostFormMap"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "context.go",
+     661,
+     661,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ]
+   ],
+   "seed_def": "context.go:660",
+   "stratum": "U-method"
+  },
+  "callees:context.go:879": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "context.go",
+     "ShouldBindQuery"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "context.go",
+     880,
+     880
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "context.go",
+     "ShouldBindQuery"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "context.go",
+     880,
+     880,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ]
+   ],
+   "seed_def": "context.go:879",
+   "stratum": "U-method"
+  },
+  "callees:context_test.go:1023": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "context_test.go",
+     "TestContextGetCookie"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "context_test.go",
+     1027,
+     1027
+    ],
+    [
+     "context_test.go",
+     1030,
+     1030
+    ],
+    [
+     "context_test.go",
+     1024,
+     1024
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "context_test.go",
+     "TestContextGetCookie"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "context_test.go",
+     1024,
+     1024,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "context_test.go",
+     1026,
+     1026,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "context_test.go",
+     1027,
+     1027,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "context_test.go",
+     1030,
+     1030,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "context_test.go:1023",
+   "stratum": "U-free"
+  },
+  "callees:context_test.go:1089": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "context_test.go",
+     "TestContextRenderJSONPWithoutCallback"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "context_test.go",
+     1094,
+     1094
+    ],
+    [
+     "context_test.go",
+     1091,
+     1091
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "context_test.go",
+     "TestContextRenderJSONPWithoutCallback"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "context_test.go",
+     1091,
+     1091,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "context_test.go",
+     1094,
+     1094,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "context_test.go:1089",
+   "stratum": "U-free"
+  },
+  "callees:context_test.go:804": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "context_test.go",
+     "TestContextDefaultQueryOnEmptyRequest"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "context_test.go",
+     815,
+     815
+    ],
+    [
+     "context_test.go",
+     812,
+     812
+    ],
+    [
+     "context_test.go",
+     807,
+     807
+    ],
+    [
+     "context_test.go",
+     805,
+     805
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "context_test.go",
+     "TestContextDefaultQueryOnEmptyRequest"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "context_test.go",
+     805,
+     805,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "context_test.go",
+     815,
+     815,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "context_test.go",
+     812,
+     812,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "context_test.go",
+     807,
+     807,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "context_test.go:804",
+   "stratum": "U-free"
+  },
+  "callees:debug.go:32": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "debug.go",
+     "debugPrintRoute"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "debug.go",
+     33,
+     33
+    ],
+    [
+     "debug.go",
+     37,
+     37
+    ],
+    [
+     "debug.go",
+     35,
+     35
+    ],
+    [
+     "debug.go",
+     35,
+     35
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "debug.go",
+     "debugPrintRoute"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "debug.go",
+     33,
+     33,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "debug.go",
+     37,
+     37,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "debug.go",
+     35,
+     35,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ],
+    [
+     "debug.go",
+     35,
+     35,
+     {
+      "resolution_kind": "free_single"
+     }
+    ]
+   ],
+   "seed_def": "debug.go:32",
+   "stratum": "U-free"
+  },
+  "callees:errors_test.go:112": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "errors_test.go",
+     "Error"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "errors_test.go:112",
+   "stratum": "C-method"
+  },
+  "callees:ginS/gins.go:101": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "ginS/gins.go",
+     "StaticFile"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "ginS/gins.go",
+     102,
+     102
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "ginS/gins.go",
+     "StaticFile"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "ginS/gins.go",
+     102,
+     102,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "ginS/gins.go:101",
+   "stratum": "C-name"
+  },
+  "callees:ginS/gins.go:136": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "ginS/gins.go",
+     "Run"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "ginS/gins.go",
+     137,
+     137
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "ginS/gins.go",
+     "Run"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "ginS/gins.go",
+     137,
+     137,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "ginS/gins.go:136",
+   "stratum": "C-name"
+  },
+  "callees:ginS/gins.go:30": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "ginS/gins.go",
+     "LoadHTMLFS"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "ginS/gins.go",
+     31,
+     31
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "ginS/gins.go",
+     "LoadHTMLFS"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "ginS/gins.go",
+     31,
+     31,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "ginS/gins.go:30",
+   "stratum": "C-name"
+  },
+  "callees:ginS/gins.go:35": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "ginS/gins.go",
+     "SetHTMLTemplate"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "ginS/gins.go",
+     36,
+     36
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "ginS/gins.go",
+     "SetHTMLTemplate"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "ginS/gins.go",
+     36,
+     36,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "ginS/gins.go:35",
+   "stratum": "C-name"
+  },
+  "callees:ginS/gins_test.go:183": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "ginS/gins_test.go",
+     "TestNoMethod"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "ginS/gins_test.go",
+     185,
+     185
+    ],
+    [
+     "ginS/gins_test.go",
+     184,
+     184
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "ginS/gins_test.go",
+     "TestNoMethod"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "ginS/gins_test.go",
+     184,
+     184,
+     {
+      "resolution_kind": "free_single"
+     }
+    ]
+   ],
+   "seed_def": "ginS/gins_test.go:183",
+   "stratum": "Q-scoped"
+  },
+  "callees:gin_test.go:210": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "gin_test.go",
+     "init"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "gin_test.go",
+     211,
+     211
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "gin_test.go",
+     "init"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "gin_test.go",
+     211,
+     211,
+     {
+      "resolution_kind": "free_single"
+     }
+    ]
+   ],
+   "seed_def": "gin_test.go:210",
+   "stratum": "C-name"
+  },
+  "callees:logger.go:237": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "logger.go",
+     "LoggerWithWriter"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "logger.go",
+     238,
+     238
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "logger.go",
+     "LoggerWithWriter"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "logger.go",
+     238,
+     238,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "logger.go:237",
+   "stratum": "U-free"
+  },
+  "callees:logger_test.go:436": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "logger_test.go",
+     "TestLoggerWithConfigSkipper"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "logger_test.go",
+     445,
+     445
+    ],
+    [
+     "logger_test.go",
+     446,
+     446
+    ],
+    [
+     "logger_test.go",
+     438,
+     438
+    ],
+    [
+     "logger_test.go",
+     439,
+     439
+    ],
+    [
+     "logger_test.go",
+     439,
+     439
+    ],
+    [
+     "logger_test.go",
+     442,
+     442
+    ],
+    [
+     "logger_test.go",
+     445,
+     445
+    ],
+    [
+     "logger_test.go",
+     446,
+     446
+    ],
+    [
+     "logger_test.go",
+     448,
+     448
+    ],
+    [
+     "logger_test.go",
+     452,
+     452
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "logger_test.go",
+     "TestLoggerWithConfigSkipper"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "logger_test.go",
+     438,
+     438,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "logger_test.go",
+     439,
+     439,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "logger_test.go",
+     448,
+     448,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "logger_test.go",
+     452,
+     452,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "logger_test.go",
+     445,
+     445,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "logger_test.go",
+     446,
+     446,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "logger_test.go:436",
+   "stratum": "U-free"
+  },
+  "callees:path.go:128": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "path.go",
+     "bufApp"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "path.go:128",
+   "stratum": "U-free"
+  },
+  "callees:render/render_test.go:444": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "render/render_test.go",
+     "TestRenderXML"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "render/render_test.go",
+     453,
+     453
+    ],
+    [
+     "render/render_test.go",
+     450,
+     450
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "render/render_test.go",
+     "TestRenderXML"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "render/render_test.go",
+     451,
+     451,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "render/render_test.go",
+     457,
+     457,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "render/render_test.go:444",
+   "stratum": "Q-scoped"
+  },
+  "callees:render/render_test.go:604": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "render/render_test.go",
+     "TestRenderStringLenZero"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "render/render_test.go",
+     610,
+     610
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "render/render_test.go",
+     "TestRenderStringLenZero"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "render/render_test.go",
+     614,
+     614,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "render/render_test.go:604",
+   "stratum": "Q-scoped"
+  },
+  "callees:routergroup.go:181": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "routergroup.go",
+     "staticFileHandler"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "routergroup.go",
+     185,
+     185
+    ],
+    [
+     "routergroup.go",
+     186,
+     186
+    ],
+    [
+     "routergroup.go",
+     187,
+     187
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "routergroup.go",
+     "staticFileHandler"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "routergroup.go",
+     185,
+     185,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "routergroup.go",
+     186,
+     186,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "routergroup.go",
+     187,
+     187,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ]
+   ],
+   "seed_def": "routergroup.go:181",
+   "stratum": "U-method"
+  },
+  "callees:tree.go:52": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "tree.go:52",
+   "stratum": "U-method"
+  },
+  "callers:binding/binding.go:122": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "binding/form.go",
+     "Bind"
+    ],
+    [
+     "binding/header.go",
+     "Bind"
+    ],
+    [
+     "binding/json.go",
+     "decodeJSON"
+    ],
+    [
+     "binding/msgpack.go",
+     "decodeMsgPack"
+    ],
+    [
+     "binding/query.go",
+     "Bind"
+    ],
+    [
+     "binding/toml.go",
+     "decodeToml"
+    ],
+    [
+     "binding/uri.go",
+     "BindUri"
+    ],
+    [
+     "binding/validate_test.go",
+     "TestValidateAndModifyStruct"
+    ],
+    [
+     "binding/validate_test.go",
+     "TestValidateNoValidationPointers"
+    ],
+    [
+     "binding/validate_test.go",
+     "TestValidateNoValidationValues"
+    ],
+    [
+     "binding/validate_test.go",
+     "TestValidatePrimitives"
+    ],
+    [
+     "binding/validate_test.go",
+     "TestValidatorEngine"
+    ],
+    [
+     "binding/xml.go",
+     "decodeXML"
+    ],
+    [
+     "binding/yaml.go",
+     "decodeYAML"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "binding/form.go",
+     34,
+     34
+    ],
+    [
+     "binding/form.go",
+     48,
+     48
+    ],
+    [
+     "binding/form.go",
+     63,
+     63
+    ],
+    [
+     "binding/header.go",
+     24,
+     24
+    ],
+    [
+     "binding/json.go",
+     55,
+     55
+    ],
+    [
+     "binding/msgpack.go",
+     36,
+     36
+    ],
+    [
+     "binding/query.go",
+     20,
+     20
+    ],
+    [
+     "binding/toml.go",
+     34,
+     34
+    ],
+    [
+     "binding/uri.go",
+     17,
+     17
+    ],
+    [
+     "binding/validate_test.go",
+     117,
+     117
+    ],
+    [
+     "binding/validate_test.go",
+     118,
+     118
+    ],
+    [
+     "binding/validate_test.go",
+     119,
+     119
+    ],
+    [
+     "binding/validate_test.go",
+     120,
+     120
+    ],
+    [
+     "binding/validate_test.go",
+     167,
+     167
+    ],
+    [
+     "binding/validate_test.go",
+     168,
+     168
+    ],
+    [
+     "binding/validate_test.go",
+     177,
+     177
+    ],
+    [
+     "binding/validate_test.go",
+     178,
+     178
+    ],
+    [
+     "binding/validate_test.go",
+     182,
+     182
+    ],
+    [
+     "binding/validate_test.go",
+     183,
+     183
+    ],
+    [
+     "binding/validate_test.go",
+     186,
+     186
+    ],
+    [
+     "binding/validate_test.go",
+     187,
+     187
+    ],
+    [
+     "binding/validate_test.go",
+     191,
+     191
+    ],
+    [
+     "binding/validate_test.go",
+     192,
+     192
+    ],
+    [
+     "binding/validate_test.go",
+     214,
+     214
+    ],
+    [
+     "binding/validate_test.go",
+     247,
+     247
+    ],
+    [
+     "binding/xml.go",
+     33,
+     33
+    ],
+    [
+     "binding/yaml.go",
+     34,
+     34
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "binding/form.go",
+     "Bind"
+    ],
+    [
+     "binding/header.go",
+     "Bind"
+    ],
+    [
+     "binding/json.go",
+     "decodeJSON"
+    ],
+    [
+     "binding/msgpack.go",
+     "decodeMsgPack"
+    ],
+    [
+     "binding/query.go",
+     "Bind"
+    ],
+    [
+     "binding/toml.go",
+     "decodeToml"
+    ],
+    [
+     "binding/uri.go",
+     "BindUri"
+    ],
+    [
+     "binding/validate_test.go",
+     "TestValidateAndModifyStruct"
+    ],
+    [
+     "binding/validate_test.go",
+     "TestValidateNoValidationPointers"
+    ],
+    [
+     "binding/validate_test.go",
+     "TestValidateNoValidationValues"
+    ],
+    [
+     "binding/validate_test.go",
+     "TestValidatePrimitives"
+    ],
+    [
+     "binding/validate_test.go",
+     "TestValidatorEngine"
+    ],
+    [
+     "binding/xml.go",
+     "decodeXML"
+    ],
+    [
+     "binding/yaml.go",
+     "decodeYAML"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "binding/form.go",
+     34,
+     34,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "binding/form.go",
+     48,
+     48,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "binding/form.go",
+     63,
+     63,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "binding/header.go",
+     24,
+     24,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "binding/json.go",
+     55,
+     55,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "binding/msgpack.go",
+     36,
+     36,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "binding/query.go",
+     20,
+     20,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "binding/toml.go",
+     34,
+     34,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "binding/uri.go",
+     17,
+     17,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "binding/validate_test.go",
+     117,
+     117,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "binding/validate_test.go",
+     118,
+     118,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "binding/validate_test.go",
+     119,
+     119,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "binding/validate_test.go",
+     120,
+     120,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "binding/validate_test.go",
+     167,
+     167,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "binding/validate_test.go",
+     168,
+     168,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "binding/validate_test.go",
+     177,
+     177,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "binding/validate_test.go",
+     178,
+     178,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "binding/validate_test.go",
+     182,
+     182,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "binding/validate_test.go",
+     183,
+     183,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "binding/validate_test.go",
+     186,
+     186,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "binding/validate_test.go",
+     187,
+     187,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "binding/validate_test.go",
+     191,
+     191,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "binding/validate_test.go",
+     192,
+     192,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "binding/validate_test.go",
+     214,
+     214,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "binding/validate_test.go",
+     247,
+     247,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "binding/xml.go",
+     33,
+     33,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "binding/yaml.go",
+     34,
+     34,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ]
+   ],
+   "seed_def": "binding/binding.go:122",
+   "stratum": "C-name"
+  },
+  "callers:binding/binding_test.go:1372": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "binding/binding_test.go",
+     "TestBindingFormFilesMultipart"
+    ],
+    [
+     "binding/multipart_form_mapping_test.go",
+     "assertMultipartFileHeader"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "binding/binding_test.go",
+     671,
+     671
+    ],
+    [
+     "binding/multipart_form_mapping_test.go",
+     137,
+     137
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "binding/binding_test.go",
+     "TestBindingFormFilesMultipart"
+    ],
+    [
+     "binding/binding_test.go",
+     "createFormFilesMultipartRequest"
+    ],
+    [
+     "binding/binding_test.go",
+     "createFormFilesMultipartRequestFail"
+    ],
+    [
+     "binding/binding_test.go",
+     "createFormMultipartRequest"
+    ],
+    [
+     "binding/binding_test.go",
+     "createFormMultipartRequestForMap"
+    ],
+    [
+     "binding/binding_test.go",
+     "createFormMultipartRequestForMapFail"
+    ],
+    [
+     "binding/multipart_form_mapping_test.go",
+     "assertMultipartFileHeader"
+    ],
+    [
+     "binding/multipart_form_mapping_test.go",
+     "createRequestMultipartFiles"
+    ],
+    [
+     "context.go",
+     "FormFile"
+    ],
+    [
+     "context.go",
+     "SaveUploadedFile"
+    ],
+    [
+     "context_test.go",
+     "TestContextCopyShouldNotCancel"
+    ],
+    [
+     "context_test.go",
+     "TestContextFormFile"
+    ],
+    [
+     "context_test.go",
+     "TestContextFormFileFailed"
+    ],
+    [
+     "context_test.go",
+     "TestContextMultipartForm"
+    ],
+    [
+     "context_test.go",
+     "TestSaveUploadedCreateFailed"
+    ],
+    [
+     "context_test.go",
+     "TestSaveUploadedFileWithPermission"
+    ],
+    [
+     "context_test.go",
+     "TestSaveUploadedFileWithPermissionFailed"
+    ],
+    [
+     "context_test.go",
+     "TestSaveUploadedOpenFailed"
+    ],
+    [
+     "context_test.go",
+     "createMultipartRequest"
+    ],
+    [
+     "debug_test.go",
+     "captureOutput"
+    ],
+    [
+     "gin.go",
+     "RunFd"
+    ],
+    [
+     "gin.go",
+     "RunUnix"
+    ],
+    [
+     "gin_integration_test.go",
+     "TestBadListener"
+    ],
+    [
+     "gin_integration_test.go",
+     "TestEscapedColon"
+    ],
+    [
+     "gin_integration_test.go",
+     "TestTreeRunDynamicRouting"
+    ],
+    [
+     "gin_integration_test.go",
+     "TestWithHttptestWithAutoSelectedPort"
+    ],
+    [
+     "gin_integration_test.go",
+     "testRequest"
+    ],
+    [
+     "gin_test.go",
+     "TestH2c"
+    ],
+    [
+     "gin_test.go",
+     "TestLoadHTMLFSDebugMode"
+    ],
+    [
+     "gin_test.go",
+     "TestLoadHTMLFSFuncMap"
+    ],
+    [
+     "gin_test.go",
+     "TestLoadHTMLFSReleaseMode"
+    ],
+    [
+     "gin_test.go",
+     "TestLoadHTMLFSTestMode"
+    ],
+    [
+     "gin_test.go",
+     "TestLoadHTMLFSUsingTLS"
+    ],
+    [
+     "gin_test.go",
+     "TestLoadHTMLFilesDebugMode"
+    ],
+    [
+     "gin_test.go",
+     "TestLoadHTMLFilesFuncMap"
+    ],
+    [
+     "gin_test.go",
+     "TestLoadHTMLFilesReleaseMode"
+    ],
+    [
+     "gin_test.go",
+     "TestLoadHTMLFilesTestMode"
+    ],
+    [
+     "gin_test.go",
+     "TestLoadHTMLFilesUsingTLS"
+    ],
+    [
+     "gin_test.go",
+     "TestLoadHTMLGlobDebugMode"
+    ],
+    [
+     "gin_test.go",
+     "TestLoadHTMLGlobFromFuncMap"
+    ],
+    [
+     "gin_test.go",
+     "TestLoadHTMLGlobReleaseMode"
+    ],
+    [
+     "gin_test.go",
+     "TestLoadHTMLGlobTestMode"
+    ],
+    [
+     "gin_test.go",
+     "TestLoadHTMLGlobUsingTLS"
+    ],
+    [
+     "recovery.go",
+     "readNthLine"
+    ],
+    [
+     "recovery_test.go",
+     "TestReadNthLine"
+    ],
+    [
+     "render/render_test.go",
+     "TestRenderDataContentLength"
+    ],
+    [
+     "response_writer_test.go",
+     "TestResponseWriterFlush"
+    ],
+    [
+     "routergroup.go",
+     "createStaticHandler"
+    ],
+    [
+     "routes_test.go",
+     "TestRouteStaticFile"
+    ],
+    [
+     "routes_test.go",
+     "TestRouteStaticFileFS"
+    ],
+    [
+     "test_helpers.go",
+     "waitForServerReady"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "binding/binding_test.go",
+     535,
+     535,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "binding/binding_test.go",
+     543,
+     543,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "binding/binding_test.go",
+     560,
+     560,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "binding/binding_test.go",
+     568,
+     568,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "binding/binding_test.go",
+     585,
+     585,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "binding/binding_test.go",
+     600,
+     600,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "binding/binding_test.go",
+     614,
+     614,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "binding/binding_test.go",
+     666,
+     666,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "binding/binding_test.go",
+     671,
+     671,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "binding/multipart_form_mapping_test.go",
+     116,
+     116,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "binding/multipart_form_mapping_test.go",
+     137,
+     137,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "context.go",
+     708,
+     708,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "context.go",
+     724,
+     724,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "context.go",
+     742,
+     742,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "context_test.go",
+     54,
+     54,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "context_test.go",
+     160,
+     160,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "context_test.go",
+     174,
+     174,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "context_test.go",
+     192,
+     192,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "context_test.go",
+     206,
+     206,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "context_test.go",
+     225,
+     225,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "context_test.go",
+     243,
+     243,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "context_test.go",
+     267,
+     267,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "context_test.go",
+     3344,
+     3344,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "debug_test.go",
+     163,
+     163,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "gin.go",
+     594,
+     594,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "gin.go",
+     617,
+     617,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "gin.go",
+     622,
+     622,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "gin_integration_test.go",
+     45,
+     45,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "gin_integration_test.go",
+     378,
+     378,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "gin_integration_test.go",
+     387,
+     387,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "gin_integration_test.go",
+     475,
+     475,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "gin_integration_test.go",
+     600,
+     600,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "gin_test.go",
+     74,
+     74,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "gin_test.go",
+     101,
+     101,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "gin_test.go",
+     132,
+     132,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "gin_test.go",
+     152,
+     152,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "gin_test.go",
+     172,
+     172,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "gin_test.go",
+     199,
+     199,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "gin_test.go",
+     230,
+     230,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "gin_test.go",
+     250,
+     250,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "gin_test.go",
+     270,
+     270,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "gin_test.go",
+     290,
+     290,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "gin_test.go",
+     317,
+     317,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "gin_test.go",
+     339,
+     339,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "gin_test.go",
+     359,
+     359,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "gin_test.go",
+     379,
+     379,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "gin_test.go",
+     399,
+     399,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "gin_test.go",
+     426,
+     426,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "recovery.go",
+     155,
+     155,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "recovery_test.go",
+     335,
+     335,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "render/render_test.go",
+     557,
+     557,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "response_writer_test.go",
+     266,
+     266,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "routergroup.go",
+     235,
+     235,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "routes_test.go",
+     391,
+     391,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "routes_test.go",
+     426,
+     426,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "test_helpers.go",
+     47,
+     47,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "binding/binding_test.go:1372",
+   "stratum": "U-method"
+  },
+  "callers:binding/binding_test.go:247": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "binding/binding_test.go:247",
+   "stratum": "Q-scoped"
+  },
+  "callers:binding/form_mapping.go:40": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "binding/form_mapping_test.go",
+     "TestMapFormWithTag"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "binding/form_mapping_test.go",
+     180,
+     180
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "binding/form_mapping_test.go",
+     "TestMapFormWithTag"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "binding/form_mapping_test.go",
+     180,
+     180,
+     {
+      "resolution_kind": "free_single"
+     }
+    ]
+   ],
+   "seed_def": "binding/form_mapping.go:40",
+   "stratum": "Q-scoped"
+  },
+  "callers:binding/form_mapping.go:401": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "binding/form_mapping.go",
+     "setWithProperType"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "binding/form_mapping.go",
+     352,
+     352
+    ],
+    [
+     "binding/form_mapping.go",
+     354,
+     354
+    ],
+    [
+     "binding/form_mapping.go",
+     356,
+     356
+    ],
+    [
+     "binding/form_mapping.go",
+     358,
+     358
+    ],
+    [
+     "binding/form_mapping.go",
+     360,
+     360
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "binding/form_mapping.go",
+     "setWithProperType"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "binding/form_mapping.go",
+     352,
+     352,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "binding/form_mapping.go",
+     354,
+     354,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "binding/form_mapping.go",
+     356,
+     356,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "binding/form_mapping.go",
+     358,
+     358,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "binding/form_mapping.go",
+     360,
+     360,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "binding/form_mapping.go:401",
+   "stratum": "Q-scoped"
+  },
+  "callers:binding/form_mapping_test.go:1043": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "binding/form_mapping.go",
+     "trySetUsingParser"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "binding/form_mapping.go",
+     208,
+     208
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "binding/form_mapping_test.go:1043",
+   "stratum": "C-method"
+  },
+  "callers:binding/form_mapping_test.go:384": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "binding/form_mapping_test.go:384",
+   "stratum": "Q-scoped"
+  },
+  "callers:binding/json_test.go:124": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "binding/json_test.go:124",
+   "stratum": "C-method"
+  },
+  "callers:binding/json_test.go:89": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "binding/form_mapping.go",
+     "setWithProperType"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "binding/form_mapping.go",
+     376,
+     376
+    ],
+    [
+     "binding/form_mapping.go",
+     378,
+     378
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "binding/json_test.go",
+     "Unmarshal"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "binding/json_test.go",
+     90,
+     90,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "binding/json_test.go:89",
+   "stratum": "C-method"
+  },
+  "callers:binding/plain.go:18": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "binding/binding_msgpack_test.go",
+     "testMsgPackBodyBinding"
+    ],
+    [
+     "binding/binding_test.go",
+     "TestBindingDefaultValueFormPost"
+    ],
+    [
+     "binding/binding_test.go",
+     "TestBindingFormFilesMultipart"
+    ],
+    [
+     "binding/binding_test.go",
+     "TestBindingFormFilesMultipartFail"
+    ],
+    [
+     "binding/binding_test.go",
+     "TestBindingFormMultipart"
+    ],
+    [
+     "binding/binding_test.go",
+     "TestBindingFormMultipartForMap"
+    ],
+    [
+     "binding/binding_test.go",
+     "TestBindingFormMultipartForMapFail"
+    ],
+    [
+     "binding/binding_test.go",
+     "TestBindingFormPost"
+    ],
+    [
+     "binding/binding_test.go",
+     "TestBindingFormPostForMap"
+    ],
+    [
+     "binding/binding_test.go",
+     "TestBindingFormPostForMapFail"
+    ],
+    [
+     "binding/binding_test.go",
+     "TestBindingFormStringSliceMap"
+    ],
+    [
+     "binding/binding_test.go",
+     "TestBindingJSONNilBody"
+    ],
+    [
+     "binding/binding_test.go",
+     "TestBindingQueryStringMap"
+    ],
+    [
+     "binding/binding_test.go",
+     "TestFormBindingFail"
+    ],
+    [
+     "binding/binding_test.go",
+     "TestFormBindingMultipartFail"
+    ],
+    [
+     "binding/binding_test.go",
+     "TestFormMultipartBindingFail"
+    ],
+    [
+     "binding/binding_test.go",
+     "TestFormPostBindingFail"
+    ],
+    [
+     "binding/binding_test.go",
+     "TestHeaderBinding"
+    ],
+    [
+     "binding/binding_test.go",
+     "TestPlainBinding"
+    ],
+    [
+     "binding/binding_test.go",
+     "TestRequiredFails"
+    ],
+    [
+     "binding/binding_test.go",
+     "TestRequiredSucceeds"
+    ],
+    [
+     "binding/binding_test.go",
+     "TestValidationDisabled"
+    ],
+    [
+     "binding/binding_test.go",
+     "TestValidationFails"
+    ],
+    [
+     "binding/binding_test.go",
+     "testBodyBinding"
+    ],
+    [
+     "binding/binding_test.go",
+     "testBodyBindingDisallowUnknownFields"
+    ],
+    [
+     "binding/binding_test.go",
+     "testBodyBindingFail"
+    ],
+    [
+     "binding/binding_test.go",
+     "testBodyBindingSlice"
+    ],
+    [
+     "binding/binding_test.go",
+     "testBodyBindingStringMap"
+    ],
+    [
+     "binding/binding_test.go",
+     "testBodyBindingUseNumber"
+    ],
+    [
+     "binding/binding_test.go",
+     "testBodyBindingUseNumber2"
+    ],
+    [
+     "binding/binding_test.go",
+     "testFormBinding"
+    ],
+    [
+     "binding/binding_test.go",
+     "testFormBindingDefaultValue"
+    ],
+    [
+     "binding/binding_test.go",
+     "testFormBindingEmbeddedStruct"
+    ],
+    [
+     "binding/binding_test.go",
+     "testFormBindingForTime"
+    ],
+    [
+     "binding/binding_test.go",
+     "testFormBindingForTimeFailFormat"
+    ],
+    [
+     "binding/binding_test.go",
+     "testFormBindingForTimeFailLocation"
+    ],
+    [
+     "binding/binding_test.go",
+     "testFormBindingForTimeNotFormat"
+    ],
+    [
+     "binding/binding_test.go",
+     "testFormBindingForTimeNotUnixFormat"
+    ],
+    [
+     "binding/binding_test.go",
+     "testFormBindingForType"
+    ],
+    [
+     "binding/binding_test.go",
+     "testFormBindingIgnoreField"
+    ],
+    [
+     "binding/binding_test.go",
+     "testFormBindingInvalidName"
+    ],
+    [
+     "binding/binding_test.go",
+     "testFormBindingInvalidName2"
+    ],
+    [
+     "binding/binding_test.go",
+     "testProtoBodyBinding"
+    ],
+    [
+     "binding/binding_test.go",
+     "testProtoBodyBindingFail"
+    ],
+    [
+     "binding/binding_test.go",
+     "testQueryBinding"
+    ],
+    [
+     "binding/binding_test.go",
+     "testQueryBindingBoolFail"
+    ],
+    [
+     "binding/binding_test.go",
+     "testQueryBindingFail"
+    ],
+    [
+     "binding/multipart_form_mapping_test.go",
+     "TestFormMultipartBindingBindError"
+    ],
+    [
+     "binding/multipart_form_mapping_test.go",
+     "TestFormMultipartBindingBindOneFile"
+    ],
+    [
+     "binding/multipart_form_mapping_test.go",
+     "TestFormMultipartBindingBindTwoFiles"
+    ],
+    [
+     "context.go",
+     "ShouldBindWith"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "binding/binding_msgpack_test.go",
+     45,
+     45
+    ],
+    [
+     "binding/binding_msgpack_test.go",
+     52,
+     52
+    ],
+    [
+     "binding/binding_test.go",
+     184,
+     184
+    ],
+    [
+     "binding/binding_test.go",
+     385,
+     385
+    ],
+    [
+     "binding/binding_test.go",
+     398,
+     398
+    ],
+    [
+     "binding/binding_test.go",
+     437,
+     437
+    ],
+    [
+     "binding/binding_test.go",
+     446,
+     446
+    ],
+    [
+     "binding/binding_test.go",
+     627,
+     627
+    ],
+    [
+     "binding/binding_test.go",
+     637,
+     637
+    ],
+    [
+     "binding/binding_test.go",
+     646,
+     646
+    ],
+    [
+     "binding/binding_test.go",
+     654,
+     654
+    ],
+    [
+     "binding/binding_test.go",
+     661,
+     661
+    ],
+    [
+     "binding/binding_test.go",
+     683,
+     683
+    ],
+    [
+     "binding/binding_test.go",
+     690,
+     690
+    ],
+    [
+     "binding/binding_test.go",
+     700,
+     700
+    ],
+    [
+     "binding/binding_test.go",
+     710,
+     710
+    ],
+    [
+     "binding/binding_test.go",
+     753,
+     753
+    ],
+    [
+     "binding/binding_test.go",
+     764,
+     764
+    ],
+    [
+     "binding/binding_test.go",
+     775,
+     775
+    ],
+    [
+     "binding/binding_test.go",
+     786,
+     786
+    ],
+    [
+     "binding/binding_test.go",
+     801,
+     801
+    ],
+    [
+     "binding/binding_test.go",
+     811,
+     811
+    ],
+    [
+     "binding/binding_test.go",
+     867,
+     867
+    ],
+    [
+     "binding/binding_test.go",
+     883,
+     883
+    ],
+    [
+     "binding/binding_test.go",
+     890,
+     890
+    ],
+    [
+     "binding/binding_test.go",
+     903,
+     903
+    ],
+    [
+     "binding/binding_test.go",
+     910,
+     910
+    ],
+    [
+     "binding/binding_test.go",
+     920,
+     920
+    ],
+    [
+     "binding/binding_test.go",
+     931,
+     931
+    ],
+    [
+     "binding/binding_test.go",
+     941,
+     941
+    ],
+    [
+     "binding/binding_test.go",
+     951,
+     951
+    ],
+    [
+     "binding/binding_test.go",
+     964,
+     964
+    ],
+    [
+     "binding/binding_test.go",
+     978,
+     978
+    ],
+    [
+     "binding/binding_test.go",
+     991,
+     991
+    ],
+    [
+     "binding/binding_test.go",
+     996,
+     996
+    ],
+    [
+     "binding/binding_test.go",
+     1009,
+     1009
+    ],
+    [
+     "binding/binding_test.go",
+     1014,
+     1014
+    ],
+    [
+     "binding/binding_test.go",
+     1027,
+     1027
+    ],
+    [
+     "binding/binding_test.go",
+     1032,
+     1032
+    ],
+    [
+     "binding/binding_test.go",
+     1045,
+     1045
+    ],
+    [
+     "binding/binding_test.go",
+     1050,
+     1050
+    ],
+    [
+     "binding/binding_test.go",
+     1063,
+     1063
+    ],
+    [
+     "binding/binding_test.go",
+     1078,
+     1078
+    ],
+    [
+     "binding/binding_test.go",
+     1084,
+     1084
+    ],
+    [
+     "binding/binding_test.go",
+     1097,
+     1097
+    ],
+    [
+     "binding/binding_test.go",
+     1102,
+     1102
+    ],
+    [
+     "binding/binding_test.go",
+     1117,
+     1117
+    ],
+    [
+     "binding/binding_test.go",
+     1123,
+     1123
+    ],
+    [
+     "binding/binding_test.go",
+     1127,
+     1127
+    ],
+    [
+     "binding/binding_test.go",
+     1136,
+     1136
+    ],
+    [
+     "binding/binding_test.go",
+     1145,
+     1145
+    ],
+    [
+     "binding/binding_test.go",
+     1150,
+     1150
+    ],
+    [
+     "binding/binding_test.go",
+     1154,
+     1154
+    ],
+    [
+     "binding/binding_test.go",
+     1161,
+     1161
+    ],
+    [
+     "binding/binding_test.go",
+     1166,
+     1166
+    ],
+    [
+     "binding/binding_test.go",
+     1171,
+     1171
+    ],
+    [
+     "binding/binding_test.go",
+     1185,
+     1185
+    ],
+    [
+     "binding/binding_test.go",
+     1200,
+     1200
+    ],
+    [
+     "binding/binding_test.go",
+     1213,
+     1213
+    ],
+    [
+     "binding/binding_test.go",
+     1222,
+     1222
+    ],
+    [
+     "binding/binding_test.go",
+     1228,
+     1228
+    ],
+    [
+     "binding/binding_test.go",
+     1237,
+     1237
+    ],
+    [
+     "binding/binding_test.go",
+     1242,
+     1242
+    ],
+    [
+     "binding/binding_test.go",
+     1252,
+     1252
+    ],
+    [
+     "binding/binding_test.go",
+     1262,
+     1262
+    ],
+    [
+     "binding/binding_test.go",
+     1268,
+     1268
+    ],
+    [
+     "binding/binding_test.go",
+     1278,
+     1278
+    ],
+    [
+     "binding/binding_test.go",
+     1287,
+     1287
+    ],
+    [
+     "binding/binding_test.go",
+     1297,
+     1297
+    ],
+    [
+     "binding/binding_test.go",
+     1305,
+     1305
+    ],
+    [
+     "binding/binding_test.go",
+     1317,
+     1317
+    ],
+    [
+     "binding/binding_test.go",
+     1323,
+     1323
+    ],
+    [
+     "binding/binding_test.go",
+     1333,
+     1333
+    ],
+    [
+     "binding/binding_test.go",
+     1339,
+     1339
+    ],
+    [
+     "binding/binding_test.go",
+     1349,
+     1349
+    ],
+    [
+     "binding/binding_test.go",
+     1356,
+     1356
+    ],
+    [
+     "binding/binding_test.go",
+     1382,
+     1382
+    ],
+    [
+     "binding/binding_test.go",
+     1387,
+     1387
+    ],
+    [
+     "binding/binding_test.go",
+     1392,
+     1392
+    ],
+    [
+     "binding/binding_test.go",
+     1396,
+     1396
+    ],
+    [
+     "binding/binding_test.go",
+     1399,
+     1399
+    ],
+    [
+     "binding/binding_test.go",
+     1403,
+     1403
+    ],
+    [
+     "binding/binding_test.go",
+     1414,
+     1414
+    ],
+    [
+     "binding/binding_test.go",
+     1420,
+     1420
+    ],
+    [
+     "binding/binding_test.go",
+     1427,
+     1427
+    ],
+    [
+     "binding/multipart_form_mapping_test.go",
+     30,
+     30
+    ],
+    [
+     "binding/multipart_form_mapping_test.go",
+     56,
+     56
+    ],
+    [
+     "binding/multipart_form_mapping_test.go",
+     93,
+     93
+    ],
+    [
+     "context.go",
+     920,
+     920
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "binding/binding_msgpack_test.go",
+     "testMsgPackBodyBinding"
+    ],
+    [
+     "binding/binding_test.go",
+     "testBodyBinding"
+    ],
+    [
+     "binding/binding_test.go",
+     "testBodyBindingDisallowUnknownFields"
+    ],
+    [
+     "binding/binding_test.go",
+     "testBodyBindingFail"
+    ],
+    [
+     "binding/binding_test.go",
+     "testBodyBindingSlice"
+    ],
+    [
+     "binding/binding_test.go",
+     "testBodyBindingStringMap"
+    ],
+    [
+     "binding/binding_test.go",
+     "testBodyBindingUseNumber"
+    ],
+    [
+     "binding/binding_test.go",
+     "testBodyBindingUseNumber2"
+    ],
+    [
+     "binding/binding_test.go",
+     "testProtoBodyBinding"
+    ],
+    [
+     "binding/binding_test.go",
+     "testProtoBodyBindingFail"
+    ],
+    [
+     "context.go",
+     "ShouldBindWith"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "binding/binding_msgpack_test.go",
+     45,
+     45,
+     {
+      "resolution_kind": "interface_dispatch"
+     }
+    ],
+    [
+     "binding/binding_test.go",
+     1222,
+     1222,
+     {
+      "resolution_kind": "interface_dispatch"
+     }
+    ],
+    [
+     "binding/binding_test.go",
+     1237,
+     1237,
+     {
+      "resolution_kind": "interface_dispatch"
+     }
+    ],
+    [
+     "binding/binding_test.go",
+     1252,
+     1252,
+     {
+      "resolution_kind": "interface_dispatch"
+     }
+    ],
+    [
+     "binding/binding_test.go",
+     1262,
+     1262,
+     {
+      "resolution_kind": "interface_dispatch"
+     }
+    ],
+    [
+     "binding/binding_test.go",
+     1268,
+     1268,
+     {
+      "resolution_kind": "interface_dispatch"
+     }
+    ],
+    [
+     "binding/binding_test.go",
+     1278,
+     1278,
+     {
+      "resolution_kind": "interface_dispatch"
+     }
+    ],
+    [
+     "binding/binding_test.go",
+     1297,
+     1297,
+     {
+      "resolution_kind": "interface_dispatch"
+     }
+    ],
+    [
+     "binding/binding_test.go",
+     1317,
+     1317,
+     {
+      "resolution_kind": "interface_dispatch"
+     }
+    ],
+    [
+     "binding/binding_test.go",
+     1333,
+     1333,
+     {
+      "resolution_kind": "interface_dispatch"
+     }
+    ],
+    [
+     "binding/binding_test.go",
+     1349,
+     1349,
+     {
+      "resolution_kind": "interface_dispatch"
+     }
+    ],
+    [
+     "binding/binding_test.go",
+     1414,
+     1414,
+     {
+      "resolution_kind": "interface_dispatch"
+     }
+    ],
+    [
+     "binding/binding_test.go",
+     1420,
+     1420,
+     {
+      "resolution_kind": "interface_dispatch"
+     }
+    ],
+    [
+     "context.go",
+     920,
+     920,
+     {
+      "resolution_kind": "interface_dispatch"
+     }
+    ]
+   ],
+   "seed_def": "binding/plain.go:18",
+   "stratum": "C-method"
+  },
+  "callers:binding/xml_test.go:14": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "binding/xml_test.go:14",
+   "stratum": "Q-scoped"
+  },
+  "callers:context.go:1129": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "context_test.go",
+     "TestContextSetCookie"
+    ],
+    [
+     "context_test.go",
+     "TestContextSetCookieData"
+    ],
+    [
+     "context_test.go",
+     "TestContextSetCookiePathEmpty"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "context_test.go",
+     1011,
+     1011
+    ],
+    [
+     "context_test.go",
+     1018,
+     1018
+    ],
+    [
+     "context_test.go",
+     3514,
+     3514
+    ],
+    [
+     "context_test.go",
+     3640,
+     3640
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "context_test.go",
+     "TestContextSetCookie"
+    ],
+    [
+     "context_test.go",
+     "TestContextSetCookieData"
+    ],
+    [
+     "context_test.go",
+     "TestContextSetCookiePathEmpty"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "context_test.go",
+     1011,
+     1011,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "context_test.go",
+     1018,
+     1018,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "context_test.go",
+     3514,
+     3514,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "context_test.go",
+     3640,
+     3640,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "context.go:1129",
+   "stratum": "U-method"
+  },
+  "callers:context.go:1179": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "context.go",
+     "AsciiJSON"
+    ],
+    [
+     "context.go",
+     "BSON"
+    ],
+    [
+     "context.go",
+     "Data"
+    ],
+    [
+     "context.go",
+     "DataFromReader"
+    ],
+    [
+     "context.go",
+     "HTML"
+    ],
+    [
+     "context.go",
+     "IndentedJSON"
+    ],
+    [
+     "context.go",
+     "JSON"
+    ],
+    [
+     "context.go",
+     "JSONP"
+    ],
+    [
+     "context.go",
+     "PDF"
+    ],
+    [
+     "context.go",
+     "ProtoBuf"
+    ],
+    [
+     "context.go",
+     "PureJSON"
+    ],
+    [
+     "context.go",
+     "Redirect"
+    ],
+    [
+     "context.go",
+     "SSEvent"
+    ],
+    [
+     "context.go",
+     "SecureJSON"
+    ],
+    [
+     "context.go",
+     "String"
+    ],
+    [
+     "context.go",
+     "TOML"
+    ],
+    [
+     "context.go",
+     "XML"
+    ],
+    [
+     "context.go",
+     "YAML"
+    ],
+    [
+     "context_test.go",
+     "TestContextRenderIfErr"
+    ],
+    [
+     "context_test.go",
+     "TestContextRenderSSE"
+    ],
+    [
+     "middleware_test.go",
+     "TestMiddlewareWrite"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "context.go",
+     1200,
+     1200
+    ],
+    [
+     "context.go",
+     1208,
+     1208
+    ],
+    [
+     "context.go",
+     1215,
+     1215
+    ],
+    [
+     "context.go",
+     1224,
+     1224
+    ],
+    [
+     "context.go",
+     1227,
+     1227
+    ],
+    [
+     "context.go",
+     1233,
+     1233
+    ],
+    [
+     "context.go",
+     1239,
+     1239
+    ],
+    [
+     "context.go",
+     1245,
+     1245
+    ],
+    [
+     "context.go",
+     1251,
+     1251
+    ],
+    [
+     "context.go",
+     1257,
+     1257
+    ],
+    [
+     "context.go",
+     1262,
+     1262
+    ],
+    [
+     "context.go",
+     1267,
+     1267
+    ],
+    [
+     "context.go",
+     1272,
+     1272
+    ],
+    [
+     "context.go",
+     1277,
+     1277
+    ],
+    [
+     "context.go",
+     1282,
+     1282
+    ],
+    [
+     "context.go",
+     1287,
+     1287
+    ],
+    [
+     "context.go",
+     1296,
+     1296
+    ],
+    [
+     "context.go",
+     1304,
+     1304
+    ],
+    [
+     "context.go",
+     1347,
+     1347
+    ],
+    [
+     "context_test.go",
+     1054,
+     1054
+    ],
+    [
+     "context_test.go",
+     1433,
+     1433
+    ],
+    [
+     "middleware_test.go",
+     243,
+     243
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "context.go",
+     "AsciiJSON"
+    ],
+    [
+     "context.go",
+     "BSON"
+    ],
+    [
+     "context.go",
+     "Data"
+    ],
+    [
+     "context.go",
+     "DataFromReader"
+    ],
+    [
+     "context.go",
+     "HTML"
+    ],
+    [
+     "context.go",
+     "IndentedJSON"
+    ],
+    [
+     "context.go",
+     "JSON"
+    ],
+    [
+     "context.go",
+     "JSONP"
+    ],
+    [
+     "context.go",
+     "PDF"
+    ],
+    [
+     "context.go",
+     "ProtoBuf"
+    ],
+    [
+     "context.go",
+     "PureJSON"
+    ],
+    [
+     "context.go",
+     "Redirect"
+    ],
+    [
+     "context.go",
+     "SSEvent"
+    ],
+    [
+     "context.go",
+     "SecureJSON"
+    ],
+    [
+     "context.go",
+     "String"
+    ],
+    [
+     "context.go",
+     "TOML"
+    ],
+    [
+     "context.go",
+     "XML"
+    ],
+    [
+     "context.go",
+     "YAML"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "context.go",
+     1200,
+     1200,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "context.go",
+     1208,
+     1208,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "context.go",
+     1215,
+     1215,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "context.go",
+     1224,
+     1224,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "context.go",
+     1227,
+     1227,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "context.go",
+     1233,
+     1233,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "context.go",
+     1239,
+     1239,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "context.go",
+     1245,
+     1245,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "context.go",
+     1251,
+     1251,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "context.go",
+     1257,
+     1257,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "context.go",
+     1262,
+     1262,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "context.go",
+     1267,
+     1267,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "context.go",
+     1272,
+     1272,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "context.go",
+     1277,
+     1277,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "context.go",
+     1282,
+     1282,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "context.go",
+     1287,
+     1287,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "context.go",
+     1296,
+     1296,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "context.go",
+     1304,
+     1304,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "context.go",
+     1347,
+     1347,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ]
+   ],
+   "seed_def": "context.go:1179",
+   "stratum": "C-method"
+  },
+  "callers:context.go:406": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "context_test.go",
+     "TestContextGetInt16Slice"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "context_test.go",
+     550,
+     550
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "context_test.go",
+     "TestContextGetInt16Slice"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "context_test.go",
+     550,
+     550,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "context.go:406",
+   "stratum": "U-method"
+  },
+  "callers:context.go:411": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "context_test.go",
+     "TestContextGetInt32Slice"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "context_test.go",
+     558,
+     558
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "context_test.go",
+     "TestContextGetInt32Slice"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "context_test.go",
+     558,
+     558,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "context.go:411",
+   "stratum": "U-method"
+  },
+  "callers:context.go:660": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "context_test.go",
+     "TestContextPostFormMultipart"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "context_test.go",
+     1001,
+     1001
+    ],
+    [
+     "context_test.go",
+     1005,
+     1005
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "context_test.go",
+     "TestContextPostFormMultipart"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "context_test.go",
+     1001,
+     1001,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "context_test.go",
+     1005,
+     1005,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "context.go:660",
+   "stratum": "U-method"
+  },
+  "callers:context.go:879": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "context_test.go",
+     "TestContextShouldBindWithQuery"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "context_test.go",
+     2448,
+     2448
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "context_test.go",
+     "TestContextShouldBindWithQuery"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "context_test.go",
+     2448,
+     2448,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "context.go:879",
+   "stratum": "U-method"
+  },
+  "callers:context_test.go:1023": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "context_test.go:1023",
+   "stratum": "U-free"
+  },
+  "callers:context_test.go:1089": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "context_test.go:1089",
+   "stratum": "U-free"
+  },
+  "callers:context_test.go:804": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "context_test.go:804",
+   "stratum": "U-free"
+  },
+  "callers:debug.go:32": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "debug_test.go",
+     "TestDebugPrintRouteFunc"
+    ],
+    [
+     "debug_test.go",
+     "TestDebugPrintRoutes"
+    ],
+    [
+     "gin.go",
+     "addRoute"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "debug_test.go",
+     71,
+     71
+    ],
+    [
+     "debug_test.go",
+     83,
+     83
+    ],
+    [
+     "gin.go",
+     369,
+     369
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "debug_test.go",
+     "TestDebugPrintRouteFunc"
+    ],
+    [
+     "debug_test.go",
+     "TestDebugPrintRoutes"
+    ],
+    [
+     "gin.go",
+     "addRoute"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "debug_test.go",
+     71,
+     71,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "debug_test.go",
+     83,
+     83,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "gin.go",
+     369,
+     369,
+     {
+      "resolution_kind": "free_single"
+     }
+    ]
+   ],
+   "seed_def": "debug.go:32",
+   "stratum": "U-free"
+  },
+  "callers:errors_test.go:112": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "context_test.go",
+     "TestContextGetRawDataNilBody"
+    ],
+    [
+     "context_test.go",
+     "TestContextWithFallbackErrFromRequestContext"
+    ],
+    [
+     "context_test.go",
+     "must"
+    ],
+    [
+     "errors.go",
+     "Error"
+    ],
+    [
+     "errors_test.go",
+     "TestError"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "context_test.go",
+     76,
+     76
+    ],
+    [
+     "context_test.go",
+     3045,
+     3045
+    ],
+    [
+     "context_test.go",
+     3272,
+     3272
+    ],
+    [
+     "errors.go",
+     83,
+     83
+    ],
+    [
+     "errors_test.go",
+     23,
+     23
+    ],
+    [
+     "errors_test.go",
+     24,
+     24
+    ],
+    [
+     "errors_test.go",
+     32,
+     32
+    ],
+    [
+     "errors_test.go",
+     44,
+     44
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "errors_test.go",
+     "TestError"
+    ],
+    [
+     "errors_test.go",
+     "TestErrorSlice"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "errors_test.go",
+     23,
+     23,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "errors_test.go",
+     23,
+     23,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "errors_test.go",
+     24,
+     24,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "errors_test.go",
+     32,
+     32,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "errors_test.go",
+     44,
+     44,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "errors_test.go",
+     76,
+     76,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "errors_test.go:112",
+   "stratum": "C-method"
+  },
+  "callers:ginS/gins.go:101": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "ginS/gins_test.go",
+     "TestStaticFile"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "ginS/gins_test.go",
+     218,
+     218
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "ginS/gins_test.go",
+     "TestStaticFile"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "ginS/gins_test.go",
+     218,
+     218,
+     {
+      "resolution_kind": "free_single"
+     }
+    ]
+   ],
+   "seed_def": "ginS/gins.go:101",
+   "stratum": "C-name"
+  },
+  "callers:ginS/gins.go:136": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "ginS/gins.go:136",
+   "stratum": "C-name"
+  },
+  "callers:ginS/gins.go:30": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "ginS/gins.go:30",
+   "stratum": "C-name"
+  },
+  "callers:ginS/gins.go:35": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "ginS/gins_test.go",
+     "TestSetHTMLTemplate"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "ginS/gins_test.go",
+     211,
+     211
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "ginS/gins_test.go",
+     "TestSetHTMLTemplate"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "ginS/gins_test.go",
+     211,
+     211,
+     {
+      "resolution_kind": "free_single"
+     }
+    ]
+   ],
+   "seed_def": "ginS/gins.go:35",
+   "stratum": "C-name"
+  },
+  "callers:ginS/gins_test.go:183": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "ginS/gins_test.go:183",
+   "stratum": "Q-scoped"
+  },
+  "callers:gin_test.go:210": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "gin_test.go:210",
+   "stratum": "C-name"
+  },
+  "callers:logger.go:237": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "benchmarks_test.go",
+     "BenchmarkLoggerMiddleware"
+    ],
+    [
+     "benchmarks_test.go",
+     "BenchmarkManyHandlers"
+    ],
+    [
+     "logger_test.go",
+     "TestLogger"
+    ],
+    [
+     "logger_test.go",
+     "TestLoggerWithWriterSkippingPaths"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "benchmarks_test.go",
+     29,
+     29
+    ],
+    [
+     "benchmarks_test.go",
+     36,
+     36
+    ],
+    [
+     "logger_test.go",
+     25,
+     25
+    ],
+    [
+     "logger_test.go",
+     406,
+     406
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "benchmarks_test.go",
+     "BenchmarkLoggerMiddleware"
+    ],
+    [
+     "benchmarks_test.go",
+     "BenchmarkManyHandlers"
+    ],
+    [
+     "logger_test.go",
+     "TestLogger"
+    ],
+    [
+     "logger_test.go",
+     "TestLoggerWithWriterSkippingPaths"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "benchmarks_test.go",
+     29,
+     29,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "benchmarks_test.go",
+     36,
+     36,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "logger_test.go",
+     25,
+     25,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "logger_test.go",
+     406,
+     406,
+     {
+      "resolution_kind": "free_single"
+     }
+    ]
+   ],
+   "seed_def": "logger.go:237",
+   "stratum": "U-free"
+  },
+  "callers:logger_test.go:436": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "logger_test.go:436",
+   "stratum": "U-free"
+  },
+  "callers:path.go:128": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "path.go",
+     "cleanPath"
+    ],
+    [
+     "path.go",
+     "removeRepeatedChar"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "path.go",
+     98,
+     98
+    ],
+    [
+     "path.go",
+     104,
+     104
+    ],
+    [
+     "path.go",
+     113,
+     113
+    ],
+    [
+     "path.go",
+     180,
+     180
+    ],
+    [
+     "path.go",
+     190,
+     190
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "path.go",
+     "cleanPath"
+    ],
+    [
+     "path.go",
+     "removeRepeatedChar"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "path.go",
+     98,
+     98,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "path.go",
+     104,
+     104,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "path.go",
+     113,
+     113,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "path.go",
+     180,
+     180,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "path.go",
+     190,
+     190,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "path.go:128",
+   "stratum": "U-free"
+  },
+  "callers:render/render_test.go:444": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "render/render_test.go:444",
+   "stratum": "Q-scoped"
+  },
+  "callers:render/render_test.go:604": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "render/render_test.go:604",
+   "stratum": "Q-scoped"
+  },
+  "callers:routergroup.go:181": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "routergroup.go",
+     "StaticFile"
+    ],
+    [
+     "routergroup.go",
+     "StaticFileFS"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "routergroup.go",
+     167,
+     167
+    ],
+    [
+     "routergroup.go",
+     176,
+     176
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "routergroup.go",
+     "StaticFile"
+    ],
+    [
+     "routergroup.go",
+     "StaticFileFS"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "routergroup.go",
+     167,
+     167,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "routergroup.go",
+     176,
+     176,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ]
+   ],
+   "seed_def": "routergroup.go:181",
+   "stratum": "U-method"
+  },
+  "callers:tree.go:52": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "gin.go",
+     "addRoute"
+    ],
+    [
+     "gin_test.go",
+     "TestAddRoute"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "gin.go",
+     371,
+     371
+    ],
+    [
+     "gin_test.go",
+     442,
+     442
+    ],
+    [
+     "gin_test.go",
+     443,
+     443
+    ],
+    [
+     "gin_test.go",
+     448,
+     448
+    ],
+    [
+     "gin_test.go",
+     449,
+     449
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "gin.go",
+     "addRoute"
+    ],
+    [
+     "gin_test.go",
+     "TestAddRoute"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "gin.go",
+     371,
+     371,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "gin_test.go",
+     442,
+     442,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "gin_test.go",
+     443,
+     443,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "gin_test.go",
+     448,
+     448,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "gin_test.go",
+     449,
+     449,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "tree.go:52",
+   "stratum": "U-method"
+  }
+ },
+ "site_fingerprints": {
+  "benchmarks_test.go:29": "a963c55fa891d01a",
+  "benchmarks_test.go:36": "72c1fb2a982a2af7",
+  "binding/binding.go:126": "166792db602fba5a",
+  "binding/binding_msgpack_test.go:45": "0203c6c23c6cec28",
+  "binding/binding_msgpack_test.go:52": "7bedfc7e69dd4cd6",
+  "binding/binding_test.go:1009": "b484bca4a43d73d2",
+  "binding/binding_test.go:1014": "248c72dcfacc5083",
+  "binding/binding_test.go:1027": "b484bca4a43d73d2",
+  "binding/binding_test.go:1032": "248c72dcfacc5083",
+  "binding/binding_test.go:1045": "b484bca4a43d73d2",
+  "binding/binding_test.go:1050": "248c72dcfacc5083",
+  "binding/binding_test.go:1063": "51f159368855c698",
+  "binding/binding_test.go:1078": "51f159368855c698",
+  "binding/binding_test.go:1084": "248c72dcfacc5083",
+  "binding/binding_test.go:1097": "b484bca4a43d73d2",
+  "binding/binding_test.go:1102": "248c72dcfacc5083",
+  "binding/binding_test.go:1117": "7455e82535aee6b0",
+  "binding/binding_test.go:1123": "248c72dcfacc5083",
+  "binding/binding_test.go:1127": "c81b986802f8d9e2",
+  "binding/binding_test.go:1136": "cabd7c7077bc2104",
+  "binding/binding_test.go:1145": "3f478eb38f99d368",
+  "binding/binding_test.go:1150": "6760dd16d4d27f33",
+  "binding/binding_test.go:1154": "9c59b185252a8902",
+  "binding/binding_test.go:1161": "6b7ed71b03800705",
+  "binding/binding_test.go:1166": "af3085d098f3e104",
+  "binding/binding_test.go:1171": "853fc3f0dd260e5b",
+  "binding/binding_test.go:1185": "51f159368855c698",
+  "binding/binding_test.go:1200": "b484bca4a43d73d2",
+  "binding/binding_test.go:1213": "b484bca4a43d73d2",
+  "binding/binding_test.go:1222": "f582eb24936f8bd7",
+  "binding/binding_test.go:1228": "ff7419bbe9225e8e",
+  "binding/binding_test.go:1237": "04d36d4df606e249",
+  "binding/binding_test.go:1242": "34cb88f08697034c",
+  "binding/binding_test.go:1252": "51f159368855c698",
+  "binding/binding_test.go:1262": "cf84648cd49b7d39",
+  "binding/binding_test.go:1268": "481164b255f34cb8",
+  "binding/binding_test.go:1278": "b9e49b4a17939b10",
+  "binding/binding_test.go:1287": "ff7419bbe9225e8e",
+  "binding/binding_test.go:1297": "f4396b150d82561e",
+  "binding/binding_test.go:1305": "ff7419bbe9225e8e",
+  "binding/binding_test.go:1317": "f582eb24936f8bd7",
+  "binding/binding_test.go:1323": "ff7419bbe9225e8e",
+  "binding/binding_test.go:1333": "ad587d092c27ae72",
+  "binding/binding_test.go:1339": "ff7419bbe9225e8e",
+  "binding/binding_test.go:1349": "b13d4399c2b68bff",
+  "binding/binding_test.go:1356": "4c7130e8c83825a7",
+  "binding/binding_test.go:1382": "fbc680525c817b78",
+  "binding/binding_test.go:1387": "ed5bf536e6d23b87",
+  "binding/binding_test.go:1392": "727610d9646658cd",
+  "binding/binding_test.go:1396": "b0aa6be6283b1733",
+  "binding/binding_test.go:1399": "2b2450ea21ed7a60",
+  "binding/binding_test.go:1403": "21cdf29283145d97",
+  "binding/binding_test.go:1414": "43a99e54334f915f",
+  "binding/binding_test.go:1420": "14671405e643239e",
+  "binding/binding_test.go:1427": "4c7130e8c83825a7",
+  "binding/binding_test.go:184": "a3458fcd085921cc",
+  "binding/binding_test.go:248": "a2addef0d572df4d",
+  "binding/binding_test.go:385": "c97c9dfed246cfdd",
+  "binding/binding_test.go:398": "bfb796d8b3331328",
+  "binding/binding_test.go:437": "6d5146947106f8b8",
+  "binding/binding_test.go:446": "39ec17c7642a7a16",
+  "binding/binding_test.go:535": "5c05fd7b78ed859e",
+  "binding/binding_test.go:543": "8b800c50aa181caa",
+  "binding/binding_test.go:560": "5c05fd7b78ed859e",
+  "binding/binding_test.go:568": "764dbf24ea168211",
+  "binding/binding_test.go:585": "5c05fd7b78ed859e",
+  "binding/binding_test.go:600": "5c05fd7b78ed859e",
+  "binding/binding_test.go:614": "5c05fd7b78ed859e",
+  "binding/binding_test.go:627": "205de861d136d77b",
+  "binding/binding_test.go:637": "e28853cdfa3e0e70",
+  "binding/binding_test.go:646": "92404aed946fea3e",
+  "binding/binding_test.go:654": "2e05cbf2ae91d435",
+  "binding/binding_test.go:661": "474126d341f5b87a",
+  "binding/binding_test.go:666": "6ff8841b8549714a",
+  "binding/binding_test.go:671": "84f9b58c1b704c2c",
+  "binding/binding_test.go:683": "d4042003e72acd65",
+  "binding/binding_test.go:690": "369602bcb200039e",
+  "binding/binding_test.go:700": "b0e5c3d4c40c3805",
+  "binding/binding_test.go:710": "c0ecfc54dc513d81",
+  "binding/binding_test.go:753": "37d3c9e77d29dcf6",
+  "binding/binding_test.go:764": "3e25c8606454e590",
+  "binding/binding_test.go:775": "c06d2177367f9925",
+  "binding/binding_test.go:786": "3e14d004dfc64030",
+  "binding/binding_test.go:801": "5dfb96f94c04ac72",
+  "binding/binding_test.go:811": "c96b4cf7ad1fd50f",
+  "binding/binding_test.go:867": "51f159368855c698",
+  "binding/binding_test.go:883": "51f159368855c698",
+  "binding/binding_test.go:890": "248c72dcfacc5083",
+  "binding/binding_test.go:903": "51f159368855c698",
+  "binding/binding_test.go:910": "248c72dcfacc5083",
+  "binding/binding_test.go:920": "a0e6459cd5d32dec",
+  "binding/binding_test.go:931": "58764e16fbc91600",
+  "binding/binding_test.go:941": "a0e6459cd5d32dec",
+  "binding/binding_test.go:951": "a0e6459cd5d32dec",
+  "binding/binding_test.go:964": "ec7b9ed1b8af93ae",
+  "binding/binding_test.go:978": "248c72dcfacc5083",
+  "binding/binding_test.go:991": "b484bca4a43d73d2",
+  "binding/binding_test.go:996": "248c72dcfacc5083",
+  "binding/form.go:34": "b311a35c46d4626b",
+  "binding/form.go:48": "b311a35c46d4626b",
+  "binding/form.go:63": "73c7ba25c9d2b23d",
+  "binding/form_mapping.go:208": "f40ce270cc8b56ec",
+  "binding/form_mapping.go:352": "4f07b8a9ff61ee1c",
+  "binding/form_mapping.go:354": "b283dc88f4a6dfaa",
+  "binding/form_mapping.go:356": "a3a4f1639cf28732",
+  "binding/form_mapping.go:358": "36f89c50a8d73953",
+  "binding/form_mapping.go:360": "5903ea5a76c4c692",
+  "binding/form_mapping.go:376": "5094587c7750d49c",
+  "binding/form_mapping.go:378": "9679d8ac1c2cd720",
+  "binding/form_mapping.go:41": "e4a0b46970ca0483",
+  "binding/form_mapping_test.go:180": "9dadaa3f38ba92fc",
+  "binding/form_mapping_test.go:407": "0bf6f4d085f8201c",
+  "binding/header.go:24": "73c7ba25c9d2b23d",
+  "binding/json.go:55": "b311a35c46d4626b",
+  "binding/json_test.go:90": "36987601d5437876",
+  "binding/msgpack.go:36": "b311a35c46d4626b",
+  "binding/multipart_form_mapping_test.go:116": "cf1f839b93095e93",
+  "binding/multipart_form_mapping_test.go:137": "54d195ebfb493c31",
+  "binding/multipart_form_mapping_test.go:30": "74caf548c7f1aa1b",
+  "binding/multipart_form_mapping_test.go:56": "8d3bd485e23e9977",
+  "binding/multipart_form_mapping_test.go:93": "c954e595a3e468c6",
+  "binding/plain.go:24": "c382d9f1107598ba",
+  "binding/query.go:20": "b311a35c46d4626b",
+  "binding/toml.go:34": "b311a35c46d4626b",
+  "binding/uri.go:17": "b311a35c46d4626b",
+  "binding/validate_test.go:117": "0c502ef810bb0e21",
+  "binding/validate_test.go:118": "c5e18f787628dbec",
+  "binding/validate_test.go:119": "ddffb5672581b1d6",
+  "binding/validate_test.go:120": "b03a378f62ed4426",
+  "binding/validate_test.go:167": "56ac683ee9458b80",
+  "binding/validate_test.go:168": "b03a378f62ed4426",
+  "binding/validate_test.go:177": "b57d2a3ea6b26a12",
+  "binding/validate_test.go:178": "1aeb7cd4e3ec863f",
+  "binding/validate_test.go:182": "124434ed6a00ead3",
+  "binding/validate_test.go:183": "ef0616966514b7e4",
+  "binding/validate_test.go:186": "8dc85ba9a96c7eb5",
+  "binding/validate_test.go:187": "93319f546fe6dbba",
+  "binding/validate_test.go:191": "67e1425545bf2756",
+  "binding/validate_test.go:192": "e3ea82220e132620",
+  "binding/validate_test.go:214": "ca91ec29b02f6f72",
+  "binding/validate_test.go:247": "f322298d3a67f20a",
+  "binding/xml.go:33": "b311a35c46d4626b",
+  "binding/xml_test.go:22": "a2d522ee74760084",
+  "binding/yaml.go:34": "b311a35c46d4626b",
+  "context.go:1180": "3c1ed61350e8e886",
+  "context.go:1182": "01da3a53a46453bf",
+  "context.go:1183": "af23c27980dbfe4b",
+  "context.go:1184": "8f58cb2580a6a757",
+  "context.go:1188": "532499d4064eb55c",
+  "context.go:1190": "a00c1c89225f965b",
+  "context.go:1191": "8d7898190cae49e6",
+  "context.go:1200": "b09924e5475d629b",
+  "context.go:1208": "61fcd3da9c2dc354",
+  "context.go:1215": "2cb595d1a514a76f",
+  "context.go:1224": "d11e25e281e7cfe0",
+  "context.go:1227": "d2d346654087eb1c",
+  "context.go:1233": "87b48b0c5ef666ce",
+  "context.go:1239": "b4d92007940f6b1f",
+  "context.go:1245": "d6c3b2b2bcad5f5c",
+  "context.go:1251": "72f33c4616a31891",
+  "context.go:1257": "4027c4061e27d5c7",
+  "context.go:1262": "b38efe93c5cf82db",
+  "context.go:1267": "83c8e36940c027bf",
+  "context.go:1272": "c30689868c64ce20",
+  "context.go:1277": "127c936c7f5dab87",
+  "context.go:1282": "ae070c771cc7a4ca",
+  "context.go:1287": "df603158513c279d",
+  "context.go:1296": "5642ce6622c0c7e3",
+  "context.go:1304": "55a80dedc3a312dd",
+  "context.go:1347": "1e50f7f57f9f6de3",
+  "context.go:407": "924a1f5684dfff93",
+  "context.go:412": "18fe8b1026c76c62",
+  "context.go:661": "53f9d576f0380630",
+  "context.go:708": "e9b50b201182ea8b",
+  "context.go:724": "15d45f982d0e17d8",
+  "context.go:742": "18be5fb16b375996",
+  "context.go:880": "8c634db685d40490",
+  "context.go:920": "fea849298978e72f",
+  "context_test.go:1001": "583371666ec7c843",
+  "context_test.go:1005": "7667bb8312f6e9c1",
+  "context_test.go:1011": "aedc3bed17cb7cc1",
+  "context_test.go:1018": "b5b2739aa090c516",
+  "context_test.go:1024": "84b9a0a8b54c4f55",
+  "context_test.go:1026": "f5fa76aff4ca8f43",
+  "context_test.go:1027": "112228bb9e8697ad",
+  "context_test.go:1030": "333abc6b44affa7f",
+  "context_test.go:1054": "34f62afd39b4a5b0",
+  "context_test.go:1091": "423f3a6c34b535e2",
+  "context_test.go:1094": "c17bcc6d97f02588",
+  "context_test.go:1433": "9866676ec23fab86",
+  "context_test.go:160": "79d9227844423315",
+  "context_test.go:174": "e6273708110812c7",
+  "context_test.go:192": "79d9227844423315",
+  "context_test.go:206": "b414c990d4ce1b50",
+  "context_test.go:225": "79d9227844423315",
+  "context_test.go:243": "79d9227844423315",
+  "context_test.go:2448": "35a10209e312d917",
+  "context_test.go:267": "79d9227844423315",
+  "context_test.go:3045": "d6c0ffb1d0ec9b8f",
+  "context_test.go:3272": "d3cf1951eb6d638f",
+  "context_test.go:3344": "48433c8284d23420",
+  "context_test.go:3514": "8f224ca8a2054ad4",
+  "context_test.go:3640": "6dbbc10e978c1612",
+  "context_test.go:54": "5c05fd7b78ed859e",
+  "context_test.go:550": "6be78b508761e456",
+  "context_test.go:558": "c8a8ec4264fff780",
+  "context_test.go:76": "f9f00754c54b35a8",
+  "context_test.go:805": "6a8ab11710d74eb3",
+  "context_test.go:807": "0cd22a670a51773a",
+  "context_test.go:812": "4f9b112d9365174e",
+  "context_test.go:815": "dce8bd5c27d04eed",
+  "debug.go:33": "2ae1a3d2dee8ce6c",
+  "debug.go:35": "9dfc7e0b34052d98",
+  "debug.go:37": "c8249a70be498317",
+  "debug_test.go:163": "8169ad0ae4b436fe",
+  "debug_test.go:71": "d8ab0be71c39ede0",
+  "debug_test.go:83": "828e9e4d7488f968",
+  "errors.go:83": "7ece55976c2ea25e",
+  "errors_test.go:23": "48887d593f0a5a4d",
+  "errors_test.go:24": "df5921735c161f22",
+  "errors_test.go:32": "18a98ec85beabdb8",
+  "errors_test.go:44": "09c632708c3517b2",
+  "errors_test.go:76": "f2525002ae6a9493",
+  "gin.go:369": "678941124da080a2",
+  "gin.go:371": "aeead3609976ec4b",
+  "gin.go:594": "a444e0f29af9c5d8",
+  "gin.go:617": "3a70bc03b225fdbc",
+  "gin.go:622": "db7e6b47fc9f011e",
+  "ginS/gins.go:102": "2499e8be513d105d",
+  "ginS/gins.go:137": "de9a8ab0f5cad877",
+  "ginS/gins.go:31": "adb34a4e8a38e516",
+  "ginS/gins.go:36": "5d1db44a3e3b0c13",
+  "ginS/gins_test.go:184": "00b8bc83576a5291",
+  "ginS/gins_test.go:185": "5ab98f6217490cdf",
+  "ginS/gins_test.go:211": "49c8aaad536511a3",
+  "ginS/gins_test.go:218": "6e21075a2080bd7f",
+  "gin_integration_test.go:378": "7ab9a42a6909cd1b",
+  "gin_integration_test.go:387": "bfb42b476ee383f5",
+  "gin_integration_test.go:45": "80fa29f226e581ec",
+  "gin_integration_test.go:475": "bfb42b476ee383f5",
+  "gin_integration_test.go:600": "bfb42b476ee383f5",
+  "gin_test.go:101": "fafdcf813822986b",
+  "gin_test.go:132": "5d7fe69b393edf9a",
+  "gin_test.go:152": "5d7fe69b393edf9a",
+  "gin_test.go:172": "5d7fe69b393edf9a",
+  "gin_test.go:199": "5d7fe69b393edf9a",
+  "gin_test.go:211": "1652b33056ce4d0a",
+  "gin_test.go:230": "5d7fe69b393edf9a",
+  "gin_test.go:250": "5d7fe69b393edf9a",
+  "gin_test.go:270": "5d7fe69b393edf9a",
+  "gin_test.go:290": "5d7fe69b393edf9a",
+  "gin_test.go:317": "5d7fe69b393edf9a",
+  "gin_test.go:339": "5d7fe69b393edf9a",
+  "gin_test.go:359": "5d7fe69b393edf9a",
+  "gin_test.go:379": "5d7fe69b393edf9a",
+  "gin_test.go:399": "5d7fe69b393edf9a",
+  "gin_test.go:426": "5d7fe69b393edf9a",
+  "gin_test.go:442": "69615b5426317cf6",
+  "gin_test.go:443": "6ac3d82f64c875f1",
+  "gin_test.go:448": "ab32cedeeec05351",
+  "gin_test.go:449": "4ab33c2c0d30db13",
+  "gin_test.go:74": "5d7fe69b393edf9a",
+  "logger.go:238": "97efcf93f747f815",
+  "logger_test.go:25": "0b23f0a4f1a2acf5",
+  "logger_test.go:406": "383a86f969b64d85",
+  "logger_test.go:438": "3317c574bfcf6c65",
+  "logger_test.go:439": "fb471307a36d9a62",
+  "logger_test.go:442": "a122f2d4751c3ce3",
+  "logger_test.go:445": "4503f5cd12f2172c",
+  "logger_test.go:446": "2d718a43279c2ee3",
+  "logger_test.go:448": "63e66acd7e71a826",
+  "logger_test.go:452": "1bf53db8401b6ada",
+  "middleware_test.go:243": "6377b30db27dbb1b",
+  "path.go:104": "c1757404802391d7",
+  "path.go:113": "3172a838b1f54f40",
+  "path.go:180": "358f06d2b3bfdeaf",
+  "path.go:190": "7ba8fd06fece4718",
+  "path.go:98": "b95de1f8f4ae23a9",
+  "recovery.go:155": "b853961ac312c80a",
+  "recovery_test.go:335": "2ebe31f24c8ed6a4",
+  "render/render_test.go:450": "0d4c5ecc653355d8",
+  "render/render_test.go:451": "eba36c13f35e8cd2",
+  "render/render_test.go:453": "f6b5f02182b04c02",
+  "render/render_test.go:457": "5713683d9a8900c2",
+  "render/render_test.go:557": "80fa29f226e581ec",
+  "render/render_test.go:610": "e1fdf96e4140ab85",
+  "render/render_test.go:614": "a7c92b08e1936a24",
+  "response_writer_test.go:266": "78132c2cd7c740a1",
+  "routergroup.go:167": "1749b8297b6c7aff",
+  "routergroup.go:176": "663393bd235e0227",
+  "routergroup.go:185": "1011140608d9775f",
+  "routergroup.go:186": "4073ab64368b2a09",
+  "routergroup.go:187": "fcabfe2fc7f7a7b6",
+  "routergroup.go:235": "b9a71abc62abc65f",
+  "routes_test.go:391": "272973ccdf01a95c",
+  "routes_test.go:426": "272973ccdf01a95c",
+  "test_helpers.go:47": "2a4939f31375c695"
+ }
+}

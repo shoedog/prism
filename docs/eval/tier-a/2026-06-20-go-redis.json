@@ -1,0 +1,6153 @@
+{
+ "m1": {
+  "anon_oracle": 0,
+  "anon_prism": 0,
+  "matched": 4149,
+  "prism_extra": 0,
+  "prism_missing": 788,
+  "snapshot_prism_missing": 788
+ },
+ "m2": {
+  "callees": {
+   "C-method": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.5101091596030786,
+      0.9999999999999999
+     ],
+     "recall": [
+      1.0,
+      0.5101091596030786,
+      0.9999999999999999
+     ],
+     "tp": 4
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.5101091596030786,
+       0.9999999999999999
+      ],
+      "recall": [
+       1.0,
+       0.5101091596030786,
+       0.9999999999999999
+      ],
+      "tp": 4
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.5101091596030786,
+       0.9999999999999999
+      ],
+      "recall": [
+       1.0,
+       0.5101091596030786,
+       0.9999999999999999
+      ],
+      "tp": 4
+     }
+    },
+    "pending": 1,
+    "raw": {
+     "fn": 0,
+     "fp": 1,
+     "precision": [
+      0.8,
+      0.375534627029995,
+      0.9637758917743693
+     ],
+     "recall": [
+      1.0,
+      0.5101091596030786,
+      0.9999999999999999
+     ],
+     "tp": 4
+    },
+    "shortfall": 0
+   },
+   "C-name": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.43850296436068037,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.43850296436068037,
+      1.0
+     ],
+     "tp": 3
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 6,
+      "precision": [
+       0.25,
+       0.07147921209795555,
+       0.5907245720727483
+      ],
+      "recall": [
+       1.0,
+       0.3423802239546494,
+       1.0
+      ],
+      "tp": 2
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 6,
+      "precision": [
+       0.25,
+       0.07147921209795555,
+       0.5907245720727483
+      ],
+      "recall": [
+       1.0,
+       0.3423802239546494,
+       1.0
+      ],
+      "tp": 2
+     }
+    },
+    "pending": 3,
+    "raw": {
+     "fn": 0,
+     "fp": 3,
+     "precision": [
+      0.5,
+      0.18761630498040816,
+      0.8123836950195918
+     ],
+     "recall": [
+      1.0,
+      0.43850296436068037,
+      1.0
+     ],
+     "tp": 3
+    },
+    "shortfall": 0
+   },
+   "Q-scoped": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.8984854444077807,
+      0.9999999999999999
+     ],
+     "recall": [
+      1.0,
+      0.8984854444077807,
+      0.9999999999999999
+     ],
+     "tp": 34
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 1,
+      "precision": [
+       0.875,
+       0.5291118149439162,
+       0.9775825088000281
+      ],
+      "recall": [
+       1.0,
+       0.6456695613241317,
+       1.0
+      ],
+      "tp": 7
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 1,
+      "precision": [
+       0.875,
+       0.5291118149439162,
+       0.9775825088000281
+      ],
+      "recall": [
+       1.0,
+       0.6456695613241317,
+       1.0
+      ],
+      "tp": 7
+     }
+    },
+    "pending": 16,
+    "raw": {
+     "fn": 16,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.8984854444077807,
+      0.9999999999999999
+     ],
+     "recall": [
+      0.68,
+      0.5418970258032244,
+      0.7924178381324746
+     ],
+     "tp": 34
+    },
+    "shortfall": 0
+   },
+   "U-free": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.7719046248681998,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.7719046248681998,
+      1.0
+     ],
+     "tp": 13
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 1,
+      "precision": [
+       0.8571428571428571,
+       0.486872167860775,
+       0.9743203759421759
+      ],
+      "recall": [
+       1.0,
+       0.6096657083436265,
+       1.0
+      ],
+      "tp": 6
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 1,
+      "precision": [
+       0.8571428571428571,
+       0.486872167860775,
+       0.9743203759421759
+      ],
+      "recall": [
+       1.0,
+       0.6096657083436265,
+       1.0
+      ],
+      "tp": 6
+     }
+    },
+    "pending": 18,
+    "raw": {
+     "fn": 18,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.7719046248681998,
+      1.0
+     ],
+     "recall": [
+      0.41935483870967744,
+      0.2641554296429244,
+      0.5923373763261116
+     ],
+     "tp": 13
+    },
+    "shortfall": 0
+   },
+   "U-method": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.7411670300055737,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.7411670300055737,
+      1.0
+     ],
+     "tp": 11
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 1,
+      "precision": [
+       0.8571428571428571,
+       0.486872167860775,
+       0.9743203759421759
+      ],
+      "recall": [
+       1.0,
+       0.6096657083436265,
+       1.0
+      ],
+      "tp": 6
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 1,
+      "precision": [
+       0.8571428571428571,
+       0.486872167860775,
+       0.9743203759421759
+      ],
+      "recall": [
+       1.0,
+       0.6096657083436265,
+       1.0
+      ],
+      "tp": 6
+     }
+    },
+    "pending": 2,
+    "raw": {
+     "fn": 2,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.7411670300055737,
+      1.0
+     ],
+     "recall": [
+      0.8461538461538461,
+      0.5776536874893673,
+      0.9567418220347709
+     ],
+     "tp": 11
+    },
+    "shortfall": 0
+   }
+  },
+  "callers": {
+   "C-method": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      0.0,
+      0.0,
+      1.0
+     ],
+     "recall": [
+      0.0,
+      0.0,
+      1.0
+     ],
+     "tp": 0
+    },
+    "function": {
+     "corrected": {
+      "fn": 20,
+      "fp": 4,
+      "precision": [
+       0.0,
+       0.0,
+       0.4898908403969213
+      ],
+      "recall": [
+       0.0,
+       0.0,
+       0.16112516018512965
+      ],
+      "tp": 0
+     },
+     "raw": {
+      "fn": 20,
+      "fp": 4,
+      "precision": [
+       0.0,
+       0.0,
+       0.4898908403969213
+      ],
+      "recall": [
+       0.0,
+       0.0,
+       0.16112516018512965
+      ],
+      "tp": 0
+     }
+    },
+    "pending": 90,
+    "raw": {
+     "fn": 86,
+     "fp": 4,
+     "precision": [
+      0.0,
+      0.0,
+      0.4898908403969213
+     ],
+     "recall": [
+      0.0,
+      0.0,
+      0.04275819793144242
+     ],
+     "tp": 0
+    },
+    "shortfall": 0
+   },
+   "C-name": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.7846891945970195,
+      0.9999999999999999
+     ],
+     "recall": [
+      1.0,
+      0.7846891945970195,
+      0.9999999999999999
+     ],
+     "tp": 14
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 3,
+      "precision": [
+       0.8125,
+       0.5699111883245088,
+       0.9340840098021131
+      ],
+      "recall": [
+       1.0,
+       0.7719046248681998,
+       1.0
+      ],
+      "tp": 13
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 3,
+      "precision": [
+       0.8125,
+       0.5699111883245088,
+       0.9340840098021131
+      ],
+      "recall": [
+       1.0,
+       0.7719046248681998,
+       1.0
+      ],
+      "tp": 13
+     }
+    },
+    "pending": 5,
+    "raw": {
+     "fn": 0,
+     "fp": 5,
+     "precision": [
+      0.7368421052631579,
+      0.5120844892295056,
+      0.8819358772791221
+     ],
+     "recall": [
+      1.0,
+      0.7846891945970195,
+      0.9999999999999999
+     ],
+     "tp": 14
+    },
+    "shortfall": 0
+   },
+   "Q-scoped": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.6096657083436265,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.6096657083436265,
+      1.0
+     ],
+     "tp": 6
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.6096657083436265,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.6096657083436265,
+       1.0
+      ],
+      "tp": 6
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.6096657083436265,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.6096657083436265,
+       1.0
+      ],
+      "tp": 6
+     }
+    },
+    "pending": 0,
+    "raw": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.6096657083436265,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.6096657083436265,
+      1.0
+     ],
+     "tp": 6
+    },
+    "shortfall": 0
+   },
+   "U-free": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.7719046248681998,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.7719046248681998,
+      1.0
+     ],
+     "tp": 13
+    },
+    "function": {
+     "corrected": {
+      "fn": 1,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.7719046248681998,
+       1.0
+      ],
+      "recall": [
+       0.9285714285714286,
+       0.6853129533326209,
+       0.9872777848933957
+      ],
+      "tp": 13
+     },
+     "raw": {
+      "fn": 1,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.7719046248681998,
+       1.0
+      ],
+      "recall": [
+       0.9285714285714286,
+       0.6853129533326209,
+       0.9872777848933957
+      ],
+      "tp": 13
+     }
+    },
+    "pending": 6,
+    "raw": {
+     "fn": 6,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.7719046248681998,
+      1.0
+     ],
+     "recall": [
+      0.6842105263157895,
+      0.46010407504696654,
+      0.8463562100152995
+     ],
+     "tp": 13
+    },
+    "shortfall": 0
+   },
+   "U-method": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.8318207737404363,
+      0.9999999999999999
+     ],
+     "recall": [
+      1.0,
+      0.8318207737404363,
+      0.9999999999999999
+     ],
+     "tp": 19
+    },
+    "function": {
+     "corrected": {
+      "fn": 1,
+      "fp": 3,
+      "precision": [
+       0.8,
+       0.5481455107594471,
+       0.9295245070826608
+      ],
+      "recall": [
+       0.9230769230769231,
+       0.666860488286395,
+       0.986289578909774
+      ],
+      "tp": 12
+     },
+     "raw": {
+      "fn": 1,
+      "fp": 3,
+      "precision": [
+       0.8,
+       0.5481455107594471,
+       0.9295245070826608
+      ],
+      "recall": [
+       0.9230769230769231,
+       0.666860488286395,
+       0.986289578909774
+      ],
+      "tp": 12
+     }
+    },
+    "pending": 4,
+    "raw": {
+     "fn": 1,
+     "fp": 3,
+     "precision": [
+      0.8636363636363636,
+      0.6666501265111675,
+      0.9525099632305449
+     ],
+     "recall": [
+      0.95,
+      0.7638688045357189,
+      0.9911185512976646
+     ],
+     "tp": 19
+    },
+    "shortfall": 0
+   }
+  }
+ },
+ "m3": {
+  "cap": 25,
+  "checked": [
+   {
+    "probe": "callers:command.go:668",
+    "site": "example/redis-bloom/main.go:113",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:command.go:668",
+    "site": "example/redis-bloom/main.go:149",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:internal/auth/streaming/manager.go:45",
+    "site": "maintnotifications/manager_test.go:105",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:internal/auth/streaming/manager.go:45",
+    "site": "maintnotifications/manager_test.go:134",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:internal/auth/streaming/manager.go:45",
+    "site": "maintnotifications/manager_test.go:157",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:internal/auth/streaming/manager.go:45",
+    "site": "maintnotifications/manager_test.go:218",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:internal/auth/streaming/manager.go:45",
+    "site": "maintnotifications/manager_test.go:260",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:internal/pool/conn.go:882",
+    "site": "extra/redisotel-native/metrics.go:104",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:internal/pool/conn.go:882",
+    "site": "extra/redisotel-native/metrics.go:166",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:internal/pool/conn.go:882",
+    "site": "extra/redisotel-native/metrics.go:481",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:internal/pool/conn.go:882",
+    "site": "internal/pool/conn.go:885",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:search_builders.go:305",
+    "site": "example/search-aggregate-steps/main.go:133",
+    "verdict": "alias_site"
+   }
+  ],
+  "counts": {
+   "alias_site": 1,
+   "ambiguous": 11,
+   "confirmed_fp": 0,
+   "confirmed_tp": 0
+  }
+ },
+ "meta": {
+  "baseline_invalid": false,
+  "corpus": "go-redis",
+  "corpus_dirty": false,
+  "corpus_dirty_reasons": [],
+  "corpus_sha": "1cfa927b89e6",
+  "date": "2026-06-20",
+  "harness_sha": "06e6ac4ee96e",
+  "invalid_reasons": [],
+  "oracle": "gopls {\"GoVersion\":\"go1.26.2\",\"Path\":\"golang.org/x/tools/gopls\",\"Main\":{\"Path\":\"golang.org/x/tools/gopls\",\"Version\":\"v0.22.0\",\"Sum\":\"h1:9aON2mTxKrZ1y71RbQVnlPTTNfKZ9y5cv3x/f6XpsZw=\"},\"Deps\":[{\"Path\":\"github.com/BurntSushi/toml\",\"Version\":\"v1.6.0\",\"Sum\":\"h1:dRaEfpa2VI55EwlIW72hMRHdWouJeRF7TPYhI+AUQjk=\"},{\"Path\":\"github.com/fatih/camelcase\",\"Version\":\"v1.0.0\",\"Sum\":\"h1:hxNvNX/xYBp0ovncs8WyWZrOrpBNub/JfaMvbURyft8=\"},{\"Path\":\"github.com/fatih/gomodifytags\",\"Version\":\"v1.17.1-0.20250423142747-f3939df9aa3c\",\"Sum\":\"h1:dDSgAjoOMp8da3egfz0t2S+t8RGOpEmEXZubcGuc0Bg=\"},{\"Path\":\"github.com/fatih/structtag\",\"Version\":\"v1.2.0\",\"Sum\":\"h1:/OdNE99OxoI/PqaW/SuSK9uxxT3f/tcSZgon/ssNSx4=\"},{\"Path\":\"github.com/fsnotify/fsnotify\",\"Version\":\"v1.9.0\",\"Sum\":\"h1:2Ml+OJNzbYCTzsxtv8vKSFD9PbJjmhYF14k/jKC7S9k=\"},{\"Path\":\"github.com/google/go-cmp\",\"Version\":\"v0.7.0\",\"Sum\":\"h1:wk8382ETsv4JYUZwIsn6YpYiWiBsYLSJiTsyBybVuN8=\"},{\"Path\":\"github.com/google/jsonschema-go\",\"Version\":\"v0.4.2\",\"Sum\":\"h1:tmrUohrwoLZZS/P3x7ex0WAVknEkBZM46iALbcqoRA8=\"},{\"Path\":\"github.com/modelcontextprotocol/go-sdk\",\"Version\":\"v1.4.0\",\"Sum\":\"h1:u0kr8lbJc1oBcawK7Df+/ajNMpIDFE41OEPxdeTLOn8=\"},{\"Path\":\"github.com/segmentio/asm\",\"Version\":\"v1.2.1\",\"Sum\":\"h1:DTNbBqs57ioxAD4PrArqftgypG4/qNpXoJx8TVXxPR0=\"},{\"Path\":\"github.com/segmentio/encoding\",\"Version\":\"v0.5.3\",\"Sum\":\"h1:OjMgICtcSFuNvQCdwqMCv9Tg7lEOXGwm1J5RPQccx6w=\"},{\"Path\":\"github.com/yosida95/uritemplate/v3\",\"Version\":\"v3.0.2\",\"Sum\":\"h1:Ed3Oyj9yrmi9087+NczuL5BwkIc4wvTb5zIM+UJPGz4=\"},{\"Path\":\"golang.org/x/exp/typeparams\",\"Version\":\"v0.0.0-20260312153236-7ab1446f8b90\",\"Sum\":\"h1:cfW8UCYSVdPblxA7qQe3o5Iad55Vsx4BFmuGS9RNOmc=\"},{\"Path\":\"golang.org/x/mod\",\"Version\":\"v0.35.0\",\"Sum\":\"h1:Ww1D637e6Pg+Zb2KrWfHQUnH2dQRLBQyAtpr/haaJeM=\"},{\"Path\":\"golang.org/x/oauth2\",\"Version\":\"v0.36.0\",\"Sum\":\"h1:peZ/1z27fi9hUOFCAZaHyrpWG5lwe0RJEEEeH0ThlIs=\"},{\"Path\":\"golang.org/x/sync\",\"Version\":\"v0.20.0\",\"Sum\":\"h1:e0PTpb7pjO8GAtTs2dQ6jYa5BWYlMuX047Dco/pItO4=\"},{\"Path\":\"golang.org/x/sys\",\"Version\":\"v0.43.0\",\"Sum\":\"h1:Rlag2XtaFTxp19wS8MXlJwTvoh8ArU6ezoyFsMyCTNI=\"},{\"Path\":\"golang.org/x/telemetry\",\"Version\":\"v0.0.0-20260409153401-be6f6cb8b1fa\",\"Sum\":\"h1:efT73AJZfAAUV7SOip6pWGkwJDzIGiKBZGVzHYa+ve4=\"},{\"Path\":\"golang.org/x/text\",\"Version\":\"v0.36.0\",\"Sum\":\"h1:JfKh3XmcRPqZPKevfXVpI1wXPTqbkE5f7JA92a55Yxg=\"},{\"Path\":\"golang.org/x/tools\",\"Version\":\"v0.44.1-0.20260513175300-635ae9663724\",\"Sum\":\"h1:rz7KAMVmPA+7ecCT/BHKLE353MUOoCAwMqlUveE8508=\"},{\"Path\":\"golang.org/x/vuln\",\"Version\":\"v1.1.4\",\"Sum\":\"h1:Ju8QsuyhX3Hk8ma3CesTbO8vfJD9EvUBgHvkxHBzj0I=\"},{\"Path\":\"honnef.co/go/tools\",\"Version\":\"v0.7.0\",\"Sum\":\"h1:w6WUp1VbkqPEgLz4rkBzH/CSU6HkoqNLp6GstyTx3lU=\"},{\"Path\":\"mvdan.cc/gofumpt\",\"Version\":\"v0.9.2\",\"Sum\":\"h1:zsEMWL8SVKGHNztrx6uZrXdp7AX8r421Vvp23sz7ik4=\"},{\"Path\":\"mvdan.cc/xurls/v2\",\"Version\":\"v2.6.0\",\"Sum\":\"h1:3NTZpeTxYVWNSokW3MKeyVkz/j7uYXYiMtXRUfmjbgI=\"}],\"Settings\":[{\"Key\":\"-buildmode\",\"Value\":\"exe\"},{\"Key\":\"-compiler\",\"Value\":\"gc\"},{\"Key\":\"CGO_ENABLED\",\"Value\":\"1\"},{\"Key\":\"CGO_CFLAGS\"},{\"Key\":\"CGO_CPPFLAGS\"},{\"Key\":\"CGO_CXXFLAGS\"},{\"Key\":\"CGO_LDFLAGS\"},{\"Key\":\"GOARCH\",\"Value\":\"arm64\"},{\"Key\":\"GOOS\",\"Value\":\"darwin\"},{\"Key\":\"GOARM64\",\"Value\":\"v8.0\"}],\"Version\":\"v0.22.0\"}",
+  "oracle_error_rate": 0.0,
+  "oracle_not_quiescent": false,
+  "prism_dirty": false,
+  "prism_sha": "20c8490591a3",
+  "seed": 42,
+  "stale_adjudications": 0,
+  "sut_error_rate": 0.0,
+  "wall_s": {
+   "m1_oracle_inventory": 19.918,
+   "m2": 43.891,
+   "m3": 0.014,
+   "oracle_start": 5.448
+  }
+ },
+ "pending": [
+  {
+   "corpus": "go-redis",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "command.go:2864",
+   "site": "command.go:8585",
+   "site_fingerprint": "c8cdf0af469e13da"
+  },
+  {
+   "corpus": "go-redis",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "command.go:3497",
+   "site": "commands_test.go:7519",
+   "site_fingerprint": "f7714dfdb62f5406"
+  },
+  {
+   "corpus": "go-redis",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "command.go:3497",
+   "site": "commands_test.go:7573",
+   "site_fingerprint": "f7714dfdb62f5406"
+  },
+  {
+   "corpus": "go-redis",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "command.go:3497",
+   "site": "commands_test.go:7600",
+   "site_fingerprint": "89790b9c72c96f8d"
+  },
+  {
+   "corpus": "go-redis",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "command.go:3497",
+   "site": "commands_test.go:7612",
+   "site_fingerprint": "571f4d6f4d01b167"
+  },
+  {
+   "corpus": "go-redis",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "command.go:3497",
+   "site": "commands_test.go:7623",
+   "site_fingerprint": "571f4d6f4d01b167"
+  },
+  {
+   "corpus": "go-redis",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "command.go:3497",
+   "site": "commands_test.go:8580",
+   "site_fingerprint": "a1071a49253b2e98"
+  },
+  {
+   "corpus": "go-redis",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "command.go:3497",
+   "site": "commands_test.go:8623",
+   "site_fingerprint": "da3c7d2e51fb4cea"
+  },
+  {
+   "corpus": "go-redis",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "command.go:3497",
+   "site": "doctests/stream_tutorial_test.go:908",
+   "site_fingerprint": "0320f5de403cec85"
+  },
+  {
+   "corpus": "go-redis",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "command.go:6303",
+   "site": "command_recorder_test.go:74",
+   "site_fingerprint": "ea3c6f31593636ef"
+  },
+  {
+   "corpus": "go-redis",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "command.go:6303",
+   "site": "command_recorder_test.go:82",
+   "site_fingerprint": "88b24869c7510bb1"
+  },
+  {
+   "corpus": "go-redis",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "command.go:6303",
+   "site": "osscluster_test.go:1099",
+   "site_fingerprint": "0efaa8289d1948c3"
+  },
+  {
+   "corpus": "go-redis",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "command.go:6303",
+   "site": "osscluster_test.go:1106",
+   "site_fingerprint": "442801391a881ada"
+  },
+  {
+   "corpus": "go-redis",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "command.go:6303",
+   "site": "osscluster_test.go:1126",
+   "site_fingerprint": "0efaa8289d1948c3"
+  },
+  {
+   "corpus": "go-redis",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "command.go:6303",
+   "site": "osscluster_test.go:1133",
+   "site_fingerprint": "442801391a881ada"
+  },
+  {
+   "corpus": "go-redis",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "command.go:6303",
+   "site": "osscluster_test.go:1180",
+   "site_fingerprint": "b67017b9edf783de"
+  },
+  {
+   "corpus": "go-redis",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "command.go:6303",
+   "site": "osscluster_test.go:1191",
+   "site_fingerprint": "205b496c2d6290ae"
+  },
+  {
+   "corpus": "go-redis",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "command.go:6303",
+   "site": "osscluster_test.go:1211",
+   "site_fingerprint": "b67017b9edf783de"
+  },
+  {
+   "corpus": "go-redis",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "command.go:6303",
+   "site": "osscluster_test.go:1222",
+   "site_fingerprint": "205b496c2d6290ae"
+  },
+  {
+   "corpus": "go-redis",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "command.go:6303",
+   "site": "osscluster_test.go:1283",
+   "site_fingerprint": "0646b6623449136c"
+  },
+  {
+   "corpus": "go-redis",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "command.go:6303",
+   "site": "osscluster_test.go:1291",
+   "site_fingerprint": "f220c23c6cf0bb9e"
+  },
+  {
+   "corpus": "go-redis",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "command.go:6303",
+   "site": "osscluster_test.go:1306",
+   "site_fingerprint": "0646b6623449136c"
+  },
+  {
+   "corpus": "go-redis",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "command.go:6303",
+   "site": "osscluster_test.go:1314",
+   "site_fingerprint": "f220c23c6cf0bb9e"
+  },
+  {
+   "corpus": "go-redis",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "command.go:6303",
+   "site": "ring_test.go:330",
+   "site_fingerprint": "fbd6199b5d09e681"
+  },
+  {
+   "corpus": "go-redis",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "command.go:6303",
+   "site": "ring_test.go:335",
+   "site_fingerprint": "eb205cd46060b738"
+  },
+  {
+   "corpus": "go-redis",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "command.go:6303",
+   "site": "ring_test.go:347",
+   "site_fingerprint": "7e45320575308025"
+  },
+  {
+   "corpus": "go-redis",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "command.go:6303",
+   "site": "ring_test.go:352",
+   "site_fingerprint": "4fa954fe5729e737"
+  },
+  {
+   "corpus": "go-redis",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "command.go:6303",
+   "site": "ring_test.go:386",
+   "site_fingerprint": "96aaa9a17d8f22ed"
+  },
+  {
+   "corpus": "go-redis",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "command.go:6303",
+   "site": "ring_test.go:392",
+   "site_fingerprint": "f03588be12a09ff4"
+  },
+  {
+   "corpus": "go-redis",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "command.go:6303",
+   "site": "ring_test.go:409",
+   "site_fingerprint": "09ec0315d0339220"
+  },
+  {
+   "corpus": "go-redis",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "command.go:6303",
+   "site": "ring_test.go:415",
+   "site_fingerprint": "660d7da4b383fc8b"
+  },
+  {
+   "corpus": "go-redis",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "command.go:6303",
+   "site": "ring_test.go:454",
+   "site_fingerprint": "f0dcb581f29b1557"
+  },
+  {
+   "corpus": "go-redis",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "command.go:6303",
+   "site": "ring_test.go:460",
+   "site_fingerprint": "8ffe92949b411fb0"
+  },
+  {
+   "corpus": "go-redis",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "command.go:6303",
+   "site": "ring_test.go:479",
+   "site_fingerprint": "f7606c04ce37aa1b"
+  },
+  {
+   "corpus": "go-redis",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "command.go:6303",
+   "site": "ring_test.go:485",
+   "site_fingerprint": "3f4d3d292f1c2bd2"
+  },
+  {
+   "corpus": "go-redis",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callers",
+   "seed_def": "command.go:668",
+   "site": "example/redis-bloom/main.go:113",
+   "site_fingerprint": "7e3bce718c626beb"
+  },
+  {
+   "corpus": "go-redis",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callers",
+   "seed_def": "command.go:668",
+   "site": "example/redis-bloom/main.go:149",
+   "site_fingerprint": "5ddacee4ad0e71d1"
+  },
+  {
+   "corpus": "go-redis",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "generic_commands.go:201",
+   "site": "commands_test.go:1042",
+   "site_fingerprint": "893addd4450eb723"
+  },
+  {
+   "corpus": "go-redis",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "generic_commands.go:201",
+   "site": "commands_test.go:1067",
+   "site_fingerprint": "f299c76324d04421"
+  },
+  {
+   "corpus": "go-redis",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "hash_commands.go:182",
+   "site": "commands_test.go:3827",
+   "site_fingerprint": "e8c3e2114f2ab624"
+  },
+  {
+   "corpus": "go-redis",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "hash_commands.go:182",
+   "site": "commands_test.go:3831",
+   "site_fingerprint": "41433012cb5d6208"
+  },
+  {
+   "corpus": "go-redis",
+   "direction": "prism_only",
+   "dispatch_kind": "free_multi",
+   "measurement": "callers",
+   "seed_def": "internal/auth/streaming/manager.go:45",
+   "site": "maintnotifications/manager_test.go:105",
+   "site_fingerprint": "267eb942ccde08ae"
+  },
+  {
+   "corpus": "go-redis",
+   "direction": "prism_only",
+   "dispatch_kind": "free_multi",
+   "measurement": "callers",
+   "seed_def": "internal/auth/streaming/manager.go:45",
+   "site": "maintnotifications/manager_test.go:134",
+   "site_fingerprint": "267eb942ccde08ae"
+  },
+  {
+   "corpus": "go-redis",
+   "direction": "prism_only",
+   "dispatch_kind": "free_multi",
+   "measurement": "callers",
+   "seed_def": "internal/auth/streaming/manager.go:45",
+   "site": "maintnotifications/manager_test.go:157",
+   "site_fingerprint": "934e78173a175c35"
+  },
+  {
+   "corpus": "go-redis",
+   "direction": "prism_only",
+   "dispatch_kind": "free_multi",
+   "measurement": "callers",
+   "seed_def": "internal/auth/streaming/manager.go:45",
+   "site": "maintnotifications/manager_test.go:218",
+   "site_fingerprint": "934e78173a175c35"
+  },
+  {
+   "corpus": "go-redis",
+   "direction": "prism_only",
+   "dispatch_kind": "free_multi",
+   "measurement": "callers",
+   "seed_def": "internal/auth/streaming/manager.go:45",
+   "site": "maintnotifications/manager_test.go:260",
+   "site_fingerprint": "934e78173a175c35"
+  },
+  {
+   "corpus": "go-redis",
+   "direction": "prism_only",
+   "dispatch_kind": "interface_dispatch",
+   "measurement": "callers",
+   "seed_def": "internal/pool/conn.go:882",
+   "site": "extra/redisotel-native/metrics.go:104",
+   "site_fingerprint": "62ea901801beb088"
+  },
+  {
+   "corpus": "go-redis",
+   "direction": "prism_only",
+   "dispatch_kind": "interface_dispatch",
+   "measurement": "callers",
+   "seed_def": "internal/pool/conn.go:882",
+   "site": "extra/redisotel-native/metrics.go:166",
+   "site_fingerprint": "62ea901801beb088"
+  },
+  {
+   "corpus": "go-redis",
+   "direction": "prism_only",
+   "dispatch_kind": "interface_dispatch",
+   "measurement": "callers",
+   "seed_def": "internal/pool/conn.go:882",
+   "site": "extra/redisotel-native/metrics.go:481",
+   "site_fingerprint": "5eb46b02a279c207"
+  },
+  {
+   "corpus": "go-redis",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callers",
+   "seed_def": "internal/pool/conn.go:882",
+   "site": "internal/pool/conn.go:885",
+   "site_fingerprint": "7aac1483304e935a"
+  },
+  {
+   "corpus": "go-redis",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "internal/pool/conn.go:882",
+   "site": "maintnotifications/e2e/notiftracker_test.go:245",
+   "site_fingerprint": "a56b0e3ca8c9995c"
+  },
+  {
+   "corpus": "go-redis",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "internal/pool/conn.go:882",
+   "site": "maintnotifications/handoff_worker.go:401",
+   "site_fingerprint": "7515d63877090389"
+  },
+  {
+   "corpus": "go-redis",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "internal/pool/conn.go:882",
+   "site": "pubsub.go:194",
+   "site_fingerprint": "ab0c683c44989ef1"
+  },
+  {
+   "corpus": "go-redis",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "internal/pool/conn.go:882",
+   "site": "sentinel.go:570",
+   "site_fingerprint": "a02fc826126ecb18"
+  },
+  {
+   "corpus": "go-redis",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "main_test.go:311",
+   "site": "main_test.go:125",
+   "site_fingerprint": "280ffa6179097434"
+  },
+  {
+   "corpus": "go-redis",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "main_test.go:311",
+   "site": "main_test.go:128",
+   "site_fingerprint": "76ce943112eb4470"
+  },
+  {
+   "corpus": "go-redis",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "main_test.go:311",
+   "site": "main_test.go:131",
+   "site_fingerprint": "55affe2343720380"
+  },
+  {
+   "corpus": "go-redis",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "main_test.go:311",
+   "site": "main_test.go:134",
+   "site_fingerprint": "bdedb8173a5316ab"
+  },
+  {
+   "corpus": "go-redis",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "main_test.go:311",
+   "site": "main_test.go:146",
+   "site_fingerprint": "a7f639056511d395"
+  },
+  {
+   "corpus": "go-redis",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "main_test.go:311",
+   "site": "main_test.go:152",
+   "site_fingerprint": "507e56a489be7ea9"
+  },
+  {
+   "corpus": "go-redis",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callers",
+   "seed_def": "search_builders.go:305",
+   "site": "example/search-aggregate-steps/main.go:133",
+   "site_fingerprint": "1b5741a486694845"
+  },
+  {
+   "corpus": "go-redis",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "search_builders.go:305",
+   "site": "search_builders_test.go:60",
+   "site_fingerprint": "39ad62d9fa7831a1"
+  },
+  {
+   "corpus": "go-redis",
+   "direction": "prism_only",
+   "dispatch_kind": "import_qualified",
+   "measurement": "callees",
+   "seed_def": "digest_test.go:14",
+   "site": "digest_test.go:18",
+   "site_fingerprint": "bb3034128042d42a"
+  },
+  {
+   "corpus": "go-redis",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "digest_test.go:140",
+   "site": "digest_test.go:144",
+   "site_fingerprint": "bf9a7361ab53ecdd"
+  },
+  {
+   "corpus": "go-redis",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "digest_test.go:140",
+   "site": "digest_test.go:147",
+   "site_fingerprint": "7655a5063dd45055"
+  },
+  {
+   "corpus": "go-redis",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "digest_test.go:140",
+   "site": "digest_test.go:149",
+   "site_fingerprint": "197e95f132f6d1de"
+  },
+  {
+   "corpus": "go-redis",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "digest_test.go:140",
+   "site": "digest_test.go:153",
+   "site_fingerprint": "d1d0b841cc6e3ae8"
+  },
+  {
+   "corpus": "go-redis",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "digest_test.go:140",
+   "site": "digest_test.go:157",
+   "site_fingerprint": "d1306be55fcde453"
+  },
+  {
+   "corpus": "go-redis",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "digest_test.go:140",
+   "site": "digest_test.go:167",
+   "site_fingerprint": "f2d8fd7b8705cbf9"
+  },
+  {
+   "corpus": "go-redis",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "digest_test.go:140",
+   "site": "digest_test.go:174",
+   "site_fingerprint": "6e5388b37eab2318"
+  },
+  {
+   "corpus": "go-redis",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "digest_test.go:140",
+   "site": "digest_test.go:185",
+   "site_fingerprint": "b6b8856bbc77a30d"
+  },
+  {
+   "corpus": "go-redis",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "digest_test.go:140",
+   "site": "digest_test.go:186",
+   "site_fingerprint": "81166fe64cd13138"
+  },
+  {
+   "corpus": "go-redis",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "digest_test.go:140",
+   "site": "digest_test.go:192",
+   "site_fingerprint": "8216db1c19187d2a"
+  },
+  {
+   "corpus": "go-redis",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "digest_test.go:140",
+   "site": "digest_test.go:200",
+   "site_fingerprint": "c7e6842fa009c6ff"
+  },
+  {
+   "corpus": "go-redis",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "doctests/cmds_set_test.go:68",
+   "site": "doctests/cmds_set_test.go:71",
+   "site_fingerprint": "d0e47fcea3dd1a4d"
+  },
+  {
+   "corpus": "go-redis",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "doctests/cmds_set_test.go:68",
+   "site": "doctests/cmds_set_test.go:78",
+   "site_fingerprint": "10be890296bdd964"
+  },
+  {
+   "corpus": "go-redis",
+   "direction": "prism_only",
+   "dispatch_kind": "import_qualified",
+   "measurement": "callees",
+   "seed_def": "doctests/main_test.go:12",
+   "site": "doctests/main_test.go:14",
+   "site_fingerprint": "792694ad0ede06e0"
+  },
+  {
+   "corpus": "go-redis",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "example_test.go:562",
+   "site": "example_test.go:563",
+   "site_fingerprint": "63b632993af0452b"
+  },
+  {
+   "corpus": "go-redis",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "example_test.go:562",
+   "site": "example_test.go:564",
+   "site_fingerprint": "123070f26acc20cb"
+  },
+  {
+   "corpus": "go-redis",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "extra/redisotel/metrics.go:27",
+   "site": "extra/redisotel/metrics.go:37",
+   "site_fingerprint": "1d570e858e184dfd"
+  },
+  {
+   "corpus": "go-redis",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "extra/redisotel/metrics.go:27",
+   "site": "extra/redisotel/metrics.go:43",
+   "site_fingerprint": "44f63ec381c82147"
+  },
+  {
+   "corpus": "go-redis",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "extra/redisotel/metrics.go:27",
+   "site": "extra/redisotel/metrics.go:45",
+   "site_fingerprint": "2b6539c9b926152e"
+  },
+  {
+   "corpus": "go-redis",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "extra/redisotel/metrics.go:27",
+   "site": "extra/redisotel/metrics.go:50",
+   "site_fingerprint": "e85528ce667e54cf"
+  },
+  {
+   "corpus": "go-redis",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "extra/redisotel/metrics.go:27",
+   "site": "extra/redisotel/metrics.go:87",
+   "site_fingerprint": "28dc4eaeb5544c5b"
+  },
+  {
+   "corpus": "go-redis",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "extra/redisotel/metrics.go:27",
+   "site": "extra/redisotel/metrics.go:94",
+   "site_fingerprint": "abca3710f9856568"
+  },
+  {
+   "corpus": "go-redis",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callees",
+   "seed_def": "internal/pool/conn.go:882",
+   "site": "internal/pool/conn.go:885",
+   "site_fingerprint": "7aac1483304e935a"
+  },
+  {
+   "corpus": "go-redis",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "internal/pool/pool.go:1136",
+   "site": "internal/pool/pool.go:1137",
+   "site_fingerprint": "b3fe66463e04befa"
+  },
+  {
+   "corpus": "go-redis",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "internal/routing/aggregator_test.go:172",
+   "site": "internal/routing/aggregator_test.go:206",
+   "site_fingerprint": "833b2951a0233474"
+  },
+  {
+   "corpus": "go-redis",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "internal/routing/aggregator_test.go:172",
+   "site": "internal/routing/aggregator_test.go:211",
+   "site_fingerprint": "5b560b5e7ba2f1c9"
+  },
+  {
+   "corpus": "go-redis",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "main_test.go:311",
+   "site": "main_test.go:312",
+   "site_fingerprint": "2116627eda394b9b"
+  },
+  {
+   "corpus": "go-redis",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "main_test.go:311",
+   "site": "main_test.go:318",
+   "site_fingerprint": "da044acdbfa458e6"
+  },
+  {
+   "corpus": "go-redis",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "maintnotifications/config_test.go:10",
+   "site": "maintnotifications/config_test.go:62",
+   "site_fingerprint": "85d0e6bd2087f26d"
+  },
+  {
+   "corpus": "go-redis",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "maintnotifications/config_test.go:10",
+   "site": "maintnotifications/config_test.go:75",
+   "site_fingerprint": "aa911ff9bcc929ba"
+  },
+  {
+   "corpus": "go-redis",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "maintnotifications/config_test.go:10",
+   "site": "maintnotifications/config_test.go:82",
+   "site_fingerprint": "f9494898a43244da"
+  },
+  {
+   "corpus": "go-redis",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "maintnotifications/config_test.go:10",
+   "site": "maintnotifications/config_test.go:89",
+   "site_fingerprint": "c2e07c8b923bc4ee"
+  },
+  {
+   "corpus": "go-redis",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "maintnotifications/config_test.go:10",
+   "site": "maintnotifications/config_test.go:99",
+   "site_fingerprint": "4aaf41ec6acd504a"
+  },
+  {
+   "corpus": "go-redis",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "maintnotifications/example_hooks.go:85",
+   "site": "maintnotifications/example_hooks.go:97",
+   "site_fingerprint": "7990481927036ebd"
+  },
+  {
+   "corpus": "go-redis",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "osscluster.go:692",
+   "site": "osscluster.go:715",
+   "site_fingerprint": "f7eef096f2c54246"
+  },
+  {
+   "corpus": "go-redis",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "pool_pubsub_bench_test.go:143",
+   "site": "pool_pubsub_bench_test.go:168",
+   "site_fingerprint": "d7e0bec6b942a94c"
+  },
+  {
+   "corpus": "go-redis",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "pool_pubsub_bench_test.go:143",
+   "site": "pool_pubsub_bench_test.go:172",
+   "site_fingerprint": "e09c390369173cd3"
+  },
+  {
+   "corpus": "go-redis",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "pool_pubsub_bench_test.go:240",
+   "site": "pool_pubsub_bench_test.go:263",
+   "site_fingerprint": "5c74ca8304ea4251"
+  },
+  {
+   "corpus": "go-redis",
+   "direction": "prism_only",
+   "dispatch_kind": "import_qualified",
+   "measurement": "callees",
+   "seed_def": "tls_cert_auth_test.go:15",
+   "site": "tls_cert_auth_test.go:19",
+   "site_fingerprint": "bb3034128042d42a"
+  }
+ ],
+ "probes": {
+  "_corpus": "go-redis",
+  "_strata": {
+   "C-method": {
+    "eligible_probes": 16,
+    "eligible_symbols": 8,
+    "target": 8
+   },
+   "C-name": {
+    "eligible_probes": 16,
+    "eligible_symbols": 8,
+    "target": 8
+   },
+   "Q-scoped": {
+    "eligible_probes": 16,
+    "eligible_symbols": 8,
+    "target": 8
+   },
+   "U-free": {
+    "eligible_probes": 16,
+    "eligible_symbols": 8,
+    "target": 8
+   },
+   "U-method": {
+    "eligible_probes": 16,
+    "eligible_symbols": 8,
+    "target": 8
+   }
+  },
+  "callees:auth/auth.go:25": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "inventory_miss",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "auth/auth.go:25",
+   "stratum": "C-method"
+  },
+  "callees:command.go:2864": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "command.go:2864",
+   "stratum": "C-method"
+  },
+  "callees:command.go:3497": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "command.go:3497",
+   "stratum": "C-method"
+  },
+  "callees:command.go:4737": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "command.go",
+     "geoSearchArgs"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "command.go:4737",
+   "stratum": "U-free"
+  },
+  "callees:command.go:5764": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "command.go:5764",
+   "stratum": "U-free"
+  },
+  "callees:command.go:6303": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "command.go",
+     "String"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "command.go",
+     6304,
+     6304
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "command.go",
+     "String"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "command.go",
+     6304,
+     6304,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "command.go:6303",
+   "stratum": "C-method"
+  },
+  "callees:command.go:668": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "command.go",
+     "Int64Slice"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "command.go",
+     676,
+     676
+    ],
+    [
+     "command.go",
+     669,
+     669
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "command.go",
+     "Int64Slice"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "command.go",
+     676,
+     676,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "command.go",
+     669,
+     669,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ]
+   ],
+   "seed_def": "command.go:668",
+   "stratum": "U-method"
+  },
+  "callees:digest_test.go:14": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "digest_test.go",
+     "init"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "digest_test.go",
+     18,
+     18,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ]
+   ],
+   "seed_def": "digest_test.go:14",
+   "stratum": "C-name"
+  },
+  "callees:digest_test.go:140": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "digest_test.go",
+     "TestSetIFDNEWithDigest"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "digest_test.go",
+     149,
+     149
+    ],
+    [
+     "digest_test.go",
+     157,
+     157
+    ],
+    [
+     "digest_test.go",
+     167,
+     167
+    ],
+    [
+     "digest_test.go",
+     185,
+     185
+    ],
+    [
+     "digest_test.go",
+     186,
+     186
+    ],
+    [
+     "digest_test.go",
+     183,
+     183
+    ],
+    [
+     "digest_test.go",
+     174,
+     174
+    ],
+    [
+     "digest_test.go",
+     192,
+     192
+    ],
+    [
+     "digest_test.go",
+     149,
+     149
+    ],
+    [
+     "digest_test.go",
+     141,
+     141
+    ],
+    [
+     "digest_test.go",
+     153,
+     153
+    ],
+    [
+     "digest_test.go",
+     200,
+     200
+    ],
+    [
+     "digest_test.go",
+     147,
+     147
+    ],
+    [
+     "digest_test.go",
+     144,
+     144
+    ],
+    [
+     "digest_test.go",
+     183,
+     183
+    ],
+    [
+     "digest_test.go",
+     174,
+     174
+    ],
+    [
+     "digest_test.go",
+     192,
+     192
+    ],
+    [
+     "digest_test.go",
+     157,
+     157
+    ],
+    [
+     "digest_test.go",
+     166,
+     166
+    ],
+    [
+     "digest_test.go",
+     184,
+     184
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "digest_test.go",
+     "TestSetIFDNEWithDigest"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "digest_test.go",
+     141,
+     141,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "digest_test.go",
+     183,
+     183,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "digest_test.go",
+     166,
+     166,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "digest_test.go",
+     184,
+     184,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "digest_test.go:140",
+   "stratum": "U-free"
+  },
+  "callees:doctests/cmds_set_test.go:68": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "doctests/cmds_set_test.go",
+     "ExampleClient_smembers_cmd"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "doctests/cmds_set_test.go",
+     82,
+     82
+    ],
+    [
+     "doctests/cmds_set_test.go",
+     90,
+     90
+    ],
+    [
+     "doctests/cmds_set_test.go",
+     78,
+     78
+    ],
+    [
+     "doctests/cmds_set_test.go",
+     71,
+     71
+    ],
+    [
+     "doctests/cmds_set_test.go",
+     82,
+     82
+    ],
+    [
+     "doctests/cmds_set_test.go",
+     90,
+     90
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "doctests/cmds_set_test.go",
+     "ExampleClient_smembers_cmd"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "doctests/cmds_set_test.go",
+     82,
+     82,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "doctests/cmds_set_test.go",
+     90,
+     90,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "doctests/cmds_set_test.go:68",
+   "stratum": "Q-scoped"
+  },
+  "callees:doctests/main_test.go:12": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "doctests/main_test.go",
+     "init"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "doctests/main_test.go",
+     14,
+     14,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ]
+   ],
+   "seed_def": "doctests/main_test.go:12",
+   "stratum": "C-name"
+  },
+  "callees:error.go:371": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "error.go",
+     "IsNoReplicasError"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "error.go",
+     372,
+     372
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "error.go",
+     "IsNoReplicasError"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "error.go",
+     372,
+     372,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ]
+   ],
+   "seed_def": "error.go:371",
+   "stratum": "C-name"
+  },
+  "callees:error_wrapping_test.go:750": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "error_wrapping_test.go",
+     "contains"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "error_wrapping_test.go:750",
+   "stratum": "C-name"
+  },
+  "callees:example_test.go:562": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "example_test.go",
+     "ExamplePubSub_Receive"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "example_test.go",
+     577,
+     577
+    ],
+    [
+     "example_test.go",
+     564,
+     564
+    ],
+    [
+     "example_test.go",
+     568,
+     568
+    ],
+    [
+     "example_test.go",
+     577,
+     577
+    ],
+    [
+     "example_test.go",
+     563,
+     563
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "example_test.go",
+     "ExamplePubSub_Receive"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "example_test.go",
+     568,
+     568,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "example_test.go",
+     577,
+     577,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "example_test.go:562",
+   "stratum": "U-free"
+  },
+  "callees:extra/redisotel/metrics.go:27": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "extra/redisotel/metrics.go",
+     "InstrumentMetrics"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "extra/redisotel/metrics.go",
+     32,
+     32
+    ],
+    [
+     "extra/redisotel/metrics.go",
+     85,
+     85
+    ],
+    [
+     "extra/redisotel/metrics.go",
+     88,
+     88
+    ],
+    [
+     "extra/redisotel/metrics.go",
+     95,
+     95
+    ],
+    [
+     "extra/redisotel/metrics.go",
+     45,
+     45
+    ],
+    [
+     "extra/redisotel/metrics.go",
+     87,
+     87
+    ],
+    [
+     "extra/redisotel/metrics.go",
+     43,
+     43
+    ],
+    [
+     "extra/redisotel/metrics.go",
+     50,
+     50
+    ],
+    [
+     "extra/redisotel/metrics.go",
+     94,
+     94
+    ],
+    [
+     "extra/redisotel/metrics.go",
+     37,
+     37
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "extra/redisotel/metrics.go",
+     "InstrumentMetrics"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "extra/redisotel/metrics.go",
+     32,
+     32,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "extra/redisotel/metrics.go",
+     85,
+     85,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "extra/redisotel/metrics.go",
+     88,
+     88,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "extra/redisotel/metrics.go",
+     95,
+     95,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "extra/redisotel/metrics.go:27",
+   "stratum": "Q-scoped"
+  },
+  "callees:generic_commands.go:201": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "generic_commands.go",
+     "PExpireAt"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "generic_commands.go",
+     202,
+     202
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "generic_commands.go",
+     "PExpireAt"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "generic_commands.go",
+     202,
+     202,
+     {
+      "resolution_kind": "free_single"
+     }
+    ]
+   ],
+   "seed_def": "generic_commands.go:201",
+   "stratum": "C-method"
+  },
+  "callees:hash_commands.go:182": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "hash_commands.go",
+     "HRandField"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "hash_commands.go",
+     183,
+     183
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "hash_commands.go",
+     "HRandField"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "hash_commands.go",
+     183,
+     183,
+     {
+      "resolution_kind": "free_single"
+     }
+    ]
+   ],
+   "seed_def": "hash_commands.go:182",
+   "stratum": "C-method"
+  },
+  "callees:internal/auth/streaming/manager.go:45": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "internal/auth/streaming/manager.go",
+     "NewManager"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "internal/auth/streaming/manager.go",
+     49,
+     49
+    ],
+    [
+     "internal/auth/streaming/manager.go",
+     48,
+     48
+    ],
+    [
+     "internal/auth/streaming/manager.go",
+     48,
+     48
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "internal/auth/streaming/manager.go",
+     "NewManager"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "internal/auth/streaming/manager.go",
+     49,
+     49,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "internal/auth/streaming/manager.go",
+     48,
+     48,
+     {
+      "resolution_kind": "free_single"
+     }
+    ]
+   ],
+   "seed_def": "internal/auth/streaming/manager.go:45",
+   "stratum": "C-name"
+  },
+  "callees:internal/hscan/hscan_test.go:66": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "internal/hscan/hscan_test.go",
+     "TestGinkgoSuite"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "internal/hscan/hscan_test.go:66",
+   "stratum": "C-name"
+  },
+  "callees:internal/pool/conn.go:882": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "internal/pool/conn.go",
+     "RemoteAddr"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "internal/pool/conn.go",
+     884,
+     884
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "internal/pool/conn.go",
+     "RemoteAddr"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "internal/pool/conn.go",
+     884,
+     884,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "internal/pool/conn.go",
+     885,
+     885,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "internal/pool/conn.go:882",
+   "stratum": "C-method"
+  },
+  "callees:internal/pool/pool.go:1136": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "internal/pool/pool.go",
+     "freeTurn"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "internal/pool/pool.go",
+     1137,
+     1137
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "internal/pool/pool.go",
+     "freeTurn"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "internal/pool/pool.go:1136",
+   "stratum": "U-method"
+  },
+  "callees:internal/routing/aggregator_test.go:172": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "internal/routing/aggregator_test.go",
+     "TestAggLogicalAndBatchAdd"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "internal/routing/aggregator_test.go",
+     182,
+     182
+    ],
+    [
+     "internal/routing/aggregator_test.go",
+     206,
+     206
+    ],
+    [
+     "internal/routing/aggregator_test.go",
+     187,
+     187
+    ],
+    [
+     "internal/routing/aggregator_test.go",
+     211,
+     211
+    ],
+    [
+     "internal/routing/aggregator_test.go",
+     174,
+     174
+    ],
+    [
+     "internal/routing/aggregator_test.go",
+     198,
+     198
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "internal/routing/aggregator_test.go",
+     "TestAggLogicalAndBatchAdd"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "internal/routing/aggregator_test.go",
+     174,
+     174,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "internal/routing/aggregator_test.go",
+     198,
+     198,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "internal/routing/aggregator_test.go",
+     182,
+     182,
+     {
+      "resolution_kind": "interface_dispatch"
+     }
+    ],
+    [
+     "internal/routing/aggregator_test.go",
+     187,
+     187,
+     {
+      "resolution_kind": "interface_dispatch"
+     }
+    ],
+    [
+     "internal/routing/aggregator_test.go",
+     182,
+     182,
+     {
+      "resolution_kind": "interface_dispatch"
+     }
+    ],
+    [
+     "internal/routing/aggregator_test.go",
+     187,
+     187,
+     {
+      "resolution_kind": "interface_dispatch"
+     }
+    ],
+    [
+     "internal/routing/aggregator_test.go",
+     182,
+     182,
+     {
+      "resolution_kind": "interface_dispatch"
+     }
+    ],
+    [
+     "internal/routing/aggregator_test.go",
+     187,
+     187,
+     {
+      "resolution_kind": "interface_dispatch"
+     }
+    ],
+    [
+     "internal/routing/aggregator_test.go",
+     182,
+     182,
+     {
+      "resolution_kind": "interface_dispatch"
+     }
+    ],
+    [
+     "internal/routing/aggregator_test.go",
+     187,
+     187,
+     {
+      "resolution_kind": "interface_dispatch"
+     }
+    ],
+    [
+     "internal/routing/aggregator_test.go",
+     182,
+     182,
+     {
+      "resolution_kind": "interface_dispatch"
+     }
+    ],
+    [
+     "internal/routing/aggregator_test.go",
+     187,
+     187,
+     {
+      "resolution_kind": "interface_dispatch"
+     }
+    ],
+    [
+     "internal/routing/aggregator_test.go",
+     182,
+     182,
+     {
+      "resolution_kind": "interface_dispatch"
+     }
+    ],
+    [
+     "internal/routing/aggregator_test.go",
+     187,
+     187,
+     {
+      "resolution_kind": "interface_dispatch"
+     }
+    ],
+    [
+     "internal/routing/aggregator_test.go",
+     182,
+     182,
+     {
+      "resolution_kind": "interface_dispatch"
+     }
+    ],
+    [
+     "internal/routing/aggregator_test.go",
+     187,
+     187,
+     {
+      "resolution_kind": "interface_dispatch"
+     }
+    ],
+    [
+     "internal/routing/aggregator_test.go",
+     182,
+     182,
+     {
+      "resolution_kind": "interface_dispatch"
+     }
+    ],
+    [
+     "internal/routing/aggregator_test.go",
+     187,
+     187,
+     {
+      "resolution_kind": "interface_dispatch"
+     }
+    ],
+    [
+     "internal/routing/aggregator_test.go",
+     182,
+     182,
+     {
+      "resolution_kind": "interface_dispatch"
+     }
+    ],
+    [
+     "internal/routing/aggregator_test.go",
+     187,
+     187,
+     {
+      "resolution_kind": "interface_dispatch"
+     }
+    ],
+    [
+     "internal/routing/aggregator_test.go",
+     182,
+     182,
+     {
+      "resolution_kind": "interface_dispatch"
+     }
+    ],
+    [
+     "internal/routing/aggregator_test.go",
+     187,
+     187,
+     {
+      "resolution_kind": "interface_dispatch"
+     }
+    ]
+   ],
+   "seed_def": "internal/routing/aggregator_test.go:172",
+   "stratum": "Q-scoped"
+  },
+  "callees:internal/routing/policy.go:137": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "internal/routing/policy.go:137",
+   "stratum": "U-method"
+  },
+  "callees:internal/util/atomic_max.go:34": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "internal/util/atomic_max.go",
+     "NewAtomicMax"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "internal/util/atomic_max.go:34",
+   "stratum": "Q-scoped"
+  },
+  "callees:main_test.go:311": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "main_test.go",
+     "connectTo"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "main_test.go",
+     318,
+     318
+    ],
+    [
+     "main_test.go",
+     318,
+     318
+    ],
+    [
+     "main_test.go",
+     317,
+     317
+    ],
+    [
+     "main_test.go",
+     312,
+     312
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "main_test.go",
+     "connectTo"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "main_test.go",
+     317,
+     317,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "main_test.go:311",
+   "stratum": "U-free"
+  },
+  "callees:maintnotifications/config_test.go:10": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "maintnotifications/config_test.go",
+     "TestConfig"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "maintnotifications/config_test.go",
+     12,
+     12
+    ],
+    [
+     "maintnotifications/config_test.go",
+     61,
+     61
+    ],
+    [
+     "maintnotifications/config_test.go",
+     80,
+     80
+    ],
+    [
+     "maintnotifications/config_test.go",
+     87,
+     87
+    ],
+    [
+     "maintnotifications/config_test.go",
+     95,
+     95
+    ],
+    [
+     "maintnotifications/config_test.go",
+     62,
+     62
+    ],
+    [
+     "maintnotifications/config_test.go",
+     75,
+     75
+    ],
+    [
+     "maintnotifications/config_test.go",
+     82,
+     82
+    ],
+    [
+     "maintnotifications/config_test.go",
+     89,
+     89
+    ],
+    [
+     "maintnotifications/config_test.go",
+     61,
+     61
+    ],
+    [
+     "maintnotifications/config_test.go",
+     80,
+     80
+    ],
+    [
+     "maintnotifications/config_test.go",
+     87,
+     87
+    ],
+    [
+     "maintnotifications/config_test.go",
+     53,
+     53
+    ],
+    [
+     "maintnotifications/config_test.go",
+     99,
+     99
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "maintnotifications/config_test.go",
+     "TestConfig"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "maintnotifications/config_test.go",
+     12,
+     12,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "maintnotifications/config_test.go",
+     61,
+     61,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "maintnotifications/config_test.go",
+     80,
+     80,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "maintnotifications/config_test.go",
+     87,
+     87,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "maintnotifications/config_test.go",
+     95,
+     95,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "maintnotifications/config_test.go",
+     61,
+     61,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "maintnotifications/config_test.go",
+     80,
+     80,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "maintnotifications/config_test.go",
+     87,
+     87,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "maintnotifications/config_test.go",
+     53,
+     53,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "maintnotifications/config_test.go:10",
+   "stratum": "Q-scoped"
+  },
+  "callees:maintnotifications/e2e/config_parser_test.go:1135": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "maintnotifications/e2e/config_parser_test.go",
+     "SetupTestDatabaseAndFactory"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "maintnotifications/e2e/config_parser_test.go",
+     1137,
+     1137
+    ],
+    [
+     "maintnotifications/e2e/config_parser_test.go",
+     1171,
+     1171
+    ],
+    [
+     "maintnotifications/e2e/config_parser_test.go",
+     1230,
+     1230
+    ],
+    [
+     "maintnotifications/e2e/config_parser_test.go",
+     1157,
+     1157
+    ],
+    [
+     "maintnotifications/e2e/config_parser_test.go",
+     1238,
+     1238
+    ],
+    [
+     "maintnotifications/e2e/config_parser_test.go",
+     1164,
+     1164
+    ],
+    [
+     "maintnotifications/e2e/config_parser_test.go",
+     1245,
+     1245
+    ],
+    [
+     "maintnotifications/e2e/config_parser_test.go",
+     1206,
+     1206
+    ],
+    [
+     "maintnotifications/e2e/config_parser_test.go",
+     1200,
+     1200
+    ],
+    [
+     "maintnotifications/e2e/config_parser_test.go",
+     1212,
+     1212
+    ],
+    [
+     "maintnotifications/e2e/config_parser_test.go",
+     1215,
+     1215
+    ],
+    [
+     "maintnotifications/e2e/config_parser_test.go",
+     1232,
+     1232
+    ],
+    [
+     "maintnotifications/e2e/config_parser_test.go",
+     1246,
+     1246
+    ],
+    [
+     "maintnotifications/e2e/config_parser_test.go",
+     1160,
+     1160
+    ],
+    [
+     "maintnotifications/e2e/config_parser_test.go",
+     1241,
+     1241
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "maintnotifications/e2e/config_parser_test.go",
+     "SetupTestDatabaseAndFactory"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "maintnotifications/e2e/config_parser_test.go",
+     1137,
+     1137,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "maintnotifications/e2e/config_parser_test.go",
+     1171,
+     1171,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "maintnotifications/e2e/config_parser_test.go",
+     1230,
+     1230,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "maintnotifications/e2e/config_parser_test.go",
+     1157,
+     1157,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "maintnotifications/e2e/config_parser_test.go",
+     1238,
+     1238,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "maintnotifications/e2e/config_parser_test.go",
+     1206,
+     1206,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "maintnotifications/e2e/config_parser_test.go",
+     1200,
+     1200,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "maintnotifications/e2e/config_parser_test.go",
+     1212,
+     1212,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "maintnotifications/e2e/config_parser_test.go",
+     1215,
+     1215,
+     {
+      "resolution_kind": "constructor_local"
+     }
+    ],
+    [
+     "maintnotifications/e2e/config_parser_test.go",
+     1232,
+     1232,
+     {
+      "resolution_kind": "constructor_local"
+     }
+    ],
+    [
+     "maintnotifications/e2e/config_parser_test.go",
+     1246,
+     1246,
+     {
+      "resolution_kind": "constructor_local"
+     }
+    ],
+    [
+     "maintnotifications/e2e/config_parser_test.go",
+     1160,
+     1160,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "maintnotifications/e2e/config_parser_test.go",
+     1241,
+     1241,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "maintnotifications/e2e/config_parser_test.go",
+     1164,
+     1164,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "maintnotifications/e2e/config_parser_test.go",
+     1245,
+     1245,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "maintnotifications/e2e/config_parser_test.go:1135",
+   "stratum": "Q-scoped"
+  },
+  "callees:maintnotifications/e2e/fault_injector.go:506": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "maintnotifications/e2e/fault_injector.go",
+     "LimitBandwidth"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "maintnotifications/e2e/fault_injector.go",
+     507,
+     507
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "maintnotifications/e2e/fault_injector.go",
+     "LimitBandwidth"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "maintnotifications/e2e/fault_injector.go",
+     507,
+     507,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ]
+   ],
+   "seed_def": "maintnotifications/e2e/fault_injector.go:506",
+   "stratum": "U-method"
+  },
+  "callees:maintnotifications/e2e/fault_injector.go:966": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "maintnotifications/e2e/fault_injector.go",
+     "formatSMigratingNotification"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "maintnotifications/e2e/fault_injector.go:966",
+   "stratum": "C-name"
+  },
+  "callees:maintnotifications/example_hooks.go:85": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "maintnotifications/example_hooks.go",
+     "ExampleCircuitBreakerMonitor"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "maintnotifications/example_hooks.go",
+     97,
+     97
+    ],
+    [
+     "maintnotifications/example_hooks.go",
+     87,
+     87
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "maintnotifications/example_hooks.go",
+     "ExampleCircuitBreakerMonitor"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "maintnotifications/example_hooks.go",
+     87,
+     87,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ]
+   ],
+   "seed_def": "maintnotifications/example_hooks.go:85",
+   "stratum": "Q-scoped"
+  },
+  "callees:maintnotifications/push_notification_handler_test.go:133": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "maintnotifications/push_notification_handler_test.go",
+     "TestHandleSMigrated_IncompleteTriplet"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "maintnotifications/push_notification_handler_test.go",
+     155,
+     155
+    ],
+    [
+     "maintnotifications/push_notification_handler_test.go",
+     134,
+     134
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "maintnotifications/push_notification_handler_test.go",
+     "TestHandleSMigrated_IncompleteTriplet"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "maintnotifications/push_notification_handler_test.go",
+     134,
+     134,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "maintnotifications/push_notification_handler_test.go",
+     155,
+     155,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "maintnotifications/push_notification_handler_test.go:133",
+   "stratum": "Q-scoped"
+  },
+  "callees:osscluster.go:2438": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "osscluster.go",
+     "slotReadOnlyNode"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "osscluster.go",
+     2450,
+     2450
+    ],
+    [
+     "osscluster.go",
+     2440,
+     2440
+    ],
+    [
+     "osscluster.go",
+     2443,
+     2443
+    ],
+    [
+     "osscluster.go",
+     2447,
+     2447
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "osscluster.go",
+     "slotReadOnlyNode"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "osscluster.go",
+     2450,
+     2450,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ],
+    [
+     "osscluster.go",
+     2440,
+     2440,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ],
+    [
+     "osscluster.go",
+     2443,
+     2443,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ],
+    [
+     "osscluster.go",
+     2447,
+     2447,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ]
+   ],
+   "seed_def": "osscluster.go:2438",
+   "stratum": "U-method"
+  },
+  "callees:osscluster.go:692": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "osscluster.go",
+     "GC"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "osscluster.go",
+     703,
+     703
+    ],
+    [
+     "osscluster.go",
+     700,
+     700
+    ],
+    [
+     "osscluster.go",
+     702,
+     702
+    ],
+    [
+     "osscluster.go",
+     715,
+     715
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "osscluster.go",
+     "GC"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "osscluster.go",
+     703,
+     703,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "osscluster.go",
+     700,
+     700,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "osscluster.go",
+     702,
+     702,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "osscluster.go",
+     702,
+     702,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "osscluster.go:692",
+   "stratum": "U-method"
+  },
+  "callees:osscluster.go:765": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "osscluster.go",
+     "All"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "osscluster.go:765",
+   "stratum": "U-method"
+  },
+  "callees:pool_pubsub_bench_test.go:143": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "pool_pubsub_bench_test.go",
+     "BenchmarkPoolConcurrentGetPut"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "pool_pubsub_bench_test.go",
+     146,
+     146
+    ],
+    [
+     "pool_pubsub_bench_test.go",
+     168,
+     168
+    ],
+    [
+     "pool_pubsub_bench_test.go",
+     172,
+     172
+    ],
+    [
+     "pool_pubsub_bench_test.go",
+     155,
+     155
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "pool_pubsub_bench_test.go",
+     "BenchmarkPoolConcurrentGetPut"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "pool_pubsub_bench_test.go",
+     146,
+     146,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "pool_pubsub_bench_test.go",
+     155,
+     155,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "pool_pubsub_bench_test.go:143",
+   "stratum": "U-free"
+  },
+  "callees:pool_pubsub_bench_test.go:240": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "pool_pubsub_bench_test.go",
+     "BenchmarkPubSubConcurrentCreation"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "pool_pubsub_bench_test.go",
+     242,
+     242
+    ],
+    [
+     "pool_pubsub_bench_test.go",
+     264,
+     264
+    ],
+    [
+     "pool_pubsub_bench_test.go",
+     243,
+     243
+    ],
+    [
+     "pool_pubsub_bench_test.go",
+     263,
+     263
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "pool_pubsub_bench_test.go",
+     "BenchmarkPubSubConcurrentCreation"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "pool_pubsub_bench_test.go",
+     242,
+     242,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "pool_pubsub_bench_test.go",
+     243,
+     243,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "pool_pubsub_bench_test.go",
+     264,
+     264,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "pool_pubsub_bench_test.go:240",
+   "stratum": "U-free"
+  },
+  "callees:result.go:110": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "result.go",
+     "NewTimeCmdResult"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "result.go",
+     113,
+     113
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "result.go",
+     "NewTimeCmdResult"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "result.go",
+     113,
+     113,
+     {
+      "resolution_kind": "embedded_promotion"
+     }
+    ]
+   ],
+   "seed_def": "result.go:110",
+   "stratum": "U-free"
+  },
+  "callees:search_builders.go:305": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "search_builders.go",
+     "ReduceAs"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "search_builders.go",
+     308,
+     308
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "search_builders.go",
+     "ReduceAs"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "search_builders.go",
+     308,
+     308,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ]
+   ],
+   "seed_def": "search_builders.go:305",
+   "stratum": "U-method"
+  },
+  "callees:timeseries_commands.go:17": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "inventory_miss",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "timeseries_commands.go:17",
+   "stratum": "C-method"
+  },
+  "callees:tls_cert_auth_test.go:15": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tls_cert_auth_test.go",
+     "init"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "tls_cert_auth_test.go",
+     19,
+     19,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ]
+   ],
+   "seed_def": "tls_cert_auth_test.go:15",
+   "stratum": "C-name"
+  },
+  "callers:auth/auth.go:25": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "auth/auth_test.go",
+     "TestStreamingCredentialsProvider"
+    ],
+    [
+     "internal_test.go",
+     "TestInitConn_EntraidLike_NoLeakAcrossReinits"
+    ],
+    [
+     "redis.go",
+     "initConn"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "auth/auth_test.go",
+     66,
+     66
+    ],
+    [
+     "auth/auth_test.go",
+     125,
+     125
+    ],
+    [
+     "auth/auth_test.go",
+     159,
+     159
+    ],
+    [
+     "internal_test.go",
+     1046,
+     1046
+    ],
+    [
+     "redis.go",
+     576,
+     576
+    ]
+   ],
+   "outcome": "inventory_miss",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "auth/auth.go:25",
+   "stratum": "C-method"
+  },
+  "callers:command.go:2864": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "command.go",
+     "ExtractCommandValue"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "command.go",
+     8585,
+     8585
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "command.go:2864",
+   "stratum": "C-method"
+  },
+  "callers:command.go:3497": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "commands_test.go",
+     "<module_level>"
+    ],
+    [
+     "doctests/stream_tutorial_test.go",
+     "ExampleClient_raceitaly"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "commands_test.go",
+     7519,
+     7519
+    ],
+    [
+     "commands_test.go",
+     7573,
+     7573
+    ],
+    [
+     "commands_test.go",
+     7600,
+     7600
+    ],
+    [
+     "commands_test.go",
+     7612,
+     7612
+    ],
+    [
+     "commands_test.go",
+     7623,
+     7623
+    ],
+    [
+     "commands_test.go",
+     8580,
+     8580
+    ],
+    [
+     "commands_test.go",
+     8623,
+     8623
+    ],
+    [
+     "doctests/stream_tutorial_test.go",
+     908,
+     908
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "command.go:3497",
+   "stratum": "C-method"
+  },
+  "callers:command.go:4737": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "command.go",
+     "geoSearchLocationArgs"
+    ],
+    [
+     "geo_commands.go",
+     "GeoSearch"
+    ],
+    [
+     "geo_commands.go",
+     "GeoSearchStore"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "command.go",
+     4722,
+     4722
+    ],
+    [
+     "geo_commands.go",
+     99,
+     99
+    ],
+    [
+     "geo_commands.go",
+     119,
+     119
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "command.go",
+     "geoSearchLocationArgs"
+    ],
+    [
+     "geo_commands.go",
+     "GeoSearch"
+    ],
+    [
+     "geo_commands.go",
+     "GeoSearchStore"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "command.go",
+     4722,
+     4722,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "geo_commands.go",
+     99,
+     99,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "geo_commands.go",
+     119,
+     119,
+     {
+      "resolution_kind": "free_single"
+     }
+    ]
+   ],
+   "seed_def": "command.go:4737",
+   "stratum": "U-free"
+  },
+  "callers:command.go:5764": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "array_commands.go",
+     "ARInfo"
+    ],
+    [
+     "array_commands.go",
+     "ARInfoFull"
+    ],
+    [
+     "commands.go",
+     "Hello"
+    ],
+    [
+     "osscluster_router.go",
+     "createCommandByType"
+    ],
+    [
+     "search_commands.go",
+     "FTAggregate"
+    ],
+    [
+     "search_commands.go",
+     "FTCursorRead"
+    ],
+    [
+     "timeseries_commands.go",
+     "TSInfo"
+    ],
+    [
+     "timeseries_commands.go",
+     "TSInfoWithArgs"
+    ],
+    [
+     "vectorset_commands.go",
+     "VInfo"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "array_commands.go",
+     222,
+     222
+    ],
+    [
+     "array_commands.go",
+     229,
+     229
+    ],
+    [
+     "commands.go",
+     371,
+     371
+    ],
+    [
+     "osscluster_router.go",
+     229,
+     229
+    ],
+    [
+     "search_commands.go",
+     653,
+     653
+    ],
+    [
+     "search_commands.go",
+     1594,
+     1594
+    ],
+    [
+     "timeseries_commands.go",
+     622,
+     622
+    ],
+    [
+     "timeseries_commands.go",
+     638,
+     638
+    ],
+    [
+     "vectorset_commands.go",
+     268,
+     268
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "array_commands.go",
+     "ARInfo"
+    ],
+    [
+     "array_commands.go",
+     "ARInfoFull"
+    ],
+    [
+     "commands.go",
+     "Hello"
+    ],
+    [
+     "osscluster_router.go",
+     "createCommandByType"
+    ],
+    [
+     "search_commands.go",
+     "FTAggregate"
+    ],
+    [
+     "search_commands.go",
+     "FTCursorRead"
+    ],
+    [
+     "timeseries_commands.go",
+     "TSInfo"
+    ],
+    [
+     "timeseries_commands.go",
+     "TSInfoWithArgs"
+    ],
+    [
+     "vectorset_commands.go",
+     "VInfo"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "array_commands.go",
+     222,
+     222,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "array_commands.go",
+     229,
+     229,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "commands.go",
+     371,
+     371,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "osscluster_router.go",
+     229,
+     229,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "search_commands.go",
+     653,
+     653,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "search_commands.go",
+     1594,
+     1594,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "timeseries_commands.go",
+     622,
+     622,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "timeseries_commands.go",
+     638,
+     638,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "vectorset_commands.go",
+     268,
+     268,
+     {
+      "resolution_kind": "free_single"
+     }
+    ]
+   ],
+   "seed_def": "command.go:5764",
+   "stratum": "U-free"
+  },
+  "callers:command.go:6303": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "command_recorder_test.go",
+     "ProcessHook"
+    ],
+    [
+     "command_recorder_test.go",
+     "ProcessPipelineHook"
+    ],
+    [
+     "osscluster_test.go",
+     "<module_level>"
+    ],
+    [
+     "ring_test.go",
+     "<module_level>"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "command_recorder_test.go",
+     74,
+     74
+    ],
+    [
+     "command_recorder_test.go",
+     82,
+     82
+    ],
+    [
+     "osscluster_test.go",
+     1099,
+     1099
+    ],
+    [
+     "osscluster_test.go",
+     1106,
+     1106
+    ],
+    [
+     "osscluster_test.go",
+     1126,
+     1126
+    ],
+    [
+     "osscluster_test.go",
+     1133,
+     1133
+    ],
+    [
+     "osscluster_test.go",
+     1180,
+     1180
+    ],
+    [
+     "osscluster_test.go",
+     1191,
+     1191
+    ],
+    [
+     "osscluster_test.go",
+     1211,
+     1211
+    ],
+    [
+     "osscluster_test.go",
+     1222,
+     1222
+    ],
+    [
+     "osscluster_test.go",
+     1283,
+     1283
+    ],
+    [
+     "osscluster_test.go",
+     1291,
+     1291
+    ],
+    [
+     "osscluster_test.go",
+     1306,
+     1306
+    ],
+    [
+     "osscluster_test.go",
+     1314,
+     1314
+    ],
+    [
+     "ring_test.go",
+     330,
+     330
+    ],
+    [
+     "ring_test.go",
+     335,
+     335
+    ],
+    [
+     "ring_test.go",
+     347,
+     347
+    ],
+    [
+     "ring_test.go",
+     352,
+     352
+    ],
+    [
+     "ring_test.go",
+     386,
+     386
+    ],
+    [
+     "ring_test.go",
+     392,
+     392
+    ],
+    [
+     "ring_test.go",
+     409,
+     409
+    ],
+    [
+     "ring_test.go",
+     415,
+     415
+    ],
+    [
+     "ring_test.go",
+     454,
+     454
+    ],
+    [
+     "ring_test.go",
+     460,
+     460
+    ],
+    [
+     "ring_test.go",
+     479,
+     479
+    ],
+    [
+     "ring_test.go",
+     485,
+     485
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "command.go:6303",
+   "stratum": "C-method"
+  },
+  "callers:command.go:668": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "example/redis-bloom/main.go",
+     "countMinSketch"
+    ],
+    [
+     "example/redis-bloom/main.go",
+     "topK"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "example/redis-bloom/main.go",
+     113,
+     113,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "example/redis-bloom/main.go",
+     149,
+     149,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "command.go:668",
+   "stratum": "U-method"
+  },
+  "callers:digest_test.go:14": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "digest_test.go:14",
+   "stratum": "C-name"
+  },
+  "callers:digest_test.go:140": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "digest_test.go:140",
+   "stratum": "U-free"
+  },
+  "callers:doctests/cmds_set_test.go:68": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "doctests/cmds_set_test.go:68",
+   "stratum": "Q-scoped"
+  },
+  "callers:doctests/main_test.go:12": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "doctests/main_test.go:12",
+   "stratum": "C-name"
+  },
+  "callers:error.go:371": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "error.go:371",
+   "stratum": "C-name"
+  },
+  "callers:error_wrapping_test.go:750": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "error_wrapping_test.go",
+     "TestCustomErrorTypeWrapping"
+    ],
+    [
+     "error_wrapping_test.go",
+     "TestErrorWrappingInHookScenario"
+    ],
+    [
+     "error_wrapping_test.go",
+     "TestSetErrWithWrappedError"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "error_wrapping_test.go",
+     234,
+     234
+    ],
+    [
+     "error_wrapping_test.go",
+     404,
+     404
+    ],
+    [
+     "error_wrapping_test.go",
+     407,
+     407
+    ],
+    [
+     "error_wrapping_test.go",
+     453,
+     453
+    ],
+    [
+     "error_wrapping_test.go",
+     453,
+     453
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "error_wrapping_test.go",
+     "TestCustomErrorTypeWrapping"
+    ],
+    [
+     "error_wrapping_test.go",
+     "TestErrorWrappingInHookScenario"
+    ],
+    [
+     "error_wrapping_test.go",
+     "TestSetErrWithWrappedError"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "error_wrapping_test.go",
+     234,
+     234,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "error_wrapping_test.go",
+     404,
+     404,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "error_wrapping_test.go",
+     407,
+     407,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "error_wrapping_test.go",
+     453,
+     453,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "error_wrapping_test.go",
+     453,
+     453,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "error_wrapping_test.go:750",
+   "stratum": "C-name"
+  },
+  "callers:example_test.go:562": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "example_test.go:562",
+   "stratum": "U-free"
+  },
+  "callers:extra/redisotel/metrics.go:27": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "extra/redisotel/metrics.go:27",
+   "stratum": "Q-scoped"
+  },
+  "callers:generic_commands.go:201": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "commands_test.go",
+     "<module_level>"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "commands_test.go",
+     1042,
+     1042
+    ],
+    [
+     "commands_test.go",
+     1067,
+     1067
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "generic_commands.go:201",
+   "stratum": "C-method"
+  },
+  "callers:hash_commands.go:182": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "commands_test.go",
+     "<module_level>"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "commands_test.go",
+     3827,
+     3827
+    ],
+    [
+     "commands_test.go",
+     3831,
+     3831
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "hash_commands.go:182",
+   "stratum": "C-method"
+  },
+  "callers:internal/auth/streaming/manager.go:45": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "internal/auth/streaming/manager_test.go",
+     "TestManager_Listener_NilConn"
+    ],
+    [
+     "internal/auth/streaming/manager_test.go",
+     "TestManager_Listener_ReturnsNewListener"
+    ],
+    [
+     "redis.go",
+     "NewClient"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "internal/auth/streaming/manager_test.go",
+     18,
+     18
+    ],
+    [
+     "internal/auth/streaming/manager_test.go",
+     68,
+     68
+    ],
+    [
+     "redis.go",
+     1389,
+     1389
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "internal/auth/streaming/manager_test.go",
+     "TestManager_Listener_NilConn"
+    ],
+    [
+     "internal/auth/streaming/manager_test.go",
+     "TestManager_Listener_ReturnsNewListener"
+    ],
+    [
+     "maintnotifications/manager_test.go",
+     "TestManagerMaintNotificationsConnCleanup"
+    ],
+    [
+     "maintnotifications/manager_test.go",
+     "TestManagerOnRemoveUntracksMaintNotificationsConn"
+    ],
+    [
+     "maintnotifications/manager_test.go",
+     "TestManagerRefactoring"
+    ],
+    [
+     "redis.go",
+     "NewClient"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "redis.go",
+     1389,
+     1389,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "internal/auth/streaming/manager_test.go",
+     18,
+     18,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "internal/auth/streaming/manager_test.go",
+     68,
+     68,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "maintnotifications/manager_test.go",
+     105,
+     105,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "maintnotifications/manager_test.go",
+     134,
+     134,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "maintnotifications/manager_test.go",
+     157,
+     157,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "maintnotifications/manager_test.go",
+     218,
+     218,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "maintnotifications/manager_test.go",
+     260,
+     260,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ]
+   ],
+   "seed_def": "internal/auth/streaming/manager.go:45",
+   "stratum": "C-name"
+  },
+  "callers:internal/hscan/hscan_test.go:66": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "internal/hscan/hscan_test.go:66",
+   "stratum": "C-name"
+  },
+  "callers:internal/pool/conn.go:882": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "maintnotifications/e2e/notiftracker_test.go",
+     "getShardAddrFromContext"
+    ],
+    [
+     "maintnotifications/handoff_worker.go",
+     "performHandoffInternal"
+    ],
+    [
+     "pubsub.go",
+     "reconnect"
+    ],
+    [
+     "sentinel.go",
+     "NewFailoverClient"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "maintnotifications/e2e/notiftracker_test.go",
+     245,
+     245
+    ],
+    [
+     "maintnotifications/handoff_worker.go",
+     401,
+     401
+    ],
+    [
+     "pubsub.go",
+     194,
+     194
+    ],
+    [
+     "sentinel.go",
+     570,
+     570
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "extra/redisotel-native/metrics.go",
+     "RecordOperationDuration"
+    ],
+    [
+     "extra/redisotel-native/metrics.go",
+     "RecordPipelineOperationDuration"
+    ],
+    [
+     "extra/redisotel-native/metrics.go",
+     "extractServerInfo"
+    ],
+    [
+     "internal/pool/conn.go",
+     "RemoteAddr"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "extra/redisotel-native/metrics.go",
+     104,
+     104,
+     {
+      "resolution_kind": "interface_dispatch"
+     }
+    ],
+    [
+     "extra/redisotel-native/metrics.go",
+     166,
+     166,
+     {
+      "resolution_kind": "interface_dispatch"
+     }
+    ],
+    [
+     "extra/redisotel-native/metrics.go",
+     481,
+     481,
+     {
+      "resolution_kind": "interface_dispatch"
+     }
+    ],
+    [
+     "internal/pool/conn.go",
+     885,
+     885,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "internal/pool/conn.go:882",
+   "stratum": "C-method"
+  },
+  "callers:internal/pool/pool.go:1136": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "internal/pool/pool.go",
+     "checkMinIdleConns"
+    ],
+    [
+     "internal/pool/pool.go",
+     "getConn"
+    ],
+    [
+     "internal/pool/pool.go",
+     "putConn"
+    ],
+    [
+     "internal/pool/pool.go",
+     "queuedNewConn"
+    ],
+    [
+     "internal/pool/pool.go",
+     "removeConnInternal"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "internal/pool/pool.go",
+     520,
+     520
+    ],
+    [
+     "internal/pool/pool.go",
+     530,
+     530
+    ],
+    [
+     "internal/pool/pool.go",
+     888,
+     888
+    ],
+    [
+     "internal/pool/pool.go",
+     997,
+     997
+    ],
+    [
+     "internal/pool/pool.go",
+     1013,
+     1013
+    ],
+    [
+     "internal/pool/pool.go",
+     1028,
+     1028
+    ],
+    [
+     "internal/pool/pool.go",
+     1042,
+     1042
+    ],
+    [
+     "internal/pool/pool.go",
+     1050,
+     1050
+    ],
+    [
+     "internal/pool/pool.go",
+     1219,
+     1219
+    ],
+    [
+     "internal/pool/pool.go",
+     1376,
+     1376
+    ],
+    [
+     "internal/pool/pool.go",
+     1421,
+     1421
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "internal/pool/pool.go",
+     "checkMinIdleConns"
+    ],
+    [
+     "internal/pool/pool.go",
+     "getConn"
+    ],
+    [
+     "internal/pool/pool.go",
+     "putConn"
+    ],
+    [
+     "internal/pool/pool.go",
+     "queuedNewConn"
+    ],
+    [
+     "internal/pool/pool.go",
+     "removeConnInternal"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "internal/pool/pool.go",
+     520,
+     520,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "internal/pool/pool.go",
+     530,
+     530,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "internal/pool/pool.go",
+     888,
+     888,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "internal/pool/pool.go",
+     997,
+     997,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "internal/pool/pool.go",
+     1013,
+     1013,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "internal/pool/pool.go",
+     1028,
+     1028,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "internal/pool/pool.go",
+     1042,
+     1042,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "internal/pool/pool.go",
+     1050,
+     1050,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "internal/pool/pool.go",
+     1219,
+     1219,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "internal/pool/pool.go",
+     1376,
+     1376,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "internal/pool/pool.go",
+     1421,
+     1421,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ]
+   ],
+   "seed_def": "internal/pool/pool.go:1136",
+   "stratum": "U-method"
+  },
+  "callers:internal/routing/aggregator_test.go:172": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "internal/routing/aggregator_test.go:172",
+   "stratum": "Q-scoped"
+  },
+  "callers:internal/routing/policy.go:137": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "osscluster.go",
+     "mapCmdsByNode"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "osscluster.go",
+     1640,
+     1640
+    ],
+    [
+     "osscluster.go",
+     1672,
+     1672
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "osscluster.go",
+     "mapCmdsByNode"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "osscluster.go",
+     1640,
+     1640,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "osscluster.go",
+     1672,
+     1672,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "internal/routing/policy.go:137",
+   "stratum": "U-method"
+  },
+  "callers:internal/util/atomic_max.go:34": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "internal/routing/aggregator.go",
+     "NewResponseAggregator"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "internal/routing/aggregator.go",
+     64,
+     64
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "internal/routing/aggregator.go",
+     "NewResponseAggregator"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "internal/routing/aggregator.go",
+     64,
+     64,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ]
+   ],
+   "seed_def": "internal/util/atomic_max.go:34",
+   "stratum": "Q-scoped"
+  },
+  "callers:main_test.go:311": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "main_test.go",
+     "<module_level>"
+    ],
+    [
+     "main_test.go",
+     "startSentinel"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "main_test.go",
+     125,
+     125
+    ],
+    [
+     "main_test.go",
+     128,
+     128
+    ],
+    [
+     "main_test.go",
+     131,
+     131
+    ],
+    [
+     "main_test.go",
+     134,
+     134
+    ],
+    [
+     "main_test.go",
+     146,
+     146
+    ],
+    [
+     "main_test.go",
+     152,
+     152
+    ],
+    [
+     "main_test.go",
+     328,
+     328
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "main_test.go",
+     "startSentinel"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "main_test.go",
+     328,
+     328,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "main_test.go:311",
+   "stratum": "U-free"
+  },
+  "callers:maintnotifications/config_test.go:10": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "maintnotifications/config_test.go:10",
+   "stratum": "Q-scoped"
+  },
+  "callers:maintnotifications/e2e/config_parser_test.go:1135": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "maintnotifications/e2e/scenario_endpoint_types_test.go",
+     "TestEndpointTypesPushNotifications"
+    ],
+    [
+     "maintnotifications/e2e/scenario_push_notifications_test.go",
+     "TestPushNotifications"
+    ],
+    [
+     "maintnotifications/e2e/scenario_stress_test.go",
+     "TestStressPushNotifications"
+    ],
+    [
+     "maintnotifications/e2e/scenario_timeout_configs_test.go",
+     "TestTimeoutConfigurationsPushNotifications"
+    ],
+    [
+     "maintnotifications/e2e/scenario_tls_configs_test.go",
+     "TestTLSConfigurationsPushNotifications"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "maintnotifications/e2e/scenario_endpoint_types_test.go",
+     61,
+     61
+    ],
+    [
+     "maintnotifications/e2e/scenario_push_notifications_test.go",
+     27,
+     27
+    ],
+    [
+     "maintnotifications/e2e/scenario_stress_test.go",
+     26,
+     26
+    ],
+    [
+     "maintnotifications/e2e/scenario_timeout_configs_test.go",
+     82,
+     82
+    ],
+    [
+     "maintnotifications/e2e/scenario_tls_configs_test.go",
+     77,
+     77
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "maintnotifications/e2e/scenario_endpoint_types_test.go",
+     "TestEndpointTypesPushNotifications"
+    ],
+    [
+     "maintnotifications/e2e/scenario_push_notifications_test.go",
+     "TestPushNotifications"
+    ],
+    [
+     "maintnotifications/e2e/scenario_stress_test.go",
+     "TestStressPushNotifications"
+    ],
+    [
+     "maintnotifications/e2e/scenario_timeout_configs_test.go",
+     "TestTimeoutConfigurationsPushNotifications"
+    ],
+    [
+     "maintnotifications/e2e/scenario_tls_configs_test.go",
+     "TestTLSConfigurationsPushNotifications"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "maintnotifications/e2e/scenario_endpoint_types_test.go",
+     61,
+     61,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "maintnotifications/e2e/scenario_push_notifications_test.go",
+     27,
+     27,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "maintnotifications/e2e/scenario_stress_test.go",
+     26,
+     26,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "maintnotifications/e2e/scenario_timeout_configs_test.go",
+     82,
+     82,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "maintnotifications/e2e/scenario_tls_configs_test.go",
+     77,
+     77,
+     {
+      "resolution_kind": "free_single"
+     }
+    ]
+   ],
+   "seed_def": "maintnotifications/e2e/config_parser_test.go:1135",
+   "stratum": "Q-scoped"
+  },
+  "callers:maintnotifications/e2e/fault_injector.go:506": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "maintnotifications/e2e/fault_injector.go:506",
+   "stratum": "U-method"
+  },
+  "callers:maintnotifications/e2e/fault_injector.go:966": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "maintnotifications/e2e/notification_injector_test.go",
+     "InjectSMIGRATING"
+    ],
+    [
+     "maintnotifications/e2e/proxy_fault_injector_server.go",
+     "executeClusterReshard"
+    ],
+    [
+     "maintnotifications/e2e/proxy_fault_injector_server.go",
+     "executeSlotMigrateAdd"
+    ],
+    [
+     "maintnotifications/e2e/proxy_fault_injector_server.go",
+     "executeSlotMigrateRemove"
+    ],
+    [
+     "maintnotifications/e2e/proxy_fault_injector_server.go",
+     "executeSlotMigrateRemoveAdd"
+    ],
+    [
+     "maintnotifications/e2e/proxy_fault_injector_server.go",
+     "executeSlotMigrateSlotShuffle"
+    ],
+    [
+     "maintnotifications/e2e/proxy_fault_injector_server.go",
+     "executeSlotMigration"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "maintnotifications/e2e/notification_injector_test.go",
+     458,
+     458
+    ],
+    [
+     "maintnotifications/e2e/proxy_fault_injector_server.go",
+     501,
+     501
+    ],
+    [
+     "maintnotifications/e2e/proxy_fault_injector_server.go",
+     571,
+     571
+    ],
+    [
+     "maintnotifications/e2e/proxy_fault_injector_server.go",
+     1248,
+     1248
+    ],
+    [
+     "maintnotifications/e2e/proxy_fault_injector_server.go",
+     1301,
+     1301
+    ],
+    [
+     "maintnotifications/e2e/proxy_fault_injector_server.go",
+     1364,
+     1364
+    ],
+    [
+     "maintnotifications/e2e/proxy_fault_injector_server.go",
+     1416,
+     1416
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "maintnotifications/e2e/notification_injector_test.go",
+     "InjectSMIGRATING"
+    ],
+    [
+     "maintnotifications/e2e/proxy_fault_injector_server.go",
+     "executeClusterReshard"
+    ],
+    [
+     "maintnotifications/e2e/proxy_fault_injector_server.go",
+     "executeSlotMigrateAdd"
+    ],
+    [
+     "maintnotifications/e2e/proxy_fault_injector_server.go",
+     "executeSlotMigrateRemove"
+    ],
+    [
+     "maintnotifications/e2e/proxy_fault_injector_server.go",
+     "executeSlotMigrateRemoveAdd"
+    ],
+    [
+     "maintnotifications/e2e/proxy_fault_injector_server.go",
+     "executeSlotMigrateSlotShuffle"
+    ],
+    [
+     "maintnotifications/e2e/proxy_fault_injector_server.go",
+     "executeSlotMigration"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "maintnotifications/e2e/notification_injector_test.go",
+     458,
+     458,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "maintnotifications/e2e/proxy_fault_injector_server.go",
+     501,
+     501,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "maintnotifications/e2e/proxy_fault_injector_server.go",
+     571,
+     571,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "maintnotifications/e2e/proxy_fault_injector_server.go",
+     1248,
+     1248,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "maintnotifications/e2e/proxy_fault_injector_server.go",
+     1301,
+     1301,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "maintnotifications/e2e/proxy_fault_injector_server.go",
+     1364,
+     1364,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "maintnotifications/e2e/proxy_fault_injector_server.go",
+     1416,
+     1416,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ]
+   ],
+   "seed_def": "maintnotifications/e2e/fault_injector.go:966",
+   "stratum": "C-name"
+  },
+  "callers:maintnotifications/example_hooks.go:85": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "maintnotifications/example_hooks.go:85",
+   "stratum": "Q-scoped"
+  },
+  "callers:maintnotifications/push_notification_handler_test.go:133": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "maintnotifications/push_notification_handler_test.go:133",
+   "stratum": "Q-scoped"
+  },
+  "callers:osscluster.go:2438": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "osscluster.go",
+     "SlaveForKey"
+    ],
+    [
+     "osscluster.go",
+     "cmdNode"
+    ],
+    [
+     "osscluster.go",
+     "cmdNodeWithShardPicker"
+    ],
+    [
+     "osscluster.go",
+     "mapCmdsByNode"
+    ],
+    [
+     "osscluster.go",
+     "pubSub"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "osscluster.go",
+     1657,
+     1657
+    ],
+    [
+     "osscluster.go",
+     2207,
+     2207
+    ],
+    [
+     "osscluster.go",
+     2402,
+     2402
+    ],
+    [
+     "osscluster.go",
+     2432,
+     2432
+    ],
+    [
+     "osscluster.go",
+     2473,
+     2473
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "osscluster.go",
+     "SlaveForKey"
+    ],
+    [
+     "osscluster.go",
+     "cmdNode"
+    ],
+    [
+     "osscluster.go",
+     "cmdNodeWithShardPicker"
+    ],
+    [
+     "osscluster.go",
+     "mapCmdsByNode"
+    ],
+    [
+     "osscluster.go",
+     "pubSub"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "osscluster.go",
+     1657,
+     1657,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "osscluster.go",
+     2207,
+     2207,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "osscluster.go",
+     2402,
+     2402,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "osscluster.go",
+     2432,
+     2432,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "osscluster.go",
+     2473,
+     2473,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ]
+   ],
+   "seed_def": "osscluster.go:2438",
+   "stratum": "U-method"
+  },
+  "callers:osscluster.go:692": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "osscluster.go",
+     "newClusterState"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "osscluster.go",
+     866,
+     866
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "osscluster.go",
+     "newClusterState"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "osscluster.go",
+     866,
+     866,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "osscluster.go:692",
+   "stratum": "U-method"
+  },
+  "callers:osscluster.go:765": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "osscluster.go:765",
+   "stratum": "U-method"
+  },
+  "callers:pool_pubsub_bench_test.go:143": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "pool_pubsub_bench_test.go:143",
+   "stratum": "U-free"
+  },
+  "callers:pool_pubsub_bench_test.go:240": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "pool_pubsub_bench_test.go:240",
+   "stratum": "U-free"
+  },
+  "callers:result.go:110": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "result.go:110",
+   "stratum": "U-free"
+  },
+  "callers:search_builders.go:305": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "search_builders_test.go",
+     "<module_level>"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "search_builders_test.go",
+     60,
+     60
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "example/search-aggregate-steps/main.go",
+     "withBuilder"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "example/search-aggregate-steps/main.go",
+     133,
+     133,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "example/search-aggregate-steps/main.go",
+     133,
+     133,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "search_builders.go:305",
+   "stratum": "U-method"
+  },
+  "callers:timeseries_commands.go:17": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "doctests/timeseries_tut_test.go",
+     "ExampleClient_timeseries_aggmulti"
+    ],
+    [
+     "doctests/timeseries_tut_test.go",
+     "ExampleClient_timeseries_aggregation"
+    ],
+    [
+     "doctests/timeseries_tut_test.go",
+     "ExampleClient_timeseries_query_multi"
+    ],
+    [
+     "timeseries_commands_test.go",
+     "<module_level>"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "doctests/timeseries_tut_test.go",
+     332,
+     332
+    ],
+    [
+     "doctests/timeseries_tut_test.go",
+     341,
+     341
+    ],
+    [
+     "doctests/timeseries_tut_test.go",
+     350,
+     350
+    ],
+    [
+     "doctests/timeseries_tut_test.go",
+     635,
+     635
+    ],
+    [
+     "doctests/timeseries_tut_test.go",
+     792,
+     792
+    ],
+    [
+     "doctests/timeseries_tut_test.go",
+     801,
+     801
+    ],
+    [
+     "doctests/timeseries_tut_test.go",
+     810,
+     810
+    ],
+    [
+     "doctests/timeseries_tut_test.go",
+     819,
+     819
+    ],
+    [
+     "timeseries_commands_test.go",
+     54,
+     54
+    ],
+    [
+     "timeseries_commands_test.go",
+     58,
+     58
+    ],
+    [
+     "timeseries_commands_test.go",
+     62,
+     62
+    ],
+    [
+     "timeseries_commands_test.go",
+     74,
+     74
+    ],
+    [
+     "timeseries_commands_test.go",
+     85,
+     85
+    ],
+    [
+     "timeseries_commands_test.go",
+     94,
+     94
+    ],
+    [
+     "timeseries_commands_test.go",
+     123,
+     123
+    ],
+    [
+     "timeseries_commands_test.go",
+     547,
+     547
+    ],
+    [
+     "timeseries_commands_test.go",
+     551,
+     551
+    ],
+    [
+     "timeseries_commands_test.go",
+     581,
+     581
+    ],
+    [
+     "timeseries_commands_test.go",
+     614,
+     614
+    ],
+    [
+     "timeseries_commands_test.go",
+     618,
+     618
+    ],
+    [
+     "timeseries_commands_test.go",
+     970,
+     970
+    ],
+    [
+     "timeseries_commands_test.go",
+     974,
+     974
+    ],
+    [
+     "timeseries_commands_test.go",
+     1108,
+     1108
+    ],
+    [
+     "timeseries_commands_test.go",
+     1116,
+     1116
+    ],
+    [
+     "timeseries_commands_test.go",
+     1158,
+     1158
+    ],
+    [
+     "timeseries_commands_test.go",
+     1162,
+     1162
+    ],
+    [
+     "timeseries_commands_test.go",
+     1216,
+     1216
+    ],
+    [
+     "timeseries_commands_test.go",
+     1220,
+     1220
+    ],
+    [
+     "timeseries_commands_test.go",
+     1345,
+     1345
+    ],
+    [
+     "timeseries_commands_test.go",
+     1349,
+     1349
+    ],
+    [
+     "timeseries_commands_test.go",
+     1407,
+     1407
+    ],
+    [
+     "timeseries_commands_test.go",
+     1415,
+     1415
+    ],
+    [
+     "timeseries_commands_test.go",
+     1707,
+     1707
+    ],
+    [
+     "timeseries_commands_test.go",
+     1709,
+     1709
+    ],
+    [
+     "timeseries_commands_test.go",
+     1738,
+     1738
+    ],
+    [
+     "timeseries_commands_test.go",
+     1740,
+     1740
+    ],
+    [
+     "timeseries_commands_test.go",
+     1782,
+     1782
+    ],
+    [
+     "timeseries_commands_test.go",
+     1798,
+     1798
+    ]
+   ],
+   "outcome": "inventory_miss",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "timeseries_commands.go:17",
+   "stratum": "C-method"
+  },
+  "callers:tls_cert_auth_test.go:15": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "tls_cert_auth_test.go:15",
+   "stratum": "C-name"
+  }
+ },
+ "site_fingerprints": {
+  "array_commands.go:222": "092447d4e0f5fa2f",
+  "array_commands.go:229": "c85a2c916ce9b766",
+  "auth/auth_test.go:125": "4a70cd88e54a4d30",
+  "auth/auth_test.go:159": "03e35829d79473d1",
+  "auth/auth_test.go:66": "03e35829d79473d1",
+  "command.go:4722": "128646e8608075fd",
+  "command.go:6304": "c630dfca162e8f94",
+  "command.go:669": "d010807297b847f1",
+  "command.go:676": "557066e652ba48be",
+  "command.go:8585": "c8cdf0af469e13da",
+  "command_recorder_test.go:74": "ea3c6f31593636ef",
+  "command_recorder_test.go:82": "88b24869c7510bb1",
+  "commands.go:371": "27c938ae3b07620c",
+  "commands_test.go:1042": "893addd4450eb723",
+  "commands_test.go:1067": "f299c76324d04421",
+  "commands_test.go:3827": "e8c3e2114f2ab624",
+  "commands_test.go:3831": "41433012cb5d6208",
+  "commands_test.go:7519": "f7714dfdb62f5406",
+  "commands_test.go:7573": "f7714dfdb62f5406",
+  "commands_test.go:7600": "89790b9c72c96f8d",
+  "commands_test.go:7612": "571f4d6f4d01b167",
+  "commands_test.go:7623": "571f4d6f4d01b167",
+  "commands_test.go:8580": "a1071a49253b2e98",
+  "commands_test.go:8623": "da3c7d2e51fb4cea",
+  "digest_test.go:141": "140e2d66807656db",
+  "digest_test.go:144": "bf9a7361ab53ecdd",
+  "digest_test.go:147": "7655a5063dd45055",
+  "digest_test.go:149": "197e95f132f6d1de",
+  "digest_test.go:153": "d1d0b841cc6e3ae8",
+  "digest_test.go:157": "d1306be55fcde453",
+  "digest_test.go:166": "a7ee27f50fe4eb22",
+  "digest_test.go:167": "f2d8fd7b8705cbf9",
+  "digest_test.go:174": "6e5388b37eab2318",
+  "digest_test.go:18": "bb3034128042d42a",
+  "digest_test.go:183": "a6b6ce1f3e372a48",
+  "digest_test.go:184": "059f199ae5a974e8",
+  "digest_test.go:185": "b6b8856bbc77a30d",
+  "digest_test.go:186": "81166fe64cd13138",
+  "digest_test.go:192": "8216db1c19187d2a",
+  "digest_test.go:200": "c7e6842fa009c6ff",
+  "doctests/cmds_set_test.go:71": "d0e47fcea3dd1a4d",
+  "doctests/cmds_set_test.go:78": "10be890296bdd964",
+  "doctests/cmds_set_test.go:82": "c92c6b92afab6428",
+  "doctests/cmds_set_test.go:90": "0ba27c7c3bbad4d8",
+  "doctests/main_test.go:14": "792694ad0ede06e0",
+  "doctests/stream_tutorial_test.go:908": "0320f5de403cec85",
+  "doctests/timeseries_tut_test.go:332": "a5e39312b5a55e01",
+  "doctests/timeseries_tut_test.go:341": "f6181b6b4a8d0701",
+  "doctests/timeseries_tut_test.go:350": "5a7e781fae9059c4",
+  "doctests/timeseries_tut_test.go:635": "7fa1b680fb1f4e58",
+  "doctests/timeseries_tut_test.go:792": "3aa820b7713c4f67",
+  "doctests/timeseries_tut_test.go:801": "3579ff45fed59a07",
+  "doctests/timeseries_tut_test.go:810": "a6aff41c68b671eb",
+  "doctests/timeseries_tut_test.go:819": "d1f539823c8a4cb1",
+  "error.go:372": "22d41721ad17dcf4",
+  "error_wrapping_test.go:234": "693a4bd6c03a527c",
+  "error_wrapping_test.go:404": "6ce96870b4aa64a3",
+  "error_wrapping_test.go:407": "be4a66c3d1209424",
+  "error_wrapping_test.go:453": "862e9f5ed6800735",
+  "example/redis-bloom/main.go:113": "7e3bce718c626beb",
+  "example/redis-bloom/main.go:149": "5ddacee4ad0e71d1",
+  "example/search-aggregate-steps/main.go:133": "1b5741a486694845",
+  "example_test.go:563": "63b632993af0452b",
+  "example_test.go:564": "123070f26acc20cb",
+  "example_test.go:568": "de234e2fbdc7c0e3",
+  "example_test.go:577": "6cbeade1180d4bd3",
+  "extra/redisotel-native/metrics.go:104": "62ea901801beb088",
+  "extra/redisotel-native/metrics.go:166": "62ea901801beb088",
+  "extra/redisotel-native/metrics.go:481": "5eb46b02a279c207",
+  "extra/redisotel/metrics.go:32": "a2251515127c951e",
+  "extra/redisotel/metrics.go:37": "1d570e858e184dfd",
+  "extra/redisotel/metrics.go:43": "44f63ec381c82147",
+  "extra/redisotel/metrics.go:45": "2b6539c9b926152e",
+  "extra/redisotel/metrics.go:50": "e85528ce667e54cf",
+  "extra/redisotel/metrics.go:85": "fed1bb84b8e88d33",
+  "extra/redisotel/metrics.go:87": "28dc4eaeb5544c5b",
+  "extra/redisotel/metrics.go:88": "9976aeb70bc6afca",
+  "extra/redisotel/metrics.go:94": "abca3710f9856568",
+  "extra/redisotel/metrics.go:95": "9976aeb70bc6afca",
+  "generic_commands.go:202": "62b2404f1d306069",
+  "geo_commands.go:119": "94335628c20e2b64",
+  "geo_commands.go:99": "1d9051b034072fd2",
+  "hash_commands.go:183": "16e41388c0cf8f81",
+  "internal/auth/streaming/manager.go:48": "c95e82decece7761",
+  "internal/auth/streaming/manager.go:49": "010bc58d724c49af",
+  "internal/auth/streaming/manager_test.go:18": "f3937a9a07dcee7d",
+  "internal/auth/streaming/manager_test.go:68": "f65eaed8b8b059ad",
+  "internal/pool/conn.go:884": "5400570ccbf1a048",
+  "internal/pool/conn.go:885": "7aac1483304e935a",
+  "internal/pool/pool.go:1013": "cba6f27794f2f644",
+  "internal/pool/pool.go:1028": "3a325672a5da248d",
+  "internal/pool/pool.go:1042": "433b4e6ffd6bfff2",
+  "internal/pool/pool.go:1050": "5c5ef5424fe6d98b",
+  "internal/pool/pool.go:1137": "b3fe66463e04befa",
+  "internal/pool/pool.go:1219": "eaa64b1a04b7a015",
+  "internal/pool/pool.go:1376": "eaa64b1a04b7a015",
+  "internal/pool/pool.go:1421": "eaa64b1a04b7a015",
+  "internal/pool/pool.go:520": "0ee725c1fe00419f",
+  "internal/pool/pool.go:530": "fe7d5fdfb6db2f78",
+  "internal/pool/pool.go:888": "5e909a569709cd71",
+  "internal/pool/pool.go:997": "f7f5694ac5bdfba5",
+  "internal/routing/aggregator.go:64": "2bd82225851115b4",
+  "internal/routing/aggregator_test.go:174": "39f27992660c2342",
+  "internal/routing/aggregator_test.go:182": "833b2951a0233474",
+  "internal/routing/aggregator_test.go:187": "5b560b5e7ba2f1c9",
+  "internal/routing/aggregator_test.go:198": "17a3445d0614b176",
+  "internal/routing/aggregator_test.go:206": "833b2951a0233474",
+  "internal/routing/aggregator_test.go:211": "5b560b5e7ba2f1c9",
+  "internal_test.go:1046": "5937cd28179e05df",
+  "main_test.go:125": "280ffa6179097434",
+  "main_test.go:128": "76ce943112eb4470",
+  "main_test.go:131": "55affe2343720380",
+  "main_test.go:134": "bdedb8173a5316ab",
+  "main_test.go:146": "a7f639056511d395",
+  "main_test.go:152": "507e56a489be7ea9",
+  "main_test.go:312": "2116627eda394b9b",
+  "main_test.go:317": "30b18889f1f58bf7",
+  "main_test.go:318": "da044acdbfa458e6",
+  "main_test.go:328": "b7293f24d0e465ed",
+  "maintnotifications/config_test.go:12": "e457cd164a25e8f0",
+  "maintnotifications/config_test.go:53": "7f7894cb474506b1",
+  "maintnotifications/config_test.go:61": "c8e7e684ae4f273c",
+  "maintnotifications/config_test.go:62": "85d0e6bd2087f26d",
+  "maintnotifications/config_test.go:75": "aa911ff9bcc929ba",
+  "maintnotifications/config_test.go:80": "f10e2865760eb989",
+  "maintnotifications/config_test.go:82": "f9494898a43244da",
+  "maintnotifications/config_test.go:87": "ee847d5836092f62",
+  "maintnotifications/config_test.go:89": "c2e07c8b923bc4ee",
+  "maintnotifications/config_test.go:95": "64fb86d212c77cd5",
+  "maintnotifications/config_test.go:99": "4aaf41ec6acd504a",
+  "maintnotifications/e2e/config_parser_test.go:1137": "34aa8ba28d06cc8f",
+  "maintnotifications/e2e/config_parser_test.go:1157": "d4fa83ddcca50e87",
+  "maintnotifications/e2e/config_parser_test.go:1160": "c1957323e34f1288",
+  "maintnotifications/e2e/config_parser_test.go:1164": "2d7ec2764c84c142",
+  "maintnotifications/e2e/config_parser_test.go:1171": "2c58544064353732",
+  "maintnotifications/e2e/config_parser_test.go:1200": "f1be6fb257e61079",
+  "maintnotifications/e2e/config_parser_test.go:1206": "e15b0564b5818790",
+  "maintnotifications/e2e/config_parser_test.go:1212": "c7e088320ae41d49",
+  "maintnotifications/e2e/config_parser_test.go:1215": "868fa764b41ba3a7",
+  "maintnotifications/e2e/config_parser_test.go:1230": "e3cd63faf3a3d129",
+  "maintnotifications/e2e/config_parser_test.go:1232": "eb4f6704b5e575a9",
+  "maintnotifications/e2e/config_parser_test.go:1238": "9191bad0febcb6ae",
+  "maintnotifications/e2e/config_parser_test.go:1241": "f3133681c10fde48",
+  "maintnotifications/e2e/config_parser_test.go:1245": "1e2feabb46d9c601",
+  "maintnotifications/e2e/config_parser_test.go:1246": "5a674d6ec6089165",
+  "maintnotifications/e2e/fault_injector.go:507": "e931da194006e07c",
+  "maintnotifications/e2e/notification_injector_test.go:458": "29c5d77980b1eb06",
+  "maintnotifications/e2e/notiftracker_test.go:245": "a56b0e3ca8c9995c",
+  "maintnotifications/e2e/proxy_fault_injector_server.go:1248": "daeb3cc5e0402497",
+  "maintnotifications/e2e/proxy_fault_injector_server.go:1301": "09c0a51c3ff00ee1",
+  "maintnotifications/e2e/proxy_fault_injector_server.go:1364": "0b71b821cf8f1586",
+  "maintnotifications/e2e/proxy_fault_injector_server.go:1416": "d51b66d92b3863b8",
+  "maintnotifications/e2e/proxy_fault_injector_server.go:501": "089bb9e10df93757",
+  "maintnotifications/e2e/proxy_fault_injector_server.go:571": "d63c999ba7fd89b4",
+  "maintnotifications/e2e/scenario_endpoint_types_test.go:61": "945bec4ea88242cf",
+  "maintnotifications/e2e/scenario_push_notifications_test.go:27": "abb34e8ead601062",
+  "maintnotifications/e2e/scenario_stress_test.go:26": "abb34e8ead601062",
+  "maintnotifications/e2e/scenario_timeout_configs_test.go:82": "f34c06266bb25db1",
+  "maintnotifications/e2e/scenario_tls_configs_test.go:77": "5e2dc4d03445de51",
+  "maintnotifications/example_hooks.go:87": "fad105eb0ad700d5",
+  "maintnotifications/example_hooks.go:97": "7990481927036ebd",
+  "maintnotifications/handoff_worker.go:401": "7515d63877090389",
+  "maintnotifications/manager_test.go:105": "267eb942ccde08ae",
+  "maintnotifications/manager_test.go:134": "267eb942ccde08ae",
+  "maintnotifications/manager_test.go:157": "934e78173a175c35",
+  "maintnotifications/manager_test.go:218": "934e78173a175c35",
+  "maintnotifications/manager_test.go:260": "934e78173a175c35",
+  "maintnotifications/push_notification_handler_test.go:134": "614fe2cdec6a2ce0",
+  "maintnotifications/push_notification_handler_test.go:155": "7d890acbf845f6bd",
+  "osscluster.go:1640": "507a4bfb1940dbe8",
+  "osscluster.go:1657": "59f60f5946555db1",
+  "osscluster.go:1672": "507a4bfb1940dbe8",
+  "osscluster.go:2207": "010e8cd58e4cc7f3",
+  "osscluster.go:2402": "50c755d9a808234e",
+  "osscluster.go:2432": "50c755d9a808234e",
+  "osscluster.go:2440": "945121e5d090c895",
+  "osscluster.go:2443": "35171c3c696f1f49",
+  "osscluster.go:2447": "04162d9532bbd61c",
+  "osscluster.go:2450": "374290558a0ad7b3",
+  "osscluster.go:2473": "d3de960815a1bb6b",
+  "osscluster.go:700": "e014f3e8846a180d",
+  "osscluster.go:702": "8fcf55e9eab038bd",
+  "osscluster.go:703": "ba250c091d39928b",
+  "osscluster.go:715": "f7eef096f2c54246",
+  "osscluster.go:866": "691877226b534def",
+  "osscluster_router.go:229": "11b3ee91dba93231",
+  "osscluster_test.go:1099": "0efaa8289d1948c3",
+  "osscluster_test.go:1106": "442801391a881ada",
+  "osscluster_test.go:1126": "0efaa8289d1948c3",
+  "osscluster_test.go:1133": "442801391a881ada",
+  "osscluster_test.go:1180": "b67017b9edf783de",
+  "osscluster_test.go:1191": "205b496c2d6290ae",
+  "osscluster_test.go:1211": "b67017b9edf783de",
+  "osscluster_test.go:1222": "205b496c2d6290ae",
+  "osscluster_test.go:1283": "0646b6623449136c",
+  "osscluster_test.go:1291": "f220c23c6cf0bb9e",
+  "osscluster_test.go:1306": "0646b6623449136c",
+  "osscluster_test.go:1314": "f220c23c6cf0bb9e",
+  "pool_pubsub_bench_test.go:146": "349ed463cecd03a8",
+  "pool_pubsub_bench_test.go:155": "d86174e60422eac1",
+  "pool_pubsub_bench_test.go:168": "d7e0bec6b942a94c",
+  "pool_pubsub_bench_test.go:172": "e09c390369173cd3",
+  "pool_pubsub_bench_test.go:242": "9d4e665aa3ac0c81",
+  "pool_pubsub_bench_test.go:243": "4f28deb8dc3dd72d",
+  "pool_pubsub_bench_test.go:263": "5c74ca8304ea4251",
+  "pool_pubsub_bench_test.go:264": "a5ec3ee5205dc966",
+  "pubsub.go:194": "ab0c683c44989ef1",
+  "redis.go:1389": "e944e77fdd05247a",
+  "redis.go:576": "c344d855614ddbe0",
+  "result.go:113": "bd83ec5717df621c",
+  "ring_test.go:330": "fbd6199b5d09e681",
+  "ring_test.go:335": "eb205cd46060b738",
+  "ring_test.go:347": "7e45320575308025",
+  "ring_test.go:352": "4fa954fe5729e737",
+  "ring_test.go:386": "96aaa9a17d8f22ed",
+  "ring_test.go:392": "f03588be12a09ff4",
+  "ring_test.go:409": "09ec0315d0339220",
+  "ring_test.go:415": "660d7da4b383fc8b",
+  "ring_test.go:454": "f0dcb581f29b1557",
+  "ring_test.go:460": "8ffe92949b411fb0",
+  "ring_test.go:479": "f7606c04ce37aa1b",
+  "ring_test.go:485": "3f4d3d292f1c2bd2",
+  "search_builders.go:308": "e94393a6ec001bad",
+  "search_builders_test.go:60": "39ad62d9fa7831a1",
+  "search_commands.go:1594": "27c938ae3b07620c",
+  "search_commands.go:653": "f86ed47ba86f6c0e",
+  "sentinel.go:570": "a02fc826126ecb18",
+  "timeseries_commands.go:622": "4a6caebe8663f61c",
+  "timeseries_commands.go:638": "27c938ae3b07620c",
+  "timeseries_commands_test.go:1108": "8b39815a090820f7",
+  "timeseries_commands_test.go:1116": "c83e80e3172c1e67",
+  "timeseries_commands_test.go:1158": "9b37db85d8bd051a",
+  "timeseries_commands_test.go:1162": "c8227355037d35e8",
+  "timeseries_commands_test.go:1216": "e2fd8b3349d51d50",
+  "timeseries_commands_test.go:1220": "a112ff7c958e27d6",
+  "timeseries_commands_test.go:123": "69f4e70c4d085145",
+  "timeseries_commands_test.go:1345": "9e6c35d2dcb1e6b0",
+  "timeseries_commands_test.go:1349": "b065cb0dfd3739c3",
+  "timeseries_commands_test.go:1407": "8b39815a090820f7",
+  "timeseries_commands_test.go:1415": "c83e80e3172c1e67",
+  "timeseries_commands_test.go:1707": "b571b80e5969f32e",
+  "timeseries_commands_test.go:1709": "f1f0066dec840c06",
+  "timeseries_commands_test.go:1738": "09c8329da86dc622",
+  "timeseries_commands_test.go:1740": "9767a390f4e7e620",
+  "timeseries_commands_test.go:1782": "630398e16d6145fc",
+  "timeseries_commands_test.go:1798": "4e8dedf36a7c8737",
+  "timeseries_commands_test.go:54": "0b8626c6b837847d",
+  "timeseries_commands_test.go:547": "5226875bfeb4ba45",
+  "timeseries_commands_test.go:551": "579bacea21339772",
+  "timeseries_commands_test.go:58": "4da9105eee4b0703",
+  "timeseries_commands_test.go:581": "c83e80e3172c1e67",
+  "timeseries_commands_test.go:614": "5226875bfeb4ba45",
+  "timeseries_commands_test.go:618": "579bacea21339772",
+  "timeseries_commands_test.go:62": "cd2248f2f23aeab9",
+  "timeseries_commands_test.go:74": "603eb0f31a8c3606",
+  "timeseries_commands_test.go:85": "7d3395ba895e6f2d",
+  "timeseries_commands_test.go:94": "cbec659aa2ef4d17",
+  "timeseries_commands_test.go:970": "e2fd8b3349d51d50",
+  "timeseries_commands_test.go:974": "a112ff7c958e27d6",
+  "tls_cert_auth_test.go:19": "bb3034128042d42a",
+  "vectorset_commands.go:268": "45353f6976b5931f"
+ }
+}

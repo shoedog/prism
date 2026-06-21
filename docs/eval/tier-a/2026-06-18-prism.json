@@ -1,0 +1,4763 @@
+{
+ "m1": {
+  "anon_oracle": 0,
+  "anon_prism": 0,
+  "matched": 4312,
+  "prism_extra": 0,
+  "prism_missing": 16,
+  "snapshot_prism_missing": 16
+ },
+ "m2": {
+  "callees": {
+   "C-method": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.3423802239546494,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.3423802239546494,
+      1.0
+     ],
+     "tp": 2
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 1,
+      "precision": [
+       0.5,
+       0.09453120463920084,
+       0.9054687953607992
+      ],
+      "recall": [
+       1.0,
+       0.2065493117918027,
+       1.0
+      ],
+      "tp": 1
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 1,
+      "precision": [
+       0.5,
+       0.09453120463920084,
+       0.9054687953607992
+      ],
+      "recall": [
+       1.0,
+       0.2065493117918027,
+       1.0
+      ],
+      "tp": 1
+     }
+    },
+    "pending": 1,
+    "raw": {
+     "fn": 0,
+     "fp": 1,
+     "precision": [
+      0.6666666666666666,
+      0.2076595988078242,
+      0.9385080559790691
+     ],
+     "recall": [
+      1.0,
+      0.3423802239546494,
+      1.0
+     ],
+     "tp": 2
+    },
+    "shortfall": 0
+   },
+   "C-name": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.2065493117918027,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.2065493117918027,
+      1.0
+     ],
+     "tp": 1
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 2,
+      "precision": [
+       0.3333333333333333,
+       0.06149194402093078,
+       0.7923404011921757
+      ],
+      "recall": [
+       1.0,
+       0.2065493117918027,
+       1.0
+      ],
+      "tp": 1
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 2,
+      "precision": [
+       0.3333333333333333,
+       0.06149194402093078,
+       0.7923404011921757
+      ],
+      "recall": [
+       1.0,
+       0.2065493117918027,
+       1.0
+      ],
+      "tp": 1
+     }
+    },
+    "pending": 0,
+    "raw": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.2065493117918027,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.2065493117918027,
+      1.0
+     ],
+     "tp": 1
+    },
+    "shortfall": 0
+   },
+   "Q-scoped": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.5655175313406071,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.5655175313406071,
+      1.0
+     ],
+     "tp": 5
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.43850296436068037,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.43850296436068037,
+       1.0
+      ],
+      "tp": 3
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.43850296436068037,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.43850296436068037,
+       1.0
+      ],
+      "tp": 3
+     }
+    },
+    "pending": 2,
+    "raw": {
+     "fn": 2,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.5655175313406071,
+      1.0
+     ],
+     "recall": [
+      0.7142857142857143,
+      0.3589344495310541,
+      0.9177810767507166
+     ],
+     "tp": 5
+    },
+    "shortfall": 0
+   },
+   "U-free": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.6755924316585924,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.6755924316585924,
+      1.0
+     ],
+     "tp": 8
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 1,
+      "precision": [
+       0.5,
+       0.09453120463920084,
+       0.9054687953607992
+      ],
+      "recall": [
+       1.0,
+       0.2065493117918027,
+       1.0
+      ],
+      "tp": 1
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 1,
+      "precision": [
+       0.5,
+       0.09453120463920084,
+       0.9054687953607992
+      ],
+      "recall": [
+       1.0,
+       0.2065493117918027,
+       1.0
+      ],
+      "tp": 1
+     }
+    },
+    "pending": 12,
+    "raw": {
+     "fn": 12,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.6755924316585924,
+      1.0
+     ],
+     "recall": [
+      0.4,
+      0.21880653127178018,
+      0.6134185007652458
+     ],
+     "tp": 8
+    },
+    "shortfall": 0
+   },
+   "U-method": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.6456695613241317,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.6456695613241317,
+      1.0
+     ],
+     "tp": 7
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.3423802239546494,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.3423802239546494,
+       1.0
+      ],
+      "tp": 2
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.3423802239546494,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.3423802239546494,
+       1.0
+      ],
+      "tp": 2
+     }
+    },
+    "pending": 0,
+    "raw": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.6456695613241317,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.6456695613241317,
+      1.0
+     ],
+     "tp": 7
+    },
+    "shortfall": 0
+   }
+  },
+  "callers": {
+   "C-method": {
+    "corrected": {
+     "fn": 22,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.9179901955865446,
+      1.0
+     ],
+     "recall": [
+      0.6615384615384615,
+      0.5403837681802639,
+      0.7646649675853523
+     ],
+     "tp": 43
+    },
+    "function": {
+     "corrected": {
+      "fn": 31,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.9143324285798755,
+       1.0
+      ],
+      "recall": [
+       0.5694444444444444,
+       0.4544330607846907,
+       0.6774209429159974
+      ],
+      "tp": 41
+     },
+     "raw": {
+      "fn": 31,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.9143324285798755,
+       1.0
+      ],
+      "recall": [
+       0.5694444444444444,
+       0.4544330607846907,
+       0.6774209429159974
+      ],
+      "tp": 41
+     }
+    },
+    "pending": 18,
+    "raw": {
+     "fn": 40,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.9179901955865446,
+      1.0
+     ],
+     "recall": [
+      0.5180722891566265,
+      0.41217757011683503,
+      0.622368141558745
+     ],
+     "tp": 43
+    },
+    "shortfall": 0
+   },
+   "C-name": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.7846891945970195,
+      0.9999999999999999
+     ],
+     "recall": [
+      1.0,
+      0.7846891945970195,
+      0.9999999999999999
+     ],
+     "tp": 14
+    },
+    "function": {
+     "corrected": {
+      "fn": 1,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.7719046248681998,
+       1.0
+      ],
+      "recall": [
+       0.9285714285714286,
+       0.6853129533326209,
+       0.9872777848933957
+      ],
+      "tp": 13
+     },
+     "raw": {
+      "fn": 1,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.7719046248681998,
+       1.0
+      ],
+      "recall": [
+       0.9285714285714286,
+       0.6853129533326209,
+       0.9872777848933957
+      ],
+      "tp": 13
+     }
+    },
+    "pending": 1,
+    "raw": {
+     "fn": 1,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.7846891945970195,
+      0.9999999999999999
+     ],
+     "recall": [
+      0.9333333333333333,
+      0.7018346989112435,
+      0.9881331046384677
+     ],
+     "tp": 14
+    },
+    "shortfall": 0
+   },
+   "Q-scoped": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.6755924316585924,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.6755924316585924,
+      1.0
+     ],
+     "tp": 8
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.5655175313406071,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.5655175313406071,
+       1.0
+      ],
+      "tp": 5
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.5655175313406071,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.5655175313406071,
+       1.0
+      ],
+      "tp": 5
+     }
+    },
+    "pending": 0,
+    "raw": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.6755924316585924,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.6755924316585924,
+      1.0
+     ],
+     "tp": 8
+    },
+    "shortfall": 0
+   },
+   "U-free": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.2065493117918027,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.2065493117918027,
+      1.0
+     ],
+     "tp": 1
+    },
+    "function": {
+     "corrected": {
+      "fn": 3,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.2065493117918027,
+       1.0
+      ],
+      "recall": [
+       0.25,
+       0.04558726029536886,
+       0.6993581599030918
+      ],
+      "tp": 1
+     },
+     "raw": {
+      "fn": 3,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.2065493117918027,
+       1.0
+      ],
+      "recall": [
+       0.25,
+       0.04558726029536886,
+       0.6993581599030918
+      ],
+      "tp": 1
+     }
+    },
+    "pending": 10,
+    "raw": {
+     "fn": 10,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.2065493117918027,
+      1.0
+     ],
+     "recall": [
+      0.09090909090909091,
+      0.016232172705325593,
+      0.3773584391082959
+     ],
+     "tp": 1
+    },
+    "shortfall": 0
+   },
+   "U-method": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.6096657083436265,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.6096657083436265,
+      1.0
+     ],
+     "tp": 6
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.6096657083436265,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.6096657083436265,
+       1.0
+      ],
+      "tp": 6
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.6096657083436265,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.6096657083436265,
+       1.0
+      ],
+      "tp": 6
+     }
+    },
+    "pending": 0,
+    "raw": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.6096657083436265,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.6096657083436265,
+      1.0
+     ],
+     "tp": 6
+    },
+    "shortfall": 0
+   }
+  }
+ },
+ "m3": {
+  "cap": 10,
+  "checked": [],
+  "counts": {
+   "alias_site": 0,
+   "ambiguous": 0,
+   "confirmed_fp": 0,
+   "confirmed_tp": 0
+  }
+ },
+ "matrix": [
+  {
+   "capability": "chain_in_repo_exact",
+   "expected": [
+    [
+     "main.rs",
+     12
+    ]
+   ],
+   "got": [
+    [
+     "main.rs",
+     12
+    ]
+   ],
+   "language": "rust",
+   "outcome": "ok"
+  },
+  {
+   "capability": "closure_call",
+   "expected": [
+    [
+     "main.rs",
+     4
+    ]
+   ],
+   "got": [
+    [
+     "main.rs",
+     4
+    ]
+   ],
+   "language": "rust",
+   "outcome": "ok"
+  },
+  {
+   "capability": "common_name_collision",
+   "expected": [
+    [
+     "main.rs",
+     5
+    ]
+   ],
+   "got": [
+    [
+     "main.rs",
+     5
+    ]
+   ],
+   "language": "rust",
+   "outcome": "ok"
+  },
+  {
+   "capability": "cross_module_no_collision",
+   "expected": [
+    [
+     "main.rs",
+     5
+    ]
+   ],
+   "got": [
+    [
+     "main.rs",
+     5
+    ]
+   ],
+   "language": "rust",
+   "outcome": "ok"
+  },
+  {
+   "capability": "extension_trait_method",
+   "expected": [
+    [
+     "main.rs",
+     10
+    ]
+   ],
+   "got": [
+    [
+     "main.rs",
+     10
+    ]
+   ],
+   "language": "rust",
+   "outcome": "ok"
+  },
+  {
+   "capability": "external_chain_unchanged",
+   "expected": [],
+   "got": [],
+   "language": "rust",
+   "outcome": "ok"
+  },
+  {
+   "capability": "field_receiver_method",
+   "expected": [
+    [
+     "main.rs",
+     12
+    ]
+   ],
+   "got": [
+    [
+     "main.rs",
+     12
+    ]
+   ],
+   "language": "rust",
+   "outcome": "ok"
+  },
+  {
+   "capability": "field_typed_recovery",
+   "expected": [
+    [
+     "main.rs",
+     13
+    ]
+   ],
+   "got": [
+    [
+     "main.rs",
+     13
+    ]
+   ],
+   "language": "rust",
+   "outcome": "ok"
+  },
+  {
+   "capability": "free_fn_cross_file_use",
+   "expected": [
+    [
+     "main.rs",
+     4
+    ]
+   ],
+   "got": [
+    [
+     "main.rs",
+     4
+    ]
+   ],
+   "language": "rust",
+   "outcome": "ok"
+  },
+  {
+   "capability": "free_fn_same_file",
+   "expected": [
+    [
+     "main.rs",
+     4
+    ]
+   ],
+   "got": [
+    [
+     "main.rs",
+     4
+    ]
+   ],
+   "language": "rust",
+   "outcome": "ok"
+  },
+  {
+   "capability": "inherent_method_same_file",
+   "expected": [
+    [
+     "main.rs",
+     8
+    ]
+   ],
+   "got": [
+    [
+     "main.rs",
+     8
+    ]
+   ],
+   "language": "rust",
+   "outcome": "ok"
+  },
+  {
+   "capability": "inrepo_then_external_unchanged",
+   "expected": [],
+   "got": [],
+   "language": "rust",
+   "outcome": "ok"
+  },
+  {
+   "capability": "method_cross_file_type_ne_stem",
+   "expected": [
+    [
+     "main.rs",
+     4
+    ]
+   ],
+   "got": [
+    [
+     "main.rs",
+     4
+    ]
+   ],
+   "language": "rust",
+   "outcome": "ok"
+  },
+  {
+   "capability": "mod_qualified_free_fn",
+   "expected": [
+    [
+     "main.rs",
+     4
+    ]
+   ],
+   "got": [
+    [
+     "main.rs",
+     4
+    ]
+   ],
+   "language": "rust",
+   "outcome": "ok"
+  },
+  {
+   "capability": "p6_typed_param_recovery",
+   "expected": [
+    [
+     "m.rs",
+     2
+    ]
+   ],
+   "got": [
+    [
+     "m.rs",
+     2
+    ]
+   ],
+   "language": "rust",
+   "outcome": "ok"
+  },
+  {
+   "capability": "r6_multi_owner_drop",
+   "expected": [],
+   "got": [],
+   "language": "rust",
+   "outcome": "ok"
+  },
+  {
+   "capability": "r6_single_owner_demote",
+   "expected": [
+    [
+     "m.rs",
+     3
+    ]
+   ],
+   "got": [
+    [
+     "m.rs",
+     3
+    ]
+   ],
+   "language": "rust",
+   "outcome": "ok"
+  },
+  {
+   "capability": "receiver_method_cross_file_stem_eq",
+   "expected": [
+    [
+     "main.rs",
+     4
+    ]
+   ],
+   "got": [
+    [
+     "main.rs",
+     4
+    ]
+   ],
+   "language": "rust",
+   "outcome": "ok"
+  },
+  {
+   "capability": "return_typed_recovery",
+   "expected": [
+    [
+     "main.rs",
+     13
+    ]
+   ],
+   "got": [
+    [
+     "main.rs",
+     13
+    ]
+   ],
+   "language": "rust",
+   "outcome": "ok"
+  },
+  {
+   "capability": "trait_dyn_dispatch",
+   "expected": [
+    [
+     "main.rs",
+     12
+    ]
+   ],
+   "got": [
+    [
+     "main.rs",
+     12
+    ]
+   ],
+   "language": "rust",
+   "outcome": "ok"
+  },
+  {
+   "capability": "trait_static_dispatch",
+   "expected": [
+    [
+     "main.rs",
+     12
+    ]
+   ],
+   "got": [
+    [
+     "main.rs",
+     12
+    ]
+   ],
+   "language": "rust",
+   "outcome": "ok"
+  },
+  {
+   "capability": "type_method_qualified",
+   "expected": [
+    [
+     "main.rs",
+     4
+    ]
+   ],
+   "got": [
+    [
+     "main.rs",
+     4
+    ]
+   ],
+   "language": "rust",
+   "outcome": "ok"
+  },
+  {
+   "capability": "closure",
+   "expected": [
+    [
+     "main.go",
+     6
+    ]
+   ],
+   "got": [
+    [
+     "main.go",
+     6
+    ]
+   ],
+   "language": "go",
+   "outcome": "ok"
+  },
+  {
+   "capability": "common_name_collision",
+   "expected": [
+    [
+     "main.go",
+     6
+    ]
+   ],
+   "got": [
+    [
+     "main.go",
+     6
+    ]
+   ],
+   "language": "go",
+   "outcome": "ok"
+  },
+  {
+   "capability": "cross_pkg_qualified",
+   "expected": [
+    [
+     "main.go",
+     6
+    ]
+   ],
+   "got": [
+    [
+     "main.go",
+     6
+    ]
+   ],
+   "language": "go",
+   "outcome": "ok"
+  },
+  {
+   "capability": "embedded_method",
+   "expected": [
+    [
+     "main.go",
+     12
+    ]
+   ],
+   "got": [
+    [
+     "main.go",
+     12
+    ]
+   ],
+   "language": "go",
+   "outcome": "ok"
+  },
+  {
+   "capability": "import_package_path",
+   "expected": [
+    [
+     "main.go",
+     6
+    ]
+   ],
+   "got": [
+    [
+     "main.go",
+     6
+    ]
+   ],
+   "language": "go",
+   "outcome": "ok"
+  },
+  {
+   "capability": "interface_dispatch",
+   "expected": [
+    [
+     "main.go",
+     12
+    ]
+   ],
+   "got": [
+    [
+     "main.go",
+     12
+    ]
+   ],
+   "language": "go",
+   "outcome": "ok"
+  },
+  {
+   "capability": "interface_dispatch_assert",
+   "expected": [
+    [
+     "main.go",
+     14
+    ]
+   ],
+   "got": [
+    [
+     "main.go",
+     14
+    ]
+   ],
+   "language": "go",
+   "outcome": "ok"
+  },
+  {
+   "capability": "interface_dispatch_var",
+   "expected": [
+    [
+     "main.go",
+     15
+    ]
+   ],
+   "got": [
+    [
+     "main.go",
+     15
+    ]
+   ],
+   "language": "go",
+   "outcome": "ok"
+  },
+  {
+   "capability": "same_pkg_free_fn",
+   "expected": [
+    [
+     "main.go",
+     6
+    ]
+   ],
+   "got": [
+    [
+     "main.go",
+     6
+    ]
+   ],
+   "language": "go",
+   "outcome": "ok"
+  },
+  {
+   "capability": "struct_method_cross_file",
+   "expected": [
+    [
+     "main.go",
+     4
+    ]
+   ],
+   "got": [
+    [
+     "main.go",
+     4
+    ]
+   ],
+   "language": "go",
+   "outcome": "ok"
+  },
+  {
+   "capability": "struct_method_same_file",
+   "expected": [
+    [
+     "main.go",
+     8
+    ]
+   ],
+   "got": [
+    [
+     "main.go",
+     8
+    ]
+   ],
+   "language": "go",
+   "outcome": "ok"
+  },
+  {
+   "capability": "class_method_same_file",
+   "expected": [
+    [
+     "app.py",
+     6
+    ]
+   ],
+   "got": [
+    [
+     "app.py",
+     6
+    ]
+   ],
+   "language": "python",
+   "outcome": "ok"
+  },
+  {
+   "capability": "closure",
+   "expected": [
+    [
+     "app.py",
+     6
+    ]
+   ],
+   "got": [
+    [
+     "app.py",
+     6
+    ]
+   ],
+   "language": "python",
+   "outcome": "ok"
+  },
+  {
+   "capability": "common_name_collision",
+   "expected": [
+    [
+     "app.py",
+     4
+    ]
+   ],
+   "got": [
+    [
+     "app.py",
+     4
+    ]
+   ],
+   "language": "python",
+   "outcome": "ok"
+  },
+  {
+   "capability": "decorator_wrapped",
+   "expected": [
+    [
+     "app.py",
+     8
+    ]
+   ],
+   "got": [
+    [
+     "app.py",
+     8
+    ]
+   ],
+   "language": "python",
+   "outcome": "ok"
+  },
+  {
+   "capability": "from_import_alias",
+   "expected": [
+    [
+     "app.py",
+     4
+    ]
+   ],
+   "got": [],
+   "language": "python",
+   "outcome": "expected_gap"
+  },
+  {
+   "capability": "import_module_call",
+   "expected": [
+    [
+     "app.py",
+     4
+    ]
+   ],
+   "got": [
+    [
+     "app.py",
+     4
+    ]
+   ],
+   "language": "python",
+   "outcome": "ok"
+  },
+  {
+   "capability": "inherited_override",
+   "expected": [
+    [
+     "app.py",
+     10
+    ]
+   ],
+   "got": [],
+   "language": "python",
+   "outcome": "expected_gap"
+  },
+  {
+   "capability": "instance_method_cross_file",
+   "expected": [
+    [
+     "app.py",
+     5
+    ]
+   ],
+   "got": [
+    [
+     "app.py",
+     5
+    ]
+   ],
+   "language": "python",
+   "outcome": "ok"
+  },
+  {
+   "capability": "module_fn",
+   "expected": [
+    [
+     "app.py",
+     5
+    ]
+   ],
+   "got": [
+    [
+     "app.py",
+     5
+    ]
+   ],
+   "language": "python",
+   "outcome": "ok"
+  }
+ ],
+ "meta": {
+  "baseline_invalid": true,
+  "corpus": "prism",
+  "corpus_dirty": false,
+  "corpus_dirty_reasons": [],
+  "corpus_sha": "9d2fc463d7e9",
+  "date": "2026-06-18",
+  "harness_sha": "9d2fc463d7e9",
+  "invalid_reasons": [
+   "corpus_sha_drift: 9d2fc463d7e9 != pinned 516cd3abacaf",
+   "stratum U-method: 4/6 successful probes"
+  ],
+  "oracle": "rust-analyzer 1.94.0 (4a4ef493 2026-03-02)",
+  "oracle_error_rate": 0.06666666666666667,
+  "oracle_not_quiescent": false,
+  "prism_dirty": true,
+  "prism_sha": "afdf4d591350",
+  "seed": 42,
+  "stale_adjudications": 3,
+  "sut_error_rate": 0.0,
+  "wall_s": {
+   "m1_oracle_inventory": 4.007,
+   "m2": 37.955,
+   "m3": 0.001,
+   "matrix": 2.27,
+   "oracle_start": 16.602,
+   "pinned": 2.599
+  }
+ },
+ "pending": [
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/main.rs:24",
+   "site": "src/main.rs:72",
+   "site_fingerprint": "ffb7857ebf314230"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/main.rs:24",
+   "site": "src/main.rs:1247",
+   "site_fingerprint": "1c34633929603e2c"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/main.rs:24",
+   "site": "src/main.rs:1248",
+   "site_fingerprint": "ae8e77a01f4a8e25"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/main.rs:24",
+   "site": "src/main.rs:1249",
+   "site_fingerprint": "03fd6219c908ee90"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/main.rs:24",
+   "site": "src/main.rs:1250",
+   "site_fingerprint": "163aa4c071eaf975"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/main.rs:24",
+   "site": "src/main.rs:1251",
+   "site_fingerprint": "170fac675d4117de"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/main.rs:24",
+   "site": "src/main.rs:1252",
+   "site_fingerprint": "dcf6ff45d87211ee"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/main.rs:24",
+   "site": "src/main.rs:1257",
+   "site_fingerprint": "a6c2455c1f5951aa"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/main.rs:24",
+   "site": "src/main.rs:1258",
+   "site_fingerprint": "68b16cfe82025482"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/main.rs:24",
+   "site": "src/main.rs:1259",
+   "site_fingerprint": "baefcbf0f676cca1"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/name_resolution/rust_populator/scopes.rs:67",
+   "site": "src/name_resolution/rust_populator/walk/locals.rs:372",
+   "site_fingerprint": "1c67745246919a60"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/call_graph.rs:2074",
+   "site": "src/call_graph.rs:2078",
+   "site_fingerprint": "b956ec2cf02f1884"
+  },
+  {
+   "corpus": "prism",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callees",
+   "seed_def": "src/cpg/query.rs:51",
+   "site": "src/cpg/query.rs:52",
+   "site_fingerprint": "fb5f0201ae38238f"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/main.rs:332",
+   "site": "src/main.rs:344",
+   "site_fingerprint": "057e2e889ec6711f"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/main.rs:332",
+   "site": "src/main.rs:359",
+   "site_fingerprint": "c0a91d2a9b4c89cc"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/main.rs:332",
+   "site": "src/main.rs:372",
+   "site_fingerprint": "193b9b0c3cff3016"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/main.rs:332",
+   "site": "src/main.rs:389",
+   "site_fingerprint": "d63297fe62a4e7d9"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/main.rs:332",
+   "site": "src/main.rs:402",
+   "site_fingerprint": "193b9b0c3cff3016"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/main.rs:332",
+   "site": "src/main.rs:419",
+   "site_fingerprint": "942775fc5c8cbc73"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/main.rs:332",
+   "site": "src/main.rs:432",
+   "site_fingerprint": "193b9b0c3cff3016"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/main.rs:332",
+   "site": "src/main.rs:440",
+   "site_fingerprint": "e215e661db82dd42"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/main.rs:332",
+   "site": "src/main.rs:446",
+   "site_fingerprint": "6e04d7f48d464763"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/main.rs:332",
+   "site": "src/main.rs:452",
+   "site_fingerprint": "6e89477aa210d7cd"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/main.rs:332",
+   "site": "src/main.rs:458",
+   "site_fingerprint": "89f821ebca1e4988"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/main.rs:332",
+   "site": "src/main.rs:465",
+   "site_fingerprint": "7d1dbec5118e55b2"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "tests/lang/go/advanced_test.rs:133",
+   "site": "tests/lang/go/advanced_test.rs:164",
+   "site_fingerprint": "89d3c387b0d49fa9"
+  }
+ ],
+ "pinned": [
+  {
+   "exact_supplementary": {
+    "fn": 0,
+    "fp": 0,
+    "precision": [
+     1.0,
+     0.5655175313406071,
+     1.0
+    ],
+    "recall": [
+     1.0,
+     0.5655175313406071,
+     1.0
+    ],
+    "tp": 5
+   },
+   "expected": "known_fail",
+   "id": "target-c-method",
+   "known_fail": false,
+   "oracle_only": [],
+   "oracle_sites": [
+    "src/algorithms/taint.rs:1763",
+    "src/algorithms/taint.rs:4420",
+    "src/algorithms/taint.rs:4430",
+    "src/algorithms/taint.rs:4438",
+    "src/algorithms/taint.rs:4450"
+   ],
+   "outcome": "flip_candidate",
+   "prism_only": [
+    "src/algorithms/circular_slice.rs:119",
+    "src/algorithms/circular_slice.rs:162",
+    "src/algorithms/circular_slice.rs:164",
+    "src/algorithms/circular_slice.rs:240",
+    "src/algorithms/circular_slice.rs:242",
+    "src/algorithms/gradient_slice.rs:116",
+    "src/cpg/build.rs:614",
+    "src/cpg/build.rs:636",
+    "src/cpg/cfg_queries.rs:51",
+    "src/cpg/query.rs:141",
+    "src/cpg/query.rs:142",
+    "src/cpg/query.rs:255",
+    "src/cpg/query.rs:465",
+    "src/cpg/query.rs:505",
+    "src/cpg/query.rs:550",
+    "src/cpg/query.rs:600",
+    "src/cpg/query.rs:664",
+    "src/cpg/query.rs:665",
+    "src/cpg/trace.rs:241",
+    "src/navigation/queries.rs:888",
+    "tests/ast/cpg_test.rs:26",
+    "tests/ast/cpg_test.rs:84"
+   ],
+   "prism_sites": [
+    "src/algorithms/taint.rs:1763",
+    "src/algorithms/taint.rs:4420",
+    "src/algorithms/taint.rs:4430",
+    "src/algorithms/taint.rs:4438",
+    "src/algorithms/taint.rs:4450",
+    "src/algorithms/circular_slice.rs:119",
+    "src/algorithms/circular_slice.rs:162",
+    "src/algorithms/circular_slice.rs:164",
+    "src/algorithms/circular_slice.rs:240",
+    "src/algorithms/circular_slice.rs:242",
+    "src/algorithms/gradient_slice.rs:116",
+    "src/cpg/build.rs:614",
+    "src/cpg/build.rs:636",
+    "src/cpg/cfg_queries.rs:51",
+    "src/cpg/query.rs:141",
+    "src/cpg/query.rs:142",
+    "src/cpg/query.rs:255",
+    "src/cpg/query.rs:465",
+    "src/cpg/query.rs:505",
+    "src/cpg/query.rs:550",
+    "src/cpg/query.rs:600",
+    "src/cpg/query.rs:664",
+    "src/cpg/query.rs:665",
+    "src/cpg/trace.rs:241",
+    "src/navigation/queries.rs:888",
+    "tests/ast/cpg_test.rs:26",
+    "tests/ast/cpg_test.rs:84"
+   ],
+   "raw": {
+    "fn": 0,
+    "fp": 22,
+    "precision": [
+     0.18518518518518517,
+     0.08180707091220948,
+     0.3669868377861317
+    ],
+    "recall": [
+     1.0,
+     0.5655175313406071,
+     1.0
+    ],
+    "tp": 5
+   }
+  },
+  {
+   "expected": "oracle_miss_site",
+   "id": "module-deps-feature-gated",
+   "oracle_miss_site_found": true,
+   "oracle_only": [
+    "src/main.rs:440",
+    "tests/navigation/module_graph_test.rs:152"
+   ],
+   "oracle_sites": [
+    "tests/navigation/module_graph_test.rs:152",
+    "tests/navigation/module_graph_test.rs:143",
+    "tests/name_resolution/build_wiring_test.rs:417",
+    "tests/name_resolution/build_wiring_test.rs:418",
+    "tests/navigation/scoped_calls_test.rs:214",
+    "tests/navigation/module_graph_test.rs:93",
+    "tests/navigation/module_graph_test.rs:169",
+    "tests/navigation/module_graph_test.rs:213",
+    "tests/navigation/module_graph_test.rs:240",
+    "tests/navigation/module_graph_test.rs:266",
+    "tests/navigation/module_graph_test.rs:291",
+    "tests/navigation/module_graph_test.rs:311",
+    "src/main.rs:440"
+   ],
+   "outcome": "ok",
+   "prism_only": [
+    "src/mcp/tools.rs:162"
+   ],
+   "prism_sites": [
+    "src/mcp/tools.rs:162",
+    "tests/name_resolution/build_wiring_test.rs:417",
+    "tests/name_resolution/build_wiring_test.rs:418",
+    "tests/navigation/module_graph_test.rs:93",
+    "tests/navigation/module_graph_test.rs:143",
+    "tests/navigation/module_graph_test.rs:169",
+    "tests/navigation/module_graph_test.rs:213",
+    "tests/navigation/module_graph_test.rs:240",
+    "tests/navigation/module_graph_test.rs:266",
+    "tests/navigation/module_graph_test.rs:291",
+    "tests/navigation/module_graph_test.rs:311",
+    "tests/navigation/scoped_calls_test.rs:214"
+   ],
+   "raw": {
+    "fn": 2,
+    "fp": 1,
+    "precision": [
+     0.9166666666666666,
+     0.6461200862787544,
+     0.9851349057603305
+    ],
+    "recall": [
+     0.8461538461538461,
+     0.5776536874893673,
+     0.9567418220347709
+    ],
+    "tp": 11
+   }
+  },
+  {
+   "expected": "oracle_miss_site",
+   "id": "load-repo-feature-gated",
+   "oracle_miss_site_found": true,
+   "oracle_only": [
+    "src/main.rs:490",
+    "src/repo_loader.rs:553",
+    "tests/cli/nav_compat_test.rs:252",
+    "tests/navigation/loader_test.rs:31"
+   ],
+   "oracle_sites": [
+    "tests/navigation/cache_test.rs:34",
+    "tests/navigation/cache_test.rs:52",
+    "tests/navigation/cache_test.rs:90",
+    "tests/navigation/cache_test.rs:92",
+    "tests/navigation/cache_test.rs:101",
+    "tests/navigation/cache_test.rs:132",
+    "tests/navigation/cache_test.rs:133",
+    "tests/cli/nav_compat_test.rs:252",
+    "tests/ast/cpg_cache_test.rs:121",
+    "tests/navigation/scoped_calls_test.rs:19",
+    "tests/navigation/module_graph_test.rs:17",
+    "tests/infra/parallel_equality_test.rs:18",
+    "tests/infra/parallel_equality_test.rs:22",
+    "tests/navigation/ego_test.rs:9",
+    "src/navigation/inventory.rs:16",
+    "tests/navigation/callees_test.rs:11",
+    "tests/name_resolution/build_wiring_test.rs:72",
+    "tests/name_resolution/build_wiring_test.rs:162",
+    "tests/name_resolution/build_wiring_test.rs:308",
+    "tests/name_resolution/build_wiring_test.rs:367",
+    "tests/name_resolution/build_wiring_test.rs:404",
+    "src/repo_loader.rs:553",
+    "tests/navigation/loader_test.rs:31",
+    "tests/navigation/seed_test.rs:11",
+    "tests/navigation/nodes_at_test.rs:17",
+    "tests/navigation/loader_test.rs:12",
+    "tests/navigation/loader_test.rs:40",
+    "tests/navigation/loader_test.rs:58",
+    "tests/navigation/index_test.rs:13",
+    "tests/navigation/index_test.rs:31",
+    "src/main.rs:490",
+    "tests/navigation/callers_test.rs:11"
+   ],
+   "outcome": "ok",
+   "prism_only": [
+    "src/mcp/session.rs:28"
+   ],
+   "prism_sites": [
+    "src/mcp/session.rs:28",
+    "src/navigation/inventory.rs:16",
+    "tests/ast/cpg_cache_test.rs:121",
+    "tests/infra/parallel_equality_test.rs:18",
+    "tests/infra/parallel_equality_test.rs:22",
+    "tests/name_resolution/build_wiring_test.rs:72",
+    "tests/name_resolution/build_wiring_test.rs:162",
+    "tests/name_resolution/build_wiring_test.rs:308",
+    "tests/name_resolution/build_wiring_test.rs:367",
+    "tests/name_resolution/build_wiring_test.rs:404",
+    "tests/navigation/cache_test.rs:34",
+    "tests/navigation/cache_test.rs:52",
+    "tests/navigation/cache_test.rs:90",
+    "tests/navigation/cache_test.rs:92",
+    "tests/navigation/cache_test.rs:101",
+    "tests/navigation/cache_test.rs:132",
+    "tests/navigation/cache_test.rs:133",
+    "tests/navigation/callees_test.rs:11",
+    "tests/navigation/callers_test.rs:11",
+    "tests/navigation/ego_test.rs:9",
+    "tests/navigation/index_test.rs:13",
+    "tests/navigation/index_test.rs:31",
+    "tests/navigation/loader_test.rs:12",
+    "tests/navigation/loader_test.rs:40",
+    "tests/navigation/loader_test.rs:58",
+    "tests/navigation/module_graph_test.rs:17",
+    "tests/navigation/nodes_at_test.rs:17",
+    "tests/navigation/scoped_calls_test.rs:19",
+    "tests/navigation/seed_test.rs:11"
+   ],
+   "raw": {
+    "fn": 4,
+    "fp": 1,
+    "precision": [
+     0.9655172413793104,
+     0.8282447796220433,
+     0.9938867857749234
+    ],
+    "recall": [
+     0.875,
+     0.7193169437055493,
+     0.9502986564709404
+    ],
+    "tp": 28
+   }
+  },
+  {
+   "ambiguous_ok": true,
+   "expected": "ambiguous_symbol_error",
+   "id": "ambiguous-symbol-contract",
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_sites": []
+  }
+ ],
+ "probes": {
+  "_corpus": "prism",
+  "_strata": {
+   "C-method": {
+    "eligible_probes": 6,
+    "eligible_symbols": 3,
+    "target": 3
+   },
+   "C-name": {
+    "eligible_probes": 6,
+    "eligible_symbols": 3,
+    "target": 3
+   },
+   "Q-scoped": {
+    "eligible_probes": 6,
+    "eligible_symbols": 3,
+    "target": 3
+   },
+   "U-free": {
+    "eligible_probes": 6,
+    "eligible_symbols": 3,
+    "target": 3
+   },
+   "U-method": {
+    "eligible_probes": 6,
+    "eligible_symbols": 3,
+    "target": 3
+   }
+  },
+  "callees:src/algorithms/taint.rs:8326": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "src/algorithms/taint.rs",
+     "python_is_aiohttp_client_session_constructor_call"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/algorithms/taint.rs",
+     8327,
+     8327
+    ],
+    [
+     "src/algorithms/taint.rs",
+     8328,
+     8328
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/algorithms/taint.rs",
+     "python_is_aiohttp_client_session_constructor_call"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/algorithms/taint.rs",
+     8328,
+     8328,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/algorithms/taint.rs",
+     8327,
+     8327,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ]
+   ],
+   "seed_def": "src/algorithms/taint.rs:8326",
+   "stratum": "Q-scoped"
+  },
+  "callees:src/ast.rs:157": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "src/ast.rs",
+     "enclosing_function"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/ast.rs",
+     159,
+     159
+    ],
+    [
+     "src/ast.rs",
+     162,
+     162
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/ast.rs",
+     "enclosing_function"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/ast.rs",
+     159,
+     159,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "src/ast.rs",
+     162,
+     162,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ]
+   ],
+   "seed_def": "src/ast.rs:157",
+   "stratum": "C-method"
+  },
+  "callees:src/ast.rs:753": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "src/ast.rs",
+     "js_require_call_module_path"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/ast.rs",
+     754,
+     754
+    ],
+    [
+     "src/ast.rs",
+     757,
+     757
+    ],
+    [
+     "src/ast.rs",
+     758,
+     758
+    ],
+    [
+     "src/ast.rs",
+     765,
+     765
+    ],
+    [
+     "src/ast.rs",
+     761,
+     761
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/ast.rs",
+     "js_require_call_module_path"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/ast.rs",
+     758,
+     758,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "src/ast.rs",
+     765,
+     765,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "src/ast.rs",
+     754,
+     754,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ],
+    [
+     "src/ast.rs",
+     757,
+     757,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ],
+    [
+     "src/ast.rs",
+     761,
+     761,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ]
+   ],
+   "seed_def": "src/ast.rs:753",
+   "stratum": "U-method"
+  },
+  "callees:src/call_graph.rs:2074": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "src/call_graph.rs",
+     "call_graph_type_scope"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/call_graph.rs",
+     2077,
+     2077
+    ],
+    [
+     "src/call_graph.rs",
+     2078,
+     2078
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/call_graph.rs",
+     "call_graph_type_scope"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/call_graph.rs",
+     2076,
+     2076,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "src/call_graph.rs:2074",
+   "stratum": "Q-scoped"
+  },
+  "callees:src/cpg/query.rs:51": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/cpg/query.rs",
+     "nodes_at"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/cpg/query.rs",
+     52,
+     52,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "src/cpg/query.rs:51",
+   "stratum": "C-method"
+  },
+  "callees:src/main.rs:1298": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "src/main.rs:1298",
+   "stratum": "U-free"
+  },
+  "callees:src/main.rs:24": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/main.rs",
+     "parse_diagram_cap"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "src/main.rs:24",
+   "stratum": "U-free"
+  },
+  "callees:src/main.rs:332": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "src/main.rs",
+     "run_nav"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/main.rs",
+     343,
+     343
+    ],
+    [
+     "src/main.rs",
+     357,
+     357
+    ],
+    [
+     "src/main.rs",
+     387,
+     387
+    ],
+    [
+     "src/main.rs",
+     417,
+     417
+    ],
+    [
+     "src/main.rs",
+     439,
+     439
+    ],
+    [
+     "src/main.rs",
+     445,
+     445
+    ],
+    [
+     "src/main.rs",
+     451,
+     451
+    ],
+    [
+     "src/main.rs",
+     457,
+     457
+    ],
+    [
+     "src/main.rs",
+     344,
+     344
+    ],
+    [
+     "src/main.rs",
+     359,
+     359
+    ],
+    [
+     "src/main.rs",
+     372,
+     372
+    ],
+    [
+     "src/main.rs",
+     402,
+     402
+    ],
+    [
+     "src/main.rs",
+     432,
+     432
+    ],
+    [
+     "src/main.rs",
+     389,
+     389
+    ],
+    [
+     "src/main.rs",
+     419,
+     419
+    ],
+    [
+     "src/main.rs",
+     440,
+     440
+    ],
+    [
+     "src/main.rs",
+     446,
+     446
+    ],
+    [
+     "src/main.rs",
+     452,
+     452
+    ],
+    [
+     "src/main.rs",
+     458,
+     458
+    ],
+    [
+     "src/main.rs",
+     465,
+     465
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/main.rs",
+     "run_nav"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/main.rs",
+     343,
+     343,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/main.rs",
+     357,
+     357,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/main.rs",
+     387,
+     387,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/main.rs",
+     417,
+     417,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/main.rs",
+     439,
+     439,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/main.rs",
+     445,
+     445,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/main.rs",
+     451,
+     451,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/main.rs",
+     457,
+     457,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "src/main.rs:332",
+   "stratum": "U-free"
+  },
+  "callees:src/name_resolution/binding_lookup.rs:96": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/name_resolution/binding_lookup.rs",
+     "macro_wildcard_poisons"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "src/name_resolution/binding_lookup.rs:96",
+   "stratum": "C-name"
+  },
+  "callees:src/name_resolution/rust_populator/scopes.rs:67": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/name_resolution/rust_populator/scopes.rs",
+     "vis"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "src/name_resolution/rust_populator/scopes.rs:67",
+   "stratum": "C-name"
+  },
+  "callees:src/resolution.rs:1219": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "src/resolution.rs",
+     "graph_file_for_scope"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/resolution.rs",
+     1221,
+     1221
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/resolution.rs",
+     "graph_file_for_scope"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/resolution.rs",
+     1220,
+     1220,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ]
+   ],
+   "seed_def": "src/resolution.rs:1219",
+   "stratum": "C-name"
+  },
+  "callees:src/type_db.rs:482": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "src/type_db.rs",
+     "virtual_dispatch_targets_rta"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/type_db.rs",
+     488,
+     488
+    ],
+    [
+     "src/type_db.rs",
+     504,
+     504
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/type_db.rs",
+     "virtual_dispatch_targets_rta"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/type_db.rs",
+     488,
+     488,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "src/type_db.rs",
+     504,
+     504,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ]
+   ],
+   "seed_def": "src/type_db.rs:482",
+   "stratum": "U-method"
+  },
+  "callees:src/type_provider.rs:110": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "inventory_miss",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "src/type_provider.rs:110",
+   "stratum": "C-method"
+  },
+  "callees:tests/lang/go/advanced_test.rs:133": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "tests/lang/go/advanced_test.rs",
+     "test_quantum_slice_go_select_statement"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tests/lang/go/advanced_test.rs",
+     154,
+     154
+    ],
+    [
+     "tests/lang/go/advanced_test.rs",
+     164,
+     164
+    ],
+    [
+     "tests/lang/go/advanced_test.rs",
+     167,
+     167
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tests/lang/go/advanced_test.rs",
+     "test_quantum_slice_go_select_statement"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "tests/lang/go/advanced_test.rs",
+     154,
+     154,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ],
+    [
+     "tests/lang/go/advanced_test.rs",
+     167,
+     167,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ],
+    [
+     "tests/lang/go/advanced_test.rs",
+     167,
+     167,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "tests/lang/go/advanced_test.rs:133",
+   "stratum": "Q-scoped"
+  },
+  "callers:src/algorithms/taint.rs:8326": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/algorithms/taint.rs",
+     "python_is_aiohttp_client_session_method_call"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/algorithms/taint.rs",
+     8060,
+     8060
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/algorithms/taint.rs",
+     "python_is_aiohttp_client_session_method_call"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/algorithms/taint.rs",
+     8060,
+     8060,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "src/algorithms/taint.rs:8326",
+   "stratum": "Q-scoped"
+  },
+  "callers:src/ast.rs:157": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/algorithms/absence_slice.rs",
+     "slice"
+    ],
+    [
+     "src/algorithms/angle_slice.rs",
+     "slice"
+    ],
+    [
+     "src/algorithms/callback_dispatcher_slice.rs",
+     "slice"
+    ],
+    [
+     "src/algorithms/contract_slice.rs",
+     "slice_delta"
+    ],
+    [
+     "src/algorithms/contract_slice.rs",
+     "slice_impl"
+    ],
+    [
+     "src/algorithms/full_flow.rs",
+     "slice"
+    ],
+    [
+     "src/algorithms/horizontal_slice.rs",
+     "slice"
+    ],
+    [
+     "src/algorithms/left_flow.rs",
+     "slice"
+    ],
+    [
+     "src/algorithms/parent_function.rs",
+     "slice"
+    ],
+    [
+     "src/algorithms/primitive_slice.rs",
+     "dirty_function_ranges"
+    ],
+    [
+     "src/algorithms/provenance_slice.rs",
+     "slice"
+    ],
+    [
+     "src/algorithms/quantum_slice.rs",
+     "slice"
+    ],
+    [
+     "src/algorithms/relevant_slice.rs",
+     "slice"
+    ],
+    [
+     "src/algorithms/spiral_slice.rs",
+     "slice"
+    ],
+    [
+     "src/algorithms/symmetry_slice.rs",
+     "slice"
+    ],
+    [
+     "src/algorithms/taint.rs",
+     "find_sink_with_inline_framework_source"
+    ],
+    [
+     "src/algorithms/taint.rs",
+     "function_body_cleansed_for"
+    ],
+    [
+     "src/algorithms/taint.rs",
+     "go_path_traversal_cleansed_for_sink"
+    ],
+    [
+     "src/algorithms/taint.rs",
+     "js_ts_assignment_existing_binding_byte_scope"
+    ],
+    [
+     "src/algorithms/taint.rs",
+     "js_ts_assignment_existing_binding_scope"
+    ],
+    [
+     "src/algorithms/taint.rs",
+     "js_ts_identifier_has_local_shadow_before_call"
+    ],
+    [
+     "src/algorithms/taint.rs",
+     "js_ts_path_traversal_cleansed_for_sink"
+    ],
+    [
+     "src/algorithms/taint.rs",
+     "js_ts_sink_call_has_inline_framework_source_arg"
+    ],
+    [
+     "src/algorithms/taint.rs",
+     "js_ts_ssrf_cleansed_for_sink"
+    ],
+    [
+     "src/algorithms/taint.rs",
+     "python_constructor_receiver_vars"
+    ],
+    [
+     "src/algorithms/taint.rs",
+     "python_ssrf_cleansed_for_sink"
+    ],
+    [
+     "src/algorithms/taint.rs",
+     "python_xss_cleansed_for_sink"
+    ],
+    [
+     "src/algorithms/taint.rs",
+     "synthesize_target_seed_paths"
+    ],
+    [
+     "src/algorithms/thin_slice.rs",
+     "slice"
+    ],
+    [
+     "src/output/review.rs",
+     "to_callers_output"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/algorithms/provenance_slice.rs",
+     629,
+     629
+    ],
+    [
+     "src/algorithms/horizontal_slice.rs",
+     52,
+     52
+    ],
+    [
+     "src/algorithms/angle_slice.rs",
+     157,
+     157
+    ],
+    [
+     "src/algorithms/taint.rs",
+     4848,
+     4848
+    ],
+    [
+     "src/algorithms/taint.rs",
+     5836,
+     5836
+    ],
+    [
+     "src/algorithms/taint.rs",
+     6188,
+     6188
+    ],
+    [
+     "src/algorithms/taint.rs",
+     6408,
+     6408
+    ],
+    [
+     "src/algorithms/taint.rs",
+     6821,
+     6821
+    ],
+    [
+     "src/algorithms/taint.rs",
+     6984,
+     6984
+    ],
+    [
+     "src/algorithms/taint.rs",
+     7193,
+     7193
+    ],
+    [
+     "src/algorithms/taint.rs",
+     7231,
+     7231
+    ],
+    [
+     "src/algorithms/taint.rs",
+     8113,
+     8113
+    ],
+    [
+     "src/algorithms/taint.rs",
+     9302,
+     9302
+    ],
+    [
+     "src/algorithms/taint.rs",
+     9335,
+     9335
+    ],
+    [
+     "src/algorithms/taint.rs",
+     10009,
+     10009
+    ],
+    [
+     "src/algorithms/taint.rs",
+     10603,
+     10603
+    ],
+    [
+     "src/algorithms/contract_slice.rs",
+     162,
+     162
+    ],
+    [
+     "src/algorithms/contract_slice.rs",
+     1327,
+     1327
+    ],
+    [
+     "src/algorithms/contract_slice.rs",
+     1331,
+     1331
+    ],
+    [
+     "src/algorithms/quantum_slice.rs",
+     47,
+     47
+    ],
+    [
+     "src/algorithms/full_flow.rs",
+     36,
+     36
+    ],
+    [
+     "src/algorithms/full_flow.rs",
+     45,
+     45
+    ],
+    [
+     "src/algorithms/spiral_slice.rs",
+     78,
+     78
+    ],
+    [
+     "src/algorithms/spiral_slice.rs",
+     218,
+     218
+    ],
+    [
+     "src/algorithms/left_flow.rs",
+     274,
+     274
+    ],
+    [
+     "src/algorithms/left_flow.rs",
+     284,
+     284
+    ],
+    [
+     "src/algorithms/thin_slice.rs",
+     29,
+     29
+    ],
+    [
+     "src/algorithms/thin_slice.rs",
+     38,
+     38
+    ],
+    [
+     "src/algorithms/parent_function.rs",
+     26,
+     26
+    ],
+    [
+     "src/algorithms/primitive_slice.rs",
+     148,
+     148
+    ],
+    [
+     "src/output/review.rs",
+     353,
+     353
+    ],
+    [
+     "src/algorithms/absence_slice.rs",
+     541,
+     541
+    ],
+    [
+     "src/algorithms/relevant_slice.rs",
+     66,
+     66
+    ],
+    [
+     "src/algorithms/callback_dispatcher_slice.rs",
+     79,
+     79
+    ],
+    [
+     "src/algorithms/symmetry_slice.rs",
+     171,
+     171
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/algorithms/primitive_slice.rs",
+     "dirty_function_ranges"
+    ],
+    [
+     "src/algorithms/taint.rs",
+     "find_sink_with_inline_framework_source"
+    ],
+    [
+     "src/algorithms/taint.rs",
+     "function_body_cleansed_for"
+    ],
+    [
+     "src/algorithms/taint.rs",
+     "go_path_traversal_cleansed_for_sink"
+    ],
+    [
+     "src/algorithms/taint.rs",
+     "js_ts_assignment_existing_binding_byte_scope"
+    ],
+    [
+     "src/algorithms/taint.rs",
+     "js_ts_assignment_existing_binding_scope"
+    ],
+    [
+     "src/algorithms/taint.rs",
+     "js_ts_identifier_has_local_shadow_before_call"
+    ],
+    [
+     "src/algorithms/taint.rs",
+     "js_ts_path_traversal_cleansed_for_sink"
+    ],
+    [
+     "src/algorithms/taint.rs",
+     "js_ts_sink_call_has_inline_framework_source_arg"
+    ],
+    [
+     "src/algorithms/taint.rs",
+     "js_ts_ssrf_cleansed_for_sink"
+    ],
+    [
+     "src/algorithms/taint.rs",
+     "python_constructor_receiver_vars"
+    ],
+    [
+     "src/algorithms/taint.rs",
+     "python_ssrf_cleansed_for_sink"
+    ],
+    [
+     "src/algorithms/taint.rs",
+     "python_xss_cleansed_for_sink"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/algorithms/primitive_slice.rs",
+     148,
+     148,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ],
+    [
+     "src/algorithms/taint.rs",
+     5836,
+     5836,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ],
+    [
+     "src/algorithms/taint.rs",
+     6188,
+     6188,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ],
+    [
+     "src/algorithms/taint.rs",
+     6408,
+     6408,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ],
+    [
+     "src/algorithms/taint.rs",
+     6821,
+     6821,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ],
+    [
+     "src/algorithms/taint.rs",
+     6984,
+     6984,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ],
+    [
+     "src/algorithms/taint.rs",
+     7193,
+     7193,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ],
+    [
+     "src/algorithms/taint.rs",
+     7231,
+     7231,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ],
+    [
+     "src/algorithms/taint.rs",
+     8113,
+     8113,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ],
+    [
+     "src/algorithms/taint.rs",
+     9302,
+     9302,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ],
+    [
+     "src/algorithms/taint.rs",
+     9335,
+     9335,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ],
+    [
+     "src/algorithms/taint.rs",
+     10009,
+     10009,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ],
+    [
+     "src/algorithms/taint.rs",
+     10603,
+     10603,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ]
+   ],
+   "seed_def": "src/ast.rs:157",
+   "stratum": "C-method"
+  },
+  "callers:src/ast.rs:753": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/ast.rs",
+     "collect_require_binding"
+    ],
+    [
+     "src/ast.rs",
+     "js_require_member_binding"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/ast.rs",
+     696,
+     696
+    ],
+    [
+     "src/ast.rs",
+     745,
+     745
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/ast.rs",
+     "collect_require_binding"
+    ],
+    [
+     "src/ast.rs",
+     "js_require_member_binding"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/ast.rs",
+     696,
+     696,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "src/ast.rs",
+     745,
+     745,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ]
+   ],
+   "seed_def": "src/ast.rs:753",
+   "stratum": "U-method"
+  },
+  "callers:src/call_graph.rs:2074": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/call_graph.rs",
+     "cfg_gated_alias_does_not_collapse_to_one_unconditional_target"
+    ],
+    [
+     "src/call_graph.rs",
+     "field_and_return_indices_alias_cfg_and_omit_fallthrough_types"
+    ],
+    [
+     "src/call_graph.rs",
+     "field_and_return_indices_resolved_self_and_def_scope"
+    ],
+    [
+     "src/call_graph.rs",
+     "rematerialize_typed_annotations_use_qualified_identity_not_same_name_decoy"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/call_graph.rs",
+     2091,
+     2091
+    ],
+    [
+     "src/call_graph.rs",
+     2092,
+     2092
+    ],
+    [
+     "src/call_graph.rs",
+     2132,
+     2132
+    ],
+    [
+     "src/call_graph.rs",
+     2133,
+     2133
+    ],
+    [
+     "src/call_graph.rs",
+     2177,
+     2177
+    ],
+    [
+     "src/call_graph.rs",
+     2302,
+     2302
+    ],
+    [
+     "src/call_graph.rs",
+     2303,
+     2303
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/call_graph.rs",
+     "cfg_gated_alias_does_not_collapse_to_one_unconditional_target"
+    ],
+    [
+     "src/call_graph.rs",
+     "field_and_return_indices_alias_cfg_and_omit_fallthrough_types"
+    ],
+    [
+     "src/call_graph.rs",
+     "field_and_return_indices_resolved_self_and_def_scope"
+    ],
+    [
+     "src/call_graph.rs",
+     "rematerialize_typed_annotations_use_qualified_identity_not_same_name_decoy"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/call_graph.rs",
+     2091,
+     2091,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/call_graph.rs",
+     2092,
+     2092,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/call_graph.rs",
+     2132,
+     2132,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/call_graph.rs",
+     2133,
+     2133,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/call_graph.rs",
+     2177,
+     2177,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/call_graph.rs",
+     2302,
+     2302,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/call_graph.rs",
+     2303,
+     2303,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "src/call_graph.rs:2074",
+   "stratum": "Q-scoped"
+  },
+  "callers:src/cpg/query.rs:51": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/algorithms/full_flow.rs",
+     "slice"
+    ],
+    [
+     "src/algorithms/gradient_slice.rs",
+     "slice"
+    ],
+    [
+     "src/algorithms/left_flow.rs",
+     "left_flow_core"
+    ],
+    [
+     "src/cpg/cfg_queries.rs",
+     "taint_forward_cfg"
+    ],
+    [
+     "src/cpg/query.rs",
+     "dfg_chop"
+    ],
+    [
+     "src/cpg/query.rs",
+     "taint_forward"
+    ],
+    [
+     "src/cpg/tests.rs",
+     "test_forward_reachable_in_function_is_function_scoped"
+    ],
+    [
+     "src/cpg/trace.rs",
+     "function_starts_at"
+    ],
+    [
+     "src/cpg/trace.rs",
+     "taint_trace"
+    ],
+    [
+     "src/navigation/queries.rs",
+     "nodes_at"
+    ],
+    [
+     "src/navigation/queries.rs",
+     "resolve_ego_seed"
+    ],
+    [
+     "src/reasoning/shape.rs",
+     "sink_nodes_at"
+    ],
+    [
+     "src/reasoning/shape.rs",
+     "test_boundary_classification_uses_node_identity"
+    ],
+    [
+     "src/reasoning/shape.rs",
+     "test_loop_carried_field_path_reaches_not_false_negative"
+    ],
+    [
+     "src/reasoning/shape.rs",
+     "test_shared_line_multifunction_degrades_not_false_negative"
+    ],
+    [
+     "src/reasoning/shape.rs",
+     "test_witness_node_carries_occurrence_byte_and_reserved_ordinal"
+    ],
+    [
+     "src/reasoning/shape.rs",
+     "use_node"
+    ],
+    [
+     "src/reasoning/shape.rs",
+     "var_node"
+    ],
+    [
+     "tests/ast/cpg_test.rs",
+     "alias_resolved_def_keeps_raw_occurrence_span"
+    ],
+    [
+     "tests/ast/cpg_test.rs",
+     "augmented_assignment_emits_def_and_use"
+    ],
+    [
+     "tests/ast/cpg_test.rs",
+     "augmented_assignment_emits_def_and_use_across_languages"
+    ],
+    [
+     "tests/ast/cpg_test.rs",
+     "augmented_member_assignment_emits_member_and_base_use"
+    ],
+    [
+     "tests/ast/cpg_test.rs",
+     "multiline_field_only_parameter_does_not_create_base_def"
+    ],
+    [
+     "tests/ast/cpg_test.rs",
+     "rust_mut_pattern_def_uses_identifier_span"
+    ],
+    [
+     "tests/ast/cpg_test.rs",
+     "same_line_assignment_orders_by_source_position"
+    ],
+    [
+     "tests/ast/cpg_test.rs",
+     "scoped_return_use_keeps_real_member_span"
+    ],
+    [
+     "tests/ast/cpg_test.rs",
+     "statement_node_carries_real_span"
+    ],
+    [
+     "tests/common/mod.rs",
+     "same_line_var_byte_order"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/algorithms/full_flow.rs",
+     90,
+     90
+    ],
+    [
+     "src/cpg/trace.rs",
+     98,
+     98
+    ],
+    [
+     "src/cpg/trace.rs",
+     215,
+     215
+    ],
+    [
+     "src/cpg/cfg_queries.rs",
+     218,
+     218
+    ],
+    [
+     "src/navigation/queries.rs",
+     280,
+     280
+    ],
+    [
+     "src/navigation/queries.rs",
+     814,
+     814
+    ],
+    [
+     "tests/ast/cpg_test.rs",
+     265,
+     265
+    ],
+    [
+     "tests/ast/cpg_test.rs",
+     297,
+     297
+    ],
+    [
+     "tests/ast/cpg_test.rs",
+     319,
+     319
+    ],
+    [
+     "tests/ast/cpg_test.rs",
+     338,
+     338
+    ],
+    [
+     "tests/ast/cpg_test.rs",
+     384,
+     384
+    ],
+    [
+     "tests/ast/cpg_test.rs",
+     406,
+     406
+    ],
+    [
+     "tests/ast/cpg_test.rs",
+     427,
+     427
+    ],
+    [
+     "tests/ast/cpg_test.rs",
+     450,
+     450
+    ],
+    [
+     "tests/ast/cpg_test.rs",
+     476,
+     476
+    ],
+    [
+     "src/cpg/tests.rs",
+     579,
+     579
+    ],
+    [
+     "src/algorithms/left_flow.rs",
+     72,
+     72
+    ],
+    [
+     "src/algorithms/left_flow.rs",
+     140,
+     140
+    ],
+    [
+     "tests/common/mod.rs",
+     51,
+     51
+    ],
+    [
+     "src/reasoning/shape.rs",
+     73,
+     73
+    ],
+    [
+     "src/reasoning/shape.rs",
+     270,
+     270
+    ],
+    [
+     "src/reasoning/shape.rs",
+     291,
+     291
+    ],
+    [
+     "src/reasoning/shape.rs",
+     428,
+     428
+    ],
+    [
+     "src/reasoning/shape.rs",
+     500,
+     500
+    ],
+    [
+     "src/reasoning/shape.rs",
+     526,
+     526
+    ],
+    [
+     "src/reasoning/shape.rs",
+     610,
+     610
+    ],
+    [
+     "src/cpg/query.rs",
+     746,
+     746
+    ],
+    [
+     "src/cpg/query.rs",
+     785,
+     785
+    ],
+    [
+     "src/cpg/query.rs",
+     790,
+     790
+    ],
+    [
+     "src/algorithms/gradient_slice.rs",
+     64,
+     64
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/algorithms/full_flow.rs",
+     "slice"
+    ],
+    [
+     "src/algorithms/gradient_slice.rs",
+     "slice"
+    ],
+    [
+     "src/algorithms/left_flow.rs",
+     "left_flow_core"
+    ],
+    [
+     "src/cpg/cfg_queries.rs",
+     "taint_forward_cfg"
+    ],
+    [
+     "src/cpg/query.rs",
+     "dfg_chop"
+    ],
+    [
+     "src/cpg/query.rs",
+     "taint_forward"
+    ],
+    [
+     "src/cpg/tests.rs",
+     "test_forward_reachable_in_function_is_function_scoped"
+    ],
+    [
+     "src/cpg/trace.rs",
+     "function_starts_at"
+    ],
+    [
+     "src/cpg/trace.rs",
+     "taint_trace"
+    ],
+    [
+     "src/navigation/queries.rs",
+     "nodes_at"
+    ],
+    [
+     "src/navigation/queries.rs",
+     "resolve_ego_seed"
+    ],
+    [
+     "src/reasoning/shape.rs",
+     "sink_nodes_at"
+    ],
+    [
+     "src/reasoning/shape.rs",
+     "test_boundary_classification_uses_node_identity"
+    ],
+    [
+     "src/reasoning/shape.rs",
+     "test_loop_carried_field_path_reaches_not_false_negative"
+    ],
+    [
+     "src/reasoning/shape.rs",
+     "test_shared_line_multifunction_degrades_not_false_negative"
+    ],
+    [
+     "src/reasoning/shape.rs",
+     "test_witness_node_carries_occurrence_byte_and_reserved_ordinal"
+    ],
+    [
+     "src/reasoning/shape.rs",
+     "use_node"
+    ],
+    [
+     "src/reasoning/shape.rs",
+     "var_node"
+    ],
+    [
+     "tests/ast/cpg_test.rs",
+     "alias_resolved_def_keeps_raw_occurrence_span"
+    ],
+    [
+     "tests/ast/cpg_test.rs",
+     "augmented_assignment_emits_def_and_use"
+    ],
+    [
+     "tests/ast/cpg_test.rs",
+     "augmented_assignment_emits_def_and_use_across_languages"
+    ],
+    [
+     "tests/ast/cpg_test.rs",
+     "augmented_member_assignment_emits_member_and_base_use"
+    ],
+    [
+     "tests/ast/cpg_test.rs",
+     "multiline_field_only_parameter_does_not_create_base_def"
+    ],
+    [
+     "tests/ast/cpg_test.rs",
+     "rust_mut_pattern_def_uses_identifier_span"
+    ],
+    [
+     "tests/ast/cpg_test.rs",
+     "same_line_assignment_orders_by_source_position"
+    ],
+    [
+     "tests/ast/cpg_test.rs",
+     "scoped_return_use_keeps_real_member_span"
+    ],
+    [
+     "tests/ast/cpg_test.rs",
+     "statement_node_carries_real_span"
+    ],
+    [
+     "tests/common/mod.rs",
+     "same_line_var_byte_order"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/algorithms/full_flow.rs",
+     90,
+     90,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ],
+    [
+     "src/algorithms/gradient_slice.rs",
+     64,
+     64,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ],
+    [
+     "src/algorithms/left_flow.rs",
+     72,
+     72,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ],
+    [
+     "src/algorithms/left_flow.rs",
+     140,
+     140,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ],
+    [
+     "src/cpg/cfg_queries.rs",
+     218,
+     218,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "src/cpg/query.rs",
+     746,
+     746,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "src/cpg/query.rs",
+     784,
+     784,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "src/cpg/query.rs",
+     789,
+     789,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "src/cpg/trace.rs",
+     97,
+     97,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "src/cpg/trace.rs",
+     215,
+     215,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "src/navigation/queries.rs",
+     280,
+     280,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ],
+    [
+     "src/navigation/queries.rs",
+     814,
+     814,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ],
+    [
+     "src/reasoning/shape.rs",
+     73,
+     73,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ],
+    [
+     "src/reasoning/shape.rs",
+     270,
+     270,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ],
+    [
+     "src/reasoning/shape.rs",
+     290,
+     290,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ],
+    [
+     "src/reasoning/shape.rs",
+     427,
+     427,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ],
+    [
+     "src/reasoning/shape.rs",
+     499,
+     499,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ],
+    [
+     "src/reasoning/shape.rs",
+     526,
+     526,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ],
+    [
+     "src/reasoning/shape.rs",
+     609,
+     609,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ],
+    [
+     "tests/common/mod.rs",
+     50,
+     50,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ],
+    [
+     "src/cpg/tests.rs",
+     578,
+     578,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "tests/ast/cpg_test.rs",
+     264,
+     264,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "tests/ast/cpg_test.rs",
+     296,
+     296,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "tests/ast/cpg_test.rs",
+     318,
+     318,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "tests/ast/cpg_test.rs",
+     337,
+     337,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "tests/ast/cpg_test.rs",
+     383,
+     383,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "tests/ast/cpg_test.rs",
+     406,
+     406,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "tests/ast/cpg_test.rs",
+     426,
+     426,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "tests/ast/cpg_test.rs",
+     449,
+     449,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "tests/ast/cpg_test.rs",
+     476,
+     476,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "src/cpg/query.rs:51",
+   "stratum": "C-method"
+  },
+  "callers:src/main.rs:1298": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "src/main.rs:1298",
+   "stratum": "U-free"
+  },
+  "callers:src/main.rs:24": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/main.rs",
+     "<module_level>"
+    ],
+    [
+     "src/main.rs",
+     "parse_diagram_cap_rejects_non_integer"
+    ],
+    [
+     "src/main.rs",
+     "parse_diagram_cap_rejects_too_small"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/main.rs",
+     72,
+     72
+    ],
+    [
+     "src/main.rs",
+     72,
+     72
+    ],
+    [
+     "src/main.rs",
+     1247,
+     1247
+    ],
+    [
+     "src/main.rs",
+     1248,
+     1248
+    ],
+    [
+     "src/main.rs",
+     1249,
+     1249
+    ],
+    [
+     "src/main.rs",
+     1250,
+     1250
+    ],
+    [
+     "src/main.rs",
+     1251,
+     1251
+    ],
+    [
+     "src/main.rs",
+     1252,
+     1252
+    ],
+    [
+     "src/main.rs",
+     1257,
+     1257
+    ],
+    [
+     "src/main.rs",
+     1258,
+     1258
+    ],
+    [
+     "src/main.rs",
+     1259,
+     1259
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "src/main.rs:24",
+   "stratum": "U-free"
+  },
+  "callers:src/main.rs:332": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/main.rs",
+     "main"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/main.rs",
+     327,
+     327
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/main.rs",
+     "main"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/main.rs",
+     327,
+     327,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "src/main.rs:332",
+   "stratum": "U-free"
+  },
+  "callers:src/name_resolution/binding_lookup.rs:96": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/name_resolution/binding_lookup.rs",
+     "lookup_visible_binding"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/name_resolution/binding_lookup.rs",
+     68,
+     68
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/name_resolution/binding_lookup.rs",
+     "lookup_visible_binding"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/name_resolution/binding_lookup.rs",
+     68,
+     68,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "src/name_resolution/binding_lookup.rs:96",
+   "stratum": "C-name"
+  },
+  "callers:src/name_resolution/rust_populator/scopes.rs:67": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/name_resolution/rust_populator/walk/items.rs",
+     "walk_extern_crate"
+    ],
+    [
+     "src/name_resolution/rust_populator/walk/items.rs",
+     "walk_function"
+    ],
+    [
+     "src/name_resolution/rust_populator/walk/items.rs",
+     "walk_mod_item"
+    ],
+    [
+     "src/name_resolution/rust_populator/walk/items.rs",
+     "walk_use"
+    ],
+    [
+     "src/name_resolution/rust_populator/walk/locals.rs",
+     "add_locals_with_facts"
+    ],
+    [
+     "src/name_resolution/rust_populator/walk/types.rs",
+     "walk_assoc_items"
+    ],
+    [
+     "src/name_resolution/rust_populator/walk/types.rs",
+     "walk_enum"
+    ],
+    [
+     "src/name_resolution/rust_populator/walk/types.rs",
+     "walk_macro_def"
+    ],
+    [
+     "src/name_resolution/rust_populator/walk/types.rs",
+     "walk_struct"
+    ],
+    [
+     "src/name_resolution/rust_populator/walk/types.rs",
+     "walk_type_alias"
+    ],
+    [
+     "src/name_resolution/rust_populator/walk/types.rs",
+     "walk_type_like"
+    ],
+    [
+     "src/name_resolution/rust_populator/walk/types.rs",
+     "walk_value_item"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/name_resolution/rust_populator/walk/locals.rs",
+     372,
+     372
+    ],
+    [
+     "src/name_resolution/rust_populator/walk/items.rs",
+     53,
+     53
+    ],
+    [
+     "src/name_resolution/rust_populator/walk/items.rs",
+     169,
+     169
+    ],
+    [
+     "src/name_resolution/rust_populator/walk/items.rs",
+     192,
+     192
+    ],
+    [
+     "src/name_resolution/rust_populator/walk/items.rs",
+     279,
+     279
+    ],
+    [
+     "src/name_resolution/rust_populator/walk/types.rs",
+     48,
+     48
+    ],
+    [
+     "src/name_resolution/rust_populator/walk/types.rs",
+     117,
+     117
+    ],
+    [
+     "src/name_resolution/rust_populator/walk/types.rs",
+     177,
+     177
+    ],
+    [
+     "src/name_resolution/rust_populator/walk/types.rs",
+     262,
+     262
+    ],
+    [
+     "src/name_resolution/rust_populator/walk/types.rs",
+     290,
+     290
+    ],
+    [
+     "src/name_resolution/rust_populator/walk/types.rs",
+     331,
+     331
+    ],
+    [
+     "src/name_resolution/rust_populator/walk/types.rs",
+     365,
+     365
+    ],
+    [
+     "src/name_resolution/rust_populator/walk/types.rs",
+     397,
+     397
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/name_resolution/rust_populator/walk/items.rs",
+     "walk_extern_crate"
+    ],
+    [
+     "src/name_resolution/rust_populator/walk/items.rs",
+     "walk_function"
+    ],
+    [
+     "src/name_resolution/rust_populator/walk/items.rs",
+     "walk_mod_item"
+    ],
+    [
+     "src/name_resolution/rust_populator/walk/items.rs",
+     "walk_use"
+    ],
+    [
+     "src/name_resolution/rust_populator/walk/types.rs",
+     "walk_assoc_items"
+    ],
+    [
+     "src/name_resolution/rust_populator/walk/types.rs",
+     "walk_enum"
+    ],
+    [
+     "src/name_resolution/rust_populator/walk/types.rs",
+     "walk_macro_def"
+    ],
+    [
+     "src/name_resolution/rust_populator/walk/types.rs",
+     "walk_struct"
+    ],
+    [
+     "src/name_resolution/rust_populator/walk/types.rs",
+     "walk_type_alias"
+    ],
+    [
+     "src/name_resolution/rust_populator/walk/types.rs",
+     "walk_type_like"
+    ],
+    [
+     "src/name_resolution/rust_populator/walk/types.rs",
+     "walk_value_item"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/name_resolution/rust_populator/walk/items.rs",
+     53,
+     53,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "src/name_resolution/rust_populator/walk/items.rs",
+     169,
+     169,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "src/name_resolution/rust_populator/walk/items.rs",
+     192,
+     192,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "src/name_resolution/rust_populator/walk/items.rs",
+     279,
+     279,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "src/name_resolution/rust_populator/walk/types.rs",
+     48,
+     48,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "src/name_resolution/rust_populator/walk/types.rs",
+     117,
+     117,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "src/name_resolution/rust_populator/walk/types.rs",
+     177,
+     177,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "src/name_resolution/rust_populator/walk/types.rs",
+     262,
+     262,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "src/name_resolution/rust_populator/walk/types.rs",
+     290,
+     290,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "src/name_resolution/rust_populator/walk/types.rs",
+     331,
+     331,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "src/name_resolution/rust_populator/walk/types.rs",
+     365,
+     365,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "src/name_resolution/rust_populator/walk/types.rs",
+     397,
+     397,
+     {
+      "resolution_kind": "free_single"
+     }
+    ]
+   ],
+   "seed_def": "src/name_resolution/rust_populator/scopes.rs:67",
+   "stratum": "C-name"
+  },
+  "callers:src/resolution.rs:1219": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/resolution.rs",
+     "graph_target_resolution"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/resolution.rs",
+     571,
+     571
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/resolution.rs",
+     "graph_target_resolution"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/resolution.rs",
+     571,
+     571,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "src/resolution.rs:1219",
+   "stratum": "C-name"
+  },
+  "callers:src/type_db.rs:482": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/type_providers/cpp.rs",
+     "resolve_dispatch"
+    ],
+    [
+     "tests/ast/dfg_test.rs",
+     "test_rta_filters_uninstantiated_class"
+    ],
+    [
+     "tests/ast/dfg_test.rs",
+     "test_rta_preserves_instantiated_class"
+    ],
+    [
+     "tests/ast/field_test.rs",
+     "test_rta_fallback_no_type_db"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tests/ast/field_test.rs",
+     527,
+     527
+    ],
+    [
+     "src/type_providers/cpp.rs",
+     114,
+     114
+    ],
+    [
+     "tests/ast/dfg_test.rs",
+     351,
+     351
+    ],
+    [
+     "tests/ast/dfg_test.rs",
+     403,
+     403
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/type_providers/cpp.rs",
+     "resolve_dispatch"
+    ],
+    [
+     "tests/ast/dfg_test.rs",
+     "test_rta_filters_uninstantiated_class"
+    ],
+    [
+     "tests/ast/dfg_test.rs",
+     "test_rta_preserves_instantiated_class"
+    ],
+    [
+     "tests/ast/field_test.rs",
+     "test_rta_fallback_no_type_db"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/type_providers/cpp.rs",
+     112,
+     112,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "tests/ast/dfg_test.rs",
+     351,
+     351,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "tests/ast/dfg_test.rs",
+     403,
+     403,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "tests/ast/field_test.rs",
+     527,
+     527,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "src/type_db.rs:482",
+   "stratum": "U-method"
+  },
+  "callers:src/type_provider.rs:110": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "tests/ast/cpp_type_provider_test.rs",
+     "test_cpp_empty_database"
+    ],
+    [
+     "tests/ast/cpp_type_provider_test.rs",
+     "test_cpp_resolve_alias_chained_typedef"
+    ],
+    [
+     "tests/ast/cpp_type_provider_test.rs",
+     "test_cpp_resolve_alias_passthrough"
+    ],
+    [
+     "tests/ast/cpp_type_provider_test.rs",
+     "test_cpp_resolve_alias_typedef"
+    ],
+    [
+     "tests/ast/java_type_provider_test.rs",
+     "test_java_resolve_alias"
+    ],
+    [
+     "tests/ast/python_type_provider_test.rs",
+     "test_python_type_alias_explicit"
+    ],
+    [
+     "tests/ast/python_type_provider_test.rs",
+     "test_python_type_alias_heuristic"
+    ],
+    [
+     "tests/ast/python_type_provider_test.rs",
+     "test_python_unknown_type"
+    ],
+    [
+     "tests/ast/rust_type_provider_test.rs",
+     "test_rust_type_alias"
+    ],
+    [
+     "tests/ast/rust_type_provider_test.rs",
+     "test_rust_type_alias_resolve_chain"
+    ],
+    [
+     "tests/ast/rust_type_provider_test.rs",
+     "test_rust_unknown_type"
+    ],
+    [
+     "tests/ast/ts_type_provider_test.rs",
+     "test_ts_type_alias"
+    ],
+    [
+     "tests/ast/ts_type_provider_test.rs",
+     "test_ts_unknown_type"
+    ],
+    [
+     "tests/ast/type_provider_test.rs",
+     "test_go_type_alias"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tests/ast/type_provider_test.rs",
+     421,
+     421
+    ],
+    [
+     "tests/ast/type_provider_test.rs",
+     423,
+     423
+    ],
+    [
+     "tests/ast/cpp_type_provider_test.rs",
+     258,
+     258
+    ],
+    [
+     "tests/ast/cpp_type_provider_test.rs",
+     373,
+     373
+    ],
+    [
+     "tests/ast/cpp_type_provider_test.rs",
+     374,
+     374
+    ],
+    [
+     "tests/ast/cpp_type_provider_test.rs",
+     382,
+     382
+    ],
+    [
+     "tests/ast/cpp_type_provider_test.rs",
+     383,
+     383
+    ],
+    [
+     "tests/ast/cpp_type_provider_test.rs",
+     588,
+     588
+    ],
+    [
+     "tests/ast/python_type_provider_test.rs",
+     258,
+     258
+    ],
+    [
+     "tests/ast/python_type_provider_test.rs",
+     272,
+     272
+    ],
+    [
+     "tests/ast/python_type_provider_test.rs",
+     393,
+     393
+    ],
+    [
+     "tests/ast/java_type_provider_test.rs",
+     504,
+     504
+    ],
+    [
+     "tests/ast/java_type_provider_test.rs",
+     505,
+     505
+    ],
+    [
+     "tests/ast/rust_type_provider_test.rs",
+     476,
+     476
+    ],
+    [
+     "tests/ast/rust_type_provider_test.rs",
+     492,
+     492
+    ],
+    [
+     "tests/ast/rust_type_provider_test.rs",
+     1268,
+     1268
+    ],
+    [
+     "tests/ast/ts_type_provider_test.rs",
+     281,
+     281
+    ],
+    [
+     "tests/ast/ts_type_provider_test.rs",
+     715,
+     715
+    ]
+   ],
+   "outcome": "inventory_miss",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "src/type_provider.rs:110",
+   "stratum": "C-method"
+  },
+  "callers:tests/lang/go/advanced_test.rs:133": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "tests/lang/go/advanced_test.rs:133",
+   "stratum": "Q-scoped"
+  }
+ },
+ "site_fingerprints": {
+  "src/algorithms/absence_slice.rs:541": "1c2c2b036e4f6087",
+  "src/algorithms/angle_slice.rs:157": "17e7d11887483b2a",
+  "src/algorithms/callback_dispatcher_slice.rs:79": "1e66e0786e7e8302",
+  "src/algorithms/contract_slice.rs:1327": "64836fc31bf290a2",
+  "src/algorithms/contract_slice.rs:1331": "d18e92a077fd37a8",
+  "src/algorithms/contract_slice.rs:162": "ecca973cc4a495c4",
+  "src/algorithms/full_flow.rs:36": "cbb7304f6d61956b",
+  "src/algorithms/full_flow.rs:45": "48d8aa61f0e4b759",
+  "src/algorithms/full_flow.rs:90": "05dc4e19ee5df34d",
+  "src/algorithms/gradient_slice.rs:64": "4836668cd6d6448c",
+  "src/algorithms/horizontal_slice.rs:52": "1f04fda8f3fa92bd",
+  "src/algorithms/left_flow.rs:140": "ea2b660c1841a9be",
+  "src/algorithms/left_flow.rs:274": "cbb7304f6d61956b",
+  "src/algorithms/left_flow.rs:284": "48d8aa61f0e4b759",
+  "src/algorithms/left_flow.rs:72": "70ec8c1921150331",
+  "src/algorithms/parent_function.rs:26": "cbb7304f6d61956b",
+  "src/algorithms/primitive_slice.rs:148": "4587bc02ab4fefbb",
+  "src/algorithms/provenance_slice.rs:629": "a4c4e6b3d35a10f0",
+  "src/algorithms/quantum_slice.rs:47": "ecca973cc4a495c4",
+  "src/algorithms/relevant_slice.rs:66": "d3c0b34746ae7cd5",
+  "src/algorithms/spiral_slice.rs:218": "d1c63cb1cc61d003",
+  "src/algorithms/spiral_slice.rs:78": "f12255440203c66a",
+  "src/algorithms/symmetry_slice.rs:171": "1f04fda8f3fa92bd",
+  "src/algorithms/taint.rs:10009": "68d72a91638e141b",
+  "src/algorithms/taint.rs:10603": "7e6f54724057349b",
+  "src/algorithms/taint.rs:4848": "812b6550f46351fb",
+  "src/algorithms/taint.rs:5836": "12323fdddb260658",
+  "src/algorithms/taint.rs:6188": "284865899f859671",
+  "src/algorithms/taint.rs:6408": "68d72a91638e141b",
+  "src/algorithms/taint.rs:6821": "8b273c450ffa31b5",
+  "src/algorithms/taint.rs:6984": "9946b9786b7cd028",
+  "src/algorithms/taint.rs:7193": "02a3355e7756645a",
+  "src/algorithms/taint.rs:7231": "02a3355e7756645a",
+  "src/algorithms/taint.rs:8060": "dfa3493efcfee5da",
+  "src/algorithms/taint.rs:8113": "490c2227fd7edc0b",
+  "src/algorithms/taint.rs:8327": "44bd854ea3beb3aa",
+  "src/algorithms/taint.rs:8328": "05500edf65e00950",
+  "src/algorithms/taint.rs:9302": "68d72a91638e141b",
+  "src/algorithms/taint.rs:9335": "68d72a91638e141b",
+  "src/algorithms/thin_slice.rs:29": "cbb7304f6d61956b",
+  "src/algorithms/thin_slice.rs:38": "48d8aa61f0e4b759",
+  "src/ast.rs:159": "17cbe53e83d0fe0b",
+  "src/ast.rs:162": "0975b7ee8a20653a",
+  "src/ast.rs:696": "ef17d65678be3739",
+  "src/ast.rs:745": "d8b0009cee8ae677",
+  "src/ast.rs:754": "018d52b1f77381c2",
+  "src/ast.rs:757": "531d12cced23577f",
+  "src/ast.rs:758": "cec34da03f529d3d",
+  "src/ast.rs:761": "3e3fc6faf747780c",
+  "src/ast.rs:765": "6b9043a1bfc08459",
+  "src/call_graph.rs:2076": "a881949c5397a8f5",
+  "src/call_graph.rs:2077": "532b773a728272d6",
+  "src/call_graph.rs:2078": "b956ec2cf02f1884",
+  "src/call_graph.rs:2091": "0c02ca184d72a0f2",
+  "src/call_graph.rs:2092": "3c9e8a20115850d6",
+  "src/call_graph.rs:2132": "0c02ca184d72a0f2",
+  "src/call_graph.rs:2133": "3c9e8a20115850d6",
+  "src/call_graph.rs:2177": "1a813be4d6c93c1e",
+  "src/call_graph.rs:2302": "9ae3dce3b1b46e49",
+  "src/call_graph.rs:2303": "ceb2e252bdb5adcf",
+  "src/cpg/cfg_queries.rs:218": "377e5419827dc8dd",
+  "src/cpg/query.rs:52": "fb5f0201ae38238f",
+  "src/cpg/query.rs:746": "a64a0fbc50414eac",
+  "src/cpg/query.rs:784": "03007c91527dabde",
+  "src/cpg/query.rs:785": "f65c6c04d7347f34",
+  "src/cpg/query.rs:789": "1ddf838cf62c3bfb",
+  "src/cpg/query.rs:790": "4d4635529ce6476e",
+  "src/cpg/tests.rs:578": "f4f5ad6a818466c6",
+  "src/cpg/tests.rs:579": "0543efce9332d70a",
+  "src/cpg/trace.rs:215": "66a3afcd1cd944d4",
+  "src/cpg/trace.rs:97": "5baa2d84cea58057",
+  "src/cpg/trace.rs:98": "c81e7e937191caa4",
+  "src/main.rs:1247": "1c34633929603e2c",
+  "src/main.rs:1248": "ae8e77a01f4a8e25",
+  "src/main.rs:1249": "03fd6219c908ee90",
+  "src/main.rs:1250": "163aa4c071eaf975",
+  "src/main.rs:1251": "170fac675d4117de",
+  "src/main.rs:1252": "dcf6ff45d87211ee",
+  "src/main.rs:1257": "a6c2455c1f5951aa",
+  "src/main.rs:1258": "68b16cfe82025482",
+  "src/main.rs:1259": "baefcbf0f676cca1",
+  "src/main.rs:327": "d4fafead4a26f738",
+  "src/main.rs:343": "8ebc1018d4373371",
+  "src/main.rs:344": "057e2e889ec6711f",
+  "src/main.rs:357": "022dc22a317125d6",
+  "src/main.rs:359": "c0a91d2a9b4c89cc",
+  "src/main.rs:372": "193b9b0c3cff3016",
+  "src/main.rs:387": "022dc22a317125d6",
+  "src/main.rs:389": "d63297fe62a4e7d9",
+  "src/main.rs:402": "193b9b0c3cff3016",
+  "src/main.rs:417": "fe8604ba4a061d43",
+  "src/main.rs:419": "942775fc5c8cbc73",
+  "src/main.rs:432": "193b9b0c3cff3016",
+  "src/main.rs:439": "92caa6e4599f4c48",
+  "src/main.rs:440": "e215e661db82dd42",
+  "src/main.rs:445": "6b9002b539e49e22",
+  "src/main.rs:446": "6e04d7f48d464763",
+  "src/main.rs:451": "68c5fafe7f8ce076",
+  "src/main.rs:452": "6e89477aa210d7cd",
+  "src/main.rs:457": "fa05fb1238b7c8c8",
+  "src/main.rs:458": "89f821ebca1e4988",
+  "src/main.rs:465": "7d1dbec5118e55b2",
+  "src/main.rs:72": "ffb7857ebf314230",
+  "src/name_resolution/binding_lookup.rs:68": "c4a13148b8ff6699",
+  "src/name_resolution/rust_populator/walk/items.rs:169": "5f47c04a776340e6",
+  "src/name_resolution/rust_populator/walk/items.rs:192": "bec2d67ad37a0b86",
+  "src/name_resolution/rust_populator/walk/items.rs:279": "ca212458e2f402fc",
+  "src/name_resolution/rust_populator/walk/items.rs:53": "ce64ad518ffb2544",
+  "src/name_resolution/rust_populator/walk/locals.rs:372": "1c67745246919a60",
+  "src/name_resolution/rust_populator/walk/types.rs:117": "269c3c16641b6ee8",
+  "src/name_resolution/rust_populator/walk/types.rs:177": "269c3c16641b6ee8",
+  "src/name_resolution/rust_populator/walk/types.rs:262": "f870cac2f224469c",
+  "src/name_resolution/rust_populator/walk/types.rs:290": "f870cac2f224469c",
+  "src/name_resolution/rust_populator/walk/types.rs:331": "f870cac2f224469c",
+  "src/name_resolution/rust_populator/walk/types.rs:365": "f870cac2f224469c",
+  "src/name_resolution/rust_populator/walk/types.rs:397": "f2e609bf81cf6a4c",
+  "src/name_resolution/rust_populator/walk/types.rs:48": "269c3c16641b6ee8",
+  "src/navigation/queries.rs:280": "30c933919bf3d9cf",
+  "src/navigation/queries.rs:814": "e111beace580f8bd",
+  "src/output/review.rs:353": "f4578ee8cc9e2931",
+  "src/reasoning/shape.rs:270": "62c759f7f2511cac",
+  "src/reasoning/shape.rs:290": "9d98802ff45b5c00",
+  "src/reasoning/shape.rs:291": "fb1f7a09863b0cd3",
+  "src/reasoning/shape.rs:427": "b2ad8a5703270002",
+  "src/reasoning/shape.rs:428": "b24d38431ab85a60",
+  "src/reasoning/shape.rs:499": "8391b17b8cca5822",
+  "src/reasoning/shape.rs:500": "4b2171b745ff246e",
+  "src/reasoning/shape.rs:526": "662afcdc0aa9243c",
+  "src/reasoning/shape.rs:609": "a38aede4dac94a07",
+  "src/reasoning/shape.rs:610": "90d0443a7f7407bd",
+  "src/reasoning/shape.rs:73": "722f400c9e5bd5f3",
+  "src/resolution.rs:1220": "0a56371228f7d26a",
+  "src/resolution.rs:1221": "67811424873f1b50",
+  "src/resolution.rs:571": "47e31ce37a377b5b",
+  "src/type_db.rs:488": "65f7151ad330bb84",
+  "src/type_db.rs:504": "89545fd4afeec221",
+  "src/type_providers/cpp.rs:112": "231bd71b36589207",
+  "src/type_providers/cpp.rs:114": "3b89811f0525fb15",
+  "tests/ast/cpg_test.rs:264": "e639f5532224a0be",
+  "tests/ast/cpg_test.rs:265": "88b9b6c275f1b2da",
+  "tests/ast/cpg_test.rs:296": "f4eed483f79d976c",
+  "tests/ast/cpg_test.rs:297": "fc495df5d6e89c69",
+  "tests/ast/cpg_test.rs:318": "c70bd06bb9a18478",
+  "tests/ast/cpg_test.rs:319": "88d4c356fa1b93eb",
+  "tests/ast/cpg_test.rs:337": "92dd45a2084aa4b2",
+  "tests/ast/cpg_test.rs:338": "c33a9ba5beaa0476",
+  "tests/ast/cpg_test.rs:383": "b4d64ef7bb936d63",
+  "tests/ast/cpg_test.rs:384": "dc44b4d1125fd5d1",
+  "tests/ast/cpg_test.rs:406": "9ec65418db113569",
+  "tests/ast/cpg_test.rs:426": "c040d0f794982f74",
+  "tests/ast/cpg_test.rs:427": "678df147bd50a54a",
+  "tests/ast/cpg_test.rs:449": "ba7f69ebaf3b8470",
+  "tests/ast/cpg_test.rs:450": "e46e84119641889c",
+  "tests/ast/cpg_test.rs:476": "e72e60461bba7124",
+  "tests/ast/cpp_type_provider_test.rs:258": "90ae68b4488d9df5",
+  "tests/ast/cpp_type_provider_test.rs:373": "ba13cd1f7f11ab09",
+  "tests/ast/cpp_type_provider_test.rs:374": "4d9a5d250002557d",
+  "tests/ast/cpp_type_provider_test.rs:382": "a31e206b06a1d7ee",
+  "tests/ast/cpp_type_provider_test.rs:383": "519e66cb7a31164c",
+  "tests/ast/cpp_type_provider_test.rs:588": "26f96efbd3a2da08",
+  "tests/ast/dfg_test.rs:351": "dbf7bc21a4356ac6",
+  "tests/ast/dfg_test.rs:403": "3c9ffb083ef4b82f",
+  "tests/ast/field_test.rs:527": "5c83cac5d8adae80",
+  "tests/ast/java_type_provider_test.rs:504": "0300bf4dfadc4f01",
+  "tests/ast/java_type_provider_test.rs:505": "2266c4438898a969",
+  "tests/ast/python_type_provider_test.rs:258": "da0a5c8809bd8672",
+  "tests/ast/python_type_provider_test.rs:272": "89a34e5058013839",
+  "tests/ast/python_type_provider_test.rs:393": "23246c0524d3c314",
+  "tests/ast/rust_type_provider_test.rs:1268": "4134b1254131a697",
+  "tests/ast/rust_type_provider_test.rs:476": "25bcadcbb24e7a6d",
+  "tests/ast/rust_type_provider_test.rs:492": "23246c0524d3c314",
+  "tests/ast/ts_type_provider_test.rs:281": "3766d90ec6b1b733",
+  "tests/ast/ts_type_provider_test.rs:715": "23246c0524d3c314",
+  "tests/ast/type_provider_test.rs:421": "84591beb0b6e78b2",
+  "tests/ast/type_provider_test.rs:423": "8f760b605d3b19d0",
+  "tests/common/mod.rs:50": "a5b868d0355c876a",
+  "tests/common/mod.rs:51": "5389254ea5b39cec",
+  "tests/lang/go/advanced_test.rs:154": "6493501c7e6579a7",
+  "tests/lang/go/advanced_test.rs:164": "89d3c387b0d49fa9",
+  "tests/lang/go/advanced_test.rs:167": "0643d8cac905b68e"
+ }
+}

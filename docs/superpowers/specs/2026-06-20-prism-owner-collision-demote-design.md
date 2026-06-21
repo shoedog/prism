@@ -49,9 +49,11 @@ completeness gate is a separate, larger effort and is **out of scope** here (§1
 same-bare-name owner-key collisions, with zero recall loss, in the one shared
 resolution chokepoint, across all caller paths and all languages.
 
-**Non-goals:**
+**Non-goals (this change):**
 - *Correcting* the attribution to the single right target (needs scope/import
-  resolution that is unavailable where this fires — see §12).
+  resolution that is unavailable where this fires — see §12). **But the demote is
+  designed to be recoverable to Exact (1.0) as those capabilities land — this is a
+  first-class requirement, specified in §14, not a one-way cap.**
 - Replacing or re-keying the bare-name `methods` index (its recall floor is
   load-bearing; companion analysis).
 - Relaxing the scope-graph completeness gate (follow-on, §12).
@@ -268,3 +270,48 @@ and that single-candidate/trait-CHA arms are untouched.
 - **A consumer keyed on Exact-only that legitimately wanted these edges** → none
   identified; Exact-only rings are precisely where full-confidence FPs should not
   appear. The full-graph (all-confidence) traversals are unchanged.
+
+## 14. Precision recovery (forward compatibility) — REQUIRED PROPERTY
+
+A demoted collision MUST be **recoverable to Exact (1.0)** as capabilities are
+added. The demote is a floor for the *current* unresolvable residue, never a
+permanent cap. This is a first-class design requirement, satisfied here by
+construction:
+
+**Invariant — the terminal-demote rule.** `owner_lookup_in_modules`'s demote is the
+**last rung** of the resolution ladder. Every disambiguating step runs strictly
+*upstream* of it, and any one of them that succeeds yields Exact and the site never
+reaches the demote:
+- authoritative scope-graph narrowing (`rust_scope_graph_resolution`,
+  `resolution.rs:679-690`): `T::m` → single true scope → **Exact**;
+- module-segment narrowing inside `owner_lookup_in_modules` itself (the
+  `module_segs` filter, `resolution.rs:644-660`): reduces the pool to 1 → the
+  single-candidate `else` → **Exact**;
+- receiver-type resolution via `methods_by_scope` (`resolution.rs:868`): resolves
+  before the bare-owner fallback.
+
+So as capabilities land — notably the completeness-gate relaxation follow-on (§12),
+which makes the scope graph available on large multi-crate repos like ruff — the
+set of sites that reach the demote **shrinks**, and each newly-resolvable site is
+emitted at Exact by the upstream capability. The demote never caps a site the
+system *can* resolve; it only catches what nothing upstream could.
+
+**Recovery is lossless** because the demote changes *confidence only*, never the
+candidate set (§5). The full pool is preserved as NameOnly, so a future capability
+re-resolving the same site simply produces a narrower, Exact result — no edge was
+discarded that recovery would have to reconstruct, and no state is mutated that
+would shadow a later Exact.
+
+**Design rule for future capabilities (binding):** a new disambiguating capability
+MUST be inserted *upstream* of the terminal demote — resolve to a scope/identity,
+then narrow via `methods_by_scope` / the owner index — and MUST NOT be implemented
+by re-promoting an already-demoted pool in place. The terminal demote stays the
+residue floor; precision recovery comes from upstream rungs reducing the pool to
+one, not from un-demoting.
+
+**Observability of recovery.** The demoted-collision residue is visible in
+`call-stats` (the NameOnly population across `kind_nameonly`, plus the
+`multi_target_exact_shape` stratification). As a capability lands, the
+demoted-collision count decreases with a matching increase in Exact singletons —
+recovery is directly measurable corpus-by-corpus, so each capability's precision
+recovery can be quantified against this baseline.

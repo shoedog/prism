@@ -1,0 +1,4903 @@
+{
+ "m1": {
+  "anon_oracle": 0,
+  "anon_prism": 1,
+  "matched": 1541,
+  "prism_extra": 42,
+  "prism_missing": 0,
+  "snapshot_prism_missing": 0
+ },
+ "m2": {
+  "callees": {
+   "C-method": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.7411670300055737,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.7411670300055737,
+      1.0
+     ],
+     "tp": 11
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.6096657083436265,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.6096657083436265,
+       1.0
+      ],
+      "tp": 6
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.6096657083436265,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.6096657083436265,
+       1.0
+      ],
+      "tp": 6
+     }
+    },
+    "pending": 8,
+    "raw": {
+     "fn": 7,
+     "fp": 1,
+     "precision": [
+      0.9166666666666666,
+      0.6461200862787544,
+      0.9851349057603305
+     ],
+     "recall": [
+      0.6111111111111112,
+      0.38619041442114627,
+      0.7969475353714572
+     ],
+     "tp": 11
+    },
+    "shortfall": 0
+   },
+   "C-name": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.7411670300055737,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.7411670300055737,
+      1.0
+     ],
+     "tp": 11
+    },
+    "function": {
+     "corrected": {
+      "fn": 2,
+      "fp": 1,
+      "precision": [
+       0.8571428571428571,
+       0.486872167860775,
+       0.9743203759421759
+      ],
+      "recall": [
+       0.75,
+       0.40927542792725174,
+       0.9285207879020445
+      ],
+      "tp": 6
+     },
+     "raw": {
+      "fn": 2,
+      "fp": 1,
+      "precision": [
+       0.8571428571428571,
+       0.486872167860775,
+       0.9743203759421759
+      ],
+      "recall": [
+       0.75,
+       0.40927542792725174,
+       0.9285207879020445
+      ],
+      "tp": 6
+     }
+    },
+    "pending": 11,
+    "raw": {
+     "fn": 11,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.7411670300055737,
+      1.0
+     ],
+     "recall": [
+      0.5,
+      0.30722106144268146,
+      0.6927789385573185
+     ],
+     "tp": 11
+    },
+    "shortfall": 0
+   },
+   "Q-scoped": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.5655175313406071,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.5655175313406071,
+      1.0
+     ],
+     "tp": 5
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 8,
+      "precision": [
+       0.2727272727272727,
+       0.09746059213308628,
+       0.5656453033189257
+      ],
+      "recall": [
+       1.0,
+       0.43850296436068037,
+       1.0
+      ],
+      "tp": 3
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 8,
+      "precision": [
+       0.2727272727272727,
+       0.09746059213308628,
+       0.5656453033189257
+      ],
+      "recall": [
+       1.0,
+       0.43850296436068037,
+       1.0
+      ],
+      "tp": 3
+     }
+    },
+    "pending": 3,
+    "raw": {
+     "fn": 0,
+     "fp": 3,
+     "precision": [
+      0.625,
+      0.30574239265377096,
+      0.8631557152608771
+     ],
+     "recall": [
+      1.0,
+      0.5655175313406071,
+      1.0
+     ],
+     "tp": 5
+    },
+    "shortfall": 0
+   },
+   "U-free": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.8388748398148705,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.8388748398148705,
+      1.0
+     ],
+     "tp": 20
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 1,
+      "precision": [
+       0.8888888888888888,
+       0.565000291629209,
+       0.9801091125830901
+      ],
+      "recall": [
+       1.0,
+       0.6755924316585924,
+       1.0
+      ],
+      "tp": 8
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 1,
+      "precision": [
+       0.8888888888888888,
+       0.565000291629209,
+       0.9801091125830901
+      ],
+      "recall": [
+       1.0,
+       0.6755924316585924,
+       1.0
+      ],
+      "tp": 8
+     }
+    },
+    "pending": 26,
+    "raw": {
+     "fn": 26,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.8388748398148705,
+      1.0
+     ],
+     "recall": [
+      0.43478260869565216,
+      0.30209262684948346,
+      0.5775256641341373
+     ],
+     "tp": 20
+    },
+    "shortfall": 0
+   },
+   "U-method": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.700854948272956,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.700854948272956,
+      1.0
+     ],
+     "tp": 9
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 1,
+      "precision": [
+       0.8571428571428571,
+       0.486872167860775,
+       0.9743203759421759
+      ],
+      "recall": [
+       1.0,
+       0.6096657083436265,
+       1.0
+      ],
+      "tp": 6
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 1,
+      "precision": [
+       0.8571428571428571,
+       0.486872167860775,
+       0.9743203759421759
+      ],
+      "recall": [
+       1.0,
+       0.6096657083436265,
+       1.0
+      ],
+      "tp": 6
+     }
+    },
+    "pending": 2,
+    "raw": {
+     "fn": 1,
+     "fp": 1,
+     "precision": [
+      0.9,
+      0.5958499704752279,
+      0.982123787103926
+     ],
+     "recall": [
+      0.9,
+      0.5958499704752279,
+      0.982123787103926
+     ],
+     "tp": 9
+    },
+    "shortfall": 0
+   }
+  },
+  "callers": {
+   "C-method": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.2065493117918027,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.2065493117918027,
+      1.0
+     ],
+     "tp": 1
+    },
+    "function": {
+     "corrected": {
+      "fn": 3,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.2065493117918027,
+       1.0
+      ],
+      "recall": [
+       0.25,
+       0.04558726029536886,
+       0.6993581599030918
+      ],
+      "tp": 1
+     },
+     "raw": {
+      "fn": 3,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.2065493117918027,
+       1.0
+      ],
+      "recall": [
+       0.25,
+       0.04558726029536886,
+       0.6993581599030918
+      ],
+      "tp": 1
+     }
+    },
+    "pending": 3,
+    "raw": {
+     "fn": 3,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.2065493117918027,
+      1.0
+     ],
+     "recall": [
+      0.25,
+      0.04558726029536886,
+      0.6993581599030918
+     ],
+     "tp": 1
+    },
+    "shortfall": 0
+   },
+   "Q-scoped": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.8241207740667156,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.8241207740667156,
+      1.0
+     ],
+     "tp": 18
+    },
+    "function": {
+     "corrected": {
+      "fn": 1,
+      "fp": 1,
+      "precision": [
+       0.9285714285714286,
+       0.6853129533326209,
+       0.9872777848933957
+      ],
+      "recall": [
+       0.9285714285714286,
+       0.6853129533326209,
+       0.9872777848933957
+      ],
+      "tp": 13
+     },
+     "raw": {
+      "fn": 1,
+      "fp": 1,
+      "precision": [
+       0.9285714285714286,
+       0.6853129533326209,
+       0.9872777848933957
+      ],
+      "recall": [
+       0.9285714285714286,
+       0.6853129533326209,
+       0.9872777848933957
+      ],
+      "tp": 13
+     }
+    },
+    "pending": 4,
+    "raw": {
+     "fn": 3,
+     "fp": 1,
+     "precision": [
+      0.9473684210526315,
+      0.7536126862526763,
+      0.9906480060413981
+     ],
+     "recall": [
+      0.8571428571428571,
+      0.653639395331373,
+      0.9501898753920957
+     ],
+     "tp": 18
+    },
+    "shortfall": 0
+   },
+   "U-method": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.871271076371412,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.871271076371412,
+      1.0
+     ],
+     "tp": 26
+    },
+    "function": {
+     "corrected": {
+      "fn": 1,
+      "fp": 3,
+      "precision": [
+       0.8636363636363636,
+       0.6666501265111675,
+       0.9525099632305449
+      ],
+      "recall": [
+       0.95,
+       0.7638688045357189,
+       0.9911185512976646
+      ],
+      "tp": 19
+     },
+     "raw": {
+      "fn": 1,
+      "fp": 3,
+      "precision": [
+       0.8636363636363636,
+       0.6666501265111675,
+       0.9525099632305449
+      ],
+      "recall": [
+       0.95,
+       0.7638688045357189,
+       0.9911185512976646
+      ],
+      "tp": 19
+     }
+    },
+    "pending": 6,
+    "raw": {
+     "fn": 1,
+     "fp": 5,
+     "precision": [
+      0.8387096774193549,
+      0.6736564589149602,
+      0.9290737560150889
+     ],
+     "recall": [
+      0.9629629629629629,
+      0.8171653389987218,
+      0.9934318540919532
+     ],
+     "tp": 26
+    },
+    "shortfall": 0
+   }
+  }
+ },
+ "m3": {
+  "cap": 25,
+  "checked": [
+   {
+    "probe": "callers:src/click/_compat.py:150",
+    "site": "src/click/_compat.py:246",
+    "verdict": "alias_site"
+   },
+   {
+    "probe": "callers:src/click/core.py:748",
+    "site": "examples/aliases/aliases.py:50",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:src/click/core.py:748",
+    "site": "examples/aliases/aliases.py:82",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:src/click/formatting.py:213",
+    "site": "tests/test_types.py:147",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:src/click/parser.py:265",
+    "site": "tests/test_commands.py:175",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:src/click/parser.py:265",
+    "site": "tests/test_commands.py:178",
+    "verdict": "ambiguous"
+   }
+  ],
+  "counts": {
+   "alias_site": 1,
+   "ambiguous": 5,
+   "confirmed_fp": 0,
+   "confirmed_tp": 0
+  }
+ },
+ "meta": {
+  "baseline_invalid": true,
+  "corpus": "click-basedpyright",
+  "corpus_dirty": false,
+  "corpus_dirty_reasons": [],
+  "corpus_sha": "8a1b1a33d739",
+  "date": "2026-06-20",
+  "harness_sha": "06e6ac4ee96e",
+  "invalid_reasons": [
+   "oracle_error_rate 0.31 > 0.25"
+  ],
+  "oracle": "basedpyright 1.39.8",
+  "oracle_error_rate": 0.3125,
+  "oracle_not_quiescent": false,
+  "prism_dirty": false,
+  "prism_sha": "20c8490591a3",
+  "seed": 42,
+  "stale_adjudications": 0,
+  "sut_error_rate": 0.0,
+  "wall_s": {
+   "m1_oracle_inventory": 0.085,
+   "m2": 9.481,
+   "m3": 0.003,
+   "oracle_start": 5.203
+  }
+ },
+ "pending": [
+  {
+   "corpus": "click-basedpyright",
+   "direction": "prism_only",
+   "dispatch_kind": "local_def",
+   "measurement": "callers",
+   "seed_def": "src/click/_compat.py:150",
+   "site": "src/click/_compat.py:246",
+   "site_fingerprint": "4224a3be2bda6f34"
+  },
+  {
+   "corpus": "click-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/click/_compat.py:543",
+   "site": "src/click/_compat.py:571",
+   "site_fingerprint": "3841b59d7650a633"
+  },
+  {
+   "corpus": "click-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/click/_compat.py:543",
+   "site": "src/click/_compat.py:572",
+   "site_fingerprint": "d1a6fe436648a1b3"
+  },
+  {
+   "corpus": "click-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/click/_compat.py:543",
+   "site": "src/click/_compat.py:573",
+   "site_fingerprint": "b8e1bf6974ec4683"
+  },
+  {
+   "corpus": "click-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/click/core.py:1317",
+   "site": "src/click/core.py:1940",
+   "site_fingerprint": "7f006de1cc1748a4"
+  },
+  {
+   "corpus": "click-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/click/core.py:1317",
+   "site": "tests/test_commands.py:558",
+   "site_fingerprint": "99a0c20b0043b21a"
+  },
+  {
+   "corpus": "click-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/click/core.py:1660",
+   "site": "src/click/core.py:2095",
+   "site_fingerprint": "740e2da8295af9c7"
+  },
+  {
+   "corpus": "click-basedpyright",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callers",
+   "seed_def": "src/click/core.py:748",
+   "site": "examples/aliases/aliases.py:50",
+   "site_fingerprint": "b34d005a13a2561f"
+  },
+  {
+   "corpus": "click-basedpyright",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callers",
+   "seed_def": "src/click/core.py:748",
+   "site": "examples/aliases/aliases.py:82",
+   "site_fingerprint": "16d97be6830cd797"
+  },
+  {
+   "corpus": "click-basedpyright",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callers",
+   "seed_def": "src/click/formatting.py:213",
+   "site": "tests/test_types.py:147",
+   "site_fingerprint": "c8aa89747c2aa58a"
+  },
+  {
+   "corpus": "click-basedpyright",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callers",
+   "seed_def": "src/click/parser.py:265",
+   "site": "tests/test_commands.py:175",
+   "site_fingerprint": "6cacb91f1745d9db"
+  },
+  {
+   "corpus": "click-basedpyright",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callers",
+   "seed_def": "src/click/parser.py:265",
+   "site": "tests/test_commands.py:178",
+   "site_fingerprint": "c875bfa3554e6ee5"
+  },
+  {
+   "corpus": "click-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/click/utils.py:183",
+   "site": "src/click/types.py:944",
+   "site_fingerprint": "2c1bc147ffa853d2"
+  },
+  {
+   "corpus": "click-basedpyright",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callees",
+   "seed_def": "src/click/_compat.py:150",
+   "site": "src/click/_compat.py:152",
+   "site_fingerprint": "0dabe77469daa4a7"
+  },
+  {
+   "corpus": "click-basedpyright",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callees",
+   "seed_def": "src/click/core.py:1317",
+   "site": "src/click/core.py:1350",
+   "site_fingerprint": "fe5e049a2825826f"
+  },
+  {
+   "corpus": "click-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/click/core.py:1317",
+   "site": "src/click/core.py:1319",
+   "site_fingerprint": "8e20a4c03a325bfd"
+  },
+  {
+   "corpus": "click-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/click/core.py:1317",
+   "site": "src/click/core.py:1322",
+   "site_fingerprint": "dfaa6397edde7fc8"
+  },
+  {
+   "corpus": "click-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/click/core.py:1660",
+   "site": "src/click/core.py:1673",
+   "site_fingerprint": "bf62c030ff9d487a"
+  },
+  {
+   "corpus": "click-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/click/core.py:2120",
+   "site": "src/click/core.py:2121",
+   "site_fingerprint": "81c80e7646371f4e"
+  },
+  {
+   "corpus": "click-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/click/decorators.py:76",
+   "site": "src/click/decorators.py:93",
+   "site_fingerprint": "9f79d31a960727ce"
+  },
+  {
+   "corpus": "click-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/click/decorators.py:77",
+   "site": "src/click/decorators.py:93",
+   "site_fingerprint": "9f79d31a960727ce"
+  },
+  {
+   "corpus": "click-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/click/exceptions.py:335",
+   "site": "src/click/exceptions.py:336",
+   "site_fingerprint": "7dd15f080b6ec5a8"
+  },
+  {
+   "corpus": "click-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/click/exceptions.py:87",
+   "site": "src/click/exceptions.py:100",
+   "site_fingerprint": "d9bf1ed295ec7e09"
+  },
+  {
+   "corpus": "click-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/click/exceptions.py:87",
+   "site": "src/click/exceptions.py:108",
+   "site_fingerprint": "16eee64e36f2f60f"
+  },
+  {
+   "corpus": "click-basedpyright",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callees",
+   "seed_def": "src/click/parser.py:265",
+   "site": "src/click/parser.py:284",
+   "site_fingerprint": "8fd999c1d71f2aef"
+  },
+  {
+   "corpus": "click-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/click/parser.py:265",
+   "site": "src/click/parser.py:283",
+   "site_fingerprint": "4e2ec9b31ecc8bf2"
+  },
+  {
+   "corpus": "click-basedpyright",
+   "direction": "prism_only",
+   "dispatch_kind": "free_single",
+   "measurement": "callees",
+   "seed_def": "src/click/termui.py:83",
+   "site": "src/click/termui.py:89",
+   "site_fingerprint": "4555459541e224f0"
+  },
+  {
+   "corpus": "click-basedpyright",
+   "direction": "prism_only",
+   "dispatch_kind": "free_single",
+   "measurement": "callees",
+   "seed_def": "src/click/termui.py:83",
+   "site": "src/click/termui.py:90",
+   "site_fingerprint": "840fc126d4f30b43"
+  },
+  {
+   "corpus": "click-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "tests/test_arguments.py:192",
+   "site": "tests/test_arguments.py:190",
+   "site_fingerprint": "134d05a507bc161c"
+  },
+  {
+   "corpus": "click-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "tests/test_arguments.py:229",
+   "site": "tests/test_arguments.py:227",
+   "site_fingerprint": "42231de450c6181c"
+  },
+  {
+   "corpus": "click-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "tests/test_arguments.py:229",
+   "site": "tests/test_arguments.py:228",
+   "site_fingerprint": "1fce0e12ce4a92a6"
+  },
+  {
+   "corpus": "click-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "tests/test_basic.py:691",
+   "site": "tests/test_basic.py:690",
+   "site_fingerprint": "85ecf5de765e5e7f"
+  },
+  {
+   "corpus": "click-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "tests/test_chain.py:54",
+   "site": "tests/test_chain.py:53",
+   "site_fingerprint": "e16b31fab399f646"
+  },
+  {
+   "corpus": "click-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "tests/test_context.py:592",
+   "site": "tests/test_context.py:622",
+   "site_fingerprint": "9c6b12920711b203"
+  },
+  {
+   "corpus": "click-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "tests/test_context.py:592",
+   "site": "tests/test_context.py:638",
+   "site_fingerprint": "4a82e721f09436fd"
+  },
+  {
+   "corpus": "click-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "tests/test_context.py:592",
+   "site": "tests/test_context.py:648",
+   "site_fingerprint": "b4e21b0710a9fac0"
+  },
+  {
+   "corpus": "click-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "tests/test_context.py:592",
+   "site": "tests/test_context.py:650",
+   "site_fingerprint": "8042b09f18af2460"
+  },
+  {
+   "corpus": "click-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "tests/test_context.py:592",
+   "site": "tests/test_context.py:658",
+   "site_fingerprint": "b4e21b0710a9fac0"
+  },
+  {
+   "corpus": "click-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "tests/test_context.py:592",
+   "site": "tests/test_context.py:660",
+   "site_fingerprint": "8042b09f18af2460"
+  },
+  {
+   "corpus": "click-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "tests/test_context.py:700",
+   "site": "tests/test_context.py:704",
+   "site_fingerprint": "74e169e86a212f96"
+  },
+  {
+   "corpus": "click-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "tests/test_context.py:700",
+   "site": "tests/test_context.py:706",
+   "site_fingerprint": "d4a768f0813a4b69"
+  },
+  {
+   "corpus": "click-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "tests/test_defaults.py:332",
+   "site": "tests/test_defaults.py:324",
+   "site_fingerprint": "743dee480246452f"
+  },
+  {
+   "corpus": "click-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "tests/test_defaults.py:332",
+   "site": "tests/test_defaults.py:325",
+   "site_fingerprint": "b53ce84d227cc3dc"
+  },
+  {
+   "corpus": "click-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "tests/test_info_dict.py:212",
+   "site": "tests/test_info_dict.py:99",
+   "site_fingerprint": "896300fe9bbc6f29"
+  },
+  {
+   "corpus": "click-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "tests/test_info_dict.py:212",
+   "site": "tests/test_info_dict.py:110",
+   "site_fingerprint": "7612c040461e0b20"
+  },
+  {
+   "corpus": "click-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "tests/test_info_dict.py:212",
+   "site": "tests/test_info_dict.py:120",
+   "site_fingerprint": "be6956b73cdaff7d"
+  },
+  {
+   "corpus": "click-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "tests/test_info_dict.py:212",
+   "site": "tests/test_info_dict.py:126",
+   "site_fingerprint": "13ce7082e26ff772"
+  },
+  {
+   "corpus": "click-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "tests/test_info_dict.py:212",
+   "site": "tests/test_info_dict.py:142",
+   "site_fingerprint": "5729346b88127c25"
+  },
+  {
+   "corpus": "click-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "tests/test_info_dict.py:212",
+   "site": "tests/test_info_dict.py:159",
+   "site_fingerprint": "af7e150b42cc966f"
+  },
+  {
+   "corpus": "click-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "tests/test_info_dict.py:212",
+   "site": "tests/test_info_dict.py:164",
+   "site_fingerprint": "612ba159a6d2ebdf"
+  },
+  {
+   "corpus": "click-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "tests/test_info_dict.py:212",
+   "site": "tests/test_info_dict.py:178",
+   "site_fingerprint": "66d0bd7f5943c70c"
+  },
+  {
+   "corpus": "click-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "tests/test_info_dict.py:212",
+   "site": "tests/test_info_dict.py:188",
+   "site_fingerprint": "be7ad556d02bf742"
+  },
+  {
+   "corpus": "click-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "tests/test_options.py:1250",
+   "site": "tests/test_options.py:1254",
+   "site_fingerprint": "c1368959d8df7912"
+  },
+  {
+   "corpus": "click-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "tests/test_options.py:1250",
+   "site": "tests/test_options.py:1261",
+   "site_fingerprint": "f18ac8cd5a256e80"
+  },
+  {
+   "corpus": "click-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "tests/test_options.py:1554",
+   "site": "tests/test_options.py:1552",
+   "site_fingerprint": "bebe16063489c787"
+  },
+  {
+   "corpus": "click-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "tests/test_options.py:1554",
+   "site": "tests/test_options.py:1553",
+   "site_fingerprint": "848265c8cd2fdddd"
+  },
+  {
+   "corpus": "click-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "tests/test_shell_completion.py:177",
+   "site": "tests/test_shell_completion.py:178",
+   "site_fingerprint": "46a4cc75ce2d524d"
+  },
+  {
+   "corpus": "click-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "tests/test_shell_completion.py:177",
+   "site": "tests/test_shell_completion.py:182",
+   "site_fingerprint": "94982be3c48603a8"
+  },
+  {
+   "corpus": "click-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "tests/test_shell_completion.py:177",
+   "site": "tests/test_shell_completion.py:183",
+   "site_fingerprint": "5e9dcea68c44080c"
+  },
+  {
+   "corpus": "click-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "tests/test_shell_completion.py:226",
+   "site": "tests/test_shell_completion.py:227",
+   "site_fingerprint": "05c4c9652cc0887c"
+  },
+  {
+   "corpus": "click-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "tests/test_shell_completion.py:226",
+   "site": "tests/test_shell_completion.py:231",
+   "site_fingerprint": "0574d4071e6c5c1e"
+  },
+  {
+   "corpus": "click-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "tests/test_shell_completion.py:226",
+   "site": "tests/test_shell_completion.py:232",
+   "site_fingerprint": "366d19979c5f485e"
+  },
+  {
+   "corpus": "click-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "tests/test_shell_completion.py:226",
+   "site": "tests/test_shell_completion.py:233",
+   "site_fingerprint": "154ea24dc8d4b4bb"
+  }
+ ],
+ "probes": {
+  "_corpus": "click-basedpyright",
+  "_strata": {
+   "C-method": {
+    "eligible_probes": 16,
+    "eligible_symbols": 8,
+    "target": 8
+   },
+   "C-name": {
+    "eligible_probes": 16,
+    "eligible_symbols": 8,
+    "target": 8
+   },
+   "Q-scoped": {
+    "eligible_probes": 16,
+    "eligible_symbols": 8,
+    "target": 8
+   },
+   "U-free": {
+    "eligible_probes": 16,
+    "eligible_symbols": 8,
+    "target": 8
+   },
+   "U-method": {
+    "eligible_probes": 16,
+    "eligible_symbols": 8,
+    "target": 8
+   }
+  },
+  "callees:src/click/_compat.py:150": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/click/_compat.py",
+     "_is_binary_reader"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/click/_compat.py",
+     152,
+     152,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "src/click/_compat.py:150",
+   "stratum": "Q-scoped"
+  },
+  "callees:src/click/_compat.py:475": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "src/click/_compat.py",
+     "__exit__"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/click/_compat.py",
+     481,
+     481
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/click/_compat.py",
+     "__exit__"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/click/_compat.py",
+     481,
+     481,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ]
+   ],
+   "seed_def": "src/click/_compat.py:475",
+   "stratum": "C-method"
+  },
+  "callees:src/click/_compat.py:543": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/click/_compat.py",
+     "_make_cached_stream_func"
+    ],
+    [
+     "src/click/_compat.py",
+     "func"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "src/click/_compat.py:543",
+   "stratum": "Q-scoped"
+  },
+  "callees:src/click/core.py:1280": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "src/click/core.py",
+     "make_context"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/click/core.py",
+     1313,
+     1313
+    ],
+    [
+     "src/click/core.py",
+     1314,
+     1314
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/click/core.py",
+     "make_context"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/click/core.py",
+     1314,
+     1314,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "src/click/core.py",
+     1313,
+     1313,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "src/click/core.py",
+     1313,
+     1313,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "src/click/core.py:1280",
+   "stratum": "U-method"
+  },
+  "callees:src/click/core.py:1317": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "src/click/core.py",
+     "parse_args"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/click/core.py",
+     1319,
+     1319
+    ],
+    [
+     "src/click/core.py",
+     1321,
+     1321
+    ],
+    [
+     "src/click/core.py",
+     1322,
+     1322
+    ],
+    [
+     "src/click/core.py",
+     1324,
+     1324
+    ],
+    [
+     "src/click/core.py",
+     1324,
+     1324
+    ],
+    [
+     "src/click/core.py",
+     1325,
+     1325
+    ],
+    [
+     "src/click/core.py",
+     1341,
+     1341
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/click/core.py",
+     "parse_args"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/click/core.py",
+     1324,
+     1324,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/click/core.py",
+     1324,
+     1324,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "src/click/core.py",
+     1321,
+     1321,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "src/click/core.py",
+     1350,
+     1350,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "src/click/core.py",
+     1341,
+     1341,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "src/click/core.py",
+     1325,
+     1325,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "src/click/core.py:1317",
+   "stratum": "C-method"
+  },
+  "callees:src/click/core.py:1660": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "src/click/core.py",
+     "__init__"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/click/core.py",
+     1673,
+     1673
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/click/core.py",
+     "__init__"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "src/click/core.py:1660",
+   "stratum": "C-method"
+  },
+  "callees:src/click/core.py:1733": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "src/click/core.py",
+     "add_command"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/click/core.py",
+     1740,
+     1740
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/click/core.py",
+     "add_command"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/click/core.py",
+     1740,
+     1740,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "src/click/core.py:1733",
+   "stratum": "U-method"
+  },
+  "callees:src/click/core.py:2120": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "src/click/core.py",
+     "list_commands"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/click/core.py",
+     2121,
+     2121
+    ],
+    [
+     "src/click/core.py",
+     2124,
+     2124
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/click/core.py",
+     "list_commands"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/click/core.py",
+     2124,
+     2124,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "src/click/core.py:2120",
+   "stratum": "C-method"
+  },
+  "callees:src/click/core.py:748": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "src/click/core.py",
+     "ensure_object"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/click/core.py",
+     752,
+     752
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/click/core.py",
+     "ensure_object"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/click/core.py",
+     752,
+     752,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ]
+   ],
+   "seed_def": "src/click/core.py:748",
+   "stratum": "U-method"
+  },
+  "callees:src/click/decorators.py:527": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "src/click/decorators.py",
+     "help_option"
+    ],
+    [
+     "src/click/decorators.py",
+     "show_help"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/click/decorators.py",
+     539,
+     539
+    ],
+    [
+     "src/click/decorators.py",
+     539,
+     539
+    ],
+    [
+     "src/click/decorators.py",
+     540,
+     540
+    ],
+    [
+     "src/click/decorators.py",
+     551,
+     551
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/click/decorators.py",
+     "help_option"
+    ],
+    [
+     "src/click/decorators.py",
+     "show_help"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/click/decorators.py",
+     551,
+     551,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/click/decorators.py",
+     540,
+     540,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "src/click/decorators.py",
+     539,
+     539,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/click/decorators.py",
+     539,
+     539,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/click/decorators.py",
+     539,
+     539,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ]
+   ],
+   "seed_def": "src/click/decorators.py:527",
+   "stratum": "Q-scoped"
+  },
+  "callees:src/click/decorators.py:76": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "src/click/decorators.py",
+     "new_func"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/click/decorators.py",
+     78,
+     78
+    ],
+    [
+     "src/click/decorators.py",
+     82,
+     82
+    ],
+    [
+     "src/click/decorators.py",
+     84,
+     84
+    ],
+    [
+     "src/click/decorators.py",
+     93,
+     93
+    ],
+    [
+     "src/click/decorators.py",
+     93,
+     93
+    ],
+    [
+     "src/click/decorators.py",
+     93,
+     93
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/click/decorators.py",
+     "decorator"
+    ],
+    [
+     "src/click/decorators.py",
+     "new_func"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/click/decorators.py",
+     84,
+     84,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "src/click/decorators.py",
+     82,
+     82,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "src/click/decorators.py",
+     78,
+     78,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/click/decorators.py",
+     78,
+     78,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/click/decorators.py",
+     78,
+     78,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/click/decorators.py",
+     78,
+     78,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/click/decorators.py",
+     78,
+     78,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ]
+   ],
+   "seed_def": "src/click/decorators.py:76",
+   "stratum": "C-name"
+  },
+  "callees:src/click/decorators.py:77": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "src/click/decorators.py",
+     "new_func"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/click/decorators.py",
+     78,
+     78
+    ],
+    [
+     "src/click/decorators.py",
+     82,
+     82
+    ],
+    [
+     "src/click/decorators.py",
+     84,
+     84
+    ],
+    [
+     "src/click/decorators.py",
+     93,
+     93
+    ],
+    [
+     "src/click/decorators.py",
+     93,
+     93
+    ],
+    [
+     "src/click/decorators.py",
+     93,
+     93
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/click/decorators.py",
+     "new_func"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/click/decorators.py",
+     84,
+     84,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "src/click/decorators.py",
+     82,
+     82,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "src/click/decorators.py",
+     78,
+     78,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/click/decorators.py",
+     78,
+     78,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/click/decorators.py",
+     78,
+     78,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/click/decorators.py",
+     78,
+     78,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/click/decorators.py",
+     78,
+     78,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ]
+   ],
+   "seed_def": "src/click/decorators.py:77",
+   "stratum": "C-name"
+  },
+  "callees:src/click/exceptions.py:335": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "src/click/exceptions.py",
+     "__init__"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/click/exceptions.py",
+     336,
+     336
+    ],
+    [
+     "src/click/exceptions.py",
+     336,
+     336
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/click/exceptions.py",
+     "__init__"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "src/click/exceptions.py:335",
+   "stratum": "C-method"
+  },
+  "callees:src/click/exceptions.py:87": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "src/click/exceptions.py",
+     "show"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/click/exceptions.py",
+     89,
+     89
+    ],
+    [
+     "src/click/exceptions.py",
+     94,
+     94
+    ],
+    [
+     "src/click/exceptions.py",
+     96,
+     96
+    ],
+    [
+     "src/click/exceptions.py",
+     100,
+     100
+    ],
+    [
+     "src/click/exceptions.py",
+     106,
+     106
+    ],
+    [
+     "src/click/exceptions.py",
+     107,
+     107
+    ],
+    [
+     "src/click/exceptions.py",
+     106,
+     106
+    ],
+    [
+     "src/click/exceptions.py",
+     108,
+     108
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/click/exceptions.py",
+     "show"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/click/exceptions.py",
+     89,
+     89,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "src/click/exceptions.py",
+     96,
+     96,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "src/click/exceptions.py",
+     94,
+     94,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "src/click/exceptions.py",
+     106,
+     106,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/click/exceptions.py",
+     107,
+     107,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/click/exceptions.py",
+     106,
+     106,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/click/exceptions.py",
+     107,
+     107,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/click/exceptions.py",
+     106,
+     106,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/click/exceptions.py",
+     107,
+     107,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ]
+   ],
+   "seed_def": "src/click/exceptions.py:87",
+   "stratum": "C-method"
+  },
+  "callees:src/click/formatting.py:213": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "src/click/formatting.py",
+     "write_text"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/click/formatting.py",
+     218,
+     218
+    ],
+    [
+     "src/click/formatting.py",
+     227,
+     227
+    ],
+    [
+     "src/click/formatting.py",
+     219,
+     219
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/click/formatting.py",
+     "write_text"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/click/formatting.py",
+     219,
+     219,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/click/formatting.py",
+     218,
+     218,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "src/click/formatting.py",
+     227,
+     227,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ]
+   ],
+   "seed_def": "src/click/formatting.py:213",
+   "stratum": "U-method"
+  },
+  "callees:src/click/formatting.py:78": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/click/formatting.py",
+     "_flush_par"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "src/click/formatting.py:78",
+   "stratum": "Q-scoped"
+  },
+  "callees:src/click/parser.py:265": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "src/click/parser.py",
+     "add_option"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/click/parser.py",
+     282,
+     282
+    ],
+    [
+     "src/click/parser.py",
+     283,
+     283
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/click/parser.py",
+     "add_option"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/click/parser.py",
+     282,
+     282,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/click/parser.py",
+     284,
+     284,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "src/click/parser.py:265",
+   "stratum": "U-method"
+  },
+  "callees:src/click/parser.py:51": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "src/click/parser.py",
+     "_unpack_args"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/click/parser.py",
+     84,
+     84
+    ],
+    [
+     "src/click/parser.py",
+     86,
+     86
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/click/parser.py",
+     "_fetch"
+    ],
+    [
+     "src/click/parser.py",
+     "_unpack_args"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/click/parser.py",
+     84,
+     84,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/click/parser.py",
+     86,
+     86,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "src/click/parser.py:51",
+   "stratum": "Q-scoped"
+  },
+  "callees:src/click/shell_completion.py:482": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/click/shell_completion.py",
+     "split_arg_string"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "src/click/shell_completion.py:482",
+   "stratum": "Q-scoped"
+  },
+  "callees:src/click/termui.py:59": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/click/termui.py",
+     "_mask_hidden_input"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "src/click/termui.py:59",
+   "stratum": "Q-scoped"
+  },
+  "callees:src/click/termui.py:83": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/click/termui.py",
+     "_readline_prompt"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/click/termui.py",
+     89,
+     89,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "src/click/termui.py",
+     90,
+     90,
+     {
+      "resolution_kind": "free_single"
+     }
+    ]
+   ],
+   "seed_def": "src/click/termui.py:83",
+   "stratum": "Q-scoped"
+  },
+  "callees:src/click/types.py:348": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/click/types.py",
+     "normalize_choice"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "src/click/types.py:348",
+   "stratum": "U-method"
+  },
+  "callees:src/click/utils.py:183": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "src/click/utils.py",
+     "close_intelligently"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/click/utils.py",
+     188,
+     188
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/click/utils.py",
+     "close_intelligently"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/click/utils.py",
+     188,
+     188,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ]
+   ],
+   "seed_def": "src/click/utils.py:183",
+   "stratum": "U-method"
+  },
+  "callees:tests/test_arguments.py:192": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "tests/test_arguments.py",
+     "cmd"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tests/test_arguments.py",
+     190,
+     190
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "tests/test_arguments.py:192",
+   "stratum": "C-name"
+  },
+  "callees:tests/test_arguments.py:229": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "tests/test_arguments.py",
+     "cmd2"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tests/test_arguments.py",
+     227,
+     227
+    ],
+    [
+     "tests/test_arguments.py",
+     228,
+     228
+    ],
+    [
+     "tests/test_arguments.py",
+     230,
+     230
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tests/test_arguments.py",
+     "cmd2"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "tests/test_arguments.py",
+     230,
+     230,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ]
+   ],
+   "seed_def": "tests/test_arguments.py:229",
+   "stratum": "C-name"
+  },
+  "callees:tests/test_arguments.py:82": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "tests/test_arguments.py",
+     "from_bytes"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tests/test_arguments.py",
+     83,
+     83
+    ],
+    [
+     "tests/test_arguments.py",
+     84,
+     84
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tests/test_arguments.py",
+     "from_bytes"
+    ],
+    [
+     "tests/test_arguments.py",
+     "test_bytes_args"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "tests/test_arguments.py",
+     83,
+     83,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "tests/test_arguments.py",
+     83,
+     83,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "tests/test_arguments.py",
+     83,
+     83,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "tests/test_arguments.py",
+     83,
+     83,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "tests/test_arguments.py",
+     83,
+     83,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "tests/test_arguments.py",
+     83,
+     83,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "tests/test_arguments.py",
+     83,
+     83,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "tests/test_arguments.py",
+     83,
+     83,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "tests/test_arguments.py",
+     83,
+     83,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "tests/test_arguments.py",
+     84,
+     84,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ]
+   ],
+   "seed_def": "tests/test_arguments.py:82",
+   "stratum": "U-free"
+  },
+  "callees:tests/test_basic.py:691": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "tests/test_basic.py",
+     "cli"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tests/test_basic.py",
+     690,
+     690
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "tests/test_basic.py:691",
+   "stratum": "C-name"
+  },
+  "callees:tests/test_chain.py:54": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "tests/test_chain.py",
+     "sdist"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tests/test_chain.py",
+     53,
+     53
+    ],
+    [
+     "tests/test_chain.py",
+     53,
+     53
+    ],
+    [
+     "tests/test_chain.py",
+     53,
+     53
+    ],
+    [
+     "tests/test_chain.py",
+     56,
+     56
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tests/test_chain.py",
+     "sdist"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "tests/test_chain.py",
+     56,
+     56,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ]
+   ],
+   "seed_def": "tests/test_chain.py:54",
+   "stratum": "C-name"
+  },
+  "callees:tests/test_context.py:592": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "tests/test_context.py",
+     "test_with_resource_nested_exception"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tests/test_context.py",
+     622,
+     622
+    ],
+    [
+     "tests/test_context.py",
+     622,
+     622
+    ],
+    [
+     "tests/test_context.py",
+     626,
+     626
+    ],
+    [
+     "tests/test_context.py",
+     635,
+     635
+    ],
+    [
+     "tests/test_context.py",
+     645,
+     645
+    ],
+    [
+     "tests/test_context.py",
+     627,
+     627
+    ],
+    [
+     "tests/test_context.py",
+     628,
+     628
+    ],
+    [
+     "tests/test_context.py",
+     636,
+     636
+    ],
+    [
+     "tests/test_context.py",
+     637,
+     637
+    ],
+    [
+     "tests/test_context.py",
+     646,
+     646
+    ],
+    [
+     "tests/test_context.py",
+     647,
+     647
+    ],
+    [
+     "tests/test_context.py",
+     656,
+     656
+    ],
+    [
+     "tests/test_context.py",
+     657,
+     657
+    ],
+    [
+     "tests/test_context.py",
+     627,
+     627
+    ],
+    [
+     "tests/test_context.py",
+     628,
+     628
+    ],
+    [
+     "tests/test_context.py",
+     636,
+     636
+    ],
+    [
+     "tests/test_context.py",
+     637,
+     637
+    ],
+    [
+     "tests/test_context.py",
+     646,
+     646
+    ],
+    [
+     "tests/test_context.py",
+     648,
+     648
+    ],
+    [
+     "tests/test_context.py",
+     656,
+     656
+    ],
+    [
+     "tests/test_context.py",
+     658,
+     658
+    ],
+    [
+     "tests/test_context.py",
+     638,
+     638
+    ],
+    [
+     "tests/test_context.py",
+     650,
+     650
+    ],
+    [
+     "tests/test_context.py",
+     660,
+     660
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tests/test_context.py",
+     "test_with_resource_nested_exception"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "tests/test_context.py",
+     626,
+     626,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "tests/test_context.py",
+     635,
+     635,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "tests/test_context.py",
+     645,
+     645,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "tests/test_context.py",
+     626,
+     626,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "tests/test_context.py",
+     635,
+     635,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "tests/test_context.py",
+     645,
+     645,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "tests/test_context.py",
+     627,
+     627,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "tests/test_context.py",
+     628,
+     628,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "tests/test_context.py",
+     636,
+     636,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "tests/test_context.py",
+     637,
+     637,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "tests/test_context.py",
+     646,
+     646,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "tests/test_context.py",
+     647,
+     647,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "tests/test_context.py",
+     656,
+     656,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "tests/test_context.py",
+     657,
+     657,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "tests/test_context.py:592",
+   "stratum": "U-free"
+  },
+  "callees:tests/test_context.py:700": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "tests/test_context.py",
+     "test_propagate_show_default_setting"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tests/test_context.py",
+     704,
+     704
+    ],
+    [
+     "tests/test_context.py",
+     706,
+     706
+    ],
+    [
+     "tests/test_context.py",
+     706,
+     706
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tests/test_context.py",
+     "test_propagate_show_default_setting"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "tests/test_context.py:700",
+   "stratum": "U-free"
+  },
+  "callees:tests/test_defaults.py:332": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "tests/test_defaults.py",
+     "cli"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tests/test_defaults.py",
+     324,
+     324
+    ],
+    [
+     "tests/test_defaults.py",
+     325,
+     325
+    ],
+    [
+     "tests/test_defaults.py",
+     333,
+     333
+    ],
+    [
+     "tests/test_defaults.py",
+     333,
+     333
+    ],
+    [
+     "tests/test_defaults.py",
+     334,
+     334
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tests/test_defaults.py",
+     "cli"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "tests/test_defaults.py",
+     333,
+     333,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "tests/test_defaults.py",
+     333,
+     333,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "tests/test_defaults.py",
+     333,
+     333,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "tests/test_defaults.py",
+     333,
+     333,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "tests/test_defaults.py",
+     333,
+     333,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "tests/test_defaults.py",
+     334,
+     334,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "tests/test_defaults.py",
+     333,
+     333,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "tests/test_defaults.py:332",
+   "stratum": "C-name"
+  },
+  "callees:tests/test_info_dict.py:212": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "tests/test_info_dict.py",
+     "test_parameter"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tests/test_info_dict.py",
+     99,
+     99
+    ],
+    [
+     "tests/test_info_dict.py",
+     110,
+     110
+    ],
+    [
+     "tests/test_info_dict.py",
+     120,
+     120
+    ],
+    [
+     "tests/test_info_dict.py",
+     126,
+     126
+    ],
+    [
+     "tests/test_info_dict.py",
+     142,
+     142
+    ],
+    [
+     "tests/test_info_dict.py",
+     159,
+     159
+    ],
+    [
+     "tests/test_info_dict.py",
+     164,
+     164
+    ],
+    [
+     "tests/test_info_dict.py",
+     178,
+     178
+    ],
+    [
+     "tests/test_info_dict.py",
+     188,
+     188
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tests/test_info_dict.py",
+     "test_parameter"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "tests/test_info_dict.py:212",
+   "stratum": "U-free"
+  },
+  "callees:tests/test_options.py:1250": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "tests/test_options.py",
+     "test_hide_false_default_boolean_flag_value"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tests/test_options.py",
+     1254,
+     1254
+    ],
+    [
+     "tests/test_options.py",
+     1261,
+     1261
+    ],
+    [
+     "tests/test_options.py",
+     1261,
+     1261
+    ],
+    [
+     "tests/test_options.py",
+     1262,
+     1262
+    ],
+    [
+     "tests/test_options.py",
+     1263,
+     1263
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tests/test_options.py",
+     "test_hide_false_default_boolean_flag_value"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "tests/test_options.py",
+     1262,
+     1262,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "tests/test_options.py",
+     1263,
+     1263,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "tests/test_options.py",
+     1263,
+     1263,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "tests/test_options.py:1250",
+   "stratum": "U-free"
+  },
+  "callees:tests/test_options.py:1554": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "tests/test_options.py",
+     "cmd"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tests/test_options.py",
+     1552,
+     1552
+    ],
+    [
+     "tests/test_options.py",
+     1553,
+     1553
+    ],
+    [
+     "tests/test_options.py",
+     1555,
+     1555
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tests/test_options.py",
+     "cmd"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "tests/test_options.py",
+     1555,
+     1555,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ]
+   ],
+   "seed_def": "tests/test_options.py:1554",
+   "stratum": "C-name"
+  },
+  "callees:tests/test_shell_completion.py:177": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "tests/test_shell_completion.py",
+     "test_option_optional"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tests/test_shell_completion.py",
+     178,
+     178
+    ],
+    [
+     "tests/test_shell_completion.py",
+     182,
+     182
+    ],
+    [
+     "tests/test_shell_completion.py",
+     183,
+     183
+    ],
+    [
+     "tests/test_shell_completion.py",
+     186,
+     186
+    ],
+    [
+     "tests/test_shell_completion.py",
+     187,
+     187
+    ],
+    [
+     "tests/test_shell_completion.py",
+     188,
+     188
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tests/test_shell_completion.py",
+     "test_option_optional"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "tests/test_shell_completion.py",
+     186,
+     186,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "tests/test_shell_completion.py",
+     187,
+     187,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "tests/test_shell_completion.py",
+     188,
+     188,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "tests/test_shell_completion.py:177",
+   "stratum": "U-free"
+  },
+  "callees:tests/test_shell_completion.py:226": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "tests/test_shell_completion.py",
+     "test_flag_option_with_nargs_option"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tests/test_shell_completion.py",
+     227,
+     227
+    ],
+    [
+     "tests/test_shell_completion.py",
+     231,
+     231
+    ],
+    [
+     "tests/test_shell_completion.py",
+     231,
+     231
+    ],
+    [
+     "tests/test_shell_completion.py",
+     233,
+     233
+    ],
+    [
+     "tests/test_shell_completion.py",
+     232,
+     232
+    ],
+    [
+     "tests/test_shell_completion.py",
+     233,
+     233
+    ],
+    [
+     "tests/test_shell_completion.py",
+     236,
+     236
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tests/test_shell_completion.py",
+     "test_flag_option_with_nargs_option"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "tests/test_shell_completion.py",
+     236,
+     236,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "tests/test_shell_completion.py:226",
+   "stratum": "U-free"
+  },
+  "callees:tests/test_termui.py:560": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "tests/test_termui.py",
+     "test_editor_failure_exception"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tests/test_termui.py",
+     564,
+     564
+    ],
+    [
+     "tests/test_termui.py",
+     564,
+     564
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tests/test_termui.py",
+     "test_editor_failure_exception"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "tests/test_termui.py",
+     564,
+     564,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "tests/test_termui.py:560",
+   "stratum": "U-free"
+  },
+  "callers:src/click/_compat.py:150": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/click/_compat.py",
+     "_find_binary_reader"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/click/_compat.py",
+     177,
+     177
+    ],
+    [
+     "src/click/_compat.py",
+     184,
+     184
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/click/_compat.py",
+     "_find_binary_reader"
+    ],
+    [
+     "src/click/_compat.py",
+     "_force_correct_text_stream"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/click/_compat.py",
+     177,
+     177,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/click/_compat.py",
+     184,
+     184,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/click/_compat.py",
+     246,
+     246,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "src/click/_compat.py:150",
+   "stratum": "Q-scoped"
+  },
+  "callers:src/click/_compat.py:543": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/click/_compat.py",
+     "<module_level>"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/click/_compat.py",
+     571,
+     571
+    ],
+    [
+     "src/click/_compat.py",
+     572,
+     572
+    ],
+    [
+     "src/click/_compat.py",
+     573,
+     573
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "src/click/_compat.py:543",
+   "stratum": "Q-scoped"
+  },
+  "callers:src/click/core.py:1280": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/click/core.py",
+     "invoke"
+    ],
+    [
+     "src/click/core.py",
+     "main"
+    ],
+    [
+     "src/click/shell_completion.py",
+     "_resolve_context"
+    ],
+    [
+     "tests/test_basic.py",
+     "test_return_values"
+    ],
+    [
+     "tests/test_custom_classes.py",
+     "test_command_context_class"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/click/core.py",
+     1503,
+     1503
+    ],
+    [
+     "src/click/core.py",
+     1503,
+     1503
+    ],
+    [
+     "src/click/core.py",
+     1982,
+     1982
+    ],
+    [
+     "src/click/core.py",
+     1982,
+     1982
+    ],
+    [
+     "src/click/core.py",
+     2002,
+     2002
+    ],
+    [
+     "src/click/core.py",
+     2002,
+     2002
+    ],
+    [
+     "src/click/shell_completion.py",
+     591,
+     591
+    ],
+    [
+     "src/click/shell_completion.py",
+     591,
+     591
+    ],
+    [
+     "src/click/shell_completion.py",
+     604,
+     604
+    ],
+    [
+     "src/click/shell_completion.py",
+     604,
+     604
+    ],
+    [
+     "src/click/shell_completion.py",
+     618,
+     618
+    ],
+    [
+     "src/click/shell_completion.py",
+     618,
+     618
+    ],
+    [
+     "tests/test_basic.py",
+     55,
+     55
+    ],
+    [
+     "tests/test_basic.py",
+     55,
+     55
+    ],
+    [
+     "tests/test_custom_classes.py",
+     16,
+     16
+    ],
+    [
+     "tests/test_custom_classes.py",
+     16,
+     16
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/click/core.py",
+     "invoke"
+    ],
+    [
+     "src/click/core.py",
+     "main"
+    ],
+    [
+     "src/click/shell_completion.py",
+     "_resolve_context"
+    ],
+    [
+     "tests/test_basic.py",
+     "test_return_values"
+    ],
+    [
+     "tests/test_custom_classes.py",
+     "test_command_context_class"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/click/core.py",
+     1503,
+     1503,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "src/click/core.py",
+     1982,
+     1982,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "src/click/core.py",
+     2002,
+     2002,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "src/click/shell_completion.py",
+     591,
+     591,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "src/click/shell_completion.py",
+     604,
+     604,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "src/click/shell_completion.py",
+     618,
+     618,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "tests/test_basic.py",
+     55,
+     55,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "tests/test_custom_classes.py",
+     16,
+     16,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "src/click/core.py:1280",
+   "stratum": "U-method"
+  },
+  "callers:src/click/core.py:1317": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/click/core.py",
+     "make_context"
+    ],
+    [
+     "src/click/core.py",
+     "parse_args"
+    ],
+    [
+     "tests/test_commands.py",
+     "test_command_parse_args_collects_option_prefixes"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/click/core.py",
+     1314,
+     1314
+    ],
+    [
+     "src/click/core.py",
+     1314,
+     1314
+    ],
+    [
+     "src/click/core.py",
+     1940,
+     1940
+    ],
+    [
+     "src/click/core.py",
+     1940,
+     1940
+    ],
+    [
+     "tests/test_commands.py",
+     558,
+     558
+    ],
+    [
+     "tests/test_commands.py",
+     558,
+     558
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/click/core.py",
+     "make_context"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/click/core.py",
+     1314,
+     1314,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ]
+   ],
+   "seed_def": "src/click/core.py:1317",
+   "stratum": "C-method"
+  },
+  "callers:src/click/core.py:1660": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/click/core.py",
+     "__init__"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/click/core.py",
+     2095,
+     2095
+    ],
+    [
+     "src/click/core.py",
+     2095,
+     2095
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "src/click/core.py:1660",
+   "stratum": "C-method"
+  },
+  "callers:src/click/core.py:1733": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/click/core.py",
+     "decorator"
+    ],
+    [
+     "tests/test_commands.py",
+     "test_custom_parser"
+    ],
+    [
+     "tests/test_commands.py",
+     "test_group_add_command_name"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/click/core.py",
+     1784,
+     1784
+    ],
+    [
+     "src/click/core.py",
+     1784,
+     1784
+    ],
+    [
+     "src/click/core.py",
+     1836,
+     1836
+    ],
+    [
+     "src/click/core.py",
+     1836,
+     1836
+    ],
+    [
+     "tests/test_commands.py",
+     192,
+     192
+    ],
+    [
+     "tests/test_commands.py",
+     192,
+     192
+    ],
+    [
+     "tests/test_commands.py",
+     352,
+     352
+    ],
+    [
+     "tests/test_commands.py",
+     352,
+     352
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/click/core.py",
+     "decorator"
+    ],
+    [
+     "tests/test_commands.py",
+     "test_custom_parser"
+    ],
+    [
+     "tests/test_commands.py",
+     "test_group_add_command_name"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/click/core.py",
+     1784,
+     1784,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "src/click/core.py",
+     1836,
+     1836,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "tests/test_commands.py",
+     192,
+     192,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "tests/test_commands.py",
+     352,
+     352,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "src/click/core.py:1733",
+   "stratum": "U-method"
+  },
+  "callers:src/click/core.py:630": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/click/core.py",
+     "get_help"
+    ],
+    [
+     "src/click/core.py",
+     "get_usage"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/click/core.py",
+     1095,
+     1095
+    ],
+    [
+     "src/click/core.py",
+     1095,
+     1095
+    ],
+    [
+     "src/click/core.py",
+     1190,
+     1190
+    ],
+    [
+     "src/click/core.py",
+     1190,
+     1190
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/click/core.py",
+     "get_help"
+    ],
+    [
+     "src/click/core.py",
+     "get_usage"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/click/core.py",
+     1095,
+     1095,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "src/click/core.py",
+     1190,
+     1190,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "src/click/core.py:630",
+   "stratum": "U-method"
+  },
+  "callers:src/click/core.py:748": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/click/decorators.py",
+     "new_func"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/click/decorators.py",
+     82,
+     82
+    ],
+    [
+     "src/click/decorators.py",
+     82,
+     82
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "examples/aliases/aliases.py",
+     "<module_level>"
+    ],
+    [
+     "src/click/decorators.py",
+     "new_func"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "examples/aliases/aliases.py",
+     50,
+     50,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "examples/aliases/aliases.py",
+     82,
+     82,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "src/click/decorators.py",
+     82,
+     82,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "src/click/decorators.py",
+     82,
+     82,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "src/click/decorators.py",
+     82,
+     82,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "src/click/core.py:748",
+   "stratum": "U-method"
+  },
+  "callers:src/click/decorators.py:527": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/click/core.py",
+     "get_help_option"
+    ],
+    [
+     "tests/test_context.py",
+     "messing_with_logger"
+    ],
+    [
+     "tests/test_formatting.py",
+     "cmd"
+    ],
+    [
+     "tests/test_options.py",
+     "cmd"
+    ],
+    [
+     "tests/typing/typing_help_option.py",
+     "hello"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/click/core.py",
+     1173,
+     1173
+    ],
+    [
+     "tests/typing/typing_help_option.py",
+     7,
+     7
+    ],
+    [
+     "tests/test_context.py",
+     487,
+     487
+    ],
+    [
+     "tests/test_formatting.py",
+     323,
+     323
+    ],
+    [
+     "tests/test_options.py",
+     1133,
+     1133
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/click/core.py",
+     "get_help_option"
+    ],
+    [
+     "tests/test_context.py",
+     "messing_with_logger"
+    ],
+    [
+     "tests/test_formatting.py",
+     "cmd"
+    ],
+    [
+     "tests/test_options.py",
+     "cmd"
+    ],
+    [
+     "tests/typing/typing_help_option.py",
+     "hello"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/click/core.py",
+     1173,
+     1173,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "tests/test_context.py",
+     487,
+     487,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "tests/test_context.py",
+     487,
+     487,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "tests/test_formatting.py",
+     323,
+     323,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "tests/test_formatting.py",
+     323,
+     323,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "tests/test_options.py",
+     1133,
+     1133,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "tests/test_options.py",
+     1133,
+     1133,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "tests/test_options.py",
+     1133,
+     1133,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "tests/typing/typing_help_option.py",
+     7,
+     7,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ]
+   ],
+   "seed_def": "src/click/decorators.py:527",
+   "stratum": "Q-scoped"
+  },
+  "callers:src/click/formatting.py:213": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/click/core.py",
+     "format_epilog"
+    ],
+    [
+     "src/click/core.py",
+     "format_help_text"
+    ],
+    [
+     "tests/test_formatting.py",
+     "test_help_formatter_write_text"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/click/core.py",
+     1245,
+     1245
+    ],
+    [
+     "src/click/core.py",
+     1245,
+     1245
+    ],
+    [
+     "src/click/core.py",
+     1278,
+     1278
+    ],
+    [
+     "src/click/core.py",
+     1278,
+     1278
+    ],
+    [
+     "tests/test_formatting.py",
+     433,
+     433
+    ],
+    [
+     "tests/test_formatting.py",
+     433,
+     433
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/click/core.py",
+     "format_epilog"
+    ],
+    [
+     "src/click/core.py",
+     "format_help_text"
+    ],
+    [
+     "tests/test_formatting.py",
+     "test_help_formatter_write_text"
+    ],
+    [
+     "tests/test_types.py",
+     "test_path_resolve_symlink"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/click/core.py",
+     1245,
+     1245,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "src/click/core.py",
+     1278,
+     1278,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "tests/test_formatting.py",
+     433,
+     433,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "tests/test_types.py",
+     147,
+     147,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "tests/test_types.py",
+     147,
+     147,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "src/click/formatting.py:213",
+   "stratum": "U-method"
+  },
+  "callers:src/click/formatting.py:78": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/click/formatting.py",
+     "wrap_text"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/click/formatting.py",
+     89,
+     89
+    ],
+    [
+     "src/click/formatting.py",
+     97,
+     97
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/click/formatting.py",
+     "wrap_text"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/click/formatting.py",
+     89,
+     89,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/click/formatting.py",
+     97,
+     97,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "src/click/formatting.py:78",
+   "stratum": "Q-scoped"
+  },
+  "callers:src/click/parser.py:265": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/click/core.py",
+     "add_to_parser"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/click/core.py",
+     3193,
+     3193
+    ],
+    [
+     "src/click/core.py",
+     3193,
+     3193
+    ],
+    [
+     "src/click/core.py",
+     3196,
+     3196
+    ],
+    [
+     "src/click/core.py",
+     3196,
+     3196
+    ],
+    [
+     "src/click/core.py",
+     3204,
+     3204
+    ],
+    [
+     "src/click/core.py",
+     3204,
+     3204
+    ],
+    [
+     "src/click/core.py",
+     3212,
+     3212
+    ],
+    [
+     "src/click/core.py",
+     3212,
+     3212
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/click/core.py",
+     "add_to_parser"
+    ],
+    [
+     "tests/test_commands.py",
+     "test_custom_parser"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/click/core.py",
+     3193,
+     3193,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "src/click/core.py",
+     3196,
+     3196,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "src/click/core.py",
+     3204,
+     3204,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "src/click/core.py",
+     3212,
+     3212,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "tests/test_commands.py",
+     175,
+     175,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "tests/test_commands.py",
+     178,
+     178,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "src/click/parser.py:265",
+   "stratum": "U-method"
+  },
+  "callers:src/click/parser.py:51": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/click/parser.py",
+     "_process_args_for_args"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/click/parser.py",
+     317,
+     317
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/click/parser.py",
+     "_process_args_for_args"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/click/parser.py",
+     317,
+     317,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "src/click/parser.py:51",
+   "stratum": "Q-scoped"
+  },
+  "callers:src/click/shell_completion.py:482": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/click/shell_completion.py",
+     "get_completion_args"
+    ],
+    [
+     "tests/test_parser.py",
+     "test_split_arg_string"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/click/shell_completion.py",
+     354,
+     354
+    ],
+    [
+     "src/click/shell_completion.py",
+     376,
+     376
+    ],
+    [
+     "src/click/shell_completion.py",
+     412,
+     412
+    ],
+    [
+     "src/click/shell_completion.py",
+     415,
+     415
+    ],
+    [
+     "tests/test_parser.py",
+     19,
+     19
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/click/shell_completion.py",
+     "get_completion_args"
+    ],
+    [
+     "tests/test_parser.py",
+     "test_split_arg_string"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/click/shell_completion.py",
+     354,
+     354,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/click/shell_completion.py",
+     376,
+     376,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/click/shell_completion.py",
+     412,
+     412,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/click/shell_completion.py",
+     415,
+     415,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "tests/test_parser.py",
+     19,
+     19,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "tests/test_parser.py",
+     19,
+     19,
+     {
+      "resolution_kind": "free_single"
+     }
+    ]
+   ],
+   "seed_def": "src/click/shell_completion.py:482",
+   "stratum": "Q-scoped"
+  },
+  "callers:src/click/termui.py:59": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/click/termui.py",
+     "prompt"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/click/termui.py",
+     216,
+     216
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/click/termui.py",
+     "prompt"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/click/termui.py",
+     216,
+     216,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "src/click/termui.py:59",
+   "stratum": "Q-scoped"
+  },
+  "callers:src/click/termui.py:83": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/click/termui.py",
+     "confirm"
+    ],
+    [
+     "src/click/termui.py",
+     "prompt_func"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/click/termui.py",
+     183,
+     183
+    ],
+    [
+     "src/click/termui.py",
+     272,
+     272
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/click/termui.py",
+     "confirm"
+    ],
+    [
+     "src/click/termui.py",
+     "prompt_func"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/click/termui.py",
+     183,
+     183,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/click/termui.py",
+     183,
+     183,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/click/termui.py",
+     272,
+     272,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "src/click/termui.py:83",
+   "stratum": "Q-scoped"
+  },
+  "callers:src/click/types.py:348": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/click/types.py",
+     "_normalized_mapping"
+    ],
+    [
+     "src/click/types.py",
+     "convert"
+    ],
+    [
+     "src/click/types.py",
+     "shell_complete"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/click/types.py",
+     341,
+     341
+    ],
+    [
+     "src/click/types.py",
+     341,
+     341
+    ],
+    [
+     "src/click/types.py",
+     404,
+     404
+    ],
+    [
+     "src/click/types.py",
+     404,
+     404
+    ],
+    [
+     "src/click/types.py",
+     450,
+     450
+    ],
+    [
+     "src/click/types.py",
+     450,
+     450
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/click/types.py",
+     "_normalized_mapping"
+    ],
+    [
+     "src/click/types.py",
+     "convert"
+    ],
+    [
+     "src/click/types.py",
+     "shell_complete"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/click/types.py",
+     341,
+     341,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "src/click/types.py",
+     404,
+     404,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "src/click/types.py",
+     450,
+     450,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ]
+   ],
+   "seed_def": "src/click/types.py:348",
+   "stratum": "U-method"
+  },
+  "callers:src/click/utils.py:183": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/click/types.py",
+     "convert"
+    ],
+    [
+     "src/click/utils.py",
+     "__exit__"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/click/types.py",
+     944,
+     944
+    ],
+    [
+     "src/click/utils.py",
+     199,
+     199
+    ],
+    [
+     "src/click/utils.py",
+     199,
+     199
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/click/utils.py",
+     "__exit__"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/click/utils.py",
+     199,
+     199,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ]
+   ],
+   "seed_def": "src/click/utils.py:183",
+   "stratum": "U-method"
+  }
+ },
+ "site_fingerprints": {
+  "examples/aliases/aliases.py:50": "b34d005a13a2561f",
+  "examples/aliases/aliases.py:82": "16d97be6830cd797",
+  "src/click/_compat.py:152": "0dabe77469daa4a7",
+  "src/click/_compat.py:177": "390f65655f80a3a3",
+  "src/click/_compat.py:184": "5ce34bff9c75da51",
+  "src/click/_compat.py:246": "4224a3be2bda6f34",
+  "src/click/_compat.py:481": "767d7647e6f9326c",
+  "src/click/_compat.py:571": "3841b59d7650a633",
+  "src/click/_compat.py:572": "d1a6fe436648a1b3",
+  "src/click/_compat.py:573": "b8e1bf6974ec4683",
+  "src/click/core.py:1095": "b5810be0f78aa439",
+  "src/click/core.py:1173": "20020db4a3a2f1e5",
+  "src/click/core.py:1190": "19e683a0c91a8ad4",
+  "src/click/core.py:1245": "fa0aeda7bb25da22",
+  "src/click/core.py:1278": "7299f2bc4db01367",
+  "src/click/core.py:1313": "1c990ee0b375410c",
+  "src/click/core.py:1314": "17965ee08fd9e1a7",
+  "src/click/core.py:1319": "8e20a4c03a325bfd",
+  "src/click/core.py:1321": "02463512fc88a39d",
+  "src/click/core.py:1322": "dfaa6397edde7fc8",
+  "src/click/core.py:1324": "68b4e81174ace6b8",
+  "src/click/core.py:1325": "b21ce9eb0936a20e",
+  "src/click/core.py:1341": "7bef56faea2965b1",
+  "src/click/core.py:1350": "fe5e049a2825826f",
+  "src/click/core.py:1503": "420e5793658403b9",
+  "src/click/core.py:1673": "bf62c030ff9d487a",
+  "src/click/core.py:1740": "0b5cda4da6be4517",
+  "src/click/core.py:1784": "4e545754481bfee3",
+  "src/click/core.py:1836": "2b3fbfb10347f82f",
+  "src/click/core.py:1940": "7f006de1cc1748a4",
+  "src/click/core.py:1982": "6da238cfb7791e5c",
+  "src/click/core.py:2002": "a3fe5c3da14a6ecf",
+  "src/click/core.py:2095": "740e2da8295af9c7",
+  "src/click/core.py:2121": "81c80e7646371f4e",
+  "src/click/core.py:2124": "c74d8c1b2f6e4000",
+  "src/click/core.py:3193": "53b51a9586d8d372",
+  "src/click/core.py:3196": "5a088a25caa48334",
+  "src/click/core.py:3204": "d90f74bae388305d",
+  "src/click/core.py:3212": "d90f74bae388305d",
+  "src/click/core.py:752": "39a23e2857d91b0a",
+  "src/click/decorators.py:539": "bb74b5b9e30b7293",
+  "src/click/decorators.py:540": "946ef50cff665ce4",
+  "src/click/decorators.py:551": "07db894b04bcfdcb",
+  "src/click/decorators.py:78": "669e5770f604ebbf",
+  "src/click/decorators.py:82": "e7649c77079d605c",
+  "src/click/decorators.py:84": "f0fdb8278735394a",
+  "src/click/decorators.py:93": "9f79d31a960727ce",
+  "src/click/exceptions.py:100": "d9bf1ed295ec7e09",
+  "src/click/exceptions.py:106": "26253566cbc0cb4e",
+  "src/click/exceptions.py:107": "63fc5bcbece209b5",
+  "src/click/exceptions.py:108": "16eee64e36f2f60f",
+  "src/click/exceptions.py:336": "7dd15f080b6ec5a8",
+  "src/click/exceptions.py:89": "52c2613c002db548",
+  "src/click/exceptions.py:94": "c2c2cf4a7eb79317",
+  "src/click/exceptions.py:96": "d996522a12c341ac",
+  "src/click/formatting.py:218": "435162898c637239",
+  "src/click/formatting.py:219": "02f61dd1c50a71c3",
+  "src/click/formatting.py:227": "ac48421ce7b37c62",
+  "src/click/formatting.py:89": "8c556d8eb8034488",
+  "src/click/formatting.py:97": "1ca7e3c1aecb7f3b",
+  "src/click/parser.py:282": "d9ee41b0196a803e",
+  "src/click/parser.py:283": "4e2ec9b31ecc8bf2",
+  "src/click/parser.py:284": "8fd999c1d71f2aef",
+  "src/click/parser.py:317": "ec134d5f69105337",
+  "src/click/parser.py:84": "e087511a18efef60",
+  "src/click/parser.py:86": "ba7c0d5f1b6b4704",
+  "src/click/shell_completion.py:354": "2773ae993ad03345",
+  "src/click/shell_completion.py:376": "2773ae993ad03345",
+  "src/click/shell_completion.py:412": "5caf239f9fc60471",
+  "src/click/shell_completion.py:415": "a2717e14ea759fbb",
+  "src/click/shell_completion.py:591": "86e6f9a8a3701e2d",
+  "src/click/shell_completion.py:604": "388a4b1eff88d7c1",
+  "src/click/shell_completion.py:618": "77e90724d9252326",
+  "src/click/termui.py:183": "56562d038adb8857",
+  "src/click/termui.py:216": "12515b06a3b8394a",
+  "src/click/termui.py:272": "a84e8c79da6568e5",
+  "src/click/termui.py:89": "4555459541e224f0",
+  "src/click/termui.py:90": "840fc126d4f30b43",
+  "src/click/types.py:341": "f4323e8575ebf7c1",
+  "src/click/types.py:404": "813a9ba518b764b0",
+  "src/click/types.py:450": "02d25c30a9a7a2eb",
+  "src/click/types.py:944": "2c1bc147ffa853d2",
+  "src/click/utils.py:188": "8bcf1f20ff899d8f",
+  "src/click/utils.py:199": "a4bd83fc40412831",
+  "tests/test_arguments.py:190": "134d05a507bc161c",
+  "tests/test_arguments.py:227": "42231de450c6181c",
+  "tests/test_arguments.py:228": "1fce0e12ce4a92a6",
+  "tests/test_arguments.py:230": "4cc590692933a722",
+  "tests/test_arguments.py:83": "d863a4a8d47f15ba",
+  "tests/test_arguments.py:84": "b6adeeec03607602",
+  "tests/test_basic.py:55": "36b204502c914e44",
+  "tests/test_basic.py:690": "85ecf5de765e5e7f",
+  "tests/test_chain.py:53": "e16b31fab399f646",
+  "tests/test_chain.py:56": "dbfef2b846033d79",
+  "tests/test_commands.py:175": "6cacb91f1745d9db",
+  "tests/test_commands.py:178": "c875bfa3554e6ee5",
+  "tests/test_commands.py:192": "4bbe57b7ba5d89e3",
+  "tests/test_commands.py:352": "d447eb975d4057c7",
+  "tests/test_commands.py:558": "99a0c20b0043b21a",
+  "tests/test_context.py:487": "d648127bcec68bf9",
+  "tests/test_context.py:622": "9c6b12920711b203",
+  "tests/test_context.py:626": "939e14c0503ce801",
+  "tests/test_context.py:627": "6cbe8843f07502ff",
+  "tests/test_context.py:628": "3a48e079c3c14278",
+  "tests/test_context.py:635": "939e14c0503ce801",
+  "tests/test_context.py:636": "6cbe8843f07502ff",
+  "tests/test_context.py:637": "7ca0da6a55468172",
+  "tests/test_context.py:638": "4a82e721f09436fd",
+  "tests/test_context.py:645": "939e14c0503ce801",
+  "tests/test_context.py:646": "c77acf2e15f30b95",
+  "tests/test_context.py:647": "8f24f39fa7ffebbe",
+  "tests/test_context.py:648": "b4e21b0710a9fac0",
+  "tests/test_context.py:650": "8042b09f18af2460",
+  "tests/test_context.py:656": "c593f2c9c9c5199e",
+  "tests/test_context.py:657": "b68116e279a548df",
+  "tests/test_context.py:658": "b4e21b0710a9fac0",
+  "tests/test_context.py:660": "8042b09f18af2460",
+  "tests/test_context.py:704": "74e169e86a212f96",
+  "tests/test_context.py:706": "d4a768f0813a4b69",
+  "tests/test_custom_classes.py:16": "b6374dce442f55ac",
+  "tests/test_defaults.py:324": "743dee480246452f",
+  "tests/test_defaults.py:325": "b53ce84d227cc3dc",
+  "tests/test_defaults.py:333": "700cd9b56c22ba55",
+  "tests/test_defaults.py:334": "4882bfdf8e38999c",
+  "tests/test_formatting.py:323": "b4f88e4ad56730ed",
+  "tests/test_formatting.py:433": "00cbbbd63bf3b02b",
+  "tests/test_info_dict.py:110": "7612c040461e0b20",
+  "tests/test_info_dict.py:120": "be6956b73cdaff7d",
+  "tests/test_info_dict.py:126": "13ce7082e26ff772",
+  "tests/test_info_dict.py:142": "5729346b88127c25",
+  "tests/test_info_dict.py:159": "af7e150b42cc966f",
+  "tests/test_info_dict.py:164": "612ba159a6d2ebdf",
+  "tests/test_info_dict.py:178": "66d0bd7f5943c70c",
+  "tests/test_info_dict.py:188": "be7ad556d02bf742",
+  "tests/test_info_dict.py:99": "896300fe9bbc6f29",
+  "tests/test_options.py:1133": "5442b19a15313454",
+  "tests/test_options.py:1254": "c1368959d8df7912",
+  "tests/test_options.py:1261": "f18ac8cd5a256e80",
+  "tests/test_options.py:1262": "303cac97d946e68b",
+  "tests/test_options.py:1263": "023e9845d23f5a11",
+  "tests/test_options.py:1552": "bebe16063489c787",
+  "tests/test_options.py:1553": "848265c8cd2fdddd",
+  "tests/test_options.py:1555": "b538447701061d86",
+  "tests/test_parser.py:19": "93a62d2cb6765b6a",
+  "tests/test_shell_completion.py:178": "46a4cc75ce2d524d",
+  "tests/test_shell_completion.py:182": "94982be3c48603a8",
+  "tests/test_shell_completion.py:183": "5e9dcea68c44080c",
+  "tests/test_shell_completion.py:186": "67df4a28692ceb3d",
+  "tests/test_shell_completion.py:187": "cf2d813eaf46b7a6",
+  "tests/test_shell_completion.py:188": "bff9a1edfb378999",
+  "tests/test_shell_completion.py:227": "05c4c9652cc0887c",
+  "tests/test_shell_completion.py:231": "0574d4071e6c5c1e",
+  "tests/test_shell_completion.py:232": "366d19979c5f485e",
+  "tests/test_shell_completion.py:233": "154ea24dc8d4b4bb",
+  "tests/test_shell_completion.py:236": "0882dacf09682683",
+  "tests/test_termui.py:564": "6251ac3090e0bef8",
+  "tests/test_types.py:147": "c8aa89747c2aa58a",
+  "tests/typing/typing_help_option.py:7": "79b7b5ab04fc7c0c"
+ }
+}

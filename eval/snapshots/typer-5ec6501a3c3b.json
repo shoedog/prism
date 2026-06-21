@@ -1,0 +1,6626 @@
+[
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 36,
+   "file": "scripts/add_latest_release_date.py",
+   "start_line": 11
+  },
+  "name": "main",
+  "selection_char": 4,
+  "selection_line": 11
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 123,
+   "file": "scripts/deploy_docs_status.py",
+   "start_line": 26
+  },
+  "name": "main",
+  "selection_char": 4,
+  "selection_line": 26
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 24,
+   "file": "scripts/docs.py",
+   "start_line": 21
+  },
+  "name": "callback",
+  "selection_char": 4,
+  "selection_line": 22
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 42,
+   "file": "scripts/docs.py",
+   "start_line": 27
+  },
+  "name": "generate_readme_content",
+  "selection_char": 4,
+  "selection_line": 27
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 53,
+   "file": "scripts/docs.py",
+   "start_line": 45
+  },
+  "name": "generate_readme",
+  "selection_char": 4,
+  "selection_line": 46
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 70,
+   "file": "scripts/docs.py",
+   "start_line": 56
+  },
+  "name": "verify_readme",
+  "selection_char": 4,
+  "selection_line": 57
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 88,
+   "file": "scripts/docs.py",
+   "start_line": 73
+  },
+  "name": "live",
+  "selection_char": 4,
+  "selection_line": 74
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 98,
+   "file": "scripts/docs.py",
+   "start_line": 91
+  },
+  "name": "build",
+  "selection_char": 4,
+  "selection_line": 92
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 120,
+   "file": "scripts/docs.py",
+   "start_line": 101
+  },
+  "name": "serve",
+  "selection_char": 4,
+  "selection_line": 102
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 181,
+   "file": "scripts/docs.py",
+   "start_line": 123
+  },
+  "name": "generate_docs_src_versions_for_file",
+  "selection_char": 4,
+  "selection_line": 124
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 191,
+   "file": "scripts/docs.py",
+   "start_line": 184
+  },
+  "name": "generate_docs_src_versions",
+  "selection_char": 4,
+  "selection_line": 185
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 223,
+   "file": "scripts/docs.py",
+   "start_line": 194
+  },
+  "name": "copy_py39_to_py310",
+  "selection_char": 4,
+  "selection_line": 195
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 247,
+   "file": "scripts/docs.py",
+   "start_line": 226
+  },
+  "name": "update_docs_includes_py39_to_py310",
+  "selection_char": 4,
+  "selection_line": 227
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 358,
+   "file": "scripts/docs.py",
+   "start_line": 250
+  },
+  "name": "remove_unused_docs_src",
+  "selection_char": 4,
+  "selection_line": 251
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 24,
+   "file": "scripts/prepare_release.py",
+   "start_line": 19
+  },
+  "name": "parse_version",
+  "selection_char": 4,
+  "selection_line": 19
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 34,
+   "file": "scripts/prepare_release.py",
+   "start_line": 27
+  },
+  "name": "get_current_version",
+  "selection_char": 4,
+  "selection_line": 27
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 43,
+   "file": "scripts/prepare_release.py",
+   "start_line": 37
+  },
+  "name": "bump_version",
+  "selection_char": 4,
+  "selection_line": 37
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 52,
+   "file": "scripts/prepare_release.py",
+   "start_line": 46
+  },
+  "name": "update_version_file",
+  "selection_char": 4,
+  "selection_line": 46
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 74,
+   "file": "scripts/prepare_release.py",
+   "start_line": 55
+  },
+  "name": "update_release_notes",
+  "selection_char": 4,
+  "selection_line": 55
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 92,
+   "file": "scripts/prepare_release.py",
+   "start_line": 77
+  },
+  "name": "get_release_notes_body",
+  "selection_char": 4,
+  "selection_line": 77
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 154,
+   "file": "scripts/prepare_release.py",
+   "start_line": 95
+  },
+  "name": "prepare",
+  "selection_char": 4,
+  "selection_line": 96
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 171,
+   "file": "scripts/prepare_release.py",
+   "start_line": 157
+  },
+  "name": "current_version",
+  "selection_char": 4,
+  "selection_line": 158
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 205,
+   "file": "scripts/prepare_release.py",
+   "start_line": 174
+  },
+  "name": "release_notes",
+  "selection_char": 4,
+  "selection_line": 175
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 505,
+   "file": "typer/_click/_compat.py",
+   "start_line": 472
+  },
+  "name": "auto_wrap_for_ansi",
+  "selection_char": 8,
+  "selection_line": 472
+ },
+ {
+  "container": "auto_wrap_for_ansi",
+  "kind": "function",
+  "location": {
+   "end_line": 496,
+   "file": "typer/_click/_compat.py",
+   "start_line": 491
+  },
+  "name": "_safe_write",
+  "selection_char": 12,
+  "selection_line": 491
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 35,
+   "file": "typer/_click/_compat.py",
+   "start_line": 23
+  },
+  "name": "_make_text_stream",
+  "selection_char": 4,
+  "selection_line": 23
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 43,
+   "file": "typer/_click/_compat.py",
+   "start_line": 38
+  },
+  "name": "is_ascii_encoding",
+  "selection_char": 4,
+  "selection_line": 38
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 51,
+   "file": "typer/_click/_compat.py",
+   "start_line": 46
+  },
+  "name": "get_best_encoding",
+  "selection_char": 4,
+  "selection_line": 46
+ },
+ {
+  "container": "_NonClosingTextIOWrapper",
+  "kind": "method",
+  "location": {
+   "end_line": 63,
+   "file": "typer/_click/_compat.py",
+   "start_line": 55
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 55
+ },
+ {
+  "container": "_NonClosingTextIOWrapper",
+  "kind": "method",
+  "location": {
+   "end_line": 69,
+   "file": "typer/_click/_compat.py",
+   "start_line": 65
+  },
+  "name": "__del__",
+  "selection_char": 8,
+  "selection_line": 65
+ },
+ {
+  "container": "_NonClosingTextIOWrapper",
+  "kind": "method",
+  "location": {
+   "end_line": 73,
+   "file": "typer/_click/_compat.py",
+   "start_line": 71
+  },
+  "name": "isatty",
+  "selection_char": 8,
+  "selection_line": 71
+ },
+ {
+  "container": "_FixupStream",
+  "kind": "method",
+  "location": {
+   "end_line": 86,
+   "file": "typer/_click/_compat.py",
+   "start_line": 82
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 82
+ },
+ {
+  "container": "_FixupStream",
+  "kind": "method",
+  "location": {
+   "end_line": 89,
+   "file": "typer/_click/_compat.py",
+   "start_line": 88
+  },
+  "name": "__getattr__",
+  "selection_char": 8,
+  "selection_line": 88
+ },
+ {
+  "container": "_FixupStream",
+  "kind": "method",
+  "location": {
+   "end_line": 97,
+   "file": "typer/_click/_compat.py",
+   "start_line": 91
+  },
+  "name": "read1",
+  "selection_char": 8,
+  "selection_line": 91
+ },
+ {
+  "container": "_FixupStream",
+  "kind": "method",
+  "location": {
+   "end_line": 100,
+   "file": "typer/_click/_compat.py",
+   "start_line": 99
+  },
+  "name": "readable",
+  "selection_char": 8,
+  "selection_line": 99
+ },
+ {
+  "container": "_FixupStream",
+  "kind": "method",
+  "location": {
+   "end_line": 103,
+   "file": "typer/_click/_compat.py",
+   "start_line": 102
+  },
+  "name": "writable",
+  "selection_char": 8,
+  "selection_line": 102
+ },
+ {
+  "container": "_FixupStream",
+  "kind": "method",
+  "location": {
+   "end_line": 109,
+   "file": "typer/_click/_compat.py",
+   "start_line": 105
+  },
+  "name": "seekable",
+  "selection_char": 8,
+  "selection_line": 105
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 116,
+   "file": "typer/_click/_compat.py",
+   "start_line": 112
+  },
+  "name": "_is_binary_reader",
+  "selection_char": 4,
+  "selection_line": 112
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 131,
+   "file": "typer/_click/_compat.py",
+   "start_line": 121
+  },
+  "name": "_is_binary_writer",
+  "selection_char": 4,
+  "selection_line": 121
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 149,
+   "file": "typer/_click/_compat.py",
+   "start_line": 134
+  },
+  "name": "_find_binary_reader",
+  "selection_char": 4,
+  "selection_line": 134
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 167,
+   "file": "typer/_click/_compat.py",
+   "start_line": 152
+  },
+  "name": "_find_binary_writer",
+  "selection_char": 4,
+  "selection_line": 152
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 176,
+   "file": "typer/_click/_compat.py",
+   "start_line": 170
+  },
+  "name": "_stream_is_misconfigured",
+  "selection_char": 4,
+  "selection_line": 170
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 185,
+   "file": "typer/_click/_compat.py",
+   "start_line": 179
+  },
+  "name": "_is_compat_stream_attr",
+  "selection_char": 4,
+  "selection_line": 179
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 196,
+   "file": "typer/_click/_compat.py",
+   "start_line": 188
+  },
+  "name": "_is_compatible_text_stream",
+  "selection_char": 4,
+  "selection_line": 188
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 238,
+   "file": "typer/_click/_compat.py",
+   "start_line": 199
+  },
+  "name": "_force_correct_text_stream",
+  "selection_char": 4,
+  "selection_line": 199
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 252,
+   "file": "typer/_click/_compat.py",
+   "start_line": 241
+  },
+  "name": "_force_correct_text_reader",
+  "selection_char": 4,
+  "selection_line": 241
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 266,
+   "file": "typer/_click/_compat.py",
+   "start_line": 255
+  },
+  "name": "_force_correct_text_writer",
+  "selection_char": 4,
+  "selection_line": 255
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 273,
+   "file": "typer/_click/_compat.py",
+   "start_line": 269
+  },
+  "name": "get_binary_stdin",
+  "selection_char": 4,
+  "selection_line": 269
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 280,
+   "file": "typer/_click/_compat.py",
+   "start_line": 276
+  },
+  "name": "get_binary_stdout",
+  "selection_char": 4,
+  "selection_line": 276
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 287,
+   "file": "typer/_click/_compat.py",
+   "start_line": 283
+  },
+  "name": "get_binary_stderr",
+  "selection_char": 4,
+  "selection_line": 283
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 294,
+   "file": "typer/_click/_compat.py",
+   "start_line": 290
+  },
+  "name": "get_text_stdin",
+  "selection_char": 4,
+  "selection_line": 290
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 301,
+   "file": "typer/_click/_compat.py",
+   "start_line": 297
+  },
+  "name": "get_text_stdout",
+  "selection_char": 4,
+  "selection_line": 297
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 308,
+   "file": "typer/_click/_compat.py",
+   "start_line": 304
+  },
+  "name": "get_text_stderr",
+  "selection_char": 4,
+  "selection_line": 304
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 321,
+   "file": "typer/_click/_compat.py",
+   "start_line": 311
+  },
+  "name": "_wrap_io_open",
+  "selection_char": 4,
+  "selection_line": 311
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 401,
+   "file": "typer/_click/_compat.py",
+   "start_line": 324
+  },
+  "name": "open_stream",
+  "selection_char": 4,
+  "selection_line": 324
+ },
+ {
+  "container": "_AtomicFile",
+  "kind": "method",
+  "location": {
+   "end_line": 409,
+   "file": "typer/_click/_compat.py",
+   "start_line": 405
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 405
+ },
+ {
+  "container": "_AtomicFile",
+  "kind": "method",
+  "location": {
+   "end_line": 413,
+   "file": "typer/_click/_compat.py",
+   "start_line": 411
+  },
+  "name": "name",
+  "selection_char": 8,
+  "selection_line": 412
+ },
+ {
+  "container": "_AtomicFile",
+  "kind": "method",
+  "location": {
+   "end_line": 420,
+   "file": "typer/_click/_compat.py",
+   "start_line": 415
+  },
+  "name": "close",
+  "selection_char": 8,
+  "selection_line": 415
+ },
+ {
+  "container": "_AtomicFile",
+  "kind": "method",
+  "location": {
+   "end_line": 423,
+   "file": "typer/_click/_compat.py",
+   "start_line": 422
+  },
+  "name": "__getattr__",
+  "selection_char": 8,
+  "selection_line": 422
+ },
+ {
+  "container": "_AtomicFile",
+  "kind": "method",
+  "location": {
+   "end_line": 426,
+   "file": "typer/_click/_compat.py",
+   "start_line": 425
+  },
+  "name": "__enter__",
+  "selection_char": 8,
+  "selection_line": 425
+ },
+ {
+  "container": "_AtomicFile",
+  "kind": "method",
+  "location": {
+   "end_line": 434,
+   "file": "typer/_click/_compat.py",
+   "start_line": 428
+  },
+  "name": "__exit__",
+  "selection_char": 8,
+  "selection_line": 428
+ },
+ {
+  "container": "_AtomicFile",
+  "kind": "method",
+  "location": {
+   "end_line": 437,
+   "file": "typer/_click/_compat.py",
+   "start_line": 436
+  },
+  "name": "__repr__",
+  "selection_char": 8,
+  "selection_line": 436
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 441,
+   "file": "typer/_click/_compat.py",
+   "start_line": 440
+  },
+  "name": "strip_ansi",
+  "selection_char": 4,
+  "selection_line": 440
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 448,
+   "file": "typer/_click/_compat.py",
+   "start_line": 444
+  },
+  "name": "_is_jupyter_kernel_output",
+  "selection_char": 4,
+  "selection_line": 444
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 456,
+   "file": "typer/_click/_compat.py",
+   "start_line": 451
+  },
+  "name": "should_strip_ansi",
+  "selection_char": 4,
+  "selection_line": 451
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 515,
+   "file": "typer/_click/_compat.py",
+   "start_line": 512
+  },
+  "name": "_get_windows_console_stream",
+  "selection_char": 8,
+  "selection_line": 512
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 510,
+   "file": "typer/_click/_compat.py",
+   "start_line": 509
+  },
+  "name": "_get_argv_encoding",
+  "selection_char": 8,
+  "selection_line": 509
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 519,
+   "file": "typer/_click/_compat.py",
+   "start_line": 518
+  },
+  "name": "term_len",
+  "selection_char": 4,
+  "selection_line": 518
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 526,
+   "file": "typer/_click/_compat.py",
+   "start_line": 522
+  },
+  "name": "isatty",
+  "selection_char": 4,
+  "selection_line": 522
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 551,
+   "file": "typer/_click/_compat.py",
+   "start_line": 529
+  },
+  "name": "_make_cached_stream_func",
+  "selection_char": 4,
+  "selection_line": 529
+ },
+ {
+  "container": "_make_cached_stream_func",
+  "kind": "function",
+  "location": {
+   "end_line": 549,
+   "file": "typer/_click/_compat.py",
+   "start_line": 535
+  },
+  "name": "func",
+  "selection_char": 8,
+  "selection_line": 535
+ },
+ {
+  "container": "ProgressBar",
+  "kind": "method",
+  "location": {
+   "end_line": 106,
+   "file": "typer/_click/_termui_impl.py",
+   "start_line": 37
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 37
+ },
+ {
+  "container": "ProgressBar",
+  "kind": "method",
+  "location": {
+   "end_line": 111,
+   "file": "typer/_click/_termui_impl.py",
+   "start_line": 108
+  },
+  "name": "__enter__",
+  "selection_char": 8,
+  "selection_line": 108
+ },
+ {
+  "container": "ProgressBar",
+  "kind": "method",
+  "location": {
+   "end_line": 119,
+   "file": "typer/_click/_termui_impl.py",
+   "start_line": 113
+  },
+  "name": "__exit__",
+  "selection_char": 8,
+  "selection_line": 113
+ },
+ {
+  "container": "ProgressBar",
+  "kind": "method",
+  "location": {
+   "end_line": 125,
+   "file": "typer/_click/_termui_impl.py",
+   "start_line": 121
+  },
+  "name": "__iter__",
+  "selection_char": 8,
+  "selection_line": 121
+ },
+ {
+  "container": "ProgressBar",
+  "kind": "method",
+  "location": {
+   "end_line": 133,
+   "file": "typer/_click/_termui_impl.py",
+   "start_line": 127
+  },
+  "name": "__next__",
+  "selection_char": 8,
+  "selection_line": 127
+ },
+ {
+  "container": "ProgressBar",
+  "kind": "method",
+  "location": {
+   "end_line": 139,
+   "file": "typer/_click/_termui_impl.py",
+   "start_line": 135
+  },
+  "name": "render_finish",
+  "selection_char": 8,
+  "selection_line": 135
+ },
+ {
+  "container": "ProgressBar",
+  "kind": "method",
+  "location": {
+   "end_line": 145,
+   "file": "typer/_click/_termui_impl.py",
+   "start_line": 141
+  },
+  "name": "pct",
+  "selection_char": 8,
+  "selection_line": 142
+ },
+ {
+  "container": "ProgressBar",
+  "kind": "method",
+  "location": {
+   "end_line": 151,
+   "file": "typer/_click/_termui_impl.py",
+   "start_line": 147
+  },
+  "name": "time_per_iteration",
+  "selection_char": 8,
+  "selection_line": 148
+ },
+ {
+  "container": "ProgressBar",
+  "kind": "method",
+  "location": {
+   "end_line": 157,
+   "file": "typer/_click/_termui_impl.py",
+   "start_line": 153
+  },
+  "name": "eta",
+  "selection_char": 8,
+  "selection_line": 154
+ },
+ {
+  "container": "ProgressBar",
+  "kind": "method",
+  "location": {
+   "end_line": 172,
+   "file": "typer/_click/_termui_impl.py",
+   "start_line": 159
+  },
+  "name": "format_eta",
+  "selection_char": 8,
+  "selection_line": 159
+ },
+ {
+  "container": "ProgressBar",
+  "kind": "method",
+  "location": {
+   "end_line": 178,
+   "file": "typer/_click/_termui_impl.py",
+   "start_line": 174
+  },
+  "name": "format_pos",
+  "selection_char": 8,
+  "selection_line": 174
+ },
+ {
+  "container": "ProgressBar",
+  "kind": "method",
+  "location": {
+   "end_line": 181,
+   "file": "typer/_click/_termui_impl.py",
+   "start_line": 180
+  },
+  "name": "format_pct",
+  "selection_char": 8,
+  "selection_line": 180
+ },
+ {
+  "container": "ProgressBar",
+  "kind": "method",
+  "location": {
+   "end_line": 200,
+   "file": "typer/_click/_termui_impl.py",
+   "start_line": 183
+  },
+  "name": "format_bar",
+  "selection_char": 8,
+  "selection_line": 183
+ },
+ {
+  "container": "ProgressBar",
+  "kind": "method",
+  "location": {
+   "end_line": 227,
+   "file": "typer/_click/_termui_impl.py",
+   "start_line": 202
+  },
+  "name": "format_progress_line",
+  "selection_char": 8,
+  "selection_line": 202
+ },
+ {
+  "container": "ProgressBar",
+  "kind": "method",
+  "location": {
+   "end_line": 273,
+   "file": "typer/_click/_termui_impl.py",
+   "start_line": 229
+  },
+  "name": "render_progress",
+  "selection_char": 8,
+  "selection_line": 229
+ },
+ {
+  "container": "ProgressBar",
+  "kind": "method",
+  "location": {
+   "end_line": 295,
+   "file": "typer/_click/_termui_impl.py",
+   "start_line": 275
+  },
+  "name": "make_step",
+  "selection_char": 8,
+  "selection_line": 275
+ },
+ {
+  "container": "ProgressBar",
+  "kind": "method",
+  "location": {
+   "end_line": 304,
+   "file": "typer/_click/_termui_impl.py",
+   "start_line": 297
+  },
+  "name": "update",
+  "selection_char": 8,
+  "selection_line": 297
+ },
+ {
+  "container": "ProgressBar",
+  "kind": "method",
+  "location": {
+   "end_line": 309,
+   "file": "typer/_click/_termui_impl.py",
+   "start_line": 306
+  },
+  "name": "finish",
+  "selection_char": 8,
+  "selection_line": 306
+ },
+ {
+  "container": "ProgressBar",
+  "kind": "method",
+  "location": {
+   "end_line": 342,
+   "file": "typer/_click/_termui_impl.py",
+   "start_line": 311
+  },
+  "name": "generator",
+  "selection_char": 8,
+  "selection_line": 311
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 414,
+   "file": "typer/_click/_termui_impl.py",
+   "start_line": 345
+  },
+  "name": "open_url",
+  "selection_char": 4,
+  "selection_line": 345
+ },
+ {
+  "container": "open_url",
+  "kind": "function",
+  "location": {
+   "end_line": 354,
+   "file": "typer/_click/_termui_impl.py",
+   "start_line": 348
+  },
+  "name": "_unquote_file",
+  "selection_char": 8,
+  "selection_line": 348
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 427,
+   "file": "typer/_click/_termui_impl.py",
+   "start_line": 417
+  },
+  "name": "_translate_ch_to_exc",
+  "selection_char": 4,
+  "selection_line": 417
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 512,
+   "file": "typer/_click/_termui_impl.py",
+   "start_line": 487
+  },
+  "name": "raw_terminal",
+  "selection_char": 8,
+  "selection_line": 488
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 522,
+   "file": "typer/_click/_termui_impl.py",
+   "start_line": 514
+  },
+  "name": "getchar",
+  "selection_char": 8,
+  "selection_line": 514
+ },
+ {
+  "container": "TextWrapper",
+  "kind": "method",
+  "location": {
+   "end_line": 20,
+   "file": "typer/_click/_textwrap.py",
+   "start_line": 7
+  },
+  "name": "_handle_long_word",
+  "selection_char": 8,
+  "selection_line": 7
+ },
+ {
+  "container": "TextWrapper",
+  "kind": "method",
+  "location": {
+   "end_line": 33,
+   "file": "typer/_click/_textwrap.py",
+   "start_line": 22
+  },
+  "name": "extra_indent",
+  "selection_char": 8,
+  "selection_line": 23
+ },
+ {
+  "container": "TextWrapper",
+  "kind": "method",
+  "location": {
+   "end_line": 46,
+   "file": "typer/_click/_textwrap.py",
+   "start_line": 35
+  },
+  "name": "indent_only",
+  "selection_char": 8,
+  "selection_line": 35
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 58,
+   "file": "typer/_click/core.py",
+   "start_line": 42
+  },
+  "name": "_complete_visible_commands",
+  "selection_char": 4,
+  "selection_line": 42
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 77,
+   "file": "typer/_click/core.py",
+   "start_line": 61
+  },
+  "name": "augment_usage_errors",
+  "selection_char": 4,
+  "selection_line": 62
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 104,
+   "file": "typer/_click/core.py",
+   "start_line": 80
+  },
+  "name": "iter_params_for_processing",
+  "selection_char": 4,
+  "selection_line": 80
+ },
+ {
+  "container": "iter_params_for_processing",
+  "kind": "function",
+  "location": {
+   "end_line": 102,
+   "file": "typer/_click/core.py",
+   "start_line": 96
+  },
+  "name": "sort_key",
+  "selection_char": 8,
+  "selection_line": 96
+ },
+ {
+  "container": "Context",
+  "kind": "method",
+  "location": {
+   "end_line": 268,
+   "file": "typer/_click/core.py",
+   "start_line": 139
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 139
+ },
+ {
+  "container": "Context",
+  "kind": "method",
+  "location": {
+   "end_line": 273,
+   "file": "typer/_click/core.py",
+   "start_line": 270
+  },
+  "name": "__enter__",
+  "selection_char": 8,
+  "selection_line": 270
+ },
+ {
+  "container": "Context",
+  "kind": "method",
+  "location": {
+   "end_line": 287,
+   "file": "typer/_click/core.py",
+   "start_line": 275
+  },
+  "name": "__exit__",
+  "selection_char": 8,
+  "selection_line": 275
+ },
+ {
+  "container": "Context",
+  "kind": "method",
+  "location": {
+   "end_line": 307,
+   "file": "typer/_click/core.py",
+   "start_line": 289
+  },
+  "name": "scope",
+  "selection_char": 8,
+  "selection_line": 290
+ },
+ {
+  "container": "Context",
+  "kind": "method",
+  "location": {
+   "end_line": 322,
+   "file": "typer/_click/core.py",
+   "start_line": 309
+  },
+  "name": "meta",
+  "selection_char": 8,
+  "selection_line": 310
+ },
+ {
+  "container": "Context",
+  "kind": "method",
+  "location": {
+   "end_line": 330,
+   "file": "typer/_click/core.py",
+   "start_line": 324
+  },
+  "name": "make_formatter",
+  "selection_char": 8,
+  "selection_line": 324
+ },
+ {
+  "container": "Context",
+  "kind": "method",
+  "location": {
+   "end_line": 346,
+   "file": "typer/_click/core.py",
+   "start_line": 332
+  },
+  "name": "with_resource",
+  "selection_char": 8,
+  "selection_line": 332
+ },
+ {
+  "container": "Context",
+  "kind": "method",
+  "location": {
+   "end_line": 356,
+   "file": "typer/_click/core.py",
+   "start_line": 348
+  },
+  "name": "call_on_close",
+  "selection_char": 8,
+  "selection_line": 348
+ },
+ {
+  "container": "Context",
+  "kind": "method",
+  "location": {
+   "end_line": 362,
+   "file": "typer/_click/core.py",
+   "start_line": 358
+  },
+  "name": "close",
+  "selection_char": 8,
+  "selection_line": 358
+ },
+ {
+  "container": "Context",
+  "kind": "method",
+  "location": {
+   "end_line": 378,
+   "file": "typer/_click/core.py",
+   "start_line": 364
+  },
+  "name": "_close_with_exception_info",
+  "selection_char": 8,
+  "selection_line": 364
+ },
+ {
+  "container": "Context",
+  "kind": "method",
+  "location": {
+   "end_line": 397,
+   "file": "typer/_click/core.py",
+   "start_line": 380
+  },
+  "name": "command_path",
+  "selection_char": 8,
+  "selection_line": 381
+ },
+ {
+  "container": "Context",
+  "kind": "method",
+  "location": {
+   "end_line": 404,
+   "file": "typer/_click/core.py",
+   "start_line": 399
+  },
+  "name": "find_root",
+  "selection_char": 8,
+  "selection_line": 399
+ },
+ {
+  "container": "Context",
+  "kind": "method",
+  "location": {
+   "end_line": 416,
+   "file": "typer/_click/core.py",
+   "start_line": 406
+  },
+  "name": "find_object",
+  "selection_char": 8,
+  "selection_line": 406
+ },
+ {
+  "container": "Context",
+  "kind": "method",
+  "location": {
+   "end_line": 425,
+   "file": "typer/_click/core.py",
+   "start_line": 418
+  },
+  "name": "ensure_object",
+  "selection_char": 8,
+  "selection_line": 418
+ },
+ {
+  "container": "Context",
+  "kind": "method",
+  "location": {
+   "end_line": 445,
+   "file": "typer/_click/core.py",
+   "start_line": 435
+  },
+  "name": "lookup_default",
+  "selection_char": 8,
+  "selection_line": 435
+ },
+ {
+  "container": "Context",
+  "kind": "method",
+  "location": {
+   "end_line": 451,
+   "file": "typer/_click/core.py",
+   "start_line": 447
+  },
+  "name": "fail",
+  "selection_char": 8,
+  "selection_line": 447
+ },
+ {
+  "container": "Context",
+  "kind": "method",
+  "location": {
+   "end_line": 455,
+   "file": "typer/_click/core.py",
+   "start_line": 453
+  },
+  "name": "abort",
+  "selection_char": 8,
+  "selection_line": 453
+ },
+ {
+  "container": "Context",
+  "kind": "method",
+  "location": {
+   "end_line": 460,
+   "file": "typer/_click/core.py",
+   "start_line": 457
+  },
+  "name": "exit",
+  "selection_char": 8,
+  "selection_line": 457
+ },
+ {
+  "container": "Context",
+  "kind": "method",
+  "location": {
+   "end_line": 466,
+   "file": "typer/_click/core.py",
+   "start_line": 462
+  },
+  "name": "get_usage",
+  "selection_char": 8,
+  "selection_line": 462
+ },
+ {
+  "container": "Context",
+  "kind": "method",
+  "location": {
+   "end_line": 472,
+   "file": "typer/_click/core.py",
+   "start_line": 468
+  },
+  "name": "get_help",
+  "selection_char": 8,
+  "selection_line": 468
+ },
+ {
+  "container": "Context",
+  "kind": "method",
+  "location": {
+   "end_line": 489,
+   "file": "typer/_click/core.py",
+   "start_line": 474
+  },
+  "name": "invoke",
+  "selection_char": 8,
+  "selection_line": 474
+ },
+ {
+  "container": "Context",
+  "kind": "method",
+  "location": {
+   "end_line": 495,
+   "file": "typer/_click/core.py",
+   "start_line": 491
+  },
+  "name": "set_parameter_source",
+  "selection_char": 8,
+  "selection_line": 491
+ },
+ {
+  "container": "Context",
+  "kind": "method",
+  "location": {
+   "end_line": 506,
+   "file": "typer/_click/core.py",
+   "start_line": 497
+  },
+  "name": "get_parameter_source",
+  "selection_char": 8,
+  "selection_line": 497
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 552,
+   "file": "typer/_click/core.py",
+   "start_line": 520
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 520
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 555,
+   "file": "typer/_click/core.py",
+   "start_line": 554
+  },
+  "name": "__repr__",
+  "selection_char": 8,
+  "selection_line": 554
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 561,
+   "file": "typer/_click/core.py",
+   "start_line": 557
+  },
+  "name": "get_usage",
+  "selection_char": 8,
+  "selection_line": 557
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 570,
+   "file": "typer/_click/core.py",
+   "start_line": 563
+  },
+  "name": "get_params",
+  "selection_char": 8,
+  "selection_line": 563
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 575,
+   "file": "typer/_click/core.py",
+   "start_line": 572
+  },
+  "name": "format_usage",
+  "selection_char": 8,
+  "selection_line": 572
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 586,
+   "file": "typer/_click/core.py",
+   "start_line": 577
+  },
+  "name": "collect_usage_pieces",
+  "selection_char": 8,
+  "selection_line": 577
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 594,
+   "file": "typer/_click/core.py",
+   "start_line": 588
+  },
+  "name": "get_help_option_names",
+  "selection_char": 8,
+  "selection_line": 588
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 615,
+   "file": "typer/_click/core.py",
+   "start_line": 596
+  },
+  "name": "get_help_option",
+  "selection_char": 8,
+  "selection_line": 596
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 622,
+   "file": "typer/_click/core.py",
+   "start_line": 617
+  },
+  "name": "make_parser",
+  "selection_char": 8,
+  "selection_line": 617
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 628,
+   "file": "typer/_click/core.py",
+   "start_line": 624
+  },
+  "name": "get_help",
+  "selection_char": 8,
+  "selection_line": 624
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 649,
+   "file": "typer/_click/core.py",
+   "start_line": 630
+  },
+  "name": "get_short_help_str",
+  "selection_char": 8,
+  "selection_line": 630
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 656,
+   "file": "typer/_click/core.py",
+   "start_line": 651
+  },
+  "name": "format_help",
+  "selection_char": 8,
+  "selection_line": 651
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 678,
+   "file": "typer/_click/core.py",
+   "start_line": 658
+  },
+  "name": "format_help_text",
+  "selection_char": 8,
+  "selection_line": 658
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 682,
+   "file": "typer/_click/core.py",
+   "start_line": 680
+  },
+  "name": "format_options",
+  "selection_char": 8,
+  "selection_line": 681
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 691,
+   "file": "typer/_click/core.py",
+   "start_line": 684
+  },
+  "name": "format_epilog",
+  "selection_char": 8,
+  "selection_line": 684
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 715,
+   "file": "typer/_click/core.py",
+   "start_line": 693
+  },
+  "name": "make_context",
+  "selection_char": 8,
+  "selection_line": 693
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 732,
+   "file": "typer/_click/core.py",
+   "start_line": 717
+  },
+  "name": "parse_args",
+  "selection_char": 8,
+  "selection_line": 717
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 746,
+   "file": "typer/_click/core.py",
+   "start_line": 734
+  },
+  "name": "invoke",
+  "selection_char": 8,
+  "selection_line": 734
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 782,
+   "file": "typer/_click/core.py",
+   "start_line": 748
+  },
+  "name": "shell_complete",
+  "selection_char": 8,
+  "selection_line": 748
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 794,
+   "file": "typer/_click/core.py",
+   "start_line": 784
+  },
+  "name": "main",
+  "selection_char": 8,
+  "selection_line": 785
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 803,
+   "file": "typer/_click/core.py",
+   "start_line": 796
+  },
+  "name": "_main_shell_completion",
+  "selection_char": 8,
+  "selection_line": 797
+ },
+ {
+  "container": "Command",
+  "kind": "method",
+  "location": {
+   "end_line": 807,
+   "file": "typer/_click/core.py",
+   "start_line": 805
+  },
+  "name": "__call__",
+  "selection_char": 8,
+  "selection_line": 805
+ },
+ {
+  "container": "Parameter",
+  "kind": "method",
+  "location": {
+   "end_line": 862,
+   "file": "typer/_click/core.py",
+   "start_line": 819
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 819
+ },
+ {
+  "container": "Parameter",
+  "kind": "method",
+  "location": {
+   "end_line": 865,
+   "file": "typer/_click/core.py",
+   "start_line": 864
+  },
+  "name": "__repr__",
+  "selection_char": 8,
+  "selection_line": 864
+ },
+ {
+  "container": "Parameter",
+  "kind": "method",
+  "location": {
+   "end_line": 871,
+   "file": "typer/_click/core.py",
+   "start_line": 867
+  },
+  "name": "_parse_decls",
+  "selection_char": 8,
+  "selection_line": 868
+ },
+ {
+  "container": "Parameter",
+  "kind": "method",
+  "location": {
+   "end_line": 879,
+   "file": "typer/_click/core.py",
+   "start_line": 873
+  },
+  "name": "human_readable_name",
+  "selection_char": 8,
+  "selection_line": 874
+ },
+ {
+  "container": "Parameter",
+  "kind": "method",
+  "location": {
+   "end_line": 893,
+   "file": "typer/_click/core.py",
+   "start_line": 881
+  },
+  "name": "make_metavar",
+  "selection_char": 8,
+  "selection_line": 881
+ },
+ {
+  "container": "Parameter",
+  "kind": "method",
+  "location": {
+   "end_line": 915,
+   "file": "typer/_click/core.py",
+   "start_line": 903
+  },
+  "name": "get_default",
+  "selection_char": 8,
+  "selection_line": 903
+ },
+ {
+  "container": "Parameter",
+  "kind": "method",
+  "location": {
+   "end_line": 919,
+   "file": "typer/_click/core.py",
+   "start_line": 917
+  },
+  "name": "add_to_parser",
+  "selection_char": 8,
+  "selection_line": 918
+ },
+ {
+  "container": "Parameter",
+  "kind": "method",
+  "location": {
+   "end_line": 939,
+   "file": "typer/_click/core.py",
+   "start_line": 921
+  },
+  "name": "consume_value",
+  "selection_char": 8,
+  "selection_line": 921
+ },
+ {
+  "container": "Parameter",
+  "kind": "method",
+  "location": {
+   "end_line": 983,
+   "file": "typer/_click/core.py",
+   "start_line": 941
+  },
+  "name": "type_cast_value",
+  "selection_char": 8,
+  "selection_line": 941
+ },
+ {
+  "container": "type_cast_value",
+  "kind": "function",
+  "location": {
+   "end_line": 952,
+   "file": "typer/_click/core.py",
+   "start_line": 948
+  },
+  "name": "check_iter",
+  "selection_char": 12,
+  "selection_line": 948
+ },
+ {
+  "container": "type_cast_value",
+  "kind": "function",
+  "location": {
+   "end_line": 978,
+   "file": "typer/_click/core.py",
+   "start_line": 968
+  },
+  "name": "convert",
+  "selection_char": 16,
+  "selection_line": 968
+ },
+ {
+  "container": "Parameter",
+  "kind": "method",
+  "location": {
+   "end_line": 987,
+   "file": "typer/_click/core.py",
+   "start_line": 985
+  },
+  "name": "value_is_missing",
+  "selection_char": 8,
+  "selection_line": 986
+ },
+ {
+  "container": "Parameter",
+  "kind": "method",
+  "location": {
+   "end_line": 999,
+   "file": "typer/_click/core.py",
+   "start_line": 989
+  },
+  "name": "process_value",
+  "selection_char": 8,
+  "selection_line": 989
+ },
+ {
+  "container": "Parameter",
+  "kind": "method",
+  "location": {
+   "end_line": 1036,
+   "file": "typer/_click/core.py",
+   "start_line": 1001
+  },
+  "name": "resolve_envvar_value",
+  "selection_char": 8,
+  "selection_line": 1001
+ },
+ {
+  "container": "Parameter",
+  "kind": "method",
+  "location": {
+   "end_line": 1050,
+   "file": "typer/_click/core.py",
+   "start_line": 1038
+  },
+  "name": "value_from_envvar",
+  "selection_char": 8,
+  "selection_line": 1038
+ },
+ {
+  "container": "Parameter",
+  "kind": "method",
+  "location": {
+   "end_line": 1080,
+   "file": "typer/_click/core.py",
+   "start_line": 1052
+  },
+  "name": "handle_parse_result",
+  "selection_char": 8,
+  "selection_line": 1052
+ },
+ {
+  "container": "Parameter",
+  "kind": "method",
+  "location": {
+   "end_line": 1084,
+   "file": "typer/_click/core.py",
+   "start_line": 1082
+  },
+  "name": "get_help_record",
+  "selection_char": 8,
+  "selection_line": 1083
+ },
+ {
+  "container": "Parameter",
+  "kind": "method",
+  "location": {
+   "end_line": 1087,
+   "file": "typer/_click/core.py",
+   "start_line": 1086
+  },
+  "name": "get_usage_pieces",
+  "selection_char": 8,
+  "selection_line": 1086
+ },
+ {
+  "container": "Parameter",
+  "kind": "method",
+  "location": {
+   "end_line": 1094,
+   "file": "typer/_click/core.py",
+   "start_line": 1089
+  },
+  "name": "get_error_hint",
+  "selection_char": 8,
+  "selection_line": 1089
+ },
+ {
+  "container": "Parameter",
+  "kind": "method",
+  "location": {
+   "end_line": 1111,
+   "file": "typer/_click/core.py",
+   "start_line": 1096
+  },
+  "name": "shell_complete",
+  "selection_char": 8,
+  "selection_line": 1096
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 38,
+   "file": "typer/_click/decorators.py",
+   "start_line": 23
+  },
+  "name": "option",
+  "selection_char": 4,
+  "selection_line": 23
+ },
+ {
+  "container": "option",
+  "kind": "function",
+  "location": {
+   "end_line": 36,
+   "file": "typer/_click/decorators.py",
+   "start_line": 33
+  },
+  "name": "decorator",
+  "selection_char": 8,
+  "selection_line": 33
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 60,
+   "file": "typer/_click/decorators.py",
+   "start_line": 41
+  },
+  "name": "help_option",
+  "selection_char": 4,
+  "selection_line": 41
+ },
+ {
+  "container": "help_option",
+  "kind": "function",
+  "location": {
+   "end_line": 48,
+   "file": "typer/_click/decorators.py",
+   "start_line": 44
+  },
+  "name": "show_help",
+  "selection_char": 8,
+  "selection_line": 44
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 16,
+   "file": "typer/_click/exceptions.py",
+   "start_line": 12
+  },
+  "name": "_join_param_hints",
+  "selection_char": 4,
+  "selection_line": 12
+ },
+ {
+  "container": "ClickException",
+  "kind": "method",
+  "location": {
+   "end_line": 29,
+   "file": "typer/_click/exceptions.py",
+   "start_line": 24
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 24
+ },
+ {
+  "container": "ClickException",
+  "kind": "method",
+  "location": {
+   "end_line": 32,
+   "file": "typer/_click/exceptions.py",
+   "start_line": 31
+  },
+  "name": "format_message",
+  "selection_char": 8,
+  "selection_line": 31
+ },
+ {
+  "container": "ClickException",
+  "kind": "method",
+  "location": {
+   "end_line": 35,
+   "file": "typer/_click/exceptions.py",
+   "start_line": 34
+  },
+  "name": "__str__",
+  "selection_char": 8,
+  "selection_line": 34
+ },
+ {
+  "container": "ClickException",
+  "kind": "method",
+  "location": {
+   "end_line": 45,
+   "file": "typer/_click/exceptions.py",
+   "start_line": 37
+  },
+  "name": "show",
+  "selection_char": 8,
+  "selection_line": 37
+ },
+ {
+  "container": "UsageError",
+  "kind": "method",
+  "location": {
+   "end_line": 58,
+   "file": "typer/_click/exceptions.py",
+   "start_line": 55
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 55
+ },
+ {
+  "container": "UsageError",
+  "kind": "method",
+  "location": {
+   "end_line": 79,
+   "file": "typer/_click/exceptions.py",
+   "start_line": 60
+  },
+  "name": "show",
+  "selection_char": 8,
+  "selection_line": 60
+ },
+ {
+  "container": "BadParameter",
+  "kind": "method",
+  "location": {
+   "end_line": 98,
+   "file": "typer/_click/exceptions.py",
+   "start_line": 89
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 89
+ },
+ {
+  "container": "BadParameter",
+  "kind": "method",
+  "location": {
+   "end_line": 109,
+   "file": "typer/_click/exceptions.py",
+   "start_line": 100
+  },
+  "name": "format_message",
+  "selection_char": 8,
+  "selection_line": 100
+ },
+ {
+  "container": "MissingParameter",
+  "kind": "method",
+  "location": {
+   "end_line": 126,
+   "file": "typer/_click/exceptions.py",
+   "start_line": 117
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 117
+ },
+ {
+  "container": "MissingParameter",
+  "kind": "method",
+  "location": {
+   "end_line": 166,
+   "file": "typer/_click/exceptions.py",
+   "start_line": 128
+  },
+  "name": "format_message",
+  "selection_char": 8,
+  "selection_line": 128
+ },
+ {
+  "container": "MissingParameter",
+  "kind": "method",
+  "location": {
+   "end_line": 173,
+   "file": "typer/_click/exceptions.py",
+   "start_line": 168
+  },
+  "name": "__str__",
+  "selection_char": 8,
+  "selection_line": 168
+ },
+ {
+  "container": "NoSuchOption",
+  "kind": "method",
+  "location": {
+   "end_line": 193,
+   "file": "typer/_click/exceptions.py",
+   "start_line": 181
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 181
+ },
+ {
+  "container": "NoSuchOption",
+  "kind": "method",
+  "location": {
+   "end_line": 201,
+   "file": "typer/_click/exceptions.py",
+   "start_line": 195
+  },
+  "name": "format_message",
+  "selection_char": 8,
+  "selection_line": 195
+ },
+ {
+  "container": "BadOptionUsage",
+  "kind": "method",
+  "location": {
+   "end_line": 214,
+   "file": "typer/_click/exceptions.py",
+   "start_line": 210
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 210
+ },
+ {
+  "container": "NoArgsIsHelpError",
+  "kind": "method",
+  "location": {
+   "end_line": 227,
+   "file": "typer/_click/exceptions.py",
+   "start_line": 225
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 225
+ },
+ {
+  "container": "NoArgsIsHelpError",
+  "kind": "method",
+  "location": {
+   "end_line": 230,
+   "file": "typer/_click/exceptions.py",
+   "start_line": 229
+  },
+  "name": "show",
+  "selection_char": 8,
+  "selection_line": 229
+ },
+ {
+  "container": "FileError",
+  "kind": "method",
+  "location": {
+   "end_line": 242,
+   "file": "typer/_click/exceptions.py",
+   "start_line": 236
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 236
+ },
+ {
+  "container": "FileError",
+  "kind": "method",
+  "location": {
+   "end_line": 245,
+   "file": "typer/_click/exceptions.py",
+   "start_line": 244
+  },
+  "name": "format_message",
+  "selection_char": 8,
+  "selection_line": 244
+ },
+ {
+  "container": "Exit",
+  "kind": "method",
+  "location": {
+   "end_line": 260,
+   "file": "typer/_click/exceptions.py",
+   "start_line": 259
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 259
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 18,
+   "file": "typer/_click/formatting.py",
+   "start_line": 11
+  },
+  "name": "measure_table",
+  "selection_char": 4,
+  "selection_line": 11
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 25,
+   "file": "typer/_click/formatting.py",
+   "start_line": 21
+  },
+  "name": "iter_rows",
+  "selection_char": 4,
+  "selection_line": 21
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 89,
+   "file": "typer/_click/formatting.py",
+   "start_line": 28
+  },
+  "name": "wrap_text",
+  "selection_char": 4,
+  "selection_line": 28
+ },
+ {
+  "container": "wrap_text",
+  "kind": "function",
+  "location": {
+   "end_line": 67,
+   "file": "typer/_click/formatting.py",
+   "start_line": 60
+  },
+  "name": "_flush_par",
+  "selection_char": 8,
+  "selection_line": 60
+ },
+ {
+  "container": "HelpFormatter",
+  "kind": "method",
+  "location": {
+   "end_line": 117,
+   "file": "typer/_click/formatting.py",
+   "start_line": 100
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 100
+ },
+ {
+  "container": "HelpFormatter",
+  "kind": "method",
+  "location": {
+   "end_line": 121,
+   "file": "typer/_click/formatting.py",
+   "start_line": 119
+  },
+  "name": "write",
+  "selection_char": 8,
+  "selection_line": 119
+ },
+ {
+  "container": "HelpFormatter",
+  "kind": "method",
+  "location": {
+   "end_line": 125,
+   "file": "typer/_click/formatting.py",
+   "start_line": 123
+  },
+  "name": "indent",
+  "selection_char": 8,
+  "selection_line": 123
+ },
+ {
+  "container": "HelpFormatter",
+  "kind": "method",
+  "location": {
+   "end_line": 129,
+   "file": "typer/_click/formatting.py",
+   "start_line": 127
+  },
+  "name": "dedent",
+  "selection_char": 8,
+  "selection_line": 127
+ },
+ {
+  "container": "HelpFormatter",
+  "kind": "method",
+  "location": {
+   "end_line": 161,
+   "file": "typer/_click/formatting.py",
+   "start_line": 131
+  },
+  "name": "write_usage",
+  "selection_char": 8,
+  "selection_line": 131
+ },
+ {
+  "container": "HelpFormatter",
+  "kind": "method",
+  "location": {
+   "end_line": 165,
+   "file": "typer/_click/formatting.py",
+   "start_line": 163
+  },
+  "name": "write_heading",
+  "selection_char": 8,
+  "selection_line": 163
+ },
+ {
+  "container": "HelpFormatter",
+  "kind": "method",
+  "location": {
+   "end_line": 170,
+   "file": "typer/_click/formatting.py",
+   "start_line": 167
+  },
+  "name": "write_paragraph",
+  "selection_char": 8,
+  "selection_line": 167
+ },
+ {
+  "container": "HelpFormatter",
+  "kind": "method",
+  "location": {
+   "end_line": 186,
+   "file": "typer/_click/formatting.py",
+   "start_line": 172
+  },
+  "name": "write_text",
+  "selection_char": 8,
+  "selection_line": 172
+ },
+ {
+  "container": "HelpFormatter",
+  "kind": "method",
+  "location": {
+   "end_line": 225,
+   "file": "typer/_click/formatting.py",
+   "start_line": 188
+  },
+  "name": "write_dl",
+  "selection_char": 8,
+  "selection_line": 188
+ },
+ {
+  "container": "HelpFormatter",
+  "kind": "method",
+  "location": {
+   "end_line": 238,
+   "file": "typer/_click/formatting.py",
+   "start_line": 227
+  },
+  "name": "section",
+  "selection_char": 8,
+  "selection_line": 228
+ },
+ {
+  "container": "HelpFormatter",
+  "kind": "method",
+  "location": {
+   "end_line": 247,
+   "file": "typer/_click/formatting.py",
+   "start_line": 240
+  },
+  "name": "indentation",
+  "selection_char": 8,
+  "selection_line": 241
+ },
+ {
+  "container": "HelpFormatter",
+  "kind": "method",
+  "location": {
+   "end_line": 251,
+   "file": "typer/_click/formatting.py",
+   "start_line": 249
+  },
+  "name": "getvalue",
+  "selection_char": 8,
+  "selection_line": 249
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 272,
+   "file": "typer/_click/formatting.py",
+   "start_line": 254
+  },
+  "name": "join_options",
+  "selection_char": 4,
+  "selection_line": 254
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 35,
+   "file": "typer/_click/globals.py",
+   "start_line": 18
+  },
+  "name": "get_current_context",
+  "selection_char": 4,
+  "selection_line": 18
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 40,
+   "file": "typer/_click/globals.py",
+   "start_line": 38
+  },
+  "name": "push_context",
+  "selection_char": 4,
+  "selection_line": 38
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 45,
+   "file": "typer/_click/globals.py",
+   "start_line": 43
+  },
+  "name": "pop_context",
+  "selection_char": 4,
+  "selection_line": 43
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 61,
+   "file": "typer/_click/globals.py",
+   "start_line": 48
+  },
+  "name": "resolve_color_default",
+  "selection_char": 4,
+  "selection_line": 48
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 99,
+   "file": "typer/_click/parser.py",
+   "start_line": 46
+  },
+  "name": "_unpack_args",
+  "selection_char": 4,
+  "selection_line": 46
+ },
+ {
+  "container": "_unpack_args",
+  "kind": "function",
+  "location": {
+   "end_line": 68,
+   "file": "typer/_click/parser.py",
+   "start_line": 61
+  },
+  "name": "_fetch",
+  "selection_char": 8,
+  "selection_line": 61
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 108,
+   "file": "typer/_click/parser.py",
+   "start_line": 102
+  },
+  "name": "_split_opt",
+  "selection_char": 4,
+  "selection_line": 102
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 115,
+   "file": "typer/_click/parser.py",
+   "start_line": 111
+  },
+  "name": "_normalize_opt",
+  "selection_char": 4,
+  "selection_line": 111
+ },
+ {
+  "container": "_Option",
+  "kind": "method",
+  "location": {
+   "end_line": 147,
+   "file": "typer/_click/parser.py",
+   "start_line": 119
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 119
+ },
+ {
+  "container": "_Option",
+  "kind": "method",
+  "location": {
+   "end_line": 151,
+   "file": "typer/_click/parser.py",
+   "start_line": 149
+  },
+  "name": "takes_value",
+  "selection_char": 8,
+  "selection_line": 150
+ },
+ {
+  "container": "_Option",
+  "kind": "method",
+  "location": {
+   "end_line": 166,
+   "file": "typer/_click/parser.py",
+   "start_line": 153
+  },
+  "name": "process",
+  "selection_char": 8,
+  "selection_line": 153
+ },
+ {
+  "container": "_Argument",
+  "kind": "method",
+  "location": {
+   "end_line": 173,
+   "file": "typer/_click/parser.py",
+   "start_line": 170
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 170
+ },
+ {
+  "container": "_Argument",
+  "kind": "method",
+  "location": {
+   "end_line": 196,
+   "file": "typer/_click/parser.py",
+   "start_line": 175
+  },
+  "name": "process",
+  "selection_char": 8,
+  "selection_line": 175
+ },
+ {
+  "container": "_ParsingState",
+  "kind": "method",
+  "location": {
+   "end_line": 204,
+   "file": "typer/_click/parser.py",
+   "start_line": 200
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 200
+ },
+ {
+  "container": "_OptionParser",
+  "kind": "method",
+  "location": {
+   "end_line": 238,
+   "file": "typer/_click/parser.py",
+   "start_line": 218
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 218
+ },
+ {
+  "container": "_OptionParser",
+  "kind": "method",
+  "location": {
+   "end_line": 263,
+   "file": "typer/_click/parser.py",
+   "start_line": 240
+  },
+  "name": "add_option",
+  "selection_char": 8,
+  "selection_line": 240
+ },
+ {
+  "container": "_OptionParser",
+  "kind": "method",
+  "location": {
+   "end_line": 273,
+   "file": "typer/_click/parser.py",
+   "start_line": 265
+  },
+  "name": "add_argument",
+  "selection_char": 8,
+  "selection_line": 265
+ },
+ {
+  "container": "_OptionParser",
+  "kind": "method",
+  "location": {
+   "end_line": 291,
+   "file": "typer/_click/parser.py",
+   "start_line": 275
+  },
+  "name": "parse_args",
+  "selection_char": 8,
+  "selection_line": 275
+ },
+ {
+  "container": "_OptionParser",
+  "kind": "method",
+  "location": {
+   "end_line": 302,
+   "file": "typer/_click/parser.py",
+   "start_line": 293
+  },
+  "name": "_process_args_for_args",
+  "selection_char": 8,
+  "selection_line": 293
+ },
+ {
+  "container": "_OptionParser",
+  "kind": "method",
+  "location": {
+   "end_line": 318,
+   "file": "typer/_click/parser.py",
+   "start_line": 304
+  },
+  "name": "_process_args_for_options",
+  "selection_char": 8,
+  "selection_line": 304
+ },
+ {
+  "container": "_OptionParser",
+  "kind": "method",
+  "location": {
+   "end_line": 366,
+   "file": "typer/_click/parser.py",
+   "start_line": 340
+  },
+  "name": "_match_long_opt",
+  "selection_char": 8,
+  "selection_line": 340
+ },
+ {
+  "container": "_OptionParser",
+  "kind": "method",
+  "location": {
+   "end_line": 406,
+   "file": "typer/_click/parser.py",
+   "start_line": 368
+  },
+  "name": "_match_short_opt",
+  "selection_char": 8,
+  "selection_line": 368
+ },
+ {
+  "container": "_OptionParser",
+  "kind": "method",
+  "location": {
+   "end_line": 427,
+   "file": "typer/_click/parser.py",
+   "start_line": 408
+  },
+  "name": "_get_value_from_state",
+  "selection_char": 8,
+  "selection_line": 408
+ },
+ {
+  "container": "_OptionParser",
+  "kind": "method",
+  "location": {
+   "end_line": 459,
+   "file": "typer/_click/parser.py",
+   "start_line": 429
+  },
+  "name": "_process_opts",
+  "selection_char": 8,
+  "selection_line": 429
+ },
+ {
+  "container": "CompletionItem",
+  "kind": "method",
+  "location": {
+   "end_line": 32,
+   "file": "typer/_click/shell_completion.py",
+   "start_line": 22
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 22
+ },
+ {
+  "container": "CompletionItem",
+  "kind": "method",
+  "location": {
+   "end_line": 35,
+   "file": "typer/_click/shell_completion.py",
+   "start_line": 34
+  },
+  "name": "__getattr__",
+  "selection_char": 8,
+  "selection_line": 34
+ },
+ {
+  "container": "ShellComplete",
+  "kind": "method",
+  "location": {
+   "end_line": 65,
+   "file": "typer/_click/shell_completion.py",
+   "start_line": 55
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 55
+ },
+ {
+  "container": "ShellComplete",
+  "kind": "method",
+  "location": {
+   "end_line": 73,
+   "file": "typer/_click/shell_completion.py",
+   "start_line": 67
+  },
+  "name": "func_name",
+  "selection_char": 8,
+  "selection_line": 68
+ },
+ {
+  "container": "ShellComplete",
+  "kind": "method",
+  "location": {
+   "end_line": 78,
+   "file": "typer/_click/shell_completion.py",
+   "start_line": 75
+  },
+  "name": "source_vars",
+  "selection_char": 8,
+  "selection_line": 76
+ },
+ {
+  "container": "ShellComplete",
+  "kind": "method",
+  "location": {
+   "end_line": 85,
+   "file": "typer/_click/shell_completion.py",
+   "start_line": 80
+  },
+  "name": "source",
+  "selection_char": 8,
+  "selection_line": 80
+ },
+ {
+  "container": "ShellComplete",
+  "kind": "method",
+  "location": {
+   "end_line": 93,
+   "file": "typer/_click/shell_completion.py",
+   "start_line": 87
+  },
+  "name": "get_completion_args",
+  "selection_char": 8,
+  "selection_line": 88
+ },
+ {
+  "container": "ShellComplete",
+  "kind": "method",
+  "location": {
+   "end_line": 102,
+   "file": "typer/_click/shell_completion.py",
+   "start_line": 95
+  },
+  "name": "get_completions",
+  "selection_char": 8,
+  "selection_line": 95
+ },
+ {
+  "container": "ShellComplete",
+  "kind": "method",
+  "location": {
+   "end_line": 109,
+   "file": "typer/_click/shell_completion.py",
+   "start_line": 104
+  },
+  "name": "format_completion",
+  "selection_char": 8,
+  "selection_line": 105
+ },
+ {
+  "container": "ShellComplete",
+  "kind": "method",
+  "location": {
+   "end_line": 121,
+   "file": "typer/_click/shell_completion.py",
+   "start_line": 111
+  },
+  "name": "complete",
+  "selection_char": 8,
+  "selection_line": 111
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 137,
+   "file": "typer/_click/shell_completion.py",
+   "start_line": 130
+  },
+  "name": "add_completion_class",
+  "selection_char": 4,
+  "selection_line": 130
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 145,
+   "file": "typer/_click/shell_completion.py",
+   "start_line": 140
+  },
+  "name": "get_completion_class",
+  "selection_char": 4,
+  "selection_line": 140
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 169,
+   "file": "typer/_click/shell_completion.py",
+   "start_line": 148
+  },
+  "name": "split_arg_string",
+  "selection_char": 4,
+  "selection_line": 148
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 193,
+   "file": "typer/_click/shell_completion.py",
+   "start_line": 172
+  },
+  "name": "_is_incomplete_argument",
+  "selection_char": 4,
+  "selection_line": 172
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 202,
+   "file": "typer/_click/shell_completion.py",
+   "start_line": 196
+  },
+  "name": "_start_of_option",
+  "selection_char": 4,
+  "selection_line": 196
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 226,
+   "file": "typer/_click/shell_completion.py",
+   "start_line": 205
+  },
+  "name": "_is_incomplete_option",
+  "selection_char": 4,
+  "selection_line": 205
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 264,
+   "file": "typer/_click/shell_completion.py",
+   "start_line": 229
+  },
+  "name": "_resolve_context",
+  "selection_char": 4,
+  "selection_line": 229
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 306,
+   "file": "typer/_click/shell_completion.py",
+   "start_line": 267
+  },
+  "name": "_resolve_incomplete",
+  "selection_char": 4,
+  "selection_line": 267
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 45,
+   "file": "typer/_click/termui.py",
+   "start_line": 42
+  },
+  "name": "hidden_prompt_func",
+  "selection_char": 4,
+  "selection_line": 42
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 64,
+   "file": "typer/_click/termui.py",
+   "start_line": 48
+  },
+  "name": "_build_prompt",
+  "selection_char": 4,
+  "selection_line": 48
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 71,
+   "file": "typer/_click/termui.py",
+   "start_line": 67
+  },
+  "name": "_format_default",
+  "selection_char": 4,
+  "selection_line": 67
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 148,
+   "file": "typer/_click/termui.py",
+   "start_line": 74
+  },
+  "name": "prompt",
+  "selection_char": 4,
+  "selection_line": 74
+ },
+ {
+  "container": "prompt",
+  "kind": "function",
+  "location": {
+   "end_line": 108,
+   "file": "typer/_click/termui.py",
+   "start_line": 93
+  },
+  "name": "prompt_func",
+  "selection_char": 8,
+  "selection_line": 93
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 193,
+   "file": "typer/_click/termui.py",
+   "start_line": 151
+  },
+  "name": "confirm",
+  "selection_char": 4,
+  "selection_line": 151
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 298,
+   "file": "typer/_click/termui.py",
+   "start_line": 237
+  },
+  "name": "progressbar",
+  "selection_char": 4,
+  "selection_line": 237
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 309,
+   "file": "typer/_click/termui.py",
+   "start_line": 301
+  },
+  "name": "_interpret_color",
+  "selection_char": 4,
+  "selection_line": 301
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 367,
+   "file": "typer/_click/termui.py",
+   "start_line": 312
+  },
+  "name": "style",
+  "selection_char": 4,
+  "selection_line": 312
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 382,
+   "file": "typer/_click/termui.py",
+   "start_line": 370
+  },
+  "name": "secho",
+  "selection_char": 4,
+  "selection_line": 370
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 394,
+   "file": "typer/_click/termui.py",
+   "start_line": 385
+  },
+  "name": "launch",
+  "selection_char": 4,
+  "selection_line": 385
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 424,
+   "file": "typer/_click/termui.py",
+   "start_line": 402
+  },
+  "name": "getchar",
+  "selection_char": 4,
+  "selection_line": 402
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 430,
+   "file": "typer/_click/termui.py",
+   "start_line": 427
+  },
+  "name": "raw_terminal",
+  "selection_char": 4,
+  "selection_line": 427
+ },
+ {
+  "container": "ParamType",
+  "kind": "method",
+  "location": {
+   "end_line": 67,
+   "file": "typer/_click/types.py",
+   "start_line": 60
+  },
+  "name": "__call__",
+  "selection_char": 8,
+  "selection_line": 60
+ },
+ {
+  "container": "ParamType",
+  "kind": "method",
+  "location": {
+   "end_line": 71,
+   "file": "typer/_click/types.py",
+   "start_line": 69
+  },
+  "name": "get_metavar",
+  "selection_char": 8,
+  "selection_line": 69
+ },
+ {
+  "container": "ParamType",
+  "kind": "method",
+  "location": {
+   "end_line": 79,
+   "file": "typer/_click/types.py",
+   "start_line": 73
+  },
+  "name": "get_missing_message",
+  "selection_char": 8,
+  "selection_line": 73
+ },
+ {
+  "container": "ParamType",
+  "kind": "method",
+  "location": {
+   "end_line": 84,
+   "file": "typer/_click/types.py",
+   "start_line": 81
+  },
+  "name": "convert",
+  "selection_char": 8,
+  "selection_line": 81
+ },
+ {
+  "container": "ParamType",
+  "kind": "method",
+  "location": {
+   "end_line": 94,
+   "file": "typer/_click/types.py",
+   "start_line": 86
+  },
+  "name": "split_envvar_value",
+  "selection_char": 8,
+  "selection_line": 86
+ },
+ {
+  "container": "ParamType",
+  "kind": "method",
+  "location": {
+   "end_line": 103,
+   "file": "typer/_click/types.py",
+   "start_line": 96
+  },
+  "name": "fail",
+  "selection_char": 8,
+  "selection_line": 96
+ },
+ {
+  "container": "ParamType",
+  "kind": "method",
+  "location": {
+   "end_line": 113,
+   "file": "typer/_click/types.py",
+   "start_line": 105
+  },
+  "name": "shell_complete",
+  "selection_char": 8,
+  "selection_line": 105
+ },
+ {
+  "container": "CompositeParamType",
+  "kind": "method",
+  "location": {
+   "end_line": 121,
+   "file": "typer/_click/types.py",
+   "start_line": 119
+  },
+  "name": "arity",
+  "selection_char": 8,
+  "selection_line": 120
+ },
+ {
+  "container": "FuncParamType",
+  "kind": "method",
+  "location": {
+   "end_line": 127,
+   "file": "typer/_click/types.py",
+   "start_line": 125
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 125
+ },
+ {
+  "container": "FuncParamType",
+  "kind": "method",
+  "location": {
+   "end_line": 141,
+   "file": "typer/_click/types.py",
+   "start_line": 129
+  },
+  "name": "convert",
+  "selection_char": 8,
+  "selection_line": 129
+ },
+ {
+  "container": "StringParamType",
+  "kind": "method",
+  "location": {
+   "end_line": 164,
+   "file": "typer/_click/types.py",
+   "start_line": 147
+  },
+  "name": "convert",
+  "selection_char": 8,
+  "selection_line": 147
+ },
+ {
+  "container": "StringParamType",
+  "kind": "method",
+  "location": {
+   "end_line": 167,
+   "file": "typer/_click/types.py",
+   "start_line": 166
+  },
+  "name": "__repr__",
+  "selection_char": 8,
+  "selection_line": 166
+ },
+ {
+  "container": "DateTime",
+  "kind": "method",
+  "location": {
+   "end_line": 193,
+   "file": "typer/_click/types.py",
+   "start_line": 188
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 188
+ },
+ {
+  "container": "DateTime",
+  "kind": "method",
+  "location": {
+   "end_line": 196,
+   "file": "typer/_click/types.py",
+   "start_line": 195
+  },
+  "name": "get_metavar",
+  "selection_char": 8,
+  "selection_line": 195
+ },
+ {
+  "container": "DateTime",
+  "kind": "method",
+  "location": {
+   "end_line": 202,
+   "file": "typer/_click/types.py",
+   "start_line": 198
+  },
+  "name": "_try_to_convert_date",
+  "selection_char": 8,
+  "selection_line": 198
+ },
+ {
+  "container": "DateTime",
+  "kind": "method",
+  "location": {
+   "end_line": 221,
+   "file": "typer/_click/types.py",
+   "start_line": 204
+  },
+  "name": "convert",
+  "selection_char": 8,
+  "selection_line": 204
+ },
+ {
+  "container": "DateTime",
+  "kind": "method",
+  "location": {
+   "end_line": 224,
+   "file": "typer/_click/types.py",
+   "start_line": 223
+  },
+  "name": "__repr__",
+  "selection_char": 8,
+  "selection_line": 223
+ },
+ {
+  "container": "_NumberParamTypeBase",
+  "kind": "method",
+  "location": {
+   "end_line": 240,
+   "file": "typer/_click/types.py",
+   "start_line": 230
+  },
+  "name": "convert",
+  "selection_char": 8,
+  "selection_line": 230
+ },
+ {
+  "container": "_NumberRangeBase",
+  "kind": "method",
+  "location": {
+   "end_line": 256,
+   "file": "typer/_click/types.py",
+   "start_line": 244
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 244
+ },
+ {
+  "container": "_NumberRangeBase",
+  "kind": "method",
+  "location": {
+   "end_line": 285,
+   "file": "typer/_click/types.py",
+   "start_line": 258
+  },
+  "name": "convert",
+  "selection_char": 8,
+  "selection_line": 258
+ },
+ {
+  "container": "_NumberRangeBase",
+  "kind": "method",
+  "location": {
+   "end_line": 291,
+   "file": "typer/_click/types.py",
+   "start_line": 287
+  },
+  "name": "_clamp",
+  "selection_char": 8,
+  "selection_line": 287
+ },
+ {
+  "container": "_NumberRangeBase",
+  "kind": "method",
+  "location": {
+   "end_line": 305,
+   "file": "typer/_click/types.py",
+   "start_line": 293
+  },
+  "name": "_describe_range",
+  "selection_char": 8,
+  "selection_line": 293
+ },
+ {
+  "container": "_NumberRangeBase",
+  "kind": "method",
+  "location": {
+   "end_line": 309,
+   "file": "typer/_click/types.py",
+   "start_line": 307
+  },
+  "name": "__repr__",
+  "selection_char": 8,
+  "selection_line": 307
+ },
+ {
+  "container": "IntParamType",
+  "kind": "method",
+  "location": {
+   "end_line": 317,
+   "file": "typer/_click/types.py",
+   "start_line": 316
+  },
+  "name": "__repr__",
+  "selection_char": 8,
+  "selection_line": 316
+ },
+ {
+  "container": "IntRange",
+  "kind": "method",
+  "location": {
+   "end_line": 339,
+   "file": "typer/_click/types.py",
+   "start_line": 333
+  },
+  "name": "_clamp",
+  "selection_char": 8,
+  "selection_line": 333
+ },
+ {
+  "container": "FloatParamType",
+  "kind": "method",
+  "location": {
+   "end_line": 347,
+   "file": "typer/_click/types.py",
+   "start_line": 346
+  },
+  "name": "__repr__",
+  "selection_char": 8,
+  "selection_line": 346
+ },
+ {
+  "container": "FloatRange",
+  "kind": "method",
+  "location": {
+   "end_line": 378,
+   "file": "typer/_click/types.py",
+   "start_line": 365
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 365
+ },
+ {
+  "container": "FloatRange",
+  "kind": "method",
+  "location": {
+   "end_line": 389,
+   "file": "typer/_click/types.py",
+   "start_line": 380
+  },
+  "name": "_clamp",
+  "selection_char": 8,
+  "selection_line": 380
+ },
+ {
+  "container": "BoolParamType",
+  "kind": "method",
+  "location": {
+   "end_line": 430,
+   "file": "typer/_click/types.py",
+   "start_line": 417
+  },
+  "name": "str_to_bool",
+  "selection_char": 8,
+  "selection_line": 418
+ },
+ {
+  "container": "BoolParamType",
+  "kind": "method",
+  "location": {
+   "end_line": 443,
+   "file": "typer/_click/types.py",
+   "start_line": 432
+  },
+  "name": "convert",
+  "selection_char": 8,
+  "selection_line": 432
+ },
+ {
+  "container": "BoolParamType",
+  "kind": "method",
+  "location": {
+   "end_line": 446,
+   "file": "typer/_click/types.py",
+   "start_line": 445
+  },
+  "name": "__repr__",
+  "selection_char": 8,
+  "selection_line": 445
+ },
+ {
+  "container": "UUIDParameterType",
+  "kind": "method",
+  "location": {
+   "end_line": 465,
+   "file": "typer/_click/types.py",
+   "start_line": 452
+  },
+  "name": "convert",
+  "selection_char": 8,
+  "selection_line": 452
+ },
+ {
+  "container": "UUIDParameterType",
+  "kind": "method",
+  "location": {
+   "end_line": 468,
+   "file": "typer/_click/types.py",
+   "start_line": 467
+  },
+  "name": "__repr__",
+  "selection_char": 8,
+  "selection_line": 467
+ },
+ {
+  "container": "File",
+  "kind": "method",
+  "location": {
+   "end_line": 511,
+   "file": "typer/_click/types.py",
+   "start_line": 499
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 499
+ },
+ {
+  "container": "File",
+  "kind": "method",
+  "location": {
+   "end_line": 520,
+   "file": "typer/_click/types.py",
+   "start_line": 513
+  },
+  "name": "resolve_lazy_flag",
+  "selection_char": 8,
+  "selection_line": 513
+ },
+ {
+  "container": "File",
+  "kind": "method",
+  "location": {
+   "end_line": 563,
+   "file": "typer/_click/types.py",
+   "start_line": 522
+  },
+  "name": "convert",
+  "selection_char": 8,
+  "selection_line": 522
+ },
+ {
+  "container": "File",
+  "kind": "method",
+  "location": {
+   "end_line": 573,
+   "file": "typer/_click/types.py",
+   "start_line": 565
+  },
+  "name": "shell_complete",
+  "selection_char": 8,
+  "selection_line": 565
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 577,
+   "file": "typer/_click/types.py",
+   "start_line": 576
+  },
+  "name": "_is_file_like",
+  "selection_char": 4,
+  "selection_line": 576
+ },
+ {
+  "container": "Tuple",
+  "kind": "method",
+  "location": {
+   "end_line": 593,
+   "file": "typer/_click/types.py",
+   "start_line": 592
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 592
+ },
+ {
+  "container": "Tuple",
+  "kind": "method",
+  "location": {
+   "end_line": 597,
+   "file": "typer/_click/types.py",
+   "start_line": 595
+  },
+  "name": "name",
+  "selection_char": 8,
+  "selection_line": 596
+ },
+ {
+  "container": "Tuple",
+  "kind": "method",
+  "location": {
+   "end_line": 601,
+   "file": "typer/_click/types.py",
+   "start_line": 599
+  },
+  "name": "arity",
+  "selection_char": 8,
+  "selection_line": 600
+ },
+ {
+  "container": "Tuple",
+  "kind": "method",
+  "location": {
+   "end_line": 618,
+   "file": "typer/_click/types.py",
+   "start_line": 603
+  },
+  "name": "convert",
+  "selection_char": 8,
+  "selection_line": 603
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 668,
+   "file": "typer/_click/types.py",
+   "start_line": 621
+  },
+  "name": "convert_type",
+  "selection_char": 4,
+  "selection_line": 621
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 38,
+   "file": "typer/_click/utils.py",
+   "start_line": 37
+  },
+  "name": "_posixify",
+  "selection_char": 4,
+  "selection_line": 37
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 51,
+   "file": "typer/_click/utils.py",
+   "start_line": 41
+  },
+  "name": "safecall",
+  "selection_char": 4,
+  "selection_line": 41
+ },
+ {
+  "container": "safecall",
+  "kind": "function",
+  "location": {
+   "end_line": 49,
+   "file": "typer/_click/utils.py",
+   "start_line": 44
+  },
+  "name": "wrapper",
+  "selection_char": 8,
+  "selection_line": 44
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 101,
+   "file": "typer/_click/utils.py",
+   "start_line": 54
+  },
+  "name": "make_default_short_help",
+  "selection_char": 4,
+  "selection_line": 54
+ },
+ {
+  "container": "LazyFile",
+  "kind": "method",
+  "location": {
+   "end_line": 136,
+   "file": "typer/_click/utils.py",
+   "start_line": 111
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 111
+ },
+ {
+  "container": "LazyFile",
+  "kind": "method",
+  "location": {
+   "end_line": 139,
+   "file": "typer/_click/utils.py",
+   "start_line": 138
+  },
+  "name": "__getattr__",
+  "selection_char": 8,
+  "selection_line": 138
+ },
+ {
+  "container": "LazyFile",
+  "kind": "method",
+  "location": {
+   "end_line": 144,
+   "file": "typer/_click/utils.py",
+   "start_line": 141
+  },
+  "name": "__repr__",
+  "selection_char": 8,
+  "selection_line": 141
+ },
+ {
+  "container": "LazyFile",
+  "kind": "method",
+  "location": {
+   "end_line": 162,
+   "file": "typer/_click/utils.py",
+   "start_line": 146
+  },
+  "name": "open",
+  "selection_char": 8,
+  "selection_line": 146
+ },
+ {
+  "container": "LazyFile",
+  "kind": "method",
+  "location": {
+   "end_line": 167,
+   "file": "typer/_click/utils.py",
+   "start_line": 164
+  },
+  "name": "close",
+  "selection_char": 8,
+  "selection_line": 164
+ },
+ {
+  "container": "LazyFile",
+  "kind": "method",
+  "location": {
+   "end_line": 174,
+   "file": "typer/_click/utils.py",
+   "start_line": 169
+  },
+  "name": "close_intelligently",
+  "selection_char": 8,
+  "selection_line": 169
+ },
+ {
+  "container": "LazyFile",
+  "kind": "method",
+  "location": {
+   "end_line": 177,
+   "file": "typer/_click/utils.py",
+   "start_line": 176
+  },
+  "name": "__enter__",
+  "selection_char": 8,
+  "selection_line": 176
+ },
+ {
+  "container": "LazyFile",
+  "kind": "method",
+  "location": {
+   "end_line": 185,
+   "file": "typer/_click/utils.py",
+   "start_line": 179
+  },
+  "name": "__exit__",
+  "selection_char": 8,
+  "selection_line": 179
+ },
+ {
+  "container": "LazyFile",
+  "kind": "method",
+  "location": {
+   "end_line": 189,
+   "file": "typer/_click/utils.py",
+   "start_line": 187
+  },
+  "name": "__iter__",
+  "selection_char": 8,
+  "selection_line": 187
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 269,
+   "file": "typer/_click/utils.py",
+   "start_line": 192
+  },
+  "name": "echo",
+  "selection_char": 4,
+  "selection_line": 192
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 277,
+   "file": "typer/_click/utils.py",
+   "start_line": 272
+  },
+  "name": "get_binary_stream",
+  "selection_char": 4,
+  "selection_line": 272
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 293,
+   "file": "typer/_click/utils.py",
+   "start_line": 280
+  },
+  "name": "get_text_stream",
+  "selection_char": 4,
+  "selection_line": 280
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 330,
+   "file": "typer/_click/utils.py",
+   "start_line": 296
+  },
+  "name": "format_filename",
+  "selection_char": 4,
+  "selection_line": 296
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 368,
+   "file": "typer/_click/utils.py",
+   "start_line": 333
+  },
+  "name": "get_app_dir",
+  "selection_char": 4,
+  "selection_line": 333
+ },
+ {
+  "container": "PacifyFlushWrapper",
+  "kind": "method",
+  "location": {
+   "end_line": 381,
+   "file": "typer/_click/utils.py",
+   "start_line": 380
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 380
+ },
+ {
+  "container": "PacifyFlushWrapper",
+  "kind": "method",
+  "location": {
+   "end_line": 390,
+   "file": "typer/_click/utils.py",
+   "start_line": 383
+  },
+  "name": "flush",
+  "selection_char": 8,
+  "selection_line": 383
+ },
+ {
+  "container": "PacifyFlushWrapper",
+  "kind": "method",
+  "location": {
+   "end_line": 393,
+   "file": "typer/_click/utils.py",
+   "start_line": 392
+  },
+  "name": "__getattr__",
+  "selection_char": 8,
+  "selection_line": 392
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 438,
+   "file": "typer/_click/utils.py",
+   "start_line": 396
+  },
+  "name": "_detect_program_name",
+  "selection_char": 4,
+  "selection_line": 396
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 470,
+   "file": "typer/_click/utils.py",
+   "start_line": 441
+  },
+  "name": "_expand_args",
+  "selection_char": 4,
+  "selection_line": 441
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 25,
+   "file": "typer/_completion_classes.py",
+   "start_line": 19
+  },
+  "name": "_sanitize_help_text",
+  "selection_char": 4,
+  "selection_line": 19
+ },
+ {
+  "container": "BashComplete",
+  "kind": "method",
+  "location": {
+   "end_line": 37,
+   "file": "typer/_completion_classes.py",
+   "start_line": 32
+  },
+  "name": "source_vars",
+  "selection_char": 8,
+  "selection_line": 32
+ },
+ {
+  "container": "BashComplete",
+  "kind": "method",
+  "location": {
+   "end_line": 49,
+   "file": "typer/_completion_classes.py",
+   "start_line": 39
+  },
+  "name": "get_completion_args",
+  "selection_char": 8,
+  "selection_line": 39
+ },
+ {
+  "container": "BashComplete",
+  "kind": "method",
+  "location": {
+   "end_line": 55,
+   "file": "typer/_completion_classes.py",
+   "start_line": 51
+  },
+  "name": "format_completion",
+  "selection_char": 8,
+  "selection_line": 51
+ },
+ {
+  "container": "BashComplete",
+  "kind": "method",
+  "location": {
+   "end_line": 61,
+   "file": "typer/_completion_classes.py",
+   "start_line": 57
+  },
+  "name": "complete",
+  "selection_char": 8,
+  "selection_line": 57
+ },
+ {
+  "container": "BashComplete",
+  "kind": "method",
+  "location": {
+   "end_line": 91,
+   "file": "typer/_completion_classes.py",
+   "start_line": 63
+  },
+  "name": "_check_version",
+  "selection_char": 8,
+  "selection_line": 64
+ },
+ {
+  "container": "BashComplete",
+  "kind": "method",
+  "location": {
+   "end_line": 95,
+   "file": "typer/_completion_classes.py",
+   "start_line": 93
+  },
+  "name": "source",
+  "selection_char": 8,
+  "selection_line": 93
+ },
+ {
+  "container": "ZshComplete",
+  "kind": "method",
+  "location": {
+   "end_line": 107,
+   "file": "typer/_completion_classes.py",
+   "start_line": 102
+  },
+  "name": "source_vars",
+  "selection_char": 8,
+  "selection_line": 102
+ },
+ {
+  "container": "ZshComplete",
+  "kind": "method",
+  "location": {
+   "end_line": 118,
+   "file": "typer/_completion_classes.py",
+   "start_line": 109
+  },
+  "name": "get_completion_args",
+  "selection_char": 8,
+  "selection_line": 109
+ },
+ {
+  "container": "ZshComplete",
+  "kind": "method",
+  "location": {
+   "end_line": 136,
+   "file": "typer/_completion_classes.py",
+   "start_line": 120
+  },
+  "name": "format_completion",
+  "selection_char": 8,
+  "selection_line": 120
+ },
+ {
+  "container": "format_completion",
+  "kind": "function",
+  "location": {
+   "end_line": 128,
+   "file": "typer/_completion_classes.py",
+   "start_line": 121
+  },
+  "name": "escape",
+  "selection_char": 12,
+  "selection_line": 121
+ },
+ {
+  "container": "ZshComplete",
+  "kind": "method",
+  "location": {
+   "end_line": 146,
+   "file": "typer/_completion_classes.py",
+   "start_line": 138
+  },
+  "name": "complete",
+  "selection_char": 8,
+  "selection_line": 138
+ },
+ {
+  "container": "FishComplete",
+  "kind": "method",
+  "location": {
+   "end_line": 158,
+   "file": "typer/_completion_classes.py",
+   "start_line": 153
+  },
+  "name": "source_vars",
+  "selection_char": 8,
+  "selection_line": 153
+ },
+ {
+  "container": "FishComplete",
+  "kind": "method",
+  "location": {
+   "end_line": 169,
+   "file": "typer/_completion_classes.py",
+   "start_line": 160
+  },
+  "name": "get_completion_args",
+  "selection_char": 8,
+  "selection_line": 160
+ },
+ {
+  "container": "FishComplete",
+  "kind": "method",
+  "location": {
+   "end_line": 182,
+   "file": "typer/_completion_classes.py",
+   "start_line": 171
+  },
+  "name": "format_completion",
+  "selection_char": 8,
+  "selection_line": 171
+ },
+ {
+  "container": "FishComplete",
+  "kind": "method",
+  "location": {
+   "end_line": 199,
+   "file": "typer/_completion_classes.py",
+   "start_line": 184
+  },
+  "name": "complete",
+  "selection_char": 8,
+  "selection_line": 184
+ },
+ {
+  "container": "PowerShellComplete",
+  "kind": "method",
+  "location": {
+   "end_line": 211,
+   "file": "typer/_completion_classes.py",
+   "start_line": 206
+  },
+  "name": "source_vars",
+  "selection_char": 8,
+  "selection_line": 206
+ },
+ {
+  "container": "PowerShellComplete",
+  "kind": "method",
+  "location": {
+   "end_line": 218,
+   "file": "typer/_completion_classes.py",
+   "start_line": 213
+  },
+  "name": "get_completion_args",
+  "selection_char": 8,
+  "selection_line": 213
+ },
+ {
+  "container": "PowerShellComplete",
+  "kind": "method",
+  "location": {
+   "end_line": 221,
+   "file": "typer/_completion_classes.py",
+   "start_line": 220
+  },
+  "name": "format_completion",
+  "selection_char": 8,
+  "selection_line": 220
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 229,
+   "file": "typer/_completion_classes.py",
+   "start_line": 224
+  },
+  "name": "completion_init",
+  "selection_char": 4,
+  "selection_line": 224
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 92,
+   "file": "typer/_completion_shared.py",
+   "start_line": 79
+  },
+  "name": "get_completion_script",
+  "selection_char": 4,
+  "selection_line": 79
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 118,
+   "file": "typer/_completion_shared.py",
+   "start_line": 95
+  },
+  "name": "install_bash",
+  "selection_char": 4,
+  "selection_line": 95
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 146,
+   "file": "typer/_completion_shared.py",
+   "start_line": 121
+  },
+  "name": "install_zsh",
+  "selection_char": 4,
+  "selection_line": 121
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 157,
+   "file": "typer/_completion_shared.py",
+   "start_line": 149
+  },
+  "name": "install_fish",
+  "selection_char": 4,
+  "selection_line": 149
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 200,
+   "file": "typer/_completion_shared.py",
+   "start_line": 160
+  },
+  "name": "install_powershell",
+  "selection_char": 4,
+  "selection_line": 160
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 237,
+   "file": "typer/_completion_shared.py",
+   "start_line": 203
+  },
+  "name": "install",
+  "selection_char": 4,
+  "selection_line": 203
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 254,
+   "file": "typer/_completion_shared.py",
+   "start_line": 240
+  },
+  "name": "_get_shell_name",
+  "selection_char": 4,
+  "selection_line": 240
+ },
+ {
+  "container": "TyperChoice",
+  "kind": "method",
+  "location": {
+   "end_line": 20,
+   "file": "typer/_types.py",
+   "start_line": 16
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 16
+ },
+ {
+  "container": "TyperChoice",
+  "kind": "method",
+  "location": {
+   "end_line": 35,
+   "file": "typer/_types.py",
+   "start_line": 22
+  },
+  "name": "_normalized_mapping",
+  "selection_char": 8,
+  "selection_line": 22
+ },
+ {
+  "container": "TyperChoice",
+  "kind": "method",
+  "location": {
+   "end_line": 48,
+   "file": "typer/_types.py",
+   "start_line": 37
+  },
+  "name": "normalize_choice",
+  "selection_char": 8,
+  "selection_line": 37
+ },
+ {
+  "container": "TyperChoice",
+  "kind": "method",
+  "location": {
+   "end_line": 66,
+   "file": "typer/_types.py",
+   "start_line": 50
+  },
+  "name": "get_metavar",
+  "selection_char": 8,
+  "selection_line": 50
+ },
+ {
+  "container": "TyperChoice",
+  "kind": "method",
+  "location": {
+   "end_line": 73,
+   "file": "typer/_types.py",
+   "start_line": 68
+  },
+  "name": "get_missing_message",
+  "selection_char": 8,
+  "selection_line": 68
+ },
+ {
+  "container": "TyperChoice",
+  "kind": "method",
+  "location": {
+   "end_line": 97,
+   "file": "typer/_types.py",
+   "start_line": 75
+  },
+  "name": "convert",
+  "selection_char": 8,
+  "selection_line": 75
+ },
+ {
+  "container": "TyperChoice",
+  "kind": "method",
+  "location": {
+   "end_line": 102,
+   "file": "typer/_types.py",
+   "start_line": 99
+  },
+  "name": "get_invalid_choice_message",
+  "selection_char": 8,
+  "selection_line": 99
+ },
+ {
+  "container": "TyperChoice",
+  "kind": "method",
+  "location": {
+   "end_line": 105,
+   "file": "typer/_types.py",
+   "start_line": 104
+  },
+  "name": "__repr__",
+  "selection_char": 8,
+  "selection_line": 104
+ },
+ {
+  "container": "TyperChoice",
+  "kind": "method",
+  "location": {
+   "end_line": 120,
+   "file": "typer/_types.py",
+   "start_line": 107
+  },
+  "name": "shell_complete",
+  "selection_char": 8,
+  "selection_line": 107
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 20,
+   "file": "typer/_typing.py",
+   "start_line": 19
+  },
+  "name": "is_union",
+  "selection_char": 4,
+  "selection_line": 19
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 48,
+   "file": "typer/_typing.py",
+   "start_line": 44
+  },
+  "name": "is_none_type",
+  "selection_char": 4,
+  "selection_line": 44
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 52,
+   "file": "typer/_typing.py",
+   "start_line": 51
+  },
+  "name": "is_callable_type",
+  "selection_char": 4,
+  "selection_line": 51
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 56,
+   "file": "typer/_typing.py",
+   "start_line": 55
+  },
+  "name": "is_literal_type",
+  "selection_char": 4,
+  "selection_line": 55
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 60,
+   "file": "typer/_typing.py",
+   "start_line": 59
+  },
+  "name": "literal_values",
+  "selection_char": 4,
+  "selection_line": 59
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 73,
+   "file": "typer/_typing.py",
+   "start_line": 63
+  },
+  "name": "all_literal_values",
+  "selection_char": 4,
+  "selection_line": 63
+ },
+ {
+  "container": "State",
+  "kind": "method",
+  "location": {
+   "end_line": 27,
+   "file": "typer/cli.py",
+   "start_line": 23
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 23
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 51,
+   "file": "typer/cli.py",
+   "start_line": 33
+  },
+  "name": "maybe_update_state",
+  "selection_char": 4,
+  "selection_line": 33
+ },
+ {
+  "container": "TyperCLIGroup",
+  "kind": "method",
+  "location": {
+   "end_line": 57,
+   "file": "typer/cli.py",
+   "start_line": 55
+  },
+  "name": "list_commands",
+  "selection_char": 8,
+  "selection_line": 55
+ },
+ {
+  "container": "TyperCLIGroup",
+  "kind": "method",
+  "location": {
+   "end_line": 61,
+   "file": "typer/cli.py",
+   "start_line": 59
+  },
+  "name": "get_command",
+  "selection_char": 8,
+  "selection_line": 59
+ },
+ {
+  "container": "TyperCLIGroup",
+  "kind": "method",
+  "location": {
+   "end_line": 65,
+   "file": "typer/cli.py",
+   "start_line": 63
+  },
+  "name": "invoke",
+  "selection_char": 8,
+  "selection_line": 63
+ },
+ {
+  "container": "TyperCLIGroup",
+  "kind": "method",
+  "location": {
+   "end_line": 69,
+   "file": "typer/cli.py",
+   "start_line": 67
+  },
+  "name": "maybe_add_run",
+  "selection_char": 8,
+  "selection_line": 67
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 117,
+   "file": "typer/cli.py",
+   "start_line": 72
+  },
+  "name": "get_typer_from_module",
+  "selection_char": 4,
+  "selection_line": 72
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 137,
+   "file": "typer/cli.py",
+   "start_line": 120
+  },
+  "name": "get_typer_from_state",
+  "selection_char": 4,
+  "selection_line": 120
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 150,
+   "file": "typer/cli.py",
+   "start_line": 140
+  },
+  "name": "maybe_add_run_to_cli",
+  "selection_char": 4,
+  "selection_line": 140
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 157,
+   "file": "typer/cli.py",
+   "start_line": 153
+  },
+  "name": "print_version",
+  "selection_char": 4,
+  "selection_line": 153
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 183,
+   "file": "typer/cli.py",
+   "start_line": 160
+  },
+  "name": "callback",
+  "selection_char": 4,
+  "selection_line": 161
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 267,
+   "file": "typer/cli.py",
+   "start_line": 186
+  },
+  "name": "get_docs_for_click",
+  "selection_char": 4,
+  "selection_line": 186
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 275,
+   "file": "typer/cli.py",
+   "start_line": 270
+  },
+  "name": "_parse_html",
+  "selection_char": 4,
+  "selection_line": 270
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 313,
+   "file": "typer/cli.py",
+   "start_line": 278
+  },
+  "name": "docs",
+  "selection_char": 4,
+  "selection_line": 279
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 317,
+   "file": "typer/cli.py",
+   "start_line": 316
+  },
+  "name": "main",
+  "selection_char": 4,
+  "selection_line": 316
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 27,
+   "file": "typer/completion.py",
+   "start_line": 17
+  },
+  "name": "get_completion_inspect_parameters",
+  "selection_char": 4,
+  "selection_line": 17
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 39,
+   "file": "typer/completion.py",
+   "start_line": 30
+  },
+  "name": "install_callback",
+  "selection_char": 4,
+  "selection_line": 30
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 60,
+   "file": "typer/completion.py",
+   "start_line": 42
+  },
+  "name": "show_callback",
+  "selection_char": 4,
+  "selection_line": 42
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 80,
+   "file": "typer/completion.py",
+   "start_line": 64
+  },
+  "name": "_install_completion_placeholder_function",
+  "selection_char": 4,
+  "selection_line": 64
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 97,
+   "file": "typer/completion.py",
+   "start_line": 83
+  },
+  "name": "_install_completion_no_auto_placeholder_function",
+  "selection_char": 4,
+  "selection_line": 83
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 145,
+   "file": "typer/completion.py",
+   "start_line": 105
+  },
+  "name": "shell_complete",
+  "selection_char": 4,
+  "selection_line": 105
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 41,
+   "file": "typer/core.py",
+   "start_line": 35
+  },
+  "name": "_split_opt",
+  "selection_char": 4,
+  "selection_line": 35
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 81,
+   "file": "typer/core.py",
+   "start_line": 44
+  },
+  "name": "_typer_param_setup_autocompletion_compat",
+  "selection_char": 4,
+  "selection_line": 44
+ },
+ {
+  "container": "_typer_param_setup_autocompletion_compat",
+  "kind": "function",
+  "location": {
+   "end_line": 79,
+   "file": "typer/core.py",
+   "start_line": 64
+  },
+  "name": "compat_autocompletion",
+  "selection_char": 12,
+  "selection_line": 64
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 130,
+   "file": "typer/core.py",
+   "start_line": 84
+  },
+  "name": "_get_default_string",
+  "selection_char": 4,
+  "selection_line": 84
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 148,
+   "file": "typer/core.py",
+   "start_line": 133
+  },
+  "name": "_extract_default_help_str",
+  "selection_char": 4,
+  "selection_line": 133
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 242,
+   "file": "typer/core.py",
+   "start_line": 151
+  },
+  "name": "_main",
+  "selection_char": 4,
+  "selection_line": 151
+ },
+ {
+  "container": "TyperArgument",
+  "kind": "method",
+  "location": {
+   "end_line": 299,
+   "file": "typer/core.py",
+   "start_line": 248
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 248
+ },
+ {
+  "container": "TyperArgument",
+  "kind": "method",
+  "location": {
+   "end_line": 306,
+   "file": "typer/core.py",
+   "start_line": 301
+  },
+  "name": "human_readable_name",
+  "selection_char": 8,
+  "selection_line": 302
+ },
+ {
+  "container": "TyperArgument",
+  "kind": "method",
+  "location": {
+   "end_line": 320,
+   "file": "typer/core.py",
+   "start_line": 308
+  },
+  "name": "_get_default_string",
+  "selection_char": 8,
+  "selection_line": 308
+ },
+ {
+  "container": "TyperArgument",
+  "kind": "method",
+  "location": {
+   "end_line": 325,
+   "file": "typer/core.py",
+   "start_line": 322
+  },
+  "name": "_extract_default_help_str",
+  "selection_char": 8,
+  "selection_line": 322
+ },
+ {
+  "container": "TyperArgument",
+  "kind": "method",
+  "location": {
+   "end_line": 381,
+   "file": "typer/core.py",
+   "start_line": 327
+  },
+  "name": "get_help_record",
+  "selection_char": 8,
+  "selection_line": 327
+ },
+ {
+  "container": "TyperArgument",
+  "kind": "method",
+  "location": {
+   "end_line": 399,
+   "file": "typer/core.py",
+   "start_line": 383
+  },
+  "name": "make_metavar",
+  "selection_char": 8,
+  "selection_line": 383
+ },
+ {
+  "container": "TyperArgument",
+  "kind": "method",
+  "location": {
+   "end_line": 402,
+   "file": "typer/core.py",
+   "start_line": 401
+  },
+  "name": "value_is_missing",
+  "selection_char": 8,
+  "selection_line": 401
+ },
+ {
+  "container": "TyperArgument",
+  "kind": "method",
+  "location": {
+   "end_line": 419,
+   "file": "typer/core.py",
+   "start_line": 404
+  },
+  "name": "_parse_decls",
+  "selection_char": 8,
+  "selection_line": 404
+ },
+ {
+  "container": "TyperArgument",
+  "kind": "method",
+  "location": {
+   "end_line": 422,
+   "file": "typer/core.py",
+   "start_line": 421
+  },
+  "name": "get_usage_pieces",
+  "selection_char": 8,
+  "selection_line": 421
+ },
+ {
+  "container": "TyperArgument",
+  "kind": "method",
+  "location": {
+   "end_line": 425,
+   "file": "typer/core.py",
+   "start_line": 424
+  },
+  "name": "get_error_hint",
+  "selection_char": 8,
+  "selection_line": 424
+ },
+ {
+  "container": "TyperArgument",
+  "kind": "method",
+  "location": {
+   "end_line": 428,
+   "file": "typer/core.py",
+   "start_line": 427
+  },
+  "name": "add_to_parser",
+  "selection_char": 8,
+  "selection_line": 427
+ },
+ {
+  "container": "TyperOption",
+  "kind": "method",
+  "location": {
+   "end_line": 535,
+   "file": "typer/core.py",
+   "start_line": 436
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 436
+ },
+ {
+  "container": "TyperOption",
+  "kind": "method",
+  "location": {
+   "end_line": 541,
+   "file": "typer/core.py",
+   "start_line": 537
+  },
+  "name": "get_error_hint",
+  "selection_char": 8,
+  "selection_line": 537
+ },
+ {
+  "container": "TyperOption",
+  "kind": "method",
+  "location": {
+   "end_line": 582,
+   "file": "typer/core.py",
+   "start_line": 543
+  },
+  "name": "_parse_decls",
+  "selection_char": 8,
+  "selection_line": 543
+ },
+ {
+  "container": "TyperOption",
+  "kind": "method",
+  "location": {
+   "end_line": 621,
+   "file": "typer/core.py",
+   "start_line": 584
+  },
+  "name": "add_to_parser",
+  "selection_char": 8,
+  "selection_line": 584
+ },
+ {
+  "container": "TyperOption",
+  "kind": "method",
+  "location": {
+   "end_line": 667,
+   "file": "typer/core.py",
+   "start_line": 623
+  },
+  "name": "prompt_for_value",
+  "selection_char": 8,
+  "selection_line": 623
+ },
+ {
+  "container": "TyperOption",
+  "kind": "method",
+  "location": {
+   "end_line": 680,
+   "file": "typer/core.py",
+   "start_line": 669
+  },
+  "name": "value_from_envvar",
+  "selection_char": 8,
+  "selection_line": 669
+ },
+ {
+  "container": "TyperOption",
+  "kind": "method",
+  "location": {
+   "end_line": 699,
+   "file": "typer/core.py",
+   "start_line": 682
+  },
+  "name": "resolve_envvar_value",
+  "selection_char": 8,
+  "selection_line": 682
+ },
+ {
+  "container": "TyperOption",
+  "kind": "method",
+  "location": {
+   "end_line": 724,
+   "file": "typer/core.py",
+   "start_line": 701
+  },
+  "name": "consume_value",
+  "selection_char": 8,
+  "selection_line": 701
+ },
+ {
+  "container": "TyperOption",
+  "kind": "method",
+  "location": {
+   "end_line": 738,
+   "file": "typer/core.py",
+   "start_line": 726
+  },
+  "name": "_get_default_string",
+  "selection_char": 8,
+  "selection_line": 726
+ },
+ {
+  "container": "TyperOption",
+  "kind": "method",
+  "location": {
+   "end_line": 743,
+   "file": "typer/core.py",
+   "start_line": 740
+  },
+  "name": "_extract_default_help_str",
+  "selection_char": 8,
+  "selection_line": 740
+ },
+ {
+  "container": "TyperOption",
+  "kind": "method",
+  "location": {
+   "end_line": 746,
+   "file": "typer/core.py",
+   "start_line": 745
+  },
+  "name": "make_metavar",
+  "selection_char": 8,
+  "selection_line": 745
+ },
+ {
+  "container": "TyperOption",
+  "kind": "method",
+  "location": {
+   "end_line": 841,
+   "file": "typer/core.py",
+   "start_line": 748
+  },
+  "name": "get_help_record",
+  "selection_char": 8,
+  "selection_line": 748
+ },
+ {
+  "container": "get_help_record",
+  "kind": "function",
+  "location": {
+   "end_line": 768,
+   "file": "typer/core.py",
+   "start_line": 757
+  },
+  "name": "_write_opts",
+  "selection_char": 12,
+  "selection_line": 757
+ },
+ {
+  "container": "TyperOption",
+  "kind": "method",
+  "location": {
+   "end_line": 844,
+   "file": "typer/core.py",
+   "start_line": 843
+  },
+  "name": "value_is_missing",
+  "selection_char": 8,
+  "selection_line": 843
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 854,
+   "file": "typer/core.py",
+   "start_line": 847
+  },
+  "name": "_value_is_missing",
+  "selection_char": 4,
+  "selection_line": 847
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 875,
+   "file": "typer/core.py",
+   "start_line": 857
+  },
+  "name": "_typer_format_options",
+  "selection_char": 4,
+  "selection_line": 857
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 896,
+   "file": "typer/core.py",
+   "start_line": 878
+  },
+  "name": "_typer_main_shell_completion",
+  "selection_char": 4,
+  "selection_line": 878
+ },
+ {
+  "container": "TyperCommand",
+  "kind": "method",
+  "location": {
+   "end_line": 934,
+   "file": "typer/core.py",
+   "start_line": 900
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 900
+ },
+ {
+  "container": "TyperCommand",
+  "kind": "method",
+  "location": {
+   "end_line": 939,
+   "file": "typer/core.py",
+   "start_line": 936
+  },
+  "name": "format_options",
+  "selection_char": 8,
+  "selection_line": 936
+ },
+ {
+  "container": "TyperCommand",
+  "kind": "method",
+  "location": {
+   "end_line": 949,
+   "file": "typer/core.py",
+   "start_line": 941
+  },
+  "name": "_main_shell_completion",
+  "selection_char": 8,
+  "selection_line": 941
+ },
+ {
+  "container": "TyperCommand",
+  "kind": "method",
+  "location": {
+   "end_line": 969,
+   "file": "typer/core.py",
+   "start_line": 951
+  },
+  "name": "main",
+  "selection_char": 8,
+  "selection_line": 951
+ },
+ {
+  "container": "TyperCommand",
+  "kind": "method",
+  "location": {
+   "end_line": 984,
+   "file": "typer/core.py",
+   "start_line": 971
+  },
+  "name": "format_help",
+  "selection_char": 8,
+  "selection_line": 971
+ },
+ {
+  "container": "TyperGroup",
+  "kind": "method",
+  "location": {
+   "end_line": 1032,
+   "file": "typer/core.py",
+   "start_line": 993
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 993
+ },
+ {
+  "container": "TyperGroup",
+  "kind": "method",
+  "location": {
+   "end_line": 1038,
+   "file": "typer/core.py",
+   "start_line": 1034
+  },
+  "name": "add_command",
+  "selection_char": 8,
+  "selection_line": 1034
+ },
+ {
+  "container": "TyperGroup",
+  "kind": "method",
+  "location": {
+   "end_line": 1041,
+   "file": "typer/core.py",
+   "start_line": 1040
+  },
+  "name": "get_command",
+  "selection_char": 8,
+  "selection_line": 1040
+ },
+ {
+  "container": "TyperGroup",
+  "kind": "method",
+  "location": {
+   "end_line": 1046,
+   "file": "typer/core.py",
+   "start_line": 1043
+  },
+  "name": "collect_usage_pieces",
+  "selection_char": 8,
+  "selection_line": 1043
+ },
+ {
+  "container": "TyperGroup",
+  "kind": "method",
+  "location": {
+   "end_line": 1071,
+   "file": "typer/core.py",
+   "start_line": 1048
+  },
+  "name": "format_commands",
+  "selection_char": 8,
+  "selection_line": 1048
+ },
+ {
+  "container": "TyperGroup",
+  "kind": "method",
+  "location": {
+   "end_line": 1082,
+   "file": "typer/core.py",
+   "start_line": 1073
+  },
+  "name": "parse_args",
+  "selection_char": 8,
+  "selection_line": 1073
+ },
+ {
+  "container": "TyperGroup",
+  "kind": "method",
+  "location": {
+   "end_line": 1115,
+   "file": "typer/core.py",
+   "start_line": 1084
+  },
+  "name": "invoke",
+  "selection_char": 8,
+  "selection_line": 1084
+ },
+ {
+  "container": "invoke",
+  "kind": "function",
+  "location": {
+   "end_line": 1088,
+   "file": "typer/core.py",
+   "start_line": 1085
+  },
+  "name": "_process_result",
+  "selection_char": 12,
+  "selection_line": 1085
+ },
+ {
+  "container": "TyperGroup",
+  "kind": "method",
+  "location": {
+   "end_line": 1130,
+   "file": "typer/core.py",
+   "start_line": 1117
+  },
+  "name": "shell_complete",
+  "selection_char": 8,
+  "selection_line": 1117
+ },
+ {
+  "container": "TyperGroup",
+  "kind": "method",
+  "location": {
+   "end_line": 1136,
+   "file": "typer/core.py",
+   "start_line": 1132
+  },
+  "name": "format_options",
+  "selection_char": 8,
+  "selection_line": 1132
+ },
+ {
+  "container": "TyperGroup",
+  "kind": "method",
+  "location": {
+   "end_line": 1146,
+   "file": "typer/core.py",
+   "start_line": 1138
+  },
+  "name": "_main_shell_completion",
+  "selection_char": 8,
+  "selection_line": 1138
+ },
+ {
+  "container": "TyperGroup",
+  "kind": "method",
+  "location": {
+   "end_line": 1165,
+   "file": "typer/core.py",
+   "start_line": 1148
+  },
+  "name": "_click_resolve_command",
+  "selection_char": 8,
+  "selection_line": 1148
+ },
+ {
+  "container": "TyperGroup",
+  "kind": "method",
+  "location": {
+   "end_line": 1182,
+   "file": "typer/core.py",
+   "start_line": 1167
+  },
+  "name": "resolve_command",
+  "selection_char": 8,
+  "selection_line": 1167
+ },
+ {
+  "container": "TyperGroup",
+  "kind": "method",
+  "location": {
+   "end_line": 1202,
+   "file": "typer/core.py",
+   "start_line": 1184
+  },
+  "name": "main",
+  "selection_char": 8,
+  "selection_line": 1184
+ },
+ {
+  "container": "TyperGroup",
+  "kind": "method",
+  "location": {
+   "end_line": 1213,
+   "file": "typer/core.py",
+   "start_line": 1204
+  },
+  "name": "format_help",
+  "selection_char": 8,
+  "selection_line": 1204
+ },
+ {
+  "container": "TyperGroup",
+  "kind": "method",
+  "location": {
+   "end_line": 1217,
+   "file": "typer/core.py",
+   "start_line": 1215
+  },
+  "name": "list_commands",
+  "selection_char": 8,
+  "selection_line": 1215
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 109,
+   "file": "typer/main.py",
+   "start_line": 61
+  },
+  "name": "except_hook",
+  "selection_char": 4,
+  "selection_line": 61
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 116,
+   "file": "typer/main.py",
+   "start_line": 112
+  },
+  "name": "get_install_completion_arguments",
+  "selection_char": 4,
+  "selection_line": 112
+ },
+ {
+  "container": "Typer",
+  "kind": "method",
+  "location": {
+   "end_line": 547,
+   "file": "typer/main.py",
+   "start_line": 135
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 135
+ },
+ {
+  "container": "Typer",
+  "kind": "method",
+  "location": {
+   "end_line": 751,
+   "file": "typer/main.py",
+   "start_line": 549
+  },
+  "name": "callback",
+  "selection_char": 8,
+  "selection_line": 549
+ },
+ {
+  "container": "callback",
+  "kind": "function",
+  "location": {
+   "end_line": 749,
+   "file": "typer/main.py",
+   "start_line": 728
+  },
+  "name": "decorator",
+  "selection_char": 12,
+  "selection_line": 728
+ },
+ {
+  "container": "Typer",
+  "kind": "method",
+  "location": {
+   "end_line": 913,
+   "file": "typer/main.py",
+   "start_line": 753
+  },
+  "name": "command",
+  "selection_char": 8,
+  "selection_line": 753
+ },
+ {
+  "container": "command",
+  "kind": "function",
+  "location": {
+   "end_line": 911,
+   "file": "typer/main.py",
+   "start_line": 890
+  },
+  "name": "decorator",
+  "selection_char": 12,
+  "selection_line": 890
+ },
+ {
+  "container": "Typer",
+  "kind": "method",
+  "location": {
+   "end_line": 1131,
+   "file": "typer/main.py",
+   "start_line": 915
+  },
+  "name": "add_typer",
+  "selection_char": 8,
+  "selection_line": 915
+ },
+ {
+  "container": "Typer",
+  "kind": "method",
+  "location": {
+   "end_line": 1154,
+   "file": "typer/main.py",
+   "start_line": 1133
+  },
+  "name": "__call__",
+  "selection_char": 8,
+  "selection_line": 1133
+ },
+ {
+  "container": "Typer",
+  "kind": "method",
+  "location": {
+   "end_line": 1160,
+   "file": "typer/main.py",
+   "start_line": 1156
+  },
+  "name": "_info_val_str",
+  "selection_char": 8,
+  "selection_line": 1156
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1170,
+   "file": "typer/main.py",
+   "start_line": 1163
+  },
+  "name": "get_group",
+  "selection_char": 4,
+  "selection_line": 1163
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1208,
+   "file": "typer/main.py",
+   "start_line": 1173
+  },
+  "name": "get_command",
+  "selection_char": 4,
+  "selection_line": 1173
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1245,
+   "file": "typer/main.py",
+   "start_line": 1211
+  },
+  "name": "solve_typer_info_help",
+  "selection_char": 4,
+  "selection_line": 1211
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1280,
+   "file": "typer/main.py",
+   "start_line": 1248
+  },
+  "name": "solve_typer_info_defaults",
+  "selection_char": 4,
+  "selection_line": 1248
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1357,
+   "file": "typer/main.py",
+   "start_line": 1283
+  },
+  "name": "get_group_from_info",
+  "selection_char": 4,
+  "selection_line": 1283
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1361,
+   "file": "typer/main.py",
+   "start_line": 1360
+  },
+  "name": "get_command_name",
+  "selection_char": 4,
+  "selection_line": 1360
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1380,
+   "file": "typer/main.py",
+   "start_line": 1364
+  },
+  "name": "get_params_convertors_ctx_param_name_from_function",
+  "selection_char": 4,
+  "selection_line": 1364
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1425,
+   "file": "typer/main.py",
+   "start_line": 1383
+  },
+  "name": "get_command_from_info",
+  "selection_char": 4,
+  "selection_line": 1383
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1434,
+   "file": "typer/main.py",
+   "start_line": 1428
+  },
+  "name": "determine_type_convertor",
+  "selection_char": 4,
+  "selection_line": 1428
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1442,
+   "file": "typer/main.py",
+   "start_line": 1437
+  },
+  "name": "param_path_convertor",
+  "selection_char": 4,
+  "selection_line": 1437
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1455,
+   "file": "typer/main.py",
+   "start_line": 1445
+  },
+  "name": "generate_enum_convertor",
+  "selection_char": 4,
+  "selection_line": 1445
+ },
+ {
+  "container": "generate_enum_convertor",
+  "kind": "function",
+  "location": {
+   "end_line": 1453,
+   "file": "typer/main.py",
+   "start_line": 1448
+  },
+  "name": "convertor",
+  "selection_char": 8,
+  "selection_line": 1448
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1466,
+   "file": "typer/main.py",
+   "start_line": 1458
+  },
+  "name": "generate_list_convertor",
+  "selection_char": 4,
+  "selection_line": 1458
+ },
+ {
+  "container": "generate_list_convertor",
+  "kind": "function",
+  "location": {
+   "end_line": 1464,
+   "file": "typer/main.py",
+   "start_line": 1461
+  },
+  "name": "internal_convertor",
+  "selection_char": 8,
+  "selection_line": 1461
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1484,
+   "file": "typer/main.py",
+   "start_line": 1469
+  },
+  "name": "generate_tuple_convertor",
+  "selection_char": 4,
+  "selection_line": 1469
+ },
+ {
+  "container": "generate_tuple_convertor",
+  "kind": "function",
+  "location": {
+   "end_line": 1482,
+   "file": "typer/main.py",
+   "start_line": 1474
+  },
+  "name": "internal_convertor",
+  "selection_char": 8,
+  "selection_line": 1474
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1518,
+   "file": "typer/main.py",
+   "start_line": 1487
+  },
+  "name": "get_callback",
+  "selection_char": 4,
+  "selection_line": 1487
+ },
+ {
+  "container": "get_callback",
+  "kind": "function",
+  "location": {
+   "end_line": 1515,
+   "file": "typer/main.py",
+   "start_line": 1506
+  },
+  "name": "wrapper",
+  "selection_char": 8,
+  "selection_line": 1506
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1616,
+   "file": "typer/main.py",
+   "start_line": 1521
+  },
+  "name": "get_click_type",
+  "selection_char": 4,
+  "selection_line": 1521
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1620,
+   "file": "typer/main.py",
+   "start_line": 1619
+  },
+  "name": "lenient_issubclass",
+  "selection_char": 4,
+  "selection_line": 1619
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1783,
+   "file": "typer/main.py",
+   "start_line": 1623
+  },
+  "name": "get_click_param",
+  "selection_char": 4,
+  "selection_line": 1623
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1835,
+   "file": "typer/main.py",
+   "start_line": 1786
+  },
+  "name": "get_param_callback",
+  "selection_char": 4,
+  "selection_line": 1786
+ },
+ {
+  "container": "get_param_callback",
+  "kind": "function",
+  "location": {
+   "end_line": 1832,
+   "file": "typer/main.py",
+   "start_line": 1820
+  },
+  "name": "wrapper",
+  "selection_char": 8,
+  "selection_line": 1820
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1888,
+   "file": "typer/main.py",
+   "start_line": 1838
+  },
+  "name": "get_param_completion",
+  "selection_char": 4,
+  "selection_line": 1838
+ },
+ {
+  "container": "get_param_completion",
+  "kind": "function",
+  "location": {
+   "end_line": 1885,
+   "file": "typer/main.py",
+   "start_line": 1877
+  },
+  "name": "wrapper",
+  "selection_char": 8,
+  "selection_line": 1877
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1918,
+   "file": "typer/main.py",
+   "start_line": 1891
+  },
+  "name": "run",
+  "selection_char": 4,
+  "selection_line": 1891
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1922,
+   "file": "typer/main.py",
+   "start_line": 1921
+  },
+  "name": "_is_macos",
+  "selection_char": 4,
+  "selection_line": 1921
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1929,
+   "file": "typer/main.py",
+   "start_line": 1925
+  },
+  "name": "_is_linux_or_bsd",
+  "selection_char": 4,
+  "selection_line": 1925
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 2011,
+   "file": "typer/main.py",
+   "start_line": 1932
+  },
+  "name": "launch",
+  "selection_char": 4,
+  "selection_line": 1932
+ },
+ {
+  "container": "DefaultPlaceholder",
+  "kind": "method",
+  "location": {
+   "end_line": 179,
+   "file": "typer/models.py",
+   "start_line": 178
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 178
+ },
+ {
+  "container": "DefaultPlaceholder",
+  "kind": "method",
+  "location": {
+   "end_line": 182,
+   "file": "typer/models.py",
+   "start_line": 181
+  },
+  "name": "__bool__",
+  "selection_char": 8,
+  "selection_line": 181
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 197,
+   "file": "typer/models.py",
+   "start_line": 190
+  },
+  "name": "Default",
+  "selection_char": 4,
+  "selection_line": 190
+ },
+ {
+  "container": "CommandInfo",
+  "kind": "method",
+  "location": {
+   "end_line": 232,
+   "file": "typer/models.py",
+   "start_line": 201
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 201
+ },
+ {
+  "container": "TyperInfo",
+  "kind": "method",
+  "location": {
+   "end_line": 277,
+   "file": "typer/models.py",
+   "start_line": 236
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 236
+ },
+ {
+  "container": "ParameterInfo",
+  "kind": "method",
+  "location": {
+   "end_line": 385,
+   "file": "typer/models.py",
+   "start_line": 281
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 281
+ },
+ {
+  "container": "OptionInfo",
+  "kind": "method",
+  "location": {
+   "end_line": 513,
+   "file": "typer/models.py",
+   "start_line": 389
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 389
+ },
+ {
+  "container": "ArgumentInfo",
+  "kind": "method",
+  "location": {
+   "end_line": 617,
+   "file": "typer/models.py",
+   "start_line": 517
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 517
+ },
+ {
+  "container": "ParamMeta",
+  "kind": "method",
+  "location": {
+   "end_line": 632,
+   "file": "typer/models.py",
+   "start_line": 623
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 623
+ },
+ {
+  "container": "DeveloperExceptionConfig",
+  "kind": "method",
+  "location": {
+   "end_line": 645,
+   "file": "typer/models.py",
+   "start_line": 636
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 636
+ },
+ {
+  "container": "TyperPath",
+  "kind": "method",
+  "location": {
+   "end_line": 679,
+   "file": "typer/models.py",
+   "start_line": 654
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 654
+ },
+ {
+  "container": "TyperPath",
+  "kind": "method",
+  "location": {
+   "end_line": 694,
+   "file": "typer/models.py",
+   "start_line": 681
+  },
+  "name": "coerce_path_result",
+  "selection_char": 8,
+  "selection_line": 681
+ },
+ {
+  "container": "TyperPath",
+  "kind": "method",
+  "location": {
+   "end_line": 735,
+   "file": "typer/models.py",
+   "start_line": 696
+  },
+  "name": "convert",
+  "selection_char": 8,
+  "selection_line": 696
+ },
+ {
+  "container": "TyperPath",
+  "kind": "method",
+  "location": {
+   "end_line": 743,
+   "file": "typer/models.py",
+   "start_line": 737
+  },
+  "name": "shell_complete",
+  "selection_char": 8,
+  "selection_line": 737
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1002,
+   "file": "typer/params.py",
+   "start_line": 145
+  },
+  "name": "Option",
+  "selection_char": 4,
+  "selection_line": 145
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1833,
+   "file": "typer/params.py",
+   "start_line": 1117
+  },
+  "name": "Argument",
+  "selection_char": 4,
+  "selection_line": 1117
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 142,
+   "file": "typer/rich_utils.py",
+   "start_line": 141
+  },
+  "name": "_has_ansi_character",
+  "selection_char": 4,
+  "selection_line": 141
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 163,
+   "file": "typer/rich_utils.py",
+   "start_line": 145
+  },
+  "name": "_get_rich_console",
+  "selection_char": 4,
+  "selection_line": 145
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 184,
+   "file": "typer/rich_utils.py",
+   "start_line": 166
+  },
+  "name": "_make_rich_text",
+  "selection_char": 4,
+  "selection_line": 166
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 232,
+   "file": "typer/rich_utils.py",
+   "start_line": 187
+  },
+  "name": "_get_help_text",
+  "selection_char": 4,
+  "selection_line": 188
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 321,
+   "file": "typer/rich_utils.py",
+   "start_line": 235
+  },
+  "name": "_get_parameter_help",
+  "selection_char": 4,
+  "selection_line": 235
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 348,
+   "file": "typer/rich_utils.py",
+   "start_line": 324
+  },
+  "name": "_make_command_help",
+  "selection_char": 4,
+  "selection_line": 324
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 459,
+   "file": "typer/rich_utils.py",
+   "start_line": 351
+  },
+  "name": "_print_options_panel",
+  "selection_char": 4,
+  "selection_line": 351
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 535,
+   "file": "typer/rich_utils.py",
+   "start_line": 462
+  },
+  "name": "_print_commands_panel",
+  "selection_char": 4,
+  "selection_line": 462
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 677,
+   "file": "typer/rich_utils.py",
+   "start_line": 538
+  },
+  "name": "rich_format_help",
+  "selection_char": 4,
+  "selection_line": 538
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 710,
+   "file": "typer/rich_utils.py",
+   "start_line": 680
+  },
+  "name": "rich_format_error",
+  "selection_char": 4,
+  "selection_line": 680
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 716,
+   "file": "typer/rich_utils.py",
+   "start_line": 713
+  },
+  "name": "rich_abort_error",
+  "selection_char": 4,
+  "selection_line": 713
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 721,
+   "file": "typer/rich_utils.py",
+   "start_line": 719
+  },
+  "name": "escape_before_html_export",
+  "selection_char": 4,
+  "selection_line": 719
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 734,
+   "file": "typer/rich_utils.py",
+   "start_line": 724
+  },
+  "name": "rich_to_html",
+  "selection_char": 4,
+  "selection_line": 724
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 740,
+   "file": "typer/rich_utils.py",
+   "start_line": 737
+  },
+  "name": "rich_render_text",
+  "selection_char": 4,
+  "selection_line": 737
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 758,
+   "file": "typer/rich_utils.py",
+   "start_line": 743
+  },
+  "name": "get_traceback",
+  "selection_char": 4,
+  "selection_line": 743
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 26,
+   "file": "typer/testing.py",
+   "start_line": 20
+  },
+  "name": "make_input_stream",
+  "selection_char": 4,
+  "selection_line": 20
+ },
+ {
+  "container": "BytesIOCopy",
+  "kind": "method",
+  "location": {
+   "end_line": 34,
+   "file": "typer/testing.py",
+   "start_line": 32
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 32
+ },
+ {
+  "container": "BytesIOCopy",
+  "kind": "method",
+  "location": {
+   "end_line": 38,
+   "file": "typer/testing.py",
+   "start_line": 36
+  },
+  "name": "flush",
+  "selection_char": 8,
+  "selection_line": 36
+ },
+ {
+  "container": "BytesIOCopy",
+  "kind": "method",
+  "location": {
+   "end_line": 42,
+   "file": "typer/testing.py",
+   "start_line": 40
+  },
+  "name": "write",
+  "selection_char": 8,
+  "selection_line": 40
+ },
+ {
+  "container": "StreamMixer",
+  "kind": "method",
+  "location": {
+   "end_line": 54,
+   "file": "typer/testing.py",
+   "start_line": 51
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 51
+ },
+ {
+  "container": "StreamMixer",
+  "kind": "method",
+  "location": {
+   "end_line": 60,
+   "file": "typer/testing.py",
+   "start_line": 56
+  },
+  "name": "__del__",
+  "selection_char": 8,
+  "selection_line": 56
+ },
+ {
+  "container": "_NamedTextIOWrapper",
+  "kind": "method",
+  "location": {
+   "end_line": 67,
+   "file": "typer/testing.py",
+   "start_line": 64
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 64
+ },
+ {
+  "container": "_NamedTextIOWrapper",
+  "kind": "method",
+  "location": {
+   "end_line": 71,
+   "file": "typer/testing.py",
+   "start_line": 69
+  },
+  "name": "name",
+  "selection_char": 8,
+  "selection_line": 70
+ },
+ {
+  "container": "_NamedTextIOWrapper",
+  "kind": "method",
+  "location": {
+   "end_line": 75,
+   "file": "typer/testing.py",
+   "start_line": 73
+  },
+  "name": "mode",
+  "selection_char": 8,
+  "selection_line": 74
+ },
+ {
+  "container": "Result",
+  "kind": "method",
+  "location": {
+   "end_line": 100,
+   "file": "typer/testing.py",
+   "start_line": 81
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 81
+ },
+ {
+  "container": "Result",
+  "kind": "method",
+  "location": {
+   "end_line": 107,
+   "file": "typer/testing.py",
+   "start_line": 102
+  },
+  "name": "output",
+  "selection_char": 8,
+  "selection_line": 103
+ },
+ {
+  "container": "Result",
+  "kind": "method",
+  "location": {
+   "end_line": 114,
+   "file": "typer/testing.py",
+   "start_line": 109
+  },
+  "name": "stdout",
+  "selection_char": 8,
+  "selection_line": 110
+ },
+ {
+  "container": "Result",
+  "kind": "method",
+  "location": {
+   "end_line": 121,
+   "file": "typer/testing.py",
+   "start_line": 116
+  },
+  "name": "stderr",
+  "selection_char": 8,
+  "selection_line": 117
+ },
+ {
+  "container": "Result",
+  "kind": "method",
+  "location": {
+   "end_line": 125,
+   "file": "typer/testing.py",
+   "start_line": 123
+  },
+  "name": "__repr__",
+  "selection_char": 8,
+  "selection_line": 123
+ },
+ {
+  "container": "CliRunner",
+  "kind": "method",
+  "location": {
+   "end_line": 141,
+   "file": "typer/testing.py",
+   "start_line": 135
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 135
+ },
+ {
+  "container": "CliRunner",
+  "kind": "method",
+  "location": {
+   "end_line": 147,
+   "file": "typer/testing.py",
+   "start_line": 143
+  },
+  "name": "get_default_prog_name",
+  "selection_char": 8,
+  "selection_line": 143
+ },
+ {
+  "container": "CliRunner",
+  "kind": "method",
+  "location": {
+   "end_line": 156,
+   "file": "typer/testing.py",
+   "start_line": 149
+  },
+  "name": "make_env",
+  "selection_char": 8,
+  "selection_line": 149
+ },
+ {
+  "container": "CliRunner",
+  "kind": "method",
+  "location": {
+   "end_line": 273,
+   "file": "typer/testing.py",
+   "start_line": 158
+  },
+  "name": "isolation",
+  "selection_char": 8,
+  "selection_line": 159
+ },
+ {
+  "container": "isolation",
+  "kind": "function",
+  "location": {
+   "end_line": 205,
+   "file": "typer/testing.py",
+   "start_line": 197
+  },
+  "name": "visible_input",
+  "selection_char": 12,
+  "selection_line": 197
+ },
+ {
+  "container": "isolation",
+  "kind": "function",
+  "location": {
+   "end_line": 213,
+   "file": "typer/testing.py",
+   "start_line": 207
+  },
+  "name": "hidden_input",
+  "selection_char": 12,
+  "selection_line": 207
+ },
+ {
+  "container": "isolation",
+  "kind": "function",
+  "location": {
+   "end_line": 222,
+   "file": "typer/testing.py",
+   "start_line": 215
+  },
+  "name": "_getchar",
+  "selection_char": 12,
+  "selection_line": 215
+ },
+ {
+  "container": "isolation",
+  "kind": "function",
+  "location": {
+   "end_line": 231,
+   "file": "typer/testing.py",
+   "start_line": 226
+  },
+  "name": "should_strip_ansi",
+  "selection_char": 12,
+  "selection_line": 226
+ },
+ {
+  "container": "CliRunner",
+  "kind": "method",
+  "location": {
+   "end_line": 342,
+   "file": "typer/testing.py",
+   "start_line": 275
+  },
+  "name": "invoke",
+  "selection_char": 8,
+  "selection_line": 275
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 19,
+   "file": "typer/utils.py",
+   "start_line": 10
+  },
+  "name": "_param_type_to_user_string",
+  "selection_char": 4,
+  "selection_line": 10
+ },
+ {
+  "container": "AnnotatedParamWithDefaultValueError",
+  "kind": "method",
+  "location": {
+   "end_line": 28,
+   "file": "typer/utils.py",
+   "start_line": 26
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 26
+ },
+ {
+  "container": "AnnotatedParamWithDefaultValueError",
+  "kind": "method",
+  "location": {
+   "end_line": 35,
+   "file": "typer/utils.py",
+   "start_line": 30
+  },
+  "name": "__str__",
+  "selection_char": 8,
+  "selection_line": 30
+ },
+ {
+  "container": "MixedAnnotatedAndDefaultStyleError",
+  "kind": "method",
+  "location": {
+   "end_line": 51,
+   "file": "typer/utils.py",
+   "start_line": 43
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 43
+ },
+ {
+  "container": "MixedAnnotatedAndDefaultStyleError",
+  "kind": "method",
+  "location": {
+   "end_line": 62,
+   "file": "typer/utils.py",
+   "start_line": 53
+  },
+  "name": "__str__",
+  "selection_char": 8,
+  "selection_line": 53
+ },
+ {
+  "container": "MultipleTyperAnnotationsError",
+  "kind": "method",
+  "location": {
+   "end_line": 69,
+   "file": "typer/utils.py",
+   "start_line": 68
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 68
+ },
+ {
+  "container": "MultipleTyperAnnotationsError",
+  "kind": "method",
+  "location": {
+   "end_line": 75,
+   "file": "typer/utils.py",
+   "start_line": 71
+  },
+  "name": "__str__",
+  "selection_char": 8,
+  "selection_line": 71
+ },
+ {
+  "container": "DefaultFactoryAndDefaultValueError",
+  "kind": "method",
+  "location": {
+   "end_line": 84,
+   "file": "typer/utils.py",
+   "start_line": 82
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 82
+ },
+ {
+  "container": "DefaultFactoryAndDefaultValueError",
+  "kind": "method",
+  "location": {
+   "end_line": 91,
+   "file": "typer/utils.py",
+   "start_line": 86
+  },
+  "name": "__str__",
+  "selection_char": 8,
+  "selection_line": 86
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 104,
+   "file": "typer/utils.py",
+   "start_line": 94
+  },
+  "name": "_split_annotation_from_typer_annotations",
+  "selection_char": 4,
+  "selection_line": 94
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 186,
+   "file": "typer/utils.py",
+   "start_line": 107
+  },
+  "name": "get_params_from_function",
+  "selection_char": 4,
+  "selection_line": 107
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 197,
+   "file": "typer/utils.py",
+   "start_line": 189
+  },
+  "name": "parse_boolean_env_var",
+  "selection_char": 4,
+  "selection_line": 189
+ }
+]

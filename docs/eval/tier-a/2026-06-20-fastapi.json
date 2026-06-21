@@ -1,0 +1,4291 @@
+{
+ "m1": {
+  "anon_oracle": 0,
+  "anon_prism": 4,
+  "matched": 370,
+  "prism_extra": 0,
+  "prism_missing": 0,
+  "snapshot_prism_missing": 0
+ },
+ "m2": {
+  "callees": {
+   "C-method": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.7411670300055737,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.7411670300055737,
+      1.0
+     ],
+     "tp": 11
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 1,
+      "precision": [
+       0.8333333333333334,
+       0.4364971749742326,
+       0.969946630588185
+      ],
+      "recall": [
+       1.0,
+       0.5655175313406071,
+       1.0
+      ],
+      "tp": 5
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 1,
+      "precision": [
+       0.8333333333333334,
+       0.4364971749742326,
+       0.969946630588185
+      ],
+      "recall": [
+       1.0,
+       0.5655175313406071,
+       1.0
+      ],
+      "tp": 5
+     }
+    },
+    "pending": 2,
+    "raw": {
+     "fn": 1,
+     "fp": 1,
+     "precision": [
+      0.9166666666666666,
+      0.6461200862787544,
+      0.9851349057603305
+     ],
+     "recall": [
+      0.9166666666666666,
+      0.6461200862787544,
+      0.9851349057603305
+     ],
+     "tp": 11
+    },
+    "shortfall": 0
+   },
+   "C-name": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.43850296436068037,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.43850296436068037,
+      1.0
+     ],
+     "tp": 3
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 2,
+      "precision": [
+       0.75,
+       0.40927542792725174,
+       0.9285207879020445
+      ],
+      "recall": [
+       1.0,
+       0.6096657083436265,
+       1.0
+      ],
+      "tp": 6
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 2,
+      "precision": [
+       0.75,
+       0.40927542792725174,
+       0.9285207879020445
+      ],
+      "recall": [
+       1.0,
+       0.6096657083436265,
+       1.0
+      ],
+      "tp": 6
+     }
+    },
+    "pending": 5,
+    "raw": {
+     "fn": 3,
+     "fp": 2,
+     "precision": [
+      0.6,
+      0.23072427940911855,
+      0.8823792268590028
+     ],
+     "recall": [
+      0.5,
+      0.18761630498040816,
+      0.8123836950195918
+     ],
+     "tp": 3
+    },
+    "shortfall": 0
+   },
+   "Q-scoped": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.7411670300055737,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.7411670300055737,
+      1.0
+     ],
+     "tp": 11
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 2,
+      "precision": [
+       0.6666666666666666,
+       0.29999331299474324,
+       0.9032285897864654
+      ],
+      "recall": [
+       1.0,
+       0.5101091596030786,
+       0.9999999999999999
+      ],
+      "tp": 4
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 2,
+      "precision": [
+       0.6666666666666666,
+       0.29999331299474324,
+       0.9032285897864654
+      ],
+      "recall": [
+       1.0,
+       0.5101091596030786,
+       0.9999999999999999
+      ],
+      "tp": 4
+     }
+    },
+    "pending": 1,
+    "raw": {
+     "fn": 1,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.7411670300055737,
+      1.0
+     ],
+     "recall": [
+      0.9166666666666666,
+      0.6461200862787544,
+      0.9851349057603305
+     ],
+     "tp": 11
+    },
+    "shortfall": 0
+   },
+   "U-method": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.7411670300055737,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.7411670300055737,
+      1.0
+     ],
+     "tp": 11
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 2,
+      "precision": [
+       0.6666666666666666,
+       0.29999331299474324,
+       0.9032285897864654
+      ],
+      "recall": [
+       1.0,
+       0.5101091596030786,
+       0.9999999999999999
+      ],
+      "tp": 4
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 2,
+      "precision": [
+       0.6666666666666666,
+       0.29999331299474324,
+       0.9032285897864654
+      ],
+      "recall": [
+       1.0,
+       0.5101091596030786,
+       0.9999999999999999
+      ],
+      "tp": 4
+     }
+    },
+    "pending": 2,
+    "raw": {
+     "fn": 1,
+     "fp": 1,
+     "precision": [
+      0.9166666666666666,
+      0.6461200862787544,
+      0.9851349057603305
+     ],
+     "recall": [
+      0.9166666666666666,
+      0.6461200862787544,
+      0.9851349057603305
+     ],
+     "tp": 11
+    },
+    "shortfall": 0
+   }
+  },
+  "callers": {
+   "C-method": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      0.0,
+      0.0,
+      1.0
+     ],
+     "recall": [
+      0.0,
+      0.0,
+      1.0
+     ],
+     "tp": 0
+    },
+    "function": {
+     "corrected": {
+      "fn": 7,
+      "fp": 0,
+      "precision": [
+       0.0,
+       0.0,
+       1.0
+      ],
+      "recall": [
+       0.0,
+       0.0,
+       0.35433043867586833
+      ],
+      "tp": 0
+     },
+     "raw": {
+      "fn": 7,
+      "fp": 0,
+      "precision": [
+       0.0,
+       0.0,
+       1.0
+      ],
+      "recall": [
+       0.0,
+       0.0,
+       0.35433043867586833
+      ],
+      "tp": 0
+     }
+    },
+    "pending": 9,
+    "raw": {
+     "fn": 9,
+     "fp": 0,
+     "precision": [
+      0.0,
+      0.0,
+      1.0
+     ],
+     "recall": [
+      0.0,
+      0.0,
+      0.299145051727044
+     ],
+     "tp": 0
+    },
+    "shortfall": 0
+   },
+   "Q-scoped": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.9590643738163189,
+      0.9999999999999998
+     ],
+     "recall": [
+      1.0,
+      0.9590643738163189,
+      0.9999999999999998
+     ],
+     "tp": 90
+    },
+    "function": {
+     "corrected": {
+      "fn": 1,
+      "fp": 2,
+      "precision": [
+       0.9259259259259259,
+       0.7663040715188113,
+       0.9794453461246099
+      ],
+      "recall": [
+       0.9615384615384616,
+       0.8110722092608273,
+       0.9931780150820144
+      ],
+      "tp": 25
+     },
+     "raw": {
+      "fn": 1,
+      "fp": 2,
+      "precision": [
+       0.9259259259259259,
+       0.7663040715188113,
+       0.9794453461246099
+      ],
+      "recall": [
+       0.9615384615384616,
+       0.8110722092608273,
+       0.9931780150820144
+      ],
+      "tp": 25
+     }
+    },
+    "pending": 5,
+    "raw": {
+     "fn": 1,
+     "fp": 4,
+     "precision": [
+      0.9574468085106383,
+      0.895643541520964,
+      0.9833294519657503
+     ],
+     "recall": [
+      0.989010989010989,
+      0.9403506426924021,
+      0.9980575286896177
+     ],
+     "tp": 90
+    },
+    "shortfall": 0
+   },
+   "U-method": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.5655175313406071,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.5655175313406071,
+      1.0
+     ],
+     "tp": 5
+    },
+    "function": {
+     "corrected": {
+      "fn": 13,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.5655175313406071,
+       1.0
+      ],
+      "recall": [
+       0.2777777777777778,
+       0.1249975330046966,
+       0.5087265674100965
+      ],
+      "tp": 5
+     },
+     "raw": {
+      "fn": 13,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.5655175313406071,
+       1.0
+      ],
+      "recall": [
+       0.2777777777777778,
+       0.1249975330046966,
+       0.5087265674100965
+      ],
+      "tp": 5
+     }
+    },
+    "pending": 13,
+    "raw": {
+     "fn": 13,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.5655175313406071,
+      1.0
+     ],
+     "recall": [
+      0.2777777777777778,
+      0.1249975330046966,
+      0.5087265674100965
+     ],
+     "tp": 5
+    },
+    "shortfall": 0
+   }
+  }
+ },
+ "m3": {
+  "cap": 25,
+  "checked": [
+   {
+    "probe": "callers:fastapi/routing.py:349",
+    "site": "fastapi/routing.py:568",
+    "verdict": "alias_site"
+   },
+   {
+    "probe": "callers:fastapi/routing.py:349",
+    "site": "fastapi/routing.py:578",
+    "verdict": "alias_site"
+   },
+   {
+    "probe": "callers:fastapi/routing.py:613",
+    "site": "fastapi/routing.py:568",
+    "verdict": "alias_site"
+   },
+   {
+    "probe": "callers:fastapi/routing.py:613",
+    "site": "fastapi/routing.py:578",
+    "verdict": "alias_site"
+   }
+  ],
+  "counts": {
+   "alias_site": 4,
+   "ambiguous": 0,
+   "confirmed_fp": 0,
+   "confirmed_tp": 0
+  }
+ },
+ "meta": {
+  "baseline_invalid": true,
+  "corpus": "fastapi",
+  "corpus_dirty": false,
+  "corpus_dirty_reasons": [],
+  "corpus_sha": "0cb4a8e284b4",
+  "date": "2026-06-20",
+  "harness_sha": "06e6ac4ee96e",
+  "invalid_reasons": [
+   "oracle_error_rate 0.34 > 0.25"
+  ],
+  "oracle": "pyright-langserver",
+  "oracle_error_rate": 0.34375,
+  "oracle_not_quiescent": false,
+  "prism_dirty": false,
+  "prism_sha": "20c8490591a3",
+  "seed": 42,
+  "stale_adjudications": 0,
+  "sut_error_rate": 0.0,
+  "wall_s": {
+   "m1_oracle_inventory": 0.027,
+   "m2": 20.254,
+   "m3": 0.002,
+   "oracle_start": 5.098
+  }
+ },
+ "pending": [
+  {
+   "corpus": "fastapi",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "fastapi/_compat/shared.py:104",
+   "site": "fastapi/_compat/v2.py:352",
+   "site_fingerprint": "6afedf1ac627494d"
+  },
+  {
+   "corpus": "fastapi",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "fastapi/applications.py:1295",
+   "site": "tests/main.py:13",
+   "site_fingerprint": "f148c02190ac45b1"
+  },
+  {
+   "corpus": "fastapi",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "fastapi/applications.py:1295",
+   "site": "tests/test_extra_routes.py:15",
+   "site_fingerprint": "11ff011635e02f22"
+  },
+  {
+   "corpus": "fastapi",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "fastapi/dependencies/models.py:106",
+   "site": "fastapi/dependencies/models.py:191",
+   "site_fingerprint": "cc283c9b395939be"
+  },
+  {
+   "corpus": "fastapi",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "fastapi/dependencies/models.py:106",
+   "site": "fastapi/dependencies/utils.py:320",
+   "site_fingerprint": "b46fbfdb6243e99f"
+  },
+  {
+   "corpus": "fastapi",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "fastapi/dependencies/models.py:106",
+   "site": "fastapi/dependencies/utils.py:584",
+   "site_fingerprint": "ea039eaad1009bb6"
+  },
+  {
+   "corpus": "fastapi",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "fastapi/dependencies/models.py:106",
+   "site": "fastapi/dependencies/utils.py:667",
+   "site_fingerprint": "ea78245bf8397223"
+  },
+  {
+   "corpus": "fastapi",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "fastapi/dependencies/models.py:106",
+   "site": "fastapi/routing.py:669",
+   "site_fingerprint": "6ab90609cf5ad0f9"
+  },
+  {
+   "corpus": "fastapi",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "fastapi/dependencies/models.py:106",
+   "site": "fastapi/routing.py:1075",
+   "site_fingerprint": "6afb080a1ecba7a4"
+  },
+  {
+   "corpus": "fastapi",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "fastapi/exceptions.py:175",
+   "site": "fastapi/exceptions.py:220",
+   "site_fingerprint": "156f86f1bfe37076"
+  },
+  {
+   "corpus": "fastapi",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "fastapi/exceptions.py:175",
+   "site": "fastapi/exceptions.py:231",
+   "site_fingerprint": "d88b654abfd600f6"
+  },
+  {
+   "corpus": "fastapi",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "fastapi/exceptions.py:175",
+   "site": "fastapi/exceptions.py:242",
+   "site_fingerprint": "156f86f1bfe37076"
+  },
+  {
+   "corpus": "fastapi",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "fastapi/routing.py:1185",
+   "site": "docs_src/custom_request_and_route/tutorial001_an_py310.py:21",
+   "site_fingerprint": "191c076feb25c78e"
+  },
+  {
+   "corpus": "fastapi",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "fastapi/routing.py:1185",
+   "site": "docs_src/custom_request_and_route/tutorial001_py310.py:20",
+   "site_fingerprint": "191c076feb25c78e"
+  },
+  {
+   "corpus": "fastapi",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "fastapi/routing.py:1185",
+   "site": "docs_src/custom_request_and_route/tutorial002_an_py310.py:11",
+   "site_fingerprint": "191c076feb25c78e"
+  },
+  {
+   "corpus": "fastapi",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "fastapi/routing.py:1185",
+   "site": "docs_src/custom_request_and_route/tutorial002_py310.py:10",
+   "site_fingerprint": "191c076feb25c78e"
+  },
+  {
+   "corpus": "fastapi",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "fastapi/routing.py:1185",
+   "site": "docs_src/custom_request_and_route/tutorial003_py310.py:10",
+   "site_fingerprint": "191c076feb25c78e"
+  },
+  {
+   "corpus": "fastapi",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "fastapi/routing.py:1185",
+   "site": "tests/test_router_include_context.py:389",
+   "site_fingerprint": "7a8a4dab602f0b3a"
+  },
+  {
+   "corpus": "fastapi",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "fastapi/routing.py:1439",
+   "site": "fastapi/routing.py:1673",
+   "site_fingerprint": "c45ce448037cf9a5"
+  },
+  {
+   "corpus": "fastapi",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "fastapi/routing.py:1439",
+   "site": "fastapi/routing.py:2634",
+   "site_fingerprint": "960f4f11d89ba1f3"
+  },
+  {
+   "corpus": "fastapi",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "fastapi/routing.py:1439",
+   "site": "tests/test_router_include_context.py:804",
+   "site_fingerprint": "277865ffd6f8f980"
+  },
+  {
+   "corpus": "fastapi",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "fastapi/routing.py:1498",
+   "site": "tests/test_router_include_context.py:51",
+   "site_fingerprint": "9b4e9466f20a4c77"
+  },
+  {
+   "corpus": "fastapi",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "fastapi/routing.py:1966",
+   "site": "fastapi/routing.py:2031",
+   "site_fingerprint": "5e736a2bfb0bb46f"
+  },
+  {
+   "corpus": "fastapi",
+   "direction": "prism_only",
+   "dispatch_kind": "local_def",
+   "measurement": "callers",
+   "seed_def": "fastapi/routing.py:349",
+   "site": "fastapi/routing.py:568",
+   "site_fingerprint": "3ffeff07e6c21195"
+  },
+  {
+   "corpus": "fastapi",
+   "direction": "prism_only",
+   "dispatch_kind": "local_def",
+   "measurement": "callers",
+   "seed_def": "fastapi/routing.py:349",
+   "site": "fastapi/routing.py:578",
+   "site_fingerprint": "21257867d8db02ab"
+  },
+  {
+   "corpus": "fastapi",
+   "direction": "prism_only",
+   "dispatch_kind": "local_def",
+   "measurement": "callers",
+   "seed_def": "fastapi/routing.py:613",
+   "site": "fastapi/routing.py:568",
+   "site_fingerprint": "3ffeff07e6c21195"
+  },
+  {
+   "corpus": "fastapi",
+   "direction": "prism_only",
+   "dispatch_kind": "local_def",
+   "measurement": "callers",
+   "seed_def": "fastapi/routing.py:613",
+   "site": "fastapi/routing.py:578",
+   "site_fingerprint": "21257867d8db02ab"
+  },
+  {
+   "corpus": "fastapi",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callees",
+   "seed_def": "fastapi/applications.py:1108",
+   "site": "fastapi/applications.py:1112",
+   "site_fingerprint": "ddd3ee4683e8c492"
+  },
+  {
+   "corpus": "fastapi",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callees",
+   "seed_def": "fastapi/applications.py:1108",
+   "site": "fastapi/applications.py:1115",
+   "site_fingerprint": "a46f7958ad2a8ef0"
+  },
+  {
+   "corpus": "fastapi",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "fastapi/encoders.py:129",
+   "site": "fastapi/encoders.py:340",
+   "site_fingerprint": "f84285a3baeab3e6"
+  },
+  {
+   "corpus": "fastapi",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "fastapi/exceptions.py:225",
+   "site": "fastapi/exceptions.py:231",
+   "site_fingerprint": "d88b654abfd600f6"
+  },
+  {
+   "corpus": "fastapi",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callees",
+   "seed_def": "fastapi/routing.py:1185",
+   "site": "fastapi/routing.py:1189",
+   "site_fingerprint": "c5a1fcb242fb397f"
+  },
+  {
+   "corpus": "fastapi",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callees",
+   "seed_def": "fastapi/routing.py:1439",
+   "site": "fastapi/routing.py:1452",
+   "site_fingerprint": "64e02ddf95518805"
+  },
+  {
+   "corpus": "fastapi",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "fastapi/routing.py:1498",
+   "site": "fastapi/routing.py:1499",
+   "site_fingerprint": "71d50698fa02f3a5"
+  },
+  {
+   "corpus": "fastapi",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "fastapi/routing.py:2661",
+   "site": "fastapi/routing.py:2662",
+   "site_fingerprint": "9fc68aab7387f4dc"
+  },
+  {
+   "corpus": "fastapi",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "fastapi/routing.py:2787",
+   "site": "fastapi/routing.py:2788",
+   "site_fingerprint": "d5713c48e7aa5748"
+  },
+  {
+   "corpus": "fastapi",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "fastapi/routing.py:2911",
+   "site": "fastapi/routing.py:2912",
+   "site_fingerprint": "c013dedbb2900663"
+  }
+ ],
+ "probes": {
+  "_corpus": "fastapi",
+  "_strata": {
+   "C-method": {
+    "eligible_probes": 16,
+    "eligible_symbols": 8,
+    "target": 8
+   },
+   "C-name": {
+    "eligible_probes": 16,
+    "eligible_symbols": 8,
+    "target": 8
+   },
+   "Q-scoped": {
+    "eligible_probes": 16,
+    "eligible_symbols": 8,
+    "target": 8
+   },
+   "U-free": {
+    "eligible_probes": 0,
+    "eligible_symbols": 0,
+    "target": 8
+   },
+   "U-method": {
+    "eligible_probes": 16,
+    "eligible_symbols": 8,
+    "target": 8
+   }
+  },
+  "callees:fastapi/_compat/shared.py:104": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "fastapi/_compat/shared.py",
+     "field_annotation_is_scalar"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "fastapi/_compat/shared.py",
+     106,
+     106
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "fastapi/_compat/shared.py",
+     "field_annotation_is_scalar"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "fastapi/_compat/shared.py",
+     106,
+     106,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "fastapi/_compat/shared.py:104",
+   "stratum": "Q-scoped"
+  },
+  "callees:fastapi/applications.py:1108": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "fastapi/applications.py",
+     "openapi"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "fastapi/applications.py",
+     1110,
+     1110
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "fastapi/applications.py",
+     "openapi"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "fastapi/applications.py",
+     1109,
+     1109,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "fastapi/applications.py",
+     1112,
+     1112,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "fastapi/applications.py",
+     1112,
+     1112,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "fastapi/applications.py",
+     1115,
+     1115,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "fastapi/applications.py:1108",
+   "stratum": "C-name"
+  },
+  "callees:fastapi/applications.py:1295": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "fastapi/applications.py",
+     "api_route"
+    ],
+    [
+     "fastapi/applications.py",
+     "decorator"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "fastapi/applications.py",
+     1299,
+     1299
+    ],
+    [
+     "fastapi/applications.py",
+     1317,
+     1317
+    ],
+    [
+     "fastapi/applications.py",
+     1320,
+     1320
+    ],
+    [
+     "fastapi/applications.py",
+     1325,
+     1325
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "fastapi/applications.py",
+     "api_route"
+    ],
+    [
+     "fastapi/applications.py",
+     "decorator"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "fastapi/applications.py",
+     1299,
+     1299,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "fastapi/applications.py",
+     1317,
+     1317,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "fastapi/applications.py",
+     1320,
+     1320,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "fastapi/applications.py",
+     1325,
+     1325,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "fastapi/applications.py:1295",
+   "stratum": "C-method"
+  },
+  "callees:fastapi/applications.py:1324": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "fastapi/applications.py",
+     "decorator"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "fastapi/applications.py",
+     1325,
+     1325
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "fastapi/applications.py",
+     "decorator"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "fastapi/applications.py",
+     1325,
+     1325,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "fastapi/applications.py:1324",
+   "stratum": "C-name"
+  },
+  "callees:fastapi/applications.py:4642": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "fastapi/applications.py",
+     "decorator"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "fastapi/applications.py",
+     4643,
+     4643
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "fastapi/applications.py",
+     "decorator"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "fastapi/applications.py",
+     4643,
+     4643,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "fastapi/applications.py:4642",
+   "stratum": "C-name"
+  },
+  "callees:fastapi/datastructures.py:164": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "fastapi/datastructures.py",
+     "__bool__"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "fastapi/datastructures.py:164",
+   "stratum": "U-method"
+  },
+  "callees:fastapi/datastructures.py:167": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "fastapi/datastructures.py",
+     "__eq__"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "fastapi/datastructures.py:167",
+   "stratum": "U-method"
+  },
+  "callees:fastapi/dependencies/models.py:106": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "fastapi/dependencies/models.py",
+     "is_gen_callable"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "fastapi/dependencies/models.py",
+     110,
+     110
+    ],
+    [
+     "fastapi/dependencies/models.py",
+     115,
+     115
+    ],
+    [
+     "fastapi/dependencies/models.py",
+     119,
+     119
+    ],
+    [
+     "fastapi/dependencies/models.py",
+     126,
+     126
+    ],
+    [
+     "fastapi/dependencies/models.py",
+     111,
+     111
+    ],
+    [
+     "fastapi/dependencies/models.py",
+     113,
+     113
+    ],
+    [
+     "fastapi/dependencies/models.py",
+     120,
+     120
+    ],
+    [
+     "fastapi/dependencies/models.py",
+     122,
+     122
+    ],
+    [
+     "fastapi/dependencies/models.py",
+     127,
+     127
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "fastapi/dependencies/models.py",
+     "is_gen_callable"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "fastapi/dependencies/models.py",
+     111,
+     111,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "fastapi/dependencies/models.py",
+     113,
+     113,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "fastapi/dependencies/models.py",
+     120,
+     120,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "fastapi/dependencies/models.py",
+     122,
+     122,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "fastapi/dependencies/models.py",
+     127,
+     127,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "fastapi/dependencies/models.py",
+     110,
+     110,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "fastapi/dependencies/models.py",
+     115,
+     115,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "fastapi/dependencies/models.py",
+     119,
+     119,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "fastapi/dependencies/models.py",
+     126,
+     126,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "fastapi/dependencies/models.py:106",
+   "stratum": "U-method"
+  },
+  "callees:fastapi/dependencies/utils.py:254": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "fastapi/dependencies/utils.py",
+     "get_typed_return_annotation"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "fastapi/dependencies/utils.py",
+     255,
+     255
+    ],
+    [
+     "fastapi/dependencies/utils.py",
+     263,
+     263
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "fastapi/dependencies/utils.py",
+     "get_typed_return_annotation"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "fastapi/dependencies/utils.py",
+     255,
+     255,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "fastapi/dependencies/utils.py",
+     263,
+     263,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "fastapi/dependencies/utils.py:254",
+   "stratum": "Q-scoped"
+  },
+  "callees:fastapi/dependencies/utils.py:578": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "fastapi/dependencies/utils.py",
+     "_solve_generator"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "fastapi/dependencies/utils.py",
+     585,
+     585
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "fastapi/dependencies/utils.py",
+     "_solve_generator"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "fastapi/dependencies/utils.py",
+     585,
+     585,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "fastapi/dependencies/utils.py",
+     585,
+     585,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ]
+   ],
+   "seed_def": "fastapi/dependencies/utils.py:578",
+   "stratum": "Q-scoped"
+  },
+  "callees:fastapi/encoders.py:129": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "fastapi/encoders.py",
+     "jsonable_encoder"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "fastapi/encoders.py",
+     253,
+     253
+    ],
+    [
+     "fastapi/encoders.py",
+     262,
+     262
+    ],
+    [
+     "fastapi/encoders.py",
+     298,
+     298
+    ],
+    [
+     "fastapi/encoders.py",
+     306,
+     306
+    ],
+    [
+     "fastapi/encoders.py",
+     320,
+     320
+    ],
+    [
+     "fastapi/encoders.py",
+     354,
+     354
+    ],
+    [
+     "fastapi/encoders.py",
+     339,
+     339
+    ],
+    [
+     "fastapi/encoders.py",
+     340,
+     340
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "fastapi/encoders.py",
+     "jsonable_encoder"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "fastapi/encoders.py",
+     339,
+     339,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "fastapi/encoders.py",
+     253,
+     253,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "fastapi/encoders.py",
+     262,
+     262,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "fastapi/encoders.py",
+     298,
+     298,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "fastapi/encoders.py",
+     306,
+     306,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "fastapi/encoders.py",
+     320,
+     320,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "fastapi/encoders.py",
+     354,
+     354,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "fastapi/encoders.py:129",
+   "stratum": "Q-scoped"
+  },
+  "callees:fastapi/exceptions.py:225": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "fastapi/exceptions.py",
+     "__init__"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "fastapi/exceptions.py",
+     231,
+     231
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "fastapi/exceptions.py",
+     "__init__"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "fastapi/exceptions.py:225",
+   "stratum": "C-method"
+  },
+  "callees:fastapi/routing.py:1185": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "fastapi/routing.py",
+     "get_route_handler"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "fastapi/routing.py",
+     1192,
+     1192
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "fastapi/routing.py",
+     "get_route_handler"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "fastapi/routing.py",
+     1192,
+     1192,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "fastapi/routing.py",
+     1189,
+     1189,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "fastapi/routing.py:1185",
+   "stratum": "U-method"
+  },
+  "callees:fastapi/routing.py:1439": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "fastapi/routing.py",
+     "matches"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "fastapi/routing.py",
+     1452,
+     1452,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "fastapi/routing.py:1439",
+   "stratum": "C-method"
+  },
+  "callees:fastapi/routing.py:1498": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "fastapi/routing.py",
+     "path_format"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "fastapi/routing.py",
+     1499,
+     1499
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "fastapi/routing.py",
+     "path_format"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "fastapi/routing.py:1498",
+   "stratum": "U-method"
+  },
+  "callees:fastapi/routing.py:165": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "fastapi/routing.py",
+     "app"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "fastapi/routing.py:165",
+   "stratum": "C-name"
+  },
+  "callees:fastapi/routing.py:168": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "fastapi/routing.py",
+     "app"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "fastapi/routing.py:168",
+   "stratum": "C-name"
+  },
+  "callees:fastapi/routing.py:1833": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "fastapi/routing.py",
+     "_get_resolved_directory"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "fastapi/routing.py",
+     1835,
+     1835
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "fastapi/routing.py",
+     "_get_resolved_directory"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "fastapi/routing.py",
+     1835,
+     1835,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "fastapi/routing.py:1833",
+   "stratum": "U-method"
+  },
+  "callees:fastapi/routing.py:1966": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "fastapi/routing.py",
+     "matches"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "fastapi/routing.py",
+     1969,
+     1969
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "fastapi/routing.py",
+     "matches"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "fastapi/routing.py",
+     1969,
+     1969,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ]
+   ],
+   "seed_def": "fastapi/routing.py:1966",
+   "stratum": "C-method"
+  },
+  "callees:fastapi/routing.py:2661": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "fastapi/routing.py",
+     "decorator"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "fastapi/routing.py",
+     2662,
+     2662
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "fastapi/routing.py",
+     "decorator"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "fastapi/routing.py:2661",
+   "stratum": "C-name"
+  },
+  "callees:fastapi/routing.py:2787": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "fastapi/routing.py",
+     "decorator"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "fastapi/routing.py",
+     2788,
+     2788
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "fastapi/routing.py",
+     "decorator"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "fastapi/routing.py:2787",
+   "stratum": "C-name"
+  },
+  "callees:fastapi/routing.py:2911": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "fastapi/routing.py",
+     "decorator"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "fastapi/routing.py",
+     2912,
+     2912
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "fastapi/routing.py",
+     "decorator"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "fastapi/routing.py:2911",
+   "stratum": "C-name"
+  },
+  "callees:fastapi/routing.py:786": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "fastapi/routing.py",
+     "__init__"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "fastapi/routing.py",
+     800,
+     800
+    ],
+    [
+     "fastapi/routing.py",
+     806,
+     806
+    ],
+    [
+     "fastapi/routing.py",
+     808,
+     808
+    ],
+    [
+     "fastapi/routing.py",
+     809,
+     809
+    ],
+    [
+     "fastapi/routing.py",
+     812,
+     812
+    ],
+    [
+     "fastapi/routing.py",
+     813,
+     813
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "fastapi/routing.py",
+     "__init__"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "fastapi/routing.py",
+     806,
+     806,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "fastapi/routing.py",
+     808,
+     808,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "fastapi/routing.py",
+     800,
+     800,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "fastapi/routing.py",
+     809,
+     809,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "fastapi/routing.py",
+     812,
+     812,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "fastapi/routing.py",
+     813,
+     813,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "fastapi/routing.py:786",
+   "stratum": "C-method"
+  },
+  "callees:fastapi/sse.py:159": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "fastapi/sse.py",
+     "format_sse_event"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "fastapi/sse.py:159",
+   "stratum": "Q-scoped"
+  },
+  "callees:fastapi/utils.py:80": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "fastapi/utils.py",
+     "generate_operation_id_for_path"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "fastapi/utils.py:80",
+   "stratum": "Q-scoped"
+  },
+  "callers:fastapi/_compat/shared.py:104": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "fastapi/_compat/shared.py",
+     "field_annotation_is_scalar_sequence"
+    ],
+    [
+     "fastapi/_compat/v2.py",
+     "is_scalar_field"
+    ],
+    [
+     "fastapi/dependencies/utils.py",
+     "analyze_param"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "fastapi/_compat/shared.py",
+     117,
+     117
+    ],
+    [
+     "fastapi/_compat/shared.py",
+     121,
+     121
+    ],
+    [
+     "fastapi/_compat/v2.py",
+     352,
+     352
+    ],
+    [
+     "fastapi/dependencies/utils.py",
+     514,
+     514
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "fastapi/_compat/shared.py",
+     "field_annotation_is_scalar_sequence"
+    ],
+    [
+     "fastapi/dependencies/utils.py",
+     "analyze_param"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "fastapi/_compat/shared.py",
+     117,
+     117,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "fastapi/_compat/shared.py",
+     121,
+     121,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "fastapi/dependencies/utils.py",
+     514,
+     514,
+     {
+      "resolution_kind": "free_single"
+     }
+    ]
+   ],
+   "seed_def": "fastapi/_compat/shared.py:104",
+   "stratum": "Q-scoped"
+  },
+  "callers:fastapi/applications.py:1295": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "tests/main.py",
+     "<module_level>"
+    ],
+    [
+     "tests/test_extra_routes.py",
+     "<module_level>"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tests/main.py",
+     13,
+     13
+    ],
+    [
+     "tests/main.py",
+     13,
+     13
+    ],
+    [
+     "tests/test_extra_routes.py",
+     15,
+     15
+    ],
+    [
+     "tests/test_extra_routes.py",
+     15,
+     15
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "fastapi/applications.py:1295",
+   "stratum": "C-method"
+  },
+  "callers:fastapi/dependencies/models.py:106": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "fastapi/dependencies/models.py",
+     "computed_scope"
+    ],
+    [
+     "fastapi/dependencies/utils.py",
+     "_solve_generator"
+    ],
+    [
+     "fastapi/dependencies/utils.py",
+     "get_dependant"
+    ],
+    [
+     "fastapi/dependencies/utils.py",
+     "solve_dependencies"
+    ],
+    [
+     "fastapi/routing.py",
+     "_populate_api_route_state"
+    ],
+    [
+     "fastapi/routing.py",
+     "app"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "fastapi/routing.py",
+     669,
+     669
+    ],
+    [
+     "fastapi/routing.py",
+     1075,
+     1075
+    ],
+    [
+     "fastapi/dependencies/models.py",
+     191,
+     191
+    ],
+    [
+     "fastapi/dependencies/utils.py",
+     320,
+     320
+    ],
+    [
+     "fastapi/dependencies/utils.py",
+     584,
+     584
+    ],
+    [
+     "fastapi/dependencies/utils.py",
+     667,
+     667
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "fastapi/dependencies/models.py:106",
+   "stratum": "U-method"
+  },
+  "callers:fastapi/dependencies/utils.py:254": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "fastapi/routing.py",
+     "_populate_api_route_state"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "fastapi/routing.py",
+     955,
+     955
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "fastapi/routing.py",
+     "_populate_api_route_state"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "fastapi/routing.py",
+     955,
+     955,
+     {
+      "resolution_kind": "free_single"
+     }
+    ]
+   ],
+   "seed_def": "fastapi/dependencies/utils.py:254",
+   "stratum": "Q-scoped"
+  },
+  "callers:fastapi/dependencies/utils.py:578": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "fastapi/dependencies/utils.py",
+     "solve_dependencies"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "fastapi/dependencies/utils.py",
+     672,
+     672
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "fastapi/dependencies/utils.py",
+     "solve_dependencies"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "fastapi/dependencies/utils.py",
+     672,
+     672,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "fastapi/dependencies/utils.py:578",
+   "stratum": "Q-scoped"
+  },
+  "callers:fastapi/encoders.py:129": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "docs_src/body_updates/tutorial001_py310.py",
+     "<module_level>"
+    ],
+    [
+     "docs_src/body_updates/tutorial002_py310.py",
+     "<module_level>"
+    ],
+    [
+     "docs_src/encoder/tutorial001_py310.py",
+     "<module_level>"
+    ],
+    [
+     "docs_src/handling_errors/tutorial005_py310.py",
+     "<module_level>"
+    ],
+    [
+     "docs_src/response_directly/tutorial001_py310.py",
+     "<module_level>"
+    ],
+    [
+     "fastapi/encoders.py",
+     "jsonable_encoder"
+    ],
+    [
+     "fastapi/exception_handlers.py",
+     "request_validation_exception_handler"
+    ],
+    [
+     "fastapi/exception_handlers.py",
+     "websocket_request_validation_exception_handler"
+    ],
+    [
+     "fastapi/openapi/docs.py",
+     "get_swagger_ui_html"
+    ],
+    [
+     "fastapi/openapi/utils.py",
+     "_get_openapi_operation_parameters"
+    ],
+    [
+     "fastapi/openapi/utils.py",
+     "get_openapi"
+    ],
+    [
+     "fastapi/openapi/utils.py",
+     "get_openapi_operation_request_body"
+    ],
+    [
+     "fastapi/openapi/utils.py",
+     "get_openapi_security_definitions"
+    ],
+    [
+     "fastapi/routing.py",
+     "_serialize_data"
+    ],
+    [
+     "fastapi/routing.py",
+     "_serialize_sse_item"
+    ],
+    [
+     "fastapi/routing.py",
+     "serialize_response"
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     "<module_level>"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "docs_src/body_updates/tutorial001_py310.py",
+     30,
+     30
+    ],
+    [
+     "docs_src/body_updates/tutorial002_py310.py",
+     34,
+     34
+    ],
+    [
+     "docs_src/encoder/tutorial001_py310.py",
+     21,
+     21
+    ],
+    [
+     "docs_src/handling_errors/tutorial005_py310.py",
+     14,
+     14
+    ],
+    [
+     "docs_src/response_directly/tutorial001_py310.py",
+     20,
+     20
+    ],
+    [
+     "fastapi/encoders.py",
+     253,
+     253
+    ],
+    [
+     "fastapi/encoders.py",
+     262,
+     262
+    ],
+    [
+     "fastapi/encoders.py",
+     298,
+     298
+    ],
+    [
+     "fastapi/encoders.py",
+     306,
+     306
+    ],
+    [
+     "fastapi/encoders.py",
+     320,
+     320
+    ],
+    [
+     "fastapi/encoders.py",
+     354,
+     354
+    ],
+    [
+     "fastapi/exception_handlers.py",
+     25,
+     25
+    ],
+    [
+     "fastapi/exception_handlers.py",
+     33,
+     33
+    ],
+    [
+     "fastapi/routing.py",
+     333,
+     333
+    ],
+    [
+     "fastapi/routing.py",
+     509,
+     509
+    ],
+    [
+     "fastapi/routing.py",
+     528,
+     528
+    ],
+    [
+     "fastapi/openapi/docs.py",
+     172,
+     172
+    ],
+    [
+     "fastapi/openapi/docs.py",
+     186,
+     186
+    ],
+    [
+     "fastapi/openapi/utils.py",
+     88,
+     88
+    ],
+    [
+     "fastapi/openapi/utils.py",
+     171,
+     171
+    ],
+    [
+     "fastapi/openapi/utils.py",
+     173,
+     173
+    ],
+    [
+     "fastapi/openapi/utils.py",
+     206,
+     206
+    ],
+    [
+     "fastapi/openapi/utils.py",
+     210,
+     210
+    ],
+    [
+     "fastapi/openapi/utils.py",
+     617,
+     617
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     77,
+     77
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     78,
+     78
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     79,
+     79
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     80,
+     80
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     81,
+     81
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     89,
+     89
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     90,
+     90
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     91,
+     91
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     92,
+     92
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     93,
+     93
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     102,
+     102
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     103,
+     103
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     104,
+     104
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     105,
+     105
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     106,
+     106
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     115,
+     115
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     116,
+     116
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     117,
+     117
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     118,
+     118
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     119,
+     119
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     127,
+     127
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     128,
+     128
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     129,
+     129
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     130,
+     130
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     131,
+     131
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     137,
+     137
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     154,
+     154
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     156,
+     156
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     169,
+     169
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     174,
+     174
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     184,
+     184
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     189,
+     189
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     190,
+     190
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     191,
+     191
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     192,
+     192
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     195,
+     195
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     196,
+     196
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     197,
+     197
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     198,
+     198
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     214,
+     214
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     219,
+     219
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     224,
+     224
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     237,
+     237
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     251,
+     251
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     261,
+     261
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     271,
+     271
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     277,
+     277
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     282,
+     282
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     287,
+     287
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     292,
+     292
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     297,
+     297
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     299,
+     299
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     308,
+     308
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     313,
+     313
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     331,
+     331
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "docs_src/body_updates/tutorial001_py310.py",
+     "<module_level>"
+    ],
+    [
+     "docs_src/body_updates/tutorial002_py310.py",
+     "<module_level>"
+    ],
+    [
+     "docs_src/encoder/tutorial001_py310.py",
+     "<module_level>"
+    ],
+    [
+     "docs_src/handling_errors/tutorial005_py310.py",
+     "<module_level>"
+    ],
+    [
+     "docs_src/response_directly/tutorial001_py310.py",
+     "<module_level>"
+    ],
+    [
+     "fastapi/encoders.py",
+     "jsonable_encoder"
+    ],
+    [
+     "fastapi/exception_handlers.py",
+     "request_validation_exception_handler"
+    ],
+    [
+     "fastapi/exception_handlers.py",
+     "websocket_request_validation_exception_handler"
+    ],
+    [
+     "fastapi/openapi/docs.py",
+     "get_swagger_ui_html"
+    ],
+    [
+     "fastapi/openapi/utils.py",
+     "_get_openapi_operation_parameters"
+    ],
+    [
+     "fastapi/openapi/utils.py",
+     "get_openapi"
+    ],
+    [
+     "fastapi/openapi/utils.py",
+     "get_openapi_operation_request_body"
+    ],
+    [
+     "fastapi/openapi/utils.py",
+     "get_openapi_security_definitions"
+    ],
+    [
+     "fastapi/routing.py",
+     "_serialize_data"
+    ],
+    [
+     "fastapi/routing.py",
+     "_serialize_sse_item"
+    ],
+    [
+     "fastapi/routing.py",
+     "serialize_response"
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     "<module_level>"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "docs_src/body_updates/tutorial001_py310.py",
+     30,
+     30,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "docs_src/body_updates/tutorial001_py310.py",
+     30,
+     30,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "docs_src/body_updates/tutorial002_py310.py",
+     34,
+     34,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "docs_src/body_updates/tutorial002_py310.py",
+     34,
+     34,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "docs_src/encoder/tutorial001_py310.py",
+     21,
+     21,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "docs_src/encoder/tutorial001_py310.py",
+     21,
+     21,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "docs_src/handling_errors/tutorial005_py310.py",
+     14,
+     14,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "docs_src/handling_errors/tutorial005_py310.py",
+     14,
+     14,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "docs_src/response_directly/tutorial001_py310.py",
+     20,
+     20,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "docs_src/response_directly/tutorial001_py310.py",
+     20,
+     20,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "fastapi/encoders.py",
+     253,
+     253,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "fastapi/encoders.py",
+     262,
+     262,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "fastapi/encoders.py",
+     298,
+     298,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "fastapi/encoders.py",
+     306,
+     306,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "fastapi/encoders.py",
+     320,
+     320,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "fastapi/encoders.py",
+     354,
+     354,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "fastapi/exception_handlers.py",
+     25,
+     25,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "fastapi/exception_handlers.py",
+     33,
+     33,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "fastapi/openapi/docs.py",
+     172,
+     172,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "fastapi/openapi/docs.py",
+     186,
+     186,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "fastapi/openapi/utils.py",
+     88,
+     88,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "fastapi/openapi/utils.py",
+     171,
+     171,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "fastapi/openapi/utils.py",
+     173,
+     173,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "fastapi/openapi/utils.py",
+     206,
+     206,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "fastapi/openapi/utils.py",
+     210,
+     210,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "fastapi/openapi/utils.py",
+     617,
+     617,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "fastapi/routing.py",
+     333,
+     333,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "fastapi/routing.py",
+     509,
+     509,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "fastapi/routing.py",
+     528,
+     528,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "fastapi/routing.py",
+     509,
+     509,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "fastapi/routing.py",
+     528,
+     528,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "fastapi/routing.py",
+     509,
+     509,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "fastapi/routing.py",
+     528,
+     528,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     77,
+     77,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     78,
+     78,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     79,
+     79,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     80,
+     80,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     81,
+     81,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     89,
+     89,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     90,
+     90,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     91,
+     91,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     92,
+     92,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     93,
+     93,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     102,
+     102,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     103,
+     103,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     104,
+     104,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     105,
+     105,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     106,
+     106,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     115,
+     115,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     116,
+     116,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     117,
+     117,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     118,
+     118,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     119,
+     119,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     127,
+     127,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     128,
+     128,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     129,
+     129,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     130,
+     130,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     131,
+     131,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     137,
+     137,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     154,
+     154,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     156,
+     156,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     169,
+     169,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     174,
+     174,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     184,
+     184,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     189,
+     189,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     190,
+     190,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     191,
+     191,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     192,
+     192,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     195,
+     195,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     196,
+     196,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     197,
+     197,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     198,
+     198,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     214,
+     214,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     219,
+     219,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     224,
+     224,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     237,
+     237,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     251,
+     251,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     261,
+     261,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     271,
+     271,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     277,
+     277,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     282,
+     282,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     287,
+     287,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     292,
+     292,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     297,
+     297,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     299,
+     299,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     308,
+     308,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     313,
+     313,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     331,
+     331,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "tests/test_jsonable_encoder.py",
+     331,
+     331,
+     {
+      "resolution_kind": "free_single"
+     }
+    ]
+   ],
+   "seed_def": "fastapi/encoders.py:129",
+   "stratum": "Q-scoped"
+  },
+  "callers:fastapi/exceptions.py:175": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "fastapi/exceptions.py",
+     "__init__"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "fastapi/exceptions.py",
+     220,
+     220
+    ],
+    [
+     "fastapi/exceptions.py",
+     220,
+     220
+    ],
+    [
+     "fastapi/exceptions.py",
+     231,
+     231
+    ],
+    [
+     "fastapi/exceptions.py",
+     231,
+     231
+    ],
+    [
+     "fastapi/exceptions.py",
+     242,
+     242
+    ],
+    [
+     "fastapi/exceptions.py",
+     242,
+     242
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "fastapi/exceptions.py:175",
+   "stratum": "C-method"
+  },
+  "callers:fastapi/routing.py:1185": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "docs_src/custom_request_and_route/tutorial001_an_py310.py",
+     "<module_level>"
+    ],
+    [
+     "docs_src/custom_request_and_route/tutorial001_py310.py",
+     "<module_level>"
+    ],
+    [
+     "docs_src/custom_request_and_route/tutorial002_an_py310.py",
+     "<module_level>"
+    ],
+    [
+     "docs_src/custom_request_and_route/tutorial002_py310.py",
+     "<module_level>"
+    ],
+    [
+     "docs_src/custom_request_and_route/tutorial003_py310.py",
+     "<module_level>"
+    ],
+    [
+     "fastapi/routing.py",
+     "__init__"
+    ],
+    [
+     "fastapi/routing.py",
+     "handle"
+    ],
+    [
+     "tests/test_router_include_context.py",
+     "<module_level>"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "docs_src/custom_request_and_route/tutorial001_an_py310.py",
+     21,
+     21
+    ],
+    [
+     "docs_src/custom_request_and_route/tutorial001_an_py310.py",
+     21,
+     21
+    ],
+    [
+     "docs_src/custom_request_and_route/tutorial001_py310.py",
+     20,
+     20
+    ],
+    [
+     "docs_src/custom_request_and_route/tutorial001_py310.py",
+     20,
+     20
+    ],
+    [
+     "docs_src/custom_request_and_route/tutorial002_an_py310.py",
+     11,
+     11
+    ],
+    [
+     "docs_src/custom_request_and_route/tutorial002_an_py310.py",
+     11,
+     11
+    ],
+    [
+     "docs_src/custom_request_and_route/tutorial002_py310.py",
+     10,
+     10
+    ],
+    [
+     "docs_src/custom_request_and_route/tutorial002_py310.py",
+     10,
+     10
+    ],
+    [
+     "docs_src/custom_request_and_route/tutorial003_py310.py",
+     10,
+     10
+    ],
+    [
+     "docs_src/custom_request_and_route/tutorial003_py310.py",
+     10,
+     10
+    ],
+    [
+     "fastapi/routing.py",
+     1183,
+     1183
+    ],
+    [
+     "fastapi/routing.py",
+     1183,
+     1183
+    ],
+    [
+     "fastapi/routing.py",
+     1236,
+     1236
+    ],
+    [
+     "fastapi/routing.py",
+     1236,
+     1236
+    ],
+    [
+     "tests/test_router_include_context.py",
+     389,
+     389
+    ],
+    [
+     "tests/test_router_include_context.py",
+     389,
+     389
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "fastapi/routing.py",
+     "__init__"
+    ],
+    [
+     "fastapi/routing.py",
+     "handle"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "fastapi/routing.py",
+     1183,
+     1183,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "fastapi/routing.py",
+     1236,
+     1236,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ]
+   ],
+   "seed_def": "fastapi/routing.py:1185",
+   "stratum": "U-method"
+  },
+  "callers:fastapi/routing.py:1439": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "fastapi/routing.py",
+     "_match"
+    ],
+    [
+     "fastapi/routing.py",
+     "_match_low_priority"
+    ],
+    [
+     "tests/test_router_include_context.py",
+     "<module_level>"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "fastapi/routing.py",
+     1673,
+     1673
+    ],
+    [
+     "fastapi/routing.py",
+     1673,
+     1673
+    ],
+    [
+     "fastapi/routing.py",
+     2634,
+     2634
+    ],
+    [
+     "fastapi/routing.py",
+     2634,
+     2634
+    ],
+    [
+     "tests/test_router_include_context.py",
+     804,
+     804
+    ],
+    [
+     "tests/test_router_include_context.py",
+     804,
+     804
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "fastapi/routing.py:1439",
+   "stratum": "C-method"
+  },
+  "callers:fastapi/routing.py:1498": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "tests/test_router_include_context.py",
+     "<module_level>"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tests/test_router_include_context.py",
+     51,
+     51
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "fastapi/routing.py:1498",
+   "stratum": "U-method"
+  },
+  "callers:fastapi/routing.py:1833": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "fastapi/routing.py",
+     "_check_fallback_file"
+    ],
+    [
+     "fastapi/routing.py",
+     "_fallback_response"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "fastapi/routing.py",
+     1830,
+     1830
+    ],
+    [
+     "fastapi/routing.py",
+     1830,
+     1830
+    ],
+    [
+     "fastapi/routing.py",
+     1897,
+     1897
+    ],
+    [
+     "fastapi/routing.py",
+     1897,
+     1897
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "fastapi/routing.py",
+     "_check_fallback_file"
+    ],
+    [
+     "fastapi/routing.py",
+     "_fallback_response"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "fastapi/routing.py",
+     1830,
+     1830,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "fastapi/routing.py",
+     1897,
+     1897,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ]
+   ],
+   "seed_def": "fastapi/routing.py:1833",
+   "stratum": "U-method"
+  },
+  "callers:fastapi/routing.py:1966": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "fastapi/routing.py",
+     "_match"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "fastapi/routing.py",
+     2031,
+     2031
+    ],
+    [
+     "fastapi/routing.py",
+     2031,
+     2031
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "fastapi/routing.py:1966",
+   "stratum": "C-method"
+  },
+  "callers:fastapi/routing.py:349": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "fastapi/routing.py",
+     "app"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "fastapi/routing.py",
+     684,
+     684
+    ],
+    [
+     "fastapi/routing.py",
+     700,
+     700
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "fastapi/routing.py",
+     "_sse_producer_cm"
+    ],
+    [
+     "fastapi/routing.py",
+     "app"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "fastapi/routing.py",
+     684,
+     684,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "fastapi/routing.py",
+     700,
+     700,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "fastapi/routing.py",
+     568,
+     568,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "fastapi/routing.py",
+     578,
+     578,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "fastapi/routing.py",
+     684,
+     684,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "fastapi/routing.py",
+     700,
+     700,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "fastapi/routing.py",
+     568,
+     568,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "fastapi/routing.py",
+     578,
+     578,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "fastapi/routing.py:349",
+   "stratum": "Q-scoped"
+  },
+  "callers:fastapi/routing.py:613": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "fastapi/routing.py",
+     "app"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "fastapi/routing.py",
+     624,
+     624
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "fastapi/routing.py",
+     "_sse_producer_cm"
+    ],
+    [
+     "fastapi/routing.py",
+     "app"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "fastapi/routing.py",
+     624,
+     624,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "fastapi/routing.py",
+     568,
+     568,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "fastapi/routing.py",
+     578,
+     578,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "fastapi/routing.py",
+     624,
+     624,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "fastapi/routing.py",
+     568,
+     568,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "fastapi/routing.py",
+     578,
+     578,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "fastapi/routing.py:613",
+   "stratum": "Q-scoped"
+  },
+  "callers:fastapi/routing.py:6164": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "fastapi/routing.py",
+     "__aexit__"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "fastapi/routing.py",
+     260,
+     260
+    ],
+    [
+     "fastapi/routing.py",
+     260,
+     260
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "fastapi/routing.py",
+     "__aexit__"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "fastapi/routing.py",
+     260,
+     260,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "fastapi/routing.py:6164",
+   "stratum": "U-method"
+  },
+  "callers:fastapi/sse.py:159": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "fastapi/routing.py",
+     "_serialize_sse_item"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "fastapi/routing.py",
+     531,
+     531
+    ],
+    [
+     "fastapi/routing.py",
+     541,
+     541
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "fastapi/routing.py",
+     "_serialize_sse_item"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "fastapi/routing.py",
+     531,
+     531,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "fastapi/routing.py",
+     541,
+     541,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "fastapi/routing.py",
+     531,
+     531,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "fastapi/routing.py",
+     541,
+     541,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "fastapi/routing.py",
+     531,
+     531,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "fastapi/routing.py",
+     541,
+     541,
+     {
+      "resolution_kind": "free_single"
+     }
+    ]
+   ],
+   "seed_def": "fastapi/sse.py:159",
+   "stratum": "Q-scoped"
+  },
+  "callers:fastapi/utils.py:80": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "fastapi/openapi/utils.py",
+     "generate_operation_id"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "fastapi/openapi/utils.py",
+     227,
+     227
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "fastapi/openapi/utils.py",
+     "generate_operation_id"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "fastapi/openapi/utils.py",
+     227,
+     227,
+     {
+      "resolution_kind": "free_single"
+     }
+    ]
+   ],
+   "seed_def": "fastapi/utils.py:80",
+   "stratum": "Q-scoped"
+  }
+ },
+ "site_fingerprints": {
+  "docs_src/body_updates/tutorial001_py310.py:30": "d015469ce376a9a5",
+  "docs_src/body_updates/tutorial002_py310.py:34": "03e63ec8589d477e",
+  "docs_src/custom_request_and_route/tutorial001_an_py310.py:21": "191c076feb25c78e",
+  "docs_src/custom_request_and_route/tutorial001_py310.py:20": "191c076feb25c78e",
+  "docs_src/custom_request_and_route/tutorial002_an_py310.py:11": "191c076feb25c78e",
+  "docs_src/custom_request_and_route/tutorial002_py310.py:10": "191c076feb25c78e",
+  "docs_src/custom_request_and_route/tutorial003_py310.py:10": "191c076feb25c78e",
+  "docs_src/encoder/tutorial001_py310.py:21": "04aaaa43c7c5706f",
+  "docs_src/handling_errors/tutorial005_py310.py:14": "cce7f6b428553fb7",
+  "docs_src/response_directly/tutorial001_py310.py:20": "0bd5f7d2b3dc77c2",
+  "fastapi/_compat/shared.py:106": "8d47c5ba0048a3d1",
+  "fastapi/_compat/shared.py:117": "220e577c5ac70930",
+  "fastapi/_compat/shared.py:121": "c779df94ccf5c916",
+  "fastapi/_compat/v2.py:352": "6afedf1ac627494d",
+  "fastapi/applications.py:1109": "c078f88ba88a16aa",
+  "fastapi/applications.py:1110": "da5652be50548365",
+  "fastapi/applications.py:1112": "ddd3ee4683e8c492",
+  "fastapi/applications.py:1115": "a46f7958ad2a8ef0",
+  "fastapi/applications.py:1299": "6cc0fc8932fef3bf",
+  "fastapi/applications.py:1317": "266840523d00abc2",
+  "fastapi/applications.py:1320": "4cc2888a73461445",
+  "fastapi/applications.py:1325": "8053d4d58c995c17",
+  "fastapi/applications.py:4643": "244dc77105c0a6cb",
+  "fastapi/dependencies/models.py:110": "180ce68fa8bad022",
+  "fastapi/dependencies/models.py:111": "eb5f58bdd5fc7711",
+  "fastapi/dependencies/models.py:113": "4a88d9444de5ecab",
+  "fastapi/dependencies/models.py:115": "5346e37b71b7d616",
+  "fastapi/dependencies/models.py:119": "410351eea442bbf8",
+  "fastapi/dependencies/models.py:120": "f1416c47d71ce8c5",
+  "fastapi/dependencies/models.py:122": "bb13fdc156c063d1",
+  "fastapi/dependencies/models.py:126": "4ddb47b8ca4be7b4",
+  "fastapi/dependencies/models.py:127": "427733ea8c10a642",
+  "fastapi/dependencies/models.py:191": "cc283c9b395939be",
+  "fastapi/dependencies/utils.py:255": "ea30ae21b6de75d3",
+  "fastapi/dependencies/utils.py:263": "c6118a116e4c9330",
+  "fastapi/dependencies/utils.py:320": "b46fbfdb6243e99f",
+  "fastapi/dependencies/utils.py:514": "7db51a1d1f54abb4",
+  "fastapi/dependencies/utils.py:584": "ea039eaad1009bb6",
+  "fastapi/dependencies/utils.py:585": "024ee90392c859c0",
+  "fastapi/dependencies/utils.py:667": "ea78245bf8397223",
+  "fastapi/dependencies/utils.py:672": "a4751eee046e2bbd",
+  "fastapi/encoders.py:253": "b18bae5aa0e53705",
+  "fastapi/encoders.py:262": "80b1ceb3c465d45b",
+  "fastapi/encoders.py:298": "864ad2bc1ac21d3e",
+  "fastapi/encoders.py:306": "063df2a0782dd58b",
+  "fastapi/encoders.py:320": "a1109401083e5fc7",
+  "fastapi/encoders.py:339": "3c17fe2d5bfd0d12",
+  "fastapi/encoders.py:340": "f84285a3baeab3e6",
+  "fastapi/encoders.py:354": "7c724f0b7130c5f1",
+  "fastapi/exception_handlers.py:25": "013674ad86e09bb9",
+  "fastapi/exception_handlers.py:33": "4c0e86ffebebdf23",
+  "fastapi/exceptions.py:220": "156f86f1bfe37076",
+  "fastapi/exceptions.py:231": "d88b654abfd600f6",
+  "fastapi/exceptions.py:242": "156f86f1bfe37076",
+  "fastapi/openapi/docs.py:172": "fc1602cccc17de19",
+  "fastapi/openapi/docs.py:186": "e9679252f737a635",
+  "fastapi/openapi/utils.py:171": "aa2b545c9b1a1896",
+  "fastapi/openapi/utils.py:173": "ac47f8a700b27705",
+  "fastapi/openapi/utils.py:206": "d65e34825bbc5db1",
+  "fastapi/openapi/utils.py:210": "b5fd44addad00e7c",
+  "fastapi/openapi/utils.py:227": "84c4992a431df526",
+  "fastapi/openapi/utils.py:617": "bc583c02a4c681d7",
+  "fastapi/openapi/utils.py:88": "211d318167446a31",
+  "fastapi/routing.py:1075": "6afb080a1ecba7a4",
+  "fastapi/routing.py:1183": "b5eecd6714cf73e9",
+  "fastapi/routing.py:1189": "c5a1fcb242fb397f",
+  "fastapi/routing.py:1192": "da7af083a0559cb4",
+  "fastapi/routing.py:1236": "8ea82ab264ce3710",
+  "fastapi/routing.py:1452": "64e02ddf95518805",
+  "fastapi/routing.py:1499": "71d50698fa02f3a5",
+  "fastapi/routing.py:1673": "c45ce448037cf9a5",
+  "fastapi/routing.py:1830": "1ba87f3ded1ca980",
+  "fastapi/routing.py:1835": "9f264ee554d81aef",
+  "fastapi/routing.py:1897": "1ba87f3ded1ca980",
+  "fastapi/routing.py:1969": "40ad0a42d893c753",
+  "fastapi/routing.py:2031": "5e736a2bfb0bb46f",
+  "fastapi/routing.py:260": "dc464f05275dfbd5",
+  "fastapi/routing.py:2634": "960f4f11d89ba1f3",
+  "fastapi/routing.py:2662": "9fc68aab7387f4dc",
+  "fastapi/routing.py:2788": "d5713c48e7aa5748",
+  "fastapi/routing.py:2912": "c013dedbb2900663",
+  "fastapi/routing.py:333": "98158df3d0264368",
+  "fastapi/routing.py:509": "1946eef4fa97d748",
+  "fastapi/routing.py:528": "c56029d296588716",
+  "fastapi/routing.py:531": "c1eadc36c8992912",
+  "fastapi/routing.py:541": "0c0c288b245cbc4f",
+  "fastapi/routing.py:568": "3ffeff07e6c21195",
+  "fastapi/routing.py:578": "21257867d8db02ab",
+  "fastapi/routing.py:624": "2e7dd066f22e4e2b",
+  "fastapi/routing.py:669": "6ab90609cf5ad0f9",
+  "fastapi/routing.py:684": "b640f16fddf586bb",
+  "fastapi/routing.py:700": "40baf735308bf12a",
+  "fastapi/routing.py:800": "a8d99c99cea2119b",
+  "fastapi/routing.py:806": "1061a1f22a5e1020",
+  "fastapi/routing.py:808": "c1535a89c6ddf47b",
+  "fastapi/routing.py:809": "05aa7f51fa9c63ee",
+  "fastapi/routing.py:812": "7f79affe055051a1",
+  "fastapi/routing.py:813": "d01849e07d75da00",
+  "fastapi/routing.py:955": "b78b1966e55568ee",
+  "tests/main.py:13": "f148c02190ac45b1",
+  "tests/test_extra_routes.py:15": "11ff011635e02f22",
+  "tests/test_jsonable_encoder.py:102": "de2664455d598147",
+  "tests/test_jsonable_encoder.py:103": "d1bf85cd8784553a",
+  "tests/test_jsonable_encoder.py:104": "e99b52661d980aae",
+  "tests/test_jsonable_encoder.py:105": "93a9bf64c4eba6a3",
+  "tests/test_jsonable_encoder.py:106": "b571e52b509ed0c4",
+  "tests/test_jsonable_encoder.py:115": "a4621b7666bbf9be",
+  "tests/test_jsonable_encoder.py:116": "d1bf85cd8784553a",
+  "tests/test_jsonable_encoder.py:117": "e99b52661d980aae",
+  "tests/test_jsonable_encoder.py:118": "93a9bf64c4eba6a3",
+  "tests/test_jsonable_encoder.py:119": "b571e52b509ed0c4",
+  "tests/test_jsonable_encoder.py:127": "e12bf250aea58be7",
+  "tests/test_jsonable_encoder.py:128": "0538983542e799fb",
+  "tests/test_jsonable_encoder.py:129": "03acbc9585c8ea30",
+  "tests/test_jsonable_encoder.py:130": "91bcdb6e1dd4dd70",
+  "tests/test_jsonable_encoder.py:131": "a03340a87efe7c28",
+  "tests/test_jsonable_encoder.py:137": "1e557aa0509ca19e",
+  "tests/test_jsonable_encoder.py:154": "a3e54dd8c5a35ced",
+  "tests/test_jsonable_encoder.py:156": "af9870449d7aa5ba",
+  "tests/test_jsonable_encoder.py:169": "8da94c6bbd2341c0",
+  "tests/test_jsonable_encoder.py:174": "346ba99207d5096c",
+  "tests/test_jsonable_encoder.py:184": "e6f70774880c91c9",
+  "tests/test_jsonable_encoder.py:189": "f89ed32b3bd246c5",
+  "tests/test_jsonable_encoder.py:190": "e8239db6e3dbefdf",
+  "tests/test_jsonable_encoder.py:191": "f3920f35a02efba5",
+  "tests/test_jsonable_encoder.py:192": "796b155d03a527fc",
+  "tests/test_jsonable_encoder.py:195": "45495ae3354cee77",
+  "tests/test_jsonable_encoder.py:196": "8400a2f39071e618",
+  "tests/test_jsonable_encoder.py:197": "3109e7aa818adf22",
+  "tests/test_jsonable_encoder.py:198": "25a59b1b5fa322fc",
+  "tests/test_jsonable_encoder.py:214": "f07f7c1f5e181472",
+  "tests/test_jsonable_encoder.py:219": "469dc6ec529c10f9",
+  "tests/test_jsonable_encoder.py:224": "a5cecbadb5200bfb",
+  "tests/test_jsonable_encoder.py:237": "38eba8e6566491f9",
+  "tests/test_jsonable_encoder.py:251": "607b071844a35e73",
+  "tests/test_jsonable_encoder.py:261": "03b66ff16e44757f",
+  "tests/test_jsonable_encoder.py:271": "a4a8ee127a2e00ee",
+  "tests/test_jsonable_encoder.py:277": "99dea321f458d802",
+  "tests/test_jsonable_encoder.py:282": "01d6b746b1b3a057",
+  "tests/test_jsonable_encoder.py:287": "785b7855f8002c01",
+  "tests/test_jsonable_encoder.py:292": "845054e8eb543690",
+  "tests/test_jsonable_encoder.py:297": "15526e2151120faf",
+  "tests/test_jsonable_encoder.py:299": "0618868ec0ada6e7",
+  "tests/test_jsonable_encoder.py:308": "be1a4c059263a8e8",
+  "tests/test_jsonable_encoder.py:313": "2487c2464a3bffaf",
+  "tests/test_jsonable_encoder.py:331": "23c0c1375f78b074",
+  "tests/test_jsonable_encoder.py:77": "b2339fb9e71f0299",
+  "tests/test_jsonable_encoder.py:78": "d1bf85cd8784553a",
+  "tests/test_jsonable_encoder.py:79": "e99b52661d980aae",
+  "tests/test_jsonable_encoder.py:80": "93a9bf64c4eba6a3",
+  "tests/test_jsonable_encoder.py:81": "b571e52b509ed0c4",
+  "tests/test_jsonable_encoder.py:89": "4fb65388bc19f76d",
+  "tests/test_jsonable_encoder.py:90": "1cee81e160de6446",
+  "tests/test_jsonable_encoder.py:91": "15492cff51da17c4",
+  "tests/test_jsonable_encoder.py:92": "ff3470afab83bd0c",
+  "tests/test_jsonable_encoder.py:93": "88dab577958db064",
+  "tests/test_router_include_context.py:389": "7a8a4dab602f0b3a",
+  "tests/test_router_include_context.py:51": "9b4e9466f20a4c77",
+  "tests/test_router_include_context.py:804": "277865ffd6f8f980"
+ }
+}

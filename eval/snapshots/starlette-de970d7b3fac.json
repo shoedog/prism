@@ -1,0 +1,5870 @@
+[
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 20,
+   "file": "starlette/_exception_handler.py",
+   "start_line": 16
+  },
+  "name": "_lookup_exception_handler",
+  "selection_char": 4,
+  "selection_line": 16
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 65,
+   "file": "starlette/_exception_handler.py",
+   "start_line": 23
+  },
+  "name": "wrap_app_handling_exceptions",
+  "selection_char": 4,
+  "selection_line": 23
+ },
+ {
+  "container": "wrap_app_handling_exceptions",
+  "kind": "function",
+  "location": {
+   "end_line": 63,
+   "file": "starlette/_exception_handler.py",
+   "start_line": 31
+  },
+  "name": "wrapped_app",
+  "selection_char": 14,
+  "selection_line": 31
+ },
+ {
+  "container": "wrapped_app",
+  "kind": "function",
+  "location": {
+   "end_line": 39,
+   "file": "starlette/_exception_handler.py",
+   "start_line": 34
+  },
+  "name": "sender",
+  "selection_char": 18,
+  "selection_line": 34
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 46,
+   "file": "starlette/_utils.py",
+   "start_line": 42
+  },
+  "name": "is_async_callable",
+  "selection_char": 4,
+  "selection_line": 42
+ },
+ {
+  "container": "SupportsAsyncClose",
+  "kind": "method",
+  "location": {
+   "end_line": 58,
+   "file": "starlette/_utils.py",
+   "start_line": 58
+  },
+  "name": "close",
+  "selection_char": 14,
+  "selection_line": 58
+ },
+ {
+  "container": "AwaitableOrContextManagerWrapper",
+  "kind": "method",
+  "location": {
+   "end_line": 68,
+   "file": "starlette/_utils.py",
+   "start_line": 67
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 67
+ },
+ {
+  "container": "AwaitableOrContextManagerWrapper",
+  "kind": "method",
+  "location": {
+   "end_line": 71,
+   "file": "starlette/_utils.py",
+   "start_line": 70
+  },
+  "name": "__await__",
+  "selection_char": 8,
+  "selection_line": 70
+ },
+ {
+  "container": "AwaitableOrContextManagerWrapper",
+  "kind": "method",
+  "location": {
+   "end_line": 75,
+   "file": "starlette/_utils.py",
+   "start_line": 73
+  },
+  "name": "__aenter__",
+  "selection_char": 14,
+  "selection_line": 73
+ },
+ {
+  "container": "AwaitableOrContextManagerWrapper",
+  "kind": "method",
+  "location": {
+   "end_line": 79,
+   "file": "starlette/_utils.py",
+   "start_line": 77
+  },
+  "name": "__aexit__",
+  "selection_char": 14,
+  "selection_line": 77
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 93,
+   "file": "starlette/_utils.py",
+   "start_line": 82
+  },
+  "name": "create_collapsing_task_group",
+  "selection_char": 10,
+  "selection_line": 83
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 111,
+   "file": "starlette/_utils.py",
+   "start_line": 96
+  },
+  "name": "get_route_path",
+  "selection_char": 4,
+  "selection_line": 96
+ },
+ {
+  "container": "Starlette",
+  "kind": "method",
+  "location": {
+   "end_line": 55,
+   "file": "starlette/applications.py",
+   "start_line": 22
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 22
+ },
+ {
+  "container": "Starlette",
+  "kind": "method",
+  "location": {
+   "end_line": 77,
+   "file": "starlette/applications.py",
+   "start_line": 57
+  },
+  "name": "build_middleware_stack",
+  "selection_char": 8,
+  "selection_line": 57
+ },
+ {
+  "container": "Starlette",
+  "kind": "method",
+  "location": {
+   "end_line": 81,
+   "file": "starlette/applications.py",
+   "start_line": 79
+  },
+  "name": "routes",
+  "selection_char": 8,
+  "selection_line": 80
+ },
+ {
+  "container": "Starlette",
+  "kind": "method",
+  "location": {
+   "end_line": 84,
+   "file": "starlette/applications.py",
+   "start_line": 83
+  },
+  "name": "url_path_for",
+  "selection_char": 8,
+  "selection_line": 83
+ },
+ {
+  "container": "Starlette",
+  "kind": "method",
+  "location": {
+   "end_line": 90,
+   "file": "starlette/applications.py",
+   "start_line": 86
+  },
+  "name": "__call__",
+  "selection_char": 14,
+  "selection_line": 86
+ },
+ {
+  "container": "Starlette",
+  "kind": "method",
+  "location": {
+   "end_line": 93,
+   "file": "starlette/applications.py",
+   "start_line": 92
+  },
+  "name": "mount",
+  "selection_char": 8,
+  "selection_line": 92
+ },
+ {
+  "container": "Starlette",
+  "kind": "method",
+  "location": {
+   "end_line": 96,
+   "file": "starlette/applications.py",
+   "start_line": 95
+  },
+  "name": "host",
+  "selection_char": 8,
+  "selection_line": 95
+ },
+ {
+  "container": "Starlette",
+  "kind": "method",
+  "location": {
+   "end_line": 101,
+   "file": "starlette/applications.py",
+   "start_line": 98
+  },
+  "name": "add_middleware",
+  "selection_char": 8,
+  "selection_line": 98
+ },
+ {
+  "container": "Starlette",
+  "kind": "method",
+  "location": {
+   "end_line": 108,
+   "file": "starlette/applications.py",
+   "start_line": 103
+  },
+  "name": "add_exception_handler",
+  "selection_char": 8,
+  "selection_line": 103
+ },
+ {
+  "container": "Starlette",
+  "kind": "method",
+  "location": {
+   "end_line": 118,
+   "file": "starlette/applications.py",
+   "start_line": 110
+  },
+  "name": "add_route",
+  "selection_char": 8,
+  "selection_line": 110
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 22,
+   "file": "starlette/authentication.py",
+   "start_line": 18
+  },
+  "name": "has_required_scope",
+  "selection_char": 4,
+  "selection_line": 18
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 98,
+   "file": "starlette/authentication.py",
+   "start_line": 25
+  },
+  "name": "requires",
+  "selection_char": 4,
+  "selection_line": 25
+ },
+ {
+  "container": "requires",
+  "kind": "function",
+  "location": {
+   "end_line": 96,
+   "file": "starlette/authentication.py",
+   "start_line": 32
+  },
+  "name": "decorator",
+  "selection_char": 8,
+  "selection_line": 32
+ },
+ {
+  "container": "decorator",
+  "kind": "function",
+  "location": {
+   "end_line": 56,
+   "file": "starlette/authentication.py",
+   "start_line": 45
+  },
+  "name": "websocket_wrapper",
+  "selection_char": 22,
+  "selection_line": 46
+ },
+ {
+  "container": "decorator",
+  "kind": "function",
+  "location": {
+   "end_line": 75,
+   "file": "starlette/authentication.py",
+   "start_line": 62
+  },
+  "name": "async_wrapper",
+  "selection_char": 22,
+  "selection_line": 63
+ },
+ {
+  "container": "decorator",
+  "kind": "function",
+  "location": {
+   "end_line": 94,
+   "file": "starlette/authentication.py",
+   "start_line": 81
+  },
+  "name": "sync_wrapper",
+  "selection_char": 16,
+  "selection_line": 82
+ },
+ {
+  "container": "AuthenticationBackend",
+  "kind": "method",
+  "location": {
+   "end_line": 107,
+   "file": "starlette/authentication.py",
+   "start_line": 106
+  },
+  "name": "authenticate",
+  "selection_char": 14,
+  "selection_line": 106
+ },
+ {
+  "container": "AuthCredentials",
+  "kind": "method",
+  "location": {
+   "end_line": 112,
+   "file": "starlette/authentication.py",
+   "start_line": 111
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 111
+ },
+ {
+  "container": "BaseUser",
+  "kind": "method",
+  "location": {
+   "end_line": 118,
+   "file": "starlette/authentication.py",
+   "start_line": 116
+  },
+  "name": "is_authenticated",
+  "selection_char": 8,
+  "selection_line": 117
+ },
+ {
+  "container": "BaseUser",
+  "kind": "method",
+  "location": {
+   "end_line": 122,
+   "file": "starlette/authentication.py",
+   "start_line": 120
+  },
+  "name": "display_name",
+  "selection_char": 8,
+  "selection_line": 121
+ },
+ {
+  "container": "BaseUser",
+  "kind": "method",
+  "location": {
+   "end_line": 126,
+   "file": "starlette/authentication.py",
+   "start_line": 124
+  },
+  "name": "identity",
+  "selection_char": 8,
+  "selection_line": 125
+ },
+ {
+  "container": "SimpleUser",
+  "kind": "method",
+  "location": {
+   "end_line": 131,
+   "file": "starlette/authentication.py",
+   "start_line": 130
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 130
+ },
+ {
+  "container": "SimpleUser",
+  "kind": "method",
+  "location": {
+   "end_line": 135,
+   "file": "starlette/authentication.py",
+   "start_line": 133
+  },
+  "name": "is_authenticated",
+  "selection_char": 8,
+  "selection_line": 134
+ },
+ {
+  "container": "SimpleUser",
+  "kind": "method",
+  "location": {
+   "end_line": 139,
+   "file": "starlette/authentication.py",
+   "start_line": 137
+  },
+  "name": "display_name",
+  "selection_char": 8,
+  "selection_line": 138
+ },
+ {
+  "container": "UnauthenticatedUser",
+  "kind": "method",
+  "location": {
+   "end_line": 145,
+   "file": "starlette/authentication.py",
+   "start_line": 143
+  },
+  "name": "is_authenticated",
+  "selection_char": 8,
+  "selection_line": 144
+ },
+ {
+  "container": "UnauthenticatedUser",
+  "kind": "method",
+  "location": {
+   "end_line": 149,
+   "file": "starlette/authentication.py",
+   "start_line": 147
+  },
+  "name": "display_name",
+  "selection_char": 8,
+  "selection_line": 148
+ },
+ {
+  "container": "BackgroundTask",
+  "kind": "method",
+  "location": {
+   "end_line": 17,
+   "file": "starlette/background.py",
+   "start_line": 13
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 13
+ },
+ {
+  "container": "BackgroundTask",
+  "kind": "method",
+  "location": {
+   "end_line": 23,
+   "file": "starlette/background.py",
+   "start_line": 19
+  },
+  "name": "__call__",
+  "selection_char": 14,
+  "selection_line": 19
+ },
+ {
+  "container": "BackgroundTasks",
+  "kind": "method",
+  "location": {
+   "end_line": 28,
+   "file": "starlette/background.py",
+   "start_line": 27
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 27
+ },
+ {
+  "container": "BackgroundTasks",
+  "kind": "method",
+  "location": {
+   "end_line": 32,
+   "file": "starlette/background.py",
+   "start_line": 30
+  },
+  "name": "add_task",
+  "selection_char": 8,
+  "selection_line": 30
+ },
+ {
+  "container": "BackgroundTasks",
+  "kind": "method",
+  "location": {
+   "end_line": 36,
+   "file": "starlette/background.py",
+   "start_line": 34
+  },
+  "name": "__call__",
+  "selection_char": 14,
+  "selection_line": 34
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 29,
+   "file": "starlette/concurrency.py",
+   "start_line": 16
+  },
+  "name": "run_until_first_complete",
+  "selection_char": 10,
+  "selection_line": 16
+ },
+ {
+  "container": "run_until_first_complete",
+  "kind": "function",
+  "location": {
+   "end_line": 26,
+   "file": "starlette/concurrency.py",
+   "start_line": 24
+  },
+  "name": "run",
+  "selection_char": 18,
+  "selection_line": 24
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 34,
+   "file": "starlette/concurrency.py",
+   "start_line": 32
+  },
+  "name": "run_in_threadpool",
+  "selection_char": 10,
+  "selection_line": 32
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 48,
+   "file": "starlette/concurrency.py",
+   "start_line": 41
+  },
+  "name": "_next",
+  "selection_char": 4,
+  "selection_line": 41
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 59,
+   "file": "starlette/concurrency.py",
+   "start_line": 51
+  },
+  "name": "iterate_in_threadpool",
+  "selection_char": 10,
+  "selection_line": 51
+ },
+ {
+  "container": "Environ",
+  "kind": "method",
+  "location": {
+   "end_line": 21,
+   "file": "starlette/config.py",
+   "start_line": 19
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 19
+ },
+ {
+  "container": "Environ",
+  "kind": "method",
+  "location": {
+   "end_line": 25,
+   "file": "starlette/config.py",
+   "start_line": 23
+  },
+  "name": "__getitem__",
+  "selection_char": 8,
+  "selection_line": 23
+ },
+ {
+  "container": "Environ",
+  "kind": "method",
+  "location": {
+   "end_line": 30,
+   "file": "starlette/config.py",
+   "start_line": 27
+  },
+  "name": "__setitem__",
+  "selection_char": 8,
+  "selection_line": 27
+ },
+ {
+  "container": "Environ",
+  "kind": "method",
+  "location": {
+   "end_line": 35,
+   "file": "starlette/config.py",
+   "start_line": 32
+  },
+  "name": "__delitem__",
+  "selection_char": 8,
+  "selection_line": 32
+ },
+ {
+  "container": "Environ",
+  "kind": "method",
+  "location": {
+   "end_line": 38,
+   "file": "starlette/config.py",
+   "start_line": 37
+  },
+  "name": "__iter__",
+  "selection_char": 8,
+  "selection_line": 37
+ },
+ {
+  "container": "Environ",
+  "kind": "method",
+  "location": {
+   "end_line": 41,
+   "file": "starlette/config.py",
+   "start_line": 40
+  },
+  "name": "__len__",
+  "selection_char": 8,
+  "selection_line": 40
+ },
+ {
+  "container": "Config",
+  "kind": "method",
+  "location": {
+   "end_line": 64,
+   "file": "starlette/config.py",
+   "start_line": 50
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 50
+ },
+ {
+  "container": "Config",
+  "kind": "method",
+  "location": {
+   "end_line": 92,
+   "file": "starlette/config.py",
+   "start_line": 86
+  },
+  "name": "__call__",
+  "selection_char": 8,
+  "selection_line": 86
+ },
+ {
+  "container": "Config",
+  "kind": "method",
+  "location": {
+   "end_line": 109,
+   "file": "starlette/config.py",
+   "start_line": 94
+  },
+  "name": "get",
+  "selection_char": 8,
+  "selection_line": 94
+ },
+ {
+  "container": "Config",
+  "kind": "method",
+  "location": {
+   "end_line": 121,
+   "file": "starlette/config.py",
+   "start_line": 111
+  },
+  "name": "_read_file",
+  "selection_char": 8,
+  "selection_line": 111
+ },
+ {
+  "container": "Config",
+  "kind": "method",
+  "location": {
+   "end_line": 140,
+   "file": "starlette/config.py",
+   "start_line": 123
+  },
+  "name": "_perform_cast",
+  "selection_char": 8,
+  "selection_line": 123
+ },
+ {
+  "container": "Convertor",
+  "kind": "method",
+  "location": {
+   "end_line": 14,
+   "file": "starlette/convertors.py",
+   "start_line": 13
+  },
+  "name": "convert",
+  "selection_char": 8,
+  "selection_line": 13
+ },
+ {
+  "container": "Convertor",
+  "kind": "method",
+  "location": {
+   "end_line": 17,
+   "file": "starlette/convertors.py",
+   "start_line": 16
+  },
+  "name": "to_string",
+  "selection_char": 8,
+  "selection_line": 16
+ },
+ {
+  "container": "StringConvertor",
+  "kind": "method",
+  "location": {
+   "end_line": 24,
+   "file": "starlette/convertors.py",
+   "start_line": 23
+  },
+  "name": "convert",
+  "selection_char": 8,
+  "selection_line": 23
+ },
+ {
+  "container": "StringConvertor",
+  "kind": "method",
+  "location": {
+   "end_line": 30,
+   "file": "starlette/convertors.py",
+   "start_line": 26
+  },
+  "name": "to_string",
+  "selection_char": 8,
+  "selection_line": 26
+ },
+ {
+  "container": "PathConvertor",
+  "kind": "method",
+  "location": {
+   "end_line": 37,
+   "file": "starlette/convertors.py",
+   "start_line": 36
+  },
+  "name": "convert",
+  "selection_char": 8,
+  "selection_line": 36
+ },
+ {
+  "container": "PathConvertor",
+  "kind": "method",
+  "location": {
+   "end_line": 40,
+   "file": "starlette/convertors.py",
+   "start_line": 39
+  },
+  "name": "to_string",
+  "selection_char": 8,
+  "selection_line": 39
+ },
+ {
+  "container": "IntegerConvertor",
+  "kind": "method",
+  "location": {
+   "end_line": 47,
+   "file": "starlette/convertors.py",
+   "start_line": 46
+  },
+  "name": "convert",
+  "selection_char": 8,
+  "selection_line": 46
+ },
+ {
+  "container": "IntegerConvertor",
+  "kind": "method",
+  "location": {
+   "end_line": 52,
+   "file": "starlette/convertors.py",
+   "start_line": 49
+  },
+  "name": "to_string",
+  "selection_char": 8,
+  "selection_line": 49
+ },
+ {
+  "container": "FloatConvertor",
+  "kind": "method",
+  "location": {
+   "end_line": 59,
+   "file": "starlette/convertors.py",
+   "start_line": 58
+  },
+  "name": "convert",
+  "selection_char": 8,
+  "selection_line": 58
+ },
+ {
+  "container": "FloatConvertor",
+  "kind": "method",
+  "location": {
+   "end_line": 66,
+   "file": "starlette/convertors.py",
+   "start_line": 61
+  },
+  "name": "to_string",
+  "selection_char": 8,
+  "selection_line": 61
+ },
+ {
+  "container": "UUIDConvertor",
+  "kind": "method",
+  "location": {
+   "end_line": 73,
+   "file": "starlette/convertors.py",
+   "start_line": 72
+  },
+  "name": "convert",
+  "selection_char": 8,
+  "selection_line": 72
+ },
+ {
+  "container": "UUIDConvertor",
+  "kind": "method",
+  "location": {
+   "end_line": 76,
+   "file": "starlette/convertors.py",
+   "start_line": 75
+  },
+  "name": "to_string",
+  "selection_char": 8,
+  "selection_line": 75
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 89,
+   "file": "starlette/convertors.py",
+   "start_line": 88
+  },
+  "name": "register_url_convertor",
+  "selection_char": 4,
+  "selection_line": 88
+ },
+ {
+  "container": "URL",
+  "kind": "method",
+  "location": {
+   "end_line": 67,
+   "file": "starlette/datastructures.py",
+   "start_line": 29
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 29
+ },
+ {
+  "container": "URL",
+  "kind": "method",
+  "location": {
+   "end_line": 73,
+   "file": "starlette/datastructures.py",
+   "start_line": 69
+  },
+  "name": "components",
+  "selection_char": 8,
+  "selection_line": 70
+ },
+ {
+  "container": "URL",
+  "kind": "method",
+  "location": {
+   "end_line": 77,
+   "file": "starlette/datastructures.py",
+   "start_line": 75
+  },
+  "name": "scheme",
+  "selection_char": 8,
+  "selection_line": 76
+ },
+ {
+  "container": "URL",
+  "kind": "method",
+  "location": {
+   "end_line": 81,
+   "file": "starlette/datastructures.py",
+   "start_line": 79
+  },
+  "name": "netloc",
+  "selection_char": 8,
+  "selection_line": 80
+ },
+ {
+  "container": "URL",
+  "kind": "method",
+  "location": {
+   "end_line": 85,
+   "file": "starlette/datastructures.py",
+   "start_line": 83
+  },
+  "name": "path",
+  "selection_char": 8,
+  "selection_line": 84
+ },
+ {
+  "container": "URL",
+  "kind": "method",
+  "location": {
+   "end_line": 89,
+   "file": "starlette/datastructures.py",
+   "start_line": 87
+  },
+  "name": "query",
+  "selection_char": 8,
+  "selection_line": 88
+ },
+ {
+  "container": "URL",
+  "kind": "method",
+  "location": {
+   "end_line": 93,
+   "file": "starlette/datastructures.py",
+   "start_line": 91
+  },
+  "name": "fragment",
+  "selection_char": 8,
+  "selection_line": 92
+ },
+ {
+  "container": "URL",
+  "kind": "method",
+  "location": {
+   "end_line": 97,
+   "file": "starlette/datastructures.py",
+   "start_line": 95
+  },
+  "name": "username",
+  "selection_char": 8,
+  "selection_line": 96
+ },
+ {
+  "container": "URL",
+  "kind": "method",
+  "location": {
+   "end_line": 101,
+   "file": "starlette/datastructures.py",
+   "start_line": 99
+  },
+  "name": "password",
+  "selection_char": 8,
+  "selection_line": 100
+ },
+ {
+  "container": "URL",
+  "kind": "method",
+  "location": {
+   "end_line": 105,
+   "file": "starlette/datastructures.py",
+   "start_line": 103
+  },
+  "name": "hostname",
+  "selection_char": 8,
+  "selection_line": 104
+ },
+ {
+  "container": "URL",
+  "kind": "method",
+  "location": {
+   "end_line": 109,
+   "file": "starlette/datastructures.py",
+   "start_line": 107
+  },
+  "name": "port",
+  "selection_char": 8,
+  "selection_line": 108
+ },
+ {
+  "container": "URL",
+  "kind": "method",
+  "location": {
+   "end_line": 113,
+   "file": "starlette/datastructures.py",
+   "start_line": 111
+  },
+  "name": "is_secure",
+  "selection_char": 8,
+  "selection_line": 112
+ },
+ {
+  "container": "URL",
+  "kind": "method",
+  "location": {
+   "end_line": 141,
+   "file": "starlette/datastructures.py",
+   "start_line": 115
+  },
+  "name": "replace",
+  "selection_char": 8,
+  "selection_line": 115
+ },
+ {
+  "container": "URL",
+  "kind": "method",
+  "location": {
+   "end_line": 147,
+   "file": "starlette/datastructures.py",
+   "start_line": 143
+  },
+  "name": "include_query_params",
+  "selection_char": 8,
+  "selection_line": 143
+ },
+ {
+  "container": "URL",
+  "kind": "method",
+  "location": {
+   "end_line": 151,
+   "file": "starlette/datastructures.py",
+   "start_line": 149
+  },
+  "name": "replace_query_params",
+  "selection_char": 8,
+  "selection_line": 149
+ },
+ {
+  "container": "URL",
+  "kind": "method",
+  "location": {
+   "end_line": 160,
+   "file": "starlette/datastructures.py",
+   "start_line": 153
+  },
+  "name": "remove_query_params",
+  "selection_char": 8,
+  "selection_line": 153
+ },
+ {
+  "container": "URL",
+  "kind": "method",
+  "location": {
+   "end_line": 163,
+   "file": "starlette/datastructures.py",
+   "start_line": 162
+  },
+  "name": "__eq__",
+  "selection_char": 8,
+  "selection_line": 162
+ },
+ {
+  "container": "URL",
+  "kind": "method",
+  "location": {
+   "end_line": 166,
+   "file": "starlette/datastructures.py",
+   "start_line": 165
+  },
+  "name": "__str__",
+  "selection_char": 8,
+  "selection_line": 165
+ },
+ {
+  "container": "URL",
+  "kind": "method",
+  "location": {
+   "end_line": 172,
+   "file": "starlette/datastructures.py",
+   "start_line": 168
+  },
+  "name": "__repr__",
+  "selection_char": 8,
+  "selection_line": 168
+ },
+ {
+  "container": "URLPath",
+  "kind": "method",
+  "location": {
+   "end_line": 183,
+   "file": "starlette/datastructures.py",
+   "start_line": 181
+  },
+  "name": "__new__",
+  "selection_char": 8,
+  "selection_line": 181
+ },
+ {
+  "container": "URLPath",
+  "kind": "method",
+  "location": {
+   "end_line": 187,
+   "file": "starlette/datastructures.py",
+   "start_line": 185
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 185
+ },
+ {
+  "container": "URLPath",
+  "kind": "method",
+  "location": {
+   "end_line": 202,
+   "file": "starlette/datastructures.py",
+   "start_line": 189
+  },
+  "name": "make_absolute_url",
+  "selection_char": 8,
+  "selection_line": 189
+ },
+ {
+  "container": "Secret",
+  "kind": "method",
+  "location": {
+   "end_line": 212,
+   "file": "starlette/datastructures.py",
+   "start_line": 211
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 211
+ },
+ {
+  "container": "Secret",
+  "kind": "method",
+  "location": {
+   "end_line": 216,
+   "file": "starlette/datastructures.py",
+   "start_line": 214
+  },
+  "name": "__repr__",
+  "selection_char": 8,
+  "selection_line": 214
+ },
+ {
+  "container": "Secret",
+  "kind": "method",
+  "location": {
+   "end_line": 219,
+   "file": "starlette/datastructures.py",
+   "start_line": 218
+  },
+  "name": "__str__",
+  "selection_char": 8,
+  "selection_line": 218
+ },
+ {
+  "container": "Secret",
+  "kind": "method",
+  "location": {
+   "end_line": 222,
+   "file": "starlette/datastructures.py",
+   "start_line": 221
+  },
+  "name": "__bool__",
+  "selection_char": 8,
+  "selection_line": 221
+ },
+ {
+  "container": "CommaSeparatedStrings",
+  "kind": "method",
+  "location": {
+   "end_line": 233,
+   "file": "starlette/datastructures.py",
+   "start_line": 226
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 226
+ },
+ {
+  "container": "CommaSeparatedStrings",
+  "kind": "method",
+  "location": {
+   "end_line": 236,
+   "file": "starlette/datastructures.py",
+   "start_line": 235
+  },
+  "name": "__len__",
+  "selection_char": 8,
+  "selection_line": 235
+ },
+ {
+  "container": "CommaSeparatedStrings",
+  "kind": "method",
+  "location": {
+   "end_line": 239,
+   "file": "starlette/datastructures.py",
+   "start_line": 238
+  },
+  "name": "__getitem__",
+  "selection_char": 8,
+  "selection_line": 238
+ },
+ {
+  "container": "CommaSeparatedStrings",
+  "kind": "method",
+  "location": {
+   "end_line": 242,
+   "file": "starlette/datastructures.py",
+   "start_line": 241
+  },
+  "name": "__iter__",
+  "selection_char": 8,
+  "selection_line": 241
+ },
+ {
+  "container": "CommaSeparatedStrings",
+  "kind": "method",
+  "location": {
+   "end_line": 247,
+   "file": "starlette/datastructures.py",
+   "start_line": 244
+  },
+  "name": "__repr__",
+  "selection_char": 8,
+  "selection_line": 244
+ },
+ {
+  "container": "CommaSeparatedStrings",
+  "kind": "method",
+  "location": {
+   "end_line": 250,
+   "file": "starlette/datastructures.py",
+   "start_line": 249
+  },
+  "name": "__str__",
+  "selection_char": 8,
+  "selection_line": 249
+ },
+ {
+  "container": "ImmutableMultiDict",
+  "kind": "method",
+  "location": {
+   "end_line": 282,
+   "file": "starlette/datastructures.py",
+   "start_line": 256
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 256
+ },
+ {
+  "container": "ImmutableMultiDict",
+  "kind": "method",
+  "location": {
+   "end_line": 285,
+   "file": "starlette/datastructures.py",
+   "start_line": 284
+  },
+  "name": "getlist",
+  "selection_char": 8,
+  "selection_line": 284
+ },
+ {
+  "container": "ImmutableMultiDict",
+  "kind": "method",
+  "location": {
+   "end_line": 288,
+   "file": "starlette/datastructures.py",
+   "start_line": 287
+  },
+  "name": "keys",
+  "selection_char": 8,
+  "selection_line": 287
+ },
+ {
+  "container": "ImmutableMultiDict",
+  "kind": "method",
+  "location": {
+   "end_line": 291,
+   "file": "starlette/datastructures.py",
+   "start_line": 290
+  },
+  "name": "values",
+  "selection_char": 8,
+  "selection_line": 290
+ },
+ {
+  "container": "ImmutableMultiDict",
+  "kind": "method",
+  "location": {
+   "end_line": 294,
+   "file": "starlette/datastructures.py",
+   "start_line": 293
+  },
+  "name": "items",
+  "selection_char": 8,
+  "selection_line": 293
+ },
+ {
+  "container": "ImmutableMultiDict",
+  "kind": "method",
+  "location": {
+   "end_line": 297,
+   "file": "starlette/datastructures.py",
+   "start_line": 296
+  },
+  "name": "multi_items",
+  "selection_char": 8,
+  "selection_line": 296
+ },
+ {
+  "container": "ImmutableMultiDict",
+  "kind": "method",
+  "location": {
+   "end_line": 300,
+   "file": "starlette/datastructures.py",
+   "start_line": 299
+  },
+  "name": "__getitem__",
+  "selection_char": 8,
+  "selection_line": 299
+ },
+ {
+  "container": "ImmutableMultiDict",
+  "kind": "method",
+  "location": {
+   "end_line": 303,
+   "file": "starlette/datastructures.py",
+   "start_line": 302
+  },
+  "name": "__contains__",
+  "selection_char": 8,
+  "selection_line": 302
+ },
+ {
+  "container": "ImmutableMultiDict",
+  "kind": "method",
+  "location": {
+   "end_line": 306,
+   "file": "starlette/datastructures.py",
+   "start_line": 305
+  },
+  "name": "__iter__",
+  "selection_char": 8,
+  "selection_line": 305
+ },
+ {
+  "container": "ImmutableMultiDict",
+  "kind": "method",
+  "location": {
+   "end_line": 309,
+   "file": "starlette/datastructures.py",
+   "start_line": 308
+  },
+  "name": "__len__",
+  "selection_char": 8,
+  "selection_line": 308
+ },
+ {
+  "container": "ImmutableMultiDict",
+  "kind": "method",
+  "location": {
+   "end_line": 314,
+   "file": "starlette/datastructures.py",
+   "start_line": 311
+  },
+  "name": "__eq__",
+  "selection_char": 8,
+  "selection_line": 311
+ },
+ {
+  "container": "ImmutableMultiDict",
+  "kind": "method",
+  "location": {
+   "end_line": 319,
+   "file": "starlette/datastructures.py",
+   "start_line": 316
+  },
+  "name": "__repr__",
+  "selection_char": 8,
+  "selection_line": 316
+ },
+ {
+  "container": "MultiDict",
+  "kind": "method",
+  "location": {
+   "end_line": 324,
+   "file": "starlette/datastructures.py",
+   "start_line": 323
+  },
+  "name": "__setitem__",
+  "selection_char": 8,
+  "selection_line": 323
+ },
+ {
+  "container": "MultiDict",
+  "kind": "method",
+  "location": {
+   "end_line": 328,
+   "file": "starlette/datastructures.py",
+   "start_line": 326
+  },
+  "name": "__delitem__",
+  "selection_char": 8,
+  "selection_line": 326
+ },
+ {
+  "container": "MultiDict",
+  "kind": "method",
+  "location": {
+   "end_line": 332,
+   "file": "starlette/datastructures.py",
+   "start_line": 330
+  },
+  "name": "pop",
+  "selection_char": 8,
+  "selection_line": 330
+ },
+ {
+  "container": "MultiDict",
+  "kind": "method",
+  "location": {
+   "end_line": 337,
+   "file": "starlette/datastructures.py",
+   "start_line": 334
+  },
+  "name": "popitem",
+  "selection_char": 8,
+  "selection_line": 334
+ },
+ {
+  "container": "MultiDict",
+  "kind": "method",
+  "location": {
+   "end_line": 342,
+   "file": "starlette/datastructures.py",
+   "start_line": 339
+  },
+  "name": "poplist",
+  "selection_char": 8,
+  "selection_line": 339
+ },
+ {
+  "container": "MultiDict",
+  "kind": "method",
+  "location": {
+   "end_line": 346,
+   "file": "starlette/datastructures.py",
+   "start_line": 344
+  },
+  "name": "clear",
+  "selection_char": 8,
+  "selection_line": 344
+ },
+ {
+  "container": "MultiDict",
+  "kind": "method",
+  "location": {
+   "end_line": 353,
+   "file": "starlette/datastructures.py",
+   "start_line": 348
+  },
+  "name": "setdefault",
+  "selection_char": 8,
+  "selection_line": 348
+ },
+ {
+  "container": "MultiDict",
+  "kind": "method",
+  "location": {
+   "end_line": 361,
+   "file": "starlette/datastructures.py",
+   "start_line": 355
+  },
+  "name": "setlist",
+  "selection_char": 8,
+  "selection_line": 355
+ },
+ {
+  "container": "MultiDict",
+  "kind": "method",
+  "location": {
+   "end_line": 365,
+   "file": "starlette/datastructures.py",
+   "start_line": 363
+  },
+  "name": "append",
+  "selection_char": 8,
+  "selection_line": 363
+ },
+ {
+  "container": "MultiDict",
+  "kind": "method",
+  "location": {
+   "end_line": 375,
+   "file": "starlette/datastructures.py",
+   "start_line": 367
+  },
+  "name": "update",
+  "selection_char": 8,
+  "selection_line": 367
+ },
+ {
+  "container": "QueryParams",
+  "kind": "method",
+  "location": {
+   "end_line": 399,
+   "file": "starlette/datastructures.py",
+   "start_line": 383
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 383
+ },
+ {
+  "container": "QueryParams",
+  "kind": "method",
+  "location": {
+   "end_line": 402,
+   "file": "starlette/datastructures.py",
+   "start_line": 401
+  },
+  "name": "__str__",
+  "selection_char": 8,
+  "selection_line": 401
+ },
+ {
+  "container": "QueryParams",
+  "kind": "method",
+  "location": {
+   "end_line": 407,
+   "file": "starlette/datastructures.py",
+   "start_line": 404
+  },
+  "name": "__repr__",
+  "selection_char": 8,
+  "selection_line": 404
+ },
+ {
+  "container": "UploadFile",
+  "kind": "method",
+  "location": {
+   "end_line": 430,
+   "file": "starlette/datastructures.py",
+   "start_line": 415
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 415
+ },
+ {
+  "container": "UploadFile",
+  "kind": "method",
+  "location": {
+   "end_line": 434,
+   "file": "starlette/datastructures.py",
+   "start_line": 432
+  },
+  "name": "content_type",
+  "selection_char": 8,
+  "selection_line": 433
+ },
+ {
+  "container": "UploadFile",
+  "kind": "method",
+  "location": {
+   "end_line": 440,
+   "file": "starlette/datastructures.py",
+   "start_line": 436
+  },
+  "name": "_in_memory",
+  "selection_char": 8,
+  "selection_line": 437
+ },
+ {
+  "container": "UploadFile",
+  "kind": "method",
+  "location": {
+   "end_line": 449,
+   "file": "starlette/datastructures.py",
+   "start_line": 442
+  },
+  "name": "_will_roll",
+  "selection_char": 8,
+  "selection_line": 442
+ },
+ {
+  "container": "UploadFile",
+  "kind": "method",
+  "location": {
+   "end_line": 459,
+   "file": "starlette/datastructures.py",
+   "start_line": 451
+  },
+  "name": "write",
+  "selection_char": 14,
+  "selection_line": 451
+ },
+ {
+  "container": "UploadFile",
+  "kind": "method",
+  "location": {
+   "end_line": 464,
+   "file": "starlette/datastructures.py",
+   "start_line": 461
+  },
+  "name": "read",
+  "selection_char": 14,
+  "selection_line": 461
+ },
+ {
+  "container": "UploadFile",
+  "kind": "method",
+  "location": {
+   "end_line": 470,
+   "file": "starlette/datastructures.py",
+   "start_line": 466
+  },
+  "name": "seek",
+  "selection_char": 14,
+  "selection_line": 466
+ },
+ {
+  "container": "UploadFile",
+  "kind": "method",
+  "location": {
+   "end_line": 476,
+   "file": "starlette/datastructures.py",
+   "start_line": 472
+  },
+  "name": "close",
+  "selection_char": 14,
+  "selection_line": 472
+ },
+ {
+  "container": "UploadFile",
+  "kind": "method",
+  "location": {
+   "end_line": 479,
+   "file": "starlette/datastructures.py",
+   "start_line": 478
+  },
+  "name": "__repr__",
+  "selection_char": 8,
+  "selection_line": 478
+ },
+ {
+  "container": "FormData",
+  "kind": "method",
+  "location": {
+   "end_line": 492,
+   "file": "starlette/datastructures.py",
+   "start_line": 487
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 487
+ },
+ {
+  "container": "FormData",
+  "kind": "method",
+  "location": {
+   "end_line": 497,
+   "file": "starlette/datastructures.py",
+   "start_line": 494
+  },
+  "name": "close",
+  "selection_char": 14,
+  "selection_line": 494
+ },
+ {
+  "container": "Headers",
+  "kind": "method",
+  "location": {
+   "end_line": 522,
+   "file": "starlette/datastructures.py",
+   "start_line": 505
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 505
+ },
+ {
+  "container": "Headers",
+  "kind": "method",
+  "location": {
+   "end_line": 526,
+   "file": "starlette/datastructures.py",
+   "start_line": 524
+  },
+  "name": "raw",
+  "selection_char": 8,
+  "selection_line": 525
+ },
+ {
+  "container": "Headers",
+  "kind": "method",
+  "location": {
+   "end_line": 529,
+   "file": "starlette/datastructures.py",
+   "start_line": 528
+  },
+  "name": "keys",
+  "selection_char": 8,
+  "selection_line": 528
+ },
+ {
+  "container": "Headers",
+  "kind": "method",
+  "location": {
+   "end_line": 532,
+   "file": "starlette/datastructures.py",
+   "start_line": 531
+  },
+  "name": "values",
+  "selection_char": 8,
+  "selection_line": 531
+ },
+ {
+  "container": "Headers",
+  "kind": "method",
+  "location": {
+   "end_line": 535,
+   "file": "starlette/datastructures.py",
+   "start_line": 534
+  },
+  "name": "items",
+  "selection_char": 8,
+  "selection_line": 534
+ },
+ {
+  "container": "Headers",
+  "kind": "method",
+  "location": {
+   "end_line": 539,
+   "file": "starlette/datastructures.py",
+   "start_line": 537
+  },
+  "name": "getlist",
+  "selection_char": 8,
+  "selection_line": 537
+ },
+ {
+  "container": "Headers",
+  "kind": "method",
+  "location": {
+   "end_line": 542,
+   "file": "starlette/datastructures.py",
+   "start_line": 541
+  },
+  "name": "mutablecopy",
+  "selection_char": 8,
+  "selection_line": 541
+ },
+ {
+  "container": "Headers",
+  "kind": "method",
+  "location": {
+   "end_line": 549,
+   "file": "starlette/datastructures.py",
+   "start_line": 544
+  },
+  "name": "__getitem__",
+  "selection_char": 8,
+  "selection_line": 544
+ },
+ {
+  "container": "Headers",
+  "kind": "method",
+  "location": {
+   "end_line": 556,
+   "file": "starlette/datastructures.py",
+   "start_line": 551
+  },
+  "name": "__contains__",
+  "selection_char": 8,
+  "selection_line": 551
+ },
+ {
+  "container": "Headers",
+  "kind": "method",
+  "location": {
+   "end_line": 559,
+   "file": "starlette/datastructures.py",
+   "start_line": 558
+  },
+  "name": "__iter__",
+  "selection_char": 8,
+  "selection_line": 558
+ },
+ {
+  "container": "Headers",
+  "kind": "method",
+  "location": {
+   "end_line": 562,
+   "file": "starlette/datastructures.py",
+   "start_line": 561
+  },
+  "name": "__len__",
+  "selection_char": 8,
+  "selection_line": 561
+ },
+ {
+  "container": "Headers",
+  "kind": "method",
+  "location": {
+   "end_line": 567,
+   "file": "starlette/datastructures.py",
+   "start_line": 564
+  },
+  "name": "__eq__",
+  "selection_char": 8,
+  "selection_line": 564
+ },
+ {
+  "container": "Headers",
+  "kind": "method",
+  "location": {
+   "end_line": 574,
+   "file": "starlette/datastructures.py",
+   "start_line": 569
+  },
+  "name": "__repr__",
+  "selection_char": 8,
+  "selection_line": 569
+ },
+ {
+  "container": "MutableHeaders",
+  "kind": "method",
+  "location": {
+   "end_line": 598,
+   "file": "starlette/datastructures.py",
+   "start_line": 578
+  },
+  "name": "__setitem__",
+  "selection_char": 8,
+  "selection_line": 578
+ },
+ {
+  "container": "MutableHeaders",
+  "kind": "method",
+  "location": {
+   "end_line": 612,
+   "file": "starlette/datastructures.py",
+   "start_line": 600
+  },
+  "name": "__delitem__",
+  "selection_char": 8,
+  "selection_line": 600
+ },
+ {
+  "container": "MutableHeaders",
+  "kind": "method",
+  "location": {
+   "end_line": 618,
+   "file": "starlette/datastructures.py",
+   "start_line": 614
+  },
+  "name": "__ior__",
+  "selection_char": 8,
+  "selection_line": 614
+ },
+ {
+  "container": "MutableHeaders",
+  "kind": "method",
+  "location": {
+   "end_line": 625,
+   "file": "starlette/datastructures.py",
+   "start_line": 620
+  },
+  "name": "__or__",
+  "selection_char": 8,
+  "selection_line": 620
+ },
+ {
+  "container": "MutableHeaders",
+  "kind": "method",
+  "location": {
+   "end_line": 629,
+   "file": "starlette/datastructures.py",
+   "start_line": 627
+  },
+  "name": "raw",
+  "selection_char": 8,
+  "selection_line": 628
+ },
+ {
+  "container": "MutableHeaders",
+  "kind": "method",
+  "location": {
+   "end_line": 643,
+   "file": "starlette/datastructures.py",
+   "start_line": 631
+  },
+  "name": "setdefault",
+  "selection_char": 8,
+  "selection_line": 631
+ },
+ {
+  "container": "MutableHeaders",
+  "kind": "method",
+  "location": {
+   "end_line": 647,
+   "file": "starlette/datastructures.py",
+   "start_line": 645
+  },
+  "name": "update",
+  "selection_char": 8,
+  "selection_line": 645
+ },
+ {
+  "container": "MutableHeaders",
+  "kind": "method",
+  "location": {
+   "end_line": 655,
+   "file": "starlette/datastructures.py",
+   "start_line": 649
+  },
+  "name": "append",
+  "selection_char": 8,
+  "selection_line": 649
+ },
+ {
+  "container": "MutableHeaders",
+  "kind": "method",
+  "location": {
+   "end_line": 661,
+   "file": "starlette/datastructures.py",
+   "start_line": 657
+  },
+  "name": "add_vary_header",
+  "selection_char": 8,
+  "selection_line": 657
+ },
+ {
+  "container": "State",
+  "kind": "method",
+  "location": {
+   "end_line": 676,
+   "file": "starlette/datastructures.py",
+   "start_line": 673
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 673
+ },
+ {
+  "container": "State",
+  "kind": "method",
+  "location": {
+   "end_line": 679,
+   "file": "starlette/datastructures.py",
+   "start_line": 678
+  },
+  "name": "__setattr__",
+  "selection_char": 8,
+  "selection_line": 678
+ },
+ {
+  "container": "State",
+  "kind": "method",
+  "location": {
+   "end_line": 686,
+   "file": "starlette/datastructures.py",
+   "start_line": 681
+  },
+  "name": "__getattr__",
+  "selection_char": 8,
+  "selection_line": 681
+ },
+ {
+  "container": "State",
+  "kind": "method",
+  "location": {
+   "end_line": 689,
+   "file": "starlette/datastructures.py",
+   "start_line": 688
+  },
+  "name": "__delattr__",
+  "selection_char": 8,
+  "selection_line": 688
+ },
+ {
+  "container": "State",
+  "kind": "method",
+  "location": {
+   "end_line": 692,
+   "file": "starlette/datastructures.py",
+   "start_line": 691
+  },
+  "name": "__getitem__",
+  "selection_char": 8,
+  "selection_line": 691
+ },
+ {
+  "container": "State",
+  "kind": "method",
+  "location": {
+   "end_line": 695,
+   "file": "starlette/datastructures.py",
+   "start_line": 694
+  },
+  "name": "__setitem__",
+  "selection_char": 8,
+  "selection_line": 694
+ },
+ {
+  "container": "State",
+  "kind": "method",
+  "location": {
+   "end_line": 698,
+   "file": "starlette/datastructures.py",
+   "start_line": 697
+  },
+  "name": "__delitem__",
+  "selection_char": 8,
+  "selection_line": 697
+ },
+ {
+  "container": "State",
+  "kind": "method",
+  "location": {
+   "end_line": 701,
+   "file": "starlette/datastructures.py",
+   "start_line": 700
+  },
+  "name": "__iter__",
+  "selection_char": 8,
+  "selection_line": 700
+ },
+ {
+  "container": "State",
+  "kind": "method",
+  "location": {
+   "end_line": 704,
+   "file": "starlette/datastructures.py",
+   "start_line": 703
+  },
+  "name": "__len__",
+  "selection_char": 8,
+  "selection_line": 703
+ },
+ {
+  "container": "HTTPEndpoint",
+  "kind": "method",
+  "location": {
+   "end_line": 27,
+   "file": "starlette/endpoints.py",
+   "start_line": 18
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 18
+ },
+ {
+  "container": "HTTPEndpoint",
+  "kind": "method",
+  "location": {
+   "end_line": 30,
+   "file": "starlette/endpoints.py",
+   "start_line": 29
+  },
+  "name": "__await__",
+  "selection_char": 8,
+  "selection_line": 29
+ },
+ {
+  "container": "HTTPEndpoint",
+  "kind": "method",
+  "location": {
+   "end_line": 46,
+   "file": "starlette/endpoints.py",
+   "start_line": 32
+  },
+  "name": "dispatch",
+  "selection_char": 14,
+  "selection_line": 32
+ },
+ {
+  "container": "HTTPEndpoint",
+  "kind": "method",
+  "location": {
+   "end_line": 55,
+   "file": "starlette/endpoints.py",
+   "start_line": 48
+  },
+  "name": "method_not_allowed",
+  "selection_char": 14,
+  "selection_line": 48
+ },
+ {
+  "container": "WebSocketEndpoint",
+  "kind": "method",
+  "location": {
+   "end_line": 65,
+   "file": "starlette/endpoints.py",
+   "start_line": 61
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 61
+ },
+ {
+  "container": "WebSocketEndpoint",
+  "kind": "method",
+  "location": {
+   "end_line": 68,
+   "file": "starlette/endpoints.py",
+   "start_line": 67
+  },
+  "name": "__await__",
+  "selection_char": 8,
+  "selection_line": 67
+ },
+ {
+  "container": "WebSocketEndpoint",
+  "kind": "method",
+  "location": {
+   "end_line": 89,
+   "file": "starlette/endpoints.py",
+   "start_line": 70
+  },
+  "name": "dispatch",
+  "selection_char": 14,
+  "selection_line": 70
+ },
+ {
+  "container": "WebSocketEndpoint",
+  "kind": "method",
+  "location": {
+   "end_line": 117,
+   "file": "starlette/endpoints.py",
+   "start_line": 91
+  },
+  "name": "decode",
+  "selection_char": 14,
+  "selection_line": 91
+ },
+ {
+  "container": "WebSocketEndpoint",
+  "kind": "method",
+  "location": {
+   "end_line": 121,
+   "file": "starlette/endpoints.py",
+   "start_line": 119
+  },
+  "name": "on_connect",
+  "selection_char": 14,
+  "selection_line": 119
+ },
+ {
+  "container": "WebSocketEndpoint",
+  "kind": "method",
+  "location": {
+   "end_line": 124,
+   "file": "starlette/endpoints.py",
+   "start_line": 123
+  },
+  "name": "on_receive",
+  "selection_char": 14,
+  "selection_line": 123
+ },
+ {
+  "container": "WebSocketEndpoint",
+  "kind": "method",
+  "location": {
+   "end_line": 127,
+   "file": "starlette/endpoints.py",
+   "start_line": 126
+  },
+  "name": "on_disconnect",
+  "selection_char": 14,
+  "selection_line": 126
+ },
+ {
+  "container": "HTTPException",
+  "kind": "method",
+  "location": {
+   "end_line": 13,
+   "file": "starlette/exceptions.py",
+   "start_line": 8
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 8
+ },
+ {
+  "container": "HTTPException",
+  "kind": "method",
+  "location": {
+   "end_line": 16,
+   "file": "starlette/exceptions.py",
+   "start_line": 15
+  },
+  "name": "__str__",
+  "selection_char": 8,
+  "selection_line": 15
+ },
+ {
+  "container": "HTTPException",
+  "kind": "method",
+  "location": {
+   "end_line": 20,
+   "file": "starlette/exceptions.py",
+   "start_line": 18
+  },
+  "name": "__repr__",
+  "selection_char": 8,
+  "selection_line": 18
+ },
+ {
+  "container": "WebSocketException",
+  "kind": "method",
+  "location": {
+   "end_line": 26,
+   "file": "starlette/exceptions.py",
+   "start_line": 24
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 24
+ },
+ {
+  "container": "WebSocketException",
+  "kind": "method",
+  "location": {
+   "end_line": 29,
+   "file": "starlette/exceptions.py",
+   "start_line": 28
+  },
+  "name": "__str__",
+  "selection_char": 8,
+  "selection_line": 28
+ },
+ {
+  "container": "WebSocketException",
+  "kind": "method",
+  "location": {
+   "end_line": 33,
+   "file": "starlette/exceptions.py",
+   "start_line": 31
+  },
+  "name": "__repr__",
+  "selection_char": 8,
+  "selection_line": 31
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 49,
+   "file": "starlette/formparsers.py",
+   "start_line": 45
+  },
+  "name": "_user_safe_decode",
+  "selection_char": 4,
+  "selection_line": 45
+ },
+ {
+  "container": "MultiPartException",
+  "kind": "method",
+  "location": {
+   "end_line": 54,
+   "file": "starlette/formparsers.py",
+   "start_line": 53
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 53
+ },
+ {
+  "container": "FormParser",
+  "kind": "method",
+  "location": {
+   "end_line": 73,
+   "file": "starlette/formparsers.py",
+   "start_line": 58
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 58
+ },
+ {
+  "container": "FormParser",
+  "kind": "method",
+  "location": {
+   "end_line": 78,
+   "file": "starlette/formparsers.py",
+   "start_line": 75
+  },
+  "name": "on_field_start",
+  "selection_char": 8,
+  "selection_line": 75
+ },
+ {
+  "container": "FormParser",
+  "kind": "method",
+  "location": {
+   "end_line": 85,
+   "file": "starlette/formparsers.py",
+   "start_line": 80
+  },
+  "name": "on_field_name",
+  "selection_char": 8,
+  "selection_line": 80
+ },
+ {
+  "container": "FormParser",
+  "kind": "method",
+  "location": {
+   "end_line": 92,
+   "file": "starlette/formparsers.py",
+   "start_line": 87
+  },
+  "name": "on_field_data",
+  "selection_char": 8,
+  "selection_line": 87
+ },
+ {
+  "container": "FormParser",
+  "kind": "method",
+  "location": {
+   "end_line": 99,
+   "file": "starlette/formparsers.py",
+   "start_line": 94
+  },
+  "name": "on_field_end",
+  "selection_char": 8,
+  "selection_line": 94
+ },
+ {
+  "container": "FormParser",
+  "kind": "method",
+  "location": {
+   "end_line": 103,
+   "file": "starlette/formparsers.py",
+   "start_line": 101
+  },
+  "name": "on_end",
+  "selection_char": 8,
+  "selection_line": 101
+ },
+ {
+  "container": "FormParser",
+  "kind": "method",
+  "location": {
+   "end_line": 143,
+   "file": "starlette/formparsers.py",
+   "start_line": 105
+  },
+  "name": "parse",
+  "selection_char": 14,
+  "selection_line": 105
+ },
+ {
+  "container": "MultiPartParser",
+  "kind": "method",
+  "location": {
+   "end_line": 176,
+   "file": "starlette/formparsers.py",
+   "start_line": 152
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 152
+ },
+ {
+  "container": "MultiPartParser",
+  "kind": "method",
+  "location": {
+   "end_line": 179,
+   "file": "starlette/formparsers.py",
+   "start_line": 178
+  },
+  "name": "on_part_begin",
+  "selection_char": 8,
+  "selection_line": 178
+ },
+ {
+  "container": "MultiPartParser",
+  "kind": "method",
+  "location": {
+   "end_line": 188,
+   "file": "starlette/formparsers.py",
+   "start_line": 181
+  },
+  "name": "on_part_data",
+  "selection_char": 8,
+  "selection_line": 181
+ },
+ {
+  "container": "MultiPartParser",
+  "kind": "method",
+  "location": {
+   "end_line": 203,
+   "file": "starlette/formparsers.py",
+   "start_line": 190
+  },
+  "name": "on_part_end",
+  "selection_char": 8,
+  "selection_line": 190
+ },
+ {
+  "container": "MultiPartParser",
+  "kind": "method",
+  "location": {
+   "end_line": 206,
+   "file": "starlette/formparsers.py",
+   "start_line": 205
+  },
+  "name": "on_header_field",
+  "selection_char": 8,
+  "selection_line": 205
+ },
+ {
+  "container": "MultiPartParser",
+  "kind": "method",
+  "location": {
+   "end_line": 209,
+   "file": "starlette/formparsers.py",
+   "start_line": 208
+  },
+  "name": "on_header_value",
+  "selection_char": 8,
+  "selection_line": 208
+ },
+ {
+  "container": "MultiPartParser",
+  "kind": "method",
+  "location": {
+   "end_line": 217,
+   "file": "starlette/formparsers.py",
+   "start_line": 211
+  },
+  "name": "on_header_end",
+  "selection_char": 8,
+  "selection_line": 211
+ },
+ {
+  "container": "MultiPartParser",
+  "kind": "method",
+  "location": {
+   "end_line": 242,
+   "file": "starlette/formparsers.py",
+   "start_line": 219
+  },
+  "name": "on_headers_finished",
+  "selection_char": 8,
+  "selection_line": 219
+ },
+ {
+  "container": "MultiPartParser",
+  "kind": "method",
+  "location": {
+   "end_line": 245,
+   "file": "starlette/formparsers.py",
+   "start_line": 244
+  },
+  "name": "on_end",
+  "selection_char": 8,
+  "selection_line": 244
+ },
+ {
+  "container": "MultiPartParser",
+  "kind": "method",
+  "location": {
+   "end_line": 297,
+   "file": "starlette/formparsers.py",
+   "start_line": 247
+  },
+  "name": "parse",
+  "selection_char": 14,
+  "selection_line": 247
+ },
+ {
+  "container": "_MiddlewareFactory",
+  "kind": "method",
+  "location": {
+   "end_line": 18,
+   "file": "starlette/middleware/__init__.py",
+   "start_line": 18
+  },
+  "name": "__call__",
+  "selection_char": 8,
+  "selection_line": 18
+ },
+ {
+  "container": "Middleware",
+  "kind": "method",
+  "location": {
+   "end_line": 25,
+   "file": "starlette/middleware/__init__.py",
+   "start_line": 22
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 22
+ },
+ {
+  "container": "Middleware",
+  "kind": "method",
+  "location": {
+   "end_line": 29,
+   "file": "starlette/middleware/__init__.py",
+   "start_line": 27
+  },
+  "name": "__iter__",
+  "selection_char": 8,
+  "selection_line": 27
+ },
+ {
+  "container": "Middleware",
+  "kind": "method",
+  "location": {
+   "end_line": 37,
+   "file": "starlette/middleware/__init__.py",
+   "start_line": 31
+  },
+  "name": "__repr__",
+  "selection_char": 8,
+  "selection_line": 31
+ },
+ {
+  "container": "AuthenticationMiddleware",
+  "kind": "method",
+  "location": {
+   "end_line": 27,
+   "file": "starlette/middleware/authentication.py",
+   "start_line": 17
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 17
+ },
+ {
+  "container": "AuthenticationMiddleware",
+  "kind": "method",
+  "location": {
+   "end_line": 48,
+   "file": "starlette/middleware/authentication.py",
+   "start_line": 29
+  },
+  "name": "__call__",
+  "selection_char": 14,
+  "selection_line": 29
+ },
+ {
+  "container": "AuthenticationMiddleware",
+  "kind": "method",
+  "location": {
+   "end_line": 52,
+   "file": "starlette/middleware/authentication.py",
+   "start_line": 50
+  },
+  "name": "default_on_error",
+  "selection_char": 8,
+  "selection_line": 51
+ },
+ {
+  "container": "_CachedRequest",
+  "kind": "method",
+  "location": {
+   "end_line": 32,
+   "file": "starlette/middleware/base.py",
+   "start_line": 28
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 28
+ },
+ {
+  "container": "_CachedRequest",
+  "kind": "method",
+  "location": {
+   "end_line": 93,
+   "file": "starlette/middleware/base.py",
+   "start_line": 34
+  },
+  "name": "wrapped_receive",
+  "selection_char": 14,
+  "selection_line": 34
+ },
+ {
+  "container": "BaseHTTPMiddleware",
+  "kind": "method",
+  "location": {
+   "end_line": 99,
+   "file": "starlette/middleware/base.py",
+   "start_line": 97
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 97
+ },
+ {
+  "container": "BaseHTTPMiddleware",
+  "kind": "method",
+  "location": {
+   "end_line": 198,
+   "file": "starlette/middleware/base.py",
+   "start_line": 101
+  },
+  "name": "__call__",
+  "selection_char": 14,
+  "selection_line": 101
+ },
+ {
+  "container": "__call__",
+  "kind": "function",
+  "location": {
+   "end_line": 187,
+   "file": "starlette/middleware/base.py",
+   "start_line": 112
+  },
+  "name": "call_next",
+  "selection_char": 18,
+  "selection_line": 112
+ },
+ {
+  "container": "call_next",
+  "kind": "function",
+  "location": {
+   "end_line": 130,
+   "file": "starlette/middleware/base.py",
+   "start_line": 113
+  },
+  "name": "receive_or_disconnect",
+  "selection_char": 22,
+  "selection_line": 113
+ },
+ {
+  "container": "receive_or_disconnect",
+  "kind": "function",
+  "location": {
+   "end_line": 122,
+   "file": "starlette/middleware/base.py",
+   "start_line": 119
+  },
+  "name": "wrap",
+  "selection_char": 30,
+  "selection_line": 119
+ },
+ {
+  "container": "call_next",
+  "kind": "function",
+  "location": {
+   "end_line": 137,
+   "file": "starlette/middleware/base.py",
+   "start_line": 132
+  },
+  "name": "send_no_error",
+  "selection_char": 22,
+  "selection_line": 132
+ },
+ {
+  "container": "call_next",
+  "kind": "function",
+  "location": {
+   "end_line": 146,
+   "file": "starlette/middleware/base.py",
+   "start_line": 139
+  },
+  "name": "coro",
+  "selection_char": 22,
+  "selection_line": 139
+ },
+ {
+  "container": "call_next",
+  "kind": "function",
+  "location": {
+   "end_line": 183,
+   "file": "starlette/middleware/base.py",
+   "start_line": 173
+  },
+  "name": "body_stream",
+  "selection_char": 22,
+  "selection_line": 173
+ },
+ {
+  "container": "BaseHTTPMiddleware",
+  "kind": "method",
+  "location": {
+   "end_line": 201,
+   "file": "starlette/middleware/base.py",
+   "start_line": 200
+  },
+  "name": "dispatch",
+  "selection_char": 14,
+  "selection_line": 200
+ },
+ {
+  "container": "_StreamingResponse",
+  "kind": "method",
+  "location": {
+   "end_line": 218,
+   "file": "starlette/middleware/base.py",
+   "start_line": 205
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 205
+ },
+ {
+  "container": "_StreamingResponse",
+  "kind": "method",
+  "location": {
+   "end_line": 244,
+   "file": "starlette/middleware/base.py",
+   "start_line": 220
+  },
+  "name": "__call__",
+  "selection_char": 14,
+  "selection_line": 220
+ },
+ {
+  "container": "CORSMiddleware",
+  "kind": "method",
+  "location": {
+   "end_line": 76,
+   "file": "starlette/middleware/cors.py",
+   "start_line": 16
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 16
+ },
+ {
+  "container": "CORSMiddleware",
+  "kind": "method",
+  "location": {
+   "end_line": 96,
+   "file": "starlette/middleware/cors.py",
+   "start_line": 78
+  },
+  "name": "__call__",
+  "selection_char": 14,
+  "selection_line": 78
+ },
+ {
+  "container": "CORSMiddleware",
+  "kind": "method",
+  "location": {
+   "end_line": 105,
+   "file": "starlette/middleware/cors.py",
+   "start_line": 98
+  },
+  "name": "is_allowed_origin",
+  "selection_char": 8,
+  "selection_line": 98
+ },
+ {
+  "container": "CORSMiddleware",
+  "kind": "method",
+  "location": {
+   "end_line": 150,
+   "file": "starlette/middleware/cors.py",
+   "start_line": 107
+  },
+  "name": "preflight_response",
+  "selection_char": 8,
+  "selection_line": 107
+ },
+ {
+  "container": "CORSMiddleware",
+  "kind": "method",
+  "location": {
+   "end_line": 154,
+   "file": "starlette/middleware/cors.py",
+   "start_line": 152
+  },
+  "name": "simple_response",
+  "selection_char": 14,
+  "selection_line": 152
+ },
+ {
+  "container": "CORSMiddleware",
+  "kind": "method",
+  "location": {
+   "end_line": 174,
+   "file": "starlette/middleware/cors.py",
+   "start_line": 156
+  },
+  "name": "send",
+  "selection_char": 14,
+  "selection_line": 156
+ },
+ {
+  "container": "CORSMiddleware",
+  "kind": "method",
+  "location": {
+   "end_line": 179,
+   "file": "starlette/middleware/cors.py",
+   "start_line": 176
+  },
+  "name": "allow_explicit_origin",
+  "selection_char": 8,
+  "selection_line": 177
+ },
+ {
+  "container": "ServerErrorMiddleware",
+  "kind": "method",
+  "location": {
+   "end_line": 147,
+   "file": "starlette/middleware/errors.py",
+   "start_line": 139
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 139
+ },
+ {
+  "container": "ServerErrorMiddleware",
+  "kind": "method",
+  "location": {
+   "end_line": 186,
+   "file": "starlette/middleware/errors.py",
+   "start_line": 149
+  },
+  "name": "__call__",
+  "selection_char": 14,
+  "selection_line": 149
+ },
+ {
+  "container": "__call__",
+  "kind": "function",
+  "location": {
+   "end_line": 161,
+   "file": "starlette/middleware/errors.py",
+   "start_line": 156
+  },
+  "name": "_send",
+  "selection_char": 18,
+  "selection_line": 156
+ },
+ {
+  "container": "ServerErrorMiddleware",
+  "kind": "method",
+  "location": {
+   "end_line": 197,
+   "file": "starlette/middleware/errors.py",
+   "start_line": 188
+  },
+  "name": "format_line",
+  "selection_char": 8,
+  "selection_line": 188
+ },
+ {
+  "container": "ServerErrorMiddleware",
+  "kind": "method",
+  "location": {
+   "end_line": 222,
+   "file": "starlette/middleware/errors.py",
+   "start_line": 199
+  },
+  "name": "generate_frame_html",
+  "selection_char": 8,
+  "selection_line": 199
+ },
+ {
+  "container": "ServerErrorMiddleware",
+  "kind": "method",
+  "location": {
+   "end_line": 244,
+   "file": "starlette/middleware/errors.py",
+   "start_line": 224
+  },
+  "name": "generate_html",
+  "selection_char": 8,
+  "selection_line": 224
+ },
+ {
+  "container": "ServerErrorMiddleware",
+  "kind": "method",
+  "location": {
+   "end_line": 247,
+   "file": "starlette/middleware/errors.py",
+   "start_line": 246
+  },
+  "name": "generate_plain_text",
+  "selection_char": 8,
+  "selection_line": 246
+ },
+ {
+  "container": "ServerErrorMiddleware",
+  "kind": "method",
+  "location": {
+   "end_line": 256,
+   "file": "starlette/middleware/errors.py",
+   "start_line": 249
+  },
+  "name": "debug_response",
+  "selection_char": 8,
+  "selection_line": 249
+ },
+ {
+  "container": "ServerErrorMiddleware",
+  "kind": "method",
+  "location": {
+   "end_line": 259,
+   "file": "starlette/middleware/errors.py",
+   "start_line": 258
+  },
+  "name": "error_response",
+  "selection_char": 8,
+  "selection_line": 258
+ },
+ {
+  "container": "ExceptionMiddleware",
+  "kind": "method",
+  "location": {
+   "end_line": 34,
+   "file": "starlette/middleware/exceptions.py",
+   "start_line": 19
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 19
+ },
+ {
+  "container": "ExceptionMiddleware",
+  "kind": "method",
+  "location": {
+   "end_line": 45,
+   "file": "starlette/middleware/exceptions.py",
+   "start_line": 36
+  },
+  "name": "add_exception_handler",
+  "selection_char": 8,
+  "selection_line": 36
+ },
+ {
+  "container": "ExceptionMiddleware",
+  "kind": "method",
+  "location": {
+   "end_line": 63,
+   "file": "starlette/middleware/exceptions.py",
+   "start_line": 47
+  },
+  "name": "__call__",
+  "selection_char": 14,
+  "selection_line": 47
+ },
+ {
+  "container": "ExceptionMiddleware",
+  "kind": "method",
+  "location": {
+   "end_line": 69,
+   "file": "starlette/middleware/exceptions.py",
+   "start_line": 65
+  },
+  "name": "http_exception",
+  "selection_char": 14,
+  "selection_line": 65
+ },
+ {
+  "container": "ExceptionMiddleware",
+  "kind": "method",
+  "location": {
+   "end_line": 73,
+   "file": "starlette/middleware/exceptions.py",
+   "start_line": 71
+  },
+  "name": "websocket_exception",
+  "selection_char": 14,
+  "selection_line": 71
+ },
+ {
+  "container": "GZipMiddleware",
+  "kind": "method",
+  "location": {
+   "end_line": 15,
+   "file": "starlette/middleware/gzip.py",
+   "start_line": 12
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 12
+ },
+ {
+  "container": "GZipMiddleware",
+  "kind": "method",
+  "location": {
+   "end_line": 29,
+   "file": "starlette/middleware/gzip.py",
+   "start_line": 17
+  },
+  "name": "__call__",
+  "selection_char": 14,
+  "selection_line": 17
+ },
+ {
+  "container": "IdentityResponder",
+  "kind": "method",
+  "location": {
+   "end_line": 42,
+   "file": "starlette/middleware/gzip.py",
+   "start_line": 35
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 35
+ },
+ {
+  "container": "IdentityResponder",
+  "kind": "method",
+  "location": {
+   "end_line": 46,
+   "file": "starlette/middleware/gzip.py",
+   "start_line": 44
+  },
+  "name": "__call__",
+  "selection_char": 14,
+  "selection_line": 44
+ },
+ {
+  "container": "IdentityResponder",
+  "kind": "method",
+  "location": {
+   "end_line": 107,
+   "file": "starlette/middleware/gzip.py",
+   "start_line": 48
+  },
+  "name": "send_with_compression",
+  "selection_char": 14,
+  "selection_line": 48
+ },
+ {
+  "container": "IdentityResponder",
+  "kind": "method",
+  "location": {
+   "end_line": 116,
+   "file": "starlette/middleware/gzip.py",
+   "start_line": 109
+  },
+  "name": "apply_compression",
+  "selection_char": 8,
+  "selection_line": 109
+ },
+ {
+  "container": "GZipResponder",
+  "kind": "method",
+  "location": {
+   "end_line": 126,
+   "file": "starlette/middleware/gzip.py",
+   "start_line": 122
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 122
+ },
+ {
+  "container": "GZipResponder",
+  "kind": "method",
+  "location": {
+   "end_line": 130,
+   "file": "starlette/middleware/gzip.py",
+   "start_line": 128
+  },
+  "name": "__call__",
+  "selection_char": 14,
+  "selection_line": 128
+ },
+ {
+  "container": "GZipResponder",
+  "kind": "method",
+  "location": {
+   "end_line": 141,
+   "file": "starlette/middleware/gzip.py",
+   "start_line": 132
+  },
+  "name": "apply_compression",
+  "selection_char": 8,
+  "selection_line": 132
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 145,
+   "file": "starlette/middleware/gzip.py",
+   "start_line": 144
+  },
+  "name": "unattached_send",
+  "selection_char": 10,
+  "selection_line": 144
+ },
+ {
+  "container": "HTTPSRedirectMiddleware",
+  "kind": "method",
+  "location": {
+   "end_line": 8,
+   "file": "starlette/middleware/httpsredirect.py",
+   "start_line": 7
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 7
+ },
+ {
+  "container": "HTTPSRedirectMiddleware",
+  "kind": "method",
+  "location": {
+   "end_line": 19,
+   "file": "starlette/middleware/httpsredirect.py",
+   "start_line": 10
+  },
+  "name": "__call__",
+  "selection_char": 14,
+  "selection_line": 10
+ },
+ {
+  "container": "SessionMiddleware",
+  "kind": "method",
+  "location": {
+   "end_line": 37,
+   "file": "starlette/middleware/sessions.py",
+   "start_line": 17
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 17
+ },
+ {
+  "container": "SessionMiddleware",
+  "kind": "method",
+  "location": {
+   "end_line": 88,
+   "file": "starlette/middleware/sessions.py",
+   "start_line": 39
+  },
+  "name": "__call__",
+  "selection_char": 14,
+  "selection_line": 39
+ },
+ {
+  "container": "__call__",
+  "kind": "function",
+  "location": {
+   "end_line": 86,
+   "file": "starlette/middleware/sessions.py",
+   "start_line": 58
+  },
+  "name": "send_wrapper",
+  "selection_char": 18,
+  "selection_line": 58
+ },
+ {
+  "container": "Session",
+  "kind": "method",
+  "location": {
+   "end_line": 96,
+   "file": "starlette/middleware/sessions.py",
+   "start_line": 95
+  },
+  "name": "mark_accessed",
+  "selection_char": 8,
+  "selection_line": 95
+ },
+ {
+  "container": "Session",
+  "kind": "method",
+  "location": {
+   "end_line": 100,
+   "file": "starlette/middleware/sessions.py",
+   "start_line": 98
+  },
+  "name": "mark_modified",
+  "selection_char": 8,
+  "selection_line": 98
+ },
+ {
+  "container": "Session",
+  "kind": "method",
+  "location": {
+   "end_line": 104,
+   "file": "starlette/middleware/sessions.py",
+   "start_line": 102
+  },
+  "name": "__setitem__",
+  "selection_char": 8,
+  "selection_line": 102
+ },
+ {
+  "container": "Session",
+  "kind": "method",
+  "location": {
+   "end_line": 108,
+   "file": "starlette/middleware/sessions.py",
+   "start_line": 106
+  },
+  "name": "__delitem__",
+  "selection_char": 8,
+  "selection_line": 106
+ },
+ {
+  "container": "Session",
+  "kind": "method",
+  "location": {
+   "end_line": 112,
+   "file": "starlette/middleware/sessions.py",
+   "start_line": 110
+  },
+  "name": "clear",
+  "selection_char": 8,
+  "selection_line": 110
+ },
+ {
+  "container": "Session",
+  "kind": "method",
+  "location": {
+   "end_line": 116,
+   "file": "starlette/middleware/sessions.py",
+   "start_line": 114
+  },
+  "name": "pop",
+  "selection_char": 8,
+  "selection_line": 114
+ },
+ {
+  "container": "Session",
+  "kind": "method",
+  "location": {
+   "end_line": 121,
+   "file": "starlette/middleware/sessions.py",
+   "start_line": 118
+  },
+  "name": "setdefault",
+  "selection_char": 8,
+  "selection_line": 118
+ },
+ {
+  "container": "Session",
+  "kind": "method",
+  "location": {
+   "end_line": 125,
+   "file": "starlette/middleware/sessions.py",
+   "start_line": 123
+  },
+  "name": "update",
+  "selection_char": 8,
+  "selection_line": 123
+ },
+ {
+  "container": "TrustedHostMiddleware",
+  "kind": "method",
+  "location": {
+   "end_line": 29,
+   "file": "starlette/middleware/trustedhost.py",
+   "start_line": 13
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 13
+ },
+ {
+  "container": "TrustedHostMiddleware",
+  "kind": "method",
+  "location": {
+   "end_line": 60,
+   "file": "starlette/middleware/trustedhost.py",
+   "start_line": 31
+  },
+  "name": "__call__",
+  "selection_char": 14,
+  "selection_line": 31
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 74,
+   "file": "starlette/middleware/wsgi.py",
+   "start_line": 25
+  },
+  "name": "build_environ",
+  "selection_char": 4,
+  "selection_line": 25
+ },
+ {
+  "container": "WSGIMiddleware",
+  "kind": "method",
+  "location": {
+   "end_line": 79,
+   "file": "starlette/middleware/wsgi.py",
+   "start_line": 78
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 78
+ },
+ {
+  "container": "WSGIMiddleware",
+  "kind": "method",
+  "location": {
+   "end_line": 84,
+   "file": "starlette/middleware/wsgi.py",
+   "start_line": 81
+  },
+  "name": "__call__",
+  "selection_char": 14,
+  "selection_line": 81
+ },
+ {
+  "container": "WSGIResponder",
+  "kind": "method",
+  "location": {
+   "end_line": 98,
+   "file": "starlette/middleware/wsgi.py",
+   "start_line": 91
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 91
+ },
+ {
+  "container": "WSGIResponder",
+  "kind": "method",
+  "location": {
+   "end_line": 114,
+   "file": "starlette/middleware/wsgi.py",
+   "start_line": 100
+  },
+  "name": "__call__",
+  "selection_char": 14,
+  "selection_line": 100
+ },
+ {
+  "container": "WSGIResponder",
+  "kind": "method",
+  "location": {
+   "end_line": 119,
+   "file": "starlette/middleware/wsgi.py",
+   "start_line": 116
+  },
+  "name": "sender",
+  "selection_char": 14,
+  "selection_line": 116
+ },
+ {
+  "container": "WSGIResponder",
+  "kind": "method",
+  "location": {
+   "end_line": 143,
+   "file": "starlette/middleware/wsgi.py",
+   "start_line": 121
+  },
+  "name": "start_response",
+  "selection_char": 8,
+  "selection_line": 121
+ },
+ {
+  "container": "WSGIResponder",
+  "kind": "method",
+  "location": {
+   "end_line": 156,
+   "file": "starlette/middleware/wsgi.py",
+   "start_line": 145
+  },
+  "name": "wsgi",
+  "selection_char": 8,
+  "selection_line": 145
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 70,
+   "file": "starlette/requests.py",
+   "start_line": 46
+  },
+  "name": "cookie_parser",
+  "selection_char": 4,
+  "selection_line": 46
+ },
+ {
+  "container": "HTTPConnection",
+  "kind": "method",
+  "location": {
+   "end_line": 88,
+   "file": "starlette/requests.py",
+   "start_line": 86
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 86
+ },
+ {
+  "container": "HTTPConnection",
+  "kind": "method",
+  "location": {
+   "end_line": 91,
+   "file": "starlette/requests.py",
+   "start_line": 90
+  },
+  "name": "__getitem__",
+  "selection_char": 8,
+  "selection_line": 90
+ },
+ {
+  "container": "HTTPConnection",
+  "kind": "method",
+  "location": {
+   "end_line": 94,
+   "file": "starlette/requests.py",
+   "start_line": 93
+  },
+  "name": "__iter__",
+  "selection_char": 8,
+  "selection_line": 93
+ },
+ {
+  "container": "HTTPConnection",
+  "kind": "method",
+  "location": {
+   "end_line": 97,
+   "file": "starlette/requests.py",
+   "start_line": 96
+  },
+  "name": "__len__",
+  "selection_char": 8,
+  "selection_line": 96
+ },
+ {
+  "container": "HTTPConnection",
+  "kind": "method",
+  "location": {
+   "end_line": 107,
+   "file": "starlette/requests.py",
+   "start_line": 105
+  },
+  "name": "app",
+  "selection_char": 8,
+  "selection_line": 106
+ },
+ {
+  "container": "HTTPConnection",
+  "kind": "method",
+  "location": {
+   "end_line": 113,
+   "file": "starlette/requests.py",
+   "start_line": 109
+  },
+  "name": "url",
+  "selection_char": 8,
+  "selection_line": 110
+ },
+ {
+  "container": "HTTPConnection",
+  "kind": "method",
+  "location": {
+   "end_line": 130,
+   "file": "starlette/requests.py",
+   "start_line": 115
+  },
+  "name": "base_url",
+  "selection_char": 8,
+  "selection_line": 116
+ },
+ {
+  "container": "HTTPConnection",
+  "kind": "method",
+  "location": {
+   "end_line": 136,
+   "file": "starlette/requests.py",
+   "start_line": 132
+  },
+  "name": "headers",
+  "selection_char": 8,
+  "selection_line": 133
+ },
+ {
+  "container": "HTTPConnection",
+  "kind": "method",
+  "location": {
+   "end_line": 142,
+   "file": "starlette/requests.py",
+   "start_line": 138
+  },
+  "name": "query_params",
+  "selection_char": 8,
+  "selection_line": 139
+ },
+ {
+  "container": "HTTPConnection",
+  "kind": "method",
+  "location": {
+   "end_line": 147,
+   "file": "starlette/requests.py",
+   "start_line": 144
+  },
+  "name": "path_params",
+  "selection_char": 8,
+  "selection_line": 145
+ },
+ {
+  "container": "HTTPConnection",
+  "kind": "method",
+  "location": {
+   "end_line": 159,
+   "file": "starlette/requests.py",
+   "start_line": 149
+  },
+  "name": "cookies",
+  "selection_char": 8,
+  "selection_line": 150
+ },
+ {
+  "container": "HTTPConnection",
+  "kind": "method",
+  "location": {
+   "end_line": 167,
+   "file": "starlette/requests.py",
+   "start_line": 161
+  },
+  "name": "client",
+  "selection_char": 8,
+  "selection_line": 162
+ },
+ {
+  "container": "HTTPConnection",
+  "kind": "method",
+  "location": {
+   "end_line": 176,
+   "file": "starlette/requests.py",
+   "start_line": 169
+  },
+  "name": "session",
+  "selection_char": 8,
+  "selection_line": 170
+ },
+ {
+  "container": "HTTPConnection",
+  "kind": "method",
+  "location": {
+   "end_line": 181,
+   "file": "starlette/requests.py",
+   "start_line": 178
+  },
+  "name": "auth",
+  "selection_char": 8,
+  "selection_line": 179
+ },
+ {
+  "container": "HTTPConnection",
+  "kind": "method",
+  "location": {
+   "end_line": 186,
+   "file": "starlette/requests.py",
+   "start_line": 183
+  },
+  "name": "user",
+  "selection_char": 8,
+  "selection_line": 184
+ },
+ {
+  "container": "HTTPConnection",
+  "kind": "method",
+  "location": {
+   "end_line": 196,
+   "file": "starlette/requests.py",
+   "start_line": 188
+  },
+  "name": "state",
+  "selection_char": 8,
+  "selection_line": 189
+ },
+ {
+  "container": "HTTPConnection",
+  "kind": "method",
+  "location": {
+   "end_line": 203,
+   "file": "starlette/requests.py",
+   "start_line": 198
+  },
+  "name": "url_for",
+  "selection_char": 8,
+  "selection_line": 198
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 207,
+   "file": "starlette/requests.py",
+   "start_line": 206
+  },
+  "name": "empty_receive",
+  "selection_char": 10,
+  "selection_line": 206
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 211,
+   "file": "starlette/requests.py",
+   "start_line": 210
+  },
+  "name": "empty_send",
+  "selection_char": 10,
+  "selection_line": 210
+ },
+ {
+  "container": "Request",
+  "kind": "method",
+  "location": {
+   "end_line": 224,
+   "file": "starlette/requests.py",
+   "start_line": 217
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 217
+ },
+ {
+  "container": "Request",
+  "kind": "method",
+  "location": {
+   "end_line": 228,
+   "file": "starlette/requests.py",
+   "start_line": 226
+  },
+  "name": "method",
+  "selection_char": 8,
+  "selection_line": 227
+ },
+ {
+  "container": "Request",
+  "kind": "method",
+  "location": {
+   "end_line": 232,
+   "file": "starlette/requests.py",
+   "start_line": 230
+  },
+  "name": "receive",
+  "selection_char": 8,
+  "selection_line": 231
+ },
+ {
+  "container": "Request",
+  "kind": "method",
+  "location": {
+   "end_line": 252,
+   "file": "starlette/requests.py",
+   "start_line": 234
+  },
+  "name": "stream",
+  "selection_char": 14,
+  "selection_line": 234
+ },
+ {
+  "container": "Request",
+  "kind": "method",
+  "location": {
+   "end_line": 260,
+   "file": "starlette/requests.py",
+   "start_line": 254
+  },
+  "name": "body",
+  "selection_char": 14,
+  "selection_line": 254
+ },
+ {
+  "container": "Request",
+  "kind": "method",
+  "location": {
+   "end_line": 266,
+   "file": "starlette/requests.py",
+   "start_line": 262
+  },
+  "name": "json",
+  "selection_char": 14,
+  "selection_line": 262
+ },
+ {
+  "container": "Request",
+  "kind": "method",
+  "location": {
+   "end_line": 311,
+   "file": "starlette/requests.py",
+   "start_line": 268
+  },
+  "name": "_get_form",
+  "selection_char": 14,
+  "selection_line": 268
+ },
+ {
+  "container": "Request",
+  "kind": "method",
+  "location": {
+   "end_line": 322,
+   "file": "starlette/requests.py",
+   "start_line": 313
+  },
+  "name": "form",
+  "selection_char": 8,
+  "selection_line": 313
+ },
+ {
+  "container": "Request",
+  "kind": "method",
+  "location": {
+   "end_line": 326,
+   "file": "starlette/requests.py",
+   "start_line": 324
+  },
+  "name": "close",
+  "selection_char": 14,
+  "selection_line": 324
+ },
+ {
+  "container": "Request",
+  "kind": "method",
+  "location": {
+   "end_line": 340,
+   "file": "starlette/requests.py",
+   "start_line": 328
+  },
+  "name": "is_disconnected",
+  "selection_char": 14,
+  "selection_line": 328
+ },
+ {
+  "container": "Request",
+  "kind": "method",
+  "location": {
+   "end_line": 348,
+   "file": "starlette/requests.py",
+   "start_line": 342
+  },
+  "name": "send_push_promise",
+  "selection_char": 14,
+  "selection_line": 342
+ },
+ {
+  "container": "Response",
+  "kind": "method",
+  "location": {
+   "end_line": 46,
+   "file": "starlette/responses.py",
+   "start_line": 33
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 33
+ },
+ {
+  "container": "Response",
+  "kind": "method",
+  "location": {
+   "end_line": 53,
+   "file": "starlette/responses.py",
+   "start_line": 48
+  },
+  "name": "render",
+  "selection_char": 8,
+  "selection_line": 48
+ },
+ {
+  "container": "Response",
+  "kind": "method",
+  "location": {
+   "end_line": 81,
+   "file": "starlette/responses.py",
+   "start_line": 55
+  },
+  "name": "init_headers",
+  "selection_char": 8,
+  "selection_line": 55
+ },
+ {
+  "container": "Response",
+  "kind": "method",
+  "location": {
+   "end_line": 87,
+   "file": "starlette/responses.py",
+   "start_line": 83
+  },
+  "name": "headers",
+  "selection_char": 8,
+  "selection_line": 84
+ },
+ {
+  "container": "Response",
+  "kind": "method",
+  "location": {
+   "end_line": 132,
+   "file": "starlette/responses.py",
+   "start_line": 89
+  },
+  "name": "set_cookie",
+  "selection_char": 8,
+  "selection_line": 89
+ },
+ {
+  "container": "Response",
+  "kind": "method",
+  "location": {
+   "end_line": 152,
+   "file": "starlette/responses.py",
+   "start_line": 134
+  },
+  "name": "delete_cookie",
+  "selection_char": 8,
+  "selection_line": 134
+ },
+ {
+  "container": "Response",
+  "kind": "method",
+  "location": {
+   "end_line": 161,
+   "file": "starlette/responses.py",
+   "start_line": 154
+  },
+  "name": "_wrap_websocket_denial_send",
+  "selection_char": 8,
+  "selection_line": 154
+ },
+ {
+  "container": "_wrap_websocket_denial_send",
+  "kind": "function",
+  "location": {
+   "end_line": 159,
+   "file": "starlette/responses.py",
+   "start_line": 155
+  },
+  "name": "wrapped",
+  "selection_char": 18,
+  "selection_line": 155
+ },
+ {
+  "container": "Response",
+  "kind": "method",
+  "location": {
+   "end_line": 170,
+   "file": "starlette/responses.py",
+   "start_line": 163
+  },
+  "name": "__call__",
+  "selection_char": 14,
+  "selection_line": 163
+ },
+ {
+  "container": "JSONResponse",
+  "kind": "method",
+  "location": {
+   "end_line": 192,
+   "file": "starlette/responses.py",
+   "start_line": 184
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 184
+ },
+ {
+  "container": "JSONResponse",
+  "kind": "method",
+  "location": {
+   "end_line": 201,
+   "file": "starlette/responses.py",
+   "start_line": 194
+  },
+  "name": "render",
+  "selection_char": 8,
+  "selection_line": 194
+ },
+ {
+  "container": "RedirectResponse",
+  "kind": "method",
+  "location": {
+   "end_line": 213,
+   "file": "starlette/responses.py",
+   "start_line": 205
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 205
+ },
+ {
+  "container": "StreamingResponse",
+  "kind": "method",
+  "location": {
+   "end_line": 240,
+   "file": "starlette/responses.py",
+   "start_line": 225
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 225
+ },
+ {
+  "container": "StreamingResponse",
+  "kind": "method",
+  "location": {
+   "end_line": 246,
+   "file": "starlette/responses.py",
+   "start_line": 242
+  },
+  "name": "listen_for_disconnect",
+  "selection_char": 14,
+  "selection_line": 242
+ },
+ {
+  "container": "StreamingResponse",
+  "kind": "method",
+  "location": {
+   "end_line": 255,
+   "file": "starlette/responses.py",
+   "start_line": 248
+  },
+  "name": "stream_response",
+  "selection_char": 14,
+  "selection_line": 248
+ },
+ {
+  "container": "StreamingResponse",
+  "kind": "method",
+  "location": {
+   "end_line": 283,
+   "file": "starlette/responses.py",
+   "start_line": 257
+  },
+  "name": "__call__",
+  "selection_char": 14,
+  "selection_line": 257
+ },
+ {
+  "container": "__call__",
+  "kind": "function",
+  "location": {
+   "end_line": 277,
+   "file": "starlette/responses.py",
+   "start_line": 275
+  },
+  "name": "wrap",
+  "selection_char": 26,
+  "selection_line": 275
+ },
+ {
+  "container": "MalformedRangeHeader",
+  "kind": "method",
+  "location": {
+   "end_line": 288,
+   "file": "starlette/responses.py",
+   "start_line": 287
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 287
+ },
+ {
+  "container": "RangeNotSatisfiable",
+  "kind": "method",
+  "location": {
+   "end_line": 293,
+   "file": "starlette/responses.py",
+   "start_line": 292
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 292
+ },
+ {
+  "container": "FileResponse",
+  "kind": "method",
+  "location": {
+   "end_line": 328,
+   "file": "starlette/responses.py",
+   "start_line": 299
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 299
+ },
+ {
+  "container": "FileResponse",
+  "kind": "method",
+  "location": {
+   "end_line": 338,
+   "file": "starlette/responses.py",
+   "start_line": 330
+  },
+  "name": "set_stat_headers",
+  "selection_char": 8,
+  "selection_line": 330
+ },
+ {
+  "container": "FileResponse",
+  "kind": "method",
+  "location": {
+   "end_line": 382,
+   "file": "starlette/responses.py",
+   "start_line": 340
+  },
+  "name": "__call__",
+  "selection_char": 14,
+  "selection_line": 340
+ },
+ {
+  "container": "FileResponse",
+  "kind": "method",
+  "location": {
+   "end_line": 396,
+   "file": "starlette/responses.py",
+   "start_line": 384
+  },
+  "name": "_handle_simple",
+  "selection_char": 14,
+  "selection_line": 384
+ },
+ {
+  "container": "FileResponse",
+  "kind": "method",
+  "location": {
+   "end_line": 415,
+   "file": "starlette/responses.py",
+   "start_line": 398
+  },
+  "name": "_handle_single_range",
+  "selection_char": 14,
+  "selection_line": 398
+ },
+ {
+  "container": "FileResponse",
+  "kind": "method",
+  "location": {
+   "end_line": 451,
+   "file": "starlette/responses.py",
+   "start_line": 417
+  },
+  "name": "_handle_multiple_ranges",
+  "selection_char": 14,
+  "selection_line": 417
+ },
+ {
+  "container": "FileResponse",
+  "kind": "method",
+  "location": {
+   "end_line": 454,
+   "file": "starlette/responses.py",
+   "start_line": 453
+  },
+  "name": "_should_use_range",
+  "selection_char": 8,
+  "selection_line": 453
+ },
+ {
+  "container": "FileResponse",
+  "kind": "method",
+  "location": {
+   "end_line": 493,
+   "file": "starlette/responses.py",
+   "start_line": 456
+  },
+  "name": "_parse_range_header",
+  "selection_char": 8,
+  "selection_line": 457
+ },
+ {
+  "container": "FileResponse",
+  "kind": "method",
+  "location": {
+   "end_line": 522,
+   "file": "starlette/responses.py",
+   "start_line": 495
+  },
+  "name": "_parse_ranges",
+  "selection_char": 8,
+  "selection_line": 496
+ },
+ {
+  "container": "FileResponse",
+  "kind": "method",
+  "location": {
+   "end_line": 567,
+   "file": "starlette/responses.py",
+   "start_line": 524
+  },
+  "name": "generate_multipart",
+  "selection_char": 8,
+  "selection_line": 524
+ },
+ {
+  "container": "NoMatchFound",
+  "kind": "method",
+  "location": {
+   "end_line": 37,
+   "file": "starlette/routing.py",
+   "start_line": 35
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 35
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 66,
+   "file": "starlette/routing.py",
+   "start_line": 46
+  },
+  "name": "request_response",
+  "selection_char": 4,
+  "selection_line": 46
+ },
+ {
+  "container": "request_response",
+  "kind": "function",
+  "location": {
+   "end_line": 64,
+   "file": "starlette/routing.py",
+   "start_line": 57
+  },
+  "name": "app",
+  "selection_char": 14,
+  "selection_line": 57
+ },
+ {
+  "container": "app",
+  "kind": "function",
+  "location": {
+   "end_line": 62,
+   "file": "starlette/routing.py",
+   "start_line": 60
+  },
+  "name": "app",
+  "selection_char": 18,
+  "selection_line": 60
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 85,
+   "file": "starlette/routing.py",
+   "start_line": 69
+  },
+  "name": "websocket_session",
+  "selection_char": 4,
+  "selection_line": 69
+ },
+ {
+  "container": "websocket_session",
+  "kind": "function",
+  "location": {
+   "end_line": 83,
+   "file": "starlette/routing.py",
+   "start_line": 77
+  },
+  "name": "app",
+  "selection_char": 14,
+  "selection_line": 77
+ },
+ {
+  "container": "app",
+  "kind": "function",
+  "location": {
+   "end_line": 81,
+   "file": "starlette/routing.py",
+   "start_line": 80
+  },
+  "name": "app",
+  "selection_char": 18,
+  "selection_line": 80
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 89,
+   "file": "starlette/routing.py",
+   "start_line": 88
+  },
+  "name": "get_name",
+  "selection_char": 4,
+  "selection_line": 88
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 103,
+   "file": "starlette/routing.py",
+   "start_line": 92
+  },
+  "name": "replace_params",
+  "selection_char": 4,
+  "selection_line": 92
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 163,
+   "file": "starlette/routing.py",
+   "start_line": 110
+  },
+  "name": "compile_path",
+  "selection_char": 4,
+  "selection_line": 110
+ },
+ {
+  "container": "BaseRoute",
+  "kind": "method",
+  "location": {
+   "end_line": 168,
+   "file": "starlette/routing.py",
+   "start_line": 167
+  },
+  "name": "matches",
+  "selection_char": 8,
+  "selection_line": 167
+ },
+ {
+  "container": "BaseRoute",
+  "kind": "method",
+  "location": {
+   "end_line": 171,
+   "file": "starlette/routing.py",
+   "start_line": 170
+  },
+  "name": "url_path_for",
+  "selection_char": 8,
+  "selection_line": 170
+ },
+ {
+  "container": "BaseRoute",
+  "kind": "method",
+  "location": {
+   "end_line": 174,
+   "file": "starlette/routing.py",
+   "start_line": 173
+  },
+  "name": "handle",
+  "selection_char": 14,
+  "selection_line": 173
+ },
+ {
+  "container": "BaseRoute",
+  "kind": "method",
+  "location": {
+   "end_line": 193,
+   "file": "starlette/routing.py",
+   "start_line": 176
+  },
+  "name": "__call__",
+  "selection_char": 14,
+  "selection_line": 176
+ },
+ {
+  "container": "Route",
+  "kind": "method",
+  "location": {
+   "end_line": 236,
+   "file": "starlette/routing.py",
+   "start_line": 197
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 197
+ },
+ {
+  "container": "Route",
+  "kind": "method",
+  "location": {
+   "end_line": 254,
+   "file": "starlette/routing.py",
+   "start_line": 238
+  },
+  "name": "matches",
+  "selection_char": 8,
+  "selection_line": 238
+ },
+ {
+  "container": "Route",
+  "kind": "method",
+  "location": {
+   "end_line": 265,
+   "file": "starlette/routing.py",
+   "start_line": 256
+  },
+  "name": "url_path_for",
+  "selection_char": 8,
+  "selection_line": 256
+ },
+ {
+  "container": "Route",
+  "kind": "method",
+  "location": {
+   "end_line": 276,
+   "file": "starlette/routing.py",
+   "start_line": 267
+  },
+  "name": "handle",
+  "selection_char": 14,
+  "selection_line": 267
+ },
+ {
+  "container": "Route",
+  "kind": "method",
+  "location": {
+   "end_line": 284,
+   "file": "starlette/routing.py",
+   "start_line": 278
+  },
+  "name": "__eq__",
+  "selection_char": 8,
+  "selection_line": 278
+ },
+ {
+  "container": "Route",
+  "kind": "method",
+  "location": {
+   "end_line": 290,
+   "file": "starlette/routing.py",
+   "start_line": 286
+  },
+  "name": "__repr__",
+  "selection_char": 8,
+  "selection_line": 286
+ },
+ {
+  "container": "WebSocketRoute",
+  "kind": "method",
+  "location": {
+   "end_line": 321,
+   "file": "starlette/routing.py",
+   "start_line": 294
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 294
+ },
+ {
+  "container": "WebSocketRoute",
+  "kind": "method",
+  "location": {
+   "end_line": 336,
+   "file": "starlette/routing.py",
+   "start_line": 323
+  },
+  "name": "matches",
+  "selection_char": 8,
+  "selection_line": 323
+ },
+ {
+  "container": "WebSocketRoute",
+  "kind": "method",
+  "location": {
+   "end_line": 347,
+   "file": "starlette/routing.py",
+   "start_line": 338
+  },
+  "name": "url_path_for",
+  "selection_char": 8,
+  "selection_line": 338
+ },
+ {
+  "container": "WebSocketRoute",
+  "kind": "method",
+  "location": {
+   "end_line": 350,
+   "file": "starlette/routing.py",
+   "start_line": 349
+  },
+  "name": "handle",
+  "selection_char": 14,
+  "selection_line": 349
+ },
+ {
+  "container": "WebSocketRoute",
+  "kind": "method",
+  "location": {
+   "end_line": 353,
+   "file": "starlette/routing.py",
+   "start_line": 352
+  },
+  "name": "__eq__",
+  "selection_char": 8,
+  "selection_line": 352
+ },
+ {
+  "container": "WebSocketRoute",
+  "kind": "method",
+  "location": {
+   "end_line": 356,
+   "file": "starlette/routing.py",
+   "start_line": 355
+  },
+  "name": "__repr__",
+  "selection_char": 8,
+  "selection_line": 355
+ },
+ {
+  "container": "Mount",
+  "kind": "method",
+  "location": {
+   "end_line": 381,
+   "file": "starlette/routing.py",
+   "start_line": 360
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 360
+ },
+ {
+  "container": "Mount",
+  "kind": "method",
+  "location": {
+   "end_line": 385,
+   "file": "starlette/routing.py",
+   "start_line": 383
+  },
+  "name": "routes",
+  "selection_char": 8,
+  "selection_line": 384
+ },
+ {
+  "container": "Mount",
+  "kind": "method",
+  "location": {
+   "end_line": 418,
+   "file": "starlette/routing.py",
+   "start_line": 387
+  },
+  "name": "matches",
+  "selection_char": 8,
+  "selection_line": 387
+ },
+ {
+  "container": "Mount",
+  "kind": "method",
+  "location": {
+   "end_line": 445,
+   "file": "starlette/routing.py",
+   "start_line": 420
+  },
+  "name": "url_path_for",
+  "selection_char": 8,
+  "selection_line": 420
+ },
+ {
+  "container": "Mount",
+  "kind": "method",
+  "location": {
+   "end_line": 448,
+   "file": "starlette/routing.py",
+   "start_line": 447
+  },
+  "name": "handle",
+  "selection_char": 14,
+  "selection_line": 447
+ },
+ {
+  "container": "Mount",
+  "kind": "method",
+  "location": {
+   "end_line": 451,
+   "file": "starlette/routing.py",
+   "start_line": 450
+  },
+  "name": "__eq__",
+  "selection_char": 8,
+  "selection_line": 450
+ },
+ {
+  "container": "Mount",
+  "kind": "method",
+  "location": {
+   "end_line": 456,
+   "file": "starlette/routing.py",
+   "start_line": 453
+  },
+  "name": "__repr__",
+  "selection_char": 8,
+  "selection_line": 453
+ },
+ {
+  "container": "Host",
+  "kind": "method",
+  "location": {
+   "end_line": 465,
+   "file": "starlette/routing.py",
+   "start_line": 460
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 460
+ },
+ {
+  "container": "Host",
+  "kind": "method",
+  "location": {
+   "end_line": 469,
+   "file": "starlette/routing.py",
+   "start_line": 467
+  },
+  "name": "routes",
+  "selection_char": 8,
+  "selection_line": 468
+ },
+ {
+  "container": "Host",
+  "kind": "method",
+  "location": {
+   "end_line": 484,
+   "file": "starlette/routing.py",
+   "start_line": 471
+  },
+  "name": "matches",
+  "selection_char": 8,
+  "selection_line": 471
+ },
+ {
+  "container": "Host",
+  "kind": "method",
+  "location": {
+   "end_line": 507,
+   "file": "starlette/routing.py",
+   "start_line": 486
+  },
+  "name": "url_path_for",
+  "selection_char": 8,
+  "selection_line": 486
+ },
+ {
+  "container": "Host",
+  "kind": "method",
+  "location": {
+   "end_line": 510,
+   "file": "starlette/routing.py",
+   "start_line": 509
+  },
+  "name": "handle",
+  "selection_char": 14,
+  "selection_line": 509
+ },
+ {
+  "container": "Host",
+  "kind": "method",
+  "location": {
+   "end_line": 513,
+   "file": "starlette/routing.py",
+   "start_line": 512
+  },
+  "name": "__eq__",
+  "selection_char": 8,
+  "selection_line": 512
+ },
+ {
+  "container": "Host",
+  "kind": "method",
+  "location": {
+   "end_line": 518,
+   "file": "starlette/routing.py",
+   "start_line": 515
+  },
+  "name": "__repr__",
+  "selection_char": 8,
+  "selection_line": 515
+ },
+ {
+  "container": "_AsyncLiftContextManager",
+  "kind": "method",
+  "location": {
+   "end_line": 526,
+   "file": "starlette/routing.py",
+   "start_line": 525
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 525
+ },
+ {
+  "container": "_AsyncLiftContextManager",
+  "kind": "method",
+  "location": {
+   "end_line": 529,
+   "file": "starlette/routing.py",
+   "start_line": 528
+  },
+  "name": "__aenter__",
+  "selection_char": 14,
+  "selection_line": 528
+ },
+ {
+  "container": "_AsyncLiftContextManager",
+  "kind": "method",
+  "location": {
+   "end_line": 537,
+   "file": "starlette/routing.py",
+   "start_line": 531
+  },
+  "name": "__aexit__",
+  "selection_char": 14,
+  "selection_line": 531
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 549,
+   "file": "starlette/routing.py",
+   "start_line": 540
+  },
+  "name": "_wrap_gen_lifespan_context",
+  "selection_char": 4,
+  "selection_line": 540
+ },
+ {
+  "container": "_wrap_gen_lifespan_context",
+  "kind": "function",
+  "location": {
+   "end_line": 547,
+   "file": "starlette/routing.py",
+   "start_line": 545
+  },
+  "name": "wrapper",
+  "selection_char": 8,
+  "selection_line": 546
+ },
+ {
+  "container": "_DefaultLifespan",
+  "kind": "method",
+  "location": {
+   "end_line": 554,
+   "file": "starlette/routing.py",
+   "start_line": 553
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 553
+ },
+ {
+  "container": "_DefaultLifespan",
+  "kind": "method",
+  "location": {
+   "end_line": 557,
+   "file": "starlette/routing.py",
+   "start_line": 556
+  },
+  "name": "__aenter__",
+  "selection_char": 14,
+  "selection_line": 556
+ },
+ {
+  "container": "_DefaultLifespan",
+  "kind": "method",
+  "location": {
+   "end_line": 560,
+   "file": "starlette/routing.py",
+   "start_line": 559
+  },
+  "name": "__aexit__",
+  "selection_char": 14,
+  "selection_line": 559
+ },
+ {
+  "container": "_DefaultLifespan",
+  "kind": "method",
+  "location": {
+   "end_line": 563,
+   "file": "starlette/routing.py",
+   "start_line": 562
+  },
+  "name": "__call__",
+  "selection_char": 8,
+  "selection_line": 562
+ },
+ {
+  "container": "Router",
+  "kind": "method",
+  "location": {
+   "end_line": 604,
+   "file": "starlette/routing.py",
+   "start_line": 567
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 567
+ },
+ {
+  "container": "Router",
+  "kind": "method",
+  "location": {
+   "end_line": 619,
+   "file": "starlette/routing.py",
+   "start_line": 606
+  },
+  "name": "not_found",
+  "selection_char": 14,
+  "selection_line": 606
+ },
+ {
+  "container": "Router",
+  "kind": "method",
+  "location": {
+   "end_line": 627,
+   "file": "starlette/routing.py",
+   "start_line": 621
+  },
+  "name": "url_path_for",
+  "selection_char": 8,
+  "selection_line": 621
+ },
+ {
+  "container": "Router",
+  "kind": "method",
+  "location": {
+   "end_line": 654,
+   "file": "starlette/routing.py",
+   "start_line": 629
+  },
+  "name": "lifespan",
+  "selection_char": 14,
+  "selection_line": 629
+ },
+ {
+  "container": "Router",
+  "kind": "method",
+  "location": {
+   "end_line": 660,
+   "file": "starlette/routing.py",
+   "start_line": 656
+  },
+  "name": "__call__",
+  "selection_char": 14,
+  "selection_line": 656
+ },
+ {
+  "container": "Router",
+  "kind": "method",
+  "location": {
+   "end_line": 710,
+   "file": "starlette/routing.py",
+   "start_line": 662
+  },
+  "name": "app",
+  "selection_char": 14,
+  "selection_line": 662
+ },
+ {
+  "container": "Router",
+  "kind": "method",
+  "location": {
+   "end_line": 713,
+   "file": "starlette/routing.py",
+   "start_line": 712
+  },
+  "name": "__eq__",
+  "selection_char": 8,
+  "selection_line": 712
+ },
+ {
+  "container": "Router",
+  "kind": "method",
+  "location": {
+   "end_line": 717,
+   "file": "starlette/routing.py",
+   "start_line": 715
+  },
+  "name": "mount",
+  "selection_char": 8,
+  "selection_line": 715
+ },
+ {
+  "container": "Router",
+  "kind": "method",
+  "location": {
+   "end_line": 721,
+   "file": "starlette/routing.py",
+   "start_line": 719
+  },
+  "name": "host",
+  "selection_char": 8,
+  "selection_line": 719
+ },
+ {
+  "container": "Router",
+  "kind": "method",
+  "location": {
+   "end_line": 738,
+   "file": "starlette/routing.py",
+   "start_line": 723
+  },
+  "name": "add_route",
+  "selection_char": 8,
+  "selection_line": 723
+ },
+ {
+  "container": "Router",
+  "kind": "method",
+  "location": {
+   "end_line": 747,
+   "file": "starlette/routing.py",
+   "start_line": 740
+  },
+  "name": "add_websocket_route",
+  "selection_char": 8,
+  "selection_line": 740
+ },
+ {
+  "container": "OpenAPIResponse",
+  "kind": "method",
+  "location": {
+   "end_line": 24,
+   "file": "starlette/schemas.py",
+   "start_line": 21
+  },
+  "name": "render",
+  "selection_char": 8,
+  "selection_line": 21
+ },
+ {
+  "container": "BaseSchemaGenerator",
+  "kind": "method",
+  "location": {
+   "end_line": 38,
+   "file": "starlette/schemas.py",
+   "start_line": 37
+  },
+  "name": "get_schema",
+  "selection_char": 8,
+  "selection_line": 37
+ },
+ {
+  "container": "BaseSchemaGenerator",
+  "kind": "method",
+  "location": {
+   "end_line": 87,
+   "file": "starlette/schemas.py",
+   "start_line": 40
+  },
+  "name": "get_endpoints",
+  "selection_char": 8,
+  "selection_line": 40
+ },
+ {
+  "container": "BaseSchemaGenerator",
+  "kind": "method",
+  "location": {
+   "end_line": 96,
+   "file": "starlette/schemas.py",
+   "start_line": 89
+  },
+  "name": "_remove_converter",
+  "selection_char": 8,
+  "selection_line": 89
+ },
+ {
+  "container": "BaseSchemaGenerator",
+  "kind": "method",
+  "location": {
+   "end_line": 120,
+   "file": "starlette/schemas.py",
+   "start_line": 98
+  },
+  "name": "parse_docstring",
+  "selection_char": 8,
+  "selection_line": 98
+ },
+ {
+  "container": "BaseSchemaGenerator",
+  "kind": "method",
+  "location": {
+   "end_line": 125,
+   "file": "starlette/schemas.py",
+   "start_line": 122
+  },
+  "name": "OpenAPIResponse",
+  "selection_char": 8,
+  "selection_line": 122
+ },
+ {
+  "container": "SchemaGenerator",
+  "kind": "method",
+  "location": {
+   "end_line": 130,
+   "file": "starlette/schemas.py",
+   "start_line": 129
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 129
+ },
+ {
+  "container": "SchemaGenerator",
+  "kind": "method",
+  "location": {
+   "end_line": 148,
+   "file": "starlette/schemas.py",
+   "start_line": 132
+  },
+  "name": "get_schema",
+  "selection_char": 8,
+  "selection_line": 132
+ },
+ {
+  "container": "NotModifiedResponse",
+  "kind": "method",
+  "location": {
+   "end_line": 36,
+   "file": "starlette/staticfiles.py",
+   "start_line": 32
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 32
+ },
+ {
+  "container": "StaticFiles",
+  "kind": "method",
+  "location": {
+   "end_line": 56,
+   "file": "starlette/staticfiles.py",
+   "start_line": 40
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 40
+ },
+ {
+  "container": "StaticFiles",
+  "kind": "method",
+  "location": {
+   "end_line": 85,
+   "file": "starlette/staticfiles.py",
+   "start_line": 58
+  },
+  "name": "get_directories",
+  "selection_char": 8,
+  "selection_line": 58
+ },
+ {
+  "container": "StaticFiles",
+  "kind": "method",
+  "location": {
+   "end_line": 99,
+   "file": "starlette/staticfiles.py",
+   "start_line": 87
+  },
+  "name": "__call__",
+  "selection_char": 14,
+  "selection_line": 87
+ },
+ {
+  "container": "StaticFiles",
+  "kind": "method",
+  "location": {
+   "end_line": 107,
+   "file": "starlette/staticfiles.py",
+   "start_line": 101
+  },
+  "name": "get_path",
+  "selection_char": 8,
+  "selection_line": 101
+ },
+ {
+  "container": "StaticFiles",
+  "kind": "method",
+  "location": {
+   "end_line": 152,
+   "file": "starlette/staticfiles.py",
+   "start_line": 109
+  },
+  "name": "get_response",
+  "selection_char": 14,
+  "selection_line": 109
+ },
+ {
+  "container": "StaticFiles",
+  "kind": "method",
+  "location": {
+   "end_line": 173,
+   "file": "starlette/staticfiles.py",
+   "start_line": 154
+  },
+  "name": "lookup_path",
+  "selection_char": 8,
+  "selection_line": 154
+ },
+ {
+  "container": "StaticFiles",
+  "kind": "method",
+  "location": {
+   "end_line": 187,
+   "file": "starlette/staticfiles.py",
+   "start_line": 175
+  },
+  "name": "file_response",
+  "selection_char": 8,
+  "selection_line": 175
+ },
+ {
+  "container": "StaticFiles",
+  "kind": "method",
+  "location": {
+   "end_line": 203,
+   "file": "starlette/staticfiles.py",
+   "start_line": 189
+  },
+  "name": "check_config",
+  "selection_char": 14,
+  "selection_line": 189
+ },
+ {
+  "container": "StaticFiles",
+  "kind": "method",
+  "location": {
+   "end_line": 223,
+   "file": "starlette/staticfiles.py",
+   "start_line": 205
+  },
+  "name": "is_not_modified",
+  "selection_char": 8,
+  "selection_line": 205
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 207,
+   "file": "starlette/status.py",
+   "start_line": 190
+  },
+  "name": "__getattr__",
+  "selection_char": 4,
+  "selection_line": 190
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 211,
+   "file": "starlette/status.py",
+   "start_line": 210
+  },
+  "name": "__dir__",
+  "selection_char": 4,
+  "selection_line": 210
+ },
+ {
+  "container": "_TemplateResponse",
+  "kind": "method",
+  "location": {
+   "end_line": 44,
+   "file": "starlette/templating.py",
+   "start_line": 32
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 32
+ },
+ {
+  "container": "_TemplateResponse",
+  "kind": "method",
+  "location": {
+   "end_line": 51,
+   "file": "starlette/templating.py",
+   "start_line": 46
+  },
+  "name": "__call__",
+  "selection_char": 14,
+  "selection_line": 46
+ },
+ {
+  "container": "Jinja2Templates",
+  "kind": "method",
+  "location": {
+   "end_line": 99,
+   "file": "starlette/templating.py",
+   "start_line": 84
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 84
+ },
+ {
+  "container": "Jinja2Templates",
+  "kind": "method",
+  "location": {
+   "end_line": 112,
+   "file": "starlette/templating.py",
+   "start_line": 101
+  },
+  "name": "_setup_env_defaults",
+  "selection_char": 8,
+  "selection_line": 101
+ },
+ {
+  "container": "_setup_env_defaults",
+  "kind": "function",
+  "location": {
+   "end_line": 110,
+   "file": "starlette/templating.py",
+   "start_line": 102
+  },
+  "name": "url_for",
+  "selection_char": 12,
+  "selection_line": 103
+ },
+ {
+  "container": "Jinja2Templates",
+  "kind": "method",
+  "location": {
+   "end_line": 115,
+   "file": "starlette/templating.py",
+   "start_line": 114
+  },
+  "name": "get_template",
+  "selection_char": 8,
+  "selection_line": 114
+ },
+ {
+  "container": "Jinja2Templates",
+  "kind": "method",
+  "location": {
+   "end_line": 156,
+   "file": "starlette/templating.py",
+   "start_line": 117
+  },
+  "name": "TemplateResponse",
+  "selection_char": 8,
+  "selection_line": 117
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 66,
+   "file": "starlette/testclient.py",
+   "start_line": 63
+  },
+  "name": "_is_asgi3",
+  "selection_char": 4,
+  "selection_line": 63
+ },
+ {
+  "container": "_WrapASGI2",
+  "kind": "method",
+  "location": {
+   "end_line": 75,
+   "file": "starlette/testclient.py",
+   "start_line": 74
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 74
+ },
+ {
+  "container": "_WrapASGI2",
+  "kind": "method",
+  "location": {
+   "end_line": 79,
+   "file": "starlette/testclient.py",
+   "start_line": 77
+  },
+  "name": "__call__",
+  "selection_char": 14,
+  "selection_line": 77
+ },
+ {
+  "container": "_Upgrade",
+  "kind": "method",
+  "location": {
+   "end_line": 89,
+   "file": "starlette/testclient.py",
+   "start_line": 88
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 88
+ },
+ {
+  "container": "WebSocketTestSession",
+  "kind": "method",
+  "location": {
+   "end_line": 113,
+   "file": "starlette/testclient.py",
+   "start_line": 103
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 103
+ },
+ {
+  "container": "WebSocketTestSession",
+  "kind": "method",
+  "location": {
+   "end_line": 128,
+   "file": "starlette/testclient.py",
+   "start_line": 115
+  },
+  "name": "__enter__",
+  "selection_char": 8,
+  "selection_line": 115
+ },
+ {
+  "container": "WebSocketTestSession",
+  "kind": "method",
+  "location": {
+   "end_line": 131,
+   "file": "starlette/testclient.py",
+   "start_line": 130
+  },
+  "name": "__exit__",
+  "selection_char": 8,
+  "selection_line": 130
+ },
+ {
+  "container": "WebSocketTestSession",
+  "kind": "method",
+  "location": {
+   "end_line": 148,
+   "file": "starlette/testclient.py",
+   "start_line": 133
+  },
+  "name": "_run",
+  "selection_char": 14,
+  "selection_line": 133
+ },
+ {
+  "container": "WebSocketTestSession",
+  "kind": "method",
+  "location": {
+   "end_line": 163,
+   "file": "starlette/testclient.py",
+   "start_line": 150
+  },
+  "name": "_raise_on_close",
+  "selection_char": 8,
+  "selection_line": 150
+ },
+ {
+  "container": "WebSocketTestSession",
+  "kind": "method",
+  "location": {
+   "end_line": 166,
+   "file": "starlette/testclient.py",
+   "start_line": 165
+  },
+  "name": "send",
+  "selection_char": 8,
+  "selection_line": 165
+ },
+ {
+  "container": "WebSocketTestSession",
+  "kind": "method",
+  "location": {
+   "end_line": 169,
+   "file": "starlette/testclient.py",
+   "start_line": 168
+  },
+  "name": "send_text",
+  "selection_char": 8,
+  "selection_line": 168
+ },
+ {
+  "container": "WebSocketTestSession",
+  "kind": "method",
+  "location": {
+   "end_line": 172,
+   "file": "starlette/testclient.py",
+   "start_line": 171
+  },
+  "name": "send_bytes",
+  "selection_char": 8,
+  "selection_line": 171
+ },
+ {
+  "container": "WebSocketTestSession",
+  "kind": "method",
+  "location": {
+   "end_line": 179,
+   "file": "starlette/testclient.py",
+   "start_line": 174
+  },
+  "name": "send_json",
+  "selection_char": 8,
+  "selection_line": 174
+ },
+ {
+  "container": "WebSocketTestSession",
+  "kind": "method",
+  "location": {
+   "end_line": 182,
+   "file": "starlette/testclient.py",
+   "start_line": 181
+  },
+  "name": "close",
+  "selection_char": 8,
+  "selection_line": 181
+ },
+ {
+  "container": "WebSocketTestSession",
+  "kind": "method",
+  "location": {
+   "end_line": 185,
+   "file": "starlette/testclient.py",
+   "start_line": 184
+  },
+  "name": "receive",
+  "selection_char": 8,
+  "selection_line": 184
+ },
+ {
+  "container": "WebSocketTestSession",
+  "kind": "method",
+  "location": {
+   "end_line": 190,
+   "file": "starlette/testclient.py",
+   "start_line": 187
+  },
+  "name": "receive_text",
+  "selection_char": 8,
+  "selection_line": 187
+ },
+ {
+  "container": "WebSocketTestSession",
+  "kind": "method",
+  "location": {
+   "end_line": 195,
+   "file": "starlette/testclient.py",
+   "start_line": 192
+  },
+  "name": "receive_bytes",
+  "selection_char": 8,
+  "selection_line": 192
+ },
+ {
+  "container": "WebSocketTestSession",
+  "kind": "method",
+  "location": {
+   "end_line": 204,
+   "file": "starlette/testclient.py",
+   "start_line": 197
+  },
+  "name": "receive_json",
+  "selection_char": 8,
+  "selection_line": 197
+ },
+ {
+  "container": "_TestClientTransport",
+  "kind": "method",
+  "location": {
+   "end_line": 223,
+   "file": "starlette/testclient.py",
+   "start_line": 208
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 208
+ },
+ {
+  "container": "_TestClientTransport",
+  "kind": "method",
+  "location": {
+   "end_line": 373,
+   "file": "starlette/testclient.py",
+   "start_line": 225
+  },
+  "name": "handle_request",
+  "selection_char": 8,
+  "selection_line": 225
+ },
+ {
+  "container": "handle_request",
+  "kind": "function",
+  "location": {
+   "end_line": 326,
+   "file": "starlette/testclient.py",
+   "start_line": 300
+  },
+  "name": "receive",
+  "selection_char": 18,
+  "selection_line": 300
+ },
+ {
+  "container": "handle_request",
+  "kind": "function",
+  "location": {
+   "end_line": 348,
+   "file": "starlette/testclient.py",
+   "start_line": 328
+  },
+  "name": "send",
+  "selection_char": 18,
+  "selection_line": 328
+ },
+ {
+  "container": "TestClient",
+  "kind": "method",
+  "location": {
+   "end_line": 419,
+   "file": "starlette/testclient.py",
+   "start_line": 381
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 381
+ },
+ {
+  "container": "TestClient",
+  "kind": "method",
+  "location": {
+   "end_line": 427,
+   "file": "starlette/testclient.py",
+   "start_line": 421
+  },
+  "name": "_portal_factory",
+  "selection_char": 8,
+  "selection_line": 422
+ },
+ {
+  "container": "TestClient",
+  "kind": "method",
+  "location": {
+   "end_line": 468,
+   "file": "starlette/testclient.py",
+   "start_line": 429
+  },
+  "name": "request",
+  "selection_char": 8,
+  "selection_line": 429
+ },
+ {
+  "container": "TestClient",
+  "kind": "method",
+  "location": {
+   "end_line": 491,
+   "file": "starlette/testclient.py",
+   "start_line": 470
+  },
+  "name": "get",
+  "selection_char": 8,
+  "selection_line": 470
+ },
+ {
+  "container": "TestClient",
+  "kind": "method",
+  "location": {
+   "end_line": 514,
+   "file": "starlette/testclient.py",
+   "start_line": 493
+  },
+  "name": "options",
+  "selection_char": 8,
+  "selection_line": 493
+ },
+ {
+  "container": "TestClient",
+  "kind": "method",
+  "location": {
+   "end_line": 537,
+   "file": "starlette/testclient.py",
+   "start_line": 516
+  },
+  "name": "head",
+  "selection_char": 8,
+  "selection_line": 516
+ },
+ {
+  "container": "TestClient",
+  "kind": "method",
+  "location": {
+   "end_line": 568,
+   "file": "starlette/testclient.py",
+   "start_line": 539
+  },
+  "name": "post",
+  "selection_char": 8,
+  "selection_line": 539
+ },
+ {
+  "container": "TestClient",
+  "kind": "method",
+  "location": {
+   "end_line": 599,
+   "file": "starlette/testclient.py",
+   "start_line": 570
+  },
+  "name": "put",
+  "selection_char": 8,
+  "selection_line": 570
+ },
+ {
+  "container": "TestClient",
+  "kind": "method",
+  "location": {
+   "end_line": 630,
+   "file": "starlette/testclient.py",
+   "start_line": 601
+  },
+  "name": "patch",
+  "selection_char": 8,
+  "selection_line": 601
+ },
+ {
+  "container": "TestClient",
+  "kind": "method",
+  "location": {
+   "end_line": 653,
+   "file": "starlette/testclient.py",
+   "start_line": 632
+  },
+  "name": "delete",
+  "selection_char": 8,
+  "selection_line": 632
+ },
+ {
+  "container": "TestClient",
+  "kind": "method",
+  "location": {
+   "end_line": 676,
+   "file": "starlette/testclient.py",
+   "start_line": 655
+  },
+  "name": "websocket_connect",
+  "selection_char": 8,
+  "selection_line": 655
+ },
+ {
+  "container": "TestClient",
+  "kind": "method",
+  "location": {
+   "end_line": 705,
+   "file": "starlette/testclient.py",
+   "start_line": 678
+  },
+  "name": "__enter__",
+  "selection_char": 8,
+  "selection_line": 678
+ },
+ {
+  "container": "__enter__",
+  "kind": "function",
+  "location": {
+   "end_line": 684,
+   "file": "starlette/testclient.py",
+   "start_line": 682
+  },
+  "name": "reset_portal",
+  "selection_char": 16,
+  "selection_line": 683
+ },
+ {
+  "container": "__enter__",
+  "kind": "function",
+  "location": {
+   "end_line": 701,
+   "file": "starlette/testclient.py",
+   "start_line": 699
+  },
+  "name": "wait_shutdown",
+  "selection_char": 16,
+  "selection_line": 700
+ },
+ {
+  "container": "TestClient",
+  "kind": "method",
+  "location": {
+   "end_line": 708,
+   "file": "starlette/testclient.py",
+   "start_line": 707
+  },
+  "name": "__exit__",
+  "selection_char": 8,
+  "selection_line": 707
+ },
+ {
+  "container": "TestClient",
+  "kind": "method",
+  "location": {
+   "end_line": 715,
+   "file": "starlette/testclient.py",
+   "start_line": 710
+  },
+  "name": "lifespan",
+  "selection_char": 14,
+  "selection_line": 710
+ },
+ {
+  "container": "TestClient",
+  "kind": "method",
+  "location": {
+   "end_line": 732,
+   "file": "starlette/testclient.py",
+   "start_line": 717
+  },
+  "name": "wait_startup",
+  "selection_char": 14,
+  "selection_line": 717
+ },
+ {
+  "container": "wait_startup",
+  "kind": "function",
+  "location": {
+   "end_line": 724,
+   "file": "starlette/testclient.py",
+   "start_line": 720
+  },
+  "name": "receive",
+  "selection_char": 18,
+  "selection_line": 720
+ },
+ {
+  "container": "TestClient",
+  "kind": "method",
+  "location": {
+   "end_line": 748,
+   "file": "starlette/testclient.py",
+   "start_line": 734
+  },
+  "name": "wait_shutdown",
+  "selection_char": 14,
+  "selection_line": 734
+ },
+ {
+  "container": "wait_shutdown",
+  "kind": "function",
+  "location": {
+   "end_line": 739,
+   "file": "starlette/testclient.py",
+   "start_line": 735
+  },
+  "name": "receive",
+  "selection_char": 18,
+  "selection_line": 735
+ },
+ {
+  "container": "WebSocketDisconnect",
+  "kind": "method",
+  "location": {
+   "end_line": 23,
+   "file": "starlette/websockets.py",
+   "start_line": 21
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 21
+ },
+ {
+  "container": "WebSocket",
+  "kind": "method",
+  "location": {
+   "end_line": 33,
+   "file": "starlette/websockets.py",
+   "start_line": 27
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 27
+ },
+ {
+  "container": "WebSocket",
+  "kind": "method",
+  "location": {
+   "end_line": 57,
+   "file": "starlette/websockets.py",
+   "start_line": 35
+  },
+  "name": "receive",
+  "selection_char": 14,
+  "selection_line": 35
+ },
+ {
+  "container": "WebSocket",
+  "kind": "method",
+  "location": {
+   "end_line": 98,
+   "file": "starlette/websockets.py",
+   "start_line": 59
+  },
+  "name": "send",
+  "selection_char": 14,
+  "selection_line": 59
+ },
+ {
+  "container": "WebSocket",
+  "kind": "method",
+  "location": {
+   "end_line": 110,
+   "file": "starlette/websockets.py",
+   "start_line": 100
+  },
+  "name": "accept",
+  "selection_char": 14,
+  "selection_line": 100
+ },
+ {
+  "container": "WebSocket",
+  "kind": "method",
+  "location": {
+   "end_line": 114,
+   "file": "starlette/websockets.py",
+   "start_line": 112
+  },
+  "name": "_raise_on_disconnect",
+  "selection_char": 8,
+  "selection_line": 112
+ },
+ {
+  "container": "WebSocket",
+  "kind": "method",
+  "location": {
+   "end_line": 121,
+   "file": "starlette/websockets.py",
+   "start_line": 116
+  },
+  "name": "receive_text",
+  "selection_char": 14,
+  "selection_line": 116
+ },
+ {
+  "container": "WebSocket",
+  "kind": "method",
+  "location": {
+   "end_line": 128,
+   "file": "starlette/websockets.py",
+   "start_line": 123
+  },
+  "name": "receive_bytes",
+  "selection_char": 14,
+  "selection_line": 123
+ },
+ {
+  "container": "WebSocket",
+  "kind": "method",
+  "location": {
+   "end_line": 142,
+   "file": "starlette/websockets.py",
+   "start_line": 130
+  },
+  "name": "receive_json",
+  "selection_char": 14,
+  "selection_line": 130
+ },
+ {
+  "container": "WebSocket",
+  "kind": "method",
+  "location": {
+   "end_line": 149,
+   "file": "starlette/websockets.py",
+   "start_line": 144
+  },
+  "name": "iter_text",
+  "selection_char": 14,
+  "selection_line": 144
+ },
+ {
+  "container": "WebSocket",
+  "kind": "method",
+  "location": {
+   "end_line": 156,
+   "file": "starlette/websockets.py",
+   "start_line": 151
+  },
+  "name": "iter_bytes",
+  "selection_char": 14,
+  "selection_line": 151
+ },
+ {
+  "container": "WebSocket",
+  "kind": "method",
+  "location": {
+   "end_line": 163,
+   "file": "starlette/websockets.py",
+   "start_line": 158
+  },
+  "name": "iter_json",
+  "selection_char": 14,
+  "selection_line": 158
+ },
+ {
+  "container": "WebSocket",
+  "kind": "method",
+  "location": {
+   "end_line": 166,
+   "file": "starlette/websockets.py",
+   "start_line": 165
+  },
+  "name": "send_text",
+  "selection_char": 14,
+  "selection_line": 165
+ },
+ {
+  "container": "WebSocket",
+  "kind": "method",
+  "location": {
+   "end_line": 169,
+   "file": "starlette/websockets.py",
+   "start_line": 168
+  },
+  "name": "send_bytes",
+  "selection_char": 14,
+  "selection_line": 168
+ },
+ {
+  "container": "WebSocket",
+  "kind": "method",
+  "location": {
+   "end_line": 178,
+   "file": "starlette/websockets.py",
+   "start_line": 171
+  },
+  "name": "send_json",
+  "selection_char": 14,
+  "selection_line": 171
+ },
+ {
+  "container": "WebSocket",
+  "kind": "method",
+  "location": {
+   "end_line": 181,
+   "file": "starlette/websockets.py",
+   "start_line": 180
+  },
+  "name": "close",
+  "selection_char": 14,
+  "selection_line": 180
+ },
+ {
+  "container": "WebSocket",
+  "kind": "method",
+  "location": {
+   "end_line": 187,
+   "file": "starlette/websockets.py",
+   "start_line": 183
+  },
+  "name": "send_denial_response",
+  "selection_char": 14,
+  "selection_line": 183
+ },
+ {
+  "container": "WebSocketClose",
+  "kind": "method",
+  "location": {
+   "end_line": 193,
+   "file": "starlette/websockets.py",
+   "start_line": 191
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 191
+ },
+ {
+  "container": "WebSocketClose",
+  "kind": "method",
+  "location": {
+   "end_line": 196,
+   "file": "starlette/websockets.py",
+   "start_line": 195
+  },
+  "name": "__call__",
+  "selection_char": 14,
+  "selection_line": 195
+ }
+]

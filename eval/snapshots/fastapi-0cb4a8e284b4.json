@@ -1,0 +1,4442 @@
+[
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 55,
+   "file": "fastapi/_compat/shared.py",
+   "start_line": 47
+  },
+  "name": "lenient_issubclass",
+  "selection_char": 4,
+  "selection_line": 47
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 61,
+   "file": "fastapi/_compat/shared.py",
+   "start_line": 58
+  },
+  "name": "_annotation_is_sequence",
+  "selection_char": 4,
+  "selection_line": 58
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 73,
+   "file": "fastapi/_compat/shared.py",
+   "start_line": 64
+  },
+  "name": "field_annotation_is_sequence",
+  "selection_char": 4,
+  "selection_line": 64
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 77,
+   "file": "fastapi/_compat/shared.py",
+   "start_line": 76
+  },
+  "name": "value_is_sequence",
+  "selection_char": 4,
+  "selection_line": 76
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 85,
+   "file": "fastapi/_compat/shared.py",
+   "start_line": 80
+  },
+  "name": "_annotation_is_complex",
+  "selection_char": 4,
+  "selection_line": 80
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 101,
+   "file": "fastapi/_compat/shared.py",
+   "start_line": 88
+  },
+  "name": "field_annotation_is_complex",
+  "selection_char": 4,
+  "selection_line": 88
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 106,
+   "file": "fastapi/_compat/shared.py",
+   "start_line": 104
+  },
+  "name": "field_annotation_is_scalar",
+  "selection_char": 4,
+  "selection_line": 104
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 123,
+   "file": "fastapi/_compat/shared.py",
+   "start_line": 109
+  },
+  "name": "field_annotation_is_scalar_sequence",
+  "selection_char": 4,
+  "selection_line": 109
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 134,
+   "file": "fastapi/_compat/shared.py",
+   "start_line": 126
+  },
+  "name": "is_bytes_or_nonable_bytes_annotation",
+  "selection_char": 4,
+  "selection_line": 126
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 145,
+   "file": "fastapi/_compat/shared.py",
+   "start_line": 137
+  },
+  "name": "is_uploadfile_or_nonable_uploadfile_annotation",
+  "selection_char": 4,
+  "selection_line": 137
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 160,
+   "file": "fastapi/_compat/shared.py",
+   "start_line": 148
+  },
+  "name": "is_bytes_sequence_annotation",
+  "selection_char": 4,
+  "selection_line": 148
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 175,
+   "file": "fastapi/_compat/shared.py",
+   "start_line": 163
+  },
+  "name": "is_uploadfile_sequence_annotation",
+  "selection_char": 4,
+  "selection_line": 163
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 187,
+   "file": "fastapi/_compat/shared.py",
+   "start_line": 178
+  },
+  "name": "is_pydantic_v1_model_instance",
+  "selection_char": 4,
+  "selection_line": 178
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 199,
+   "file": "fastapi/_compat/shared.py",
+   "start_line": 190
+  },
+  "name": "is_pydantic_v1_model_class",
+  "selection_char": 4,
+  "selection_line": 190
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 214,
+   "file": "fastapi/_compat/shared.py",
+   "start_line": 202
+  },
+  "name": "annotation_is_pydantic_v1",
+  "selection_char": 4,
+  "selection_line": 202
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 54,
+   "file": "fastapi/_compat/v2.py",
+   "start_line": 43
+  },
+  "name": "evaluate_forwardref",
+  "selection_char": 4,
+  "selection_line": 43
+ },
+ {
+  "container": "GenerateJsonSchema",
+  "kind": "method",
+  "location": {
+   "end_line": 70,
+   "file": "fastapi/_compat/v2.py",
+   "start_line": 60
+  },
+  "name": "bytes_schema",
+  "selection_char": 8,
+  "selection_line": 60
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 110,
+   "file": "fastapi/_compat/v2.py",
+   "start_line": 100
+  },
+  "name": "asdict",
+  "selection_char": 4,
+  "selection_line": 100
+ },
+ {
+  "container": "ModelField",
+  "kind": "method",
+  "location": {
+   "end_line": 123,
+   "file": "fastapi/_compat/v2.py",
+   "start_line": 120
+  },
+  "name": "alias",
+  "selection_char": 8,
+  "selection_line": 121
+ },
+ {
+  "container": "ModelField",
+  "kind": "method",
+  "location": {
+   "end_line": 130,
+   "file": "fastapi/_compat/v2.py",
+   "start_line": 125
+  },
+  "name": "validation_alias",
+  "selection_char": 8,
+  "selection_line": 126
+ },
+ {
+  "container": "ModelField",
+  "kind": "method",
+  "location": {
+   "end_line": 135,
+   "file": "fastapi/_compat/v2.py",
+   "start_line": 132
+  },
+  "name": "serialization_alias",
+  "selection_char": 8,
+  "selection_line": 133
+ },
+ {
+  "container": "ModelField",
+  "kind": "method",
+  "location": {
+   "end_line": 139,
+   "file": "fastapi/_compat/v2.py",
+   "start_line": 137
+  },
+  "name": "default",
+  "selection_char": 8,
+  "selection_line": 138
+ },
+ {
+  "container": "ModelField",
+  "kind": "method",
+  "location": {
+   "end_line": 166,
+   "file": "fastapi/_compat/v2.py",
+   "start_line": 141
+  },
+  "name": "__post_init__",
+  "selection_char": 8,
+  "selection_line": 141
+ },
+ {
+  "container": "ModelField",
+  "kind": "method",
+  "location": {
+   "end_line": 171,
+   "file": "fastapi/_compat/v2.py",
+   "start_line": 168
+  },
+  "name": "get_default",
+  "selection_char": 8,
+  "selection_line": 168
+ },
+ {
+  "container": "ModelField",
+  "kind": "method",
+  "location": {
+   "end_line": 188,
+   "file": "fastapi/_compat/v2.py",
+   "start_line": 173
+  },
+  "name": "validate",
+  "selection_char": 8,
+  "selection_line": 173
+ },
+ {
+  "container": "ModelField",
+  "kind": "method",
+  "location": {
+   "end_line": 213,
+   "file": "fastapi/_compat/v2.py",
+   "start_line": 190
+  },
+  "name": "serialize",
+  "selection_char": 8,
+  "selection_line": 190
+ },
+ {
+  "container": "ModelField",
+  "kind": "method",
+  "location": {
+   "end_line": 239,
+   "file": "fastapi/_compat/v2.py",
+   "start_line": 215
+  },
+  "name": "serialize_json",
+  "selection_char": 8,
+  "selection_line": 215
+ },
+ {
+  "container": "ModelField",
+  "kind": "method",
+  "location": {
+   "end_line": 244,
+   "file": "fastapi/_compat/v2.py",
+   "start_line": 241
+  },
+  "name": "__hash__",
+  "selection_char": 8,
+  "selection_line": 241
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 251,
+   "file": "fastapi/_compat/v2.py",
+   "start_line": 247
+  },
+  "name": "_has_computed_fields",
+  "selection_char": 4,
+  "selection_line": 247
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 282,
+   "file": "fastapi/_compat/v2.py",
+   "start_line": 254
+  },
+  "name": "get_schema_from_model_field",
+  "selection_char": 4,
+  "selection_line": 254
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 346,
+   "file": "fastapi/_compat/v2.py",
+   "start_line": 285
+  },
+  "name": "get_definitions",
+  "selection_char": 4,
+  "selection_line": 285
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 354,
+   "file": "fastapi/_compat/v2.py",
+   "start_line": 349
+  },
+  "name": "is_scalar_field",
+  "selection_char": 4,
+  "selection_line": 349
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 363,
+   "file": "fastapi/_compat/v2.py",
+   "start_line": 357
+  },
+  "name": "copy_field_info",
+  "selection_char": 4,
+  "selection_line": 357
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 376,
+   "file": "fastapi/_compat/v2.py",
+   "start_line": 366
+  },
+  "name": "serialize_sequence_value",
+  "selection_char": 4,
+  "selection_line": 366
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 384,
+   "file": "fastapi/_compat/v2.py",
+   "start_line": 379
+  },
+  "name": "get_missing_field_error",
+  "selection_char": 4,
+  "selection_line": 379
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 392,
+   "file": "fastapi/_compat/v2.py",
+   "start_line": 387
+  },
+  "name": "create_body_model",
+  "selection_char": 4,
+  "selection_line": 387
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 410,
+   "file": "fastapi/_compat/v2.py",
+   "start_line": 395
+  },
+  "name": "get_model_fields",
+  "selection_char": 4,
+  "selection_line": 395
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 415,
+   "file": "fastapi/_compat/v2.py",
+   "start_line": 413
+  },
+  "name": "get_cached_model_fields",
+  "selection_char": 4,
+  "selection_line": 414
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 426,
+   "file": "fastapi/_compat/v2.py",
+   "start_line": 425
+  },
+  "name": "normalize_name",
+  "selection_char": 4,
+  "selection_line": 425
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 434,
+   "file": "fastapi/_compat/v2.py",
+   "start_line": 429
+  },
+  "name": "get_model_name_map",
+  "selection_char": 4,
+  "selection_line": 429
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 443,
+   "file": "fastapi/_compat/v2.py",
+   "start_line": 437
+  },
+  "name": "get_flat_models_from_model",
+  "selection_char": 4,
+  "selection_line": 437
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 459,
+   "file": "fastapi/_compat/v2.py",
+   "start_line": 446
+  },
+  "name": "get_flat_models_from_annotation",
+  "selection_char": 4,
+  "selection_line": 446
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 475,
+   "file": "fastapi/_compat/v2.py",
+   "start_line": 462
+  },
+  "name": "get_flat_models_from_field",
+  "selection_char": 4,
+  "selection_line": 462
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 483,
+   "file": "fastapi/_compat/v2.py",
+   "start_line": 478
+  },
+  "name": "get_flat_models_from_fields",
+  "selection_char": 4,
+  "selection_line": 478
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 493,
+   "file": "fastapi/_compat/v2.py",
+   "start_line": 486
+  },
+  "name": "_regenerate_error_with_loc",
+  "selection_char": 4,
+  "selection_line": 486
+ },
+ {
+  "container": "FastAPI",
+  "kind": "method",
+  "location": {
+   "end_line": 1018,
+   "file": "fastapi/applications.py",
+   "start_line": 58
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 58
+ },
+ {
+  "container": "FastAPI",
+  "kind": "method",
+  "location": {
+   "end_line": 1068,
+   "file": "fastapi/applications.py",
+   "start_line": 1020
+  },
+  "name": "build_middleware_stack",
+  "selection_char": 8,
+  "selection_line": 1020
+ },
+ {
+  "container": "FastAPI",
+  "kind": "method",
+  "location": {
+   "end_line": 1103,
+   "file": "fastapi/applications.py",
+   "start_line": 1070
+  },
+  "name": "openapi",
+  "selection_char": 8,
+  "selection_line": 1070
+ },
+ {
+  "container": "FastAPI",
+  "kind": "method",
+  "location": {
+   "end_line": 1158,
+   "file": "fastapi/applications.py",
+   "start_line": 1105
+  },
+  "name": "setup",
+  "selection_char": 8,
+  "selection_line": 1105
+ },
+ {
+  "container": "setup",
+  "kind": "function",
+  "location": {
+   "end_line": 1118,
+   "file": "fastapi/applications.py",
+   "start_line": 1108
+  },
+  "name": "openapi",
+  "selection_char": 22,
+  "selection_line": 1108
+ },
+ {
+  "container": "setup",
+  "kind": "function",
+  "location": {
+   "end_line": 1135,
+   "file": "fastapi/applications.py",
+   "start_line": 1123
+  },
+  "name": "swagger_ui_html",
+  "selection_char": 22,
+  "selection_line": 1123
+ },
+ {
+  "container": "setup",
+  "kind": "function",
+  "location": {
+   "end_line": 1142,
+   "file": "fastapi/applications.py",
+   "start_line": 1141
+  },
+  "name": "swagger_ui_redirect",
+  "selection_char": 26,
+  "selection_line": 1141
+ },
+ {
+  "container": "setup",
+  "kind": "function",
+  "location": {
+   "end_line": 1156,
+   "file": "fastapi/applications.py",
+   "start_line": 1151
+  },
+  "name": "redoc_html",
+  "selection_char": 22,
+  "selection_line": 1151
+ },
+ {
+  "container": "FastAPI",
+  "kind": "method",
+  "location": {
+   "end_line": 1163,
+   "file": "fastapi/applications.py",
+   "start_line": 1160
+  },
+  "name": "__call__",
+  "selection_char": 14,
+  "selection_line": 1160
+ },
+ {
+  "container": "FastAPI",
+  "kind": "method",
+  "location": {
+   "end_line": 1220,
+   "file": "fastapi/applications.py",
+   "start_line": 1165
+  },
+  "name": "add_api_route",
+  "selection_char": 8,
+  "selection_line": 1165
+ },
+ {
+  "container": "FastAPI",
+  "kind": "method",
+  "location": {
+   "end_line": 1293,
+   "file": "fastapi/applications.py",
+   "start_line": 1222
+  },
+  "name": "frontend",
+  "selection_char": 8,
+  "selection_line": 1222
+ },
+ {
+  "container": "FastAPI",
+  "kind": "method",
+  "location": {
+   "end_line": 1353,
+   "file": "fastapi/applications.py",
+   "start_line": 1295
+  },
+  "name": "api_route",
+  "selection_char": 8,
+  "selection_line": 1295
+ },
+ {
+  "container": "api_route",
+  "kind": "function",
+  "location": {
+   "end_line": 1351,
+   "file": "fastapi/applications.py",
+   "start_line": 1324
+  },
+  "name": "decorator",
+  "selection_char": 12,
+  "selection_line": 1324
+ },
+ {
+  "container": "FastAPI",
+  "kind": "method",
+  "location": {
+   "end_line": 1368,
+   "file": "fastapi/applications.py",
+   "start_line": 1355
+  },
+  "name": "add_api_websocket_route",
+  "selection_char": 8,
+  "selection_line": 1355
+ },
+ {
+  "container": "FastAPI",
+  "kind": "method",
+  "location": {
+   "end_line": 1433,
+   "file": "fastapi/applications.py",
+   "start_line": 1370
+  },
+  "name": "websocket",
+  "selection_char": 8,
+  "selection_line": 1370
+ },
+ {
+  "container": "websocket",
+  "kind": "function",
+  "location": {
+   "end_line": 1431,
+   "file": "fastapi/applications.py",
+   "start_line": 1424
+  },
+  "name": "decorator",
+  "selection_char": 12,
+  "selection_line": 1424
+ },
+ {
+  "container": "FastAPI",
+  "kind": "method",
+  "location": {
+   "end_line": 1638,
+   "file": "fastapi/applications.py",
+   "start_line": 1435
+  },
+  "name": "include_router",
+  "selection_char": 8,
+  "selection_line": 1435
+ },
+ {
+  "container": "FastAPI",
+  "kind": "method",
+  "location": {
+   "end_line": 2011,
+   "file": "fastapi/applications.py",
+   "start_line": 1640
+  },
+  "name": "get",
+  "selection_char": 8,
+  "selection_line": 1640
+ },
+ {
+  "container": "FastAPI",
+  "kind": "method",
+  "location": {
+   "end_line": 2389,
+   "file": "fastapi/applications.py",
+   "start_line": 2013
+  },
+  "name": "put",
+  "selection_char": 8,
+  "selection_line": 2013
+ },
+ {
+  "container": "FastAPI",
+  "kind": "method",
+  "location": {
+   "end_line": 2767,
+   "file": "fastapi/applications.py",
+   "start_line": 2391
+  },
+  "name": "post",
+  "selection_char": 8,
+  "selection_line": 2391
+ },
+ {
+  "container": "FastAPI",
+  "kind": "method",
+  "location": {
+   "end_line": 3140,
+   "file": "fastapi/applications.py",
+   "start_line": 2769
+  },
+  "name": "delete",
+  "selection_char": 8,
+  "selection_line": 2769
+ },
+ {
+  "container": "FastAPI",
+  "kind": "method",
+  "location": {
+   "end_line": 3513,
+   "file": "fastapi/applications.py",
+   "start_line": 3142
+  },
+  "name": "options",
+  "selection_char": 8,
+  "selection_line": 3142
+ },
+ {
+  "container": "FastAPI",
+  "kind": "method",
+  "location": {
+   "end_line": 3886,
+   "file": "fastapi/applications.py",
+   "start_line": 3515
+  },
+  "name": "head",
+  "selection_char": 8,
+  "selection_line": 3515
+ },
+ {
+  "container": "FastAPI",
+  "kind": "method",
+  "location": {
+   "end_line": 4264,
+   "file": "fastapi/applications.py",
+   "start_line": 3888
+  },
+  "name": "patch",
+  "selection_char": 8,
+  "selection_line": 3888
+ },
+ {
+  "container": "FastAPI",
+  "kind": "method",
+  "location": {
+   "end_line": 4637,
+   "file": "fastapi/applications.py",
+   "start_line": 4266
+  },
+  "name": "trace",
+  "selection_char": 8,
+  "selection_line": 4266
+ },
+ {
+  "container": "FastAPI",
+  "kind": "method",
+  "location": {
+   "end_line": 4646,
+   "file": "fastapi/applications.py",
+   "start_line": 4639
+  },
+  "name": "websocket_route",
+  "selection_char": 8,
+  "selection_line": 4639
+ },
+ {
+  "container": "websocket_route",
+  "kind": "function",
+  "location": {
+   "end_line": 4644,
+   "file": "fastapi/applications.py",
+   "start_line": 4642
+  },
+  "name": "decorator",
+  "selection_char": 12,
+  "selection_line": 4642
+ },
+ {
+  "container": "FastAPI",
+  "kind": "method",
+  "location": {
+   "end_line": 4675,
+   "file": "fastapi/applications.py",
+   "start_line": 4648
+  },
+  "name": "on_event",
+  "selection_char": 8,
+  "selection_line": 4656
+ },
+ {
+  "container": "FastAPI",
+  "kind": "method",
+  "location": {
+   "end_line": 4721,
+   "file": "fastapi/applications.py",
+   "start_line": 4677
+  },
+  "name": "middleware",
+  "selection_char": 8,
+  "selection_line": 4677
+ },
+ {
+  "container": "middleware",
+  "kind": "function",
+  "location": {
+   "end_line": 4719,
+   "file": "fastapi/applications.py",
+   "start_line": 4717
+  },
+  "name": "decorator",
+  "selection_char": 12,
+  "selection_line": 4717
+ },
+ {
+  "container": "FastAPI",
+  "kind": "method",
+  "location": {
+   "end_line": 4768,
+   "file": "fastapi/applications.py",
+   "start_line": 4723
+  },
+  "name": "exception_handler",
+  "selection_char": 8,
+  "selection_line": 4723
+ },
+ {
+  "container": "exception_handler",
+  "kind": "function",
+  "location": {
+   "end_line": 4766,
+   "file": "fastapi/applications.py",
+   "start_line": 4764
+  },
+  "name": "decorator",
+  "selection_char": 12,
+  "selection_line": 4764
+ },
+ {
+  "container": "BackgroundTasks",
+  "kind": "method",
+  "location": {
+   "end_line": 61,
+   "file": "fastapi/background.py",
+   "start_line": 40
+  },
+  "name": "add_task",
+  "selection_char": 8,
+  "selection_line": 40
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 13,
+   "file": "fastapi/cli.py",
+   "start_line": 8
+  },
+  "name": "main",
+  "selection_char": 4,
+  "selection_line": 8
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 41,
+   "file": "fastapi/concurrency.py",
+   "start_line": 17
+  },
+  "name": "contextmanager_in_threadpool",
+  "selection_char": 10,
+  "selection_line": 18
+ },
+ {
+  "container": "UploadFile",
+  "kind": "method",
+  "location": {
+   "end_line": 84,
+   "file": "fastapi/datastructures.py",
+   "start_line": 66
+  },
+  "name": "write",
+  "selection_char": 14,
+  "selection_line": 66
+ },
+ {
+  "container": "UploadFile",
+  "kind": "method",
+  "location": {
+   "end_line": 102,
+   "file": "fastapi/datastructures.py",
+   "start_line": 86
+  },
+  "name": "read",
+  "selection_char": 14,
+  "selection_line": 86
+ },
+ {
+  "container": "UploadFile",
+  "kind": "method",
+  "location": {
+   "end_line": 122,
+   "file": "fastapi/datastructures.py",
+   "start_line": 104
+  },
+  "name": "seek",
+  "selection_char": 14,
+  "selection_line": 104
+ },
+ {
+  "container": "UploadFile",
+  "kind": "method",
+  "location": {
+   "end_line": 130,
+   "file": "fastapi/datastructures.py",
+   "start_line": 124
+  },
+  "name": "close",
+  "selection_char": 14,
+  "selection_line": 124
+ },
+ {
+  "container": "UploadFile",
+  "kind": "method",
+  "location": {
+   "end_line": 136,
+   "file": "fastapi/datastructures.py",
+   "start_line": 132
+  },
+  "name": "_validate",
+  "selection_char": 8,
+  "selection_line": 133
+ },
+ {
+  "container": "UploadFile",
+  "kind": "method",
+  "location": {
+   "end_line": 142,
+   "file": "fastapi/datastructures.py",
+   "start_line": 138
+  },
+  "name": "__get_pydantic_json_schema__",
+  "selection_char": 8,
+  "selection_line": 139
+ },
+ {
+  "container": "UploadFile",
+  "kind": "method",
+  "location": {
+   "end_line": 150,
+   "file": "fastapi/datastructures.py",
+   "start_line": 144
+  },
+  "name": "__get_pydantic_core_schema__",
+  "selection_char": 8,
+  "selection_line": 145
+ },
+ {
+  "container": "DefaultPlaceholder",
+  "kind": "method",
+  "location": {
+   "end_line": 162,
+   "file": "fastapi/datastructures.py",
+   "start_line": 161
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 161
+ },
+ {
+  "container": "DefaultPlaceholder",
+  "kind": "method",
+  "location": {
+   "end_line": 165,
+   "file": "fastapi/datastructures.py",
+   "start_line": 164
+  },
+  "name": "__bool__",
+  "selection_char": 8,
+  "selection_line": 164
+ },
+ {
+  "container": "DefaultPlaceholder",
+  "kind": "method",
+  "location": {
+   "end_line": 168,
+   "file": "fastapi/datastructures.py",
+   "start_line": 167
+  },
+  "name": "__eq__",
+  "selection_char": 8,
+  "selection_line": 167
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 181,
+   "file": "fastapi/datastructures.py",
+   "start_line": 174
+  },
+  "name": "Default",
+  "selection_char": 4,
+  "selection_line": 174
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 22,
+   "file": "fastapi/dependencies/models.py",
+   "start_line": 18
+  },
+  "name": "_unwrapped_call",
+  "selection_char": 4,
+  "selection_line": 18
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 28,
+   "file": "fastapi/dependencies/models.py",
+   "start_line": 25
+  },
+  "name": "_impartial",
+  "selection_char": 4,
+  "selection_line": 25
+ },
+ {
+  "container": "Dependant",
+  "kind": "method",
+  "location": {
+   "end_line": 60,
+   "file": "fastapi/dependencies/models.py",
+   "start_line": 53
+  },
+  "name": "oauth_scopes",
+  "selection_char": 8,
+  "selection_line": 54
+ },
+ {
+  "container": "Dependant",
+  "kind": "method",
+  "location": {
+   "end_line": 71,
+   "file": "fastapi/dependencies/models.py",
+   "start_line": 62
+  },
+  "name": "cache_key",
+  "selection_char": 8,
+  "selection_line": 63
+ },
+ {
+  "container": "Dependant",
+  "kind": "method",
+  "location": {
+   "end_line": 84,
+   "file": "fastapi/dependencies/models.py",
+   "start_line": 73
+  },
+  "name": "_uses_scopes",
+  "selection_char": 8,
+  "selection_line": 74
+ },
+ {
+  "container": "Dependant",
+  "kind": "method",
+  "location": {
+   "end_line": 91,
+   "file": "fastapi/dependencies/models.py",
+   "start_line": 86
+  },
+  "name": "_is_security_scheme",
+  "selection_char": 8,
+  "selection_line": 87
+ },
+ {
+  "container": "Dependant",
+  "kind": "method",
+  "location": {
+   "end_line": 98,
+   "file": "fastapi/dependencies/models.py",
+   "start_line": 94
+  },
+  "name": "_security_scheme",
+  "selection_char": 8,
+  "selection_line": 95
+ },
+ {
+  "container": "Dependant",
+  "kind": "method",
+  "location": {
+   "end_line": 103,
+   "file": "fastapi/dependencies/models.py",
+   "start_line": 100
+  },
+  "name": "_security_dependencies",
+  "selection_char": 8,
+  "selection_line": 101
+ },
+ {
+  "container": "Dependant",
+  "kind": "method",
+  "location": {
+   "end_line": 129,
+   "file": "fastapi/dependencies/models.py",
+   "start_line": 105
+  },
+  "name": "is_gen_callable",
+  "selection_char": 8,
+  "selection_line": 106
+ },
+ {
+  "container": "Dependant",
+  "kind": "method",
+  "location": {
+   "end_line": 155,
+   "file": "fastapi/dependencies/models.py",
+   "start_line": 131
+  },
+  "name": "is_async_gen_callable",
+  "selection_char": 8,
+  "selection_line": 132
+ },
+ {
+  "container": "Dependant",
+  "kind": "method",
+  "location": {
+   "end_line": 185,
+   "file": "fastapi/dependencies/models.py",
+   "start_line": 157
+  },
+  "name": "is_coroutine_callable",
+  "selection_char": 8,
+  "selection_line": 158
+ },
+ {
+  "container": "Dependant",
+  "kind": "method",
+  "location": {
+   "end_line": 193,
+   "file": "fastapi/dependencies/models.py",
+   "start_line": 187
+  },
+  "name": "computed_scope",
+  "selection_char": 8,
+  "selection_line": 188
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 120,
+   "file": "fastapi/dependencies/utils.py",
+   "start_line": 94
+  },
+  "name": "ensure_multipart_is_installed",
+  "selection_char": 4,
+  "selection_line": 94
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 135,
+   "file": "fastapi/dependencies/utils.py",
+   "start_line": 123
+  },
+  "name": "get_parameterless_sub_dependant",
+  "selection_char": 4,
+  "selection_line": 123
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 189,
+   "file": "fastapi/dependencies/utils.py",
+   "start_line": 138
+  },
+  "name": "get_flat_dependant",
+  "selection_char": 4,
+  "selection_line": 138
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 201,
+   "file": "fastapi/dependencies/utils.py",
+   "start_line": 192
+  },
+  "name": "_get_flat_fields_from_params",
+  "selection_char": 4,
+  "selection_line": 192
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 210,
+   "file": "fastapi/dependencies/utils.py",
+   "start_line": 204
+  },
+  "name": "get_flat_params",
+  "selection_char": 4,
+  "selection_line": 204
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 225,
+   "file": "fastapi/dependencies/utils.py",
+   "start_line": 213
+  },
+  "name": "_get_signature",
+  "selection_char": 4,
+  "selection_line": 213
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 242,
+   "file": "fastapi/dependencies/utils.py",
+   "start_line": 228
+  },
+  "name": "get_typed_signature",
+  "selection_char": 4,
+  "selection_line": 228
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 251,
+   "file": "fastapi/dependencies/utils.py",
+   "start_line": 245
+  },
+  "name": "get_typed_annotation",
+  "selection_char": 4,
+  "selection_line": 245
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 263,
+   "file": "fastapi/dependencies/utils.py",
+   "start_line": 254
+  },
+  "name": "get_typed_return_annotation",
+  "selection_char": 4,
+  "selection_line": 254
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 283,
+   "file": "fastapi/dependencies/utils.py",
+   "start_line": 276
+  },
+  "name": "get_stream_item_type",
+  "selection_char": 4,
+  "selection_line": 276
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 359,
+   "file": "fastapi/dependencies/utils.py",
+   "start_line": 286
+  },
+  "name": "get_dependant",
+  "selection_char": 4,
+  "selection_line": 286
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 383,
+   "file": "fastapi/dependencies/utils.py",
+   "start_line": 362
+  },
+  "name": "add_non_field_param_to_dependency",
+  "selection_char": 4,
+  "selection_line": 362
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 559,
+   "file": "fastapi/dependencies/utils.py",
+   "start_line": 393
+  },
+  "name": "analyze_param",
+  "selection_char": 4,
+  "selection_line": 393
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 575,
+   "file": "fastapi/dependencies/utils.py",
+   "start_line": 562
+  },
+  "name": "add_param_to_fields",
+  "selection_char": 4,
+  "selection_line": 562
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 586,
+   "file": "fastapi/dependencies/utils.py",
+   "start_line": 578
+  },
+  "name": "_solve_generator",
+  "selection_char": 10,
+  "selection_line": 578
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 735,
+   "file": "fastapi/dependencies/utils.py",
+   "start_line": 598
+  },
+  "name": "solve_dependencies",
+  "selection_char": 10,
+  "selection_line": 598
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 746,
+   "file": "fastapi/dependencies/utils.py",
+   "start_line": 738
+  },
+  "name": "_validate_value_with_model_field",
+  "selection_char": 4,
+  "selection_line": 738
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 750,
+   "file": "fastapi/dependencies/utils.py",
+   "start_line": 749
+  },
+  "name": "_is_json_field",
+  "selection_char": 4,
+  "selection_line": 749
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 781,
+   "file": "fastapi/dependencies/utils.py",
+   "start_line": 753
+  },
+  "name": "_get_multidict_value",
+  "selection_char": 4,
+  "selection_line": 753
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 870,
+   "file": "fastapi/dependencies/utils.py",
+   "start_line": 784
+  },
+  "name": "request_params_to_args",
+  "selection_char": 4,
+  "selection_line": 784
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 889,
+   "file": "fastapi/dependencies/utils.py",
+   "start_line": 873
+  },
+  "name": "is_union_of_base_models",
+  "selection_char": 4,
+  "selection_line": 873
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 913,
+   "file": "fastapi/dependencies/utils.py",
+   "start_line": 892
+  },
+  "name": "_should_embed_body_fields",
+  "selection_char": 4,
+  "selection_line": 892
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 952,
+   "file": "fastapi/dependencies/utils.py",
+   "start_line": 916
+  },
+  "name": "_extract_form_body",
+  "selection_char": 10,
+  "selection_line": 916
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1002,
+   "file": "fastapi/dependencies/utils.py",
+   "start_line": 955
+  },
+  "name": "request_body_to_args",
+  "selection_char": 10,
+  "selection_line": 955
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1056,
+   "file": "fastapi/dependencies/utils.py",
+   "start_line": 1005
+  },
+  "name": "get_body_field",
+  "selection_char": 4,
+  "selection_line": 1005
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1061,
+   "file": "fastapi/dependencies/utils.py",
+   "start_line": 1059
+  },
+  "name": "get_validation_alias",
+  "selection_char": 4,
+  "selection_line": 1059
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 54,
+   "file": "fastapi/encoders.py",
+   "start_line": 53
+  },
+  "name": "isoformat",
+  "selection_char": 4,
+  "selection_line": 53
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 81,
+   "file": "fastapi/encoders.py",
+   "start_line": 59
+  },
+  "name": "decimal_encoder",
+  "selection_char": 4,
+  "selection_line": 59
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 123,
+   "file": "fastapi/encoders.py",
+   "start_line": 115
+  },
+  "name": "generate_encoders_by_class_tuples",
+  "selection_char": 4,
+  "selection_line": 115
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 364,
+   "file": "fastapi/encoders.py",
+   "start_line": 129
+  },
+  "name": "jsonable_encoder",
+  "selection_char": 4,
+  "selection_line": 129
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 17,
+   "file": "fastapi/exception_handlers.py",
+   "start_line": 11
+  },
+  "name": "http_exception_handler",
+  "selection_char": 10,
+  "selection_line": 11
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 26,
+   "file": "fastapi/exception_handlers.py",
+   "start_line": 20
+  },
+  "name": "request_validation_exception_handler",
+  "selection_char": 10,
+  "selection_line": 20
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 34,
+   "file": "fastapi/exception_handlers.py",
+   "start_line": 29
+  },
+  "name": "websocket_request_validation_exception_handler",
+  "selection_char": 10,
+  "selection_line": 29
+ },
+ {
+  "container": "HTTPException",
+  "kind": "method",
+  "location": {
+   "end_line": 83,
+   "file": "fastapi/exceptions.py",
+   "start_line": 45
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 45
+ },
+ {
+  "container": "WebSocketException",
+  "kind": "method",
+  "location": {
+   "end_line": 154,
+   "file": "fastapi/exceptions.py",
+   "start_line": 128
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 128
+ },
+ {
+  "container": "ValidationException",
+  "kind": "method",
+  "location": {
+   "end_line": 188,
+   "file": "fastapi/exceptions.py",
+   "start_line": 175
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 175
+ },
+ {
+  "container": "ValidationException",
+  "kind": "method",
+  "location": {
+   "end_line": 191,
+   "file": "fastapi/exceptions.py",
+   "start_line": 190
+  },
+  "name": "errors",
+  "selection_char": 8,
+  "selection_line": 190
+ },
+ {
+  "container": "ValidationException",
+  "kind": "method",
+  "location": {
+   "end_line": 202,
+   "file": "fastapi/exceptions.py",
+   "start_line": 193
+  },
+  "name": "_format_endpoint_context",
+  "selection_char": 8,
+  "selection_line": 193
+ },
+ {
+  "container": "ValidationException",
+  "kind": "method",
+  "location": {
+   "end_line": 209,
+   "file": "fastapi/exceptions.py",
+   "start_line": 204
+  },
+  "name": "__str__",
+  "selection_char": 8,
+  "selection_line": 204
+ },
+ {
+  "container": "RequestValidationError",
+  "kind": "method",
+  "location": {
+   "end_line": 221,
+   "file": "fastapi/exceptions.py",
+   "start_line": 213
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 213
+ },
+ {
+  "container": "WebSocketRequestValidationError",
+  "kind": "method",
+  "location": {
+   "end_line": 231,
+   "file": "fastapi/exceptions.py",
+   "start_line": 225
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 225
+ },
+ {
+  "container": "ResponseValidationError",
+  "kind": "method",
+  "location": {
+   "end_line": 243,
+   "file": "fastapi/exceptions.py",
+   "start_line": 235
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 235
+ },
+ {
+  "container": "AsyncExitStackMiddleware",
+  "kind": "method",
+  "location": {
+   "end_line": 13,
+   "file": "fastapi/middleware/asyncexitstack.py",
+   "start_line": 9
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 9
+ },
+ {
+  "container": "AsyncExitStackMiddleware",
+  "kind": "method",
+  "location": {
+   "end_line": 18,
+   "file": "fastapi/middleware/asyncexitstack.py",
+   "start_line": 15
+  },
+  "name": "__call__",
+  "selection_char": 14,
+  "selection_line": 15
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 19,
+   "file": "fastapi/openapi/docs.py",
+   "start_line": 9
+  },
+  "name": "_html_safe_json",
+  "selection_char": 4,
+  "selection_line": 9
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 194,
+   "file": "fastapi/openapi/docs.py",
+   "start_line": 40
+  },
+  "name": "get_swagger_ui_html",
+  "selection_char": 4,
+  "selection_line": 40
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 298,
+   "file": "fastapi/openapi/docs.py",
+   "start_line": 197
+  },
+  "name": "get_redoc_html",
+  "selection_char": 4,
+  "selection_line": 197
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 389,
+   "file": "fastapi/openapi/docs.py",
+   "start_line": 301
+  },
+  "name": "get_swagger_ui_oauth2_redirect_html",
+  "selection_char": 4,
+  "selection_line": 301
+ },
+ {
+  "container": "EmailStr",
+  "kind": "method",
+  "location": {
+   "end_line": 26,
+   "file": "fastapi/openapi/models.py",
+   "start_line": 24
+  },
+  "name": "__get_validators__",
+  "selection_char": 12,
+  "selection_line": 25
+ },
+ {
+  "container": "EmailStr",
+  "kind": "method",
+  "location": {
+   "end_line": 34,
+   "file": "fastapi/openapi/models.py",
+   "start_line": 28
+  },
+  "name": "validate",
+  "selection_char": 12,
+  "selection_line": 29
+ },
+ {
+  "container": "EmailStr",
+  "kind": "method",
+  "location": {
+   "end_line": 42,
+   "file": "fastapi/openapi/models.py",
+   "start_line": 36
+  },
+  "name": "_validate",
+  "selection_char": 12,
+  "selection_line": 37
+ },
+ {
+  "container": "EmailStr",
+  "kind": "method",
+  "location": {
+   "end_line": 48,
+   "file": "fastapi/openapi/models.py",
+   "start_line": 44
+  },
+  "name": "__get_pydantic_json_schema__",
+  "selection_char": 12,
+  "selection_line": 45
+ },
+ {
+  "container": "EmailStr",
+  "kind": "method",
+  "location": {
+   "end_line": 54,
+   "file": "fastapi/openapi/models.py",
+   "start_line": 50
+  },
+  "name": "__get_pydantic_core_schema__",
+  "selection_char": 12,
+  "selection_line": 51
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 104,
+   "file": "fastapi/openapi/utils.py",
+   "start_line": 81
+  },
+  "name": "get_openapi_security_definitions",
+  "selection_char": 4,
+  "selection_line": 81
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 177,
+   "file": "fastapi/openapi/utils.py",
+   "start_line": 107
+  },
+  "name": "_get_openapi_operation_parameters",
+  "selection_char": 4,
+  "selection_line": 107
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 212,
+   "file": "fastapi/openapi/utils.py",
+   "start_line": 180
+  },
+  "name": "get_openapi_operation_request_body",
+  "selection_char": 4,
+  "selection_line": 180
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 227,
+   "file": "fastapi/openapi/utils.py",
+   "start_line": 215
+  },
+  "name": "generate_operation_id",
+  "selection_char": 4,
+  "selection_line": 215
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 233,
+   "file": "fastapi/openapi/utils.py",
+   "start_line": 230
+  },
+  "name": "generate_operation_summary",
+  "selection_char": 4,
+  "selection_line": 230
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 257,
+   "file": "fastapi/openapi/utils.py",
+   "start_line": 236
+  },
+  "name": "get_openapi_operation_metadata",
+  "selection_char": 4,
+  "selection_line": 236
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 478,
+   "file": "fastapi/openapi/utils.py",
+   "start_line": 260
+  },
+  "name": "get_openapi_path",
+  "selection_char": 4,
+  "selection_line": 260
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 486,
+   "file": "fastapi/openapi/utils.py",
+   "start_line": 481
+  },
+  "name": "_get_api_route_for_openapi",
+  "selection_char": 4,
+  "selection_line": 481
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 520,
+   "file": "fastapi/openapi/utils.py",
+   "start_line": 489
+  },
+  "name": "get_fields_from_routes",
+  "selection_char": 4,
+  "selection_line": 489
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 617,
+   "file": "fastapi/openapi/utils.py",
+   "start_line": 523
+  },
+  "name": "get_openapi",
+  "selection_char": 4,
+  "selection_line": 523
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 354,
+   "file": "fastapi/param_functions.py",
+   "start_line": 13
+  },
+  "name": "Path",
+  "selection_char": 4,
+  "selection_line": 13
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 698,
+   "file": "fastapi/param_functions.py",
+   "start_line": 357
+  },
+  "name": "Query",
+  "selection_char": 4,
+  "selection_line": 357
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1015,
+   "file": "fastapi/param_functions.py",
+   "start_line": 701
+  },
+  "name": "Header",
+  "selection_char": 4,
+  "selection_line": 701
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1320,
+   "file": "fastapi/param_functions.py",
+   "start_line": 1018
+  },
+  "name": "Cookie",
+  "selection_char": 4,
+  "selection_line": 1018
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1650,
+   "file": "fastapi/param_functions.py",
+   "start_line": 1323
+  },
+  "name": "Body",
+  "selection_char": 4,
+  "selection_line": 1323
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1965,
+   "file": "fastapi/param_functions.py",
+   "start_line": 1653
+  },
+  "name": "Form",
+  "selection_char": 4,
+  "selection_line": 1653
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 2280,
+   "file": "fastapi/param_functions.py",
+   "start_line": 1968
+  },
+  "name": "File",
+  "selection_char": 4,
+  "selection_line": 1968
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 2369,
+   "file": "fastapi/param_functions.py",
+   "start_line": 2283
+  },
+  "name": "Depends",
+  "selection_char": 4,
+  "selection_line": 2283
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 2460,
+   "file": "fastapi/param_functions.py",
+   "start_line": 2372
+  },
+  "name": "Security",
+  "selection_char": 4,
+  "selection_line": 2372
+ },
+ {
+  "container": "Param",
+  "kind": "method",
+  "location": {
+   "end_line": 131,
+   "file": "fastapi/params.py",
+   "start_line": 29
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 29
+ },
+ {
+  "container": "Param",
+  "kind": "method",
+  "location": {
+   "end_line": 134,
+   "file": "fastapi/params.py",
+   "start_line": 133
+  },
+  "name": "__repr__",
+  "selection_char": 8,
+  "selection_line": 133
+ },
+ {
+  "container": "Path",
+  "kind": "method",
+  "location": {
+   "end_line": 218,
+   "file": "fastapi/params.py",
+   "start_line": 140
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 140
+ },
+ {
+  "container": "Query",
+  "kind": "method",
+  "location": {
+   "end_line": 300,
+   "file": "fastapi/params.py",
+   "start_line": 224
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 224
+ },
+ {
+  "container": "Header",
+  "kind": "method",
+  "location": {
+   "end_line": 384,
+   "file": "fastapi/params.py",
+   "start_line": 306
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 306
+ },
+ {
+  "container": "Cookie",
+  "kind": "method",
+  "location": {
+   "end_line": 466,
+   "file": "fastapi/params.py",
+   "start_line": 390
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 390
+ },
+ {
+  "container": "Body",
+  "kind": "method",
+  "location": {
+   "end_line": 575,
+   "file": "fastapi/params.py",
+   "start_line": 470
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 470
+ },
+ {
+  "container": "Body",
+  "kind": "method",
+  "location": {
+   "end_line": 578,
+   "file": "fastapi/params.py",
+   "start_line": 577
+  },
+  "name": "__repr__",
+  "selection_char": 8,
+  "selection_line": 577
+ },
+ {
+  "container": "Form",
+  "kind": "method",
+  "location": {
+   "end_line": 660,
+   "file": "fastapi/params.py",
+   "start_line": 582
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 582
+ },
+ {
+  "container": "File",
+  "kind": "method",
+  "location": {
+   "end_line": 742,
+   "file": "fastapi/params.py",
+   "start_line": 664
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 664
+ },
+ {
+  "container": "_UjsonModule",
+  "kind": "method",
+  "location": {
+   "end_line": 17,
+   "file": "fastapi/responses.py",
+   "start_line": 17
+  },
+  "name": "dumps",
+  "selection_char": 8,
+  "selection_line": 17
+ },
+ {
+  "container": "_OrjsonModule",
+  "kind": "method",
+  "location": {
+   "end_line": 24,
+   "file": "fastapi/responses.py",
+   "start_line": 24
+  },
+  "name": "dumps",
+  "selection_char": 8,
+  "selection_line": 24
+ },
+ {
+  "container": "UJSONResponse",
+  "kind": "method",
+  "location": {
+   "end_line": 66,
+   "file": "fastapi/responses.py",
+   "start_line": 64
+  },
+  "name": "render",
+  "selection_char": 8,
+  "selection_line": 64
+ },
+ {
+  "container": "ORJSONResponse",
+  "kind": "method",
+  "location": {
+   "end_line": 98,
+   "file": "fastapi/responses.py",
+   "start_line": 94
+  },
+  "name": "render",
+  "selection_char": 8,
+  "selection_line": 94
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 152,
+   "file": "fastapi/routing.py",
+   "start_line": 113
+  },
+  "name": "request_response",
+  "selection_char": 4,
+  "selection_line": 113
+ },
+ {
+  "container": "request_response",
+  "kind": "function",
+  "location": {
+   "end_line": 150,
+   "file": "fastapi/routing.py",
+   "start_line": 126
+  },
+  "name": "app",
+  "selection_char": 14,
+  "selection_line": 126
+ },
+ {
+  "container": "app",
+  "kind": "function",
+  "location": {
+   "end_line": 147,
+   "file": "fastapi/routing.py",
+   "start_line": 129
+  },
+  "name": "app",
+  "selection_char": 18,
+  "selection_line": 129
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 178,
+   "file": "fastapi/routing.py",
+   "start_line": 157
+  },
+  "name": "websocket_session",
+  "selection_char": 4,
+  "selection_line": 157
+ },
+ {
+  "container": "websocket_session",
+  "kind": "function",
+  "location": {
+   "end_line": 176,
+   "file": "fastapi/routing.py",
+   "start_line": 165
+  },
+  "name": "app",
+  "selection_char": 14,
+  "selection_line": 165
+ },
+ {
+  "container": "app",
+  "kind": "function",
+  "location": {
+   "end_line": 173,
+   "file": "fastapi/routing.py",
+   "start_line": 168
+  },
+  "name": "app",
+  "selection_char": 18,
+  "selection_line": 168
+ },
+ {
+  "container": "_AsyncLiftContextManager",
+  "kind": "method",
+  "location": {
+   "end_line": 193,
+   "file": "fastapi/routing.py",
+   "start_line": 192
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 192
+ },
+ {
+  "container": "_AsyncLiftContextManager",
+  "kind": "method",
+  "location": {
+   "end_line": 196,
+   "file": "fastapi/routing.py",
+   "start_line": 195
+  },
+  "name": "__aenter__",
+  "selection_char": 14,
+  "selection_line": 195
+ },
+ {
+  "container": "_AsyncLiftContextManager",
+  "kind": "method",
+  "location": {
+   "end_line": 204,
+   "file": "fastapi/routing.py",
+   "start_line": 198
+  },
+  "name": "__aexit__",
+  "selection_char": 14,
+  "selection_line": 198
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 222,
+   "file": "fastapi/routing.py",
+   "start_line": 208
+  },
+  "name": "_wrap_gen_lifespan_context",
+  "selection_char": 4,
+  "selection_line": 208
+ },
+ {
+  "container": "_wrap_gen_lifespan_context",
+  "kind": "function",
+  "location": {
+   "end_line": 220,
+   "file": "fastapi/routing.py",
+   "start_line": 218
+  },
+  "name": "wrapper",
+  "selection_char": 8,
+  "selection_line": 219
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 239,
+   "file": "fastapi/routing.py",
+   "start_line": 225
+  },
+  "name": "_merge_lifespan_context",
+  "selection_char": 4,
+  "selection_line": 225
+ },
+ {
+  "container": "_merge_lifespan_context",
+  "kind": "function",
+  "location": {
+   "end_line": 237,
+   "file": "fastapi/routing.py",
+   "start_line": 228
+  },
+  "name": "merged_lifespan",
+  "selection_char": 14,
+  "selection_line": 229
+ },
+ {
+  "container": "_DefaultLifespan",
+  "kind": "method",
+  "location": {
+   "end_line": 254,
+   "file": "fastapi/routing.py",
+   "start_line": 253
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 253
+ },
+ {
+  "container": "_DefaultLifespan",
+  "kind": "method",
+  "location": {
+   "end_line": 257,
+   "file": "fastapi/routing.py",
+   "start_line": 256
+  },
+  "name": "__aenter__",
+  "selection_char": 14,
+  "selection_line": 256
+ },
+ {
+  "container": "_DefaultLifespan",
+  "kind": "method",
+  "location": {
+   "end_line": 260,
+   "file": "fastapi/routing.py",
+   "start_line": 259
+  },
+  "name": "__aexit__",
+  "selection_char": 14,
+  "selection_line": 259
+ },
+ {
+  "container": "_DefaultLifespan",
+  "kind": "method",
+  "location": {
+   "end_line": 263,
+   "file": "fastapi/routing.py",
+   "start_line": 262
+  },
+  "name": "__call__",
+  "selection_char": 8,
+  "selection_line": 262
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 290,
+   "file": "fastapi/routing.py",
+   "start_line": 270
+  },
+  "name": "_extract_endpoint_context",
+  "selection_char": 4,
+  "selection_line": 270
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 333,
+   "file": "fastapi/routing.py",
+   "start_line": 293
+  },
+  "name": "serialize_response",
+  "selection_char": 10,
+  "selection_line": 293
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 346,
+   "file": "fastapi/routing.py",
+   "start_line": 336
+  },
+  "name": "run_endpoint_function",
+  "selection_char": 10,
+  "selection_line": 336
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 364,
+   "file": "fastapi/routing.py",
+   "start_line": 349
+  },
+  "name": "_build_response_args",
+  "selection_char": 4,
+  "selection_line": 349
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 745,
+   "file": "fastapi/routing.py",
+   "start_line": 367
+  },
+  "name": "get_request_handler",
+  "selection_char": 4,
+  "selection_line": 367
+ },
+ {
+  "container": "get_request_handler",
+  "kind": "function",
+  "location": {
+   "end_line": 743,
+   "file": "fastapi/routing.py",
+   "start_line": 398
+  },
+  "name": "app",
+  "selection_char": 14,
+  "selection_line": 398
+ },
+ {
+  "container": "app",
+  "kind": "function",
+  "location": {
+   "end_line": 510,
+   "file": "fastapi/routing.py",
+   "start_line": 487
+  },
+  "name": "_serialize_data",
+  "selection_char": 16,
+  "selection_line": 487
+ },
+ {
+  "container": "app",
+  "kind": "function",
+  "location": {
+   "end_line": 543,
+   "file": "fastapi/routing.py",
+   "start_line": 516
+  },
+  "name": "_serialize_sse_item",
+  "selection_char": 20,
+  "selection_line": 516
+ },
+ {
+  "container": "app",
+  "kind": "function",
+  "location": {
+   "end_line": 600,
+   "file": "fastapi/routing.py",
+   "start_line": 550
+  },
+  "name": "_sse_producer_cm",
+  "selection_char": 26,
+  "selection_line": 551
+ },
+ {
+  "container": "_sse_producer_cm",
+  "kind": "function",
+  "location": {
+   "end_line": 575,
+   "file": "fastapi/routing.py",
+   "start_line": 572
+  },
+  "name": "_producer",
+  "selection_char": 30,
+  "selection_line": 572
+ },
+ {
+  "container": "_sse_producer_cm",
+  "kind": "function",
+  "location": {
+   "end_line": 594,
+   "file": "fastapi/routing.py",
+   "start_line": 581
+  },
+  "name": "_keepalive_inserter",
+  "selection_char": 30,
+  "selection_line": 581
+ },
+ {
+  "container": "app",
+  "kind": "function",
+  "location": {
+   "end_line": 621,
+   "file": "fastapi/routing.py",
+   "start_line": 613
+  },
+  "name": "_sse_with_checkpoints",
+  "selection_char": 26,
+  "selection_line": 613
+ },
+ {
+  "container": "app",
+  "kind": "function",
+  "location": {
+   "end_line": 641,
+   "file": "fastapi/routing.py",
+   "start_line": 640
+  },
+  "name": "_serialize_item",
+  "selection_char": 20,
+  "selection_line": 640
+ },
+ {
+  "container": "app",
+  "kind": "function",
+  "location": {
+   "end_line": 650,
+   "file": "fastapi/routing.py",
+   "start_line": 645
+  },
+  "name": "_async_stream_jsonl",
+  "selection_char": 30,
+  "selection_line": 645
+ },
+ {
+  "container": "app",
+  "kind": "function",
+  "location": {
+   "end_line": 659,
+   "file": "fastapi/routing.py",
+   "start_line": 657
+  },
+  "name": "_sync_stream_jsonl",
+  "selection_char": 24,
+  "selection_line": 657
+ },
+ {
+  "container": "app",
+  "kind": "function",
+  "location": {
+   "end_line": 681,
+   "file": "fastapi/routing.py",
+   "start_line": 674
+  },
+  "name": "_async_stream_raw",
+  "selection_char": 30,
+  "selection_line": 674
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 782,
+   "file": "fastapi/routing.py",
+   "start_line": 748
+  },
+  "name": "get_websocket_app",
+  "selection_char": 4,
+  "selection_line": 748
+ },
+ {
+  "container": "get_websocket_app",
+  "kind": "function",
+  "location": {
+   "end_line": 780,
+   "file": "fastapi/routing.py",
+   "start_line": 753
+  },
+  "name": "app",
+  "selection_char": 14,
+  "selection_line": 753
+ },
+ {
+  "container": "APIWebSocketRoute",
+  "kind": "method",
+  "location": {
+   "end_line": 818,
+   "file": "fastapi/routing.py",
+   "start_line": 786
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 786
+ },
+ {
+  "container": "APIWebSocketRoute",
+  "kind": "method",
+  "location": {
+   "end_line": 824,
+   "file": "fastapi/routing.py",
+   "start_line": 820
+  },
+  "name": "matches",
+  "selection_char": 8,
+  "selection_line": 820
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 844,
+   "file": "fastapi/routing.py",
+   "start_line": 841
+  },
+  "name": "_get_fastapi_scope",
+  "selection_char": 4,
+  "selection_line": 841
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 853,
+   "file": "fastapi/routing.py",
+   "start_line": 847
+  },
+  "name": "_update_scope",
+  "selection_char": 4,
+  "selection_line": 847
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 857,
+   "file": "fastapi/routing.py",
+   "start_line": 856
+  },
+  "name": "_get_scope_effective_route_context",
+  "selection_char": 4,
+  "selection_line": 856
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 861,
+   "file": "fastapi/routing.py",
+   "start_line": 860
+  },
+  "name": "_get_scope_included_router",
+  "selection_char": 4,
+  "selection_line": 860
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 871,
+   "file": "fastapi/routing.py",
+   "start_line": 864
+  },
+  "name": "_restore_fastapi_scope_key",
+  "selection_char": 4,
+  "selection_line": 864
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1082,
+   "file": "fastapi/routing.py",
+   "start_line": 918
+  },
+  "name": "_populate_api_route_state",
+  "selection_char": 4,
+  "selection_line": 918
+ },
+ {
+  "container": "APIRoute",
+  "kind": "method",
+  "location": {
+   "end_line": 1183,
+   "file": "fastapi/routing.py",
+   "start_line": 1121
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 1121
+ },
+ {
+  "container": "APIRoute",
+  "kind": "method",
+  "location": {
+   "end_line": 1209,
+   "file": "fastapi/routing.py",
+   "start_line": 1185
+  },
+  "name": "get_route_handler",
+  "selection_char": 8,
+  "selection_line": 1185
+ },
+ {
+  "container": "APIRoute",
+  "kind": "method",
+  "location": {
+   "end_line": 1219,
+   "file": "fastapi/routing.py",
+   "start_line": 1211
+  },
+  "name": "matches",
+  "selection_char": 8,
+  "selection_line": 1211
+ },
+ {
+  "container": "APIRoute",
+  "kind": "method",
+  "location": {
+   "end_line": 1241,
+   "file": "fastapi/routing.py",
+   "start_line": 1221
+  },
+  "name": "handle",
+  "selection_char": 14,
+  "selection_line": 1221
+ },
+ {
+  "container": "_RouterIncludeContext",
+  "kind": "method",
+  "location": {
+   "end_line": 1301,
+   "file": "fastapi/routing.py",
+   "start_line": 1265
+  },
+  "name": "for_include",
+  "selection_char": 8,
+  "selection_line": 1266
+ },
+ {
+  "container": "_RouterIncludeContext",
+  "kind": "method",
+  "location": {
+   "end_line": 1327,
+   "file": "fastapi/routing.py",
+   "start_line": 1303
+  },
+  "name": "combine",
+  "selection_char": 8,
+  "selection_line": 1303
+ },
+ {
+  "container": "_RouterIncludeContext",
+  "kind": "method",
+  "location": {
+   "end_line": 1330,
+   "file": "fastapi/routing.py",
+   "start_line": 1329
+  },
+  "name": "path_for",
+  "selection_char": 8,
+  "selection_line": 1329
+ },
+ {
+  "container": "_EffectiveRouteContext",
+  "kind": "method",
+  "location": {
+   "end_line": 1437,
+   "file": "fastapi/routing.py",
+   "start_line": 1385
+  },
+  "name": "from_api_route",
+  "selection_char": 8,
+  "selection_line": 1386
+ },
+ {
+  "container": "_EffectiveRouteContext",
+  "kind": "method",
+  "location": {
+   "end_line": 1458,
+   "file": "fastapi/routing.py",
+   "start_line": 1439
+  },
+  "name": "matches",
+  "selection_char": 8,
+  "selection_line": 1439
+ },
+ {
+  "container": "_EffectiveRouteContext",
+  "kind": "method",
+  "location": {
+   "end_line": 1473,
+   "file": "fastapi/routing.py",
+   "start_line": 1460
+  },
+  "name": "url_path_for",
+  "selection_char": 8,
+  "selection_line": 1460
+ },
+ {
+  "container": "RouteContext",
+  "kind": "method",
+  "location": {
+   "end_line": 1485,
+   "file": "fastapi/routing.py",
+   "start_line": 1481
+  },
+  "name": "original_route",
+  "selection_char": 8,
+  "selection_line": 1482
+ },
+ {
+  "container": "RouteContext",
+  "kind": "method",
+  "location": {
+   "end_line": 1491,
+   "file": "fastapi/routing.py",
+   "start_line": 1487
+  },
+  "name": "_effective_route",
+  "selection_char": 8,
+  "selection_line": 1488
+ },
+ {
+  "container": "RouteContext",
+  "kind": "method",
+  "location": {
+   "end_line": 1495,
+   "file": "fastapi/routing.py",
+   "start_line": 1493
+  },
+  "name": "path",
+  "selection_char": 8,
+  "selection_line": 1494
+ },
+ {
+  "container": "RouteContext",
+  "kind": "method",
+  "location": {
+   "end_line": 1499,
+   "file": "fastapi/routing.py",
+   "start_line": 1497
+  },
+  "name": "path_format",
+  "selection_char": 8,
+  "selection_line": 1498
+ },
+ {
+  "container": "RouteContext",
+  "kind": "method",
+  "location": {
+   "end_line": 1503,
+   "file": "fastapi/routing.py",
+   "start_line": 1501
+  },
+  "name": "name",
+  "selection_char": 8,
+  "selection_line": 1502
+ },
+ {
+  "container": "RouteContext",
+  "kind": "method",
+  "location": {
+   "end_line": 1507,
+   "file": "fastapi/routing.py",
+   "start_line": 1505
+  },
+  "name": "methods",
+  "selection_char": 8,
+  "selection_line": 1506
+ },
+ {
+  "container": "RouteContext",
+  "kind": "method",
+  "location": {
+   "end_line": 1511,
+   "file": "fastapi/routing.py",
+   "start_line": 1509
+  },
+  "name": "endpoint",
+  "selection_char": 8,
+  "selection_line": 1510
+ },
+ {
+  "container": "RouteContext",
+  "kind": "method",
+  "location": {
+   "end_line": 1514,
+   "file": "fastapi/routing.py",
+   "start_line": 1513
+  },
+  "name": "__getattr__",
+  "selection_char": 8,
+  "selection_line": 1513
+ },
+ {
+  "container": "_IncludedRouter",
+  "kind": "method",
+  "location": {
+   "end_line": 1549,
+   "file": "fastapi/routing.py",
+   "start_line": 1530
+  },
+  "name": "effective_candidates",
+  "selection_char": 8,
+  "selection_line": 1530
+ },
+ {
+  "container": "_IncludedRouter",
+  "kind": "method",
+  "location": {
+   "end_line": 1571,
+   "file": "fastapi/routing.py",
+   "start_line": 1551
+  },
+  "name": "effective_low_priority_routes",
+  "selection_char": 8,
+  "selection_line": 1551
+ },
+ {
+  "container": "_IncludedRouter",
+  "kind": "method",
+  "location": {
+   "end_line": 1646,
+   "file": "fastapi/routing.py",
+   "start_line": 1573
+  },
+  "name": "_build_effective_context",
+  "selection_char": 8,
+  "selection_line": 1573
+ },
+ {
+  "container": "_IncludedRouter",
+  "kind": "method",
+  "location": {
+   "end_line": 1682,
+   "file": "fastapi/routing.py",
+   "start_line": 1648
+  },
+  "name": "_match",
+  "selection_char": 8,
+  "selection_line": 1648
+ },
+ {
+  "container": "_IncludedRouter",
+  "kind": "method",
+  "location": {
+   "end_line": 1696,
+   "file": "fastapi/routing.py",
+   "start_line": 1684
+  },
+  "name": "matches",
+  "selection_char": 8,
+  "selection_line": 1684
+ },
+ {
+  "container": "_IncludedRouter",
+  "kind": "method",
+  "location": {
+   "end_line": 1700,
+   "file": "fastapi/routing.py",
+   "start_line": 1698
+  },
+  "name": "handle",
+  "selection_char": 14,
+  "selection_line": 1698
+ },
+ {
+  "container": "_IncludedRouter",
+  "kind": "method",
+  "location": {
+   "end_line": 1722,
+   "file": "fastapi/routing.py",
+   "start_line": 1702
+  },
+  "name": "_handle_selected",
+  "selection_char": 14,
+  "selection_line": 1702
+ },
+ {
+  "container": "_IncludedRouter",
+  "kind": "method",
+  "location": {
+   "end_line": 1729,
+   "file": "fastapi/routing.py",
+   "start_line": 1724
+  },
+  "name": "effective_route_contexts",
+  "selection_char": 8,
+  "selection_line": 1724
+ },
+ {
+  "container": "_IncludedRouter",
+  "kind": "method",
+  "location": {
+   "end_line": 1737,
+   "file": "fastapi/routing.py",
+   "start_line": 1731
+  },
+  "name": "url_path_for",
+  "selection_char": 8,
+  "selection_line": 1731
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1745,
+   "file": "fastapi/routing.py",
+   "start_line": 1740
+  },
+  "name": "_iter_included_route_candidates",
+  "selection_char": 4,
+  "selection_line": 1740
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1759,
+   "file": "fastapi/routing.py",
+   "start_line": 1748
+  },
+  "name": "iter_route_contexts",
+  "selection_char": 4,
+  "selection_line": 1748
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1770,
+   "file": "fastapi/routing.py",
+   "start_line": 1762
+  },
+  "name": "_iter_routes_with_context",
+  "selection_char": 4,
+  "selection_line": 1762
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1780,
+   "file": "fastapi/routing.py",
+   "start_line": 1773
+  },
+  "name": "_normalize_frontend_path",
+  "selection_char": 4,
+  "selection_line": 1773
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1788,
+   "file": "fastapi/routing.py",
+   "start_line": 1783
+  },
+  "name": "_join_frontend_paths",
+  "selection_char": 4,
+  "selection_line": 1783
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1794,
+   "file": "fastapi/routing.py",
+   "start_line": 1791
+  },
+  "name": "_frontend_path_specificity",
+  "selection_char": 4,
+  "selection_line": 1791
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1798,
+   "file": "fastapi/routing.py",
+   "start_line": 1797
+  },
+  "name": "_get_resolved_absolute_path",
+  "selection_char": 4,
+  "selection_line": 1797
+ },
+ {
+  "container": "_FrontendStaticFiles",
+  "kind": "method",
+  "location": {
+   "end_line": 1822,
+   "file": "fastapi/routing.py",
+   "start_line": 1802
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 1802
+ },
+ {
+  "container": "_FrontendStaticFiles",
+  "kind": "method",
+  "location": {
+   "end_line": 1831,
+   "file": "fastapi/routing.py",
+   "start_line": 1824
+  },
+  "name": "_check_fallback_file",
+  "selection_char": 8,
+  "selection_line": 1824
+ },
+ {
+  "container": "_FrontendStaticFiles",
+  "kind": "method",
+  "location": {
+   "end_line": 1835,
+   "file": "fastapi/routing.py",
+   "start_line": 1833
+  },
+  "name": "_get_resolved_directory",
+  "selection_char": 8,
+  "selection_line": 1833
+ },
+ {
+  "container": "_FrontendStaticFiles",
+  "kind": "method",
+  "location": {
+   "end_line": 1840,
+   "file": "fastapi/routing.py",
+   "start_line": 1837
+  },
+  "name": "get_path",
+  "selection_char": 8,
+  "selection_line": 1837
+ },
+ {
+  "container": "_FrontendStaticFiles",
+  "kind": "method",
+  "location": {
+   "end_line": 1883,
+   "file": "fastapi/routing.py",
+   "start_line": 1842
+  },
+  "name": "get_response",
+  "selection_char": 14,
+  "selection_line": 1842
+ },
+ {
+  "container": "_FrontendStaticFiles",
+  "kind": "method",
+  "location": {
+   "end_line": 1887,
+   "file": "fastapi/routing.py",
+   "start_line": 1885
+  },
+  "name": "_fallback_file_exists",
+  "selection_char": 8,
+  "selection_line": 1885
+ },
+ {
+  "container": "_FrontendStaticFiles",
+  "kind": "method",
+  "location": {
+   "end_line": 1901,
+   "file": "fastapi/routing.py",
+   "start_line": 1889
+  },
+  "name": "_fallback_response",
+  "selection_char": 14,
+  "selection_line": 1889
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1918,
+   "file": "fastapi/routing.py",
+   "start_line": 1904
+  },
+  "name": "_iter_accept_media_types",
+  "selection_char": 4,
+  "selection_line": 1904
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1939,
+   "file": "fastapi/routing.py",
+   "start_line": 1921
+  },
+  "name": "_is_frontend_navigation_request",
+  "selection_char": 4,
+  "selection_line": 1921
+ },
+ {
+  "container": "_FrontendRoute",
+  "kind": "method",
+  "location": {
+   "end_line": 1959,
+   "file": "fastapi/routing.py",
+   "start_line": 1943
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 1943
+ },
+ {
+  "container": "_FrontendRoute",
+  "kind": "method",
+  "location": {
+   "end_line": 1964,
+   "file": "fastapi/routing.py",
+   "start_line": 1961
+  },
+  "name": "with_path",
+  "selection_char": 8,
+  "selection_line": 1961
+ },
+ {
+  "container": "_FrontendRoute",
+  "kind": "method",
+  "location": {
+   "end_line": 1975,
+   "file": "fastapi/routing.py",
+   "start_line": 1966
+  },
+  "name": "matches",
+  "selection_char": 8,
+  "selection_line": 1966
+ },
+ {
+  "container": "_FrontendRoute",
+  "kind": "method",
+  "location": {
+   "end_line": 1985,
+   "file": "fastapi/routing.py",
+   "start_line": 1977
+  },
+  "name": "_get_frontend_path",
+  "selection_char": 8,
+  "selection_line": 1977
+ },
+ {
+  "container": "_FrontendRoute",
+  "kind": "method",
+  "location": {
+   "end_line": 1988,
+   "file": "fastapi/routing.py",
+   "start_line": 1987
+  },
+  "name": "handle",
+  "selection_char": 14,
+  "selection_line": 1987
+ },
+ {
+  "container": "_FrontendRoute",
+  "kind": "method",
+  "location": {
+   "end_line": 1991,
+   "file": "fastapi/routing.py",
+   "start_line": 1990
+  },
+  "name": "url_path_for",
+  "selection_char": 8,
+  "selection_line": 1990
+ },
+ {
+  "container": "_FrontendRouteGroup",
+  "kind": "method",
+  "location": {
+   "end_line": 1996,
+   "file": "fastapi/routing.py",
+   "start_line": 1995
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 1995
+ },
+ {
+  "container": "_FrontendRouteGroup",
+  "kind": "method",
+  "location": {
+   "end_line": 2013,
+   "file": "fastapi/routing.py",
+   "start_line": 1998
+  },
+  "name": "add_frontend_route",
+  "selection_char": 8,
+  "selection_line": 1998
+ },
+ {
+  "container": "_FrontendRouteGroup",
+  "kind": "method",
+  "location": {
+   "end_line": 2021,
+   "file": "fastapi/routing.py",
+   "start_line": 2015
+  },
+  "name": "with_prefix",
+  "selection_char": 8,
+  "selection_line": 2015
+ },
+ {
+  "container": "_FrontendRouteGroup",
+  "kind": "method",
+  "location": {
+   "end_line": 2025,
+   "file": "fastapi/routing.py",
+   "start_line": 2023
+  },
+  "name": "matches",
+  "selection_char": 8,
+  "selection_line": 2023
+ },
+ {
+  "container": "_FrontendRouteGroup",
+  "kind": "method",
+  "location": {
+   "end_line": 2048,
+   "file": "fastapi/routing.py",
+   "start_line": 2027
+  },
+  "name": "_match",
+  "selection_char": 8,
+  "selection_line": 2027
+ },
+ {
+  "container": "_FrontendRouteGroup",
+  "kind": "method",
+  "location": {
+   "end_line": 2055,
+   "file": "fastapi/routing.py",
+   "start_line": 2050
+  },
+  "name": "handle",
+  "selection_char": 14,
+  "selection_line": 2050
+ },
+ {
+  "container": "_FrontendRouteGroup",
+  "kind": "method",
+  "location": {
+   "end_line": 2058,
+   "file": "fastapi/routing.py",
+   "start_line": 2057
+  },
+  "name": "url_path_for",
+  "selection_char": 8,
+  "selection_line": 2057
+ },
+ {
+  "container": "APIRouter",
+  "kind": "method",
+  "location": {
+   "end_line": 2374,
+   "file": "fastapi/routing.py",
+   "start_line": 2088
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 2088
+ },
+ {
+  "container": "APIRouter",
+  "kind": "method",
+  "location": {
+   "end_line": 2377,
+   "file": "fastapi/routing.py",
+   "start_line": 2376
+  },
+  "name": "_mark_routes_changed",
+  "selection_char": 8,
+  "selection_line": 2376
+ },
+ {
+  "container": "APIRouter",
+  "kind": "method",
+  "location": {
+   "end_line": 2390,
+   "file": "fastapi/routing.py",
+   "start_line": 2379
+  },
+  "name": "_get_routes_version",
+  "selection_char": 8,
+  "selection_line": 2379
+ },
+ {
+  "container": "APIRouter",
+  "kind": "method",
+  "location": {
+   "end_line": 2408,
+   "file": "fastapi/routing.py",
+   "start_line": 2392
+  },
+  "name": "_contains_router",
+  "selection_char": 8,
+  "selection_line": 2392
+ },
+ {
+  "container": "APIRouter",
+  "kind": "method",
+  "location": {
+   "end_line": 2425,
+   "file": "fastapi/routing.py",
+   "start_line": 2410
+  },
+  "name": "add_route",
+  "selection_char": 8,
+  "selection_line": 2410
+ },
+ {
+  "container": "APIRouter",
+  "kind": "method",
+  "location": {
+   "end_line": 2434,
+   "file": "fastapi/routing.py",
+   "start_line": 2427
+  },
+  "name": "add_websocket_route",
+  "selection_char": 8,
+  "selection_line": 2427
+ },
+ {
+  "container": "APIRouter",
+  "kind": "method",
+  "location": {
+   "end_line": 2514,
+   "file": "fastapi/routing.py",
+   "start_line": 2436
+  },
+  "name": "frontend",
+  "selection_char": 8,
+  "selection_line": 2436
+ },
+ {
+  "container": "APIRouter",
+  "kind": "method",
+  "location": {
+   "end_line": 2578,
+   "file": "fastapi/routing.py",
+   "start_line": 2516
+  },
+  "name": "app",
+  "selection_char": 14,
+  "selection_line": 2516
+ },
+ {
+  "container": "APIRouter",
+  "kind": "method",
+  "location": {
+   "end_line": 2588,
+   "file": "fastapi/routing.py",
+   "start_line": 2580
+  },
+  "name": "handle",
+  "selection_char": 14,
+  "selection_line": 2580
+ },
+ {
+  "container": "APIRouter",
+  "kind": "method",
+  "location": {
+   "end_line": 2598,
+   "file": "fastapi/routing.py",
+   "start_line": 2590
+  },
+  "name": "matches",
+  "selection_char": 8,
+  "selection_line": 2590
+ },
+ {
+  "container": "APIRouter",
+  "kind": "method",
+  "location": {
+   "end_line": 2606,
+   "file": "fastapi/routing.py",
+   "start_line": 2600
+  },
+  "name": "_iter_low_priority_routes",
+  "selection_char": 8,
+  "selection_line": 2600
+ },
+ {
+  "container": "APIRouter",
+  "kind": "method",
+  "location": {
+   "end_line": 2652,
+   "file": "fastapi/routing.py",
+   "start_line": 2608
+  },
+  "name": "_match_low_priority",
+  "selection_char": 8,
+  "selection_line": 2608
+ },
+ {
+  "container": "APIRouter",
+  "kind": "method",
+  "location": {
+   "end_line": 2671,
+   "file": "fastapi/routing.py",
+   "start_line": 2654
+  },
+  "name": "route",
+  "selection_char": 8,
+  "selection_line": 2654
+ },
+ {
+  "container": "route",
+  "kind": "function",
+  "location": {
+   "end_line": 2669,
+   "file": "fastapi/routing.py",
+   "start_line": 2661
+  },
+  "name": "decorator",
+  "selection_char": 12,
+  "selection_line": 2661
+ },
+ {
+  "container": "APIRouter",
+  "kind": "method",
+  "location": {
+   "end_line": 2755,
+   "file": "fastapi/routing.py",
+   "start_line": 2673
+  },
+  "name": "add_api_route",
+  "selection_char": 8,
+  "selection_line": 2673
+ },
+ {
+  "container": "APIRouter",
+  "kind": "method",
+  "location": {
+   "end_line": 2817,
+   "file": "fastapi/routing.py",
+   "start_line": 2757
+  },
+  "name": "api_route",
+  "selection_char": 8,
+  "selection_line": 2757
+ },
+ {
+  "container": "api_route",
+  "kind": "function",
+  "location": {
+   "end_line": 2815,
+   "file": "fastapi/routing.py",
+   "start_line": 2787
+  },
+  "name": "decorator",
+  "selection_char": 12,
+  "selection_line": 2787
+ },
+ {
+  "container": "APIRouter",
+  "kind": "method",
+  "location": {
+   "end_line": 2839,
+   "file": "fastapi/routing.py",
+   "start_line": 2819
+  },
+  "name": "add_api_websocket_route",
+  "selection_char": 8,
+  "selection_line": 2819
+ },
+ {
+  "container": "APIRouter",
+  "kind": "method",
+  "location": {
+   "end_line": 2906,
+   "file": "fastapi/routing.py",
+   "start_line": 2841
+  },
+  "name": "websocket",
+  "selection_char": 8,
+  "selection_line": 2841
+ },
+ {
+  "container": "websocket",
+  "kind": "function",
+  "location": {
+   "end_line": 2904,
+   "file": "fastapi/routing.py",
+   "start_line": 2900
+  },
+  "name": "decorator",
+  "selection_char": 12,
+  "selection_line": 2900
+ },
+ {
+  "container": "APIRouter",
+  "kind": "method",
+  "location": {
+   "end_line": 2915,
+   "file": "fastapi/routing.py",
+   "start_line": 2908
+  },
+  "name": "websocket_route",
+  "selection_char": 8,
+  "selection_line": 2908
+ },
+ {
+  "container": "websocket_route",
+  "kind": "function",
+  "location": {
+   "end_line": 2913,
+   "file": "fastapi/routing.py",
+   "start_line": 2911
+  },
+  "name": "decorator",
+  "selection_char": 12,
+  "selection_line": 2911
+ },
+ {
+  "container": "APIRouter",
+  "kind": "method",
+  "location": {
+   "end_line": 3104,
+   "file": "fastapi/routing.py",
+   "start_line": 2917
+  },
+  "name": "include_router",
+  "selection_char": 8,
+  "selection_line": 2917
+ },
+ {
+  "container": "APIRouter",
+  "kind": "method",
+  "location": {
+   "end_line": 3481,
+   "file": "fastapi/routing.py",
+   "start_line": 3106
+  },
+  "name": "get",
+  "selection_char": 8,
+  "selection_line": 3106
+ },
+ {
+  "container": "APIRouter",
+  "kind": "method",
+  "location": {
+   "end_line": 3863,
+   "file": "fastapi/routing.py",
+   "start_line": 3483
+  },
+  "name": "put",
+  "selection_char": 8,
+  "selection_line": 3483
+ },
+ {
+  "container": "APIRouter",
+  "kind": "method",
+  "location": {
+   "end_line": 4245,
+   "file": "fastapi/routing.py",
+   "start_line": 3865
+  },
+  "name": "post",
+  "selection_char": 8,
+  "selection_line": 3865
+ },
+ {
+  "container": "APIRouter",
+  "kind": "method",
+  "location": {
+   "end_line": 4622,
+   "file": "fastapi/routing.py",
+   "start_line": 4247
+  },
+  "name": "delete",
+  "selection_char": 8,
+  "selection_line": 4247
+ },
+ {
+  "container": "APIRouter",
+  "kind": "method",
+  "location": {
+   "end_line": 4999,
+   "file": "fastapi/routing.py",
+   "start_line": 4624
+  },
+  "name": "options",
+  "selection_char": 8,
+  "selection_line": 4624
+ },
+ {
+  "container": "APIRouter",
+  "kind": "method",
+  "location": {
+   "end_line": 5381,
+   "file": "fastapi/routing.py",
+   "start_line": 5001
+  },
+  "name": "head",
+  "selection_char": 8,
+  "selection_line": 5001
+ },
+ {
+  "container": "APIRouter",
+  "kind": "method",
+  "location": {
+   "end_line": 5763,
+   "file": "fastapi/routing.py",
+   "start_line": 5383
+  },
+  "name": "patch",
+  "selection_char": 8,
+  "selection_line": 5383
+ },
+ {
+  "container": "APIRouter",
+  "kind": "method",
+  "location": {
+   "end_line": 6145,
+   "file": "fastapi/routing.py",
+   "start_line": 5765
+  },
+  "name": "trace",
+  "selection_char": 8,
+  "selection_line": 5765
+ },
+ {
+  "container": "APIRouter",
+  "kind": "method",
+  "location": {
+   "end_line": 6161,
+   "file": "fastapi/routing.py",
+   "start_line": 6148
+  },
+  "name": "_startup",
+  "selection_char": 14,
+  "selection_line": 6148
+ },
+ {
+  "container": "APIRouter",
+  "kind": "method",
+  "location": {
+   "end_line": 6177,
+   "file": "fastapi/routing.py",
+   "start_line": 6164
+  },
+  "name": "_shutdown",
+  "selection_char": 14,
+  "selection_line": 6164
+ },
+ {
+  "container": "APIRouter",
+  "kind": "method",
+  "location": {
+   "end_line": 6197,
+   "file": "fastapi/routing.py",
+   "start_line": 6180
+  },
+  "name": "add_event_handler",
+  "selection_char": 8,
+  "selection_line": 6180
+ },
+ {
+  "container": "APIRouter",
+  "kind": "method",
+  "location": {
+   "end_line": 6231,
+   "file": "fastapi/routing.py",
+   "start_line": 6199
+  },
+  "name": "on_event",
+  "selection_char": 8,
+  "selection_line": 6207
+ },
+ {
+  "container": "on_event",
+  "kind": "function",
+  "location": {
+   "end_line": 6229,
+   "file": "fastapi/routing.py",
+   "start_line": 6227
+  },
+  "name": "decorator",
+  "selection_char": 12,
+  "selection_line": 6227
+ },
+ {
+  "container": "APIKeyBase",
+  "kind": "method",
+  "location": {
+   "end_line": 29,
+   "file": "fastapi/security/api_key.py",
+   "start_line": 14
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 14
+ },
+ {
+  "container": "APIKeyBase",
+  "kind": "method",
+  "location": {
+   "end_line": 45,
+   "file": "fastapi/security/api_key.py",
+   "start_line": 31
+  },
+  "name": "make_not_authenticated_error",
+  "selection_char": 8,
+  "selection_line": 31
+ },
+ {
+  "container": "APIKeyBase",
+  "kind": "method",
+  "location": {
+   "end_line": 52,
+   "file": "fastapi/security/api_key.py",
+   "start_line": 47
+  },
+  "name": "check_api_key",
+  "selection_char": 8,
+  "selection_line": 47
+ },
+ {
+  "container": "APIKeyQuery",
+  "kind": "method",
+  "location": {
+   "end_line": 140,
+   "file": "fastapi/security/api_key.py",
+   "start_line": 87
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 87
+ },
+ {
+  "container": "APIKeyQuery",
+  "kind": "method",
+  "location": {
+   "end_line": 144,
+   "file": "fastapi/security/api_key.py",
+   "start_line": 142
+  },
+  "name": "__call__",
+  "selection_char": 14,
+  "selection_line": 142
+ },
+ {
+  "container": "APIKeyHeader",
+  "kind": "method",
+  "location": {
+   "end_line": 228,
+   "file": "fastapi/security/api_key.py",
+   "start_line": 179
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 179
+ },
+ {
+  "container": "APIKeyHeader",
+  "kind": "method",
+  "location": {
+   "end_line": 232,
+   "file": "fastapi/security/api_key.py",
+   "start_line": 230
+  },
+  "name": "__call__",
+  "selection_char": 14,
+  "selection_line": 230
+ },
+ {
+  "container": "APIKeyCookie",
+  "kind": "method",
+  "location": {
+   "end_line": 316,
+   "file": "fastapi/security/api_key.py",
+   "start_line": 267
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 267
+ },
+ {
+  "container": "APIKeyCookie",
+  "kind": "method",
+  "location": {
+   "end_line": 320,
+   "file": "fastapi/security/api_key.py",
+   "start_line": 318
+  },
+  "name": "__call__",
+  "selection_char": 14,
+  "selection_line": 318
+ },
+ {
+  "container": "HTTPBase",
+  "kind": "method",
+  "location": {
+   "end_line": 82,
+   "file": "fastapi/security/http.py",
+   "start_line": 72
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 72
+ },
+ {
+  "container": "HTTPBase",
+  "kind": "method",
+  "location": {
+   "end_line": 85,
+   "file": "fastapi/security/http.py",
+   "start_line": 84
+  },
+  "name": "make_authenticate_headers",
+  "selection_char": 8,
+  "selection_line": 84
+ },
+ {
+  "container": "HTTPBase",
+  "kind": "method",
+  "location": {
+   "end_line": 92,
+   "file": "fastapi/security/http.py",
+   "start_line": 87
+  },
+  "name": "make_not_authenticated_error",
+  "selection_char": 8,
+  "selection_line": 87
+ },
+ {
+  "container": "HTTPBase",
+  "kind": "method",
+  "location": {
+   "end_line": 102,
+   "file": "fastapi/security/http.py",
+   "start_line": 94
+  },
+  "name": "__call__",
+  "selection_char": 14,
+  "selection_line": 94
+ },
+ {
+  "container": "HTTPBasic",
+  "kind": "method",
+  "location": {
+   "end_line": 195,
+   "file": "fastapi/security/http.py",
+   "start_line": 140
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 140
+ },
+ {
+  "container": "HTTPBasic",
+  "kind": "method",
+  "location": {
+   "end_line": 200,
+   "file": "fastapi/security/http.py",
+   "start_line": 197
+  },
+  "name": "make_authenticate_headers",
+  "selection_char": 8,
+  "selection_line": 197
+ },
+ {
+  "container": "HTTPBasic",
+  "kind": "method",
+  "location": {
+   "end_line": 219,
+   "file": "fastapi/security/http.py",
+   "start_line": 202
+  },
+  "name": "__call__",
+  "selection_char": 14,
+  "selection_line": 202
+ },
+ {
+  "container": "HTTPBearer",
+  "kind": "method",
+  "location": {
+   "end_line": 301,
+   "file": "fastapi/security/http.py",
+   "start_line": 254
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 254
+ },
+ {
+  "container": "HTTPBearer",
+  "kind": "method",
+  "location": {
+   "end_line": 316,
+   "file": "fastapi/security/http.py",
+   "start_line": 303
+  },
+  "name": "__call__",
+  "selection_char": 14,
+  "selection_line": 303
+ },
+ {
+  "container": "HTTPDigest",
+  "kind": "method",
+  "location": {
+   "end_line": 402,
+   "file": "fastapi/security/http.py",
+   "start_line": 357
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 357
+ },
+ {
+  "container": "HTTPDigest",
+  "kind": "method",
+  "location": {
+   "end_line": 417,
+   "file": "fastapi/security/http.py",
+   "start_line": 404
+  },
+  "name": "__call__",
+  "selection_char": 14,
+  "selection_line": 404
+ },
+ {
+  "container": "OAuth2PasswordRequestForm",
+  "kind": "method",
+  "location": {
+   "end_line": 159,
+   "file": "fastapi/security/oauth2.py",
+   "start_line": 59
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 59
+ },
+ {
+  "container": "OAuth2PasswordRequestFormStrict",
+  "kind": "method",
+  "location": {
+   "end_line": 327,
+   "file": "fastapi/security/oauth2.py",
+   "start_line": 226
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 226
+ },
+ {
+  "container": "OAuth2",
+  "kind": "method",
+  "location": {
+   "end_line": 399,
+   "file": "fastapi/security/oauth2.py",
+   "start_line": 343
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 343
+ },
+ {
+  "container": "OAuth2",
+  "kind": "method",
+  "location": {
+   "end_line": 421,
+   "file": "fastapi/security/oauth2.py",
+   "start_line": 401
+  },
+  "name": "make_not_authenticated_error",
+  "selection_char": 8,
+  "selection_line": 401
+ },
+ {
+  "container": "OAuth2",
+  "kind": "method",
+  "location": {
+   "end_line": 430,
+   "file": "fastapi/security/oauth2.py",
+   "start_line": 423
+  },
+  "name": "__call__",
+  "selection_char": 14,
+  "selection_line": 423
+ },
+ {
+  "container": "OAuth2PasswordBearer",
+  "kind": "method",
+  "location": {
+   "end_line": 534,
+   "file": "fastapi/security/oauth2.py",
+   "start_line": 442
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 442
+ },
+ {
+  "container": "OAuth2PasswordBearer",
+  "kind": "method",
+  "location": {
+   "end_line": 544,
+   "file": "fastapi/security/oauth2.py",
+   "start_line": 536
+  },
+  "name": "__call__",
+  "selection_char": 14,
+  "selection_line": 536
+ },
+ {
+  "container": "OAuth2AuthorizationCodeBearer",
+  "kind": "method",
+  "location": {
+   "end_line": 640,
+   "file": "fastapi/security/oauth2.py",
+   "start_line": 553
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 553
+ },
+ {
+  "container": "OAuth2AuthorizationCodeBearer",
+  "kind": "method",
+  "location": {
+   "end_line": 650,
+   "file": "fastapi/security/oauth2.py",
+   "start_line": 642
+  },
+  "name": "__call__",
+  "selection_char": 14,
+  "selection_line": 642
+ },
+ {
+  "container": "SecurityScopes",
+  "kind": "method",
+  "location": {
+   "end_line": 693,
+   "file": "fastapi/security/oauth2.py",
+   "start_line": 666
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 666
+ },
+ {
+  "container": "OpenIdConnect",
+  "kind": "method",
+  "location": {
+   "end_line": 78,
+   "file": "fastapi/security/open_id_connect_url.py",
+   "start_line": 22
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 22
+ },
+ {
+  "container": "OpenIdConnect",
+  "kind": "method",
+  "location": {
+   "end_line": 85,
+   "file": "fastapi/security/open_id_connect_url.py",
+   "start_line": 80
+  },
+  "name": "make_not_authenticated_error",
+  "selection_char": 8,
+  "selection_line": 80
+ },
+ {
+  "container": "OpenIdConnect",
+  "kind": "method",
+  "location": {
+   "end_line": 94,
+   "file": "fastapi/security/open_id_connect_url.py",
+   "start_line": 87
+  },
+  "name": "__call__",
+  "selection_char": 14,
+  "selection_line": 87
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 7,
+   "file": "fastapi/security/utils.py",
+   "start_line": 1
+  },
+  "name": "get_authorization_scheme_param",
+  "selection_char": 4,
+  "selection_line": 1
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 39,
+   "file": "fastapi/sse.py",
+   "start_line": 36
+  },
+  "name": "_check_single_line",
+  "selection_char": 4,
+  "selection_line": 36
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 43,
+   "file": "fastapi/sse.py",
+   "start_line": 42
+  },
+  "name": "_check_event_single_line",
+  "selection_char": 4,
+  "selection_line": 42
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 49,
+   "file": "fastapi/sse.py",
+   "start_line": 46
+  },
+  "name": "_check_id_valid",
+  "selection_char": 4,
+  "selection_line": 46
+ },
+ {
+  "container": "ServerSentEvent",
+  "kind": "method",
+  "location": {
+   "end_line": 156,
+   "file": "fastapi/sse.py",
+   "start_line": 148
+  },
+  "name": "_check_data_exclusive",
+  "selection_char": 8,
+  "selection_line": 149
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 227,
+   "file": "fastapi/sse.py",
+   "start_line": 159
+  },
+  "name": "format_sse_event",
+  "selection_char": 4,
+  "selection_line": 159
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 40,
+   "file": "fastapi/utils.py",
+   "start_line": 26
+  },
+  "name": "is_body_allowed_for_status_code",
+  "selection_char": 4,
+  "selection_line": 26
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 44,
+   "file": "fastapi/utils.py",
+   "start_line": 43
+  },
+  "name": "get_path_param_names",
+  "selection_char": 4,
+  "selection_line": 43
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 77,
+   "file": "fastapi/utils.py",
+   "start_line": 58
+  },
+  "name": "create_model_field",
+  "selection_char": 4,
+  "selection_line": 58
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 92,
+   "file": "fastapi/utils.py",
+   "start_line": 80
+  },
+  "name": "generate_operation_id_for_path",
+  "selection_char": 4,
+  "selection_line": 80
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 100,
+   "file": "fastapi/utils.py",
+   "start_line": 95
+  },
+  "name": "generate_unique_id",
+  "selection_char": 4,
+  "selection_line": 95
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 118,
+   "file": "fastapi/utils.py",
+   "start_line": 103
+  },
+  "name": "deep_dict_update",
+  "selection_char": 4,
+  "selection_line": 103
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 136,
+   "file": "fastapi/utils.py",
+   "start_line": 121
+  },
+  "name": "get_value_or_default",
+  "selection_char": 4,
+  "selection_line": 121
+ }
+]

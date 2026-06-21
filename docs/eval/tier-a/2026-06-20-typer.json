@@ -1,0 +1,4932 @@
+{
+ "m1": {
+  "anon_oracle": 0,
+  "anon_prism": 0,
+  "matched": 552,
+  "prism_extra": 37,
+  "prism_missing": 0,
+  "snapshot_prism_missing": 0
+ },
+ "m2": {
+  "callees": {
+   "C-method": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.6456695613241317,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.6456695613241317,
+      1.0
+     ],
+     "tp": 7
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 1,
+      "precision": [
+       0.8333333333333334,
+       0.4364971749742326,
+       0.969946630588185
+      ],
+      "recall": [
+       1.0,
+       0.5655175313406071,
+       1.0
+      ],
+      "tp": 5
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 1,
+      "precision": [
+       0.8333333333333334,
+       0.4364971749742326,
+       0.969946630588185
+      ],
+      "recall": [
+       1.0,
+       0.5655175313406071,
+       1.0
+      ],
+      "tp": 5
+     }
+    },
+    "pending": 3,
+    "raw": {
+     "fn": 3,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.6456695613241317,
+      1.0
+     ],
+     "recall": [
+      0.7,
+      0.3967781453459709,
+      0.892208733443606
+     ],
+     "tp": 7
+    },
+    "shortfall": 0
+   },
+   "C-name": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.5101091596030786,
+      0.9999999999999999
+     ],
+     "recall": [
+      1.0,
+      0.5101091596030786,
+      0.9999999999999999
+     ],
+     "tp": 4
+    },
+    "function": {
+     "corrected": {
+      "fn": 1,
+      "fp": 2,
+      "precision": [
+       0.6,
+       0.23072427940911855,
+       0.8823792268590028
+      ],
+      "recall": [
+       0.75,
+       0.3006418400969081,
+       0.954412739704631
+      ],
+      "tp": 3
+     },
+     "raw": {
+      "fn": 1,
+      "fp": 2,
+      "precision": [
+       0.6,
+       0.23072427940911855,
+       0.8823792268590028
+      ],
+      "recall": [
+       0.75,
+       0.3006418400969081,
+       0.954412739704631
+      ],
+      "tp": 3
+     }
+    },
+    "pending": 4,
+    "raw": {
+     "fn": 3,
+     "fp": 1,
+     "precision": [
+      0.8,
+      0.375534627029995,
+      0.9637758917743693
+     ],
+     "recall": [
+      0.5714285714285714,
+      0.25045836275303557,
+      0.8417801460075546
+     ],
+     "tp": 4
+    },
+    "shortfall": 0
+   },
+   "Q-scoped": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.7224671969739421,
+      0.9999999999999999
+     ],
+     "recall": [
+      1.0,
+      0.7224671969739421,
+      0.9999999999999999
+     ],
+     "tp": 10
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 3,
+      "precision": [
+       0.6666666666666666,
+       0.35420213352505864,
+       0.8794161825659264
+      ],
+      "recall": [
+       1.0,
+       0.6096657083436265,
+       1.0
+      ],
+      "tp": 6
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 3,
+      "precision": [
+       0.6666666666666666,
+       0.35420213352505864,
+       0.8794161825659264
+      ],
+      "recall": [
+       1.0,
+       0.6096657083436265,
+       1.0
+      ],
+      "tp": 6
+     }
+    },
+    "pending": 1,
+    "raw": {
+     "fn": 1,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.7224671969739421,
+      0.9999999999999999
+     ],
+     "recall": [
+      0.9090909090909091,
+      0.6226415608917041,
+      0.9837678272946745
+     ],
+     "tp": 10
+    },
+    "shortfall": 0
+   },
+   "U-free": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.5101091596030786,
+      0.9999999999999999
+     ],
+     "recall": [
+      1.0,
+      0.5101091596030786,
+      0.9999999999999999
+     ],
+     "tp": 4
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 3,
+      "precision": [
+       0.625,
+       0.30574239265377096,
+       0.8631557152608771
+      ],
+      "recall": [
+       1.0,
+       0.5655175313406071,
+       1.0
+      ],
+      "tp": 5
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 3,
+      "precision": [
+       0.625,
+       0.30574239265377096,
+       0.8631557152608771
+      ],
+      "recall": [
+       1.0,
+       0.5655175313406071,
+       1.0
+      ],
+      "tp": 5
+     }
+    },
+    "pending": 10,
+    "raw": {
+     "fn": 9,
+     "fp": 1,
+     "precision": [
+      0.8,
+      0.375534627029995,
+      0.9637758917743693
+     ],
+     "recall": [
+      0.3076923076923077,
+      0.12680703567070326,
+      0.5763065701492199
+     ],
+     "tp": 4
+    },
+    "shortfall": 0
+   },
+   "U-method": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.8388748398148705,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.8388748398148705,
+      1.0
+     ],
+     "tp": 20
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 4,
+      "precision": [
+       0.5,
+       0.21521606069626764,
+       0.7847839393037324
+      ],
+      "recall": [
+       1.0,
+       0.5101091596030786,
+       0.9999999999999999
+      ],
+      "tp": 4
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 4,
+      "precision": [
+       0.5,
+       0.21521606069626764,
+       0.7847839393037324
+      ],
+      "recall": [
+       1.0,
+       0.5101091596030786,
+       0.9999999999999999
+      ],
+      "tp": 4
+     }
+    },
+    "pending": 6,
+    "raw": {
+     "fn": 6,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.8388748398148705,
+      1.0
+     ],
+     "recall": [
+      0.7692307692307693,
+      0.5794844576151241,
+      0.889661506584867
+     ],
+     "tp": 20
+    },
+    "shortfall": 0
+   }
+  },
+  "callers": {
+   "C-method": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      0.0,
+      0.0,
+      1.0
+     ],
+     "recall": [
+      0.0,
+      0.0,
+      1.0
+     ],
+     "tp": 0
+    },
+    "function": {
+     "corrected": {
+      "fn": 3,
+      "fp": 0,
+      "precision": [
+       0.0,
+       0.0,
+       1.0
+      ],
+      "recall": [
+       0.0,
+       0.0,
+       0.5614970356393196
+      ],
+      "tp": 0
+     },
+     "raw": {
+      "fn": 3,
+      "fp": 0,
+      "precision": [
+       0.0,
+       0.0,
+       1.0
+      ],
+      "recall": [
+       0.0,
+       0.0,
+       0.5614970356393196
+      ],
+      "tp": 0
+     }
+    },
+    "pending": 3,
+    "raw": {
+     "fn": 3,
+     "fp": 0,
+     "precision": [
+      0.0,
+      0.0,
+      1.0
+     ],
+     "recall": [
+      0.0,
+      0.0,
+      0.5614970356393196
+     ],
+     "tp": 0
+    },
+    "shortfall": 0
+   },
+   "C-name": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.7961166964035129,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.7961166964035129,
+      1.0
+     ],
+     "tp": 15
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 1,
+      "precision": [
+       0.8888888888888888,
+       0.565000291629209,
+       0.9801091125830901
+      ],
+      "recall": [
+       1.0,
+       0.6755924316585924,
+       1.0
+      ],
+      "tp": 8
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 1,
+      "precision": [
+       0.8888888888888888,
+       0.565000291629209,
+       0.9801091125830901
+      ],
+      "recall": [
+       1.0,
+       0.6755924316585924,
+       1.0
+      ],
+      "tp": 8
+     }
+    },
+    "pending": 1,
+    "raw": {
+     "fn": 0,
+     "fp": 1,
+     "precision": [
+      0.9375,
+      0.716712622018518,
+      0.9888806553587528
+     ],
+     "recall": [
+      1.0,
+      0.7961166964035129,
+      1.0
+     ],
+     "tp": 15
+    },
+    "shortfall": 0
+   },
+   "Q-scoped": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.7846891945970195,
+      0.9999999999999999
+     ],
+     "recall": [
+      1.0,
+      0.7846891945970195,
+      0.9999999999999999
+     ],
+     "tp": 14
+    },
+    "function": {
+     "corrected": {
+      "fn": 1,
+      "fp": 1,
+      "precision": [
+       0.9090909090909091,
+       0.6226415608917041,
+       0.9837678272946745
+      ],
+      "recall": [
+       0.9090909090909091,
+       0.6226415608917041,
+       0.9837678272946745
+      ],
+      "tp": 10
+     },
+     "raw": {
+      "fn": 1,
+      "fp": 1,
+      "precision": [
+       0.9090909090909091,
+       0.6226415608917041,
+       0.9837678272946745
+      ],
+      "recall": [
+       0.9090909090909091,
+       0.6226415608917041,
+       0.9837678272946745
+      ],
+      "tp": 10
+     }
+    },
+    "pending": 2,
+    "raw": {
+     "fn": 1,
+     "fp": 1,
+     "precision": [
+      0.9333333333333333,
+      0.7018346989112435,
+      0.9881331046384677
+     ],
+     "recall": [
+      0.9333333333333333,
+      0.7018346989112435,
+      0.9881331046384677
+     ],
+     "tp": 14
+    },
+    "shortfall": 0
+   },
+   "U-free": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.7411670300055737,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.7411670300055737,
+      1.0
+     ],
+     "tp": 11
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.700854948272956,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.700854948272956,
+       1.0
+      ],
+      "tp": 9
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.700854948272956,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.700854948272956,
+       1.0
+      ],
+      "tp": 9
+     }
+    },
+    "pending": 0,
+    "raw": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.7411670300055737,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.7411670300055737,
+      1.0
+     ],
+     "tp": 11
+    },
+    "shortfall": 0
+   },
+   "U-method": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.700854948272956,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.700854948272956,
+      1.0
+     ],
+     "tp": 9
+    },
+    "function": {
+     "corrected": {
+      "fn": 30,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.6456695613241317,
+       1.0
+      ],
+      "recall": [
+       0.1891891891891892,
+       0.09479978678812225,
+       0.342046970649007
+      ],
+      "tp": 7
+     },
+     "raw": {
+      "fn": 30,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.6456695613241317,
+       1.0
+      ],
+      "recall": [
+       0.1891891891891892,
+       0.09479978678812225,
+       0.342046970649007
+      ],
+      "tp": 7
+     }
+    },
+    "pending": 41,
+    "raw": {
+     "fn": 41,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.700854948272956,
+      1.0
+     ],
+     "recall": [
+      0.18,
+      0.09770192623042152,
+      0.30796053788389155
+     ],
+     "tp": 9
+    },
+    "shortfall": 0
+   }
+  }
+ },
+ "m3": {
+  "cap": 25,
+  "checked": [
+   {
+    "probe": "callers:typer/_click/_compat.py:152",
+    "site": "typer/_click/_compat.py:218",
+    "verdict": "alias_site"
+   },
+   {
+    "probe": "callers:typer/core.py:35",
+    "site": "typer/_click/formatting.py:264",
+    "verdict": "ambiguous"
+   }
+  ],
+  "counts": {
+   "alias_site": 1,
+   "ambiguous": 1,
+   "confirmed_fp": 0,
+   "confirmed_tp": 0
+  }
+ },
+ "meta": {
+  "baseline_invalid": false,
+  "corpus": "typer",
+  "corpus_dirty": false,
+  "corpus_dirty_reasons": [],
+  "corpus_sha": "5ec6501a3c3b",
+  "date": "2026-06-20",
+  "harness_sha": "06e6ac4ee96e",
+  "invalid_reasons": [],
+  "oracle": "pyright-langserver",
+  "oracle_error_rate": 0.225,
+  "oracle_not_quiescent": false,
+  "prism_dirty": false,
+  "prism_sha": "20c8490591a3",
+  "seed": 42,
+  "stale_adjudications": 0,
+  "sut_error_rate": 0.0,
+  "wall_s": {
+   "m1_oracle_inventory": 0.026,
+   "m2": 12.296,
+   "m3": 0.002,
+   "oracle_start": 5.079
+  }
+ },
+ "pending": [
+  {
+   "corpus": "typer",
+   "direction": "prism_only",
+   "dispatch_kind": "local_def",
+   "measurement": "callers",
+   "seed_def": "typer/_click/_compat.py:152",
+   "site": "typer/_click/_compat.py:218",
+   "site_fingerprint": "fd186d6c8c66f879"
+  },
+  {
+   "corpus": "typer",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "typer/_click/core.py:381",
+   "site": "typer/_click/core.py:390",
+   "site_fingerprint": "ec19af7f28e6cc78"
+  },
+  {
+   "corpus": "typer",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "typer/_click/core.py:381",
+   "site": "typer/_click/core.py:575",
+   "site_fingerprint": "a5a271341ffef6c6"
+  },
+  {
+   "corpus": "typer",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "typer/_click/core.py:381",
+   "site": "typer/_click/exceptions.py:69",
+   "site_fingerprint": "9aeffd6999ee9fd8"
+  },
+  {
+   "corpus": "typer",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "typer/_click/core.py:381",
+   "site": "typer/rich_utils.py:698",
+   "site_fingerprint": "ccd477ff3e6e9984"
+  },
+  {
+   "corpus": "typer",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "typer/_click/core.py:624",
+   "site": "typer/_click/core.py:472",
+   "site_fingerprint": "cac89b6a8791184f"
+  },
+  {
+   "corpus": "typer",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "typer/_click/core.py:797",
+   "site": "typer/core.py:178",
+   "site_fingerprint": "73e809f323b90067"
+  },
+  {
+   "corpus": "typer",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "typer/_click/exceptions.py:89",
+   "site": "typer/_click/exceptions.py:125",
+   "site_fingerprint": "299a2ea650e3a259"
+  },
+  {
+   "corpus": "typer",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "typer/_click/shell_completion.py:140",
+   "site": "typer/completion.py:126",
+   "site_fingerprint": "5ce48b74f43af69a"
+  },
+  {
+   "corpus": "typer",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "typer/_click/shell_completion.py:68",
+   "site": "typer/_completion_classes.py:34",
+   "site_fingerprint": "260b0cd447c8e8c2"
+  },
+  {
+   "corpus": "typer",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "typer/_click/shell_completion.py:68",
+   "site": "typer/_completion_classes.py:104",
+   "site_fingerprint": "260b0cd447c8e8c2"
+  },
+  {
+   "corpus": "typer",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "typer/_click/shell_completion.py:68",
+   "site": "typer/_completion_classes.py:155",
+   "site_fingerprint": "260b0cd447c8e8c2"
+  },
+  {
+   "corpus": "typer",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "typer/_click/shell_completion.py:68",
+   "site": "typer/_completion_classes.py:208",
+   "site_fingerprint": "260b0cd447c8e8c2"
+  },
+  {
+   "corpus": "typer",
+   "direction": "prism_only",
+   "dispatch_kind": "free_multi",
+   "measurement": "callers",
+   "seed_def": "typer/core.py:35",
+   "site": "typer/_click/formatting.py:264",
+   "site_fingerprint": "c46dc58f4d544de4"
+  },
+  {
+   "corpus": "typer",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "typer/main.py:915",
+   "site": "docs_src/one_file_per_command/app_py310/main.py:8",
+   "site_fingerprint": "973a925e30d4d506"
+  },
+  {
+   "corpus": "typer",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "typer/main.py:915",
+   "site": "docs_src/one_file_per_command/app_py310/main.py:9",
+   "site_fingerprint": "4bcc1496fb6c516a"
+  },
+  {
+   "corpus": "typer",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "typer/main.py:915",
+   "site": "docs_src/one_file_per_command/app_py310/users/__init__.py:8",
+   "site_fingerprint": "9a1e81f3c8db366d"
+  },
+  {
+   "corpus": "typer",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "typer/main.py:915",
+   "site": "docs_src/one_file_per_command/app_py310/users/__init__.py:9",
+   "site_fingerprint": "ed49ed73f005b69f"
+  },
+  {
+   "corpus": "typer",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "typer/main.py:915",
+   "site": "docs_src/subcommands/callback_override/tutorial001_py310.py:6",
+   "site_fingerprint": "b04dc90475bfd206"
+  },
+  {
+   "corpus": "typer",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "typer/main.py:915",
+   "site": "docs_src/subcommands/callback_override/tutorial002_py310.py:11",
+   "site_fingerprint": "c91e3e42acc5064f"
+  },
+  {
+   "corpus": "typer",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "typer/main.py:915",
+   "site": "docs_src/subcommands/callback_override/tutorial003_py310.py:11",
+   "site_fingerprint": "a6469b4ca18641ea"
+  },
+  {
+   "corpus": "typer",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "typer/main.py:915",
+   "site": "docs_src/subcommands/callback_override/tutorial004_py310.py:17",
+   "site_fingerprint": "dec0f4aa7bd77c02"
+  },
+  {
+   "corpus": "typer",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "typer/main.py:915",
+   "site": "docs_src/subcommands/name_help/tutorial001_py310.py:6",
+   "site_fingerprint": "daa243028395a084"
+  },
+  {
+   "corpus": "typer",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "typer/main.py:915",
+   "site": "docs_src/subcommands/name_help/tutorial002_py310.py:6",
+   "site_fingerprint": "b04dc90475bfd206"
+  },
+  {
+   "corpus": "typer",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "typer/main.py:915",
+   "site": "docs_src/subcommands/name_help/tutorial003_py310.py:13",
+   "site_fingerprint": "4d5c6fef4bee0002"
+  },
+  {
+   "corpus": "typer",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "typer/main.py:915",
+   "site": "docs_src/subcommands/name_help/tutorial004_py310.py:13",
+   "site_fingerprint": "f3fc64ef637241e4"
+  },
+  {
+   "corpus": "typer",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "typer/main.py:915",
+   "site": "docs_src/subcommands/name_help/tutorial005_py310.py:21",
+   "site_fingerprint": "0c8fa9f9629a28a5"
+  },
+  {
+   "corpus": "typer",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "typer/main.py:915",
+   "site": "docs_src/subcommands/name_help/tutorial006_py310.py:21",
+   "site_fingerprint": "71fbe1aec46e3053"
+  },
+  {
+   "corpus": "typer",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "typer/main.py:915",
+   "site": "docs_src/subcommands/name_help/tutorial007_py310.py:21",
+   "site_fingerprint": "71fbe1aec46e3053"
+  },
+  {
+   "corpus": "typer",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "typer/main.py:915",
+   "site": "docs_src/subcommands/name_help/tutorial008_py310.py:21",
+   "site_fingerprint": "7dcb07d6b96003da"
+  },
+  {
+   "corpus": "typer",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "typer/main.py:915",
+   "site": "docs_src/subcommands/tutorial001_py310/main.py:7",
+   "site_fingerprint": "c7bff32bbd1d8d1a"
+  },
+  {
+   "corpus": "typer",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "typer/main.py:915",
+   "site": "docs_src/subcommands/tutorial001_py310/main.py:8",
+   "site_fingerprint": "8ad0f635577db3c9"
+  },
+  {
+   "corpus": "typer",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "typer/main.py:915",
+   "site": "docs_src/subcommands/tutorial002_py310/main.py:5",
+   "site_fingerprint": "8c912d7a4dd36be3"
+  },
+  {
+   "corpus": "typer",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "typer/main.py:915",
+   "site": "docs_src/subcommands/tutorial002_py310/main.py:7",
+   "site_fingerprint": "b04dc90475bfd206"
+  },
+  {
+   "corpus": "typer",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "typer/main.py:915",
+   "site": "docs_src/subcommands/tutorial003_py310/lands.py:7",
+   "site_fingerprint": "4378d59d7d053840"
+  },
+  {
+   "corpus": "typer",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "typer/main.py:915",
+   "site": "docs_src/subcommands/tutorial003_py310/lands.py:8",
+   "site_fingerprint": "f42b8f10fd8f09b7"
+  },
+  {
+   "corpus": "typer",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "typer/main.py:915",
+   "site": "docs_src/subcommands/tutorial003_py310/main.py:8",
+   "site_fingerprint": "c7bff32bbd1d8d1a"
+  },
+  {
+   "corpus": "typer",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "typer/main.py:915",
+   "site": "docs_src/subcommands/tutorial003_py310/main.py:9",
+   "site_fingerprint": "7c16637000f307ba"
+  },
+  {
+   "corpus": "typer",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "typer/main.py:915",
+   "site": "docs_src/subcommands/tutorial003_py310/main.py:10",
+   "site_fingerprint": "4802b294272f807e"
+  },
+  {
+   "corpus": "typer",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "typer/main.py:915",
+   "site": "tests/assets/cli/extended_app_cli.py:12",
+   "site_fingerprint": "4084cb2b16de4e79"
+  },
+  {
+   "corpus": "typer",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "typer/main.py:915",
+   "site": "tests/assets/cli/extended_app_cli.py:26",
+   "site_fingerprint": "878aaf76e4672ac2"
+  },
+  {
+   "corpus": "typer",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "typer/main.py:915",
+   "site": "tests/assets/cli/extended_empty_app_cli.py:5",
+   "site_fingerprint": "916bb5a30a001390"
+  },
+  {
+   "corpus": "typer",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "typer/main.py:915",
+   "site": "tests/assets/cli/multi_app.py:32",
+   "site_fingerprint": "ab4a7646cc573440"
+  },
+  {
+   "corpus": "typer",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "typer/main.py:915",
+   "site": "tests/assets/cli/multi_app_cli.py:17",
+   "site_fingerprint": "f1187b05c0b1fb8e"
+  },
+  {
+   "corpus": "typer",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "typer/main.py:915",
+   "site": "tests/assets/cli/multi_app_norich.py:30",
+   "site_fingerprint": "ab3395b84ed3b76f"
+  },
+  {
+   "corpus": "typer",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "typer/main.py:915",
+   "site": "tests/assets/hidden_commands.py:30",
+   "site_fingerprint": "0f5185e78d14a538"
+  },
+  {
+   "corpus": "typer",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "typer/main.py:915",
+   "site": "typer/cli.py:19",
+   "site_fingerprint": "7e5ad8fdf0cab2f3"
+  },
+  {
+   "corpus": "typer",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "scripts/docs.py:102",
+   "site": "scripts/docs.py:101",
+   "site_fingerprint": "1525c045c652d832"
+  },
+  {
+   "corpus": "typer",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "scripts/docs.py:102",
+   "site": "scripts/docs.py:112",
+   "site_fingerprint": "d18bb9ae514d1fc9"
+  },
+  {
+   "corpus": "typer",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "scripts/docs.py:102",
+   "site": "scripts/docs.py:113",
+   "site_fingerprint": "7fdee407c48b39ea"
+  },
+  {
+   "corpus": "typer",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "scripts/docs.py:102",
+   "site": "scripts/docs.py:114",
+   "site_fingerprint": "5c46f6d61264619b"
+  },
+  {
+   "corpus": "typer",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "scripts/docs.py:102",
+   "site": "scripts/docs.py:115",
+   "site_fingerprint": "dfd3999697246f0e"
+  },
+  {
+   "corpus": "typer",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "scripts/docs.py:102",
+   "site": "scripts/docs.py:119",
+   "site_fingerprint": "46143e120c350a52"
+  },
+  {
+   "corpus": "typer",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callees",
+   "seed_def": "scripts/docs.py:124",
+   "site": "scripts/docs.py:181",
+   "site_fingerprint": "cd129e6f3c46b342"
+  },
+  {
+   "corpus": "typer",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "scripts/docs.py:124",
+   "site": "scripts/docs.py:123",
+   "site_fingerprint": "5cd5db79dd57ffec"
+  },
+  {
+   "corpus": "typer",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "scripts/docs.py:195",
+   "site": "scripts/docs.py:194",
+   "site_fingerprint": "c913ef54da46e058"
+  },
+  {
+   "corpus": "typer",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "scripts/docs.py:22",
+   "site": "scripts/docs.py:21",
+   "site_fingerprint": "414c41152ba1945e"
+  },
+  {
+   "corpus": "typer",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "scripts/prepare_release.py:158",
+   "site": "scripts/prepare_release.py:157",
+   "site_fingerprint": "5ebca64c182c00fa"
+  },
+  {
+   "corpus": "typer",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "typer/_click/core.py:381",
+   "site": "typer/_click/core.py:390",
+   "site_fingerprint": "ec19af7f28e6cc78"
+  },
+  {
+   "corpus": "typer",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "typer/_click/exceptions.py:181",
+   "site": "typer/_click/exceptions.py:191",
+   "site_fingerprint": "9d25e2515f2ae9da"
+  },
+  {
+   "corpus": "typer",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "typer/_click/exceptions.py:89",
+   "site": "typer/_click/exceptions.py:96",
+   "site_fingerprint": "9bded6290f6a6555"
+  },
+  {
+   "corpus": "typer",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "typer/core.py:327",
+   "site": "typer/core.py:378",
+   "site_fingerprint": "e59f7c7c0a30206a"
+  },
+  {
+   "corpus": "typer",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "typer/core.py:623",
+   "site": "typer/core.py:633",
+   "site_fingerprint": "a1a4f10214aae51e"
+  },
+  {
+   "corpus": "typer",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "typer/core.py:623",
+   "site": "typer/core.py:648",
+   "site_fingerprint": "a4c9384ed53af790"
+  },
+  {
+   "corpus": "typer",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "typer/core.py:623",
+   "site": "typer/core.py:656",
+   "site_fingerprint": "b4c10a0dd01b07d1"
+  },
+  {
+   "corpus": "typer",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "typer/core.py:623",
+   "site": "typer/core.py:665",
+   "site_fingerprint": "658683827825a41a"
+  },
+  {
+   "corpus": "typer",
+   "direction": "prism_only",
+   "dispatch_kind": "local_def",
+   "measurement": "callees",
+   "seed_def": "typer/main.py:1461",
+   "site": "typer/main.py:1464",
+   "site_fingerprint": "57c96e6167f702de"
+  },
+  {
+   "corpus": "typer",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "typer/main.py:890",
+   "site": "typer/main.py:892",
+   "site_fingerprint": "59f41ed0790f93c4"
+  },
+  {
+   "corpus": "typer",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "typer/main.py:890",
+   "site": "typer/main.py:901",
+   "site_fingerprint": "bb403d809abbaeaa"
+  },
+  {
+   "corpus": "typer",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "typer/main.py:915",
+   "site": "typer/main.py:1109",
+   "site_fingerprint": "6230324414b84ace"
+  },
+  {
+   "corpus": "typer",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "typer/rich_utils.py:351",
+   "site": "typer/rich_utils.py:380",
+   "site_fingerprint": "25058bd4a4d73c01"
+  }
+ ],
+ "probes": {
+  "_corpus": "typer",
+  "_strata": {
+   "C-method": {
+    "eligible_probes": 16,
+    "eligible_symbols": 8,
+    "target": 8
+   },
+   "C-name": {
+    "eligible_probes": 16,
+    "eligible_symbols": 8,
+    "target": 8
+   },
+   "Q-scoped": {
+    "eligible_probes": 16,
+    "eligible_symbols": 8,
+    "target": 8
+   },
+   "U-free": {
+    "eligible_probes": 16,
+    "eligible_symbols": 8,
+    "target": 8
+   },
+   "U-method": {
+    "eligible_probes": 16,
+    "eligible_symbols": 8,
+    "target": 8
+   }
+  },
+  "callees:scripts/docs.py:102": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "scripts/docs.py",
+     "serve"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "scripts/docs.py",
+     101,
+     101
+    ],
+    [
+     "scripts/docs.py",
+     112,
+     112
+    ],
+    [
+     "scripts/docs.py",
+     113,
+     113
+    ],
+    [
+     "scripts/docs.py",
+     114,
+     114
+    ],
+    [
+     "scripts/docs.py",
+     115,
+     115
+    ],
+    [
+     "scripts/docs.py",
+     119,
+     119
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "scripts/docs.py",
+     "serve"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "scripts/docs.py:102",
+   "stratum": "U-free"
+  },
+  "callees:scripts/docs.py:124": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "scripts/docs.py",
+     "generate_docs_src_versions_for_file"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "scripts/docs.py",
+     123,
+     123
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "scripts/docs.py",
+     "generate_docs_src_versions_for_file"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "scripts/docs.py",
+     181,
+     181,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "scripts/docs.py:124",
+   "stratum": "U-free"
+  },
+  "callees:scripts/docs.py:195": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "scripts/docs.py",
+     "copy_py39_to_py310"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "scripts/docs.py",
+     194,
+     194
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "scripts/docs.py",
+     "copy_py39_to_py310"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "scripts/docs.py:195",
+   "stratum": "U-free"
+  },
+  "callees:scripts/docs.py:22": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "scripts/docs.py",
+     "callback"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "scripts/docs.py",
+     21,
+     21
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "scripts/docs.py:22",
+   "stratum": "C-name"
+  },
+  "callees:scripts/docs.py:27": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "scripts/docs.py",
+     "generate_readme_content"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "scripts/docs.py:27",
+   "stratum": "U-free"
+  },
+  "callees:scripts/prepare_release.py:158": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "scripts/prepare_release.py",
+     "current_version"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "scripts/prepare_release.py",
+     157,
+     157
+    ],
+    [
+     "scripts/prepare_release.py",
+     161,
+     161
+    ],
+    [
+     "scripts/prepare_release.py",
+     171,
+     171
+    ],
+    [
+     "scripts/prepare_release.py",
+     171,
+     171
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "scripts/prepare_release.py",
+     "current_version"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "scripts/prepare_release.py",
+     171,
+     171,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "scripts/prepare_release.py",
+     161,
+     161,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "scripts/prepare_release.py",
+     161,
+     161,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "scripts/prepare_release.py",
+     161,
+     161,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "scripts/prepare_release.py",
+     161,
+     161,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "scripts/prepare_release.py",
+     161,
+     161,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ]
+   ],
+   "seed_def": "scripts/prepare_release.py:158",
+   "stratum": "U-free"
+  },
+  "callees:scripts/prepare_release.py:19": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "scripts/prepare_release.py",
+     "parse_version"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "scripts/prepare_release.py:19",
+   "stratum": "U-free"
+  },
+  "callees:scripts/prepare_release.py:46": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "scripts/prepare_release.py",
+     "update_version_file"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "scripts/prepare_release.py",
+     47,
+     47
+    ],
+    [
+     "scripts/prepare_release.py",
+     48,
+     48
+    ],
+    [
+     "scripts/prepare_release.py",
+     48,
+     48
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "scripts/prepare_release.py",
+     "update_version_file"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "scripts/prepare_release.py",
+     48,
+     48,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "scripts/prepare_release.py",
+     48,
+     48,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "scripts/prepare_release.py",
+     47,
+     47,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "scripts/prepare_release.py:46",
+   "stratum": "U-free"
+  },
+  "callees:scripts/prepare_release.py:55": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "scripts/prepare_release.py",
+     "update_release_notes"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "scripts/prepare_release.py:55",
+   "stratum": "U-free"
+  },
+  "callees:typer/_click/_compat.py:152": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "typer/_click/_compat.py",
+     "_find_binary_writer"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "typer/_click/_compat.py",
+     157,
+     157
+    ],
+    [
+     "typer/_click/_compat.py",
+     164,
+     164
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "typer/_click/_compat.py",
+     "_find_binary_writer"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "typer/_click/_compat.py",
+     157,
+     157,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "typer/_click/_compat.py",
+     164,
+     164,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "typer/_click/_compat.py:152",
+   "stratum": "Q-scoped"
+  },
+  "callees:typer/_click/_compat.py:170": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "typer/_click/_compat.py",
+     "_stream_is_misconfigured"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "typer/_click/_compat.py",
+     176,
+     176
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "typer/_click/_compat.py",
+     "_stream_is_misconfigured"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "typer/_click/_compat.py",
+     176,
+     176,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "typer/_click/_compat.py:170",
+   "stratum": "Q-scoped"
+  },
+  "callees:typer/_click/_compat.py:179": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "typer/_click/_compat.py",
+     "_is_compat_stream_attr"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "typer/_click/_compat.py:179",
+   "stratum": "Q-scoped"
+  },
+  "callees:typer/_click/_compat.py:451": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "typer/_click/_compat.py",
+     "should_strip_ansi"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "typer/_click/_compat.py",
+     455,
+     455
+    ],
+    [
+     "typer/_click/_compat.py",
+     455,
+     455
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "typer/_click/_compat.py",
+     "should_strip_ansi"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "typer/_click/_compat.py",
+     455,
+     455,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "typer/_click/_compat.py",
+     455,
+     455,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "typer/_click/_compat.py:451",
+   "stratum": "C-name"
+  },
+  "callees:typer/_click/_compat.py:472": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "typer/_click/_compat.py",
+     "auto_wrap_for_ansi"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "typer/_click/_compat.py",
+     486,
+     486
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "typer/_click/_compat.py",
+     "_safe_write"
+    ],
+    [
+     "typer/_click/_compat.py",
+     "auto_wrap_for_ansi"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "typer/_click/_compat.py",
+     486,
+     486,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "typer/_click/_compat.py:472",
+   "stratum": "Q-scoped"
+  },
+  "callees:typer/_click/core.py:332": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "typer/_click/core.py",
+     "with_resource"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "typer/_click/core.py:332",
+   "stratum": "U-method"
+  },
+  "callees:typer/_click/core.py:381": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "typer/_click/core.py",
+     "command_path"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "typer/_click/core.py",
+     390,
+     390
+    ],
+    [
+     "typer/_click/core.py",
+     393,
+     393
+    ],
+    [
+     "typer/_click/core.py",
+     394,
+     394
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "typer/_click/core.py",
+     "command_path"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "typer/_click/core.py",
+     393,
+     393,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "typer/_click/core.py",
+     394,
+     394,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "typer/_click/core.py:381",
+   "stratum": "U-method"
+  },
+  "callees:typer/_click/core.py:624": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "typer/_click/core.py",
+     "get_help"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "typer/_click/core.py",
+     626,
+     626
+    ],
+    [
+     "typer/_click/core.py",
+     627,
+     627
+    ],
+    [
+     "typer/_click/core.py",
+     628,
+     628
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "typer/_click/core.py",
+     "get_help"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "typer/_click/core.py",
+     627,
+     627,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "typer/_click/core.py",
+     626,
+     626,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "typer/_click/core.py",
+     628,
+     628,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "typer/_click/core.py:624",
+   "stratum": "C-method"
+  },
+  "callees:typer/_click/exceptions.py:181": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "typer/_click/exceptions.py",
+     "__init__"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "typer/_click/exceptions.py",
+     191,
+     191
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "typer/_click/exceptions.py",
+     "__init__"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "typer/_click/exceptions.py:181",
+   "stratum": "C-method"
+  },
+  "callees:typer/_click/exceptions.py:89": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "typer/_click/exceptions.py",
+     "__init__"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "typer/_click/exceptions.py",
+     96,
+     96
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "typer/_click/exceptions.py",
+     "__init__"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "typer/_click/exceptions.py:89",
+   "stratum": "C-method"
+  },
+  "callees:typer/_click/formatting.py:100": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "typer/_click/formatting.py",
+     "__init__"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "typer/_click/formatting.py:100",
+   "stratum": "C-method"
+  },
+  "callees:typer/_click/formatting.py:163": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "typer/_click/formatting.py",
+     "write_heading"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "typer/_click/formatting.py",
+     165,
+     165
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "typer/_click/formatting.py",
+     "write_heading"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "typer/_click/formatting.py",
+     165,
+     165,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ]
+   ],
+   "seed_def": "typer/_click/formatting.py:163",
+   "stratum": "U-method"
+  },
+  "callees:typer/_click/shell_completion.py:140": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "typer/_click/shell_completion.py",
+     "get_completion_class"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "typer/_click/shell_completion.py:140",
+   "stratum": "Q-scoped"
+  },
+  "callees:typer/_click/shell_completion.py:205": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "typer/_click/shell_completion.py",
+     "_is_incomplete_option"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "typer/_click/shell_completion.py",
+     222,
+     222
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "typer/_click/shell_completion.py",
+     "_is_incomplete_option"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "typer/_click/shell_completion.py",
+     222,
+     222,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "typer/_click/shell_completion.py:205",
+   "stratum": "Q-scoped"
+  },
+  "callees:typer/_click/shell_completion.py:68": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "typer/_click/shell_completion.py",
+     "func_name"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "typer/_click/shell_completion.py:68",
+   "stratum": "U-method"
+  },
+  "callees:typer/_click/types.py:86": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "typer/_click/types.py",
+     "split_envvar_value"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "typer/_click/types.py:86",
+   "stratum": "U-method"
+  },
+  "callees:typer/core.py:1043": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "typer/core.py",
+     "collect_usage_pieces"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "typer/core.py",
+     1044,
+     1044
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "typer/core.py",
+     "collect_usage_pieces"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "typer/core.py",
+     1044,
+     1044,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "typer/core.py:1043",
+   "stratum": "C-method"
+  },
+  "callees:typer/core.py:327": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "typer/core.py",
+     "get_help_record"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "typer/core.py",
+     332,
+     332
+    ],
+    [
+     "typer/core.py",
+     348,
+     348
+    ],
+    [
+     "typer/core.py",
+     358,
+     358
+    ],
+    [
+     "typer/core.py",
+     378,
+     378
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "typer/core.py",
+     "get_help_record"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "typer/core.py",
+     358,
+     358,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "typer/core.py",
+     348,
+     348,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "typer/core.py",
+     332,
+     332,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ]
+   ],
+   "seed_def": "typer/core.py:327",
+   "stratum": "C-method"
+  },
+  "callees:typer/core.py:35": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "typer/core.py",
+     "_split_opt"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "typer/core.py:35",
+   "stratum": "C-name"
+  },
+  "callees:typer/core.py:623": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "typer/core.py",
+     "prompt_for_value"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "typer/core.py",
+     633,
+     633
+    ],
+    [
+     "typer/core.py",
+     633,
+     633
+    ],
+    [
+     "typer/core.py",
+     633,
+     633
+    ],
+    [
+     "typer/core.py",
+     648,
+     648
+    ],
+    [
+     "typer/core.py",
+     656,
+     656
+    ],
+    [
+     "typer/core.py",
+     665,
+     665
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "typer/core.py",
+     "prompt_for_value"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "typer/core.py:623",
+   "stratum": "U-method"
+  },
+  "callees:typer/core.py:84": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "typer/core.py",
+     "_get_default_string"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "typer/core.py",
+     97,
+     97
+    ],
+    [
+     "typer/core.py",
+     115,
+     115
+    ],
+    [
+     "typer/core.py",
+     119,
+     119
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "typer/core.py",
+     "_get_default_string"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "typer/core.py",
+     115,
+     115,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "typer/core.py",
+     119,
+     119,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "typer/core.py",
+     97,
+     97,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "typer/core.py:84",
+   "stratum": "C-name"
+  },
+  "callees:typer/main.py:1383": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "typer/main.py",
+     "get_command_from_info"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "typer/main.py",
+     1390,
+     1390
+    ],
+    [
+     "typer/main.py",
+     1400,
+     1400
+    ],
+    [
+     "typer/main.py",
+     1405,
+     1405
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "typer/main.py",
+     "get_command_from_info"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "typer/main.py",
+     1390,
+     1390,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "typer/main.py",
+     1400,
+     1400,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "typer/main.py",
+     1405,
+     1405,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "typer/main.py:1383",
+   "stratum": "Q-scoped"
+  },
+  "callees:typer/main.py:1461": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "typer/main.py",
+     "internal_convertor"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "typer/main.py",
+     1464,
+     1464,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "typer/main.py:1461",
+   "stratum": "C-name"
+  },
+  "callees:typer/main.py:890": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "typer/main.py",
+     "decorator"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "typer/main.py",
+     892,
+     892
+    ],
+    [
+     "typer/main.py",
+     901,
+     901
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "typer/main.py",
+     "decorator"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "typer/main.py:890",
+   "stratum": "C-name"
+  },
+  "callees:typer/main.py:915": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "typer/main.py",
+     "add_typer"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "typer/main.py",
+     928,
+     928
+    ],
+    [
+     "typer/main.py",
+     937,
+     937
+    ],
+    [
+     "typer/main.py",
+     945,
+     945
+    ],
+    [
+     "typer/main.py",
+     953,
+     953
+    ],
+    [
+     "typer/main.py",
+     966,
+     966
+    ],
+    [
+     "typer/main.py",
+     979,
+     979
+    ],
+    [
+     "typer/main.py",
+     992,
+     992
+    ],
+    [
+     "typer/main.py",
+     1002,
+     1002
+    ],
+    [
+     "typer/main.py",
+     1011,
+     1011
+    ],
+    [
+     "typer/main.py",
+     1021,
+     1021
+    ],
+    [
+     "typer/main.py",
+     1029,
+     1029
+    ],
+    [
+     "typer/main.py",
+     1038,
+     1038
+    ],
+    [
+     "typer/main.py",
+     1047,
+     1047
+    ],
+    [
+     "typer/main.py",
+     1060,
+     1060
+    ],
+    [
+     "typer/main.py",
+     1068,
+     1068
+    ],
+    [
+     "typer/main.py",
+     1085,
+     1085
+    ],
+    [
+     "typer/main.py",
+     1109,
+     1109
+    ],
+    [
+     "typer/main.py",
+     1124,
+     1124
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "typer/main.py",
+     "add_typer"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "typer/main.py",
+     1124,
+     1124,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "typer/main.py",
+     928,
+     928,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "typer/main.py",
+     937,
+     937,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "typer/main.py",
+     945,
+     945,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "typer/main.py",
+     953,
+     953,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "typer/main.py",
+     966,
+     966,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "typer/main.py",
+     979,
+     979,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "typer/main.py",
+     992,
+     992,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "typer/main.py",
+     1002,
+     1002,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "typer/main.py",
+     1011,
+     1011,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "typer/main.py",
+     1021,
+     1021,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "typer/main.py",
+     1029,
+     1029,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "typer/main.py",
+     1038,
+     1038,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "typer/main.py",
+     1047,
+     1047,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "typer/main.py",
+     1060,
+     1060,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "typer/main.py",
+     1068,
+     1068,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "typer/main.py",
+     1085,
+     1085,
+     {
+      "resolution_kind": "free_single"
+     }
+    ]
+   ],
+   "seed_def": "typer/main.py:915",
+   "stratum": "U-method"
+  },
+  "callees:typer/models.py:181": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "typer/models.py",
+     "__bool__"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "typer/models.py:181",
+   "stratum": "U-method"
+  },
+  "callees:typer/rich_utils.py:351": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "typer/rich_utils.py",
+     "_print_options_panel"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "typer/rich_utils.py",
+     380,
+     380
+    ],
+    [
+     "typer/rich_utils.py",
+     380,
+     380
+    ],
+    [
+     "typer/rich_utils.py",
+     401,
+     401
+    ],
+    [
+     "typer/rich_utils.py",
+     418,
+     418
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "typer/rich_utils.py",
+     "_print_options_panel"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "typer/rich_utils.py",
+     418,
+     418,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "typer/rich_utils.py",
+     401,
+     401,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "typer/rich_utils.py:351",
+   "stratum": "Q-scoped"
+  },
+  "callers:scripts/docs.py:124": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "scripts/docs.py",
+     "generate_docs_src_versions"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "scripts/docs.py",
+     191,
+     191
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "scripts/docs.py",
+     "generate_docs_src_versions"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "scripts/docs.py",
+     191,
+     191,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "scripts/docs.py",
+     191,
+     191,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "scripts/docs.py:124",
+   "stratum": "U-free"
+  },
+  "callers:scripts/docs.py:27": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "scripts/docs.py",
+     "generate_readme"
+    ],
+    [
+     "scripts/docs.py",
+     "verify_readme"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "scripts/docs.py",
+     52,
+     52
+    ],
+    [
+     "scripts/docs.py",
+     63,
+     63
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "scripts/docs.py",
+     "generate_readme"
+    ],
+    [
+     "scripts/docs.py",
+     "verify_readme"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "scripts/docs.py",
+     52,
+     52,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "scripts/docs.py",
+     52,
+     52,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "scripts/docs.py",
+     63,
+     63,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "scripts/docs.py",
+     63,
+     63,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "scripts/docs.py:27",
+   "stratum": "U-free"
+  },
+  "callers:scripts/prepare_release.py:19": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "scripts/prepare_release.py",
+     "bump_version"
+    ],
+    [
+     "scripts/prepare_release.py",
+     "update_version_file"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "scripts/prepare_release.py",
+     38,
+     38
+    ],
+    [
+     "scripts/prepare_release.py",
+     48,
+     48
+    ],
+    [
+     "scripts/prepare_release.py",
+     48,
+     48
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "scripts/prepare_release.py",
+     "bump_version"
+    ],
+    [
+     "scripts/prepare_release.py",
+     "update_version_file"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "scripts/prepare_release.py",
+     38,
+     38,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "scripts/prepare_release.py",
+     48,
+     48,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "scripts/prepare_release.py",
+     48,
+     48,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "scripts/prepare_release.py:19",
+   "stratum": "U-free"
+  },
+  "callers:scripts/prepare_release.py:46": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "scripts/prepare_release.py",
+     "prepare"
+    ],
+    [
+     "tests/test_prepare_release.py",
+     "<module_level>"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "scripts/prepare_release.py",
+     146,
+     146
+    ],
+    [
+     "tests/test_prepare_release.py",
+     34,
+     34
+    ],
+    [
+     "tests/test_prepare_release.py",
+     43,
+     43
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "scripts/prepare_release.py",
+     "prepare"
+    ],
+    [
+     "tests/test_prepare_release.py",
+     "<module_level>"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "scripts/prepare_release.py",
+     146,
+     146,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "scripts/prepare_release.py",
+     146,
+     146,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "tests/test_prepare_release.py",
+     34,
+     34,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "tests/test_prepare_release.py",
+     43,
+     43,
+     {
+      "resolution_kind": "free_single"
+     }
+    ]
+   ],
+   "seed_def": "scripts/prepare_release.py:46",
+   "stratum": "U-free"
+  },
+  "callers:scripts/prepare_release.py:55": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "scripts/prepare_release.py",
+     "prepare"
+    ],
+    [
+     "tests/test_prepare_release.py",
+     "<module_level>"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "scripts/prepare_release.py",
+     149,
+     149
+    ],
+    [
+     "tests/test_prepare_release.py",
+     62,
+     62
+    ],
+    [
+     "tests/test_prepare_release.py",
+     96,
+     96
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "scripts/prepare_release.py",
+     "prepare"
+    ],
+    [
+     "tests/test_prepare_release.py",
+     "<module_level>"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "scripts/prepare_release.py",
+     149,
+     149,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "scripts/prepare_release.py",
+     149,
+     149,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "tests/test_prepare_release.py",
+     62,
+     62,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "tests/test_prepare_release.py",
+     96,
+     96,
+     {
+      "resolution_kind": "free_single"
+     }
+    ]
+   ],
+   "seed_def": "scripts/prepare_release.py:55",
+   "stratum": "U-free"
+  },
+  "callers:typer/_click/_compat.py:152": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "typer/_click/_compat.py",
+     "get_binary_stderr"
+    ],
+    [
+     "typer/_click/_compat.py",
+     "get_binary_stdout"
+    ],
+    [
+     "typer/_click/utils.py",
+     "echo"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "typer/_click/_compat.py",
+     277,
+     277
+    ],
+    [
+     "typer/_click/_compat.py",
+     284,
+     284
+    ],
+    [
+     "typer/_click/utils.py",
+     247,
+     247
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "typer/_click/_compat.py",
+     "_force_correct_text_stream"
+    ],
+    [
+     "typer/_click/_compat.py",
+     "get_binary_stderr"
+    ],
+    [
+     "typer/_click/_compat.py",
+     "get_binary_stdout"
+    ],
+    [
+     "typer/_click/utils.py",
+     "echo"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "typer/_click/_compat.py",
+     218,
+     218,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "typer/_click/_compat.py",
+     277,
+     277,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "typer/_click/_compat.py",
+     284,
+     284,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "typer/_click/utils.py",
+     247,
+     247,
+     {
+      "resolution_kind": "free_single"
+     }
+    ]
+   ],
+   "seed_def": "typer/_click/_compat.py:152",
+   "stratum": "Q-scoped"
+  },
+  "callers:typer/_click/_compat.py:170": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "typer/_click/_compat.py",
+     "_force_correct_text_stream"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "typer/_click/_compat.py",
+     213,
+     213
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "typer/_click/_compat.py",
+     "_force_correct_text_stream"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "typer/_click/_compat.py",
+     213,
+     213,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "typer/_click/_compat.py:170",
+   "stratum": "Q-scoped"
+  },
+  "callers:typer/_click/_compat.py:179": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "typer/_click/_compat.py",
+     "_is_compatible_text_stream"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "typer/_click/_compat.py",
+     194,
+     194
+    ],
+    [
+     "typer/_click/_compat.py",
+     196,
+     196
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "typer/_click/_compat.py",
+     "_is_compatible_text_stream"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "typer/_click/_compat.py",
+     194,
+     194,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "typer/_click/_compat.py",
+     196,
+     196,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "typer/_click/_compat.py:179",
+   "stratum": "Q-scoped"
+  },
+  "callers:typer/_click/_compat.py:451": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "tests/test_types_file.py",
+     "<module_level>"
+    ],
+    [
+     "typer/_click/_compat.py",
+     "auto_wrap_for_ansi"
+    ],
+    [
+     "typer/_click/utils.py",
+     "echo"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tests/test_types_file.py",
+     374,
+     374
+    ],
+    [
+     "tests/test_types_file.py",
+     384,
+     384
+    ],
+    [
+     "tests/test_types_file.py",
+     385,
+     385
+    ],
+    [
+     "tests/test_types_file.py",
+     386,
+     386
+    ],
+    [
+     "typer/_click/_compat.py",
+     486,
+     486
+    ],
+    [
+     "typer/_click/utils.py",
+     260,
+     260
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tests/test_types_file.py",
+     "<module_level>"
+    ],
+    [
+     "typer/_click/_compat.py",
+     "auto_wrap_for_ansi"
+    ],
+    [
+     "typer/_click/utils.py",
+     "echo"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "typer/_click/_compat.py",
+     486,
+     486,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "tests/test_types_file.py",
+     374,
+     374,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "tests/test_types_file.py",
+     384,
+     384,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "tests/test_types_file.py",
+     385,
+     385,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "tests/test_types_file.py",
+     386,
+     386,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "typer/_click/utils.py",
+     260,
+     260,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ]
+   ],
+   "seed_def": "typer/_click/_compat.py:451",
+   "stratum": "C-name"
+  },
+  "callers:typer/_click/_compat.py:472": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "typer/_click/utils.py",
+     "echo"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "typer/_click/utils.py",
+     264,
+     264
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "typer/_click/utils.py",
+     "echo"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "typer/_click/utils.py",
+     264,
+     264,
+     {
+      "resolution_kind": "free_single"
+     }
+    ]
+   ],
+   "seed_def": "typer/_click/_compat.py:472",
+   "stratum": "Q-scoped"
+  },
+  "callers:typer/_click/core.py:332": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "tests/test_core.py",
+     "<module_level>"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tests/test_core.py",
+     241,
+     241
+    ],
+    [
+     "tests/test_core.py",
+     241,
+     241
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tests/test_core.py",
+     "<module_level>"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "tests/test_core.py",
+     241,
+     241,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "tests/test_core.py",
+     241,
+     241,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "tests/test_core.py",
+     241,
+     241,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "typer/_click/core.py:332",
+   "stratum": "U-method"
+  },
+  "callers:typer/_click/core.py:381": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "typer/_click/core.py",
+     "command_path"
+    ],
+    [
+     "typer/_click/core.py",
+     "format_usage"
+    ],
+    [
+     "typer/_click/exceptions.py",
+     "show"
+    ],
+    [
+     "typer/rich_utils.py",
+     "rich_format_error"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "typer/rich_utils.py",
+     698,
+     698
+    ],
+    [
+     "typer/_click/core.py",
+     390,
+     390
+    ],
+    [
+     "typer/_click/core.py",
+     575,
+     575
+    ],
+    [
+     "typer/_click/exceptions.py",
+     69,
+     69
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "typer/_click/core.py:381",
+   "stratum": "U-method"
+  },
+  "callers:typer/_click/core.py:624": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "typer/_click/core.py",
+     "get_help"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "typer/_click/core.py",
+     472,
+     472
+    ],
+    [
+     "typer/_click/core.py",
+     472,
+     472
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "typer/_click/core.py:624",
+   "stratum": "C-method"
+  },
+  "callers:typer/_click/core.py:797": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "typer/core.py",
+     "_main"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "typer/core.py",
+     178,
+     178
+    ],
+    [
+     "typer/core.py",
+     178,
+     178
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "typer/_click/core.py:797",
+   "stratum": "C-method"
+  },
+  "callers:typer/_click/exceptions.py:89": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "typer/_click/exceptions.py",
+     "__init__"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "typer/_click/exceptions.py",
+     125,
+     125
+    ],
+    [
+     "typer/_click/exceptions.py",
+     125,
+     125
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "typer/_click/exceptions.py:89",
+   "stratum": "C-method"
+  },
+  "callers:typer/_click/formatting.py:163": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "typer/_click/formatting.py",
+     "section"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "typer/_click/formatting.py",
+     233,
+     233
+    ],
+    [
+     "typer/_click/formatting.py",
+     233,
+     233
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "typer/_click/formatting.py",
+     "section"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "typer/_click/formatting.py",
+     233,
+     233,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "typer/_click/formatting.py",
+     233,
+     233,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ]
+   ],
+   "seed_def": "typer/_click/formatting.py:163",
+   "stratum": "U-method"
+  },
+  "callers:typer/_click/shell_completion.py:140": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "typer/completion.py",
+     "shell_complete"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "typer/completion.py",
+     126,
+     126
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "typer/_click/shell_completion.py:140",
+   "stratum": "Q-scoped"
+  },
+  "callers:typer/_click/shell_completion.py:205": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "typer/_click/shell_completion.py",
+     "_resolve_incomplete"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "typer/_click/shell_completion.py",
+     295,
+     295
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "typer/_click/shell_completion.py",
+     "_resolve_incomplete"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "typer/_click/shell_completion.py",
+     295,
+     295,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "typer/_click/shell_completion.py:205",
+   "stratum": "Q-scoped"
+  },
+  "callers:typer/_click/shell_completion.py:68": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "typer/_completion_classes.py",
+     "source_vars"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "typer/_completion_classes.py",
+     34,
+     34
+    ],
+    [
+     "typer/_completion_classes.py",
+     104,
+     104
+    ],
+    [
+     "typer/_completion_classes.py",
+     155,
+     155
+    ],
+    [
+     "typer/_completion_classes.py",
+     208,
+     208
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "typer/_click/shell_completion.py:68",
+   "stratum": "U-method"
+  },
+  "callers:typer/_click/types.py:86": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "typer/_click/core.py",
+     "value_from_envvar"
+    ],
+    [
+     "typer/core.py",
+     "value_from_envvar"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "typer/core.py",
+     678,
+     678
+    ],
+    [
+     "typer/core.py",
+     678,
+     678
+    ],
+    [
+     "typer/_click/core.py",
+     1048,
+     1048
+    ],
+    [
+     "typer/_click/core.py",
+     1048,
+     1048
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "typer/_click/core.py",
+     "value_from_envvar"
+    ],
+    [
+     "typer/core.py",
+     "value_from_envvar"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "typer/_click/core.py",
+     1048,
+     1048,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "typer/core.py",
+     678,
+     678,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "typer/_click/types.py:86",
+   "stratum": "U-method"
+  },
+  "callers:typer/core.py:35": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "tests/test_core.py",
+     "<module_level>"
+    ],
+    [
+     "typer/core.py",
+     "_click_resolve_command"
+    ],
+    [
+     "typer/core.py",
+     "_get_default_string"
+    ],
+    [
+     "typer/core.py",
+     "_parse_decls"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tests/test_core.py",
+     365,
+     365
+    ],
+    [
+     "typer/core.py",
+     115,
+     115
+    ],
+    [
+     "typer/core.py",
+     119,
+     119
+    ],
+    [
+     "typer/core.py",
+     562,
+     562
+    ],
+    [
+     "typer/core.py",
+     573,
+     573
+    ],
+    [
+     "typer/core.py",
+     1162,
+     1162
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tests/test_core.py",
+     "<module_level>"
+    ],
+    [
+     "typer/_click/formatting.py",
+     "join_options"
+    ],
+    [
+     "typer/core.py",
+     "_click_resolve_command"
+    ],
+    [
+     "typer/core.py",
+     "_get_default_string"
+    ],
+    [
+     "typer/core.py",
+     "_parse_decls"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "typer/core.py",
+     115,
+     115,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "typer/core.py",
+     119,
+     119,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "typer/core.py",
+     562,
+     562,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "typer/core.py",
+     573,
+     573,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "typer/core.py",
+     1162,
+     1162,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "tests/test_core.py",
+     365,
+     365,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "tests/test_core.py",
+     365,
+     365,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "typer/_click/formatting.py",
+     264,
+     264,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ]
+   ],
+   "seed_def": "typer/core.py:35",
+   "stratum": "C-name"
+  },
+  "callers:typer/core.py:623": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "typer/core.py",
+     "consume_value"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "typer/core.py",
+     721,
+     721
+    ],
+    [
+     "typer/core.py",
+     721,
+     721
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "typer/core.py",
+     "consume_value"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "typer/core.py",
+     721,
+     721,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ]
+   ],
+   "seed_def": "typer/core.py:623",
+   "stratum": "U-method"
+  },
+  "callers:typer/core.py:84": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "typer/core.py",
+     "_get_default_string"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "typer/core.py",
+     97,
+     97
+    ],
+    [
+     "typer/core.py",
+     315,
+     315
+    ],
+    [
+     "typer/core.py",
+     733,
+     733
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "typer/core.py",
+     "_get_default_string"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "typer/core.py",
+     97,
+     97,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "typer/core.py",
+     315,
+     315,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "typer/core.py",
+     733,
+     733,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "typer/core.py:84",
+   "stratum": "C-name"
+  },
+  "callers:typer/main.py:1383": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "typer/main.py",
+     "get_command"
+    ],
+    [
+     "typer/main.py",
+     "get_group_from_info"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "typer/main.py",
+     1197,
+     1197
+    ],
+    [
+     "typer/main.py",
+     1295,
+     1295
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "typer/main.py",
+     "get_command"
+    ],
+    [
+     "typer/main.py",
+     "get_group_from_info"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "typer/main.py",
+     1197,
+     1197,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "typer/main.py",
+     1295,
+     1295,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "typer/main.py:1383",
+   "stratum": "Q-scoped"
+  },
+  "callers:typer/main.py:915": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "docs_src/one_file_per_command/app_py310/main.py",
+     "<module_level>"
+    ],
+    [
+     "docs_src/one_file_per_command/app_py310/users/__init__.py",
+     "<module_level>"
+    ],
+    [
+     "docs_src/subcommands/callback_override/tutorial001_py310.py",
+     "<module_level>"
+    ],
+    [
+     "docs_src/subcommands/callback_override/tutorial002_py310.py",
+     "<module_level>"
+    ],
+    [
+     "docs_src/subcommands/callback_override/tutorial003_py310.py",
+     "<module_level>"
+    ],
+    [
+     "docs_src/subcommands/callback_override/tutorial004_py310.py",
+     "<module_level>"
+    ],
+    [
+     "docs_src/subcommands/name_help/tutorial001_py310.py",
+     "<module_level>"
+    ],
+    [
+     "docs_src/subcommands/name_help/tutorial002_py310.py",
+     "<module_level>"
+    ],
+    [
+     "docs_src/subcommands/name_help/tutorial003_py310.py",
+     "<module_level>"
+    ],
+    [
+     "docs_src/subcommands/name_help/tutorial004_py310.py",
+     "<module_level>"
+    ],
+    [
+     "docs_src/subcommands/name_help/tutorial005_py310.py",
+     "<module_level>"
+    ],
+    [
+     "docs_src/subcommands/name_help/tutorial006_py310.py",
+     "<module_level>"
+    ],
+    [
+     "docs_src/subcommands/name_help/tutorial007_py310.py",
+     "<module_level>"
+    ],
+    [
+     "docs_src/subcommands/name_help/tutorial008_py310.py",
+     "<module_level>"
+    ],
+    [
+     "docs_src/subcommands/tutorial001_py310/main.py",
+     "<module_level>"
+    ],
+    [
+     "docs_src/subcommands/tutorial002_py310/main.py",
+     "<module_level>"
+    ],
+    [
+     "docs_src/subcommands/tutorial003_py310/lands.py",
+     "<module_level>"
+    ],
+    [
+     "docs_src/subcommands/tutorial003_py310/main.py",
+     "<module_level>"
+    ],
+    [
+     "tests/assets/cli/extended_app_cli.py",
+     "<module_level>"
+    ],
+    [
+     "tests/assets/cli/extended_empty_app_cli.py",
+     "<module_level>"
+    ],
+    [
+     "tests/assets/cli/multi_app.py",
+     "<module_level>"
+    ],
+    [
+     "tests/assets/cli/multi_app_cli.py",
+     "<module_level>"
+    ],
+    [
+     "tests/assets/cli/multi_app_norich.py",
+     "<module_level>"
+    ],
+    [
+     "tests/assets/hidden_commands.py",
+     "<module_level>"
+    ],
+    [
+     "tests/test_callback_warning.py",
+     "<module_level>"
+    ],
+    [
+     "tests/test_core.py",
+     "<module_level>"
+    ],
+    [
+     "typer/cli.py",
+     "<module_level>"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "docs_src/one_file_per_command/app_py310/main.py",
+     8,
+     8
+    ],
+    [
+     "docs_src/one_file_per_command/app_py310/main.py",
+     8,
+     8
+    ],
+    [
+     "docs_src/one_file_per_command/app_py310/main.py",
+     9,
+     9
+    ],
+    [
+     "docs_src/one_file_per_command/app_py310/main.py",
+     9,
+     9
+    ],
+    [
+     "docs_src/one_file_per_command/app_py310/users/__init__.py",
+     8,
+     8
+    ],
+    [
+     "docs_src/one_file_per_command/app_py310/users/__init__.py",
+     8,
+     8
+    ],
+    [
+     "docs_src/one_file_per_command/app_py310/users/__init__.py",
+     9,
+     9
+    ],
+    [
+     "docs_src/one_file_per_command/app_py310/users/__init__.py",
+     9,
+     9
+    ],
+    [
+     "docs_src/subcommands/callback_override/tutorial001_py310.py",
+     6,
+     6
+    ],
+    [
+     "docs_src/subcommands/callback_override/tutorial001_py310.py",
+     6,
+     6
+    ],
+    [
+     "docs_src/subcommands/callback_override/tutorial002_py310.py",
+     11,
+     11
+    ],
+    [
+     "docs_src/subcommands/callback_override/tutorial002_py310.py",
+     11,
+     11
+    ],
+    [
+     "docs_src/subcommands/callback_override/tutorial003_py310.py",
+     11,
+     11
+    ],
+    [
+     "docs_src/subcommands/callback_override/tutorial003_py310.py",
+     11,
+     11
+    ],
+    [
+     "docs_src/subcommands/callback_override/tutorial004_py310.py",
+     17,
+     17
+    ],
+    [
+     "docs_src/subcommands/callback_override/tutorial004_py310.py",
+     17,
+     17
+    ],
+    [
+     "docs_src/subcommands/name_help/tutorial001_py310.py",
+     6,
+     6
+    ],
+    [
+     "docs_src/subcommands/name_help/tutorial001_py310.py",
+     6,
+     6
+    ],
+    [
+     "docs_src/subcommands/name_help/tutorial002_py310.py",
+     6,
+     6
+    ],
+    [
+     "docs_src/subcommands/name_help/tutorial002_py310.py",
+     6,
+     6
+    ],
+    [
+     "docs_src/subcommands/name_help/tutorial003_py310.py",
+     13,
+     13
+    ],
+    [
+     "docs_src/subcommands/name_help/tutorial003_py310.py",
+     13,
+     13
+    ],
+    [
+     "docs_src/subcommands/name_help/tutorial004_py310.py",
+     13,
+     13
+    ],
+    [
+     "docs_src/subcommands/name_help/tutorial004_py310.py",
+     13,
+     13
+    ],
+    [
+     "docs_src/subcommands/name_help/tutorial005_py310.py",
+     21,
+     21
+    ],
+    [
+     "docs_src/subcommands/name_help/tutorial005_py310.py",
+     21,
+     21
+    ],
+    [
+     "docs_src/subcommands/name_help/tutorial006_py310.py",
+     21,
+     21
+    ],
+    [
+     "docs_src/subcommands/name_help/tutorial006_py310.py",
+     21,
+     21
+    ],
+    [
+     "docs_src/subcommands/name_help/tutorial007_py310.py",
+     21,
+     21
+    ],
+    [
+     "docs_src/subcommands/name_help/tutorial007_py310.py",
+     21,
+     21
+    ],
+    [
+     "docs_src/subcommands/name_help/tutorial008_py310.py",
+     21,
+     21
+    ],
+    [
+     "docs_src/subcommands/name_help/tutorial008_py310.py",
+     21,
+     21
+    ],
+    [
+     "docs_src/subcommands/tutorial001_py310/main.py",
+     7,
+     7
+    ],
+    [
+     "docs_src/subcommands/tutorial001_py310/main.py",
+     7,
+     7
+    ],
+    [
+     "docs_src/subcommands/tutorial001_py310/main.py",
+     8,
+     8
+    ],
+    [
+     "docs_src/subcommands/tutorial001_py310/main.py",
+     8,
+     8
+    ],
+    [
+     "docs_src/subcommands/tutorial002_py310/main.py",
+     5,
+     5
+    ],
+    [
+     "docs_src/subcommands/tutorial002_py310/main.py",
+     5,
+     5
+    ],
+    [
+     "docs_src/subcommands/tutorial002_py310/main.py",
+     7,
+     7
+    ],
+    [
+     "docs_src/subcommands/tutorial002_py310/main.py",
+     7,
+     7
+    ],
+    [
+     "docs_src/subcommands/tutorial003_py310/lands.py",
+     7,
+     7
+    ],
+    [
+     "docs_src/subcommands/tutorial003_py310/lands.py",
+     7,
+     7
+    ],
+    [
+     "docs_src/subcommands/tutorial003_py310/lands.py",
+     8,
+     8
+    ],
+    [
+     "docs_src/subcommands/tutorial003_py310/lands.py",
+     8,
+     8
+    ],
+    [
+     "docs_src/subcommands/tutorial003_py310/main.py",
+     8,
+     8
+    ],
+    [
+     "docs_src/subcommands/tutorial003_py310/main.py",
+     8,
+     8
+    ],
+    [
+     "docs_src/subcommands/tutorial003_py310/main.py",
+     9,
+     9
+    ],
+    [
+     "docs_src/subcommands/tutorial003_py310/main.py",
+     9,
+     9
+    ],
+    [
+     "docs_src/subcommands/tutorial003_py310/main.py",
+     10,
+     10
+    ],
+    [
+     "docs_src/subcommands/tutorial003_py310/main.py",
+     10,
+     10
+    ],
+    [
+     "tests/test_callback_warning.py",
+     17,
+     17
+    ],
+    [
+     "tests/test_callback_warning.py",
+     17,
+     17
+    ],
+    [
+     "tests/test_callback_warning.py",
+     32,
+     32
+    ],
+    [
+     "tests/test_callback_warning.py",
+     32,
+     32
+    ],
+    [
+     "tests/test_core.py",
+     219,
+     219
+    ],
+    [
+     "tests/test_core.py",
+     219,
+     219
+    ],
+    [
+     "tests/test_core.py",
+     264,
+     264
+    ],
+    [
+     "tests/test_core.py",
+     264,
+     264
+    ],
+    [
+     "tests/assets/hidden_commands.py",
+     30,
+     30
+    ],
+    [
+     "tests/assets/hidden_commands.py",
+     30,
+     30
+    ],
+    [
+     "tests/assets/cli/extended_app_cli.py",
+     12,
+     12
+    ],
+    [
+     "tests/assets/cli/extended_app_cli.py",
+     12,
+     12
+    ],
+    [
+     "tests/assets/cli/extended_app_cli.py",
+     26,
+     26
+    ],
+    [
+     "tests/assets/cli/extended_app_cli.py",
+     26,
+     26
+    ],
+    [
+     "tests/assets/cli/extended_empty_app_cli.py",
+     5,
+     5
+    ],
+    [
+     "tests/assets/cli/extended_empty_app_cli.py",
+     5,
+     5
+    ],
+    [
+     "tests/assets/cli/multi_app.py",
+     32,
+     32
+    ],
+    [
+     "tests/assets/cli/multi_app.py",
+     32,
+     32
+    ],
+    [
+     "tests/assets/cli/multi_app_cli.py",
+     17,
+     17
+    ],
+    [
+     "tests/assets/cli/multi_app_cli.py",
+     17,
+     17
+    ],
+    [
+     "tests/assets/cli/multi_app_norich.py",
+     30,
+     30
+    ],
+    [
+     "tests/assets/cli/multi_app_norich.py",
+     30,
+     30
+    ],
+    [
+     "typer/cli.py",
+     19,
+     19
+    ],
+    [
+     "typer/cli.py",
+     19,
+     19
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tests/test_callback_warning.py",
+     "<module_level>"
+    ],
+    [
+     "tests/test_core.py",
+     "<module_level>"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "tests/test_callback_warning.py",
+     17,
+     17,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "tests/test_callback_warning.py",
+     32,
+     32,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "tests/test_core.py",
+     219,
+     219,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "tests/test_core.py",
+     264,
+     264,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "typer/main.py:915",
+   "stratum": "U-method"
+  },
+  "callers:typer/rich_utils.py:351": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "typer/rich_utils.py",
+     "rich_format_help"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "typer/rich_utils.py",
+     591,
+     591
+    ],
+    [
+     "typer/rich_utils.py",
+     602,
+     602
+    ],
+    [
+     "typer/rich_utils.py",
+     610,
+     610
+    ],
+    [
+     "typer/rich_utils.py",
+     621,
+     621
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "typer/rich_utils.py",
+     "rich_format_help"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "typer/rich_utils.py",
+     591,
+     591,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "typer/rich_utils.py",
+     602,
+     602,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "typer/rich_utils.py",
+     610,
+     610,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "typer/rich_utils.py",
+     621,
+     621,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "typer/rich_utils.py:351",
+   "stratum": "Q-scoped"
+  }
+ },
+ "site_fingerprints": {
+  "docs_src/one_file_per_command/app_py310/main.py:8": "973a925e30d4d506",
+  "docs_src/one_file_per_command/app_py310/main.py:9": "4bcc1496fb6c516a",
+  "docs_src/one_file_per_command/app_py310/users/__init__.py:8": "9a1e81f3c8db366d",
+  "docs_src/one_file_per_command/app_py310/users/__init__.py:9": "ed49ed73f005b69f",
+  "docs_src/subcommands/callback_override/tutorial001_py310.py:6": "b04dc90475bfd206",
+  "docs_src/subcommands/callback_override/tutorial002_py310.py:11": "c91e3e42acc5064f",
+  "docs_src/subcommands/callback_override/tutorial003_py310.py:11": "a6469b4ca18641ea",
+  "docs_src/subcommands/callback_override/tutorial004_py310.py:17": "dec0f4aa7bd77c02",
+  "docs_src/subcommands/name_help/tutorial001_py310.py:6": "daa243028395a084",
+  "docs_src/subcommands/name_help/tutorial002_py310.py:6": "b04dc90475bfd206",
+  "docs_src/subcommands/name_help/tutorial003_py310.py:13": "4d5c6fef4bee0002",
+  "docs_src/subcommands/name_help/tutorial004_py310.py:13": "f3fc64ef637241e4",
+  "docs_src/subcommands/name_help/tutorial005_py310.py:21": "0c8fa9f9629a28a5",
+  "docs_src/subcommands/name_help/tutorial006_py310.py:21": "71fbe1aec46e3053",
+  "docs_src/subcommands/name_help/tutorial007_py310.py:21": "71fbe1aec46e3053",
+  "docs_src/subcommands/name_help/tutorial008_py310.py:21": "7dcb07d6b96003da",
+  "docs_src/subcommands/tutorial001_py310/main.py:7": "c7bff32bbd1d8d1a",
+  "docs_src/subcommands/tutorial001_py310/main.py:8": "8ad0f635577db3c9",
+  "docs_src/subcommands/tutorial002_py310/main.py:5": "8c912d7a4dd36be3",
+  "docs_src/subcommands/tutorial002_py310/main.py:7": "b04dc90475bfd206",
+  "docs_src/subcommands/tutorial003_py310/lands.py:7": "4378d59d7d053840",
+  "docs_src/subcommands/tutorial003_py310/lands.py:8": "f42b8f10fd8f09b7",
+  "docs_src/subcommands/tutorial003_py310/main.py:10": "4802b294272f807e",
+  "docs_src/subcommands/tutorial003_py310/main.py:8": "c7bff32bbd1d8d1a",
+  "docs_src/subcommands/tutorial003_py310/main.py:9": "7c16637000f307ba",
+  "scripts/docs.py:101": "1525c045c652d832",
+  "scripts/docs.py:112": "d18bb9ae514d1fc9",
+  "scripts/docs.py:113": "7fdee407c48b39ea",
+  "scripts/docs.py:114": "5c46f6d61264619b",
+  "scripts/docs.py:115": "dfd3999697246f0e",
+  "scripts/docs.py:119": "46143e120c350a52",
+  "scripts/docs.py:123": "5cd5db79dd57ffec",
+  "scripts/docs.py:181": "cd129e6f3c46b342",
+  "scripts/docs.py:191": "103f06aca8dccaa2",
+  "scripts/docs.py:194": "c913ef54da46e058",
+  "scripts/docs.py:21": "414c41152ba1945e",
+  "scripts/docs.py:52": "900f0cc467856279",
+  "scripts/docs.py:63": "41b5f9029370710f",
+  "scripts/prepare_release.py:146": "b320bee375001b8d",
+  "scripts/prepare_release.py:149": "336c54c634c9ff61",
+  "scripts/prepare_release.py:157": "5ebca64c182c00fa",
+  "scripts/prepare_release.py:161": "dd5c792e90c37c43",
+  "scripts/prepare_release.py:171": "b2d5ed36d6ab23c4",
+  "scripts/prepare_release.py:38": "11d7ad2f0bcecdf9",
+  "scripts/prepare_release.py:47": "acdaf8ae2325ed61",
+  "scripts/prepare_release.py:48": "c2dca59c2a97a796",
+  "tests/assets/cli/extended_app_cli.py:12": "4084cb2b16de4e79",
+  "tests/assets/cli/extended_app_cli.py:26": "878aaf76e4672ac2",
+  "tests/assets/cli/extended_empty_app_cli.py:5": "916bb5a30a001390",
+  "tests/assets/cli/multi_app.py:32": "ab4a7646cc573440",
+  "tests/assets/cli/multi_app_cli.py:17": "f1187b05c0b1fb8e",
+  "tests/assets/cli/multi_app_norich.py:30": "ab3395b84ed3b76f",
+  "tests/assets/hidden_commands.py:30": "0f5185e78d14a538",
+  "tests/test_callback_warning.py:17": "9d4ac41b4385db62",
+  "tests/test_callback_warning.py:32": "399603de6a8d782e",
+  "tests/test_core.py:219": "ba4262a2d8f76ad4",
+  "tests/test_core.py:241": "f1a9f669d032908a",
+  "tests/test_core.py:264": "e63d2b9e75fb7418",
+  "tests/test_core.py:365": "ebab07e0d2997f6b",
+  "tests/test_prepare_release.py:34": "399764de16af1428",
+  "tests/test_prepare_release.py:43": "2a4bb31eee454f43",
+  "tests/test_prepare_release.py:62": "b2e38c8cce3b7a62",
+  "tests/test_prepare_release.py:96": "ca2c3b5742b64511",
+  "tests/test_types_file.py:374": "dee4ebeabfcf7e5c",
+  "tests/test_types_file.py:384": "3d405d9c9376a105",
+  "tests/test_types_file.py:385": "c3377842c1c869cb",
+  "tests/test_types_file.py:386": "0b45cf5b7a592286",
+  "typer/_click/_compat.py:157": "d5e40b98650c4a7d",
+  "typer/_click/_compat.py:164": "29f2f974c2ab12fa",
+  "typer/_click/_compat.py:176": "bdbbd7907b1350b3",
+  "typer/_click/_compat.py:194": "0fddd71ff9e37090",
+  "typer/_click/_compat.py:196": "fd3fb092f00c3572",
+  "typer/_click/_compat.py:213": "aaaf727ccd079cf4",
+  "typer/_click/_compat.py:218": "fd186d6c8c66f879",
+  "typer/_click/_compat.py:277": "c79614c4a304e3f1",
+  "typer/_click/_compat.py:284": "e39c9c6607fc83e4",
+  "typer/_click/_compat.py:455": "85344f88e9b8b0b6",
+  "typer/_click/_compat.py:486": "96e446c982f0d363",
+  "typer/_click/core.py:1048": "8b173251d62596da",
+  "typer/_click/core.py:390": "ec19af7f28e6cc78",
+  "typer/_click/core.py:393": "c64017f5a5cc250f",
+  "typer/_click/core.py:394": "5d1d6906f3d0fea3",
+  "typer/_click/core.py:472": "cac89b6a8791184f",
+  "typer/_click/core.py:575": "a5a271341ffef6c6",
+  "typer/_click/core.py:626": "d0258416a22db4b5",
+  "typer/_click/core.py:627": "ca8df981f10ed944",
+  "typer/_click/core.py:628": "726f030ae105481b",
+  "typer/_click/exceptions.py:125": "299a2ea650e3a259",
+  "typer/_click/exceptions.py:191": "9d25e2515f2ae9da",
+  "typer/_click/exceptions.py:69": "9aeffd6999ee9fd8",
+  "typer/_click/exceptions.py:96": "9bded6290f6a6555",
+  "typer/_click/formatting.py:165": "fab21485159b91de",
+  "typer/_click/formatting.py:233": "eca17ce8932cd393",
+  "typer/_click/formatting.py:264": "c46dc58f4d544de4",
+  "typer/_click/shell_completion.py:222": "4e60ff30860d6bd4",
+  "typer/_click/shell_completion.py:295": "39209b01e1e4a8b9",
+  "typer/_click/utils.py:247": "313ec8f502e04d19",
+  "typer/_click/utils.py:260": "cdaebf1136eb2581",
+  "typer/_click/utils.py:264": "c5235897626462ec",
+  "typer/_completion_classes.py:104": "260b0cd447c8e8c2",
+  "typer/_completion_classes.py:155": "260b0cd447c8e8c2",
+  "typer/_completion_classes.py:208": "260b0cd447c8e8c2",
+  "typer/_completion_classes.py:34": "260b0cd447c8e8c2",
+  "typer/cli.py:19": "7e5ad8fdf0cab2f3",
+  "typer/completion.py:126": "5ce48b74f43af69a",
+  "typer/core.py:1044": "b687fe42f9d7a38f",
+  "typer/core.py:115": "8b66c6122f4caa91",
+  "typer/core.py:1162": "148584801a9f1f74",
+  "typer/core.py:119": "22c6997635a68f56",
+  "typer/core.py:178": "73e809f323b90067",
+  "typer/core.py:315": "0edaa81de8b652b2",
+  "typer/core.py:332": "898213b1106f652d",
+  "typer/core.py:348": "8965c5ba26a8ad55",
+  "typer/core.py:358": "935bfef840799d8e",
+  "typer/core.py:378": "e59f7c7c0a30206a",
+  "typer/core.py:562": "4bd7f7394563ebaa",
+  "typer/core.py:573": "9860a07ea8e4477e",
+  "typer/core.py:633": "a1a4f10214aae51e",
+  "typer/core.py:648": "a4c9384ed53af790",
+  "typer/core.py:656": "b4c10a0dd01b07d1",
+  "typer/core.py:665": "658683827825a41a",
+  "typer/core.py:678": "220e8294286773e1",
+  "typer/core.py:721": "7b3c99b292038eb6",
+  "typer/core.py:733": "0edaa81de8b652b2",
+  "typer/core.py:97": "64959021724868f7",
+  "typer/main.py:1002": "8c47196b3e3febce",
+  "typer/main.py:1011": "9a8b72812ccbf081",
+  "typer/main.py:1021": "761dcdce9c7c5e22",
+  "typer/main.py:1029": "b20c8e1280ec2e4c",
+  "typer/main.py:1038": "a8e047adac809fa0",
+  "typer/main.py:1047": "52a972607d9afb93",
+  "typer/main.py:1060": "ad4f688b45261d80",
+  "typer/main.py:1068": "d812fb2a4d605f4d",
+  "typer/main.py:1085": "84c85c907cb3521d",
+  "typer/main.py:1109": "6230324414b84ace",
+  "typer/main.py:1124": "bb403d809abbaeaa",
+  "typer/main.py:1197": "9b9668ed5088ac83",
+  "typer/main.py:1295": "17dc7d2efe179906",
+  "typer/main.py:1390": "f6290a159be65339",
+  "typer/main.py:1400": "8e346d7f5cf823b5",
+  "typer/main.py:1405": "a64456637de5f60e",
+  "typer/main.py:1464": "57c96e6167f702de",
+  "typer/main.py:892": "59f41ed0790f93c4",
+  "typer/main.py:901": "bb403d809abbaeaa",
+  "typer/main.py:928": "8c1be613d92d3f5b",
+  "typer/main.py:937": "c72eb2f41b3f9f91",
+  "typer/main.py:945": "34674ae90e8caca2",
+  "typer/main.py:953": "0f85b998557e15f3",
+  "typer/main.py:966": "d453981601eee183",
+  "typer/main.py:979": "690e10c24fde6aa5",
+  "typer/main.py:992": "cdc239b846e243bf",
+  "typer/rich_utils.py:380": "25058bd4a4d73c01",
+  "typer/rich_utils.py:401": "2b5b0a7b0052820c",
+  "typer/rich_utils.py:418": "d79378f7f7e99a45",
+  "typer/rich_utils.py:591": "8376de8c61a5f53a",
+  "typer/rich_utils.py:602": "2d91c7b9a6e1e038",
+  "typer/rich_utils.py:610": "2586e6ccd3c0c34d",
+  "typer/rich_utils.py:621": "2d91c7b9a6e1e038",
+  "typer/rich_utils.py:698": "ccd477ff3e6e9984"
+ }
+}

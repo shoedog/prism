@@ -1,0 +1,8156 @@
+{
+ "m1": {
+  "anon_oracle": 0,
+  "anon_prism": 6,
+  "matched": 604,
+  "prism_extra": 2,
+  "prism_missing": 0,
+  "snapshot_prism_missing": 0
+ },
+ "m2": {
+  "callees": {
+   "C-method": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.8793566935605293,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.8793566935605293,
+      1.0
+     ],
+     "tp": 28
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.6456695613241317,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.6456695613241317,
+       1.0
+      ],
+      "tp": 7
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.6456695613241317,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.6456695613241317,
+       1.0
+      ],
+      "tp": 7
+     }
+    },
+    "pending": 22,
+    "raw": {
+     "fn": 14,
+     "fp": 8,
+     "precision": [
+      0.7777777777777778,
+      0.6191529691785765,
+      0.8828366808387128
+     ],
+     "recall": [
+      0.6666666666666666,
+      0.5155250725648456,
+      0.7898753300761839
+     ],
+     "tp": 28
+    },
+    "shortfall": 0
+   },
+   "C-name": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.9035813700311206,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.9035813700311206,
+      1.0
+     ],
+     "tp": 36
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 1,
+      "precision": [
+       0.875,
+       0.5291118149439162,
+       0.9775825088000281
+      ],
+      "recall": [
+       1.0,
+       0.6456695613241317,
+       1.0
+      ],
+      "tp": 7
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 1,
+      "precision": [
+       0.875,
+       0.5291118149439162,
+       0.9775825088000281
+      ],
+      "recall": [
+       1.0,
+       0.6456695613241317,
+       1.0
+      ],
+      "tp": 7
+     }
+    },
+    "pending": 65,
+    "raw": {
+     "fn": 64,
+     "fp": 1,
+     "precision": [
+      0.972972972972973,
+      0.8617593000381216,
+      0.9952130256010299
+     ],
+     "recall": [
+      0.36,
+      0.2727122033881362,
+      0.45764597626718284
+     ],
+     "tp": 36
+    },
+    "shortfall": 0
+   },
+   "Q-scoped": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.886486605238548,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.886486605238548,
+      1.0
+     ],
+     "tp": 30
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.7224671969739421,
+       0.9999999999999999
+      ],
+      "recall": [
+       1.0,
+       0.7224671969739421,
+       0.9999999999999999
+      ],
+      "tp": 10
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.7224671969739421,
+       0.9999999999999999
+      ],
+      "recall": [
+       1.0,
+       0.7224671969739421,
+       0.9999999999999999
+      ],
+      "tp": 10
+     }
+    },
+    "pending": 18,
+    "raw": {
+     "fn": 14,
+     "fp": 4,
+     "precision": [
+      0.8823529411764706,
+      0.7337915708710346,
+      0.9532855336760918
+     ],
+     "recall": [
+      0.6818181818181818,
+      0.5344310381914017,
+      0.8000069236546012
+     ],
+     "tp": 30
+    },
+    "shortfall": 0
+   },
+   "U-free": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.3423802239546494,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.3423802239546494,
+      1.0
+     ],
+     "tp": 2
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 1,
+      "precision": [
+       0.6666666666666666,
+       0.2076595988078242,
+       0.9385080559790691
+      ],
+      "recall": [
+       1.0,
+       0.3423802239546494,
+       1.0
+      ],
+      "tp": 2
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 1,
+      "precision": [
+       0.6666666666666666,
+       0.2076595988078242,
+       0.9385080559790691
+      ],
+      "recall": [
+       1.0,
+       0.3423802239546494,
+       1.0
+      ],
+      "tp": 2
+     }
+    },
+    "pending": 0,
+    "raw": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.3423802239546494,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.3423802239546494,
+      1.0
+     ],
+     "tp": 2
+    },
+    "shortfall": 5
+   },
+   "U-method": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.7224671969739421,
+      0.9999999999999999
+     ],
+     "recall": [
+      1.0,
+      0.7224671969739421,
+      0.9999999999999999
+     ],
+     "tp": 10
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 4,
+      "precision": [
+       0.5,
+       0.21521606069626764,
+       0.7847839393037324
+      ],
+      "recall": [
+       1.0,
+       0.5101091596030786,
+       0.9999999999999999
+      ],
+      "tp": 4
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 4,
+      "precision": [
+       0.5,
+       0.21521606069626764,
+       0.7847839393037324
+      ],
+      "recall": [
+       1.0,
+       0.5101091596030786,
+       0.9999999999999999
+      ],
+      "tp": 4
+     }
+    },
+    "pending": 1,
+    "raw": {
+     "fn": 1,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.7224671969739421,
+      0.9999999999999999
+     ],
+     "recall": [
+      0.9090909090909091,
+      0.6226415608917041,
+      0.9837678272946745
+     ],
+     "tp": 10
+    },
+    "shortfall": 0
+   }
+  },
+  "callers": {
+   "C-name": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.866807747239609,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.866807747239609,
+      1.0
+     ],
+     "tp": 25
+    },
+    "function": {
+     "corrected": {
+      "fn": 3,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.8156818626193445,
+       1.0
+      ],
+      "recall": [
+       0.85,
+       0.6395811333571357,
+       0.9476312545132735
+      ],
+      "tp": 17
+     },
+     "raw": {
+      "fn": 3,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.8156818626193445,
+       1.0
+      ],
+      "recall": [
+       0.85,
+       0.6395811333571357,
+       0.9476312545132735
+      ],
+      "tp": 17
+     }
+    },
+    "pending": 3,
+    "raw": {
+     "fn": 3,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.866807747239609,
+      1.0
+     ],
+     "recall": [
+      0.8928571428571429,
+      0.7280414829086315,
+      0.962881633460356
+     ],
+     "tp": 25
+    },
+    "shortfall": 0
+   },
+   "Q-scoped": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.9123783975415363,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.9123783975415363,
+      1.0
+     ],
+     "tp": 40
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.7846891945970195,
+       0.9999999999999999
+      ],
+      "recall": [
+       1.0,
+       0.7846891945970195,
+       0.9999999999999999
+      ],
+      "tp": 14
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.7846891945970195,
+       0.9999999999999999
+      ],
+      "recall": [
+       1.0,
+       0.7846891945970195,
+       0.9999999999999999
+      ],
+      "tp": 14
+     }
+    },
+    "pending": 0,
+    "raw": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.9123783975415363,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.9123783975415363,
+      1.0
+     ],
+     "tp": 40
+    },
+    "shortfall": 0
+   },
+   "U-free": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.3423802239546494,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.3423802239546494,
+      1.0
+     ],
+     "tp": 2
+    },
+    "function": {
+     "corrected": {
+      "fn": 1,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.3423802239546494,
+       1.0
+      ],
+      "recall": [
+       0.6666666666666666,
+       0.2076595988078242,
+       0.9385080559790691
+      ],
+      "tp": 2
+     },
+     "raw": {
+      "fn": 1,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.3423802239546494,
+       1.0
+      ],
+      "recall": [
+       0.6666666666666666,
+       0.2076595988078242,
+       0.9385080559790691
+      ],
+      "tp": 2
+     }
+    },
+    "pending": 1,
+    "raw": {
+     "fn": 1,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.3423802239546494,
+      1.0
+     ],
+     "recall": [
+      0.6666666666666666,
+      0.2076595988078242,
+      0.9385080559790691
+     ],
+     "tp": 2
+    },
+    "shortfall": 5
+   },
+   "U-method": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.43850296436068037,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.43850296436068037,
+      1.0
+     ],
+     "tp": 3
+    },
+    "function": {
+     "corrected": {
+      "fn": 19,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.43850296436068037,
+       1.0
+      ],
+      "recall": [
+       0.13636363636363635,
+       0.047490036769455096,
+       0.3333498734888326
+      ],
+      "tp": 3
+     },
+     "raw": {
+      "fn": 19,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.43850296436068037,
+       1.0
+      ],
+      "recall": [
+       0.13636363636363635,
+       0.047490036769455096,
+       0.3333498734888326
+      ],
+      "tp": 3
+     }
+    },
+    "pending": 43,
+    "raw": {
+     "fn": 43,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.43850296436068037,
+      1.0
+     ],
+     "recall": [
+      0.06521739130434782,
+      0.02242786125459427,
+      0.1750274119695449
+     ],
+     "tp": 3
+    },
+    "shortfall": 0
+   }
+  }
+ },
+ "m3": {
+  "cap": 25,
+  "checked": [],
+  "counts": {
+   "alias_site": 0,
+   "ambiguous": 0,
+   "confirmed_fp": 0,
+   "confirmed_tp": 0
+  }
+ },
+ "meta": {
+  "baseline_invalid": false,
+  "corpus": "black-basedpyright",
+  "corpus_dirty": false,
+  "corpus_dirty_reasons": [],
+  "corpus_sha": "b74b23013fe6",
+  "date": "2026-06-20",
+  "harness_sha": "06e6ac4ee96e",
+  "invalid_reasons": [],
+  "oracle": "basedpyright 1.39.8",
+  "oracle_error_rate": 0.17142857142857143,
+  "oracle_not_quiescent": false,
+  "prism_dirty": false,
+  "prism_sha": "20c8490591a3",
+  "seed": 42,
+  "stale_adjudications": 0,
+  "sut_error_rate": 0.0,
+  "wall_s": {
+   "m1_oracle_inventory": 0.045,
+   "m2": 77.289,
+   "m3": 0.0,
+   "oracle_start": 5.188
+  }
+ },
+ "pending": [
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "action/main.py:29",
+   "site": "action/main.py:128",
+   "site_fingerprint": "babdd433343891ec"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/black/__init__.py:1700",
+   "site": "src/black/__init__.py:1712",
+   "site_fingerprint": "fe8c65f3b0bb147f"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/black/__init__.py:1700",
+   "site": "src/black/__main__.py:3",
+   "site_fingerprint": "6d3e0fa23d4f54db"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/black/trans.py:376",
+   "site": "src/black/trans.py:1598",
+   "site_fingerprint": "c5105bb58d58f019"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/blib2to3/pgen2/driver.py:299",
+   "site": "src/blib2to3/pgen2/driver.py:313",
+   "site_fingerprint": "b706be6f5ed842cb"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/blib2to3/pytree.py:197",
+   "site": "src/black/brackets.py:292",
+   "site_fingerprint": "a1a39a3727abec88"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/blib2to3/pytree.py:197",
+   "site": "src/black/brackets.py:293",
+   "site_fingerprint": "73ed84cd8f93ef57"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/blib2to3/pytree.py:197",
+   "site": "src/black/comments.py:673",
+   "site_fingerprint": "3d09bb2d64119750"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/blib2to3/pytree.py:197",
+   "site": "src/black/comments.py:684",
+   "site_fingerprint": "b14b0dabd5674c6c"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/blib2to3/pytree.py:197",
+   "site": "src/black/comments.py:694",
+   "site_fingerprint": "c07e0240751fc1cf"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/blib2to3/pytree.py:197",
+   "site": "src/black/comments.py:705",
+   "site_fingerprint": "4ae01fdc3d14f53c"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/blib2to3/pytree.py:197",
+   "site": "src/black/comments.py:708",
+   "site_fingerprint": "d8b7b76184477e0b"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/blib2to3/pytree.py:197",
+   "site": "src/black/comments.py:714",
+   "site_fingerprint": "f63257d465765064"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/blib2to3/pytree.py:197",
+   "site": "src/black/comments.py:715",
+   "site_fingerprint": "d098c6a999cd7504"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/blib2to3/pytree.py:197",
+   "site": "src/black/comments.py:717",
+   "site_fingerprint": "e2520fa197be3bc7"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/blib2to3/pytree.py:197",
+   "site": "src/black/comments.py:749",
+   "site_fingerprint": "862f012e1e87055d"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/blib2to3/pytree.py:197",
+   "site": "src/black/comments.py:755",
+   "site_fingerprint": "e2b784a0f42e3ba7"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/blib2to3/pytree.py:197",
+   "site": "src/black/comments.py:756",
+   "site_fingerprint": "40c285901f21b9a1"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/blib2to3/pytree.py:197",
+   "site": "src/black/comments.py:805",
+   "site_fingerprint": "6c5d4e78d8711f52"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/blib2to3/pytree.py:197",
+   "site": "src/black/linegen.py:177",
+   "site_fingerprint": "a123fcaa85b4f936"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/blib2to3/pytree.py:197",
+   "site": "src/black/linegen.py:1638",
+   "site_fingerprint": "3ae2ca3514214bcf"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/blib2to3/pytree.py:197",
+   "site": "src/black/linegen.py:1639",
+   "site_fingerprint": "1fc47d90cd11e837"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/blib2to3/pytree.py:197",
+   "site": "src/black/linegen.py:1640",
+   "site_fingerprint": "2fdf8c72bc397324"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/blib2to3/pytree.py:197",
+   "site": "src/black/lines.py:364",
+   "site_fingerprint": "3528e54a16a7346f"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/blib2to3/pytree.py:197",
+   "site": "src/black/lines.py:365",
+   "site_fingerprint": "eb596333912baaae"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/blib2to3/pytree.py:197",
+   "site": "src/black/lines.py:598",
+   "site_fingerprint": "a58753549a8919ac"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/blib2to3/pytree.py:197",
+   "site": "src/black/lines.py:604",
+   "site_fingerprint": "b1b0dfad643b8fb6"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/blib2to3/pytree.py:197",
+   "site": "src/black/lines.py:1348",
+   "site_fingerprint": "8e3605a77471be39"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/blib2to3/pytree.py:197",
+   "site": "src/black/nodes.py:212",
+   "site_fingerprint": "a943e6891e91546a"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/blib2to3/pytree.py:197",
+   "site": "src/black/nodes.py:441",
+   "site_fingerprint": "4e374b8f2c96847f"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/blib2to3/pytree.py:197",
+   "site": "src/black/nodes.py:469",
+   "site_fingerprint": "ee6d6596cb6d5bdd"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/blib2to3/pytree.py:197",
+   "site": "src/black/nodes.py:528",
+   "site_fingerprint": "f546874ab3ccc4d3"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/blib2to3/pytree.py:197",
+   "site": "src/black/nodes.py:586",
+   "site_fingerprint": "88f9cb6bc6d42f60"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/blib2to3/pytree.py:197",
+   "site": "src/black/nodes.py:1067",
+   "site_fingerprint": "89fb44cc1580cb0a"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/blib2to3/pytree.py:197",
+   "site": "src/black/nodes.py:1111",
+   "site_fingerprint": "7292d1729c6b0278"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/blib2to3/pytree.py:197",
+   "site": "src/black/nodes.py:1115",
+   "site_fingerprint": "10120781a633f3a5"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/blib2to3/pytree.py:197",
+   "site": "src/black/ranges.py:252",
+   "site_fingerprint": "a5f7ef937ec93e51"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/blib2to3/pytree.py:197",
+   "site": "src/black/ranges.py:253",
+   "site_fingerprint": "12f4fd41cd5ad7e0"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/blib2to3/pytree.py:197",
+   "site": "src/black/ranges.py:275",
+   "site_fingerprint": "16fcfc41b98179c8"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/blib2to3/pytree.py:197",
+   "site": "src/black/ranges.py:278",
+   "site_fingerprint": "3285c0480c8db81a"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/blib2to3/pytree.py:197",
+   "site": "src/black/ranges.py:285",
+   "site_fingerprint": "75e0df284d06b036"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/blib2to3/pytree.py:197",
+   "site": "src/black/ranges.py:290",
+   "site_fingerprint": "047dd55f5b7178bb"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/blib2to3/pytree.py:197",
+   "site": "src/black/ranges.py:296",
+   "site_fingerprint": "5ff1ff8a4a248d4d"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/blib2to3/pytree.py:197",
+   "site": "src/black/ranges.py:297",
+   "site_fingerprint": "6df98133d122e068"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/blib2to3/pytree.py:197",
+   "site": "src/black/ranges.py:299",
+   "site_fingerprint": "e5b1ecd1b563cb25"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/blib2to3/pytree.py:197",
+   "site": "src/black/trans.py:1315",
+   "site_fingerprint": "fd70b48b65004485"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/blib2to3/pytree.py:197",
+   "site": "src/black/trans.py:1325",
+   "site_fingerprint": "08d53e3929dfc2a2"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/black/__init__.py:1081",
+   "site": "src/black/__init__.py:1100",
+   "site_fingerprint": "8f9a6fbdaff7b3c0"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callees",
+   "seed_def": "src/black/__init__.py:544",
+   "site": "src/black/__init__.py:736",
+   "site_fingerprint": "11f2ec506cf9f2c0"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/black/__init__.py:544",
+   "site": "src/black/__init__.py:262",
+   "site_fingerprint": "e0877bdcca7a51f9"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/black/__init__.py:544",
+   "site": "src/black/__init__.py:268",
+   "site_fingerprint": "45d4805824f7ebb3"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/black/__init__.py:544",
+   "site": "src/black/__init__.py:269",
+   "site_fingerprint": "229a1a0e6f182452"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/black/__init__.py:544",
+   "site": "src/black/__init__.py:277",
+   "site_fingerprint": "166b1c659764277f"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/black/__init__.py:544",
+   "site": "src/black/__init__.py:280",
+   "site_fingerprint": "d2db6711847c0350"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/black/__init__.py:544",
+   "site": "src/black/__init__.py:290",
+   "site_fingerprint": "a1cb7ac69bffb1ef"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/black/__init__.py:544",
+   "site": "src/black/__init__.py:298",
+   "site_fingerprint": "394dd95c9f0c5509"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/black/__init__.py:544",
+   "site": "src/black/__init__.py:306",
+   "site_fingerprint": "daf49f26853c7755"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/black/__init__.py:544",
+   "site": "src/black/__init__.py:316",
+   "site_fingerprint": "1341a03af5405bea"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/black/__init__.py:544",
+   "site": "src/black/__init__.py:322",
+   "site_fingerprint": "acd89879c93ba8cb"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/black/__init__.py:544",
+   "site": "src/black/__init__.py:328",
+   "site_fingerprint": "37a2ae73da84b7ec"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/black/__init__.py:544",
+   "site": "src/black/__init__.py:334",
+   "site_fingerprint": "63bfa5d411178c55"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/black/__init__.py:544",
+   "site": "src/black/__init__.py:342",
+   "site_fingerprint": "f468e98d72847813"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/black/__init__.py:544",
+   "site": "src/black/__init__.py:351",
+   "site_fingerprint": "38ce68cede0ba1fb"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/black/__init__.py:544",
+   "site": "src/black/__init__.py:353",
+   "site_fingerprint": "46717e7d7dc70cd7"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/black/__init__.py:544",
+   "site": "src/black/__init__.py:362",
+   "site_fingerprint": "5090a1844969b6ef"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/black/__init__.py:544",
+   "site": "src/black/__init__.py:371",
+   "site_fingerprint": "ccf2e89e047218a6"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/black/__init__.py:544",
+   "site": "src/black/__init__.py:379",
+   "site_fingerprint": "82debc193a0c653e"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/black/__init__.py:544",
+   "site": "src/black/__init__.py:384",
+   "site_fingerprint": "e2baf4923b0c335f"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/black/__init__.py:544",
+   "site": "src/black/__init__.py:397",
+   "site_fingerprint": "75331b7515159159"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/black/__init__.py:544",
+   "site": "src/black/__init__.py:406",
+   "site_fingerprint": "f421403161cd4730"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/black/__init__.py:544",
+   "site": "src/black/__init__.py:417",
+   "site_fingerprint": "8a8db26c2c33d882"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/black/__init__.py:544",
+   "site": "src/black/__init__.py:430",
+   "site_fingerprint": "66c56b633fbec459"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/black/__init__.py:544",
+   "site": "src/black/__init__.py:439",
+   "site_fingerprint": "34e0812c047604f7"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/black/__init__.py:544",
+   "site": "src/black/__init__.py:450",
+   "site_fingerprint": "4f35135fd44d4dbd"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/black/__init__.py:544",
+   "site": "src/black/__init__.py:460",
+   "site_fingerprint": "8bb75c229ff55ddd"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/black/__init__.py:544",
+   "site": "src/black/__init__.py:474",
+   "site_fingerprint": "8067fcb2159e6e51"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/black/__init__.py:544",
+   "site": "src/black/__init__.py:477",
+   "site_fingerprint": "eaed028c4c71528b"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/black/__init__.py:544",
+   "site": "src/black/__init__.py:486",
+   "site_fingerprint": "4947283b6c2b848a"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/black/__init__.py:544",
+   "site": "src/black/__init__.py:495",
+   "site_fingerprint": "7930fe609c76a58e"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/black/__init__.py:544",
+   "site": "src/black/__init__.py:505",
+   "site_fingerprint": "03efdb07ccf8236c"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/black/__init__.py:544",
+   "site": "src/black/__init__.py:512",
+   "site_fingerprint": "bf0af0049247f333"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/black/__init__.py:544",
+   "site": "src/black/__init__.py:515",
+   "site_fingerprint": "a80d9190bb182518"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/black/__init__.py:544",
+   "site": "src/black/__init__.py:521",
+   "site_fingerprint": "3ec3f48c0a8c0f2f"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/black/__init__.py:544",
+   "site": "src/black/__init__.py:523",
+   "site_fingerprint": "0a622dba6d4229fa"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/black/__init__.py:544",
+   "site": "src/black/__init__.py:535",
+   "site_fingerprint": "cd7b60b599c8d6fc"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/black/__init__.py:544",
+   "site": "src/black/__init__.py:577",
+   "site_fingerprint": "4b46b491d0b6e702"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/black/__init__.py:544",
+   "site": "src/black/__init__.py:586",
+   "site_fingerprint": "cdfce5a30b85f165"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/black/__init__.py:544",
+   "site": "src/black/__init__.py:590",
+   "site_fingerprint": "b5cb110b15213b78"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/black/__init__.py:544",
+   "site": "src/black/__init__.py:593",
+   "site_fingerprint": "5fadc6328a9e4ed2"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/black/__init__.py:544",
+   "site": "src/black/__init__.py:596",
+   "site_fingerprint": "b735bf7e6b2bfea3"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/black/__init__.py:544",
+   "site": "src/black/__init__.py:601",
+   "site_fingerprint": "285365b5de8293b9"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/black/__init__.py:544",
+   "site": "src/black/__init__.py:604",
+   "site_fingerprint": "cdfce5a30b85f165"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/black/__init__.py:544",
+   "site": "src/black/__init__.py:619",
+   "site_fingerprint": "6123b30bf156457e"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/black/__init__.py:544",
+   "site": "src/black/__init__.py:648",
+   "site_fingerprint": "774c3facea77e42d"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/black/__init__.py:544",
+   "site": "src/black/__init__.py:651",
+   "site_fingerprint": "68ba80f1ea6fcfe9"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/black/__init__.py:544",
+   "site": "src/black/__init__.py:659",
+   "site_fingerprint": "9728d4bcbc271933"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/black/__init__.py:544",
+   "site": "src/black/__init__.py:685",
+   "site_fingerprint": "a8d350f6735d7b41"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/black/__init__.py:544",
+   "site": "src/black/__init__.py:691",
+   "site_fingerprint": "ad9b124202ad89b6"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/black/__init__.py:544",
+   "site": "src/black/__init__.py:698",
+   "site_fingerprint": "fa3a8862a73e3f7f"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/black/__init__.py:544",
+   "site": "src/black/__init__.py:725",
+   "site_fingerprint": "dbb4693411d1eaeb"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/black/__init__.py:544",
+   "site": "src/black/__init__.py:749",
+   "site_fingerprint": "2a16b75d79fd1179"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/black/__init__.py:544",
+   "site": "src/black/__init__.py:765",
+   "site_fingerprint": "0e3f1bbd071b2cbd"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/black/__init__.py:544",
+   "site": "src/black/__init__.py:766",
+   "site_fingerprint": "f4c797cf8c6fc844"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/black/comments.py:420",
+   "site": "src/black/comments.py:431",
+   "site_fingerprint": "4435fd9336572934"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/black/comments.py:420",
+   "site": "src/black/comments.py:434",
+   "site_fingerprint": "45ca0919507909e3"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/black/comments.py:420",
+   "site": "src/black/comments.py:436",
+   "site_fingerprint": "297c9c352a78bb1d"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/black/comments.py:420",
+   "site": "src/black/comments.py:455",
+   "site_fingerprint": "bdf369a73693fb09"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/black/comments.py:420",
+   "site": "src/black/comments.py:462",
+   "site_fingerprint": "55dffe66bc12216e"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/black/comments.py:420",
+   "site": "src/black/comments.py:483",
+   "site_fingerprint": "4ff1794b69b78320"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/black/comments.py:420",
+   "site": "src/black/comments.py:519",
+   "site_fingerprint": "18cb1f832a383dbe"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/black/handle_ipynb_magics.py:401",
+   "site": "src/black/handle_ipynb_magics.py:409",
+   "site_fingerprint": "a1115baaf908f5b2"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/black/linegen.py:1369",
+   "site": "src/black/linegen.py:1376",
+   "site_fingerprint": "6eb1781a049941c0"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/black/linegen.py:1369",
+   "site": "src/black/linegen.py:1377",
+   "site_fingerprint": "d21ba4e4c2a4c421"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callees",
+   "seed_def": "src/black/linegen.py:975",
+   "site": "src/black/linegen.py:1029",
+   "site_fingerprint": "88ddda633774f6bf"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callees",
+   "seed_def": "src/black/linegen.py:975",
+   "site": "src/black/linegen.py:1031",
+   "site_fingerprint": "37bf1bb608219970"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callees",
+   "seed_def": "src/black/linegen.py:975",
+   "site": "src/black/linegen.py:1032",
+   "site_fingerprint": "0b2a3cb5aa2c6f8a"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "prism_only",
+   "dispatch_kind": "free_single",
+   "measurement": "callees",
+   "seed_def": "src/black/linegen.py:975",
+   "site": "src/black/linegen.py:1052",
+   "site_fingerprint": "65cece78b23e870c"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/black/linegen.py:975",
+   "site": "src/black/linegen.py:1005",
+   "site_fingerprint": "dcf4cef80b1ec113"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/black/linegen.py:975",
+   "site": "src/black/linegen.py:1075",
+   "site_fingerprint": "c4af80d13b546f96"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/black/lines.py:478",
+   "site": "src/black/lines.py:486",
+   "site_fingerprint": "3b8fcb58090b68a2"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/black/nodes.py:945",
+   "site": "src/black/nodes.py:954",
+   "site_fingerprint": "1b8146d27e32c441"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/black/nodes.py:945",
+   "site": "src/black/nodes.py:955",
+   "site_fingerprint": "c3f22a37bf09f7bc"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/black/trans.py:1137",
+   "site": "src/black/trans.py:1178",
+   "site_fingerprint": "52c0e50db51d056f"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "prism_only",
+   "dispatch_kind": "local_def",
+   "measurement": "callees",
+   "seed_def": "src/black/trans.py:2231",
+   "site": "src/black/trans.py:2300",
+   "site_fingerprint": "7a2ecb929e281d4e"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callees",
+   "seed_def": "src/black/trans.py:2231",
+   "site": "src/black/trans.py:2303",
+   "site_fingerprint": "9e7283b13fe086b3"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callees",
+   "seed_def": "src/black/trans.py:2231",
+   "site": "src/black/trans.py:2310",
+   "site_fingerprint": "a65f9d085aa1ed77"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/black/trans.py:2231",
+   "site": "src/black/trans.py:2254",
+   "site_fingerprint": "8a8f1b59a1a500e4"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/black/trans.py:2231",
+   "site": "src/black/trans.py:2280",
+   "site_fingerprint": "10f80491b2efb000"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/black/trans.py:2231",
+   "site": "src/black/trans.py:2282",
+   "site_fingerprint": "1bcc4641c03a6d13"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/black/trans.py:2231",
+   "site": "src/black/trans.py:2288",
+   "site_fingerprint": "bf17a16e74c0dc30"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/black/trans.py:2231",
+   "site": "src/black/trans.py:2295",
+   "site_fingerprint": "188445cd90385d57"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/black/trans.py:2231",
+   "site": "src/black/trans.py:2335",
+   "site_fingerprint": "81ed2c090270c097"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/black/trans.py:2231",
+   "site": "src/black/trans.py:2338",
+   "site_fingerprint": "b5dc21ea55122250"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/black/trans.py:2231",
+   "site": "src/black/trans.py:2348",
+   "site_fingerprint": "afa77979f0af8d1f"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/black/trans.py:2231",
+   "site": "src/black/trans.py:2350",
+   "site_fingerprint": "3a97fabbbee5591d"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/black/trans.py:2231",
+   "site": "src/black/trans.py:2352",
+   "site_fingerprint": "e00dce1a2c556672"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "prism_only",
+   "dispatch_kind": "free_single",
+   "measurement": "callees",
+   "seed_def": "src/black/trans.py:903",
+   "site": "src/black/trans.py:933",
+   "site_fingerprint": "daebff0916946851"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "prism_only",
+   "dispatch_kind": "local_def",
+   "measurement": "callees",
+   "seed_def": "src/black/trans.py:903",
+   "site": "src/black/trans.py:941",
+   "site_fingerprint": "d5ccc0d12c44eb49"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "prism_only",
+   "dispatch_kind": "local_def",
+   "measurement": "callees",
+   "seed_def": "src/black/trans.py:903",
+   "site": "src/black/trans.py:957",
+   "site_fingerprint": "e89e07024f11c2a6"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "prism_only",
+   "dispatch_kind": "free_single",
+   "measurement": "callees",
+   "seed_def": "src/black/trans.py:903",
+   "site": "src/black/trans.py:988",
+   "site_fingerprint": "4a71fa07084ef519"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "prism_only",
+   "dispatch_kind": "local_def",
+   "measurement": "callees",
+   "seed_def": "src/black/trans.py:903",
+   "site": "src/black/trans.py:992",
+   "site_fingerprint": "d04f1022ef092aaf"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/black/trans.py:903",
+   "site": "src/black/trans.py:951",
+   "site_fingerprint": "cae9f6205d5cddc9"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/black/trans.py:903",
+   "site": "src/black/trans.py:1006",
+   "site_fingerprint": "3055e4d4a9532216"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/blackd/__init__.py:96",
+   "site": "src/blackd/__init__.py:71",
+   "site_fingerprint": "f0949162c5e6358a"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/blackd/__init__.py:96",
+   "site": "src/blackd/__init__.py:72",
+   "site_fingerprint": "989da93898afafa2"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/blackd/__init__.py:96",
+   "site": "src/blackd/__init__.py:79",
+   "site_fingerprint": "ad6d0e2133228ad2"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/blackd/__init__.py:96",
+   "site": "src/blackd/__init__.py:82",
+   "site_fingerprint": "d6efb2f0ecc6f07a"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/blackd/__init__.py:96",
+   "site": "src/blackd/__init__.py:88",
+   "site_fingerprint": "e9fdbcb473f6c97d"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/blackd/__init__.py:96",
+   "site": "src/blackd/__init__.py:90",
+   "site_fingerprint": "60200fce10d31d34"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/blackd/__init__.py:96",
+   "site": "src/blackd/__init__.py:95",
+   "site_fingerprint": "1f551c4a2232c070"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/blib2to3/pytree.py:525",
+   "site": "src/blib2to3/pytree.py:540",
+   "site_fingerprint": "380134b08d6fecc7"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/blib2to3/pytree.py:525",
+   "site": "src/blib2to3/pytree.py:542",
+   "site_fingerprint": "4305bb92a523943d"
+  },
+  {
+   "corpus": "black-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/blib2to3/pytree.py:998",
+   "site": "src/blib2to3/pytree.py:1017",
+   "site_fingerprint": "ff1da4cd40b76c85"
+  }
+ ],
+ "probes": {
+  "_corpus": "black-basedpyright",
+  "_strata": {
+   "C-method": {
+    "eligible_probes": 16,
+    "eligible_symbols": 8,
+    "target": 8
+   },
+   "C-name": {
+    "eligible_probes": 16,
+    "eligible_symbols": 8,
+    "target": 8
+   },
+   "Q-scoped": {
+    "eligible_probes": 16,
+    "eligible_symbols": 8,
+    "target": 8
+   },
+   "U-free": {
+    "eligible_probes": 6,
+    "eligible_symbols": 3,
+    "target": 8
+   },
+   "U-method": {
+    "eligible_probes": 16,
+    "eligible_symbols": 8,
+    "target": 8
+   }
+  },
+  "callees:action/main.py:102": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "action/main.py",
+     "find_black_version_in_array"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "action/main.py:102",
+   "stratum": "U-free"
+  },
+  "callees:action/main.py:29": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "action/main.py",
+     "determine_version_specifier"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "action/main.py",
+     44,
+     44
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "action/main.py",
+     "determine_version_specifier"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "action/main.py",
+     44,
+     44,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "action/main.py:29",
+   "stratum": "U-free"
+  },
+  "callees:action/main.py:51": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "action/main.py",
+     "read_version_specifier_from_pyproject"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "action/main.py",
+     87,
+     87
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "action/main.py",
+     "read_version_specifier_from_pyproject"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "action/main.py",
+     87,
+     87,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "action/main.py:51",
+   "stratum": "U-free"
+  },
+  "callees:src/black/__init__.py:1081": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "src/black/__init__.py",
+     "check_stability_and_equivalence"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/black/__init__.py",
+     1095,
+     1095
+    ],
+    [
+     "src/black/__init__.py",
+     1099,
+     1099
+    ],
+    [
+     "src/black/__init__.py",
+     1100,
+     1100
+    ],
+    [
+     "src/black/__init__.py",
+     1102,
+     1102
+    ],
+    [
+     "src/black/__init__.py",
+     1105,
+     1105
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/black/__init__.py",
+     "check_stability_and_equivalence"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/black/__init__.py",
+     1099,
+     1099,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     1102,
+     1102,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     1095,
+     1095,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     1105,
+     1105,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "src/black/__init__.py:1081",
+   "stratum": "Q-scoped"
+  },
+  "callees:src/black/__init__.py:1136": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "src/black/__init__.py",
+     "format_cell"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/black/__init__.py",
+     1152,
+     1152
+    ],
+    [
+     "src/black/__init__.py",
+     1153,
+     1153
+    ],
+    [
+     "src/black/__init__.py",
+     1157,
+     1157
+    ],
+    [
+     "src/black/__init__.py",
+     1160,
+     1160
+    ],
+    [
+     "src/black/__init__.py",
+     1162,
+     1162
+    ],
+    [
+     "src/black/__init__.py",
+     1163,
+     1163
+    ],
+    [
+     "src/black/__init__.py",
+     1164,
+     1164
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/black/__init__.py",
+     "format_cell"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/black/__init__.py",
+     1162,
+     1162,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     1160,
+     1160,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     1152,
+     1152,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     1153,
+     1153,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     1164,
+     1164,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     1157,
+     1157,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     1163,
+     1163,
+     {
+      "resolution_kind": "free_single"
+     }
+    ]
+   ],
+   "seed_def": "src/black/__init__.py:1136",
+   "stratum": "Q-scoped"
+  },
+  "callees:src/black/__init__.py:1700": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "src/black/__init__.py",
+     "patched_main"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/black/__init__.py",
+     1708,
+     1708
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/black/__init__.py",
+     "patched_main"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/black/__init__.py",
+     1708,
+     1708,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     1708,
+     1708,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "src/black/__init__.py:1700",
+   "stratum": "C-name"
+  },
+  "callees:src/black/__init__.py:544": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "src/black/__init__.py",
+     "main"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/black/__init__.py",
+     262,
+     262
+    ],
+    [
+     "src/black/__init__.py",
+     268,
+     268
+    ],
+    [
+     "src/black/__init__.py",
+     269,
+     269
+    ],
+    [
+     "src/black/__init__.py",
+     277,
+     277
+    ],
+    [
+     "src/black/__init__.py",
+     290,
+     290
+    ],
+    [
+     "src/black/__init__.py",
+     298,
+     298
+    ],
+    [
+     "src/black/__init__.py",
+     306,
+     306
+    ],
+    [
+     "src/black/__init__.py",
+     316,
+     316
+    ],
+    [
+     "src/black/__init__.py",
+     322,
+     322
+    ],
+    [
+     "src/black/__init__.py",
+     328,
+     328
+    ],
+    [
+     "src/black/__init__.py",
+     334,
+     334
+    ],
+    [
+     "src/black/__init__.py",
+     342,
+     342
+    ],
+    [
+     "src/black/__init__.py",
+     351,
+     351
+    ],
+    [
+     "src/black/__init__.py",
+     362,
+     362
+    ],
+    [
+     "src/black/__init__.py",
+     371,
+     371
+    ],
+    [
+     "src/black/__init__.py",
+     379,
+     379
+    ],
+    [
+     "src/black/__init__.py",
+     384,
+     384
+    ],
+    [
+     "src/black/__init__.py",
+     397,
+     397
+    ],
+    [
+     "src/black/__init__.py",
+     406,
+     406
+    ],
+    [
+     "src/black/__init__.py",
+     417,
+     417
+    ],
+    [
+     "src/black/__init__.py",
+     430,
+     430
+    ],
+    [
+     "src/black/__init__.py",
+     439,
+     439
+    ],
+    [
+     "src/black/__init__.py",
+     450,
+     450
+    ],
+    [
+     "src/black/__init__.py",
+     460,
+     460
+    ],
+    [
+     "src/black/__init__.py",
+     474,
+     474
+    ],
+    [
+     "src/black/__init__.py",
+     486,
+     486
+    ],
+    [
+     "src/black/__init__.py",
+     495,
+     495
+    ],
+    [
+     "src/black/__init__.py",
+     521,
+     521
+    ],
+    [
+     "src/black/__init__.py",
+     535,
+     535
+    ],
+    [
+     "src/black/__init__.py",
+     280,
+     280
+    ],
+    [
+     "src/black/__init__.py",
+     353,
+     353
+    ],
+    [
+     "src/black/__init__.py",
+     477,
+     477
+    ],
+    [
+     "src/black/__init__.py",
+     505,
+     505
+    ],
+    [
+     "src/black/__init__.py",
+     512,
+     512
+    ],
+    [
+     "src/black/__init__.py",
+     515,
+     515
+    ],
+    [
+     "src/black/__init__.py",
+     523,
+     523
+    ],
+    [
+     "src/black/__init__.py",
+     577,
+     577
+    ],
+    [
+     "src/black/__init__.py",
+     581,
+     581
+    ],
+    [
+     "src/black/__init__.py",
+     589,
+     589
+    ],
+    [
+     "src/black/__init__.py",
+     595,
+     595
+    ],
+    [
+     "src/black/__init__.py",
+     600,
+     600
+    ],
+    [
+     "src/black/__init__.py",
+     613,
+     613
+    ],
+    [
+     "src/black/__init__.py",
+     622,
+     622
+    ],
+    [
+     "src/black/__init__.py",
+     631,
+     631
+    ],
+    [
+     "src/black/__init__.py",
+     633,
+     633
+    ],
+    [
+     "src/black/__init__.py",
+     636,
+     636
+    ],
+    [
+     "src/black/__init__.py",
+     729,
+     729
+    ],
+    [
+     "src/black/__init__.py",
+     762,
+     762
+    ],
+    [
+     "src/black/__init__.py",
+     763,
+     763
+    ],
+    [
+     "src/black/__init__.py",
+     586,
+     586
+    ],
+    [
+     "src/black/__init__.py",
+     593,
+     593
+    ],
+    [
+     "src/black/__init__.py",
+     596,
+     596
+    ],
+    [
+     "src/black/__init__.py",
+     604,
+     604
+    ],
+    [
+     "src/black/__init__.py",
+     648,
+     648
+    ],
+    [
+     "src/black/__init__.py",
+     651,
+     651
+    ],
+    [
+     "src/black/__init__.py",
+     685,
+     685
+    ],
+    [
+     "src/black/__init__.py",
+     691,
+     691
+    ],
+    [
+     "src/black/__init__.py",
+     725,
+     725
+    ],
+    [
+     "src/black/__init__.py",
+     732,
+     732
+    ],
+    [
+     "src/black/__init__.py",
+     749,
+     749
+    ],
+    [
+     "src/black/__init__.py",
+     766,
+     766
+    ],
+    [
+     "src/black/__init__.py",
+     590,
+     590
+    ],
+    [
+     "src/black/__init__.py",
+     595,
+     595
+    ],
+    [
+     "src/black/__init__.py",
+     601,
+     601
+    ],
+    [
+     "src/black/__init__.py",
+     607,
+     607
+    ],
+    [
+     "src/black/__init__.py",
+     619,
+     619
+    ],
+    [
+     "src/black/__init__.py",
+     620,
+     620
+    ],
+    [
+     "src/black/__init__.py",
+     644,
+     644
+    ],
+    [
+     "src/black/__init__.py",
+     650,
+     650
+    ],
+    [
+     "src/black/__init__.py",
+     674,
+     674
+    ],
+    [
+     "src/black/__init__.py",
+     684,
+     684
+    ],
+    [
+     "src/black/__init__.py",
+     690,
+     690
+    ],
+    [
+     "src/black/__init__.py",
+     748,
+     748
+    ],
+    [
+     "src/black/__init__.py",
+     653,
+     653
+    ],
+    [
+     "src/black/__init__.py",
+     659,
+     659
+    ],
+    [
+     "src/black/__init__.py",
+     673,
+     673
+    ],
+    [
+     "src/black/__init__.py",
+     675,
+     675
+    ],
+    [
+     "src/black/__init__.py",
+     688,
+     688
+    ],
+    [
+     "src/black/__init__.py",
+     698,
+     698
+    ],
+    [
+     "src/black/__init__.py",
+     701,
+     701
+    ],
+    [
+     "src/black/__init__.py",
+     712,
+     712
+    ],
+    [
+     "src/black/__init__.py",
+     735,
+     735
+    ],
+    [
+     "src/black/__init__.py",
+     750,
+     750
+    ],
+    [
+     "src/black/__init__.py",
+     763,
+     763
+    ],
+    [
+     "src/black/__init__.py",
+     766,
+     766
+    ],
+    [
+     "src/black/__init__.py",
+     765,
+     765
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/black/__init__.py",
+     "main"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/black/__init__.py",
+     653,
+     653,
+     {
+      "resolution_kind": "qualifier_owner"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     653,
+     653,
+     {
+      "resolution_kind": "qualifier_owner"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     673,
+     673,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     675,
+     675,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     712,
+     712,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     701,
+     701,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     735,
+     735,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     735,
+     735,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     607,
+     607,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     688,
+     688,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     731,
+     731,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     731,
+     731,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     731,
+     731,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     750,
+     750,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     750,
+     750,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     620,
+     620,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     620,
+     620,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     581,
+     581,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     589,
+     589,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     595,
+     595,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     600,
+     600,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     613,
+     613,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     622,
+     622,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     631,
+     631,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     633,
+     633,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     636,
+     636,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     729,
+     729,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     762,
+     762,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     763,
+     763,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     581,
+     581,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     589,
+     589,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     595,
+     595,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     600,
+     600,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     613,
+     613,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     622,
+     622,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     631,
+     631,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     633,
+     633,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     636,
+     636,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     729,
+     729,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     762,
+     762,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     763,
+     763,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     644,
+     644,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     650,
+     650,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     674,
+     674,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     684,
+     684,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     690,
+     690,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     748,
+     748,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     736,
+     736,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     581,
+     581,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     589,
+     589,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     595,
+     595,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     600,
+     600,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     613,
+     613,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     622,
+     622,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     631,
+     631,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     633,
+     633,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     636,
+     636,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     729,
+     729,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     762,
+     762,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     763,
+     763,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     644,
+     644,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     650,
+     650,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     674,
+     674,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     684,
+     684,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     690,
+     690,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     748,
+     748,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     581,
+     581,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     589,
+     589,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     595,
+     595,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     600,
+     600,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     613,
+     613,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     622,
+     622,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     631,
+     631,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     633,
+     633,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     636,
+     636,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     729,
+     729,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     762,
+     762,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     763,
+     763,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     644,
+     644,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     650,
+     650,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     674,
+     674,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     684,
+     684,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     690,
+     690,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     748,
+     748,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     581,
+     581,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     589,
+     589,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     595,
+     595,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     600,
+     600,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     613,
+     613,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     622,
+     622,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     631,
+     631,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     633,
+     633,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     636,
+     636,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     729,
+     729,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     762,
+     762,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     763,
+     763,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     644,
+     644,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     650,
+     650,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     674,
+     674,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     684,
+     684,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     690,
+     690,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     748,
+     748,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     581,
+     581,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     589,
+     589,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     595,
+     595,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     600,
+     600,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     613,
+     613,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     622,
+     622,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     631,
+     631,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     633,
+     633,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     636,
+     636,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     729,
+     729,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     762,
+     762,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     763,
+     763,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     644,
+     644,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     650,
+     650,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     674,
+     674,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     684,
+     684,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     690,
+     690,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     748,
+     748,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     581,
+     581,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     589,
+     589,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     595,
+     595,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     600,
+     600,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     613,
+     613,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     622,
+     622,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     631,
+     631,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     633,
+     633,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     636,
+     636,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     729,
+     729,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     762,
+     762,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     763,
+     763,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     644,
+     644,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     650,
+     650,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     674,
+     674,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     684,
+     684,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     690,
+     690,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     748,
+     748,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     581,
+     581,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     589,
+     589,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     595,
+     595,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     600,
+     600,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     613,
+     613,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     622,
+     622,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     631,
+     631,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     633,
+     633,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     636,
+     636,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     729,
+     729,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     762,
+     762,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     763,
+     763,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     644,
+     644,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     650,
+     650,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     674,
+     674,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     684,
+     684,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     690,
+     690,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     748,
+     748,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ]
+   ],
+   "seed_def": "src/black/__init__.py:544",
+   "stratum": "C-name"
+  },
+  "callees:src/black/comments.py:420": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "src/black/comments.py",
+     "_handle_regular_fmt_block"
+    ],
+    [
+     "src/black/comments.py",
+     "stringify_node"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/black/comments.py",
+     431,
+     431
+    ],
+    [
+     "src/black/comments.py",
+     434,
+     434
+    ],
+    [
+     "src/black/comments.py",
+     436,
+     436
+    ],
+    [
+     "src/black/comments.py",
+     462,
+     462
+    ],
+    [
+     "src/black/comments.py",
+     431,
+     431
+    ],
+    [
+     "src/black/comments.py",
+     434,
+     434
+    ],
+    [
+     "src/black/comments.py",
+     436,
+     436
+    ],
+    [
+     "src/black/comments.py",
+     462,
+     462
+    ],
+    [
+     "src/black/comments.py",
+     431,
+     431
+    ],
+    [
+     "src/black/comments.py",
+     434,
+     434
+    ],
+    [
+     "src/black/comments.py",
+     436,
+     436
+    ],
+    [
+     "src/black/comments.py",
+     431,
+     431
+    ],
+    [
+     "src/black/comments.py",
+     434,
+     434
+    ],
+    [
+     "src/black/comments.py",
+     436,
+     436
+    ],
+    [
+     "src/black/comments.py",
+     433,
+     433
+    ],
+    [
+     "src/black/comments.py",
+     488,
+     488
+    ],
+    [
+     "src/black/comments.py",
+     455,
+     455
+    ],
+    [
+     "src/black/comments.py",
+     483,
+     483
+    ],
+    [
+     "src/black/comments.py",
+     469,
+     469
+    ],
+    [
+     "src/black/comments.py",
+     471,
+     471
+    ],
+    [
+     "src/black/comments.py",
+     510,
+     510
+    ],
+    [
+     "src/black/comments.py",
+     510,
+     510
+    ],
+    [
+     "src/black/comments.py",
+     517,
+     517
+    ],
+    [
+     "src/black/comments.py",
+     519,
+     519
+    ],
+    [
+     "src/black/comments.py",
+     523,
+     523
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/black/comments.py",
+     "_handle_regular_fmt_block"
+    ],
+    [
+     "src/black/comments.py",
+     "stringify_node"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/black/comments.py",
+     469,
+     469,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/black/comments.py",
+     471,
+     471,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/black/comments.py",
+     433,
+     433,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/black/comments.py",
+     488,
+     488,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/black/comments.py",
+     523,
+     523,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "src/black/comments.py",
+     510,
+     510,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "src/black/comments.py",
+     517,
+     517,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "src/black/comments.py:420",
+   "stratum": "Q-scoped"
+  },
+  "callees:src/black/handle_ipynb_magics.py:401": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "src/black/handle_ipynb_magics.py",
+     "visit_Expr"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/black/handle_ipynb_magics.py",
+     405,
+     405
+    ],
+    [
+     "src/black/handle_ipynb_magics.py",
+     408,
+     408
+    ],
+    [
+     "src/black/handle_ipynb_magics.py",
+     409,
+     409
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/black/handle_ipynb_magics.py",
+     "visit_Expr"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/black/handle_ipynb_magics.py",
+     405,
+     405,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/black/handle_ipynb_magics.py",
+     408,
+     408,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "src/black/handle_ipynb_magics.py:401",
+   "stratum": "C-method"
+  },
+  "callees:src/black/linegen.py:1369": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "src/black/linegen.py",
+     "_safe_add_trailing_comma"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/black/linegen.py",
+     1376,
+     1376
+    ],
+    [
+     "src/black/linegen.py",
+     1377,
+     1377
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/black/linegen.py",
+     "_safe_add_trailing_comma"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "src/black/linegen.py:1369",
+   "stratum": "Q-scoped"
+  },
+  "callees:src/black/linegen.py:1740": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "src/black/linegen.py",
+     "remove_await_parens"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/black/linegen.py",
+     1746,
+     1746
+    ],
+    [
+     "src/black/linegen.py",
+     1753,
+     1753
+    ],
+    [
+     "src/black/linegen.py",
+     1773,
+     1773
+    ],
+    [
+     "src/black/linegen.py",
+     1774,
+     1774
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/black/linegen.py",
+     "remove_await_parens"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/black/linegen.py",
+     1746,
+     1746,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/black/linegen.py",
+     1753,
+     1753,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "src/black/linegen.py",
+     1773,
+     1773,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "src/black/linegen.py",
+     1774,
+     1774,
+     {
+      "resolution_kind": "free_single"
+     }
+    ]
+   ],
+   "seed_def": "src/black/linegen.py:1740",
+   "stratum": "Q-scoped"
+  },
+  "callees:src/black/linegen.py:975": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "src/black/linegen.py",
+     "_first_right_hand_split"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/black/linegen.py",
+     1005,
+     1005
+    ],
+    [
+     "src/black/linegen.py",
+     1035,
+     1035
+    ],
+    [
+     "src/black/linegen.py",
+     1064,
+     1064
+    ],
+    [
+     "src/black/linegen.py",
+     1068,
+     1068
+    ],
+    [
+     "src/black/linegen.py",
+     1071,
+     1071
+    ],
+    [
+     "src/black/linegen.py",
+     1051,
+     1051
+    ],
+    [
+     "src/black/linegen.py",
+     1074,
+     1074
+    ],
+    [
+     "src/black/linegen.py",
+     1075,
+     1075
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/black/linegen.py",
+     "_first_right_hand_split"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/black/linegen.py",
+     1074,
+     1074,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/black/linegen.py",
+     1035,
+     1035,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/black/linegen.py",
+     1064,
+     1064,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/black/linegen.py",
+     1068,
+     1068,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/black/linegen.py",
+     1071,
+     1071,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/black/linegen.py",
+     1051,
+     1051,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "src/black/linegen.py",
+     1052,
+     1052,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "src/black/linegen.py",
+     1029,
+     1029,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "src/black/linegen.py",
+     1031,
+     1031,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "src/black/linegen.py",
+     1032,
+     1032,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "src/black/linegen.py:975",
+   "stratum": "Q-scoped"
+  },
+  "callees:src/black/lines.py:193": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/black/lines.py",
+     "_is_triple_quoted_string"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "src/black/lines.py:193",
+   "stratum": "U-method"
+  },
+  "callees:src/black/lines.py:478": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "src/black/lines.py",
+     "__str__"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/black/lines.py",
+     486,
+     486
+    ],
+    [
+     "src/black/lines.py",
+     486,
+     486
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/black/lines.py",
+     "__str__"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "src/black/lines.py:478",
+   "stratum": "C-method"
+  },
+  "callees:src/black/nodes.py:945": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "src/black/nodes.py",
+     "is_with_or_async_with_stmt"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/black/nodes.py",
+     954,
+     954
+    ],
+    [
+     "src/black/nodes.py",
+     955,
+     955
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/black/nodes.py",
+     "is_with_or_async_with_stmt"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "src/black/nodes.py:945",
+   "stratum": "C-name"
+  },
+  "callees:src/black/output.py:39": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "src/black/output.py",
+     "err"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/black/output.py",
+     40,
+     40
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/black/output.py",
+     "err"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/black/output.py",
+     40,
+     40,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/black/output.py",
+     40,
+     40,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "src/black/output.py:39",
+   "stratum": "C-name"
+  },
+  "callees:src/black/ranges.py:221": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "src/black/ranges.py",
+     "visit_simple_stmt"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/black/ranges.py",
+     225,
+     225
+    ],
+    [
+     "src/black/ranges.py",
+     234,
+     234
+    ],
+    [
+     "src/black/ranges.py",
+     235,
+     235
+    ],
+    [
+     "src/black/ranges.py",
+     236,
+     236
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/black/ranges.py",
+     "visit_simple_stmt"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/black/ranges.py",
+     225,
+     225,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "src/black/ranges.py",
+     234,
+     234,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "src/black/ranges.py",
+     236,
+     236,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/black/ranges.py",
+     235,
+     235,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "src/black/ranges.py:221",
+   "stratum": "C-method"
+  },
+  "callees:src/black/trans.py:1120": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "src/black/trans.py",
+     "do_match"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/black/trans.py",
+     1121,
+     1121
+    ],
+    [
+     "src/black/trans.py",
+     1125,
+     1125
+    ],
+    [
+     "src/black/trans.py",
+     1131,
+     1131
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/black/trans.py",
+     "do_match"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/black/trans.py",
+     1121,
+     1121,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "src/black/trans.py",
+     1121,
+     1121,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "src/black/trans.py",
+     1131,
+     1131,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "src/black/trans.py",
+     1125,
+     1125,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "src/black/trans.py:1120",
+   "stratum": "C-method"
+  },
+  "callees:src/black/trans.py:1137": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "src/black/trans.py",
+     "_validate"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/black/trans.py",
+     1152,
+     1152
+    ],
+    [
+     "src/black/trans.py",
+     1154,
+     1154
+    ],
+    [
+     "src/black/trans.py",
+     1162,
+     1162
+    ],
+    [
+     "src/black/trans.py",
+     1170,
+     1170
+    ],
+    [
+     "src/black/trans.py",
+     1176,
+     1176
+    ],
+    [
+     "src/black/trans.py",
+     1167,
+     1167
+    ],
+    [
+     "src/black/trans.py",
+     1175,
+     1175
+    ],
+    [
+     "src/black/trans.py",
+     1178,
+     1178
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/black/trans.py",
+     "_validate"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/black/trans.py",
+     1167,
+     1167,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "src/black/trans.py",
+     1175,
+     1175,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "src/black/trans.py",
+     1154,
+     1154,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/black/trans.py",
+     1162,
+     1162,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/black/trans.py",
+     1170,
+     1170,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/black/trans.py",
+     1176,
+     1176,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/black/trans.py",
+     1152,
+     1152,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ]
+   ],
+   "seed_def": "src/black/trans.py:1137",
+   "stratum": "U-method"
+  },
+  "callees:src/black/trans.py:2231": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "src/black/trans.py",
+     "do_transform"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/black/trans.py",
+     2241,
+     2241
+    ],
+    [
+     "src/black/trans.py",
+     2242,
+     2242
+    ],
+    [
+     "src/black/trans.py",
+     2254,
+     2254
+    ],
+    [
+     "src/black/trans.py",
+     2335,
+     2335
+    ],
+    [
+     "src/black/trans.py",
+     2266,
+     2266
+    ],
+    [
+     "src/black/trans.py",
+     2330,
+     2330
+    ],
+    [
+     "src/black/trans.py",
+     2268,
+     2268
+    ],
+    [
+     "src/black/trans.py",
+     2295,
+     2295
+    ],
+    [
+     "src/black/trans.py",
+     2338,
+     2338
+    ],
+    [
+     "src/black/trans.py",
+     2348,
+     2348
+    ],
+    [
+     "src/black/trans.py",
+     2270,
+     2270
+    ],
+    [
+     "src/black/trans.py",
+     2340,
+     2340
+    ],
+    [
+     "src/black/trans.py",
+     2349,
+     2349
+    ],
+    [
+     "src/black/trans.py",
+     2273,
+     2273
+    ],
+    [
+     "src/black/trans.py",
+     2280,
+     2280
+    ],
+    [
+     "src/black/trans.py",
+     2297,
+     2297
+    ],
+    [
+     "src/black/trans.py",
+     2343,
+     2343
+    ],
+    [
+     "src/black/trans.py",
+     2350,
+     2350
+    ],
+    [
+     "src/black/trans.py",
+     2279,
+     2279
+    ],
+    [
+     "src/black/trans.py",
+     2282,
+     2282
+    ],
+    [
+     "src/black/trans.py",
+     2332,
+     2332
+    ],
+    [
+     "src/black/trans.py",
+     2352,
+     2352
+    ],
+    [
+     "src/black/trans.py",
+     2288,
+     2288
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/black/trans.py",
+     "do_transform"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/black/trans.py",
+     2266,
+     2266,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "src/black/trans.py",
+     2330,
+     2330,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "src/black/trans.py",
+     2270,
+     2270,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "src/black/trans.py",
+     2340,
+     2340,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "src/black/trans.py",
+     2349,
+     2349,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "src/black/trans.py",
+     2242,
+     2242,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/black/trans.py",
+     2272,
+     2272,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/black/trans.py",
+     2296,
+     2296,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/black/trans.py",
+     2342,
+     2342,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/black/trans.py",
+     2241,
+     2241,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/black/trans.py",
+     2300,
+     2300,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/black/trans.py",
+     2279,
+     2279,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "src/black/trans.py",
+     2264,
+     2264,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "src/black/trans.py",
+     2303,
+     2303,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "src/black/trans.py",
+     2310,
+     2310,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "src/black/trans.py",
+     2328,
+     2328,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "src/black/trans.py:2231",
+   "stratum": "C-method"
+  },
+  "callees:src/black/trans.py:2497": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "src/black/trans.py",
+     "insert_str_child"
+    ],
+    [
+     "src/black/trans.py",
+     "insert_str_child_factory"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/black/trans.py",
+     2544,
+     2544
+    ],
+    [
+     "src/black/trans.py",
+     2552,
+     2552
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/black/trans.py",
+     "insert_str_child"
+    ],
+    [
+     "src/black/trans.py",
+     "insert_str_child_factory"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/black/trans.py",
+     2544,
+     2544,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "src/black/trans.py",
+     2552,
+     2552,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "src/black/trans.py:2497",
+   "stratum": "Q-scoped"
+  },
+  "callees:src/black/trans.py:376": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "src/black/trans.py",
+     "pop_custom_splits"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/black/trans.py",
+     389,
+     389
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/black/trans.py",
+     "pop_custom_splits"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/black/trans.py",
+     389,
+     389,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "src/black/trans.py",
+     389,
+     389,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ]
+   ],
+   "seed_def": "src/black/trans.py:376",
+   "stratum": "U-method"
+  },
+  "callees:src/black/trans.py:903": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "src/black/trans.py",
+     "do_match"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/black/trans.py",
+     906,
+     906
+    ],
+    [
+     "src/black/trans.py",
+     933,
+     933
+    ],
+    [
+     "src/black/trans.py",
+     951,
+     951
+    ],
+    [
+     "src/black/trans.py",
+     952,
+     952
+    ],
+    [
+     "src/black/trans.py",
+     988,
+     988
+    ],
+    [
+     "src/black/trans.py",
+     1006,
+     1006
+    ],
+    [
+     "src/black/trans.py",
+     1007,
+     1007
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/black/trans.py",
+     "do_match"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/black/trans.py",
+     933,
+     933,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "src/black/trans.py",
+     988,
+     988,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "src/black/trans.py",
+     1007,
+     1007,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/black/trans.py",
+     906,
+     906,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/black/trans.py",
+     931,
+     931,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/black/trans.py",
+     941,
+     941,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/black/trans.py",
+     957,
+     957,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/black/trans.py",
+     986,
+     986,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/black/trans.py",
+     992,
+     992,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/black/trans.py",
+     952,
+     952,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "src/black/trans.py:903",
+   "stratum": "C-method"
+  },
+  "callees:src/blackd/__init__.py:218": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/blackd/__init__.py",
+     "format_code"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "src/blackd/__init__.py:218",
+   "stratum": "C-name"
+  },
+  "callees:src/blackd/__init__.py:96": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "src/blackd/__init__.py",
+     "main"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/blackd/__init__.py",
+     71,
+     71
+    ],
+    [
+     "src/blackd/__init__.py",
+     72,
+     72
+    ],
+    [
+     "src/blackd/__init__.py",
+     79,
+     79
+    ],
+    [
+     "src/blackd/__init__.py",
+     82,
+     82
+    ],
+    [
+     "src/blackd/__init__.py",
+     88,
+     88
+    ],
+    [
+     "src/blackd/__init__.py",
+     90,
+     90
+    ],
+    [
+     "src/blackd/__init__.py",
+     95,
+     95
+    ],
+    [
+     "src/blackd/__init__.py",
+     103,
+     103
+    ],
+    [
+     "src/blackd/__init__.py",
+     105,
+     105
+    ],
+    [
+     "src/blackd/__init__.py",
+     106,
+     106
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/blackd/__init__.py",
+     "main"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/blackd/__init__.py",
+     106,
+     106,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "src/blackd/__init__.py",
+     105,
+     105,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "src/blackd/__init__.py",
+     105,
+     105,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "src/blackd/__init__.py",
+     103,
+     103,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "src/blackd/__init__.py:96",
+   "stratum": "C-name"
+  },
+  "callees:src/blib2to3/pgen2/driver.py:299": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "src/blib2to3/pgen2/driver.py",
+     "main"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/blib2to3/pgen2/driver.py",
+     308,
+     308
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/blib2to3/pgen2/driver.py",
+     "main"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/blib2to3/pgen2/driver.py",
+     308,
+     308,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "src/blib2to3/pgen2/driver.py:299",
+   "stratum": "C-name"
+  },
+  "callees:src/blib2to3/pgen2/driver.py:81": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/blib2to3/pgen2/driver.py",
+     "__next__"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "src/blib2to3/pgen2/driver.py:81",
+   "stratum": "U-method"
+  },
+  "callees:src/blib2to3/pgen2/grammar.py:153": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/blib2to3/pgen2/grammar.py",
+     "report"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "src/blib2to3/pgen2/grammar.py:153",
+   "stratum": "U-method"
+  },
+  "callees:src/blib2to3/pgen2/pgen.py:124": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "src/blib2to3/pgen2/pgen.py",
+     "addfirstsets"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/blib2to3/pgen2/pgen.py",
+     129,
+     129
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/blib2to3/pgen2/pgen.py",
+     "addfirstsets"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/blib2to3/pgen2/pgen.py",
+     129,
+     129,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ]
+   ],
+   "seed_def": "src/blib2to3/pgen2/pgen.py:124",
+   "stratum": "U-method"
+  },
+  "callees:src/blib2to3/pytree.py:151": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/blib2to3/pytree.py",
+     "get_lineno"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "src/blib2to3/pytree.py:151",
+   "stratum": "U-method"
+  },
+  "callees:src/blib2to3/pytree.py:197": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "src/blib2to3/pytree.py",
+     "prev_sibling"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/blib2to3/pytree.py",
+     206,
+     206
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/blib2to3/pytree.py",
+     "prev_sibling"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/blib2to3/pytree.py",
+     206,
+     206,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "src/blib2to3/pytree.py:197",
+   "stratum": "U-method"
+  },
+  "callees:src/blib2to3/pytree.py:525": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "src/blib2to3/pytree.py",
+     "convert"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/blib2to3/pytree.py",
+     540,
+     540
+    ],
+    [
+     "src/blib2to3/pytree.py",
+     542,
+     542
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/blib2to3/pytree.py",
+     "convert"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "src/blib2to3/pytree.py:525",
+   "stratum": "Q-scoped"
+  },
+  "callees:src/blib2to3/pytree.py:843": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "src/blib2to3/pytree.py",
+     "match"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/blib2to3/pytree.py",
+     845,
+     845
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/blib2to3/pytree.py",
+     "match"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/blib2to3/pytree.py",
+     845,
+     845,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ]
+   ],
+   "seed_def": "src/blib2to3/pytree.py:843",
+   "stratum": "C-method"
+  },
+  "callees:src/blib2to3/pytree.py:998": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "src/blib2to3/pytree.py",
+     "generate_matches"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/blib2to3/pytree.py",
+     1017,
+     1017
+    ],
+    [
+     "src/blib2to3/pytree.py",
+     1021,
+     1021
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/blib2to3/pytree.py",
+     "generate_matches"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/blib2to3/pytree.py",
+     1021,
+     1021,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "src/blib2to3/pytree.py:998",
+   "stratum": "C-name"
+  },
+  "callers:action/main.py:102": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "action/main.py",
+     "read_version_specifier_from_pyproject"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "action/main.py",
+     87,
+     87
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "action/main.py",
+     "read_version_specifier_from_pyproject"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "action/main.py",
+     87,
+     87,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "action/main.py:102",
+   "stratum": "U-free"
+  },
+  "callers:action/main.py:29": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "action/main.py",
+     "<module_level>"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "action/main.py",
+     128,
+     128
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "action/main.py:29",
+   "stratum": "U-free"
+  },
+  "callers:action/main.py:51": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "action/main.py",
+     "determine_version_specifier"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "action/main.py",
+     44,
+     44
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "action/main.py",
+     "determine_version_specifier"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "action/main.py",
+     44,
+     44,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "action/main.py:51",
+   "stratum": "U-free"
+  },
+  "callers:src/black/__init__.py:1081": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/black/__init__.py",
+     "format_cell"
+    ],
+    [
+     "src/black/__init__.py",
+     "format_file_contents"
+    ],
+    [
+     "tests/test_black.py",
+     "<module_level>"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/black/__init__.py",
+     1130,
+     1130
+    ],
+    [
+     "src/black/__init__.py",
+     1162,
+     1162
+    ],
+    [
+     "tests/test_black.py",
+     3318,
+     3318
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/black/__init__.py",
+     "format_cell"
+    ],
+    [
+     "src/black/__init__.py",
+     "format_file_contents"
+    ],
+    [
+     "tests/test_black.py",
+     "<module_level>"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/black/__init__.py",
+     1130,
+     1130,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     1162,
+     1162,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "tests/test_black.py",
+     3318,
+     3318,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "tests/test_black.py",
+     3318,
+     3318,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ]
+   ],
+   "seed_def": "src/black/__init__.py:1081",
+   "stratum": "Q-scoped"
+  },
+  "callers:src/black/__init__.py:1136": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/black/__init__.py",
+     "format_ipynb_string"
+    ],
+    [
+     "tests/test_ipynb.py",
+     "<module_level>"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/black/__init__.py",
+     1202,
+     1202
+    ],
+    [
+     "tests/test_ipynb.py",
+     44,
+     44
+    ],
+    [
+     "tests/test_ipynb.py",
+     61,
+     61
+    ],
+    [
+     "tests/test_ipynb.py",
+     68,
+     68
+    ],
+    [
+     "tests/test_ipynb.py",
+     76,
+     76
+    ],
+    [
+     "tests/test_ipynb.py",
+     82,
+     82
+    ],
+    [
+     "tests/test_ipynb.py",
+     88,
+     88
+    ],
+    [
+     "tests/test_ipynb.py",
+     103,
+     103
+    ],
+    [
+     "tests/test_ipynb.py",
+     111,
+     111
+    ],
+    [
+     "tests/test_ipynb.py",
+     145,
+     145
+    ],
+    [
+     "tests/test_ipynb.py",
+     159,
+     159
+    ],
+    [
+     "tests/test_ipynb.py",
+     169,
+     169
+    ],
+    [
+     "tests/test_ipynb.py",
+     176,
+     176
+    ],
+    [
+     "tests/test_ipynb.py",
+     182,
+     182
+    ],
+    [
+     "tests/test_ipynb.py",
+     187,
+     187
+    ],
+    [
+     "tests/test_ipynb.py",
+     204,
+     204
+    ],
+    [
+     "tests/test_ipynb.py",
+     235,
+     235
+    ],
+    [
+     "tests/test_ipynb.py",
+     256,
+     256
+    ],
+    [
+     "tests/test_ipynb.py",
+     261,
+     261
+    ],
+    [
+     "tests/test_ipynb.py",
+     269,
+     269
+    ],
+    [
+     "tests/test_ipynb.py",
+     275,
+     275
+    ],
+    [
+     "tests/test_ipynb.py",
+     281,
+     281
+    ],
+    [
+     "tests/test_ipynb.py",
+     286,
+     286
+    ],
+    [
+     "tests/test_ipynb.py",
+     294,
+     294
+    ],
+    [
+     "tests/test_ipynb.py",
+     300,
+     300
+    ],
+    [
+     "tests/test_ipynb.py",
+     565,
+     565
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/black/__init__.py",
+     "format_ipynb_string"
+    ],
+    [
+     "tests/test_ipynb.py",
+     "<module_level>"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/black/__init__.py",
+     1202,
+     1202,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "tests/test_ipynb.py",
+     44,
+     44,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "tests/test_ipynb.py",
+     61,
+     61,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "tests/test_ipynb.py",
+     61,
+     61,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "tests/test_ipynb.py",
+     68,
+     68,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "tests/test_ipynb.py",
+     76,
+     76,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "tests/test_ipynb.py",
+     82,
+     82,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "tests/test_ipynb.py",
+     88,
+     88,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "tests/test_ipynb.py",
+     103,
+     103,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "tests/test_ipynb.py",
+     103,
+     103,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "tests/test_ipynb.py",
+     111,
+     111,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "tests/test_ipynb.py",
+     145,
+     145,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "tests/test_ipynb.py",
+     145,
+     145,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "tests/test_ipynb.py",
+     159,
+     159,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "tests/test_ipynb.py",
+     159,
+     159,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "tests/test_ipynb.py",
+     169,
+     169,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "tests/test_ipynb.py",
+     169,
+     169,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "tests/test_ipynb.py",
+     176,
+     176,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "tests/test_ipynb.py",
+     182,
+     182,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "tests/test_ipynb.py",
+     187,
+     187,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "tests/test_ipynb.py",
+     204,
+     204,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "tests/test_ipynb.py",
+     204,
+     204,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "tests/test_ipynb.py",
+     235,
+     235,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "tests/test_ipynb.py",
+     235,
+     235,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "tests/test_ipynb.py",
+     256,
+     256,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "tests/test_ipynb.py",
+     256,
+     256,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "tests/test_ipynb.py",
+     261,
+     261,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "tests/test_ipynb.py",
+     269,
+     269,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "tests/test_ipynb.py",
+     275,
+     275,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "tests/test_ipynb.py",
+     281,
+     281,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "tests/test_ipynb.py",
+     286,
+     286,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "tests/test_ipynb.py",
+     294,
+     294,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "tests/test_ipynb.py",
+     300,
+     300,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "tests/test_ipynb.py",
+     565,
+     565,
+     {
+      "resolution_kind": "free_single"
+     }
+    ]
+   ],
+   "seed_def": "src/black/__init__.py:1136",
+   "stratum": "Q-scoped"
+  },
+  "callers:src/black/__init__.py:1700": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/black/__init__.py",
+     "<module_level>"
+    ],
+    [
+     "src/black/__main__.py",
+     "<module_level>"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/black/__init__.py",
+     1712,
+     1712
+    ],
+    [
+     "src/black/__main__.py",
+     3,
+     3
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "src/black/__init__.py:1700",
+   "stratum": "C-name"
+  },
+  "callers:src/black/__init__.py:544": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/black/__init__.py",
+     "patched_main"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/black/__init__.py",
+     1708,
+     1708
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/black/__init__.py",
+     "patched_main"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/black/__init__.py",
+     1708,
+     1708,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "src/black/__init__.py:544",
+   "stratum": "C-name"
+  },
+  "callers:src/black/comments.py:420": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/black/comments.py",
+     "convert_one_fmt_off_pair"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/black/comments.py",
+     397,
+     397
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/black/comments.py",
+     "convert_one_fmt_off_pair"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/black/comments.py",
+     397,
+     397,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "src/black/comments.py:420",
+   "stratum": "Q-scoped"
+  },
+  "callers:src/black/linegen.py:1369": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/black/linegen.py",
+     "delimiter_split"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/black/linegen.py",
+     1487,
+     1487
+    ],
+    [
+     "src/black/linegen.py",
+     1505,
+     1505
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/black/linegen.py",
+     "delimiter_split"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/black/linegen.py",
+     1487,
+     1487,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/black/linegen.py",
+     1505,
+     1505,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/black/linegen.py",
+     1487,
+     1487,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/black/linegen.py",
+     1505,
+     1505,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "src/black/linegen.py:1369",
+   "stratum": "Q-scoped"
+  },
+  "callers:src/black/linegen.py:1740": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/black/linegen.py",
+     "visit_power"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/black/linegen.py",
+     378,
+     378
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/black/linegen.py",
+     "visit_power"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/black/linegen.py",
+     378,
+     378,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "src/black/linegen.py:1740",
+   "stratum": "Q-scoped"
+  },
+  "callers:src/black/linegen.py:975": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/black/linegen.py",
+     "_can_defer_lone_comparator_to_rhs"
+    ],
+    [
+     "src/black/linegen.py",
+     "_maybe_split_omitting_optional_parens"
+    ],
+    [
+     "src/black/linegen.py",
+     "right_hand_split"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/black/linegen.py",
+     969,
+     969
+    ],
+    [
+     "src/black/linegen.py",
+     1102,
+     1102
+    ],
+    [
+     "src/black/linegen.py",
+     1407,
+     1407
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/black/linegen.py",
+     "_can_defer_lone_comparator_to_rhs"
+    ],
+    [
+     "src/black/linegen.py",
+     "_maybe_split_omitting_optional_parens"
+    ],
+    [
+     "src/black/linegen.py",
+     "right_hand_split"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/black/linegen.py",
+     969,
+     969,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/black/linegen.py",
+     1102,
+     1102,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/black/linegen.py",
+     1407,
+     1407,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "src/black/linegen.py:975",
+   "stratum": "Q-scoped"
+  },
+  "callers:src/black/nodes.py:945": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/black/lines.py",
+     "is_with_or_async_with_stmt"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/black/lines.py",
+     132,
+     132
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/black/lines.py",
+     "is_with_or_async_with_stmt"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/black/lines.py",
+     132,
+     132,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "src/black/lines.py",
+     132,
+     132,
+     {
+      "resolution_kind": "free_single"
+     }
+    ]
+   ],
+   "seed_def": "src/black/nodes.py:945",
+   "stratum": "C-name"
+  },
+  "callers:src/black/output.py:39": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/black/__init__.py",
+     "get_sources"
+    ],
+    [
+     "src/black/__init__.py",
+     "main"
+    ],
+    [
+     "src/black/cache.py",
+     "read"
+    ],
+    [
+     "src/black/concurrency.py",
+     "cancel"
+    ],
+    [
+     "src/black/files.py",
+     "find_pyproject_toml"
+    ],
+    [
+     "src/black/files.py",
+     "get_gitignore"
+    ],
+    [
+     "src/black/report.py",
+     "failed"
+    ],
+    [
+     "tests/util.py",
+     "<module_level>"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/black/__init__.py",
+     644,
+     644
+    ],
+    [
+     "src/black/__init__.py",
+     650,
+     650
+    ],
+    [
+     "src/black/__init__.py",
+     674,
+     674
+    ],
+    [
+     "src/black/__init__.py",
+     684,
+     684
+    ],
+    [
+     "src/black/__init__.py",
+     690,
+     690
+    ],
+    [
+     "src/black/__init__.py",
+     748,
+     748
+    ],
+    [
+     "src/black/__init__.py",
+     862,
+     862
+    ],
+    [
+     "src/black/cache.py",
+     73,
+     73
+    ],
+    [
+     "src/black/concurrency.py",
+     52,
+     52
+    ],
+    [
+     "src/black/files.py",
+     125,
+     125
+    ],
+    [
+     "src/black/files.py",
+     260,
+     260
+    ],
+    [
+     "src/black/report.py",
+     52,
+     52
+    ],
+    [
+     "tests/util.py",
+     66,
+     66
+    ],
+    [
+     "tests/util.py",
+     75,
+     75
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/black/__init__.py",
+     "get_sources"
+    ],
+    [
+     "src/black/__init__.py",
+     "main"
+    ],
+    [
+     "src/black/cache.py",
+     "read"
+    ],
+    [
+     "src/black/concurrency.py",
+     "cancel"
+    ],
+    [
+     "src/black/files.py",
+     "find_pyproject_toml"
+    ],
+    [
+     "src/black/files.py",
+     "get_gitignore"
+    ],
+    [
+     "src/black/report.py",
+     "failed"
+    ],
+    [
+     "tests/util.py",
+     "<module_level>"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/black/__init__.py",
+     644,
+     644,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     650,
+     650,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     674,
+     674,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     684,
+     684,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     690,
+     690,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     748,
+     748,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     644,
+     644,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     650,
+     650,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     674,
+     674,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     684,
+     684,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     690,
+     690,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     748,
+     748,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/__init__.py",
+     862,
+     862,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/cache.py",
+     73,
+     73,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/cache.py",
+     73,
+     73,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/concurrency.py",
+     52,
+     52,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/files.py",
+     125,
+     125,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/files.py",
+     260,
+     260,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/files.py",
+     260,
+     260,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/black/report.py",
+     52,
+     52,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "tests/util.py",
+     66,
+     66,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "tests/util.py",
+     75,
+     75,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ]
+   ],
+   "seed_def": "src/black/output.py:39",
+   "stratum": "C-name"
+  },
+  "callers:src/black/trans.py:1137": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/black/trans.py",
+     "do_match"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/black/trans.py",
+     1131,
+     1131
+    ],
+    [
+     "src/black/trans.py",
+     1131,
+     1131
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/black/trans.py",
+     "do_match"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/black/trans.py",
+     1131,
+     1131,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ]
+   ],
+   "seed_def": "src/black/trans.py:1137",
+   "stratum": "U-method"
+  },
+  "callers:src/black/trans.py:2497": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/black/trans.py",
+     "do_transform"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/black/trans.py",
+     1531,
+     1531
+    ],
+    [
+     "src/black/trans.py",
+     2242,
+     2242
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/black/trans.py",
+     "do_transform"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/black/trans.py",
+     1531,
+     1531,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/black/trans.py",
+     2242,
+     2242,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "src/black/trans.py:2497",
+   "stratum": "Q-scoped"
+  },
+  "callers:src/black/trans.py:376": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/black/trans.py",
+     "do_transform"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/black/trans.py",
+     1598,
+     1598
+    ],
+    [
+     "src/black/trans.py",
+     1598,
+     1598
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "src/black/trans.py:376",
+   "stratum": "U-method"
+  },
+  "callers:src/blackd/__init__.py:218": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/blackd/__init__.py",
+     "handle"
+    ],
+    [
+     "tests/test_blackd.py",
+     "<module_level>"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/blackd/__init__.py",
+     185,
+     185
+    ],
+    [
+     "tests/test_blackd.py",
+     228,
+     228
+    ],
+    [
+     "tests/test_blackd.py",
+     246,
+     246
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/blackd/__init__.py",
+     "handle"
+    ],
+    [
+     "tests/test_blackd.py",
+     "<module_level>"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/blackd/__init__.py",
+     185,
+     185,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "tests/test_blackd.py",
+     228,
+     228,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "tests/test_blackd.py",
+     246,
+     246,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ]
+   ],
+   "seed_def": "src/blackd/__init__.py:218",
+   "stratum": "C-name"
+  },
+  "callers:src/blackd/__init__.py:96": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/blackd/__init__.py",
+     "patched_main"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/blackd/__init__.py",
+     332,
+     332
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/blackd/__init__.py",
+     "patched_main"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/blackd/__init__.py",
+     332,
+     332,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "src/blackd/__init__.py:96",
+   "stratum": "C-name"
+  },
+  "callers:src/blib2to3/pgen2/driver.py:299": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/blib2to3/pgen2/driver.py",
+     "<module_level>"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/blib2to3/pgen2/driver.py",
+     313,
+     313
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "src/blib2to3/pgen2/driver.py:299",
+   "stratum": "C-name"
+  },
+  "callers:src/blib2to3/pgen2/pgen.py:124": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/blib2to3/pgen2/pgen.py",
+     "__init__"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/blib2to3/pgen2/pgen.py",
+     36,
+     36
+    ],
+    [
+     "src/blib2to3/pgen2/pgen.py",
+     36,
+     36
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/blib2to3/pgen2/pgen.py",
+     "__init__"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/blib2to3/pgen2/pgen.py",
+     36,
+     36,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ]
+   ],
+   "seed_def": "src/blib2to3/pgen2/pgen.py:124",
+   "stratum": "U-method"
+  },
+  "callers:src/blib2to3/pytree.py:151": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/black/nodes.py",
+     "fstring_tstring_to_string"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/black/nodes.py",
+     835,
+     835
+    ],
+    [
+     "src/black/nodes.py",
+     835,
+     835
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/black/nodes.py",
+     "fstring_tstring_to_string"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/black/nodes.py",
+     835,
+     835,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "src/blib2to3/pytree.py:151",
+   "stratum": "U-method"
+  },
+  "callers:src/blib2to3/pytree.py:197": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/black/brackets.py",
+     "is_split_before_delimiter"
+    ],
+    [
+     "src/black/comments.py",
+     "_find_closest_previous_sibling"
+    ],
+    [
+     "src/black/comments.py",
+     "_generate_ignored_nodes_from_fmt_skip"
+    ],
+    [
+     "src/black/linegen.py",
+     "normalize_invisible_parens"
+    ],
+    [
+     "src/black/linegen.py",
+     "visit_test"
+    ],
+    [
+     "src/black/lines.py",
+     "_find_adjacent_decorated"
+    ],
+    [
+     "src/black/lines.py",
+     "has_magic_trailing_comma"
+    ],
+    [
+     "src/black/lines.py",
+     "is_line_short_enough"
+    ],
+    [
+     "src/black/nodes.py",
+     "container_of"
+    ],
+    [
+     "src/black/nodes.py",
+     "get_annotation_type"
+    ],
+    [
+     "src/black/nodes.py",
+     "has_sibling_with_type"
+    ],
+    [
+     "src/black/nodes.py",
+     "is_docstring"
+    ],
+    [
+     "src/black/nodes.py",
+     "preceding_leaf"
+    ],
+    [
+     "src/black/nodes.py",
+     "prev_siblings_are"
+    ],
+    [
+     "src/black/nodes.py",
+     "whitespace"
+    ],
+    [
+     "src/black/ranges.py",
+     "_convert_unchanged_line_by_line"
+    ],
+    [
+     "src/black/ranges.py",
+     "visit_suite"
+    ],
+    [
+     "src/black/trans.py",
+     "_prefer_paren_wrap_match"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/black/brackets.py",
+     292,
+     292
+    ],
+    [
+     "src/black/brackets.py",
+     293,
+     293
+    ],
+    [
+     "src/black/comments.py",
+     673,
+     673
+    ],
+    [
+     "src/black/comments.py",
+     673,
+     673
+    ],
+    [
+     "src/black/comments.py",
+     684,
+     684
+    ],
+    [
+     "src/black/comments.py",
+     694,
+     694
+    ],
+    [
+     "src/black/comments.py",
+     705,
+     705
+    ],
+    [
+     "src/black/comments.py",
+     708,
+     708
+    ],
+    [
+     "src/black/comments.py",
+     708,
+     708
+    ],
+    [
+     "src/black/comments.py",
+     714,
+     714
+    ],
+    [
+     "src/black/comments.py",
+     715,
+     715
+    ],
+    [
+     "src/black/comments.py",
+     717,
+     717
+    ],
+    [
+     "src/black/comments.py",
+     749,
+     749
+    ],
+    [
+     "src/black/comments.py",
+     749,
+     749
+    ],
+    [
+     "src/black/comments.py",
+     755,
+     755
+    ],
+    [
+     "src/black/comments.py",
+     755,
+     755
+    ],
+    [
+     "src/black/comments.py",
+     756,
+     756
+    ],
+    [
+     "src/black/comments.py",
+     756,
+     756
+    ],
+    [
+     "src/black/comments.py",
+     805,
+     805
+    ],
+    [
+     "src/black/comments.py",
+     805,
+     805
+    ],
+    [
+     "src/black/linegen.py",
+     177,
+     177
+    ],
+    [
+     "src/black/linegen.py",
+     177,
+     177
+    ],
+    [
+     "src/black/linegen.py",
+     1638,
+     1638
+    ],
+    [
+     "src/black/linegen.py",
+     1638,
+     1638
+    ],
+    [
+     "src/black/linegen.py",
+     1639,
+     1639
+    ],
+    [
+     "src/black/linegen.py",
+     1639,
+     1639
+    ],
+    [
+     "src/black/linegen.py",
+     1640,
+     1640
+    ],
+    [
+     "src/black/linegen.py",
+     1640,
+     1640
+    ],
+    [
+     "src/black/lines.py",
+     364,
+     364
+    ],
+    [
+     "src/black/lines.py",
+     365,
+     365
+    ],
+    [
+     "src/black/lines.py",
+     598,
+     598
+    ],
+    [
+     "src/black/lines.py",
+     598,
+     598
+    ],
+    [
+     "src/black/lines.py",
+     604,
+     604
+    ],
+    [
+     "src/black/lines.py",
+     604,
+     604
+    ],
+    [
+     "src/black/lines.py",
+     1348,
+     1348
+    ],
+    [
+     "src/black/nodes.py",
+     212,
+     212
+    ],
+    [
+     "src/black/nodes.py",
+     441,
+     441
+    ],
+    [
+     "src/black/nodes.py",
+     441,
+     441
+    ],
+    [
+     "src/black/nodes.py",
+     469,
+     469
+    ],
+    [
+     "src/black/nodes.py",
+     469,
+     469
+    ],
+    [
+     "src/black/nodes.py",
+     528,
+     528
+    ],
+    [
+     "src/black/nodes.py",
+     528,
+     528
+    ],
+    [
+     "src/black/nodes.py",
+     586,
+     586
+    ],
+    [
+     "src/black/nodes.py",
+     1067,
+     1067
+    ],
+    [
+     "src/black/nodes.py",
+     1067,
+     1067
+    ],
+    [
+     "src/black/nodes.py",
+     1111,
+     1111
+    ],
+    [
+     "src/black/nodes.py",
+     1111,
+     1111
+    ],
+    [
+     "src/black/nodes.py",
+     1115,
+     1115
+    ],
+    [
+     "src/black/nodes.py",
+     1115,
+     1115
+    ],
+    [
+     "src/black/ranges.py",
+     252,
+     252
+    ],
+    [
+     "src/black/ranges.py",
+     253,
+     253
+    ],
+    [
+     "src/black/ranges.py",
+     275,
+     275
+    ],
+    [
+     "src/black/ranges.py",
+     278,
+     278
+    ],
+    [
+     "src/black/ranges.py",
+     278,
+     278
+    ],
+    [
+     "src/black/ranges.py",
+     285,
+     285
+    ],
+    [
+     "src/black/ranges.py",
+     290,
+     290
+    ],
+    [
+     "src/black/ranges.py",
+     290,
+     290
+    ],
+    [
+     "src/black/ranges.py",
+     296,
+     296
+    ],
+    [
+     "src/black/ranges.py",
+     297,
+     297
+    ],
+    [
+     "src/black/ranges.py",
+     299,
+     299
+    ],
+    [
+     "src/black/trans.py",
+     1315,
+     1315
+    ],
+    [
+     "src/black/trans.py",
+     1325,
+     1325
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "src/blib2to3/pytree.py:197",
+   "stratum": "U-method"
+  },
+  "callers:src/blib2to3/pytree.py:525": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/blib2to3/pgen2/parse.py",
+     "pop"
+    ],
+    [
+     "src/blib2to3/pgen2/parse.py",
+     "shift"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/blib2to3/pgen2/parse.py",
+     365,
+     365
+    ],
+    [
+     "src/blib2to3/pgen2/parse.py",
+     388,
+     388
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/blib2to3/pgen2/parse.py",
+     "pop"
+    ],
+    [
+     "src/blib2to3/pgen2/parse.py",
+     "shift"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/blib2to3/pgen2/parse.py",
+     365,
+     365,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "src/blib2to3/pgen2/parse.py",
+     388,
+     388,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ]
+   ],
+   "seed_def": "src/blib2to3/pytree.py:525",
+   "stratum": "Q-scoped"
+  },
+  "callers:src/blib2to3/pytree.py:998": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/blib2to3/pytree.py",
+     "_iterative_matches"
+    ],
+    [
+     "src/blib2to3/pytree.py",
+     "_recursive_matches"
+    ],
+    [
+     "src/blib2to3/pytree.py",
+     "_submatch"
+    ],
+    [
+     "src/blib2to3/pytree.py",
+     "generate_matches"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/blib2to3/pytree.py",
+     741,
+     741
+    ],
+    [
+     "src/blib2to3/pytree.py",
+     912,
+     912
+    ],
+    [
+     "src/blib2to3/pytree.py",
+     923,
+     923
+    ],
+    [
+     "src/blib2to3/pytree.py",
+     956,
+     956
+    ],
+    [
+     "src/blib2to3/pytree.py",
+     1021,
+     1021
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/blib2to3/pytree.py",
+     "_iterative_matches"
+    ],
+    [
+     "src/blib2to3/pytree.py",
+     "_recursive_matches"
+    ],
+    [
+     "src/blib2to3/pytree.py",
+     "_submatch"
+    ],
+    [
+     "src/blib2to3/pytree.py",
+     "generate_matches"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/blib2to3/pytree.py",
+     741,
+     741,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/blib2to3/pytree.py",
+     912,
+     912,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/blib2to3/pytree.py",
+     923,
+     923,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/blib2to3/pytree.py",
+     956,
+     956,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/blib2to3/pytree.py",
+     1021,
+     1021,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "src/blib2to3/pytree.py:998",
+   "stratum": "C-name"
+  }
+ },
+ "site_fingerprints": {
+  "action/main.py:128": "babdd433343891ec",
+  "action/main.py:44": "3362b247e2fb2b44",
+  "action/main.py:87": "a6bf95a07c324119",
+  "src/black/__init__.py:1095": "c01a83c4c5ed9ccf",
+  "src/black/__init__.py:1099": "9975c1a5fe95705d",
+  "src/black/__init__.py:1100": "8f9a6fbdaff7b3c0",
+  "src/black/__init__.py:1102": "fd955c4d3dd5c20d",
+  "src/black/__init__.py:1105": "49b691c6ee4b4a42",
+  "src/black/__init__.py:1130": "0fb8306bbea58638",
+  "src/black/__init__.py:1152": "ad2e3b23989fa1eb",
+  "src/black/__init__.py:1153": "a29e9d6557e8b06a",
+  "src/black/__init__.py:1157": "ac837371773b9bb3",
+  "src/black/__init__.py:1160": "d6c0288c84fd3423",
+  "src/black/__init__.py:1162": "88bae4ce77348600",
+  "src/black/__init__.py:1163": "96dc4c0fbe9a20cf",
+  "src/black/__init__.py:1164": "904dce25e55a7741",
+  "src/black/__init__.py:1202": "8b7a4f8625930027",
+  "src/black/__init__.py:1708": "0adbec25a9e11e47",
+  "src/black/__init__.py:1712": "fe8c65f3b0bb147f",
+  "src/black/__init__.py:262": "e0877bdcca7a51f9",
+  "src/black/__init__.py:268": "45d4805824f7ebb3",
+  "src/black/__init__.py:269": "229a1a0e6f182452",
+  "src/black/__init__.py:277": "166b1c659764277f",
+  "src/black/__init__.py:280": "d2db6711847c0350",
+  "src/black/__init__.py:290": "a1cb7ac69bffb1ef",
+  "src/black/__init__.py:298": "394dd95c9f0c5509",
+  "src/black/__init__.py:306": "daf49f26853c7755",
+  "src/black/__init__.py:316": "1341a03af5405bea",
+  "src/black/__init__.py:322": "acd89879c93ba8cb",
+  "src/black/__init__.py:328": "37a2ae73da84b7ec",
+  "src/black/__init__.py:334": "63bfa5d411178c55",
+  "src/black/__init__.py:342": "f468e98d72847813",
+  "src/black/__init__.py:351": "38ce68cede0ba1fb",
+  "src/black/__init__.py:353": "46717e7d7dc70cd7",
+  "src/black/__init__.py:362": "5090a1844969b6ef",
+  "src/black/__init__.py:371": "ccf2e89e047218a6",
+  "src/black/__init__.py:379": "82debc193a0c653e",
+  "src/black/__init__.py:384": "e2baf4923b0c335f",
+  "src/black/__init__.py:397": "75331b7515159159",
+  "src/black/__init__.py:406": "f421403161cd4730",
+  "src/black/__init__.py:417": "8a8db26c2c33d882",
+  "src/black/__init__.py:430": "66c56b633fbec459",
+  "src/black/__init__.py:439": "34e0812c047604f7",
+  "src/black/__init__.py:450": "4f35135fd44d4dbd",
+  "src/black/__init__.py:460": "8bb75c229ff55ddd",
+  "src/black/__init__.py:474": "8067fcb2159e6e51",
+  "src/black/__init__.py:477": "eaed028c4c71528b",
+  "src/black/__init__.py:486": "4947283b6c2b848a",
+  "src/black/__init__.py:495": "7930fe609c76a58e",
+  "src/black/__init__.py:505": "03efdb07ccf8236c",
+  "src/black/__init__.py:512": "bf0af0049247f333",
+  "src/black/__init__.py:515": "a80d9190bb182518",
+  "src/black/__init__.py:521": "3ec3f48c0a8c0f2f",
+  "src/black/__init__.py:523": "0a622dba6d4229fa",
+  "src/black/__init__.py:535": "cd7b60b599c8d6fc",
+  "src/black/__init__.py:577": "4b46b491d0b6e702",
+  "src/black/__init__.py:581": "1ded6b89d8b651c8",
+  "src/black/__init__.py:586": "cdfce5a30b85f165",
+  "src/black/__init__.py:589": "ebc268c7bd5541aa",
+  "src/black/__init__.py:590": "b5cb110b15213b78",
+  "src/black/__init__.py:593": "5fadc6328a9e4ed2",
+  "src/black/__init__.py:595": "db52c026dc309708",
+  "src/black/__init__.py:596": "b735bf7e6b2bfea3",
+  "src/black/__init__.py:600": "f59f8d448c7cfc87",
+  "src/black/__init__.py:601": "285365b5de8293b9",
+  "src/black/__init__.py:604": "cdfce5a30b85f165",
+  "src/black/__init__.py:607": "f09438740aa143f5",
+  "src/black/__init__.py:613": "db569311957fe0a5",
+  "src/black/__init__.py:619": "6123b30bf156457e",
+  "src/black/__init__.py:620": "f97911d2b6c2793e",
+  "src/black/__init__.py:622": "959c4c79b925d6b8",
+  "src/black/__init__.py:631": "b6e7a782cfcc7c83",
+  "src/black/__init__.py:633": "fdf961c2dcb95f83",
+  "src/black/__init__.py:636": "6116c373346b3319",
+  "src/black/__init__.py:644": "713c08fc274ad95e",
+  "src/black/__init__.py:648": "774c3facea77e42d",
+  "src/black/__init__.py:650": "320e6f1d2a48cf8c",
+  "src/black/__init__.py:651": "68ba80f1ea6fcfe9",
+  "src/black/__init__.py:653": "5a51bd7b8dd0b674",
+  "src/black/__init__.py:659": "9728d4bcbc271933",
+  "src/black/__init__.py:673": "5bdd65c256a733b4",
+  "src/black/__init__.py:674": "00e0287234658e14",
+  "src/black/__init__.py:675": "0ca7928247bd5335",
+  "src/black/__init__.py:684": "de83cdf6e9319c4e",
+  "src/black/__init__.py:685": "a8d350f6735d7b41",
+  "src/black/__init__.py:688": "0c7c2ee27baad149",
+  "src/black/__init__.py:690": "bdf0e50d2d46d995",
+  "src/black/__init__.py:691": "ad9b124202ad89b6",
+  "src/black/__init__.py:698": "fa3a8862a73e3f7f",
+  "src/black/__init__.py:701": "465ff5acb5d69f89",
+  "src/black/__init__.py:712": "8c57781b6810e544",
+  "src/black/__init__.py:725": "dbb4693411d1eaeb",
+  "src/black/__init__.py:729": "993facf49132825e",
+  "src/black/__init__.py:731": "f0870bece5843ac8",
+  "src/black/__init__.py:732": "dcb77232c34a7417",
+  "src/black/__init__.py:735": "d889c87c63526df6",
+  "src/black/__init__.py:736": "11f2ec506cf9f2c0",
+  "src/black/__init__.py:748": "b8a0f376d4a11db2",
+  "src/black/__init__.py:749": "2a16b75d79fd1179",
+  "src/black/__init__.py:750": "09aa8b9284b194ee",
+  "src/black/__init__.py:762": "5b6a0bec6865a370",
+  "src/black/__init__.py:763": "83913f6d55abde9a",
+  "src/black/__init__.py:765": "0e3f1bbd071b2cbd",
+  "src/black/__init__.py:766": "f4c797cf8c6fc844",
+  "src/black/__init__.py:862": "4f397f97e14a3d7d",
+  "src/black/__main__.py:3": "6d3e0fa23d4f54db",
+  "src/black/brackets.py:292": "a1a39a3727abec88",
+  "src/black/brackets.py:293": "73ed84cd8f93ef57",
+  "src/black/cache.py:73": "f57f28307b1be5d3",
+  "src/black/comments.py:397": "c9a4b7b0125e6a98",
+  "src/black/comments.py:431": "4435fd9336572934",
+  "src/black/comments.py:433": "4012848ca178ab91",
+  "src/black/comments.py:434": "45ca0919507909e3",
+  "src/black/comments.py:436": "297c9c352a78bb1d",
+  "src/black/comments.py:455": "bdf369a73693fb09",
+  "src/black/comments.py:462": "55dffe66bc12216e",
+  "src/black/comments.py:469": "1820d1ab68b0a619",
+  "src/black/comments.py:471": "e0d7fa54a9e8d9d1",
+  "src/black/comments.py:483": "4ff1794b69b78320",
+  "src/black/comments.py:488": "d09821643c4fd6d1",
+  "src/black/comments.py:510": "a06b15ab06d56fda",
+  "src/black/comments.py:517": "b16e605946d9562c",
+  "src/black/comments.py:519": "18cb1f832a383dbe",
+  "src/black/comments.py:523": "13f4c6e3055718a4",
+  "src/black/comments.py:673": "3d09bb2d64119750",
+  "src/black/comments.py:684": "b14b0dabd5674c6c",
+  "src/black/comments.py:694": "c07e0240751fc1cf",
+  "src/black/comments.py:705": "4ae01fdc3d14f53c",
+  "src/black/comments.py:708": "d8b7b76184477e0b",
+  "src/black/comments.py:714": "f63257d465765064",
+  "src/black/comments.py:715": "d098c6a999cd7504",
+  "src/black/comments.py:717": "e2520fa197be3bc7",
+  "src/black/comments.py:749": "862f012e1e87055d",
+  "src/black/comments.py:755": "e2b784a0f42e3ba7",
+  "src/black/comments.py:756": "40c285901f21b9a1",
+  "src/black/comments.py:805": "6c5d4e78d8711f52",
+  "src/black/concurrency.py:52": "df8c2c408809f368",
+  "src/black/files.py:125": "26792a5e1add169d",
+  "src/black/files.py:260": "aa84b04b0b2edfa0",
+  "src/black/handle_ipynb_magics.py:405": "463a0d4850912a49",
+  "src/black/handle_ipynb_magics.py:408": "56f75f7ba7ab01fd",
+  "src/black/handle_ipynb_magics.py:409": "a1115baaf908f5b2",
+  "src/black/linegen.py:1005": "dcf4cef80b1ec113",
+  "src/black/linegen.py:1029": "88ddda633774f6bf",
+  "src/black/linegen.py:1031": "37bf1bb608219970",
+  "src/black/linegen.py:1032": "0b2a3cb5aa2c6f8a",
+  "src/black/linegen.py:1035": "bc87153c9bcf1f05",
+  "src/black/linegen.py:1051": "d722e431eb0ad42a",
+  "src/black/linegen.py:1052": "65cece78b23e870c",
+  "src/black/linegen.py:1064": "0479ba84e74ebef5",
+  "src/black/linegen.py:1068": "c63f388093b544cd",
+  "src/black/linegen.py:1071": "05402ac2e47f844a",
+  "src/black/linegen.py:1074": "7591f436ce2cb014",
+  "src/black/linegen.py:1075": "c4af80d13b546f96",
+  "src/black/linegen.py:1102": "c8fffbcd8c931610",
+  "src/black/linegen.py:1376": "6eb1781a049941c0",
+  "src/black/linegen.py:1377": "d21ba4e4c2a4c421",
+  "src/black/linegen.py:1407": "6c3a10e260dc9d16",
+  "src/black/linegen.py:1487": "80983462aff3a691",
+  "src/black/linegen.py:1505": "f08d741e7f30088f",
+  "src/black/linegen.py:1638": "3ae2ca3514214bcf",
+  "src/black/linegen.py:1639": "1fc47d90cd11e837",
+  "src/black/linegen.py:1640": "2fdf8c72bc397324",
+  "src/black/linegen.py:1746": "249ccd49fa35536e",
+  "src/black/linegen.py:1753": "8d36bfc48e717618",
+  "src/black/linegen.py:177": "a123fcaa85b4f936",
+  "src/black/linegen.py:1773": "13fd373a0d40c086",
+  "src/black/linegen.py:1774": "8243b0dccb012ded",
+  "src/black/linegen.py:378": "987d71ff2fd6e445",
+  "src/black/linegen.py:969": "77248baeb57cabca",
+  "src/black/lines.py:132": "42a9060d601661bb",
+  "src/black/lines.py:1348": "8e3605a77471be39",
+  "src/black/lines.py:364": "3528e54a16a7346f",
+  "src/black/lines.py:365": "eb596333912baaae",
+  "src/black/lines.py:486": "3b8fcb58090b68a2",
+  "src/black/lines.py:598": "a58753549a8919ac",
+  "src/black/lines.py:604": "b1b0dfad643b8fb6",
+  "src/black/nodes.py:1067": "89fb44cc1580cb0a",
+  "src/black/nodes.py:1111": "7292d1729c6b0278",
+  "src/black/nodes.py:1115": "10120781a633f3a5",
+  "src/black/nodes.py:212": "a943e6891e91546a",
+  "src/black/nodes.py:441": "4e374b8f2c96847f",
+  "src/black/nodes.py:469": "ee6d6596cb6d5bdd",
+  "src/black/nodes.py:528": "f546874ab3ccc4d3",
+  "src/black/nodes.py:586": "88f9cb6bc6d42f60",
+  "src/black/nodes.py:835": "2859f22177eba285",
+  "src/black/nodes.py:954": "1b8146d27e32c441",
+  "src/black/nodes.py:955": "c3f22a37bf09f7bc",
+  "src/black/output.py:40": "1854de1c05b1d8fa",
+  "src/black/ranges.py:225": "cdf13450ebc20108",
+  "src/black/ranges.py:234": "bffa3469385961c5",
+  "src/black/ranges.py:235": "4d670a94f64ec11f",
+  "src/black/ranges.py:236": "e7a400d9d57bc6ae",
+  "src/black/ranges.py:252": "a5f7ef937ec93e51",
+  "src/black/ranges.py:253": "12f4fd41cd5ad7e0",
+  "src/black/ranges.py:275": "16fcfc41b98179c8",
+  "src/black/ranges.py:278": "3285c0480c8db81a",
+  "src/black/ranges.py:285": "75e0df284d06b036",
+  "src/black/ranges.py:290": "047dd55f5b7178bb",
+  "src/black/ranges.py:296": "5ff1ff8a4a248d4d",
+  "src/black/ranges.py:297": "6df98133d122e068",
+  "src/black/ranges.py:299": "e5b1ecd1b563cb25",
+  "src/black/report.py:52": "c04bb1f0f6005712",
+  "src/black/trans.py:1006": "3055e4d4a9532216",
+  "src/black/trans.py:1007": "89c11a64cbb676a9",
+  "src/black/trans.py:1121": "b4d7803ed5485ccc",
+  "src/black/trans.py:1125": "25d6ce30f0ab1fdf",
+  "src/black/trans.py:1131": "fd91c9a16d2e8c9e",
+  "src/black/trans.py:1152": "91a020fca83da7df",
+  "src/black/trans.py:1154": "0920989f1270dfd6",
+  "src/black/trans.py:1162": "bf63870bbf5a6478",
+  "src/black/trans.py:1167": "aa85640e8da99edb",
+  "src/black/trans.py:1170": "e626aa98eb6e56d4",
+  "src/black/trans.py:1175": "8a934a7733493831",
+  "src/black/trans.py:1176": "643bc60ded638821",
+  "src/black/trans.py:1178": "52c0e50db51d056f",
+  "src/black/trans.py:1315": "fd70b48b65004485",
+  "src/black/trans.py:1325": "08d53e3929dfc2a2",
+  "src/black/trans.py:1531": "db00c7c05240d953",
+  "src/black/trans.py:1598": "c5105bb58d58f019",
+  "src/black/trans.py:2241": "f7b791640e61f49d",
+  "src/black/trans.py:2242": "db00c7c05240d953",
+  "src/black/trans.py:2254": "8a8f1b59a1a500e4",
+  "src/black/trans.py:2264": "b7d61b7edcc35340",
+  "src/black/trans.py:2266": "b19a88087bafda21",
+  "src/black/trans.py:2268": "b8db5139f2fd0351",
+  "src/black/trans.py:2270": "f09f1321fc972273",
+  "src/black/trans.py:2272": "8c38c589c67ac290",
+  "src/black/trans.py:2273": "1308008c4c2b3dc0",
+  "src/black/trans.py:2279": "28259424d2b59ac2",
+  "src/black/trans.py:2280": "10f80491b2efb000",
+  "src/black/trans.py:2282": "1bcc4641c03a6d13",
+  "src/black/trans.py:2288": "bf17a16e74c0dc30",
+  "src/black/trans.py:2295": "188445cd90385d57",
+  "src/black/trans.py:2296": "f70ef89b67549a0a",
+  "src/black/trans.py:2297": "09beb98ccfa956e0",
+  "src/black/trans.py:2300": "7a2ecb929e281d4e",
+  "src/black/trans.py:2303": "9e7283b13fe086b3",
+  "src/black/trans.py:2310": "a65f9d085aa1ed77",
+  "src/black/trans.py:2328": "f08a7c7a520d5d1f",
+  "src/black/trans.py:2330": "5eb0e363c1f0c0a1",
+  "src/black/trans.py:2332": "5a92c73fbc26142c",
+  "src/black/trans.py:2335": "81ed2c090270c097",
+  "src/black/trans.py:2338": "b5dc21ea55122250",
+  "src/black/trans.py:2340": "9d3e693af9d84635",
+  "src/black/trans.py:2342": "bb9b93dbfb07304f",
+  "src/black/trans.py:2343": "8e486f70602dd7c3",
+  "src/black/trans.py:2348": "afa77979f0af8d1f",
+  "src/black/trans.py:2349": "58bde54405df1412",
+  "src/black/trans.py:2350": "3a97fabbbee5591d",
+  "src/black/trans.py:2352": "e00dce1a2c556672",
+  "src/black/trans.py:2544": "cdaecb74f004c6c7",
+  "src/black/trans.py:2552": "6c6e7eeeb10da2f6",
+  "src/black/trans.py:389": "6d1df4ba3b566f55",
+  "src/black/trans.py:906": "202d745957851f98",
+  "src/black/trans.py:931": "21c590459a6e545d",
+  "src/black/trans.py:933": "daebff0916946851",
+  "src/black/trans.py:941": "d5ccc0d12c44eb49",
+  "src/black/trans.py:951": "cae9f6205d5cddc9",
+  "src/black/trans.py:952": "6bdd28055678d5f0",
+  "src/black/trans.py:957": "e89e07024f11c2a6",
+  "src/black/trans.py:986": "c569cd0990b68d50",
+  "src/black/trans.py:988": "4a71fa07084ef519",
+  "src/black/trans.py:992": "d04f1022ef092aaf",
+  "src/blackd/__init__.py:103": "468081dcca4ba398",
+  "src/blackd/__init__.py:105": "3f2821eb829e9e3c",
+  "src/blackd/__init__.py:106": "63afcfa861470534",
+  "src/blackd/__init__.py:185": "9b1bc5e440a3da05",
+  "src/blackd/__init__.py:332": "2c8baf46ced3bef9",
+  "src/blackd/__init__.py:71": "f0949162c5e6358a",
+  "src/blackd/__init__.py:72": "989da93898afafa2",
+  "src/blackd/__init__.py:79": "ad6d0e2133228ad2",
+  "src/blackd/__init__.py:82": "d6efb2f0ecc6f07a",
+  "src/blackd/__init__.py:88": "e9fdbcb473f6c97d",
+  "src/blackd/__init__.py:90": "60200fce10d31d34",
+  "src/blackd/__init__.py:95": "1f551c4a2232c070",
+  "src/blib2to3/pgen2/driver.py:308": "5b733bc9970c045f",
+  "src/blib2to3/pgen2/driver.py:313": "b706be6f5ed842cb",
+  "src/blib2to3/pgen2/parse.py:365": "25c967680870deb3",
+  "src/blib2to3/pgen2/parse.py:388": "0c2ab625cccab1f1",
+  "src/blib2to3/pgen2/pgen.py:129": "853d0d46c1dafd34",
+  "src/blib2to3/pgen2/pgen.py:36": "2f2b952ce2be17a0",
+  "src/blib2to3/pytree.py:1017": "ff1da4cd40b76c85",
+  "src/blib2to3/pytree.py:1021": "f71d181fbbdb9ebd",
+  "src/blib2to3/pytree.py:206": "b26ad100c1c7213c",
+  "src/blib2to3/pytree.py:540": "380134b08d6fecc7",
+  "src/blib2to3/pytree.py:542": "4305bb92a523943d",
+  "src/blib2to3/pytree.py:741": "b6516de80a92fd0b",
+  "src/blib2to3/pytree.py:845": "276db89b0fedbd09",
+  "src/blib2to3/pytree.py:912": "eaf1dd6209673026",
+  "src/blib2to3/pytree.py:923": "e6792f1f8c6d93d1",
+  "src/blib2to3/pytree.py:956": "7282761e0fce22a2",
+  "tests/test_black.py:3318": "c5e9349af1d630f6",
+  "tests/test_blackd.py:228": "f297b04d91bc9e0f",
+  "tests/test_blackd.py:246": "32b8d29d6b24be01",
+  "tests/test_ipynb.py:103": "4fcabcce1b6b0284",
+  "tests/test_ipynb.py:111": "c108c05c63298242",
+  "tests/test_ipynb.py:145": "0f204a79181be04c",
+  "tests/test_ipynb.py:159": "c108c05c63298242",
+  "tests/test_ipynb.py:169": "ae23233f3005a801",
+  "tests/test_ipynb.py:176": "c108c05c63298242",
+  "tests/test_ipynb.py:182": "c108c05c63298242",
+  "tests/test_ipynb.py:187": "d97e7ffb6dd3046a",
+  "tests/test_ipynb.py:204": "1244e4daa93c3302",
+  "tests/test_ipynb.py:235": "a7ea8af52285ac81",
+  "tests/test_ipynb.py:256": "c108c05c63298242",
+  "tests/test_ipynb.py:261": "eb38bf2b90f0f144",
+  "tests/test_ipynb.py:269": "c108c05c63298242",
+  "tests/test_ipynb.py:275": "c108c05c63298242",
+  "tests/test_ipynb.py:281": "c108c05c63298242",
+  "tests/test_ipynb.py:286": "6b58bd43b5386662",
+  "tests/test_ipynb.py:294": "c108c05c63298242",
+  "tests/test_ipynb.py:300": "c108c05c63298242",
+  "tests/test_ipynb.py:44": "c108c05c63298242",
+  "tests/test_ipynb.py:565": "7ed54b2c55eac7e5",
+  "tests/test_ipynb.py:61": "64fe18e6c46f6041",
+  "tests/test_ipynb.py:68": "c226ca297223dce2",
+  "tests/test_ipynb.py:76": "c108c05c63298242",
+  "tests/test_ipynb.py:82": "c108c05c63298242",
+  "tests/test_ipynb.py:88": "c108c05c63298242",
+  "tests/util.py:66": "e7b22592be4fad59",
+  "tests/util.py:75": "8f3855188ae864d6"
+ }
+}
