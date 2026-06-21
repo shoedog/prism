@@ -1199,6 +1199,72 @@ fn owner_single_candidate_stays_exact() {
 }
 
 #[test]
+fn owner_inherent_plus_trait_same_name_demotes() {
+    use prism::languages::Language::Rust;
+    // ONE type `Foo` with an inherent `m` AND a same-named trait-impl `m`. Both
+    // register under ("Foo","m") with primary owner "Foo" -> a non-trait-CHA
+    // multi-candidate pool (pool=2, primary_owners=1). Confirms the demote covers
+    // the accepted same-owner ambiguity set, not just distinct same-named types.
+    let (cg, _) = build_without_scope_graph(&[(
+        "a.rs",
+        "pub struct Foo;\n\
+         impl Foo {\n    pub fn m(&self) {}\n}\n\
+         pub trait T {\n    fn m(&self);\n}\n\
+         impl T for Foo {\n    fn m(&self) {}\n}\n\
+         fn run() {\n    Foo::m();\n}\n",
+        Rust,
+    )]);
+    let site = site_in(&cg, "run", "Foo::m");
+    let r = cg.resolve_call_site(&site);
+    assert_eq!(r.len(), 2, "inherent + trait-impl m both retained");
+    assert!(r
+        .iter()
+        .all(|c| c.confidence == ResolutionConfidence::NameOnly));
+    assert!(r.iter().all(|c| c.kind == ResolutionKind::QualifiedOwner));
+}
+
+#[test]
+fn recovered_receiver_collision_demotes_and_keeps_typed_param_relabel() {
+    use prism::languages::Language::Rust;
+    use prism::resolution::{ReceiverRecovery, ReceiverRecoveryConfig};
+    // Two distinct `Foo` types each with `make`; `run(r: Foo)` calls `r.make()`.
+    // P6-lite recovers r:Foo syntactically (no conventional crate root -> no
+    // methods_by_scope narrowing preempts); R6 routes to owner_lookup("Foo","make")
+    // -> 2-candidate collision -> demote. R6 relabels kind QualifiedOwner ->
+    // TypedParam; the NameOnly confidence must ride through.
+    let (cg, _) = build_cfg(
+        &[
+            (
+                "a.rs",
+                "pub struct Foo;\nimpl Foo {\n    pub fn make(&self) {}\n}\n",
+                Rust,
+            ),
+            (
+                "b.rs",
+                "pub struct Foo;\nimpl Foo {\n    pub fn make(&self) {}\n}\n",
+                Rust,
+            ),
+            ("c.rs", "fn run(r: Foo) {\n    r.make();\n}\n", Rust),
+        ],
+        &ReceiverRecoveryConfig::default(),
+    );
+    let site = site_in(&cg, "run", "make");
+    assert_eq!(
+        site.receiver_recovery,
+        Some(ReceiverRecovery::TypedParam),
+        "fixture must recover the typed-param receiver"
+    );
+    let r = cg.resolve_call_site(&site);
+    assert_eq!(r.len(), 2);
+    assert!(
+        r.iter()
+            .all(|c| c.confidence == ResolutionConfidence::NameOnly),
+        "demoted confidence rides through the kind relabel"
+    );
+    assert!(r.iter().all(|c| c.kind == ResolutionKind::TypedParam));
+}
+
+#[test]
 fn r2_self_method_call_resolves_via_enclosing_owner_cross_file() {
     use prism::languages::Language::Rust;
     let (cg, _) = build(&[
