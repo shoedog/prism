@@ -53,6 +53,7 @@ pub mod reasoning;
 mod receiver_index;
 pub mod repo_loader;
 pub mod resolution;
+pub mod resolution_disproof;
 pub mod resolution_identity;
 pub mod resolution_receiver;
 pub mod sanitizers;
