@@ -74,6 +74,46 @@ fn call_stats_reports_multi_target_exact_same_name_owner_collision() {
 }
 
 #[test]
+fn call_stats_shadow_stratifies_type_path_collision_and_runs_narrowing() {
+    // Pre-gate shadow: `a.rs` defines `Foo` AND calls `Foo::make()`; `b.rs` defines
+    // a colliding `Foo::make`. The call's `callee_name` is "Foo::make" -> `type_path`
+    // shape, and the narrowing shadow runs over it. A flat two-file repo gives the
+    // scope graph no module structure to disambiguate the two `Foo`s, so the owner
+    // type does not resolve to a single in-repo scope and the site is classified
+    // `failopen_type_unresolved` (the residual FP shape the lever cannot reclaim
+    // without a richer scope graph).
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(
+        dir.path().join("a.rs"),
+        "struct Foo;\nimpl Foo {\n    fn make() -> Foo { Foo }\n    fn run(&self) {\n        Foo::make();\n    }\n}\n",
+    )
+    .unwrap();
+    std::fs::write(
+        dir.path().join("b.rs"),
+        "struct Foo;\nimpl Foo {\n    fn make() -> Foo { Foo }\n}\n",
+    )
+    .unwrap();
+    let out = Command::cargo_bin("prism")
+        .unwrap()
+        .args(["nav", "--no-cache", "call-stats", "--repo"])
+        .arg(dir.path())
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let v: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(v["multi_target_exact_sites"], 1);
+    // The colliding site is recognized as a type-path (`T::m`) shape...
+    assert_eq!(v["multi_target_exact_shape"]["type_path"], 1);
+    // ...and the narrowing shadow runs over it and classifies it (here the owner
+    // type cannot be resolved to a single in-repo scope -> fail-open).
+    assert_eq!(v["shadow_typepath_narrow"]["failopen_type_unresolved"], 1);
+}
+
+#[test]
 fn call_stats_reports_embedded_promotion_and_ambiguity() {
     let dir = tempfile::tempdir().unwrap();
     // One resolved promotion (Wrap.Ping) + one equal-depth ambiguity (A.M via X,Y).

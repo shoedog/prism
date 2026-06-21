@@ -1,13 +1,86 @@
-use crate::call_graph::{CallGraph, FunctionId};
+use crate::call_graph::{CallGraph, CallSite, FunctionId};
 use crate::cpg::{CpgEdge, CpgNode};
 use crate::navigation::seed;
 use crate::navigation::types::*;
 use crate::navigation::NavigationSession;
 use crate::resolution::ResolutionConfidence;
+use crate::resolution_identity::{resolve_type_path_to_type_scope, TypeKey};
 use petgraph::graph::NodeIndex;
 use petgraph::visit::EdgeRef;
 use petgraph::Direction;
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
+
+/// Shape of a multi-target-Exact call site — what *kind* of receiver/qualifier
+/// minted the colliding pool. This decides which lever could address it:
+/// `type_path` (`T::m`) is the only shape the proposed Option-B owner-key
+/// narrowing targets; `receiver_typed` (`x.m()` recovered) is a different path
+/// (the receiver `methods_by_scope` hook); `qualifier_field` is the ambiguous
+/// `pkg.f()`/`x.m()` form (`CallSite.qualifier` cannot tell type from value).
+fn multi_target_shape(site: &CallSite) -> &'static str {
+    if site.callee_name.contains("::") {
+        let mut segs: Vec<&str> = site.callee_name.split("::").collect();
+        if segs.pop().is_none() {
+            return "unshaped";
+        }
+        while matches!(segs.first(), Some(&"crate") | Some(&"super")) {
+            segs.remove(0);
+        }
+        if segs.as_slice() == ["self"] || segs.last() == Some(&"Self") {
+            return "self_path";
+        }
+        if segs.is_empty() {
+            return "unshaped";
+        }
+        return "type_path";
+    }
+    if site.receiver_outcome.is_some() {
+        return "receiver_typed";
+    }
+    if site.qualifier.is_some() {
+        return "qualifier_field";
+    }
+    "unshaped"
+}
+
+/// Shadow (measurement-only) of the Option-B narrowing for a genuine `T::m`
+/// type-path site: resolve the owner type-path through the scope graph and report
+/// whether `methods_by_scope` would narrow the colliding pool to a singleton (the
+/// realized precision win), to a still-multiple set (would demote to NameOnly), or
+/// cannot (fail-open, split by cause). Only called for `type_path` sites — never
+/// changes resolution behavior.
+fn shadow_narrow_type_path(cg: &CallGraph, site: &CallSite) -> &'static str {
+    let mut segs: Vec<&str> = site.callee_name.split("::").collect();
+    let Some(method) = segs.pop() else {
+        return "failopen_type_unresolved";
+    };
+    while matches!(segs.first(), Some(&"crate") | Some(&"super")) {
+        segs.remove(0);
+    }
+    let owner_syntax = segs.join("::");
+    let Some(graph) = cg.scope_graph.as_ref() else {
+        return "failopen_no_graph";
+    };
+    let resolved = graph
+        .file_paths
+        .get(&site.caller.file)
+        .copied()
+        .and_then(|file| CallGraph::module_scope_for_byte(graph, file, site.start_byte))
+        .and_then(|from| resolve_type_path_to_type_scope(graph, from, &owner_syntax));
+    match resolved {
+        Some(TypeKey::InRepo(scope)) => {
+            match cg
+                .methods_by_scope
+                .get(&(scope, method.to_string()))
+                .map(|c| c.len())
+            {
+                Some(1) => "singleton",
+                Some(n) if n > 1 => "multiple",
+                _ => "failopen_no_method",
+            }
+        }
+        _ => "failopen_type_unresolved",
+    }
+}
 
 pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
     use crate::resolution::{DropReason, ResolutionConfidence};
@@ -40,6 +113,12 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
     let mut multi_target_exact_sites = 0usize;
     let mut multi_target_exact_fanout: BTreeMap<usize, usize> = BTreeMap::new();
     let mut multi_target_exact_by_kind: BTreeMap<&'static str, usize> = BTreeMap::new();
+    // Pre-gate shadow over the multi-target-Exact set: stratify each site by SHAPE
+    // (which lever could address it), then for genuine `type_path` (`T::m`) sites
+    // run the Option-B scope-graph narrowing shadow (singleton = realized win,
+    // multiple = would-demote, failopen_* = pool unchanged, split by cause).
+    let mut multi_target_exact_shape: BTreeMap<&'static str, usize> = BTreeMap::new();
+    let mut shadow_typepath_narrow: BTreeMap<&'static str, usize> = BTreeMap::new();
     for sites in cg.calls.values() {
         for site in sites {
             total += 1;
@@ -93,6 +172,13 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
                 for k in exact_kinds.iter().copied().collect::<BTreeSet<_>>() {
                     *multi_target_exact_by_kind.entry(k).or_default() += 1;
                 }
+                let shape = multi_target_shape(site);
+                *multi_target_exact_shape.entry(shape).or_default() += 1;
+                if shape == "type_path" {
+                    *shadow_typepath_narrow
+                        .entry(shadow_narrow_type_path(cg, site))
+                        .or_default() += 1;
+                }
             }
         }
     }
@@ -120,6 +206,8 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
         "multi_target_exact_sites": multi_target_exact_sites,
         "multi_target_exact_fanout": multi_target_exact_fanout,
         "multi_target_exact_by_kind": multi_target_exact_by_kind,
+        "multi_target_exact_shape": multi_target_exact_shape,
+        "shadow_typepath_narrow": shadow_typepath_narrow,
     })
 }
 
