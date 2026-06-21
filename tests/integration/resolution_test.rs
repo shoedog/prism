@@ -1689,6 +1689,308 @@ fn rust_scope_graph_authority_gate_and_poison_skip_legacy() {
 }
 
 #[test]
+fn scope_graph_two_crate_owner_collision_recovers_to_single_exact() {
+    use prism::languages::Language::Rust;
+    // The ruff CliTest::with_file class in miniature: two crates each define
+    // `CliTest::with_file`. With the scope graph present, a call in crate `a`
+    // resolves to crate `a`'s definition alone -- single Exact (the headline
+    // recovery). The bare `("CliTest","with_file")` key holds BOTH defs.
+    let sources = [
+        (
+            "a/src/lib.rs",
+            "pub struct CliTest;\nimpl CliTest {\n    pub fn with_file(&self) {}\n}\npub fn drive() {\n    CliTest::with_file();\n}\n",
+            Rust,
+        ),
+        (
+            "b/src/lib.rs",
+            "pub struct CliTest;\nimpl CliTest {\n    pub fn with_file(&self) {}\n}\n",
+            Rust,
+        ),
+    ];
+    let (cg, _) = build(&sources);
+    assert!(
+        cg.scope_graph.is_some(),
+        "convention build has a scope graph"
+    );
+    assert_eq!(
+        cg.methods
+            .get(&("CliTest".to_string(), "with_file".to_string()))
+            .map(|v| v.len()),
+        Some(2),
+        "the bare owner key collides across both crates"
+    );
+    let r = cg.resolve_call_site(&site_in(&cg, "drive", "CliTest::with_file"));
+    assert_eq!(r.len(), 1, "recovers to a single candidate");
+    assert_eq!(r[0].target.file, "a/src/lib.rs");
+    assert_eq!(r[0].confidence, ResolutionConfidence::Exact);
+    assert_eq!(r[0].kind, ResolutionKind::QualifiedOwner);
+}
+
+#[test]
+fn scope_graph_inherent_plus_trait_owner_demotes_not_drops() {
+    use prism::languages::Language::Rust;
+    // The resolved type `Widget` owns BOTH an inherent `make` and a trait `make`.
+    // The leading segment binds directly + unshadowed, so the predicate runs, but
+    // it cannot prune below the inherent/trait pair (both owned by Widget).
+    let sources = [(
+        "src/lib.rs",
+        "pub struct Widget;\npub trait Build { fn make(&self); }\nimpl Widget { pub fn make(&self) {} }\nimpl Build for Widget { fn make(&self) {} }\npub fn drive() {\n    Widget::make();\n}\n",
+        Rust,
+    )];
+    let (cg, _) = build(&sources);
+    let out = cg.resolve_call_site_full(&site_in(&cg, "drive", "Widget::make"));
+    assert_eq!(out.drop, None, "must not drop -- recall fix");
+    assert_eq!(out.resolved.len(), 2, "inherent + trait both kept");
+    assert!(
+        out.resolved
+            .iter()
+            .all(|c| c.confidence == ResolutionConfidence::NameOnly),
+        "the unprunable owner pair demotes to NameOnly"
+    );
+    assert!(out
+        .resolved
+        .iter()
+        .all(|c| c.kind == ResolutionKind::QualifiedOwner));
+}
+
+#[test]
+fn scope_graph_unresolved_owner_path_keeps_full_pool_not_drop() {
+    use prism::languages::Language::Rust;
+    // The owner type path does NOT resolve through the graph (`Missing` is not in
+    // scope at the call site), but the bare owner key collides across two files.
+    // Keep all candidates and route the `::` site to the #120 demote floor.
+    let sources = [
+        (
+            "src/lib.rs",
+            "mod other;\nmod more;\npub fn drive() {\n    Missing::make();\n}\n",
+            Rust,
+        ),
+        (
+            "src/other.rs",
+            "pub struct Missing;\nimpl Missing {\n    pub fn make(&self) {}\n}\n",
+            Rust,
+        ),
+        (
+            "src/more.rs",
+            "pub struct Missing;\nimpl Missing {\n    pub fn make(&self) {}\n}\n",
+            Rust,
+        ),
+    ];
+    let (cg, _) = build(&sources);
+    assert_eq!(
+        cg.methods
+            .get(&("Missing".to_string(), "make".to_string()))
+            .map(|v| v.len()),
+        Some(2),
+        "the bare owner key must collide so the floor is NameOnly, not Exact",
+    );
+    let out = cg.resolve_call_site_full(&site_in(&cg, "drive", "Missing::make"));
+    assert_eq!(out.drop, None, "owner-keyed `::` miss demotes, not drops");
+    assert_eq!(out.resolved.len(), 2, "both colliding defs are kept");
+    assert!(
+        out.resolved
+            .iter()
+            .all(|c| c.confidence == ResolutionConfidence::NameOnly),
+        "fail-open lands at the #120 NameOnly demote floor"
+    );
+    assert!(
+        out.resolved
+            .iter()
+            .all(|c| c.kind == ResolutionKind::QualifiedOwner),
+        "same-owner collision demotes as QualifiedOwner"
+    );
+}
+
+#[test]
+fn scope_graph_block_local_glob_shadow_keeps_all() {
+    use prism::languages::Language::Rust;
+    // Module-level `use a::Foo;` plus block-local `use b::*;`. The graph can
+    // resolve the module-anchored `Foo`, but the block-local glob may shadow it,
+    // so the disproof predicate must keep the full owner pool.
+    let sources = [
+        (
+            "src/lib.rs",
+            "mod a;\nmod b;\nuse crate::a::Foo;\npub fn drive() {\n    use crate::b::*;\n    Foo::m();\n}\n",
+            Rust,
+        ),
+        (
+            "src/a.rs",
+            "pub struct Foo;\nimpl Foo {\n    pub fn m(&self) {}\n}\n",
+            Rust,
+        ),
+        (
+            "src/b.rs",
+            "pub struct Foo;\nimpl Foo {\n    pub fn m(&self) {}\n}\n",
+            Rust,
+        ),
+    ];
+    let (cg, _) = build(&sources);
+    let out = cg.resolve_call_site_full(&site_in(&cg, "drive", "Foo::m"));
+    assert_eq!(out.drop, None);
+    assert!(
+        out.resolved.len() >= 2
+            && out
+                .resolved
+                .iter()
+                .all(|c| c.confidence == ResolutionConfidence::NameOnly),
+        "block-local glob shadow keeps the full pool at NameOnly"
+    );
+}
+
+#[test]
+fn scope_graph_macro_wildcard_shadow_keeps_all() {
+    use prism::languages::Language::Rust;
+    // An item-position macro invocation can introduce a type binding after
+    // expansion. Treat the trailing block scope as potentially shadowed.
+    let sources = [
+        (
+            "src/lib.rs",
+            "mod a;\nmod b;\nuse crate::a::Foo;\nmacro_rules! gen { () => {}; }\npub fn drive() {\n    gen!();\n    Foo::m();\n}\n",
+            Rust,
+        ),
+        (
+            "src/a.rs",
+            "pub struct Foo;\nimpl Foo {\n    pub fn m(&self) {}\n}\n",
+            Rust,
+        ),
+        (
+            "src/b.rs",
+            "pub struct Foo;\nimpl Foo {\n    pub fn m(&self) {}\n}\n",
+            Rust,
+        ),
+    ];
+    let (cg, _) = build(&sources);
+    let out = cg.resolve_call_site_full(&site_in(&cg, "drive", "Foo::m"));
+    assert_eq!(out.drop, None);
+    assert!(
+        out.resolved
+            .iter()
+            .all(|c| c.confidence == ResolutionConfidence::NameOnly),
+        "a covering macro wildcard keeps the full pool at NameOnly"
+    );
+}
+
+#[test]
+fn scope_graph_pending_import_alias_over_colliding_pool_keeps_all() {
+    use prism::languages::Language::Rust;
+    // The leading segment `Foo` binds at the call site via a named import
+    // (`BindTarget::Pending`), not a direct resolved item. That uncertainty keeps
+    // the full colliding owner pool rather than pruning to `a::Foo::m`.
+    let sources = [
+        (
+            "src/lib.rs",
+            "mod a;\nmod b;\nuse crate::a::Foo;\npub fn drive() {\n    Foo::m();\n}\n",
+            Rust,
+        ),
+        (
+            "src/a.rs",
+            "pub struct Foo;\nimpl Foo {\n    pub fn m(&self) {}\n}\n",
+            Rust,
+        ),
+        (
+            "src/b.rs",
+            "pub struct Foo;\nimpl Foo {\n    pub fn m(&self) {}\n}\n",
+            Rust,
+        ),
+    ];
+    let (cg, _) = build(&sources);
+    assert_eq!(
+        cg.methods
+            .get(&("Foo".to_string(), "m".to_string()))
+            .map(|v| v.len()),
+        Some(2),
+        "the bare owner key must collide across a::Foo and b::Foo",
+    );
+    let out = cg.resolve_call_site_full(&site_in(&cg, "drive", "Foo::m"));
+    assert_eq!(out.drop, None, "a Pending import alias must not drop");
+    assert!(
+        out.resolved.len() == 2
+            && out
+                .resolved
+                .iter()
+                .all(|c| c.confidence == ResolutionConfidence::NameOnly),
+        "Pending import directness keeps the full colliding pool at NameOnly",
+    );
+}
+
+#[test]
+fn scope_graph_non_uniform_edition_keeps_all() {
+    // Mixed-edition graphs are non-authoritative for disproof. Even when a
+    // direct, unshadowed owner path would otherwise prune to one candidate, the
+    // edition guard must keep the full colliding pool at the demote floor.
+    let sources = [
+        (
+            "a/src/lib.rs",
+            "pub struct Foo;\nimpl Foo {\n    pub fn m(&self) {}\n}\npub fn drive() {\n    Foo::m();\n}\n",
+        ),
+        (
+            "b/src/lib.rs",
+            "pub struct Foo;\nimpl Foo {\n    pub fn m(&self) {}\n}\n",
+        ),
+    ];
+    let (mut cg, _) = build_rust_complete(&sources);
+    cg.scope_graph
+        .as_mut()
+        .expect("scope graph")
+        .edition_uniform = false;
+    assert_eq!(
+        cg.methods
+            .get(&("Foo".to_string(), "m".to_string()))
+            .map(|v| v.len()),
+        Some(2),
+        "the bare owner key must collide for the keep-all assertion",
+    );
+    let out = cg.resolve_call_site_full(&site_in(&cg, "drive", "Foo::m"));
+    assert_eq!(out.drop, None);
+    assert_eq!(out.resolved.len(), 2, "non-uniform edition keeps all");
+    assert!(out
+        .resolved
+        .iter()
+        .all(|c| c.confidence == ResolutionConfidence::NameOnly));
+}
+
+#[test]
+fn scope_graph_free_fn_path_not_misrouted_to_colliding_method_pool() {
+    use prism::languages::Language::Rust;
+    // `crate::m::f()` is a module free-function call. A struct `m` with method
+    // `f` in another module creates a colliding bare method bucket, so the
+    // free-fn guard must keep this on the graph free-function path.
+    let sources = [
+        (
+            "src/lib.rs",
+            "mod m;\nmod other;\npub fn drive() {\n    crate::m::f();\n}\n",
+            Rust,
+        ),
+        ("src/m.rs", "pub fn f() {}\n", Rust),
+        (
+            "src/other.rs",
+            "pub struct m;\nimpl m {\n    pub fn f(&self) {}\n}\n",
+            Rust,
+        ),
+    ];
+    let (cg, _) = build(&sources);
+    assert_eq!(
+        cg.methods
+            .get(&("m".to_string(), "f".to_string()))
+            .map(|v| v.len()),
+        Some(1),
+        "the cross-module struct method must populate the colliding bucket",
+    );
+    let out = cg.resolve_call_site_full(&site_in(&cg, "drive", "crate::m::f"));
+    assert_eq!(out.drop, None, "the free-fn `::` path resolves, not drops");
+    assert_eq!(
+        out.resolved.len(),
+        1,
+        "the module free fn is the single resolved target"
+    );
+    assert_eq!(
+        out.resolved[0].target.file, "src/m.rs",
+        "must resolve to the module free fn, never the cross-module method pool",
+    );
+    assert_eq!(out.resolved[0].confidence, ResolutionConfidence::Exact);
+}
+
+#[test]
 fn non_rust_resolution_is_unchanged_with_scope_graph_present() {
     use prism::languages::Language::Python;
     let sources = [

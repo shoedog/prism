@@ -557,6 +557,59 @@ impl CallGraph {
         self.graph_target_resolution(graph, site, &target)
     }
 
+    /// Does the authoritative graph resolve this `::` call's qualified-callable
+    /// path to a free function (vs a method)? Used to divert free-function paths
+    /// whose owner-segment name collides with a method bucket away from the
+    /// owner-prune.
+    fn rust_graph_qualified_target_is_free_fn(
+        &self,
+        graph: &ScopeGraph,
+        site: &CallSite,
+        file: FileId,
+        from: ScopeId,
+    ) -> bool {
+        if !site.callee_name.contains("::") {
+            return false;
+        }
+        let Some(target) = rust_graph_qualified_callable_edge(graph, site, file, from) else {
+            return false;
+        };
+        let ids = self.graph_target_ids(graph, &target);
+        !ids.is_empty() && ids.iter().all(|fid| !self.method_owners.contains_key(*fid))
+    }
+
+    /// Owner-keyed disproof prune (spec §4). Fetch the bare `(owner, method)` pool
+    /// from `self.methods`, run the `ScopeResolution` predicate, and decide:
+    /// 1 survivor -> Exact; >1 -> demoted; unchanged from the bare pool -> `None`
+    /// so the caller can fail-open to the #120 demote floor.
+    fn rust_scope_prune_owner(
+        &self,
+        graph: &ScopeGraph,
+        site: &CallSite,
+        file: FileId,
+        from: ScopeId,
+        name: &str,
+    ) -> Option<Vec<ResolvedCallee<'_>>> {
+        let (owner, method) = owner_method_key(name)?;
+        let pool_ids = self.methods.get(&(owner, method))?;
+        let pool: Vec<&FunctionId> = pool_ids.iter().collect();
+        let pred = ScopeResolution::new(self);
+        let cx = crate::resolution_disproof::DisproofCx { graph, file, from };
+        let pruned = crate::resolution_disproof::prune(
+            pool.clone(),
+            site,
+            &cx,
+            &[&pred as &dyn crate::resolution_disproof::DisproofPredicate],
+        );
+        if pruned.len() == pool.len() {
+            return None;
+        }
+        Some(match pruned.len() {
+            1 => exact(pruned, ResolutionKind::QualifiedOwner),
+            _ => demoted(pruned, ResolutionKind::QualifiedOwner),
+        })
+    }
+
     /// The in-repo `FunctionId`s a resolved callable `Target` maps to, applying
     /// the same per-binding file + owner narrowing `graph_target_resolution`
     /// uses. Shared by the `ScopeResolution` predicate and `graph_target_resolution`.
@@ -719,10 +772,53 @@ impl CallGraph {
                 && (name.contains("::") || site.qualifier.is_none())
             {
                 if let Some((file, from)) = rust_authoritative_scope(graph, site) {
-                    return match self.rust_scope_graph_resolution(graph, site, file, from) {
-                        Some(resolved) => ResolutionOutcome::hit(resolved),
-                        None => ResolutionOutcome::dropped(DropReason::UnknownName),
+                    let owner_method = if name.contains("::") {
+                        owner_method_key(name)
+                    } else {
+                        None
                     };
+                    let has_bare_pool = owner_method.as_ref().is_some_and(|(owner, method)| {
+                        self.methods.contains_key(&(owner.clone(), method.clone()))
+                    });
+
+                    if has_bare_pool
+                        && name.contains("::")
+                        && self.rust_graph_qualified_target_is_free_fn(graph, site, file, from)
+                    {
+                        return match self.rust_scope_graph_resolution(graph, site, file, from) {
+                            Some(resolved) => ResolutionOutcome::hit(resolved),
+                            None => ResolutionOutcome::dropped(DropReason::UnknownName),
+                        };
+                    }
+
+                    if has_bare_pool {
+                        if let Some(resolved) =
+                            self.rust_scope_prune_owner(graph, site, file, from, name)
+                        {
+                            return ResolutionOutcome::hit(resolved);
+                        }
+
+                        let (owner, method) = owner_method.as_ref().expect("has_bare_pool");
+                        let segs: Vec<&str> = name.split("::").collect();
+                        let mut prefix: Vec<&str> = segs[..segs.len() - 1].to_vec();
+                        while matches!(prefix.first(), Some(&"crate") | Some(&"super")) {
+                            prefix.remove(0);
+                        }
+                        let module_segs = &prefix[..prefix.len().saturating_sub(1)];
+                        if let Some(resolved) =
+                            self.owner_lookup_in_modules(owner, method, module_segs)
+                        {
+                            return ResolutionOutcome::hit(resolved);
+                        }
+                        return ResolutionOutcome::dropped(DropReason::UnknownName);
+                    }
+
+                    if let Some(resolved) =
+                        self.rust_scope_graph_resolution(graph, site, file, from)
+                    {
+                        return ResolutionOutcome::hit(resolved);
+                    }
+                    return ResolutionOutcome::dropped(DropReason::UnknownName);
                 }
             }
         }
@@ -1454,6 +1550,22 @@ fn rust_graph_qualified_callable_edge(
         },
         _ => None,
     }
+}
+
+/// Split an owner-keyed `mod::T::m` call name into the bare `(owner, method)`
+/// key after stripping leading `crate::`/`super::`. `self`/`Self` paths are
+/// handled by their dedicated rungs.
+fn owner_method_key(name: &str) -> Option<(String, String)> {
+    let mut segs: Vec<&str> = name.split("::").collect();
+    let method = segs.pop()?;
+    while matches!(segs.first(), Some(&"crate") | Some(&"super")) {
+        segs.remove(0);
+    }
+    let owner = *segs.last()?;
+    if owner == "self" || owner == "Self" {
+        return None;
+    }
+    Some((owner.to_string(), method.to_string()))
 }
 
 fn rust_call_path_anchor(raw: &str) -> Option<(Anchor, RawPath)> {
