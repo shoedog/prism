@@ -167,7 +167,7 @@ pub fn scope_graph_build_inputs(
     let manifest_hashes = collect_manifest_hashes(root);
     let cfg = parse_rust_crate_config(root, files, &manifest_hashes)
         .unwrap_or_else(|| RustCrateConfig::from_convention(files));
-    let complete = has_complete_file_coverage(root, files);
+    let complete = has_complete_rust_coverage(root, files);
     ScopeGraphBuildInputs {
         repo_root: root.to_path_buf(),
         all_file_paths: files.keys().cloned().collect(),
@@ -212,12 +212,14 @@ fn collect_manifest_hashes_inner(root: &Path, dir: &Path, out: &mut BTreeMap<Str
     }
 }
 
-fn has_complete_file_coverage(root: &Path, files: &BTreeMap<String, ParsedFile>) -> bool {
+fn has_complete_rust_coverage(root: &Path, files: &BTreeMap<String, ParsedFile>) -> bool {
     let Some(expected) = collect_supported_source_paths(root) else {
         return false;
     };
-    let actual: BTreeSet<String> = files.keys().cloned().collect();
-    actual == expected
+    let is_rust = |p: &String| Language::from_path(p) == Some(Language::Rust);
+    let expected_rust: BTreeSet<String> = expected.into_iter().filter(is_rust).collect();
+    let actual_rust: BTreeSet<String> = files.keys().filter(|k| is_rust(k)).cloned().collect();
+    actual_rust == expected_rust
 }
 
 fn collect_supported_source_paths(root: &Path) -> Option<BTreeSet<String>> {
@@ -576,5 +578,47 @@ mod tests {
             .skipped
             .iter()
             .any(|s| s.path == "bad.xyz" && matches!(s.reason, SkipReason::NotUtf8)));
+    }
+
+    #[test]
+    fn rust_coverage_ignores_non_utf8_python() {
+        // A repo whose ONLY skipped file is a non-UTF-8 `.py` (ruff's lint
+        // fixtures) must still build a complete scope graph: Rust coverage is
+        // total, so `complete == true` and the graph is populated.
+        let dir = tempfile::tempdir().unwrap();
+        let p = dir.path();
+        std::fs::write(p.join("lib.rs"), "pub fn a() {}\n").unwrap();
+        std::fs::write(p.join("bad.py"), [0xFFu8, 0xFE, 0x00]).unwrap(); // NotUtf8, skipped
+        let repo = load_repo(p).unwrap();
+        let inputs = repo.scope_graph_inputs.expect("scope graph inputs");
+        assert!(
+            inputs.complete,
+            "a non-UTF-8 .py must not block Rust-scoped completeness"
+        );
+    }
+
+    #[test]
+    fn rust_coverage_false_when_a_rust_file_is_skipped() {
+        // If the repo skips one of its OWN `.rs`, Rust coverage is incomplete →
+        // `complete == false` (unchanged behavior; the deferred per-crate case).
+        // We trigger the skip with a NON-UTF-8 `.rs` — the `String::from_utf8`
+        // arm in `walk` (SkipReason::NotUtf8, repo_loader.rs:511) drops `a.rs`
+        // before it becomes a parse candidate, so it is absent from `files`. The
+        // bytes `[0xFF, 0xFE, 0xFC]` are invalid UTF-8 (no valid sequence begins
+        // with 0xFF/0xFE). `a.rs` is still supported-by-path (Language::from_path
+        // maps `.rs` → Rust), so `collect_supported_source_paths` counts it in the
+        // EXPECTED Rust set while it is missing from the ACTUAL set ⇒ expected !=
+        // actual ⇒ complete == false. This avoids an impractical > 2 MiB
+        // oversized-file fixture (MAX_FILE_BYTES, repo_loader.rs:12).
+        let dir = tempfile::tempdir().unwrap();
+        let p = dir.path();
+        std::fs::write(p.join("lib.rs"), "pub fn a() {}\n").unwrap();
+        std::fs::write(p.join("a.rs"), [0xFFu8, 0xFE, 0xFC]).unwrap(); // NotUtf8, skipped
+        let repo = load_repo(p).unwrap();
+        let inputs = repo.scope_graph_inputs.expect("scope graph inputs");
+        assert!(
+            !inputs.complete,
+            "skipping an own .rs (non-UTF-8) must keep completeness false"
+        );
     }
 }
