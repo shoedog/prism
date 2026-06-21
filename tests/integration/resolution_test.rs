@@ -1149,6 +1149,56 @@ fn r1_trait_qualified_multi_impl_demotes_to_name_only() {
 }
 
 #[test]
+fn owner_collision_pool_demotes_to_name_only() {
+    use prism::languages::Language::Rust;
+    // Two distinct `Foo` types, each with an associated `make`. A qualified
+    // `Foo::make()` keys the bare index ("Foo","make") to BOTH defs; both share
+    // primary owner "Foo", so this is NOT trait-CHA. Build WITHOUT a scope graph
+    // so resolution reaches owner_lookup_in_modules directly (a complete scope
+    // graph would narrow/drop the call upstream before this rung).
+    let (cg, _) = build_without_scope_graph(&[
+        (
+            "a.rs",
+            "pub struct Foo;\nimpl Foo {\n    pub fn make() -> Foo { Foo }\n}\n",
+            Rust,
+        ),
+        (
+            "b.rs",
+            "pub struct Foo;\nimpl Foo {\n    pub fn make() -> Foo { Foo }\n}\n",
+            Rust,
+        ),
+        ("c.rs", "fn run() {\n    Foo::make();\n}\n", Rust),
+    ]);
+    let site = site_in(&cg, "run", "Foo::make");
+    let r = cg.resolve_call_site(&site);
+    assert_eq!(r.len(), 2, "both Foo::make defs retained (recall)");
+    assert!(
+        r.iter()
+            .all(|c| c.confidence == ResolutionConfidence::NameOnly),
+        "collision pool demoted, not Exact"
+    );
+    assert!(r.iter().all(|c| c.kind == ResolutionKind::QualifiedOwner));
+}
+
+#[test]
+fn owner_single_candidate_stays_exact() {
+    use prism::languages::Language::Rust;
+    let (cg, _) = build_without_scope_graph(&[
+        (
+            "a.rs",
+            "pub struct Foo;\nimpl Foo {\n    pub fn make() -> Foo { Foo }\n}\n",
+            Rust,
+        ),
+        ("c.rs", "fn run() {\n    Foo::make();\n}\n", Rust),
+    ]);
+    let site = site_in(&cg, "run", "Foo::make");
+    let r = cg.resolve_call_site(&site);
+    assert_eq!(r.len(), 1);
+    assert_eq!(r[0].confidence, ResolutionConfidence::Exact);
+    assert_eq!(r[0].kind, ResolutionKind::QualifiedOwner);
+}
+
+#[test]
 fn r2_self_method_call_resolves_via_enclosing_owner_cross_file() {
     use prism::languages::Language::Rust;
     let (cg, _) = build(&[
