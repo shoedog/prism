@@ -1,6 +1,6 @@
 # Prune through `use`/re-export imports — design (scope-graph recovery slice A)
 
-**Status:** design-of-record (approved 2026-06-21), PLAN-READY
+**Status:** PLAN-READY — codex SHIP-WITH-NITS (folded); implementation plan at docs/superpowers/plans/2026-06-21-prune-through-use-imports.md.
 **Area:** `src/resolution.rs` (`leading_segment_binds_directly`)
 **Predecessor:** the merged scope-graph precision-recovery feature (PR #121) — this is its deferred **(A)** follow-up (the `②B` "direct-binding only" relaxation).
 **Branch:** `prune-through-use-imports` (off `main`, which has #121).
