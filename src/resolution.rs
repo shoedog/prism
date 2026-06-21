@@ -808,7 +808,16 @@ impl CallGraph {
                         if let Some(resolved) =
                             self.owner_lookup_in_modules(owner, method, module_segs)
                         {
-                            return ResolutionOutcome::hit(resolved);
+                            // Authoritative scope site: a distinct-owner (trait-CHA)
+                            // pool must DECLINE so the CHA fan-out emits Exact — the
+                            // legacy TraitCha NameOnly edge is intentionally disabled
+                            // at authoritative scope sites (matches the pre-existing
+                            // `Render::draw(x)` behavior). Only the same-owner
+                            // collision floor (#120 QualifiedOwner) is a valid
+                            // fail-open here.
+                            if !resolved.iter().any(|c| c.kind == ResolutionKind::TraitCha) {
+                                return ResolutionOutcome::hit(resolved);
+                            }
                         }
                         return ResolutionOutcome::dropped(DropReason::UnknownName);
                     }
