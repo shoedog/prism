@@ -31,6 +31,15 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
     let mut nameonly_recovery_mk: BTreeMap<String, usize> = BTreeMap::new();
     let mut wrapper_peel_clone = 0usize;
     let mut r6_rust = 0usize;
+    // Same-site Exact over-attribution: a call site that resolves to >1 callee all
+    // at Exact (1.0). The dominant precision-FP class this surfaces is the
+    // same-bare-name owner-key collision (e.g. two distinct `Foo` structs both
+    // owning `Foo::make` conflate under the bare `("Foo","make")` key and BOTH
+    // resolve Exact — see resolution.rs `owner_lookup_in_modules`). NameOnly
+    // (TraitCha) fanout is excluded — those are already demoted, not full-confidence.
+    let mut multi_target_exact_sites = 0usize;
+    let mut multi_target_exact_fanout: BTreeMap<usize, usize> = BTreeMap::new();
+    let mut multi_target_exact_by_kind: BTreeMap<&'static str, usize> = BTreeMap::new();
     for sites in cg.calls.values() {
         for site in sites {
             total += 1;
@@ -70,6 +79,21 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
                     *kind_exact.entry(c.kind.as_str()).or_default() += 1;
                 }
             }
+            let exact_kinds: Vec<&'static str> = out
+                .resolved
+                .iter()
+                .filter(|c| c.confidence == ResolutionConfidence::Exact)
+                .map(|c| c.kind.as_str())
+                .collect();
+            if exact_kinds.len() >= 2 {
+                multi_target_exact_sites += 1;
+                *multi_target_exact_fanout
+                    .entry(exact_kinds.len())
+                    .or_default() += 1;
+                for k in exact_kinds.iter().copied().collect::<BTreeSet<_>>() {
+                    *multi_target_exact_by_kind.entry(k).or_default() += 1;
+                }
+            }
         }
     }
     let mut interface_fanout: BTreeMap<usize, usize> = BTreeMap::new();
@@ -93,6 +117,9 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
         "nameonly_by_recovery_methodkind": nameonly_recovery_mk,
         "wrapper_peel_clone_demotes": wrapper_peel_clone,
         "r6_single_owner_rust": r6_rust,
+        "multi_target_exact_sites": multi_target_exact_sites,
+        "multi_target_exact_fanout": multi_target_exact_fanout,
+        "multi_target_exact_by_kind": multi_target_exact_by_kind,
     })
 }
 
