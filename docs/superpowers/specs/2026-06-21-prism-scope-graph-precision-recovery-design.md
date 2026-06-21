@@ -1,9 +1,7 @@
 # Scope-graph precision recovery — Rust-scoped completeness + disproof-pruning seam
 
-**Status:** CHANGES-FOLDED (re-review) — all 5 first-round codex findings addressed;
-both design decisions resolved (①C, ②B) and the re-review's two **contract refinements**
-folded (①C broadened to glob/macro shadows; ②B keyed on binding shape, not provenance).
-Pending a final codex re-confirm before plan.
+**Status:** PLAN-READY — codex SHIP (spec review round 3); implementation plan at docs/superpowers/plans/2026-06-21-scope-graph-precision-recovery.md.
+
 A codex (gpt-5.5 xhigh) spec review returned CHANGES-REQUIRED (2 BLOCKER + 3 MAJOR).
 Findings 2/4/5 are folded above (edition-uniformity guard; qualified-scoped fail-open;
 recovery-signal replacement). Findings **1** (bare-anchor lexical scope for `T::m`
