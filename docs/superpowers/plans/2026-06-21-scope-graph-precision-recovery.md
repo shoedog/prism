@@ -65,19 +65,26 @@ Add these two tests inside the existing `#[cfg(test)] mod tests { ... }` block i
 
     #[test]
     fn rust_coverage_false_when_a_rust_file_is_skipped() {
-        // If the repo skips one of its OWN `.rs` (here: oversized > 2 MiB), Rust
-        // coverage is incomplete → `complete == false` (unchanged behavior; the
-        // deferred per-crate case).
+        // If the repo skips one of its OWN `.rs`, Rust coverage is incomplete →
+        // `complete == false` (unchanged behavior; the deferred per-crate case).
+        // We trigger the skip with a NON-UTF-8 `.rs` — the `String::from_utf8`
+        // arm in `walk` (SkipReason::NotUtf8, repo_loader.rs:511) drops `a.rs`
+        // before it becomes a parse candidate, so it is absent from `files`. The
+        // bytes `[0xFF, 0xFE, 0xFC]` are invalid UTF-8 (no valid sequence begins
+        // with 0xFF/0xFE). `a.rs` is still supported-by-path (Language::from_path
+        // maps `.rs` → Rust), so `collect_supported_source_paths` counts it in the
+        // EXPECTED Rust set while it is missing from the ACTUAL set ⇒ expected !=
+        // actual ⇒ complete == false. This avoids an impractical > 2 MiB
+        // oversized-file fixture (MAX_FILE_BYTES, repo_loader.rs:12).
         let dir = tempfile::tempdir().unwrap();
         let p = dir.path();
         std::fs::write(p.join("lib.rs"), "pub fn a() {}\n").unwrap();
-        std::fs::write(p.join("big.rs"), format!("// {}\n", "x".repeat(3 * 1024 * 1024)))
-            .unwrap(); // TooLarge, skipped
+        std::fs::write(p.join("a.rs"), [0xFFu8, 0xFE, 0xFC]).unwrap(); // NotUtf8, skipped
         let repo = load_repo(p).unwrap();
         let inputs = repo.scope_graph_inputs.expect("scope graph inputs");
         assert!(
             !inputs.complete,
-            "skipping an own .rs must keep completeness false"
+            "skipping an own .rs (non-UTF-8) must keep completeness false"
         );
     }
 ```
@@ -144,6 +151,8 @@ EOF
 ## Task 2: Edition-uniformity guard (Component 1, spec §2 BLOCKER-2 fold)
 
 `ScopeGraph` carries a single repo-wide `edition`; `parse_rust_crate_config` populates it last-write-wins while iterating manifests. A mixed-edition workspace can mis-anchor a `UsePath`/`LeadingColon` path, which becomes a **recall risk** once the `ScopeResolution` predicate prunes on such a path. P1 demands we treat a non-uniform-edition workspace as **non-authoritative for disproof** (keep-all). Record whether all parsed manifests agreed on one edition on `RustCrateConfig`, carry it onto `ScopeGraph`, and let the predicate (Task 4) early-return keep-all when false.
+
+**Edition-omitted = 2015 (faithfulness).** A `[package]` manifest that omits `edition` defaults to **edition 2015** per Cargo's spec — and the code already encodes this: `parse_edition` accepts only `2015/2018/2021/2024`, and `RustCrateConfig`'s `edition` field doc plus `from_convention` both pin "Default 2015 (Cargo's default when omitted)" (`src/name_resolution/rust_populator/mod.rs:67,85,114`). The uniformity computation must honour that default: an omitted-edition crate counts as a *seen edition of 2015*, **not** "no edition". Otherwise a workspace mixing an omitted (2015) crate with an explicit `edition = "2021"` crate would record only `{2021}`, be wrongly judged **uniform**, and admit an unsound prune on a genuinely mixed-edition repo (a P1 recall regression). With the default honoured, that workspace resolves to `{2015, 2021}` ⇒ **non-uniform ⇒ keep-all** (recall-safe). Step 5 below counts every parsed `[package]` (explicit-or-default-2015); a pure `[workspace]`-root manifest declares no crate edition and contributes nothing.
 
 **Files:**
 - Modify: `src/name_resolution/rust_populator/mod.rs` (`RustCrateConfig` — add `edition_uniform`; `from_convention` default; `populate_rust` copies it onto the graph).
@@ -213,6 +222,43 @@ In `src/repo_loader.rs` `#[cfg(test)] mod tests`, add a mixed-edition workspace 
         assert!(
             !inputs.cfg.edition_uniform,
             "a 2015 + 2021 workspace must record edition_uniform == false"
+        );
+    }
+
+    #[test]
+    fn omitted_plus_explicit_edition_workspace_is_not_uniform() {
+        // Faithfulness to Cargo's default: crate `a` OMITS `edition` (⇒ 2015) and
+        // crate `b` sets `edition = "2021"`. The resolved edition set is
+        // {2015, 2021} ⇒ genuinely mixed ⇒ edition_uniform == false ⇒ the
+        // ScopeResolution predicate keeps-all (recall-safe, P1). If omitted were
+        // treated as "no edition" the set would be {2021} and this would WRONGLY
+        // read uniform, enabling an unsound prune on a mixed-edition repo.
+        let dir = tempfile::tempdir().unwrap();
+        let p = dir.path();
+        std::fs::create_dir_all(p.join("a/src")).unwrap();
+        std::fs::create_dir_all(p.join("b/src")).unwrap();
+        std::fs::write(
+            p.join("Cargo.toml"),
+            "[workspace]\nmembers = [\"a\", \"b\"]\n",
+        )
+        .unwrap();
+        std::fs::write(
+            p.join("a/Cargo.toml"),
+            "[package]\nname = \"a\"\n", // edition omitted ⇒ Cargo default 2015
+        )
+        .unwrap();
+        std::fs::write(
+            p.join("b/Cargo.toml"),
+            "[package]\nname = \"b\"\nedition = \"2021\"\n",
+        )
+        .unwrap();
+        std::fs::write(p.join("a/src/lib.rs"), "pub fn a() {}\n").unwrap();
+        std::fs::write(p.join("b/src/lib.rs"), "pub fn b() {}\n").unwrap();
+        let repo = load_repo(p).unwrap();
+        let inputs = repo.scope_graph_inputs.expect("scope graph inputs");
+        assert!(
+            !inputs.cfg.edition_uniform,
+            "omitted (2015) + explicit 2021 must record edition_uniform == false"
         );
     }
 
@@ -340,21 +386,36 @@ In `src/repo_loader.rs`, the manifest loop in `parse_rust_crate_config` currentl
     let mut editions_seen: BTreeSet<u16> = BTreeSet::new();
 ```
 
-Inside the loop, where the edition is parsed, also record it:
+Inside the loop, where the edition is parsed, also record it — **faithful to Cargo's
+default**: a manifest that declares a `[package]` (i.e. is a crate, not a pure
+`[workspace]` root) but *omits* `edition` defaults to **2015** (`parse_edition`
+accepts only 2015/2018/2021/2024, and `RustCrateConfig`'s field doc /
+`from_convention` already pin "Default 2015 (Cargo's default when omitted)";
+verified `src/name_resolution/rust_populator/mod.rs:67,85,114`). An omitted edition
+must therefore count as a *seen edition of 2015*, not "no edition" — otherwise a
+workspace mixing an omitted (2015) crate with an explicit `edition = "2021"` crate
+would record only `{2021}` and be wrongly judged uniform, enabling an unsound prune
+on a genuinely mixed-edition repo (P1 recall risk). Pure `[workspace]`-root manifests
+(no `[package]`) declare no crate edition and contribute nothing:
 
 ```rust
-        if let Some(edition) = value
-            .get("package")
-            .and_then(|p| p.get("edition"))
-            .and_then(|e| e.as_str())
-            .and_then(parse_edition)
-        {
+        if value.get("package").is_some() {
+            // Cargo default: a `[package]` with no `edition` key is edition 2015.
+            let edition = value
+                .get("package")
+                .and_then(|p| p.get("edition"))
+                .and_then(|e| e.as_str())
+                .and_then(parse_edition)
+                .unwrap_or(2015);
             cfg.edition = edition;
             editions_seen.insert(edition);
         }
 ```
 
-After the loop, before `Some(cfg)`, set the flag. A workspace where 0 or 1 distinct editions were declared is uniform; ≥2 distinct declared editions is non-uniform:
+After the loop, before `Some(cfg)`, set the flag. A workspace where the parsed
+`[package]` manifests resolve to 0 or 1 distinct (explicit-or-default-2015) editions
+is uniform; ≥2 distinct resolved editions — including an omitted (2015) crate beside
+an explicit non-2015 crate — is non-uniform:
 
 ```rust
     if !parsed_any {
@@ -372,7 +433,7 @@ After the loop, before `Some(cfg)`, set the flag. A workspace where 0 or 1 disti
 cargo test --lib name_resolution::rust_populator::tests:: 2>&1 | tail -20
 cargo test --lib repo_loader::tests:: 2>&1 | tail -20
 ```
-Expected: PASS (both new populator tests + both new repo_loader edition tests + the Task 1 coverage tests + the existing parity tests).
+Expected: PASS (both new populator tests + the three new repo_loader edition tests — `mixed_edition_workspace_is_not_uniform`, `omitted_plus_explicit_edition_workspace_is_not_uniform`, `single_edition_workspace_is_uniform` — plus the Task 1 coverage tests and the existing parity tests).
 
 - [ ] **Step 7: Commit**
 
