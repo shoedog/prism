@@ -1,0 +1,7717 @@
+{
+ "m1": {
+  "anon_oracle": 0,
+  "anon_prism": 0,
+  "matched": 7886,
+  "prism_extra": 11,
+  "prism_missing": 761,
+  "snapshot_prism_missing": 761
+ },
+ "m2": {
+  "callees": {
+   "C-method": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.3423802239546494,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.3423802239546494,
+      1.0
+     ],
+     "tp": 2
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 2,
+      "precision": [
+       0.5,
+       0.15003898774401986,
+       0.8499610122559802
+      ],
+      "recall": [
+       1.0,
+       0.3423802239546494,
+       1.0
+      ],
+      "tp": 2
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 2,
+      "precision": [
+       0.5,
+       0.15003898774401986,
+       0.8499610122559802
+      ],
+      "recall": [
+       1.0,
+       0.3423802239546494,
+       1.0
+      ],
+      "tp": 2
+     }
+    },
+    "pending": 2,
+    "raw": {
+     "fn": 1,
+     "fp": 1,
+     "precision": [
+      0.6666666666666666,
+      0.2076595988078242,
+      0.9385080559790691
+     ],
+     "recall": [
+      0.6666666666666666,
+      0.2076595988078242,
+      0.9385080559790691
+     ],
+     "tp": 2
+    },
+    "shortfall": 0
+   },
+   "C-name": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.8063923170025951,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.8063923170025951,
+      1.0
+     ],
+     "tp": 16
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 2,
+      "precision": [
+       0.7142857142857143,
+       0.3589344495310541,
+       0.9177810767507166
+      ],
+      "recall": [
+       1.0,
+       0.5655175313406071,
+       1.0
+      ],
+      "tp": 5
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 2,
+      "precision": [
+       0.7142857142857143,
+       0.3589344495310541,
+       0.9177810767507166
+      ],
+      "recall": [
+       1.0,
+       0.5655175313406071,
+       1.0
+      ],
+      "tp": 5
+     }
+    },
+    "pending": 2,
+    "raw": {
+     "fn": 1,
+     "fp": 1,
+     "precision": [
+      0.9411764705882353,
+      0.7301796914154303,
+      0.9895395991310502
+     ],
+     "recall": [
+      0.9411764705882353,
+      0.7301796914154303,
+      0.9895395991310502
+     ],
+     "tp": 16
+    },
+    "shortfall": 0
+   },
+   "Q-scoped": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.7961166964035129,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.7961166964035129,
+      1.0
+     ],
+     "tp": 15
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.6755924316585924,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.6755924316585924,
+       1.0
+      ],
+      "tp": 8
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.6755924316585924,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.6755924316585924,
+       1.0
+      ],
+      "tp": 8
+     }
+    },
+    "pending": 1,
+    "raw": {
+     "fn": 1,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.7961166964035129,
+      1.0
+     ],
+     "recall": [
+      0.9375,
+      0.716712622018518,
+      0.9888806553587528
+     ],
+     "tp": 15
+    },
+    "shortfall": 0
+   },
+   "U-free": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      0.0,
+      0.0,
+      1.0
+     ],
+     "recall": [
+      0.0,
+      0.0,
+      1.0
+     ],
+     "tp": 0
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 1,
+      "precision": [
+       0.0,
+       0.0,
+       0.7934506882081973
+      ],
+      "recall": [
+       0.0,
+       0.0,
+       1.0
+      ],
+      "tp": 0
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 1,
+      "precision": [
+       0.0,
+       0.0,
+       0.7934506882081973
+      ],
+      "recall": [
+       0.0,
+       0.0,
+       1.0
+      ],
+      "tp": 0
+     }
+    },
+    "pending": 0,
+    "raw": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      0.0,
+      0.0,
+      1.0
+     ],
+     "recall": [
+      0.0,
+      0.0,
+      1.0
+     ],
+     "tp": 0
+    },
+    "shortfall": 0
+   },
+   "U-method": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.8063923170025951,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.8063923170025951,
+      1.0
+     ],
+     "tp": 16
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 1,
+      "precision": [
+       0.8333333333333334,
+       0.4364971749742326,
+       0.969946630588185
+      ],
+      "recall": [
+       1.0,
+       0.5655175313406071,
+       1.0
+      ],
+      "tp": 5
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 1,
+      "precision": [
+       0.8333333333333334,
+       0.4364971749742326,
+       0.969946630588185
+      ],
+      "recall": [
+       1.0,
+       0.5655175313406071,
+       1.0
+      ],
+      "tp": 5
+     }
+    },
+    "pending": 3,
+    "raw": {
+     "fn": 2,
+     "fp": 1,
+     "precision": [
+      0.9411764705882353,
+      0.7301796914154303,
+      0.9895395991310502
+     ],
+     "recall": [
+      0.8888888888888888,
+      0.6720023466389031,
+      0.9689804776352089
+     ],
+     "tp": 16
+    },
+    "shortfall": 0
+   }
+  },
+  "callers": {
+   "C-method": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.8241207740667156,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.8241207740667156,
+      1.0
+     ],
+     "tp": 18
+    },
+    "function": {
+     "corrected": {
+      "fn": 61,
+      "fp": 2,
+      "precision": [
+       0.8823529411764706,
+       0.6566364919396065,
+       0.9671202265340099
+      ],
+      "recall": [
+       0.19736842105263158,
+       0.12341987233365223,
+       0.30043835064308055
+      ],
+      "tp": 15
+     },
+     "raw": {
+      "fn": 61,
+      "fp": 2,
+      "precision": [
+       0.8823529411764706,
+       0.6566364919396065,
+       0.9671202265340099
+      ],
+      "recall": [
+       0.19736842105263158,
+       0.12341987233365223,
+       0.30043835064308055
+      ],
+      "tp": 15
+     }
+    },
+    "pending": 165,
+    "raw": {
+     "fn": 163,
+     "fp": 2,
+     "precision": [
+      0.9,
+      0.6989663528135878,
+      0.9721335190383086
+     ],
+     "recall": [
+      0.09944751381215469,
+      0.06383423149191006,
+      0.15170972235062008
+     ],
+     "tp": 18
+    },
+    "shortfall": 0
+   },
+   "C-name": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.871271076371412,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.871271076371412,
+      1.0
+     ],
+     "tp": 26
+    },
+    "function": {
+     "corrected": {
+      "fn": 1,
+      "fp": 23,
+      "precision": [
+       0.5306122448979592,
+       0.39380863881943007,
+       0.662964964020326
+      ],
+      "recall": [
+       0.9629629629629629,
+       0.8171653389987218,
+       0.9934318540919532
+      ],
+      "tp": 26
+     },
+     "raw": {
+      "fn": 1,
+      "fp": 23,
+      "precision": [
+       0.5306122448979592,
+       0.39380863881943007,
+       0.662964964020326
+      ],
+      "recall": [
+       0.9629629629629629,
+       0.8171653389987218,
+       0.9934318540919532
+      ],
+      "tp": 26
+     }
+    },
+    "pending": 24,
+    "raw": {
+     "fn": 1,
+     "fp": 23,
+     "precision": [
+      0.5306122448979592,
+      0.39380863881943007,
+      0.662964964020326
+     ],
+     "recall": [
+      0.9629629629629629,
+      0.8171653389987218,
+      0.9934318540919532
+     ],
+     "tp": 26
+    },
+    "shortfall": 0
+   },
+   "Q-scoped": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.2065493117918027,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.2065493117918027,
+      1.0
+     ],
+     "tp": 1
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.2065493117918027,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.2065493117918027,
+       1.0
+      ],
+      "tp": 1
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.2065493117918027,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.2065493117918027,
+       1.0
+      ],
+      "tp": 1
+     }
+    },
+    "pending": 0,
+    "raw": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.2065493117918027,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.2065493117918027,
+      1.0
+     ],
+     "tp": 1
+    },
+    "shortfall": 0
+   },
+   "U-free": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      0.0,
+      0.0,
+      1.0
+     ],
+     "recall": [
+      0.0,
+      0.0,
+      1.0
+     ],
+     "tp": 0
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       0.0,
+       0.0,
+       1.0
+      ],
+      "recall": [
+       0.0,
+       0.0,
+       1.0
+      ],
+      "tp": 0
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       0.0,
+       0.0,
+       1.0
+      ],
+      "recall": [
+       0.0,
+       0.0,
+       1.0
+      ],
+      "tp": 0
+     }
+    },
+    "pending": 0,
+    "raw": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      0.0,
+      0.0,
+      1.0
+     ],
+     "recall": [
+      0.0,
+      0.0,
+      1.0
+     ],
+     "tp": 0
+    },
+    "shortfall": 0
+   },
+   "U-method": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.7575059904469021,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.7575059904469021,
+      1.0
+     ],
+     "tp": 12
+    },
+    "function": {
+     "corrected": {
+      "fn": 2,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.700854948272956,
+       1.0
+      ],
+      "recall": [
+       0.8181818181818182,
+       0.5230194356457672,
+       0.9486323107214162
+      ],
+      "tp": 9
+     },
+     "raw": {
+      "fn": 2,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.700854948272956,
+       1.0
+      ],
+      "recall": [
+       0.8181818181818182,
+       0.5230194356457672,
+       0.9486323107214162
+      ],
+      "tp": 9
+     }
+    },
+    "pending": 4,
+    "raw": {
+     "fn": 4,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.7575059904469021,
+      1.0
+     ],
+     "recall": [
+      0.75,
+      0.5050168327029684,
+      0.8981793257983292
+     ],
+     "tp": 12
+    },
+    "shortfall": 0
+   }
+  }
+ },
+ "m3": {
+  "cap": 25,
+  "checked": [
+   {
+    "probe": "callers:helpers/docshelper.go:12",
+    "site": "common/hmaps/cache.go:107",
+    "verdict": "confirmed_fp"
+   },
+   {
+    "probe": "callers:helpers/docshelper.go:12",
+    "site": "hugolib/hugo_sites_build.go:292",
+    "verdict": "confirmed_fp"
+   },
+   {
+    "probe": "callers:helpers/docshelper.go:12",
+    "site": "hugolib/hugo_sites_build.go:1184",
+    "verdict": "confirmed_fp"
+   },
+   {
+    "probe": "callers:htesting/test_helpers.go:34",
+    "site": "common/hmaps/cache.go:107",
+    "verdict": "confirmed_fp"
+   },
+   {
+    "probe": "callers:htesting/test_helpers.go:34",
+    "site": "hugolib/hugo_sites_build.go:292",
+    "verdict": "confirmed_fp"
+   },
+   {
+    "probe": "callers:htesting/test_helpers.go:34",
+    "site": "hugolib/hugo_sites_build.go:1184",
+    "verdict": "confirmed_fp"
+   },
+   {
+    "probe": "callers:hugolib/doctree/simpletree.go:168",
+    "site": "hugolib/doctree/simpletree.go:153",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:hugolib/doctree/simpletree.go:168",
+    "site": "hugolib/doctree/simpletree.go:173",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:tpl/urls/urls_test.go:27",
+    "site": "tpl/collections/append_test.go:27",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:tpl/urls/urls_test.go:27",
+    "site": "tpl/collections/complement_test.go:35",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:tpl/urls/urls_test.go:27",
+    "site": "tpl/collections/index_test.go:27",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:tpl/urls/urls_test.go:27",
+    "site": "tpl/collections/merge_test.go:29",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:tpl/urls/urls_test.go:27",
+    "site": "tpl/collections/merge_test.go:159",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:tpl/urls/urls_test.go:27",
+    "site": "tpl/collections/merge_test.go:172",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:tpl/urls/urls_test.go:27",
+    "site": "tpl/collections/querify_test.go:26",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:tpl/urls/urls_test.go:27",
+    "site": "tpl/collections/querify_test.go:85",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:tpl/urls/urls_test.go:27",
+    "site": "tpl/collections/querify_test.go:97",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:tpl/urls/urls_test.go:27",
+    "site": "tpl/collections/querify_test.go:109",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:tpl/urls/urls_test.go:27",
+    "site": "tpl/collections/sort_test.go:30",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:tpl/urls/urls_test.go:27",
+    "site": "tpl/collections/sort_test.go:266",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:tpl/urls/urls_test.go:27",
+    "site": "tpl/collections/symdiff_test.go:28",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:tpl/urls/urls_test.go:27",
+    "site": "tpl/collections/where_test.go:32",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:tpl/urls/urls_test.go:27",
+    "site": "tpl/collections/where_test.go:686",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:tpl/urls/urls_test.go:27",
+    "site": "tpl/collections/where_test.go:866",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:tpl/urls/urls_test.go:27",
+    "site": "tpl/collections/where_test.go:909",
+    "verdict": "ambiguous"
+   }
+  ],
+  "counts": {
+   "alias_site": 0,
+   "ambiguous": 19,
+   "confirmed_fp": 6,
+   "confirmed_tp": 0
+  }
+ },
+ "meta": {
+  "baseline_invalid": true,
+  "corpus": "hugo",
+  "corpus_dirty": false,
+  "corpus_dirty_reasons": [],
+  "corpus_sha": "a00b5c72ac57",
+  "date": "2026-06-20",
+  "harness_sha": "06e6ac4ee96e",
+  "invalid_reasons": [
+   "stratum U-free: 2/6 successful probes",
+   "oracle_error_rate 0.17 > 0.10"
+  ],
+  "oracle": "gopls {\"GoVersion\":\"go1.26.2\",\"Path\":\"golang.org/x/tools/gopls\",\"Main\":{\"Path\":\"golang.org/x/tools/gopls\",\"Version\":\"v0.22.0\",\"Sum\":\"h1:9aON2mTxKrZ1y71RbQVnlPTTNfKZ9y5cv3x/f6XpsZw=\"},\"Deps\":[{\"Path\":\"github.com/BurntSushi/toml\",\"Version\":\"v1.6.0\",\"Sum\":\"h1:dRaEfpa2VI55EwlIW72hMRHdWouJeRF7TPYhI+AUQjk=\"},{\"Path\":\"github.com/fatih/camelcase\",\"Version\":\"v1.0.0\",\"Sum\":\"h1:hxNvNX/xYBp0ovncs8WyWZrOrpBNub/JfaMvbURyft8=\"},{\"Path\":\"github.com/fatih/gomodifytags\",\"Version\":\"v1.17.1-0.20250423142747-f3939df9aa3c\",\"Sum\":\"h1:dDSgAjoOMp8da3egfz0t2S+t8RGOpEmEXZubcGuc0Bg=\"},{\"Path\":\"github.com/fatih/structtag\",\"Version\":\"v1.2.0\",\"Sum\":\"h1:/OdNE99OxoI/PqaW/SuSK9uxxT3f/tcSZgon/ssNSx4=\"},{\"Path\":\"github.com/fsnotify/fsnotify\",\"Version\":\"v1.9.0\",\"Sum\":\"h1:2Ml+OJNzbYCTzsxtv8vKSFD9PbJjmhYF14k/jKC7S9k=\"},{\"Path\":\"github.com/google/go-cmp\",\"Version\":\"v0.7.0\",\"Sum\":\"h1:wk8382ETsv4JYUZwIsn6YpYiWiBsYLSJiTsyBybVuN8=\"},{\"Path\":\"github.com/google/jsonschema-go\",\"Version\":\"v0.4.2\",\"Sum\":\"h1:tmrUohrwoLZZS/P3x7ex0WAVknEkBZM46iALbcqoRA8=\"},{\"Path\":\"github.com/modelcontextprotocol/go-sdk\",\"Version\":\"v1.4.0\",\"Sum\":\"h1:u0kr8lbJc1oBcawK7Df+/ajNMpIDFE41OEPxdeTLOn8=\"},{\"Path\":\"github.com/segmentio/asm\",\"Version\":\"v1.2.1\",\"Sum\":\"h1:DTNbBqs57ioxAD4PrArqftgypG4/qNpXoJx8TVXxPR0=\"},{\"Path\":\"github.com/segmentio/encoding\",\"Version\":\"v0.5.3\",\"Sum\":\"h1:OjMgICtcSFuNvQCdwqMCv9Tg7lEOXGwm1J5RPQccx6w=\"},{\"Path\":\"github.com/yosida95/uritemplate/v3\",\"Version\":\"v3.0.2\",\"Sum\":\"h1:Ed3Oyj9yrmi9087+NczuL5BwkIc4wvTb5zIM+UJPGz4=\"},{\"Path\":\"golang.org/x/exp/typeparams\",\"Version\":\"v0.0.0-20260312153236-7ab1446f8b90\",\"Sum\":\"h1:cfW8UCYSVdPblxA7qQe3o5Iad55Vsx4BFmuGS9RNOmc=\"},{\"Path\":\"golang.org/x/mod\",\"Version\":\"v0.35.0\",\"Sum\":\"h1:Ww1D637e6Pg+Zb2KrWfHQUnH2dQRLBQyAtpr/haaJeM=\"},{\"Path\":\"golang.org/x/oauth2\",\"Version\":\"v0.36.0\",\"Sum\":\"h1:peZ/1z27fi9hUOFCAZaHyrpWG5lwe0RJEEEeH0ThlIs=\"},{\"Path\":\"golang.org/x/sync\",\"Version\":\"v0.20.0\",\"Sum\":\"h1:e0PTpb7pjO8GAtTs2dQ6jYa5BWYlMuX047Dco/pItO4=\"},{\"Path\":\"golang.org/x/sys\",\"Version\":\"v0.43.0\",\"Sum\":\"h1:Rlag2XtaFTxp19wS8MXlJwTvoh8ArU6ezoyFsMyCTNI=\"},{\"Path\":\"golang.org/x/telemetry\",\"Version\":\"v0.0.0-20260409153401-be6f6cb8b1fa\",\"Sum\":\"h1:efT73AJZfAAUV7SOip6pWGkwJDzIGiKBZGVzHYa+ve4=\"},{\"Path\":\"golang.org/x/text\",\"Version\":\"v0.36.0\",\"Sum\":\"h1:JfKh3XmcRPqZPKevfXVpI1wXPTqbkE5f7JA92a55Yxg=\"},{\"Path\":\"golang.org/x/tools\",\"Version\":\"v0.44.1-0.20260513175300-635ae9663724\",\"Sum\":\"h1:rz7KAMVmPA+7ecCT/BHKLE353MUOoCAwMqlUveE8508=\"},{\"Path\":\"golang.org/x/vuln\",\"Version\":\"v1.1.4\",\"Sum\":\"h1:Ju8QsuyhX3Hk8ma3CesTbO8vfJD9EvUBgHvkxHBzj0I=\"},{\"Path\":\"honnef.co/go/tools\",\"Version\":\"v0.7.0\",\"Sum\":\"h1:w6WUp1VbkqPEgLz4rkBzH/CSU6HkoqNLp6GstyTx3lU=\"},{\"Path\":\"mvdan.cc/gofumpt\",\"Version\":\"v0.9.2\",\"Sum\":\"h1:zsEMWL8SVKGHNztrx6uZrXdp7AX8r421Vvp23sz7ik4=\"},{\"Path\":\"mvdan.cc/xurls/v2\",\"Version\":\"v2.6.0\",\"Sum\":\"h1:3NTZpeTxYVWNSokW3MKeyVkz/j7uYXYiMtXRUfmjbgI=\"}],\"Settings\":[{\"Key\":\"-buildmode\",\"Value\":\"exe\"},{\"Key\":\"-compiler\",\"Value\":\"gc\"},{\"Key\":\"CGO_ENABLED\",\"Value\":\"1\"},{\"Key\":\"CGO_CFLAGS\"},{\"Key\":\"CGO_CPPFLAGS\"},{\"Key\":\"CGO_CXXFLAGS\"},{\"Key\":\"CGO_LDFLAGS\"},{\"Key\":\"GOARCH\",\"Value\":\"arm64\"},{\"Key\":\"GOOS\",\"Value\":\"darwin\"},{\"Key\":\"GOARM64\",\"Value\":\"v8.0\"}],\"Version\":\"v0.22.0\"}",
+  "oracle_error_rate": 0.175,
+  "oracle_not_quiescent": false,
+  "prism_dirty": false,
+  "prism_sha": "20c8490591a3",
+  "seed": 42,
+  "stale_adjudications": 0,
+  "sut_error_rate": 0.0,
+  "wall_s": {
+   "m1_oracle_inventory": 23.834,
+   "m2": 72.18,
+   "m3": 0.012,
+   "oracle_start": 6.302
+  }
+ },
+ "pending": [
+  {
+   "corpus": "hugo",
+   "direction": "prism_only",
+   "dispatch_kind": "free_multi",
+   "measurement": "callers",
+   "seed_def": "helpers/docshelper.go:12",
+   "site": "common/hmaps/cache.go:107",
+   "site_fingerprint": "8dd48dbf56367b82"
+  },
+  {
+   "corpus": "hugo",
+   "direction": "prism_only",
+   "dispatch_kind": "free_multi",
+   "measurement": "callers",
+   "seed_def": "helpers/docshelper.go:12",
+   "site": "hugolib/hugo_sites_build.go:292",
+   "site_fingerprint": "28329080945ea715"
+  },
+  {
+   "corpus": "hugo",
+   "direction": "prism_only",
+   "dispatch_kind": "free_multi",
+   "measurement": "callers",
+   "seed_def": "helpers/docshelper.go:12",
+   "site": "hugolib/hugo_sites_build.go:1184",
+   "site_fingerprint": "5fccb90df8261981"
+  },
+  {
+   "corpus": "hugo",
+   "direction": "prism_only",
+   "dispatch_kind": "free_multi",
+   "measurement": "callers",
+   "seed_def": "htesting/test_helpers.go:34",
+   "site": "common/hmaps/cache.go:107",
+   "site_fingerprint": "8dd48dbf56367b82"
+  },
+  {
+   "corpus": "hugo",
+   "direction": "prism_only",
+   "dispatch_kind": "free_multi",
+   "measurement": "callers",
+   "seed_def": "htesting/test_helpers.go:34",
+   "site": "hugolib/hugo_sites_build.go:292",
+   "site_fingerprint": "28329080945ea715"
+  },
+  {
+   "corpus": "hugo",
+   "direction": "prism_only",
+   "dispatch_kind": "free_multi",
+   "measurement": "callers",
+   "seed_def": "htesting/test_helpers.go:34",
+   "site": "hugolib/hugo_sites_build.go:1184",
+   "site_fingerprint": "5fccb90df8261981"
+  },
+  {
+   "corpus": "hugo",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callers",
+   "seed_def": "hugolib/doctree/simpletree.go:168",
+   "site": "hugolib/doctree/simpletree.go:153",
+   "site_fingerprint": "b6c2c3478b16be5f"
+  },
+  {
+   "corpus": "hugo",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callers",
+   "seed_def": "hugolib/doctree/simpletree.go:168",
+   "site": "hugolib/doctree/simpletree.go:173",
+   "site_fingerprint": "ecbef556524fd45c"
+  },
+  {
+   "corpus": "hugo",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "hugolib/doctree/simpletree.go:168",
+   "site": "hugolib/doctree/treeshifttree.go:101",
+   "site_fingerprint": "1d538915eaf939c0"
+  },
+  {
+   "corpus": "hugo",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "hugolib/page__per_output.go:215",
+   "site": "resources/page/page.go:601",
+   "site_fingerprint": "a309e3c2be5ad3cf"
+  },
+  {
+   "corpus": "hugo",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "hugolib/page__per_output.go:215",
+   "site": "resources/page/page_lazy_contentprovider.go:101",
+   "site_fingerprint": "35e8bc62c07e58c5"
+  },
+  {
+   "corpus": "hugo",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "parser/pageparser/pageparser.go:157",
+   "site": "hugolib/shortcode.go:580",
+   "site_fingerprint": "0c2d730c80bea59e"
+  },
+  {
+   "corpus": "hugo",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "parser/pageparser/pageparser.go:157",
+   "site": "hugolib/shortcode.go:609",
+   "site_fingerprint": "41c89d1b47076e0e"
+  },
+  {
+   "corpus": "hugo",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "parser/pageparser/pageparser.go:157",
+   "site": "hugolib/shortcode.go:715",
+   "site_fingerprint": "48ab7dbba4e0e0b1"
+  },
+  {
+   "corpus": "hugo",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "resources/page/weighted.go:98",
+   "site": "resources/page/pages_prev_next_test.go:88",
+   "site_fingerprint": "ffab5e59c969d068"
+  },
+  {
+   "corpus": "hugo",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "resources/page/weighted.go:98",
+   "site": "resources/page/pages_prev_next_test.go:89",
+   "site_fingerprint": "c170a834565d7066"
+  },
+  {
+   "corpus": "hugo",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "resources/page/weighted.go:98",
+   "site": "resources/page/pages_prev_next_test.go:90",
+   "site_fingerprint": "0e16b24708a670b4"
+  },
+  {
+   "corpus": "hugo",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "tpl/internal/go_templates/texttemplate/exec_test.go:833",
+   "site": "tpl/internal/go_templates/texttemplate/exec_test.go:894",
+   "site_fingerprint": "ecbcd9c6eac96723"
+  },
+  {
+   "corpus": "hugo",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "tpl/strings/strings.go:54",
+   "site": "tpl/strings/init.go:69",
+   "site_fingerprint": "7119ac8c3841ca37"
+  },
+  {
+   "corpus": "hugo",
+   "direction": "prism_only",
+   "dispatch_kind": "free_multi",
+   "measurement": "callers",
+   "seed_def": "tpl/urls/urls_test.go:27",
+   "site": "tpl/collections/append_test.go:27",
+   "site_fingerprint": "de99b8ff43233e86"
+  },
+  {
+   "corpus": "hugo",
+   "direction": "prism_only",
+   "dispatch_kind": "free_multi",
+   "measurement": "callers",
+   "seed_def": "tpl/urls/urls_test.go:27",
+   "site": "tpl/collections/complement_test.go:35",
+   "site_fingerprint": "176ded52201862f5"
+  },
+  {
+   "corpus": "hugo",
+   "direction": "prism_only",
+   "dispatch_kind": "free_multi",
+   "measurement": "callers",
+   "seed_def": "tpl/urls/urls_test.go:27",
+   "site": "tpl/collections/index_test.go:27",
+   "site_fingerprint": "de99b8ff43233e86"
+  },
+  {
+   "corpus": "hugo",
+   "direction": "prism_only",
+   "dispatch_kind": "free_multi",
+   "measurement": "callers",
+   "seed_def": "tpl/urls/urls_test.go:27",
+   "site": "tpl/collections/merge_test.go:29",
+   "site_fingerprint": "9b8aa5a7befb8eb7"
+  },
+  {
+   "corpus": "hugo",
+   "direction": "prism_only",
+   "dispatch_kind": "free_multi",
+   "measurement": "callers",
+   "seed_def": "tpl/urls/urls_test.go:27",
+   "site": "tpl/collections/merge_test.go:159",
+   "site_fingerprint": "17556d3ccb5b3282"
+  },
+  {
+   "corpus": "hugo",
+   "direction": "prism_only",
+   "dispatch_kind": "free_multi",
+   "measurement": "callers",
+   "seed_def": "tpl/urls/urls_test.go:27",
+   "site": "tpl/collections/merge_test.go:172",
+   "site_fingerprint": "de99b8ff43233e86"
+  },
+  {
+   "corpus": "hugo",
+   "direction": "prism_only",
+   "dispatch_kind": "free_multi",
+   "measurement": "callers",
+   "seed_def": "tpl/urls/urls_test.go:27",
+   "site": "tpl/collections/querify_test.go:26",
+   "site_fingerprint": "de99b8ff43233e86"
+  },
+  {
+   "corpus": "hugo",
+   "direction": "prism_only",
+   "dispatch_kind": "free_multi",
+   "measurement": "callers",
+   "seed_def": "tpl/urls/urls_test.go:27",
+   "site": "tpl/collections/querify_test.go:85",
+   "site_fingerprint": "3b1a0ac8d2817691"
+  },
+  {
+   "corpus": "hugo",
+   "direction": "prism_only",
+   "dispatch_kind": "free_multi",
+   "measurement": "callers",
+   "seed_def": "tpl/urls/urls_test.go:27",
+   "site": "tpl/collections/querify_test.go:97",
+   "site_fingerprint": "fd1199c0a48ea641"
+  },
+  {
+   "corpus": "hugo",
+   "direction": "prism_only",
+   "dispatch_kind": "free_multi",
+   "measurement": "callers",
+   "seed_def": "tpl/urls/urls_test.go:27",
+   "site": "tpl/collections/querify_test.go:109",
+   "site_fingerprint": "74efc1bf86106624"
+  },
+  {
+   "corpus": "hugo",
+   "direction": "prism_only",
+   "dispatch_kind": "free_multi",
+   "measurement": "callers",
+   "seed_def": "tpl/urls/urls_test.go:27",
+   "site": "tpl/collections/sort_test.go:30",
+   "site_fingerprint": "176ded52201862f5"
+  },
+  {
+   "corpus": "hugo",
+   "direction": "prism_only",
+   "dispatch_kind": "free_multi",
+   "measurement": "callers",
+   "seed_def": "tpl/urls/urls_test.go:27",
+   "site": "tpl/collections/sort_test.go:266",
+   "site_fingerprint": "dbf6cafc78a3a418"
+  },
+  {
+   "corpus": "hugo",
+   "direction": "prism_only",
+   "dispatch_kind": "free_multi",
+   "measurement": "callers",
+   "seed_def": "tpl/urls/urls_test.go:27",
+   "site": "tpl/collections/symdiff_test.go:28",
+   "site_fingerprint": "176ded52201862f5"
+  },
+  {
+   "corpus": "hugo",
+   "direction": "prism_only",
+   "dispatch_kind": "free_multi",
+   "measurement": "callers",
+   "seed_def": "tpl/urls/urls_test.go:27",
+   "site": "tpl/collections/where_test.go:32",
+   "site_fingerprint": "176ded52201862f5"
+  },
+  {
+   "corpus": "hugo",
+   "direction": "prism_only",
+   "dispatch_kind": "free_multi",
+   "measurement": "callers",
+   "seed_def": "tpl/urls/urls_test.go:27",
+   "site": "tpl/collections/where_test.go:686",
+   "site_fingerprint": "176ded52201862f5"
+  },
+  {
+   "corpus": "hugo",
+   "direction": "prism_only",
+   "dispatch_kind": "free_multi",
+   "measurement": "callers",
+   "seed_def": "tpl/urls/urls_test.go:27",
+   "site": "tpl/collections/where_test.go:866",
+   "site_fingerprint": "f45dd65714746528"
+  },
+  {
+   "corpus": "hugo",
+   "direction": "prism_only",
+   "dispatch_kind": "free_multi",
+   "measurement": "callers",
+   "seed_def": "tpl/urls/urls_test.go:27",
+   "site": "tpl/collections/where_test.go:909",
+   "site_fingerprint": "35a2276151e406d1"
+  },
+  {
+   "corpus": "hugo",
+   "direction": "prism_only",
+   "dispatch_kind": "self_receiver",
+   "measurement": "callees",
+   "seed_def": "cache/filecache/filecache.go:240",
+   "site": "cache/filecache/filecache.go:258",
+   "site_fingerprint": "e09c7b12fb1be5d0"
+  },
+  {
+   "corpus": "hugo",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "common/hreflect/helpers.go:254",
+   "site": "common/hreflect/helpers.go:264",
+   "site_fingerprint": "cec8c61c524b56b6"
+  },
+  {
+   "corpus": "hugo",
+   "direction": "prism_only",
+   "dispatch_kind": "import_qualified",
+   "measurement": "callees",
+   "seed_def": "helpers/docshelper.go:12",
+   "site": "helpers/docshelper.go:16",
+   "site_fingerprint": "b44885ed230d67f4"
+  },
+  {
+   "corpus": "hugo",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callees",
+   "seed_def": "hugolib/doctree/simpletree.go:168",
+   "site": "hugolib/doctree/simpletree.go:173",
+   "site_fingerprint": "ecbef556524fd45c"
+  },
+  {
+   "corpus": "hugo",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "hugolib/page__meta.go:215",
+   "site": "hugolib/page__meta.go:233",
+   "site_fingerprint": "2bb28927d84c406a"
+  },
+  {
+   "corpus": "hugo",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "hugolib/page__meta.go:215",
+   "site": "hugolib/page__meta.go:246",
+   "site_fingerprint": "e757df856ac730fe"
+  },
+  {
+   "corpus": "hugo",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "resources/page/weighted.go:98",
+   "site": "resources/page/weighted.go:100",
+   "site_fingerprint": "b3424e00b2f4d94d"
+  },
+  {
+   "corpus": "hugo",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "tpl/internal/go_templates/htmltemplate/template_test.go:168",
+   "site": "tpl/internal/go_templates/htmltemplate/template_test.go:172",
+   "site_fingerprint": "81b8585f42e1ec4f"
+  }
+ ],
+ "probes": {
+  "_corpus": "hugo",
+  "_strata": {
+   "C-method": {
+    "eligible_probes": 16,
+    "eligible_symbols": 8,
+    "target": 8
+   },
+   "C-name": {
+    "eligible_probes": 16,
+    "eligible_symbols": 8,
+    "target": 8
+   },
+   "Q-scoped": {
+    "eligible_probes": 16,
+    "eligible_symbols": 8,
+    "target": 8
+   },
+   "U-free": {
+    "eligible_probes": 16,
+    "eligible_symbols": 8,
+    "target": 8
+   },
+   "U-method": {
+    "eligible_probes": 16,
+    "eligible_symbols": 8,
+    "target": 8
+   }
+  },
+  "callees:cache/filecache/filecache.go:240": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "cache/filecache/filecache.go",
+     "GetOrCreateInfo"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "cache/filecache/filecache.go",
+     247,
+     247
+    ],
+    [
+     "cache/filecache/filecache.go",
+     241,
+     241
+    ],
+    [
+     "cache/filecache/filecache.go",
+     252,
+     252
+    ],
+    [
+     "cache/filecache/filecache.go",
+     258,
+     258
+    ],
+    [
+     "cache/filecache/filecache.go",
+     245,
+     245
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "cache/filecache/filecache.go",
+     "GetOrCreateInfo"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "cache/filecache/filecache.go",
+     241,
+     241,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "cache/filecache/filecache.go",
+     252,
+     252,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "cache/filecache/filecache.go",
+     258,
+     258,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "cache/filecache/filecache.go",
+     245,
+     245,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "cache/filecache/filecache.go",
+     247,
+     247,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "cache/filecache/filecache.go",
+     257,
+     257,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "cache/filecache/filecache.go",
+     257,
+     257,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ]
+   ],
+   "seed_def": "cache/filecache/filecache.go:240",
+   "stratum": "U-method"
+  },
+  "callees:commands/list.go:195": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "commands/list.go:195",
+   "stratum": "C-method"
+  },
+  "callees:common/hashing/hashing_test.go:65": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "common/hashing/hashing_test.go",
+     "TestXxHashFromStringHexEncoded"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "common/hashing/hashing_test.go",
+     68,
+     68
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "common/hashing/hashing_test.go",
+     "TestXxHashFromStringHexEncoded"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "common/hashing/hashing_test.go",
+     68,
+     68,
+     {
+      "resolution_kind": "free_single"
+     }
+    ]
+   ],
+   "seed_def": "common/hashing/hashing_test.go:65",
+   "stratum": "Q-scoped"
+  },
+  "callees:common/hreflect/helpers.go:254": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "common/hreflect/helpers.go",
+     "AsTime"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "common/hreflect/helpers.go",
+     256,
+     256
+    ],
+    [
+     "common/hreflect/helpers.go",
+     264,
+     264
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "common/hreflect/helpers.go",
+     "AsTime"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "common/hreflect/helpers.go",
+     256,
+     256,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "common/hreflect/helpers.go:254",
+   "stratum": "C-name"
+  },
+  "callees:common/hstore/scratch.go:158": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "common/hstore/scratch.go",
+     "NewScratch"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "common/hstore/scratch.go:158",
+   "stratum": "C-name"
+  },
+  "callees:config/allconfig/configlanguage.go:114": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "config/allconfig/configlanguage.go:114",
+   "stratum": "C-method"
+  },
+  "callees:config/configProvider.go:105": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "inventory_miss",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "config/configProvider.go:105",
+   "stratum": "C-method"
+  },
+  "callees:config/services/servicesConfig_test.go:23": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "config/services/servicesConfig_test.go",
+     "TestDecodeConfigFromTOML"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "config/services/servicesConfig_test.go",
+     42,
+     42
+    ],
+    [
+     "config/services/servicesConfig_test.go",
+     45,
+     45
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "config/services/servicesConfig_test.go",
+     "TestDecodeConfigFromTOML"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "config/services/servicesConfig_test.go",
+     42,
+     42,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "config/services/servicesConfig_test.go",
+     45,
+     45,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "config/services/servicesConfig_test.go",
+     45,
+     45,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "config/services/servicesConfig_test.go",
+     45,
+     45,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "config/services/servicesConfig_test.go",
+     45,
+     45,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "config/services/servicesConfig_test.go",
+     45,
+     45,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "config/services/servicesConfig_test.go",
+     45,
+     45,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "config/services/servicesConfig_test.go",
+     45,
+     45,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "config/services/servicesConfig_test.go",
+     45,
+     45,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "config/services/servicesConfig_test.go",
+     45,
+     45,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "config/services/servicesConfig_test.go",
+     45,
+     45,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "config/services/servicesConfig_test.go",
+     45,
+     45,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "config/services/servicesConfig_test.go",
+     45,
+     45,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "config/services/servicesConfig_test.go",
+     45,
+     45,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "config/services/servicesConfig_test.go",
+     45,
+     45,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "config/services/servicesConfig_test.go",
+     45,
+     45,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ]
+   ],
+   "seed_def": "config/services/servicesConfig_test.go:23",
+   "stratum": "C-name"
+  },
+  "callees:helpers/docshelper.go:12": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "helpers/docshelper.go",
+     "init"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "helpers/docshelper.go",
+     40,
+     40
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "helpers/docshelper.go",
+     "init"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "helpers/docshelper.go",
+     40,
+     40,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "helpers/docshelper.go",
+     16,
+     16,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ]
+   ],
+   "seed_def": "helpers/docshelper.go:12",
+   "stratum": "C-name"
+  },
+  "callees:htesting/test_helpers.go:34": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "htesting/test_helpers.go",
+     "init"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "htesting/test_helpers.go:34",
+   "stratum": "C-name"
+  },
+  "callees:hugolib/config_test.go:223": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "hugolib/config_test.go",
+     "TestDisableRootSlicesFromEnv"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "hugolib/config_test.go",
+     248,
+     248
+    ],
+    [
+     "hugolib/config_test.go",
+     248,
+     248
+    ],
+    [
+     "hugolib/config_test.go",
+     248,
+     248
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "hugolib/config_test.go",
+     "TestDisableRootSlicesFromEnv"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "hugolib/config_test.go",
+     248,
+     248,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "hugolib/config_test.go",
+     248,
+     248,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "hugolib/config_test.go",
+     248,
+     248,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "hugolib/config_test.go",
+     248,
+     248,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ]
+   ],
+   "seed_def": "hugolib/config_test.go:223",
+   "stratum": "Q-scoped"
+  },
+  "callees:hugolib/doctree/simpletree.go:168": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "hugolib/doctree/simpletree.go",
+     "Unlock"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "hugolib/doctree/simpletree.go",
+     173,
+     173,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "hugolib/doctree/simpletree.go:168",
+   "stratum": "C-method"
+  },
+  "callees:hugolib/hugo_modules_test.go:273": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "hugolib/hugo_modules_test.go",
+     "TestModulePrivateRepo"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "hugolib/hugo_modules_test.go",
+     291,
+     291
+    ],
+    [
+     "hugolib/hugo_modules_test.go",
+     291,
+     291
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "hugolib/hugo_modules_test.go",
+     "TestModulePrivateRepo"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "hugolib/hugo_modules_test.go",
+     291,
+     291,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "hugolib/hugo_modules_test.go",
+     291,
+     291,
+     {
+      "resolution_kind": "free_single"
+     }
+    ]
+   ],
+   "seed_def": "hugolib/hugo_modules_test.go:273",
+   "stratum": "Q-scoped"
+  },
+  "callees:hugolib/hugo_sites.go:462": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "hugolib/hugo_sites.go",
+     "filterAndJoinErrors"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "hugolib/hugo_sites.go",
+     483,
+     483
+    ],
+    [
+     "hugolib/hugo_sites.go",
+     473,
+     473
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "hugolib/hugo_sites.go",
+     "filterAndJoinErrors"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "hugolib/hugo_sites.go",
+     483,
+     483,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "hugolib/hugo_sites.go",
+     473,
+     473,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ]
+   ],
+   "seed_def": "hugolib/hugo_sites.go:462",
+   "stratum": "U-method"
+  },
+  "callees:hugolib/page.go:293": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "hugolib/page.go:293",
+   "stratum": "C-method"
+  },
+  "callees:hugolib/page__meta.go:215": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "hugolib/page__meta.go",
+     "initFrontMatter"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "hugolib/page__meta.go",
+     247,
+     247
+    ],
+    [
+     "hugolib/page__meta.go",
+     247,
+     247
+    ],
+    [
+     "hugolib/page__meta.go",
+     227,
+     227
+    ],
+    [
+     "hugolib/page__meta.go",
+     217,
+     217
+    ],
+    [
+     "hugolib/page__meta.go",
+     246,
+     246
+    ],
+    [
+     "hugolib/page__meta.go",
+     237,
+     237
+    ],
+    [
+     "hugolib/page__meta.go",
+     232,
+     232
+    ],
+    [
+     "hugolib/page__meta.go",
+     233,
+     233
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "hugolib/page__meta.go",
+     "initFrontMatter"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "hugolib/page__meta.go",
+     227,
+     227,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "hugolib/page__meta.go",
+     217,
+     217,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "hugolib/page__meta.go",
+     247,
+     247,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "hugolib/page__meta.go",
+     247,
+     247,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "hugolib/page__meta.go",
+     237,
+     237,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "hugolib/page__meta.go",
+     232,
+     232,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "hugolib/page__meta.go:215",
+   "stratum": "U-method"
+  },
+  "callees:hugolib/page__per_output.go:215": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "hugolib/page__per_output.go",
+     "Truncated"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "hugolib/page__per_output.go",
+     216,
+     216
+    ],
+    [
+     "hugolib/page__per_output.go",
+     218,
+     218
+    ],
+    [
+     "hugolib/page__per_output.go",
+     216,
+     216
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "hugolib/page__per_output.go",
+     "Truncated"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "hugolib/page__per_output.go",
+     216,
+     216,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "hugolib/page__per_output.go",
+     218,
+     218,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "hugolib/page__per_output.go",
+     216,
+     216,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "hugolib/page__per_output.go:215",
+   "stratum": "C-method"
+  },
+  "callees:main_test.go:39": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "main_test.go",
+     "TestCommands"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "main_test.go:39",
+   "stratum": "U-free"
+  },
+  "callees:modules/collect.go:598": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "modules/collect.go",
+     "collectModulesTXT"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "modules/collect.go",
+     604,
+     604
+    ],
+    [
+     "modules/collect.go",
+     599,
+     599
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "modules/collect.go",
+     "collectModulesTXT"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "modules/collect.go",
+     604,
+     604,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "modules/collect.go",
+     599,
+     599,
+     {
+      "resolution_kind": "interface_dispatch"
+     }
+    ]
+   ],
+   "seed_def": "modules/collect.go:598",
+   "stratum": "U-method"
+  },
+  "callees:parser/pageparser/pageparser.go:157": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "parser/pageparser/pageparser.go",
+     "Backup"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "parser/pageparser/pageparser.go:157",
+   "stratum": "U-method"
+  },
+  "callees:resources/images/config_test.go:24": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "resources/images/config_test.go",
+     "TestDecodeConfig"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "resources/images/config_test.go",
+     32,
+     32
+    ],
+    [
+     "resources/images/config_test.go",
+     42,
+     42
+    ],
+    [
+     "resources/images/config_test.go",
+     48,
+     48
+    ],
+    [
+     "resources/images/config_test.go",
+     53,
+     53
+    ],
+    [
+     "resources/images/config_test.go",
+     58,
+     58
+    ],
+    [
+     "resources/images/config_test.go",
+     63,
+     63
+    ],
+    [
+     "resources/images/config_test.go",
+     70,
+     70
+    ],
+    [
+     "resources/images/config_test.go",
+     81,
+     81
+    ],
+    [
+     "resources/images/config_test.go",
+     86,
+     86
+    ],
+    [
+     "resources/images/config_test.go",
+     93,
+     93
+    ],
+    [
+     "resources/images/config_test.go",
+     98,
+     98
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "resources/images/config_test.go",
+     "TestDecodeConfig"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "resources/images/config_test.go",
+     32,
+     32,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     48,
+     48,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     53,
+     53,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     58,
+     58,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     63,
+     63,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     70,
+     70,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     81,
+     81,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     86,
+     86,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     93,
+     93,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     98,
+     98,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     32,
+     32,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     48,
+     48,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     53,
+     53,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     58,
+     58,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     63,
+     63,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     70,
+     70,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     81,
+     81,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     86,
+     86,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     93,
+     93,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     98,
+     98,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     32,
+     32,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     48,
+     48,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     53,
+     53,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     58,
+     58,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     63,
+     63,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     70,
+     70,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     81,
+     81,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     86,
+     86,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     93,
+     93,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     98,
+     98,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     32,
+     32,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     48,
+     48,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     53,
+     53,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     58,
+     58,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     63,
+     63,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     70,
+     70,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     81,
+     81,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     86,
+     86,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     93,
+     93,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     98,
+     98,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     32,
+     32,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     48,
+     48,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     53,
+     53,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     58,
+     58,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     63,
+     63,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     70,
+     70,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     81,
+     81,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     86,
+     86,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     93,
+     93,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     98,
+     98,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     32,
+     32,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     48,
+     48,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     53,
+     53,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     58,
+     58,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     63,
+     63,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     70,
+     70,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     81,
+     81,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     86,
+     86,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     93,
+     93,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     98,
+     98,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     32,
+     32,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     48,
+     48,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     53,
+     53,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     58,
+     58,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     63,
+     63,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     70,
+     70,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     81,
+     81,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     86,
+     86,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     93,
+     93,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     98,
+     98,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     32,
+     32,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     48,
+     48,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     53,
+     53,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     58,
+     58,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     63,
+     63,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     70,
+     70,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     81,
+     81,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     86,
+     86,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     93,
+     93,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     98,
+     98,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     32,
+     32,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     48,
+     48,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     53,
+     53,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     58,
+     58,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     63,
+     63,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     70,
+     70,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     81,
+     81,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     86,
+     86,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     93,
+     93,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     98,
+     98,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     32,
+     32,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     48,
+     48,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     53,
+     53,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     58,
+     58,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     63,
+     63,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     70,
+     70,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     81,
+     81,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     86,
+     86,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     93,
+     93,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     98,
+     98,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     32,
+     32,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     48,
+     48,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     53,
+     53,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     58,
+     58,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     63,
+     63,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     70,
+     70,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     81,
+     81,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     86,
+     86,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     93,
+     93,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     98,
+     98,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     32,
+     32,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     48,
+     48,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     53,
+     53,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     58,
+     58,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     63,
+     63,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     70,
+     70,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     81,
+     81,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     86,
+     86,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     93,
+     93,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     98,
+     98,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     32,
+     32,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     48,
+     48,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     53,
+     53,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     58,
+     58,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     63,
+     63,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     70,
+     70,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     81,
+     81,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     86,
+     86,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     93,
+     93,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     98,
+     98,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     32,
+     32,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     48,
+     48,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     53,
+     53,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     58,
+     58,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     63,
+     63,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     70,
+     70,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     81,
+     81,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     86,
+     86,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     93,
+     93,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     98,
+     98,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     32,
+     32,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     48,
+     48,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     53,
+     53,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     58,
+     58,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     63,
+     63,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     70,
+     70,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     81,
+     81,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     86,
+     86,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     93,
+     93,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "resources/images/config_test.go",
+     98,
+     98,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ]
+   ],
+   "seed_def": "resources/images/config_test.go:24",
+   "stratum": "C-name"
+  },
+  "callees:resources/page/page_markup_integration_test.go:26": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "resources/page/page_markup_integration_test.go",
+     "TestPageMarkupMethods"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "resources/page/page_markup_integration_test.go",
+     76,
+     76
+    ],
+    [
+     "resources/page/page_markup_integration_test.go",
+     79,
+     79
+    ],
+    [
+     "resources/page/page_markup_integration_test.go",
+     90,
+     90
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "resources/page/page_markup_integration_test.go",
+     "TestPageMarkupMethods"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "resources/page/page_markup_integration_test.go",
+     76,
+     76,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "resources/page/page_markup_integration_test.go",
+     79,
+     79,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "resources/page/page_markup_integration_test.go",
+     90,
+     90,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "resources/page/page_markup_integration_test.go:26",
+   "stratum": "Q-scoped"
+  },
+  "callees:resources/page/testhelpers_test.go:374": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "resources/page/testhelpers_test.go:374",
+   "stratum": "U-method"
+  },
+  "callees:resources/page/weighted.go:98": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "resources/page/weighted.go",
+     "Next"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "resources/page/weighted.go",
+     100,
+     100
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "resources/page/weighted.go",
+     "Next"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "resources/page/weighted.go:98",
+   "stratum": "C-method"
+  },
+  "callees:resources/resource_metadata.go:97": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "resources/resource_metadata.go",
+     "cloneWithMetadataFromResourceConfigIfNeeded"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "resources/resource_metadata.go",
+     118,
+     118
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "resources/resource_metadata.go",
+     "cloneWithMetadataFromResourceConfigIfNeeded"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "resources/resource_metadata.go",
+     118,
+     118,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "resources/resource_metadata.go:97",
+   "stratum": "Q-scoped"
+  },
+  "callees:tpl/collections/where_test.go:907": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "tpl/collections/where_test.go",
+     "BenchmarkWhereSliceOfStructPointersWithMethod"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tpl/collections/where_test.go",
+     909,
+     909
+    ],
+    [
+     "tpl/collections/where_test.go",
+     920,
+     920
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tpl/collections/where_test.go",
+     "BenchmarkWhereSliceOfStructPointersWithMethod"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "tpl/collections/where_test.go",
+     909,
+     909,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "tpl/collections/where_test.go",
+     920,
+     920,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "tpl/collections/where_test.go",
+     909,
+     909,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "tpl/collections/where_test.go",
+     909,
+     909,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ]
+   ],
+   "seed_def": "tpl/collections/where_test.go:907",
+   "stratum": "Q-scoped"
+  },
+  "callees:tpl/compare/compare.go:245": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "tpl/compare/compare.go:245",
+   "stratum": "U-method"
+  },
+  "callees:tpl/internal/go_templates/htmltemplate/template_test.go:168": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "tpl/internal/go_templates/htmltemplate/template_test.go",
+     "TestSkipEscapeComments"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tpl/internal/go_templates/htmltemplate/template_test.go",
+     176,
+     176
+    ],
+    [
+     "tpl/internal/go_templates/htmltemplate/template_test.go",
+     169,
+     169
+    ],
+    [
+     "tpl/internal/go_templates/htmltemplate/template_test.go",
+     180,
+     180
+    ],
+    [
+     "tpl/internal/go_templates/htmltemplate/template_test.go",
+     170,
+     170
+    ],
+    [
+     "tpl/internal/go_templates/htmltemplate/template_test.go",
+     172,
+     172
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tpl/internal/go_templates/htmltemplate/template_test.go",
+     "TestSkipEscapeComments"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "tpl/internal/go_templates/htmltemplate/template_test.go",
+     169,
+     169,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "tpl/internal/go_templates/htmltemplate/template_test.go",
+     170,
+     170,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "tpl/internal/go_templates/htmltemplate/template_test.go",
+     176,
+     176,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "tpl/internal/go_templates/htmltemplate/template_test.go",
+     180,
+     180,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "tpl/internal/go_templates/htmltemplate/template_test.go",
+     176,
+     176,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "tpl/internal/go_templates/htmltemplate/template_test.go:168",
+   "stratum": "Q-scoped"
+  },
+  "callees:tpl/internal/go_templates/texttemplate/exec_test.go:833": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "tpl/internal/go_templates/texttemplate/exec_test.go:833",
+   "stratum": "C-name"
+  },
+  "callees:tpl/internal/go_templates/texttemplate/parse/lex.go:137": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tpl/internal/go_templates/texttemplate/parse/lex.go",
+     "next"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "tpl/internal/go_templates/texttemplate/parse/lex.go:137",
+   "stratum": "C-method"
+  },
+  "callees:tpl/strings/strings.go:54": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "tpl/strings/strings.go",
+     "CountRunes"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tpl/strings/strings.go",
+     62,
+     62
+    ],
+    [
+     "tpl/strings/strings.go",
+     61,
+     61
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tpl/strings/strings.go",
+     "CountRunes"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "tpl/strings/strings.go",
+     62,
+     62,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "tpl/strings/strings.go",
+     61,
+     61,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ]
+   ],
+   "seed_def": "tpl/strings/strings.go:54",
+   "stratum": "U-method"
+  },
+  "callees:tpl/strings/strings_test.go:379": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "tpl/strings/strings_test.go",
+     "TestReplacePairs"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tpl/strings/strings_test.go",
+     406,
+     406
+    ],
+    [
+     "tpl/strings/strings_test.go",
+     425,
+     425
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tpl/strings/strings_test.go",
+     "TestReplacePairs"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "tpl/strings/strings_test.go",
+     406,
+     406,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "tpl/strings/strings_test.go",
+     425,
+     425,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "tpl/strings/strings_test.go:379",
+   "stratum": "Q-scoped"
+  },
+  "callees:tpl/urls/urls_test.go:27": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "tpl/urls/urls_test.go",
+     "newNs"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tpl/urls/urls_test.go",
+     28,
+     28
+    ],
+    [
+     "tpl/urls/urls_test.go",
+     28,
+     28
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tpl/urls/urls_test.go",
+     "newNs"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "tpl/urls/urls_test.go",
+     28,
+     28,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "tpl/urls/urls_test.go",
+     28,
+     28,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "tpl/urls/urls_test.go",
+     28,
+     28,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "tpl/urls/urls_test.go",
+     28,
+     28,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "tpl/urls/urls_test.go",
+     28,
+     28,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "tpl/urls/urls_test.go",
+     28,
+     28,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "tpl/urls/urls_test.go",
+     28,
+     28,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "tpl/urls/urls_test.go",
+     28,
+     28,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "tpl/urls/urls_test.go",
+     28,
+     28,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "tpl/urls/urls_test.go",
+     28,
+     28,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "tpl/urls/urls_test.go",
+     28,
+     28,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "tpl/urls/urls_test.go",
+     28,
+     28,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "tpl/urls/urls_test.go",
+     28,
+     28,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "tpl/urls/urls_test.go",
+     28,
+     28,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "tpl/urls/urls_test.go",
+     28,
+     28,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "tpl/urls/urls_test.go",
+     28,
+     28,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "tpl/urls/urls_test.go",
+     28,
+     28,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "tpl/urls/urls_test.go",
+     28,
+     28,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "tpl/urls/urls_test.go",
+     28,
+     28,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "tpl/urls/urls_test.go",
+     28,
+     28,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "tpl/urls/urls_test.go",
+     28,
+     28,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "tpl/urls/urls_test.go",
+     28,
+     28,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "tpl/urls/urls_test.go",
+     28,
+     28,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "tpl/urls/urls_test.go",
+     28,
+     28,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "tpl/urls/urls_test.go",
+     28,
+     28,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "tpl/urls/urls_test.go",
+     28,
+     28,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "tpl/urls/urls_test.go",
+     28,
+     28,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "tpl/urls/urls_test.go",
+     28,
+     28,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "tpl/urls/urls_test.go",
+     28,
+     28,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "tpl/urls/urls_test.go",
+     28,
+     28,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "tpl/urls/urls_test.go",
+     28,
+     28,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "tpl/urls/urls_test.go",
+     28,
+     28,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "tpl/urls/urls_test.go",
+     28,
+     28,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "tpl/urls/urls_test.go",
+     28,
+     28,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "tpl/urls/urls_test.go",
+     28,
+     28,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "tpl/urls/urls_test.go",
+     28,
+     28,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "tpl/urls/urls_test.go",
+     28,
+     28,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "tpl/urls/urls_test.go",
+     28,
+     28,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "tpl/urls/urls_test.go",
+     28,
+     28,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "tpl/urls/urls_test.go",
+     28,
+     28,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "tpl/urls/urls_test.go",
+     28,
+     28,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "tpl/urls/urls_test.go",
+     28,
+     28,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "tpl/urls/urls_test.go",
+     28,
+     28,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "tpl/urls/urls_test.go",
+     28,
+     28,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "tpl/urls/urls_test.go",
+     28,
+     28,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "tpl/urls/urls_test.go",
+     28,
+     28,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "tpl/urls/urls_test.go",
+     28,
+     28,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "tpl/urls/urls_test.go",
+     28,
+     28,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "tpl/urls/urls_test.go",
+     28,
+     28,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "tpl/urls/urls_test.go",
+     28,
+     28,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "tpl/urls/urls_test.go",
+     28,
+     28,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "tpl/urls/urls_test.go",
+     28,
+     28,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "tpl/urls/urls_test.go",
+     28,
+     28,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "tpl/urls/urls_test.go",
+     28,
+     28,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "tpl/urls/urls_test.go",
+     28,
+     28,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "tpl/urls/urls_test.go",
+     28,
+     28,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "tpl/urls/urls_test.go",
+     28,
+     28,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "tpl/urls/urls_test.go",
+     28,
+     28,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "tpl/urls/urls_test.go",
+     28,
+     28,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "tpl/urls/urls_test.go",
+     28,
+     28,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "tpl/urls/urls_test.go",
+     28,
+     28,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ]
+   ],
+   "seed_def": "tpl/urls/urls_test.go:27",
+   "stratum": "C-name"
+  },
+  "callers:cache/filecache/filecache.go:240": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "hugolib/gitinfo.go",
+     "ensureClone"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "hugolib/gitinfo.go",
+     190,
+     190
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "hugolib/gitinfo.go",
+     "ensureClone"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "hugolib/gitinfo.go",
+     190,
+     190,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "cache/filecache/filecache.go:240",
+   "stratum": "U-method"
+  },
+  "callers:commands/list.go:195": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "commands/list.go:195",
+   "stratum": "C-method"
+  },
+  "callers:common/hashing/hashing_test.go:65": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "common/hashing/hashing_test.go:65",
+   "stratum": "Q-scoped"
+  },
+  "callers:common/hreflect/helpers.go:254": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "common/hreflect/helpers.go",
+     "AsTime"
+    ],
+    [
+     "tpl/collections/where.go",
+     "toTimeUnix"
+    ],
+    [
+     "tpl/compare/compare.go",
+     "toTimeUnix"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "common/hreflect/helpers.go",
+     256,
+     256
+    ],
+    [
+     "tpl/collections/where.go",
+     722,
+     722
+    ],
+    [
+     "tpl/compare/compare.go",
+     391,
+     391
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "common/hreflect/helpers.go",
+     "AsTime"
+    ],
+    [
+     "tpl/collections/where.go",
+     "toTimeUnix"
+    ],
+    [
+     "tpl/compare/compare.go",
+     "toTimeUnix"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "common/hreflect/helpers.go",
+     256,
+     256,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "tpl/collections/where.go",
+     722,
+     722,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "tpl/compare/compare.go",
+     391,
+     391,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ]
+   ],
+   "seed_def": "common/hreflect/helpers.go:254",
+   "stratum": "C-name"
+  },
+  "callers:common/hstore/scratch.go:158": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "common/hstore/scratch_test.go",
+     "BenchmarkScratchGet"
+    ],
+    [
+     "common/hstore/scratch_test.go",
+     "TestScratchAdd"
+    ],
+    [
+     "common/hstore/scratch_test.go",
+     "TestScratchAddDifferentTypedSliceToInterfaceSlice"
+    ],
+    [
+     "common/hstore/scratch_test.go",
+     "TestScratchAddSlice"
+    ],
+    [
+     "common/hstore/scratch_test.go",
+     "TestScratchAddTypedSliceToInterfaceSlice"
+    ],
+    [
+     "common/hstore/scratch_test.go",
+     "TestScratchDelete"
+    ],
+    [
+     "common/hstore/scratch_test.go",
+     "TestScratchDeleteInMap"
+    ],
+    [
+     "common/hstore/scratch_test.go",
+     "TestScratchGet"
+    ],
+    [
+     "common/hstore/scratch_test.go",
+     "TestScratchGetSortedMapValues"
+    ],
+    [
+     "common/hstore/scratch_test.go",
+     "TestScratchInParallel"
+    ],
+    [
+     "common/hstore/scratch_test.go",
+     "TestScratchSet"
+    ],
+    [
+     "common/hstore/scratch_test.go",
+     "TestScratchSetInMap"
+    ],
+    [
+     "hugolib/page__new.go",
+     "doNewPageFromPageMeta"
+    ],
+    [
+     "hugolib/pagesfromdata/pagesfromgotmpl.go",
+     "NewPagesFromTemplate"
+    ],
+    [
+     "hugolib/shortcode.go",
+     "Store"
+    ],
+    [
+     "hugolib/site.go",
+     "NewHugoSites"
+    ],
+    [
+     "resources/page/hugoinfo.go",
+     "NewHugoInfo"
+    ],
+    [
+     "resources/page/site.go",
+     "Store"
+    ],
+    [
+     "tpl/collections/collections.go",
+     "NewScratch"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "common/hstore/scratch_test.go",
+     27,
+     27
+    ],
+    [
+     "common/hstore/scratch_test.go",
+     61,
+     61
+    ],
+    [
+     "common/hstore/scratch_test.go",
+     88,
+     88
+    ],
+    [
+     "common/hstore/scratch_test.go",
+     101,
+     101
+    ],
+    [
+     "common/hstore/scratch_test.go",
+     113,
+     113
+    ],
+    [
+     "common/hstore/scratch_test.go",
+     122,
+     122
+    ],
+    [
+     "common/hstore/scratch_test.go",
+     132,
+     132
+    ],
+    [
+     "common/hstore/scratch_test.go",
+     167,
+     167
+    ],
+    [
+     "common/hstore/scratch_test.go",
+     178,
+     178
+    ],
+    [
+     "common/hstore/scratch_test.go",
+     191,
+     191
+    ],
+    [
+     "common/hstore/scratch_test.go",
+     203,
+     203
+    ],
+    [
+     "common/hstore/scratch_test.go",
+     211,
+     211
+    ],
+    [
+     "hugolib/page__new.go",
+     60,
+     60
+    ],
+    [
+     "hugolib/pagesfromdata/pagesfromgotmpl.go",
+     165,
+     165
+    ],
+    [
+     "hugolib/shortcode.go",
+     133,
+     133
+    ],
+    [
+     "hugolib/site.go",
+     373,
+     373
+    ],
+    [
+     "resources/page/hugoinfo.go",
+     174,
+     174
+    ],
+    [
+     "resources/page/site.go",
+     443,
+     443
+    ],
+    [
+     "tpl/collections/collections.go",
+     762,
+     762
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "common/hstore/scratch_test.go",
+     "BenchmarkScratchGet"
+    ],
+    [
+     "common/hstore/scratch_test.go",
+     "TestScratchAdd"
+    ],
+    [
+     "common/hstore/scratch_test.go",
+     "TestScratchAddDifferentTypedSliceToInterfaceSlice"
+    ],
+    [
+     "common/hstore/scratch_test.go",
+     "TestScratchAddSlice"
+    ],
+    [
+     "common/hstore/scratch_test.go",
+     "TestScratchAddTypedSliceToInterfaceSlice"
+    ],
+    [
+     "common/hstore/scratch_test.go",
+     "TestScratchDelete"
+    ],
+    [
+     "common/hstore/scratch_test.go",
+     "TestScratchDeleteInMap"
+    ],
+    [
+     "common/hstore/scratch_test.go",
+     "TestScratchGet"
+    ],
+    [
+     "common/hstore/scratch_test.go",
+     "TestScratchGetSortedMapValues"
+    ],
+    [
+     "common/hstore/scratch_test.go",
+     "TestScratchInParallel"
+    ],
+    [
+     "common/hstore/scratch_test.go",
+     "TestScratchSet"
+    ],
+    [
+     "common/hstore/scratch_test.go",
+     "TestScratchSetInMap"
+    ],
+    [
+     "hugolib/page__new.go",
+     "doNewPageFromPageMeta"
+    ],
+    [
+     "hugolib/pagesfromdata/pagesfromgotmpl.go",
+     "NewPagesFromTemplate"
+    ],
+    [
+     "hugolib/shortcode.go",
+     "Store"
+    ],
+    [
+     "hugolib/site.go",
+     "NewHugoSites"
+    ],
+    [
+     "resources/page/hugoinfo.go",
+     "NewHugoInfo"
+    ],
+    [
+     "resources/page/site.go",
+     "Store"
+    ],
+    [
+     "tpl/collections/collections.go",
+     "NewScratch"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "common/hstore/scratch_test.go",
+     27,
+     27,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "common/hstore/scratch_test.go",
+     61,
+     61,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "common/hstore/scratch_test.go",
+     88,
+     88,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "common/hstore/scratch_test.go",
+     101,
+     101,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "common/hstore/scratch_test.go",
+     113,
+     113,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "common/hstore/scratch_test.go",
+     122,
+     122,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "common/hstore/scratch_test.go",
+     132,
+     132,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "common/hstore/scratch_test.go",
+     167,
+     167,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "common/hstore/scratch_test.go",
+     178,
+     178,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "common/hstore/scratch_test.go",
+     191,
+     191,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "common/hstore/scratch_test.go",
+     203,
+     203,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "common/hstore/scratch_test.go",
+     211,
+     211,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "hugolib/page__new.go",
+     60,
+     60,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "hugolib/pagesfromdata/pagesfromgotmpl.go",
+     165,
+     165,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "hugolib/shortcode.go",
+     133,
+     133,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "hugolib/site.go",
+     373,
+     373,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "resources/page/hugoinfo.go",
+     174,
+     174,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "resources/page/site.go",
+     443,
+     443,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "tpl/collections/collections.go",
+     762,
+     762,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ]
+   ],
+   "seed_def": "common/hstore/scratch.go:158",
+   "stratum": "C-name"
+  },
+  "callers:config/allconfig/configlanguage.go:114": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "hugolib/site.go",
+     "NewHugoSites"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "hugolib/site.go",
+     244,
+     244
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "hugolib/site.go",
+     "NewHugoSites"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "hugolib/site.go",
+     244,
+     244,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "config/allconfig/configlanguage.go:114",
+   "stratum": "C-method"
+  },
+  "callers:config/configProvider.go:105": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "cache/filecache/filecache_config_test.go",
+     "TestDecodeConfigDefault"
+    ],
+    [
+     "cache/filecache/filecache_config_test.go",
+     "TestFileCacheConfigMarshalJSON"
+    ],
+    [
+     "commands/commandeer.go",
+     "ConfigFromProvider"
+    ],
+    [
+     "commands/convert.go",
+     "PreRun"
+    ],
+    [
+     "commands/helpers.go",
+     "setValueFromFlag"
+    ],
+    [
+     "commands/hugobuilder.go",
+     "loadConfig"
+    ],
+    [
+     "commands/list.go",
+     "newListCommand"
+    ],
+    [
+     "commands/mod.go",
+     "newModCommands"
+    ],
+    [
+     "commands/new.go",
+     "newNewCommand"
+    ],
+    [
+     "config/allconfig/allconfig.go",
+     "fromLoadConfigResult"
+    ],
+    [
+     "config/allconfig/docshelper.go",
+     "init"
+    ],
+    [
+     "config/allconfig/load.go",
+     "applyConfigAliases"
+    ],
+    [
+     "config/allconfig/load.go",
+     "applyFlagsOverrides"
+    ],
+    [
+     "config/allconfig/load.go",
+     "applyOsEnvOverrides"
+    ],
+    [
+     "config/allconfig/load.go",
+     "cleanExternalConfig"
+    ],
+    [
+     "config/allconfig/load.go",
+     "loadConfig"
+    ],
+    [
+     "config/allconfig/load.go",
+     "loadConfigMain"
+    ],
+    [
+     "config/allconfig/load.go",
+     "normalizeCfg"
+    ],
+    [
+     "config/commonConfig_test.go",
+     "TestBuild"
+    ],
+    [
+     "config/commonConfig_test.go",
+     "TestBuildConfigCacheBusterstTailwindSetup"
+    ],
+    [
+     "config/configLoader.go",
+     "LoadConfigFromDir"
+    ],
+    [
+     "config/configProvider_test.go",
+     "TestGetStringSlicePreserveString"
+    ],
+    [
+     "config/defaultConfigProvider_test.go",
+     "BenchmarkDefaultConfigProvider"
+    ],
+    [
+     "config/defaultConfigProvider_test.go",
+     "TestDefaultConfigProvider"
+    ],
+    [
+     "config/services/servicesConfig_test.go",
+     "TestUseSettingsFromRootIfSet"
+    ],
+    [
+     "helpers/testhelpers_test.go",
+     "newTestPathSpec"
+    ],
+    [
+     "helpers/url_test.go",
+     "BenchmarkAbsURL"
+    ],
+    [
+     "helpers/url_test.go",
+     "BenchmarkRelURL"
+    ],
+    [
+     "helpers/url_test.go",
+     "doTestAbsURL"
+    ],
+    [
+     "helpers/url_test.go",
+     "doTestRelURL"
+    ],
+    [
+     "hugofs/fs_test.go",
+     "TestNewDefault"
+    ],
+    [
+     "hugofs/rootmapping_fs_test.go",
+     "TestLanguageRootMapping"
+    ],
+    [
+     "hugolib/config.go",
+     "ExampleConfig"
+    ],
+    [
+     "hugolib/filesystems/basefs_test.go",
+     "TestNewBaseFs"
+    ],
+    [
+     "hugolib/filesystems/basefs_test.go",
+     "TestRealDirs"
+    ],
+    [
+     "hugolib/filesystems/basefs_test.go",
+     "TestStaticFs"
+    ],
+    [
+     "hugolib/filesystems/basefs_test.go",
+     "TestStaticFsMultihost"
+    ],
+    [
+     "hugolib/filesystems/basefs_test.go",
+     "setConfigAndWriteSomeFilesTo"
+    ],
+    [
+     "hugolib/integrationtest_builder.go",
+     "initBuilder"
+    ],
+    [
+     "hugolib/page_test.go",
+     "testAllMarkdownEnginesForPages"
+    ],
+    [
+     "langs/i18n/i18n_test.go",
+     "TestI18nTranslate"
+    ],
+    [
+     "langs/i18n/i18n_test.go",
+     "TestPlural"
+    ],
+    [
+     "markup/highlight/config_test.go",
+     "TestConfig"
+    ],
+    [
+     "markup/markup_config/config_test.go",
+     "TestConfig"
+    ],
+    [
+     "minifiers/config_test.go",
+     "TestConfig"
+    ],
+    [
+     "minifiers/config_test.go",
+     "TestConfigDeprecations"
+    ],
+    [
+     "minifiers/config_test.go",
+     "TestConfigUpstreamDeprecations"
+    ],
+    [
+     "minifiers/minifiers_test.go",
+     "TestConfigureMinify"
+    ],
+    [
+     "modules/collect.go",
+     "applyThemeConfig"
+    ],
+    [
+     "resources/page/pagemeta/page_frontmatter_test.go",
+     "TestFrontMatterDatesDefaultKeyword"
+    ],
+    [
+     "resources/page/pagemeta/page_frontmatter_test.go",
+     "TestFrontMatterDatesHandlers"
+    ],
+    [
+     "resources/page/pagemeta/page_frontmatter_test.go",
+     "TestFrontMatterNewConfig"
+    ],
+    [
+     "resources/testhelpers_test.go",
+     "newTestResourceOsFs"
+    ],
+    [
+     "resources/testhelpers_test.go",
+     "newTestResourceSpec"
+    ],
+    [
+     "source/content_directory_test.go",
+     "TestIgnoreDotFilesAndDirectories"
+    ],
+    [
+     "tpl/cast/docshelper.go",
+     "newTestConfig"
+    ],
+    [
+     "tpl/images/images_test.go",
+     "TestNSConfig"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "cache/filecache/filecache_config_test.go",
+     116,
+     116
+    ],
+    [
+     "cache/filecache/filecache_config_test.go",
+     117,
+     117
+    ],
+    [
+     "cache/filecache/filecache_config_test.go",
+     120,
+     120
+    ],
+    [
+     "cache/filecache/filecache_config_test.go",
+     121,
+     121
+    ],
+    [
+     "cache/filecache/filecache_config_test.go",
+     123,
+     123
+    ],
+    [
+     "cache/filecache/filecache_config_test.go",
+     147,
+     147
+    ],
+    [
+     "cache/filecache/filecache_config_test.go",
+     148,
+     148
+    ],
+    [
+     "commands/commandeer.go",
+     258,
+     258
+    ],
+    [
+     "commands/commandeer.go",
+     284,
+     284
+    ],
+    [
+     "commands/commandeer.go",
+     285,
+     285
+    ],
+    [
+     "commands/commandeer.go",
+     286,
+     286
+    ],
+    [
+     "commands/commandeer.go",
+     296,
+     296
+    ],
+    [
+     "commands/commandeer.go",
+     299,
+     299
+    ],
+    [
+     "commands/commandeer.go",
+     300,
+     300
+    ],
+    [
+     "commands/convert.go",
+     126,
+     126
+    ],
+    [
+     "commands/helpers.go",
+     52,
+     52
+    ],
+    [
+     "commands/helpers.go",
+     54,
+     54
+    ],
+    [
+     "commands/helpers.go",
+     57,
+     57
+    ],
+    [
+     "commands/helpers.go",
+     60,
+     60
+    ],
+    [
+     "commands/hugobuilder.go",
+     1083,
+     1083
+    ],
+    [
+     "commands/hugobuilder.go",
+     1087,
+     1087
+    ],
+    [
+     "commands/hugobuilder.go",
+     1089,
+     1089
+    ],
+    [
+     "commands/list.go",
+     53,
+     53
+    ],
+    [
+     "commands/mod.go",
+     284,
+     284
+    ],
+    [
+     "commands/new.go",
+     57,
+     57
+    ],
+    [
+     "commands/new.go",
+     94,
+     94
+    ],
+    [
+     "commands/new.go",
+     95,
+     95
+    ],
+    [
+     "commands/new.go",
+     136,
+     136
+    ],
+    [
+     "config/allconfig/allconfig.go",
+     1072,
+     1072
+    ],
+    [
+     "config/allconfig/allconfig.go",
+     1129,
+     1129
+    ],
+    [
+     "config/allconfig/allconfig.go",
+     1144,
+     1144
+    ],
+    [
+     "config/allconfig/docshelper.go",
+     30,
+     30
+    ],
+    [
+     "config/allconfig/docshelper.go",
+     38,
+     38
+    ],
+    [
+     "config/allconfig/load.go",
+     169,
+     169
+    ],
+    [
+     "config/allconfig/load.go",
+     192,
+     192
+    ],
+    [
+     "config/allconfig/load.go",
+     197,
+     197
+    ],
+    [
+     "config/allconfig/load.go",
+     206,
+     206
+    ],
+    [
+     "config/allconfig/load.go",
+     213,
+     213
+    ],
+    [
+     "config/allconfig/load.go",
+     263,
+     263
+    ],
+    [
+     "config/allconfig/load.go",
+     286,
+     286
+    ],
+    [
+     "config/allconfig/load.go",
+     385,
+     385
+    ],
+    [
+     "config/allconfig/load.go",
+     545,
+     545
+    ],
+    [
+     "config/commonConfig_test.go",
+     31,
+     31
+    ],
+    [
+     "config/commonConfig_test.go",
+     39,
+     39
+    ],
+    [
+     "config/commonConfig_test.go",
+     169,
+     169
+    ],
+    [
+     "config/configLoader.go",
+     224,
+     224
+    ],
+    [
+     "config/configProvider_test.go",
+     29,
+     29
+    ],
+    [
+     "config/configProvider_test.go",
+     30,
+     30
+    ],
+    [
+     "config/defaultConfigProvider_test.go",
+     40,
+     40
+    ],
+    [
+     "config/defaultConfigProvider_test.go",
+     46,
+     46
+    ],
+    [
+     "config/defaultConfigProvider_test.go",
+     58,
+     58
+    ],
+    [
+     "config/defaultConfigProvider_test.go",
+     73,
+     73
+    ],
+    [
+     "config/defaultConfigProvider_test.go",
+     76,
+     76
+    ],
+    [
+     "config/defaultConfigProvider_test.go",
+     84,
+     84
+    ],
+    [
+     "config/defaultConfigProvider_test.go",
+     89,
+     89
+    ],
+    [
+     "config/defaultConfigProvider_test.go",
+     100,
+     100
+    ],
+    [
+     "config/defaultConfigProvider_test.go",
+     102,
+     102
+    ],
+    [
+     "config/defaultConfigProvider_test.go",
+     114,
+     114
+    ],
+    [
+     "config/defaultConfigProvider_test.go",
+     116,
+     116
+    ],
+    [
+     "config/defaultConfigProvider_test.go",
+     127,
+     127
+    ],
+    [
+     "config/defaultConfigProvider_test.go",
+     133,
+     133
+    ],
+    [
+     "config/defaultConfigProvider_test.go",
+     148,
+     148
+    ],
+    [
+     "config/defaultConfigProvider_test.go",
+     164,
+     164
+    ],
+    [
+     "config/defaultConfigProvider_test.go",
+     179,
+     179
+    ],
+    [
+     "config/defaultConfigProvider_test.go",
+     219,
+     219
+    ],
+    [
+     "config/defaultConfigProvider_test.go",
+     265,
+     265
+    ],
+    [
+     "config/defaultConfigProvider_test.go",
+     283,
+     283
+    ],
+    [
+     "config/defaultConfigProvider_test.go",
+     302,
+     302
+    ],
+    [
+     "config/defaultConfigProvider_test.go",
+     318,
+     318
+    ],
+    [
+     "config/defaultConfigProvider_test.go",
+     364,
+     364
+    ],
+    [
+     "config/defaultConfigProvider_test.go",
+     373,
+     373
+    ],
+    [
+     "config/defaultConfigProvider_test.go",
+     386,
+     386
+    ],
+    [
+     "config/defaultConfigProvider_test.go",
+     387,
+     387
+    ],
+    [
+     "config/defaultConfigProvider_test.go",
+     403,
+     403
+    ],
+    [
+     "config/defaultConfigProvider_test.go",
+     404,
+     404
+    ],
+    [
+     "config/defaultConfigProvider_test.go",
+     462,
+     462
+    ],
+    [
+     "config/defaultConfigProvider_test.go",
+     463,
+     463
+    ],
+    [
+     "config/services/servicesConfig_test.go",
+     60,
+     60
+    ],
+    [
+     "config/services/servicesConfig_test.go",
+     61,
+     61
+    ],
+    [
+     "helpers/testhelpers_test.go",
+     36,
+     36
+    ],
+    [
+     "helpers/url_test.go",
+     103,
+     103
+    ],
+    [
+     "helpers/url_test.go",
+     111,
+     111
+    ],
+    [
+     "helpers/url_test.go",
+     113,
+     113
+    ],
+    [
+     "helpers/url_test.go",
+     114,
+     114
+    ],
+    [
+     "helpers/url_test.go",
+     121,
+     121
+    ],
+    [
+     "helpers/url_test.go",
+     122,
+     122
+    ],
+    [
+     "helpers/url_test.go",
+     169,
+     169
+    ],
+    [
+     "helpers/url_test.go",
+     177,
+     177
+    ],
+    [
+     "helpers/url_test.go",
+     179,
+     179
+    ],
+    [
+     "helpers/url_test.go",
+     180,
+     180
+    ],
+    [
+     "helpers/url_test.go",
+     187,
+     187
+    ],
+    [
+     "helpers/url_test.go",
+     232,
+     232
+    ],
+    [
+     "helpers/url_test.go",
+     233,
+     233
+    ],
+    [
+     "helpers/url_test.go",
+     260,
+     260
+    ],
+    [
+     "helpers/url_test.go",
+     270,
+     270
+    ],
+    [
+     "hugofs/fs_test.go",
+     38,
+     38
+    ],
+    [
+     "hugofs/fs_test.go",
+     39,
+     39
+    ],
+    [
+     "hugofs/rootmapping_fs_test.go",
+     51,
+     51
+    ],
+    [
+     "hugolib/config.go",
+     163,
+     163
+    ],
+    [
+     "hugolib/config.go",
+     164,
+     164
+    ],
+    [
+     "hugolib/filesystems/basefs_test.go",
+     45,
+     45
+    ],
+    [
+     "hugolib/filesystems/basefs_test.go",
+     46,
+     46
+    ],
+    [
+     "hugolib/filesystems/basefs_test.go",
+     47,
+     47
+    ],
+    [
+     "hugolib/filesystems/basefs_test.go",
+     48,
+     48
+    ],
+    [
+     "hugolib/filesystems/basefs_test.go",
+     49,
+     49
+    ],
+    [
+     "hugolib/filesystems/basefs_test.go",
+     50,
+     50
+    ],
+    [
+     "hugolib/filesystems/basefs_test.go",
+     162,
+     162
+    ],
+    [
+     "hugolib/filesystems/basefs_test.go",
+     163,
+     163
+    ],
+    [
+     "hugolib/filesystems/basefs_test.go",
+     164,
+     164
+    ],
+    [
+     "hugolib/filesystems/basefs_test.go",
+     165,
+     165
+    ],
+    [
+     "hugolib/filesystems/basefs_test.go",
+     312,
+     312
+    ],
+    [
+     "hugolib/filesystems/basefs_test.go",
+     313,
+     313
+    ],
+    [
+     "hugolib/filesystems/basefs_test.go",
+     314,
+     314
+    ],
+    [
+     "hugolib/filesystems/basefs_test.go",
+     315,
+     315
+    ],
+    [
+     "hugolib/filesystems/basefs_test.go",
+     345,
+     345
+    ],
+    [
+     "hugolib/filesystems/basefs_test.go",
+     346,
+     346
+    ],
+    [
+     "hugolib/filesystems/basefs_test.go",
+     347,
+     347
+    ],
+    [
+     "hugolib/filesystems/basefs_test.go",
+     348,
+     348
+    ],
+    [
+     "hugolib/filesystems/basefs_test.go",
+     349,
+     349
+    ],
+    [
+     "hugolib/filesystems/basefs_test.go",
+     361,
+     361
+    ],
+    [
+     "hugolib/filesystems/basefs_test.go",
+     676,
+     676
+    ],
+    [
+     "hugolib/integrationtest_builder.go",
+     902,
+     902
+    ],
+    [
+     "hugolib/integrationtest_builder.go",
+     907,
+     907
+    ],
+    [
+     "hugolib/integrationtest_builder.go",
+     913,
+     913
+    ],
+    [
+     "hugolib/page_test.go",
+     360,
+     360
+    ],
+    [
+     "langs/i18n/i18n_test.go",
+     390,
+     390
+    ],
+    [
+     "langs/i18n/i18n_test.go",
+     391,
+     391
+    ],
+    [
+     "langs/i18n/i18n_test.go",
+     488,
+     488
+    ],
+    [
+     "markup/highlight/config_test.go",
+     29,
+     29
+    ],
+    [
+     "markup/highlight/config_test.go",
+     30,
+     30
+    ],
+    [
+     "markup/highlight/config_test.go",
+     31,
+     31
+    ],
+    [
+     "markup/highlight/config_test.go",
+     32,
+     32
+    ],
+    [
+     "markup/markup_config/config_test.go",
+     31,
+     31
+    ],
+    [
+     "markup/markup_config/config_test.go",
+     61,
+     61
+    ],
+    [
+     "markup/markup_config/config_test.go",
+     76,
+     76
+    ],
+    [
+     "minifiers/config_test.go",
+     28,
+     28
+    ],
+    [
+     "minifiers/config_test.go",
+     57,
+     57
+    ],
+    [
+     "minifiers/config_test.go",
+     62,
+     62
+    ],
+    [
+     "minifiers/config_test.go",
+     68,
+     68
+    ],
+    [
+     "minifiers/config_test.go",
+     73,
+     73
+    ],
+    [
+     "minifiers/config_test.go",
+     83,
+     83
+    ],
+    [
+     "minifiers/config_test.go",
+     107,
+     107
+    ],
+    [
+     "minifiers/minifiers_test.go",
+     77,
+     77
+    ],
+    [
+     "modules/collect.go",
+     524,
+     524
+    ],
+    [
+     "resources/page/pagemeta/page_frontmatter_test.go",
+     49,
+     49
+    ],
+    [
+     "resources/page/pagemeta/page_frontmatter_test.go",
+     73,
+     73
+    ],
+    [
+     "resources/page/pagemeta/page_frontmatter_test.go",
+     94,
+     94
+    ],
+    [
+     "resources/page/pagemeta/page_frontmatter_test.go",
+     134,
+     134
+    ],
+    [
+     "resources/testhelpers_test.go",
+     51,
+     51
+    ],
+    [
+     "resources/testhelpers_test.go",
+     52,
+     52
+    ],
+    [
+     "resources/testhelpers_test.go",
+     64,
+     64
+    ],
+    [
+     "resources/testhelpers_test.go",
+     81,
+     81
+    ],
+    [
+     "resources/testhelpers_test.go",
+     93,
+     93
+    ],
+    [
+     "source/content_directory_test.go",
+     62,
+     62
+    ],
+    [
+     "source/content_directory_test.go",
+     63,
+     63
+    ],
+    [
+     "tpl/cast/docshelper.go",
+     51,
+     51
+    ],
+    [
+     "tpl/images/images_test.go",
+     91,
+     91
+    ]
+   ],
+   "outcome": "inventory_miss",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "config/configProvider.go:105",
+   "stratum": "C-method"
+  },
+  "callers:config/services/servicesConfig_test.go:23": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "config/services/servicesConfig_test.go:23",
+   "stratum": "C-name"
+  },
+  "callers:helpers/docshelper.go:12": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "common/hmaps/cache.go",
+     "InitAndGet"
+    ],
+    [
+     "hugolib/hugo_sites_build.go",
+     "process"
+    ],
+    [
+     "hugolib/hugo_sites_build.go",
+     "processPartialFileEvents"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "common/hmaps/cache.go",
+     107,
+     107,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "hugolib/hugo_sites_build.go",
+     292,
+     292,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "hugolib/hugo_sites_build.go",
+     1184,
+     1184,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ]
+   ],
+   "seed_def": "helpers/docshelper.go:12",
+   "stratum": "C-name"
+  },
+  "callers:htesting/test_helpers.go:34": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "common/hmaps/cache.go",
+     "InitAndGet"
+    ],
+    [
+     "hugolib/hugo_sites_build.go",
+     "process"
+    ],
+    [
+     "hugolib/hugo_sites_build.go",
+     "processPartialFileEvents"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "common/hmaps/cache.go",
+     107,
+     107,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "hugolib/hugo_sites_build.go",
+     292,
+     292,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "hugolib/hugo_sites_build.go",
+     1184,
+     1184,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ]
+   ],
+   "seed_def": "htesting/test_helpers.go:34",
+   "stratum": "C-name"
+  },
+  "callers:hugolib/config_test.go:223": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "hugolib/config_test.go:223",
+   "stratum": "Q-scoped"
+  },
+  "callers:hugolib/doctree/simpletree.go:168": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "hugolib/doctree/simpletree.go",
+     "All"
+    ],
+    [
+     "hugolib/doctree/simpletree.go",
+     "WalkPath"
+    ],
+    [
+     "hugolib/doctree/simpletree.go",
+     "WalkPrefix"
+    ],
+    [
+     "hugolib/doctree/treeshifttree.go",
+     "Unlock"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "hugolib/doctree/simpletree.go",
+     179,
+     179
+    ],
+    [
+     "hugolib/doctree/simpletree.go",
+     193,
+     193
+    ],
+    [
+     "hugolib/doctree/simpletree.go",
+     211,
+     211
+    ],
+    [
+     "hugolib/doctree/treeshifttree.go",
+     101,
+     101
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "hugolib/doctree/simpletree.go",
+     "All"
+    ],
+    [
+     "hugolib/doctree/simpletree.go",
+     "Insert"
+    ],
+    [
+     "hugolib/doctree/simpletree.go",
+     "Unlock"
+    ],
+    [
+     "hugolib/doctree/simpletree.go",
+     "WalkPath"
+    ],
+    [
+     "hugolib/doctree/simpletree.go",
+     "WalkPrefix"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "hugolib/doctree/simpletree.go",
+     179,
+     179,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "hugolib/doctree/simpletree.go",
+     193,
+     193,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "hugolib/doctree/simpletree.go",
+     211,
+     211,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "hugolib/doctree/simpletree.go",
+     153,
+     153,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "hugolib/doctree/simpletree.go",
+     173,
+     173,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "hugolib/doctree/simpletree.go:168",
+   "stratum": "C-method"
+  },
+  "callers:hugolib/hugo_modules_test.go:273": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "hugolib/hugo_modules_test.go:273",
+   "stratum": "Q-scoped"
+  },
+  "callers:hugolib/hugo_sites.go:462": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "hugolib/hugo_sites_build.go",
+     "Build"
+    ],
+    [
+     "hugolib/site.go",
+     "errorCollator"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "hugolib/hugo_sites_build.go",
+     121,
+     121
+    ],
+    [
+     "hugolib/site.go",
+     1593,
+     1593
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "hugolib/hugo_sites_build.go",
+     "Build"
+    ],
+    [
+     "hugolib/site.go",
+     "errorCollator"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "hugolib/hugo_sites_build.go",
+     121,
+     121,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "hugolib/site.go",
+     1593,
+     1593,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "hugolib/hugo_sites.go:462",
+   "stratum": "U-method"
+  },
+  "callers:hugolib/page.go:293": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "hugolib/page.go:293",
+   "stratum": "C-method"
+  },
+  "callers:hugolib/page__meta.go:215": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "hugolib/page__meta.go",
+     "doInitEarly"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "hugolib/page__meta.go",
+     165,
+     165
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "hugolib/page__meta.go",
+     "doInitEarly"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "hugolib/page__meta.go",
+     165,
+     165,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ]
+   ],
+   "seed_def": "hugolib/page__meta.go:215",
+   "stratum": "U-method"
+  },
+  "callers:hugolib/page__per_output.go:215": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "resources/page/page.go",
+     "Truncated"
+    ],
+    [
+     "resources/page/page_lazy_contentprovider.go",
+     "Truncated"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "resources/page/page.go",
+     601,
+     601
+    ],
+    [
+     "resources/page/page_lazy_contentprovider.go",
+     101,
+     101
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "hugolib/page__per_output.go:215",
+   "stratum": "C-method"
+  },
+  "callers:main_test.go:39": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "main_test.go:39",
+   "stratum": "U-free"
+  },
+  "callers:modules/collect.go:598": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "modules/collect.go",
+     "getAndCreateModule"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "modules/collect.go",
+     250,
+     250
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "modules/collect.go",
+     "getAndCreateModule"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "modules/collect.go",
+     250,
+     250,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ]
+   ],
+   "seed_def": "modules/collect.go:598",
+   "stratum": "U-method"
+  },
+  "callers:parser/pageparser/pageparser.go:157": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "hugolib/page__content.go",
+     "parseSource"
+    ],
+    [
+     "hugolib/shortcode.go",
+     "extractShortcode"
+    ],
+    [
+     "parser/pageparser/pageparser.go",
+     "Consume"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "hugolib/page__content.go",
+     334,
+     334
+    ],
+    [
+     "hugolib/shortcode.go",
+     580,
+     580
+    ],
+    [
+     "hugolib/shortcode.go",
+     609,
+     609
+    ],
+    [
+     "hugolib/shortcode.go",
+     715,
+     715
+    ],
+    [
+     "parser/pageparser/pageparser.go",
+     198,
+     198
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "hugolib/page__content.go",
+     "parseSource"
+    ],
+    [
+     "parser/pageparser/pageparser.go",
+     "Consume"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "parser/pageparser/pageparser.go",
+     198,
+     198,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "hugolib/page__content.go",
+     334,
+     334,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "parser/pageparser/pageparser.go:157",
+   "stratum": "U-method"
+  },
+  "callers:resources/images/config_test.go:24": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "resources/images/config_test.go:24",
+   "stratum": "C-name"
+  },
+  "callers:resources/page/page_markup_integration_test.go:26": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "resources/page/page_markup_integration_test.go:26",
+   "stratum": "Q-scoped"
+  },
+  "callers:resources/page/testhelpers_test.go:374": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "resources/page/testhelpers_test.go:374",
+   "stratum": "U-method"
+  },
+  "callers:resources/page/weighted.go:98": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "resources/page/pages_prev_next_test.go",
+     "TestWeightedPagesNext"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "resources/page/pages_prev_next_test.go",
+     88,
+     88
+    ],
+    [
+     "resources/page/pages_prev_next_test.go",
+     89,
+     89
+    ],
+    [
+     "resources/page/pages_prev_next_test.go",
+     90,
+     90
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "resources/page/weighted.go:98",
+   "stratum": "C-method"
+  },
+  "callers:resources/resource_metadata.go:97": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "resources/resource_spec.go",
+     "NewResourceWrapperFromResourceConfig"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "resources/resource_spec.go",
+     167,
+     167
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "resources/resource_spec.go",
+     "NewResourceWrapperFromResourceConfig"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "resources/resource_spec.go",
+     167,
+     167,
+     {
+      "resolution_kind": "free_single"
+     }
+    ]
+   ],
+   "seed_def": "resources/resource_metadata.go:97",
+   "stratum": "Q-scoped"
+  },
+  "callers:tpl/collections/where_test.go:907": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "tpl/collections/where_test.go:907",
+   "stratum": "Q-scoped"
+  },
+  "callers:tpl/compare/compare.go:245": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "tpl/compare/compare.go",
+     "compareGetWithCollator"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tpl/compare/compare.go",
+     295,
+     295
+    ],
+    [
+     "tpl/compare/compare.go",
+     302,
+     302
+    ],
+    [
+     "tpl/compare/compare.go",
+     330,
+     330
+    ],
+    [
+     "tpl/compare/compare.go",
+     337,
+     337
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tpl/compare/compare.go",
+     "compareGetWithCollator"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "tpl/compare/compare.go",
+     295,
+     295,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "tpl/compare/compare.go",
+     302,
+     302,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "tpl/compare/compare.go",
+     330,
+     330,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "tpl/compare/compare.go",
+     337,
+     337,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ]
+   ],
+   "seed_def": "tpl/compare/compare.go:245",
+   "stratum": "U-method"
+  },
+  "callers:tpl/internal/go_templates/htmltemplate/template_test.go:168": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "tpl/internal/go_templates/htmltemplate/template_test.go:168",
+   "stratum": "Q-scoped"
+  },
+  "callers:tpl/internal/go_templates/texttemplate/exec_test.go:833": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "tpl/internal/go_templates/texttemplate/exec_test.go",
+     "testExecute"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tpl/internal/go_templates/texttemplate/exec_test.go",
+     894,
+     894
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "tpl/internal/go_templates/texttemplate/exec_test.go:833",
+   "stratum": "C-name"
+  },
+  "callers:tpl/internal/go_templates/texttemplate/parse/lex.go:137": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "tpl/internal/go_templates/texttemplate/parse/lex.go",
+     "accept"
+    ],
+    [
+     "tpl/internal/go_templates/texttemplate/parse/lex.go",
+     "acceptRun"
+    ],
+    [
+     "tpl/internal/go_templates/texttemplate/parse/lex.go",
+     "lexChar"
+    ],
+    [
+     "tpl/internal/go_templates/texttemplate/parse/lex.go",
+     "lexFieldOrVariable"
+    ],
+    [
+     "tpl/internal/go_templates/texttemplate/parse/lex.go",
+     "lexIdentifier"
+    ],
+    [
+     "tpl/internal/go_templates/texttemplate/parse/lex.go",
+     "lexInsideAction"
+    ],
+    [
+     "tpl/internal/go_templates/texttemplate/parse/lex.go",
+     "lexQuote"
+    ],
+    [
+     "tpl/internal/go_templates/texttemplate/parse/lex.go",
+     "lexRawQuote"
+    ],
+    [
+     "tpl/internal/go_templates/texttemplate/parse/lex.go",
+     "lexSpace"
+    ],
+    [
+     "tpl/internal/go_templates/texttemplate/parse/lex.go",
+     "peek"
+    ],
+    [
+     "tpl/internal/go_templates/texttemplate/parse/lex.go",
+     "scanNumber"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tpl/internal/go_templates/texttemplate/parse/lex.go",
+     152,
+     152
+    ],
+    [
+     "tpl/internal/go_templates/texttemplate/parse/lex.go",
+     200,
+     200
+    ],
+    [
+     "tpl/internal/go_templates/texttemplate/parse/lex.go",
+     209,
+     209
+    ],
+    [
+     "tpl/internal/go_templates/texttemplate/parse/lex.go",
+     400,
+     400
+    ],
+    [
+     "tpl/internal/go_templates/texttemplate/parse/lex.go",
+     409,
+     409
+    ],
+    [
+     "tpl/internal/go_templates/texttemplate/parse/lex.go",
+     465,
+     465
+    ],
+    [
+     "tpl/internal/go_templates/texttemplate/parse/lex.go",
+     482,
+     482
+    ],
+    [
+     "tpl/internal/go_templates/texttemplate/parse/lex.go",
+     535,
+     535
+    ],
+    [
+     "tpl/internal/go_templates/texttemplate/parse/lex.go",
+     568,
+     568
+    ],
+    [
+     "tpl/internal/go_templates/texttemplate/parse/lex.go",
+     570,
+     570
+    ],
+    [
+     "tpl/internal/go_templates/texttemplate/parse/lex.go",
+     632,
+     632
+    ],
+    [
+     "tpl/internal/go_templates/texttemplate/parse/lex.go",
+     642,
+     642
+    ],
+    [
+     "tpl/internal/go_templates/texttemplate/parse/lex.go",
+     644,
+     644
+    ],
+    [
+     "tpl/internal/go_templates/texttemplate/parse/lex.go",
+     661,
+     661
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tpl/internal/go_templates/texttemplate/parse/lex.go",
+     "accept"
+    ],
+    [
+     "tpl/internal/go_templates/texttemplate/parse/lex.go",
+     "acceptRun"
+    ],
+    [
+     "tpl/internal/go_templates/texttemplate/parse/lex.go",
+     "lexChar"
+    ],
+    [
+     "tpl/internal/go_templates/texttemplate/parse/lex.go",
+     "lexFieldOrVariable"
+    ],
+    [
+     "tpl/internal/go_templates/texttemplate/parse/lex.go",
+     "lexIdentifier"
+    ],
+    [
+     "tpl/internal/go_templates/texttemplate/parse/lex.go",
+     "lexInsideAction"
+    ],
+    [
+     "tpl/internal/go_templates/texttemplate/parse/lex.go",
+     "lexQuote"
+    ],
+    [
+     "tpl/internal/go_templates/texttemplate/parse/lex.go",
+     "lexRawQuote"
+    ],
+    [
+     "tpl/internal/go_templates/texttemplate/parse/lex.go",
+     "lexSpace"
+    ],
+    [
+     "tpl/internal/go_templates/texttemplate/parse/lex.go",
+     "peek"
+    ],
+    [
+     "tpl/internal/go_templates/texttemplate/parse/lex.go",
+     "scanNumber"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "tpl/internal/go_templates/texttemplate/parse/lex.go",
+     152,
+     152,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "tpl/internal/go_templates/texttemplate/parse/lex.go",
+     200,
+     200,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "tpl/internal/go_templates/texttemplate/parse/lex.go",
+     209,
+     209,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "tpl/internal/go_templates/texttemplate/parse/lex.go",
+     400,
+     400,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ],
+    [
+     "tpl/internal/go_templates/texttemplate/parse/lex.go",
+     409,
+     409,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ],
+    [
+     "tpl/internal/go_templates/texttemplate/parse/lex.go",
+     465,
+     465,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ],
+    [
+     "tpl/internal/go_templates/texttemplate/parse/lex.go",
+     482,
+     482,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ],
+    [
+     "tpl/internal/go_templates/texttemplate/parse/lex.go",
+     535,
+     535,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ],
+    [
+     "tpl/internal/go_templates/texttemplate/parse/lex.go",
+     568,
+     568,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ],
+    [
+     "tpl/internal/go_templates/texttemplate/parse/lex.go",
+     570,
+     570,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ],
+    [
+     "tpl/internal/go_templates/texttemplate/parse/lex.go",
+     632,
+     632,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "tpl/internal/go_templates/texttemplate/parse/lex.go",
+     642,
+     642,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ],
+    [
+     "tpl/internal/go_templates/texttemplate/parse/lex.go",
+     644,
+     644,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ],
+    [
+     "tpl/internal/go_templates/texttemplate/parse/lex.go",
+     661,
+     661,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ]
+   ],
+   "seed_def": "tpl/internal/go_templates/texttemplate/parse/lex.go:137",
+   "stratum": "C-method"
+  },
+  "callers:tpl/strings/strings.go:54": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "tpl/strings/init.go",
+     "init"
+    ],
+    [
+     "tpl/strings/strings_test.go",
+     "TestCountRunes"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tpl/strings/init.go",
+     69,
+     69
+    ],
+    [
+     "tpl/strings/strings_test.go",
+     199,
+     199
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tpl/strings/strings_test.go",
+     "TestCountRunes"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "tpl/strings/strings_test.go",
+     199,
+     199,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "tpl/strings/strings.go:54",
+   "stratum": "U-method"
+  },
+  "callers:tpl/strings/strings_test.go:379": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "tpl/strings/strings_test.go:379",
+   "stratum": "Q-scoped"
+  },
+  "callers:tpl/urls/urls_test.go:27": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "tpl/urls/urls_test.go",
+     "TestJoinPath"
+    ],
+    [
+     "tpl/urls/urls_test.go",
+     "TestParse"
+    ],
+    [
+     "tpl/urls/urls_test.go",
+     "TestPathEscape"
+    ],
+    [
+     "tpl/urls/urls_test.go",
+     "TestPathUnescape"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tpl/urls/urls_test.go",
+     36,
+     36
+    ],
+    [
+     "tpl/urls/urls_test.go",
+     77,
+     77
+    ],
+    [
+     "tpl/urls/urls_test.go",
+     113,
+     113
+    ],
+    [
+     "tpl/urls/urls_test.go",
+     151,
+     151
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tpl/collections/append_test.go",
+     "TestAppend"
+    ],
+    [
+     "tpl/collections/complement_test.go",
+     "TestComplement"
+    ],
+    [
+     "tpl/collections/index_test.go",
+     "TestIndex"
+    ],
+    [
+     "tpl/collections/merge_test.go",
+     "BenchmarkMerge"
+    ],
+    [
+     "tpl/collections/merge_test.go",
+     "TestMerge"
+    ],
+    [
+     "tpl/collections/merge_test.go",
+     "TestMergeDataFormats"
+    ],
+    [
+     "tpl/collections/querify_test.go",
+     "BenchmarkQuerify"
+    ],
+    [
+     "tpl/collections/querify_test.go",
+     "BenchmarkQuerifyMap"
+    ],
+    [
+     "tpl/collections/querify_test.go",
+     "BenchmarkQuerifySlice"
+    ],
+    [
+     "tpl/collections/querify_test.go",
+     "TestQuerify"
+    ],
+    [
+     "tpl/collections/sort_test.go",
+     "BenchmarkSortMap"
+    ],
+    [
+     "tpl/collections/sort_test.go",
+     "TestSort"
+    ],
+    [
+     "tpl/collections/symdiff_test.go",
+     "TestSymDiff"
+    ],
+    [
+     "tpl/collections/where_test.go",
+     "BenchmarkWhereOps"
+    ],
+    [
+     "tpl/collections/where_test.go",
+     "BenchmarkWhereSliceOfStructPointersWithMethod"
+    ],
+    [
+     "tpl/collections/where_test.go",
+     "TestCheckCondition"
+    ],
+    [
+     "tpl/collections/where_test.go",
+     "TestWhere"
+    ],
+    [
+     "tpl/urls/urls_test.go",
+     "TestJoinPath"
+    ],
+    [
+     "tpl/urls/urls_test.go",
+     "TestParse"
+    ],
+    [
+     "tpl/urls/urls_test.go",
+     "TestPathEscape"
+    ],
+    [
+     "tpl/urls/urls_test.go",
+     "TestPathUnescape"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "tpl/urls/urls_test.go",
+     36,
+     36,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "tpl/urls/urls_test.go",
+     77,
+     77,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "tpl/urls/urls_test.go",
+     113,
+     113,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "tpl/urls/urls_test.go",
+     151,
+     151,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "tpl/collections/append_test.go",
+     27,
+     27,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "tpl/collections/complement_test.go",
+     35,
+     35,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "tpl/collections/index_test.go",
+     27,
+     27,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "tpl/collections/merge_test.go",
+     29,
+     29,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "tpl/collections/merge_test.go",
+     159,
+     159,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "tpl/collections/merge_test.go",
+     172,
+     172,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "tpl/collections/querify_test.go",
+     26,
+     26,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "tpl/collections/querify_test.go",
+     85,
+     85,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "tpl/collections/querify_test.go",
+     97,
+     97,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "tpl/collections/querify_test.go",
+     109,
+     109,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "tpl/collections/sort_test.go",
+     30,
+     30,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "tpl/collections/sort_test.go",
+     266,
+     266,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "tpl/collections/symdiff_test.go",
+     28,
+     28,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "tpl/collections/where_test.go",
+     32,
+     32,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "tpl/collections/where_test.go",
+     686,
+     686,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "tpl/collections/where_test.go",
+     866,
+     866,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "tpl/collections/where_test.go",
+     909,
+     909,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ]
+   ],
+   "seed_def": "tpl/urls/urls_test.go:27",
+   "stratum": "C-name"
+  }
+ },
+ "site_fingerprints": {
+  "cache/filecache/filecache.go:241": "af63aa9a69e96f84",
+  "cache/filecache/filecache.go:245": "564f215747dffe28",
+  "cache/filecache/filecache.go:247": "5869dbce5a2fb1eb",
+  "cache/filecache/filecache.go:252": "49ba5774e6560950",
+  "cache/filecache/filecache.go:257": "64b7ea5de6a2d2cf",
+  "cache/filecache/filecache.go:258": "e09c7b12fb1be5d0",
+  "cache/filecache/filecache_config_test.go:116": "263bda0afc9934ca",
+  "cache/filecache/filecache_config_test.go:117": "c853d075ab63d0f1",
+  "cache/filecache/filecache_config_test.go:120": "c1fbf447da174f94",
+  "cache/filecache/filecache_config_test.go:121": "143b9a459618e3a7",
+  "cache/filecache/filecache_config_test.go:123": "675d49ced470be45",
+  "cache/filecache/filecache_config_test.go:147": "0659dcfe51a0689a",
+  "cache/filecache/filecache_config_test.go:148": "b06a3a33db454ede",
+  "commands/commandeer.go:258": "9553d6238e28cc0a",
+  "commands/commandeer.go:284": "0fe2ea39b8363700",
+  "commands/commandeer.go:285": "e8c163b560785592",
+  "commands/commandeer.go:286": "8887d2a2d1f0f87a",
+  "commands/commandeer.go:296": "7d1a0fb90c882e73",
+  "commands/commandeer.go:299": "34a55bda0f39031a",
+  "commands/commandeer.go:300": "11fed0c4587c9ca2",
+  "commands/convert.go:126": "7717f5838e629153",
+  "commands/helpers.go:52": "c69f190d264dbfb3",
+  "commands/helpers.go:54": "6d3d3b7034c77473",
+  "commands/helpers.go:57": "c5312e4a010be920",
+  "commands/helpers.go:60": "6bc8803bb49edf53",
+  "commands/hugobuilder.go:1083": "e7b0251e632f54ae",
+  "commands/hugobuilder.go:1087": "dd387e4d0f6637de",
+  "commands/hugobuilder.go:1089": "2361c237af667fd8",
+  "commands/list.go:53": "456a1f7285bce6e2",
+  "commands/mod.go:284": "9128c14d464775a4",
+  "commands/new.go:136": "3c04db98cbb377df",
+  "commands/new.go:57": "ba7452d54fc80e20",
+  "commands/new.go:94": "5141ece518e6c224",
+  "commands/new.go:95": "e00dbbaa497bb840",
+  "common/hashing/hashing_test.go:68": "7c53b59783e6f81b",
+  "common/hmaps/cache.go:107": "8dd48dbf56367b82",
+  "common/hreflect/helpers.go:256": "fd3dc1459a3b2f0a",
+  "common/hreflect/helpers.go:264": "cec8c61c524b56b6",
+  "common/hstore/scratch_test.go:101": "d925ed73e9a40ffd",
+  "common/hstore/scratch_test.go:113": "598d881dd24260d2",
+  "common/hstore/scratch_test.go:122": "598d881dd24260d2",
+  "common/hstore/scratch_test.go:132": "eff9599f816dae35",
+  "common/hstore/scratch_test.go:167": "b38c7316c814db34",
+  "common/hstore/scratch_test.go:178": "02932f501c00346b",
+  "common/hstore/scratch_test.go:191": "02932f501c00346b",
+  "common/hstore/scratch_test.go:203": "87e52367e2f0e858",
+  "common/hstore/scratch_test.go:211": "9610865e3c9131e4",
+  "common/hstore/scratch_test.go:27": "f4cde62bb6eb1226",
+  "common/hstore/scratch_test.go:61": "b6882f5e64e0ba17",
+  "common/hstore/scratch_test.go:88": "89bf809b3a5951b6",
+  "config/allconfig/allconfig.go:1072": "d1be3020397cdfa2",
+  "config/allconfig/allconfig.go:1129": "1ca8e0e3890d6d12",
+  "config/allconfig/allconfig.go:1144": "0ed35e6f63a3d998",
+  "config/allconfig/docshelper.go:30": "ef71d3ce941b286c",
+  "config/allconfig/docshelper.go:38": "0bc833e93343a7c3",
+  "config/allconfig/load.go:169": "10e14a33f77477b1",
+  "config/allconfig/load.go:192": "7e42c12566380cf9",
+  "config/allconfig/load.go:197": "ca9ec9e31c35cc19",
+  "config/allconfig/load.go:206": "d645ef482f2be28c",
+  "config/allconfig/load.go:213": "5225c7b8590d4219",
+  "config/allconfig/load.go:263": "3902b75494168ead",
+  "config/allconfig/load.go:286": "f3f64d74d50a1c51",
+  "config/allconfig/load.go:385": "d8223194fb2196c2",
+  "config/allconfig/load.go:545": "7163b2c76a4fae42",
+  "config/commonConfig_test.go:169": "9a9ce7503b783d56",
+  "config/commonConfig_test.go:31": "af276e71e177093e",
+  "config/commonConfig_test.go:39": "14492320783325b6",
+  "config/configLoader.go:224": "408daaed63deac20",
+  "config/configProvider_test.go:29": "e8b0ca1368d78099",
+  "config/configProvider_test.go:30": "c58370203c4c2da3",
+  "config/defaultConfigProvider_test.go:100": "229f624a1d37e5b7",
+  "config/defaultConfigProvider_test.go:102": "e153ebf9f43236c0",
+  "config/defaultConfigProvider_test.go:114": "229f624a1d37e5b7",
+  "config/defaultConfigProvider_test.go:116": "bf06bef37e7d9cca",
+  "config/defaultConfigProvider_test.go:127": "ca924d7d697f3f8e",
+  "config/defaultConfigProvider_test.go:133": "ca924d7d697f3f8e",
+  "config/defaultConfigProvider_test.go:148": "7871884386fa4408",
+  "config/defaultConfigProvider_test.go:164": "229f624a1d37e5b7",
+  "config/defaultConfigProvider_test.go:179": "dba1b94488d2e591",
+  "config/defaultConfigProvider_test.go:219": "727eb94bfd91ce0f",
+  "config/defaultConfigProvider_test.go:265": "0f12e2048e482edf",
+  "config/defaultConfigProvider_test.go:283": "1b1e66e58ffd367f",
+  "config/defaultConfigProvider_test.go:302": "7871884386fa4408",
+  "config/defaultConfigProvider_test.go:318": "1e7b3061c98f5d0e",
+  "config/defaultConfigProvider_test.go:364": "81b4490fd8a73b17",
+  "config/defaultConfigProvider_test.go:373": "66aad9d6b42b04cb",
+  "config/defaultConfigProvider_test.go:386": "b353f2c5312959dc",
+  "config/defaultConfigProvider_test.go:387": "70481045d8bd2483",
+  "config/defaultConfigProvider_test.go:40": "3fc80d36525f646a",
+  "config/defaultConfigProvider_test.go:403": "62f654628cce82b3",
+  "config/defaultConfigProvider_test.go:404": "666f36c915cb14d5",
+  "config/defaultConfigProvider_test.go:46": "58a557a51bd8db3f",
+  "config/defaultConfigProvider_test.go:462": "32e996cace6628f9",
+  "config/defaultConfigProvider_test.go:463": "04e7569c13f2b213",
+  "config/defaultConfigProvider_test.go:58": "230f6721d9e8dab3",
+  "config/defaultConfigProvider_test.go:73": "7871884386fa4408",
+  "config/defaultConfigProvider_test.go:76": "41989eaeec0b5b20",
+  "config/defaultConfigProvider_test.go:84": "88f517024638ca1a",
+  "config/defaultConfigProvider_test.go:89": "ba10d68a16651e21",
+  "config/services/servicesConfig_test.go:42": "b2a57c0d81342747",
+  "config/services/servicesConfig_test.go:45": "f1fb4bbcfe46e4de",
+  "config/services/servicesConfig_test.go:60": "ea929dde49a7c498",
+  "config/services/servicesConfig_test.go:61": "50bfc93e5e2ebe10",
+  "helpers/docshelper.go:16": "b44885ed230d67f4",
+  "helpers/docshelper.go:40": "6ddfbd21cf024a8e",
+  "helpers/testhelpers_test.go:36": "4655f90fad8ae9bd",
+  "helpers/url_test.go:103": "5cbc40fb6d56f059",
+  "helpers/url_test.go:111": "d1be95a0e479a39f",
+  "helpers/url_test.go:113": "2462186fd24c4881",
+  "helpers/url_test.go:114": "5e5cd81f6829e822",
+  "helpers/url_test.go:121": "24275322e5f2b1b4",
+  "helpers/url_test.go:122": "d2bc12db2f8ab192",
+  "helpers/url_test.go:169": "5cbc40fb6d56f059",
+  "helpers/url_test.go:177": "d1be95a0e479a39f",
+  "helpers/url_test.go:179": "2462186fd24c4881",
+  "helpers/url_test.go:180": "5e5cd81f6829e822",
+  "helpers/url_test.go:187": "ddf6a725f46de66a",
+  "helpers/url_test.go:232": "b44cc581ae2b83d3",
+  "helpers/url_test.go:233": "f4f6b44e0ac85ad6",
+  "helpers/url_test.go:260": "b7f681619b8adc74",
+  "helpers/url_test.go:270": "b7f681619b8adc74",
+  "hugofs/fs_test.go:38": "0c0956d0f10ec09c",
+  "hugofs/fs_test.go:39": "77c776e023029da2",
+  "hugofs/rootmapping_fs_test.go:51": "9dc717bde21923ba",
+  "hugolib/config.go:163": "24048a4d0a693da2",
+  "hugolib/config.go:164": "f09dbed94a53dfb6",
+  "hugolib/config_test.go:248": "ac7331d28384d2e6",
+  "hugolib/doctree/simpletree.go:153": "b6c2c3478b16be5f",
+  "hugolib/doctree/simpletree.go:173": "ecbef556524fd45c",
+  "hugolib/doctree/simpletree.go:179": "bb040e77ed73a75a",
+  "hugolib/doctree/simpletree.go:193": "d517edecd9716954",
+  "hugolib/doctree/simpletree.go:211": "bb040e77ed73a75a",
+  "hugolib/doctree/treeshifttree.go:101": "1d538915eaf939c0",
+  "hugolib/filesystems/basefs_test.go:162": "081f5f20582a84d6",
+  "hugolib/filesystems/basefs_test.go:163": "6735c352892c877f",
+  "hugolib/filesystems/basefs_test.go:164": "e6b6eb28eeb69dc3",
+  "hugolib/filesystems/basefs_test.go:165": "274445d98e80c213",
+  "hugolib/filesystems/basefs_test.go:312": "bcab31e05f2cc6d5",
+  "hugolib/filesystems/basefs_test.go:313": "4f1c60abda053d4d",
+  "hugolib/filesystems/basefs_test.go:314": "f2c7e7c7a235d336",
+  "hugolib/filesystems/basefs_test.go:315": "b5f9007e560b7706",
+  "hugolib/filesystems/basefs_test.go:345": "bcab31e05f2cc6d5",
+  "hugolib/filesystems/basefs_test.go:346": "4f1c60abda053d4d",
+  "hugolib/filesystems/basefs_test.go:347": "b7770378d686e5e2",
+  "hugolib/filesystems/basefs_test.go:348": "7499a61da9beb58e",
+  "hugolib/filesystems/basefs_test.go:349": "b1038cbc6f23d93d",
+  "hugolib/filesystems/basefs_test.go:361": "dfb717f4b3cd4586",
+  "hugolib/filesystems/basefs_test.go:45": "c50c834720c89e74",
+  "hugolib/filesystems/basefs_test.go:46": "57b442917ee7d3e1",
+  "hugolib/filesystems/basefs_test.go:47": "2eb5e23d08793417",
+  "hugolib/filesystems/basefs_test.go:48": "a04a9b1d66950433",
+  "hugolib/filesystems/basefs_test.go:49": "2d3a7079f96fdce4",
+  "hugolib/filesystems/basefs_test.go:50": "8ce1ed0362083e91",
+  "hugolib/filesystems/basefs_test.go:676": "d9af2d9531b607a5",
+  "hugolib/gitinfo.go:190": "a11f08cd20b5db7f",
+  "hugolib/hugo_modules_test.go:291": "a270ac8cbb430955",
+  "hugolib/hugo_sites.go:473": "76721ffbf120a25b",
+  "hugolib/hugo_sites.go:483": "7c1a23e06906630f",
+  "hugolib/hugo_sites_build.go:1184": "5fccb90df8261981",
+  "hugolib/hugo_sites_build.go:121": "69c630d02689ba96",
+  "hugolib/hugo_sites_build.go:292": "28329080945ea715",
+  "hugolib/integrationtest_builder.go:902": "ef7555c70c94a814",
+  "hugolib/integrationtest_builder.go:907": "da6c97cc318b5c2f",
+  "hugolib/integrationtest_builder.go:913": "8b367175cdaa8c11",
+  "hugolib/page__content.go:334": "80d7a239f69b8c68",
+  "hugolib/page__meta.go:165": "4772d3bdc8f2317c",
+  "hugolib/page__meta.go:217": "202d73e2c6b0767c",
+  "hugolib/page__meta.go:227": "4af9d0fa790c5a2b",
+  "hugolib/page__meta.go:232": "b96538f2f1d37c99",
+  "hugolib/page__meta.go:233": "2bb28927d84c406a",
+  "hugolib/page__meta.go:237": "fe28910ecfc25ff1",
+  "hugolib/page__meta.go:246": "e757df856ac730fe",
+  "hugolib/page__meta.go:247": "2b80c581de26056e",
+  "hugolib/page__new.go:60": "50af3cb15c201b49",
+  "hugolib/page__per_output.go:216": "b4452b83cba50f32",
+  "hugolib/page__per_output.go:218": "1a5d1e7103b381fb",
+  "hugolib/page_test.go:360": "dfe86d79d4dfdfe3",
+  "hugolib/pagesfromdata/pagesfromgotmpl.go:165": "60e4b1cd81584829",
+  "hugolib/shortcode.go:133": "78080d8a19ef591a",
+  "hugolib/shortcode.go:580": "0c2d730c80bea59e",
+  "hugolib/shortcode.go:609": "41c89d1b47076e0e",
+  "hugolib/shortcode.go:715": "48ab7dbba4e0e0b1",
+  "hugolib/site.go:1593": "b93e3b4c6dc6d861",
+  "hugolib/site.go:244": "c9de5c32afdd1894",
+  "hugolib/site.go:373": "b22c93c91abea4ee",
+  "langs/i18n/i18n_test.go:390": "8971ada92854306d",
+  "langs/i18n/i18n_test.go:391": "11e0fd7964cd34e1",
+  "langs/i18n/i18n_test.go:488": "ee2b14a1cb50a9c5",
+  "markup/highlight/config_test.go:29": "7e18ad4c77931364",
+  "markup/highlight/config_test.go:30": "142c125f3398efdd",
+  "markup/highlight/config_test.go:31": "6a6a9dd83b902ff7",
+  "markup/highlight/config_test.go:32": "6a806cdaa42be4bc",
+  "markup/markup_config/config_test.go:31": "e8aed2fa2e2ef086",
+  "markup/markup_config/config_test.go:61": "e8aed2fa2e2ef086",
+  "markup/markup_config/config_test.go:76": "e8aed2fa2e2ef086",
+  "minifiers/config_test.go:107": "cdaac00b7dd822cf",
+  "minifiers/config_test.go:28": "bc37b37b28ecae42",
+  "minifiers/config_test.go:57": "a2e65406acf094bb",
+  "minifiers/config_test.go:62": "6e106e3080aa8f6c",
+  "minifiers/config_test.go:68": "4f34f672200d4b35",
+  "minifiers/config_test.go:73": "38cb44e59fd7b602",
+  "minifiers/config_test.go:83": "90134826cf81741b",
+  "minifiers/minifiers_test.go:77": "edf8dfe6ff9ae23b",
+  "modules/collect.go:250": "8a93833fd714f2f1",
+  "modules/collect.go:524": "d47271a79de97ae6",
+  "modules/collect.go:599": "7bb92c11f911054e",
+  "modules/collect.go:604": "328b1096d449fc1f",
+  "parser/pageparser/pageparser.go:198": "7c50c079188ce1e0",
+  "resources/images/config_test.go:32": "5d81bbb5e66cf5fa",
+  "resources/images/config_test.go:42": "6fd6256605cc9b75",
+  "resources/images/config_test.go:48": "393841f8f4074c2e",
+  "resources/images/config_test.go:53": "525cec8226043a72",
+  "resources/images/config_test.go:58": "2bc5c69eb28fe5d6",
+  "resources/images/config_test.go:63": "a00d4f10660ddbc3",
+  "resources/images/config_test.go:70": "2c2ae7b6c9ae2e20",
+  "resources/images/config_test.go:81": "d0af872435682fc7",
+  "resources/images/config_test.go:86": "9a6e482c3221d022",
+  "resources/images/config_test.go:93": "bf024d335a7eb8b5",
+  "resources/images/config_test.go:98": "8b78827f8e89da67",
+  "resources/page/hugoinfo.go:174": "f5ad490d64a22b98",
+  "resources/page/page.go:601": "a309e3c2be5ad3cf",
+  "resources/page/page_lazy_contentprovider.go:101": "35e8bc62c07e58c5",
+  "resources/page/page_markup_integration_test.go:76": "6396e327ac2659df",
+  "resources/page/page_markup_integration_test.go:79": "2da3761cd00fa35a",
+  "resources/page/page_markup_integration_test.go:90": "66a0a4968529a7fc",
+  "resources/page/pagemeta/page_frontmatter_test.go:134": "ce87ec029bf29f75",
+  "resources/page/pagemeta/page_frontmatter_test.go:49": "9a36260cc77be94a",
+  "resources/page/pagemeta/page_frontmatter_test.go:73": "c43fe6556065db36",
+  "resources/page/pagemeta/page_frontmatter_test.go:94": "724d85ca1c2385bc",
+  "resources/page/pages_prev_next_test.go:88": "ffab5e59c969d068",
+  "resources/page/pages_prev_next_test.go:89": "c170a834565d7066",
+  "resources/page/pages_prev_next_test.go:90": "0e16b24708a670b4",
+  "resources/page/site.go:443": "56cba90ef69a583b",
+  "resources/page/weighted.go:100": "b3424e00b2f4d94d",
+  "resources/resource_metadata.go:118": "8cd050dabafba24c",
+  "resources/resource_spec.go:167": "02fee41da01fb5e1",
+  "resources/testhelpers_test.go:51": "874758ae3c7c83fb",
+  "resources/testhelpers_test.go:52": "d836d4f64d38a27d",
+  "resources/testhelpers_test.go:64": "ecb06a093848aed4",
+  "resources/testhelpers_test.go:81": "c9ec5ddcb44aa0a7",
+  "resources/testhelpers_test.go:93": "ba6357c64d51b4ff",
+  "source/content_directory_test.go:62": "e80840e48272e1ba",
+  "source/content_directory_test.go:63": "3a76aa339853cde8",
+  "tpl/cast/docshelper.go:51": "e013f25184ac78e3",
+  "tpl/collections/append_test.go:27": "de99b8ff43233e86",
+  "tpl/collections/collections.go:762": "8d60a71fa3b64c5d",
+  "tpl/collections/complement_test.go:35": "176ded52201862f5",
+  "tpl/collections/index_test.go:27": "de99b8ff43233e86",
+  "tpl/collections/merge_test.go:159": "17556d3ccb5b3282",
+  "tpl/collections/merge_test.go:172": "de99b8ff43233e86",
+  "tpl/collections/merge_test.go:29": "9b8aa5a7befb8eb7",
+  "tpl/collections/querify_test.go:109": "74efc1bf86106624",
+  "tpl/collections/querify_test.go:26": "de99b8ff43233e86",
+  "tpl/collections/querify_test.go:85": "3b1a0ac8d2817691",
+  "tpl/collections/querify_test.go:97": "fd1199c0a48ea641",
+  "tpl/collections/sort_test.go:266": "dbf6cafc78a3a418",
+  "tpl/collections/sort_test.go:30": "176ded52201862f5",
+  "tpl/collections/symdiff_test.go:28": "176ded52201862f5",
+  "tpl/collections/where.go:722": "c2b03ab0aa5d763b",
+  "tpl/collections/where_test.go:32": "176ded52201862f5",
+  "tpl/collections/where_test.go:686": "176ded52201862f5",
+  "tpl/collections/where_test.go:866": "f45dd65714746528",
+  "tpl/collections/where_test.go:909": "35a2276151e406d1",
+  "tpl/collections/where_test.go:920": "3676f754ed352981",
+  "tpl/compare/compare.go:295": "6f4d5cd77aac7ae9",
+  "tpl/compare/compare.go:302": "98330d0acf4c5cb0",
+  "tpl/compare/compare.go:330": "e5b7ac75830ab22d",
+  "tpl/compare/compare.go:337": "71b432a8b73fbc63",
+  "tpl/compare/compare.go:391": "c2b03ab0aa5d763b",
+  "tpl/images/images_test.go:91": "8b5f243658dc77cf",
+  "tpl/internal/go_templates/htmltemplate/template_test.go:169": "4f3e4e793a08eb2e",
+  "tpl/internal/go_templates/htmltemplate/template_test.go:170": "ace67a336be8efa2",
+  "tpl/internal/go_templates/htmltemplate/template_test.go:172": "81b8585f42e1ec4f",
+  "tpl/internal/go_templates/htmltemplate/template_test.go:176": "280309cc136822cc",
+  "tpl/internal/go_templates/htmltemplate/template_test.go:180": "a41fe350811d3166",
+  "tpl/internal/go_templates/texttemplate/exec_test.go:894": "ecbcd9c6eac96723",
+  "tpl/internal/go_templates/texttemplate/parse/lex.go:152": "5d731e652833f2df",
+  "tpl/internal/go_templates/texttemplate/parse/lex.go:200": "150b9a0246eb8455",
+  "tpl/internal/go_templates/texttemplate/parse/lex.go:209": "c0f4e9057c0ab12d",
+  "tpl/internal/go_templates/texttemplate/parse/lex.go:400": "098e442f71a70e4b",
+  "tpl/internal/go_templates/texttemplate/parse/lex.go:409": "1c39777e09247f57",
+  "tpl/internal/go_templates/texttemplate/parse/lex.go:465": "af5d74deb20def76",
+  "tpl/internal/go_templates/texttemplate/parse/lex.go:482": "1356d79db2ad6d47",
+  "tpl/internal/go_templates/texttemplate/parse/lex.go:535": "58af74d8c2ce23f6",
+  "tpl/internal/go_templates/texttemplate/parse/lex.go:568": "7c1f8be574a8eb2d",
+  "tpl/internal/go_templates/texttemplate/parse/lex.go:570": "03c758e9f933907a",
+  "tpl/internal/go_templates/texttemplate/parse/lex.go:632": "034a409839be7cea",
+  "tpl/internal/go_templates/texttemplate/parse/lex.go:642": "7c1f8be574a8eb2d",
+  "tpl/internal/go_templates/texttemplate/parse/lex.go:644": "03c758e9f933907a",
+  "tpl/internal/go_templates/texttemplate/parse/lex.go:661": "ec475a6954323369",
+  "tpl/strings/init.go:69": "7119ac8c3841ca37",
+  "tpl/strings/strings.go:61": "882ce62fbec3d95c",
+  "tpl/strings/strings.go:62": "9bbd01f81d16f7fd",
+  "tpl/strings/strings_test.go:199": "f137e7b13d9f2bc2",
+  "tpl/strings/strings_test.go:406": "bc5c68e7099545c8",
+  "tpl/strings/strings_test.go:425": "16f397e5a53e48b1",
+  "tpl/urls/urls_test.go:113": "de99b8ff43233e86",
+  "tpl/urls/urls_test.go:151": "de99b8ff43233e86",
+  "tpl/urls/urls_test.go:28": "0f8887bbb59443b6",
+  "tpl/urls/urls_test.go:36": "de99b8ff43233e86",
+  "tpl/urls/urls_test.go:77": "de99b8ff43233e86"
+ }
+}

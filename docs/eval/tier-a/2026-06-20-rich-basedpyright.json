@@ -1,0 +1,4698 @@
+{
+ "m1": {
+  "anon_oracle": 0,
+  "anon_prism": 9,
+  "matched": 931,
+  "prism_extra": 24,
+  "prism_missing": 0,
+  "snapshot_prism_missing": 0
+ },
+ "m2": {
+  "callees": {
+   "C-method": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.5101091596030786,
+      0.9999999999999999
+     ],
+     "recall": [
+      1.0,
+      0.5101091596030786,
+      0.9999999999999999
+     ],
+     "tp": 4
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 1,
+      "precision": [
+       0.8,
+       0.375534627029995,
+       0.9637758917743693
+      ],
+      "recall": [
+       1.0,
+       0.5101091596030786,
+       0.9999999999999999
+      ],
+      "tp": 4
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 1,
+      "precision": [
+       0.8,
+       0.375534627029995,
+       0.9637758917743693
+      ],
+      "recall": [
+       1.0,
+       0.5101091596030786,
+       0.9999999999999999
+      ],
+      "tp": 4
+     }
+    },
+    "pending": 10,
+    "raw": {
+     "fn": 10,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.5101091596030786,
+      0.9999999999999999
+     ],
+     "recall": [
+      0.2857142857142857,
+      0.11721378562701742,
+      0.5464908452599742
+     ],
+     "tp": 4
+    },
+    "shortfall": 0
+   },
+   "C-name": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.5655175313406071,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.5655175313406071,
+      1.0
+     ],
+     "tp": 5
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 5,
+      "precision": [
+       0.5,
+       0.23659308901147935,
+       0.7634069109885206
+      ],
+      "recall": [
+       1.0,
+       0.5655175313406071,
+       1.0
+      ],
+      "tp": 5
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 5,
+      "precision": [
+       0.5,
+       0.23659308901147935,
+       0.7634069109885206
+      ],
+      "recall": [
+       1.0,
+       0.5655175313406071,
+       1.0
+      ],
+      "tp": 5
+     }
+    },
+    "pending": 8,
+    "raw": {
+     "fn": 6,
+     "fp": 2,
+     "precision": [
+      0.7142857142857143,
+      0.3589344495310541,
+      0.9177810767507166
+     ],
+     "recall": [
+      0.45454545454545453,
+      0.21271271487637833,
+      0.7199084642140241
+     ],
+     "tp": 5
+    },
+    "shortfall": 0
+   },
+   "Q-scoped": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.5655175313406071,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.5655175313406071,
+      1.0
+     ],
+     "tp": 5
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 4,
+      "precision": [
+       0.5,
+       0.21521606069626764,
+       0.7847839393037324
+      ],
+      "recall": [
+       1.0,
+       0.5101091596030786,
+       0.9999999999999999
+      ],
+      "tp": 4
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 4,
+      "precision": [
+       0.5,
+       0.21521606069626764,
+       0.7847839393037324
+      ],
+      "recall": [
+       1.0,
+       0.5101091596030786,
+       0.9999999999999999
+      ],
+      "tp": 4
+     }
+    },
+    "pending": 8,
+    "raw": {
+     "fn": 6,
+     "fp": 2,
+     "precision": [
+      0.7142857142857143,
+      0.3589344495310541,
+      0.9177810767507166
+     ],
+     "recall": [
+      0.45454545454545453,
+      0.21271271487637833,
+      0.7199084642140241
+     ],
+     "tp": 5
+    },
+    "shortfall": 0
+   },
+   "U-method": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.3423802239546494,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.3423802239546494,
+      1.0
+     ],
+     "tp": 2
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 4,
+      "precision": [
+       0.42857142857142855,
+       0.15821985399244537,
+       0.7495416372469643
+      ],
+      "recall": [
+       1.0,
+       0.43850296436068037,
+       1.0
+      ],
+      "tp": 3
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 4,
+      "precision": [
+       0.42857142857142855,
+       0.15821985399244537,
+       0.7495416372469643
+      ],
+      "recall": [
+       1.0,
+       0.43850296436068037,
+       1.0
+      ],
+      "tp": 3
+     }
+    },
+    "pending": 6,
+    "raw": {
+     "fn": 5,
+     "fp": 1,
+     "precision": [
+      0.6666666666666666,
+      0.2076595988078242,
+      0.9385080559790691
+     ],
+     "recall": [
+      0.2857142857142857,
+      0.08221892324928332,
+      0.6410655504689458
+     ],
+     "tp": 2
+    },
+    "shortfall": 0
+   }
+  },
+  "callers": {
+   "C-method": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.2065493117918027,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.2065493117918027,
+      1.0
+     ],
+     "tp": 1
+    },
+    "function": {
+     "corrected": {
+      "fn": 23,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.2065493117918027,
+       1.0
+      ],
+      "recall": [
+       0.041666666666666664,
+       0.007393456083597233,
+       0.20241806658845338
+      ],
+      "tp": 1
+     },
+     "raw": {
+      "fn": 23,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.2065493117918027,
+       1.0
+      ],
+      "recall": [
+       0.041666666666666664,
+       0.007393456083597233,
+       0.20241806658845338
+      ],
+      "tp": 1
+     }
+    },
+    "pending": 82,
+    "raw": {
+     "fn": 82,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.2065493117918027,
+      1.0
+     ],
+     "recall": [
+      0.012048192771084338,
+      0.002129977404567142,
+      0.06513580735476904
+     ],
+     "tp": 1
+    },
+    "shortfall": 0
+   },
+   "C-name": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.5655175313406071,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.5655175313406071,
+      1.0
+     ],
+     "tp": 5
+    },
+    "function": {
+     "corrected": {
+      "fn": 2,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.43850296436068037,
+       1.0
+      ],
+      "recall": [
+       0.6,
+       0.23072427940911855,
+       0.8823792268590028
+      ],
+      "tp": 3
+     },
+     "raw": {
+      "fn": 2,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.43850296436068037,
+       1.0
+      ],
+      "recall": [
+       0.6,
+       0.23072427940911855,
+       0.8823792268590028
+      ],
+      "tp": 3
+     }
+    },
+    "pending": 2,
+    "raw": {
+     "fn": 2,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.5655175313406071,
+      1.0
+     ],
+     "recall": [
+      0.7142857142857143,
+      0.3589344495310541,
+      0.9177810767507166
+     ],
+     "tp": 5
+    },
+    "shortfall": 0
+   },
+   "Q-scoped": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.7846891945970195,
+      0.9999999999999999
+     ],
+     "recall": [
+      1.0,
+      0.7846891945970195,
+      0.9999999999999999
+     ],
+     "tp": 14
+    },
+    "function": {
+     "corrected": {
+      "fn": 1,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.6755924316585924,
+       1.0
+      ],
+      "recall": [
+       0.8888888888888888,
+       0.565000291629209,
+       0.9801091125830901
+      ],
+      "tp": 8
+     },
+     "raw": {
+      "fn": 1,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.6755924316585924,
+       1.0
+      ],
+      "recall": [
+       0.8888888888888888,
+       0.565000291629209,
+       0.9801091125830901
+      ],
+      "tp": 8
+     }
+    },
+    "pending": 1,
+    "raw": {
+     "fn": 1,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.7846891945970195,
+      0.9999999999999999
+     ],
+     "recall": [
+      0.9333333333333333,
+      0.7018346989112435,
+      0.9881331046384677
+     ],
+     "tp": 14
+    },
+    "shortfall": 0
+   },
+   "U-method": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.6755924316585924,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.6755924316585924,
+      1.0
+     ],
+     "tp": 8
+    },
+    "function": {
+     "corrected": {
+      "fn": 21,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.5655175313406071,
+       1.0
+      ],
+      "recall": [
+       0.19230769230769232,
+       0.08507061095122731,
+       0.3787625728202114
+      ],
+      "tp": 5
+     },
+     "raw": {
+      "fn": 21,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.5655175313406071,
+       1.0
+      ],
+      "recall": [
+       0.19230769230769232,
+       0.08507061095122731,
+       0.3787625728202114
+      ],
+      "tp": 5
+     }
+    },
+    "pending": 35,
+    "raw": {
+     "fn": 35,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.6755924316585924,
+      1.0
+     ],
+     "recall": [
+      0.18604651162790697,
+      0.09741751379266768,
+      0.326170037815781
+     ],
+     "tp": 8
+    },
+    "shortfall": 0
+   }
+  }
+ },
+ "m3": {
+  "cap": 25,
+  "checked": [],
+  "counts": {
+   "alias_site": 0,
+   "ambiguous": 0,
+   "confirmed_fp": 0,
+   "confirmed_tp": 0
+  }
+ },
+ "meta": {
+  "baseline_invalid": false,
+  "corpus": "rich-basedpyright",
+  "corpus_dirty": false,
+  "corpus_dirty_reasons": [],
+  "corpus_sha": "46cebbb032f9",
+  "date": "2026-06-20",
+  "harness_sha": "06e6ac4ee96e",
+  "invalid_reasons": [],
+  "oracle": "basedpyright 1.39.8",
+  "oracle_error_rate": 0.25,
+  "oracle_not_quiescent": false,
+  "prism_dirty": false,
+  "prism_sha": "20c8490591a3",
+  "seed": 42,
+  "stale_adjudications": 0,
+  "sut_error_rate": 0.0,
+  "wall_s": {
+   "m1_oracle_inventory": 0.046,
+   "m2": 11.454,
+   "m3": 0.0,
+   "oracle_start": 5.203
+  }
+ },
+ "pending": [
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/_win32_console.py:78",
+   "site": "rich/_win32_console.py:576",
+   "site_fingerprint": "6070a479db18122e"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/console.py:260",
+   "site": "rich/console.py:1319",
+   "site_fingerprint": "86eed9239324bbf2"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/console.py:464",
+   "site": "rich/console.py:473",
+   "site_fingerprint": "9f204329ae6b8fca"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/console.py:464",
+   "site": "rich/console.py:480",
+   "site_fingerprint": "3300b9f7ebc359e2"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/console.py:771",
+   "site": "rich/console.py:391",
+   "site_fingerprint": "7e8036fa1e53f692"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/console.py:771",
+   "site": "rich/console.py:392",
+   "site_fingerprint": "e6308f4ab668bcbd"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/console.py:771",
+   "site": "rich/console.py:876",
+   "site_fingerprint": "6e9e9e38013267e7"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/console.py:771",
+   "site": "rich/console.py:877",
+   "site_fingerprint": "dde83f861e4505ac"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/console.py:771",
+   "site": "rich/console.py:1618",
+   "site_fingerprint": "efd4f429963dcdcc"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/console.py:771",
+   "site": "rich/console.py:1750",
+   "site_fingerprint": "ad4db6ff5386832f"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/console.py:771",
+   "site": "rich/console.py:1756",
+   "site_fingerprint": "c881d8734b83d584"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/console.py:771",
+   "site": "rich/console.py:1870",
+   "site_fingerprint": "33b9986f254e376e"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/console.py:771",
+   "site": "rich/console.py:2024",
+   "site_fingerprint": "8f8f55681fae9a45"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/console.py:771",
+   "site": "rich/console.py:2051",
+   "site_fingerprint": "2b3145bacc051ce9"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/console.py:771",
+   "site": "rich/console.py:2065",
+   "site_fingerprint": "1ce9db31e304beee"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/console.py:771",
+   "site": "rich/console.py:2071",
+   "site_fingerprint": "499783c23ce93017"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/console.py:771",
+   "site": "rich/console.py:2072",
+   "site_fingerprint": "33b50e76596330ff"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/console.py:771",
+   "site": "rich/console.py:2087",
+   "site_fingerprint": "abef5389bcbc71e8"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/console.py:771",
+   "site": "rich/console.py:2094",
+   "site_fingerprint": "d7f0d38c7e89cb74"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/console.py:771",
+   "site": "rich/console.py:2122",
+   "site_fingerprint": "0bc201665e39cf39"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/console.py:771",
+   "site": "rich/console.py:2130",
+   "site_fingerprint": "0fd3524037959ad4"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/control.py:69",
+   "site": "rich/console.py:1094",
+   "site_fingerprint": "453cad0275b3a785"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/logging.py:291",
+   "site": "rich/logging.py:301",
+   "site_fingerprint": "e34e0f0bc379156d"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/padding.py:61",
+   "site": "rich/columns.py:72",
+   "site_fingerprint": "e72ef4703a280d60"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/padding.py:61",
+   "site": "rich/panel.py:144",
+   "site_fingerprint": "509284d49d39feaa"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/padding.py:61",
+   "site": "rich/panel.py:281",
+   "site_fingerprint": "d7f8b6266900f946"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/padding.py:61",
+   "site": "rich/syntax.py:240",
+   "site_fingerprint": "42a72031040937ac"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/padding.py:61",
+   "site": "rich/syntax.py:312",
+   "site_fingerprint": "8ced4d695cba8420"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/padding.py:61",
+   "site": "rich/table.py:225",
+   "site_fingerprint": "8bcc44f51b0f0de4"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/padding.py:61",
+   "site": "rich/table.py:361",
+   "site_fingerprint": "7d1da89b2414c35a"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/padding.py:61",
+   "site": "tests/test_padding.py:23",
+   "site_fingerprint": "44c89c3e2d456a96"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/padding.py:61",
+   "site": "tests/test_padding.py:24",
+   "site_fingerprint": "5b0f46aed0a4126c"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/padding.py:61",
+   "site": "tests/test_padding.py:25",
+   "site_fingerprint": "443a6abc4426e71d"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/padding.py:61",
+   "site": "tests/test_padding.py:26",
+   "site_fingerprint": "94ec6790022194f8"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/padding.py:61",
+   "site": "tests/test_padding.py:28",
+   "site_fingerprint": "0f0ce654a2b520c4"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/scope.py:81",
+   "site": "rich/scope.py:91",
+   "site_fingerprint": "28664f5b7864ac01"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/segment.py:426",
+   "site": "rich/align.py:156",
+   "site_fingerprint": "59c91defde8d6bfb"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/segment.py:426",
+   "site": "rich/screen.py:49",
+   "site_fingerprint": "1f2a7a2c12d2387a"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/segment.py:426",
+   "site": "tests/test_segment.py:86",
+   "site_fingerprint": "736458a927e850cd"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/segment.py:426",
+   "site": "tests/test_segment.py:89",
+   "site_fingerprint": "21cccc1b3c77cbb7"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/style.py:498",
+   "site": "benchmarks/benchmarks.py:153",
+   "site_fingerprint": "2850bbd9fa554c53"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/style.py:498",
+   "site": "benchmarks/benchmarks.py:154",
+   "site_fingerprint": "9d3a1e7cebe4f5c4"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/style.py:498",
+   "site": "benchmarks/benchmarks.py:157",
+   "site_fingerprint": "f54c0fbd76dc64b0"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/style.py:498",
+   "site": "benchmarks/benchmarks.py:160",
+   "site_fingerprint": "d7eb79506732887f"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/style.py:498",
+   "site": "benchmarks/benchmarks.py:163",
+   "site_fingerprint": "efc1284392760a05"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/style.py:498",
+   "site": "examples/log.py:22",
+   "site_fingerprint": "56491b0479eb39c6"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/style.py:498",
+   "site": "examples/log.py:23",
+   "site_fingerprint": "f9d1cf80f1d37a40"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/style.py:498",
+   "site": "examples/log.py:24",
+   "site_fingerprint": "97d1724d7a8ada92"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/style.py:498",
+   "site": "examples/log.py:25",
+   "site_fingerprint": "6322c9a3cb0e9948"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/style.py:498",
+   "site": "examples/log.py:26",
+   "site_fingerprint": "0966002aadf02b91"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/style.py:498",
+   "site": "examples/log.py:27",
+   "site_fingerprint": "ffa9ea293d569370"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/style.py:498",
+   "site": "rich/_win32_console.py:587",
+   "site_fingerprint": "39a5adb5937e4a43"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/style.py:498",
+   "site": "rich/_win32_console.py:639",
+   "site_fingerprint": "3baf4d4dcf9d5d65"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/style.py:498",
+   "site": "rich/_win32_console.py:650",
+   "site_fingerprint": "3ed0d6db43326a20"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/style.py:498",
+   "site": "rich/_win32_console.py:656",
+   "site_fingerprint": "005b6286987db648"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/style.py:498",
+   "site": "rich/ansi.py:176",
+   "site_fingerprint": "21602afa3202e690"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/style.py:498",
+   "site": "rich/console.py:1491",
+   "site_fingerprint": "5c48400815762c66"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/style.py:498",
+   "site": "rich/theme.py:24",
+   "site_fingerprint": "5cdb3a23e56eb54c"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/style.py:498",
+   "site": "rich/theme.py:55",
+   "site_fingerprint": "4852cc0aa7c4c48a"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/style.py:498",
+   "site": "tests/test_ansi.py:26",
+   "site_fingerprint": "9d7fc0cdd9ea64e5"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/style.py:498",
+   "site": "tests/test_ansi.py:27",
+   "site_fingerprint": "a50039627207d5a3"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/style.py:498",
+   "site": "tests/test_ansi.py:28",
+   "site_fingerprint": "693aa359346feb4a"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/style.py:498",
+   "site": "tests/test_ansi.py:29",
+   "site_fingerprint": "2fd854881dbb9ba2"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/style.py:498",
+   "site": "tests/test_bar.py:67",
+   "site_fingerprint": "cb150d1a78dda88e"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/style.py:498",
+   "site": "tests/test_bar.py:71",
+   "site_fingerprint": "d19d43f9687d7e38"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/style.py:498",
+   "site": "tests/test_bar.py:72",
+   "site_fingerprint": "b94c8759c37d9bca"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/style.py:498",
+   "site": "tests/test_bar.py:73",
+   "site_fingerprint": "b94c8759c37d9bca"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/style.py:498",
+   "site": "tests/test_bar.py:74",
+   "site_fingerprint": "b94c8759c37d9bca"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/style.py:498",
+   "site": "tests/test_bar.py:75",
+   "site_fingerprint": "b94c8759c37d9bca"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/style.py:498",
+   "site": "tests/test_bar.py:76",
+   "site_fingerprint": "b94c8759c37d9bca"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/style.py:498",
+   "site": "tests/test_bar.py:77",
+   "site_fingerprint": "b94c8759c37d9bca"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/style.py:498",
+   "site": "tests/test_bar.py:78",
+   "site_fingerprint": "b94c8759c37d9bca"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/style.py:498",
+   "site": "tests/test_bar.py:79",
+   "site_fingerprint": "b94c8759c37d9bca"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/style.py:498",
+   "site": "tests/test_bar.py:80",
+   "site_fingerprint": "ef7aa177a93d22ae"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/style.py:498",
+   "site": "tests/test_bar.py:81",
+   "site_fingerprint": "259f4d3aa6a4bc4d"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/style.py:498",
+   "site": "tests/test_bar.py:82",
+   "site_fingerprint": "3bdea6a5852ef26d"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/style.py:498",
+   "site": "tests/test_bar.py:83",
+   "site_fingerprint": "3bdea6a5852ef26d"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/style.py:498",
+   "site": "tests/test_bar.py:84",
+   "site_fingerprint": "3bdea6a5852ef26d"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/style.py:498",
+   "site": "tests/test_bar.py:85",
+   "site_fingerprint": "3bdea6a5852ef26d"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/style.py:498",
+   "site": "tests/test_bar.py:86",
+   "site_fingerprint": "3bdea6a5852ef26d"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/style.py:498",
+   "site": "tests/test_bar.py:87",
+   "site_fingerprint": "3bdea6a5852ef26d"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/style.py:498",
+   "site": "tests/test_bar.py:88",
+   "site_fingerprint": "3bdea6a5852ef26d"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/style.py:498",
+   "site": "tests/test_bar.py:89",
+   "site_fingerprint": "3bdea6a5852ef26d"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/style.py:498",
+   "site": "tests/test_bar.py:90",
+   "site_fingerprint": "e49d28a95690bd92"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/style.py:498",
+   "site": "tests/test_containers.py:54",
+   "site_fingerprint": "7e56749a869dc206"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/style.py:498",
+   "site": "tests/test_live_render.py:45",
+   "site_fingerprint": "549261333e5788dc"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/style.py:498",
+   "site": "tests/test_style.py:85",
+   "site_fingerprint": "f1d1c7391820d42c"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/style.py:498",
+   "site": "tests/test_style.py:97",
+   "site_fingerprint": "8e709e864149e5c8"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/style.py:498",
+   "site": "tests/test_style.py:98",
+   "site_fingerprint": "3fb49d8a5e0c2c67"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/style.py:498",
+   "site": "tests/test_style.py:99",
+   "site_fingerprint": "0e79fc3b02a788d7"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/style.py:498",
+   "site": "tests/test_style.py:100",
+   "site_fingerprint": "d12735458b4f9f19"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/style.py:498",
+   "site": "tests/test_style.py:103",
+   "site_fingerprint": "e572f4850fb40661"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/style.py:498",
+   "site": "tests/test_style.py:107",
+   "site_fingerprint": "a6c57b5e5f5c8849"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/style.py:498",
+   "site": "tests/test_style.py:109",
+   "site_fingerprint": "ec34aebe0c3ad24d"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/style.py:498",
+   "site": "tests/test_style.py:111",
+   "site_fingerprint": "5510544668ea76f7"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/style.py:498",
+   "site": "tests/test_style.py:113",
+   "site_fingerprint": "2399294bc697e96e"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/style.py:498",
+   "site": "tests/test_style.py:115",
+   "site_fingerprint": "46e6b08b4376b6a9"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/style.py:498",
+   "site": "tests/test_style.py:120",
+   "site_fingerprint": "15d574e752656998"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/style.py:498",
+   "site": "tests/test_style.py:121",
+   "site_fingerprint": "b78e9dd1277b89cb"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/style.py:498",
+   "site": "tests/test_style.py:122",
+   "site_fingerprint": "c69ab04a1ea8cdb6"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/style.py:498",
+   "site": "tests/test_style.py:235",
+   "site_fingerprint": "d9764c3d25ae9261"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/style.py:498",
+   "site": "tests/test_style.py:259",
+   "site_fingerprint": "cc7b499c55483eee"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/style.py:498",
+   "site": "tests/test_syntax.py:169",
+   "site_fingerprint": "1a5ebcea687291e7"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/style.py:498",
+   "site": "tests/test_syntax.py:199",
+   "site_fingerprint": "8063ee3f1d6d3747"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/style.py:498",
+   "site": "tests/test_syntax.py:206",
+   "site_fingerprint": "d812bc6f46d6c0a6"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/style.py:498",
+   "site": "tests/test_syntax.py:207",
+   "site_fingerprint": "deee78ea5395be54"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/style.py:498",
+   "site": "tests/test_syntax.py:208",
+   "site_fingerprint": "375907af28d9604a"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/style.py:498",
+   "site": "tests/test_table.py:157",
+   "site_fingerprint": "5d1d527012294fb6"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/style.py:498",
+   "site": "tests/test_table.py:158",
+   "site_fingerprint": "04bdeeedd4044eec"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/style.py:498",
+   "site": "tests/test_text.py:236",
+   "site_fingerprint": "59343a8edda46cc5"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/style.py:498",
+   "site": "tests/test_theme.py:46",
+   "site_fingerprint": "7348a1c850f9d82a"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/style.py:498",
+   "site": "tests/test_theme.py:49",
+   "site_fingerprint": "d922ed709e1325cd"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/style.py:498",
+   "site": "tests/test_theme.py:51",
+   "site_fingerprint": "52efe711a286e13a"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/style.py:498",
+   "site": "tests/test_win32_console.py:85",
+   "site_fingerprint": "5dc436feb7221034"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/style.py:498",
+   "site": "tests/test_win32_console.py:109",
+   "site_fingerprint": "ffad39f59d15ac18"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/style.py:498",
+   "site": "tests/test_win32_console.py:126",
+   "site_fingerprint": "82e729f6bdd5da1f"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/style.py:498",
+   "site": "tests/test_win32_console.py:143",
+   "site_fingerprint": "ca495dc6c7855843"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/style.py:498",
+   "site": "tests/test_win32_console.py:160",
+   "site_fingerprint": "7ac09f90c65e69d0"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/style.py:498",
+   "site": "tests/test_win32_console.py:177",
+   "site_fingerprint": "8b2e5fff22592e45"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "rich/style.py:498",
+   "site": "tests/test_windows_renderer.py:43",
+   "site_fingerprint": "5cf265cbf7d8f64f"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "benchmarks/benchmarks.py:31",
+   "site": "benchmarks/benchmarks.py:32",
+   "site_fingerprint": "ace3c40ac2415448"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "rich/_extension.py:4",
+   "site": "rich/_extension.py:10",
+   "site_fingerprint": "82c0c5f12c4fc0ce"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callees",
+   "seed_def": "rich/console.py:1550",
+   "site": "rich/console.py:1554",
+   "site_fingerprint": "eea17e1ad444c351"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "rich/console.py:1550",
+   "site": "rich/console.py:1552",
+   "site_fingerprint": "74a5d164ebe5088c"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callees",
+   "seed_def": "rich/console.py:2386",
+   "site": "rich/console.py:2415",
+   "site_fingerprint": "5d9e68307c368675"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "rich/console.py:2386",
+   "site": "rich/console.py:2393",
+   "site_fingerprint": "7330dd63d7d1c79e"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "rich/console.py:2386",
+   "site": "rich/console.py:2398",
+   "site_fingerprint": "24c1aae0ba439d45"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "rich/console.py:2386",
+   "site": "rich/console.py:2405",
+   "site_fingerprint": "845f664b87a4e540"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "rich/console.py:490",
+   "site": "rich/console.py:498",
+   "site_fingerprint": "6fecdfbe4de6ce25"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "rich/highlighter.py:20",
+   "site": "rich/highlighter.py:33",
+   "site_fingerprint": "c8c65071d78dfec5"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "rich/highlighter.py:20",
+   "site": "rich/highlighter.py:35",
+   "site_fingerprint": "1b5b1ae61c397257"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "rich/progress.py:104",
+   "site": "rich/progress.py:148",
+   "site_fingerprint": "c853c8cef580fa57"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "rich/progress.py:104",
+   "site": "rich/progress.py:152",
+   "site_fingerprint": "8a7d73a78d919a9a"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "rich/progress.py:104",
+   "site": "rich/progress.py:158",
+   "site_fingerprint": "a7e3812795996ce7"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "rich/progress.py:104",
+   "site": "rich/progress.py:159",
+   "site_fingerprint": "72703bd9add9c4db"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "rich/progress.py:104",
+   "site": "rich/progress.py:162",
+   "site_fingerprint": "98a8a3f4c77e8ee9"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callees",
+   "seed_def": "rich/repr.py:41",
+   "site": "rich/repr.py:63",
+   "site_fingerprint": "d0a6403ba53e06cd"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callees",
+   "seed_def": "rich/repr.py:41",
+   "site": "rich/repr.py:65",
+   "site_fingerprint": "0c78a2d65bad4eb3"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "rich/repr.py:41",
+   "site": "rich/repr.py:85",
+   "site_fingerprint": "e5d85ffa1d8793ab"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "rich/rule.py:105",
+   "site": "rich/rule.py:106",
+   "site_fingerprint": "ee679e51c5f104ff"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "rich/rule.py:105",
+   "site": "rich/rule.py:107",
+   "site_fingerprint": "095e99cecdd62edd"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "rich/style.py:498",
+   "site": "rich/style.py:525",
+   "site_fingerprint": "b2b61eb19c8d7fe2"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "rich/style.py:498",
+   "site": "rich/style.py:527",
+   "site_fingerprint": "35a1f9632f82b8ca"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "rich/style.py:498",
+   "site": "rich/style.py:529",
+   "site_fingerprint": "44804f76b710473d"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "rich/style.py:498",
+   "site": "rich/style.py:538",
+   "site_fingerprint": "148dc048fc917c4c"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "rich/style.py:498",
+   "site": "rich/style.py:546",
+   "site_fingerprint": "d7330e7e186dceb2"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "rich/style.py:498",
+   "site": "rich/style.py:554",
+   "site_fingerprint": "35a1f9632f82b8ca"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "rich/style.py:498",
+   "site": "rich/style.py:556",
+   "site_fingerprint": "982a473c0a1d3243"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "rich/style.py:498",
+   "site": "rich/style.py:560",
+   "site_fingerprint": "ca58cedf4c07d358"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callees",
+   "seed_def": "rich/text.py:572",
+   "site": "rich/text.py:588",
+   "site_fingerprint": "a743916feb250ce2"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "rich/text.py:572",
+   "site": "rich/text.py:580",
+   "site_fingerprint": "194edcafea093f0d"
+  },
+  {
+   "corpus": "rich-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "rich/text.py:572",
+   "site": "rich/text.py:591",
+   "site_fingerprint": "e71d718f16d49077"
+  }
+ ],
+ "probes": {
+  "_corpus": "rich-basedpyright",
+  "_strata": {
+   "C-method": {
+    "eligible_probes": 16,
+    "eligible_symbols": 8,
+    "target": 8
+   },
+   "C-name": {
+    "eligible_probes": 16,
+    "eligible_symbols": 8,
+    "target": 8
+   },
+   "Q-scoped": {
+    "eligible_probes": 16,
+    "eligible_symbols": 8,
+    "target": 8
+   },
+   "U-free": {
+    "eligible_probes": 0,
+    "eligible_symbols": 0,
+    "target": 8
+   },
+   "U-method": {
+    "eligible_probes": 16,
+    "eligible_symbols": 8,
+    "target": 8
+   }
+  },
+  "callees:benchmarks/benchmarks.py:203": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "benchmarks/benchmarks.py",
+     "time_downgrade_to_windows"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "benchmarks/benchmarks.py",
+     204,
+     204
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "benchmarks/benchmarks.py",
+     "time_downgrade_to_windows"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "benchmarks/benchmarks.py",
+     204,
+     204,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "benchmarks/benchmarks.py",
+     204,
+     204,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "benchmarks/benchmarks.py:203",
+   "stratum": "C-method"
+  },
+  "callees:benchmarks/benchmarks.py:31": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "benchmarks/benchmarks.py",
+     "time_split"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "benchmarks/benchmarks.py",
+     32,
+     32
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "benchmarks/benchmarks.py",
+     "time_split"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "benchmarks/benchmarks.py:31",
+   "stratum": "U-method"
+  },
+  "callees:rich/__init__.py:77": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "rich/__init__.py",
+     "print_json"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "rich/__init__.py",
+     106,
+     106
+    ],
+    [
+     "rich/__init__.py",
+     106,
+     106
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "rich/__init__.py",
+     "print_json"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "rich/__init__.py",
+     106,
+     106,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "rich/__init__.py",
+     106,
+     106,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "rich/__init__.py:77",
+   "stratum": "C-name"
+  },
+  "callees:rich/_emoji_replace.py:22": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "rich/_emoji_replace.py",
+     "do_replace"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "rich/_emoji_replace.py:22",
+   "stratum": "C-name"
+  },
+  "callees:rich/_extension.py:4": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "rich/_extension.py",
+     "load_ipython_extension"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "rich/_extension.py",
+     9,
+     9
+    ],
+    [
+     "rich/_extension.py",
+     10,
+     10
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "rich/_extension.py",
+     "load_ipython_extension"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "rich/_extension.py",
+     9,
+     9,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "rich/_extension.py",
+     9,
+     9,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ]
+   ],
+   "seed_def": "rich/_extension.py:4",
+   "stratum": "Q-scoped"
+  },
+  "callees:rich/_fileno.py:6": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "rich/_fileno.py",
+     "get_fileno"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "rich/_fileno.py:6",
+   "stratum": "Q-scoped"
+  },
+  "callees:rich/_inspect.py:128": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "rich/_inspect.py",
+     "sort_items"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "rich/_inspect.py:128",
+   "stratum": "C-name"
+  },
+  "callees:rich/_win32_console.py:78": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "rich/_win32_console.py",
+     "GetStdHandle"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "rich/_win32_console.py:78",
+   "stratum": "Q-scoped"
+  },
+  "callees:rich/console.py:1550": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "rich/console.py",
+     "check_text"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "rich/console.py",
+     1552,
+     1552
+    ],
+    [
+     "rich/console.py",
+     1553,
+     1553
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "rich/console.py",
+     "check_text"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "rich/console.py",
+     1554,
+     1554,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "rich/console.py",
+     1553,
+     1553,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "rich/console.py:1550",
+   "stratum": "Q-scoped"
+  },
+  "callees:rich/console.py:2386": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "rich/console.py",
+     "get_svg_style"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "rich/console.py",
+     2393,
+     2393
+    ],
+    [
+     "rich/console.py",
+     2393,
+     2393
+    ],
+    [
+     "rich/console.py",
+     2394,
+     2394
+    ],
+    [
+     "rich/console.py",
+     2393,
+     2393
+    ],
+    [
+     "rich/console.py",
+     2398,
+     2398
+    ],
+    [
+     "rich/console.py",
+     2394,
+     2394
+    ],
+    [
+     "rich/console.py",
+     2399,
+     2399
+    ],
+    [
+     "rich/console.py",
+     2398,
+     2398
+    ],
+    [
+     "rich/console.py",
+     2398,
+     2398
+    ],
+    [
+     "rich/console.py",
+     2399,
+     2399
+    ],
+    [
+     "rich/console.py",
+     2404,
+     2404
+    ],
+    [
+     "rich/console.py",
+     2405,
+     2405
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "rich/console.py",
+     "get_svg_style"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "rich/console.py",
+     2404,
+     2404,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "rich/console.py",
+     2394,
+     2394,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "rich/console.py",
+     2399,
+     2399,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "rich/console.py",
+     2415,
+     2415,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "rich/console.py:2386",
+   "stratum": "Q-scoped"
+  },
+  "callees:rich/console.py:2455": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "rich/console.py",
+     "stringify"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "rich/console.py:2455",
+   "stratum": "Q-scoped"
+  },
+  "callees:rich/console.py:464": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "rich/console.py",
+     "renderables"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "rich/console.py:464",
+   "stratum": "U-method"
+  },
+  "callees:rich/console.py:490": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "rich/console.py",
+     "_replace"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "rich/console.py",
+     498,
+     498
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "rich/console.py",
+     "_replace"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "rich/console.py:490",
+   "stratum": "Q-scoped"
+  },
+  "callees:rich/containers.py:62": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "rich/containers.py",
+     "__iter__"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "rich/containers.py:62",
+   "stratum": "C-method"
+  },
+  "callees:rich/file_proxy.py:25": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "rich/file_proxy.py",
+     "__getattr__"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "rich/file_proxy.py:25",
+   "stratum": "U-method"
+  },
+  "callees:rich/highlighter.py:20": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "rich/highlighter.py",
+     "__call__"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "rich/highlighter.py",
+     33,
+     33
+    ],
+    [
+     "rich/highlighter.py",
+     35,
+     35
+    ],
+    [
+     "rich/highlighter.py",
+     38,
+     38
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "rich/highlighter.py",
+     "__call__"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "rich/highlighter.py",
+     38,
+     38,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "rich/highlighter.py",
+     38,
+     38,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ]
+   ],
+   "seed_def": "rich/highlighter.py:20",
+   "stratum": "C-method"
+  },
+  "callees:rich/logging.py:291": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "rich/logging.py",
+     "divide"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "rich/logging.py:291",
+   "stratum": "C-name"
+  },
+  "callees:rich/padding.py:61": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "rich/padding.py",
+     "unpack"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "rich/padding.py:61",
+   "stratum": "U-method"
+  },
+  "callees:rich/pretty.py:398": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "rich/pretty.py",
+     "is_expandable"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "rich/pretty.py",
+     401,
+     401
+    ],
+    [
+     "rich/pretty.py",
+     404,
+     404
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "rich/pretty.py",
+     "is_expandable"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "rich/pretty.py",
+     404,
+     404,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "rich/pretty.py",
+     401,
+     401,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "rich/pretty.py:398",
+   "stratum": "C-name"
+  },
+  "callees:rich/progress.py:104": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "rich/progress.py",
+     "track"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "rich/progress.py",
+     148,
+     148
+    ],
+    [
+     "rich/progress.py",
+     152,
+     152
+    ],
+    [
+     "rich/progress.py",
+     158,
+     158
+    ],
+    [
+     "rich/progress.py",
+     159,
+     159
+    ],
+    [
+     "rich/progress.py",
+     162,
+     162
+    ],
+    [
+     "rich/progress.py",
+     173,
+     173
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "rich/progress.py",
+     "track"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "rich/progress.py",
+     173,
+     173,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "rich/progress.py:104",
+   "stratum": "C-name"
+  },
+  "callees:rich/progress.py:1595": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "rich/progress.py",
+     "__rich__"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "rich/progress.py",
+     1598,
+     1598
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "rich/progress.py",
+     "__rich__"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "rich/progress.py",
+     1598,
+     1598,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ]
+   ],
+   "seed_def": "rich/progress.py:1595",
+   "stratum": "C-method"
+  },
+  "callees:rich/repr.py:41": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "rich/repr.py",
+     "auto_rich_repr"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "rich/repr.py",
+     85,
+     85
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "rich/repr.py",
+     "auto_repr"
+    ],
+    [
+     "rich/repr.py",
+     "auto_rich_repr"
+    ],
+    [
+     "rich/repr.py",
+     "do_replace"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "rich/repr.py",
+     63,
+     63,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "rich/repr.py",
+     65,
+     65,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "rich/repr.py:41",
+   "stratum": "C-name"
+  },
+  "callees:rich/rule.py:105": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "rich/rule.py",
+     "_rule_line"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "rich/rule.py",
+     106,
+     106
+    ],
+    [
+     "rich/rule.py",
+     107,
+     107
+    ],
+    [
+     "rich/rule.py",
+     108,
+     108
+    ],
+    [
+     "rich/rule.py",
+     108,
+     108
+    ],
+    [
+     "rich/rule.py",
+     108,
+     108
+    ],
+    [
+     "rich/rule.py",
+     108,
+     108
+    ],
+    [
+     "rich/rule.py",
+     108,
+     108
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "rich/rule.py",
+     "_rule_line"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "rich/rule.py",
+     108,
+     108,
+     {
+      "resolution_kind": "free_single"
+     }
+    ]
+   ],
+   "seed_def": "rich/rule.py:105",
+   "stratum": "U-method"
+  },
+  "callees:rich/scope.py:81": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "rich/scope.py",
+     "test"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "rich/scope.py",
+     89,
+     89
+    ],
+    [
+     "rich/scope.py",
+     89,
+     89
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "rich/scope.py",
+     "test"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "rich/scope.py",
+     89,
+     89,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "rich/scope.py",
+     89,
+     89,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "rich/scope.py",
+     89,
+     89,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ]
+   ],
+   "seed_def": "rich/scope.py:81",
+   "stratum": "C-name"
+  },
+  "callees:rich/segment.py:426": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "rich/segment.py",
+     "set_shape"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "rich/segment.py:426",
+   "stratum": "U-method"
+  },
+  "callees:rich/style.py:498": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "rich/style.py",
+     "parse"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "rich/style.py",
+     511,
+     511
+    ],
+    [
+     "rich/style.py",
+     525,
+     525
+    ],
+    [
+     "rich/style.py",
+     529,
+     529
+    ],
+    [
+     "rich/style.py",
+     538,
+     538
+    ],
+    [
+     "rich/style.py",
+     546,
+     546
+    ],
+    [
+     "rich/style.py",
+     556,
+     556
+    ],
+    [
+     "rich/style.py",
+     527,
+     527
+    ],
+    [
+     "rich/style.py",
+     554,
+     554
+    ],
+    [
+     "rich/style.py",
+     560,
+     560
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "rich/style.py",
+     "parse"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "rich/style.py",
+     511,
+     511,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "rich/style.py",
+     511,
+     511,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ]
+   ],
+   "seed_def": "rich/style.py:498",
+   "stratum": "C-method"
+  },
+  "callees:rich/table.py:440": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "rich/table.py",
+     "add_cell"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "rich/table.py:440",
+   "stratum": "Q-scoped"
+  },
+  "callees:rich/text.py:572": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "rich/text.py",
+     "extend_style"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "rich/text.py",
+     580,
+     580
+    ],
+    [
+     "rich/text.py",
+     580,
+     580
+    ],
+    [
+     "rich/text.py",
+     585,
+     585
+    ],
+    [
+     "rich/text.py",
+     591,
+     591
+    ],
+    [
+     "rich/text.py",
+     591,
+     591
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "rich/text.py",
+     "extend_style"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "rich/text.py",
+     585,
+     585,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "rich/text.py",
+     588,
+     588,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "rich/text.py:572",
+   "stratum": "U-method"
+  },
+  "callers:rich/__init__.py:77": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "tests/test_rich_print.py",
+     "<module_level>"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tests/test_rich_print.py",
+     35,
+     35
+    ],
+    [
+     "tests/test_rich_print.py",
+     46,
+     46
+    ],
+    [
+     "tests/test_rich_print.py",
+     56,
+     56
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tests/test_rich_print.py",
+     "<module_level>"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "tests/test_rich_print.py",
+     35,
+     35,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "tests/test_rich_print.py",
+     46,
+     46,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "tests/test_rich_print.py",
+     56,
+     56,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ]
+   ],
+   "seed_def": "rich/__init__.py:77",
+   "stratum": "C-name"
+  },
+  "callers:rich/_fileno.py:6": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "rich/console.py",
+     "_write_buffer"
+    ],
+    [
+     "tests/test_getfileno.py",
+     "<module_level>"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "rich/console.py",
+     2077,
+     2077
+    ],
+    [
+     "tests/test_getfileno.py",
+     9,
+     9
+    ],
+    [
+     "tests/test_getfileno.py",
+     16,
+     16
+    ],
+    [
+     "tests/test_getfileno.py",
+     25,
+     25
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "rich/console.py",
+     "_write_buffer"
+    ],
+    [
+     "tests/test_getfileno.py",
+     "<module_level>"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "rich/console.py",
+     2077,
+     2077,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "tests/test_getfileno.py",
+     9,
+     9,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "tests/test_getfileno.py",
+     16,
+     16,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "tests/test_getfileno.py",
+     25,
+     25,
+     {
+      "resolution_kind": "free_single"
+     }
+    ]
+   ],
+   "seed_def": "rich/_fileno.py:6",
+   "stratum": "Q-scoped"
+  },
+  "callers:rich/_win32_console.py:78": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "rich/_win32_console.py",
+     "<module_level>"
+    ],
+    [
+     "rich/_win32_console.py",
+     "__init__"
+    ],
+    [
+     "rich/_windows.py",
+     "<module_level>"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "rich/_win32_console.py",
+     363,
+     363
+    ],
+    [
+     "rich/_win32_console.py",
+     576,
+     576
+    ],
+    [
+     "rich/_windows.py",
+     46,
+     46
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "rich/_win32_console.py",
+     "__init__"
+    ],
+    [
+     "rich/_windows.py",
+     "<module_level>"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "rich/_win32_console.py",
+     363,
+     363,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "rich/_windows.py",
+     46,
+     46,
+     {
+      "resolution_kind": "free_single"
+     }
+    ]
+   ],
+   "seed_def": "rich/_win32_console.py:78",
+   "stratum": "Q-scoped"
+  },
+  "callers:rich/console.py:1550": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "rich/console.py",
+     "_collect_renderables"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "rich/console.py",
+     1571,
+     1571
+    ],
+    [
+     "rich/console.py",
+     1574,
+     1574
+    ],
+    [
+     "rich/console.py",
+     1581,
+     1581
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "rich/console.py",
+     "_collect_renderables"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "rich/console.py",
+     1571,
+     1571,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "rich/console.py",
+     1574,
+     1574,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "rich/console.py",
+     1581,
+     1581,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "rich/console.py:1550",
+   "stratum": "Q-scoped"
+  },
+  "callers:rich/console.py:2386": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "rich/console.py",
+     "export_svg"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "rich/console.py",
+     2490,
+     2490
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "rich/console.py",
+     "export_svg"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "rich/console.py",
+     2490,
+     2490,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "rich/console.py:2386",
+   "stratum": "Q-scoped"
+  },
+  "callers:rich/console.py:2455": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "rich/console.py",
+     "make_tag"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "rich/console.py",
+     2461,
+     2461
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "rich/console.py",
+     "make_tag"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "rich/console.py",
+     2461,
+     2461,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "rich/console.py",
+     2461,
+     2461,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "rich/console.py:2455",
+   "stratum": "Q-scoped"
+  },
+  "callers:rich/console.py:260": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "rich/console.py",
+     "render"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "rich/console.py",
+     1319,
+     1319
+    ],
+    [
+     "rich/console.py",
+     1319,
+     1319
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "rich/console.py:260",
+   "stratum": "C-method"
+  },
+  "callers:rich/console.py:464": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "rich/console.py",
+     "__rich_console__"
+    ],
+    [
+     "rich/console.py",
+     "__rich_measure__"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "rich/console.py",
+     473,
+     473
+    ],
+    [
+     "rich/console.py",
+     480,
+     480
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "rich/console.py:464",
+   "stratum": "U-method"
+  },
+  "callers:rich/console.py:771": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "rich/console.py",
+     "__exit__"
+    ],
+    [
+     "rich/console.py",
+     "_check_buffer"
+    ],
+    [
+     "rich/console.py",
+     "_write_buffer"
+    ],
+    [
+     "rich/console.py",
+     "control"
+    ],
+    [
+     "rich/console.py",
+     "end_capture"
+    ],
+    [
+     "rich/console.py",
+     "log"
+    ],
+    [
+     "rich/console.py",
+     "print"
+    ],
+    [
+     "rich/console.py",
+     "update_screen_lines"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "rich/console.py",
+     391,
+     391
+    ],
+    [
+     "rich/console.py",
+     392,
+     392
+    ],
+    [
+     "rich/console.py",
+     876,
+     876
+    ],
+    [
+     "rich/console.py",
+     877,
+     877
+    ],
+    [
+     "rich/console.py",
+     1618,
+     1618
+    ],
+    [
+     "rich/console.py",
+     1750,
+     1750
+    ],
+    [
+     "rich/console.py",
+     1756,
+     1756
+    ],
+    [
+     "rich/console.py",
+     1870,
+     1870
+    ],
+    [
+     "rich/console.py",
+     2024,
+     2024
+    ],
+    [
+     "rich/console.py",
+     2051,
+     2051
+    ],
+    [
+     "rich/console.py",
+     2065,
+     2065
+    ],
+    [
+     "rich/console.py",
+     2071,
+     2071
+    ],
+    [
+     "rich/console.py",
+     2071,
+     2071
+    ],
+    [
+     "rich/console.py",
+     2072,
+     2072
+    ],
+    [
+     "rich/console.py",
+     2087,
+     2087
+    ],
+    [
+     "rich/console.py",
+     2094,
+     2094
+    ],
+    [
+     "rich/console.py",
+     2122,
+     2122
+    ],
+    [
+     "rich/console.py",
+     2130,
+     2130
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "rich/console.py:771",
+   "stratum": "U-method"
+  },
+  "callers:rich/control.py:69": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "rich/console.py",
+     "bell"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "rich/console.py",
+     1094,
+     1094
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "rich/control.py:69",
+   "stratum": "C-method"
+  },
+  "callers:rich/logging.py:291": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "rich/logging.py",
+     "<module_level>"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "rich/logging.py",
+     301,
+     301
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "rich/logging.py:291",
+   "stratum": "C-name"
+  },
+  "callers:rich/padding.py:61": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "rich/columns.py",
+     "__rich_console__"
+    ],
+    [
+     "rich/padding.py",
+     "__init__"
+    ],
+    [
+     "rich/panel.py",
+     "__rich_console__"
+    ],
+    [
+     "rich/panel.py",
+     "__rich_measure__"
+    ],
+    [
+     "rich/syntax.py",
+     "__init__"
+    ],
+    [
+     "rich/syntax.py",
+     "__set__"
+    ],
+    [
+     "rich/table.py",
+     "__init__"
+    ],
+    [
+     "rich/table.py",
+     "padding"
+    ],
+    [
+     "tests/test_padding.py",
+     "<module_level>"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "rich/columns.py",
+     72,
+     72
+    ],
+    [
+     "rich/padding.py",
+     42,
+     42
+    ],
+    [
+     "rich/padding.py",
+     42,
+     42
+    ],
+    [
+     "rich/panel.py",
+     144,
+     144
+    ],
+    [
+     "rich/panel.py",
+     281,
+     281
+    ],
+    [
+     "rich/syntax.py",
+     240,
+     240
+    ],
+    [
+     "rich/syntax.py",
+     312,
+     312
+    ],
+    [
+     "rich/table.py",
+     225,
+     225
+    ],
+    [
+     "rich/table.py",
+     361,
+     361
+    ],
+    [
+     "tests/test_padding.py",
+     23,
+     23
+    ],
+    [
+     "tests/test_padding.py",
+     24,
+     24
+    ],
+    [
+     "tests/test_padding.py",
+     25,
+     25
+    ],
+    [
+     "tests/test_padding.py",
+     26,
+     26
+    ],
+    [
+     "tests/test_padding.py",
+     28,
+     28
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "rich/padding.py",
+     "__init__"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "rich/padding.py",
+     42,
+     42,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ]
+   ],
+   "seed_def": "rich/padding.py:61",
+   "stratum": "U-method"
+  },
+  "callers:rich/progress.py:104": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "tests/test_progress.py",
+     "<module_level>"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tests/test_progress.py",
+     291,
+     291
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tests/test_progress.py",
+     "<module_level>"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "tests/test_progress.py",
+     291,
+     291,
+     {
+      "resolution_kind": "free_single"
+     }
+    ]
+   ],
+   "seed_def": "rich/progress.py:104",
+   "stratum": "C-name"
+  },
+  "callers:rich/repr.py:41": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "rich/repr.py",
+     "auto"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "rich/repr.py",
+     102,
+     102
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "rich/repr.py",
+     "auto"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "rich/repr.py",
+     102,
+     102,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "rich/repr.py:41",
+   "stratum": "C-name"
+  },
+  "callers:rich/rule.py:105": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "rich/rule.py",
+     "__rich_console__"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "rich/rule.py",
+     62,
+     62
+    ],
+    [
+     "rich/rule.py",
+     62,
+     62
+    ],
+    [
+     "rich/rule.py",
+     76,
+     76
+    ],
+    [
+     "rich/rule.py",
+     76,
+     76
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "rich/rule.py",
+     "__rich_console__"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "rich/rule.py",
+     62,
+     62,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "rich/rule.py",
+     76,
+     76,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ]
+   ],
+   "seed_def": "rich/rule.py:105",
+   "stratum": "U-method"
+  },
+  "callers:rich/scope.py:81": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "rich/scope.py",
+     "<module_level>"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "rich/scope.py",
+     91,
+     91
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "rich/scope.py:81",
+   "stratum": "C-name"
+  },
+  "callers:rich/segment.py:426": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "rich/align.py",
+     "__rich_console__"
+    ],
+    [
+     "rich/screen.py",
+     "__rich_console__"
+    ],
+    [
+     "rich/table.py",
+     "_render"
+    ],
+    [
+     "tests/test_segment.py",
+     "<module_level>"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "rich/align.py",
+     156,
+     156
+    ],
+    [
+     "rich/screen.py",
+     49,
+     49
+    ],
+    [
+     "rich/table.py",
+     866,
+     866
+    ],
+    [
+     "tests/test_segment.py",
+     86,
+     86
+    ],
+    [
+     "tests/test_segment.py",
+     89,
+     89
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "rich/table.py",
+     "_render"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "rich/table.py",
+     866,
+     866,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "rich/segment.py:426",
+   "stratum": "U-method"
+  },
+  "callers:rich/style.py:498": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "benchmarks/benchmarks.py",
+     "setup"
+    ],
+    [
+     "benchmarks/benchmarks.py",
+     "time_parse_ansi"
+    ],
+    [
+     "benchmarks/benchmarks.py",
+     "time_parse_hex"
+    ],
+    [
+     "benchmarks/benchmarks.py",
+     "time_parse_mixed_complex_style"
+    ],
+    [
+     "examples/log.py",
+     "<module_level>"
+    ],
+    [
+     "rich/_win32_console.py",
+     "<module_level>"
+    ],
+    [
+     "rich/ansi.py",
+     "decode_line"
+    ],
+    [
+     "rich/console.py",
+     "get_style"
+    ],
+    [
+     "rich/style.py",
+     "normalize"
+    ],
+    [
+     "rich/theme.py",
+     "__init__"
+    ],
+    [
+     "rich/theme.py",
+     "from_file"
+    ],
+    [
+     "tests/test_ansi.py",
+     "<module_level>"
+    ],
+    [
+     "tests/test_bar.py",
+     "<module_level>"
+    ],
+    [
+     "tests/test_containers.py",
+     "<module_level>"
+    ],
+    [
+     "tests/test_live_render.py",
+     "<module_level>"
+    ],
+    [
+     "tests/test_style.py",
+     "<module_level>"
+    ],
+    [
+     "tests/test_syntax.py",
+     "<module_level>"
+    ],
+    [
+     "tests/test_table.py",
+     "<module_level>"
+    ],
+    [
+     "tests/test_text.py",
+     "<module_level>"
+    ],
+    [
+     "tests/test_theme.py",
+     "<module_level>"
+    ],
+    [
+     "tests/test_win32_console.py",
+     "<module_level>"
+    ],
+    [
+     "tests/test_windows_renderer.py",
+     "<module_level>"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "benchmarks/benchmarks.py",
+     153,
+     153
+    ],
+    [
+     "benchmarks/benchmarks.py",
+     154,
+     154
+    ],
+    [
+     "benchmarks/benchmarks.py",
+     157,
+     157
+    ],
+    [
+     "benchmarks/benchmarks.py",
+     160,
+     160
+    ],
+    [
+     "benchmarks/benchmarks.py",
+     163,
+     163
+    ],
+    [
+     "examples/log.py",
+     22,
+     22
+    ],
+    [
+     "examples/log.py",
+     23,
+     23
+    ],
+    [
+     "examples/log.py",
+     24,
+     24
+    ],
+    [
+     "examples/log.py",
+     25,
+     25
+    ],
+    [
+     "examples/log.py",
+     26,
+     26
+    ],
+    [
+     "examples/log.py",
+     27,
+     27
+    ],
+    [
+     "rich/_win32_console.py",
+     587,
+     587
+    ],
+    [
+     "rich/_win32_console.py",
+     639,
+     639
+    ],
+    [
+     "rich/_win32_console.py",
+     650,
+     650
+    ],
+    [
+     "rich/_win32_console.py",
+     656,
+     656
+    ],
+    [
+     "rich/ansi.py",
+     176,
+     176
+    ],
+    [
+     "rich/console.py",
+     1491,
+     1491
+    ],
+    [
+     "rich/style.py",
+     400,
+     400
+    ],
+    [
+     "rich/theme.py",
+     24,
+     24
+    ],
+    [
+     "rich/theme.py",
+     55,
+     55
+    ],
+    [
+     "tests/test_ansi.py",
+     26,
+     26
+    ],
+    [
+     "tests/test_ansi.py",
+     27,
+     27
+    ],
+    [
+     "tests/test_ansi.py",
+     28,
+     28
+    ],
+    [
+     "tests/test_ansi.py",
+     29,
+     29
+    ],
+    [
+     "tests/test_bar.py",
+     67,
+     67
+    ],
+    [
+     "tests/test_bar.py",
+     67,
+     67
+    ],
+    [
+     "tests/test_bar.py",
+     71,
+     71
+    ],
+    [
+     "tests/test_bar.py",
+     72,
+     72
+    ],
+    [
+     "tests/test_bar.py",
+     73,
+     73
+    ],
+    [
+     "tests/test_bar.py",
+     74,
+     74
+    ],
+    [
+     "tests/test_bar.py",
+     75,
+     75
+    ],
+    [
+     "tests/test_bar.py",
+     76,
+     76
+    ],
+    [
+     "tests/test_bar.py",
+     77,
+     77
+    ],
+    [
+     "tests/test_bar.py",
+     78,
+     78
+    ],
+    [
+     "tests/test_bar.py",
+     79,
+     79
+    ],
+    [
+     "tests/test_bar.py",
+     80,
+     80
+    ],
+    [
+     "tests/test_bar.py",
+     81,
+     81
+    ],
+    [
+     "tests/test_bar.py",
+     82,
+     82
+    ],
+    [
+     "tests/test_bar.py",
+     83,
+     83
+    ],
+    [
+     "tests/test_bar.py",
+     84,
+     84
+    ],
+    [
+     "tests/test_bar.py",
+     85,
+     85
+    ],
+    [
+     "tests/test_bar.py",
+     86,
+     86
+    ],
+    [
+     "tests/test_bar.py",
+     87,
+     87
+    ],
+    [
+     "tests/test_bar.py",
+     88,
+     88
+    ],
+    [
+     "tests/test_bar.py",
+     89,
+     89
+    ],
+    [
+     "tests/test_bar.py",
+     90,
+     90
+    ],
+    [
+     "tests/test_containers.py",
+     54,
+     54
+    ],
+    [
+     "tests/test_live_render.py",
+     45,
+     45
+    ],
+    [
+     "tests/test_style.py",
+     85,
+     85
+    ],
+    [
+     "tests/test_style.py",
+     97,
+     97
+    ],
+    [
+     "tests/test_style.py",
+     98,
+     98
+    ],
+    [
+     "tests/test_style.py",
+     99,
+     99
+    ],
+    [
+     "tests/test_style.py",
+     100,
+     100
+    ],
+    [
+     "tests/test_style.py",
+     103,
+     103
+    ],
+    [
+     "tests/test_style.py",
+     107,
+     107
+    ],
+    [
+     "tests/test_style.py",
+     109,
+     109
+    ],
+    [
+     "tests/test_style.py",
+     111,
+     111
+    ],
+    [
+     "tests/test_style.py",
+     113,
+     113
+    ],
+    [
+     "tests/test_style.py",
+     115,
+     115
+    ],
+    [
+     "tests/test_style.py",
+     120,
+     120
+    ],
+    [
+     "tests/test_style.py",
+     121,
+     121
+    ],
+    [
+     "tests/test_style.py",
+     122,
+     122
+    ],
+    [
+     "tests/test_style.py",
+     235,
+     235
+    ],
+    [
+     "tests/test_style.py",
+     259,
+     259
+    ],
+    [
+     "tests/test_syntax.py",
+     169,
+     169
+    ],
+    [
+     "tests/test_syntax.py",
+     199,
+     199
+    ],
+    [
+     "tests/test_syntax.py",
+     206,
+     206
+    ],
+    [
+     "tests/test_syntax.py",
+     207,
+     207
+    ],
+    [
+     "tests/test_syntax.py",
+     208,
+     208
+    ],
+    [
+     "tests/test_table.py",
+     157,
+     157
+    ],
+    [
+     "tests/test_table.py",
+     158,
+     158
+    ],
+    [
+     "tests/test_text.py",
+     236,
+     236
+    ],
+    [
+     "tests/test_theme.py",
+     46,
+     46
+    ],
+    [
+     "tests/test_theme.py",
+     49,
+     49
+    ],
+    [
+     "tests/test_theme.py",
+     51,
+     51
+    ],
+    [
+     "tests/test_win32_console.py",
+     85,
+     85
+    ],
+    [
+     "tests/test_win32_console.py",
+     109,
+     109
+    ],
+    [
+     "tests/test_win32_console.py",
+     126,
+     126
+    ],
+    [
+     "tests/test_win32_console.py",
+     143,
+     143
+    ],
+    [
+     "tests/test_win32_console.py",
+     160,
+     160
+    ],
+    [
+     "tests/test_win32_console.py",
+     177,
+     177
+    ],
+    [
+     "tests/test_windows_renderer.py",
+     43,
+     43
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "rich/style.py",
+     "normalize"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "rich/style.py",
+     400,
+     400,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "rich/style.py",
+     400,
+     400,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ]
+   ],
+   "seed_def": "rich/style.py:498",
+   "stratum": "C-method"
+  },
+  "callers:rich/table.py:440": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "rich/table.py",
+     "add_row"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "rich/table.py",
+     455,
+     455
+    ],
+    [
+     "rich/table.py",
+     460,
+     460
+    ],
+    [
+     "rich/table.py",
+     462,
+     462
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "rich/table.py",
+     "add_row"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "rich/table.py",
+     455,
+     455,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "rich/table.py",
+     460,
+     460,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "rich/table.py",
+     462,
+     462,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "rich/table.py:440",
+   "stratum": "Q-scoped"
+  },
+  "callers:rich/text.py:572": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "rich/text.py",
+     "expand_tabs"
+    ],
+    [
+     "tests/test_text.py",
+     "<module_level>"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "rich/text.py",
+     847,
+     847
+    ],
+    [
+     "rich/text.py",
+     847,
+     847
+    ],
+    [
+     "tests/test_text.py",
+     1052,
+     1052
+    ],
+    [
+     "tests/test_text.py",
+     1052,
+     1052
+    ],
+    [
+     "tests/test_text.py",
+     1057,
+     1057
+    ],
+    [
+     "tests/test_text.py",
+     1057,
+     1057
+    ],
+    [
+     "tests/test_text.py",
+     1061,
+     1061
+    ],
+    [
+     "tests/test_text.py",
+     1061,
+     1061
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "rich/text.py",
+     "expand_tabs"
+    ],
+    [
+     "tests/test_text.py",
+     "<module_level>"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "rich/text.py",
+     847,
+     847,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "tests/test_text.py",
+     1052,
+     1052,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "tests/test_text.py",
+     1057,
+     1057,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "tests/test_text.py",
+     1061,
+     1061,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "rich/text.py:572",
+   "stratum": "U-method"
+  }
+ },
+ "site_fingerprints": {
+  "benchmarks/benchmarks.py:153": "2850bbd9fa554c53",
+  "benchmarks/benchmarks.py:154": "9d3a1e7cebe4f5c4",
+  "benchmarks/benchmarks.py:157": "f54c0fbd76dc64b0",
+  "benchmarks/benchmarks.py:160": "d7eb79506732887f",
+  "benchmarks/benchmarks.py:163": "efc1284392760a05",
+  "benchmarks/benchmarks.py:204": "72f7f21246dbd655",
+  "benchmarks/benchmarks.py:32": "ace3c40ac2415448",
+  "examples/log.py:22": "56491b0479eb39c6",
+  "examples/log.py:23": "f9d1cf80f1d37a40",
+  "examples/log.py:24": "97d1724d7a8ada92",
+  "examples/log.py:25": "6322c9a3cb0e9948",
+  "examples/log.py:26": "0966002aadf02b91",
+  "examples/log.py:27": "ffa9ea293d569370",
+  "rich/__init__.py:106": "7124fe03f42ecbfe",
+  "rich/_extension.py:10": "82c0c5f12c4fc0ce",
+  "rich/_extension.py:9": "7c89861458dcb2ff",
+  "rich/_win32_console.py:363": "060ee6f20e109e29",
+  "rich/_win32_console.py:576": "6070a479db18122e",
+  "rich/_win32_console.py:587": "39a5adb5937e4a43",
+  "rich/_win32_console.py:639": "3baf4d4dcf9d5d65",
+  "rich/_win32_console.py:650": "3ed0d6db43326a20",
+  "rich/_win32_console.py:656": "005b6286987db648",
+  "rich/_windows.py:46": "55ab19f19da7d871",
+  "rich/align.py:156": "59c91defde8d6bfb",
+  "rich/ansi.py:176": "21602afa3202e690",
+  "rich/columns.py:72": "e72ef4703a280d60",
+  "rich/console.py:1094": "453cad0275b3a785",
+  "rich/console.py:1319": "86eed9239324bbf2",
+  "rich/console.py:1491": "5c48400815762c66",
+  "rich/console.py:1552": "74a5d164ebe5088c",
+  "rich/console.py:1553": "0d6674f192ced01f",
+  "rich/console.py:1554": "eea17e1ad444c351",
+  "rich/console.py:1571": "32cf253e81aadd16",
+  "rich/console.py:1574": "e5becc0d64a326bc",
+  "rich/console.py:1581": "503129288400938e",
+  "rich/console.py:1618": "efd4f429963dcdcc",
+  "rich/console.py:1750": "ad4db6ff5386832f",
+  "rich/console.py:1756": "c881d8734b83d584",
+  "rich/console.py:1870": "33b9986f254e376e",
+  "rich/console.py:2024": "8f8f55681fae9a45",
+  "rich/console.py:2051": "2b3145bacc051ce9",
+  "rich/console.py:2065": "1ce9db31e304beee",
+  "rich/console.py:2071": "499783c23ce93017",
+  "rich/console.py:2072": "33b50e76596330ff",
+  "rich/console.py:2077": "38640c08832dffe0",
+  "rich/console.py:2087": "abef5389bcbc71e8",
+  "rich/console.py:2094": "d7f0d38c7e89cb74",
+  "rich/console.py:2122": "0bc201665e39cf39",
+  "rich/console.py:2130": "0fd3524037959ad4",
+  "rich/console.py:2393": "7330dd63d7d1c79e",
+  "rich/console.py:2394": "b6e43c697f0cedb9",
+  "rich/console.py:2398": "24c1aae0ba439d45",
+  "rich/console.py:2399": "1f4d825f666b0298",
+  "rich/console.py:2404": "ba06038200366b54",
+  "rich/console.py:2405": "845f664b87a4e540",
+  "rich/console.py:2415": "5d9e68307c368675",
+  "rich/console.py:2461": "f31dd01b7cb1ef67",
+  "rich/console.py:2490": "6620a7f32962a7ad",
+  "rich/console.py:391": "7e8036fa1e53f692",
+  "rich/console.py:392": "e6308f4ab668bcbd",
+  "rich/console.py:473": "9f204329ae6b8fca",
+  "rich/console.py:480": "3300b9f7ebc359e2",
+  "rich/console.py:498": "6fecdfbe4de6ce25",
+  "rich/console.py:876": "6e9e9e38013267e7",
+  "rich/console.py:877": "dde83f861e4505ac",
+  "rich/highlighter.py:33": "c8c65071d78dfec5",
+  "rich/highlighter.py:35": "1b5b1ae61c397257",
+  "rich/highlighter.py:38": "7ed6d0b91a1f65aa",
+  "rich/logging.py:301": "e34e0f0bc379156d",
+  "rich/padding.py:42": "f3235e01f5fcae68",
+  "rich/panel.py:144": "509284d49d39feaa",
+  "rich/panel.py:281": "d7f8b6266900f946",
+  "rich/pretty.py:401": "dad3c03c478cde53",
+  "rich/pretty.py:404": "3f755d621a836cc1",
+  "rich/progress.py:148": "c853c8cef580fa57",
+  "rich/progress.py:152": "8a7d73a78d919a9a",
+  "rich/progress.py:158": "a7e3812795996ce7",
+  "rich/progress.py:159": "72703bd9add9c4db",
+  "rich/progress.py:1598": "d738cd7c17d90ccd",
+  "rich/progress.py:162": "98a8a3f4c77e8ee9",
+  "rich/progress.py:173": "3c5907515bf78e35",
+  "rich/repr.py:102": "9980c591c1403941",
+  "rich/repr.py:63": "d0a6403ba53e06cd",
+  "rich/repr.py:65": "0c78a2d65bad4eb3",
+  "rich/repr.py:85": "e5d85ffa1d8793ab",
+  "rich/rule.py:106": "ee679e51c5f104ff",
+  "rich/rule.py:107": "095e99cecdd62edd",
+  "rich/rule.py:108": "76eb981ad84e27f3",
+  "rich/rule.py:62": "19c61d12bfacafe3",
+  "rich/rule.py:76": "f45cbc6d3a3ad038",
+  "rich/scope.py:89": "642887e2b0902d9c",
+  "rich/scope.py:91": "28664f5b7864ac01",
+  "rich/screen.py:49": "1f2a7a2c12d2387a",
+  "rich/style.py:400": "d345d9083cc7c551",
+  "rich/style.py:511": "4a9b6d11eba1a345",
+  "rich/style.py:525": "b2b61eb19c8d7fe2",
+  "rich/style.py:527": "35a1f9632f82b8ca",
+  "rich/style.py:529": "44804f76b710473d",
+  "rich/style.py:538": "148dc048fc917c4c",
+  "rich/style.py:546": "d7330e7e186dceb2",
+  "rich/style.py:554": "35a1f9632f82b8ca",
+  "rich/style.py:556": "982a473c0a1d3243",
+  "rich/style.py:560": "ca58cedf4c07d358",
+  "rich/syntax.py:240": "42a72031040937ac",
+  "rich/syntax.py:312": "8ced4d695cba8420",
+  "rich/table.py:225": "8bcc44f51b0f0de4",
+  "rich/table.py:361": "7d1da89b2414c35a",
+  "rich/table.py:455": "beeb9b6f5bdf022a",
+  "rich/table.py:460": "5e583403d717430f",
+  "rich/table.py:462": "19b954a443ff61d3",
+  "rich/table.py:866": "333c549c0975c4b9",
+  "rich/text.py:580": "194edcafea093f0d",
+  "rich/text.py:585": "dfcdae888967b24a",
+  "rich/text.py:588": "a743916feb250ce2",
+  "rich/text.py:591": "e71d718f16d49077",
+  "rich/text.py:847": "28b77ef11c4071dd",
+  "rich/theme.py:24": "5cdb3a23e56eb54c",
+  "rich/theme.py:55": "4852cc0aa7c4c48a",
+  "tests/test_ansi.py:26": "9d7fc0cdd9ea64e5",
+  "tests/test_ansi.py:27": "a50039627207d5a3",
+  "tests/test_ansi.py:28": "693aa359346feb4a",
+  "tests/test_ansi.py:29": "2fd854881dbb9ba2",
+  "tests/test_bar.py:67": "cb150d1a78dda88e",
+  "tests/test_bar.py:71": "d19d43f9687d7e38",
+  "tests/test_bar.py:72": "b94c8759c37d9bca",
+  "tests/test_bar.py:73": "b94c8759c37d9bca",
+  "tests/test_bar.py:74": "b94c8759c37d9bca",
+  "tests/test_bar.py:75": "b94c8759c37d9bca",
+  "tests/test_bar.py:76": "b94c8759c37d9bca",
+  "tests/test_bar.py:77": "b94c8759c37d9bca",
+  "tests/test_bar.py:78": "b94c8759c37d9bca",
+  "tests/test_bar.py:79": "b94c8759c37d9bca",
+  "tests/test_bar.py:80": "ef7aa177a93d22ae",
+  "tests/test_bar.py:81": "259f4d3aa6a4bc4d",
+  "tests/test_bar.py:82": "3bdea6a5852ef26d",
+  "tests/test_bar.py:83": "3bdea6a5852ef26d",
+  "tests/test_bar.py:84": "3bdea6a5852ef26d",
+  "tests/test_bar.py:85": "3bdea6a5852ef26d",
+  "tests/test_bar.py:86": "3bdea6a5852ef26d",
+  "tests/test_bar.py:87": "3bdea6a5852ef26d",
+  "tests/test_bar.py:88": "3bdea6a5852ef26d",
+  "tests/test_bar.py:89": "3bdea6a5852ef26d",
+  "tests/test_bar.py:90": "e49d28a95690bd92",
+  "tests/test_containers.py:54": "7e56749a869dc206",
+  "tests/test_getfileno.py:16": "d0488cea3315aff8",
+  "tests/test_getfileno.py:25": "17ce956bbfb15cdc",
+  "tests/test_getfileno.py:9": "49569de7a64257ce",
+  "tests/test_live_render.py:45": "549261333e5788dc",
+  "tests/test_padding.py:23": "44c89c3e2d456a96",
+  "tests/test_padding.py:24": "5b0f46aed0a4126c",
+  "tests/test_padding.py:25": "443a6abc4426e71d",
+  "tests/test_padding.py:26": "94ec6790022194f8",
+  "tests/test_padding.py:28": "0f0ce654a2b520c4",
+  "tests/test_progress.py:291": "12f50637905ec75e",
+  "tests/test_rich_print.py:35": "057fb5d7258af1e3",
+  "tests/test_rich_print.py:46": "0fbaafc3c2015cf0",
+  "tests/test_rich_print.py:56": "ce961c2d0d576ecc",
+  "tests/test_segment.py:86": "736458a927e850cd",
+  "tests/test_segment.py:89": "21cccc1b3c77cbb7",
+  "tests/test_style.py:100": "d12735458b4f9f19",
+  "tests/test_style.py:103": "e572f4850fb40661",
+  "tests/test_style.py:107": "a6c57b5e5f5c8849",
+  "tests/test_style.py:109": "ec34aebe0c3ad24d",
+  "tests/test_style.py:111": "5510544668ea76f7",
+  "tests/test_style.py:113": "2399294bc697e96e",
+  "tests/test_style.py:115": "46e6b08b4376b6a9",
+  "tests/test_style.py:120": "15d574e752656998",
+  "tests/test_style.py:121": "b78e9dd1277b89cb",
+  "tests/test_style.py:122": "c69ab04a1ea8cdb6",
+  "tests/test_style.py:235": "d9764c3d25ae9261",
+  "tests/test_style.py:259": "cc7b499c55483eee",
+  "tests/test_style.py:85": "f1d1c7391820d42c",
+  "tests/test_style.py:97": "8e709e864149e5c8",
+  "tests/test_style.py:98": "3fb49d8a5e0c2c67",
+  "tests/test_style.py:99": "0e79fc3b02a788d7",
+  "tests/test_syntax.py:169": "1a5ebcea687291e7",
+  "tests/test_syntax.py:199": "8063ee3f1d6d3747",
+  "tests/test_syntax.py:206": "d812bc6f46d6c0a6",
+  "tests/test_syntax.py:207": "deee78ea5395be54",
+  "tests/test_syntax.py:208": "375907af28d9604a",
+  "tests/test_table.py:157": "5d1d527012294fb6",
+  "tests/test_table.py:158": "04bdeeedd4044eec",
+  "tests/test_text.py:1052": "42f3f4065d563555",
+  "tests/test_text.py:1057": "3277801fa477d28f",
+  "tests/test_text.py:1061": "4ab711acd1a04a74",
+  "tests/test_text.py:236": "59343a8edda46cc5",
+  "tests/test_theme.py:46": "7348a1c850f9d82a",
+  "tests/test_theme.py:49": "d922ed709e1325cd",
+  "tests/test_theme.py:51": "52efe711a286e13a",
+  "tests/test_win32_console.py:109": "ffad39f59d15ac18",
+  "tests/test_win32_console.py:126": "82e729f6bdd5da1f",
+  "tests/test_win32_console.py:143": "ca495dc6c7855843",
+  "tests/test_win32_console.py:160": "7ac09f90c65e69d0",
+  "tests/test_win32_console.py:177": "8b2e5fff22592e45",
+  "tests/test_win32_console.py:85": "5dc436feb7221034",
+  "tests/test_windows_renderer.py:43": "5cf265cbf7d8f64f"
+ }
+}

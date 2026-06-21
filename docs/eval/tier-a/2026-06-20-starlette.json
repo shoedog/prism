@@ -1,0 +1,5659 @@
+{
+ "m1": {
+  "anon_oracle": 0,
+  "anon_prism": 1,
+  "matched": 489,
+  "prism_extra": 9,
+  "prism_missing": 0,
+  "snapshot_prism_missing": 0
+ },
+ "m2": {
+  "callees": {
+   "C-method": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.3423802239546494,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.3423802239546494,
+      1.0
+     ],
+     "tp": 2
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 3,
+      "precision": [
+       0.5,
+       0.18761630498040816,
+       0.8123836950195918
+      ],
+      "recall": [
+       1.0,
+       0.43850296436068037,
+       1.0
+      ],
+      "tp": 3
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 3,
+      "precision": [
+       0.5,
+       0.18761630498040816,
+       0.8123836950195918
+      ],
+      "recall": [
+       1.0,
+       0.43850296436068037,
+       1.0
+      ],
+      "tp": 3
+     }
+    },
+    "pending": 3,
+    "raw": {
+     "fn": 1,
+     "fp": 2,
+     "precision": [
+      0.5,
+      0.15003898774401986,
+      0.8499610122559802
+     ],
+     "recall": [
+      0.6666666666666666,
+      0.2076595988078242,
+      0.9385080559790691
+     ],
+     "tp": 2
+    },
+    "shortfall": 0
+   },
+   "C-name": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.3423802239546494,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.3423802239546494,
+      1.0
+     ],
+     "tp": 2
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 3,
+      "precision": [
+       0.4,
+       0.11762077314099711,
+       0.7692757205908813
+      ],
+      "recall": [
+       1.0,
+       0.3423802239546494,
+       1.0
+      ],
+      "tp": 2
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 3,
+      "precision": [
+       0.4,
+       0.11762077314099711,
+       0.7692757205908813
+      ],
+      "recall": [
+       1.0,
+       0.3423802239546494,
+       1.0
+      ],
+      "tp": 2
+     }
+    },
+    "pending": 8,
+    "raw": {
+     "fn": 1,
+     "fp": 7,
+     "precision": [
+      0.2222222222222222,
+      0.06322510654056959,
+      0.5474110333077882
+     ],
+     "recall": [
+      0.6666666666666666,
+      0.2076595988078242,
+      0.9385080559790691
+     ],
+     "tp": 2
+    },
+    "shortfall": 0
+   },
+   "Q-scoped": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.6096657083436265,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.6096657083436265,
+      1.0
+     ],
+     "tp": 6
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 5,
+      "precision": [
+       0.5454545454545454,
+       0.2800915357859759,
+       0.7872872851236217
+      ],
+      "recall": [
+       1.0,
+       0.6096657083436265,
+       1.0
+      ],
+      "tp": 6
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 5,
+      "precision": [
+       0.5454545454545454,
+       0.2800915357859759,
+       0.7872872851236217
+      ],
+      "recall": [
+       1.0,
+       0.6096657083436265,
+       1.0
+      ],
+      "tp": 6
+     }
+    },
+    "pending": 12,
+    "raw": {
+     "fn": 6,
+     "fp": 6,
+     "precision": [
+      0.5,
+      0.25378159616252394,
+      0.7462184038374761
+     ],
+     "recall": [
+      0.5,
+      0.25378159616252394,
+      0.7462184038374761
+     ],
+     "tp": 6
+    },
+    "shortfall": 0
+   },
+   "U-method": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.5655175313406071,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.5655175313406071,
+      1.0
+     ],
+     "tp": 5
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 2,
+      "precision": [
+       0.6666666666666666,
+       0.29999331299474324,
+       0.9032285897864654
+      ],
+      "recall": [
+       1.0,
+       0.5101091596030786,
+       0.9999999999999999
+      ],
+      "tp": 4
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 2,
+      "precision": [
+       0.6666666666666666,
+       0.29999331299474324,
+       0.9032285897864654
+      ],
+      "recall": [
+       1.0,
+       0.5101091596030786,
+       0.9999999999999999
+      ],
+      "tp": 4
+     }
+    },
+    "pending": 9,
+    "raw": {
+     "fn": 8,
+     "fp": 1,
+     "precision": [
+      0.8333333333333334,
+      0.4364971749742326,
+      0.969946630588185
+     ],
+     "recall": [
+      0.38461538461538464,
+      0.17709707685632237,
+      0.6447710866356315
+     ],
+     "tp": 5
+    },
+    "shortfall": 0
+   }
+  },
+  "callers": {
+   "C-method": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.5101091596030786,
+      0.9999999999999999
+     ],
+     "recall": [
+      1.0,
+      0.5101091596030786,
+      0.9999999999999999
+     ],
+     "tp": 4
+    },
+    "function": {
+     "corrected": {
+      "fn": 4,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.5101091596030786,
+       0.9999999999999999
+      ],
+      "recall": [
+       0.5,
+       0.21521606069626764,
+       0.7847839393037324
+      ],
+      "tp": 4
+     },
+     "raw": {
+      "fn": 4,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.5101091596030786,
+       0.9999999999999999
+      ],
+      "recall": [
+       0.5,
+       0.21521606069626764,
+       0.7847839393037324
+      ],
+      "tp": 4
+     }
+    },
+    "pending": 14,
+    "raw": {
+     "fn": 14,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.5101091596030786,
+      0.9999999999999999
+     ],
+     "recall": [
+      0.2222222222222222,
+      0.09000928045845544,
+      0.45214584506003586
+     ],
+     "tp": 4
+    },
+    "shortfall": 0
+   },
+   "C-name": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.43850296436068037,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.43850296436068037,
+      1.0
+     ],
+     "tp": 3
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 7,
+      "precision": [
+       0.2222222222222222,
+       0.06322510654056959,
+       0.5474110333077882
+      ],
+      "recall": [
+       1.0,
+       0.3423802239546494,
+       1.0
+      ],
+      "tp": 2
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 7,
+      "precision": [
+       0.2222222222222222,
+       0.06322510654056959,
+       0.5474110333077882
+      ],
+      "recall": [
+       1.0,
+       0.3423802239546494,
+       1.0
+      ],
+      "tp": 2
+     }
+    },
+    "pending": 10,
+    "raw": {
+     "fn": 0,
+     "fp": 10,
+     "precision": [
+      0.23076923076923078,
+      0.08179528654269594,
+      0.5025637616051964
+     ],
+     "recall": [
+      1.0,
+      0.43850296436068037,
+      1.0
+     ],
+     "tp": 3
+    },
+    "shortfall": 0
+   },
+   "Q-scoped": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.8453609790128563,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.8453609790128563,
+      1.0
+     ],
+     "tp": 21
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.7846891945970195,
+       0.9999999999999999
+      ],
+      "recall": [
+       1.0,
+       0.7846891945970195,
+       0.9999999999999999
+      ],
+      "tp": 14
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.7846891945970195,
+       0.9999999999999999
+      ],
+      "recall": [
+       1.0,
+       0.7846891945970195,
+       0.9999999999999999
+      ],
+      "tp": 14
+     }
+    },
+    "pending": 0,
+    "raw": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.8453609790128563,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.8453609790128563,
+      1.0
+     ],
+     "tp": 21
+    },
+    "shortfall": 0
+   },
+   "U-method": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.866807747239609,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.866807747239609,
+      1.0
+     ],
+     "tp": 25
+    },
+    "function": {
+     "corrected": {
+      "fn": 5,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.6096657083436265,
+       1.0
+      ],
+      "recall": [
+       0.5454545454545454,
+       0.2800915357859759,
+       0.7872872851236217
+      ],
+      "tp": 6
+     },
+     "raw": {
+      "fn": 5,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.6096657083436265,
+       1.0
+      ],
+      "recall": [
+       0.5454545454545454,
+       0.2800915357859759,
+       0.7872872851236217
+      ],
+      "tp": 6
+     }
+    },
+    "pending": 5,
+    "raw": {
+     "fn": 5,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.866807747239609,
+      1.0
+     ],
+     "recall": [
+      0.8333333333333334,
+      0.6643564934133498,
+      0.9266345767456822
+     ],
+     "tp": 25
+    },
+    "shortfall": 0
+   }
+  }
+ },
+ "m3": {
+  "cap": 25,
+  "checked": [
+   {
+    "probe": "callers:starlette/testclient.py:735",
+    "site": "starlette/middleware/wsgi.py:104",
+    "verdict": "confirmed_fp"
+   },
+   {
+    "probe": "callers:starlette/testclient.py:735",
+    "site": "starlette/requests.py:242",
+    "verdict": "alias_site"
+   },
+   {
+    "probe": "callers:starlette/testclient.py:735",
+    "site": "starlette/requests.py:335",
+    "verdict": "alias_site"
+   },
+   {
+    "probe": "callers:starlette/testclient.py:735",
+    "site": "starlette/responses.py:244",
+    "verdict": "confirmed_fp"
+   },
+   {
+    "probe": "callers:starlette/testclient.py:735",
+    "site": "starlette/routing.py:636",
+    "verdict": "confirmed_fp"
+   },
+   {
+    "probe": "callers:starlette/testclient.py:735",
+    "site": "starlette/routing.py:645",
+    "verdict": "confirmed_fp"
+   },
+   {
+    "probe": "callers:starlette/testclient.py:735",
+    "site": "starlette/testclient.py:726",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:starlette/testclient.py:735",
+    "site": "starlette/testclient.py:732",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:starlette/testclient.py:735",
+    "site": "starlette/websockets.py:40",
+    "verdict": "alias_site"
+   },
+   {
+    "probe": "callers:starlette/testclient.py:735",
+    "site": "starlette/websockets.py:47",
+    "verdict": "alias_site"
+   }
+  ],
+  "counts": {
+   "alias_site": 4,
+   "ambiguous": 2,
+   "confirmed_fp": 4,
+   "confirmed_tp": 0
+  }
+ },
+ "meta": {
+  "baseline_invalid": true,
+  "corpus": "starlette",
+  "corpus_dirty": false,
+  "corpus_dirty_reasons": [],
+  "corpus_sha": "de970d7b3fac",
+  "date": "2026-06-20",
+  "harness_sha": "06e6ac4ee96e",
+  "invalid_reasons": [
+   "oracle_error_rate 0.34 > 0.25"
+  ],
+  "oracle": "pyright-langserver",
+  "oracle_error_rate": 0.34375,
+  "oracle_not_quiescent": false,
+  "prism_dirty": false,
+  "prism_sha": "20c8490591a3",
+  "seed": 42,
+  "stale_adjudications": 0,
+  "sut_error_rate": 0.0,
+  "wall_s": {
+   "m1_oracle_inventory": 0.019,
+   "m2": 6.338,
+   "m3": 0.003,
+   "oracle_start": 5.112
+  }
+ },
+ "pending": [
+  {
+   "corpus": "starlette",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "starlette/formparsers.py:101",
+   "site": "starlette/formparsers.py:112",
+   "site_fingerprint": "b8bf7b7472aafde8"
+  },
+  {
+   "corpus": "starlette",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "starlette/formparsers.py:211",
+   "site": "starlette/formparsers.py:266",
+   "site_fingerprint": "8edd6ead667374d3"
+  },
+  {
+   "corpus": "starlette",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "starlette/middleware/gzip.py:48",
+   "site": "starlette/middleware/gzip.py:46",
+   "site_fingerprint": "e395978743bc44ae"
+  },
+  {
+   "corpus": "starlette",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "starlette/requests.py:234",
+   "site": "starlette/middleware/base.py:32",
+   "site_fingerprint": "67305dc9144ece69"
+  },
+  {
+   "corpus": "starlette",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "starlette/requests.py:234",
+   "site": "starlette/middleware/base.py:83",
+   "site_fingerprint": "8b151ed21876f04f"
+  },
+  {
+   "corpus": "starlette",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "starlette/routing.py:606",
+   "site": "starlette/routing.py:580",
+   "site_fingerprint": "82dc7ce6dc2866a8"
+  },
+  {
+   "corpus": "starlette",
+   "direction": "prism_only",
+   "dispatch_kind": "free_multi",
+   "measurement": "callers",
+   "seed_def": "starlette/testclient.py:735",
+   "site": "starlette/middleware/wsgi.py:104",
+   "site_fingerprint": "f118e226ed9de209"
+  },
+  {
+   "corpus": "starlette",
+   "direction": "prism_only",
+   "dispatch_kind": "free_multi",
+   "measurement": "callers",
+   "seed_def": "starlette/testclient.py:735",
+   "site": "starlette/requests.py:242",
+   "site_fingerprint": "2d931a58c85c1631"
+  },
+  {
+   "corpus": "starlette",
+   "direction": "prism_only",
+   "dispatch_kind": "free_multi",
+   "measurement": "callers",
+   "seed_def": "starlette/testclient.py:735",
+   "site": "starlette/requests.py:335",
+   "site_fingerprint": "3f97db0c10b00a3e"
+  },
+  {
+   "corpus": "starlette",
+   "direction": "prism_only",
+   "dispatch_kind": "free_multi",
+   "measurement": "callers",
+   "seed_def": "starlette/testclient.py:735",
+   "site": "starlette/responses.py:244",
+   "site_fingerprint": "918451fba629118c"
+  },
+  {
+   "corpus": "starlette",
+   "direction": "prism_only",
+   "dispatch_kind": "free_multi",
+   "measurement": "callers",
+   "seed_def": "starlette/testclient.py:735",
+   "site": "starlette/routing.py:636",
+   "site_fingerprint": "cd4aad2ff0bfe632"
+  },
+  {
+   "corpus": "starlette",
+   "direction": "prism_only",
+   "dispatch_kind": "free_multi",
+   "measurement": "callers",
+   "seed_def": "starlette/testclient.py:735",
+   "site": "starlette/routing.py:645",
+   "site_fingerprint": "291d598da357fa9c"
+  },
+  {
+   "corpus": "starlette",
+   "direction": "prism_only",
+   "dispatch_kind": "local_def",
+   "measurement": "callers",
+   "seed_def": "starlette/testclient.py:735",
+   "site": "starlette/testclient.py:726",
+   "site_fingerprint": "56fcaa333af27a34"
+  },
+  {
+   "corpus": "starlette",
+   "direction": "prism_only",
+   "dispatch_kind": "local_def",
+   "measurement": "callers",
+   "seed_def": "starlette/testclient.py:735",
+   "site": "starlette/testclient.py:732",
+   "site_fingerprint": "cdb66c9339ee8e6f"
+  },
+  {
+   "corpus": "starlette",
+   "direction": "prism_only",
+   "dispatch_kind": "free_multi",
+   "measurement": "callers",
+   "seed_def": "starlette/testclient.py:735",
+   "site": "starlette/websockets.py:40",
+   "site_fingerprint": "b8a51ca886012b7d"
+  },
+  {
+   "corpus": "starlette",
+   "direction": "prism_only",
+   "dispatch_kind": "free_multi",
+   "measurement": "callers",
+   "seed_def": "starlette/testclient.py:735",
+   "site": "starlette/websockets.py:47",
+   "site_fingerprint": "9025425fd017f806"
+  },
+  {
+   "corpus": "starlette",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "starlette/websockets.py:35",
+   "site": "starlette/endpoints.py:78",
+   "site_fingerprint": "7ad51a267ec64fe8"
+  },
+  {
+   "corpus": "starlette",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "starlette/websockets.py:35",
+   "site": "starlette/websockets.py:185",
+   "site_fingerprint": "3e8f2eae90a45f39"
+  },
+  {
+   "corpus": "starlette",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "starlette/websockets.py:35",
+   "site": "tests/test_websockets.py:299",
+   "site_fingerprint": "0f30e31309184cf3"
+  },
+  {
+   "corpus": "starlette",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "starlette/websockets.py:35",
+   "site": "tests/test_websockets.py:313",
+   "site_fingerprint": "0f30e31309184cf3"
+  },
+  {
+   "corpus": "starlette",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "starlette/websockets.py:35",
+   "site": "tests/test_websockets.py:329",
+   "site_fingerprint": "d4efc65ffe3333ff"
+  },
+  {
+   "corpus": "starlette",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "starlette/websockets.py:35",
+   "site": "tests/test_websockets.py:352",
+   "site_fingerprint": "0f30e31309184cf3"
+  },
+  {
+   "corpus": "starlette",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "starlette/websockets.py:35",
+   "site": "tests/test_websockets.py:367",
+   "site_fingerprint": "0f30e31309184cf3"
+  },
+  {
+   "corpus": "starlette",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "starlette/websockets.py:35",
+   "site": "tests/test_websockets.py:392",
+   "site_fingerprint": "0f30e31309184cf3"
+  },
+  {
+   "corpus": "starlette",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "starlette/websockets.py:35",
+   "site": "tests/test_websockets.py:412",
+   "site_fingerprint": "0f30e31309184cf3"
+  },
+  {
+   "corpus": "starlette",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "starlette/websockets.py:35",
+   "site": "tests/test_websockets.py:500",
+   "site_fingerprint": "3c645328233bceb5"
+  },
+  {
+   "corpus": "starlette",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "starlette/websockets.py:35",
+   "site": "tests/test_websockets.py:502",
+   "site_fingerprint": "2dbd711a6e4ebd8a"
+  },
+  {
+   "corpus": "starlette",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "starlette/websockets.py:35",
+   "site": "tests/test_websockets.py:636",
+   "site_fingerprint": "65825ad26f634a3c"
+  },
+  {
+   "corpus": "starlette",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "starlette/websockets.py:35",
+   "site": "tests/test_websockets.py:648",
+   "site_fingerprint": "bb325d96e845b046"
+  },
+  {
+   "corpus": "starlette",
+   "direction": "prism_only",
+   "dispatch_kind": "free_multi",
+   "measurement": "callees",
+   "seed_def": "starlette/_exception_handler.py:23",
+   "site": "starlette/_exception_handler.py:39",
+   "site_fingerprint": "429e394e4cb21ecb"
+  },
+  {
+   "corpus": "starlette",
+   "direction": "prism_only",
+   "dispatch_kind": "free_multi",
+   "measurement": "callees",
+   "seed_def": "starlette/_exception_handler.py:23",
+   "site": "starlette/_exception_handler.py:42",
+   "site_fingerprint": "a8eb2b929d1ead1e"
+  },
+  {
+   "corpus": "starlette",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "starlette/applications.py:98",
+   "site": "starlette/applications.py:101",
+   "site_fingerprint": "96d288d1f14735f4"
+  },
+  {
+   "corpus": "starlette",
+   "direction": "prism_only",
+   "dispatch_kind": "free_multi",
+   "measurement": "callees",
+   "seed_def": "starlette/concurrency.py:16",
+   "site": "starlette/concurrency.py:25",
+   "site_fingerprint": "724a9950fda6ddd8"
+  },
+  {
+   "corpus": "starlette",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "starlette/middleware/base.py:205",
+   "site": "starlette/middleware/base.py:217",
+   "site_fingerprint": "29b4b46551813ad3"
+  },
+  {
+   "corpus": "starlette",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "starlette/middleware/gzip.py:48",
+   "site": "starlette/middleware/gzip.py:54",
+   "site_fingerprint": "50d9ec0f53d0dbb7"
+  },
+  {
+   "corpus": "starlette",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "starlette/middleware/gzip.py:48",
+   "site": "starlette/middleware/gzip.py:74",
+   "site_fingerprint": "d032c39d55e2a466"
+  },
+  {
+   "corpus": "starlette",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "starlette/middleware/gzip.py:48",
+   "site": "starlette/middleware/gzip.py:87",
+   "site_fingerprint": "d032c39d55e2a466"
+  },
+  {
+   "corpus": "starlette",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callees",
+   "seed_def": "starlette/middleware/sessions.py:58",
+   "site": "starlette/middleware/sessions.py:70",
+   "site_fingerprint": "8e328a17f5e24b9a"
+  },
+  {
+   "corpus": "starlette",
+   "direction": "prism_only",
+   "dispatch_kind": "free_multi",
+   "measurement": "callees",
+   "seed_def": "starlette/middleware/sessions.py:58",
+   "site": "starlette/middleware/sessions.py:86",
+   "site_fingerprint": "d238d9133f87f617"
+  },
+  {
+   "corpus": "starlette",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "starlette/middleware/sessions.py:58",
+   "site": "starlette/middleware/sessions.py:61",
+   "site_fingerprint": "b1844d6a8a65f5db"
+  },
+  {
+   "corpus": "starlette",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "starlette/middleware/sessions.py:58",
+   "site": "starlette/middleware/sessions.py:75",
+   "site_fingerprint": "42678667feba831e"
+  },
+  {
+   "corpus": "starlette",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "starlette/middleware/sessions.py:58",
+   "site": "starlette/middleware/sessions.py:85",
+   "site_fingerprint": "77faa80d31b030a4"
+  },
+  {
+   "corpus": "starlette",
+   "direction": "prism_only",
+   "dispatch_kind": "free_multi",
+   "measurement": "callees",
+   "seed_def": "starlette/requests.py:234",
+   "site": "starlette/requests.py:242",
+   "site_fingerprint": "2d931a58c85c1631"
+  },
+  {
+   "corpus": "starlette",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "starlette/requests.py:234",
+   "site": "starlette/requests.py:251",
+   "site_fingerprint": "032bfe174efbee7c"
+  },
+  {
+   "corpus": "starlette",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "starlette/routing.py:46",
+   "site": "starlette/routing.py:58",
+   "site_fingerprint": "06a3aa3926ec2783"
+  },
+  {
+   "corpus": "starlette",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "starlette/routing.py:546",
+   "site": "starlette/routing.py:547",
+   "site_fingerprint": "945af6dc1e9ea3b3"
+  },
+  {
+   "corpus": "starlette",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "starlette/routing.py:57",
+   "site": "starlette/routing.py:58",
+   "site_fingerprint": "06a3aa3926ec2783"
+  },
+  {
+   "corpus": "starlette",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "starlette/routing.py:606",
+   "site": "starlette/routing.py:608",
+   "site_fingerprint": "89bfc75dc9da55a5"
+  },
+  {
+   "corpus": "starlette",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "starlette/routing.py:606",
+   "site": "starlette/routing.py:616",
+   "site_fingerprint": "228f33253db57c4a"
+  },
+  {
+   "corpus": "starlette",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "starlette/routing.py:606",
+   "site": "starlette/routing.py:618",
+   "site_fingerprint": "60f6cab200a12d86"
+  },
+  {
+   "corpus": "starlette",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callees",
+   "seed_def": "starlette/routing.py:92",
+   "site": "starlette/routing.py:101",
+   "site_fingerprint": "1d183ff36f384635"
+  },
+  {
+   "corpus": "starlette",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "starlette/routing.py:92",
+   "site": "starlette/routing.py:100",
+   "site_fingerprint": "5e914718fb439179"
+  },
+  {
+   "corpus": "starlette",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callees",
+   "seed_def": "starlette/testclient.py:300",
+   "site": "starlette/testclient.py:308",
+   "site_fingerprint": "773f43d6e14c9fc6"
+  },
+  {
+   "corpus": "starlette",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callees",
+   "seed_def": "starlette/testclient.py:300",
+   "site": "starlette/testclient.py:315",
+   "site_fingerprint": "aef1035b44128417"
+  },
+  {
+   "corpus": "starlette",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callees",
+   "seed_def": "starlette/testclient.py:328",
+   "site": "starlette/testclient.py:334",
+   "site_fingerprint": "6d13d888429905eb"
+  },
+  {
+   "corpus": "starlette",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callees",
+   "seed_def": "starlette/testclient.py:328",
+   "site": "starlette/testclient.py:339",
+   "site_fingerprint": "1e3c6117b1b5deb0"
+  },
+  {
+   "corpus": "starlette",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callees",
+   "seed_def": "starlette/testclient.py:328",
+   "site": "starlette/testclient.py:340",
+   "site_fingerprint": "e49b45f6099b06ce"
+  },
+  {
+   "corpus": "starlette",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callees",
+   "seed_def": "starlette/testclient.py:328",
+   "site": "starlette/testclient.py:344",
+   "site_fingerprint": "38f87de1583470aa"
+  },
+  {
+   "corpus": "starlette",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callees",
+   "seed_def": "starlette/testclient.py:735",
+   "site": "starlette/testclient.py:736",
+   "site_fingerprint": "d2ac4c964d223cce"
+  },
+  {
+   "corpus": "starlette",
+   "direction": "prism_only",
+   "dispatch_kind": "free_multi",
+   "measurement": "callees",
+   "seed_def": "starlette/websockets.py:35",
+   "site": "starlette/websockets.py:40",
+   "site_fingerprint": "b8a51ca886012b7d"
+  },
+  {
+   "corpus": "starlette",
+   "direction": "prism_only",
+   "dispatch_kind": "free_multi",
+   "measurement": "callees",
+   "seed_def": "starlette/websockets.py:35",
+   "site": "starlette/websockets.py:47",
+   "site_fingerprint": "9025425fd017f806"
+  }
+ ],
+ "probes": {
+  "_corpus": "starlette",
+  "_strata": {
+   "C-method": {
+    "eligible_probes": 16,
+    "eligible_symbols": 8,
+    "target": 8
+   },
+   "C-name": {
+    "eligible_probes": 16,
+    "eligible_symbols": 8,
+    "target": 8
+   },
+   "Q-scoped": {
+    "eligible_probes": 16,
+    "eligible_symbols": 8,
+    "target": 8
+   },
+   "U-free": {
+    "eligible_probes": 0,
+    "eligible_symbols": 0,
+    "target": 8
+   },
+   "U-method": {
+    "eligible_probes": 16,
+    "eligible_symbols": 8,
+    "target": 8
+   }
+  },
+  "callees:starlette/_exception_handler.py:23": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "starlette/_exception_handler.py",
+     "wrapped_app"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "starlette/_exception_handler.py",
+     50,
+     50
+    ],
+    [
+     "starlette/_exception_handler.py",
+     58,
+     58
+    ],
+    [
+     "starlette/_exception_handler.py",
+     61,
+     61
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "starlette/_exception_handler.py",
+     "sender"
+    ],
+    [
+     "starlette/_exception_handler.py",
+     "wrapped_app"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "starlette/_exception_handler.py",
+     50,
+     50,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     61,
+     61,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     58,
+     58,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     58,
+     58,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     58,
+     58,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     58,
+     58,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     58,
+     58,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     39,
+     39,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     39,
+     39,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     39,
+     39,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     39,
+     39,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     39,
+     39,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     39,
+     39,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     39,
+     39,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     39,
+     39,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     39,
+     39,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     39,
+     39,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     39,
+     39,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     39,
+     39,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     39,
+     39,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     39,
+     39,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     39,
+     39,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     39,
+     39,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     39,
+     39,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     39,
+     39,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     42,
+     42,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ]
+   ],
+   "seed_def": "starlette/_exception_handler.py:23",
+   "stratum": "Q-scoped"
+  },
+  "callees:starlette/applications.py:110": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "starlette/applications.py",
+     "add_route"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "starlette/applications.py",
+     118,
+     118
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "starlette/applications.py",
+     "add_route"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "starlette/applications.py",
+     118,
+     118,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "starlette/applications.py:110",
+   "stratum": "C-method"
+  },
+  "callees:starlette/applications.py:98": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "starlette/applications.py",
+     "add_middleware"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "starlette/applications.py",
+     101,
+     101
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "starlette/applications.py",
+     "add_middleware"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "starlette/applications.py:98",
+   "stratum": "U-method"
+  },
+  "callees:starlette/concurrency.py:16": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "starlette/concurrency.py",
+     "run"
+    ],
+    [
+     "starlette/concurrency.py",
+     "run_until_first_complete"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "starlette/concurrency.py",
+     25,
+     25,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/concurrency.py",
+     25,
+     25,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ]
+   ],
+   "seed_def": "starlette/concurrency.py:16",
+   "stratum": "Q-scoped"
+  },
+  "callees:starlette/concurrency.py:32": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "starlette/concurrency.py",
+     "run_in_threadpool"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "starlette/concurrency.py:32",
+   "stratum": "Q-scoped"
+  },
+  "callees:starlette/datastructures.py:214": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "starlette/datastructures.py:214",
+   "stratum": "C-method"
+  },
+  "callees:starlette/datastructures.py:241": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "starlette/datastructures.py",
+     "__iter__"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "starlette/datastructures.py:241",
+   "stratum": "C-method"
+  },
+  "callees:starlette/datastructures.py:323": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "starlette/datastructures.py",
+     "__setitem__"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "starlette/datastructures.py",
+     324,
+     324
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "starlette/datastructures.py",
+     "__setitem__"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "starlette/datastructures.py",
+     324,
+     324,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ]
+   ],
+   "seed_def": "starlette/datastructures.py:323",
+   "stratum": "C-method"
+  },
+  "callees:starlette/formparsers.py:101": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "starlette/formparsers.py",
+     "on_end"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "starlette/formparsers.py:101",
+   "stratum": "C-method"
+  },
+  "callees:starlette/formparsers.py:211": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "starlette/formparsers.py",
+     "on_header_end"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "starlette/formparsers.py:211",
+   "stratum": "U-method"
+  },
+  "callees:starlette/middleware/base.py:205": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "starlette/middleware/base.py",
+     "__init__"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "starlette/middleware/base.py",
+     217,
+     217
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "starlette/middleware/base.py",
+     "__init__"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "starlette/middleware/base.py:205",
+   "stratum": "C-method"
+  },
+  "callees:starlette/middleware/gzip.py:48": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "starlette/middleware/gzip.py",
+     "send_with_compression"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "starlette/middleware/gzip.py",
+     54,
+     54
+    ],
+    [
+     "starlette/middleware/gzip.py",
+     72,
+     72
+    ],
+    [
+     "starlette/middleware/gzip.py",
+     85,
+     85
+    ],
+    [
+     "starlette/middleware/gzip.py",
+     101,
+     101
+    ],
+    [
+     "starlette/middleware/gzip.py",
+     74,
+     74
+    ],
+    [
+     "starlette/middleware/gzip.py",
+     87,
+     87
+    ],
+    [
+     "starlette/middleware/gzip.py",
+     75,
+     75
+    ],
+    [
+     "starlette/middleware/gzip.py",
+     88,
+     88
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "starlette/middleware/gzip.py",
+     "send_with_compression"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "starlette/middleware/gzip.py",
+     72,
+     72,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "starlette/middleware/gzip.py",
+     85,
+     85,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "starlette/middleware/gzip.py",
+     101,
+     101,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "starlette/middleware/gzip.py",
+     75,
+     75,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "starlette/middleware/gzip.py",
+     88,
+     88,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "starlette/middleware/gzip.py:48",
+   "stratum": "U-method"
+  },
+  "callees:starlette/middleware/sessions.py:58": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "starlette/middleware/sessions.py",
+     "send_wrapper"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "starlette/middleware/sessions.py",
+     61,
+     61
+    ],
+    [
+     "starlette/middleware/sessions.py",
+     63,
+     63
+    ],
+    [
+     "starlette/middleware/sessions.py",
+     75,
+     75
+    ],
+    [
+     "starlette/middleware/sessions.py",
+     85,
+     85
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "starlette/middleware/sessions.py",
+     "send_wrapper"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "starlette/middleware/sessions.py",
+     63,
+     63,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "starlette/middleware/sessions.py",
+     70,
+     70,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "starlette/middleware/sessions.py",
+     86,
+     86,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/middleware/sessions.py",
+     86,
+     86,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/middleware/sessions.py",
+     86,
+     86,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/middleware/sessions.py",
+     86,
+     86,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/middleware/sessions.py",
+     86,
+     86,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/middleware/sessions.py",
+     86,
+     86,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/middleware/sessions.py",
+     86,
+     86,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/middleware/sessions.py",
+     86,
+     86,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/middleware/sessions.py",
+     86,
+     86,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/middleware/sessions.py",
+     86,
+     86,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/middleware/sessions.py",
+     86,
+     86,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/middleware/sessions.py",
+     86,
+     86,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/middleware/sessions.py",
+     86,
+     86,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/middleware/sessions.py",
+     86,
+     86,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/middleware/sessions.py",
+     86,
+     86,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/middleware/sessions.py",
+     86,
+     86,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/middleware/sessions.py",
+     86,
+     86,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/middleware/sessions.py",
+     86,
+     86,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ]
+   ],
+   "seed_def": "starlette/middleware/sessions.py:58",
+   "stratum": "Q-scoped"
+  },
+  "callees:starlette/requests.py:234": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "starlette/requests.py",
+     "stream"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "starlette/requests.py",
+     251,
+     251
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "starlette/requests.py",
+     "stream"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "starlette/requests.py",
+     242,
+     242,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/requests.py",
+     242,
+     242,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/requests.py",
+     242,
+     242,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/requests.py",
+     242,
+     242,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/requests.py",
+     242,
+     242,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/requests.py",
+     242,
+     242,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/requests.py",
+     242,
+     242,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/requests.py",
+     242,
+     242,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/requests.py",
+     242,
+     242,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/requests.py",
+     242,
+     242,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/requests.py",
+     242,
+     242,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/requests.py",
+     242,
+     242,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/requests.py",
+     242,
+     242,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/requests.py",
+     242,
+     242,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/requests.py",
+     242,
+     242,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/requests.py",
+     242,
+     242,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/requests.py",
+     242,
+     242,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ]
+   ],
+   "seed_def": "starlette/requests.py:234",
+   "stratum": "U-method"
+  },
+  "callees:starlette/routing.py:46": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "starlette/routing.py",
+     "app"
+    ],
+    [
+     "starlette/routing.py",
+     "request_response"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "starlette/routing.py",
+     54,
+     54
+    ],
+    [
+     "starlette/routing.py",
+     58,
+     58
+    ],
+    [
+     "starlette/routing.py",
+     64,
+     64
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "starlette/routing.py",
+     "app"
+    ],
+    [
+     "starlette/routing.py",
+     "request_response"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "starlette/routing.py",
+     64,
+     64,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "starlette/routing.py",
+     54,
+     54,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/routing.py",
+     54,
+     54,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/routing.py",
+     54,
+     54,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/routing.py",
+     54,
+     54,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/routing.py",
+     54,
+     54,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ]
+   ],
+   "seed_def": "starlette/routing.py:46",
+   "stratum": "Q-scoped"
+  },
+  "callees:starlette/routing.py:546": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "starlette/routing.py",
+     "wrapper"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "starlette/routing.py",
+     547,
+     547
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "starlette/routing.py",
+     "wrapper"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "starlette/routing.py:546",
+   "stratum": "Q-scoped"
+  },
+  "callees:starlette/routing.py:57": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "starlette/routing.py",
+     "app"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "starlette/routing.py",
+     58,
+     58
+    ],
+    [
+     "starlette/routing.py",
+     64,
+     64
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "starlette/routing.py",
+     "app"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "starlette/routing.py",
+     64,
+     64,
+     {
+      "resolution_kind": "free_single"
+     }
+    ]
+   ],
+   "seed_def": "starlette/routing.py:57",
+   "stratum": "C-name"
+  },
+  "callees:starlette/routing.py:606": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "starlette/routing.py",
+     "not_found"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "starlette/routing.py",
+     608,
+     608
+    ],
+    [
+     "starlette/routing.py",
+     616,
+     616
+    ],
+    [
+     "starlette/routing.py",
+     618,
+     618
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "starlette/routing.py",
+     "not_found"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "starlette/routing.py:606",
+   "stratum": "U-method"
+  },
+  "callees:starlette/routing.py:88": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "starlette/routing.py",
+     "get_name"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "starlette/routing.py:88",
+   "stratum": "Q-scoped"
+  },
+  "callees:starlette/routing.py:92": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "starlette/routing.py",
+     "replace_params"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "starlette/routing.py",
+     100,
+     100
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "starlette/routing.py",
+     "replace_params"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "starlette/routing.py",
+     101,
+     101,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "starlette/routing.py:92",
+   "stratum": "Q-scoped"
+  },
+  "callees:starlette/staticfiles.py:58": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "starlette/staticfiles.py",
+     "get_directories"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "starlette/staticfiles.py:58",
+   "stratum": "U-method"
+  },
+  "callees:starlette/templating.py:103": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "starlette/templating.py",
+     "url_for"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "starlette/templating.py",
+     110,
+     110
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "starlette/templating.py",
+     "url_for"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "starlette/templating.py",
+     110,
+     110,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "starlette/templating.py:103",
+   "stratum": "C-name"
+  },
+  "callees:starlette/testclient.py:300": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "starlette/testclient.py",
+     "receive"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "starlette/testclient.py",
+     308,
+     308,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "starlette/testclient.py",
+     315,
+     315,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "starlette/testclient.py:300",
+   "stratum": "C-name"
+  },
+  "callees:starlette/testclient.py:328": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "starlette/testclient.py",
+     "send"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "starlette/testclient.py",
+     344,
+     344,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "starlette/testclient.py",
+     334,
+     334,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "starlette/testclient.py",
+     334,
+     334,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "starlette/testclient.py",
+     334,
+     334,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "starlette/testclient.py",
+     339,
+     339,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "starlette/testclient.py",
+     340,
+     340,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "starlette/testclient.py:328",
+   "stratum": "C-name"
+  },
+  "callees:starlette/testclient.py:735": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "starlette/testclient.py",
+     "receive"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "starlette/testclient.py",
+     736,
+     736,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "starlette/testclient.py:735",
+   "stratum": "C-name"
+  },
+  "callees:starlette/websockets.py:35": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "starlette/websockets.py",
+     "receive"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "starlette/websockets.py",
+     40,
+     40,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/websockets.py",
+     47,
+     47,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/websockets.py",
+     40,
+     40,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/websockets.py",
+     47,
+     47,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/websockets.py",
+     40,
+     40,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/websockets.py",
+     47,
+     47,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/websockets.py",
+     40,
+     40,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/websockets.py",
+     47,
+     47,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/websockets.py",
+     40,
+     40,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/websockets.py",
+     47,
+     47,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/websockets.py",
+     40,
+     40,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/websockets.py",
+     47,
+     47,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/websockets.py",
+     40,
+     40,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/websockets.py",
+     47,
+     47,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/websockets.py",
+     40,
+     40,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/websockets.py",
+     47,
+     47,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/websockets.py",
+     40,
+     40,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/websockets.py",
+     47,
+     47,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/websockets.py",
+     40,
+     40,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/websockets.py",
+     47,
+     47,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/websockets.py",
+     40,
+     40,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/websockets.py",
+     47,
+     47,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/websockets.py",
+     40,
+     40,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/websockets.py",
+     47,
+     47,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/websockets.py",
+     40,
+     40,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/websockets.py",
+     47,
+     47,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/websockets.py",
+     40,
+     40,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/websockets.py",
+     47,
+     47,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/websockets.py",
+     40,
+     40,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/websockets.py",
+     47,
+     47,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/websockets.py",
+     40,
+     40,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/websockets.py",
+     47,
+     47,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/websockets.py",
+     40,
+     40,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/websockets.py",
+     47,
+     47,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ]
+   ],
+   "seed_def": "starlette/websockets.py:35",
+   "stratum": "C-method"
+  },
+  "callers:starlette/_exception_handler.py:23": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "starlette/middleware/exceptions.py",
+     "__call__"
+    ],
+    [
+     "starlette/routing.py",
+     "app"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "starlette/routing.py",
+     64,
+     64
+    ],
+    [
+     "starlette/routing.py",
+     83,
+     83
+    ],
+    [
+     "starlette/middleware/exceptions.py",
+     63,
+     63
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "starlette/middleware/exceptions.py",
+     "__call__"
+    ],
+    [
+     "starlette/routing.py",
+     "app"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "starlette/middleware/exceptions.py",
+     63,
+     63,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "starlette/routing.py",
+     64,
+     64,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "starlette/routing.py",
+     64,
+     64,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "starlette/routing.py",
+     83,
+     83,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "starlette/routing.py",
+     83,
+     83,
+     {
+      "resolution_kind": "free_single"
+     }
+    ]
+   ],
+   "seed_def": "starlette/_exception_handler.py:23",
+   "stratum": "Q-scoped"
+  },
+  "callers:starlette/applications.py:98": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "tests/test_applications.py",
+     "<module_level>"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tests/test_applications.py",
+     485,
+     485
+    ],
+    [
+     "tests/test_applications.py",
+     485,
+     485
+    ],
+    [
+     "tests/test_applications.py",
+     486,
+     486
+    ],
+    [
+     "tests/test_applications.py",
+     486,
+     486
+    ],
+    [
+     "tests/test_applications.py",
+     520,
+     520
+    ],
+    [
+     "tests/test_applications.py",
+     520,
+     520
+    ],
+    [
+     "tests/test_applications.py",
+     521,
+     521
+    ],
+    [
+     "tests/test_applications.py",
+     521,
+     521
+    ],
+    [
+     "tests/test_applications.py",
+     543,
+     543
+    ],
+    [
+     "tests/test_applications.py",
+     543,
+     543
+    ],
+    [
+     "tests/test_applications.py",
+     544,
+     544
+    ],
+    [
+     "tests/test_applications.py",
+     544,
+     544
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tests/test_applications.py",
+     "<module_level>"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "tests/test_applications.py",
+     485,
+     485,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "tests/test_applications.py",
+     486,
+     486,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "tests/test_applications.py",
+     485,
+     485,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "tests/test_applications.py",
+     486,
+     486,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "tests/test_applications.py",
+     520,
+     520,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "tests/test_applications.py",
+     521,
+     521,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "tests/test_applications.py",
+     543,
+     543,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "tests/test_applications.py",
+     544,
+     544,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "starlette/applications.py:98",
+   "stratum": "U-method"
+  },
+  "callers:starlette/concurrency.py:16": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "tests/test_concurrency.py",
+     "<module_level>"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tests/test_concurrency.py",
+     28,
+     28
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tests/test_concurrency.py",
+     "<module_level>"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "tests/test_concurrency.py",
+     28,
+     28,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "tests/test_concurrency.py",
+     28,
+     28,
+     {
+      "resolution_kind": "free_single"
+     }
+    ]
+   ],
+   "seed_def": "starlette/concurrency.py:16",
+   "stratum": "Q-scoped"
+  },
+  "callers:starlette/concurrency.py:32": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "starlette/_exception_handler.py",
+     "wrapped_app"
+    ],
+    [
+     "starlette/background.py",
+     "__call__"
+    ],
+    [
+     "starlette/datastructures.py",
+     "close"
+    ],
+    [
+     "starlette/datastructures.py",
+     "read"
+    ],
+    [
+     "starlette/datastructures.py",
+     "seek"
+    ],
+    [
+     "starlette/datastructures.py",
+     "write"
+    ],
+    [
+     "starlette/endpoints.py",
+     "dispatch"
+    ],
+    [
+     "starlette/middleware/errors.py",
+     "__call__"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "starlette/_exception_handler.py",
+     61,
+     61
+    ],
+    [
+     "starlette/background.py",
+     23,
+     23
+    ],
+    [
+     "starlette/datastructures.py",
+     457,
+     457
+    ],
+    [
+     "starlette/datastructures.py",
+     464,
+     464
+    ],
+    [
+     "starlette/datastructures.py",
+     470,
+     470
+    ],
+    [
+     "starlette/datastructures.py",
+     476,
+     476
+    ],
+    [
+     "starlette/endpoints.py",
+     45,
+     45
+    ],
+    [
+     "starlette/middleware/errors.py",
+     178,
+     178
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "starlette/_exception_handler.py",
+     "wrapped_app"
+    ],
+    [
+     "starlette/background.py",
+     "__call__"
+    ],
+    [
+     "starlette/datastructures.py",
+     "close"
+    ],
+    [
+     "starlette/datastructures.py",
+     "read"
+    ],
+    [
+     "starlette/datastructures.py",
+     "seek"
+    ],
+    [
+     "starlette/datastructures.py",
+     "write"
+    ],
+    [
+     "starlette/endpoints.py",
+     "dispatch"
+    ],
+    [
+     "starlette/middleware/errors.py",
+     "__call__"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "starlette/_exception_handler.py",
+     61,
+     61,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "starlette/_exception_handler.py",
+     61,
+     61,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "starlette/background.py",
+     23,
+     23,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "starlette/datastructures.py",
+     457,
+     457,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "starlette/datastructures.py",
+     464,
+     464,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "starlette/datastructures.py",
+     470,
+     470,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "starlette/datastructures.py",
+     476,
+     476,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "starlette/endpoints.py",
+     45,
+     45,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "starlette/middleware/errors.py",
+     178,
+     178,
+     {
+      "resolution_kind": "free_single"
+     }
+    ]
+   ],
+   "seed_def": "starlette/concurrency.py:32",
+   "stratum": "Q-scoped"
+  },
+  "callers:starlette/formparsers.py:101": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "starlette/formparsers.py",
+     "parse"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "starlette/formparsers.py",
+     112,
+     112
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "starlette/formparsers.py:101",
+   "stratum": "C-method"
+  },
+  "callers:starlette/formparsers.py:211": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "starlette/formparsers.py",
+     "parse"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "starlette/formparsers.py",
+     266,
+     266
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "starlette/formparsers.py:211",
+   "stratum": "U-method"
+  },
+  "callers:starlette/middleware/base.py:119": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "starlette/middleware/base.py",
+     "receive_or_disconnect"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "starlette/middleware/base.py",
+     125,
+     125
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "starlette/middleware/base.py",
+     "receive_or_disconnect"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "starlette/middleware/base.py",
+     125,
+     125,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "starlette/middleware/base.py",
+     125,
+     125,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "starlette/middleware/base.py",
+     125,
+     125,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "starlette/middleware/base.py:119",
+   "stratum": "C-name"
+  },
+  "callers:starlette/middleware/gzip.py:48": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "starlette/middleware/gzip.py",
+     "__call__"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "starlette/middleware/gzip.py",
+     46,
+     46
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "starlette/middleware/gzip.py:48",
+   "stratum": "U-method"
+  },
+  "callers:starlette/requests.py:234": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "starlette/middleware/base.py",
+     "__init__"
+    ],
+    [
+     "starlette/middleware/base.py",
+     "wrapped_receive"
+    ],
+    [
+     "starlette/requests.py",
+     "_get_form"
+    ],
+    [
+     "starlette/requests.py",
+     "body"
+    ],
+    [
+     "tests/middleware/test_base.py",
+     "<module_level>"
+    ],
+    [
+     "tests/test_requests.py",
+     "<module_level>"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "starlette/requests.py",
+     257,
+     257
+    ],
+    [
+     "starlette/requests.py",
+     257,
+     257
+    ],
+    [
+     "starlette/requests.py",
+     286,
+     286
+    ],
+    [
+     "starlette/requests.py",
+     286,
+     286
+    ],
+    [
+     "starlette/requests.py",
+     300,
+     300
+    ],
+    [
+     "starlette/requests.py",
+     300,
+     300
+    ],
+    [
+     "starlette/middleware/base.py",
+     32,
+     32
+    ],
+    [
+     "starlette/middleware/base.py",
+     32,
+     32
+    ],
+    [
+     "starlette/middleware/base.py",
+     83,
+     83
+    ],
+    [
+     "starlette/middleware/base.py",
+     83,
+     83
+    ],
+    [
+     "tests/test_requests.py",
+     105,
+     105
+    ],
+    [
+     "tests/test_requests.py",
+     105,
+     105
+    ],
+    [
+     "tests/test_requests.py",
+     153,
+     153
+    ],
+    [
+     "tests/test_requests.py",
+     153,
+     153
+    ],
+    [
+     "tests/test_requests.py",
+     168,
+     168
+    ],
+    [
+     "tests/test_requests.py",
+     168,
+     168
+    ],
+    [
+     "tests/test_requests.py",
+     607,
+     607
+    ],
+    [
+     "tests/test_requests.py",
+     607,
+     607
+    ],
+    [
+     "tests/test_requests.py",
+     608,
+     608
+    ],
+    [
+     "tests/test_requests.py",
+     608,
+     608
+    ],
+    [
+     "tests/middleware/test_base.py",
+     604,
+     604
+    ],
+    [
+     "tests/middleware/test_base.py",
+     604,
+     604
+    ],
+    [
+     "tests/middleware/test_base.py",
+     616,
+     616
+    ],
+    [
+     "tests/middleware/test_base.py",
+     616,
+     616
+    ],
+    [
+     "tests/middleware/test_base.py",
+     636,
+     636
+    ],
+    [
+     "tests/middleware/test_base.py",
+     636,
+     636
+    ],
+    [
+     "tests/middleware/test_base.py",
+     674,
+     674
+    ],
+    [
+     "tests/middleware/test_base.py",
+     674,
+     674
+    ],
+    [
+     "tests/middleware/test_base.py",
+     720,
+     720
+    ],
+    [
+     "tests/middleware/test_base.py",
+     720,
+     720
+    ],
+    [
+     "tests/middleware/test_base.py",
+     733,
+     733
+    ],
+    [
+     "tests/middleware/test_base.py",
+     733,
+     733
+    ],
+    [
+     "tests/middleware/test_base.py",
+     762,
+     762
+    ],
+    [
+     "tests/middleware/test_base.py",
+     762,
+     762
+    ],
+    [
+     "tests/middleware/test_base.py",
+     780,
+     780
+    ],
+    [
+     "tests/middleware/test_base.py",
+     780,
+     780
+    ],
+    [
+     "tests/middleware/test_base.py",
+     793,
+     793
+    ],
+    [
+     "tests/middleware/test_base.py",
+     793,
+     793
+    ],
+    [
+     "tests/middleware/test_base.py",
+     850,
+     850
+    ],
+    [
+     "tests/middleware/test_base.py",
+     850,
+     850
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "starlette/requests.py",
+     "_get_form"
+    ],
+    [
+     "starlette/requests.py",
+     "body"
+    ],
+    [
+     "tests/middleware/test_base.py",
+     "<module_level>"
+    ],
+    [
+     "tests/test_requests.py",
+     "<module_level>"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "starlette/requests.py",
+     257,
+     257,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "starlette/requests.py",
+     286,
+     286,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "starlette/requests.py",
+     300,
+     300,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "tests/middleware/test_base.py",
+     604,
+     604,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "tests/middleware/test_base.py",
+     616,
+     616,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "tests/middleware/test_base.py",
+     604,
+     604,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "tests/middleware/test_base.py",
+     616,
+     616,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "tests/middleware/test_base.py",
+     636,
+     636,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "tests/middleware/test_base.py",
+     636,
+     636,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "tests/middleware/test_base.py",
+     674,
+     674,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "tests/middleware/test_base.py",
+     674,
+     674,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "tests/middleware/test_base.py",
+     720,
+     720,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "tests/middleware/test_base.py",
+     733,
+     733,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "tests/middleware/test_base.py",
+     720,
+     720,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "tests/middleware/test_base.py",
+     733,
+     733,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "tests/middleware/test_base.py",
+     762,
+     762,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "tests/middleware/test_base.py",
+     762,
+     762,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "tests/middleware/test_base.py",
+     780,
+     780,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "tests/middleware/test_base.py",
+     793,
+     793,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "tests/middleware/test_base.py",
+     780,
+     780,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "tests/middleware/test_base.py",
+     793,
+     793,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "tests/middleware/test_base.py",
+     780,
+     780,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "tests/middleware/test_base.py",
+     793,
+     793,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "tests/middleware/test_base.py",
+     850,
+     850,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "tests/middleware/test_base.py",
+     850,
+     850,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "tests/test_requests.py",
+     105,
+     105,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "tests/test_requests.py",
+     105,
+     105,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "tests/test_requests.py",
+     153,
+     153,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "tests/test_requests.py",
+     153,
+     153,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "tests/test_requests.py",
+     168,
+     168,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "tests/test_requests.py",
+     168,
+     168,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "tests/test_requests.py",
+     607,
+     607,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "tests/test_requests.py",
+     608,
+     608,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "tests/test_requests.py",
+     607,
+     607,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "tests/test_requests.py",
+     608,
+     608,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "starlette/requests.py:234",
+   "stratum": "U-method"
+  },
+  "callers:starlette/routing.py:46": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "starlette/routing.py",
+     "__init__"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "starlette/routing.py",
+     218,
+     218
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "starlette/routing.py",
+     "__init__"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "starlette/routing.py",
+     218,
+     218,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "starlette/routing.py:46",
+   "stratum": "Q-scoped"
+  },
+  "callers:starlette/routing.py:606": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "starlette/routing.py",
+     "__init__"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "starlette/routing.py",
+     580,
+     580
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "starlette/routing.py:606",
+   "stratum": "U-method"
+  },
+  "callers:starlette/routing.py:88": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "starlette/routing.py",
+     "__init__"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "starlette/routing.py",
+     210,
+     210
+    ],
+    [
+     "starlette/routing.py",
+     305,
+     305
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "starlette/routing.py",
+     "__init__"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "starlette/routing.py",
+     210,
+     210,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "starlette/routing.py",
+     305,
+     305,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "starlette/routing.py:88",
+   "stratum": "Q-scoped"
+  },
+  "callers:starlette/routing.py:92": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "starlette/routing.py",
+     "url_path_for"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "starlette/routing.py",
+     263,
+     263
+    ],
+    [
+     "starlette/routing.py",
+     345,
+     345
+    ],
+    [
+     "starlette/routing.py",
+     424,
+     424
+    ],
+    [
+     "starlette/routing.py",
+     436,
+     436
+    ],
+    [
+     "starlette/routing.py",
+     490,
+     490
+    ],
+    [
+     "starlette/routing.py",
+     500,
+     500
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "starlette/routing.py",
+     "url_path_for"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "starlette/routing.py",
+     263,
+     263,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "starlette/routing.py",
+     345,
+     345,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "starlette/routing.py",
+     424,
+     424,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "starlette/routing.py",
+     436,
+     436,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "starlette/routing.py",
+     490,
+     490,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "starlette/routing.py",
+     500,
+     500,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "starlette/routing.py:92",
+   "stratum": "Q-scoped"
+  },
+  "callers:starlette/staticfiles.py:58": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "starlette/staticfiles.py",
+     "__init__"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "starlette/staticfiles.py",
+     51,
+     51
+    ],
+    [
+     "starlette/staticfiles.py",
+     51,
+     51
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "starlette/staticfiles.py",
+     "__init__"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "starlette/staticfiles.py",
+     51,
+     51,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ]
+   ],
+   "seed_def": "starlette/staticfiles.py:58",
+   "stratum": "U-method"
+  },
+  "callers:starlette/testclient.py:735": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "starlette/testclient.py",
+     "wait_shutdown"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "starlette/testclient.py",
+     742,
+     742
+    ],
+    [
+     "starlette/testclient.py",
+     748,
+     748
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "starlette/middleware/wsgi.py",
+     "__call__"
+    ],
+    [
+     "starlette/requests.py",
+     "is_disconnected"
+    ],
+    [
+     "starlette/requests.py",
+     "stream"
+    ],
+    [
+     "starlette/responses.py",
+     "listen_for_disconnect"
+    ],
+    [
+     "starlette/routing.py",
+     "lifespan"
+    ],
+    [
+     "starlette/testclient.py",
+     "wait_shutdown"
+    ],
+    [
+     "starlette/testclient.py",
+     "wait_startup"
+    ],
+    [
+     "starlette/websockets.py",
+     "receive"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "starlette/testclient.py",
+     726,
+     726,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "starlette/testclient.py",
+     732,
+     732,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "starlette/testclient.py",
+     742,
+     742,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "starlette/testclient.py",
+     748,
+     748,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "starlette/middleware/wsgi.py",
+     104,
+     104,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/requests.py",
+     242,
+     242,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/requests.py",
+     242,
+     242,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/requests.py",
+     335,
+     335,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/requests.py",
+     335,
+     335,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/responses.py",
+     244,
+     244,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/routing.py",
+     636,
+     636,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/routing.py",
+     645,
+     645,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/websockets.py",
+     40,
+     40,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/websockets.py",
+     40,
+     40,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/websockets.py",
+     47,
+     47,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "starlette/websockets.py",
+     47,
+     47,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ]
+   ],
+   "seed_def": "starlette/testclient.py:735",
+   "stratum": "C-name"
+  },
+  "callers:starlette/websockets.py:35": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "starlette/endpoints.py",
+     "dispatch"
+    ],
+    [
+     "starlette/websockets.py",
+     "accept"
+    ],
+    [
+     "starlette/websockets.py",
+     "receive_bytes"
+    ],
+    [
+     "starlette/websockets.py",
+     "receive_json"
+    ],
+    [
+     "starlette/websockets.py",
+     "receive_text"
+    ],
+    [
+     "starlette/websockets.py",
+     "send_denial_response"
+    ],
+    [
+     "tests/test_websockets.py",
+     "<module_level>"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "starlette/endpoints.py",
+     78,
+     78
+    ],
+    [
+     "starlette/endpoints.py",
+     78,
+     78
+    ],
+    [
+     "starlette/websockets.py",
+     109,
+     109
+    ],
+    [
+     "starlette/websockets.py",
+     109,
+     109
+    ],
+    [
+     "starlette/websockets.py",
+     119,
+     119
+    ],
+    [
+     "starlette/websockets.py",
+     119,
+     119
+    ],
+    [
+     "starlette/websockets.py",
+     126,
+     126
+    ],
+    [
+     "starlette/websockets.py",
+     126,
+     126
+    ],
+    [
+     "starlette/websockets.py",
+     135,
+     135
+    ],
+    [
+     "starlette/websockets.py",
+     135,
+     135
+    ],
+    [
+     "starlette/websockets.py",
+     185,
+     185
+    ],
+    [
+     "tests/test_websockets.py",
+     299,
+     299
+    ],
+    [
+     "tests/test_websockets.py",
+     299,
+     299
+    ],
+    [
+     "tests/test_websockets.py",
+     313,
+     313
+    ],
+    [
+     "tests/test_websockets.py",
+     313,
+     313
+    ],
+    [
+     "tests/test_websockets.py",
+     329,
+     329
+    ],
+    [
+     "tests/test_websockets.py",
+     329,
+     329
+    ],
+    [
+     "tests/test_websockets.py",
+     352,
+     352
+    ],
+    [
+     "tests/test_websockets.py",
+     352,
+     352
+    ],
+    [
+     "tests/test_websockets.py",
+     367,
+     367
+    ],
+    [
+     "tests/test_websockets.py",
+     367,
+     367
+    ],
+    [
+     "tests/test_websockets.py",
+     392,
+     392
+    ],
+    [
+     "tests/test_websockets.py",
+     392,
+     392
+    ],
+    [
+     "tests/test_websockets.py",
+     412,
+     412
+    ],
+    [
+     "tests/test_websockets.py",
+     412,
+     412
+    ],
+    [
+     "tests/test_websockets.py",
+     500,
+     500
+    ],
+    [
+     "tests/test_websockets.py",
+     500,
+     500
+    ],
+    [
+     "tests/test_websockets.py",
+     502,
+     502
+    ],
+    [
+     "tests/test_websockets.py",
+     502,
+     502
+    ],
+    [
+     "tests/test_websockets.py",
+     636,
+     636
+    ],
+    [
+     "tests/test_websockets.py",
+     636,
+     636
+    ],
+    [
+     "tests/test_websockets.py",
+     648,
+     648
+    ],
+    [
+     "tests/test_websockets.py",
+     648,
+     648
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "starlette/websockets.py",
+     "accept"
+    ],
+    [
+     "starlette/websockets.py",
+     "receive_bytes"
+    ],
+    [
+     "starlette/websockets.py",
+     "receive_json"
+    ],
+    [
+     "starlette/websockets.py",
+     "receive_text"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "starlette/websockets.py",
+     109,
+     109,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "starlette/websockets.py",
+     119,
+     119,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "starlette/websockets.py",
+     126,
+     126,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "starlette/websockets.py",
+     135,
+     135,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ]
+   ],
+   "seed_def": "starlette/websockets.py:35",
+   "stratum": "C-method"
+  }
+ },
+ "site_fingerprints": {
+  "starlette/_exception_handler.py:39": "429e394e4cb21ecb",
+  "starlette/_exception_handler.py:42": "a8eb2b929d1ead1e",
+  "starlette/_exception_handler.py:50": "82619b4a7d06a032",
+  "starlette/_exception_handler.py:58": "aa3dfc81ab86da2e",
+  "starlette/_exception_handler.py:61": "f5636deb2ae4b4ce",
+  "starlette/applications.py:101": "96d288d1f14735f4",
+  "starlette/applications.py:118": "2c91926b51dc0edc",
+  "starlette/background.py:23": "bce13d9831ffd31c",
+  "starlette/concurrency.py:25": "724a9950fda6ddd8",
+  "starlette/datastructures.py:324": "191f76ebc815ee06",
+  "starlette/datastructures.py:457": "edc79b74d1bb227a",
+  "starlette/datastructures.py:464": "8440b58095d9f2f7",
+  "starlette/datastructures.py:470": "71d7bfa53f7ce09a",
+  "starlette/datastructures.py:476": "df72ca8a24b4863b",
+  "starlette/endpoints.py:45": "06c4018c8c5c454f",
+  "starlette/endpoints.py:78": "7ad51a267ec64fe8",
+  "starlette/formparsers.py:112": "b8bf7b7472aafde8",
+  "starlette/formparsers.py:266": "8edd6ead667374d3",
+  "starlette/middleware/base.py:125": "0696da6ae9c6c49e",
+  "starlette/middleware/base.py:217": "29b4b46551813ad3",
+  "starlette/middleware/base.py:32": "67305dc9144ece69",
+  "starlette/middleware/base.py:83": "8b151ed21876f04f",
+  "starlette/middleware/errors.py:178": "b4a0129f091afac1",
+  "starlette/middleware/exceptions.py:63": "0e4f52eba5f46efb",
+  "starlette/middleware/gzip.py:101": "c9d5a08a92f71048",
+  "starlette/middleware/gzip.py:46": "e395978743bc44ae",
+  "starlette/middleware/gzip.py:54": "50d9ec0f53d0dbb7",
+  "starlette/middleware/gzip.py:72": "084f35bad7547582",
+  "starlette/middleware/gzip.py:74": "d032c39d55e2a466",
+  "starlette/middleware/gzip.py:75": "fa0cd1f7daaad305",
+  "starlette/middleware/gzip.py:85": "3e2e72eef2f9a4de",
+  "starlette/middleware/gzip.py:87": "d032c39d55e2a466",
+  "starlette/middleware/gzip.py:88": "fa0cd1f7daaad305",
+  "starlette/middleware/sessions.py:61": "b1844d6a8a65f5db",
+  "starlette/middleware/sessions.py:63": "5591a83a2092e903",
+  "starlette/middleware/sessions.py:70": "8e328a17f5e24b9a",
+  "starlette/middleware/sessions.py:75": "42678667feba831e",
+  "starlette/middleware/sessions.py:85": "77faa80d31b030a4",
+  "starlette/middleware/sessions.py:86": "d238d9133f87f617",
+  "starlette/middleware/wsgi.py:104": "f118e226ed9de209",
+  "starlette/requests.py:242": "2d931a58c85c1631",
+  "starlette/requests.py:251": "032bfe174efbee7c",
+  "starlette/requests.py:257": "2907a4c64fce9a9d",
+  "starlette/requests.py:286": "81dfb28c9b085bc6",
+  "starlette/requests.py:300": "df7e4ec95b0d2fa0",
+  "starlette/requests.py:335": "3f97db0c10b00a3e",
+  "starlette/responses.py:244": "918451fba629118c",
+  "starlette/routing.py:100": "5e914718fb439179",
+  "starlette/routing.py:101": "1d183ff36f384635",
+  "starlette/routing.py:210": "403258fc93180660",
+  "starlette/routing.py:218": "6d073cb30b640c4a",
+  "starlette/routing.py:263": "e8e13603bbee926f",
+  "starlette/routing.py:305": "81a338151a377a45",
+  "starlette/routing.py:345": "e8e13603bbee926f",
+  "starlette/routing.py:424": "612b20fedea92605",
+  "starlette/routing.py:436": "d1e4410157fb7bf2",
+  "starlette/routing.py:490": "d692be2bc8368988",
+  "starlette/routing.py:500": "c173468195dffd58",
+  "starlette/routing.py:54": "6f6772db856f65a3",
+  "starlette/routing.py:547": "945af6dc1e9ea3b3",
+  "starlette/routing.py:58": "06a3aa3926ec2783",
+  "starlette/routing.py:580": "82dc7ce6dc2866a8",
+  "starlette/routing.py:608": "89bfc75dc9da55a5",
+  "starlette/routing.py:616": "228f33253db57c4a",
+  "starlette/routing.py:618": "60f6cab200a12d86",
+  "starlette/routing.py:636": "cd4aad2ff0bfe632",
+  "starlette/routing.py:64": "b827236c5a5dca2c",
+  "starlette/routing.py:645": "291d598da357fa9c",
+  "starlette/routing.py:83": "7a2e70808a40815a",
+  "starlette/staticfiles.py:51": "c3dc11ddc643720e",
+  "starlette/templating.py:110": "ad46801afc8091d8",
+  "starlette/testclient.py:308": "773f43d6e14c9fc6",
+  "starlette/testclient.py:315": "aef1035b44128417",
+  "starlette/testclient.py:334": "6d13d888429905eb",
+  "starlette/testclient.py:339": "1e3c6117b1b5deb0",
+  "starlette/testclient.py:340": "e49b45f6099b06ce",
+  "starlette/testclient.py:344": "38f87de1583470aa",
+  "starlette/testclient.py:726": "56fcaa333af27a34",
+  "starlette/testclient.py:732": "cdb66c9339ee8e6f",
+  "starlette/testclient.py:736": "d2ac4c964d223cce",
+  "starlette/testclient.py:742": "8aa9e6f2bdd06094",
+  "starlette/testclient.py:748": "a5d72ceb994c5df0",
+  "starlette/websockets.py:109": "5c35671056521d48",
+  "starlette/websockets.py:119": "8eade6355a4bdac1",
+  "starlette/websockets.py:126": "8eade6355a4bdac1",
+  "starlette/websockets.py:135": "8eade6355a4bdac1",
+  "starlette/websockets.py:185": "3e8f2eae90a45f39",
+  "starlette/websockets.py:40": "b8a51ca886012b7d",
+  "starlette/websockets.py:47": "9025425fd017f806",
+  "tests/middleware/test_base.py:604": "ac59023fe9e66154",
+  "tests/middleware/test_base.py:616": "50f080e980150440",
+  "tests/middleware/test_base.py:636": "50f080e980150440",
+  "tests/middleware/test_base.py:674": "50f080e980150440",
+  "tests/middleware/test_base.py:720": "50f080e980150440",
+  "tests/middleware/test_base.py:733": "3b83d39f34b61612",
+  "tests/middleware/test_base.py:762": "3b83d39f34b61612",
+  "tests/middleware/test_base.py:780": "5052c53285f6154a",
+  "tests/middleware/test_base.py:793": "43095a27fbb9e132",
+  "tests/middleware/test_base.py:850": "e51cb55bc97ab094",
+  "tests/test_applications.py:485": "af8ada4c687067e7",
+  "tests/test_applications.py:486": "1b3c9c8bad6d3f4f",
+  "tests/test_applications.py:520": "f1eee61ea19fd7d0",
+  "tests/test_applications.py:521": "791713f6ddaf2318",
+  "tests/test_applications.py:543": "5ce20036fa36c6b4",
+  "tests/test_applications.py:544": "133a9e4e88a444b3",
+  "tests/test_concurrency.py:28": "05c1039e14a941b5",
+  "tests/test_requests.py:105": "2f5119384dd7a584",
+  "tests/test_requests.py:153": "7ddbce0e687f09a6",
+  "tests/test_requests.py:168": "d0d9e25a3eabc74f",
+  "tests/test_requests.py:607": "8c5584b256a0dcec",
+  "tests/test_requests.py:608": "a9b5b6e12d31717f",
+  "tests/test_websockets.py:299": "0f30e31309184cf3",
+  "tests/test_websockets.py:313": "0f30e31309184cf3",
+  "tests/test_websockets.py:329": "d4efc65ffe3333ff",
+  "tests/test_websockets.py:352": "0f30e31309184cf3",
+  "tests/test_websockets.py:367": "0f30e31309184cf3",
+  "tests/test_websockets.py:392": "0f30e31309184cf3",
+  "tests/test_websockets.py:412": "0f30e31309184cf3",
+  "tests/test_websockets.py:500": "3c645328233bceb5",
+  "tests/test_websockets.py:502": "2dbd711a6e4ebd8a",
+  "tests/test_websockets.py:636": "65825ad26f634a3c",
+  "tests/test_websockets.py:648": "bb325d96e845b046"
+ }
+}

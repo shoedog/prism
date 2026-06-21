@@ -1,0 +1,4691 @@
+{
+ "m1": {
+  "anon_oracle": 0,
+  "anon_prism": 0,
+  "matched": 3759,
+  "prism_extra": 0,
+  "prism_missing": 10,
+  "snapshot_prism_missing": 10
+ },
+ "m2": {
+  "callees": {
+   "C-method": {
+    "corrected": {
+     "fn": 0,
+     "fp": 1,
+     "precision": [
+      0.6666666666666666,
+      0.2076595988078242,
+      0.9385080559790691
+     ],
+     "recall": [
+      1.0,
+      0.3423802239546494,
+      1.0
+     ],
+     "tp": 2
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 1,
+      "precision": [
+       0.6666666666666666,
+       0.2076595988078242,
+       0.9385080559790691
+      ],
+      "recall": [
+       1.0,
+       0.3423802239546494,
+       1.0
+      ],
+      "tp": 2
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 1,
+      "precision": [
+       0.6666666666666666,
+       0.2076595988078242,
+       0.9385080559790691
+      ],
+      "recall": [
+       1.0,
+       0.3423802239546494,
+       1.0
+      ],
+      "tp": 2
+     }
+    },
+    "pending": 2,
+    "raw": {
+     "fn": 1,
+     "fp": 2,
+     "precision": [
+      0.5,
+      0.15003898774401986,
+      0.8499610122559802
+     ],
+     "recall": [
+      0.6666666666666666,
+      0.2076595988078242,
+      0.9385080559790691
+     ],
+     "tp": 2
+    },
+    "shortfall": 0
+   },
+   "C-name": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.6096657083436265,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.6096657083436265,
+      1.0
+     ],
+     "tp": 6
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 1,
+      "precision": [
+       0.6666666666666666,
+       0.2076595988078242,
+       0.9385080559790691
+      ],
+      "recall": [
+       1.0,
+       0.3423802239546494,
+       1.0
+      ],
+      "tp": 2
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 1,
+      "precision": [
+       0.6666666666666666,
+       0.2076595988078242,
+       0.9385080559790691
+      ],
+      "recall": [
+       1.0,
+       0.3423802239546494,
+       1.0
+      ],
+      "tp": 2
+     }
+    },
+    "pending": 0,
+    "raw": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.6096657083436265,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.6096657083436265,
+      1.0
+     ],
+     "tp": 6
+    },
+    "shortfall": 0
+   },
+   "Q-scoped": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.43850296436068037,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.43850296436068037,
+      1.0
+     ],
+     "tp": 3
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 1,
+      "precision": [
+       0.6666666666666666,
+       0.2076595988078242,
+       0.9385080559790691
+      ],
+      "recall": [
+       1.0,
+       0.3423802239546494,
+       1.0
+      ],
+      "tp": 2
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 1,
+      "precision": [
+       0.6666666666666666,
+       0.2076595988078242,
+       0.9385080559790691
+      ],
+      "recall": [
+       1.0,
+       0.3423802239546494,
+       1.0
+      ],
+      "tp": 2
+     }
+    },
+    "pending": 0,
+    "raw": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.43850296436068037,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.43850296436068037,
+      1.0
+     ],
+     "tp": 3
+    },
+    "shortfall": 0
+   },
+   "U-free": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.8241207740667156,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.8241207740667156,
+      1.0
+     ],
+     "tp": 18
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 1,
+      "precision": [
+       0.5,
+       0.09453120463920084,
+       0.9054687953607992
+      ],
+      "recall": [
+       1.0,
+       0.2065493117918027,
+       1.0
+      ],
+      "tp": 1
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 1,
+      "precision": [
+       0.5,
+       0.09453120463920084,
+       0.9054687953607992
+      ],
+      "recall": [
+       1.0,
+       0.2065493117918027,
+       1.0
+      ],
+      "tp": 1
+     }
+    },
+    "pending": 0,
+    "raw": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.8241207740667156,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.8241207740667156,
+      1.0
+     ],
+     "tp": 18
+    },
+    "shortfall": 0
+   },
+   "U-method": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.6096657083436265,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.6096657083436265,
+      1.0
+     ],
+     "tp": 6
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.3423802239546494,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.3423802239546494,
+       1.0
+      ],
+      "tp": 2
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.3423802239546494,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.3423802239546494,
+       1.0
+      ],
+      "tp": 2
+     }
+    },
+    "pending": 1,
+    "raw": {
+     "fn": 0,
+     "fp": 1,
+     "precision": [
+      0.8571428571428571,
+      0.486872167860775,
+      0.9743203759421759
+     ],
+     "recall": [
+      1.0,
+      0.6096657083436265,
+      1.0
+     ],
+     "tp": 6
+    },
+    "shortfall": 0
+   }
+  },
+  "callers": {
+   "C-method": {
+    "corrected": {
+     "fn": 46,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.7961166964035129,
+      1.0
+     ],
+     "recall": [
+      0.2459016393442623,
+      0.15506657643404198,
+      0.3668442421249436
+     ],
+     "tp": 15
+    },
+    "function": {
+     "corrected": {
+      "fn": 37,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.7961166964035129,
+       1.0
+      ],
+      "recall": [
+       0.28846153846153844,
+       0.18329960346855492,
+       0.42272788147294504
+      ],
+      "tp": 15
+     },
+     "raw": {
+      "fn": 37,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.7961166964035129,
+       1.0
+      ],
+      "recall": [
+       0.28846153846153844,
+       0.18329960346855492,
+       0.42272788147294504
+      ],
+      "tp": 15
+     }
+    },
+    "pending": 0,
+    "raw": {
+     "fn": 46,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.7961166964035129,
+      1.0
+     ],
+     "recall": [
+      0.2459016393442623,
+      0.15506657643404198,
+      0.3668442421249436
+     ],
+     "tp": 15
+    },
+    "shortfall": 0
+   },
+   "C-name": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.921348400123914,
+      0.9999999999999999
+     ],
+     "recall": [
+      1.0,
+      0.921348400123914,
+      0.9999999999999999
+     ],
+     "tp": 45
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.9162012079230888,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.9162012079230888,
+       1.0
+      ],
+      "tp": 42
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.9162012079230888,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.9162012079230888,
+       1.0
+      ],
+      "tp": 42
+     }
+    },
+    "pending": 0,
+    "raw": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.921348400123914,
+      0.9999999999999999
+     ],
+     "recall": [
+      1.0,
+      0.921348400123914,
+      0.9999999999999999
+     ],
+     "tp": 45
+    },
+    "shortfall": 0
+   },
+   "Q-scoped": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.3423802239546494,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.3423802239546494,
+      1.0
+     ],
+     "tp": 2
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.3423802239546494,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.3423802239546494,
+       1.0
+      ],
+      "tp": 2
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.3423802239546494,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.3423802239546494,
+       1.0
+      ],
+      "tp": 2
+     }
+    },
+    "pending": 0,
+    "raw": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.3423802239546494,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.3423802239546494,
+      1.0
+     ],
+     "tp": 2
+    },
+    "shortfall": 0
+   },
+   "U-free": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.2065493117918027,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.2065493117918027,
+      1.0
+     ],
+     "tp": 1
+    },
+    "function": {
+     "corrected": {
+      "fn": 3,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.2065493117918027,
+       1.0
+      ],
+      "recall": [
+       0.25,
+       0.04558726029536886,
+       0.6993581599030918
+      ],
+      "tp": 1
+     },
+     "raw": {
+      "fn": 3,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.2065493117918027,
+       1.0
+      ],
+      "recall": [
+       0.25,
+       0.04558726029536886,
+       0.6993581599030918
+      ],
+      "tp": 1
+     }
+    },
+    "pending": 10,
+    "raw": {
+     "fn": 10,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.2065493117918027,
+      1.0
+     ],
+     "recall": [
+      0.09090909090909091,
+      0.016232172705325593,
+      0.3773584391082959
+     ],
+     "tp": 1
+    },
+    "shortfall": 0
+   },
+   "U-method": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.5655175313406071,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.5655175313406071,
+      1.0
+     ],
+     "tp": 5
+    },
+    "function": {
+     "corrected": {
+      "fn": 1,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.5655175313406071,
+       1.0
+      ],
+      "recall": [
+       0.8333333333333334,
+       0.4364971749742326,
+       0.969946630588185
+      ],
+      "tp": 5
+     },
+     "raw": {
+      "fn": 1,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.5655175313406071,
+       1.0
+      ],
+      "recall": [
+       0.8333333333333334,
+       0.4364971749742326,
+       0.969946630588185
+      ],
+      "tp": 5
+     }
+    },
+    "pending": 6,
+    "raw": {
+     "fn": 6,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.5655175313406071,
+      1.0
+     ],
+     "recall": [
+      0.45454545454545453,
+      0.21271271487637833,
+      0.7199084642140241
+     ],
+     "tp": 5
+    },
+    "shortfall": 0
+   }
+  }
+ },
+ "m3": {
+  "cap": 10,
+  "checked": [],
+  "counts": {
+   "alias_site": 0,
+   "ambiguous": 0,
+   "confirmed_fp": 0,
+   "confirmed_tp": 0
+  }
+ },
+ "matrix": [
+  {
+   "capability": "closure_call",
+   "expected": [
+    [
+     "main.rs",
+     4
+    ]
+   ],
+   "got": [
+    [
+     "main.rs",
+     4
+    ]
+   ],
+   "language": "rust",
+   "outcome": "ok"
+  },
+  {
+   "capability": "common_name_collision",
+   "expected": [
+    [
+     "main.rs",
+     5
+    ]
+   ],
+   "got": [
+    [
+     "main.rs",
+     5
+    ]
+   ],
+   "language": "rust",
+   "outcome": "ok"
+  },
+  {
+   "capability": "field_receiver_method",
+   "expected": [
+    [
+     "main.rs",
+     12
+    ]
+   ],
+   "got": [
+    [
+     "main.rs",
+     12
+    ]
+   ],
+   "language": "rust",
+   "outcome": "ok"
+  },
+  {
+   "capability": "free_fn_cross_file_use",
+   "expected": [
+    [
+     "main.rs",
+     4
+    ]
+   ],
+   "got": [
+    [
+     "main.rs",
+     4
+    ]
+   ],
+   "language": "rust",
+   "outcome": "ok"
+  },
+  {
+   "capability": "free_fn_same_file",
+   "expected": [
+    [
+     "main.rs",
+     4
+    ]
+   ],
+   "got": [
+    [
+     "main.rs",
+     4
+    ]
+   ],
+   "language": "rust",
+   "outcome": "ok"
+  },
+  {
+   "capability": "inherent_method_same_file",
+   "expected": [
+    [
+     "main.rs",
+     8
+    ]
+   ],
+   "got": [
+    [
+     "main.rs",
+     8
+    ]
+   ],
+   "language": "rust",
+   "outcome": "ok"
+  },
+  {
+   "capability": "method_cross_file_type_ne_stem",
+   "expected": [
+    [
+     "main.rs",
+     4
+    ]
+   ],
+   "got": [
+    [
+     "main.rs",
+     4
+    ]
+   ],
+   "language": "rust",
+   "outcome": "ok"
+  },
+  {
+   "capability": "mod_qualified_free_fn",
+   "expected": [
+    [
+     "main.rs",
+     4
+    ]
+   ],
+   "got": [
+    [
+     "main.rs",
+     4
+    ]
+   ],
+   "language": "rust",
+   "outcome": "ok"
+  },
+  {
+   "capability": "p6_typed_param_recovery",
+   "expected": [
+    [
+     "m.rs",
+     2
+    ]
+   ],
+   "got": [
+    [
+     "m.rs",
+     2
+    ]
+   ],
+   "language": "rust",
+   "outcome": "ok"
+  },
+  {
+   "capability": "r6_multi_owner_drop",
+   "expected": [],
+   "got": [],
+   "language": "rust",
+   "outcome": "ok"
+  },
+  {
+   "capability": "r6_single_owner_demote",
+   "expected": [
+    [
+     "m.rs",
+     3
+    ]
+   ],
+   "got": [
+    [
+     "m.rs",
+     3
+    ]
+   ],
+   "language": "rust",
+   "outcome": "ok"
+  },
+  {
+   "capability": "receiver_method_cross_file_stem_eq",
+   "expected": [
+    [
+     "main.rs",
+     4
+    ]
+   ],
+   "got": [
+    [
+     "main.rs",
+     4
+    ]
+   ],
+   "language": "rust",
+   "outcome": "ok"
+  },
+  {
+   "capability": "trait_dyn_dispatch",
+   "expected": [
+    [
+     "main.rs",
+     12
+    ]
+   ],
+   "got": [
+    [
+     "main.rs",
+     12
+    ]
+   ],
+   "language": "rust",
+   "outcome": "ok"
+  },
+  {
+   "capability": "trait_static_dispatch",
+   "expected": [
+    [
+     "main.rs",
+     12
+    ]
+   ],
+   "got": [
+    [
+     "main.rs",
+     12
+    ]
+   ],
+   "language": "rust",
+   "outcome": "ok"
+  },
+  {
+   "capability": "type_method_qualified",
+   "expected": [
+    [
+     "main.rs",
+     4
+    ]
+   ],
+   "got": [
+    [
+     "main.rs",
+     4
+    ]
+   ],
+   "language": "rust",
+   "outcome": "ok"
+  },
+  {
+   "capability": "closure",
+   "expected": [
+    [
+     "main.go",
+     6
+    ]
+   ],
+   "got": [
+    [
+     "main.go",
+     6
+    ]
+   ],
+   "language": "go",
+   "outcome": "ok"
+  },
+  {
+   "capability": "common_name_collision",
+   "expected": [
+    [
+     "main.go",
+     6
+    ]
+   ],
+   "got": [
+    [
+     "main.go",
+     6
+    ]
+   ],
+   "language": "go",
+   "outcome": "ok"
+  },
+  {
+   "capability": "cross_pkg_qualified",
+   "expected": [
+    [
+     "main.go",
+     6
+    ]
+   ],
+   "got": [
+    [
+     "main.go",
+     6
+    ]
+   ],
+   "language": "go",
+   "outcome": "ok"
+  },
+  {
+   "capability": "embedded_method",
+   "expected": [
+    [
+     "main.go",
+     12
+    ]
+   ],
+   "got": [
+    [
+     "main.go",
+     12
+    ]
+   ],
+   "language": "go",
+   "outcome": "ok"
+  },
+  {
+   "capability": "import_package_path",
+   "expected": [
+    [
+     "main.go",
+     6
+    ]
+   ],
+   "got": [
+    [
+     "main.go",
+     6
+    ]
+   ],
+   "language": "go",
+   "outcome": "ok"
+  },
+  {
+   "capability": "interface_dispatch",
+   "expected": [
+    [
+     "main.go",
+     12
+    ]
+   ],
+   "got": [
+    [
+     "main.go",
+     12
+    ]
+   ],
+   "language": "go",
+   "outcome": "ok"
+  },
+  {
+   "capability": "same_pkg_free_fn",
+   "expected": [
+    [
+     "main.go",
+     6
+    ]
+   ],
+   "got": [
+    [
+     "main.go",
+     6
+    ]
+   ],
+   "language": "go",
+   "outcome": "ok"
+  },
+  {
+   "capability": "struct_method_cross_file",
+   "expected": [
+    [
+     "main.go",
+     4
+    ]
+   ],
+   "got": [
+    [
+     "main.go",
+     4
+    ]
+   ],
+   "language": "go",
+   "outcome": "ok"
+  },
+  {
+   "capability": "struct_method_same_file",
+   "expected": [
+    [
+     "main.go",
+     8
+    ]
+   ],
+   "got": [
+    [
+     "main.go",
+     8
+    ]
+   ],
+   "language": "go",
+   "outcome": "ok"
+  },
+  {
+   "capability": "class_method_same_file",
+   "expected": [
+    [
+     "app.py",
+     6
+    ]
+   ],
+   "got": [
+    [
+     "app.py",
+     6
+    ]
+   ],
+   "language": "python",
+   "outcome": "ok"
+  },
+  {
+   "capability": "closure",
+   "expected": [
+    [
+     "app.py",
+     6
+    ]
+   ],
+   "got": [
+    [
+     "app.py",
+     6
+    ]
+   ],
+   "language": "python",
+   "outcome": "ok"
+  },
+  {
+   "capability": "common_name_collision",
+   "expected": [
+    [
+     "app.py",
+     4
+    ]
+   ],
+   "got": [
+    [
+     "app.py",
+     4
+    ]
+   ],
+   "language": "python",
+   "outcome": "ok"
+  },
+  {
+   "capability": "decorator_wrapped",
+   "expected": [
+    [
+     "app.py",
+     8
+    ]
+   ],
+   "got": [
+    [
+     "app.py",
+     8
+    ]
+   ],
+   "language": "python",
+   "outcome": "ok"
+  },
+  {
+   "capability": "from_import_alias",
+   "expected": [
+    [
+     "app.py",
+     4
+    ]
+   ],
+   "got": [],
+   "language": "python",
+   "outcome": "expected_gap"
+  },
+  {
+   "capability": "import_module_call",
+   "expected": [
+    [
+     "app.py",
+     4
+    ]
+   ],
+   "got": [
+    [
+     "app.py",
+     4
+    ]
+   ],
+   "language": "python",
+   "outcome": "ok"
+  },
+  {
+   "capability": "inherited_override",
+   "expected": [
+    [
+     "app.py",
+     10
+    ]
+   ],
+   "got": [],
+   "language": "python",
+   "outcome": "expected_gap"
+  },
+  {
+   "capability": "instance_method_cross_file",
+   "expected": [
+    [
+     "app.py",
+     5
+    ]
+   ],
+   "got": [
+    [
+     "app.py",
+     5
+    ]
+   ],
+   "language": "python",
+   "outcome": "ok"
+  },
+  {
+   "capability": "module_fn",
+   "expected": [
+    [
+     "app.py",
+     5
+    ]
+   ],
+   "got": [
+    [
+     "app.py",
+     5
+    ]
+   ],
+   "language": "python",
+   "outcome": "ok"
+  }
+ ],
+ "meta": {
+  "baseline_invalid": true,
+  "corpus": "prism",
+  "corpus_dirty": false,
+  "corpus_dirty_reasons": [],
+  "corpus_sha": "d32187ac2ad7",
+  "date": "2026-06-15",
+  "harness_sha": "d32187ac2ad7",
+  "invalid_reasons": [
+   "corpus_sha_drift: d32187ac2ad7 != pinned dd60ed68dda5"
+  ],
+  "oracle": "rust-analyzer 1.94.0 (4a4ef493 2026-03-02)",
+  "oracle_error_rate": 0.0,
+  "oracle_not_quiescent": false,
+  "prism_dirty": false,
+  "prism_sha": "d32187ac2ad7",
+  "seed": 42,
+  "stale_adjudications": 46,
+  "sut_error_rate": 0.0,
+  "wall_s": {
+   "m1_oracle_inventory": 3.393,
+   "m2": 12.907,
+   "m3": 0.001,
+   "matrix": 1.381,
+   "oracle_start": 7.035,
+   "pinned": 1.802
+  }
+ },
+ "pending": [
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/main.rs:24",
+   "site": "src/main.rs:72",
+   "site_fingerprint": "ffb7857ebf314230"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/main.rs:24",
+   "site": "src/main.rs:1210",
+   "site_fingerprint": "1c34633929603e2c"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/main.rs:24",
+   "site": "src/main.rs:1211",
+   "site_fingerprint": "ae8e77a01f4a8e25"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/main.rs:24",
+   "site": "src/main.rs:1212",
+   "site_fingerprint": "03fd6219c908ee90"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/main.rs:24",
+   "site": "src/main.rs:1213",
+   "site_fingerprint": "163aa4c071eaf975"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/main.rs:24",
+   "site": "src/main.rs:1214",
+   "site_fingerprint": "170fac675d4117de"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/main.rs:24",
+   "site": "src/main.rs:1215",
+   "site_fingerprint": "dcf6ff45d87211ee"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/main.rs:24",
+   "site": "src/main.rs:1220",
+   "site_fingerprint": "a6c2455c1f5951aa"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/main.rs:24",
+   "site": "src/main.rs:1221",
+   "site_fingerprint": "68b16cfe82025482"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/main.rs:24",
+   "site": "src/main.rs:1222",
+   "site_fingerprint": "baefcbf0f676cca1"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/react_hooks.rs:75",
+   "site": "src/react_hooks.rs:336",
+   "site_fingerprint": "23cc6c4914ecc3d3"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/react_hooks.rs:75",
+   "site": "src/react_hooks.rs:337",
+   "site_fingerprint": "5582074410874a1a"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/react_hooks.rs:75",
+   "site": "src/react_hooks.rs:338",
+   "site_fingerprint": "1b57afcd02bfbe02"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/react_hooks.rs:75",
+   "site": "src/react_hooks.rs:339",
+   "site_fingerprint": "054b6bfc0560abd4"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/react_hooks.rs:75",
+   "site": "src/react_hooks.rs:340",
+   "site_fingerprint": "8bf607caa49dc7c3"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "src/react_hooks.rs:75",
+   "site": "src/react_hooks.rs:341",
+   "site_fingerprint": "42ebafc23d92e199"
+  },
+  {
+   "corpus": "prism",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callees",
+   "seed_def": "src/cpg/query.rs:83",
+   "site": "src/cpg/query.rs:92",
+   "site_fingerprint": "d1d4095d6c3c5995"
+  },
+  {
+   "corpus": "prism",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "src/cpg/query.rs:83",
+   "site": "src/cpg/query.rs:98",
+   "site_fingerprint": "1944e443eff03a03"
+  },
+  {
+   "corpus": "prism",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callees",
+   "seed_def": "src/type_db.rs:431",
+   "site": "src/type_db.rs:441",
+   "site_fingerprint": "4b2c3cd3381afd2e"
+  }
+ ],
+ "pinned": [
+  {
+   "exact_supplementary": {
+    "fn": 0,
+    "fp": 0,
+    "precision": [
+     1.0,
+     0.5655175313406071,
+     1.0
+    ],
+    "recall": [
+     1.0,
+     0.5655175313406071,
+     1.0
+    ],
+    "tp": 5
+   },
+   "expected": "known_fail",
+   "id": "target-c-method",
+   "known_fail": false,
+   "oracle_only": [],
+   "oracle_sites": [
+    "src/algorithms/taint.rs:1763",
+    "src/algorithms/taint.rs:4420",
+    "src/algorithms/taint.rs:4430",
+    "src/algorithms/taint.rs:4438",
+    "src/algorithms/taint.rs:4450"
+   ],
+   "outcome": "flip_candidate",
+   "prism_only": [
+    "src/algorithms/circular_slice.rs:119",
+    "src/algorithms/circular_slice.rs:162",
+    "src/algorithms/circular_slice.rs:164",
+    "src/algorithms/circular_slice.rs:240",
+    "src/algorithms/circular_slice.rs:242",
+    "src/algorithms/gradient_slice.rs:116",
+    "src/cpg/build.rs:571",
+    "src/cpg/build.rs:593",
+    "src/cpg/cfg_queries.rs:51",
+    "src/cpg/query.rs:141",
+    "src/cpg/query.rs:142",
+    "src/cpg/query.rs:255",
+    "src/cpg/query.rs:465",
+    "src/cpg/query.rs:505",
+    "src/cpg/query.rs:550",
+    "src/cpg/query.rs:600",
+    "src/cpg/query.rs:664",
+    "src/cpg/query.rs:665",
+    "src/cpg/trace.rs:241",
+    "src/navigation/queries.rs:737",
+    "tests/ast/cpg_test.rs:26",
+    "tests/ast/cpg_test.rs:84"
+   ],
+   "prism_sites": [
+    "src/algorithms/taint.rs:1763",
+    "src/algorithms/taint.rs:4420",
+    "src/algorithms/taint.rs:4430",
+    "src/algorithms/taint.rs:4438",
+    "src/algorithms/taint.rs:4450",
+    "src/algorithms/circular_slice.rs:119",
+    "src/algorithms/circular_slice.rs:162",
+    "src/algorithms/circular_slice.rs:164",
+    "src/algorithms/circular_slice.rs:240",
+    "src/algorithms/circular_slice.rs:242",
+    "src/algorithms/gradient_slice.rs:116",
+    "src/cpg/build.rs:571",
+    "src/cpg/build.rs:593",
+    "src/cpg/cfg_queries.rs:51",
+    "src/cpg/query.rs:141",
+    "src/cpg/query.rs:142",
+    "src/cpg/query.rs:255",
+    "src/cpg/query.rs:465",
+    "src/cpg/query.rs:505",
+    "src/cpg/query.rs:550",
+    "src/cpg/query.rs:600",
+    "src/cpg/query.rs:664",
+    "src/cpg/query.rs:665",
+    "src/cpg/trace.rs:241",
+    "src/navigation/queries.rs:737",
+    "tests/ast/cpg_test.rs:26",
+    "tests/ast/cpg_test.rs:84"
+   ],
+   "raw": {
+    "fn": 0,
+    "fp": 22,
+    "precision": [
+     0.18518518518518517,
+     0.08180707091220948,
+     0.3669868377861317
+    ],
+    "recall": [
+     1.0,
+     0.5655175313406071,
+     1.0
+    ],
+    "tp": 5
+   }
+  },
+  {
+   "expected": "oracle_miss_site",
+   "id": "module-deps-feature-gated",
+   "oracle_miss_site_found": true,
+   "oracle_only": [],
+   "oracle_sites": [
+    "tests/navigation/module_graph_test.rs:30",
+    "tests/navigation/module_graph_test.rs:82",
+    "tests/navigation/module_graph_test.rs:114",
+    "tests/navigation/module_graph_test.rs:139",
+    "tests/navigation/module_graph_test.rs:159",
+    "src/main.rs:435",
+    "tests/navigation/scoped_calls_test.rs:210"
+   ],
+   "outcome": "ok",
+   "prism_only": [
+    "src/mcp/tools.rs:162"
+   ],
+   "prism_sites": [
+    "src/main.rs:435",
+    "src/mcp/tools.rs:162",
+    "tests/navigation/module_graph_test.rs:30",
+    "tests/navigation/module_graph_test.rs:82",
+    "tests/navigation/module_graph_test.rs:114",
+    "tests/navigation/module_graph_test.rs:139",
+    "tests/navigation/module_graph_test.rs:159",
+    "tests/navigation/scoped_calls_test.rs:210"
+   ],
+   "raw": {
+    "fn": 0,
+    "fp": 1,
+    "precision": [
+     0.875,
+     0.5291118149439162,
+     0.9775825088000281
+    ],
+    "recall": [
+     1.0,
+     0.6456695613241317,
+     1.0
+    ],
+    "tp": 7
+   }
+  },
+  {
+   "expected": "oracle_miss_site",
+   "id": "load-repo-feature-gated",
+   "oracle_miss_site_found": true,
+   "oracle_only": [
+    "tests/cli/nav_compat_test.rs:252",
+    "tests/navigation/loader_test.rs:31"
+   ],
+   "oracle_sites": [
+    "tests/navigation/nodes_at_test.rs:17",
+    "tests/navigation/module_graph_test.rs:16",
+    "tests/navigation/loader_test.rs:12",
+    "tests/navigation/loader_test.rs:40",
+    "tests/navigation/loader_test.rs:58",
+    "src/repo_loader.rs:313",
+    "tests/navigation/index_test.rs:13",
+    "tests/navigation/index_test.rs:31",
+    "tests/navigation/ego_test.rs:9",
+    "tests/navigation/callers_test.rs:11",
+    "tests/navigation/callees_test.rs:11",
+    "tests/navigation/cache_test.rs:34",
+    "tests/navigation/cache_test.rs:52",
+    "tests/navigation/cache_test.rs:90",
+    "tests/navigation/cache_test.rs:92",
+    "tests/navigation/cache_test.rs:101",
+    "tests/navigation/cache_test.rs:132",
+    "tests/navigation/cache_test.rs:133",
+    "tests/cli/nav_compat_test.rs:252",
+    "src/main.rs:477",
+    "src/navigation/inventory.rs:16",
+    "tests/navigation/seed_test.rs:11",
+    "tests/navigation/loader_test.rs:31",
+    "tests/navigation/scoped_calls_test.rs:19",
+    "tests/infra/parallel_equality_test.rs:18",
+    "tests/infra/parallel_equality_test.rs:22"
+   ],
+   "outcome": "ok",
+   "prism_only": [
+    "src/mcp/session.rs:28"
+   ],
+   "prism_sites": [
+    "src/main.rs:477",
+    "src/mcp/session.rs:28",
+    "src/navigation/inventory.rs:16",
+    "src/repo_loader.rs:313",
+    "tests/infra/parallel_equality_test.rs:18",
+    "tests/infra/parallel_equality_test.rs:22",
+    "tests/navigation/cache_test.rs:34",
+    "tests/navigation/cache_test.rs:52",
+    "tests/navigation/cache_test.rs:90",
+    "tests/navigation/cache_test.rs:92",
+    "tests/navigation/cache_test.rs:101",
+    "tests/navigation/cache_test.rs:132",
+    "tests/navigation/cache_test.rs:133",
+    "tests/navigation/callees_test.rs:11",
+    "tests/navigation/callers_test.rs:11",
+    "tests/navigation/ego_test.rs:9",
+    "tests/navigation/index_test.rs:13",
+    "tests/navigation/index_test.rs:31",
+    "tests/navigation/loader_test.rs:12",
+    "tests/navigation/loader_test.rs:40",
+    "tests/navigation/loader_test.rs:58",
+    "tests/navigation/module_graph_test.rs:16",
+    "tests/navigation/nodes_at_test.rs:17",
+    "tests/navigation/scoped_calls_test.rs:19",
+    "tests/navigation/seed_test.rs:11"
+   ],
+   "raw": {
+    "fn": 2,
+    "fp": 1,
+    "precision": [
+     0.96,
+     0.8045593608838223,
+     0.9929037665766179
+    ],
+    "recall": [
+     0.9230769230769231,
+     0.7585844605936842,
+     0.9786449117205875
+    ],
+    "tp": 24
+   }
+  },
+  {
+   "ambiguous_ok": true,
+   "expected": "ambiguous_symbol_error",
+   "id": "ambiguous-symbol-contract",
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_sites": []
+  }
+ ],
+ "probes": {
+  "_corpus": "prism",
+  "_strata": {
+   "C-method": {
+    "eligible_probes": 6,
+    "eligible_symbols": 3,
+    "target": 3
+   },
+   "C-name": {
+    "eligible_probes": 6,
+    "eligible_symbols": 3,
+    "target": 3
+   },
+   "Q-scoped": {
+    "eligible_probes": 6,
+    "eligible_symbols": 3,
+    "target": 3
+   },
+   "U-free": {
+    "eligible_probes": 6,
+    "eligible_symbols": 3,
+    "target": 3
+   },
+   "U-method": {
+    "eligible_probes": 6,
+    "eligible_symbols": 3,
+    "target": 3
+   }
+  },
+  "callees:src/algorithms/taint.rs:8326": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "src/algorithms/taint.rs",
+     "python_is_aiohttp_client_session_constructor_call"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/algorithms/taint.rs",
+     8327,
+     8327
+    ],
+    [
+     "src/algorithms/taint.rs",
+     8328,
+     8328
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/algorithms/taint.rs",
+     "python_is_aiohttp_client_session_constructor_call"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/algorithms/taint.rs",
+     8328,
+     8328,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/algorithms/taint.rs",
+     8327,
+     8327,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ]
+   ],
+   "seed_def": "src/algorithms/taint.rs:8326",
+   "stratum": "Q-scoped"
+  },
+  "callees:src/ast.rs:157": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "src/ast.rs",
+     "enclosing_function"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/ast.rs",
+     159,
+     159
+    ],
+    [
+     "src/ast.rs",
+     162,
+     162
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/ast.rs",
+     "enclosing_function"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/ast.rs",
+     159,
+     159,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "src/ast.rs",
+     162,
+     162,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "src/ast.rs:157",
+   "stratum": "C-method"
+  },
+  "callees:src/ast.rs:751": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "src/ast.rs",
+     "js_require_call_module_path"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/ast.rs",
+     752,
+     752
+    ],
+    [
+     "src/ast.rs",
+     755,
+     755
+    ],
+    [
+     "src/ast.rs",
+     756,
+     756
+    ],
+    [
+     "src/ast.rs",
+     763,
+     763
+    ],
+    [
+     "src/ast.rs",
+     759,
+     759
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/ast.rs",
+     "js_require_call_module_path"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/ast.rs",
+     756,
+     756,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "src/ast.rs",
+     763,
+     763,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "src/ast.rs",
+     752,
+     752,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "src/ast.rs",
+     755,
+     755,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "src/ast.rs",
+     759,
+     759,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "src/ast.rs:751",
+   "stratum": "U-method"
+  },
+  "callees:src/cfg.rs:254": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "src/cfg.rs",
+     "build_loop_back_edges"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/cfg.rs",
+     260,
+     260
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/cfg.rs",
+     "build_loop_back_edges"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/cfg.rs",
+     260,
+     260,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "src/cfg.rs:254",
+   "stratum": "Q-scoped"
+  },
+  "callees:src/cpg/query.rs:83": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "src/cpg/query.rs",
+     "var_node"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/cpg/query.rs",
+     98,
+     98
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/cpg/query.rs",
+     "var_node"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/cpg/query.rs",
+     92,
+     92,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "src/cpg/query.rs:83",
+   "stratum": "C-method"
+  },
+  "callees:src/main.rs:1261": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "src/main.rs:1261",
+   "stratum": "U-free"
+  },
+  "callees:src/main.rs:24": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/main.rs",
+     "parse_diagram_cap"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "src/main.rs:24",
+   "stratum": "U-free"
+  },
+  "callees:src/main.rs:327": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "src/main.rs",
+     "run_nav"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/main.rs",
+     338,
+     338
+    ],
+    [
+     "src/main.rs",
+     352,
+     352
+    ],
+    [
+     "src/main.rs",
+     382,
+     382
+    ],
+    [
+     "src/main.rs",
+     412,
+     412
+    ],
+    [
+     "src/main.rs",
+     434,
+     434
+    ],
+    [
+     "src/main.rs",
+     440,
+     440
+    ],
+    [
+     "src/main.rs",
+     446,
+     446
+    ],
+    [
+     "src/main.rs",
+     339,
+     339
+    ],
+    [
+     "src/main.rs",
+     354,
+     354
+    ],
+    [
+     "src/main.rs",
+     367,
+     367
+    ],
+    [
+     "src/main.rs",
+     397,
+     397
+    ],
+    [
+     "src/main.rs",
+     427,
+     427
+    ],
+    [
+     "src/main.rs",
+     384,
+     384
+    ],
+    [
+     "src/main.rs",
+     414,
+     414
+    ],
+    [
+     "src/main.rs",
+     435,
+     435
+    ],
+    [
+     "src/main.rs",
+     441,
+     441
+    ],
+    [
+     "src/main.rs",
+     447,
+     447
+    ],
+    [
+     "src/main.rs",
+     452,
+     452
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/main.rs",
+     "run_nav"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/main.rs",
+     338,
+     338,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/main.rs",
+     352,
+     352,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/main.rs",
+     382,
+     382,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/main.rs",
+     412,
+     412,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/main.rs",
+     434,
+     434,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/main.rs",
+     440,
+     440,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/main.rs",
+     446,
+     446,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "src/main.rs",
+     452,
+     452,
+     {
+      "resolution_kind": "stem_single"
+     }
+    ],
+    [
+     "src/main.rs",
+     435,
+     435,
+     {
+      "resolution_kind": "stem_single"
+     }
+    ],
+    [
+     "src/main.rs",
+     441,
+     441,
+     {
+      "resolution_kind": "stem_single"
+     }
+    ],
+    [
+     "src/main.rs",
+     447,
+     447,
+     {
+      "resolution_kind": "stem_single"
+     }
+    ],
+    [
+     "src/main.rs",
+     339,
+     339,
+     {
+      "resolution_kind": "stem_single"
+     }
+    ],
+    [
+     "src/main.rs",
+     354,
+     354,
+     {
+      "resolution_kind": "stem_single"
+     }
+    ],
+    [
+     "src/main.rs",
+     384,
+     384,
+     {
+      "resolution_kind": "stem_single"
+     }
+    ],
+    [
+     "src/main.rs",
+     414,
+     414,
+     {
+      "resolution_kind": "stem_single"
+     }
+    ],
+    [
+     "src/main.rs",
+     367,
+     367,
+     {
+      "resolution_kind": "stem_single"
+     }
+    ],
+    [
+     "src/main.rs",
+     397,
+     397,
+     {
+      "resolution_kind": "stem_single"
+     }
+    ],
+    [
+     "src/main.rs",
+     427,
+     427,
+     {
+      "resolution_kind": "stem_single"
+     }
+    ]
+   ],
+   "seed_def": "src/main.rs:327",
+   "stratum": "U-free"
+  },
+  "callees:src/react_hooks.rs:75": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "src/react_hooks.rs:75",
+   "stratum": "U-method"
+  },
+  "callees:src/slice.rs:314": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/slice.rs",
+     "new"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "src/slice.rs:314",
+   "stratum": "C-name"
+  },
+  "callees:src/type_db.rs:431": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "src/type_db.rs",
+     "collect_fields"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/type_db.rs",
+     444,
+     444
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/type_db.rs",
+     "collect_fields"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/type_db.rs",
+     444,
+     444,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "src/type_db.rs",
+     441,
+     441,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "src/type_db.rs:431",
+   "stratum": "U-method"
+  },
+  "callees:src/type_providers/go.rs:432": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "src/type_providers/go.rs",
+     "extract_struct_fields"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/type_providers/go.rs",
+     445,
+     445
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/type_providers/go.rs",
+     "extract_struct_fields"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/type_providers/go.rs",
+     445,
+     445,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ]
+   ],
+   "seed_def": "src/type_providers/go.rs:432",
+   "stratum": "C-name"
+  },
+  "callees:src/type_providers/java.rs:449": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "src/type_providers/java.rs",
+     "extract_enum"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/type_providers/java.rs",
+     456,
+     456
+    ],
+    [
+     "src/type_providers/java.rs",
+     480,
+     480
+    ],
+    [
+     "src/type_providers/java.rs",
+     471,
+     471
+    ],
+    [
+     "src/type_providers/java.rs",
+     493,
+     493
+    ],
+    [
+     "src/type_providers/java.rs",
+     500,
+     500
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/type_providers/java.rs",
+     "extract_enum"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/type_providers/java.rs",
+     456,
+     456,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ],
+    [
+     "src/type_providers/java.rs",
+     480,
+     480,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ],
+    [
+     "src/type_providers/java.rs",
+     493,
+     493,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "src/type_providers/java.rs",
+     500,
+     500,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "src/type_providers/java.rs",
+     471,
+     471,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ]
+   ],
+   "seed_def": "src/type_providers/java.rs:449",
+   "stratum": "C-name"
+  },
+  "callees:src/type_providers/python.rs:540": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/type_providers/python.rs",
+     "resolve_type"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/type_providers/python.rs",
+     548,
+     548,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "src/type_providers/python.rs:540",
+   "stratum": "C-method"
+  },
+  "callees:tests/navigation/loader_test.rs:27": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tests/navigation/loader_test.rs",
+     "missing_root_is_an_error"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "tests/navigation/loader_test.rs:27",
+   "stratum": "Q-scoped"
+  },
+  "callers:src/algorithms/taint.rs:8326": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/algorithms/taint.rs",
+     "python_is_aiohttp_client_session_method_call"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/algorithms/taint.rs",
+     8060,
+     8060
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/algorithms/taint.rs",
+     "python_is_aiohttp_client_session_method_call"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/algorithms/taint.rs",
+     8060,
+     8060,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "src/algorithms/taint.rs:8326",
+   "stratum": "Q-scoped"
+  },
+  "callers:src/ast.rs:157": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/algorithms/absence_slice.rs",
+     "slice"
+    ],
+    [
+     "src/algorithms/angle_slice.rs",
+     "slice"
+    ],
+    [
+     "src/algorithms/callback_dispatcher_slice.rs",
+     "slice"
+    ],
+    [
+     "src/algorithms/contract_slice.rs",
+     "slice_delta"
+    ],
+    [
+     "src/algorithms/contract_slice.rs",
+     "slice_impl"
+    ],
+    [
+     "src/algorithms/full_flow.rs",
+     "slice"
+    ],
+    [
+     "src/algorithms/horizontal_slice.rs",
+     "slice"
+    ],
+    [
+     "src/algorithms/left_flow.rs",
+     "slice"
+    ],
+    [
+     "src/algorithms/parent_function.rs",
+     "slice"
+    ],
+    [
+     "src/algorithms/primitive_slice.rs",
+     "dirty_function_ranges"
+    ],
+    [
+     "src/algorithms/provenance_slice.rs",
+     "slice"
+    ],
+    [
+     "src/algorithms/quantum_slice.rs",
+     "slice"
+    ],
+    [
+     "src/algorithms/relevant_slice.rs",
+     "slice"
+    ],
+    [
+     "src/algorithms/spiral_slice.rs",
+     "slice"
+    ],
+    [
+     "src/algorithms/symmetry_slice.rs",
+     "slice"
+    ],
+    [
+     "src/algorithms/taint.rs",
+     "find_sink_with_inline_framework_source"
+    ],
+    [
+     "src/algorithms/taint.rs",
+     "function_body_cleansed_for"
+    ],
+    [
+     "src/algorithms/taint.rs",
+     "go_path_traversal_cleansed_for_sink"
+    ],
+    [
+     "src/algorithms/taint.rs",
+     "js_ts_assignment_existing_binding_byte_scope"
+    ],
+    [
+     "src/algorithms/taint.rs",
+     "js_ts_assignment_existing_binding_scope"
+    ],
+    [
+     "src/algorithms/taint.rs",
+     "js_ts_identifier_has_local_shadow_before_call"
+    ],
+    [
+     "src/algorithms/taint.rs",
+     "js_ts_path_traversal_cleansed_for_sink"
+    ],
+    [
+     "src/algorithms/taint.rs",
+     "js_ts_sink_call_has_inline_framework_source_arg"
+    ],
+    [
+     "src/algorithms/taint.rs",
+     "js_ts_ssrf_cleansed_for_sink"
+    ],
+    [
+     "src/algorithms/taint.rs",
+     "python_constructor_receiver_vars"
+    ],
+    [
+     "src/algorithms/taint.rs",
+     "python_ssrf_cleansed_for_sink"
+    ],
+    [
+     "src/algorithms/taint.rs",
+     "python_xss_cleansed_for_sink"
+    ],
+    [
+     "src/algorithms/taint.rs",
+     "synthesize_target_seed_paths"
+    ],
+    [
+     "src/algorithms/thin_slice.rs",
+     "slice"
+    ],
+    [
+     "src/output/review.rs",
+     "to_callers_output"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/algorithms/absence_slice.rs",
+     541,
+     541
+    ],
+    [
+     "src/algorithms/symmetry_slice.rs",
+     171,
+     171
+    ],
+    [
+     "src/algorithms/callback_dispatcher_slice.rs",
+     79,
+     79
+    ],
+    [
+     "src/algorithms/provenance_slice.rs",
+     629,
+     629
+    ],
+    [
+     "src/algorithms/horizontal_slice.rs",
+     52,
+     52
+    ],
+    [
+     "src/algorithms/angle_slice.rs",
+     157,
+     157
+    ],
+    [
+     "src/algorithms/taint.rs",
+     4848,
+     4848
+    ],
+    [
+     "src/algorithms/taint.rs",
+     5836,
+     5836
+    ],
+    [
+     "src/algorithms/taint.rs",
+     6188,
+     6188
+    ],
+    [
+     "src/algorithms/taint.rs",
+     6408,
+     6408
+    ],
+    [
+     "src/algorithms/taint.rs",
+     6821,
+     6821
+    ],
+    [
+     "src/algorithms/taint.rs",
+     6984,
+     6984
+    ],
+    [
+     "src/algorithms/taint.rs",
+     7193,
+     7193
+    ],
+    [
+     "src/algorithms/taint.rs",
+     7231,
+     7231
+    ],
+    [
+     "src/algorithms/taint.rs",
+     8113,
+     8113
+    ],
+    [
+     "src/algorithms/taint.rs",
+     9302,
+     9302
+    ],
+    [
+     "src/algorithms/taint.rs",
+     9335,
+     9335
+    ],
+    [
+     "src/algorithms/taint.rs",
+     10009,
+     10009
+    ],
+    [
+     "src/algorithms/taint.rs",
+     10603,
+     10603
+    ],
+    [
+     "src/algorithms/contract_slice.rs",
+     162,
+     162
+    ],
+    [
+     "src/algorithms/contract_slice.rs",
+     1327,
+     1327
+    ],
+    [
+     "src/algorithms/contract_slice.rs",
+     1331,
+     1331
+    ],
+    [
+     "src/algorithms/quantum_slice.rs",
+     47,
+     47
+    ],
+    [
+     "src/algorithms/full_flow.rs",
+     36,
+     36
+    ],
+    [
+     "src/algorithms/full_flow.rs",
+     45,
+     45
+    ],
+    [
+     "src/algorithms/spiral_slice.rs",
+     78,
+     78
+    ],
+    [
+     "src/algorithms/spiral_slice.rs",
+     218,
+     218
+    ],
+    [
+     "src/algorithms/left_flow.rs",
+     274,
+     274
+    ],
+    [
+     "src/algorithms/left_flow.rs",
+     284,
+     284
+    ],
+    [
+     "src/algorithms/thin_slice.rs",
+     29,
+     29
+    ],
+    [
+     "src/algorithms/thin_slice.rs",
+     38,
+     38
+    ],
+    [
+     "src/output/review.rs",
+     353,
+     353
+    ],
+    [
+     "src/algorithms/parent_function.rs",
+     26,
+     26
+    ],
+    [
+     "src/algorithms/primitive_slice.rs",
+     148,
+     148
+    ],
+    [
+     "src/algorithms/relevant_slice.rs",
+     66,
+     66
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/algorithms/primitive_slice.rs",
+     "dirty_function_ranges"
+    ],
+    [
+     "src/algorithms/taint.rs",
+     "find_sink_with_inline_framework_source"
+    ],
+    [
+     "src/algorithms/taint.rs",
+     "function_body_cleansed_for"
+    ],
+    [
+     "src/algorithms/taint.rs",
+     "go_path_traversal_cleansed_for_sink"
+    ],
+    [
+     "src/algorithms/taint.rs",
+     "js_ts_assignment_existing_binding_byte_scope"
+    ],
+    [
+     "src/algorithms/taint.rs",
+     "js_ts_assignment_existing_binding_scope"
+    ],
+    [
+     "src/algorithms/taint.rs",
+     "js_ts_identifier_has_local_shadow_before_call"
+    ],
+    [
+     "src/algorithms/taint.rs",
+     "js_ts_path_traversal_cleansed_for_sink"
+    ],
+    [
+     "src/algorithms/taint.rs",
+     "js_ts_sink_call_has_inline_framework_source_arg"
+    ],
+    [
+     "src/algorithms/taint.rs",
+     "js_ts_ssrf_cleansed_for_sink"
+    ],
+    [
+     "src/algorithms/taint.rs",
+     "python_constructor_receiver_vars"
+    ],
+    [
+     "src/algorithms/taint.rs",
+     "python_ssrf_cleansed_for_sink"
+    ],
+    [
+     "src/algorithms/taint.rs",
+     "python_xss_cleansed_for_sink"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/algorithms/primitive_slice.rs",
+     148,
+     148,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ],
+    [
+     "src/algorithms/taint.rs",
+     5836,
+     5836,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ],
+    [
+     "src/algorithms/taint.rs",
+     6188,
+     6188,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ],
+    [
+     "src/algorithms/taint.rs",
+     6408,
+     6408,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ],
+    [
+     "src/algorithms/taint.rs",
+     6821,
+     6821,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ],
+    [
+     "src/algorithms/taint.rs",
+     6984,
+     6984,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ],
+    [
+     "src/algorithms/taint.rs",
+     7193,
+     7193,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ],
+    [
+     "src/algorithms/taint.rs",
+     7231,
+     7231,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ],
+    [
+     "src/algorithms/taint.rs",
+     8113,
+     8113,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ],
+    [
+     "src/algorithms/taint.rs",
+     9302,
+     9302,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ],
+    [
+     "src/algorithms/taint.rs",
+     9335,
+     9335,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ],
+    [
+     "src/algorithms/taint.rs",
+     10009,
+     10009,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ],
+    [
+     "src/algorithms/taint.rs",
+     10603,
+     10603,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ]
+   ],
+   "seed_def": "src/ast.rs:157",
+   "stratum": "C-method"
+  },
+  "callers:src/ast.rs:751": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/ast.rs",
+     "collect_require_binding"
+    ],
+    [
+     "src/ast.rs",
+     "js_require_member_binding"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/ast.rs",
+     694,
+     694
+    ],
+    [
+     "src/ast.rs",
+     743,
+     743
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/ast.rs",
+     "collect_require_binding"
+    ],
+    [
+     "src/ast.rs",
+     "js_require_member_binding"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/ast.rs",
+     694,
+     694,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "src/ast.rs",
+     743,
+     743,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ]
+   ],
+   "seed_def": "src/ast.rs:751",
+   "stratum": "U-method"
+  },
+  "callers:src/cfg.rs:254": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/cfg.rs",
+     "build_function_cfg"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/cfg.rs",
+     93,
+     93
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/cfg.rs",
+     "build_function_cfg"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/cfg.rs",
+     93,
+     93,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "src/cfg.rs:254",
+   "stratum": "Q-scoped"
+  },
+  "callers:src/cpg/query.rs:83": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/cpg/query.rs",
+     "dfg_backward_reachable"
+    ],
+    [
+     "src/cpg/query.rs",
+     "dfg_forward_reachable"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/cpg/query.rs",
+     640,
+     640
+    ],
+    [
+     "src/cpg/query.rs",
+     718,
+     718
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/cpg/query.rs",
+     "dfg_backward_reachable"
+    ],
+    [
+     "src/cpg/query.rs",
+     "dfg_forward_reachable"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/cpg/query.rs",
+     640,
+     640,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "src/cpg/query.rs",
+     718,
+     718,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ]
+   ],
+   "seed_def": "src/cpg/query.rs:83",
+   "stratum": "C-method"
+  },
+  "callers:src/main.rs:1261": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "src/main.rs:1261",
+   "stratum": "U-free"
+  },
+  "callers:src/main.rs:24": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/main.rs",
+     "<module_level>"
+    ],
+    [
+     "src/main.rs",
+     "parse_diagram_cap_rejects_non_integer"
+    ],
+    [
+     "src/main.rs",
+     "parse_diagram_cap_rejects_too_small"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/main.rs",
+     72,
+     72
+    ],
+    [
+     "src/main.rs",
+     72,
+     72
+    ],
+    [
+     "src/main.rs",
+     1210,
+     1210
+    ],
+    [
+     "src/main.rs",
+     1211,
+     1211
+    ],
+    [
+     "src/main.rs",
+     1212,
+     1212
+    ],
+    [
+     "src/main.rs",
+     1213,
+     1213
+    ],
+    [
+     "src/main.rs",
+     1214,
+     1214
+    ],
+    [
+     "src/main.rs",
+     1215,
+     1215
+    ],
+    [
+     "src/main.rs",
+     1220,
+     1220
+    ],
+    [
+     "src/main.rs",
+     1221,
+     1221
+    ],
+    [
+     "src/main.rs",
+     1222,
+     1222
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "src/main.rs:24",
+   "stratum": "U-free"
+  },
+  "callers:src/main.rs:327": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/main.rs",
+     "main"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/main.rs",
+     322,
+     322
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/main.rs",
+     "main"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/main.rs",
+     322,
+     322,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "src/main.rs:327",
+   "stratum": "U-free"
+  },
+  "callers:src/react_hooks.rs:75": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/react_hooks.rs",
+     "test_hook_has_callback"
+    ],
+    [
+     "src/react_hooks.rs",
+     "try_extract_hook"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/react_hooks.rs",
+     185,
+     185
+    ],
+    [
+     "src/react_hooks.rs",
+     336,
+     336
+    ],
+    [
+     "src/react_hooks.rs",
+     337,
+     337
+    ],
+    [
+     "src/react_hooks.rs",
+     338,
+     338
+    ],
+    [
+     "src/react_hooks.rs",
+     339,
+     339
+    ],
+    [
+     "src/react_hooks.rs",
+     340,
+     340
+    ],
+    [
+     "src/react_hooks.rs",
+     341,
+     341
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/react_hooks.rs",
+     "try_extract_hook"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/react_hooks.rs",
+     185,
+     185,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "src/react_hooks.rs:75",
+   "stratum": "U-method"
+  },
+  "callers:src/slice.rs:314": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/algorithms/absence_slice.rs",
+     "slice"
+    ],
+    [
+     "src/algorithms/angle_slice.rs",
+     "slice"
+    ],
+    [
+     "src/algorithms/barrier_slice.rs",
+     "slice"
+    ],
+    [
+     "src/algorithms/callback_dispatcher_slice.rs",
+     "slice"
+    ],
+    [
+     "src/algorithms/chop.rs",
+     "slice"
+    ],
+    [
+     "src/algorithms/circular_slice.rs",
+     "slice"
+    ],
+    [
+     "src/algorithms/contract_slice.rs",
+     "slice_impl"
+    ],
+    [
+     "src/algorithms/delta_slice.rs",
+     "slice"
+    ],
+    [
+     "src/algorithms/echo_slice.rs",
+     "slice"
+    ],
+    [
+     "src/algorithms/full_flow.rs",
+     "slice"
+    ],
+    [
+     "src/algorithms/gradient_slice.rs",
+     "slice"
+    ],
+    [
+     "src/algorithms/horizontal_slice.rs",
+     "slice"
+    ],
+    [
+     "src/algorithms/left_flow.rs",
+     "slice"
+    ],
+    [
+     "src/algorithms/membrane_slice.rs",
+     "slice"
+    ],
+    [
+     "src/algorithms/mod.rs",
+     "finalize_handles_panic_via_catch_unwind"
+    ],
+    [
+     "src/algorithms/mod.rs",
+     "finalize_populates_mermaid_string"
+    ],
+    [
+     "src/algorithms/mod.rs",
+     "finalize_propagates_dangling_edge_warning"
+    ],
+    [
+     "src/algorithms/mod.rs",
+     "run_slicing_inner"
+    ],
+    [
+     "src/algorithms/original_diff.rs",
+     "slice"
+    ],
+    [
+     "src/algorithms/parent_function.rs",
+     "slice"
+    ],
+    [
+     "src/algorithms/peer_consistency_slice.rs",
+     "slice"
+    ],
+    [
+     "src/algorithms/phantom_slice.rs",
+     "slice"
+    ],
+    [
+     "src/algorithms/primitive_slice.rs",
+     "slice"
+    ],
+    [
+     "src/algorithms/provenance_slice.rs",
+     "slice"
+    ],
+    [
+     "src/algorithms/quantum_slice.rs",
+     "slice"
+    ],
+    [
+     "src/algorithms/resonance_slice.rs",
+     "slice"
+    ],
+    [
+     "src/algorithms/spiral_slice.rs",
+     "slice"
+    ],
+    [
+     "src/algorithms/symmetry_slice.rs",
+     "slice"
+    ],
+    [
+     "src/algorithms/taint.rs",
+     "slice"
+    ],
+    [
+     "src/algorithms/thin_slice.rs",
+     "slice"
+    ],
+    [
+     "src/algorithms/threed_slice.rs",
+     "slice"
+    ],
+    [
+     "src/algorithms/vertical_slice.rs",
+     "slice"
+    ],
+    [
+     "src/output/mermaid.rs",
+     "format_mermaid_report_groups_by_algorithm"
+    ],
+    [
+     "src/output/mermaid.rs",
+     "format_mermaid_report_includes_diagnostics_when_warnings_present"
+    ],
+    [
+     "src/slice.rs",
+     "multi_slice_result_aggregates_diagram_warnings"
+    ],
+    [
+     "src/slice.rs",
+     "slice_result_default_omits_diagram_fields_in_json"
+    ],
+    [
+     "tests/integration/core_test.rs",
+     "assert_no_diagram_bugs_panics_on_bug_warning"
+    ],
+    [
+     "tests/integration/core_test.rs",
+     "assert_no_diagram_bugs_passes_on_informational_only"
+    ],
+    [
+     "tests/integration/core_test.rs",
+     "assert_no_diagram_bugs_passes_on_no_warnings"
+    ],
+    [
+     "tests/output/mermaid_snapshot_test.rs",
+     "mermaid_report_snapshot_taint_finding"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/algorithms/membrane_slice.rs",
+     22,
+     22
+    ],
+    [
+     "src/algorithms/peer_consistency_slice.rs",
+     47,
+     47
+    ],
+    [
+     "src/algorithms/provenance_slice.rs",
+     529,
+     529
+    ],
+    [
+     "src/algorithms/angle_slice.rs",
+     121,
+     121
+    ],
+    [
+     "src/algorithms/resonance_slice.rs",
+     62,
+     62
+    ],
+    [
+     "src/algorithms/chop.rs",
+     25,
+     25
+    ],
+    [
+     "src/algorithms/taint.rs",
+     10826,
+     10826
+    ],
+    [
+     "tests/integration/core_test.rs",
+     791,
+     791
+    ],
+    [
+     "tests/integration/core_test.rs",
+     803,
+     803
+    ],
+    [
+     "tests/integration/core_test.rs",
+     815,
+     815
+    ],
+    [
+     "src/algorithms/contract_slice.rs",
+     151,
+     151
+    ],
+    [
+     "src/algorithms/vertical_slice.rs",
+     71,
+     71
+    ],
+    [
+     "src/algorithms/full_flow.rs",
+     20,
+     20
+    ],
+    [
+     "src/algorithms/left_flow.rs",
+     260,
+     260
+    ],
+    [
+     "src/algorithms/parent_function.rs",
+     13,
+     13
+    ],
+    [
+     "src/algorithms/primitive_slice.rs",
+     88,
+     88
+    ],
+    [
+     "src/algorithms/absence_slice.rs",
+     504,
+     504
+    ],
+    [
+     "src/algorithms/symmetry_slice.rs",
+     158,
+     158
+    ],
+    [
+     "src/output/mermaid.rs",
+     1068,
+     1068
+    ],
+    [
+     "src/output/mermaid.rs",
+     1201,
+     1201
+    ],
+    [
+     "src/algorithms/callback_dispatcher_slice.rs",
+     65,
+     65
+    ],
+    [
+     "src/algorithms/threed_slice.rs",
+     56,
+     56
+    ],
+    [
+     "src/algorithms/echo_slice.rs",
+     107,
+     107
+    ],
+    [
+     "tests/output/mermaid_snapshot_test.rs",
+     10,
+     10
+    ],
+    [
+     "src/algorithms/horizontal_slice.rs",
+     40,
+     40
+    ],
+    [
+     "src/algorithms/original_diff.rs",
+     13,
+     13
+    ],
+    [
+     "src/algorithms/phantom_slice.rs",
+     49,
+     49
+    ],
+    [
+     "src/slice.rs",
+     525,
+     525
+    ],
+    [
+     "src/slice.rs",
+     584,
+     584
+    ],
+    [
+     "src/slice.rs",
+     591,
+     591
+    ],
+    [
+     "src/algorithms/quantum_slice.rs",
+     32,
+     32
+    ],
+    [
+     "src/algorithms/mod.rs",
+     140,
+     140
+    ],
+    [
+     "src/algorithms/mod.rs",
+     143,
+     143
+    ],
+    [
+     "src/algorithms/mod.rs",
+     145,
+     145
+    ],
+    [
+     "src/algorithms/mod.rs",
+     320,
+     320
+    ],
+    [
+     "src/algorithms/mod.rs",
+     342,
+     342
+    ],
+    [
+     "src/algorithms/mod.rs",
+     355,
+     355
+    ],
+    [
+     "src/algorithms/spiral_slice.rs",
+     54,
+     54
+    ],
+    [
+     "src/algorithms/barrier_slice.rs",
+     42,
+     42
+    ],
+    [
+     "src/algorithms/thin_slice.rs",
+     16,
+     16
+    ],
+    [
+     "src/algorithms/circular_slice.rs",
+     63,
+     63
+    ],
+    [
+     "src/algorithms/delta_slice.rs",
+     18,
+     18
+    ],
+    [
+     "src/algorithms/gradient_slice.rs",
+     51,
+     51
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/algorithms/absence_slice.rs",
+     "slice"
+    ],
+    [
+     "src/algorithms/angle_slice.rs",
+     "slice"
+    ],
+    [
+     "src/algorithms/barrier_slice.rs",
+     "slice"
+    ],
+    [
+     "src/algorithms/callback_dispatcher_slice.rs",
+     "slice"
+    ],
+    [
+     "src/algorithms/chop.rs",
+     "slice"
+    ],
+    [
+     "src/algorithms/circular_slice.rs",
+     "slice"
+    ],
+    [
+     "src/algorithms/contract_slice.rs",
+     "slice_impl"
+    ],
+    [
+     "src/algorithms/delta_slice.rs",
+     "slice"
+    ],
+    [
+     "src/algorithms/echo_slice.rs",
+     "slice"
+    ],
+    [
+     "src/algorithms/full_flow.rs",
+     "slice"
+    ],
+    [
+     "src/algorithms/gradient_slice.rs",
+     "slice"
+    ],
+    [
+     "src/algorithms/horizontal_slice.rs",
+     "slice"
+    ],
+    [
+     "src/algorithms/left_flow.rs",
+     "slice"
+    ],
+    [
+     "src/algorithms/membrane_slice.rs",
+     "slice"
+    ],
+    [
+     "src/algorithms/mod.rs",
+     "finalize_handles_panic_via_catch_unwind"
+    ],
+    [
+     "src/algorithms/mod.rs",
+     "finalize_populates_mermaid_string"
+    ],
+    [
+     "src/algorithms/mod.rs",
+     "finalize_propagates_dangling_edge_warning"
+    ],
+    [
+     "src/algorithms/mod.rs",
+     "run_slicing_inner"
+    ],
+    [
+     "src/algorithms/original_diff.rs",
+     "slice"
+    ],
+    [
+     "src/algorithms/parent_function.rs",
+     "slice"
+    ],
+    [
+     "src/algorithms/peer_consistency_slice.rs",
+     "slice"
+    ],
+    [
+     "src/algorithms/phantom_slice.rs",
+     "slice"
+    ],
+    [
+     "src/algorithms/primitive_slice.rs",
+     "slice"
+    ],
+    [
+     "src/algorithms/provenance_slice.rs",
+     "slice"
+    ],
+    [
+     "src/algorithms/quantum_slice.rs",
+     "slice"
+    ],
+    [
+     "src/algorithms/resonance_slice.rs",
+     "slice"
+    ],
+    [
+     "src/algorithms/spiral_slice.rs",
+     "slice"
+    ],
+    [
+     "src/algorithms/symmetry_slice.rs",
+     "slice"
+    ],
+    [
+     "src/algorithms/taint.rs",
+     "slice"
+    ],
+    [
+     "src/algorithms/thin_slice.rs",
+     "slice"
+    ],
+    [
+     "src/algorithms/threed_slice.rs",
+     "slice"
+    ],
+    [
+     "src/algorithms/vertical_slice.rs",
+     "slice"
+    ],
+    [
+     "src/output/mermaid.rs",
+     "format_mermaid_report_groups_by_algorithm"
+    ],
+    [
+     "src/output/mermaid.rs",
+     "format_mermaid_report_includes_diagnostics_when_warnings_present"
+    ],
+    [
+     "src/slice.rs",
+     "multi_slice_result_aggregates_diagram_warnings"
+    ],
+    [
+     "src/slice.rs",
+     "slice_result_default_omits_diagram_fields_in_json"
+    ],
+    [
+     "tests/integration/core_test.rs",
+     "assert_no_diagram_bugs_panics_on_bug_warning"
+    ],
+    [
+     "tests/integration/core_test.rs",
+     "assert_no_diagram_bugs_passes_on_informational_only"
+    ],
+    [
+     "tests/integration/core_test.rs",
+     "assert_no_diagram_bugs_passes_on_no_warnings"
+    ],
+    [
+     "tests/output/mermaid_snapshot_test.rs",
+     "mermaid_report_snapshot_taint_finding"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/algorithms/absence_slice.rs",
+     504,
+     504,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ],
+    [
+     "src/algorithms/angle_slice.rs",
+     121,
+     121,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ],
+    [
+     "src/algorithms/barrier_slice.rs",
+     42,
+     42,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ],
+    [
+     "src/algorithms/callback_dispatcher_slice.rs",
+     65,
+     65,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ],
+    [
+     "src/algorithms/chop.rs",
+     25,
+     25,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ],
+    [
+     "src/algorithms/circular_slice.rs",
+     63,
+     63,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ],
+    [
+     "src/algorithms/contract_slice.rs",
+     151,
+     151,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ],
+    [
+     "src/algorithms/delta_slice.rs",
+     18,
+     18,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ],
+    [
+     "src/algorithms/echo_slice.rs",
+     107,
+     107,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ],
+    [
+     "src/algorithms/full_flow.rs",
+     20,
+     20,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ],
+    [
+     "src/algorithms/gradient_slice.rs",
+     51,
+     51,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ],
+    [
+     "src/algorithms/horizontal_slice.rs",
+     40,
+     40,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ],
+    [
+     "src/algorithms/left_flow.rs",
+     260,
+     260,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ],
+    [
+     "src/algorithms/membrane_slice.rs",
+     22,
+     22,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ],
+    [
+     "src/algorithms/mod.rs",
+     140,
+     140,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ],
+    [
+     "src/algorithms/mod.rs",
+     143,
+     143,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ],
+    [
+     "src/algorithms/mod.rs",
+     145,
+     145,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ],
+    [
+     "src/algorithms/mod.rs",
+     320,
+     320,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ],
+    [
+     "src/algorithms/mod.rs",
+     342,
+     342,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ],
+    [
+     "src/algorithms/mod.rs",
+     355,
+     355,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ],
+    [
+     "src/algorithms/original_diff.rs",
+     13,
+     13,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ],
+    [
+     "src/algorithms/parent_function.rs",
+     13,
+     13,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ],
+    [
+     "src/algorithms/peer_consistency_slice.rs",
+     47,
+     47,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ],
+    [
+     "src/algorithms/phantom_slice.rs",
+     49,
+     49,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ],
+    [
+     "src/algorithms/primitive_slice.rs",
+     88,
+     88,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ],
+    [
+     "src/algorithms/provenance_slice.rs",
+     529,
+     529,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ],
+    [
+     "src/algorithms/quantum_slice.rs",
+     32,
+     32,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ],
+    [
+     "src/algorithms/resonance_slice.rs",
+     62,
+     62,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ],
+    [
+     "src/algorithms/spiral_slice.rs",
+     54,
+     54,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ],
+    [
+     "src/algorithms/symmetry_slice.rs",
+     158,
+     158,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ],
+    [
+     "src/algorithms/taint.rs",
+     10826,
+     10826,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ],
+    [
+     "src/algorithms/thin_slice.rs",
+     16,
+     16,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ],
+    [
+     "src/algorithms/threed_slice.rs",
+     56,
+     56,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ],
+    [
+     "src/algorithms/vertical_slice.rs",
+     71,
+     71,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ],
+    [
+     "src/output/mermaid.rs",
+     1068,
+     1068,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ],
+    [
+     "src/output/mermaid.rs",
+     1201,
+     1201,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ],
+    [
+     "src/slice.rs",
+     525,
+     525,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ],
+    [
+     "src/slice.rs",
+     584,
+     584,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ],
+    [
+     "src/slice.rs",
+     591,
+     591,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ],
+    [
+     "tests/integration/core_test.rs",
+     791,
+     791,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ],
+    [
+     "tests/integration/core_test.rs",
+     803,
+     803,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ],
+    [
+     "tests/integration/core_test.rs",
+     815,
+     815,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ],
+    [
+     "tests/output/mermaid_snapshot_test.rs",
+     10,
+     10,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ]
+   ],
+   "seed_def": "src/slice.rs:314",
+   "stratum": "C-name"
+  },
+  "callers:src/type_db.rs:431": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/type_db.rs",
+     "all_fields"
+    ],
+    [
+     "src/type_db.rs",
+     "collect_fields"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/type_db.rs",
+     427,
+     427
+    ],
+    [
+     "src/type_db.rs",
+     444,
+     444
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/type_db.rs",
+     "all_fields"
+    ],
+    [
+     "src/type_db.rs",
+     "collect_fields"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/type_db.rs",
+     427,
+     427,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "src/type_db.rs",
+     444,
+     444,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ]
+   ],
+   "seed_def": "src/type_db.rs:431",
+   "stratum": "U-method"
+  },
+  "callers:src/type_providers/go.rs:432": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/type_providers/go.rs",
+     "extract_type_spec"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/type_providers/go.rs",
+     305,
+     305
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/type_providers/go.rs",
+     "extract_type_spec"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/type_providers/go.rs",
+     305,
+     305,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ]
+   ],
+   "seed_def": "src/type_providers/go.rs:432",
+   "stratum": "C-name"
+  },
+  "callers:src/type_providers/java.rs:449": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "src/type_providers/java.rs",
+     "extract_top_level"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "src/type_providers/java.rs",
+     177,
+     177
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "src/type_providers/java.rs",
+     "extract_top_level"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "src/type_providers/java.rs",
+     177,
+     177,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ]
+   ],
+   "seed_def": "src/type_providers/java.rs:449",
+   "stratum": "C-name"
+  },
+  "callers:src/type_providers/python.rs:540": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "tests/ast/python_type_provider_test.rs",
+     "test_python_alias_non_matching"
+    ],
+    [
+     "tests/ast/python_type_provider_test.rs",
+     "test_python_arc_sharing"
+    ],
+    [
+     "tests/ast/python_type_provider_test.rs",
+     "test_python_class_extraction"
+    ],
+    [
+     "tests/ast/python_type_provider_test.rs",
+     "test_python_class_with_bases"
+    ],
+    [
+     "tests/ast/python_type_provider_test.rs",
+     "test_python_dataclass"
+    ],
+    [
+     "tests/ast/python_type_provider_test.rs",
+     "test_python_dataclass_with_args"
+    ],
+    [
+     "tests/ast/python_type_provider_test.rs",
+     "test_python_decorated_class_non_dataclass"
+    ],
+    [
+     "tests/ast/python_type_provider_test.rs",
+     "test_python_decorated_top_level_function"
+    ],
+    [
+     "tests/ast/python_type_provider_test.rs",
+     "test_python_dotted_base_class"
+    ],
+    [
+     "tests/ast/python_type_provider_test.rs",
+     "test_python_dotted_dataclass_decorator"
+    ],
+    [
+     "tests/ast/python_type_provider_test.rs",
+     "test_python_empty_class"
+    ],
+    [
+     "tests/ast/python_type_provider_test.rs",
+     "test_python_function_extraction"
+    ],
+    [
+     "tests/ast/python_type_provider_test.rs",
+     "test_python_function_no_return_type"
+    ],
+    [
+     "tests/ast/python_type_provider_test.rs",
+     "test_python_generic_base"
+    ],
+    [
+     "tests/ast/python_type_provider_test.rs",
+     "test_python_generic_subscript_base"
+    ],
+    [
+     "tests/ast/python_type_provider_test.rs",
+     "test_python_ignores_non_python_files"
+    ],
+    [
+     "tests/ast/python_type_provider_test.rs",
+     "test_python_protocol_class"
+    ],
+    [
+     "tests/ast/python_type_provider_test.rs",
+     "test_python_type_alias_explicit"
+    ],
+    [
+     "tests/ast/python_type_provider_test.rs",
+     "test_python_type_alias_heuristic"
+    ],
+    [
+     "tests/ast/python_type_provider_test.rs",
+     "test_python_unknown_type"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tests/ast/python_type_provider_test.rs",
+     51,
+     51
+    ],
+    [
+     "tests/ast/python_type_provider_test.rs",
+     102,
+     102
+    ],
+    [
+     "tests/ast/python_type_provider_test.rs",
+     103,
+     103
+    ],
+    [
+     "tests/ast/python_type_provider_test.rs",
+     197,
+     197
+    ],
+    [
+     "tests/ast/python_type_provider_test.rs",
+     219,
+     219
+    ],
+    [
+     "tests/ast/python_type_provider_test.rs",
+     237,
+     237
+    ],
+    [
+     "tests/ast/python_type_provider_test.rs",
+     254,
+     254
+    ],
+    [
+     "tests/ast/python_type_provider_test.rs",
+     269,
+     269
+    ],
+    [
+     "tests/ast/python_type_provider_test.rs",
+     284,
+     284
+    ],
+    [
+     "tests/ast/python_type_provider_test.rs",
+     389,
+     389
+    ],
+    [
+     "tests/ast/python_type_provider_test.rs",
+     448,
+     448
+    ],
+    [
+     "tests/ast/python_type_provider_test.rs",
+     449,
+     449
+    ],
+    [
+     "tests/ast/python_type_provider_test.rs",
+     480,
+     480
+    ],
+    [
+     "tests/ast/python_type_provider_test.rs",
+     481,
+     481
+    ],
+    [
+     "tests/ast/python_type_provider_test.rs",
+     636,
+     636
+    ],
+    [
+     "tests/ast/python_type_provider_test.rs",
+     662,
+     662
+    ],
+    [
+     "tests/ast/python_type_provider_test.rs",
+     665,
+     665
+    ],
+    [
+     "tests/ast/python_type_provider_test.rs",
+     693,
+     693
+    ],
+    [
+     "tests/ast/python_type_provider_test.rs",
+     742,
+     742
+    ],
+    [
+     "tests/ast/python_type_provider_test.rs",
+     792,
+     792
+    ],
+    [
+     "tests/ast/python_type_provider_test.rs",
+     818,
+     818
+    ],
+    [
+     "tests/ast/python_type_provider_test.rs",
+     843,
+     843
+    ],
+    [
+     "tests/ast/python_type_provider_test.rs",
+     871,
+     871
+    ],
+    [
+     "tests/ast/python_type_provider_test.rs",
+     890,
+     890
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "src/type_providers/python.rs:540",
+   "stratum": "C-method"
+  },
+  "callers:tests/navigation/loader_test.rs:27": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "tests/navigation/loader_test.rs:27",
+   "stratum": "Q-scoped"
+  }
+ },
+ "site_fingerprints": {
+  "src/algorithms/absence_slice.rs:504": "acb3d4fbd27c7e9a",
+  "src/algorithms/absence_slice.rs:541": "1c2c2b036e4f6087",
+  "src/algorithms/angle_slice.rs:121": "b128fa644232586c",
+  "src/algorithms/angle_slice.rs:157": "17e7d11887483b2a",
+  "src/algorithms/barrier_slice.rs:42": "248c47fd9b468d01",
+  "src/algorithms/callback_dispatcher_slice.rs:65": "6c40139cc8128246",
+  "src/algorithms/callback_dispatcher_slice.rs:79": "1e66e0786e7e8302",
+  "src/algorithms/chop.rs:25": "c8cedd263d3a13d6",
+  "src/algorithms/circular_slice.rs:63": "85949c3b30938033",
+  "src/algorithms/contract_slice.rs:1327": "64836fc31bf290a2",
+  "src/algorithms/contract_slice.rs:1331": "d18e92a077fd37a8",
+  "src/algorithms/contract_slice.rs:151": "67b58592adb1fe8d",
+  "src/algorithms/contract_slice.rs:162": "ecca973cc4a495c4",
+  "src/algorithms/delta_slice.rs:18": "633008f1e1e78c49",
+  "src/algorithms/echo_slice.rs:107": "671bb2952370bc84",
+  "src/algorithms/full_flow.rs:20": "f6799e136600a654",
+  "src/algorithms/full_flow.rs:36": "cbb7304f6d61956b",
+  "src/algorithms/full_flow.rs:45": "48d8aa61f0e4b759",
+  "src/algorithms/gradient_slice.rs:51": "55eb56a759fcd4fe",
+  "src/algorithms/horizontal_slice.rs:40": "0a8e6c96dd2402d4",
+  "src/algorithms/horizontal_slice.rs:52": "1f04fda8f3fa92bd",
+  "src/algorithms/left_flow.rs:260": "154edc59e373e0bf",
+  "src/algorithms/left_flow.rs:274": "cbb7304f6d61956b",
+  "src/algorithms/left_flow.rs:284": "48d8aa61f0e4b759",
+  "src/algorithms/membrane_slice.rs:22": "7f11c6dac6a3c1ff",
+  "src/algorithms/mod.rs:140": "2454e6c15164cb38",
+  "src/algorithms/mod.rs:143": "11b657f76a7c6c26",
+  "src/algorithms/mod.rs:145": "08161c7b46df404d",
+  "src/algorithms/mod.rs:320": "a3c70fa61501d7f3",
+  "src/algorithms/mod.rs:342": "055f73367d9a7dc5",
+  "src/algorithms/mod.rs:355": "c076f28c847668ab",
+  "src/algorithms/original_diff.rs:13": "27c05b7e299723f2",
+  "src/algorithms/parent_function.rs:13": "8da39403a541712b",
+  "src/algorithms/parent_function.rs:26": "cbb7304f6d61956b",
+  "src/algorithms/peer_consistency_slice.rs:47": "19e756366c631aae",
+  "src/algorithms/phantom_slice.rs:49": "2c730fd5e7fec117",
+  "src/algorithms/primitive_slice.rs:148": "4587bc02ab4fefbb",
+  "src/algorithms/primitive_slice.rs:88": "2218bf3ffa0ef6a0",
+  "src/algorithms/provenance_slice.rs:529": "0dd01762d8c6acca",
+  "src/algorithms/provenance_slice.rs:629": "a4c4e6b3d35a10f0",
+  "src/algorithms/quantum_slice.rs:32": "c16badceb2de5d99",
+  "src/algorithms/quantum_slice.rs:47": "ecca973cc4a495c4",
+  "src/algorithms/relevant_slice.rs:66": "d3c0b34746ae7cd5",
+  "src/algorithms/resonance_slice.rs:62": "f4667788cd5c5c76",
+  "src/algorithms/spiral_slice.rs:218": "d1c63cb1cc61d003",
+  "src/algorithms/spiral_slice.rs:54": "56644791ced08add",
+  "src/algorithms/spiral_slice.rs:78": "f12255440203c66a",
+  "src/algorithms/symmetry_slice.rs:158": "00a3186d2df04a31",
+  "src/algorithms/symmetry_slice.rs:171": "1f04fda8f3fa92bd",
+  "src/algorithms/taint.rs:10009": "68d72a91638e141b",
+  "src/algorithms/taint.rs:10603": "7e6f54724057349b",
+  "src/algorithms/taint.rs:10826": "5e2e75baed27a9ed",
+  "src/algorithms/taint.rs:4848": "812b6550f46351fb",
+  "src/algorithms/taint.rs:5836": "12323fdddb260658",
+  "src/algorithms/taint.rs:6188": "284865899f859671",
+  "src/algorithms/taint.rs:6408": "68d72a91638e141b",
+  "src/algorithms/taint.rs:6821": "8b273c450ffa31b5",
+  "src/algorithms/taint.rs:6984": "9946b9786b7cd028",
+  "src/algorithms/taint.rs:7193": "02a3355e7756645a",
+  "src/algorithms/taint.rs:7231": "02a3355e7756645a",
+  "src/algorithms/taint.rs:8060": "dfa3493efcfee5da",
+  "src/algorithms/taint.rs:8113": "490c2227fd7edc0b",
+  "src/algorithms/taint.rs:8327": "44bd854ea3beb3aa",
+  "src/algorithms/taint.rs:8328": "05500edf65e00950",
+  "src/algorithms/taint.rs:9302": "68d72a91638e141b",
+  "src/algorithms/taint.rs:9335": "68d72a91638e141b",
+  "src/algorithms/thin_slice.rs:16": "d88ed6eec0248342",
+  "src/algorithms/thin_slice.rs:29": "cbb7304f6d61956b",
+  "src/algorithms/thin_slice.rs:38": "48d8aa61f0e4b759",
+  "src/algorithms/threed_slice.rs:56": "b2e8c5f3dc51fcdf",
+  "src/algorithms/vertical_slice.rs:71": "900a4c8768b5942c",
+  "src/ast.rs:159": "17cbe53e83d0fe0b",
+  "src/ast.rs:162": "0975b7ee8a20653a",
+  "src/ast.rs:694": "ef17d65678be3739",
+  "src/ast.rs:743": "d8b0009cee8ae677",
+  "src/ast.rs:752": "018d52b1f77381c2",
+  "src/ast.rs:755": "531d12cced23577f",
+  "src/ast.rs:756": "cec34da03f529d3d",
+  "src/ast.rs:759": "3e3fc6faf747780c",
+  "src/ast.rs:763": "6b9043a1bfc08459",
+  "src/cfg.rs:260": "6574cc34fd34f3c8",
+  "src/cfg.rs:93": "c3e7385ddd897b45",
+  "src/cpg/query.rs:640": "7f2610b20c812ae8",
+  "src/cpg/query.rs:718": "7f2610b20c812ae8",
+  "src/cpg/query.rs:92": "d1d4095d6c3c5995",
+  "src/cpg/query.rs:98": "1944e443eff03a03",
+  "src/main.rs:1210": "1c34633929603e2c",
+  "src/main.rs:1211": "ae8e77a01f4a8e25",
+  "src/main.rs:1212": "03fd6219c908ee90",
+  "src/main.rs:1213": "163aa4c071eaf975",
+  "src/main.rs:1214": "170fac675d4117de",
+  "src/main.rs:1215": "dcf6ff45d87211ee",
+  "src/main.rs:1220": "a6c2455c1f5951aa",
+  "src/main.rs:1221": "68b16cfe82025482",
+  "src/main.rs:1222": "baefcbf0f676cca1",
+  "src/main.rs:322": "d4fafead4a26f738",
+  "src/main.rs:338": "8ebc1018d4373371",
+  "src/main.rs:339": "057e2e889ec6711f",
+  "src/main.rs:352": "022dc22a317125d6",
+  "src/main.rs:354": "c0a91d2a9b4c89cc",
+  "src/main.rs:367": "193b9b0c3cff3016",
+  "src/main.rs:382": "022dc22a317125d6",
+  "src/main.rs:384": "d63297fe62a4e7d9",
+  "src/main.rs:397": "193b9b0c3cff3016",
+  "src/main.rs:412": "fe8604ba4a061d43",
+  "src/main.rs:414": "942775fc5c8cbc73",
+  "src/main.rs:427": "193b9b0c3cff3016",
+  "src/main.rs:434": "92caa6e4599f4c48",
+  "src/main.rs:435": "e215e661db82dd42",
+  "src/main.rs:440": "6b9002b539e49e22",
+  "src/main.rs:441": "6e04d7f48d464763",
+  "src/main.rs:446": "68c5fafe7f8ce076",
+  "src/main.rs:447": "6e89477aa210d7cd",
+  "src/main.rs:452": "7d1dbec5118e55b2",
+  "src/main.rs:72": "ffb7857ebf314230",
+  "src/output/mermaid.rs:1068": "bd2ec2b82b44511e",
+  "src/output/mermaid.rs:1201": "f901e6521448d744",
+  "src/output/review.rs:353": "f4578ee8cc9e2931",
+  "src/react_hooks.rs:185": "b5bed9ef2ae07073",
+  "src/react_hooks.rs:336": "23cc6c4914ecc3d3",
+  "src/react_hooks.rs:337": "5582074410874a1a",
+  "src/react_hooks.rs:338": "1b57afcd02bfbe02",
+  "src/react_hooks.rs:339": "054b6bfc0560abd4",
+  "src/react_hooks.rs:340": "8bf607caa49dc7c3",
+  "src/react_hooks.rs:341": "42ebafc23d92e199",
+  "src/slice.rs:525": "877c7fc079ad53f8",
+  "src/slice.rs:584": "a7da1fa3b9b687a4",
+  "src/slice.rs:591": "82cc4c43ca9052d5",
+  "src/type_db.rs:427": "be01e0532745ff0a",
+  "src/type_db.rs:441": "4b2c3cd3381afd2e",
+  "src/type_db.rs:444": "3fd48d863bfc16e8",
+  "src/type_providers/go.rs:305": "840e5d8897ab8e8e",
+  "src/type_providers/go.rs:445": "980230f255029dd0",
+  "src/type_providers/java.rs:177": "64f7ef0785d2e9a9",
+  "src/type_providers/java.rs:456": "d0fc49e167b5ce28",
+  "src/type_providers/java.rs:471": "1744f7359874c1eb",
+  "src/type_providers/java.rs:480": "446656242fadb4f4",
+  "src/type_providers/java.rs:493": "a0ca428d9ce27792",
+  "src/type_providers/java.rs:500": "125bfbe7175a7ed8",
+  "src/type_providers/python.rs:548": "ac8ce67e599b0fa3",
+  "tests/ast/python_type_provider_test.rs:102": "26a1e76ac5571583",
+  "tests/ast/python_type_provider_test.rs:103": "7dd1c4f088fd26c5",
+  "tests/ast/python_type_provider_test.rs:197": "9d1fce57ee3a0baa",
+  "tests/ast/python_type_provider_test.rs:219": "9dceebe6df892537",
+  "tests/ast/python_type_provider_test.rs:237": "099f9fa312ee2a33",
+  "tests/ast/python_type_provider_test.rs:254": "b93c59fdffb4f7cc",
+  "tests/ast/python_type_provider_test.rs:269": "99aa6e585f69578f",
+  "tests/ast/python_type_provider_test.rs:284": "ac762f9860eb4ebe",
+  "tests/ast/python_type_provider_test.rs:389": "00b61c3cb9fa5214",
+  "tests/ast/python_type_provider_test.rs:448": "99a3e173fcfd0d6f",
+  "tests/ast/python_type_provider_test.rs:449": "da2b910d7e0331ca",
+  "tests/ast/python_type_provider_test.rs:480": "fb31727f7e5dd693",
+  "tests/ast/python_type_provider_test.rs:481": "3b877594170b9bd8",
+  "tests/ast/python_type_provider_test.rs:51": "3be1662d8129aade",
+  "tests/ast/python_type_provider_test.rs:636": "0576fe93820102ec",
+  "tests/ast/python_type_provider_test.rs:662": "a7d2266675efaeb6",
+  "tests/ast/python_type_provider_test.rs:665": "e4cc887a1c94deea",
+  "tests/ast/python_type_provider_test.rs:693": "3e5b23d8829bb484",
+  "tests/ast/python_type_provider_test.rs:742": "55ba71a28fb5015b",
+  "tests/ast/python_type_provider_test.rs:792": "e1bad378409e15b1",
+  "tests/ast/python_type_provider_test.rs:818": "445ad5db53aa1ce1",
+  "tests/ast/python_type_provider_test.rs:843": "0842957d25540926",
+  "tests/ast/python_type_provider_test.rs:871": "811907b3fb139031",
+  "tests/ast/python_type_provider_test.rs:890": "38fcb08ccd1f953c",
+  "tests/integration/core_test.rs:791": "15ddaaf807fb83a4",
+  "tests/integration/core_test.rs:803": "224af54e2d2d8865",
+  "tests/integration/core_test.rs:815": "bb19b41ad8b8e115",
+  "tests/output/mermaid_snapshot_test.rs:10": "a9a3c5a6b697779c"
+ }
+}

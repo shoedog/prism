@@ -1,0 +1,4836 @@
+{
+ "m1": {
+  "anon_oracle": 0,
+  "anon_prism": 0,
+  "matched": 11087,
+  "prism_extra": 0,
+  "prism_missing": 350,
+  "snapshot_prism_missing": 350
+ },
+ "m2": {
+  "callees": {
+   "C-method": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.700854948272956,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.700854948272956,
+      1.0
+     ],
+     "tp": 9
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 1,
+      "precision": [
+       0.75,
+       0.3006418400969081,
+       0.954412739704631
+      ],
+      "recall": [
+       1.0,
+       0.43850296436068037,
+       1.0
+      ],
+      "tp": 3
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 1,
+      "precision": [
+       0.75,
+       0.3006418400969081,
+       0.954412739704631
+      ],
+      "recall": [
+       1.0,
+       0.43850296436068037,
+       1.0
+      ],
+      "tp": 3
+     }
+    },
+    "pending": 8,
+    "raw": {
+     "fn": 8,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.700854948272956,
+      1.0
+     ],
+     "recall": [
+      0.5294117647058824,
+      0.3096323491502231,
+      0.7383489368862088
+     ],
+     "tp": 9
+    },
+    "shortfall": 0
+   },
+   "C-name": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.6456695613241317,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.6456695613241317,
+      1.0
+     ],
+     "tp": 7
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 3,
+      "precision": [
+       0.5714285714285714,
+       0.25045836275303557,
+       0.8417801460075546
+      ],
+      "recall": [
+       1.0,
+       0.5101091596030786,
+       0.9999999999999999
+      ],
+      "tp": 4
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 3,
+      "precision": [
+       0.5714285714285714,
+       0.25045836275303557,
+       0.8417801460075546
+      ],
+      "recall": [
+       1.0,
+       0.5101091596030786,
+       0.9999999999999999
+      ],
+      "tp": 4
+     }
+    },
+    "pending": 16,
+    "raw": {
+     "fn": 14,
+     "fp": 2,
+     "precision": [
+      0.7777777777777778,
+      0.4525889666922117,
+      0.9367748934594303
+     ],
+     "recall": [
+      0.3333333333333333,
+      0.1719475251228901,
+      0.5462654818728245
+     ],
+     "tp": 7
+    },
+    "shortfall": 0
+   },
+   "Q-scoped": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.8063923170025951,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.8063923170025951,
+      1.0
+     ],
+     "tp": 16
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 4,
+      "precision": [
+       0.5,
+       0.21521606069626764,
+       0.7847839393037324
+      ],
+      "recall": [
+       1.0,
+       0.5101091596030786,
+       0.9999999999999999
+      ],
+      "tp": 4
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 4,
+      "precision": [
+       0.5,
+       0.21521606069626764,
+       0.7847839393037324
+      ],
+      "recall": [
+       1.0,
+       0.5101091596030786,
+       0.9999999999999999
+      ],
+      "tp": 4
+     }
+    },
+    "pending": 12,
+    "raw": {
+     "fn": 4,
+     "fp": 8,
+     "precision": [
+      0.6666666666666666,
+      0.46706316684738447,
+      0.8202780976355061
+     ],
+     "recall": [
+      0.8,
+      0.583982565906683,
+      0.9193423379822393
+     ],
+     "tp": 16
+    },
+    "shortfall": 0
+   },
+   "U-method": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.8156818626193445,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.8156818626193445,
+      1.0
+     ],
+     "tp": 17
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 3,
+      "precision": [
+       0.5714285714285714,
+       0.25045836275303557,
+       0.8417801460075546
+      ],
+      "recall": [
+       1.0,
+       0.5101091596030786,
+       0.9999999999999999
+      ],
+      "tp": 4
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 3,
+      "precision": [
+       0.5714285714285714,
+       0.25045836275303557,
+       0.8417801460075546
+      ],
+      "recall": [
+       1.0,
+       0.5101091596030786,
+       0.9999999999999999
+      ],
+      "tp": 4
+     }
+    },
+    "pending": 14,
+    "raw": {
+     "fn": 8,
+     "fp": 6,
+     "precision": [
+      0.7391304347826086,
+      0.5352999499700668,
+      0.8745138402805501
+     ],
+     "recall": [
+      0.68,
+      0.4841026912048403,
+      0.8279480978014191
+     ],
+     "tp": 17
+    },
+    "shortfall": 0
+   }
+  },
+  "callers": {
+   "C-method": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.6096657083436265,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.6096657083436265,
+      1.0
+     ],
+     "tp": 6
+    },
+    "function": {
+     "corrected": {
+      "fn": 14,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.43850296436068037,
+       1.0
+      ],
+      "recall": [
+       0.17647058823529413,
+       0.06191126589146398,
+       0.4102945877077837
+      ],
+      "tp": 3
+     },
+     "raw": {
+      "fn": 14,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.43850296436068037,
+       1.0
+      ],
+      "recall": [
+       0.17647058823529413,
+       0.06191126589146398,
+       0.4102945877077837
+      ],
+      "tp": 3
+     }
+    },
+    "pending": 15,
+    "raw": {
+     "fn": 15,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.6096657083436265,
+      1.0
+     ],
+     "recall": [
+      0.2857142857142857,
+      0.1381386287176154,
+      0.4995638088483033
+     ],
+     "tp": 6
+    },
+    "shortfall": 0
+   },
+   "C-name": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.6456695613241317,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.6456695613241317,
+      1.0
+     ],
+     "tp": 7
+    },
+    "function": {
+     "corrected": {
+      "fn": 19,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.6096657083436265,
+       1.0
+      ],
+      "recall": [
+       0.24,
+       0.11496313626452448,
+       0.4342968351708788
+      ],
+      "tp": 6
+     },
+     "raw": {
+      "fn": 19,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.6096657083436265,
+       1.0
+      ],
+      "recall": [
+       0.24,
+       0.11496313626452448,
+       0.4342968351708788
+      ],
+      "tp": 6
+     }
+    },
+    "pending": 23,
+    "raw": {
+     "fn": 23,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.6456695613241317,
+      1.0
+     ],
+     "recall": [
+      0.23333333333333334,
+      0.11792388080557861,
+      0.40928326306719587
+     ],
+     "tp": 7
+    },
+    "shortfall": 0
+   },
+   "Q-scoped": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.5655175313406071,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.5655175313406071,
+      1.0
+     ],
+     "tp": 5
+    },
+    "function": {
+     "corrected": {
+      "fn": 3,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.5101091596030786,
+       0.9999999999999999
+      ],
+      "recall": [
+       0.5714285714285714,
+       0.25045836275303557,
+       0.8417801460075546
+      ],
+      "tp": 4
+     },
+     "raw": {
+      "fn": 3,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.5101091596030786,
+       0.9999999999999999
+      ],
+      "recall": [
+       0.5714285714285714,
+       0.25045836275303557,
+       0.8417801460075546
+      ],
+      "tp": 4
+     }
+    },
+    "pending": 3,
+    "raw": {
+     "fn": 3,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.5655175313406071,
+      1.0
+     ],
+     "recall": [
+      0.625,
+      0.30574239265377096,
+      0.8631557152608771
+     ],
+     "tp": 5
+    },
+    "shortfall": 0
+   },
+   "U-method": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.7575059904469021,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.7575059904469021,
+      1.0
+     ],
+     "tp": 12
+    },
+    "function": {
+     "corrected": {
+      "fn": 2,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.7575059904469021,
+       1.0
+      ],
+      "recall": [
+       0.8571428571428571,
+       0.600586202762663,
+       0.959906079092351
+      ],
+      "tp": 12
+     },
+     "raw": {
+      "fn": 2,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.7575059904469021,
+       1.0
+      ],
+      "recall": [
+       0.8571428571428571,
+       0.600586202762663,
+       0.959906079092351
+      ],
+      "tp": 12
+     }
+    },
+    "pending": 2,
+    "raw": {
+     "fn": 2,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.7575059904469021,
+      1.0
+     ],
+     "recall": [
+      0.8571428571428571,
+      0.600586202762663,
+      0.959906079092351
+     ],
+     "tp": 12
+    },
+    "shortfall": 0
+   }
+  }
+ },
+ "m3": {
+  "cap": 25,
+  "checked": [],
+  "counts": {
+   "alias_site": 0,
+   "ambiguous": 0,
+   "confirmed_fp": 0,
+   "confirmed_tp": 0
+  }
+ },
+ "meta": {
+  "baseline_invalid": false,
+  "corpus": "uv",
+  "corpus_dirty": false,
+  "corpus_dirty_reasons": [],
+  "corpus_sha": "3cdf50e0924f",
+  "date": "2026-06-20",
+  "harness_sha": "06e6ac4ee96e",
+  "invalid_reasons": [],
+  "oracle": "rust-analyzer 1.96.0 (ac68faa2 2026-05-25)",
+  "oracle_error_rate": 0.0,
+  "oracle_not_quiescent": false,
+  "prism_dirty": false,
+  "prism_sha": "20c8490591a3",
+  "seed": 42,
+  "stale_adjudications": 0,
+  "sut_error_rate": 0.0,
+  "wall_s": {
+   "m1_oracle_inventory": 0.935,
+   "m2": 128.212,
+   "m3": 0.001,
+   "oracle_start": 55.352
+  }
+ },
+ "pending": [
+  {
+   "corpus": "uv",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "crates/uv-bench/benches/uv.rs:268",
+   "site": "crates/uv-bench/benches/uv.rs:203",
+   "site_fingerprint": "75e8047053da02c6"
+  },
+  {
+   "corpus": "uv",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "crates/uv-bin-install/src/lib.rs:255",
+   "site": "crates/uv/src/commands/project/check/ty.rs:73",
+   "site_fingerprint": "91998501970ace08"
+  },
+  {
+   "corpus": "uv",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "crates/uv-bin-install/src/lib.rs:255",
+   "site": "crates/uv/src/commands/project/format.rs:105",
+   "site_fingerprint": "91998501970ace08"
+  },
+  {
+   "corpus": "uv",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "crates/uv-build-backend/src/metadata.rs:2006",
+   "site": "crates/uv-build-backend/src/metadata.rs:2021",
+   "site_fingerprint": "726b8d9854da5b3a"
+  },
+  {
+   "corpus": "uv",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "crates/uv-build-backend/src/metadata.rs:2006",
+   "site": "crates/uv-build-backend/src/metadata.rs:2031",
+   "site_fingerprint": "3af6ce9f2dd712b1"
+  },
+  {
+   "corpus": "uv",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "crates/uv-build-backend/src/metadata.rs:2006",
+   "site": "crates/uv-build-backend/src/metadata.rs:2041",
+   "site_fingerprint": "1557c16493d12947"
+  },
+  {
+   "corpus": "uv",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "crates/uv-distribution-types/src/cached.rs:265",
+   "site": "crates/uv-distribution-types/src/cached.rs:274",
+   "site_fingerprint": "c01ab83e4fa35747"
+  },
+  {
+   "corpus": "uv",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "crates/uv-distribution-types/src/cached.rs:265",
+   "site": "crates/uv-distribution-types/src/traits.rs:141",
+   "site_fingerprint": "40ccaab893fbd956"
+  },
+  {
+   "corpus": "uv",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "crates/uv-distribution-types/src/resolution.rs:73",
+   "site": "crates/uv/src/commands/workspace/module_owners.rs:132",
+   "site_fingerprint": "3aba73695638ebb8"
+  },
+  {
+   "corpus": "uv",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "crates/uv-preview/src/lib.rs:444",
+   "site": "crates/uv-build/src/main.rs:47",
+   "site_fingerprint": "9f5c520df2d1bef0"
+  },
+  {
+   "corpus": "uv",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "crates/uv-preview/src/lib.rs:444",
+   "site": "crates/uv-preview/src/lib.rs:560",
+   "site_fingerprint": "577d671738cb5fdd"
+  },
+  {
+   "corpus": "uv",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "crates/uv-preview/src/lib.rs:444",
+   "site": "crates/uv-settings/src/settings.rs:2952",
+   "site_fingerprint": "848b8f24c5eb2a3f"
+  },
+  {
+   "corpus": "uv",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "crates/uv-preview/src/lib.rs:444",
+   "site": "crates/uv/src/settings.rs:231",
+   "site_fingerprint": "3c84566035164420"
+  },
+  {
+   "corpus": "uv",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "crates/uv-preview/src/lib.rs:444",
+   "site": "crates/uv/src/settings.rs:239",
+   "site_fingerprint": "ab231ccf2283a245"
+  },
+  {
+   "corpus": "uv",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "crates/uv-preview/src/lib.rs:444",
+   "site": "crates/uv/src/settings.rs:252",
+   "site_fingerprint": "05a8ee40514268fa"
+  },
+  {
+   "corpus": "uv",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "crates/uv-pypi-types/src/simple_json.rs:318",
+   "site": "crates/uv-resolver/src/version_map.rs:575",
+   "site_fingerprint": "ea246764f08d1dd8"
+  },
+  {
+   "corpus": "uv",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "crates/uv-pypi-types/src/simple_json.rs:318",
+   "site": "crates/uv-resolver/src/version_map.rs:622",
+   "site_fingerprint": "dc6e80ac74b7c81b"
+  },
+  {
+   "corpus": "uv",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "crates/uv-resolver/src/lock/export/metadata.rs:224",
+   "site": "crates/uv-resolver/src/lock/export/metadata.rs:241",
+   "site_fingerprint": "224d5d3800ffc36d"
+  },
+  {
+   "corpus": "uv",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "crates/uv-resolver/src/lock/export/metadata.rs:224",
+   "site": "crates/uv-resolver/src/lock/export/metadata.rs:245",
+   "site_fingerprint": "10f50b7cfd16c162"
+  },
+  {
+   "corpus": "uv",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "crates/uv-resolver/src/lock/export/metadata.rs:224",
+   "site": "crates/uv-resolver/src/lock/export/metadata.rs:254",
+   "site_fingerprint": "42a8ab1f69c709e4"
+  },
+  {
+   "corpus": "uv",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "crates/uv-resolver/src/lock/export/metadata.rs:224",
+   "site": "crates/uv-resolver/src/lock/export/metadata.rs:267",
+   "site_fingerprint": "81f15f9392117c2d"
+  },
+  {
+   "corpus": "uv",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "crates/uv-resolver/src/pubgrub/package.rs:29",
+   "site": "crates/uv-resolver/src/error.rs:1664",
+   "site_fingerprint": "d898eafaeca3e9af"
+  },
+  {
+   "corpus": "uv",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "crates/uv-resolver/src/pubgrub/package.rs:29",
+   "site": "crates/uv-resolver/src/error.rs:1739",
+   "site_fingerprint": "74bfc0d7c280d78e"
+  },
+  {
+   "corpus": "uv",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "crates/uv-resolver/src/pubgrub/package.rs:29",
+   "site": "crates/uv-resolver/src/pubgrub/report.rs:2661",
+   "site_fingerprint": "63b1bc44174a5122"
+  },
+  {
+   "corpus": "uv",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "crates/uv-resolver/src/pubgrub/package.rs:29",
+   "site": "crates/uv-resolver/src/pubgrub/report.rs:2692",
+   "site_fingerprint": "4e29d094699564ed"
+  },
+  {
+   "corpus": "uv",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "crates/uv-resolver/src/pubgrub/package.rs:29",
+   "site": "crates/uv-resolver/src/resolver/mod.rs:333",
+   "site_fingerprint": "a030729961738921"
+  },
+  {
+   "corpus": "uv",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "crates/uv-resolver/src/pubgrub/package.rs:29",
+   "site": "crates/uv-resolver/src/resolver/mod.rs:1948",
+   "site_fingerprint": "db1f6ac2d0bf87e1"
+  },
+  {
+   "corpus": "uv",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "crates/uv-resolver/src/pubgrub/package.rs:29",
+   "site": "crates/uv-resolver/src/resolver/mod.rs:1976",
+   "site_fingerprint": "c815b3cbcf679c3c"
+  },
+  {
+   "corpus": "uv",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "crates/uv-resolver/src/pubgrub/package.rs:29",
+   "site": "crates/uv-resolver/src/resolver/mod.rs:2002",
+   "site_fingerprint": "78c90c6d30b6d3a5"
+  },
+  {
+   "corpus": "uv",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "crates/uv-resolver/src/pubgrub/package.rs:29",
+   "site": "crates/uv-resolver/src/resolver/mod.rs:3197",
+   "site_fingerprint": "c85bc667330d93d7"
+  },
+  {
+   "corpus": "uv",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "crates/uv-resolver/src/pubgrub/package.rs:29",
+   "site": "crates/uv-resolver/src/resolver/system.rs:49",
+   "site_fingerprint": "237783ba9db9c700"
+  },
+  {
+   "corpus": "uv",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "crates/uv-workspace/src/workspace.rs:948",
+   "site": "crates/uv/src/commands/project/add.rs:560",
+   "site_fingerprint": "acce2e41883527d2"
+  },
+  {
+   "corpus": "uv",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "crates/uv-workspace/src/workspace.rs:948",
+   "site": "crates/uv/src/commands/project/add.rs:1478",
+   "site_fingerprint": "eec09888d74f98e5"
+  },
+  {
+   "corpus": "uv",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "crates/uv-workspace/src/workspace.rs:948",
+   "site": "crates/uv/src/commands/project/audit.rs:102",
+   "site_fingerprint": "258cc130d9db1018"
+  },
+  {
+   "corpus": "uv",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "crates/uv-workspace/src/workspace.rs:948",
+   "site": "crates/uv/src/commands/project/init.rs:442",
+   "site_fingerprint": "91ac935aa8632acb"
+  },
+  {
+   "corpus": "uv",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "crates/uv-workspace/src/workspace.rs:948",
+   "site": "crates/uv/src/commands/project/lock.rs:564",
+   "site_fingerprint": "cfd42e70352ca866"
+  },
+  {
+   "corpus": "uv",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "crates/uv-workspace/src/workspace.rs:948",
+   "site": "crates/uv/src/commands/project/lock.rs:565",
+   "site_fingerprint": "34b657fe95d5746e"
+  },
+  {
+   "corpus": "uv",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "crates/uv-workspace/src/workspace.rs:948",
+   "site": "crates/uv/src/commands/project/lock_target.rs:359",
+   "site_fingerprint": "6871814a7b64cf0b"
+  },
+  {
+   "corpus": "uv",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "crates/uv-workspace/src/workspace.rs:948",
+   "site": "crates/uv/src/commands/project/tree.rs:84",
+   "site_fingerprint": "258cc130d9db1018"
+  },
+  {
+   "corpus": "uv",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callees",
+   "seed_def": "crates/uv-bench/benches/uv.rs:268",
+   "site": "crates/uv-bench/benches/uv.rs:275",
+   "site_fingerprint": "4027b21f201ed4b9"
+  },
+  {
+   "corpus": "uv",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "crates/uv-bin-install/src/lib.rs:255",
+   "site": "crates/uv-bin-install/src/lib.rs:261",
+   "site_fingerprint": "eb9e7957d6271957"
+  },
+  {
+   "corpus": "uv",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "crates/uv-bin-install/src/lib.rs:255",
+   "site": "crates/uv-bin-install/src/lib.rs:265",
+   "site_fingerprint": "b161cd42cd4b5e82"
+  },
+  {
+   "corpus": "uv",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "crates/uv-distribution-types/src/cached.rs:265",
+   "site": "crates/uv-distribution-types/src/cached.rs:266",
+   "site_fingerprint": "4bb0413c27a2a422"
+  },
+  {
+   "corpus": "uv",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "crates/uv-distribution/src/index/built_wheel_index.rs:60",
+   "site": "crates/uv-distribution/src/index/built_wheel_index.rs:62",
+   "site_fingerprint": "9f5d0e9141cdc4cb"
+  },
+  {
+   "corpus": "uv",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "crates/uv-distribution/src/index/built_wheel_index.rs:60",
+   "site": "crates/uv-distribution/src/index/built_wheel_index.rs:74",
+   "site_fingerprint": "42334903dffff504"
+  },
+  {
+   "corpus": "uv",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "crates/uv-distribution/src/index/built_wheel_index.rs:60",
+   "site": "crates/uv-distribution/src/index/built_wheel_index.rs:75",
+   "site_fingerprint": "df59f454b628a345"
+  },
+  {
+   "corpus": "uv",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "crates/uv-distribution/src/index/built_wheel_index.rs:60",
+   "site": "crates/uv-distribution/src/index/built_wheel_index.rs:79",
+   "site_fingerprint": "55b17ffcf5e5f5f7"
+  },
+  {
+   "corpus": "uv",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "crates/uv-distribution/src/index/built_wheel_index.rs:60",
+   "site": "crates/uv-distribution/src/index/built_wheel_index.rs:86",
+   "site_fingerprint": "fc12f2abc7e41d31"
+  },
+  {
+   "corpus": "uv",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "crates/uv-distribution/src/index/built_wheel_index.rs:60",
+   "site": "crates/uv-distribution/src/index/built_wheel_index.rs:89",
+   "site_fingerprint": "f136ea4d5627ff9d"
+  },
+  {
+   "corpus": "uv",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "crates/uv-distribution/src/index/built_wheel_index.rs:60",
+   "site": "crates/uv-distribution/src/index/built_wheel_index.rs:95",
+   "site_fingerprint": "1a2db5925b9cfac5"
+  },
+  {
+   "corpus": "uv",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "crates/uv-distribution/src/index/cached_wheel.rs:25",
+   "site": "crates/uv-distribution/src/index/cached_wheel.rs:34",
+   "site_fingerprint": "05df93b0ac822dac"
+  },
+  {
+   "corpus": "uv",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callees",
+   "seed_def": "crates/uv-distribution/src/source/mod.rs:2690",
+   "site": "crates/uv-distribution/src/source/mod.rs:2736",
+   "site_fingerprint": "3d0eba3cb467a480"
+  },
+  {
+   "corpus": "uv",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callees",
+   "seed_def": "crates/uv-distribution/src/source/mod.rs:2690",
+   "site": "crates/uv-distribution/src/source/mod.rs:2745",
+   "site_fingerprint": "42577a6a16d6dc7e"
+  },
+  {
+   "corpus": "uv",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "crates/uv-distribution/src/source/mod.rs:2690",
+   "site": "crates/uv-distribution/src/source/mod.rs:2705",
+   "site_fingerprint": "e2ea19a57cc188f0"
+  },
+  {
+   "corpus": "uv",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "crates/uv-distribution/src/source/mod.rs:2690",
+   "site": "crates/uv-distribution/src/source/mod.rs:2710",
+   "site_fingerprint": "ca5b352a770c8951"
+  },
+  {
+   "corpus": "uv",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "crates/uv-distribution/src/source/mod.rs:2690",
+   "site": "crates/uv-distribution/src/source/mod.rs:2712",
+   "site_fingerprint": "2e6215f86fc71f78"
+  },
+  {
+   "corpus": "uv",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "crates/uv-distribution/src/source/mod.rs:2690",
+   "site": "crates/uv-distribution/src/source/mod.rs:2726",
+   "site_fingerprint": "4e0c3bad21ac9278"
+  },
+  {
+   "corpus": "uv",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "crates/uv-distribution/src/source/mod.rs:2690",
+   "site": "crates/uv-distribution/src/source/mod.rs:2731",
+   "site_fingerprint": "07fd4c1feb7a74b6"
+  },
+  {
+   "corpus": "uv",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "crates/uv-distribution/src/source/mod.rs:2690",
+   "site": "crates/uv-distribution/src/source/mod.rs:2757",
+   "site_fingerprint": "277350eb9f627330"
+  },
+  {
+   "corpus": "uv",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "crates/uv-distribution/src/source/mod.rs:2690",
+   "site": "crates/uv-distribution/src/source/mod.rs:2758",
+   "site_fingerprint": "891a8bb07d58c1b7"
+  },
+  {
+   "corpus": "uv",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "crates/uv-distribution/src/source/mod.rs:2690",
+   "site": "crates/uv-distribution/src/source/mod.rs:2766",
+   "site_fingerprint": "8118e6e6712717ef"
+  },
+  {
+   "corpus": "uv",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callees",
+   "seed_def": "crates/uv-python/src/lib.rs:3136",
+   "site": "crates/uv-python/src/lib.rs:3140",
+   "site_fingerprint": "2b6331b71f6d9308"
+  },
+  {
+   "corpus": "uv",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callees",
+   "seed_def": "crates/uv-python/src/lib.rs:3136",
+   "site": "crates/uv-python/src/lib.rs:3147",
+   "site_fingerprint": "59de288403165663"
+  },
+  {
+   "corpus": "uv",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "crates/uv-python/src/lib.rs:3136",
+   "site": "crates/uv-python/src/lib.rs:3135",
+   "site_fingerprint": "253cae2b19c32f65"
+  },
+  {
+   "corpus": "uv",
+   "direction": "prism_only",
+   "dispatch_kind": "trait_cha",
+   "measurement": "callees",
+   "seed_def": "crates/uv-requirements-txt/src/lib.rs:1098",
+   "site": "crates/uv-requirements-txt/src/lib.rs:1104",
+   "site_fingerprint": "528c465bf8178af2"
+  },
+  {
+   "corpus": "uv",
+   "direction": "prism_only",
+   "dispatch_kind": "trait_cha",
+   "measurement": "callees",
+   "seed_def": "crates/uv-requirements-txt/src/lib.rs:1098",
+   "site": "crates/uv-requirements-txt/src/lib.rs:1107",
+   "site_fingerprint": "7644a6aa7a70dbf8"
+  },
+  {
+   "corpus": "uv",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "crates/uv-requirements-txt/src/lib.rs:1098",
+   "site": "crates/uv-requirements-txt/src/lib.rs:1111",
+   "site_fingerprint": "6a36421a2fc46d22"
+  },
+  {
+   "corpus": "uv",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "crates/uv-requirements-txt/src/lib.rs:1098",
+   "site": "crates/uv-requirements-txt/src/lib.rs:1115",
+   "site_fingerprint": "3af4c51429524415"
+  },
+  {
+   "corpus": "uv",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "crates/uv-resolver/src/pubgrub/package.rs:29",
+   "site": "crates/uv-resolver/src/pubgrub/package.rs:30",
+   "site_fingerprint": "5f2bfcab047c6a86"
+  },
+  {
+   "corpus": "uv",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callees",
+   "seed_def": "crates/uv-resolver/src/resolver/batch_prefetch.rs:186",
+   "site": "crates/uv-resolver/src/resolver/batch_prefetch.rs:187",
+   "site_fingerprint": "620b32d625414c84"
+  },
+  {
+   "corpus": "uv",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callees",
+   "seed_def": "crates/uv-resolver/src/resolver/batch_prefetch.rs:186",
+   "site": "crates/uv-resolver/src/resolver/batch_prefetch.rs:198",
+   "site_fingerprint": "e9e53a36e05b17b6"
+  },
+  {
+   "corpus": "uv",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callees",
+   "seed_def": "crates/uv-resolver/src/resolver/environment.rs:299",
+   "site": "crates/uv-resolver/src/resolver/environment.rs:313",
+   "site_fingerprint": "8c8cbb081ea35e68"
+  },
+  {
+   "corpus": "uv",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callees",
+   "seed_def": "crates/uv-resolver/src/resolver/environment.rs:299",
+   "site": "crates/uv-resolver/src/resolver/environment.rs:314",
+   "site_fingerprint": "2d6ad5f5b043c36b"
+  },
+  {
+   "corpus": "uv",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "crates/uv-workspace/src/dependency_groups.rs:238",
+   "site": "crates/uv-workspace/src/dependency_groups.rs:239",
+   "site_fingerprint": "a2cd765feefa8486"
+  },
+  {
+   "corpus": "uv",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callees",
+   "seed_def": "crates/uv/src/commands/project/mod.rs:1674",
+   "site": "crates/uv/src/commands/project/mod.rs:1728",
+   "site_fingerprint": "70c496afd1bc1e28"
+  },
+  {
+   "corpus": "uv",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "crates/uv/src/commands/project/mod.rs:1674",
+   "site": "crates/uv/src/commands/project/mod.rs:1716",
+   "site_fingerprint": "c2622cb0abf938fc"
+  },
+  {
+   "corpus": "uv",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "crates/uv/src/commands/project/mod.rs:1674",
+   "site": "crates/uv/src/commands/project/mod.rs:1736",
+   "site_fingerprint": "bfa6bb816bfd40e7"
+  },
+  {
+   "corpus": "uv",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "crates/uv/src/commands/project/mod.rs:1674",
+   "site": "crates/uv/src/commands/project/mod.rs:1741",
+   "site_fingerprint": "5eb100040420d6c4"
+  },
+  {
+   "corpus": "uv",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "crates/uv/src/commands/project/mod.rs:1674",
+   "site": "crates/uv/src/commands/project/mod.rs:1749",
+   "site_fingerprint": "c3c7f4a154b75d8f"
+  },
+  {
+   "corpus": "uv",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "crates/uv/src/commands/project/mod.rs:1674",
+   "site": "crates/uv/src/commands/project/mod.rs:1751",
+   "site_fingerprint": "96b7383253817f6b"
+  },
+  {
+   "corpus": "uv",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "crates/uv/src/commands/project/mod.rs:1674",
+   "site": "crates/uv/src/commands/project/mod.rs:1756",
+   "site_fingerprint": "9bb58ca3e9f0be39"
+  },
+  {
+   "corpus": "uv",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "crates/uv/src/commands/project/mod.rs:1674",
+   "site": "crates/uv/src/commands/project/mod.rs:1773",
+   "site_fingerprint": "5c568583129f8270"
+  },
+  {
+   "corpus": "uv",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "crates/uv/src/commands/project/mod.rs:1674",
+   "site": "crates/uv/src/commands/project/mod.rs:1778",
+   "site_fingerprint": "5eb100040420d6c4"
+  },
+  {
+   "corpus": "uv",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "crates/uv/src/commands/project/mod.rs:1674",
+   "site": "crates/uv/src/commands/project/mod.rs:1787",
+   "site_fingerprint": "3b25a85c168edeee"
+  },
+  {
+   "corpus": "uv",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "crates/uv/src/commands/project/mod.rs:1674",
+   "site": "crates/uv/src/commands/project/mod.rs:1789",
+   "site_fingerprint": "52c4de43e01f9e77"
+  },
+  {
+   "corpus": "uv",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callees",
+   "seed_def": "crates/uv/tests/project/edit.rs:10700",
+   "site": "crates/uv/tests/project/edit.rs:10724",
+   "site_fingerprint": "f96dc6641a5ba400"
+  },
+  {
+   "corpus": "uv",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callees",
+   "seed_def": "crates/uv/tests/project/edit.rs:10700",
+   "site": "crates/uv/tests/project/edit.rs:10746",
+   "site_fingerprint": "e0ff5fa7a6093276"
+  },
+  {
+   "corpus": "uv",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callees",
+   "seed_def": "crates/uv/tests/project/edit.rs:10700",
+   "site": "crates/uv/tests/project/edit.rs:10796",
+   "site_fingerprint": "f96dc6641a5ba400"
+  },
+  {
+   "corpus": "uv",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callees",
+   "seed_def": "crates/uv/tests/project/edit.rs:10700",
+   "site": "crates/uv/tests/project/edit.rs:10819",
+   "site_fingerprint": "e0ff5fa7a6093276"
+  }
+ ],
+ "probes": {
+  "_corpus": "uv",
+  "_strata": {
+   "C-method": {
+    "eligible_probes": 16,
+    "eligible_symbols": 8,
+    "target": 8
+   },
+   "C-name": {
+    "eligible_probes": 16,
+    "eligible_symbols": 8,
+    "target": 8
+   },
+   "Q-scoped": {
+    "eligible_probes": 16,
+    "eligible_symbols": 8,
+    "target": 8
+   },
+   "U-free": {
+    "eligible_probes": 0,
+    "eligible_symbols": 0,
+    "target": 8
+   },
+   "U-method": {
+    "eligible_probes": 16,
+    "eligible_symbols": 8,
+    "target": 8
+   }
+  },
+  "callees:crates/uv-auth/src/index.rs:120": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "crates/uv-auth/src/index.rs",
+     "auth_policy_for"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "crates/uv-auth/src/index.rs",
+     121,
+     121
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/uv-auth/src/index.rs",
+     "auth_policy_for"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "crates/uv-auth/src/index.rs",
+     121,
+     121,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ]
+   ],
+   "seed_def": "crates/uv-auth/src/index.rs:120",
+   "stratum": "U-method"
+  },
+  "callees:crates/uv-bench/benches/uv.rs:268": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/uv-bench/benches/uv.rs",
+     "layout"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "crates/uv-bench/benches/uv.rs",
+     275,
+     275,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "crates/uv-bench/benches/uv.rs:268",
+   "stratum": "C-name"
+  },
+  "callees:crates/uv-bin-install/src/lib.rs:255": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "crates/uv-bin-install/src/lib.rs",
+     "from_str"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "crates/uv-bin-install/src/lib.rs",
+     261,
+     261
+    ],
+    [
+     "crates/uv-bin-install/src/lib.rs",
+     265,
+     265
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/uv-bin-install/src/lib.rs",
+     "from_str"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "crates/uv-bin-install/src/lib.rs:255",
+   "stratum": "C-name"
+  },
+  "callees:crates/uv-build-backend/src/lib.rs:119": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "inventory_miss",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "crates/uv-build-backend/src/lib.rs:119",
+   "stratum": "C-method"
+  },
+  "callees:crates/uv-build-backend/src/metadata.rs:2006": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "crates/uv-build-backend/src/metadata.rs",
+     "script_error"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "crates/uv-build-backend/src/metadata.rs",
+     2009,
+     2009
+    ],
+    [
+     "crates/uv-build-backend/src/metadata.rs",
+     2011,
+     2011
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/uv-build-backend/src/metadata.rs",
+     "script_error"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "crates/uv-build-backend/src/metadata.rs",
+     2011,
+     2011,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "crates/uv-build-backend/src/metadata.rs",
+     2007,
+     2007,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "crates/uv-build-backend/src/metadata.rs:2006",
+   "stratum": "Q-scoped"
+  },
+  "callees:crates/uv-client/src/flat_index.rs:76": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "crates/uv-client/src/flat_index.rs:76",
+   "stratum": "C-name"
+  },
+  "callees:crates/uv-configuration/src/hash.rs:42": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "crates/uv-configuration/src/hash.rs:42",
+   "stratum": "C-method"
+  },
+  "callees:crates/uv-configuration/src/trusted_host.rs:69": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/uv-configuration/src/trusted_host.rs",
+     "serialize"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "crates/uv-configuration/src/trusted_host.rs:69",
+   "stratum": "C-method"
+  },
+  "callees:crates/uv-distribution-types/src/cached.rs:265": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "crates/uv-distribution-types/src/cached.rs",
+     "installed_version"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "crates/uv-distribution-types/src/cached.rs",
+     266,
+     266
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/uv-distribution-types/src/cached.rs",
+     "installed_version"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "crates/uv-distribution-types/src/cached.rs:265",
+   "stratum": "C-method"
+  },
+  "callees:crates/uv-distribution-types/src/resolution.rs:73": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "crates/uv-distribution-types/src/resolution.rs",
+     "is_empty"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "crates/uv-distribution-types/src/resolution.rs",
+     74,
+     74
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/uv-distribution-types/src/resolution.rs",
+     "is_empty"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "crates/uv-distribution-types/src/resolution.rs",
+     74,
+     74,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ]
+   ],
+   "seed_def": "crates/uv-distribution-types/src/resolution.rs:73",
+   "stratum": "C-method"
+  },
+  "callees:crates/uv-distribution/src/index/built_wheel_index.rs:60": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "crates/uv-distribution/src/index/built_wheel_index.rs",
+     "url"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "crates/uv-distribution/src/index/built_wheel_index.rs",
+     62,
+     62
+    ],
+    [
+     "crates/uv-distribution/src/index/built_wheel_index.rs",
+     64,
+     64
+    ],
+    [
+     "crates/uv-distribution/src/index/built_wheel_index.rs",
+     64,
+     64
+    ],
+    [
+     "crates/uv-distribution/src/index/built_wheel_index.rs",
+     64,
+     64
+    ],
+    [
+     "crates/uv-distribution/src/index/built_wheel_index.rs",
+     68,
+     68
+    ],
+    [
+     "crates/uv-distribution/src/index/built_wheel_index.rs",
+     68,
+     68
+    ],
+    [
+     "crates/uv-distribution/src/index/built_wheel_index.rs",
+     74,
+     74
+    ],
+    [
+     "crates/uv-distribution/src/index/built_wheel_index.rs",
+     75,
+     75
+    ],
+    [
+     "crates/uv-distribution/src/index/built_wheel_index.rs",
+     75,
+     75
+    ],
+    [
+     "crates/uv-distribution/src/index/built_wheel_index.rs",
+     79,
+     79
+    ],
+    [
+     "crates/uv-distribution/src/index/built_wheel_index.rs",
+     89,
+     89
+    ],
+    [
+     "crates/uv-distribution/src/index/built_wheel_index.rs",
+     79,
+     79
+    ],
+    [
+     "crates/uv-distribution/src/index/built_wheel_index.rs",
+     82,
+     82
+    ],
+    [
+     "crates/uv-distribution/src/index/built_wheel_index.rs",
+     83,
+     83
+    ],
+    [
+     "crates/uv-distribution/src/index/built_wheel_index.rs",
+     84,
+     84
+    ],
+    [
+     "crates/uv-distribution/src/index/built_wheel_index.rs",
+     86,
+     86
+    ],
+    [
+     "crates/uv-distribution/src/index/built_wheel_index.rs",
+     88,
+     88
+    ],
+    [
+     "crates/uv-distribution/src/index/built_wheel_index.rs",
+     92,
+     92
+    ],
+    [
+     "crates/uv-distribution/src/index/built_wheel_index.rs",
+     93,
+     93
+    ],
+    [
+     "crates/uv-distribution/src/index/built_wheel_index.rs",
+     95,
+     95
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/uv-distribution/src/index/built_wheel_index.rs",
+     "url"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "crates/uv-distribution/src/index/built_wheel_index.rs",
+     92,
+     92,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "crates/uv-distribution/src/index/built_wheel_index.rs",
+     82,
+     82,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "crates/uv-distribution/src/index/built_wheel_index.rs",
+     83,
+     83,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "crates/uv-distribution/src/index/built_wheel_index.rs",
+     84,
+     84,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "crates/uv-distribution/src/index/built_wheel_index.rs",
+     93,
+     93,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ],
+    [
+     "crates/uv-distribution/src/index/built_wheel_index.rs",
+     68,
+     68,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ],
+    [
+     "crates/uv-distribution/src/index/built_wheel_index.rs",
+     87,
+     87,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "crates/uv-distribution/src/index/built_wheel_index.rs",
+     64,
+     64,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "crates/uv-distribution/src/index/built_wheel_index.rs:60",
+   "stratum": "C-method"
+  },
+  "callees:crates/uv-distribution/src/index/cached_wheel.rs:25": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "crates/uv-distribution/src/index/cached_wheel.rs",
+     "from_built_source"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "crates/uv-distribution/src/index/cached_wheel.rs",
+     30,
+     30
+    ],
+    [
+     "crates/uv-distribution/src/index/cached_wheel.rs",
+     33,
+     33
+    ],
+    [
+     "crates/uv-distribution/src/index/cached_wheel.rs",
+     34,
+     34
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/uv-distribution/src/index/cached_wheel.rs",
+     "from_built_source"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "crates/uv-distribution/src/index/cached_wheel.rs",
+     33,
+     33,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ],
+    [
+     "crates/uv-distribution/src/index/cached_wheel.rs",
+     33,
+     33,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ],
+    [
+     "crates/uv-distribution/src/index/cached_wheel.rs",
+     29,
+     29,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "crates/uv-distribution/src/index/cached_wheel.rs:25",
+   "stratum": "Q-scoped"
+  },
+  "callees:crates/uv-distribution/src/source/mod.rs:2690": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "crates/uv-distribution/src/source/mod.rs",
+     "heal_url_revision"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "crates/uv-distribution/src/source/mod.rs",
+     2702,
+     2702
+    ],
+    [
+     "crates/uv-distribution/src/source/mod.rs",
+     2702,
+     2702
+    ],
+    [
+     "crates/uv-distribution/src/source/mod.rs",
+     2705,
+     2705
+    ],
+    [
+     "crates/uv-distribution/src/source/mod.rs",
+     2710,
+     2710
+    ],
+    [
+     "crates/uv-distribution/src/source/mod.rs",
+     2709,
+     2709
+    ],
+    [
+     "crates/uv-distribution/src/source/mod.rs",
+     2712,
+     2712
+    ],
+    [
+     "crates/uv-distribution/src/source/mod.rs",
+     2717,
+     2717
+    ],
+    [
+     "crates/uv-distribution/src/source/mod.rs",
+     2716,
+     2716
+    ],
+    [
+     "crates/uv-distribution/src/source/mod.rs",
+     2717,
+     2717
+    ],
+    [
+     "crates/uv-distribution/src/source/mod.rs",
+     2717,
+     2717
+    ],
+    [
+     "crates/uv-distribution/src/source/mod.rs",
+     2726,
+     2726
+    ],
+    [
+     "crates/uv-distribution/src/source/mod.rs",
+     2758,
+     2758
+    ],
+    [
+     "crates/uv-distribution/src/source/mod.rs",
+     2731,
+     2731
+    ],
+    [
+     "crates/uv-distribution/src/source/mod.rs",
+     2732,
+     2732
+    ],
+    [
+     "crates/uv-distribution/src/source/mod.rs",
+     2743,
+     2743
+    ],
+    [
+     "crates/uv-distribution/src/source/mod.rs",
+     2733,
+     2733
+    ],
+    [
+     "crates/uv-distribution/src/source/mod.rs",
+     2745,
+     2745
+    ],
+    [
+     "crates/uv-distribution/src/source/mod.rs",
+     2741,
+     2741
+    ],
+    [
+     "crates/uv-distribution/src/source/mod.rs",
+     2741,
+     2741
+    ],
+    [
+     "crates/uv-distribution/src/source/mod.rs",
+     2745,
+     2745
+    ],
+    [
+     "crates/uv-distribution/src/source/mod.rs",
+     2748,
+     2748
+    ],
+    [
+     "crates/uv-distribution/src/source/mod.rs",
+     2748,
+     2748
+    ],
+    [
+     "crates/uv-distribution/src/source/mod.rs",
+     2754,
+     2754
+    ],
+    [
+     "crates/uv-distribution/src/source/mod.rs",
+     2757,
+     2757
+    ],
+    [
+     "crates/uv-distribution/src/source/mod.rs",
+     2756,
+     2756
+    ],
+    [
+     "crates/uv-distribution/src/source/mod.rs",
+     2758,
+     2758
+    ],
+    [
+     "crates/uv-distribution/src/source/mod.rs",
+     2760,
+     2760
+    ],
+    [
+     "crates/uv-distribution/src/source/mod.rs",
+     2766,
+     2766
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/uv-distribution/src/source/mod.rs",
+     "heal_url_revision"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "crates/uv-distribution/src/source/mod.rs",
+     2702,
+     2702,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ],
+    [
+     "crates/uv-distribution/src/source/mod.rs",
+     2741,
+     2741,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ],
+    [
+     "crates/uv-distribution/src/source/mod.rs",
+     2717,
+     2717,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ],
+    [
+     "crates/uv-distribution/src/source/mod.rs",
+     2717,
+     2717,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ],
+    [
+     "crates/uv-distribution/src/source/mod.rs",
+     2753,
+     2753,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ],
+    [
+     "crates/uv-distribution/src/source/mod.rs",
+     2740,
+     2740,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "crates/uv-distribution/src/source/mod.rs",
+     2715,
+     2715,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "crates/uv-distribution/src/source/mod.rs",
+     2755,
+     2755,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "crates/uv-distribution/src/source/mod.rs",
+     2736,
+     2736,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "crates/uv-distribution/src/source/mod.rs",
+     2708,
+     2708,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "crates/uv-distribution/src/source/mod.rs",
+     2732,
+     2732,
+     {
+      "resolution_kind": "trait_cha"
+     }
+    ],
+    [
+     "crates/uv-distribution/src/source/mod.rs",
+     2743,
+     2743,
+     {
+      "resolution_kind": "trait_cha"
+     }
+    ],
+    [
+     "crates/uv-distribution/src/source/mod.rs",
+     2748,
+     2748,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "crates/uv-distribution/src/source/mod.rs",
+     2732,
+     2732,
+     {
+      "resolution_kind": "trait_cha"
+     }
+    ],
+    [
+     "crates/uv-distribution/src/source/mod.rs",
+     2743,
+     2743,
+     {
+      "resolution_kind": "trait_cha"
+     }
+    ],
+    [
+     "crates/uv-distribution/src/source/mod.rs",
+     2733,
+     2733,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "crates/uv-distribution/src/source/mod.rs",
+     2745,
+     2745,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "crates/uv-distribution/src/source/mod.rs",
+     2760,
+     2760,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "crates/uv-distribution/src/source/mod.rs:2690",
+   "stratum": "U-method"
+  },
+  "callees:crates/uv-git-types/src/lib.rs:293": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "crates/uv-git-types/src/lib.rs:293",
+   "stratum": "C-method"
+  },
+  "callees:crates/uv-pep440/src/version.rs:2037": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/uv-pep440/src/version.rs",
+     "parse_fast"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "crates/uv-pep440/src/version.rs:2037",
+   "stratum": "U-method"
+  },
+  "callees:crates/uv-preview/src/lib.rs:444": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/uv-preview/src/lib.rs",
+     "all"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "crates/uv-preview/src/lib.rs:444",
+   "stratum": "C-name"
+  },
+  "callees:crates/uv-pypi-types/src/parsed_url.rs:427": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/uv-pypi-types/src/parsed_url.rs",
+     "get_install_path"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "crates/uv-pypi-types/src/parsed_url.rs:427",
+   "stratum": "Q-scoped"
+  },
+  "callees:crates/uv-pypi-types/src/simple_json.rs:318": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "crates/uv-pypi-types/src/simple_json.rs:318",
+   "stratum": "U-method"
+  },
+  "callees:crates/uv-python/src/lib.rs:3136": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "crates/uv-python/src/lib.rs",
+     "find_python_version_free_threaded"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "crates/uv-python/src/lib.rs",
+     3135,
+     3135
+    ],
+    [
+     "crates/uv-python/src/lib.rs",
+     3137,
+     3137
+    ],
+    [
+     "crates/uv-python/src/lib.rs",
+     3139,
+     3139
+    ],
+    [
+     "crates/uv-python/src/lib.rs",
+     3146,
+     3146
+    ],
+    [
+     "crates/uv-python/src/lib.rs",
+     3153,
+     3153
+    ],
+    [
+     "crates/uv-python/src/lib.rs",
+     3155,
+     3155
+    ],
+    [
+     "crates/uv-python/src/lib.rs",
+     3156,
+     3156
+    ],
+    [
+     "crates/uv-python/src/lib.rs",
+     3157,
+     3157
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/uv-python/src/lib.rs",
+     "find_python_version_free_threaded"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "crates/uv-python/src/lib.rs",
+     3156,
+     3156,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "crates/uv-python/src/lib.rs",
+     3157,
+     3157,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ],
+    [
+     "crates/uv-python/src/lib.rs",
+     3137,
+     3137,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ],
+    [
+     "crates/uv-python/src/lib.rs",
+     3139,
+     3139,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ],
+    [
+     "crates/uv-python/src/lib.rs",
+     3146,
+     3146,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ],
+    [
+     "crates/uv-python/src/lib.rs",
+     3153,
+     3153,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "crates/uv-python/src/lib.rs",
+     3155,
+     3155,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "crates/uv-python/src/lib.rs",
+     3140,
+     3140,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "crates/uv-python/src/lib.rs",
+     3147,
+     3147,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "crates/uv-python/src/lib.rs:3136",
+   "stratum": "Q-scoped"
+  },
+  "callees:crates/uv-requirements-txt/src/lib.rs:1098": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "crates/uv-requirements-txt/src/lib.rs",
+     "read_url_to_string"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "crates/uv-requirements-txt/src/lib.rs",
+     1111,
+     1111
+    ],
+    [
+     "crates/uv-requirements-txt/src/lib.rs",
+     1115,
+     1115
+    ],
+    [
+     "crates/uv-requirements-txt/src/lib.rs",
+     1114,
+     1114
+    ],
+    [
+     "crates/uv-requirements-txt/src/lib.rs",
+     1113,
+     1113
+    ],
+    [
+     "crates/uv-requirements-txt/src/lib.rs",
+     1114,
+     1114
+    ],
+    [
+     "crates/uv-requirements-txt/src/lib.rs",
+     1117,
+     1117
+    ],
+    [
+     "crates/uv-requirements-txt/src/lib.rs",
+     1120,
+     1120
+    ],
+    [
+     "crates/uv-requirements-txt/src/lib.rs",
+     1123,
+     1123
+    ],
+    [
+     "crates/uv-requirements-txt/src/lib.rs",
+     1117,
+     1117
+    ],
+    [
+     "crates/uv-requirements-txt/src/lib.rs",
+     1120,
+     1120
+    ],
+    [
+     "crates/uv-requirements-txt/src/lib.rs",
+     1123,
+     1123
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/uv-requirements-txt/src/lib.rs",
+     "read_url_to_string"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "crates/uv-requirements-txt/src/lib.rs",
+     1112,
+     1112,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ],
+    [
+     "crates/uv-requirements-txt/src/lib.rs",
+     1120,
+     1120,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ],
+    [
+     "crates/uv-requirements-txt/src/lib.rs",
+     1123,
+     1123,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ],
+    [
+     "crates/uv-requirements-txt/src/lib.rs",
+     1117,
+     1117,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ],
+    [
+     "crates/uv-requirements-txt/src/lib.rs",
+     1104,
+     1104,
+     {
+      "resolution_kind": "trait_cha"
+     }
+    ],
+    [
+     "crates/uv-requirements-txt/src/lib.rs",
+     1107,
+     1107,
+     {
+      "resolution_kind": "trait_cha"
+     }
+    ],
+    [
+     "crates/uv-requirements-txt/src/lib.rs",
+     1104,
+     1104,
+     {
+      "resolution_kind": "trait_cha"
+     }
+    ],
+    [
+     "crates/uv-requirements-txt/src/lib.rs",
+     1107,
+     1107,
+     {
+      "resolution_kind": "trait_cha"
+     }
+    ],
+    [
+     "crates/uv-requirements-txt/src/lib.rs",
+     1104,
+     1104,
+     {
+      "resolution_kind": "trait_cha"
+     }
+    ],
+    [
+     "crates/uv-requirements-txt/src/lib.rs",
+     1107,
+     1107,
+     {
+      "resolution_kind": "trait_cha"
+     }
+    ],
+    [
+     "crates/uv-requirements-txt/src/lib.rs",
+     1104,
+     1104,
+     {
+      "resolution_kind": "trait_cha"
+     }
+    ],
+    [
+     "crates/uv-requirements-txt/src/lib.rs",
+     1107,
+     1107,
+     {
+      "resolution_kind": "trait_cha"
+     }
+    ],
+    [
+     "crates/uv-requirements-txt/src/lib.rs",
+     1104,
+     1104,
+     {
+      "resolution_kind": "trait_cha"
+     }
+    ],
+    [
+     "crates/uv-requirements-txt/src/lib.rs",
+     1107,
+     1107,
+     {
+      "resolution_kind": "trait_cha"
+     }
+    ],
+    [
+     "crates/uv-requirements-txt/src/lib.rs",
+     1112,
+     1112,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "crates/uv-requirements-txt/src/lib.rs",
+     1104,
+     1104,
+     {
+      "resolution_kind": "trait_cha"
+     }
+    ],
+    [
+     "crates/uv-requirements-txt/src/lib.rs",
+     1107,
+     1107,
+     {
+      "resolution_kind": "trait_cha"
+     }
+    ],
+    [
+     "crates/uv-requirements-txt/src/lib.rs",
+     1104,
+     1104,
+     {
+      "resolution_kind": "trait_cha"
+     }
+    ],
+    [
+     "crates/uv-requirements-txt/src/lib.rs",
+     1107,
+     1107,
+     {
+      "resolution_kind": "trait_cha"
+     }
+    ],
+    [
+     "crates/uv-requirements-txt/src/lib.rs",
+     1104,
+     1104,
+     {
+      "resolution_kind": "trait_cha"
+     }
+    ],
+    [
+     "crates/uv-requirements-txt/src/lib.rs",
+     1107,
+     1107,
+     {
+      "resolution_kind": "trait_cha"
+     }
+    ],
+    [
+     "crates/uv-requirements-txt/src/lib.rs",
+     1104,
+     1104,
+     {
+      "resolution_kind": "trait_cha"
+     }
+    ],
+    [
+     "crates/uv-requirements-txt/src/lib.rs",
+     1107,
+     1107,
+     {
+      "resolution_kind": "trait_cha"
+     }
+    ],
+    [
+     "crates/uv-requirements-txt/src/lib.rs",
+     1104,
+     1104,
+     {
+      "resolution_kind": "trait_cha"
+     }
+    ],
+    [
+     "crates/uv-requirements-txt/src/lib.rs",
+     1107,
+     1107,
+     {
+      "resolution_kind": "trait_cha"
+     }
+    ],
+    [
+     "crates/uv-requirements-txt/src/lib.rs",
+     1104,
+     1104,
+     {
+      "resolution_kind": "trait_cha"
+     }
+    ],
+    [
+     "crates/uv-requirements-txt/src/lib.rs",
+     1107,
+     1107,
+     {
+      "resolution_kind": "trait_cha"
+     }
+    ],
+    [
+     "crates/uv-requirements-txt/src/lib.rs",
+     1104,
+     1104,
+     {
+      "resolution_kind": "trait_cha"
+     }
+    ],
+    [
+     "crates/uv-requirements-txt/src/lib.rs",
+     1107,
+     1107,
+     {
+      "resolution_kind": "trait_cha"
+     }
+    ],
+    [
+     "crates/uv-requirements-txt/src/lib.rs",
+     1104,
+     1104,
+     {
+      "resolution_kind": "trait_cha"
+     }
+    ],
+    [
+     "crates/uv-requirements-txt/src/lib.rs",
+     1107,
+     1107,
+     {
+      "resolution_kind": "trait_cha"
+     }
+    ],
+    [
+     "crates/uv-requirements-txt/src/lib.rs",
+     1104,
+     1104,
+     {
+      "resolution_kind": "trait_cha"
+     }
+    ],
+    [
+     "crates/uv-requirements-txt/src/lib.rs",
+     1107,
+     1107,
+     {
+      "resolution_kind": "trait_cha"
+     }
+    ],
+    [
+     "crates/uv-requirements-txt/src/lib.rs",
+     1104,
+     1104,
+     {
+      "resolution_kind": "trait_cha"
+     }
+    ],
+    [
+     "crates/uv-requirements-txt/src/lib.rs",
+     1107,
+     1107,
+     {
+      "resolution_kind": "trait_cha"
+     }
+    ],
+    [
+     "crates/uv-requirements-txt/src/lib.rs",
+     1104,
+     1104,
+     {
+      "resolution_kind": "trait_cha"
+     }
+    ],
+    [
+     "crates/uv-requirements-txt/src/lib.rs",
+     1107,
+     1107,
+     {
+      "resolution_kind": "trait_cha"
+     }
+    ],
+    [
+     "crates/uv-requirements-txt/src/lib.rs",
+     1104,
+     1104,
+     {
+      "resolution_kind": "trait_cha"
+     }
+    ],
+    [
+     "crates/uv-requirements-txt/src/lib.rs",
+     1107,
+     1107,
+     {
+      "resolution_kind": "trait_cha"
+     }
+    ],
+    [
+     "crates/uv-requirements-txt/src/lib.rs",
+     1104,
+     1104,
+     {
+      "resolution_kind": "trait_cha"
+     }
+    ],
+    [
+     "crates/uv-requirements-txt/src/lib.rs",
+     1107,
+     1107,
+     {
+      "resolution_kind": "trait_cha"
+     }
+    ],
+    [
+     "crates/uv-requirements-txt/src/lib.rs",
+     1104,
+     1104,
+     {
+      "resolution_kind": "trait_cha"
+     }
+    ],
+    [
+     "crates/uv-requirements-txt/src/lib.rs",
+     1107,
+     1107,
+     {
+      "resolution_kind": "trait_cha"
+     }
+    ],
+    [
+     "crates/uv-requirements-txt/src/lib.rs",
+     1114,
+     1114,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "crates/uv-requirements-txt/src/lib.rs",
+     1117,
+     1117,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "crates/uv-requirements-txt/src/lib.rs",
+     1120,
+     1120,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "crates/uv-requirements-txt/src/lib.rs",
+     1123,
+     1123,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "crates/uv-requirements-txt/src/lib.rs",
+     1104,
+     1104,
+     {
+      "resolution_kind": "trait_cha"
+     }
+    ],
+    [
+     "crates/uv-requirements-txt/src/lib.rs",
+     1107,
+     1107,
+     {
+      "resolution_kind": "trait_cha"
+     }
+    ],
+    [
+     "crates/uv-requirements-txt/src/lib.rs",
+     1104,
+     1104,
+     {
+      "resolution_kind": "trait_cha"
+     }
+    ],
+    [
+     "crates/uv-requirements-txt/src/lib.rs",
+     1107,
+     1107,
+     {
+      "resolution_kind": "trait_cha"
+     }
+    ]
+   ],
+   "seed_def": "crates/uv-requirements-txt/src/lib.rs:1098",
+   "stratum": "Q-scoped"
+  },
+  "callees:crates/uv-resolver/src/lock/export/metadata.rs:224": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/uv-resolver/src/lock/export/metadata.rs",
+     "new"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "crates/uv-resolver/src/lock/export/metadata.rs:224",
+   "stratum": "C-name"
+  },
+  "callees:crates/uv-resolver/src/pubgrub/package.rs:29": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "crates/uv-resolver/src/pubgrub/package.rs",
+     "from"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "crates/uv-resolver/src/pubgrub/package.rs",
+     30,
+     30
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/uv-resolver/src/pubgrub/package.rs",
+     "from"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "crates/uv-resolver/src/pubgrub/package.rs:29",
+   "stratum": "C-name"
+  },
+  "callees:crates/uv-resolver/src/resolver/batch_prefetch.rs:186": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/uv-resolver/src/resolver/batch_prefetch.rs",
+     "log_tried_versions"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "crates/uv-resolver/src/resolver/batch_prefetch.rs",
+     187,
+     187,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "crates/uv-resolver/src/resolver/batch_prefetch.rs",
+     198,
+     198,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "crates/uv-resolver/src/resolver/batch_prefetch.rs:186",
+   "stratum": "U-method"
+  },
+  "callees:crates/uv-resolver/src/resolver/environment.rs:299": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/uv-resolver/src/resolver/environment.rs",
+     "filter_by_group"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "crates/uv-resolver/src/resolver/environment.rs",
+     313,
+     313,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "crates/uv-resolver/src/resolver/environment.rs",
+     314,
+     314,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "crates/uv-resolver/src/resolver/environment.rs:299",
+   "stratum": "U-method"
+  },
+  "callees:crates/uv-resolver/src/version_map.rs:429": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "crates/uv-resolver/src/version_map.rs",
+     "get_lazy"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "crates/uv-resolver/src/version_map.rs",
+     432,
+     432
+    ],
+    [
+     "crates/uv-resolver/src/version_map.rs",
+     436,
+     436
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/uv-resolver/src/version_map.rs",
+     "get_lazy"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "crates/uv-resolver/src/version_map.rs",
+     432,
+     432,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "crates/uv-resolver/src/version_map.rs",
+     436,
+     436,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ]
+   ],
+   "seed_def": "crates/uv-resolver/src/version_map.rs:429",
+   "stratum": "U-method"
+  },
+  "callees:crates/uv-workspace/src/dependency_groups.rs:238": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "crates/uv-workspace/src/dependency_groups.rs",
+     "from_iter"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "crates/uv-workspace/src/dependency_groups.rs",
+     239,
+     239
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/uv-workspace/src/dependency_groups.rs",
+     "from_iter"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "crates/uv-workspace/src/dependency_groups.rs:238",
+   "stratum": "C-name"
+  },
+  "callees:crates/uv-workspace/src/workspace.rs:948": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "crates/uv-workspace/src/workspace.rs:948",
+   "stratum": "C-method"
+  },
+  "callees:crates/uv/src/commands/project/lock_target.rs:333": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "crates/uv/src/commands/project/lock_target.rs",
+     "read_bytes"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "crates/uv/src/commands/project/lock_target.rs",
+     334,
+     334
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/uv/src/commands/project/lock_target.rs",
+     "read_bytes"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "crates/uv/src/commands/project/lock_target.rs",
+     334,
+     334,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ]
+   ],
+   "seed_def": "crates/uv/src/commands/project/lock_target.rs:333",
+   "stratum": "U-method"
+  },
+  "callees:crates/uv/src/commands/project/mod.rs:1674": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "crates/uv/src/commands/project/mod.rs",
+     "get_or_init"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "crates/uv/src/commands/project/mod.rs",
+     1689,
+     1689
+    ],
+    [
+     "crates/uv/src/commands/project/mod.rs",
+     1698,
+     1698
+    ],
+    [
+     "crates/uv/src/commands/project/mod.rs",
+     1700,
+     1700
+    ],
+    [
+     "crates/uv/src/commands/project/mod.rs",
+     1716,
+     1716
+    ],
+    [
+     "crates/uv/src/commands/project/mod.rs",
+     1720,
+     1720
+    ],
+    [
+     "crates/uv/src/commands/project/mod.rs",
+     1727,
+     1727
+    ],
+    [
+     "crates/uv/src/commands/project/mod.rs",
+     1734,
+     1734
+    ],
+    [
+     "crates/uv/src/commands/project/mod.rs",
+     1735,
+     1735
+    ],
+    [
+     "crates/uv/src/commands/project/mod.rs",
+     1736,
+     1736
+    ],
+    [
+     "crates/uv/src/commands/project/mod.rs",
+     1773,
+     1773
+    ],
+    [
+     "crates/uv/src/commands/project/mod.rs",
+     1741,
+     1741
+    ],
+    [
+     "crates/uv/src/commands/project/mod.rs",
+     1778,
+     1778
+    ],
+    [
+     "crates/uv/src/commands/project/mod.rs",
+     1749,
+     1749
+    ],
+    [
+     "crates/uv/src/commands/project/mod.rs",
+     1751,
+     1751
+    ],
+    [
+     "crates/uv/src/commands/project/mod.rs",
+     1756,
+     1756
+    ],
+    [
+     "crates/uv/src/commands/project/mod.rs",
+     1787,
+     1787
+    ],
+    [
+     "crates/uv/src/commands/project/mod.rs",
+     1789,
+     1789
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/uv/src/commands/project/mod.rs",
+     "get_or_init"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "crates/uv/src/commands/project/mod.rs",
+     1735,
+     1735,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ],
+    [
+     "crates/uv/src/commands/project/mod.rs",
+     1734,
+     1734,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ],
+    [
+     "crates/uv/src/commands/project/mod.rs",
+     1726,
+     1726,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ],
+    [
+     "crates/uv/src/commands/project/mod.rs",
+     1720,
+     1720,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ],
+    [
+     "crates/uv/src/commands/project/mod.rs",
+     1700,
+     1700,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ],
+    [
+     "crates/uv/src/commands/project/mod.rs",
+     1689,
+     1689,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ],
+    [
+     "crates/uv/src/commands/project/mod.rs",
+     1698,
+     1698,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "crates/uv/src/commands/project/mod.rs",
+     1728,
+     1728,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "crates/uv/src/commands/project/mod.rs:1674",
+   "stratum": "C-name"
+  },
+  "callees:crates/uv/tests/pip_compile/pip_compile.rs:17891": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/uv/tests/pip_compile/pip_compile.rs",
+     "pep_751_compile_no_binary"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "crates/uv/tests/pip_compile/pip_compile.rs:17891",
+   "stratum": "Q-scoped"
+  },
+  "callees:crates/uv/tests/project/edit.rs:10700": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/uv/tests/project/edit.rs",
+     "add_default_index_url"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "crates/uv/tests/project/edit.rs",
+     10724,
+     10724,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "crates/uv/tests/project/edit.rs",
+     10746,
+     10746,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "crates/uv/tests/project/edit.rs",
+     10796,
+     10796,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "crates/uv/tests/project/edit.rs",
+     10819,
+     10819,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "crates/uv/tests/project/edit.rs:10700",
+   "stratum": "Q-scoped"
+  },
+  "callees:crates/uv/tests/project/run.rs:6560": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/uv/tests/project/run.rs",
+     "isolate_child_environment"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "crates/uv/tests/project/run.rs:6560",
+   "stratum": "Q-scoped"
+  },
+  "callers:crates/uv-auth/src/index.rs:120": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "crates/uv-auth/src/middleware.rs",
+     "handle"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "crates/uv-auth/src/middleware.rs",
+     380,
+     380
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/uv-auth/src/middleware.rs",
+     "handle"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "crates/uv-auth/src/middleware.rs",
+     380,
+     380,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ]
+   ],
+   "seed_def": "crates/uv-auth/src/index.rs:120",
+   "stratum": "U-method"
+  },
+  "callers:crates/uv-bench/benches/uv.rs:268": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "crates/uv-bench/benches/uv.rs",
+     "install_wheel_many_files"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "crates/uv-bench/benches/uv.rs",
+     203,
+     203
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "crates/uv-bench/benches/uv.rs:268",
+   "stratum": "C-name"
+  },
+  "callers:crates/uv-bin-install/src/lib.rs:255": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "crates/uv/src/commands/project/check/ty.rs",
+     "run"
+    ],
+    [
+     "crates/uv/src/commands/project/format.rs",
+     "format"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "crates/uv/src/commands/project/check/ty.rs",
+     73,
+     73
+    ],
+    [
+     "crates/uv/src/commands/project/format.rs",
+     105,
+     105
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "crates/uv-bin-install/src/lib.rs:255",
+   "stratum": "C-name"
+  },
+  "callers:crates/uv-build-backend/src/lib.rs:119": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "crates/uv-build-backend/src/source_dist.rs",
+     "write_source_dist"
+    ],
+    [
+     "crates/uv-build-backend/src/wheel.rs",
+     "build_editable"
+    ],
+    [
+     "crates/uv-build-backend/src/wheel.rs",
+     "metadata"
+    ],
+    [
+     "crates/uv-build-backend/src/wheel.rs",
+     "write_wheel"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "crates/uv-build-backend/src/source_dist.rs",
+     364,
+     364
+    ],
+    [
+     "crates/uv-build-backend/src/wheel.rs",
+     260,
+     260
+    ],
+    [
+     "crates/uv-build-backend/src/wheel.rs",
+     336,
+     336
+    ],
+    [
+     "crates/uv-build-backend/src/wheel.rs",
+     420,
+     420
+    ]
+   ],
+   "outcome": "inventory_miss",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "crates/uv-build-backend/src/lib.rs:119",
+   "stratum": "C-method"
+  },
+  "callers:crates/uv-build-backend/src/metadata.rs:2006": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "crates/uv-build-backend/src/metadata.rs",
+     "invalid_entry_point_conflict_gui_scripts"
+    ],
+    [
+     "crates/uv-build-backend/src/metadata.rs",
+     "invalid_entry_point_conflict_scripts"
+    ],
+    [
+     "crates/uv-build-backend/src/metadata.rs",
+     "invalid_entry_point_group"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "crates/uv-build-backend/src/metadata.rs",
+     2021,
+     2021
+    ],
+    [
+     "crates/uv-build-backend/src/metadata.rs",
+     2031,
+     2031
+    ],
+    [
+     "crates/uv-build-backend/src/metadata.rs",
+     2041,
+     2041
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "crates/uv-build-backend/src/metadata.rs:2006",
+   "stratum": "Q-scoped"
+  },
+  "callers:crates/uv-client/src/flat_index.rs:76": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "crates/uv-client/src/flat_index.rs",
+     "read_from_directory"
+    ],
+    [
+     "crates/uv-client/src/flat_index.rs",
+     "read_from_url"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "crates/uv-client/src/flat_index.rs",
+     271,
+     271
+    ],
+    [
+     "crates/uv-client/src/flat_index.rs",
+     355,
+     355
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/uv-client/src/flat_index.rs",
+     "read_from_directory"
+    ],
+    [
+     "crates/uv-client/src/flat_index.rs",
+     "read_from_url"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "crates/uv-client/src/flat_index.rs",
+     271,
+     271,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ],
+    [
+     "crates/uv-client/src/flat_index.rs",
+     355,
+     355,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ]
+   ],
+   "seed_def": "crates/uv-client/src/flat_index.rs:76",
+   "stratum": "C-name"
+  },
+  "callers:crates/uv-configuration/src/hash.rs:42": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "crates/uv-configuration/src/hash.rs:42",
+   "stratum": "C-method"
+  },
+  "callers:crates/uv-configuration/src/trusted_host.rs:69": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "crates/uv-configuration/src/trusted_host.rs:69",
+   "stratum": "C-method"
+  },
+  "callers:crates/uv-distribution-types/src/cached.rs:265": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "crates/uv-distribution-types/src/cached.rs",
+     "installed_version"
+    ],
+    [
+     "crates/uv-distribution-types/src/traits.rs",
+     "fmt"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "crates/uv-distribution-types/src/traits.rs",
+     141,
+     141
+    ],
+    [
+     "crates/uv-distribution-types/src/cached.rs",
+     274,
+     274
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "crates/uv-distribution-types/src/cached.rs:265",
+   "stratum": "C-method"
+  },
+  "callers:crates/uv-distribution-types/src/resolution.rs:73": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "crates/uv/src/commands/workspace/module_owners.rs",
+     "selected_package_ids"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "crates/uv/src/commands/workspace/module_owners.rs",
+     132,
+     132
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "crates/uv-distribution-types/src/resolution.rs:73",
+   "stratum": "C-method"
+  },
+  "callers:crates/uv-distribution/src/index/built_wheel_index.rs:60": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "crates/uv-installer/src/plan.rs",
+     "build"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "crates/uv-installer/src/plan.rs",
+     636,
+     636
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/uv-installer/src/plan.rs",
+     "build"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "crates/uv-installer/src/plan.rs",
+     636,
+     636,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ]
+   ],
+   "seed_def": "crates/uv-distribution/src/index/built_wheel_index.rs:60",
+   "stratum": "C-method"
+  },
+  "callers:crates/uv-distribution/src/index/cached_wheel.rs:25": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "crates/uv-distribution/src/index/built_wheel_index.rs",
+     "find"
+    ],
+    [
+     "crates/uv-distribution/src/index/registry_wheel_index.rs",
+     "index"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "crates/uv-distribution/src/index/built_wheel_index.rs",
+     303,
+     303
+    ],
+    [
+     "crates/uv-distribution/src/index/registry_wheel_index.rs",
+     265,
+     265
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/uv-distribution/src/index/built_wheel_index.rs",
+     "find"
+    ],
+    [
+     "crates/uv-distribution/src/index/registry_wheel_index.rs",
+     "index"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "crates/uv-distribution/src/index/built_wheel_index.rs",
+     303,
+     303,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ],
+    [
+     "crates/uv-distribution/src/index/registry_wheel_index.rs",
+     265,
+     265,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ]
+   ],
+   "seed_def": "crates/uv-distribution/src/index/cached_wheel.rs:25",
+   "stratum": "Q-scoped"
+  },
+  "callers:crates/uv-distribution/src/source/mod.rs:2690": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "crates/uv-distribution/src/source/mod.rs",
+     "url"
+    ],
+    [
+     "crates/uv-distribution/src/source/mod.rs",
+     "url_metadata"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "crates/uv-distribution/src/source/mod.rs",
+     693,
+     693
+    ],
+    [
+     "crates/uv-distribution/src/source/mod.rs",
+     826,
+     826
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/uv-distribution/src/source/mod.rs",
+     "url"
+    ],
+    [
+     "crates/uv-distribution/src/source/mod.rs",
+     "url_metadata"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "crates/uv-distribution/src/source/mod.rs",
+     693,
+     693,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "crates/uv-distribution/src/source/mod.rs",
+     826,
+     826,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ]
+   ],
+   "seed_def": "crates/uv-distribution/src/source/mod.rs:2690",
+   "stratum": "U-method"
+  },
+  "callers:crates/uv-git-types/src/lib.rs:293": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "crates/uv-git-types/src/lib.rs:293",
+   "stratum": "C-method"
+  },
+  "callers:crates/uv-pep440/src/version.rs:2037": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "crates/uv-pep440/src/version.rs",
+     "parse_pattern"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "crates/uv-pep440/src/version.rs",
+     2005,
+     2005
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/uv-pep440/src/version.rs",
+     "parse_pattern"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "crates/uv-pep440/src/version.rs",
+     2005,
+     2005,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ]
+   ],
+   "seed_def": "crates/uv-pep440/src/version.rs:2037",
+   "stratum": "U-method"
+  },
+  "callers:crates/uv-preview/src/lib.rs:444": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "crates/uv-build/src/main.rs",
+     "main"
+    ],
+    [
+     "crates/uv-preview/src/lib.rs",
+     "test_preview_display"
+    ],
+    [
+     "crates/uv-settings/src/settings.rs",
+     "resolve"
+    ],
+    [
+     "crates/uv/src/settings.rs",
+     "resolve_preview"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "crates/uv-preview/src/lib.rs",
+     560,
+     560
+    ],
+    [
+     "crates/uv/src/settings.rs",
+     231,
+     231
+    ],
+    [
+     "crates/uv/src/settings.rs",
+     239,
+     239
+    ],
+    [
+     "crates/uv/src/settings.rs",
+     252,
+     252
+    ],
+    [
+     "crates/uv-build/src/main.rs",
+     47,
+     47
+    ],
+    [
+     "crates/uv-settings/src/settings.rs",
+     2952,
+     2952
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "crates/uv-preview/src/lib.rs:444",
+   "stratum": "C-name"
+  },
+  "callers:crates/uv-pypi-types/src/parsed_url.rs:427": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "crates/uv-pypi-types/src/parsed_url.rs",
+     "try_from"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "crates/uv-pypi-types/src/parsed_url.rs",
+     338,
+     338
+    ],
+    [
+     "crates/uv-pypi-types/src/parsed_url.rs",
+     442,
+     442
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/uv-pypi-types/src/parsed_url.rs",
+     "try_from"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "crates/uv-pypi-types/src/parsed_url.rs",
+     338,
+     338,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "crates/uv-pypi-types/src/parsed_url.rs",
+     442,
+     442,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "crates/uv-pypi-types/src/parsed_url.rs:427",
+   "stratum": "Q-scoped"
+  },
+  "callers:crates/uv-pypi-types/src/simple_json.rs:318": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "crates/uv-resolver/src/version_map.rs",
+     "source_dist_compatibility"
+    ],
+    [
+     "crates/uv-resolver/src/version_map.rs",
+     "wheel_compatibility"
+    ],
+    [
+     "crates/uv/src/commands/pip/latest.rs",
+     "consider_candidate"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "crates/uv/src/commands/pip/latest.rs",
+     71,
+     71
+    ],
+    [
+     "crates/uv-resolver/src/version_map.rs",
+     575,
+     575
+    ],
+    [
+     "crates/uv-resolver/src/version_map.rs",
+     622,
+     622
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/uv/src/commands/pip/latest.rs",
+     "consider_candidate"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "crates/uv/src/commands/pip/latest.rs",
+     71,
+     71,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "crates/uv-pypi-types/src/simple_json.rs:318",
+   "stratum": "U-method"
+  },
+  "callers:crates/uv-python/src/lib.rs:3136": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "crates/uv-python/src/lib.rs:3136",
+   "stratum": "Q-scoped"
+  },
+  "callers:crates/uv-requirements-txt/src/lib.rs:1098": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "crates/uv-requirements-txt/src/lib.rs",
+     "parse_impl"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "crates/uv-requirements-txt/src/lib.rs",
+     305,
+     305
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/uv-requirements-txt/src/lib.rs",
+     "parse_impl"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "crates/uv-requirements-txt/src/lib.rs",
+     305,
+     305,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "crates/uv-requirements-txt/src/lib.rs:1098",
+   "stratum": "Q-scoped"
+  },
+  "callers:crates/uv-resolver/src/lock/export/metadata.rs:224": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "crates/uv-resolver/src/lock/export/metadata.rs",
+     "from_package_id"
+    ],
+    [
+     "crates/uv-resolver/src/lock/export/metadata.rs",
+     "from_script"
+    ],
+    [
+     "crates/uv-resolver/src/lock/export/metadata.rs",
+     "from_workspace"
+    ],
+    [
+     "crates/uv-resolver/src/lock/export/metadata.rs",
+     "from_workspace_group"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "crates/uv-resolver/src/lock/export/metadata.rs",
+     241,
+     241
+    ],
+    [
+     "crates/uv-resolver/src/lock/export/metadata.rs",
+     245,
+     245
+    ],
+    [
+     "crates/uv-resolver/src/lock/export/metadata.rs",
+     254,
+     254
+    ],
+    [
+     "crates/uv-resolver/src/lock/export/metadata.rs",
+     267,
+     267
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "crates/uv-resolver/src/lock/export/metadata.rs:224",
+   "stratum": "C-name"
+  },
+  "callers:crates/uv-resolver/src/pubgrub/package.rs:29": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "crates/uv-resolver/src/error.rs",
+     "deep_derivation_tree"
+    ],
+    [
+     "crates/uv-resolver/src/error.rs",
+     "iterative_debug_matches_pubgrub_debug"
+    ],
+    [
+     "crates/uv-resolver/src/pubgrub/report.rs",
+     "formats_deep_derivation_tree_without_recursion"
+    ],
+    [
+     "crates/uv-resolver/src/pubgrub/report.rs",
+     "iterative_reporter_matches_pubgrub_for_shared_nodes"
+    ],
+    [
+     "crates/uv-resolver/src/resolver/mod.rs",
+     "add_unavailable_version"
+    ],
+    [
+     "crates/uv-resolver/src/resolver/mod.rs",
+     "get_dependencies"
+    ],
+    [
+     "crates/uv-resolver/src/resolver/mod.rs",
+     "solve"
+    ],
+    [
+     "crates/uv-resolver/src/resolver/system.rs",
+     "from"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "crates/uv-resolver/src/pubgrub/report.rs",
+     2661,
+     2661
+    ],
+    [
+     "crates/uv-resolver/src/pubgrub/report.rs",
+     2692,
+     2692
+    ],
+    [
+     "crates/uv-resolver/src/resolver/system.rs",
+     49,
+     49
+    ],
+    [
+     "crates/uv-resolver/src/resolver/mod.rs",
+     333,
+     333
+    ],
+    [
+     "crates/uv-resolver/src/resolver/mod.rs",
+     1948,
+     1948
+    ],
+    [
+     "crates/uv-resolver/src/resolver/mod.rs",
+     1976,
+     1976
+    ],
+    [
+     "crates/uv-resolver/src/resolver/mod.rs",
+     2002,
+     2002
+    ],
+    [
+     "crates/uv-resolver/src/resolver/mod.rs",
+     3197,
+     3197
+    ],
+    [
+     "crates/uv-resolver/src/error.rs",
+     1664,
+     1664
+    ],
+    [
+     "crates/uv-resolver/src/error.rs",
+     1739,
+     1739
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "crates/uv-resolver/src/pubgrub/package.rs:29",
+   "stratum": "C-name"
+  },
+  "callers:crates/uv-resolver/src/resolver/batch_prefetch.rs:186": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "crates/uv-resolver/src/resolver/mod.rs",
+     "solve"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "crates/uv-resolver/src/resolver/mod.rs",
+     424,
+     424
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/uv-resolver/src/resolver/mod.rs",
+     "solve"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "crates/uv-resolver/src/resolver/mod.rs",
+     424,
+     424,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "crates/uv-resolver/src/resolver/batch_prefetch.rs:186",
+   "stratum": "U-method"
+  },
+  "callers:crates/uv-resolver/src/resolver/environment.rs:299": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "crates/uv-resolver/src/resolver/environment.rs",
+     "initial_forked_states"
+    ],
+    [
+     "crates/uv-resolver/src/resolver/fork_map.rs",
+     "add_scopes_non_registry_requirements_to_group_origin"
+    ],
+    [
+     "crates/uv-resolver/src/resolver/mod.rs",
+     "filter"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "crates/uv-resolver/src/resolver/environment.rs",
+     375,
+     375
+    ],
+    [
+     "crates/uv-resolver/src/resolver/fork_map.rs",
+     169,
+     169
+    ],
+    [
+     "crates/uv-resolver/src/resolver/mod.rs",
+     4078,
+     4078
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/uv-resolver/src/resolver/environment.rs",
+     "initial_forked_states"
+    ],
+    [
+     "crates/uv-resolver/src/resolver/fork_map.rs",
+     "add_scopes_non_registry_requirements_to_group_origin"
+    ],
+    [
+     "crates/uv-resolver/src/resolver/mod.rs",
+     "filter"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "crates/uv-resolver/src/resolver/environment.rs",
+     375,
+     375,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "crates/uv-resolver/src/resolver/mod.rs",
+     4078,
+     4078,
+     {
+      "resolution_kind": "typed_param"
+     }
+    ],
+    [
+     "crates/uv-resolver/src/resolver/fork_map.rs",
+     168,
+     168,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "crates/uv-resolver/src/resolver/environment.rs:299",
+   "stratum": "U-method"
+  },
+  "callers:crates/uv-resolver/src/version_map.rs:429": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "crates/uv-resolver/src/version_map.rs",
+     "get"
+    ],
+    [
+     "crates/uv-resolver/src/version_map.rs",
+     "prioritized_dist"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "crates/uv-resolver/src/version_map.rs",
+     340,
+     340
+    ],
+    [
+     "crates/uv-resolver/src/version_map.rs",
+     420,
+     420
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/uv-resolver/src/version_map.rs",
+     "get"
+    ],
+    [
+     "crates/uv-resolver/src/version_map.rs",
+     "prioritized_dist"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "crates/uv-resolver/src/version_map.rs",
+     420,
+     420,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "crates/uv-resolver/src/version_map.rs",
+     340,
+     340,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "crates/uv-resolver/src/version_map.rs:429",
+   "stratum": "U-method"
+  },
+  "callers:crates/uv-workspace/src/dependency_groups.rs:238": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "crates/uv-workspace/src/dependency_groups.rs:238",
+   "stratum": "C-name"
+  },
+  "callers:crates/uv-workspace/src/workspace.rs:948": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "crates/uv-distribution/src/metadata/build_requires.rs",
+     "from_workspace"
+    ],
+    [
+     "crates/uv/src/commands/project/add.rs",
+     "add"
+    ],
+    [
+     "crates/uv/src/commands/project/add.rs",
+     "revert"
+    ],
+    [
+     "crates/uv/src/commands/project/audit.rs",
+     "audit"
+    ],
+    [
+     "crates/uv/src/commands/project/init.rs",
+     "init_project"
+    ],
+    [
+     "crates/uv/src/commands/project/lock.rs",
+     "do_lock"
+    ],
+    [
+     "crates/uv/src/commands/project/lock_target.rs",
+     "lower"
+    ],
+    [
+     "crates/uv/src/commands/project/mod.rs",
+     "get_or_init"
+    ],
+    [
+     "crates/uv/src/commands/project/tree.rs",
+     "tree"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "crates/uv/src/commands/project/add.rs",
+     560,
+     560
+    ],
+    [
+     "crates/uv/src/commands/project/add.rs",
+     1478,
+     1478
+    ],
+    [
+     "crates/uv/src/commands/project/lock.rs",
+     564,
+     564
+    ],
+    [
+     "crates/uv/src/commands/project/lock.rs",
+     565,
+     565
+    ],
+    [
+     "crates/uv/src/commands/project/mod.rs",
+     1530,
+     1530
+    ],
+    [
+     "crates/uv/src/commands/project/init.rs",
+     442,
+     442
+    ],
+    [
+     "crates/uv/src/commands/project/tree.rs",
+     84,
+     84
+    ],
+    [
+     "crates/uv/src/commands/project/lock_target.rs",
+     359,
+     359
+    ],
+    [
+     "crates/uv/src/commands/project/audit.rs",
+     102,
+     102
+    ],
+    [
+     "crates/uv-distribution/src/metadata/build_requires.rs",
+     180,
+     180
+    ],
+    [
+     "crates/uv-distribution/src/metadata/build_requires.rs",
+     190,
+     190
+    ],
+    [
+     "crates/uv-distribution/src/metadata/build_requires.rs",
+     269,
+     269
+    ],
+    [
+     "crates/uv-distribution/src/metadata/build_requires.rs",
+     278,
+     278
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/uv-distribution/src/metadata/build_requires.rs",
+     "from_workspace"
+    ],
+    [
+     "crates/uv/src/commands/project/mod.rs",
+     "get_or_init"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "crates/uv-distribution/src/metadata/build_requires.rs",
+     179,
+     179,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ],
+    [
+     "crates/uv-distribution/src/metadata/build_requires.rs",
+     189,
+     189,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ],
+    [
+     "crates/uv-distribution/src/metadata/build_requires.rs",
+     268,
+     268,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ],
+    [
+     "crates/uv-distribution/src/metadata/build_requires.rs",
+     277,
+     277,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ],
+    [
+     "crates/uv/src/commands/project/mod.rs",
+     1529,
+     1529,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ]
+   ],
+   "seed_def": "crates/uv-workspace/src/workspace.rs:948",
+   "stratum": "C-method"
+  },
+  "callers:crates/uv/src/commands/project/lock_target.rs:333": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "crates/uv/src/commands/project/add.rs",
+     "snapshot"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "crates/uv/src/commands/project/add.rs",
+     1430,
+     1430
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/uv/src/commands/project/add.rs",
+     "snapshot"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "crates/uv/src/commands/project/add.rs",
+     1430,
+     1430,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "crates/uv/src/commands/project/lock_target.rs:333",
+   "stratum": "U-method"
+  },
+  "callers:crates/uv/src/commands/project/mod.rs:1674": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "crates/uv/src/commands/project/check.rs",
+     "check"
+    ],
+    [
+     "crates/uv/src/commands/project/run.rs",
+     "run"
+    ],
+    [
+     "crates/uv/src/commands/project/sync.rs",
+     "sync"
+    ],
+    [
+     "crates/uv/src/commands/workspace/metadata.rs",
+     "metadata"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "crates/uv/src/commands/project/check.rs",
+     236,
+     236
+    ],
+    [
+     "crates/uv/src/commands/project/sync.rs",
+     178,
+     178
+    ],
+    [
+     "crates/uv/src/commands/project/run.rs",
+     206,
+     206
+    ],
+    [
+     "crates/uv/src/commands/project/run.rs",
+     376,
+     376
+    ],
+    [
+     "crates/uv/src/commands/workspace/metadata.rs",
+     194,
+     194
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "crates/uv/src/commands/project/check.rs",
+     "check"
+    ],
+    [
+     "crates/uv/src/commands/project/run.rs",
+     "run"
+    ],
+    [
+     "crates/uv/src/commands/project/sync.rs",
+     "sync"
+    ],
+    [
+     "crates/uv/src/commands/workspace/metadata.rs",
+     "metadata"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "crates/uv/src/commands/project/check.rs",
+     236,
+     236,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ],
+    [
+     "crates/uv/src/commands/project/run.rs",
+     206,
+     206,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ],
+    [
+     "crates/uv/src/commands/project/run.rs",
+     376,
+     376,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ],
+    [
+     "crates/uv/src/commands/project/sync.rs",
+     178,
+     178,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ],
+    [
+     "crates/uv/src/commands/workspace/metadata.rs",
+     194,
+     194,
+     {
+      "resolution_kind": "qualified_owner"
+     }
+    ]
+   ],
+   "seed_def": "crates/uv/src/commands/project/mod.rs:1674",
+   "stratum": "C-name"
+  },
+  "callers:crates/uv/tests/pip_compile/pip_compile.rs:17891": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "crates/uv/tests/pip_compile/pip_compile.rs:17891",
+   "stratum": "Q-scoped"
+  },
+  "callers:crates/uv/tests/project/edit.rs:10700": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "crates/uv/tests/project/edit.rs:10700",
+   "stratum": "Q-scoped"
+  },
+  "callers:crates/uv/tests/project/run.rs:6560": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "crates/uv/tests/project/run.rs:6560",
+   "stratum": "Q-scoped"
+  }
+ },
+ "site_fingerprints": {
+  "crates/uv-auth/src/index.rs:121": "f862b86a0bfc2e20",
+  "crates/uv-auth/src/middleware.rs:380": "1feee5463acd809b",
+  "crates/uv-bench/benches/uv.rs:203": "75e8047053da02c6",
+  "crates/uv-bench/benches/uv.rs:275": "4027b21f201ed4b9",
+  "crates/uv-bin-install/src/lib.rs:261": "eb9e7957d6271957",
+  "crates/uv-bin-install/src/lib.rs:265": "b161cd42cd4b5e82",
+  "crates/uv-build-backend/src/metadata.rs:2007": "975ef253792354b7",
+  "crates/uv-build-backend/src/metadata.rs:2009": "29925cfee3f657a3",
+  "crates/uv-build-backend/src/metadata.rs:2011": "9b20ecc1db394dfd",
+  "crates/uv-build-backend/src/metadata.rs:2021": "726b8d9854da5b3a",
+  "crates/uv-build-backend/src/metadata.rs:2031": "3af6ce9f2dd712b1",
+  "crates/uv-build-backend/src/metadata.rs:2041": "1557c16493d12947",
+  "crates/uv-build-backend/src/source_dist.rs:364": "320efe5215de7930",
+  "crates/uv-build-backend/src/wheel.rs:260": "728acdf32a6e56f9",
+  "crates/uv-build-backend/src/wheel.rs:336": "728acdf32a6e56f9",
+  "crates/uv-build-backend/src/wheel.rs:420": "728acdf32a6e56f9",
+  "crates/uv-build/src/main.rs:47": "9f5c520df2d1bef0",
+  "crates/uv-client/src/flat_index.rs:271": "d64237f00918091d",
+  "crates/uv-client/src/flat_index.rs:355": "75ec2ffb245183bb",
+  "crates/uv-distribution-types/src/cached.rs:266": "4bb0413c27a2a422",
+  "crates/uv-distribution-types/src/cached.rs:274": "c01ab83e4fa35747",
+  "crates/uv-distribution-types/src/resolution.rs:74": "a07ed2c548f5ce87",
+  "crates/uv-distribution-types/src/traits.rs:141": "40ccaab893fbd956",
+  "crates/uv-distribution/src/index/built_wheel_index.rs:303": "25935c44ce22d069",
+  "crates/uv-distribution/src/index/built_wheel_index.rs:62": "9f5d0e9141cdc4cb",
+  "crates/uv-distribution/src/index/built_wheel_index.rs:64": "a20e22f75ae2bcea",
+  "crates/uv-distribution/src/index/built_wheel_index.rs:68": "de2990e17f6790c5",
+  "crates/uv-distribution/src/index/built_wheel_index.rs:74": "42334903dffff504",
+  "crates/uv-distribution/src/index/built_wheel_index.rs:75": "df59f454b628a345",
+  "crates/uv-distribution/src/index/built_wheel_index.rs:79": "55b17ffcf5e5f5f7",
+  "crates/uv-distribution/src/index/built_wheel_index.rs:82": "a794f32e19f18df5",
+  "crates/uv-distribution/src/index/built_wheel_index.rs:83": "8b6001b853c7e8d8",
+  "crates/uv-distribution/src/index/built_wheel_index.rs:84": "bf81a0a4cab62fe5",
+  "crates/uv-distribution/src/index/built_wheel_index.rs:86": "fc12f2abc7e41d31",
+  "crates/uv-distribution/src/index/built_wheel_index.rs:87": "fad8ab3d3495b5ac",
+  "crates/uv-distribution/src/index/built_wheel_index.rs:88": "c72130517322fd84",
+  "crates/uv-distribution/src/index/built_wheel_index.rs:89": "f136ea4d5627ff9d",
+  "crates/uv-distribution/src/index/built_wheel_index.rs:92": "67538e25c67e99e2",
+  "crates/uv-distribution/src/index/built_wheel_index.rs:93": "2536d05a8c24edf8",
+  "crates/uv-distribution/src/index/built_wheel_index.rs:95": "1a2db5925b9cfac5",
+  "crates/uv-distribution/src/index/cached_wheel.rs:29": "7ec4824476819ff9",
+  "crates/uv-distribution/src/index/cached_wheel.rs:30": "52294c9cb43c4173",
+  "crates/uv-distribution/src/index/cached_wheel.rs:33": "dbb5089192341f16",
+  "crates/uv-distribution/src/index/cached_wheel.rs:34": "05df93b0ac822dac",
+  "crates/uv-distribution/src/index/registry_wheel_index.rs:265": "c8f99b48a9720fab",
+  "crates/uv-distribution/src/metadata/build_requires.rs:179": "dc822980de6dcb01",
+  "crates/uv-distribution/src/metadata/build_requires.rs:180": "06229958f58e6d40",
+  "crates/uv-distribution/src/metadata/build_requires.rs:189": "09a0ca8436215854",
+  "crates/uv-distribution/src/metadata/build_requires.rs:190": "527f93a731ab6848",
+  "crates/uv-distribution/src/metadata/build_requires.rs:268": "a02783c1f83df25a",
+  "crates/uv-distribution/src/metadata/build_requires.rs:269": "06229958f58e6d40",
+  "crates/uv-distribution/src/metadata/build_requires.rs:277": "bbab61f6a07d32ce",
+  "crates/uv-distribution/src/metadata/build_requires.rs:278": "527f93a731ab6848",
+  "crates/uv-distribution/src/source/mod.rs:2702": "304f61d254561361",
+  "crates/uv-distribution/src/source/mod.rs:2705": "e2ea19a57cc188f0",
+  "crates/uv-distribution/src/source/mod.rs:2708": "6296e4b5ae12662d",
+  "crates/uv-distribution/src/source/mod.rs:2709": "2bce2cfbb6d2d169",
+  "crates/uv-distribution/src/source/mod.rs:2710": "ca5b352a770c8951",
+  "crates/uv-distribution/src/source/mod.rs:2712": "2e6215f86fc71f78",
+  "crates/uv-distribution/src/source/mod.rs:2715": "d7be2e601fe9c78b",
+  "crates/uv-distribution/src/source/mod.rs:2716": "5e15182f3dc04fda",
+  "crates/uv-distribution/src/source/mod.rs:2717": "24806aac308a1cc0",
+  "crates/uv-distribution/src/source/mod.rs:2726": "4e0c3bad21ac9278",
+  "crates/uv-distribution/src/source/mod.rs:2731": "07fd4c1feb7a74b6",
+  "crates/uv-distribution/src/source/mod.rs:2732": "42e0e1c614cea86b",
+  "crates/uv-distribution/src/source/mod.rs:2733": "93f4fd9f3c67e256",
+  "crates/uv-distribution/src/source/mod.rs:2736": "3d0eba3cb467a480",
+  "crates/uv-distribution/src/source/mod.rs:2740": "970341d7c5340d71",
+  "crates/uv-distribution/src/source/mod.rs:2741": "cb4346542a9c8372",
+  "crates/uv-distribution/src/source/mod.rs:2743": "00bcf61c541ec33f",
+  "crates/uv-distribution/src/source/mod.rs:2745": "42577a6a16d6dc7e",
+  "crates/uv-distribution/src/source/mod.rs:2748": "58e91d3b2af206d2",
+  "crates/uv-distribution/src/source/mod.rs:2753": "9ce2e2adb4e3cbf8",
+  "crates/uv-distribution/src/source/mod.rs:2754": "dc11666878194544",
+  "crates/uv-distribution/src/source/mod.rs:2755": "0d426d7c07ab86d4",
+  "crates/uv-distribution/src/source/mod.rs:2756": "38428ef68d05292d",
+  "crates/uv-distribution/src/source/mod.rs:2757": "277350eb9f627330",
+  "crates/uv-distribution/src/source/mod.rs:2758": "891a8bb07d58c1b7",
+  "crates/uv-distribution/src/source/mod.rs:2760": "5e749952eaf05dea",
+  "crates/uv-distribution/src/source/mod.rs:2766": "8118e6e6712717ef",
+  "crates/uv-distribution/src/source/mod.rs:693": "a3e3b7ae1418dfd6",
+  "crates/uv-distribution/src/source/mod.rs:826": "a3e3b7ae1418dfd6",
+  "crates/uv-installer/src/plan.rs:636": "cc667216f84a4885",
+  "crates/uv-pep440/src/version.rs:2005": "7e4b8ee7697de54c",
+  "crates/uv-preview/src/lib.rs:560": "577d671738cb5fdd",
+  "crates/uv-pypi-types/src/parsed_url.rs:338": "5ec61f0987a9af64",
+  "crates/uv-pypi-types/src/parsed_url.rs:442": "ab12ef68a69d4be5",
+  "crates/uv-python/src/lib.rs:3135": "253cae2b19c32f65",
+  "crates/uv-python/src/lib.rs:3137": "62898277ca1087af",
+  "crates/uv-python/src/lib.rs:3139": "8e10ea7360ebd4ca",
+  "crates/uv-python/src/lib.rs:3140": "2b6331b71f6d9308",
+  "crates/uv-python/src/lib.rs:3146": "f6c03e2f7ce7ba62",
+  "crates/uv-python/src/lib.rs:3147": "59de288403165663",
+  "crates/uv-python/src/lib.rs:3153": "74a807e567bbb961",
+  "crates/uv-python/src/lib.rs:3155": "2ef6fdb62760a031",
+  "crates/uv-python/src/lib.rs:3156": "80b68f3bc16e3ece",
+  "crates/uv-python/src/lib.rs:3157": "90e4b2c61fa473f9",
+  "crates/uv-requirements-txt/src/lib.rs:1104": "528c465bf8178af2",
+  "crates/uv-requirements-txt/src/lib.rs:1107": "7644a6aa7a70dbf8",
+  "crates/uv-requirements-txt/src/lib.rs:1111": "6a36421a2fc46d22",
+  "crates/uv-requirements-txt/src/lib.rs:1112": "d9ece335cad7742b",
+  "crates/uv-requirements-txt/src/lib.rs:1113": "feb6b25bb6e74d34",
+  "crates/uv-requirements-txt/src/lib.rs:1114": "327f87da1979a15d",
+  "crates/uv-requirements-txt/src/lib.rs:1115": "3af4c51429524415",
+  "crates/uv-requirements-txt/src/lib.rs:1117": "f7a40899e4ef35e4",
+  "crates/uv-requirements-txt/src/lib.rs:1120": "b29bce3fbb98305d",
+  "crates/uv-requirements-txt/src/lib.rs:1123": "a5ff3a187ce35e3c",
+  "crates/uv-requirements-txt/src/lib.rs:305": "17f35c145a4340db",
+  "crates/uv-resolver/src/error.rs:1664": "d898eafaeca3e9af",
+  "crates/uv-resolver/src/error.rs:1739": "74bfc0d7c280d78e",
+  "crates/uv-resolver/src/lock/export/metadata.rs:241": "224d5d3800ffc36d",
+  "crates/uv-resolver/src/lock/export/metadata.rs:245": "10f50b7cfd16c162",
+  "crates/uv-resolver/src/lock/export/metadata.rs:254": "42a8ab1f69c709e4",
+  "crates/uv-resolver/src/lock/export/metadata.rs:267": "81f15f9392117c2d",
+  "crates/uv-resolver/src/pubgrub/package.rs:30": "5f2bfcab047c6a86",
+  "crates/uv-resolver/src/pubgrub/report.rs:2661": "63b1bc44174a5122",
+  "crates/uv-resolver/src/pubgrub/report.rs:2692": "4e29d094699564ed",
+  "crates/uv-resolver/src/resolver/batch_prefetch.rs:187": "620b32d625414c84",
+  "crates/uv-resolver/src/resolver/batch_prefetch.rs:198": "e9e53a36e05b17b6",
+  "crates/uv-resolver/src/resolver/environment.rs:313": "8c8cbb081ea35e68",
+  "crates/uv-resolver/src/resolver/environment.rs:314": "2d6ad5f5b043c36b",
+  "crates/uv-resolver/src/resolver/environment.rs:375": "8e223d88d2e01740",
+  "crates/uv-resolver/src/resolver/fork_map.rs:168": "390a51b753be5e81",
+  "crates/uv-resolver/src/resolver/fork_map.rs:169": "d698abd7f633caa2",
+  "crates/uv-resolver/src/resolver/mod.rs:1948": "db1f6ac2d0bf87e1",
+  "crates/uv-resolver/src/resolver/mod.rs:1976": "c815b3cbcf679c3c",
+  "crates/uv-resolver/src/resolver/mod.rs:2002": "78c90c6d30b6d3a5",
+  "crates/uv-resolver/src/resolver/mod.rs:3197": "c85bc667330d93d7",
+  "crates/uv-resolver/src/resolver/mod.rs:333": "a030729961738921",
+  "crates/uv-resolver/src/resolver/mod.rs:4078": "88cada2fccdc101f",
+  "crates/uv-resolver/src/resolver/mod.rs:424": "a52ecf8984e822c0",
+  "crates/uv-resolver/src/resolver/system.rs:49": "237783ba9db9c700",
+  "crates/uv-resolver/src/version_map.rs:340": "080c373a6896ca49",
+  "crates/uv-resolver/src/version_map.rs:420": "3c698550db37512d",
+  "crates/uv-resolver/src/version_map.rs:432": "19ebf3361bc1d5df",
+  "crates/uv-resolver/src/version_map.rs:436": "5a43a21e95227207",
+  "crates/uv-resolver/src/version_map.rs:575": "ea246764f08d1dd8",
+  "crates/uv-resolver/src/version_map.rs:622": "dc6e80ac74b7c81b",
+  "crates/uv-settings/src/settings.rs:2952": "848b8f24c5eb2a3f",
+  "crates/uv-workspace/src/dependency_groups.rs:239": "a2cd765feefa8486",
+  "crates/uv/src/commands/pip/latest.rs:71": "1a44d233f3add346",
+  "crates/uv/src/commands/project/add.rs:1430": "6b3aed7e498545c7",
+  "crates/uv/src/commands/project/add.rs:1478": "eec09888d74f98e5",
+  "crates/uv/src/commands/project/add.rs:560": "acce2e41883527d2",
+  "crates/uv/src/commands/project/audit.rs:102": "258cc130d9db1018",
+  "crates/uv/src/commands/project/check.rs:236": "f20f42851afd881b",
+  "crates/uv/src/commands/project/check/ty.rs:73": "91998501970ace08",
+  "crates/uv/src/commands/project/format.rs:105": "91998501970ace08",
+  "crates/uv/src/commands/project/init.rs:442": "91ac935aa8632acb",
+  "crates/uv/src/commands/project/lock.rs:564": "cfd42e70352ca866",
+  "crates/uv/src/commands/project/lock.rs:565": "34b657fe95d5746e",
+  "crates/uv/src/commands/project/lock_target.rs:334": "5c63a6789627819b",
+  "crates/uv/src/commands/project/lock_target.rs:359": "6871814a7b64cf0b",
+  "crates/uv/src/commands/project/mod.rs:1529": "dcd674be855cf696",
+  "crates/uv/src/commands/project/mod.rs:1530": "eb3268078f333373",
+  "crates/uv/src/commands/project/mod.rs:1689": "889b6d241a0f4113",
+  "crates/uv/src/commands/project/mod.rs:1698": "800f39b9841475ab",
+  "crates/uv/src/commands/project/mod.rs:1700": "2e5040bf67be5e1f",
+  "crates/uv/src/commands/project/mod.rs:1716": "c2622cb0abf938fc",
+  "crates/uv/src/commands/project/mod.rs:1720": "0f3fdc8be2bd3a65",
+  "crates/uv/src/commands/project/mod.rs:1726": "b034a47a9ac771d4",
+  "crates/uv/src/commands/project/mod.rs:1727": "ac67a32087f7e683",
+  "crates/uv/src/commands/project/mod.rs:1728": "70c496afd1bc1e28",
+  "crates/uv/src/commands/project/mod.rs:1734": "a47a4d03e2c93c5e",
+  "crates/uv/src/commands/project/mod.rs:1735": "43edbad29ec91613",
+  "crates/uv/src/commands/project/mod.rs:1736": "bfa6bb816bfd40e7",
+  "crates/uv/src/commands/project/mod.rs:1741": "5eb100040420d6c4",
+  "crates/uv/src/commands/project/mod.rs:1749": "c3c7f4a154b75d8f",
+  "crates/uv/src/commands/project/mod.rs:1751": "96b7383253817f6b",
+  "crates/uv/src/commands/project/mod.rs:1756": "9bb58ca3e9f0be39",
+  "crates/uv/src/commands/project/mod.rs:1773": "5c568583129f8270",
+  "crates/uv/src/commands/project/mod.rs:1778": "5eb100040420d6c4",
+  "crates/uv/src/commands/project/mod.rs:1787": "3b25a85c168edeee",
+  "crates/uv/src/commands/project/mod.rs:1789": "52c4de43e01f9e77",
+  "crates/uv/src/commands/project/run.rs:206": "cb185771710ebfd3",
+  "crates/uv/src/commands/project/run.rs:376": "8d50c1ad1e3e4632",
+  "crates/uv/src/commands/project/sync.rs:178": "74b7672b3977b9ff",
+  "crates/uv/src/commands/project/tree.rs:84": "258cc130d9db1018",
+  "crates/uv/src/commands/workspace/metadata.rs:194": "e1ee89b6a4508377",
+  "crates/uv/src/commands/workspace/module_owners.rs:132": "3aba73695638ebb8",
+  "crates/uv/src/settings.rs:231": "3c84566035164420",
+  "crates/uv/src/settings.rs:239": "ab231ccf2283a245",
+  "crates/uv/src/settings.rs:252": "05a8ee40514268fa",
+  "crates/uv/tests/project/edit.rs:10724": "f96dc6641a5ba400",
+  "crates/uv/tests/project/edit.rs:10746": "e0ff5fa7a6093276",
+  "crates/uv/tests/project/edit.rs:10796": "f96dc6641a5ba400",
+  "crates/uv/tests/project/edit.rs:10819": "e0ff5fa7a6093276"
+ }
+}

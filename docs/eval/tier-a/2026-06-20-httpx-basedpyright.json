@@ -1,0 +1,5327 @@
+{
+ "m1": {
+  "anon_oracle": 0,
+  "anon_prism": 0,
+  "matched": 434,
+  "prism_extra": 12,
+  "prism_missing": 0,
+  "snapshot_prism_missing": 0
+ },
+ "m2": {
+  "callees": {
+   "C-method": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.43850296436068037,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.43850296436068037,
+      1.0
+     ],
+     "tp": 3
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 1,
+      "precision": [
+       0.8333333333333334,
+       0.4364971749742326,
+       0.969946630588185
+      ],
+      "recall": [
+       1.0,
+       0.5655175313406071,
+       1.0
+      ],
+      "tp": 5
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 1,
+      "precision": [
+       0.8333333333333334,
+       0.4364971749742326,
+       0.969946630588185
+      ],
+      "recall": [
+       1.0,
+       0.5655175313406071,
+       1.0
+      ],
+      "tp": 5
+     }
+    },
+    "pending": 4,
+    "raw": {
+     "fn": 3,
+     "fp": 1,
+     "precision": [
+      0.75,
+      0.3006418400969081,
+      0.954412739704631
+     ],
+     "recall": [
+      0.5,
+      0.18761630498040816,
+      0.8123836950195918
+     ],
+     "tp": 3
+    },
+    "shortfall": 0
+   },
+   "C-name": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.6096657083436265,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.6096657083436265,
+      1.0
+     ],
+     "tp": 6
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 2,
+      "precision": [
+       0.75,
+       0.40927542792725174,
+       0.9285207879020445
+      ],
+      "recall": [
+       1.0,
+       0.6096657083436265,
+       1.0
+      ],
+      "tp": 6
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 2,
+      "precision": [
+       0.75,
+       0.40927542792725174,
+       0.9285207879020445
+      ],
+      "recall": [
+       1.0,
+       0.6096657083436265,
+       1.0
+      ],
+      "tp": 6
+     }
+    },
+    "pending": 7,
+    "raw": {
+     "fn": 7,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.6096657083436265,
+      1.0
+     ],
+     "recall": [
+      0.46153846153846156,
+      0.23206067674961361,
+      0.7085620444143711
+     ],
+     "tp": 6
+    },
+    "shortfall": 0
+   },
+   "Q-scoped": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.8318207737404363,
+      0.9999999999999999
+     ],
+     "recall": [
+      1.0,
+      0.8318207737404363,
+      0.9999999999999999
+     ],
+     "tp": 19
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 2,
+      "precision": [
+       0.75,
+       0.40927542792725174,
+       0.9285207879020445
+      ],
+      "recall": [
+       1.0,
+       0.6096657083436265,
+       1.0
+      ],
+      "tp": 6
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 2,
+      "precision": [
+       0.75,
+       0.40927542792725174,
+       0.9285207879020445
+      ],
+      "recall": [
+       1.0,
+       0.6096657083436265,
+       1.0
+      ],
+      "tp": 6
+     }
+    },
+    "pending": 14,
+    "raw": {
+     "fn": 14,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.8318207737404363,
+      0.9999999999999999
+     ],
+     "recall": [
+      0.5757575757575758,
+      0.4080726321297921,
+      0.7276440346859849
+     ],
+     "tp": 19
+    },
+    "shortfall": 0
+   },
+   "U-method": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.3423802239546494,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.3423802239546494,
+      1.0
+     ],
+     "tp": 2
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 3,
+      "precision": [
+       0.5714285714285714,
+       0.25045836275303557,
+       0.8417801460075546
+      ],
+      "recall": [
+       1.0,
+       0.5101091596030786,
+       0.9999999999999999
+      ],
+      "tp": 4
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 3,
+      "precision": [
+       0.5714285714285714,
+       0.25045836275303557,
+       0.8417801460075546
+      ],
+      "recall": [
+       1.0,
+       0.5101091596030786,
+       0.9999999999999999
+      ],
+      "tp": 4
+     }
+    },
+    "pending": 9,
+    "raw": {
+     "fn": 7,
+     "fp": 2,
+     "precision": [
+      0.5,
+      0.15003898774401986,
+      0.8499610122559802
+     ],
+     "recall": [
+      0.2222222222222222,
+      0.06322510654056959,
+      0.5474110333077882
+     ],
+     "tp": 2
+    },
+    "shortfall": 0
+   }
+  },
+  "callers": {
+   "C-method": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.2065493117918027,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.2065493117918027,
+      1.0
+     ],
+     "tp": 1
+    },
+    "function": {
+     "corrected": {
+      "fn": 10,
+      "fp": 5,
+      "precision": [
+       0.16666666666666666,
+       0.030053369411815023,
+       0.5635028250257673
+      ],
+      "recall": [
+       0.09090909090909091,
+       0.016232172705325593,
+       0.3773584391082959
+      ],
+      "tp": 1
+     },
+     "raw": {
+      "fn": 10,
+      "fp": 5,
+      "precision": [
+       0.16666666666666666,
+       0.030053369411815023,
+       0.5635028250257673
+      ],
+      "recall": [
+       0.09090909090909091,
+       0.016232172705325593,
+       0.3773584391082959
+      ],
+      "tp": 1
+     }
+    },
+    "pending": 41,
+    "raw": {
+     "fn": 32,
+     "fp": 9,
+     "precision": [
+      0.1,
+      0.017876212896073995,
+      0.4041500295247722
+     ],
+     "recall": [
+      0.030303030303030304,
+      0.005369410477441133,
+      0.15318725526474106
+     ],
+     "tp": 1
+    },
+    "shortfall": 0
+   },
+   "C-name": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.7719046248681998,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.7719046248681998,
+      1.0
+     ],
+     "tp": 13
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 1,
+      "precision": [
+       0.9166666666666666,
+       0.6461200862787544,
+       0.9851349057603305
+      ],
+      "recall": [
+       1.0,
+       0.7411670300055737,
+       1.0
+      ],
+      "tp": 11
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 1,
+      "precision": [
+       0.9166666666666666,
+       0.6461200862787544,
+       0.9851349057603305
+      ],
+      "recall": [
+       1.0,
+       0.7411670300055737,
+       1.0
+      ],
+      "tp": 11
+     }
+    },
+    "pending": 1,
+    "raw": {
+     "fn": 0,
+     "fp": 1,
+     "precision": [
+      0.9285714285714286,
+      0.6853129533326209,
+      0.9872777848933957
+     ],
+     "recall": [
+      1.0,
+      0.7719046248681998,
+      1.0
+     ],
+     "tp": 13
+    },
+    "shortfall": 0
+   },
+   "Q-scoped": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.7846891945970195,
+      0.9999999999999999
+     ],
+     "recall": [
+      1.0,
+      0.7846891945970195,
+      0.9999999999999999
+     ],
+     "tp": 14
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.7846891945970195,
+       0.9999999999999999
+      ],
+      "recall": [
+       1.0,
+       0.7846891945970195,
+       0.9999999999999999
+      ],
+      "tp": 14
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.7846891945970195,
+       0.9999999999999999
+      ],
+      "recall": [
+       1.0,
+       0.7846891945970195,
+       0.9999999999999999
+      ],
+      "tp": 14
+     }
+    },
+    "pending": 0,
+    "raw": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.7846891945970195,
+      0.9999999999999999
+     ],
+     "recall": [
+      1.0,
+      0.7846891945970195,
+      0.9999999999999999
+     ],
+     "tp": 14
+    },
+    "shortfall": 0
+   },
+   "U-method": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.700854948272956,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.700854948272956,
+      1.0
+     ],
+     "tp": 9
+    },
+    "function": {
+     "corrected": {
+      "fn": 14,
+      "fp": 3,
+      "precision": [
+       0.7272727272727273,
+       0.4343546966810743,
+       0.9025394078669138
+      ],
+      "recall": [
+       0.36363636363636365,
+       0.1973320457082143,
+       0.5704829206386436
+      ],
+      "tp": 8
+     },
+     "raw": {
+      "fn": 14,
+      "fp": 3,
+      "precision": [
+       0.7272727272727273,
+       0.4343546966810743,
+       0.9025394078669138
+      ],
+      "recall": [
+       0.36363636363636365,
+       0.1973320457082143,
+       0.5704829206386436
+      ],
+      "tp": 8
+     }
+    },
+    "pending": 74,
+    "raw": {
+     "fn": 68,
+     "fp": 6,
+     "precision": [
+      0.6,
+      0.35746829954344506,
+      0.8017550397372577
+     ],
+     "recall": [
+      0.11688311688311688,
+      0.06272561975197133,
+      0.20745083653102359
+     ],
+     "tp": 9
+    },
+    "shortfall": 0
+   }
+  }
+ },
+ "m3": {
+  "cap": 25,
+  "checked": [
+   {
+    "probe": "callers:httpx/_api.py:39",
+    "site": "httpx/_client.py:524",
+    "verdict": "alias_site"
+   },
+   {
+    "probe": "callers:httpx/_models.py:1192",
+    "site": "httpx/_models.py:1179",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:httpx/_models.py:1192",
+    "site": "httpx/_models.py:1190",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:httpx/_models.py:1192",
+    "site": "httpx/_models.py:1203",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:httpx/_models.py:1192",
+    "site": "tests/conftest.py:38",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:httpx/_models.py:1192",
+    "site": "tests/conftest.py:47",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:httpx/_models.py:1192",
+    "site": "tests/conftest.py:266",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:httpx/_models.py:216",
+    "site": "httpx/_models.py:154",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:httpx/_models.py:216",
+    "site": "httpx/_models.py:229",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:httpx/_models.py:216",
+    "site": "httpx/_models.py:442",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:httpx/_models.py:216",
+    "site": "httpx/_models.py:504",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:httpx/_models.py:216",
+    "site": "httpx/_models.py:509",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:httpx/_models.py:216",
+    "site": "httpx/_models.py:572",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:httpx/_models.py:216",
+    "site": "httpx/_models.py:865",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:httpx/_models.py:216",
+    "site": "httpx/_models.py:870",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:httpx/_models.py:216",
+    "site": "httpx/_models.py:1088",
+    "verdict": "ambiguous"
+   }
+  ],
+  "counts": {
+   "alias_site": 1,
+   "ambiguous": 15,
+   "confirmed_fp": 0,
+   "confirmed_tp": 0
+  }
+ },
+ "meta": {
+  "baseline_invalid": false,
+  "corpus": "httpx-basedpyright",
+  "corpus_dirty": false,
+  "corpus_dirty_reasons": [],
+  "corpus_sha": "b5addb64f016",
+  "date": "2026-06-20",
+  "harness_sha": "06e6ac4ee96e",
+  "invalid_reasons": [],
+  "oracle": "basedpyright 1.39.8",
+  "oracle_error_rate": 0.15625,
+  "oracle_not_quiescent": false,
+  "prism_dirty": false,
+  "prism_sha": "20c8490591a3",
+  "seed": 42,
+  "stale_adjudications": 0,
+  "sut_error_rate": 0.0,
+  "wall_s": {
+   "m1_oracle_inventory": 0.017,
+   "m2": 7.199,
+   "m3": 0.113,
+   "oracle_start": 5.149
+  }
+ },
+ "pending": [
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "prism_only",
+   "dispatch_kind": "free_single",
+   "measurement": "callers",
+   "seed_def": "httpx/_api.py:39",
+   "site": "httpx/_client.py:524",
+   "site_fingerprint": "8d72dee5a911da76"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "httpx/_auth.py:62",
+   "site": "httpx/_client.py:937",
+   "site_fingerprint": "af43cff2c060f3cb"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "httpx/_auth.py:62",
+   "site": "tests/test_auth.py:19",
+   "site_fingerprint": "19e033f3cf229661"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "httpx/_auth.py:62",
+   "site": "tests/test_auth.py:34",
+   "site_fingerprint": "a4281ae06f0c172a"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "httpx/_auth.py:62",
+   "site": "tests/test_auth.py:49",
+   "site_fingerprint": "a4281ae06f0c172a"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "httpx/_auth.py:62",
+   "site": "tests/test_auth.py:74",
+   "site_fingerprint": "a4281ae06f0c172a"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "httpx/_auth.py:62",
+   "site": "tests/test_auth.py:90",
+   "site_fingerprint": "976bdb161a19634f"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "httpx/_auth.py:62",
+   "site": "tests/test_auth.py:126",
+   "site_fingerprint": "86a67961d40baeac"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "httpx/_auth.py:62",
+   "site": "tests/test_auth.py:154",
+   "site_fingerprint": "a4281ae06f0c172a"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "httpx/_auth.py:62",
+   "site": "tests/test_auth.py:203",
+   "site_fingerprint": "a4281ae06f0c172a"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "httpx/_auth.py:62",
+   "site": "tests/test_auth.py:263",
+   "site_fingerprint": "a4281ae06f0c172a"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "httpx/_client.py:1474",
+   "site": "tests/client/test_proxies.py:26",
+   "site_fingerprint": "5487b612c9205a5a"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "httpx/_client.py:1780",
+   "site": "tests/client/test_async_client.py:133",
+   "site_fingerprint": "697d25e8b9b98aa1"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "httpx/_client.py:1949",
+   "site": "tests/client/test_async_client.py:163",
+   "site_fingerprint": "eeab01e5953a5cf9"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "httpx/_content.py:38",
+   "site": "httpx/_transports/asgi.py:122",
+   "site_fingerprint": "e051a6fa62a83d38"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callers",
+   "seed_def": "httpx/_models.py:1192",
+   "site": "httpx/_models.py:1179",
+   "site_fingerprint": "952e9fcdabad8d3e"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callers",
+   "seed_def": "httpx/_models.py:1192",
+   "site": "httpx/_models.py:1190",
+   "site_fingerprint": "943ce13bb7200483"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callers",
+   "seed_def": "httpx/_models.py:1192",
+   "site": "httpx/_models.py:1203",
+   "site_fingerprint": "e531ef11f8dc7e4e"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callers",
+   "seed_def": "httpx/_models.py:1192",
+   "site": "tests/conftest.py:38",
+   "site_fingerprint": "0f50f46019e66063"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callers",
+   "seed_def": "httpx/_models.py:1192",
+   "site": "tests/conftest.py:47",
+   "site_fingerprint": "8353d1f61147b74b"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callers",
+   "seed_def": "httpx/_models.py:1192",
+   "site": "tests/conftest.py:266",
+   "site_fingerprint": "f0aa72ba68ce6d69"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callers",
+   "seed_def": "httpx/_models.py:216",
+   "site": "httpx/_models.py:154",
+   "site_fingerprint": "4c69f04037866d3f"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callers",
+   "seed_def": "httpx/_models.py:216",
+   "site": "httpx/_models.py:229",
+   "site_fingerprint": "280a6ad613fff1ce"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callers",
+   "seed_def": "httpx/_models.py:216",
+   "site": "httpx/_models.py:442",
+   "site_fingerprint": "0fabfe6a6c5fcb50"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callers",
+   "seed_def": "httpx/_models.py:216",
+   "site": "httpx/_models.py:504",
+   "site_fingerprint": "443eda5bb8cbb9df"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callers",
+   "seed_def": "httpx/_models.py:216",
+   "site": "httpx/_models.py:509",
+   "site_fingerprint": "e63af4e4ef007d46"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callers",
+   "seed_def": "httpx/_models.py:216",
+   "site": "httpx/_models.py:572",
+   "site_fingerprint": "0fabfe6a6c5fcb50"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callers",
+   "seed_def": "httpx/_models.py:216",
+   "site": "httpx/_models.py:865",
+   "site_fingerprint": "eea9923d56ea80b1"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callers",
+   "seed_def": "httpx/_models.py:216",
+   "site": "httpx/_models.py:870",
+   "site_fingerprint": "e63af4e4ef007d46"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callers",
+   "seed_def": "httpx/_models.py:216",
+   "site": "httpx/_models.py:1088",
+   "site_fingerprint": "abc7e233395981cf"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "httpx/_models.py:216",
+   "site": "tests/client/test_headers.py:19",
+   "site_fingerprint": "abf43efdf955744b"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "httpx/_models.py:216",
+   "site": "tests/models/test_headers.py:20",
+   "site_fingerprint": "1b1d54ea78be28d0"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "httpx/_models.py:463",
+   "site": "httpx/_transports/wsgi.py:93",
+   "site_fingerprint": "6691e70fc93449ef"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "httpx/_models.py:463",
+   "site": "tests/client/test_redirects.py:75",
+   "site_fingerprint": "9c64deeb63b1efaf"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "httpx/_models.py:463",
+   "site": "tests/client/test_redirects.py:92",
+   "site_fingerprint": "9c64deeb63b1efaf"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "httpx/_models.py:463",
+   "site": "tests/models/test_requests.py:57",
+   "site_fingerprint": "cf015c596365f27e"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "httpx/_models.py:463",
+   "site": "tests/models/test_requests.py:65",
+   "site_fingerprint": "93979fc802855f0c"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "httpx/_models.py:463",
+   "site": "tests/models/test_requests.py:86",
+   "site_fingerprint": "1efe6a2d790a3340"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "httpx/_models.py:463",
+   "site": "tests/models/test_requests.py:98",
+   "site_fingerprint": "cb17852acc9056e6"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "httpx/_models.py:463",
+   "site": "tests/models/test_requests.py:108",
+   "site_fingerprint": "b3ceea82cd3b6d3a"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "httpx/_models.py:463",
+   "site": "tests/test_multipart.py:13",
+   "site_fingerprint": "d11ec4e097871a19"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "httpx/_models.py:463",
+   "site": "tests/test_multipart.py:168",
+   "site_fingerprint": "6d11589d4ecf6a19"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "httpx/_models.py:463",
+   "site": "tests/test_multipart.py:170",
+   "site_fingerprint": "c16ba59f857984e1"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "httpx/_models.py:463",
+   "site": "tests/test_multipart.py:198",
+   "site_fingerprint": "6d11589d4ecf6a19"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "httpx/_models.py:463",
+   "site": "tests/test_multipart.py:200",
+   "site_fingerprint": "c16ba59f857984e1"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "httpx/_models.py:463",
+   "site": "tests/test_multipart.py:232",
+   "site_fingerprint": "6d11589d4ecf6a19"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "httpx/_models.py:463",
+   "site": "tests/test_multipart.py:234",
+   "site_fingerprint": "f68f92f6ae647b60"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "httpx/_models.py:463",
+   "site": "tests/test_multipart.py:262",
+   "site_fingerprint": "6d11589d4ecf6a19"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "httpx/_models.py:463",
+   "site": "tests/test_multipart.py:264",
+   "site_fingerprint": "a5b5c60f663623ad"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "httpx/_models.py:463",
+   "site": "tests/test_multipart.py:283",
+   "site_fingerprint": "6d11589d4ecf6a19"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "httpx/_models.py:463",
+   "site": "tests/test_multipart.py:285",
+   "site_fingerprint": "835facec977805e2"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "httpx/_models.py:463",
+   "site": "tests/test_multipart.py:313",
+   "site_fingerprint": "6d11589d4ecf6a19"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "httpx/_models.py:463",
+   "site": "tests/test_multipart.py:315",
+   "site_fingerprint": "c16ba59f857984e1"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "httpx/_models.py:463",
+   "site": "tests/test_multipart.py:334",
+   "site_fingerprint": "6d11589d4ecf6a19"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "httpx/_models.py:463",
+   "site": "tests/test_multipart.py:336",
+   "site_fingerprint": "a362f02546f3b671"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "httpx/_models.py:463",
+   "site": "tests/test_multipart.py:356",
+   "site_fingerprint": "6d11589d4ecf6a19"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "httpx/_models.py:463",
+   "site": "tests/test_multipart.py:358",
+   "site_fingerprint": "a362f02546f3b671"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "httpx/_models.py:463",
+   "site": "tests/test_multipart.py:413",
+   "site_fingerprint": "bc94effc5a07702f"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "httpx/_models.py:642",
+   "site": "httpx/_main.py:179",
+   "site_fingerprint": "368575354aac61c4"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "httpx/_models.py:642",
+   "site": "httpx/_main.py:181",
+   "site_fingerprint": "fff95650e68fa094"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "httpx/_models.py:642",
+   "site": "tests/client/test_async_client.py:17",
+   "site_fingerprint": "b2c55ba07c65371b"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "httpx/_models.py:642",
+   "site": "tests/client/test_async_client.py:135",
+   "site_fingerprint": "342870f81933d27e"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "httpx/_models.py:642",
+   "site": "tests/client/test_async_client.py:143",
+   "site_fingerprint": "0ad0a550da49abed"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "httpx/_models.py:642",
+   "site": "tests/client/test_async_client.py:165",
+   "site_fingerprint": "342870f81933d27e"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "httpx/_models.py:642",
+   "site": "tests/client/test_async_client.py:326",
+   "site_fingerprint": "342870f81933d27e"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "httpx/_models.py:642",
+   "site": "tests/client/test_auth.py:132",
+   "site_fingerprint": "2a660de2c65a3187"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "httpx/_models.py:642",
+   "site": "tests/client/test_client.py:23",
+   "site_fingerprint": "bb06e79e9a0793f8"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "httpx/_models.py:642",
+   "site": "tests/client/test_client.py:435",
+   "site_fingerprint": "ebbeb0d7b366cbbf"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "httpx/_models.py:642",
+   "site": "tests/client/test_client.py:462",
+   "site_fingerprint": "f523ad6bc736b186"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "httpx/_models.py:642",
+   "site": "tests/client/test_redirects.py:179",
+   "site_fingerprint": "dc1146cfdad718da"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "httpx/_models.py:642",
+   "site": "tests/client/test_redirects.py:411",
+   "site_fingerprint": "2ca54e9a2a82277d"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "httpx/_models.py:642",
+   "site": "tests/client/test_redirects.py:416",
+   "site_fingerprint": "69f120af5c7bdb1b"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "httpx/_models.py:642",
+   "site": "tests/client/test_redirects.py:421",
+   "site_fingerprint": "69f120af5c7bdb1b"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "httpx/_models.py:642",
+   "site": "tests/client/test_redirects.py:426",
+   "site_fingerprint": "2ca54e9a2a82277d"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "httpx/_models.py:642",
+   "site": "tests/client/test_redirects.py:431",
+   "site_fingerprint": "2ca54e9a2a82277d"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "httpx/_models.py:642",
+   "site": "tests/models/test_responses.py:40",
+   "site_fingerprint": "8f14007c9131280c"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "httpx/_models.py:642",
+   "site": "tests/models/test_responses.py:51",
+   "site_fingerprint": "82e55f3508756b55"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "httpx/_models.py:642",
+   "site": "tests/models/test_responses.py:60",
+   "site_fingerprint": "c6cff9c8ac0bf0df"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "httpx/_models.py:642",
+   "site": "tests/models/test_responses.py:72",
+   "site_fingerprint": "58575fd45522f682"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "httpx/_models.py:642",
+   "site": "tests/models/test_responses.py:168",
+   "site_fingerprint": "2522db5659800931"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "httpx/_models.py:642",
+   "site": "tests/models/test_responses.py:181",
+   "site_fingerprint": "2b3fb3acc829fbc6"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "httpx/_models.py:642",
+   "site": "tests/models/test_responses.py:196",
+   "site_fingerprint": "2b3fb3acc829fbc6"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "httpx/_models.py:642",
+   "site": "tests/models/test_responses.py:214",
+   "site_fingerprint": "e68605ad5b51c362"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "httpx/_models.py:642",
+   "site": "tests/models/test_responses.py:229",
+   "site_fingerprint": "4431e656dd4eaa06"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "httpx/_models.py:642",
+   "site": "tests/models/test_responses.py:243",
+   "site_fingerprint": "b9fd18cb998a31ac"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "httpx/_models.py:642",
+   "site": "tests/models/test_responses.py:257",
+   "site_fingerprint": "759049107978f435"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "httpx/_models.py:642",
+   "site": "tests/models/test_responses.py:271",
+   "site_fingerprint": "8da98a8aab4c8f92"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "httpx/_models.py:642",
+   "site": "tests/models/test_responses.py:285",
+   "site_fingerprint": "777ee1536e998df7"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "httpx/_models.py:642",
+   "site": "tests/models/test_responses.py:297",
+   "site_fingerprint": "e01651fb5ae3593e"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "httpx/_models.py:642",
+   "site": "tests/models/test_responses.py:308",
+   "site_fingerprint": "276cc46dbc4aa2dc"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "httpx/_models.py:642",
+   "site": "tests/models/test_responses.py:325",
+   "site_fingerprint": "25af495165c20741"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "httpx/_models.py:642",
+   "site": "tests/models/test_responses.py:340",
+   "site_fingerprint": "d9e02815dc8b5ca2"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "httpx/_models.py:642",
+   "site": "tests/models/test_responses.py:359",
+   "site_fingerprint": "25af495165c20741"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "httpx/_models.py:642",
+   "site": "tests/models/test_responses.py:375",
+   "site_fingerprint": "d9e02815dc8b5ca2"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "httpx/_models.py:642",
+   "site": "tests/models/test_responses.py:786",
+   "site_fingerprint": "1b9883a790b9ac24"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "httpx/_models.py:642",
+   "site": "tests/models/test_responses.py:921",
+   "site_fingerprint": "95c7dbd1df18f4be"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "httpx/_models.py:642",
+   "site": "tests/models/test_responses.py:1018",
+   "site_fingerprint": "d28c5c377d42bc08"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "httpx/_models.py:642",
+   "site": "tests/models/test_responses.py:1040",
+   "site_fingerprint": "36ec4ae33eb9960c"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "httpx/_models.py:642",
+   "site": "tests/test_api.py:12",
+   "site_fingerprint": "eba50f45c6fa1585"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "httpx/_models.py:642",
+   "site": "tests/test_api.py:81",
+   "site_fingerprint": "eba50f45c6fa1585"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "httpx/_models.py:642",
+   "site": "tests/test_asgi.py:100",
+   "site_fingerprint": "05eccabe5e1dcdb2"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "httpx/_models.py:642",
+   "site": "tests/test_asgi.py:146",
+   "site_fingerprint": "1fd293e546b65f84"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "httpx/_models.py:642",
+   "site": "tests/test_content.py:492",
+   "site_fingerprint": "1c2c71897a53b423"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "httpx/_models.py:642",
+   "site": "tests/test_content.py:501",
+   "site_fingerprint": "9fc2e0c81801b24b"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "httpx/_models.py:642",
+   "site": "tests/test_decoders.py:256",
+   "site_fingerprint": "b4753427e54f7cc1"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "httpx/_models.py:642",
+   "site": "tests/test_decoders.py:280",
+   "site_fingerprint": "eedd6962e8cfcb49"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "httpx/_models.py:642",
+   "site": "tests/test_decoders.py:285",
+   "site_fingerprint": "6060be823ea73b38"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "httpx/_models.py:642",
+   "site": "tests/test_decoders.py:289",
+   "site_fingerprint": "2dfd9cdc0ed82638"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "httpx/_models.py:642",
+   "site": "tests/test_wsgi.py:99",
+   "site_fingerprint": "05eccabe5e1dcdb2"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "httpx/_models.py:642",
+   "site": "tests/test_wsgi.py:107",
+   "site_fingerprint": "1fd293e546b65f84"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "httpx/_models.py:642",
+   "site": "tests/test_wsgi.py:115",
+   "site_fingerprint": "1fd293e546b65f84"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "httpx/_models.py:642",
+   "site": "tests/test_wsgi.py:138",
+   "site_fingerprint": "51a8cef4d290354d"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "httpx/_models.py:642",
+   "site": "tests/test_wsgi.py:147",
+   "site_fingerprint": "0ad0a550da49abed"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "httpx/_models.py:642",
+   "site": "tests/test_wsgi.py:184",
+   "site_fingerprint": "8cbdf523670a21ad"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "httpx/_models.py:642",
+   "site": "tests/test_wsgi.py:202",
+   "site_fingerprint": "6cd9c584a9308e39"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "httpx/_urls.py:308",
+   "site": "httpx/_urls.py:325",
+   "site_fingerprint": "c9e540efded09c9d"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "httpx/_api.py:39",
+   "site": "httpx/_api.py:102",
+   "site_fingerprint": "e59eafbed505eac4"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "httpx/_api.py:39",
+   "site": "httpx/_api.py:109",
+   "site_fingerprint": "f292d932f7f1b4c2"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "httpx/_auth.py:62",
+   "site": "httpx/_auth.py:72",
+   "site_fingerprint": "d639f5a270ebc0ff"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "httpx/_auth.py:62",
+   "site": "httpx/_auth.py:80",
+   "site_fingerprint": "59f8db3bc37ad9ef"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "httpx/_client.py:445",
+   "site": "httpx/_client.py:449",
+   "site_fingerprint": "67efb31d8fdba2c5"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "httpx/_client.py:445",
+   "site": "httpx/_client.py:453",
+   "site_fingerprint": "2cbfaf83ea6c0900"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "httpx/_client.py:62",
+   "site": "httpx/_client.py:66",
+   "site_fingerprint": "12d8a71b01a2dbff"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "httpx/_client.py:62",
+   "site": "httpx/_client.py:70",
+   "site_fingerprint": "e856e9915907c7b5"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "httpx/_client.py:62",
+   "site": "httpx/_client.py:72",
+   "site_fingerprint": "3d147cbf2e42f738"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "httpx/_content.py:221",
+   "site": "httpx/_content.py:240",
+   "site_fingerprint": "5f27ed564996c06e"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "httpx/_main.py:452",
+   "site": "httpx/_main.py:479",
+   "site_fingerprint": "defa6e7bb3993ae6"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "httpx/_main.py:452",
+   "site": "httpx/_main.py:480",
+   "site_fingerprint": "37f570fe7d2d905c"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "httpx/_main.py:452",
+   "site": "httpx/_main.py:497",
+   "site_fingerprint": "dba416b64ce30297"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "httpx/_main.py:452",
+   "site": "httpx/_main.py:498",
+   "site_fingerprint": "b33b9605e7f16535"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "httpx/_main.py:452",
+   "site": "httpx/_main.py:506",
+   "site_fingerprint": "4abb9fe1ae7042ad"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callees",
+   "seed_def": "httpx/_models.py:1192",
+   "site": "httpx/_models.py:1203",
+   "site_fingerprint": "e531ef11f8dc7e4e"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callees",
+   "seed_def": "httpx/_models.py:1257",
+   "site": "httpx/_models.py:1258",
+   "site_fingerprint": "c841ca11749d4ce6"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callees",
+   "seed_def": "httpx/_models.py:216",
+   "site": "httpx/_models.py:229",
+   "site_fingerprint": "280a6ad613fff1ce"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "httpx/_models.py:216",
+   "site": "httpx/_models.py:223",
+   "site_fingerprint": "efb2679feaba2c00"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "httpx/_models.py:216",
+   "site": "httpx/_models.py:224",
+   "site_fingerprint": "d3ff2340fc0ef32b"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "httpx/_models.py:463",
+   "site": "httpx/_models.py:465",
+   "site_fingerprint": "938733bbe342c53d"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "httpx/_models.py:642",
+   "site": "httpx/_models.py:644",
+   "site_fingerprint": "1d22f4712f9c2abf"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "httpx/_models.py:642",
+   "site": "httpx/_models.py:648",
+   "site_fingerprint": "b17caa3767227c93"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "httpx/_multipart.py:258",
+   "site": "httpx/_multipart.py:261",
+   "site_fingerprint": "fb1ccd1935b61720"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "httpx/_urlparse.py:213",
+   "site": "httpx/_urlparse.py:219",
+   "site_fingerprint": "4a67a9ab02c01062"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "httpx/_urlparse.py:213",
+   "site": "httpx/_urlparse.py:229",
+   "site_fingerprint": "609a07d8f3c2ff65"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "httpx/_urlparse.py:213",
+   "site": "httpx/_urlparse.py:269",
+   "site_fingerprint": "5b07a157cdcfec4d"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "httpx/_urlparse.py:213",
+   "site": "httpx/_urlparse.py:282",
+   "site_fingerprint": "609a07d8f3c2ff65"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "httpx/_urlparse.py:213",
+   "site": "httpx/_urlparse.py:286",
+   "site_fingerprint": "52ed4feafaca47db"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "httpx/_urlparse.py:213",
+   "site": "httpx/_urlparse.py:337",
+   "site_fingerprint": "53b06498dfc9ec99"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "httpx/_urlparse.py:348",
+   "site": "httpx/_urlparse.py:361",
+   "site_fingerprint": "1be37f71911358f4"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "httpx/_urlparse.py:348",
+   "site": "httpx/_urlparse.py:376",
+   "site_fingerprint": "43da290f42f60beb"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "httpx/_urlparse.py:348",
+   "site": "httpx/_urlparse.py:390",
+   "site_fingerprint": "67da2d14b6003d01"
+  },
+  {
+   "corpus": "httpx-basedpyright",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "httpx/_urlparse.py:348",
+   "site": "httpx/_urlparse.py:392",
+   "site_fingerprint": "6a468d2408cedd1f"
+  }
+ ],
+ "probes": {
+  "_corpus": "httpx-basedpyright",
+  "_strata": {
+   "C-method": {
+    "eligible_probes": 16,
+    "eligible_symbols": 8,
+    "target": 8
+   },
+   "C-name": {
+    "eligible_probes": 16,
+    "eligible_symbols": 8,
+    "target": 8
+   },
+   "Q-scoped": {
+    "eligible_probes": 16,
+    "eligible_symbols": 8,
+    "target": 8
+   },
+   "U-free": {
+    "eligible_probes": 0,
+    "eligible_symbols": 0,
+    "target": 8
+   },
+   "U-method": {
+    "eligible_probes": 16,
+    "eligible_symbols": 8,
+    "target": 8
+   }
+  },
+  "callees:httpx/__init__.py:18": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "httpx/__init__.py",
+     "main"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "httpx/__init__.py:18",
+   "stratum": "C-name"
+  },
+  "callees:httpx/_api.py:210": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "httpx/_api.py",
+     "options"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "httpx/_api.py",
+     231,
+     231
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "httpx/_api.py",
+     "options"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "httpx/_api.py",
+     231,
+     231,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "httpx/_api.py:210",
+   "stratum": "C-name"
+  },
+  "callees:httpx/_api.py:282": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "httpx/_api.py",
+     "post"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "httpx/_api.py",
+     304,
+     304
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "httpx/_api.py",
+     "post"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "httpx/_api.py",
+     304,
+     304,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "httpx/_api.py:282",
+   "stratum": "C-name"
+  },
+  "callees:httpx/_api.py:323": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "httpx/_api.py",
+     "put"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "httpx/_api.py",
+     345,
+     345
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "httpx/_api.py",
+     "put"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "httpx/_api.py",
+     345,
+     345,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "httpx/_api.py:323",
+   "stratum": "C-name"
+  },
+  "callees:httpx/_api.py:39": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "httpx/_api.py",
+     "request"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "httpx/_api.py",
+     102,
+     102
+    ],
+    [
+     "httpx/_api.py",
+     109,
+     109
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "httpx/_api.py",
+     "request"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "httpx/_api.py:39",
+   "stratum": "C-name"
+  },
+  "callees:httpx/_api.py:405": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "httpx/_api.py",
+     "delete"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "httpx/_api.py",
+     426,
+     426
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "httpx/_api.py",
+     "delete"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "httpx/_api.py",
+     426,
+     426,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "httpx/_api.py:405",
+   "stratum": "C-name"
+  },
+  "callees:httpx/_auth.py:62": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "httpx/_auth.py",
+     "sync_auth_flow"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "httpx/_auth.py",
+     72,
+     72
+    ],
+    [
+     "httpx/_auth.py",
+     74,
+     74
+    ],
+    [
+     "httpx/_auth.py",
+     80,
+     80
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "httpx/_auth.py",
+     "sync_auth_flow"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "httpx/_auth.py",
+     74,
+     74,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ]
+   ],
+   "seed_def": "httpx/_auth.py:62",
+   "stratum": "U-method"
+  },
+  "callees:httpx/_client.py:1474": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "httpx/_client.py",
+     "_transport_for_url"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "httpx/_client.py",
+     1480,
+     1480
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "httpx/_client.py",
+     "_transport_for_url"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "httpx/_client.py",
+     1480,
+     1480,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "httpx/_client.py:1474",
+   "stratum": "C-method"
+  },
+  "callees:httpx/_client.py:1780": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "httpx/_client.py",
+     "options"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "httpx/_client.py",
+     1797,
+     1797
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "httpx/_client.py",
+     "options"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "httpx/_client.py",
+     1797,
+     1797,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ]
+   ],
+   "seed_def": "httpx/_client.py:1780",
+   "stratum": "C-method"
+  },
+  "callees:httpx/_client.py:1949": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "httpx/_client.py",
+     "delete"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "httpx/_client.py",
+     1966,
+     1966
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "httpx/_client.py",
+     "delete"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "httpx/_client.py",
+     1966,
+     1966,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ]
+   ],
+   "seed_def": "httpx/_client.py:1949",
+   "stratum": "C-method"
+  },
+  "callees:httpx/_client.py:445": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "httpx/_client.py",
+     "_build_auth"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "httpx/_client.py",
+     449,
+     449
+    ],
+    [
+     "httpx/_client.py",
+     453,
+     453
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "httpx/_client.py",
+     "_build_auth"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "httpx/_client.py:445",
+   "stratum": "U-method"
+  },
+  "callees:httpx/_client.py:62": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "httpx/_client.py",
+     "_is_https_redirect"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "httpx/_client.py",
+     66,
+     66
+    ],
+    [
+     "httpx/_client.py",
+     66,
+     66
+    ],
+    [
+     "httpx/_client.py",
+     70,
+     70
+    ],
+    [
+     "httpx/_client.py",
+     72,
+     72
+    ],
+    [
+     "httpx/_client.py",
+     71,
+     71
+    ],
+    [
+     "httpx/_client.py",
+     73,
+     73
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "httpx/_client.py",
+     "_is_https_redirect"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "httpx/_client.py",
+     71,
+     71,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "httpx/_client.py",
+     73,
+     73,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "httpx/_client.py:62",
+   "stratum": "Q-scoped"
+  },
+  "callees:httpx/_content.py:221": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "httpx/_content.py",
+     "encode_response"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "httpx/_content.py",
+     232,
+     232
+    ],
+    [
+     "httpx/_content.py",
+     234,
+     234
+    ],
+    [
+     "httpx/_content.py",
+     236,
+     236
+    ],
+    [
+     "httpx/_content.py",
+     238,
+     238
+    ],
+    [
+     "httpx/_content.py",
+     240,
+     240
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "httpx/_content.py",
+     "encode_response"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "httpx/_content.py",
+     232,
+     232,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "httpx/_content.py",
+     234,
+     234,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "httpx/_content.py",
+     236,
+     236,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "httpx/_content.py",
+     238,
+     238,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "httpx/_content.py:221",
+   "stratum": "Q-scoped"
+  },
+  "callees:httpx/_exceptions.py:287": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "httpx/_exceptions.py",
+     "__init__"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "httpx/_exceptions.py:287",
+   "stratum": "C-method"
+  },
+  "callees:httpx/_main.py:452": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "httpx/_main.py",
+     "main"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "httpx/_main.py",
+     479,
+     479
+    ],
+    [
+     "httpx/_main.py",
+     480,
+     480
+    ],
+    [
+     "httpx/_main.py",
+     495,
+     495
+    ],
+    [
+     "httpx/_main.py",
+     497,
+     497
+    ],
+    [
+     "httpx/_main.py",
+     498,
+     498
+    ],
+    [
+     "httpx/_main.py",
+     499,
+     499
+    ],
+    [
+     "httpx/_main.py",
+     506,
+     506
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "httpx/_main.py",
+     "main"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "httpx/_main.py",
+     499,
+     499,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "httpx/_main.py",
+     495,
+     495,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "httpx/_main.py:452",
+   "stratum": "C-name"
+  },
+  "callees:httpx/_models.py:1192": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "httpx/_models.py",
+     "clear"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "httpx/_models.py",
+     1203,
+     1203,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "httpx/_models.py:1192",
+   "stratum": "U-method"
+  },
+  "callees:httpx/_models.py:1257": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "httpx/_models.py",
+     "add_unredirected_header"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "httpx/_models.py",
+     1258,
+     1258,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "httpx/_models.py:1257",
+   "stratum": "U-method"
+  },
+  "callees:httpx/_models.py:216": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "httpx/_models.py",
+     "items"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "httpx/_models.py",
+     223,
+     223
+    ],
+    [
+     "httpx/_models.py",
+     224,
+     224
+    ],
+    [
+     "httpx/_models.py",
+     223,
+     223
+    ],
+    [
+     "httpx/_models.py",
+     224,
+     224
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "httpx/_models.py",
+     "items"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "httpx/_models.py",
+     229,
+     229,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "httpx/_models.py:216",
+   "stratum": "C-method"
+  },
+  "callees:httpx/_models.py:463": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "httpx/_models.py",
+     "content"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "httpx/_models.py",
+     465,
+     465
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "httpx/_models.py",
+     "content"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "httpx/_models.py:463",
+   "stratum": "C-method"
+  },
+  "callees:httpx/_models.py:642": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "httpx/_models.py",
+     "text"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "httpx/_models.py",
+     644,
+     644
+    ],
+    [
+     "httpx/_models.py",
+     649,
+     649
+    ],
+    [
+     "httpx/_models.py",
+     648,
+     648
+    ],
+    [
+     "httpx/_models.py",
+     648,
+     648
+    ],
+    [
+     "httpx/_models.py",
+     648,
+     648
+    ],
+    [
+     "httpx/_models.py",
+     649,
+     649
+    ],
+    [
+     "httpx/_models.py",
+     649,
+     649
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "httpx/_models.py",
+     "text"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "httpx/_models.py",
+     649,
+     649,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "httpx/_models.py:642",
+   "stratum": "U-method"
+  },
+  "callees:httpx/_multipart.py:258": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "httpx/_multipart.py",
+     "iter_chunks"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "httpx/_multipart.py",
+     261,
+     261
+    ],
+    [
+     "httpx/_multipart.py",
+     261,
+     261
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "httpx/_multipart.py",
+     "iter_chunks"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "httpx/_multipart.py:258",
+   "stratum": "U-method"
+  },
+  "callees:httpx/_multipart.py:38": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "httpx/_multipart.py",
+     "replacer"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "httpx/_multipart.py:38",
+   "stratum": "Q-scoped"
+  },
+  "callees:httpx/_multipart.py:45": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "httpx/_multipart.py",
+     "_guess_content_type"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "httpx/_multipart.py:45",
+   "stratum": "Q-scoped"
+  },
+  "callees:httpx/_transports/asgi.py:148": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "httpx/_transports/asgi.py",
+     "send"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "httpx/_transports/asgi.py:148",
+   "stratum": "C-name"
+  },
+  "callees:httpx/_transports/asgi.py:44": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "httpx/_transports/asgi.py",
+     "create_event"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "httpx/_transports/asgi.py",
+     45,
+     45
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "httpx/_transports/asgi.py",
+     "create_event"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "httpx/_transports/asgi.py",
+     45,
+     45,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "httpx/_transports/asgi.py:44",
+   "stratum": "Q-scoped"
+  },
+  "callees:httpx/_transports/default.py:96": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "httpx/_transports/default.py",
+     "map_httpcore_exceptions"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "httpx/_transports/default.py",
+     99,
+     99
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "httpx/_transports/default.py",
+     "map_httpcore_exceptions"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "httpx/_transports/default.py",
+     99,
+     99,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "httpx/_transports/default.py:96",
+   "stratum": "Q-scoped"
+  },
+  "callees:httpx/_urlparse.py:213": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "httpx/_urlparse.py",
+     "urlparse"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "httpx/_urlparse.py",
+     219,
+     219
+    ],
+    [
+     "httpx/_urlparse.py",
+     229,
+     229
+    ],
+    [
+     "httpx/_urlparse.py",
+     269,
+     269
+    ],
+    [
+     "httpx/_urlparse.py",
+     282,
+     282
+    ],
+    [
+     "httpx/_urlparse.py",
+     286,
+     286
+    ],
+    [
+     "httpx/_urlparse.py",
+     246,
+     246
+    ],
+    [
+     "httpx/_urlparse.py",
+     247,
+     247
+    ],
+    [
+     "httpx/_urlparse.py",
+     319,
+     319
+    ],
+    [
+     "httpx/_urlparse.py",
+     331,
+     331
+    ],
+    [
+     "httpx/_urlparse.py",
+     332,
+     332
+    ],
+    [
+     "httpx/_urlparse.py",
+     333,
+     333
+    ],
+    [
+     "httpx/_urlparse.py",
+     320,
+     320
+    ],
+    [
+     "httpx/_urlparse.py",
+     321,
+     321
+    ],
+    [
+     "httpx/_urlparse.py",
+     327,
+     327
+    ],
+    [
+     "httpx/_urlparse.py",
+     329,
+     329
+    ],
+    [
+     "httpx/_urlparse.py",
+     337,
+     337
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "httpx/_urlparse.py",
+     "urlparse"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "httpx/_urlparse.py",
+     320,
+     320,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "httpx/_urlparse.py",
+     321,
+     321,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "httpx/_urlparse.py",
+     327,
+     327,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "httpx/_urlparse.py",
+     329,
+     329,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "httpx/_urlparse.py",
+     246,
+     246,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "httpx/_urlparse.py",
+     247,
+     247,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "httpx/_urlparse.py",
+     319,
+     319,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "httpx/_urlparse.py",
+     331,
+     331,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "httpx/_urlparse.py",
+     332,
+     332,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "httpx/_urlparse.py",
+     333,
+     333,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "httpx/_urlparse.py:213",
+   "stratum": "Q-scoped"
+  },
+  "callees:httpx/_urlparse.py:348": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "httpx/_urlparse.py",
+     "encode_host"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "httpx/_urlparse.py",
+     361,
+     361
+    ],
+    [
+     "httpx/_urlparse.py",
+     376,
+     376
+    ],
+    [
+     "httpx/_urlparse.py",
+     392,
+     392
+    ],
+    [
+     "httpx/_urlparse.py",
+     386,
+     386
+    ],
+    [
+     "httpx/_urlparse.py",
+     390,
+     390
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "httpx/_urlparse.py",
+     "encode_host"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "httpx/_urlparse.py",
+     386,
+     386,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "httpx/_urlparse.py:348",
+   "stratum": "Q-scoped"
+  },
+  "callees:httpx/_urls.py:308": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "httpx/_urls.py",
+     "is_absolute_url"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "httpx/_urls.py:308",
+   "stratum": "U-method"
+  },
+  "callers:httpx/_api.py:210": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "tests/test_api.py",
+     "<module_level>"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tests/test_api.py",
+     46,
+     46
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tests/test_api.py",
+     "<module_level>"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "tests/test_api.py",
+     46,
+     46,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ]
+   ],
+   "seed_def": "httpx/_api.py:210",
+   "stratum": "C-name"
+  },
+  "callers:httpx/_api.py:282": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "tests/test_api.py",
+     "<module_level>"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tests/test_api.py",
+     17,
+     17
+    ],
+    [
+     "tests/test_api.py",
+     28,
+     28
+    ],
+    [
+     "tests/test_api.py",
+     40,
+     40
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tests/test_api.py",
+     "<module_level>"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "tests/test_api.py",
+     17,
+     17,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "tests/test_api.py",
+     28,
+     28,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "tests/test_api.py",
+     40,
+     40,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ]
+   ],
+   "seed_def": "httpx/_api.py:282",
+   "stratum": "C-name"
+  },
+  "callers:httpx/_api.py:323": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "tests/test_api.py",
+     "<module_level>"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tests/test_api.py",
+     58,
+     58
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tests/test_api.py",
+     "<module_level>"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "tests/test_api.py",
+     58,
+     58,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ]
+   ],
+   "seed_def": "httpx/_api.py:323",
+   "stratum": "C-name"
+  },
+  "callers:httpx/_api.py:39": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "httpx/_api.py",
+     "delete"
+    ],
+    [
+     "httpx/_api.py",
+     "get"
+    ],
+    [
+     "httpx/_api.py",
+     "head"
+    ],
+    [
+     "httpx/_api.py",
+     "options"
+    ],
+    [
+     "httpx/_api.py",
+     "patch"
+    ],
+    [
+     "httpx/_api.py",
+     "post"
+    ],
+    [
+     "httpx/_api.py",
+     "put"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "httpx/_api.py",
+     195,
+     195
+    ],
+    [
+     "httpx/_api.py",
+     231,
+     231
+    ],
+    [
+     "httpx/_api.py",
+     267,
+     267
+    ],
+    [
+     "httpx/_api.py",
+     304,
+     304
+    ],
+    [
+     "httpx/_api.py",
+     345,
+     345
+    ],
+    [
+     "httpx/_api.py",
+     386,
+     386
+    ],
+    [
+     "httpx/_api.py",
+     426,
+     426
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "httpx/_api.py",
+     "delete"
+    ],
+    [
+     "httpx/_api.py",
+     "get"
+    ],
+    [
+     "httpx/_api.py",
+     "head"
+    ],
+    [
+     "httpx/_api.py",
+     "options"
+    ],
+    [
+     "httpx/_api.py",
+     "patch"
+    ],
+    [
+     "httpx/_api.py",
+     "post"
+    ],
+    [
+     "httpx/_api.py",
+     "put"
+    ],
+    [
+     "httpx/_client.py",
+     "_redirect_url"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "httpx/_api.py",
+     195,
+     195,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "httpx/_api.py",
+     231,
+     231,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "httpx/_api.py",
+     267,
+     267,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "httpx/_api.py",
+     304,
+     304,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "httpx/_api.py",
+     345,
+     345,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "httpx/_api.py",
+     386,
+     386,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "httpx/_api.py",
+     426,
+     426,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "httpx/_client.py",
+     524,
+     524,
+     {
+      "resolution_kind": "free_single"
+     }
+    ]
+   ],
+   "seed_def": "httpx/_api.py:39",
+   "stratum": "C-name"
+  },
+  "callers:httpx/_api.py:405": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "tests/test_api.py",
+     "<module_level>"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tests/test_api.py",
+     70,
+     70
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tests/test_api.py",
+     "<module_level>"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "tests/test_api.py",
+     70,
+     70,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ]
+   ],
+   "seed_def": "httpx/_api.py:405",
+   "stratum": "C-name"
+  },
+  "callers:httpx/_auth.py:62": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "httpx/_client.py",
+     "_send_handling_auth"
+    ],
+    [
+     "tests/test_auth.py",
+     "<module_level>"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "httpx/_client.py",
+     937,
+     937
+    ],
+    [
+     "httpx/_client.py",
+     937,
+     937
+    ],
+    [
+     "tests/test_auth.py",
+     19,
+     19
+    ],
+    [
+     "tests/test_auth.py",
+     19,
+     19
+    ],
+    [
+     "tests/test_auth.py",
+     34,
+     34
+    ],
+    [
+     "tests/test_auth.py",
+     34,
+     34
+    ],
+    [
+     "tests/test_auth.py",
+     49,
+     49
+    ],
+    [
+     "tests/test_auth.py",
+     49,
+     49
+    ],
+    [
+     "tests/test_auth.py",
+     74,
+     74
+    ],
+    [
+     "tests/test_auth.py",
+     74,
+     74
+    ],
+    [
+     "tests/test_auth.py",
+     90,
+     90
+    ],
+    [
+     "tests/test_auth.py",
+     90,
+     90
+    ],
+    [
+     "tests/test_auth.py",
+     126,
+     126
+    ],
+    [
+     "tests/test_auth.py",
+     126,
+     126
+    ],
+    [
+     "tests/test_auth.py",
+     154,
+     154
+    ],
+    [
+     "tests/test_auth.py",
+     154,
+     154
+    ],
+    [
+     "tests/test_auth.py",
+     203,
+     203
+    ],
+    [
+     "tests/test_auth.py",
+     203,
+     203
+    ],
+    [
+     "tests/test_auth.py",
+     263,
+     263
+    ],
+    [
+     "tests/test_auth.py",
+     263,
+     263
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "httpx/_auth.py:62",
+   "stratum": "U-method"
+  },
+  "callers:httpx/_client.py:1474": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "httpx/_client.py",
+     "_send_single_request"
+    ],
+    [
+     "tests/client/test_proxies.py",
+     "<module_level>"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "httpx/_client.py",
+     1721,
+     1721
+    ],
+    [
+     "httpx/_client.py",
+     1721,
+     1721
+    ],
+    [
+     "tests/client/test_proxies.py",
+     26,
+     26
+    ],
+    [
+     "tests/client/test_proxies.py",
+     26,
+     26
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "httpx/_client.py",
+     "_send_single_request"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "httpx/_client.py",
+     1721,
+     1721,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ]
+   ],
+   "seed_def": "httpx/_client.py:1474",
+   "stratum": "C-method"
+  },
+  "callers:httpx/_client.py:1780": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "tests/client/test_async_client.py",
+     "<module_level>"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tests/client/test_async_client.py",
+     133,
+     133
+    ],
+    [
+     "tests/client/test_async_client.py",
+     133,
+     133
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "httpx/_client.py:1780",
+   "stratum": "C-method"
+  },
+  "callers:httpx/_client.py:1949": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "tests/client/test_async_client.py",
+     "<module_level>"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tests/client/test_async_client.py",
+     163,
+     163
+    ],
+    [
+     "tests/client/test_async_client.py",
+     163,
+     163
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "httpx/_client.py:1949",
+   "stratum": "C-method"
+  },
+  "callers:httpx/_client.py:445": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "httpx/_client.py",
+     "__init__"
+    ],
+    [
+     "httpx/_client.py",
+     "_build_request_auth"
+    ],
+    [
+     "httpx/_client.py",
+     "auth"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "httpx/_client.py",
+     208,
+     208
+    ],
+    [
+     "httpx/_client.py",
+     208,
+     208
+    ],
+    [
+     "httpx/_client.py",
+     285,
+     285
+    ],
+    [
+     "httpx/_client.py",
+     285,
+     285
+    ],
+    [
+     "httpx/_client.py",
+     463,
+     463
+    ],
+    [
+     "httpx/_client.py",
+     463,
+     463
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "httpx/_client.py",
+     "__init__"
+    ],
+    [
+     "httpx/_client.py",
+     "_build_request_auth"
+    ],
+    [
+     "httpx/_client.py",
+     "auth"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "httpx/_client.py",
+     208,
+     208,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "httpx/_client.py",
+     285,
+     285,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "httpx/_client.py",
+     285,
+     285,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "httpx/_client.py",
+     463,
+     463,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ]
+   ],
+   "seed_def": "httpx/_client.py:445",
+   "stratum": "U-method"
+  },
+  "callers:httpx/_client.py:62": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "httpx/_client.py",
+     "_redirect_headers"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "httpx/_client.py",
+     553,
+     553
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "httpx/_client.py",
+     "_redirect_headers"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "httpx/_client.py",
+     553,
+     553,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "httpx/_client.py:62",
+   "stratum": "Q-scoped"
+  },
+  "callers:httpx/_config.py:132": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "httpx/_client.py",
+     "_set_timeout"
+    ],
+    [
+     "httpx/_client.py",
+     "build_request"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "httpx/_client.py",
+     377,
+     377
+    ],
+    [
+     "httpx/_client.py",
+     377,
+     377
+    ],
+    [
+     "httpx/_client.py",
+     591,
+     591
+    ],
+    [
+     "httpx/_client.py",
+     591,
+     591
+    ],
+    [
+     "httpx/_client.py",
+     591,
+     591
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "httpx/_client.py",
+     "_set_timeout"
+    ],
+    [
+     "httpx/_client.py",
+     "build_request"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "httpx/_client.py",
+     377,
+     377,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "httpx/_client.py",
+     591,
+     591,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "httpx/_config.py:132",
+   "stratum": "U-method"
+  },
+  "callers:httpx/_content.py:221": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "httpx/_models.py",
+     "__init__"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "httpx/_models.py",
+     549,
+     549
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "httpx/_models.py",
+     "__init__"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "httpx/_models.py",
+     549,
+     549,
+     {
+      "resolution_kind": "free_single"
+     }
+    ]
+   ],
+   "seed_def": "httpx/_content.py:221",
+   "stratum": "Q-scoped"
+  },
+  "callers:httpx/_content.py:38": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "httpx/_transports/asgi.py",
+     "handle_async_request"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "httpx/_transports/asgi.py",
+     122,
+     122
+    ],
+    [
+     "httpx/_transports/asgi.py",
+     122,
+     122
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "httpx/_content.py:38",
+   "stratum": "C-method"
+  },
+  "callers:httpx/_models.py:1192": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "tests/models/test_cookies.py",
+     "<module_level>"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tests/models/test_cookies.py",
+     41,
+     41
+    ],
+    [
+     "tests/models/test_cookies.py",
+     41,
+     41
+    ],
+    [
+     "tests/models/test_cookies.py",
+     49,
+     49
+    ],
+    [
+     "tests/models/test_cookies.py",
+     49,
+     49
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "httpx/_models.py",
+     "clear"
+    ],
+    [
+     "httpx/_models.py",
+     "delete"
+    ],
+    [
+     "tests/conftest.py",
+     "<module_level>"
+    ],
+    [
+     "tests/models/test_cookies.py",
+     "<module_level>"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "httpx/_models.py",
+     1179,
+     1179,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "httpx/_models.py",
+     1190,
+     1190,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "httpx/_models.py",
+     1203,
+     1203,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "tests/conftest.py",
+     38,
+     38,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "tests/conftest.py",
+     47,
+     47,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "tests/conftest.py",
+     38,
+     38,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "tests/conftest.py",
+     47,
+     47,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "tests/conftest.py",
+     266,
+     266,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "tests/models/test_cookies.py",
+     41,
+     41,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "tests/models/test_cookies.py",
+     49,
+     49,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "httpx/_models.py:1192",
+   "stratum": "U-method"
+  },
+  "callers:httpx/_models.py:216": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "tests/client/test_headers.py",
+     "<module_level>"
+    ],
+    [
+     "tests/models/test_headers.py",
+     "<module_level>"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "tests/client/test_headers.py",
+     19,
+     19
+    ],
+    [
+     "tests/client/test_headers.py",
+     19,
+     19
+    ],
+    [
+     "tests/models/test_headers.py",
+     20,
+     20
+    ],
+    [
+     "tests/models/test_headers.py",
+     20,
+     20
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "httpx/_models.py",
+     "__getstate__"
+    ],
+    [
+     "httpx/_models.py",
+     "__init__"
+    ],
+    [
+     "httpx/_models.py",
+     "__setstate__"
+    ],
+    [
+     "httpx/_models.py",
+     "_prepare"
+    ],
+    [
+     "httpx/_models.py",
+     "items"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "httpx/_models.py",
+     154,
+     154,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "httpx/_models.py",
+     229,
+     229,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "httpx/_models.py",
+     442,
+     442,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "httpx/_models.py",
+     504,
+     504,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "httpx/_models.py",
+     509,
+     509,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "httpx/_models.py",
+     572,
+     572,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "httpx/_models.py",
+     865,
+     865,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "httpx/_models.py",
+     870,
+     870,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "httpx/_models.py",
+     1088,
+     1088,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "httpx/_models.py:216",
+   "stratum": "C-method"
+  },
+  "callers:httpx/_models.py:463": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "httpx/_transports/wsgi.py",
+     "handle_request"
+    ],
+    [
+     "tests/client/test_redirects.py",
+     "<module_level>"
+    ],
+    [
+     "tests/models/test_requests.py",
+     "<module_level>"
+    ],
+    [
+     "tests/test_multipart.py",
+     "<module_level>"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "httpx/_transports/wsgi.py",
+     93,
+     93
+    ],
+    [
+     "tests/test_multipart.py",
+     13,
+     13
+    ],
+    [
+     "tests/test_multipart.py",
+     168,
+     168
+    ],
+    [
+     "tests/test_multipart.py",
+     170,
+     170
+    ],
+    [
+     "tests/test_multipart.py",
+     198,
+     198
+    ],
+    [
+     "tests/test_multipart.py",
+     200,
+     200
+    ],
+    [
+     "tests/test_multipart.py",
+     232,
+     232
+    ],
+    [
+     "tests/test_multipart.py",
+     234,
+     234
+    ],
+    [
+     "tests/test_multipart.py",
+     262,
+     262
+    ],
+    [
+     "tests/test_multipart.py",
+     264,
+     264
+    ],
+    [
+     "tests/test_multipart.py",
+     283,
+     283
+    ],
+    [
+     "tests/test_multipart.py",
+     285,
+     285
+    ],
+    [
+     "tests/test_multipart.py",
+     313,
+     313
+    ],
+    [
+     "tests/test_multipart.py",
+     315,
+     315
+    ],
+    [
+     "tests/test_multipart.py",
+     334,
+     334
+    ],
+    [
+     "tests/test_multipart.py",
+     336,
+     336
+    ],
+    [
+     "tests/test_multipart.py",
+     356,
+     356
+    ],
+    [
+     "tests/test_multipart.py",
+     358,
+     358
+    ],
+    [
+     "tests/test_multipart.py",
+     413,
+     413
+    ],
+    [
+     "tests/client/test_redirects.py",
+     75,
+     75
+    ],
+    [
+     "tests/client/test_redirects.py",
+     92,
+     92
+    ],
+    [
+     "tests/models/test_requests.py",
+     57,
+     57
+    ],
+    [
+     "tests/models/test_requests.py",
+     65,
+     65
+    ],
+    [
+     "tests/models/test_requests.py",
+     86,
+     86
+    ],
+    [
+     "tests/models/test_requests.py",
+     98,
+     98
+    ],
+    [
+     "tests/models/test_requests.py",
+     108,
+     108
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "httpx/_models.py:463",
+   "stratum": "C-method"
+  },
+  "callers:httpx/_models.py:642": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "httpx/_main.py",
+     "print_response"
+    ],
+    [
+     "tests/client/test_async_client.py",
+     "<module_level>"
+    ],
+    [
+     "tests/client/test_auth.py",
+     "<module_level>"
+    ],
+    [
+     "tests/client/test_client.py",
+     "<module_level>"
+    ],
+    [
+     "tests/client/test_redirects.py",
+     "<module_level>"
+    ],
+    [
+     "tests/models/test_responses.py",
+     "<module_level>"
+    ],
+    [
+     "tests/test_api.py",
+     "<module_level>"
+    ],
+    [
+     "tests/test_asgi.py",
+     "<module_level>"
+    ],
+    [
+     "tests/test_content.py",
+     "<module_level>"
+    ],
+    [
+     "tests/test_decoders.py",
+     "<module_level>"
+    ],
+    [
+     "tests/test_wsgi.py",
+     "<module_level>"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "httpx/_main.py",
+     179,
+     179
+    ],
+    [
+     "httpx/_main.py",
+     181,
+     181
+    ],
+    [
+     "tests/test_api.py",
+     12,
+     12
+    ],
+    [
+     "tests/test_api.py",
+     81,
+     81
+    ],
+    [
+     "tests/test_asgi.py",
+     100,
+     100
+    ],
+    [
+     "tests/test_asgi.py",
+     146,
+     146
+    ],
+    [
+     "tests/test_content.py",
+     492,
+     492
+    ],
+    [
+     "tests/test_content.py",
+     501,
+     501
+    ],
+    [
+     "tests/test_decoders.py",
+     256,
+     256
+    ],
+    [
+     "tests/test_decoders.py",
+     280,
+     280
+    ],
+    [
+     "tests/test_decoders.py",
+     285,
+     285
+    ],
+    [
+     "tests/test_decoders.py",
+     289,
+     289
+    ],
+    [
+     "tests/test_wsgi.py",
+     99,
+     99
+    ],
+    [
+     "tests/test_wsgi.py",
+     107,
+     107
+    ],
+    [
+     "tests/test_wsgi.py",
+     115,
+     115
+    ],
+    [
+     "tests/test_wsgi.py",
+     138,
+     138
+    ],
+    [
+     "tests/test_wsgi.py",
+     147,
+     147
+    ],
+    [
+     "tests/test_wsgi.py",
+     184,
+     184
+    ],
+    [
+     "tests/test_wsgi.py",
+     202,
+     202
+    ],
+    [
+     "tests/client/test_async_client.py",
+     17,
+     17
+    ],
+    [
+     "tests/client/test_async_client.py",
+     135,
+     135
+    ],
+    [
+     "tests/client/test_async_client.py",
+     143,
+     143
+    ],
+    [
+     "tests/client/test_async_client.py",
+     165,
+     165
+    ],
+    [
+     "tests/client/test_async_client.py",
+     326,
+     326
+    ],
+    [
+     "tests/client/test_auth.py",
+     132,
+     132
+    ],
+    [
+     "tests/client/test_client.py",
+     23,
+     23
+    ],
+    [
+     "tests/client/test_client.py",
+     435,
+     435
+    ],
+    [
+     "tests/client/test_client.py",
+     462,
+     462
+    ],
+    [
+     "tests/client/test_redirects.py",
+     179,
+     179
+    ],
+    [
+     "tests/client/test_redirects.py",
+     411,
+     411
+    ],
+    [
+     "tests/client/test_redirects.py",
+     416,
+     416
+    ],
+    [
+     "tests/client/test_redirects.py",
+     421,
+     421
+    ],
+    [
+     "tests/client/test_redirects.py",
+     426,
+     426
+    ],
+    [
+     "tests/client/test_redirects.py",
+     431,
+     431
+    ],
+    [
+     "tests/models/test_responses.py",
+     40,
+     40
+    ],
+    [
+     "tests/models/test_responses.py",
+     51,
+     51
+    ],
+    [
+     "tests/models/test_responses.py",
+     60,
+     60
+    ],
+    [
+     "tests/models/test_responses.py",
+     72,
+     72
+    ],
+    [
+     "tests/models/test_responses.py",
+     168,
+     168
+    ],
+    [
+     "tests/models/test_responses.py",
+     181,
+     181
+    ],
+    [
+     "tests/models/test_responses.py",
+     196,
+     196
+    ],
+    [
+     "tests/models/test_responses.py",
+     214,
+     214
+    ],
+    [
+     "tests/models/test_responses.py",
+     229,
+     229
+    ],
+    [
+     "tests/models/test_responses.py",
+     243,
+     243
+    ],
+    [
+     "tests/models/test_responses.py",
+     257,
+     257
+    ],
+    [
+     "tests/models/test_responses.py",
+     271,
+     271
+    ],
+    [
+     "tests/models/test_responses.py",
+     285,
+     285
+    ],
+    [
+     "tests/models/test_responses.py",
+     297,
+     297
+    ],
+    [
+     "tests/models/test_responses.py",
+     308,
+     308
+    ],
+    [
+     "tests/models/test_responses.py",
+     325,
+     325
+    ],
+    [
+     "tests/models/test_responses.py",
+     340,
+     340
+    ],
+    [
+     "tests/models/test_responses.py",
+     359,
+     359
+    ],
+    [
+     "tests/models/test_responses.py",
+     375,
+     375
+    ],
+    [
+     "tests/models/test_responses.py",
+     786,
+     786
+    ],
+    [
+     "tests/models/test_responses.py",
+     921,
+     921
+    ],
+    [
+     "tests/models/test_responses.py",
+     1018,
+     1018
+    ],
+    [
+     "tests/models/test_responses.py",
+     1040,
+     1040
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "httpx/_models.py:642",
+   "stratum": "U-method"
+  },
+  "callers:httpx/_multipart.py:258": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "httpx/_multipart.py",
+     "__aiter__"
+    ],
+    [
+     "httpx/_multipart.py",
+     "__iter__"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "httpx/_multipart.py",
+     295,
+     295
+    ],
+    [
+     "httpx/_multipart.py",
+     295,
+     295
+    ],
+    [
+     "httpx/_multipart.py",
+     299,
+     299
+    ],
+    [
+     "httpx/_multipart.py",
+     299,
+     299
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "httpx/_multipart.py",
+     "__aiter__"
+    ],
+    [
+     "httpx/_multipart.py",
+     "__iter__"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "httpx/_multipart.py",
+     295,
+     295,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "httpx/_multipart.py",
+     299,
+     299,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ]
+   ],
+   "seed_def": "httpx/_multipart.py:258",
+   "stratum": "U-method"
+  },
+  "callers:httpx/_multipart.py:45": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "httpx/_multipart.py",
+     "__init__"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "httpx/_multipart.py",
+     149,
+     149
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "httpx/_multipart.py",
+     "__init__"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "httpx/_multipart.py",
+     149,
+     149,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "httpx/_multipart.py:45",
+   "stratum": "Q-scoped"
+  },
+  "callers:httpx/_transports/asgi.py:44": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "httpx/_transports/asgi.py",
+     "handle_async_request"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "httpx/_transports/asgi.py",
+     130,
+     130
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "httpx/_transports/asgi.py",
+     "handle_async_request"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "httpx/_transports/asgi.py",
+     130,
+     130,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "httpx/_transports/asgi.py:44",
+   "stratum": "Q-scoped"
+  },
+  "callers:httpx/_transports/default.py:96": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "httpx/_transports/default.py",
+     "__aexit__"
+    ],
+    [
+     "httpx/_transports/default.py",
+     "__aiter__"
+    ],
+    [
+     "httpx/_transports/default.py",
+     "__exit__"
+    ],
+    [
+     "httpx/_transports/default.py",
+     "__iter__"
+    ],
+    [
+     "httpx/_transports/default.py",
+     "handle_async_request"
+    ],
+    [
+     "httpx/_transports/default.py",
+     "handle_request"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "httpx/_transports/default.py",
+     126,
+     126
+    ],
+    [
+     "httpx/_transports/default.py",
+     227,
+     227
+    ],
+    [
+     "httpx/_transports/default.py",
+     249,
+     249
+    ],
+    [
+     "httpx/_transports/default.py",
+     270,
+     270
+    ],
+    [
+     "httpx/_transports/default.py",
+     371,
+     371
+    ],
+    [
+     "httpx/_transports/default.py",
+     393,
+     393
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "httpx/_transports/default.py",
+     "__aexit__"
+    ],
+    [
+     "httpx/_transports/default.py",
+     "__aiter__"
+    ],
+    [
+     "httpx/_transports/default.py",
+     "__exit__"
+    ],
+    [
+     "httpx/_transports/default.py",
+     "__iter__"
+    ],
+    [
+     "httpx/_transports/default.py",
+     "handle_async_request"
+    ],
+    [
+     "httpx/_transports/default.py",
+     "handle_request"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "httpx/_transports/default.py",
+     126,
+     126,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "httpx/_transports/default.py",
+     227,
+     227,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "httpx/_transports/default.py",
+     249,
+     249,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "httpx/_transports/default.py",
+     270,
+     270,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "httpx/_transports/default.py",
+     371,
+     371,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "httpx/_transports/default.py",
+     393,
+     393,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "httpx/_transports/default.py:96",
+   "stratum": "Q-scoped"
+  },
+  "callers:httpx/_urlparse.py:213": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "httpx/_urlparse.py",
+     "copy_with"
+    ],
+    [
+     "httpx/_urls.py",
+     "__init__"
+    ],
+    [
+     "tests/models/test_whatwg.py",
+     "<module_level>"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "httpx/_urlparse.py",
+     198,
+     198
+    ],
+    [
+     "httpx/_urls.py",
+     117,
+     117
+    ],
+    [
+     "tests/models/test_whatwg.py",
+     30,
+     30
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "httpx/_urlparse.py",
+     "copy_with"
+    ],
+    [
+     "httpx/_urls.py",
+     "__init__"
+    ],
+    [
+     "tests/models/test_whatwg.py",
+     "<module_level>"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "httpx/_urlparse.py",
+     198,
+     198,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "httpx/_urls.py",
+     117,
+     117,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "tests/models/test_whatwg.py",
+     30,
+     30,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "tests/models/test_whatwg.py",
+     30,
+     30,
+     {
+      "resolution_kind": "free_single"
+     }
+    ]
+   ],
+   "seed_def": "httpx/_urlparse.py:213",
+   "stratum": "Q-scoped"
+  },
+  "callers:httpx/_urlparse.py:348": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "httpx/_urlparse.py",
+     "urlparse"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "httpx/_urlparse.py",
+     320,
+     320
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "httpx/_urlparse.py",
+     "urlparse"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "httpx/_urlparse.py",
+     320,
+     320,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "httpx/_urlparse.py:348",
+   "stratum": "Q-scoped"
+  },
+  "callers:httpx/_urls.py:308": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "httpx/_urls.py",
+     "is_relative_url"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "httpx/_urls.py",
+     325,
+     325
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "httpx/_urls.py:308",
+   "stratum": "U-method"
+  }
+ },
+ "site_fingerprints": {
+  "httpx/_api.py:102": "e59eafbed505eac4",
+  "httpx/_api.py:109": "f292d932f7f1b4c2",
+  "httpx/_api.py:195": "f8147d7da0076295",
+  "httpx/_api.py:231": "641229a7f3547cb3",
+  "httpx/_api.py:267": "37e7e2043aa6996b",
+  "httpx/_api.py:304": "ec6dc9aa7d399168",
+  "httpx/_api.py:345": "d0ed69a5e7548502",
+  "httpx/_api.py:386": "df6ff9b2a0242422",
+  "httpx/_api.py:426": "9a822b7bef17a6ba",
+  "httpx/_auth.py:72": "d639f5a270ebc0ff",
+  "httpx/_auth.py:74": "354ef7314d0f7f5b",
+  "httpx/_auth.py:80": "59f8db3bc37ad9ef",
+  "httpx/_client.py:1480": "70ff091dbe1ae2f7",
+  "httpx/_client.py:1721": "7ff3f9dae8d896e5",
+  "httpx/_client.py:1797": "53871b3cc09b896f",
+  "httpx/_client.py:1966": "5da4647eaa05da15",
+  "httpx/_client.py:208": "f3c96189d27ea072",
+  "httpx/_client.py:285": "52f2d5f9d955aebb",
+  "httpx/_client.py:377": "3d06e4f3b5811ee4",
+  "httpx/_client.py:449": "67efb31d8fdba2c5",
+  "httpx/_client.py:453": "2cbfaf83ea6c0900",
+  "httpx/_client.py:463": "04cf709c39752d84",
+  "httpx/_client.py:524": "8d72dee5a911da76",
+  "httpx/_client.py:553": "7120b5c1770cbc4e",
+  "httpx/_client.py:591": "5125b0427f3924e4",
+  "httpx/_client.py:66": "12d8a71b01a2dbff",
+  "httpx/_client.py:70": "e856e9915907c7b5",
+  "httpx/_client.py:71": "0504aa5be9e9c45a",
+  "httpx/_client.py:72": "3d147cbf2e42f738",
+  "httpx/_client.py:73": "019994d68ac4c8a9",
+  "httpx/_client.py:937": "af43cff2c060f3cb",
+  "httpx/_content.py:232": "442cb095c4daf0c5",
+  "httpx/_content.py:234": "7d079571224065bb",
+  "httpx/_content.py:236": "2394ae4002ff12ca",
+  "httpx/_content.py:238": "e3770a6cec717d11",
+  "httpx/_content.py:240": "5f27ed564996c06e",
+  "httpx/_main.py:179": "368575354aac61c4",
+  "httpx/_main.py:181": "fff95650e68fa094",
+  "httpx/_main.py:479": "defa6e7bb3993ae6",
+  "httpx/_main.py:480": "37f570fe7d2d905c",
+  "httpx/_main.py:495": "0351b55bc09e64c4",
+  "httpx/_main.py:497": "dba416b64ce30297",
+  "httpx/_main.py:498": "b33b9605e7f16535",
+  "httpx/_main.py:499": "9ed83d298688fe32",
+  "httpx/_main.py:506": "4abb9fe1ae7042ad",
+  "httpx/_models.py:1088": "abc7e233395981cf",
+  "httpx/_models.py:1179": "952e9fcdabad8d3e",
+  "httpx/_models.py:1190": "943ce13bb7200483",
+  "httpx/_models.py:1203": "e531ef11f8dc7e4e",
+  "httpx/_models.py:1258": "c841ca11749d4ce6",
+  "httpx/_models.py:154": "4c69f04037866d3f",
+  "httpx/_models.py:223": "efb2679feaba2c00",
+  "httpx/_models.py:224": "d3ff2340fc0ef32b",
+  "httpx/_models.py:229": "280a6ad613fff1ce",
+  "httpx/_models.py:442": "0fabfe6a6c5fcb50",
+  "httpx/_models.py:465": "938733bbe342c53d",
+  "httpx/_models.py:504": "443eda5bb8cbb9df",
+  "httpx/_models.py:509": "e63af4e4ef007d46",
+  "httpx/_models.py:549": "4a98d3dd84bafef7",
+  "httpx/_models.py:572": "0fabfe6a6c5fcb50",
+  "httpx/_models.py:644": "1d22f4712f9c2abf",
+  "httpx/_models.py:648": "b17caa3767227c93",
+  "httpx/_models.py:649": "4e8cf1f91a2219df",
+  "httpx/_models.py:865": "eea9923d56ea80b1",
+  "httpx/_models.py:870": "e63af4e4ef007d46",
+  "httpx/_multipart.py:149": "2f5aee5b6e0d170f",
+  "httpx/_multipart.py:261": "fb1ccd1935b61720",
+  "httpx/_multipart.py:295": "fc5f1553c99c2689",
+  "httpx/_multipart.py:299": "694a00025b744810",
+  "httpx/_transports/asgi.py:122": "e051a6fa62a83d38",
+  "httpx/_transports/asgi.py:130": "be38212175df0b41",
+  "httpx/_transports/asgi.py:45": "beb318163d272895",
+  "httpx/_transports/default.py:126": "e553d6054b3decc2",
+  "httpx/_transports/default.py:227": "378099afb7cfacb5",
+  "httpx/_transports/default.py:249": "5191c28da139ebfc",
+  "httpx/_transports/default.py:270": "7920bdb092b38925",
+  "httpx/_transports/default.py:371": "72fc369b4ae4a4b4",
+  "httpx/_transports/default.py:393": "425deb426752c56e",
+  "httpx/_transports/default.py:99": "823bf8572aa99d75",
+  "httpx/_transports/wsgi.py:93": "6691e70fc93449ef",
+  "httpx/_urlparse.py:198": "01e1dc3441072be4",
+  "httpx/_urlparse.py:219": "4a67a9ab02c01062",
+  "httpx/_urlparse.py:229": "609a07d8f3c2ff65",
+  "httpx/_urlparse.py:246": "59b7ffb57ccf0b59",
+  "httpx/_urlparse.py:247": "03f12557ec0dc504",
+  "httpx/_urlparse.py:269": "5b07a157cdcfec4d",
+  "httpx/_urlparse.py:282": "609a07d8f3c2ff65",
+  "httpx/_urlparse.py:286": "52ed4feafaca47db",
+  "httpx/_urlparse.py:319": "eab6f9258e523786",
+  "httpx/_urlparse.py:320": "e8a89a5f1f2fedce",
+  "httpx/_urlparse.py:321": "70d5b4d6d9d89450",
+  "httpx/_urlparse.py:327": "d69622e83c32a43f",
+  "httpx/_urlparse.py:329": "095a02c0f41bf832",
+  "httpx/_urlparse.py:331": "6d5525e881870ec5",
+  "httpx/_urlparse.py:332": "9bcd7700054c678a",
+  "httpx/_urlparse.py:333": "6e58de28470d4015",
+  "httpx/_urlparse.py:337": "53b06498dfc9ec99",
+  "httpx/_urlparse.py:361": "1be37f71911358f4",
+  "httpx/_urlparse.py:376": "43da290f42f60beb",
+  "httpx/_urlparse.py:386": "ad2b3a5cacd50565",
+  "httpx/_urlparse.py:390": "67da2d14b6003d01",
+  "httpx/_urlparse.py:392": "6a468d2408cedd1f",
+  "httpx/_urls.py:117": "9e702a3fc1af4941",
+  "httpx/_urls.py:325": "c9e540efded09c9d",
+  "tests/client/test_async_client.py:133": "697d25e8b9b98aa1",
+  "tests/client/test_async_client.py:135": "342870f81933d27e",
+  "tests/client/test_async_client.py:143": "0ad0a550da49abed",
+  "tests/client/test_async_client.py:163": "eeab01e5953a5cf9",
+  "tests/client/test_async_client.py:165": "342870f81933d27e",
+  "tests/client/test_async_client.py:17": "b2c55ba07c65371b",
+  "tests/client/test_async_client.py:326": "342870f81933d27e",
+  "tests/client/test_auth.py:132": "2a660de2c65a3187",
+  "tests/client/test_client.py:23": "bb06e79e9a0793f8",
+  "tests/client/test_client.py:435": "ebbeb0d7b366cbbf",
+  "tests/client/test_client.py:462": "f523ad6bc736b186",
+  "tests/client/test_headers.py:19": "abf43efdf955744b",
+  "tests/client/test_proxies.py:26": "5487b612c9205a5a",
+  "tests/client/test_redirects.py:179": "dc1146cfdad718da",
+  "tests/client/test_redirects.py:411": "2ca54e9a2a82277d",
+  "tests/client/test_redirects.py:416": "69f120af5c7bdb1b",
+  "tests/client/test_redirects.py:421": "69f120af5c7bdb1b",
+  "tests/client/test_redirects.py:426": "2ca54e9a2a82277d",
+  "tests/client/test_redirects.py:431": "2ca54e9a2a82277d",
+  "tests/client/test_redirects.py:75": "9c64deeb63b1efaf",
+  "tests/client/test_redirects.py:92": "9c64deeb63b1efaf",
+  "tests/conftest.py:266": "f0aa72ba68ce6d69",
+  "tests/conftest.py:38": "0f50f46019e66063",
+  "tests/conftest.py:47": "8353d1f61147b74b",
+  "tests/models/test_cookies.py:41": "bb6fecb68519be4a",
+  "tests/models/test_cookies.py:49": "b5c4ff8211061434",
+  "tests/models/test_headers.py:20": "1b1d54ea78be28d0",
+  "tests/models/test_requests.py:108": "b3ceea82cd3b6d3a",
+  "tests/models/test_requests.py:57": "cf015c596365f27e",
+  "tests/models/test_requests.py:65": "93979fc802855f0c",
+  "tests/models/test_requests.py:86": "1efe6a2d790a3340",
+  "tests/models/test_requests.py:98": "cb17852acc9056e6",
+  "tests/models/test_responses.py:1018": "d28c5c377d42bc08",
+  "tests/models/test_responses.py:1040": "36ec4ae33eb9960c",
+  "tests/models/test_responses.py:168": "2522db5659800931",
+  "tests/models/test_responses.py:181": "2b3fb3acc829fbc6",
+  "tests/models/test_responses.py:196": "2b3fb3acc829fbc6",
+  "tests/models/test_responses.py:214": "e68605ad5b51c362",
+  "tests/models/test_responses.py:229": "4431e656dd4eaa06",
+  "tests/models/test_responses.py:243": "b9fd18cb998a31ac",
+  "tests/models/test_responses.py:257": "759049107978f435",
+  "tests/models/test_responses.py:271": "8da98a8aab4c8f92",
+  "tests/models/test_responses.py:285": "777ee1536e998df7",
+  "tests/models/test_responses.py:297": "e01651fb5ae3593e",
+  "tests/models/test_responses.py:308": "276cc46dbc4aa2dc",
+  "tests/models/test_responses.py:325": "25af495165c20741",
+  "tests/models/test_responses.py:340": "d9e02815dc8b5ca2",
+  "tests/models/test_responses.py:359": "25af495165c20741",
+  "tests/models/test_responses.py:375": "d9e02815dc8b5ca2",
+  "tests/models/test_responses.py:40": "8f14007c9131280c",
+  "tests/models/test_responses.py:51": "82e55f3508756b55",
+  "tests/models/test_responses.py:60": "c6cff9c8ac0bf0df",
+  "tests/models/test_responses.py:72": "58575fd45522f682",
+  "tests/models/test_responses.py:786": "1b9883a790b9ac24",
+  "tests/models/test_responses.py:921": "95c7dbd1df18f4be",
+  "tests/models/test_whatwg.py:30": "b4090b9936cd0a23",
+  "tests/test_api.py:12": "eba50f45c6fa1585",
+  "tests/test_api.py:17": "5a4b046ab2616bb1",
+  "tests/test_api.py:28": "84910cd2e80b30b8",
+  "tests/test_api.py:40": "80f44e4726286680",
+  "tests/test_api.py:46": "551241865aa2758e",
+  "tests/test_api.py:58": "7eb06914c4c36d7b",
+  "tests/test_api.py:70": "261d3ddf8649008a",
+  "tests/test_api.py:81": "eba50f45c6fa1585",
+  "tests/test_asgi.py:100": "05eccabe5e1dcdb2",
+  "tests/test_asgi.py:146": "1fd293e546b65f84",
+  "tests/test_auth.py:126": "86a67961d40baeac",
+  "tests/test_auth.py:154": "a4281ae06f0c172a",
+  "tests/test_auth.py:19": "19e033f3cf229661",
+  "tests/test_auth.py:203": "a4281ae06f0c172a",
+  "tests/test_auth.py:263": "a4281ae06f0c172a",
+  "tests/test_auth.py:34": "a4281ae06f0c172a",
+  "tests/test_auth.py:49": "a4281ae06f0c172a",
+  "tests/test_auth.py:74": "a4281ae06f0c172a",
+  "tests/test_auth.py:90": "976bdb161a19634f",
+  "tests/test_content.py:492": "1c2c71897a53b423",
+  "tests/test_content.py:501": "9fc2e0c81801b24b",
+  "tests/test_decoders.py:256": "b4753427e54f7cc1",
+  "tests/test_decoders.py:280": "eedd6962e8cfcb49",
+  "tests/test_decoders.py:285": "6060be823ea73b38",
+  "tests/test_decoders.py:289": "2dfd9cdc0ed82638",
+  "tests/test_multipart.py:13": "d11ec4e097871a19",
+  "tests/test_multipart.py:168": "6d11589d4ecf6a19",
+  "tests/test_multipart.py:170": "c16ba59f857984e1",
+  "tests/test_multipart.py:198": "6d11589d4ecf6a19",
+  "tests/test_multipart.py:200": "c16ba59f857984e1",
+  "tests/test_multipart.py:232": "6d11589d4ecf6a19",
+  "tests/test_multipart.py:234": "f68f92f6ae647b60",
+  "tests/test_multipart.py:262": "6d11589d4ecf6a19",
+  "tests/test_multipart.py:264": "a5b5c60f663623ad",
+  "tests/test_multipart.py:283": "6d11589d4ecf6a19",
+  "tests/test_multipart.py:285": "835facec977805e2",
+  "tests/test_multipart.py:313": "6d11589d4ecf6a19",
+  "tests/test_multipart.py:315": "c16ba59f857984e1",
+  "tests/test_multipart.py:334": "6d11589d4ecf6a19",
+  "tests/test_multipart.py:336": "a362f02546f3b671",
+  "tests/test_multipart.py:356": "6d11589d4ecf6a19",
+  "tests/test_multipart.py:358": "a362f02546f3b671",
+  "tests/test_multipart.py:413": "bc94effc5a07702f",
+  "tests/test_wsgi.py:107": "1fd293e546b65f84",
+  "tests/test_wsgi.py:115": "1fd293e546b65f84",
+  "tests/test_wsgi.py:138": "51a8cef4d290354d",
+  "tests/test_wsgi.py:147": "0ad0a550da49abed",
+  "tests/test_wsgi.py:184": "8cbdf523670a21ad",
+  "tests/test_wsgi.py:202": "6cd9c584a9308e39",
+  "tests/test_wsgi.py:99": "05eccabe5e1dcdb2"
+ }
+}

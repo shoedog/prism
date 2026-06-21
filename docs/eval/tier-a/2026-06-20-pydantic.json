@@ -1,0 +1,4837 @@
+{
+ "m1": {
+  "anon_oracle": 0,
+  "anon_prism": 97,
+  "matched": 4009,
+  "prism_extra": 183,
+  "prism_missing": 9,
+  "snapshot_prism_missing": 9
+ },
+ "m2": {
+  "callees": {
+   "C-method": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.3423802239546494,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.3423802239546494,
+      1.0
+     ],
+     "tp": 2
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 3,
+      "precision": [
+       0.4,
+       0.11762077314099711,
+       0.7692757205908813
+      ],
+      "recall": [
+       1.0,
+       0.3423802239546494,
+       1.0
+      ],
+      "tp": 2
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 3,
+      "precision": [
+       0.4,
+       0.11762077314099711,
+       0.7692757205908813
+      ],
+      "recall": [
+       1.0,
+       0.3423802239546494,
+       1.0
+      ],
+      "tp": 2
+     }
+    },
+    "pending": 0,
+    "raw": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.3423802239546494,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.3423802239546494,
+      1.0
+     ],
+     "tp": 2
+    },
+    "shortfall": 0
+   },
+   "C-name": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.3423802239546494,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.3423802239546494,
+      1.0
+     ],
+     "tp": 2
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 5,
+      "precision": [
+       0.2857142857142857,
+       0.08221892324928332,
+       0.6410655504689458
+      ],
+      "recall": [
+       1.0,
+       0.3423802239546494,
+       1.0
+      ],
+      "tp": 2
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 5,
+      "precision": [
+       0.2857142857142857,
+       0.08221892324928332,
+       0.6410655504689458
+      ],
+      "recall": [
+       1.0,
+       0.3423802239546494,
+       1.0
+      ],
+      "tp": 2
+     }
+    },
+    "pending": 10,
+    "raw": {
+     "fn": 0,
+     "fp": 10,
+     "precision": [
+      0.16666666666666666,
+      0.04696514175692082,
+      0.4480308646118111
+     ],
+     "recall": [
+      1.0,
+      0.3423802239546494,
+      1.0
+     ],
+     "tp": 2
+    },
+    "shortfall": 0
+   },
+   "Q-scoped": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.3423802239546494,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.3423802239546494,
+      1.0
+     ],
+     "tp": 2
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 6,
+      "precision": [
+       0.25,
+       0.07147921209795555,
+       0.5907245720727483
+      ],
+      "recall": [
+       1.0,
+       0.3423802239546494,
+       1.0
+      ],
+      "tp": 2
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 6,
+      "precision": [
+       0.25,
+       0.07147921209795555,
+       0.5907245720727483
+      ],
+      "recall": [
+       1.0,
+       0.3423802239546494,
+       1.0
+      ],
+      "tp": 2
+     }
+    },
+    "pending": 36,
+    "raw": {
+     "fn": 18,
+     "fp": 18,
+     "precision": [
+      0.1,
+      0.02786648096169142,
+      0.3010336471864123
+     ],
+     "recall": [
+      0.1,
+      0.02786648096169142,
+      0.3010336471864123
+     ],
+     "tp": 2
+    },
+    "shortfall": 0
+   },
+   "U-free": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.2065493117918027,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.2065493117918027,
+      1.0
+     ],
+     "tp": 1
+    },
+    "function": {
+     "corrected": {
+      "fn": 3,
+      "fp": 3,
+      "precision": [
+       0.25,
+       0.04558726029536886,
+       0.6993581599030918
+      ],
+      "recall": [
+       0.25,
+       0.04558726029536886,
+       0.6993581599030918
+      ],
+      "tp": 1
+     },
+     "raw": {
+      "fn": 3,
+      "fp": 3,
+      "precision": [
+       0.25,
+       0.04558726029536886,
+       0.6993581599030918
+      ],
+      "recall": [
+       0.25,
+       0.04558726029536886,
+       0.6993581599030918
+      ],
+      "tp": 1
+     }
+    },
+    "pending": 14,
+    "raw": {
+     "fn": 5,
+     "fp": 9,
+     "precision": [
+      0.1,
+      0.017876212896073995,
+      0.4041500295247722
+     ],
+     "recall": [
+      0.16666666666666666,
+      0.030053369411815023,
+      0.5635028250257673
+     ],
+     "tp": 1
+    },
+    "shortfall": 0
+   },
+   "U-method": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.6096657083436265,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.6096657083436265,
+      1.0
+     ],
+     "tp": 6
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 5,
+      "precision": [
+       0.4444444444444444,
+       0.18877851977054566,
+       0.7333487081991259
+      ],
+      "recall": [
+       1.0,
+       0.5101091596030786,
+       0.9999999999999999
+      ],
+      "tp": 4
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 5,
+      "precision": [
+       0.4444444444444444,
+       0.18877851977054566,
+       0.7333487081991259
+      ],
+      "recall": [
+       1.0,
+       0.5101091596030786,
+       0.9999999999999999
+      ],
+      "tp": 4
+     }
+    },
+    "pending": 21,
+    "raw": {
+     "fn": 3,
+     "fp": 18,
+     "precision": [
+      0.25,
+      0.11999366158732966,
+      0.4489944416883343
+     ],
+     "recall": [
+      0.6666666666666666,
+      0.35420213352505864,
+      0.8794161825659264
+     ],
+     "tp": 6
+    },
+    "shortfall": 0
+   }
+  },
+  "callers": {
+   "C-method": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.6096657083436265,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.6096657083436265,
+      1.0
+     ],
+     "tp": 6
+    },
+    "function": {
+     "corrected": {
+      "fn": 2,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.6096657083436265,
+       1.0
+      ],
+      "recall": [
+       0.75,
+       0.40927542792725174,
+       0.9285207879020445
+      ],
+      "tp": 6
+     },
+     "raw": {
+      "fn": 2,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.6096657083436265,
+       1.0
+      ],
+      "recall": [
+       0.75,
+       0.40927542792725174,
+       0.9285207879020445
+      ],
+      "tp": 6
+     }
+    },
+    "pending": 12,
+    "raw": {
+     "fn": 12,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.6096657083436265,
+      1.0
+     ],
+     "recall": [
+      0.3333333333333333,
+      0.16278774656229916,
+      0.5625053287487956
+     ],
+     "tp": 6
+    },
+    "shortfall": 0
+   },
+   "Q-scoped": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.7719046248681998,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.7719046248681998,
+      1.0
+     ],
+     "tp": 13
+    },
+    "function": {
+     "corrected": {
+      "fn": 1,
+      "fp": 1,
+      "precision": [
+       0.5,
+       0.09453120463920084,
+       0.9054687953607992
+      ],
+      "recall": [
+       0.5,
+       0.09453120463920084,
+       0.9054687953607992
+      ],
+      "tp": 1
+     },
+     "raw": {
+      "fn": 1,
+      "fp": 1,
+      "precision": [
+       0.5,
+       0.09453120463920084,
+       0.9054687953607992
+      ],
+      "recall": [
+       0.5,
+       0.09453120463920084,
+       0.9054687953607992
+      ],
+      "tp": 1
+     }
+    },
+    "pending": 4,
+    "raw": {
+     "fn": 2,
+     "fp": 2,
+     "precision": [
+      0.8666666666666667,
+      0.6211801694601944,
+      0.9626387412357151
+     ],
+     "recall": [
+      0.8666666666666667,
+      0.6211801694601944,
+      0.9626387412357151
+     ],
+     "tp": 13
+    },
+    "shortfall": 0
+   },
+   "U-free": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      0.0,
+      0.0,
+      1.0
+     ],
+     "recall": [
+      0.0,
+      0.0,
+      1.0
+     ],
+     "tp": 0
+    },
+    "function": {
+     "corrected": {
+      "fn": 7,
+      "fp": 0,
+      "precision": [
+       0.0,
+       0.0,
+       1.0
+      ],
+      "recall": [
+       0.0,
+       0.0,
+       0.35433043867586833
+      ],
+      "tp": 0
+     },
+     "raw": {
+      "fn": 7,
+      "fp": 0,
+      "precision": [
+       0.0,
+       0.0,
+       1.0
+      ],
+      "recall": [
+       0.0,
+       0.0,
+       0.35433043867586833
+      ],
+      "tp": 0
+     }
+    },
+    "pending": 11,
+    "raw": {
+     "fn": 11,
+     "fp": 0,
+     "precision": [
+      0.0,
+      0.0,
+      1.0
+     ],
+     "recall": [
+      0.0,
+      0.0,
+      0.25883296999442634
+     ],
+     "tp": 0
+    },
+    "shortfall": 0
+   },
+   "U-method": {
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.7224671969739421,
+      0.9999999999999999
+     ],
+     "recall": [
+      1.0,
+      0.7224671969739421,
+      0.9999999999999999
+     ],
+     "tp": 10
+    },
+    "function": {
+     "corrected": {
+      "fn": 3,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.700854948272956,
+       1.0
+      ],
+      "recall": [
+       0.75,
+       0.4676946629183366,
+       0.9110583323051143
+      ],
+      "tp": 9
+     },
+     "raw": {
+      "fn": 3,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.700854948272956,
+       1.0
+      ],
+      "recall": [
+       0.75,
+       0.4676946629183366,
+       0.9110583323051143
+      ],
+      "tp": 9
+     }
+    },
+    "pending": 3,
+    "raw": {
+     "fn": 3,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.7224671969739421,
+      0.9999999999999999
+     ],
+     "recall": [
+      0.7692307692307693,
+      0.49743623839480355,
+      0.918204713457304
+     ],
+     "tp": 10
+    },
+    "shortfall": 0
+   }
+  }
+ },
+ "m3": {
+  "cap": 25,
+  "checked": [
+   {
+    "probe": "callers:pydantic/_internal/_fields.py:704",
+    "site": "tests/test_internal.py:257",
+    "verdict": "ambiguous"
+   },
+   {
+    "probe": "callers:pydantic/_internal/_fields.py:704",
+    "site": "tests/test_internal.py:269",
+    "verdict": "ambiguous"
+   }
+  ],
+  "counts": {
+   "alias_site": 0,
+   "ambiguous": 2,
+   "confirmed_fp": 0,
+   "confirmed_tp": 0
+  }
+ },
+ "meta": {
+  "baseline_invalid": true,
+  "corpus": "pydantic",
+  "corpus_dirty": false,
+  "corpus_dirty_reasons": [],
+  "corpus_sha": "363728fe0b35",
+  "date": "2026-06-20",
+  "harness_sha": "06e6ac4ee96e",
+  "invalid_reasons": [
+   "oracle_error_rate 0.38 > 0.25"
+  ],
+  "oracle": "pyright-langserver",
+  "oracle_error_rate": 0.375,
+  "oracle_not_quiescent": false,
+  "prism_dirty": false,
+  "prism_sha": "20c8490591a3",
+  "seed": 42,
+  "stale_adjudications": 0,
+  "sut_error_rate": 0.0,
+  "wall_s": {
+   "m1_oracle_inventory": 0.324,
+   "m2": 45.911,
+   "m3": 0.002,
+   "oracle_start": 5.12
+  }
+ },
+ "pending": [
+  {
+   "corpus": "pydantic",
+   "direction": "prism_only",
+   "dispatch_kind": "free_single",
+   "measurement": "callers",
+   "seed_def": "pydantic/_internal/_fields.py:704",
+   "site": "tests/test_internal.py:257",
+   "site_fingerprint": "cd652890b0d69f56"
+  },
+  {
+   "corpus": "pydantic",
+   "direction": "prism_only",
+   "dispatch_kind": "free_single",
+   "measurement": "callers",
+   "seed_def": "pydantic/_internal/_fields.py:704",
+   "site": "tests/test_internal.py:269",
+   "site_fingerprint": "a7a85e3408ad6134"
+  },
+  {
+   "corpus": "pydantic",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "pydantic/_internal/_fields.py:704",
+   "site": "pydantic/fields.py:740",
+   "site_fingerprint": "790d101a95f1d8a0"
+  },
+  {
+   "corpus": "pydantic",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "pydantic/_internal/_fields.py:704",
+   "site": "pydantic/fields.py:1482",
+   "site_fingerprint": "790d101a95f1d8a0"
+  },
+  {
+   "corpus": "pydantic",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "pydantic/experimental/pipeline.py:130",
+   "site": "pydantic/experimental/pipeline.py:400",
+   "site_fingerprint": "31dd1efe216b1f09"
+  },
+  {
+   "corpus": "pydantic",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "pydantic/experimental/pipeline.py:130",
+   "site": "tests/test_pipeline.py:192",
+   "site_fingerprint": "4b2a5bef7484d7f4"
+  },
+  {
+   "corpus": "pydantic",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "pydantic/experimental/pipeline.py:130",
+   "site": "tests/test_pipeline.py:207",
+   "site_fingerprint": "a0e2703f33a010eb"
+  },
+  {
+   "corpus": "pydantic",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "pydantic/experimental/pipeline.py:130",
+   "site": "tests/test_pipeline.py:220",
+   "site_fingerprint": "61dd9d58de86b5e1"
+  },
+  {
+   "corpus": "pydantic",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "pydantic/experimental/pipeline.py:130",
+   "site": "tests/test_pipeline.py:305",
+   "site_fingerprint": "a5a815e70374d686"
+  },
+  {
+   "corpus": "pydantic",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "pydantic/experimental/pipeline.py:130",
+   "site": "tests/test_pipeline.py:329",
+   "site_fingerprint": "0c52a7fd580f02e5"
+  },
+  {
+   "corpus": "pydantic",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "pydantic/experimental/pipeline.py:130",
+   "site": "tests/test_pipeline.py:351",
+   "site_fingerprint": "d60540d2fd95a41c"
+  },
+  {
+   "corpus": "pydantic",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "pydantic/experimental/pipeline.py:130",
+   "site": "tests/test_pipeline.py:437",
+   "site_fingerprint": "86f413646b74fa36"
+  },
+  {
+   "corpus": "pydantic",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "pydantic/experimental/pipeline.py:130",
+   "site": "tests/test_pipeline.py:438",
+   "site_fingerprint": "6a61a3e99a3798f4"
+  },
+  {
+   "corpus": "pydantic",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "pydantic/experimental/pipeline.py:130",
+   "site": "tests/test_pipeline.py:455",
+   "site_fingerprint": "cef57e93018b8076"
+  },
+  {
+   "corpus": "pydantic",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "pydantic/experimental/pipeline.py:130",
+   "site": "tests/test_pipeline.py:456",
+   "site_fingerprint": "1936e7703aed7e39"
+  },
+  {
+   "corpus": "pydantic",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "pydantic/experimental/pipeline.py:130",
+   "site": "tests/test_pipeline.py:475",
+   "site_fingerprint": "1f5f46ba028c921b"
+  },
+  {
+   "corpus": "pydantic",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "pydantic/fields.py:320",
+   "site": "pydantic/_internal/_generate_schema.py:1455",
+   "site_fingerprint": "0c24cec7defb2f64"
+  },
+  {
+   "corpus": "pydantic",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "pydantic/fields.py:320",
+   "site": "pydantic/_internal/_generate_schema.py:1594",
+   "site_fingerprint": "46891c50535866f9"
+  },
+  {
+   "corpus": "pydantic",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "pydantic/fields.py:320",
+   "site": "pydantic/_internal/_generate_schema.py:1646",
+   "site_fingerprint": "46891c50535866f9"
+  },
+  {
+   "corpus": "pydantic",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "release/prepare.py:23",
+   "site": "release/prepare.py:166",
+   "site_fingerprint": "a3c3ea5ee858406d"
+  },
+  {
+   "corpus": "pydantic",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "release/push.py:115",
+   "site": "release/push.py:148",
+   "site_fingerprint": "e1b30cc9fe1aa2fa"
+  },
+  {
+   "corpus": "pydantic",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "release/push.py:20",
+   "site": "release/push.py:140",
+   "site_fingerprint": "9ed2dddd9c0c65b4"
+  },
+  {
+   "corpus": "pydantic",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "release/push.py:30",
+   "site": "release/push.py:141",
+   "site_fingerprint": "1b1d0da9f05a49cf"
+  },
+  {
+   "corpus": "pydantic",
+   "direction": "prism_only",
+   "dispatch_kind": "import_qualified",
+   "measurement": "callees",
+   "seed_def": "pydantic-core/tests/benchmarks/test_serialization_micro.py:353",
+   "site": "pydantic-core/tests/benchmarks/test_serialization_micro.py:354",
+   "site_fingerprint": "bde6c624d97c55a5"
+  },
+  {
+   "corpus": "pydantic",
+   "direction": "prism_only",
+   "dispatch_kind": "import_qualified",
+   "measurement": "callees",
+   "seed_def": "pydantic-core/tests/serializers/test_union.py:24",
+   "site": "pydantic-core/tests/serializers/test_union.py:25",
+   "site_fingerprint": "0700185f71039fd9"
+  },
+  {
+   "corpus": "pydantic",
+   "direction": "prism_only",
+   "dispatch_kind": "import_qualified",
+   "measurement": "callees",
+   "seed_def": "pydantic-core/tests/serializers/test_union.py:24",
+   "site": "pydantic-core/tests/serializers/test_union.py:26",
+   "site_fingerprint": "d4a894e09c984803"
+  },
+  {
+   "corpus": "pydantic",
+   "direction": "prism_only",
+   "dispatch_kind": "import_qualified",
+   "measurement": "callees",
+   "seed_def": "pydantic-core/tests/serializers/test_union.py:24",
+   "site": "pydantic-core/tests/serializers/test_union.py:27",
+   "site_fingerprint": "e887b37f0f93cf9a"
+  },
+  {
+   "corpus": "pydantic",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callees",
+   "seed_def": "pydantic-core/tests/serializers/test_union.py:24",
+   "site": "pydantic-core/tests/serializers/test_union.py:31",
+   "site_fingerprint": "dcd180d9abd1548d"
+  },
+  {
+   "corpus": "pydantic",
+   "direction": "prism_only",
+   "dispatch_kind": "import_qualified",
+   "measurement": "callees",
+   "seed_def": "pydantic-core/tests/serializers/test_union.py:678",
+   "site": "pydantic-core/tests/serializers/test_union.py:679",
+   "site_fingerprint": "f0984b8c4237429a"
+  },
+  {
+   "corpus": "pydantic",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callees",
+   "seed_def": "pydantic-core/tests/serializers/test_union.py:678",
+   "site": "pydantic-core/tests/serializers/test_union.py:682",
+   "site_fingerprint": "17c8cfbc2dca47fd"
+  },
+  {
+   "corpus": "pydantic",
+   "direction": "prism_only",
+   "dispatch_kind": "import_qualified",
+   "measurement": "callees",
+   "seed_def": "pydantic-core/tests/serializers/test_union.py:678",
+   "site": "pydantic-core/tests/serializers/test_union.py:684",
+   "site_fingerprint": "aad3487510191272"
+  },
+  {
+   "corpus": "pydantic",
+   "direction": "prism_only",
+   "dispatch_kind": "r6_single_owner",
+   "measurement": "callees",
+   "seed_def": "pydantic-core/tests/serializers/test_union.py:678",
+   "site": "pydantic-core/tests/serializers/test_union.py:687",
+   "site_fingerprint": "17c8cfbc2dca47fd"
+  },
+  {
+   "corpus": "pydantic",
+   "direction": "prism_only",
+   "dispatch_kind": "import_qualified",
+   "measurement": "callees",
+   "seed_def": "pydantic-core/tests/validators/test_model_fields.py:422",
+   "site": "pydantic-core/tests/validators/test_model_fields.py:424",
+   "site_fingerprint": "bd28c6631f4b672b"
+  },
+  {
+   "corpus": "pydantic",
+   "direction": "prism_only",
+   "dispatch_kind": "import_qualified",
+   "measurement": "callees",
+   "seed_def": "pydantic-core/tests/validators/test_model_fields.py:422",
+   "site": "pydantic-core/tests/validators/test_model_fields.py:426",
+   "site_fingerprint": "e0e6f7ba99a875a2"
+  },
+  {
+   "corpus": "pydantic",
+   "direction": "prism_only",
+   "dispatch_kind": "import_qualified",
+   "measurement": "callees",
+   "seed_def": "pydantic-core/tests/validators/test_model_fields.py:422",
+   "site": "pydantic-core/tests/validators/test_model_fields.py:427",
+   "site_fingerprint": "31e42e0dc2a5b7a8"
+  },
+  {
+   "corpus": "pydantic",
+   "direction": "prism_only",
+   "dispatch_kind": "import_qualified",
+   "measurement": "callees",
+   "seed_def": "pydantic-core/tests/validators/test_tuple.py:212",
+   "site": "pydantic-core/tests/validators/test_tuple.py:213",
+   "site_fingerprint": "c11d1879ee9d440e"
+  },
+  {
+   "corpus": "pydantic",
+   "direction": "prism_only",
+   "dispatch_kind": "import_qualified",
+   "measurement": "callees",
+   "seed_def": "pydantic-core/tests/validators/test_typed_dict.py:182",
+   "site": "pydantic-core/tests/validators/test_typed_dict.py:184",
+   "site_fingerprint": "bb62e5a4ea1e0a8b"
+  },
+  {
+   "corpus": "pydantic",
+   "direction": "prism_only",
+   "dispatch_kind": "import_qualified",
+   "measurement": "callees",
+   "seed_def": "pydantic-core/tests/validators/test_typed_dict.py:182",
+   "site": "pydantic-core/tests/validators/test_typed_dict.py:185",
+   "site_fingerprint": "030c7ca62c2aeae2"
+  },
+  {
+   "corpus": "pydantic",
+   "direction": "prism_only",
+   "dispatch_kind": "import_qualified",
+   "measurement": "callees",
+   "seed_def": "pydantic-core/tests/validators/test_union.py:404",
+   "site": "pydantic-core/tests/validators/test_union.py:406",
+   "site_fingerprint": "fdb624027fc9f67a"
+  },
+  {
+   "corpus": "pydantic",
+   "direction": "prism_only",
+   "dispatch_kind": "import_qualified",
+   "measurement": "callees",
+   "seed_def": "pydantic-core/tests/validators/test_union.py:404",
+   "site": "pydantic-core/tests/validators/test_union.py:407",
+   "site_fingerprint": "664ba2382611e9e3"
+  },
+  {
+   "corpus": "pydantic",
+   "direction": "prism_only",
+   "dispatch_kind": "import_qualified",
+   "measurement": "callees",
+   "seed_def": "pydantic-core/tests/validators/test_union.py:404",
+   "site": "pydantic-core/tests/validators/test_union.py:409",
+   "site_fingerprint": "bda9362c39a8dec3"
+  },
+  {
+   "corpus": "pydantic",
+   "direction": "prism_only",
+   "dispatch_kind": "import_qualified",
+   "measurement": "callees",
+   "seed_def": "pydantic-core/tests/validators/test_union.py:404",
+   "site": "pydantic-core/tests/validators/test_union.py:411",
+   "site_fingerprint": "3817bb5d1447331e"
+  },
+  {
+   "corpus": "pydantic",
+   "direction": "prism_only",
+   "dispatch_kind": "import_qualified",
+   "measurement": "callees",
+   "seed_def": "pydantic-core/tests/validators/test_union.py:404",
+   "site": "pydantic-core/tests/validators/test_union.py:412",
+   "site_fingerprint": "3ab99462e5f80687"
+  },
+  {
+   "corpus": "pydantic",
+   "direction": "prism_only",
+   "dispatch_kind": "import_qualified",
+   "measurement": "callees",
+   "seed_def": "pydantic-core/tests/validators/test_union.py:404",
+   "site": "pydantic-core/tests/validators/test_union.py:413",
+   "site_fingerprint": "ef9e0b3473c954db"
+  },
+  {
+   "corpus": "pydantic",
+   "direction": "prism_only",
+   "dispatch_kind": "import_qualified",
+   "measurement": "callees",
+   "seed_def": "pydantic-core/tests/validators/test_union.py:889",
+   "site": "pydantic-core/tests/validators/test_union.py:894",
+   "site_fingerprint": "bc73b7addb6695e0"
+  },
+  {
+   "corpus": "pydantic",
+   "direction": "prism_only",
+   "dispatch_kind": "import_qualified",
+   "measurement": "callees",
+   "seed_def": "pydantic-core/tests/validators/test_union.py:889",
+   "site": "pydantic-core/tests/validators/test_union.py:896",
+   "site_fingerprint": "809049349553d6d5"
+  },
+  {
+   "corpus": "pydantic",
+   "direction": "prism_only",
+   "dispatch_kind": "import_qualified",
+   "measurement": "callees",
+   "seed_def": "pydantic-core/tests/validators/test_union.py:889",
+   "site": "pydantic-core/tests/validators/test_union.py:898",
+   "site_fingerprint": "3dbf6f3eeef55817"
+  },
+  {
+   "corpus": "pydantic",
+   "direction": "prism_only",
+   "dispatch_kind": "import_qualified",
+   "measurement": "callees",
+   "seed_def": "pydantic-core/tests/validators/test_union.py:889",
+   "site": "pydantic-core/tests/validators/test_union.py:899",
+   "site_fingerprint": "7b0c0f8fc07bc6d4"
+  },
+  {
+   "corpus": "pydantic",
+   "direction": "prism_only",
+   "dispatch_kind": "import_qualified",
+   "measurement": "callees",
+   "seed_def": "pydantic-core/tests/validators/test_union.py:889",
+   "site": "pydantic-core/tests/validators/test_union.py:900",
+   "site_fingerprint": "8b5d9a65ce9f0320"
+  },
+  {
+   "corpus": "pydantic",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "pydantic-core/tests/validators/test_union.py:889",
+   "site": "pydantic-core/tests/validators/test_union.py:888",
+   "site_fingerprint": "2e06ba8bedaf3ed8"
+  },
+  {
+   "corpus": "pydantic",
+   "direction": "prism_only",
+   "dispatch_kind": "import_qualified",
+   "measurement": "callees",
+   "seed_def": "pydantic-core/tests/validators/test_uuid.py:161",
+   "site": "pydantic-core/tests/validators/test_uuid.py:162",
+   "site_fingerprint": "8cc87609a627b653"
+  },
+  {
+   "corpus": "pydantic",
+   "direction": "prism_only",
+   "dispatch_kind": "import_qualified",
+   "measurement": "callees",
+   "seed_def": "pydantic-core/tests/validators/test_uuid.py:161",
+   "site": "pydantic-core/tests/validators/test_uuid.py:164",
+   "site_fingerprint": "a32829b8afac92fa"
+  },
+  {
+   "corpus": "pydantic",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "pydantic-core/tests/validators/test_uuid.py:161",
+   "site": "pydantic-core/tests/validators/test_uuid.py:138",
+   "site_fingerprint": "f743122844a5355d"
+  },
+  {
+   "corpus": "pydantic",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "pydantic-core/tests/validators/test_uuid.py:161",
+   "site": "pydantic-core/tests/validators/test_uuid.py:141",
+   "site_fingerprint": "852acea344697d8a"
+  },
+  {
+   "corpus": "pydantic",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "pydantic-core/tests/validators/test_uuid.py:161",
+   "site": "pydantic-core/tests/validators/test_uuid.py:143",
+   "site_fingerprint": "54c11261b50753e4"
+  },
+  {
+   "corpus": "pydantic",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "pydantic-core/tests/validators/test_uuid.py:161",
+   "site": "pydantic-core/tests/validators/test_uuid.py:144",
+   "site_fingerprint": "fb6e76f82c7ff4ae"
+  },
+  {
+   "corpus": "pydantic",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "pydantic-core/tests/validators/test_uuid.py:161",
+   "site": "pydantic-core/tests/validators/test_uuid.py:145",
+   "site_fingerprint": "8132c0bc4eacd6a8"
+  },
+  {
+   "corpus": "pydantic",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "pydantic-core/tests/validators/test_uuid.py:161",
+   "site": "pydantic-core/tests/validators/test_uuid.py:146",
+   "site_fingerprint": "78b3d6d15891fd4c"
+  },
+  {
+   "corpus": "pydantic",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "pydantic-core/tests/validators/test_uuid.py:161",
+   "site": "pydantic-core/tests/validators/test_uuid.py:147",
+   "site_fingerprint": "033ad2a327ccede2"
+  },
+  {
+   "corpus": "pydantic",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "pydantic-core/tests/validators/test_uuid.py:161",
+   "site": "pydantic-core/tests/validators/test_uuid.py:148",
+   "site_fingerprint": "96851478b0e52a18"
+  },
+  {
+   "corpus": "pydantic",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "pydantic-core/tests/validators/test_uuid.py:161",
+   "site": "pydantic-core/tests/validators/test_uuid.py:149",
+   "site_fingerprint": "47c714c67695b6af"
+  },
+  {
+   "corpus": "pydantic",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "pydantic-core/tests/validators/test_uuid.py:161",
+   "site": "pydantic-core/tests/validators/test_uuid.py:150",
+   "site_fingerprint": "87c75750fa193f67"
+  },
+  {
+   "corpus": "pydantic",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "pydantic-core/tests/validators/test_uuid.py:161",
+   "site": "pydantic-core/tests/validators/test_uuid.py:151",
+   "site_fingerprint": "b72eb97a41dacddc"
+  },
+  {
+   "corpus": "pydantic",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "pydantic-core/tests/validators/test_uuid.py:161",
+   "site": "pydantic-core/tests/validators/test_uuid.py:152",
+   "site_fingerprint": "5a5fa4c05f61b682"
+  },
+  {
+   "corpus": "pydantic",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "pydantic-core/tests/validators/test_uuid.py:161",
+   "site": "pydantic-core/tests/validators/test_uuid.py:153",
+   "site_fingerprint": "9dcd0440b8b7ec85"
+  },
+  {
+   "corpus": "pydantic",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "pydantic-core/tests/validators/test_uuid.py:161",
+   "site": "pydantic-core/tests/validators/test_uuid.py:154",
+   "site_fingerprint": "46266068b54b7cfb"
+  },
+  {
+   "corpus": "pydantic",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "pydantic-core/tests/validators/test_uuid.py:161",
+   "site": "pydantic-core/tests/validators/test_uuid.py:155",
+   "site_fingerprint": "0cff7a75feae3b12"
+  },
+  {
+   "corpus": "pydantic",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "pydantic-core/tests/validators/test_uuid.py:161",
+   "site": "pydantic-core/tests/validators/test_uuid.py:156",
+   "site_fingerprint": "e9f4d69e5ab771d3"
+  },
+  {
+   "corpus": "pydantic",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "pydantic-core/tests/validators/test_uuid.py:161",
+   "site": "pydantic-core/tests/validators/test_uuid.py:157",
+   "site_fingerprint": "7a1f005fddc4ba5e"
+  },
+  {
+   "corpus": "pydantic",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "pydantic-core/tests/validators/test_uuid.py:161",
+   "site": "pydantic-core/tests/validators/test_uuid.py:158",
+   "site_fingerprint": "032b84a4e09ea3da"
+  },
+  {
+   "corpus": "pydantic",
+   "direction": "prism_only",
+   "dispatch_kind": "free_single",
+   "measurement": "callees",
+   "seed_def": "pydantic/_internal/_fields.py:704",
+   "site": "pydantic/_internal/_fields.py:723",
+   "site_fingerprint": "c4a84b4aa39db9df"
+  },
+  {
+   "corpus": "pydantic",
+   "direction": "prism_only",
+   "dispatch_kind": "free_single",
+   "measurement": "callees",
+   "seed_def": "pydantic/_internal/_fields.py:704",
+   "site": "pydantic/_internal/_fields.py:726",
+   "site_fingerprint": "2edc4849579501f8"
+  },
+  {
+   "corpus": "pydantic",
+   "direction": "prism_only",
+   "dispatch_kind": "import_qualified",
+   "measurement": "callees",
+   "seed_def": "pydantic/_internal/_generate_schema.py:1673",
+   "site": "pydantic/_internal/_generate_schema.py:1686",
+   "site_fingerprint": "dafc464d32dc8633"
+  },
+  {
+   "corpus": "pydantic",
+   "direction": "prism_only",
+   "dispatch_kind": "import_qualified",
+   "measurement": "callees",
+   "seed_def": "pydantic/_internal/_generate_schema.py:1673",
+   "site": "pydantic/_internal/_generate_schema.py:1689",
+   "site_fingerprint": "b6871db2a5275149"
+  },
+  {
+   "corpus": "pydantic",
+   "direction": "prism_only",
+   "dispatch_kind": "import_qualified",
+   "measurement": "callees",
+   "seed_def": "pydantic/_internal/_generate_schema.py:1673",
+   "site": "pydantic/_internal/_generate_schema.py:1701",
+   "site_fingerprint": "7f1e39cc1a6429e7"
+  },
+  {
+   "corpus": "pydantic",
+   "direction": "prism_only",
+   "dispatch_kind": "import_qualified",
+   "measurement": "callees",
+   "seed_def": "pydantic/_internal/_generate_schema.py:514",
+   "site": "pydantic/_internal/_generate_schema.py:522",
+   "site_fingerprint": "474e339d9892c360"
+  },
+  {
+   "corpus": "pydantic",
+   "direction": "prism_only",
+   "dispatch_kind": "import_qualified",
+   "measurement": "callees",
+   "seed_def": "pydantic/_internal/_generate_schema.py:514",
+   "site": "pydantic/_internal/_generate_schema.py:524",
+   "site_fingerprint": "b2457cced004e52f"
+  },
+  {
+   "corpus": "pydantic",
+   "direction": "prism_only",
+   "dispatch_kind": "import_qualified",
+   "measurement": "callees",
+   "seed_def": "pydantic/_internal/_generate_schema.py:514",
+   "site": "pydantic/_internal/_generate_schema.py:552",
+   "site_fingerprint": "3ba71648d9fc256e"
+  },
+  {
+   "corpus": "pydantic",
+   "direction": "prism_only",
+   "dispatch_kind": "import_qualified",
+   "measurement": "callees",
+   "seed_def": "pydantic/_internal/_generate_schema.py:514",
+   "site": "pydantic/_internal/_generate_schema.py:553",
+   "site_fingerprint": "bd99f251c5c36d1a"
+  },
+  {
+   "corpus": "pydantic",
+   "direction": "prism_only",
+   "dispatch_kind": "import_qualified",
+   "measurement": "callees",
+   "seed_def": "pydantic/_internal/_generate_schema.py:514",
+   "site": "pydantic/_internal/_generate_schema.py:554",
+   "site_fingerprint": "9937527f2ef055c1"
+  },
+  {
+   "corpus": "pydantic",
+   "direction": "prism_only",
+   "dispatch_kind": "import_qualified",
+   "measurement": "callees",
+   "seed_def": "pydantic/_internal/_generate_schema.py:514",
+   "site": "pydantic/_internal/_generate_schema.py:557",
+   "site_fingerprint": "c7501b05b47d8696"
+  },
+  {
+   "corpus": "pydantic",
+   "direction": "prism_only",
+   "dispatch_kind": "import_qualified",
+   "measurement": "callees",
+   "seed_def": "pydantic/_internal/_generate_schema.py:514",
+   "site": "pydantic/_internal/_generate_schema.py:558",
+   "site_fingerprint": "5dd2f810fe207d21"
+  },
+  {
+   "corpus": "pydantic",
+   "direction": "prism_only",
+   "dispatch_kind": "import_qualified",
+   "measurement": "callees",
+   "seed_def": "pydantic/_internal/_generate_schema.py:514",
+   "site": "pydantic/_internal/_generate_schema.py:561",
+   "site_fingerprint": "d43c85dc0a18dab6"
+  },
+  {
+   "corpus": "pydantic",
+   "direction": "prism_only",
+   "dispatch_kind": "import_qualified",
+   "measurement": "callees",
+   "seed_def": "pydantic/_internal/_generate_schema.py:514",
+   "site": "pydantic/_internal/_generate_schema.py:567",
+   "site_fingerprint": "b7c8aca86b5a8018"
+  },
+  {
+   "corpus": "pydantic",
+   "direction": "prism_only",
+   "dispatch_kind": "free_multi",
+   "measurement": "callees",
+   "seed_def": "pydantic/_internal/_generate_schema.py:514",
+   "site": "pydantic/_internal/_generate_schema.py:568",
+   "site_fingerprint": "a3294fa3fb033ce3"
+  },
+  {
+   "corpus": "pydantic",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "pydantic/_internal/_generate_schema.py:514",
+   "site": "pydantic/_internal/_generate_schema.py:516",
+   "site_fingerprint": "e551244144123cde"
+  },
+  {
+   "corpus": "pydantic",
+   "direction": "prism_only",
+   "dispatch_kind": "free_multi",
+   "measurement": "callees",
+   "seed_def": "pydantic/experimental/pipeline.py:403",
+   "site": "pydantic/experimental/pipeline.py:407",
+   "site_fingerprint": "f8a20978d4821aee"
+  },
+  {
+   "corpus": "pydantic",
+   "direction": "prism_only",
+   "dispatch_kind": "import_qualified",
+   "measurement": "callees",
+   "seed_def": "pydantic/experimental/pipeline.py:403",
+   "site": "pydantic/experimental/pipeline.py:412",
+   "site_fingerprint": "f4460097a112782f"
+  },
+  {
+   "corpus": "pydantic",
+   "direction": "prism_only",
+   "dispatch_kind": "import_qualified",
+   "measurement": "callees",
+   "seed_def": "pydantic/experimental/pipeline.py:403",
+   "site": "pydantic/experimental/pipeline.py:414",
+   "site_fingerprint": "e13a2b0012007b0a"
+  },
+  {
+   "corpus": "pydantic",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "pydantic/fields.py:320",
+   "site": "pydantic/fields.py:360",
+   "site_fingerprint": "876ca92305f1cf16"
+  },
+  {
+   "corpus": "pydantic",
+   "direction": "prism_only",
+   "dispatch_kind": "free_single",
+   "measurement": "callees",
+   "seed_def": "release/prepare.py:23",
+   "site": "release/prepare.py:32",
+   "site_fingerprint": "bb9eec817179ac08"
+  },
+  {
+   "corpus": "pydantic",
+   "direction": "prism_only",
+   "dispatch_kind": "free_single",
+   "measurement": "callees",
+   "seed_def": "release/prepare.py:23",
+   "site": "release/prepare.py:44",
+   "site_fingerprint": "1a8a4a7235d71209"
+  },
+  {
+   "corpus": "pydantic",
+   "direction": "prism_only",
+   "dispatch_kind": "free_single",
+   "measurement": "callees",
+   "seed_def": "release/prepare.py:23",
+   "site": "release/prepare.py:45",
+   "site_fingerprint": "799b8fd1a27989d6"
+  },
+  {
+   "corpus": "pydantic",
+   "direction": "prism_only",
+   "dispatch_kind": "free_single",
+   "measurement": "callees",
+   "seed_def": "release/prepare.py:23",
+   "site": "release/prepare.py:46",
+   "site_fingerprint": "5ee9486df9cc1dbc"
+  },
+  {
+   "corpus": "pydantic",
+   "direction": "prism_only",
+   "dispatch_kind": "free_single",
+   "measurement": "callees",
+   "seed_def": "release/prepare.py:23",
+   "site": "release/prepare.py:47",
+   "site_fingerprint": "4735da36f9f76f3b"
+  },
+  {
+   "corpus": "pydantic",
+   "direction": "prism_only",
+   "dispatch_kind": "free_single",
+   "measurement": "callees",
+   "seed_def": "release/prepare.py:23",
+   "site": "release/prepare.py:48",
+   "site_fingerprint": "0c8ecad335e543bb"
+  },
+  {
+   "corpus": "pydantic",
+   "direction": "prism_only",
+   "dispatch_kind": "free_single",
+   "measurement": "callees",
+   "seed_def": "release/prepare.py:23",
+   "site": "release/prepare.py:49",
+   "site_fingerprint": "31b1a085bc97a164"
+  },
+  {
+   "corpus": "pydantic",
+   "direction": "prism_only",
+   "dispatch_kind": "free_single",
+   "measurement": "callees",
+   "seed_def": "release/push.py:115",
+   "site": "release/push.py:130",
+   "site_fingerprint": "38ca143368508f2b"
+  },
+  {
+   "corpus": "pydantic",
+   "direction": "prism_only",
+   "dispatch_kind": "free_single",
+   "measurement": "callees",
+   "seed_def": "release/push.py:115",
+   "site": "release/push.py:131",
+   "site_fingerprint": "aca924cb367ad448"
+  }
+ ],
+ "probes": {
+  "_corpus": "pydantic",
+  "_strata": {
+   "C-method": {
+    "eligible_probes": 16,
+    "eligible_symbols": 8,
+    "target": 8
+   },
+   "C-name": {
+    "eligible_probes": 16,
+    "eligible_symbols": 8,
+    "target": 8
+   },
+   "Q-scoped": {
+    "eligible_probes": 16,
+    "eligible_symbols": 8,
+    "target": 8
+   },
+   "U-free": {
+    "eligible_probes": 16,
+    "eligible_symbols": 8,
+    "target": 8
+   },
+   "U-method": {
+    "eligible_probes": 16,
+    "eligible_symbols": 8,
+    "target": 8
+   }
+  },
+  "callees:.github/actions/people/people.py:398": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     ".github/actions/people/people.py",
+     "get_graphql_issue_edges"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     ".github/actions/people/people.py",
+     408,
+     408
+    ],
+    [
+     ".github/actions/people/people.py",
+     409,
+     409
+    ]
+   ],
+   "outcome": "inventory_miss",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": ".github/actions/people/people.py:398",
+   "stratum": "U-free"
+  },
+  "callees:.github/actions/people/people.py:451": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     ".github/actions/people/people.py",
+     "get_issues_experts"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     ".github/actions/people/people.py",
+     464,
+     464
+    ],
+    [
+     ".github/actions/people/people.py",
+     469,
+     469
+    ]
+   ],
+   "outcome": "inventory_miss",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": ".github/actions/people/people.py:451",
+   "stratum": "U-free"
+  },
+  "callees:.github/actions/people/people.py:547": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     ".github/actions/people/people.py",
+     "get_experts"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     ".github/actions/people/people.py",
+     569,
+     569
+    ]
+   ],
+   "outcome": "inventory_miss",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": ".github/actions/people/people.py:547",
+   "stratum": "U-free"
+  },
+  "callees:.github/actions/people/people.py:633": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "inventory_miss",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": ".github/actions/people/people.py:633",
+   "stratum": "U-free"
+  },
+  "callees:pydantic-core/python/pydantic_core/core_schema.py:2587": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "pydantic-core/python/pydantic_core/core_schema.py",
+     "nullable_schema"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "pydantic-core/python/pydantic_core/core_schema.py",
+     2613,
+     2613
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "pydantic-core/python/pydantic_core/core_schema.py",
+     "nullable_schema"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "pydantic-core/python/pydantic_core/core_schema.py",
+     2613,
+     2613,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "pydantic-core/python/pydantic_core/core_schema.py:2587",
+   "stratum": "C-name"
+  },
+  "callees:pydantic-core/python/pydantic_core/core_schema.py:2698": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "pydantic-core/python/pydantic_core/core_schema.py",
+     "tagged_union_schema"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "pydantic-core/python/pydantic_core/core_schema.py",
+     2766,
+     2766
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "pydantic-core/python/pydantic_core/core_schema.py",
+     "tagged_union_schema"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "pydantic-core/python/pydantic_core/core_schema.py",
+     2766,
+     2766,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "pydantic-core/python/pydantic_core/core_schema.py:2698",
+   "stratum": "C-name"
+  },
+  "callees:pydantic-core/tests/benchmarks/test_serialization_micro.py:353": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "pydantic-core/tests/benchmarks/test_serialization_micro.py",
+     "r"
+    ],
+    [
+     "pydantic-core/tests/benchmarks/test_serialization_micro.py",
+     "test_datetime"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "pydantic-core/tests/benchmarks/test_serialization_micro.py",
+     354,
+     354,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ]
+   ],
+   "seed_def": "pydantic-core/tests/benchmarks/test_serialization_micro.py:353",
+   "stratum": "C-name"
+  },
+  "callees:pydantic-core/tests/serializers/test_union.py:24": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "pydantic-core/tests/serializers/test_union.py",
+     "test_union_bool_int"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "pydantic-core/tests/serializers/test_union.py",
+     25,
+     25,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "pydantic-core/tests/serializers/test_union.py",
+     25,
+     25,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "pydantic-core/tests/serializers/test_union.py",
+     26,
+     26,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "pydantic-core/tests/serializers/test_union.py",
+     26,
+     26,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "pydantic-core/tests/serializers/test_union.py",
+     27,
+     27,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "pydantic-core/tests/serializers/test_union.py",
+     31,
+     31,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "pydantic-core/tests/serializers/test_union.py:24",
+   "stratum": "C-name"
+  },
+  "callees:pydantic-core/tests/serializers/test_union.py:678": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "pydantic-core/tests/serializers/test_union.py",
+     "test_union_float_int"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "pydantic-core/tests/serializers/test_union.py",
+     679,
+     679,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "pydantic-core/tests/serializers/test_union.py",
+     684,
+     684,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "pydantic-core/tests/serializers/test_union.py",
+     679,
+     679,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "pydantic-core/tests/serializers/test_union.py",
+     684,
+     684,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "pydantic-core/tests/serializers/test_union.py",
+     679,
+     679,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "pydantic-core/tests/serializers/test_union.py",
+     684,
+     684,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "pydantic-core/tests/serializers/test_union.py",
+     682,
+     682,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "pydantic-core/tests/serializers/test_union.py",
+     687,
+     687,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "pydantic-core/tests/serializers/test_union.py:678",
+   "stratum": "Q-scoped"
+  },
+  "callees:pydantic-core/tests/validators/test_dict.py:148": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "pydantic-core/tests/validators/test_dict.py",
+     "__iter__"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "pydantic-core/tests/validators/test_dict.py:148",
+   "stratum": "C-method"
+  },
+  "callees:pydantic-core/tests/validators/test_list.py:469": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "pydantic-core/tests/validators/test_list.py",
+     "__len__"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "pydantic-core/tests/validators/test_list.py:469",
+   "stratum": "C-method"
+  },
+  "callees:pydantic-core/tests/validators/test_model_fields.py:422": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "pydantic-core/tests/validators/test_model_fields.py",
+     "test_json_error"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "pydantic-core/tests/validators/test_model_fields.py",
+     427,
+     427,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "pydantic-core/tests/validators/test_model_fields.py",
+     427,
+     427,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "pydantic-core/tests/validators/test_model_fields.py",
+     426,
+     426,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "pydantic-core/tests/validators/test_model_fields.py",
+     424,
+     424,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ]
+   ],
+   "seed_def": "pydantic-core/tests/validators/test_model_fields.py:422",
+   "stratum": "C-name"
+  },
+  "callees:pydantic-core/tests/validators/test_tuple.py:212": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "pydantic-core/tests/validators/test_tuple.py",
+     "test_tuple_fix_len_errors"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "pydantic-core/tests/validators/test_tuple.py",
+     213,
+     213,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ]
+   ],
+   "seed_def": "pydantic-core/tests/validators/test_tuple.py:212",
+   "stratum": "Q-scoped"
+  },
+  "callees:pydantic-core/tests/validators/test_typed_dict.py:182": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "pydantic-core/tests/validators/test_typed_dict.py",
+     "test_forbid_extra"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "pydantic-core/tests/validators/test_typed_dict.py",
+     185,
+     185,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "pydantic-core/tests/validators/test_typed_dict.py",
+     185,
+     185,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "pydantic-core/tests/validators/test_typed_dict.py",
+     184,
+     184,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ]
+   ],
+   "seed_def": "pydantic-core/tests/validators/test_typed_dict.py:182",
+   "stratum": "C-name"
+  },
+  "callees:pydantic-core/tests/validators/test_union.py:404": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "pydantic-core/tests/validators/test_union.py",
+     "test_strict_reference"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "pydantic-core/tests/validators/test_union.py",
+     413,
+     413,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "pydantic-core/tests/validators/test_union.py",
+     411,
+     411,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "pydantic-core/tests/validators/test_union.py",
+     409,
+     409,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "pydantic-core/tests/validators/test_union.py",
+     412,
+     412,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "pydantic-core/tests/validators/test_union.py",
+     406,
+     406,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "pydantic-core/tests/validators/test_union.py",
+     407,
+     407,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "pydantic-core/tests/validators/test_union.py",
+     413,
+     413,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ]
+   ],
+   "seed_def": "pydantic-core/tests/validators/test_union.py:404",
+   "stratum": "Q-scoped"
+  },
+  "callees:pydantic-core/tests/validators/test_union.py:889": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "pydantic-core/tests/validators/test_union.py",
+     "test_optional_union_with_members_having_defaults"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "pydantic-core/tests/validators/test_union.py",
+     888,
+     888
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "pydantic-core/tests/validators/test_union.py",
+     "test_optional_union_with_members_having_defaults"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "pydantic-core/tests/validators/test_union.py",
+     899,
+     899,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "pydantic-core/tests/validators/test_union.py",
+     900,
+     900,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "pydantic-core/tests/validators/test_union.py",
+     898,
+     898,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "pydantic-core/tests/validators/test_union.py",
+     896,
+     896,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "pydantic-core/tests/validators/test_union.py",
+     894,
+     894,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ]
+   ],
+   "seed_def": "pydantic-core/tests/validators/test_union.py:889",
+   "stratum": "U-method"
+  },
+  "callees:pydantic-core/tests/validators/test_uuid.py:161": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "pydantic-core/tests/validators/test_uuid.py",
+     "test_uuid_version"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "pydantic-core/tests/validators/test_uuid.py",
+     138,
+     138
+    ],
+    [
+     "pydantic-core/tests/validators/test_uuid.py",
+     141,
+     141
+    ],
+    [
+     "pydantic-core/tests/validators/test_uuid.py",
+     143,
+     143
+    ],
+    [
+     "pydantic-core/tests/validators/test_uuid.py",
+     144,
+     144
+    ],
+    [
+     "pydantic-core/tests/validators/test_uuid.py",
+     145,
+     145
+    ],
+    [
+     "pydantic-core/tests/validators/test_uuid.py",
+     146,
+     146
+    ],
+    [
+     "pydantic-core/tests/validators/test_uuid.py",
+     147,
+     147
+    ],
+    [
+     "pydantic-core/tests/validators/test_uuid.py",
+     148,
+     148
+    ],
+    [
+     "pydantic-core/tests/validators/test_uuid.py",
+     149,
+     149
+    ],
+    [
+     "pydantic-core/tests/validators/test_uuid.py",
+     150,
+     150
+    ],
+    [
+     "pydantic-core/tests/validators/test_uuid.py",
+     151,
+     151
+    ],
+    [
+     "pydantic-core/tests/validators/test_uuid.py",
+     152,
+     152
+    ],
+    [
+     "pydantic-core/tests/validators/test_uuid.py",
+     153,
+     153
+    ],
+    [
+     "pydantic-core/tests/validators/test_uuid.py",
+     154,
+     154
+    ],
+    [
+     "pydantic-core/tests/validators/test_uuid.py",
+     155,
+     155
+    ],
+    [
+     "pydantic-core/tests/validators/test_uuid.py",
+     156,
+     156
+    ],
+    [
+     "pydantic-core/tests/validators/test_uuid.py",
+     157,
+     157
+    ],
+    [
+     "pydantic-core/tests/validators/test_uuid.py",
+     158,
+     158
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "pydantic-core/tests/validators/test_uuid.py",
+     "test_uuid_version"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "pydantic-core/tests/validators/test_uuid.py",
+     162,
+     162,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "pydantic-core/tests/validators/test_uuid.py",
+     164,
+     164,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ]
+   ],
+   "seed_def": "pydantic-core/tests/validators/test_uuid.py:161",
+   "stratum": "Q-scoped"
+  },
+  "callees:pydantic/_internal/_fields.py:704": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "pydantic/_internal/_fields.py",
+     "resolve_default_value"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "pydantic/_internal/_fields.py",
+     715,
+     715
+    ],
+    [
+     "pydantic/_internal/_fields.py",
+     717,
+     717
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "pydantic/_internal/_fields.py",
+     "resolve_default_value"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "pydantic/_internal/_fields.py",
+     717,
+     717,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "pydantic/_internal/_fields.py",
+     723,
+     723,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "pydantic/_internal/_fields.py",
+     726,
+     726,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "pydantic/_internal/_fields.py",
+     715,
+     715,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "pydantic/_internal/_fields.py",
+     715,
+     715,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ]
+   ],
+   "seed_def": "pydantic/_internal/_fields.py:704",
+   "stratum": "Q-scoped"
+  },
+  "callees:pydantic/_internal/_generate_schema.py:1673": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "pydantic/_internal/_generate_schema.py",
+     "_tuple_schema"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "pydantic/_internal/_generate_schema.py",
+     1676,
+     1676
+    ],
+    [
+     "pydantic/_internal/_generate_schema.py",
+     1677,
+     1677
+    ],
+    [
+     "pydantic/_internal/_generate_schema.py",
+     1677,
+     1677
+    ],
+    [
+     "pydantic/_internal/_generate_schema.py",
+     1677,
+     1677
+    ],
+    [
+     "pydantic/_internal/_generate_schema.py",
+     1680,
+     1680
+    ],
+    [
+     "pydantic/_internal/_generate_schema.py",
+     1692,
+     1692
+    ],
+    [
+     "pydantic/_internal/_generate_schema.py",
+     1701,
+     1701
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "pydantic/_internal/_generate_schema.py",
+     "_tuple_schema"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "pydantic/_internal/_generate_schema.py",
+     1686,
+     1686,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "pydantic/_internal/_generate_schema.py",
+     1686,
+     1686,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "pydantic/_internal/_generate_schema.py",
+     1689,
+     1689,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "pydantic/_internal/_generate_schema.py",
+     1692,
+     1692,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "pydantic/_internal/_generate_schema.py",
+     1699,
+     1699,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "pydantic/_internal/_generate_schema.py",
+     1701,
+     1701,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "pydantic/_internal/_generate_schema.py",
+     1692,
+     1692,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "pydantic/_internal/_generate_schema.py",
+     1701,
+     1701,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "pydantic/_internal/_generate_schema.py",
+     1677,
+     1677,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "pydantic/_internal/_generate_schema.py",
+     1677,
+     1677,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "pydantic/_internal/_generate_schema.py",
+     1677,
+     1677,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "pydantic/_internal/_generate_schema.py",
+     1677,
+     1677,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "pydantic/_internal/_generate_schema.py",
+     1677,
+     1677,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "pydantic/_internal/_generate_schema.py",
+     1676,
+     1676,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "pydantic/_internal/_generate_schema.py",
+     1680,
+     1680,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "pydantic/_internal/_generate_schema.py",
+     1680,
+     1680,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ]
+   ],
+   "seed_def": "pydantic/_internal/_generate_schema.py:1673",
+   "stratum": "U-method"
+  },
+  "callees:pydantic/_internal/_generate_schema.py:514": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "pydantic/_internal/_generate_schema.py",
+     "_path_schema"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "pydantic/_internal/_generate_schema.py",
+     516,
+     516
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "pydantic/_internal/_generate_schema.py",
+     "_path_schema"
+    ],
+    [
+     "pydantic/_internal/_generate_schema.py",
+     "path_validator"
+    ],
+    [
+     "pydantic/_internal/_generate_schema.py",
+     "ser_path"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "pydantic/_internal/_generate_schema.py",
+     567,
+     567,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "pydantic/_internal/_generate_schema.py",
+     522,
+     522,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "pydantic/_internal/_generate_schema.py",
+     524,
+     524,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "pydantic/_internal/_generate_schema.py",
+     522,
+     522,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "pydantic/_internal/_generate_schema.py",
+     524,
+     524,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "pydantic/_internal/_generate_schema.py",
+     554,
+     554,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "pydantic/_internal/_generate_schema.py",
+     553,
+     553,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "pydantic/_internal/_generate_schema.py",
+     561,
+     561,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "pydantic/_internal/_generate_schema.py",
+     558,
+     558,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "pydantic/_internal/_generate_schema.py",
+     557,
+     557,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "pydantic/_internal/_generate_schema.py",
+     552,
+     552,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "pydantic/_internal/_generate_schema.py",
+     568,
+     568,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "pydantic/_internal/_generate_schema.py",
+     568,
+     568,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "pydantic/_internal/_generate_schema.py",
+     568,
+     568,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "pydantic/_internal/_generate_schema.py",
+     568,
+     568,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ]
+   ],
+   "seed_def": "pydantic/_internal/_generate_schema.py:514",
+   "stratum": "U-method"
+  },
+  "callees:pydantic/_internal/_validators.py:249": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "pydantic/_internal/_validators.py",
+     "fraction_validator"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "pydantic/_internal/_validators.py:249",
+   "stratum": "Q-scoped"
+  },
+  "callees:pydantic/experimental/pipeline.py:130": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "pydantic/experimental/pipeline.py",
+     "transform"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "pydantic/experimental/pipeline.py",
+     139,
+     139
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "pydantic/experimental/pipeline.py",
+     "transform"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "pydantic/experimental/pipeline.py",
+     139,
+     139,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     139,
+     139,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     139,
+     139,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     139,
+     139,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     139,
+     139,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     139,
+     139,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     139,
+     139,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     139,
+     139,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     139,
+     139,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     139,
+     139,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     139,
+     139,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     139,
+     139,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     139,
+     139,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     139,
+     139,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     139,
+     139,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     139,
+     139,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     139,
+     139,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     139,
+     139,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     139,
+     139,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     139,
+     139,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     139,
+     139,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     139,
+     139,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     139,
+     139,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     139,
+     139,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     139,
+     139,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     139,
+     139,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     139,
+     139,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     139,
+     139,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     139,
+     139,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     139,
+     139,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     139,
+     139,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     139,
+     139,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     139,
+     139,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     139,
+     139,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ]
+   ],
+   "seed_def": "pydantic/experimental/pipeline.py:130",
+   "stratum": "C-method"
+  },
+  "callees:pydantic/experimental/pipeline.py:403": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "pydantic/experimental/pipeline.py",
+     "_check_func"
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     "handler"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "pydantic/experimental/pipeline.py",
+     414,
+     414,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     412,
+     412,
+     {
+      "resolution_kind": "import_qualified"
+     }
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     407,
+     407,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     407,
+     407,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     407,
+     407,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     407,
+     407,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     407,
+     407,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     407,
+     407,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     407,
+     407,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     407,
+     407,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     407,
+     407,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     407,
+     407,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     407,
+     407,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     407,
+     407,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     407,
+     407,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     407,
+     407,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     407,
+     407,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     407,
+     407,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     407,
+     407,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     407,
+     407,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     407,
+     407,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     407,
+     407,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     407,
+     407,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     407,
+     407,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     407,
+     407,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     407,
+     407,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     407,
+     407,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     407,
+     407,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     407,
+     407,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     407,
+     407,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     407,
+     407,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     407,
+     407,
+     {
+      "resolution_kind": "free_multi"
+     }
+    ]
+   ],
+   "seed_def": "pydantic/experimental/pipeline.py:403",
+   "stratum": "Q-scoped"
+  },
+  "callees:pydantic/fields.py:320": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "pydantic/fields.py",
+     "from_annotation"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "pydantic/fields.py",
+     360,
+     360
+    ],
+    [
+     "pydantic/fields.py",
+     374,
+     374
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "pydantic/fields.py",
+     "from_annotation"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "pydantic/fields.py",
+     374,
+     374,
+     {
+      "resolution_kind": "qualifier_owner"
+     }
+    ],
+    [
+     "pydantic/fields.py",
+     374,
+     374,
+     {
+      "resolution_kind": "qualifier_owner"
+     }
+    ]
+   ],
+   "seed_def": "pydantic/fields.py:320",
+   "stratum": "U-method"
+  },
+  "callees:pydantic/json_schema.py:197": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "pydantic/json_schema.py",
+     "remap_json_ref"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "pydantic/json_schema.py:197",
+   "stratum": "U-method"
+  },
+  "callees:pydantic/json_schema.py:658": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "pydantic/json_schema.py",
+     "int_schema"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "pydantic/json_schema.py",
+     668,
+     668
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "pydantic/json_schema.py",
+     "int_schema"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "pydantic/json_schema.py",
+     668,
+     668,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ]
+   ],
+   "seed_def": "pydantic/json_schema.py:658",
+   "stratum": "C-method"
+  },
+  "callees:pydantic/main.py:1018": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "pydantic/main.py",
+     "__deepcopy__"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "pydantic/main.py:1018",
+   "stratum": "C-method"
+  },
+  "callees:pydantic/mypy.py:1092": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "pydantic/mypy.py",
+     "get_strict"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "pydantic/mypy.py:1092",
+   "stratum": "U-method"
+  },
+  "callees:pydantic/v1/types.py:1059": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "pydantic/v1/types.py",
+     "_get_brand"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "pydantic/v1/types.py:1059",
+   "stratum": "U-method"
+  },
+  "callees:release/prepare.py:23": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "release/prepare.py",
+     "update_version"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "release/prepare.py",
+     53,
+     53
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "release/prepare.py",
+     "update_version"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "release/prepare.py",
+     32,
+     32,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "release/prepare.py",
+     44,
+     44,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "release/prepare.py",
+     45,
+     45,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "release/prepare.py",
+     46,
+     46,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "release/prepare.py",
+     47,
+     47,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "release/prepare.py",
+     48,
+     48,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "release/prepare.py",
+     49,
+     49,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "release/prepare.py",
+     53,
+     53,
+     {
+      "resolution_kind": "free_single"
+     }
+    ]
+   ],
+   "seed_def": "release/prepare.py:23",
+   "stratum": "U-free"
+  },
+  "callees:release/push.py:115": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "release/push.py",
+     "create_github_release_draft"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "release/push.py",
+     130,
+     130,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "release/push.py",
+     131,
+     131,
+     {
+      "resolution_kind": "free_single"
+     }
+    ]
+   ],
+   "seed_def": "release/push.py:115",
+   "stratum": "U-free"
+  },
+  "callees:release/push.py:20": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "release/push.py",
+     "get_latest_version_from_changelog"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "release/push.py:20",
+   "stratum": "U-free"
+  },
+  "callees:release/push.py:30": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "release/push.py",
+     "get_latest_release_notes_from_changelog"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "release/push.py:30",
+   "stratum": "U-free"
+  },
+  "callers:.github/actions/people/people.py:398": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     ".github/actions/people/people.py",
+     "get_issues_experts"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     ".github/actions/people/people.py",
+     464,
+     464
+    ],
+    [
+     ".github/actions/people/people.py",
+     469,
+     469
+    ]
+   ],
+   "outcome": "inventory_miss",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": ".github/actions/people/people.py:398",
+   "stratum": "U-free"
+  },
+  "callers:.github/actions/people/people.py:547": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     ".github/actions/people/people.py",
+     "<module_level>"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     ".github/actions/people/people.py",
+     678,
+     678
+    ]
+   ],
+   "outcome": "inventory_miss",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": ".github/actions/people/people.py:547",
+   "stratum": "U-free"
+  },
+  "callers:.github/actions/people/people.py:633": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     ".github/actions/people/people.py",
+     "<module_level>"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     ".github/actions/people/people.py",
+     709,
+     709
+    ],
+    [
+     ".github/actions/people/people.py",
+     715,
+     715
+    ],
+    [
+     ".github/actions/people/people.py",
+     721,
+     721
+    ],
+    [
+     ".github/actions/people/people.py",
+     727,
+     727
+    ]
+   ],
+   "outcome": "inventory_miss",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": ".github/actions/people/people.py:633",
+   "stratum": "U-free"
+  },
+  "callers:pydantic/_internal/_fields.py:704": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "pydantic/fields.py",
+     "get_default"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "pydantic/fields.py",
+     740,
+     740
+    ],
+    [
+     "pydantic/fields.py",
+     1482,
+     1482
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "tests/test_internal.py",
+     "<module_level>"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "tests/test_internal.py",
+     257,
+     257,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "tests/test_internal.py",
+     257,
+     257,
+     {
+      "resolution_kind": "free_single"
+     }
+    ],
+    [
+     "tests/test_internal.py",
+     269,
+     269,
+     {
+      "resolution_kind": "free_single"
+     }
+    ]
+   ],
+   "seed_def": "pydantic/_internal/_fields.py:704",
+   "stratum": "Q-scoped"
+  },
+  "callers:pydantic/_internal/_generate_schema.py:1673": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "pydantic/_internal/_generate_schema.py",
+     "_match_generic_type"
+    ],
+    [
+     "pydantic/_internal/_generate_schema.py",
+     "match_type"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "pydantic/_internal/_generate_schema.py",
+     1096,
+     1096
+    ],
+    [
+     "pydantic/_internal/_generate_schema.py",
+     1096,
+     1096
+    ],
+    [
+     "pydantic/_internal/_generate_schema.py",
+     1185,
+     1185
+    ],
+    [
+     "pydantic/_internal/_generate_schema.py",
+     1185,
+     1185
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "pydantic/_internal/_generate_schema.py",
+     "_match_generic_type"
+    ],
+    [
+     "pydantic/_internal/_generate_schema.py",
+     "match_type"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "pydantic/_internal/_generate_schema.py",
+     1096,
+     1096,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "pydantic/_internal/_generate_schema.py",
+     1185,
+     1185,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ]
+   ],
+   "seed_def": "pydantic/_internal/_generate_schema.py:1673",
+   "stratum": "U-method"
+  },
+  "callers:pydantic/_internal/_generate_schema.py:514": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "pydantic/_internal/_generate_schema.py",
+     "_match_generic_type"
+    ],
+    [
+     "pydantic/_internal/_generate_schema.py",
+     "match_type"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "pydantic/_internal/_generate_schema.py",
+     1110,
+     1110
+    ],
+    [
+     "pydantic/_internal/_generate_schema.py",
+     1110,
+     1110
+    ],
+    [
+     "pydantic/_internal/_generate_schema.py",
+     1195,
+     1195
+    ],
+    [
+     "pydantic/_internal/_generate_schema.py",
+     1195,
+     1195
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "pydantic/_internal/_generate_schema.py",
+     "_match_generic_type"
+    ],
+    [
+     "pydantic/_internal/_generate_schema.py",
+     "match_type"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "pydantic/_internal/_generate_schema.py",
+     1110,
+     1110,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "pydantic/_internal/_generate_schema.py",
+     1195,
+     1195,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ]
+   ],
+   "seed_def": "pydantic/_internal/_generate_schema.py:514",
+   "stratum": "U-method"
+  },
+  "callers:pydantic/experimental/pipeline.py:130": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "pydantic/experimental/pipeline.py",
+     "<module_level>"
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     "datetime_with_tz"
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     "str_lower"
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     "str_strip"
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     "str_title"
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     "str_upper"
+    ],
+    [
+     "tests/test_pipeline.py",
+     "<module_level>"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "pydantic/experimental/pipeline.py",
+     318,
+     318
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     318,
+     318
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     323,
+     323
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     323,
+     323
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     327,
+     327
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     327,
+     327
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     331,
+     331
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     331,
+     331
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     335,
+     335
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     335,
+     335
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     400,
+     400
+    ],
+    [
+     "tests/test_pipeline.py",
+     192,
+     192
+    ],
+    [
+     "tests/test_pipeline.py",
+     192,
+     192
+    ],
+    [
+     "tests/test_pipeline.py",
+     207,
+     207
+    ],
+    [
+     "tests/test_pipeline.py",
+     207,
+     207
+    ],
+    [
+     "tests/test_pipeline.py",
+     220,
+     220
+    ],
+    [
+     "tests/test_pipeline.py",
+     220,
+     220
+    ],
+    [
+     "tests/test_pipeline.py",
+     305,
+     305
+    ],
+    [
+     "tests/test_pipeline.py",
+     305,
+     305
+    ],
+    [
+     "tests/test_pipeline.py",
+     329,
+     329
+    ],
+    [
+     "tests/test_pipeline.py",
+     329,
+     329
+    ],
+    [
+     "tests/test_pipeline.py",
+     351,
+     351
+    ],
+    [
+     "tests/test_pipeline.py",
+     351,
+     351
+    ],
+    [
+     "tests/test_pipeline.py",
+     437,
+     437
+    ],
+    [
+     "tests/test_pipeline.py",
+     437,
+     437
+    ],
+    [
+     "tests/test_pipeline.py",
+     437,
+     437
+    ],
+    [
+     "tests/test_pipeline.py",
+     437,
+     437
+    ],
+    [
+     "tests/test_pipeline.py",
+     438,
+     438
+    ],
+    [
+     "tests/test_pipeline.py",
+     438,
+     438
+    ],
+    [
+     "tests/test_pipeline.py",
+     438,
+     438
+    ],
+    [
+     "tests/test_pipeline.py",
+     438,
+     438
+    ],
+    [
+     "tests/test_pipeline.py",
+     455,
+     455
+    ],
+    [
+     "tests/test_pipeline.py",
+     455,
+     455
+    ],
+    [
+     "tests/test_pipeline.py",
+     455,
+     455
+    ],
+    [
+     "tests/test_pipeline.py",
+     455,
+     455
+    ],
+    [
+     "tests/test_pipeline.py",
+     456,
+     456
+    ],
+    [
+     "tests/test_pipeline.py",
+     456,
+     456
+    ],
+    [
+     "tests/test_pipeline.py",
+     456,
+     456
+    ],
+    [
+     "tests/test_pipeline.py",
+     456,
+     456
+    ],
+    [
+     "tests/test_pipeline.py",
+     475,
+     475
+    ],
+    [
+     "tests/test_pipeline.py",
+     475,
+     475
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "pydantic/experimental/pipeline.py",
+     "datetime_with_tz"
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     "str_lower"
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     "str_strip"
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     "str_title"
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     "str_upper"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "pydantic/experimental/pipeline.py",
+     318,
+     318,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     323,
+     323,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     327,
+     327,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     331,
+     331,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     335,
+     335,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ]
+   ],
+   "seed_def": "pydantic/experimental/pipeline.py:130",
+   "stratum": "C-method"
+  },
+  "callers:pydantic/experimental/pipeline.py:403": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "pydantic/experimental/pipeline.py",
+     "_apply_constraint"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "pydantic/experimental/pipeline.py",
+     495,
+     495
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     510,
+     510
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     525,
+     525
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     540,
+     540
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     565,
+     565
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     580,
+     580
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     594,
+     594
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     605,
+     605
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     641,
+     641
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     648,
+     648
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     655,
+     655
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     662,
+     662
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     674,
+     674
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "pydantic/experimental/pipeline.py",
+     "_apply_constraint"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "pydantic/experimental/pipeline.py",
+     495,
+     495,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     510,
+     510,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     525,
+     525,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     540,
+     540,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     565,
+     565,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     580,
+     580,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     594,
+     594,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     605,
+     605,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     641,
+     641,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     648,
+     648,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     655,
+     655,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     662,
+     662,
+     {
+      "resolution_kind": "local_def"
+     }
+    ],
+    [
+     "pydantic/experimental/pipeline.py",
+     674,
+     674,
+     {
+      "resolution_kind": "local_def"
+     }
+    ]
+   ],
+   "seed_def": "pydantic/experimental/pipeline.py:403",
+   "stratum": "Q-scoped"
+  },
+  "callers:pydantic/fields.py:320": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "pydantic/_internal/_fields.py",
+     "_recreate_field_info"
+    ],
+    [
+     "pydantic/_internal/_fields.py",
+     "collect_model_fields"
+    ],
+    [
+     "pydantic/_internal/_generate_schema.py",
+     "_generate_parameter_schema"
+    ],
+    [
+     "pydantic/_internal/_generate_schema.py",
+     "_generate_parameter_v3_schema"
+    ],
+    [
+     "pydantic/_internal/_generate_schema.py",
+     "_typed_dict_schema"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "pydantic/_internal/_fields.py",
+     348,
+     348
+    ],
+    [
+     "pydantic/_internal/_fields.py",
+     513,
+     513
+    ],
+    [
+     "pydantic/_internal/_generate_schema.py",
+     1455,
+     1455
+    ],
+    [
+     "pydantic/_internal/_generate_schema.py",
+     1594,
+     1594
+    ],
+    [
+     "pydantic/_internal/_generate_schema.py",
+     1646,
+     1646
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "pydantic/_internal/_fields.py",
+     "_recreate_field_info"
+    ],
+    [
+     "pydantic/_internal/_fields.py",
+     "collect_model_fields"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "pydantic/_internal/_fields.py",
+     348,
+     348,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ],
+    [
+     "pydantic/_internal/_fields.py",
+     513,
+     513,
+     {
+      "resolution_kind": "r6_single_owner"
+     }
+    ]
+   ],
+   "seed_def": "pydantic/fields.py:320",
+   "stratum": "U-method"
+  },
+  "callers:pydantic/json_schema.py:197": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "pydantic/json_schema.py",
+     "remap_json_schema"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "pydantic/json_schema.py",
+     206,
+     206
+    ],
+    [
+     "pydantic/json_schema.py",
+     206,
+     206
+    ],
+    [
+     "pydantic/json_schema.py",
+     212,
+     212
+    ],
+    [
+     "pydantic/json_schema.py",
+     212,
+     212
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "pydantic/json_schema.py",
+     "remap_json_schema"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "pydantic/json_schema.py",
+     206,
+     206,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ],
+    [
+     "pydantic/json_schema.py",
+     212,
+     212,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ]
+   ],
+   "seed_def": "pydantic/json_schema.py:197",
+   "stratum": "U-method"
+  },
+  "callers:pydantic/main.py:1018": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "pydantic/main.py",
+     "model_copy"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "pydantic/main.py",
+     437,
+     437
+    ],
+    [
+     "pydantic/main.py",
+     437,
+     437
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "pydantic/main.py",
+     "model_copy"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "pydantic/main.py",
+     437,
+     437,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ]
+   ],
+   "seed_def": "pydantic/main.py:1018",
+   "stratum": "C-method"
+  },
+  "callers:pydantic/mypy.py:1092": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "pydantic/mypy.py",
+     "collect_field_or_class_var_from_stmt"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "pydantic/mypy.py",
+     827,
+     827
+    ],
+    [
+     "pydantic/mypy.py",
+     827,
+     827
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "pydantic/mypy.py",
+     "collect_field_or_class_var_from_stmt"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "pydantic/mypy.py",
+     827,
+     827,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ]
+   ],
+   "seed_def": "pydantic/mypy.py:1092",
+   "stratum": "U-method"
+  },
+  "callers:pydantic/v1/types.py:1059": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "pydantic/v1/types.py",
+     "__init__"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "pydantic/v1/types.py",
+     993,
+     993
+    ],
+    [
+     "pydantic/v1/types.py",
+     993,
+     993
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "pydantic/v1/types.py",
+     "__init__"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "pydantic/v1/types.py",
+     993,
+     993,
+     {
+      "resolution_kind": "self_receiver"
+     }
+    ]
+   ],
+   "seed_def": "pydantic/v1/types.py:1059",
+   "stratum": "U-method"
+  },
+  "callers:release/prepare.py:23": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "release/prepare.py",
+     "<module_level>"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "release/prepare.py",
+     166,
+     166
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "release/prepare.py:23",
+   "stratum": "U-free"
+  },
+  "callers:release/push.py:115": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "release/push.py",
+     "<module_level>"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "release/push.py",
+     148,
+     148
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "release/push.py:115",
+   "stratum": "U-free"
+  },
+  "callers:release/push.py:20": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "release/push.py",
+     "<module_level>"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "release/push.py",
+     140,
+     140
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "release/push.py:20",
+   "stratum": "U-free"
+  },
+  "callers:release/push.py:30": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "release/push.py",
+     "<module_level>"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "release/push.py",
+     141,
+     141
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "release/push.py:30",
+   "stratum": "U-free"
+  }
+ },
+ "site_fingerprints": {
+  ".github/actions/people/people.py:408": "7d9736e2c6ab2b66",
+  ".github/actions/people/people.py:409": "8433b167e40a0cdb",
+  ".github/actions/people/people.py:464": "cf7d54e640e375a0",
+  ".github/actions/people/people.py:469": "5de675f2500752fe",
+  ".github/actions/people/people.py:569": "ad60baeb240ca1c2",
+  ".github/actions/people/people.py:678": "378aa3385ae3a85d",
+  ".github/actions/people/people.py:709": "4fa21ab21d531221",
+  ".github/actions/people/people.py:715": "2de9ef522b0bac05",
+  ".github/actions/people/people.py:721": "39831a39723860e2",
+  ".github/actions/people/people.py:727": "a28ae6fda7118b74",
+  "pydantic-core/python/pydantic_core/core_schema.py:2613": "4e943083c6b4e8a9",
+  "pydantic-core/python/pydantic_core/core_schema.py:2766": "dbf877ee798a205f",
+  "pydantic-core/tests/benchmarks/test_serialization_micro.py:354": "bde6c624d97c55a5",
+  "pydantic-core/tests/serializers/test_union.py:25": "0700185f71039fd9",
+  "pydantic-core/tests/serializers/test_union.py:26": "d4a894e09c984803",
+  "pydantic-core/tests/serializers/test_union.py:27": "e887b37f0f93cf9a",
+  "pydantic-core/tests/serializers/test_union.py:31": "dcd180d9abd1548d",
+  "pydantic-core/tests/serializers/test_union.py:679": "f0984b8c4237429a",
+  "pydantic-core/tests/serializers/test_union.py:682": "17c8cfbc2dca47fd",
+  "pydantic-core/tests/serializers/test_union.py:684": "aad3487510191272",
+  "pydantic-core/tests/serializers/test_union.py:687": "17c8cfbc2dca47fd",
+  "pydantic-core/tests/validators/test_model_fields.py:424": "bd28c6631f4b672b",
+  "pydantic-core/tests/validators/test_model_fields.py:426": "e0e6f7ba99a875a2",
+  "pydantic-core/tests/validators/test_model_fields.py:427": "31e42e0dc2a5b7a8",
+  "pydantic-core/tests/validators/test_tuple.py:213": "c11d1879ee9d440e",
+  "pydantic-core/tests/validators/test_typed_dict.py:184": "bb62e5a4ea1e0a8b",
+  "pydantic-core/tests/validators/test_typed_dict.py:185": "030c7ca62c2aeae2",
+  "pydantic-core/tests/validators/test_union.py:406": "fdb624027fc9f67a",
+  "pydantic-core/tests/validators/test_union.py:407": "664ba2382611e9e3",
+  "pydantic-core/tests/validators/test_union.py:409": "bda9362c39a8dec3",
+  "pydantic-core/tests/validators/test_union.py:411": "3817bb5d1447331e",
+  "pydantic-core/tests/validators/test_union.py:412": "3ab99462e5f80687",
+  "pydantic-core/tests/validators/test_union.py:413": "ef9e0b3473c954db",
+  "pydantic-core/tests/validators/test_union.py:888": "2e06ba8bedaf3ed8",
+  "pydantic-core/tests/validators/test_union.py:894": "bc73b7addb6695e0",
+  "pydantic-core/tests/validators/test_union.py:896": "809049349553d6d5",
+  "pydantic-core/tests/validators/test_union.py:898": "3dbf6f3eeef55817",
+  "pydantic-core/tests/validators/test_union.py:899": "7b0c0f8fc07bc6d4",
+  "pydantic-core/tests/validators/test_union.py:900": "8b5d9a65ce9f0320",
+  "pydantic-core/tests/validators/test_uuid.py:138": "f743122844a5355d",
+  "pydantic-core/tests/validators/test_uuid.py:141": "852acea344697d8a",
+  "pydantic-core/tests/validators/test_uuid.py:143": "54c11261b50753e4",
+  "pydantic-core/tests/validators/test_uuid.py:144": "fb6e76f82c7ff4ae",
+  "pydantic-core/tests/validators/test_uuid.py:145": "8132c0bc4eacd6a8",
+  "pydantic-core/tests/validators/test_uuid.py:146": "78b3d6d15891fd4c",
+  "pydantic-core/tests/validators/test_uuid.py:147": "033ad2a327ccede2",
+  "pydantic-core/tests/validators/test_uuid.py:148": "96851478b0e52a18",
+  "pydantic-core/tests/validators/test_uuid.py:149": "47c714c67695b6af",
+  "pydantic-core/tests/validators/test_uuid.py:150": "87c75750fa193f67",
+  "pydantic-core/tests/validators/test_uuid.py:151": "b72eb97a41dacddc",
+  "pydantic-core/tests/validators/test_uuid.py:152": "5a5fa4c05f61b682",
+  "pydantic-core/tests/validators/test_uuid.py:153": "9dcd0440b8b7ec85",
+  "pydantic-core/tests/validators/test_uuid.py:154": "46266068b54b7cfb",
+  "pydantic-core/tests/validators/test_uuid.py:155": "0cff7a75feae3b12",
+  "pydantic-core/tests/validators/test_uuid.py:156": "e9f4d69e5ab771d3",
+  "pydantic-core/tests/validators/test_uuid.py:157": "7a1f005fddc4ba5e",
+  "pydantic-core/tests/validators/test_uuid.py:158": "032b84a4e09ea3da",
+  "pydantic-core/tests/validators/test_uuid.py:162": "8cc87609a627b653",
+  "pydantic-core/tests/validators/test_uuid.py:164": "a32829b8afac92fa",
+  "pydantic/_internal/_fields.py:348": "9a2b484bc2978cbd",
+  "pydantic/_internal/_fields.py:513": "633ecdc2288f9421",
+  "pydantic/_internal/_fields.py:715": "04d2ec00a1737836",
+  "pydantic/_internal/_fields.py:717": "14d045f99ace2d19",
+  "pydantic/_internal/_fields.py:723": "c4a84b4aa39db9df",
+  "pydantic/_internal/_fields.py:726": "2edc4849579501f8",
+  "pydantic/_internal/_generate_schema.py:1096": "d6ea4863aa6427c9",
+  "pydantic/_internal/_generate_schema.py:1110": "d07f3300c3180a39",
+  "pydantic/_internal/_generate_schema.py:1185": "5ca930964ac5b0fc",
+  "pydantic/_internal/_generate_schema.py:1195": "9e9c56cae23bd420",
+  "pydantic/_internal/_generate_schema.py:1455": "0c24cec7defb2f64",
+  "pydantic/_internal/_generate_schema.py:1594": "46891c50535866f9",
+  "pydantic/_internal/_generate_schema.py:1646": "46891c50535866f9",
+  "pydantic/_internal/_generate_schema.py:1676": "7777e7fbf30e4182",
+  "pydantic/_internal/_generate_schema.py:1677": "30edda89174c3879",
+  "pydantic/_internal/_generate_schema.py:1680": "20ffea4e999dea8e",
+  "pydantic/_internal/_generate_schema.py:1686": "dafc464d32dc8633",
+  "pydantic/_internal/_generate_schema.py:1689": "b6871db2a5275149",
+  "pydantic/_internal/_generate_schema.py:1692": "70df4620f8f32083",
+  "pydantic/_internal/_generate_schema.py:1699": "ad3f9fdd9724d52b",
+  "pydantic/_internal/_generate_schema.py:1701": "7f1e39cc1a6429e7",
+  "pydantic/_internal/_generate_schema.py:516": "e551244144123cde",
+  "pydantic/_internal/_generate_schema.py:522": "474e339d9892c360",
+  "pydantic/_internal/_generate_schema.py:524": "b2457cced004e52f",
+  "pydantic/_internal/_generate_schema.py:552": "3ba71648d9fc256e",
+  "pydantic/_internal/_generate_schema.py:553": "bd99f251c5c36d1a",
+  "pydantic/_internal/_generate_schema.py:554": "9937527f2ef055c1",
+  "pydantic/_internal/_generate_schema.py:557": "c7501b05b47d8696",
+  "pydantic/_internal/_generate_schema.py:558": "5dd2f810fe207d21",
+  "pydantic/_internal/_generate_schema.py:561": "d43c85dc0a18dab6",
+  "pydantic/_internal/_generate_schema.py:567": "b7c8aca86b5a8018",
+  "pydantic/_internal/_generate_schema.py:568": "a3294fa3fb033ce3",
+  "pydantic/experimental/pipeline.py:139": "7a99a31ca0bcd368",
+  "pydantic/experimental/pipeline.py:318": "03e1ce618b3ea2f4",
+  "pydantic/experimental/pipeline.py:323": "f9ae481a52fb4c98",
+  "pydantic/experimental/pipeline.py:327": "4043a422a596b293",
+  "pydantic/experimental/pipeline.py:331": "db2cf0fe6f6f4700",
+  "pydantic/experimental/pipeline.py:335": "8b69e93de5af822b",
+  "pydantic/experimental/pipeline.py:400": "31dd1efe216b1f09",
+  "pydantic/experimental/pipeline.py:407": "f8a20978d4821aee",
+  "pydantic/experimental/pipeline.py:412": "f4460097a112782f",
+  "pydantic/experimental/pipeline.py:414": "e13a2b0012007b0a",
+  "pydantic/experimental/pipeline.py:495": "a9c4e79440062773",
+  "pydantic/experimental/pipeline.py:510": "6eb75f7b2bce6b28",
+  "pydantic/experimental/pipeline.py:525": "2bf40cd16c352ac4",
+  "pydantic/experimental/pipeline.py:540": "f0922376c3574390",
+  "pydantic/experimental/pipeline.py:565": "8a684d7b3cf7c93a",
+  "pydantic/experimental/pipeline.py:580": "c3db8587c8989dab",
+  "pydantic/experimental/pipeline.py:594": "3828302095325417",
+  "pydantic/experimental/pipeline.py:605": "43036397cc3cc023",
+  "pydantic/experimental/pipeline.py:641": "afbc2189024932c2",
+  "pydantic/experimental/pipeline.py:648": "986b42bf69eb892e",
+  "pydantic/experimental/pipeline.py:655": "1cbf776e680ac3bf",
+  "pydantic/experimental/pipeline.py:662": "c2b728279672ee5e",
+  "pydantic/experimental/pipeline.py:674": "8ab34c9ac9e13790",
+  "pydantic/fields.py:1482": "790d101a95f1d8a0",
+  "pydantic/fields.py:360": "876ca92305f1cf16",
+  "pydantic/fields.py:374": "66ab5cf9f56a467f",
+  "pydantic/fields.py:740": "790d101a95f1d8a0",
+  "pydantic/json_schema.py:206": "85279e9fb0e1d8a1",
+  "pydantic/json_schema.py:212": "4a8ae503a3c61d7f",
+  "pydantic/json_schema.py:668": "c5ee0edd01d0de91",
+  "pydantic/main.py:437": "4f046c4d56b9ca7b",
+  "pydantic/mypy.py:827": "8c3f56f554ce347e",
+  "pydantic/v1/types.py:993": "df7585028933c29c",
+  "release/prepare.py:166": "a3c3ea5ee858406d",
+  "release/prepare.py:32": "bb9eec817179ac08",
+  "release/prepare.py:44": "1a8a4a7235d71209",
+  "release/prepare.py:45": "799b8fd1a27989d6",
+  "release/prepare.py:46": "5ee9486df9cc1dbc",
+  "release/prepare.py:47": "4735da36f9f76f3b",
+  "release/prepare.py:48": "0c8ecad335e543bb",
+  "release/prepare.py:49": "31b1a085bc97a164",
+  "release/prepare.py:53": "194a7895b3bff5dc",
+  "release/push.py:130": "38ca143368508f2b",
+  "release/push.py:131": "aca924cb367ad448",
+  "release/push.py:140": "9ed2dddd9c0c65b4",
+  "release/push.py:141": "1b1d0da9f05a49cf",
+  "release/push.py:148": "e1b30cc9fe1aa2fa",
+  "tests/test_internal.py:257": "cd652890b0d69f56",
+  "tests/test_internal.py:269": "a7a85e3408ad6134",
+  "tests/test_pipeline.py:192": "4b2a5bef7484d7f4",
+  "tests/test_pipeline.py:207": "a0e2703f33a010eb",
+  "tests/test_pipeline.py:220": "61dd9d58de86b5e1",
+  "tests/test_pipeline.py:305": "a5a815e70374d686",
+  "tests/test_pipeline.py:329": "0c52a7fd580f02e5",
+  "tests/test_pipeline.py:351": "d60540d2fd95a41c",
+  "tests/test_pipeline.py:437": "86f413646b74fa36",
+  "tests/test_pipeline.py:438": "6a61a3e99a3798f4",
+  "tests/test_pipeline.py:455": "cef57e93018b8076",
+  "tests/test_pipeline.py:456": "1936e7703aed7e39",
+  "tests/test_pipeline.py:475": "1f5f46ba028c921b"
+ }
+}

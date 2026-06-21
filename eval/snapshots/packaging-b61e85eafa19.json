@@ -1,0 +1,5366 @@
+[
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 17,
+   "file": "benchmarks/__init__.py",
+   "start_line": 11
+  },
+  "name": "add_attributes",
+  "selection_char": 4,
+  "selection_line": 11
+ },
+ {
+  "container": "add_attributes",
+  "kind": "function",
+  "location": {
+   "end_line": 15,
+   "file": "benchmarks/__init__.py",
+   "start_line": 12
+  },
+  "name": "decorator",
+  "selection_char": 8,
+  "selection_line": 12
+ },
+ {
+  "container": "TimeMarkerSuite",
+  "kind": "method",
+  "location": {
+   "end_line": 25,
+   "file": "benchmarks/markers.py",
+   "start_line": 15
+  },
+  "name": "setup",
+  "selection_char": 8,
+  "selection_line": 15
+ },
+ {
+  "container": "TimeMarkerSuite",
+  "kind": "method",
+  "location": {
+   "end_line": 30,
+   "file": "benchmarks/markers.py",
+   "start_line": 27
+  },
+  "name": "time_constructor",
+  "selection_char": 8,
+  "selection_line": 28
+ },
+ {
+  "container": "TimeMarkerSuite",
+  "kind": "method",
+  "location": {
+   "end_line": 35,
+   "file": "benchmarks/markers.py",
+   "start_line": 32
+  },
+  "name": "time_evaluate",
+  "selection_char": 8,
+  "selection_line": 33
+ },
+ {
+  "container": "TimeRequirementSuite",
+  "kind": "method",
+  "location": {
+   "end_line": 17,
+   "file": "benchmarks/requirement.py",
+   "start_line": 15
+  },
+  "name": "setup",
+  "selection_char": 8,
+  "selection_line": 15
+ },
+ {
+  "container": "TimeRequirementSuite",
+  "kind": "method",
+  "location": {
+   "end_line": 22,
+   "file": "benchmarks/requirement.py",
+   "start_line": 19
+  },
+  "name": "time_constructor",
+  "selection_char": 8,
+  "selection_line": 20
+ },
+ {
+  "container": "TimeResolverSuite",
+  "kind": "method",
+  "location": {
+   "end_line": 38,
+   "file": "benchmarks/resolver.py",
+   "start_line": 12
+  },
+  "name": "setup",
+  "selection_char": 8,
+  "selection_line": 12
+ },
+ {
+  "container": "TimeResolverSuite",
+  "kind": "method",
+  "location": {
+   "end_line": 48,
+   "file": "benchmarks/resolver.py",
+   "start_line": 40
+  },
+  "name": "time_resolver_loop",
+  "selection_char": 8,
+  "selection_line": 41
+ },
+ {
+  "container": "TimeSpecSuite",
+  "kind": "method",
+  "location": {
+   "end_line": 56,
+   "file": "benchmarks/specifiers.py",
+   "start_line": 20
+  },
+  "name": "setup",
+  "selection_char": 8,
+  "selection_line": 20
+ },
+ {
+  "container": "TimeSpecSuite",
+  "kind": "method",
+  "location": {
+   "end_line": 72,
+   "file": "benchmarks/specifiers.py",
+   "start_line": 58
+  },
+  "name": "_make_cold",
+  "selection_char": 8,
+  "selection_line": 58
+ },
+ {
+  "container": "TimeSpecSuite",
+  "kind": "method",
+  "location": {
+   "end_line": 77,
+   "file": "benchmarks/specifiers.py",
+   "start_line": 74
+  },
+  "name": "time_constructor",
+  "selection_char": 8,
+  "selection_line": 75
+ },
+ {
+  "container": "TimeSpecSuite",
+  "kind": "method",
+  "location": {
+   "end_line": 84,
+   "file": "benchmarks/specifiers.py",
+   "start_line": 79
+  },
+  "name": "time_contains_cold",
+  "selection_char": 8,
+  "selection_line": 80
+ },
+ {
+  "container": "TimeSpecSuite",
+  "kind": "method",
+  "location": {
+   "end_line": 89,
+   "file": "benchmarks/specifiers.py",
+   "start_line": 86
+  },
+  "name": "time_contains_warm",
+  "selection_char": 8,
+  "selection_line": 87
+ },
+ {
+  "container": "TimeSpecSuite",
+  "kind": "method",
+  "location": {
+   "end_line": 94,
+   "file": "benchmarks/specifiers.py",
+   "start_line": 91
+  },
+  "name": "time_contains_complex_warm",
+  "selection_char": 8,
+  "selection_line": 92
+ },
+ {
+  "container": "TimeSpecSuite",
+  "kind": "method",
+  "location": {
+   "end_line": 99,
+   "file": "benchmarks/specifiers.py",
+   "start_line": 96
+  },
+  "name": "time_filter_simple_cold",
+  "selection_char": 8,
+  "selection_line": 97
+ },
+ {
+  "container": "TimeSpecSuite",
+  "kind": "method",
+  "location": {
+   "end_line": 103,
+   "file": "benchmarks/specifiers.py",
+   "start_line": 101
+  },
+  "name": "time_filter_simple_warm",
+  "selection_char": 8,
+  "selection_line": 102
+ },
+ {
+  "container": "TimeSpecSuite",
+  "kind": "method",
+  "location": {
+   "end_line": 108,
+   "file": "benchmarks/specifiers.py",
+   "start_line": 105
+  },
+  "name": "time_filter_complex_cold",
+  "selection_char": 8,
+  "selection_line": 106
+ },
+ {
+  "container": "TimeSpecSuite",
+  "kind": "method",
+  "location": {
+   "end_line": 112,
+   "file": "benchmarks/specifiers.py",
+   "start_line": 110
+  },
+  "name": "time_filter_complex_warm",
+  "selection_char": 8,
+  "selection_line": 111
+ },
+ {
+  "container": "TimeSpecSuite",
+  "kind": "method",
+  "location": {
+   "end_line": 118,
+   "file": "benchmarks/specifiers.py",
+   "start_line": 116
+  },
+  "name": "time_filter_compatible_warm",
+  "selection_char": 8,
+  "selection_line": 117
+ },
+ {
+  "container": "TimeUtils",
+  "kind": "method",
+  "location": {
+   "end_line": 33,
+   "file": "benchmarks/utils.py",
+   "start_line": 30
+  },
+  "name": "time_canonicalize_name",
+  "selection_char": 8,
+  "selection_line": 31
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 16,
+   "file": "benchmarks/version.py",
+   "start_line": 12
+  },
+  "name": "valid_version",
+  "selection_char": 4,
+  "selection_line": 12
+ },
+ {
+  "container": "TimeVersionSuite",
+  "kind": "method",
+  "location": {
+   "end_line": 29,
+   "file": "benchmarks/version.py",
+   "start_line": 22
+  },
+  "name": "setup",
+  "selection_char": 8,
+  "selection_line": 22
+ },
+ {
+  "container": "TimeVersionSuite",
+  "kind": "method",
+  "location": {
+   "end_line": 37,
+   "file": "benchmarks/version.py",
+   "start_line": 31
+  },
+  "name": "time_constructor",
+  "selection_char": 8,
+  "selection_line": 32
+ },
+ {
+  "container": "TimeVersionSuite",
+  "kind": "method",
+  "location": {
+   "end_line": 42,
+   "file": "benchmarks/version.py",
+   "start_line": 39
+  },
+  "name": "time_hash",
+  "selection_char": 8,
+  "selection_line": 40
+ },
+ {
+  "container": "TimeVersionSuite",
+  "kind": "method",
+  "location": {
+   "end_line": 47,
+   "file": "benchmarks/version.py",
+   "start_line": 44
+  },
+  "name": "time_hash_warm",
+  "selection_char": 8,
+  "selection_line": 45
+ },
+ {
+  "container": "TimeVersionSuite",
+  "kind": "method",
+  "location": {
+   "end_line": 52,
+   "file": "benchmarks/version.py",
+   "start_line": 49
+  },
+  "name": "time_str",
+  "selection_char": 8,
+  "selection_line": 50
+ },
+ {
+  "container": "TimeVersionSuite",
+  "kind": "method",
+  "location": {
+   "end_line": 61,
+   "file": "benchmarks/version.py",
+   "start_line": 54
+  },
+  "name": "time_sort_cold",
+  "selection_char": 8,
+  "selection_line": 55
+ },
+ {
+  "container": "TimeVersionSuite",
+  "kind": "method",
+  "location": {
+   "end_line": 66,
+   "file": "benchmarks/version.py",
+   "start_line": 63
+  },
+  "name": "time_sort_warm",
+  "selection_char": 8,
+  "selection_line": 64
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 87,
+   "file": "noxfile.py",
+   "start_line": 41
+  },
+  "name": "tests",
+  "selection_char": 4,
+  "selection_line": 53
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 104,
+   "file": "noxfile.py",
+   "start_line": 90
+  },
+  "name": "property_tests",
+  "selection_char": 4,
+  "selection_line": 91
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 317,
+   "file": "noxfile.py",
+   "start_line": 257
+  },
+  "name": "downstream",
+  "selection_char": 4,
+  "selection_line": 259
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 332,
+   "file": "noxfile.py",
+   "start_line": 320
+  },
+  "name": "lint",
+  "selection_char": 4,
+  "selection_line": 321
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 367,
+   "file": "noxfile.py",
+   "start_line": 335
+  },
+  "name": "docs",
+  "selection_char": 4,
+  "selection_line": 336
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 422,
+   "file": "noxfile.py",
+   "start_line": 370
+  },
+  "name": "release",
+  "selection_char": 4,
+  "selection_line": 371
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 469,
+   "file": "noxfile.py",
+   "start_line": 425
+  },
+  "name": "release_build",
+  "selection_char": 4,
+  "selection_line": 426
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 478,
+   "file": "noxfile.py",
+   "start_line": 472
+  },
+  "name": "update_licenses",
+  "selection_char": 4,
+  "selection_line": 473
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 512,
+   "file": "noxfile.py",
+   "start_line": 481
+  },
+  "name": "test_pickle",
+  "selection_char": 4,
+  "selection_line": 483
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 558,
+   "file": "noxfile.py",
+   "start_line": 520
+  },
+  "name": "_build_and_check",
+  "selection_char": 4,
+  "selection_line": 520
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 582,
+   "file": "noxfile.py",
+   "start_line": 561
+  },
+  "name": "_get_version_from_arguments",
+  "selection_char": 4,
+  "selection_line": 561
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 591,
+   "file": "noxfile.py",
+   "start_line": 585
+  },
+  "name": "_check_working_directory_state",
+  "selection_char": 4,
+  "selection_line": 585
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 642,
+   "file": "noxfile.py",
+   "start_line": 594
+  },
+  "name": "_check_git_state",
+  "selection_char": 4,
+  "selection_line": 594
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 655,
+   "file": "noxfile.py",
+   "start_line": 645
+  },
+  "name": "_bump",
+  "selection_char": 4,
+  "selection_line": 645
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 670,
+   "file": "noxfile.py",
+   "start_line": 658
+  },
+  "name": "_replace_file",
+  "selection_char": 4,
+  "selection_line": 659
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 687,
+   "file": "noxfile.py",
+   "start_line": 673
+  },
+  "name": "_changelog_update_unreleased_title",
+  "selection_char": 4,
+  "selection_line": 673
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 712,
+   "file": "noxfile.py",
+   "start_line": 690
+  },
+  "name": "_changelog_add_unreleased_title",
+  "selection_char": 4,
+  "selection_line": 690
+ },
+ {
+  "container": "ELFFile",
+  "kind": "method",
+  "location": {
+   "end_line": 88,
+   "file": "src/packaging/_elffile.py",
+   "start_line": 45
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 45
+ },
+ {
+  "container": "ELFFile",
+  "kind": "method",
+  "location": {
+   "end_line": 91,
+   "file": "src/packaging/_elffile.py",
+   "start_line": 90
+  },
+  "name": "_read",
+  "selection_char": 8,
+  "selection_line": 90
+ },
+ {
+  "container": "ELFFile",
+  "kind": "method",
+  "location": {
+   "end_line": 108,
+   "file": "src/packaging/_elffile.py",
+   "start_line": 93
+  },
+  "name": "interpreter",
+  "selection_char": 8,
+  "selection_line": 94
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 41,
+   "file": "src/packaging/_manylinux.py",
+   "start_line": 35
+  },
+  "name": "_parse_elf",
+  "selection_char": 4,
+  "selection_line": 36
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 56,
+   "file": "src/packaging/_manylinux.py",
+   "start_line": 44
+  },
+  "name": "_is_linux_armhf",
+  "selection_char": 4,
+  "selection_line": 44
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 66,
+   "file": "src/packaging/_manylinux.py",
+   "start_line": 59
+  },
+  "name": "_is_linux_i686",
+  "selection_char": 4,
+  "selection_line": 59
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 74,
+   "file": "src/packaging/_manylinux.py",
+   "start_line": 69
+  },
+  "name": "_have_compatible_abi",
+  "selection_char": 4,
+  "selection_line": 69
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 106,
+   "file": "src/packaging/_manylinux.py",
+   "start_line": 90
+  },
+  "name": "_glibc_version_string_confstr",
+  "selection_char": 4,
+  "selection_line": 90
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 150,
+   "file": "src/packaging/_manylinux.py",
+   "start_line": 109
+  },
+  "name": "_glibc_version_string_ctypes",
+  "selection_char": 4,
+  "selection_line": 109
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 155,
+   "file": "src/packaging/_manylinux.py",
+   "start_line": 153
+  },
+  "name": "_glibc_version_string",
+  "selection_char": 4,
+  "selection_line": 153
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 174,
+   "file": "src/packaging/_manylinux.py",
+   "start_line": 158
+  },
+  "name": "_parse_glibc_version",
+  "selection_char": 4,
+  "selection_line": 158
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 182,
+   "file": "src/packaging/_manylinux.py",
+   "start_line": 177
+  },
+  "name": "_get_glibc_version",
+  "selection_char": 4,
+  "selection_line": 178
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 196,
+   "file": "src/packaging/_manylinux.py",
+   "start_line": 186
+  },
+  "name": "_get_manylinux_module",
+  "selection_char": 4,
+  "selection_line": 187
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 224,
+   "file": "src/packaging/_manylinux.py",
+   "start_line": 199
+  },
+  "name": "_is_compatible",
+  "selection_char": 4,
+  "selection_line": 199
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 280,
+   "file": "src/packaging/_manylinux.py",
+   "start_line": 237
+  },
+  "name": "platform_tags",
+  "selection_char": 4,
+  "selection_line": 237
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 33,
+   "file": "src/packaging/_musllinux.py",
+   "start_line": 26
+  },
+  "name": "_parse_musl_version",
+  "selection_char": 4,
+  "selection_line": 26
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 56,
+   "file": "src/packaging/_musllinux.py",
+   "start_line": 36
+  },
+  "name": "_get_musl_version",
+  "selection_char": 4,
+  "selection_line": 37
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 75,
+   "file": "src/packaging/_musllinux.py",
+   "start_line": 59
+  },
+  "name": "platform_tags",
+  "selection_char": 4,
+  "selection_line": 59
+ },
+ {
+  "container": "Node",
+  "kind": "method",
+  "location": {
+   "end_line": 20,
+   "file": "src/packaging/_parser.py",
+   "start_line": 19
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 19
+ },
+ {
+  "container": "Node",
+  "kind": "method",
+  "location": {
+   "end_line": 23,
+   "file": "src/packaging/_parser.py",
+   "start_line": 22
+  },
+  "name": "__str__",
+  "selection_char": 8,
+  "selection_line": 22
+ },
+ {
+  "container": "Node",
+  "kind": "method",
+  "location": {
+   "end_line": 26,
+   "file": "src/packaging/_parser.py",
+   "start_line": 25
+  },
+  "name": "__repr__",
+  "selection_char": 8,
+  "selection_line": 25
+ },
+ {
+  "container": "Node",
+  "kind": "method",
+  "location": {
+   "end_line": 29,
+   "file": "src/packaging/_parser.py",
+   "start_line": 28
+  },
+  "name": "serialize",
+  "selection_char": 8,
+  "selection_line": 28
+ },
+ {
+  "container": "Node",
+  "kind": "method",
+  "location": {
+   "end_line": 33,
+   "file": "src/packaging/_parser.py",
+   "start_line": 31
+  },
+  "name": "__getstate__",
+  "selection_char": 8,
+  "selection_line": 31
+ },
+ {
+  "container": "Node",
+  "kind": "method",
+  "location": {
+   "end_line": 40,
+   "file": "src/packaging/_parser.py",
+   "start_line": 35
+  },
+  "name": "_restore_value",
+  "selection_char": 8,
+  "selection_line": 35
+ },
+ {
+  "container": "Node",
+  "kind": "method",
+  "location": {
+   "end_line": 57,
+   "file": "src/packaging/_parser.py",
+   "start_line": 42
+  },
+  "name": "__setstate__",
+  "selection_char": 8,
+  "selection_line": 42
+ },
+ {
+  "container": "Variable",
+  "kind": "method",
+  "location": {
+   "end_line": 64,
+   "file": "src/packaging/_parser.py",
+   "start_line": 63
+  },
+  "name": "serialize",
+  "selection_char": 8,
+  "selection_line": 63
+ },
+ {
+  "container": "Value",
+  "kind": "method",
+  "location": {
+   "end_line": 71,
+   "file": "src/packaging/_parser.py",
+   "start_line": 70
+  },
+  "name": "serialize",
+  "selection_char": 8,
+  "selection_line": 70
+ },
+ {
+  "container": "Op",
+  "kind": "method",
+  "location": {
+   "end_line": 78,
+   "file": "src/packaging/_parser.py",
+   "start_line": 77
+  },
+  "name": "serialize",
+  "selection_char": 8,
+  "selection_line": 77
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 100,
+   "file": "src/packaging/_parser.py",
+   "start_line": 99
+  },
+  "name": "parse_requirement",
+  "selection_char": 4,
+  "selection_line": 99
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 121,
+   "file": "src/packaging/_parser.py",
+   "start_line": 103
+  },
+  "name": "_parse_requirement",
+  "selection_char": 4,
+  "selection_line": 103
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 174,
+   "file": "src/packaging/_parser.py",
+   "start_line": 124
+  },
+  "name": "_parse_requirement_details",
+  "selection_char": 4,
+  "selection_line": 124
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 195,
+   "file": "src/packaging/_parser.py",
+   "start_line": 177
+  },
+  "name": "_parse_requirement_marker",
+  "selection_char": 4,
+  "selection_line": 177
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 214,
+   "file": "src/packaging/_parser.py",
+   "start_line": 198
+  },
+  "name": "_parse_extras",
+  "selection_char": 4,
+  "selection_line": 198
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 241,
+   "file": "src/packaging/_parser.py",
+   "start_line": 217
+  },
+  "name": "_parse_extras_list",
+  "selection_char": 4,
+  "selection_line": 217
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 258,
+   "file": "src/packaging/_parser.py",
+   "start_line": 244
+  },
+  "name": "_parse_specifier",
+  "selection_char": 4,
+  "selection_line": 244
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 287,
+   "file": "src/packaging/_parser.py",
+   "start_line": 261
+  },
+  "name": "_parse_version_many",
+  "selection_char": 4,
+  "selection_line": 261
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 294,
+   "file": "src/packaging/_parser.py",
+   "start_line": 293
+  },
+  "name": "parse_marker",
+  "selection_char": 4,
+  "selection_line": 293
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 300,
+   "file": "src/packaging/_parser.py",
+   "start_line": 297
+  },
+  "name": "_parse_full_marker",
+  "selection_char": 4,
+  "selection_line": 297
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 312,
+   "file": "src/packaging/_parser.py",
+   "start_line": 303
+  },
+  "name": "_parse_marker",
+  "selection_char": 4,
+  "selection_line": 303
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 334,
+   "file": "src/packaging/_parser.py",
+   "start_line": 315
+  },
+  "name": "_parse_marker_atom",
+  "selection_char": 4,
+  "selection_line": 315
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 348,
+   "file": "src/packaging/_parser.py",
+   "start_line": 337
+  },
+  "name": "_parse_marker_item",
+  "selection_char": 4,
+  "selection_line": 337
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 370,
+   "file": "src/packaging/_parser.py",
+   "start_line": 351
+  },
+  "name": "_parse_marker_var",
+  "selection_char": 4,
+  "selection_line": 351
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 377,
+   "file": "src/packaging/_parser.py",
+   "start_line": 373
+  },
+  "name": "process_env_var",
+  "selection_char": 4,
+  "selection_line": 373
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 382,
+   "file": "src/packaging/_parser.py",
+   "start_line": 380
+  },
+  "name": "process_python_str",
+  "selection_char": 4,
+  "selection_line": 380
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 402,
+   "file": "src/packaging/_parser.py",
+   "start_line": 385
+  },
+  "name": "_parse_marker_op",
+  "selection_char": 4,
+  "selection_line": 385
+ },
+ {
+  "container": "_BoundaryVersion",
+  "kind": "method",
+  "location": {
+   "end_line": 87,
+   "file": "src/packaging/_ranges.py",
+   "start_line": 80
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 80
+ },
+ {
+  "container": "_BoundaryVersion",
+  "kind": "method",
+  "location": {
+   "end_line": 112,
+   "file": "src/packaging/_ranges.py",
+   "start_line": 89
+  },
+  "name": "_is_family",
+  "selection_char": 8,
+  "selection_line": 89
+ },
+ {
+  "container": "_BoundaryVersion",
+  "kind": "method",
+  "location": {
+   "end_line": 133,
+   "file": "src/packaging/_ranges.py",
+   "start_line": 114
+  },
+  "name": "_order_key",
+  "selection_char": 8,
+  "selection_line": 114
+ },
+ {
+  "container": "_BoundaryVersion",
+  "kind": "method",
+  "location": {
+   "end_line": 138,
+   "file": "src/packaging/_ranges.py",
+   "start_line": 135
+  },
+  "name": "__eq__",
+  "selection_char": 8,
+  "selection_line": 135
+ },
+ {
+  "container": "_BoundaryVersion",
+  "kind": "method",
+  "location": {
+   "end_line": 147,
+   "file": "src/packaging/_ranges.py",
+   "start_line": 140
+  },
+  "name": "__lt__",
+  "selection_char": 8,
+  "selection_line": 140
+ },
+ {
+  "container": "_BoundaryVersion",
+  "kind": "method",
+  "location": {
+   "end_line": 156,
+   "file": "src/packaging/_ranges.py",
+   "start_line": 149
+  },
+  "name": "__gt__",
+  "selection_char": 8,
+  "selection_line": 149
+ },
+ {
+  "container": "_BoundaryVersion",
+  "kind": "method",
+  "location": {
+   "end_line": 159,
+   "file": "src/packaging/_ranges.py",
+   "start_line": 158
+  },
+  "name": "__hash__",
+  "selection_char": 8,
+  "selection_line": 158
+ },
+ {
+  "container": "_BoundaryVersion",
+  "kind": "method",
+  "location": {
+   "end_line": 162,
+   "file": "src/packaging/_ranges.py",
+   "start_line": 161
+  },
+  "name": "__repr__",
+  "selection_char": 8,
+  "selection_line": 161
+ },
+ {
+  "container": "_LowerBound",
+  "kind": "method",
+  "location": {
+   "end_line": 198,
+   "file": "src/packaging/_ranges.py",
+   "start_line": 180
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 180
+ },
+ {
+  "container": "_LowerBound",
+  "kind": "method",
+  "location": {
+   "end_line": 203,
+   "file": "src/packaging/_ranges.py",
+   "start_line": 200
+  },
+  "name": "__eq__",
+  "selection_char": 8,
+  "selection_line": 200
+ },
+ {
+  "container": "_LowerBound",
+  "kind": "method",
+  "location": {
+   "end_line": 216,
+   "file": "src/packaging/_ranges.py",
+   "start_line": 205
+  },
+  "name": "__lt__",
+  "selection_char": 8,
+  "selection_line": 205
+ },
+ {
+  "container": "_LowerBound",
+  "kind": "method",
+  "location": {
+   "end_line": 219,
+   "file": "src/packaging/_ranges.py",
+   "start_line": 218
+  },
+  "name": "__hash__",
+  "selection_char": 8,
+  "selection_line": 218
+ },
+ {
+  "container": "_LowerBound",
+  "kind": "method",
+  "location": {
+   "end_line": 223,
+   "file": "src/packaging/_ranges.py",
+   "start_line": 221
+  },
+  "name": "__repr__",
+  "selection_char": 8,
+  "selection_line": 221
+ },
+ {
+  "container": "_UpperBound",
+  "kind": "method",
+  "location": {
+   "end_line": 254,
+   "file": "src/packaging/_ranges.py",
+   "start_line": 237
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 237
+ },
+ {
+  "container": "_UpperBound",
+  "kind": "method",
+  "location": {
+   "end_line": 259,
+   "file": "src/packaging/_ranges.py",
+   "start_line": 256
+  },
+  "name": "__eq__",
+  "selection_char": 8,
+  "selection_line": 256
+ },
+ {
+  "container": "_UpperBound",
+  "kind": "method",
+  "location": {
+   "end_line": 272,
+   "file": "src/packaging/_ranges.py",
+   "start_line": 261
+  },
+  "name": "__lt__",
+  "selection_char": 8,
+  "selection_line": 261
+ },
+ {
+  "container": "_UpperBound",
+  "kind": "method",
+  "location": {
+   "end_line": 275,
+   "file": "src/packaging/_ranges.py",
+   "start_line": 274
+  },
+  "name": "__hash__",
+  "selection_char": 8,
+  "selection_line": 274
+ },
+ {
+  "container": "_UpperBound",
+  "kind": "method",
+  "location": {
+   "end_line": 279,
+   "file": "src/packaging/_ranges.py",
+   "start_line": 277
+  },
+  "name": "__repr__",
+  "selection_char": 8,
+  "selection_line": 277
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 297,
+   "file": "src/packaging/_ranges.py",
+   "start_line": 292
+  },
+  "name": "trim_release",
+  "selection_char": 4,
+  "selection_line": 292
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 303,
+   "file": "src/packaging/_ranges.py",
+   "start_line": 300
+  },
+  "name": "_next_prefix_dev0",
+  "selection_char": 4,
+  "selection_line": 300
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 308,
+   "file": "src/packaging/_ranges.py",
+   "start_line": 306
+  },
+  "name": "_base_dev0",
+  "selection_char": 4,
+  "selection_line": 306
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 317,
+   "file": "src/packaging/_ranges.py",
+   "start_line": 311
+  },
+  "name": "coerce_version",
+  "selection_char": 4,
+  "selection_line": 311
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 359,
+   "file": "src/packaging/_ranges.py",
+   "start_line": 320
+  },
+  "name": "_make_above_after_posts",
+  "selection_char": 4,
+  "selection_line": 320
+ },
+ {
+  "container": "_make_above_after_posts",
+  "kind": "function",
+  "location": {
+   "end_line": 357,
+   "file": "src/packaging/_ranges.py",
+   "start_line": 334
+  },
+  "name": "above",
+  "selection_char": 8,
+  "selection_line": 334
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 398,
+   "file": "src/packaging/_ranges.py",
+   "start_line": 362
+  },
+  "name": "_make_above_after_locals",
+  "selection_char": 4,
+  "selection_line": 362
+ },
+ {
+  "container": "_make_above_after_locals",
+  "kind": "function",
+  "location": {
+   "end_line": 396,
+   "file": "src/packaging/_ranges.py",
+   "start_line": 377
+  },
+  "name": "above",
+  "selection_char": 8,
+  "selection_line": 377
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 437,
+   "file": "src/packaging/_ranges.py",
+   "start_line": 401
+  },
+  "name": "_make_below_after_locals",
+  "selection_char": 4,
+  "selection_line": 401
+ },
+ {
+  "container": "_make_below_after_locals",
+  "kind": "function",
+  "location": {
+   "end_line": 435,
+   "file": "src/packaging/_ranges.py",
+   "start_line": 416
+  },
+  "name": "below",
+  "selection_char": 8,
+  "selection_line": 416
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 446,
+   "file": "src/packaging/_ranges.py",
+   "start_line": 440
+  },
+  "name": "_range_is_empty",
+  "selection_char": 4,
+  "selection_line": 440
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 472,
+   "file": "src/packaging/_ranges.py",
+   "start_line": 449
+  },
+  "name": "intersect_ranges",
+  "selection_char": 4,
+  "selection_line": 449
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 569,
+   "file": "src/packaging/_ranges.py",
+   "start_line": 475
+  },
+  "name": "filter_by_ranges",
+  "selection_char": 4,
+  "selection_line": 475
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 590,
+   "file": "src/packaging/_ranges.py",
+   "start_line": 572
+  },
+  "name": "_lowest_release_at_or_above",
+  "selection_char": 4,
+  "selection_line": 572
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 607,
+   "file": "src/packaging/_ranges.py",
+   "start_line": 593
+  },
+  "name": "ranges_are_prerelease_only",
+  "selection_char": 4,
+  "selection_line": 593
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 623,
+   "file": "src/packaging/_ranges.py",
+   "start_line": 610
+  },
+  "name": "wildcard_ranges",
+  "selection_char": 4,
+  "selection_line": 610
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 696,
+   "file": "src/packaging/_ranges.py",
+   "start_line": 626
+  },
+  "name": "standard_ranges",
+  "selection_char": 4,
+  "selection_line": 626
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 710,
+   "file": "src/packaging/_ranges.py",
+   "start_line": 699
+  },
+  "name": "bounds_for_spec",
+  "selection_char": 4,
+  "selection_line": 699
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 733,
+   "file": "src/packaging/_ranges.py",
+   "start_line": 713
+  },
+  "name": "intersect_specifier_bounds",
+  "selection_char": 4,
+  "selection_line": 713
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 752,
+   "file": "src/packaging/_ranges.py",
+   "start_line": 736
+  },
+  "name": "matches_bounds_only",
+  "selection_char": 4,
+  "selection_line": 736
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 769,
+   "file": "src/packaging/_ranges.py",
+   "start_line": 755
+  },
+  "name": "resolve_prereleases",
+  "selection_char": 4,
+  "selection_line": 755
+ },
+ {
+  "container": "InfinityType",
+  "kind": "method",
+  "location": {
+   "end_line": 22,
+   "file": "src/packaging/_structures.py",
+   "start_line": 21
+  },
+  "name": "__repr__",
+  "selection_char": 8,
+  "selection_line": 21
+ },
+ {
+  "container": "NegativeInfinityType",
+  "kind": "method",
+  "location": {
+   "end_line": 29,
+   "file": "src/packaging/_structures.py",
+   "start_line": 28
+  },
+  "name": "__repr__",
+  "selection_char": 8,
+  "selection_line": 28
+ },
+ {
+  "container": "ParserSyntaxError",
+  "kind": "method",
+  "location": {
+   "end_line": 37,
+   "file": "src/packaging/_tokenizer.py",
+   "start_line": 26
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 26
+ },
+ {
+  "container": "ParserSyntaxError",
+  "kind": "method",
+  "location": {
+   "end_line": 41,
+   "file": "src/packaging/_tokenizer.py",
+   "start_line": 39
+  },
+  "name": "__str__",
+  "selection_char": 8,
+  "selection_line": 39
+ },
+ {
+  "container": "Tokenizer",
+  "kind": "method",
+  "location": {
+   "end_line": 114,
+   "file": "src/packaging/_tokenizer.py",
+   "start_line": 105
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 105
+ },
+ {
+  "container": "Tokenizer",
+  "kind": "method",
+  "location": {
+   "end_line": 119,
+   "file": "src/packaging/_tokenizer.py",
+   "start_line": 116
+  },
+  "name": "consume",
+  "selection_char": 8,
+  "selection_line": 116
+ },
+ {
+  "container": "Tokenizer",
+  "kind": "method",
+  "location": {
+   "end_line": 140,
+   "file": "src/packaging/_tokenizer.py",
+   "start_line": 121
+  },
+  "name": "check",
+  "selection_char": 8,
+  "selection_line": 121
+ },
+ {
+  "container": "Tokenizer",
+  "kind": "method",
+  "location": {
+   "end_line": 149,
+   "file": "src/packaging/_tokenizer.py",
+   "start_line": 142
+  },
+  "name": "expect",
+  "selection_char": 8,
+  "selection_line": 142
+ },
+ {
+  "container": "Tokenizer",
+  "kind": "method",
+  "location": {
+   "end_line": 159,
+   "file": "src/packaging/_tokenizer.py",
+   "start_line": 151
+  },
+  "name": "read",
+  "selection_char": 8,
+  "selection_line": 151
+ },
+ {
+  "container": "Tokenizer",
+  "kind": "method",
+  "location": {
+   "end_line": 177,
+   "file": "src/packaging/_tokenizer.py",
+   "start_line": 161
+  },
+  "name": "raise_syntax_error",
+  "selection_char": 8,
+  "selection_line": 161
+ },
+ {
+  "container": "Tokenizer",
+  "kind": "method",
+  "location": {
+   "end_line": 200,
+   "file": "src/packaging/_tokenizer.py",
+   "start_line": 179
+  },
+  "name": "enclosing_tokens",
+  "selection_char": 8,
+  "selection_line": 180
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 20,
+   "file": "src/packaging/dependency_groups.py",
+   "start_line": 19
+  },
+  "name": "__dir__",
+  "selection_char": 4,
+  "selection_line": 19
+ },
+ {
+  "container": "CyclicDependencyGroup",
+  "kind": "method",
+  "location": {
+   "end_line": 55,
+   "file": "src/packaging/dependency_groups.py",
+   "start_line": 43
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 43
+ },
+ {
+  "container": "DependencyGroupInclude",
+  "kind": "method",
+  "location": {
+   "end_line": 90,
+   "file": "src/packaging/dependency_groups.py",
+   "start_line": 84
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 84
+ },
+ {
+  "container": "DependencyGroupInclude",
+  "kind": "method",
+  "location": {
+   "end_line": 93,
+   "file": "src/packaging/dependency_groups.py",
+   "start_line": 92
+  },
+  "name": "__repr__",
+  "selection_char": 8,
+  "selection_line": 92
+ },
+ {
+  "container": "DependencyGroupResolver",
+  "kind": "method",
+  "location": {
+   "end_line": 127,
+   "file": "src/packaging/dependency_groups.py",
+   "start_line": 110
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 110
+ },
+ {
+  "container": "DependencyGroupResolver",
+  "kind": "method",
+  "location": {
+   "end_line": 141,
+   "file": "src/packaging/dependency_groups.py",
+   "start_line": 129
+  },
+  "name": "lookup",
+  "selection_char": 8,
+  "selection_line": 129
+ },
+ {
+  "container": "DependencyGroupResolver",
+  "kind": "method",
+  "location": {
+   "end_line": 154,
+   "file": "src/packaging/dependency_groups.py",
+   "start_line": 143
+  },
+  "name": "resolve",
+  "selection_char": 8,
+  "selection_line": 143
+ },
+ {
+  "container": "DependencyGroupResolver",
+  "kind": "method",
+  "location": {
+   "end_line": 212,
+   "file": "src/packaging/dependency_groups.py",
+   "start_line": 156
+  },
+  "name": "_resolve",
+  "selection_char": 8,
+  "selection_line": 156
+ },
+ {
+  "container": "DependencyGroupResolver",
+  "kind": "method",
+  "location": {
+   "end_line": 273,
+   "file": "src/packaging/dependency_groups.py",
+   "start_line": 214
+  },
+  "name": "_parse_group",
+  "selection_char": 8,
+  "selection_line": 214
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 294,
+   "file": "src/packaging/dependency_groups.py",
+   "start_line": 281
+  },
+  "name": "resolve_dependency_groups",
+  "selection_char": 4,
+  "selection_line": 281
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 306,
+   "file": "src/packaging/dependency_groups.py",
+   "start_line": 305
+  },
+  "name": "_normalize_name",
+  "selection_char": 4,
+  "selection_line": 305
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 330,
+   "file": "src/packaging/dependency_groups.py",
+   "start_line": 309
+  },
+  "name": "_normalize_group_names",
+  "selection_char": 4,
+  "selection_line": 309
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 28,
+   "file": "src/packaging/direct_url.py",
+   "start_line": 27
+  },
+  "name": "__dir__",
+  "selection_char": 4,
+  "selection_line": 27
+ },
+ {
+  "container": "_FromMappingProtocol",
+  "kind": "method",
+  "location": {
+   "end_line": 36,
+   "file": "src/packaging/direct_url.py",
+   "start_line": 35
+  },
+  "name": "_from_dict",
+  "selection_char": 8,
+  "selection_line": 36
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 43,
+   "file": "src/packaging/direct_url.py",
+   "start_line": 42
+  },
+  "name": "_json_dict_factory",
+  "selection_char": 4,
+  "selection_line": 42
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 56,
+   "file": "src/packaging/direct_url.py",
+   "start_line": 46
+  },
+  "name": "_get",
+  "selection_char": 4,
+  "selection_line": 46
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 63,
+   "file": "src/packaging/direct_url.py",
+   "start_line": 59
+  },
+  "name": "_get_required",
+  "selection_char": 4,
+  "selection_line": 59
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 75,
+   "file": "src/packaging/direct_url.py",
+   "start_line": 66
+  },
+  "name": "_get_object",
+  "selection_char": 4,
+  "selection_line": 66
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 91,
+   "file": "src/packaging/direct_url.py",
+   "start_line": 83
+  },
+  "name": "_strip_auth_from_netloc",
+  "selection_char": 4,
+  "selection_line": 83
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 109,
+   "file": "src/packaging/direct_url.py",
+   "start_line": 94
+  },
+  "name": "_strip_url",
+  "selection_char": 4,
+  "selection_line": 94
+ },
+ {
+  "container": "DirectUrlValidationError",
+  "kind": "method",
+  "location": {
+   "end_line": 137,
+   "file": "src/packaging/direct_url.py",
+   "start_line": 121
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 121
+ },
+ {
+  "container": "DirectUrlValidationError",
+  "kind": "method",
+  "location": {
+   "end_line": 142,
+   "file": "src/packaging/direct_url.py",
+   "start_line": 139
+  },
+  "name": "__str__",
+  "selection_char": 8,
+  "selection_line": 139
+ },
+ {
+  "container": "_DirectUrlRequiredKeyError",
+  "kind": "method",
+  "location": {
+   "end_line": 147,
+   "file": "src/packaging/direct_url.py",
+   "start_line": 146
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 146
+ },
+ {
+  "container": "VcsInfo",
+  "kind": "method",
+  "location": {
+   "end_line": 167,
+   "file": "src/packaging/direct_url.py",
+   "start_line": 158
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 158
+ },
+ {
+  "container": "VcsInfo",
+  "kind": "method",
+  "location": {
+   "end_line": 176,
+   "file": "src/packaging/direct_url.py",
+   "start_line": 169
+  },
+  "name": "_from_dict",
+  "selection_char": 8,
+  "selection_line": 170
+ },
+ {
+  "container": "ArchiveInfo",
+  "kind": "method",
+  "location": {
+   "end_line": 190,
+   "file": "src/packaging/direct_url.py",
+   "start_line": 185
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 185
+ },
+ {
+  "container": "ArchiveInfo",
+  "kind": "method",
+  "location": {
+   "end_line": 224,
+   "file": "src/packaging/direct_url.py",
+   "start_line": 192
+  },
+  "name": "_from_dict",
+  "selection_char": 8,
+  "selection_line": 193
+ },
+ {
+  "container": "DirInfo",
+  "kind": "method",
+  "location": {
+   "end_line": 238,
+   "file": "src/packaging/direct_url.py",
+   "start_line": 233
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 233
+ },
+ {
+  "container": "DirInfo",
+  "kind": "method",
+  "location": {
+   "end_line": 244,
+   "file": "src/packaging/direct_url.py",
+   "start_line": 240
+  },
+  "name": "_from_dict",
+  "selection_char": 8,
+  "selection_line": 241
+ },
+ {
+  "container": "DirectUrl",
+  "kind": "method",
+  "location": {
+   "end_line": 273,
+   "file": "src/packaging/direct_url.py",
+   "start_line": 260
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 260
+ },
+ {
+  "container": "DirectUrl",
+  "kind": "method",
+  "location": {
+   "end_line": 298,
+   "file": "src/packaging/direct_url.py",
+   "start_line": 275
+  },
+  "name": "_from_dict",
+  "selection_char": 8,
+  "selection_line": 276
+ },
+ {
+  "container": "DirectUrl",
+  "kind": "method",
+  "location": {
+   "end_line": 303,
+   "file": "src/packaging/direct_url.py",
+   "start_line": 300
+  },
+  "name": "from_dict",
+  "selection_char": 8,
+  "selection_line": 301
+ },
+ {
+  "container": "DirectUrl",
+  "kind": "method",
+  "location": {
+   "end_line": 330,
+   "file": "src/packaging/direct_url.py",
+   "start_line": 305
+  },
+  "name": "to_dict",
+  "selection_char": 8,
+  "selection_line": 305
+ },
+ {
+  "container": "DirectUrl",
+  "kind": "method",
+  "location": {
+   "end_line": 337,
+   "file": "src/packaging/direct_url.py",
+   "start_line": 332
+  },
+  "name": "validate",
+  "selection_char": 8,
+  "selection_line": 332
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 12,
+   "file": "src/packaging/errors.py",
+   "start_line": 11
+  },
+  "name": "__dir__",
+  "selection_char": 4,
+  "selection_line": 11
+ },
+ {
+  "container": "_ErrorCollector",
+  "kind": "method",
+  "location": {
+   "end_line": 62,
+   "file": "src/packaging/errors.py",
+   "start_line": 59
+  },
+  "name": "finalize",
+  "selection_char": 8,
+  "selection_line": 59
+ },
+ {
+  "container": "_ErrorCollector",
+  "kind": "method",
+  "location": {
+   "end_line": 72,
+   "file": "src/packaging/errors.py",
+   "start_line": 64
+  },
+  "name": "on_exit",
+  "selection_char": 8,
+  "selection_line": 65
+ },
+ {
+  "container": "_ErrorCollector",
+  "kind": "method",
+  "location": {
+   "end_line": 87,
+   "file": "src/packaging/errors.py",
+   "start_line": 74
+  },
+  "name": "collect",
+  "selection_char": 8,
+  "selection_line": 75
+ },
+ {
+  "container": "_ErrorCollector",
+  "kind": "method",
+  "location": {
+   "end_line": 94,
+   "file": "src/packaging/errors.py",
+   "start_line": 89
+  },
+  "name": "error",
+  "selection_char": 8,
+  "selection_line": 89
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 48,
+   "file": "src/packaging/licenses/__init__.py",
+   "start_line": 47
+  },
+  "name": "__dir__",
+  "selection_char": 4,
+  "selection_line": 47
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 186,
+   "file": "src/packaging/licenses/__init__.py",
+   "start_line": 71
+  },
+  "name": "canonicalize_license_expression",
+  "selection_char": 4,
+  "selection_line": 71
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 35,
+   "file": "src/packaging/markers.py",
+   "start_line": 34
+  },
+  "name": "__dir__",
+  "selection_char": 4,
+  "selection_line": 34
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 171,
+   "file": "src/packaging/markers.py",
+   "start_line": 156
+  },
+  "name": "_normalize_extras",
+  "selection_char": 4,
+  "selection_line": 156
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 179,
+   "file": "src/packaging/markers.py",
+   "start_line": 174
+  },
+  "name": "_normalize_extra_values",
+  "selection_char": 4,
+  "selection_line": 174
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 207,
+   "file": "src/packaging/markers.py",
+   "start_line": 182
+  },
+  "name": "_format_marker",
+  "selection_char": 4,
+  "selection_line": 182
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 236,
+   "file": "src/packaging/markers.py",
+   "start_line": 222
+  },
+  "name": "_eval_op",
+  "selection_char": 4,
+  "selection_line": 222
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 257,
+   "file": "src/packaging/markers.py",
+   "start_line": 239
+  },
+  "name": "_normalize",
+  "selection_char": 4,
+  "selection_line": 239
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 290,
+   "file": "src/packaging/markers.py",
+   "start_line": 260
+  },
+  "name": "_evaluate_markers",
+  "selection_char": 4,
+  "selection_line": 260
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 298,
+   "file": "src/packaging/markers.py",
+   "start_line": 293
+  },
+  "name": "_format_full_version",
+  "selection_char": 4,
+  "selection_line": 293
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 320,
+   "file": "src/packaging/markers.py",
+   "start_line": 301
+  },
+  "name": "default_environment",
+  "selection_char": 4,
+  "selection_line": 301
+ },
+ {
+  "container": "Marker",
+  "kind": "method",
+  "location": {
+   "end_line": 373,
+   "file": "src/packaging/markers.py",
+   "start_line": 345
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 345
+ },
+ {
+  "container": "Marker",
+  "kind": "method",
+  "location": {
+   "end_line": 383,
+   "file": "src/packaging/markers.py",
+   "start_line": 375
+  },
+  "name": "_from_markers",
+  "selection_char": 8,
+  "selection_line": 376
+ },
+ {
+  "container": "Marker",
+  "kind": "method",
+  "location": {
+   "end_line": 386,
+   "file": "src/packaging/markers.py",
+   "start_line": 385
+  },
+  "name": "__str__",
+  "selection_char": 8,
+  "selection_line": 385
+ },
+ {
+  "container": "Marker",
+  "kind": "method",
+  "location": {
+   "end_line": 389,
+   "file": "src/packaging/markers.py",
+   "start_line": 388
+  },
+  "name": "__repr__",
+  "selection_char": 8,
+  "selection_line": 388
+ },
+ {
+  "container": "Marker",
+  "kind": "method",
+  "location": {
+   "end_line": 392,
+   "file": "src/packaging/markers.py",
+   "start_line": 391
+  },
+  "name": "__hash__",
+  "selection_char": 8,
+  "selection_line": 391
+ },
+ {
+  "container": "Marker",
+  "kind": "method",
+  "location": {
+   "end_line": 398,
+   "file": "src/packaging/markers.py",
+   "start_line": 394
+  },
+  "name": "__eq__",
+  "selection_char": 8,
+  "selection_line": 394
+ },
+ {
+  "container": "Marker",
+  "kind": "method",
+  "location": {
+   "end_line": 403,
+   "file": "src/packaging/markers.py",
+   "start_line": 400
+  },
+  "name": "__getstate__",
+  "selection_char": 8,
+  "selection_line": 400
+ },
+ {
+  "container": "Marker",
+  "kind": "method",
+  "location": {
+   "end_line": 427,
+   "file": "src/packaging/markers.py",
+   "start_line": 405
+  },
+  "name": "__setstate__",
+  "selection_char": 8,
+  "selection_line": 405
+ },
+ {
+  "container": "Marker",
+  "kind": "method",
+  "location": {
+   "end_line": 436,
+   "file": "src/packaging/markers.py",
+   "start_line": 429
+  },
+  "name": "__and__",
+  "selection_char": 8,
+  "selection_line": 429
+ },
+ {
+  "container": "Marker",
+  "kind": "method",
+  "location": {
+   "end_line": 445,
+   "file": "src/packaging/markers.py",
+   "start_line": 438
+  },
+  "name": "__or__",
+  "selection_char": 8,
+  "selection_line": 438
+ },
+ {
+  "container": "Marker",
+  "kind": "method",
+  "location": {
+   "end_line": 494,
+   "file": "src/packaging/markers.py",
+   "start_line": 447
+  },
+  "name": "evaluate",
+  "selection_char": 8,
+  "selection_line": 447
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 504,
+   "file": "src/packaging/markers.py",
+   "start_line": 497
+  },
+  "name": "_pep440_python_full_version",
+  "selection_char": 4,
+  "selection_line": 497
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 516,
+   "file": "src/packaging/markers.py",
+   "start_line": 507
+  },
+  "name": "_repair_python_full_version",
+  "selection_char": 4,
+  "selection_line": 507
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 42,
+   "file": "src/packaging/metadata.py",
+   "start_line": 41
+  },
+  "name": "__dir__",
+  "selection_char": 4,
+  "selection_line": 41
+ },
+ {
+  "container": "InvalidMetadata",
+  "kind": "method",
+  "location": {
+   "end_line": 53,
+   "file": "src/packaging/metadata.py",
+   "start_line": 51
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 51
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 183,
+   "file": "src/packaging/metadata.py",
+   "start_line": 181
+  },
+  "name": "_parse_keywords",
+  "selection_char": 4,
+  "selection_line": 181
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 222,
+   "file": "src/packaging/metadata.py",
+   "start_line": 186
+  },
+  "name": "_parse_project_urls",
+  "selection_char": 4,
+  "selection_line": 186
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 241,
+   "file": "src/packaging/metadata.py",
+   "start_line": 225
+  },
+  "name": "_get_payload",
+  "selection_char": 4,
+  "selection_line": 225
+ },
+ {
+  "container": "RFC822Policy",
+  "kind": "method",
+  "location": {
+   "end_line": 307,
+   "file": "src/packaging/metadata.py",
+   "start_line": 304
+  },
+  "name": "header_store_parse",
+  "selection_char": 8,
+  "selection_line": 304
+ },
+ {
+  "container": "RFC822Message",
+  "kind": "method",
+  "location": {
+   "end_line": 319,
+   "file": "src/packaging/metadata.py",
+   "start_line": 318
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 318
+ },
+ {
+  "container": "RFC822Message",
+  "kind": "method",
+  "location": {
+   "end_line": 329,
+   "file": "src/packaging/metadata.py",
+   "start_line": 321
+  },
+  "name": "as_bytes",
+  "selection_char": 8,
+  "selection_line": 321
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 510,
+   "file": "src/packaging/metadata.py",
+   "start_line": 332
+  },
+  "name": "parse_email",
+  "selection_char": 4,
+  "selection_line": 332
+ },
+ {
+  "container": "_Validator",
+  "kind": "method",
+  "location": {
+   "end_line": 554,
+   "file": "src/packaging/metadata.py",
+   "start_line": 549
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 549
+ },
+ {
+  "container": "_Validator",
+  "kind": "method",
+  "location": {
+   "end_line": 558,
+   "file": "src/packaging/metadata.py",
+   "start_line": 556
+  },
+  "name": "__set_name__",
+  "selection_char": 8,
+  "selection_line": 556
+ },
+ {
+  "container": "_Validator",
+  "kind": "method",
+  "location": {
+   "end_line": 585,
+   "file": "src/packaging/metadata.py",
+   "start_line": 560
+  },
+  "name": "__get__",
+  "selection_char": 8,
+  "selection_line": 560
+ },
+ {
+  "container": "_Validator",
+  "kind": "method",
+  "location": {
+   "end_line": 594,
+   "file": "src/packaging/metadata.py",
+   "start_line": 587
+  },
+  "name": "_invalid_metadata",
+  "selection_char": 8,
+  "selection_line": 587
+ },
+ {
+  "container": "_Validator",
+  "kind": "method",
+  "location": {
+   "end_line": 600,
+   "file": "src/packaging/metadata.py",
+   "start_line": 596
+  },
+  "name": "_process_metadata_version",
+  "selection_char": 8,
+  "selection_line": 596
+ },
+ {
+  "container": "_Validator",
+  "kind": "method",
+  "location": {
+   "end_line": 613,
+   "file": "src/packaging/metadata.py",
+   "start_line": 602
+  },
+  "name": "_process_name",
+  "selection_char": 8,
+  "selection_line": 602
+ },
+ {
+  "container": "_Validator",
+  "kind": "method",
+  "location": {
+   "end_line": 623,
+   "file": "src/packaging/metadata.py",
+   "start_line": 615
+  },
+  "name": "_process_version",
+  "selection_char": 8,
+  "selection_line": 615
+ },
+ {
+  "container": "_Validator",
+  "kind": "method",
+  "location": {
+   "end_line": 629,
+   "file": "src/packaging/metadata.py",
+   "start_line": 625
+  },
+  "name": "_process_summary",
+  "selection_char": 8,
+  "selection_line": 625
+ },
+ {
+  "container": "_Validator",
+  "kind": "method",
+  "location": {
+   "end_line": 661,
+   "file": "src/packaging/metadata.py",
+   "start_line": 631
+  },
+  "name": "_process_description_content_type",
+  "selection_char": 8,
+  "selection_line": 631
+ },
+ {
+  "container": "_Validator",
+  "kind": "method",
+  "location": {
+   "end_line": 673,
+   "file": "src/packaging/metadata.py",
+   "start_line": 663
+  },
+  "name": "_process_dynamic",
+  "selection_char": 8,
+  "selection_line": 663
+ },
+ {
+  "container": "_Validator",
+  "kind": "method",
+  "location": {
+   "end_line": 688,
+   "file": "src/packaging/metadata.py",
+   "start_line": 675
+  },
+  "name": "_process_provides_extra",
+  "selection_char": 8,
+  "selection_line": 675
+ },
+ {
+  "container": "_Validator",
+  "kind": "method",
+  "location": {
+   "end_line": 696,
+   "file": "src/packaging/metadata.py",
+   "start_line": 690
+  },
+  "name": "_process_requires_python",
+  "selection_char": 8,
+  "selection_line": 690
+ },
+ {
+  "container": "_Validator",
+  "kind": "method",
+  "location": {
+   "end_line": 711,
+   "file": "src/packaging/metadata.py",
+   "start_line": 698
+  },
+  "name": "_process_requires_dist",
+  "selection_char": 8,
+  "selection_line": 698
+ },
+ {
+  "container": "_Validator",
+  "kind": "method",
+  "location": {
+   "end_line": 719,
+   "file": "src/packaging/metadata.py",
+   "start_line": 713
+  },
+  "name": "_process_license_expression",
+  "selection_char": 8,
+  "selection_line": 713
+ },
+ {
+  "container": "_Validator",
+  "kind": "method",
+  "location": {
+   "end_line": 745,
+   "file": "src/packaging/metadata.py",
+   "start_line": 721
+  },
+  "name": "_process_license_files",
+  "selection_char": 8,
+  "selection_line": 721
+ },
+ {
+  "container": "_Validator",
+  "kind": "method",
+  "location": {
+   "end_line": 767,
+   "file": "src/packaging/metadata.py",
+   "start_line": 747
+  },
+  "name": "_process_import_names",
+  "selection_char": 8,
+  "selection_line": 747
+ },
+ {
+  "container": "Metadata",
+  "kind": "method",
+  "location": {
+   "end_line": 835,
+   "file": "src/packaging/metadata.py",
+   "start_line": 783
+  },
+  "name": "from_raw",
+  "selection_char": 8,
+  "selection_line": 784
+ },
+ {
+  "container": "Metadata",
+  "kind": "method",
+  "location": {
+   "end_line": 860,
+   "file": "src/packaging/metadata.py",
+   "start_line": 837
+  },
+  "name": "from_email",
+  "selection_char": 8,
+  "selection_line": 838
+ },
+ {
+  "container": "Metadata",
+  "kind": "method",
+  "location": {
+   "end_line": 953,
+   "file": "src/packaging/metadata.py",
+   "start_line": 947
+  },
+  "name": "as_rfc822",
+  "selection_char": 8,
+  "selection_line": 947
+ },
+ {
+  "container": "Metadata",
+  "kind": "method",
+  "location": {
+   "end_line": 979,
+   "file": "src/packaging/metadata.py",
+   "start_line": 955
+  },
+  "name": "_write_metadata",
+  "selection_char": 8,
+  "selection_line": 955
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 61,
+   "file": "src/packaging/pylock.py",
+   "start_line": 60
+  },
+  "name": "__dir__",
+  "selection_char": 4,
+  "selection_line": 60
+ },
+ {
+  "container": "_FromMappingProtocol",
+  "kind": "method",
+  "location": {
+   "end_line": 70,
+   "file": "src/packaging/pylock.py",
+   "start_line": 69
+  },
+  "name": "_from_dict",
+  "selection_char": 8,
+  "selection_line": 70
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 81,
+   "file": "src/packaging/pylock.py",
+   "start_line": 79
+  },
+  "name": "is_valid_pylock_path",
+  "selection_char": 4,
+  "selection_line": 79
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 85,
+   "file": "src/packaging/pylock.py",
+   "start_line": 84
+  },
+  "name": "_toml_key",
+  "selection_char": 4,
+  "selection_line": 84
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 93,
+   "file": "src/packaging/pylock.py",
+   "start_line": 88
+  },
+  "name": "_toml_value",
+  "selection_char": 4,
+  "selection_line": 88
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 101,
+   "file": "src/packaging/pylock.py",
+   "start_line": 96
+  },
+  "name": "_toml_dict_factory",
+  "selection_char": 4,
+  "selection_line": 96
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 114,
+   "file": "src/packaging/pylock.py",
+   "start_line": 104
+  },
+  "name": "_get",
+  "selection_char": 4,
+  "selection_line": 104
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 121,
+   "file": "src/packaging/pylock.py",
+   "start_line": 117
+  },
+  "name": "_get_required",
+  "selection_char": 4,
+  "selection_line": 117
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 143,
+   "file": "src/packaging/pylock.py",
+   "start_line": 124
+  },
+  "name": "_get_sequence",
+  "selection_char": 4,
+  "selection_line": 124
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 162,
+   "file": "src/packaging/pylock.py",
+   "start_line": 146
+  },
+  "name": "_get_as",
+  "selection_char": 4,
+  "selection_line": 146
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 175,
+   "file": "src/packaging/pylock.py",
+   "start_line": 165
+  },
+  "name": "_get_required_as",
+  "selection_char": 4,
+  "selection_line": 165
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 194,
+   "file": "src/packaging/pylock.py",
+   "start_line": 178
+  },
+  "name": "_get_sequence_as",
+  "selection_char": 4,
+  "selection_line": 178
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 206,
+   "file": "src/packaging/pylock.py",
+   "start_line": 197
+  },
+  "name": "_get_object",
+  "selection_char": 4,
+  "selection_line": 197
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 222,
+   "file": "src/packaging/pylock.py",
+   "start_line": 209
+  },
+  "name": "_get_sequence_of_objects",
+  "selection_char": 4,
+  "selection_line": 209
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 232,
+   "file": "src/packaging/pylock.py",
+   "start_line": 225
+  },
+  "name": "_get_required_sequence_of_objects",
+  "selection_char": 4,
+  "selection_line": 225
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 239,
+   "file": "src/packaging/pylock.py",
+   "start_line": 235
+  },
+  "name": "_validate_normalized_name",
+  "selection_char": 4,
+  "selection_line": 235
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 244,
+   "file": "src/packaging/pylock.py",
+   "start_line": 242
+  },
+  "name": "_validate_path_url",
+  "selection_char": 4,
+  "selection_line": 242
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 257,
+   "file": "src/packaging/pylock.py",
+   "start_line": 247
+  },
+  "name": "_path_name",
+  "selection_char": 4,
+  "selection_line": 247
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 264,
+   "file": "src/packaging/pylock.py",
+   "start_line": 260
+  },
+  "name": "_url_name",
+  "selection_char": 4,
+  "selection_line": 260
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 272,
+   "file": "src/packaging/pylock.py",
+   "start_line": 267
+  },
+  "name": "_validate_hashes",
+  "selection_char": 4,
+  "selection_line": 267
+ },
+ {
+  "container": "PylockValidationError",
+  "kind": "method",
+  "location": {
+   "end_line": 297,
+   "file": "src/packaging/pylock.py",
+   "start_line": 281
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 281
+ },
+ {
+  "container": "PylockValidationError",
+  "kind": "method",
+  "location": {
+   "end_line": 302,
+   "file": "src/packaging/pylock.py",
+   "start_line": 299
+  },
+  "name": "__str__",
+  "selection_char": 8,
+  "selection_line": 299
+ },
+ {
+  "container": "_PylockRequiredKeyError",
+  "kind": "method",
+  "location": {
+   "end_line": 307,
+   "file": "src/packaging/pylock.py",
+   "start_line": 306
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 306
+ },
+ {
+  "container": "PackageVcs",
+  "kind": "method",
+  "location": {
+   "end_line": 346,
+   "file": "src/packaging/pylock.py",
+   "start_line": 330
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 330
+ },
+ {
+  "container": "PackageVcs",
+  "kind": "method",
+  "location": {
+   "end_line": 359,
+   "file": "src/packaging/pylock.py",
+   "start_line": 348
+  },
+  "name": "_from_dict",
+  "selection_char": 8,
+  "selection_line": 349
+ },
+ {
+  "container": "PackageDirectory",
+  "kind": "method",
+  "location": {
+   "end_line": 378,
+   "file": "src/packaging/pylock.py",
+   "start_line": 368
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 368
+ },
+ {
+  "container": "PackageDirectory",
+  "kind": "method",
+  "location": {
+   "end_line": 386,
+   "file": "src/packaging/pylock.py",
+   "start_line": 380
+  },
+  "name": "_from_dict",
+  "selection_char": 8,
+  "selection_line": 381
+ },
+ {
+  "container": "PackageArchive",
+  "kind": "method",
+  "location": {
+   "end_line": 414,
+   "file": "src/packaging/pylock.py",
+   "start_line": 398
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 398
+ },
+ {
+  "container": "PackageArchive",
+  "kind": "method",
+  "location": {
+   "end_line": 427,
+   "file": "src/packaging/pylock.py",
+   "start_line": 416
+  },
+  "name": "_from_dict",
+  "selection_char": 8,
+  "selection_line": 417
+ },
+ {
+  "container": "PackageSdist",
+  "kind": "method",
+  "location": {
+   "end_line": 455,
+   "file": "src/packaging/pylock.py",
+   "start_line": 439
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 439
+ },
+ {
+  "container": "PackageSdist",
+  "kind": "method",
+  "location": {
+   "end_line": 468,
+   "file": "src/packaging/pylock.py",
+   "start_line": 457
+  },
+  "name": "_from_dict",
+  "selection_char": 8,
+  "selection_line": 458
+ },
+ {
+  "container": "PackageSdist",
+  "kind": "method",
+  "location": {
+   "end_line": 476,
+   "file": "src/packaging/pylock.py",
+   "start_line": 470
+  },
+  "name": "filename",
+  "selection_char": 8,
+  "selection_line": 471
+ },
+ {
+  "container": "PackageWheel",
+  "kind": "method",
+  "location": {
+   "end_line": 504,
+   "file": "src/packaging/pylock.py",
+   "start_line": 488
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 488
+ },
+ {
+  "container": "PackageWheel",
+  "kind": "method",
+  "location": {
+   "end_line": 517,
+   "file": "src/packaging/pylock.py",
+   "start_line": 506
+  },
+  "name": "_from_dict",
+  "selection_char": 8,
+  "selection_line": 507
+ },
+ {
+  "container": "PackageWheel",
+  "kind": "method",
+  "location": {
+   "end_line": 525,
+   "file": "src/packaging/pylock.py",
+   "start_line": 519
+  },
+  "name": "filename",
+  "selection_char": 8,
+  "selection_line": 520
+ },
+ {
+  "container": "Package",
+  "kind": "method",
+  "location": {
+   "end_line": 574,
+   "file": "src/packaging/pylock.py",
+   "start_line": 544
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 544
+ },
+ {
+  "container": "Package",
+  "kind": "method",
+  "location": {
+   "end_line": 655,
+   "file": "src/packaging/pylock.py",
+   "start_line": 576
+  },
+  "name": "_from_dict",
+  "selection_char": 8,
+  "selection_line": 577
+ },
+ {
+  "container": "Package",
+  "kind": "method",
+  "location": {
+   "end_line": 659,
+   "file": "src/packaging/pylock.py",
+   "start_line": 657
+  },
+  "name": "is_direct",
+  "selection_char": 8,
+  "selection_line": 658
+ },
+ {
+  "container": "Pylock",
+  "kind": "method",
+  "location": {
+   "end_line": 698,
+   "file": "src/packaging/pylock.py",
+   "start_line": 676
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 676
+ },
+ {
+  "container": "Pylock",
+  "kind": "method",
+  "location": {
+   "end_line": 721,
+   "file": "src/packaging/pylock.py",
+   "start_line": 700
+  },
+  "name": "_from_dict",
+  "selection_char": 8,
+  "selection_line": 701
+ },
+ {
+  "container": "Pylock",
+  "kind": "method",
+  "location": {
+   "end_line": 730,
+   "file": "src/packaging/pylock.py",
+   "start_line": 723
+  },
+  "name": "from_dict",
+  "selection_char": 8,
+  "selection_line": 724
+ },
+ {
+  "container": "Pylock",
+  "kind": "method",
+  "location": {
+   "end_line": 734,
+   "file": "src/packaging/pylock.py",
+   "start_line": 732
+  },
+  "name": "to_dict",
+  "selection_char": 8,
+  "selection_line": 732
+ },
+ {
+  "container": "Pylock",
+  "kind": "method",
+  "location": {
+   "end_line": 740,
+   "file": "src/packaging/pylock.py",
+   "start_line": 736
+  },
+  "name": "validate",
+  "selection_char": 8,
+  "selection_line": 736
+ },
+ {
+  "container": "Pylock",
+  "kind": "method",
+  "location": {
+   "end_line": 916,
+   "file": "src/packaging/pylock.py",
+   "start_line": 742
+  },
+  "name": "select",
+  "selection_char": 8,
+  "selection_line": 742
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 24,
+   "file": "src/packaging/requirements.py",
+   "start_line": 23
+  },
+  "name": "__dir__",
+  "selection_char": 4,
+  "selection_line": 23
+ },
+ {
+  "container": "Requirement",
+  "kind": "method",
+  "location": {
+   "end_line": 75,
+   "file": "src/packaging/requirements.py",
+   "start_line": 62
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 62
+ },
+ {
+  "container": "Requirement",
+  "kind": "method",
+  "location": {
+   "end_line": 93,
+   "file": "src/packaging/requirements.py",
+   "start_line": 77
+  },
+  "name": "_iter_parts",
+  "selection_char": 8,
+  "selection_line": 77
+ },
+ {
+  "container": "Requirement",
+  "kind": "method",
+  "location": {
+   "end_line": 100,
+   "file": "src/packaging/requirements.py",
+   "start_line": 95
+  },
+  "name": "__getstate__",
+  "selection_char": 8,
+  "selection_line": 95
+ },
+ {
+  "container": "Requirement",
+  "kind": "method",
+  "location": {
+   "end_line": 131,
+   "file": "src/packaging/requirements.py",
+   "start_line": 102
+  },
+  "name": "__setstate__",
+  "selection_char": 8,
+  "selection_line": 102
+ },
+ {
+  "container": "Requirement",
+  "kind": "method",
+  "location": {
+   "end_line": 134,
+   "file": "src/packaging/requirements.py",
+   "start_line": 133
+  },
+  "name": "__str__",
+  "selection_char": 8,
+  "selection_line": 133
+ },
+ {
+  "container": "Requirement",
+  "kind": "method",
+  "location": {
+   "end_line": 137,
+   "file": "src/packaging/requirements.py",
+   "start_line": 136
+  },
+  "name": "__repr__",
+  "selection_char": 8,
+  "selection_line": 136
+ },
+ {
+  "container": "Requirement",
+  "kind": "method",
+  "location": {
+   "end_line": 153,
+   "file": "src/packaging/requirements.py",
+   "start_line": 139
+  },
+  "name": "__hash__",
+  "selection_char": 8,
+  "selection_line": 139
+ },
+ {
+  "container": "Requirement",
+  "kind": "method",
+  "location": {
+   "end_line": 165,
+   "file": "src/packaging/requirements.py",
+   "start_line": 155
+  },
+  "name": "__eq__",
+  "selection_char": 8,
+  "selection_line": 155
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 60,
+   "file": "src/packaging/specifiers.py",
+   "start_line": 59
+  },
+  "name": "__dir__",
+  "selection_char": 4,
+  "selection_line": 59
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 69,
+   "file": "src/packaging/specifiers.py",
+   "start_line": 63
+  },
+  "name": "_validate_spec",
+  "selection_char": 4,
+  "selection_line": 63
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 73,
+   "file": "src/packaging/specifiers.py",
+   "start_line": 72
+  },
+  "name": "_validate_pre",
+  "selection_char": 4,
+  "selection_line": 72
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 118,
+   "file": "src/packaging/specifiers.py",
+   "start_line": 92
+  },
+  "name": "_fast_match",
+  "selection_char": 4,
+  "selection_line": 92
+ },
+ {
+  "container": "BaseSpecifier",
+  "kind": "method",
+  "location": {
+   "end_line": 140,
+   "file": "src/packaging/specifiers.py",
+   "start_line": 137
+  },
+  "name": "_str",
+  "selection_char": 8,
+  "selection_line": 138
+ },
+ {
+  "container": "BaseSpecifier",
+  "kind": "method",
+  "location": {
+   "end_line": 147,
+   "file": "src/packaging/specifiers.py",
+   "start_line": 142
+  },
+  "name": "__str__",
+  "selection_char": 8,
+  "selection_line": 143
+ },
+ {
+  "container": "BaseSpecifier",
+  "kind": "method",
+  "location": {
+   "end_line": 153,
+   "file": "src/packaging/specifiers.py",
+   "start_line": 149
+  },
+  "name": "__hash__",
+  "selection_char": 8,
+  "selection_line": 150
+ },
+ {
+  "container": "BaseSpecifier",
+  "kind": "method",
+  "location": {
+   "end_line": 162,
+   "file": "src/packaging/specifiers.py",
+   "start_line": 155
+  },
+  "name": "__eq__",
+  "selection_char": 8,
+  "selection_line": 156
+ },
+ {
+  "container": "BaseSpecifier",
+  "kind": "method",
+  "location": {
+   "end_line": 178,
+   "file": "src/packaging/specifiers.py",
+   "start_line": 173
+  },
+  "name": "prereleases",
+  "selection_char": 8,
+  "selection_line": 174
+ },
+ {
+  "container": "BaseSpecifier",
+  "kind": "method",
+  "location": {
+   "end_line": 184,
+   "file": "src/packaging/specifiers.py",
+   "start_line": 180
+  },
+  "name": "contains",
+  "selection_char": 8,
+  "selection_line": 181
+ },
+ {
+  "container": "BaseSpecifier",
+  "kind": "method",
+  "location": {
+   "end_line": 212,
+   "file": "src/packaging/specifiers.py",
+   "start_line": 202
+  },
+  "name": "filter",
+  "selection_char": 8,
+  "selection_line": 203
+ },
+ {
+  "container": "Specifier",
+  "kind": "method",
+  "location": {
+   "end_line": 383,
+   "file": "src/packaging/specifiers.py",
+   "start_line": 350
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 350
+ },
+ {
+  "container": "Specifier",
+  "kind": "method",
+  "location": {
+   "end_line": 395,
+   "file": "src/packaging/specifiers.py",
+   "start_line": 385
+  },
+  "name": "_get_spec_version",
+  "selection_char": 8,
+  "selection_line": 385
+ },
+ {
+  "container": "Specifier",
+  "kind": "method",
+  "location": {
+   "end_line": 405,
+   "file": "src/packaging/specifiers.py",
+   "start_line": 397
+  },
+  "name": "_require_spec_version",
+  "selection_char": 8,
+  "selection_line": 397
+ },
+ {
+  "container": "Specifier",
+  "kind": "method",
+  "location": {
+   "end_line": 426,
+   "file": "src/packaging/specifiers.py",
+   "start_line": 407
+  },
+  "name": "_to_ranges",
+  "selection_char": 8,
+  "selection_line": 407
+ },
+ {
+  "container": "Specifier",
+  "kind": "method",
+  "location": {
+   "end_line": 458,
+   "file": "src/packaging/specifiers.py",
+   "start_line": 456
+  },
+  "name": "prereleases",
+  "selection_char": 8,
+  "selection_line": 457
+ },
+ {
+  "container": "Specifier",
+  "kind": "method",
+  "location": {
+   "end_line": 464,
+   "file": "src/packaging/specifiers.py",
+   "start_line": 460
+  },
+  "name": "__getstate__",
+  "selection_char": 8,
+  "selection_line": 460
+ },
+ {
+  "container": "Specifier",
+  "kind": "method",
+  "location": {
+   "end_line": 497,
+   "file": "src/packaging/specifiers.py",
+   "start_line": 466
+  },
+  "name": "__setstate__",
+  "selection_char": 8,
+  "selection_line": 466
+ },
+ {
+  "container": "Specifier",
+  "kind": "method",
+  "location": {
+   "end_line": 506,
+   "file": "src/packaging/specifiers.py",
+   "start_line": 499
+  },
+  "name": "operator",
+  "selection_char": 8,
+  "selection_line": 500
+ },
+ {
+  "container": "Specifier",
+  "kind": "method",
+  "location": {
+   "end_line": 515,
+   "file": "src/packaging/specifiers.py",
+   "start_line": 508
+  },
+  "name": "version",
+  "selection_char": 8,
+  "selection_line": 509
+ },
+ {
+  "container": "Specifier",
+  "kind": "method",
+  "location": {
+   "end_line": 533,
+   "file": "src/packaging/specifiers.py",
+   "start_line": 517
+  },
+  "name": "__repr__",
+  "selection_char": 8,
+  "selection_line": 517
+ },
+ {
+  "container": "Specifier",
+  "kind": "method",
+  "location": {
+   "end_line": 543,
+   "file": "src/packaging/specifiers.py",
+   "start_line": 535
+  },
+  "name": "__str__",
+  "selection_char": 8,
+  "selection_line": 535
+ },
+ {
+  "container": "Specifier",
+  "kind": "method",
+  "location": {
+   "end_line": 557,
+   "file": "src/packaging/specifiers.py",
+   "start_line": 545
+  },
+  "name": "_canonical_spec",
+  "selection_char": 8,
+  "selection_line": 546
+ },
+ {
+  "container": "Specifier",
+  "kind": "method",
+  "location": {
+   "end_line": 560,
+   "file": "src/packaging/specifiers.py",
+   "start_line": 559
+  },
+  "name": "__hash__",
+  "selection_char": 8,
+  "selection_line": 559
+ },
+ {
+  "container": "Specifier",
+  "kind": "method",
+  "location": {
+   "end_line": 589,
+   "file": "src/packaging/specifiers.py",
+   "start_line": 562
+  },
+  "name": "__eq__",
+  "selection_char": 8,
+  "selection_line": 562
+ },
+ {
+  "container": "Specifier",
+  "kind": "method",
+  "location": {
+   "end_line": 610,
+   "file": "src/packaging/specifiers.py",
+   "start_line": 591
+  },
+  "name": "__contains__",
+  "selection_char": 8,
+  "selection_line": 591
+ },
+ {
+  "container": "Specifier",
+  "kind": "method",
+  "location": {
+   "end_line": 658,
+   "file": "src/packaging/specifiers.py",
+   "start_line": 612
+  },
+  "name": "contains",
+  "selection_char": 8,
+  "selection_line": 612
+ },
+ {
+  "container": "Specifier",
+  "kind": "method",
+  "location": {
+   "end_line": 728,
+   "file": "src/packaging/specifiers.py",
+   "start_line": 676
+  },
+  "name": "filter",
+  "selection_char": 8,
+  "selection_line": 676
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 750,
+   "file": "src/packaging/specifiers.py",
+   "start_line": 731
+  },
+  "name": "_apply_prereleases_filter",
+  "selection_char": 4,
+  "selection_line": 731
+ },
+ {
+  "container": "SpecifierSet",
+  "kind": "method",
+  "location": {
+   "end_line": 823,
+   "file": "src/packaging/specifiers.py",
+   "start_line": 781
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 781
+ },
+ {
+  "container": "SpecifierSet",
+  "kind": "method",
+  "location": {
+   "end_line": 830,
+   "file": "src/packaging/specifiers.py",
+   "start_line": 825
+  },
+  "name": "_canonical_specs",
+  "selection_char": 8,
+  "selection_line": 825
+ },
+ {
+  "container": "SpecifierSet",
+  "kind": "method",
+  "location": {
+   "end_line": 855,
+   "file": "src/packaging/specifiers.py",
+   "start_line": 852
+  },
+  "name": "prereleases",
+  "selection_char": 8,
+  "selection_line": 853
+ },
+ {
+  "container": "SpecifierSet",
+  "kind": "method",
+  "location": {
+   "end_line": 861,
+   "file": "src/packaging/specifiers.py",
+   "start_line": 857
+  },
+  "name": "__getstate__",
+  "selection_char": 8,
+  "selection_line": 857
+ },
+ {
+  "container": "SpecifierSet",
+  "kind": "method",
+  "location": {
+   "end_line": 918,
+   "file": "src/packaging/specifiers.py",
+   "start_line": 863
+  },
+  "name": "__setstate__",
+  "selection_char": 8,
+  "selection_line": 863
+ },
+ {
+  "container": "SpecifierSet",
+  "kind": "method",
+  "location": {
+   "end_line": 939,
+   "file": "src/packaging/specifiers.py",
+   "start_line": 920
+  },
+  "name": "__repr__",
+  "selection_char": 8,
+  "selection_line": 920
+ },
+ {
+  "container": "SpecifierSet",
+  "kind": "method",
+  "location": {
+   "end_line": 952,
+   "file": "src/packaging/specifiers.py",
+   "start_line": 941
+  },
+  "name": "__str__",
+  "selection_char": 8,
+  "selection_line": 941
+ },
+ {
+  "container": "SpecifierSet",
+  "kind": "method",
+  "location": {
+   "end_line": 955,
+   "file": "src/packaging/specifiers.py",
+   "start_line": 954
+  },
+  "name": "__hash__",
+  "selection_char": 8,
+  "selection_line": 954
+ },
+ {
+  "container": "SpecifierSet",
+  "kind": "method",
+  "location": {
+   "end_line": 987,
+   "file": "src/packaging/specifiers.py",
+   "start_line": 957
+  },
+  "name": "__and__",
+  "selection_char": 8,
+  "selection_line": 957
+ },
+ {
+  "container": "SpecifierSet",
+  "kind": "method",
+  "location": {
+   "end_line": 1013,
+   "file": "src/packaging/specifiers.py",
+   "start_line": 989
+  },
+  "name": "__eq__",
+  "selection_char": 8,
+  "selection_line": 989
+ },
+ {
+  "container": "SpecifierSet",
+  "kind": "method",
+  "location": {
+   "end_line": 1017,
+   "file": "src/packaging/specifiers.py",
+   "start_line": 1015
+  },
+  "name": "__len__",
+  "selection_char": 8,
+  "selection_line": 1015
+ },
+ {
+  "container": "SpecifierSet",
+  "kind": "method",
+  "location": {
+   "end_line": 1027,
+   "file": "src/packaging/specifiers.py",
+   "start_line": 1019
+  },
+  "name": "__iter__",
+  "selection_char": 8,
+  "selection_line": 1019
+ },
+ {
+  "container": "SpecifierSet",
+  "kind": "method",
+  "location": {
+   "end_line": 1039,
+   "file": "src/packaging/specifiers.py",
+   "start_line": 1029
+  },
+  "name": "_get_ranges",
+  "selection_char": 8,
+  "selection_line": 1029
+ },
+ {
+  "container": "SpecifierSet",
+  "kind": "method",
+  "location": {
+   "end_line": 1074,
+   "file": "src/packaging/specifiers.py",
+   "start_line": 1041
+  },
+  "name": "is_unsatisfiable",
+  "selection_char": 8,
+  "selection_line": 1041
+ },
+ {
+  "container": "SpecifierSet",
+  "kind": "method",
+  "location": {
+   "end_line": 1113,
+   "file": "src/packaging/specifiers.py",
+   "start_line": 1076
+  },
+  "name": "_check_arbitrary_unsatisfiable",
+  "selection_char": 8,
+  "selection_line": 1076
+ },
+ {
+  "container": "SpecifierSet",
+  "kind": "method",
+  "location": {
+   "end_line": 1134,
+   "file": "src/packaging/specifiers.py",
+   "start_line": 1115
+  },
+  "name": "__contains__",
+  "selection_char": 8,
+  "selection_line": 1115
+ },
+ {
+  "container": "SpecifierSet",
+  "kind": "method",
+  "location": {
+   "end_line": 1214,
+   "file": "src/packaging/specifiers.py",
+   "start_line": 1136
+  },
+  "name": "contains",
+  "selection_char": 8,
+  "selection_line": 1136
+ },
+ {
+  "container": "SpecifierSet",
+  "kind": "method",
+  "location": {
+   "end_line": 1310,
+   "file": "src/packaging/specifiers.py",
+   "start_line": 1232
+  },
+  "name": "filter",
+  "selection_char": 8,
+  "selection_line": 1232
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1352,
+   "file": "src/packaging/specifiers.py",
+   "start_line": 1313
+  },
+  "name": "_pep440_filter_prereleases",
+  "selection_char": 4,
+  "selection_line": 1313
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 53,
+   "file": "src/packaging/tags.py",
+   "start_line": 52
+  },
+  "name": "__dir__",
+  "selection_char": 4,
+  "selection_line": 52
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 74,
+   "file": "src/packaging/tags.py",
+   "start_line": 73
+  },
+  "name": "_compute_32_bit_interpreter",
+  "selection_char": 4,
+  "selection_line": 73
+ },
+ {
+  "container": "Tag",
+  "kind": "method",
+  "location": {
+   "end_line": 133,
+   "file": "src/packaging/tags.py",
+   "start_line": 116
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 116
+ },
+ {
+  "container": "Tag",
+  "kind": "method",
+  "location": {
+   "end_line": 142,
+   "file": "src/packaging/tags.py",
+   "start_line": 135
+  },
+  "name": "interpreter",
+  "selection_char": 8,
+  "selection_line": 136
+ },
+ {
+  "container": "Tag",
+  "kind": "method",
+  "location": {
+   "end_line": 149,
+   "file": "src/packaging/tags.py",
+   "start_line": 144
+  },
+  "name": "abi",
+  "selection_char": 8,
+  "selection_line": 145
+ },
+ {
+  "container": "Tag",
+  "kind": "method",
+  "location": {
+   "end_line": 156,
+   "file": "src/packaging/tags.py",
+   "start_line": 151
+  },
+  "name": "platform",
+  "selection_char": 8,
+  "selection_line": 152
+ },
+ {
+  "container": "Tag",
+  "kind": "method",
+  "location": {
+   "end_line": 167,
+   "file": "src/packaging/tags.py",
+   "start_line": 158
+  },
+  "name": "__eq__",
+  "selection_char": 8,
+  "selection_line": 158
+ },
+ {
+  "container": "Tag",
+  "kind": "method",
+  "location": {
+   "end_line": 170,
+   "file": "src/packaging/tags.py",
+   "start_line": 169
+  },
+  "name": "__hash__",
+  "selection_char": 8,
+  "selection_line": 169
+ },
+ {
+  "container": "Tag",
+  "kind": "method",
+  "location": {
+   "end_line": 173,
+   "file": "src/packaging/tags.py",
+   "start_line": 172
+  },
+  "name": "__str__",
+  "selection_char": 8,
+  "selection_line": 172
+ },
+ {
+  "container": "Tag",
+  "kind": "method",
+  "location": {
+   "end_line": 176,
+   "file": "src/packaging/tags.py",
+   "start_line": 175
+  },
+  "name": "__repr__",
+  "selection_char": 8,
+  "selection_line": 175
+ },
+ {
+  "container": "Tag",
+  "kind": "method",
+  "location": {
+   "end_line": 181,
+   "file": "src/packaging/tags.py",
+   "start_line": 178
+  },
+  "name": "__getstate__",
+  "selection_char": 8,
+  "selection_line": 178
+ },
+ {
+  "container": "Tag",
+  "kind": "method",
+  "location": {
+   "end_line": 208,
+   "file": "src/packaging/tags.py",
+   "start_line": 183
+  },
+  "name": "__setstate__",
+  "selection_char": 8,
+  "selection_line": 183
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 254,
+   "file": "src/packaging/tags.py",
+   "start_line": 211
+  },
+  "name": "parse_tag",
+  "selection_char": 4,
+  "selection_line": 211
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 263,
+   "file": "src/packaging/tags.py",
+   "start_line": 257
+  },
+  "name": "_get_config_var",
+  "selection_char": 4,
+  "selection_line": 257
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 267,
+   "file": "src/packaging/tags.py",
+   "start_line": 266
+  },
+  "name": "_normalize_string",
+  "selection_char": 4,
+  "selection_line": 266
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 283,
+   "file": "src/packaging/tags.py",
+   "start_line": 270
+  },
+  "name": "_is_threaded_cpython",
+  "selection_char": 4,
+  "selection_line": 270
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 293,
+   "file": "src/packaging/tags.py",
+   "start_line": 286
+  },
+  "name": "_abi3_applies",
+  "selection_char": 4,
+  "selection_line": 286
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 306,
+   "file": "src/packaging/tags.py",
+   "start_line": 296
+  },
+  "name": "_abi3t_applies",
+  "selection_char": 4,
+  "selection_line": 296
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 339,
+   "file": "src/packaging/tags.py",
+   "start_line": 309
+  },
+  "name": "_cpython_abis",
+  "selection_char": 4,
+  "selection_line": 309
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 418,
+   "file": "src/packaging/tags.py",
+   "start_line": 342
+  },
+  "name": "cpython_tags",
+  "selection_char": 4,
+  "selection_line": 342
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 459,
+   "file": "src/packaging/tags.py",
+   "start_line": 421
+  },
+  "name": "_generic_abi",
+  "selection_char": 4,
+  "selection_line": 421
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 500,
+   "file": "src/packaging/tags.py",
+   "start_line": 462
+  },
+  "name": "generic_tags",
+  "selection_char": 4,
+  "selection_line": 462
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 515,
+   "file": "src/packaging/tags.py",
+   "start_line": 503
+  },
+  "name": "_py_interpreter_range",
+  "selection_char": 4,
+  "selection_line": 503
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 550,
+   "file": "src/packaging/tags.py",
+   "start_line": 518
+  },
+  "name": "compatible_tags",
+  "selection_char": 4,
+  "selection_line": 518
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 560,
+   "file": "src/packaging/tags.py",
+   "start_line": 553
+  },
+  "name": "_mac_arch",
+  "selection_char": 4,
+  "selection_line": 553
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 592,
+   "file": "src/packaging/tags.py",
+   "start_line": 563
+  },
+  "name": "_mac_binary_formats",
+  "selection_char": 4,
+  "selection_line": 563
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 683,
+   "file": "src/packaging/tags.py",
+   "start_line": 595
+  },
+  "name": "mac_platforms",
+  "selection_char": 4,
+  "selection_line": 595
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 745,
+   "file": "src/packaging/tags.py",
+   "start_line": 686
+  },
+  "name": "ios_platforms",
+  "selection_char": 4,
+  "selection_line": 686
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 782,
+   "file": "src/packaging/tags.py",
+   "start_line": 748
+  },
+  "name": "android_platforms",
+  "selection_char": 4,
+  "selection_line": 748
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 801,
+   "file": "src/packaging/tags.py",
+   "start_line": 785
+  },
+  "name": "_linux_platforms",
+  "selection_char": 4,
+  "selection_line": 785
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 810,
+   "file": "src/packaging/tags.py",
+   "start_line": 804
+  },
+  "name": "_emscripten_platforms",
+  "selection_char": 4,
+  "selection_line": 804
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 814,
+   "file": "src/packaging/tags.py",
+   "start_line": 813
+  },
+  "name": "_generic_platforms",
+  "selection_char": 4,
+  "selection_line": 813
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 832,
+   "file": "src/packaging/tags.py",
+   "start_line": 817
+  },
+  "name": "platform_tags",
+  "selection_char": 4,
+  "selection_line": 817
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 845,
+   "file": "src/packaging/tags.py",
+   "start_line": 835
+  },
+  "name": "interpreter_name",
+  "selection_char": 4,
+  "selection_line": 835
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 857,
+   "file": "src/packaging/tags.py",
+   "start_line": 848
+  },
+  "name": "interpreter_version",
+  "selection_char": 4,
+  "selection_line": 848
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 861,
+   "file": "src/packaging/tags.py",
+   "start_line": 860
+  },
+  "name": "_version_nodot",
+  "selection_char": 4,
+  "selection_line": 860
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 908,
+   "file": "src/packaging/tags.py",
+   "start_line": 864
+  },
+  "name": "sys_tags",
+  "selection_char": 4,
+  "selection_line": 864
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 954,
+   "file": "src/packaging/tags.py",
+   "start_line": 911
+  },
+  "name": "create_compatible_tags_selector",
+  "selection_char": 4,
+  "selection_line": 911
+ },
+ {
+  "container": "create_compatible_tags_selector",
+  "kind": "function",
+  "location": {
+   "end_line": 952,
+   "file": "src/packaging/tags.py",
+   "start_line": 941
+  },
+  "name": "selector",
+  "selection_char": 8,
+  "selection_line": 941
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 28,
+   "file": "src/packaging/utils.py",
+   "start_line": 27
+  },
+  "name": "__dir__",
+  "selection_char": 4,
+  "selection_line": 27
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 107,
+   "file": "src/packaging/utils.py",
+   "start_line": 68
+  },
+  "name": "canonicalize_name",
+  "selection_char": 4,
+  "selection_line": 68
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 123,
+   "file": "src/packaging/utils.py",
+   "start_line": 110
+  },
+  "name": "is_normalized_name",
+  "selection_char": 4,
+  "selection_line": 110
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 161,
+   "file": "src/packaging/utils.py",
+   "start_line": 126
+  },
+  "name": "canonicalize_version",
+  "selection_char": 4,
+  "selection_line": 126
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 260,
+   "file": "src/packaging/utils.py",
+   "start_line": 164
+  },
+  "name": "parse_wheel_filename",
+  "selection_char": 4,
+  "selection_line": 164
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 311,
+   "file": "src/packaging/utils.py",
+   "start_line": 263
+  },
+  "name": "parse_sdist_filename",
+  "selection_char": 4,
+  "selection_line": 263
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 66,
+   "file": "src/packaging/version.py",
+   "start_line": 65
+  },
+  "name": "__dir__",
+  "selection_char": 4,
+  "selection_line": 65
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 107,
+   "file": "src/packaging/version.py",
+   "start_line": 89
+  },
+  "name": "normalize_pre",
+  "selection_char": 4,
+  "selection_line": 89
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 121,
+   "file": "src/packaging/version.py",
+   "start_line": 110
+  },
+  "name": "parse",
+  "selection_char": 4,
+  "selection_line": 110
+ },
+ {
+  "container": "_BaseVersion",
+  "kind": "method",
+  "location": {
+   "end_line": 143,
+   "file": "src/packaging/version.py",
+   "start_line": 142
+  },
+  "name": "_key",
+  "selection_char": 12,
+  "selection_line": 143
+ },
+ {
+  "container": "_BaseVersion",
+  "kind": "method",
+  "location": {
+   "end_line": 146,
+   "file": "src/packaging/version.py",
+   "start_line": 145
+  },
+  "name": "__hash__",
+  "selection_char": 8,
+  "selection_line": 145
+ },
+ {
+  "container": "_BaseVersion",
+  "kind": "method",
+  "location": {
+   "end_line": 155,
+   "file": "src/packaging/version.py",
+   "start_line": 151
+  },
+  "name": "__lt__",
+  "selection_char": 8,
+  "selection_line": 151
+ },
+ {
+  "container": "_BaseVersion",
+  "kind": "method",
+  "location": {
+   "end_line": 161,
+   "file": "src/packaging/version.py",
+   "start_line": 157
+  },
+  "name": "__le__",
+  "selection_char": 8,
+  "selection_line": 157
+ },
+ {
+  "container": "_BaseVersion",
+  "kind": "method",
+  "location": {
+   "end_line": 167,
+   "file": "src/packaging/version.py",
+   "start_line": 163
+  },
+  "name": "__eq__",
+  "selection_char": 8,
+  "selection_line": 163
+ },
+ {
+  "container": "_BaseVersion",
+  "kind": "method",
+  "location": {
+   "end_line": 173,
+   "file": "src/packaging/version.py",
+   "start_line": 169
+  },
+  "name": "__ge__",
+  "selection_char": 8,
+  "selection_line": 169
+ },
+ {
+  "container": "_BaseVersion",
+  "kind": "method",
+  "location": {
+   "end_line": 179,
+   "file": "src/packaging/version.py",
+   "start_line": 175
+  },
+  "name": "__gt__",
+  "selection_char": 8,
+  "selection_line": 175
+ },
+ {
+  "container": "_BaseVersion",
+  "kind": "method",
+  "location": {
+   "end_line": 185,
+   "file": "src/packaging/version.py",
+   "start_line": 181
+  },
+  "name": "__ne__",
+  "selection_char": 8,
+  "selection_line": 181
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 270,
+   "file": "src/packaging/version.py",
+   "start_line": 265
+  },
+  "name": "_validate_epoch",
+  "selection_char": 4,
+  "selection_line": 265
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 282,
+   "file": "src/packaging/version.py",
+   "start_line": 273
+  },
+  "name": "_validate_release",
+  "selection_char": 4,
+  "selection_line": 273
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 295,
+   "file": "src/packaging/version.py",
+   "start_line": 285
+  },
+  "name": "_validate_pre",
+  "selection_char": 4,
+  "selection_line": 285
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 304,
+   "file": "src/packaging/version.py",
+   "start_line": 298
+  },
+  "name": "_validate_post",
+  "selection_char": 4,
+  "selection_line": 298
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 313,
+   "file": "src/packaging/version.py",
+   "start_line": 307
+  },
+  "name": "_validate_dev",
+  "selection_char": 4,
+  "selection_line": 307
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 322,
+   "file": "src/packaging/version.py",
+   "start_line": 316
+  },
+  "name": "_validate_local",
+  "selection_char": 4,
+  "selection_line": 316
+ },
+ {
+  "container": "Version",
+  "kind": "method",
+  "location": {
+   "end_line": 451,
+   "file": "src/packaging/version.py",
+   "start_line": 403
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 403
+ },
+ {
+  "container": "Version",
+  "kind": "method",
+  "location": {
+   "end_line": 498,
+   "file": "src/packaging/version.py",
+   "start_line": 453
+  },
+  "name": "from_parts",
+  "selection_char": 8,
+  "selection_line": 454
+ },
+ {
+  "container": "Version",
+  "kind": "method",
+  "location": {
+   "end_line": 556,
+   "file": "src/packaging/version.py",
+   "start_line": 500
+  },
+  "name": "__replace__",
+  "selection_char": 8,
+  "selection_line": 500
+ },
+ {
+  "container": "Version",
+  "kind": "method",
+  "location": {
+   "end_line": 569,
+   "file": "src/packaging/version.py",
+   "start_line": 558
+  },
+  "name": "_key",
+  "selection_char": 8,
+  "selection_line": 559
+ },
+ {
+  "container": "Version",
+  "kind": "method",
+  "location": {
+   "end_line": 587,
+   "file": "src/packaging/version.py",
+   "start_line": 573
+  },
+  "name": "__hash__",
+  "selection_char": 8,
+  "selection_line": 573
+ },
+ {
+  "container": "Version",
+  "kind": "method",
+  "location": {
+   "end_line": 616,
+   "file": "src/packaging/version.py",
+   "start_line": 591
+  },
+  "name": "__lt__",
+  "selection_char": 8,
+  "selection_line": 591
+ },
+ {
+  "container": "Version",
+  "kind": "method",
+  "location": {
+   "end_line": 643,
+   "file": "src/packaging/version.py",
+   "start_line": 618
+  },
+  "name": "__le__",
+  "selection_char": 8,
+  "selection_line": 618
+ },
+ {
+  "container": "Version",
+  "kind": "method",
+  "location": {
+   "end_line": 670,
+   "file": "src/packaging/version.py",
+   "start_line": 645
+  },
+  "name": "__eq__",
+  "selection_char": 8,
+  "selection_line": 645
+ },
+ {
+  "container": "Version",
+  "kind": "method",
+  "location": {
+   "end_line": 697,
+   "file": "src/packaging/version.py",
+   "start_line": 672
+  },
+  "name": "__ge__",
+  "selection_char": 8,
+  "selection_line": 672
+ },
+ {
+  "container": "Version",
+  "kind": "method",
+  "location": {
+   "end_line": 724,
+   "file": "src/packaging/version.py",
+   "start_line": 699
+  },
+  "name": "__gt__",
+  "selection_char": 8,
+  "selection_line": 699
+ },
+ {
+  "container": "Version",
+  "kind": "method",
+  "location": {
+   "end_line": 751,
+   "file": "src/packaging/version.py",
+   "start_line": 726
+  },
+  "name": "__ne__",
+  "selection_char": 8,
+  "selection_line": 726
+ },
+ {
+  "container": "Version",
+  "kind": "method",
+  "location": {
+   "end_line": 773,
+   "file": "src/packaging/version.py",
+   "start_line": 753
+  },
+  "name": "__getstate__",
+  "selection_char": 8,
+  "selection_line": 753
+ },
+ {
+  "container": "Version",
+  "kind": "method",
+  "location": {
+   "end_line": 818,
+   "file": "src/packaging/version.py",
+   "start_line": 775
+  },
+  "name": "__setstate__",
+  "selection_char": 8,
+  "selection_line": 775
+ },
+ {
+  "container": "Version",
+  "kind": "method",
+  "location": {
+   "end_line": 837,
+   "file": "src/packaging/version.py",
+   "start_line": 827
+  },
+  "name": "_version",
+  "selection_char": 8,
+  "selection_line": 829
+ },
+ {
+  "container": "Version",
+  "kind": "method",
+  "location": {
+   "end_line": 845,
+   "file": "src/packaging/version.py",
+   "start_line": 839
+  },
+  "name": "__repr__",
+  "selection_char": 8,
+  "selection_line": 839
+ },
+ {
+  "container": "Version",
+  "kind": "method",
+  "location": {
+   "end_line": 876,
+   "file": "src/packaging/version.py",
+   "start_line": 847
+  },
+  "name": "__str__",
+  "selection_char": 8,
+  "selection_line": 847
+ },
+ {
+  "container": "Version",
+  "kind": "method",
+  "location": {
+   "end_line": 881,
+   "file": "src/packaging/version.py",
+   "start_line": 878
+  },
+  "name": "_str",
+  "selection_char": 8,
+  "selection_line": 879
+ },
+ {
+  "container": "Version",
+  "kind": "method",
+  "location": {
+   "end_line": 892,
+   "file": "src/packaging/version.py",
+   "start_line": 883
+  },
+  "name": "epoch",
+  "selection_char": 8,
+  "selection_line": 884
+ },
+ {
+  "container": "Version",
+  "kind": "method",
+  "location": {
+   "end_line": 908,
+   "file": "src/packaging/version.py",
+   "start_line": 894
+  },
+  "name": "release",
+  "selection_char": 8,
+  "selection_line": 895
+ },
+ {
+  "container": "Version",
+  "kind": "method",
+  "location": {
+   "end_line": 923,
+   "file": "src/packaging/version.py",
+   "start_line": 910
+  },
+  "name": "pre",
+  "selection_char": 8,
+  "selection_line": 911
+ },
+ {
+  "container": "Version",
+  "kind": "method",
+  "location": {
+   "end_line": 934,
+   "file": "src/packaging/version.py",
+   "start_line": 925
+  },
+  "name": "post",
+  "selection_char": 8,
+  "selection_line": 926
+ },
+ {
+  "container": "Version",
+  "kind": "method",
+  "location": {
+   "end_line": 945,
+   "file": "src/packaging/version.py",
+   "start_line": 936
+  },
+  "name": "dev",
+  "selection_char": 8,
+  "selection_line": 937
+ },
+ {
+  "container": "Version",
+  "kind": "method",
+  "location": {
+   "end_line": 959,
+   "file": "src/packaging/version.py",
+   "start_line": 947
+  },
+  "name": "local",
+  "selection_char": 8,
+  "selection_line": 948
+ },
+ {
+  "container": "Version",
+  "kind": "method",
+  "location": {
+   "end_line": 975,
+   "file": "src/packaging/version.py",
+   "start_line": 961
+  },
+  "name": "public",
+  "selection_char": 8,
+  "selection_line": 962
+ },
+ {
+  "container": "Version",
+  "kind": "method",
+  "location": {
+   "end_line": 996,
+   "file": "src/packaging/version.py",
+   "start_line": 977
+  },
+  "name": "base_version",
+  "selection_char": 8,
+  "selection_line": 978
+ },
+ {
+  "container": "Version",
+  "kind": "method",
+  "location": {
+   "end_line": 1013,
+   "file": "src/packaging/version.py",
+   "start_line": 998
+  },
+  "name": "is_prerelease",
+  "selection_char": 8,
+  "selection_line": 999
+ },
+ {
+  "container": "Version",
+  "kind": "method",
+  "location": {
+   "end_line": 1024,
+   "file": "src/packaging/version.py",
+   "start_line": 1015
+  },
+  "name": "is_postrelease",
+  "selection_char": 8,
+  "selection_line": 1016
+ },
+ {
+  "container": "Version",
+  "kind": "method",
+  "location": {
+   "end_line": 1035,
+   "file": "src/packaging/version.py",
+   "start_line": 1026
+  },
+  "name": "is_devrelease",
+  "selection_char": 8,
+  "selection_line": 1027
+ },
+ {
+  "container": "Version",
+  "kind": "method",
+  "location": {
+   "end_line": 1044,
+   "file": "src/packaging/version.py",
+   "start_line": 1037
+  },
+  "name": "major",
+  "selection_char": 8,
+  "selection_line": 1038
+ },
+ {
+  "container": "Version",
+  "kind": "method",
+  "location": {
+   "end_line": 1055,
+   "file": "src/packaging/version.py",
+   "start_line": 1046
+  },
+  "name": "minor",
+  "selection_char": 8,
+  "selection_line": 1047
+ },
+ {
+  "container": "Version",
+  "kind": "method",
+  "location": {
+   "end_line": 1066,
+   "file": "src/packaging/version.py",
+   "start_line": 1057
+  },
+  "name": "micro",
+  "selection_char": 8,
+  "selection_line": 1058
+ },
+ {
+  "container": "_TrimmedRelease",
+  "kind": "method",
+  "location": {
+   "end_line": 1082,
+   "file": "src/packaging/version.py",
+   "start_line": 1072
+  },
+  "name": "__init__",
+  "selection_char": 8,
+  "selection_line": 1072
+ },
+ {
+  "container": "_TrimmedRelease",
+  "kind": "method",
+  "location": {
+   "end_line": 1100,
+   "file": "src/packaging/version.py",
+   "start_line": 1084
+  },
+  "name": "release",
+  "selection_char": 8,
+  "selection_line": 1085
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1124,
+   "file": "src/packaging/version.py",
+   "start_line": 1103
+  },
+  "name": "_parse_letter_version",
+  "selection_char": 4,
+  "selection_line": 1103
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1140,
+   "file": "src/packaging/version.py",
+   "start_line": 1130
+  },
+  "name": "_parse_local_version",
+  "selection_char": 4,
+  "selection_line": 1130
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 1230,
+   "file": "src/packaging/version.py",
+   "start_line": 1156
+  },
+  "name": "_cmpkey",
+  "selection_char": 4,
+  "selection_line": 1156
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 26,
+   "file": "tasks/check.py",
+   "start_line": 22
+  },
+  "name": "_parse_version",
+  "selection_char": 4,
+  "selection_line": 22
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 140,
+   "file": "tasks/check.py",
+   "start_line": 29
+  },
+  "name": "pep440",
+  "selection_char": 4,
+  "selection_line": 30
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 34,
+   "file": "tasks/check_frozen_revs.py",
+   "start_line": 24
+  },
+  "name": "extract_frozen_tag",
+  "selection_char": 4,
+  "selection_line": 24
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 73,
+   "file": "tasks/check_frozen_revs.py",
+   "start_line": 37
+  },
+  "name": "resolve_tag_via_git",
+  "selection_char": 10,
+  "selection_line": 37
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 102,
+   "file": "tasks/check_frozen_revs.py",
+   "start_line": 76
+  },
+  "name": "validate_repo",
+  "selection_char": 10,
+  "selection_line": 76
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 115,
+   "file": "tasks/check_frozen_revs.py",
+   "start_line": 105
+  },
+  "name": "main_async",
+  "selection_char": 10,
+  "selection_line": 105
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 134,
+   "file": "tasks/check_frozen_revs.py",
+   "start_line": 118
+  },
+  "name": "main",
+  "selection_char": 4,
+  "selection_line": 118
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 28,
+   "file": "tasks/licenses.py",
+   "start_line": 22
+  },
+  "name": "download_data",
+  "selection_char": 4,
+  "selection_line": 22
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 89,
+   "file": "tasks/licenses.py",
+   "start_line": 31
+  },
+  "name": "main",
+  "selection_char": 4,
+  "selection_line": 31
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 97,
+   "file": "tasks/pickle_compat.py",
+   "start_line": 83
+  },
+  "name": "write",
+  "selection_char": 4,
+  "selection_line": 83
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 159,
+   "file": "tasks/pickle_compat.py",
+   "start_line": 100
+  },
+  "name": "verify",
+  "selection_char": 4,
+  "selection_line": 100
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 195,
+   "file": "tasks/pickle_compat.py",
+   "start_line": 162
+  },
+  "name": "main",
+  "selection_char": 4,
+  "selection_line": 162
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 20,
+   "file": "tasks/select_pypi_dist.py",
+   "start_line": 15
+  },
+  "name": "valid_requirement",
+  "selection_char": 4,
+  "selection_line": 15
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 19,
+   "file": "tasks/select_pypi_specs.py",
+   "start_line": 14
+  },
+  "name": "valid_spec",
+  "selection_char": 4,
+  "selection_line": 14
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 46,
+   "file": "tasks/select_pypi_versions.py",
+   "start_line": 30
+  },
+  "name": "classify",
+  "selection_char": 4,
+  "selection_line": 30
+ }
+]

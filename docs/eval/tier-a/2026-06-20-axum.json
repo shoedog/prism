@@ -1,0 +1,29 @@
+{
+ "meta": {
+  "baseline_invalid": true,
+  "corpus": "axum",
+  "corpus_dirty": false,
+  "corpus_dirty_reasons": [],
+  "corpus_sha": "485c603dddce",
+  "date": "2026-06-20",
+  "harness_sha": "06e6ac4ee96e",
+  "invalid_reasons": [
+   "oracle_unsupported"
+  ],
+  "oracle": "rust-analyzer 1.94.0 (4a4ef493 2026-03-02)",
+  "oracle_error_rate": 1.0,
+  "oracle_not_quiescent": false,
+  "prism_dirty": false,
+  "prism_sha": "20c8490591a3",
+  "seed": 42,
+  "stale_adjudications": 0,
+  "sut_error_rate": 0.0,
+  "wall_s": {
+   "m1_oracle_inventory": 0.921,
+   "oracle_start": 17.886
+  }
+ },
+ "probes": {
+  "_corpus": "axum"
+ }
+}
