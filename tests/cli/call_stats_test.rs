@@ -31,13 +31,14 @@ fn call_stats_reports_kind_counts_and_drops() {
 }
 
 #[test]
-fn call_stats_reports_multi_target_exact_same_name_owner_collision() {
+fn call_stats_same_name_owner_collision_demotes_out_of_multi_target_exact() {
     // Two distinct structs both literally named `Foo`, each with an associated
     // `make`, in separate files. A qualified `Foo::make()` call keys the bare
     // owner index `("Foo","make")` to BOTH defs; because both share the primary
-    // owner name "Foo", `primary_owners` does NOT exceed 1, so the TraitCha demote
-    // never fires and the site resolves to two callees at Exact (1.0) — the
-    // same-bare-name owner-key over-attribution the counter must surface.
+    // owner name "Foo", `primary_owners` does NOT exceed 1. The demote-not-drop
+    // fix emits this same-name collision at NameOnly (not Exact), so it is no
+    // longer a multi-target-Exact site and both edges land in
+    // kind_nameonly[qualified_owner].
     let dir = tempfile::tempdir().unwrap();
     std::fs::write(
         dir.path().join("a.rs"),
@@ -66,22 +67,23 @@ fn call_stats_reports_multi_target_exact_same_name_owner_collision() {
         String::from_utf8_lossy(&out.stderr)
     );
     let v: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
-    assert_eq!(v["multi_target_exact_sites"], 1);
-    // Fanout-2 bucket holds exactly this site; keyed by stringified fanout.
-    assert_eq!(v["multi_target_exact_fanout"]["2"], 1);
-    // Attributed to the qualified-owner kind that minted the colliding pool.
-    assert_eq!(v["multi_target_exact_by_kind"]["qualified_owner"], 1);
+    // After demote-not-drop: the same-name `Foo::make` collision resolves at
+    // NameOnly, so it is no longer a multi-target-Exact site, and both edges land
+    // in kind_nameonly[qualified_owner] (the unrelabeled `::`-split path).
+    assert_eq!(v["multi_target_exact_sites"], 0);
+    assert_eq!(v["kind_nameonly"]["qualified_owner"], 2);
+    assert!(v["kind_exact"].get("qualified_owner").is_none());
 }
 
 #[test]
-fn call_stats_shadow_stratifies_type_path_collision_and_runs_narrowing() {
-    // Pre-gate shadow: `a.rs` defines `Foo` AND calls `Foo::make()`; `b.rs` defines
-    // a colliding `Foo::make`. The call's `callee_name` is "Foo::make" -> `type_path`
-    // shape, and the narrowing shadow runs over it. A flat two-file repo gives the
-    // scope graph no module structure to disambiguate the two `Foo`s, so the owner
-    // type does not resolve to a single in-repo scope and the site is classified
-    // `failopen_type_unresolved` (the residual FP shape the lever cannot reclaim
-    // without a richer scope graph).
+fn call_stats_demoted_collision_absent_from_shape_and_shadow() {
+    // `a.rs` defines `Foo` AND calls `Foo::make()`; `b.rs` defines a colliding
+    // `Foo::make`. After demote-not-drop the call resolves NameOnly, so it is no
+    // longer multi-target-Exact: the shape/shadow stratification (gated on >=2
+    // Exact edges) does not run, and both edges land in kind_nameonly[qualified_owner].
+    // (The shape/shadow counters stay in the code — forward instrument for the
+    // completeness-gate follow-on, where ruff gains a scope graph and the shadow
+    // again measures live narrowability.)
     let dir = tempfile::tempdir().unwrap();
     std::fs::write(
         dir.path().join("a.rs"),
@@ -105,12 +107,12 @@ fn call_stats_shadow_stratifies_type_path_collision_and_runs_narrowing() {
         String::from_utf8_lossy(&out.stderr)
     );
     let v: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
-    assert_eq!(v["multi_target_exact_sites"], 1);
-    // The colliding site is recognized as a type-path (`T::m`) shape...
-    assert_eq!(v["multi_target_exact_shape"]["type_path"], 1);
-    // ...and the narrowing shadow runs over it and classifies it (here the owner
-    // type cannot be resolved to a single in-repo scope -> fail-open).
-    assert_eq!(v["shadow_typepath_narrow"]["failopen_type_unresolved"], 1);
+    // Demoted: no multi-target-Exact site, so the shape and shadow maps are empty,
+    // and both edges are NameOnly qualified_owner.
+    assert_eq!(v["multi_target_exact_sites"], 0);
+    assert_eq!(v["multi_target_exact_shape"].as_object().unwrap().len(), 0);
+    assert_eq!(v["shadow_typepath_narrow"].as_object().unwrap().len(), 0);
+    assert_eq!(v["kind_nameonly"]["qualified_owner"], 2);
 }
 
 #[test]
