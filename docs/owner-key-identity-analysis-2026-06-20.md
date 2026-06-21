@@ -6,8 +6,9 @@ same-named types both owning the same method conflate under one key and, because
 `primary_owners` collapses to a single name, the TraitCha demote never fires, so
 BOTH resolve at **Exact (1.0)** (`resolution.rs` `owner_lookup_in_modules:637`).
 This documents (1) the realized magnitude, measured with a new `call-stats`
-counter, and (2) an independent codex (gpt-5.5 xhigh) design analysis of whether
-to replace bare-name keying.
+counter, (2) an independent codex (gpt-5.5 xhigh) design analysis of whether
+to replace bare-name keying, and (3) the **pre-gate shadow result** that sizes the
+realized win of the recommended narrowing lever (§3) — which came back **negative**.
 
 ## 1. Realized magnitude — `multi_target_exact_*` counter
 
@@ -101,3 +102,66 @@ build-system-agnostic tool with only partial name resolution. No qualified-only
 option lifts both precision and recall. The hybrid (bare floor + scope-graph
 narrowing, fail-open, demote-not-drop) is the right answer: precision when the
 scope graph resolves, bare-name recall when it doesn't.
+
+## 3. Pre-gate shadow result — NEGATIVE (the lever is already wired; the blocker is the completeness gate)
+
+Codex's recommended pre-gate (size the realized narrowing win before building it)
+was implemented as `multi_target_exact_shape` + `shadow_typepath_narrow` in
+`call-stats`. The shadow re-runs the Option-B scope-graph owner-key narrowing over
+every genuine `T::m` multi-target-Exact site, without changing resolution.
+
+| corpus | mt-Exact | shape: type_path | receiver_typed | qualifier_field | self_path / unshaped | type_path narrow outcome |
+|--------|---------:|-----------------:|---------------:|----------------:|---------------------:|--------------------------|
+| ruff | 2,769 | **1,820** | 0 | 692 | 37 / 220 | **failopen_no_graph 1,820** |
+| prism | 11 | 1 | 0 | 9 | 0 / 1 | failopen_type_unresolved 1 |
+| ripgrep | 23 | 0 | 22 | 1 | 0 / 0 | — (no type_path) |
+
+**Singleton wins (the realized precision the lever would reclaim): 0 across all three anchors.**
+
+Why — three facts that together flip the recommendation:
+
+1. **The `T::m` scope-graph narrowing already exists.** `resolve_call_site_full`
+   routes type-path calls through `rust_scope_graph_resolution` (resolution.rs:679-690)
+   *before* the bare `::`-split. When the scope graph is present and the scope is
+   authoritative, the call is narrowed to a singleton (or **dropped** on miss —
+   resolve-or-drop, confirmed: a controlled single-file two-module `Foo::make`
+   fixture yields `unresolved_unknown_name=1`, not a multi-target site). So a
+   `T::m` collision that the scope graph *can* disambiguate **never survives** as
+   multi-target-Exact — meaning the residual multi-target type_path sites are
+   exactly the ones the existing narrowing cannot reach. A shadow singleton is
+   therefore near-unreachable by construction, and measured 0.
+
+2. **ruff — the entire bucket (1,820) is `failopen_no_graph`: ruff has no scope
+   graph at all.** `populate_scope_graph` returns `None` unless `inputs.complete`,
+   which requires whole-repo `has_complete_file_coverage` (the set of parsed files
+   exactly equals every supported source file under the root; repo_loader.rs:215).
+   ruff (a ~30-crate, multi-language workspace, oversized/excluded files) fails that
+   all-or-nothing gate, so the scope graph — and with it receiver-typing *and* the
+   Option-B narrowing — is disabled. (ruff's `self_receiver`/`typed_param` kinds come
+   from the scope-graph-*independent* syntactic P6-lite path, which is why they
+   coexist with no scope graph.) The lever cannot run on the one corpus that has the
+   problem.
+
+3. **prism — graph present, but the 1 residual type_path site is
+   `failopen_type_unresolved`**: the owner type doesn't resolve to a single in-repo
+   scope even for the raw resolver, so it fell through to bare. Too few to be a lever.
+
+### Revised recommendation
+
+The Option-B framing ("add scope-graph narrowing for `T::m`") is the **wrong lever**:
+that narrowing is already implemented and reclaims ~0 additional sites. The realized
+blocker for the dominant ruff bucket is the **whole-repo scope-graph completeness
+gate** (`has_complete_file_coverage`). To make the precision win available on large
+monorepos, the substrate change is **relax the all-or-nothing gate** — let the scope
+graph build (and be authoritative *where coverage is locally complete*) under partial
+repo coverage, instead of disabling the entire mechanism when any supported file is
+missing. That is a substantially larger, soundness-sensitive substrate effort (what
+makes a scope "authoritative" under partial coverage?), not a resolution-ladder rung.
+
+Until then, the cheap, recall-safe mitigation that *does* help everywhere — including
+ruff with no scope graph — is the demote-not-drop fallback from §2: when the bare
+bucket has multiple same-primary-owner candidates and no scope proof exists, **demote
+the pool to NameOnly** rather than emitting it Exact. That removes the full-confidence
+FP class (≈17k false Exact edges in ruff) without reclaiming them as corrected
+singletons — a precision-floor fix, not a precision-recovery one. Lower risk, broad
+coverage, no completeness-gate dependency.
