@@ -67,6 +67,23 @@ not already trait-CHA-demoted is emitted at **NameOnly** instead of Exact, keepi
 relabels are untouched). No file-count gate, no language gate, no new
 `ResolutionKind`.
 
+**What the demote set actually is (review-corrected).** The condition
+`pool.len() > 1 && primary_owners.len() == 1` is broader than cross-type same-name
+collisions, and that is intentional. Because `methods` is keyed by
+`(bare_owner, method)` with no signature/arity (`call_graph.rs:158`, populated at
+`:525`) and trait impls are dual-keyed under the concrete owner (`:532`), a
+single-primary-owner multi-candidate pool also includes: (a) **N distinct same-named
+types** [the headline collision]; (b) a `#[cfg]`-duplicated method of one type;
+(c) same-owner **overloads** (e.g. C++ `f(int)`/`f(double)`); (d) an **inherent
+method plus a same-named trait-impl method** on one type; (e) several **trait-impl
+methods of one concrete owner**. **All are accepted demotes:** each is genuinely
+unpickable by a name-only index at this point (no arg-type matching, no
+inherent-over-trait preference, no scope context), so NameOnly is the honest
+confidence — and each is recoverable to Exact upstream once a capability supplies
+the missing discrimination (arity match, inherent-over-trait preference, scope
+resolution — §14). The branch is therefore "non-trait multi-candidate owner-key
+ambiguity → NameOnly", not narrowly "same-bare-name collision".
+
 Rationale (full reasoning in the conversation record; summary):
 - **File count is not a sound discriminator.** Both real collisions and the only
   legitimate non-collision case (one type with a `#[cfg]`-duplicated method) can be
@@ -117,8 +134,15 @@ Some(if pool.len() > 1 && primary_owners.len() > 1 {
 })
 ```
 
-No other production code changes. `ResolutionKind` is unchanged → **no
-`CACHE_VERSION` bump** (currently v15).
+No other production code changes. **No `CACHE_VERSION` bump** (currently v15) — but
+the rationale is *not* "`ResolutionKind` is unchanged" (review-corrected):
+`ResolutionConfidence` **is** serialized on CPG `Call`/`Return` edges
+(`cpg_cache.rs:46`, cache v6), so these edges' confidence value does change. A bump
+is unnecessary because committed builds invalidate the cache via the resolver
+**git-SHA** key (`cpg_cache.rs:343`). A stale pre-fix cache can therefore only
+persist in **dirty-vs-dirty** dev iteration, which shares the `-dirty` SHA and so
+requires `--no-cache` / an explicit rebuild+clear (`cpg_cache.rs:345`) — see the §11
+acceptance commands.
 
 ## 5. Confidence-only demote — semantics and why it is safe
 
@@ -132,6 +156,10 @@ mutating **`callee.kind` only**, never `confidence`:
 - R3b (`resolution.rs:850`): `QualifiedOwner` → `QualifierOwner`.
 - `Self::` (`resolution.rs:715`): `QualifiedOwner` → `SelfReceiver`.
 - R6 P6-lite (`resolution.rs:932`): `QualifiedOwner` → `TypedParam`/`ConstructorLocal`.
+- `self`/`this`/`cls` receiver branch (`resolution.rs:784`): `QualifiedOwner` →
+  `SelfReceiver` (kind only, `:787`).
+- Java/C++ implicit-`this` (`resolution.rs:1117`): `QualifiedOwner` → `ImplicitThis`
+  (kind only, `:1120`).
 - Receiver-typed `InRepo`-miss fallback (`resolution.rs:887`) and `Bare`
   (`resolution.rs:916`) return the `owner_lookup` result directly (no relabel).
 
@@ -144,8 +172,8 @@ branch at the chokepoint covers all four measured shapes (`type_path`,
 ## 6. Recall safety
 
 The pool is returned in full; no candidate is dropped. Each edge is emitted at
-`ResolutionConfidence::NameOnly` (navigation score 0.6, `queries.rs:211`) and still
-appears in `callers`/`callees`/`ego` output. The only behavioral loss is that these
+`ResolutionConfidence::NameOnly` (navigation score 0.6, `confidence_score` in
+`src/navigation/queries.rs`) and still appears in `callers`/`callees`/`ego` output. The only behavioral loss is that these
 edges no longer appear in **Exact-only** traversals (`src/cpg/query.rs`) — which is
 the intended removal of the full-confidence FP. NameOnly is counted as a resolved
 edge by the Tier-A oracle comparison, so recall metrics are unaffected (verified by
@@ -210,9 +238,15 @@ Resolution-level (`tests/integration/resolution_test.rs`), each red-first:
    (confirms the confidence survives the R6 kind-relabel).
 4. **Trait-CHA unchanged:** existing multi-distinct-owner test still **NameOnly,
    `TraitCha`** (no behavior change on that arm).
+5. **Same-owner multi-candidate demotes (discriminating, per review F1):** one type
+   with an inherent `m` AND a same-named trait-impl `m` —
+   `struct Foo; impl Foo { fn m(&self){} } trait T { fn m(&self); } impl T for Foo { fn m(&self){} }`
+   — caller `Foo::m()`. Pool = 2, both primary owner `Foo` → assert **2 candidates,
+   all NameOnly, kind `QualifiedOwner`**. Proves the branch covers the accepted
+   non-cross-type ambiguity set (§3 (d)/(e)), not just distinct same-named types.
 
 CLI counter (`tests/cli/call_stats_test.rs`):
-5. Update `call_stats_reports_multi_target_exact_same_name_owner_collision`: the
+6. Update `call_stats_reports_multi_target_exact_same_name_owner_collision`: the
    `Foo::make` collision fixture now yields `multi_target_exact_sites == 0` and the
    edges as `kind_nameonly[qualified_owner]` — the counter test becomes a
    fix-regression test.
@@ -236,11 +270,22 @@ cd eval && uv run tier-a --quick --allow-stale-sut         # before review
 ```
 Pass criteria:
 - **Zero recall regression** on the Rust anchors (NameOnly counts as a resolved
-  edge; `--quick` M2 precision/recall unchanged or improved, fp not increased).
-- `prism nav call-stats` on prism/ruff/ripgrep: `multi_target_exact_sites` drops
-  (the Exact collisions become NameOnly). Paste before/after `multi_target_exact_*`
-  and the `kind_exact`/`kind_nameonly` `qualified_owner` deltas into the PR.
+  edge; Tier-A defaults to `--confidence all` / `sut.py`, so NameOnly stays in M2
+  recall; `--quick` M2 precision/recall unchanged or improved, fp not increased).
+- `prism nav **--no-cache** call-stats` on prism/ruff/ripgrep: `multi_target_exact_sites`
+  drops (the Exact collisions become NameOnly). **`--no-cache` is required** — per §4
+  `ResolutionConfidence` is serialized on CPG edges, so a cache-on run on the same
+  dirty worktree would serve stale Exact and mask the drop. Paste before/after
+  `multi_target_exact_*` and the `kind_exact`/`kind_nameonly` deltas into the PR.
 - No matrix `ok → regression` flips; expected `ok` count preserved.
+
+**Cache caveat for the gate (review-added):** `--matrix-only` forces no-cache
+(`eval/tier_a/matrix.py:50`), but the `--quick` SUT path defaults cache-on
+(`eval/tier_a/sut.py`) and shares the `-dirty` git-SHA across iterations. Before the
+`--quick` gate, clear the prism nav cache (or run the SUT `--no-cache`) so it
+re-resolves against the patched binary instead of serving stale serialized
+confidence edges; `--allow-stale-sut` only covers the SUT-binary staleness, not the
+CPG confidence cache.
 
 Independent review: codex (gpt-5.5, xhigh, read-only) on the diff — confirm
 recall-safety (no dropped edges), relabel preservation (confidence rides through),
@@ -261,9 +306,12 @@ and that single-candidate/trait-CHA arms are untouched.
 
 ## 13. Risks
 
-- **Over-demote of a genuine cfg-duplicated single-type method** → NameOnly instead
-  of Exact. Recall-safe (edge kept), and arguably more honest (prism cannot pick the
-  platform). Accepted.
+- **Over-demote of a resolvable single-owner multi-candidate** (cfg-dup, overload,
+  or inherent-wins-over-trait — §3 (b)/(c)/(d)/(e)) → NameOnly instead of Exact.
+  These were already emitted as ≥2-target Exact (a full-confidence over-claim), so
+  the demote is not a precision regression versus today; it is recall-safe (edges
+  kept) and the more honest confidence, and each is recoverable to Exact once the
+  corresponding upstream discrimination is added (§14). Accepted.
 - **An existing test asserts Exact on a multi-same-owner pool** → flips to NameOnly.
   Expected; update the assertion to reflect the corrected behavior (do not weaken
   the fix to preserve a stale expectation).
@@ -273,10 +321,11 @@ and that single-candidate/trait-CHA arms are untouched.
 
 ## 14. Precision recovery (forward compatibility) — REQUIRED PROPERTY
 
-A demoted collision MUST be **recoverable to Exact (1.0)** as capabilities are
-added. The demote is a floor for the *current* unresolvable residue, never a
-permanent cap. This is a first-class design requirement, satisfied here by
-construction:
+A demoted owner-key ambiguity (the full §3 set — same-name-type collisions,
+overloads, inherent/trait same-name duplicates) MUST be **recoverable to Exact
+(1.0)** as capabilities are added. The demote is a floor for the *current*
+unresolvable residue, never a permanent cap. This is a first-class design
+requirement, satisfied here by construction:
 
 **Invariant — the terminal-demote rule.** `owner_lookup_in_modules`'s demote is the
 **last rung** of the resolution ladder. Every disambiguating step runs strictly
