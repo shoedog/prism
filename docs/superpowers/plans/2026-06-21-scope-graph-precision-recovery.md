@@ -155,9 +155,10 @@ EOF
 **Edition-omitted = 2015 (faithfulness).** A `[package]` manifest that omits `edition` defaults to **edition 2015** per Cargo's spec — and the code already encodes this: `parse_edition` accepts only `2015/2018/2021/2024`, and `RustCrateConfig`'s `edition` field doc plus `from_convention` both pin "Default 2015 (Cargo's default when omitted)" (`src/name_resolution/rust_populator/mod.rs:67,85,114`). The uniformity computation must honour that default: an omitted-edition crate counts as a *seen edition of 2015*, **not** "no edition". Otherwise a workspace mixing an omitted (2015) crate with an explicit `edition = "2021"` crate would record only `{2021}`, be wrongly judged **uniform**, and admit an unsound prune on a genuinely mixed-edition repo (a P1 recall regression). With the default honoured, that workspace resolves to `{2015, 2021}` ⇒ **non-uniform ⇒ keep-all** (recall-safe). Step 5 below counts every parsed `[package]` (explicit-or-default-2015); a pure `[workspace]`-root manifest declares no crate edition and contributes nothing.
 
 **Files:**
-- Modify: `src/name_resolution/rust_populator/mod.rs` (`RustCrateConfig` — add `edition_uniform`; `from_convention` default; `populate_rust` copies it onto the graph).
+- Modify: `src/name_resolution/rust_populator/mod.rs` (`RustCrateConfig` — add `edition_uniform`; **drop `Default` from the derive + add a manual `impl Default` with `edition_uniform: true`** so the `..RustCrateConfig::default()` struct-update helpers keep the predicate enabled, BLOCKER-3; `from_convention` default; `populate_rust` copies it onto the graph).
 - Modify: `src/name_resolution/graph.rs` (`ScopeGraph` — add `edition_uniform` field + `default_edition_uniform`).
 - Modify: `src/repo_loader.rs` (`parse_rust_crate_config` — compute uniformity across manifests).
+- Modify: `tests/name_resolution/rust_populate_test.rs` (four full `RustCrateConfig { ... }` literals — add `edition_uniform: true` so they compile, BLOCKER-3).
 - Test: `src/repo_loader.rs` `#[cfg(test)] mod tests` (mixed-edition fixture) and `src/name_resolution/rust_populator/mod.rs` `#[cfg(test)] mod tests` (default + propagation).
 
 - [ ] **Step 1: Write the failing tests**
@@ -286,7 +287,7 @@ cargo test --lib name_resolution::rust_populator::tests::from_convention_edition
 ```
 Expected: FAIL to **compile** — `RustCrateConfig` has no `edition_uniform` field, `ScopeGraph` has no `edition_uniform` field. (Compile failure is the RED signal here.)
 
-- [ ] **Step 3: Add the field to `RustCrateConfig` and default it**
+- [ ] **Step 3: Add the field to `RustCrateConfig`, drop derived `Default`, and add a manual `Default`**
 
 In `src/name_resolution/rust_populator/mod.rs`, add the field to the struct (after `bin_paths`):
 
@@ -300,6 +301,48 @@ In `src/name_resolution/rust_populator/mod.rs`, add the field to the struct (aft
     /// edge (P1). Convention fallback (single edition) is `true`.
     #[serde(default = "default_edition_uniform")]
     pub edition_uniform: bool,
+```
+
+**Drop `Default` from the derive and add a manual `impl Default` (plan re-confirm
+BLOCKER-3).** `RustCrateConfig` currently `#[derive(... Default ...)]`
+(`src/name_resolution/rust_populator/mod.rs:63`), and several helpers build it via
+struct-update from the default — `..RustCrateConfig::default()` — to set only
+`crate_roots` (verified: `src/receiver_index.rs:463,557`, `src/call_graph.rs:2136,2156,2516`,
+`src/resolution_identity.rs:202`, `src/name_resolution/binding_lookup.rs:136`,
+`src/resolution_receiver/tests.rs:24`, `tests/integration/resolution_test.rs:67`).
+A **derived** `Default` would set the new `bool` to `false`, silently **disabling**
+the disproof predicate in every one of those fixtures (including the `build()` helper
+that drives all the Task-5 integration tests) — the headline recovery would never
+fire. `#[serde(default = ...)]` only governs *deserialization*, not
+`Default::default()`, so the field default and the serde default must be set
+independently. Remove `Default` from the derive:
+
+```rust
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct RustCrateConfig {
+```
+
+and add a manual impl immediately after the `struct RustCrateConfig { ... }`
+definition (above `impl RustCrateConfig`). It reproduces the prior derived defaults
+(all-empty collections / `None`) but pins `edition: 2015` (Cargo's omitted-edition
+default — `is_2018_plus` is `edition >= 2018`, so `2015` is anchor-identical to the
+old derived `0` for every existing fixture, just faithful) and `edition_uniform:
+true` so the struct-update helpers keep the predicate enabled:
+
+```rust
+impl Default for RustCrateConfig {
+    fn default() -> Self {
+        RustCrateConfig {
+            edition: 2015,
+            crate_roots: Vec::new(),
+            workspace_members: Vec::new(),
+            dep_renames: BTreeMap::new(),
+            lib_path: None,
+            bin_paths: Vec::new(),
+            edition_uniform: true,
+        }
+    }
+}
 ```
 
 Add the default function near the top of the module (below the `use` block, above `RustCrateConfig`):
@@ -427,18 +470,50 @@ an explicit non-2015 crate — is non-uniform:
 
 (`BTreeSet` is already imported in `repo_loader.rs`.)
 
-- [ ] **Step 6: Run the tests to verify they pass**
+- [ ] **Step 6: Fix the full `RustCrateConfig { ... }` test literals (compile, BLOCKER-3)**
+
+The struct-update helpers (`..RustCrateConfig::default()`) need no change — the new
+manual `Default` (Step 3) supplies `edition_uniform: true`. But four tests in
+`tests/name_resolution/rust_populate_test.rs` build `RustCrateConfig` with a **full
+field-by-field literal** (no `..default()`), so they will **fail to compile** until
+`edition_uniform` is added. Add `edition_uniform: true` (these are single- or
+explicit-edition fixtures — uniform) to each (verified line anchors:
+`rust_populate_test.rs:755,791,827,1205`). Example for the `:755` literal:
+
+```rust
+    let cfg = RustCrateConfig {
+        edition: 2015,
+        crate_roots: vec!["a/src/lib.rs".to_string(), "dep/src/lib.rs".to_string()],
+        workspace_members: vec!["a".to_string(), "dep".to_string()],
+        dep_renames: BTreeMap::new(),
+        lib_path: None,
+        bin_paths: vec![],
+        edition_uniform: true,
+    };
+```
+
+The `:791`/`:827`/`:1205` literals get the same `edition_uniform: true` line. (The
+`convention()` helper at `rust_populate_test.rs:158` delegates to `from_convention`,
+which Step 3 already sets, so it needs no change.) Grep to confirm none were missed:
+
+```bash
+grep -rn "RustCrateConfig {" src/ tests/ | grep -v "edition_uniform\|impl Default"
+# any hit that is a full literal (not `..default()`-completed) still needs the field
+```
+
+- [ ] **Step 7: Run the tests to verify they pass**
 
 ```bash
 cargo test --lib name_resolution::rust_populator::tests:: 2>&1 | tail -20
 cargo test --lib repo_loader::tests:: 2>&1 | tail -20
+cargo test --test name_resolution rust_populate_test:: 2>&1 | tail -20
 ```
-Expected: PASS (both new populator tests + the three new repo_loader edition tests — `mixed_edition_workspace_is_not_uniform`, `omitted_plus_explicit_edition_workspace_is_not_uniform`, `single_edition_workspace_is_uniform` — plus the Task 1 coverage tests and the existing parity tests).
+Expected: PASS (both new populator tests + the three new repo_loader edition tests — `mixed_edition_workspace_is_not_uniform`, `omitted_plus_explicit_edition_workspace_is_not_uniform`, `single_edition_workspace_is_uniform` — plus the Task 1 coverage tests, the four updated `rust_populate_test` literals, and the existing parity tests).
 
-- [ ] **Step 7: Commit**
+- [ ] **Step 8: Commit**
 
 ```bash
-git add src/name_resolution/rust_populator/mod.rs src/name_resolution/graph.rs src/repo_loader.rs
+git add src/name_resolution/rust_populator/mod.rs src/name_resolution/graph.rs src/repo_loader.rs tests/name_resolution/rust_populate_test.rs
 git commit -m "$(cat <<'EOF'
 feat(scope-graph): edition-uniformity guard on crate config + ScopeGraph
 
@@ -448,6 +523,13 @@ A mixed-edition workspace can mis-anchor a UsePath/LeadingColon path; once the
 disproof predicate prunes on such a path that becomes a recall risk (P1), so the
 predicate will keep-all when the flag is false (Task 4). serde(default)=true
 keeps legacy caches valid.
+
+Drop the derived Default on RustCrateConfig for a manual impl that pins
+edition_uniform=true (and edition=2015, Cargo's omitted default, anchor-identical
+to the old derived 0): the `..RustCrateConfig::default()` test helpers must keep
+the predicate ENABLED — a derived bool default of false would silently disable it
+(serde(default) governs only deserialization, not Default::default()). Four full
+RustCrateConfig literals in rust_populate_test.rs gain edition_uniform: true.
 
 Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
 EOF
@@ -697,7 +779,7 @@ When both hold (and the candidate's resolved id-set is known), it disproves any 
 Because the helpers in `resolution.rs` it needs (`rust_call_path_anchor`, `graph_target_resolution`, `rust_graph_qualified_callable_edge`, `graph_file_for_scope`, `graph_owner_name_for_scope`) are private free functions / private methods, the predicate lives in `resolution.rs` (same module → no visibility changes) and is **re-exported** so the seam's caller can name it. Local helpers are added in `resolution.rs` for the directness re-resolve and the shadow scan.
 
 **Files:**
-- Modify: `src/resolution.rs` — add the `ScopeResolution` predicate struct + `impl DisproofPredicate` + the local helpers (`leading_segment_binds_directly`, `leading_segment_has_block_local_shadow`, `scope_chain_to_module`), and `pub use` it.
+- Modify: `src/resolution.rs` — add the `ScopeResolution` predicate struct + `impl DisproofPredicate` + the local helpers (`leading_segment_binds_directly`, `leading_segment_has_block_local_shadow`, `scope_chain_below_module` — excludes the module/root scope so the resolved type's own def-binding is not mis-read as a shadow, plan re-confirm BLOCKER-1), and `pub use` it.
 - Test: `tests/integration/resolution_test.rs` (predicate-behavior tests through the public resolve path are in Task 5; this task's tests are inline unit tests in `src/resolution.rs` driving the predicate over hand-built graphs would be heavy — instead, **pin the helpers' observable behavior through `resolve_call_site` fixtures in Task 5**, and add the *guard* unit tests here in `src/resolution.rs` that need no full pipeline).
 
 > **Note on test placement.** The predicate's end-to-end behavior (resolves-to-1, pruned-to-2, no-resolution keep-all, Pending-import-alias-over-colliding-pool keep-all [②B directness], block-local-glob keep-all, macro-wildcard keep-all, mixed-edition keep-all) is exercised through `resolve_call_site` in **Task 5**, where the integration wires the predicate into the live path and the existing `build()`/`build_rust_complete` helpers produce real graphs. This task implements the predicate and adds one inline unit test for the edition guard (the only branch reachable without the full integration). Splitting the behavior tests into Task 5 keeps each test against the real code path rather than a hand-mocked graph.
@@ -771,7 +853,7 @@ Expected: FAIL to compile — `ScopeResolution` does not exist yet.
 
 - [ ] **Step 3: Implement the `ScopeResolution` predicate + helpers**
 
-Add to `src/resolution.rs`. First, ensure the needed imports are present. The file already imports `BindTarget`, `Candidate`, `ScopeId`, `SourceLoc`, `Target`, `Anchor`, `AnchorKind`, `RawPath`, `ResStatus`, `FileId` from `name_resolution::types` and `NS_TYPE`/`NS_VALUE` from `rust_policy` (verified: `src/resolution.rs:9` and `:11-14`). Add `EK_GLOB` to the `rust_policy` import line and `Binding`/`Edge`/`Span`/`ResolveQuery`/`TraversalCtx` to the `types` import line (`ResolveQuery`/`TraversalCtx` are needed by the corrected ②B call-site-rib directness helper to mirror the engine's `visible()` hook; `Binding`/`Span` by the ①C shadow scan; `Edge` by its glob-edge check). `resolve_path` is already imported at the top (`src/resolution.rs:7`):
+Add to `src/resolution.rs`. First, ensure the needed imports are present. The file already imports `BindTarget`, `Candidate`, `ScopeId`, `SourceLoc`, `Target`, `Anchor`, `AnchorKind`, `RawPath`, `ResStatus`, `FileId` from `name_resolution::types` and `NS_TYPE`/`NS_VALUE` from `rust_policy` (verified: `src/resolution.rs:9` and `:11-14`). Add `EK_GLOB` to the `rust_policy` import line and `Binding`/`Edge`/`Span`/`ResolveQuery`/`ResolutionPolicy`/`TraversalCtx` to the `types` import line (`ResolveQuery`/`TraversalCtx` are needed by the corrected ②B call-site-rib directness helper to mirror the engine's `visible()` hook; **`ResolutionPolicy` is the trait whose `anchor`/`visible` methods the directness helper calls on `RustPolicy` — without it in scope those method calls do not resolve, plan re-confirm BLOCKER-2**; `Binding`/`Span` by the ①C shadow scan; `Edge` by its glob-edge check). `resolve_path` is already imported at the top (`src/resolution.rs:7`):
 
 ```rust
 use crate::name_resolution::rust_policy::{RustPolicy, EK_GLOB, NS_TYPE, NS_VALUE};
@@ -779,8 +861,8 @@ use crate::name_resolution::rust_policy::{RustPolicy, EK_GLOB, NS_TYPE, NS_VALUE
 
 ```rust
 use crate::name_resolution::types::{
-    Anchor, AnchorKind, BindTarget, Binding, Candidate, Edge, FileId, RawPath, ResolveQuery,
-    ResStatus, ScopeId, SourceLoc, Span, Target, TraversalCtx,
+    Anchor, AnchorKind, BindTarget, Binding, Candidate, Edge, FileId, RawPath, ResolutionPolicy,
+    ResolveQuery, ResStatus, ScopeId, SourceLoc, Span, Target, TraversalCtx,
 };
 ```
 
@@ -954,11 +1036,29 @@ fn leading_segment_binds_directly(
     }
 }
 
-/// Does the lexical scope chain from `from` UP TO (but not past) the enclosing
-/// module contain any potential block-local shadow of `leading` at `byte`? Three
-/// shapes (§8.1 decision ①C / re-review BLOCKER): (a) an exact `NS_TYPE` binding,
-/// (b) a block-local glob `Edge` whose `glob_vis_range` covers `byte`, (c) a
-/// covering `NS_TYPE` macro wildcard. ANY ⇒ shadow (keep-all).
+/// Does the lexical scope chain from `from` UP TO **but excluding** the enclosing
+/// module/root contain any potential block-local shadow of `leading` at `byte`?
+/// Three shapes (§8.1 decision ①C / re-review BLOCKER): (a) an exact `NS_TYPE`
+/// binding, (b) a block-local glob `Edge` whose `glob_vis_range` covers `byte`,
+/// (c) a covering `NS_TYPE` macro wildcard. ANY ⇒ shadow (keep-all).
+///
+/// **Why the scan excludes the module/root scope (plan re-confirm BLOCKER-1).**
+/// A bare `T::m` anchors its leading ident at the **enclosing module** (`RustPolicy`
+/// `anchor` for `AnchorKind::Bare`, rust_policy.rs:296-302), and the resolved type
+/// `T`'s OWN definition is a module/root `NS_TYPE` `Resolved(Item)` binding
+/// (`walk_struct`, walk/types.rs:52). If the scan INCLUDED the module/root scope,
+/// shape (a) would match that very def-binding and classify `T`'s own definition as
+/// a "shadow" — keep-all would fire on EVERY direct in-module type, so the headline
+/// `CliTest::with_file` singleton recovery could never run. ①C only guards
+/// **block-local** shadows the module-anchored ②B resolution cannot see; those live
+/// strictly below the module (a block-local `use`/`struct`/macro lands in a
+/// `Block`/`Callable`/`Type` scope: locals.rs Block/Callable scopes, items.rs
+/// item-position bindings). A *module-level* `use Foo` is ②B's domain — it is a
+/// `Pending` module-rib binding, so ②B already keeps-all. So excluding the
+/// module/root loses no real shadow (recall-safe) and only removes the
+/// self-shadow false positive. (Shape (b) is independently safe: a module/root glob
+/// records `glob_vis_range == None` — items.rs:205 — so it could never match the
+/// `is_some_and` byte-cover check regardless.)
 fn leading_segment_has_block_local_shadow(
     graph: &ScopeGraph,
     from: ScopeId,
@@ -967,7 +1067,7 @@ fn leading_segment_has_block_local_shadow(
     leading: &str,
 ) -> bool {
     let at = SourceLoc { file, byte };
-    for scope in scope_chain_to_module(graph, from) {
+    for scope in scope_chain_below_module(graph, from) {
         // (a) an exact-ident NS_TYPE binding in this block/callable/type scope
         //     whose visibility extent covers the call byte.
         let exact_binding = graph.bindings.iter().any(|b| {
@@ -1000,20 +1100,24 @@ fn leading_segment_has_block_local_shadow(
     false
 }
 
-/// The lexical scope chain from `from` up to and INCLUDING the enclosing
-/// `Module`/`Root` — the region a bare `T::m` anchor's leading ident could be
-/// block-locally shadowed in (member lookup has no lexical fall-out, so a shadow
-/// here is invisible to the anchored path — §8.1).
-fn scope_chain_to_module(graph: &ScopeGraph, from: ScopeId) -> Vec<ScopeId> {
+/// The lexical scope chain from `from` up to but **EXCLUDING** the enclosing
+/// `Module`/`Root` — the block/callable/type region strictly between the call site
+/// and its enclosing module, where a bare `T::m` anchor's leading ident could be
+/// block-locally shadowed (member lookup has no lexical fall-out, so a shadow here
+/// is invisible to the module-anchored path — §8.1). The module/root scope itself
+/// is **NOT** scanned: the resolved type `T`'s own def-binding lives there, and
+/// including it would self-shadow every direct in-module type and defeat the
+/// recovery (plan re-confirm BLOCKER-1); module-level imports are ②B's domain.
+fn scope_chain_below_module(graph: &ScopeGraph, from: ScopeId) -> Vec<ScopeId> {
     use crate::name_resolution::types::ScopeKind;
     let mut out = Vec::new();
     let mut cur = Some(from);
     while let Some(id) = cur {
-        out.push(id);
         let Some(s) = graph.scope(id) else { break };
         if matches!(s.kind, ScopeKind::Module | ScopeKind::Root) {
-            break; // include the module, then stop
+            break; // stop AT the module/root WITHOUT scanning it
         }
+        out.push(id);
         cur = s.parent;
     }
     out
@@ -1194,6 +1298,15 @@ fn scope_graph_two_crate_owner_collision_recovers_to_single_exact() {
     // `CliTest::with_file`. With the scope graph present, a call in crate `a`
     // resolves to crate `a`'s definition alone — single Exact (the headline
     // recovery). The bare `("CliTest","with_file")` key holds BOTH defs.
+    //
+    // This is THE test BLOCKER-1 (the module-scope exclusion) unblocks: there is
+    // NO block-local shadow here, so ①C must NOT fire — the `CliTest` def lives at
+    // module/root scope (②B's anchor + directness proof), and `scope_chain_below_
+    // module` excludes that scope, so the predicate prunes the cross-crate `b`
+    // candidate and the pool resolves to a single Exact. Under the old module-
+    // INCLUSIVE scan, `CliTest`'s own def-binding would self-shadow → keep-all →
+    // this would stay 2×NameOnly and FAIL. The block-local-glob test below pins the
+    // complementary direction (a real block shadow still keeps-all).
     let sources = [
         (
             "a/src/lib.rs",
