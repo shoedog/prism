@@ -349,7 +349,32 @@ fn resolve_path_guarded(
             cfg: CfgCtx::default(),
             ctx: PolicyQueryCtx::default(),
         };
-        let res = scope_member_lookup(graph, scope, &seg_q, policy, guard);
+        // Single-scope member lookup AND a "was a rib claimed here?" probe (so a
+        // claimed-but-invisible local cannot be overridden by the crate fallback).
+        let (res, rib_present) = scope_member_lookup_probed(graph, scope, &seg_q, policy, guard);
+        // Leading-segment crate-root fallback (strictly last; P2/P3): a 2018+
+        // extern-prelude root resolves to the owning crate's Root scope ONLY on a
+        // TRUE no-rib miss — no rib was claimed for the segment (so a local item,
+        // even a deliberately-invisible one, always shadows — P2) — AND the policy's
+        // anchor/edition gate + the consuming crate's per-crate in-repo dependency
+        // gate pass (P3). Poison/empty-glob `Unresolved` WITH a claimed rib does not
+        // qualify. `from` (the query origin) is threaded so the policy can identify
+        // the consuming crate.
+        let res = if i == 0 && !rib_present && matches!(res.status, ResStatus::Unresolved) {
+            match policy.extern_crate_root(graph, seg, anchor, from) {
+                Some(root) => Resolution {
+                    candidates: vec![Candidate {
+                        target: Target::Scope(root),
+                        cond: CfgCond::True,
+                        provenance: Default::default(),
+                    }],
+                    status: ResStatus::Resolved,
+                },
+                None => res,
+            }
+        } else {
+            res
+        };
         if is_last {
             return res;
         }
@@ -379,6 +404,22 @@ fn scope_member_lookup(
     policy: &dyn ResolutionPolicy,
     guard: &mut CycleGuard,
 ) -> Resolution {
+    scope_member_lookup_probed(graph, scope, q, policy, guard).0
+}
+
+/// As [`scope_member_lookup`], but ALSO reports whether an explicit rib binding
+/// for `(name, ns)` was CLAIMED in this scope (regardless of visibility/outcome).
+/// The boolean lets `resolve_path_guarded` distinguish a TRUE no-rib miss (where
+/// the crate-root fallback may fire) from a claimed-but-invisible local rib (which
+/// surfaces as `Unresolved` but must shadow the crate name — P2/BLOCKER 1). It does
+/// NOT change the `Resolution` returned.
+fn scope_member_lookup_probed(
+    graph: &ScopeGraph,
+    scope: ScopeId,
+    q: &ResolveQuery,
+    policy: &dyn ResolutionPolicy,
+    guard: &mut CycleGuard,
+) -> (Resolution, bool) {
     // Explicit bindings in this scope for (name, ns), cfg-compatible. For path
     // member lookup we do NOT gate on vis_extents byte-range (a module member is
     // visible across the whole module to a path); visibility is the `visible()`
@@ -393,20 +434,22 @@ fn scope_member_lookup(
         .filter(|(_, b)| cfg_compatible(&b.cond))
         .map(|(i, _)| i)
         .collect();
-    if !rib.is_empty() {
-        return resolve_rib(graph, &rib, q, policy, guard);
+    let rib_present = !rib.is_empty();
+    if rib_present {
+        return (resolve_rib(graph, &rib, q, policy, guard), true);
     }
     // Glob tier: a covering macro wildcard poisons here (exactly like a deferred
     // glob), reached only when the rib above found no explicit member binding.
     if macro_wildcard_poisons(graph, scope, q.ns, &q.at) {
-        return poisoned();
+        return (poisoned(), false);
     }
     // Else this scope's globs.
-    match glob_lookup(graph, scope, q, policy) {
+    let res = match glob_lookup(graph, scope, q, policy) {
         GlobOutcome::Poison => poisoned(),
         GlobOutcome::Hit(cands) => policy.combine(cands),
         GlobOutcome::Empty => unresolved(),
-    }
+    };
+    (res, false)
 }
 
 // ── binding selection helpers ─────────────────────────────────────────────────
