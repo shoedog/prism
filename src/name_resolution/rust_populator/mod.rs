@@ -86,8 +86,8 @@ pub struct RustCrateConfig {
     pub lib_path: Option<String>,
     /// `[[bin]] path = "..."` overrides (non-convention binary roots).
     pub bin_paths: Vec<String>,
-    /// Whether every parsed manifest agreed on a single edition (spec §2
-    /// BLOCKER-2). `false` for a mixed-edition workspace; the `ScopeResolution`
+    /// Whether every parsed manifest is in the same anchoring class (2015 vs
+    /// 2018+). `false` for a 2015/2018+ mixed workspace; the `ScopeResolution`
     /// disproof predicate keeps-all (disproves nothing) when this is false,
     /// because a wrong-edition anchor could mis-resolve a path and drop a real
     /// edge (P1). Convention fallback (single edition) is `true`.
