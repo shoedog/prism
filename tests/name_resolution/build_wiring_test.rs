@@ -389,6 +389,69 @@ fn malformed_member_manifest_does_not_discard_valid_sibling_manifest() {
 }
 
 #[test]
+fn glob_member_workspace_resolves_cross_crate_glob_facade_type() {
+    let repo_dir = write_repo(&[
+        (
+            "Cargo.toml",
+            "[workspace]\nmembers = [\"crates/*\"]\n[workspace.package]\nedition = \"2021\"\n",
+        ),
+        (
+            "crates/foo/Cargo.toml",
+            "[package]\nname = \"foo\"\nedition = \"2021\"\n",
+        ),
+        (
+            "crates/foo/src/lib.rs",
+            "pub use inner::*;\nmod inner { pub struct SomeType; }\n",
+        ),
+        (
+            "crates/bar/Cargo.toml",
+            "[package]\nname = \"bar\"\nedition = \"2021\"\n[dependencies]\nfoo = { path = \"../foo\" }\n",
+        ),
+        (
+            "crates/bar/src/lib.rs",
+            "use foo::SomeType;\npub fn bar(_: Option<SomeType>) {}\n",
+        ),
+    ]);
+    let repo = load_repo(repo_dir.path()).unwrap();
+    let graph = repo
+        .scope_graph_inputs
+        .as_ref()
+        .and_then(|_| {
+            let ctx = CpgContext::build_with_scope_graph_inputs(
+                &repo.files,
+                repo.type_db.as_ref(),
+                repo.scope_graph_inputs.as_ref(),
+            );
+            ctx.cpg.call_graph.scope_graph
+        })
+        .expect("full build should store scope graph");
+
+    let bar_file = file_id(&repo.files, "crates/bar/src/lib.rs").expect("bar lib file id");
+    let from = enclosing_scope(&graph, bar_file, 0).expect("bar root scope");
+    let policy = RustPolicy::new(&graph, 2021);
+    let res = resolve_path(
+        &graph,
+        &RawPath(vec!["foo".to_string(), "SomeType".to_string()]),
+        NS_TYPE,
+        &Anchor::use_path_2015(),
+        from,
+        NS_TYPE,
+        &SourceLoc {
+            file: bar_file,
+            byte: 0,
+        },
+        &policy,
+    );
+
+    assert_eq!(
+        res.status,
+        ResStatus::Resolved,
+        "bar's `use foo::SomeType` must cross the glob workspace dep and foo's pub-use glob facade"
+    );
+    assert_eq!(res.candidates.len(), 1);
+}
+
+#[test]
 fn module_deps_consumes_scope_graph_but_resolution_output_stays_inert() {
     let repo_dir = write_repo(&[
         (

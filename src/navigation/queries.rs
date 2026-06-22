@@ -154,6 +154,8 @@ fn classify_recovery_typepath(cg: &CallGraph, site: &CallSite) -> &'static str {
 }
 
 pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
+    crate::name_resolution::glob_stats::GLOBAL.reset();
+
     use crate::resolution::{DropReason, ResolutionConfidence};
 
     use crate::call_graph::MethodKind;
@@ -264,6 +266,7 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
             }
         }
     }
+    let ge = crate::name_resolution::glob_stats::GLOBAL.snapshot();
     let mut interface_fanout: BTreeMap<usize, usize> = BTreeMap::new();
     for ids in cg.interface_impls.values() {
         *interface_fanout.entry(ids.len()).or_default() += 1;
@@ -291,6 +294,16 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
         "multi_target_exact_shape": multi_target_exact_shape,
         "shadow_typepath_narrow": shadow_typepath_narrow,
         "recovery_typepath": recovery_typepath,
+        "glob_expand": {
+            "resolved_l1": ge.resolved_l1,
+            "resolved_l2": ge.resolved_l2,
+            "depth_exceeded": ge.depth_exceeded,
+            "cycle": ge.cycle,
+            "external": ge.external,
+            "multi_target": ge.multi_target,
+            "ambiguous": ge.ambiguous,
+            "vis_unknown": ge.vis_unknown,
+        },
     })
 }
 
