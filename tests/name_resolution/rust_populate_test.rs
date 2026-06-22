@@ -566,17 +566,10 @@ fn test_same_callable_glob_use_is_position_gated_above_declaration() {
         "f",
         NS_VALUE,
     );
-    assert_eq!(
-        after.status,
-        ResStatus::Poisoned,
-        "call after block-local glob must remain Poisoned, got {:?} ({:?})",
-        after.status,
-        after.candidates
-    );
-    assert!(
-        after.candidates.is_empty(),
-        "poisoned glob lookup must not carry the wrong decoy target: {:?}",
-        after.candidates
+    assert_same_resolved_target(
+        &after,
+        &glob_decoy,
+        "call after block-local glob must resolve through the in-scope glob",
     );
 }
 
@@ -924,13 +917,13 @@ fn test_macro_wildcard_poison() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// REAL GLOB POISON
+// REAL GLOB EXPANSION
 // ═══════════════════════════════════════════════════════════════════════════
 
 #[test]
-fn test_real_glob_poison() {
-    // use other::*; thing() — other has `pub fn thing`. Phase-1 defers glob
-    // expansion → a deferred-glob poison → `thing` is Poisoned (no synthetic edge).
+fn test_real_glob_expands() {
+    // use other::*; thing() — other has `pub fn thing`. Deferred globs expand
+    // on demand, so the bare call resolves through the glob.
     let lib = "mod other;\nuse crate::other::*;\nfn host(){ thing(); }\n";
     let fs = files(&[("src/lib.rs", lib), ("src/other.rs", "pub fn thing(){}\n")]);
     let g = populate_rust(&fs, &convention(&fs), None);
@@ -943,12 +936,7 @@ fn test_real_glob_poison() {
         "thing",
         NS_VALUE,
     );
-    assert_eq!(
-        res.status,
-        ResStatus::Poisoned,
-        "a deferred glob must poison the name, got {:?}",
-        res.status
-    );
+    assert_resolved_item(&res);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
