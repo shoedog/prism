@@ -1273,3 +1273,324 @@ fn test_no_panic_on_empty_and_pathological() {
     assert_eq!(file_id(&weird, "nope.rs"), None);
     assert!(file_id(&weird, "src/lib.rs").is_some());
 }
+
+#[test]
+fn cross_crate_use_resolves_when_dep_declared() {
+    // Crate a (2021) `use b_crate::Foo`; crate b defines `Foo`. The leading
+    // `b_crate` resolves via the dep map to b's Root, then Foo to b's Foo item.
+    let a_src = "use b_crate::Foo;\npub fn drive() { Foo::m(); }\n";
+    let fs = files(&[
+        ("a/src/lib.rs", a_src),
+        (
+            "b/src/lib.rs",
+            "pub struct Foo;\nimpl Foo { pub fn m(&self) {} }\n",
+        ),
+    ]);
+    let mut a_deps = BTreeMap::new();
+    a_deps.insert("b_crate".to_string(), "b".to_string());
+    let mut member_deps = BTreeMap::new();
+    member_deps.insert("a".to_string(), a_deps);
+    let cfg = RustCrateConfig {
+        edition: 2021,
+        crate_roots: vec!["a/src/lib.rs".to_string(), "b/src/lib.rs".to_string()],
+        workspace_members: vec!["a".to_string(), "b".to_string()],
+        member_in_repo_deps: member_deps,
+        ..RustCrateConfig::default()
+    };
+    let graph = populate_rust(&fs, &cfg, None);
+    let policy = RustPolicy::new(&graph, 2021);
+    // Resolve the `use b_crate::Foo` leading-segment path from a's lib scope.
+    let a_file = file_id(&fs, "a/src/lib.rs").unwrap();
+    let at_byte = byte_of(a_src, "b_crate");
+    let from = enclosing_scope(&graph, a_file, at_byte).expect("a scope at the use site");
+    let at = SourceLoc {
+        file: a_file,
+        byte: at_byte,
+    };
+    let res = resolve_path(
+        &graph,
+        &RawPath(vec!["b_crate".to_string(), "Foo".to_string()]),
+        NS_TYPE,
+        &Anchor::use_path_2015(),
+        from,
+        NS_TYPE,
+        &at,
+        &policy,
+    );
+    assert_eq!(res.status, ResStatus::Resolved, "cross-crate use resolves");
+    assert_eq!(res.candidates.len(), 1);
+    assert!(
+        matches!(res.candidates[0].target, Target::Item { .. }),
+        "the full path lands on b's Foo item"
+    );
+}
+
+#[test]
+fn cross_crate_use_declines_when_no_dep() {
+    // Crate a does NOT declare a dep on b; the leading `b` segment stays Unresolved.
+    let a_src = "pub fn drive() { let _ = 0; }\n";
+    let fs = files(&[
+        ("a/src/lib.rs", a_src),
+        (
+            "b/src/lib.rs",
+            "pub struct Foo;\nimpl Foo { pub fn m(&self) {} }\n",
+        ),
+    ]);
+    let cfg = RustCrateConfig {
+        edition: 2021,
+        crate_roots: vec!["a/src/lib.rs".to_string(), "b/src/lib.rs".to_string()],
+        workspace_members: vec!["a".to_string(), "b".to_string()],
+        // member_in_repo_deps deliberately empty (no declared dependency).
+        ..RustCrateConfig::default()
+    };
+    let graph = populate_rust(&fs, &cfg, None);
+    let policy = RustPolicy::new(&graph, 2021);
+    let a_file = file_id(&fs, "a/src/lib.rs").unwrap();
+    let at_byte = byte_of(a_src, "drive");
+    let from = enclosing_scope(&graph, a_file, at_byte).expect("a scope");
+    let at = SourceLoc {
+        file: a_file,
+        byte: at_byte,
+    };
+    let res = resolve_path(
+        &graph,
+        &RawPath(vec!["b".to_string(), "Foo".to_string()]),
+        NS_TYPE,
+        &Anchor::use_path_2015(),
+        from,
+        NS_TYPE,
+        &at,
+        &policy,
+    );
+    assert_eq!(
+        res.status,
+        ResStatus::Unresolved,
+        "no declared in-repo dep on b → the fallback declines (keep-all)"
+    );
+}
+
+#[test]
+fn cross_crate_use_local_module_shadows_dep() {
+    // Crate a has a LOCAL `mod b_crate;` (with a `Foo`) AND declares a dep on a
+    // sibling `b_crate`. The local module rib must win (P2) — never the crate root.
+    //
+    // MAJOR 1 (spec-review): the anchor MUST be `use_path_2015()` (a `UsePath` anchor),
+    // NOT `self_mod()`. The crate fallback's eligibility gate is
+    // `matches!(anchor.kind, UsePath | Bare)`, so a `SelfMod` anchor makes the fallback
+    // INELIGIBLE — the test would pass vacuously (the fallback never even fires) and
+    // would prove nothing about shadowing. With `use_path_2015()` + a 2021 policy the
+    // fallback IS eligible, so this genuinely proves the local `mod b_crate` rib
+    // shadows the cross-crate fallback. Under 2018+, `RustPolicy::anchor(UsePath, from)`
+    // anchors at `enclosing_module(from)` (`rust_policy.rs` UsePath branch) — for a
+    // `from` in the top-level `drive` body that enclosing module IS the crate root,
+    // where `mod b_crate;` is declared, so `scope_member_lookup` finds the local rib
+    // (rib_present == true) BEFORE the fallback and the fallback declines.
+    let a_src = "mod b_crate;\npub fn drive() { let _ = 0; }\n";
+    let fs = files(&[
+        ("a/src/lib.rs", a_src),
+        (
+            "a/src/b_crate.rs",
+            "pub struct Foo;\nimpl Foo { pub fn m(&self) {} }\n",
+        ),
+        (
+            "b/src/lib.rs",
+            "pub struct Foo;\nimpl Foo { pub fn m(&self) {} }\n",
+        ),
+    ]);
+    let mut a_deps = BTreeMap::new();
+    a_deps.insert("b_crate".to_string(), "b".to_string());
+    let mut member_deps = BTreeMap::new();
+    member_deps.insert("a".to_string(), a_deps);
+    let cfg = RustCrateConfig {
+        edition: 2021,
+        crate_roots: vec!["a/src/lib.rs".to_string(), "b/src/lib.rs".to_string()],
+        workspace_members: vec!["a".to_string(), "b".to_string()],
+        member_in_repo_deps: member_deps,
+        ..RustCrateConfig::default()
+    };
+    let graph = populate_rust(&fs, &cfg, None);
+    let policy = RustPolicy::new(&graph, 2021);
+    let a_file = file_id(&fs, "a/src/lib.rs").unwrap();
+    // Resolve from inside crate a's Root scope (the `drive` body byte). Under
+    // `use_path_2015` + 2021 the anchor is the enclosing module (= the crate root),
+    // where the local `mod b_crate;` rib lives.
+    let at_byte = byte_of(a_src, "drive");
+    let from = enclosing_scope(&graph, a_file, at_byte).expect("a scope");
+    let at = SourceLoc {
+        file: a_file,
+        byte: at_byte,
+    };
+    let res = resolve_path(
+        &graph,
+        // Resolve the LEADING segment alone — the shadowing decision point. A
+        // 2-segment `b_crate::Foo` resolves `b_crate` to the local module but then
+        // walks to `Foo` (a `Target::Item`); the single segment resolves to the local
+        // module `Target::Scope` itself, which is what must win over the crate
+        // fallback (the fallback would instead resolve `b_crate` to b's crate Root).
+        &RawPath(vec!["b_crate".to_string()]),
+        NS_TYPE,
+        &Anchor::use_path_2015(), // UsePath: the fallback IS eligible, so shadowing is real
+        from,
+        NS_TYPE,
+        &at,
+        &policy,
+    );
+    // The local `mod b_crate` (a's own module) resolves; it is NOT b's crate root.
+    // An out-of-line `mod foo;` binds to `Target::Scope` (builder `scope_target`,
+    // `builder.rs:513`) — so match the Scope and check its file is the LOCAL module
+    // file, never b's crate root file (the fallback would have produced a Scope at
+    // `b/src/lib.rs`).
+    assert_eq!(res.status, ResStatus::Resolved);
+    assert_eq!(res.candidates.len(), 1);
+    if let Target::Scope(scope) = res.candidates[0].target {
+        let module_file = graph.scope(scope).unwrap().extents[0].file;
+        assert_eq!(
+            module_file,
+            file_id(&fs, "a/src/b_crate.rs").unwrap(),
+            "the LOCAL module b_crate must win, never b's crate root (P2)"
+        );
+    } else {
+        panic!(
+            "expected the local module scope, got {:?}",
+            res.candidates[0].target
+        );
+    }
+}
+
+#[test]
+fn cross_crate_use_claimed_but_invisible_local_blocks_fallback() {
+    // MAJOR 2 / spec §6.6 (REQUIRED, the load-bearing `rib_present` proof): crate a has
+    // a LOCAL rib binding for `b_crate` that is CLAIMED but NOT visible at the use site,
+    // AND declares a dep on a sibling crate `b_crate`. The leading segment must stay the
+    // LOCAL outcome (Unresolved via claimed-but-invisible — rib_present == true), NEVER
+    // b's crate root. This is the discriminating case distinct from the visible-rib test
+    // above: there the rib resolves; here it is claimed-but-invisible, surfacing as
+    // `Unresolved` *with* a rib present — exactly the status the fallback must NOT
+    // convert (engine.rs:233-235 / the `!rib_present` guard).
+    //
+    // Fixture mechanism (verified against source): an inline `pub(in crate::secret) mod
+    // b_crate { ... }` mints a NS_TYPE binding for `b_crate` at the crate root scope with
+    // vis = (VIS_PUB_IN, restrict). The populator's `resolve_restrict` is a Phase-1 stub
+    // that ALWAYS returns `None` (`rust_populator/walk/mod.rs:271-277`), so the binding's
+    // `restrict` is `None`, and `RustPolicy::visible` returns `false` for VIS_PUB_IN with
+    // no restrict ("pub(in) with no recorded path → fall through", `rust_policy.rs`). The
+    // binding still EXISTS, so `scope_member_lookup_probed` reports `rib_present == true`
+    // while `resolve_rib` returns `Unresolved` (claimed-but-invisible) — a robust
+    // claimed-but-invisible rib that does not depend on where `from` sits. `secret` need
+    // not exist (the stub ignores the path).
+    let a_src = concat!(
+        "pub(in crate::secret) mod b_crate { pub struct Foo; impl Foo { pub fn m(&self) {} } }\n",
+        "pub fn drive() { let _ = 0; }\n",
+    );
+    let fs = files(&[
+        ("a/src/lib.rs", a_src),
+        (
+            "b/src/lib.rs",
+            "pub struct Foo;\nimpl Foo { pub fn m(&self) {} }\n",
+        ),
+    ]);
+    let mut a_deps = BTreeMap::new();
+    a_deps.insert("b_crate".to_string(), "b".to_string());
+    let mut member_deps = BTreeMap::new();
+    member_deps.insert("a".to_string(), a_deps);
+    let cfg = RustCrateConfig {
+        edition: 2021,
+        crate_roots: vec!["a/src/lib.rs".to_string(), "b/src/lib.rs".to_string()],
+        workspace_members: vec!["a".to_string(), "b".to_string()],
+        member_in_repo_deps: member_deps,
+        ..RustCrateConfig::default()
+    };
+    let graph = populate_rust(&fs, &cfg, None);
+    let policy = RustPolicy::new(&graph, 2021);
+    let a_file = file_id(&fs, "a/src/lib.rs").unwrap();
+    let at_byte = byte_of(a_src, "drive");
+    let from = enclosing_scope(&graph, a_file, at_byte).expect("a scope");
+    let at = SourceLoc {
+        file: a_file,
+        byte: at_byte,
+    };
+    let res = resolve_path(
+        &graph,
+        &RawPath(vec!["b_crate".to_string(), "Foo".to_string()]),
+        NS_TYPE,
+        &Anchor::use_path_2015(), // UsePath: the fallback WOULD be eligible by anchor/edition
+        from,
+        NS_TYPE,
+        &at,
+        &policy,
+    );
+    // The claimed-but-invisible local rib (rib_present == true) blocks the fallback, so
+    // the segment stays the LOCAL Unresolved outcome — it must NOT become b's `Foo` item.
+    assert_ne!(
+        res.status,
+        ResStatus::Resolved,
+        "a claimed-but-invisible local rib must block the crate fallback (rib_present), \
+         got {:?} ({:?})",
+        res.status,
+        res.candidates
+    );
+    assert!(
+        !res.candidates
+            .iter()
+            .any(|c| matches!(c.target, Target::Item { .. })),
+        "the fallback must not resolve into b's crate (no b::Foo item), got {:?}",
+        res.candidates
+    );
+}
+
+#[test]
+fn cross_crate_use_external_same_name_declines_with_in_repo_member() {
+    // MAJOR 3 / spec §6.7 (the key soundness case, end-to-end at the resolver): crate a
+    // depends on an EXTERNAL `b` (version-only) while an UNRELATED in-repo workspace
+    // member `b` ALSO exists (a real crate Root in the graph). `use b::X` from a must
+    // DECLINE (stay Unresolved) — the external `b` is NOT in a's in-repo dep map, so the
+    // per-crate dep gate (P3) returns None even though an in-repo crate named `b` has a
+    // Root. Modeled at the resolver: `b` IS a crate root in `crate_roots` (so it has a
+    // Root scope), but `a`'s `member_in_repo_deps` does NOT record `b` (an external
+    // version-only dep is never captured — see Task 2 `external_version_dep_is_not_
+    // recorded`). The fallback must not invent a resolution to the in-repo `b` root.
+    let a_src = "use b::Thing;\npub fn drive() { let _ = 0; }\n";
+    let fs = files(&[
+        ("a/src/lib.rs", a_src),
+        (
+            "b/src/lib.rs",
+            "pub struct Thing;\nimpl Thing { pub fn m(&self) {} }\n",
+        ),
+    ]);
+    // a declares NO in-repo dep (its real `b = "1.0"` is external → not recorded). The
+    // in-repo member `b` still has a crate Root from `crate_roots`.
+    let cfg = RustCrateConfig {
+        edition: 2021,
+        crate_roots: vec!["a/src/lib.rs".to_string(), "b/src/lib.rs".to_string()],
+        workspace_members: vec!["a".to_string(), "b".to_string()],
+        // member_in_repo_deps deliberately EMPTY for a (external dep, not in-repo).
+        ..RustCrateConfig::default()
+    };
+    let graph = populate_rust(&fs, &cfg, None);
+    let policy = RustPolicy::new(&graph, 2021);
+    let a_file = file_id(&fs, "a/src/lib.rs").unwrap();
+    let at_byte = byte_of(a_src, "b::Thing");
+    let from = enclosing_scope(&graph, a_file, at_byte).expect("a scope");
+    let at = SourceLoc {
+        file: a_file,
+        byte: at_byte,
+    };
+    let res = resolve_path(
+        &graph,
+        &RawPath(vec!["b".to_string(), "Thing".to_string()]),
+        NS_TYPE,
+        &Anchor::use_path_2015(),
+        from,
+        NS_TYPE,
+        &at,
+        &policy,
+    );
+    assert_eq!(
+        res.status,
+        ResStatus::Unresolved,
+        "an external `b` (not in a's in-repo dep map) must DECLINE even though an \
+         in-repo member `b` exists (per-crate dep gate, P3); got {:?} ({:?})",
+        res.status,
+        res.candidates
+    );
+}
