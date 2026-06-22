@@ -3561,3 +3561,71 @@ fn go_same_package_freefn_multi_def_demotes_not_exact() {
         .iter()
         .all(|r| r.kind == ResolutionKind::SamePackage));
 }
+
+#[test]
+fn mixed_edition_workspace_recovers_intra_crate_collision() {
+    use prism::repo_loader::load_repo;
+    // A pure-2018+ MIXED-edition workspace driven end-to-end through the real loader:
+    // crate `a` (2021) holds an intra-crate same-name owner collision (m1::Foo,
+    // m2::Foo) and a `use`-imported call site that pins m1::Foo; crate `b` inherits
+    // `{ workspace = true }` -> 2024, making the workspace mixed. Pre-fix:
+    // edition_uniform == false (a:2021 + b mis-parsed 2015) -> disproof bails ->
+    // keep-all (2 NameOnly). Post-fix: {2021,2024} anchoring-uniform -> disproof runs
+    // -> single Exact (m1::Foo).
+    let dir = tempfile::tempdir().unwrap();
+    let p = dir.path();
+    std::fs::create_dir_all(p.join("a/src")).unwrap();
+    std::fs::create_dir_all(p.join("b/src")).unwrap();
+    std::fs::write(
+        p.join("Cargo.toml"),
+        "[workspace]\nmembers = [\"a\", \"b\"]\n[workspace.package]\nedition = \"2024\"\n",
+    )
+    .unwrap();
+    std::fs::write(
+        p.join("a/Cargo.toml"),
+        "[package]\nname = \"a\"\nedition = \"2021\"\n",
+    )
+    .unwrap();
+    std::fs::write(
+        p.join("b/Cargo.toml"),
+        "[package]\nname = \"b\"\nedition = { workspace = true }\n",
+    )
+    .unwrap();
+    std::fs::write(
+        p.join("a/src/lib.rs"),
+        "mod m1;\nmod m2;\nuse crate::m1::Foo;\npub fn drive() {\n    Foo::m();\n}\n",
+    )
+    .unwrap();
+    std::fs::write(
+        p.join("a/src/m1.rs"),
+        "pub struct Foo;\nimpl Foo {\n    pub fn m(&self) {}\n}\n",
+    )
+    .unwrap();
+    std::fs::write(
+        p.join("a/src/m2.rs"),
+        "pub struct Foo;\nimpl Foo {\n    pub fn m(&self) {}\n}\n",
+    )
+    .unwrap();
+    std::fs::write(p.join("b/src/lib.rs"), "pub fn b() {}\n").unwrap();
+    let repo = load_repo(p).unwrap();
+    let inputs = repo
+        .scope_graph_inputs
+        .as_ref()
+        .expect("scope graph inputs");
+    let cg = CallGraph::build_with_scope_graph_inputs(&repo.files, Some(inputs));
+    assert_eq!(
+        cg.methods
+            .get(&("Foo".to_string(), "m".to_string()))
+            .map(|v| v.len()),
+        Some(2),
+        "the bare owner key must collide across m1::Foo and m2::Foo"
+    );
+    let out = cg.resolve_call_site_full(&site_in(&cg, "drive", "Foo::m"));
+    assert_eq!(out.drop, None, "the recovered owner path must not drop");
+    assert_eq!(
+        out.resolved.len(),
+        1,
+        "a pure-2018+ mixed-edition workspace now recovers the collision to one Exact"
+    );
+    assert_eq!(out.resolved[0].confidence, ResolutionConfidence::Exact);
+}
