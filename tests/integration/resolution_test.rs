@@ -1,5 +1,6 @@
 use prism::call_graph::{CallGraph, CallSite};
 use prism::cpg::CpgContext;
+use prism::navigation::queries;
 use prism::resolution::{admission_key, iface_key};
 use prism::resolution::{DropReason, ResolutionConfidence, ResolutionKind};
 use std::collections::BTreeMap;
@@ -64,6 +65,36 @@ fn build_rust_complete(
     let mut inputs = ScopeGraphBuildInputs::from_files_convention(&files);
     inputs.cfg = RustCrateConfig {
         crate_roots: files.keys().cloned().collect(),
+        ..RustCrateConfig::default()
+    };
+    (
+        CallGraph::build_with_scope_graph_inputs(&files, Some(&inputs)),
+        files,
+    )
+}
+
+fn build_rust_workspace(
+    sources: &[(&str, &str)],
+    workspace_members: &[&str],
+    member_deps: BTreeMap<String, BTreeMap<String, String>>,
+) -> (CallGraph, BTreeMap<String, prism::ast::ParsedFile>) {
+    use prism::call_graph::ScopeGraphBuildInputs;
+    use prism::languages::Language::Rust;
+    use prism::name_resolution::rust_populator::RustCrateConfig;
+
+    let mut files = BTreeMap::new();
+    for (path, src) in sources {
+        files.insert(
+            path.to_string(),
+            prism::ast::ParsedFile::parse(path, src, Rust).unwrap(),
+        );
+    }
+    let mut inputs = ScopeGraphBuildInputs::from_files_convention(&files);
+    inputs.cfg = RustCrateConfig {
+        edition: 2021,
+        crate_roots: files.keys().cloned().collect(),
+        workspace_members: workspace_members.iter().map(|m| m.to_string()).collect(),
+        member_in_repo_deps: member_deps,
         ..RustCrateConfig::default()
     };
     (
@@ -1724,6 +1755,81 @@ fn scope_graph_two_crate_owner_collision_recovers_to_single_exact() {
     assert_eq!(r[0].target.file, "a/src/lib.rs");
     assert_eq!(r[0].confidence, ResolutionConfidence::Exact);
     assert_eq!(r[0].kind, ResolutionKind::QualifiedOwner);
+}
+
+#[test]
+fn call_stats_reports_glob_expand_histogram_shape() {
+    use prism::languages::Language::Rust;
+
+    let (cg, _) = build(&[(
+        "src/lib.rs",
+        "pub use inner::*;\nmod inner { pub struct Widget; impl Widget { pub fn make() {} } }\npub fn drive() {\n    Widget::make();\n}\n",
+        Rust,
+    )]);
+    let stats = queries::call_stats(&cg);
+    let ge = stats
+        .get("glob_expand")
+        .and_then(|v| v.as_object())
+        .expect("call_stats must report glob_expand object");
+    for key in [
+        "resolved_l1",
+        "resolved_l2",
+        "depth_exceeded",
+        "cycle",
+        "external",
+        "multi_target",
+        "ambiguous",
+        "vis_unknown",
+    ] {
+        assert!(
+            ge.get(key).and_then(|v| v.as_u64()).is_some(),
+            "glob_expand.{key} must be an integer"
+        );
+    }
+}
+
+#[test]
+fn cross_crate_glob_facade_collision_dep_crate_recovers_single_exact() {
+    let mut consumer_deps = BTreeMap::new();
+    consumer_deps.insert("foo".to_string(), "crates/foo".to_string());
+    let mut member_deps = BTreeMap::new();
+    member_deps.insert("crates/consumer".to_string(), consumer_deps);
+
+    let (cg, _) = build_rust_workspace(
+        &[
+            (
+                "crates/consumer/src/lib.rs",
+                "use foo::Widget;\npub fn dependent() {\n    Widget::make();\n}\n",
+            ),
+            (
+                "crates/foo/src/lib.rs",
+                "pub use inner::*;\nmod inner { pub struct Widget; impl Widget { pub fn make() {} } }\n",
+            ),
+            (
+                "crates/bar/src/lib.rs",
+                "pub use inner::*;\nmod inner { pub struct Widget; impl Widget { pub fn make() {} } }\n",
+            ),
+        ],
+        &["crates/bar", "crates/consumer", "crates/foo"],
+        member_deps,
+    );
+    assert!(
+        cg.scope_graph.is_some(),
+        "workspace build should store a scope graph"
+    );
+    assert_eq!(
+        cg.methods
+            .get(&("Widget".to_string(), "make".to_string()))
+            .map(|v| v.len()),
+        Some(2),
+        "the bare owner key must collide across the two facade crates"
+    );
+
+    let resolved = cg.resolve_call_site(&site_in(&cg, "dependent", "Widget::make"));
+    assert_eq!(resolved.len(), 1, "dependent crate recovers one owner");
+    assert_eq!(resolved[0].target.file, "crates/foo/src/lib.rs");
+    assert_eq!(resolved[0].confidence, ResolutionConfidence::Exact);
+    assert_eq!(resolved[0].kind, ResolutionKind::QualifiedOwner);
 }
 
 #[test]
