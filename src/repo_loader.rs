@@ -311,6 +311,54 @@ fn parse_rust_crate_config(
         }
     }
 
+    // Per-workspace-root `[workspace.dependencies]` pre-scan (BLOCKER 2): a repo can
+    // hold MULTIPLE workspace roots, so a global name->target map would cross-resolve
+    // a same-named workspace dep into the wrong workspace. Key the map by the
+    // workspace-root dir (the dir that declared `[workspace]`), and record the set of
+    // workspace-root dirs so each member resolves through its OWNING (nearest-ancestor)
+    // workspace. Only entries carrying a `path` (the in-repo workspace-dep targets) are
+    // recorded; targets are normalized (`..`/`.` collapsed) to the manifest-dir form.
+    let mut workspace_dep_paths: BTreeMap<String, BTreeMap<String, String>> = BTreeMap::new();
+    let mut workspace_root_dirs: BTreeSet<String> = BTreeSet::new();
+    for manifest_path in manifest_hashes.keys() {
+        let abs = root.join(manifest_path);
+        let Ok(text) = std::fs::read_to_string(&abs) else {
+            continue;
+        };
+        let Ok(value) = text.parse::<toml::Value>() else {
+            continue;
+        };
+        let manifest_dir = manifest_path
+            .strip_suffix("Cargo.toml")
+            .unwrap_or("")
+            .trim_end_matches('/');
+        // A manifest that declares `[workspace]` is a workspace root (members and/or
+        // `[workspace.dependencies]` hang off it).
+        let ws = value.get("workspace");
+        if ws.is_some() {
+            workspace_root_dirs.insert(manifest_dir.to_string());
+        }
+        if let Some(ws_deps) = ws
+            .and_then(|w| w.get("dependencies"))
+            .and_then(|d| d.as_table())
+        {
+            let entry = workspace_dep_paths
+                .entry(manifest_dir.to_string())
+                .or_default();
+            for (name, spec) in ws_deps {
+                if let Some(path) = spec.get("path").and_then(|p| p.as_str()) {
+                    // Skip an out-of-repo workspace-dep target (a `..` that escapes the
+                    // repo root): `normalize_repo_rel` returns `None` (re-review BLOCKER A).
+                    if let Some(target) = normalize_repo_rel(&join_manifest_rel(manifest_dir, path))
+                    {
+                        entry.insert(name.clone(), target);
+                    }
+                }
+            }
+        }
+    }
+    let mut member_in_repo_deps: BTreeMap<String, BTreeMap<String, String>> = BTreeMap::new();
+
     for manifest_path in manifest_hashes.keys() {
         let abs = root.join(manifest_path);
         let Ok(text) = std::fs::read_to_string(&abs) else {
@@ -389,6 +437,18 @@ fn parse_rust_crate_config(
         }
 
         collect_dep_renames(&value, &mut cfg.dep_renames);
+        // Resolve this member's `workspace = true` deps through its OWNING workspace
+        // root's `[workspace.dependencies]` (nearest ancestor dir that declared
+        // `[workspace]`); an empty map when the member is not under any workspace root.
+        let owning_ws = owning_workspace_root(manifest_dir, &workspace_root_dirs);
+        let empty_ws_deps = BTreeMap::new();
+        let ws_deps_for_member = owning_ws
+            .and_then(|ws| workspace_dep_paths.get(ws))
+            .unwrap_or(&empty_ws_deps);
+        let member_deps = parse_member_in_repo_deps(&value, manifest_dir, ws_deps_for_member);
+        if !member_deps.is_empty() {
+            member_in_repo_deps.insert(manifest_dir.to_string(), member_deps);
+        }
     }
 
     if !parsed_any {
@@ -400,6 +460,7 @@ fn parse_rust_crate_config(
     cfg.crate_roots = crate_roots.into_iter().collect();
     cfg.workspace_members = workspace_members.into_iter().collect();
     cfg.bin_paths = bin_paths.into_iter().collect();
+    cfg.member_in_repo_deps = member_in_repo_deps;
     Some(cfg)
 }
 
@@ -420,6 +481,107 @@ fn parse_edition(raw: &str) -> Option<u16> {
 /// a same-side workspace is authoritative, but a 2015/2018+ mix is not (keep-all).
 fn anchoring_class_uniform(editions: &BTreeSet<u16>) -> bool {
     editions.iter().all(|&e| e >= 2018) || editions.iter().all(|&e| e < 2018)
+}
+
+/// Lexically normalize a repo-relative path to the manifest-dir spelling (BLOCKER 1),
+/// returning `None` when a `..` escapes the repo root (re-review BLOCKER A).
+/// PURE STRING (no filesystem): split on `/`, drop `.` and empty segments, pop the
+/// previous segment on `..`. A `..` with nothing left to pop means the path points
+/// OUT of the repo (e.g. `../b`, `a/../../b`) → `None`, so the caller skips it (an
+/// out-of-repo path dep is not an in-repo member). Produces no trailing slash and no
+/// `.`/`..` components, so a `path = "../b"` dep from a non-root member `a/` (`join`
+/// → `a/../b`) collapses to `Some("b")`, the SAME key the Builder uses for
+/// `lib_root_by_member_dir`. `join_manifest_rel` alone keeps the `..` and would miss
+/// the index. (`Some("")` is the repo root itself — a valid in-repo single-crate dir.)
+fn normalize_repo_rel(path: &str) -> Option<String> {
+    let mut out: Vec<&str> = Vec::new();
+    for seg in path.split('/') {
+        match seg {
+            "" | "." => {}
+            ".." => {
+                // Pop the parent; if there is nothing to pop, the `..` escapes the
+                // repo root → out-of-repo → decline (do not clamp to an in-repo dir).
+                if out.pop().is_none() {
+                    return None;
+                }
+            }
+            s => out.push(s),
+        }
+    }
+    Some(out.join("/"))
+}
+
+/// The OWNING workspace root for `manifest_dir` (BLOCKER 2): the LONGEST workspace-root
+/// dir that is an ancestor of (or equal to) `manifest_dir`. `""` (the repo root) is an
+/// ancestor of everything, so a single top-level workspace owns all members. Returns
+/// `None` when the member is under no workspace root (a non-workspace single crate).
+fn owning_workspace_root<'a>(
+    manifest_dir: &str,
+    workspace_root_dirs: &'a BTreeSet<String>,
+) -> Option<&'a str> {
+    workspace_root_dirs
+        .iter()
+        .filter(|ws| is_dir_ancestor(ws, manifest_dir))
+        .map(String::as_str)
+        // Longest matching ancestor = the nearest (innermost) owning workspace.
+        .max_by_key(|ws| ws.len())
+}
+
+/// True iff `ancestor` is a directory-prefix of (or equal to) `dir`, both repo-relative
+/// with no trailing slash. `""` (repo root) is an ancestor of everything. Avoids the
+/// `"a"` ⊂ `"ab"` false match by requiring a `/` boundary.
+fn is_dir_ancestor(ancestor: &str, dir: &str) -> bool {
+    if ancestor.is_empty() || ancestor == dir {
+        return true;
+    }
+    dir.strip_prefix(ancestor)
+        .map(|rest| rest.starts_with('/'))
+        .unwrap_or(false)
+}
+
+/// Capture one member manifest's in-repo `[dependencies]` (PATH + WORKSPACE forms)
+/// as `in_source_name → target member dir`. External/version-only/git/registry deps
+/// are skipped (they resolve to no in-repo path). `manifest_dir` is the member's
+/// directory (no trailing slash, "" for the repo root); `workspace_dep_paths` maps a
+/// `[workspace.dependencies]` name to its resolved (normalized) target dir, scoped to
+/// THIS member's owning workspace (for `workspace = true`).
+fn parse_member_in_repo_deps(
+    value: &toml::Value,
+    manifest_dir: &str,
+    workspace_dep_paths: &BTreeMap<String, String>,
+) -> BTreeMap<String, String> {
+    let mut out = BTreeMap::new();
+    let Some(deps) = value.get("dependencies").and_then(|d| d.as_table()) else {
+        return out;
+    };
+    for (in_source_name, spec) in deps {
+        // A bare `dep = "1.0"` string spec is version-only / external → skip.
+        let Some(table) = spec.as_table() else {
+            continue;
+        };
+        if let Some(path) = table.get("path").and_then(|p| p.as_str()) {
+            // PATH dep: target dir is the member dir joined with the relative path,
+            // normalized (`..`/`.` collapsed) to the manifest-dir spelling (BLOCKER 1).
+            // `normalize_repo_rel` returns `None` if a `..` escapes the repo root — an
+            // out-of-repo dep, so skip it (do not record) (re-review BLOCKER A).
+            if let Some(target) = normalize_repo_rel(&join_manifest_rel(manifest_dir, path)) {
+                out.insert(in_source_name.clone(), target);
+            }
+        } else if table
+            .get("workspace")
+            .and_then(|w| w.as_bool())
+            .unwrap_or(false)
+        {
+            // WORKSPACE dep: resolve through the owning workspace's
+            // `[workspace.dependencies][name].path` (already normalized at pre-scan).
+            if let Some(target_dir) = workspace_dep_paths.get(in_source_name) {
+                out.insert(in_source_name.clone(), target_dir.clone());
+            }
+            // No `[workspace.dependencies]` path entry → external → skip.
+        }
+        // else (version/git/registry table, no path, not workspace) → external → skip.
+    }
+    out
 }
 
 fn join_manifest_rel(manifest_dir: &str, rel_path: &str) -> String {
@@ -790,6 +952,255 @@ mod tests {
         assert!(
             !inputs.cfg.edition_uniform,
             "workspace editions spanning the 2015/2018 boundary must keep edition_uniform == false"
+        );
+    }
+
+    #[test]
+    fn path_dep_records_in_repo_member_dependency() {
+        // `a` declares `b_crate = { path = "../b" }`; `b` is an in-repo member.
+        // member_in_repo_deps must map a's member dir -> (b_crate -> b's dir).
+        // This is ALSO the BLOCKER-1 normalization case: `join("a", "../b")` is
+        // `a/../b` lexically, but the recorded target must be the normalized `b`
+        // (the same spelling `lib_root_by_member_dir` keys by) -- `normalize_repo_rel`
+        // pops the `..`. A non-normalizing `join_manifest_rel` would record `a/../b`
+        // and the Builder lookup in Task 3 would miss.
+        let dir = tempfile::tempdir().unwrap();
+        let p = dir.path();
+        std::fs::create_dir_all(p.join("a/src")).unwrap();
+        std::fs::create_dir_all(p.join("b/src")).unwrap();
+        std::fs::write(
+            p.join("Cargo.toml"),
+            "[workspace]\nmembers = [\"a\", \"b\"]\n",
+        )
+        .unwrap();
+        std::fs::write(
+            p.join("a/Cargo.toml"),
+            "[package]\nname = \"a\"\nedition = \"2021\"\n[dependencies]\nb_crate = { path = \"../b\" }\n",
+        )
+        .unwrap();
+        std::fs::write(
+            p.join("b/Cargo.toml"),
+            "[package]\nname = \"b\"\nedition = \"2021\"\n",
+        )
+        .unwrap();
+        std::fs::write(p.join("a/src/lib.rs"), "pub fn a() {}\n").unwrap();
+        std::fs::write(p.join("b/src/lib.rs"), "pub fn b() {}\n").unwrap();
+        let repo = load_repo(p).unwrap();
+        let inputs = repo.scope_graph_inputs.expect("scope graph inputs");
+        assert_eq!(
+            inputs
+                .cfg
+                .member_in_repo_deps
+                .get("a")
+                .and_then(|m| m.get("b_crate"))
+                .map(String::as_str),
+            Some("b"),
+            "a path dep on ../b must record (a -> b_crate -> b)"
+        );
+    }
+
+    #[test]
+    fn workspace_dep_records_in_repo_member_dependency() {
+        // `a` declares `b_crate = { workspace = true }`; the workspace root has
+        // `[workspace.dependencies] b_crate = { path = "b" }`. The ruff-heavy form.
+        let dir = tempfile::tempdir().unwrap();
+        let p = dir.path();
+        std::fs::create_dir_all(p.join("a/src")).unwrap();
+        std::fs::create_dir_all(p.join("b/src")).unwrap();
+        std::fs::write(
+            p.join("Cargo.toml"),
+            "[workspace]\nmembers = [\"a\", \"b\"]\n[workspace.dependencies]\nb_crate = { path = \"b\" }\n",
+        )
+        .unwrap();
+        std::fs::write(
+            p.join("a/Cargo.toml"),
+            "[package]\nname = \"a\"\nedition = \"2021\"\n[dependencies]\nb_crate = { workspace = true }\n",
+        )
+        .unwrap();
+        std::fs::write(
+            p.join("b/Cargo.toml"),
+            "[package]\nname = \"b\"\nedition = \"2021\"\n",
+        )
+        .unwrap();
+        std::fs::write(p.join("a/src/lib.rs"), "pub fn a() {}\n").unwrap();
+        std::fs::write(p.join("b/src/lib.rs"), "pub fn b() {}\n").unwrap();
+        let repo = load_repo(p).unwrap();
+        let inputs = repo.scope_graph_inputs.expect("scope graph inputs");
+        assert_eq!(
+            inputs
+                .cfg
+                .member_in_repo_deps
+                .get("a")
+                .and_then(|m| m.get("b_crate"))
+                .map(String::as_str),
+            Some("b"),
+            "a workspace dep resolving to ../b via [workspace.dependencies] must record (a -> b_crate -> b)"
+        );
+    }
+
+    #[test]
+    fn external_version_dep_is_not_recorded() {
+        // `a` depends on an EXTERNAL `serde = "1.0"` (version-only, no path). It
+        // must NOT enter member_in_repo_deps (no in-repo target).
+        let dir = tempfile::tempdir().unwrap();
+        let p = dir.path();
+        std::fs::create_dir_all(p.join("a/src")).unwrap();
+        std::fs::write(p.join("Cargo.toml"), "[workspace]\nmembers = [\"a\"]\n").unwrap();
+        std::fs::write(
+            p.join("a/Cargo.toml"),
+            "[package]\nname = \"a\"\nedition = \"2021\"\n[dependencies]\nserde = \"1.0\"\n",
+        )
+        .unwrap();
+        std::fs::write(p.join("a/src/lib.rs"), "pub fn a() {}\n").unwrap();
+        let repo = load_repo(p).unwrap();
+        let inputs = repo.scope_graph_inputs.expect("scope graph inputs");
+        assert!(
+            inputs
+                .cfg
+                .member_in_repo_deps
+                .get("a")
+                .map(|m| !m.contains_key("serde"))
+                .unwrap_or(true),
+            "a version-only external dep must not be recorded as an in-repo dep"
+        );
+    }
+
+    #[test]
+    fn normalize_repo_rel_pops_parent_and_drops_dot() {
+        // BLOCKER 1: the lexical repo-relative normalizer is pure string (no fs).
+        // It pops `..`, drops `.`, and yields no trailing slash so the result matches
+        // the manifest-dir form `lib_root_by_member_dir` keys by. In-repo cases return
+        // `Some(dir)`.
+        assert_eq!(super::normalize_repo_rel("a/../b").as_deref(), Some("b"));
+        assert_eq!(
+            super::normalize_repo_rel("crates/a/../b").as_deref(),
+            Some("crates/b")
+        );
+        assert_eq!(super::normalize_repo_rel("./b").as_deref(), Some("b"));
+        assert_eq!(super::normalize_repo_rel("a/./b/").as_deref(), Some("a/b"));
+        assert_eq!(super::normalize_repo_rel("b").as_deref(), Some("b"));
+        assert_eq!(super::normalize_repo_rel("").as_deref(), Some(""));
+    }
+
+    #[test]
+    fn normalize_repo_rel_returns_none_when_escaping_repo_root() {
+        // Re-review BLOCKER A: a `..` that pops past the repo root is an out-of-repo
+        // path dep, NOT an in-repo member. The normalizer must return `None` (escaped)
+        // so the caller skips it — never silently clamp `../b` -> `b` or
+        // `a/../../b` -> `b`.
+        assert_eq!(super::normalize_repo_rel("../b"), None);
+        assert_eq!(super::normalize_repo_rel("a/../../b"), None);
+        assert_eq!(super::normalize_repo_rel("../../external/b"), None);
+        // A `..` that nets back inside is fine (pops `a`, lands on `b` in-repo).
+        assert_eq!(super::normalize_repo_rel("a/../b").as_deref(), Some("b"));
+    }
+
+    #[test]
+    fn path_dep_escaping_repo_root_is_not_recorded() {
+        // Re-review BLOCKER A (capture call site): a single crate AT the repo root
+        // (manifest_dir == "") declares an OUT-OF-REPO path dep `ext = { path = "../b" }`.
+        // `join_manifest_rel("", "../b")` = `../b`, which `normalize_repo_rel` rejects
+        // (a `..` underflows the repo root → None), so `ext` must NOT be recorded — the
+        // old clamp-to-`b` behavior would have falsely recorded an in-repo target.
+        let dir = tempfile::tempdir().unwrap();
+        let p = dir.path();
+        std::fs::create_dir_all(p.join("src")).unwrap();
+        std::fs::write(
+            p.join("Cargo.toml"),
+            "[package]\nname = \"root\"\nedition = \"2021\"\n[dependencies]\next = { path = \"../b\" }\n",
+        )
+        .unwrap();
+        std::fs::write(p.join("src/lib.rs"), "pub fn a() {}\n").unwrap();
+        let repo = load_repo(p).unwrap();
+        let inputs = repo.scope_graph_inputs.expect("scope graph inputs");
+        // The escaping `../b` dep from the root member must NOT be recorded as
+        // in-repo (it would have escaped the repo root).
+        assert!(
+            inputs
+                .cfg
+                .member_in_repo_deps
+                .get("")
+                .map(|m| !m.contains_key("ext"))
+                .unwrap_or(true),
+            "an out-of-repo `../b` path dep from the root member must not be recorded"
+        );
+    }
+
+    #[test]
+    fn multi_workspace_same_dep_name_resolves_per_owning_workspace() {
+        // BLOCKER 2: two SEPARATE workspaces (ws1, ws2), each with a member that
+        // declares `dep = { workspace = true }` under the SAME in-source name `shared`,
+        // but each workspace's `[workspace.dependencies] shared` points at a DISTINCT
+        // in-repo crate (ws1 -> ws1/libx, ws2 -> ws2/liby). Each consuming member must
+        // resolve `shared` through ITS OWN owning workspace's map, never the other's.
+        let dir = tempfile::tempdir().unwrap();
+        let p = dir.path();
+        for sub in ["ws1/a/src", "ws1/libx/src", "ws2/b/src", "ws2/liby/src"] {
+            std::fs::create_dir_all(p.join(sub)).unwrap();
+        }
+        // ws1: member `a` deps `shared = workspace`; ws root maps shared -> libx.
+        std::fs::write(
+            p.join("ws1/Cargo.toml"),
+            "[workspace]\nmembers = [\"a\", \"libx\"]\n[workspace.dependencies]\nshared = { path = \"libx\" }\n",
+        )
+        .unwrap();
+        std::fs::write(
+            p.join("ws1/a/Cargo.toml"),
+            "[package]\nname = \"a\"\nedition = \"2021\"\n[dependencies]\nshared = { workspace = true }\n",
+        )
+        .unwrap();
+        std::fs::write(
+            p.join("ws1/libx/Cargo.toml"),
+            "[package]\nname = \"libx\"\nedition = \"2021\"\n",
+        )
+        .unwrap();
+        // ws2: member `b` deps `shared = workspace`; ws root maps shared -> liby.
+        std::fs::write(
+            p.join("ws2/Cargo.toml"),
+            "[workspace]\nmembers = [\"b\", \"liby\"]\n[workspace.dependencies]\nshared = { path = \"liby\" }\n",
+        )
+        .unwrap();
+        std::fs::write(
+            p.join("ws2/b/Cargo.toml"),
+            "[package]\nname = \"b\"\nedition = \"2021\"\n[dependencies]\nshared = { workspace = true }\n",
+        )
+        .unwrap();
+        std::fs::write(
+            p.join("ws2/liby/Cargo.toml"),
+            "[package]\nname = \"liby\"\nedition = \"2021\"\n",
+        )
+        .unwrap();
+        for f in [
+            "ws1/a/src/lib.rs",
+            "ws1/libx/src/lib.rs",
+            "ws2/b/src/lib.rs",
+            "ws2/liby/src/lib.rs",
+        ] {
+            std::fs::write(p.join(f), "pub fn f() {}\n").unwrap();
+        }
+        let repo = load_repo(p).unwrap();
+        let inputs = repo.scope_graph_inputs.expect("scope graph inputs");
+        // ws1/a's `shared` must point at ws1/libx (its OWN workspace), not ws2/liby.
+        assert_eq!(
+            inputs
+                .cfg
+                .member_in_repo_deps
+                .get("ws1/a")
+                .and_then(|m| m.get("shared"))
+                .map(String::as_str),
+            Some("ws1/libx"),
+            "ws1/a resolves `shared` through ws1's [workspace.dependencies]"
+        );
+        // ws2/b's `shared` must point at ws2/liby (its OWN workspace), not ws1/libx.
+        assert_eq!(
+            inputs
+                .cfg
+                .member_in_repo_deps
+                .get("ws2/b")
+                .and_then(|m| m.get("shared"))
+                .map(String::as_str),
+            Some("ws2/liby"),
+            "ws2/b resolves `shared` through ws2's [workspace.dependencies]"
         );
     }
 

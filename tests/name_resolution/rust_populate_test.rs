@@ -760,6 +760,7 @@ fn test_extern_crate_alias_binds_in_root() {
         lib_path: None,
         bin_paths: vec![],
         edition_uniform: true,
+        member_in_repo_deps: BTreeMap::new(),
     };
     let g = populate_rust(&fs, &cfg, None);
     // `bar` is a Type binding at a/src/lib.rs's root scope.
@@ -800,6 +801,7 @@ fn test_workspace_two_members_distinct_roots() {
         lib_path: None,
         bin_paths: vec![],
         edition_uniform: true,
+        member_in_repo_deps: BTreeMap::new(),
     };
     let g = populate_rust(&fs, &cfg, None);
     // `helper()` in crate_a must NOT resolve to crate_b's helper (separate crate).
@@ -834,6 +836,7 @@ fn test_explicit_lib_and_bin_roots() {
         lib_path: Some("weird/entry.rs".to_string()),
         bin_paths: vec!["weird/cli.rs".to_string()],
         edition_uniform: true,
+        member_in_repo_deps: BTreeMap::new(),
     };
     let g = populate_rust(&fs, &cfg, None);
     // Each root file is its own crate Root scope (enclosing_scope at byte 0 is a Root).
@@ -1213,6 +1216,7 @@ fn test_parse_failed_containing_file_is_unmodeled() {
         lib_path: Some("src/lib.rs".to_string()),
         bin_paths: vec!["src/extra.rs".to_string()],
         edition_uniform: true,
+        member_in_repo_deps: BTreeMap::new(),
     };
     let g = populate_rust(&fs, &cfg, None);
 
