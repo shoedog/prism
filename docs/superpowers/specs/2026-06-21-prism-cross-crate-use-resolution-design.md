@@ -1,7 +1,7 @@
 # Cross-Crate `use` Resolution — Design
 
 **Date:** 2026-06-21
-**Status:** design-of-record — codex xhigh spec re-review folded — per-crate dependency-gated (owner-decided); 2nd-round MAJOR+BLOCKER addressed.
+**Status:** design-of-record — **codex xhigh SHIP** (3 review rounds: 5 findings → 2 findings → SHIP). Per-crate dependency-gated (owner-decided).
 **Branch:** `cross-crate-use-resolution` (off `main` after PR #123 / edition anchoring-class merged)
 **Predecessors:** #120 demote-not-drop · #121 scope-graph recovery · #122 (A) prune-through-`use` ·
 #123 edition anchoring-class uniformity. This is the next slice on the
