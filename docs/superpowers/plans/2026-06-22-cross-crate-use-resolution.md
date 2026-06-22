@@ -200,7 +200,7 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
 ## Task 2: Per-member in-repo dependency capture (`repo_loader` + `RustCrateConfig`)
 
 Add `RustCrateConfig::member_in_repo_deps` and populate it in `parse_rust_crate_config`: for each member manifest's `[dependencies]`, record PATH deps and WORKSPACE deps that resolve to an in-repo member; exclude external/version-only/git/registry. Two correctness requirements baked in from the spec-review:
-- **Lexical path normalization (BLOCKER 1):** dep targets are normalized with a pure-string repo-relative normalizer (`normalize_repo_rel`) so a `path = "../b"` from member `a` yields target `b`, the SAME spelling the Builder keys `lib_root_by_member_dir` by (the manifest dir from `join_manifest_rel`, no trailing slash). `join_manifest_rel` alone preserves `..` (`a/../b`) and would miss.
+- **Lexical path normalization + escape guard (BLOCKER 1 + re-review BLOCKER A):** dep targets are normalized with a pure-string repo-relative normalizer (`normalize_repo_rel`) so a `path = "../b"` from a non-root member `a/` yields target `b`, the SAME spelling the Builder keys `lib_root_by_member_dir` by (the manifest dir from `join_manifest_rel`, no trailing slash). `join_manifest_rel` alone preserves `..` (`a/../b`) and would miss. The normalizer returns `Option<String>` and yields **`None` when a `..` would pop past the repo root** (an out-of-repo path dep like `path = "../../external/b"`): such a dep target is NOT in-repo, so BOTH the path-dep and workspace-dep call sites must **skip** it (record nothing) rather than silently clamp it to an in-repo-looking dir (spec §2.1 "PATH deps that resolve to an **in-repo** member"). From a non-root member `a/`, `../b → b` is still valid in-repo; only an *underflow* past the root escapes.
 - **Per-workspace-root `[workspace.dependencies]` maps (BLOCKER 2):** a repo can hold MULTIPLE workspace roots (`multi_workspace_spanning_boundary_is_not_uniform`, `repo_loader.rs:755`). The `[workspace.dependencies]` pre-scan is keyed **per workspace-root dir**, each member is associated with its **owning** workspace root (nearest ancestor dir that declared `[workspace]`), and a member's `dep = { workspace = true }` resolves through ITS owning workspace's map — never a same-named dep in a different workspace.
 
 **Files:**
@@ -355,13 +355,61 @@ Add `RustCrateConfig::member_in_repo_deps` and populate it in `parse_rust_crate_
     fn normalize_repo_rel_pops_parent_and_drops_dot() {
         // BLOCKER 1: the lexical repo-relative normalizer is pure string (no fs).
         // It pops `..`, drops `.`, and yields no trailing slash so the result matches
-        // the manifest-dir form `lib_root_by_member_dir` keys by.
-        assert_eq!(super::normalize_repo_rel("a/../b"), "b");
-        assert_eq!(super::normalize_repo_rel("crates/a/../b"), "crates/b");
-        assert_eq!(super::normalize_repo_rel("./b"), "b");
-        assert_eq!(super::normalize_repo_rel("a/./b/"), "a/b");
-        assert_eq!(super::normalize_repo_rel("b"), "b");
-        assert_eq!(super::normalize_repo_rel(""), "");
+        // the manifest-dir form `lib_root_by_member_dir` keys by. In-repo cases return
+        // `Some(dir)`.
+        assert_eq!(super::normalize_repo_rel("a/../b").as_deref(), Some("b"));
+        assert_eq!(
+            super::normalize_repo_rel("crates/a/../b").as_deref(),
+            Some("crates/b")
+        );
+        assert_eq!(super::normalize_repo_rel("./b").as_deref(), Some("b"));
+        assert_eq!(super::normalize_repo_rel("a/./b/").as_deref(), Some("a/b"));
+        assert_eq!(super::normalize_repo_rel("b").as_deref(), Some("b"));
+        assert_eq!(super::normalize_repo_rel("").as_deref(), Some(""));
+    }
+
+    #[test]
+    fn normalize_repo_rel_returns_none_when_escaping_repo_root() {
+        // Re-review BLOCKER A: a `..` that pops past the repo root is an out-of-repo
+        // path dep, NOT an in-repo member. The normalizer must return `None` (escaped)
+        // so the caller skips it — never silently clamp `../b` -> `b` or
+        // `a/../../b` -> `b`.
+        assert_eq!(super::normalize_repo_rel("../b"), None);
+        assert_eq!(super::normalize_repo_rel("a/../../b"), None);
+        assert_eq!(super::normalize_repo_rel("../../external/b"), None);
+        // A `..` that nets back inside is fine (pops `a`, lands on `b` in-repo).
+        assert_eq!(super::normalize_repo_rel("a/../b").as_deref(), Some("b"));
+    }
+
+    #[test]
+    fn path_dep_escaping_repo_root_is_not_recorded() {
+        // Re-review BLOCKER A (capture call site): a single crate AT the repo root
+        // (manifest_dir == "") declares an OUT-OF-REPO path dep `ext = { path = "../b" }`.
+        // `join_manifest_rel("", "../b")` = `../b`, which `normalize_repo_rel` rejects
+        // (a `..` underflows the repo root → None), so `ext` must NOT be recorded — the
+        // old clamp-to-`b` behavior would have falsely recorded an in-repo target.
+        let dir = tempfile::tempdir().unwrap();
+        let p = dir.path();
+        std::fs::create_dir_all(p.join("src")).unwrap();
+        std::fs::write(
+            p.join("Cargo.toml"),
+            "[package]\nname = \"root\"\nedition = \"2021\"\n[dependencies]\next = { path = \"../b\" }\n",
+        )
+        .unwrap();
+        std::fs::write(p.join("src/lib.rs"), "pub fn a() {}\n").unwrap();
+        let repo = load_repo(p).unwrap();
+        let inputs = repo.scope_graph_inputs.expect("scope graph inputs");
+        // The escaping `../b` dep from the root member must NOT be recorded as
+        // in-repo (it would have escaped the repo root).
+        assert!(
+            inputs
+                .cfg
+                .member_in_repo_deps
+                .get("")
+                .map(|m| !m.contains_key("ext"))
+                .unwrap_or(true),
+            "an out-of-repo `../b` path dep from the root member must not be recorded"
+        );
     }
 
     #[test]
@@ -437,7 +485,7 @@ cargo test --lib rust_populator::tests::member_in_repo_deps_defaults_empty -- --
 cargo test --lib repo_loader::tests:: 2>&1 | tail -25
 ```
 
-Expected (RED): everything fails to **compile** first (`no field member_in_repo_deps on RustCrateConfig`, plus `cannot find function normalize_repo_rel`). That compile error is the RED signal. After the field lands (Step 3a) but before the capture lands (Step 3b), the capture tests (`path_dep_records_*`, `workspace_dep_records_*`, `multi_workspace_same_dep_name_resolves_per_owning_workspace`) fail on the `assert_eq!`, `normalize_repo_rel_pops_parent_and_drops_dot` fails until the normalizer lands, and `external_version_dep_is_not_recorded` passes throughout (guard). Note: the `--lib` build is unaffected by the four `tests/name_resolution/rust_populate_test.rs` full-struct literals, but the **`--test name_resolution`** build will not compile until those four literals gain `member_in_repo_deps` (Step 3d, BLOCKER 3) — run `cargo test --lib repo_loader::tests::` for this task's RED/GREEN loop, and the `--test name_resolution` literal fix is verified in Task 4b / Task 6.
+Expected (RED): everything fails to **compile** first (`no field member_in_repo_deps on RustCrateConfig`, plus `cannot find function normalize_repo_rel`). That compile error is the RED signal. After the field lands (Step 3a) but before the capture lands (Step 3b), the capture tests (`path_dep_records_*`, `workspace_dep_records_*`, `multi_workspace_same_dep_name_resolves_per_owning_workspace`) fail on the `assert_eq!`, `normalize_repo_rel_pops_parent_and_drops_dot` + `normalize_repo_rel_returns_none_when_escaping_repo_root` fail until the `Option`-returning normalizer lands (re-review BLOCKER A — they also fail to **compile** until then, since they reference `super::normalize_repo_rel`), and `external_version_dep_is_not_recorded` + `path_dep_escaping_repo_root_is_not_recorded` pass throughout (guards: both assert a NON-recording, which holds while the capture is empty and must STILL hold after Step 3b — `path_dep_escaping_repo_root_is_not_recorded` is the discriminating escape-guard, green only because the escaping dep is correctly skipped, not merely because capture is absent; to confirm it discriminates, a reviewer may temporarily point the dep at an in-repo `../b`-style target and see it recorded). Note: the `--lib` build is unaffected by the four `tests/name_resolution/rust_populate_test.rs` full-struct literals, but the **`--test name_resolution`** build will not compile until those four literals gain `member_in_repo_deps` (Step 3d, BLOCKER 3) — run `cargo test --lib repo_loader::tests::` for this task's RED/GREEN loop, and the `--test name_resolution` literal fix is verified in Task 4b / Task 6.
 
 ### Step 3: Implement (minimal)
 
@@ -509,10 +557,13 @@ First, **pre-scan `[workspace.dependencies]` PER WORKSPACE ROOT** (BLOCKER 2) so
                 .or_default();
             for (name, spec) in ws_deps {
                 if let Some(path) = spec.get("path").and_then(|p| p.as_str()) {
-                    entry.insert(
-                        name.clone(),
-                        normalize_repo_rel(&join_manifest_rel(manifest_dir, path)),
-                    );
+                    // Skip an out-of-repo workspace-dep target (a `..` that escapes the
+                    // repo root): `normalize_repo_rel` returns `None` (re-review BLOCKER A).
+                    if let Some(target) =
+                        normalize_repo_rel(&join_manifest_rel(manifest_dir, path))
+                    {
+                        entry.insert(name.clone(), target);
+                    }
                 }
             }
         }
@@ -546,25 +597,32 @@ Then, **store it onto `cfg`** in the finalization block. Insert after the existi
 **Add the helpers** immediately after `anchoring_class_uniform` (`:421-423`) and before `join_manifest_rel` (`:425`):
 
 ```rust
-/// Lexically normalize a repo-relative path to the manifest-dir spelling (BLOCKER 1).
+/// Lexically normalize a repo-relative path to the manifest-dir spelling (BLOCKER 1),
+/// returning `None` when a `..` escapes the repo root (re-review BLOCKER A).
 /// PURE STRING (no filesystem): split on `/`, drop `.` and empty segments, pop the
-/// previous segment on `..` (but never above the repo root — a leading `..` that would
-/// escape is dropped). Produces no trailing slash and no `.`/`..` components, so a
-/// `path = "../b"` dep from member `a` (`join` → `a/../b`) collapses to `b`, the SAME
-/// key the Builder uses for `lib_root_by_member_dir`. `join_manifest_rel` alone keeps
-/// the `..` and would miss the index.
-fn normalize_repo_rel(path: &str) -> String {
+/// previous segment on `..`. A `..` with nothing left to pop means the path points
+/// OUT of the repo (e.g. `../b`, `a/../../b`) → `None`, so the caller skips it (an
+/// out-of-repo path dep is not an in-repo member). Produces no trailing slash and no
+/// `.`/`..` components, so a `path = "../b"` dep from a non-root member `a/` (`join`
+/// → `a/../b`) collapses to `Some("b")`, the SAME key the Builder uses for
+/// `lib_root_by_member_dir`. `join_manifest_rel` alone keeps the `..` and would miss
+/// the index. (`Some("")` is the repo root itself — a valid in-repo single-crate dir.)
+fn normalize_repo_rel(path: &str) -> Option<String> {
     let mut out: Vec<&str> = Vec::new();
     for seg in path.split('/') {
         match seg {
             "" | "." => {}
             ".." => {
-                out.pop(); // pop the parent; a leading `..` simply drops (no escape)
+                // Pop the parent; if there is nothing to pop, the `..` escapes the
+                // repo root → out-of-repo → decline (do not clamp to an in-repo dir).
+                if out.pop().is_none() {
+                    return None;
+                }
             }
             s => out.push(s),
         }
     }
-    out.join("/")
+    Some(out.join("/"))
 }
 
 /// The OWNING workspace root for `manifest_dir` (BLOCKER 2): the LONGEST workspace-root
@@ -618,10 +676,11 @@ fn parse_member_in_repo_deps(
         if let Some(path) = table.get("path").and_then(|p| p.as_str()) {
             // PATH dep: target dir is the member dir joined with the relative path,
             // normalized (`..`/`.` collapsed) to the manifest-dir spelling (BLOCKER 1).
-            out.insert(
-                in_source_name.clone(),
-                normalize_repo_rel(&join_manifest_rel(manifest_dir, path)),
-            );
+            // `normalize_repo_rel` returns `None` if a `..` escapes the repo root — an
+            // out-of-repo dep, so skip it (do not record) (re-review BLOCKER A).
+            if let Some(target) = normalize_repo_rel(&join_manifest_rel(manifest_dir, path)) {
+                out.insert(in_source_name.clone(), target);
+            }
         } else if table
             .get("workspace")
             .and_then(|w| w.as_bool())
@@ -676,7 +735,7 @@ cargo test --lib repo_loader::tests:: 2>&1 | tail -15
 cargo test --test name_resolution --no-run 2>&1 | tail -5   # confirms the 4 literal fixes compile
 ```
 
-Expected: the field test GREEN; `normalize_repo_rel_pops_parent_and_drops_dot`, all path/workspace capture tests, and `multi_workspace_same_dep_name_resolves_per_owning_workspace` GREEN; `external_version_dep_is_not_recorded` still GREEN; and the existing edition/coverage `repo_loader::tests::` (e.g. `pure_2018plus_mixed_workspace_is_uniform`, `multi_workspace_spanning_boundary_is_not_uniform`, the loader-parity test) still pass. The `--test name_resolution --no-run` build compiles (the four literal fixes landed).
+Expected: the field test GREEN; `normalize_repo_rel_pops_parent_and_drops_dot`, `normalize_repo_rel_returns_none_when_escaping_repo_root` (re-review BLOCKER A), all path/workspace capture tests, and `multi_workspace_same_dep_name_resolves_per_owning_workspace` GREEN; `external_version_dep_is_not_recorded` and `path_dep_escaping_repo_root_is_not_recorded` still GREEN; and the existing edition/coverage `repo_loader::tests::` (e.g. `pure_2018plus_mixed_workspace_is_uniform`, `multi_workspace_spanning_boundary_is_not_uniform`, the loader-parity test) still pass. The `--test name_resolution --no-run` build compiles (the four literal fixes landed).
 
 ### Step 5: Format + commit
 
@@ -702,11 +761,13 @@ collapses `..`/`.` to the manifest-dir spelling the Builder keys by); WORKSPACE
 deps (`b = { workspace = true }`) resolve through a PER-WORKSPACE-ROOT
 `[workspace.dependencies][b].path` pre-scan via the member's owning (nearest-
 ancestor) workspace root, so a same-named dep in another workspace never
-cross-resolves. Version-only/git/registry deps carry no in-repo path and are not
-recorded. The KEY is the in-source name and the target resolves by path, so
-renamed in-repo deps are subsumed. Adds member_in_repo_deps to the four explicit
-RustCrateConfig literals in rust_populate_test.rs. Inert until the Builder
-consumes it.
+cross-resolves. normalize_repo_rel returns Option and yields None when a `..`
+escapes the repo root, so an out-of-repo path dep (`path = "../../external/b"`)
+is skipped, never clamped to an in-repo-looking dir. Version-only/git/registry
+deps carry no in-repo path and are not recorded. The KEY is the in-source name
+and the target resolves by path, so renamed in-repo deps are subsumed. Adds
+member_in_repo_deps to the four explicit RustCrateConfig literals in
+rust_populate_test.rs. Inert until the Builder consumes it.
 
 Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
 ```
@@ -717,9 +778,11 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
 
 Record each LIBRARY root's member dir → its `Root` scope at root creation, then at `finish()` build `crate_deps_by_root` from `config.member_in_repo_deps` + that index. Add the `normalize_crate_ident` helper (hyphen→underscore).
 
+**Keying contract (re-review BLOCKER B):** `lib_root_by_member_dir` MUST be keyed by the **member directory** (the manifest dir — the exact spelling `member_in_repo_deps` uses, since both its KEYS and its `normalize_repo_rel`'d VALUES are manifest dirs). The member dir for a library root is derived from `config.workspace_members` (the longest member prefix of `root_path`), NOT from the library FILE's parent — because for an explicit `[lib] path = "src/lib.rs"` the root file is `<member>/src/lib.rs` and its parent is `<member>/src` (and a nested `[lib] path = "src/inner/lib.rs"` parent is `<member>/src/inner`), neither of which is the member dir `<member>` that dep-target resolution produces. `config.workspace_members` carries those member dirs verbatim (`repo_loader.rs:357` inserts `join_manifest_rel(manifest_dir, member)`; `crate_name_for_root` `builder.rs:521-543` already prefix-matches `root_path` against them). The single-crate-at-root case (empty `workspace_members`) keys by `""` (the root manifest dir), reached via the conventional `/src/lib.rs`-strip fallback. No new data is threaded through the Builder — `config.workspace_members` + `config.lib_path` are the real, already-available signals.
+
 **Files:**
 - Modify: `src/name_resolution/rust_policy.rs` (add the `pub(crate) fn normalize_crate_ident`).
-- Modify: `src/name_resolution/rust_populator/builder.rs` (two new `Builder` fields; record at `create_root` `:269-287`; build at `finish()` `:101-103`; a `lib_root_member_dir` free helper).
+- Modify: `src/name_resolution/rust_populator/builder.rs` (two new `Builder` fields; record at `create_root` `:269-287`; build at `finish()` `:101-103`; a `lib_root_member_dir` free helper that derives the member dir from `config.workspace_members` — keyed by member dir, not the library file's parent — re-review BLOCKER B).
 - Test: `src/name_resolution/rust_populator/builder.rs` (a new `#[cfg(test)] mod tests`; the file currently has none).
 
 ### Step 1: Write the failing tests (RED)
@@ -817,6 +880,70 @@ mod tests {
     }
 
     #[test]
+    fn explicit_lib_path_target_keys_by_member_dir_not_file_parent() {
+        // Re-review BLOCKER B: target `b` has an EXPLICIT `[lib] path = "src/lib.rs"`
+        // (cfg.lib_path = "b/src/lib.rs"). The dep-target index MUST key b's lib Root
+        // by the MEMBER DIR `b` (from workspace_members), NOT the library file's parent
+        // `b/src`. The old `parent_dir`-based helper keyed `b/src` -> crate_deps miss.
+        let mut files = BTreeMap::new();
+        files.insert("a/src/lib.rs".to_string(), rs("pub fn a() {}\n"));
+        files.insert("b/src/lib.rs".to_string(), rs("pub fn b() {}\n"));
+        let mut member_deps = BTreeMap::new();
+        let mut a_deps = BTreeMap::new();
+        a_deps.insert("b".to_string(), "b".to_string()); // target dir = the member dir `b`
+        member_deps.insert("a".to_string(), a_deps);
+        let cfg = RustCrateConfig {
+            // `a` is conventional; `b`'s library root is the explicit [lib].path.
+            crate_roots: vec!["a/src/lib.rs".to_string()],
+            lib_path: Some("b/src/lib.rs".to_string()),
+            workspace_members: vec!["a".to_string(), "b".to_string()],
+            member_in_repo_deps: member_deps,
+            ..RustCrateConfig::default()
+        };
+        let graph = populate_rust(&files, &cfg, None);
+        // Sorted key order: a/src/lib.rs=0, b/src/lib.rs=1.
+        let a_root = root_for(&graph, 0);
+        let b_lib_root = root_for(&graph, 1);
+        assert_eq!(
+            graph.crate_deps_by_root.get(&a_root).and_then(|m| m.get("b")),
+            Some(&b_lib_root),
+            "an explicit [lib].path target must key by member dir `b`, not `b/src`"
+        );
+    }
+
+    #[test]
+    fn nested_custom_lib_path_target_keys_by_member_dir() {
+        // Re-review BLOCKER B: target `b`'s library root is a NESTED custom path
+        // `[lib] path = "src/inner/lib.rs"` (cfg.lib_path = "b/src/inner/lib.rs").
+        // The member dir is still `b` (from workspace_members) — never the file parent
+        // `b/src/inner`. This is the case the `/src/lib.rs`-strip fallback alone misses,
+        // so the workspace_members-prefix derivation is required.
+        let mut files = BTreeMap::new();
+        files.insert("a/src/lib.rs".to_string(), rs("pub fn a() {}\n"));
+        files.insert("b/src/inner/lib.rs".to_string(), rs("pub fn b() {}\n"));
+        let mut member_deps = BTreeMap::new();
+        let mut a_deps = BTreeMap::new();
+        a_deps.insert("b".to_string(), "b".to_string());
+        member_deps.insert("a".to_string(), a_deps);
+        let cfg = RustCrateConfig {
+            crate_roots: vec!["a/src/lib.rs".to_string()],
+            lib_path: Some("b/src/inner/lib.rs".to_string()),
+            workspace_members: vec!["a".to_string(), "b".to_string()],
+            member_in_repo_deps: member_deps,
+            ..RustCrateConfig::default()
+        };
+        let graph = populate_rust(&files, &cfg, None);
+        // Sorted key order: a/src/lib.rs=0, b/src/inner/lib.rs=1.
+        let a_root = root_for(&graph, 0);
+        let b_lib_root = root_for(&graph, 1);
+        assert_eq!(
+            graph.crate_deps_by_root.get(&a_root).and_then(|m| m.get("b")),
+            Some(&b_lib_root),
+            "a nested custom [lib].path target must still key by member dir `b`"
+        );
+    }
+
+    #[test]
     fn normalize_crate_ident_hyphen_to_underscore() {
         use crate::name_resolution::rust_policy::normalize_crate_ident;
         assert_eq!(normalize_crate_ident("my-crate"), "my_crate");
@@ -831,7 +958,7 @@ mod tests {
 cargo test --lib name_resolution::rust_populator::builder::tests:: 2>&1 | tail -25
 ```
 
-Expected (RED): `normalize_crate_ident_hyphen_to_underscore` fails to **compile** (`unresolved import ... normalize_crate_ident`); the two `crate_deps_by_root_*` tests fail on the `assert_eq!` (the map is empty — `finish()` does not yet populate it).
+Expected (RED): `normalize_crate_ident_hyphen_to_underscore` fails to **compile** (`unresolved import ... normalize_crate_ident`); the two `crate_deps_by_root_*` tests AND the two re-review BLOCKER B tests (`explicit_lib_path_target_keys_by_member_dir_not_file_parent`, `nested_custom_lib_path_target_keys_by_member_dir`) fail on the `assert_eq!` (the map is empty — `finish()` does not yet populate it). After 3c/3d/3e land, the BLOCKER B tests are the discriminating cases: with the OLD `parent_dir`-based helper they would still fail (the explicit/nested lib root keys by `b/src` or `b/src/inner`, so `finish()`'s `lib_root_by_member_dir.get("b")` misses); the reworked member-dir-keyed helper is what turns them GREEN.
 
 ### Step 3: Implement (minimal)
 
@@ -926,32 +1053,59 @@ with:
 **3e — the `lib_root_member_dir` helper.** Add a free helper after `crate_name_for_root` (`:521-543`, at the end of the file):
 
 ```rust
-/// The workspace-member directory for a root path **iff it is a library root** —
-/// i.e. `root_path` is the `[lib].path` override OR ends in the conventional
-/// `src/lib.rs`. Returns the member dir (`<member>` for `<member>/src/lib.rs`, or
-/// `""` for a top-level `src/lib.rs`). A bin/test/bench/example root returns `None`
-/// (never a dependency target). The member dir is keyed exactly as
-/// `member_in_repo_deps` keys it (the manifest dir, no trailing slash) — and because
-/// Task 2 NORMALIZES both the `member_in_repo_deps` KEYS (the manifest dir) and the
-/// dep-target VALUES (`normalize_repo_rel`) to that same spelling, the `finish()`
-/// lookups `lib_root_by_member_dir.get(member_dir)` and `.get(target_dir)` hit. Root
-/// paths come from `join_manifest_rel(manifest_dir, "src/lib.rs")` where `manifest_dir`
-/// is a discovered file path (no `..`), so stripping `/src/lib.rs` yields the same
-/// normalized form with no extra normalization needed here (BLOCKER 1 keying contract).
+/// The workspace-member DIRECTORY for a root path **iff it is a library root**
+/// (re-review BLOCKER B). A library root is the `[lib].path` override
+/// (`config.lib_path == Some(root_path)`) OR a path ending in the conventional
+/// `src/lib.rs`; a bin/test/bench/example root returns `None` (never a dependency
+/// target — this is the lib+bin no-self-collide guarantee).
+///
+/// The member dir is the MANIFEST DIR — the exact spelling `member_in_repo_deps`
+/// keys by (Task 2 normalizes both its KEYS (the manifest dir) and the dep-target
+/// VALUES (`normalize_repo_rel`) to that form), so the `finish()` lookups
+/// `lib_root_by_member_dir.get(member_dir)`/`.get(target_dir)` hit. It is derived
+/// from `config.workspace_members` (the LONGEST member prefix of `root_path`),
+/// **not** the library file's parent: an explicit `[lib] path = "src/lib.rs"` has
+/// root file `<member>/src/lib.rs` whose parent is `<member>/src`, and a nested
+/// `[lib] path = "src/inner/lib.rs"` parent is `<member>/src/inner` — neither is the
+/// member dir `<member>` that dep-target resolution produces. `workspace_members`
+/// carries those member dirs verbatim (`repo_loader.rs:357` =
+/// `join_manifest_rel(manifest_dir, member)`, no trailing slash); this mirrors
+/// `crate_name_for_root`'s prefix match but returns the FULL member dir, not the
+/// basename. When no member prefix matches (the single crate at the repo root, whose
+/// member dir is `""` and is absent from `workspace_members`), fall back to stripping
+/// the conventional `/src/lib.rs` suffix (`src/lib.rs` → `""`). (Repo-wide,
+/// `config.lib_path` holds only the LAST explicit `[lib].path` — a pre-existing
+/// `RustCrateConfig` flatness; convention library roots are unaffected because the
+/// suffix gate matches them regardless.)
 fn lib_root_member_dir(root_path: &str, config: &RustCrateConfig) -> Option<String> {
-    if config.lib_path.as_deref() == Some(root_path) {
-        // `[lib] path = "..."` override: the member dir is the path's first
-        // directory component before the override (best-effort: strip the file).
-        return Some(parent_dir(root_path).trim_end_matches('/').to_string());
+    // Library-root gate: only an explicit [lib].path or a conventional src/lib.rs.
+    let is_lib_root =
+        config.lib_path.as_deref() == Some(root_path) || root_path.ends_with("src/lib.rs");
+    if !is_lib_root {
+        return None;
     }
-    let member_dir = if root_path == "src/lib.rs" {
-        Some(String::new())
-    } else {
-        root_path
-            .strip_suffix("/src/lib.rs")
-            .map(|head| head.to_string())
-    };
-    member_dir
+    // Member dir = the LONGEST workspace-member prefix of root_path (the manifest dir).
+    let mut best: Option<&str> = None;
+    for m in &config.workspace_members {
+        let m = m.trim_end_matches('/');
+        let prefix = format!("{m}/");
+        if root_path.starts_with(&prefix) && best.map(|b| m.len() > b.len()).unwrap_or(true) {
+            best = Some(m);
+        }
+    }
+    if let Some(member_dir) = best {
+        return Some(member_dir.to_string());
+    }
+    // No workspace member matched: the single crate at the repo root. A conventional
+    // `<head>/src/lib.rs` strips to `<head>`; a bare `src/lib.rs` (or an explicit
+    // [lib].path at the root) keys by `""` (the root manifest dir).
+    if root_path == "src/lib.rs" {
+        return Some(String::new());
+    }
+    match root_path.strip_suffix("/src/lib.rs") {
+        Some(head) => Some(head.to_string()),
+        None => Some(String::new()), // explicit [lib].path at the repo root → ""
+    }
 }
 ```
 
@@ -962,7 +1116,7 @@ cargo test --lib name_resolution::rust_populator::builder::tests:: 2>&1 | tail -
 cargo test --lib name_resolution::rust_populator::tests:: 2>&1 | tail -10
 ```
 
-Expected: all three new builder tests GREEN; the existing `rust_populator::tests::` (edition propagation, convention roots) still pass.
+Expected: all FIVE new builder tests GREEN (`crate_deps_by_root_maps_consumer_to_target_lib_root`, `lib_plus_bin_member_does_not_self_collide`, the two re-review BLOCKER B tests `explicit_lib_path_target_keys_by_member_dir_not_file_parent` + `nested_custom_lib_path_target_keys_by_member_dir`, and `normalize_crate_ident_hyphen_to_underscore`); the existing `rust_populator::tests::` (edition propagation, convention roots) still pass.
 
 ### Step 5: Format + commit
 
@@ -986,8 +1140,12 @@ Record each LIBRARY root's member dir -> Root scope at create_root
 root is never a dependency target -> lib+bin no-self-collide), then at finish()
 map each consuming member's recorded `(in_source_name -> target_dir)` to the
 target's library Root via `crate_deps_by_root[consuming_root][normalize(name)]`.
-Add `normalize_crate_ident` (hyphen->underscore) shared with the resolver hook.
-`crate_roots_by_name` and the `extern crate` path are untouched.
+The index is keyed by the MEMBER DIR derived from config.workspace_members (the
+manifest-dir spelling member_in_repo_deps uses), NOT the library file's parent,
+so an explicit/nested `[lib].path` (root file `<member>/src/lib.rs` or
+`<member>/src/inner/lib.rs`) still keys by `<member>`. Add `normalize_crate_ident`
+(hyphen->underscore) shared with the resolver hook. `crate_roots_by_name` and the
+`extern crate` path are untouched.
 
 Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
 ```
@@ -1994,7 +2152,7 @@ Request an independent codex (gpt-5.5, xhigh) diff review of the branch. Fold an
 
 - **§2.1 persist `crate_deps_by_root` field (`#[serde(default)]`, alongside `file_paths`)** → Task 1 Step 3 (the field on `ScopeGraph`).
 - **§2.1 per-member in-repo dependency capture (PATH + WORKSPACE forms; external excluded; rename-by-in-source-name)** → Task 2 (`member_in_repo_deps` + `parse_member_in_repo_deps` + the PER-WORKSPACE-ROOT `[workspace.dependencies]` pre-scan + `owning_workspace_root`/`is_dir_ancestor` + the lexical `normalize_repo_rel` so dep targets match the Builder's member-dir keys). BLOCKER 1 (path normalization) + BLOCKER 2 (per-workspace-root, owning-workspace association) folded.
-- **§2.1 `lib_root_by_member_dir` (library roots only) + build `crate_deps_by_root` at `finish()` + `normalize_crate_ident`** → Task 3.
+- **§2.1 `lib_root_by_member_dir` (library roots only, keyed by MEMBER DIR via `config.workspace_members`) + build `crate_deps_by_root` at `finish()` + `normalize_crate_ident`** → Task 3. Re-review BLOCKER B (key by member dir, not the library file's parent — covers explicit + nested `[lib].path`) folded.
 - **§2.1 `crate_roots_by_name` / `extern crate` left unchanged** → asserted in Tasks 1/3 commit messages; no edit touches `builder.rs:48`/`:78`/`walk/items.rs:160` behavior (only ADDS the lib-root index + finish-build).
 - **§2.2 `ResolutionPolicy::extern_crate_root(graph, name, anchor, from)` (default None) + RustPolicy impl (edition/anchor gate + per-crate dep map) + `crate_root_of`** → Task 4a.
 - **§2.2 engine wiring: probe (`scope_member_lookup_probed` / `rib_present`) + leading-segment (`i==0`) fallback on TRUE no-rib miss only (`!rib_present && Unresolved`)** → Task 4b.
@@ -2007,12 +2165,12 @@ Request an independent codex (gpt-5.5, xhigh) diff review of the branch. Fold an
 
 **Type/signature consistency (verified against source):**
 - `ScopeGraph.crate_deps_by_root: std::collections::BTreeMap<ScopeId, std::collections::BTreeMap<String, ScopeId>>` — same type referenced in graph.rs (Task 1), Builder field + `finish()` (Task 3), the policy hook return key/value (Task 4a), the engine candidate (Task 4b). `ScopeId` is `name_resolution::types::ScopeId`.
-- `RustCrateConfig.member_in_repo_deps: BTreeMap<String, BTreeMap<String, String>>` (member dir → in-source name → NORMALIZED target member dir) — defined Task 2 (struct + Default + from_convention), consumed Task 3 (`finish()`), populated Task 2 (`parse_member_in_repo_deps`). Both keys and values are in the `normalize_repo_rel` manifest-dir spelling so Task 3's `lib_root_by_member_dir.get(..)` lookups hit.
-- `normalize_repo_rel(&str) -> String` — free fn in `repo_loader.rs` (Task 2 3b); the BLOCKER-1 lexical (pure-string) repo-relative normalizer (pop `..`, drop `.`, no trailing slash). Used for BOTH path-dep targets (`normalize_repo_rel(join_manifest_rel(member_dir, dep_path))`) and the per-workspace-root `[workspace.dependencies]` targets. One definition.
+- `RustCrateConfig.member_in_repo_deps: BTreeMap<String, BTreeMap<String, String>>` (member dir → in-source name → NORMALIZED in-repo target member dir) — defined Task 2 (struct + Default + from_convention), consumed Task 3 (`finish()`), populated Task 2 (`parse_member_in_repo_deps`). Both keys and values are in the `normalize_repo_rel` manifest-dir spelling so Task 3's `lib_root_by_member_dir.get(..)` lookups hit; an escaping (out-of-repo) target is never recorded (re-review BLOCKER A), so every recorded value is a genuine in-repo member dir.
+- `normalize_repo_rel(&str) -> Option<String>` — free fn in `repo_loader.rs` (Task 2 3b); the BLOCKER-1 lexical (pure-string) repo-relative normalizer (pop `..`, drop `.`, no trailing slash) with the re-review **BLOCKER A escape guard**: returns `None` when a `..` pops past the repo root (an out-of-repo dep), so both call sites `if let Some(target) = ...` skip it (never clamp). `Some("")` = the repo root (valid in-repo). Used for BOTH path-dep targets (`normalize_repo_rel(join_manifest_rel(member_dir, dep_path))`) and the per-workspace-root `[workspace.dependencies]` targets. One definition.
 - `owning_workspace_root(&str, &BTreeSet<String>) -> Option<&str>` + `is_dir_ancestor(&str, &str) -> bool` — free fns in `repo_loader.rs` (Task 2 3b); BLOCKER-2 owning-workspace association (longest workspace-root-dir ancestor; `""` root owns all; `/`-boundary prefix match). `workspace_dep_paths: BTreeMap<String /*ws root dir*/, BTreeMap<String /*dep name*/, String /*normalized target dir*/>>` and `workspace_root_dirs: BTreeSet<String>` are the per-workspace-root pre-scan structures.
 - `normalize_crate_ident(&str) -> String` — `pub(crate)` in `rust_policy.rs` (Task 3a); used by Builder `finish()` (Task 3) and `RustPolicy::extern_crate_root` (Task 4a). One definition. (Distinct from `normalize_repo_rel`: `normalize_crate_ident` is hyphen→underscore for crate IDENTIFIERS; `normalize_repo_rel` is `..`/`.` collapse for repo PATHS.)
 - `crate_root_of(&ScopeGraph, ScopeId) -> Option<ScopeId>` — `pub(crate)` free fn in `rust_policy.rs` (Task 4a); used only by `extern_crate_root`. (Distinct from `RustPolicy::crate_root(&self, ScopeId)` at `rust_policy.rs:104`, which uses the policy's borrowed graph; the free helper is needed because the trait hook receives `graph` as a parameter.)
-- `lib_root_member_dir(&str, &RustCrateConfig) -> Option<String>` — free fn in `builder.rs` (Task 3e); used by `create_root`.
+- `lib_root_member_dir(&str, &RustCrateConfig) -> Option<String>` — free fn in `builder.rs` (Task 3e); used by `create_root`. Returns the MEMBER DIR (derived from `config.workspace_members` longest-prefix match, with a `/src/lib.rs`-strip fallback for the single root crate) iff `root_path` is a library root (`config.lib_path == Some(root_path)` or ends `src/lib.rs`); else `None`. Keyed by member dir — **not** the library file's parent — so an explicit/nested `[lib].path` still keys by `<member>` (re-review BLOCKER B). Same spelling as `member_in_repo_deps` keys/values.
 - `ResolutionPolicy::extern_crate_root(&self, &ScopeGraph, &str, &Anchor, ScopeId) -> Option<ScopeId>` — trait default in `types.rs:542-596` (Task 4a), impl in `rust_policy.rs` (Task 4a), called in `engine.rs::resolve_path_guarded` (Task 4b). `Anchor`/`AnchorKind` are `name_resolution::types`.
 - `scope_member_lookup_probed(&ScopeGraph, ScopeId, &ResolveQuery, &dyn ResolutionPolicy, &mut CycleGuard) -> (Resolution, bool)` — new in `engine.rs` (Task 4b); `scope_member_lookup` becomes a wrapper returning `.0`. The fallback only runs in `resolve_path_guarded` (leading segment, `i==0`).
 - `load_repo(&Path) -> Result<LoadedRepo>` (pub, `repo_loader.rs:61`); `LoadedRepo.scope_graph_inputs: Option<ScopeGraphBuildInputs>` (pub, `:39`); `ScopeGraphBuildInputs.cfg: RustCrateConfig` (pub, `call_graph.rs:127`).
@@ -2027,3 +2185,7 @@ Request an independent codex (gpt-5.5, xhigh) diff review of the branch. Fold an
 - `RustPolicy` already has a private `crate_root(&self, ScopeId)` (`rust_policy.rs:104-121`) that climbs to the nearest `Root`. The spec's `crate_root_of(graph, from)` is added as a **free** helper (not reusing the method) because the trait hook receives `graph` as a parameter rather than `RustPolicy`'s borrowed `self.graph` — noted in the type-consistency list above.
 - The predecessor edition-anchoring work (§ #123) is **already merged on this branch** — `repo_loader.rs` already carries `workspace_editions`, `anchoring_class_uniform`, `parse_edition`, and the `{ workspace = true }` handling (`:287-423`), and `CACHE_VERSION` is already at 17 (spec §2.3's "17→18" is from the post-#123 baseline, confirmed). Task 1 bumps 17→18. The §6.6 claimed-but-invisible case is the load-bearing `!rib_present` proof (a claimed rib sets `rib_present == true` regardless of `visible()`), and per the spec-review (MAJOR 2) it is now a **REQUIRED** dedicated resolver test (`cross_crate_use_claimed_but_invisible_local_blocks_fallback`, Task 4b), **not** optional: it is the regression guard that fails RED if the fallback is implemented with the wrong (status-only) trigger. The fixture relies on the verified source fact that `resolve_restrict` (`rust_populator/walk/mod.rs:271-277`) is a Phase-1 stub returning `None`, so a `pub(in crate::secret) mod b_crate` mints a `VIS_PUB_IN`/`restrict: None` binding that `RustPolicy::visible` rejects — a robust claimed-but-invisible rib.
 - The engine's `resolve_path_guarded`/`scope_member_lookup` have MORE parameters than the spec's design-level snippet showed (`ns`, `anchor_ns`, `at`, `guard`); Task 4b's verbatim code matches the real signatures (`engine.rs:316-410`).
+
+**Re-review BLOCKERs (2026-06-22 codex xhigh round 2) folded:**
+- **BLOCKER A — `normalize_repo_rel` escape clamp (Task 2).** The original lexical normalizer `out.pop()`-ed a `..` even with nothing to pop, silently clamping an out-of-repo `../b`/`a/../../b` to an in-repo-looking dir, which both call sites recorded unconditionally — violating spec §2.1's "PATH deps that resolve to an **in-repo** member". FIXED: `normalize_repo_rel` now returns `Option<String>`, yielding `None` on a `..` underflow (escape); BOTH the path-dep call site (`parse_member_in_repo_deps`) and the workspace-dep pre-scan call site `if let Some(target) = ...` skip an escaping target (record nothing). New RED tests: `normalize_repo_rel_returns_none_when_escaping_repo_root` (unit) + `path_dep_escaping_repo_root_is_not_recorded` (capture-level escape guard from the repo-root member); the in-repo `a/../b → b` case is preserved.
+- **BLOCKER B — `lib_root_member_dir` keyed by the library FILE's parent (Task 3).** The original helper returned the library file's parent dir (`<member>/src` for `[lib] path = "src/lib.rs"`, `<member>/src/inner` for a nested custom path), so `lib_root_by_member_dir` was keyed by `<member>/src` while dep-target resolution produced `<member>` → silent miss. FIXED: the helper now derives the member dir from `config.workspace_members` (longest-prefix match — the real, already-available signal `repo_loader.rs:357` populates and `crate_name_for_root` already matches against), with a `/src/lib.rs`-strip fallback for the single root crate (`""`), gated on `root_path` being a library root. **No new data threaded through the Builder.** New RED tests: `explicit_lib_path_target_keys_by_member_dir_not_file_parent` + `nested_custom_lib_path_target_keys_by_member_dir` (both assert the dep target keys by `<member>`, not the file parent — the discriminating cases the old helper failed).
