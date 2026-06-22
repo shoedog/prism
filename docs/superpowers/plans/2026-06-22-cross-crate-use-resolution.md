@@ -199,11 +199,14 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
 
 ## Task 2: Per-member in-repo dependency capture (`repo_loader` + `RustCrateConfig`)
 
-Add `RustCrateConfig::member_in_repo_deps` and populate it in `parse_rust_crate_config`: for each member manifest's `[dependencies]`, record PATH deps and WORKSPACE deps that resolve to an in-repo member; exclude external/version-only/git/registry.
+Add `RustCrateConfig::member_in_repo_deps` and populate it in `parse_rust_crate_config`: for each member manifest's `[dependencies]`, record PATH deps and WORKSPACE deps that resolve to an in-repo member; exclude external/version-only/git/registry. Two correctness requirements baked in from the spec-review:
+- **Lexical path normalization (BLOCKER 1):** dep targets are normalized with a pure-string repo-relative normalizer (`normalize_repo_rel`) so a `path = "../b"` from member `a` yields target `b`, the SAME spelling the Builder keys `lib_root_by_member_dir` by (the manifest dir from `join_manifest_rel`, no trailing slash). `join_manifest_rel` alone preserves `..` (`a/../b`) and would miss.
+- **Per-workspace-root `[workspace.dependencies]` maps (BLOCKER 2):** a repo can hold MULTIPLE workspace roots (`multi_workspace_spanning_boundary_is_not_uniform`, `repo_loader.rs:755`). The `[workspace.dependencies]` pre-scan is keyed **per workspace-root dir**, each member is associated with its **owning** workspace root (nearest ancestor dir that declared `[workspace]`), and a member's `dep = { workspace = true }` resolves through ITS owning workspace's map — never a same-named dep in a different workspace.
 
 **Files:**
 - Modify: `src/name_resolution/rust_populator/mod.rs` (add the field to `RustCrateConfig` `:71-96`; the `Default` impl `:100-109`; `from_convention` `:141-149`).
-- Modify: `src/repo_loader.rs` (capture in `parse_rust_crate_config` `:271-404`; a `[workspace.dependencies]` pre-scan + per-manifest dep parse; a `parse_member_in_repo_deps` helper).
+- Modify: `src/repo_loader.rs` (capture in `parse_rust_crate_config` `:271-404`; a per-workspace-root `[workspace.dependencies]` pre-scan + a workspace-root set + per-manifest dep parse; a `normalize_repo_rel` helper; a `parse_member_in_repo_deps` helper; an `owning_workspace_root` helper).
+- Modify (compile-fix, BLOCKER 3): `tests/name_resolution/rust_populate_test.rs` — the FOUR explicit full-struct `RustCrateConfig { .. }` literals (no `..default()`) at `:755`, `:792`, `:829`, `:1208` each gain the new `member_in_repo_deps: BTreeMap::new(),` field. (All `src/` literals and `tests/integration/resolution_test.rs:65` already use `..RustCrateConfig::default()` and need no change — verified by `grep -rn "RustCrateConfig {" src/ tests/`.)
 - Test: `src/repo_loader.rs` (`#[cfg(test)] mod tests`, after `multi_workspace_spanning_boundary_is_not_uniform` `:794`).
 
 ### Step 1: Write the failing tests (RED)
@@ -238,6 +241,11 @@ Add `RustCrateConfig::member_in_repo_deps` and populate it in `parse_rust_crate_
     fn path_dep_records_in_repo_member_dependency() {
         // `a` declares `b_crate = { path = "../b" }`; `b` is an in-repo member.
         // member_in_repo_deps must map a's member dir -> (b_crate -> b's dir).
+        // This is ALSO the BLOCKER-1 normalization case: `join("a", "../b")` is
+        // `a/../b` lexically, but the recorded target must be the normalized `b`
+        // (the same spelling `lib_root_by_member_dir` keys by) -- `normalize_repo_rel`
+        // pops the `..`. A non-normalizing `join_manifest_rel` would record `a/../b`
+        // and the Builder lookup in Task 3 would miss.
         let dir = tempfile::tempdir().unwrap();
         let p = dir.path();
         std::fs::create_dir_all(p.join("a/src")).unwrap();
@@ -342,6 +350,84 @@ Add `RustCrateConfig::member_in_repo_deps` and populate it in `parse_rust_crate_
             "a version-only external dep must not be recorded as an in-repo dep"
         );
     }
+
+    #[test]
+    fn normalize_repo_rel_pops_parent_and_drops_dot() {
+        // BLOCKER 1: the lexical repo-relative normalizer is pure string (no fs).
+        // It pops `..`, drops `.`, and yields no trailing slash so the result matches
+        // the manifest-dir form `lib_root_by_member_dir` keys by.
+        assert_eq!(super::normalize_repo_rel("a/../b"), "b");
+        assert_eq!(super::normalize_repo_rel("crates/a/../b"), "crates/b");
+        assert_eq!(super::normalize_repo_rel("./b"), "b");
+        assert_eq!(super::normalize_repo_rel("a/./b/"), "a/b");
+        assert_eq!(super::normalize_repo_rel("b"), "b");
+        assert_eq!(super::normalize_repo_rel(""), "");
+    }
+
+    #[test]
+    fn multi_workspace_same_dep_name_resolves_per_owning_workspace() {
+        // BLOCKER 2: two SEPARATE workspaces (ws1, ws2), each with a member that
+        // declares `dep = { workspace = true }` under the SAME in-source name `shared`,
+        // but each workspace's `[workspace.dependencies] shared` points at a DISTINCT
+        // in-repo crate (ws1 -> ws1/libx, ws2 -> ws2/liby). Each consuming member must
+        // resolve `shared` through ITS OWN owning workspace's map, never the other's.
+        let dir = tempfile::tempdir().unwrap();
+        let p = dir.path();
+        for sub in ["ws1/a/src", "ws1/libx/src", "ws2/b/src", "ws2/liby/src"] {
+            std::fs::create_dir_all(p.join(sub)).unwrap();
+        }
+        // ws1: member `a` deps `shared = workspace`; ws root maps shared -> libx.
+        std::fs::write(
+            p.join("ws1/Cargo.toml"),
+            "[workspace]\nmembers = [\"a\", \"libx\"]\n[workspace.dependencies]\nshared = { path = \"libx\" }\n",
+        )
+        .unwrap();
+        std::fs::write(
+            p.join("ws1/a/Cargo.toml"),
+            "[package]\nname = \"a\"\nedition = \"2021\"\n[dependencies]\nshared = { workspace = true }\n",
+        )
+        .unwrap();
+        std::fs::write(p.join("ws1/libx/Cargo.toml"), "[package]\nname = \"libx\"\nedition = \"2021\"\n").unwrap();
+        // ws2: member `b` deps `shared = workspace`; ws root maps shared -> liby.
+        std::fs::write(
+            p.join("ws2/Cargo.toml"),
+            "[workspace]\nmembers = [\"b\", \"liby\"]\n[workspace.dependencies]\nshared = { path = \"liby\" }\n",
+        )
+        .unwrap();
+        std::fs::write(
+            p.join("ws2/b/Cargo.toml"),
+            "[package]\nname = \"b\"\nedition = \"2021\"\n[dependencies]\nshared = { workspace = true }\n",
+        )
+        .unwrap();
+        std::fs::write(p.join("ws2/liby/Cargo.toml"), "[package]\nname = \"liby\"\nedition = \"2021\"\n").unwrap();
+        for f in ["ws1/a/src/lib.rs", "ws1/libx/src/lib.rs", "ws2/b/src/lib.rs", "ws2/liby/src/lib.rs"] {
+            std::fs::write(p.join(f), "pub fn f() {}\n").unwrap();
+        }
+        let repo = load_repo(p).unwrap();
+        let inputs = repo.scope_graph_inputs.expect("scope graph inputs");
+        // ws1/a's `shared` must point at ws1/libx (its OWN workspace), not ws2/liby.
+        assert_eq!(
+            inputs
+                .cfg
+                .member_in_repo_deps
+                .get("ws1/a")
+                .and_then(|m| m.get("shared"))
+                .map(String::as_str),
+            Some("ws1/libx"),
+            "ws1/a resolves `shared` through ws1's [workspace.dependencies]"
+        );
+        // ws2/b's `shared` must point at ws2/liby (its OWN workspace), not ws1/libx.
+        assert_eq!(
+            inputs
+                .cfg
+                .member_in_repo_deps
+                .get("ws2/b")
+                .and_then(|m| m.get("shared"))
+                .map(String::as_str),
+            Some("ws2/liby"),
+            "ws2/b resolves `shared` through ws2's [workspace.dependencies]"
+        );
+    }
 ```
 
 ### Step 2: Run the tests to verify they fail (RED)
@@ -351,7 +437,7 @@ cargo test --lib rust_populator::tests::member_in_repo_deps_defaults_empty -- --
 cargo test --lib repo_loader::tests:: 2>&1 | tail -25
 ```
 
-Expected (RED): all four fail to **compile** first (`no field member_in_repo_deps on RustCrateConfig`). That compile error is the RED signal; after the field lands (Step 3a) but before the capture lands (Step 3b), the three repo_loader capture tests fail on the `assert_eq!`/`assert!` (the map is empty).
+Expected (RED): everything fails to **compile** first (`no field member_in_repo_deps on RustCrateConfig`, plus `cannot find function normalize_repo_rel`). That compile error is the RED signal. After the field lands (Step 3a) but before the capture lands (Step 3b), the capture tests (`path_dep_records_*`, `workspace_dep_records_*`, `multi_workspace_same_dep_name_resolves_per_owning_workspace`) fail on the `assert_eq!`, `normalize_repo_rel_pops_parent_and_drops_dot` fails until the normalizer lands, and `external_version_dep_is_not_recorded` passes throughout (guard). Note: the `--lib` build is unaffected by the four `tests/name_resolution/rust_populate_test.rs` full-struct literals, but the **`--test name_resolution`** build will not compile until those four literals gain `member_in_repo_deps` (Step 3d, BLOCKER 3) — run `cargo test --lib repo_loader::tests::` for this task's RED/GREEN loop, and the `--test name_resolution` literal fix is verified in Task 4b / Task 6.
 
 ### Step 3: Implement (minimal)
 
@@ -384,13 +470,18 @@ In `from_convention` (the literal at `:141-149`), add the same line after `editi
 
 **3b — capture in `repo_loader`.** In `src/repo_loader.rs`, two changes inside `parse_rust_crate_config`.
 
-First, **pre-scan `[workspace.dependencies]`** so workspace-dep targets are resolvable. Insert immediately after the existing `workspace_edition` pre-scan loop closes (after `:312`, the `}` ending the first `for manifest_path in manifest_hashes.keys()` loop), before the second per-manifest loop at `:314`:
+First, **pre-scan `[workspace.dependencies]` PER WORKSPACE ROOT** (BLOCKER 2) so workspace-dep targets are resolvable through the *owning* workspace. A repo may hold multiple workspace roots (`repo_loader.rs:755`), so the map is keyed by the workspace-root dir, and a set of workspace-root dirs lets each member find its owning (nearest-ancestor) workspace root. Targets are normalized with `normalize_repo_rel` (BLOCKER 1) so they share the manifest-dir spelling. Insert immediately after the existing `workspace_edition` pre-scan loop closes (after `:312`, the `}` ending the first `for manifest_path in manifest_hashes.keys()` loop), before the second per-manifest loop at `:314`:
 
 ```rust
-    // Pre-scan `[workspace.dependencies]` across all manifests: name -> resolved
-    // target member dir for entries carrying a `path` (the in-repo workspace-dep
-    // targets). A member's `dep = { workspace = true }` resolves through this.
-    let mut workspace_dep_paths: BTreeMap<String, String> = BTreeMap::new();
+    // Per-workspace-root `[workspace.dependencies]` pre-scan (BLOCKER 2): a repo can
+    // hold MULTIPLE workspace roots, so a global name->target map would cross-resolve
+    // a same-named workspace dep into the wrong workspace. Key the map by the
+    // workspace-root dir (the dir that declared `[workspace]`), and record the set of
+    // workspace-root dirs so each member resolves through its OWNING (nearest-ancestor)
+    // workspace. Only entries carrying a `path` (the in-repo workspace-dep targets) are
+    // recorded; targets are normalized (`..`/`.` collapsed) to the manifest-dir form.
+    let mut workspace_dep_paths: BTreeMap<String, BTreeMap<String, String>> = BTreeMap::new();
+    let mut workspace_root_dirs: BTreeSet<String> = BTreeSet::new();
     for manifest_path in manifest_hashes.keys() {
         let abs = root.join(manifest_path);
         let Ok(text) = std::fs::read_to_string(&abs) else {
@@ -403,14 +494,25 @@ First, **pre-scan `[workspace.dependencies]`** so workspace-dep targets are reso
             .strip_suffix("Cargo.toml")
             .unwrap_or("")
             .trim_end_matches('/');
-        if let Some(ws_deps) = value
-            .get("workspace")
+        // A manifest that declares `[workspace]` is a workspace root (members and/or
+        // `[workspace.dependencies]` hang off it).
+        let ws = value.get("workspace");
+        if ws.is_some() {
+            workspace_root_dirs.insert(manifest_dir.to_string());
+        }
+        if let Some(ws_deps) = ws
             .and_then(|w| w.get("dependencies"))
             .and_then(|d| d.as_table())
         {
+            let entry = workspace_dep_paths
+                .entry(manifest_dir.to_string())
+                .or_default();
             for (name, spec) in ws_deps {
                 if let Some(path) = spec.get("path").and_then(|p| p.as_str()) {
-                    workspace_dep_paths.insert(name.clone(), join_manifest_rel(manifest_dir, path));
+                    entry.insert(
+                        name.clone(),
+                        normalize_repo_rel(&join_manifest_rel(manifest_dir, path)),
+                    );
                 }
             }
         }
@@ -418,10 +520,18 @@ First, **pre-scan `[workspace.dependencies]`** so workspace-dep targets are reso
     let mut member_in_repo_deps: BTreeMap<String, BTreeMap<String, String>> = BTreeMap::new();
 ```
 
-Second, **capture each member's deps** inside the existing per-manifest loop. Insert immediately after the existing `collect_dep_renames(&value, &mut cfg.dep_renames);` line (`:391`), before the loop's closing `}` (`:392`):
+Second, **capture each member's deps** inside the existing per-manifest loop, resolving any `workspace = true` dep through the member's **owning** workspace map. Insert immediately after the existing `collect_dep_renames(&value, &mut cfg.dep_renames);` line (`:391`), before the loop's closing `}` (`:392`):
 
 ```rust
-        let member_deps = parse_member_in_repo_deps(&value, manifest_dir, &workspace_dep_paths);
+        // Resolve this member's `workspace = true` deps through its OWNING workspace
+        // root's `[workspace.dependencies]` (nearest ancestor dir that declared
+        // `[workspace]`); an empty map when the member is not under any workspace root.
+        let owning_ws = owning_workspace_root(manifest_dir, &workspace_root_dirs);
+        let empty_ws_deps = BTreeMap::new();
+        let ws_deps_for_member = owning_ws
+            .and_then(|ws| workspace_dep_paths.get(ws))
+            .unwrap_or(&empty_ws_deps);
+        let member_deps = parse_member_in_repo_deps(&value, manifest_dir, ws_deps_for_member);
         if !member_deps.is_empty() {
             member_in_repo_deps.insert(manifest_dir.to_string(), member_deps);
         }
@@ -433,14 +543,64 @@ Then, **store it onto `cfg`** in the finalization block. Insert after the existi
     cfg.member_in_repo_deps = member_in_repo_deps;
 ```
 
-**Add the helper** immediately after `anchoring_class_uniform` (`:421-423`) and before `join_manifest_rel` (`:425`):
+**Add the helpers** immediately after `anchoring_class_uniform` (`:421-423`) and before `join_manifest_rel` (`:425`):
 
 ```rust
+/// Lexically normalize a repo-relative path to the manifest-dir spelling (BLOCKER 1).
+/// PURE STRING (no filesystem): split on `/`, drop `.` and empty segments, pop the
+/// previous segment on `..` (but never above the repo root — a leading `..` that would
+/// escape is dropped). Produces no trailing slash and no `.`/`..` components, so a
+/// `path = "../b"` dep from member `a` (`join` → `a/../b`) collapses to `b`, the SAME
+/// key the Builder uses for `lib_root_by_member_dir`. `join_manifest_rel` alone keeps
+/// the `..` and would miss the index.
+fn normalize_repo_rel(path: &str) -> String {
+    let mut out: Vec<&str> = Vec::new();
+    for seg in path.split('/') {
+        match seg {
+            "" | "." => {}
+            ".." => {
+                out.pop(); // pop the parent; a leading `..` simply drops (no escape)
+            }
+            s => out.push(s),
+        }
+    }
+    out.join("/")
+}
+
+/// The OWNING workspace root for `manifest_dir` (BLOCKER 2): the LONGEST workspace-root
+/// dir that is an ancestor of (or equal to) `manifest_dir`. `""` (the repo root) is an
+/// ancestor of everything, so a single top-level workspace owns all members. Returns
+/// `None` when the member is under no workspace root (a non-workspace single crate).
+fn owning_workspace_root<'a>(
+    manifest_dir: &str,
+    workspace_root_dirs: &'a BTreeSet<String>,
+) -> Option<&'a str> {
+    workspace_root_dirs
+        .iter()
+        .filter(|ws| is_dir_ancestor(ws, manifest_dir))
+        .map(String::as_str)
+        // Longest matching ancestor = the nearest (innermost) owning workspace.
+        .max_by_key(|ws| ws.len())
+}
+
+/// True iff `ancestor` is a directory-prefix of (or equal to) `dir`, both repo-relative
+/// with no trailing slash. `""` (repo root) is an ancestor of everything. Avoids the
+/// `"a"` ⊂ `"ab"` false match by requiring a `/` boundary.
+fn is_dir_ancestor(ancestor: &str, dir: &str) -> bool {
+    if ancestor.is_empty() || ancestor == dir {
+        return true;
+    }
+    dir.strip_prefix(ancestor)
+        .map(|rest| rest.starts_with('/'))
+        .unwrap_or(false)
+}
+
 /// Capture one member manifest's in-repo `[dependencies]` (PATH + WORKSPACE forms)
 /// as `in_source_name → target member dir`. External/version-only/git/registry deps
 /// are skipped (they resolve to no in-repo path). `manifest_dir` is the member's
 /// directory (no trailing slash, "" for the repo root); `workspace_dep_paths` maps a
-/// `[workspace.dependencies]` name to its resolved target dir (for `workspace = true`).
+/// `[workspace.dependencies]` name to its resolved (normalized) target dir, scoped to
+/// THIS member's owning workspace (for `workspace = true`).
 fn parse_member_in_repo_deps(
     value: &toml::Value,
     manifest_dir: &str,
@@ -456,14 +616,19 @@ fn parse_member_in_repo_deps(
             continue;
         };
         if let Some(path) = table.get("path").and_then(|p| p.as_str()) {
-            // PATH dep: target dir is the member dir joined with the relative path.
-            out.insert(in_source_name.clone(), join_manifest_rel(manifest_dir, path));
+            // PATH dep: target dir is the member dir joined with the relative path,
+            // normalized (`..`/`.` collapsed) to the manifest-dir spelling (BLOCKER 1).
+            out.insert(
+                in_source_name.clone(),
+                normalize_repo_rel(&join_manifest_rel(manifest_dir, path)),
+            );
         } else if table
             .get("workspace")
             .and_then(|w| w.as_bool())
             .unwrap_or(false)
         {
-            // WORKSPACE dep: resolve through `[workspace.dependencies][name].path`.
+            // WORKSPACE dep: resolve through the owning workspace's
+            // `[workspace.dependencies][name].path` (already normalized at pre-scan).
             if let Some(target_dir) = workspace_dep_paths.get(in_source_name) {
                 out.insert(in_source_name.clone(), target_dir.clone());
             }
@@ -475,16 +640,43 @@ fn parse_member_in_repo_deps(
 }
 ```
 
-(`BTreeMap`, `join_manifest_rel`, `toml::Value`, `root`, `manifest_hashes` are all already in scope in `repo_loader.rs`.)
+(`BTreeMap`, `BTreeSet`, `join_manifest_rel`, `toml::Value`, `root`, `manifest_hashes` are all already in scope in `repo_loader.rs` — `BTreeSet` is imported at `repo_loader.rs:9`.)
+
+**3d — fix the four explicit `RustCrateConfig` full-struct literals (BLOCKER 3).** Adding the non-`Option` `member_in_repo_deps` field breaks any literal that lists every field WITHOUT `..RustCrateConfig::default()`. `grep -rn "RustCrateConfig {" src/ tests/` confirms only FOUR such literals exist, all in `tests/name_resolution/rust_populate_test.rs` (`:755`, `:792`, `:829`, `:1208`); every `src/` literal and `tests/integration/resolution_test.rs:65` already use `..RustCrateConfig::default()` and are unaffected (the field has `#[serde(default)]` and is in `Default`). In each of the four literals, add the field after the existing `edition_uniform: true,` line:
+
+```rust
+        member_in_repo_deps: BTreeMap::new(),
+```
+
+`BTreeMap` is already imported in `rust_populate_test.rs` (`use std::collections::{BTreeMap, BTreeSet};` at `:14`). The four literals look like (each ends with `edition_uniform: true,` then `};`) — e.g. `:792`:
+
+```rust
+    let cfg = RustCrateConfig {
+        edition: 2018,
+        crate_roots: vec![
+            "crate_a/src/lib.rs".to_string(),
+            "crate_b/src/lib.rs".to_string(),
+        ],
+        workspace_members: vec!["crate_a".to_string(), "crate_b".to_string()],
+        dep_renames: BTreeMap::new(),
+        lib_path: None,
+        bin_paths: vec![],
+        edition_uniform: true,
+        member_in_repo_deps: BTreeMap::new(),
+    };
+```
+
+Apply the identical one-line addition at `:755`, `:829`, and `:1208`. (Leaving any one unedited fails the `--test name_resolution` build with `missing field member_in_repo_deps`.)
 
 ### Step 4: Run the tests to verify they pass (GREEN)
 
 ```bash
 cargo test --lib rust_populator::tests::member_in_repo_deps_defaults_empty -- --exact 2>&1 | tail -10
 cargo test --lib repo_loader::tests:: 2>&1 | tail -15
+cargo test --test name_resolution --no-run 2>&1 | tail -5   # confirms the 4 literal fixes compile
 ```
 
-Expected: the field test GREEN; all three capture tests GREEN; and the existing edition/coverage `repo_loader::tests::` (e.g. `pure_2018plus_mixed_workspace_is_uniform`, `multi_workspace_spanning_boundary_is_not_uniform`, the loader-parity test) still pass.
+Expected: the field test GREEN; `normalize_repo_rel_pops_parent_and_drops_dot`, all path/workspace capture tests, and `multi_workspace_same_dep_name_resolves_per_owning_workspace` GREEN; `external_version_dep_is_not_recorded` still GREEN; and the existing edition/coverage `repo_loader::tests::` (e.g. `pure_2018plus_mixed_workspace_is_uniform`, `multi_workspace_spanning_boundary_is_not_uniform`, the loader-parity test) still pass. The `--test name_resolution --no-run` build compiles (the four literal fixes landed).
 
 ### Step 5: Format + commit
 
@@ -492,10 +684,10 @@ Expected: the field test GREEN; all three capture tests GREEN; and the existing 
 cargo fmt && cargo fmt --check
 ```
 
-**Host commits** (stage exactly these two files):
+**Host commits** (stage exactly these three files):
 
 ```bash
-git add src/name_resolution/rust_populator/mod.rs src/repo_loader.rs
+git add src/name_resolution/rust_populator/mod.rs src/repo_loader.rs tests/name_resolution/rust_populate_test.rs
 ```
 
 Commit message:
@@ -505,11 +697,16 @@ feat(repo_loader): capture per-member in-repo dependencies
 
 Add `RustCrateConfig::member_in_repo_deps` (member dir -> in-source dep name ->
 target member dir) and populate it in parse_rust_crate_config: PATH deps
-(`b = { path = "../b" }`) join the member dir; WORKSPACE deps (`b = { workspace
-= true }`) resolve through a `[workspace.dependencies][b].path` pre-scan (the
-ruff-heavy form). Version-only/git/registry deps carry no in-repo path and are
-not recorded. The KEY is the in-source name and the target resolves by path, so
-renamed in-repo deps are subsumed. Inert until the Builder consumes it.
+(`b = { path = "../b" }`) join+NORMALIZE the member dir (lexical normalize_repo_rel
+collapses `..`/`.` to the manifest-dir spelling the Builder keys by); WORKSPACE
+deps (`b = { workspace = true }`) resolve through a PER-WORKSPACE-ROOT
+`[workspace.dependencies][b].path` pre-scan via the member's owning (nearest-
+ancestor) workspace root, so a same-named dep in another workspace never
+cross-resolves. Version-only/git/registry deps carry no in-repo path and are not
+recorded. The KEY is the in-source name and the target resolves by path, so
+renamed in-repo deps are subsumed. Adds member_in_repo_deps to the four explicit
+RustCrateConfig literals in rust_populate_test.rs. Inert until the Builder
+consumes it.
 
 Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
 ```
@@ -734,7 +931,13 @@ with:
 /// `src/lib.rs`. Returns the member dir (`<member>` for `<member>/src/lib.rs`, or
 /// `""` for a top-level `src/lib.rs`). A bin/test/bench/example root returns `None`
 /// (never a dependency target). The member dir is keyed exactly as
-/// `member_in_repo_deps` keys it (the manifest dir, no trailing slash).
+/// `member_in_repo_deps` keys it (the manifest dir, no trailing slash) — and because
+/// Task 2 NORMALIZES both the `member_in_repo_deps` KEYS (the manifest dir) and the
+/// dep-target VALUES (`normalize_repo_rel`) to that same spelling, the `finish()`
+/// lookups `lib_root_by_member_dir.get(member_dir)` and `.get(target_dir)` hit. Root
+/// paths come from `join_manifest_rel(manifest_dir, "src/lib.rs")` where `manifest_dir`
+/// is a discovered file path (no `..`), so stripping `/src/lib.rs` yields the same
+/// normalized form with no extra normalization needed here (BLOCKER 1 keying contract).
 fn lib_root_member_dir(root_path: &str, config: &RustCrateConfig) -> Option<String> {
     if config.lib_path.as_deref() == Some(root_path) {
         // `[lib] path = "..."` override: the member dir is the path's first
@@ -1187,6 +1390,18 @@ fn cross_crate_use_declines_when_no_dep() {
 fn cross_crate_use_local_module_shadows_dep() {
     // Crate a has a LOCAL `mod b_crate;` (with a `Foo`) AND declares a dep on a
     // sibling `b_crate`. The local module rib must win (P2) — never the crate root.
+    //
+    // MAJOR 1 (spec-review): the anchor MUST be `use_path_2015()` (a `UsePath` anchor),
+    // NOT `self_mod()`. The crate fallback's eligibility gate is
+    // `matches!(anchor.kind, UsePath | Bare)`, so a `SelfMod` anchor makes the fallback
+    // INELIGIBLE — the test would pass vacuously (the fallback never even fires) and
+    // would prove nothing about shadowing. With `use_path_2015()` + a 2021 policy the
+    // fallback IS eligible, so this genuinely proves the local `mod b_crate` rib
+    // shadows the cross-crate fallback. Under 2018+, `RustPolicy::anchor(UsePath, from)`
+    // anchors at `enclosing_module(from)` (`rust_policy.rs` UsePath branch) — for a
+    // `from` in the top-level `drive` body that enclosing module IS the crate root,
+    // where `mod b_crate;` is declared, so `scope_member_lookup` finds the local rib
+    // (rib_present == true) BEFORE the fallback and the fallback declines.
     let a_src = "mod b_crate;\npub fn drive() { let _ = 0; }\n";
     let fs = files(&[
         ("a/src/lib.rs", a_src),
@@ -1207,7 +1422,9 @@ fn cross_crate_use_local_module_shadows_dep() {
     let graph = populate_rust(&fs, &cfg, None);
     let policy = RustPolicy::new(&graph, 2021);
     let a_file = file_id(&fs, "a/src/lib.rs").unwrap();
-    // Resolve from inside crate a's Root scope (the `drive` body byte).
+    // Resolve from inside crate a's Root scope (the `drive` body byte). Under
+    // `use_path_2015` + 2021 the anchor is the enclosing module (= the crate root),
+    // where the local `mod b_crate;` rib lives.
     let at_byte = byte_of(a_src, "drive");
     let from = enclosing_scope(&graph, a_file, at_byte).expect("a scope");
     let at = SourceLoc {
@@ -1218,7 +1435,7 @@ fn cross_crate_use_local_module_shadows_dep() {
         &graph,
         &RawPath(vec!["b_crate".to_string(), "Foo".to_string()]),
         NS_TYPE,
-        &Anchor::self_mod(), // self:: anchors at the enclosing module so the local rib is seen
+        &Anchor::use_path_2015(), // UsePath: the fallback IS eligible, so shadowing is real
         from,
         NS_TYPE,
         &at,
@@ -1245,6 +1462,139 @@ fn cross_crate_use_local_module_shadows_dep() {
         );
     }
 }
+
+#[test]
+fn cross_crate_use_claimed_but_invisible_local_blocks_fallback() {
+    // MAJOR 2 / spec §6.6 (REQUIRED, the load-bearing `rib_present` proof): crate a has
+    // a LOCAL rib binding for `b_crate` that is CLAIMED but NOT visible at the use site,
+    // AND declares a dep on a sibling crate `b_crate`. The leading segment must stay the
+    // LOCAL outcome (Unresolved via claimed-but-invisible — rib_present == true), NEVER
+    // b's crate root. This is the discriminating case distinct from the visible-rib test
+    // above: there the rib resolves; here it is claimed-but-invisible, surfacing as
+    // `Unresolved` *with* a rib present — exactly the status the fallback must NOT
+    // convert (engine.rs:233-235 / the `!rib_present` guard).
+    //
+    // Fixture mechanism (verified against source): an inline `pub(in crate::secret) mod
+    // b_crate { ... }` mints a NS_TYPE binding for `b_crate` at the crate root scope with
+    // vis = (VIS_PUB_IN, restrict). The populator's `resolve_restrict` is a Phase-1 stub
+    // that ALWAYS returns `None` (`rust_populator/walk/mod.rs:271-277`), so the binding's
+    // `restrict` is `None`, and `RustPolicy::visible` returns `false` for VIS_PUB_IN with
+    // no restrict ("pub(in) with no recorded path → fall through", `rust_policy.rs`). The
+    // binding still EXISTS, so `scope_member_lookup_probed` reports `rib_present == true`
+    // while `resolve_rib` returns `Unresolved` (claimed-but-invisible) — a robust
+    // claimed-but-invisible rib that does not depend on where `from` sits. `secret` need
+    // not exist (the stub ignores the path).
+    let a_src = concat!(
+        "pub(in crate::secret) mod b_crate { pub struct Foo; impl Foo { pub fn m(&self) {} } }\n",
+        "pub fn drive() { let _ = 0; }\n",
+    );
+    let fs = files(&[
+        ("a/src/lib.rs", a_src),
+        ("b/src/lib.rs", "pub struct Foo;\nimpl Foo { pub fn m(&self) {} }\n"),
+    ]);
+    let mut a_deps = BTreeMap::new();
+    a_deps.insert("b_crate".to_string(), "b".to_string());
+    let mut member_deps = BTreeMap::new();
+    member_deps.insert("a".to_string(), a_deps);
+    let cfg = RustCrateConfig {
+        edition: 2021,
+        crate_roots: vec!["a/src/lib.rs".to_string(), "b/src/lib.rs".to_string()],
+        workspace_members: vec!["a".to_string(), "b".to_string()],
+        member_in_repo_deps: member_deps,
+        ..RustCrateConfig::default()
+    };
+    let graph = populate_rust(&fs, &cfg, None);
+    let policy = RustPolicy::new(&graph, 2021);
+    let a_file = file_id(&fs, "a/src/lib.rs").unwrap();
+    let at_byte = byte_of(a_src, "drive");
+    let from = enclosing_scope(&graph, a_file, at_byte).expect("a scope");
+    let at = SourceLoc {
+        file: a_file,
+        byte: at_byte,
+    };
+    let res = resolve_path(
+        &graph,
+        &RawPath(vec!["b_crate".to_string(), "Foo".to_string()]),
+        NS_TYPE,
+        &Anchor::use_path_2015(), // UsePath: the fallback WOULD be eligible by anchor/edition
+        from,
+        NS_TYPE,
+        &at,
+        &policy,
+    );
+    // The claimed-but-invisible local rib (rib_present == true) blocks the fallback, so
+    // the segment stays the LOCAL Unresolved outcome — it must NOT become b's `Foo` item.
+    assert_ne!(
+        res.status,
+        ResStatus::Resolved,
+        "a claimed-but-invisible local rib must block the crate fallback (rib_present), \
+         got {:?} ({:?})",
+        res.status,
+        res.candidates
+    );
+    assert!(
+        !res
+            .candidates
+            .iter()
+            .any(|c| matches!(c.target, Target::Item { .. })),
+        "the fallback must not resolve into b's crate (no b::Foo item), got {:?}",
+        res.candidates
+    );
+}
+
+#[test]
+fn cross_crate_use_external_same_name_declines_with_in_repo_member() {
+    // MAJOR 3 / spec §6.7 (the key soundness case, end-to-end at the resolver): crate a
+    // depends on an EXTERNAL `b` (version-only) while an UNRELATED in-repo workspace
+    // member `b` ALSO exists (a real crate Root in the graph). `use b::X` from a must
+    // DECLINE (stay Unresolved) — the external `b` is NOT in a's in-repo dep map, so the
+    // per-crate dep gate (P3) returns None even though an in-repo crate named `b` has a
+    // Root. Modeled at the resolver: `b` IS a crate root in `crate_roots` (so it has a
+    // Root scope), but `a`'s `member_in_repo_deps` does NOT record `b` (an external
+    // version-only dep is never captured — see Task 2 `external_version_dep_is_not_
+    // recorded`). The fallback must not invent a resolution to the in-repo `b` root.
+    let a_src = "use b::Thing;\npub fn drive() { let _ = 0; }\n";
+    let fs = files(&[
+        ("a/src/lib.rs", a_src),
+        ("b/src/lib.rs", "pub struct Thing;\nimpl Thing { pub fn m(&self) {} }\n"),
+    ]);
+    // a declares NO in-repo dep (its real `b = "1.0"` is external → not recorded). The
+    // in-repo member `b` still has a crate Root from `crate_roots`.
+    let cfg = RustCrateConfig {
+        edition: 2021,
+        crate_roots: vec!["a/src/lib.rs".to_string(), "b/src/lib.rs".to_string()],
+        workspace_members: vec!["a".to_string(), "b".to_string()],
+        // member_in_repo_deps deliberately EMPTY for a (external dep, not in-repo).
+        ..RustCrateConfig::default()
+    };
+    let graph = populate_rust(&fs, &cfg, None);
+    let policy = RustPolicy::new(&graph, 2021);
+    let a_file = file_id(&fs, "a/src/lib.rs").unwrap();
+    let at_byte = byte_of(a_src, "b::Thing");
+    let from = enclosing_scope(&graph, a_file, at_byte).expect("a scope");
+    let at = SourceLoc {
+        file: a_file,
+        byte: at_byte,
+    };
+    let res = resolve_path(
+        &graph,
+        &RawPath(vec!["b".to_string(), "Thing".to_string()]),
+        NS_TYPE,
+        &Anchor::use_path_2015(),
+        from,
+        NS_TYPE,
+        &at,
+        &policy,
+    );
+    assert_eq!(
+        res.status,
+        ResStatus::Unresolved,
+        "an external `b` (not in a's in-repo dep map) must DECLINE even though an \
+         in-repo member `b` exists (per-crate dep gate, P3); got {:?} ({:?})",
+        res.status,
+        res.candidates
+    );
+}
 ```
 
 > **Helper note:** `BTreeMap` is in scope (`rust_populate_test.rs` uses it in `files()`); `files(&[...])`, `byte_of(...)`, `populate_rust`, `RustPolicy`, `NS_TYPE`, `enclosing_scope`, `file_id`, `RustCrateConfig`, `Anchor`, `RawPath`, `ResStatus`, `SourceLoc`, `Target` are all already imported/defined at the top of that file — no new `use` line is needed.
@@ -1253,10 +1603,14 @@ fn cross_crate_use_local_module_shadows_dep() {
 
 ```bash
 cargo test --test name_resolution rust_populate_test::cross_crate_use_resolves_when_dep_declared -- --exact 2>&1 | tail -15
-cargo test --test name_resolution rust_populate_test::cross_crate_use_local_module_shadows_dep -- --exact 2>&1 | tail -15
+cargo test --test name_resolution rust_populate_test::cross_crate_use -- 2>&1 | tail -20
 ```
 
-Expected (RED): `cross_crate_use_resolves_when_dep_declared` fails (`Unresolved`, not `Resolved` — the leading `b_crate` segment misses with no fallback). `cross_crate_use_declines_when_no_dep` already passes (no fallback exists yet → already `Unresolved`) — it is a guard that must STAY green. `cross_crate_use_local_module_shadows_dep` passes pre-change (local module already resolves) — also a guard.
+Expected (RED): `cross_crate_use_resolves_when_dep_declared` is the only RED test — it fails (`Unresolved`, not `Resolved` — the leading `b_crate` segment misses with no fallback yet). The other four are **guards that must STAY green pre-change** (they pin behavior the engine change must preserve):
+- `cross_crate_use_declines_when_no_dep` — no fallback exists yet → already `Unresolved`.
+- `cross_crate_use_local_module_shadows_dep` — the visible local `mod b_crate` rib already resolves (UsePath anchors at the enclosing module = crate root); post-change the eligible fallback must still be shadowed.
+- `cross_crate_use_claimed_but_invisible_local_blocks_fallback` (MAJOR 2) — the claimed-but-invisible rib yields `Unresolved` pre-change (no fallback). **This is the wrong-trigger regression guard:** it stays green ONLY if Step 3's fallback gates on `!rib_present && Unresolved`; a naive `status == Unresolved`-only trigger would convert this claimed-but-invisible `Unresolved` into b's `Foo` item and FLIP it RED. So it must be observed green before AND after the engine change (it would only go red under the buggy trigger).
+- `cross_crate_use_external_same_name_declines_with_in_repo_member` (MAJOR 3) — `b` is not in a's in-repo dep map → declines pre- and post-change.
 
 ### Step 3: Implement the engine wiring (minimal)
 
@@ -1358,17 +1712,17 @@ Then **fire the fallback in `resolve_path_guarded`** for the leading segment. In
         }
 ```
 
-(`Candidate`, `Target`, `Resolution`, `ResStatus`, `CfgCond` are all already imported at `engine.rs:27-31`. `anchor` and `from` are parameters of `resolve_path_guarded` already in scope. `seg` is the loop variable `&Ident`; `extern_crate_root` takes `&str`, so pass `seg` directly — `&String` coerces to `&str`.)
+(`Candidate`, `Target`, `Resolution`, `ResStatus`, `CfgCond` are all already imported at `engine.rs:27-31`. `anchor` and `from` are parameters of `resolve_path_guarded` already in scope. `seg` is the loop variable from `segs.iter()` where `segs = &path.0` and `RawPath(Vec<String>)`, so `seg: &String`; `extern_crate_root` takes `&str`, so pass `seg` directly — `&String` coerces to `&str`.)
 
 ### Step 4: Run the tests to verify they pass (GREEN)
 
 ```bash
-cargo test --test name_resolution rust_populate_test::cross_crate_use -- 2>&1 | tail -15
+cargo test --test name_resolution rust_populate_test::cross_crate_use -- 2>&1 | tail -20
 cargo test --lib name_resolution:: 2>&1 | tail -10
 cargo test --test name_resolution 2>&1 | tail -10
 ```
 
-Expected: all three `cross_crate_use_*` tests GREEN (resolves when declared; declines with no dep; local module shadows). The whole `name_resolution` suite and the engine `--lib` tests still pass (the probe is behavior-preserving for `scope_member_lookup`; the fallback only adds resolutions on a TRUE no-rib miss).
+Expected: all FIVE `cross_crate_use_*` tests GREEN — `cross_crate_use_resolves_when_dep_declared` (now resolves), `cross_crate_use_declines_when_no_dep` (still declines), `cross_crate_use_local_module_shadows_dep` (visible local rib still shadows the now-eligible fallback), `cross_crate_use_claimed_but_invisible_local_blocks_fallback` (the `!rib_present` guard keeps the claimed-but-invisible rib shadowing — MAJOR 2), and `cross_crate_use_external_same_name_declines_with_in_repo_member` (external `b` declines despite an in-repo `b` — MAJOR 3). The whole `name_resolution` suite and the engine `--lib` tests still pass (the probe is behavior-preserving for `scope_member_lookup`; the fallback only adds resolutions on a TRUE no-rib miss `!rib_present && Unresolved`).
 
 ### Step 5: Format + commit
 
@@ -1393,8 +1747,10 @@ Add `scope_member_lookup_probed` returning (Resolution, rib_present) and fire
 claimed-but-invisible local rib (rib_present) keeps shadowing the crate name
 (P2); poison/empty-glob is unchanged. On Some(root) the segment resolves to a
 single scope-bearing Root candidate and the walk continues into the crate. Resolver
-tests pin: resolves when the dep is declared, declines with no dep, local module
-shadows the dep.
+tests pin: resolves when the dep is declared, declines with no dep, a visible
+local module shadows the dep, a claimed-but-invisible local rib still blocks the
+fallback (the !rib_present guard — the wrong-trigger regression), and an external
+same-name dep declines even when an in-repo member of that name exists.
 
 Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
 ```
@@ -1637,22 +1993,24 @@ Request an independent codex (gpt-5.5, xhigh) diff review of the branch. Fold an
 ## Self-review checklist (spec coverage → task)
 
 - **§2.1 persist `crate_deps_by_root` field (`#[serde(default)]`, alongside `file_paths`)** → Task 1 Step 3 (the field on `ScopeGraph`).
-- **§2.1 per-member in-repo dependency capture (PATH + WORKSPACE forms; external excluded; rename-by-in-source-name)** → Task 2 (`member_in_repo_deps` + `parse_member_in_repo_deps` + the `[workspace.dependencies]` pre-scan).
+- **§2.1 per-member in-repo dependency capture (PATH + WORKSPACE forms; external excluded; rename-by-in-source-name)** → Task 2 (`member_in_repo_deps` + `parse_member_in_repo_deps` + the PER-WORKSPACE-ROOT `[workspace.dependencies]` pre-scan + `owning_workspace_root`/`is_dir_ancestor` + the lexical `normalize_repo_rel` so dep targets match the Builder's member-dir keys). BLOCKER 1 (path normalization) + BLOCKER 2 (per-workspace-root, owning-workspace association) folded.
 - **§2.1 `lib_root_by_member_dir` (library roots only) + build `crate_deps_by_root` at `finish()` + `normalize_crate_ident`** → Task 3.
 - **§2.1 `crate_roots_by_name` / `extern crate` left unchanged** → asserted in Tasks 1/3 commit messages; no edit touches `builder.rs:48`/`:78`/`walk/items.rs:160` behavior (only ADDS the lib-root index + finish-build).
 - **§2.2 `ResolutionPolicy::extern_crate_root(graph, name, anchor, from)` (default None) + RustPolicy impl (edition/anchor gate + per-crate dep map) + `crate_root_of`** → Task 4a.
 - **§2.2 engine wiring: probe (`scope_member_lookup_probed` / `rib_present`) + leading-segment (`i==0`) fallback on TRUE no-rib miss only (`!rib_present && Unresolved`)** → Task 4b.
 - **§2.3 `CACHE_VERSION` 17→18 + pin test** → Task 1.
-- **§3 soundness / recall-safety (P1–P4)** → Task 4a tests (2015 / crate::-self::-super:: / LeadingColon / undeclared / per-consuming-crate / normalize decline cases) + Task 4b tests (resolves-when-declared / declines-no-dep / local-module-shadow) + Task 5 e2e.
-- **§6 tests (1–13)** → §6.1 round-trip→Task 1.1b; §6.2 path-dep resolve→Task 4b `cross_crate_use_resolves_when_dep_declared`; §6.3 workspace-dep→Task 2 `workspace_dep_records_*` (capture) + Task 4b path (resolve); §6.4 renamed dep→Task 4a `extern_crate_root_normalizes_hyphen` + Task 2 rename-by-in-source-name; §6.5 local-shadow→Task 4b `cross_crate_use_local_module_shadows_dep`; §6.6 claimed-but-invisible→covered by the `!rib_present` probe semantics + Task 4a/4b shadow tests (see note below); §6.7 external-vs-in-repo→Task 2 `external_version_dep_is_not_recorded` + Task 4a `extern_crate_root_declines_undeclared_name`; §6.8 non-dependency same-name→Task 4b `cross_crate_use_declines_when_no_dep`; §6.9 anchor-kind gate→Task 4a `extern_crate_root_declines_crate_self_super_anchors` + `_declines_leading_colon`; §6.10 2015→Task 4a `extern_crate_root_declines_2015`; §6.11 lib+bin no-self-poison→Task 3 `lib_plus_bin_member_does_not_self_collide`; §6.12 e2e→Task 5; §6.13 cache pin→Task 1.1a.
+- **§3 soundness / recall-safety (P1–P4)** → Task 4a tests (2015 / crate::-self::-super:: / LeadingColon / undeclared / per-consuming-crate / normalize decline cases) + Task 4b tests (resolves-when-declared / declines-no-dep / visible-local-module-shadow / claimed-but-invisible-rib-blocks-fallback [MAJOR 2] / external-same-name-declines [MAJOR 3]) + Task 5 e2e.
+- **§6 tests (1–13)** → §6.1 round-trip→Task 1.1b; §6.2 path-dep resolve→Task 4b `cross_crate_use_resolves_when_dep_declared`; §6.3 workspace-dep→Task 2 `workspace_dep_records_*` + `multi_workspace_same_dep_name_resolves_per_owning_workspace` (capture) + Task 4b path (resolve); §6.4 renamed dep→Task 4a `extern_crate_root_normalizes_hyphen` + Task 2 rename-by-in-source-name; §6.5 local-shadow→Task 4b `cross_crate_use_local_module_shadows_dep` (uses `use_path_2015` so the fallback is eligible — MAJOR 1); §6.6 claimed-but-invisible→Task 4b **`cross_crate_use_claimed_but_invisible_local_blocks_fallback` (REQUIRED — the `!rib_present` wrong-trigger regression guard via a `pub(in crate::secret) mod`; MAJOR 2)**; §6.7 external-vs-in-repo→Task 2 `external_version_dep_is_not_recorded` (capture) + Task 4b **`cross_crate_use_external_same_name_declines_with_in_repo_member` (end-to-end decline; MAJOR 3)** + Task 4a `extern_crate_root_declines_undeclared_name`; §6.8 non-dependency same-name→Task 4b `cross_crate_use_declines_when_no_dep`; §6.9 anchor-kind gate→Task 4a `extern_crate_root_declines_crate_self_super_anchors` + `_declines_leading_colon`; §6.10 2015→Task 4a `extern_crate_root_declines_2015`; §6.11 lib+bin no-self-poison→Task 3 `lib_plus_bin_member_does_not_self_collide`; §6.12 e2e→Task 5; §6.13 cache pin→Task 1.1a.
 - **§5 buy + §7 acceptance** → Task 6 (Tier-A matrix + ruff M2 0-regression + the +428 call-stats delta + nav spot-check + codex review).
 
 **Placeholder scan:** no `TODO`/`...`/`TBD`; every test + edit is complete verbatim code; every command runnable. (The only `<...>` token is the `--symbol <a-cross-crate-caller>` argument in Task 6 Step 5, which is an executor-chosen ruff symbol for the manual spot-audit, not source code.)
 
 **Type/signature consistency (verified against source):**
 - `ScopeGraph.crate_deps_by_root: std::collections::BTreeMap<ScopeId, std::collections::BTreeMap<String, ScopeId>>` — same type referenced in graph.rs (Task 1), Builder field + `finish()` (Task 3), the policy hook return key/value (Task 4a), the engine candidate (Task 4b). `ScopeId` is `name_resolution::types::ScopeId`.
-- `RustCrateConfig.member_in_repo_deps: BTreeMap<String, BTreeMap<String, String>>` (member dir → in-source name → target member dir) — defined Task 2 (struct + Default + from_convention), consumed Task 3 (`finish()`), populated Task 2 (`parse_member_in_repo_deps`).
-- `normalize_crate_ident(&str) -> String` — `pub(crate)` in `rust_policy.rs` (Task 3a); used by Builder `finish()` (Task 3) and `RustPolicy::extern_crate_root` (Task 4a). One definition.
+- `RustCrateConfig.member_in_repo_deps: BTreeMap<String, BTreeMap<String, String>>` (member dir → in-source name → NORMALIZED target member dir) — defined Task 2 (struct + Default + from_convention), consumed Task 3 (`finish()`), populated Task 2 (`parse_member_in_repo_deps`). Both keys and values are in the `normalize_repo_rel` manifest-dir spelling so Task 3's `lib_root_by_member_dir.get(..)` lookups hit.
+- `normalize_repo_rel(&str) -> String` — free fn in `repo_loader.rs` (Task 2 3b); the BLOCKER-1 lexical (pure-string) repo-relative normalizer (pop `..`, drop `.`, no trailing slash). Used for BOTH path-dep targets (`normalize_repo_rel(join_manifest_rel(member_dir, dep_path))`) and the per-workspace-root `[workspace.dependencies]` targets. One definition.
+- `owning_workspace_root(&str, &BTreeSet<String>) -> Option<&str>` + `is_dir_ancestor(&str, &str) -> bool` — free fns in `repo_loader.rs` (Task 2 3b); BLOCKER-2 owning-workspace association (longest workspace-root-dir ancestor; `""` root owns all; `/`-boundary prefix match). `workspace_dep_paths: BTreeMap<String /*ws root dir*/, BTreeMap<String /*dep name*/, String /*normalized target dir*/>>` and `workspace_root_dirs: BTreeSet<String>` are the per-workspace-root pre-scan structures.
+- `normalize_crate_ident(&str) -> String` — `pub(crate)` in `rust_policy.rs` (Task 3a); used by Builder `finish()` (Task 3) and `RustPolicy::extern_crate_root` (Task 4a). One definition. (Distinct from `normalize_repo_rel`: `normalize_crate_ident` is hyphen→underscore for crate IDENTIFIERS; `normalize_repo_rel` is `..`/`.` collapse for repo PATHS.)
 - `crate_root_of(&ScopeGraph, ScopeId) -> Option<ScopeId>` — `pub(crate)` free fn in `rust_policy.rs` (Task 4a); used only by `extern_crate_root`. (Distinct from `RustPolicy::crate_root(&self, ScopeId)` at `rust_policy.rs:104`, which uses the policy's borrowed graph; the free helper is needed because the trait hook receives `graph` as a parameter.)
 - `lib_root_member_dir(&str, &RustCrateConfig) -> Option<String>` — free fn in `builder.rs` (Task 3e); used by `create_root`.
 - `ResolutionPolicy::extern_crate_root(&self, &ScopeGraph, &str, &Anchor, ScopeId) -> Option<ScopeId>` — trait default in `types.rs:542-596` (Task 4a), impl in `rust_policy.rs` (Task 4a), called in `engine.rs::resolve_path_guarded` (Task 4b). `Anchor`/`AnchorKind` are `name_resolution::types`.
@@ -1667,5 +2025,5 @@ Request an independent codex (gpt-5.5, xhigh) diff review of the branch. Fold an
 **Spec-vs-source discrepancies handled (recorded for review):**
 - The `ResolutionPolicy` trait lives in `src/name_resolution/types.rs:542-596`, **not** in `rust_policy.rs` (spec §2.2 said "likely in `rust_policy.rs` or a sibling"). The default `extern_crate_root` method is added there (Task 4a 3a), requiring a `use crate::name_resolution::graph::ScopeGraph;` in `types.rs` (with an inline-path fallback noted if the module-path reference objects).
 - `RustPolicy` already has a private `crate_root(&self, ScopeId)` (`rust_policy.rs:104-121`) that climbs to the nearest `Root`. The spec's `crate_root_of(graph, from)` is added as a **free** helper (not reusing the method) because the trait hook receives `graph` as a parameter rather than `RustPolicy`'s borrowed `self.graph` — noted in the type-consistency list above.
-- The predecessor edition-anchoring work (§ #123) is **already merged on this branch** — `repo_loader.rs` already carries `workspace_editions`, `anchoring_class_uniform`, `parse_edition`, and the `{ workspace = true }` handling (`:287-423`), and `CACHE_VERSION` is already at 17 (spec §2.3's "17→18" is from the post-#123 baseline, confirmed). Task 1 bumps 17→18; the §6.6 claimed-but-invisible case is satisfied structurally by the `!rib_present` probe (a claimed rib sets `rib_present == true` regardless of `visible()`), exercised indirectly by the shadow tests — a dedicated `pub(in ...)` invisible-rib resolver fixture is OPTIONAL and may be added by the executor if codex review wants it explicit (the probe semantics are the load-bearing guarantee).
+- The predecessor edition-anchoring work (§ #123) is **already merged on this branch** — `repo_loader.rs` already carries `workspace_editions`, `anchoring_class_uniform`, `parse_edition`, and the `{ workspace = true }` handling (`:287-423`), and `CACHE_VERSION` is already at 17 (spec §2.3's "17→18" is from the post-#123 baseline, confirmed). Task 1 bumps 17→18. The §6.6 claimed-but-invisible case is the load-bearing `!rib_present` proof (a claimed rib sets `rib_present == true` regardless of `visible()`), and per the spec-review (MAJOR 2) it is now a **REQUIRED** dedicated resolver test (`cross_crate_use_claimed_but_invisible_local_blocks_fallback`, Task 4b), **not** optional: it is the regression guard that fails RED if the fallback is implemented with the wrong (status-only) trigger. The fixture relies on the verified source fact that `resolve_restrict` (`rust_populator/walk/mod.rs:271-277`) is a Phase-1 stub returning `None`, so a `pub(in crate::secret) mod b_crate` mints a `VIS_PUB_IN`/`restrict: None` binding that `RustPolicy::visible` rejects — a robust claimed-but-invisible rib.
 - The engine's `resolve_path_guarded`/`scope_member_lookup` have MORE parameters than the spec's design-level snippet showed (`ns`, `anchor_ns`, `at`, `guard`); Task 4b's verbatim code matches the real signatures (`engine.rs:316-410`).
