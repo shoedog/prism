@@ -6,6 +6,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use crate::ast::ParsedFile;
 use crate::name_resolution::binding_lookup::LocalFact;
 use crate::name_resolution::graph::{MacroWildcard, ScopeGraph};
+use crate::name_resolution::rust_policy::normalize_crate_ident;
 use crate::name_resolution::rust_policy::EK_GLOB;
 use crate::name_resolution::types::{
     BindTarget, Binding, CfgCond, Edge, FileId, Ident, NamespaceId, RawPath, Scope, ScopeExtent,
@@ -46,6 +47,14 @@ pub(crate) struct Builder<'f> {
     /// In-source crate name → its crate `Root` scope (for `extern crate name`
     /// and 2018 bare-crate path roots). Populated as each crate root is built.
     crate_roots_by_name: BTreeMap<String, ScopeId>,
+    /// Library-root-only index: member directory → its `Root` scope. A bin/test
+    /// root is NEVER recorded here (only a library root is a dependency target), so
+    /// a lib+bin member does not self-collide. Built as each library root is minted.
+    lib_root_by_member_dir: BTreeMap<String, ScopeId>,
+    /// Per consuming-crate library `Root` → (normalized in-source dep name →
+    /// depended-on in-repo library `Root`). Built at `finish()` from
+    /// `config.member_in_repo_deps` + `lib_root_by_member_dir`; moved onto the graph.
+    crate_deps_by_root: BTreeMap<ScopeId, BTreeMap<String, ScopeId>>,
 }
 
 impl<'f> Builder<'f> {
@@ -71,6 +80,8 @@ impl<'f> Builder<'f> {
             modeled: BTreeSet::new(),
             type_scopes: BTreeMap::new(),
             crate_roots_by_name: BTreeMap::new(),
+            lib_root_by_member_dir: BTreeMap::new(),
+            crate_deps_by_root: BTreeMap::new(),
         }
     }
 
@@ -98,7 +109,27 @@ impl<'f> Builder<'f> {
         s
     }
 
-    pub(crate) fn finish(self) -> ScopeGraph {
+    pub(crate) fn finish(mut self) -> ScopeGraph {
+        // Build the per-consuming-crate dep map from captured per-member deps +
+        // the library-root index. For each consuming member M with a LIBRARY root
+        // Rc, and each recorded `(in_source_name -> target_dir)`, map the normalized
+        // in-source name to the target member's LIBRARY root (skip a target with no
+        // library root — a bin-only member is not `use`-nameable). Keys are
+        // normalized hyphen→underscore (the §2.2 hook normalizes the query the same).
+        for (member_dir, deps) in &self.config.member_in_repo_deps {
+            let Some(&consuming_root) = self.lib_root_by_member_dir.get(member_dir) else {
+                continue; // consuming member has no library root → not keyed (v1)
+            };
+            for (in_source_name, target_dir) in deps {
+                if let Some(&target_root) = self.lib_root_by_member_dir.get(target_dir) {
+                    self.crate_deps_by_root
+                        .entry(consuming_root)
+                        .or_default()
+                        .insert(normalize_crate_ident(in_source_name), target_root);
+                }
+            }
+        }
+        self.graph.crate_deps_by_root = self.crate_deps_by_root;
         self.graph
     }
 
@@ -282,6 +313,15 @@ impl<'f> Builder<'f> {
         self.mark_modeled(root_path);
         if let Some(name) = crate_name_for_root(root_path, self.config) {
             self.crate_roots_by_name.entry(name).or_insert(root_scope);
+        }
+        // Library-root-only dependency-target index (P3 / MAJOR): record the member
+        // dir → this Root iff `root_path` is a library root (`[lib].path` override or
+        // the conventional `.../src/lib.rs`). A bin/test/bench/example root is never a
+        // `use`-nameable dependency target, so it is excluded (lib+bin no-self-collide).
+        if let Some(member_dir) = lib_root_member_dir(root_path, self.config) {
+            self.lib_root_by_member_dir
+                .entry(member_dir)
+                .or_insert(root_scope);
         }
         Some(root_scope)
     }
@@ -540,4 +580,316 @@ fn crate_name_for_root(root_path: &str, config: &RustCrateConfig) -> Option<Stri
         return head.rsplit('/').next().map(|s| s.to_string());
     }
     None
+}
+
+/// The workspace-member DIRECTORY for a root path **iff it is a library root**
+/// (re-review BLOCKER B). A library root is EXACTLY `<member>/src/lib.rs` (the
+/// convention) OR the `[lib].path` override (`config.lib_path == Some(root_path)`)
+/// for that member; a bin/test/bench/example root returns `None` (never a dependency
+/// target — the lib+bin no-self-collide guarantee).
+///
+/// The member dir is the MANIFEST DIR — the exact spelling `member_in_repo_deps`
+/// keys by (Task 2 normalizes both its KEYS (the manifest dir) and the dep-target
+/// VALUES (`normalize_repo_rel`) to that form), so the `finish()` lookups
+/// `lib_root_by_member_dir.get(member_dir)`/`.get(target_dir)` hit. It is derived
+/// from `config.workspace_members` (the LONGEST member prefix of `root_path`),
+/// **not** the library file's parent: an explicit `[lib] path = "src/lib.rs"` has
+/// root file `<member>/src/lib.rs` whose parent is `<member>/src`, and a nested
+/// `[lib] path = "src/inner/lib.rs"` parent is `<member>/src/inner` — neither is the
+/// member dir `<member>` that dep-target resolution produces. `workspace_members`
+/// carries those member dirs verbatim (`repo_loader.rs:357` =
+/// `join_manifest_rel(manifest_dir, member)`, no trailing slash); this mirrors
+/// `crate_name_for_root`'s prefix match but returns the FULL member dir, not the
+/// basename.
+///
+/// The library-root gate is EXACT (re-review round-3 MAJOR): for a matched member
+/// `m`, accept ONLY `m/src/lib.rs` or the explicit `config.lib_path` override — a
+/// bare `ends_with("src/lib.rs")` is too broad and would mis-record a bin/tool path
+/// like `m/tools/src/lib.rs` as `m`'s library root, shadowing the real lib root.
+/// When no member prefix matches (the single crate at the repo root, member dir `""`,
+/// absent from `workspace_members`), accept only the bare `src/lib.rs` or a root
+/// `[lib].path`. (Repo-wide, `config.lib_path` holds only the LAST explicit
+/// `[lib].path` — a pre-existing `RustCrateConfig` flatness; convention library roots
+/// are unaffected because the exact `m/src/lib.rs` gate matches them without it.)
+fn lib_root_member_dir(root_path: &str, config: &RustCrateConfig) -> Option<String> {
+    // Member dir = the LONGEST workspace-member prefix of root_path (the manifest dir).
+    let mut member: Option<&str> = None;
+    for m in &config.workspace_members {
+        let m = m.trim_end_matches('/');
+        let prefix = format!("{m}/");
+        if root_path.starts_with(&prefix) && member.map(|b| m.len() > b.len()).unwrap_or(true) {
+            member = Some(m);
+        }
+    }
+    match member {
+        // A matched member's library root is EXACTLY `<m>/src/lib.rs` or its explicit
+        // [lib].path; anything else under `<m>/` (e.g. `<m>/tools/src/lib.rs`) is a
+        // bin/test/example root → not a dependency target.
+        Some(m) => {
+            if config.lib_path.as_deref() == Some(root_path)
+                || root_path == format!("{m}/src/lib.rs")
+            {
+                Some(m.to_string())
+            } else {
+                None
+            }
+        }
+        // No workspace member matched: the single crate at the repo root (member `""`).
+        None => {
+            if root_path == "src/lib.rs" || config.lib_path.as_deref() == Some(root_path) {
+                Some(String::new())
+            } else {
+                None
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::super::{populate_rust, RustCrateConfig};
+    use crate::ast::ParsedFile;
+    use crate::languages::Language;
+    use crate::name_resolution::types::{ScopeId, ScopeKind};
+    use std::collections::BTreeMap;
+
+    fn rs(src: &str) -> ParsedFile {
+        ParsedFile::parse("x.rs", src, Language::Rust).unwrap()
+    }
+
+    fn root_for(graph: &crate::name_resolution::graph::ScopeGraph, file_path_idx: u32) -> ScopeId {
+        // The Root scope whose extent is in the file at FileId(idx).
+        graph
+            .scopes
+            .iter()
+            .find(|(_, s)| {
+                matches!(s.kind, ScopeKind::Root)
+                    && s.extents.iter().any(|e| e.file.0 == file_path_idx)
+            })
+            .map(|(id, _)| *id)
+            .expect("a Root scope for the file")
+    }
+
+    #[test]
+    fn crate_deps_by_root_maps_consumer_to_target_lib_root() {
+        // Two-crate workspace: a depends on b (recorded by member_in_repo_deps).
+        // crate_deps_by_root[a_lib_root]["b_crate"] must be b's lib Root.
+        let mut files = BTreeMap::new();
+        files.insert("a/src/lib.rs".to_string(), rs("pub fn a() {}\n"));
+        files.insert("b/src/lib.rs".to_string(), rs("pub fn b() {}\n"));
+        let mut member_deps = BTreeMap::new();
+        let mut a_deps = BTreeMap::new();
+        a_deps.insert("b_crate".to_string(), "b".to_string());
+        member_deps.insert("a".to_string(), a_deps);
+        let cfg = RustCrateConfig {
+            crate_roots: vec!["a/src/lib.rs".to_string(), "b/src/lib.rs".to_string()],
+            workspace_members: vec!["a".to_string(), "b".to_string()],
+            member_in_repo_deps: member_deps,
+            ..RustCrateConfig::default()
+        };
+        let graph = populate_rust(&files, &cfg, None);
+        // FileIds follow sorted key order: a/src/lib.rs = 0, b/src/lib.rs = 1.
+        let a_root = root_for(&graph, 0);
+        let b_root = root_for(&graph, 1);
+        assert_eq!(
+            graph
+                .crate_deps_by_root
+                .get(&a_root)
+                .and_then(|m| m.get("b_crate")),
+            Some(&b_root),
+            "a's dep map must point b_crate at b's lib Root"
+        );
+    }
+
+    #[test]
+    fn lib_plus_bin_member_does_not_self_collide() {
+        // A single member `b` with BOTH src/lib.rs and src/main.rs, depended on by
+        // `a`. The recorded dep target must be b's LIBRARY root, never the bin root.
+        let mut files = BTreeMap::new();
+        files.insert("a/src/lib.rs".to_string(), rs("pub fn a() {}\n"));
+        files.insert("b/src/lib.rs".to_string(), rs("pub fn b() {}\n"));
+        files.insert("b/src/main.rs".to_string(), rs("fn main() {}\n"));
+        let mut member_deps = BTreeMap::new();
+        let mut a_deps = BTreeMap::new();
+        a_deps.insert("b".to_string(), "b".to_string());
+        member_deps.insert("a".to_string(), a_deps);
+        let cfg = RustCrateConfig {
+            crate_roots: vec![
+                "a/src/lib.rs".to_string(),
+                "b/src/lib.rs".to_string(),
+                "b/src/main.rs".to_string(),
+            ],
+            workspace_members: vec!["a".to_string(), "b".to_string()],
+            member_in_repo_deps: member_deps,
+            ..RustCrateConfig::default()
+        };
+        let graph = populate_rust(&files, &cfg, None);
+        // a/src/lib.rs=0, b/src/lib.rs=1, b/src/main.rs=2 (sorted key order).
+        let a_root = root_for(&graph, 0);
+        let b_lib_root = root_for(&graph, 1);
+        assert_eq!(
+            graph
+                .crate_deps_by_root
+                .get(&a_root)
+                .and_then(|m| m.get("b")),
+            Some(&b_lib_root),
+            "the dep target must be b's library root (FileId 1), never the bin root (FileId 2)"
+        );
+    }
+
+    #[test]
+    fn explicit_lib_path_target_keys_by_member_dir_not_file_parent() {
+        // Re-review BLOCKER B: target `b` has an EXPLICIT `[lib] path = "src/lib.rs"`
+        // (cfg.lib_path = "b/src/lib.rs"). The dep-target index MUST key b's lib Root
+        // by the MEMBER DIR `b` (from workspace_members), NOT the library file's parent
+        // `b/src`. The old `parent_dir`-based helper keyed `b/src` -> crate_deps miss.
+        let mut files = BTreeMap::new();
+        files.insert("a/src/lib.rs".to_string(), rs("pub fn a() {}\n"));
+        files.insert("b/src/lib.rs".to_string(), rs("pub fn b() {}\n"));
+        let mut member_deps = BTreeMap::new();
+        let mut a_deps = BTreeMap::new();
+        a_deps.insert("b".to_string(), "b".to_string()); // target dir = the member dir `b`
+        member_deps.insert("a".to_string(), a_deps);
+        let cfg = RustCrateConfig {
+            // `a` is conventional; `b`'s library root is the explicit [lib].path.
+            crate_roots: vec!["a/src/lib.rs".to_string()],
+            lib_path: Some("b/src/lib.rs".to_string()),
+            workspace_members: vec!["a".to_string(), "b".to_string()],
+            member_in_repo_deps: member_deps,
+            ..RustCrateConfig::default()
+        };
+        let graph = populate_rust(&files, &cfg, None);
+        // Sorted key order: a/src/lib.rs=0, b/src/lib.rs=1.
+        let a_root = root_for(&graph, 0);
+        let b_lib_root = root_for(&graph, 1);
+        assert_eq!(
+            graph
+                .crate_deps_by_root
+                .get(&a_root)
+                .and_then(|m| m.get("b")),
+            Some(&b_lib_root),
+            "an explicit [lib].path target must key by member dir `b`, not `b/src`"
+        );
+    }
+
+    #[test]
+    fn nested_custom_lib_path_target_keys_by_member_dir() {
+        // Re-review BLOCKER B: target `b`'s library root is a NESTED custom path
+        // `[lib] path = "src/inner/lib.rs"` (cfg.lib_path = "b/src/inner/lib.rs").
+        // The member dir is still `b` (from workspace_members) — never the file parent
+        // `b/src/inner`. This is the case a file-parent derivation alone gets wrong,
+        // so the workspace_members-prefix derivation is required.
+        let mut files = BTreeMap::new();
+        files.insert("a/src/lib.rs".to_string(), rs("pub fn a() {}\n"));
+        files.insert("b/src/inner/lib.rs".to_string(), rs("pub fn b() {}\n"));
+        let mut member_deps = BTreeMap::new();
+        let mut a_deps = BTreeMap::new();
+        a_deps.insert("b".to_string(), "b".to_string());
+        member_deps.insert("a".to_string(), a_deps);
+        let cfg = RustCrateConfig {
+            crate_roots: vec!["a/src/lib.rs".to_string()],
+            lib_path: Some("b/src/inner/lib.rs".to_string()),
+            workspace_members: vec!["a".to_string(), "b".to_string()],
+            member_in_repo_deps: member_deps,
+            ..RustCrateConfig::default()
+        };
+        let graph = populate_rust(&files, &cfg, None);
+        // Sorted key order: a/src/lib.rs=0, b/src/inner/lib.rs=1.
+        let a_root = root_for(&graph, 0);
+        let b_lib_root = root_for(&graph, 1);
+        assert_eq!(
+            graph
+                .crate_deps_by_root
+                .get(&a_root)
+                .and_then(|m| m.get("b")),
+            Some(&b_lib_root),
+            "a nested custom [lib].path target must still key by member dir `b`"
+        );
+    }
+
+    #[test]
+    fn custom_bin_path_ending_src_lib_rs_does_not_shadow_library_root() {
+        // Re-review round-3 MAJOR (round-4 rework): member `b` has the conventional
+        // library root `b/src/lib.rs` AND a bin/tool root whose path ALSO ends in
+        // `src/lib.rs`. A bare `ends_with("src/lib.rs")` gate would attribute the bin
+        // path to member `b` too; the EXACT `b/src/lib.rs` gate keeps it out, so the
+        // dep target is always b's LIBRARY root.
+        //
+        // This test discriminates TWO ways:
+        //   1. DIRECT, order-independent helper assertions (the bulletproof
+        //      discriminator): the old bare-suffix gate returns `Some("b")` for a
+        //      `b/.../src/lib.rs` bin path, the new exact gate returns `None`. These
+        //      do NOT depend on FileId/`or_insert` order, so they catch the buggy
+        //      helper regardless of insertion ordering.
+        //   2. An end-to-end `crate_deps_by_root` check using a decoy bin path that
+        //      sorts BEFORE the real lib (`b/bin/src/lib.rs` < `b/src/lib.rs`), so
+        //      under the OLD helper the bin root would win the FIRST-wins `or_insert`
+        //      in sorted-FileId order and the e2e assertion would fail. (The round-3
+        //      decoy `b/tools/src/lib.rs` sorts AFTER `b/src/lib.rs`, so the real lib
+        //      won `or_insert` first even under the buggy helper — that decoy did not
+        //      discriminate; `b/bin` fixes it.)
+        let mut files = BTreeMap::new();
+        files.insert("a/src/lib.rs".to_string(), rs("pub fn a() {}\n"));
+        files.insert("b/bin/src/lib.rs".to_string(), rs("pub fn tool() {}\n"));
+        files.insert("b/src/lib.rs".to_string(), rs("pub fn b() {}\n"));
+        let mut member_deps = BTreeMap::new();
+        let mut a_deps = BTreeMap::new();
+        a_deps.insert("b".to_string(), "b".to_string());
+        member_deps.insert("a".to_string(), a_deps);
+        let cfg = RustCrateConfig {
+            // All three are roots; b's conventional lib + a tool bin under b/bin.
+            crate_roots: vec![
+                "a/src/lib.rs".to_string(),
+                "b/bin/src/lib.rs".to_string(),
+                "b/src/lib.rs".to_string(),
+            ],
+            workspace_members: vec!["a".to_string(), "b".to_string()],
+            member_in_repo_deps: member_deps,
+            ..RustCrateConfig::default()
+        };
+
+        // (1) Direct helper assertions — order-independent, the bulletproof
+        // discriminator. `lib_root_member_dir` is a private FREE fn in builder.rs and
+        // `mod tests` is in builder.rs, so `super::` reaches it; `cfg` is in scope here.
+        assert_eq!(
+            super::lib_root_member_dir("b/bin/src/lib.rs", &cfg),
+            None,
+            "a `b/bin/src/lib.rs` bin/tool path is NOT member b's library root \
+             (old bare-suffix gate wrongly returned Some(\"b\"); exact gate returns None)"
+        );
+        assert_eq!(
+            super::lib_root_member_dir("b/src/lib.rs", &cfg),
+            Some("b".to_string()),
+            "the conventional `b/src/lib.rs` IS member b's library root"
+        );
+
+        // (2) End-to-end, made discriminating by the sort-before-bin decoy.
+        let graph = populate_rust(&files, &cfg, None);
+        // Sorted key order: a/src/lib.rs=0, b/bin/src/lib.rs=1, b/src/lib.rs=2.
+        let a_root = root_for(&graph, 0);
+        let b_bin_root = root_for(&graph, 1);
+        let b_lib_root = root_for(&graph, 2);
+        let target = graph
+            .crate_deps_by_root
+            .get(&a_root)
+            .and_then(|m| m.get("b"));
+        assert_eq!(
+            target,
+            Some(&b_lib_root),
+            "the dep target must be b's library root (FileId 2), never the bin/tool root"
+        );
+        assert_ne!(
+            target,
+            Some(&b_bin_root),
+            "a `bin/src/lib.rs` bin root (FileId 1, sorts BEFORE the real lib) must \
+             not win or_insert as b's library root"
+        );
+    }
+
+    #[test]
+    fn normalize_crate_ident_hyphen_to_underscore() {
+        use crate::name_resolution::rust_policy::normalize_crate_ident;
+        assert_eq!(normalize_crate_ident("my-crate"), "my_crate");
+        assert_eq!(normalize_crate_ident("plain"), "plain");
+    }
 }
