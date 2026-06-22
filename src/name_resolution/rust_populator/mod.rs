@@ -93,6 +93,16 @@ pub struct RustCrateConfig {
     /// edge (P1). Convention fallback (single edition) is `true`.
     #[serde(default = "default_edition_uniform")]
     pub edition_uniform: bool,
+    /// Rust: per workspace-member directory → (in-source dependency name → the
+    /// target in-repo member directory) for that member's `[dependencies]` PATH
+    /// and WORKSPACE deps that resolve to an in-repo crate. External/version-only/
+    /// git/registry deps are NOT recorded. The Builder turns this into
+    /// `ScopeGraph::crate_deps_by_root` at `finish()` (library roots only). The KEY
+    /// is the in-source name (what `use` writes); the VALUE is the target member dir
+    /// (resolved by path), so a renamed in-repo dep is handled naturally. Convention
+    /// fallback (no manifest) is empty.
+    #[serde(default)]
+    pub member_in_repo_deps: BTreeMap<String, BTreeMap<String, String>>,
 }
 
 impl Default for RustCrateConfig {
@@ -105,6 +115,7 @@ impl Default for RustCrateConfig {
             lib_path: None,
             bin_paths: Vec::new(),
             edition_uniform: true,
+            member_in_repo_deps: BTreeMap::new(),
         }
     }
 }
@@ -146,6 +157,7 @@ impl RustCrateConfig {
             lib_path: None,
             bin_paths: Vec::new(),
             edition_uniform: true,
+            member_in_repo_deps: BTreeMap::new(),
         }
     }
 
@@ -377,6 +389,25 @@ mod tests {
         assert!(
             cfg.crate_roots.is_empty(),
             "multi-file non-Cargo repo (even with a top-level main.rs) must not be rooted"
+        );
+    }
+
+    #[test]
+    fn member_in_repo_deps_defaults_empty() {
+        let cfg = RustCrateConfig::default();
+        assert!(
+            cfg.member_in_repo_deps.is_empty(),
+            "the per-member dep map defaults empty"
+        );
+        let mut files = BTreeMap::new();
+        files.insert(
+            "src/lib.rs".to_string(),
+            ParsedFile::parse("src/lib.rs", "pub fn a() {}\n", Language::Rust).unwrap(),
+        );
+        let conv = RustCrateConfig::from_convention(&files);
+        assert!(
+            conv.member_in_repo_deps.is_empty(),
+            "convention fallback (no manifest) records no member deps"
         );
     }
 }
