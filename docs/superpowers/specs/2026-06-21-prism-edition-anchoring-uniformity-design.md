@@ -66,9 +66,12 @@ weakening recall on genuinely anchoring-mixed (2015↔2018+) workspaces.
 
 - **P1 — recall-safety is inherited, not weakened.** This slice does **not** touch
   the disproof. It only widens *when the unchanged, already-recall-safe disproof is
-  permitted to run*, from "all editions identical" to "all editions on the same
-  side of the 2015/2018 anchoring boundary". A workspace that spans the boundary
-  still bails (keep-all) exactly as today.
+  permitted to run*, from "all editions identical" to "all resolved per-crate
+  editions **and** all discovered workspace editions are on the same side of the
+  2015/2018 anchoring boundary". Any workspace (or set of workspaces) that spans
+  the boundary still bails (keep-all) exactly as today; the workspace-edition set
+  term makes this hold even for a repo with multiple workspace roots that prism
+  collects into one global manifest set (§3).
 - **P2 — soundness of the widening.** Within the 2018+ anchoring class every crate
   resolves paths identically, so a single global policy edition (any 2018+ value)
   anchors every call site correctly. The wrong-edition mis-anchor the §2 guard
@@ -79,16 +82,30 @@ weakening recall on genuinely anchoring-mixed (2015↔2018+) workspaces.
 
 ## §2 The change
 
-Two edits in `src/repo_loader.rs::parse_rust_crate_config`, plus a cache bump.
+Two edits in `src/repo_loader.rs::parse_rust_crate_config` (a workspace-edition
+pre-scan that yields a `BTreeSet`, and a two-term `edition_uniform` computation),
+plus a cache bump and two source-comment updates.
 
 ### §2.1 Parse `edition = { workspace = true }` inheritance
 
 Add a pre-scan over the same `manifest_hashes` for the workspace root's
-`[workspace.package] edition`, then resolve the table form against it.
+`[workspace.package] edition`, then resolve the table form against it. The
+pre-scan must collect **every** discovered `[workspace.package] edition` into a
+`BTreeSet<u16> workspace_editions` (not just a last-wins scalar), because prism
+collects *all* `Cargo.toml` repo-wide into one flat `manifest_hashes`
+(`collect_manifest_hashes_inner` recurses through every non-skipped subdir,
+`src/repo_loader.rs:186-213`) and `parse_rust_crate_config` iterates that single
+global set (`src/repo_loader.rs:287`). A repo can therefore contain **more than
+one** workspace root (nested or sibling workspaces), and those roots may sit on
+opposite anchoring sides. The full set is what the §2.2 guard needs (see the
+soundness argument below); a representative scalar is still kept only to resolve
+the `{ workspace = true }` value form.
 
 ```rust
-// Pre-scan (before the existing per-manifest loop): find the workspace edition.
-let mut workspace_edition: Option<u16> = None;
+// Pre-scan (before the existing per-manifest loop): collect ALL workspace
+// editions, plus a representative for resolving `{ workspace = true }`.
+let mut workspace_editions: std::collections::BTreeSet<u16> = std::collections::BTreeSet::new();
+let mut workspace_edition: Option<u16> = None; // representative (last-wins)
 for manifest_path in manifest_hashes.keys() {
     let abs = root.join(manifest_path);
     let Ok(text) = std::fs::read_to_string(&abs) else { continue; };
@@ -98,6 +115,7 @@ for manifest_path in manifest_hashes.keys() {
         .and_then(|p| p.get("edition"))
         .and_then(|e| e.as_str()).and_then(parse_edition)
     {
+        workspace_editions.insert(ed);
         workspace_edition = Some(ed);
     }
 }
@@ -139,19 +157,35 @@ records the **resolved** editions, so the §2.2 check sees the true set.
 
 The pre-scan is a deliberate separate pass because the workspace-root manifest may
 sort after the inheriting crates in `manifest_hashes` (a `BTreeMap`), so a single
-forward pass could read `{ workspace = true }` before the root edition is known. If
-more than one manifest declared `[workspace.package] edition` (nested workspaces —
-rare), the pre-scan takes the last in sorted order; deterministic, and a
-cross-boundary disagreement would only *tighten* the §2.2 check (bail), never
-mis-resolve.
+forward pass could read `{ workspace = true }` before the root edition is known.
+
+If more than one manifest declares `[workspace.package] edition` (nested or
+sibling workspaces in one repo — uncommon but real, since `manifest_hashes` is a
+single repo-wide set), the representative scalar `workspace_edition` is last-wins
+in sorted order. This scalar is used **only** to fill in the `{ workspace = true }`
+value form, so a wrong-workspace last-wins value can mis-record an individual
+crate's edition in `editions_seen`. That mis-record is harmless **because the
+§2.2 guard does not rely on it**: the guard ANDs in
+`anchoring_class_uniform(&workspace_editions)` over the full set of discovered
+workspace editions, so as soon as two workspaces span the 2015/2018 boundary the
+guard bails (keep-all) regardless of which representative was chosen and
+regardless of how the `{ workspace = true }` crates were resolved. The earlier
+"last in sorted order only *tightens* the check" claim was **wrong** — a
+cross-boundary last-wins value can elevate a 2015 workspace's `{ workspace = true }`
+crates to a 2018+ value in `editions_seen`, which is exactly the mis-anchor the
+guard must defend against; the `workspace_editions` set-term is what closes that
+hole (§3).
 
 ### §2.2 Relax `edition_uniform` to anchoring-class uniformity
 
-Replace the all-identical test with a same-side-of-2018 test:
+Replace the all-identical test with a **two-term** same-side-of-2018 test over
+both the resolved per-crate editions **and** the full set of discovered workspace
+editions:
 
 ```rust
 // src/repo_loader.rs:359  (replacement)
-cfg.edition_uniform = anchoring_class_uniform(&editions_seen);
+cfg.edition_uniform =
+    anchoring_class_uniform(&editions_seen) && anchoring_class_uniform(&workspace_editions);
 ```
 
 ```rust
@@ -163,11 +197,34 @@ fn anchoring_class_uniform(editions: &std::collections::BTreeSet<u16>) -> bool {
 }
 ```
 
+The second term is what makes the relaxation recall-safe under prism's single
+repo-wide manifest set. `editions_seen` alone is **not** sufficient: a
+multi-workspace repo can mis-resolve a 2015 workspace's `{ workspace = true }`
+crates to a later workspace's 2018+ edition (the representative-scalar mis-record
+described in §2.1), which would falsely make `editions_seen` all-2018+. ANDing in
+`anchoring_class_uniform(&workspace_editions)` defends against this directly: if
+**any two** workspaces sit on opposite sides of the boundary, the set
+`workspace_editions` spans it, `anchoring_class_uniform` returns `false`, and the
+whole guard bails (keep-all) — independent of how `editions_seen` was resolved.
+`workspace_editions` is the SET of all discovered `[workspace.package] edition`
+values (a `BTreeSet`), **not** a last-wins scalar, precisely so this term cannot
+be defeated by sort order. For the common single-workspace case
+`workspace_editions` is a singleton (or empty for a convention/no-`[workspace]`
+repo), so the second term is vacuously true and the behavior is exactly the
+single-term relaxation. See §3 for the full case analysis.
+
 The global `cfg.edition` value is unchanged in mechanism (last-wins over the
 sorted `manifest_hashes` order, so deterministic). When the class is all-2018+, the
 last-wins value is necessarily ≥ 2018, so `is_2018_plus()` is correct for every
 site; the exact value (2021 vs 2024) is immaterial because anchoring only reads the
 boundary (§3). No change to edition selection is needed.
+
+**Source-comment update (mechanical, at implementation time).** The two
+`edition_uniform` field doc comments currently define it as the manifests having
+"agreed on one edition" / "a single edition". When implementing, update both to
+state the new meaning — "same anchoring class (2015 vs 2018+)" — at
+`src/name_resolution/rust_populator/mod.rs:89` and `src/name_resolution/graph.rs:89`.
+(Comment-only; behavior is governed by the §2.2 code.)
 
 ### §2.3 Cache invalidation
 
@@ -194,6 +251,51 @@ relaxation is sound because:
   (`mixed_edition_workspace_is_not_uniform`,
   `omitted_plus_explicit_edition_workspace_is_not_uniform`, both `{2015, 2021}`)
   are preserved unchanged.
+
+**Multi-workspace, cross-boundary repo (the recall-safety case the two-term AND
+exists for).** prism collects *all* `Cargo.toml` repo-wide into one
+`manifest_hashes` (`src/repo_loader.rs:186-213`, recursive) and
+`parse_rust_crate_config` iterates that single global set
+(`src/repo_loader.rs:287`). A repo can therefore hold two (nested or sibling)
+workspaces on opposite anchoring sides — e.g. workspace `aaa/` with
+`[workspace.package] edition = "2015"` and workspace `zzz/` with
+`[workspace.package] edition = "2024"`, each with members that inherit via
+`edition = { workspace = true }`. With a single last-wins representative
+`workspace_edition` (`zzz`'s 2024, since it sorts later), `aaa`'s
+`{ workspace = true }` crates would be **mis-resolved to 2024** in
+`editions_seen`, making the single-term `anchoring_class_uniform(&editions_seen)`
+falsely read all-2018+ → the disproof would run across a genuine 2015/2018+
+boundary → a 2015 crate's path could be anchored with 2018+ semantics →
+mis-resolve → **drop a real edge** (a P1 violation). The two-term AND closes this:
+`workspace_editions = {2015, 2024}` is collected as a *set* over all discovered
+`[workspace.package] edition` values, so `anchoring_class_uniform(&workspace_editions)`
+returns `false` and the guard bails (keep-all) — regardless of the representative
+or how the inheriting crates resolved.
+
+**Why there is no residual hole (every 2015 source is caught by one of the two
+terms).** A genuine 2015 anchoring requirement in a valid-Cargo repo can arise
+only three ways, and each forces `edition_uniform = false` whenever a 2018+ crate
+is also present:
+
+1. A crate with explicit `edition = "2015"` → recorded as `2015` in
+   `editions_seen` → caught by the `editions_seen` term.
+2. A crate that omits `edition` (no string, no table) → `unwrap_or(2015)`
+   (`src/repo_loader.rs:308`) → `2015` in `editions_seen` → caught by the
+   `editions_seen` term. (This is the existing
+   `omitted_plus_explicit_edition_workspace_is_not_uniform` behavior, preserved.)
+3. A crate with `edition = { workspace = true }` whose workspace is 2015. Valid
+   Cargo **requires** that workspace to define `[workspace.package] edition`
+   (Cargo rejects `{ workspace = true }` when the key is absent), so that root
+   contributes `2015` to `workspace_editions` → caught by the `workspace_editions`
+   term.
+
+The only way the `{ workspace = true }` branch could elevate a real-2015 crate to
+2018+ in `editions_seen` is via the cross-workspace representative scalar (case 3
+above) — and that exact case is what the `workspace_editions` set-term catches.
+The pathological "`{ workspace = true }` with no `[workspace.package] edition`
+anywhere in its own workspace" is a manifest Cargo itself rejects (§ Risks); it
+falls to `unwrap_or(2015)` (lenient), which can only *tighten* the guard, never
+mis-resolve.
 
 The recovered edges are produced by the **unchanged** #121/#122 disproof; their
 recall-safety is the property already established for those slices. This slice adds
@@ -240,6 +342,17 @@ just ruff. The remaining 1326 demoted sites are a separately-sequenced follow-on
 - `omitted_plus_explicit_edition_workspace_is_not_uniform` (existing, `{2015,
   2021}`) → false — **preserved unchanged**.
 - `single_edition_workspace_is_uniform`: `{2015}` → true; `{2024}` → true.
+- `multi_workspace_spanning_boundary_is_not_uniform` (the two-term-AND guard,
+  RED if only the `editions_seen` term were used): a repo with **two** workspace
+  roots on opposite sides — `aaa/Cargo.toml` with `[workspace.package] edition =
+  "2015"` (member `aaa/m/` uses `edition = { workspace = true }`) and
+  `zzz/Cargo.toml` with `[workspace.package] edition = "2024"` (member `zzz/m/`
+  uses `edition = { workspace = true }`). Under the last-wins representative
+  scalar `aaa`'s member can mis-resolve to 2024, so `editions_seen` may look
+  all-2018+; the test asserts `edition_uniform == false` anyway, because
+  `workspace_editions == {2015, 2024}` spans the boundary. (Pins the recall-safety
+  fix: a per-crate `editions_seen` that *looked* uniform must still bail when the
+  workspace editions span the boundary.)
 
 **Behavior (integration):** a 2-crate, pure-2018+ **mixed** fixture (crate `a`
 edition 2021, crate `b` `edition = { workspace = true }` → 2024) with a same-name
@@ -275,10 +388,19 @@ keep-all = 2 NameOnly under the old `len() <= 1` gating; single Exact after).
 
 - **Stale-cache correctness:** mitigated by the `CACHE_VERSION` bump (§2.3) + pin
   test.
-- **A malformed `{ workspace = true }` with no workspace edition:** falls back to
-  2015 (lenient; Cargo would reject the manifest). Harmless — at worst that crate
-  is treated as 2015, and if it then spans the boundary the workspace simply bails
-  (keep-all), never mis-resolves.
+- **A malformed `{ workspace = true }` with no workspace edition:** resolves to the
+  global representative `workspace_edition` if one was discovered anywhere in the
+  repo, and falls back to 2015 only when **no** `[workspace.package] edition` was
+  found at all (lenient; Cargo would reject such a manifest). Harmless either way:
+  the crate's resolved value enters `editions_seen`, and if the result spans the
+  boundary — via `editions_seen` or the `workspace_editions` SET term — the guard
+  bails (keep-all), never mis-resolves. See §3 (residual-hole analysis).
+- **Multiple workspace roots in one repo on opposite anchoring sides:** prism
+  collects all `Cargo.toml` into one global manifest set, so a last-wins
+  representative could mis-resolve a 2015 workspace's inheriting crates to a later
+  2018+ edition. Mitigated by the two-term `edition_uniform` (§2.2): the
+  `workspace_editions` SET spans the boundary → guard bails (keep-all). Pinned by
+  `multi_workspace_spanning_boundary_is_not_uniform` (§6).
 - **Forced-uniform spike used a single global edition (2021 last-wins):** the
   shipped path is identical in mechanism, and §3 establishes any 2018+ value is
   correct within the class; the ruff M2 acceptance (§7) re-confirms 0 regression on
