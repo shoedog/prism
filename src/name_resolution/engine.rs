@@ -26,9 +26,9 @@
 use crate::name_resolution::glob_stats::GlobExpandStats;
 pub use crate::name_resolution::graph::ScopeGraph;
 use crate::name_resolution::types::{
-    Anchor, BindTarget, Binding, Candidate, CfgCond, CfgCtx, NamespaceId, PolicyQueryCtx,
-    ResStatus, Resolution, ResolutionPolicy, ResolveQuery, ScopeId, SourceLoc, Target,
-    TraversalCtx,
+    Anchor, BindTarget, Binding, Candidate, CfgCond, CfgCtx, GlobEdgeVis, NamespaceId,
+    PolicyQueryCtx, ResStatus, Resolution, ResolutionPolicy, ResolveQuery, ScopeId, SourceLoc,
+    Target, TraversalCtx,
 };
 
 // ── public entry points ───────────────────────────────────────────────────────
@@ -68,11 +68,42 @@ pub fn resolve_path(
     )
 }
 
+#[doc(hidden)]
+/// test-support: inject a local glob-expansion stats sink.
+pub fn resolve_with_stats(
+    graph: &ScopeGraph,
+    q: &ResolveQuery,
+    policy: &dyn ResolutionPolicy,
+    stats: &GlobExpandStats,
+) -> Resolution {
+    let mut guard = CycleGuard::with_stats(Some(stats));
+    resolve_bare(graph, q, policy, &mut guard)
+}
+
+#[doc(hidden)]
+/// test-support: inject a local glob-expansion stats sink.
+#[allow(clippy::too_many_arguments)]
+pub fn resolve_path_with_stats(
+    graph: &ScopeGraph,
+    path: &crate::name_resolution::types::RawPath,
+    ns: NamespaceId,
+    anchor: &Anchor,
+    from: ScopeId,
+    anchor_ns: NamespaceId,
+    at: &SourceLoc,
+    policy: &dyn ResolutionPolicy,
+    stats: &GlobExpandStats,
+) -> Resolution {
+    let mut guard = CycleGuard::with_stats(Some(stats));
+    resolve_path_guarded(
+        graph, path, ns, anchor, from, anchor_ns, at, policy, &mut guard,
+    )
+}
+
 // ── cycle guard for the Pending fixpoint ──────────────────────────────────────
 
 /// Tracks the set of currently-resolving binding identities (by graph index) so
 /// a re-export cycle terminates rather than recursing forever.
-#[allow(dead_code)]
 pub(crate) const MAX_GLOB_DEPTH: usize = 2;
 
 struct CycleGuard<'s> {
@@ -103,7 +134,6 @@ impl<'s> CycleGuard<'s> {
         self.active.remove(&idx);
     }
 
-    #[allow(dead_code)]
     fn glob_depth(&self) -> usize {
         self.glob_depth
     }
@@ -122,14 +152,12 @@ impl<'s> CycleGuard<'s> {
         self.glob_depth -= 1;
     }
 
-    #[allow(dead_code)]
     fn stats(&self) -> &GlobExpandStats {
         self.stats
             .unwrap_or(&crate::name_resolution::glob_stats::GLOBAL)
     }
 
     /// Enter a glob edge, run `body`, then leave on every successful entry.
-    #[allow(dead_code)]
     fn with_glob<R>(&mut self, edge_idx: usize, body: impl FnOnce(&mut Self, bool) -> R) -> R {
         let entered = self.enter_glob(edge_idx);
         let r = body(self, entered);
@@ -201,7 +229,7 @@ fn resolve_bare(
         //    Else this scope's glob edges. A deferred glob poisons; otherwise
         //    union the visible (name, ns) members of each non-deferred glob
         //    target. Globs that yield NOTHING do not claim the name → continue.
-        match glob_lookup(graph, scope_id, q, policy) {
+        match glob_lookup(graph, scope_id, q, policy, guard) {
             GlobOutcome::Poison => return poisoned(),
             GlobOutcome::Hit(cands) => return policy.combine(cands),
             GlobOutcome::Empty => {}
@@ -326,11 +354,12 @@ fn glob_lookup(
     scope_id: ScopeId,
     q: &ResolveQuery,
     policy: &dyn ResolutionPolicy,
+    guard: &mut CycleGuard<'_>,
 ) -> GlobOutcome {
     let glob_kinds = policy.edge_order();
     let mut candidates: Vec<Candidate> = Vec::new();
     let mut saw_glob = false;
-    for e in &graph.edges {
+    for (edge_idx, e) in graph.edges.iter().enumerate() {
         if e.from != scope_id || !glob_kinds.contains(&e.kind) {
             continue;
         }
@@ -340,10 +369,91 @@ fn glob_lookup(
         {
             continue;
         }
+        if let BindTarget::Pending(path, _) = &e.to {
+            if path.0.is_empty() {
+                guard.stats().record_external();
+                return GlobOutcome::Poison;
+            }
+        }
+        let trav = TraversalCtx {
+            lookup_scope: Some(scope_id),
+            via_glob: true,
+            edge_kind: Some(e.kind),
+        };
+        match policy.glob_edge_visible(e, q, &trav) {
+            GlobEdgeVis::Hidden => continue,
+            GlobEdgeVis::Unknown => {
+                guard.stats().record_vis_unknown();
+                return GlobOutcome::Poison;
+            }
+            GlobEdgeVis::Visible => {}
+        }
         saw_glob = true;
         match &e.to {
-            // Deferred glob: members unknown → poison (never skip to an outer name).
-            BindTarget::Pending(_, _) => return GlobOutcome::Poison,
+            BindTarget::Pending(path, anchor) => {
+                if guard.glob_depth() >= MAX_GLOB_DEPTH {
+                    guard.stats().record_depth_exceeded();
+                    return GlobOutcome::Poison;
+                }
+                let edge_outcome = guard.with_glob(edge_idx, |guard, entered| {
+                    if !entered {
+                        guard.stats().record_cycle();
+                        return GlobOutcome::Poison;
+                    }
+
+                    let prefix_ns = policy.namespaces().first().copied().unwrap_or(q.ns);
+                    let target_res = resolve_path_guarded(
+                        graph, path, prefix_ns, anchor, scope_id, prefix_ns, &q.at, policy, guard,
+                    );
+                    let (target_scope, target_cond) =
+                        match (&target_res.status, target_res.candidates.as_slice()) {
+                            (ResStatus::Resolved, [tc]) => match &tc.target {
+                                Target::Scope(s) => (*s, tc.cond.clone()),
+                                _ => {
+                                    guard.stats().record_external();
+                                    return GlobOutcome::Poison;
+                                }
+                            },
+                            (ResStatus::Ambiguous | ResStatus::ResolvedSet, _) => {
+                                guard.stats().record_multi_target();
+                                return GlobOutcome::Poison;
+                            }
+                            (ResStatus::Resolved, _) => {
+                                guard.stats().record_multi_target();
+                                return GlobOutcome::Poison;
+                            }
+                            (ResStatus::Unresolved | ResStatus::Poisoned, _) => {
+                                guard.stats().record_external();
+                                return GlobOutcome::Poison;
+                            }
+                        };
+
+                    let (member_res, _) =
+                        scope_member_lookup_probed(graph, target_scope, q, policy, guard);
+                    match member_res.status {
+                        ResStatus::Resolved if member_res.candidates.len() == 1 => {
+                            let mut member_candidates = member_res.candidates;
+                            let mc = member_candidates.pop().expect("checked len == 1");
+                            candidates.push(Candidate {
+                                target: mc.target,
+                                cond: conjoin(&cond_of(&e.cond), &conjoin(&target_cond, &mc.cond)),
+                                provenance: Default::default(),
+                            });
+                            guard.stats().record_resolved(guard.glob_depth());
+                            GlobOutcome::Empty
+                        }
+                        ResStatus::Resolved | ResStatus::ResolvedSet | ResStatus::Ambiguous => {
+                            guard.stats().record_ambiguous();
+                            GlobOutcome::Poison
+                        }
+                        ResStatus::Poisoned => GlobOutcome::Poison,
+                        ResStatus::Unresolved => GlobOutcome::Empty,
+                    }
+                });
+                if matches!(edge_outcome, GlobOutcome::Poison) {
+                    return GlobOutcome::Poison;
+                }
+            }
             BindTarget::Resolved(Target::Scope(target_scope)) => {
                 // Union the visible (name, ns) members of the target scope.
                 let members = glob_member_bindings(graph, *target_scope, &q.name, q.ns);
@@ -508,7 +618,7 @@ fn scope_member_lookup_probed(
         return (poisoned(), false);
     }
     // Else this scope's globs.
-    let res = match glob_lookup(graph, scope, q, policy) {
+    let res = match glob_lookup(graph, scope, q, policy, guard) {
         GlobOutcome::Poison => poisoned(),
         GlobOutcome::Hit(cands) => policy.combine(cands),
         GlobOutcome::Empty => unresolved(),
