@@ -318,3 +318,11 @@ fn pairwise_all_exclusive(cands: &[Candidate]) -> bool {
     }
     true
 }
+
+/// Normalize a crate/dependency identifier to the Rust path-identifier form: a
+/// Cargo dependency name may carry hyphens (`my-crate`) while a `use` path writes
+/// underscores (`my_crate`). Used to key `ScopeGraph::crate_deps_by_root` and to
+/// normalize the leading-segment query in `extern_crate_root` identically.
+pub(crate) fn normalize_crate_ident(name: &str) -> String {
+    name.replace('-', "_")
+}
