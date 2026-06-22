@@ -1675,7 +1675,12 @@ fn cross_crate_use_local_module_shadows_dep() {
     };
     let res = resolve_path(
         &graph,
-        &RawPath(vec!["b_crate".to_string(), "Foo".to_string()]),
+        // Resolve the LEADING segment alone — the shadowing decision point. A
+        // 2-segment `b_crate::Foo` resolves `b_crate` to the local module but then
+        // walks to `Foo` (a `Target::Item`); the single segment resolves to the local
+        // module `Target::Scope` itself, which is what must win over the crate
+        // fallback (the fallback would instead resolve `b_crate` to b's crate Root).
+        &RawPath(vec!["b_crate".to_string()]),
         NS_TYPE,
         &Anchor::use_path_2015(), // UsePath: the fallback IS eligible, so shadowing is real
         from,
@@ -1685,9 +1690,9 @@ fn cross_crate_use_local_module_shadows_dep() {
     );
     // The local `mod b_crate` (a's own module) resolves; it is NOT b's crate root.
     // An out-of-line `mod foo;` binds to `Target::Scope` (builder `scope_target`,
-    // `builder.rs:513`), NOT a `Target::Item` — so match the Scope and check its
-    // file is the LOCAL module file, never b's crate root file (the fallback would
-    // have produced a Scope at `b/src/lib.rs`).
+    // `builder.rs:513`) — so match the Scope and check its file is the LOCAL module
+    // file, never b's crate root file (the fallback would have produced a Scope at
+    // `b/src/lib.rs`).
     assert_eq!(res.status, ResStatus::Resolved);
     assert_eq!(res.candidates.len(), 1);
     if let Target::Scope(scope) = res.candidates[0].target {
