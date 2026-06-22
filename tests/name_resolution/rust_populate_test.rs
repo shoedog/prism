@@ -526,8 +526,8 @@ fn test_same_callable_named_use_is_position_gated_above_declaration() {
 
 #[test]
 fn test_same_callable_glob_use_is_position_gated_above_declaration() {
-    // Before the block-local glob, `f()` must recover the module free fn. At/after
-    // the glob, the deferred glob still poisons instead of resolving a wrong target.
+    // Before the block-local glob, `f()` must recover the module free fn. After the
+    // glob (now in scope), `f()` resolves through the expanded glob to the module fn.
     let lib = concat!(
         "fn f(){}\n",
         "mod m { pub fn f(){} }\n",

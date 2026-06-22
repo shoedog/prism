@@ -342,7 +342,10 @@ fn glob_lookup(graph, scope_id, q, policy, guard: &mut CycleGuard) -> GlobOutcom
     //               Resolved[mc]   => { push conjoin(e.cond, conjoin(tc, mc.cond)); stats.record_resolved(guard.glob_depth()); }
     //               ResolvedSet|Ambiguous|>1 => { stats.record_ambiguous(); return Poison; }
     //               Poisoned       => return Poison;
-    //               Unresolved     => { /* contribute nothing, continue to next edge */ }
+    //               Unresolved && !member_rib_present => { /* provably absent: continue */ }
+    //               Unresolved &&  member_rib_present => { record_ambiguous(); return Poison }
+    //                 (a rib claimed the name but was visibility-filtered: a private /
+    //                  undecidable pub(in) member — can't prove absence, fail closed)
     //             }
     //          >1 scope / Ambiguous => { stats.record_multi_target(); return Poison; }
     //          Unresolved/external/non-scope/Poisoned => { stats.record_external(); return Poison; }

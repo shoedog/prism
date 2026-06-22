@@ -428,7 +428,7 @@ fn glob_lookup(
                             }
                         };
 
-                    let (member_res, _) =
+                    let (member_res, member_rib_present) =
                         scope_member_lookup_probed(graph, target_scope, q, policy, guard);
                     match member_res.status {
                         ResStatus::Resolved if member_res.candidates.len() == 1 => {
@@ -447,7 +447,22 @@ fn glob_lookup(
                             GlobOutcome::Poison
                         }
                         ResStatus::Poisoned => GlobOutcome::Poison,
-                        ResStatus::Unresolved => GlobOutcome::Empty,
+                        // `Unresolved` with NO rib claimed in the target → the target
+                        // provably lacks the name → contribute nothing, continue to the
+                        // next glob edge. But a rib that DID claim the name and was
+                        // visibility-filtered to empty (a private or undecidable
+                        // `pub(in)` member) ALSO surfaces as `Unresolved` *with*
+                        // `rib_present` — we cannot prove the target lacks the name, so
+                        // we must POISON, never fall through to a sibling glob's
+                        // same-name (the §7 cardinal rule). Conservative: a *known*-
+                        // private member could soundly continue; distinguishing it
+                        // (a member-visibility tri-state, mirroring `glob_edge_visible`)
+                        // is a deferred follow-on.
+                        ResStatus::Unresolved if !member_rib_present => GlobOutcome::Empty,
+                        ResStatus::Unresolved => {
+                            guard.stats().record_ambiguous();
+                            GlobOutcome::Poison
+                        }
                     }
                 });
                 if matches!(edge_outcome, GlobOutcome::Poison) {
