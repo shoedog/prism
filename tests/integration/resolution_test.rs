@@ -3629,3 +3629,94 @@ fn mixed_edition_workspace_recovers_intra_crate_collision() {
     );
     assert_eq!(out.resolved[0].confidence, ResolutionConfidence::Exact);
 }
+
+#[test]
+fn cross_crate_use_collision_recovers_to_single_exact() {
+    use prism::call_graph::CallGraph;
+    use prism::repo_loader::load_repo;
+    // A pure-2018+ workspace driven end-to-end through the real loader. Crate `a`
+    // (2021) declares a PATH dep on crate `b` and pins a same-name `Foo` collision
+    // with `use b_crate::Foo;` (b's crate is the in-source name `b_crate`). Both
+    // crate `a` and crate `b` define a `Foo` with method `m`, so the bare owner key
+    // ("Foo","m") collides. Pre-fix: the leading `b_crate` segment is Unresolved ->
+    // the (A) disproof's pending re-resolve declines -> keep-all (2 NameOnly).
+    // Post-fix: `b_crate` resolves via crate_deps_by_root to b's lib Root -> Foo to
+    // b's Foo (one in-repo item) -> the disproof prunes to one Exact.
+    let dir = tempfile::tempdir().unwrap();
+    let p = dir.path();
+    std::fs::create_dir_all(p.join("a/src")).unwrap();
+    std::fs::create_dir_all(p.join("b/src")).unwrap();
+    std::fs::write(
+        p.join("Cargo.toml"),
+        "[workspace]\nmembers = [\"a\", \"b\"]\n",
+    )
+    .unwrap();
+    std::fs::write(
+        p.join("a/Cargo.toml"),
+        "[package]\nname = \"a\"\nedition = \"2021\"\n[dependencies]\nb_crate = { path = \"../b\" }\n",
+    )
+    .unwrap();
+    std::fs::write(
+        p.join("b/Cargo.toml"),
+        "[package]\nname = \"b\"\nedition = \"2021\"\n",
+    )
+    .unwrap();
+    // Crate a: import b's Foo and call Foo::m. Crate a ALSO defines its own Foo so
+    // the bare ("Foo","m") owner key collides across the two crates.
+    std::fs::write(
+        p.join("a/src/lib.rs"),
+        "use b_crate::Foo;\npub struct LocalFoo;\nimpl LocalFoo { pub fn m(&self) {} }\npub fn drive() {\n    Foo::m();\n}\n",
+    )
+    .unwrap();
+    std::fs::write(
+        p.join("b/src/lib.rs"),
+        "pub struct Foo;\nimpl Foo {\n    pub fn m(&self) {}\n}\n",
+    )
+    .unwrap();
+    // A second crate `c` whose Foo::m collides on the bare owner key with b's, so
+    // the ("Foo","m") key holds >=2 defs and the floor is NameOnly (not Exact)
+    // until the disproof prunes.
+    std::fs::create_dir_all(p.join("c/src")).unwrap();
+    std::fs::write(
+        p.join("Cargo.toml"),
+        "[workspace]\nmembers = [\"a\", \"b\", \"c\"]\n",
+    )
+    .unwrap();
+    std::fs::write(
+        p.join("c/Cargo.toml"),
+        "[package]\nname = \"c\"\nedition = \"2021\"\n",
+    )
+    .unwrap();
+    std::fs::write(
+        p.join("c/src/lib.rs"),
+        "pub struct Foo;\nimpl Foo {\n    pub fn m(&self) {}\n}\n",
+    )
+    .unwrap();
+
+    let repo = load_repo(p).unwrap();
+    let inputs = repo
+        .scope_graph_inputs
+        .as_ref()
+        .expect("scope graph inputs");
+    let cg = CallGraph::build_with_scope_graph_inputs(&repo.files, Some(inputs));
+    assert!(
+        cg.methods
+            .get(&("Foo".to_string(), "m".to_string()))
+            .map(|v| v.len())
+            .unwrap_or(0)
+            >= 2,
+        "the bare owner key must collide across b::Foo and c::Foo (NameOnly floor)"
+    );
+    let out = cg.resolve_call_site_full(&site_in(&cg, "drive", "Foo::m"));
+    assert_eq!(
+        out.drop, None,
+        "the recovered cross-crate owner path must not drop"
+    );
+    assert_eq!(
+        out.resolved.len(),
+        1,
+        "the cross-crate `use b_crate::Foo` now recovers the collision to one Exact"
+    );
+    assert_eq!(out.resolved[0].confidence, ResolutionConfidence::Exact);
+    assert_eq!(out.resolved[0].target.file, "b/src/lib.rs");
+}
