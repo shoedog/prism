@@ -30,8 +30,8 @@
 
 use crate::name_resolution::graph::ScopeGraph;
 use crate::name_resolution::types::{
-    Anchor, AnchorKind, Binding, Candidate, EdgeKindId, NamespaceId, ResStatus, Resolution,
-    ResolutionPolicy, ResolveQuery, ScopeId, ScopeKind, TraversalCtx, VisKindId,
+    Anchor, AnchorKind, Binding, Candidate, Edge, EdgeKindId, GlobEdgeVis, NamespaceId, ResStatus,
+    Resolution, ResolutionPolicy, ResolveQuery, ScopeId, ScopeKind, TraversalCtx, Vis, VisKindId,
 };
 
 // ── Rust namespace registry (policy-owned discriminants) ──────────────────────
@@ -142,6 +142,27 @@ impl<'g> RustPolicy<'g> {
         }
         false
     }
+
+    fn vis_reaches(&self, vis: &Vis, def_scope: ScopeId, from: ScopeId) -> Option<bool> {
+        let def_module = match self.enclosing_module(def_scope) {
+            Some(m) => m,
+            None => return Some(false),
+        };
+        match vis.kind {
+            VIS_PUB => Some(true),
+            VIS_PUB_CRATE => Some(match (self.crate_root(def_scope), self.crate_root(from)) {
+                (Some(a), Some(b)) => a == b,
+                _ => false,
+            }),
+            VIS_PUB_SUPER => Some(match self.super_n(def_scope, 1) {
+                Some(parent_mod) => self.is_within(from, parent_mod),
+                None => false,
+            }),
+            VIS_PUB_IN => vis.restrict.map(|r| self.is_within(from, r)),
+            VIS_PRIV => Some(self.is_within(from, def_module)),
+            _ => Some(false),
+        }
+    }
 }
 
 impl ResolutionPolicy for RustPolicy<'_> {
@@ -218,52 +239,20 @@ impl ResolutionPolicy for RustPolicy<'_> {
     }
 
     fn visible(&self, binding: &Binding, q: &ResolveQuery, _trav: &TraversalCtx) -> bool {
-        // The query origin and the binding's defining scope drive Rust visibility.
-        let from = q.from;
-        let def_scope = binding.scope;
-        let def_module = match self.enclosing_module(def_scope) {
-            Some(m) => m,
-            None => return false, // malformed → not visible → fall through
-        };
-        match binding.vis.kind {
-            VIS_PUB => {
-                // `pub` is visible from anywhere THE PATH REACHES. For local
-                // bare-name lookup the engine only ever consults bindings it
-                // reached lexically (already in scope), so `pub` ⇒ visible. For
-                // a path member lookup, reaching the scope at all means it is on
-                // an accessible path. Either way, `pub` ⇒ visible.
-                true
-            }
-            VIS_PUB_CRATE => {
-                // Visible anywhere in the DEFINING crate; not across a crate
-                // boundary (no pub facade is modeled at this hook — a facade is a
-                // separate pub re-export Binding the engine resolves explicitly).
-                match (self.crate_root(def_scope), self.crate_root(from)) {
-                    (Some(a), Some(b)) => a == b,
-                    _ => false,
-                }
-            }
-            VIS_PUB_SUPER => {
-                // Visible in the PARENT MODULE's subtree. The parent module is
-                // `super` of the defining module.
-                match self.super_n(def_scope, 1) {
-                    Some(parent_mod) => self.is_within(from, parent_mod),
-                    None => false,
-                }
-            }
-            VIS_PUB_IN => {
-                // Visible only inside the `restrict` scope's subtree.
-                match binding.vis.restrict {
-                    Some(r) => self.is_within(from, r),
-                    None => false, // pub(in) with no recorded path → fall through
-                }
-            }
-            VIS_PRIV => {
-                // Private: visible in the defining module and its descendants.
-                self.is_within(from, def_module)
-            }
-            // Unknown visibility kind → NOT visible (recall-safe fall-through).
-            _ => false,
+        self.vis_reaches(&binding.vis, binding.scope, q.from)
+            .unwrap_or(false)
+    }
+
+    fn glob_edge_visible(
+        &self,
+        edge: &Edge,
+        q: &ResolveQuery,
+        _trav: &TraversalCtx,
+    ) -> GlobEdgeVis {
+        match self.vis_reaches(&edge.vis, edge.from, q.from) {
+            Some(true) => GlobEdgeVis::Visible,
+            Some(false) => GlobEdgeVis::Hidden,
+            None => GlobEdgeVis::Unknown,
         }
     }
 
@@ -512,5 +501,122 @@ mod tests {
         let g = two_crate_graph();
         assert_eq!(crate_root_of(&g, ScopeId(2)), Some(ScopeId(0)));
         assert_eq!(crate_root_of(&g, ScopeId(0)), Some(ScopeId(0)));
+    }
+}
+
+#[cfg(test)]
+mod vis_reaches_tests {
+    use super::*;
+    use crate::name_resolution::graph::ScopeGraph;
+    use crate::name_resolution::types::{
+        BindTarget, Binding, FileId, ItemId, PolicyBlob, PolicyQueryCtx, ResolveQuery, Scope,
+        ScopeExtent, SourceLoc, Span, Target, Vis,
+    };
+
+    fn loc(byte: usize) -> SourceLoc {
+        SourceLoc {
+            file: FileId(0),
+            byte,
+        }
+    }
+
+    fn scope(id: u32, kind: ScopeKind, parent: Option<u32>) -> Scope {
+        Scope {
+            id: ScopeId(id),
+            kind,
+            parent: parent.map(ScopeId),
+            extents: vec![ScopeExtent {
+                file: FileId(0),
+                range: Span {
+                    lo: loc(0),
+                    hi: loc(100),
+                },
+                cond: None,
+                occ: None,
+            }],
+            owner_item: None,
+            cond: None,
+        }
+    }
+
+    fn vis(kind: VisKindId, restrict: Option<ScopeId>) -> Vis {
+        Vis {
+            kind,
+            restrict,
+            payload: PolicyBlob::default(),
+        }
+    }
+
+    fn binding(scope: ScopeId, name: &str, vis: Vis) -> Binding {
+        Binding {
+            scope,
+            name: name.to_string(),
+            ns: NS_TYPE,
+            target: BindTarget::Resolved(Target::Item {
+                id: ItemId(1),
+                ns: NS_TYPE,
+                owns: None,
+                callable: false,
+            }),
+            vis,
+            cond: None,
+            vis_extents: vec![],
+        }
+    }
+
+    fn query(from: ScopeId) -> ResolveQuery {
+        ResolveQuery {
+            name: "P".to_string(),
+            ns: NS_TYPE,
+            from,
+            at: loc(1),
+            cfg: Default::default(),
+            ctx: PolicyQueryCtx::default(),
+        }
+    }
+
+    #[test]
+    fn vis_reaches_matches_visible_and_preserves_unknown_pub_in() {
+        let mut graph = ScopeGraph::new();
+        graph.add_scope(scope(0, ScopeKind::Root, None));
+        graph.add_scope(scope(1, ScopeKind::Module, Some(0)));
+        let policy = RustPolicy::new(&graph, 2021);
+
+        let pub_vis = vis(VIS_PUB, None);
+        let priv_vis = vis(VIS_PRIV, None);
+        let unknown_pub_in = vis(VIS_PUB_IN, None);
+
+        assert_eq!(
+            policy.vis_reaches(&pub_vis, ScopeId(1), ScopeId(0)),
+            Some(true)
+        );
+        let pub_binding = binding(ScopeId(1), "P", pub_vis);
+        assert_eq!(
+            policy.visible(&pub_binding, &query(ScopeId(0)), &TraversalCtx::default()),
+            policy
+                .vis_reaches(&pub_binding.vis, pub_binding.scope, ScopeId(0))
+                .unwrap_or(false)
+        );
+
+        assert_eq!(
+            policy.vis_reaches(&priv_vis, ScopeId(1), ScopeId(0)),
+            Some(false)
+        );
+        assert_eq!(
+            policy.vis_reaches(&priv_vis, ScopeId(1), ScopeId(1)),
+            Some(true)
+        );
+        let priv_binding = binding(ScopeId(1), "H", priv_vis);
+        assert_eq!(
+            policy.visible(&priv_binding, &query(ScopeId(0)), &TraversalCtx::default()),
+            policy
+                .vis_reaches(&priv_binding.vis, priv_binding.scope, ScopeId(0))
+                .unwrap_or(false)
+        );
+
+        assert_eq!(
+            policy.vis_reaches(&unknown_pub_in, ScopeId(1), ScopeId(0)),
+            None
+        );
     }
 }

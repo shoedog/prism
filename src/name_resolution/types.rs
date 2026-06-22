@@ -432,6 +432,13 @@ pub struct Edge {
     pub vis_range: Option<Span>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GlobEdgeVis {
+    Visible,
+    Hidden,
+    Unknown,
+}
+
 // ── Resolution results ───────────────────────────────────────────────────────
 
 /// Why / where a candidate was found (opaque to the engine; policy-set).
@@ -568,6 +575,18 @@ pub trait ResolutionPolicy {
     /// The engine does **not** hard-code a span check; all visibility decisions
     /// go through this hook.
     fn visible(&self, binding: &Binding, q: &ResolveQuery, trav: &TraversalCtx) -> bool;
+
+    /// Decides whether a glob edge itself is accessible from query `q`.
+    ///
+    /// Default policies keep historical behavior: all glob edges are visible.
+    fn glob_edge_visible(
+        &self,
+        _edge: &Edge,
+        _q: &ResolveQuery,
+        _trav: &TraversalCtx,
+    ) -> GlobEdgeVis {
+        GlobEdgeVis::Visible
+    }
 
     /// Map a path anchor (`crate::`, `self::`, `super::`, bare ident, `::`) to
     /// the starting `ScopeId` + initial `NamespaceId` for the walk.

@@ -23,6 +23,7 @@
 //!   policies that want an unconditional walk.
 //! - `combine(candidates)` / `visible(binding, q, trav)` / `anchor(anchor, from)`.
 
+use crate::name_resolution::glob_stats::GlobExpandStats;
 pub use crate::name_resolution::graph::ScopeGraph;
 use crate::name_resolution::types::{
     Anchor, BindTarget, Binding, Candidate, CfgCond, CfgCtx, NamespaceId, PolicyQueryCtx,
@@ -38,7 +39,7 @@ use crate::name_resolution::types::{
 /// lexical-ascent gate (the Rust module-boundary stop). Returns the per-candidate
 /// [`Resolution`].
 pub fn resolve(graph: &ScopeGraph, q: &ResolveQuery, policy: &dyn ResolutionPolicy) -> Resolution {
-    let mut guard = CycleGuard::default();
+    let mut guard = CycleGuard::with_stats(None);
     resolve_bare(graph, q, policy, &mut guard)
 }
 
@@ -61,7 +62,7 @@ pub fn resolve_path(
     at: &SourceLoc,
     policy: &dyn ResolutionPolicy,
 ) -> Resolution {
-    let mut guard = CycleGuard::default();
+    let mut guard = CycleGuard::with_stats(None);
     resolve_path_guarded(
         graph, path, ns, anchor, from, anchor_ns, at, policy, &mut guard,
     )
@@ -71,13 +72,28 @@ pub fn resolve_path(
 
 /// Tracks the set of currently-resolving binding identities (by graph index) so
 /// a re-export cycle terminates rather than recursing forever.
-#[derive(Default)]
-struct CycleGuard {
+#[allow(dead_code)]
+pub(crate) const MAX_GLOB_DEPTH: usize = 2;
+
+struct CycleGuard<'s> {
     /// Indices into `graph.bindings` currently on the resolution stack.
     active: std::collections::BTreeSet<usize>,
+    /// Indices into `graph.edges` currently on the glob-expansion stack.
+    active_globs: std::collections::BTreeSet<usize>,
+    glob_depth: usize,
+    stats: Option<&'s GlobExpandStats>,
 }
 
-impl CycleGuard {
+impl<'s> CycleGuard<'s> {
+    fn with_stats(stats: Option<&'s GlobExpandStats>) -> Self {
+        CycleGuard {
+            active: Default::default(),
+            active_globs: Default::default(),
+            glob_depth: 0,
+            stats,
+        }
+    }
+
     /// Returns `false` if `idx` is already active (a cycle); otherwise marks it
     /// active and returns `true`.
     fn enter(&mut self, idx: usize) -> bool {
@@ -85,6 +101,62 @@ impl CycleGuard {
     }
     fn leave(&mut self, idx: usize) {
         self.active.remove(&idx);
+    }
+
+    #[allow(dead_code)]
+    fn glob_depth(&self) -> usize {
+        self.glob_depth
+    }
+
+    /// Returns `false` when this glob edge is already on the active chain.
+    fn enter_glob(&mut self, edge_idx: usize) -> bool {
+        if !self.active_globs.insert(edge_idx) {
+            return false;
+        }
+        self.glob_depth += 1;
+        true
+    }
+
+    fn leave_glob(&mut self, edge_idx: usize) {
+        self.active_globs.remove(&edge_idx);
+        self.glob_depth -= 1;
+    }
+
+    #[allow(dead_code)]
+    fn stats(&self) -> &GlobExpandStats {
+        self.stats
+            .unwrap_or(&crate::name_resolution::glob_stats::GLOBAL)
+    }
+
+    /// Enter a glob edge, run `body`, then leave on every successful entry.
+    #[allow(dead_code)]
+    fn with_glob<R>(&mut self, edge_idx: usize, body: impl FnOnce(&mut Self, bool) -> R) -> R {
+        let entered = self.enter_glob(edge_idx);
+        let r = body(self, entered);
+        if entered {
+            self.leave_glob(edge_idx);
+        }
+        r
+    }
+}
+
+#[cfg(test)]
+mod glob_guard_tests {
+    use super::*;
+
+    #[test]
+    fn enter_glob_tracks_depth_and_cycle_then_leaves() {
+        let stats = crate::name_resolution::glob_stats::GlobExpandStats::default();
+        let mut g = CycleGuard::with_stats(Some(&stats));
+        assert_eq!(g.glob_depth(), 0);
+        let entered = g.enter_glob(7);
+        assert!(entered);
+        assert_eq!(g.glob_depth(), 1);
+        assert!(!g.enter_glob(7), "re-entering the same edge is a cycle");
+        g.leave_glob(7);
+        assert_eq!(g.glob_depth(), 0);
+        assert!(g.enter_glob(7), "leaving clears the edge");
+        g.leave_glob(7);
     }
 }
 
@@ -94,7 +166,7 @@ fn resolve_bare(
     graph: &ScopeGraph,
     q: &ResolveQuery,
     policy: &dyn ResolutionPolicy,
-    guard: &mut CycleGuard,
+    guard: &mut CycleGuard<'_>,
 ) -> Resolution {
     let mut cur = Some(q.from);
     while let Some(scope_id) = cur {
@@ -167,7 +239,7 @@ fn resolve_rib(
     rib: &[usize],
     q: &ResolveQuery,
     policy: &dyn ResolutionPolicy,
-    guard: &mut CycleGuard,
+    guard: &mut CycleGuard<'_>,
 ) -> Resolution {
     let mut candidates: Vec<Candidate> = Vec::new();
     for &bidx in rib {
@@ -322,7 +394,7 @@ fn resolve_path_guarded(
     anchor_ns: NamespaceId,
     at: &SourceLoc,
     policy: &dyn ResolutionPolicy,
-    guard: &mut CycleGuard,
+    guard: &mut CycleGuard<'_>,
 ) -> Resolution {
     let segs = &path.0;
     if segs.is_empty() {
@@ -410,7 +482,7 @@ fn scope_member_lookup_probed(
     scope: ScopeId,
     q: &ResolveQuery,
     policy: &dyn ResolutionPolicy,
-    guard: &mut CycleGuard,
+    guard: &mut CycleGuard<'_>,
 ) -> (Resolution, bool) {
     // Explicit bindings in this scope for (name, ns), cfg-compatible. For path
     // member lookup we do NOT gate on vis_extents byte-range (a module member is

@@ -12,6 +12,7 @@
 pub mod binding_lookup;
 pub mod consumer;
 pub mod engine;
+pub mod glob_stats;
 pub mod graph;
 pub mod rust_policy;
 pub mod rust_populator;
