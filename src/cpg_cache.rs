@@ -57,7 +57,7 @@ use std::path::{Path, PathBuf};
 /// - v16: Scope-graph precision recovery: ScopeGraph.edition_uniform field +
 ///   Rust-scoped completeness builds the graph on more repos (changed bytes) +
 ///   owner-keyed disproof prune (changed resolution behavior).
-const CACHE_VERSION: u32 = 16; // bincode ignores serde(default) for new trailing fields.
+const CACHE_VERSION: u32 = 17; // 17: edition_uniform recomputed as anchoring-class.
 
 pub const SKIP_POLICY_VERSION: u32 = 1;
 
@@ -562,9 +562,9 @@ mod tests {
     }
 
     #[test]
-    fn cache_version_is_16_for_scope_graph_precision_recovery() {
-        // v16: ScopeGraph.edition_uniform + scope-graph recovery behavior.
-        assert_eq!(super::CACHE_VERSION, 16);
+    fn cache_version_is_17_for_anchoring_class_uniformity() {
+        // v17: edition_uniform recomputed as anchoring-class (2015 vs 2018+).
+        assert_eq!(super::CACHE_VERSION, 17);
     }
 
     #[test]

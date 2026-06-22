@@ -86,7 +86,8 @@ pub struct ScopeGraph {
     /// Phase 2: per-crate editions for mixed-edition workspaces.
     #[serde(default = "default_edition")]
     pub edition: u16,
-    /// Whether every parsed manifest agreed on one edition (spec §2 BLOCKER-2).
+    /// Whether every parsed manifest is on the same path-anchoring class
+    /// (all 2015 or all 2018+); see repo_loader `anchoring_class_uniform`.
     /// Consumed by the `ScopeResolution` disproof predicate: a non-uniform
     /// workspace is non-authoritative for disproof (keep-all), because a
     /// wrong-edition anchor could mis-resolve and drop a real edge (P1).
