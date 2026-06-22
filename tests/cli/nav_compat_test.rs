@@ -9,6 +9,7 @@ fn bin() -> Command {
 const REPO: &str = "tests/fixtures/nav_compat";
 const DIFF: &str = "tests/fixtures/nav_compat/d.json";
 const CG: &str = "tests/fixtures/nav_callgraph";
+const RUST_SCOPED: &str = "tests/fixtures/nav_scoped_rust";
 
 fn golden(name: &str) -> String {
     std::fs::read_to_string(format!("tests/fixtures/nav_compat/golden/{name}")).unwrap()
@@ -143,16 +144,15 @@ fn top_level_review_flag_before_nav_subcommand_is_parse_error() {
 }
 
 #[test]
-fn nav_nodes_at_json_on_self() {
-    // Dogfood: run against this repo (cargo test cwd = crate root).
+fn nav_nodes_at_json_on_fixture() {
     let out = bin()
         .args([
             "nav",
             "nodes-at",
             "--repo",
-            ".",
+            REPO,
             "--location",
-            "src/main.rs:300",
+            "a.py:1",
             "--format",
             "json",
         ])
@@ -164,11 +164,8 @@ fn nav_nodes_at_json_on_self() {
         String::from_utf8_lossy(&out.stderr)
     );
     let v: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
-    assert!(v["query"]
-        .as_str()
-        .unwrap()
-        .starts_with("nodes-at:src/main.rs:300"));
-    assert!(v["items"].is_array());
+    assert!(v["query"].as_str().unwrap().starts_with("nodes-at:a.py:1"));
+    assert!(!v["items"].as_array().unwrap().is_empty());
 }
 
 #[test]
@@ -191,16 +188,10 @@ fn nav_nodes_at_rejects_unknown_format() {
 }
 
 #[test]
-fn nav_callers_json_on_self() {
+fn nav_callers_json_on_fixture() {
     let out = bin()
         .args([
-            "nav",
-            "callers",
-            "--repo",
-            ".",
-            "--symbol",
-            "build_scoped",
-            "--format",
+            "nav", "callers", "--repo", CG, "--symbol", "helper", "--file", "util.py", "--format",
             "json",
         ])
         .output()
@@ -214,8 +205,10 @@ fn nav_callers_json_on_self() {
     assert!(v["query"]
         .as_str()
         .unwrap()
-        .starts_with("callers:build_scoped"));
-    assert!(v["items"].is_array());
+        .starts_with("callers:helper@util.py"));
+    assert!(v["items"].as_array().unwrap().iter().any(|it| {
+        it["symbol"]["Function"]["file"] == "main.py" && it["symbol"]["Function"]["name"] == "run"
+    }));
 }
 
 #[test]
@@ -469,17 +462,16 @@ fn repo_map_golden() {
 
 #[test]
 fn module_deps_repo_map_live_smoke() {
-    // Real repo (Rust, scoped-call heavy): the path must run + emit valid JSON.
-    // Scoped-dispatch resolution is asserted separately below; this remains a
-    // shape/source smoke test for the module graph queries.
+    // Rust scoped-call fixture: the path must run through the real CLI and emit
+    // valid JSON. Dedicated CPG tests cover whole-repo/deep-fixture parse safety.
     let md = bin()
         .args([
             "nav",
             "module-deps",
             "--repo",
-            ".",
+            RUST_SCOPED,
             "--file",
-            "src/main.rs",
+            "src/lib.rs",
             "--format",
             "json",
         ])
@@ -491,20 +483,17 @@ fn module_deps_repo_map_live_smoke() {
         String::from_utf8_lossy(&md.stderr)
     );
     let v: serde_json::Value = serde_json::from_slice(&md.stdout).unwrap();
-    assert_eq!(v["query"], "module-deps:src/main.rs");
+    assert_eq!(v["query"], "module-deps:src/lib.rs");
     assert!(v["items"].is_array());
     assert!(v.get("graph").is_none(), "module-deps is a flat item list");
-    // Rust module-deps may now include scope-graph import edges plus
-    // unresolved/external labels for std/dep imports, but no external-index
-    // results.
     assert!(v["items"]
         .as_array()
         .unwrap()
         .iter()
-        .all(|it| it["source"] == "PrismCpg" || it["source"] == "HeuristicImport"));
+        .any(|it| it["source"] == "PrismCpg" && it["location"]["file"] == "src/algo.rs"));
 
     let rm = bin()
-        .args(["nav", "repo-map", "--repo", ".", "--format", "json"])
+        .args(["nav", "repo-map", "--repo", RUST_SCOPED, "--format", "json"])
         .output()
         .unwrap();
     assert!(
@@ -514,26 +503,25 @@ fn module_deps_repo_map_live_smoke() {
     );
     let r: serde_json::Value = serde_json::from_slice(&rm.stdout).unwrap();
     assert_eq!(r["query"], "repo-map");
-    assert!(
-        r["graph"]["nodes"].as_array().unwrap().len() > 1,
-        "this repo has many files"
-    );
+    let nodes = r["graph"]["nodes"].as_array().unwrap();
+    assert!(nodes.iter().any(|n| n["location"]["file"] == "src/lib.rs"));
+    assert!(nodes.iter().any(|n| n["location"]["file"] == "src/algo.rs"));
 }
 
 #[test]
 fn callees_resolves_scoped_dispatch_dogfood() {
-    // run_slicing_inner dispatches via scoped `original_diff::slice`-style calls;
-    // before 3b.5 this resolved 0 cross-file callees, now > 0.
+    // The fixture dispatches via a scoped Rust module call; before 3b.5 this
+    // resolved 0 cross-file callees.
     let out = bin()
         .args([
             "nav",
             "callees",
             "--repo",
-            ".",
+            RUST_SCOPED,
             "--symbol",
-            "run_slicing_inner",
+            "dispatch",
             "--file",
-            "src/algorithms/mod.rs",
+            "src/lib.rs",
             "--format",
             "json",
         ])
@@ -549,12 +537,10 @@ fn callees_resolves_scoped_dispatch_dogfood() {
         .as_array()
         .unwrap()
         .iter()
-        .filter(|it| {
-            it["symbol"].is_object() && it["symbol"]["Function"]["file"] != "src/algorithms/mod.rs"
-        })
+        .filter(|it| it["symbol"].is_object() && it["symbol"]["Function"]["file"] == "src/algo.rs")
         .count();
     assert!(
         resolved_cross_file > 0,
-        "run_slicing_inner should resolve scoped algorithm callees cross-file; got {resolved_cross_file}"
+        "dispatch should resolve scoped algorithm callees cross-file; got {resolved_cross_file}"
     );
 }
