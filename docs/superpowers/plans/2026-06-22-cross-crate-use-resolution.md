@@ -778,7 +778,7 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
 
 Record each LIBRARY root's member dir → its `Root` scope at root creation, then at `finish()` build `crate_deps_by_root` from `config.member_in_repo_deps` + that index. Add the `normalize_crate_ident` helper (hyphen→underscore).
 
-**Keying contract (re-review BLOCKER B):** `lib_root_by_member_dir` MUST be keyed by the **member directory** (the manifest dir — the exact spelling `member_in_repo_deps` uses, since both its KEYS and its `normalize_repo_rel`'d VALUES are manifest dirs). The member dir for a library root is derived from `config.workspace_members` (the longest member prefix of `root_path`), NOT from the library FILE's parent — because for an explicit `[lib] path = "src/lib.rs"` the root file is `<member>/src/lib.rs` and its parent is `<member>/src` (and a nested `[lib] path = "src/inner/lib.rs"` parent is `<member>/src/inner`), neither of which is the member dir `<member>` that dep-target resolution produces. `config.workspace_members` carries those member dirs verbatim (`repo_loader.rs:357` inserts `join_manifest_rel(manifest_dir, member)`; `crate_name_for_root` `builder.rs:521-543` already prefix-matches `root_path` against them). The single-crate-at-root case (empty `workspace_members`) keys by `""` (the root manifest dir), reached via the conventional `/src/lib.rs`-strip fallback. No new data is threaded through the Builder — `config.workspace_members` + `config.lib_path` are the real, already-available signals.
+**Keying contract (re-review BLOCKER B):** `lib_root_by_member_dir` MUST be keyed by the **member directory** (the manifest dir — the exact spelling `member_in_repo_deps` uses, since both its KEYS and its `normalize_repo_rel`'d VALUES are manifest dirs). The member dir for a library root is derived from `config.workspace_members` (the longest member prefix of `root_path`), NOT from the library FILE's parent — because for an explicit `[lib] path = "src/lib.rs"` the root file is `<member>/src/lib.rs` and its parent is `<member>/src` (and a nested `[lib] path = "src/inner/lib.rs"` parent is `<member>/src/inner`), neither of which is the member dir `<member>` that dep-target resolution produces. `config.workspace_members` carries those member dirs verbatim (`repo_loader.rs:357` inserts `join_manifest_rel(manifest_dir, member)`; `crate_name_for_root` `builder.rs:521-543` already prefix-matches `root_path` against them). The single-crate-at-root case (empty `workspace_members`) keys by `""` (the root manifest dir), accepted by the exact no-member gate (`root_path == "src/lib.rs"` or a root `config.lib_path`). No new data is threaded through the Builder — `config.workspace_members` + `config.lib_path` are the real, already-available signals.
 
 **Files:**
 - Modify: `src/name_resolution/rust_policy.rs` (add the `pub(crate) fn normalize_crate_ident`).
@@ -916,7 +916,7 @@ mod tests {
         // Re-review BLOCKER B: target `b`'s library root is a NESTED custom path
         // `[lib] path = "src/inner/lib.rs"` (cfg.lib_path = "b/src/inner/lib.rs").
         // The member dir is still `b` (from workspace_members) — never the file parent
-        // `b/src/inner`. This is the case the `/src/lib.rs`-strip fallback alone misses,
+        // `b/src/inner`. This is the case a file-parent derivation alone gets wrong,
         // so the workspace_members-prefix derivation is required.
         let mut files = BTreeMap::new();
         files.insert("a/src/lib.rs".to_string(), rs("pub fn a() {}\n"));
@@ -945,46 +945,77 @@ mod tests {
 
     #[test]
     fn custom_bin_path_ending_src_lib_rs_does_not_shadow_library_root() {
-        // Re-review round-3 MAJOR: member `b` has the conventional library root
-        // `b/src/lib.rs` AND a bin/tool root whose path ALSO ends in `src/lib.rs`
-        // (`b/tools/src/lib.rs`). A bare `ends_with("src/lib.rs")` gate would attribute
-        // BOTH to member `b` and could record the bin root in `lib_root_by_member_dir["b"]`
-        // (last-write-wins by FileId order), pointing a's dep at the bin root. The EXACT
-        // `b/src/lib.rs` gate keeps the bin out, so the dep target is always b's LIBRARY root.
+        // Re-review round-3 MAJOR (round-4 rework): member `b` has the conventional
+        // library root `b/src/lib.rs` AND a bin/tool root whose path ALSO ends in
+        // `src/lib.rs`. A bare `ends_with("src/lib.rs")` gate would attribute the bin
+        // path to member `b` too; the EXACT `b/src/lib.rs` gate keeps it out, so the
+        // dep target is always b's LIBRARY root.
+        //
+        // This test discriminates TWO ways:
+        //   1. DIRECT, order-independent helper assertions (the bulletproof
+        //      discriminator): the old bare-suffix gate returns `Some("b")` for a
+        //      `b/.../src/lib.rs` bin path, the new exact gate returns `None`. These
+        //      do NOT depend on FileId/`or_insert` order, so they catch the buggy
+        //      helper regardless of insertion ordering.
+        //   2. An end-to-end `crate_deps_by_root` check using a decoy bin path that
+        //      sorts BEFORE the real lib (`b/bin/src/lib.rs` < `b/src/lib.rs`), so
+        //      under the OLD helper the bin root would win the FIRST-wins `or_insert`
+        //      in sorted-FileId order and the e2e assertion would fail. (The round-3
+        //      decoy `b/tools/src/lib.rs` sorts AFTER `b/src/lib.rs`, so the real lib
+        //      won `or_insert` first even under the buggy helper — that decoy did not
+        //      discriminate; `b/bin` fixes it.)
         let mut files = BTreeMap::new();
         files.insert("a/src/lib.rs".to_string(), rs("pub fn a() {}\n"));
+        files.insert("b/bin/src/lib.rs".to_string(), rs("pub fn tool() {}\n"));
         files.insert("b/src/lib.rs".to_string(), rs("pub fn b() {}\n"));
-        files.insert("b/tools/src/lib.rs".to_string(), rs("pub fn tool() {}\n"));
         let mut member_deps = BTreeMap::new();
         let mut a_deps = BTreeMap::new();
         a_deps.insert("b".to_string(), "b".to_string());
         member_deps.insert("a".to_string(), a_deps);
         let cfg = RustCrateConfig {
-            // All three are roots; b's conventional lib + a tool bin under b/tools.
+            // All three are roots; b's conventional lib + a tool bin under b/bin.
             crate_roots: vec![
                 "a/src/lib.rs".to_string(),
+                "b/bin/src/lib.rs".to_string(),
                 "b/src/lib.rs".to_string(),
-                "b/tools/src/lib.rs".to_string(),
             ],
             workspace_members: vec!["a".to_string(), "b".to_string()],
             member_in_repo_deps: member_deps,
             ..RustCrateConfig::default()
         };
+
+        // (1) Direct helper assertions — order-independent, the bulletproof
+        // discriminator. `lib_root_member_dir` is a private FREE fn in builder.rs and
+        // `mod tests` is in builder.rs, so `super::` reaches it; `cfg` is in scope here.
+        assert_eq!(
+            super::lib_root_member_dir("b/bin/src/lib.rs", &cfg),
+            None,
+            "a `b/bin/src/lib.rs` bin/tool path is NOT member b's library root \
+             (old bare-suffix gate wrongly returned Some(\"b\"); exact gate returns None)"
+        );
+        assert_eq!(
+            super::lib_root_member_dir("b/src/lib.rs", &cfg),
+            Some("b".to_string()),
+            "the conventional `b/src/lib.rs` IS member b's library root"
+        );
+
+        // (2) End-to-end, made discriminating by the sort-before-bin decoy.
         let graph = populate_rust(&files, &cfg, None);
-        // Sorted key order: a/src/lib.rs=0, b/src/lib.rs=1, b/tools/src/lib.rs=2.
+        // Sorted key order: a/src/lib.rs=0, b/bin/src/lib.rs=1, b/src/lib.rs=2.
         let a_root = root_for(&graph, 0);
-        let b_lib_root = root_for(&graph, 1);
-        let b_bin_root = root_for(&graph, 2);
+        let b_bin_root = root_for(&graph, 1);
+        let b_lib_root = root_for(&graph, 2);
         let target = graph.crate_deps_by_root.get(&a_root).and_then(|m| m.get("b"));
         assert_eq!(
             target,
             Some(&b_lib_root),
-            "the dep target must be b's library root (FileId 1), never the bin/tool root"
+            "the dep target must be b's library root (FileId 2), never the bin/tool root"
         );
         assert_ne!(
             target,
             Some(&b_bin_root),
-            "a `tools/src/lib.rs` bin root must not be recorded as b's library root"
+            "a `bin/src/lib.rs` bin root (FileId 1, sorts BEFORE the real lib) must \
+             not win or_insert as b's library root"
         );
     }
 
@@ -1003,7 +1034,7 @@ mod tests {
 cargo test --lib name_resolution::rust_populator::builder::tests:: 2>&1 | tail -25
 ```
 
-Expected (RED): `normalize_crate_ident_hyphen_to_underscore` fails to **compile** (`unresolved import ... normalize_crate_ident`); the `crate_deps_by_root_*`/`lib_plus_bin_*` tests, the two BLOCKER B tests (`explicit_lib_path_target_keys_by_member_dir_not_file_parent`, `nested_custom_lib_path_target_keys_by_member_dir`), and the round-3 MAJOR test (`custom_bin_path_ending_src_lib_rs_does_not_shadow_library_root`) all fail on the `assert_eq!` (the map is empty — `finish()` does not yet populate it). After 3c/3d/3e land, these are the discriminating cases: with the OLD `parent_dir`-based helper the BLOCKER B tests fail (explicit/nested lib root keys by `b/src`/`b/src/inner`); with a bare `ends_with("src/lib.rs")` gate the round-3 MAJOR test fails (the `b/tools/src/lib.rs` bin root shadows `b`'s real lib root); the reworked member-dir-keyed, EXACT-`m/src/lib.rs`-gated helper is what turns them all GREEN.
+Expected (RED): `normalize_crate_ident_hyphen_to_underscore` fails to **compile** (`unresolved import ... normalize_crate_ident`); and `custom_bin_path_ending_src_lib_rs_does_not_shadow_library_root` fails to **compile** until 3e lands (it calls `super::lib_root_member_dir`, which does not yet exist). The `crate_deps_by_root_*`/`lib_plus_bin_*` tests and the two BLOCKER B tests (`explicit_lib_path_target_keys_by_member_dir_not_file_parent`, `nested_custom_lib_path_target_keys_by_member_dir`) fail on the `assert_eq!` (the map is empty — `finish()` does not yet populate it). After 3c/3d/3e land, these are the discriminating cases: with the OLD `parent_dir`-based helper the BLOCKER B tests fail (explicit/nested lib root keys by `b/src`/`b/src/inner`); with a bare `ends_with("src/lib.rs")` gate the round-3 MAJOR test fails on BOTH its discriminators — the DIRECT, order-independent assertion `lib_root_member_dir("b/bin/src/lib.rs", &cfg) == None` (the old gate returns `Some("b")`), AND the end-to-end `crate_deps_by_root` check whose decoy bin path `b/bin/src/lib.rs` sorts BEFORE the real `b/src/lib.rs`, so under the old gate the bin root wins the FIRST-wins `or_insert` and the dep target is wrong; the reworked member-dir-keyed, EXACT-`m/src/lib.rs`-gated helper is what turns them all GREEN.
 
 ### Step 3: Implement (minimal)
 
@@ -2223,7 +2254,7 @@ Request an independent codex (gpt-5.5, xhigh) diff review of the branch. Fold an
 - `owning_workspace_root(&str, &BTreeSet<String>) -> Option<&str>` + `is_dir_ancestor(&str, &str) -> bool` — free fns in `repo_loader.rs` (Task 2 3b); BLOCKER-2 owning-workspace association (longest workspace-root-dir ancestor; `""` root owns all; `/`-boundary prefix match). `workspace_dep_paths: BTreeMap<String /*ws root dir*/, BTreeMap<String /*dep name*/, String /*normalized target dir*/>>` and `workspace_root_dirs: BTreeSet<String>` are the per-workspace-root pre-scan structures.
 - `normalize_crate_ident(&str) -> String` — `pub(crate)` in `rust_policy.rs` (Task 3a); used by Builder `finish()` (Task 3) and `RustPolicy::extern_crate_root` (Task 4a). One definition. (Distinct from `normalize_repo_rel`: `normalize_crate_ident` is hyphen→underscore for crate IDENTIFIERS; `normalize_repo_rel` is `..`/`.` collapse for repo PATHS.)
 - `crate_root_of(&ScopeGraph, ScopeId) -> Option<ScopeId>` — `pub(crate)` free fn in `rust_policy.rs` (Task 4a); used only by `extern_crate_root`. (Distinct from `RustPolicy::crate_root(&self, ScopeId)` at `rust_policy.rs:104`, which uses the policy's borrowed graph; the free helper is needed because the trait hook receives `graph` as a parameter.)
-- `lib_root_member_dir(&str, &RustCrateConfig) -> Option<String>` — free fn in `builder.rs` (Task 3e); used by `create_root`. Returns the MEMBER DIR (derived from `config.workspace_members` longest-prefix match, with a `/src/lib.rs`-strip fallback for the single root crate) iff `root_path` is a library root (`config.lib_path == Some(root_path)` or ends `src/lib.rs`); else `None`. Keyed by member dir — **not** the library file's parent — so an explicit/nested `[lib].path` still keys by `<member>` (re-review BLOCKER B). Same spelling as `member_in_repo_deps` keys/values.
+- `lib_root_member_dir(&str, &RustCrateConfig) -> Option<String>` — free fn in `builder.rs` (Task 3e); used by `create_root`. Returns the MEMBER DIR (derived from `config.workspace_members` longest-prefix match) iff `root_path` is that member's library root, gated EXACTLY: for a matched member `m`, accept ONLY `m/src/lib.rs` or the explicit `config.lib_path == Some(root_path)` override (a bare `ends_with("src/lib.rs")` is too broad — it would mis-record a `m/tools/src/lib.rs` bin/tool path; re-review round-3 MAJOR); when no member prefix matches (the single crate at the repo root, member dir `""`), accept only the bare `root_path == "src/lib.rs"` or a root `config.lib_path` override; else `None`. Keyed by member dir — **not** the library file's parent — so an explicit/nested `[lib].path` still keys by `<member>` (re-review BLOCKER B). Same spelling as `member_in_repo_deps` keys/values.
 - `ResolutionPolicy::extern_crate_root(&self, &ScopeGraph, &str, &Anchor, ScopeId) -> Option<ScopeId>` — trait default in `types.rs:542-596` (Task 4a), impl in `rust_policy.rs` (Task 4a), called in `engine.rs::resolve_path_guarded` (Task 4b). `Anchor`/`AnchorKind` are `name_resolution::types`.
 - `scope_member_lookup_probed(&ScopeGraph, ScopeId, &ResolveQuery, &dyn ResolutionPolicy, &mut CycleGuard) -> (Resolution, bool)` — new in `engine.rs` (Task 4b); `scope_member_lookup` becomes a wrapper returning `.0`. The fallback only runs in `resolve_path_guarded` (leading segment, `i==0`).
 - `load_repo(&Path) -> Result<LoadedRepo>` (pub, `repo_loader.rs:61`); `LoadedRepo.scope_graph_inputs: Option<ScopeGraphBuildInputs>` (pub, `:39`); `ScopeGraphBuildInputs.cfg: RustCrateConfig` (pub, `call_graph.rs:127`).
@@ -2241,4 +2272,4 @@ Request an independent codex (gpt-5.5, xhigh) diff review of the branch. Fold an
 
 **Re-review BLOCKERs (2026-06-22 codex xhigh round 2) folded:**
 - **BLOCKER A — `normalize_repo_rel` escape clamp (Task 2).** The original lexical normalizer `out.pop()`-ed a `..` even with nothing to pop, silently clamping an out-of-repo `../b`/`a/../../b` to an in-repo-looking dir, which both call sites recorded unconditionally — violating spec §2.1's "PATH deps that resolve to an **in-repo** member". FIXED: `normalize_repo_rel` now returns `Option<String>`, yielding `None` on a `..` underflow (escape); BOTH the path-dep call site (`parse_member_in_repo_deps`) and the workspace-dep pre-scan call site `if let Some(target) = ...` skip an escaping target (record nothing). New RED tests: `normalize_repo_rel_returns_none_when_escaping_repo_root` (unit) + `path_dep_escaping_repo_root_is_not_recorded` (capture-level escape guard from the repo-root member); the in-repo `a/../b → b` case is preserved.
-- **BLOCKER B — `lib_root_member_dir` keyed by the library FILE's parent (Task 3).** The original helper returned the library file's parent dir (`<member>/src` for `[lib] path = "src/lib.rs"`, `<member>/src/inner` for a nested custom path), so `lib_root_by_member_dir` was keyed by `<member>/src` while dep-target resolution produced `<member>` → silent miss. FIXED: the helper now derives the member dir from `config.workspace_members` (longest-prefix match — the real, already-available signal `repo_loader.rs:357` populates and `crate_name_for_root` already matches against), with a `/src/lib.rs`-strip fallback for the single root crate (`""`), gated on `root_path` being a library root. **No new data threaded through the Builder.** New RED tests: `explicit_lib_path_target_keys_by_member_dir_not_file_parent` + `nested_custom_lib_path_target_keys_by_member_dir` (both assert the dep target keys by `<member>`, not the file parent — the discriminating cases the old helper failed).
+- **BLOCKER B — `lib_root_member_dir` keyed by the library FILE's parent (Task 3).** The original helper returned the library file's parent dir (`<member>/src` for `[lib] path = "src/lib.rs"`, `<member>/src/inner` for a nested custom path), so `lib_root_by_member_dir` was keyed by `<member>/src` while dep-target resolution produced `<member>` → silent miss. FIXED: the helper now derives the member dir from `config.workspace_members` (longest-prefix match — the real, already-available signal `repo_loader.rs:357` populates and `crate_name_for_root` already matches against), with an exact no-member gate (`root_path == "src/lib.rs"` or a root `config.lib_path`) for the single root crate (`""`), gated on `root_path` being that member's library root (the EXACT `m/src/lib.rs`/`[lib].path` rule — re-review round-3 MAJOR). **No new data threaded through the Builder.** New RED tests: `explicit_lib_path_target_keys_by_member_dir_not_file_parent` + `nested_custom_lib_path_target_keys_by_member_dir` (both assert the dep target keys by `<member>`, not the file parent — the discriminating cases the old helper failed).
