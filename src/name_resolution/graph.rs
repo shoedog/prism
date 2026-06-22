@@ -99,6 +99,17 @@ pub struct ScopeGraph {
     /// path side to map call sites/import edges back onto graph file IDs.
     #[serde(default)]
     pub file_paths: std::collections::BTreeMap<String, crate::name_resolution::types::FileId>,
+    /// Rust: per consuming-crate library `Root` → (in-source dependency name →
+    /// the depended-on in-repo library `Root`). Built at `Builder::finish()` from
+    /// each member's `[dependencies]` PATH and WORKSPACE deps that resolve to an
+    /// in-repo crate (external/registry/git deps excluded). The leading-segment
+    /// crate-root fallback resolves a 2018+ bare-crate leading segment ONLY through
+    /// this per-crate map, so a crate can name another in-repo crate iff it actually
+    /// depends on it (Rust's extern prelude is per-crate). Keys (dep names) are
+    /// hyphen→underscore normalized. Other languages leave this empty.
+    #[serde(default)]
+    pub crate_deps_by_root:
+        std::collections::BTreeMap<ScopeId, std::collections::BTreeMap<String, ScopeId>>,
     pub scopes: std::collections::BTreeMap<ScopeId, Scope>,
     pub bindings: Vec<Binding>,
     /// Rust local-binding facts keyed by `(file, def_byte)`.
@@ -147,5 +158,39 @@ impl ScopeGraph {
     /// The lexical parent of `id`, if any.
     pub fn parent_of(&self, id: ScopeId) -> Option<ScopeId> {
         self.scopes.get(&id).and_then(|s| s.parent)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::name_resolution::types::ScopeId;
+
+    #[test]
+    fn crate_deps_by_root_round_trips_through_serde() {
+        // A graph carrying a per-consuming-crate dep map must serialize and
+        // deserialize the new field intact (in-memory bincode round-trip).
+        let mut g = ScopeGraph::new();
+        let mut deps = std::collections::BTreeMap::new();
+        deps.insert("b_crate".to_string(), ScopeId(7));
+        g.crate_deps_by_root.insert(ScopeId(0), deps);
+        let bytes = bincode::serialize(&g).expect("serialize");
+        let back: ScopeGraph = bincode::deserialize(&bytes).expect("deserialize");
+        assert_eq!(
+            back.crate_deps_by_root
+                .get(&ScopeId(0))
+                .and_then(|m| m.get("b_crate")),
+            Some(&ScopeId(7)),
+            "the per-crate dep map must survive a serde round-trip"
+        );
+    }
+
+    #[test]
+    fn crate_deps_by_root_defaults_empty_on_missing_field() {
+        // A new graph has an empty map (serde(default) keeps an old field-less
+        // named-format blob robust; cross-VERSION compat is the CACHE_VERSION bump,
+        // since the cache is bincode and deserializes before the version check).
+        let g = ScopeGraph::new();
+        assert!(g.crate_deps_by_root.is_empty());
     }
 }
