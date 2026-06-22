@@ -57,7 +57,10 @@ use std::path::{Path, PathBuf};
 /// - v16: Scope-graph precision recovery: ScopeGraph.edition_uniform field +
 ///   Rust-scoped completeness builds the graph on more repos (changed bytes) +
 ///   owner-keyed disproof prune (changed resolution behavior).
-const CACHE_VERSION: u32 = 17; // 17: edition_uniform recomputed as anchoring-class.
+/// - v17: edition_uniform recomputed as anchoring-class (2015 vs 2018+).
+/// - v18: ScopeGraph.crate_deps_by_root — per-consuming-crate in-repo dep map
+///   for cross-crate `use` leading-segment resolution (changed bincode layout).
+const CACHE_VERSION: u32 = 18; // 18: ScopeGraph.crate_deps_by_root (per-crate dep map).
 
 pub const SKIP_POLICY_VERSION: u32 = 1;
 
@@ -562,9 +565,9 @@ mod tests {
     }
 
     #[test]
-    fn cache_version_is_17_for_anchoring_class_uniformity() {
-        // v17: edition_uniform recomputed as anchoring-class (2015 vs 2018+).
-        assert_eq!(super::CACHE_VERSION, 17);
+    fn cache_version_is_18_for_cross_crate_dep_map() {
+        // v18: ScopeGraph.crate_deps_by_root (per-consuming-crate in-repo dep map).
+        assert_eq!(super::CACHE_VERSION, 18);
     }
 
     #[test]
