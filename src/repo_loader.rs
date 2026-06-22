@@ -284,6 +284,33 @@ fn parse_rust_crate_config(
     let mut parsed_any = false;
     let mut editions_seen: BTreeSet<u16> = BTreeSet::new();
 
+    // Collect EVERY discovered `[workspace.package] edition` (not just a last-wins
+    // scalar): prism collects all `Cargo.toml` repo-wide into one `manifest_hashes`,
+    // so a repo may hold multiple workspace roots on opposite anchoring sides. The
+    // full set drives the recall-safe second uniformity term (§2.2); a representative
+    // scalar resolves the `{ workspace = true }` value form.
+    let mut workspace_editions: BTreeSet<u16> = BTreeSet::new();
+    let mut workspace_edition: Option<u16> = None;
+    for manifest_path in manifest_hashes.keys() {
+        let abs = root.join(manifest_path);
+        let Ok(text) = std::fs::read_to_string(&abs) else {
+            continue;
+        };
+        let Ok(value) = text.parse::<toml::Value>() else {
+            continue;
+        };
+        if let Some(ed) = value
+            .get("workspace")
+            .and_then(|w| w.get("package"))
+            .and_then(|p| p.get("edition"))
+            .and_then(|e| e.as_str())
+            .and_then(parse_edition)
+        {
+            workspace_editions.insert(ed);
+            workspace_edition = Some(ed);
+        }
+    }
+
     for manifest_path in manifest_hashes.keys() {
         let abs = root.join(manifest_path);
         let Ok(text) = std::fs::read_to_string(&abs) else {
@@ -300,11 +327,22 @@ fn parse_rust_crate_config(
 
         if value.get("package").is_some() {
             // Cargo default: a `[package]` with no `edition` key is edition 2015.
-            let edition = value
-                .get("package")
-                .and_then(|p| p.get("edition"))
+            let pkg_ed = value.get("package").and_then(|p| p.get("edition"));
+            let edition = pkg_ed
                 .and_then(|e| e.as_str())
                 .and_then(parse_edition)
+                .or_else(|| {
+                    // `edition = { workspace = true }` -> the workspace root edition.
+                    if pkg_ed
+                        .and_then(|e| e.get("workspace"))
+                        .and_then(|w| w.as_bool())
+                        .unwrap_or(false)
+                    {
+                        workspace_edition
+                    } else {
+                        None
+                    }
+                })
                 .unwrap_or(2015);
             cfg.edition = edition;
             editions_seen.insert(edition);
@@ -356,7 +394,8 @@ fn parse_rust_crate_config(
     if !parsed_any {
         return None;
     }
-    cfg.edition_uniform = editions_seen.len() <= 1;
+    cfg.edition_uniform =
+        anchoring_class_uniform(&editions_seen) && anchoring_class_uniform(&workspace_editions);
     crate_roots.extend(cfg.crate_roots);
     cfg.crate_roots = crate_roots.into_iter().collect();
     cfg.workspace_members = workspace_members.into_iter().collect();
@@ -372,6 +411,15 @@ fn parse_edition(raw: &str) -> Option<u16> {
         "2024" => Some(2024),
         _ => None,
     }
+}
+
+/// True iff every observed edition is on the same side of the 2015/2018 path-
+/// anchoring boundary (`RustPolicy::is_2018_plus`), i.e. all >= 2018 or all < 2018.
+/// An empty set is vacuously uniform (matches the prior `len() <= 1` for empty). This
+/// is the recall-safety floor for the disproof: 2018/2021/2024 anchor identically, so
+/// a same-side workspace is authoritative, but a 2015/2018+ mix is not (keep-all).
+fn anchoring_class_uniform(editions: &BTreeSet<u16>) -> bool {
+    editions.iter().all(|&e| e >= 2018) || editions.iter().all(|&e| e < 2018)
 }
 
 fn join_manifest_rel(manifest_dir: &str, rel_path: &str) -> String {
@@ -636,6 +684,112 @@ mod tests {
         assert!(
             inputs.cfg.edition_uniform,
             "one manifest is trivially uniform"
+        );
+    }
+
+    #[test]
+    fn workspace_true_inheritance_resolves_to_workspace_edition() {
+        // `a` inherits `edition = { workspace = true }`; the workspace root sets 2024.
+        // Pre-fix this mis-parses to 2015 (table -> `.as_str()` None -> unwrap_or(2015));
+        // post-fix it resolves to 2024, so a single-edition workspace is uniform.
+        let dir = tempfile::tempdir().unwrap();
+        let p = dir.path();
+        std::fs::create_dir_all(p.join("a/src")).unwrap();
+        std::fs::write(
+            p.join("Cargo.toml"),
+            "[workspace]\nmembers = [\"a\"]\n[workspace.package]\nedition = \"2024\"\n",
+        )
+        .unwrap();
+        std::fs::write(
+            p.join("a/Cargo.toml"),
+            "[package]\nname = \"a\"\nedition = { workspace = true }\n",
+        )
+        .unwrap();
+        std::fs::write(p.join("a/src/lib.rs"), "pub fn a() {}\n").unwrap();
+        let repo = load_repo(p).unwrap();
+        let inputs = repo.scope_graph_inputs.expect("scope graph inputs");
+        assert_eq!(
+            inputs.cfg.edition, 2024,
+            "`workspace = true` must inherit the workspace edition 2024, not fall back to 2015"
+        );
+        assert!(
+            inputs.cfg.edition_uniform,
+            "one resolved edition is uniform"
+        );
+    }
+
+    #[test]
+    fn pure_2018plus_mixed_workspace_is_uniform() {
+        // Two crates on different but same-anchoring-class editions (2021 + 2024).
+        // Pre-fix: `editions_seen.len() == 2` -> not uniform. Post-fix: both >= 2018 ->
+        // anchoring-class uniform -> the disproof is permitted to run.
+        let dir = tempfile::tempdir().unwrap();
+        let p = dir.path();
+        std::fs::create_dir_all(p.join("a/src")).unwrap();
+        std::fs::create_dir_all(p.join("b/src")).unwrap();
+        std::fs::write(
+            p.join("Cargo.toml"),
+            "[workspace]\nmembers = [\"a\", \"b\"]\n",
+        )
+        .unwrap();
+        std::fs::write(
+            p.join("a/Cargo.toml"),
+            "[package]\nname = \"a\"\nedition = \"2021\"\n",
+        )
+        .unwrap();
+        std::fs::write(
+            p.join("b/Cargo.toml"),
+            "[package]\nname = \"b\"\nedition = \"2024\"\n",
+        )
+        .unwrap();
+        std::fs::write(p.join("a/src/lib.rs"), "pub fn a() {}\n").unwrap();
+        std::fs::write(p.join("b/src/lib.rs"), "pub fn b() {}\n").unwrap();
+        let repo = load_repo(p).unwrap();
+        let inputs = repo.scope_graph_inputs.expect("scope graph inputs");
+        assert!(
+            inputs.cfg.edition_uniform,
+            "a pure-2018+ workspace ({{2021, 2024}}) is anchoring-class uniform"
+        );
+    }
+
+    #[test]
+    fn multi_workspace_spanning_boundary_is_not_uniform() {
+        // prism collects ALL Cargo.toml repo-wide into one manifest set. Two workspace
+        // roots on opposite anchoring sides (ws1: 2015, ws2: 2024) must force
+        // edition_uniform == false via the `workspace_editions` SET term -- even though a
+        // last-wins representative could mis-resolve ws1's inheriting crate to 2024 and
+        // make `editions_seen` look all-2018+. Recall-safety (P1).
+        let dir = tempfile::tempdir().unwrap();
+        let p = dir.path();
+        std::fs::create_dir_all(p.join("ws1/a/src")).unwrap();
+        std::fs::create_dir_all(p.join("ws2/b/src")).unwrap();
+        std::fs::write(
+            p.join("ws1/Cargo.toml"),
+            "[workspace]\nmembers = [\"a\"]\n[workspace.package]\nedition = \"2015\"\n",
+        )
+        .unwrap();
+        std::fs::write(
+            p.join("ws1/a/Cargo.toml"),
+            "[package]\nname = \"a\"\nedition = { workspace = true }\n",
+        )
+        .unwrap();
+        std::fs::write(p.join("ws1/a/src/lib.rs"), "pub fn a() {}\n").unwrap();
+        std::fs::write(
+            p.join("ws2/Cargo.toml"),
+            "[workspace]\nmembers = [\"b\"]\n[workspace.package]\nedition = \"2024\"\n",
+        )
+        .unwrap();
+        std::fs::write(
+            p.join("ws2/b/Cargo.toml"),
+            "[package]\nname = \"b\"\nedition = { workspace = true }\n",
+        )
+        .unwrap();
+        std::fs::write(p.join("ws2/b/src/lib.rs"), "pub fn b() {}\n").unwrap();
+        let repo = load_repo(p).unwrap();
+        let inputs = repo.scope_graph_inputs.expect("scope graph inputs");
+        assert!(
+            !inputs.cfg.edition_uniform,
+            "workspace editions spanning the 2015/2018 boundary must keep edition_uniform == false"
         );
     }
 
