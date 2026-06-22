@@ -396,16 +396,27 @@ fn parse_rust_crate_config(
             editions_seen.insert(edition);
         }
 
-        // Every `[package]` manifest's dir IS a concrete workspace-member dir. Record
-        // those (NOT the `[workspace].members` patterns) so the member-dir derivations
-        // that prefix-match `workspace_members` (`lib_root_member_dir`,
-        // `crate_name_for_root`) work on GLOB workspaces like ruff
-        // (`members = ["crates/*"]`), where a raw `crates/*` pattern never prefix-matches
-        // a concrete root path (`crates/ruff_db/src/lib.rs`). prism has already walked
-        // every member's `Cargo.toml` into `manifest_hashes`, so their dirs ARE the
-        // expanded member set; the declared patterns are redundant for this purpose.
+        // Every parsed `[package]` manifest's dir is a concrete workspace-member dir.
+        // Keep those dirs so glob workspaces like ruff (`members = ["crates/*"]`)
+        // record `crates/ruff_db`, never the raw pattern that prefix matching cannot use.
         if value.get("package").is_some() && !manifest_dir.is_empty() {
             workspace_members.insert(manifest_dir.to_string());
+        }
+
+        // Also keep non-glob declared members from workspace roots. This preserves a
+        // malformed member manifest's directory for convention fallback, while still
+        // never storing a raw glob pattern.
+        if let Some(members) = value
+            .get("workspace")
+            .and_then(|w| w.get("members"))
+            .and_then(|m| m.as_array())
+        {
+            for member in members.iter().filter_map(|m| m.as_str()) {
+                if member.contains('*') {
+                    continue;
+                }
+                workspace_members.insert(join_manifest_rel(manifest_dir, member));
+            }
         }
 
         if let Some(path) = value
@@ -1033,8 +1044,14 @@ mod tests {
         let inputs = repo.scope_graph_inputs.expect("scope graph inputs");
         // CONCRETE member dirs, never the glob pattern.
         assert!(
-            inputs.cfg.workspace_members.contains(&"crates/a".to_string())
-                && inputs.cfg.workspace_members.contains(&"crates/b".to_string()),
+            inputs
+                .cfg
+                .workspace_members
+                .contains(&"crates/a".to_string())
+                && inputs
+                    .cfg
+                    .workspace_members
+                    .contains(&"crates/b".to_string()),
             "glob members must expand to concrete dirs; got {:?}",
             inputs.cfg.workspace_members
         );
