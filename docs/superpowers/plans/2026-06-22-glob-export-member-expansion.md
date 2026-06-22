@@ -32,7 +32,7 @@ call-stats JSON), `std::sync::atomic` (the counters). Tests are real-source fixt
 | File | Responsibility | Change |
 |------|----------------|--------|
 | `src/name_resolution/glob_stats.rs` | **(new)** process-global per-measurement telemetry: `GlobExpandStats` (8 `AtomicUsize`), per-bucket record helpers, `reset()`, `snapshot() -> GlobExpandSnapshot`, a `static GLOBAL`. | create |
-| `src/name_resolution/mod.rs` | module wiring | add `pub mod glob_stats;` (or `pub(crate)`) |
+| `src/name_resolution/mod.rs` | module wiring | add `pub mod glob_stats;` (must be `pub` — the integration-test crate constructs `GlobExpandStats`) |
 | `src/name_resolution/engine.rs` | the resolution engine | `CycleGuard` gains glob state + RAII helper; `glob_lookup` rewritten to expand; `MAX_GLOB_DEPTH` const; `#[doc(hidden)] pub` stats entries (always-compiled so the integration-test crate can inject a local sink — `#[cfg(test)]` items are NOT visible across the integration-test boundary) | modify |
 | `src/name_resolution/types.rs` | policy trait + types | `GlobEdgeVis` enum; `ResolutionPolicy::glob_edge_visible` (default `Visible`) | modify |
 | `src/name_resolution/rust_policy.rs` | Rust policy | `vis_reaches` helper (factored from `visible()`); `glob_edge_visible` impl | modify |
@@ -156,7 +156,7 @@ impl GlobExpandStats {
 }
 
 /// The process-global sink used by production resolution (reset per `call_stats`
-/// measurement). Tests inject a LOCAL `&GlobExpandStats` via the `#[cfg(test)]`
+/// measurement). Tests inject a LOCAL `&GlobExpandStats` via the `#[doc(hidden)] pub`
 /// engine entries instead (spec §3.5 test isolation).
 pub static GLOBAL: GlobExpandStats = GlobExpandStats {
     resolved_l1: GlobExpandStats::z(), resolved_l2: GlobExpandStats::z(),
@@ -313,11 +313,11 @@ mod vis_reaches_tests {
 
 ---
 
-## Task 4: `glob_lookup` expansion (the core) + `#[cfg(test)]` stats entries + the resolution tests
+## Task 4: `glob_lookup` expansion (the core) + `#[doc(hidden)] pub` stats entries + the resolution tests
 
 **Files:**
 - Modify: `src/name_resolution/engine.rs` (`glob_lookup` `:252`; thread `&mut CycleGuard` from call
-  sites `:132`, `:439`; add `#[cfg(test)] resolve_with_stats`/`resolve_path_with_stats`)
+  sites `:132`, `:439`; add `#[doc(hidden)] pub resolve_with_stats`/`resolve_path_with_stats`)
 - Test: `tests/name_resolution/glob_expand_test.rs` (new) + `mod glob_expand_test;` in `main.rs`
 
 This is the core. **The algorithm is spec §3.2 — implement it exactly.** Skeleton:

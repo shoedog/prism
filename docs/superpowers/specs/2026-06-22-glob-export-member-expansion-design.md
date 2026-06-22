@@ -239,7 +239,7 @@ vis_unknown   glob edge with undecidable visibility (e.g. unresolved pub(in)) �
 ```
 
 - `glob_lookup` records via a sink resolved as `guard.stats.unwrap_or(&GLOBAL)`: production leaves
-  `guard.stats = None` so it writes the process-global static; a `#[cfg(test)]` engine entry can
+  `guard.stats = None` so it writes the process-global static; a `#[doc(hidden)] pub` engine entry can
   inject a **local** `&GlobExpandStats` for isolated assertions (see Test isolation). **No signature
   change to the public `resolve`/`resolve_path` and no `CallGraph` field** — they construct the guard
   with `stats: None`; the only engine-signature change is threading `&mut CycleGuard` into `glob_lookup`
@@ -267,7 +267,7 @@ fail-closed buckets are the slice's decision data: they size how much recall eac
 the table (driving whether a follow-up raises the depth bound, propagates cfg-exclusive sets, or
 attacks `external`).
 
-**Test isolation.** The unit tests do NOT rely on the process-global. A `#[cfg(test)]` engine entry
+**Test isolation.** The unit tests do NOT rely on the process-global. A `#[doc(hidden)] pub` engine entry
 (e.g. `resolve_path_with_stats(.., stats: &GlobExpandStats)`) constructs the guard with
 `stats: Some(&local)`, so each test asserts exact bucket counts on its OWN `GlobExpandStats` instance —
 fully isolated, parallel-safe, no shared-counter races and no lock. Production (`call_stats`) leaves
@@ -292,7 +292,7 @@ on `--no-cache`; production must invalidate.
 | `src/name_resolution/rust_policy.rs` | implement `glob_edge_visible`; extract a shared `vis_reaches(vis, def_scope, from) -> Option<bool>` helper used by it **and** `visible()`. |
 | `src/navigation/queries.rs` | `call_stats`: `glob_stats::reset()` at entry, `snapshot()` after the re-resolution loop, emit the `glob_expand` JSON object. |
 | `src/cpg_cache.rs` | `CACHE_VERSION` 18 → 19; update the version assertion test (`:568`–`:570`). |
-| `tests/name_resolution/` | New unit tests (each bucket incl. `vis_unknown`, depth levels, edge-vis skip, `ResolvedSet`, cond preservation, diamond) + a glob-member-workspace fixture; bucket assertions go through the `#[cfg(test)]` local-sink engine entry (own `GlobExpandStats`, no `TEST_LOCK`). |
+| `tests/name_resolution/` | New unit tests (each bucket incl. `vis_unknown`, depth levels, edge-vis skip, `ResolvedSet`, cond preservation, diamond) + a glob-member-workspace fixture; bucket assertions go through the `#[doc(hidden)] pub` local-sink engine entry (own `GlobExpandStats`, no `TEST_LOCK`). |
 | `tests/integration/` | e2e: cross-crate facade collision recovers to one Exact (depends on #124 + this). |
 
 No change to `call_graph.rs`, `resolution.rs` (the telemetry rework keeps the shared engine entries
@@ -334,7 +334,7 @@ untouched), the `recovery_typepath` classifier, `multi_target_exact_sites` count
 
 TDD, unit-first. Every test uses a synthetic `ScopeGraph` (or a fixture crate) exercising one
 behavior. Discriminating fixtures only (a test that also passes with the *old* poison behavior is not
-a test of this slice). The bucket-asserting tests use the `#[cfg(test)]` local-sink engine entry
+a test of this slice). The bucket-asserting tests use the `#[doc(hidden)] pub` local-sink engine entry
 (§3.5), asserting exact counts on their own `GlobExpandStats` instance — parallel-safe, no
 `TEST_LOCK`.
 
@@ -446,7 +446,7 @@ The rev-1 codex xhigh review (CHANGES-REQUIRED, 2 BLOCKER + 4 MAJOR + 1 MINOR) i
   imports); the contributed cond preserves edge ∧ final-segment ∧ member (§3.2); the accumulate-prefix
   fix is deferred (§9, rev-2 re-review MAJOR).
 - **`cycle` test uses a self-glob**; a 2-cycle is `depth_exceeded` (§3.3, §6, rev-2 re-review MAJOR).
-- **Telemetry test isolation** via a `#[cfg(test)]` local-sink entry + guard-carried `Option` sink
+- **Telemetry test isolation** via a `#[doc(hidden)] pub` local-sink entry + guard-carried `Option` sink
   (not a global `TEST_LOCK`), keeping the public entries ripple-free (§3.5, rev-2 re-review MAJOR).
 - **`target_lacks_name` test uses two glob edges** (a sibling rib would bypass `glob_lookup`) (§6,
   rev-2 re-review MINOR).
