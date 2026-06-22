@@ -170,9 +170,12 @@ single answer.
   exists to **attribute a true cycle to the `cycle` bucket** (accurate telemetry) and to stay correct
   if `MAX_GLOB_DEPTH` is ever raised. Cycle check is **after** the depth check, so a depth-blocked
   chain is `depth_exceeded`, and a genuine re-entry within budget is `cycle`. Concretely: a
-  **self-glob** (`pub use self::*`, or an edge whose target re-enters the same edge at depth 1) trips
-  `cycle` (re-entry before the cap); a 2-cycle `a::* ↔ b::*` instead trips `depth_exceeded` at the 3rd
-  hop (the depth check fires first). Both terminate; the §6 `cycle` test uses a self-glob accordingly.
+  **non-empty self-re-entering glob** (e.g. `mod a { pub use crate::a::*; }` — its target resolves back
+  to its own scope and re-enters the same edge at depth 1) trips `cycle` (re-entry before the cap); a
+  2-cycle `a::* ↔ b::*` instead trips `depth_exceeded` at the 3rd hop (the depth check fires first).
+  Both terminate; the §6 `cycle` test uses such a self-re-entering glob accordingly. (Note `pub use
+  self::*` is NOT usable here — it parses to an empty `RawPath` that `resolve_path_guarded` rejects as
+  `Unresolved` before any re-entry, so it counts `external`, not `cycle`.)
 
 ### 3.4 Visibility & soundness reuse
 
@@ -342,8 +345,9 @@ a test of this slice). The bucket-asserting tests use the `#[cfg(test)]` local-s
   resolves at depth 2. Asserts `resolved_l2 == 1`.
 - `glob_expand_third_hop_blocked` — three nested facades; query the depth-3 name → `Poison`,
   `depth_exceeded == 1`, edge **not** resolved (the measure-don't-resolve requirement).
-- `glob_expand_cycle_fails_closed` — a **self-glob** (`pub use self::*`, or an edge whose target
-  re-enters the same edge at depth 1) with no real definition of the name → `Poison`, `cycle >= 1`.
+- `glob_expand_cycle_fails_closed` — a **non-empty self-re-entering** glob
+  `mod a { pub use crate::a::*; }` (NOT `pub use self::*`, which is an empty path → `Unresolved`/
+  `external`, not `cycle`) with no real definition of the name → `Poison`, `cycle >= 1`.
   (A 2-cycle `a::* ↔ b::*` instead trips `depth_exceeded` — covered by `glob_expand_third_hop_blocked`;
   add an explicit assertion there that an `a ↔ b` cycle increments `depth_exceeded`, not `cycle`.)
 - `glob_expand_ambiguous_member_fails_closed` — target scope defines the name twice under

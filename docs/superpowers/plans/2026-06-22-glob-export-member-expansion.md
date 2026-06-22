@@ -33,7 +33,7 @@ call-stats JSON), `std::sync::atomic` (the counters). Tests are real-source fixt
 |------|----------------|--------|
 | `src/name_resolution/glob_stats.rs` | **(new)** process-global per-measurement telemetry: `GlobExpandStats` (8 `AtomicUsize`), per-bucket record helpers, `reset()`, `snapshot() -> GlobExpandSnapshot`, a `static GLOBAL`. | create |
 | `src/name_resolution/mod.rs` | module wiring | add `pub mod glob_stats;` (or `pub(crate)`) |
-| `src/name_resolution/engine.rs` | the resolution engine | `CycleGuard` gains glob state + RAII helper; `glob_lookup` rewritten to expand; `MAX_GLOB_DEPTH` const; `#[cfg(test)]` stats entries | modify |
+| `src/name_resolution/engine.rs` | the resolution engine | `CycleGuard` gains glob state + RAII helper; `glob_lookup` rewritten to expand; `MAX_GLOB_DEPTH` const; `#[doc(hidden)] pub` stats entries (always-compiled so the integration-test crate can inject a local sink — `#[cfg(test)]` items are NOT visible across the integration-test boundary) | modify |
 | `src/name_resolution/types.rs` | policy trait + types | `GlobEdgeVis` enum; `ResolutionPolicy::glob_edge_visible` (default `Visible`) | modify |
 | `src/name_resolution/rust_policy.rs` | Rust policy | `vis_reaches` helper (factored from `visible()`); `glob_edge_visible` impl | modify |
 | `src/navigation/queries.rs` | `call_stats` | reset at entry, snapshot after the loop, emit `glob_expand` | modify |
@@ -371,15 +371,19 @@ impl<'s> CycleGuard<'s> {
 Thread `guard` into `glob_lookup` at both call sites: `resolve_bare` (`:132`) and
 `scope_member_lookup_probed` (`:439`) — both already hold `&mut CycleGuard`.
 
-Add the `#[cfg(test)]` entries so tests assert on a local sink (spec §3.5):
+Add the local-sink entries so integration tests assert on their own `GlobExpandStats`. These must be
+**always-compiled** `#[doc(hidden)] pub` (NOT `#[cfg(test)]`): `tests/name_resolution/` is a separate
+integration-test crate that imports `prism::…`, and `#[cfg(test)]` library items are not exported to
+it (plan-review BLOCKER 1). `#[doc(hidden)]` keeps them out of the public API docs; `glob_stats` is
+`pub` so the test crate can construct `GlobExpandStats`.
 
 ```rust
-#[cfg(test)]
+#[doc(hidden)] // test-support: inject a local stats sink (not part of the public API)
 pub fn resolve_with_stats(graph, q, policy, stats: &GlobExpandStats) -> Resolution {
     let mut guard = CycleGuard::with_stats(Some(stats));
     resolve_bare(graph, q, policy, &mut guard)
 }
-#[cfg(test)]
+#[doc(hidden)]
 #[allow(clippy::too_many_arguments)]
 pub fn resolve_path_with_stats(graph, path, ns, anchor, from, anchor_ns, at, policy, stats: &GlobExpandStats) -> Resolution {
     let mut guard = CycleGuard::with_stats(Some(stats));
@@ -402,8 +406,11 @@ under the old poison-always behavior it fails). Per spec §6:
 - [ ] `glob_expand_third_hop_blocked` — 3 nested facades; query the depth-3 name → poison;
   `snap.depth_exceeded == 1`. **Also** assert an `a::* ↔ b::*` 2-cycle → `depth_exceeded` (not
   `cycle`).
-- [ ] `glob_expand_self_glob_cycle_fails_closed` — a self-glob (`pub use self::*`) with no real def →
-  poison; `snap.cycle >= 1`.
+- [ ] `glob_expand_self_glob_cycle_fails_closed` — a **non-empty self-re-entering** glob
+  `mod a { pub use crate::a::*; }` (NOT `pub use self::*`, which parses to an empty `RawPath` →
+  `resolve_path_guarded` returns `Unresolved` at `engine.rs:327` *before* re-entry → that would be
+  `external`, not `cycle` — plan-review BLOCKER 2). Querying an undefined name in `a` re-enters edge
+  `E` at depth 1 → `enter_glob(E)` fails → poison; `snap.cycle >= 1`.
 - [ ] `glob_expand_ambiguous_member_fails_closed` — name defined twice under *compatible* cfg in the
   target → poison; `snap.ambiguous == 1`.
 - [ ] `glob_expand_resolved_set_member_fails_closed` — name defined twice under *cfg-exclusive*
