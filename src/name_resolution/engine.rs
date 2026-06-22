@@ -397,22 +397,14 @@ fn resolve_path_guarded(
 /// non-deferred globs. NO lexical fall-out (an anchored member lookup never
 /// walks to a parent — that is what keeps a sibling-private decoy from reaching
 /// an outer same-name).
-fn scope_member_lookup(
-    graph: &ScopeGraph,
-    scope: ScopeId,
-    q: &ResolveQuery,
-    policy: &dyn ResolutionPolicy,
-    guard: &mut CycleGuard,
-) -> Resolution {
-    scope_member_lookup_probed(graph, scope, q, policy, guard).0
-}
-
-/// As [`scope_member_lookup`], but ALSO reports whether an explicit rib binding
-/// for `(name, ns)` was CLAIMED in this scope (regardless of visibility/outcome).
-/// The boolean lets `resolve_path_guarded` distinguish a TRUE no-rib miss (where
-/// the crate-root fallback may fire) from a claimed-but-invisible local rib (which
-/// surfaces as `Unresolved` but must shadow the crate name — P2/BLOCKER 1). It does
-/// NOT change the `Resolution` returned.
+///
+/// ALSO reports whether an explicit rib binding for `(name, ns)` was CLAIMED in
+/// this scope (regardless of visibility/outcome). The boolean lets
+/// `resolve_path_guarded` distinguish a TRUE no-rib miss (where the crate-root
+/// fallback may fire) from a claimed-but-invisible local rib (which surfaces as
+/// `Unresolved` but must shadow the crate name — P2/BLOCKER 1). It does NOT change
+/// the `Resolution` returned. (`resolve_path_guarded` is the only caller and needs
+/// the flag, so there is no thin non-probed wrapper.)
 fn scope_member_lookup_probed(
     graph: &ScopeGraph,
     scope: ScopeId,
