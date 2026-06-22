@@ -79,11 +79,20 @@ existing `candidates` vector and returns `Hit`, so `policy.combine` at the call 
 For each glob edge `e` in the scope (the existing loop, `engine.rs:261`):
 
 - **Edge-visibility gate (step 0 — BLOCKER-fix).** Before an edge may contribute *or* poison, gate it
-  by a new `policy.glob_edge_visible(e, q, trav)` hook (§3.4). An edge not visible from the query
-  origin's vantage (e.g. a private `use m::*` queried from outside its module subtree) is **skipped**
-  (`continue`) — for that vantage it brings nothing, so falling past it is sound. (Today the only edge
-  gate is the byte-range `vis_range`, `engine.rs:265`; the edge's `vis` was never consulted because a
-  deferred glob poisoned before exposing anything.)
+  by a new **tri-state** `policy.glob_edge_visible(e, q, trav)` hook (§3.4) → `Visible` / `Hidden` /
+  `Unknown`:
+  - `Visible` (e.g. a `pub use m::*`, or a private `use m::*` queried from *within* its module
+    subtree) → proceed to expand.
+  - `Hidden` (a *known* visibility that provably does not reach the query origin — e.g. a private
+    `use m::*` queried from *outside* its subtree) → **skip** (`continue`); for that vantage it brings
+    nothing, so falling past it is sound.
+  - `Unknown` (a visibility the policy cannot decide — e.g. `pub(in path)` whose restrict scope is not
+    resolved; `resolve_restrict` is a Phase-1 stub returning `None`, `walk/mod.rs:271`, and the
+    populator currently discards the `pub(in)` path, `items.rs:192`) → **`Poison`** +
+    `glob_stats::vis_unknown()`. Skipping an `Unknown` edge would let the name fall through to a wrong
+    outer same-name (the glob *might* be visible-and-containing) — so it poisons, never skips.
+  (Today the only edge gate is the byte-range `vis_range`, `engine.rs:265`; the edge's `vis` was never
+  consulted because a deferred glob poisoned before exposing anything.)
 
 - **Resolved-scope glob edge** (`engine.rs:275`, the existing arm): unchanged. The Rust populator
   emits **only** deferred `Pending` glob edges (items.rs:241), so this arm is not exercised by Rust
@@ -109,9 +118,15 @@ For each glob edge `e` in the scope (the existing loop, `engine.rs:261`):
      - **Exactly one in-repo `Target::Scope(T)`** (a single `Resolved` scope candidate with cond `tc`)**:**
        look the queried name up in `T` via `scope_member_lookup_probed(graph, T, q, policy, guard)`
        (it sees `glob_depth + 1`). On its result:
-       - `Resolved` with **exactly one** candidate `mc` → contribute it, **preserving all conditions**
+       - `Resolved` with **exactly one** candidate `mc` → contribute it, conjoining conditions
          (MAJOR-fix, mirroring `:217`/`:291`): push `Candidate { target: mc.target, cond:
-         conjoin(cond_of(&e.cond), conjoin(tc, mc.cond)), .. }`. `glob_stats::resolved(glob_depth)`.
+         conjoin(cond_of(&e.cond), conjoin(tc, mc.cond)), .. }`, where `tc` is the target-path
+         candidate's cond. `glob_stats::resolved(glob_depth)`. **Caveat:** `resolve_path_guarded`
+         drops *prefix*-segment conds when advancing scopes (`engine.rs:383`, `scope = s`), so for a
+         cfg-gated prefix in a multi-segment glob path (`#[cfg(x)] mod a; pub use a::b::*`) `tc`
+         carries only the final segment's cond — exactly as the existing named-import chase does. A
+         pre-existing engine limitation (precision, not a wrong-single; rare for re-export paths); the
+         proper fix (accumulate prefix conds, benefiting named imports too) is deferred (§9).
        - `ResolvedSet`, `Ambiguous`, or any non-single (MAJOR-fix — `scope_member_lookup_probed` can
          return `ResolvedSet` for cfg-exclusive worlds via `combine`, `rust_policy.rs:207`–`:211`):
          not-a-single → `glob_stats::ambiguous()`, `return Poison`. (Conservative: a cfg-exclusive set
@@ -154,23 +169,29 @@ single answer.
   already forces termination (a 2-cycle hits `depth_exceeded` at the 3rd hop); the edge-keyed guard
   exists to **attribute a true cycle to the `cycle` bucket** (accurate telemetry) and to stay correct
   if `MAX_GLOB_DEPTH` is ever raised. Cycle check is **after** the depth check, so a depth-blocked
-  chain is `depth_exceeded`, and a genuine re-entry within budget is `cycle`.
+  chain is `depth_exceeded`, and a genuine re-entry within budget is `cycle`. Concretely: a
+  **self-glob** (`pub use self::*`, or an edge whose target re-enters the same edge at depth 1) trips
+  `cycle` (re-entry before the cap); a 2-cycle `a::* ↔ b::*` instead trips `depth_exceeded` at the 3rd
+  hop (the depth check fires first). Both terminate; the §6 `cycle` test uses a self-glob accordingly.
 
 ### 3.4 Visibility & soundness reuse
 
 The expansion reuses the engine's existing visibility discipline and adds **one** new check — the
 glob edge's own visibility (BLOCKER-fix):
-- **Glob-edge visibility (new).** `glob_lookup` today gates an edge only by its byte-range `vis_range`
-  (`engine.rs:265`); it never checks the edge's `vis: Vis` (`types.rs:427`, populated from the
-  `use`/`pub use` visibility at `items.rs:191`,`:239`) — safe only because deferred globs poisoned
-  before exposing members. Once expanded, a private `use m::*` must **not** behave like a public
-  re-export. Add `ResolutionPolicy::glob_edge_visible(&self, edge, q, trav) -> bool` (default `true`
-  for non-Rust policies); the Rust impl applies the **same rule as `visible()`** (`rust_policy.rs:220`–
-  `:268`) to `edge.vis.kind` with `edge.from` as the defining scope (`VIS_PUB` ⇒ reachable; `VIS_PRIV`
-  ⇒ only within the defining module subtree; `pub(crate)`/`pub(super)`/`pub(in)` as in `visible()`).
-  Factor the shared logic into a `vis_reaches(vis, def_scope, from)` helper used by both `visible()`
-  and `glob_edge_visible()`. An edge that fails this is skipped (§3.2 step 0) — sound, since for that
-  vantage it brings nothing.
+- **Glob-edge visibility (new, tri-state — BLOCKER-fix).** `glob_lookup` today gates an edge only by
+  its byte-range `vis_range` (`engine.rs:265`); it never checks the edge's `vis: Vis` (`types.rs:427`,
+  populated from the `use`/`pub use` visibility at `items.rs:191`,`:239`) — safe only because deferred
+  globs poisoned before exposing members. Once expanded, a private `use m::*` must **not** behave like
+  a public re-export. Add `ResolutionPolicy::glob_edge_visible(&self, edge, q, trav) -> GlobEdgeVis`
+  returning **`Visible` / `Hidden` / `Unknown`** (default `Visible` for non-Rust policies). The Rust
+  impl reuses a shared `vis_reaches(vis, def_scope, from) -> Option<bool>` helper (factored out of
+  `visible()`, `rust_policy.rs:220`–`:268`) applied to `edge.vis.kind` with `edge.from` as the defining
+  scope: `Some(true)` ⇒ `Visible`, `Some(false)` ⇒ `Hidden`, `None` ⇒ `Unknown`. Crucially `visible()`
+  *folds* "unknown" into `false` (fine for a rib, which fails closed by *not contributing*), but a glob
+  edge must distinguish them: a `pub(in path)` whose `restrict` is unresolved (`resolve_restrict` stub
+  → `None`, `walk/mod.rs:271`; the `pub(in)` path is also discarded by the populator, `items.rs:192`)
+  is **`Unknown` → poison** (§3.2), NOT skipped. Recovering `pub(in)`-glob recall (populate the
+  restrict) is deferred (§9).
 - **Member visibility (unchanged).** The member lookup goes through `scope_member_lookup_probed →
   resolve_rib`, enforcing `policy.visible(...)` per member from `from` (the query origin). A `pub use`
   does not launder *member* privacy, mirroring the named-`Pending` chase (`engine.rs:195`–`:228`).
@@ -203,7 +224,7 @@ Use a **process-global, per-measurement counter** instead (codex's offered alter
 
 - A `glob_stats` module (`src/name_resolution/glob_stats.rs`) holds a `static` set of `AtomicUsize`
   buckets — `resolved_l1`, `resolved_l2`, `depth_exceeded`, `cycle`, `external`, `multi_target`,
-  `ambiguous` — with per-bucket increment helpers (e.g. `glob_stats::depth_exceeded()`,
+  `ambiguous`, `vis_unknown` — with per-bucket increment helpers (e.g. `glob_stats::depth_exceeded()`,
   `glob_stats::resolved(depth)`; Relaxed), `reset()`, and `snapshot() -> GlobExpandSnapshot`:
 
 ```text
@@ -211,19 +232,24 @@ resolved_l1   name resolved via 1 glob hop          cycle         mutually-recur
 resolved_l2   name resolved via 2 glob hops         external      glob target unresolvable/external
 depth_exceeded would need a 3rd+ hop (blocked)      multi_target  glob path resolves to >1 scope
 ambiguous     non-single member (incl. ResolvedSet) in the single target
+vis_unknown   glob edge with undecidable visibility (e.g. unresolved pub(in)) → poison
 ```
 
-- `glob_lookup` calls the per-bucket helpers directly. **No signature change to `resolve`/`resolve_path`
-  and no `CallGraph` field** — the only engine-signature change is threading `&mut CycleGuard` into
-  `glob_lookup` (call sites `engine.rs:132`,`:439`, which already hold a guard), needed anyway for the
-  recursion/depth/cycle.
+- `glob_lookup` records via a sink resolved as `guard.stats.unwrap_or(&GLOBAL)`: production leaves
+  `guard.stats = None` so it writes the process-global static; a `#[cfg(test)]` engine entry can
+  inject a **local** `&GlobExpandStats` for isolated assertions (see Test isolation). **No signature
+  change to the public `resolve`/`resolve_path` and no `CallGraph` field** — they construct the guard
+  with `stats: None`; the only engine-signature change is threading `&mut CycleGuard` into `glob_lookup`
+  (call sites `engine.rs:132`,`:439`), needed anyway for the recursion/depth/cycle. `CycleGuard` gains
+  an `Option<&GlobExpandStats>` (lifetime), defaulted to `None` by the public entries (no caller
+  ripple).
 - `call_stats` (`queries.rs:156`) calls `glob_stats::reset()` at entry, runs the existing re-resolution
   loop (`:198`–`:201`, which resolves every site — discarding any build-time counts), then reads
   `glob_stats::snapshot()` after the loop and emits a top-level JSON object:
 
 ```json
 "glob_expand": { "resolved_l1": N, "resolved_l2": N, "depth_exceeded": N, "cycle": N,
-                 "external": N, "multi_target": N, "ambiguous": N }
+                 "external": N, "multi_target": N, "ambiguous": N, "vis_unknown": N }
 ```
 
 Reset-at-entry + snapshot-after-the-loop is a clean per-`call-stats` measurement even though the global
@@ -238,9 +264,11 @@ fail-closed buckets are the slice's decision data: they size how much recall eac
 the table (driving whether a follow-up raises the depth bound, propagates cfg-exclusive sets, or
 attacks `external`).
 
-**Test isolation.** Because the counters are process-global, the glob-stats-asserting unit tests guard
-a `static TEST_LOCK: Mutex<()>` (no new dependency): lock → `reset()` → resolve → `snapshot()` →
-assert. Production resets at `call_stats` entry.
+**Test isolation.** The unit tests do NOT rely on the process-global. A `#[cfg(test)]` engine entry
+(e.g. `resolve_path_with_stats(.., stats: &GlobExpandStats)`) constructs the guard with
+`stats: Some(&local)`, so each test asserts exact bucket counts on its OWN `GlobExpandStats` instance —
+fully isolated, parallel-safe, no shared-counter races and no lock. Production (`call_stats`) leaves
+`stats = None` and uses the reset-at-entry global.
 
 ### 3.6 Cache
 
@@ -255,13 +283,13 @@ on `--no-cache`; production must invalidate.
 
 | File | Change |
 |------|--------|
-| `src/name_resolution/engine.rs` | `glob_lookup`: expand the deferred-glob arm (edge-vis gate; RAII glob-guard held across path-resolution **and** member-lookup; depth/cycle gates; conjoin edge+path+member conds; `ResolvedSet`/`Ambiguous` member → poison; `glob_stats` buckets); gains a `&mut CycleGuard` param (call sites `:132`,`:439`). `CycleGuard`: add `glob_depth`, `active_globs`, `enter_glob`/`leave_glob` + an RAII drop-guard. Add `MAX_GLOB_DEPTH` const. **`resolve`/`resolve_path` signatures UNCHANGED.** |
+| `src/name_resolution/engine.rs` | `glob_lookup`: expand the deferred-glob arm (tri-state edge-vis gate, `Unknown` → `vis_unknown` poison; RAII glob-guard held across path-resolution **and** member-lookup; depth/cycle gates; conjoin edge+path+member conds; `ResolvedSet`/`Ambiguous` member → poison; `glob_stats` buckets via `guard.stats.unwrap_or(&GLOBAL)`); gains a `&mut CycleGuard` param (call sites `:132`,`:439`). `CycleGuard`: add `glob_depth`, `active_globs`, `enter_glob`/`leave_glob` + an RAII drop-guard + an `Option<&GlobExpandStats>` sink (defaulted `None` by the public entries). Add `MAX_GLOB_DEPTH` const. **`resolve`/`resolve_path` signatures UNCHANGED.** |
 | `src/name_resolution/glob_stats.rs` **(new)** | process-global `AtomicUsize` buckets + per-bucket increment helpers / `reset()` / `snapshot()`. |
-| `src/name_resolution/types.rs` | add `ResolutionPolicy::glob_edge_visible(&self, edge, q, trav) -> bool` (default `true`). |
-| `src/name_resolution/rust_policy.rs` | implement `glob_edge_visible`; extract a shared `vis_reaches(vis, def_scope, from)` helper used by it **and** `visible()`. |
+| `src/name_resolution/types.rs` | add `ResolutionPolicy::glob_edge_visible(&self, edge, q, trav) -> GlobEdgeVis` (tri-state `Visible`/`Hidden`/`Unknown`, default `Visible`). |
+| `src/name_resolution/rust_policy.rs` | implement `glob_edge_visible`; extract a shared `vis_reaches(vis, def_scope, from) -> Option<bool>` helper used by it **and** `visible()`. |
 | `src/navigation/queries.rs` | `call_stats`: `glob_stats::reset()` at entry, `snapshot()` after the re-resolution loop, emit the `glob_expand` JSON object. |
 | `src/cpg_cache.rs` | `CACHE_VERSION` 18 → 19; update the version assertion test (`:568`–`:570`). |
-| `tests/name_resolution/` | New unit tests (each bucket, depth levels, edge-vis skip, `ResolvedSet`, cond preservation, diamond) + a glob-member-workspace fixture + a `TEST_LOCK` for the process-global counters. |
+| `tests/name_resolution/` | New unit tests (each bucket incl. `vis_unknown`, depth levels, edge-vis skip, `ResolvedSet`, cond preservation, diamond) + a glob-member-workspace fixture; bucket assertions go through the `#[cfg(test)]` local-sink engine entry (own `GlobExpandStats`, no `TEST_LOCK`). |
 | `tests/integration/` | e2e: cross-crate facade collision recovers to one Exact (depends on #124 + this). |
 
 No change to `call_graph.rs`, `resolution.rs` (the telemetry rework keeps the shared engine entries
@@ -303,8 +331,9 @@ untouched), the `recovery_typepath` classifier, `multi_target_exact_sites` count
 
 TDD, unit-first. Every test uses a synthetic `ScopeGraph` (or a fixture crate) exercising one
 behavior. Discriminating fixtures only (a test that also passes with the *old* poison behavior is not
-a test of this slice). The bucket-asserting tests guard the process-global counters via the
-`TEST_LOCK` mutex (§3.5): lock → `glob_stats::reset()` → resolve → `snapshot()` → assert.
+a test of this slice). The bucket-asserting tests use the `#[cfg(test)]` local-sink engine entry
+(§3.5), asserting exact counts on their own `GlobExpandStats` instance — parallel-safe, no
+`TEST_LOCK`.
 
 **Resolution unit tests (`tests/name_resolution/`):**
 - `glob_expand_single_hop_resolves` — `mod m { pub struct S; } pub use m::*;` query `S` at root →
@@ -313,8 +342,10 @@ a test of this slice). The bucket-asserting tests guard the process-global count
   resolves at depth 2. Asserts `resolved_l2 == 1`.
 - `glob_expand_third_hop_blocked` — three nested facades; query the depth-3 name → `Poison`,
   `depth_exceeded == 1`, edge **not** resolved (the measure-don't-resolve requirement).
-- `glob_expand_cycle_fails_closed` — `a` globs `b`, `b` globs `a`, neither defines the name →
-  `Poison`, `cycle >= 1`.
+- `glob_expand_cycle_fails_closed` — a **self-glob** (`pub use self::*`, or an edge whose target
+  re-enters the same edge at depth 1) with no real definition of the name → `Poison`, `cycle >= 1`.
+  (A 2-cycle `a::* ↔ b::*` instead trips `depth_exceeded` — covered by `glob_expand_third_hop_blocked`;
+  add an explicit assertion there that an `a ↔ b` cycle increments `depth_exceeded`, not `cycle`.)
 - `glob_expand_ambiguous_member_fails_closed` — target scope defines the name twice under
   *compatible* cfg (a genuine conflict → `Ambiguous`) → `Poison`, `ambiguous == 1`, no Exact.
 - `glob_expand_resolved_set_member_fails_closed` — target defines the name twice under *cfg-exclusive*
@@ -324,9 +355,11 @@ a test of this slice). The bucket-asserting tests guard the process-global count
   `Poison`, `external == 1`.
 - `glob_expand_multi_target_fails_closed` — the globbed module path is itself ambiguous → `Poison`,
   `multi_target == 1`.
-- `glob_expand_target_lacks_name_continues` — glob to a module that does **not** define the name, and
-  a sibling non-glob binding does → resolves to the sibling (the `Unresolved` member arm must
-  *continue*, not poison). Guards against over-poisoning.
+- `glob_expand_target_lacks_name_continues` — **two glob edges** in one scope: the first target lacks
+  the name, the second provides it → resolves to the second (the `Unresolved` member arm on the first
+  glob must *continue* to the second, not poison). NOTE: must use two GLOB edges, not a sibling
+  non-glob binding — a same-scope explicit binding is found by rib step 1 (`engine.rs:101`) and would
+  bypass `glob_lookup` entirely, so it would not exercise this arm. Guards against over-poisoning.
 - `glob_expand_respects_member_visibility` (**discriminating** — MINOR-fix) — under one `pub use m::*`,
   `m` has a `pub` `S` and a private `Hidden`. Querying `S` from outside resolves (`resolved_l1 == 1`);
   querying `Hidden` from outside does **not** (stays unresolved, never the private item). A paired
@@ -335,6 +368,9 @@ a test of this slice). The bucket-asserting tests guard the process-global count
   in module `mid`, with `m::S` public. A query for `S` from *outside* `mid`'s subtree must NOT resolve
   through the private glob (edge-visibility gate skips it); a query for `S` from *within* `mid` does
   resolve. Asserts the edge-vis hook, not just member visibility.
+- `glob_expand_pub_in_unknown_fails_closed` (**BLOCKER-fix**) — a `pub(in some::path) use m::*` edge
+  (restrict unresolved → `Unknown` visibility) → `Poison` + `vis_unknown == 1` from BOTH an inside and
+  an outside vantage; never skipped, never fallen-through to an outer same-name.
 - `glob_expand_preserves_conditions` — a `#[cfg(feature="x")]`-gated `pub use m::*` whose `m::S`
   resolves → the resulting candidate carries the conjoined `e.cond ∧ member cond` (MAJOR-fix); a
   cfg-incompatible query does not select it.
@@ -381,7 +417,7 @@ non-dependent one (depends on #124's per-crate dep gate + this expansion).
 
 ---
 
-## 8. Resolved design decisions (codex review folded — rev 2)
+## 8. Resolved design decisions (codex review folded — rev 3)
 
 The rev-1 codex xhigh review (CHANGES-REQUIRED, 2 BLOCKER + 4 MAJOR + 1 MINOR) is folded:
 
@@ -389,8 +425,8 @@ The rev-1 codex xhigh review (CHANGES-REQUIRED, 2 BLOCKER + 4 MAJOR + 1 MINOR) i
   guard-carried `CallGraph`-field sink. codex's three telemetry findings — `CallGraph` derives
   `Serialize`/`Clone`; the public `resolve`/`resolve_path` entries are shared by many callers (ripple);
   a cumulative `CallGraph` atomic is not a clean per-measurement number — make the global the cleaner
-  choice. It also keeps `resolve`/`resolve_path` and `CallGraph` untouched. Test isolation via
-  `TEST_LOCK`.
+  choice. It also keeps `resolve`/`resolve_path` and `CallGraph` untouched. (Test isolation was
+  revised again in the rev-2 re-review — see the local-sink bullet below.)
 - **Glob-edge visibility** → new `glob_edge_visible` policy hook gating each edge by its own `vis`
   (§3.4, BLOCKER-fix).
 - **Guard lifetime** → RAII glob-guard held across path-resolution + member-lookup, single leave on
@@ -400,6 +436,16 @@ The rev-1 codex xhigh review (CHANGES-REQUIRED, 2 BLOCKER + 4 MAJOR + 1 MINOR) i
 - **Condition preservation** → conjoin edge ∧ path ∧ member conds (§3.2, MAJOR-fix).
 - **Discriminating visibility tests** → paired must-resolve/must-not + a private-glob-edge test
   (§6, MINOR + BLOCKER-fix).
+- **Glob-edge visibility is tri-state** (rev-2 re-review BLOCKER): `Visible`/`Hidden`/`Unknown`; an
+  undecidable `pub(in)` edge poisons (`vis_unknown`), never skips (§3.2, §3.4).
+- **Prefix-segment conditions** are inherited-as-dropped from `resolve_path_guarded` (same as named
+  imports); the contributed cond preserves edge ∧ final-segment ∧ member (§3.2); the accumulate-prefix
+  fix is deferred (§9, rev-2 re-review MAJOR).
+- **`cycle` test uses a self-glob**; a 2-cycle is `depth_exceeded` (§3.3, §6, rev-2 re-review MAJOR).
+- **Telemetry test isolation** via a `#[cfg(test)]` local-sink entry + guard-carried `Option` sink
+  (not a global `TEST_LOCK`), keeping the public entries ripple-free (§3.5, rev-2 re-review MAJOR).
+- **`target_lacks_name` test uses two glob edges** (a sibling rib would bypass `glob_lookup`) (§6,
+  rev-2 re-review MINOR).
 
 **Remaining judgment for the plan/impl reviewer.** The `glob_depth` counter is shared with the glob's
 own target-PATH resolution, so an exotic multi-segment `pub use a::b::*` whose prefix itself traverses
@@ -417,6 +463,12 @@ separate path-vs-name depth. Confirm this is acceptable or split the counter.
   member (counted under `ambiguous`). If that bucket is large on ruff, a follow-on can propagate the
   cfg-exclusive candidates (each conjoined) the way the resolved-scope arm already does — sound, more
   recall, no wrong single.
+- **Accumulate prefix-segment conditions in `resolve_path_guarded`.** Today it drops non-final
+  segment conds (`engine.rs:383`); a cfg-gated prefix module in a re-export/glob path resolves
+  under-conditioned. Fixing it benefits the named-import chase too. Deferred (precision, rare).
+- **Populate `pub(in path)` restrict for `use`/glob edges** (`resolve_restrict`, `walk/mod.rs:271`;
+  keep the parsed `pub(in)` path in `items.rs:192`) to recover `pub(in)`-glob recall that this slice
+  currently poisons as `vis_unknown`.
 - **Attacking a specific fail-closed bucket** (`external` cross-crate facades, `ambiguous`) — sized by
   the new histogram; likely diminishing per §4's facade-mediation lesson.
 - **Other-language glob edges** — only Rust populates deferred glob edges today; revisit if another
