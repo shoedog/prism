@@ -1,7 +1,7 @@
 # Cross-Crate `use` Resolution — Design
 
 **Date:** 2026-06-21
-**Status:** design-of-record (codex xhigh spec review folded — 2 BLOCKER + 2 MAJOR + 1 MINOR)
+**Status:** design-of-record — codex xhigh spec re-review folded — per-crate dependency-gated (owner-decided); 2nd-round MAJOR+BLOCKER addressed.
 **Branch:** `cross-crate-use-resolution` (off `main` after PR #123 / edition anchoring-class merged)
 **Predecessors:** #120 demote-not-drop · #121 scope-graph recovery · #122 (A) prune-through-`use` ·
 #123 edition anchoring-class uniformity. This is the next slice on the
@@ -11,22 +11,37 @@
 
 prism's scope graph already builds a per-crate index `Builder::crate_roots_by_name:
 BTreeMap<String, ScopeId>` (in-source crate name → its `Root` scope) and already uses it to
-resolve `extern crate name;` (`walk/items.rs:160`). But the map is **ephemeral** — dropped at
-`Builder::finish()` (`builder.rs:101`), never serialized into `ScopeGraph`, and **never
-consulted** when a 2018 `use other_crate::Foo` (or `other_crate::foo()`) looks up its leading
-segment. So a path whose leading segment is a sibling workspace crate resolves `Unresolved`
-(`engine.rs:408`), and #122 (A)'s `pending_resolves_to_single_in_repo_item` declines → the
-collision is kept-all. This slice (1) **persists** `crate_roots_by_name` into `ScopeGraph`, and
-(2) **consults it as the strictly-last fallback** for a leading path segment via a new
-`ResolutionPolicy` hook, so cross-crate `use`/call leading segments resolve to the owning
-crate's `Root` scope and the existing path-walk continues into that crate. The fallback is
-narrowly gated (Rust 2018+ extern-prelude roots only — `UsePath`/`Bare` anchors, never
+resolve `extern crate name;` (`walk/items.rs:160`). But that map is **ephemeral** (dropped at
+`Builder::finish()`, `builder.rs:101`) and is **never consulted** when a 2018 `use other_crate::Foo`
+(or `other_crate::foo()`) looks up its leading segment. So a path whose leading segment is a sibling
+workspace crate resolves `Unresolved` (`engine.rs:408`), and #122 (A)'s
+`pending_resolves_to_single_in_repo_item` declines → the collision is kept-all. A naïve fix
+("persist `crate_roots_by_name` as a global name→root map and consult it") is **unsound**: Rust's
+extern prelude is **per-consuming-crate** — `use b::Foo` is valid only if the consuming crate
+actually depends on the in-repo crate `b`; a repo-global map would wrongly resolve `use b::Foo` to
+an in-repo member `b` even when the consumer depends on an *external* `b` (or no `b`). So this slice
+instead (1) **captures, per workspace member, that member's in-repo dependencies** (`[dependencies]`
+PATH deps + WORKSPACE deps that resolve to an in-repo crate), (2) **persists a per-consuming-crate
+dependency map** `crate_deps_by_root: BTreeMap<ScopeId, BTreeMap<String, ScopeId>>` (consuming
+library `Root` → in-source dep name → depended-on in-repo library `Root`) into `ScopeGraph`, and
+(3) **consults it as the strictly-last fallback** for a leading path segment via a new
+`ResolutionPolicy` hook that now takes `from`, so a cross-crate `use`/call leading segment resolves
+to the owning crate's `Root` scope **iff** the consuming crate declares an in-repo dependency under
+that exact in-source name. Dependency targets are resolved **path-based** — a dep's resolved target
+member directory → that member's library `Root` via a build-time `lib_root_by_member_dir` index
+(library roots only) — so the existing `crate_roots_by_name` and the `extern crate` path are **left
+unchanged** (not re-keyed, not persisted). There is no global `ambiguous_crate_names` set: each dep
+resolves to one specific target root at build time. Because targets are library roots resolved by
+directory (not by name), a normal lib+bin package does not self-collide and no `[package].name`
+parsing is needed. The fallback
+is narrowly gated (Rust 2018+ extern-prelude roots only — `UsePath`/`Bare` anchors, never
 `crate::`/`self::`/`super::`/2015; a TRUE no-rib miss only, never a claimed-but-invisible local;
-an unambiguous single in-repo crate name, declining duplicates — see §2.2). Recovers the **+428**
+and only through the consuming crate's in-repo dep map — see §2.2). Recovers the **+428**
 cross-crate collision sites on ruff (and resolves ordinary cross-crate calls for navigation).
 Recall safety is **conditional** on the recovered resolution being correct and uniquely resolved
-(§3) — it rests on that eligibility plus #122 (A)'s single-in-repo-item gate, not on "adding a
-resolution cannot drop an edge" (consumers *can* prune on a newly-resolved path; §3, MAJOR 2).
+(§3) — it rests on that eligibility plus the dep-gating plus #122 (A)'s single-in-repo-item gate,
+not on "adding a resolution cannot drop an edge" (consumers *can* prune on a newly-resolved path;
+§3, MAJOR 2).
 
 ## 1. Premises (govern every requirement)
 
@@ -37,9 +52,14 @@ resolution cannot drop an edge" (consumers *can* prune on a newly-resolved path;
   #122 (A)'s disproof prune a candidate pool (`resolution.rs:794`) and lets the general Rust
   scope-graph resolution early-return Exact/UnknownName ahead of older name/owner fallbacks
   (`resolution.rs:825`). Recall is therefore safe **iff** the recovered resolution is correct and
-  uniquely resolved — which rests on the tightened eligibility (P2, P3, and the anchor/edition
-  gate of §2.2) plus #122 (A)'s exactly-one-in-repo-item gate, **not** on the act of adding a
-  resolution. (Precision can *shift* NameOnly→Exact; that is the measured surface, §7.)
+  uniquely resolved — which rests on the tightened eligibility (P2, the **per-consuming-crate
+  dependency gate** P3, and the anchor/edition gate of §2.2) plus #122 (A)'s exactly-one-in-repo-item
+  gate, **not** on the act of adding a resolution. The per-crate dep map (§2.1) is what makes the
+  resolution **correct and unique**: it resolves a leading segment to an in-repo crate `Root` only
+  when the consuming crate declares an in-repo dependency under that exact in-source name, and each
+  such dependency was resolved (by path/workspace) to **one specific** target library root at build
+  time — so there is no global name collision to adjudicate at query time. (Precision can *shift*
+  NameOnly→Exact; that is the measured surface, §7.)
 - **P2 — local items win (Rust precedence).** A path leading segment that matches a local
   binding/glob in the anchored scope is returned by `scope_member_lookup` *before* the fallback is
   reached: a **visible** local rib/glob yields a non-`Unresolved` resolution, and a
@@ -47,118 +67,164 @@ resolution cannot drop an edge" (consumers *can* prune on a newly-resolved path;
   BLOCKER 1) — both shadow the crate name, because the fallback fires only on a TRUE no-rib miss
   (`!rib_present`). The fallback is the **last rung**, so a same-named local module/import always
   shadows a crate name, matching Rust 2018 resolution.
-- **P3 — decline on any doubt.** The fallback resolves a leading segment to a crate root only on
-  an **exact, unambiguous** crate-name match (exactly one entry). No match, >1 match, or a
-  non-leading position → stay `Unresolved` (keep-all). **This must be enforced, not assumed:**
-  `crate_name_for_root` (`builder.rs:521-543`) derives the crate name from the workspace-member
-  **directory basename** (or the `<name>/src/` parent), **not** from Cargo `[package].name`, and
-  the Builder inserts **first-wins** (`.entry(name).or_insert(...)`, `builder.rs:284`) — so two
-  members with the same normalized basename silently collapse to one root and the fallback would
-  look "single" when it is not. The persisted map must therefore record which normalized names
-  map to **>1 distinct root** and the hook must **decline** the fallback for any such name (treat
-  it as ambiguous → keep-all). Package-name accuracy (a `[package].name` that differs from the
-  directory) is **not** guaranteed by this source and is out of scope (§8). The collision-recovery
-  precision backstop is unchanged: #122 (A) still requires the FULL path to resolve to **exactly
-  one** in-repo `Target::Item` before the disproof prunes.
+- **P3 — resolve only through the consuming crate's in-repo dependency map.** The fallback
+  resolves a leading segment to a crate `Root` **iff** the consuming crate (the crate containing
+  the use site) declares an in-repo dependency under that exact in-source name — i.e. the segment
+  is present in `crate_deps_by_root[consuming_root]`. No such dependency, or a non-leading
+  position → stay `Unresolved` (keep-all). This is sound by construction and replaces the prior
+  fold's global-ambiguity machinery: each in-repo dependency was resolved at build time (by
+  `[dependencies]` PATH / WORKSPACE path) to **one specific** target library `Root`, so the map
+  value is a single root — there is no global name collision to detect or decline. Two distinct
+  consequences fall out directly:
+  - A workspace member named `b` is resolvable from crate `a` **only if** `a` actually depends on
+    the in-repo `b` (extern prelude is per-crate). If `a` instead depends on an *external* `b`
+    (version-only/git/registry), or does not depend on `b` at all, the segment is absent from
+    `a`'s dep map → DECLINE → `Unresolved`/`External` (BLOCKER, this round).
+  - Because dependency targets are resolved **path-based to library roots only** (a member's
+    `target_dir` → its `src/lib.rs` Root via `lib_root_by_member_dir`, §2.1), a normal lib+bin
+    package does **not** self-collide: its `src/main.rs`/bins/tests are never dependency targets,
+    only its library root is (MAJOR, this round). Resolution is by directory, not by name, so no
+    `[package].name` parsing or basename adjudication is needed at all.
+
+  The collision-recovery precision backstop is unchanged: #122 (A) still requires the FULL path to
+  resolve to **exactly one** in-repo `Target::Item` before the disproof prunes.
 - **P4 — known-valid source ⇒ no new visibility checker.** An existing `use other_crate::Foo`
   compiled, so `Foo` is visible from the using crate; we need only resolve it to the *right*
   single item. Visibility across the crate boundary is not separately enforced — soundness comes
-  from P3's exactly-one-item requirement and the engine's existing per-segment `visible()` hook
-  inside the target crate's module walk.
-- **P5 — minimal surface.** Two new serialized `ScopeGraph` fields (`crate_roots_by_name` +
-  `ambiguous_crate_names`, both already-derivable at build time), one `ResolutionPolicy` hook,
-  one call site in `resolve_path_guarded`, one `CACHE_VERSION` bump. The **only** `Builder`
-  population change is the duplicate-name detection of §2.1 (recording collisions into
-  `ambiguous_crate_names`); the single-root `extern crate` resolution is unchanged. No change to
-  the disproof predicate or #122 (A)'s consumer.
+  from P3's per-consuming-crate dep gate (the leading segment binds to one specific in-repo crate
+  root) plus the engine's existing per-segment `visible()` hook inside the target crate's module
+  walk.
+- **P5 — minimal surface.** **One** new serialized `ScopeGraph` field — the per-consuming-crate
+  dependency map `crate_deps_by_root` (built at finish() from build-time data); one
+  `ResolutionPolicy` hook (now taking `from`); one call site in `resolve_path_guarded` (threading
+  the `from: ScopeId` it already holds + a `crate_root_of` ascent helper); one `CACHE_VERSION`
+  17→18 bump. The `Builder`/`repo_loader` changes are: **per-member in-repo dependency capture**
+  (repo_loader, §2.1), a build-time `lib_root_by_member_dir` index (member dir → its library `Root`,
+  library roots only), and building `crate_deps_by_root` from those at `finish()`.
+  `crate_roots_by_name` and the `extern crate` path are **left unchanged** (not re-keyed, not
+  persisted). The prior fold's persisted `crate_roots_by_name` + `ambiguous_crate_names` fields are
+  **dropped**. No change to the disproof predicate or #122 (A)'s consumer.
 
 ## 2. Design
 
-### 2.1 Persist `crate_roots_by_name` into `ScopeGraph`
+### 2.1 Persist a per-consuming-crate dependency map into `ScopeGraph`
 
-Add a serialized field to `ScopeGraph` (`src/name_resolution/graph.rs:77-109`), as a
+Add **one** serialized field to `ScopeGraph` (`src/name_resolution/graph.rs:77-109`), as a
 backward-compatible `#[serde(default)]` map alongside `file_paths`:
 
 ```rust
-    /// Rust: in-source crate name → that crate's `Root` scope, for resolving a
-    /// 2018 bare-crate path leading segment (`use other_crate::X`, `other_crate::f()`)
-    /// and `extern crate name`. Other languages leave this empty. Keys are
-    /// hyphen→underscore normalized (the Rust path identifier form). A name that
-    /// maps to >1 distinct root is recorded in `ambiguous_crate_names` (below) and
-    /// the §2.2 fallback DECLINES for it (P3).
+    /// Rust: per consuming-crate library `Root` → (in-source dependency name →
+    /// the depended-on in-repo library `Root`). Built from each member's
+    /// `[dependencies]` PATH and WORKSPACE deps that resolve to an in-repo crate
+    /// (external/registry/git deps excluded). The §2.2 fallback resolves a 2018+
+    /// bare-crate leading segment ONLY through this per-crate map, so a crate can
+    /// name another in-repo crate iff it actually depends on it (Rust's extern
+    /// prelude is per-crate). Keys (dep names) are hyphen→underscore normalized.
+    /// Other languages leave this empty.
     #[serde(default)]
-    pub crate_roots_by_name: std::collections::BTreeMap<String, ScopeId>,
-
-    /// Rust: normalized crate names that the Builder saw map to >1 distinct
-    /// `Root` (duplicate workspace-member basenames collapsing under first-wins).
-    /// The §2.2 fallback treats these as ambiguous → keep-all (P3). Other
-    /// languages leave this empty.
-    #[serde(default)]
-    pub ambiguous_crate_names: std::collections::BTreeSet<String>,
+    pub crate_deps_by_root:
+        std::collections::BTreeMap<ScopeId, std::collections::BTreeMap<String, ScopeId>>,
 ```
 
-Populate both at `Builder::finish()` (`src/name_resolution/rust_populator/builder.rs:101`):
+`Builder::crate_roots_by_name` (`builder.rs:48`) is **left entirely unchanged** — it remains a
+build-time, Builder-internal, directory-basename-keyed field backing the existing `extern crate`
+resolution (`b.crate_root_named`, `builder.rs:79` → `walk/items.rs:160`). This slice does **not**
+touch `extern crate` behavior, the prior fold's "persist it as a global name→root map" plan is
+**dropped**, and there is no `ambiguous_crate_names` set. Instead, dependency-target resolution is
+**path-based**: the per-crate map's values are found by mapping a dependency's resolved *target
+member directory* to that member's library `Root` via a new build-time index
+`lib_root_by_member_dir: BTreeMap<String /*member dir*/, ScopeId /*lib Root*/>` (step 3 below). No
+name-keying, no `[package].name` parsing, and no extern-crate blast radius: this keeps P5 minimal
+and resolves each dep to **one specific** target root at build time (no global-ambiguity decline to
+model).
+
+Persist the new field at `Builder::finish()` (`builder.rs:101`):
 
 ```rust
     pub(crate) fn finish(mut self) -> ScopeGraph {
-        self.graph.crate_roots_by_name = self.crate_roots_by_name;
-        self.graph.ambiguous_crate_names = self.ambiguous_crate_names;
+        self.graph.crate_deps_by_root = self.crate_deps_by_root;
         self.graph
     }
 ```
 
-**Key normalization (correctness).** The map is keyed by `crate_name_for_root`
-(`builder.rs:521-543`, derived from the workspace-member **directory basename** / the
-`<name>/src/` parent — **not** Cargo `[package].name`); a Rust path identifier uses underscores
-while a package/dir name may carry hyphens. Normalize keys to the underscore form **at insertion**
-(where the Builder inserts at `builder.rs:284`) so both the `extern crate` precedent and the new
-fallback match the path-identifier spelling. Lookups (§2.2) normalize the query segment
-identically. Insertion-side normalization keeps a single source of truth; the existing
-`extern crate` lookup reads the same normalized keys, and since an `extern crate <ident>`
-identifier is already underscore-form, normalization is idempotent there (it can only *add*
-matches for a previously hyphenated key — a latent improvement, never a regression).
+**Current source limitation this slice removes.** `RustCrateConfig` (`mod.rs:71-96`) is
+**repo-global / flat** — it carries `edition`, `crate_roots`, `workspace_members`, `lib_path`,
+`bin_paths`, and a single repo-wide `dep_renames` map (`collect_dep_renames`, `repo_loader.rs:437`,
+which captures only `package=`-renamed deps across `[dependencies]`/`[dev-]`/`[build-]`). It has
+**no per-member dependency list**. So this slice ADDS per-member dependency capture. (The decided
+design states the design level; the plan finalizes exact TOML parsing.)
 
-**Duplicate detection (P3 enforcement).** The current insertion is **first-wins**
-(`.entry(name).or_insert(root_scope)`, `builder.rs:284`) — a *second* root with the same
-normalized name is silently dropped. Because the fallback's soundness depends on a name being
-unambiguous, the insertion must additionally record a collision: if `entry(name)` already holds a
-**distinct** root, add the normalized `name` to `self.ambiguous_crate_names`. (Normalization can
-*create* a collision two hyphen/underscore spellings did not have before, so this check runs on
-the already-normalized key.) The map still keeps first-wins for the `extern crate` precedent
-(unchanged behavior for the single-root common case); the new ambiguity set is consulted only by
-the §2.2 fallback. This is the one population-logic change this slice makes — narrowly, to *add*
-the doubt signal P3 requires; it does not alter which single root `extern crate` resolves to.
+1. **Per member M** (a workspace member dir, or the single-crate root when there is no workspace):
+   identify M's **library root file** (`lib_path`, or `<M>/src/lib.rs` by convention) and record
+   `lib_root_by_member_dir[M_dir] = <that library Root scope>`. Members with **no library root are
+   not dependency targets** — skip them; a bin-only crate is not `use`-nameable as a library. (No
+   `[package].name` is needed — both the consuming side and the target side are keyed by member
+   directory, resolved to library roots by path.)
+2. **Parse M's `[dependencies]`** (v1: `[dependencies]` only; dev-/build-dependencies deferred —
+   §8). For each entry `(in_source_name, spec)`:
+   - `spec.path = "..."` → target member dir = `normalize(join(M_dir, path))`; in-repo. Record
+     `(M, in_source_name → target_dir)`.
+   - `spec.workspace == true` → resolve via the **workspace-root** manifest's
+     `[workspace.dependencies][in_source_name]`; if that entry has a `path`, the target member dir
+     is that path; in-repo. Record. (ruff uses this form heavily — it is **required** for the +428.)
+   - otherwise (version-only / git / registry, no in-repo path) → **EXTERNAL**; do not record. The
+     §2.2 hook then declines for that name → stays `Unresolved`/`External` (correct).
+   - `spec.package = "..."` (rename) is handled **naturally**: the KEY is `in_source_name` (what
+     `use` writes); the TARGET is resolved by path/workspace, not by package name. So a renamed
+     in-repo dep resolves correctly — this **subsumes** the previously-deferred renamed-deps case.
+3. **Builder.** Using the `lib_root_by_member_dir` index from step 1 (library roots only — so a
+   member's `src/main.rs`/bins/tests are never dependency targets, the lib+bin-no-self-collide fix),
+   for each consuming member M with library root `Rc = lib_root_by_member_dir[M_dir]`, and each
+   recorded `(in_source_name → target_dir)`, set
+   `crate_deps_by_root[Rc][normalize(in_source_name)] = lib_root_by_member_dir[target_dir]` (skip a
+   target with no library root). Persist `crate_deps_by_root` at `finish()`. `crate_roots_by_name`
+   and `extern crate` are not involved.
+
+**Key normalization.** Dependency names (the keys of each per-crate map) are normalized
+hyphen→underscore to the Rust path-identifier form (a Cargo dependency name may carry hyphens
+while `use` writes underscores). The §2.2 hook normalizes the query segment identically via the
+same `normalize_crate_ident` helper (introduced by this slice — see §2.2). Only the
+`crate_deps_by_root` keys and the hook's query segment are normalized; `crate_roots_by_name` and
+the `extern crate` path are untouched.
 
 ### 2.2 Leading-segment crate-root fallback (a `ResolutionPolicy` hook)
 
 Add a `ResolutionPolicy` trait method, defaulting to `None` so only Rust opts in. The hook
-**must** receive the path `Anchor` — a sibling-crate fallback is valid only for a 2018+
-extern-prelude *root* (`UsePath`/`Bare`), never for `crate::`/`self::`/`super::`/`::`, and the
-edition lives in the policy — so a `(graph, name)` signature is too broad (it would fire after
-*every* anchor `resolve_path_guarded` walks):
+**must** receive both the path `Anchor` and `from` (the query origin scope): the anchor gates on
+kind + edition (a sibling-crate fallback is valid only for a 2018+ extern-prelude *root* —
+`UsePath`/`Bare`, never `crate::`/`self::`/`super::`/`::`), and `from` identifies the **consuming
+crate** so the per-crate dep gate (P3) can be applied — Rust's extern prelude is per-crate. A
+`(graph, name)` signature is too broad on both axes (it would fire after *every* anchor and would
+ignore which crate is consuming):
 
 ```rust
-    /// A path's leading segment may name another crate (Rust 2018+ extern-prelude
-    /// root). Returns that crate's `Root` scope iff (a) the anchor is an
-    /// extern-prelude root kind for this language/edition AND (b) `name` uniquely
-    /// names an in-repo crate. `anchor` lets the policy gate on anchor kind +
-    /// edition. Default: not applicable.
+    /// A path's leading segment may name a depended-on in-repo crate (Rust 2018+
+    /// extern-prelude root). Returns that crate's library `Root` iff the anchor is
+    /// an extern-prelude root kind AND the CONSUMING crate (containing `from`)
+    /// declares an in-repo dependency under `name`. `from` is needed because the
+    /// extern prelude is per-crate. Default: not applicable.
     fn extern_crate_root(
         &self,
         _graph: &ScopeGraph,
         _name: &str,
         _anchor: &Anchor,
+        _from: ScopeId,
     ) -> Option<ScopeId> {
         None
     }
 ```
 
-`RustPolicy` implements it by **gating on edition + anchor kind first**, then consulting the
-persisted map (normalized), returning `Some` only on an exact single match that is **not** in the
-ambiguity set:
+`RustPolicy` implements it by **gating on edition + anchor kind first**, then climbing to the
+consuming crate's `Root` and consulting only that crate's in-repo dependency map (normalized):
 
 ```rust
-    fn extern_crate_root(&self, graph: &ScopeGraph, name: &str, anchor: &Anchor) -> Option<ScopeId> {
+    fn extern_crate_root(
+        &self,
+        graph: &ScopeGraph,
+        name: &str,
+        anchor: &Anchor,
+        from: ScopeId,
+    ) -> Option<ScopeId> {
         // Eligibility (BLOCKER 2): only a 2018+ extern-prelude ROOT may name a
         // sibling crate. `crate::`/`self::`/`super::` anchor inside THIS crate;
         // `LeadingColon` (`::other_crate::X`) is excluded in v1 (see §8); 2015
@@ -170,21 +236,29 @@ ambiguity set:
         if !matches!(anchor.kind, AnchorKind::UsePath | AnchorKind::Bare) {
             return None;
         }
-        let key = normalize_crate_ident(name);
-        // P3: decline a name that collapsed >1 distinct root (duplicate basenames).
-        if graph.ambiguous_crate_names.contains(&key) {
-            return None;
-        }
-        graph.crate_roots_by_name.get(&key).copied()
+        // P3 (per-crate dep gate): resolve `name` ONLY through the consuming
+        // crate's in-repo dependency map. The extern prelude is per-crate, so a
+        // crate can name another in-repo crate iff it actually depends on it.
+        let consuming_root = crate_root_of(graph, from)?; // climb `parent` links to the enclosing Root
+        graph
+            .crate_deps_by_root
+            .get(&consuming_root)?
+            .get(&normalize_crate_ident(name))
+            .copied()
     }
 ```
 
+`crate_root_of(graph, from)` walks `graph.scope(id).parent` (equivalently `graph.parent_of(id)`,
+`graph.rs:148`) up to the `ScopeKind::Root` ancestor (`types.rs:170`) and returns it — a small
+ascent helper this slice adds; the plan finalizes it. `normalize_crate_ident` is the
+hyphen→underscore identifier normalizer shared with §2.1's key build (also added by this slice;
+there is no existing normalization helper in `name_resolution`/`repo_loader`).
+
 (`AnchorKind` and `Anchor` are `name_resolution::types`; `resolve_path_guarded` already holds the
-`&Anchor` it was called with, so threading it costs nothing. `BTreeMap::get` returns one scope per
-key; the Builder's insertion is **first-wins** — a second distinct root for the same normalized
-name is dropped at insertion (`builder.rs:284`) **and** recorded in `ambiguous_crate_names`
-(§2.1), so the `contains` guard above turns that silent collapse into an explicit decline rather
-than a confident wrong root.)
+`&Anchor` **and** the `from: ScopeId` it was called with — `engine.rs:320-321` — so threading both
+into the hook costs nothing. Each per-crate dep map value is a single `ScopeId` resolved at build
+time, so the lookup is unambiguous by construction; an unknown name, or a name the consuming crate
+does not depend on in-repo, returns `None` → decline.)
 
 Invoke it from `resolve_path_guarded` (`src/name_resolution/engine.rs:338-366`) **only for the
 leading segment (`i == 0`), only on a TRUE no-rib miss, after** the normal `scope_member_lookup`.
@@ -213,13 +287,15 @@ is fixed here: `rib_present == false && status == Unresolved` (no poison, empty 
         // extern-prelude root resolves to the owning crate's Root scope ONLY on a
         // TRUE no-rib miss — no rib was claimed for the segment (so a local item,
         // even a deliberately-invisible one, always shadows — P2/BLOCKER 1) — AND
-        // the policy's anchor/edition gate + the unique in-repo crate name pass
-        // (P3). Poison/empty-glob `Unresolved` with a claimed rib does NOT qualify.
+        // the policy's anchor/edition gate + the consuming crate's per-crate
+        // in-repo dependency gate pass (P3). Poison/empty-glob `Unresolved` with a
+        // claimed rib does NOT qualify. `from` (the query origin) is threaded so the
+        // policy can identify the consuming crate.
         let res = if i == 0
             && !rib_present
             && matches!(res.status, ResStatus::Unresolved)
         {
-            match policy.extern_crate_root(graph, seg, anchor) {
+            match policy.extern_crate_root(graph, seg, anchor, from) {
                 Some(root) => resolved_to_root_scope(root), // single Resolved candidate, scope-bearing
                 None => res,
             }
@@ -254,13 +330,12 @@ change the resolution it returns.
 
 ### 2.3 Cache
 
-`CACHE_VERSION` 17→18 (`src/cpg_cache.rs:60`) — the two new serialized `ScopeGraph` fields
-(`crate_roots_by_name` + `ambiguous_crate_names`) change the bincode layout. The cache uses
-**bincode** and `deserialize`s the blob *before* the version check (`cpg_cache.rs:304` vs
-`:310`), so an old (field-less) blob either fails to deserialize → `CacheResult::Miss`
-(`cpg_cache.rs:306`) or passes the version check → `Miss` (`cpg_cache.rs:310-315`); it is **not**
-silently serde-defaulted into a live build. The version bump is what guarantees the rebuild.
-Update the pin test name/assertion to 18.
+`CACHE_VERSION` 17→18 (`src/cpg_cache.rs:60`) — the new serialized `ScopeGraph` field
+(`crate_deps_by_root`) changes the bincode layout. The cache uses **bincode** and `deserialize`s
+the blob *before* the version check (`cpg_cache.rs:304` vs `:310`), so an old (field-less) blob
+either fails to deserialize → `CacheResult::Miss` (`cpg_cache.rs:306`) or passes the version check
+→ `Miss` (`cpg_cache.rs:310-315`); it is **not** silently serde-defaulted into a live build. The
+version bump is what guarantees the rebuild. Update the pin test name/assertion to 18.
 
 ## 3. Soundness & recall-safety
 
@@ -274,24 +349,32 @@ Update the pin test name/assertion to 18.
   path ahead of the older name/owner fallbacks (`resolution.rs:825`). So recall is preserved
   **iff** the newly-recovered resolution is *correct and uniquely resolved*. The safety argument
   therefore rests on (i) the TRUE-no-rib-miss trigger + claimed-but-invisible shadow (BLOCKER 1),
-  (ii) the anchor/edition eligibility gate (BLOCKER 2), (iii) the unique-crate-name +
-  duplicate-decline (P3 / MAJOR 1), and (iv) #122 (A)'s exactly-one-in-repo-item gate — **not** on
-  the premise that adding a resolution cannot drop an edge. When a recovered resolution is wrong
-  or ambiguous, those gates fail closed to keep-all; when it is right and unique, the pruned
-  candidates were genuine FPs.
+  (ii) the anchor/edition eligibility gate (BLOCKER 2), (iii) the **per-consuming-crate in-repo
+  dependency gate** (P3) — the segment resolves only through `crate_deps_by_root[consuming_root]`,
+  built-time-resolved to one specific target library root — and (iv) #122 (A)'s
+  exactly-one-in-repo-item gate — **not** on the premise that adding a resolution cannot drop an
+  edge. When a recovered resolution is wrong or the consuming crate does not declare the
+  dependency, those gates fail closed to keep-all; when it is right, the pruned candidates were
+  genuine FPs. The dep-gate makes the fallback sound for **both** surfaces below: it binds to an
+  in-repo crate only when the consuming crate declares an in-repo dependency under that exact
+  in-source name, so an external-name collision (consumer depends on an external `b`, an unrelated
+  in-repo member is also named `b`) correctly **declines** (external `b` is not in the consumer's
+  in-repo dep map).
 - **Precision — the collision-recovery case.** The disproof prunes a same-name owner-`::`
   collision to one Exact only when the cross-crate `use` resolves to **exactly one** in-repo
   `Target::Item{owns:Some(scope)}` (unchanged (A) requirement). A wrong single resolution would
-  be a wrong prune; P3 (exact unique crate-name match) + the single-item requirement + P4
-  (the `use` is real, compiled source) make a wrong resolution require a genuinely ambiguous
-  in-repo program, which the single-item gate rejects → keep-all.
+  be a wrong prune; the per-crate dep gate (P3 — the leading segment binds to the one in-repo crate
+  the consumer actually depends on under that name) + the single-item requirement + P4 (the `use`
+  is real, compiled source) make a wrong resolution require a genuinely ambiguous in-repo program,
+  which the single-item gate rejects → keep-all.
 - **Precision — the general (navigation) case.** A cross-crate call `other_crate::foo()` that
   was `Unresolved`/NameOnly may now resolve Exact. If the crate-root + module walk lands on the
-  wrong item, that is a precision shift (not a recall loss). The exactly-one-crate-match (P3),
-  local-shadow precedence (P2), and the engine's existing per-segment `visible()` + non-singular
-  fall-through (`engine.rs:362-364`, "anything non-singular falls through, never wrong") bound
-  this. §7's Tier-A + ruff M2 + nav spot-check measure it directly (the blast-radius the design
-  deliberately opted into).
+  wrong item, that is a precision shift (not a recall loss). The per-crate dep gate (P3 — resolves
+  to the consumer's declared in-repo dependency, one specific root), local-shadow precedence (P2),
+  and the engine's existing per-segment `visible()` + non-singular fall-through
+  (`engine.rs:362-364`, "anything non-singular falls through, never wrong") bound this. §7's
+  Tier-A + ruff M2 + nav spot-check measure it directly (the blast-radius the design deliberately
+  opted into).
 - **Edition composition (#123).** The disproof still only *runs* on an
   anchoring-class-uniform workspace (`resolution.rs:1337`, unchanged). This slice changes what
   `resolve_path` *returns* inside it. The +428 is the cross-crate bucket of the post-#123 1326
@@ -318,49 +401,65 @@ cross-crate workspace collisions).
 
 ## 6. Tests (TDD; RED→GREEN)
 
-1. **Persist round-trip (unit, `graph.rs`/cache).** A built graph with two crates exposes
-   `crate_roots_by_name` with both crate names → root scopes (and `ambiguous_crate_names` empty);
-   a freshly-serialized graph round-trips both fields. Cross-version compat is NOT serde-default
-   (the cache is bincode and deserializes before the version check — `cpg_cache.rs:304`/`:310`):
-   an old field-less blob is handled by the `CACHE_VERSION` 17→18 bump (cache miss → rebuild),
-   not by silently defaulting into a live build. Keep `#[serde(default)]` on both fields (matches
-   the existing `edition_uniform`/`file_paths` convention so an in-memory or named-format
-   round-trip stays robust); a separate named-format (e.g. JSON) test, if wanted, may assert the
-   default-on-missing behavior in isolation.
-2. **Resolver — cross-crate `use` resolves (unit, engine/resolver).** A two-crate fixture where
-   crate `a` has `use b_crate::Foo;` resolves the leading `b_crate` to crate `b`'s root and the
-   full path to `b`'s `Foo` (`Resolved`, one in-repo item). Pre-fix: `Unresolved`.
-3. **Resolver — local shadow declines the fallback (unit; P2).** Crate `a` has a local
-   `mod b_crate;` *and* a sibling crate named `b_crate`; `use b_crate::X` resolves to the LOCAL
-   module (rib hit), never the crate root. Pins precedence.
-4. **Resolver — claimed-but-invisible local blocks the fallback (unit; BLOCKER 1).** Crate `a`
+1. **Persist round-trip (unit, `graph.rs`/cache).** A built two-crate workspace where crate `a`
+   depends (path dep) on crate `b` exposes `crate_deps_by_root` with `a`'s library root mapping
+   the in-source dep name → `b`'s library root; a freshly-serialized graph round-trips the field.
+   Cross-version compat is NOT serde-default (the cache is bincode and deserializes before the
+   version check — `cpg_cache.rs:304`/`:310`): an old field-less blob is handled by the
+   `CACHE_VERSION` 17→18 bump (cache miss → rebuild), not by silently defaulting into a live build.
+   Keep `#[serde(default)]` on the field (matches the existing `edition_uniform`/`file_paths`
+   convention so an in-memory or named-format round-trip stays robust); a separate named-format
+   (e.g. JSON) test, if wanted, may assert the default-on-missing behavior in isolation.
+2. **Resolver — cross-crate `use` resolves when the consumer declares the dep (unit,
+   engine/resolver; path-dep form).** A two-crate fixture where crate `a`'s manifest has
+   `b_crate = { path = "../b" }` and `a` has `use b_crate::Foo;` resolves the leading `b_crate` to
+   crate `b`'s library root and the full path to `b`'s `Foo` (`Resolved`, one in-repo item).
+   Pre-fix: `Unresolved`.
+3. **Resolver — workspace-dependency form resolves (unit).** Crate `a` declares
+   `b_crate = { workspace = true }` and the workspace-root manifest has
+   `[workspace.dependencies] b_crate = { path = "../b" }`; `use b_crate::Foo;` resolves to `b`'s
+   library root (the ruff-heavy form — required for the +428).
+4. **Resolver — renamed in-repo dep resolves (unit).** Crate `a` declares
+   `bar = { package = "foo", path = "../foo" }`; `use bar::X` resolves to `foo`'s library root
+   (the KEY is the in-source name `bar`; the TARGET resolves by path). Subsumes the
+   previously-deferred renamed-deps case.
+5. **Resolver — local shadow declines the fallback (unit; P2).** Crate `a` has a local
+   `mod b_crate;` *and* declares a dep on a sibling crate named `b_crate`; `use b_crate::X`
+   resolves to the LOCAL module (rib hit), never the crate root. Pins precedence.
+6. **Resolver — claimed-but-invisible local blocks the fallback (unit; BLOCKER 1).** Crate `a`
    has a local rib binding for `b_crate` that is *not visible* at the use site (e.g. a
    `pub(in ...)`/private module member that `resolve_rib` claims but rejects on `visible()`),
-   *and* a sibling crate `b_crate`. The leading segment must stay the LOCAL outcome
-   (`Unresolved` via claimed-but-invisible — `rib_present == true`), **never** the crate root.
-   This is the rib-claim probe's discriminating case (distinct from test 3's visible rib hit).
-5. **Resolver — non-crate leading segment stays `Unresolved` (unit; P3).** A leading segment
-   matching no crate name and no local binding stays `Unresolved` (no spurious resolution).
-6. **Resolver — anchor-kind gate (unit; BLOCKER 2).** With a sibling crate `b_crate`, leading
-   segments under `crate::b_crate::X`, `self::b_crate::X`, and `super::b_crate::X` must **not**
-   trigger the fallback (those anchor inside the current crate — `CrateRoot`/`SelfMod`/`Super`);
-   only `use b_crate::X` / bare `b_crate::f()` (`UsePath`/`Bare`) may. `::b_crate::X`
-   (`LeadingColon`) is excluded in v1 (asserts no fallback — deferred, §8).
-7. **Resolver — 2015 sibling without `extern crate` stays `Unresolved` (unit; BLOCKER 2).** In a
-   2015-edition crate `a`, `use b_crate::X;` **without** an `extern crate b_crate;` binding stays
-   `Unresolved` (the bare fallback must not invent a 2015 crate root — `is_2018_plus()` gate). A
-   companion positive: with `extern crate b_crate;`, the existing map-backed binding
-   (`walk/items.rs:160`) still resolves it (unchanged precedent).
-8. **Resolver — duplicate normalized crate names decline (unit; P3 / MAJOR 1).** Two
-   workspace members whose basenames normalize to the same crate ident (so first-wins collapse +
-   `ambiguous_crate_names` records the name) → `use that_name::X` **declines** the fallback
-   (stays `Unresolved`), not a confident wrong root.
-9. **End-to-end collision recovery (integration, `resolution_test.rs`).** A pure-2018+ workspace
-   (so #123's disproof runs) where crate `a` calls a same-name owner-`::` collision pinned by
-   `use b_crate::Foo;` (the `Foo` collides bare with another crate's `Foo`); pre-fix keep-all
-   (≥2 NameOnly), post-fix one Exact via the (A) disproof. Built through the real `load_repo` +
-   `CallGraph::build_with_scope_graph_inputs` path.
-10. **Cache pin (unit, `cpg_cache.rs`).** `CACHE_VERSION == 18`.
+   *and* declares a dep on a sibling crate `b_crate`. The leading segment must stay the LOCAL
+   outcome (`Unresolved` via claimed-but-invisible — `rib_present == true`), **never** the crate
+   root. This is the rib-claim probe's discriminating case (distinct from test 5's visible rib hit).
+7. **Resolver — external-vs-in-repo same-name DECLINES (unit; the key soundness test).** Crate `a`
+   depends on an **external** `b` (version-only, e.g. `b = "1.0"`) while an unrelated in-repo
+   workspace member is also named `b`; `use b::X` stays `Unresolved`/`External` (the external `b`
+   is not in `a`'s in-repo dep map → decline). This is the per-crate dep gate's discriminating
+   case (BLOCKER, this round).
+8. **Resolver — non-dependency same-name member DECLINES (unit; P3).** An in-repo crate `b` exists
+   but crate `a` does NOT declare any dependency on it; `use b::X` from `a` **declines** (stays
+   `Unresolved`) — the extern prelude is per-crate.
+9. **Resolver — anchor-kind gate (unit; BLOCKER 2).** With crate `a` depending on a sibling crate
+   `b_crate`, leading segments under `crate::b_crate::X`, `self::b_crate::X`, and
+   `super::b_crate::X` must **not** trigger the fallback (those anchor inside the current crate —
+   `CrateRoot`/`SelfMod`/`Super`); only `use b_crate::X` / bare `b_crate::f()` (`UsePath`/`Bare`)
+   may. `::b_crate::X` (`LeadingColon`) is excluded in v1 (asserts no fallback — deferred, §8).
+10. **Resolver — 2015 sibling without `extern crate` stays `Unresolved` (unit; BLOCKER 2).** In a
+    2015-edition crate `a` (declaring a dep on `b_crate`), `use b_crate::X;` **without** an
+    `extern crate b_crate;` binding stays `Unresolved` (the bare fallback must not invent a 2015
+    crate root — `is_2018_plus()` gate). A companion positive: with `extern crate b_crate;`, the
+    existing map-backed binding (`walk/items.rs:160`) still resolves it (unchanged precedent).
+11. **Resolver — lib+bin package does not self-poison (unit; MAJOR, this round).** A single member
+    `b` with `src/lib.rs` **and** `src/main.rs` (plus optionally a `[[bin]]`/test root), depended on
+    by a consuming crate `a` via a path/workspace dep. `use b::X` from `a` resolves to `b`'s
+    **library** root (`lib_root_by_member_dir` indexes only the library root), never the bin root.
+12. **End-to-end collision recovery (integration, `resolution_test.rs`).** A pure-2018+ workspace
+    (so #123's disproof runs) where crate `a` **declares a path/workspace dep on** crate `b` and
+    calls a same-name owner-`::` collision pinned by `use b_crate::Foo;` (the `Foo` collides bare
+    with another crate's `Foo`); pre-fix keep-all (≥2 NameOnly), post-fix one Exact via the (A)
+    disproof. Built through the real `load_repo` + `CallGraph::build_with_scope_graph_inputs` path.
+13. **Cache pin (unit, `cpg_cache.rs`).** `CACHE_VERSION == 18`.
 
 ## 7. Acceptance (the wider blast radius, opted-in)
 
@@ -380,27 +479,30 @@ cross-crate workspace collisions).
 
 ## 8. Scope boundaries
 
-**In scope (v1):** workspace-member / `<name>/src/lib.rs`-derived crates (whatever
-`crate_roots_by_name` already holds); direct crate-name leading segments in `UsePath`/`Bare`
-positions (`use other_crate::X`, `other_crate::f()`); hyphen/underscore normalization with
-duplicate-name decline.
+**In scope (v1):** per-consuming-crate in-repo dependency capture from `[dependencies]` — PATH
+deps (`b = { path = "../b" }`) and WORKSPACE deps (`b = { workspace = true }` + the workspace-root
+`[workspace.dependencies] b = { path }`); renamed in-repo deps (`bar = { package = "foo", path }`),
+handled naturally because the dep map keys on the in-source name and resolves the target by path;
+path-based target resolution to library roots only (`lib_root_by_member_dir`); direct crate-name
+leading segments in `UsePath`/`Bare` positions (`use other_crate::X`, `other_crate::f()`);
+hyphen/underscore normalization of dep names.
 
 **Deferred (follow-ups, not this slice):**
+- **dev-/build-dependencies** (`[dev-dependencies]`/`[build-dependencies]`): test and build-script
+  consuming code can name in-repo crates declared only under those tables. v1 parses
+  `[dependencies]` only; capturing the dev-/build- tables (and gating which consuming roots see
+  them) is a separate slice if the residue warrants.
+- **Non-library consuming roots** (bin/test/bench/example roots): v1 builds `crate_deps_by_root`
+  for library consuming roots; a `use other_crate::X` in a member's `main.rs`/integration test
+  resolves only once its consuming root is keyed. Separate refinement.
 - **`LeadingColon` roots** (`::other_crate::X`): the `LeadingColon` anchor resolves via
   `anchor.prelude` and returns `None` when no prelude scope is recorded (`rust_policy.rs:286-291`),
   so v1 deliberately excludes it from the crate fallback (the eligibility gate admits only
   `UsePath`/`Bare`). Re-enabling it (or wiring the populator's prelude scope) is a separate
   follow-up; rare in workspace code, and the bare/`use` forms carry the +428.
-- **Renamed deps** (`bar = { package = "foo" }`): `use bar::X` needs the *consuming* crate's
-  `[dependencies]` rename map (in-source name → package). Rare in workspaces; the `RustCrateConfig`
-  has a stub field (`rust_populator/mod.rs:82`) but it is not threaded. Separate slice if the
-  residue warrants.
-- **Package-name accuracy** (`[package].name` ≠ directory basename): `crate_name_for_root` keys on
-  the workspace-member **directory** name, not the parsed Cargo `[package].name`. A crate whose
-  package name differs from its directory will key under the wrong ident (and the fallback simply
-  won't fire for the right spelling — recall-neutral, never a wrong resolution). Parsing the real
-  package name is a separate refinement if the residue warrants.
 - **Glob imports** (`use other_crate::*`): the +304 roadmap bucket — its own slice.
 
-**Out of scope:** non-in-repo crates (registry/git/std) — they have no `Root` scope, so
-`extern_crate_root` returns `None` and the path stays `Unresolved`/`External` exactly as today.
+**Out of scope:** external/registry/git deps and std/core/alloc — they resolve to no in-repo
+library `Root`, so they are never recorded in `crate_deps_by_root`, the hook returns `None`, and
+the path stays `Unresolved`/`External` exactly as today (this is the correct decline, and the
+soundness backbone of the per-crate dep gate).
