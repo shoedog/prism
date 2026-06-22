@@ -302,6 +302,35 @@ impl ResolutionPolicy for RustPolicy<'_> {
             }
         }
     }
+
+    fn extern_crate_root(
+        &self,
+        graph: &ScopeGraph,
+        name: &str,
+        anchor: &Anchor,
+        from: ScopeId,
+    ) -> Option<ScopeId> {
+        // Eligibility: only a 2018+ extern-prelude ROOT may name a sibling crate.
+        // `crate::`/`self::`/`super::` anchor inside THIS crate; `LeadingColon`
+        // (`::other::X`) is excluded in v1 (spec §8); a 2015 `use sibling::X` needs
+        // an `extern crate` binding (modeled at walk/items.rs:160), so the bare
+        // fallback must not invent one.
+        if !self.is_2018_plus() {
+            return None;
+        }
+        if !matches!(anchor.kind, AnchorKind::UsePath | AnchorKind::Bare) {
+            return None;
+        }
+        // P3 (per-crate dep gate): resolve `name` ONLY through the consuming crate's
+        // in-repo dependency map. A crate can name another in-repo crate iff it
+        // actually depends on it; each map value is one specific target root.
+        let consuming_root = crate_root_of(graph, from)?;
+        graph
+            .crate_deps_by_root
+            .get(&consuming_root)?
+            .get(&normalize_crate_ident(name))
+            .copied()
+    }
 }
 
 /// True iff every pair of candidates is provably cfg-exclusive (distinct worlds).
@@ -325,4 +354,163 @@ fn pairwise_all_exclusive(cands: &[Candidate]) -> bool {
 /// normalize the leading-segment query in `extern_crate_root` identically.
 pub(crate) fn normalize_crate_ident(name: &str) -> String {
     name.replace('-', "_")
+}
+
+/// Climb `graph.scope(id).parent` from `from` to its enclosing `Root` scope and
+/// return it. A free helper (the trait hook receives `graph` as a parameter, not
+/// `RustPolicy`'s borrowed graph). Returns `None` only for a malformed graph with
+/// no Root ancestor.
+pub(crate) fn crate_root_of(graph: &ScopeGraph, from: ScopeId) -> Option<ScopeId> {
+    let mut cur = Some(from);
+    while let Some(id) = cur {
+        let s = graph.scope(id)?;
+        if matches!(s.kind, ScopeKind::Root) {
+            return Some(id);
+        }
+        cur = s.parent;
+    }
+    None
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::name_resolution::graph::ScopeGraph;
+    use crate::name_resolution::types::{
+        Anchor, ResolutionPolicy, Scope, ScopeExtent, ScopeId, ScopeKind, SourceLoc, Span,
+    };
+
+    fn root_scope(id: u32) -> Scope {
+        Scope {
+            id: ScopeId(id),
+            kind: ScopeKind::Root,
+            parent: None,
+            extents: vec![ScopeExtent {
+                file: crate::name_resolution::types::FileId(id),
+                range: Span {
+                    lo: SourceLoc {
+                        file: crate::name_resolution::types::FileId(id),
+                        byte: 0,
+                    },
+                    hi: SourceLoc {
+                        file: crate::name_resolution::types::FileId(id),
+                        byte: 10,
+                    },
+                },
+                cond: None,
+                occ: None,
+            }],
+            owner_item: None,
+            cond: None,
+        }
+    }
+
+    fn module_under(id: u32, parent: u32) -> Scope {
+        let mut s = root_scope(id);
+        s.kind = ScopeKind::Module;
+        s.parent = Some(ScopeId(parent));
+        s
+    }
+
+    /// A graph: Root(0) [crate a] with module(2); Root(1) [crate b]. a depends on b.
+    fn two_crate_graph() -> ScopeGraph {
+        let mut g = ScopeGraph::new();
+        g.edition = 2021;
+        g.add_scope(root_scope(0));
+        g.add_scope(root_scope(1));
+        g.add_scope(module_under(2, 0));
+        let mut a_deps = std::collections::BTreeMap::new();
+        a_deps.insert("b_crate".to_string(), ScopeId(1));
+        g.crate_deps_by_root.insert(ScopeId(0), a_deps);
+        g
+    }
+
+    #[test]
+    fn extern_crate_root_resolves_declared_dep_from_use_path() {
+        let g = two_crate_graph();
+        let policy = RustPolicy::new(&g, 2021);
+        // From module(2) inside crate a, a UsePath leading `b_crate` -> b's Root(1).
+        let got = policy.extern_crate_root(&g, "b_crate", &Anchor::use_path_2015(), ScopeId(2));
+        assert_eq!(got, Some(ScopeId(1)));
+    }
+
+    #[test]
+    fn extern_crate_root_declines_2015() {
+        let g = two_crate_graph();
+        let policy = RustPolicy::new(&g, 2015); // 2015: the bare fallback must not fire.
+        assert_eq!(
+            policy.extern_crate_root(&g, "b_crate", &Anchor::use_path_2015(), ScopeId(2)),
+            None
+        );
+    }
+
+    #[test]
+    fn extern_crate_root_declines_crate_self_super_anchors() {
+        let g = two_crate_graph();
+        let policy = RustPolicy::new(&g, 2021);
+        for anchor in [Anchor::crate_root(), Anchor::self_mod(), Anchor::super_n(1)] {
+            assert_eq!(
+                policy.extern_crate_root(&g, "b_crate", &anchor, ScopeId(2)),
+                None,
+                "crate::/self::/super:: anchor inside THIS crate, not a sibling"
+            );
+        }
+    }
+
+    #[test]
+    fn extern_crate_root_declines_leading_colon() {
+        let g = two_crate_graph();
+        let policy = RustPolicy::new(&g, 2021);
+        assert_eq!(
+            policy.extern_crate_root(&g, "b_crate", &Anchor::leading_colon_2018(99), ScopeId(2)),
+            None,
+            "LeadingColon is excluded in v1 (spec §8)"
+        );
+    }
+
+    #[test]
+    fn extern_crate_root_declines_undeclared_name() {
+        let g = two_crate_graph();
+        let policy = RustPolicy::new(&g, 2021);
+        // `other` is not in a's dep map → decline (per-crate dep gate, P3).
+        assert_eq!(
+            policy.extern_crate_root(&g, "other", &Anchor::use_path_2015(), ScopeId(2)),
+            None
+        );
+    }
+
+    #[test]
+    fn extern_crate_root_is_per_consuming_crate() {
+        let g = two_crate_graph();
+        let policy = RustPolicy::new(&g, 2021);
+        // From crate b's Root(1) there is no dep map entry → `b_crate` declines.
+        assert_eq!(
+            policy.extern_crate_root(&g, "b_crate", &Anchor::use_path_2015(), ScopeId(1)),
+            None,
+            "the extern prelude is per-crate; b does not declare b_crate"
+        );
+    }
+
+    #[test]
+    fn extern_crate_root_normalizes_hyphen() {
+        let mut g = two_crate_graph();
+        // a depends on a hyphenated in-repo crate keyed underscore in the map.
+        g.crate_deps_by_root
+            .get_mut(&ScopeId(0))
+            .unwrap()
+            .insert("my_dep".to_string(), ScopeId(1));
+        let policy = RustPolicy::new(&g, 2021);
+        // A `use my-dep::X` writes `my_dep`; either spelling normalizes to the key.
+        assert_eq!(
+            policy.extern_crate_root(&g, "my-dep", &Anchor::use_path_2015(), ScopeId(2)),
+            Some(ScopeId(1))
+        );
+    }
+
+    #[test]
+    fn crate_root_of_climbs_to_root() {
+        let g = two_crate_graph();
+        assert_eq!(crate_root_of(&g, ScopeId(2)), Some(ScopeId(0)));
+        assert_eq!(crate_root_of(&g, ScopeId(0)), Some(ScopeId(0)));
+    }
 }

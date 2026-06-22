@@ -19,6 +19,8 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::name_resolution::graph::ScopeGraph;
+
 // ── Opaque IDs ──────────────────────────────────────────────────────────────
 
 /// Identifies a scope in the scope graph.
@@ -592,5 +594,20 @@ pub trait ResolutionPolicy {
     /// Default: no injection (returns empty).  Override for languages that need it.
     fn inject(&self, _q: &ResolveQuery) -> Vec<Candidate> {
         vec![]
+    }
+
+    /// A path's leading segment may name a depended-on in-repo crate (Rust 2018+
+    /// extern-prelude root). Returns that crate's library `Root` iff the anchor is
+    /// an extern-prelude root kind AND the CONSUMING crate (containing `from`)
+    /// declares an in-repo dependency under `name`. `from` is needed because the
+    /// extern prelude is per-crate. Default: not applicable (returns `None`).
+    fn extern_crate_root(
+        &self,
+        _graph: &ScopeGraph,
+        _name: &str,
+        _anchor: &Anchor,
+        _from: ScopeId,
+    ) -> Option<ScopeId> {
+        None
     }
 }
