@@ -944,6 +944,51 @@ mod tests {
     }
 
     #[test]
+    fn custom_bin_path_ending_src_lib_rs_does_not_shadow_library_root() {
+        // Re-review round-3 MAJOR: member `b` has the conventional library root
+        // `b/src/lib.rs` AND a bin/tool root whose path ALSO ends in `src/lib.rs`
+        // (`b/tools/src/lib.rs`). A bare `ends_with("src/lib.rs")` gate would attribute
+        // BOTH to member `b` and could record the bin root in `lib_root_by_member_dir["b"]`
+        // (last-write-wins by FileId order), pointing a's dep at the bin root. The EXACT
+        // `b/src/lib.rs` gate keeps the bin out, so the dep target is always b's LIBRARY root.
+        let mut files = BTreeMap::new();
+        files.insert("a/src/lib.rs".to_string(), rs("pub fn a() {}\n"));
+        files.insert("b/src/lib.rs".to_string(), rs("pub fn b() {}\n"));
+        files.insert("b/tools/src/lib.rs".to_string(), rs("pub fn tool() {}\n"));
+        let mut member_deps = BTreeMap::new();
+        let mut a_deps = BTreeMap::new();
+        a_deps.insert("b".to_string(), "b".to_string());
+        member_deps.insert("a".to_string(), a_deps);
+        let cfg = RustCrateConfig {
+            // All three are roots; b's conventional lib + a tool bin under b/tools.
+            crate_roots: vec![
+                "a/src/lib.rs".to_string(),
+                "b/src/lib.rs".to_string(),
+                "b/tools/src/lib.rs".to_string(),
+            ],
+            workspace_members: vec!["a".to_string(), "b".to_string()],
+            member_in_repo_deps: member_deps,
+            ..RustCrateConfig::default()
+        };
+        let graph = populate_rust(&files, &cfg, None);
+        // Sorted key order: a/src/lib.rs=0, b/src/lib.rs=1, b/tools/src/lib.rs=2.
+        let a_root = root_for(&graph, 0);
+        let b_lib_root = root_for(&graph, 1);
+        let b_bin_root = root_for(&graph, 2);
+        let target = graph.crate_deps_by_root.get(&a_root).and_then(|m| m.get("b"));
+        assert_eq!(
+            target,
+            Some(&b_lib_root),
+            "the dep target must be b's library root (FileId 1), never the bin/tool root"
+        );
+        assert_ne!(
+            target,
+            Some(&b_bin_root),
+            "a `tools/src/lib.rs` bin root must not be recorded as b's library root"
+        );
+    }
+
+    #[test]
     fn normalize_crate_ident_hyphen_to_underscore() {
         use crate::name_resolution::rust_policy::normalize_crate_ident;
         assert_eq!(normalize_crate_ident("my-crate"), "my_crate");
@@ -958,7 +1003,7 @@ mod tests {
 cargo test --lib name_resolution::rust_populator::builder::tests:: 2>&1 | tail -25
 ```
 
-Expected (RED): `normalize_crate_ident_hyphen_to_underscore` fails to **compile** (`unresolved import ... normalize_crate_ident`); the two `crate_deps_by_root_*` tests AND the two re-review BLOCKER B tests (`explicit_lib_path_target_keys_by_member_dir_not_file_parent`, `nested_custom_lib_path_target_keys_by_member_dir`) fail on the `assert_eq!` (the map is empty — `finish()` does not yet populate it). After 3c/3d/3e land, the BLOCKER B tests are the discriminating cases: with the OLD `parent_dir`-based helper they would still fail (the explicit/nested lib root keys by `b/src` or `b/src/inner`, so `finish()`'s `lib_root_by_member_dir.get("b")` misses); the reworked member-dir-keyed helper is what turns them GREEN.
+Expected (RED): `normalize_crate_ident_hyphen_to_underscore` fails to **compile** (`unresolved import ... normalize_crate_ident`); the `crate_deps_by_root_*`/`lib_plus_bin_*` tests, the two BLOCKER B tests (`explicit_lib_path_target_keys_by_member_dir_not_file_parent`, `nested_custom_lib_path_target_keys_by_member_dir`), and the round-3 MAJOR test (`custom_bin_path_ending_src_lib_rs_does_not_shadow_library_root`) all fail on the `assert_eq!` (the map is empty — `finish()` does not yet populate it). After 3c/3d/3e land, these are the discriminating cases: with the OLD `parent_dir`-based helper the BLOCKER B tests fail (explicit/nested lib root keys by `b/src`/`b/src/inner`); with a bare `ends_with("src/lib.rs")` gate the round-3 MAJOR test fails (the `b/tools/src/lib.rs` bin root shadows `b`'s real lib root); the reworked member-dir-keyed, EXACT-`m/src/lib.rs`-gated helper is what turns them all GREEN.
 
 ### Step 3: Implement (minimal)
 
@@ -1054,10 +1099,10 @@ with:
 
 ```rust
 /// The workspace-member DIRECTORY for a root path **iff it is a library root**
-/// (re-review BLOCKER B). A library root is the `[lib].path` override
-/// (`config.lib_path == Some(root_path)`) OR a path ending in the conventional
-/// `src/lib.rs`; a bin/test/bench/example root returns `None` (never a dependency
-/// target — this is the lib+bin no-self-collide guarantee).
+/// (re-review BLOCKER B). A library root is EXACTLY `<member>/src/lib.rs` (the
+/// convention) OR the `[lib].path` override (`config.lib_path == Some(root_path)`)
+/// for that member; a bin/test/bench/example root returns `None` (never a dependency
+/// target — the lib+bin no-self-collide guarantee).
 ///
 /// The member dir is the MANIFEST DIR — the exact spelling `member_in_repo_deps`
 /// keys by (Task 2 normalizes both its KEYS (the manifest dir) and the dep-target
@@ -1071,40 +1116,48 @@ with:
 /// carries those member dirs verbatim (`repo_loader.rs:357` =
 /// `join_manifest_rel(manifest_dir, member)`, no trailing slash); this mirrors
 /// `crate_name_for_root`'s prefix match but returns the FULL member dir, not the
-/// basename. When no member prefix matches (the single crate at the repo root, whose
-/// member dir is `""` and is absent from `workspace_members`), fall back to stripping
-/// the conventional `/src/lib.rs` suffix (`src/lib.rs` → `""`). (Repo-wide,
-/// `config.lib_path` holds only the LAST explicit `[lib].path` — a pre-existing
-/// `RustCrateConfig` flatness; convention library roots are unaffected because the
-/// suffix gate matches them regardless.)
+/// basename.
+///
+/// The library-root gate is EXACT (re-review round-3 MAJOR): for a matched member
+/// `m`, accept ONLY `m/src/lib.rs` or the explicit `config.lib_path` override — a
+/// bare `ends_with("src/lib.rs")` is too broad and would mis-record a bin/tool path
+/// like `m/tools/src/lib.rs` as `m`'s library root, shadowing the real lib root.
+/// When no member prefix matches (the single crate at the repo root, member dir `""`,
+/// absent from `workspace_members`), accept only the bare `src/lib.rs` or a root
+/// `[lib].path`. (Repo-wide, `config.lib_path` holds only the LAST explicit
+/// `[lib].path` — a pre-existing `RustCrateConfig` flatness; convention library roots
+/// are unaffected because the exact `m/src/lib.rs` gate matches them without it.)
 fn lib_root_member_dir(root_path: &str, config: &RustCrateConfig) -> Option<String> {
-    // Library-root gate: only an explicit [lib].path or a conventional src/lib.rs.
-    let is_lib_root =
-        config.lib_path.as_deref() == Some(root_path) || root_path.ends_with("src/lib.rs");
-    if !is_lib_root {
-        return None;
-    }
     // Member dir = the LONGEST workspace-member prefix of root_path (the manifest dir).
-    let mut best: Option<&str> = None;
+    let mut member: Option<&str> = None;
     for m in &config.workspace_members {
         let m = m.trim_end_matches('/');
         let prefix = format!("{m}/");
-        if root_path.starts_with(&prefix) && best.map(|b| m.len() > b.len()).unwrap_or(true) {
-            best = Some(m);
+        if root_path.starts_with(&prefix) && member.map(|b| m.len() > b.len()).unwrap_or(true) {
+            member = Some(m);
         }
     }
-    if let Some(member_dir) = best {
-        return Some(member_dir.to_string());
-    }
-    // No workspace member matched: the single crate at the repo root. A conventional
-    // `<head>/src/lib.rs` strips to `<head>`; a bare `src/lib.rs` (or an explicit
-    // [lib].path at the root) keys by `""` (the root manifest dir).
-    if root_path == "src/lib.rs" {
-        return Some(String::new());
-    }
-    match root_path.strip_suffix("/src/lib.rs") {
-        Some(head) => Some(head.to_string()),
-        None => Some(String::new()), // explicit [lib].path at the repo root → ""
+    match member {
+        // A matched member's library root is EXACTLY `<m>/src/lib.rs` or its explicit
+        // [lib].path; anything else under `<m>/` (e.g. `<m>/tools/src/lib.rs`) is a
+        // bin/test/example root → not a dependency target.
+        Some(m) => {
+            if config.lib_path.as_deref() == Some(root_path)
+                || root_path == format!("{m}/src/lib.rs")
+            {
+                Some(m.to_string())
+            } else {
+                None
+            }
+        }
+        // No workspace member matched: the single crate at the repo root (member `""`).
+        None => {
+            if root_path == "src/lib.rs" || config.lib_path.as_deref() == Some(root_path) {
+                Some(String::new())
+            } else {
+                None
+            }
+        }
     }
 }
 ```
@@ -1116,7 +1169,7 @@ cargo test --lib name_resolution::rust_populator::builder::tests:: 2>&1 | tail -
 cargo test --lib name_resolution::rust_populator::tests:: 2>&1 | tail -10
 ```
 
-Expected: all FIVE new builder tests GREEN (`crate_deps_by_root_maps_consumer_to_target_lib_root`, `lib_plus_bin_member_does_not_self_collide`, the two re-review BLOCKER B tests `explicit_lib_path_target_keys_by_member_dir_not_file_parent` + `nested_custom_lib_path_target_keys_by_member_dir`, and `normalize_crate_ident_hyphen_to_underscore`); the existing `rust_populator::tests::` (edition propagation, convention roots) still pass.
+Expected: all SIX new builder tests GREEN (`crate_deps_by_root_maps_consumer_to_target_lib_root`, `lib_plus_bin_member_does_not_self_collide`, the three re-review library-root tests `explicit_lib_path_target_keys_by_member_dir_not_file_parent` + `nested_custom_lib_path_target_keys_by_member_dir` + `custom_bin_path_ending_src_lib_rs_does_not_shadow_library_root` (round-3 MAJOR), and `normalize_crate_ident_hyphen_to_underscore`); the existing `rust_populator::tests::` (edition propagation, convention roots) still pass.
 
 ### Step 5: Format + commit
 
