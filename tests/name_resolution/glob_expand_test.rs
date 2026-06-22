@@ -336,3 +336,27 @@ fn glob_expand_distinct_targets_two_globs() {
     assert_eq!(snap.resolved_l1, 2);
     assert_ne!(res.candidates[0].target, res.candidates[1].target);
 }
+
+#[test]
+fn glob_expand_filtered_member_rib_does_not_fall_through() {
+    // ta::S is `pub(in <unresolved>)` — CLAIMED in ta's rib but visibility-filtered
+    // (restrict unresolved -> vis_reaches None -> not visible from here). The
+    // `pub use ta::*` glob therefore yields Unresolved WITH a claimed rib; we cannot
+    // prove ta lacks S, so the lookup must POISON rather than fall through to tb's
+    // public S (which would be a wrong singleton). Guards the `rib_present` probe in
+    // the member-lookup arm (final-review BLOCKER).
+    let src = "mod ta { pub(in crate::ghost) struct S; }\nmod tb { pub struct S; }\npub use ta::*;\npub use tb::*;\nfn f(){ let _: Option<S>; }\n";
+    let (res, snap, _, _) = single_file_resolve(src, "S>;", "S");
+
+    assert_eq!(
+        res.status,
+        ResStatus::Poisoned,
+        "a rib-claimed-but-visibility-filtered member must not fall through to a sibling glob's same-name (got {:?} {:?})",
+        res.status,
+        res.candidates
+    );
+    assert!(
+        snap.ambiguous >= 1,
+        "the filtered-member poison is counted (ambiguous): {snap:?}"
+    );
+}

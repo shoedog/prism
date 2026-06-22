@@ -134,10 +134,15 @@ For each glob edge `e` in the scope (the existing loop, `engine.rs:261`):
          follow-on, §9 — but the first slice fails closed.)
        - `Poisoned` → `return Poison` (a deeper over-depth/cyclic/external glob inside `T` already
          poisoned and counted its own bucket; propagate, no new count).
-       - `Unresolved` → **contribute nothing, continue** to the next glob edge. The recall-enabling
-         case: `T` *provably* lacks the name (no rib, and all of `T`'s own globs resolved to nothing —
-         a deeper *unresolvable* glob would have returned `Poisoned`, not `Unresolved`, verified at
-         `engine.rs:439`–`:442`), so this facade is irrelevant to the query — not a poison.
+       - `Unresolved` **with no rib claimed** in `T` (`scope_member_lookup_probed`'s `rib_present` is
+         false) → **contribute nothing, continue** to the next glob edge: `T` *provably* lacks the name
+         (no rib, and `T`'s own globs resolved to nothing — a deeper *unresolvable* glob returns
+         `Poisoned`, not `Unresolved`). **But `Unresolved` *with* a claimed rib** (a private or
+         undecidable-`pub(in)` member whose candidates were all visibility-filtered → `resolve_rib`
+         returns `Unresolved` while `rib_present` is true) → `glob_stats::ambiguous()` + `return Poison`:
+         a rib claimed the name, so we cannot prove `T` lacks it and must NOT fall through to a sibling
+         glob's same-name (§7). Conservative — a *known*-private member could soundly continue; that
+         distinction (a member-visibility tri-state, mirroring `glob_edge_visible`) is deferred (§9).
      - **>1 scope / `Ambiguous` target:** `glob_stats::multi_target()`, `return Poison`.
      - **`Unresolved` / external / non-scope / `Poisoned` target:** `glob_stats::external()`,
        `return Poison`. (We could not establish what the glob brings in; it *might* contain the name.)
@@ -316,7 +321,8 @@ untouched), the `recovery_typepath` classifier, `multi_target_exact_sites` count
    but cannot be fully resolved still poisons (the depth/cycle gates, the `external`/`multi_target`
    arms, and the `ResolvedSet`/`Ambiguous`/`Poisoned` member arms). The lookup only proceeds past a
    glob when it is invisible for this vantage (brings nothing) or *provably* lacks the name (the
-   `Unresolved` member arm — a deeper *unresolvable* glob returns `Poisoned`, not `Unresolved`).
+   `Unresolved` member arm **with no claimed rib** — a claimed-but-visibility-filtered rib poisons,
+   and a deeper *unresolvable* glob returns `Poisoned`).
 3. **Termination.** `MAX_GLOB_DEPTH` bounds expansions per chain; `active_globs` rejects re-entry; the
    RAII guard holds across path-resolution + member-lookup and leaves exactly once on every exit.
    Depth and cycle guards independently terminate; together they classify cycles vs over-depth.
@@ -463,6 +469,11 @@ separate path-vs-name depth. Confirm this is acceptable or split the counter.
 
 - **Glob depth ≥ 3.** Sized by `glob_expand.depth_exceeded` after this lands; raise `MAX_GLOB_DEPTH`
   only if the data justifies it.
+- **Member-visibility tri-state (known-hidden vs undecidable).** The first slice poisons on a
+  rib-claimed-but-visibility-filtered member (`Unresolved` + `rib_present`), conflating a *known*-
+  private member (the glob soundly brings nothing → could continue) with an *undecidable* `pub(in)`
+  member (must poison). A member-level tri-state (mirroring `glob_edge_visible`) would recover the
+  known-private-member recall. Sized by the `ambiguous` bucket; likely rare.
 - **Propagate cfg-exclusive `ResolvedSet` through globs.** The first slice poisons a `ResolvedSet`
   member (counted under `ambiguous`). If that bucket is large on ruff, a follow-on can propagate the
   cfg-exclusive candidates (each conjoined) the way the resolved-scope arm already does — sound, more
