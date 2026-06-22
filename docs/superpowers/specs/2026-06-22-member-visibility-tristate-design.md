@@ -10,6 +10,9 @@
 > **Owner decisions folded (2026-06-22):** scope = **tri-state only, defer `pub(in)` restrict
 > resolution** (with a forward-compatibility proof, §4); buy-sizing counters = **permanent** (§5);
 > `ambiguous` bucket = **clean replace**, no alias (§5).
+>
+> **Rev 2 (2026-06-22):** codex xhigh spec-review folded — **no BLOCKER**; the cardinal soundness rule
+> (§2) and architecture confirmed; 5 accuracy/completeness findings folded (see §9).
 
 ---
 
@@ -134,12 +137,19 @@ so the **contribute/skip decision is byte-preserved**; the hook only *adds* the 
 ```rust
 enum MemberProbe {
     NoRib,
-    Rib { saw_hidden: bool, saw_unknown: bool },
+    Rib { saw_hidden: bool, saw_unknown: bool, saw_visible: bool },
 }
 impl MemberProbe {
     fn rib_present(&self) -> bool { matches!(self, MemberProbe::Rib { .. }) }
     fn has_unknown(&self) -> bool { matches!(self, MemberProbe::Rib { saw_unknown: true, .. }) }
-    fn all_known_hidden(&self) -> bool { matches!(self, MemberProbe::Rib { saw_hidden: true, saw_unknown: false }) }
+    // Encodes the cardinal rule DIRECTLY (MINOR 1): continue only if some binding was
+    // proved Hidden, none Unknown, AND none Visible. `saw_visible` is belt-and-suspenders
+    // — a Visible binding cannot leave the rib `Unresolved` today (it contributes a
+    // candidate or poisons), so this is always true in the Unresolved arm; gating on it
+    // future-proofs the predicate against any change to `resolve_rib`'s contribution logic.
+    fn all_known_hidden(&self) -> bool {
+        matches!(self, MemberProbe::Rib { saw_hidden: true, saw_unknown: false, saw_visible: false })
+    }
 }
 ```
 
@@ -149,7 +159,7 @@ replaced by the tri-state, accumulating flags:
 
 ```rust
 match policy.member_visible(b, q, &trav) {
-    VisibilityDecision::Visible => { /* fall through to the existing target match */ }
+    VisibilityDecision::Visible => { saw_visible = true; /* fall through to the existing target match */ }
     VisibilityDecision::Hidden  => { saw_hidden  = true; continue; }
     VisibilityDecision::Unknown => { saw_unknown = true; continue; }
 }
@@ -157,8 +167,10 @@ match policy.member_visible(b, q, &trav) {
 
 Callers pass a non-empty rib, so it always returns `MemberProbe::Rib { .. }` (early `return
 poisoned()` paths — cycle / unresolved Pending — return `(poisoned(), Rib{ .. })`; the probe is
-ignored on a `Poisoned` result). Keep **`resolve_rib(...) -> Resolution`** as a thin wrapper
-(`resolve_rib_probed(...).0`) for the existing direct-rib callers (`resolve_bare:215` and any others).
+ignored on a `Poisoned` result). A `debug_assert!(!(saw_visible && res.status == Unresolved))`
+encodes the cardinal-rule invariant directly (a visible binding cannot leave the rib unresolved).
+Keep **`resolve_rib(...) -> Resolution`** as a thin wrapper (`resolve_rib_probed(...).0`) for the
+existing direct-rib callers (`resolve_bare:215` and any others).
 
 ### 3.3 `scope_member_lookup_probed` returns the probe
 
@@ -228,9 +240,11 @@ match policy.member_visible(b, q, &trav) {
 (`Hidden`→`continue` here deliberately does **not** set `saw_hidden_continue` — this arm already
 skipped invisible members, so it is not new recall and must not inflate the deferred-arm buy counters.)
 This is **soundness-monotonic** — it only *adds* poison (`Unknown`→poison, was continue); it can
-never mint a new edge, so the canary cannot regress. It can only *lose* recall in this arm. On Rust,
-glob re-exports populate as **pending** edges (`walk/items.rs:237`) → the deferred arm dominates and
-this arm is expected ~inert; acceptance measures it (§6). `member_undecidable` aggregates the
+never mint a new edge, so the **wrong-singleton canary cannot regress**. It **may reduce `kind_exact`
+recall**, though — an `Unknown` member that would later prove `Hidden` now poisons instead of letting
+a sibling resolve — which acceptance measures and surfaces (§6.2). On Rust, glob re-exports populate
+as **pending** edges (`walk/items.rs:237`) → the deferred arm dominates and this arm is expected
+~inert; acceptance measures it (§6). `member_undecidable` aggregates the
 undecidable-poison across both arms. (Hidden→continue here is pre-existing behavior — not new recall —
 so it is **not** counted as `member_hidden_continued` and does **not** feed the continue→outcome
 counters, which size the deferred-arm lever only.)
@@ -261,11 +275,15 @@ fn glob_lookup(graph, scope_id, q, policy, guard) -> GlobOutcome {
 Nesting is handled naturally — each `glob_lookup` invocation owns its own local (a depth-2 inner
 expansion is a separate invocation classified separately).
 
-**Honest caveat (documented in the spec + the counter doc-comment):** per-invocation `hit` is a
-**lower bound** on the true recall buy. A cross-scope fall-through (skip a hidden glob member at scope
-X, then resolve at an *outer* scope) registers as `_empty` here, then resolves outside this
-invocation. The dominant recovery — sibling globs in the *same* scope (`pub use ta::*; pub use
-tb::*;`) — is captured as `_hit`.
+**These are same-invocation OPPORTUNITY telemetry, NOT a bound on the final buy (MAJOR 2).** `_hit`
+means the invocation produced candidates after a hidden-continue — but `policy.combine`
+(`engine.rs:232`) may fold them to `ResolvedSet`/`Ambiguous` (no Exact edge), and a nested hit can be
+swallowed by an outer poison, so `_hit` can **overcount** Exact recovery; conversely a cross-scope
+fall-through (resolve at an *outer* scope) registers `_empty` here then resolves outside, so it can
+**undercount**. The **final buy is read from the `kind_exact` / `unresolved_unknown_name` deltas**
+(§6.2), never these counters. The counters answer "how often did continuing past a hidden member yield
+candidates in the same invocation" — the conservatism/opportunity signal, not the edge count; the
+counter doc-comments must say this explicitly.
 
 ## 4. Forward compatibility — deferring `pub(in)` restrict resolution does NOT corner us
 
@@ -274,18 +292,26 @@ The deferred work (a future recall slice) is populating `resolve_restrict`
 resolved `ScopeId`. **Proof the tri-state design is its forward-compatible consumption seam — no
 refactor of this slice:**
 
-1. When restrict resolution lands, `vis_reaches(VIS_PUB_IN, ..)` starts returning
-   `Some(is_within(restrict, from))` instead of `None` — **at the single site `rust_policy.rs:161`.**
-2. `member_visible` then maps those bindings `Unknown → Hidden / Visible` **automatically** — the hook
-   body, signature, and the `match` are unchanged.
+1. `vis_reaches(VIS_PUB_IN, ..)` reads `vis.restrict` and returns `Some(is_within(restrict, from))`
+   once that field is populated (`rust_policy.rs:161`). **The future work is broader than one site
+   (MAJOR 1):** the populator currently *drops* the parsed `vin` restrict path — `walk_use` does
+   `vis(vis_kind, None)` (`walk/items.rs:185,192`), structs (`walk/types.rs:37,48`), and the
+   enum/trait/assoc/value/type-alias walkers do the same — so the deferred slice must thread `vin`
+   through **every** `Vis` construction that discards it, *and* resolve it (the `resolve_restrict`
+   stub at `walk/mod.rs:271`).
+2. Crucially, that work lives **entirely in the populator / `Vis`-construction layer.** When it lands,
+   `member_visible` maps those bindings `Unknown → Hidden / Visible` **automatically** — the hook body,
+   signature, and `match` are unchanged.
 3. The `MemberProbe`, the engine arms (§3.4/§3.6), and the telemetry buckets are **unchanged**; only
    the *distribution* shifts (`member_undecidable` shrinks; `member_hidden_continued` / resolves grow).
 4. The hook already receives everything `vis_reaches` needs — `binding.vis` (incl. a future
    `restrict: Some(scope)`), `binding.scope`, `q.from`. The `restrict: Option<ScopeId>` field
    **already exists** in the `Vis` data model (`types.rs`); no data-model change.
 
-So restrict resolution is a **populator-only** change, orthogonal to this slice; the tri-state hook is
-exactly its extension point. The seam is correctly placed. **Non-goal for this slice:** resolving
+So restrict resolution is a **populator-layer** change (broader than a single site, but confined to
+`Vis` construction + `resolve_restrict`), orthogonal to this slice; the tri-state engine seam (hook,
+probe, arms, telemetry) is **exactly its unchanged extension point** — codex confirmed "the tri-state
+engine seam can remain unchanged." The seam is correctly placed. **Non-goal for this slice:** resolving
 `pub(in)` restrict paths.
 
 ## 5. Telemetry — clean replace + permanent counters
@@ -301,13 +327,18 @@ exactly its extension point. The seam is correctly placed. **Non-goal for this s
 - `member_hidden_continued` — rib claimed, member result `Unresolved`, all bindings known `Hidden`;
   continue. (The deferred-arm recovery event.)
 - `member_hidden_continue_hit` / `_empty` / `_poison` — the `glob_lookup` invocation that had a
-  hidden-continue ended Hit / Empty / Poison (§3.7; `_hit` is a lower bound on the buy).
+  hidden-continue ended Hit / Empty / Poison (§3.7 — **same-invocation opportunity telemetry, not a buy
+  bound**; the final buy is the `kind_exact` delta).
 
 `queries.rs:297-306` (`glob_expand` JSON): drop `"ambiguous"`, add the six keys. The
 reset-at-entry / snapshot-after-loop wiring (`queries.rs:157,269`) is unchanged.
 
 `record_ambiguous` has two call sites today (`engine.rs:446` multi, `:463` filtered) — both are
-replaced per §3.4. No remaining `ambiguous` references.
+replaced per §3.4. The clean replace must also update **every `ambiguous` assertion site (MINOR 2)**:
+the `glob_stats.rs` round-trip test, the `glob_expand` JSON key (`queries.rs:304`), the histogram-shape
+test at `tests/integration/resolution_test.rs:1774-1783`, and the `snap.ambiguous` asserts at
+`tests/name_resolution/glob_expand_test.rs:194,203,359` — each remapped to the split buckets. No
+remaining `ambiguous` references anywhere.
 
 ## 6. Tests & acceptance
 
@@ -334,6 +365,10 @@ replaced per §3.4. No remaining `ambiguous` references.
   scope has an `Unknown` (`pub(in)`-no-restrict) member → `Poison` (soundness completion, §3.6).
 - **Edge tri-state preserved:** `:288` (`glob_expand_pub_in_unknown_fails_closed`) stays green
   (`vis_unknown == 1`) — the slice does not touch edge handling beyond the enum rename.
+- **Remaining `ambiguous` asserts remapped (MINOR 2):** the plan updates each existing
+  `snap.ambiguous` / `"ambiguous"` assertion (`glob_expand_test.rs:194,203,359`; the
+  `resolution_test.rs:1774-1783` histogram shape) to the correct split bucket (`member_multi` for a
+  genuine multi-defined member; `member_undecidable` for a filtered-rib poison) as a per-test TDD step.
 
 ### 6.2 Acceptance metrics
 
@@ -386,20 +421,23 @@ direct bare-name/path claimed-rib semantics; touching `resolve_rib`'s Pending-ch
 behavior. Non-Rust policies keep the conservative `Unknown` default (no per-language member-visibility
 work in this slice).
 
-## 9. Open questions for codex spec-review
+## 9. Open questions — RESOLVED by codex spec-review (rev 2, 2026-06-22)
 
-Owner-decided (folded, not open): scope = tri-state only (§4); permanent counters (§5); clean replace
-(§5). Remaining for review:
+The codex xhigh spec-review (`/tmp/member-vis-tristate-spec-review-out.md`) found **no BLOCKER** and
+confirmed the cardinal soundness rule (§2) and architecture. Verdict REVISE → 5 findings folded into
+this rev (2 MAJOR claim-accuracy, 3 MINOR completeness/defensive — none changed the design). The four
+questions are resolved:
 
-1. **Shared enum vs second type:** §3.1 renames `GlobEdgeVis → VisibilityDecision`. Acceptable, or
-   prefer a parallel `MemberVis` to minimize churn to #126's shipped enum? (Recommend shared — same
-   semantics, prevents drift.)
-2. **Already-resolved arm in this slice (§3.6):** include the `Unknown`→poison soundness completion
-   here (representation-independent invariant, soundness-monotonic, expected inert on Rust), or split
-   it to its own slice? (Recommend include.)
-3. **Continue→outcome scoping (§3.7):** per-`glob_lookup`-invocation `hit` as a documented lower-bound
-   proxy for the buy — sufficient, or is a true per-top-level-resolve outcome flag warranted despite
-   the cross-frame plumbing?
-4. **`member_multi` granularity:** is folding `Resolved`-multi / `ResolvedSet` / `Ambiguous` member
-   results into one `member_multi` bucket the right resolution, or should `Ambiguous` (genuine
-   conflict) be split from `ResolvedSet` (legit multi)?
+1. **Shared enum:** use `VisibilityDecision` (codex concurs — same semantics, less drift). ✓ §3.1.
+2. **Already-resolved arm:** include now — it is the same Unknown-skip hole in another representation
+   (codex concurs). ✓ §3.6.
+3. **Continue→outcome scoping:** keep the per-invocation counters as **opportunity telemetry only**,
+   not a buy bound (codex MAJOR 2); the buy is the `kind_exact` delta. ✓ §3.7/§5.
+4. **`member_multi` granularity:** keep **one** `member_multi` bucket. Splitting `ResolvedSet` from
+   `Ambiguous` only matters if member-multi drives the next recall slice — it does not (the next lever
+   is `member_undecidable` / `pub(in)` restrict), and one bucket is sound (codex). ✓ §5.
+
+**Folded findings:** MAJOR 1 (§4 future-work scope — thread `vin` through all `Vis` constructions, not
+one site; engine seam unchanged); MAJOR 2 (§3.7/§5 counters = opportunity telemetry, buy = `kind_exact`);
+MINOR 1 (§3.2 `saw_visible` encodes the cardinal rule directly); MINOR 2 (§5/§6 enumerate all
+`ambiguous` assertion sites); MINOR 3 (§3.6 separate canary-safety from recall cost).
