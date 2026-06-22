@@ -1,4 +1,3 @@
 [package]
 name = "nav-scoped-rust"
 edition = "2021"
-
