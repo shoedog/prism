@@ -396,14 +396,16 @@ fn parse_rust_crate_config(
             editions_seen.insert(edition);
         }
 
-        if let Some(members) = value
-            .get("workspace")
-            .and_then(|w| w.get("members"))
-            .and_then(|m| m.as_array())
-        {
-            for member in members.iter().filter_map(|m| m.as_str()) {
-                workspace_members.insert(join_manifest_rel(manifest_dir, member));
-            }
+        // Every `[package]` manifest's dir IS a concrete workspace-member dir. Record
+        // those (NOT the `[workspace].members` patterns) so the member-dir derivations
+        // that prefix-match `workspace_members` (`lib_root_member_dir`,
+        // `crate_name_for_root`) work on GLOB workspaces like ruff
+        // (`members = ["crates/*"]`), where a raw `crates/*` pattern never prefix-matches
+        // a concrete root path (`crates/ruff_db/src/lib.rs`). prism has already walked
+        // every member's `Cargo.toml` into `manifest_hashes`, so their dirs ARE the
+        // expanded member set; the declared patterns are redundant for this purpose.
+        if value.get("package").is_some() && !manifest_dir.is_empty() {
+            workspace_members.insert(manifest_dir.to_string());
         }
 
         if let Some(path) = value
@@ -996,6 +998,61 @@ mod tests {
                 .map(String::as_str),
             Some("b"),
             "a path dep on ../b must record (a -> b_crate -> b)"
+        );
+    }
+
+    #[test]
+    fn glob_workspace_members_expand_to_concrete_dirs() {
+        // A GLOB workspace (`members = ["crates/*"]`, like ruff). `workspace_members`
+        // must hold the CONCRETE member dirs prism parsed (`crates/a`, `crates/b`),
+        // NOT the raw `crates/*` pattern — otherwise `lib_root_member_dir`'s prefix
+        // match never hits a real root and `crate_deps_by_root` ends up empty (the
+        // ruff +0 bug). The per-member dep capture must also work on this layout.
+        let dir = tempfile::tempdir().unwrap();
+        let p = dir.path();
+        std::fs::create_dir_all(p.join("crates/a/src")).unwrap();
+        std::fs::create_dir_all(p.join("crates/b/src")).unwrap();
+        std::fs::write(
+            p.join("Cargo.toml"),
+            "[workspace]\nmembers = [\"crates/*\"]\n[workspace.package]\nedition = \"2021\"\n",
+        )
+        .unwrap();
+        std::fs::write(
+            p.join("crates/a/Cargo.toml"),
+            "[package]\nname = \"a\"\nedition = \"2021\"\n[dependencies]\nb = { path = \"../b\" }\n",
+        )
+        .unwrap();
+        std::fs::write(
+            p.join("crates/b/Cargo.toml"),
+            "[package]\nname = \"b\"\nedition = \"2021\"\n",
+        )
+        .unwrap();
+        std::fs::write(p.join("crates/a/src/lib.rs"), "pub fn a() {}\n").unwrap();
+        std::fs::write(p.join("crates/b/src/lib.rs"), "pub fn b() {}\n").unwrap();
+        let repo = load_repo(p).unwrap();
+        let inputs = repo.scope_graph_inputs.expect("scope graph inputs");
+        // CONCRETE member dirs, never the glob pattern.
+        assert!(
+            inputs.cfg.workspace_members.contains(&"crates/a".to_string())
+                && inputs.cfg.workspace_members.contains(&"crates/b".to_string()),
+            "glob members must expand to concrete dirs; got {:?}",
+            inputs.cfg.workspace_members
+        );
+        assert!(
+            !inputs.cfg.workspace_members.iter().any(|m| m.contains('*')),
+            "no raw glob pattern may remain in workspace_members; got {:?}",
+            inputs.cfg.workspace_members
+        );
+        // And the dep capture works on the glob layout (a -> b via ../b).
+        assert_eq!(
+            inputs
+                .cfg
+                .member_in_repo_deps
+                .get("crates/a")
+                .and_then(|m| m.get("b"))
+                .map(String::as_str),
+            Some("crates/b"),
+            "a's path dep on ../b must record (crates/a -> b -> crates/b)"
         );
     }
 
