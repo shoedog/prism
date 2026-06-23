@@ -588,6 +588,22 @@ pub trait ResolutionPolicy {
         VisibilityDecision::Visible
     }
 
+    /// Classify a member binding's visibility from the query vantage as a tri-state.
+    /// Mirrors `glob_edge_visible` at the member level: `Hidden` = proved not-visible
+    /// (a glob soundly does not re-export it → safe to continue past); `Unknown` =
+    /// undecidable (must fail closed → poison); `Visible` = contributes.
+    ///
+    /// Default is intentionally conservative: a policy that only knows boolean
+    /// `visible == false` returns `Unknown`, so glob expansion keeps poisoning rather
+    /// than silently skipping a member it cannot prove hidden.
+    fn member_visible(&self, binding: &Binding, q: &ResolveQuery, trav: &TraversalCtx) -> VisibilityDecision {
+        if self.visible(binding, q, trav) {
+            VisibilityDecision::Visible
+        } else {
+            VisibilityDecision::Unknown
+        }
+    }
+
     /// Map a path anchor (`crate::`, `self::`, `super::`, bare ident, `::`) to
     /// the starting `ScopeId` + initial `NamespaceId` for the walk.
     ///
