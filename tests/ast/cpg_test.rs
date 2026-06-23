@@ -1,5 +1,6 @@
 use crate::common::*;
 use petgraph::visit::EdgeRef;
+use prism::cfg;
 use prism::cpg::{CodePropertyGraph, CpgContext, CpgEdge, CpgNode};
 use prism::resolution::ResolutionConfidence;
 
@@ -30,6 +31,19 @@ fn exact_callee_names(ctx: &CpgContext, caller: &str) -> Vec<String> {
         }
     }
     out
+}
+
+fn control_flow_pairs(cpg: &CodePropertyGraph) -> Vec<(usize, usize)> {
+    cpg.graph
+        .edge_references()
+        .filter(|edge| matches!(edge.weight(), CpgEdge::ControlFlow))
+        .map(|edge| (edge.source().index(), edge.target().index()))
+        .collect()
+}
+
+fn python_cfg_edge_count(source: &str) -> usize {
+    let parsed = ParsedFile::parse("test.py", source, Language::Python).unwrap();
+    cfg::build_cfg_edges(&parsed).len()
 }
 
 fn cpg_enclosing_function_name(
@@ -69,6 +83,27 @@ fn cpg_enclosing_function_name(
             _ => None,
         }),
     }
+}
+
+#[test]
+fn decorated_python_control_flow_edges_are_unique_and_match_plain_function() {
+    let undecorated = "def f():\n    x = 1\n    y = x\n    return y\n";
+    let decorated = "@deco\ndef f():\n    x = 1\n    y = x\n    return y\n";
+
+    let cpg = build_cpg("test.py", decorated, Language::Python);
+    let raw_pairs = control_flow_pairs(&cpg);
+    let unique_pairs: BTreeSet<_> = raw_pairs.iter().copied().collect();
+
+    assert_eq!(
+        raw_pairs.len(),
+        unique_pairs.len(),
+        "decorated function must not emit duplicate parallel ControlFlow edges"
+    );
+    assert_eq!(
+        python_cfg_edge_count(decorated),
+        python_cfg_edge_count(undecorated),
+        "decorated and undecorated functions should produce the same CFG edge count"
+    );
 }
 
 fn dataflow_callee_funcs(ctx: &CpgContext, caller: &str) -> BTreeSet<String> {
