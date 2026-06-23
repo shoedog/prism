@@ -2878,7 +2878,6 @@ fn collect_identifiers_from_pattern(
     }
 }
 
-
 /// Mark import-binding eligibility: wildcard in file poisons all; re-bound name
 /// (any non-Import module binding with the same local name) makes that binding
 /// ineligible. Duplicate import bindings for the same local name also make both
