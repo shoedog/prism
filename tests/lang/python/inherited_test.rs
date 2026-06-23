@@ -562,3 +562,84 @@ class Child(Base):
         "for-loop header rebinding must poison base to Barrier"
     );
 }
+
+// -----------------------------------------------------------------------
+// 21. wildcard import in else clause poisons base name
+// -----------------------------------------------------------------------
+#[test]
+fn test_inherited_wildcard_in_else_clause() {
+    let src = "\
+if False:
+    pass
+else:
+    from ext import *
+
+class Base:
+    def method(self):
+        return 1
+
+class Child(Base):
+    def run(self):
+        return self.method()
+";
+    let cg = CallGraph::build(&files(&[("svc.py", src)]));
+    let out = resolve_self_call(&cg, "svc.py", "run", "method");
+    assert!(
+        out.resolved.is_empty(),
+        "wildcard import inside else clause must poison to Barrier"
+    );
+}
+
+// -----------------------------------------------------------------------
+// 22. rebinding in except clause poisons base name
+// -----------------------------------------------------------------------
+#[test]
+fn test_inherited_rebinding_in_except_clause() {
+    let src = "\
+class Base:
+    def method(self):
+        return 1
+
+try:
+    pass
+except:
+    Base = something
+
+class Child(Base):
+    def run(self):
+        return self.method()
+";
+    let cg = CallGraph::build(&files(&[("svc.py", src)]));
+    let out = resolve_self_call(&cg, "svc.py", "run", "method");
+    assert!(
+        out.resolved.is_empty(),
+        "rebinding in except clause must poison base to Barrier"
+    );
+}
+
+// -----------------------------------------------------------------------
+// 23. rebinding in finally clause poisons base name
+// -----------------------------------------------------------------------
+#[test]
+fn test_inherited_rebinding_in_finally_clause() {
+    let src = "\
+class Base:
+    def method(self):
+        return 1
+
+try:
+    pass
+finally:
+    Base = ext.Base
+
+class Child(Base):
+    def run(self):
+        return self.method()
+";
+    let cg = CallGraph::build(&files(&[("svc.py", src)]));
+    let out = resolve_self_call(&cg, "svc.py", "run", "method");
+    assert!(
+        out.resolved.is_empty(),
+        "rebinding in finally clause must poison base to Barrier"
+    );
+}

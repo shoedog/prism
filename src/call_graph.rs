@@ -1367,6 +1367,12 @@ impl CallGraph {
             if is_wildcard_import(child) {
                 return true;
             }
+            // Clause nodes (else_clause, except_clause, …) wrap their
+            // statements in a `block` child — recurse transparently so the
+            // actual statements are reached.
+            if child.kind() == "block" {
+                return check_block(child);
+            }
             // Module-scope compound statements: their block bodies are still
             // module scope in Python, so wildcard imports inside them count.
             if matches!(
@@ -1598,6 +1604,11 @@ impl CallGraph {
                             }
                         }
                     }
+                }
+                // Clause nodes (else_clause, except_clause, …) wrap
+                // statements in a `block` child — recurse transparently.
+                "block" => {
+                    count_bindings_in_block(child, source, lang, counts);
                 }
                 _ => {}
             }
