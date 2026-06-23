@@ -116,3 +116,76 @@ fn ego_graph_does_not_emit_collision_warning_when_call_edges_not_collected() {
         .iter()
         .any(|w| matches!(w.kind, WarningKind::Collision)));
 }
+
+#[test]
+fn callers_finds_aliased_import_call_site() {
+    // `from util import tick as t; t()` — call-site name is "t", function is "tick".
+    let s = session(&[
+        ("util.py", "def tick():\n    pass\n"),
+        (
+            "app.py",
+            "from util import tick as t\n\ndef run():\n    t()\n",
+        ),
+    ]);
+    let ev = queries::callers(&s, Some("tick"), Some("util.py"), None, 1).unwrap();
+    assert!(
+        ev.items.iter().any(|i| matches!(&i.symbol,
+            Some(SymbolRef::Function { name, file, .. }) if name == "run" && file == "app.py")),
+        "callers of tick must include the aliased `t()` call in app.py::run; got {:?}",
+        ev.items
+    );
+}
+
+#[test]
+fn callers_alias_resolves_correct_target_not_same_named_other() {
+    // Two modules define `tick`; app aliases ONLY util.tick.
+    let s = session(&[
+        ("util.py", "def tick():\n    pass\n"),
+        ("other.py", "def tick():\n    pass\n"),
+        (
+            "app.py",
+            "from util import tick as t\n\ndef run():\n    t()\n",
+        ),
+    ]);
+    // Positive: the alias arm surfaces the `t()` site and it resolves to util.tick.
+    let util_ev = queries::callers(&s, Some("tick"), Some("util.py"), None, 1).unwrap();
+    assert!(
+        util_ev.items.iter().any(|i| matches!(&i.symbol,
+            Some(SymbolRef::Function { name, file, .. }) if name == "run" && file == "app.py")),
+        "callers of util.tick must include aliased `t()` in app.py::run; got {:?}",
+        util_ev.items
+    );
+    // Negative: identity backstop — the SAME candidate must NOT attach to other.tick.
+    let other_ev = queries::callers(&s, Some("tick"), Some("other.py"), None, 1).unwrap();
+    assert!(
+        !other_ev.items.iter().any(|i| matches!(&i.symbol,
+            Some(SymbolRef::Function { name, .. }) if name == "run")),
+        "alias to util.tick must NOT register as a caller of other.tick; got {:?}",
+        other_ev.items
+    );
+}
+
+#[test]
+fn callers_alias_arm_excludes_qualified_method_sites() {
+    // `poll` is a method on two classes (multi-owner) AND the alias target name.
+    // The qualified `x.poll()` site lives under callers key "poll"; the alias arm
+    // keys off a binding whose member == "poll", but must skip qualified sites so it
+    // does not feed `x.poll()` into the (non-identity-filtered) collision counter.
+    let s = session(&[
+        ("util.py", "def poll():\n    pass\n"),
+        ("a.py", "class A:\n    def poll(self):\n        return 1\n"),
+        ("b.py", "class B:\n    def poll(self):\n        return 2\n"),
+        (
+            "app.py",
+            "from util import poll as p\n\ndef run(x):\n    p()\n    return x.poll()\n",
+        ),
+    ]);
+    // alias `p()` resolves to util.poll (free fn) — surfaced as a caller.
+    let ev = queries::callers(&s, Some("poll"), Some("util.py"), None, 1).unwrap();
+    assert!(
+        ev.items.iter().any(|i| matches!(&i.symbol,
+            Some(SymbolRef::Function { name, file, .. }) if name == "run" && file == "app.py")),
+        "alias p() should be a caller of util.poll; got {:?}",
+        ev.items
+    );
+}

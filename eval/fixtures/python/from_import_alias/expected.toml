@@ -1,7 +1,7 @@
 [case]
 language = "python"
 capability = "from_import_alias"
-status = "known_fail"
+status = "pass"
 [seed]
 symbol = "tick"
 file = "util.py"

@@ -48,5 +48,33 @@ pub fn scoped_caller_sites<'a>(cg: &'a CallGraph, target_name: &str) -> Vec<&'a 
             out.extend(sites.iter());
         }
     }
+    // Aliased imports: `from m import f as g; g()` has callee_name "g" (the local),
+    // so the site lives under callers key "g", not target_name ("f"). Gather those
+    // sites by consulting eligible member-import bindings whose member == target_name.
+    // direct_callers re-resolves each site and keeps it only if it actually reaches
+    // THIS target (full FunctionId identity), so a same-named alias to a different
+    // module is filtered out — this arm only widens the candidate set.
+    //
+    // qualifier.is_none(): R4c only resolves UNQUALIFIED calls, and the shared
+    // `collision_dropped_sites` consumer counts collisions WITHOUT an identity
+    // filter — so a qualified `x.g()` site under key "g" must not be pulled in here
+    // (it can't resolve via R4c anyway, and would otherwise be miscounted).
+    for (file, bindings) in &cg.import_bindings {
+        for b in bindings {
+            if b.eligible
+                && matches!(b.kind, crate::call_graph::ImportBindingKind::MemberImport)
+                && b.local != target_name
+                && b.member.as_deref() == Some(target_name)
+            {
+                if let Some(sites) = cg.callers.get(&b.local) {
+                    out.extend(
+                        sites
+                            .iter()
+                            .filter(|s| s.caller.file == *file && s.qualifier.is_none()),
+                    );
+                }
+            }
+        }
+    }
     out
 }
