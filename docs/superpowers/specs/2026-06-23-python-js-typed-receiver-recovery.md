@@ -1,4 +1,4 @@
-# Python/JS Typed-Receiver Recovery — Design (2026-06-23, rev 2)
+# Python/JS Typed-Receiver Recovery — Design (2026-06-23, rev 3)
 
 > Slice 2 of the Python/JS resolution-maturity loop (after 1a #131 + decorated #132). Basis: codex
 > architect memo + spec-review. Branch `slice2-typed-receivers` off merged main.
@@ -10,6 +10,13 @@
 > before residue — the plan must explicitly "not return on Python/JS miss" (§3.2); JS `x = Foo()` is a
 > factory not a constructor → JS/TS use **`new_expression`** only, `Foo()`-constructor stays Python-only
 > (§3.1). (NIT) gate is `src/ast.rs:424`.
+>
+> **Rev 3 — codex spec re-review fold (REWORK):** (BLOCKER) Python `from X import *` wildcard imports are
+> NOT in the imports map → the §3.3 type-name guard missed them (singleton false-Exact still constructible)
+> → added a **wildcard sentinel** that skips recovery for any non-same-file-local type when a wildcard is
+> present (§3.2.1, §3.3) + a wildcard test (§7). (MINOR) §3.2.2 clarified: `owner_lookup` miss conflates
+> known-local-lacks-method and no-owner-key — both fall through. Verdicts 1,3,4,5 were TRUE
+> (triage / R6-no-return / JS-`new` / Rust-Go byte-id all sound).
 
 ## 1. Problem
 `x.method()` where `x`'s static type is syntactically recoverable (typed param `def f(x: Foo)` / TS
@@ -37,14 +44,17 @@ Open the gates for `Python|JavaScript|TypeScript|Tsx` and recover, reusing the o
 
 ### 3.2 Triage (BLOCKER-1 fix — the miss-behavior, replaces the old contradiction)
 After recovery, peel + owner-key the type to `T`, then:
-1. **`T` is import-bound** (its name is in the file `imports` map) → **do NOT recover** (skip; leave
-   `receiver_type` unset). The call proceeds through normal R6 residue exactly as today. (Imported types
-   are external or cross-module — resolving them is slice 3/4; recovering them risks the §3.3 false-Exact.)
-2. **`T` is a local (non-imported) owner key**, `owner_lookup(T, name)`:
+1. **`T` is import-bound OR shadowable by a wildcard** (its name is in the file `imports` map, OR — rev-3
+   BLOCKER fix — the file has a Python `from X import *` wildcard AND `T` is **not** a class defined in the
+   same file) → **do NOT recover** (skip; leave `receiver_type` unset) → normal R6 residue as today.
+   (Imported/wildcard-sourced types are external or cross-module — slice 3/4; recovering them risks the
+   §3.3 false-Exact.)
+2. **`T` survives the guards**, `owner_lookup(T, name)`:
    - **hit** → relabel `TypedParam`/`ConstructorLocal` Exact (the buy).
-   - **miss** (local class lacks the method — inherited/absent) → for `Python|JS|TS|Tsx`, **fall through to
-     the R6 residue** (do **NOT** `return dropped(ExternalReceiver)`). **Rust/Go keep drop-on-miss
-     (byte-identical).**
+   - **miss** — `owner_lookup` returns None, which conflates *known-local-owner-lacks-method* AND
+     *no-owner-key-for-`T`* (the resolver has no separate "known local owner" index); **both** → for
+     `Python|JS|TS|Tsx` **fall through to the R6 residue** (do **NOT** `return dropped(ExternalReceiver)`).
+     **Rust/Go keep drop-on-miss (byte-identical).**
 
 **Implementation note (MAJOR fix):** the R6 recovered-receiver block currently early-`return`s on miss
 (`src/resolution.rs:~1117`/`~1162`). The plan MUST restructure so a Python/JS/TS miss does **not** return —
@@ -54,8 +64,11 @@ Rust/Go.
 ### 3.3 External-collision guard (BLOCKER-2 fix)
 The skip-on-import check must be on the **recovered type name `T`**, NOT the receiver qualifier `q` (the
 existing `recover_simple_ident` checks `q` against imports — wrong for `def f(x: Foo)` where `x`≠import but
-`Foo`=import). Add a **post-recovery** guard: if the peeled type name is in the file `imports` map → skip
-(triage §3.2.1). Residual (accepted, documented + tested): a type defined locally that *shadows* an
+`Foo`=import). Add a **post-recovery** guard: skip recovery if the peeled type name is in the file `imports` map
+(triage §3.2.1). **Rev-3 BLOCKER fix — wildcard:** Python `from X import *` does NOT add the exported
+names to the imports map, so the import check alone misses it. Record a per-file **wildcard sentinel**
+(detect the `wildcard_import` child of `import_from_statement`); when present, skip recovery for any type
+name **not proven to be a same-file class definition** (a wildcard cannot shadow a same-file `class T`). Residual (accepted, documented + tested): a type defined locally that *shadows* an
 external of the same name; and over-skip of in-repo *imported* types (recall cost — quantified by
 telemetry). This is the sound first-merge floor.
 
@@ -91,6 +104,8 @@ CommonJS/prototype/factory typing, chained-receiver, span-keyed typed identity.
   canary `multi_target_exact_sites` byte-flat.
 - **Singleton false-Exact test (MAJOR):** `def f(x: Foo): x.m()` with `Foo` IMPORTED externally + a single
   in-repo `class Foo` with `m` → must **NOT** Exact-bind to the in-repo `Foo.m` (skipped via §3.3).
+- **Wildcard false-Exact test (rev-3):** `from ext import *` + `def f(x: Foo): x.m()` + a single in-repo
+  `class Foo` (in ANOTHER file) → must **NOT** Exact-bind (wildcard sentinel skips; `Foo` is not same-file).
 - **Triage tests:** local typed-param hit → Exact; local-miss → residue (not dropped); imported type →
   skipped (residue); shadow-bail; `new Foo()` JS hit; bare `Foo()` in JS → NOT recovered.
 - **Rust (ripgrep) + Go (caddy)** call-stats **byte-identical**. Express/JS guard flat. Tier-A
