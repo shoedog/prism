@@ -372,6 +372,7 @@ fn extract_preconditions(
     func_start: usize,
     func_end: usize,
 ) -> Vec<Precondition> {
+    let func_node = unwrap_decorated_function(parsed, *func_node);
     let func_len = func_end.saturating_sub(func_start);
     let guard_zone_end = func_start + (func_len * 30 / 100).max(5);
 
@@ -1076,6 +1077,7 @@ fn extract_postconditions(parsed: &ParsedFile, func_node: &Node<'_>) -> Vec<Post
 
 /// Check if a function body contains raise/throw statements (not inside nested functions).
 fn body_has_throw_or_raise(parsed: &ParsedFile, func_node: &Node<'_>) -> bool {
+    let func_node = unwrap_decorated_function(parsed, *func_node);
     fn walk_for_throws(parsed: &ParsedFile, node: Node<'_>, func_node: &Node<'_>) -> bool {
         let kind = node.kind();
         if matches!(kind, "raise_statement" | "throw_statement") {
@@ -1095,7 +1097,19 @@ fn body_has_throw_or_raise(parsed: &ParsedFile, func_node: &Node<'_>) -> bool {
         }
         false
     }
-    walk_for_throws(parsed, *func_node, func_node)
+    walk_for_throws(parsed, func_node, &func_node)
+}
+
+fn unwrap_decorated_function<'a>(parsed: &ParsedFile, node: Node<'a>) -> Node<'a> {
+    if parsed.language == Language::Python && node.kind() == "decorated_definition" {
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            if child.kind() == "function_definition" {
+                return child;
+            }
+        }
+    }
+    node
 }
 
 // ---------------------------------------------------------------------------
@@ -1613,4 +1627,51 @@ fn is_postcondition_weakened(old_kind: &str, new_kind: &str) -> bool {
             | ("consistent-type", "always-non-null")
             | ("go-result-pair", "mixed")
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn descendant_of_kind<'a>(node: Node<'a>, kind: &str) -> Option<Node<'a>> {
+        if node.kind() == kind {
+            return Some(node);
+        }
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            if let Some(found) = descendant_of_kind(child, kind) {
+                return Some(found);
+            }
+        }
+        None
+    }
+
+    #[test]
+    fn decorated_function_contracts_use_inner_body() {
+        let parsed = ParsedFile::parse(
+            "a.py",
+            "@deco\ndef f(x):\n    if x is None:\n        raise ValueError('x')\n    return 1\n",
+            Language::Python,
+        )
+        .unwrap();
+        let deco =
+            descendant_of_kind(parsed.tree.root_node(), "decorated_definition").expect("deco node");
+
+        let preconditions = extract_preconditions(&parsed, &deco, 1, 5);
+        assert!(
+            preconditions
+                .iter()
+                .any(|pre| pre.variable == "x" && pre.guard_line == 3),
+            "decorated wrapper should expose guard preconditions"
+        );
+
+        let postconditions = extract_postconditions(&parsed, &deco);
+        assert!(
+            postconditions.iter().any(|post| {
+                matches!(post.kind, PostconditionKind::NonNullOrThrows)
+                    && post.return_lines == vec![5]
+            }),
+            "decorated wrapper should expose return postconditions"
+        );
+    }
 }

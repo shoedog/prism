@@ -280,6 +280,18 @@ impl ParsedFile {
         self.all_functions_inner().0
     }
 
+    fn unwrap_decorated<'a>(&self, node: Node<'a>) -> Node<'a> {
+        if self.language == Language::Python && node.kind() == "decorated_definition" {
+            let mut cursor = node.walk();
+            for child in node.children(&mut cursor) {
+                if child.kind() == "function_definition" {
+                    return child;
+                }
+            }
+        }
+        node
+    }
+
     pub(crate) fn all_functions_inner(&self) -> (Vec<Node<'_>>, bool) {
         let mut out = Vec::with_capacity(self.functions.len());
         for info in &self.functions {
@@ -2605,6 +2617,7 @@ impl ParsedFile {
     }
 
     fn function_body_node<'a>(&self, func_node: &Node<'a>) -> Option<Node<'a>> {
+        let func_node = self.unwrap_decorated(*func_node);
         func_node
             .child_by_field_name("body")
             .or_else(|| func_node.child_by_field_name("consequence"))
@@ -2826,12 +2839,13 @@ impl ParsedFile {
     /// expression text and node kind. Also detects Rust trailing expressions
     /// (last expression in a block without semicolon).
     pub fn return_value_nodes(&self, func_node: &Node<'_>) -> Vec<ReturnInfo> {
+        let func_node = self.unwrap_decorated(*func_node);
         let mut returns = Vec::new();
-        self.collect_return_infos(*func_node, func_node, &mut returns);
+        self.collect_return_infos(func_node, &func_node, &mut returns);
 
         // For Rust: check for trailing expressions (last expr in block without `;`)
         if self.language == Language::Rust {
-            self.collect_trailing_returns(func_node, &mut returns);
+            self.collect_trailing_returns(&func_node, &mut returns);
         }
 
         returns
@@ -3095,6 +3109,7 @@ impl ParsedFile {
     /// the function body and top-level children of compound statements are included
     /// — nested expressions within a statement are not separate CFG nodes.
     pub fn statements_in_function(&self, func_node: &Node<'_>) -> Vec<(usize, String)> {
+        let func_node = self.unwrap_decorated(*func_node);
         let mut stmts = Vec::new();
         // Find the function body (compound_statement, block, etc.)
         let body = func_node
@@ -3110,8 +3125,9 @@ impl ParsedFile {
 
     /// Byte-bearing sibling of `statements_in_function`.
     pub fn statement_spans_in_function(&self, func_node: &Node<'_>) -> Vec<StatementSpan> {
+        let func_node = self.unwrap_decorated(*func_node);
         let mut stmts = Vec::new();
-        if let Some(body_node) = self.function_body_node(func_node) {
+        if let Some(body_node) = self.function_body_node(&func_node) {
             self.collect_statement_spans(body_node, &mut stmts);
         }
         stmts.sort_by_key(|stmt| stmt.line);
@@ -3920,6 +3936,7 @@ impl ParsedFile {
     /// Find the parameters node within a function definition.
     /// Handles the C/C++ declarator chain (function_definition → declarator → function_declarator → parameters).
     fn find_parameters_node<'a>(&self, node: &Node<'a>) -> Option<Node<'a>> {
+        let node = self.unwrap_decorated(*node);
         // Direct "parameters" field (Go, Rust, Python, JS/TS, Java, Lua)
         if let Some(params) = node.child_by_field_name("parameters") {
             return Some(params);
@@ -4979,6 +4996,19 @@ mod tests {
         names.iter().map(|s| s.to_string()).collect()
     }
 
+    fn descendant_of_kind<'a>(node: Node<'a>, kind: &str) -> Option<Node<'a>> {
+        if node.kind() == kind {
+            return Some(node);
+        }
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            if let Some(found) = descendant_of_kind(child, kind) {
+                return Some(found);
+            }
+        }
+        None
+    }
+
     #[test]
     fn parsed_file_is_send_and_sync() {
         fn assert_send_sync<T: Send + Sync>() {}
@@ -4991,6 +5021,24 @@ mod tests {
         // gate C2 — if only this one fails, that field is investigated separately.
         fn assert_send_sync<T: Send + Sync>() {}
         assert_send_sync::<crate::repo_loader::LoadedRepo>();
+    }
+
+    #[test]
+    fn decorated_function_field_readers_unwrap() {
+        let p = ParsedFile::parse(
+            "a.py",
+            "@deco\ndef f(x, y):\n    z = x\n    return z\n",
+            Language::Python,
+        )
+        .unwrap();
+        let deco =
+            descendant_of_kind(p.tree.root_node(), "decorated_definition").expect("deco node");
+
+        assert!(p.find_parameters_node(&deco).is_some());
+        assert!(p.function_body_node(&deco).is_some());
+        assert!(!p.statements_in_function(&deco).is_empty());
+        assert!(!p.statement_spans_in_function(&deco).is_empty());
+        assert!(!p.return_value_nodes(&deco).is_empty());
     }
 
     fn all_call_sites(pf: &ParsedFile) -> Vec<(usize, String)> {
