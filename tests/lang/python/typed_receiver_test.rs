@@ -302,10 +302,11 @@ def run():
     );
 }
 
-/// When a comprehension `for x in ...` binds a name that collides with a class,
-/// the local binding should suppress R3b owner-key resolution.
+/// Python 3 comprehensions have their own scope — a `for` target inside a
+/// comprehension does NOT rebind the name in the enclosing function scope.
+/// `[x for Foo in items]; Foo.m()` should still resolve `Foo` as a class.
 #[test]
-fn test_python_comprehension_binding_suppresses_r3b_owner() {
+fn test_python_comprehension_scope_does_not_suppress_enclosing() {
     let cg = graph(&[(
         "svc.py",
         "\
@@ -313,21 +314,21 @@ class Foo:
     def m(self):
         pass
 def run(items):
-    return [Foo.m() for Foo in items]
+    _ = [x for Foo in items]
+    Foo.m()
 ",
     )]);
     let s = site(&cg, "run", "m");
-    assert_eq!(s.receiver_type, None);
+    // The comprehension binding is scoped — it should NOT materialize in run().
     assert!(
-        s.receiver_materialized,
-        "comprehension binding should materialize"
+        !s.receiver_materialized,
+        "comprehension binding should NOT materialize in enclosing scope"
     );
-    let out = cg.resolve_call_site_full(&s);
+    let out = cg.resolve_call_site(&s);
     assert!(
-        out.resolved.iter().all(|c| {
-            c.kind != ResolutionKind::QualifierOwner || c.confidence != ResolutionConfidence::Exact
-        }),
-        "R3b should be suppressed by comprehension binding"
+        out.iter()
+            .any(|c| c.confidence == ResolutionConfidence::Exact),
+        "Foo.m() should still resolve after comprehension (comprehension has own scope)"
     );
 }
 
@@ -381,4 +382,95 @@ def run(x: Svc):
     assert_eq!(r.len(), 1);
     assert_eq!(r[0].confidence, ResolutionConfidence::Exact);
     assert_eq!(r[0].kind, ResolutionKind::TypedParam);
+}
+
+// ─── Slice 2c review-fix: comprehension scope + params + augmented + as_pattern ─
+
+/// Untyped parameter `def run(Foo):` shadows the class `Foo` — `Foo.m()` should
+/// be suppressed (the local param binding poisons the receiver).
+#[test]
+fn test_python_untyped_param_suppresses_r3b_owner() {
+    let cg = graph(&[(
+        "svc.py",
+        "\
+class Foo:
+    def m(self):
+        pass
+def run(Foo):
+    Foo.m()
+",
+    )]);
+    let s = site(&cg, "run", "m");
+    assert_eq!(s.receiver_type, None);
+    assert!(
+        s.receiver_materialized,
+        "bare param binding should materialize"
+    );
+    let out = cg.resolve_call_site_full(&s);
+    assert!(
+        out.resolved.iter().all(|c| {
+            c.kind != ResolutionKind::QualifierOwner || c.confidence != ResolutionConfidence::Exact
+        }),
+        "R3b should be suppressed by untyped param binding"
+    );
+}
+
+/// Augmented assignment `Foo += x` rebinds the name — `Foo.m()` should be
+/// suppressed.
+#[test]
+fn test_python_augmented_assignment_suppresses_r3b_owner() {
+    let cg = graph(&[(
+        "svc.py",
+        "\
+class Foo:
+    def m(self):
+        pass
+def run():
+    Foo += 1
+    Foo.m()
+",
+    )]);
+    let s = site(&cg, "run", "m");
+    assert_eq!(s.receiver_type, None);
+    assert!(
+        s.receiver_materialized,
+        "augmented assignment should materialize"
+    );
+    let out = cg.resolve_call_site_full(&s);
+    assert!(
+        out.resolved.iter().all(|c| {
+            c.kind != ResolutionKind::QualifierOwner || c.confidence != ResolutionConfidence::Exact
+        }),
+        "R3b should be suppressed by augmented assignment"
+    );
+}
+
+/// Destructuring `with cm() as (Foo, other):` binds `Foo` via a tuple pattern
+/// in the as_pattern alias — `Foo.m()` should be suppressed.
+#[test]
+fn test_python_as_pattern_destructuring_suppresses_r3b_owner() {
+    let cg = graph(&[(
+        "svc.py",
+        "\
+class Foo:
+    def m(self):
+        pass
+def run():
+    with open('f') as (Foo, other):
+        Foo.m()
+",
+    )]);
+    let s = site(&cg, "run", "m");
+    assert_eq!(s.receiver_type, None);
+    assert!(
+        s.receiver_materialized,
+        "as_pattern destructuring should materialize"
+    );
+    let out = cg.resolve_call_site_full(&s);
+    assert!(
+        out.resolved.iter().all(|c| {
+            c.kind != ResolutionKind::QualifierOwner || c.confidence != ResolutionConfidence::Exact
+        }),
+        "R3b should be suppressed by as_pattern destructuring"
+    );
 }

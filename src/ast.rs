@@ -492,6 +492,37 @@ impl ParsedFile {
             }
         }
 
+        // Python: count bare (untyped) parameters as bindings — `def run(Foo):`
+        // shadows an import/class of the same name. Typed params were already
+        // counted above, so only increment when `bindings` is still 0 for this
+        // receiver to avoid double-counting.
+        if matches!(self.language, Language::Python) && bindings == 0 {
+            if let Some(params) = self.find_parameters_node(func_node) {
+                let mut pcursor = params.walk();
+                for param in params.children(&mut pcursor) {
+                    match param.kind() {
+                        "identifier"
+                        | "default_parameter"
+                        | "list_splat_pattern"
+                        | "dictionary_splat_pattern" => {
+                            let name_node = if param.kind() == "identifier" {
+                                Some(param)
+                            } else {
+                                param.child_by_field_name("name")
+                            };
+                            if let Some(n) = name_node {
+                                if self.simple_binding_text(&n).as_deref() == Some(receiver) {
+                                    bindings += 1;
+                                    // No type recovery possible from a bare param.
+                                }
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+            }
+        }
+
         self.walk_receiver_bindings(
             *func_node,
             true,
@@ -4040,6 +4071,20 @@ impl ParsedFile {
         {
             return;
         }
+        // Python 3 comprehensions have their own scope — bindings inside them
+        // do NOT shadow names in the enclosing function scope.
+        if !is_root
+            && matches!(self.language, Language::Python)
+            && matches!(
+                node.kind(),
+                "list_comprehension"
+                    | "set_comprehension"
+                    | "dictionary_comprehension"
+                    | "generator_expression"
+            )
+        {
+            return;
+        }
 
         match (self.language, node.kind()) {
             (Language::Rust, "let_declaration") => {
@@ -4137,6 +4182,15 @@ impl ParsedFile {
                     }
                 }
             }
+            (Language::Python, "augmented_assignment") => {
+                // `Foo += x` — augmented assignment rebinds the name; type unrecoverable.
+                if let Some(left) = node.child_by_field_name("left") {
+                    if self.simple_binding_text(&left).as_deref() == Some(receiver) {
+                        *bindings += 1;
+                        *found = None;
+                    }
+                }
+            }
             (Language::Python, "for_statement") => {
                 // `for x in items:` — iteration variable; type unrecoverable.
                 if let Some(left) = node.child_by_field_name("left") {
@@ -4149,32 +4203,10 @@ impl ParsedFile {
                     }
                 }
             }
-            (
-                Language::Python,
-                "list_comprehension"
-                | "set_comprehension"
-                | "dictionary_comprehension"
-                | "generator_expression",
-            ) => {
-                // Comprehension `for_in_clause` appears textually AFTER the body
-                // expression (e.g. `[Foo.m() for Foo in items]`), so the byte-guard
-                // at the top of `walk_receiver_bindings` would skip it. Walk
-                // `for_in_clause` children explicitly, ignoring byte order.
-                let mut cur = node.walk();
-                for child in node.children(&mut cur) {
-                    if child.kind() == "for_in_clause" {
-                        if let Some(left) = child.child_by_field_name("left") {
-                            if self.simple_binding_text(&left).as_deref() == Some(receiver) {
-                                *bindings += 1;
-                                *found = None;
-                            } else if self.node_binds_name(left, receiver) {
-                                *bindings += 1;
-                                *found = None;
-                            }
-                        }
-                    }
-                }
-            }
+            // NOTE: comprehension `for_in_clause` targets are NOT counted here.
+            // Python 3 comprehensions have their own scope; the early-return
+            // above prevents recursion into them, so they cannot over-suppress
+            // names in the enclosing function scope.
             (Language::Python, "named_expression") => {
                 // Walrus: `(x := compute())` — type unrecoverable.
                 if let Some(name_node) = node.child_by_field_name("name") {
@@ -4187,9 +4219,14 @@ impl ParsedFile {
             (Language::Python, "as_pattern") => {
                 // `with ... as x:` / `except ... as x:` / `case ... as x:`
                 // tree-sitter-python: as_pattern field `alias` = as_pattern_target
-                // wrapping an identifier.
+                // wrapping an identifier.  Also handle destructuring targets
+                // like `with cm() as (Foo, other):` where simple_binding_text
+                // returns None but node_binds_name finds the name inside a tuple.
                 if let Some(alias) = node.child_by_field_name("alias") {
                     if self.simple_binding_text(&alias).as_deref() == Some(receiver) {
+                        *bindings += 1;
+                        *found = None;
+                    } else if self.node_binds_name(alias, receiver) {
                         *bindings += 1;
                         *found = None;
                     }
