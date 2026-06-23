@@ -191,7 +191,9 @@ fn nav_module_deps(session: &NavigationSession, args: &serde_json::Value) -> Mcp
         output_verbosity(input.verbosity),
         resolve_cap(),
         input.view,
-        NavigationViewKind::ModuleDeps,
+        NavigationViewKind::ModuleDeps {
+            file: input.file.clone(),
+        },
     )
 }
 
@@ -621,7 +623,7 @@ mod tests {
             agent.meta["prism/content_text_format"],
             json!("agent_markdown")
         );
-        assert_eq!(agent.meta["prism/view_schema_version"], json!("0.1"));
+        assert_eq!(agent.meta["prism/view_schema_version"], json!("0.2"));
     }
 
     #[test]
@@ -641,6 +643,211 @@ mod tests {
         let view: serde_json::Value = serde_json::from_str(&out.content_text).unwrap();
         assert_eq!(view["profile"], "impact");
         assert_eq!(out.meta["prism/content_text_format"], json!("agent_json"));
+    }
+
+    #[test]
+    fn impact_profile_groups_by_symbol_unless_group_by_none_is_explicit() {
+        let s = test_support::session(&[(
+            "a.py",
+            "def target():\n    return 1\n\ndef one():\n    return target()\n\ndef two():\n    return target()\n",
+        )]);
+        let grouped = (ToolRegistry::nav_v1().get("nav_callers").unwrap().handler)(
+            &s,
+            &json!({
+                "seed":{"kind":"symbol","name":"target","file":"a.py"},
+                "format":"agent_json",
+                "profile":"impact"
+            }),
+        );
+        let grouped_view: serde_json::Value = serde_json::from_str(&grouped.content_text).unwrap();
+        assert!(grouped_view["groups"].as_array().unwrap().len() >= 2);
+        assert_eq!(grouped_view["meta"]["group_by"], "symbol");
+
+        let ungrouped = (ToolRegistry::nav_v1().get("nav_callers").unwrap().handler)(
+            &s,
+            &json!({
+                "seed":{"kind":"symbol","name":"target","file":"a.py"},
+                "format":"agent_json",
+                "profile":"impact",
+                "group_by":"none"
+            }),
+        );
+        let ungrouped_view: serde_json::Value =
+            serde_json::from_str(&ungrouped.content_text).unwrap();
+        assert!(ungrouped_view.get("groups").is_none());
+        assert!(ungrouped_view["items"].as_array().unwrap().len() >= 2);
+        assert_eq!(ungrouped_view["meta"]["group_by"], "none");
+    }
+
+    #[test]
+    fn module_deps_symbolless_resolved_target_is_exact_not_unresolved() {
+        let s = test_support::session(&[
+            ("util.py", "def helper():\n    return 1\n"),
+            (
+                "main.py",
+                "from util import helper\n\ndef run():\n    return helper()\n",
+            ),
+        ]);
+        let out = (ToolRegistry::nav_v1()
+            .get("nav_module_deps")
+            .unwrap()
+            .handler)(
+            &s,
+            &json!({
+                "file":"main.py",
+                "format":"agent_json",
+                "profile":"dependencies",
+                "group_by":"none"
+            }),
+        );
+        let view: serde_json::Value = serde_json::from_str(&out.content_text).unwrap();
+        let util_item = view["items"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|item| item["loc"].as_str().unwrap().starts_with("util.py:"))
+            .expect("resolved util.py dependency item");
+        assert_eq!(util_item["trust"], "exact");
+        assert!(view["summary"]["exact"].as_u64().unwrap() >= 1);
+    }
+
+    #[test]
+    fn module_deps_next_queries_keep_call_site_on_source_file() {
+        let s = test_support::session(&[
+            ("util.py", "def helper():\n    return 1\n"),
+            (
+                "main.py",
+                "from util import helper\n\ndef run():\n    return helper()\n",
+            ),
+        ]);
+        let out = (ToolRegistry::nav_v1()
+            .get("nav_module_deps")
+            .unwrap()
+            .handler)(
+            &s,
+            &json!({
+                "file":"main.py",
+                "format":"agent_json",
+                "profile":"dependencies",
+                "group_by":"none"
+            }),
+        );
+        let view: serde_json::Value = serde_json::from_str(&out.content_text).unwrap();
+        let queries = view["next_queries"].as_array().unwrap();
+        assert!(queries.iter().any(|query| {
+            query["tool"] == "nav_nodes_at"
+                && query["reason"] == "call_site"
+                && query["arguments"]["file"] == "main.py"
+                && query["arguments"]["line"] == 4
+        }));
+        assert!(queries.iter().any(|query| {
+            query["tool"] == "nav_nodes_at"
+                && query["reason"] == "dependency_target"
+                && query["arguments"]["file"] == "util.py"
+                && query["arguments"]["line"] == 1
+        }));
+        assert!(!queries.iter().any(|query| {
+            query["reason"] == "call_site"
+                && query["arguments"]["file"] == "util.py"
+                && query["arguments"]["line"] == 4
+        }));
+    }
+
+    #[test]
+    fn transitive_exact_score_discount_is_not_fallback() {
+        let s = test_support::session(&[(
+            "a.py",
+            "def a():\n    return b()\n\ndef b():\n    return c()\n\ndef c():\n    return 1\n",
+        )]);
+        let out = (ToolRegistry::nav_v1().get("nav_callees").unwrap().handler)(
+            &s,
+            &json!({
+                "seed":{"kind":"symbol","name":"a","file":"a.py"},
+                "depth":2,
+                "format":"agent_json",
+                "profile":"dependencies",
+                "group_by":"none"
+            }),
+        );
+        let view: serde_json::Value = serde_json::from_str(&out.content_text).unwrap();
+        let discounted = view["items"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|item| item["score"].as_f64().unwrap() < 1.0)
+            .expect("transitive discounted item");
+        assert_eq!(discounted["trust"], "exact");
+        assert_eq!(view["summary"]["fallback"], 0);
+    }
+
+    #[test]
+    fn callees_next_queries_keep_call_site_on_seed_file() {
+        let s = test_support::session(&[
+            ("util.py", "def helper():\n    return 1\n"),
+            (
+                "main.py",
+                "from util import helper\n\ndef run():\n    return helper()\n",
+            ),
+        ]);
+        let out = (ToolRegistry::nav_v1().get("nav_callees").unwrap().handler)(
+            &s,
+            &json!({
+                "seed":{"kind":"symbol","name":"run","file":"main.py"},
+                "format":"agent_json",
+                "profile":"dependencies"
+            }),
+        );
+        let view: serde_json::Value = serde_json::from_str(&out.content_text).unwrap();
+        let queries = view["next_queries"].as_array().unwrap();
+        assert!(queries.iter().any(|query| {
+            query["tool"] == "nav_nodes_at"
+                && query["reason"] == "call_site"
+                && query["arguments"]["file"] == "main.py"
+                && query["arguments"]["line"] == 4
+        }));
+        assert!(queries.iter().any(|query| {
+            query["tool"] == "nav_nodes_at"
+                && query["reason"] == "callee_definition"
+                && query["arguments"]["file"] == "util.py"
+                && query["arguments"]["line"] == 1
+        }));
+        assert!(!queries.iter().any(|query| {
+            query["reason"] == "call_site"
+                && query["arguments"]["file"] == "util.py"
+                && query["arguments"]["line"] == 4
+        }));
+    }
+
+    #[test]
+    fn repo_map_orientation_hints_modules_without_node_trust() {
+        let s = test_support::session(&[
+            ("util.py", "def helper():\n    return 1\n"),
+            (
+                "main.py",
+                "from util import helper\n\ndef run():\n    return helper()\n",
+            ),
+        ]);
+        let out = (ToolRegistry::nav_v1().get("nav_repo_map").unwrap().handler)(
+            &s,
+            &json!({
+                "format":"agent_json",
+                "profile":"orientation"
+            }),
+        );
+        let view: serde_json::Value = serde_json::from_str(&out.content_text).unwrap();
+        assert!(view["next_queries"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|query| {
+                query["tool"] == "nav_module_deps" && query["reason"] == "inspect_module"
+            }));
+        assert!(view["graph"]["nodes"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|node| { node.get("trust").is_none() }));
+        assert_eq!(view["summary"]["exact"], 0);
     }
 
     #[test]
@@ -685,6 +892,12 @@ mod tests {
             "a.py",
             "def target():\n    return 1\n\ndef one():\n    return target()\n\ndef two():\n    return target()\n\ndef three():\n    return target()\n",
         )]);
+        let default = (ToolRegistry::nav_v1().get("nav_callers").unwrap().handler)(
+            &s,
+            &json!({
+                "seed":{"kind":"symbol","name":"target","file":"a.py"}
+            }),
+        );
         let out = (ToolRegistry::nav_v1().get("nav_callers").unwrap().handler)(
             &s,
             &json!({
@@ -694,7 +907,7 @@ mod tests {
             }),
         );
         assert!(out.content_text.len() <= 64);
-        assert!(out.structured.is_some());
+        assert_eq!(out.structured, default.structured);
         assert_eq!(out.meta["prism/view_clipped"], json!(true));
     }
 

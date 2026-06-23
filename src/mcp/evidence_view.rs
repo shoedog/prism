@@ -1,14 +1,18 @@
-use super::input::{parse_nodes_at, GroupPolicy, SnippetPolicy, ViewFormat, ViewOptions};
+use super::input::{
+    parse_callees, parse_callers, parse_module_deps, parse_nodes_at, EvidenceProfile, GroupPolicy,
+    SnippetPolicy, ViewFormat, ViewOptions,
+};
 use super::output::{shape_result, McpToolResult, Verbosity};
 use crate::navigation::types::{
-    Evidence, EvidenceItem, GraphNode, Location, Reason, SymbolRef, Warning,
+    Evidence, EvidenceItem, GraphNode, Location, Reason, Source, SymbolRef, Warning,
 };
 use crate::navigation::NavigationSession;
 use serde::Serialize;
 use serde_json::{json, Value};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
-const VIEW_SCHEMA_VERSION: &str = "0.1";
+const VIEW_SCHEMA_VERSION: &str = "0.2";
+const MAX_NEXT_QUERIES: usize = 5;
 
 #[derive(Debug, Clone)]
 pub enum NavigationViewKind {
@@ -19,8 +23,15 @@ pub enum NavigationViewKind {
         seed_file: Option<String>,
     },
     EgoGraph,
-    ModuleDeps,
+    ModuleDeps {
+        file: String,
+    },
     RepoMap,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct ProfilePolicy {
+    default_group_by: GroupPolicy,
 }
 
 #[derive(Debug, Serialize)]
@@ -48,6 +59,11 @@ struct ViewSummary {
     canonical_items: usize,
     truncated: bool,
     warnings: usize,
+    visible_files: usize,
+    exact: usize,
+    fallback: usize,
+    unresolved: usize,
+    heuristic: usize,
 }
 
 #[derive(Debug, Serialize)]
@@ -63,6 +79,7 @@ struct ViewItem {
     #[serde(skip_serializing_if = "Option::is_none")]
     symbol: Option<String>,
     score: f32,
+    trust: &'static str,
     reason: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     snippet: Option<String>,
@@ -86,6 +103,7 @@ struct ViewNode {
 #[derive(Debug, Serialize)]
 struct NextQuery {
     tool: &'static str,
+    reason: &'static str,
     arguments: Value,
 }
 
@@ -222,9 +240,11 @@ fn build_view(
     canonical_items: usize,
     clipped_to_fit: bool,
 ) -> EvidenceView {
+    let policy = profile_policy(view.profile);
+    let group_by = effective_group_by(view, full, policy);
     let items = build_items(session, full, view, kind, item_limit);
     let graph = build_graph(full, item_limit);
-    let groups = group_items(&items, view.group_by);
+    let groups = group_items(&items, group_by);
     let loose_items = if groups.is_empty() { items } else { Vec::new() };
     let visible_items = graph
         .as_ref()
@@ -232,6 +252,7 @@ fn build_view(
         .unwrap_or_else(|| {
             loose_items.len() + groups.iter().map(|group| group.items.len()).sum::<usize>()
         });
+    let trust_counts = trust_counts(&loose_items, &groups);
     EvidenceView {
         query: full.query.clone(),
         profile: view.profile.as_str().into(),
@@ -241,17 +262,28 @@ fn build_view(
             canonical_items,
             truncated: full.truncated || item_limit < view_count(full),
             warnings: full.warnings.len(),
+            visible_files: visible_file_count(full, item_limit),
+            exact: trust_counts.exact,
+            fallback: trust_counts.fallback,
+            unresolved: trust_counts.unresolved,
+            heuristic: trust_counts.heuristic,
         },
         groups,
         items: loose_items,
         graph,
         warnings: full.warnings.clone(),
-        next_queries: next_queries(full, item_limit),
+        next_queries: next_queries(
+            full,
+            item_limit,
+            view,
+            kind,
+            full.truncated || item_limit < view_count(full),
+        ),
         meta: ViewMeta {
             schema_version: VIEW_SCHEMA_VERSION,
             content_text_format: view.format.as_str(),
             snippets: view.snippets.as_str(),
-            group_by: view.group_by.as_str(),
+            group_by: group_by.as_str(),
             clipped_to_fit,
         },
     }
@@ -271,10 +303,74 @@ fn build_items(
             loc: format_location(&item.location),
             symbol: item.symbol.as_ref().map(symbol_label),
             score: item.score,
-            reason: reason_label(item),
+            trust: trust_label(item),
+            reason: reason_label(item, view.profile),
             snippet: snippet_for_item(session, item, view.snippets, kind),
         })
         .collect()
+}
+
+fn profile_policy(profile: EvidenceProfile) -> ProfilePolicy {
+    let default_group_by = match profile {
+        EvidenceProfile::Impact => GroupPolicy::Symbol,
+        EvidenceProfile::Dependencies => GroupPolicy::File,
+        EvidenceProfile::Orientation
+        | EvidenceProfile::EditContext
+        | EvidenceProfile::Audit
+        | EvidenceProfile::Seed
+        | EvidenceProfile::Graph => GroupPolicy::None,
+    };
+    ProfilePolicy { default_group_by }
+}
+
+fn effective_group_by(view: ViewOptions, full: &Evidence, policy: ProfilePolicy) -> GroupPolicy {
+    if view.group_by_explicit {
+        return view.group_by;
+    }
+    match policy.default_group_by {
+        GroupPolicy::Symbol if full.items.iter().any(|item| item.symbol.is_some()) => {
+            GroupPolicy::Symbol
+        }
+        GroupPolicy::Symbol => GroupPolicy::File,
+        other => other,
+    }
+}
+
+#[derive(Default)]
+struct TrustCounts {
+    exact: usize,
+    fallback: usize,
+    unresolved: usize,
+    heuristic: usize,
+}
+
+fn trust_counts(items: &[ViewItem], groups: &[ViewGroup]) -> TrustCounts {
+    let mut counts = TrustCounts::default();
+    for item in items
+        .iter()
+        .chain(groups.iter().flat_map(|group| group.items.iter()))
+    {
+        match item.trust {
+            "fallback" => counts.fallback += 1,
+            "unresolved" => counts.unresolved += 1,
+            "heuristic" => counts.heuristic += 1,
+            _ => counts.exact += 1,
+        }
+    }
+    counts
+}
+
+fn visible_file_count(full: &Evidence, item_limit: usize) -> usize {
+    let mut files = BTreeSet::new();
+    for item in full.items.iter().take(item_limit) {
+        files.insert(item.location.file.as_str());
+    }
+    if let Some(graph) = &full.graph {
+        for node in graph.nodes.iter().take(item_limit) {
+            files.insert(node.location.file.as_str());
+        }
+    }
+    files.len()
 }
 
 fn build_graph(full: &Evidence, item_limit: usize) -> Option<ViewGraph> {
@@ -319,8 +415,16 @@ fn render_markdown(view: &EvidenceView) -> String {
     let mut out = String::new();
     out.push_str("# Prism Evidence\n");
     out.push_str(&format!(
-        "query: `{}`\nprofile: `{}`\nitems: {} of {}\n",
-        view.query, view.profile, view.summary.visible_items, view.summary.total_items
+        "query: `{}`\nprofile: `{}`\nitems: {} of {}\nfiles: {}\ntrust: exact={} fallback={} unresolved={} heuristic={}\n",
+        view.query,
+        view.profile,
+        view.summary.visible_items,
+        view.summary.total_items,
+        view.summary.visible_files,
+        view.summary.exact,
+        view.summary.fallback,
+        view.summary.unresolved,
+        view.summary.heuristic
     ));
     if view.summary.truncated {
         out.push_str("truncated: true\n");
@@ -360,7 +464,10 @@ fn render_markdown(view: &EvidenceView) -> String {
     if !view.next_queries.is_empty() {
         out.push_str("\n## Next Queries\n");
         for query in &view.next_queries {
-            out.push_str(&format!("- {} {}\n", query.tool, query.arguments));
+            out.push_str(&format!(
+                "- {} reason={} {}\n",
+                query.tool, query.reason, query.arguments
+            ));
         }
     }
     out
@@ -368,10 +475,11 @@ fn render_markdown(view: &EvidenceView) -> String {
 
 fn render_markdown_item(out: &mut String, item: &ViewItem) {
     out.push_str(&format!(
-        "- `{}` {} score={:.2}; {}\n",
+        "- `{}` {} score={:.2}; trust={}; {}\n",
         item.loc,
         item.symbol.as_deref().unwrap_or(""),
         item.score,
+        item.trust,
         item.reason
     ));
     if let Some(snippet) = &item.snippet {
@@ -426,25 +534,267 @@ fn source_line(session: &NavigationSession, file: &str, line: usize) -> Option<S
     Some(format!("{line}: {text}"))
 }
 
-fn next_queries(full: &Evidence, item_limit: usize) -> Vec<NextQuery> {
-    full.items
-        .iter()
-        .take(item_limit)
-        .take(3)
-        .filter_map(|item| nodes_at_query(&item.location))
-        .collect()
+fn next_queries(
+    full: &Evidence,
+    item_limit: usize,
+    view: ViewOptions,
+    kind: &NavigationViewKind,
+    truncated: bool,
+) -> Vec<NextQuery> {
+    let mut queries = Vec::new();
+    let mut seen = BTreeSet::new();
+    match view.profile {
+        EvidenceProfile::Impact if matches!(kind, NavigationViewKind::Callers) => {
+            add_callers_hints(full, item_limit, &mut queries, &mut seen);
+        }
+        EvidenceProfile::Dependencies => match kind {
+            NavigationViewKind::Callees { .. } => {
+                add_callees_hints(full, item_limit, kind, &mut queries, &mut seen);
+            }
+            NavigationViewKind::ModuleDeps { .. } => {
+                add_module_deps_hints(full, item_limit, kind, &mut queries, &mut seen);
+            }
+            _ => add_item_locator_hints(full, item_limit, "edit_locator", &mut queries, &mut seen),
+        },
+        EvidenceProfile::Orientation => match kind {
+            NavigationViewKind::RepoMap => {
+                add_repo_map_hints(full, item_limit, &mut queries, &mut seen);
+            }
+            NavigationViewKind::ModuleDeps { .. } => {
+                add_module_deps_hints(full, item_limit, kind, &mut queries, &mut seen);
+            }
+            _ => add_graph_locator_hints(full, item_limit, &mut queries, &mut seen),
+        },
+        EvidenceProfile::Seed | EvidenceProfile::EditContext => {
+            add_item_locator_hints(full, item_limit, "edit_locator", &mut queries, &mut seen);
+        }
+        EvidenceProfile::Graph => {
+            add_graph_locator_hints(full, item_limit, &mut queries, &mut seen)
+        }
+        EvidenceProfile::Audit => {
+            add_item_locator_hints(full, item_limit, "edit_locator", &mut queries, &mut seen);
+        }
+        _ => add_item_locator_hints(full, item_limit, "edit_locator", &mut queries, &mut seen),
+    }
+
+    if truncated {
+        add_truncation_hint(full, item_limit, &mut queries, &mut seen);
+    }
+    queries
 }
 
-fn nodes_at_query(location: &Location) -> Option<NextQuery> {
+fn add_callers_hints(
+    full: &Evidence,
+    item_limit: usize,
+    queries: &mut Vec<NextQuery>,
+    seen: &mut BTreeSet<String>,
+) {
+    for item in full.items.iter().take(item_limit) {
+        for reason in &item.why {
+            if let Reason::CalledBy { call_site_line, .. } = reason {
+                push_nodes_at_query(
+                    queries,
+                    seen,
+                    "call_site",
+                    &item.location.file,
+                    *call_site_line,
+                );
+            }
+        }
+        push_symbol_query(queries, seen, "nav_callers", "caller_symbol", &item.symbol);
+    }
+}
+
+fn add_callees_hints(
+    full: &Evidence,
+    item_limit: usize,
+    kind: &NavigationViewKind,
+    queries: &mut Vec<NextQuery>,
+    seen: &mut BTreeSet<String>,
+) {
+    for item in full.items.iter().take(item_limit) {
+        if let NavigationViewKind::Callees {
+            depth: 1,
+            seed_file: Some(seed_file),
+        } = kind
+        {
+            for reason in &item.why {
+                if let Reason::Calls { call_site_line, .. } = reason {
+                    push_nodes_at_query(queries, seen, "call_site", seed_file, *call_site_line);
+                }
+            }
+        }
+        let reason = if item.symbol.is_some() {
+            "callee_definition"
+        } else {
+            "edit_locator"
+        };
+        push_nodes_at_location(queries, seen, reason, &item.location);
+        push_symbol_query(queries, seen, "nav_callees", "callee_symbol", &item.symbol);
+    }
+}
+
+fn add_module_deps_hints(
+    full: &Evidence,
+    item_limit: usize,
+    kind: &NavigationViewKind,
+    queries: &mut Vec<NextQuery>,
+    seen: &mut BTreeSet<String>,
+) {
+    let source_file = match kind {
+        NavigationViewKind::ModuleDeps { file } => Some(file.as_str()),
+        _ => None,
+    };
+    for item in full.items.iter().take(item_limit) {
+        if let Some(source_file) = source_file {
+            for reason in &item.why {
+                if let Reason::Calls { call_site_line, .. } = reason {
+                    push_nodes_at_query(queries, seen, "call_site", source_file, *call_site_line);
+                }
+            }
+        }
+        push_nodes_at_location(queries, seen, "dependency_target", &item.location);
+    }
+}
+
+fn add_repo_map_hints(
+    full: &Evidence,
+    item_limit: usize,
+    queries: &mut Vec<NextQuery>,
+    seen: &mut BTreeSet<String>,
+) {
+    if let Some(graph) = &full.graph {
+        for node in graph.nodes.iter().take(item_limit) {
+            let arguments = json!({ "file": node.location.file });
+            push_query(
+                queries,
+                seen,
+                "nav_module_deps",
+                "inspect_module",
+                arguments,
+            );
+        }
+    }
+}
+
+fn add_item_locator_hints(
+    full: &Evidence,
+    item_limit: usize,
+    reason: &'static str,
+    queries: &mut Vec<NextQuery>,
+    seen: &mut BTreeSet<String>,
+) {
+    for item in full.items.iter().take(item_limit) {
+        push_nodes_at_location(queries, seen, reason, &item.location);
+    }
+}
+
+fn add_graph_locator_hints(
+    full: &Evidence,
+    item_limit: usize,
+    queries: &mut Vec<NextQuery>,
+    seen: &mut BTreeSet<String>,
+) {
+    if let Some(graph) = &full.graph {
+        for node in graph.nodes.iter().take(item_limit) {
+            push_nodes_at_location(queries, seen, "edit_locator", &node.location);
+        }
+    }
+}
+
+fn add_truncation_hint(
+    full: &Evidence,
+    item_limit: usize,
+    queries: &mut Vec<NextQuery>,
+    seen: &mut BTreeSet<String>,
+) {
+    if let Some(item) = full.items.iter().take(item_limit).next() {
+        push_nodes_at_location(queries, seen, "result_truncated", &item.location);
+        return;
+    }
+    if let Some(node) = full
+        .graph
+        .as_ref()
+        .and_then(|graph| graph.nodes.iter().take(item_limit).next())
+    {
+        push_nodes_at_location(queries, seen, "result_truncated", &node.location);
+    }
+}
+
+fn push_nodes_at_location(
+    queries: &mut Vec<NextQuery>,
+    seen: &mut BTreeSet<String>,
+    reason: &'static str,
+    location: &Location,
+) {
+    push_nodes_at_query(queries, seen, reason, &location.file, location.start_line);
+}
+
+fn push_nodes_at_query(
+    queries: &mut Vec<NextQuery>,
+    seen: &mut BTreeSet<String>,
+    reason: &'static str,
+    file: &str,
+    line: usize,
+) {
     let arguments = json!({
-        "file": location.file,
-        "line": location.start_line,
+        "file": file,
+        "line": line,
     });
-    debug_assert!(parse_nodes_at(&arguments).is_ok());
-    Some(NextQuery {
-        tool: "nav_nodes_at",
-        arguments,
-    })
+    push_query(queries, seen, "nav_nodes_at", reason, arguments);
+}
+
+fn push_symbol_query(
+    queries: &mut Vec<NextQuery>,
+    seen: &mut BTreeSet<String>,
+    tool: &'static str,
+    reason: &'static str,
+    symbol: &Option<SymbolRef>,
+) {
+    let Some(SymbolRef::Function { file, name, .. }) = symbol else {
+        return;
+    };
+    let arguments = json!({
+        "seed": {
+            "kind": "symbol",
+            "name": name,
+            "file": file,
+        }
+    });
+    push_query(queries, seen, tool, reason, arguments);
+}
+
+fn push_query(
+    queries: &mut Vec<NextQuery>,
+    seen: &mut BTreeSet<String>,
+    tool: &'static str,
+    reason: &'static str,
+    arguments: Value,
+) {
+    if queries.len() >= MAX_NEXT_QUERIES || !query_arguments_valid(tool, &arguments) {
+        return;
+    }
+    let Ok(arguments_key) = serde_json::to_string(&arguments) else {
+        return;
+    };
+    let key = format!("{tool}:{reason}:{arguments_key}");
+    if seen.insert(key) {
+        queries.push(NextQuery {
+            tool,
+            reason,
+            arguments,
+        });
+    }
+}
+
+fn query_arguments_valid(tool: &str, arguments: &Value) -> bool {
+    match tool {
+        "nav_nodes_at" => parse_nodes_at(arguments).is_ok(),
+        "nav_callers" => parse_callers(arguments).is_ok(),
+        "nav_callees" => parse_callees(arguments).is_ok(),
+        "nav_module_deps" => parse_module_deps(arguments).is_ok(),
+        _ => false,
+    }
 }
 
 fn view_node(node: &GraphNode) -> ViewNode {
@@ -516,23 +866,62 @@ fn symbol_label(symbol: &SymbolRef) -> String {
     }
 }
 
-fn reason_label(item: &EvidenceItem) -> String {
+fn trust_label(item: &EvidenceItem) -> &'static str {
+    if item
+        .why
+        .iter()
+        .any(|reason| matches!(reason, Reason::UnresolvedImport { .. }))
+        || (item.symbol.is_none()
+            && item
+                .why
+                .iter()
+                .any(|reason| matches!(reason, Reason::Calls { .. }))
+            && !item
+                .why
+                .iter()
+                .any(|reason| matches!(reason, Reason::Resolution { .. })))
+    {
+        "unresolved"
+    } else if item.fallback {
+        "fallback"
+    } else if !matches!(item.source, Source::PrismCpg) {
+        "heuristic"
+    } else {
+        "exact"
+    }
+}
+
+fn reason_label(item: &EvidenceItem, profile: EvidenceProfile) -> String {
     let Some(reason) = item.why.first() else {
         return "matched evidence".into();
     };
-    match reason {
+    let base = match reason {
         Reason::Calls {
             callee,
             call_site_line,
             qualifier,
-        } => match qualifier {
-            Some(qualifier) => format!("calls {qualifier}.{callee} at line {call_site_line}"),
-            None => format!("calls {callee} at line {call_site_line}"),
-        },
+        } => {
+            let callee = match qualifier {
+                Some(qualifier) => format!("{qualifier}.{callee}"),
+                None => callee.clone(),
+            };
+            if matches!(profile, EvidenceProfile::Dependencies) && trust_label(item) == "unresolved"
+            {
+                format!("unresolved call `{callee}` at line {call_site_line}")
+            } else {
+                format!("calls `{callee}` at line {call_site_line}")
+            }
+        }
         Reason::CalledBy {
             caller,
             call_site_line,
-        } => format!("called by {caller} at line {call_site_line}"),
+        } if matches!(profile, EvidenceProfile::Impact) => {
+            format!("caller `{caller}` at call site line {call_site_line}")
+        }
+        Reason::CalledBy {
+            caller,
+            call_site_line,
+        } => format!("called by `{caller}` at line {call_site_line}"),
         Reason::Resolution { kind } => format!("resolution {kind}"),
         Reason::EnclosingFunction { function } => {
             format!("inside {}", symbol_label(function))
@@ -541,9 +930,26 @@ fn reason_label(item: &EvidenceItem) -> String {
         Reason::ResolvedImport {
             module,
             target_file,
-        } => format!("import {module} resolves to {target_file}"),
-        Reason::UnresolvedImport { module } => format!("unresolved import {module}"),
+        } => format!("import `{module}` resolves to `{target_file}`"),
+        Reason::UnresolvedImport { module } => format!("unresolved import `{module}`"),
         Reason::Reasoning(reason) => format!("{reason:?}"),
+    };
+    match profile {
+        EvidenceProfile::Audit => format!(
+            "{base}; source={}; fallback={}",
+            source_label(&item.source),
+            item.fallback
+        ),
+        EvidenceProfile::EditContext => format!("edit locator; {base}"),
+        _ => base,
+    }
+}
+
+fn source_label(source: &Source) -> &'static str {
+    match source {
+        Source::PrismCpg => "prism_cpg",
+        Source::HeuristicImport => "heuristic_import",
+        Source::ExternalIndex { .. } => "external_index",
     }
 }
 
