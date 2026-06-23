@@ -49,7 +49,7 @@ function's byte-range call/DFG scan attributes a nested `def`'s calls + the `@de
 enclosing fn — VERIFIED on main for an undecorated `outer`/`inner`, so NOT introduced here; needs a
 cross-cutting "belongs-to-this-body" predicate across `function_calls_*`/DFG/callees = its own slice; PR
 #132 body documents it). **NEXT after #132 merges: slice 2 (typed receivers) off merged main.**
-| **2** typed receivers | implemented + acceptance green → diff-review **REWORK** (2 BLOCKERs, both PRE-EXISTING) → **codex-fix running** (btng1cvzn) | `slice2-typed-receivers` (wt `/tmp/prism-slice2`) |
+| **2** typed receivers | diff-review fix → fix-re-review found a NEW JS-lexical-scope hole → **NARROWING to Python-only** (bu95d19oq); JS buy≈0 so drop JS/TS (removes trap-class, keeps buy). **Last fix cycle — shelve if another BLOCKER** | `slice2-typed-receivers` (wt `/tmp/prism-slice2`) |
 
 **Slice-2 diff-review (REWORK) — the fix IMPROVES the value story:** the 2 BLOCKERs are PRE-EXISTING
 false-Exacts (verified on main: `def run(x: Foo): x.m()` + a `class x` → false `qualifier_owner` to
