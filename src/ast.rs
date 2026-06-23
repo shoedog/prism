@@ -417,6 +417,7 @@ impl ParsedFile {
         func_node: &Node<'_>,
         receiver: &str,
         call_line: usize,
+        call_start_byte: usize,
         recover_var: bool,
     ) -> Option<(String, crate::resolution::ReceiverRecovery)> {
         use crate::languages::Language;
@@ -512,6 +513,7 @@ impl ParsedFile {
             true,
             receiver,
             call_line,
+            call_start_byte,
             &mut found,
             &mut bindings,
             recover_var,
@@ -4028,6 +4030,7 @@ impl ParsedFile {
         is_root: bool,
         receiver: &str,
         call_line: usize,
+        call_start_byte: usize,
         found: &mut Option<(String, crate::resolution::ReceiverRecovery)>,
         bindings: &mut usize,
         recover_var: bool,
@@ -4038,7 +4041,22 @@ impl ParsedFile {
         if node.start_position().row + 1 > call_line {
             return;
         }
+        if node.start_byte() >= call_start_byte {
+            return;
+        }
         if !is_root && self.language.function_node_types().contains(&node.kind()) {
+            return;
+        }
+        if !is_root
+            && matches!(
+                self.language,
+                Language::Python | Language::JavaScript | Language::TypeScript | Language::Tsx
+            )
+            && matches!(
+                node.kind(),
+                "class_definition" | "class_declaration" | "class"
+            )
+        {
             return;
         }
 
@@ -4204,6 +4222,7 @@ impl ParsedFile {
                 false,
                 receiver,
                 call_line,
+                call_start_byte,
                 found,
                 bindings,
                 recover_var,

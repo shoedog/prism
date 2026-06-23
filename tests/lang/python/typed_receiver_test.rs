@@ -115,3 +115,69 @@ fn test_python_r3b_collision_and_local_miss_fallthrough() {
     assert_eq!(annotated_out.drop, plain_out.drop);
     assert_ne!(annotated_out.drop, Some(DropReason::ExternalReceiver));
 }
+
+#[test]
+fn test_python_poisoned_materialized_param_suppresses_r3b_owner() {
+    let cg = graph(&[(
+        "svc.py",
+        "from ext import Bar\nclass Foo:\n    def m(self):\n        pass\ndef run(Foo: Bar):\n    Foo.m()\n",
+    )]);
+    let s = site(&cg, "run", "m");
+    let out = cg.resolve_call_site_full(&s);
+
+    assert_eq!(s.receiver_type, None);
+    assert!(s.receiver_materialized);
+    assert!(out.resolved.iter().all(|c| {
+        c.kind != ResolutionKind::QualifierOwner
+            || c.confidence != ResolutionConfidence::Exact
+            || c.target.start_line != 2
+    }));
+}
+
+#[test]
+fn test_python_import_shadowing_materialized_param_suppresses_r3() {
+    let cg = graph(&[
+        ("api.py", "def m():\n    pass\n"),
+        (
+            "svc.py",
+            "import api\nclass Foo:\n    def m(self):\n        pass\ndef run(api: Foo):\n    api.m()\n",
+        ),
+    ]);
+    let s = site(&cg, "run", "m");
+    let out = cg.resolve_call_site(&s);
+
+    assert_eq!(s.receiver_type.as_deref(), Some("Foo"));
+    assert!(s.receiver_materialized);
+    assert_eq!(out.len(), 1);
+    assert_eq!(out[0].kind, ResolutionKind::TypedParam);
+    assert_eq!(out[0].confidence, ResolutionConfidence::Exact);
+    assert_ne!(out[0].target.file, "api.py");
+}
+
+#[test]
+fn test_python_nested_class_body_assignment_does_not_recover_outer_receiver() {
+    let cg = graph(&[(
+        "svc.py",
+        "class Foo:\n    def m(self):\n        pass\ndef run():\n    class C:\n        x = Foo()\n    x.m()\n",
+    )]);
+    let s = site(&cg, "run", "m");
+    let r = cg.resolve_call_site(&s);
+
+    assert_eq!(s.receiver_type, None);
+    assert!(!s.receiver_materialized);
+    assert!(r.iter().all(|c| c.kind != ResolutionKind::ConstructorLocal));
+}
+
+#[test]
+fn test_python_same_line_assignment_after_call_does_not_recover_receiver() {
+    let cg = graph(&[(
+        "svc.py",
+        "class Foo:\n    def m(self):\n        pass\ndef run():\n    x.m(); x = Foo()\n",
+    )]);
+    let s = site(&cg, "run", "m");
+    let r = cg.resolve_call_site(&s);
+
+    assert_eq!(s.receiver_type, None);
+    assert!(!s.receiver_materialized);
+    assert!(r.iter().all(|c| c.kind != ResolutionKind::ConstructorLocal));
+}

@@ -234,6 +234,34 @@ pub struct RecoveredReceiver {
     pub recovery: ReceiverRecovery,
 }
 
+/// Receiver classifier output. `materialized` means the qualifier was proven to
+/// be a local receiver binding even when its static type is unresolved/poisoned.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct ReceiverClassification {
+    pub recovered: Option<RecoveredReceiver>,
+    pub materialized: bool,
+}
+
+impl ReceiverClassification {
+    fn none() -> Self {
+        Self::default()
+    }
+
+    fn recovered(recovered: RecoveredReceiver) -> Self {
+        Self {
+            recovered: Some(recovered),
+            materialized: true,
+        }
+    }
+
+    fn materialized_only() -> Self {
+        Self {
+            recovered: None,
+            materialized: true,
+        }
+    }
+}
+
 /// Inputs a `ReceiverClassifier` needs to recover a receiver's static type. Borrows
 /// from the ParsedFile/tree of the call's enclosing function. Carries `recv_var` +
 /// `file_imports` because the legacy gate tests `is_recv`/`is_import`
@@ -249,6 +277,9 @@ pub struct ReceiverCtx<'a> {
     pub fn_node: tree_sitter::Node<'a>,
     /// 1-indexed call line.
     pub call_line: usize,
+    /// 0-indexed call start byte. Binding recovery only considers local bindings
+    /// starting before this byte.
+    pub call_start_byte: usize,
     /// For node_text + the legacy `receiver_type_in_fn` scan.
     pub parsed: &'a crate::ast::ParsedFile,
     /// Go receiver variable of the enclosing method (legacy gate: `is_recv`).
@@ -260,7 +291,7 @@ pub struct ReceiverCtx<'a> {
 /// Swappable receiver-recovery strategy (strangler seam, spec §2). `Sync` because
 /// the CPG build extracts call sites with rayon (`call_graph.rs` par_iter).
 pub trait ReceiverClassifier: Sync {
-    fn classify(&self, ctx: ReceiverCtx<'_>) -> Option<RecoveredReceiver>;
+    fn classify(&self, ctx: ReceiverCtx<'_>) -> ReceiverClassification;
 }
 
 /// Receiver-recovery mode (spec §13.3). `Expanded` (default) turns the implemented
@@ -312,10 +343,11 @@ impl ReceiverRecoveryConfig {
 }
 
 /// Inner gate + scan shared by `legacy_recover` and `ExpandedClassifier`.
-/// Runs the qualifier/keyword/recv-var/import gate, then the typed-param /
+/// Runs the qualifier/keyword/recv-var gate, then the typed-param /
 /// constructor-local scan (and optionally `var` declarations when `recover_var`
-/// is true), peeled + owner-keyed.
-fn recover_simple_ident(ctx: &ReceiverCtx<'_>, recover_var: bool) -> Option<RecoveredReceiver> {
+/// is true), peeled + owner-keyed. Python/JS/TS still scan when the qualifier
+/// also names an import so local receiver bindings can suppress R3.
+fn classify_simple_ident(ctx: &ReceiverCtx<'_>, recover_var: bool) -> ReceiverClassification {
     use crate::languages::Language;
     if !matches!(
         ctx.parsed.language,
@@ -326,19 +358,35 @@ fn recover_simple_ident(ctx: &ReceiverCtx<'_>, recover_var: bool) -> Option<Reco
             | Language::TypeScript
             | Language::Tsx
     ) {
-        return None;
+        return ReceiverClassification::none();
     }
-    let q = ctx.qualifier?;
+    let Some(q) = ctx.qualifier else {
+        return ReceiverClassification::none();
+    };
     let simple = !q.is_empty() && q.chars().all(|c| c.is_alphanumeric() || c == '_');
     let is_kw = matches!(q, "self" | "this" | "cls");
     let is_recv = ctx.recv_var == Some(q);
     let is_import = ctx.file_imports.map(|m| m.contains_key(q)).unwrap_or(false);
-    if !(simple && !is_kw && !is_recv && !is_import) {
-        return None;
+    if !(simple && !is_kw && !is_recv) {
+        return ReceiverClassification::none();
     }
-    let (ty, how) = ctx
-        .parsed
-        .receiver_type_in_fn(&ctx.fn_node, q, ctx.call_line, recover_var)?;
+    if is_import
+        && !matches!(
+            ctx.parsed.language,
+            Language::Python | Language::JavaScript | Language::TypeScript | Language::Tsx
+        )
+    {
+        return ReceiverClassification::none();
+    }
+    let Some((ty, how)) = ctx.parsed.receiver_type_in_fn(
+        &ctx.fn_node,
+        q,
+        ctx.call_line,
+        ctx.call_start_byte,
+        recover_var,
+    ) else {
+        return ReceiverClassification::none();
+    };
     let static_type = owner_key(&peel_type(&ty));
     if matches!(
         ctx.parsed.language,
@@ -347,27 +395,25 @@ fn recover_simple_ident(ctx: &ReceiverCtx<'_>, recover_var: bool) -> Option<Reco
         .file_imports
         .is_some_and(|m| m.contains_key(&static_type) || m.contains_key("*"))
     {
-        return None;
+        return ReceiverClassification::materialized_only();
     }
-    Some(RecoveredReceiver {
+    ReceiverClassification::recovered(RecoveredReceiver {
         static_type,
         recovery: how,
     })
 }
 
-/// PR-1 P6-lite recovery, extracted verbatim from the former
-/// `call_graph::recover_receiver` (the qualifier/keyword/recv-var/import gate, then
-/// the typed-param / constructor-local scan, peeled + owner-keyed).
-/// Byte-identical to PR-1: `recover_var = false`.
+/// PR-1 P6-lite recovery shape with `recover_var = false`. Python/JS/TS keep the
+/// materialized-receiver shadowing fix from the shared classifier.
 pub fn legacy_recover(ctx: &ReceiverCtx<'_>) -> Option<RecoveredReceiver> {
-    recover_simple_ident(ctx, false)
+    classify_simple_ident(ctx, false).recovered
 }
 
-/// `legacy` — PR-1 behavior, no new forms.
+/// `legacy` — no expanded forms such as Go var/type assertions.
 pub struct LegacyClassifier;
 impl ReceiverClassifier for LegacyClassifier {
-    fn classify(&self, ctx: ReceiverCtx<'_>) -> Option<RecoveredReceiver> {
-        legacy_recover(&ctx)
+    fn classify(&self, ctx: ReceiverCtx<'_>) -> ReceiverClassification {
+        classify_simple_ident(&ctx, false)
     }
 }
 
@@ -377,16 +423,17 @@ pub struct ExpandedClassifier {
     pub var_local: bool,
 }
 impl ReceiverClassifier for ExpandedClassifier {
-    fn classify(&self, ctx: ReceiverCtx<'_>) -> Option<RecoveredReceiver> {
-        if let Some(r) = recover_simple_ident(&ctx, self.var_local) {
-            return Some(r);
+    fn classify(&self, ctx: ReceiverCtx<'_>) -> ReceiverClassification {
+        let simple = classify_simple_ident(&ctx, self.var_local);
+        if simple.materialized {
+            return simple;
         }
         if self.type_assertion {
             if let Some(r) = recover_type_assertion(&ctx) {
-                return Some(r);
+                return ReceiverClassification::recovered(r);
             }
         }
-        None
+        ReceiverClassification::none()
     }
 }
 
@@ -1015,7 +1062,7 @@ impl CallGraph {
                             | crate::languages::Language::TypeScript
                             | crate::languages::Language::Tsx
                     )
-                ) && site.receiver_type.is_some();
+                ) && site.receiver_materialized;
                 let recv_materialized = rust_recv_materialized || recovered_recv_materialized;
 
                 // R3: imported-module qualifier. If an import matches, the
@@ -2138,6 +2185,7 @@ mod scope_resolution_predicate_tests {
             qualifier: None,
             receiver_type: None,
             receiver_recovery: None,
+            receiver_materialized: false,
             arg_count: None,
             arg_spread: false,
             receiver_outcome: None,
