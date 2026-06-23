@@ -3007,32 +3007,62 @@ pub fn file_matches_module(
                     .unwrap_or("")
                     .to_string();
             }
-            // Convert remaining dotted path to file path.
+            // Convert remaining dotted path to FULL relative file path
+            // (e.g. `pkg.utils` → `pkg/utils`), not just the last component.
             let rel = stripped.replace('.', "/");
-            let last = rel.rsplit('/').next().unwrap_or(&rel);
             for ext in &[".py"] {
                 let candidate = if base.is_empty() {
-                    format!("{last}{ext}")
+                    format!("{rel}{ext}")
                 } else {
-                    format!("{base}/{last}{ext}")
+                    format!("{base}/{rel}{ext}")
                 };
                 if indexed_files.contains(&candidate) && candidate == file {
                     return true;
                 }
             }
-            // __init__.py
+            // __init__.py for the full path
             let init_candidate = if base.is_empty() {
-                format!("{last}/__init__.py")
+                format!("{rel}/__init__.py")
             } else {
-                format!("{base}/{last}/__init__.py")
+                format!("{base}/{rel}/__init__.py")
             };
             if indexed_files.contains(&init_candidate) && init_candidate == file {
                 return true;
             }
+            // For multi-component relative imports (`.pkg.utils`), don't fall
+            // through to the stem fallback — it would match any `utils.py` in
+            // any directory. Single-component (`.utils`) can still use stem.
+            if stripped.contains('.') {
+                return false;
+            }
         }
     }
 
-    // Stem-based fallback: extract the last component and match against file stem.
+    // For multi-component Python dotted absolute imports (e.g. `myapp.utils`),
+    // try converting to a path and checking indexed_files. Do NOT use the stem
+    // fallback — it would match ANY file named `utils.py` regardless of package.
+    if !is_js_path && !is_relative {
+        let stripped = module_path.trim_start_matches('.');
+        if stripped.contains('.') {
+            // Multi-component absolute import: try full path candidates.
+            let rel = stripped.replace('.', "/");
+            // Try `myapp/utils.py`
+            let py_candidate = format!("{rel}.py");
+            if indexed_files.contains(&py_candidate) && py_candidate == file {
+                return true;
+            }
+            // Try `myapp/utils/__init__.py`
+            let init_candidate = format!("{rel}/__init__.py");
+            if indexed_files.contains(&init_candidate) && init_candidate == file {
+                return true;
+            }
+            // No stem fallback for dotted imports — fail open to R5.
+            return false;
+        }
+    }
+
+    // Stem-based fallback: only for single-component imports (e.g. `utils`
+    // in Python, `./utils` in JS) where the module IS the stem.
     let last_component = if is_js_path {
         // JS: last path segment, strip leading @ for scoped packages.
         module_path

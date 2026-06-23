@@ -580,3 +580,81 @@ fn duplicate_local_name_makes_both_ineligible() {
     let (_, kind) = resolve_kind(&cg, "app.py", "run", "func");
     assert_ne!(kind, ResolutionKind::ImportMember);
 }
+
+// -----------------------------------------------------------------------
+// Codex diff-review fixes: module-scope-only imports + dotted-path matching
+// -----------------------------------------------------------------------
+
+#[test]
+fn function_local_import_not_collected() {
+    // `from utils import func` inside a function body must NOT create
+    // a file-wide R4c binding.
+    let src = "def run():\n    from utils import func\n    func()\n";
+    let parsed = ParsedFile::parse("app.py", src, Language::Python).unwrap();
+    let bindings = parsed.extract_import_bindings();
+    assert!(
+        bindings.is_empty(),
+        "function-local import should not produce a file-wide binding"
+    );
+}
+
+#[test]
+fn function_local_shadow_does_not_kill_module_import() {
+    // Module-level `from utils import func` IS eligible. A function-local
+    // `func = local` must not affect the module-level binding since
+    // extract_module_bindings only walks root children.
+    let src =
+        "from utils import func\ndef run():\n    func()\ndef other():\n    func = 42\n    func\n";
+    let fs = files(&[
+        ("app.py", src, Language::Python),
+        ("utils.py", "def func():\n    return 1\n", Language::Python),
+    ]);
+    let cg = CallGraph::build(&fs);
+    let bindings = cg.import_bindings.get("app.py").expect("bindings");
+    let func_binding = bindings.iter().find(|b| b.local == "func").unwrap();
+    assert!(
+        func_binding.eligible,
+        "module-level import should remain eligible despite function-local shadow"
+    );
+    let (conf, kind) = resolve_kind(&cg, "app.py", "run", "func");
+    assert_eq!(kind, ResolutionKind::ImportMember);
+    assert_eq!(conf, ResolutionConfidence::Exact);
+}
+
+#[test]
+fn dotted_import_no_stem_fallback_to_wrong_file() {
+    // `from myapp.utils import f` must NOT stem-match a different `other/utils.py`.
+    let indexed: BTreeSet<String> = ["other/utils.py"].iter().map(|s| s.to_string()).collect();
+    assert!(
+        !file_matches_module("other/utils.py", "myapp.utils", "app.py", &indexed),
+        "dotted import should NOT stem-match a different package's utils.py"
+    );
+}
+
+#[test]
+fn dotted_import_matches_correct_path() {
+    // `from myapp.utils import f` SHOULD match `myapp/utils.py`.
+    let indexed: BTreeSet<String> = ["myapp/utils.py"].iter().map(|s| s.to_string()).collect();
+    assert!(
+        file_matches_module("myapp/utils.py", "myapp.utils", "app.py", &indexed),
+        "dotted import should match the correct path"
+    );
+}
+
+#[test]
+fn relative_multi_component_import_matches_full_path() {
+    // `.pkg.utils` from `src/app.py` should match `src/pkg/utils.py`, not just
+    // any `utils.py` in the same directory.
+    let indexed: BTreeSet<String> = ["src/pkg/utils.py", "src/utils.py"]
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
+    assert!(
+        file_matches_module("src/pkg/utils.py", ".pkg.utils", "src/app.py", &indexed),
+        "relative multi-component should match full path"
+    );
+    assert!(
+        !file_matches_module("src/utils.py", ".pkg.utils", "src/app.py", &indexed),
+        "relative multi-component should NOT match partial path"
+    );
+}

@@ -987,21 +987,80 @@ impl ParsedFile {
 
     /// Extract structured import bindings from Python/JS/TS files.
     /// Returns one `ImportBinding` per import clause.
+    ///
+    /// Only collects module-scope imports: direct children of the module root,
+    /// plus imports inside module-scope compound statements (if/try/for/while/with)
+    /// which ARE module-scope in Python. Function-local and class-nested imports
+    /// are excluded — they don't create file-wide bindings.
     pub fn extract_import_bindings(&self) -> Vec<crate::call_graph::ImportBinding> {
         let mut out = Vec::new();
         match self.language {
             Language::Python => {
-                self.collect_python_import_bindings(self.tree.root_node(), &mut out)
+                let root = self.tree.root_node();
+                let mut cursor = root.walk();
+                for child in root.children(&mut cursor) {
+                    self.collect_python_module_scope_imports(child, &mut out);
+                }
             }
             Language::JavaScript | Language::TypeScript | Language::Tsx => {
-                self.collect_js_import_bindings(self.tree.root_node(), &mut out)
+                // ES module imports are syntactically top-level only; walk
+                // direct children of the root `program` node.
+                let root = self.tree.root_node();
+                let mut cursor = root.walk();
+                for child in root.children(&mut cursor) {
+                    self.collect_js_import_bindings_node(child, &mut out);
+                }
             }
             _ => {}
         }
         out
     }
 
-    fn collect_python_import_bindings(
+    /// Collect imports from a single module-scope Python node.
+    ///
+    /// Called for each direct child of the root. If the node is a compound
+    /// statement (`if`/`try`/`for`/`while`/`with`), we walk one level into
+    /// their block/clause children for imports — those ARE module-scope in
+    /// Python. We do NOT recurse into `function_definition` or
+    /// `class_definition` bodies (their imports are function-/class-local).
+    fn collect_python_module_scope_imports(
+        &self,
+        node: Node<'_>,
+        out: &mut Vec<crate::call_graph::ImportBinding>,
+    ) {
+        match node.kind() {
+            "import_statement" | "import_from_statement" => {
+                self.collect_python_import_node(node, out);
+            }
+            // Module-scope compound statements can contain imports that are
+            // still module-scope (e.g. `if TYPE_CHECKING: from x import y`).
+            "if_statement" | "try_statement" | "for_statement" | "while_statement"
+            | "with_statement" => {
+                let mut cursor = node.walk();
+                for child in node.children(&mut cursor) {
+                    match child.kind() {
+                        "block" | "except_clause" | "finally_clause" | "else_clause" => {
+                            let mut bc = child.walk();
+                            for stmt in child.children(&mut bc) {
+                                if stmt.kind() == "import_statement"
+                                    || stmt.kind() == "import_from_statement"
+                                {
+                                    self.collect_python_import_node(stmt, out);
+                                }
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+            }
+            // Do NOT walk into function_definition, class_definition,
+            // decorated_definition — their imports are not module-scope.
+            _ => {}
+        }
+    }
+
+    /// Extract binding data from a single Python import/import_from node.
+    fn collect_python_import_node(
         &self,
         node: Node<'_>,
         out: &mut Vec<crate::call_graph::ImportBinding>,
@@ -1104,53 +1163,44 @@ impl ParsedFile {
                     }
                 }
             }
-            _ => {
-                let mut cursor = node.walk();
-                for child in node.children(&mut cursor) {
-                    self.collect_python_import_bindings(child, out);
-                }
-            }
+            _ => {}
         }
     }
 
-    fn collect_js_import_bindings(
+    /// Collect import binding data from a single JS/TS `import_statement` node.
+    /// Called only for direct children of the root `program` node.
+    fn collect_js_import_bindings_node(
         &self,
         node: Node<'_>,
         out: &mut Vec<crate::call_graph::ImportBinding>,
     ) {
         use crate::call_graph::{ImportBinding, ImportBindingKind};
-        match node.kind() {
-            "import_statement" => {
-                let source = node.child_by_field_name("source").map(|n| {
-                    let text = self.node_text(&n);
-                    text.trim_matches(|c| c == '\'' || c == '"').to_string()
-                });
-                if let Some(module_path) = source {
-                    let mut cursor = node.walk();
-                    for child in node.children(&mut cursor) {
-                        match child.kind() {
-                            "import_clause" => {
-                                self.collect_js_import_clause_bindings(&child, &module_path, out);
-                            }
-                            "identifier" => {
-                                let name = self.node_text(&child).to_string();
-                                out.push(ImportBinding {
-                                    local: name,
-                                    module_path: module_path.clone(),
-                                    member: None,
-                                    kind: ImportBindingKind::ModuleImport,
-                                    eligible: false, // default import = module
-                                });
-                            }
-                            _ => {}
-                        }
+        // Only process top-level import_statement nodes.
+        if node.kind() != "import_statement" {
+            return;
+        }
+        let source = node.child_by_field_name("source").map(|n| {
+            let text = self.node_text(&n);
+            text.trim_matches(|c| c == '\'' || c == '"').to_string()
+        });
+        if let Some(module_path) = source {
+            let mut cursor = node.walk();
+            for child in node.children(&mut cursor) {
+                match child.kind() {
+                    "import_clause" => {
+                        self.collect_js_import_clause_bindings(&child, &module_path, out);
                     }
-                }
-            }
-            _ => {
-                let mut cursor = node.walk();
-                for child in node.children(&mut cursor) {
-                    self.collect_js_import_bindings(child, out);
+                    "identifier" => {
+                        let name = self.node_text(&child).to_string();
+                        out.push(ImportBinding {
+                            local: name,
+                            module_path: module_path.clone(),
+                            member: None,
+                            kind: ImportBindingKind::ModuleImport,
+                            eligible: false, // default import = module
+                        });
+                    }
+                    _ => {}
                 }
             }
         }
