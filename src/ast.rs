@@ -331,6 +331,8 @@ impl ParsedFile {
         use crate::queries::{get_query, QueryKind};
         use tree_sitter::StreamingIterator;
 
+        let mut functions = Vec::new();
+
         // Use compiled tree-sitter query when available (faster: skips irrelevant subtrees).
         if let Some(query) = get_query(self.language, QueryKind::Functions) {
             let func_idx = query
@@ -338,7 +340,6 @@ impl ParsedFile {
                 .expect("Functions query must have @func capture");
             let mut cursor = tree_sitter::QueryCursor::new();
             let mut matches = cursor.matches(query, self.tree.root_node(), self.source.as_bytes());
-            let mut functions = Vec::new();
             while let Some(m) = matches.next() {
                 for capture in m.captures {
                     if capture.index == func_idx {
@@ -346,13 +347,21 @@ impl ParsedFile {
                     }
                 }
             }
-            return functions;
+        } else {
+            // Fallback: manual recursive walk.
+            self.collect_functions_manual(self.tree.root_node(), &mut functions);
         }
 
-        // Fallback: manual recursive walk.
-        let mut functions = Vec::new();
-        self.collect_functions_manual(self.tree.root_node(), &mut functions);
+        functions.retain(|node| !self.is_python_decorated_inner_function(node));
         functions
+    }
+
+    fn is_python_decorated_inner_function(&self, node: &Node<'_>) -> bool {
+        self.language == Language::Python
+            && node.kind() == "function_definition"
+            && node
+                .parent()
+                .is_some_and(|parent| parent.kind() == "decorated_definition")
     }
 
     /// Build the eager function table via the existing dual-path collection.
@@ -5039,6 +5048,45 @@ mod tests {
         assert!(!p.statements_in_function(&deco).is_empty());
         assert!(!p.statement_spans_in_function(&deco).is_empty());
         assert!(!p.return_value_nodes(&deco).is_empty());
+    }
+
+    #[test]
+    fn decorated_function_canonical_single_node() {
+        let p =
+            ParsedFile::parse("a.py", "@deco\ndef f():\n    return 1\n", Language::Python).unwrap();
+        let fs: Vec<_> = p
+            .all_functions()
+            .into_iter()
+            .filter(|n| p.language.function_name(n).map(|nm| p.node_text(&nm)) == Some("f".into()))
+            .collect();
+
+        assert_eq!(fs.len(), 1, "one canonical record for f");
+        assert_eq!(
+            fs[0].kind(),
+            "decorated_definition",
+            "the wrapper is canonical"
+        );
+    }
+
+    #[test]
+    fn decorated_function_canonical_single_node_on_reconstruction_fallback() {
+        let mut p =
+            ParsedFile::parse("a.py", "@deco\ndef f():\n    return 1\n", Language::Python).unwrap();
+        p.functions[0].kind_id = u16::MAX;
+
+        let (nodes, used_fallback) = p.all_functions_inner();
+        let fs: Vec<_> = nodes
+            .into_iter()
+            .filter(|n| p.language.function_name(n).map(|nm| p.node_text(&nm)) == Some("f".into()))
+            .collect();
+
+        assert!(used_fallback, "synthetic corruption must force fallback");
+        assert_eq!(fs.len(), 1, "fallback must preserve wrapper-canonical f");
+        assert_eq!(
+            fs[0].kind(),
+            "decorated_definition",
+            "the wrapper is canonical"
+        );
     }
 
     fn all_call_sites(pf: &ParsedFile) -> Vec<(usize, String)> {
