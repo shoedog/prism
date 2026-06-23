@@ -145,6 +145,26 @@ impl ScopeGraphBuildInputs {
     }
 }
 
+/// A resolved base-class slot for single-inheritance lookup.
+///
+/// Each slot in a class's base list becomes one `ClassBaseLink`:
+/// - `SameFile` when the base is a simple identifier that resolves uniquely to a
+///   top-level class in the same file (no imports, aliases, or star-imports shadow it).
+/// - `Barrier` for any base we cannot confidently resolve (non-simple expression,
+///   imported name, ambiguous name, wildcard import present, etc.).
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ClassBaseLink {
+    /// The base class is in the same file and uniquely identified.
+    SameFile {
+        /// Byte span (start, end) of the base class definition node.
+        span: (usize, usize),
+        /// Owner key (class name) of the base class.
+        owner: String,
+    },
+    /// Cannot resolve confidently: imported, non-simple expression, ambiguous, etc.
+    Barrier,
+}
+
 /// The call graph for a set of parsed files.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct CallGraph {
@@ -175,6 +195,12 @@ pub struct CallGraph {
     /// These fail open to owner lookup because the class span is not trustworthy.
     #[serde(default)]
     pub method_class_span_ambiguous: BTreeSet<FunctionId>,
+    /// Slice 1b: per-class base-slot links for inherited-self resolution.
+    /// Keyed by `(file_path, class_byte_span)`, value is one `ClassBaseLink` per
+    /// base slot (count preserved). Only populated for module-scope classes in
+    /// Python/JS/TS.
+    #[serde(default)]
+    pub class_bases: BTreeMap<(String, (usize, usize)), Vec<ClassBaseLink>>,
     /// Phase-2a PR-1: (defining-type scope, method_name) -> definitions.
     /// Inert until the receiver-typed read path lands.
     #[serde(default)]
@@ -247,6 +273,7 @@ impl CallGraph {
             method_owners: BTreeMap::new(),
             method_class_span: BTreeMap::new(),
             method_class_span_ambiguous: BTreeSet::new(),
+            class_bases: BTreeMap::new(),
             methods_by_scope: BTreeMap::new(),
             extension_methods: BTreeMap::new(),
             identity_complete: BTreeSet::new(),
@@ -402,6 +429,7 @@ impl CallGraph {
             method_owners,
             method_class_span,
             method_class_span_ambiguous,
+            class_bases: BTreeMap::new(),
             methods_by_scope: BTreeMap::new(),
             extension_methods: BTreeMap::new(),
             identity_complete: BTreeSet::new(),
@@ -1018,6 +1046,9 @@ impl CallGraph {
             callers.entry(callee_name).or_default().push(site);
         }
 
+        // Phase 5: Build class_bases for inherited-self resolution (Py/JS/TS only).
+        let class_bases = Self::build_class_bases(files);
+
         let mut cg = CallGraph {
             functions,
             calls,
@@ -1028,6 +1059,7 @@ impl CallGraph {
             method_owners,
             method_class_span,
             method_class_span_ambiguous,
+            class_bases,
             methods_by_scope: BTreeMap::new(),
             extension_methods: BTreeMap::new(),
             identity_complete: BTreeSet::new(),
@@ -1095,6 +1127,7 @@ impl CallGraph {
             .retain(|fid, _| !exclude.contains(&fid.file));
         self.method_class_span_ambiguous
             .retain(|fid| !exclude.contains(&fid.file));
+        self.class_bases.retain(|(f, _), _| !exclude.contains(f));
         self.methods_by_scope.clear();
         self.extension_methods.clear();
         self.identity_complete.clear();
@@ -1144,6 +1177,7 @@ impl CallGraph {
                 span,
             );
         }
+        self.class_bases.extend(other.class_bases);
         for (key, fids) in other.methods_by_scope {
             self.methods_by_scope.entry(key).or_default().extend(fids);
         }
@@ -1158,6 +1192,434 @@ impl CallGraph {
         self.receiver_vars.extend(other.receiver_vars);
         self.method_facts.extend(other.method_facts);
         self.scope_graph = None;
+    }
+
+    /// Build `class_bases` for inherited-self resolution (Py/JS/TS only).
+    ///
+    /// For each module-scope class definition with base slots, resolves each
+    /// base to `SameFile` or `Barrier` based on occurrence-clean checks.
+    fn build_class_bases(
+        files: &BTreeMap<String, ParsedFile>,
+    ) -> BTreeMap<(String, (usize, usize)), Vec<ClassBaseLink>> {
+        use crate::languages::Language;
+        let mut class_bases = BTreeMap::new();
+
+        for (file_path, parsed) in files {
+            if !matches!(
+                parsed.language,
+                Language::Python | Language::JavaScript | Language::TypeScript | Language::Tsx
+            ) {
+                continue;
+            }
+
+            let root = parsed.tree.root_node();
+            let has_wildcard_import = Self::has_wildcard_import(parsed);
+
+            // Collect all top-level class definitions with their names and spans.
+            // "Top-level" = direct child of module root (or inside a decorated_definition
+            // that is a direct child of module root). Not nested inside functions or
+            // other classes.
+            let mut top_level_classes: Vec<(String, (usize, usize))> = Vec::new();
+            let mut cursor = root.walk();
+            for child in root.children(&mut cursor) {
+                let class_node = if child.kind() == "decorated_definition" {
+                    // Python: decorated class — unwrap
+                    let mut inner_cursor = child.walk();
+                    let mut found = None;
+                    for inner in child.children(&mut inner_cursor) {
+                        if inner.kind() == "class_definition" {
+                            found = Some(inner);
+                            break;
+                        }
+                    }
+                    match found {
+                        Some(n) => n,
+                        None => continue,
+                    }
+                } else if matches!(
+                    child.kind(),
+                    "class_definition" | "class_declaration" | "class"
+                ) {
+                    child
+                } else {
+                    continue;
+                };
+
+                if let Some(name_node) = class_node.child_by_field_name("name") {
+                    let name =
+                        parsed.source[name_node.start_byte()..name_node.end_byte()].to_string();
+                    let span = (class_node.start_byte(), class_node.end_byte());
+                    top_level_classes.push((name, span));
+                }
+            }
+
+            // Count top-level binding occurrences of each name for occurrence-clean check.
+            let top_level_bindings = Self::top_level_bindings(parsed);
+
+            // Now iterate all module-scope class definitions that have base slots.
+            let mut cursor2 = root.walk();
+            for child in root.children(&mut cursor2) {
+                let class_node = if child.kind() == "decorated_definition" {
+                    let mut inner_cursor = child.walk();
+                    let mut found = None;
+                    for inner in child.children(&mut inner_cursor) {
+                        if inner.kind() == "class_definition" {
+                            found = Some(inner);
+                            break;
+                        }
+                    }
+                    match found {
+                        Some(n) => n,
+                        None => continue,
+                    }
+                } else if matches!(
+                    child.kind(),
+                    "class_definition" | "class_declaration" | "class"
+                ) {
+                    child
+                } else {
+                    continue;
+                };
+
+                let base_slots = parsed
+                    .language
+                    .class_base_names(&class_node, &parsed.source);
+                if base_slots.is_empty() {
+                    continue;
+                }
+
+                let class_span = (class_node.start_byte(), class_node.end_byte());
+                let links: Vec<ClassBaseLink> = base_slots
+                    .into_iter()
+                    .map(|slot| {
+                        let Some(base_name) = slot else {
+                            return ClassBaseLink::Barrier;
+                        };
+
+                        // Wildcard import poisons all simple names.
+                        if has_wildcard_import {
+                            return ClassBaseLink::Barrier;
+                        }
+
+                        // Check occurrence-clean: the name must appear exactly once as
+                        // a top-level class definition and have no other top-level bindings.
+                        let class_matches: Vec<&(String, (usize, usize))> = top_level_classes
+                            .iter()
+                            .filter(|(n, _)| *n == base_name)
+                            .collect();
+
+                        if class_matches.len() != 1 {
+                            return ClassBaseLink::Barrier;
+                        }
+
+                        // Check no other top-level binding (import, assignment, function, etc.)
+                        let binding_count =
+                            top_level_bindings.get(&base_name).copied().unwrap_or(0);
+                        // binding_count includes the class definition itself, so
+                        // exactly 1 = only the class.
+                        if binding_count != 1 {
+                            return ClassBaseLink::Barrier;
+                        }
+
+                        ClassBaseLink::SameFile {
+                            span: class_matches[0].1,
+                            owner: base_name,
+                        }
+                    })
+                    .collect();
+
+                class_bases.insert((file_path.clone(), class_span), links);
+            }
+        }
+
+        class_bases
+    }
+
+    /// Check if a Python file has `from x import *` (wildcard import).
+    fn has_wildcard_import(parsed: &ParsedFile) -> bool {
+        if !matches!(parsed.language, crate::languages::Language::Python) {
+            return false;
+        }
+
+        fn is_wildcard_import(node: tree_sitter::Node) -> bool {
+            if node.kind() == "import_from_statement" {
+                let mut inner = node.walk();
+                for c in node.children(&mut inner) {
+                    if c.kind() == "wildcard_import" {
+                        return true;
+                    }
+                }
+            }
+            false
+        }
+
+        fn check_block(node: tree_sitter::Node) -> bool {
+            let mut cursor = node.walk();
+            for child in node.children(&mut cursor) {
+                if check_module_scope_stmt(child) {
+                    return true;
+                }
+            }
+            false
+        }
+
+        fn check_module_scope_stmt(child: tree_sitter::Node) -> bool {
+            if is_wildcard_import(child) {
+                return true;
+            }
+            // Clause nodes (else_clause, except_clause, …) wrap their
+            // statements in a `block` child — recurse transparently so the
+            // actual statements are reached.
+            if child.kind() == "block" {
+                return check_block(child);
+            }
+            // Module-scope compound statements: their block bodies are still
+            // module scope in Python, so wildcard imports inside them count.
+            if matches!(
+                child.kind(),
+                "if_statement"
+                    | "try_statement"
+                    | "for_statement"
+                    | "while_statement"
+                    | "with_statement"
+            ) {
+                let mut bcursor = child.walk();
+                for block_child in child.children(&mut bcursor) {
+                    if matches!(
+                        block_child.kind(),
+                        "block"
+                            | "else_clause"
+                            | "elif_clause"
+                            | "except_clause"
+                            | "finally_clause"
+                    ) {
+                        if check_block(block_child) {
+                            return true;
+                        }
+                    }
+                }
+            }
+            false
+        }
+
+        // Walk module-level statements looking for `from ... import *`
+        let root = parsed.tree.root_node();
+        let mut cursor = root.walk();
+        for child in root.children(&mut cursor) {
+            if check_module_scope_stmt(child) {
+                return true;
+            }
+        }
+        false
+    }
+
+    /// Count top-level binding occurrences per name in a file.
+    ///
+    /// A "binding" is any top-level statement that introduces a name:
+    /// class definition, function definition, import, assignment, etc.
+    /// Also counts names inside top-level if/try/for/with blocks
+    /// (these are still module-scope in Python).
+    fn top_level_bindings(parsed: &ParsedFile) -> BTreeMap<String, usize> {
+        let root = parsed.tree.root_node();
+        let mut counts: BTreeMap<String, usize> = BTreeMap::new();
+
+        fn count_bindings_in_block(
+            node: tree_sitter::Node,
+            source: &str,
+            lang: &crate::languages::Language,
+            counts: &mut BTreeMap<String, usize>,
+        ) {
+            let mut cursor = node.walk();
+            for child in node.children(&mut cursor) {
+                count_binding_stmt(child, source, lang, counts);
+            }
+        }
+
+        fn count_binding_stmt(
+            child: tree_sitter::Node,
+            source: &str,
+            lang: &crate::languages::Language,
+            counts: &mut BTreeMap<String, usize>,
+        ) {
+            match child.kind() {
+                "class_definition" | "class_declaration" | "class" => {
+                    if let Some(name_node) = child.child_by_field_name("name") {
+                        let name = source[name_node.start_byte()..name_node.end_byte()].to_string();
+                        *counts.entry(name).or_default() += 1;
+                    }
+                }
+                "decorated_definition" => {
+                    // Unwrap: could be a decorated class or function
+                    let mut inner = child.walk();
+                    for c in child.children(&mut inner) {
+                        if matches!(c.kind(), "class_definition" | "function_definition") {
+                            if let Some(name_node) = c.child_by_field_name("name") {
+                                let name = source[name_node.start_byte()..name_node.end_byte()]
+                                    .to_string();
+                                *counts.entry(name).or_default() += 1;
+                            }
+                        }
+                    }
+                }
+                "function_definition" => {
+                    if let Some(name_node) = child.child_by_field_name("name") {
+                        let name = source[name_node.start_byte()..name_node.end_byte()].to_string();
+                        *counts.entry(name).or_default() += 1;
+                    }
+                }
+                "import_statement" | "import_from_statement" => {
+                    // Python: `import foo` or `from foo import bar, baz`
+                    if matches!(lang, crate::languages::Language::Python) {
+                        let mut icursor = child.walk();
+                        for c in child.children(&mut icursor) {
+                            match c.kind() {
+                                "dotted_name" if child.kind() == "import_statement" => {
+                                    // `import foo.bar` binds `foo`
+                                    if let Some(first) = c.child(0) {
+                                        if first.kind() == "identifier" {
+                                            let name = source[first.start_byte()..first.end_byte()]
+                                                .to_string();
+                                            *counts.entry(name).or_default() += 1;
+                                        }
+                                    }
+                                }
+                                "aliased_import" => {
+                                    // `import foo as bar` or `from x import y as z`
+                                    if let Some(alias) = c.child_by_field_name("alias") {
+                                        let name = source[alias.start_byte()..alias.end_byte()]
+                                            .to_string();
+                                        *counts.entry(name).or_default() += 1;
+                                    } else if let Some(name_node) = c.child_by_field_name("name") {
+                                        let name = source
+                                            [name_node.start_byte()..name_node.end_byte()]
+                                            .to_string();
+                                        *counts.entry(name).or_default() += 1;
+                                    }
+                                }
+                                "dotted_name" if child.kind() == "import_from_statement" => {
+                                    // `from x import y` — each imported name
+                                    let txt = &source[c.start_byte()..c.end_byte()];
+                                    if !txt.contains('.') {
+                                        *counts.entry(txt.to_string()).or_default() += 1;
+                                    }
+                                }
+                                _ => {}
+                            }
+                        }
+                    }
+                }
+                // Assignments: `x = ...`, `x: int = ...`
+                "expression_statement" | "assignment" => {
+                    if matches!(lang, crate::languages::Language::Python) {
+                        extract_assignment_targets(child, source, counts);
+                    }
+                }
+                // JS/TS variable declarations
+                "variable_declaration" | "lexical_declaration" => {
+                    let mut vcursor = child.walk();
+                    for c in child.children(&mut vcursor) {
+                        if c.kind() == "variable_declarator" {
+                            if let Some(name_node) = c.child_by_field_name("name") {
+                                if name_node.kind() == "identifier" {
+                                    let name = source[name_node.start_byte()..name_node.end_byte()]
+                                        .to_string();
+                                    *counts.entry(name).or_default() += 1;
+                                }
+                            }
+                        }
+                    }
+                }
+                // Python top-level compound statements whose bodies are still module-scope.
+                // The statement HEADERS also bind names at module scope:
+                //   for_statement: iteration target (`for x in ...`)
+                //   with_statement: `as` alias (`with ctx() as x`)
+                //   try_statement > except_clause: `as` alias (`except E as x`)
+                "if_statement" | "try_statement" | "for_statement" | "while_statement"
+                | "with_statement" => {
+                    if matches!(lang, crate::languages::Language::Python) {
+                        // Extract header bindings first.
+                        if child.kind() == "for_statement" {
+                            // `for x in ...`: the `left` field is the iteration target
+                            if let Some(left) = child.child_by_field_name("left") {
+                                collect_identifiers_from_pattern(left, source, counts);
+                            }
+                        } else if child.kind() == "with_statement" {
+                            // `with expr as name`: walk for as_pattern aliases
+                            fn extract_with_aliases(
+                                node: tree_sitter::Node,
+                                source: &str,
+                                counts: &mut BTreeMap<String, usize>,
+                            ) {
+                                let mut cur = node.walk();
+                                for c in node.children(&mut cur) {
+                                    if c.kind() == "as_pattern" {
+                                        // The alias is typically the last identifier child
+                                        if let Some(alias) = c.child_by_field_name("alias") {
+                                            collect_identifiers_from_pattern(alias, source, counts);
+                                        }
+                                    } else if c.kind() == "with_clause" || c.kind() == "with_item" {
+                                        extract_with_aliases(c, source, counts);
+                                    }
+                                }
+                            }
+                            extract_with_aliases(child, source, counts);
+                        }
+                        // Walk into block children (bodies + else/except/finally).
+                        // For try_statement, also extract except_clause header aliases.
+                        let mut bcursor = child.walk();
+                        for block_child in child.children(&mut bcursor) {
+                            if block_child.kind() == "except_clause" {
+                                // `except E as x`: the `as` identifier binds at module scope
+                                let mut ecur = block_child.walk();
+                                for ec in block_child.children(&mut ecur) {
+                                    if ec.kind() == "as_pattern" {
+                                        if let Some(alias) = ec.child_by_field_name("alias") {
+                                            collect_identifiers_from_pattern(alias, source, counts);
+                                        }
+                                    }
+                                    // In some tree-sitter-python versions, `except E as x`
+                                    // stores the alias as a direct identifier child after `as`.
+                                    // Check for an identifier that follows an `as` keyword.
+                                    if ec.kind() == "identifier" {
+                                        // Check if the previous sibling is `as`
+                                        if let Some(prev) = ec.prev_sibling() {
+                                            if prev.kind() == "as" {
+                                                let name = source[ec.start_byte()..ec.end_byte()]
+                                                    .to_string();
+                                                *counts.entry(name).or_default() += 1;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            if matches!(
+                                block_child.kind(),
+                                "block"
+                                    | "else_clause"
+                                    | "elif_clause"
+                                    | "except_clause"
+                                    | "finally_clause"
+                            ) {
+                                count_bindings_in_block(block_child, source, lang, counts);
+                            }
+                        }
+                    }
+                }
+                // Clause nodes (else_clause, except_clause, …) wrap
+                // statements in a `block` child — recurse transparently.
+                "block" => {
+                    count_bindings_in_block(child, source, lang, counts);
+                }
+                _ => {}
+            }
+        }
+
+        let mut cursor = root.walk();
+        for child in root.children(&mut cursor) {
+            count_binding_stmt(child, &parsed.source, &parsed.language, &mut counts);
+        }
+
+        counts
     }
 
     pub fn rebuild_scope_graph(
@@ -1659,6 +2121,10 @@ impl CallGraph {
             }
         }
 
+        // Phase 5 (direct-subset): build class_bases for changed files so
+        // incremental cache merges carry inherited-self data for the subset.
+        let class_bases = Self::build_class_bases(files);
+
         CallGraph {
             functions,
             calls,
@@ -1669,6 +2135,7 @@ impl CallGraph {
             method_owners,
             method_class_span,
             method_class_span_ambiguous,
+            class_bases,
             methods_by_scope: BTreeMap::new(),
             extension_methods: BTreeMap::new(),
             identity_complete: BTreeSet::new(),
@@ -2209,6 +2676,62 @@ fn record_method_class_span(
         }
     } else {
         spans.insert(fid.clone(), span);
+    }
+}
+
+/// Extract assignment target names from a Python assignment or expression statement.
+/// Handles `x = ...`, `x: int = ...`, `x, y = ...` (tuple unpacking).
+fn extract_assignment_targets(
+    node: tree_sitter::Node,
+    source: &str,
+    counts: &mut BTreeMap<String, usize>,
+) {
+    // expression_statement may wrap an assignment
+    let assign = if node.kind() == "expression_statement" {
+        // Walk children to find assignment
+        let mut found = None;
+        let count = node.child_count();
+        for i in 0..count {
+            if let Some(c) = node.child(i) {
+                if c.kind() == "assignment" || c.kind() == "augmented_assignment" {
+                    found = Some(c);
+                    break;
+                }
+            }
+        }
+        found
+    } else if node.kind() == "assignment" {
+        Some(node)
+    } else {
+        None
+    };
+    if let Some(assign_node) = assign {
+        if let Some(left) = assign_node.child_by_field_name("left") {
+            collect_identifiers_from_pattern(left, source, counts);
+        }
+    }
+}
+
+/// Recursively collect identifier names from an assignment target pattern.
+fn collect_identifiers_from_pattern(
+    node: tree_sitter::Node,
+    source: &str,
+    counts: &mut BTreeMap<String, usize>,
+) {
+    match node.kind() {
+        "identifier" => {
+            let name = source[node.start_byte()..node.end_byte()].to_string();
+            *counts.entry(name).or_default() += 1;
+        }
+        "pattern_list" | "tuple_pattern" => {
+            let mut cursor = node.walk();
+            for child in node.children(&mut cursor) {
+                if child.kind() != "," {
+                    collect_identifiers_from_pattern(child, source, counts);
+                }
+            }
+        }
+        _ => {}
     }
 }
 
