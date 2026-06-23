@@ -33,19 +33,32 @@ commit trailer `Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.
 | Slice | Stage | Branch / artifacts |
 |---|---|---|
 | **1a** self same-class | **MERGED** (#131, rebase, main `184208a`) | — |
-| **decorated** double-capture | **spec SOUND (rev 3)** — 2 reviews folded → **writing-plans** | `decorated-double-capture` (wt `/tmp/prism-decorated`), spec `ccb06b6` |
-| **1b** inheritance MRO | **architect DONE** (memo `/tmp/slice1b-architect-out.md`) — awaiting spec | — |
-| **2** typed receivers | architect RUNNING (port 8219) | — |
-| **3** import-scoping/free_multi | architect RUNNING (port 8220) | — |
+| **decorated** double-capture | spec SOUND (rev 3) + **plan written** → **plan-review running** (b1d3enbh5) | `decorated-double-capture` (wt `/tmp/prism-decorated`), plan `88c12dc` |
+| **2** typed receivers | **architect DONE** — awaiting spec (do AFTER decorated) | memo `/tmp/slice2-architect-out.md` |
+| **3** import-scoping/free_multi | **architect DONE** — awaiting spec | memo `/tmp/slice3-architect-out.md` |
+| **1b** inheritance MRO | **architect DONE** — awaiting spec | memo `/tmp/slice1b-architect-out.md` |
 
-**1b architect gist (small buy — sequence LAST):** only **16 in-repo inherited self/this sites** (FastAPI
-12, Pydantic 4, Excalidraw 0); external bases (Starlette/React/unittest/builtins) dominate = SCIP, out of
-scope. Design (Option A): span-keyed `class_bases: BTreeMap<ClassId,Vec<ClassBaseLink>>` on CallGraph
-(preserve 1a's `(file,class_span)` identity — NOT bare-name, else reintroduces collisions); after
-same-class miss, walk bases filtered by `(base.file,base.span)`; external/ambiguous bases = MRO barriers
-(drop, don't guess); conservative MRO (Exact only for single unambiguous provider). CACHE bump from v22.
-`python/inherited_override` Tier-A fixture is currently `c.go()` on an untyped param (NOT inherited self) —
-needs a new fixture. Low value → do after 2 & 3.
+### Architect results + execution order (all 3 done; measured buys are SMALLER than headlines)
+**ORDER: decorated (in flight) → 2 → 3 → 1b** (by measured Python buy; all sequential off fresh main).
+- **2 typed receivers (~700 Python sites):** owner-lookup hits ~171 FastAPI + ~542 pydantic; **Express ≈0**
+  (CommonJS Router, no in-repo ES classes — defer JS). Currently in `dropped_multi_owner` + `r6_single_owner`
+  NameOnly. **Design = Option B "hit-or-fallthrough":** open the `recover_simple_ident` (`resolution.rs:320`)
+  + `receiver_type_in_fn` (`ast.rs:403`) Rust|Go gates for Python/JS/TS; recover typed params + constructor
+  locals + annotations; feed R6 `owner_lookup`; **on MISS fall through to R6 residue, do NOT drop-to-
+  ExternalReceiver** (FastAPI has 1,416 syntactic recoveries with no owner hit → a drop would spike).
+  Rust/Go byte-identical. First-merge guard: constructor-locals + explicit annotations only (skip
+  import-qualified/attribute type syntax, TS structural, CommonJS). Bare owner-key (demote-on-multi safety).
+- **3 import-scoping/free_multi (~300 sites; 25k is EDGES not sites):** same-dir is UNSOUND for Python/JS
+  (siblings not in scope w/o import); same-file already R4. **Design = Option B import-binding rung:**
+  richer `ImportBinding` (local name, module path, **imported member** — aliases currently lose it), resolve
+  module path → repo file, add a rung after R4-local/before R5-free-multi; Exact on single candidate, multi
+  demotes, external/unresolved fails open to R5. Buy: ~241 pydantic + 64 fastapi import-singletons; residual
+  ~2,647 pydantic genuinely ambiguous (stays NameOnly, correct). Named imports first (JS default/CommonJS
+  deferred).
+- **1b inheritance MRO (16 sites — smallest, LAST):** 12 FastAPI + 4 pydantic + 0 excalidraw in-repo
+  inherited self/this; external bases dominate (SCIP). Option A span-keyed `class_bases` (preserve 1a's
+  `(file,class_span)` identity), walk bases after same-class miss, external/ambiguous = MRO barriers,
+  conservative single-provider Exact. New Tier-A fixture needed (`inherited_override` is mislabeled).
 
 ## Decorated slice — design + open review findings (folding to spec rev 2)
 **Design:** wrapper-canonical — at extraction, skip the inner `function_definition` when its parent is a
