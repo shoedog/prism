@@ -474,3 +474,101 @@ def run():
         "R3b should be suppressed by as_pattern destructuring"
     );
 }
+
+// ─── Slice 2c round-2 review fixes ─────────────────────────────────────
+
+/// `obj.Foo = x` is an attribute access, NOT a binding of `Foo`.
+/// `Foo.method()` should still resolve via R3b owner-key.
+#[test]
+fn test_attribute_assignment_no_suppress() {
+    let cg = graph(&[(
+        "svc.py",
+        "\
+class Foo:
+    def method(self):
+        pass
+def run():
+    obj.Foo = x
+    Foo.method()
+",
+    )]);
+    let s = site(&cg, "run", "method");
+    // The attribute assignment `obj.Foo = x` should NOT count as a binding of `Foo`.
+    assert!(
+        !s.receiver_materialized || s.receiver_type.is_some(),
+        "attribute access should not suppress Foo"
+    );
+    let out = cg.resolve_call_site(&s);
+    assert!(
+        out.iter()
+            .any(|c| c.confidence == ResolutionConfidence::Exact),
+        "Foo.method() should still resolve after attribute assignment"
+    );
+}
+
+/// `def run(*Foo):` — splat parameter should count as a binding and suppress.
+#[test]
+fn test_splat_param_suppresses() {
+    let cg = graph(&[(
+        "svc.py",
+        "\
+class Foo:
+    def method(self):
+        pass
+def run(*Foo):
+    Foo.method()
+",
+    )]);
+    let s = site(&cg, "run", "method");
+    assert!(
+        s.receiver_materialized,
+        "splat param should materialize as binding"
+    );
+    assert_eq!(s.receiver_type, None, "splat param has no recoverable type");
+}
+
+/// `def run(): class Foo: pass; Foo.method()` — nested class name should
+/// count as a binding in the enclosing scope and suppress R3b.
+#[test]
+fn test_nested_class_def_suppresses() {
+    let cg = graph(&[(
+        "svc.py",
+        "\
+class Foo:
+    def method(self):
+        pass
+def run():
+    class Foo:
+        pass
+    Foo.method()
+",
+    )]);
+    let s = site(&cg, "run", "method");
+    assert!(
+        s.receiver_materialized,
+        "nested class def should materialize as binding"
+    );
+}
+
+/// `def run(): def Foo(): pass; Foo.m()` — nested function name should
+/// count as a binding in the enclosing scope and suppress R3b.
+#[test]
+fn test_nested_func_def_suppresses() {
+    let cg = graph(&[(
+        "svc.py",
+        "\
+class Foo:
+    def m(self):
+        pass
+def run():
+    def Foo():
+        pass
+    Foo.m()
+",
+    )]);
+    let s = site(&cg, "run", "m");
+    assert!(
+        s.receiver_materialized,
+        "nested function def should materialize as binding"
+    );
+}

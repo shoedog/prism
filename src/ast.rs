@@ -507,6 +507,15 @@ impl ParsedFile {
                         | "dictionary_splat_pattern" => {
                             let name_node = if param.kind() == "identifier" {
                                 Some(param)
+                            } else if matches!(
+                                param.kind(),
+                                "list_splat_pattern" | "dictionary_splat_pattern"
+                            ) {
+                                // Splat patterns have no `name` field; find the identifier child.
+                                let mut sc = param.walk();
+                                let found =
+                                    param.children(&mut sc).find(|c| c.kind() == "identifier");
+                                found
                             } else {
                                 param.child_by_field_name("name")
                             };
@@ -4060,6 +4069,15 @@ impl ParsedFile {
             return;
         }
         if !is_root && self.language.function_node_types().contains(&node.kind()) {
+            // Python: nested function name IS a binding in the enclosing scope.
+            if matches!(self.language, Language::Python) {
+                if let Some(name_node) = self.language.function_name(&node) {
+                    if self.simple_binding_text(&name_node).as_deref() == Some(receiver) {
+                        *bindings += 1;
+                        *found = None;
+                    }
+                }
+            }
             return;
         }
         if !is_root
@@ -4069,6 +4087,13 @@ impl ParsedFile {
                 "class_definition" | "class_declaration" | "class"
             )
         {
+            // The class name IS a binding in the enclosing scope.
+            if let Some(name_node) = node.child_by_field_name("name") {
+                if self.simple_binding_text(&name_node).as_deref() == Some(receiver) {
+                    *bindings += 1;
+                    *found = None;
+                }
+            }
             return;
         }
         // Python 3 comprehensions have their own scope — bindings inside them
@@ -4232,6 +4257,19 @@ impl ParsedFile {
                     }
                 }
             }
+            (Language::Python, "case_clause") => {
+                // Match/case capture patterns bind names in the enclosing scope.
+                // `case Foo:` captures and binds `Foo` (if not dotted).
+                if let Some(pattern) = node.child_by_field_name("pattern") {
+                    if self.simple_binding_text(&pattern).as_deref() == Some(receiver) {
+                        *bindings += 1;
+                        *found = None;
+                    } else if self.node_binds_name(pattern, receiver) {
+                        *bindings += 1;
+                        *found = None;
+                    }
+                }
+            }
             (Language::Go, "assignment_statement") | (Language::Rust, "assignment_expression") => {
                 let left = node
                     .child_by_field_name("left")
@@ -4327,6 +4365,13 @@ impl ParsedFile {
     fn node_binds_name(&self, node: Node<'_>, receiver: &str) -> bool {
         if self.language.is_identifier_node(node.kind()) && self.node_text(&node) == receiver {
             return true;
+        }
+        // Attribute/subscript accesses reference but don't bind the name.
+        if matches!(
+            node.kind(),
+            "attribute" | "subscript" | "member_expression" | "subscript_expression"
+        ) {
+            return false;
         }
         let mut cursor = node.walk();
         for child in node.children(&mut cursor) {
