@@ -63,6 +63,33 @@ fn test_resonance_slice_go() {
 }
 
 #[test]
+fn test_go_typed_receiver_recovery_still_drops_miss_as_external() {
+    use prism::resolution::{DropReason, ReceiverRecovery};
+    let src = "package p\n\ntype AccessPath struct{}\nfunc (a *AccessPath) Truncate() {}\nfunc run() {\n    items := NewVec()\n    items.Truncate()\n}\n";
+    let mut files = BTreeMap::new();
+    files.insert(
+        "main.go".to_string(),
+        ParsedFile::parse("main.go", src, Language::Go).unwrap(),
+    );
+    let cg = CallGraph::build(&files);
+    let site = cg
+        .calls
+        .iter()
+        .find(|(fid, _)| fid.name == "run")
+        .and_then(|(_, sites)| sites.iter().find(|s| s.callee_name == "Truncate"))
+        .expect("run->Truncate");
+    assert_eq!(site.receiver_type.as_deref(), Some("Vec"));
+    assert_eq!(
+        site.receiver_recovery,
+        Some(ReceiverRecovery::ConstructorLocal)
+    );
+    assert_eq!(
+        cg.resolve_call_site_full(site).drop,
+        Some(DropReason::ExternalReceiver)
+    );
+}
+
+#[test]
 fn test_membrane_slice_go_multifile() {
     let source_api = r#"
 package api

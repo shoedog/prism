@@ -409,20 +409,28 @@ impl ParsedFile {
     /// S3 P6-lite: syntactically-provable receiver type for `receiver` at a call
     /// on `call_line`. Typed params + constructor locals; when `recover_var` is true
     /// also recovers `var r T` declarations. Only bindings at or before `call_line`
-    /// count; >1 binding before the call means shadow bail. Rust + Go.
-    /// Returns the raw, unpeeled type text + which fact recovered it.
+    /// count; >1 binding before the call means shadow bail. Rust + Go +
+    /// guarded Python.
+    /// Returns `(type_found, binding_count)`: the raw, unpeeled type text +
+    /// which fact recovered it, plus how many local bindings of `receiver`
+    /// were seen (so the caller can distinguish "no bindings" from "bindings
+    /// present but type unrecoverable").
     pub fn receiver_type_in_fn(
         &self,
         func_node: &Node<'_>,
         receiver: &str,
         call_line: usize,
+        call_start_byte: usize,
         recover_var: bool,
-    ) -> Option<(String, crate::resolution::ReceiverRecovery)> {
+    ) -> (Option<(String, crate::resolution::ReceiverRecovery)>, usize) {
         use crate::languages::Language;
         use crate::resolution::ReceiverRecovery;
 
-        if !matches!(self.language, Language::Rust | Language::Go) {
-            return None;
+        if !matches!(
+            self.language,
+            Language::Rust | Language::Go | Language::Python
+        ) {
+            return (None, 0);
         }
 
         let mut found: Option<(String, ReceiverRecovery)> = None;
@@ -462,7 +470,64 @@ impl ParsedFile {
                             bindings += 1;
                         }
                     }
+                    Language::Python
+                        if matches!(
+                            param.kind(),
+                            "typed_parameter" | "typed_default_parameter"
+                        ) =>
+                    {
+                        let Some(ty) = param.child_by_field_name("type") else {
+                            continue;
+                        };
+                        if self.parameter_binds_name_before_type(param, ty, receiver) {
+                            found = Some((
+                                self.node_text(&ty).to_string(),
+                                ReceiverRecovery::TypedParam,
+                            ));
+                            bindings += 1;
+                        }
+                    }
                     _ => {}
+                }
+            }
+        }
+
+        // Python: count bare (untyped) parameters as bindings — `def run(Foo):`
+        // shadows an import/class of the same name. Typed params were already
+        // counted above, so only increment when `bindings` is still 0 for this
+        // receiver to avoid double-counting.
+        if matches!(self.language, Language::Python) && bindings == 0 {
+            if let Some(params) = self.find_parameters_node(func_node) {
+                let mut pcursor = params.walk();
+                for param in params.children(&mut pcursor) {
+                    match param.kind() {
+                        "identifier"
+                        | "default_parameter"
+                        | "list_splat_pattern"
+                        | "dictionary_splat_pattern" => {
+                            let name_node = if param.kind() == "identifier" {
+                                Some(param)
+                            } else if matches!(
+                                param.kind(),
+                                "list_splat_pattern" | "dictionary_splat_pattern"
+                            ) {
+                                // Splat patterns have no `name` field; find the identifier child.
+                                let mut sc = param.walk();
+                                let found =
+                                    param.children(&mut sc).find(|c| c.kind() == "identifier");
+                                found
+                            } else {
+                                param.child_by_field_name("name")
+                            };
+                            if let Some(n) = name_node {
+                                if self.simple_binding_text(&n).as_deref() == Some(receiver) {
+                                    bindings += 1;
+                                    // No type recovery possible from a bare param.
+                                }
+                            }
+                        }
+                        _ => {}
+                    }
                 }
             }
         }
@@ -472,14 +537,15 @@ impl ParsedFile {
             true,
             receiver,
             call_line,
+            call_start_byte,
             &mut found,
             &mut bindings,
             recover_var,
         );
         if bindings > 1 {
-            return None;
+            return (None, bindings);
         }
-        found
+        (found, bindings)
     }
 
     /// Manual recursive function collection (pre-query fallback).
@@ -668,6 +734,9 @@ impl ParsedFile {
                                 if let Some(alias) = alias {
                                     out.insert(alias, module.clone());
                                 }
+                            }
+                            "wildcard_import" => {
+                                out.insert("*".to_string(), "*".to_string());
                             }
                             _ => {}
                         }
@@ -3985,6 +4054,7 @@ impl ParsedFile {
         is_root: bool,
         receiver: &str,
         call_line: usize,
+        call_start_byte: usize,
         found: &mut Option<(String, crate::resolution::ReceiverRecovery)>,
         bindings: &mut usize,
         recover_var: bool,
@@ -3995,7 +4065,49 @@ impl ParsedFile {
         if node.start_position().row + 1 > call_line {
             return;
         }
+        if node.start_byte() >= call_start_byte {
+            return;
+        }
         if !is_root && self.language.function_node_types().contains(&node.kind()) {
+            // Python: nested function name IS a binding in the enclosing scope.
+            if matches!(self.language, Language::Python) {
+                if let Some(name_node) = self.language.function_name(&node) {
+                    if self.simple_binding_text(&name_node).as_deref() == Some(receiver) {
+                        *bindings += 1;
+                        *found = None;
+                    }
+                }
+            }
+            return;
+        }
+        if !is_root
+            && matches!(self.language, Language::Python)
+            && matches!(
+                node.kind(),
+                "class_definition" | "class_declaration" | "class"
+            )
+        {
+            // The class name IS a binding in the enclosing scope.
+            if let Some(name_node) = node.child_by_field_name("name") {
+                if self.simple_binding_text(&name_node).as_deref() == Some(receiver) {
+                    *bindings += 1;
+                    *found = None;
+                }
+            }
+            return;
+        }
+        // Python 3 comprehensions have their own scope — bindings inside them
+        // do NOT shadow names in the enclosing function scope.
+        if !is_root
+            && matches!(self.language, Language::Python)
+            && matches!(
+                node.kind(),
+                "list_comprehension"
+                    | "set_comprehension"
+                    | "dictionary_comprehension"
+                    | "generator_expression"
+            )
+        {
             return;
         }
 
@@ -4072,6 +4184,92 @@ impl ParsedFile {
                     }
                 }
             }
+            (Language::Python, "assignment") => {
+                let left = node.child_by_field_name("left");
+                if let Some(left) = left {
+                    if self.simple_binding_text(&left).as_deref() == Some(receiver) {
+                        *bindings += 1;
+                        if let Some(ty) = node.child_by_field_name("type") {
+                            *found = Some((
+                                self.node_text(&ty).to_string(),
+                                ReceiverRecovery::ConstructorLocal,
+                            ));
+                        } else if let Some(right) = node.child_by_field_name("right") {
+                            *found = self
+                                .constructor_type(&right)
+                                .map(|ty| (ty, ReceiverRecovery::ConstructorLocal));
+                        } else {
+                            *found = None;
+                        }
+                    } else if self.node_binds_name(left, receiver) {
+                        *bindings += 1;
+                        *found = None;
+                    }
+                }
+            }
+            (Language::Python, "augmented_assignment") => {
+                // `Foo += x` — augmented assignment rebinds the name; type unrecoverable.
+                if let Some(left) = node.child_by_field_name("left") {
+                    if self.simple_binding_text(&left).as_deref() == Some(receiver) {
+                        *bindings += 1;
+                        *found = None;
+                    }
+                }
+            }
+            (Language::Python, "for_statement") => {
+                // `for x in items:` — iteration variable; type unrecoverable.
+                if let Some(left) = node.child_by_field_name("left") {
+                    if self.simple_binding_text(&left).as_deref() == Some(receiver) {
+                        *bindings += 1;
+                        *found = None;
+                    } else if self.node_binds_name(left, receiver) {
+                        *bindings += 1;
+                        *found = None;
+                    }
+                }
+            }
+            // NOTE: comprehension `for_in_clause` targets are NOT counted here.
+            // Python 3 comprehensions have their own scope; the early-return
+            // above prevents recursion into them, so they cannot over-suppress
+            // names in the enclosing function scope.
+            (Language::Python, "named_expression") => {
+                // Walrus: `(x := compute())` — type unrecoverable.
+                if let Some(name_node) = node.child_by_field_name("name") {
+                    if self.simple_binding_text(&name_node).as_deref() == Some(receiver) {
+                        *bindings += 1;
+                        *found = None;
+                    }
+                }
+            }
+            (Language::Python, "as_pattern") => {
+                // `with ... as x:` / `except ... as x:` / `case ... as x:`
+                // tree-sitter-python: as_pattern field `alias` = as_pattern_target
+                // wrapping an identifier.  Also handle destructuring targets
+                // like `with cm() as (Foo, other):` where simple_binding_text
+                // returns None but node_binds_name finds the name inside a tuple.
+                if let Some(alias) = node.child_by_field_name("alias") {
+                    if self.simple_binding_text(&alias).as_deref() == Some(receiver) {
+                        *bindings += 1;
+                        *found = None;
+                    } else if self.node_binds_name(alias, receiver) {
+                        *bindings += 1;
+                        *found = None;
+                    }
+                }
+            }
+            (Language::Python, "case_clause") => {
+                // Match/case capture patterns bind names in the enclosing scope.
+                // `case Foo:` captures and binds `Foo` (if not dotted).
+                if let Some(pattern) = node.child_by_field_name("pattern") {
+                    if self.simple_binding_text(&pattern).as_deref() == Some(receiver) {
+                        *bindings += 1;
+                        *found = None;
+                    } else if self.node_binds_name(pattern, receiver) {
+                        *bindings += 1;
+                        *found = None;
+                    }
+                }
+            }
             (Language::Go, "assignment_statement") | (Language::Rust, "assignment_expression") => {
                 let left = node
                     .child_by_field_name("left")
@@ -4093,6 +4291,7 @@ impl ParsedFile {
                 false,
                 receiver,
                 call_line,
+                call_start_byte,
                 found,
                 bindings,
                 recover_var,
@@ -4123,6 +4322,24 @@ impl ParsedFile {
                         .filter(|s| !s.is_empty())
                         .map(str::to_string);
                 }
+                if self.language == Language::Python
+                    && text.chars().next().is_some_and(|c| c.is_ascii_uppercase())
+                    && text.chars().all(|c| c.is_alphanumeric() || c == '_')
+                {
+                    return Some(text.to_string());
+                }
+                None
+            }
+            "call" if self.language == Language::Python => {
+                let function = node
+                    .child_by_field_name("function")
+                    .or_else(|| node.child_by_field_name("name"))?;
+                let text = self.node_text(&function).trim();
+                if text.chars().next().is_some_and(|c| c.is_ascii_uppercase())
+                    && text.chars().all(|c| c.is_alphanumeric() || c == '_')
+                {
+                    return Some(text.to_string());
+                }
                 None
             }
             "struct_expression" | "composite_literal" => {
@@ -4148,6 +4365,13 @@ impl ParsedFile {
     fn node_binds_name(&self, node: Node<'_>, receiver: &str) -> bool {
         if self.language.is_identifier_node(node.kind()) && self.node_text(&node) == receiver {
             return true;
+        }
+        // Attribute/subscript accesses reference but don't bind the name.
+        if matches!(
+            node.kind(),
+            "attribute" | "subscript" | "member_expression" | "subscript_expression"
+        ) {
+            return false;
         }
         let mut cursor = node.walk();
         for child in node.children(&mut cursor) {
@@ -4176,6 +4400,30 @@ impl ParsedFile {
                 continue;
             }
             if child.kind() == "identifier" && self.node_text(&child) == receiver {
+                return true;
+            }
+        }
+        false
+    }
+
+    fn parameter_binds_name_before_type(
+        &self,
+        param: Node<'_>,
+        ty: Node<'_>,
+        receiver: &str,
+    ) -> bool {
+        if let Some(pattern) = param
+            .child_by_field_name("pattern")
+            .or_else(|| param.child_by_field_name("name"))
+        {
+            return self.simple_binding_text(&pattern).as_deref() == Some(receiver);
+        }
+        let mut cursor = param.walk();
+        for child in param.children(&mut cursor) {
+            if child.start_byte() >= ty.start_byte() {
+                continue;
+            }
+            if self.simple_binding_text(&child).as_deref() == Some(receiver) {
                 return true;
             }
         }

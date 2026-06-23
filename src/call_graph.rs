@@ -68,6 +68,11 @@ pub struct CallSite {
     /// derived from the same scan as receiver_type.
     #[serde(default)]
     pub receiver_recovery: Option<crate::resolution::ReceiverRecovery>,
+    /// True when the qualifier is proven to be a local receiver binding, even if
+    /// `receiver_type` was not populated because the static type was poisoned or
+    /// unresolved. Excluded from cmp_key like receiver recovery metadata.
+    #[serde(default)]
+    pub receiver_materialized: bool,
     /// Number of arguments at the call site. `None` = not captured / unknown
     /// (the arity-disambiguation filter treats `None` as "keep").
     /// Excluded from cmp_key — positional data, not part of logical identity.
@@ -371,6 +376,7 @@ impl CallGraph {
                         ),
                         receiver_type: None,
                         receiver_recovery: None,
+                        receiver_materialized: false,
                         arg_count: None,
                         arg_spread: false,
                         receiver_outcome: None,
@@ -635,15 +641,17 @@ impl CallGraph {
                             line,
                             qualifier,
                         );
-                        let recovered = classifier.classify(crate::resolution::ReceiverCtx {
+                        let classification = classifier.classify(crate::resolution::ReceiverCtx {
                             receiver_expr,
                             qualifier: qualifier.as_deref(),
                             fn_node: func_node,
                             call_line: line,
+                            call_start_byte: start_byte,
                             parsed,
                             recv_var: recv_var.as_deref(),
                             file_imports: file_imports_ref,
                         });
+                        let recovered = classification.recovered.as_ref();
                         let site = CallSite {
                             caller: caller_id.clone(),
                             callee_name,
@@ -654,6 +662,7 @@ impl CallGraph {
                             qualifier,
                             receiver_type: recovered.as_ref().map(|r| r.static_type.clone()),
                             receiver_recovery: recovered.as_ref().map(|r| r.recovery),
+                            receiver_materialized: classification.materialized,
                             arg_count,
                             arg_spread,
                             receiver_outcome: None,
@@ -737,6 +746,7 @@ impl CallGraph {
                                 qualifier: None,
                                 receiver_type: None,
                                 receiver_recovery: None,
+                                receiver_materialized: false,
                                 arg_count: None,
                                 arg_spread: false,
                                 receiver_outcome: None,
@@ -771,6 +781,7 @@ impl CallGraph {
                                 qualifier: None,
                                 receiver_type: None,
                                 receiver_recovery: None,
+                                receiver_materialized: false,
                                 arg_count: None,
                                 arg_spread: false,
                                 receiver_outcome: None,
@@ -858,6 +869,7 @@ impl CallGraph {
                                     qualifier: None,
                                     receiver_type: None,
                                     receiver_recovery: None,
+                                    receiver_materialized: false,
                                     arg_count: None,
                                     arg_spread: false,
                                     receiver_outcome: None,
@@ -955,6 +967,7 @@ impl CallGraph {
                                         qualifier: None,
                                         receiver_type: None,
                                         receiver_recovery: None,
+                                        receiver_materialized: false,
                                         arg_count: None,
                                         arg_spread: false,
                                         receiver_outcome: None,
@@ -982,6 +995,7 @@ impl CallGraph {
                                             qualifier: None,
                                             receiver_type: None,
                                             receiver_recovery: None,
+                                            receiver_materialized: false,
                                             arg_count: None,
                                             arg_spread: false,
                                             receiver_outcome: None,
@@ -1610,15 +1624,17 @@ impl CallGraph {
                         line,
                         qualifier,
                     );
-                    let recovered = classifier.classify(crate::resolution::ReceiverCtx {
+                    let classification = classifier.classify(crate::resolution::ReceiverCtx {
                         receiver_expr,
                         qualifier: qualifier.as_deref(),
                         fn_node: func_node,
                         call_line: line,
+                        call_start_byte: start_byte,
                         parsed,
                         recv_var: recv_var.as_deref(),
                         file_imports: file_imports_ref,
                     });
+                    let recovered = classification.recovered.as_ref();
                     let site = CallSite {
                         caller: caller_id.clone(),
                         callee_name: callee_name.clone(),
@@ -1629,6 +1645,7 @@ impl CallGraph {
                         qualifier,
                         receiver_type: recovered.as_ref().map(|r| r.static_type.clone()),
                         receiver_recovery: recovered.as_ref().map(|r| r.recovery),
+                        receiver_materialized: classification.materialized,
                         arg_count,
                         arg_spread,
                         receiver_outcome: None,
@@ -2425,7 +2442,7 @@ mod tests {
     }
 
     #[test]
-    fn callsite_receiver_outcome_serde_default_and_excluded_from_cmp_key() {
+    fn callsite_receiver_materialized_and_outcome_serde_default_and_excluded_from_cmp_key() {
         let cg = build_rust_call_graph(
             "struct Engine;\nimpl Engine { fn go(&self) {} }\nfn run(e: Engine) { e.go(); }\n",
         );
@@ -2442,6 +2459,7 @@ mod tests {
             bare: "Engine".to_string(),
             recovery: crate::resolution::ReceiverRecovery::TypedParam,
         });
+        a.receiver_materialized = true;
 
         assert_eq!(a.cmp_key(), b.cmp_key());
         let mut legacy_json = serde_json::to_value(&b).unwrap();
@@ -2449,8 +2467,13 @@ mod tests {
             .as_object_mut()
             .unwrap()
             .remove("receiver_outcome");
+        legacy_json
+            .as_object_mut()
+            .unwrap()
+            .remove("receiver_materialized");
         let defaulted: CallSite = serde_json::from_value(legacy_json).unwrap();
         assert_eq!(defaulted.receiver_outcome, None);
+        assert!(!defaulted.receiver_materialized);
 
         let back: CallSite = bincode::deserialize(&bincode::serialize(&a).unwrap()).unwrap();
         assert_eq!(a, back);

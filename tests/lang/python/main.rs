@@ -4,3 +4,4 @@ mod common;
 mod decorated_test;
 mod self_receiver_test;
 mod span_test;
+mod typed_receiver_test;

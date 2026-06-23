@@ -2709,6 +2709,147 @@ fn p6_go_wrong_constructor_guess_drops_after_owner_lookup_miss() {
 }
 
 #[test]
+fn py_receiver_typed_param_recovers_exact_among_collisions() {
+    use prism::languages::Language::Python;
+    use prism::resolution::ReceiverRecovery;
+    let (cg, _) = build(&[(
+        "svc.py",
+        "class Foo:\n    def m(self):\n        pass\nclass Other:\n    def m(self):\n        pass\ndef run(x: Foo):\n    x.m()\n",
+        Python,
+    )]);
+    let site = site_in(&cg, "run", "m");
+    assert_eq!(site.receiver_type.as_deref(), Some("Foo"));
+    assert_eq!(site.receiver_recovery, Some(ReceiverRecovery::TypedParam));
+    let r = cg.resolve_call_site(&site);
+    assert_eq!(r.len(), 1);
+    assert_eq!(r[0].target.file, "svc.py");
+    assert_eq!(r[0].target.start_line, 2);
+    assert_eq!(r[0].confidence, ResolutionConfidence::Exact);
+    assert_eq!(r[0].kind, ResolutionKind::TypedParam);
+}
+
+#[test]
+fn py_imported_receiver_type_skips_recovery_and_no_false_exact() {
+    use prism::languages::Language::Python;
+    let (cg, _) = build(&[(
+        "svc.py",
+        "from ext import Foo\nclass Foo:\n    def m(self):\n        pass\ndef run(x: Foo):\n    x.m()\n",
+        Python,
+    )]);
+    let site = site_in(&cg, "run", "m");
+    assert_eq!(site.receiver_type, None);
+    let out = cg.resolve_call_site_full(&site);
+    assert!(out.resolved.iter().all(|c| {
+        c.kind != ResolutionKind::TypedParam && c.kind != ResolutionKind::ConstructorLocal
+    }));
+}
+
+#[test]
+fn py_wildcard_import_skips_recovery_for_whole_file_both_orders() {
+    use prism::languages::Language::Python;
+    for (name, src) in [
+        (
+            "before.py",
+            "from ext import *\nclass Foo:\n    def m(self):\n        pass\ndef run(x: Foo):\n    x.m()\n",
+        ),
+        (
+            "after.py",
+            "from ext import *\ndef run(x: Foo):\n    x.m()\nclass Foo:\n    def m(self):\n        pass\n",
+        ),
+    ] {
+        let (cg, _) = build(&[(name, src, Python)]);
+        let site = site_in(&cg, "run", "m");
+        assert_eq!(site.receiver_type, None, "{name}");
+        let out = cg.resolve_call_site_full(&site);
+        assert!(out.resolved.iter().all(|c| {
+            c.kind != ResolutionKind::TypedParam && c.kind != ResolutionKind::ConstructorLocal
+        }));
+    }
+}
+
+#[test]
+fn py_recovered_receiver_preempts_r3b_owner_key_collision() {
+    use prism::languages::Language::Python;
+    use prism::resolution::ReceiverRecovery;
+    let (cg, _) = build(&[(
+        "svc.py",
+        "class x:\n    def m(self):\n        pass\nclass Foo:\n    def m(self):\n        pass\ndef run(x: Foo):\n    x.m()\n",
+        Python,
+    )]);
+    let site = site_in(&cg, "run", "m");
+    assert_eq!(site.receiver_type.as_deref(), Some("Foo"));
+    assert_eq!(site.receiver_recovery, Some(ReceiverRecovery::TypedParam));
+    let r = cg.resolve_call_site(&site);
+    assert_eq!(r.len(), 1);
+    assert_eq!(r[0].target.start_line, 5, "Foo.m must win over x.m");
+    assert_eq!(r[0].kind, ResolutionKind::TypedParam);
+    assert_eq!(r[0].confidence, ResolutionConfidence::Exact);
+}
+
+#[test]
+fn py_recovered_local_miss_falls_through_to_residue_parity() {
+    use prism::languages::Language::Python;
+    let (cg, _) = build(&[(
+        "svc.py",
+        "class Foo:\n    pass\nclass Other:\n    def missing(self):\n        pass\ndef annotated(x: Foo):\n    x.missing()\ndef plain(x):\n    x.missing()\n",
+        Python,
+    )]);
+    let annotated = site_in(&cg, "annotated", "missing");
+    let plain = site_in(&cg, "plain", "missing");
+    assert_eq!(annotated.receiver_type.as_deref(), Some("Foo"));
+    let annotated_out = cg.resolve_call_site_full(&annotated);
+    let plain_out = cg.resolve_call_site_full(&plain);
+    assert_eq!(annotated_out.drop, plain_out.drop);
+    assert_eq!(annotated_out.resolved, plain_out.resolved);
+    assert_ne!(annotated_out.drop, Some(DropReason::ExternalReceiver));
+}
+
+#[test]
+fn py_recovered_multi_owner_hit_preserves_nameonly_confidence() {
+    use prism::languages::Language::Python;
+    let (cg, _) = build(&[
+        (
+            "a.py",
+            "class Foo:\n    def m(self):\n        pass\n",
+            Python,
+        ),
+        (
+            "b.py",
+            "class Foo:\n    def m(self):\n        pass\n",
+            Python,
+        ),
+        ("run.py", "def run(x: Foo):\n    x.m()\n", Python),
+    ]);
+    let site = site_in(&cg, "run", "m");
+    assert_eq!(site.receiver_type.as_deref(), Some("Foo"));
+    let r = cg.resolve_call_site(&site);
+    assert_eq!(r.len(), 2);
+    assert!(r.iter().all(|c| c.kind == ResolutionKind::TypedParam));
+    assert!(r
+        .iter()
+        .all(|c| c.confidence == ResolutionConfidence::NameOnly));
+}
+
+#[test]
+fn js_new_constructor_and_bare_call_do_not_recover() {
+    use prism::languages::Language::JavaScript;
+    let (cg, _) = build(&[(
+        "svc.js",
+        "class Foo { m() {} }\nclass Other { m() {} }\nfunction made() { const x = new Foo(); x.m(); }\nfunction factory() { const x = Foo(); x.m(); }\n",
+        JavaScript,
+    )]);
+    let made = site_in(&cg, "made", "m");
+    assert_eq!(made.receiver_type, None);
+    assert!(!made.receiver_materialized);
+    assert!(cg.resolve_call_site(&made).is_empty());
+
+    let factory = site_in(&cg, "factory", "m");
+    assert_eq!(factory.receiver_type, None);
+    assert!(!factory.receiver_materialized);
+    assert!(cg.resolve_call_site(&factory).is_empty());
+}
+
+#[test]
 fn java_receiver_method_call_resolves_via_qualifier() {
     use prism::languages::Language::Java;
     // Java method_invocation `svc.readData()` must carry qualifier `svc` so the

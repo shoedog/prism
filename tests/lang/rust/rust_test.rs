@@ -43,6 +43,34 @@ fn process(data: &str) -> Option<i32> {
 }
 
 #[test]
+fn test_rust_typed_receiver_recovery_still_drops_external_miss() {
+    use prism::resolution::{DropReason, ReceiverRecovery};
+    let mut files = BTreeMap::new();
+    files.insert(
+        "lib.rs".to_string(),
+        ParsedFile::parse(
+            "lib.rs",
+            "impl AccessPath {\n    fn truncate(&mut self) {}\n}\nfn run(items: &mut Vec<String>) {\n    items.truncate(5);\n}\n",
+            Language::Rust,
+        )
+        .unwrap(),
+    );
+    let cg = CallGraph::build(&files);
+    let site = cg
+        .calls
+        .iter()
+        .find(|(fid, _)| fid.name == "run")
+        .and_then(|(_, sites)| sites.iter().find(|s| s.callee_name == "truncate"))
+        .expect("run->truncate");
+    assert_eq!(site.receiver_type.as_deref(), Some("Vec"));
+    assert_eq!(site.receiver_recovery, Some(ReceiverRecovery::TypedParam));
+    assert_eq!(
+        cg.resolve_call_site_full(site).drop,
+        Some(DropReason::ExternalReceiver)
+    );
+}
+
+#[test]
 fn test_rust_original_diff() {
     let source = r#"
 fn process(data: &str) -> i32 {

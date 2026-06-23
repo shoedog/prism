@@ -65,7 +65,9 @@ use std::path::{Path, PathBuf};
 /// - v21: method_class_span for self-receiver same-class narrowing.
 /// - v22: method_class_span_ambiguous for fail-open line-id collisions.
 /// - v23: wrapper-canonical decorated extraction.
-const CACHE_VERSION: u32 = 23; // 23: wrapper-canonical decorated extraction.
+/// - v24: Python/JS/TS typed-receiver recovery behavior.
+/// - v25: CallSite.receiver_materialized for poisoned local receiver bindings.
+const CACHE_VERSION: u32 = 25; // 25: CallSite.receiver_materialized.
 
 pub const SKIP_POLICY_VERSION: u32 = 1;
 
@@ -570,9 +572,9 @@ mod tests {
     }
 
     #[test]
-    fn cache_version_is_23_for_wrapper_canonical_decorated_extraction() {
-        // v23: wrapper-canonical decorated extraction.
-        assert_eq!(super::CACHE_VERSION, 23);
+    fn cache_version_is_25_for_receiver_materialized_signal() {
+        // v25: CallSite.receiver_materialized changes the serialized CallSite shape.
+        assert_eq!(super::CACHE_VERSION, 25);
     }
 
     #[test]
