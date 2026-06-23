@@ -1,51 +1,52 @@
-# Python Decorated-Method Double-Capture — Wrapper-Canonical — Implementation Plan
+# Python Decorated-Method Double-Capture — Wrapper-Canonical — Implementation Plan (rev 2)
 
-> **For agentic workers:** execute task-by-task via strict TDD (failing test → run-fail → minimal code →
-> run-pass → commit). Design-of-record: `docs/superpowers/specs/2026-06-23-python-decorated-method-double-capture.md`
-> (rev 3, both spec-reviews folded — read §3/§4/§6). Branch `decorated-double-capture` (stacked on merged #131).
+> Execute task-by-task via strict TDD. Design-of-record:
+> `docs/superpowers/specs/2026-06-23-python-decorated-method-double-capture.md` (rev 3). Branch
+> `decorated-double-capture` (stacked on merged #131).
+>
+> **Rev 2 — codex plan-review fold (REWORK):** (BLOCKER) the canonical filter must live in
+> `all_functions_via_tree()`, NOT `build_function_table` — `all_functions_inner()` bypasses the table on
+> reconstruction miss (`ast.rs:286-288`). (BLOCKER) **CFG** (`cfg.rs`) walks raw `function_node_types()`,
+> not `all_functions()`, so after the helper unwraps it double-emits ControlFlow edges for decorated
+> wrapper+inner → new **Task 2b**. (MAJOR) the helper audit must extend beyond `ast.rs` to
+> `contract_slice` (its own `body` reader + nested guard). (MAJOR) Task-2 test made concrete. (MINOR)
+> inventory dedup NARROWED, not no-op. (NIT) cache at `cpg_cache.rs:67`, assertion `:571-574`.
 
 **Goal:** one canonical `FunctionId` per decorated Python definition (keep the `decorated_definition`
-wrapper, drop the inner `function_definition`) — removing duplicate ids / CPG nodes / double body-scans
-that demote decorated-method calls to NameOnly and mint duplicate Exact free-fn edges.
+wrapper, drop the inner `function_definition`), with NO duplicate CFG/CPG edges and NO lost
+decorated-function structure.
 
-**Architecture:** (1) a Python-only `unwrap_decorated(node)` used by every function-node helper that reads a
-child field, so the canonical wrapper still yields params/body/statements/returns; (2) a centralized
-wrapper-canonical skip in `build_function_table` covering both extraction paths; (3) inventory contract
-flip (keep wrapper); (4) `CACHE_VERSION` 22→23. C++ templates, JS/TS, `enclosing_function()`, and decorator
-semantics are explicitly out of scope (spec §6).
-
-**TDD ordering rationale:** Task 1 (unwrap in field-readers) is a *pure addition* (both wrapper and inner
-work) and MUST precede Task 2 (the skip removes the inner, after which field-readers only ever see the
-wrapper).
+**TDD ordering:** T1 (unwrap field-readers — pure addition) → T2 (canonical filter in
+`all_functions_via_tree`) → T2b (CFG de-dup, required because T1 makes the wrapper body-readable on a raw
+traversal) → T3 inventory → T4 cache → T5 fixtures → T6 acceptance.
 
 ---
 
-## Task 1: `unwrap_decorated` + apply to field-reading helpers
+## Task 1: `unwrap_decorated` + apply to ALL function-node field-readers (incl. contract_slice)
 
-**Files:** `src/ast.rs` (the helper + 5 call sites); test in `src/ast.rs` `#[cfg(test)]`.
+**Files:** `src/ast.rs` (helper + 5 sites); `src/algorithms/contract_slice.rs` (2 sites); tests in each.
 
-- [ ] **Step 1 — failing test:** `find_parameters_node` on a Python `decorated_definition` returns the
-  inner's params (today returns None).
+- [ ] **Step 1 — failing test** (`src/ast.rs`): on a Python `decorated_definition`, `find_parameters_node`,
+  `function_body_node`, `statements_in_function`, `statement_spans_in_function`, and `return_value_nodes`
+  all return the inner's content (today None/empty). Concrete:
 
 ```rust
 #[test]
-fn decorated_function_helpers_unwrap_to_inner() {
-    let p = ParsedFile::parse("a.py", "class C:\n    @staticmethod\n    def f(x, y):\n        return x\n", Language::Python).unwrap();
-    // locate the decorated_definition node for f (walk the tree for kind == "decorated_definition")
-    let deco = find_node(&p, "decorated_definition");
-    assert!(p.find_parameters_node(&deco).is_some(), "params via wrapper");
-    assert!(p.function_body_node(&deco).is_some(), "body via wrapper");
-    assert!(!p.statements_in_function(&deco).is_empty(), "statements via wrapper");
+fn decorated_function_field_readers_unwrap() {
+    let p = ParsedFile::parse("a.py","@deco\ndef f(x, y):\n    z = x\n    return z\n", Language::Python).unwrap();
+    let deco = descendant_of_kind(&p, "decorated_definition").expect("deco node");
+    assert!(p.find_parameters_node(&deco).is_some());
+    assert!(p.function_body_node(&deco).is_some());
+    assert!(!p.statements_in_function(&deco).is_empty());
+    assert!(!p.statement_spans_in_function(&deco).is_empty());
+    assert!(!p.return_value_nodes(&deco).is_empty()); // unwrap BEFORE the nested-fn guard (:2888)
 }
 ```
 
-- [ ] **Step 2 — run-fail:** `cargo test --lib decorated_function_helpers_unwrap_to_inner` → FAIL (None/empty on wrapper).
-- [ ] **Step 3 — implement:** add the helper (Python-gated; byte-range scanners need NO change):
+- [ ] **Step 2 — run-fail.**
+- [ ] **Step 3 — implement** the helper (Python-gated; byte-range scanners unchanged):
 
 ```rust
-/// If `node` is a Python `decorated_definition`, return its inner `function_definition`
-/// (wrapper-canonical extraction keeps the wrapper; field readers need the inner). Else
-/// `node` unchanged. Python-only — C++ template wrappers are a separate slice.
 fn unwrap_decorated<'a>(&self, node: Node<'a>) -> Node<'a> {
     if matches!(self.language, Language::Python) && node.kind() == "decorated_definition" {
         let mut c = node.walk();
@@ -57,107 +58,123 @@ fn unwrap_decorated<'a>(&self, node: Node<'a>) -> Node<'a> {
 }
 ```
 
-Call `let node = self.unwrap_decorated(*node);` (or rebind the param) at the HEAD of: `find_parameters_node`
-(`:3922`), `function_body_node` (`:2607`), `statements_in_function` (`:3097`),
-`statement_spans_in_function` (`:3112`), and `return_value_nodes` (`:2828`) — for `return_value_nodes` the
-unwrap must precede the nested-function guard (`:2888-2893`) so it doesn't treat the inner as a nested fn
-and drop its returns. **Audit:** grep ParsedFile/Language for other fns taking a function node and reading
-a child field (signature/receiver/name-occurrence); apply the unwrap to any that do (byte-range scanners
-are fine).
+Prepend `let node = self.unwrap_decorated(*node);` (rebind) at the head of `find_parameters_node` (`:3922`),
+`function_body_node` (`:2607`), `statements_in_function` (`:3097`), `statement_spans_in_function` (`:3112`),
+`return_value_nodes` (`:2828`, **before** the nested-fn guard `:2888-2893`).
 
-- [ ] **Step 4 — run-pass.** **Step 5 — commit** `feat(ast): unwrap_decorated for decorated-fn field readers`.
+- [ ] **Step 3b — contract_slice** (`src/algorithms/contract_slice.rs`): its DELTA path consumes
+  `all_functions()` (wrapper nodes after T2) and reads `child_by_field_name("body")` directly (`:380-383`)
+  with a nested-fn guard (`:1077-1098`). Add a local unwrap (or a public `ParsedFile` wrapper-aware body
+  accessor) at both. Add a test: a decorated function's contract pre/postconditions are still detected.
+- [ ] **Step 3c — audit:** `rg` across `src/` for `child_by_field_name("body"|"parameters"|"return")` and
+  `function_node_types()`/`is_call_node`-style raw function traversals taking a function node; any Python
+  field-reader not already wrapper-aware (`function_name`/`method_owner` ARE) needs the unwrap. List
+  findings in the commit.
+- [ ] **Step 4 — run-pass. Step 5 — commit** `feat: unwrap_decorated for decorated-fn field readers (ast + contract_slice)`.
 
 ---
 
-## Task 2: centralized wrapper-canonical skip
+## Task 2: canonical wrapper skip in `all_functions_via_tree` (the real chokepoint)
 
-**Files:** `src/ast.rs` (`build_function_table` `:347-370`, the chokepoint both query `:318-337` and manual
-`:466-474`/`:286-288` paths reach); test in `src/ast.rs`.
+**Files:** `src/ast.rs` (`all_functions_via_tree` `:318-343`); test in `src/ast.rs`.
 
-- [ ] **Step 1 — failing test:** a decorated Python function yields exactly ONE `FunctionId`-equivalent
-  record (today two — wrapper + inner).
+- [ ] **Step 1 — failing test** (concrete — no placeholders):
 
 ```rust
 #[test]
-fn decorated_function_canonical_single_record() {
+fn decorated_function_canonical_single_node() {
     let p = ParsedFile::parse("a.py", "@deco\ndef f():\n    return 1\n", Language::Python).unwrap();
-    let fns: Vec<_> = p.all_functions().into_iter().filter(|n| /* name == "f" */ true).collect();
-    // assert exactly one record for f, and it is the decorated_definition (wrapper)
-    assert_eq!(count_named(&p, "f"), 1);
+    let fs: Vec<_> = p.all_functions().into_iter()
+        .filter(|n| p.language.function_name(n).map(|nm| p.node_text(&nm)) == Some("f".into()))
+        .collect();
+    assert_eq!(fs.len(), 1, "one canonical record for f");
+    assert_eq!(fs[0].kind(), "decorated_definition", "the wrapper is canonical");
 }
 ```
 
-- [ ] **Step 2 — run-fail:** FAIL (count 2).
-- [ ] **Step 3 — implement:** in `build_function_table`, skip a captured `function_definition` whose parent
-  is a `decorated_definition` (Python only) — keep the wrapper. Centralize here so the manual fallback
-  path cannot reintroduce the duplicate. Predicate: `node.kind() == "function_definition" &&
-  node.parent().map_or(false, |p| p.kind() == "decorated_definition")` gated to Python. Do NOT collapse by
-  name (structural parent check only) — `@overload`/setters/redefinitions stay distinct (spec §7).
-- [ ] **Step 4 — run-pass** + `cargo build` (no consumer breaks — Task 1 made field-readers wrapper-safe).
-- [ ] **Step 5 — commit** `feat(ast): wrapper-canonical extraction — drop inner of decorated_definition`.
+- [ ] **Step 2 — run-fail** (count 2).
+- [ ] **Step 3 — implement:** in `all_functions_via_tree()` AFTER both query + manual collection, drop any
+  `function_definition` whose parent is `decorated_definition` (Python only). This is the single point both
+  `build_function_table` AND the `all_functions_inner` reconstruction-miss fallback (`:286-288`) return
+  through. Structural predicate only (overloads/setters/redefinitions stay distinct); C++
+  `template_declaration` untouched (different kind).
+- [ ] **Step 3b — reconstruction-fallback test:** force/simulate the manual path and assert the dup is also
+  gone there (or assert via `all_functions` that the count holds regardless of path).
+- [ ] **Step 4 — run-pass + `cargo build`. Step 5 — commit** `feat(ast): wrapper-canonical skip in all_functions_via_tree`.
 
 ---
 
-## Task 3: inventory contract flip
+## Task 2b: CFG de-dup for decorated functions (BLOCKER 2)
+
+**Files:** `src/cfg.rs` (`:29-55` raw `function_node_types()` walk); `src/cpg/build.rs` (`:999-1004`
+`collect_step8_edges`); test under `tests/` (CFG/CPG control-flow edges).
+
+- [ ] **Step 1 — failing test:** for a decorated Python function, the CPG has NO duplicate `ControlFlow`
+  edges (today, after T1, the raw CFG walk emits edges for BOTH wrapper and inner). Assert the
+  control-flow-edge set for the decorated fn equals that of an equivalent undecorated fn (count parity).
+- [ ] **Step 2 — run-fail** (duplicate edges).
+- [ ] **Step 3 — implement:** make the CFG function walk **not double-process** decorated wrapper+inner —
+  iterate `parsed.all_functions()` (canonical, wrapper-only) instead of raw `function_node_types()`, OR
+  skip a `function_definition` whose parent is `decorated_definition` in the CFG traversal. Prefer routing
+  through `all_functions()` for consistency; verify it still enumerates nested functions CFG needs.
+- [ ] **Step 4 — run-pass. Step 5 — commit** `fix(cfg): do not double-build CFG for decorated wrapper+inner`.
+
+---
+
+## Task 3: inventory contract — narrow the containment dedup
 
 **Files:** `src/navigation/inventory.rs:34-56`; `tests/navigation/inventory_test.rs`.
 
-- [ ] **Step 1 — failing/updated test:** a decorated Python function appears exactly once in the inventory,
-  anchored at the wrapper; AND a decorated function CONTAINING a nested `def` keeps the wrapper and does
-  NOT drop the nested function (guards the containment rule `:44-49`).
-- [ ] **Step 2 — run-fail** (current dedup keeps the inner / may mishandle nested).
-- [ ] **Step 3 — implement:** the local dedup currently marks the wrapper `false` when it contains an inner
-  record (keeping the inner). Since Task 2 removed the inner record, update this: keep the wrapper; ensure
-  the nested-`def` case is not collateral-dropped. (May become a no-op or invert — verify against the
-  no-longer-present inner.)
-- [ ] **Step 4 — run-pass.** **Step 5 — commit** `fix(nav): inventory keeps decorated wrapper (canonical)`.
+- [ ] **Step 1 — failing tests:** (a) a decorated fn appears once, anchored at the wrapper; (b) a decorated
+  fn CONTAINING a nested `def` keeps the wrapper AND the nested function (today the containment rule
+  `:44-49` drops any `decorated_definition` containing another function).
+- [ ] **Step 2 — run-fail.**
+- [ ] **Step 3 — implement:** after T2 the inner record is gone, so the old "drop wrapper if it contains an
+  inner" rule must be **narrowed/removed** (not left as a no-op): keep the wrapper; never drop it due to a
+  nested real `def`.
+- [ ] **Step 4 — run-pass. Step 5 — commit** `fix(nav): inventory keeps decorated wrapper, preserves nested defs`.
 
 ---
 
-## Task 4: `CACHE_VERSION` bump
+## Task 4: `CACHE_VERSION` 22→23
 
-**Files:** `src/cpg_cache.rs` (`CACHE_VERSION` `:65`, assertion test).
+**Files:** `src/cpg_cache.rs` (const `:67`; assertion test `:571-574`).
 
-- [ ] Bump 22→23 (`// 23: wrapper-canonical decorated extraction`); update the version assertion test.
-  TDD: change the assertion first (fail), bump const (pass). Commit `chore(cache): CACHE_VERSION 22->23`.
+- [ ] Change the assertion to 23 (fail) → bump the const at `:67` (`// 23: wrapper-canonical decorated
+  extraction`) → pass. Commit `chore(cache): CACHE_VERSION 22->23`.
 
 ---
 
 ## Task 5: discriminating fixtures + guards
 
-**Files:** `tests/lang/python/`, `tests/lang/javascript/`, a C++ case under `tests/lang/cpp/` (mod lines +
-the 3 `coverage_test.rs` arrays for new files).
+**Files:** `tests/lang/python/`, `tests/lang/javascript/`, `tests/lang/cpp/` (+ `main.rs` mods + all 3
+`coverage_test.rs` arrays for new files).
 
-- [ ] **Free-fn singleton:** a decorated module-level `def f()` called as `f()` resolves to exactly ONE
-  Exact `LocalDef` (was two). Real-source `CallGraph::build` + `resolve_call_site_full`.
-- [ ] **Method NameOnly→Exact (the buy):** a class with a decorated method called via `self.m()` / `Cls.m()`
-  resolves Exact (was NameOnly from the wrapper+inner pair).
-- [ ] **`enclosing_function()` behavior pin (spec §6 non-goal):** a line inside a decorated fn →
-  `enclosing_function()` returns the inner `function_definition` — assert (documents the scoping decision).
-- [ ] **C++ no-change canary:** a C++ `template` function — function count + call resolution unchanged
-  (the skip is Python-gated).
-- [ ] **JS/TS guard:** a decorated TS method (if grammar supports) resolves once — confirms no regression.
-- [ ] **Step 5 — commit** `test(decorated): free-fn singleton + method buy + enclosing/ C++/JS guards`.
+- [ ] Free-fn LocalDef **singleton** (decorated module-level `f()` → one Exact, was two).
+- [ ] Method **NameOnly→Exact** (decorated method via `self.m()`/`Cls.m()`).
+- [ ] **CFG/CPG** control-flow edge **count parity** decorated vs undecorated (guards T2b).
+- [ ] **contract_slice** structure intact for a decorated function (guards T1 step 3b).
+- [ ] **`enclosing_function()` pin** — returns the inner inside a decorated fn (spec §6 non-goal).
+- [ ] **C++ template no-change** canary; **JS/TS** decorated method resolves once (guard).
+- [ ] Commit `test(decorated): singleton + buy + CFG-parity + contract + enclosing/C++/JS guards`.
 
 ---
 
 ## Task 6: Acceptance (host-run; orchestrator)
 
-- [ ] `cargo build --release`; main-vs-branch worktree call-stats on **pydantic** (the buy): decorated
-  call buckets — `kind_exact.self_receiver`/`qualifier_owner` rise, `kind_nameonly` fall;
-  `multi_target_exact_sites` byte-flat (or down for decorated free fns, never up); report deltas.
-- [ ] **fastapi** sanity; **Rust (ripgrep) + Go (caddy) byte-identical**; **C++ (leveldb if it completes,
-  else a fixture) no-change**.
-- [ ] Tier-A `--matrix-only` 0-regr; `--quick` best-effort.
-- [ ] `cargo test` + `cargo test --features mcp` + `cargo fmt --check` green.
+- [ ] `cargo build --release`; pydantic main-vs-branch worktree call-stats: decorated `kind_exact`
+  (self_receiver/qualifier_owner) up, `kind_nameonly` down, decorated-free `multi_target_exact_sites`
+  down/flat (never up). Report deltas.
+- [ ] **CPG control-flow edge count** for a decorated-fn fixture: no duplicates.
+- [ ] fastapi sanity; **Rust (ripgrep) + Go (caddy) byte-identical**; C++ no-change.
+- [ ] Tier-A `--matrix-only` 0-regr; `--quick` best-effort. `cargo test` + `--features mcp` + `fmt` green.
 - [ ] Paste deltas into the PR.
 
 ---
 
 ## Self-review
-- Spec coverage: T1 §4.2 helper audit; T2 §4.1 centralized skip; T3 §5 inventory flip; T4 cache; T5 §8
-  fixtures incl. enclosing-pin + C++ canary; T6 §8 acceptance. enclosing_function/C++/JS/decorator-semantics
-  out (§6).
-- Ordering: T1 (pure addition) before T2 (removes inner) — field-readers never see a param-less wrapper.
-- No placeholders: helper code + skip predicate concrete; test bodies use the real `CallGraph::build` /
-  `all_functions` / `resolve_call_site_full` idioms (adapt import paths to the crate).
+- Spec coverage: T1 §4.2 (now incl. contract_slice + cross-crate audit); T2 §4.1 (chokepoint corrected to
+  `all_functions_via_tree`); **T2b CFG de-dup (new, the raw-traversal interaction)**; T3 §5 inventory
+  (narrowed); T4 cache (`:67`/`:571-574`); T5 §8 (+CFG-parity, +contract); T6 §8.
+- Ordering: T1 pure-addition → T2 removes inner → T2b prevents the raw-traversal double-emit T1 enables.
+- No placeholders: helper + skip code + concrete test assertions (count/kind/name); descendant helper named.
