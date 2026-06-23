@@ -10,6 +10,8 @@
 
 **Design-of-record:** `docs/superpowers/specs/2026-06-22-member-visibility-tristate-design.md` (rev 2, codex-reviewed). Read §2 (soundness), §3 (architecture), §6 (tests).
 
+**Rev 2 (2026-06-22):** codex xhigh plan-review folded — 2 BLOCKER (T3 widen *every* early return incl. `ambiguous`; T6 `*saw_hidden_continue`), 2 MAJOR (T7 hand-built-graph test — the arm is unreachable from source; T10 add `--quick`), 1 MINOR (T8 scoped `rg`). Task ordering/build-greenness + the cfg-mixed fixture confirmed sound.
+
 ---
 
 ## Standing constraints (every task)
@@ -212,8 +214,9 @@ fn resolve_rib_probed(
         match &b.target {
             BindTarget::Resolved(t) => { /* unchanged: push candidate */ }
             BindTarget::Pending(path, anchor) => {
-                // unchanged Pending-chase; early `return poisoned()` paths become
-                // `return (poisoned(), MemberProbe::Rib { saw_hidden, saw_unknown, saw_visible })`.
+                // unchanged Pending-chase; EVERY early return widens to a tuple:
+                // `return poisoned()` (engine.rs:302,:328) -> `(poisoned(), MemberProbe::Rib { .. })`
+                // AND `return ambiguous(sub.candidates)` (:322) -> `(ambiguous(..), MemberProbe::Rib { .. })`.
             }
         }
     }
@@ -232,7 +235,7 @@ fn resolve_rib(
 }
 ```
 
-(Keep the existing `BindTarget::Resolved`/`Pending` bodies verbatim — only the visibility filter and the return change. The two early `return poisoned()` sites inside the Pending arm return the tuple.)
+(Keep the existing `BindTarget::Resolved`/`Pending` bodies verbatim — only the visibility filter and the returns change. **Every** early return inside the `Pending` arm must widen to the tuple — `engine.rs:302` and `:328` `return poisoned()` → `return (poisoned(), MemberProbe::Rib { saw_hidden, saw_unknown, saw_visible })`, **and** `:322` `return ambiguous(sub.candidates)` → `return (ambiguous(sub.candidates), MemberProbe::Rib { saw_hidden, saw_unknown, saw_visible })`. Any literal `-> Resolution` return left un-widened will not compile [codex BLOCKER].)
 
 - [ ] **Step 5: Run — green; full suites green** (wrapper preserves behavior)
 
@@ -409,7 +412,7 @@ Then at the call site (replacing `:467-470`):
 
 ```rust
 let (edge_outcome, hc) = guard.with_glob(edge_idx, |guard, entered| { ... });
-if hc { saw_hidden_continue = true; }                 // OR before the poison short-circuit
+*saw_hidden_continue |= hc;                            // deref the &mut bool param; OR before the short-circuit
 if matches!(edge_outcome, GlobOutcome::Poison) { return GlobOutcome::Poison; }
 ```
 
@@ -472,28 +475,30 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 
 ### Task 7: Already-resolved glob member arm — `Unknown`→poison (soundness completion)
 
-**Files:** Modify `src/name_resolution/engine.rs` (the `BindTarget::Resolved(Target::Scope)` arm `:472-501`, the `if !policy.visible(...)` at `:482`). Test: `tests/name_resolution/glob_expand_test.rs`.
+**Files:** Modify `src/name_resolution/engine.rs` (the `BindTarget::Resolved(Target::Scope)` arm `:472-501`, the `if !policy.visible(...)` at `:482`). Test: `tests/name_resolution/resolve_test.rs` (hand-built `ScopeGraph` — the arm is **not** reachable from Rust source, see Step 1).
 
 Representation-independence: this arm currently blanket-skips invisible members (incl. `Unknown`). Tighten so `Unknown` poisons. Soundness-monotonic (only adds poison).
 
-- [ ] **Step 1: Write the RED test** — a non-deferred glob whose resolved target scope has an `Unknown` member must poison (construct a fixture that reaches the `BindTarget::Resolved(Target::Scope)` arm; if Rust always defers module globs, use an intra-scope already-resolved glob target per the existing `glob_expand_diamond`/`distinct_targets` setups).
+- [ ] **Step 1: Write the RED test as a hand-built `ScopeGraph`** [codex MAJOR] — Rust `use *` always emits `BindTarget::Pending` edges (`walk/items.rs:237`), so the already-resolved `BindTarget::Resolved(Target::Scope)` arm at `:472` is **unreachable from source** (`single_file_resolve` would never hit it). Mirror the existing non-deferred-glob tests at `tests/name_resolution/resolve_test.rs:1007-1111`: hand-build a graph with a glob edge whose `e.to` is `BindTarget::Resolved(Target::Scope(target))`, where `target` has a `(name, ns)` member binding with `Vis { kind: VIS_PUB_IN, restrict: None }` (→ `member_visible` = Unknown). Resolve the name from an outside vantage and assert poison:
 
 ```rust
 #[test]
-fn glob_expand_already_resolved_arm_unknown_member_poisons() {
-    // A resolved-scope glob target with a pub(in <unresolved>) member -> Unknown -> poison.
-    // (If unreachable for Rust module globs, this documents the representation-independent
-    // invariant via the closest constructible fixture; verify reachability with a RED run.)
-    let src = /* fixture reaching the already-resolved arm with an Unknown member */;
-    let (res, _snap, _, _) = single_file_resolve(src, "S>;", "S");
+fn already_resolved_glob_arm_unknown_member_poisons() {
+    // Hand-built: scope X has a NON-deferred glob edge -> resolved scope M;
+    // M has member `S` with vis pub(in <unresolved>) (VIS_PUB_IN, restrict: None).
+    // From an outside vantage S is Unknown -> the arm must poison, not continue.
+    // Follow the graph construction in resolve_test.rs:1007-1111.
+    let mut g = ScopeGraph::new();
+    // ... build X, M, the Resolved(Target::Scope(M)) glob edge, M's pub(in) S member ...
+    let res = /* resolve S from X's vantage */;
     assert_eq!(res.status, ResStatus::Poisoned);
 }
 ```
 
-- [ ] **Step 2: Run — verify it fails** (today the arm continues past the Unknown member)
+- [ ] **Step 2: Run — verify it fails** (today the arm blanket-skips the Unknown member, does not poison)
 
-Run: `cargo test --test name_resolution glob_expand_already_resolved_arm_unknown_member_poisons`
-Expected: FAIL — resolves/continues instead of poisoning. (If the arm is genuinely unreachable for Rust, document that the change is inert and the test asserts the closest reachable behavior; do not force an artificial path.)
+Run: `cargo test --test name_resolution already_resolved_glob_arm_unknown_member_poisons`
+Expected: FAIL — continues/resolves instead of poisoning.
 
 - [ ] **Step 3: Apply the tri-state** at `:482`:
 
@@ -515,7 +520,7 @@ Expected: PASS.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/name_resolution/engine.rs tests/name_resolution/glob_expand_test.rs
+git add src/name_resolution/engine.rs tests/name_resolution/resolve_test.rs
 git commit -m "feat(name-res): already-resolved glob arm poisons on Unknown member (soundness completion)
 
 Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
@@ -531,8 +536,8 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 
 - [ ] **Step 2: Remove `ambiguous`** from `GlobExpandStats`, `GlobExpandSnapshot`, `record_ambiguous`, `reset`, `snapshot`, `GLOBAL`, and the round-trip test; drop `"ambiguous"` from the `queries.rs` JSON and add the 6 keys.
 
-Run: `rg -n 'ambiguous' src/name_resolution/glob_stats.rs src/navigation/queries.rs tests/`
-Expected: zero remaining `glob_stats`/`glob_expand` `ambiguous` references (the `ResStatus::Ambiguous` enum + `policy.combine` ambiguity are unrelated and stay).
+Run: `rg -n 'snap\.ambiguous|record_ambiguous|ge\.ambiguous|"ambiguous"' src/name_resolution/glob_stats.rs src/navigation/queries.rs tests/name_resolution/ tests/integration/resolution_test.rs`
+Expected: zero remaining hits. (Scope to these patterns — a bare `rg ambiguous` also matches unrelated `ResStatus::Ambiguous`, `policy.combine` ambiguity, and `embedding_gaps.ambiguous` at `tests/cli/call_stats_test.rs:181`, all of which stay.)
 
 - [ ] **Step 3: Run — green**
 
@@ -593,8 +598,8 @@ Expected: **`multi_target_exact_sites` byte-flat** vs `main` (the wrong-singleto
 
 - [ ] **Step 3: Tier-A matrix + ruff M2**
 
-Run: `cd eval && uv run tier-a --matrix-only --allow-stale-sut` then `cd eval && uv run tier-a --corpus ruff --allow-stale-sut`
-Expected: matrix **0-regr**; ruff M2 (`docs/eval/tier-a/<date>-ruff.{json,md}`) `baseline_invalid == false`, `shortfall == 0`.
+Run: `cd eval && uv run tier-a --matrix-only --allow-stale-sut`, then `cd eval && uv run tier-a --quick --allow-stale-sut` (the **required** M2 dogfood [codex MAJOR], P/fp unchanged across strata), then `cd eval && uv run tier-a --corpus ruff --allow-stale-sut`.
+Expected: matrix **0-regr**; `--quick` M2 P=1.0 / fp=0 unchanged pre→post; ruff M2 (`docs/eval/tier-a/<date>-ruff.{json,md}`) `baseline_invalid == false`, `shortfall == 0`.
 
 - [ ] **Step 4: Record the call-stats deltas** (canary flat, kind_exact buy, bucket split, already-resolved-arm inertness) in the PR description — do not re-baseline.
 
