@@ -596,7 +596,12 @@ pub trait ResolutionPolicy {
     /// Default is intentionally conservative: a policy that only knows boolean
     /// `visible == false` returns `Unknown`, so glob expansion keeps poisoning rather
     /// than silently skipping a member it cannot prove hidden.
-    fn member_visible(&self, binding: &Binding, q: &ResolveQuery, trav: &TraversalCtx) -> VisibilityDecision {
+    fn member_visible(
+        &self,
+        binding: &Binding,
+        q: &ResolveQuery,
+        trav: &TraversalCtx,
+    ) -> VisibilityDecision {
         if self.visible(binding, q, trav) {
             VisibilityDecision::Visible
         } else {
