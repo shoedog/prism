@@ -13,6 +13,30 @@ fn test_python_decorated_function_emits_one_record() {
     let recs = functions_inventory(dir.path()).unwrap();
     assert_eq!(recs.len(), 1, "expected exactly one record, got {recs:?}");
     assert_eq!(recs[0].name.as_deref(), Some("handler"));
+    assert_eq!(recs[0].kind, "decorated_definition");
+    assert_eq!(recs[0].start_line, 3);
+}
+
+#[test]
+fn test_python_decorated_function_containing_nested_def_keeps_both_records() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(
+        dir.path().join("app.py"),
+        "@deco\ndef outer():\n    def inner():\n        return 1\n    return inner()\n",
+    )
+    .unwrap();
+    let recs = functions_inventory(dir.path()).unwrap();
+    assert_eq!(
+        recs.len(),
+        2,
+        "expected decorated wrapper and nested def, got {recs:?}"
+    );
+    assert!(recs.iter().any(|r| {
+        r.name.as_deref() == Some("outer") && r.kind == "decorated_definition" && r.start_line == 1
+    }));
+    assert!(recs.iter().any(|r| {
+        r.name.as_deref() == Some("inner") && r.kind == "function_definition" && r.start_line == 3
+    }));
 }
 
 #[test]

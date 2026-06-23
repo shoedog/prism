@@ -31,28 +31,6 @@ pub fn functions_inventory(repo: &Path) -> anyhow::Result<Vec<FunctionRecord>> {
                     .to_string(),
             })
             .collect();
-        // §2.3 dedup: tree-sitter-python captures BOTH (decorated_definition)
-        // wrappers and the inner function_definition. Wrapper kinds never survive
-        // over their inner definition.
-        let mut keep = vec![true; recs.len()];
-        for i in 0..recs.len() {
-            for j in 0..recs.len() {
-                if i == j {
-                    continue;
-                }
-                let (outer, inner) = (&recs[i], &recs[j]);
-                let contains = outer.start_line <= inner.start_line
-                    && inner.end_line <= outer.end_line
-                    && (outer.start_line, outer.end_line) != (inner.start_line, inner.end_line);
-                let wrapper = outer.kind == "decorated_definition";
-                if contains && wrapper {
-                    keep[i] = false;
-                }
-            }
-        }
-        let mut it = keep.iter();
-        let mut recs = recs;
-        recs.retain(|_| *it.next().unwrap());
         out.extend(recs);
     }
     out.sort_by(|a, b| {
