@@ -4849,6 +4849,12 @@ fn synthesize_target_seed_paths(seeds: &[TaintSeed], ctx: &CpgContext, paths: &m
             Some(f) => f,
             None => continue,
         };
+        let func =
+            if parsed.language == Language::Python && python_is_inner_decorated_function(&func) {
+                func.parent().unwrap_or(func)
+            } else {
+                func
+            };
         let func_name = parsed
             .language
             .function_name(&func)
