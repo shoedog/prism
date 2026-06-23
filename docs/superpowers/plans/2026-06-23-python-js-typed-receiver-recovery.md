@@ -1,4 +1,4 @@
-# Python/JS Typed-Receiver Recovery — Implementation Plan (rev 2)
+# Python/JS Typed-Receiver Recovery — Implementation Plan (rev 3)
 
 > Strict TDD. Design-of-record: `…/specs/2026-06-23-python-js-typed-receiver-recovery.md` (rev 4, SHIP).
 > Branch `slice2-typed-receivers` off merged main. codex-implement (orchestrator commits).
@@ -14,8 +14,18 @@
 **Goal:** as spec — guarded Python/JS/TS typed-receiver recovery → Exact `TypedParam`/`ConstructorLocal` for
 non-imported, non-wildcard-file local classes; sound; no external-drop spike; Rust/Go byte-identical.
 
-**TDD order:** T1 (gates + guarded recovery, incl. wildcard sentinel) → T2 (R3/R3b pre-emption + R6
-miss→fallthrough) → T3 cache → T4 fixtures → T5 acceptance.
+> **Rev 3 — plan re-review-2 fold (REWORK, ordering only; design verdicts 1-4,6 TRUE):** (BLOCKER) Task 1
+> must NOT commit recovery before Task 2's R3/R3b pre-emption — that intermediate is unsound (a receiver-var
+> name colliding with a class owner false-Exacts via R3b). **Fix: land T1+T2 as ONE commit** (recovery +
+> guard + R3b-pre-emption + R6-fallthrough together); the R3b-collision failing test is in the **first** red
+> set so no recovery-enabled commit can pass without pre-emption. (MINOR) spec rev-4 §3.4/§7 still ask for
+> the `skipped_*` telemetry split — **owner-deferred** (note in the PR checklist), buy measured via
+> `kind_exact` deltas.
+
+**TDD order:** **T1+T2 = ONE commit** (gates + guarded recovery + wildcard sentinel + R3/R3b pre-emption +
+R6 miss→fallthrough — recovery never lands without pre-emption) → T3 cache → T4 fixtures → T5 acceptance.
+The two tasks below stay as separate TDD *steps* but share a single commit; the first failing-test set MUST
+include the R3b-collision case.
 
 ---
 
@@ -39,7 +49,8 @@ miss→fallthrough) → T3 cache → T4 fixtures → T5 acceptance.
   **Guard (in `recover_simple_ident`, on the PEELED type `T`, before storing `owner_key`):** return `None`
   if `T` is in `file_imports` OR `file_imports` contains the `"*"` sentinel. Language-gate to Python/JS/TS
   (Rust/Go untouched).
-- [ ] **Step 4 — run-pass + build. Step 5 — commit** `feat: guarded Python/JS typed-receiver recovery (gates + import/wildcard skip)`.
+- [ ] **Step 4 — run-pass + build.** **Do NOT commit yet** — recovery must not land without T2's R3b
+  pre-emption (else an unsound false-Exact window). Continue to T2; commit T1+T2 together.
 
 ---
 
@@ -59,7 +70,9 @@ miss→fallthrough) → T3 cache → T4 fixtures → T5 acceptance.
   R6 recovered branch, on a Python/JS/TS `owner_lookup` **miss do NOT return** — fall through to residue
   (`~:1166`); keep `dropped(ExternalReceiver)` + the Go interface consult for Rust/Go only. Hits preserve
   confidence (owner_lookup demotes multi).
-- [ ] **Step 4 — run-pass + `cargo test --lib`. Step 5 — commit** `feat(resolution): Python/JS recovered type pre-empts R3b + miss falls through to residue`.
+- [ ] **Step 4 — run-pass + `cargo test --lib`. Step 5 — commit T1+T2 TOGETHER** (one sound commit):
+  `feat: guarded Python/JS typed-receiver recovery + R3b pre-emption + miss-fallthrough`. The R3b-collision
+  test must have been RED before this commit.
 
 ---
 
