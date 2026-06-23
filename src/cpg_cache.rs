@@ -61,7 +61,8 @@ use std::path::{Path, PathBuf};
 /// - v18: ScopeGraph.crate_deps_by_root — per-consuming-crate in-repo dep map
 ///   for cross-crate `use` leading-segment resolution (changed bincode layout).
 /// - v19: glob re-export member expansion (resolution behavior change).
-const CACHE_VERSION: u32 = 19; // 19: glob re-export member expansion (resolution behavior change).
+/// - v20: member-visibility tri-state (glob member-rib continuation — behavior change).
+const CACHE_VERSION: u32 = 20; // 20: member-visibility tri-state (glob member-rib continuation).
 
 pub const SKIP_POLICY_VERSION: u32 = 1;
 
@@ -566,9 +567,9 @@ mod tests {
     }
 
     #[test]
-    fn cache_version_is_19_for_glob_re_export_member_expansion() {
-        // v19: glob re-export member expansion (resolution behavior change).
-        assert_eq!(super::CACHE_VERSION, 19);
+    fn cache_version_is_20_for_member_visibility_tristate() {
+        // v20: member-visibility tri-state (glob member-rib continuation — behavior change).
+        assert_eq!(super::CACHE_VERSION, 20);
     }
 
     #[test]
