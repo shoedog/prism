@@ -1,11 +1,12 @@
 use super::error::query_error_result;
 use super::input::{parse_taint_reaches, SeedInput, Verbosity as InputVerbosity};
-use super::output::{resolve_cap, shape_result, McpToolResult, Verbosity};
-use super::registry::{ToolAnnotations, ToolDescriptor, ToolRegistry};
+use super::output::{shape_result, McpToolResult, Verbosity};
+use super::registry::{ToolAnnotations, ToolContext, ToolDescriptor, ToolRegistry};
 use crate::navigation::types::{Evidence, Warning, WarningKind};
-use crate::navigation::NavigationSession;
 use crate::reasoning::seeds::SeedSpec;
 use serde_json::json;
+
+const SNAPSHOT_NOTICE: &str = "Results reflect the repository snapshot loaded when prism-mcp started. If indexed files change during the server session, Prism marks tool results with stale-index metadata and warnings; restart/re-add the MCP server or use CLI nav for a fresh snapshot.";
 
 pub fn register_all(r: &mut ToolRegistry) {
     r.register(tool_with_handler(
@@ -26,14 +27,14 @@ fn tool_with_handler(
 ) -> ToolDescriptor {
     ToolDescriptor {
         name,
-        description: description.into(),
+        description: format!("{description} {SNAPSHOT_NOTICE}"),
         input_schema,
         annotations: ToolAnnotations::read_only(title),
         handler,
     }
 }
 
-fn taint_reaches(session: &NavigationSession, args: &serde_json::Value) -> McpToolResult {
+fn taint_reaches(ctx: &ToolContext<'_>, args: &serde_json::Value) -> McpToolResult {
     let input = match parse_taint_reaches(args) {
         Ok(input) => input,
         Err(error) => return error.into_result(),
@@ -47,18 +48,21 @@ fn taint_reaches(session: &NavigationSession, args: &serde_json::Value) -> McpTo
         .sinks
         .as_ref()
         .map(|sinks| sinks.iter().map(seed_spec).collect::<Vec<SeedSpec>>());
-    let evidence =
-        match crate::reasoning::taint_reaches::taint_reaches(session, &sources, sinks.as_deref()) {
-            Ok(evidence) => evidence,
-            Err(error) => return query_error_result(error),
-        };
+    let evidence = match crate::reasoning::taint_reaches::taint_reaches(
+        ctx.session,
+        &sources,
+        sinks.as_deref(),
+    ) {
+        Ok(evidence) => evidence,
+        Err(error) => return query_error_result(error),
+    };
     let (evidence, total, max_results_clipped) = clip_taint_reaches(evidence, input.max_results);
     shape_result(
         evidence,
         total,
         max_results_clipped,
         output_verbosity(input.verbosity),
-        resolve_cap(),
+        ctx.cap,
     )
 }
 
@@ -183,7 +187,7 @@ mod tests {
             "def f():\n    user = input()\n    value = user\n    sink(value)\n",
         )]);
         let out = (ToolRegistry::all_v1().get("taint_reaches").unwrap().handler)(
-            &s,
+            &ToolContext::for_test(&s),
             &json!({
                 "sources":[{"kind":"loc","file":"app.py","line":2}],
                 "sinks":[{"kind":"loc","file":"app.py","line":4}],
@@ -205,7 +209,7 @@ mod tests {
             "def f():\n    user = input()\n    a = user\n    b = a\n",
         )]);
         let out = (ToolRegistry::all_v1().get("taint_reaches").unwrap().handler)(
-            &s,
+            &ToolContext::for_test(&s),
             &json!({"sources":[{"kind":"loc","file":"app.py","line":2}],"max_results":1}),
         );
         assert!(!out.is_error);

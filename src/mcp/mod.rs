@@ -1,5 +1,6 @@
 pub mod error;
 pub mod evidence_view;
+pub mod freshness;
 pub mod input;
 pub mod output;
 pub mod registry;

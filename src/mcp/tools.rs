@@ -4,11 +4,13 @@ use super::input::{
     parse_callees, parse_callers, parse_ego, parse_module_deps, parse_nodes_at, parse_repo_map,
     SeedInput, Verbosity as InputVerbosity,
 };
-use super::output::{resolve_cap, McpToolResult, Verbosity};
-use super::registry::{ToolAnnotations, ToolDescriptor, ToolRegistry};
+use super::output::{McpToolResult, Verbosity};
+use super::registry::{ToolAnnotations, ToolContext, ToolDescriptor, ToolRegistry};
 use crate::navigation::types::Evidence;
-use crate::navigation::{module_graph, queries, NavigationSession};
+use crate::navigation::{module_graph, queries};
 use serde_json::json;
+
+const SNAPSHOT_NOTICE: &str = "Results reflect the repository snapshot loaded when prism-mcp started. If indexed files change during the server session, Prism marks tool results with stale-index metadata and warnings; restart/re-add the MCP server or use CLI nav for a fresh snapshot.";
 
 pub fn register_all(r: &mut ToolRegistry) {
     r.register(tool_with_handler(
@@ -64,58 +66,59 @@ fn tool_with_handler(
 ) -> ToolDescriptor {
     ToolDescriptor {
         name,
-        description: description.into(),
+        description: format!("{description} {SNAPSHOT_NOTICE}"),
         input_schema,
         annotations: ToolAnnotations::read_only(title),
         handler,
     }
 }
 
-fn nav_nodes_at(session: &NavigationSession, args: &serde_json::Value) -> McpToolResult {
+fn nav_nodes_at(ctx: &ToolContext<'_>, args: &serde_json::Value) -> McpToolResult {
     let input = match parse_nodes_at(args) {
         Ok(input) => input,
         Err(error) => return error.into_result(),
     };
-    let evidence = queries::nodes_at(session, &input.file, input.line);
+    let evidence = queries::nodes_at(ctx.session, &input.file, input.line);
     let total = evidence.items.len();
     shape_navigation_result(
-        session,
+        ctx.session,
         &evidence,
         evidence.clone(),
         total,
         false,
         output_verbosity(input.verbosity),
-        resolve_cap(),
+        ctx.cap,
         input.view,
         NavigationViewKind::NodesAt,
     )
 }
 
-fn nav_callers(session: &NavigationSession, args: &serde_json::Value) -> McpToolResult {
+fn nav_callers(ctx: &ToolContext<'_>, args: &serde_json::Value) -> McpToolResult {
     let input = match parse_callers(args) {
         Ok(input) => input,
         Err(error) => return error.into_result(),
     };
     let (symbol, file, location) = input.seed.to_triple();
-    let evidence = match queries::callers(session, symbol, file, location.as_deref(), input.depth) {
-        Ok(evidence) => evidence,
-        Err(error) => return query_error_result(error),
-    };
+    let evidence =
+        match queries::callers(ctx.session, symbol, file, location.as_deref(), input.depth) {
+            Ok(evidence) => evidence,
+            Err(error) => return query_error_result(error),
+        };
     let (canonical, total, max_results_clipped) = clip_flat(evidence.clone(), input.max_results);
     shape_navigation_result(
-        session,
+        ctx.session,
         &evidence,
         canonical,
         total,
         max_results_clipped,
         output_verbosity(input.verbosity),
-        resolve_cap(),
+        ctx.cap,
         input.view,
         NavigationViewKind::Callers,
     )
 }
 
-fn nav_callees(session: &NavigationSession, args: &serde_json::Value) -> McpToolResult {
+fn nav_callees(ctx: &ToolContext<'_>, args: &serde_json::Value) -> McpToolResult {
     let input = match parse_callees(args) {
         Ok(input) => input,
         Err(error) => return error.into_result(),
@@ -125,25 +128,26 @@ fn nav_callees(session: &NavigationSession, args: &serde_json::Value) -> McpTool
         seed_file: seed_file(&input.seed),
     };
     let (symbol, file, location) = input.seed.to_triple();
-    let evidence = match queries::callees(session, symbol, file, location.as_deref(), input.depth) {
-        Ok(evidence) => evidence,
-        Err(error) => return query_error_result(error),
-    };
+    let evidence =
+        match queries::callees(ctx.session, symbol, file, location.as_deref(), input.depth) {
+            Ok(evidence) => evidence,
+            Err(error) => return query_error_result(error),
+        };
     let (canonical, total, max_results_clipped) = clip_flat(evidence.clone(), input.max_results);
     shape_navigation_result(
-        session,
+        ctx.session,
         &evidence,
         canonical,
         total,
         max_results_clipped,
         output_verbosity(input.verbosity),
-        resolve_cap(),
+        ctx.cap,
         input.view,
         view_kind,
     )
 }
 
-fn nav_ego_graph(session: &NavigationSession, args: &serde_json::Value) -> McpToolResult {
+fn nav_ego_graph(ctx: &ToolContext<'_>, args: &serde_json::Value) -> McpToolResult {
     let input = match parse_ego(args) {
         Ok(input) => input,
         Err(error) => return error.into_result(),
@@ -151,7 +155,7 @@ fn nav_ego_graph(session: &NavigationSession, args: &serde_json::Value) -> McpTo
     let (symbol, file, location) = input.seed.to_triple();
     let edges = input.edges.iter().map(String::as_str).collect::<Vec<_>>();
     let evidence = match queries::ego_graph(
-        session,
+        ctx.session,
         symbol,
         file,
         location.as_deref(),
@@ -163,33 +167,33 @@ fn nav_ego_graph(session: &NavigationSession, args: &serde_json::Value) -> McpTo
     };
     let (canonical, total, max_results_clipped) = clip_graph(evidence.clone(), input.max_results);
     shape_navigation_result(
-        session,
+        ctx.session,
         &evidence,
         canonical,
         total,
         max_results_clipped,
         Verbosity::Concise,
-        resolve_cap(),
+        ctx.cap,
         input.view,
         NavigationViewKind::EgoGraph,
     )
 }
 
-fn nav_module_deps(session: &NavigationSession, args: &serde_json::Value) -> McpToolResult {
+fn nav_module_deps(ctx: &ToolContext<'_>, args: &serde_json::Value) -> McpToolResult {
     let input = match parse_module_deps(args) {
         Ok(input) => input,
         Err(error) => return error.into_result(),
     };
-    let evidence = module_graph::module_deps(session, &input.file);
+    let evidence = module_graph::module_deps(ctx.session, &input.file);
     let (canonical, total, max_results_clipped) = clip_flat(evidence.clone(), input.max_results);
     shape_navigation_result(
-        session,
+        ctx.session,
         &evidence,
         canonical,
         total,
         max_results_clipped,
         output_verbosity(input.verbosity),
-        resolve_cap(),
+        ctx.cap,
         input.view,
         NavigationViewKind::ModuleDeps {
             file: input.file.clone(),
@@ -197,21 +201,21 @@ fn nav_module_deps(session: &NavigationSession, args: &serde_json::Value) -> Mcp
     )
 }
 
-fn nav_repo_map(session: &NavigationSession, args: &serde_json::Value) -> McpToolResult {
+fn nav_repo_map(ctx: &ToolContext<'_>, args: &serde_json::Value) -> McpToolResult {
     let input = match parse_repo_map(args) {
         Ok(input) => input,
         Err(error) => return error.into_result(),
     };
-    let evidence = module_graph::repo_map(session);
+    let evidence = module_graph::repo_map(ctx.session);
     let (canonical, total, max_results_clipped) = clip_graph(evidence.clone(), input.max_results);
     shape_navigation_result(
-        session,
+        ctx.session,
         &evidence,
         canonical,
         total,
         max_results_clipped,
         Verbosity::Concise,
-        resolve_cap(),
+        ctx.cap,
         input.view,
         NavigationViewKind::RepoMap,
     )
@@ -470,7 +474,7 @@ mod tests {
     fn nodes_at_ok() {
         let s = test_support::session(&[("a.py", "def f():\n    return 1\n")]);
         let out = (ToolRegistry::nav_v1().get("nav_nodes_at").unwrap().handler)(
-            &s,
+            &ToolContext::for_test(&s),
             &json!({"file":"a.py","line":1}),
         );
         assert!(!out.is_error);
@@ -482,7 +486,7 @@ mod tests {
     fn nodes_at_bad_line_iserror() {
         let s = test_support::session(&[("a.py", "x=1\n")]);
         let out = (ToolRegistry::nav_v1().get("nav_nodes_at").unwrap().handler)(
-            &s,
+            &ToolContext::for_test(&s),
             &json!({"file":"a.py","line":0}),
         );
         assert!(out.is_error);
@@ -492,7 +496,7 @@ mod tests {
     fn nodes_at_escaping_file_is_empty_skippedpath() {
         let s = test_support::session(&[("a.py", "def f():\n    return 1\n")]);
         let out = (ToolRegistry::nav_v1().get("nav_nodes_at").unwrap().handler)(
-            &s,
+            &ToolContext::for_test(&s),
             &json!({"file":"/etc/passwd","line":1}),
         );
         assert!(!out.is_error);
@@ -515,7 +519,7 @@ mod tests {
             ),
         ]);
         let out = (ToolRegistry::nav_v1().get("nav_callees").unwrap().handler)(
-            &s,
+            &ToolContext::for_test(&s),
             &json!({"seed":{"kind":"symbol","name":"run","file":"main.py"}}),
         );
         let v: serde_json::Value = serde_json::from_str(&out.content_text).unwrap();
@@ -533,7 +537,7 @@ mod tests {
             ("b.py", "def run():\n    return 2\n"),
         ]);
         let out = (ToolRegistry::nav_v1().get("nav_callers").unwrap().handler)(
-            &s,
+            &ToolContext::for_test(&s),
             &json!({"seed":{"kind":"symbol","name":"run"}}),
         );
         assert!(out.is_error);
@@ -544,7 +548,7 @@ mod tests {
         // M9 seed divergence
         let s = test_support::session(&[("a.py", "def f():\n    return 1\n")]);
         let out = (ToolRegistry::nav_v1().get("nav_ego_graph").unwrap().handler)(
-            &s,
+            &ToolContext::for_test(&s),
             &json!({"seed":{"kind":"loc","file":"/etc/passwd","line":1}}),
         );
         assert!(out.is_error);
@@ -560,7 +564,7 @@ mod tests {
             ),
         ]);
         let out = (ToolRegistry::nav_v1().get("nav_repo_map").unwrap().handler)(
-            &s,
+            &ToolContext::for_test(&s),
             &json!({"max_results":1}),
         );
         let v: serde_json::Value = serde_json::from_str(&out.content_text).unwrap();
@@ -585,7 +589,7 @@ mod tests {
         let out = (ToolRegistry::nav_v1()
             .get("nav_module_deps")
             .unwrap()
-            .handler)(&s, &json!({"file":"main.py"}));
+            .handler)(&ToolContext::for_test(&s), &json!({"file":"main.py"}));
         let v: serde_json::Value = serde_json::from_str(&out.content_text).unwrap();
         assert!(v["items"]
             .as_array()
@@ -601,14 +605,14 @@ mod tests {
             "def target():\n    return 1\n\ndef one():\n    return target()\n\ndef two():\n    return target()\n",
         )]);
         let default = (ToolRegistry::nav_v1().get("nav_callers").unwrap().handler)(
-            &s,
+            &ToolContext::for_test(&s),
             &json!({
                 "seed":{"kind":"symbol","name":"target","file":"a.py"},
                 "max_results":1
             }),
         );
         let agent = (ToolRegistry::nav_v1().get("nav_callers").unwrap().handler)(
-            &s,
+            &ToolContext::for_test(&s),
             &json!({
                 "seed":{"kind":"symbol","name":"target","file":"a.py"},
                 "max_results":1,
@@ -633,7 +637,7 @@ mod tests {
             "def target():\n    return 1\n\ndef caller():\n    return target()\n",
         )]);
         let out = (ToolRegistry::nav_v1().get("nav_callers").unwrap().handler)(
-            &s,
+            &ToolContext::for_test(&s),
             &json!({
                 "seed":{"kind":"symbol","name":"target","file":"a.py"},
                 "format":"agent_json",
@@ -652,7 +656,7 @@ mod tests {
             "def target():\n    return 1\n\ndef one():\n    return target()\n\ndef two():\n    return target()\n",
         )]);
         let grouped = (ToolRegistry::nav_v1().get("nav_callers").unwrap().handler)(
-            &s,
+            &ToolContext::for_test(&s),
             &json!({
                 "seed":{"kind":"symbol","name":"target","file":"a.py"},
                 "format":"agent_json",
@@ -664,7 +668,7 @@ mod tests {
         assert_eq!(grouped_view["meta"]["group_by"], "symbol");
 
         let ungrouped = (ToolRegistry::nav_v1().get("nav_callers").unwrap().handler)(
-            &s,
+            &ToolContext::for_test(&s),
             &json!({
                 "seed":{"kind":"symbol","name":"target","file":"a.py"},
                 "format":"agent_json",
@@ -692,7 +696,7 @@ mod tests {
             .get("nav_module_deps")
             .unwrap()
             .handler)(
-            &s,
+            &ToolContext::for_test(&s),
             &json!({
                 "file":"main.py",
                 "format":"agent_json",
@@ -724,7 +728,7 @@ mod tests {
             .get("nav_module_deps")
             .unwrap()
             .handler)(
-            &s,
+            &ToolContext::for_test(&s),
             &json!({
                 "file":"main.py",
                 "format":"agent_json",
@@ -760,7 +764,7 @@ mod tests {
             "def a():\n    return b()\n\ndef b():\n    return c()\n\ndef c():\n    return 1\n",
         )]);
         let out = (ToolRegistry::nav_v1().get("nav_callees").unwrap().handler)(
-            &s,
+            &ToolContext::for_test(&s),
             &json!({
                 "seed":{"kind":"symbol","name":"a","file":"a.py"},
                 "depth":2,
@@ -790,7 +794,7 @@ mod tests {
             ),
         ]);
         let out = (ToolRegistry::nav_v1().get("nav_callees").unwrap().handler)(
-            &s,
+            &ToolContext::for_test(&s),
             &json!({
                 "seed":{"kind":"symbol","name":"run","file":"main.py"},
                 "format":"agent_json",
@@ -828,7 +832,7 @@ mod tests {
             ),
         ]);
         let out = (ToolRegistry::nav_v1().get("nav_repo_map").unwrap().handler)(
-            &s,
+            &ToolContext::for_test(&s),
             &json!({
                 "format":"agent_json",
                 "profile":"orientation"
@@ -857,7 +861,7 @@ mod tests {
             "def target():\n    return 1\n\ndef caller():\n    return target()\n",
         )]);
         let out = (ToolRegistry::nav_v1().get("nav_callers").unwrap().handler)(
-            &s,
+            &ToolContext::for_test(&s),
             &json!({
                 "seed":{"kind":"symbol","name":"target","file":"a.py"},
                 "format":"agent_markdown",
@@ -874,7 +878,7 @@ mod tests {
             "def a():\n    return b()\n\ndef b():\n    return c()\n\ndef c():\n    return 1\n",
         )]);
         let out = (ToolRegistry::nav_v1().get("nav_callees").unwrap().handler)(
-            &s,
+            &ToolContext::for_test(&s),
             &json!({
                 "seed":{"kind":"symbol","name":"a","file":"a.py"},
                 "depth":2,
@@ -893,13 +897,13 @@ mod tests {
             "def target():\n    return 1\n\ndef one():\n    return target()\n\ndef two():\n    return target()\n\ndef three():\n    return target()\n",
         )]);
         let default = (ToolRegistry::nav_v1().get("nav_callers").unwrap().handler)(
-            &s,
+            &ToolContext::for_test(&s),
             &json!({
                 "seed":{"kind":"symbol","name":"target","file":"a.py"}
             }),
         );
         let out = (ToolRegistry::nav_v1().get("nav_callers").unwrap().handler)(
-            &s,
+            &ToolContext::for_test(&s),
             &json!({
                 "seed":{"kind":"symbol","name":"target","file":"a.py"},
                 "format":"agent_markdown",
@@ -915,7 +919,7 @@ mod tests {
     fn view_controls_require_agent_format() {
         let s = test_support::session(&[("a.py", "def f():\n    return 1\n")]);
         let out = (ToolRegistry::nav_v1().get("nav_nodes_at").unwrap().handler)(
-            &s,
+            &ToolContext::for_test(&s),
             &json!({"file":"a.py","line":1,"snippets":"line"}),
         );
         assert!(out.is_error);
