@@ -411,7 +411,10 @@ impl ParsedFile {
     /// also recovers `var r T` declarations. Only bindings at or before `call_line`
     /// count; >1 binding before the call means shadow bail. Rust + Go +
     /// guarded Python.
-    /// Returns the raw, unpeeled type text + which fact recovered it.
+    /// Returns `(type_found, binding_count)`: the raw, unpeeled type text +
+    /// which fact recovered it, plus how many local bindings of `receiver`
+    /// were seen (so the caller can distinguish "no bindings" from "bindings
+    /// present but type unrecoverable").
     pub fn receiver_type_in_fn(
         &self,
         func_node: &Node<'_>,
@@ -419,7 +422,7 @@ impl ParsedFile {
         call_line: usize,
         call_start_byte: usize,
         recover_var: bool,
-    ) -> Option<(String, crate::resolution::ReceiverRecovery)> {
+    ) -> (Option<(String, crate::resolution::ReceiverRecovery)>, usize) {
         use crate::languages::Language;
         use crate::resolution::ReceiverRecovery;
 
@@ -427,7 +430,7 @@ impl ParsedFile {
             self.language,
             Language::Rust | Language::Go | Language::Python
         ) {
-            return None;
+            return (None, 0);
         }
 
         let mut found: Option<(String, ReceiverRecovery)> = None;
@@ -500,9 +503,9 @@ impl ParsedFile {
             recover_var,
         );
         if bindings > 1 {
-            return None;
+            return (None, bindings);
         }
-        found
+        (found, bindings)
     }
 
     /// Manual recursive function collection (pre-query fallback).
@@ -4129,6 +4132,64 @@ impl ParsedFile {
                             *found = None;
                         }
                     } else if self.node_binds_name(left, receiver) {
+                        *bindings += 1;
+                        *found = None;
+                    }
+                }
+            }
+            (Language::Python, "for_statement") => {
+                // `for x in items:` — iteration variable; type unrecoverable.
+                if let Some(left) = node.child_by_field_name("left") {
+                    if self.simple_binding_text(&left).as_deref() == Some(receiver) {
+                        *bindings += 1;
+                        *found = None;
+                    } else if self.node_binds_name(left, receiver) {
+                        *bindings += 1;
+                        *found = None;
+                    }
+                }
+            }
+            (
+                Language::Python,
+                "list_comprehension"
+                | "set_comprehension"
+                | "dictionary_comprehension"
+                | "generator_expression",
+            ) => {
+                // Comprehension `for_in_clause` appears textually AFTER the body
+                // expression (e.g. `[Foo.m() for Foo in items]`), so the byte-guard
+                // at the top of `walk_receiver_bindings` would skip it. Walk
+                // `for_in_clause` children explicitly, ignoring byte order.
+                let mut cur = node.walk();
+                for child in node.children(&mut cur) {
+                    if child.kind() == "for_in_clause" {
+                        if let Some(left) = child.child_by_field_name("left") {
+                            if self.simple_binding_text(&left).as_deref() == Some(receiver) {
+                                *bindings += 1;
+                                *found = None;
+                            } else if self.node_binds_name(left, receiver) {
+                                *bindings += 1;
+                                *found = None;
+                            }
+                        }
+                    }
+                }
+            }
+            (Language::Python, "named_expression") => {
+                // Walrus: `(x := compute())` — type unrecoverable.
+                if let Some(name_node) = node.child_by_field_name("name") {
+                    if self.simple_binding_text(&name_node).as_deref() == Some(receiver) {
+                        *bindings += 1;
+                        *found = None;
+                    }
+                }
+            }
+            (Language::Python, "as_pattern") => {
+                // `with ... as x:` / `except ... as x:` / `case ... as x:`
+                // tree-sitter-python: as_pattern field `alias` = as_pattern_target
+                // wrapping an identifier.
+                if let Some(alias) = node.child_by_field_name("alias") {
+                    if self.simple_binding_text(&alias).as_deref() == Some(receiver) {
                         *bindings += 1;
                         *found = None;
                     }

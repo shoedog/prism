@@ -181,3 +181,204 @@ fn test_python_same_line_assignment_after_call_does_not_recover_receiver() {
     assert!(!s.receiver_materialized);
     assert!(r.iter().all(|c| c.kind != ResolutionKind::ConstructorLocal));
 }
+
+// ─── Slice 2c: binding-PRESENCE suppression ─────────────────────────────
+
+/// When a `for` loop binds a name that collides with a class name,
+/// the local binding should suppress R3b owner-key resolution.
+#[test]
+fn test_python_for_loop_binding_suppresses_r3b_owner() {
+    let cg = graph(&[(
+        "svc.py",
+        "\
+class Foo:
+    def m(self):
+        pass
+def run(items):
+    for Foo in items:
+        Foo.m()
+",
+    )]);
+    let s = site(&cg, "run", "m");
+    assert_eq!(s.receiver_type, None);
+    assert!(
+        s.receiver_materialized,
+        "for-loop binding should materialize"
+    );
+    let out = cg.resolve_call_site_full(&s);
+    assert!(
+        out.resolved.iter().all(|c| {
+            c.kind != ResolutionKind::QualifierOwner || c.confidence != ResolutionConfidence::Exact
+        }),
+        "R3b should be suppressed by for-loop binding"
+    );
+}
+
+/// When a `with ... as` clause binds a name that collides with an import,
+/// the local binding should suppress R3 import-qualifier resolution.
+#[test]
+fn test_python_with_as_binding_suppresses_r3_import() {
+    let cg = graph(&[
+        ("api.py", "def m():\n    pass\n"),
+        (
+            "svc.py",
+            "\
+import api
+def run():
+    with open('f') as api:
+        api.m()
+",
+        ),
+    ]);
+    let s = site(&cg, "run", "m");
+    assert_eq!(s.receiver_type, None);
+    assert!(
+        s.receiver_materialized,
+        "with-as binding should materialize"
+    );
+    let out = cg.resolve_call_site(&s);
+    assert!(
+        out.iter().all(|c| c.target.file != "api.py"),
+        "R3 import resolution should be suppressed by with-as binding"
+    );
+}
+
+/// When an `except ... as` clause binds a name that collides with a class,
+/// the local binding should suppress R3b owner-key resolution.
+#[test]
+fn test_python_except_as_binding_suppresses_r3b_owner() {
+    let cg = graph(&[(
+        "svc.py",
+        "\
+class Foo:
+    def m(self):
+        pass
+def run():
+    try:
+        pass
+    except ValueError as Foo:
+        Foo.m()
+",
+    )]);
+    let s = site(&cg, "run", "m");
+    assert_eq!(s.receiver_type, None);
+    assert!(
+        s.receiver_materialized,
+        "except-as binding should materialize"
+    );
+    let out = cg.resolve_call_site_full(&s);
+    assert!(
+        out.resolved.iter().all(|c| {
+            c.kind != ResolutionKind::QualifierOwner || c.confidence != ResolutionConfidence::Exact
+        }),
+        "R3b should be suppressed by except-as binding"
+    );
+}
+
+/// When a walrus (`:=`) expression binds a name that collides with a class,
+/// the local binding should suppress R3b owner-key resolution.
+#[test]
+fn test_python_walrus_binding_suppresses_r3b_owner() {
+    let cg = graph(&[(
+        "svc.py",
+        "\
+class Foo:
+    def m(self):
+        pass
+def run():
+    if (Foo := compute()):
+        Foo.m()
+",
+    )]);
+    let s = site(&cg, "run", "m");
+    assert_eq!(s.receiver_type, None);
+    assert!(s.receiver_materialized, "walrus binding should materialize");
+    let out = cg.resolve_call_site_full(&s);
+    assert!(
+        out.resolved.iter().all(|c| {
+            c.kind != ResolutionKind::QualifierOwner || c.confidence != ResolutionConfidence::Exact
+        }),
+        "R3b should be suppressed by walrus binding"
+    );
+}
+
+/// When a comprehension `for x in ...` binds a name that collides with a class,
+/// the local binding should suppress R3b owner-key resolution.
+#[test]
+fn test_python_comprehension_binding_suppresses_r3b_owner() {
+    let cg = graph(&[(
+        "svc.py",
+        "\
+class Foo:
+    def m(self):
+        pass
+def run(items):
+    return [Foo.m() for Foo in items]
+",
+    )]);
+    let s = site(&cg, "run", "m");
+    assert_eq!(s.receiver_type, None);
+    assert!(
+        s.receiver_materialized,
+        "comprehension binding should materialize"
+    );
+    let out = cg.resolve_call_site_full(&s);
+    assert!(
+        out.resolved.iter().all(|c| {
+            c.kind != ResolutionKind::QualifierOwner || c.confidence != ResolutionConfidence::Exact
+        }),
+        "R3b should be suppressed by comprehension binding"
+    );
+}
+
+/// When a `for` loop binds a name that collides with an import,
+/// the local binding should suppress R3 import-qualifier resolution.
+#[test]
+fn test_python_for_loop_binding_suppresses_r3_import() {
+    let cg = graph(&[
+        ("api.py", "def m():\n    pass\n"),
+        (
+            "svc.py",
+            "\
+import api
+def run(items):
+    for api in items:
+        api.m()
+",
+        ),
+    ]);
+    let s = site(&cg, "run", "m");
+    assert_eq!(s.receiver_type, None);
+    assert!(
+        s.receiver_materialized,
+        "for-loop binding should materialize"
+    );
+    let out = cg.resolve_call_site(&s);
+    assert!(
+        out.iter().all(|c| c.target.file != "api.py"),
+        "R3 import resolution should be suppressed by for-loop binding"
+    );
+}
+
+/// Existing typed-param recovery still works when no competing binding forms.
+/// Regression guard: the return-type change must not break recovery.
+#[test]
+fn test_python_typed_param_still_recovers_after_return_type_change() {
+    let cg = graph(&[(
+        "svc.py",
+        "\
+class Svc:
+    def m(self):
+        pass
+def run(x: Svc):
+    x.m()
+",
+    )]);
+    let s = site(&cg, "run", "m");
+    assert_eq!(s.receiver_type.as_deref(), Some("Svc"));
+    assert!(s.receiver_materialized);
+    let r = cg.resolve_call_site(&s);
+    assert_eq!(r.len(), 1);
+    assert_eq!(r[0].confidence, ResolutionConfidence::Exact);
+    assert_eq!(r[0].kind, ResolutionKind::TypedParam);
+}

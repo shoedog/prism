@@ -368,13 +368,21 @@ fn classify_simple_ident(ctx: &ReceiverCtx<'_>, recover_var: bool) -> ReceiverCl
     if is_import && !matches!(ctx.parsed.language, Language::Python) {
         return ReceiverClassification::none();
     }
-    let Some((ty, how)) = ctx.parsed.receiver_type_in_fn(
+    let (type_found, binding_count) = ctx.parsed.receiver_type_in_fn(
         &ctx.fn_node,
         q,
         ctx.call_line,
         ctx.call_start_byte,
         recover_var,
-    ) else {
+    );
+    let Some((ty, how)) = type_found else {
+        // Bindings exist but type is unrecoverable (e.g. `for x in items:`,
+        // `with ... as x:`, shadow/destructure) — signal materialized so R3/R3b
+        // rungs are suppressed, preventing false edges from import/owner-key
+        // collision with the receiver variable name.
+        if binding_count > 0 && matches!(ctx.parsed.language, Language::Python) {
+            return ReceiverClassification::materialized_only();
+        }
         return ReceiverClassification::none();
     };
     let static_type = owner_key(&peel_type(&ty));
