@@ -33,7 +33,7 @@ commit trailer `Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.
 | Slice | Stage | Branch / artifacts |
 |---|---|---|
 | **1a** self same-class | **MERGED** (#131, rebase, main `184208a`) | — |
-| **decorated** double-capture | **IMPLEMENTED (T1-T5, 6 commits `fbae3af..b959adf`) + acceptance GREEN** → **final diff-review running** (bxwmnos7n) | `decorated-double-capture` (wt `/tmp/prism-decorated`), tip `b959adf` |
+| **decorated** double-capture | **PR #132 OPEN** (diff-review SHIP-WITH-FIXES folded) — **CI pending → auto-merge on green** (watcher b7hhtefol) | `decorated-double-capture`, tip `f874812` |
 
 **Decorated acceptance (deco vs current-main, both have #131):** pydantic `self_receiver` +79 / `qualifier_owner`
 +20 / `free_single` +178 Exact (precision buy); large correct **duplicate-edge collapse** (decorated body
@@ -42,8 +42,13 @@ no recall loss; `total_call_sites` unchanged = byte-deduped sites); `multi_targe
 (dup free-fn Exact collapsed). **Rust(ripgrep)/Go(caddy) byte-identical; Tier-A matrix 40 ok; suite
 2470/2563 pass; fmt clean.** Codex caught+fixed a real blast-radius bug: decorated DFG is wrapper-canonical
 but `enclosing_function()` returns inner → taint seed identity mismatch broke decorated Flask taint (a
-pre-existing sanitizer test failed) → fixed in `synthesize_target_seed_paths` + regression. If diff-review
-SHIPs → PR → merge on green CI → slice 2.
+pre-existing sanitizer test failed) → fixed in `synthesize_target_seed_paths` + regression. **Diff-review
+SHIP-WITH-FIXES (no BLOCKER):** folded MAJOR-2 (`return_value_nodes` recursion fence by node identity not
+kind — `f874812`); **DEFERRED MAJOR-1 = pre-existing GENERAL nested-function/decorator-call ownership** (a
+function's byte-range call/DFG scan attributes a nested `def`'s calls + the `@decorator` expr to the
+enclosing fn — VERIFIED on main for an undecorated `outer`/`inner`, so NOT introduced here; needs a
+cross-cutting "belongs-to-this-body" predicate across `function_calls_*`/DFG/callees = its own slice; PR
+#132 body documents it). **NEXT after #132 merges: slice 2 (typed receivers) off merged main.**
 | **2** typed receivers | **architect DONE** — awaiting spec (do AFTER decorated) | memo `/tmp/slice2-architect-out.md` |
 | **3** import-scoping/free_multi | **architect DONE** — awaiting spec | memo `/tmp/slice3-architect-out.md` |
 | **1b** inheritance MRO | **architect DONE** — awaiting spec | memo `/tmp/slice1b-architect-out.md` |
