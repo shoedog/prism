@@ -191,7 +191,7 @@ fn glob_expand_ambiguous_member_fails_closed() {
     let (res, snap, _, _) = single_file_resolve(src, "S>;", "S");
 
     assert_eq!(res.status, ResStatus::Poisoned);
-    assert_eq!(snap.ambiguous, 1);
+    assert_eq!(snap.member_multi, 1);
 }
 
 #[test]
@@ -200,7 +200,7 @@ fn glob_expand_resolved_set_member_fails_closed() {
     let (res, snap, _, _) = single_file_resolve(src, "S>;", "S");
 
     assert_eq!(res.status, ResStatus::Poisoned);
-    assert_eq!(snap.ambiguous, 1);
+    assert_eq!(snap.member_multi, 1);
 }
 
 #[test]
@@ -245,6 +245,36 @@ fn glob_expand_target_lacks_name_continues() {
 }
 
 #[test]
+fn glob_expand_known_hidden_member_continues_to_public_sibling() {
+    // ta::S is private (Hidden from the crate root); tb::S is public. The `pub use
+    // ta::*` member lookup finds ta's rib for S but it is all-known-hidden -> CONTINUE
+    // to `pub use tb::*`, which resolves S. The recall recovery (member-visibility
+    // tri-state, §3.4) — stronger than glob_expand_respects_member_visibility because
+    // a public sibling is present to recover.
+    let src = "mod ta { struct S; }\nmod tb { pub struct S; }\npub use ta::*;\npub use tb::*;\nfn f(){ let _: Option<S>; }\n";
+    let (res, snap, _, _) = single_file_resolve(src, "S>;", "S");
+
+    assert_resolved_item(&res);
+    assert_eq!(snap.member_hidden_continued, 1);
+    assert_eq!(snap.member_undecidable, 0);
+    assert_eq!(snap.member_hidden_continue_hit, 1);
+    assert_eq!(snap.resolved_l1, 1);
+}
+
+#[test]
+fn glob_expand_mixed_hidden_and_unknown_rib_poisons() {
+    // ta's rib for S has a private (Hidden) AND a pub(in <unresolved>) (Unknown)
+    // cfg-alternative. ANY Unknown in the rib poisons even with a Hidden sibling
+    // (the cardinal rule: all-known-hidden continues, any-unknown fails closed).
+    let src = "mod ta { #[cfg(feature = \"x\")] struct S; #[cfg(feature = \"y\")] pub(in crate::ghost) struct S; }\nmod tb { pub struct S; }\npub use ta::*;\npub use tb::*;\nfn f(){ let _: Option<S>; }\n";
+    let (res, snap, _, _) = single_file_resolve(src, "S>;", "S");
+
+    assert_eq!(res.status, ResStatus::Poisoned);
+    assert_eq!(snap.member_undecidable, 1);
+    assert_eq!(snap.member_hidden_continued, 0);
+}
+
+#[test]
 fn glob_expand_respects_member_visibility() {
     let src = "mod m { pub struct S; struct Hidden; }\npub use m::*;\nfn f(){ let _: Option<S>; let _: Option<Hidden>; }\n";
     let (public_res, public_snap, g, fs) = single_file_resolve(src, "S>;", "S");
@@ -260,8 +290,13 @@ fn glob_expand_respects_member_visibility() {
 
     assert_resolved_item(&public_res);
     assert_eq!(public_snap.resolved_l1, 1);
-    assert_ne!(hidden_res.status, ResStatus::Resolved);
+    // The Hidden member has no public sibling -> the all-known-hidden continue reaches
+    // nothing -> Unresolved (a no-edge outcome), counted as a hidden-continue that
+    // ended empty (was Poisoned under the pre-tri-state blanket-poison).
+    assert_eq!(hidden_res.status, ResStatus::Unresolved);
     assert_eq!(hidden_snap.resolved_l1, 0);
+    assert_eq!(hidden_snap.member_hidden_continued, 1);
+    assert_eq!(hidden_snap.member_hidden_continue_empty, 1);
 }
 
 #[test]
@@ -355,8 +390,8 @@ fn glob_expand_filtered_member_rib_does_not_fall_through() {
         res.status,
         res.candidates
     );
-    assert!(
-        snap.ambiguous >= 1,
-        "the filtered-member poison is counted (ambiguous): {snap:?}"
+    assert_eq!(
+        snap.member_undecidable, 1,
+        "the filtered-member poison is counted as member_undecidable: {snap:?}"
     );
 }
