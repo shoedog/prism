@@ -1176,6 +1176,40 @@ impl Language {
         }
     }
 
+    /// Like `method_owner` but returns the enclosing CLASS DEFINITION node (not its name),
+    /// for single-file-class languages only. The self-receiver class identity. None for
+    /// Rust/Go/etc. (methods span files there).
+    pub fn method_owner_class_node<'a>(&self, func_node: &Node<'a>) -> Option<Node<'a>> {
+        match self {
+            Language::Python => {
+                let mut n = *func_node;
+                if let Some(p) = n.parent() {
+                    if p.kind() == "decorated_definition" {
+                        n = p;
+                    }
+                }
+                let block = n.parent()?;
+                if block.kind() != "block" {
+                    return None;
+                }
+                let cls = block.parent()?;
+                (cls.kind() == "class_definition").then_some(cls)
+            }
+            Language::JavaScript | Language::TypeScript | Language::Tsx => {
+                let mut body = func_node.parent()?;
+                if matches!(body.kind(), "field_definition" | "public_field_definition") {
+                    body = body.parent()?;
+                }
+                if body.kind() != "class_body" {
+                    return None;
+                }
+                let cls = body.parent()?;
+                matches!(cls.kind(), "class_declaration" | "class").then_some(cls)
+            }
+            _ => None,
+        }
+    }
+
     /// S3 (Rust): for `impl Trait for Type`, the trait name node (dual-key).
     pub fn rust_impl_trait<'a>(&self, func_node: &Node<'a>) -> Option<Node<'a>> {
         if !matches!(self, Language::Rust) {
@@ -1350,5 +1384,74 @@ fn find_identifier_in_c_declarator<'a>(node: &Node<'a>) -> Option<Node<'a>> {
             }
             None
         }
+    }
+}
+
+#[cfg(test)]
+mod method_owner_class_node_tests {
+    use super::Language;
+    use crate::ast::ParsedFile;
+    use tree_sitter::Node;
+
+    fn first_function<'a>(parsed: &'a ParsedFile, name: &str) -> Node<'a> {
+        parsed
+            .all_functions()
+            .into_iter()
+            .find(|n| {
+                parsed
+                    .language
+                    .function_name(n)
+                    .map(|nm| parsed.node_text(&nm) == name)
+                    .unwrap_or(false)
+            })
+            .unwrap_or_else(|| panic!("function `{name}` not found"))
+    }
+
+    #[test]
+    fn method_owner_class_node_finds_class_for_py_js_not_rust_go() {
+        // Python: class_definition node, starts at byte 0
+        let p = ParsedFile::parse(
+            "a.py",
+            "class C:\n    def f(self):\n        return 1\n",
+            Language::Python,
+        )
+        .unwrap();
+        let f = first_function(&p, "f");
+        let c = p.language.method_owner_class_node(&f).expect("py class");
+        assert_eq!(c.kind(), "class_definition");
+        assert_eq!(c.start_byte(), 0);
+
+        // JS: class_declaration node
+        let j = ParsedFile::parse(
+            "a.js",
+            "class C {\n  f() { return 1; }\n}\n",
+            Language::JavaScript,
+        )
+        .unwrap();
+        let jf = first_function(&j, "f");
+        let jc = j.language.method_owner_class_node(&jf).expect("js class");
+        assert!(matches!(jc.kind(), "class_declaration" | "class"));
+
+        // Rust + Go: methods span files / no single class node -> None
+        let r = ParsedFile::parse(
+            "a.rs",
+            "struct S;\nimpl S { fn f(&self) {} }\n",
+            Language::Rust,
+        )
+        .unwrap();
+        assert!(r
+            .language
+            .method_owner_class_node(&first_function(&r, "f"))
+            .is_none());
+        let g = ParsedFile::parse(
+            "a.go",
+            "package p\ntype T struct{}\nfunc (t T) F() {}\n",
+            Language::Go,
+        )
+        .unwrap();
+        assert!(g
+            .language
+            .method_owner_class_node(&first_function(&g, "F"))
+            .is_none());
     }
 }
