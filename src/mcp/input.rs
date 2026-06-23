@@ -8,6 +8,8 @@ pub const HOPS_DEFAULT: usize = 1;
 pub const HOPS_MAX: usize = 5;
 pub const MAX_RESULTS_DEFAULT: usize = 50;
 pub const MAX_RESULTS_CAP: usize = 1000;
+pub const MAX_VIEW_BYTES_DEFAULT: usize = 12_000;
+pub const MAX_VIEW_BYTES_CAP: usize = 80_000;
 
 const DEFAULT_EDGES: [&str; 4] = ["Call", "Return", "DataFlow", "Contains"];
 const VALID_EDGES: [&str; 6] = [
@@ -47,11 +49,77 @@ pub enum Verbosity {
     Detailed,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ViewFormat {
+    CanonicalJson,
+    AgentMarkdown,
+    AgentJson,
+}
+
+impl ViewFormat {
+    pub fn is_agent(self) -> bool {
+        matches!(self, ViewFormat::AgentMarkdown | ViewFormat::AgentJson)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EvidenceProfile {
+    Orientation,
+    Seed,
+    Impact,
+    Dependencies,
+    EditContext,
+    Graph,
+    Audit,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SnippetPolicy {
+    None,
+    Line,
+    SymbolHeader,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GroupPolicy {
+    None,
+    File,
+    Symbol,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ViewOptions {
+    pub format: ViewFormat,
+    pub profile: EvidenceProfile,
+    pub snippets: SnippetPolicy,
+    pub group_by: GroupPolicy,
+    pub max_view_bytes: usize,
+    pub requested: bool,
+}
+
+impl ViewOptions {
+    pub fn canonical(default_profile: EvidenceProfile) -> Self {
+        Self {
+            format: ViewFormat::CanonicalJson,
+            profile: default_profile,
+            snippets: SnippetPolicy::None,
+            group_by: GroupPolicy::None,
+            max_view_bytes: MAX_VIEW_BYTES_DEFAULT,
+            requested: false,
+        }
+    }
+
+    pub fn agent_requested(self) -> bool {
+        self.requested && self.format.is_agent()
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NodesAtInput {
     pub file: String,
     pub line: usize,
     pub verbosity: Verbosity,
+    pub view: ViewOptions,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -60,6 +128,7 @@ pub struct CallersInput {
     pub depth: usize,
     pub max_results: usize,
     pub verbosity: Verbosity,
+    pub view: ViewOptions,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -68,6 +137,7 @@ pub struct CalleesInput {
     pub depth: usize,
     pub max_results: usize,
     pub verbosity: Verbosity,
+    pub view: ViewOptions,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -76,6 +146,7 @@ pub struct EgoInput {
     pub hops: usize,
     pub edges: Vec<String>,
     pub max_results: usize,
+    pub view: ViewOptions,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -83,11 +154,13 @@ pub struct ModuleDepsInput {
     pub file: String,
     pub max_results: usize,
     pub verbosity: Verbosity,
+    pub view: ViewOptions,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RepoMapInput {
     pub max_results: usize,
+    pub view: ViewOptions,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -120,14 +193,38 @@ pub fn normalize_path(path: &str) -> NormalizedPath {
 }
 
 pub fn parse_nodes_at(args: &Value) -> Result<NodesAtInput, ToolError> {
-    let obj = object(args, "nav_nodes_at", &["file", "line", "verbosity"])?;
+    let obj = object(
+        args,
+        "nav_nodes_at",
+        &[
+            "file",
+            "line",
+            "verbosity",
+            "format",
+            "profile",
+            "snippets",
+            "group_by",
+            "max_view_bytes",
+        ],
+    )?;
     let file = normalize_file_arg(required_string(obj, "file")?);
     let line = required_usize(obj, "line", 1, usize::MAX)?;
     let verbosity = parse_verbosity(obj.get("verbosity"))?;
+    let view = parse_view_options(
+        obj,
+        "nav_nodes_at",
+        EvidenceProfile::Seed,
+        &[
+            EvidenceProfile::Seed,
+            EvidenceProfile::EditContext,
+            EvidenceProfile::Audit,
+        ],
+    )?;
     Ok(NodesAtInput {
         file,
         line,
         verbosity,
+        view,
     })
 }
 
@@ -135,13 +232,33 @@ pub fn parse_callers(args: &Value) -> Result<CallersInput, ToolError> {
     let obj = object(
         args,
         "nav_callers",
-        &["seed", "depth", "max_results", "verbosity"],
+        &[
+            "seed",
+            "depth",
+            "max_results",
+            "verbosity",
+            "format",
+            "profile",
+            "snippets",
+            "group_by",
+            "max_view_bytes",
+        ],
     )?;
     Ok(CallersInput {
         seed: parse_seed(required_value(obj, "seed")?)?,
         depth: optional_usize(obj, "depth", DEPTH_DEFAULT, 0, DEPTH_MAX)?,
         max_results: optional_usize(obj, "max_results", MAX_RESULTS_DEFAULT, 1, MAX_RESULTS_CAP)?,
         verbosity: parse_verbosity(obj.get("verbosity"))?,
+        view: parse_view_options(
+            obj,
+            "nav_callers",
+            EvidenceProfile::Impact,
+            &[
+                EvidenceProfile::Impact,
+                EvidenceProfile::EditContext,
+                EvidenceProfile::Audit,
+            ],
+        )?,
     })
 }
 
@@ -149,13 +266,33 @@ pub fn parse_callees(args: &Value) -> Result<CalleesInput, ToolError> {
     let obj = object(
         args,
         "nav_callees",
-        &["seed", "depth", "max_results", "verbosity"],
+        &[
+            "seed",
+            "depth",
+            "max_results",
+            "verbosity",
+            "format",
+            "profile",
+            "snippets",
+            "group_by",
+            "max_view_bytes",
+        ],
     )?;
     Ok(CalleesInput {
         seed: parse_seed(required_value(obj, "seed")?)?,
         depth: optional_usize(obj, "depth", DEPTH_DEFAULT, 0, DEPTH_MAX)?,
         max_results: optional_usize(obj, "max_results", MAX_RESULTS_DEFAULT, 1, MAX_RESULTS_CAP)?,
         verbosity: parse_verbosity(obj.get("verbosity"))?,
+        view: parse_view_options(
+            obj,
+            "nav_callees",
+            EvidenceProfile::Dependencies,
+            &[
+                EvidenceProfile::Dependencies,
+                EvidenceProfile::EditContext,
+                EvidenceProfile::Audit,
+            ],
+        )?,
     })
 }
 
@@ -163,13 +300,29 @@ pub fn parse_ego(args: &Value) -> Result<EgoInput, ToolError> {
     let obj = object(
         args,
         "nav_ego_graph",
-        &["seed", "hops", "edges", "max_results"],
+        &[
+            "seed",
+            "hops",
+            "edges",
+            "max_results",
+            "format",
+            "profile",
+            "snippets",
+            "group_by",
+            "max_view_bytes",
+        ],
     )?;
     Ok(EgoInput {
         seed: parse_seed(required_value(obj, "seed")?)?,
         hops: optional_usize(obj, "hops", HOPS_DEFAULT, 0, HOPS_MAX)?,
         edges: parse_edges(obj.get("edges"))?,
         max_results: optional_usize(obj, "max_results", MAX_RESULTS_DEFAULT, 1, MAX_RESULTS_CAP)?,
+        view: parse_view_options(
+            obj,
+            "nav_ego_graph",
+            EvidenceProfile::Graph,
+            &[EvidenceProfile::Graph, EvidenceProfile::Audit],
+        )?,
     })
 }
 
@@ -177,19 +330,59 @@ pub fn parse_module_deps(args: &Value) -> Result<ModuleDepsInput, ToolError> {
     let obj = object(
         args,
         "nav_module_deps",
-        &["file", "max_results", "verbosity"],
+        &[
+            "file",
+            "max_results",
+            "verbosity",
+            "format",
+            "profile",
+            "snippets",
+            "group_by",
+            "max_view_bytes",
+        ],
     )?;
     Ok(ModuleDepsInput {
         file: normalize_file_arg(required_string(obj, "file")?),
         max_results: optional_usize(obj, "max_results", MAX_RESULTS_DEFAULT, 1, MAX_RESULTS_CAP)?,
         verbosity: parse_verbosity(obj.get("verbosity"))?,
+        view: parse_view_options(
+            obj,
+            "nav_module_deps",
+            EvidenceProfile::Dependencies,
+            &[
+                EvidenceProfile::Dependencies,
+                EvidenceProfile::Orientation,
+                EvidenceProfile::Audit,
+            ],
+        )?,
     })
 }
 
 pub fn parse_repo_map(args: &Value) -> Result<RepoMapInput, ToolError> {
-    let obj = object(args, "nav_repo_map", &["max_results"])?;
+    let obj = object(
+        args,
+        "nav_repo_map",
+        &[
+            "max_results",
+            "format",
+            "profile",
+            "snippets",
+            "group_by",
+            "max_view_bytes",
+        ],
+    )?;
     Ok(RepoMapInput {
         max_results: optional_usize(obj, "max_results", MAX_RESULTS_DEFAULT, 1, MAX_RESULTS_CAP)?,
+        view: parse_view_options(
+            obj,
+            "nav_repo_map",
+            EvidenceProfile::Orientation,
+            &[
+                EvidenceProfile::Orientation,
+                EvidenceProfile::Graph,
+                EvidenceProfile::Audit,
+            ],
+        )?,
     })
 }
 
@@ -312,6 +505,160 @@ fn parse_verbosity(value: Option<&Value>) -> Result<Verbosity, ToolError> {
     }
 }
 
+fn parse_view_options(
+    obj: &Map<String, Value>,
+    tool: &str,
+    default_profile: EvidenceProfile,
+    allowed_profiles: &[EvidenceProfile],
+) -> Result<ViewOptions, ToolError> {
+    let requested = obj.contains_key("format")
+        || obj.contains_key("profile")
+        || obj.contains_key("snippets")
+        || obj.contains_key("group_by")
+        || obj.contains_key("max_view_bytes");
+    if !requested {
+        return Ok(ViewOptions::canonical(default_profile));
+    }
+
+    let format = parse_view_format(obj.get("format"))?;
+    if !format.is_agent() {
+        let only_canonical_format = obj.contains_key("format")
+            && !obj.contains_key("profile")
+            && !obj.contains_key("snippets")
+            && !obj.contains_key("group_by")
+            && !obj.contains_key("max_view_bytes");
+        if only_canonical_format {
+            return Ok(ViewOptions::canonical(default_profile));
+        }
+        return bad_args(
+            "view controls require argument `format` to be `agent_markdown` or `agent_json`",
+        );
+    }
+
+    let profile = parse_profile(obj.get("profile"), default_profile)?;
+    if !allowed_profiles.contains(&profile) {
+        return bad_args(format!(
+            "profile `{}` is not supported for {tool}",
+            profile.as_str()
+        ));
+    }
+    Ok(ViewOptions {
+        format,
+        profile,
+        snippets: parse_snippets(obj.get("snippets"))?,
+        group_by: parse_group_by(obj.get("group_by"))?,
+        max_view_bytes: optional_usize(
+            obj,
+            "max_view_bytes",
+            MAX_VIEW_BYTES_DEFAULT,
+            1,
+            MAX_VIEW_BYTES_CAP,
+        )?,
+        requested: true,
+    })
+}
+
+fn parse_view_format(value: Option<&Value>) -> Result<ViewFormat, ToolError> {
+    match value {
+        None => Ok(ViewFormat::CanonicalJson),
+        Some(Value::String(s)) if s == "canonical_json" => Ok(ViewFormat::CanonicalJson),
+        Some(Value::String(s)) if s == "agent_markdown" => Ok(ViewFormat::AgentMarkdown),
+        Some(Value::String(s)) if s == "agent_json" => Ok(ViewFormat::AgentJson),
+        Some(_) => bad_args(
+            "argument `format` must be `canonical_json`, `agent_markdown`, or `agent_json`",
+        ),
+    }
+}
+
+fn parse_profile(
+    value: Option<&Value>,
+    default_profile: EvidenceProfile,
+) -> Result<EvidenceProfile, ToolError> {
+    match value {
+        None => Ok(default_profile),
+        Some(Value::String(s)) => EvidenceProfile::from_str(s)
+            .ok_or_else(|| ToolError::BadArguments(format!("unknown profile `{s}`"))),
+        Some(_) => bad_args("argument `profile` must be a string"),
+    }
+}
+
+fn parse_snippets(value: Option<&Value>) -> Result<SnippetPolicy, ToolError> {
+    match value {
+        None => Ok(SnippetPolicy::None),
+        Some(Value::String(s)) if s == "none" => Ok(SnippetPolicy::None),
+        Some(Value::String(s)) if s == "line" => Ok(SnippetPolicy::Line),
+        Some(Value::String(s)) if s == "symbol_header" => Ok(SnippetPolicy::SymbolHeader),
+        Some(_) => bad_args("argument `snippets` must be `none`, `line`, or `symbol_header`"),
+    }
+}
+
+fn parse_group_by(value: Option<&Value>) -> Result<GroupPolicy, ToolError> {
+    match value {
+        None => Ok(GroupPolicy::None),
+        Some(Value::String(s)) if s == "none" => Ok(GroupPolicy::None),
+        Some(Value::String(s)) if s == "file" => Ok(GroupPolicy::File),
+        Some(Value::String(s)) if s == "symbol" => Ok(GroupPolicy::Symbol),
+        Some(_) => bad_args("argument `group_by` must be `none`, `file`, or `symbol`"),
+    }
+}
+
+impl EvidenceProfile {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            EvidenceProfile::Orientation => "orientation",
+            EvidenceProfile::Seed => "seed",
+            EvidenceProfile::Impact => "impact",
+            EvidenceProfile::Dependencies => "dependencies",
+            EvidenceProfile::EditContext => "edit_context",
+            EvidenceProfile::Graph => "graph",
+            EvidenceProfile::Audit => "audit",
+        }
+    }
+
+    fn from_str(value: &str) -> Option<Self> {
+        match value {
+            "orientation" => Some(EvidenceProfile::Orientation),
+            "seed" => Some(EvidenceProfile::Seed),
+            "impact" => Some(EvidenceProfile::Impact),
+            "dependencies" => Some(EvidenceProfile::Dependencies),
+            "edit_context" => Some(EvidenceProfile::EditContext),
+            "graph" => Some(EvidenceProfile::Graph),
+            "audit" => Some(EvidenceProfile::Audit),
+            _ => None,
+        }
+    }
+}
+
+impl ViewFormat {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            ViewFormat::CanonicalJson => "canonical_json",
+            ViewFormat::AgentMarkdown => "agent_markdown",
+            ViewFormat::AgentJson => "agent_json",
+        }
+    }
+}
+
+impl SnippetPolicy {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            SnippetPolicy::None => "none",
+            SnippetPolicy::Line => "line",
+            SnippetPolicy::SymbolHeader => "symbol_header",
+        }
+    }
+}
+
+impl GroupPolicy {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            GroupPolicy::None => "none",
+            GroupPolicy::File => "file",
+            GroupPolicy::Symbol => "symbol",
+        }
+    }
+}
+
 fn parse_edges(value: Option<&Value>) -> Result<Vec<String>, ToolError> {
     let Some(value) = value else {
         return Ok(DEFAULT_EDGES
@@ -369,5 +716,27 @@ mod tests {
         assert!(parse_nodes_at(&json!({"file":"a.rs","line":1})).is_ok());
         assert!(parse_taint_reaches(&json!({"sources":[]})).is_err());
         assert!(parse_taint_reaches(&json!({"sources":[{"kind":"symbol","name":"f"}]})).is_ok());
+    }
+
+    #[test]
+    fn view_options_require_agent_format_and_allowed_profile() {
+        assert!(parse_callers(&json!({
+            "seed":{"kind":"symbol","name":"f"},
+            "snippets":"line"
+        }))
+        .is_err());
+        let parsed = parse_callers(&json!({
+            "seed":{"kind":"symbol","name":"f"},
+            "format":"agent_markdown"
+        }))
+        .unwrap();
+        assert!(parsed.view.agent_requested());
+        assert_eq!(parsed.view.profile, EvidenceProfile::Impact);
+        assert!(parse_callers(&json!({
+            "seed":{"kind":"symbol","name":"f"},
+            "format":"agent_json",
+            "profile":"dependencies"
+        }))
+        .is_err());
     }
 }

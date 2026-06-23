@@ -1,4 +1,5 @@
 pub mod error;
+pub mod evidence_view;
 pub mod input;
 pub mod output;
 pub mod registry;
