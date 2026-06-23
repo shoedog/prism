@@ -810,6 +810,13 @@ impl CallGraph {
     ) -> Option<Vec<ResolvedCallee<'a>>> {
         use crate::call_graph::ClassBaseLink;
 
+        // Same ambiguous guard as self_owner_lookup_same_class: if the caller's
+        // FunctionId has an ambiguous class span, we cannot trust the span for
+        // base-class lookup either.
+        if self.method_class_span_ambiguous.contains(caller) {
+            return None;
+        }
+
         let caller_span = *self.method_class_span.get(caller)?;
         let bases = self.class_bases.get(&(caller.file.clone(), caller_span))?;
 
@@ -832,7 +839,9 @@ impl CallGraph {
         let in_base: Vec<&FunctionId> = ids
             .iter()
             .filter(|fid| {
-                fid.file == caller.file && self.method_class_span.get(*fid) == Some(&base_span)
+                fid.file == caller.file
+                    && self.method_class_span.get(*fid) == Some(&base_span)
+                    && !self.method_class_span_ambiguous.contains(*fid)
             })
             .collect();
 

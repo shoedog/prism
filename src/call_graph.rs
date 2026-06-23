@@ -1340,18 +1340,68 @@ impl CallGraph {
         if !matches!(parsed.language, crate::languages::Language::Python) {
             return false;
         }
-        // Walk module-level statements looking for `from ... import *`
-        let root = parsed.tree.root_node();
-        let mut cursor = root.walk();
-        for child in root.children(&mut cursor) {
-            if child.kind() == "import_from_statement" {
-                // Check if any child is `wildcard_import` (the `*` token)
-                let mut inner = child.walk();
-                for c in child.children(&mut inner) {
+
+        fn is_wildcard_import(node: tree_sitter::Node) -> bool {
+            if node.kind() == "import_from_statement" {
+                let mut inner = node.walk();
+                for c in node.children(&mut inner) {
                     if c.kind() == "wildcard_import" {
                         return true;
                     }
                 }
+            }
+            false
+        }
+
+        fn check_block(node: tree_sitter::Node) -> bool {
+            let mut cursor = node.walk();
+            for child in node.children(&mut cursor) {
+                if check_module_scope_stmt(child) {
+                    return true;
+                }
+            }
+            false
+        }
+
+        fn check_module_scope_stmt(child: tree_sitter::Node) -> bool {
+            if is_wildcard_import(child) {
+                return true;
+            }
+            // Module-scope compound statements: their block bodies are still
+            // module scope in Python, so wildcard imports inside them count.
+            if matches!(
+                child.kind(),
+                "if_statement"
+                    | "try_statement"
+                    | "for_statement"
+                    | "while_statement"
+                    | "with_statement"
+            ) {
+                let mut bcursor = child.walk();
+                for block_child in child.children(&mut bcursor) {
+                    if matches!(
+                        block_child.kind(),
+                        "block"
+                            | "else_clause"
+                            | "elif_clause"
+                            | "except_clause"
+                            | "finally_clause"
+                    ) {
+                        if check_block(block_child) {
+                            return true;
+                        }
+                    }
+                }
+            }
+            false
+        }
+
+        // Walk module-level statements looking for `from ... import *`
+        let root = parsed.tree.root_node();
+        let mut cursor = root.walk();
+        for child in root.children(&mut cursor) {
+            if check_module_scope_stmt(child) {
+                return true;
             }
         }
         false
@@ -1473,13 +1523,69 @@ impl CallGraph {
                         }
                     }
                 }
-                // Python top-level compound statements whose bodies are still module-scope
+                // Python top-level compound statements whose bodies are still module-scope.
+                // The statement HEADERS also bind names at module scope:
+                //   for_statement: iteration target (`for x in ...`)
+                //   with_statement: `as` alias (`with ctx() as x`)
+                //   try_statement > except_clause: `as` alias (`except E as x`)
                 "if_statement" | "try_statement" | "for_statement" | "while_statement"
                 | "with_statement" => {
                     if matches!(lang, crate::languages::Language::Python) {
-                        // Walk into block children
+                        // Extract header bindings first.
+                        if child.kind() == "for_statement" {
+                            // `for x in ...`: the `left` field is the iteration target
+                            if let Some(left) = child.child_by_field_name("left") {
+                                collect_identifiers_from_pattern(left, source, counts);
+                            }
+                        } else if child.kind() == "with_statement" {
+                            // `with expr as name`: walk for as_pattern aliases
+                            fn extract_with_aliases(
+                                node: tree_sitter::Node,
+                                source: &str,
+                                counts: &mut BTreeMap<String, usize>,
+                            ) {
+                                let mut cur = node.walk();
+                                for c in node.children(&mut cur) {
+                                    if c.kind() == "as_pattern" {
+                                        // The alias is typically the last identifier child
+                                        if let Some(alias) = c.child_by_field_name("alias") {
+                                            collect_identifiers_from_pattern(alias, source, counts);
+                                        }
+                                    } else if c.kind() == "with_clause" || c.kind() == "with_item" {
+                                        extract_with_aliases(c, source, counts);
+                                    }
+                                }
+                            }
+                            extract_with_aliases(child, source, counts);
+                        }
+                        // Walk into block children (bodies + else/except/finally).
+                        // For try_statement, also extract except_clause header aliases.
                         let mut bcursor = child.walk();
                         for block_child in child.children(&mut bcursor) {
+                            if block_child.kind() == "except_clause" {
+                                // `except E as x`: the `as` identifier binds at module scope
+                                let mut ecur = block_child.walk();
+                                for ec in block_child.children(&mut ecur) {
+                                    if ec.kind() == "as_pattern" {
+                                        if let Some(alias) = ec.child_by_field_name("alias") {
+                                            collect_identifiers_from_pattern(alias, source, counts);
+                                        }
+                                    }
+                                    // In some tree-sitter-python versions, `except E as x`
+                                    // stores the alias as a direct identifier child after `as`.
+                                    // Check for an identifier that follows an `as` keyword.
+                                    if ec.kind() == "identifier" {
+                                        // Check if the previous sibling is `as`
+                                        if let Some(prev) = ec.prev_sibling() {
+                                            if prev.kind() == "as" {
+                                                let name = source[ec.start_byte()..ec.end_byte()]
+                                                    .to_string();
+                                                *counts.entry(name).or_default() += 1;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                             if matches!(
                                 block_child.kind(),
                                 "block"
@@ -2004,6 +2110,10 @@ impl CallGraph {
             }
         }
 
+        // Phase 5 (direct-subset): build class_bases for changed files so
+        // incremental cache merges carry inherited-self data for the subset.
+        let class_bases = Self::build_class_bases(files);
+
         CallGraph {
             functions,
             calls,
@@ -2014,7 +2124,7 @@ impl CallGraph {
             method_owners,
             method_class_span,
             method_class_span_ambiguous,
-            class_bases: BTreeMap::new(),
+            class_bases,
             methods_by_scope: BTreeMap::new(),
             extension_methods: BTreeMap::new(),
             identity_complete: BTreeSet::new(),

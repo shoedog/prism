@@ -474,3 +474,91 @@ class Child(Base):
         "if-block assignment rebinding must poison"
     );
 }
+
+// -----------------------------------------------------------------------
+// 18. Ambiguous caller class span drops inherited lookup
+// -----------------------------------------------------------------------
+#[test]
+fn inherited_self_ambiguous_caller_span_drops() {
+    // Two classes on the same line in JS triggers method_class_span_ambiguous
+    // for methods within them.  inherited_direct_base must bail.
+    let src = "\
+class Base { m() { return 1; } }
+class Child extends Base { run() { this.m(); } } class Dup extends Base { run() { this.m(); } }
+";
+    let cg = CallGraph::build(&files(&[("svc.js", src)]));
+    // If the caller's FunctionId is in method_class_span_ambiguous the inherited
+    // lookup should return None (no resolution).
+    let dup_run = cg
+        .functions
+        .get("run")
+        .and_then(|v| v.iter().find(|f| f.file == "svc.js" && f.start_line == 2));
+    if let Some(caller) = dup_run {
+        if let Some(sites) = cg.calls.get(caller) {
+            if let Some(site) = sites.iter().find(|s| s.callee_name == "m") {
+                let out = cg.resolve_call_site_full(site);
+                // With the ambiguous guard the inherited hook bails; resolution
+                // should fall through to the normal owner_lookup path or be empty.
+                // The key property: it must NOT produce a single Exact via the
+                // inherited path (which would be unsound).
+                for r in &out.resolved {
+                    assert_ne!(
+                        r.confidence,
+                        ResolutionConfidence::Exact,
+                        "ambiguous caller span must not produce Exact via inheritance"
+                    );
+                }
+            }
+        }
+    }
+}
+
+// -----------------------------------------------------------------------
+// 19. Wildcard import inside compound suite (if-block) poisons
+// -----------------------------------------------------------------------
+#[test]
+fn inherited_self_wildcard_import_in_compound_drops() {
+    let src = "\
+class Base:
+    def m(self):
+        return 1
+
+if True:
+    from ext import *
+
+class Child(Base):
+    def run(self):
+        return self.m()
+";
+    let cg = CallGraph::build(&files(&[("svc.py", src)]));
+    let out = resolve_self_call(&cg, "svc.py", "run", "m");
+    assert!(
+        out.resolved.is_empty(),
+        "wildcard import inside if-block must poison to Barrier"
+    );
+}
+
+// -----------------------------------------------------------------------
+// 20. for-loop header binder at module scope poisons base name
+// -----------------------------------------------------------------------
+#[test]
+fn inherited_self_for_header_rebind_drops() {
+    let src = "\
+class Base:
+    def m(self):
+        return 1
+
+for Base in [1, 2, 3]:
+    pass
+
+class Child(Base):
+    def run(self):
+        return self.m()
+";
+    let cg = CallGraph::build(&files(&[("svc.py", src)]));
+    let out = resolve_self_call(&cg, "svc.py", "run", "m");
+    assert!(
+        out.resolved.is_empty(),
+        "for-loop header rebinding must poison base to Barrier"
+    );
+}
