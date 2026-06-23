@@ -64,7 +64,8 @@ use std::path::{Path, PathBuf};
 /// - v20: member-visibility tri-state (glob member-rib continuation — behavior change).
 /// - v21: method_class_span for self-receiver same-class narrowing.
 /// - v22: method_class_span_ambiguous for fail-open line-id collisions.
-const CACHE_VERSION: u32 = 22; // 22: method_class_span_ambiguous (self-receiver fail-open).
+/// - v23: wrapper-canonical decorated extraction.
+const CACHE_VERSION: u32 = 23; // 23: wrapper-canonical decorated extraction.
 
 pub const SKIP_POLICY_VERSION: u32 = 1;
 
@@ -569,9 +570,9 @@ mod tests {
     }
 
     #[test]
-    fn cache_version_is_22_for_method_class_span_ambiguous() {
-        // v22: method_class_span_ambiguous (self-receiver fail-open).
-        assert_eq!(super::CACHE_VERSION, 22);
+    fn cache_version_is_23_for_wrapper_canonical_decorated_extraction() {
+        // v23: wrapper-canonical decorated extraction.
+        assert_eq!(super::CACHE_VERSION, 23);
     }
 
     #[test]
