@@ -301,8 +301,13 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
             "cycle": ge.cycle,
             "external": ge.external,
             "multi_target": ge.multi_target,
-            "ambiguous": ge.ambiguous,
             "vis_unknown": ge.vis_unknown,
+            "member_multi": ge.member_multi,
+            "member_undecidable": ge.member_undecidable,
+            "member_hidden_continued": ge.member_hidden_continued,
+            "member_hidden_continue_hit": ge.member_hidden_continue_hit,
+            "member_hidden_continue_empty": ge.member_hidden_continue_empty,
+            "member_hidden_continue_poison": ge.member_hidden_continue_poison,
         },
     })
 }
