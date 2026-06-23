@@ -88,8 +88,14 @@ same-module-local recovery. **Decision (autonomous, mandate = complete 2 + merge
 (sound, +17, sets up the receiver-typing infra slice 3/4 extends), flagged here — owner may reconsider /
 revert in the morning, OR prioritize slice 3 (the actual lever) which is next anyway. 5 review rounds
 (3 spec + 2 plan REWORKs) hardened the guard (collision→wildcard→order) + R3b pre-emption + ordering.
-| **3** import-scoping/free_multi | **architect DONE** — awaiting spec | memo `/tmp/slice3-architect-out.md` |
-| **1b** inheritance MRO | **architect DONE** — awaiting spec | memo `/tmp/slice1b-architect-out.md` |
+| **3** import-scoping/free_multi | **SPEC rev1 committed `0b4b753`** (branch `slice3-import-binding-rung`, wt `/tmp/prism-slice3`); **codex spec-review IN FLIGHT** (`bel2zi5ke`, port 8250) | `docs/superpowers/specs/2026-06-23-python-js-import-binding-rung-design.md` |
+| **1b** inheritance MRO | **SPEC drafted** `/tmp/slice1b-spec-draft.md` (queued; branch off post-slice-3 main; reuses slice-3 ImportBinding for cross-file bases) | memo `/tmp/slice1b-architect-out.md` |
+
+### Slice-3 impl surface (studied, ready to plan)
+- New rung goes **after R4b implicit-this (`resolution.rs:1311`), before R5 free-fn pool (`:1313`)**. Rename — "R4.5" is TAKEN by Go SamePackage (`:1258`); call it **R4c / import-member**.
+- **KEY subtlety (verified):** the candidate pool `ids = self.functions.get(name)` is keyed by the **CALL name** (the local). For an alias `from x import f as g; g()` the def is named `f`, so `functions.get("g")` won't contain it — the rung must do a **fresh `self.functions.get(member)`** lookup, not narrow the existing `free` set. Non-aliased: local==member so the buy is `free_multi`→Exact; aliased calls **currently DROP UnknownName** (no repo `g`) → rung is pure recall recovery.
+- **`extract_imports` member-loss CONFIRMED** (`ast.rs:664-671`): `aliased_import` stores only `alias`→module, drops the `name` (member) field — but `child_by_field_name("name")` IS available (used at `:625`), so the member is recoverable with a small extraction change.
+- `imports` is `BTreeMap<file, BTreeMap<alias, module_path>>` (per-file nested) — `import_bindings` mirrors it. CACHE 23→24.
 
 ### Architect results + execution order (all 3 done; measured buys are SMALLER than headlines)
 **ORDER: decorated (in flight) → 2 → 3 → 1b** (by measured Python buy; all sequential off fresh main).
