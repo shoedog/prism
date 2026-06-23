@@ -409,7 +409,8 @@ impl ParsedFile {
     /// S3 P6-lite: syntactically-provable receiver type for `receiver` at a call
     /// on `call_line`. Typed params + constructor locals; when `recover_var` is true
     /// also recovers `var r T` declarations. Only bindings at or before `call_line`
-    /// count; >1 binding before the call means shadow bail. Rust + Go.
+    /// count; >1 binding before the call means shadow bail. Rust + Go +
+    /// guarded Python/JS/TS.
     /// Returns the raw, unpeeled type text + which fact recovered it.
     pub fn receiver_type_in_fn(
         &self,
@@ -421,7 +422,15 @@ impl ParsedFile {
         use crate::languages::Language;
         use crate::resolution::ReceiverRecovery;
 
-        if !matches!(self.language, Language::Rust | Language::Go) {
+        if !matches!(
+            self.language,
+            Language::Rust
+                | Language::Go
+                | Language::Python
+                | Language::JavaScript
+                | Language::TypeScript
+                | Language::Tsx
+        ) {
             return None;
         }
 
@@ -457,6 +466,37 @@ impl ParsedFile {
                         if self.go_parameter_binds_name(param, ty, receiver) {
                             found = Some((
                                 self.node_text(&ty).to_string(),
+                                ReceiverRecovery::TypedParam,
+                            ));
+                            bindings += 1;
+                        }
+                    }
+                    Language::Python
+                        if matches!(
+                            param.kind(),
+                            "typed_parameter" | "typed_default_parameter"
+                        ) =>
+                    {
+                        let Some(ty) = param.child_by_field_name("type") else {
+                            continue;
+                        };
+                        if self.parameter_binds_name_before_type(param, ty, receiver) {
+                            found = Some((
+                                self.node_text(&ty).to_string(),
+                                ReceiverRecovery::TypedParam,
+                            ));
+                            bindings += 1;
+                        }
+                    }
+                    Language::TypeScript | Language::Tsx | Language::JavaScript
+                        if matches!(param.kind(), "required_parameter" | "optional_parameter") =>
+                    {
+                        let Some(ty) = param.child_by_field_name("type") else {
+                            continue;
+                        };
+                        if self.parameter_binds_name_before_type(param, ty, receiver) {
+                            found = Some((
+                                self.type_annotation_text(&ty),
                                 ReceiverRecovery::TypedParam,
                             ));
                             bindings += 1;
@@ -668,6 +708,9 @@ impl ParsedFile {
                                 if let Some(alias) = alias {
                                     out.insert(alias, module.clone());
                                 }
+                            }
+                            "wildcard_import" => {
+                                out.insert("*".to_string(), "*".to_string());
                             }
                             _ => {}
                         }
@@ -4072,6 +4115,74 @@ impl ParsedFile {
                     }
                 }
             }
+            (Language::Python, "assignment") => {
+                let left = node.child_by_field_name("left");
+                if let Some(left) = left {
+                    if self.simple_binding_text(&left).as_deref() == Some(receiver) {
+                        *bindings += 1;
+                        if let Some(ty) = node.child_by_field_name("type") {
+                            *found = Some((
+                                self.node_text(&ty).to_string(),
+                                ReceiverRecovery::ConstructorLocal,
+                            ));
+                        } else if let Some(right) = node.child_by_field_name("right") {
+                            *found = self
+                                .constructor_type(&right)
+                                .map(|ty| (ty, ReceiverRecovery::ConstructorLocal));
+                        } else {
+                            *found = None;
+                        }
+                    } else if self.node_binds_name(left, receiver) {
+                        *bindings += 1;
+                        *found = None;
+                    }
+                }
+            }
+            (
+                Language::JavaScript | Language::TypeScript | Language::Tsx,
+                "variable_declarator",
+            ) => {
+                let name = node.child_by_field_name("name");
+                if let Some(name) = name {
+                    if self.simple_binding_text(&name).as_deref() == Some(receiver) {
+                        *bindings += 1;
+                        if let Some(ty) = node.child_by_field_name("type") {
+                            *found = Some((
+                                self.type_annotation_text(&ty),
+                                ReceiverRecovery::ConstructorLocal,
+                            ));
+                        } else if let Some(value) = node.child_by_field_name("value") {
+                            *found = self
+                                .constructor_type(&value)
+                                .map(|ty| (ty, ReceiverRecovery::ConstructorLocal));
+                        } else {
+                            *found = None;
+                        }
+                    } else if self.node_binds_name(name, receiver) {
+                        *bindings += 1;
+                        *found = None;
+                    }
+                }
+            }
+            (
+                Language::JavaScript | Language::TypeScript | Language::Tsx,
+                "assignment_expression",
+            ) => {
+                let left = node.child_by_field_name("left");
+                if let Some(left) = left {
+                    if self.simple_binding_text(&left).as_deref() == Some(receiver) {
+                        *bindings += 1;
+                        *found = node
+                            .child_by_field_name("right")
+                            .or_else(|| node.child_by_field_name("value"))
+                            .and_then(|value| self.constructor_type(&value))
+                            .map(|ty| (ty, ReceiverRecovery::ConstructorLocal));
+                    } else if self.node_binds_name(left, receiver) {
+                        *bindings += 1;
+                        *found = None;
+                    }
+                }
+            }
             (Language::Go, "assignment_statement") | (Language::Rust, "assignment_expression") => {
                 let left = node
                     .child_by_field_name("left")
@@ -4123,7 +4234,37 @@ impl ParsedFile {
                         .filter(|s| !s.is_empty())
                         .map(str::to_string);
                 }
+                if self.language == Language::Python
+                    && text.chars().next().is_some_and(|c| c.is_ascii_uppercase())
+                    && text.chars().all(|c| c.is_alphanumeric() || c == '_')
+                {
+                    return Some(text.to_string());
+                }
                 None
+            }
+            "call" if self.language == Language::Python => {
+                let function = node
+                    .child_by_field_name("function")
+                    .or_else(|| node.child_by_field_name("name"))?;
+                let text = self.node_text(&function).trim();
+                if text.chars().next().is_some_and(|c| c.is_ascii_uppercase())
+                    && text.chars().all(|c| c.is_alphanumeric() || c == '_')
+                {
+                    return Some(text.to_string());
+                }
+                None
+            }
+            "new_expression"
+                if matches!(
+                    self.language,
+                    Language::JavaScript | Language::TypeScript | Language::Tsx
+                ) =>
+            {
+                let ty = node
+                    .child_by_field_name("type")
+                    .or_else(|| node.child_by_field_name("constructor"))
+                    .or_else(|| node.named_child(0))?;
+                Some(self.node_text(&ty).to_string())
             }
             "struct_expression" | "composite_literal" => {
                 let ty = node
@@ -4180,6 +4321,35 @@ impl ParsedFile {
             }
         }
         false
+    }
+
+    fn parameter_binds_name_before_type(
+        &self,
+        param: Node<'_>,
+        ty: Node<'_>,
+        receiver: &str,
+    ) -> bool {
+        if let Some(pattern) = param
+            .child_by_field_name("pattern")
+            .or_else(|| param.child_by_field_name("name"))
+        {
+            return self.simple_binding_text(&pattern).as_deref() == Some(receiver);
+        }
+        let mut cursor = param.walk();
+        for child in param.children(&mut cursor) {
+            if child.start_byte() >= ty.start_byte() {
+                continue;
+            }
+            if self.simple_binding_text(&child).as_deref() == Some(receiver) {
+                return true;
+            }
+        }
+        false
+    }
+
+    fn type_annotation_text(&self, node: &Node<'_>) -> String {
+        let text = self.node_text(node).trim();
+        text.strip_prefix(':').unwrap_or(text).trim().to_string()
     }
 
     /// Extract the parameter name from a parameter declaration node.

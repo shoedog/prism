@@ -317,7 +317,15 @@ impl ReceiverRecoveryConfig {
 /// is true), peeled + owner-keyed.
 fn recover_simple_ident(ctx: &ReceiverCtx<'_>, recover_var: bool) -> Option<RecoveredReceiver> {
     use crate::languages::Language;
-    if !matches!(ctx.parsed.language, Language::Rust | Language::Go) {
+    if !matches!(
+        ctx.parsed.language,
+        Language::Rust
+            | Language::Go
+            | Language::Python
+            | Language::JavaScript
+            | Language::TypeScript
+            | Language::Tsx
+    ) {
         return None;
     }
     let q = ctx.qualifier?;
@@ -328,12 +336,23 @@ fn recover_simple_ident(ctx: &ReceiverCtx<'_>, recover_var: bool) -> Option<Reco
     if !(simple && !is_kw && !is_recv && !is_import) {
         return None;
     }
-    ctx.parsed
-        .receiver_type_in_fn(&ctx.fn_node, q, ctx.call_line, recover_var)
-        .map(|(ty, how)| RecoveredReceiver {
-            static_type: owner_key(&peel_type(&ty)),
-            recovery: how,
-        })
+    let (ty, how) = ctx
+        .parsed
+        .receiver_type_in_fn(&ctx.fn_node, q, ctx.call_line, recover_var)?;
+    let static_type = owner_key(&peel_type(&ty));
+    if matches!(
+        ctx.parsed.language,
+        Language::Python | Language::JavaScript | Language::TypeScript | Language::Tsx
+    ) && ctx
+        .file_imports
+        .is_some_and(|m| m.contains_key(&static_type) || m.contains_key("*"))
+    {
+        return None;
+    }
+    Some(RecoveredReceiver {
+        static_type,
+        recovery: how,
+    })
 }
 
 /// PR-1 P6-lite recovery, extracted verbatim from the former
@@ -978,6 +997,7 @@ impl CallGraph {
                 ResolutionOutcome::dropped(DropReason::UnknownName)
             }
             Some(q) => {
+                let caller_lang = crate::languages::Language::from_path(&site.caller.file);
                 // A materialized Rust receiver outcome means this is a value-method call
                 // `recv.method()`: the qualifier is a receiver expression, NOT a module or
                 // type name. The receiver's static type (the Rust branch below) is
@@ -985,14 +1005,22 @@ impl CallGraph {
                 // owner-key (R3b) interpretations. Recall-safe: receiver_outcome == Some
                 // only for value-method receiver syntax, so R3/R3b never held a correct edge
                 // for these sites.
-                let rust_recv_materialized =
-                    crate::languages::Language::from_path(&site.caller.file)
-                        == Some(crate::languages::Language::Rust)
-                        && site.receiver_outcome.is_some();
+                let rust_recv_materialized = caller_lang == Some(crate::languages::Language::Rust)
+                    && site.receiver_outcome.is_some();
+                let recovered_recv_materialized = matches!(
+                    caller_lang,
+                    Some(
+                        crate::languages::Language::Python
+                            | crate::languages::Language::JavaScript
+                            | crate::languages::Language::TypeScript
+                            | crate::languages::Language::Tsx
+                    )
+                ) && site.receiver_type.is_some();
+                let recv_materialized = rust_recv_materialized || recovered_recv_materialized;
 
                 // R3: imported-module qualifier. If an import matches, the
                 // narrowed set is final; empty means the call is external.
-                if !rust_recv_materialized {
+                if !recv_materialized {
                     if let Some(file_imports) = self.imports.get(&caller.file) {
                         if let Some(module_path) = file_imports.get(q) {
                             let ids = match self.functions.get(name) {
@@ -1031,7 +1059,7 @@ impl CallGraph {
                 }
 
                 // R3b: qualifier text is itself an owner key.
-                if !rust_recv_materialized && is_simple_ident(q) {
+                if !recv_materialized && is_simple_ident(q) {
                     if let Some(mut resolved) = self.owner_lookup(q, name) {
                         for callee in &mut resolved {
                             if callee.kind == ResolutionKind::QualifiedOwner {
@@ -1042,9 +1070,7 @@ impl CallGraph {
                     }
                 }
 
-                if crate::languages::Language::from_path(&site.caller.file)
-                    == Some(crate::languages::Language::Rust)
-                {
+                if caller_lang == Some(crate::languages::Language::Rust) {
                     if let Some(oc) = site.receiver_outcome.as_ref() {
                         let name_key = name.to_string();
                         return match &oc.key {
@@ -1114,7 +1140,7 @@ impl CallGraph {
                         }
                         _ => ResolutionKind::TypedParam,
                     };
-                    return match self.owner_lookup(recv_ty, name) {
+                    match self.owner_lookup(recv_ty, name) {
                         Some(mut resolved) => {
                             for callee in &mut resolved {
                                 if callee.kind == ResolutionKind::QualifiedOwner {
@@ -1122,16 +1148,14 @@ impl CallGraph {
                                 }
                                 // Trait-CHA hits keep TraitCha (dyn Trait receivers).
                             }
-                            ResolutionOutcome::hit(resolved)
+                            return ResolutionOutcome::hit(resolved);
                         }
                         // Gate the interface consult to Go callers: P6-lite receiver
                         // recovery also fires for Rust, and `interface_impls` is Go-only,
                         // so an un-gated consult could mint a cross-language edge (e.g. a
                         // Rust `x.Go()` matching a Go interface named the same). Mirrors the
                         // language gate at the C-only free-fn fallback below.
-                        None if crate::languages::Language::from_path(&site.caller.file)
-                            == Some(crate::languages::Language::Go) =>
-                        {
+                        None if caller_lang == Some(crate::languages::Language::Go) => {
                             match crate::resolution::iface_key(recv_ty) {
                                 Some(k) => match self.interface_impls.get(&(k, name.to_string())) {
                                     Some(ids) if !ids.is_empty() => {
@@ -1146,21 +1170,41 @@ impl CallGraph {
                                             &self.method_arity,
                                         );
                                         if kept.is_empty() {
-                                            ResolutionOutcome::dropped(DropReason::ExternalReceiver)
+                                            return ResolutionOutcome::dropped(
+                                                DropReason::ExternalReceiver,
+                                            );
                                         } else {
-                                            ResolutionOutcome::hit(exact(
+                                            return ResolutionOutcome::hit(exact(
                                                 kept,
                                                 ResolutionKind::InterfaceDispatch,
-                                            ))
+                                            ));
                                         }
                                     }
-                                    _ => ResolutionOutcome::dropped(DropReason::ExternalReceiver),
+                                    _ => {
+                                        return ResolutionOutcome::dropped(
+                                            DropReason::ExternalReceiver,
+                                        )
+                                    }
                                 },
-                                None => ResolutionOutcome::dropped(DropReason::ExternalReceiver),
+                                None => {
+                                    return ResolutionOutcome::dropped(DropReason::ExternalReceiver)
+                                }
                             }
                         }
-                        None => ResolutionOutcome::dropped(DropReason::ExternalReceiver),
-                    };
+                        None if !matches!(
+                            caller_lang,
+                            Some(
+                                crate::languages::Language::Python
+                                    | crate::languages::Language::JavaScript
+                                    | crate::languages::Language::TypeScript
+                                    | crate::languages::Language::Tsx
+                            )
+                        ) =>
+                        {
+                            return ResolutionOutcome::dropped(DropReason::ExternalReceiver);
+                        }
+                        None => {}
+                    }
                 }
 
                 // R6 residue (P2): method candidates only, never free fns.
