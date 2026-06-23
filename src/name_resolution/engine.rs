@@ -650,8 +650,19 @@ fn glob_lookup_inner(
                         via_glob: true,
                         edge_kind: Some(e.kind),
                     };
-                    if !policy.visible(b, q, &trav) {
-                        continue;
+                    // Representation-independent member-visibility tri-state (§3.6):
+                    // a proved-Hidden member is skipped (pre-existing behavior); an
+                    // UNDECIDABLE member must poison (cannot prove the glob does not
+                    // bring it) — never blanket-skip it to let a sibling mint a wrong
+                    // singleton. Hidden-skip here is NOT new recall, so it does not
+                    // feed the deferred-arm continue counters.
+                    match policy.member_visible(b, q, &trav) {
+                        VisibilityDecision::Visible => {}
+                        VisibilityDecision::Hidden => continue,
+                        VisibilityDecision::Unknown => {
+                            guard.stats().record_member_undecidable();
+                            return GlobOutcome::Poison;
+                        }
                     }
                     if let BindTarget::Resolved(t) = &b.target {
                         candidates.push(Candidate {

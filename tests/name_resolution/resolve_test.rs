@@ -1076,6 +1076,37 @@ fn test_glob_engine_two_glob_conflict_ambiguous() {
     );
 }
 
+/// Already-resolved glob arm soundness completion: a NON-deferred glob edge
+/// (scope 1 -> resolved scope 5) whose target member `z` is `pub(in <unresolved>)`
+/// (VIS_PUB_IN, restrict None) -> Unknown from scope 1's vantage. The arm must
+/// POISON on the Unknown member, not blanket-skip it (representation-independent
+/// member-visibility tri-state — the same Unknown-skip hole in another form).
+#[test]
+fn test_glob_engine_already_resolved_arm_unknown_member_poisons() {
+    let mut g = ScopeGraph::new();
+    g.add_scope(scope(0, ScopeKind::Root, None));
+    g.add_scope(scope(1, ScopeKind::Module, Some(0)));
+    g.add_scope(scope(5, ScopeKind::Module, Some(0)));
+    g.add_binding(item_binding(5, "z", 1850, VIS_PUB_IN));
+    g.add_edge(Edge {
+        from: ScopeId(1),
+        kind: rust_policy::EK_GLOB,
+        to: BindTarget::Resolved(Target::Scope(ScopeId(5))),
+        vis: vis(VIS_PRIV),
+        cond: None,
+        order: 0,
+        vis_range: None,
+    });
+
+    let pol = policy_for(&g, 2018);
+    let res = resolve(&g, &bare_value_query("z", 1), &pol);
+    assert_eq!(
+        res.status,
+        ResStatus::Poisoned,
+        "an undecidable pub(in) member behind a non-deferred glob must poison, not skip"
+    );
+}
+
 /// same-target glob dedup → Resolved. Two globs that both reach the SAME item
 /// (e.g. two paths to scope 5 which has one `w`) → a single Resolved, not Ambiguous.
 #[test]
