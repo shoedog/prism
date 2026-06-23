@@ -62,7 +62,8 @@ use std::path::{Path, PathBuf};
 ///   for cross-crate `use` leading-segment resolution (changed bincode layout).
 /// - v19: glob re-export member expansion (resolution behavior change).
 /// - v20: member-visibility tri-state (glob member-rib continuation — behavior change).
-const CACHE_VERSION: u32 = 20; // 20: member-visibility tri-state (glob member-rib continuation).
+/// - v21: method_class_span for self-receiver same-class narrowing.
+const CACHE_VERSION: u32 = 21; // 21: method_class_span (self-receiver same-class narrowing).
 
 pub const SKIP_POLICY_VERSION: u32 = 1;
 
@@ -567,9 +568,9 @@ mod tests {
     }
 
     #[test]
-    fn cache_version_is_20_for_member_visibility_tristate() {
-        // v20: member-visibility tri-state (glob member-rib continuation — behavior change).
-        assert_eq!(super::CACHE_VERSION, 20);
+    fn cache_version_is_21_for_method_class_span() {
+        // v21: method_class_span (self-receiver same-class narrowing).
+        assert_eq!(super::CACHE_VERSION, 21);
     }
 
     #[test]
