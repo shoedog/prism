@@ -13,7 +13,6 @@ pub struct GlobExpandStats {
     cycle: AtomicUsize,
     external: AtomicUsize,
     multi_target: AtomicUsize,
-    ambiguous: AtomicUsize,
     vis_unknown: AtomicUsize,
     member_multi: AtomicUsize,
     member_undecidable: AtomicUsize,
@@ -31,7 +30,6 @@ pub struct GlobExpandSnapshot {
     pub cycle: usize,
     pub external: usize,
     pub multi_target: usize,
-    pub ambiguous: usize,
     pub vis_unknown: usize,
     pub member_multi: usize,
     pub member_undecidable: usize,
@@ -69,10 +67,6 @@ impl GlobExpandStats {
 
     pub fn record_multi_target(&self) {
         self.multi_target.fetch_add(1, Ordering::Relaxed);
-    }
-
-    pub fn record_ambiguous(&self) {
-        self.ambiguous.fetch_add(1, Ordering::Relaxed);
     }
 
     pub fn record_vis_unknown(&self) {
@@ -119,7 +113,6 @@ impl GlobExpandStats {
             &self.cycle,
             &self.external,
             &self.multi_target,
-            &self.ambiguous,
             &self.vis_unknown,
             &self.member_multi,
             &self.member_undecidable,
@@ -141,7 +134,6 @@ impl GlobExpandStats {
             cycle: g(&self.cycle),
             external: g(&self.external),
             multi_target: g(&self.multi_target),
-            ambiguous: g(&self.ambiguous),
             vis_unknown: g(&self.vis_unknown),
             member_multi: g(&self.member_multi),
             member_undecidable: g(&self.member_undecidable),
@@ -162,7 +154,6 @@ pub static GLOBAL: GlobExpandStats = GlobExpandStats {
     cycle: GlobExpandStats::z(),
     external: GlobExpandStats::z(),
     multi_target: GlobExpandStats::z(),
-    ambiguous: GlobExpandStats::z(),
     vis_unknown: GlobExpandStats::z(),
     member_multi: GlobExpandStats::z(),
     member_undecidable: GlobExpandStats::z(),
@@ -185,7 +176,6 @@ mod tests {
         s.record_cycle();
         s.record_external();
         s.record_multi_target();
-        s.record_ambiguous();
         s.record_vis_unknown();
         s.record_member_multi();
         s.record_member_undecidable();
@@ -200,7 +190,6 @@ mod tests {
         assert_eq!(snap.cycle, 1);
         assert_eq!(snap.external, 1);
         assert_eq!(snap.multi_target, 1);
-        assert_eq!(snap.ambiguous, 1);
         assert_eq!(snap.vis_unknown, 1);
         assert_eq!(snap.member_multi, 1);
         assert_eq!(snap.member_undecidable, 1);

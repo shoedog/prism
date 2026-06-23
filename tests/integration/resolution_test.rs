@@ -1778,8 +1778,13 @@ fn call_stats_reports_glob_expand_histogram_shape() {
         "cycle",
         "external",
         "multi_target",
-        "ambiguous",
         "vis_unknown",
+        "member_multi",
+        "member_undecidable",
+        "member_hidden_continued",
+        "member_hidden_continue_hit",
+        "member_hidden_continue_empty",
+        "member_hidden_continue_poison",
     ] {
         assert!(
             ge.get(key).and_then(|v| v.as_u64()).is_some(),
