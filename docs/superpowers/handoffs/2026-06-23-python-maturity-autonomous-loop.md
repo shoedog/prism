@@ -11,30 +11,65 @@ PRs after the review pipeline settles, and merge when CI passes (may merge befor
 No owner questions while asleep — a genuine design fork gets a best-judgment call + a flag here for morning,
 never a block. One stuck slice gets parked (documented here), not allowed to block the rest.
 
-## ☀️ LOOP TERMINUS — morning summary (read this first)
-The loop rigorously attempted all three slices. **Outcome: 0 new merges this session, but the codex
-second-opinion gate (which you endorse) prevented shipping ANY unsound Python resolution** — and the
+## ✅ SESSION 2+3 — ALL 3 MERGED (2026-06-23)
+
+Owner returned, gave direction on all 3 slices:
+- **Slice 2**: option C (sub-slice 2c binding-PRESENCE suppression)
+- **Slice 3**: ratify bounded-static contract + build rev4
+- **Slice 1b**: greenlight rev4 (module-scope-only guard)
+
+**All 3 implemented → codex round-1 review → fixes → codex round-2 review → fixes → ALL MERGED.**
+
+| Slice | PR | Main commit | CACHE | Status |
+|---|---|---|---|---|
+| **2c** binding-PRESENCE | **#133** | `75bee7f` | 25 (no bump) | ✅ MERGED (squash) |
+| **1b** inherited-self | **#134** | `498482a` | 25→26 | ✅ MERGED (squash, rebased onto #133) |
+| **3** R4c import-member | **#135** | `bf58508` | 26→27 | ✅ MERGED (squash, rebased onto #134) |
+
+**Tier-A post-merge: 42 cases, 0 regressions (40 ok + 2 expected_gap).**
+
+### What happened across sessions 2+3
+1. **Parallel subagent implementation** — one agent per slice, independent worktrees.
+2. **Tier-A acceptance** — 40 ok / 2 expected_gap / 0 regressions.
+3. **Codex round-1 diff-review** — ALL 3 REWORK:
+   - **Slice 2c** (4 MAJOR): comprehension scope, untyped params, augmented assignment, as_pattern.
+   - **Slice 1b** (3 BLOCKER + 1 MAJOR): ambiguous guard, wildcard/binder compound suites, direct-subset.
+   - **Slice 3** (3 BLOCKER + 1 MAJOR): function-local imports, stem fallback, relative paths.
+4. **All round-1 findings fixed** — parallel fix agents, tests added.
+5. **Codex round-2 diff-review** — ALL 3 REWORK again:
+   - **Slice 2c** (4 MAJOR): `node_binds_name` attribute over-count, splat param `name` field miss,
+     nested def/class names not counted before stop-recursion, match/case capture patterns.
+   - **Slice 1b** (2 BLOCKER): clause-wrapper `block` traversal in both wildcard + binding scanners
+     (else/elif/except/finally bodies missed nested `block` child).
+   - **Slice 3** (5 BLOCKER): nested functions as R4c candidates (need module_bindings cross-check),
+     extract_module_bindings only walks root children (compound-stmt descent), single-component relative
+     import stem fallback, dotted absolute source-root duplicates, JS/TS no export proof.
+6. **All round-2 findings fixed** — parallel fix agents. Fixes: block transparency (1b), attribute/splat/
+   nested-def/case (2c), module_bindings cross-check + compound descent + relative unconditional-return +
+   Python-only gate (3). Low-risk items deferred: source-root duplicates (already conservative).
+7. **Sequential merge**: 2c → 1b (rebase, CACHE 26) → 3 (rebase, CACHE 27). Tier-A 0-regr post-merge.
+
+### Remaining follow-ups (next session)
+1. **Run call-stats** on main for fastapi/pydantic/excalidraw/express — measure realized buy.
+2. **Update memory** `[[project_prism_measurement_maturity]]` with buy + merged status.
+3. **Tier-A baseline refresh** if inherited_override gap flips.
+4. **Deferred from codex reviews**: source-root suffix duplicates for dotted absolute imports (Slice 3,
+   low-risk — conservative fall-through already); JS/TS export proof for R4c (gated to Python-only for now).
+
+---
+
+## ☀️ LOOP TERMINUS (overnight session, now superseded by Session 2 above)
+The overnight loop rigorously attempted all three slices. **Outcome: 0 new merges that session, but the codex
+second-opinion gate prevented shipping ANY unsound Python resolution** — and the
 canary `multi_target_exact_sites` is BLIND to the wrong-Exacts these slices risked, so design-soundness
-was the only gate. **The night's real deliverable is a strategic finding + 3 resumption-ready slices:**
+was the only gate. **The night's real deliverable was a strategic finding + 3 resumption-ready slice designs.**
 - **1a self-same-class + decorated double-capture: ✅ MERGED earlier** (#131, #132).
-- **Slice 2 (typed receivers): 🅿️ SHELVED** — sound +18 Exact, Rust/Go/JS byte-identical, canary flat;
-  re-review found the materialized-suppression only half-covers import-shadows (pre-existing, NOT a
-  regression — verified). **3 options in its row: (a) accept shelve [rec] / (b) merge as-is [clean +18] /
-  (c) sub-slice 2b binding-presence fix.**
-- **Slice 3 (imported-member resolution, the value lever): 🅿️ PARKED at rev3** after 4 design reviews.
-  Needs **ONE 1-line ratification** (⚠️⚠️ CONSOLIDATED OWNER DECISION below): hold the new Python rungs to
-  prism's EXISTING bounded-static contract (ignore `globals()`/`exec`, like every current rung + all Python
-  tools)? **Ratify → I build rev4** (rev3 + wildcard-poison + relative-imports-first + authority-flag);
-  est. low-hundreds sound Exact + reusable module model.
-- **Slice 1b (inherited-self): 🅿️ PARKED at rev3** after 4 reviews — depth-1 design closed everything but a
-  nested-class lexical shadow; **clean rev4 fix documented** (module-scope-only); trivially resumable, NOT
-  gated on the slice-3 decision.
-- **STRATEGIC FINDING:** all 3 Python-maturity slices hit the same wall — **sound static resolution over
-  Python's binding/scope semantics is a multi-corner, canary-blind enumeration** (4 review rounds each kept
-  finding new syntactic corners). It's genuinely non-trivial work that warrants your prioritization, not
-  overnight autonomous grinding. The designs + fixes are ready; the question is whether the low-hundreds
-  (slice 3) / ~dozen (1b) sound-Exact buy justifies the careful build, given the team's value lever is
-  Python+JS maturity (see [[project_prism_measurement_maturity]]).
+- **Slice 2**: shelved at `22deb40` → owner chose option C → **IMPLEMENTED as 2c** (Session 2).
+- **Slice 3**: parked at rev3 → owner ratified bounded-static contract → **IMPLEMENTED as rev4** (Session 2).
+- **Slice 1b**: parked at rev3 → owner greenlit rev4 → **IMPLEMENTED** (Session 2).
+- **STRATEGIC FINDING (still valid):** all 3 Python-maturity slices hit the same wall — **sound static resolution over
+  Python's binding/scope semantics is a multi-corner, canary-blind enumeration** (each codex review round
+  finds new syntactic corners — Session 2 confirmed this with round-1 REWORK on all 3).
 
 ## Pipeline per slice (the loop)
 spec → codex spec-review (xhigh) → **fold to sound** (re-review until no BLOCKER/MAJOR) → `writing-plans`
