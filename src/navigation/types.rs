@@ -103,6 +103,7 @@ pub enum WarningKind {
     Collision,
     SkippedPath,
     ResultTruncated,
+    StaleIndex,
     Reasoning(ReasoningWarning),
 }
 

@@ -1,3 +1,4 @@
+use super::freshness::FreshnessProbe;
 use crate::navigation::{NavigationIndex, NavigationSession};
 use crate::repo_loader::load_repo;
 use std::path::PathBuf;
@@ -16,6 +17,7 @@ pub enum CacheMode {
 
 pub struct SessionProvider {
     session: NavigationSession,
+    freshness: FreshnessProbe,
 }
 
 impl SessionProvider {
@@ -25,7 +27,9 @@ impl SessionProvider {
     #[allow(clippy::arc_with_non_send_sync)]
     pub fn bootstrap(cfg: &ServerConfig) -> anyhow::Result<Self> {
         let repo_root = std::fs::canonicalize(&cfg.repo_root)?;
-        let repo = Arc::new(load_repo(&repo_root)?);
+        let loaded_repo = load_repo(&repo_root)?;
+        let freshness = FreshnessProbe::from_loaded_repo(&loaded_repo);
+        let repo = Arc::new(loaded_repo);
         let index = match &cfg.cache {
             CacheMode::NoCache => NavigationIndex::build(&repo),
             CacheMode::Default => NavigationIndex::build_cached(&repo),
@@ -34,11 +38,16 @@ impl SessionProvider {
         let index = Arc::new(index);
         Ok(Self {
             session: NavigationSession { repo, index },
+            freshness,
         })
     }
 
     pub fn session(&self) -> &NavigationSession {
         &self.session
+    }
+
+    pub fn freshness(&self) -> &FreshnessProbe {
+        &self.freshness
     }
 }
 

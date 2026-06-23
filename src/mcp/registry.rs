@@ -1,8 +1,27 @@
 use crate::mcp::output::McpToolResult;
 use crate::navigation::NavigationSession;
 
+pub struct ToolContext<'a> {
+    pub session: &'a NavigationSession,
+    pub cap: usize,
+}
+
+impl<'a> ToolContext<'a> {
+    pub fn new(session: &'a NavigationSession, cap: usize) -> Self {
+        Self { session, cap }
+    }
+
+    #[cfg(test)]
+    pub fn for_test(session: &'a NavigationSession) -> Self {
+        Self {
+            session,
+            cap: crate::mcp::output::resolve_cap(),
+        }
+    }
+}
+
 pub type ToolHandler =
-    dyn Fn(&NavigationSession, &serde_json::Value) -> McpToolResult + Send + Sync;
+    dyn for<'a> Fn(&ToolContext<'a>, &serde_json::Value) -> McpToolResult + Send + Sync;
 
 #[derive(Clone, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -111,6 +130,11 @@ mod tests {
             assert!(
                 desc.contains("Example") && desc.contains("NOT"),
                 "tool {} description must front-load when/when-NOT + a worked Example: {desc}",
+                d.name
+            );
+            assert!(
+                desc.contains("repository snapshot loaded when prism-mcp started"),
+                "tool {} description must disclose MCP snapshot semantics: {desc}",
                 d.name
             );
         }

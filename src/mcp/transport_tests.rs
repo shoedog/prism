@@ -8,6 +8,39 @@ fn run(msgs: Vec<&str>) -> Vec<serde_json::Value> {
     t.responses().to_vec()
 }
 
+fn provider(files: &[(&str, &str)]) -> (tempfile::TempDir, crate::mcp::SessionProvider) {
+    let dir = tempfile::tempdir().unwrap();
+    for (name, source) in files {
+        let path = dir.path().join(name);
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent).unwrap();
+        }
+        std::fs::write(path, source).unwrap();
+    }
+    let cfg = crate::mcp::ServerConfig {
+        repo_root: dir.path().to_path_buf(),
+        cache: crate::mcp::CacheMode::NoCache,
+    };
+    let provider = crate::mcp::SessionProvider::bootstrap(&cfg).unwrap();
+    (dir, provider)
+}
+
+fn run_provider(
+    provider: &crate::mcp::SessionProvider,
+    registry: &ToolRegistry,
+    msgs: Vec<&str>,
+) -> Vec<serde_json::Value> {
+    let mut t = InMemoryTransport::new(msgs);
+    serve_session_with_freshness(
+        provider.session(),
+        Some(provider.freshness()),
+        registry,
+        &mut t,
+    )
+    .unwrap();
+    t.responses().to_vec()
+}
+
 const INIT: &str = r#"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-11-25","capabilities":{},"clientInfo":{"name":"t","version":"0"}}}"#;
 const INITED: &str = r#"{"jsonrpc":"2.0","method":"notifications/initialized"}"#;
 
@@ -26,6 +59,142 @@ fn lifecycle_list_and_call() {
         .unwrap()
         .contains("nodes-at:a.py:1"));
     assert_eq!(o[2]["result"]["isError"], false);
+}
+
+#[test]
+fn freshness_probe_does_not_mark_unedited_session_stale() {
+    let (_dir, provider) = provider(&[("a.py", "def f():\n    return 1\n")]);
+    let o = run_provider(
+        &provider,
+        &ToolRegistry::nav_v1(),
+        vec![
+            INIT,
+            INITED,
+            r#"{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"nav_nodes_at","arguments":{"file":"a.py","line":1}}}"#,
+        ],
+    );
+    assert!(o[1]["result"]["_meta"]
+        .get("prism/index_freshness")
+        .is_none());
+}
+
+#[test]
+fn stale_index_metadata_warning_and_text_are_visible_after_edit() {
+    let (dir, provider) = provider(&[("a.py", "def f():\n    return 1\n")]);
+    std::fs::write(dir.path().join("a.py"), "def f():\n    return 12345\n").unwrap();
+    let o = run_provider(
+        &provider,
+        &ToolRegistry::nav_v1(),
+        vec![
+            INIT,
+            INITED,
+            r#"{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"nav_nodes_at","arguments":{"file":"a.py","line":1}}}"#,
+        ],
+    );
+    let result = &o[1]["result"];
+    assert_eq!(result["_meta"]["prism/index_freshness"], "stale");
+    assert_eq!(result["_meta"]["prism/stale_index_total"], 1);
+    assert_eq!(
+        result["_meta"]["prism/stale_index_paths"],
+        serde_json::json!(["a.py"])
+    );
+    assert!(result["structuredContent"]["warnings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|warning| warning["kind"] == "StaleIndex"));
+    assert!(result["content"][0]["text"]
+        .as_str()
+        .unwrap()
+        .contains("StaleIndex"));
+}
+
+#[test]
+fn stale_agent_json_clipped_text_remains_bounded_notice() {
+    let (dir, provider) = provider(&[(
+        "a.py",
+        "def target():\n    return 1\n\ndef caller():\n    return target()\n",
+    )]);
+    std::fs::write(
+        dir.path().join("a.py"),
+        "def target():\n    return 12345\n\ndef caller():\n    return target()\n",
+    )
+    .unwrap();
+    let o = run_provider(
+        &provider,
+        &ToolRegistry::nav_v1(),
+        vec![
+            INIT,
+            INITED,
+            r#"{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"nav_callers","arguments":{"seed":{"kind":"symbol","name":"target","file":"a.py"},"format":"agent_json","max_view_bytes":1}}}"#,
+        ],
+    );
+    let result = &o[1]["result"];
+    assert_eq!(result["_meta"]["prism/index_freshness"], "stale");
+    assert_eq!(result["_meta"]["prism/view_clipped"], true);
+    assert!(result["content"][0]["text"].as_str().unwrap().len() <= 1);
+    assert!(result["structuredContent"]["warnings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|warning| warning["kind"] == "StaleIndex"));
+}
+
+#[test]
+fn freshness_is_not_added_to_list_ping_unknown_or_input_errors() {
+    let (dir, provider) = provider(&[("a.py", "def f():\n    return 1\n")]);
+    std::fs::write(dir.path().join("a.py"), "def f():\n    return 12345\n").unwrap();
+    let o = run_provider(
+        &provider,
+        &ToolRegistry::nav_v1(),
+        vec![
+            INIT,
+            INITED,
+            r#"{"jsonrpc":"2.0","id":2,"method":"tools/list"}"#,
+            r#"{"jsonrpc":"2.0","id":3,"method":"ping"}"#,
+            r#"{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"nope","arguments":{}}}"#,
+            r#"{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"nav_nodes_at","arguments":{"file":"a.py","line":0}}}"#,
+        ],
+    );
+    assert!(o[1].to_string().find("prism/index_freshness").is_none());
+    assert!(o[2].to_string().find("prism/index_freshness").is_none());
+    assert_eq!(o[3]["result"]["isError"], true);
+    assert!(o[3]["result"]["_meta"]
+        .get("prism/index_freshness")
+        .is_none());
+    assert_eq!(o[4]["result"]["isError"], true);
+    assert!(o[4]["result"]["_meta"]
+        .get("prism/index_freshness")
+        .is_none());
+}
+
+#[test]
+fn taint_reaches_receives_stale_warning() {
+    let (dir, provider) = provider(&[(
+        "app.py",
+        "def f():\n    user = input()\n    value = user\n    sink(value)\n",
+    )]);
+    std::fs::write(
+        dir.path().join("app.py"),
+        "def f():\n    user = input()\n    value = user\n    sink(value)\n    return value\n",
+    )
+    .unwrap();
+    let o = run_provider(
+        &provider,
+        &ToolRegistry::all_v1(),
+        vec![
+            INIT,
+            INITED,
+            r#"{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"taint_reaches","arguments":{"sources":[{"kind":"loc","file":"app.py","line":2}],"sinks":[{"kind":"loc","file":"app.py","line":4}]}}}"#,
+        ],
+    );
+    let result = &o[1]["result"];
+    assert_eq!(result["_meta"]["prism/index_freshness"], "stale");
+    assert!(result["structuredContent"]["warnings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|warning| warning["kind"] == "StaleIndex"));
 }
 
 #[test]

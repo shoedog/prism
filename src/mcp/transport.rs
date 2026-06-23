@@ -1,5 +1,6 @@
-use super::output::{McpToolResult, SCHEMA_VERSION};
-use super::registry::ToolRegistry;
+use super::freshness::{apply_freshness_report, FreshnessProbe, FRESHNESS_RESERVE_BYTES};
+use super::output::{resolve_cap, McpToolResult, SCHEMA_VERSION};
+use super::registry::{ToolContext, ToolRegistry};
 use super::SessionProvider;
 use crate::navigation::NavigationSession;
 use serde_json::{json, Map, Value};
@@ -58,6 +59,15 @@ pub fn serve_session(
     registry: &ToolRegistry,
     transport: &mut impl Transport,
 ) -> anyhow::Result<()> {
+    serve_session_with_freshness(session, None, registry, transport)
+}
+
+pub fn serve_session_with_freshness(
+    session: &NavigationSession,
+    freshness: Option<&FreshnessProbe>,
+    registry: &ToolRegistry,
+    transport: &mut impl Transport,
+) -> anyhow::Result<()> {
     let mut state = Lifecycle::PreInit;
 
     while let Some(outcome) = transport.read_message()? {
@@ -77,7 +87,7 @@ pub fn serve_session(
             }
         };
 
-        let response = match handle_message(&message, session, registry, &mut state) {
+        let response = match handle_message(&message, session, freshness, registry, &mut state) {
             Dispatch::Response(response) => Some(response),
             Dispatch::NoResponse => None,
         };
@@ -93,7 +103,7 @@ pub fn serve_stdio(p: &SessionProvider, r: &ToolRegistry) -> anyhow::Result<()> 
     let stdin = io::stdin();
     let stdout = io::stdout();
     let mut transport = StdioTransport::new(stdin.lock(), stdout.lock());
-    serve_session(p.session(), r, &mut transport)
+    serve_session_with_freshness(p.session(), Some(p.freshness()), r, &mut transport)
 }
 
 enum Dispatch {
@@ -104,6 +114,7 @@ enum Dispatch {
 fn handle_message(
     message: &Value,
     session: &NavigationSession,
+    freshness: Option<&FreshnessProbe>,
     registry: &ToolRegistry,
     state: &mut Lifecycle,
 ) -> Dispatch {
@@ -180,7 +191,7 @@ fn handle_message(
         }
         "ping" => Dispatch::Response(success_response(id, json!({}))),
         "tools/list" => Dispatch::Response(success_response(id, list_tools(registry))),
-        "tools/call" => call_tool_response(obj, id, session, registry),
+        "tools/call" => call_tool_response(obj, id, session, freshness, registry),
         _ => Dispatch::Response(error_response(id, -32601, "Method not found")),
     }
 }
@@ -237,6 +248,7 @@ fn call_tool_response(
     obj: &Map<String, Value>,
     id: Value,
     session: &NavigationSession,
+    freshness: Option<&FreshnessProbe>,
     registry: &ToolRegistry,
 ) -> Dispatch {
     let Some(params) = obj.get("params").and_then(Value::as_object) else {
@@ -259,10 +271,28 @@ fn call_tool_response(
         }
     };
 
-    let result = match registry.get(name) {
-        Some(tool) => (tool.handler)(session, &arguments),
-        None => unknown_tool_result(name, registry),
+    let Some(tool) = registry.get(name) else {
+        return Dispatch::Response(success_response(
+            id,
+            unknown_tool_result(name, registry).to_call_tool_result_value(),
+        ));
     };
+
+    let original_cap = resolve_cap();
+    let report = freshness.map(FreshnessProbe::check);
+    let stale = report.as_ref().is_some_and(|report| report.stale);
+    let cap = if stale {
+        original_cap.saturating_sub(FRESHNESS_RESERVE_BYTES)
+    } else {
+        original_cap
+    };
+    let ctx = ToolContext::new(session, cap);
+    let mut result = (tool.handler)(&ctx, &arguments);
+    if stale && !result.is_error && result.structured.is_some() {
+        if let Some(report) = &report {
+            apply_freshness_report(&mut result, report, original_cap);
+        }
+    }
 
     Dispatch::Response(success_response(id, result.to_call_tool_result_value()))
 }
