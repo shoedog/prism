@@ -28,26 +28,10 @@ pub struct CfgEdge {
 /// Each function is processed independently — no interprocedural edges.
 pub fn build_cfg_edges(parsed: &ParsedFile) -> Vec<CfgEdge> {
     let mut edges = Vec::new();
-    let root = parsed.tree.root_node();
-    let func_types = parsed.language.function_node_types();
-
-    collect_functions(root, &func_types, parsed, &mut edges);
+    for func_node in parsed.all_functions() {
+        build_function_cfg(func_node, parsed, &mut edges);
+    }
     edges
-}
-
-fn collect_functions(
-    node: Node<'_>,
-    func_types: &[&str],
-    parsed: &ParsedFile,
-    edges: &mut Vec<CfgEdge>,
-) {
-    if func_types.contains(&node.kind()) {
-        build_function_cfg(node, parsed, edges);
-    }
-    let mut cursor = node.walk();
-    for child in node.children(&mut cursor) {
-        collect_functions(child, func_types, parsed, edges);
-    }
 }
 
 /// Build CFG edges for a single function.
