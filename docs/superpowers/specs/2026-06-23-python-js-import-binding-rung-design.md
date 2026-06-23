@@ -1,212 +1,239 @@
-# Slice 3 — Bare-Import-Qualified Free-Call Narrowing (Python/JS) — Design
+# Slice 3 — Sound Imported-Member Free-Call Resolution (Python) — Design rev 2
 
-> Spec-of-record draft for the Python-maturity loop, slice 3. Formalizes architect
-> memo `/tmp/slice3-architect-out.md` (Option B). Pairs with handoff
-> `docs/superpowers/handoffs/2026-06-23-python-maturity-autonomous-loop.md` and memory
-> `[[project_prism_measurement_maturity]]`.
+> Spec-of-record, Python-maturity loop slice 3. **rev2 folds the codex spec-review of rev1
+> (5 BLOCKER + 3 MAJOR, `/tmp/slice3-specreview-out.md`).** rev1 ("single free fn named
+> `member` in the resolved file → Exact") was UNSOUND: prism's function inventory has no
+> provenance (export/kind/top-level/scope), and the `multi_target_exact_sites` canary CANNOT
+> catch a single wrong `import_member` Exact — so **the design must be sound by construction**,
+> acceptance cannot backstop it. Pairs with the loop handoff + `[[project_prism_measurement_maturity]]`.
 
 ## Goal
 
-Resolve **bare imported free-function calls** — `from mod import foo; foo()` (Python),
-`import { foo } from "./mod"; foo()` (JS/TS) — by narrowing the repo-wide free-function
-candidate set to the **imported module's resolved file** and minting an **Exact** edge
-on a single surviving candidate. This soundly drains part of the `free_multi` NameOnly
-bucket (the R5 repo-wide bare-call fallback) where an import binding pins which file's
-`foo` is meant.
+Resolve **bare imported free-function calls** in Python — `from mod import foo; foo()` and
+`from mod import foo as f; f()` — to the imported definition, minting **Exact**
+(`ImportMember`) **only when provably unambiguous**. Drains part of the `free_multi` NameOnly
+bucket (non-aliased, multiple repo-wide same-name defs pinned to one file) and recovers
+aliased calls that currently **drop** as `UnknownName`. Buy ≈ 241 pydantic + 64 fastapi
+import-singletons — but **only the subset that passes every soundness gate** (realized buy
+will be lower; that is correct, not a shortfall). JS deferred (named-import soundness needs an
+export table for re-exports — its own slice).
 
-## Background — the current ladder (verified)
+## Why this is bigger than "a rung" (the rev1 → rev2 lesson)
 
-The bare-call (unqualified `foo()`) branch in `CallGraph::resolve_call_site_full`
-(`src/resolution.rs`) filters out methods, then:
-1. **R4 same-file `LocalDef`** — a free `foo` defined in the caller's own file → Exact.
-   (Python/JS same-file calls already land here, so a current `free_multi` site has **no**
-   caller-file candidate — the gap is *not* "same file".)
-2. **Go-only same-directory `SamePackage`** — Go siblings share a package namespace.
-3. **Repo-wide non-static free functions**: `len == 1` → `free_single` (Exact);
-   `len > 1` → **`FreeMulti`** demoted to `NameOnly` (`src/resolution.rs:1238`).
+A sound rung must PROVE, before Exact: (1) the call name is bound by a **named import** with a
+concrete member; (2) the module resolves to **exactly one** indexed file; (3) the member is a
+**top-level function definition** in that file (not nested, not a class, not an assignment,
+not a re-export); (4) the call name is **not shadowed** by a param/local/nested-def in the
+caller's function, nor reassigned at the caller's module scope. prism stores **none** of this
+today. So slice 3 = build that provenance (sub-slice **3a**, inert) + consume it (sub-slice
+**3b**, the rung). The provenance is **reusable**: slice 1b's cross-file base-class linking
+and a future imported-receiver-type slice need the same module/import model.
 
-Python/JS have **no** Go-style implicit same-directory namespace: a sibling file's `foo`
-is **not** in scope unless imported. So the sound lever is **import binding**, not same-dir.
+## Decomposition
 
-Imports are already collected as `alias -> module_path` in `CallGraph.imports`
-(`src/call_graph.rs:155`, populated from `ParsedFile::extract_imports` at
-`src/ast.rs:566`), raw-string (not filesystem-resolved). Today that map feeds only the
-**qualified** rung `pkg.f()` (R3, `src/resolution.rs:993`), **not** bare `f()`.
+- **3a — inert foundation (behavior-identical, all corpora byte-identical):** four new
+  serialized structures + their extraction + build/merge/cache plumbing. NO resolution change.
+- **3b — the rung (behavior):** the Python-only R4c rung consuming 3a. Each sub-slice is its
+  own spec-derived plan → review → PR → merge (3a first; 3b off merged 3a).
 
-### Measured shape (`nav --no-cache call-stats`, exact edge telemetry)
+---
 
-| corpus | total call sites | `free_multi` NameOnly edges | `multi_target_exact_sites` (canary) |
-|---|---:|---:|---:|
-| pydantic | 65,645 | 25,293 | 439 |
-| fastapi | 19,919 | 488 | 70 |
-| express | 949 | 72 | 0 |
+## Sub-slice 3a — foundation
 
-Read-only site-split estimate (classifier over prism's function inventory + ASTs):
-
-| corpus | **import singleton** (the buy) | same-dir-singleton-no-import | same-dir multi | external import shadow | residual genuinely-ambiguous |
-|---|---:|---:|---:|---:|---:|
-| pydantic | **241** | 11 | 159 | 76 | 2,647 |
-| fastapi | **64** | 0 | 2 | 0 | 13 |
-| express | **1** | 0 | 6 | 1 | 14 |
-
-Of same-dir singletons, almost all overlap an import binding (pydantic 172/183, fastapi
-49/49) — confirming **import resolution must run before any same-dir heuristic**, and
-that blind same-dir Exact would mint wrong edges on import-shadow decoys.
-
-**Buy:** ~241 pydantic + 64 fastapi + 1 express import-singletons flip `free_multi`
-(NameOnly) → Exact. The residual ~2,647 pydantic stays NameOnly (genuinely ambiguous —
-correct). This is the cross-module lever the slice-2 strategic finding identified.
-
-## Architecture (Option B)
-
-A new resolution rung, **R4.5**, placed **after R4 same-file `LocalDef`** and **before
-R5 repo-wide free-multi**, gated to Python/JS/TS callers. Plus a richer import-binding
-data model and module-path→repo-file resolution.
-
-### Data model — `ImportBinding`
-
-Today `extract_imports` returns `BTreeMap<String, String>` = `local_name -> module_path`.
-For `from x import foo as bar` it stores `bar -> x` and **loses `foo`** (the imported
-member). The new rung needs the member name to match the right free function in the
-target file.
-
-Introduce a richer binding **additively**, preserving the existing `alias -> module_path`
-map for the R3 qualified rung (byte-compat):
+### 1. `ImportBinding` with kind + member (replaces rev1's lossy reuse of `imports`)
 
 ```rust
-/// One imported name binding. `local` is the name as used at call sites;
-/// `module_path` is the raw import source string (dotted Python module or JS
-/// specifier); `member` is the original imported symbol when it differs from
-/// `local` (aliases) or is a named import, else None for whole-module imports.
+pub enum ImportKind { Named, Default, Namespace, CommonJs, Wildcard, Module }
+
 pub struct ImportBinding {
-    pub local: String,
-    pub module_path: String,
-    pub member: Option<String>,
+    pub local: String,            // name as used at call sites
+    pub module_path: String,      // raw import source (dotted Python module / JS specifier)
+    pub member: Option<String>,   // original imported symbol; Some for Named, None otherwise
+    pub kind: ImportKind,
 }
+
+// on CallGraph, serialized, parallel to the unchanged `imports` (alias->module, drives R3):
+pub import_bindings: BTreeMap<String /*file*/, BTreeMap<String /*local*/, ImportBinding>>,
 ```
 
-Today `imports` is **per-file nested**: `BTreeMap<file, BTreeMap<alias, module_path>>`
-(`call_graph.rs:157`). Mirror that: `CallGraph.import_bindings: BTreeMap<file,
-BTreeMap<local, Vec<ImportBinding>>>` keyed by caller file then local name (the rung
-needs per-file, by-local-name lookup; a `Vec` tolerates duplicate/re-imported locals —
-last-wins shadowing handled at lookup, see Scope guards). The existing `imports`
-(alias->module) map is **unchanged** and still drives R3 (byte-compat).
+New extraction in `ParsedFile` (do NOT derive from `imports` — MAJOR-1; the member is lost
+there). Recover the member from the AST fields already present:
+- Python `from x import f` → `Named{local:"f", member:Some("f"), module_path:"x"}`.
+- Python `from x import f as g` → `Named{local:"g", member:Some("f"), ...}` (member =
+  `aliased_import` **`name`** field, `ast.rs:625` shows it's available; local = `alias`).
+- Python `import x` / `import x.y` / `import x as y` → `Module{member:None}`.
+- Python `from x import *` → `Wildcard{member:None}`.
+- JS `import {f} from "./x"` / `{f as g}` → `Named` (member from `import_specifier.name`,
+  `ast.rs:747`); `import f from "./x"` → `Default`; `import * as ns` → `Namespace`;
+  `const {f}=require()` → `CommonJs`. (Extraction captures all kinds in 3a; 3b's rung is
+  Python-only and fires only on `Named`.)
+- **Last-binding-wins** within a file (BTreeMap insert order = source order via the existing
+  recursive walk): matches Python/JS "last import of a name wins" — so `from .a import f;
+  from external import f` leaves the binding = the external one (→ 3b fails open). Sound.
 
-### Module-path → repo-file resolution
+Two `local`s can never collide except by re-import (handled by last-wins). The existing
+`imports` map is **unchanged** (byte-compat for R3).
 
-A helper `resolve_module_to_files(caller_file, module_path, lang) -> Vec<RepoFile>`:
-- **Python:** dotted absolute (`a.b.c` → `a/b/c.py` or `a/b/c/__init__.py`) and relative
-  (`.mod` / `..pkg.mod`) anchored at the caller's directory; resolve against the set of
-  indexed repo files (no filesystem stat beyond what prism already indexes). Multiple
-  matches (e.g. package `__init__` re-exports) → keep all candidates (rung demotes if >1
-  survive after member match).
-- **JS/TS:** relative specifiers (`./mod`, `../mod`) with extension resolution
-  (`.js/.ts/.tsx/.jsx`) and directory-index (`mod/index.*`). Bare specifiers
-  (`"react"`, `"./node_modules"...`) = external → no repo file → fail open.
-- **External / unresolved** (bare package, missing file): return empty → rung fails open
-  to R5 (no behavior change for those sites).
+### 2. `module_bindings` — top-level binding kind per file
 
-Resolution consults only prism's already-parsed file set (`CallGraph` has the file map);
-no new I/O. Deterministic ordering (BTree/sorted) for cache stability.
+```rust
+pub enum BindingKind {
+    FuncDef(FunctionId),  // exactly one top-level `def name`/decorated def, no other top-level binding of name
+    ClassDef,
+    Assignment,           // top-level `name = ...`
+    ImportReexport,       // top-level `import`/`from import` binding name (a re-export)
+    Ambiguous,            // >1 top-level binding of name, or conflicting kinds
+    Other,
+}
 
-### The R4.5 rung
-
-In the bare-call branch, after same-file `LocalDef` misses and before the repo-wide pool:
-
-```
-if caller_lang in {Python, JS, TS, Tsx}:
-    if let Some(bindings) = import_bindings[caller_file].get(callee_name):
-        target_files = union(resolve_module_to_files(caller_file, b.module_path) for b in bindings)
-        member_names = { b.member.unwrap_or(b.local) for b in bindings }   # what to match in target
-        candidates = free functions named `member_name` defined in any target_file
-        match candidates.len():
-            1 => Exact, ResolutionKind::ImportMember
-            >1 => demote NameOnly (ImportMember-multi) OR fall through to R5  # see Open Decision 1
-            0 => fall through to R5 (member not found in resolved file → external/re-export)
+pub module_bindings: BTreeMap<String /*file*/, BTreeMap<String /*name*/, BindingKind>>,
 ```
 
-New `ResolutionKind::ImportMember` (serializes `"import_member"`) so the buy is visible
-in call-stats and isolated from `free_single` / `import_qualified` / `free_multi`.
+Extraction walks **module-scope direct children only** (NOT inside functions/classes — that
+excludes nested fns and methods, closing BLOCKER-2). Per top-level name: a lone
+`function_definition`/`decorated_definition` → `FuncDef(fid)`; a lone `class_definition` →
+`ClassDef`; a top-level assignment → `Assignment`; an import binding the name →
+`ImportReexport`; **if a name has more than one top-level binding (e.g. `def f` then `f=…`,
+or conditional defs), or mixed kinds → `Ambiguous`** (the rung Exacts only on `FuncDef`, so
+ambiguity fails open). This is the provenance rev1 lacked (closes BLOCKERs 2 [nested], 3
+[class vs fn], and re-export shadowing).
 
-**Soundness invariants:**
-- Exact **only** on a single candidate. This cannot increase `multi_target_exact_sites`
-  (the wrong-singleton canary) because a site gets at most one Exact target here.
-- A bare call with **no** import binding for its name → rung is a no-op → R5 unchanged.
-- Member name match uses the **imported member** (`from x import foo as bar; bar()` looks
-  for `foo` in `x`, not `bar`).
-- External/unresolved module → fail open to R5 (preserve current NameOnly, no new drop).
-- Non-Python/JS/TS callers: rung never runs (Rust/Go byte-identical).
+`FuncDef` carries the `FunctionId` so the rung returns the exact target without a second
+lookup. Python-first; JS/TS module_bindings can be populated in 3a (inert) but 3b only reads
+Python files' tables.
 
-## Scope guards (first merge — keep the slice thin & sound)
+### 3. `indexed_files` — authoritative file set for singleton module resolution
 
-1. **Named imports only.** Python `from x import f` / `from x import f as g`. JS/TS
-   `import { f } from "./x"` / `import { f as g } from "./x"`. **Defer**: JS default
-   imports (`import f from "./x"`), namespace (`import * as ns`), CommonJS
-   `const { f } = require("./x")` — these need export-shape modeling (their own slice).
-2. **Relative + absolute repo paths only.** External bare specifiers fail open.
-3. **Free functions only** (methods already excluded by the bare-call branch). Imported
-   **classes** used as bare calls (`Foo()` constructor) are out of scope here.
-4. **Last-wins shadowing:** if the same local name has both a same-file `LocalDef` (R4)
-   and an import binding, R4 already won (rung runs only after R4 miss). If a name has
-   multiple import bindings (re-import), union the targets; >1 surviving candidate demotes.
-5. **Preserve `r5_cross_file_free_multi_kept_demoted`** (`tests/integration/resolution_test.rs:1475`)
-   and `tests/integration/resolution_test.rs:1431` (same-file LocalDef) byte-for-byte.
+```rust
+pub indexed_files: BTreeSet<String>,   // every repo file prism parsed (serialized)
+```
 
-## Open decisions (best-judgment defaults; owner may revisit)
+`CallGraph` today stores only files that have functions/calls/imports (MAJOR-2). To detect
+module-path ambiguity (`mod.py` vs `mod/__init__.py`; a module with no functions), 3b needs
+the full parsed-file set. Populate from build inputs in `empty`/full/skeleton/subset builds;
+maintain in `remove_files`/`merge`.
 
-1. **Multi-candidate after member match → demote-NameOnly(`import_member`) vs fall-through
-   to R5(`free_multi`).** Default: **fall through to R5** (`free_multi`), so the canary and
-   existing NameOnly telemetry are unchanged and the rung *only ever adds Exact*. This is
-   the most conservative (zero NameOnly churn) and keeps the buy attributable purely to
-   `import_member`. (Demote-as-import_member is deferrable telemetry.)
-2. **Python package `__init__.py` re-exports.** A `from pkg import f` where `pkg/__init__.py`
-   re-exports `f` from `pkg.impl`. Default: resolve to `pkg/__init__.py`; if `f` is not a
-   free def there (only a re-export), candidates=0 → fall through to R5 (no wrong edge,
-   no buy). Following re-export chains is deferred (needs export modeling).
+### 4. `CallSite.name_shadowed: bool` — build-time caller-scope shadow bit
 
-## Test plan (TDD — each is a discriminating fixture)
+```rust
+// CallSite, serde(default), excluded from cmp_key (like receiver_materialized):
+pub name_shadowed: bool,
+```
 
-Python (`tests/lang/python/`, new `import_binding_test.rs` or extend resolver tests):
-- `from .mod import f; f()` with one `f` in `mod.py` → Exact `import_member`.
-- `from .mod import f as g; g()` → resolves member `f` in `mod.py` → Exact.
-- **External shadow:** `from external_pkg import f; f()` (no repo file) → stays `free_multi`
-  / R5 (fail open, no Exact).
-- **Same-dir decoy:** two sibling files each define `f`, caller imports from exactly one →
-  Exact to the imported one (NOT the sibling) — the soundness-critical case.
-- **Multi-candidate:** member name defined in two resolved target files → default
-  fall-through to R5 (`free_multi`), no Exact (Open Decision 1).
-- **No-import bare call** with >1 repo-wide def → unchanged `free_multi`.
+Set at extraction (tree available) when the call's own function name is bound in the caller's
+enclosing-function scope — a **parameter, a local assignment target, or a nested `def`/`function`
+of the same name** before/anywhere in that function. This is presence-detection only (no type
+recovery), reusing the scope-walk shape from prior slices. 3b fails open when `name_shadowed`
+(closes BLOCKER-1's param/local case). Module-level reassignment of an imported name is caught
+separately by `module_bindings[caller][name] == Assignment/Ambiguous` (see 3b).
 
-JS/TS (`tests/lang/javascript/`, `tests/lang/typescript/`):
-- `import { f } from "./mod"; f()` → Exact (extension + index resolution).
-- `import { f as g } from "./mod"; g()` → member `f` matched → Exact.
-- **Default/CommonJS deferred:** `import f from "./mod"` and `const {f}=require("./mod")`
-  assert **no** `import_member` (out of scope; stays R5) — non-regression guards.
-- External package `import { f } from "react"` → fail open.
+### 3a plumbing + cache
 
-Cache: `CallGraph` gains `import_bindings` (serialized) → **bump `CACHE_VERSION`** (23→24,
-slice 2 shelved so base is main) + the cache-version assertion test.
+All four structures threaded through `empty` (`call_graph.rs:234`), full build (`:277`/`:514`),
+skeleton/subset builds (`:466`/`:1494`), `remove_files` (`:1048`), `merge` (`:1107`); **bump
+`CACHE_VERSION` 23→24** (`cpg_cache.rs:68`) + the assertion test. 3a changes NO resolution
+code → `resolve_call_site_full` byte-identical → **all corpora call-stats byte-identical**
+(the 3a acceptance gate).
 
-## Acceptance (gates)
+---
 
-- **Buy:** pydantic/fastapi/express `free_multi` NameOnly **down** by ≈ the import-singleton
-  count and `import_member` Exact **up** by the same (≈241 pydantic / 64 fastapi / 1 express).
-- **Canary `multi_target_exact_sites` byte-FLAT** on every corpus.
-- **Rust/Go (ripgrep, caddy) call-stats BYTE-IDENTICAL** (rung is Python/JS/TS-gated).
-- **JS inert until JS named-imports land**; if JS named-import resolution ships in this
-  slice, express buy is +1 and excalidraw stays sound (verify byte-delta is only `import_member`).
-- Tier-A `--matrix-only` 0-regression (touches resolution); suite green; fmt clean.
+## Sub-slice 3b — the R4c rung (Python-only)
+
+Inserted **after R4b implicit-this (`resolution.rs:1311`), before R5 free-fn pool (`:1313`)**.
+("R4.5" is taken by Go `SamePackage` — this is **R4c**.) Gated to Python callers (Rust/Go/JS
+byte-identical).
+
+```
+// R4c: sound imported-member free-call resolution (Python).
+if caller.file is .py:
+    let Some(b) = import_bindings[caller.file].get(name) else fall through to R5
+    if b.kind != Named || b.member.is_none() { fall through }      // BLOCKER-5: named only
+    let member = b.member.unwrap()
+    if site.name_shadowed { fall through }                          // BLOCKER-1: param/local/nested shadow
+    match module_bindings[caller.file].get(name) {                  // BLOCKER-1: module-level reassign
+        Some(Assignment | Ambiguous) => fall through, _ => {}
+    }
+    let Some(modfile) = resolve_module_to_file(caller.file, b.module_path) else fall through  // BLOCKER-4: singleton
+    match module_bindings[modfile].get(member) {
+        Some(FuncDef(fid)) => return Exact ImportMember([fid])      // the ONLY Exact path
+        _ => fall through to R5                                     // class/assign/reexport/nested/ambiguous/absent
+    }
+```
+
+`resolve_module_to_file(caller_file, module_path) -> Option<String>` (BLOCKER-4 + MAJOR-2):
+- Python dotted-absolute `a.b.c` → candidate set {`a/b/c.py`, `a/b/c/__init__.py`} ∩
+  `indexed_files`; relative `.mod`/`..pkg.mod` → anchor at caller's package dir then same.
+- Return `Some(f)` **iff exactly one** candidate is in `indexed_files`; `None` (fail open) on
+  0 or >1 (ambiguous source roots / `.py`-vs-`__init__.py` both present).
+- No filesystem I/O — purely `indexed_files` intersection.
+
+New `ResolutionKind::ImportMember` → `"import_member"` (isolated bucket; visible buy).
+
+**Soundness invariants (the design IS the guarantee — the canary is blind here):**
+- Exact only on `FuncDef(fid)` from the resolved module: excludes nested fns (not top-level),
+  classes, assignments, re-exports, and ambiguous top-level names.
+- Named imports with a concrete member only: default/namespace/CommonJS/wildcard fall open.
+- Singleton authoritative module resolution only: multi-file/ambiguous → fall open.
+- Caller-scope shadow (`name_shadowed`) or module-level reassign → fall open.
+- Single candidate (one `FunctionId`) → cannot raise `multi_target_exact_sites`; the rung
+  never emits >1 Exact target.
+- Python-gated → Rust/Go/JS byte-identical.
+- Every uncertainty **falls through to R5** (current behavior) — never a new drop, never a
+  wrong Exact.
+
+---
+
+## Test plan (TDD — soundness decoys are mandatory, per MAJOR-3)
+
+3a (extraction/plumbing unit tests):
+- `ImportBinding` member recovery: `from x import f as g` → `Named{local:g, member:f}`;
+  `import x` → `Module`; `import {f as g} from "./x"` → `Named{local:g, member:f}`;
+  default/namespace/CommonJS → correct kinds.
+- `module_bindings`: top-level `def f` → `FuncDef`; `class F` → `ClassDef`; `f = …` →
+  `Assignment`; `from y import f` → `ImportReexport`; `def f` + `f = …` → `Ambiguous`; a
+  **nested** `def wrap(): def f()` → `f` NOT in the module table.
+- `indexed_files` survives merge/remove_files; cache version asserts 24.
+- `name_shadowed`: `def run(f): f()` → true; `def run(): f = x(); f()` → true; `def run():
+  def f(): ...; f()` → true; plain `f()` with no local `f` → false.
+
+3b (resolution, Python):
+- `from .mod import f; f()` with one top-level `def f` in `mod.py` (and ≥1 other repo `f`) →
+  Exact `ImportMember` (the free_multi→Exact buy).
+- `from .mod import f as g; g()` → Exact (member `f`); was a drop before (recall recovery).
+- **Param shadow:** `from .mod import f; def run(f): f()` → R5/fall-through, NOT Exact.
+- **Local shadow:** `from .mod import f; def run(): f = h(); f()` → fall-through.
+- **Module reassign:** `from .mod import f; f = x; f()` → fall-through (`Assignment`).
+- **Nested-fn decoy:** member resolves to a `def f` nested inside another fn in mod → NOT in
+  module_bindings → fall-through.
+- **Class shadow:** `mod.py: def Foo; class Foo`; `from .mod import Foo; Foo()` → `Ambiguous`
+  → fall-through (no Exact-to-fn).
+- **Later external re-import:** `from .a import f; from external import f; f()` → binding =
+  external → unresolved module → fall-through (NOT Exact to `.a`).
+- **Module ambiguity:** `mod.py` AND `mod/__init__.py` both indexed → `resolve_module_to_file`
+  None → fall-through.
+- **External package:** `from requests import get; get()` → not indexed → fall-through.
+- Non-Python caller unaffected (Rust/Go fixture → byte-identical).
+
+## Acceptance
+
+- **3a:** ALL corpora (ripgrep/caddy/express/excalidraw/fastapi/pydantic) call-stats
+  **byte-identical** to base (inert). Suite green; fmt clean; cache 24 asserted.
+- **3b:** pydantic/fastapi `import_member` Exact **up**, `free_multi` NameOnly + `unresolved`
+  **down** by the same; **canary `multi_target_exact_sites` byte-FLAT** (necessary but NOT
+  sufficient — see below); Rust/Go/JS **byte-identical** (Python-gated). Tier-A `--matrix-only`
+  0-regression (touches resolution); suite green.
+- **Soundness is gated by DESIGN + adversarial diff-review, NOT the canary** (the review proved
+  a single wrong `import_member` leaves `multi_target_exact_sites` flat). The 3b diff-review
+  must explicitly trace each fall-open path and confirm no provenance gap mints a wrong Exact.
 - Build both binaries via git worktree; never swap the binary mid-measurement.
 
 ## Risks / unknowns
 
-- **Aliases currently lose the imported member** — fixing `extract_imports` to carry
-  `member` is mandatory and is the main data-model change. Must not perturb the existing
-  `imports` (alias->module) map that R3 depends on (keep it; add `import_bindings` beside it).
-- **JS default/CommonJS export shapes unmodeled** → named imports first; default/CommonJS
-  deferred with explicit non-regression guards.
-- **pydantic is mixed-language**; the 25,293 `free_multi` edge bucket is the source of
-  truth, the site-split is a coverage-limited estimate — acceptance keys on the call-stats
-  delta, not the estimate.
-- **Module-path resolution false-negatives** (unusual layouts, namespace packages) → fail
-  open to R5, never a wrong Exact. Recall-only risk, not soundness.
+- **Scope:** 4 new serialized structures + 2 extraction passes + shadow detection. Largest
+  slice of the loop. Mitigated by 3a-inert decomposition + design re-review before build.
+- **`module_bindings` top-level detection** must exclude nested/conditional/`__all__`-rebind
+  cases → `Ambiguous` (fail open) on any doubt.
+- **Python relative-import anchoring** (package dir, namespace packages) — fail open (None)
+  on any non-trivial layout; recall-only risk, never a wrong Exact.
+- JS deferred (re-export export-table). pydantic mixed-language: the `free_multi`/`unresolved`
+  call-stats deltas are the source of truth, not the rev1 site-estimate.
