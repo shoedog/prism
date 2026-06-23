@@ -1,7 +1,7 @@
 use super::freshness::{apply_freshness_report, FreshnessProbe, FRESHNESS_RESERVE_BYTES};
 use super::output::{resolve_cap, McpToolResult, SCHEMA_VERSION};
-use super::registry::{ToolContext, ToolRegistry};
-use super::SessionProvider;
+use super::registry::{ToolContext, ToolRegistry, ToolRuntimeBehavior};
+use super::{tools_refresh, RefreshSummary, SessionProvider};
 use crate::navigation::NavigationSession;
 use serde_json::{json, Map, Value};
 #[cfg(test)]
@@ -68,6 +68,15 @@ pub fn serve_session_with_freshness(
     registry: &ToolRegistry,
     transport: &mut impl Transport,
 ) -> anyhow::Result<()> {
+    let mut runtime = StaticRuntime { session, freshness };
+    serve_runtime(&mut runtime, registry, transport)
+}
+
+fn serve_runtime(
+    runtime: &mut impl SessionRuntime,
+    registry: &ToolRegistry,
+    transport: &mut impl Transport,
+) -> anyhow::Result<()> {
     let mut state = Lifecycle::PreInit;
 
     while let Some(outcome) = transport.read_message()? {
@@ -87,7 +96,7 @@ pub fn serve_session_with_freshness(
             }
         };
 
-        let response = match handle_message(&message, session, freshness, registry, &mut state) {
+        let response = match handle_message(&message, runtime, registry, &mut state) {
             Dispatch::Response(response) => Some(response),
             Dispatch::NoResponse => None,
         };
@@ -99,11 +108,50 @@ pub fn serve_session_with_freshness(
     Ok(())
 }
 
-pub fn serve_stdio(p: &SessionProvider, r: &ToolRegistry) -> anyhow::Result<()> {
+pub fn serve_stdio(p: &mut SessionProvider, r: &ToolRegistry) -> anyhow::Result<()> {
     let stdin = io::stdin();
     let stdout = io::stdout();
     let mut transport = StdioTransport::new(stdin.lock(), stdout.lock());
-    serve_session_with_freshness(p.session(), Some(p.freshness()), r, &mut transport)
+    serve_runtime(p, r, &mut transport)
+}
+
+trait SessionRuntime {
+    fn session(&self) -> &NavigationSession;
+    fn freshness(&self) -> Option<&FreshnessProbe>;
+    fn refresh_index(&mut self) -> anyhow::Result<RefreshSummary>;
+}
+
+struct StaticRuntime<'a> {
+    session: &'a NavigationSession,
+    freshness: Option<&'a FreshnessProbe>,
+}
+
+impl SessionRuntime for StaticRuntime<'_> {
+    fn session(&self) -> &NavigationSession {
+        self.session
+    }
+
+    fn freshness(&self) -> Option<&FreshnessProbe> {
+        self.freshness
+    }
+
+    fn refresh_index(&mut self) -> anyhow::Result<RefreshSummary> {
+        anyhow::bail!("refresh_index requires provider-backed prism-mcp transport")
+    }
+}
+
+impl SessionRuntime for SessionProvider {
+    fn session(&self) -> &NavigationSession {
+        SessionProvider::session(self)
+    }
+
+    fn freshness(&self) -> Option<&FreshnessProbe> {
+        Some(SessionProvider::freshness(self))
+    }
+
+    fn refresh_index(&mut self) -> anyhow::Result<RefreshSummary> {
+        self.refresh()
+    }
 }
 
 enum Dispatch {
@@ -113,8 +161,7 @@ enum Dispatch {
 
 fn handle_message(
     message: &Value,
-    session: &NavigationSession,
-    freshness: Option<&FreshnessProbe>,
+    runtime: &mut impl SessionRuntime,
     registry: &ToolRegistry,
     state: &mut Lifecycle,
 ) -> Dispatch {
@@ -191,7 +238,7 @@ fn handle_message(
         }
         "ping" => Dispatch::Response(success_response(id, json!({}))),
         "tools/list" => Dispatch::Response(success_response(id, list_tools(registry))),
-        "tools/call" => call_tool_response(obj, id, session, freshness, registry),
+        "tools/call" => call_tool_response(obj, id, runtime, registry),
         _ => Dispatch::Response(error_response(id, -32601, "Method not found")),
     }
 }
@@ -247,8 +294,7 @@ fn list_tools(registry: &ToolRegistry) -> Value {
 fn call_tool_response(
     obj: &Map<String, Value>,
     id: Value,
-    session: &NavigationSession,
-    freshness: Option<&FreshnessProbe>,
+    runtime: &mut impl SessionRuntime,
     registry: &ToolRegistry,
 ) -> Dispatch {
     let Some(params) = obj.get("params").and_then(Value::as_object) else {
@@ -278,15 +324,27 @@ fn call_tool_response(
         ));
     };
 
+    if tool.runtime_behavior == Some(ToolRuntimeBehavior::RefreshIndex) {
+        let result = if arguments.as_object().is_some_and(|obj| obj.is_empty()) {
+            match runtime.refresh_index() {
+                Ok(summary) => tools_refresh::refresh_result(&summary),
+                Err(error) => tools_refresh::refresh_error_result(&error),
+            }
+        } else {
+            tools_refresh::invalid_arguments_result()
+        };
+        return Dispatch::Response(success_response(id, result.to_call_tool_result_value()));
+    }
+
     let original_cap = resolve_cap();
-    let report = freshness.map(FreshnessProbe::check);
+    let report = runtime.freshness().map(FreshnessProbe::check);
     let stale = report.as_ref().is_some_and(|report| report.stale);
     let cap = if stale {
         original_cap.saturating_sub(FRESHNESS_RESERVE_BYTES)
     } else {
         original_cap
     };
-    let ctx = ToolContext::new(session, cap);
+    let ctx = ToolContext::new(runtime.session(), cap);
     let mut result = (tool.handler)(&ctx, &arguments);
     if stale && !result.is_error && result.structured.is_some() {
         if let Some(report) = &report {

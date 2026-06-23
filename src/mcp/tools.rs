@@ -10,7 +10,7 @@ use crate::navigation::types::Evidence;
 use crate::navigation::{module_graph, queries};
 use serde_json::json;
 
-const SNAPSHOT_NOTICE: &str = "Results reflect the repository snapshot loaded when prism-mcp started. If indexed files change during the server session, Prism marks tool results with stale-index metadata and warnings; restart/re-add the MCP server or use CLI nav for a fresh snapshot.";
+const SNAPSHOT_NOTICE: &str = "Results reflect the repository snapshot loaded when prism-mcp started or last refreshed. If indexed files change during the server session, Prism marks tool results with stale-index metadata and warnings; restart/re-add the MCP server or use CLI nav for a fresh snapshot.";
 
 pub fn register_all(r: &mut ToolRegistry) {
     r.register(tool_with_handler(
@@ -69,6 +69,7 @@ fn tool_with_handler(
         description: format!("{description} {SNAPSHOT_NOTICE}"),
         input_schema,
         annotations: ToolAnnotations::read_only(title),
+        runtime_behavior: None,
         handler,
     }
 }
