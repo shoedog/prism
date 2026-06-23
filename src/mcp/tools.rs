@@ -1,9 +1,10 @@
 use super::error::query_error_result;
+use super::evidence_view::{shape_navigation_result, NavigationViewKind};
 use super::input::{
     parse_callees, parse_callers, parse_ego, parse_module_deps, parse_nodes_at, parse_repo_map,
-    Verbosity as InputVerbosity,
+    SeedInput, Verbosity as InputVerbosity,
 };
-use super::output::{resolve_cap, shape_result, McpToolResult, Verbosity};
+use super::output::{resolve_cap, McpToolResult, Verbosity};
 use super::registry::{ToolAnnotations, ToolDescriptor, ToolRegistry};
 use crate::navigation::types::Evidence;
 use crate::navigation::{module_graph, queries, NavigationSession};
@@ -77,12 +78,16 @@ fn nav_nodes_at(session: &NavigationSession, args: &serde_json::Value) -> McpToo
     };
     let evidence = queries::nodes_at(session, &input.file, input.line);
     let total = evidence.items.len();
-    shape_result(
-        evidence,
+    shape_navigation_result(
+        session,
+        &evidence,
+        evidence.clone(),
         total,
         false,
         output_verbosity(input.verbosity),
         resolve_cap(),
+        input.view,
+        NavigationViewKind::NodesAt,
     )
 }
 
@@ -96,13 +101,17 @@ fn nav_callers(session: &NavigationSession, args: &serde_json::Value) -> McpTool
         Ok(evidence) => evidence,
         Err(error) => return query_error_result(error),
     };
-    let (evidence, total, max_results_clipped) = clip_flat(evidence, input.max_results);
-    shape_result(
-        evidence,
+    let (canonical, total, max_results_clipped) = clip_flat(evidence.clone(), input.max_results);
+    shape_navigation_result(
+        session,
+        &evidence,
+        canonical,
         total,
         max_results_clipped,
         output_verbosity(input.verbosity),
         resolve_cap(),
+        input.view,
+        NavigationViewKind::Callers,
     )
 }
 
@@ -111,18 +120,26 @@ fn nav_callees(session: &NavigationSession, args: &serde_json::Value) -> McpTool
         Ok(input) => input,
         Err(error) => return error.into_result(),
     };
+    let view_kind = NavigationViewKind::Callees {
+        depth: input.depth,
+        seed_file: seed_file(&input.seed),
+    };
     let (symbol, file, location) = input.seed.to_triple();
     let evidence = match queries::callees(session, symbol, file, location.as_deref(), input.depth) {
         Ok(evidence) => evidence,
         Err(error) => return query_error_result(error),
     };
-    let (evidence, total, max_results_clipped) = clip_flat(evidence, input.max_results);
-    shape_result(
-        evidence,
+    let (canonical, total, max_results_clipped) = clip_flat(evidence.clone(), input.max_results);
+    shape_navigation_result(
+        session,
+        &evidence,
+        canonical,
         total,
         max_results_clipped,
         output_verbosity(input.verbosity),
         resolve_cap(),
+        input.view,
+        view_kind,
     )
 }
 
@@ -144,13 +161,17 @@ fn nav_ego_graph(session: &NavigationSession, args: &serde_json::Value) -> McpTo
         Ok(evidence) => evidence,
         Err(error) => return query_error_result(error),
     };
-    let (evidence, total, max_results_clipped) = clip_graph(evidence, input.max_results);
-    shape_result(
-        evidence,
+    let (canonical, total, max_results_clipped) = clip_graph(evidence.clone(), input.max_results);
+    shape_navigation_result(
+        session,
+        &evidence,
+        canonical,
         total,
         max_results_clipped,
         Verbosity::Concise,
         resolve_cap(),
+        input.view,
+        NavigationViewKind::EgoGraph,
     )
 }
 
@@ -160,13 +181,17 @@ fn nav_module_deps(session: &NavigationSession, args: &serde_json::Value) -> Mcp
         Err(error) => return error.into_result(),
     };
     let evidence = module_graph::module_deps(session, &input.file);
-    let (evidence, total, max_results_clipped) = clip_flat(evidence, input.max_results);
-    shape_result(
-        evidence,
+    let (canonical, total, max_results_clipped) = clip_flat(evidence.clone(), input.max_results);
+    shape_navigation_result(
+        session,
+        &evidence,
+        canonical,
         total,
         max_results_clipped,
         output_verbosity(input.verbosity),
         resolve_cap(),
+        input.view,
+        NavigationViewKind::ModuleDeps,
     )
 }
 
@@ -176,14 +201,28 @@ fn nav_repo_map(session: &NavigationSession, args: &serde_json::Value) -> McpToo
         Err(error) => return error.into_result(),
     };
     let evidence = module_graph::repo_map(session);
-    let (evidence, total, max_results_clipped) = clip_graph(evidence, input.max_results);
-    shape_result(
-        evidence,
+    let (canonical, total, max_results_clipped) = clip_graph(evidence.clone(), input.max_results);
+    shape_navigation_result(
+        session,
+        &evidence,
+        canonical,
         total,
         max_results_clipped,
         Verbosity::Concise,
         resolve_cap(),
+        input.view,
+        NavigationViewKind::RepoMap,
     )
+}
+
+fn seed_file(seed: &SeedInput) -> Option<String> {
+    match seed {
+        SeedInput::Symbol {
+            file: Some(file), ..
+        }
+        | SeedInput::Loc { file, .. } => Some(file.clone()),
+        SeedInput::Symbol { file: None, .. } => None,
+    }
 }
 
 fn clip_flat(mut evidence: Evidence, max_results: usize) -> (Evidence, usize, bool) {
@@ -245,6 +284,26 @@ fn verbosity_schema() -> serde_json::Value {
     json!({ "enum": ["concise", "detailed"] })
 }
 
+fn format_schema() -> serde_json::Value {
+    json!({ "enum": ["canonical_json", "agent_markdown", "agent_json"] })
+}
+
+fn profile_schema(values: &[&str]) -> serde_json::Value {
+    json!({ "enum": values })
+}
+
+fn snippets_schema() -> serde_json::Value {
+    json!({ "enum": ["none", "line", "symbol_header"] })
+}
+
+fn group_by_schema() -> serde_json::Value {
+    json!({ "enum": ["none", "file", "symbol"] })
+}
+
+fn max_view_bytes_schema() -> serde_json::Value {
+    json!({ "type": "integer", "minimum": 1, "maximum": 80000 })
+}
+
 fn max_results_schema() -> serde_json::Value {
     json!({ "type": "integer", "minimum": 1, "maximum": 1000 })
 }
@@ -273,7 +332,12 @@ fn nodes_at_schema() -> serde_json::Value {
         "properties": {
             "file": { "type": "string" },
             "line": { "type": "integer", "minimum": 1 },
-            "verbosity": verbosity_schema()
+            "verbosity": verbosity_schema(),
+            "format": format_schema(),
+            "profile": profile_schema(&["seed", "edit_context", "audit"]),
+            "snippets": snippets_schema(),
+            "group_by": group_by_schema(),
+            "max_view_bytes": max_view_bytes_schema()
         },
         "required": ["file", "line"]
     })
@@ -287,7 +351,12 @@ fn callers_schema() -> serde_json::Value {
             "seed": seed_schema(),
             "depth": depth_schema(),
             "max_results": max_results_schema(),
-            "verbosity": verbosity_schema()
+            "verbosity": verbosity_schema(),
+            "format": format_schema(),
+            "profile": profile_schema(&["impact", "edit_context", "audit"]),
+            "snippets": snippets_schema(),
+            "group_by": group_by_schema(),
+            "max_view_bytes": max_view_bytes_schema()
         },
         "required": ["seed"]
     })
@@ -301,7 +370,12 @@ fn callees_schema() -> serde_json::Value {
             "seed": seed_schema(),
             "depth": depth_schema(),
             "max_results": max_results_schema(),
-            "verbosity": verbosity_schema()
+            "verbosity": verbosity_schema(),
+            "format": format_schema(),
+            "profile": profile_schema(&["dependencies", "edit_context", "audit"]),
+            "snippets": snippets_schema(),
+            "group_by": group_by_schema(),
+            "max_view_bytes": max_view_bytes_schema()
         },
         "required": ["seed"]
     })
@@ -315,7 +389,12 @@ fn ego_graph_schema() -> serde_json::Value {
             "seed": seed_schema(),
             "hops": hops_schema(),
             "edges": edges_schema(),
-            "max_results": max_results_schema()
+            "max_results": max_results_schema(),
+            "format": format_schema(),
+            "profile": profile_schema(&["graph", "audit"]),
+            "snippets": snippets_schema(),
+            "group_by": group_by_schema(),
+            "max_view_bytes": max_view_bytes_schema()
         },
         "required": ["seed"]
     })
@@ -328,7 +407,12 @@ fn module_deps_schema() -> serde_json::Value {
         "properties": {
             "file": { "type": "string" },
             "max_results": max_results_schema(),
-            "verbosity": verbosity_schema()
+            "verbosity": verbosity_schema(),
+            "format": format_schema(),
+            "profile": profile_schema(&["dependencies", "orientation", "audit"]),
+            "snippets": snippets_schema(),
+            "group_by": group_by_schema(),
+            "max_view_bytes": max_view_bytes_schema()
         },
         "required": ["file"]
     })
@@ -339,7 +423,12 @@ fn repo_map_schema() -> serde_json::Value {
         "type": "object",
             "additionalProperties": false,
         "properties": {
-            "max_results": max_results_schema()
+            "max_results": max_results_schema(),
+            "format": format_schema(),
+            "profile": profile_schema(&["orientation", "graph", "audit"]),
+            "snippets": snippets_schema(),
+            "group_by": group_by_schema(),
+            "max_view_bytes": max_view_bytes_schema()
         }
     })
 }
@@ -501,5 +590,136 @@ mod tests {
             .unwrap()
             .iter()
             .any(|i| i["location"]["file"] == "util.py"));
+    }
+
+    #[test]
+    fn agent_markdown_keeps_canonical_structured_content() {
+        let s = test_support::session(&[(
+            "a.py",
+            "def target():\n    return 1\n\ndef one():\n    return target()\n\ndef two():\n    return target()\n",
+        )]);
+        let default = (ToolRegistry::nav_v1().get("nav_callers").unwrap().handler)(
+            &s,
+            &json!({
+                "seed":{"kind":"symbol","name":"target","file":"a.py"},
+                "max_results":1
+            }),
+        );
+        let agent = (ToolRegistry::nav_v1().get("nav_callers").unwrap().handler)(
+            &s,
+            &json!({
+                "seed":{"kind":"symbol","name":"target","file":"a.py"},
+                "max_results":1,
+                "format":"agent_markdown",
+                "group_by":"file"
+            }),
+        );
+
+        assert_eq!(agent.structured, default.structured);
+        assert!(agent.content_text.starts_with("# Prism Evidence"));
+        assert_eq!(
+            agent.meta["prism/content_text_format"],
+            json!("agent_markdown")
+        );
+        assert_eq!(agent.meta["prism/view_schema_version"], json!("0.1"));
+    }
+
+    #[test]
+    fn agent_json_view_is_json_content_text() {
+        let s = test_support::session(&[(
+            "a.py",
+            "def target():\n    return 1\n\ndef caller():\n    return target()\n",
+        )]);
+        let out = (ToolRegistry::nav_v1().get("nav_callers").unwrap().handler)(
+            &s,
+            &json!({
+                "seed":{"kind":"symbol","name":"target","file":"a.py"},
+                "format":"agent_json",
+                "profile":"impact"
+            }),
+        );
+        let view: serde_json::Value = serde_json::from_str(&out.content_text).unwrap();
+        assert_eq!(view["profile"], "impact");
+        assert_eq!(out.meta["prism/content_text_format"], json!("agent_json"));
+    }
+
+    #[test]
+    fn callers_line_snippet_uses_call_site_line() {
+        let s = test_support::session(&[(
+            "a.py",
+            "def target():\n    return 1\n\ndef caller():\n    return target()\n",
+        )]);
+        let out = (ToolRegistry::nav_v1().get("nav_callers").unwrap().handler)(
+            &s,
+            &json!({
+                "seed":{"kind":"symbol","name":"target","file":"a.py"},
+                "format":"agent_markdown",
+                "snippets":"line"
+            }),
+        );
+        assert!(out.content_text.contains("5:     return target()"));
+    }
+
+    #[test]
+    fn callees_line_snippet_is_omitted_for_transitive_depth() {
+        let s = test_support::session(&[(
+            "a.py",
+            "def a():\n    return b()\n\ndef b():\n    return c()\n\ndef c():\n    return 1\n",
+        )]);
+        let out = (ToolRegistry::nav_v1().get("nav_callees").unwrap().handler)(
+            &s,
+            &json!({
+                "seed":{"kind":"symbol","name":"a","file":"a.py"},
+                "depth":2,
+                "format":"agent_markdown",
+                "snippets":"line"
+            }),
+        );
+        assert!(!out.content_text.contains("return b()"));
+        assert!(!out.content_text.contains("return c()"));
+    }
+
+    #[test]
+    fn max_view_bytes_clips_only_agent_view() {
+        let s = test_support::session(&[(
+            "a.py",
+            "def target():\n    return 1\n\ndef one():\n    return target()\n\ndef two():\n    return target()\n\ndef three():\n    return target()\n",
+        )]);
+        let out = (ToolRegistry::nav_v1().get("nav_callers").unwrap().handler)(
+            &s,
+            &json!({
+                "seed":{"kind":"symbol","name":"target","file":"a.py"},
+                "format":"agent_markdown",
+                "max_view_bytes":64
+            }),
+        );
+        assert!(out.content_text.len() <= 64);
+        assert!(out.structured.is_some());
+        assert_eq!(out.meta["prism/view_clipped"], json!(true));
+    }
+
+    #[test]
+    fn view_controls_require_agent_format() {
+        let s = test_support::session(&[("a.py", "def f():\n    return 1\n")]);
+        let out = (ToolRegistry::nav_v1().get("nav_nodes_at").unwrap().handler)(
+            &s,
+            &json!({"file":"a.py","line":1,"snippets":"line"}),
+        );
+        assert!(out.is_error);
+        assert!(out.content_text.contains("agent_markdown"));
+    }
+
+    #[test]
+    fn schemas_expose_view_controls() {
+        let registry = ToolRegistry::nav_v1();
+        let schema = &registry.get("nav_callers").unwrap().input_schema;
+        assert_eq!(
+            schema["properties"]["format"]["enum"],
+            json!(["canonical_json", "agent_markdown", "agent_json"])
+        );
+        assert_eq!(
+            schema["properties"]["profile"]["enum"],
+            json!(["impact", "edit_context", "audit"])
+        );
     }
 }
