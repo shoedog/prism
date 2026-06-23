@@ -3029,12 +3029,9 @@ pub fn file_matches_module(
             if indexed_files.contains(&init_candidate) && init_candidate == file {
                 return true;
             }
-            // For multi-component relative imports (`.pkg.utils`), don't fall
-            // through to the stem fallback — it would match any `utils.py` in
-            // any directory. Single-component (`.utils`) can still use stem.
-            if stripped.contains('.') {
-                return false;
-            }
+            // Relative imports NEVER fall through to stem — they must resolve
+            // relative to the caller's directory or not at all.
+            return false;
         }
     }
 

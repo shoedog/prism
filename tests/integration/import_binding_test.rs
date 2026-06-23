@@ -407,7 +407,8 @@ fn method_not_resolved_via_r4c() {
 }
 
 #[test]
-fn js_named_import_resolves_exact() {
+fn js_named_import_falls_through_to_r5() {
+    // R4c is gated to Python only; JS/TS imports fall through to R5.
     let fs = files(&[
         (
             "utils.js",
@@ -421,13 +422,13 @@ fn js_named_import_resolves_exact() {
         ),
     ]);
     let cg = CallGraph::build(&fs);
-    let (conf, kind) = resolve_kind(&cg, "app.js", "run", "process");
-    assert_eq!(conf, ResolutionConfidence::Exact);
-    assert_eq!(kind, ResolutionKind::ImportMember);
+    let (_, kind) = resolve_kind(&cg, "app.js", "run", "process");
+    assert_ne!(kind, ResolutionKind::ImportMember, "JS should not use R4c");
 }
 
 #[test]
-fn ts_named_import_resolves_exact() {
+fn ts_named_import_falls_through_to_r5() {
+    // R4c is gated to Python only; JS/TS imports fall through to R5.
     let fs = files(&[
         (
             "utils.ts",
@@ -441,9 +442,8 @@ fn ts_named_import_resolves_exact() {
         ),
     ]);
     let cg = CallGraph::build(&fs);
-    let (conf, kind) = resolve_kind(&cg, "app.ts", "run", "process");
-    assert_eq!(conf, ResolutionConfidence::Exact);
-    assert_eq!(kind, ResolutionKind::ImportMember);
+    let (_, kind) = resolve_kind(&cg, "app.ts", "run", "process");
+    assert_ne!(kind, ResolutionKind::ImportMember, "TS should not use R4c");
 }
 
 // -----------------------------------------------------------------------
@@ -657,4 +657,104 @@ fn relative_multi_component_import_matches_full_path() {
         !file_matches_module("src/utils.py", ".pkg.utils", "src/app.py", &indexed),
         "relative multi-component should NOT match partial path"
     );
+}
+
+// -----------------------------------------------------------------------
+// Soundness fixes (codex round-2 review)
+// -----------------------------------------------------------------------
+
+/// Helper: assert that a call site does NOT resolve via R4c (ImportMember).
+fn assert_not_import_member(cg: &CallGraph, caller_file: &str, caller_name: &str, callee: &str) {
+    let caller = cg
+        .functions
+        .get(caller_name)
+        .and_then(|v| v.iter().find(|f| f.file == caller_file))
+        .expect("caller fn not found");
+    let site = cg
+        .calls
+        .get(caller)
+        .and_then(|sites| sites.iter().find(|s| s.callee_name == callee))
+        .expect("call site not found");
+    let out = cg.resolve_call_site_full(site);
+    for r in &out.resolved {
+        assert_ne!(
+            r.kind,
+            ResolutionKind::ImportMember,
+            "{callee} in {caller_name} should NOT resolve via ImportMember"
+        );
+    }
+}
+
+#[test]
+fn test_import_binding_nested_function_excluded() {
+    // `def outer(): def f(): pass` — the nested `f` is NOT module-level
+    // and must not be resolved by R4c.
+    let fs = files(&[
+        (
+            "m.py",
+            "def outer():\n    def f():\n        pass\n",
+            Language::Python,
+        ),
+        (
+            "c.py",
+            "from m import f\n\ndef call():\n    f()\n",
+            Language::Python,
+        ),
+    ]);
+    let cg = CallGraph::build(&fs);
+    assert_not_import_member(&cg, "c.py", "call", "f");
+}
+
+#[test]
+fn test_import_binding_compound_rebinding_ineligible() {
+    // `from utils import f` then `if DEBUG: f = other_f` at module scope.
+    // Module bindings should show `f` as both Import and Assignment, making
+    // the import ineligible (Assignment wins via insert overwrite).
+    let fs = files(&[
+        ("utils.py", "def f():\n    return 1\n", Language::Python),
+        (
+            "app.py",
+            "from utils import f\nif True:\n    f = lambda: 2\ndef run():\n    f()\n",
+            Language::Python,
+        ),
+    ]);
+    let cg = CallGraph::build(&fs);
+    assert_not_import_member(&cg, "app.py", "run", "f");
+}
+
+#[test]
+fn test_import_binding_relative_single_component_no_stem() {
+    // `.utils` from `pkg/app.py` must only match `pkg/utils.py`, NOT
+    // `other/utils.py` (single-component relative must not stem-fallback).
+    let indexed: BTreeSet<String> = ["pkg/utils.py", "other/utils.py"]
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
+    assert!(
+        file_matches_module("pkg/utils.py", ".utils", "pkg/app.py", &indexed),
+        "relative single-component should match same-directory file"
+    );
+    assert!(
+        !file_matches_module("other/utils.py", ".utils", "pkg/app.py", &indexed),
+        "relative single-component should NOT stem-match another directory"
+    );
+}
+
+#[test]
+fn test_import_binding_js_not_resolved() {
+    // JS `import { f } from "./m"` must NOT fire R4c (Python-only gate).
+    let fs = files(&[
+        (
+            "m.js",
+            "function f() { return 1; }\nmodule.exports = { f };\n",
+            Language::JavaScript,
+        ),
+        (
+            "app.js",
+            "import { f } from './m';\nfunction run() { f(); }\n",
+            Language::JavaScript,
+        ),
+    ]);
+    let cg = CallGraph::build(&fs);
+    assert_not_import_member(&cg, "app.js", "run", "f");
 }

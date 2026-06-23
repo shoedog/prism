@@ -1282,169 +1282,201 @@ impl ParsedFile {
     // -------------------------------------------------------------------
 
     /// Extract module-scope binding kinds from Python/JS/TS files.
-    /// Only walks direct children of the module root (top-level bindings).
+    /// Walks direct children of the module root AND descends into Python
+    /// compound statements (`if`/`try`/`for`/`while`/`with`) whose bodies
+    /// are still module-scope.
     pub fn extract_module_bindings(
         &self,
     ) -> BTreeMap<String, crate::call_graph::ModuleBindingKind> {
-        use crate::call_graph::ModuleBindingKind;
         let mut out = BTreeMap::new();
         let root = self.tree.root_node();
         let mut cursor = root.walk();
         for child in root.children(&mut cursor) {
-            match child.kind() {
-                // Python
-                "import_statement" | "import_from_statement" => {
-                    // Import names are tracked via import_bindings, but we also
-                    // record them as Import bindings for the occurrence-clean check.
-                    let mut ic = child.walk();
-                    for c in child.children(&mut ic) {
-                        match c.kind() {
-                            "dotted_name" => {
-                                let name = self.node_text(&c).to_string();
-                                let alias = name.rsplit('.').next().unwrap_or(&name).to_string();
-                                out.entry(alias).or_insert(ModuleBindingKind::Import);
-                            }
-                            "aliased_import" => {
-                                if let Some(a) = c.child_by_field_name("alias") {
-                                    out.entry(self.node_text(&a).to_string())
-                                        .or_insert(ModuleBindingKind::Import);
-                                }
-                            }
-                            "identifier" => {
-                                let name = self.node_text(&c).to_string();
-                                // Skip module name in import_from_statement
-                                if child.kind() == "import_from_statement" {
-                                    if let Some(mod_name) = child
-                                        .child_by_field_name("module_name")
-                                        .map(|n| self.node_text(&n).to_string())
-                                    {
-                                        if name == mod_name {
-                                            continue;
-                                        }
-                                    }
-                                }
-                                out.entry(name).or_insert(ModuleBindingKind::Import);
-                            }
-                            _ => {}
-                        }
-                    }
-                }
-                "class_definition" | "class_declaration" => {
-                    if let Some(name) = child.child_by_field_name("name") {
-                        out.insert(
-                            self.node_text(&name).to_string(),
-                            ModuleBindingKind::ClassDef,
-                        );
-                    }
-                }
-                "function_definition" | "function_declaration" => {
-                    if let Some(name) = self.language.function_name(&child) {
-                        out.insert(
-                            self.node_text(&name).to_string(),
-                            ModuleBindingKind::FunctionDef,
-                        );
-                    }
-                }
-                "decorated_definition" => {
-                    // Unwrap to inner class/function
-                    let mut dc = child.walk();
-                    for inner in child.children(&mut dc) {
-                        match inner.kind() {
-                            "class_definition" | "class_declaration" => {
-                                if let Some(name) = inner.child_by_field_name("name") {
-                                    out.insert(
-                                        self.node_text(&name).to_string(),
-                                        ModuleBindingKind::ClassDef,
-                                    );
-                                }
-                            }
-                            "function_definition" | "function_declaration" => {
-                                if let Some(name) = self.language.function_name(&inner) {
-                                    out.insert(
-                                        self.node_text(&name).to_string(),
-                                        ModuleBindingKind::FunctionDef,
-                                    );
-                                }
-                            }
-                            _ => {}
-                        }
-                    }
-                }
-                "expression_statement" => {
-                    // `x = ...` at module level
-                    let mut ec = child.walk();
-                    for inner in child.children(&mut ec) {
-                        if inner.kind() == "assignment" {
-                            if let Some(left) = inner.child_by_field_name("left") {
-                                if left.kind() == "identifier" {
-                                    out.insert(
-                                        self.node_text(&left).to_string(),
-                                        ModuleBindingKind::Assignment,
-                                    );
-                                }
-                            }
-                        }
-                    }
-                }
-                // JS/TS: variable declarations, exported functions/classes
-                "lexical_declaration" | "variable_declaration" => {
-                    let mut vc = child.walk();
-                    for decl in child.children(&mut vc) {
-                        if decl.kind() == "variable_declarator" {
-                            if let Some(name) = decl.child_by_field_name("name") {
-                                if name.kind() == "identifier" {
-                                    out.insert(
-                                        self.node_text(&name).to_string(),
-                                        ModuleBindingKind::Assignment,
-                                    );
-                                }
-                            }
-                        }
-                    }
-                }
-                "export_statement" => {
-                    let mut ec = child.walk();
-                    for inner in child.children(&mut ec) {
-                        match inner.kind() {
-                            "class_declaration" => {
-                                if let Some(name) = inner.child_by_field_name("name") {
-                                    out.insert(
-                                        self.node_text(&name).to_string(),
-                                        ModuleBindingKind::ClassDef,
-                                    );
-                                }
-                            }
-                            "function_declaration" => {
-                                if let Some(name) = self.language.function_name(&inner) {
-                                    out.insert(
-                                        self.node_text(&name).to_string(),
-                                        ModuleBindingKind::FunctionDef,
-                                    );
-                                }
-                            }
-                            "lexical_declaration" | "variable_declaration" => {
-                                let mut vc = inner.walk();
-                                for decl in inner.children(&mut vc) {
-                                    if decl.kind() == "variable_declarator" {
-                                        if let Some(name) = decl.child_by_field_name("name") {
-                                            if name.kind() == "identifier" {
-                                                out.insert(
-                                                    self.node_text(&name).to_string(),
-                                                    ModuleBindingKind::Assignment,
-                                                );
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                            _ => {}
-                        }
-                    }
-                }
-                _ => {}
-            }
+            Self::extract_module_bindings_from_stmt(child, &self.language, &self.source, &mut out);
+        }
+        // Walk compound statement bodies (still module-scope in Python).
+        let mut cursor2 = root.walk();
+        for child in root.children(&mut cursor2) {
+            Self::descend_compound_for_bindings(child, &self.language, &self.source, &mut out);
         }
         out
+    }
+
+    /// Process a single statement node for module-scope bindings.
+    fn extract_module_bindings_from_stmt(
+        node: tree_sitter::Node<'_>,
+        language: &crate::languages::Language,
+        source: &str,
+        out: &mut BTreeMap<String, crate::call_graph::ModuleBindingKind>,
+    ) {
+        use crate::call_graph::ModuleBindingKind;
+        let text = |n: &tree_sitter::Node<'_>| -> String {
+            n.utf8_text(source.as_bytes()).unwrap_or("").to_string()
+        };
+        match node.kind() {
+            // Python
+            "import_statement" | "import_from_statement" => {
+                let mut ic = node.walk();
+                for c in node.children(&mut ic) {
+                    match c.kind() {
+                        "dotted_name" => {
+                            let name = text(&c);
+                            let alias = name.rsplit('.').next().unwrap_or(&name).to_string();
+                            out.entry(alias).or_insert(ModuleBindingKind::Import);
+                        }
+                        "aliased_import" => {
+                            if let Some(a) = c.child_by_field_name("alias") {
+                                out.entry(text(&a)).or_insert(ModuleBindingKind::Import);
+                            }
+                        }
+                        "identifier" => {
+                            let name = text(&c);
+                            if node.kind() == "import_from_statement" {
+                                if let Some(mod_node) = node.child_by_field_name("module_name") {
+                                    if name == text(&mod_node) {
+                                        return;
+                                    }
+                                }
+                            }
+                            out.entry(name).or_insert(ModuleBindingKind::Import);
+                        }
+                        _ => {}
+                    }
+                }
+            }
+            "class_definition" | "class_declaration" => {
+                if let Some(name) = node.child_by_field_name("name") {
+                    out.insert(text(&name), ModuleBindingKind::ClassDef);
+                }
+            }
+            "function_definition" | "function_declaration" => {
+                if let Some(name) = language.function_name(&node) {
+                    out.insert(text(&name), ModuleBindingKind::FunctionDef);
+                }
+            }
+            "decorated_definition" => {
+                let mut dc = node.walk();
+                for inner in node.children(&mut dc) {
+                    match inner.kind() {
+                        "class_definition" | "class_declaration" => {
+                            if let Some(name) = inner.child_by_field_name("name") {
+                                out.insert(text(&name), ModuleBindingKind::ClassDef);
+                            }
+                        }
+                        "function_definition" | "function_declaration" => {
+                            if let Some(name) = language.function_name(&inner) {
+                                out.insert(text(&name), ModuleBindingKind::FunctionDef);
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+            }
+            "expression_statement" => {
+                let mut ec = node.walk();
+                for inner in node.children(&mut ec) {
+                    if inner.kind() == "assignment" {
+                        if let Some(left) = inner.child_by_field_name("left") {
+                            if left.kind() == "identifier" {
+                                out.insert(text(&left), ModuleBindingKind::Assignment);
+                            }
+                        }
+                    }
+                }
+            }
+            // JS/TS: variable declarations, exported functions/classes
+            "lexical_declaration" | "variable_declaration" => {
+                let mut vc = node.walk();
+                for decl in node.children(&mut vc) {
+                    if decl.kind() == "variable_declarator" {
+                        if let Some(name) = decl.child_by_field_name("name") {
+                            if name.kind() == "identifier" {
+                                out.insert(text(&name), ModuleBindingKind::Assignment);
+                            }
+                        }
+                    }
+                }
+            }
+            "export_statement" => {
+                let mut ec = node.walk();
+                for inner in node.children(&mut ec) {
+                    match inner.kind() {
+                        "class_declaration" => {
+                            if let Some(name) = inner.child_by_field_name("name") {
+                                out.insert(text(&name), ModuleBindingKind::ClassDef);
+                            }
+                        }
+                        "function_declaration" => {
+                            if let Some(name) = language.function_name(&inner) {
+                                out.insert(text(&name), ModuleBindingKind::FunctionDef);
+                            }
+                        }
+                        "lexical_declaration" | "variable_declaration" => {
+                            let mut vc = inner.walk();
+                            for decl in inner.children(&mut vc) {
+                                if decl.kind() == "variable_declarator" {
+                                    if let Some(name) = decl.child_by_field_name("name") {
+                                        if name.kind() == "identifier" {
+                                            out.insert(text(&name), ModuleBindingKind::Assignment);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+
+    /// Descend into Python compound statement bodies (`if`/`try`/`for`/`while`/`with`)
+    /// at module scope to find bindings that are still effectively module-scope.
+    fn descend_compound_for_bindings(
+        node: tree_sitter::Node<'_>,
+        language: &crate::languages::Language,
+        source: &str,
+        out: &mut BTreeMap<String, crate::call_graph::ModuleBindingKind>,
+    ) {
+        match node.kind() {
+            "if_statement" | "try_statement" | "for_statement" | "while_statement"
+            | "with_statement" => {
+                let mut bcursor = node.walk();
+                for block_child in node.children(&mut bcursor) {
+                    match block_child.kind() {
+                        "block" => {
+                            let mut ic = block_child.walk();
+                            for stmt in block_child.children(&mut ic) {
+                                Self::extract_module_bindings_from_stmt(
+                                    stmt, language, source, out,
+                                );
+                                // Recurse into nested compound statements.
+                                Self::descend_compound_for_bindings(stmt, language, source, out);
+                            }
+                        }
+                        "else_clause" | "elif_clause" | "except_clause" | "finally_clause" => {
+                            let mut cc = block_child.walk();
+                            for clause_child in block_child.children(&mut cc) {
+                                if clause_child.kind() == "block" {
+                                    let mut ic = clause_child.walk();
+                                    for stmt in clause_child.children(&mut ic) {
+                                        Self::extract_module_bindings_from_stmt(
+                                            stmt, language, source, out,
+                                        );
+                                        Self::descend_compound_for_bindings(
+                                            stmt, language, source, out,
+                                        );
+                                    }
+                                }
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+            }
+            _ => {}
+        }
     }
 
     fn collect_go_imports(&self, node: Node<'_>, out: &mut BTreeMap<String, String>) {

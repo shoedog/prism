@@ -1380,7 +1380,7 @@ impl CallGraph {
                 // Must fire before the functions.get(name) check because aliases
                 // mean the call-site name ("p") differs from the function name
                 // ("process"), so the index won't have a hit on the aliased name.
-                if site.qualifier.is_none() {
+                if site.qualifier.is_none() && caller.file.ends_with(".py") {
                     if let Some(bindings) = self.import_bindings.get(&caller.file) {
                         if let Some(binding) = bindings.iter().find(|b| {
                             b.local == name
@@ -1405,6 +1405,17 @@ impl CallGraph {
                                                 &caller.file,
                                                 &self.indexed_files,
                                             )
+                                            // Only accept module-level functions, not nested defs.
+                                            && self
+                                                .module_bindings
+                                                .get(&fid.file)
+                                                .and_then(|mb| mb.get(member))
+                                                .map_or(false, |k| {
+                                                    matches!(
+                                                        k,
+                                                        crate::call_graph::ModuleBindingKind::FunctionDef
+                                                    )
+                                                })
                                     })
                                     .collect();
                                 match matched.len() {
