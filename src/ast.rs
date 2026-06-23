@@ -2908,12 +2908,13 @@ impl ParsedFile {
             return; // Don't recurse into return children
         }
 
-        // Don't recurse into nested function definitions
-        if self.language.function_node_types().contains(&kind) && kind != func_node.kind() {
-            // Check if this is actually a different function (not the func_node itself)
-            if node.start_position() != func_node.start_position() {
-                return;
-            }
+        // Don't recurse into nested function definitions. Fence on node IDENTITY,
+        // not kind: a nested `def`/`function_definition` has the SAME kind as the
+        // enclosing function, so a kind-based check let nested returns be collected
+        // as the outer function's (corrupts contract postconditions; the decorated
+        // unwrap above makes this reachable for decorated functions).
+        if self.language.function_node_types().contains(&kind) && node.id() != func_node.id() {
+            return;
         }
 
         let mut cursor = node.walk();
@@ -5048,6 +5049,29 @@ mod tests {
         assert!(!p.statements_in_function(&deco).is_empty());
         assert!(!p.statement_spans_in_function(&deco).is_empty());
         assert!(!p.return_value_nodes(&deco).is_empty());
+    }
+
+    #[test]
+    fn return_value_nodes_excludes_nested_function_returns() {
+        // A nested `def` has the SAME kind as the outer, so the recursion fence must
+        // be by node identity, not kind — else the nested return is mis-collected as
+        // the outer's (corrupts contract postconditions; reachable for decorated fns
+        // via the unwrap). Here outer returns 1; the nested `inner` returns 99.
+        let p = ParsedFile::parse(
+            "a.py",
+            "@deco\ndef outer():\n    def inner():\n        return 99\n    return 1\n",
+            Language::Python,
+        )
+        .unwrap();
+        let deco =
+            descendant_of_kind(p.tree.root_node(), "decorated_definition").expect("deco node");
+        let returns = p.return_value_nodes(&deco);
+        assert_eq!(
+            returns.len(),
+            1,
+            "only the outer's return, not the nested fn's"
+        );
+        assert_eq!(returns[0].value_text.as_deref(), Some("1"));
     }
 
     #[test]
