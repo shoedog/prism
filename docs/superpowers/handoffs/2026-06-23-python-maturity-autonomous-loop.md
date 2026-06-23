@@ -49,7 +49,11 @@ function's byte-range call/DFG scan attributes a nested `def`'s calls + the `@de
 enclosing fn — VERIFIED on main for an undecorated `outer`/`inner`, so NOT introduced here; needs a
 cross-cutting "belongs-to-this-body" predicate across `function_calls_*`/DFG/callees = its own slice; PR
 #132 body documents it). **NEXT after #132 merges: slice 2 (typed receivers) off merged main.**
-| **2** typed receivers | diff-review fix → fix-re-review found a NEW JS-lexical-scope hole → **NARROWING to Python-only** (bu95d19oq); JS buy≈0 so drop JS/TS (removes trap-class, keeps buy). **Last fix cycle — shelve if another BLOCKER** | `slice2-typed-receivers` (wt `/tmp/prism-slice2`) |
+| **2** typed receivers | **narrowing COMMITTED `22deb40`** (Python-only); focused tests green (Py 230 / JS 41 / TS 63 / Rust 18 / Go 28 / integration); fmt clean; **ACCEPTANCE PASS** (below); **codex xhigh re-review IN FLIGHT** (`bkeo4ttai`, port 8245) = the final "last fix cycle" gate → SHIP→PR→merge, BLOCKER→shelve | `slice2-typed-receivers` (wt `/tmp/prism-slice2`, tip `22deb40`) |
+
+**Slice-2 ACCEPTANCE (branch `22deb40` vs main `08f019d`, `--no-cache call-stats`, `/tmp/slice2-accept/`):**
+**Soundness gate — Rust/Go/JS BYTE-IDENTICAL:** ripgrep (Rust), caddy (Go), express + excalidraw (JS) all `diff -q` empty ✓ (the `call_start_byte` byte-scan did NOT perturb Rust/Go; JS/TS fully inert post-narrowing).
+**Python buy:** fastapi `constructor_local +1` / `typed_param +1` (+2); pydantic `constructor_local 28→43` / `typed_param 286→287` (+16) = **~+18 Exact total**. **Canary `multi_target_exact_sites` FLAT** (fastapi 10→10, pydantic 316→316) — no wrong-singleton FP. **`dropped_external_receiver` FLAT** (0→0, 1228→1228) — no recall loss. All other Exact buckets unchanged. Precision-neutral + small sound recall buy. (~+18 matches the strategic finding; owner may reconsider/prioritize slice 3 in the morning — slice 3 is the actual cross-module lever and is next regardless.)
 
 **Slice-2 diff-review (REWORK) — the fix IMPROVES the value story:** the 2 BLOCKERs are PRE-EXISTING
 false-Exacts (verified on main: `def run(x: Foo): x.m()` + a `class x` → false `qualifier_owner` to
@@ -125,7 +129,11 @@ methods). **Spec-review (SHIP-WITH-FIXES) findings being folded into rev 2:**
 - Architect memos (raw codex output): `/tmp/{slice2,slice3,slice1b}-architect-out.md` (ephemeral —
   formalize into specs before relying on them).
 
-## Next action
-Fold the decorated spec-review into rev 2 (BLOCKER + 3 MAJORs above) → re-review → (sound) → writing-plans.
-Then process the 1b/2/3 architect outputs into specs as they complete. Update this handoff at each
-milestone.
+## Next action (live)
+1. **Slice 2 (in final gate):** await codex re-review `bkeo4ttai` (`/tmp/slice2-rereview-out.md`, port 8245).
+   - **SHIP** → push `slice2-typed-receivers` → open PR (body: the acceptance block above) → merge on green CI → sync main.
+   - **REWORK/BLOCKER** → SHELVE slice 2 (preserve branch `slice2-typed-receivers` @ `22deb40`, document the hole here), move to slice 3. (This is the declared "last fix cycle".)
+2. **Slice 3 (next, the value lever):** architect memo `/tmp/slice3-architect-out.md` = Option B bare-import-qualified narrowing. Spec drafting STARTED (off `08f019d`; rung is orthogonal to slice-2 receiver changes, so spec is valid either way). Pipeline: spec → codex spec-review → fold → plan → review → fold → codex-implement → acceptance → diff-review → PR → merge.
+3. **Slice 1b (last, smallest, 16 sites):** memo `/tmp/slice1b-architect-out.md`.
+
+Ports used this loop: 8210-8221, 8245 → **next ≥8250**. Acceptance binaries: main `/Users/wesleyjinks/code/slicing/target/release/prism` @ `08f019d` (fresh), branch `/tmp/prism-slice2/target/release/prism` @ `22deb40`. Update this handoff at each milestone.
