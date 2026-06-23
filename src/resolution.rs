@@ -713,8 +713,16 @@ impl CallGraph {
         name: &str,
         caller: &FunctionId,
     ) -> Option<Vec<ResolvedCallee<'_>>> {
-        let caller_span = *self.method_class_span.get(caller)?;
         let ids = self.methods.get(&(owner.to_string(), name.to_string()))?;
+        if self.method_class_span_ambiguous.contains(caller)
+            || ids
+                .iter()
+                .any(|fid| self.method_class_span_ambiguous.contains(fid))
+        {
+            return self.owner_lookup(owner, name);
+        }
+
+        let caller_span = *self.method_class_span.get(caller)?;
         let same_class: Vec<&FunctionId> = ids
             .iter()
             .filter(|fid| {
@@ -2012,6 +2020,20 @@ mod self_receiver_same_class_tests {
             out.resolved.is_empty(),
             "f's class has no m; the same-line other C must not bind"
         );
+        assert_eq!(out.drop, Some(DropReason::UnknownName));
+    }
+
+    #[test]
+    fn self_call_same_line_distinct_class_method_collision_fails_open() {
+        let cg = CallGraph::build(&files(&[(
+            "a.js",
+            "class A { m() { return 1; } run() { return this.m(); } } class B { m() { return 2; } }\n",
+        )]));
+        let out = resolve_self_call(&cg, "a.js", "run", "m");
+        assert_eq!(out.resolved.len(), 1, "ambiguous class span must fail open");
+        assert_eq!(out.resolved[0].target.file, "a.js");
+        assert_eq!(out.resolved[0].confidence, ResolutionConfidence::Exact);
+        assert_eq!(out.resolved[0].kind, ResolutionKind::SelfReceiver);
     }
 
     #[test]
