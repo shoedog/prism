@@ -49,7 +49,17 @@ function's byte-range call/DFG scan attributes a nested `def`'s calls + the `@de
 enclosing fn — VERIFIED on main for an undecorated `outer`/`inner`, so NOT introduced here; needs a
 cross-cutting "belongs-to-this-body" predicate across `function_calls_*`/DFG/callees = its own slice; PR
 #132 body documents it). **NEXT after #132 merges: slice 2 (typed receivers) off merged main.**
-| **2** typed receivers | **spec SOUND (rev 4) + plan SOUND (rev 3)** — 3 spec + 2 plan REWORKs folded (guard convergence + R3b pre-emption + ordering) → **codex-implement running** (blbd2mgf7) | `slice2-typed-receivers` (wt `/tmp/prism-slice2`) |
+| **2** typed receivers | **IMPLEMENTED + acceptance GREEN but BUY NEGLIGIBLE** → final diff-review (bsyn2r1pt) | `slice2-typed-receivers` (wt `/tmp/prism-slice2`), tip `b0055d1` |
+
+**⚠️ Slice 2 STRATEGIC FINDING (read this):** sound (Rust/Go byte-identical, `dropped_external_receiver`
+FLAT 1228→1228, canary flat, Tier-A 40 ok, suite 2486/2579) **but the realized buy is ~+17 Exact total**
+(pydantic `constructor_local` +15 / `typed_param` +1; fastapi +1/+1) — NOT the ~700 owner-hit headline. The
+soundness guard (skip imported + wildcard-file types) removes ~98% because **Python typed receivers are
+overwhelmingly IMPORTED types** — which are **slice 3/4's cross-module/import territory**, not slice 2's
+same-module-local recovery. **Decision (autonomous, mandate = complete 2 + merge-on-green): completing it**
+(sound, +17, sets up the receiver-typing infra slice 3/4 extends), flagged here — owner may reconsider /
+revert in the morning, OR prioritize slice 3 (the actual lever) which is next anyway. 5 review rounds
+(3 spec + 2 plan REWORKs) hardened the guard (collision→wildcard→order) + R3b pre-emption + ordering.
 | **3** import-scoping/free_multi | **architect DONE** — awaiting spec | memo `/tmp/slice3-architect-out.md` |
 | **1b** inheritance MRO | **architect DONE** — awaiting spec | memo `/tmp/slice1b-architect-out.md` |
 
