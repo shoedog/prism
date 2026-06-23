@@ -58,7 +58,7 @@ fn unwrap_decorated<'a>(&self, node: Node<'a>) -> Node<'a> {
 }
 ```
 
-Prepend `let node = self.unwrap_decorated(*node);` (rebind) at the head of `find_parameters_node` (`:3922`),
+Prepend `let func_node = self.unwrap_decorated(*func_node);` (rebind the param) at the head of `find_parameters_node` (`:3922`),
 `function_body_node` (`:2607`), `statements_in_function` (`:3097`), `statement_spans_in_function` (`:3112`),
 `return_value_nodes` (`:2828`, **before** the nested-fn guard `:2888-2893`).
 
@@ -98,8 +98,10 @@ fn decorated_function_canonical_single_node() {
   `build_function_table` AND the `all_functions_inner` reconstruction-miss fallback (`:286-288`) return
   through. Structural predicate only (overloads/setters/redefinitions stay distinct); C++
   `template_declaration` untouched (different kind).
-- [ ] **Step 3b — reconstruction-fallback test:** force/simulate the manual path and assert the dup is also
-  gone there (or assert via `all_functions` that the count holds regardless of path).
+- [ ] **Step 3b — reconstruction-fallback test (FORCE the miss):** use the synthetic tree-corruption
+  pattern (`src/ast.rs:5336-5343`) to force `all_functions_inner` down the reconstruction-miss fallback on a
+  decorated fixture; assert `used_fallback == true` AND only the wrapper `decorated_definition` for `f`
+  remains. (A bare `all_functions()` assertion is NOT discriminating — it passes through the eager table.)
 - [ ] **Step 4 — run-pass + `cargo build`. Step 5 — commit** `feat(ast): wrapper-canonical skip in all_functions_via_tree`.
 
 ---
@@ -110,8 +112,9 @@ fn decorated_function_canonical_single_node() {
 `collect_step8_edges`); test under `tests/` (CFG/CPG control-flow edges).
 
 - [ ] **Step 1 — failing test:** for a decorated Python function, the CPG has NO duplicate `ControlFlow`
-  edges (today, after T1, the raw CFG walk emits edges for BOTH wrapper and inner). Assert the
-  control-flow-edge set for the decorated fn equals that of an equivalent undecorated fn (count parity).
+  edges (today, after T1, the raw CFG walk emits edges for BOTH wrapper and inner). Assert raw ControlFlow
+  **edge count == unique edge count** (catches duplicate PARALLEL edges a set comparison would hide) AND
+  decorated/undecorated count parity.
 - [ ] **Step 2 — run-fail** (duplicate edges).
 - [ ] **Step 3 — implement:** make the CFG function walk **not double-process** decorated wrapper+inner —
   iterate `parsed.all_functions()` (canonical, wrapper-only) instead of raw `function_node_types()`, OR
