@@ -162,6 +162,10 @@ pub struct CallGraph {
     /// S3: owning type per method FunctionId (primary owner, not the trait).
     #[serde(default)]
     pub method_owners: BTreeMap<FunctionId, String>,
+    /// Method FunctionId -> owner class definition node byte span (start, end).
+    /// Py/JS/TS only; the self-receiver class identity.
+    #[serde(default)]
+    pub method_class_span: BTreeMap<FunctionId, (usize, usize)>,
     /// Phase-2a PR-1: (defining-type scope, method_name) -> definitions.
     /// Inert until the receiver-typed read path lands.
     #[serde(default)]
@@ -232,6 +236,7 @@ impl CallGraph {
             imports: BTreeMap::new(),
             methods: BTreeMap::new(),
             method_owners: BTreeMap::new(),
+            method_class_span: BTreeMap::new(),
             methods_by_scope: BTreeMap::new(),
             extension_methods: BTreeMap::new(),
             identity_complete: BTreeSet::new(),
@@ -264,6 +269,7 @@ impl CallGraph {
         let mut static_functions: BTreeSet<(String, String)> = BTreeSet::new();
         let mut methods: BTreeMap<(String, String), Vec<FunctionId>> = BTreeMap::new();
         let mut method_owners: BTreeMap<FunctionId, String> = BTreeMap::new();
+        let mut method_class_span: BTreeMap<FunctionId, (usize, usize)> = BTreeMap::new();
         let mut receiver_vars: BTreeMap<FunctionId, String> = BTreeMap::new();
         let mut method_facts: BTreeMap<FunctionId, MethodFacts> = BTreeMap::new();
 
@@ -283,13 +289,17 @@ impl CallGraph {
                         .entry(name.clone())
                         .or_default()
                         .push(func_id.clone());
-                    let (owner, trait_key, recv_var) = Self::method_metadata(parsed, &func_node);
+                    let (owner, trait_key, recv_var, class_span) =
+                        Self::method_metadata(parsed, &func_node);
                     if let Some(o) = owner {
                         methods
                             .entry((o.clone(), name.clone()))
                             .or_default()
                             .push(func_id.clone());
                         method_owners.insert(func_id.clone(), o);
+                        if let Some(s) = class_span {
+                            method_class_span.insert(func_id.clone(), s);
+                        }
                     }
                     if let Some(t) = trait_key {
                         methods
@@ -373,6 +383,7 @@ impl CallGraph {
             imports: BTreeMap::new(),
             methods,
             method_owners,
+            method_class_span,
             methods_by_scope: BTreeMap::new(),
             extension_methods: BTreeMap::new(),
             identity_complete: BTreeSet::new(),
@@ -440,6 +451,7 @@ impl CallGraph {
         let mut static_functions: BTreeSet<(String, String)> = BTreeSet::new();
         let mut methods: BTreeMap<(String, String), Vec<FunctionId>> = BTreeMap::new();
         let mut method_owners: BTreeMap<FunctionId, String> = BTreeMap::new();
+        let mut method_class_span: BTreeMap<FunctionId, (usize, usize)> = BTreeMap::new();
         let mut receiver_vars: BTreeMap<FunctionId, String> = BTreeMap::new();
         let mut method_facts: BTreeMap<FunctionId, MethodFacts> = BTreeMap::new();
 
@@ -462,6 +474,7 @@ impl CallGraph {
                 Option<String>,
                 Option<String>,
                 Option<MethodFacts>,
+                Option<(usize, usize)>,
             )>,
             static_functions: Vec<(String, String)>,
         }
@@ -485,7 +498,7 @@ impl CallGraph {
                             start_line: start,
                             end_line: end,
                         };
-                        let (owner, trait_key, recv_var) =
+                        let (owner, trait_key, recv_var, class_span) =
                             Self::method_metadata(parsed, &func_node);
                         let facts = Self::method_facts(parsed, &func_node);
                         file_functions.push((
@@ -495,6 +508,7 @@ impl CallGraph {
                             trait_key,
                             recv_var,
                             facts,
+                            class_span,
                         ));
 
                         // Detect C/C++ static linkage
@@ -517,7 +531,9 @@ impl CallGraph {
             .collect();
 
         for file_functions in per_file_functions {
-            for (name, func_id, owner, trait_key, recv_var, facts) in file_functions.functions {
+            for (name, func_id, owner, trait_key, recv_var, facts, class_span) in
+                file_functions.functions
+            {
                 functions
                     .entry(name.clone())
                     .or_default()
@@ -528,6 +544,9 @@ impl CallGraph {
                         .or_default()
                         .push(func_id.clone());
                     method_owners.insert(func_id.clone(), o);
+                    if let Some(s) = class_span {
+                        method_class_span.insert(func_id.clone(), s);
+                    }
                 }
                 if let Some(t) = trait_key {
                     methods
@@ -975,6 +994,7 @@ impl CallGraph {
             imports,
             methods,
             method_owners,
+            method_class_span,
             methods_by_scope: BTreeMap::new(),
             extension_methods: BTreeMap::new(),
             identity_complete: BTreeSet::new(),
@@ -1035,8 +1055,10 @@ impl CallGraph {
         }
         self.methods.retain(|_, v| !v.is_empty());
 
-        // method_owners / receiver_vars: keyed by FunctionId.
+        // method_owners / method_class_span / receiver_vars: keyed by FunctionId.
         self.method_owners
+            .retain(|fid, _| !exclude.contains(&fid.file));
+        self.method_class_span
             .retain(|fid, _| !exclude.contains(&fid.file));
         self.methods_by_scope.clear();
         self.extension_methods.clear();
@@ -1077,6 +1099,7 @@ impl CallGraph {
             self.methods.entry(key).or_default().extend(fids);
         }
         self.method_owners.extend(other.method_owners);
+        self.method_class_span.extend(other.method_class_span);
         for (key, fids) in other.methods_by_scope {
             self.methods_by_scope.entry(key).or_default().extend(fids);
         }
@@ -1438,6 +1461,7 @@ impl CallGraph {
         let mut imports: BTreeMap<String, BTreeMap<String, String>> = BTreeMap::new();
         let mut methods: BTreeMap<(String, String), Vec<FunctionId>> = BTreeMap::new();
         let mut method_owners: BTreeMap<FunctionId, String> = BTreeMap::new();
+        let mut method_class_span: BTreeMap<FunctionId, (usize, usize)> = BTreeMap::new();
         let mut receiver_vars: BTreeMap<FunctionId, String> = BTreeMap::new();
         let mut method_facts: BTreeMap<FunctionId, MethodFacts> = BTreeMap::new();
 
@@ -1470,13 +1494,17 @@ impl CallGraph {
                         .entry(name.clone())
                         .or_default()
                         .push(func_id.clone());
-                    let (owner, trait_key, recv_var) = Self::method_metadata(parsed, &func_node);
+                    let (owner, trait_key, recv_var, class_span) =
+                        Self::method_metadata(parsed, &func_node);
                     if let Some(o) = owner {
                         methods
                             .entry((o.clone(), name.clone()))
                             .or_default()
                             .push(func_id.clone());
                         method_owners.insert(func_id.clone(), o);
+                        if let Some(s) = class_span {
+                            method_class_span.insert(func_id.clone(), s);
+                        }
                     }
                     if let Some(t) = trait_key {
                         methods
@@ -1586,6 +1614,7 @@ impl CallGraph {
             imports,
             methods,
             method_owners,
+            method_class_span,
             methods_by_scope: BTreeMap::new(),
             extension_methods: BTreeMap::new(),
             identity_complete: BTreeSet::new(),
@@ -1799,7 +1828,12 @@ impl CallGraph {
     fn method_metadata(
         parsed: &ParsedFile,
         func_node: &tree_sitter::Node<'_>,
-    ) -> (Option<String>, Option<String>, Option<String>) {
+    ) -> (
+        Option<String>,
+        Option<String>,
+        Option<String>,
+        Option<(usize, usize)>,
+    ) {
         let owner = parsed
             .language
             .method_owner(func_node)
@@ -1812,7 +1846,11 @@ impl CallGraph {
             .language
             .go_receiver_var(func_node)
             .map(|n| parsed.node_text(&n).to_string());
-        (owner, trait_key, recv_var)
+        let class_span = parsed
+            .language
+            .method_owner_class_node(func_node)
+            .map(|c| (c.start_byte(), c.end_byte()));
+        (owner, trait_key, recv_var, class_span)
     }
 
     fn recover_self_receiver_qualifier(
@@ -2119,6 +2157,34 @@ fn has_static_specifier(parsed: &ParsedFile, func_node: &tree_sitter::Node<'_>) 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn method_class_span_populated_for_python_methods() {
+        use crate::languages::Language::Python;
+        use std::collections::BTreeMap;
+
+        let mut files = BTreeMap::new();
+        files.insert(
+            "a.py".to_string(),
+            ParsedFile::parse(
+                "a.py",
+                "class C:\n    def f(self):\n        return 1\n",
+                Python,
+            )
+            .unwrap(),
+        );
+        let cg = CallGraph::build(&files);
+        let fid = cg
+            .functions
+            .get("f")
+            .unwrap()
+            .iter()
+            .find(|f| f.file == "a.py")
+            .unwrap();
+        let span = cg.method_class_span.get(fid).expect("span recorded");
+        assert_eq!(span.0, 0);
+        assert!(span.1 > span.0);
+    }
 
     fn build_rust_call_graph(source: &str) -> CallGraph {
         use crate::ast::ParsedFile;
