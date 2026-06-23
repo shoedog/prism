@@ -6,4 +6,5 @@ mod arrow_test;
 mod common;
 mod destructuring_test;
 mod lang_test;
+mod self_receiver_test;
 mod span_test;
