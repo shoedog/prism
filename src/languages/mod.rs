@@ -1210,6 +1210,104 @@ impl Language {
         }
     }
 
+    /// Slice 1b: extract base-class slot names from a class definition node.
+    ///
+    /// Returns one `Option<String>` per base slot:
+    /// - `Some(name)` for a simple identifier base (e.g., `Base` in `class Child(Base):`)
+    /// - `None` for a non-simple base (subscript `Base[int]`, attribute `mod.Base`,
+    ///   call `make_base()`, keyword `metaclass=ABCMeta`, etc.)
+    ///
+    /// Python: iterates `argument_list` children of the class_definition node.
+    /// JS/TS: looks at `class_heritage` -> single `extends_clause` child.
+    /// Other languages: returns empty (not applicable).
+    pub fn class_base_names<'a>(&self, class_node: &Node<'a>, source: &str) -> Vec<Option<String>> {
+        match self {
+            Language::Python => {
+                let Some(arg_list) = class_node.child_by_field_name("superclasses") else {
+                    return Vec::new();
+                };
+                let mut bases = Vec::new();
+                let mut cursor = arg_list.walk();
+                for child in arg_list.children(&mut cursor) {
+                    match child.kind() {
+                        // Skip punctuation
+                        "(" | ")" | "," => continue,
+                        // Skip keyword args (metaclass=..., **kwargs)
+                        "keyword_argument" | "dictionary_splat" => continue,
+                        // Simple identifier = potential SameFile base
+                        "identifier" => {
+                            let name = source[child.start_byte()..child.end_byte()].to_string();
+                            bases.push(Some(name));
+                        }
+                        // Anything else (subscript, attribute, call, etc.) = non-simple
+                        _ => bases.push(None),
+                    }
+                }
+                bases
+            }
+            Language::JavaScript | Language::TypeScript | Language::Tsx => {
+                // JS/TS: class Foo extends Bar { ... }
+                // Two grammar variants:
+                //   JS:  class_declaration -> class_heritage -> [extends, identifier]
+                //   TS:  class_declaration -> class_heritage -> extends_clause(value: identifier)
+                let mut cursor = class_node.walk();
+                for child in class_node.children(&mut cursor) {
+                    if child.kind() == "class_heritage" {
+                        let count = child.child_count();
+                        for i in 0..count {
+                            if let Some(hchild) = child.child(i) {
+                                match hchild.kind() {
+                                    // JS flat structure: extends keyword + base directly
+                                    "extends" | "," => continue,
+                                    "identifier" => {
+                                        let name = source[hchild.start_byte()..hchild.end_byte()]
+                                            .to_string();
+                                        return vec![Some(name)];
+                                    }
+                                    // TS nested structure: extends_clause wraps the base
+                                    "extends_clause" => {
+                                        // Try the `value` field first (TS grammar)
+                                        if let Some(val) = hchild.child_by_field_name("value") {
+                                            return match val.kind() {
+                                                "identifier" | "type_identifier" => {
+                                                    let name = source
+                                                        [val.start_byte()..val.end_byte()]
+                                                        .to_string();
+                                                    vec![Some(name)]
+                                                }
+                                                _ => vec![None],
+                                            };
+                                        }
+                                        // Fallback: look for a named child identifier
+                                        let nc = hchild.named_child_count();
+                                        for j in 0..nc {
+                                            if let Some(nc_child) = hchild.named_child(j) {
+                                                return match nc_child.kind() {
+                                                    "identifier" | "type_identifier" => {
+                                                        let name = source[nc_child.start_byte()
+                                                            ..nc_child.end_byte()]
+                                                            .to_string();
+                                                        vec![Some(name)]
+                                                    }
+                                                    _ => vec![None],
+                                                };
+                                            }
+                                        }
+                                        return vec![None];
+                                    }
+                                    // Non-simple: member_expression, call_expression, etc.
+                                    _ => return vec![None],
+                                }
+                            }
+                        }
+                    }
+                }
+                Vec::new()
+            }
+            _ => Vec::new(),
+        }
+    }
+
     /// S3 (Rust): for `impl Trait for Type`, the trait name node (dual-key).
     pub fn rust_impl_trait<'a>(&self, func_node: &Node<'a>) -> Option<Node<'a>> {
         if !matches!(self, Language::Rust) {

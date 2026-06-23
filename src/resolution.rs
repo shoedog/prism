@@ -798,6 +798,51 @@ impl CallGraph {
         }
     }
 
+    /// Slice 1b: inherited-self resolution hook.
+    ///
+    /// When `self.method()` has no same-class definition, check if the caller's
+    /// class has exactly ONE direct same-file base that provides exactly one
+    /// method with the given name. Depth-1 only: never recurses to grandparents.
+    fn inherited_direct_base<'a>(
+        &'a self,
+        caller: &FunctionId,
+        name: &str,
+    ) -> Option<Vec<ResolvedCallee<'a>>> {
+        use crate::call_graph::ClassBaseLink;
+
+        let caller_span = *self.method_class_span.get(caller)?;
+        let bases = self.class_bases.get(&(caller.file.clone(), caller_span))?;
+
+        // Single-inheritance only: >1 base slots → drop.
+        if bases.len() != 1 {
+            return None;
+        }
+
+        let base = &bases[0];
+        let (base_span, base_owner) = match base {
+            ClassBaseLink::SameFile { span, owner } => (*span, owner.as_str()),
+            ClassBaseLink::Barrier => return None,
+        };
+
+        // Look up (base_owner, name) in the methods index, filtered to the
+        // base class's exact span in the same file.
+        let ids = self
+            .methods
+            .get(&(base_owner.to_string(), name.to_string()))?;
+        let in_base: Vec<&FunctionId> = ids
+            .iter()
+            .filter(|fid| {
+                fid.file == caller.file && self.method_class_span.get(*fid) == Some(&base_span)
+            })
+            .collect();
+
+        if in_base.len() == 1 {
+            Some(exact(in_base, ResolutionKind::SelfReceiver))
+        } else {
+            None
+        }
+    }
+
     /// Like `owner_lookup`, but for a qualified `mod::T::m` call the preceding
     /// module segments narrow candidates to files under that module — so
     /// `foo::Engine::start()` does NOT also resolve `bar::Engine::start()` (same
@@ -1035,6 +1080,14 @@ impl CallGraph {
                             }
                         }
                         return ResolutionOutcome::hit(resolved);
+                    }
+                    // Slice 1b: inherited-self hook. When same-class returns None
+                    // for a Py/JS/TS self-call, check if the caller's class has
+                    // exactly ONE direct same-file base that provides the method.
+                    if narrow {
+                        if let Some(inherited) = self.inherited_direct_base(caller, name) {
+                            return ResolutionOutcome::hit(inherited);
+                        }
                     }
                 }
                 ResolutionOutcome::dropped(DropReason::UnknownName)
