@@ -49,7 +49,16 @@ function's byte-range call/DFG scan attributes a nested `def`'s calls + the `@de
 enclosing fn — VERIFIED on main for an undecorated `outer`/`inner`, so NOT introduced here; needs a
 cross-cutting "belongs-to-this-body" predicate across `function_calls_*`/DFG/callees = its own slice; PR
 #132 body documents it). **NEXT after #132 merges: slice 2 (typed receivers) off merged main.**
-| **2** typed receivers | **IMPLEMENTED + acceptance GREEN but BUY NEGLIGIBLE** → final diff-review (bsyn2r1pt) | `slice2-typed-receivers` (wt `/tmp/prism-slice2`), tip `b0055d1` |
+| **2** typed receivers | implemented + acceptance green → diff-review **REWORK** (2 BLOCKERs, both PRE-EXISTING) → **codex-fix running** (btng1cvzn) | `slice2-typed-receivers` (wt `/tmp/prism-slice2`) |
+
+**Slice-2 diff-review (REWORK) — the fix IMPROVES the value story:** the 2 BLOCKERs are PRE-EXISTING
+false-Exacts (verified on main: `def run(x: Foo): x.m()` + a `class x` → false `qualifier_owner` to
+`class x.m`; an import-shadowing typed param → false `import_qualified`) — NOT slice-2 regressions. Root: a
+*materialized* receiver binding must suppress R3/R3b **even when the type is poisoned** (import/wildcard),
+mirroring Rust `rust_recv_materialized`. The fix (in flight) suppresses R3/R3b for any recovered Python/JS/TS
+receiver binding → **closes these pre-existing false-Exacts** + the +17 Exact buy → slice 2 becomes a
+precision+soundness win (not just +17). Plus scope-aware recovery (call start byte + skip nested class
+bodies). Then re-review → PR → merge.
 
 **⚠️ Slice 2 STRATEGIC FINDING (read this):** sound (Rust/Go byte-identical, `dropped_external_receiver`
 FLAT 1228→1228, canary flat, Tier-A 40 ok, suite 2486/2579) **but the realized buy is ~+17 Exact total**
