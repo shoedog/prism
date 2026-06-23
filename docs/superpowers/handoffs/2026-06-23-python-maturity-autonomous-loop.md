@@ -33,7 +33,17 @@ commit trailer `Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.
 | Slice | Stage | Branch / artifacts |
 |---|---|---|
 | **1a** self same-class | **MERGED** (#131, rebase, main `184208a`) | — |
-| **decorated** double-capture | spec SOUND (rev 3) + **plan SOUND (rev 3)** (review+re-review folded: chokepoint→all_functions_via_tree, CFG de-dup Task 2b, contract_slice) → **codex-implement running** (bfrbw924j) | `decorated-double-capture` (wt `/tmp/prism-decorated`), plan `1c9fe11` |
+| **decorated** double-capture | **IMPLEMENTED (T1-T5, 6 commits `fbae3af..b959adf`) + acceptance GREEN** → **final diff-review running** (bxwmnos7n) | `decorated-double-capture` (wt `/tmp/prism-decorated`), tip `b959adf` |
+
+**Decorated acceptance (deco vs current-main, both have #131):** pydantic `self_receiver` +79 / `qualifier_owner`
++20 / `free_single` +178 Exact (precision buy); large correct **duplicate-edge collapse** (decorated body
+double-scan removed: `local_def` 9825→5304, `free_multi` 25293→13579, `unresolved` 35687→30914 DOWN =
+no recall loss; `total_call_sites` unchanged = byte-deduped sites); `multi_target_exact_sites` 439→316 DOWN
+(dup free-fn Exact collapsed). **Rust(ripgrep)/Go(caddy) byte-identical; Tier-A matrix 40 ok; suite
+2470/2563 pass; fmt clean.** Codex caught+fixed a real blast-radius bug: decorated DFG is wrapper-canonical
+but `enclosing_function()` returns inner → taint seed identity mismatch broke decorated Flask taint (a
+pre-existing sanitizer test failed) → fixed in `synthesize_target_seed_paths` + regression. If diff-review
+SHIPs → PR → merge on green CI → slice 2.
 | **2** typed receivers | **architect DONE** — awaiting spec (do AFTER decorated) | memo `/tmp/slice2-architect-out.md` |
 | **3** import-scoping/free_multi | **architect DONE** — awaiting spec | memo `/tmp/slice3-architect-out.md` |
 | **1b** inheritance MRO | **architect DONE** — awaiting spec | memo `/tmp/slice1b-architect-out.md` |
