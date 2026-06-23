@@ -275,6 +275,20 @@ fn glob_expand_mixed_hidden_and_unknown_rib_poisons() {
 }
 
 #[test]
+fn glob_expand_visible_plus_unknown_rib_poisons() {
+    // ta's rib for S has a VISIBLE (pub, cfg x) AND an UNDECIDABLE pub(in <unresolved>)
+    // (cfg y) binding. The visible one alone would mint ta::S as a singleton, but the
+    // undecidable same-name member means we cannot prove the glob brings exactly one S ->
+    // must POISON, not mint a WRONG singleton. (final-review BLOCKER: ANY Unknown in the rib
+    // poisons, even with a visible candidate present — `has_unknown`, not just all-filtered.)
+    let src = "mod ta { #[cfg(feature = \"x\")] pub struct S; #[cfg(feature = \"y\")] pub(in crate::ghost) struct S; }\npub use ta::*;\nfn f(){ let _: Option<S>; }\n";
+    let (res, snap, _, _) = single_file_resolve(src, "S>;", "S");
+
+    assert_eq!(res.status, ResStatus::Poisoned);
+    assert_eq!(snap.member_undecidable, 1);
+}
+
+#[test]
 fn glob_expand_respects_member_visibility() {
     let src = "mod m { pub struct S; struct Hidden; }\npub use m::*;\nfn f(){ let _: Option<S>; let _: Option<Hidden>; }\n";
     let (public_res, public_snap, g, fs) = single_file_resolve(src, "S>;", "S");
