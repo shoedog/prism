@@ -707,6 +707,27 @@ impl CallGraph {
         Some(resolved)
     }
 
+    fn self_owner_lookup_same_class(
+        &self,
+        owner: &str,
+        name: &str,
+        caller: &FunctionId,
+    ) -> Option<Vec<ResolvedCallee<'_>>> {
+        let caller_span = *self.method_class_span.get(caller)?;
+        let ids = self.methods.get(&(owner.to_string(), name.to_string()))?;
+        let same_class: Vec<&FunctionId> = ids
+            .iter()
+            .filter(|fid| {
+                fid.file == caller.file && self.method_class_span.get(*fid) == Some(&caller_span)
+            })
+            .collect();
+        match same_class.len() {
+            0 => None,
+            1 => Some(exact(same_class, ResolutionKind::QualifiedOwner)),
+            _ => Some(demoted(same_class, ResolutionKind::QualifiedOwner)),
+        }
+    }
+
     /// Like `owner_lookup`, but for a qualified `mod::T::m` call the preceding
     /// module segments narrow candidates to files under that module — so
     /// `foo::Engine::start()` does NOT also resolve `bar::Engine::start()` (same
@@ -923,7 +944,21 @@ impl CallGraph {
                     || self.receiver_vars.get(caller).map(String::as_str) == Some(q) =>
             {
                 if let Some(owner) = self.method_owners.get(caller) {
-                    if let Some(mut resolved) = self.owner_lookup(owner, name) {
+                    let narrow = matches!(
+                        crate::languages::Language::from_path(&caller.file),
+                        Some(
+                            crate::languages::Language::Python
+                                | crate::languages::Language::JavaScript
+                                | crate::languages::Language::TypeScript
+                                | crate::languages::Language::Tsx
+                        )
+                    );
+                    let looked_up = if narrow {
+                        self.self_owner_lookup_same_class(owner, name, caller)
+                    } else {
+                        self.owner_lookup(owner, name)
+                    };
+                    if let Some(mut resolved) = looked_up {
                         for callee in &mut resolved {
                             if callee.kind == ResolutionKind::QualifiedOwner {
                                 callee.kind = ResolutionKind::SelfReceiver;
@@ -1871,6 +1906,141 @@ mod embedding_kind_tests {
         assert_eq!(unknown.len(), 1);
         assert_eq!(unknown[0].target, &method);
         assert_eq!(unknown[0].confidence, ResolutionConfidence::Exact);
+    }
+}
+
+#[cfg(test)]
+mod self_receiver_same_class_tests {
+    use super::*;
+    use crate::ast::ParsedFile;
+    use crate::languages::Language;
+    use std::collections::BTreeMap;
+
+    fn files(pairs: &[(&str, &str)]) -> BTreeMap<String, ParsedFile> {
+        pairs
+            .iter()
+            .map(|(p, s)| {
+                let lang = Language::from_path(p).expect("known extension");
+                (
+                    (*p).to_string(),
+                    ParsedFile::parse(p, s, lang).expect("parse"),
+                )
+            })
+            .collect()
+    }
+
+    fn resolve_self_call<'a>(
+        cg: &'a CallGraph,
+        caller_file: &str,
+        caller_name: &str,
+        callee: &str,
+    ) -> ResolutionOutcome<'a> {
+        let caller = cg
+            .functions
+            .get(caller_name)
+            .and_then(|v| v.iter().find(|f| f.file == caller_file))
+            .expect("caller fn");
+        let site = cg
+            .calls
+            .get(caller)
+            .and_then(|sites| sites.iter().find(|s| s.callee_name == callee))
+            .expect("call site");
+        cg.resolve_call_site_full(site)
+    }
+
+    #[test]
+    fn self_call_cross_file_collision_resolves_exact_to_caller_class() {
+        let cg = CallGraph::build(&files(&[
+            (
+                "a.py",
+                "class C:\n    def m(self):\n        return 1\n    def run(self):\n        return self.m()\n",
+            ),
+            ("b.py", "class C:\n    def m(self):\n        return 2\n"),
+        ]));
+        let out = resolve_self_call(&cg, "a.py", "run", "m");
+        assert_eq!(out.resolved.len(), 1, "single same-class target");
+        assert_eq!(out.resolved[0].target.file, "a.py");
+        assert_eq!(out.resolved[0].confidence, ResolutionConfidence::Exact);
+        assert_eq!(out.resolved[0].kind, ResolutionKind::SelfReceiver);
+    }
+
+    #[test]
+    fn self_call_absent_on_caller_class_cross_file_drops() {
+        let cg = CallGraph::build(&files(&[
+            (
+                "a.py",
+                "class Widget:\n    def render(self):\n        return 1\n",
+            ),
+            (
+                "b.py",
+                "class Widget:\n    def draw(self):\n        return self.render()\n",
+            ),
+        ]));
+        let out = resolve_self_call(&cg, "b.py", "draw", "render");
+        assert!(
+            out.resolved.is_empty(),
+            "must NOT bind to a.py's unrelated Widget"
+        );
+        assert_eq!(out.drop, Some(DropReason::UnknownName));
+    }
+
+    #[test]
+    fn self_call_same_file_nested_duplicate_class_drops() {
+        let cg = CallGraph::build(&files(&[
+            (
+                "a.py",
+                "def o1():\n    class C:\n        def f(self):\n            return self.m()\ndef o2():\n    class C:\n        def m(self):\n            return 1\n",
+            ),
+            ("b.py", "class C:\n    def m(self):\n        return 2\n"),
+        ]));
+        let out = resolve_self_call(&cg, "a.py", "f", "m");
+        assert!(
+            out.resolved.is_empty(),
+            "o1.C has no m; must not bind to o2.C or b.C"
+        );
+        assert_eq!(out.drop, Some(DropReason::UnknownName));
+    }
+
+    #[test]
+    fn self_call_same_line_duplicate_class_js_drops() {
+        let cg = CallGraph::build(&files(&[(
+            "a.js",
+            "class C { f() { return this.m(); } } class C { m() { return 1; } }\n",
+        )]));
+        let out = resolve_self_call(&cg, "a.js", "f", "m");
+        assert!(
+            out.resolved.is_empty(),
+            "f's class has no m; the same-line other C must not bind"
+        );
+    }
+
+    #[test]
+    fn self_call_static_plus_instance_same_name_nameonly() {
+        let cg = CallGraph::build(&files(&[(
+            "a.js",
+            "class C { static m() {} m() {} run() { return this.m(); } }\n",
+        )]));
+        let out = resolve_self_call(&cg, "a.js", "run", "m");
+        assert_eq!(
+            out.resolved.len(),
+            2,
+            "both same-class same-name candidates kept"
+        );
+        assert!(out
+            .resolved
+            .iter()
+            .all(|c| c.confidence == ResolutionConfidence::NameOnly));
+    }
+
+    #[test]
+    fn go_receiver_var_call_unchanged() {
+        let cg = CallGraph::build(&files(&[(
+            "a.go",
+            "package p\ntype T struct{}\nfunc (r T) other() int { return 1 }\nfunc (r T) run() int { return r.other() }\n",
+        )]));
+        let out = resolve_self_call(&cg, "a.go", "run", "other");
+        assert_eq!(out.resolved.len(), 1);
+        assert_eq!(out.resolved[0].confidence, ResolutionConfidence::Exact);
     }
 }
 
