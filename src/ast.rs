@@ -410,7 +410,7 @@ impl ParsedFile {
     /// on `call_line`. Typed params + constructor locals; when `recover_var` is true
     /// also recovers `var r T` declarations. Only bindings at or before `call_line`
     /// count; >1 binding before the call means shadow bail. Rust + Go +
-    /// guarded Python/JS/TS.
+    /// guarded Python.
     /// Returns the raw, unpeeled type text + which fact recovered it.
     pub fn receiver_type_in_fn(
         &self,
@@ -425,12 +425,7 @@ impl ParsedFile {
 
         if !matches!(
             self.language,
-            Language::Rust
-                | Language::Go
-                | Language::Python
-                | Language::JavaScript
-                | Language::TypeScript
-                | Language::Tsx
+            Language::Rust | Language::Go | Language::Python
         ) {
             return None;
         }
@@ -484,20 +479,6 @@ impl ParsedFile {
                         if self.parameter_binds_name_before_type(param, ty, receiver) {
                             found = Some((
                                 self.node_text(&ty).to_string(),
-                                ReceiverRecovery::TypedParam,
-                            ));
-                            bindings += 1;
-                        }
-                    }
-                    Language::TypeScript | Language::Tsx | Language::JavaScript
-                        if matches!(param.kind(), "required_parameter" | "optional_parameter") =>
-                    {
-                        let Some(ty) = param.child_by_field_name("type") else {
-                            continue;
-                        };
-                        if self.parameter_binds_name_before_type(param, ty, receiver) {
-                            found = Some((
-                                self.type_annotation_text(&ty),
                                 ReceiverRecovery::TypedParam,
                             ));
                             bindings += 1;
@@ -4048,10 +4029,7 @@ impl ParsedFile {
             return;
         }
         if !is_root
-            && matches!(
-                self.language,
-                Language::Python | Language::JavaScript | Language::TypeScript | Language::Tsx
-            )
+            && matches!(self.language, Language::Python)
             && matches!(
                 node.kind(),
                 "class_definition" | "class_declaration" | "class"
@@ -4156,51 +4134,6 @@ impl ParsedFile {
                     }
                 }
             }
-            (
-                Language::JavaScript | Language::TypeScript | Language::Tsx,
-                "variable_declarator",
-            ) => {
-                let name = node.child_by_field_name("name");
-                if let Some(name) = name {
-                    if self.simple_binding_text(&name).as_deref() == Some(receiver) {
-                        *bindings += 1;
-                        if let Some(ty) = node.child_by_field_name("type") {
-                            *found = Some((
-                                self.type_annotation_text(&ty),
-                                ReceiverRecovery::ConstructorLocal,
-                            ));
-                        } else if let Some(value) = node.child_by_field_name("value") {
-                            *found = self
-                                .constructor_type(&value)
-                                .map(|ty| (ty, ReceiverRecovery::ConstructorLocal));
-                        } else {
-                            *found = None;
-                        }
-                    } else if self.node_binds_name(name, receiver) {
-                        *bindings += 1;
-                        *found = None;
-                    }
-                }
-            }
-            (
-                Language::JavaScript | Language::TypeScript | Language::Tsx,
-                "assignment_expression",
-            ) => {
-                let left = node.child_by_field_name("left");
-                if let Some(left) = left {
-                    if self.simple_binding_text(&left).as_deref() == Some(receiver) {
-                        *bindings += 1;
-                        *found = node
-                            .child_by_field_name("right")
-                            .or_else(|| node.child_by_field_name("value"))
-                            .and_then(|value| self.constructor_type(&value))
-                            .map(|ty| (ty, ReceiverRecovery::ConstructorLocal));
-                    } else if self.node_binds_name(left, receiver) {
-                        *bindings += 1;
-                        *found = None;
-                    }
-                }
-            }
             (Language::Go, "assignment_statement") | (Language::Rust, "assignment_expression") => {
                 let left = node
                     .child_by_field_name("left")
@@ -4272,18 +4205,6 @@ impl ParsedFile {
                     return Some(text.to_string());
                 }
                 None
-            }
-            "new_expression"
-                if matches!(
-                    self.language,
-                    Language::JavaScript | Language::TypeScript | Language::Tsx
-                ) =>
-            {
-                let ty = node
-                    .child_by_field_name("type")
-                    .or_else(|| node.child_by_field_name("constructor"))
-                    .or_else(|| node.named_child(0))?;
-                Some(self.node_text(&ty).to_string())
             }
             "struct_expression" | "composite_literal" => {
                 let ty = node
@@ -4364,11 +4285,6 @@ impl ParsedFile {
             }
         }
         false
-    }
-
-    fn type_annotation_text(&self, node: &Node<'_>) -> String {
-        let text = self.node_text(node).trim();
-        text.strip_prefix(':').unwrap_or(text).trim().to_string()
     }
 
     /// Extract the parameter name from a parameter declaration node.

@@ -2831,27 +2831,21 @@ fn py_recovered_multi_owner_hit_preserves_nameonly_confidence() {
 }
 
 #[test]
-fn js_new_constructor_recovers_but_bare_call_does_not() {
+fn js_new_constructor_and_bare_call_do_not_recover() {
     use prism::languages::Language::JavaScript;
-    use prism::resolution::ReceiverRecovery;
     let (cg, _) = build(&[(
         "svc.js",
         "class Foo { m() {} }\nclass Other { m() {} }\nfunction made() { const x = new Foo(); x.m(); }\nfunction factory() { const x = Foo(); x.m(); }\n",
         JavaScript,
     )]);
     let made = site_in(&cg, "made", "m");
-    assert_eq!(made.receiver_type.as_deref(), Some("Foo"));
-    assert_eq!(
-        made.receiver_recovery,
-        Some(ReceiverRecovery::ConstructorLocal)
-    );
-    let r = cg.resolve_call_site(&made);
-    assert_eq!(r.len(), 1);
-    assert_eq!(r[0].target.file, "svc.js");
-    assert_eq!(r[0].kind, ResolutionKind::ConstructorLocal);
+    assert_eq!(made.receiver_type, None);
+    assert!(!made.receiver_materialized);
+    assert!(cg.resolve_call_site(&made).is_empty());
 
     let factory = site_in(&cg, "factory", "m");
     assert_eq!(factory.receiver_type, None);
+    assert!(!factory.receiver_materialized);
     assert!(cg.resolve_call_site(&factory).is_empty());
 }
 

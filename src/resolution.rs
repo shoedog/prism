@@ -345,18 +345,13 @@ impl ReceiverRecoveryConfig {
 /// Inner gate + scan shared by `legacy_recover` and `ExpandedClassifier`.
 /// Runs the qualifier/keyword/recv-var gate, then the typed-param /
 /// constructor-local scan (and optionally `var` declarations when `recover_var`
-/// is true), peeled + owner-keyed. Python/JS/TS still scan when the qualifier
-/// also names an import so local receiver bindings can suppress R3.
+/// is true), peeled + owner-keyed. Python still scans when the qualifier also
+/// names an import so local receiver bindings can suppress R3.
 fn classify_simple_ident(ctx: &ReceiverCtx<'_>, recover_var: bool) -> ReceiverClassification {
     use crate::languages::Language;
     if !matches!(
         ctx.parsed.language,
-        Language::Rust
-            | Language::Go
-            | Language::Python
-            | Language::JavaScript
-            | Language::TypeScript
-            | Language::Tsx
+        Language::Rust | Language::Go | Language::Python
     ) {
         return ReceiverClassification::none();
     }
@@ -370,12 +365,7 @@ fn classify_simple_ident(ctx: &ReceiverCtx<'_>, recover_var: bool) -> ReceiverCl
     if !(simple && !is_kw && !is_recv) {
         return ReceiverClassification::none();
     }
-    if is_import
-        && !matches!(
-            ctx.parsed.language,
-            Language::Python | Language::JavaScript | Language::TypeScript | Language::Tsx
-        )
-    {
+    if is_import && !matches!(ctx.parsed.language, Language::Python) {
         return ReceiverClassification::none();
     }
     let Some((ty, how)) = ctx.parsed.receiver_type_in_fn(
@@ -388,12 +378,10 @@ fn classify_simple_ident(ctx: &ReceiverCtx<'_>, recover_var: bool) -> ReceiverCl
         return ReceiverClassification::none();
     };
     let static_type = owner_key(&peel_type(&ty));
-    if matches!(
-        ctx.parsed.language,
-        Language::Python | Language::JavaScript | Language::TypeScript | Language::Tsx
-    ) && ctx
-        .file_imports
-        .is_some_and(|m| m.contains_key(&static_type) || m.contains_key("*"))
+    if matches!(ctx.parsed.language, Language::Python)
+        && ctx
+            .file_imports
+            .is_some_and(|m| m.contains_key(&static_type) || m.contains_key("*"))
     {
         return ReceiverClassification::materialized_only();
     }
@@ -403,7 +391,7 @@ fn classify_simple_ident(ctx: &ReceiverCtx<'_>, recover_var: bool) -> ReceiverCl
     })
 }
 
-/// PR-1 P6-lite recovery shape with `recover_var = false`. Python/JS/TS keep the
+/// PR-1 P6-lite recovery shape with `recover_var = false`. Python keeps the
 /// materialized-receiver shadowing fix from the shared classifier.
 pub fn legacy_recover(ctx: &ReceiverCtx<'_>) -> Option<RecoveredReceiver> {
     classify_simple_ident(ctx, false).recovered
@@ -1054,15 +1042,9 @@ impl CallGraph {
                 // for these sites.
                 let rust_recv_materialized = caller_lang == Some(crate::languages::Language::Rust)
                     && site.receiver_outcome.is_some();
-                let recovered_recv_materialized = matches!(
-                    caller_lang,
-                    Some(
-                        crate::languages::Language::Python
-                            | crate::languages::Language::JavaScript
-                            | crate::languages::Language::TypeScript
-                            | crate::languages::Language::Tsx
-                    )
-                ) && site.receiver_materialized;
+                let recovered_recv_materialized =
+                    matches!(caller_lang, Some(crate::languages::Language::Python))
+                        && site.receiver_materialized;
                 let recv_materialized = rust_recv_materialized || recovered_recv_materialized;
 
                 // R3: imported-module qualifier. If an import matches, the
@@ -1240,12 +1222,7 @@ impl CallGraph {
                         }
                         None if !matches!(
                             caller_lang,
-                            Some(
-                                crate::languages::Language::Python
-                                    | crate::languages::Language::JavaScript
-                                    | crate::languages::Language::TypeScript
-                                    | crate::languages::Language::Tsx
-                            )
+                            Some(crate::languages::Language::Python)
                         ) =>
                         {
                             return ResolutionOutcome::dropped(DropReason::ExternalReceiver);
