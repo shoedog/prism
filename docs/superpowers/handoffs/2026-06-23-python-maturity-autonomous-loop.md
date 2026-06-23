@@ -33,7 +33,7 @@ commit trailer `Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.
 | Slice | Stage | Branch / artifacts |
 |---|---|---|
 | **1a** self same-class | **MERGED** (#131, rebase, main `184208a`) | — |
-| **decorated** double-capture | **PR #132 OPEN** (diff-review SHIP-WITH-FIXES folded) — **CI pending → auto-merge on green** (watcher b7hhtefol) | `decorated-double-capture`, tip `f874812` |
+| **decorated** double-capture | **✅ MERGED (#132, rebase, main `2b4641a`)** — all CI green incl. Coverage | — |
 
 **Decorated acceptance (deco vs current-main, both have #131):** pydantic `self_receiver` +79 / `qualifier_owner`
 +20 / `free_single` +178 Exact (precision buy); large correct **duplicate-edge collapse** (decorated body
@@ -49,7 +49,7 @@ function's byte-range call/DFG scan attributes a nested `def`'s calls + the `@de
 enclosing fn — VERIFIED on main for an undecorated `outer`/`inner`, so NOT introduced here; needs a
 cross-cutting "belongs-to-this-body" predicate across `function_calls_*`/DFG/callees = its own slice; PR
 #132 body documents it). **NEXT after #132 merges: slice 2 (typed receivers) off merged main.**
-| **2** typed receivers | **architect DONE** — awaiting spec (do AFTER decorated) | memo `/tmp/slice2-architect-out.md` |
+| **2** typed receivers | **IN PROGRESS — spec being written** off merged main | `slice2-typed-receivers` (wt `/tmp/prism-slice2`), memo `/tmp/slice2-architect-out.md` |
 | **3** import-scoping/free_multi | **architect DONE** — awaiting spec | memo `/tmp/slice3-architect-out.md` |
 | **1b** inheritance MRO | **architect DONE** — awaiting spec | memo `/tmp/slice1b-architect-out.md` |
 
