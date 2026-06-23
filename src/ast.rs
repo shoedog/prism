@@ -981,6 +981,422 @@ impl ParsedFile {
         }
     }
 
+    // -------------------------------------------------------------------
+    // R4c: structured import-binding extraction (parallel to extract_imports)
+    // -------------------------------------------------------------------
+
+    /// Extract structured import bindings from Python/JS/TS files.
+    /// Returns one `ImportBinding` per import clause.
+    pub fn extract_import_bindings(&self) -> Vec<crate::call_graph::ImportBinding> {
+        let mut out = Vec::new();
+        match self.language {
+            Language::Python => {
+                self.collect_python_import_bindings(self.tree.root_node(), &mut out)
+            }
+            Language::JavaScript | Language::TypeScript | Language::Tsx => {
+                self.collect_js_import_bindings(self.tree.root_node(), &mut out)
+            }
+            _ => {}
+        }
+        out
+    }
+
+    fn collect_python_import_bindings(
+        &self,
+        node: Node<'_>,
+        out: &mut Vec<crate::call_graph::ImportBinding>,
+    ) {
+        use crate::call_graph::{ImportBinding, ImportBindingKind};
+        match node.kind() {
+            "import_statement" => {
+                let mut cursor = node.walk();
+                for child in node.children(&mut cursor) {
+                    match child.kind() {
+                        "dotted_name" => {
+                            let name = self.node_text(&child).to_string();
+                            let alias = name.rsplit('.').next().unwrap_or(&name).to_string();
+                            out.push(ImportBinding {
+                                local: alias,
+                                module_path: name,
+                                member: None,
+                                kind: ImportBindingKind::ModuleImport,
+                                eligible: false, // module imports don't resolve unqualified calls
+                            });
+                        }
+                        "aliased_import" => {
+                            let module = child
+                                .child_by_field_name("name")
+                                .map(|n| self.node_text(&n).to_string());
+                            let alias = child
+                                .child_by_field_name("alias")
+                                .map(|n| self.node_text(&n).to_string());
+                            if let (Some(module), Some(alias)) = (module, alias) {
+                                out.push(ImportBinding {
+                                    local: alias,
+                                    module_path: module,
+                                    member: None,
+                                    kind: ImportBindingKind::ModuleImport,
+                                    eligible: false,
+                                });
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+            }
+            "import_from_statement" => {
+                let module = node
+                    .child_by_field_name("module_name")
+                    .map(|n| self.node_text(&n).to_string())
+                    .or_else(|| {
+                        let mut cursor = node.walk();
+                        for child in node.children(&mut cursor) {
+                            if child.kind() == "dotted_name" || child.kind() == "relative_import" {
+                                return Some(self.node_text(&child).to_string());
+                            }
+                        }
+                        None
+                    });
+                if let Some(module) = module {
+                    let mut cursor = node.walk();
+                    for child in node.children(&mut cursor) {
+                        match child.kind() {
+                            "dotted_name" | "identifier" => {
+                                let name = self.node_text(&child).to_string();
+                                if name != module {
+                                    out.push(ImportBinding {
+                                        local: name.clone(),
+                                        module_path: module.clone(),
+                                        member: Some(name),
+                                        kind: ImportBindingKind::MemberImport,
+                                        eligible: true, // eligibility set later
+                                    });
+                                }
+                            }
+                            "aliased_import" => {
+                                let original = child
+                                    .child_by_field_name("name")
+                                    .map(|n| self.node_text(&n).to_string());
+                                let alias = child
+                                    .child_by_field_name("alias")
+                                    .map(|n| self.node_text(&n).to_string());
+                                if let Some(alias) = alias {
+                                    out.push(ImportBinding {
+                                        local: alias,
+                                        module_path: module.clone(),
+                                        member: original,
+                                        kind: ImportBindingKind::MemberImport,
+                                        eligible: true,
+                                    });
+                                }
+                            }
+                            "wildcard_import" => {
+                                out.push(ImportBinding {
+                                    local: "*".to_string(),
+                                    module_path: module.clone(),
+                                    member: None,
+                                    kind: ImportBindingKind::WildcardImport,
+                                    eligible: false,
+                                });
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+            }
+            _ => {
+                let mut cursor = node.walk();
+                for child in node.children(&mut cursor) {
+                    self.collect_python_import_bindings(child, out);
+                }
+            }
+        }
+    }
+
+    fn collect_js_import_bindings(
+        &self,
+        node: Node<'_>,
+        out: &mut Vec<crate::call_graph::ImportBinding>,
+    ) {
+        use crate::call_graph::{ImportBinding, ImportBindingKind};
+        match node.kind() {
+            "import_statement" => {
+                let source = node.child_by_field_name("source").map(|n| {
+                    let text = self.node_text(&n);
+                    text.trim_matches(|c| c == '\'' || c == '"').to_string()
+                });
+                if let Some(module_path) = source {
+                    let mut cursor = node.walk();
+                    for child in node.children(&mut cursor) {
+                        match child.kind() {
+                            "import_clause" => {
+                                self.collect_js_import_clause_bindings(&child, &module_path, out);
+                            }
+                            "identifier" => {
+                                let name = self.node_text(&child).to_string();
+                                out.push(ImportBinding {
+                                    local: name,
+                                    module_path: module_path.clone(),
+                                    member: None,
+                                    kind: ImportBindingKind::ModuleImport,
+                                    eligible: false, // default import = module
+                                });
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+            }
+            _ => {
+                let mut cursor = node.walk();
+                for child in node.children(&mut cursor) {
+                    self.collect_js_import_bindings(child, out);
+                }
+            }
+        }
+    }
+
+    fn collect_js_import_clause_bindings(
+        &self,
+        node: &Node<'_>,
+        module_path: &str,
+        out: &mut Vec<crate::call_graph::ImportBinding>,
+    ) {
+        use crate::call_graph::{ImportBinding, ImportBindingKind};
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            match child.kind() {
+                "identifier" => {
+                    let name = self.node_text(&child).to_string();
+                    out.push(ImportBinding {
+                        local: name.clone(),
+                        module_path: module_path.to_string(),
+                        member: Some("default".to_string()),
+                        kind: ImportBindingKind::ModuleImport,
+                        eligible: false,
+                    });
+                }
+                "named_imports" => {
+                    let mut inner = child.walk();
+                    for spec in child.children(&mut inner) {
+                        if spec.kind() == "import_specifier" {
+                            let name = spec
+                                .child_by_field_name("name")
+                                .map(|n| self.node_text(&n).to_string());
+                            let alias = spec
+                                .child_by_field_name("alias")
+                                .map(|n| self.node_text(&n).to_string());
+                            let local = alias.clone().or_else(|| name.clone());
+                            if let Some(local) = local {
+                                out.push(ImportBinding {
+                                    local,
+                                    module_path: module_path.to_string(),
+                                    member: name,
+                                    kind: ImportBindingKind::MemberImport,
+                                    eligible: true,
+                                });
+                            }
+                        }
+                    }
+                }
+                "namespace_import" => {
+                    // `import * as utils from './mod'` — not a wildcard poison;
+                    // it's a namespace binding (module import).
+                    let ident = child.child_by_field_name("name");
+                    let ident = if ident.is_some() {
+                        ident
+                    } else {
+                        let mut inner = child.walk();
+                        let found = child
+                            .children(&mut inner)
+                            .find(|c| c.kind() == "identifier");
+                        found
+                    };
+                    if let Some(id) = ident {
+                        out.push(ImportBinding {
+                            local: self.node_text(&id).to_string(),
+                            module_path: module_path.to_string(),
+                            member: None,
+                            kind: ImportBindingKind::ModuleImport,
+                            eligible: false,
+                        });
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+
+    // -------------------------------------------------------------------
+    // R4c: module-scope binding extraction (occurrence-clean eligibility)
+    // -------------------------------------------------------------------
+
+    /// Extract module-scope binding kinds from Python/JS/TS files.
+    /// Only walks direct children of the module root (top-level bindings).
+    pub fn extract_module_bindings(
+        &self,
+    ) -> BTreeMap<String, crate::call_graph::ModuleBindingKind> {
+        use crate::call_graph::ModuleBindingKind;
+        let mut out = BTreeMap::new();
+        let root = self.tree.root_node();
+        let mut cursor = root.walk();
+        for child in root.children(&mut cursor) {
+            match child.kind() {
+                // Python
+                "import_statement" | "import_from_statement" => {
+                    // Import names are tracked via import_bindings, but we also
+                    // record them as Import bindings for the occurrence-clean check.
+                    let mut ic = child.walk();
+                    for c in child.children(&mut ic) {
+                        match c.kind() {
+                            "dotted_name" => {
+                                let name = self.node_text(&c).to_string();
+                                let alias = name.rsplit('.').next().unwrap_or(&name).to_string();
+                                out.entry(alias).or_insert(ModuleBindingKind::Import);
+                            }
+                            "aliased_import" => {
+                                if let Some(a) = c.child_by_field_name("alias") {
+                                    out.entry(self.node_text(&a).to_string())
+                                        .or_insert(ModuleBindingKind::Import);
+                                }
+                            }
+                            "identifier" => {
+                                let name = self.node_text(&c).to_string();
+                                // Skip module name in import_from_statement
+                                if child.kind() == "import_from_statement" {
+                                    if let Some(mod_name) = child
+                                        .child_by_field_name("module_name")
+                                        .map(|n| self.node_text(&n).to_string())
+                                    {
+                                        if name == mod_name {
+                                            continue;
+                                        }
+                                    }
+                                }
+                                out.entry(name).or_insert(ModuleBindingKind::Import);
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+                "class_definition" | "class_declaration" => {
+                    if let Some(name) = child.child_by_field_name("name") {
+                        out.insert(
+                            self.node_text(&name).to_string(),
+                            ModuleBindingKind::ClassDef,
+                        );
+                    }
+                }
+                "function_definition" | "function_declaration" => {
+                    if let Some(name) = self.language.function_name(&child) {
+                        out.insert(
+                            self.node_text(&name).to_string(),
+                            ModuleBindingKind::FunctionDef,
+                        );
+                    }
+                }
+                "decorated_definition" => {
+                    // Unwrap to inner class/function
+                    let mut dc = child.walk();
+                    for inner in child.children(&mut dc) {
+                        match inner.kind() {
+                            "class_definition" | "class_declaration" => {
+                                if let Some(name) = inner.child_by_field_name("name") {
+                                    out.insert(
+                                        self.node_text(&name).to_string(),
+                                        ModuleBindingKind::ClassDef,
+                                    );
+                                }
+                            }
+                            "function_definition" | "function_declaration" => {
+                                if let Some(name) = self.language.function_name(&inner) {
+                                    out.insert(
+                                        self.node_text(&name).to_string(),
+                                        ModuleBindingKind::FunctionDef,
+                                    );
+                                }
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+                "expression_statement" => {
+                    // `x = ...` at module level
+                    let mut ec = child.walk();
+                    for inner in child.children(&mut ec) {
+                        if inner.kind() == "assignment" {
+                            if let Some(left) = inner.child_by_field_name("left") {
+                                if left.kind() == "identifier" {
+                                    out.insert(
+                                        self.node_text(&left).to_string(),
+                                        ModuleBindingKind::Assignment,
+                                    );
+                                }
+                            }
+                        }
+                    }
+                }
+                // JS/TS: variable declarations, exported functions/classes
+                "lexical_declaration" | "variable_declaration" => {
+                    let mut vc = child.walk();
+                    for decl in child.children(&mut vc) {
+                        if decl.kind() == "variable_declarator" {
+                            if let Some(name) = decl.child_by_field_name("name") {
+                                if name.kind() == "identifier" {
+                                    out.insert(
+                                        self.node_text(&name).to_string(),
+                                        ModuleBindingKind::Assignment,
+                                    );
+                                }
+                            }
+                        }
+                    }
+                }
+                "export_statement" => {
+                    let mut ec = child.walk();
+                    for inner in child.children(&mut ec) {
+                        match inner.kind() {
+                            "class_declaration" => {
+                                if let Some(name) = inner.child_by_field_name("name") {
+                                    out.insert(
+                                        self.node_text(&name).to_string(),
+                                        ModuleBindingKind::ClassDef,
+                                    );
+                                }
+                            }
+                            "function_declaration" => {
+                                if let Some(name) = self.language.function_name(&inner) {
+                                    out.insert(
+                                        self.node_text(&name).to_string(),
+                                        ModuleBindingKind::FunctionDef,
+                                    );
+                                }
+                            }
+                            "lexical_declaration" | "variable_declaration" => {
+                                let mut vc = inner.walk();
+                                for decl in inner.children(&mut vc) {
+                                    if decl.kind() == "variable_declarator" {
+                                        if let Some(name) = decl.child_by_field_name("name") {
+                                            if name.kind() == "identifier" {
+                                                out.insert(
+                                                    self.node_text(&name).to_string(),
+                                                    ModuleBindingKind::Assignment,
+                                                );
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+        out
+    }
+
     fn collect_go_imports(&self, node: Node<'_>, out: &mut BTreeMap<String, String>) {
         match node.kind() {
             "import_declaration" => {
