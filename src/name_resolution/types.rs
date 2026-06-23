@@ -433,7 +433,7 @@ pub struct Edge {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum GlobEdgeVis {
+pub enum VisibilityDecision {
     Visible,
     Hidden,
     Unknown,
@@ -584,8 +584,8 @@ pub trait ResolutionPolicy {
         _edge: &Edge,
         _q: &ResolveQuery,
         _trav: &TraversalCtx,
-    ) -> GlobEdgeVis {
-        GlobEdgeVis::Visible
+    ) -> VisibilityDecision {
+        VisibilityDecision::Visible
     }
 
     /// Map a path anchor (`crate::`, `self::`, `super::`, bare ident, `::`) to

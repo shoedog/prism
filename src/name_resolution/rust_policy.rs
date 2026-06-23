@@ -30,7 +30,7 @@
 
 use crate::name_resolution::graph::ScopeGraph;
 use crate::name_resolution::types::{
-    Anchor, AnchorKind, Binding, Candidate, Edge, EdgeKindId, GlobEdgeVis, NamespaceId, ResStatus,
+    Anchor, AnchorKind, Binding, Candidate, Edge, EdgeKindId, VisibilityDecision, NamespaceId, ResStatus,
     Resolution, ResolutionPolicy, ResolveQuery, ScopeId, ScopeKind, TraversalCtx, Vis, VisKindId,
 };
 
@@ -248,11 +248,11 @@ impl ResolutionPolicy for RustPolicy<'_> {
         edge: &Edge,
         q: &ResolveQuery,
         _trav: &TraversalCtx,
-    ) -> GlobEdgeVis {
+    ) -> VisibilityDecision {
         match self.vis_reaches(&edge.vis, edge.from, q.from) {
-            Some(true) => GlobEdgeVis::Visible,
-            Some(false) => GlobEdgeVis::Hidden,
-            None => GlobEdgeVis::Unknown,
+            Some(true) => VisibilityDecision::Visible,
+            Some(false) => VisibilityDecision::Hidden,
+            None => VisibilityDecision::Unknown,
         }
     }
 
