@@ -33,10 +33,19 @@ commit trailer `Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.
 | Slice | Stage | Branch / artifacts |
 |---|---|---|
 | **1a** self same-class | **MERGED** (#131, rebase, main `184208a`) | — |
-| **decorated** double-capture | spec rev 1 written → spec-review SHIP-WITH-FIXES → **folding to rev 2** | `decorated-double-capture` (wt `/tmp/prism-decorated`), spec `b1f79db` |
-| **1b** inheritance MRO | architect RUNNING (port 8221) | — |
+| **decorated** double-capture | **spec SOUND (rev 3)** — 2 reviews folded → **writing-plans** | `decorated-double-capture` (wt `/tmp/prism-decorated`), spec `ccb06b6` |
+| **1b** inheritance MRO | **architect DONE** (memo `/tmp/slice1b-architect-out.md`) — awaiting spec | — |
 | **2** typed receivers | architect RUNNING (port 8219) | — |
 | **3** import-scoping/free_multi | architect RUNNING (port 8220) | — |
+
+**1b architect gist (small buy — sequence LAST):** only **16 in-repo inherited self/this sites** (FastAPI
+12, Pydantic 4, Excalidraw 0); external bases (Starlette/React/unittest/builtins) dominate = SCIP, out of
+scope. Design (Option A): span-keyed `class_bases: BTreeMap<ClassId,Vec<ClassBaseLink>>` on CallGraph
+(preserve 1a's `(file,class_span)` identity — NOT bare-name, else reintroduces collisions); after
+same-class miss, walk bases filtered by `(base.file,base.span)`; external/ambiguous bases = MRO barriers
+(drop, don't guess); conservative MRO (Exact only for single unambiguous provider). CACHE bump from v22.
+`python/inherited_override` Tier-A fixture is currently `c.go()` on an untyped param (NOT inherited self) —
+needs a new fixture. Low value → do after 2 & 3.
 
 ## Decorated slice — design + open review findings (folding to spec rev 2)
 **Design:** wrapper-canonical — at extraction, skip the inner `function_definition` when its parent is a
