@@ -4,4 +4,5 @@ mod algo_expand_test;
 mod common;
 mod lang_test;
 mod self_receiver_test;
+mod typed_receiver_test;
 mod typescript_test;
