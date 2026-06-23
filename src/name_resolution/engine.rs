@@ -26,7 +26,7 @@
 use crate::name_resolution::glob_stats::GlobExpandStats;
 pub use crate::name_resolution::graph::ScopeGraph;
 use crate::name_resolution::types::{
-    Anchor, BindTarget, Binding, Candidate, CfgCond, CfgCtx, GlobEdgeVis, NamespaceId,
+    Anchor, BindTarget, Binding, Candidate, CfgCond, CfgCtx, VisibilityDecision, NamespaceId,
     PolicyQueryCtx, ResStatus, Resolution, ResolutionPolicy, ResolveQuery, ScopeId, SourceLoc,
     Target, TraversalCtx,
 };
@@ -381,12 +381,12 @@ fn glob_lookup(
             edge_kind: Some(e.kind),
         };
         match policy.glob_edge_visible(e, q, &trav) {
-            GlobEdgeVis::Hidden => continue,
-            GlobEdgeVis::Unknown => {
+            VisibilityDecision::Hidden => continue,
+            VisibilityDecision::Unknown => {
                 guard.stats().record_vis_unknown();
                 return GlobOutcome::Poison;
             }
-            GlobEdgeVis::Visible => {}
+            VisibilityDecision::Visible => {}
         }
         saw_glob = true;
         match &e.to {
