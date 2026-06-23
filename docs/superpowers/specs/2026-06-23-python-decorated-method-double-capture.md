@@ -1,142 +1,138 @@
-# Python Decorated-Method Double-Capture — Wrapper-Canonical Extraction — Design (2026-06-23)
+# Python Decorated-Method Double-Capture — Wrapper-Canonical Extraction — Design (2026-06-23, rev 2)
 
-> The next Python precision slice after self-receiver same-class narrowing (PR #131, this branch's base).
-> Basis: the codex xhigh architect analysis (2026-06-23) — this spec formalizes its recommendation
-> (Option A, wrapper-canonical) into the design-of-record. **Stacks on #131** (the decorated fix touches the
-> same `CallGraph` build paths that #131's `method_class_span` lives in; branch `decorated-double-capture`
-> is off the self-receiver HEAD and merges after #131).
+> The next Python precision slice after self-receiver same-class narrowing (#131, merged). Basis: the codex
+> xhigh architect analysis + spec-review. **Stacks on #131** (branch `decorated-double-capture`, rebased
+> onto merged `main`).
+>
+> **Rev 2 — codex spec-review fold (SHIP-WITH-FIXES; core design holds, completeness fixes):** (BLOCKER) the
+> param-unwrap companion was incomplete — **centralize** canonicalization at one point and add a single
+> `unwrap_decorated` helper used by EVERY function-node-consuming helper (params, body, statements,
+> statement-spans, return-values). (MAJOR) NOT "Python-only" — **C++ templates have the same wrapper/inner
+> capture shape** (`template_declaration` + `function_definition`); reworded to "Python decorator wrapper",
+> C++ template canonicalization explicitly **deferred** + a C++ **no-change canary** added. (MAJOR) the
+> nav **inventory** currently keeps the *inner* and drops the wrapper — wrapper-canonical **inverts** that;
+> contract decided + test updated. (MAJOR) the **manual fallback** collector reintroduces the duplicate —
+> covered by centralizing before `FunctionInfo`. (MINOR) start-line churn + acceptance test list expanded.
 
 ## 1. Problem (verified)
 
 prism captures every **decorated Python** function/method as **TWO** `FunctionId`s — the outer
-`decorated_definition` (wrapper) AND the inner `function_definition` — with the same logical name and owner
-but distinct line spans. Consequence: **every call to a decorated method/function** resolves to ≥2 same
-candidates and **demotes to NameOnly** (or, for free functions, mints duplicate Exact edges).
+`decorated_definition` (wrapper) AND the inner `function_definition` — same logical name/owner, distinct
+spans. So **every call to a decorated method/function** resolves to ≥2 candidates → **NameOnly** (methods)
+or **duplicate Exact `LocalDef` edges** (free functions).
 
-**Verification (codex, with evidence):**
-- The functions query captures both node kinds as `@func`: `src/queries.rs:90-97`.
-- `ParsedFile::all_functions_via_tree` pushes every capture with **no de-dup** (`src/ast.rs:318-337`);
-  `build_function_table` turns each into a `FunctionInfo` (`src/ast.rs:346-370`).
-- They normalize to the same name/owner — `Language::function_name` maps a `decorated_definition` to the
-  inner name (`src/languages/mod.rs:907-918`); `Language::method_owner` normalizes the inner up to its
-  `decorated_definition` parent before finding the class (`src/languages/mod.rs:1084-1099`) — but
-  `FunctionId` identity is `(file, name, start_line, end_line)` (`src/call_graph.rs:20-25`), so wrapper and
-  inner are **distinct ids**.
-- The call graph indexes both into `functions`/`methods`/`method_owners` in all three builders
-  (`src/call_graph.rs:491-548`, `:276-303`, `:1478-1507`).
-- Live evidence: `eval/fixtures/python/decorator_wrapped/app.py` (`@functools.cache` line 3, `def handler`
-  line 4) → `nav_nodes_at` reports two `handler` Function items (span `3-5` and `4-5`); `nav_callees(run)`
-  reports BOTH as callees for the single `handler(1)` call.
+**Evidence:** Functions query captures both (`src/queries.rs:92-96`); `all_functions_via_tree` pushes every
+capture with no de-dup (`src/ast.rs:318-337`); `build_function_table` → `FunctionInfo` per node
+(`src/ast.rs:347-370`); `function_name`/`method_owner` normalize wrapper→inner name/owner
+(`src/languages/mod.rs:907-918`, `:1084-1099`) but `FunctionId` is `(file,name,start_line,end_line)`
+(`src/call_graph.rs:20-25`) → distinct ids; both indexed in all 3 builders (`src/call_graph.rs:504-553`,
+`:276-303`, `:1478-1507`). Live: `eval/fixtures/python/decorator_wrapped/app.py` → two `handler` Function
+nodes, both reported as callees for one call.
 
-**Python-only.** JS/TS do **not** double-capture: their grammar nests decorators inside
-`method_definition` (no separate wrapper node); prism's JS/TS queries capture the inner method/arrow only
-(`src/queries.rs:98-115`). So this slice is **Python-only**; JS/TS get guard fixtures, no behavior change.
+### 1.1 Scope of the capture shape (rev-2 correction)
+- **Python decorator wrapper: IN scope** (this slice). The `decorated_definition`+`function_definition`
+  pair is the target.
+- **JS/TS: not affected** — decorators nest inside `method_definition`; queries capture the inner only
+  (`src/queries.rs:98-115`). No behavior change; add a guard fixture.
+- **C++ templates: SAME shape, OUT of scope (deferred).** `template_declaration` + `function_definition`
+  are both captured (`src/queries.rs:129-133`); `template_declaration` is a function node
+  (`src/languages/mod.rs:105`) with wrapper name/owner normalization (`:921-929`, `:1127-1135`). This is a
+  *separate* double-capture; this slice must **not** change C++ (add a **no-change canary**), and a later
+  slice can apply the same canonicalization to C++ templates.
 
 ## 2. Impact
-
-A **precision** bug (not primarily recall — both physical edges usually survive; the damage is confidence
-downgrade + duplicate graph nodes/edges + double body-scan), with broad reach:
-- **`self`/`this`/`cls`** (post-#131 same-class narrowing still demotes when `same_class.len() > 1`):
-  `src/resolution.rs` self arm.
-- **`Cls.helper()` / qualifier-owner** and **typed-receiver R6** route through `owner_lookup`, which demotes
-  a >1 same-owner pool — decorated methods lose Exact there too.
-- **Free decorated functions** are worse: local free calls can become **multiple Exact `LocalDef` edges**
-  (no singleton check on the local-free path) — a duplicate-Exact precision bug, not just a demotion.
-- **Caller side:** call-site extraction iterates `all_functions()` again (`src/call_graph.rs:582-643`) and
-  scans the whole function byte range, so a decorated body is scanned **twice** → duplicate outgoing caller
-  identities.
-
-**Size:** ~418 of ~2,066 pydantic class methods (~20%) are decorated (`@property`/`@*validator`/
-`@staticmethod`/…); it affects ALL calls to them, not only self-calls. This is the residual that slice 1a
-(self same-class narrowing) explicitly could not fix — plausibly a **larger precision lever than 1a**.
+Precision bug, broad reach (`self`/`this`/`cls` post-#131 still demotes on `len>1`; `Cls.helper()` /
+qualifier-owner + typed-receiver R6 via `owner_lookup` demote; **free decorated functions → multiple Exact
+`LocalDef` edges** — the local-free arm returns all local candidates with no singleton guard,
+`src/resolution.rs:1238-1255`). Caller side: the decorated body is scanned twice (`all_functions` reused at
+`src/call_graph.rs:~582-643`) → duplicate outgoing caller identities. Size: ~418/2066 (~20%) pydantic class
+methods decorated; affects ALL their calls. This is the residual slice 1a could not fix.
 
 ## 3. Goal
-
-**One canonical `FunctionId` per decorated Python definition (wrapper-canonical):** at extraction, keep the
-`decorated_definition` node as the single logical function and **skip its inner `function_definition`**.
-This removes the duplicate id, the duplicate CPG node, and the double body-scan; preserves decorator-line
-ownership; and aligns with the consumers that already treat the wrapper as the entry (framework detection,
-scope-honesty).
+**One canonical `FunctionId` per decorated Python definition (wrapper-canonical):** keep the
+`decorated_definition` wrapper as the single logical function; **drop the inner `function_definition`**.
+Removes the duplicate id / CPG node / double body-scan; preserves decorator-line ownership; aligns with the
+consumers that already treat the wrapper as the entry (`scope_honesty` entry-root, framework detection).
 
 ## 4. Mechanism
 
-### 4.1 Canonicalize at extraction (the core)
-In `ParsedFile` function collection (`all_functions_via_tree` / `build_function_table`,
-`src/ast.rs:318-370`): when a captured `function_definition`'s **parent is a `decorated_definition`**, skip
-the inner node (the wrapper is already captured and carries the same name via `function_name`). Do **not**
-collapse arbitrary same-`(owner,name)` definitions — `@overload` stubs, property getter/setter pairs, and
-intentional redefinitions are distinct functions and must stay distinct (§7).
+### 4.1 Centralize canonicalization (covers BOTH extraction paths — BLOCKER fold)
+Apply ONE canonical filter before `FunctionInfo` records are built, so **both** the query path
+(`all_functions_via_tree`, `src/ast.rs:318-337`) and the **manual fallback** (`collect_functions_manual`,
+`src/ast.rs:466-474`, reachable via the reconstruction fallback `src/ast.rs:286-288`) drop the inner: for a
+captured `function_definition` whose **parent is a `decorated_definition`** (Python only), skip it (the
+wrapper is already captured and carries the same name via `function_name`). Do NOT collapse arbitrary
+same-`(owner,name)` defs — `@overload` stubs, getter/setter pairs, redefinitions are distinct and stay
+distinct (the predicate is structural parent-child, matching the trusted `scope_honesty.rs:364-370`
+discriminator). Centralizing (vs filtering each path) prevents the fallback from reintroducing the dup.
 
-### 4.2 Companion: parameter/signature unwrap (REQUIRED — else DFG breaks)
-With the wrapper as canonical, parameter/signature helpers must unwrap it. `find_parameters_node`
-(`src/ast.rs:3920-3931`) currently only checks direct `parameters`/`declarator` fields → a
-`decorated_definition` yields **no parameters**. Add: if the node is a `decorated_definition`, descend to
-its inner `function_definition` before locating `parameters`. Audit sibling signature/body helpers
-(body-range, return-type, receiver) for the same unwrap need. **Without this, decorated-function params
-vanish from the DFG and call-boundary arg→param edges** — a recall regression that must not ship.
+### 4.2 `unwrap_decorated` helper, used by ALL function-node helpers (BLOCKER fold)
+With the wrapper canonical, every helper that takes a function node and reads a child field must first
+unwrap a `decorated_definition` to its inner `function_definition`. Add one helper
+`unwrap_decorated(node) -> node` and call it at the head of **each** of:
+- `find_parameters_node` (`src/ast.rs:3922-3931`) — params (else DFG/arg→param edges vanish).
+- `function_body_node` (`src/ast.rs:2607-2611`) — CFG/body.
+- `statements_in_function` (`src/ast.rs:3097-3104`) and `statement_spans_in_function` (`:3112-3115`).
+- `return_value_nodes` (`src/ast.rs:2828-2893`) — **incl. the nested-function guard at `:2888-2893`** which
+  otherwise drops the inner body's returns.
+Audit siblings (receiver/signature/name-occurrence helpers) for the same field-access pattern; any that
+descend by field need the unwrap. **This audit is the soundness-critical part — a missed helper silently
+drops decorated-function structure (recall regression).**
 
-## 5. Blast radius (consumers — verify each still behaves)
-- `ParsedFile` function table / `all_functions` (`src/ast.rs:279-370`).
-- `CallGraph` indexes: `functions`/`methods`/`method_owners`/`method_class_span`/`calls`/`callers`
-  (`src/call_graph.rs:143-168`, `:491-548`, `:582-643`).
-- Resolution + nav scoring (`src/resolution.rs:455-479`, `:691-780`; `src/navigation/queries.rs`).
-- CPG function nodes + call/return edges (`src/cpg/build.rs`); DFG arg↔param (`src/data_flow.rs`).
-- Nav seeds / `nodes_at` (`src/navigation/seed.rs`, `queries.rs`) — `nodes_at(def-line)` for a decorated
-  def now returns one Function item, anchored at the decorator line (see §8 risk).
-- **Already wrapper-aware (must keep working):** inventory has a local Python-wrapper de-dup
-  (`src/navigation/inventory.rs:34-56` + `tests/navigation/inventory_test.rs`); FastAPI/Flask framework
-  detection walk to the decorator wrapper (`src/frameworks/python/fastapi.rs`, `flask.rs`); scope-honesty
-  treats the wrapper as the entry root and filters inner decorated functions
-  (`src/reasoning/scope_honesty.rs:176-194`, `:351-370`). Wrapper-canonical is *consistent* with these — but
-  test them.
-- Cache: `CACHE_VERSION` (`src/cpg_cache.rs`) — bump (extraction/index shape changes).
+## 5. Blast radius (verify each)
+- Extraction: `ParsedFile` table + both collection paths (§4.1).
+- `CallGraph` indexes / resolution / CPG nodes+edges / DFG (`src/call_graph.rs`, `src/resolution.rs`,
+  `src/cpg/build.rs`, `src/data_flow.rs`).
+- **Inventory contract FLIP (MAJOR):** `src/navigation/inventory.rs:34-56` currently de-dups by **keeping
+  the inner and dropping the wrapper**. Wrapper-canonical removes the inner, so inventory must keep the
+  **wrapper** — update the local de-dup (it may become a no-op or invert) and its test
+  (`tests/navigation/inventory_test.rs`); note the start-line/kind churn.
+- Nav `nodes_at` / seeds: `nodes_at(def-line)` becomes enclosing-evidence; the exact function node moves to
+  the decorator line (CPG indexes at `fid.start_line`, `src/cpg/build.rs:342-358`).
+- Algorithm consumers of params/returns: contract postconditions (`src/algorithms/contract_slice.rs:909`),
+  reasoning seeds (`src/reasoning/seeds.rs:185-203`) — covered IF §4.2 is complete; test them.
+- Wrapper-aware (must keep working): `scope_honesty.rs:176-194,:351-370`; FastAPI/Flask detection
+  (`src/frameworks/python/`).
+- Cache: `CACHE_VERSION` bump.
 
 ## 6. Scope
-
-**In:** the wrapper-canonical skip at extraction; the parameter/signature unwrap companion; `CACHE_VERSION`
-bump; tests; verify the wrapper-aware consumers (§5) still pass.
-
-**Out (explicit):**
-- **Decorator semantics** — do NOT model `@property`/`@classmethod`/`@staticmethod`/pydantic validators/
-  overload dispatch/MRO. This slice fixes *logical definition identity* only.
-- **JS/TS** — no behavior change (they don't double-capture); add guard fixtures only.
-- **The resolution-collapse band-aid** (Option B) — rejected: it leaves duplicate CPG nodes, the double
-  body-scan, ambiguous nav seeds, and the free-fn duplicate-Exact bug unfixed, and forces every resolver
-  path to re-remember the rule.
-- **A-inner** (keep the inner, drop the wrapper) — rejected: loses decorator-line identity and breaks the
-  scope-honesty/framework consumers that expect the wrapper entry.
+**In:** centralized wrapper-canonical skip (both paths); the `unwrap_decorated` helper + the full helper
+audit; inventory contract update; `CACHE_VERSION` bump; tests.
+**Out:** C++ template canonicalization (separate slice — add only a no-change canary here); JS/TS (no
+change, guard fixture); decorator semantics (`@property`/`@classmethod`/MRO/validators); the
+resolution-collapse band-aid (rejected); A-inner keep-inner (rejected — breaks scope-honesty/framework).
 
 ## 7. Soundness
-Skip the inner **only** when its parent is a `decorated_definition` (i.e. genuine wrapper+inner of the SAME
-function). This is a structural parent-child relationship, not a name match — so `@overload` stubs, getter/
-setter pairs, and same-name redefinitions (each its own `decorated_definition` or bare def) remain distinct
-`FunctionId`s. No recall loss: the wrapper carries the same name/owner the inner did, so every edge the
-inner participated in is reproduced by the wrapper (once the param unwrap is in place).
+Skip the inner ONLY when its parent is `decorated_definition` (structural, not name-based) → `@overload`/
+setters/redefinitions stay distinct. The wrapper carries the inner's name/owner, so every edge is
+reproduced **once §4.2 is complete**. No recall loss conditional on the helper audit (the explicit risk).
 
 ## 8. Acceptance
-- **pydantic:** `kind_exact` rises and `kind_nameonly` falls for `self_receiver`, `qualifier_owner`, and
-  typed-receiver buckets; **`multi_target_exact_sites` for decorated free functions DROPS** (the duplicate
-  Exact edges collapse); report the deltas.
-- **Function-count check:** a decorated top-level function and a decorated class method each produce
-  **exactly one** `FunctionId` (and one CPG function node); a decorated function body's calls appear once.
-- **DFG check:** a decorated function's params still bind (arg→param edges intact) — guards the §4.2 unwrap.
-- **Wrapper-aware consumers:** FastAPI/Flask detection + scope-honesty decorator tests + inventory dedup
-  test still pass.
-- **Rust/Go** call-stats **byte-identical** (Python-only change); **JS/TS canaries flat**.
-- **Tier-A:** `--matrix-only` 0-regr AND, because this touches `ast`/`call_graph`/`cpg`, **`--quick`** before
-  review (per AGENTS.md).
+- **pydantic:** `kind_exact` rises / `kind_nameonly` falls for `self_receiver` + `qualifier_owner` +
+  typed-receiver; **`multi_target_exact_sites` for decorated free functions DROPS** (duplicate Exact
+  collapse); report deltas; overall canary not increased.
+- **Function-count:** a decorated top-level fn and a decorated method each → exactly one `FunctionId` + one
+  CPG node; decorated body calls appear once.
+- **Helper tests (guards §4.2):** for a decorated function — `function_parameter_names`/occurrences,
+  `function_body_node`/`statements_in_function`/`statement_spans_in_function`, `return_value_nodes` all
+  return the inner's content (not empty); DFG arg→param intact.
+- **Inventory:** decorated fn appears once, anchored at the wrapper (start/kind churn captured).
+- **Free-fn:** a decorated local free call resolves to exactly ONE Exact `LocalDef` (was two).
+- **C++ no-change canary:** a C++ template function's call resolution + function count **unchanged**.
+- **Wrapper-aware:** FastAPI/Flask + scope-honesty decorator tests pass.
+- **Rust/Go** call-stats byte-identical; **JS/TS** canaries flat.
+- **Tier-A:** `--matrix-only` 0-regr; touches `ast`/`call_graph`/`cpg` → run `--quick` before the diff-review
+  too (best-effort; Rust/Go byte-identical is the primary inertness proof).
 - Suite green; `cargo fmt --check` clean.
 
 ## 9. Risks
-- **Nav start-line shift:** a decorated def's canonical start line moves from `def` to the decorator line.
-  Believed correct (the decorator IS part of the function), but expect **snapshot churn** — regenerate +
-  eyeball nav/output snapshots.
-- **Param-unwrap coverage:** the §4.2 companion is the soundness-critical part; an unaudited signature/body
-  helper that doesn't unwrap silently drops decorated-function structure. Enumerate the helpers; test DFG.
-- **Decorators change runtime semantics** — out of scope by design; don't let acceptance over-reach.
+- **Helper-audit completeness** (§4.2) is the soundness-critical risk — enumerate + test every function-node
+  helper; a miss = silent structure loss. Centralization (§4.1) handles the extraction side; the helpers are
+  the read side.
+- **Nav start-line shift** `def`→decorator — snapshot churn; regenerate + eyeball.
+- **C++ inertness** — the canonical filter is Python-gated; the C++ canary guards it.
+- Decorators' runtime semantics — out of scope.
 
 ## 10. Pipeline
-Spec (this doc) → codex xhigh spec-review (fold) → writing-plans → codex xhigh plan-review (fold) →
-**codex-implement** (per [[feedback_workflow_preferences]]; the orchestrator commits per-task) → host
-acceptance (§8) → final codex xhigh diff-review → PR (owner-gated, stacked on #131). Branch
-`decorated-double-capture` off the self-receiver HEAD; rebase onto `main` once #131 merges.
+Spec (rev 2) → codex spec re-review → writing-plans → codex plan-review → codex-implement → acceptance (§8)
+→ final codex diff-review → PR (owner-authorized; merge on green CI). Branch `decorated-double-capture`.
