@@ -498,6 +498,30 @@ fn glob_lookup(
     policy: &dyn ResolutionPolicy,
     guard: &mut CycleGuard<'_>,
 ) -> GlobOutcome {
+    // Classify the per-invocation continue-outcome ONCE at the single exit: if this
+    // invocation took a hidden-continue, record whether it ultimately produced
+    // candidates (Hit), nothing (Empty), or poisoned (Poison). Opportunity telemetry,
+    // NOT a buy bound (see glob_stats / spec §3.7).
+    let mut saw_hidden_continue = false;
+    let outcome = glob_lookup_inner(graph, scope_id, q, policy, guard, &mut saw_hidden_continue);
+    if saw_hidden_continue {
+        match &outcome {
+            GlobOutcome::Hit(_) => guard.stats().record_member_hidden_continue_hit(),
+            GlobOutcome::Empty => guard.stats().record_member_hidden_continue_empty(),
+            GlobOutcome::Poison => guard.stats().record_member_hidden_continue_poison(),
+        }
+    }
+    outcome
+}
+
+fn glob_lookup_inner(
+    graph: &ScopeGraph,
+    scope_id: ScopeId,
+    q: &ResolveQuery,
+    policy: &dyn ResolutionPolicy,
+    guard: &mut CycleGuard<'_>,
+    saw_hidden_continue: &mut bool,
+) -> GlobOutcome {
     let glob_kinds = policy.edge_order();
     let mut candidates: Vec<Candidate> = Vec::new();
     let mut saw_glob = false;
@@ -537,10 +561,10 @@ fn glob_lookup(
                     guard.stats().record_depth_exceeded();
                     return GlobOutcome::Poison;
                 }
-                let edge_outcome = guard.with_glob(edge_idx, |guard, entered| {
+                let (edge_outcome, hc) = guard.with_glob(edge_idx, |guard, entered| {
                     if !entered {
                         guard.stats().record_cycle();
-                        return GlobOutcome::Poison;
+                        return (GlobOutcome::Poison, false);
                     }
 
                     let prefix_ns = policy.namespaces().first().copied().unwrap_or(q.ns);
@@ -553,20 +577,20 @@ fn glob_lookup(
                                 Target::Scope(s) => (*s, tc.cond.clone()),
                                 _ => {
                                     guard.stats().record_external();
-                                    return GlobOutcome::Poison;
+                                    return (GlobOutcome::Poison, false);
                                 }
                             },
                             (ResStatus::Ambiguous | ResStatus::ResolvedSet, _) => {
                                 guard.stats().record_multi_target();
-                                return GlobOutcome::Poison;
+                                return (GlobOutcome::Poison, false);
                             }
                             (ResStatus::Resolved, _) => {
                                 guard.stats().record_multi_target();
-                                return GlobOutcome::Poison;
+                                return (GlobOutcome::Poison, false);
                             }
                             (ResStatus::Unresolved | ResStatus::Poisoned, _) => {
                                 guard.stats().record_external();
-                                return GlobOutcome::Poison;
+                                return (GlobOutcome::Poison, false);
                             }
                         };
 
@@ -582,31 +606,36 @@ fn glob_lookup(
                                 provenance: Default::default(),
                             });
                             guard.stats().record_resolved(guard.glob_depth());
-                            GlobOutcome::Empty
+                            (GlobOutcome::Empty, false)
                         }
+                        // A single target's member lookup resolved to MULTIPLE
+                        // candidates (a genuine multiply-defined member) → poison.
                         ResStatus::Resolved | ResStatus::ResolvedSet | ResStatus::Ambiguous => {
-                            guard.stats().record_ambiguous();
-                            GlobOutcome::Poison
+                            guard.stats().record_member_multi();
+                            (GlobOutcome::Poison, false)
                         }
-                        ResStatus::Poisoned => GlobOutcome::Poison,
-                        // `Unresolved` with NO rib claimed in the target → the target
-                        // provably lacks the name → contribute nothing, continue to the
-                        // next glob edge. But a rib that DID claim the name and was
-                        // visibility-filtered to empty (a private or undecidable
-                        // `pub(in)` member) ALSO surfaces as `Unresolved` *with*
-                        // `rib_present` — we cannot prove the target lacks the name, so
-                        // we must POISON, never fall through to a sibling glob's
-                        // same-name (the §7 cardinal rule). Conservative: a *known*-
-                        // private member could soundly continue; distinguishing it
-                        // (a member-visibility tri-state, mirroring `glob_edge_visible`)
-                        // is a deferred follow-on.
-                        ResStatus::Unresolved if !probe.rib_present() => GlobOutcome::Empty,
+                        ResStatus::Poisoned => (GlobOutcome::Poison, false),
+                        // No rib claimed the name in the target → provably absent →
+                        // contribute nothing, continue to the next glob edge.
+                        ResStatus::Unresolved if !probe.rib_present() => (GlobOutcome::Empty, false),
+                        // A rib claimed the name but EVERY binding is proved Hidden
+                        // (none Unknown) → the glob soundly does not re-export it →
+                        // CONTINUE to a sibling glob / outer scope (member-visibility
+                        // tri-state, §3.4). Signal a hidden-continue for the counter.
+                        ResStatus::Unresolved if probe.all_known_hidden() => {
+                            guard.stats().record_member_hidden_continued();
+                            (GlobOutcome::Empty, true)
+                        }
+                        // A rib claimed the name and ≥1 binding is UNDECIDABLE (an
+                        // undecidable `pub(in)`) → cannot prove absence → fail closed
+                        // (poison), never fall through to a sibling same-name (§7).
                         ResStatus::Unresolved => {
-                            guard.stats().record_ambiguous();
-                            GlobOutcome::Poison
+                            guard.stats().record_member_undecidable();
+                            (GlobOutcome::Poison, false)
                         }
                     }
                 });
+                *saw_hidden_continue |= hc;
                 if matches!(edge_outcome, GlobOutcome::Poison) {
                     return GlobOutcome::Poison;
                 }
