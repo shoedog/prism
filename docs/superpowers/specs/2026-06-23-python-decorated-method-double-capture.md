@@ -1,4 +1,4 @@
-# Python Decorated-Method Double-Capture — Wrapper-Canonical Extraction — Design (2026-06-23, rev 2)
+# Python Decorated-Method Double-Capture — Wrapper-Canonical Extraction — Design (2026-06-23, rev 3)
 
 > The next Python precision slice after self-receiver same-class narrowing (#131, merged). Basis: the codex
 > xhigh architect analysis + spec-review. **Stacks on #131** (branch `decorated-double-capture`, rebased
@@ -13,6 +13,12 @@
 > nav **inventory** currently keeps the *inner* and drops the wrapper — wrapper-canonical **inverts** that;
 > contract decided + test updated. (MAJOR) the **manual fallback** collector reintroduces the duplicate —
 > covered by centralizing before `FunctionInfo`. (MINOR) start-line churn + acceptance test list expanded.
+>
+> **Rev 3 — codex spec re-review fold (SHIP-WITH-FIXES; verdicts 1–6 all TRUE):** (MAJOR) `enclosing_function()`
+> returns the inner node inside a decorated fn — but it is NOT part of the double-capture bug; **scoped out
+> with rationale + a behavior-pin test** (§6, §8). (MINOR) added a nested-decorated-fn inventory test (§8).
+> (NIT) §4.2 reworded to "helpers that directly read child fields" (byte-range scanners excluded). Design
+> verified sound across both reviews → proceeding to writing-plans.
 
 ## 1. Problem (verified)
 
@@ -66,8 +72,9 @@ same-`(owner,name)` defs — `@overload` stubs, getter/setter pairs, redefinitio
 distinct (the predicate is structural parent-child, matching the trusted `scope_honesty.rs:364-370`
 discriminator). Centralizing (vs filtering each path) prevents the fallback from reintroducing the dup.
 
-### 4.2 `unwrap_decorated` helper, used by ALL function-node helpers (BLOCKER fold)
-With the wrapper canonical, every helper that takes a function node and reads a child field must first
+### 4.2 `unwrap_decorated` helper, used by function-node helpers that read child fields (BLOCKER fold)
+With the wrapper canonical, every helper that takes a function node and **directly reads a child field**
+(byte-range scanners are unaffected and need no change) must first
 unwrap a `decorated_definition` to its inner `function_definition`. Add one helper
 `unwrap_decorated(node) -> node` and call it at the head of **each** of:
 - `find_parameters_node` (`src/ast.rs:3922-3931`) — params (else DFG/arg→param edges vanish).
@@ -101,6 +108,14 @@ audit; inventory contract update; `CACHE_VERSION` bump; tests.
 **Out:** C++ template canonicalization (separate slice — add only a no-change canary here); JS/TS (no
 change, guard fixture); decorator semantics (`@property`/`@classmethod`/MRO/validators); the
 resolution-collapse band-aid (rejected); A-inner keep-inner (rejected — breaks scope-honesty/framework).
+**Also out — `ParsedFile::enclosing_function()` canonicalization (rev-3 decision, was the re-review MAJOR):**
+the raw AST helper (`src/ast.rs:237-259`, prefers the deepest function node) returns the INNER
+`function_definition` inside a decorated fn. It is **not part of the double-capture `FunctionId` bug** — the
+call graph builds ids from `all_functions()` (the canonicalized table), NOT from `enclosing_function()`,
+which feeds slicing/review line-scope (`parent_function.rs:25-28`, `output/review.rs:353-361`) where the
+inner body node is the right answer and canonicalizing would only widen slices to the decorator line(s) for
+zero resolution benefit. Left returning the inner; pinned by a test (§8). A future slice may align it if a
+consumer ever needs the wrapper.
 
 ## 7. Soundness
 Skip the inner ONLY when its parent is `decorated_definition` (structural, not name-based) → `@overload`/
@@ -116,7 +131,11 @@ reproduced **once §4.2 is complete**. No recall loss conditional on the helper 
 - **Helper tests (guards §4.2):** for a decorated function — `function_parameter_names`/occurrences,
   `function_body_node`/`statements_in_function`/`statement_spans_in_function`, `return_value_nodes` all
   return the inner's content (not empty); DFG arg→param intact.
-- **Inventory:** decorated fn appears once, anchored at the wrapper (start/kind churn captured).
+- **Inventory:** decorated fn appears once, anchored at the wrapper (start/kind churn captured); add a
+  **nested-decorated** case (a decorated fn containing a nested `def`) — assert the wrapper is kept AND the
+  nested function is NOT dropped (guards the containment rule `inventory.rs:44-49`).
+- **`enclosing_function()` behavior pin:** a line inside a decorated fn → `enclosing_function()` returns the
+  inner `function_definition` (documented non-goal, §6) — assert it, so the scoping decision is explicit.
 - **Free-fn:** a decorated local free call resolves to exactly ONE Exact `LocalDef` (was two).
 - **C++ no-change canary:** a C++ template function's call resolution + function count **unchanged**.
 - **Wrapper-aware:** FastAPI/Flask + scope-honesty decorator tests pass.
