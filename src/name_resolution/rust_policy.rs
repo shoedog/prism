@@ -256,6 +256,19 @@ impl ResolutionPolicy for RustPolicy<'_> {
         }
     }
 
+    fn member_visible(
+        &self,
+        binding: &Binding,
+        q: &ResolveQuery,
+        _trav: &TraversalCtx,
+    ) -> VisibilityDecision {
+        match self.vis_reaches(&binding.vis, binding.scope, q.from) {
+            Some(true) => VisibilityDecision::Visible,
+            Some(false) => VisibilityDecision::Hidden,
+            None => VisibilityDecision::Unknown,
+        }
+    }
+
     fn anchor(&self, anchor: &Anchor, from: ScopeId) -> Option<(ScopeId, NamespaceId)> {
         match anchor.kind {
             AnchorKind::CrateRoot => self.crate_root(from).map(|s| (s, NS_TYPE)),
@@ -617,6 +630,39 @@ mod vis_reaches_tests {
         assert_eq!(
             policy.vis_reaches(&unknown_pub_in, ScopeId(1), ScopeId(0)),
             None
+        );
+    }
+
+    #[test]
+    fn member_visible_maps_vis_reaches_tristate() {
+        let mut graph = ScopeGraph::new();
+        graph.add_scope(scope(0, ScopeKind::Root, None));
+        graph.add_scope(scope(1, ScopeKind::Module, Some(0)));
+        let policy = RustPolicy::new(&graph, 2021);
+        let trav = TraversalCtx::default();
+
+        // pub member, viewed from outside its module -> Visible.
+        let pub_binding = binding(ScopeId(1), "P", vis(VIS_PUB, None));
+        assert_eq!(
+            policy.member_visible(&pub_binding, &query(ScopeId(0)), &trav),
+            VisibilityDecision::Visible
+        );
+        // private member, viewed from OUTSIDE its module -> Hidden (vis_reaches Some(false)).
+        let priv_binding = binding(ScopeId(1), "H", vis(VIS_PRIV, None));
+        assert_eq!(
+            policy.member_visible(&priv_binding, &query(ScopeId(0)), &trav),
+            VisibilityDecision::Hidden
+        );
+        // ...the same private member viewed from INSIDE -> Visible.
+        assert_eq!(
+            policy.member_visible(&priv_binding, &query(ScopeId(1)), &trav),
+            VisibilityDecision::Visible
+        );
+        // pub(in <unresolved>) member -> Unknown (vis_reaches None -> must fail closed).
+        let pub_in_binding = binding(ScopeId(1), "U", vis(VIS_PUB_IN, None));
+        assert_eq!(
+            policy.member_visible(&pub_in_binding, &query(ScopeId(0)), &trav),
+            VisibilityDecision::Unknown
         );
     }
 }
